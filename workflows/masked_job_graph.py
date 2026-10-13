@@ -453,13 +453,35 @@ def motion_of(job: dict, one: dict) -> str:
     return "mesh" if one.get("carried", "track") == "track" and subject.get("pose", True) else "none"
 
 
-def window_for(frames: int, windows: tuple[int, ...]) -> int:
-    """The window a load is rendered in: the shortest the planner has that holds it whole, else the longest.
+#: The video grid a window's frame count is on: `17n + 5`. Inherited: `h3_rules.FRAME_FACTOR` and
+#: `FRAME_REMAINDER`, core's `align_frame_count`; `bench/check_masked_job.py` holds these to `h3_rules.snap_length`.
+FRAME_FACTOR, FRAME_REMAINDER = 17, 5
 
-    A load capped at its shot is one window whenever a window can hold it; a shot shorter than the shortest
-    window is still one window, its last frame held with its region open (`video_mask.held_mask`). `windows` is
-    `loop_plan.CHAIN_LENGTHS`, handed in because that module needs ComfyUI."""
-    return next((w for w in sorted(windows) if w >= frames), max(windows))
+
+def snapped(frames: int) -> int:
+    """`frames` rounded up to the next length the video grid has (`h3_rules.snap_length`, for a count over a frame)."""
+    frames = max(int(frames), FRAME_REMAINDER)
+    return frames + (FRAME_REMAINDER - frames) % FRAME_FACTOR
+
+
+def one_window(frames: int, window: int, windows: tuple[int, ...]) -> bool:
+    """Whether a load of `frames` in a window of `window` is ONE window that stands alone: the window holds it whole,
+    is on the video grid and is no longer than the planner's longest (`loop_plan.stands_alone`, the same rule)."""
+    return window % FRAME_FACTOR == FRAME_REMAINDER and 0 < frames <= window <= max(windows)
+
+
+def window_for(frames: int, windows: tuple[int, ...]) -> int:
+    """The window a load is rendered in: for a load one window can hold, the shortest length the model's video grid
+    has that holds it whole (`snapped`); for a longer one, the planner's longest, and it runs in several.
+
+    Until 2026-10-13 a load one window could hold took the shortest CHAINED length that held it, so a load of two
+    dozen frames was sampled as the shortest of those, most of it a held last frame; the owner's word that day: a
+    window's length is a choice and only has to be valid for the model, and one shot stays in one window where a
+    valid length holds it. A load shorter than its window still holds its last frame with the region open for the
+    frames between (`video_mask.held_mask`): under one video step of them now. `windows` is
+    `loop_plan.CHAIN_LENGTHS`, handed in because that module needs ComfyUI; a load may still name a `window` of its
+    own, a chained length or any that holds it as one window."""
+    return snapped(frames) if frames <= max(windows) else max(windows)
 
 
 def contexts_for(window: int, windows: tuple[int, ...]) -> tuple[int, ...]:
@@ -539,10 +561,13 @@ def check_load(job: dict, one: dict, windows: tuple[int, ...]) -> None:
     if "held_tail" in one:
         raise ValueError(f"load {name!r} sets held_tail: no longer a key. A load shorter than its window keeps its "
                          f"region open over the held frames, and that is the node's only behaviour since 2026-10-10")
-    if "window" in one and one["window"] not in windows:
-        raise ValueError(f"load {name!r}: window {one['window']} is not a length the planner has, {windows}")
+    if "window" in one and one["window"] not in windows and not one_window(frames, one["window"], windows):
+        raise ValueError(f"load {name!r}: window {one['window']} is not a length the planner has, {windows}, nor one that holds "
+                         f"this load's {frames} frames as one window on the video grid (17n + 5, no longer than {max(windows)})")
     window, context = one.get("window", window_for(frames, windows)), one.get("context", MASKED_JOB_CONTEXT)
-    if context not in contexts_for(window, windows):
+    # a context is what a window keeps of the one before it: a load that is one window off the chained lengths has
+    # none to keep and is held to none (the planner asks none of it either, `loop_plan.check_window_settings`)
+    if window in windows and context not in contexts_for(window, windows):
         raise ValueError(f"load {name!r}: context {context} in a window of {window}; the planner takes one of "
                          f"{contexts_for(window, windows)}")
     margin, feather = one.get("margin", MASKED_SOURCE["grow_pixels"]), one.get("feather", MASKED_SOURCE["feather_pixels"])

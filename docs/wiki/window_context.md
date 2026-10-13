@@ -136,6 +136,20 @@ them.
   held tail about twice its own length. So a shorter window is not scoped
   as a patch: it buys little where it is nearly allowed and is unsupported
   where it would buy much. The open tail is the lever for a short load.
+- 2026-10-13, BUILT, on the owner's word that a window's length is a
+  choice and only has to be a count the model takes
+  ([`decisions.md`](decisions.md), 2026-10-13; the two entries above are
+  what was thought on the 10th and are left as written). The two entries
+  held a short window to both clocks; the audio clock is a rule of the
+  seam between two windows, and a window that is the whole run has no
+  seam (`loop_plan.stands_alone`). A load one window holds is now given
+  the shortest length of the video grid that holds it
+  (`masked_job_graph.window_for`), so its held tail is under one video
+  step; the chained lengths and every run of two windows or more are as
+  they were. At a short window Sol-Attn may decline a call under its own
+  least tokens, and the load is then sampled by plain attention, which the
+  owner ruled fine the same day; the server's log line for a declined call
+  is read on each short load and written in its item.
 
 - 2026-10-10, the same short load measured (a peer's capture,
   `data/2026-10-10_fun_kitchen_shot2_1010`; the tracked figures are that

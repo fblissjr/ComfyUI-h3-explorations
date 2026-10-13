@@ -564,13 +564,17 @@ class MiniMaxH3FreezeAudioWindow(io.ComfyNode):
 
         trim = int(geo["context_frames"]) if has_context else 0
         # what the next window starts at if it keeps context_frames of this one
-        next_geo = window_geometry(latent_t, int(context_frames))
-        next_start = start_seconds + next_geo["stride_seconds"]
+        # A first window that no window can follow (it is off the audio grid, or no longer than the context a next
+        # one would keep) is a window that stands alone, `loop_plan.stands_alone`: nothing is asked of a next
+        # window's geometry, and the next start is simply where this one ends. Until 2026-10-13 the next window's
+        # geometry was demanded of every window, which refused every length but the chained ones.
+        alone = not has_context and ((geo["frames"] * 5) % 3 != 0 or video_latent_t(int(context_frames)) >= latent_t)
+        next_start = start_seconds + (geo["frames"] / FPS if alone else window_geometry(latent_t, int(context_frames))["stride_seconds"])
         report = (
             f"window from {start_seconds:.3f}s: {geo['frames']} frames, context {geo['context_frames']} frames "
             f"({c} latent steps{' copied from the previous window and frozen' if has_context else ''}"
             f"{f', shown at noise {context_noise:g} and redrawn by that share: this window may not start where the last one ended' if has_context and context_noise > 0 else ''}), "
-            f"next window starts at {next_start:.3f}s; track from step {start_step} ({start_seconds:.3f}s), "
+            f"{'no window can follow this one; it ends' if alone else 'next window starts'} at {next_start:.3f}s; track from step {start_step} ({start_seconds:.3f}s), "
             f"{audio_t} steps frozen at mask {float(audio_mask):g}"
             + (f", {padded_steps} trailing steps silent" if padded_steps else "")
             + f"; trim {trim} frames from this window's decode; source {rate} Hz -> {vae_rate} Hz"

@@ -490,9 +490,11 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                                           "built for that, so a tracker wired live runs.")),
                 io.Int.Input("width", default=1344, min=32, max=16384, step=32),
                 io.Int.Input("height", default=768, min=32, max=16384, step=32),
-                io.Int.Input("window_frames", default=345, min=141, max=345, step=51,
-                             tooltip=("The longest window, on both clocks: 141, 192, 243, 294 or 345. Windows "
-                                      "that end a timeline entry or the track may be shorter.")),
+                io.Int.Input("window_frames", default=345, min=22, max=345, step=17,
+                             tooltip=("The longest window. For a run of several windows, a length on both clocks: 141, 192, "
+                                      "243, 294 or 345; windows that end a timeline entry or the track may be shorter. A track "
+                                      "that one window holds whole may take any length the model's video grid has (17n + 5: 22, "
+                                      "39, 56, ...) that holds it, and is then that one window.")),
                 io.Int.Input("context_frames", default=39, min=39, max=141, step=51,
                              tooltip="Frames of the previous window frozen at the head of the next: 39, 90 or 141."),
                 # A DynamicCombo, not a Float whose 0 meant "the whole track":

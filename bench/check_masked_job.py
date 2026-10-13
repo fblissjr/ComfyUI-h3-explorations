@@ -385,6 +385,8 @@ LOAD_JOB = {"name": "check", "source": "/clips/check_24p.mov", "first": 604, "fr
 CAPTURE_FIRST = 650
 WHOLE = {"name": "b_0700", "first": 700, "frames": 100, "subject": "b", "others": ["a", "c"], "margin": 48, "feather": 4,
          "edge": "cells", "still": "b.png", "seed": 11, "audio": "/audio/voice.wav", "audio_first": 620, "text": "w"}
+#: The window a load of WHOLE's frames is given: the shortest length on the video grid that holds it.
+SHORT_WINDOW = graphs.window_for(WHOLE["frames"], WINDOWS)
 PART = {"name": "a_0700", "first": 700, "frames": WINDOWS[0], "subject": "a", "others": ["b"], "margin": 16,
         "carried": "held", "still": "a.png", "continue_from": "before.safetensors", "text": "w"}
 FILES_WHOLE = {"track": ("/capture/b/track.mkv", CAPTURE_FIRST), "parts": None, "motion": ("/output/b_mesh.mp4", 604),
@@ -425,8 +427,8 @@ def a_load_lands_on_the_inputs_it_names():
     assert (src["grow_pixels"], src["feather_pixels"], src["edge"]) == (48, 4, cfg.MASKED_JOB_EDGE["cells"]), "margin, feather or edge"
     assert src["motion_reference"] == cfg.MASKED_JOB_MOTION["wired"] and src["motion_vae"] is True, "the mesh is not wired to the video model"
     assert src["motion_short_edge"] == min(LOAD_JOB["canvas"]), f"the motion video goes in at {src['motion_short_edge']}"
-    assert run["window_frames"] == WINDOWS[0] > WHOLE["frames"] and "held_tail" not in src, \
-        "a short load is in another window than the shortest that holds it, or still sets an input the node no longer has"
+    assert run["window_frames"] == SHORT_WINDOW >= WHOLE["frames"] and SHORT_WINDOW < WINDOWS[0] and "held_tail" not in src, \
+        "a short load is in another window than the shortest length on the video grid that holds it, or still sets an input the node no longer has"
     assert (run["prompt"], run["seed"], run["preview"]) == ("the words", 11, False), "text, seed or preview"
     assert (run["width"], run["height"], run["context_frames"]) == (*LOAD_JOB["canvas"], cfg.MASKED_JOB_CONTEXT), "canvas or context"
     assert run["extent"] == "first_seconds" and abs(run["extent.seconds"] * cfg.FPS - WHOLE["frames"]) < 1e-6, "the extent is not the load's frames"
@@ -577,8 +579,15 @@ def a_load_the_graph_cannot_be_built_from():
     # a zoomed load takes a motion video only as a file it names: the preview's own body model is of the whole frame
     _unbuildable("zoomed in|whole frame|motion_file", {**own_run, "render_region": "part", "motion": "mesh"}, {**FILES_PART, "motion": ("/output/a.mp4", 604)})
     _unbuildable("zoomed in|continue_from", {**PART, "render_region": "part"}, FILES_PART)
-    _unbuildable("context", {**WHOLE, "context": 40})
-    _unbuildable("context", {**WHOLE, "context": WINDOWS[0]})               # a context as long as its window
+    # a context is held to a window on the planner's list; a load that is one window off the list keeps none and is held to none
+    _unbuildable("context", {**WHOLE, "window": WINDOWS[0], "context": 40})
+    _unbuildable("context", {**WHOLE, "window": WINDOWS[0], "context": WINDOWS[0]})     # a context as long as its window
+    assert _a_load({**WHOLE, "context": 40}), "a load of one window off the planner's list was held to a context"
+    # THE WINDOW A LOAD MAY NAME: a length of the planner's, or one on the video grid that holds it whole and is no longer than the longest
+    _unbuildable("window", {**WHOLE, "window": SHORT_WINDOW + 1})                       # off the video grid
+    _unbuildable("window", {**WHOLE, "window": SHORT_WINDOW - 17})                      # on the grid and does not hold the load
+    _unbuildable("window", {**WHOLE, "window": WINDOWS[-1] + 17})                       # on the grid, past the planner's longest
+    assert _a_load({**WHOLE, "window": WINDOWS[0]}) and _a_load({**WHOLE, "window": SHORT_WINDOW + 17}), "a window that holds the load was refused"
     _unbuildable("context_noise|continue_from", {**WHOLE, "context_noise": 0.5})
     _unbuildable("name", {**WHOLE, "name": "b 0700"})
     _unbuildable("part", {**WHOLE, "carried": "held"})                      # a part pass with no part mask
@@ -586,8 +595,14 @@ def a_load_the_graph_cannot_be_built_from():
     _unbuildable("still", {k: v for k, v in WHOLE.items() if k != "still"})
     _unbuildable("audio", {**WHOLE, "audio_first": 701})
     assert _a_load({k: v for k, v in WHOLE.items() if k != "still"}, plan=True), "a plan needs no still"
-    assert [graphs.window_for(n, WINDOWS) for n in (1, WINDOWS[0], WINDOWS[0] + 1, WINDOWS[-1], WINDOWS[-1] + 1)] == \
-        [WINDOWS[0], WINDOWS[0], WINDOWS[1], WINDOWS[-1], WINDOWS[-1]], "the window is not the shortest that holds the load"
+    # THE WINDOW THE BUILDER GIVES: the shortest length on the video grid that holds a load one window can hold (the rules
+    # module's own snap), never the shortest CHAINED length for a load far shorter than it; the planner's longest for a longer load
+    import h3_rules
+    assert all(graphs.snapped(n) == h3_rules.snap_length(n) for n in range(2, WINDOWS[-1] + 40)), "the builder's snap is not h3_rules.snap_length"
+    assert (graphs.FRAME_FACTOR, graphs.FRAME_REMAINDER) == (h3_rules.FRAME_FACTOR, h3_rules.FRAME_REMAINDER)
+    assert [graphs.window_for(n, WINDOWS) for n in (12, 22, 23, 24, 39, 40, 114, WINDOWS[0], WINDOWS[0] + 1, WINDOWS[-1], WINDOWS[-1] + 1, 2 * WINDOWS[-1])] == \
+        [22, 22, 39, 39, 39, 56, 124, WINDOWS[0], 158, WINDOWS[-1], WINDOWS[-1], WINDOWS[-1]], "the window is not the shortest valid length that holds the load"
+    assert all(graphs.window_for(n, WINDOWS) - n < graphs.FRAME_FACTOR for n in range(5, WINDOWS[-1] + 1)), "a load one window holds was given a video step or more of held frames"
 
 
 def _a_capture(tmp: Path) -> Path:
@@ -916,7 +931,7 @@ def loads_from_a_capture():
         assert seen["subject"]["share_of_the_frame"] == {"least": WHOLE["first"] / 1000, "middle": (WHOLE["first"] + WHOLE["frames"] // 2) / 1000,
                                                          "most": last / 1000}, seen["subject"]["share_of_the_frame"]
         assert seen["subject"]["box_height_px_middle"] == 160 and "not in the capture" in seen["part"], seen
-        assert seen["load_against_its_window"] == {"frames": WHOLE["frames"], "window": WINDOWS[0], "held_past_the_load": WINDOWS[0] - WHOLE["frames"]}
+        assert seen["load_against_its_window"] == {"frames": WHOLE["frames"], "window": SHORT_WINDOW, "held_past_the_load": SHORT_WINDOW - WHOLE["frames"]}, seen["load_against_its_window"]
         absent = part["what_this_clips_preview_measured"]
         assert "not in the capture" in absent["subject"] and "not in the capture" in absent["cuts_on_source_frames"], \
             f"a figure the capture does not hold is not said to be absent: {absent}"

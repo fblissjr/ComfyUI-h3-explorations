@@ -36,8 +36,9 @@ who is `unsure` on a shot is under a heading of their own and in neither list.
 - the floor: `capture_masked_run.PART_LEAST_PX`, a STARTING VALUE by its own comment, printed beside the
   figures and decided by nobody here. A part that is there and small is a shot for the zoomed load, and reads so
   in the figures;
-- one window or more: the window the builder would render the shot in (`masked_job_graph.window_for` over the
-  planner's lengths, read by `masked_job.chain_lengths`), and whether the shot is longer than the longest;
+- one window or more: the window the builder would render the shot in (`masked_job_graph.window_for`: for a shot
+  one window holds, the shortest length of the model's video grid that holds it), and whether the shot is longer
+  than the planner's longest (`masked_job.chain_lengths`);
 - what stands there: the coverage tool's own state for the row, the pieces the table lays and the other
   renders on those frames, each with the owner's lines on it;
 - the owner's typed words on the shot, every line, whole; the shot's own note; and the plan's dated notes on any

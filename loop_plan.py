@@ -80,9 +80,33 @@ def clock(seconds: float) -> str:
     return f"{int(seconds // 60):02d}:{seconds % 60:05.2f}"
 
 
-def check_window_settings(window_frames: int, context_frames: int) -> None:
+def stands_alone(window_frames: int, total_frames: int | None) -> bool:
+    """A window off the chained lengths that holds its whole track: one window, with nothing before or after it.
+
+    The chained lengths are on both clocks because a window that follows another meets it at a seam, and the seam
+    has to fall on a video step and an audio step at once (`audio_freeze.window_geometry`). A window that is the
+    whole run has no seam. What it needs is what the video VAE needs of any length, `17n + 5` frames
+    (`h3_rules.snap_length`, core's `align_frame_count`); its audio latent is core's rounded count
+    (`temporal_shape`), and the lane cuts exactly that many audio steps (`audio_freeze.slice_window`), so nothing
+    pads and nothing is refused. Until 2026-10-13 a track of two dozen frames was sampled as the shortest chained
+    length, most of it a held last frame (the owner: a window's length is a choice, and it only has to be a
+    length valid for the model). No longer than the longest chained length: the long end is as it was."""
+    return (total_frames is not None and int(window_frames) % 17 == 5
+            and 0 < int(total_frames) <= int(window_frames) <= max(CHAIN_LENGTHS))
+
+
+def check_window_settings(window_frames: int, context_frames: int, total_frames: int | None = None) -> None:
+    """Raise unless a run may be planned in windows of `window_frames` with `context_frames` kept between them.
+
+    `total_frames`, when given, is the track's length: a window off the chained lengths is taken for a track it
+    holds whole (`stands_alone`), and then no context is asked of it, since nothing follows it."""
     if window_frames not in CHAIN_LENGTHS:
-        raise ValueError(f"window_frames {window_frames} is not on both clocks; use one of {CHAIN_LENGTHS}")
+        if stands_alone(window_frames, total_frames):
+            return
+        raise ValueError(f"window_frames {window_frames} is not on both clocks; use one of {CHAIN_LENGTHS}. A length off that "
+                         "list is taken only on the video grid (17n + 5: 22, 39, 56, ...), no longer than the longest of them, "
+                         "and only for a track it holds whole as ONE window"
+                         + ("" if total_frames is None else f"; this track is {total_frames} frames"))
     if context_frames % 17 != 5 or (context_frames * 5) % 3 != 0 or context_frames >= window_frames:
         # every length on both clocks under the window: until 2026-10-10 this named three, written when no
         # window in use was longer than the third allows; the condition was always the rule
@@ -222,11 +246,17 @@ def segment_lengths(target: int, first: bool, final: bool, window_frames: int, c
 def plan_windows(total_frames: int, window_frames: int, context_frames: int,
                  entries: list[tuple[float, str]] | tuple = ()) -> list[tuple[int, list[int]]]:
     """(entry index, window lengths) for each timeline entry the track reaches; one part with no timeline."""
-    check_window_settings(int(window_frames), int(context_frames))
     if total_frames <= 0:
         raise ValueError("the track is empty")
+    check_window_settings(int(window_frames), int(context_frames), int(total_frames))
     starts = [int(round(t * FPS)) for t, _label in entries] or [0]
     kept = [i for i, f in enumerate(starts) if f < total_frames]
+    if int(window_frames) not in CHAIN_LENGTHS:
+        # a window that stands alone (`stands_alone`): the whole track, one window, one part
+        if len(kept) > 1:
+            raise ValueError(f"a {window_frames}-frame window is off the chained lengths and is one window; the timeline puts "
+                             f"{len(kept)} entries in this {total_frames}-frame track. Use one entry, or a chained length")
+        return [(kept[0], [int(window_frames)])]
     plan, covered = [], 0
     for k, i in enumerate(kept):
         final = k + 1 == len(kept)

@@ -1283,6 +1283,20 @@ def held_tails() -> str:
     opened = cap.held_tail_facts(*window(5, True), 4, 100, vm.run_lengths)
     assert opened["held_frames_shown_clean"] == 0, "a tail with its region open was read as shown clean"
     assert cap.held_tail_facts(*window(9, False), 0, 100, vm.run_lengths)["held_frames_shown_clean"] == 0, "a load that fills its window has a tail"
+    # A WINDOW ON THE MODEL'S OWN GRID THAT IS NOT A CHAINED LENGTH (2026-10-13: a load one window holds takes the shortest
+    # length of the video grid that holds it): a 39-frame window, twelve latent steps, holding a 24-frame load. The reader
+    # takes the window's length from the mask it is handed and its steps from the node's own run lengths, and knows no list
+    steps = vm.run_lengths(12)
+    assert sum(steps) == 39, steps
+    short_mask, short_tokens = torch.zeros(39, H, W), torch.zeros(12, H // 32, W // 32)
+    short_mask[:, 32:64, 32:64] = 1.0                         # the region open over the held frames, as the node holds it
+    short_tokens[:, 1, 1] = 1.0
+    short = cap.held_tail_facts(short_mask, short_tokens, 15, 100, vm.run_lengths)
+    edge = next(sum(steps[:k]) for k in range(len(steps)) if sum(steps[:k]) <= 24 < sum(steps[:k + 1]))
+    assert (short["frames"], short["held_frames"], short["held_share"], short["held_frames_shown_clean"]) == (39, 15, round(15 / 39, 3), 0), short
+    assert short["step_with_real_and_held_source_frames"] == (None if edge == 24 else [100 + edge, 123]) and short["subject_on_the_last_real_frame"], short
+    short_tokens[-3:] = 0.0                                    # the same window with its last three steps given no region: those held frames are shown clean
+    assert cap.held_tail_facts(short_mask, short_tokens, 15, 100, vm.run_lengths)["held_frames_shown_clean"] == sum(steps[-3:]), "a short window's clean held frames were not counted"
     gone = cap.held_tail_facts(*window(5, False, on_last=False), 4, 100, vm.run_lengths)
     assert gone["held_frames_shown_clean"] == 4 and not gone["subject_on_the_last_real_frame"], gone
     with tempfile.TemporaryDirectory() as tmp:

@@ -280,10 +280,23 @@ owner's words in its terminal.*
   did not allow carried "no shorter sampling" as if ruled; that was one
   word of an earlier lead's about fewer sampling steps, the owner never
   ruled on it, and a shorter window had not been raised. Where it lives
-  now: `masked_v2v.md`, "Rules of the lane". In hand, not built when this
-  was written: the builder giving a single-window load the shortest valid
-  length that holds it, and what the lane's sound does with a count that
-  is not exact on the audio clock.
+  now: `masked_v2v.md`, "Rules of the lane". When this was written the
+  builder's change was in hand and what the lane's sound does with a count
+  that is not exact on the audio clock had not been read. Both were done
+  later the same day: the sound's count is rounded by core and cut exactly
+  by the lane, and nothing refuses it for a window that stands alone
+  (`audio_freeze.slice_window`; the audio clock is the seam's rule,
+  `audio_freeze.window_geometry`); and the builder gives a load one window
+  holds the shortest length of the grid that holds it
+  (`masked_job_graph.window_for`), with the planner, the window node and
+  the song node's least window changed to take it (`loop_plan.stands_alone`).
+  What the pages used to claim of this: [`window_context.md`](window_context.md)
+  carried two entries of 2026-10-10, that a shorter window was "not built"
+  and then that it was "not scoped as a patch" because the planner's
+  shortest was the shortest length on both clocks inside the vendor's and
+  core's stated ranges. Those entries stand as dated; the reason they give
+  for where the list begins is one a session wrote, and the owner's word
+  is that it began there because somebody set it so.
 
 ## 2026-10-12
 

@@ -296,6 +296,34 @@ def check_window_geometry(problems):
     fvm, _fam = first[0]["noise_mask"].unbind()
     if fvm.min() != 1.0:
         _fail(problems, "a first window froze video rows with nothing to copy from")
+    # A WINDOW THAT STANDS ALONE (2026-10-13): one no window can follow, because it is off the audio grid or no longer than
+    # the context a next one would keep. Nothing is asked of a next window's geometry; it ends where its frames end, its
+    # audio is core's rounded count cut exactly, and it freezes no video row. The widget's context is whatever the job gave.
+    for frames, steps, context in ((39, 12, 90), (56, 17, 90), (22, 7, 39), (90, 27, 90), (107, 32, 90)):
+        audio_t = round(frames / 24 * 40)
+        alone = {"samples": comfy.nested_tensor.NestedTensor((torch.zeros(1, 24, steps, 48, 84), torch.zeros(1, 32, 2, audio_t)))}
+        try:
+            got = getattr(af.MiniMaxH3FreezeAudioWindow.execute(alone, FakeAudioVAE(), song, 2.0, context, previous=None), "args", None)
+        except ValueError as e:
+            _fail(problems, f"a {frames}-frame window that stands alone (context widget {context}) was refused: {e}")
+            continue
+        if af.pixel_frames(steps) != frames or got[3] != 0 or abs(got[4] - (2.0 + frames / 24)) > 1e-9 or "no window can follow this one" not in got[5]:
+            _fail(problems, f"a {frames}-frame window that stands alone: trim {got[3]}, next start {got[4]} (its own end is {2.0 + frames / 24}), report {got[5][:120]!r}")
+        if got[0]["noise_mask"].unbind()[0].min() != 1.0 or int(got[0]["samples"].unbind()[1].shape[-1]) != audio_t:
+            _fail(problems, f"a {frames}-frame window that stands alone froze a video row or holds another count of audio steps than core's rounded {audio_t}")
+    # the controls: a window that CAN be followed still gives the next start by its stride (a 90-frame first window with a
+    # 39-frame context), and a window with something before it is still held to the chained geometry, whatever its length
+    chained = getattr(af.MiniMaxH3FreezeAudioWindow.execute(
+        {"samples": comfy.nested_tensor.NestedTensor((torch.zeros(1, 24, 27, 48, 84), torch.zeros(1, 32, 2, 150)))}, FakeAudioVAE(), song, 0.0, 39, previous=None), "args", None)
+    if abs(chained[4] - 51 / 24) > 1e-9 or "no window can follow" in chained[5]:
+        _fail(problems, f"a 90-frame first window with a 39-frame context no longer gives the next window's start by its stride: {chained[4]}")
+    try:
+        af.MiniMaxH3FreezeAudioWindow.execute(
+            {"samples": comfy.nested_tensor.NestedTensor((torch.zeros(1, 24, 17, 48, 84), torch.zeros(1, 32, 2, 93)))}, FakeAudioVAE(), song, 2.0, 39,
+            previous={"samples": comfy.nested_tensor.NestedTensor((torch.randn(1, 24, 17, 48, 84), torch.randn(1, 32, 2, 93)))})
+        _fail(problems, "a 56-frame window with a window BEFORE it was taken: a chained window off the audio grid")
+    except ValueError:
+        pass
     out = af.MiniMaxH3FreezeAudioWindow.execute(fresh, FakeAudioVAE(), song, 306 / 24, 39, previous=prev)
     args = getattr(out, "args", out)
     lat, _clip, span, trim, next_start, _rep, new_audio = args
@@ -1019,6 +1047,28 @@ def check_step_grid(problems):
 
     import loop_plan as lp
     vm = importlib.import_module("_h3pack.video_mask")
+
+    # A WINDOW OFF THE CHAINED LENGTHS (2026-10-13): taken for a track it holds whole, as ONE window, on the video grid and no
+    # longer than the longest chained length; refused for anything else, and the chained lengths and their plans are as they were
+    for total, window in ((24, 39), (39, 39), (12, 22), (100, 107), (150, 158), (300, 311)):
+        if lp.plan_windows(total, window, 90) != [(0, [window])] or not lp.stands_alone(window, total):
+            _fail(problems, f"window: a {total}-frame track in a {window}-frame window is not planned as that one window")
+    for total, window, why in ((40, 39, "the track is longer than the window"), (24, 40, "off the video grid"), (24, 38, "off the video grid"),
+                               (400, 362, "past the longest chained length"), (24, 5, "shorter than the track")):
+        if not _raises(lp.plan_windows, total, window, 90):
+            _fail(problems, f"window: a {total}-frame track was planned in a {window}-frame window ({why})")
+    if not _raises(lp.check_window_settings, 39, 90) or not _raises(lp.check_window_settings, 107, 39):
+        _fail(problems, "window: check_window_settings took a length off the chained list with no track to hold it to")
+    if not _raises(lp.plan_windows, 24, 39, 90, ((0.0, "a"), (0.5, "b"))):
+        _fail(problems, "window: a window that stands alone was planned over two timeline entries")
+    if lp.CHAIN_LENGTHS != (141, 192, 243, 294, 345):
+        _fail(problems, f"window: the chained lengths changed: {lp.CHAIN_LENGTHS}")
+    for total, window, want in ((24, 141, [141]), (150, 345, [192]), (400, 345, None), (345, 345, [345])):
+        got = [n for _e, each in lp.plan_windows(total, window, 90) for n in each]
+        if (want is not None and got != want) or any(n not in lp.CHAIN_LENGTHS for n in got):
+            _fail(problems, f"window: a chained length's plan moved: {total} frames at {window} gives {got}")
+    if not _raises(lp.check_window_settings, 141, 141) or _raises(lp.check_window_settings, 141, 90):
+        _fail(problems, "window: a chained window's context rule moved")
 
     # one grid a load: what any window adds is whole cycles, and the step edges are the window node's own
     contexts = [c for c in range(1, max(lp.CHAIN_LENGTHS)) if not _raises(lp.check_window_settings, max(lp.CHAIN_LENGTHS), c)]

@@ -367,6 +367,11 @@ session cannot work around; these are the lane's own habits, each earned on
   the longest. Fewer: a short single-window load needs no frames past its
   own, and a window longer than its load is sampling that is thrown away
   (the plan's own line says how many frames the last one is held for).
+  The only reason to sample more frames than a load's own is an overlap
+  buffer before its start or past its end, for a join to what comes before
+  or follows; a shot bounded by a cut on both sides needs none. The few
+  frames a load holds past its end at its fitted length are the grid's
+  rounding, not a buffer.
   More: every frame added raises what attention costs, and with enough
   references a long window can run out of memory, but it is the right
   choice when it lets a longer static shot sit in one window with no cut
@@ -374,11 +379,24 @@ session cannot work around; these are the lane's own habits, each earned on
   length holds it: it is one text, written from that window's frames, and
   no join inside the shot to settle. Not every count on the grid is exact
   on the audio clock as well (`workflows/h3_config.py`, the note on
-  `LONG_LENGTH`); what the lane's sound does with one that is not has not
-  been read. The owner's word of 2026-10-13
-  ([`decisions.md`](decisions.md)); as built that day the builder still
-  gives every load a length from `CHAIN_LENGTHS`, and fitting a
-  single-window load to its own length is a change to the builder.
+  `LONG_LENGTH`), and it does not have to be for a window that stands
+  alone: core rounds the audio latent's count (`temporal_shape` in core's
+  H3 node) and the lane cuts exactly that many audio steps
+  (`audio_freeze.slice_window`); the audio clock is a rule of the seam
+  between two windows (`audio_freeze.window_geometry`). The owner's word
+  of 2026-10-13 ([`decisions.md`](decisions.md)), and built that day: a
+  load one window holds is given the shortest length of the grid that
+  holds it (`masked_job_graph.window_for`), the planner takes such a
+  length for a track it holds whole as one window
+  (`loop_plan.stands_alone`), and a load may name a `window` of its own.
+  A load too long for one window runs in the chained lengths, as before.
+  At a short window Sol-Attn may decline a call, under its own least
+  tokens (`sol_attn_h3._ineligible`); the load is then sampled by the
+  model's plain attention, which is fine (the owner, 2026-10-13: Sol's
+  sparsity can only take quality away). The server's log says which, once
+  for each shape of call (`dense (...): seq N < ...`, printed while the
+  node's `verbose` is on); it is read on each short load and written in
+  its item as data.
 - **What is on a frame of an input video is already in `contact_sheets/`**
   (`bench/contact_sheets.py find <video> <frame>`): open a sheet before
   sampling a video again.
