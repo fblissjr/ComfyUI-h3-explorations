@@ -4404,12 +4404,17 @@ def video(a: argparse.Namespace) -> None:
                 d.text((tx, ty + 4), words, font=small, fill=LEVEL_COLOURS[f["level"]])
                 ty += 23
         mx = PANEL_TEXT + 12
-        d.text((mx, py + 8), "movement, as the model was shown it", font=small, fill=AMBER)
+        d.text((mx, py + 8), "movement: the WHOLE reference frame, as shown" if motions else "movement, as the model was shown it",
+               font=small, fill=AMBER)
         if motions:
             for at, (one_motion, label) in enumerate(zip(motions, motion_names)):
                 moving = next(one_motion, None)
                 if moving is not None:
                     img.paste(Image.fromarray(moving), (mx + at * motion_tile[0], py + 34))
+                # The tile's own edge, drawn: a reference on a black ground has no edge to see on a black panel, so a
+                # figure its own frame cuts (a head crop does, at the frame's side) read as the PANEL cropping it. Twice
+                # on 2026-10-13 a reader took it so; measured that day, the tile is the whole frame scaled, to the pixel.
+                d.rectangle([mx + at * motion_tile[0], py + 34, mx + (at + 1) * motion_tile[0] - 1, py + 34 + motion_tile[1] - 1], outline=DIM)
                 if label:
                     d.text((mx + at * motion_tile[0] + 4, py + 36 + motion_tile[1]), label, font=small, fill=WHITE)
         else:
