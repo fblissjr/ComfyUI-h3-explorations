@@ -25,6 +25,8 @@ rulings that changed them.
    dry run as well and before any command, when the builder's own dry build refuses the load (the first real
    load, 2026-10-13: `plan --dry` exited 0 and the plan was then refused on a key the job file held all along).
    That the dry build holds what a build holds and writes nothing is `check_masked_job.py`'s, on the real builder.
+4b. **A kept output is not replaced** (the real `World.run`): a command run again under one name leaves the earlier
+   output beside the new one, each whole. And `STEP --help` is that step's own paragraph and usage line.
 5. **on-plan**: refused with no plan file, on a queue that is not empty, or when `_first` exists; the masks the plan
    graph reads under the capture are hashed and recorded (a video outside the capture is not); the capture is
    copied to `_first` and the copy is the same files; the capture is built in place with `--overwrite` on the
@@ -342,6 +344,31 @@ def the_first_step() -> str:
             "capture takes the job file as its plan; the strip is drawn under the capture's _first name; an existing capture is refused")
 
 
+def a_kept_output_is_not_replaced_and_a_step_has_its_own_help() -> str:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        class Real(Machine):                 # the real `run`, which keeps each command's output, on a machine with no server
+            def run(self, ctx, label, argv, stop=True):
+                return lc.World.run(self, ctx, label, argv, stop)
+
+        world = Real(root)
+        ctx = {"logs": root / "chain", "name": "pv", "job_folder": root / "job"}
+        for word in ("one", "two", "three"):
+            world.run(ctx, "build preview", [sys.executable, "-c", f"print('{word}')"])
+        kept = sorted(p.name for p in (root / "chain").iterdir())
+        assert len(kept) == 3 and "pv.build_preview.out" in kept and all(".before_" in k for k in kept if k != "pv.build_preview.out"), kept
+        assert (root / "chain" / "pv.build_preview.out").read_text() == "three\n"
+        assert sorted(p.read_text() for p in (root / "chain").glob("*.before_*.out")) == ["one\n", "two\n"], kept
+        assert not (root / "job").exists(), "a step that names where its output is kept made the job folder"
+    for step in lc.STEPS:
+        said = lc.step_help(step)
+        assert f"bench/load_chain.py {step} " in said and f"- `{step}`:" in said, f"{step}: {said[:200]}"
+        assert not any(f"- `{other}`:" in said for other in lc.STEPS if other != step), f"{step}'s help holds another step's words"
+    assert "Refused when the queue is not empty" in lc.step_help("plan") and "pose pass" in lc.step_help("land") and "pose pass" not in lc.step_help("plan")
+    return ("a command run again under one name keeps the earlier output beside the new one, each whole; a step's own help is its own paragraph and "
+            "usage line and no other step's")
+
+
 def the_plan_step() -> str:
     with tempfile.TemporaryDirectory() as tmp:
         made = Made(Path(tmp))
@@ -652,6 +679,7 @@ def the_page_step() -> str:
 case("the job file and the preview it names", the_job_file_and_its_preview)
 case("a mask's at is the preview's first frame", a_masks_at_is_the_previews_first_frame)
 case("first: who is who, the first capture, its strip under _first", the_first_step)
+case("a kept output is not replaced, and a step has its own help", a_kept_output_is_not_replaced_and_a_step_has_its_own_help)
 case("plan: built and queued on an empty queue, once", the_plan_step)
 case("on-plan: the masks hashed, the capture copied, then built in place", the_on_plan_step)
 case("the look and the gate a render rests on", the_look_and_the_gate)

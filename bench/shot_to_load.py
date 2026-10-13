@@ -447,6 +447,9 @@ def step_job(a, world) -> None:
 
 def step_reference(a, world, figures=figures_of) -> None:
     ctx = load_chain.read_job(Path(a.job_file), need_text=False)
+    # this step's output is kept beside the job file, as the preview's is: the load's job folder is the chain's to make,
+    # at `first`, and until 2026-10-13 a reference made it, before anything of the load was built
+    ctx["logs"] = Path(a.job_file).parent / "chain"
     job, load, subject = ctx["job"], ctx["load"], ctx["subject"]
     if a.plain is not None and not a.plain.strip():
         raise Refused("--plain takes the reason in words: the plain cut is taken on a person's word, and the word is kept")

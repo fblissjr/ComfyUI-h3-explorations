@@ -81,13 +81,14 @@ class Machine:
     def __init__(self, root: Path):
         self.host, self.dry, self.python, self.pose_model = "nowhere:0", False, "PY", "pose-model"
         self.output, self.inputs, self.data = root / "output", root / "input", root / "data"
-        self.busy, self.ran, self.on = (0, 0), [], {}
+        self.busy, self.ran, self.on, self.kept_in = (0, 0), [], {}, {}
 
     def queue(self):
         return self.busy
 
     def run(self, ctx, label, argv, stop=True):
         self.ran.append((label, [str(x) for x in argv]))
+        self.kept_in[label] = ctx.get("logs")          # where the step says its output is kept; None is the job folder
         if label in self.on:
             self.on[label]()
         return 0
@@ -617,6 +618,8 @@ def the_reference_step() -> str:
             made.m.busy = (0, 0)
             assert made.m.ran == [] and not folder.exists(), "something ran, or the folder was made, before the refusals were through"
             stl.step_reference(a, made.m, figures)
+            # the step's output is kept beside the job file: the load's job folder is the chain's to make, at `first`
+            assert made.m.kept_in["pose pass"] == made.m.kept_in["head reference"] == made.jobs / "chain", made.m.kept_in
         finally:
             lc.REPO = kept
         assert made.m.labels() == ["pose pass", "head reference"], made.m.labels()

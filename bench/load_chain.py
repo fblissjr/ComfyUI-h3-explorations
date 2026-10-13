@@ -70,7 +70,9 @@ fact of the machine is an environment key; nothing is found by a name left over 
 - `page`: the render's item at the top of the video's review list, its buttons `delivery_table.RENDER_ITEM_BUTTONS`
   (the words the generated delivery table reads), a copy of the list kept in the job folder first.
 
-Every command a step runs is printed before it runs and its output kept under the job folder (`chain/`).
+Every command a step runs is printed before it runs and its output kept under the job folder (`chain/`); an
+output there from an earlier run of the same command is kept beside the new one, never replaced.
+`load_chain.py STEP --help` prints that step's own words from this page.
 `--dry` prints the commands and runs none; it still refuses what the step refuses on the files alone. For `plan`
 that includes everything the builder refuses: its build is run with `dry`, which writes nothing.
 
@@ -499,7 +501,8 @@ class World:
     def run(self, ctx: dict, label: str, argv: list[str], stop: bool = True) -> int:
         """Run one command of a step: printed first, its output kept, its last lines shown.
 
-        The output is kept under the job folder (`chain/`), unless the step names another place (`ctx["logs"]`). A
+        The output is kept under the job folder (`chain/`), unless the step names another place (`ctx["logs"]`); an
+        output that is there from an earlier run is kept beside it as `<name>.<command>.before_<its time>.out`. A
         step whose command MAKES the job folder must name one: the preview's builder refuses a job folder that
         exists, and until 2026-10-13 keeping its output made the folder first, so the first real preview of a shot
         was refused by the tool that ran it."""
@@ -510,6 +513,17 @@ class World:
         logs = Path(ctx["logs"]) if ctx.get("logs") else ctx["job_folder"] / "chain"
         logs.mkdir(parents=True, exist_ok=True)
         log = logs / f"{ctx['name']}.{label.replace(' ', '_')}.out"
+        if log.exists():
+            # A command run again under one name (a preview made again after a wrong pick) keeps what the run before
+            # it printed, under that file's own time. Until 2026-10-13 the new output replaced it, and the output of
+            # the run that had gone wrong was the one lost.
+            stamp = datetime.datetime.fromtimestamp(log.stat().st_mtime, datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+            was, n = log.with_name(f"{log.stem}.before_{stamp}.out"), 1
+            while was.exists():
+                n += 1
+                was = log.with_name(f"{log.stem}.before_{stamp}_{n}.out")
+            log.rename(was)
+            print(f"    an earlier output of this command is kept as {was.name}", flush=True)
         with open(log, "w") as f:
             code = subprocess.run([str(a) for a in argv], stdout=f, stderr=subprocess.STDOUT, cwd=REPO).returncode
         tail = log.read_text().splitlines()[-4:]
@@ -829,6 +843,23 @@ def last_line(step: str, name: str, ended, now: str) -> tuple[int, str]:
                   + ("`plan` refuses this load as it stands." if step == "first" else "`render` refuses this load as it stands."))
 
 
+def step_help(step: str) -> str:
+    """What one step does and refuses, and the line that runs it, cut from this file's own words above: `STEP --help`
+    printed the tool's one help for every step until 2026-10-13."""
+    doc = __doc__ or ""
+    usage = [line.strip() for line in doc.splitlines() if line.strip().startswith(f"<python> bench/load_chain.py {step} ")]
+    said, taking = [], False
+    for line in doc.splitlines():
+        if line.startswith(f"- `{step}`:"):
+            taking = True
+        elif taking and (line.startswith("- `") or not line.strip()):
+            break
+        if taking:
+            said.append(line)
+    return "\n".join(usage + [""] + said + ["", "Every step takes --by SESSION, and --dry: print the commands and run none, refusing what the step "
+                                                  "refuses on the files alone. `load_chain.py --help` has every flag."])
+
+
 STEP = {"first": step_first, "plan": step_plan, "on-plan": step_on_plan, "render": step_render, "land": step_land, "page": step_page}
 
 
@@ -843,6 +874,9 @@ def main() -> int:
     p.add_argument("--show", help="render: a file saying what the render is to show")
     p.add_argument("--model-store", default="", help=f"land: the folder holding the pose model's folder; over the environment's {MODEL_STORE}")
     p.add_argument("--spec", help="page: a JSON file with the page's words: title_rest, state_words, what, look, prompt_note")
+    if len(sys.argv) > 2 and sys.argv[1] in STEPS and ("-h" in sys.argv[2:] or "--help" in sys.argv[2:]):
+        print(step_help(sys.argv[1]))
+        return 0
     a = p.parse_args()
     try:
         ctx = read_job(a.job_file)
