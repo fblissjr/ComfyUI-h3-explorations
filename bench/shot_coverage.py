@@ -2,7 +2,7 @@
 """Where a masked video stands: one row a shot and a subject, with what the plan wants there, what the delivery
 table lays there, and what else has been rendered on those frames.
 
-    <python> bench/shot_coverage.py --shots SHOTS.json --plan PLAN.json --table TABLE.txt [--renders RENDERS.json] \\
+    <python> bench/shot_coverage.py --shots SHOTS.json --plan PLAN.json --table TABLE.txt [--ledger LEDGER.json] \\
         [--verdicts VERDICTS.jsonl] [--json OUT.json]
 
 **What it buys.** On 2026-10-11 nobody could say, per shot and per subject, what the owner had ruled, what
@@ -27,8 +27,15 @@ three files that already hold those facts and prints them side by side, so "fini
   model's ticks for it) and, optionally, `hair_band` (a number, or `{"value": N, ...}` with where it is from).
 - `--table`: the delivery table `bench/assemble_delivery.py` builds from; its two readers are imported from
   there, so the format has one definition.
-- `--renders` (optional): the inventory of renders of this video read from each render's own saved graph
-  (`data/<stem>/poc/renders.json` today, written by that page's builder). With it, each piece's region is
+- `--ledger` (optional): the render ledger (`bench/render_ledger.py --json`), the one inventory of this video's
+  renders: tracked, made new with every delivery table, and knowing every copy of the source a render was loaded
+  from. From it each render's file, name and frames, what its saved graph replaces (`whole subject` or `the wired
+  parts`), whether a motion video was wired, and, where the ledger could read it from the build record and its
+  capture, WHICH region (`face`, `face and hair`, `whole`): a piece is then held to the plan's region exactly, and
+  only a render the ledger could not place that far is held to the graph's kind.
+- `--renders` (optional, the older way; not with `--ledger`): the inventory read from each render's own saved graph
+  by the review page's builder (`data/<stem>/poc/renders.json`). It was last made on 2026-10-11, knows two copies
+  of the source and names none of the pieces laid since; kept for a file that exists, not made new. With either, each piece's region is
   read from its graph (`whole subject` or `the wired parts`), and the renders on a shot that the table does
   not use are listed, so a session sees that eleven renders of one shot exist before making a twelfth.
 - `--verdicts` (optional): the owner's lines on renders, as `bench/page_answers_to_verdicts.py` copies them
@@ -40,8 +47,8 @@ wants, what the table lays there (a piece and its region, or the `source` line's
 one of the states in `STATES`, each a plain fact about the files and not a judgement of any render. Then
 frames by state for each subject, and the pieces the table lays that no plan row claims. A render in the
 table is "as planned" when its graph's region is the kind the plan names (parts for `face` and `face and
-hair`; the graph does not say which parts, so face against face and hair is NOT read here and the row says
-so); "not as planned" when the kinds differ. A piece covering part of a shot says which frames.
+hair`; the graph does not say which parts, so with `--renders` face against face and hair is NOT read and the
+row says so; with `--ledger` a render whose region the ledger names is held to it); "not as planned" when they differ. A piece covering part of a shot says which frames.
 
 **What it cannot see.** Whether a render is any good (the owner's eye on playback; the records under
 `bench/results/`). Whether the parts a render replaced are the face or the face and hair (not in the saved
@@ -146,6 +153,36 @@ def render_of(piece: str, renders: list[dict]) -> dict | None:
     return None
 
 
+LEDGER_SCHEMA = "h3_render_ledger/"
+
+
+def renders_of_ledger(ledger: dict) -> list[dict]:
+    """The render ledger's renders as the rows `coverage` walks, with the region the ledger names where it is one of ours."""
+    if not str(ledger.get("schema", "")).startswith(LEDGER_SCHEMA):
+        raise SystemExit(f"--ledger: schema is {ledger.get('schema')!r}, not {LEDGER_SCHEMA}N: this is not bench/render_ledger.py's --json")
+    out = []
+    for r in ledger["renders"].values():
+        graph, form, span = r.get("graph") or {}, r.get("form") or {}, r.get("span") or [None, None]
+        if span[0] is None or span[1] is None:
+            continue
+        out.append({"file": r["file"], "name": r["name"], "first": int(span[0]), "last": int(span[1]),
+                    "as_the_graph_says": {"replace": graph.get("replace")}, "motion_wired": str(graph.get("motion_reference", "")).startswith("a video I wire"),
+                    "region_exact": form.get("region") if form.get("region") in REGIONS else None})
+    return out
+
+
+def read_renders(ledger: str | None, renders: str | None) -> list[dict]:
+    """The renders `coverage` walks, from the ledger or from the older inventory; never from both."""
+    if ledger and renders:
+        raise SystemExit("--ledger and --renders are two inventories of the same renders: give one (the ledger is the one made new with every table)")
+    if ledger:
+        return renders_of_ledger(json.load(open(ledger)))
+    if renders:
+        d = json.load(open(renders))
+        return d["renders"] if isinstance(d, dict) else d
+    return []
+
+
 def overlap(a, b, c, d) -> tuple[int, int] | None:
     lo, hi = max(a, c), min(b, d)
     return (lo, hi) if lo <= hi else None
@@ -173,7 +210,7 @@ def coverage(shots: dict, plan: dict, rows: list[dict], intents: list[dict], ren
     for row in rows:
         label, how = subject_of(row, plan)
         r = render_of(row["piece"], renders)
-        pieces.append(dict(row, label=label, label_how=how, render=r,
+        pieces.append(dict(row, label=label, label_how=how, render=r, region_exact=(r or {}).get("region_exact"),
                            region=(r or {}).get("as_the_graph_says", {}).get("replace")))
     out = {"video": shots["video"], "span": span, "source_frames": shots.get("source_frames"), "rows": [],
            "unclaimed_pieces": [dict(first=p["first"], last=p["last"], piece=p["piece"], why=p["label_how"])
@@ -194,7 +231,7 @@ def coverage(shots: dict, plan: dict, rows: list[dict], intents: list[dict], ren
             mine = [p for p in pieces if p["label"] == label and overlap(s["first"], s["last"], p["first"], p["last"])]
             for p in mine:
                 lo, hi = overlap(s["first"], s["last"], p["first"], p["last"]) or (0, -1)
-                row["laid"].append({"frames": [lo, hi], "piece": p["piece"], "region": p["region"],
+                row["laid"].append({"frames": [lo, hi], "piece": p["piece"], "region": p["region"], "region_exact": p["region_exact"],
                                     "named_by": p["label_how"],
                                     "crosses_a_cut": p["first"] < s["first"] or p["last"] > s["last"],
                                     "owner_said": owner_said(p["piece"], list(verdicts))})
@@ -210,7 +247,7 @@ def coverage(shots: dict, plan: dict, rows: list[dict], intents: list[dict], ren
                 if rl != label:
                     continue
                 row["others"].append({"name": r["name"], "frames": [r["first"], r["last"]],
-                                      "region": r.get("as_the_graph_says", {}).get("replace"),
+                                      "region": r.get("region_exact") or r.get("as_the_graph_says", {}).get("replace"),
                                       "motion": bool(r.get("motion_wired")),
                                       "in_table": any(p["render"] is r for p in mine),
                                       "owner_said": owner_said(r["file"], list(verdicts))})
@@ -228,13 +265,10 @@ def state_of(row: dict) -> str:
         covered.update(range(p["frames"][0], p["frames"][1] + 1))
     whole = set(range(row["first"], row["last"] + 1))
     if row["laid"]:
-        kinds = {p["region"] for p in row["laid"]}
-        if None in kinds:
-            kind = "region not readable"
-        elif all(row["wanted"] in GRAPH_KIND.get(k, ()) for k in kinds):
-            kind = "as planned"
-        else:
-            kind = "not as planned"
+        # a piece whose region the ledger names is held to the plan's region itself; any other to the graph's kind
+        held = [p["region_exact"] == row["wanted"] if p.get("region_exact") else None if p["region"] is None
+                else row["wanted"] in GRAPH_KIND.get(p["region"], ()) for p in row["laid"]]
+        kind = "region not readable" if None in held else "as planned" if all(held) else "not as planned"
         return f"partly, {kind}" if covered != whole else kind
     return "source, said why" if row["left"] else "source, no line"
 
@@ -254,8 +288,10 @@ def print_report(out: dict) -> None:
     print(f"{out['video']}: the shots file covers {frames(*out['span'])}"
           + (f" of {out['source_frames']} frames in the source; nothing past {out['span'][1]} has a shot, a plan or a render here"
              if out.get("source_frames") else ""))
-    print("A row a shot and a subject in it (or unsure). The state is about the files, not about any render's quality;"
-          " `as planned` reads the graph's kind only (parts or whole), never face against face and hair.")
+    exact = any(p.get("region_exact") for r in out["rows"] for p in r["laid"])
+    print("A row a shot and a subject in it (or unsure). The state is about the files, not about any render's quality; `as planned` "
+          + ("holds a piece to the plan's region itself where the ledger names it (face, face and hair, whole) and to the graph's kind (parts or whole) where it does not."
+             if exact else "reads the graph's kind only (parts or whole), never face against face and hair."))
     print()
     for r in out["rows"]:
         print(f"{frames(r['first'], r['last'])}  {r['frames']:4d} f  {r['subject']:<7} wanted: {r['wanted']:<14} STATE: {r['state']}")
@@ -263,7 +299,7 @@ def print_report(out: dict) -> None:
             print(f"    here: {r['present']}; {r['present_how']} ({r['present_by']})")
         for p in r["laid"]:
             cut = "; crosses a cut" if p["crosses_a_cut"] else ""
-            print(f"    laid {frames(*p['frames'])}: {Path(p['piece']).name}  region: {p['region'] or 'not read (no renders entry)'}"
+            print(f"    laid {frames(*p['frames'])}: {Path(p['piece']).name}  region: {p.get('region_exact') or p['region'] or 'not read (no renders entry)'}"
                   f"  subject by {p['named_by']}{cut}")
             for said in p.get("owner_said", []):
                 print(f"        the owner, {said}")
@@ -296,20 +332,18 @@ def main() -> int:
     ap.add_argument("--shots", required=True)
     ap.add_argument("--plan", required=True)
     ap.add_argument("--table", required=True)
-    ap.add_argument("--renders", help="the renders inventory read from saved graphs; without it no region is read")
+    ap.add_argument("--ledger", help="the render ledger (bench/render_ledger.py --json): the one inventory, made new with every table; without it or --renders no region is read")
+    ap.add_argument("--renders", help="the older inventory read from saved graphs by the review page's builder; not with --ledger")
     ap.add_argument("--verdicts", help="the owner's lines on renders (bench/page_answers_to_verdicts.py's record); printed under each render")
     ap.add_argument("--json", help="write the same rows as JSON here")
     a = ap.parse_args()
     read_table, read_intents = _delivery()
     shots = load_shots(a.shots)
     plan = load_plan(a.plan, shots["subjects"])
-    renders = []
-    if a.renders:
-        d = json.load(open(a.renders))
-        renders = d["renders"] if isinstance(d, dict) else d
+    renders = read_renders(a.ledger, a.renders)
     verdicts = [json.loads(t) for t in Path(a.verdicts).read_text().splitlines() if t.strip()] if a.verdicts else []
     out = coverage(shots, plan, read_table(a.table), read_intents(a.table), renders, verdicts)
-    out["read_from"] = {"shots": a.shots, "plan": a.plan, "table": a.table, "renders": a.renders, "verdicts": a.verdicts}
+    out["read_from"] = {"shots": a.shots, "plan": a.plan, "table": a.table, "ledger": a.ledger, "renders": a.renders, "verdicts": a.verdicts}
     print_report(out)
     if a.json:
         Path(a.json).write_text(json.dumps(out, indent=1))

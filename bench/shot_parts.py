@@ -2,7 +2,7 @@
 """Where a masked video has somebody to replace and how much of them is there: the shots with none of the subjects, and for each shot and subject present the frames their part is on, read from a preview's own masks.
 
     <python> bench/shot_parts.py --shots data/<stem>/shots.json --plan data/<stem>/plan.json --table TABLE.txt \\
-        --preview JOB.json=TABLES_DIR [--preview ...] [--renders RENDERS.json] [--verdicts VERDICTS.jsonl] \\
+        --preview JOB.json=TABLES_DIR [--preview ...] [--ledger LEDGER.json] [--verdicts VERDICTS.jsonl] \\
         [--answers data/<stem>/poc/answers.jsonl] --json OUT.json --md OUT.md
 
 **What it buys.** The owner asked (2026-10-13) for two lists of the whole video, regenerated and never typed: the
@@ -13,7 +13,7 @@ part to replace on every frame, and nothing read it across a video. A session ta
 both in one table, with what stands there already.
 
 **What it reads, each a named file handed in; nothing is found by a key.** `--shots`, `--plan`, `--table`,
-`--renders` and `--verdicts` as `bench/shot_coverage.py` reads them (its readers and its `coverage()` are imported,
+`--ledger` (or the older `--renders`) and `--verdicts` as `bench/shot_coverage.py` reads them (its readers and its `coverage()` are imported,
 so "what stands there" has one definition). `--preview JOB.json=TABLES_DIR` as `bench/who_page.py` takes a
 preview: the job file and the folder its trackers saved into. Where two previews handed in cover a shot and track
 the subject, THE LAST LISTED is read and the row names it. `--answers` is the page's answers file, for the
@@ -244,7 +244,7 @@ def row_text(r: dict) -> list[str]:
             out.append(f"- `{name}` apart: {said(f)}")
     st = r["stands"]
     out.append(f"- what stands there: {st['state']}" + "".join(
-        f"\n      laid {x['frames'][0]}-{x['frames'][1]}: {x['piece']}" + "".join(f"\n          the owner: {line}" for line in x["owner_said"]) for x in st["laid"])
+        f"\n      laid {x['frames'][0]}-{x['frames'][1]}: {x['piece']} (region: {x.get('region_exact') or x['region'] or 'not read'})" + "".join(f"\n          the owner: {line}" for line in x["owner_said"]) for x in st["laid"])
         + "".join(f"\n      left as the source {x['frames'][0]}-{x['frames'][1]}: {x['why']}" for x in st["left_as_the_source"])
         + "".join(f"\n      another render, not in the table: {x['name']} ({x['frames'][0]}-{x['frames'][1]})" + "".join(f"\n          the owner: {line}" for line in x["owner_said"])
                   for x in st["other_renders"]))
@@ -289,7 +289,8 @@ def main() -> int:
     ap.add_argument("--shots", required=True)
     ap.add_argument("--plan", required=True)
     ap.add_argument("--table", required=True, help="the delivery table, as bench/shot_coverage.py reads it")
-    ap.add_argument("--renders", help="the renders inventory, as the coverage tool reads it")
+    ap.add_argument("--ledger", help="the render ledger (bench/render_ledger.py --json), as the coverage tool reads it: the one inventory, made new with every table")
+    ap.add_argument("--renders", help="the older renders inventory, as the coverage tool reads it; not with --ledger")
     ap.add_argument("--verdicts", help="the owner's lines on renders, as the coverage tool reads them")
     ap.add_argument("--answers", help="the page's answers file, for the owner's typed words on a shot")
     ap.add_argument("--preview", action="append", default=[], metavar="JOB.json=TABLES_DIR", help="a preview and the folder its trackers saved into; repeatable, "
@@ -300,17 +301,14 @@ def main() -> int:
     read_table, read_intents = shot_coverage._delivery()
     shots = shot_coverage.load_shots(a.shots)
     plan = shot_coverage.load_plan(a.plan, shots["subjects"])
-    renders = []
-    if a.renders:
-        d = json.load(open(a.renders))
-        renders = d["renders"] if isinstance(d, dict) else d
+    renders = shot_coverage.read_renders(a.ledger, a.renders)
     verdicts = [json.loads(t) for t in Path(a.verdicts).read_text().splitlines() if t.strip()] if a.verdicts else []
     answers = [json.loads(t) for t in Path(a.answers).read_text().splitlines() if t.strip()] if a.answers else []
     covered = shot_coverage.coverage(shots, plan, read_table(a.table), read_intents(a.table), renders, verdicts)
     out = lists(shots, plan, covered, previews(a.preview), answers)
     out["made_at"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     out["tool_commit"] = subprocess.run(["git", "-C", str(HERE.parent), "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip() or "not read"
-    out["read_from"] = {"shots": a.shots, "plan": a.plan, "table": a.table, "renders": a.renders, "verdicts": a.verdicts, "answers": a.answers, "previews": a.preview}
+    out["read_from"] = {"shots": a.shots, "plan": a.plan, "table": a.table, "ledger": a.ledger, "renders": a.renders, "verdicts": a.verdicts, "answers": a.answers, "previews": a.preview}
     Path(a.json).write_text(json.dumps(out, indent=1) + "\n")
     Path(a.md).write_text(as_md(out))
     rows = out["rows"]

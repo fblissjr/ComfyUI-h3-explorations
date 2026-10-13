@@ -17,6 +17,10 @@ subjects, a table and an inventory made here, so the expected rows are known by 
   a_row_outside_the_span_is_refused              by name
   a_plan_for_a_subject_the_shots_lack_is_refused and a missing plan likewise
   a_render_not_in_the_table_is_listed            under the row, with its region
+  the_ledger_names_the_region_itself             with --ledger, a face piece where the plan says face and hair is NOT as planned (the kind
+                                                 alone called it planned); a render whose region the ledger does not place is held to its
+                                                 graph's kind; a render with no span is not walked; the report says which reading it is
+  two_inventories_are_refused                    --ledger with --renders, and a --ledger that is not the ledger's JSON
 
     <python> bench/check_shot_coverage.py
 
@@ -77,6 +81,8 @@ def run(paths: dict, out: Path | None = None) -> subprocess.CompletedProcess:
     cmd = [sys.executable, str(TOOL), "--shots", str(paths["shots"]), "--plan", str(paths["plan"]), "--table", str(paths["table"])]
     if "renders" in paths:
         cmd += ["--renders", str(paths["renders"])]
+    if "ledger" in paths:
+        cmd += ["--ledger", str(paths["ledger"])]
     if out:
         cmd += ["--json", str(out)]
     return subprocess.run(cmd, capture_output=True, text=True)
@@ -137,6 +143,35 @@ def main() -> int:
         case("a_plan_for_a_subject_the_shots_lack_is_refused",
              r.returncode != 0 and "`c` is not a subject" in r.stdout + r.stderr and r2.returncode != 0 and "no plan for `b`" in r2.stdout + r2.stderr,
              (r.stdout + r.stderr + r2.stdout + r2.stderr)[-300:])
+
+        # the render ledger as the inventory: the fixture's four renders, with the region where the ledger could place it
+        folder7 = Path(tempfile.mkdtemp(dir=d))
+        paths = fixture(folder7, renders=False)
+
+        def led(name, first, last, replace, region, motion="none"):
+            return {"file": f"Video/x/{name}/{name}_00001.mp4", "name": name, "span": [first, last], "graph": {"replace": replace, "motion_reference": motion},
+                    "form": {"region": region}}
+        ledger = {"schema": "h3_render_ledger/2", "renders": {r["file"]: r for r in [
+            led("a_one", 0, 29, "the wired parts", "face"),                       # the plan says face and hair for a: parts, and not the plan's parts
+            led("b_two", 30, 59, "the wired parts", "face"),                      # the plan says face for b: as planned
+            led("a_three", 30, 44, "the wired parts", "a part"),                  # not placed by the ledger: held to the graph's kind
+            led("a_spare", 0, 29, "whole subject", "whole", "a video I wire, zoomed in"),
+            {"file": "Video/x/a_lost/a_lost_00001.mp4", "name": "a_lost", "span": None, "graph": {}, "form": {}}]}}
+        paths["ledger"] = write(folder7, "ledger.json", ledger)
+        got = rows_of(paths, folder7)
+        text = run(paths).stdout
+        a0, b30, a30 = row(got, 0, "a"), row(got, 30, "b"), row(got, 30, "a")
+        case("the_ledger_names_the_region_itself",
+             a0["state"] == "not as planned" and a0["laid"][0]["region_exact"] == "face" and b30["state"] == "as planned"
+             and a30["state"] == "partly, as planned" and a30["laid"][0]["region_exact"] is None and a30["laid"][0]["region"] == "the wired parts"
+             and [(o["name"], o["region"], o["motion"]) for o in a0["others"] if not o["in_table"]] == [("a_spare", "whole", True)]
+             and "a_lost" not in json.dumps(got) and "holds a piece to the plan's region itself where the ledger names it" in text
+             and "region: face  subject" in text and got["read_from"]["ledger"].endswith("ledger.json"),
+             json.dumps([a0["state"], a0["laid"], b30["state"], a30["state"], a30["laid"], a0["others"]])[:900])
+        both = run({**paths, "renders": write(folder7, "renders.json", {"renders": []})})
+        wrong = run({**paths, "ledger": write(folder7, "not_a_ledger.json", {"schema": "h3_shots/1", "renders": {}})})
+        case("two_inventories_are_refused", both.returncode != 0 and "two inventories of the same renders" in both.stdout + both.stderr
+             and wrong.returncode != 0 and "this is not bench/render_ledger.py's --json" in wrong.stdout + wrong.stderr, (both.stdout + both.stderr + wrong.stdout + wrong.stderr)[-400:])
 
     print(f"{'FAIL' if fails else 'ok'}: {fails} failing case(s)")
     return 1 if fails else 0
