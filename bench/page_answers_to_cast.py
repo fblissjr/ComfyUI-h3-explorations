@@ -2,11 +2,26 @@
 """The owner's answers on the review page's numbered pictures, taken into the video's cast file through `bench/cast_file.py`.
 
     <python> bench/page_answers_to_cast.py --answers data/<stem>/poc/answers.jsonl --cast data/<stem>/cast/cast.jsonl \\
-        [--preview JOB.json=TABLES_DIR ...] [--shots data/<stem>/shots.json ...] [--span FIRST-LAST] [--dry-run]
+        [--preview JOB.json=TABLES_DIR ...] [--shots data/<stem>/shots.json ...] [--span FIRST-LAST] [--dry-run] \\
+        [--picks data/<stem>/picks_against_answers.jsonl --picks-shots data/<stem>/shots.json --by SESSION [--notes PREVIEWS_RUN.jsonl ...]]
     <python> bench/page_answers_to_cast.py --answers ... --cast ... --shots data/<stem>/shots.json --frame-fields [--span FIRST-LAST] [--dry-run]
     <python> bench/page_answers_to_cast.py --answers ... --cast ... --shots data/<stem>/shots.json --words-to-notes [--span FIRST-LAST] [--dry-run]
 
 A numbered picture's tile goes into the cast file; a plain frame's answer goes into a shots record (`--shots`).
+
+**A run that stores a tile writes its picks batch, every time.** The owner asked (2026-10-13) that what a tracker
+picked, what a session read of its tile and what they clicked are kept together each time, so the picks can be read
+for whether they are getting better, and that nobody has to remember to do it. So a run that would store a numbered
+picture's tile takes `--picks` (the video's file, appended to), `--picks-shots` (the shots record, READ only) and
+`--by`, and is REFUSED without them before anything is written; there is no way round it. The batch is worked out
+first, from the previews whose tile the run stores (`bench/picks_against_answers.py`'s own functions, so the lines
+are that tool's); if it cannot be worked out the run stops with the cast file as it was, and says in capitals that
+the owner's clicks are safe in the answers file. Then the cast file is written, then the batch's lines, then its
+table is printed. The batch is named by the UTC day and the next letter. `--notes` hands in a session's readings of
+the tiles; with none the batch is written all the same and says no reading was handed in. `--owner-unsure` and
+`--follows` are passed to the batch as that tool takes them. A tile already in the cast file was in an earlier
+run's batch and is not written again; a run that stores nothing writes none. A dry run prints the table and writes
+neither file.
 
 **What it buys.** The page saves one raw line a click (`answers.jsonl`): a table's file name, the frame of the
 source copy the tile shows, a person's number and a button. The owner's rule (2026-10-11, Open List row g01):
@@ -109,6 +124,7 @@ import argparse
 import importlib.util
 import json
 import os
+import subprocess
 import sys
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -153,7 +169,7 @@ def previews(specs: list[str]) -> dict[str, dict]:
             path = Path(folder) / name
             if not path.is_file():
                 raise SystemExit(f"{spec}: no table {path}")
-            out[name] = {"path": path, "first": int(job["first"]), "subjects": labels, "job": job["name"]}
+            out[name] = {"path": path, "first": int(job["first"]), "subjects": labels, "job": job["name"], "spec": spec}
     return out
 
 
@@ -392,6 +408,15 @@ def main() -> int:
                     help="add frames_on and frames_boxed to every entry of the --shots records (inside --span) and change nothing else of them")
     ap.add_argument("--words-to-notes", action="store_true",
                     help="append the owner's typed words on a who row to the note of the shot that holds their frame (inside --span), whole, once")
+    ap.add_argument("--picks", metavar="PICKS.jsonl", help="the video's picks-against-answers file (data/<stem>/picks_against_answers.jsonl): a run that stores a "
+                    "numbered picture's tile appends a batch to it, and is refused without it")
+    ap.add_argument("--picks-shots", metavar="SHOTS.json", help="the video's shots record, READ for the batch's lines (a line a shot); nothing is written to it")
+    ap.add_argument("--by", help="the session that runs this, written on the batch")
+    ap.add_argument("--notes", action="append", default=[], metavar="PREVIEWS_RUN.jsonl",
+                    help="a session's readings of the previews' tiles, for the batch; with none the batch is written all the same and says so")
+    ap.add_argument("--owner-unsure", action="append", default=[], metavar="FIRST-LAST=LINE[,LINE]:who read it so",
+                    help="for the batch: a shot on which the owner's own words say they could not tell, as bench/picks_against_answers.py takes it")
+    ap.add_argument("--follows", default="", help="for the batch: the batch this one is made again from")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
     span = None
@@ -492,6 +517,34 @@ def main() -> int:
             except ValueError as e:
                 raise SystemExit(f"{one['head']}: {e}")
         work.append(one)
+    # THE PICKS BATCH IS WORKED OUT BEFORE ANYTHING IS WRITTEN, for the previews whose tile this run stores: what each
+    # tracker picked and what a session read of its tile, against the owner's click now going into the cast. A run that
+    # stores a tile and cannot write its batch stops here, with the cast file as it was (the owner, 2026-10-13: the
+    # record is kept every time, so nobody has to remember it).
+    storing = [one for one in work if one["kind"] == "tile" and not one["p"]["not_the_jobs"] and not one["p"]["unsure"] and one["lines"] is not None
+               and not all(same(standing.get((ln["subject"], ln["frame"])), ln) for ln in one["lines"])]
+    batch = None
+    if storing:
+        safe = (f"NOTHING WAS WRITTEN. THE OWNER'S CLICKS ARE SAFE IN {a.answers} AND THE CAST FILE {a.cast} IS UNCHANGED. "
+                "Run again when the batch can be written.")
+        if not (a.picks and a.picks_shots and a.by):
+            raise SystemExit(f"this run would store {len(storing)} tile(s) and was not told where its picks batch goes: give --picks data/<stem>/picks_against_answers.jsonl, "
+                             f"--picks-shots data/<stem>/shots.json and --by SESSION (--notes if a session read the tiles; without it the batch says so).\n{safe}")
+        import picks_against_answers as pa
+        try:
+            was, there = pa.batches_in(Path(a.picks))
+            if a.follows and a.follows not in there:
+                raise SystemExit(f"--follows {a.follows!r}: {a.picks} holds no batch of that name ({', '.join(sorted(there)) or 'it is empty'})")
+            now_ = datetime.now(timezone.utc)
+            specs = list(dict.fromkeys(tables[one["name"]]["spec"] for one in storing))
+            commit = subprocess.run(["git", "-C", str(pa.REPO), "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
+            name = pa.next_batch(there, now_.strftime("%Y-%m-%d"))
+            lines_ = pa.lines_of(json.loads(Path(a.picks_shots).read_text()), pa.previews(specs), answers, pa.notes_of(a.notes), name, a.by,
+                                 now_.strftime("%Y-%m-%dT%H:%M:%SZ"), commit, pa.seed_agrees(), follows=a.follows, unsure=pa.unsure_of(a.owner_unsure))
+            pa.table_text(lines_, name)        # made here as well, so a table that cannot be made stops the run before the cast file is touched
+            batch = {"name": name, "lines": lines_, "was": was, "jobs": {}}
+        except (SystemExit, Exception) as e:      # whatever stops the batch stops the run, said in one place
+            raise SystemExit(f"THE PICKS BATCH COULD NOT BE WORKED OUT: {type(e).__name__}: {e}\n{safe}") from None
     for one in work:
         if one["kind"] == "plain":
             pp, head, held = one["pp"], one["head"], one["held"]
@@ -551,6 +604,8 @@ def main() -> int:
         print(f"{'would store' if a.dry_run else 'stored'}: {head}: {said}"
               + (f" (replaces: {'; '.join(replaced)})" if replaced else "") + words)
         stored += 1
+        if batch is not None:
+            batch["jobs"][tables[name]["job"]] = True
     if beyond:
         print(f"outside --span {span[0]}-{span[1]}, not read: {beyond} tile(s) of the answers file")
     if plain and not records:
@@ -612,6 +667,20 @@ def main() -> int:
     print(f"\n{'would store' if a.dry_run else 'stored'} {stored} tile(s); already there {already}; waiting on the owner {waiting}; "
           f"refused by the cast file {refused}; naming a subject their job does not track, not stored {outside}; "
           f"plain frames no --shots file holds {plain}; cast file {a.cast}")
+    if batch is not None:
+        import picks_against_answers as pa
+        kept = [x for x in batch["lines"] if x["preview"]["job"] in batch["jobs"]]
+        if not kept:
+            print(f"\npicks against answers: no batch written: no tile of this run was stored ({a.picks} is unchanged)")
+        else:
+            # the lines first, the table after: the cast file is written by now, and its batch is not left unwritten for a table's sake
+            if not a.dry_run:
+                pa.append_batch(Path(a.picks), kept, batch["was"])
+            print("\n" + pa.table_text(kept, batch["name"]))
+            if not a.notes:
+                print("NO SESSION'S READING WAS HANDED IN FOR THIS BATCH (--notes): its lines hold the tracker's pick and the owner's click and no reader's.")
+            print(f"DRY: nothing written; {len(kept)} line(s) would be appended to {a.picks} as batch {batch['name']}" if a.dry_run else
+                  f"appended {len(kept)} line(s) to {a.picks} as batch {batch['name']}")
     if records:
         print(f"shots record: {'would write' if a.dry_run else 'written'} {wrote} entr{'y' if wrote == 1 else 'ies'} "
               f"(yes {counts['yes']}, no {counts['no']}) from {taken} plain frame(s) in {len(by_shot)} shot(s); already there {there}; "

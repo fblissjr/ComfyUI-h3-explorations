@@ -54,6 +54,11 @@ never into the cast file:
   a_standing_box_in_the_shot_makes_it_yes             a box in the cast file inside the shot outweighs `not on this frame` elsewhere in it
   a_plain_frame_with_no_record_stores_nothing         with `--preview` only, the plain tiles are counted in one line and nothing is stored
   the_owners_words_are_printed_beside_the_shot        whole, with their line, and copied nowhere
+  a_run_that_stores_a_tile_writes_its_picks_batch     a dry run prints the batch's table and writes neither file; a real run appends one line a subject of the
+                                                      preview and a shot, named by the day and a letter, and says no session's reading was handed in; a run
+                                                      that stores nothing writes no batch; the next storing run takes the next letter
+  a_storing_run_with_no_picks_file_is_refused         before anything is written, with the flags named and the capitals line that the clicks are safe
+  a_batch_that_cannot_be_worked_out_stops_the_run     a shots record that cannot be read: the cast file is as it was, no batch, and the same capitals line
 
     <python> bench/check_page_answers_to_cast.py
 
@@ -92,14 +97,20 @@ def setup(folder: Path, lines: list[dict]) -> dict:
     (tables / "pv_lead_shots_00001_shots.json").write_text(json.dumps(table()))
     (tables / "pv_second_shots_00001_shots.json").write_text(json.dumps(table()))
     job = folder / "job.json"
-    job.write_text(json.dumps({"job": {"name": "pv", "first": 1000, "subjects": [{"label": "lead"}, {"label": "second"}]}}))
+    job.write_text(json.dumps({"job": {"name": "pv", "first": 1000, "frames": 200, "subjects": [{"label": "lead"}, {"label": "second"}]}}))
     ans = folder / "answers.jsonl"
     ans.write_text("".join(json.dumps(d) + "\n" for d in lines))
-    return {"answers": ans, "cast": folder / "cast.jsonl", "preview": f"{job}={tables}"}
+    # the shots record the picks batch is read against: the preview's two shots, both subjects in both
+    both = {"lead": {"present": "yes"}, "second": {"present": "yes"}}
+    (folder / "shots_for_picks.json").write_text(json.dumps({"schema": "h3_shots/1", "video": "v", "span": [1000, 1199], "subjects": ["lead", "second"],
+                                                             "shots": [{"first": 1000, "last": 1099, "who": both}, {"first": 1100, "last": 1199, "who": both}]}))
+    return {"answers": ans, "cast": folder / "cast.jsonl", "preview": f"{job}={tables}", "picks": folder / "picks.jsonl", "picks_shots": folder / "shots_for_picks.json"}
 
 
-def run(p: dict, dry=False, *more: str) -> subprocess.CompletedProcess:
+def run(p: dict, dry=False, *more: str, picks: bool = True) -> subprocess.CompletedProcess:
     cmd = [sys.executable, str(TOOL), "--answers", str(p["answers"]), "--cast", str(p["cast"]), "--preview", p["preview"], *more]
+    if picks:       # every run that stores a tile writes its picks batch; one case runs without, to be refused
+        cmd += ["--picks", str(p["picks"]), "--picks-shots", str(p["picks_shots"]), "--by", "a check"]
     if dry:
         cmd.append("--dry-run")
     return subprocess.run(cmd, capture_output=True, text=True)
@@ -128,7 +139,7 @@ def setup_plain(folder: Path, lines: list[dict], entries: dict | None = None) ->
 
 def run_plain(p: dict, dry=False, preview=False) -> subprocess.CompletedProcess:
     cmd = [sys.executable, str(TOOL), "--answers", str(p["answers"]), "--cast", str(p["cast"]), "--shots", str(p["shots"])]
-    cmd += ["--preview", p["preview"]] if preview else []
+    cmd += ["--preview", p["preview"], "--picks", str(p["picks"]), "--picks-shots", str(p["picks_shots"]), "--by", "a check"] if preview else []
     return subprocess.run(cmd + (["--dry-run"] if dry else []), capture_output=True, text=True)
 
 
@@ -440,6 +451,47 @@ def main() -> int:
         case("a_plain_frame_with_no_record_stores_nothing", r.returncode == 0 and not cast_lines(p11)
              and "left for a run that names a --shots record: 1 tile(s); nothing of them is stored" in r.stdout
              and "PLAIN FRAME" not in r.stdout and "plain frames no --shots file holds 1" in r.stdout, r.stdout + r.stderr)
+
+    with tempfile.TemporaryDirectory() as d:
+        folder = Path(d)
+        p = setup(folder, [line(1, source_frame=1010, subject="lead", chosen="2", person=2)])
+        r_dry = run(p, dry=True)
+        dry_ok = (r_dry.returncode == 0 and not Path(p["cast"]).exists() and not Path(p["picks"]).exists() and "picks against answers, batch " in r_dry.stdout
+                  and "DRY: nothing written; 4 line(s) would be appended" in r_dry.stdout)
+        r = run(p)
+        made = [json.loads(t) for t in Path(p["picks"]).read_text().splitlines()] if Path(p["picks"]).is_file() else []
+        day = made[0]["batch"][:10] if made else ""
+        clicked = [x for x in made if x["owner"]["click"] == "2"]
+        r_again = run(p)                                                    # everything is already there: nothing stored, no batch
+        Path(p["answers"]).write_text(Path(p["answers"]).read_text() + json.dumps(line(2, source_frame=1150, subject="lead", chosen="1", person=1)) + "\n")
+        r_next = run(p)
+        after = [json.loads(t) for t in Path(p["picks"]).read_text().splitlines()] if Path(p["picks"]).is_file() else []
+        # a tile the cast file refuses when it is written (no box over a standing box): nothing of the run is stored, so no batch is written for it
+        Path(p["answers"]).write_text(Path(p["answers"]).read_text() + json.dumps(line(3, source_frame=1010, subject="lead", chosen="not outlined")) + "\n")
+        r_ref = run(p)
+        left = Path(p["picks"]).read_text().count("\n")
+        case("a_run_that_stores_a_tile_writes_its_picks_batch", dry_ok and r.returncode == 0 and len(cast_lines(p)) == 2
+             and sorted((x["subject"], tuple(x["shot"])) for x in made) == [("lead", (1000, 1099)), ("lead", (1100, 1199)), ("second", (1000, 1099)), ("second", (1100, 1199))]
+             and {x["batch"] for x in made} == {f"{day}_a"} and {x["made_by"] for x in made} == {"a check"} and len(clicked) == 1 and clicked[0]["subject"] == "lead"
+             and clicked[0]["shot"] == [1000, 1099] and all(x["session"] is None for x in made)
+             and "NO SESSION'S READING WAS HANDED IN FOR THIS BATCH" in r.stdout and f"appended 4 line(s) to {p['picks']} as batch {day}_a" in r.stdout
+             and r_again.returncode == 0 and "already there 1" in r_again.stdout and "picks against answers" not in r_again.stdout
+             and r_next.returncode == 0 and len(after) == 8 and [x["batch"] for x in after[4:]] == [f"{day}_b"] * 4 and after[:4] == made
+             and "REFUSED by the cast file" in r_ref.stdout and "no batch written: no tile of this run was stored" in r_ref.stdout and left == 8,
+             r_ref.stdout[-500:] + r_ref.stderr[-500:] + r_dry.stdout[-600:] + r_dry.stderr + r.stdout[-900:] + r.stderr + r_next.stderr + json.dumps([(x["batch"], x["subject"], x["shot"], x["owner"]["click"]) for x in after]))
+    safe = "NOTHING WAS WRITTEN. THE OWNER'S CLICKS ARE SAFE IN"
+    with tempfile.TemporaryDirectory() as d:
+        folder = Path(d)
+        p = setup(folder, [line(1, source_frame=1010, subject="lead", chosen="2", person=2)])
+        r = run(p, picks=False)
+        r_dry = run(p, True, picks=False)
+        case("a_storing_run_with_no_picks_file_is_refused", r.returncode != 0 and r_dry.returncode != 0 and not Path(p["cast"]).exists() and not Path(p["picks"]).exists()
+             and "would store 1 tile(s) and was not told where its picks batch goes" in r.stderr and "--picks" in r.stderr and "--picks-shots" in r.stderr and "--by" in r.stderr
+             and safe in r.stderr and f"AND THE CAST FILE {p['cast']} IS UNCHANGED" in r.stderr, r.stdout + r.stderr)
+        Path(p["picks_shots"]).write_text("not a record")
+        r = run(p)
+        case("a_batch_that_cannot_be_worked_out_stops_the_run", r.returncode != 0 and not Path(p["cast"]).exists() and not Path(p["picks"]).exists()
+             and "THE PICKS BATCH COULD NOT BE WORKED OUT" in r.stderr and safe in r.stderr and "stored" not in r.stdout, r.stdout + r.stderr)
 
     print(f"{'FAIL' if fails else 'ok'}: {fails} failing case(s)")
     return 1 if fails else 0

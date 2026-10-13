@@ -403,7 +403,7 @@ def table_text(lines: list[dict], batch: str) -> str:
            f"'right' is the subject's track on the frame the owner answered overlapping the named person's box at or over the line ({LINE_IS}).", ""]
     out += block("how the pick was chosen", lambda x: (HOW.index(x["tracker"]["how_chosen"]), x["tracker"]["how_chosen"]))
     out += block("the named person's rank by size among the people outlined", lambda x: banded(named(x)["rank_by_size"], RANK_BANDS) if named(x) else no_number(x))
-    out += block("the named person's share of the frame", lambda x: (shares.index(named(x)["share_band"]), named(x)["share_band"]) if named(x) else no_number(x))
+    out += block("the named person's share of the frame", lambda x: ((shares.index(named(x)["share_band"]) if named(x)["share_band"] in shares else len(shares)), named(x)["share_band"]) if named(x) else no_number(x))
     out += block("the people outlined on the picture", lambda x: banded(x["features"]["people_outlined"], PEOPLE_BANDS))
     cells: dict = {}
     for x in clicked:
@@ -422,6 +422,46 @@ def table_text(lines: list[dict], batch: str) -> str:
     return "\n".join(out) + "\n"
 
 
+def batches_in(out: Path) -> tuple[str, set[str]]:
+    """The file as it stands, and the names of the batches in it."""
+    was = out.read_text() if out.is_file() else ""
+    return was, {json.loads(t)["batch"] for t in was.splitlines() if t.strip()}
+
+
+def next_batch(there: set[str], day: str) -> str:
+    """A batch's name when a tool gives it: the UTC day and the next letter no batch of the file has (`2026-10-14_a`)."""
+    letters = "abcdefghijklmnopqrstuvwxyz"
+    used = [n for n, letter in enumerate(letters) if f"{day}_{letter}" in there]       # the letter after the last one used: `_b` is followed by `_c`
+    if used and used[-1] + 1 >= len(letters):
+        raise SystemExit(f"twenty-six batches are named for {day}: name this one by hand (--batch)")
+    return f"{day}_{letters[used[-1] + 1 if used else 0]}"
+
+
+def unsure_of(texts: list[str]) -> dict:
+    """`--owner-unsure` as {(shot's first, last): {"lines", "read_so_by"}}."""
+    unsure = {}
+    for text in texts:
+        try:
+            span, rest = text.split("=", 1)
+            numbers, who = rest.split(":", 1)
+            first, last = (int(v) for v in span.split("-"))
+            unsure[(first, last)] = {"lines": [int(v) for v in numbers.split(",")], "read_so_by": " ".join(who.split())}
+            if not unsure[(first, last)]["read_so_by"]:
+                raise ValueError
+        except ValueError:
+            raise SystemExit(f"--owner-unsure {text!r} is not `FIRST-LAST=LINE[,LINE]:who read it so`") from None
+    return unsure
+
+
+def append_batch(out: Path, lines: list[dict], was: str) -> None:
+    """Append a batch's lines, unless the file changed since it was read."""
+    if (out.read_text() if out.is_file() else "") != was:
+        raise SystemExit(f"{out} changed while this ran; nothing is written. Run again.")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with open(out, "a") as f:
+        f.write("".join(json.dumps(x, sort_keys=True) + "\n" for x in lines))
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n")[0])
     ap.add_argument("--shots", required=True)
@@ -437,8 +477,7 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true", help="print the table and write nothing")
     a = ap.parse_args()
     out = Path(a.out)
-    was = out.read_text() if out.is_file() else ""
-    there = {json.loads(t)["batch"] for t in was.splitlines() if t.strip()}
+    was, there = batches_in(out)
     if a.batch in there:
         raise SystemExit(f"{out} already holds a batch named {a.batch!r}: a batch is written once. Made again, it takes a new name and --follows {a.batch}")
     if a.follows and a.follows not in there:
@@ -446,28 +485,14 @@ def main() -> int:
     answers = [(n, json.loads(t)) for n, t in enumerate(Path(a.answers).read_text().splitlines(), 1) if t.strip()]
     commit = subprocess.run(["git", "-C", str(REPO), "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    unsure = {}
-    for text in a.owner_unsure:
-        try:
-            span, rest = text.split("=", 1)
-            numbers, who = rest.split(":", 1)
-            first, last = (int(v) for v in span.split("-"))
-            unsure[(first, last)] = {"lines": [int(v) for v in numbers.split(",")], "read_so_by": " ".join(who.split())}
-            if not unsure[(first, last)]["read_so_by"]:
-                raise ValueError
-        except ValueError:
-            raise SystemExit(f"--owner-unsure {text!r} is not `FIRST-LAST=LINE[,LINE]:who read it so`") from None
+    unsure = unsure_of(a.owner_unsure)
     lines = lines_of(json.loads(Path(a.shots).read_text()), previews(a.preview), answers, notes_of(a.notes), a.batch, a.by, now, commit, seed_agrees(), follows=a.follows,
                      unsure=unsure)
     print(table_text(lines, a.batch))
     if a.dry_run:
         print(f"DRY: nothing written; {len(lines)} line(s) would be appended to {out}")
         return 0
-    if (out.read_text() if out.is_file() else "") != was:
-        raise SystemExit(f"{out} changed while this ran; nothing is written. Run again.")
-    out.parent.mkdir(parents=True, exist_ok=True)
-    with open(out, "a") as f:
-        f.write("".join(json.dumps(x, sort_keys=True) + "\n" for x in lines))
+    append_batch(out, lines, was)
     print(f"appended {len(lines)} line(s) to {out} as batch {a.batch}")
     return 0
 
