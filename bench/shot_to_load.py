@@ -2,6 +2,7 @@
 """From a shot to a load's job file: the preview of the shot, the load's job, its head reference. Then it stops for the text.
 
     <python> bench/shot_to_load.py preview --shots SHOTS.json --plan PLAN.json --shot FIRST --folder INPUTS --by SESSION [--cast CAST.jsonl] [--queue] [--remake]
+        [--seed-cuts-of EARLIER_PREVIEW_JOB.json=ITS_SHOTS_TABLE.json] [--ask "SUBJECT:why the owner is asked about them"]
         (somebody looks at the trackers' tiles; a wrong pick is a person's line in the shots record or a box in the cast
         file, and the preview is made again with --remake, under the next letter)
     <python> bench/shot_to_load.py job --shots SHOTS.json --plan PLAN.json --shot FIRST --subject LABEL --preview PREVIEW_JOB_FOLDER \\
@@ -262,20 +263,51 @@ def pick_of(shot: dict, label: str) -> tuple[int, str]:
     return (shot["first"] + shot["last"]) // 2, "THE SHOT'S MIDDLE: the record names no frame for them as a field. A fallback, not a frame anybody marked"
 
 
-def seed_of(cast_lines: list[dict] | None, label: str, shot: dict, canvas) -> dict | None:
-    """The tracker's seeds for a subject on a shot from the cast file, or None when it holds no box there."""
+def cuts_of_table(pair: str, shot: dict) -> dict:
+    """The tracker's own cuts of a shot, read from a table an earlier preview of the SAME frames saved: `JOB.json=TABLE.json`.
+
+    The tracker takes one seed a cut OF ITS OWN, and a preview's seeds were chosen one a RECORD shot. On the first
+    shot the tracker cut into many (2026-10-13, 6105-6394: twenty-five cuts, six boxes of the owner's, each in
+    another long cut) one box was passed, the latest in the cast file and a frame inside a fade to black; every
+    other cut was matched against that look and the subject was held on a small part of the shot the unseeded
+    preview had held somebody on. With the cuts handed in, each cut that holds an answer gets its own seed. A named
+    file, handed in, and the job says it was read; the job file beside it is how the table's frames are known."""
+    job_file, _, table_file = pair.partition("=")
+    if not job_file.strip() or not table_file.strip():
+        raise Refused(f"--seed-cuts-of {pair!r} is not `JOB.json=TABLE.json`: the earlier preview's job file, and the shots table it saved for a subject")
+    for f in (job_file, table_file):
+        if not Path(f).is_file():
+            raise Refused(f"--seed-cuts-of: {f} is not there")
+    job = json.loads(Path(job_file).read_text())
+    job = job.get("job", job)
+    frames = shot["last"] - shot["first"] + 1
+    if (job.get("first"), job.get("frames")) != (shot["first"], frames):
+        raise Refused(f"--seed-cuts-of: {job_file} is a preview of {job.get('first')}-{(job.get('first') or 0) + (job.get('frames') or 0) - 1}, not of the shot "
+                      f"{shot['first']}-{shot['last']}: the tracker's cuts are read from a preview of the same frames")
+    table = json.loads(Path(table_file).read_text())
+    cuts = [[int(c["first_frame"]), int(c["last_frame"]) + 1] for c in table.get("shots") or []]
+    if table.get("frames") != frames or not cuts or cuts[0][0] != 0 or cuts[-1][1] != frames or any(a[1] != b[0] for a, b in zip(cuts, cuts[1:])):
+        raise Refused(f"--seed-cuts-of: {table_file} holds {table.get('frames')} frames in {len(cuts)} cut(s) that do not lie end to end over the shot's {frames}: "
+                      "not a table of this shot's frames")
+    return {"read_from": table_file, "the_preview": job.get("name"), "its_job_file": job_file, "cuts": cuts}
+
+
+def seed_of(cast_lines: list[dict] | None, label: str, shot: dict, canvas, cuts=None) -> dict | None:
+    """The tracker's seeds for a subject on a shot from the cast file, or None when it holds no box there. `cuts` is
+    the tracker's own cuts of the shot, (first frame, one past the last) in the shot's frames, when they are known
+    (`cuts_of_table`); without them the shot is taken as one cut and gets one seed."""
     if not cast_lines:
         return None
     import cast_file
     try:
-        got = cast_file.seeds(cast_lines, label, shot["first"], canvas, [(0, shot["last"] - shot["first"] + 1)], cast_file.LEAVE)
+        got = cast_file.seeds(cast_lines, label, shot["first"], canvas, [tuple(c) for c in cuts] if cuts else [(0, shot["last"] - shot["first"] + 1)], cast_file.LEAVE)
     except ValueError as e:
         raise Refused(str(e)) from None
     return got if got["text"] else None
 
 
 def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by: str, cast_lines=None, now: str = "", name: str = "",
-                ask: dict | None = None) -> dict:
+                ask: dict | None = None, seed_cuts: dict | None = None) -> dict:
     """The job file of one shot's preview: every subject the record says is in it, a pose pass for each. `name` is
     the preview's, `shot_c_<first>` when left out; a preview made again is handed its lettered name.
 
@@ -299,7 +331,7 @@ def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by
                       + (". A subject the record is `unsure` of there may be tracked to ASK the owner who is on it: --ask \"SUBJECT:why\""
                          if any(w["present"] == "unsure" for w in shot["who"].values()) else ""))
     canvas = list(h3_config.MASKED_JOB_CANVAS)
-    seeds = {label: seed_of(cast_lines, label, shot, canvas) for label in present}
+    seeds = {label: seed_of(cast_lines, label, shot, canvas, (seed_cuts or {}).get("cuts")) for label in present}
     order, order_from = order_of(shot, plan, present, [k for k, v in seeds.items() if v is not None])
     subjects, said = [], []
     for label in order:
@@ -312,10 +344,17 @@ def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by
             # with no time on it reads "on the page at  (" in the file, and that is said here as the file's
             why = "; ".join(r["why"] for r in seed["shots"] if r["seed"])
             holed = " ".join(why.split()) != why
+            used = [r["from_frame"] for r in seed["shots"] if r["seed"]]
+            unused = sorted(u["frame"] for u in seed["unused"] if u["answer"] == "here")
             said.append(f"{label}: SEEDED from the cast file ({' '.join(why.split())}"
                         + ("; a field of that line is EMPTY in the cast file, as it reads there" if holed else "")
                         + f"): THE SEED DECIDES who is tracked; `pick: {PICK}` stands in the job file only because the builder asks one of every "
-                          "subject, and decides nothing here")
+                          f"subject, and decides nothing here. SEEDED ON SOURCE FRAME(S) {', '.join(map(str, used))}"
+                        + (f", one in each of {len(used)} of the tracker's {len(seed['shots'])} cuts" if seed_cuts else "")
+                        + (f". THE OWNER'S BOX(ES) ON {', '.join(map(str, unused))} ARE NOT USED: a cut takes one seed, and of several in a cut the one latest "
+                           "in the cast file is taken, which is the order they were clicked in and no judgement of the picture"
+                           + ("" if seed_cuts else ". If the tracker cuts this shot, each of its cuts can take its own: --seed-cuts-of, with the table this preview saves")
+                           if unused else ""))
         else:
             one["pick_at"], where = pick_of(shot, label)
             said.append(f"{label}: the {PICK} person on frame {one['pick_at']}, {where}"
@@ -327,7 +366,9 @@ def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by
     name = name or base
     note = (f"Written by bench/shot_to_load.py for {by}, {now}. THE PREVIEW OF ONE SHOT, source frames {shot['first']} to {shot['last']} ({frames} frames): "
             f"every subject the shots record says is in it, a pose pass for each, nothing sampled. THE TRACKERS RUN IN THIS ORDER: {', '.join(order)} "
-            f"({order_from}). THE PICKS: {'; '.join(said)}. A pick by the largest person is a guess: the tiles are looked at before anything is built on this "
+            f"({order_from}). " + (f"THE TRACKER'S CUTS OF THIS SHOT, {len(seed_cuts['cuts'])} of them, WERE READ FROM {seed_cuts['read_from']}, the table the preview "
+                                    f"{seed_cuts['the_preview']} saved of these frames, and each seed was chosen in one of them. " if seed_cuts else "")
+            + f"THE PICKS: {'; '.join(said)}. A pick by the largest person is a guess: the tiles are looked at before anything is built on this "
             f"preview, and a wrong pick is corrected in the shots record (the shot's `order`, or a frame for the subject) and the preview made again."
             + (f" THIS IS A PREVIEW MADE AGAIN: {name}, after {base} or a letter before it, which stand as they were made and are not read here." if name != base else ""))
     return {"job": {"name": name, "note": note, "source": source, "first": shot["first"], "frames": frames, "canvas": canvas,
@@ -588,7 +629,12 @@ def step_preview(a, world) -> None:
         if not label.strip() or not why.strip():
             raise Refused(f"--ask {text!r} is not `SUBJECT:why`")
         ask[label.strip()] = " ".join(why.split())
-    job = preview_job(shots, plan, shot, video, str(source), a.by, cast, load_chain.utc_now(), name=name, ask=ask)
+    seed_cuts = cuts_of_table(a.seed_cuts_of, shot) if a.seed_cuts_of else None
+    if seed_cuts and not cast:
+        raise Refused("--seed-cuts-of goes with --cast: the cuts say where a seed from the cast file may go")
+    job = preview_job(shots, plan, shot, video, str(source), a.by, cast, load_chain.utc_now(), name=name, ask=ask, seed_cuts=seed_cuts)
+    if seed_cuts:
+        job["job"]["seed_cuts"] = seed_cuts
     if ask:
         job["job"]["made_to_ask"] = {"what": "this preview tracks a subject the shots record is unsure of, to ask the owner who is on the shot; nothing is built on it "
                                               "until they have answered", "subjects": ask, "by": a.by}
@@ -618,6 +664,18 @@ def step_preview(a, world) -> None:
     ctx = {"job_folder": folder, "name": job["job"]["name"], "logs": Path(a.folder) / "chain"}
     world.run(ctx, "build preview", build)
     world.run(ctx, "queue preview", queue)
+    if seed_cuts:
+        # the seeds were chosen on cuts read from an earlier table: hold the cuts this preview's tracker found to them
+        for s in job["job"]["subjects"]:
+            saved = world.output / job["job"]["output"] / job["job"]["name"] / f"{job['job']['name']}_{s['label']}_shots_00001_shots.json"
+            if not saved.is_file():
+                print(f"THE CUTS WERE NOT COMPARED for {s['label']}: no table at {saved}")
+                continue
+            found = [[int(c["first_frame"]), int(c["last_frame"]) + 1] for c in json.loads(saved.read_text())["shots"]]
+            if found != seed_cuts["cuts"]:
+                raise Refused(f"THE PREVIEW {job['job']['name']} IS MADE AND IS NOT TO BE BUILT ON: its tracker cut the shot into {len(found)} cut(s) and the seeds "
+                              f"were chosen on the {len(seed_cuts['cuts'])} of {seed_cuts['read_from']}, which are not the same cuts ({s['label']}'s table, {saved})")
+            print(f"{s['label']}: the cuts this preview's tracker found are the {len(found)} the seeds were chosen on")
     print("THE TILES ARE TO BE LOOKED AT before a load is built on this preview: a pick by the largest person is a guess.")
 
 
@@ -777,6 +835,10 @@ def main() -> int:
     sub.choices["preview"].add_argument("--ask", action="append", default=[], metavar="SUBJECT:why",
                                         help="track a subject the record is `unsure` of on this shot, because the preview is made to ask the owner who is on it; "
                                              "repeatable. No load is built on it until they have answered")
+    sub.choices["preview"].add_argument("--seed-cuts-of", metavar="JOB.json=TABLE.json",
+                                        help="the tracker's own cuts of this shot, read from the shots table an earlier preview of the same frames saved (with "
+                                             "that preview's job file): each cut that holds an answer in the cast file gets its own seed. Without it a shot "
+                                             "gets one seed")
     sub.choices["preview"].add_argument("--queue", action="store_true", help="build and queue the preview, on an empty queue")
     sub.choices["preview"].add_argument("--remake", action="store_true", help="the next free letter after the name, for a preview made again; the earlier one stands")
     j = sub.choices["job"]

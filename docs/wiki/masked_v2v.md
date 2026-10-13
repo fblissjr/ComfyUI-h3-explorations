@@ -767,6 +767,12 @@ The steps, each with the tool that holds it:
    as long as the shortest load on its own frame, with every person's box
    in a color of their own (`bench/who_page.py --every-cut-of`): one frame
    of a shot of many cuts answers for that cut and no other.
+   The answers then go to the tracker a cut each: a preview of that shot
+   made again takes the tracker's cuts from the table its earlier preview
+   saved (`bench/shot_to_load.py preview --seed-cuts-of`), and each cut
+   that holds a box gets its own seed. Without the cuts a shot gets one
+   seed, the box latest in the cast file, and every other cut is matched
+   against how the subject looks on that one frame.
 
 **What waits on the owner's own word.** "The owner is asked only the
 leftovers" is not the practice. Every box in the cast file is the owner's

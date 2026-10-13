@@ -488,6 +488,30 @@ fixed the same day, said inline below.**
   not a fix made beside running loads. The small way: the strip's label
   says "N of these frames" where a span holds more than the flag counts.
   Not started.
+- **Of several boxes in one cut, the seed is the one clicked last**
+  (2026-10-13, from the preview of 6105-6394, where it was a frame inside
+  a fade to black). `bench/cast_file.py::seeds` gives a cut one seed and,
+  of several boxes in it, takes the one latest in the cast file: the only
+  order nobody can type wrong, and no judgement of the picture. The
+  preview's note names the box used and the boxes not used. What the tool
+  could read to choose by the picture, none of it built and none of it a
+  rule yet: the box's area on the canvas (a larger figure gives the
+  tracker's look more to hold); the frame's own brightness and its
+  spread, from the source frame (a fade, a flash); how far the frame is
+  from the cut's ends (the tracker's cuts end where a head drops or an
+  arm crosses); and whether the node's detection on that frame overlaps
+  the box well, which the saved table of an earlier preview holds for a
+  frame it showed. Each is a figure to print beside the boxes first; a
+  preference among them is a person's. Not started.
+- **A record's cut mended costs a preview of each shot it changes**
+  (2026-10-13, from the holder of the card). `shot_to_load.py job`
+  refuses a preview that is not of the shot's own frames, so the preview
+  of 2050-2711 could not serve 2050-2622 and that long shot was tracked
+  again. The refusal is right as built: a load's files are cut from the
+  preview by frame, and a tracker run on other frames can pick and cut
+  otherwise. Wanted, if mending goes on: a job step that takes a preview
+  whose frames hold the shot's and whose tracker's cut falls on the
+  record's new cut, saying so in the job. Not started.
 - **A who picture does not say how much of its box a person fills**
   (2026-10-13, from the cut-by-cut page of 5935-6394, frame 6360). A thin
   detection's box lay inside another person's, and on the numbered

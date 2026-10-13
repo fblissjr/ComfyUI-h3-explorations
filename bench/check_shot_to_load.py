@@ -18,6 +18,14 @@ builder's own `check_job`, and a load's to `masked_job.loads_of`, so a file the 
    outside the shot, or another subject's, seeds nothing. THE SEEDED ARE TRACKED FIRST, whatever the plan's order,
    and the note says the seed decides and the job's `pick` does not; a person's `order` on the shot is still over
    that.
+3b. **A shot the tracker cuts takes a seed a cut** (`--seed-cuts-of JOB.json=TABLE.json`). With no cuts handed in a
+   shot holding three boxes gets ONE seed, the latest in the cast file, and the note names the boxes not used and
+   the flag (2026-10-13, 6105-6394: six boxes, one passed, a frame in a fade, the subject held on a small part of
+   the shot). With the tracker's cuts read from an earlier preview's table, each cut that holds a box gets its
+   own, the note says which table, and the job carries the cuts. A job file of other frames, a table of another
+   length or with a gap in its cuts, a file that is not there and the flag without `--cast` are refused. After the
+   queue the cuts the new preview's tracker found are held to the table's: other cuts are a refusal that says the
+   preview is made and not to be built on.
 4. **The plan must say what from**: a subject with no `still` or no `parts` is refused with the keys.
 5. **The preview step** writes `shot_c_<first>`, refuses one that is there, and queues only when told, on an
    empty queue. MADE AGAIN (`--remake`) it takes the next free letter, `shot_c_<first>b`, past a job file here
@@ -214,7 +222,7 @@ class Made:
 
 def args(**more) -> argparse.Namespace:
     given = dict(by="the session", day="2026-01-03", cast=None, queue=False, first=None, frames=None, why=None, remake=False, plain=None, model_store="",
-                 existing=False, writer=None, why_before=None, why_after=None, zoomed=None, least=None, least_why=None, ask=[])
+                 existing=False, writer=None, why_before=None, why_after=None, zoomed=None, least=None, least_why=None, ask=[], seed_cuts_of=None)
     given.update(more)
     return argparse.Namespace(**given)
 
@@ -335,6 +343,81 @@ def a_box_in_the_cast_file_seeds() -> str:
         assert "EMPTY in the cast file" not in job["note"], "a cast line with no empty field was said to have one"
         assert all("seeds" not in s for s in made.preview()["job"]["subjects"]), "a preview with no cast file was seeded"
     return "a subject with a box in the cast file inside the shot is seeded from it, scaled to the canvas, and carries no pick_at; a box in another shot seeds nothing"
+
+
+def a_shot_the_tracker_cuts_takes_a_seed_a_cut() -> str:
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        w, h = cfg.MASKED_JOB_CANVAS
+        box = lambda frame, x, at: cast_file.entry("a", frame, cast_file.HERE, by="a person", box=[x, 20, 30, 40], size=[w, h], table="t.json", at=at)   # noqa: E731
+        lines = [box(105, 10, "t1"), box(150, 30, "t2"), box(125, 20, "t3")]        # in the file's order: 125 is the latest
+        a_of = lambda job: next(x for x in job["job"]["subjects"] if x["label"] == "a")   # noqa: E731
+        # AS IT WAS: one seed a record shot, the latest in the file, whatever the tracker's cuts
+        one = made.preview(cast_lines=lines)
+        assert a_of(one)["seeds"] == "frame 25: 20, 20, 30, 40", a_of(one)["seeds"]
+        assert "SEEDED ON SOURCE FRAME(S) 125." in one["job"]["note"] and "THE OWNER'S BOX(ES) ON 105, 150 ARE NOT USED" in one["job"]["note"] \
+            and "--seed-cuts-of" in one["job"]["note"] and "the order they were clicked in" in one["job"]["note"], one["job"]["note"]
+        # the tracker's three cuts, each holding one box: three seeds
+        three = {"read_from": "T.json", "the_preview": "shot_c_0100", "cuts": [[0, 20], [20, 40], [40, 60]]}
+        job = made.preview(cast_lines=lines, seed_cuts=three)
+        assert a_of(job)["seeds"] == "frame 5: 10, 20, 30, 40\nframe 25: 20, 20, 30, 40\nframe 50: 30, 20, 30, 40", a_of(job)["seeds"]
+        graphs.check_job(job["job"])
+        note = job["job"]["note"]
+        assert "THE TRACKER'S CUTS OF THIS SHOT, 3 of them, WERE READ FROM T.json" in note and "SEEDED ON SOURCE FRAME(S) 105, 125, 150, one in each of 3 of the tracker's 3 cuts" in note \
+            and "ARE NOT USED" not in note, note
+        # two boxes in one cut: the cut takes one, the other is named as not used, and the flag is not offered again
+        two = made.preview(cast_lines=lines, seed_cuts={"read_from": "T.json", "the_preview": "p", "cuts": [[0, 40], [40, 60]]})
+        assert a_of(two)["seeds"] == "frame 25: 20, 20, 30, 40\nframe 50: 30, 20, 30, 40" and "BOX(ES) ON 105 ARE NOT USED" in two["job"]["note"] \
+            and "If the tracker cuts this shot" not in two["job"]["note"], two["job"]["note"]
+        # a cut with no box gets none, and a subject with no box is picked as ever
+        gap = made.preview(cast_lines=lines, seed_cuts={"read_from": "T.json", "the_preview": "p", "cuts": [[0, 3], [3, 40], [40, 60]]})
+        assert a_of(gap)["seeds"].count("frame") == 2 and "one in each of 2 of the tracker's 3 cuts" in gap["job"]["note"], gap["job"]["note"]
+        assert "seeds" not in next(x for x in job["job"]["subjects"] if x["label"] == "b")
+        # THE TABLE AND ITS JOB FILE, as handed in
+        shot = stl.shot_of(made.shots, 100)
+        jf, tf = made.root / "earlier_job.json", made.root / "earlier_table.json"
+        table = lambda frames, cuts: tf.write_text(json.dumps({"frames": frames, "shots": [{"first_frame": x, "last_frame": y - 1} for x, y in cuts]}))   # noqa: E731
+        jf.write_text(json.dumps({"job": {"name": "shot_c_0100", "first": 100, "frames": 60}}))
+        table(60, three["cuts"])
+        pair = f"{jf}={tf}"
+        got = stl.cuts_of_table(pair, shot)
+        assert got["cuts"] == three["cuts"] and got["read_from"] == str(tf) and got["the_preview"] == "shot_c_0100" and got["its_job_file"] == str(jf), got
+        table(50, [[0, 20], [20, 50]])
+        refused(lambda: stl.cuts_of_table(pair, shot), "holds 50 frames", "not a table of this shot's frames")
+        table(60, [[0, 20], [30, 60]])
+        refused(lambda: stl.cuts_of_table(pair, shot), "do not lie end to end")
+        table(60, three["cuts"])
+        jf.write_text(json.dumps({"job": {"name": "shot_c_0160", "first": 160, "frames": 60}}))
+        refused(lambda: stl.cuts_of_table(pair, shot), "is a preview of 160-219, not of the shot 100-159")
+        jf.write_text(json.dumps({"job": {"name": "shot_c_0100", "first": 100, "frames": 60}}))
+        refused(lambda: stl.cuts_of_table(str(jf), shot), "is not `JOB.json=TABLE.json`")
+        refused(lambda: stl.cuts_of_table(f"{jf}={made.root / 'none.json'}", shot), "is not there")
+        # THE STEP: the job file carries the cuts; after the queue the tracker's cuts are held to them
+        cast = made.root / "cast.jsonl"
+        cast.write_text("".join(json.dumps(x) + "\n" for x in lines))
+        a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), cast=str(cast), seed_cuts_of=pair, queue=True)
+        saved = made.m.output / "Video/v/the session/shot_c_0100"
+
+        def tracker(cuts):
+            def run():
+                saved.mkdir(parents=True)
+                (saved / "shot_c_0100_a_shots_00001_shots.json").write_text(json.dumps({"frames": 60, "shots": [{"first_frame": x, "last_frame": y - 1} for x, y in cuts]}))
+            return run
+        made.m.on["queue preview"] = tracker(three["cuts"])
+        stl.step_preview(a, made.m)
+        kept = json.loads((made.jobs / "shot_c_0100.json").read_text())["job"]
+        graphs.check_job(kept)
+        assert kept["seed_cuts"]["cuts"] == three["cuts"] and kept["seed_cuts"]["read_from"] == str(tf), kept.get("seed_cuts")
+        assert next(x for x in kept["subjects"] if x["label"] == "a")["seeds"].count("frame") == 3
+        shutil.rmtree(saved)
+        (made.jobs / "shot_c_0100.json").unlink()
+        made.m.on["queue preview"] = tracker([[0, 30], [30, 60]])
+        refused(lambda: stl.step_preview(a, made.m), "IS MADE AND IS NOT TO BE BUILT ON", "cut the shot into 2 cut(s)", "which are not the same cuts")
+        shutil.rmtree(saved)
+        (made.jobs / "shot_c_0100.json").unlink()
+        a.cast = None
+        refused(lambda: stl.step_preview(a, made.m), "--seed-cuts-of goes with --cast")
+    return "a shot the tracker cuts gets a seed in each cut that holds a box, from cuts read out of a named table of the same frames; one seed without them, the rest named"
 
 
 def the_plan_says_what_from() -> str:
@@ -924,6 +1007,7 @@ case("the frame a tracker picks on is a field of the shots record", the_pick_fra
 case("the trackers' order, and who is in the shot", the_order_and_who_is_in_the_shot)
 case("a preview made to ask who is on a shot the record is unsure of", a_preview_made_to_ask)
 case("a box in the cast file seeds its tracker", a_box_in_the_cast_file_seeds)
+case("a shot the tracker cuts takes a seed a cut", a_shot_the_tracker_cuts_takes_a_seed_a_cut)
 case("the plan says what a subject's face is taken from", the_plan_says_what_from)
 case("preview: the job file, once, queued only when told", the_preview_step)
 case("preview against a builder that refuses a folder that is there: the first real run's fault", the_preview_step_against_a_builder_that_refuses_a_folder_that_is_there)
