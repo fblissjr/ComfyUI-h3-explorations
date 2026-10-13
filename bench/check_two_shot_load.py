@@ -280,7 +280,7 @@ def tables_laid_end_to_end() -> str:
             "people": [{"person": 1, "box": [1, 2, 3, 4], "has_head": True}], "track_score": [0.5] * 50}
     assert late == want, {k: (late.get(k), v) for k, v in want.items() if late.get(k) != v}
     assert joined["gallery"]["frames"] == [9, 51] and len(joined["gallery"]["signatures"]) == 2 and joined["pick_frame"] == 9
-    assert joined["joined_from"]["the_second_tables_own"]["pick_frame"] == 11 and joined["joined_from"]["the_second_begins_on_table_frame"] == 40
+    assert joined["joined_from"]["the_second_tables_own_in_its_own_frames"]["pick_frame"] == 11 and joined["joined_from"]["the_second_begins_on_table_frame"] == 40
     assert second["shots"][0]["first_frame"] == 0 and "joined_from" not in first, "a source table was changed in place"
     # the lane's own reader of a table cut to a stretch gets each source's shots back, at the source's own frame numbers
     for table, at, frames in ((first, 0, 40), (second, 40, 50)):

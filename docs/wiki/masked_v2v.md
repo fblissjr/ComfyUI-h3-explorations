@@ -638,6 +638,11 @@ With it:
 - the build's record carries the key and its printed lines say TWO SHOTS IN
   ONE WINDOW, with whose word it is.
 
+The builder holds the key to itself and to the capture's shot tables. It
+does not read the shots record: `bench/two_shot_load.py` does, when it
+writes the job (`shots_of`). A job file written by hand can therefore name
+a cut the record does not have; the key is a person's word.
+
 **What it is made from: the two shots' own ordinary loads**
 (`bench/two_shot_load.py job --a A.json --b B.json`). Nothing is tracked or
 posed again. Each preview's track, part and class-map videos are laid end
@@ -652,10 +657,12 @@ job folder and said in both its files to be joined, so
 `bench/load_chain.py` reads it by name like any preview and every step of
 the chain runs unchanged. The reason for making it this way and not with a
 tracker that crosses the cut: a pair made both ways then differs in the
-window and in no mask. One step of the chain is not for it: `no-look`
-records that no look is owed for an ordinary load, on its maker's statement
-that the load is not the first of its kind (`--not-first`), and a two-shot
-load is looked at.
+window and in no mask. One step of the chain is not for it, BY PRACTICE
+AND NOT BY CODE: `no-look` records that no look is owed for an ordinary
+load, on its maker's statement that the load is not the first of its kind
+(`--not-first`), and a two-shot load is looked at. Nothing in
+`bench/load_chain.py` refuses `no-look` on a job that names `two_shots`; a
+reviewer found that on 2026-10-13 and the refusal is not built.
 
 **What the two loads must be.** The same subject, source, canvas, still,
 settings and reference form; on two neighbouring shots of the shots

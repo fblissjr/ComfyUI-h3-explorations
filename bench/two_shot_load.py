@@ -37,6 +37,9 @@ Nothing is tracked again and nothing is posed again. The two-shot load is those 
 - **The job file**: one load on both loads' frames, with `two_shots` in its job block (the cut, the two shots,
   the two loads it was made from, why and who said so; `workflows/masked_job_graph.py::two_shots_of`). That key
   is the one thing by which the builder lets a load hold a cut (`bench/masked_job.py::held_as_two_shots`).
+  WHO HOLDS THE CUT TO WHAT: this tool holds it to the shots record (`shots_of`). The builder does not read the
+  record: it holds the key to itself (two neighbouring shots that meet on the cut) and to the capture's own shot
+  tables. So a job file written by hand can name a cut the record does not have; the key is a person's word.
 
 **What the two loads must be, each refused by name otherwise.** The same subject, source, canvas, still,
 defaults and settings (seed, margin, feather, edge, the subject's options for the capture), and the same form
@@ -199,8 +202,10 @@ def joined_table(first: dict, second: dict, said: dict) -> dict:
     every frame number moved on by the first's length and its shots numbered on from the first's.
 
     The cuts are the first's, the frame the two meet on, and the second's. What is one value a table (the pick,
-    the match line) is the first's, and the second's is kept under `joined_from` with `said`, which is why this
-    table is nobody's tracker: a shot's number here is not a number a correction can be typed into."""
+    the match line) is the first's, and the second's is kept under `joined_from` with `said`, AS THE SECOND TABLE
+    WROTE IT: its pick frame there is in the second table's own frames, the one frame number in the joined table
+    that is not moved on. Which is why this table is nobody's tracker: a shot's number here is not a number a
+    correction can be typed into."""
     for key in TABLE_SAME:
         if first.get(key) != second.get(key):
             raise Refused(f"the two shot tables differ in `{key}` ({first.get(key)!r} and {second.get(key)!r}): not tables of one job's form")
@@ -208,8 +213,9 @@ def joined_table(first: dict, second: dict, said: dict) -> dict:
     later: dict = moved({k: v for k, v in second.items() if k != "gallery"}, n)   # type: ignore[assignment]
     shots = list(first["shots"]) + [{**shot, "shot": count + i + 1} for i, shot in enumerate(later["shots"])]
     out = {**first, "frames": n + int(second["frames"]), "cuts": list(first["cuts"]) + [n] + list(later["cuts"]), "shots": shots,
-           "joined_from": {**said, "the_second_tables_own": {k: second.get(k) for k in ("pick", "pick_frame", "pick_frame_named", "match", "match_named", "pick_seed",
-                                                                                         "match_floor", "match_moved_by_gap", "subject_phrase")},
+           # the second table's one-a-table values AS IT WROTE THEM: its pick frame is in ITS OWN frames, not moved on, and the key says so
+           "joined_from": {**said, "the_second_tables_own_in_its_own_frames": {k: second.get(k) for k in ("pick", "pick_frame", "pick_frame_named", "match", "match_named",
+                                                                                                         "pick_seed", "match_floor", "match_moved_by_gap", "subject_phrase")},
                            "the_second_begins_on_table_frame": n,
                            "shots_are_numbered": f"the first table's 1 to {count} as they were; the second's {count + 1} on, its own number less {count}"}}
     if isinstance(first.get("gallery"), dict) and isinstance(second.get("gallery"), dict):
