@@ -4,6 +4,7 @@
     <python> bench/page_answers_to_cast.py --answers data/<stem>/poc/answers.jsonl --cast data/<stem>/cast/cast.jsonl \\
         [--preview JOB.json=TABLES_DIR ...] [--shots data/<stem>/shots.json ...] [--span FIRST-LAST] [--dry-run]
     <python> bench/page_answers_to_cast.py --answers ... --cast ... --shots data/<stem>/shots.json --frame-fields [--span FIRST-LAST] [--dry-run]
+    <python> bench/page_answers_to_cast.py --answers ... --cast ... --shots data/<stem>/shots.json --words-to-notes [--span FIRST-LAST] [--dry-run]
 
 A numbered picture's tile goes into the cast file; a plain frame's answer goes into a shots record (`--shots`).
 
@@ -83,6 +84,15 @@ ADDS THE TWO FIELDS AND NOTHING ELSE to every entry of the `--shots` records (in
 two came from and when. It reads no numbered picture and writes nothing to the cast file. An entry whose word is
 `no` or `unsure` and that gains a frame is printed as one for a person to read, and its word is still not changed;
 a `yes` entry that gains none is printed too, since a tracker will pick that subject on the shot's middle.
+
+**The owner's typed words, into a shot's note** (`--words-to-notes`, 2026-10-13; the owner asked that their words
+on a picture are read too). The words on a who row are in the answers file and on every page built from it, and
+this tool copied them nowhere: twenty of them were typed into shots' notes by a session, by hand, and the rest were
+in no record. This mode appends each of the owner's words lines to the `note` of the shot that holds the line's
+frame (inside `--span`, when one is given), WHOLE and unreworded, in the form those twenty have: `the owner on the
+who page (frame F, <answers file> line N, the time to the minute): the words`, joined to what the note held by
+` | `. A line a note already cites is passed over, so a second run adds nothing. Nothing else of a shot is
+touched, and the words are not read against a button or a plan: carrying them is not acting on them.
 
 **Nothing is written twice.** A tile whose answer already stands in the cast file, line for line, is listed as
 already there. A tile whose answer differs is appended (the latest line stands, nothing is rewritten), and the
@@ -327,6 +337,34 @@ def frame_fields(records: list[dict], standing: dict, answers: list[tuple[int, d
     return done
 
 
+def words_to_notes(records: list[dict], answers: list[tuple[int, dict]], span, answers_name: str) -> dict:
+    """Append the owner's typed words on a who row to the note of the shot that holds their frame. Returns the
+    notes changed per record, the lines carried, those a note already cites, and those no shot of a record holds."""
+    done = {"changed": {}, "carried": [], "cited": 0, "in_no_shot": []}
+    for n, d in answers:
+        if not (d.get("who") == "owner" and d.get("row") in WHO_ROWS and d.get("what") == "words" and str(d.get("words", "")).strip()
+                and str(d.get("source_frame", "")).isdigit()):
+            continue
+        frame = int(d["source_frame"])
+        if span and not span[0] <= frame <= span[1]:
+            continue
+        held = next(((k, f, s) for k, f in enumerate(records) for s in f["record"]["shots"]
+                     if d.get("video") in (None, f["record"].get("video")) and s["first"] <= frame <= s["last"]), None)
+        if held is None:
+            done["in_no_shot"].append(n)
+            continue
+        k, f, shot = held
+        cite = f"{answers_name} line {n},"
+        if cite in str(shot.get("note") or ""):
+            done["cited"] += 1
+            continue
+        said = f"the owner on the who page (frame {frame}, {cite} {str(d.get('at', ''))[:16]}): {str(d['words']).strip()}"
+        shot["note"] = f"{shot['note']} | {said}" if str(shot.get("note") or "").strip() else said
+        done["changed"][k] = done["changed"].get(k, 0) + 1
+        done["carried"].append((n, f["path"], shot["first"], shot["last"], frame))
+    return done
+
+
 def write_whole(path: str, text: str, read_as: str) -> None:
     """Replace a shots file in one move, unless somebody wrote it since this run read it."""
     if Path(path).read_text() != read_as:
@@ -350,6 +388,8 @@ def main() -> int:
     ap.add_argument("--span", metavar="FIRST-LAST", help="only the tiles whose source frame is inside; the others are counted and left")
     ap.add_argument("--frame-fields", action="store_true",
                     help="add frames_on and frames_boxed to every entry of the --shots records (inside --span) and change nothing else of them")
+    ap.add_argument("--words-to-notes", action="store_true",
+                    help="append the owner's typed words on a who row to the note of the shot that holds their frame (inside --span), whole, once")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
     span = None
@@ -367,6 +407,26 @@ def main() -> int:
     loaded = {name: json.loads(info["path"].read_text()) for name, info in tables.items()}
     answers = read_answers(a.answers)
     standing = cf.current(cf.read(a.cast))
+    if a.words_to_notes:
+        if not records or a.preview or a.frame_fields:
+            ap.error("--words-to-notes takes --shots and neither --preview nor --frame-fields: it appends words to shots' notes and does nothing else")
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        done = words_to_notes(records, answers, span, answers_name)
+        for n, path, first, last, frame in done["carried"]:
+            print(f"{'would carry' if a.dry_run else 'carried'}: {answers_name} line {n} (the owner's words on frame {frame}) into the note of {path} shot {first}-{last}")
+        if done["in_no_shot"]:
+            print(f"in no shot of a --shots record, left: lines {done['in_no_shot']}")
+        for k, count in sorted(done["changed"].items()):
+            rec = records[k]["record"]
+            lines = sorted(n for n, path, *_ in done["carried"] if path == records[k]["path"])
+            did = (f"the owner's typed words of {a.answers} line(s) {', '.join(str(n) for n in lines)} appended to {count} shot note(s) by "
+                   f"bench/page_answers_to_cast.py --words-to-notes at {now}, whole; nothing else of a shot was changed")
+            rec["written_by"] = f"{rec['written_by']}; {did}" if rec.get("written_by") else did
+            if not a.dry_run:
+                write_whole(records[k]["path"], json.dumps(rec, indent=1), records[k]["text"])
+        print(f"\nwords to notes: {'would carry' if a.dry_run else 'carried'} {len(done['carried'])} line(s); already cited in a note {done['cited']}; "
+              f"in no shot {len(done['in_no_shot'])}; " + ", ".join(r["path"] for r in records))
+        return 0
     if a.frame_fields:
         if not records or a.preview:
             ap.error("--frame-fields takes --shots and no --preview: it adds two fields to a record's entries and reads no numbered picture")

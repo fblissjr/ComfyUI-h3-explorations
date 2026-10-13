@@ -25,6 +25,10 @@ only worth having if what it stores is what the owner last said, once, through t
                                              cast file inside the shot) and `frames_on` (a plain frame marked on), with `present`,
                                              `how` and `by` byte for byte; a `yes` with no frame and a `no` with one are printed, the
                                              word unchanged; a second run adds nothing; `--dry-run` writes nothing; `--span` holds it
+  words_are_carried_into_a_shots_note_once   `--words-to-notes` appends the owner's typed words to the note of the shot holding their
+                                             frame, whole, with the frame, the line and the time, after what the note held; another
+                                             person's words are not carried; a line a note cites is passed over and a second run adds
+                                             nothing; `--dry-run` writes nothing; `--span` holds it; nothing else of a shot changes
   a_span_leaves_the_tiles_outside_it         with --span, a tile of an older preview outside it is counted and left where it would
                                              stop the run; inside the span a table no preview holds is still refused
   not_outlined_alone_is_stored_for_that_subject  on a numbered picture, `on this frame, not outlined` with no number clicked is a
@@ -266,6 +270,34 @@ def main() -> int:
              and "--frame-fields at 20" in json.loads(Path(p15["shots"]).read_text())["written_by"]
              and "would add to 0 entries; already carrying the same 2" in r_span.stdout,
              r_dry.stdout + r.stdout + r.stderr + r_again.stdout + r_span.stdout + json.dumps([lead15, second15, later15]))
+
+        f16 = Path(tempfile.mkdtemp(dir=d))
+        said16 = lambda n, frame, words, **kw: {"at": f"2026-10-13T18:27:{n:02d}Z", "who": "owner", "row": "who", "what": "words", "words": words,   # noqa: E731
+                                                "source_frame": frame, "frames": [2000, 2099], "video": "v.mp4", **kw}
+        p16 = setup_plain(f16, [said16(1, 2000, "1 is a picture on a box; 2 is the lead, the face only"), said16(2, 2050, "NOT THE OWNER'S", who="mrx"),
+                                said16(3, 2150, "words on the second shot"), plain(4, 2050, "lead", "not outlined")])
+        rec16 = json.loads(Path(p16["shots"]).read_text())
+        rec16["shots"][0]["note"] = "a session, earlier: the cuts are the tracker's"
+        Path(p16["shots"]).write_text(json.dumps(rec16, indent=1))
+        before16 = Path(p16["shots"]).read_bytes()
+        cmd16 = [sys.executable, str(TOOL), "--answers", str(p16["answers"]), "--cast", str(p16["cast"]), "--shots", str(p16["shots"]), "--words-to-notes"]
+        r_dry = subprocess.run(cmd16 + ["--dry-run"], capture_output=True, text=True)
+        dry_wrote = Path(p16["shots"]).read_bytes() != before16
+        r_span = subprocess.run(cmd16 + ["--span", "2000-2099"], capture_output=True, text=True)
+        got16 = json.loads(Path(p16["shots"]).read_text())
+        first16, second16 = got16["shots"][0], got16["shots"][1]
+        r_rest = subprocess.run(cmd16, capture_output=True, text=True)
+        all16 = json.loads(Path(p16["shots"]).read_text())
+        r_again = subprocess.run(cmd16, capture_output=True, text=True)
+        case("words_are_carried_into_a_shots_note_once", r_span.returncode == 0 and not dry_wrote and "would carry 2 line(s)" in r_dry.stdout
+             and first16["note"] == "a session, earlier: the cuts are the tracker's | the owner on the who page (frame 2000, answers.jsonl line 1, 2026-10-13T18:27): "
+                                    "1 is a picture on a box; 2 is the lead, the face only"
+             and "note" not in second16 and "NOT THE OWNER'S" not in Path(p16["shots"]).read_text() and first16["who"] == rec16["shots"][0]["who"]
+             and "carried 1 line(s)" in r_span.stdout and "answers.jsonl line 1 (the owner's words on frame 2000)" in r_span.stdout
+             and all16["shots"][1]["note"] == "the owner on the who page (frame 2150, answers.jsonl line 3, 2026-10-13T18:27): words on the second shot"
+             and "carried 1 line(s); already cited in a note 1" in r_rest.stdout and "carried 0 line(s); already cited in a note 2" in r_again.stdout
+             and not cast_lines(p16) and "--words-to-notes at 20" in all16["written_by"],
+             r_dry.stdout + r_span.stdout + r_span.stderr + r_rest.stdout + r_again.stdout + json.dumps(all16["shots"])[:600])
 
         f14 = Path(tempfile.mkdtemp(dir=d))
         older = "older_lead_shots_00001_shots.json"                      # a table of a preview this run does not name
