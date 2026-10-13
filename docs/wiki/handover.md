@@ -90,6 +90,9 @@ delivery tables folder, regenerated and never typed.
   the tooling session's third throwaway (its notes say how to make it
   again). A reader who did not build it reads that run before anything
   reads the tables.
+- The servers: ComfyUI was stopped at the close, its queue empty; the page
+  server was left running because the owner was still reviewing on it. It
+  is to be stopped by whoever finds it idle.
 - Three previews of the mended shots are still to be made seeded from the
   owner's answers (4602, 5889, 2623); the standing previews of 4602 and
   5889 have the second and third subjects the wrong way round.
