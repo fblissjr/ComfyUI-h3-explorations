@@ -278,6 +278,12 @@ fixed the same day, said inline below.**
   its motion video (row p04, 17:05Z) is the node change after that, for
   the street walk zoomed and the phone insets, and for the second subject
   on 1010-1038 (the owner's row 11, 17:47Z: wait for the zoomed load).
+  **Built 2026-10-13 (mrolaf), the node and the builder, not rendered**: a
+  zoomed load takes a `motion_file` it names and the node hands that video
+  on uncut (`video_mask.zoomed_source`; [`masked_v2v.md`](masked_v2v.md),
+  "A small subject, rendered zoomed in"). The preview's own whole-frame
+  body model stays refused on a zoomed load. NOT built: the next
+  sentence's tool, so 1010-1038 is not unblocked by this alone.
   Part of that change, found 2026-10-12 about 18:00Z: the preview stage
   (tracker, part model, class map, pose, body model) has no zoom; on
   1010-1038 the part model at whole-frame size calls her hands face from
@@ -289,6 +295,11 @@ fixed the same day, said inline below.**
   The plan of a zoomed load (`render_region: part`) is cheap today and
   says the box the node would take; it was run on 1010-1038 as
   `second_hf_1010_z` (mrhorn).
+- **The stacked form of a joined clip is a one-off for the second time**
+  (`data/2026-10-13_fun_joined_stacked/build_stacked_join.py`, after
+  `data/2026-10-11_fun_joined_b/`): the delivery of 0-1919 will want a
+  third. As a tracked tool it belongs beside `bench/assemble_delivery.py`,
+  reading the same table, with a check. Not started.
 - **The four reds of the green-and-red census are cut** (the owner, row
   z08, 2026-10-12 15:52:12Z): `check_correctness`'s bar, `check_sol_chunked`'s
   cosine and peak, `check_channel_balance`'s fragile-selection red,

@@ -480,6 +480,21 @@ def a_load_lands_on_the_inputs_it_names():
     src = close[graphs._the(close, graphs.SOURCE)]["inputs"]
     assert src["render_region"] == graphs.RENDER_REGIONS["part"] and "largest_zoom" not in src, "a zoomed part load"
     assert "render_region" not in g[graphs._the(g, graphs.SOURCE)]["inputs"], "a load that asks for no zoom is given one"
+    assert src["motion_reference"] == graphs.MOTIONS["none"] and "motion_video" not in src, "a zoomed load that names no motion video was given one"
+    # A ZOOMED LOAD THAT NAMES ITS MOTION VIDEO KEEPS IT (2026-10-13; refused until then): the head reference of
+    # the form on a small face. The graph carries the zoom and the wired video together, the video read as a
+    # picture from the frame the load says, and the same load on the whole frame differs in `render_region` alone.
+    head = ("/output/a_head_reference.mp4", 700)
+    named = {**own_run, "motion": "mesh", "motion_file": head[0], "motion_first": head[1]}
+    both_ways = [_a_load({**named, **zoom}, {**FILES_PART, "motion": head}) for zoom in ({"render_region": "part"}, {})]
+    zoomed, whole = (b[graphs._the(b, graphs.SOURCE)]["inputs"] for b in both_ways)
+    assert zoomed["render_region"] == graphs.RENDER_REGIONS["part"] and zoomed["motion_reference"] == graphs.MOTIONS["mesh"], \
+        f"a zoomed load that names a motion video: {zoomed.get('render_region')!r}, {zoomed.get('motion_reference')!r}"
+    reader = both_ways[0][zoomed["motion_video"][0]]
+    assert reader["class_type"] == cfg.MASKED_JOB_LOADER and reader["inputs"]["video"] == head[0], "the zoomed load's motion video is not the file it names"
+    assert zoomed["motion_vae"] is True and zoomed["motion_short_edge"] == min(LOAD_JOB["canvas"]), "the zoomed load's motion video goes in as any other does"
+    assert {k for k in set(zoomed) | set(whole) if zoomed.get(k) != whole.get(k)} == {"render_region"}, \
+        f"the zoomed load and the same load on the whole frame differ in more than render_region: {sorted(k for k in set(zoomed) | set(whole) if zoomed.get(k) != whole.get(k))}"
     quieter = _a_load({**PART, "context_noise": 0.5}, FILES_PART)
     assert quieter[graphs._the(quieter, graphs.SONG)]["inputs"]["context_noise"] == 0.5, "a load's own context_noise is not used"
     _unbuildable("motion", {**PART, "motion": "mesh zoomed"}, {**FILES_PART, "motion": ("/output/a_mesh.mp4", 604)})
@@ -556,7 +571,8 @@ def a_load_the_graph_cannot_be_built_from():
     _unbuildable("render_region", {**WHOLE, "render_region": "subject"})
     own_run = {k: v for k, v in PART.items() if k != "continue_from"}
     _unbuildable("largest_zoom|no longer a key", {**own_run, "render_region": "part", "largest_zoom": 2}, FILES_PART)
-    _unbuildable("zoomed in|motion", {**own_run, "render_region": "part", "motion": "mesh"}, {**FILES_PART, "motion": ("/output/a.mp4", 604)})
+    # a zoomed load takes a motion video only as a file it names: the preview's own body model is of the whole frame
+    _unbuildable("zoomed in|whole frame|motion_file", {**own_run, "render_region": "part", "motion": "mesh"}, {**FILES_PART, "motion": ("/output/a.mp4", 604)})
     _unbuildable("zoomed in|continue_from", {**PART, "render_region": "part"}, FILES_PART)
     _unbuildable("context", {**WHOLE, "context": 40})
     _unbuildable("context", {**WHOLE, "context": WINDOWS[0]})               # a context as long as its window
@@ -847,6 +863,21 @@ def loads_from_a_capture():
         assert built["files"]["motion_2"] == [str(face), 690], f"the second motion video's file: {built['files'].get('motion_2')}"
         assert any("second motion video" in line and "384" in line and "DOES NOT NAME <Video 2>" in line for line in built["shown"]), \
             "what is shown of a load does not say its second motion video, or that its text leaves it unnamed"
+        # a zoomed part load that names its motion video (2026-10-13; refused until then): found by its path, and what
+        # is shown says the video is not cut to the box. The same load with no motion video says the zoom and no more.
+        head = tmp / "a_head_reference.mp4"
+        head.write_bytes(b"")
+        close = {**{k: v for k, v in PART.items() if k != "continue_from"}, "name": "a_close", "render_region": "part"}
+        named = {**close, "name": "a_close_ref", "motion": "mesh", "motion_file": str(head), "motion_first": 700}
+        plain, with_ref = (json.loads(p.with_suffix(".built.json").read_text())
+                           for p in tool.build_loads(_loads_file(tmp, capture, loads=(close, named)), "plan", [], **where))
+        assert with_ref["files"]["motion"] == [str(head), 700], f"a zoomed load's motion video is {with_ref['files']['motion']}, not the file it names"
+        assert with_ref["settings"]["render_region"]["value"] == graphs.RENDER_REGIONS["part"] \
+            and with_ref["settings"]["motion"]["value"] == graphs.MOTIONS["mesh"], with_ref["settings"]
+        assert any(line.startswith("rendered `zoomed in") and "NOT cut to that box" in line for line in with_ref["shown"]), \
+            f"what is shown of a zoomed load with a motion video does not say the video is not cut: {with_ref['shown']}"
+        assert any(line.startswith("rendered `zoomed in") for line in plain["shown"]) and not any("NOT cut" in line for line in plain["shown"]), \
+            f"what is shown of a zoomed load with no motion video: {plain['shown']}"
         assert built["settings"]["motion_edge_2"] == {"value": 384, "set_by": "the job file"}, built["settings"].get("motion_edge_2")
         assert json.loads(written[0].with_suffix(".built.json").read_text())["settings"]["motion_edge_2"]["value"] == "no second motion video"
         _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**second, "name": "b_gone", "motion_file_2": str(tmp / "nothing.mp4")},)),

@@ -1326,6 +1326,23 @@ def check_song_loop(problems):
         if zbeside != sorted([zstem + ".mp4", zstem + "_with_mask.mp4", zstem + "_zoomed.mp4", zstem + "_zoomed.json",
                               zstem + shots.SUFFIX_JSON, zstem + shots.SUFFIX_TEXT]):
             _fail(problems, f"song loop, zoomed: beside the render are {zbeside}")
+        # A ZOOMED LOAD WITH A WIRED MOTION VIDEO, through the loop (2026-10-13): its plan is made, says the video
+        # was not cut to the box, and counts the reference a whole-frame plan of the same load counts
+        far_frames = int(far["frames"].shape[0])
+        far_wired = dict(far, motion_reference=vm.MOTION_WIRED, motion_vae=True, motion_short_edge=64,
+                         motion_frames=torch.linspace(0.1, 0.9, far_frames).view(far_frames, 1, 1, 1).expand(far_frames, height, width, 3).contiguous())
+        try:
+            zoomed_plan = run(tmp, "zw/run", record=far_wired, preview=True)[1].splitlines()
+            whole_plan = run(tmp, "ww/run", record={**far_wired, "render_region": vm.RENDER_WHOLE}, preview=True)[1].splitlines()
+        except Exception as exc:  # noqa: BLE001 -- the loop raising at all is the finding
+            _fail(problems, f"song loop, zoomed: a plan of a zoomed load with a wired motion video raised: {type(exc).__name__}: {exc}")
+        else:
+            costs = [[line for line in plan if "<Video 1> costs" in line] for plan in (zoomed_plan, whole_plan)]
+            if not any("motion video is NOT cut to the box" in line for line in zoomed_plan) \
+                    or any("NOT cut to the box" in line for line in whole_plan):
+                _fail(problems, "song loop, zoomed: a zoomed plan with a wired motion video must say the video was not cut, and a whole-frame plan must not")
+            if not costs[0] or costs[0] != costs[1]:
+                _fail(problems, f"song loop, zoomed: the wired video of a zoomed plan must cost what it costs on the whole frame: {costs[0]} against {costs[1]}")
         try:
             run(tmp, "y/run", record={**source, "render_region": vm.RENDER_ZOOM_REPLACED})
             _fail(problems, "song loop, zoomed: a load with cuts in it was rendered zoomed; one box cannot frame two shots")
@@ -1416,7 +1433,8 @@ def check_motion_look(problems):
 
 
 def check_render_zoom(problems):
-    """Item 24. A small subject rendered zoomed in: the one box of a load, the source made of it, the lay back."""
+    """Item 24. A small subject rendered zoomed in: the one box of a load, the source made of it, the lay back,
+    and a wired motion video handed on as it was wired (2026-10-13; refused from 2026-10-10 until then)."""
     import importlib
     import math
     import tempfile
@@ -1519,12 +1537,33 @@ def check_render_zoom(problems):
         except ValueError as exc:
             if word not in str(exc):
                 _fail(problems, f"render zoom: the continuation's refusal does not say {word!r}: {exc}")
+    # A ZOOMED RUN TAKES A WIRED MOTION VIDEO AS IT IS (2026-10-13; refused from 2026-10-10 until then). The zoom
+    # does nothing to the video and the video does nothing to the zoom: the same box and pictures as with none
+    # wired, the same reference a whole-frame run of the load is shown, to the bit, and a line of the report that
+    # says the video was not cut. The control: the same video cut to the box is NOT that reference, so a cut
+    # that crept back in would be seen here.
+    wired = torch.rand(n, big_h, big_w, 3, generator=torch.Generator().manual_seed(7))
+    with_video = dict(rec, motion_reference=vm.MOTION_WIRED, motion_frames=wired)
     try:
-        vm.zoomed_source(dict(rec, motion_frames=frames), width, height)
-        _fail(problems, "render zoom: a zoomed run with a wired motion video was not refused")
+        zv, said_v = vm.zoomed_source(with_video, width, height)
     except ValueError as exc:
-        if "wired motion video" not in str(exc):
-            _fail(problems, f"render zoom: the refusal of a wired motion video does not say so: {exc}")
+        _fail(problems, f"render zoom: a zoomed run with a wired motion video was refused: {exc}")
+    else:
+        if zv.get("zoom") != zoom or not torch.equal(zv["frames"], z["frames"]) or not torch.equal(zv["mask"], z["mask"]) \
+                or not torch.equal(zv["region_boxes"], z["region_boxes"]):
+            _fail(problems, "render zoom: a wired motion video changed the box or the zoomed pictures; the box is from the replaced part alone")
+        shown = vm.wired_motion(zv, 4, 9, width, height)
+        on_whole = vm.wired_motion({**with_video, "render_region": vm.RENDER_WHOLE}, 4, 9, width, height)
+        if zv.get("motion_frames") is not wired or not torch.equal(shown, on_whole):
+            _fail(problems, "render zoom: a zoomed window's wired motion video must be the one a whole-frame run of the load is shown, to the bit")
+        cut = vm.wired_motion({**zv, "motion_frames": vm.crop_frames(wired, zoom["box"], big_w, big_h)}, 4, 9, width, height)
+        if cut.shape != shown.shape or torch.equal(cut, shown):
+            _fail(problems, "render zoom: the fixture cannot tell a wired video cut to the box from one handed on as it is")
+        if len(said_v) != 2 or said_v[0] != said[0] or "motion video is NOT cut to the box" not in said_v[1]:
+            _fail(problems, f"render zoom: a zoomed run with a wired motion video must say, on a line of its own, that the video was not cut: {said_v}")
+        two, said_two = vm.zoomed_source(dict(with_video, motion_frames_2=wired.flip(0), motion_short_edge_2=32), width, height)
+        if two.get("motion_frames_2") is None or len(said_two) != 2 or "motion videos are NOT cut to the box" not in said_two[1]:
+            _fail(problems, f"render zoom: a second wired video on a zoomed run is carried and said as the first is: {said_two}")
     for stored in (None, vm.NO_REGION_FILE, vm.NOT_CONTINUED):
         if vm.zoomed_source(plain, width, height, stored)[0] is not plain:
             _fail(problems, f"render zoom: a whole-frame run continuing a whole-frame window ({stored!r}) must run as it always has")

@@ -55,7 +55,8 @@ and `motion_edge_2` (a second motion video beside the first, shown to the model 
 load whose text gives each video a subject of its own), `subjects` (a load of TWO subjects in one pass, below), `hair_band` (for a part pass: a share of the part's
 height left open under it for the still's hair, cut out of one keep-out, which `hair_band_cuts` names when it is
 not the clothing; `bench/masked_job.py::hair_band`, `h3_config.MASKED_JOB_HAIR_BAND`), and `render_region`: `part` renders the load zoomed in on what is
-replaced and lays it back (`RENDER_REGIONS`; for a part that is small in the frame), where `frame`, the
+replaced and lays it back (`RENDER_REGIONS`; for a part that is small in the frame; such a load takes a motion
+video only as a `motion_file` of its own, which the node shows as it is and does not cut to the box), where `frame`, the
 default, renders the whole frame. A default that was measured on one clip is a starting value for
 another: every one of them can be set in a load or in the file's `defaults`, and the build record says
 which were (`SETTINGS`). `carried` says what a pass takes: `track` is the whole subject, `held` the
@@ -300,7 +301,11 @@ SETTINGS = ("carried", "margin", "feather", "edge", "window", "context", "contex
 #: What a load's `render_region` may say, and the Masked Source's choice for each (`video_mask.RENDER_REGIONS`).
 #: `frame` is the node's own default and sets nothing; `part` renders the load zoomed in on what is replaced.
 #: A zoomed load must be one shot (the node refuses a cut inside the loaded frames, and the tool refuses it
-#: first, from the capture's cuts) and takes no motion video (the node refuses one).
+#: first, from the capture's cuts). It takes a motion video only as a file the load names (`motion_file`): the
+#: node hands a zoomed load its motion video as it is, not cut to the box (`video_mask.zoomed_source`), so the
+#: preview's own body model, which is of the whole frame, is refused here and a video framed on the subject (the
+#: body model cut to the head, `bench/head_reference.py`) is what a zoomed load names. Until 2026-10-13 a zoomed
+#: load took no motion video at all.
 RENDER_REGIONS = {"frame": None, "part": "zoomed in on what is replaced"}
 #: What a load's `carried` may say (the capture's words): the whole tracked subject, or its part.
 CARRIED = ("track", "held")
@@ -511,9 +516,11 @@ def check_load(job: dict, one: dict, windows: tuple[int, ...]) -> None:
                          f"load takes a part (`carried: held`)")
     if "largest_zoom" in one:
         raise ValueError(f"load {name!r} sets largest_zoom: no longer a key; the zoom's limit is the node's own constant")
-    if region != "frame" and motion_of(job, one) != "none":
-        raise ValueError(f"load {name!r} is rendered zoomed in and takes a motion video (`{motion_of(job, one)}`): the "
-                         f"node renders a zoomed load with none. Give the load `motion: none`.")
+    if region != "frame" and motion_of(job, one) != "none" and not one.get("motion_file"):
+        raise ValueError(f"load {name!r} is rendered zoomed in and takes the preview's own motion video "
+                         f"(`{motion_of(job, one)}`), which is of the whole frame: the node shows a zoomed load its "
+                         f"motion video as it is, not cut to the box. Name a video framed on the subject with "
+                         f"`motion_file` (the body model cut to the head), or give the load `motion: none`.")
     if region != "frame" and one.get("continue_from"):
         raise ValueError(f"load {name!r} is rendered zoomed in and continues another run (`continue_from`): the node "
                          f"refuses a zoomed load that is not a run of its own")

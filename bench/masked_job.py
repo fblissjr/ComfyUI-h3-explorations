@@ -819,6 +819,13 @@ def shown(job: dict, one: dict, files: dict, graph: dict, inputs: Path) -> list[
                          + ("names <Video 2>" if named else "DOES NOT NAME <Video 2>"))
     else:
         lines.append("no motion video")
+    if src.get("render_region"):
+        # a zoomed load: the box and the zoom are the node's to say (the plan's report); what this line can say is
+        # what the zoom does not do to the motion video (`video_mask.zoomed_source`)
+        lines.append(f"rendered `{src['render_region']}`: one box round the part for the whole load, which the plan's report gives with its zoom"
+                     + ("; the motion video is shown AS IT IS, NOT cut to that box: right for a video framed on the subject (the body "
+                        "model cut to the head), and for one of the whole frame its figure is at the frame's place and size beside a "
+                        "plate that is the box enlarged. Nothing here can tell which this file is" if files["motion"] else ""))
     lines += pair_lines(one, files, src, str(run.get("prompt", "")), ref, inputs)
     lines.append(f"audio: {one['audio']} cut to the load" if one.get("audio") else "audio: the source's own, as the loader cuts it")
     lines.append(f"seed {run['seed']}"

@@ -376,8 +376,10 @@ MOTIONS = (MOTION_NONE, MOTION_SUBJECT, MOTION_ZOOM, MOTION_FRAME, MOTION_WIRED)
 #: that box to the canvas, runs the whole render on it as if it were the clip, and lays the region back into
 #: the whole frame (`zoomed_source`, `lay_back`). Cut down on 2026-10-10 to what its one render used, until
 #: the owner rules on that render (`docs/wiki/decisions.md`): a second choice round the tracked subject, an
-#: input for the largest zoom, the rules that let a zoomed run continue another, and a zoomed run with a
-#: wired motion video are removed. Why a zoom at all: a subject small in the
+#: input for the largest zoom, the rules that let a zoomed run continue another, and the cut of a wired motion
+#: video to the box are removed. From then until 2026-10-13 a zoomed run with a wired motion video was refused;
+#: since then it takes the video AS IT IS WIRED, not cut to the box (`zoomed_source` has what that does and does
+#: not do; the owner's go is the Open List's row p04, answered 2026-10-12). Why a zoom at all: a subject small in the
 #: frame is a few of the model's tokens. The evidence when written is one clip and mixed (the owner on
 #: playback, 2026-10-10): a face part about 94 px tall on the canvas did not read as replaced where one about
 #: 164 px had, and the same small face then did read as replaced once its load no longer faded at the end
@@ -1657,6 +1659,15 @@ def render_zoom_note(zoom: dict, source: dict) -> str:
             "ZOOMED picture, not of the whole frame")
 
 
+def wired_under_zoom_note(source: dict) -> str:
+    """One line for a report: a zoomed run's wired motion video was handed on as it was wired (`zoomed_source`)."""
+    videos = "videos are" if source.get("motion_frames_2") is not None else "video is"
+    return (f"ZOOMED, and the wired motion {videos} NOT cut to the box: the model is shown what a whole-frame run of this "
+            "load would be shown. A video with a framing of its own (the body model cut to the head) is the same "
+            "reference either way; one that runs beside the whole frame shows its figure at the frame's place and "
+            "size, beside a plate that is the box enlarged")
+
+
 def zoomed_source(source: dict, width: int, height: int, continued=NOT_CONTINUED) -> tuple[dict, list[str]]:
     """A source as the render runs on it, and the report's lines: the source itself under `the whole frame`,
     or a copy whose pictures are one box of the load scaled to the canvas.
@@ -1679,8 +1690,21 @@ def zoomed_source(source: dict, width: int, height: int, continued=NOT_CONTINUED
     what that window's region file says (`stored_zoom`). A whole-frame run on a zoomed window is refused, and
     so is a zoomed run on any stored window. For a day a zoomed run could take the stored window's box; no
     render had done it, and it was removed on 2026-10-10. A zoomed choice that comes to the whole frame (the
-    subject too large for a zoom) is a whole-frame run for this. A zoomed run with a wired motion video is
-    refused too: the video would have to be cut to the same box, and a pass that replaces a part wires none.
+    subject too large for a zoom) is a whole-frame run for this.
+
+    A WIRED MOTION VIDEO IS HANDED ON AS IT WAS WIRED (2026-10-13; refused from 2026-10-10 until then). The zoom
+    does nothing to it: `motion_frames`, `motion_frames_2` and their short edges are the copy's as they are the
+    source's, so `wired_motion` gives a zoomed window the same pictures, to the bit, that it gives the same window
+    of a whole-frame run. What that means depends on the video, and the node cannot tell which it was given:
+    - a video with a framing of its own (the body model cut to one box round the head, `bench/head_reference.py`)
+      is in neither the frame's coordinates nor the box's on a whole-frame run either, and is the same reference
+      here. This is what the pairing is for: a small face gets the tokens of the zoom and the reference of the form.
+    - a video that runs beside the WHOLE FRAME (a whole-frame body model, a pose) still shows the whole frame: its
+      figure stands where the subject stands in the frame, at the frame's size, while the plate the model is
+      given is the box enlarged. Nothing cuts it to the box (the cut was removed on 2026-10-10 after one render
+      that showed no difference, and is not back). The report's line says the video was not cut.
+    The zoom does not make the reference larger, sharper or differently timed, and the reference does not move
+    the box: the box is from `region_boxes` alone. No render had been made with the pair when this was written.
 
     ONE EDGE, left open: a whole-frame run that continues a stored window with NO region file is let through
     as a whole-frame continuation. A zoomed window always writes its region file except when the save itself
@@ -1718,9 +1742,6 @@ def zoomed_source(source: dict, width: int, height: int, continued=NOT_CONTINUED
         raise ValueError(f"render_region `{choice}` would render this load in the box {list(box)}, and the run continues "
                          "a stored window: a zoomed run continues nothing, because its kept frames would be of another "
                          f"framing. Render `{RENDER_WHOLE}`, or start this load as its own run")
-    if source.get("motion_frames") is not None:
-        raise ValueError(f"render_region `{choice}` and a wired motion video: the video would have to be cut to the same "
-                         f"box. Unwire `motion_video`, or render `{RENDER_WHOLE}`")
     cx, _cy = _fit_crop(old_w, old_h, int(width), int(height))
     scale = (old_w - 2 * cx) / (box[2] - box[0])
     zoom = {"box": [int(v) for v in box], "source_size": [old_w, old_h], "canvas": [int(width), int(height)],
@@ -1744,7 +1765,10 @@ def zoomed_source(source: dict, width: int, height: int, continued=NOT_CONTINUED
                              torch.ceil((b[:, 3] - box[1]) * k).clamp(0, int(height))], dim=1).to(torch.long)
         moved[(tracked[:, 0] < 0) | (moved[:, 2] <= moved[:, 0]) | (moved[:, 3] <= moved[:, 1])] = -1
         out["subject_boxes"] = moved
-    return out, [render_zoom_note(zoom, source)]
+    lines = [render_zoom_note(zoom, source)]
+    if source.get("motion_frames") is not None:
+        lines.append(wired_under_zoom_note(source))
+    return out, lines
 
 
 def lay_back(decode: torch.Tensor, alpha: torch.Tensor, whole: torch.Tensor, zoom: dict) -> torch.Tensor:
@@ -2092,10 +2116,12 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                                         "zoom it came to; a part that crosses the frame is zoomed less, and one "
                                         "that fills it is rendered on the whole frame.\n\n"
                                         "One box for the whole load, so load one shot at a time: a load with "
-                                        "a cut in it is refused, and so is a run that continues another or "
-                                        "wires a motion video. Costs no sampling time. The zoomed picture is "
-                                        "also written beside each window. grow_pixels and feather_pixels are "
-                                        "then pixels of the zoomed picture.")),
+                                        "a cut in it is refused, and so is a run that continues another. "
+                                        "A wired motion video is shown to the model as it is, not cut to the "
+                                        "box: wire one framed on the subject (a body model cut to the head), "
+                                        "not one of the whole frame. Costs no sampling time. The zoomed "
+                                        "picture is also written beside each window. grow_pixels and "
+                                        "feather_pixels are then pixels of the zoomed picture.")),
                 # appended 2026-10-12 (the owner: more than one reference video, each with a subject of its own)
                 io.Image.Input("motion_video_2", optional=True,
                                tooltip=("Optional: a second video beside `motion_video`, for motion_reference "

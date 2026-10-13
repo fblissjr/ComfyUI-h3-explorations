@@ -17,6 +17,29 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-13
 
+- **A load rendered zoomed in takes a wired motion video, as it is wired**
+  (the owner's yes on the Open List's row p04, 2026-10-12 17:05Z, "the
+  zoomed load that keeps its motion video: build it next"; built
+  2026-10-13 by the tooling session at the lead's relay). This reverses
+  one line of the cut of 2026-10-10 below ("a zoomed run with a wired
+  motion video is refused") and none of the rest: the cut of a wired
+  video to the box and the choice `a video I wire, zoomed in` stay
+  removed. `video_mask.zoomed_source` hands the video on untouched and
+  its docstring says what the zoom does and does not do to it; the job
+  builder takes a zoomed load's motion video only as a `motion_file` the
+  load names and still refuses the preview's own whole-frame body model
+  there (`workflows/masked_job_graph.py`). Prose that said otherwise and
+  is corrected in the same change: `video_mask.py` at
+  `RENDER_ZOOM_REPLACED` ("a zoomed run with a wired motion video [is]
+  removed") and the node's tooltip ("a load with a cut in it is refused,
+  and so is a run that continues another or wires a motion video");
+  `masked_v2v.md`, "Limits known today" ("A load rendered zoomed in takes
+  no motion video ... the section below and this one cannot be combined
+  today") and "A small subject, rendered zoomed in" ("a zoomed run with a
+  wired motion video is refused"); the builder's note at `RENDER_REGIONS`
+  ("takes no motion video (the node refuses one)"); `docs/checks.md`,
+  the row of `check_video_mask.py` ("a wired motion video refused"). Not
+  rendered when written.
 - **The floor that empties a small part is a starting value, and a
   capture says where a clip's own sizes fall against it** (the owner's
   answer on the Open List's row p07, 2026-10-12: set the floor from this

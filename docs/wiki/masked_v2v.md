@@ -1,6 +1,6 @@
 # Masked video to video: how it works, what it cannot do, where to go next
 
-last updated: 2026-10-12 (reorganized: an index at the top, the sections in the order a reader meets the lane, and every clip, file and function the page names opened and held to its sentence; what moved, what was cut and what was corrected is in [`decisions.md`](decisions.md) under that date, the table of what was opened is [`2026-10-12_masked_v2v_page_held_to_its_clips.md`](../../bench/results/2026-10-12_masked_v2v_page_held_to_its_clips.md), and the page's earlier edits are listed in "How this page grew" at the end)
+last updated: 2026-10-13 (a load rendered zoomed in takes a motion video it names, in "A small subject, rendered zoomed in" and "Limits known today"; what the two said before is in [`decisions.md`](decisions.md) under that date); before that 2026-10-12 (reorganized: an index at the top, the sections in the order a reader meets the lane, and every clip, file and function the page names opened and held to its sentence; what moved, what was cut and what was corrected is in [`decisions.md`](decisions.md) under that date, the table of what was opened is [`2026-10-12_masked_v2v_page_held_to_its_clips.md`](../../bench/results/2026-10-12_masked_v2v_page_held_to_its_clips.md), and the page's earlier edits are listed in "How this page grew" at the end)
 
 Written by hand. This is the lane's map for a reader who has not followed
 it: the pieces in the order a render meets them, the limits each one has
@@ -1579,9 +1579,20 @@ without marks and her lids came most of the way.
   take it"). The pose model's own score for the lid points does not say
   this: it stays high on such a face and on a head turned away, so the
   score cannot be what decides where marks are drawn.
-- **A load rendered zoomed in takes no motion video** (`video_mask.py`, the
-  note at `RENDER_ZOOM_REPLACED`; the builder refuses the pair), so the
-  section below and this one cannot be combined today.
+- **A load rendered zoomed in takes a motion video only as a file the load
+  names, and the node does not cut that video to the box** (since
+  2026-10-13: `video_mask.zoomed_source`, "A WIRED MOTION VIDEO IS HANDED
+  ON AS IT WAS WIRED"; the builder's rule is at
+  `workflows/masked_job_graph.py::RENDER_REGIONS`). So the reference of
+  this section in its cropped form (the body model cut to the head, which
+  has a framing of its own) can go with the zoom of the section below; a
+  whole-frame body model cannot, and the builder refuses the preview's
+  own. Until that day this line read "takes no motion video ... the
+  section below and this one cannot be combined today". No render had
+  been made of the pair when this was written, and the preview stage
+  (tracker, part model, pose, body model) still has no zoom: a face the
+  pose model cannot read at whole-frame size gets no drawn points from
+  the zoom alone.
 - **Her head sits a little further from the source's under the plain
   text**, while its turn is the same in every render. The word "head" left
   the text along with several other changes, so the cause is not separated.
@@ -1660,7 +1671,22 @@ cut inside it is refused: load one shot at a time. A subject who crosses
 the frame makes the box most of the frame; under `ZOOM_SMALLEST` the load
 is rendered on the whole frame and the report says so. A zoomed run
 continues nothing and is not continued (`continue_from` is refused both
-ways), and a zoomed run with a wired motion video is refused.
+ways).
+
+**A wired motion video goes in as it was wired** (2026-10-13; refused from
+2026-10-10 until then). The zoom does nothing to it and it does nothing to
+the zoom: the box is from the replaced part alone, and a zoomed window is
+shown the same reference a whole-frame window of the load would be, to the
+bit (`video_mask.zoomed_source`, `wired_motion`). What that means depends
+on the video. One with a framing of its own, the body model cut to one box
+round the head (`bench/head_reference.py`), is in neither the frame's
+coordinates nor the box's on any load, and is the same reference here:
+this is what the pairing is for. One that runs beside the whole frame (a
+whole-frame body model) still shows the whole frame, its figure at the
+frame's place and size beside a plate that is the box enlarged; nothing
+cuts it to the box, the report says so, and the job builder refuses the
+preview's own body model on a zoomed load and takes only a `motion_file`
+the load names. The zoom does not enlarge or sharpen the reference.
 
 **The box is in the pixels the node was handed.** The job graphs' loader
 fits the clip to the canvas before the Masked Source
@@ -1682,7 +1708,9 @@ their cells maps through the box or refuses. The mask review of a zoomed
 run is of the zoomed picture, and its legend says so.
 
 **Checks.** `bench/check_video_mask.py` item 24 and the zoomed case of its
-song loop; `bench/check_recomposite_window.py`'s zoomed window.
+song loop (both hold the wired video); `bench/check_recomposite_window.py`'s
+zoomed window; `bench/check_masked_job.py` for the builder's rule and the
+build record's line.
 
 **Dated lines.**
 
@@ -1729,6 +1757,18 @@ song loop; `bench/check_recomposite_window.py`'s zoomed window.
   whether the drawn part holds still against the head when the track is a
   pixel off. The cheaper things to try first are a smaller `ZOOM_ROOM`
   and the box round the part where it was round the tracked subject.
+- 2026-10-13: A ZOOMED RUN TAKES A WIRED MOTION VIDEO, uncut (the owner's
+  yes on the Open List's row p04, 2026-10-12, to "the zoomed load that
+  keeps its motion video"; built the next day). What came back is not
+  what was cut on the 10th: that was a cut of the wired video to the box
+  (one render, no difference), and it is still gone. What this is for:
+  the frozen form (the body model cut to the head with the face points)
+  on faces the whole frame gives too few tokens, which the clip holds on
+  the lead's street walk, the second subject's 1010-1038 and the phone
+  insets. NOT RENDERED when written. Not built with it: a preview stage
+  that runs zoomed, so the part model's and the pose model's readings of
+  a small subject are what they were (`next_steps.md` has the case of
+  hands read as face), and the capture's reading of a zoomed load.
 - 2026-10-10: the softness the report names (the node was handed frames
   already fitted to the canvas, so the whole zoom is enlargement) goes
   away only when the loader hands the clip's own frames, which is the
