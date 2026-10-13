@@ -22,6 +22,12 @@ with only the fields the rule reads, a shots file of three shots and a plan of t
    took; frames no render takes inside a shot that has a piece are a comment and not a `source` line.
 6. **`restore=`**: every other subject the shots file has in the shot, `:whole` on a face row and bare on a face
    and hair row; none where the subject is alone.
+7b. **`--hold`** is its mirror (2026-10-13): the named render is not laid on that shot for that subject, and its
+   reason is printed where it is passed over, in the table's header and in the reading, each time as a session's
+   word and not the owner's. A shot it leaves with nothing standing says a render is HELD, not that none exists.
+   An older render that may stand then does. Refused: a hold on a render the owner's last choice keeps; a hold
+   and a preference on one render; frames that are no shot, a load the ledger lacks, a load that covers none of
+   the shot, a hold with no reason. With no hold, nothing of it is in the table.
 7. **`--prefer`** goes first among the renders that may stand, with its reason printed; naming a render that never
    stands, a load the ledger lacks, or frames that are no shot is refused.
 8. **The table reads back** through the assembler's own two readers to the rows and `source` lines decided.
@@ -80,8 +86,8 @@ def ledger(*renders: dict) -> dict:
     return {"schema": dt.LEDGER_SCHEMA, "share": "/share", "renders": {r["file"]: r for r in renders}}
 
 
-def decide(*renders: dict, prefers=()) -> dict:
-    return dt.decide(ledger(*renders), SHOTS, PLAN, [dt.parse_prefer(p) for p in prefers])
+def decide(*renders: dict, prefers=(), holds=()) -> dict:
+    return dt.decide(ledger(*renders), SHOTS, PLAN, [dt.parse_prefer(p) for p in prefers], holds=[dt.parse_hold(h) for h in holds])
 
 
 def entry(out: dict, first: int, subject: str) -> dict:
@@ -234,6 +240,52 @@ def a_preference() -> str:
     else:
         raise AssertionError("--prefer made a render the owner called wrong stand")
     return "a preferred load goes first with its reason printed; one that never stands, a load the ledger lacks and frames that are no shot are refused"
+
+
+def a_hold_of_the_leads() -> str:
+    """A render the lead says is not to be laid, before the owner has judged it (2026-10-13: a render read as not one
+    face across its shot was the only render of that shot, and stood by the rule)."""
+    only = render("only_one", (0, 49), "09")
+    why = "a blind reader's reading, reading.md sections 4 and 8: it is not one face across the shot; the owner has not judged it"
+    out = decide(only, holds=[f"0-49:a={only['name']}:{why}"])
+    e = entry(out, 0, "a")
+    assert e["stands"] == [] and not any(r["name"] == "only_one" for r in out["rows"]), "a held render was laid"
+    over = e["passed_over"][0]
+    assert over["render"] == "only_one" and over["held"] == why and over["why"].startswith(f"HELD BACK by the lead (--hold), a session's word and not the owner's: {why}") \
+        and "Without the hold: it may stand (step 2)" in over["why"], over
+    # the shot's line says a render is held, not that none exists
+    assert e["source_line"] == f"{dt.HELD_BACK} (only_one)" and dt.NO_SOURCE_YET not in e["source_line"], e["source_line"]
+    assert out["held"] == [{"first": 0, "last": 49, "subject": "a", "load": "only_one", "reason": why}], out["held"]
+    text = dt.table_text(out, "/share", "MADE", PLAN, "t")
+    assert f"# HELD BACK by the lead (--hold), a session's word and not the owner's: only_one on 0-49, a: {why}" in text and "only_one_00001.mp4" not in text.split("# HELD BACK")[1].split("\n", 1)[1], text
+    assert "HELD BACK by the lead" in dt.reading_text(out, "MADE", "t.txt") and why in dt.reading_text(out, "MADE", "t.txt")
+    # with an older render that may stand, the hold of the newer lets the older stand; with none held, the newer does
+    older = render("older", (0, 49), "03")
+    assert [s["render"] for s in entry(decide(only, older), 0, "a")["stands"]] == ["only_one"]
+    stands = entry(decide(only, older, holds=[f"0-49:a=only_one:{why}"]), 0, "a")["stands"]
+    assert [s["render"] for s in stands] == ["older"], stands
+    # a hold on a render that would not have stood says what it would have been, and the shot's line stays the rule's own
+    lids = render("with_lids", (0, 49), "09", has=LIDS)
+    e = entry(decide(lids, holds=["0-49:a=with_lids:the lead's reason"]), 0, "a")
+    assert "Without the hold: it is not in the frozen form" in e["passed_over"][0]["why"] and e["source_line"].startswith(dt.NO_SOURCE_YET), e
+    # THE OWNER'S WORD IS OVER THE LEAD'S: a hold on a render the owner kept is refused; and so are the malformed ones
+    kept = render("kept", (0, 49), "09", owner=(("04", "choice", "keep this one"),))
+    for renders, kwargs, words in (((kept,), dict(holds=["0-49:a=kept:the lead does not like it"]), "a keep. The owner's word is over the lead's hold"),
+                                   ((only,), dict(holds=["0-49:a=only_one:r"], prefers=["0-49:a=only_one:r"]), "put first or held back, not both"),
+                                   ((only,), dict(holds=["0-48:a=only_one:r"]), "--hold names frames 0-48, which is not a shot"),
+                                   ((only,), dict(holds=["0-49:a=nobody:r"]), "--hold names the load 'nobody', which the ledger has no render of"),
+                                   ((only, render("elsewhere", (50, 99), "02")), dict(holds=["0-49:a=elsewhere:r"]), "no render of that load covers those frames"),
+                                   ((only,), dict(holds=["0-49:a=only_one:"]), "--hold '0-49:a=only_one:' is not")):
+        try:
+            decide(*renders, **kwargs)
+        except SystemExit as stop:
+            assert words in str(stop), f"refused without saying {words!r}: {stop}"
+        else:
+            raise AssertionError(f"not refused: {kwargs}")
+    # no hold: nothing of it in the table or the data
+    assert decide(only)["held"] == [] and "HELD BACK" not in dt.table_text(decide(only), "/share", "MADE", PLAN, "t")
+    return ("a held render is not laid and its reason is printed where it is passed over, in the table's header and in the reading, as a session's word; the "
+            "shot's line says a render is held; an older render then stands; a hold on the owner's keep, with a preference, or on no such shot or load is refused")
 
 
 def the_table_reads_back() -> str:
@@ -412,6 +464,7 @@ case("what never stands", what_never_stands)
 case("nothing left, and several renders on one shot", nothing_left_and_several_on_a_shot)
 case("restore: the other subjects of the shot", restores)
 case("a preference of the lead's", a_preference)
+case("a hold of the lead's: not this one, and why", a_hold_of_the_leads)
 case("the table reads back through the assembler", the_table_reads_back)
 case("the commands, each whole and one line", the_commands)
 case("a row is tied to its capture's run, from records", a_row_is_tied_to_its_run)
