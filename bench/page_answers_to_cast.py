@@ -22,7 +22,13 @@ the who page's of 2026-10-12 (a SUBJECT and a button: their number on the tile, 
 shot` (the page's label until 2026-10-12 14:45Z) or `not on frame`; all three store as `none of the outlined people`, the cast's one word, and `seeds` decides per
 load how strongly to read it). Otherwise: a session's test clicks are listed as left out. Lines are grouped by tile (the table's file name and the
 source frame it shows); on a tile, the LATEST click for each numbered person is the answer (`taken back` leaves
-that person unanswered). A button is read through `BUTTONS` to a subject's label or to `none of these`; a `not
+that person unanswered). WHICH SUBJECTS GET A LINE depends on what the tile was asked: of the numbered people (the
+first page), naming them says of every other subject of the job that they are none of the people outlined, so
+every subject of the job gets a line; of the subjects one by one (the who page), a subject nobody clicked for was
+not answered, so only the subjects clicked get one, and the others are printed as NOT ANSWERED (2026-10-13: until
+then a click for one subject of a two-subject tile stored `none of the outlined people` for the other, which the
+owner had not said, and a tile with no number on it, only `on this frame, not outlined`, stored nothing at all,
+though that is the answer for a subject the tracker did not outline). A button is read through `BUTTONS` to a subject's label or to `none of these`; a `not
 sure` that stands on any person means the tile is NOT stored and is printed as waiting on the owner, since
 storing it would write `none of the outlined people` for a subject the owner had not decided on. The owner's
 typed words on the tile are printed beside it, whole, for whoever runs this to read: words count over a button
@@ -160,12 +166,15 @@ def plan(tile_key, tile, table_info, table: dict) -> dict:
     # latest click about a subject wins, whichever shape it came in; a number that two subjects still claim is refused.
     claims: dict[str, tuple[str, int, str]] = {}      # subject -> (at, number, chosen)
     unsure, none = [], []
+    of_people, times = False, []                      # was any numbered PERSON answered for; every standing click's time
     for person, (n, chosen, at) in sorted(tile["buttons"].items()):
         if chosen not in BUTTONS:
             raise SystemExit(f"{name} frame {frame}: line {n} has a button this tool does not know: {chosen!r}")
         meaning = BUTTONS[chosen]
         if meaning == "taken back":
             continue
+        of_people = True
+        times.append(at)
         if meaning == "unsure":
             unsure.append(person)
         elif meaning is None:
@@ -173,6 +182,7 @@ def plan(tile_key, tile, table_info, table: dict) -> dict:
         elif at >= claims.get(meaning, ("", 0, ""))[0]:
             claims[meaning] = (at, person, chosen)
     for subject, (n, chosen, at) in sorted(tile["by_subject"].items()):
+        times.append(at)
         if chosen.isdigit():
             if at >= claims.get(subject, ("", 0, ""))[0]:
                 claims[subject] = (at, int(chosen), chosen)
@@ -191,10 +201,16 @@ def plan(tile_key, tile, table_info, table: dict) -> dict:
         raise SystemExit(f"{name} frame {frame}: one number is claimed for two subjects by the owner's latest clicks: {clash}; "
                          f"a person settles it with cast_file.py withdraw and answer")
     clicked = sorted({sub.partition("\x00")[0] for sub in claims})
+    # THE SUBJECTS A TILE'S LINES ARE WRITTEN FOR. Asked of the numbered people (the first page), naming them says of every
+    # subject of the job not named that they are none of the people outlined: all the job's subjects. Asked of the
+    # subjects one by one (the who page), a subject nobody clicked for was not answered, and gets no line: only the
+    # subjects clicked. A tile holding both shapes is read as the first.
+    answered = list(table_info["subjects"]) if of_people else [sub for sub in table_info["subjects"] if sub in clicked]
     return {"table": name, "frame": frame, "shot": int(shot["shot"]), "named": named, "none_of_these": none,
+            "none_said": sorted((sub.partition("\x00")[0], chosen) for sub, (_at, _num, chosen) in claims.items() if "\x00" in sub),
             "not_the_jobs": [sub for sub in clicked if sub not in table_info["subjects"]],
-            "unsure": unsure, "words": tile["words"], "lines": tile["lines"],
-            "last_at": max((at for _, _, at in tile["buttons"].values()), default="")}
+            "answered": answered, "not_answered": [sub for sub in table_info["subjects"] if sub not in answered],
+            "unsure": unsure, "words": tile["words"], "lines": tile["lines"], "last_at": max(times, default="")}
 
 
 def shot_files(paths: list[str]) -> list[dict]:
@@ -313,12 +329,12 @@ def main() -> int:
         one = {"kind": "tile", "name": name, "p": p, "lines": None,
                "head": f"{name} shot {p['shot']} (source frame {frame}), lines {p['lines'][0]}-{p['lines'][-1]}",
                "words": "".join(f"\n    words (line {n}): {w.strip()}" for n, w in p["words"])}
-        if not p["not_the_jobs"] and not p["unsure"] and (p["named"] or p["none_of_these"]):
+        if not p["not_the_jobs"] and not p["unsure"] and (p["named"] or p["none_of_these"] or p["none_said"]):
             # an answer with no time on it is said so: until 2026-10-13 the line then read "on the page at  (", a hole
             when = f"at {p['last_at']}" if p["last_at"] else "at a time the answers do not give"
             by = f"owner, on the page {when} ({Path(a.answers).name} lines {p['lines'][0]}-{p['lines'][-1]}), entered by page_answers_to_cast"
             try:
-                one["lines"] = cf.from_tile(loaded[name], name, tables[name]["first"], p["shot"], tables[name]["subjects"], p["named"], by)
+                one["lines"] = cf.from_tile(loaded[name], name, tables[name]["first"], p["shot"], p["answered"], p["named"], by)
             except ValueError as e:
                 raise SystemExit(f"{one['head']}: {e}")
         work.append(one)
@@ -354,9 +370,12 @@ def main() -> int:
         if lines is None:
             print(f"no button stands: {head}; nothing stored{words}")
             continue
-        said = ", ".join(f"{n}={s}" for n, s in p["named"]) or "nobody of ours"
+        said = ", ".join([f"{n}={s}" for n, s in p["named"]]
+                         + [f"{sub}: {PLAIN_BUTTONS[chosen][1]} (stored as `{cf.NONE_OUTLINED}`)" for sub, chosen in p["none_said"]]) or "nobody of ours"
         if p["none_of_these"]:
             said += f"; none of these: {p['none_of_these']}"
+        if p["not_answered"]:
+            said += f"; NOT ANSWERED, no line written: {', '.join(p['not_answered'])}"
         if all(same(standing.get((ln["subject"], ln["frame"])), ln) for ln in lines):
             already += 1
             print(f"already there: {head}: {said}{words}")

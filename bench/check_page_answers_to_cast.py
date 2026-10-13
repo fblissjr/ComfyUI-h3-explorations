@@ -21,6 +21,11 @@ only worth having if what it stores is what the owner last said, once, through t
                                              STORED, whole, and the tiles after it are stored
   a_tile_that_cannot_be_read_leaves_the_cast_as_it_was every tile is read before any is written: a refusal on a later tile
                                              stores nothing of an earlier one
+  not_outlined_alone_is_stored_for_that_subject  on a numbered picture, `on this frame, not outlined` with no number clicked is a
+                                             cast line `none of the outlined people` with no box, and `not on this frame` the same
+  a_subject_nobody_clicked_for_gets_no_line  on a tile asked of the subjects, the job's other subject is printed NOT ANSWERED
+  a_subjects_answer_carries_its_time         the line's `by` has the click's time, where it read "at a time the answers do not give"
+  not_outlined_does_not_take_a_box_back      the cast file's refusal, passed on: the box stands
 
 A plain frame (the who page's tile of the source itself: table `plain`, no number), into a `--shots` record and
 never into the cast file:
@@ -222,6 +227,28 @@ def main() -> int:
         r = run(p5)
         case("a_tile_that_cannot_be_read_leaves_the_cast_as_it_was", r.returncode != 0 and "no shot shows source frame 1042" in r.stdout + r.stderr
              and not cast_lines(p5), r.stdout + r.stderr + json.dumps(cast_lines(p5)))
+
+        f12 = Path(tempfile.mkdtemp(dir=d))
+        p12 = setup(f12, [line(1, source_frame=1010, subject="second", chosen="not outlined"),
+                          line(2, source_frame=1150, subject="lead", chosen="not on frame")])
+        r = run(p12)
+        got12 = {(x["subject"], x["frame"]): x for x in cast_lines(p12)}
+        case("not_outlined_alone_is_stored_for_that_subject", r.returncode == 0 and set(got12) == {("second", 1010), ("lead", 1150)}
+             and all(x["answer"] == "none of the outlined people" and x["box"] is None for x in got12.values())
+             and "second: on this frame, not outlined (stored as `none of the outlined people`)" in r.stdout and "stored 2 tile(s)" in r.stdout,
+             r.stdout + r.stderr + json.dumps(cast_lines(p12)))
+        case("a_subject_nobody_clicked_for_gets_no_line", ("lead", 1010) not in got12 and ("second", 1150) not in got12
+             and "frame 1010), lines 1-1: second: on this frame, not outlined (stored as `none of the outlined people`); NOT ANSWERED, no line written: lead" in r.stdout,
+             r.stdout)
+        case("a_subjects_answer_carries_its_time", got12 and "on the page at 2026-10-12T10:00:01Z (" in got12[("second", 1010)]["by"], json.dumps(cast_lines(p12)))
+        f13 = Path(tempfile.mkdtemp(dir=d))
+        p13 = setup(f13, [line(1, source_frame=1010, subject="lead", chosen="1")])
+        run(p13)
+        with open(p13["answers"], "a") as f:
+            f.write(json.dumps(line(2, source_frame=1010, subject="lead", chosen="not outlined")) + "\n")
+        r = run(p13)
+        case("not_outlined_does_not_take_a_box_back", r.returncode == 0 and "REFUSED by the cast file" in r.stdout
+             and [(x["subject"], x["answer"]) for x in cast_lines(p13)] == [("lead", "here")], r.stdout + r.stderr + json.dumps(cast_lines(p13)))
 
         # --- a plain frame: the cast file and the shots record -------------------------------------------------------
         f7 = Path(tempfile.mkdtemp(dir=d))
