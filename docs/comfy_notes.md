@@ -4,6 +4,17 @@ Last updated: 2026-08-16.
 
 ## Running things
 
+### Where this machine keeps things: three environment keys
+
+A folder that is this machine's is an environment key, never a path in a tracked file. Each tool that
+needs one says so in words when the key is not set.
+
+| key | what it is | read by |
+|---|---|---|
+| `H3_OUTPUT_DIR` | the folder the server writes to (it is started with `--output-directory`; nothing in the HTTP API reports it back) | `workflows/h3_config.py::output_dir` |
+| `H3_INPUT_DIR` | the folder the server reads stills and input videos from | `bench/masked_job.py::input_dir` |
+| `H3_MODEL_STORE` | the folder that holds the pose model's own folder (`h3_config.POSE_MODEL`); `--model-store` on the tool is over it | `bench/load_chain.py land` |
+
 No test suite. Verify against a live ComfyUI and GPU: `bench/smoke_h3.py` for a
 fast pass, the relevant `bench/*.py` for the claim you changed. Most
 `check_*.py` need neither CUDA nor a model. This repo runs inside ComfyUI's

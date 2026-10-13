@@ -43,6 +43,12 @@ each tracker after the first is given every earlier tracker's mask on
 `others`, so it cannot take a person an earlier one holds. Put the subject
 most likely to be confused with another first.
 
+**Keys of the job block and of a subject that the graphs do not read and `bench/load_chain.py` does** (2026-10-13):
+`preview`, the job folder of the preview a load's masks come from (`data/<day>_<preview>_job`), from whose own job
+the source frame the masks begin on and the subjects' order are read; `who_is_who`, a who-is-who file beside the
+job file to read in place of making one; and on a subject, the options of its mask in a capture, passed only
+when set: `pieces`, `least`, `hold`, `drop`, `grade` (`bench/capture_masked_run.py` has what each does).
+
 **A load** is one entry of the file's `loads`, with the file's `defaults` under it: one subject on one
 stretch of frames, as a rule one shot. It is written in the capture's words, since the capture reads the same
 entry as a plan (`first`, `frames`, `subject`, `others`, `margin`, `edge`, `carried`, `text`, `audio`,

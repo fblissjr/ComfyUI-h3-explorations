@@ -76,6 +76,10 @@ KEEP = ("keep this one", "good to go")
 NOT_THE_ONE = ("wrong", "wrong, and I say where", "not needed", "worse, and I say where")
 #: The page's word for a choice withdrawn: the owner then has no choice on the render.
 TAKEN_BACK = "taken back"
+#: The buttons a render's item is given on the review page (`bench/load_chain.py page`): a keep, a not-the-one, and
+#: the one that is neither. Kept here, beside the words this tool reads, so the page shows what the table reads.
+NOT_SURE = "not sure"
+RENDER_ITEM_BUTTONS = (KEEP[0], NOT_THE_ONE[1], NOT_SURE)
 #: The ledger's states of a making (`render_ledger.MAKING`), by what each means here.
 AGREES = "recorded, the file agrees"
 NO_SOURCE_YET = "no render in the frozen form yet"

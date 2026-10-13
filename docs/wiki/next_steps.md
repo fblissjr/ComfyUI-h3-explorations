@@ -312,6 +312,16 @@ fixed the same day, said inline below.**
   table the assembler built the clip from, with
   `bench/check_stack_delivery.py`. Not in it: the parts in their own
   colours, and a zoomed render's mask at its whole-frame place.
+- **One load from its preview to the page is one tool** (2026-10-13):
+  `bench/load_chain.py`, a step each for first, plan, on-plan, render,
+  land and page, reading the job file. It replaces the five session
+  scripts every load went through, which took thirteen typed arguments
+  and held the day, one video's paths and one machine's folders in their
+  text. A job file needs `preview` (the preview's job folder) for it, and
+  the video's manifest its voice tables (`clip_analysis.py voice`). Not
+  in it: a load of more than one window, or more than one load a job
+  file (both refused); the loads made before it ran with `pieces=largest`
+  typed into the script, which their job files do not say.
 - **The delivery table is generated, never typed** (2026-10-13):
   `bench/render_ledger.py` (every render, how it was made), then
   `bench/delivery_table.py` (which render stands on each shot by one
