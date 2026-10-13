@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 117 |
+| [`check_*`](#check) | 118 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 154 |
+| [the rest](#the-rest) | 155 |
 
 ## check
 
@@ -107,6 +107,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_region_against_plate.py`](check_region_against_plate.py) | `bench/region_against_plate.py` against a clip and pieces whose answers are known by construction. |
 | [`check_release_qwen_grid.py`](check_release_qwen_grid.py) | The release Qwen video grid, pinned at the boundaries that were got wrong. |
 | [`check_reload_invariance.py`](check_reload_invariance.py) | Is a render bit-identical across a full model unload? |
+| [`check_render_ledger.py`](check_render_ledger.py) | The render ledger (`bench/render_ledger.py`) on a made share: what each state of a render's making takes. |
 | [`check_renders_page.py`](check_renders_page.py) | `bench/renders_page.py` lays the renders inventory beside the owner's verdict lines; each case is a way a row could be out of order, carry another render's lines, drop a line or link to the wrong place. |
 | [`check_retraction_consumers.py`](check_retraction_consumers.py) | Fail when a retracted claim reaches a file nobody signed off on. |
 | [`check_sam31_corrections.py`](check_sam31_corrections.py) | The SAM 3.1 Corrections node on stand-in modules, through ComfyUI's real ModelPatcher. No SAM weights, no card. |
@@ -403,6 +404,7 @@ this file is only a way to find a script by what it says it does.
 | [`recycle_captures.py`](recycle_captures.py) | List the activation captures under `H3_CAPTURE_ROOT` with what each still owes, and delete the tensors of one that owes nothing. |
 | [`region_against_plate.py`](region_against_plate.py) | How a regenerated region sits in its plate: its detail, its grain and its tone against the plate's. |
 | [`render_inventory.py`](render_inventory.py) | Which model files and settings made each render, and which output files it wrote. |
+| [`render_ledger.py`](render_ledger.py) | Every render of a video that is on the share, a shot and a subject at a time, with how each was made. |
 | [`render_postmortem_html.py`](render_postmortem_html.py) | Render a postmortem markdown file to the self-contained HTML the plugin specifies. |
 | [`renders_page.py`](renders_page.py) | One plain page, a row a render of a video in frame order, with the owner's verdict lines under each: what was rendered, from what, and what the owner said of it. |
 | [`repro_token_aug_nondeterminism.py`](repro_token_aug_nondeterminism.py) | Standalone repro: comfy_kitchen `sol_attn` is not deterministic with `token_aug`. |

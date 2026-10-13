@@ -1,0 +1,719 @@
+#!/usr/bin/env python3
+"""Every render of a video that is on the share, a shot and a subject at a time, with how each was made.
+
+    <python> bench/render_ledger.py --shots SHOTS.json --plan PLAN.json --share OUTPUT_ROOT --records DATA_ROOT \\
+        --source COPY.mov[=RATE] [--source ...] [--table TABLE.txt] [--verdicts VERDICTS.jsonl] [--answers ANSWERS.jsonl] \\
+        [--items ITEMS.json] [--since YYYY-MM-DD] --json OUT.json --md OUT.md [--summary RECORD.md]
+
+**What it buys.** By 2026-10-13 a video had some hundreds of clips in a dozen session folders and nobody, the
+owner included, could say which renders existed for a shot, which of them could be made again, or which the
+delivery stood on. A piece whose making cannot be said, or whose file and record disagree on frames, is not
+one a delivery can be laid from; this prints that as a column for every render, so it is read and not recalled.
+
+**Beside the two tools near it.** `bench/shot_coverage.py` says what a video still needs against its plan and one
+delivery table; `bench/renders_page.py` is a page the owner plays clips from, made from the review page's
+inventory (`renders.json`). Neither walks the share or reads a build record, so neither can say how a render
+was made or whether its file is the one its record describes. This does, and plays nothing.
+
+**What it reads, each a named file or folder handed in; nothing is found by a key.**
+
+- `--share`: the server's output root. Every numbered video under its `Video/` is a candidate (`walk`); its
+  frames are counted by ffprobe, and the graph ComfyUI saved in the picture file beside it says what was asked
+  for: the copy the frames came from and where, the Masked Source's settings, the mask, part and motion files,
+  the still, the seed, the text. A candidate is of this video when that copy is one of `--source` (by file name,
+  with the copy's rate when it is not 24: a loader's start is in the copy's seconds).
+- `--records`: the folder the job tool writes under (`data/`). `*_job/<load>.render.queued.json` names the files
+  a queued render wrote; `<load>.render.built.json` beside it is the build record (the load, its inputs by
+  path, the settings, the commit). A render is tied to a record by the record naming its file, and where a queue
+  record names none, by its build record's output folder and load name, said on the render's line (`records_of`).
+- `--shots`, `--plan`: the cuts and who is in each shot, and the table's names for the subjects
+  (`bench/shot_coverage.py` has both schemas and its loaders are used).
+- `--table`: a delivery table (`bench/assemble_delivery.py`'s reader); a render it lays says on which frames.
+- `--verdicts`, `--answers`, `--items`: the owner's lines. A line is tied to a render by the render's file
+  (`render`) or by its row being the render's load name or its page id; `--items` adds the page's own map from
+  an item to a render's file. A line of `--answers` that `--verdicts` already copied is printed once.
+- `--spots`: the owner's rows that were said of a JOINED clip at stated frames (a file: the clip's name, the
+  table it was built from, each row's frames). Such a line is printed under every render that table laid on
+  those frames, as said of the joined clip there and never as a verdict on the render alone.
+- `--inputs`: the server's input root, so a record's still can be looked for.
+
+**What it prints: a section a shot and a subject, every render on those frames, oldest first, each with**
+its file and frames (the record's, the file's by ffprobe, the saved graph's); ITS MAKING (`MAKING`: a build
+record whose figures the file agrees with; one it disagrees with, and how; a build record for its load whose
+queue record names no file and no outcome, as the job tool wrote them before 2026-10-11, tied by the output
+folder and the load's name; or no record), with the record's inputs still on disk; its form (what is replaced, read from the capture's own part classes or the graph; the
+reference video, read from the records its tools wrote beside it, back to the body model; what the text says
+the video is); who made it, by the folder it is in, and when; where the table lays it; and the owner's lines.
+Then what could not be placed: numbered videos with no saved graph, records whose render is gone, the owner's
+lines tied to no render file.
+
+**What `agrees` means, and all it means.** The queued run ended `success` and names this file; the file holds
+the frames the load says (a load shorter than its window writes the load's frames); the graph saved beside
+the file asks for the record's first frame and count; the file was not written before the record was queued.
+Each is a fact about files. A load that continued a stored window writes fewer frames than it loads, and the
+record does not say which: that is a disagreement here, by design.
+
+**What it cannot see.** Whether a render is any good, or better than another: nothing here ranks. Whether a
+record's inputs are the bytes that ran (a path that still exists may have been rewritten). Which source frames
+a file holds when its count differs from its record. A render whose picture file is gone cannot be placed and
+is listed apart. Who made a render beyond the folder it sits in.
+
+The frame numbers are the copy's (`clip_folder.py`, "One clock").
+"""
+from __future__ import annotations
+
+import argparse
+import datetime
+import importlib.util
+import json
+import math
+import re
+import subprocess
+import sys
+from collections import defaultdict
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+SCHEMA = "h3_render_ledger/1"
+#: A numbered output of the server, and the files beside a render that are not renders themselves.
+NUMBERED = re.compile(r"_\d{5}_?\.mp4$")
+NOT_A_RENDER = ("_with_mask", "-audio", "_zoomed", "_motion_video_")
+SAMPLERS = ("MiniMaxH3AudioFreezeSong", "SamplerCustom", "KSampler")
+#: The states of a render's making. Each is a fact about files, read as `agreement` says; none judges a render.
+MAKING = ("recorded, the file agrees", "recorded, THE FILE DISAGREES",
+          "a build record for its load, WHOSE QUEUE RECORD NAMES NO FILE AND NO OUTCOME", "NO BUILD RECORD")
+#: Nodes a link is followed through to the file behind it: they change a picture's kind, not what it is of.
+PASSES_THROUGH = ("ImageToMask", "MaskComposite")
+#: The part model's classes that make a part a face's, and the one that makes it hair's.
+FACE_CLASS, HAIR_CLASS = "Face_Neck", "Hair"
+
+
+def _module(name: str):
+    spec = importlib.util.spec_from_file_location(name, HERE / f"{name}.py")
+    assert spec is not None and spec.loader is not None
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules.setdefault(name, mod)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def utc(stamp: float) -> str:
+    return datetime.datetime.fromtimestamp(stamp, datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def as_utc(text: str | None) -> str | None:
+    """A record's time as UTC. The job tool writes its times with their offset; one with none is left as it is."""
+    if not text:
+        return None
+    try:
+        t = datetime.datetime.fromisoformat(text)
+    except ValueError:
+        return text
+    return t.astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") if t.tzinfo else text
+
+
+def walk(share: Path, since: str | None = None) -> list[Path]:
+    """Every numbered video under the share's `Video/` that could be a render, oldest path first."""
+    floor = datetime.datetime.fromisoformat(since).replace(tzinfo=datetime.timezone.utc).timestamp() if since else None
+    out = []
+    for path in sorted((share / "Video").rglob("*.mp4")):
+        if not NUMBERED.search(path.name) or any(word in path.name for word in NOT_A_RENDER) or any(p.endswith("_windows") for p in path.parts):
+            continue
+        if floor is None or path.stat().st_mtime >= floor:
+            out.append(path)
+    return out
+
+
+def count_frames(path: Path) -> int | None:
+    """A video's frames by ffprobe (its packets, counted), or None when it does not read."""
+    got = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-count_packets", "-show_entries",
+                          "stream=nb_read_packets", "-of", "csv=p=0", str(path)], capture_output=True, text=True)
+    text = got.stdout.strip().split("\n")[0].strip(",")
+    return int(text) if got.returncode == 0 and text.isdigit() else None
+
+
+def saved_graph(mp4: Path) -> dict | None:
+    """The graph ComfyUI saved in the picture beside a video, or None when there is none to read."""
+    png = mp4.with_suffix(".png")
+    if not png.is_file():
+        return None
+    from PIL import Image
+    try:
+        return json.loads(Image.open(png).info.get("prompt") or "")
+    except (ValueError, OSError):
+        return None
+
+
+def _upstream_video(graph: dict, ref, depth: int = 0, through=None) -> dict | None:
+    """The video loader a link leads back to. With `through`, only through those node classes (a mask conversion,
+    a composite): a link that comes from any other node was made in the run and is no file. Without it, through
+    whatever sits between, which is how the copy a render's frames came from is found."""
+    node = graph.get(str(ref[0])) if isinstance(ref, list) and ref else None
+    if node is None or depth > 8:
+        return None
+    if isinstance(node["inputs"].get("video"), str):
+        return node
+    if through is not None and node["class_type"] not in through:
+        return None
+    for v in node["inputs"].values():
+        if isinstance(v, list) and len(v) == 2:
+            got = _upstream_video(graph, v, depth + 1, through)
+            if got:
+                return got
+    return None
+
+
+def _wired_file(graph: dict, ref) -> str | None:
+    """What a Masked Source input is wired to: a file's path, or `made in the graph by <class>` when a node of the
+    run made it (an older graph tracked its subject and posed its body model inside the render's own graph)."""
+    if not isinstance(ref, list):
+        return None
+    node = _upstream_video(graph, ref, through=PASSES_THROUGH)
+    if node is not None:
+        return node["inputs"]["video"]
+    direct = graph.get(str(ref[0]))
+    return f"made in the graph by {direct['class_type']}" if direct else None
+
+
+def _loader_span(node: dict, rate: float) -> tuple[int | None, int | None]:
+    """The first frame of the copy and the count a loader was asked for. The job graphs set a start a fraction of a
+    frame early so the loader lands on the frame; a hand-made graph's exact start comes to the same frame."""
+    i = node["inputs"]
+    if "start_time" in i:
+        return math.ceil(float(i["start_time"]) * rate - 1e-3), i.get("frame_load_cap")
+    if "skip_first_frames" in i:
+        return int(i["skip_first_frames"]), i.get("frame_load_cap")
+    return None, i.get("frame_load_cap")
+
+
+def asked(graph: dict, sources: dict[str, float]) -> dict:
+    """What a saved graph asked for: {"of": the copy's file name} always; the rest when the copy is one of `sources`."""
+    if not any(n["class_type"].startswith(SAMPLERS) for n in graph.values()):
+        return {"of": None, "why": "no sampler in the saved graph: not a render"}
+    masked = next((n for n in graph.values() if n["class_type"] == "MiniMaxH3MaskedSource"), None)
+    src = _upstream_video(graph, masked["inputs"].get("frames")) if masked else None
+    if src is None:                    # not a masked render: any loader of one of the copies still places it
+        src = next((n for n in graph.values() if isinstance(n["inputs"].get("video"), str) and Path(n["inputs"]["video"]).name in sources), None)
+    if src is None:
+        return {"of": None, "why": "no video is loaded in the saved graph"}
+    copy = Path(src["inputs"]["video"]).name
+    if copy not in sources:
+        return {"of": copy}
+    first, frames = _loader_span(src, sources[copy])
+    m = masked["inputs"] if masked else {}
+    files = {key: _wired_file(graph, m.get(key)) for key in ("mask", "parts", "others", "keep", "motion_video", "motion_video_2")}
+    song = next((n["inputs"] for n in graph.values() if n["class_type"].startswith("MiniMaxH3AudioFreezeSong")), {})
+    texts = [v for n in graph.values() for k, v in n["inputs"].items() if k in ("prompt", "text") and isinstance(v, str) and len(v) > 80]
+    return {"of": copy, "first": first, "frames": frames, "masked": bool(masked),
+            "replace": m.get("replace"), "motion_reference": m.get("motion_reference"), "render_region": m.get("render_region"),
+            "margin": m.get("grow_pixels"), "files": files,
+            "stills": sorted({v for n in graph.values() for k, v in n["inputs"].items() if k == "image" and isinstance(v, str) and v}),
+            "seed": song.get("seed"), "window": song.get("window_frames"), "context": song.get("context_frames"),
+            "continue_from": song.get("continue_from") if isinstance(song.get("continue_from"), str) and song.get("continue_from") else None,
+            "text": max(texts, key=len) if texts else None}
+
+
+def load_records(records: Path, repo: Path) -> tuple[dict[str, list[dict]], list[dict]]:
+    """The job tool's records of queued renders: {a file's path under the share: [record, ...]} and every record.
+
+    A record is the pair `<load>.render.queued.json` (what ran: the files it wrote, its status, its gate and look)
+    and `<load>.render.built.json` (what was built: the load, its inputs, its settings, the commit)."""
+    by_file, every = defaultdict(list), []
+    for queued in sorted(records.glob("*_job/*.render.queued.json")):
+        built = queued.with_name(queued.name.replace(".queued.json", ".built.json"))
+        try:
+            q = json.loads(queued.read_text())
+            b = json.loads(built.read_text()) if built.is_file() else None
+        except ValueError:
+            continue
+        for key in ("gate", "look"):                 # an older record holds these as text
+            if isinstance(q.get(key), str):
+                try:
+                    q[key] = json.loads(q[key])
+                except ValueError:
+                    q[key] = {"said": q[key]}
+        where = lambda p: str(p.relative_to(repo)) if p.is_relative_to(repo) else str(p)
+        rec = {"queued_file": where(queued), "built_file": where(built) if b is not None else None, "queued": q, "built": b,
+               "files": [f for f in q.get("files") or [] if NUMBERED.search(f) and not any(word in f for word in NOT_A_RENDER)],
+               "folder": (b or {}).get("output_folder"), "load_name": ((b or {}).get("load") or {}).get("name")}
+        every.append(rec)
+        for f in rec["files"]:
+            by_file[f].append(rec)
+    return by_file, every
+
+
+def records_of(rel: str, share: Path, by_file: dict, every: list[dict]) -> tuple[list[dict], bool]:
+    """The records of a render's file, and whether they NAME it. A queue record from before 2026-10-11 names no file
+    and no outcome; its build record names the output folder and the load, and a numbered file of that load's name
+    in that folder is taken as its render, said as that."""
+    named = by_file.get(rel, [])
+    if named:
+        return named, True
+    path = share / rel
+    loose = [rec for rec in every if not rec["files"] and rec["folder"] and rec["load_name"] and Path(rec["folder"]) == path.parent
+             and re.sub(r"_\d{5}_?$", "", path.stem) == rec["load_name"]]
+    return loose, False
+
+
+def reference_form(path: str | None, depth: int = 0) -> dict:
+    """What a reference (motion) video is, read from the records its tools wrote beside it, back to the body model.
+
+    `bench/head_reference.py`, `crop_reference_to_head.py`, `draw_face_points.py` and `draw_lid_marks.py` each
+    write `<video>.json` beside the video with what they made it from. This follows `made_from` (or `inputs`)
+    back and says each step in the tool's own fields; a video with no record beside it ends the chain and is
+    said as that. Nothing is read from a file's name."""
+    if not path:
+        return {"steps": [], "says": "no reference video"}
+    if path.startswith("made in the graph by "):
+        return {"steps": [], "says": f"{path}: not a file, so no record of it but the saved graph"}
+    video = Path(path)
+    record = video.with_suffix(".json")
+    if not video.is_file():
+        return {"steps": [], "says": f"the reference video is not on disk ({video.name})"}
+    if not record.is_file() or depth > 4:
+        beside = "a saved graph beside it (a node's own output: a preview's body model, as it came)" if video.with_suffix(".png").is_file() else "no record beside it"
+        return {"steps": [], "says": f"{video.name}: {beside}", "ends_at": str(video)}
+    try:
+        r = json.loads(record.read_text())
+    except ValueError:
+        return {"steps": [], "says": f"{video.name}: its record does not read", "ends_at": str(video)}
+    steps = []
+    drawn = r.get("drawn") or (r if "parts_left_out" in r and "line_width_px" in r else None)
+    if "box" in r:
+        scale = r.get("scale")
+        steps.append(f"cut to one box round the head ({r['box']}" + (f", enlarged {scale[0]:g} times" if isinstance(scale, list) and scale else "") + ")")
+    if drawn is not None:
+        steps.append("the face points drawn as lines" + (f" (left out: {', '.join(drawn['parts_left_out'])})" if drawn.get("parts_left_out") else "")
+                     + ("" if not drawn.get("a_dot_at_every_point") else ", a dot at every point"))
+    if "lid_gap_px_median" in r or "a_mark_on_the_canvas_px" in r:
+        steps.append("marks drawn on the lids" + (f" (grown {r['grown']:g} times)" if r.get("grown") else ""))
+    made = r.get("made_from") or r.get("inputs") or {}
+    before = reference_form(made.get("body_model_video") or made.get("reference_video"), depth + 1) if isinstance(made, dict) else {"steps": [], "says": ""}
+    chain = before["steps"] + steps
+    return {"steps": chain, "record": str(record), "made_by": r.get("made_by"), "made_at": r.get("made_at"), "frames": r.get("frames"),
+            "passed": r.get("passed"), "ends_at": before.get("ends_at"),
+            "says": "the body model" + ("".join(", then " + s for s in chain) if chain else ", as it came")
+                    + f" [from the records beside {video.name}" + (f"; the chain ends at {Path(before['ends_at']).name}" if before.get("ends_at") else "") + "]"}
+
+
+def part_classes(capture: Path | None, label: str | None) -> list[str] | None:
+    """The classes a capture's manifest says a subject's part is made of, or None when it does not say."""
+    if capture is None or not label or not (capture / "manifest.json").is_file():
+        return None
+    try:
+        manifest = json.loads((capture / "manifest.json").read_text())
+    except ValueError:
+        return None
+    for s in manifest.get("subjects", []):
+        if s["label"] == label:
+            return next((seen.get("part_is_made_of") for seen in s.get("sightings", []) if seen.get("part_is_made_of")), None)
+    return None
+
+
+def region_form(carried: str | None, classes: list[str] | None, read_from: str) -> str:
+    """What a render replaces, in the plan's words where the files say it."""
+    if carried in ("track", "whole subject"):
+        return f"whole person [{read_from}]"
+    if carried in ("held", "the wired parts"):
+        if classes is None:
+            return f"a part; which classes is not in what was read [{read_from}]"
+        if FACE_CLASS in classes:
+            return ("face and hair" if HAIR_CLASS in classes else "face") + f" (the capture's part is made of {', '.join(classes)}) [{read_from}]"
+        return f"a part made of {', '.join(classes)} [{read_from}]"
+    return f"not known ({carried!r}) [{read_from}]"
+
+
+def text_says(text: str | None) -> str | None:
+    """What a load's text says each reference video is: the definitions that name a `<Video N>`, whole."""
+    if not text:
+        return None
+    lines = [line.strip() for line in text.splitlines() if "<Video " in line and line.strip().startswith("<Subject")]
+    return " / ".join(lines) if lines else "the text names no <Video N> in a subject's definition"
+
+
+def _capture_of(path: str | None) -> tuple[Path | None, str | None]:
+    """The capture folder and subject a mask file sits in, when it is `<capture>/subjects/<label>/<file>`."""
+    p = Path(path) if path else None
+    if p is not None and p.parent.parent.name == "subjects":
+        return p.parent.parent.parent, p.parent.name
+    return None, None
+
+
+def agreement(file_frames: int | None, written: float, graph: dict | None, rec: dict) -> dict:
+    """A render's file against its record, fact by fact; `disagrees` lists the ones that do not hold."""
+    q, b = rec["queued"], rec["built"]
+    load = (b or {}).get("load") or {}
+    said = []
+    if b is None:
+        said.append("the queue record has no build record beside it")
+    if q.get("status") != "success" and (q.get("status") is not None or q.get("files")):
+        said.append(f"the queued run's status is {q.get('status')!r}")
+    if load and file_frames is not None and file_frames != load.get("frames"):
+        said.append(f"the record's load is {load.get('frames')} frames from {load.get('first')}; the file holds {file_frames}"
+                    + ("; the load continues a stored window (`continue_from`), whose kept frames are loaded and not written, and the "
+                       "record does not say which source frames the file holds" if load.get("continue_from") else ""))
+    if file_frames is None:
+        said.append("the file's frames could not be counted")
+    if graph and load and graph.get("of") and (graph.get("first"), graph.get("frames")) != (load.get("first"), load.get("frames")):
+        said.append(f"the graph saved beside the file asks for {graph.get('frames')} frames from {graph.get('first')}; the record's load "
+                    f"is {load.get('frames')} from {load.get('first')}")
+    queued_at = q.get("queued_at")
+    if queued_at:
+        try:
+            t = datetime.datetime.fromisoformat(queued_at)
+            if t.tzinfo and written < t.timestamp():
+                said.append(f"the file was written {utc(written)}, before the record was queued ({as_utc(queued_at)}): it is not that run's")
+        except ValueError:
+            pass
+    return {"making": MAKING[1] if said else MAKING[0], "disagrees": said}
+
+
+def inputs_on_disk(rec: dict, repo: Path, inputs: Path | None = None) -> dict:
+    """The record's inputs by path that are still files, and the two folders it names. A path that exists may have
+    been rewritten since: this counts presence, nothing more."""
+    b = rec["built"] or {}
+    paths: list[str] = []
+
+    def take(v):
+        if isinstance(v, str):
+            paths.append(v)
+        elif isinstance(v, list):
+            if v and isinstance(v[0], str) and (len(v) == 1 or isinstance(v[1], int)):
+                paths.append(v[0])
+            else:
+                for x in v:
+                    take(x)
+        elif isinstance(v, dict):
+            for x in v.values():
+                take(x)
+    take(b.get("files") or {})
+    real = lambda p: Path(p) if Path(p).is_absolute() else repo / p
+    missing = [p for p in paths if not real(p).is_file()]
+    folder = lambda key: None if not b.get(key) else real(b[key]).is_dir()
+    still = (b.get("load") or {}).get("still")
+    # a still is named under the server's input folder; without that folder handed in, nothing is said of it
+    still_there = None if not still or inputs is None else (Path(still) if Path(still).is_absolute() else inputs / still).is_file()
+    return {"named": len(paths), "missing": missing, "capture_folder": folder("capture"), "windows_folder": folder("windows_folder"),
+            "still": still, "still_is_a_file": still_there}
+
+
+def on_a_joined_clip(rel: str, spots: list[dict], verdicts: list[dict]) -> list[dict]:
+    """The owner's lines that were said of a JOINED clip at stated frames, under each render that clip's table laid
+    on those frames: never a verdict on the render alone, and printed as what it is.
+
+    `spots` are files handed in (`--spots`): {"clip": the joined clip's name, "table": the table it was built from,
+    "rows": that table read, "spots": [{"row", "first", "last"}]}. A row of the verdicts file that is a spot is tied
+    to every piece the table lays on frames the spot covers."""
+    out = []
+    for given in spots:
+        for spot in given["spots"]:
+            laid = [t for t in given["rows"] if str(t["piece"]).endswith(rel) and t["first"] <= spot["last"] and t["last"] >= spot["first"]]
+            if not laid:
+                continue
+            for v in verdicts:
+                said = v.get("chosen") if v.get("what") == "choice" else v.get("words")
+                if v.get("row") == spot["row"] and said:
+                    out.append({"at": v.get("at"), "frame": v.get("frame"), "said": said, "from": f"verdicts ({v.get('source')})", "row": v.get("row"),
+                                "on_the_joined_clip": given["clip"], "at_frames": [spot["first"], spot["last"]], "through_the_table": given["table"]})
+    return out
+
+
+def owner_lines(rel: str, ids: set[str], verdicts: list[dict], answers: list[tuple[int, dict]], item_of: dict[str, str]) -> list[dict]:
+    """The owner's lines on a render, oldest first: by the render's file, by its ids as a row, or by a page item
+    that names the file. An answers line the verdicts file already copied is taken once, from the verdicts file."""
+    copied = {v.get("source") for v in verdicts}
+    mine = lambda row, render: (render and rel.endswith(render)) or row in ids or item_of.get(row) == rel
+    out = [{"at": v.get("at"), "frame": v.get("frame"), "said": v.get("chosen") if v.get("what") == "choice" else v.get("words"),
+            "from": f"verdicts ({v.get('source')})", "row": v.get("row")} for v in verdicts if mine(v.get("row"), v.get("render"))]
+    out += [{"at": a.get("at"), "frame": a.get("frame"), "said": a.get("chosen") if a.get("what") == "choice" else a.get("words"),
+             "from": f"answers.jsonl:{n}", "row": a.get("row")} for n, a in answers
+            if a.get("who") == "owner" and f"answers.jsonl:{n}" not in copied and mine(a.get("row"), None)]
+    return sorted((o for o in out if o["said"]), key=lambda o: str(o["at"]))
+
+
+def ledger(shots: dict, plan: dict, share: Path, records: Path, repo: Path, sources: dict[str, float], table_rows: list[dict],
+           verdicts: list[dict], answers: list[tuple[int, dict]], items: list[dict], since: str | None = None,
+           frames_of=count_frames, alias=None, spots: list[dict] | None = None, inputs: Path | None = None) -> dict:
+    """The whole ledger as data. `frames_of` counts a video's frames (ffprobe; a check hands in its own)."""
+    alias = alias or (lambda label: label)
+    by_file, every = load_records(records, repo)
+    item_of = {i["id"]: i["render"] for i in items if i.get("render")}
+    video_folder = Path(shots.get("video") or "").stem          # `Video/<video>/<session>/...` and `Video/<session>/...` both occur
+    renders, no_graph, other, not_renders = [], [], defaultdict(int), defaultdict(int)
+    tied: set[int] = set()
+    for path in walk(share, since):
+        rel = str(path.relative_to(share))
+        graph = saved_graph(path)
+        recs, named = records_of(rel, share, by_file, every)
+        tied.update(id(rec) for rec in recs)
+        if graph is None and not recs:
+            no_graph.append(rel)
+            continue
+        ask = asked(graph, sources) if graph is not None else None
+        if ask is not None and ask.get("of") not in sources and not recs:
+            (other if ask.get("of") else not_renders)[ask.get("of") or ask.get("why")] += 1
+            continue
+        stat = path.stat()
+        n = frames_of(path)
+        parts = [x for x in Path(rel).parts[1:-1] if x != video_folder]
+        row = {"file": rel, "name": re.sub(r"_\d{5}_?$", "", path.stem), "session_folder": parts[0] if parts else None,
+               "written": utc(stat.st_mtime), "file_frames": n,
+               "graph": {k: v for k, v in (ask or {}).items() if k != "text"} or None,
+               "mask_picture": None, "records": []}
+        beside = path.with_name(path.stem + "_with_mask.mp4")
+        if beside.is_file():
+            row["mask_picture"] = {"file": str(beside.relative_to(share)), "frames": frames_of(beside)}
+        for rec in recs:
+            b, q = rec["built"] or {}, rec["queued"]
+            load = b.get("load") or {}
+            row["records"].append({"built_file": rec["built_file"], "queued_file": rec["queued_file"], "commit": b.get("commit") or q.get("commit"),
+                                   "built_at": as_utc(b.get("built_at")), "queued_at": as_utc(q.get("queued_at")), "status": q.get("status"),
+                                   "load": {k: load.get(k) for k in ("name", "first", "frames", "subject", "carried", "motion", "motion_file", "still",
+                                                                     "seed", "continue_from", "render_region") if k in load},
+                                   "window": ((b.get("settings") or {}).get("window") or {}).get("value"),
+                                   "context": ((b.get("settings") or {}).get("context") or {}).get("value"),
+                                   "second_subject": [s.get("subject") for s in b.get("subjects") or []] or None,
+                                   "job_file": b.get("job_file"), "capture": b.get("capture"), "text_file": (b.get("text") or {}).get("file") or b.get("text_file"),
+                                   "names_the_file": named,
+                                   "gate": q.get("gate"), "looked_at_by": (q.get("look") or {}).get("by"),
+                                   "uncommitted_node_code": b.get("uncommitted_node_code") or q.get("uncommitted_node_code") or [],
+                                   "inputs_on_disk": inputs_on_disk(rec, repo, inputs), "analysis": b.get("analysis"),
+                                   **agreement(n, stat.st_mtime, ask, rec)})
+        rec0 = row["records"][-1] if row["records"] else None       # the last record that names the file is the run that wrote it
+        row["making"] = MAKING[3] if not rec0 else MAKING[2] if not named else rec0["making"]
+        load = rec0["load"] if rec0 else {}
+        files = (ask or {}).get("files") or {}
+        capture, label = _capture_of(files.get("mask"))
+        if rec0 and rec0.get("capture"):
+            capture = Path(rec0["capture"]) if Path(rec0["capture"]).is_absolute() else repo / rec0["capture"]
+        subject = load.get("subject") or label
+        subject, subject_from = (alias(subject), "the record's load" if load.get("subject") else "the capture folder its mask file sits in") if subject else (None, None)
+        if subject is None:
+            for who, prefixes in (plan.get("load_prefixes") or {}).items():
+                if not who.startswith("_") and any(row["name"].startswith(p) for p in prefixes):
+                    subject, subject_from = who, "the load name's prefix, by the plan"
+        row["subject"], row["subject_read_from"] = subject, subject_from
+        row["subjects"] = [s for s in ([subject] + [alias(x) for x in (rec0 or {}).get("second_subject") or []]) if s]
+        text = None
+        if rec0 and rec0.get("text_file"):
+            t = Path(rec0["text_file"]) if Path(rec0["text_file"]).is_absolute() else repo / rec0["text_file"]
+            text = t.read_text() if t.is_file() else None
+        text = text or (ask or {}).get("text")
+        carried = load.get("carried") or (ask or {}).get("replace")
+        row["form"] = {
+            "replaces": region_form(carried, part_classes(capture, load.get("subject") or label) if carried in ("held", "the wired parts") else None,
+                                    "the build record and its capture" if rec0 else "the saved graph" + (" and the capture its mask file sits in" if capture else "")),
+            "rendered": load.get("render_region") or (ask or {}).get("render_region") or "the whole frame",
+            "reference": reference_form(load.get("motion_file") or files.get("motion_video")),
+            "text_says_the_video_is": text_says(text),
+            "still": load.get("still") or ", ".join((ask or {}).get("stills") or []) or None,
+            "seed": load.get("seed") if load.get("seed") is not None else (ask or {}).get("seed")}
+        first = load.get("first") if load.get("first") is not None else (ask or {}).get("first")
+        count = load.get("frames") if load.get("frames") is not None else (ask or {}).get("frames")
+        row["span"] = [first, first + count - 1] if first is not None and count else None
+        row["span_read_from"] = "the record's load" if load.get("first") is not None else "the saved graph's loader"
+        row["laid_in_the_table"] = [[t["first"], t["last"]] for t in table_rows if str(t["piece"]).endswith(rel)]
+        row["owner"] = sorted(owner_lines(rel, {row["name"], f"r__{row['session_folder']}__{row['name']}", f"r__{Path(rel).parts[1]}__{row['name']}"},
+                                          verdicts, answers, item_of) + on_a_joined_clip(rel, spots or [], verdicts), key=lambda o: str(o["at"]))
+        renders.append(row)
+    gone = [{"built_file": rec["built_file"], "queued_file": rec["queued_file"], "files": rec["files"], "status": rec["queued"].get("status"),
+             "output_folder": rec["folder"],
+             "load": {k: ((rec["built"] or {}).get("load") or {}).get(k) for k in ("name", "first", "frames", "subject")}}
+            for rec in every if id(rec) not in tied]
+    sections = []
+    for s in shots["shots"]:
+        on = [r for r in renders if r["span"] and r["span"][0] <= s["last"] and r["span"][1] >= s["first"]]
+        labels = [label for label in shots["subjects"] if s["who"][label]["present"] != "no"]
+        labels += sorted({x for r in on for x in (r["subjects"] or ["subject not known"])} - set(labels))
+        for label in labels:
+            mine = [r for r in on if label in (r["subjects"] or ["subject not known"])]
+            present = s["who"][label]["present"] if label in s["who"] else None
+            if mine or present in ("yes", "unsure"):
+                sections.append({"first": s["first"], "last": s["last"], "subject": label, "present": present,
+                                 "renders": [r["file"] for r in sorted(mine, key=lambda r: r["written"])]})
+    lo, hi = shots["span"]
+    outside = [r["file"] for r in renders if not r["span"] or r["span"][1] < lo or r["span"][0] > hi]
+    rows_tied = {o["row"] for r in renders for o in r["owner"]}
+    titles = {i["id"]: i.get("title") for i in items}
+    loose = [{"row": row, "why": ("a stacked or joined viewing copy; which render it shows is in the item's title" if row in titles
+                                  else "a row with no render's file, no page item and no stated frames on a joined clip"),
+              "title": titles.get(row) or next((v.get("title") for v in verdicts if v.get("row") == row and v.get("title")), None)}
+             for row in sorted({v.get("row") for v in verdicts if v.get("row") not in rows_tied} - {None})]
+    return {"schema": SCHEMA, "video": shots.get("video"), "sources": sources, "since": since,
+            "counts": {"renders": len(renders), **{m: sum(r["making"] == m for r in renders) for m in MAKING},
+                       "laid_in_the_table": sum(bool(r["laid_in_the_table"]) for r in renders)},
+            "sections": sections, "renders": {r["file"]: r for r in renders},
+            "not_placed": {"renders_outside_the_shots_span": outside,
+                           "numbered_videos_with_no_saved_graph_and_no_record": no_graph,
+                           "renders_of_other_videos_by_the_copy_loaded": dict(other),
+                           "numbered_videos_whose_graph_is_no_render_of_a_video": dict(not_renders),
+                           "records_whose_render_is_not_on_the_share": gone,
+                           "verdict_rows_tied_to_no_render_file": loose},
+            "cannot_see": "whether a render is good or better than another; whether a record's inputs are the bytes that ran; which source "
+                          "frames a file holds when its count differs from its record; a render whose picture file is gone"}
+
+
+def frames(a, b) -> str:
+    return f"{a}-{b}"
+
+
+def render_lines(r: dict) -> list[str]:
+    """One render as lines of a page."""
+    g, rec = r["graph"] or {}, (r["records"][-1] if r["records"] else None)
+    lines = [f"- **`{r['name']}`**  `{r['file']}`"]
+    span = f"source frames {frames(*r['span'])} ({r['span_read_from']})" if r["span"] else "its source frames are not known"
+    lines.append(f"  - frames: {span}; the file holds {r['file_frames']} by ffprobe"
+                 + (f"; the saved graph asks for {g.get('frames')} from {g.get('first')} of {g.get('of')}, window {g.get('window')}, context {g.get('context')}" if g.get("of") else "; no saved graph beside it")
+                 + (f"; continues {Path(g['continue_from']).name}" if g.get("continue_from") else ""))
+    if rec:
+        on = rec["inputs_on_disk"]
+        lines.append(f"  - ITS MAKING: {r['making']}" + ("" if rec["names_the_file"] else " (tied by the build record's output folder and the load's name)")
+                     + f". Record `{rec['built_file'] or rec['queued_file']}`: commit {rec['commit']}, queued {rec['queued_at']}, "
+                     f"status {rec['status']}, window {rec['window']}, context {rec['context']}"
+                     + (f", gate {rec['gate'].get('verdict')}" + (f" (overridden: {rec['gate'].get('overridden')})" if rec["gate"].get("overridden") else "") if rec.get("gate") else "")
+                     + (f", looked at by {rec['looked_at_by']}" if rec.get("looked_at_by") else ", no look recorded")
+                     + (f", UNCOMMITTED NODE CODE at the build: {rec['uncommitted_node_code']}" if rec["uncommitted_node_code"] else ""))
+        for d in rec["disagrees"]:
+            lines.append(f"    - {'DISAGREES' if rec['names_the_file'] else 'AND'}: {d}")
+        lines.append(f"    - its inputs by path: {on['named'] - len(on['missing'])} of {on['named']} still files"
+                     + (f" (gone: {', '.join(Path(m).name for m in on['missing'])})" if on["missing"] else "")
+                     + f"; capture folder {'there' if on['capture_folder'] else 'NOT there' if on['capture_folder'] is False else 'not named'}"
+                     + f"; windows folder {'there' if on['windows_folder'] else 'NOT there' if on['windows_folder'] is False else 'not named'}"
+                     + ("" if not on.get("still") else f"; the still {on['still']} " + ("is a file" if on["still_is_a_file"] else "is NOT a file" if on["still_is_a_file"] is False
+                                                                                         else "was not looked for (no --inputs)"))
+                     + (f"; the analysis folder's fingerprint at the build {str(rec['analysis'].get('fingerprint'))[:12]}" if (rec.get("analysis") or {}).get("fingerprint") else "")
+                     + (f"; {len(r['records'])} records name this file, the last is shown" if len(r["records"]) > 1 else ""))
+    else:
+        lines.append(f"  - ITS MAKING: {r['making']}. What is known of it is the graph saved beside it: what was asked for, not what ran or from which commit")
+    mask = r["mask_picture"]
+    lines.append("  - mask picture: " + (f"`{Path(mask['file']).name}`, {mask['frames']} frames" if mask else "none beside it"))
+    f = r["form"]
+    lines.append(f"  - form: replaces {f['replaces']}; rendered {f['rendered']}; reference video: {f['reference']['says']}"
+                 + (f"; still {f['still']}" if f["still"] else "") + (f"; seed {f['seed']}" if f["seed"] is not None else ""))
+    if f["text_says_the_video_is"]:
+        lines.append(f"    - the text: {f['text_says_the_video_is']}")
+    lines.append(f"  - made: in the folder of `{r['session_folder']}` (the folder, not a signature); file written {r['written']}"
+                 + (f"; subject read from {r['subject_read_from']}" if r["subject_read_from"] else "; SUBJECT NOT KNOWN from any file"))
+    lines.append("  - in the delivery table: " + (", ".join(frames(a, b) for a, b in r["laid_in_the_table"]) if r["laid_in_the_table"] else "not laid"))
+    for o in r["owner"]:
+        where = (f", ON THE JOINED CLIP {o['on_the_joined_clip']} at {frames(*o['at_frames'])}, through the table `{o['through_the_table']}` "
+                 "(said of the joined clip there, not of this render alone)" if o.get("on_the_joined_clip") else "")
+        lines.append(f"  - the owner, {str(o['at'])[:16]}" + (f" at frame {o['frame']}" if o.get("frame") not in (None, "") else "") + where
+                     + f": {str(o['said']).strip().replace(chr(10), ' / ')}  [{o['from']}, row {o['row']}]")
+    if not r["owner"]:
+        lines.append("  - the owner: no line tied to this render")
+    return lines
+
+
+def page(out: dict, made: str, table: str | None) -> str:
+    """The whole ledger as a page: what it is, the counts, a section a shot and a subject, what was not placed."""
+    c = out["counts"]
+    lines = [f"# Every render of {out['video']} on the share, a shot and a subject at a time", "", made, "",
+             "Read from files by `bench/render_ledger.py`. Nothing here says a render is good, or better than another; "
+             "`ITS MAKING` is one of four facts about files (`MAKING`), and the tool's docstring says what `agrees` means and all it means. "
+             "A render that covers several shots, or two subjects, is told in full once and pointed at from its other sections.", "",
+             f"What it cannot see: {out['cannot_see']}.", "",
+             "| renders of this video | " + " | ".join(MAKING) + " | laid in the table |", "|" + "---|" * (len(MAKING) + 2),
+             f"| {c['renders']} | " + " | ".join(str(c[m]) for m in MAKING) + f" | {c['laid_in_the_table']} |", "",
+             f"The delivery table read: `{table}`." if table else "No delivery table was given.", ""]
+    told: dict[str, str] = {}
+    for s in out["sections"]:
+        lines += [f"## {frames(s['first'], s['last'])}, {s['subject']}" + ("" if s["present"] == "yes" else
+                                                                           f" (the shots file says present: {s['present']})" if s["present"] else " (not a subject of the shots file)"), ""]
+        here = f"{frames(s['first'], s['last'])}, {s['subject']}"
+        if not s["renders"]:
+            lines += ["No render covers these frames for this subject.", ""]
+        for f in s["renders"]:
+            r = out["renders"][f]
+            if f in told:
+                lines.append(f"- **`{r['name']}`**  `{f}`: {r['making']}; told in full under \"{told[f]}\"")
+            else:
+                told[f] = here
+                lines += render_lines(r)
+        lines.append("")
+    n = out["not_placed"]
+    lines += ["## Not placed", "",
+              f"- renders of this video outside the shots file's span: {len(n['renders_outside_the_shots_span'])}"]
+    lines += [f"  - `{f}`" for f in n["renders_outside_the_shots_span"]]
+    for f in n["renders_outside_the_shots_span"]:
+        lines += ["  " + x for x in render_lines(out["renders"][f])[1:]]
+    lines.append(f"- build records with no render on the share (no file they name, and none of their load's name in their output folder): "
+                 f"{len(n['records_whose_render_is_not_on_the_share'])}")
+    lines += [f"  - `{g['built_file'] or g['queued_file']}`: status {g['status']}, load {g['load'].get('name')} "
+              f"({g['load'].get('frames')} frames from {g['load'].get('first')}), files {g['files'] or 'none named'}" for g in n["records_whose_render_is_not_on_the_share"]]
+    lines.append(f"- numbered videos under the share with no saved graph beside them and no record: {len(n['numbered_videos_with_no_saved_graph_and_no_record'])} "
+                 "(they cannot be tied to a video; listed in the JSON)")
+    for key, words in (("renders_of_other_videos_by_the_copy_loaded", "renders of other videos, by the copy their graph loads"),
+                       ("numbered_videos_whose_graph_is_no_render_of_a_video", "numbered videos whose saved graph is no render of a video, by why")):
+        lines.append(f"- {words}: " + (", ".join(f"{k}: {v}" for k, v in sorted(n[key].items())) or "none"))
+    lines.append(f"- rows of the verdicts file tied to no render file: {len(n['verdict_rows_tied_to_no_render_file'])}")
+    lines += [f"  - `{x['row']}`: {x['why']}" + (f": {x['title']}" if x["title"] else "") for x in n["verdict_rows_tied_to_no_render_file"]]
+    return "\n".join(lines) + "\n"
+
+
+def summary(out: dict, made: str) -> str:
+    """The counts a shot and a subject, with no path of a private folder and none of the owner's words: what a
+    tracked record can hold. The page beside the JSON is the ledger; this says where it is and what it counted."""
+    lines = ["| frames | subject | renders | " + " | ".join(MAKING) + " | laid in the table | with a line of the owner's |", "|" + "---|" * (len(MAKING) + 5)]
+    for s in out["sections"]:
+        rs = [out["renders"][f] for f in s["renders"]]
+        lines.append(f"| {frames(s['first'], s['last'])} | {s['subject']} | {len(rs)} | " + " | ".join(str(sum(r["making"] == m for r in rs)) for m in MAKING)
+                     + f" | {sum(bool(r['laid_in_the_table']) for r in rs)} | {sum(bool(r['owner']) for r in rs)} |")
+    return made + "\n\n" + "\n".join(lines) + "\n"
+
+
+def main() -> int:
+    p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    p.add_argument("--shots", required=True)
+    p.add_argument("--plan", required=True)
+    p.add_argument("--share", required=True, help="the server's output root; its Video/ folder is walked")
+    p.add_argument("--records", required=True, help="the folder the job tool writes under: <records>/*_job/<load>.render.*.json")
+    p.add_argument("--source", action="append", required=True, metavar="FILE[=RATE]",
+                   help="a copy of the video a render may load, by file name, with its rate when it is not 24; repeatable")
+    p.add_argument("--table", help="a delivery table")
+    p.add_argument("--verdicts")
+    p.add_argument("--answers")
+    p.add_argument("--items", help="the review page's items: an item's id to a render's file")
+    p.add_argument("--spots", action="append", default=[], metavar="SPOTS.json",
+                   help='the owner\'s rows that were said of a JOINED clip at stated frames: {"clip", "table", "spots": [{"row", "first", "last"}]}; '
+                        "each is printed under the renders that clip's table laid there; repeatable")
+    p.add_argument("--inputs", help="the server's input root, so a record's still can be looked for")
+    p.add_argument("--since", metavar="YYYY-MM-DD", help="leave out files written before this day (UTC); said in the record")
+    p.add_argument("--json", required=True)
+    p.add_argument("--md", required=True)
+    p.add_argument("--summary", help="also write the counts a shot and a subject, with no private path and no owner's words")
+    a = p.parse_args()
+    coverage = _module("shot_coverage")
+    shots = coverage.load_shots(a.shots)
+    plan = coverage.load_plan(a.plan, shots["subjects"])
+    rows = _module("assemble_delivery").read_table(a.table) if a.table else []
+    lines = lambda path: [(n, json.loads(line)) for n, line in enumerate(open(path), 1) if line.strip()] if path else []
+    sources = {s.partition("=")[0]: float(s.partition("=")[2] or 24) for s in a.source}
+    repo = HERE.parent
+    read_table = _module("assemble_delivery").read_table
+    spots = []
+    for path in a.spots:
+        given = json.load(open(path))
+        spots.append({**given, "rows": read_table(given["table"]), "file": path})
+    out = ledger(shots, plan, Path(a.share), Path(a.records), repo, sources, rows, [v for _, v in lines(a.verdicts)], lines(a.answers),
+                 (json.load(open(a.items)).get("items") or []) if a.items else [], a.since, alias=lambda label: coverage.alias(label, plan),
+                 spots=spots, inputs=Path(a.inputs) if a.inputs else None)
+    commit = subprocess.run(["git", "-C", str(repo), "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
+    made = (f"Made {utc(datetime.datetime.now().timestamp())} at commit {commit} from: the share `{a.share}`" + (f" (files since {a.since})" if a.since else " (every file)")
+            + f"; the records under `{a.records}`; `{a.shots}`; `{a.plan}`; the copies {', '.join(sources)}"
+            + "".join(f"; `{x}`" for x in (a.verdicts, a.answers, a.items, *a.spots) if x) + ".")
+    out["made"] = made
+    Path(a.json).write_text(json.dumps(out, indent=1, ensure_ascii=False) + "\n")
+    Path(a.md).write_text(page(out, made, a.table))
+    if a.summary:
+        Path(a.summary).write_text(summary(out, made))
+    c = out["counts"]
+    print(f"{c['renders']} renders of this video: " + ", ".join(f"{m}: {c[m]}" for m in MAKING) + f"; laid in the table: {c['laid_in_the_table']}")
+    print(f"sections (a shot and a subject): {len(out['sections'])}; not placed: " + ", ".join(
+        f"{k}: {len(v) if isinstance(v, list) else sum(v.values())}" for k, v in out["not_placed"].items()))
+    print("wrote", a.json, "and", a.md, *(["and", a.summary] if a.summary else []))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
