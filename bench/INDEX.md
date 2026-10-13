@@ -598,7 +598,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-216 tracked files: [`results/INDEX.md`](results/INDEX.md).
+217 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 
