@@ -44,7 +44,7 @@ never into the cast file:
   a_shot_the_record_does_not_have_is_refused          the page's shot and the record's differ in a frame: by name, nothing written
   another_hands_entry_is_not_replaced                 the same word is left, another word is printed DISAGREES, neither is written
   a_standing_box_in_the_shot_makes_it_yes             a box in the cast file inside the shot outweighs `not on this frame` elsewhere in it
-  a_plain_frame_with_no_record_stores_nothing         with `--preview` only, a plain tile is listed and nothing of it is stored
+  a_plain_frame_with_no_record_stores_nothing         with `--preview` only, the plain tiles are counted in one line and nothing is stored
   the_owners_words_are_printed_beside_the_shot        whole, with their line, and copied nowhere
 
     <python> bench/check_page_answers_to_cast.py
@@ -359,8 +359,8 @@ def main() -> int:
         p11 = setup(f11, [plain(1, 2050, "lead", "not outlined")])
         r = run(p11)
         case("a_plain_frame_with_no_record_stores_nothing", r.returncode == 0 and not cast_lines(p11)
-             and "PLAIN FRAME, no --shots file holds it, nothing stored: plain frame 2050" in r.stdout
-             and "plain frames no --shots file holds 1" in r.stdout, r.stdout + r.stderr)
+             and "left for a run that names a --shots record: 1 tile(s); nothing of them is stored" in r.stdout
+             and "PLAIN FRAME" not in r.stdout and "plain frames no --shots file holds 1" in r.stdout, r.stdout + r.stderr)
 
     print(f"{'FAIL' if fails else 'ok'}: {fails} failing case(s)")
     return 1 if fails else 0

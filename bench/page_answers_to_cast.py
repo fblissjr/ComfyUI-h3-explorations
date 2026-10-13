@@ -63,7 +63,7 @@ frame and what was said on it, and `by` the time and the lines. That `no` is of 
 as the shot's, as the record's rows made by hand already were; a subject with no plain answer in a shot is left
 as it was. A plain tile is taken only when a `--shots` file holds it: the same `video`, and a shot whose first
 and last frame are the ones the page showed the tile under (a table cut again since the page was made is refused
-by name); with none it is listed and nothing of it is stored. An entry of the record that somebody else wrote
+by name); with none it is listed and nothing of it is stored (counted in one line when no `--shots` is given at all). An entry of the record that somebody else wrote
 and that is not `unsure` is never replaced: the same word is left as it is, another word is printed as DISAGREES
 for a person to settle. The owner's words on a shot's frames are printed beside it, whole, with their line, and
 are copied nowhere: the page reads them from its own file, and they count over a button, so a shot printed with
@@ -359,8 +359,11 @@ def main() -> int:
             pp, head, held = one["pp"], one["head"], one["held"]
             if held is None:
                 plain += 1
-                said = ", ".join(f"{sub}: {v['label']}" for sub, v in sorted(pp["said"].items()))
-                print(f"PLAIN FRAME, no --shots file holds it, nothing stored: {head}: {said}")
+                # one line a frame only when a record was given and does not hold it; with no --shots at all they are
+                # counted (2026-10-13: a run for one stretch's numbered pictures printed 188 of these before its own tiles)
+                if records:
+                    said = ", ".join(f"{sub}: {v['label']}" for sub, v in sorted(pp["said"].items()))
+                    print(f"PLAIN FRAME, no --shots file holds it, nothing stored: {head}: {said}")
                 continue
             if not pp["said"]:
                 continue
@@ -412,6 +415,8 @@ def main() -> int:
         stored += 1
     if beyond:
         print(f"outside --span {span[0]}-{span[1]}, not read: {beyond} tile(s) of the answers file")
+    if plain and not records:
+        print(f"plain frames (the source itself, nobody outlined), left for a run that names a --shots record: {plain} tile(s); nothing of them is stored")
     if left:
         print(f"left for a run that names their previews (no --preview was given): {left} tile(s) of numbered pictures, on "
               + ", ".join(sorted(left_tables)))
