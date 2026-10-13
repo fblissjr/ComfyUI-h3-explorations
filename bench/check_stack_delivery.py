@@ -10,7 +10,9 @@ picture beside each piece with a saved graph as ComfyUI writes one; and a table 
    gives back; `--alias` renames a subject on the picture, in the rows and in the `source` lines alike. A
    reference's path is read out of a picture's metadata, so it is opened only when it is a plain video file on
    this machine: a URL, a protocol string, a name that is no video's and a file that is not there are each
-   refused with the reason, and a real video is kept (the control).
+   refused with the reason, and a real video is kept (the control). A playlist under a video's name, which
+   passes a check of the name and which ffmpeg left to itself follows (the control), does not read: the reader
+   tells ffmpeg the container by the suffix.
 2. **What the middle row reads, frame by frame**: a row's mask picture on the frame counted from the PIECE's
    first frame, and its reference on the frame counted from the GRAPH's first frame, which differ for a load
    that continued a stored window (the piece begins later than its graph loads from). A frame no row covers
@@ -150,6 +152,22 @@ def the_table_as_read() -> str:
     picture(odd.with_suffix(".png"), 3, m.ref_a)
     (row,), _ = sd.read_rows(str(odd_table), 24.0, {})
     assert row["ref"] == (str(m.ref_a), 0) and row["ref_refused"] is None, row
+    # A PLAYLIST UNDER A VIDEO'S NAME passes a check of the name, so the reader must not follow it: ffmpeg is told
+    # the container by the suffix and the file does not read. The control: left to probe the content, ffmpeg DOES
+    # follow this same file to the video it lists, so the fixture is a working playlist and the gap was real
+    playlist = m.root / "playlist.mp4"
+    playlist.write_text("ffconcat version 1.0\nfile 'source.mp4'\n")
+    assert sd.not_a_plain_video(str(playlist)) is None, "the fixture's playlist does not pass the check of its name"
+    followed = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-count_packets", "-show_entries", "stream=nb_read_packets",
+                               "-of", "csv=p=0", str(playlist)], capture_output=True, text=True).stdout.strip().strip(",")
+    assert followed == str(FRAMES), f"the control: ffmpeg left to itself reads {followed!r} frames through the playlist, not the source's {FRAMES}"
+    reader = sd.Reader(str(playlist), 0, f"scale={W}:{H}", W, H)
+    got = reader.frame(0)
+    reader.close()
+    assert got is None, "a playlist named as a video was followed"
+    real = sd.Reader(str(m.ref_a), 0, f"scale={W}:{H}", W, H)
+    assert real.frame(0) is not None, "a real video does not read with its container told"
+    real.close()
     return ("a row's piece, first frame, subject and what it gives back; an alias renames a subject everywhere; a piece with no picture has no "
             "reference; a reference named in a picture's metadata is opened only when it is a plain video file on this machine")
 

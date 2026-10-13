@@ -35,8 +35,9 @@ clip's, and each of the top and bottom rows held against the file it came from o
 frames either side (small, grey, below the label). Printed as figures.
 
 **A reference's path comes out of a picture's metadata**, not from whoever runs this, so it is opened only when
-it is a plain video file on this machine (`not_a_plain_video`), and every file here is opened as a local file
-and by no other protocol. A reference that is not opened is said when the table is read and has no panel.
+it is a plain video file on this machine (`not_a_plain_video`), and every file here is opened as a local file,
+by no other protocol, and as the container its suffix names (`CONTAINER`): ffmpeg is told what the file is and
+does not decide from its content, so a playlist under a video's name is not followed. A reference that is not opened is said when the table is read and has no panel.
 
 **What it cannot show or see.** The parts in their own colours (not in a render's files); the still a render
 took a face from; a zoomed render's mask at its whole-frame place (its mask picture is of the zoomed box, as
@@ -80,6 +81,11 @@ def _assembler():
 #: not this tool's caller's word: only a plain video file on disk is opened, never a URL, a protocol string or a
 #: playlist that would have ffmpeg fetch something else.
 VIDEO_SUFFIXES = (".mp4", ".mov", ".mkv", ".webm")
+#: The container ffmpeg is TOLD a file is, by its suffix, so it never decides from the file's content. Left to
+#: itself ffmpeg probes: a text file named `x.mp4` that is a playlist is read as a playlist and the files it
+#: lists are opened, which a check of the name alone does not stop. With the format forced such a file simply
+#: does not read. (The QuickTime reader does not follow a file's references to other files unless asked to.)
+CONTAINER = {".mp4": "mov", ".mov": "mov", ".mkv": "matroska", ".webm": "matroska"}
 
 
 def not_a_plain_video(path: str) -> str | None:
@@ -188,7 +194,9 @@ class Reader:
     def __init__(self, path: str, skip: int, vf: str, w: int, h: int, pix: str = "rgb24"):
         self.at, c = skip, 3 if pix == "rgb24" else 1
         self.size, self.shape = w * h * c, (h, w, 3) if c == 3 else (h, w)
-        self.p = subprocess.Popen(["ffmpeg", "-v", "error", "-threads", "2", "-protocol_whitelist", "file", "-i", "file:" + str(Path(path).resolve()),
+        told = CONTAINER.get(Path(path).suffix.lower())
+        self.p = subprocess.Popen(["ffmpeg", "-v", "error", "-threads", "2", "-protocol_whitelist", "file", *(["-f", told] if told else []),
+                                   "-i", "file:" + str(Path(path).resolve()),
                                    "-vf", f"select='gte(n\\,{max(skip, 0)})'," + vf,
                                    "-fps_mode", "passthrough", "-f", "rawvideo", "-pix_fmt", pix, "-"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
