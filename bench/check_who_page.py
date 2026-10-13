@@ -18,6 +18,9 @@ own words beside it, and each of those can be off by one.
   the_address_is_the_outs               the page says it is answered from /<the --out folder's name>/index.html, not from /who/
   a_page_is_not_written_over_another    an --out holding a page of another span, or one that does not say its span, is refused
                                         with its bytes as they were; the same span is built again in place
+  a_sessions_reading_is_a_guess_in_a_closed_fold   with --notes, a preview's line is under that preview's tiles and no other, in a
+                                        fold that is not open, headed as a session's guess; it holds no button and presses
+                                        none; a line naming no preview given is printed; with no notes there is no fold
   a_tile_asks_only_its_jobs_subjects    a numbered picture has buttons for the subjects its preview's job names and for no other
                                         subject of the record, who is named under it in words
 
@@ -137,6 +140,22 @@ def main() -> int:
              and (p["out"] / "index.html").read_bytes() == before and r2.returncode != 0 and "does not say its span" in r2.stdout + r2.stderr
              and (bare / "index.html").read_text() == "a page made before a page said its span" and r3.returncode == 0,
              r.stdout + r.stderr + r2.stdout + r2.stderr + r3.stdout + r3.stderr)
+        notes = Path(d) / "run.jsonl"
+        notes.write_text("".join(json.dumps(x) + "\n" for x in [
+            # the first line is of another preview, and of this preview's name on another first frame: neither is this tile's
+            {"first": 700, "job_file": "inputs/elsewhere.json", "subjects": [{"label": "a", "picked_number": 1, "why": "NOT THIS PREVIEW'S"}]},
+            {"first": 101, "job_file": "inputs/pv.json", "subjects": [{"label": "a", "picked_number": 1, "why": "NOT THIS PREVIEW'S"}]},
+            {"first": 100, "job_file": "inputs/pv.json", "recorded_at": "2026-10-13T15:00:00Z", "subjects": [
+                {"label": "a", "picked_number": 2, "picked_looks_like": "A TALL ONE <b>", "right_person": "no", "why": "THE SMALL ONE IS a"}]}]))
+        noted = Path(d) / "noted"
+        r = run({**p, "out": noted}, "--preview", p["pv"], "--preview", p["far"], "--notes", str(notes))
+        text = (noted / "index.html").read_text() if r.returncode == 0 else ""
+        fold = text.split("<details", 1)[1].split("</details>", 1)[0] if "<details" in text else ""
+        case("a_sessions_reading_is_a_guess_in_a_closed_fold", r.returncode == 0 and text.count('<details class="guess">') == 2
+             and "<details open" not in text and "a session's guess, NOT the owner's" in fold and "run.jsonl line 3, recorded 2026-10-13T15:00:00Z" in fold and "NOT THIS PREVIEW" not in text
+             and "picked person 2 (A TALL ONE &lt;b&gt;)" in fold and "<b>no</b>" in fold and "THE SMALL ONE IS a" in fold
+             and "<button" not in fold and 'class="on"' not in text and "data-chosen" not in fold
+             and "elsewhere (first frame 700), run.jsonl line 1" in r.stdout and "pv (first frame 101), run.jsonl line 2" in r.stdout and "<details" not in page, r.stdout + r.stderr + fold)
         # the same tables under a job that names `a` alone: `b` is a subject of the record and not of the job
         solo = Path(d) / "solo.json"
         solo.write_text(json.dumps({"job": {"name": "pv", "first": 100, "frames": 60, "subjects": [{"label": "a"}]}}))

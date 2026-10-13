@@ -2,7 +2,7 @@
 """One plain page, a row a shot: who is in it and on whose word, each tracker's numbered picture of the shot, and the owner's words on it.
 
     <python> bench/who_page.py --shots data/<stem>/shots.json --preview JOB.json=TABLES_DIR [--preview ...] \\
-        [--answers data/<stem>/poc/answers.jsonl] [--span FIRST-LAST] --out <folder>
+        [--answers data/<stem>/poc/answers.jsonl] [--span FIRST-LAST] [--notes PREVIEWS_RUN.jsonl] --out <folder>
 
 **What it buys.** The owner asked (2026-10-12) to see, in a super simple page, who is labelled in each shot, with
 the masks and identifiers over the input video, so a subject who changes clothes or a shot where nobody was
@@ -31,6 +31,13 @@ it), and it writes `page.json` beside itself: its span, its previews and when it
 WRITTEN OVER ANOTHER: an `--out` that holds a page of another span, or one that does not say its span (a page
 made before 2026-10-13), is refused by name, since the owner's answers were given on the page as it stood. The
 same span is built again in place.
+
+**A session's reading, as a guess.** `--notes` takes the file a session wrote when it looked at each preview's
+tiles (one line a preview: `job_file`, `first`, and per subject `picked_number`, `picked_looks_like`,
+`right_person`, `why`), as it is. It is shown under the tile of the preview it names, in a fold that is closed,
+headed as a session's guess and not the owner's, with the file and the time it was recorded: read after the
+click, not before it. It presses no button and colours none. A line that names no preview given is printed when
+the page is built; a tile with no line says so.
 
 **What it does not do.** It draws nothing: the numbers and outlines are the table's own, made by the tracker
 when the preview ran, so a later correction is not on them. The numbered picture is one frame a shot, the
@@ -107,7 +114,7 @@ def tiles_for(shot: dict, pv: dict, out: Path) -> list[dict]:
             name = f"{shot['first']:04d}_{pv['name']}_{label}_shot{int(ts['shot'])}.jpg"
             (out / "tiles").mkdir(parents=True, exist_ok=True)
             band(table, picture, k).save(out / "tiles" / name, quality=88)
-            found.append({"file": f"tiles/{name}", "label": label, "preview": pv["name"], "shot": int(ts["shot"]),
+            found.append({"file": f"tiles/{name}", "label": label, "preview": pv["name"], "preview_first": pv["first"], "shot": int(ts["shot"]),
                           "shown": pv["first"] + int(ts["shown_frame"]), "table_frame": int(ts["shown_frame"]),
                           "table": picture.name.replace(".png", ".json"), "frames": [lo, hi],
                           "people": [int(p["person"]) for p in ts.get("people", [])], "subjects": pv["subjects"],
@@ -146,6 +153,7 @@ th{background:#1e2127;position:sticky;top:0}.f{font-family:ui-monospace,monospac
 .tile{font-size:14px;color:#aab}.ask{margin:4px 0}.lab{display:inline-block;min-width:70px;color:#ddd}
 button{font:inherit;font-size:14px;margin:2px;padding:4px 10px;border:1px solid #555;border-radius:4px;background:#23272e;color:#eee;cursor:pointer}
 button.on{background:#3b6cf0;border-color:#3b6cf0}.st{font-size:13px;color:#9c9}textarea{width:100%;min-height:60px;background:#1b1e24;color:#eee;border:1px solid #555;font:inherit}
+.guess{margin-top:8px;font-size:14px;color:#aab}.guess summary{cursor:pointer;color:#c9a227}
 .say{margin-top:8px}#me{background:#1b1e24;color:#eee;border:1px solid #555;padding:4px}.w{font-size:16px;color:#ddd;white-space:pre-line;margin-bottom:8px}.how{font-size:14px;color:#9aa3b2}"""
 
 SCRIPT = """<script>
@@ -194,6 +202,38 @@ def plain_tile(shots: dict, s: dict, frame: int, file: str, why: str) -> str:
             f'<div>frame {frame}, the source itself: {why}, so nothing is outlined</div>{ask}<div class="st"></div></div>')
 
 
+def notes_of(path: str | None) -> dict[tuple[str, int], dict] | None:
+    """A session's notes on the previews' tiles, by (the preview's job name, its first frame); None when none are given."""
+    if not path:
+        return None
+    out = {}
+    for n, text in enumerate(Path(path).read_text().splitlines(), 1):
+        if not text.strip():
+            continue
+        row = json.loads(text)
+        if "job_file" not in row or "first" not in row:
+            raise SystemExit(f"{path} line {n}: a note names its preview by `job_file` and `first`")
+        out[(Path(row["job_file"]).stem, int(row["first"]))] = {**row, "from": Path(path).name, "line": n}
+    return out
+
+
+def guess(notes: dict | None, t: dict) -> str:
+    """A session's reading of one tile's preview, in a closed fold under it: a guess, labelled, that answers nothing."""
+    if notes is None:
+        return ""
+    row = notes.get((t["preview"], t["preview_first"]))
+    if row is None:
+        return '<div class="how">no session\'s reading of this preview is in the notes this page was built with</div>'
+    said = "".join(
+        f'<div><b>{html.escape(str(s.get("label", "")))}</b>: the tracker picked person {html.escape(str(s.get("picked_number", "not said")))}'
+        f' ({html.escape(str(s.get("picked_looks_like", "")))}). Is that the right person, by this reading: <b>{html.escape(str(s.get("right_person", "not said")))}</b>. '
+        f'{html.escape(str(s.get("why", "")))}</div>' for s in row.get("subjects", []))
+    return (f'<details class="guess"><summary>a session\'s guess, NOT the owner\'s: open it after answering</summary>'
+            f'<div class="how">A session looked at this preview\'s tiles and wrote this ({html.escape(row["from"])} line {row["line"]}, recorded '
+            f'{html.escape(str(row.get("recorded_at", "at a time it does not give")))}). It is a reading of a picture, not an answer, and nothing '
+            f'here is stored.</div>{said}</details>')
+
+
 def span_of(text: str | None, shots: dict) -> list[int]:
     """The frames a page is of: `--span FIRST-LAST`, or the record's own span when none is given."""
     if not text:
@@ -218,7 +258,7 @@ def not_over_another(out: Path, span: list[int]) -> None:
 
 
 def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, plan: dict | None = None, source: str | None = None,
-         long_frames: int = LONG_SHOT_FRAMES, span: list[int] | None = None) -> str:
+         long_frames: int = LONG_SHOT_FRAMES, span: list[int] | None = None, notes: dict | None = None) -> str:
     rows = []
     span = span or [int(shots["span"][0]), int(shots["span"][1])]
     for s in shots["shots"]:
@@ -268,7 +308,7 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
             tiles.append(f'<div class="tile" data-table="{html.escape(t["table"])}" data-frame="{t["shown"]}" data-tf="{t["table_frame"]}" '
                          f'data-shot="{t["shot"]}" data-lo="{s["first"]}" data-hi="{s["last"]}"><img src="{t["file"]}" alt="">'
                          f'<div>frame {t["shown"]} as {html.escape(t["label"])}\'s tracker numbered it ({html.escape(t["preview"])} shot {t["shot"]}), '
-                         f'people {t["people"] or "none"}{part}</div>{ask}<div class="st"></div>{also}</div>')
+                         f'people {t["people"] or "none"}{part}</div>{ask}<div class="st"></div>{also}{guess(notes, t)}</div>')
         if source:      # a long shot: its first and last quarter as well, so an entrance after the shown frame has a frame to be said on
             for q, which in zip(quarter_frames(s, long_frames), ("first", "last")):
                 f = plain_frame(source, q, out)
@@ -314,6 +354,8 @@ def main() -> int:
     ap.add_argument("--long-shot-frames", type=int, default=LONG_SHOT_FRAMES,
                     help=f"a shot longer than this also shows its first- and last-quarter source frames (needs --source); {LONG_SHOT_FRAMES} by default, a starting value")
     ap.add_argument("--span", metavar="FIRST-LAST", help="only the record's shots with a frame inside these source frames; the record's own span when left out")
+    ap.add_argument("--notes", metavar="PREVIEWS_RUN.jsonl", help="a session's notes on the previews' tiles, one line a preview; shown under each tile in a "
+                    "closed fold, headed as a session's guess and not the owner's")
     ap.add_argument("--out", required=True, help="the page's own folder; its name is the page's address on the page server, and a page of another span there is refused")
     a = ap.parse_args()
     shots = json.load(open(a.shots))
@@ -324,12 +366,16 @@ def main() -> int:
     out.mkdir(parents=True, exist_ok=True)
     plan = json.load(open(a.plan)) if a.plan else None
     made = previews(a.preview)
-    text = page(shots, made, answers, out, plan, a.source, a.long_shot_frames, span)
+    notes = notes_of(a.notes)
+    text = page(shots, made, answers, out, plan, a.source, a.long_shot_frames, span, notes)
+    for name, first in sorted(set(notes or {}) - {(p["name"], p["first"]) for p in made}):
+        print(f"a note names a preview this page was not given, and is shown nowhere: {name} (first frame {first}), {notes[(name, first)]['from']} "
+              f"line {notes[(name, first)]['line']}")
     (out / "index.html").write_text(text)
     (out / "page.json").write_text(json.dumps({
         "what": "what bench/who_page.py built this page from; a page of another span is not written over it", "span": span,
         "built": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "shots": str(a.shots),
-        "previews": [{"job": p["name"], "frames": [p["first"], p["last"]], "tables": str(p["folder"])} for p in made]}, indent=1) + "\n")
+        "notes": a.notes, "previews": [{"job": p["name"], "frames": [p["first"], p["last"]], "tables": str(p["folder"])} for p in made]}, indent=1) + "\n")
     tiles = sorted((out / "tiles").glob("*.jpg")) if (out / "tiles").is_dir() else []
     rows = text.count("<tr>") - 1
     print(f"written: {out / 'index.html'}; frames {span[0]}-{span[1]}; {rows} shot(s) of the record's {len(shots['shots'])}; {len(tiles)} tile(s) under "
