@@ -425,6 +425,24 @@ fixed the same day, said inline below.**
     frames, a zoom enlarges those pixels and is "not a sharper
     picture"; whether a job can hand the node the clip's own frames
     has not been read.
+- **The owner's typed words on the shots of 1920-6394 are in no
+  shot's note** (2026-10-13; a row, waiting on a read). The owner asked
+  that day that their free-text words are read with their clicks.
+  `bench/page_answers_to_cast.py --words-to-notes` carries each words
+  line of a who row into the note of the shot that holds its frame,
+  whole, once; it was run on 604-1009 and on 1039-1465 after the lead
+  had read those lines. A dry run over the whole record then lists
+  what is left: the lines typed on the plain-frame page of 1920-6394
+  on 2026-10-12, each naming its shot's first frame. They were read
+  on the 12th into `data/fun/who_1920_words_read.md`, by a cold reader,
+  and not against the record's entries since.
+  - *What it takes.* The lead reads the dry run's list (the command
+    with `--dry-run` and no `--span`), then the same command without
+    `--dry-run` on `--span 1920-6394`, after a copy of the shots file.
+    Carrying the words changes no `present`, `how` or `by`.
+  - *What it does not do.* Read the words against the buttons. Where
+    the two disagree on a shot, that is still a person's to settle;
+    the note only puts the words where the shot is read.
 - **A capture's times are the machine's local time with no zone, and
   that clock is load-bearing** (2026-10-13; a row, the stored form not
   changed). Seen as `looks.json`'s `at` reading five hours behind the
