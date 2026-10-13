@@ -428,6 +428,27 @@ fixed the same day, said inline below.**
     one zoomed plan of 2026-10-12: handed canvas-size frames, a zoom
     enlarges those pixels and is "not a sharper picture"; whether a job
     can hand the node the clip's own frames has not been read.
+- **The text grader has no donor for a masked load, so its command fails
+  every masked text** (2026-10-13, from the chain's first real load; a
+  row, nothing built). `docs/prompting.md` gives one command to hold a
+  text's form, `bench/grade_prompt_text.py --mode ref2va --length N
+  TEXT`, and a masked load's text is a `ref2va` text that names
+  `<Picture 1>` and `<Video 1>`.
+  - *What it does today.* The tool picks its donor graph by mode from
+    the shipped graphs, and the `ref2va` donor wires pictures and no
+    video, so the text FAILs on "prompt names `<Video 1>`, which no
+    socket wires", whatever it says. The tool's own hint calls that a
+    property of the donor. `--like` with a masked graph's stem is
+    refused: no shipped masked graph carries a literal prompt.
+  - *The length.* Asked for 61 frames it graded at 73, and asked for 50
+    at 56: it snaps to the lengths a generation takes, and a masked load
+    is the length of its shot. The word count it warns on is the
+    guide's for a generation, not for a text beside a source video.
+  - *What is wanted.* A donor that wires one picture and one video, or a
+    mode that reads the sockets off the load's own built graph (the job
+    folder's `<load>.plan.json`), graded at the load's own frame count.
+    Until then a masked text's form is held by a reader, and the
+    command's FAIL on such a text says nothing about the text.
 - **A delivery record's `claimed_by_more_than_one_track` is not traced**
   (2026-10-13). The two builds of that day from the generated table give
   the same figure, and it is larger than the typed table's of 2026-10-12
