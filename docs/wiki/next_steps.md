@@ -17,33 +17,62 @@ pointer goes; this list is stale the moment the roadmap disagrees with it.
 Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
-**The queue, 2026-10-12 night (the lead, mrfancy), in order; the reasoning is in
-[`handover.md`](handover.md) and [`decisions.md`](decisions.md), the day's section.**
-1. The owner's looks on the local page (the four renders of the second subject and
-   the lead's 1466-1534 in the one form; the joined clip of 0-1919) and the two Open
-   List rows written for them (18: 14-154, headref or p4; 19: their words on the
-   1920-6394 shots, nine lines unclear).
-2. The lead's 1061-1092 (the plain body model cut, ending at 1079) and 1306-1402
-   (the capture on the load's own frames, ending at 1396): the rulings are in
-   `data/2026-10-12_lead_fp_1061/looks.json` and `data/2026-10-12_lead_fp_1306/looks.json`;
-   each to its first strip, the plan, the render, the readings.
-3. The lead's 168-185 and 516-603 after their part sizes are counted against the
-   capture's floor (`PART_LEAST_PX`); under it they join the zoomed-load list (row p04).
-4. The third subject's three shots, face only (his track, body model and points
-   first); 1222-1305 as the first two-subject render only on a day the owner can
-   look (a swap or a blend of the faces is what it is read for).
-5. The delivery of 0-1919 from `internal/claude/2026-10-12_delivery_dry_run.md`
-   (its five things first: 0859d's piece starts at 949; the 10th's aliases; 438-483's
-   zoomed piece; 294-414 and 1010-1038 held as the source; the `restore=` rows where
-   two passes meet).
-6. The previews on 1920-6394, seeded by a builder rule on a sampled frame the record
-   marks the subject on (`data/fun/who_1920_words_read.md`'s caution: 19 of 29 seed
-   rows carry a frame the owner never saw); the nine unclear shots last.
-7. The hair band stays untested as a fix for the 693-703 fault until a render draws
-   her hair long enough to reach the keep-out; `bench/read_hair_band.py` reads it.
-8. Rows, not code: a capture over a whole-shot preview fails on frames outside its
-   load (1306); the builder records no look when a load's frames change after the
-   look (1466); the date -u rule is in no tracked file.
+**The queue at the close of 2026-10-13 (the lead, mrtower). The card's order is
+[`handover.md`](handover.md), "Tomorrow, in order", and is not repeated here; the
+day's rulings are [`decisions.md`](decisions.md), 2026-10-13. The queue of
+2026-10-12 that stood here is in git: its looks, its two loads of the lead, the
+delivery of 0-1919 and the previews of 1920-6394 were done; what it left open is
+carried below.**
+
+Tooling, in order (each is a row further down this page unless it says otherwise):
+1. A load that names a subset of its subject's parts ("A load cannot name a
+   subset of its subject's parts"): the second subject on 1010-1038 waits on it.
+2. The sound signals for a window's edges (`bench/clip_signals.py`): its second
+   run read by somebody who did not build it, then the figures into a load's
+   details and onto the plan strip, the capture's manifest naming the signals'
+   fingerprint, then the picture rows of
+   [`window_edges_data.md`](window_edges_data.md). Nothing reads its tables
+   until that reading.
+3. A pair measure as a tracked tool (a row below, new).
+4. A zoom box that follows the subject (a row below, new).
+5. The rows of 2026-10-13 not started: a zoomed load's floor at the size it
+   renders at; overlapping keeps ordered by the keep's time; a shot between the
+   planner's longest length and the model's; the plan strip saying a load is
+   zoomed; `break_checks.py` and `check_masked_job`; choosing among several
+   boxes in one cut; how much of its box a person fills on a who picture.
+
+Carried from 2026-10-12: the hair band stays untested as a fix for the 693-703
+fault until a render draws her hair long enough to reach the keep-out
+(`bench/read_hair_band.py` reads it); the third subject's other shots, face
+only, and 1222-1305 as the first two-subject render on a day the owner can
+look.
+
+**Masked video to video, 2026-10-13: two rows from the day's last hours.**
+- **A zoomed load has one box, so a small face that travels cannot be
+  zoomed** (2026-10-13, from the holder of the card on the lead's 168-184).
+  The node zooms a load into one box that must hold the subject with its
+  room on every frame; where she walks across more than about half the
+  frame the box is larger than the frame allows and the node refuses the
+  zoom (the node's own line in
+  `data/2026-10-13_lead_fp_0168_job/lead_fp_0168.plan.queued.json`: the
+  load is rendered on the whole frame, with the sizes it compared), and on
+  the whole frame her face is too small to render.
+  Wanted: a box that follows the subject a frame at a time, or a box a run
+  inside one load. Not known: what a moving box does to the reference and
+  to the lay-back at a frame where the box steps; that is the first thing
+  to read, on a plan, before anything renders. Not started.
+- **A pair measure is two session scripts** (2026-10-13). Two renders of
+  the same frames were set side by side twice that day, each time by a
+  script of the session that asked: sharpness inside the region as
+  delivered, how the mouth's opening follows the source's, the step across
+  a frame where a piece begins
+  (`internal/claude/2026-10-13_mrtower_scripts/measure_pair_1920c_1920d.py`,
+  untracked, and the two-shot session's beside its notes). The owner's
+  rule for two keeps on the same frames asks for exactly this where the
+  other grounds do not settle it ([`decisions.md`](decisions.md),
+  2026-10-13). Wanted: one tracked tool that takes two landed loads and a
+  span and prints those figures with what each was measured on and what it
+  cannot see, and a check; no verdict, no threshold. Not started.
 
 **Masked video to video, 2026-10-12: gaps in the tools, each found by a run; several
 fixed the same day, said inline below.**
