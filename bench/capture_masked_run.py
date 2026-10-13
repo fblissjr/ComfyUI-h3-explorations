@@ -1642,6 +1642,47 @@ def verify_checks(manifest: dict, track_flags: list[dict], statements: list[dict
     return out
 
 
+def preview_first_of(by: str, data: Path) -> tuple[int | None, str]:
+    """The source frame a preview's files begin on, from the preview's own job: (first, where it was read), or
+    (None, why not). A sighting's `by` is the preview's job name, and its job folder is `data/<day>_<by>_job`;
+    one such folder, or it is not said which."""
+    found = sorted(Path(data).glob(f"*_{by}_job/job.json"))
+    if len(found) != 1:
+        return None, (f"no job folder data/<day>_{by}_job holds a job.json" if not found else f"{len(found)} job folders are named for {by}")
+    try:
+        return int(json.loads(found[0].read_text())["job"]["first"]), str(found[0].parent.name)
+    except (ValueError, KeyError, TypeError):
+        return None, f"{found[0].parent.name}/job.json does not say the job's first frame"
+
+
+def at_checks(manifest: dict, firsts: dict[str, tuple[int | None, str]]) -> tuple[list[dict], list[dict]]:
+    """Is every sighting's `at` the source frame its preview's files begin on: (checks, not checked).
+
+    `at` (`first_source_frame`, and `shots_first_source_frame` for the shot table) says which source frame a
+    mask FILE's frame 0 is on. The preview's own job says where its files begin. Where the two differ the
+    capture read the masks on the wrong frames, and the manifest and the preview's job contradict each other: a
+    hard failure. On 2026-10-13 two captures were made so by a script that passed the capture's first frame
+    as `at`; both verified, gated clear and were looked at before the masks were seen to sit four and eight
+    frames off the picture. `firsts` maps a sighting's `by` to `preview_first_of`'s answer. A sighting whose
+    preview's job cannot be found (masks made by hand, or by a run with no job folder) is NOT CHECKED and said
+    so by name: it is no failure and no pass."""
+    checks, unchecked = [], []
+    for s in manifest["subjects"]:
+        for seen in s["sightings"]:
+            about = f"{s['label']} by {seen['by']}"
+            first, where = firsts.get(seen["by"], (None, "its preview's job was not looked for"))
+            if first is None:
+                unchecked.append({"check": "at_is_the_previews_first_frame", "about": about, "why": where})
+                continue
+            said = {"at": seen.get("first_source_frame"), "shots_at": seen.get("shots_first_source_frame", seen.get("first_source_frame"))}
+            wrong = {k: v for k, v in said.items() if v != first}
+            checks.append({"check": "at_is_the_previews_first_frame", "about": about, "ok": not wrong,
+                           "why": (f"the masks were read with {', '.join(f'{k}={v}' for k, v in wrong.items())}, and the preview's own job ({where}) says its files "
+                                   f"begin on source frame {first}: every mask of this sighting is {abs(next(iter(wrong.values())) - first)} frame(s) off the picture"
+                                   if wrong else f"at={first}, as the preview's own job ({where}) says its files begin"), "previews_first": first})
+    return checks, unchecked
+
+
 def verify(a: argparse.Namespace) -> None:
     folder = Path(a.capture)
     m = json.loads((folder / "manifest.json").read_text())
@@ -1672,13 +1713,17 @@ def verify(a: argparse.Namespace) -> None:
         kept.write_text(json.dumps({"what": "a person's statements that a subject has no mask on a stretch and that this is known; "
                                             "read by every later `verify` of this capture", "statements": statements}, indent=1) + "\n")
     checks = verify_checks(m, track_flags, statements)
+    about_at, unchecked = at_checks(m, {seen["by"]: preview_first_of(seen["by"], REPO / "data") for s in m["subjects"] for seen in s["sightings"]})
+    checks += about_at
     failed, unmade = [c for c in checks if c["ok"] is False], [c for c in checks if c["ok"] is None]
     verdict = "does not read what the nodes wrote" if failed else "not verified: a check could not be made" if unmade else "reads what the nodes wrote"
     (folder / "verify.json").write_text(json.dumps({"capture": m["name"], "verdict": verdict, "failed": len(failed), "not_made": len(unmade),
                                                     "written": datetime.datetime.now().isoformat(timespec="seconds"),
-                                                    "no_mask_statements": statements, "checks": checks}, indent=1) + "\n")
+                                                    "no_mask_statements": statements, "checks": checks, "not_checked": unchecked}, indent=1) + "\n")
     for c in checks:
         print(f"{'ok  ' if c['ok'] else 'FAIL' if c['ok'] is False else '??  '}  {c['check']}  [{c['about']}]\n      {c['why']}")
+    for c in unchecked:
+        print(f"not checked  {c['check']}  [{c['about']}]\n      {c['why']}")
     print(f"verify: {verdict}; wrote {folder / 'verify.json'}")
     if failed or unmade:
         sys.exit(VERIFY_FAILED)
@@ -3287,20 +3332,24 @@ def look_entry(status: dict, shown: list[dict], by: str, note: str, now: str) ->
             "capture_written": status.get("written"), "maker": status.get("made_by") or "not recorded"}
 
 
-def strip_home(folder: Path) -> Path:
+def strip_home(folder: Path, name: str = "") -> Path:
     """Where a look's strip is written: the share's `Video/<video>/looks/<capture>/`, never under `data/` (the
     owner, 2026-10-12, in the lead's terminal: a video clip goes under the share's output folder, where they can
     see it; AGENTS.md has the rule). The video's name is its analysis folder's (`clip_folder`, from the capture's
     `clip`) and the output folder the server's (`h3_config.output_dir`, which on this box needs `H3_OUTPUT_DIR`).
     Until 2026-10-12 the strip went beside the capture under `looks/`; the record of what it showed stays there
     (`looks/<load>.shown.json`) and names the strip's full path, so `looked` and the job builder find it in
-    either place."""
+    either place. `name` (`video --strip-folder`) is the folder under `looks/` in place of the capture's own
+    name: a capture that will be built again in place keeps its first strip by drawing it under another name
+    from the start, so nothing is moved later and no record has its path rewritten."""
+    if name and (Path(name).name != name or name in (".", "..")):
+        raise SystemExit(f"--strip-folder {name!r}: one folder name under the video's looks/, not a path")
     sys.path.insert(0, str(REPO))
     import clip_folder  # noqa: E402
     sys.path.insert(0, str(REPO / "workflows"))
     import h3_config  # noqa: E402
     clip = json.loads((folder / "manifest.json").read_text())["clip"]
-    home = h3_config.output_dir() / "Video" / clip_folder.folder_of_file(clip, REPO / "data").name / "looks" / folder.name
+    home = h3_config.output_dir() / "Video" / clip_folder.folder_of_file(clip, REPO / "data").name / "looks" / (name or folder.name)
     home.mkdir(parents=True, exist_ok=True)
     return home
 
@@ -4280,7 +4329,7 @@ def video(a: argparse.Namespace) -> None:
     out = a.out or str(folder / f"{m['name']}_diag.mp4")
     if shown is not None and not a.out:
         (folder / "looks").mkdir(exist_ok=True)       # the record of what was shown stays beside the capture
-        out = str(strip_home(folder) / f"{a.load}.mp4")   # the strip itself goes to the share, never under data/
+        out = str(strip_home(folder, getattr(a, "strip_folder", "") or "") / f"{a.load}.mp4")   # the strip itself goes to the share, never under data/
     # the sound: the render's own when it carries one; else the source's at the render's first frame (a render saved
     # without an audio stream, as the first window of a two-window run and a joined viewing copy were on 2026-10-12,
     # gave the owner a silent clip; the source has the sound on every frame)
@@ -4513,6 +4562,8 @@ def main() -> None:
     v.add_argument("--load", metavar="NAME", help="the look: one load's own frames, every one, with the text it will be given under "
                    "the picture; written to <capture>/looks/NAME.mp4 with NAME.shown.json beside it. Needs --job")
     v.add_argument("--job", metavar="JOB.json", help="the job file the load and its text are read from")
+    v.add_argument("--strip-folder", default="", metavar="NAME", help="with --load: the folder under the video's looks/ the strip goes in, "
+                   "in place of the capture's own name; the record of what was shown names the strip there")
     v.add_argument("--out")
     v = sub.add_parser("verify", help=f"does the capture read what the nodes wrote: writes verify.json, exits {VERIFY_FAILED} when not")
     v.add_argument("capture")

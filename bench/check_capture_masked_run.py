@@ -83,6 +83,11 @@ overlaps and margins can be counted by hand and reads the rows back.
    were recorded. Not covered: the `files` command's own reading of `least=` from a `--mask`, which takes mask
    videos; it was run by hand on one capture's inputs the day it was written (`docs/wiki/decisions.md`).
 
+19. **A mask's `at` is the source frame its preview's files begin on** (inside the verify case). A sighting read
+   from another frame than its preview's own job says, for the masks or for the shot table, fails with the
+   frames it is off; the right frame passes; a preview whose job folder is not found, or is one of two of the
+   name, is not checked and is neither.
+
 No video, no model, no card, no server.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/check_capture_masked_run.py
@@ -765,6 +770,29 @@ def verifying() -> str:
     # a pose table from a pass of its own does not make the masks two runs
     posed = by(cap.verify_checks(manifest({**good, "pose": {"file": "p.json", "written": "2026-10-10T09:00:00"}}, [run]), []))
     assert posed["inputs_written_together"]["ok"] is True
+    # A MASK'S `at` AGAINST THE PREVIEW'S OWN JOB: a sighting read from another source frame than its preview's files
+    # begin on is a hard failure with the number of frames it is off; one read from the right frame passes (the
+    # control); one whose preview's job is not found is not checked, by name, and is neither
+    off = manifest(good, [run], at=104)
+    (wrong,), none = cap.at_checks(off, {"p": (100, "2026-01-01_p_job")})
+    assert wrong["ok"] is False and "at=104" in wrong["why"] and "begin on source frame 100" in wrong["why"] and "4 frame(s) off the picture" in wrong["why"] and none == [], wrong
+    (right,), none = cap.at_checks(manifest(good, [run]), {"p": (100, "2026-01-01_p_job")})
+    assert right["ok"] is True and none == [], right
+    shots_off = manifest(good, [run])
+    shots_off["subjects"][0]["sightings"][0]["shots_first_source_frame"] = 108
+    assert cap.at_checks(shots_off, {"p": (100, "j")})[0][0]["ok"] is False, "a shot table read from another frame than the preview's first passed"
+    made, unchecked = cap.at_checks(off, {"p": (None, "no job folder data/<day>_p_job holds a job.json")})
+    assert made == [] and unchecked == [{"check": "at_is_the_previews_first_frame", "about": "a by p", "why": "no job folder data/<day>_p_job holds a job.json"}], unchecked
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        data = Path(tmp)
+        assert cap.preview_first_of("p", data) == (None, "no job folder data/<day>_p_job holds a job.json")
+        (data / "2026-01-01_p_job").mkdir()
+        (data / "2026-01-01_p_job" / "job.json").write_text(json.dumps({"job": {"first": 100}}))
+        assert cap.preview_first_of("p", data) == (100, "2026-01-01_p_job")
+        (data / "2026-01-02_p_job").mkdir()
+        (data / "2026-01-02_p_job" / "job.json").write_text(json.dumps({"job": {"first": 300}}))
+        assert cap.preview_first_of("p", data) == (None, "2 job folders are named for p"), "two previews of one name: which one is not said, so nothing is checked"
     small = by(cap.verify_checks(manifest({**good, "parts": video("r.mkv", "13:45:50", size=(W // 2, H // 2))}, [run]), []))
     assert small["inputs_at_the_canvas"]["ok"] is False and small["inputs_written_together"]["ok"] is True
     short = by(cap.verify_checks(manifest({**good, "track": video("t.mkv", "13:44:10", frames=12)}, [run]), []))
