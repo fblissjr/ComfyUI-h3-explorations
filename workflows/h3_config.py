@@ -1512,6 +1512,18 @@ MASKED_JOB_CRF = 12
 #: The capture's word for a region's edge against the Masked Source's (`bench/capture_masked_run.py --plan`,
 #: `edge=`): a loads file is written in the capture's words.
 MASKED_JOB_EDGE = dict(cells="latent cells", tokens="whole tokens")
+#: What a load's job file is given in its `defaults` when a tool writes the file (`bench/shot_to_load.py`), so the
+#: file stands alone and no load types them. **Inherited**, every one, from the job files of the loads of
+#: 2026-10-12 and 2026-10-13, where each was typed into every file with this value; none was measured for this
+#: list, and a load's own key replaces any of them. The seed a job file is given is `SEED`.
+MASKED_LOAD_DEFAULTS = dict(carried="held", motion="mesh", feather=8, edge="cells", motion_edge=768)
+#: The margin of a part load, by what is replaced (the plan's region for the subject). **Inherited** the same
+#: way: the value on every face load and on every face-and-hair load of those two days. There is none for
+#: `whole`: that tool makes no whole-person load.
+MASKED_LOAD_MARGIN = {"face": 16, "face and hair": 64}
+#: The canvas a job is made on when a tool writes its file. **Inherited**: every job file of this lane since
+#: 2026-10-10 names it; `docs/h3_resolutions.md` lists it (its 4:3 row).
+MASKED_JOB_CANVAS = (1024, 768)
 
 # ---- FastH3 8-step V2 ------------------------------------------------------------
 #: **Inherited** from ComfyUI's own template, Comfy-Org/workflow_templates
