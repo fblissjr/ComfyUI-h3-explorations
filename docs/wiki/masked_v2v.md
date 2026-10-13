@@ -32,6 +32,7 @@ One line a section, in the page's order, with the question it answers.
 | | "Rules of the lane" | the lane's habits in one list, each with where its reasoning is |
 | a job | "Running a job: one tool, on the video's analysis folder" | how a job is built and queued, stage by stage, and what the builder refuses or shows |
 | | "Seeing what the tracker and the masks did" | which file or command holds what a run was given, what it wrote, and the file that gets watched |
+| | "Who is who: a session reads first, the owner answers, and both are kept" | how a tracker's pick becomes the owner's answer in the cast file, and where what each of them thought is kept |
 | the pieces | "The pieces, in the order a render meets them" | what each of the four nodes does, with its inputs and their dated notes |
 | | "Nothing is kept between runs by a key" | what was once reused by a key, what became of each, and what "version" means in three places |
 | | "A latent step is several frames, and its grid is fixed for a whole load" | why a frame cannot be treated alone, what a cut inside a step does, and why a window follows its context |
@@ -662,6 +663,58 @@ which person a file is about", written before the capture tool had one:
 `bench/capture_masked_run.py files` puts a `subject` on every row and file
 (its docstring), and a delivery table's row can say whose it is. The node's
 own files, the shot table and the mask review, still carry none.*
+
+## Who is who: a session reads first, the owner answers, and both are kept
+
+A tracker follows whoever it was started on. Started on the largest person
+of a frame it is guessing, and the first batch of guesses kept against the
+owner's answers (`data/<video>/picks_against_answers.jsonl`, the table
+beside it) shows how often the guess was somebody else. So nothing is built
+on a preview until a person has said who its tracker holds, and what each
+reader thought is kept, so the next batch can be read against this one.
+The steps, each with the tool that holds it:
+
+1. **A session that did not build the preview reads its tiles** and writes
+   one line a preview: the picked person's number, what they look like,
+   whether that is the right person, why, and `thinks_it_is`, the number of
+   the person the reader thinks IS the subject (`bench/who_page.py`'s
+   docstring has the fields; the line goes in the batch's notes file).
+2. **The who page shows that reading as a guess, closed, under the tile**
+   (`bench/who_page.py --notes`), and the owner clicks. Their typed words
+   are read with their clicks, whole, and reported beside what was stored;
+   a click is never read without them.
+3. **The cast run stores the owner's answers and writes the picks batch in
+   the same run** (`bench/page_answers_to_cast.py --picks`; refused without
+   it). The owner's answer is the reference. A shot their own words doubt
+   is marked unsure by a person, with the lines of those words, and is
+   counted apart (`--owner-unsure`).
+4. **Each batch is read against the last**: counts, never a rate from one
+   batch, with what the table cannot see
+   (`bench/picks_against_answers.py`'s docstring).
+5. **Before the owner is asked anything, what they already answered is
+   read**, and only the missing fact is asked, with why the earlier answer
+   does not cover it. The cast file is the record
+   (`data/<video>/cast/cast.jsonl`, each line with its frame, its box and
+   the answers lines it came from), and the who page prints the answer
+   that already stands for a subject above that subject's buttons. An
+   example of the rule doing its work, 2026-10-13: the owner asked whether
+   the small figure at the back of the hall shot is the second subject;
+   the cast file held their own answer of 2026-10-11 saying so on two
+   frames of that shot, and the capture's tracker was seeded from it. A
+   session answers that from the record and asks nothing.
+6. **A shot the tracker cut into several is shown cut by cut**, each cut
+   as long as the shortest load on its own frame, with every person's box
+   in a color of their own (`bench/who_page.py --every-cut-of`): one frame
+   of a shot of many cuts answers for that cut and no other.
+
+**What waits on the owner's own word.** "The owner is asked only the
+leftovers" is not the practice. Every box in the cast file is the owner's
+answer, so every subject of every tile still takes their click. The day
+they say a session's reading may stand as a seed, the page asks only where
+a session could not tell, where the subject is not outlined, or where the
+owner's own words doubt the shot, and the cast file takes a session's box
+marked as a session's and replaced by the owner's click. Until then a
+session's reading seeds nothing.
 
 ## The pieces, in the order a render meets them
 
@@ -1936,6 +1989,10 @@ No heading another file cites changed its words. What was cut, moved and
 corrected is in [`decisions.md`](decisions.md) under 2026-10-12, and the
 table of the clips and files that were opened is
 [`2026-10-12_masked_v2v_page_held_to_its_clips.md`](../../bench/results/2026-10-12_masked_v2v_page_held_to_its_clips.md).
+
+2026-10-13: "Who is who: a session reads first, the owner answers, and
+both are kept" added after "Seeing what the tracker and the masks did", at
+the lead's order, from the day's first batch of picks kept against answers.
 
 The header's list of edits as it stood before that day:
 

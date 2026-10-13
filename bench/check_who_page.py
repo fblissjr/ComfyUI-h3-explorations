@@ -25,6 +25,10 @@ own words beside it, and each of those can be off by one.
                                         that tracker showed another frame than the picture on the page, the fold says so in capitals
   a_tile_asks_only_its_jobs_subjects    a numbered picture has buttons for the subjects its preview's job names and for no other
                                         subject of the record, who is named under it in words
+  what_stands_is_printed_above_the_buttons   with --cast, a subject's standing answer on a frame of the shot is above their buttons: by its number where
+                                        the box is this picture's own, by its box where it is of another frame, in the cast's own words where
+                                        there is no box; a subject with none says so; another shot's answer is not shown; no button is pressed;
+                                        without --cast nothing of it is on the page
   a_shot_is_shown_cut_by_cut            with --every-cut-of, a record shot the tracker cut into five shows the cuts as long as the
                                         shortest load and no shorter one, each with its own buttons on its own frame; a long cut
                                         with nobody outlined is asked about plain; the shorter cuts are counted and named; the
@@ -189,6 +193,25 @@ def main() -> int:
         row3 = (p["out"] / "index.html").read_text().split("<tr>")[4]
         case("a_tile_asks_only_its_jobs_subjects", row3.count('data-sub="a"') == 4 and 'data-sub="b"' not in row3
              and "not asked here: b." in row3 and page.split("<tr>")[4].count('data-sub="b"') == 4, row3)
+        # the cast file: a's box on the picture's own frame (110, person 1's box), a's box on another frame of the shot, b said to be none of the
+        # outlined people on a frame of the last shot, and an answer of a's in no shot shown with it
+        sys.path.insert(0, str(HERE))
+        import cast_file
+        cast = Path(d) / "cast.jsonl"
+        cast_file.append(cast, [
+            cast_file.entry("a", 110, "here", by="owner, on the page at T1", box=[1, 1, 5, 5], size=[64, 48], table="pv_a_shots_00001_shots.json"),
+            cast_file.entry("a", 115, "here", by="owner, on the page at T2", box=[1, 1, 5, 5], size=[64, 48], table="pv_a_shots_00001_shots.json"),
+            cast_file.entry("b", 140, "none of the outlined people", by="owner, on the page at T3")])
+        with_cast = Path(d) / "with_cast"
+        r = run({**p, "out": with_cast}, "--preview", p["pv"], "--cast", str(cast))
+        text = (with_cast / "index.html").read_text() if r.returncode == 0 else ""
+        row2, row3 = (text.split("<tr>") + ["", "", "", "", ""])[3:5]
+        case("what_stands_is_printed_above_the_buttons", r.returncode == 0
+             and "ALREADY ANSWERED for a in this shot, from the cast file: frame 110: <b>person 1 on this picture</b> (owner, on the page at T1); "
+                 "frame 115: <b>a box [1, 1, 5, 5] (left, top, width, height)</b> (owner, on the page at T2)" in row2
+             and row2.index("ALREADY ANSWERED for a") < row2.index('data-sub="a"') and "ALREADY ANSWERED for b" not in row2
+             and "frame 140: <b>none of the outlined people</b> (owner, on the page at T3)" in row3 and "nothing stands in the cast file for a on a frame of this shot" in row3
+             and 'class="on"' not in text and "ALREADY ANSWERED" not in page and "nothing stands in the cast file" not in page, r.stdout + r.stderr + row2[:1500])
         case("quarter_frames_are_the_shots_own",
              quarter_frames({"first": 102, "last": 129}, 20) == [109, 123] and quarter_frames({"first": 102, "last": 129}, 28) == []
              and quarter_frames({"first": 604, "last": 1009}) == [705, 908], str(quarter_frames({"first": 102, "last": 129}, 20)))

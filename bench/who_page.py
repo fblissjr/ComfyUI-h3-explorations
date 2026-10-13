@@ -3,7 +3,7 @@
 
     <python> bench/who_page.py --shots data/<stem>/shots.json --preview JOB.json=TABLES_DIR [--preview ...] \\
         [--answers data/<stem>/poc/answers.jsonl] [--span FIRST-LAST] [--notes PREVIEWS_RUN.jsonl] \\
-        [--source COPY --every-cut-of FIRST-LAST] --out <folder>
+        [--source COPY --every-cut-of FIRST-LAST] [--cast data/<stem>/cast/cast.jsonl] --out <folder>
 
 **What it buys.** The owner asked (2026-10-12) to see, in a super simple page, who is labelled in each shot, with
 the masks and identifiers over the input video, so a subject who changes clothes or a shot where nobody was
@@ -40,20 +40,27 @@ tile, of the person the reader thinks IS the subject, or `none of the outlined p
 pick is wrong is asked to write it, since `bench/picks_against_answers.py` holds it against the owner's
 click and cannot read it out of the free text of `why`), as it is. It is shown under the tile of the preview it names, in a fold that is closed,
 headed as a session's guess and not the owner's, with the file and the time it was recorded: read after the
-click, not before it. It presses no button and colours none. A line that names no preview given is printed when
+click, not before it. It presses no button and colors none. A line that names no preview given is printed when
 the page is built; a tile with no line says so.
 
-**A shot shown cut by cut, with boxes in colour.** `--every-cut-of FIRST-LAST` names a shot of the record
+**A shot shown cut by cut, with boxes in color.** `--every-cut-of FIRST-LAST` names a shot of the record
 that the tracker cut into several of its own (2026-10-13: the record's one shot 5935-6394 was twenty-five to the
 tracker, the page's one picture of it was a one-frame cut, and the owner could not tell whether a number was the
 person's they meant). The page then shows one picture for each of that tracker's cuts as long as the shortest
 load (`bench/masked_job.py::shortest_load`: a shorter cut cannot be a load of its own), each on the frame the
 tracker numbered, with its own buttons; the shorter cuts are counted and named, not shown. With `--source` each
 is three pictures: the frame as the tracker saw it (`fitted_frame`), the same frame with EACH PERSON'S BOX in a
-colour of their own and their number in that colour on a dark plate at the box's middle (`boxes_picture`, from
-the table's boxes; the number buttons carry the same colours), and the tracker's own picture. A box is a box:
+color of their own and their number in that color on a dark plate at the box's middle (`boxes_picture`, from
+the table's boxes; the number buttons carry the same colors), and the tracker's own picture. A box is a box:
 where two cross, the picture cannot say whose pixels are whose, and the page says so. A fill of each person's
 own pixels needs the tracker's masks, which no preview saves; that is node work and is not here.
+
+**What already stands is printed, so nothing is asked twice as if it were new.** With `--cast`, above a
+subject's buttons on a numbered picture: every answer that stands in the cast file for that subject on a frame of
+the shot, with its frame, what it says (a person of this picture by number where the box is this picture's own,
+else the box; or `none of the outlined people`) and who gave it and when; or that nothing stands. The owner's
+rule (2026-10-13): what they already answered is read before they are asked, and only the missing fact is asked.
+It presses no button.
 
 **What it does not do.** Outside a shot shown cut by cut it draws nothing: the numbers and outlines are the
 table's own, made by the tracker when the preview ran, so a later correction is not on them. The numbered
@@ -62,7 +69,7 @@ own frame at its first and last quarter, with the two frame buttons and no numbe
 in after the shown frame can be said to be on THAT frame (the owner's ask, 2026-10-12: late entrances were
 not labelled); `bench/page_answers_to_cast.py --shots` takes such answers into the shots record's `present`, and
 nothing of them into the cast file. Parts in
-colour and the pose model's points are the layered view's job (`docs/wiki/next_steps.md`), not this page's.
+color and the pose model's points are the layered view's job (`docs/wiki/next_steps.md`), not this page's.
 """
 from __future__ import annotations
 
@@ -84,9 +91,9 @@ PRESENT_WORD = {"yes": "yes", "no": "no", "unsure": "UNSURE"}
 LONG_SHOT_FRAMES = 96
 
 
-#: A colour for each person on a picture of boxes, by their number. Reasoned, starting values: twelve hues that
-#: stand apart from one another on a dark plate and over skin and cloth. With more people than colours they come
-#: round again, and the legend then shows two numbers in one colour.
+#: A color for each person on a picture of boxes, by their number. Reasoned, starting values: twelve hues that
+#: stand apart from one another on a dark plate and over skin and cloth. With more people than colors they come
+#: round again, and the legend then shows two numbers in one color.
 BOX_COLOURS = ((255, 221, 0), (0, 229, 255), (255, 64, 255), (118, 255, 3), (64, 128, 255), (255, 255, 255),
                (255, 128, 171), (29, 233, 182), (179, 136, 255), (255, 171, 64), (128, 216, 255), (204, 255, 144))
 BOXES_SAY = ("A box is a box: the smallest upright rectangle round the tracker's outline of a person. Where two boxes cross, "
@@ -95,6 +102,30 @@ BOXES_SAY = ("A box is a box: the smallest upright rectangle round the tracker's
 
 def colour_of(person: int) -> tuple[int, int, int]:
     return BOX_COLOURS[(int(person) - 1) % len(BOX_COLOURS)]
+
+
+def stood(standing: dict | None, subject: str, shot: dict, t: dict) -> str:
+    """What already stands in the cast file for a subject on the frames of a shot, as a line above that subject's buttons.
+
+    The owner's rule on being asked again (2026-10-13): before a page asks them anything, what they already answered
+    is read, and only the missing fact is asked. A box that is one of this picture's own (the same frame, the same
+    box) is said by its number here; any other is said by its frame and box. Nothing is pre-chosen: no button is
+    pressed by it."""
+    if standing is None:
+        return ""
+    mine = sorted((line for (sub, frame), line in standing.items() if sub == subject and shot["first"] <= frame <= shot["last"]), key=lambda line: line["frame"])
+    if not mine:
+        return f'<div class="stood none">nothing stands in the cast file for {html.escape(subject)} on a frame of this shot</div>'
+    said = []
+    for line in mine:
+        if line["answer"] != "here":
+            what = line["answer"]
+        else:
+            number = next((p["person"] for p in t.get("boxes", []) if line["frame"] == t["shown"] and p["box"] and [float(v) for v in p["box"]] == line["box"]), None)
+            what = f"person {number} on this picture" if number is not None else f"a box {[int(v) if float(v).is_integer() else v for v in line['box']]} (left, top, width, height)"
+        said.append(f"frame {line['frame']}: <b>{html.escape(what)}</b> ({html.escape(line['by'])})")
+    return (f'<div class="stood">ALREADY ANSWERED for {html.escape(subject)} in this shot, from the cast file: ' + "; ".join(said)
+            + '. Click only if that is wrong or this frame says something it does not.</div>')
 
 
 def quarter_frames(shot: dict, long_frames: int = LONG_SHOT_FRAMES) -> list[int]:
@@ -183,7 +214,7 @@ def fitted_frame(source: str, frame: int, size: list[int], out: Path) -> str | N
 
 
 def boxes_picture(fitted: str, t: dict, out: Path) -> str:
-    """The fitted frame with each person's box in a colour of their own and their number, in that colour on a dark
+    """The fitted frame with each person's box in a color of their own and their number, in that color on a dark
     plate. The larger box is drawn first, so a small one inside it is not drawn over.
 
     WHERE A NUMBER GOES. Every point of the picture belongs to the SMALLEST box that covers it, as a map gives a
@@ -252,6 +283,7 @@ button{font:inherit;font-size:14px;margin:2px;padding:4px 10px;border:1px solid 
 button.on{background:#3b6cf0;border-color:#3b6cf0}.st{font-size:13px;color:#9c9}textarea{width:100%;min-height:60px;background:#1b1e24;color:#eee;border:1px solid #555;font:inherit}
 .guess{margin-top:8px;font-size:14px;color:#aab}.guess summary{cursor:pointer;color:#c9a227}
 .three{display:flex;flex-wrap:wrap;gap:8px}.three img{width:640px}.chip{display:inline-block;padding:0 7px;border:2px solid;border-radius:3px;background:#101010;font-weight:700}
+.stood{margin-top:6px;font-size:14px;color:#9ccc65}.stood.none{color:#9aa3b2}
 .say{margin-top:8px}#me{background:#1b1e24;color:#eee;border:1px solid #555;padding:4px}.w{font-size:16px;color:#ddd;white-space:pre-line;margin-bottom:8px}.how{font-size:14px;color:#9aa3b2}"""
 
 SCRIPT = """<script>
@@ -373,7 +405,7 @@ def not_over_another(out: Path, span: list[int]) -> None:
 
 def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, plan: dict | None = None, source: str | None = None,
          long_frames: int = LONG_SHOT_FRAMES, span: list[int] | None = None, notes: dict | None = None,
-         every_cut: list[list[int]] | None = None, least_cut: int = 1) -> str:
+         every_cut: list[list[int]] | None = None, least_cut: int = 1, standing: dict | None = None) -> str:
     """`every_cut` names record shots (first, last) shown cut by cut: one picture for each of the tracker's own cuts
     of the shot that is `least_cut` frames or longer, where every other shot has one picture."""
     rows = []
@@ -440,13 +472,13 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
                 legend = " ".join(f'<span class="chip" style="color:rgb(%d,%d,%d);border-color:rgb(%d,%d,%d)">{p["person"]}</span>' % (colour_of(p["person"]) * 2)
                                   for p in sorted(t["boxes"], key=lambda p: p["person"]) if p["box"])
                 pictures = (f'<div class="three"><div><img src="{fitted}" alt=""><div>frame {t["shown"]}, the source itself</div></div>'
-                            f'<div><img src="{boxed}" alt=""><div>the same frame, each person\'s box in a colour of their own: {legend}</div></div>'
+                            f'<div><img src="{boxed}" alt=""><div>the same frame, each person\'s box in a color of their own: {legend}</div></div>'
                             f'<div><img src="{t["file"]}" alt=""><div>the tracker\'s own picture of it, with its outlines</div></div></div>'
                             f'<div class="how">{BOXES_SAY}</div>')
             elif by_cut:
                 pictures += '<div class="how">no picture of boxes: ' + ("no --source was given" if not source else "the frame could not be cut from the source") + '</div>'
             ask = "".join(
-                f'<div class="ask"><span class="lab">{html.escape(sub)} is</span>'
+                stood(standing, sub, s, t) + f'<div class="ask"><span class="lab">{html.escape(sub)} is</span>'
                 + "".join(f'<button data-sub="{html.escape(sub)}" data-chosen="{n}"{inked(n)}>{n}</button>' for n in t["people"])
                 + f'<button data-sub="{html.escape(sub)}" data-chosen="not outlined">on this frame, not outlined</button>'
                 + f'<button data-sub="{html.escape(sub)}" data-chosen="not on frame">not on this frame</button></div>'
@@ -512,7 +544,9 @@ def main() -> int:
                     "closed fold, headed as a session's guess and not the owner's")
     ap.add_argument("--every-cut-of", action="append", default=[], metavar="FIRST-LAST",
                     help="a shot of the record to show cut by cut: one picture for each of the tracker's own cuts of it as long as the shortest load "
-                    "(bench/masked_job.py::shortest_load), and with --source each frame plain and again with every person's box in a colour of their own; repeatable")
+                    "(bench/masked_job.py::shortest_load), and with --source each frame plain and again with every person's box in a color of their own; repeatable")
+    ap.add_argument("--cast", metavar="CAST.jsonl", help="the video's cast file; with it, what already stands for a subject on a frame of a shot is printed above "
+                    "that subject's buttons, so nothing answered is asked again as if it were not")
     ap.add_argument("--out", required=True, help="the page's own folder; its name is the page's address on the page server, and a page of another span there is refused")
     a = ap.parse_args()
     shots = json.load(open(a.shots))
@@ -536,7 +570,11 @@ def main() -> int:
     if every_cut:
         import masked_job      # only here: the page needs nothing of the builder otherwise
         least_cut = masked_job.shortest_load()[1]
-    text = page(shots, made, answers, out, plan, a.source, a.long_shot_frames, span, notes, every_cut, least_cut)
+    standing = None
+    if a.cast:
+        import cast_file
+        standing = cast_file.current(cast_file.read(a.cast))
+    text = page(shots, made, answers, out, plan, a.source, a.long_shot_frames, span, notes, every_cut, least_cut, standing)
     for name, first in sorted(set(notes or {}) - {(p["name"], p["first"]) for p in made}):
         print(f"a note names a preview this page was not given, and is shown nowhere: {name} (first frame {first}), {notes[(name, first)]['from']} "
               f"line {notes[(name, first)]['line']}")
