@@ -322,6 +322,16 @@ fixed the same day, said inline below.**
   in it: a load of more than one window, or more than one load a job
   file (both refused); the loads made before it ran with `pieces=largest`
   typed into the script, which their job files do not say.
+- **The step before the chain is one tool** (2026-10-13):
+  `bench/shot_to_load.py`, a step each for the shot's preview, a load's
+  job file and its head reference, from the shots record, the plan and
+  the cast file; it stops for the text. It needs each subject's `still`
+  and `parts` in the plan, and reads a tracker's pick frame from the
+  shots record's `frames_on` and `frames_boxed`, which the record has
+  only once `bench/page_answers_to_cast.py --shots` has made it again;
+  until then every subject the cast file has no box for is picked on the
+  shot's middle, and the job's note says so. Not in it: a whole-person
+  load, a load of two subjects. It has run no real load.
 - **The delivery table is generated, never typed** (2026-10-13):
   `bench/render_ledger.py` (every render, how it was made), then
   `bench/delivery_table.py` (which render stands on each shot by one

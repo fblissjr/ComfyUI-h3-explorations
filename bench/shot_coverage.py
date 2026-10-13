@@ -15,11 +15,16 @@ three files that already hold those facts and prints them side by side, so "fini
 - `--shots`: the cuts of the video in source frames, and for every shot and every subject whether that
   subject is in it (`yes`, `no`, `unsure`) with who said so and from what. Schema `h3_shots/1`
   (`SHOTS_SCHEMA`); `data/<stem>/shots.json` is where a video's lives. A shot a subject is `unsure` on is a
-  row of its own, since nothing can be planned on it.
+  row of its own, since nothing can be planned on it. Not read here and read by `bench/shot_to_load.py`: on a
+  subject of a shot `frames_on` and `frames_boxed` (the frames a person marked them on, and the frames a box
+  of theirs stands on in the cast file; `bench/page_answers_to_cast.py --shots` writes both), and on a shot
+  `order`, a person's list of its subjects in the order their trackers run.
 - `--plan`: for each subject what is replaced by default (`face`, `face and hair`, `whole`) with who ruled it,
   how a delivery piece is known to be that subject's (`load_prefixes`), the table's own names for the
   subjects where they differ (`aliases`, as the delivery tool's `--alias`), and dated notes on a stretch
-  (`departures`). Schema `h3_plan/1` (`PLAN_SCHEMA`).
+  (`departures`). Schema `h3_plan/1` (`PLAN_SCHEMA`). Not read here and read by `bench/shot_to_load.py`: a
+  subject's `still` (the picture its face is taken from, under the server's input folder), `parts` (the part
+  model's ticks for it) and, optionally, `hair_band` (a number, or `{"value": N, ...}` with where it is from).
 - `--table`: the delivery table `bench/assemble_delivery.py` builds from; its two readers are imported from
   there, so the format has one definition.
 - `--renders` (optional): the inventory of renders of this video read from each render's own saved graph

@@ -155,7 +155,7 @@ JOB = {"name": "check", "source": "/clips/check_24p.mov", "first": 604, "frames"
        "output": "Video/check",
        "subjects": [{"label": "a", "pick": "largest", "pick_at": 664, "parts": ["hair", "hands"], "phrase": "singer"},
                     {"label": "b", "pick": "most central", "corrections": "shot 3: person 2", "max_people": 4, "match": 0.9},
-                    {"label": "c", "pick": "largest", "pose": False}]}
+                    {"label": "c", "pick": "largest", "pose": False, "seeds": "frame 30: 100, 100, 50, 80"}]}
 #: What stands where a node of another pack is linked, when only this pack's nodes are graded.
 SERVER_GRADES = "<a link to a node the server grades>"
 POSED = [s for s in JOB["subjects"] if s.get("pose", True)]
@@ -255,6 +255,8 @@ def every_job_value_lands_on_the_input_it_names():
         assert track["subject_phrase"] == subject.get("phrase", cfg.SUBJECT_TRACK["subject_phrase"]), f"{who}: phrase"
         assert track["corrections"] == subject.get("corrections", ""), f"{who}: corrections {track['corrections']!r}"
         assert track["max_people"] == subject.get("max_people", cfg.SUBJECT_TRACK["max_people"]), f"{who}: max_people"
+        # a subject's seeds reach its own tracker and no other's
+        assert track.get("seeds", "") == subject.get("seeds", ""), f"{who}: seeds {track.get('seeds')!r}"
         if "pick_at" in subject:
             # the tracker counts from the first frame it is given, the job from the source's first
             assert track["pick_on.pick_frame"] + JOB["first"] == subject["pick_at"], \

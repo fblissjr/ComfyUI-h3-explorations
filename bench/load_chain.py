@@ -116,11 +116,13 @@ def utc_now() -> str:
 
 # ---------------------------------------------------------------- the job file, and what it points at
 
-def read_job(job_file: Path, repo: Path = REPO) -> dict:
+def read_job(job_file: Path, repo: Path = REPO, need_text: bool = True) -> dict:
     """Everything a step reads of a load, from its job file and the preview's job folder it names.
 
     Refused: more than one load; no `capture` or one whose folder name does not begin with a day; no `preview`,
-    or a preview whose record is not of a finished run; a subject or keep-out the preview did not track."""
+    or a preview whose record is not of a finished run; a subject or keep-out the preview did not track; and, unless
+    `need_text` is off (a tool that runs before the text is written), a text that is not a file or that names no
+    writer: the text is a person's."""
     raw = Path(job_file).read_bytes()
     d = json.loads(raw)
     job, loads = d["job"], d.get("loads") or []
@@ -158,6 +160,10 @@ def read_job(job_file: Path, repo: Path = REPO) -> dict:
     told = texts.get(load.get("text") or "")
     if not told or not told.get("file"):
         raise Refused(f"{job_file}: the load's text label {load.get('text')!r} names no file in the job's `texts`")
+    if need_text and not (Path(job_file).parent / told["file"]).is_file():
+        raise Refused(f"the load's text {Path(job_file).parent / told['file']} is not written: it is a person's to write, from the load's own frames")
+    if need_text and not str(told.get("by") or "").strip():
+        raise Refused(f"{job_file}: texts.{load.get('text')}.by is empty: say who wrote the text, and from which frames")
     return {"job_file": Path(job_file), "raw": raw, "job": job, "load": load, "name": load["name"], "subject": subject, "subject_keys": mine,
             "capture": capture, "day": day, "job_folder": repo / "data" / f"{day}_{job['name']}_job", "repo": repo,
             "preview": {"folder": pfolder, "name": pjob["name"], "first": pjob["first"], "frames": pjob["frames"], "order": order,

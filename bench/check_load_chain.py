@@ -118,7 +118,7 @@ class Made:
         self.job = {"name": "ld", "source": "/in/copy.mov", "first": 110, "frames": 20, "canvas": [64, 48], "output": "Video/v/s",
                     "capture": "data/2026-01-03_ld", "preview": "data/2026-01-02_pv_job",
                     "subjects": [{"label": "b"}, {"label": "a", "parts": ["face_and_neck"], "still": "a.png"}],
-                    "texts": {"ld": {"file": "ld.txt", "frames": [110, 129]}}}
+                    "texts": {"ld": {"file": "ld.txt", "frames": [110, 129], "by": "a writer, from these frames"}}}
         self.job.update(job_more)
         self.load = {"name": "ld", "first": 110, "frames": 20, "subject": "a", "others": ["b"], "text": "ld", "motion_file": "/out/ref.mp4"}
         self.job_file = self.inputs / "ld.json"
@@ -195,6 +195,17 @@ def the_job_file_and_its_preview() -> str:
             made.write()
             refused(made.ctx, *words)
             made.job.update(kept)
+        # the text is a person's: a file that is not written, or one nobody is said to have written, is refused, except
+        # for a tool that runs before the text exists
+        made.job["texts"]["ld"]["by"] = ""
+        made.write()
+        refused(made.ctx, "texts.ld.by is empty")
+        made.job["texts"]["ld"]["by"] = "a writer, from these frames"
+        made.write()
+        (made.inputs / "ld.txt").rename(made.inputs / "aside.txt")
+        refused(made.ctx, "is not written", "a person's to write")
+        assert lc.read_job(made.job_file, made.root, need_text=False)["name"] == "ld"
+        (made.inputs / "aside.txt").rename(made.inputs / "ld.txt")
         made.load["subject"] = "z"
         made.write()
         refused(made.ctx, "is not a subject of the preview pv")

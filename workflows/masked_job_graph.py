@@ -29,8 +29,10 @@ with what earned it written beside it.
 Every frame number in it is a frame of the source copy. A subject's `pick`
 is always given: which person a tracker starts from is the one choice no
 default can make. `pick_at` names the source frame the pick is made on;
-without it the tracker chooses. `phrase`, `max_people` and `corrections`
-are the tracker's inputs of those names; `match` is a number, the likeness
+without it the tracker chooses. `phrase`, `max_people`, `corrections` and
+`seeds` are the tracker's inputs of those names (`seeds`: which person to
+follow in a shot, as a box on one frame of the load, in the node's own
+form; `bench/cast_file.py seeds` writes it from a person's answers); `match` is a number, the likeness
 at or above which a person in another shot is taken as the subject, and
 without it the tracker sets its own line (`TRACKER_MATCH_AT` has why a job
 names one); `parts` is the list of the part
@@ -48,6 +50,8 @@ most likely to be confused with another first.
 the source frame the masks begin on and the subjects' order are read; `who_is_who`, a who-is-who file beside the
 job file to read in place of making one; and on a subject, the options of its mask in a capture, passed only
 when set: `pieces`, `least`, `hold`, `drop`, `grade` (`bench/capture_masked_run.py` has what each does).
+`reference`, written by `bench/shot_to_load.py`: the form of the load's head reference (`drawn`, or `plain` with
+a person's why), who said so, the record and the points it was made from, and the face's figures along the load.
 
 **A load** is one entry of the file's `loads`, with the file's `defaults` under it: one subject on one
 stretch of frames, as a rule one shot. It is written in the capture's words, since the capture reads the same
@@ -208,7 +212,9 @@ def _shown(g: dict, nid: int, source: list) -> None:
 
 def _tracker_inputs(job: dict, subject: dict) -> dict:
     inputs = dict(SUBJECT_TRACK, pick=subject["pick"])
-    for theirs, ours in (("subject_phrase", "phrase"), ("max_people", "max_people"), ("corrections", "corrections")):
+    # `seeds` (2026-10-13): which person a tracker follows in a shot, as a box on one frame of the load, in the node's
+    # own form (`bench/cast_file.py seeds` writes it from a person's answers). Until then a job could not carry one.
+    for theirs, ours in (("subject_phrase", "phrase"), ("max_people", "max_people"), ("corrections", "corrections"), ("seeds", "seeds")):
         if ours in subject:
             inputs[theirs] = subject[ours]
     members = {}
