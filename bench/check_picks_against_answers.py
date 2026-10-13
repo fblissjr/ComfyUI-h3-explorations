@@ -15,7 +15,8 @@ Six previews made in a temporary folder, each with real track videos (ffmpeg), o
   no_click_is_kept_and_counted_nowhere   a subject the owner did not click for has a line, with no agreement
   the_two_ways_can_differ_and_say_so     a track on the named person at an overlap under the line: no by the track, yes by the
                                          numbers, said on the line, and the person the track lies on most is the named one
-  how_the_pick_was_chosen                seeded; the largest on a frame the owner marked; on the shot's middle; on a frame named otherwise
+  how_the_pick_was_chosen                seeded; the largest on a frame the owner had marked BEFORE the preview was built (a mark made
+                                         after it does not count, nor do the shots record's frame fields); the shot's middle; a frame named otherwise
   the_features_are_the_pictures_own      people outlined, the named person's rank, share, band, place and height, and how alike
                                          the named and the held person are, from the table's signatures
   the_sessions_cells                     said right and it was not; said wrong and it was right; said wrong and it was; could not
@@ -105,6 +106,10 @@ class Made:
         self.answers.append({"at": f"2026-01-03T10:00:{len(self.answers):02d}Z", "who": who, "row": "who", "what": "choice", "subject": subject, "chosen": chosen,
                              "table": f"{picture}_shots_00001_shots.json", "source_frame": frame})
 
+    def mark(self, frame: int, subject: str, at: str) -> None:
+        """The owner's answer on a plain frame of the source: the subject is on it, not outlined."""
+        self.answers.append({"at": at, "who": "owner", "row": "who", "what": "choice", "subject": subject, "chosen": "not outlined", "table": "plain", "source_frame": frame})
+
     def say(self, frame: int, words: str) -> None:
         self.answers.append({"at": f"2026-01-03T10:00:{len(self.answers):02d}Z", "who": "owner", "row": "who", "what": "words", "words": words, "source_frame": frame})
 
@@ -154,6 +159,8 @@ def build(root: Path) -> Made:
     m.preview("good", 600, 20, {"a": (table(20, 10, 2), mask(20, LARGE))}, pick_at=610, marked=[610])
     m.click("good_a", 610, "a", "2")
     m.read("good", 600, a={"right_person": "yes", "thinks_it_is": 2})
+    m.mark(610, "a", "2026-01-01T09:00:00Z")            # marked the day before `good` was built: its pick frame was one the owner had marked
+    m.mark(505, "a", "2026-01-04T09:00:00Z")            # marked AFTER `near` was built: its pick frame was not, when it was picked
     m.say(505, "MAYBE it is 2?")                        # the owner's own doubt on the shot of `near`; the last line of the answers
     return m
 
@@ -200,7 +207,11 @@ def main() -> int:
         def how_chosen() -> str:
             have = {k[0]: v["tracker"]["how_chosen"] for k, v in got.items() if k[1] == "a"}
             assert (have["solo"], have["good"], have["pv"], have["near"], have["quiet"]) == (pa.HOW[0], pa.HOW[1], pa.HOW[2], pa.HOW[3], pa.HOW[4]), have
-            return "seeded; a frame the owner marked; the shot's middle; a frame named otherwise; the tracker's own frame"
+            # `near` was picked on 505, which the owner marked a day AFTER it was built; and the shots record's own frame fields say nothing here
+            made.shots["shots"][0]["who"]["a"]["frames_boxed"] = [119]
+            assert made.lines()[("pv", "a")]["tracker"]["how_chosen"] == pa.HOW[2], "the shots record's frame fields decided how a pick was chosen"
+            made.shots["shots"][0]["who"]["a"]["frames_boxed"] = []
+            return "seeded; a frame the owner had marked before the preview was built; the shot's middle; a frame named otherwise; the tracker's own frame"
 
         def features() -> str:
             f = got[("pv", "a")]["features"]

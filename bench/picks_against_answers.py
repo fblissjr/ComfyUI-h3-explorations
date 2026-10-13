@@ -19,7 +19,8 @@ the figures to read them across, appended to one file under a batch name. It dec
   commit, tracker mask version, how long it ran).
 - `tracker`: its state and person number on its own table, the frame it picked or was seeded on, the table's own
   `why`, and how the pick was chosen (`HOW`): seeded; the largest person on a frame the owner had marked the subject
-  on; on the shot's middle; on a frame named otherwise.
+  on BEFORE the preview was built (a plain frame's answer, by its own time in the answers file); on the shot's
+  middle; on a frame named otherwise.
 - `session`: a reader's line on that tile from a notes file (`who_page.py --notes` takes the same file): the number
   the tracker picked, what that person looks like, whether the reader thinks it is the right person and why.
   FROM THE NEXT BATCH ON A READER ALSO WRITES `thinks_it_is`: the number, on the subject's own tile, of the person
@@ -182,13 +183,32 @@ def notes_of(paths: list[str]) -> dict:
     return out
 
 
-def how_chosen(table: dict, state: str, subject_job: dict, shot: dict, who: dict) -> str:
+def marked_before(answers: list[tuple[int, dict]], subject: str, built_at) -> set[int]:
+    """The frames the owner had marked a subject ON, by a plain frame's `on this frame, not outlined`, BEFORE a preview
+    was built. Read from the answers file with each line's own time, never from the shots record's frame fields: those
+    are written again after every answer, and on the first batch they called a pick on the shot's middle "a frame the
+    owner had marked" because the owner's click on that preview had since boxed that very frame."""
+    built = None if not built_at else datetime.fromisoformat(str(built_at))
+    out, last = set(), {}
+    for _n, d in answers:
+        if d.get("who") == "owner" and d.get("row") in WHO_ROWS and d.get("table") == "plain" and d.get("what") == "choice" and d.get("subject") == subject \
+                and str(d.get("source_frame", "")).isdigit():
+            when = datetime.fromisoformat(str(d["at"]).replace("Z", "+00:00")) if d.get("at") else None
+            if built is None or built.tzinfo is None or when is None or when < built:
+                last[int(d["source_frame"])] = str(d.get("chosen"))
+    for frame, chosen in last.items():
+        if chosen == NOT_OUTLINED:
+            out.add(frame)
+    return out
+
+
+def how_chosen(table: dict, state: str, subject_job: dict, shot: dict, marked: set[int]) -> str:
     if table.get("pick_seed") or "seeded" in str(state):
         return HOW[0]
     at = subject_job.get("pick_at")
     if at is None:
         return HOW[4]
-    if int(at) in (who.get("frames_on") or []) or int(at) in (who.get("frames_boxed") or []):
+    if int(at) in marked:
         return HOW[1]
     return HOW[2] if int(at) == (shot["first"] + shot["last"]) // 2 else HOW[3]
 
@@ -338,7 +358,7 @@ def lines_of(shots: dict, pvs: list[dict], answers: list[tuple[int, dict]], note
                                 "seconds": pv["queued"].get("seconds")},
                     "tracker": {"state": state.get("state"), "person": picked, "on_frame": pv["first"] + int(own_shot["shown_frame"]), "why": state.get("why"),
                                 "similarity": state.get("similarity"), "also_held_by_another_tracker": state.get("also_held_by_another_tracker"),
-                                "how_chosen": how_chosen(own, str(state.get("state")), sj, shot, shot["who"].get(label) or {})},
+                                "how_chosen": how_chosen(own, str(state.get("state")), sj, shot, marked_before(answers, label, pv["built"].get("built_at")))},
                     "session": None if reading is None else {
                         **{f: reading.get(f) for f in ("picked_number", "picked_looks_like", "right_person", "why", "thinks_it_is", "recorded_at", "file", "line")},
                         "number_is_of_another_picture": None if same_frame is None else not same_frame},
