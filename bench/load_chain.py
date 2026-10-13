@@ -45,9 +45,14 @@ fact of the machine is an environment key; nothing is found by a name left over 
 - `first`: who is who from the preview's shot tables (made again every time, or the file the job names as
   `who_is_who`); the first capture AT `job.capture` with the load as a plan worked out from the masks; verify;
   the gate; the strip, drawn under `<capture>_first` on the share from the start. Refused when the capture or
-  its `_first` copy exists.
+  its `_first` copy exists. Verify, the gate and the strip each run whatever the one before said, and THE STEP'S
+  LAST LINE AND ITS EXIT STATUS SAY HOW THEY ENDED: 0 when verify passed, the gate is clear and the strip was
+  drawn; else the first of the three that was not 0 (a failed verify is the capture tool's 4, a blocked gate
+  its 3), with the words in capitals. `on-plan` ends the same way.
 - `plan`: the node's plan of the load, built and queued. Refused when the queue is not empty, when there is no
-  first capture, or when a plan graph of this load is already built.
+  first capture, when a plan graph of this load is already built, when the first capture's gate is not clear (a
+  blocked flag is cleared by the load made again or by a person's override of it, by name, in the capture), and
+  when the builder's own dry build refuses the load (a capture that did not pass verify is one of its refusals).
 - `on-plan`: the capture again, on the node's plan. With the queue empty: the frame-by-frame hash of every mask
   video the plan graph reads is recorded; the first capture is COPIED to `<capture>_first` and the copy checked
   file for file before anything is overwritten; then the capture is built in place on the plan, verified, gated,
@@ -106,6 +111,9 @@ REVIEW_MEDIA = "data/{video}/review/media"             # links to the clips, whe
 #: The song node's inputs a render graph may differ from its plan graph in.
 RENDER_DIFFERS_IN = ["filename_prefix", "preview"]
 BAND_SUFFIXES = (".plan.clothes_less_hair_band.mkv", ".render.clothes_less_hair_band.mkv")
+#: What the capture tool exits with for a verify that failed and for a gate that is blocked
+#: (`bench/capture_masked_run.py`, the same two names); `bench/check_load_chain.py` holds them to that file.
+VERIFY_FAILED, GATE_BLOCKED = 4, 3
 #: How much of a line of a command's output is shown on the screen; the kept file has it whole.
 TAIL_CHARS = 300
 #: A window's own video in a load's windows folder: `<name>_window_<N>.mp4`, and not its mask review or its zoomed picture.
@@ -545,18 +553,55 @@ def capture_args(ctx: dict, world, files: dict) -> list[str]:
     return out
 
 
-def gate_and_strip(ctx: dict, world, by: str, who_is_who: Path, voice: dict, strip_folder: str = "") -> None:
+def ended_with(capture: Path, verify: int, gate: int, strip: int) -> tuple[int, str]:
+    """How a capture step ended: the exit status it leaves and the words of its last line; 0 and no words when
+    verify passed, the gate is clear and the strip was drawn.
+
+    Each of the three commands runs whatever the one before it said, since a person needs the gate's flags and the
+    strip to see WHY a capture is not good. Until 2026-10-13 the step then exited 0 with nothing said after the
+    strip's lines: on the first real load its verify had exited 4 and its gate 3, on a load nobody should have
+    planned. (The session scripts this tool replaced did the same: they printed `verify exit N` and `gate exit N`
+    in passing, drew the strip and exited 0. None of their kept outputs of that day holds a gate that was not clear.)"""
+    said = []
+    if verify:
+        said.append(f"VERIFY FAILED (exit {verify}): the capture does not read what the nodes wrote" if verify == VERIFY_FAILED
+                    else f"VERIFY DID NOT RUN TO ITS END (exit {verify})")
+    if gate == GATE_BLOCKED:
+        flags = capture / "flags.json"
+        on = json.loads(flags.read_text()).get("blocking") if flags.is_file() else None
+        said.append("THE GATE IS BLOCKED" + (f" on {', '.join(on)}" if on else ""))
+    elif gate:
+        said.append(f"THE GATE DID NOT RUN TO ITS END (exit {gate})")
+    if strip:
+        said.append(f"THE STRIP WAS NOT DRAWN (exit {strip})")
+    return next((code for code in (verify, gate, strip) if code), 0), "; ".join(said)
+
+
+def gate_clear(ctx: dict, what: str) -> None:
+    """Refuse a capture whose gate is not clear. A blocked flag is cleared by making the load again so that it no
+    longer stands, or by a person ruling on it by name, which the capture tool records and the gate then reads."""
+    cap = ctx["capture"]
+    if not (cap / "flags.json").is_file():
+        raise Refused(f"{cap.name} holds no flags.json: its gate did not run to its end, so nothing says it is clear")
+    flags = json.loads((cap / "flags.json").read_text())
+    if flags.get("verdict") != "clear":
+        raise Refused(f"the gate on {cap.name} is {flags.get('verdict')!r}, on {', '.join(flags.get('blocking') or []) or 'nothing it names'}: {what}. "
+                      f"Make the load again so the flag no longer stands, or a person rules on each flag by name: bench/capture_masked_run.py outcome "
+                      f"{cap} <flag> overridden --by WHO --note WHY (the gate then reads clear and lists who overrode what)")
+
+
+def gate_and_strip(ctx: dict, world, by: str, who_is_who: Path, voice: dict, strip_folder: str = "") -> tuple[int, str]:
     cap, job = ctx["capture"], ctx["job"]
-    world.run(ctx, f"verify{strip_folder and ' first'}", tool(world, "capture_masked_run.py") + ["verify", cap, "--by", by], stop=False)
-    world.run(ctx, f"gate{strip_folder and ' first'}", tool(world, "capture_masked_run.py") + ["preflight", cap, "--text", ctx["text"], "--voice-spans", voice["spans"],
-                                                                                              "--who-is-who", who_is_who, "--gate"], stop=False)
+    verify = world.run(ctx, f"verify{strip_folder and ' first'}", tool(world, "capture_masked_run.py") + ["verify", cap, "--by", by], stop=False)
+    gate = world.run(ctx, f"gate{strip_folder and ' first'}", tool(world, "capture_masked_run.py") + ["preflight", cap, "--text", ctx["text"], "--voice-spans", voice["spans"],
+                                                                                                     "--who-is-who", who_is_who, "--gate"], stop=False)
     strip = tool(world, "capture_masked_run.py") + ["video", cap, "--source", job["source"], "--job", ctx["job_file"], "--load", ctx["name"]]
     if ctx["load"].get("motion_file"):
         strip += ["--motion", ctx["load"]["motion_file"]]
     strip += ["--still", f"{ctx['subject']}={still_of(ctx, world.inputs)}"]
     if strip_folder:
         strip += ["--strip-folder", strip_folder]
-    world.run(ctx, f"strip{strip_folder and ' first'}", strip, stop=False)
+    return ended_with(cap, verify, gate, world.run(ctx, f"strip{strip_folder and ' first'}", strip, stop=False))
 
 
 def who_is_who_file(ctx: dict, world, files: dict) -> Path:
@@ -579,7 +624,7 @@ def who_is_who_file(ctx: dict, world, files: dict) -> Path:
     return out
 
 
-def step_first(ctx: dict, world, a) -> None:
+def step_first(ctx: dict, world, a) -> tuple[int, str]:
     cap = ctx["capture"]
     for path in (cap, cap.with_name(cap.name + "_first")):
         if path.exists():
@@ -588,7 +633,7 @@ def step_first(ctx: dict, world, a) -> None:
     who = who_is_who_file(ctx, world, files)
     world.run(ctx, "files first", tool(world, "capture_masked_run.py") + ["files"] + capture_args(ctx, world, files)
               + ["--loads", ctx["job_file"], "--voice", voice["per_frame"], "--made-by", a.by])
-    gate_and_strip(ctx, world, a.by, who, voice, strip_folder=cap.name + "_first")
+    return gate_and_strip(ctx, world, a.by, who, voice, strip_folder=cap.name + "_first")
 
 
 def step_plan(ctx: dict, world, a) -> None:
@@ -596,6 +641,7 @@ def step_plan(ctx: dict, world, a) -> None:
         raise Refused(f"{ctx['capture']} is not there: the plan is built from the first capture")
     if (ctx["job_folder"] / f"{ctx['name']}.plan.json").exists():
         raise Refused(f"a plan graph of {ctx['name']} is already built in {ctx['job_folder'].name}: never a second one under a name")
+    gate_clear(ctx, "a plan is not built on a first capture whose gate is blocked")
     empty_queue(world, "a plan is queued on an empty queue")
     # The builder's own refusals, before anything is run and in a dry run as well. On the first real load (2026-10-13)
     # `plan --dry` exited 0 and the plan itself was then refused by its builder, on a key the job file had held all along.
@@ -606,7 +652,7 @@ def step_plan(ctx: dict, world, a) -> None:
     world.run(ctx, "queue plan", tool(world, "masked_job.py") + ["queue", ctx["job_folder"], "plan", "--load", ctx["name"], "--host", world.host, "--wait"])
 
 
-def step_on_plan(ctx: dict, world, a, hashed=frame_hash) -> None:
+def step_on_plan(ctx: dict, world, a, hashed=frame_hash) -> tuple[int, str]:
     cap, first = ctx["capture"], ctx["capture"].with_name(ctx["capture"].name + "_first")
     windows = plan_windows(ctx, world.output)
     if not (windows / f"{ctx['name']}_plan.json").is_file():
@@ -637,7 +683,7 @@ def step_on_plan(ctx: dict, world, a, hashed=frame_hash) -> None:
     run = f"{ctx['name']}:preview={windows},subject={ctx['subject']}" + (f",others={'+'.join(others_of(ctx))}" if others_of(ctx) else "") + f",at={ctx['load']['first']}"
     world.run(ctx, "files on plan", tool(world, "capture_masked_run.py") + ["files"] + capture_args(ctx, world, files)
               + ["--run", run, "--voice", voice["per_frame"], "--made-by", a.by, "--overwrite"])
-    gate_and_strip(ctx, world, a.by, who, voice)
+    return gate_and_strip(ctx, world, a.by, who, voice)
 
 
 def step_render(ctx: dict, world, a, hashed=frame_hash) -> None:
@@ -772,6 +818,16 @@ def step_page(ctx: dict, world, a) -> None:
     print(f"    added: the list's first items are {[x['id'] for x in back['items'][:3]]}; {len(back['items'])} items; updated {back['updated']}")
 
 
+def last_line(step: str, name: str, ended, now: str) -> tuple[int, str]:
+    """A step's last line and its exit status, from what the step returned: nothing for a step that only runs or
+    refuses, (status, words) for one that ends on a capture's verify, gate and strip."""
+    code, words = ended or (0, "")
+    if not code:
+        return 0, f"{step} of {name} ended {now}"
+    return code, (f"{step} of {name} ENDED {now} AND IS NOT GOOD: {words}. EXIT {code}. The capture and its strip are there to be read. "
+                  + ("`plan` refuses this load as it stands." if step == "first" else "`render` refuses this load as it stands."))
+
+
 STEP = {"first": step_first, "plan": step_plan, "on-plan": step_on_plan, "render": step_render, "land": step_land, "page": step_page}
 
 
@@ -791,12 +847,13 @@ def main() -> int:
         ctx = read_job(a.job_file)
         print(f"{a.step}: {ctx['name']} ({ctx['subject']}, source frames {ctx['load']['first']}-{ctx['load']['first'] + ctx['load']['frames'] - 1}), by {a.by}, "
               f"{utc_now()}; capture {ctx['capture'].name}; masks from the preview {ctx['preview']['name']}, whose files begin on source frame {ctx['preview']['first']}")
-        STEP[a.step](ctx, World(a.host, a.dry), a)
+        ended = STEP[a.step](ctx, World(a.host, a.dry), a)
     except Refused as e:
         print(f"REFUSED: {e}", file=sys.stderr)
         return 5
-    print(f"\n{a.step} of {ctx['name']} ended {utc_now()}")
-    return 0
+    code, line = last_line(a.step, ctx["name"], ended, utc_now())
+    print("\n" + line)
+    return code
 
 
 if __name__ == "__main__":

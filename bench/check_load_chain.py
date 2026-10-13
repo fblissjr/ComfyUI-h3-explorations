@@ -17,8 +17,11 @@ rulings that changed them.
    refusal when one is owed and missing; the other subjects in the preview's order.
 3. **first**: refused when the capture or its `_first` copy exists; who is who made again from the preview's
    tables, each with the frame it begins on, or the file the job names and no command; the capture with the load
-   as a plan; the strip under `<capture>_first`.
-4. **plan**: refused on a queue that is not empty, with no capture, or with a plan graph already built; and, in a
+   as a plan; the strip under `<capture>_first`. With verify failed and the gate blocked every command still
+   runs, and the step's last line says so in capitals and its exit status is the capture tool's own for the
+   first of them (the first real load, 2026-10-13: both were not 0 and the step exited 0).
+4. **plan**: refused on a queue that is not empty, with no capture, with a plan graph already built, or on a first
+   capture whose gate is blocked or that has no flags file; and, in a
    dry run as well and before any command, when the builder's own dry build refuses the load (the first real
    load, 2026-10-13: `plan --dry` exited 0 and the plan was then refused on a key the job file held all along).
    That the dry build holds what a build holds and writes nothing is `check_masked_job.py`'s, on the real builder.
@@ -52,6 +55,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -70,6 +75,7 @@ class Machine:
         self.output, self.inputs, self.data = root / "output", root / "input", root / "data"
         self.busy, self.ran, self.on, self.voiced, self.voice_frames, self.frames = (0, 0), [], {}, True, (0, 199), {}
         self.builder_says = ""           # what the builder's dry build refuses with; "" when it would build
+        self.exits = {}                  # a command's exit status by its label; 0 when not named
 
     def builder_refuses(self, ctx, stage):
         return self.builder_says
@@ -95,7 +101,7 @@ class Machine:
         self.ran.append((label, [str(x) for x in argv]))
         if label in self.on:
             self.on[label]()
-        return 0
+        return self.exits.get(label, 0)
 
     def said(self, label: str) -> list[str]:
         return next(argv for name, argv in self.ran if name == label)
@@ -144,7 +150,7 @@ class Made:
         return lc.read_job(self.job_file, self.root)
 
     def capture(self, *, on_plan: bool = True, written: str = "2026-01-03T10:00:00", look_at: str | None = "2026-01-03T10:30:00",
-                look_by: str = "a reader", loads=("ld",), verdict: str = "clear") -> Path:
+                look_by: str = "a reader", loads=("ld",), verdict: str = "clear", blocking=()) -> Path:
         """A capture folder as the capture tool leaves one, with a look recorded on it unless told otherwise."""
         cap = self.root / "data" / "2026-01-03_ld"
         (cap / "subjects" / "a").mkdir(parents=True, exist_ok=True)
@@ -152,7 +158,7 @@ class Made:
         (cap / "manifest.json").write_text(json.dumps({"first_frame": 110, "frames": 20, "runs": [{"carried_from_the_node": on_plan}],
                                                        "subjects": [{"label": "a", "sightings": [{"by": "pv"}]}]}))
         (cap / "status.json").write_text(json.dumps({"written": written, "made_by": "the maker"}))
-        (cap / "flags.json").write_text(json.dumps({"verdict": verdict, "flags": [{}, {}]}))
+        (cap / "flags.json").write_text(json.dumps({"verdict": verdict, "blocking": list(blocking), "flags": [{}, {}]}))
         if look_at is not None:
             (cap / "looks.json").write_text(json.dumps({"looks": [{"by": "an earlier reader", "at": "2026-01-03T09:00:00", "loads": ["ld"]},
                                                                   {"by": look_by, "at": look_at, "loads": list(loads)}]}))
@@ -264,8 +270,9 @@ def the_first_step() -> str:
     with tempfile.TemporaryDirectory() as tmp:
         made = Made(Path(tmp))
         m = made.m
-        lc.step_first(made.ctx(), m, args())
+        ended = lc.step_first(made.ctx(), m, args())
         assert m.labels() == ["who is who", "files first", "verify first", "gate first", "strip first"], m.labels()
+        assert ended == (0, "") and lc.last_line("first", "ld", ended, "NOW") == (0, "first of ld ended NOW"), ended
         who = m.said("who is who")
         assert who[:3] == ["PY", "bench/who_is_who_across_shots.py", "corrections"] and who[who.index("--first-frame") + 1] == "110" and who[who.index("--frames") + 1] == "20", who
         tables = [who[i + 1] for i, x in enumerate(who) if x == "--table"]
@@ -298,6 +305,23 @@ def the_first_step() -> str:
         refused(lambda: lc.step_first(made.ctx(), m, args()), "names the who-is-who file", "not a file")
         del made.job["who_is_who"]
         made.write()
+        # verify failed and the gate blocked (the first real load, 2026-10-13): every command still runs, and the step's
+        # end says so in capitals and leaves the capture tool's own exit status, never 0
+        source = (lc.HERE / "capture_masked_run.py").read_text()
+        theirs = {name: int(re.search(rf"^{name} = (\d+)$", source, re.M).group(1)) for name in ("VERIFY_FAILED", "GATE_BLOCKED")}
+        assert theirs == {"VERIFY_FAILED": lc.VERIFY_FAILED, "GATE_BLOCKED": lc.GATE_BLOCKED}, theirs
+        m.ran.clear()
+        m.exits = {"verify first": lc.VERIFY_FAILED, "gate first": lc.GATE_BLOCKED}
+        m.on["gate first"] = lambda: made.capture(on_plan=False, verdict="blocked", blocking=["f001", "f002"])
+        ended = lc.step_first(made.ctx(), m, args())
+        assert m.labels()[-3:] == ["verify first", "gate first", "strip first"], m.labels()
+        code, line = lc.last_line("first", "ld", ended, "NOW")
+        assert code == lc.VERIFY_FAILED and "ENDED NOW AND IS NOT GOOD" in line and "VERIFY FAILED (exit 4)" in line \
+            and "THE GATE IS BLOCKED on f001, f002" in line and "EXIT 4" in line and "`plan` refuses" in line, (code, line)
+        assert lc.ended_with(made.root / "data/2026-01-03_ld", 0, lc.GATE_BLOCKED, 0) == (lc.GATE_BLOCKED, "THE GATE IS BLOCKED on f001, f002")
+        assert lc.ended_with(made.root / "nowhere", 0, 1, 2) == (1, "THE GATE DID NOT RUN TO ITS END (exit 1); THE STRIP WAS NOT DRAWN (exit 2)")
+        shutil.rmtree(made.root / "data/2026-01-03_ld")
+        m.exits, m.on = {}, {}
         m.voiced = False
         refused(lambda: lc.step_first(made.ctx(), m, args()), "no voice tables")
         m.voiced = True
@@ -327,6 +351,14 @@ def the_plan_step() -> str:
         m.busy = (1, 0)
         refused(lambda: lc.step_plan(made.ctx(), m, args()), "the queue is not empty (1 running, 0 pending)")
         m.busy = (0, 0)
+        # a first capture whose gate is blocked is not planned on; a person's override makes the gate clear, and then it is
+        made.capture(on_plan=False, verdict="blocked", blocking=["f001", "f002"])
+        refused(lambda: lc.step_plan(made.ctx(), m, args()), "is 'blocked', on f001, f002", "a plan is not built on a first capture whose gate is blocked",
+                "outcome", "overridden --by WHO --note WHY")
+        (made.root / "data/2026-01-03_ld/flags.json").unlink()
+        refused(lambda: lc.step_plan(made.ctx(), m, args()), "holds no flags.json")
+        made.capture(on_plan=False)
+        assert m.labels() == [], f"a refused plan ran {m.labels()}"
         # what the builder refuses stops the step before a command is run, and a dry run the same
         m.builder_says = "load 'ld': the hair band is cut out of the keep-out 'clothes', which is not among the load's `others`"
         for dry in (True, False):
@@ -340,8 +372,8 @@ def the_plan_step() -> str:
         assert queue[2] == "queue" and queue[3].endswith("2026-01-03_ld_job") and queue[4:7] == ["plan", "--load", "ld"] and "--wait" in queue, queue
         made.planned()
         refused(lambda: lc.step_plan(made.ctx(), m, args()), "already built", "never a second one")
-    return ("a plan is refused with no first capture, on a queue that is not empty, when one is built, and when the builder's dry build refuses it "
-            "(a dry run as well, with no command run); it is built with the capture's day and queued")
+    return ("a plan is refused with no first capture, on a queue that is not empty, when one is built, on a first capture whose gate is blocked or has "
+            "no flags file, and when the builder's dry build refuses it (a dry run as well, with no command run); it is built with the capture's day and queued")
 
 
 def the_on_plan_step() -> str:
