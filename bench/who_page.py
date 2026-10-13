@@ -184,8 +184,16 @@ def fitted_frame(source: str, frame: int, size: list[int], out: Path) -> str | N
 
 def boxes_picture(fitted: str, t: dict, out: Path) -> str:
     """The fitted frame with each person's box in a colour of their own and their number, in that colour on a dark
-    plate, at the box's middle. The larger box is drawn first, so a small one inside it is not drawn over; a plate
-    that would lie on another is moved down by its own height."""
+    plate. The larger box is drawn first, so a small one inside it is not drawn over.
+
+    WHERE A NUMBER GOES. Every point of the picture belongs to the SMALLEST box that covers it, as a map gives a
+    town to its county and not to its country. A person's number is put on their own ground, as near their box's
+    middle as a whole plate fits (else where most of a plate fits); a person with no ground of their own, every
+    point of their box inside a smaller one, has their number at their box's top left corner. Until 2026-10-13
+    the number sat at the box's middle whatever lay there, and a box that is nearly the whole frame put its
+    number on somebody else (a reader's look at the first page of 5935-6394). A plate that would still lie on
+    another is moved down by its own height."""
+    import numpy as np
     im = Image.open(out / fitted).convert("RGB")
     draw = ImageDraw.Draw(im)
     try:
@@ -196,13 +204,25 @@ def boxes_picture(fitted: str, t: dict, out: Path) -> str:
     for p in people:
         x, y, w, h = p["box"]
         draw.rectangle((x, y, x + w - 1, y + h - 1), outline=colour_of(p["person"]), width=max(2, im.size[1] // 250))
+    ground = np.zeros((im.size[1], im.size[0]), np.int32)        # whose ground each point is: the smallest box over it
+    for p in people:                                              # largest first, so a smaller box takes its ground back
+        x, y, w, h = (int(v) for v in p["box"])
+        ground[max(y, 0):y + h, max(x, 0):x + w] = p["person"]
     plates = []
     for p in sorted(people, key=lambda p: p["person"]):
         x, y, w, h = p["box"]
         text = str(p["person"])
         tb = draw.textbbox((0, 0), text, font=font)
-        pw, ph = tb[2] - tb[0] + 14, tb[3] - tb[1] + 12
+        pw, ph = int(tb[2] - tb[0] + 14), int(tb[3] - tb[1] + 12)
         px, py = min(max(x + w / 2 - pw / 2, 0), im.size[0] - pw), min(max(y + h / 2 - ph / 2, 0), im.size[1] - ph)
+        own = np.pad((ground == p["person"]).astype(np.int64).cumsum(0).cumsum(1), ((1, 0), (1, 0)))
+        if own[-1, -1] == 0:
+            px, py = min(max(x, 0), im.size[0] - pw), min(max(y, 0), im.size[1] - ph)
+        elif pw < im.size[0] and ph < im.size[1]:
+            held = own[ph:, pw:] - own[:-ph, pw:] - own[ph:, :-pw] + own[:-ph, :-pw]      # of a plate with its top left at each point, how much is own ground
+            ys, xs = np.nonzero(held == held.max())
+            nearest = int(np.argmin((xs - px) ** 2 + (ys - py) ** 2))
+            px, py = float(xs[nearest]), float(ys[nearest])
         while any(abs(px - qx) < pw and abs(py - qy) < ph for qx, qy in plates) and py + 2 * ph <= im.size[1]:
             py += ph
         plates.append((px, py))

@@ -31,7 +31,8 @@ own words beside it, and each of those can be off by one.
                                         same shot without the flag has one picture; a span that is no shot of the record is refused
   the_boxes_are_each_persons_own        the picture of boxes is the table's own size, each person's box is drawn in that person's
                                         colour where the table puts it, the number buttons carry the same colours, and the page
-                                        says a box is a box
+                                        says a box is a box; a number is on its own person's ground (the smallest box over a
+                                        point owns it), so a box that is the whole frame does not put its number on somebody else
 
     <python> bench/check_who_page.py
 
@@ -212,7 +213,10 @@ def main() -> int:
             least = masked_job.shortest_load()[1]
             cuts = [{"shot": 1, "first_frame": 0, "last_frame": 0, "shown_frame": 0, "people": [{"person": 1, "box": [1, 1, 5, 5]}]},
                     {"shot": 2, "first_frame": 1, "last_frame": least, "shown_frame": 3,
-                     "people": [{"person": 1, "box": [20, 20, 100, 150]}, {"person": 2, "box": [170, 50, 120, 150]}]},
+                     "people": [{"person": 1, "box": [20, 20, 100, 150]}, {"person": 2, "box": [130, 50, 160, 150]},
+                                {"person": 3, "box": [0, 0, 320, 240]},                 # the whole frame: its middle is inside person 2's box
+                                {"person": 4, "box": [180, 100, 40, 40]}]},             # inside person 2's box, which is inside person 3's: its own ground is its whole box
+
                     {"shot": 3, "first_frame": least + 1, "last_frame": 3 * least, "shown_frame": least + 2, "people": [{"person": 1, "box": [10, 10, 30, 30]}]},
                     {"shot": 4, "first_frame": 3 * least + 1, "last_frame": 4 * least + 3, "shown_frame": 3 * least + 5, "people": []},
                     {"shot": 5, "first_frame": 4 * least + 4, "last_frame": 4 * least + 5, "shown_frame": 4 * least + 4, "people": [{"person": 1, "box": [1, 1, 5, 5]}]}]
@@ -239,7 +243,7 @@ def main() -> int:
             once = (Path(d) / "once" / "index.html").read_text() if r1.returncode == 0 else ""
             r2 = run({**q, "out": Path(d) / "no"}, "--preview", f"{Path(d) / 'cut.json'}={Path(d) / 't'}", "--every-cut-of", "100-120")
             case("a_shot_is_shown_cut_by_cut", r.returncode == 0 and len(numbered) == 2 and 'data-frame="103"' in numbered[0] and 'data-shot="2"' in numbered[0]
-                 and f'data-frame="{102 + least}"' in numbered[1] and 'data-shot="3"' in numbered[1] and numbered[0].count('data-sub="a"') == 4
+                 and f'data-frame="{102 + least}"' in numbered[1] and 'data-shot="3"' in numbered[1] and numbered[0].count('data-sub="a"') == 6
                  and numbered[1].count('data-sub="a"') == 3 and len(plain) == 1 and f'data-frame="{105 + 3 * least}"' in plain[0]
                  and f"the tracker outlined nobody on its cut {101 + 3 * least}-{103 + 4 * least}" in plain[0]
                  and f"cut it into 5; the 3 of {least} frames or more" in text and f"holding {total - 3} of the shot's {total} frames" in text
@@ -251,17 +255,25 @@ def main() -> int:
             fitted = q["out"] / "tiles" / "0103_as_tracked_320x240.jpg"
             if boxes.is_file() and fitted.is_file():
                 im = Image.open(boxes).convert("RGB")
-                left, right, off = im.getpixel((20, 40)), im.getpixel((289, 180)), im.getpixel((150, 30))     # person 1's left edge, person 2's right edge, between them
-                plate1, plate2 = im.getpixel((70, 95)), im.getpixel((230, 125))                              # each box's middle: a dark plate or the number's ink
+                left, right, off = im.getpixel((20, 40)), im.getpixel((289, 180)), im.getpixel((305, 232))    # person 1's left edge, person 2's right edge, a corner nobody's number is near
+                plate1, plate4 = im.getpixel((70, 95)), im.getpixel((200, 120))                              # a box's middle on its own ground: a dark plate or the number's ink
+                grey = lambda c: all(abs(int(v) - int(o)) < 25 for v, o in zip(c, off))                      # noqa: E731
+                # person 3's box is the whole frame: its number is not at its middle (160, 120, person 2's ground) but on its own ground, outside the boxes of 1 and 2.
+                # The source is one flat grey and every other plate is inside box 1 or box 2, so a dark point outside both is person 3's plate
+                dark = lambda c: max(c) < 60                                                                  # noqa: E731
+                outside = [(x, y) for x in range(2, 318, 3) for y in range(2, 238, 3) if not (18 <= x <= 122 and 18 <= y <= 172) and not (128 <= x <= 292 and 48 <= y <= 202)]
+                band3 = [xy for xy in outside if dark(im.getpixel(xy))]
                 yellow, cyan = colour_of(1), colour_of(2)
                 ok = (im.size == (320, 240) == Image.open(fitted).size and left[0] - left[2] > 100 and right[2] - right[0] > 100 and abs(off[0] - off[2]) < 25
-                      and plate1 != off and plate2 != off and Image.open(fitted).getpixel((70, 95))[0] == Image.open(fitted).getpixel((150, 30))[0]
+                      and not grey(plate1) and not grey(plate4) and grey(Image.open(fitted).convert("RGB").getpixel((70, 95)))
+                      and grey(im.getpixel((150, 122))) and len(band3) > 3
+                      and not any(dark(im.getpixel((x, y))) for x in range(181, 219, 3) for y in (101, 138))       # no other number's plate on person 4's box
                       and yellow[0] > yellow[2] and cyan[2] > cyan[0]
                       and 'data-chosen="1" style="color:rgb(%d,%d,%d);border-color:rgb(%d,%d,%d)"' % (yellow * 2) in numbered[0]
                       and 'data-chosen="2" style="color:rgb(%d,%d,%d);border-color:rgb(%d,%d,%d)"' % (cyan * 2) in numbered[0]
                       and BOXES_SAY in numbered[0] and "0103_cut_a_shot2_boxes.jpg" in numbered[0] and "0103_as_tracked_320x240.jpg" in numbered[0]
                       and 'style="color' not in once)
-                case("the_boxes_are_each_persons_own", ok, f"{im.size} left {left} right {right} off {off}")
+                case("the_boxes_are_each_persons_own", ok, f"{im.size} left {left} right {right} off {off} plate1 {plate1} plate4 {plate4} mid3 {im.getpixel((150, 122))} person 3's plate at {band3[:4]}")
             else:
                 case("the_boxes_are_each_persons_own", False, f"no picture of boxes: {sorted(x.name for x in (q['out'] / 'tiles').glob('*'))}")
         else:
