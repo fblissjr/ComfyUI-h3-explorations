@@ -85,6 +85,10 @@ def the_owners_keep() -> str:
     e = entry(decide(kept, newer), 0, "a")
     assert [s["render"] for s in e["stands"]] == ["kept"] and e["stands"][0]["why"].startswith("step 1: the owner's keep of 2026-02-02"), e["stands"]
     assert [(p["render"], p["why"].startswith("may stand (step 2)")) for p in e["passed_over"]] == [("newer_frozen", True)], e["passed_over"]
+    # the page's own positive button is a keep too, and of two kept renders on one shot the newest keep is first
+    good = render("good_to_go", (0, 49), "02", has=LIDS, owner=(("06", "choice", "good to go"),))
+    e = entry(decide(kept, good, newer), 0, "a")
+    assert [s["render"] for s in e["stands"]] == ["good_to_go"] and "the owner's keep of 2026-02-06" in e["stands"][0]["why"], e["stands"]
     # a keep the owner changed afterwards, a keep said of a joined clip, and typed words are none of them a keep
     for name, owner in (("changed", (("02", "choice", "keep this one"), ("03", "choice", "wrong, and I say where"))),
                         ("of_a_joined_clip", (("02", "choice", "keep this one", "the joined clip"),)),
@@ -161,6 +165,15 @@ def nothing_left_and_several_on_a_shot() -> str:
     assert [(g["first"], g["last"], g["subject"]) for g in out["gaps"]] == [(50, 54, "a"), (90, 99, "a")], out["gaps"]
     assert not any(s["subject"] == "a" and s["first"] == 50 for s in out["sources"]), "a shot with a piece was given a source line"
     assert entry(out, 50, "a")["left_as_the_source"] == [(50, 54), (90, 99)]
+    # a span of the shots file: the shots inside it and no other, and a span that cuts a shot is refused
+    part = dt.decide(ledger(kept, wide), SHOTS, PLAN, span=(50, 149))
+    assert {e["first"] for e in part["reading"]} == {50, 100} and all(s["first"] >= 50 for s in part["sources"]), part["reading"]
+    try:
+        dt.decide(ledger(), SHOTS, PLAN, span=(0, 60))
+    except SystemExit as e:
+        assert "cuts the shot 50-99" in str(e), str(e)
+    else:
+        raise AssertionError("a span that cuts a shot was taken")
     # a render over two shots is one row where its restores are the same, and two where they differ
     across = decide(render("across", (40, 59), "05"))
     assert [(r["first"], r["last"], r["restore"]) for r in across["rows"]] == [(40, 49, []), (50, 59, ["b:whole"])], across["rows"]

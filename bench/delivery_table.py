@@ -2,7 +2,8 @@
 """The delivery table, generated from the render ledger by one stated rule: which render stands on each shot, and why.
 
     <python> bench/delivery_table.py --ledger LEDGER.json --shots SHOTS.json --plan PLAN.json \\
-        [--prefer "FIRST-LAST:SUBJECT=LOAD:the reason"]... --table OUT.txt --reading OUT.md [--json OUT.json]
+        [--prefer "FIRST-LAST:SUBJECT=LOAD:the reason"]... [--span FIRST-LAST] [--assemble-args "..."] [--also-capture FOLDER]... \\
+        --table OUT.txt --reading OUT.md [--json OUT.json]
 
 **What it buys.** The table `bench/assemble_delivery.py` builds a clip from was typed by hand at the end of a day,
 from memory of which render was the good one. This writes it from files: the ledger (`bench/render_ledger.py`:
@@ -64,8 +65,10 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 LEDGER_SCHEMA = "h3_render_ledger/2"
-#: The owner's choices that are a keep, as the review page's buttons word them.
-KEEP = ("keep this one",)
+#: The owner's choices that are a keep, as the review page's buttons word them: `keep this one` is the button the
+#: sessions' items carry, `good to go` the page's own positive button where an item names no options
+#: (`data/<video>/poc/index.html`, the default options; the lead's ruling of 2026-10-13 that it is a keep).
+KEEP = ("keep this one", "good to go")
 #: The owner's choices that say a render is NOT the one: a render whose last choice is one of these does not stand
 #: by step 2 or by `--prefer` (the lead's ruling, 2026-10-13). The words are the buttons the review page has shown
 #: under a render (`data/<video>/review/items.json`, each item's `options`, as they stood that day); `not sure` is
@@ -152,12 +155,19 @@ def parse_prefer(text: str) -> dict:
     return {"first": first, "last": last, "subject": subject, "load": load, "reason": reason.strip()}
 
 
-def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = None) -> dict:
+def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = None, span: tuple[int, int] | None = None) -> dict:
     """The table as data: `rows` (pieces laid), `sources` (whole shots left as the source), `gaps` (frames inside a
     shot that has a piece and that no piece takes) and `reading` (one entry a shot and a subject)."""
     if ledger.get("schema") != LEDGER_SCHEMA:
         raise SystemExit(f"the ledger's schema is {ledger.get('schema')!r}, not {LEDGER_SCHEMA!r}: make it again with bench/render_ledger.py")
     prefers = list(prefers or [])
+    if span is not None:
+        # a table of part of the video: the shots inside the span, whole. A `source` line covers a whole shot, so a
+        # span that cuts a shot is refused and the shot named
+        cut = [s for s in shots["shots"] if s["first"] <= span[1] and s["last"] >= span[0] and not (span[0] <= s["first"] and s["last"] <= span[1])]
+        if cut:
+            raise SystemExit(f"--span {span[0]}-{span[1]} cuts the shot {cut[0]['first']}-{cut[0]['last']} of the shots file: a span ends on shots' edges")
+        shots = {**shots, "shots": [s for s in shots["shots"] if span[0] <= s["first"] and s["last"] <= span[1]]}
     renders = list(ledger["renders"].values())
     rows, sources, gaps, reading = [], [], [], []
     for p in prefers:
@@ -380,6 +390,7 @@ def main() -> int:
     p.add_argument("--plan", required=True)
     p.add_argument("--prefer", action="append", default=[], metavar="FIRST-LAST:SUBJECT=LOAD:reason",
                    help="on that shot, for that subject, the load to go first among those that may stand; the reason is printed; repeatable")
+    p.add_argument("--span", metavar="FIRST-LAST", help="the table of these source frames alone, ending on shots' edges; default: the whole shots file")
     p.add_argument("--assemble-args", default="", metavar='"--source S --out O --size source"',
                    help="what only the caller knows of the build, printed into the assembler's command as given")
     p.add_argument("--also-capture", action="append", default=[], metavar="FOLDER",
@@ -392,12 +403,13 @@ def main() -> int:
     shots = coverage.load_shots(a.shots)
     plan = coverage.load_plan(a.plan, shots["subjects"])
     ledger = json.load(open(a.ledger))
-    out = decide(ledger, shots, plan, [parse_prefer(x) for x in a.prefer])
+    span = tuple(int(v) for v in a.span.split("-")) if a.span else tuple(shots["span"])
+    out = decide(ledger, shots, plan, [parse_prefer(x) for x in a.prefer], span if a.span else None)
     commit = subprocess.run(["git", "-C", str(HERE.parent), "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     made = (f"Made {now} at commit {commit} from the ledger `{a.ledger}` ({str(ledger.get('made') or 'which does not say when it was made').split(' from')[0]}), "
-            f"`{a.shots}` and `{a.plan}`" + ("; with " + "; ".join(f"--prefer {x!r}" for x in a.prefer) if a.prefer else "; no --prefer") + ".")
-    built = assembly(out, ledger, plan, HERE.parent, a.table, tuple(shots["span"]), a.assemble_args, tuple(a.also_capture))
+            f"`{a.shots}`" + (f" (its shots inside {a.span})" if a.span else "") + f" and `{a.plan}`" + ("; with " + "; ".join(f"--prefer {x!r}" for x in a.prefer) if a.prefer else "; no --prefer") + ".")
+    built = assembly(out, ledger, plan, HERE.parent, a.table, span, a.assemble_args, tuple(a.also_capture))
     Path(a.table).write_text(table_text(out, ledger["share"], made, plan, Path(a.table).stem))
     Path(a.reading).write_text(reading_text(out, made, a.table, built))
     if a.json:
