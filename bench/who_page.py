@@ -34,7 +34,10 @@ same span is built again in place.
 
 **A session's reading, as a guess.** `--notes` takes the file a session wrote when it looked at each preview's
 tiles (one line a preview: `job_file`, `first`, and per subject `picked_number`, `picked_looks_like`,
-`right_person`, `why`), as it is. It is shown under the tile of the preview it names, in a fold that is closed,
+`right_person`, `why`, and from the batch after 2026-10-13 `thinks_it_is`: the number, on the subject's own
+tile, of the person the reader thinks IS the subject, or `none of the outlined people`; a reader who says a
+pick is wrong is asked to write it, since `bench/picks_against_answers.py` holds it against the owner's
+click and cannot read it out of the free text of `why`), as it is. It is shown under the tile of the preview it names, in a fold that is closed,
 headed as a session's guess and not the owner's, with the file and the time it was recorded: read after the
 click, not before it. It presses no button and colours none. A line that names no preview given is printed when
 the page is built; a tile with no line says so.
@@ -241,7 +244,9 @@ def guess(notes: dict | None, t: dict, found: list[dict] = ()) -> str:
     said = "".join(
         f'<div><b>{html.escape(str(s.get("label", "")))}</b>: the tracker picked person {html.escape(str(s.get("picked_number", "not said")))}'
         f' ({html.escape(str(s.get("picked_looks_like", "")))}).{whose_picture(str(s.get("label", "")))} Is that the right person, by this reading: '
-        f'<b>{html.escape(str(s.get("right_person", "not said")))}</b>. {html.escape(str(s.get("why", "")))}</div>' for s in row.get("subjects", []))
+        f'<b>{html.escape(str(s.get("right_person", "not said")))}</b>.'
+        + (f' The reader thinks the subject is: <b>{html.escape(str(s["thinks_it_is"]))}</b> (on that tracker\'s own picture).' if s.get("thinks_it_is") is not None else "")
+        + f' {html.escape(str(s.get("why", "")))}</div>' for s in row.get("subjects", []))
     return (f'<details class="guess"><summary>a session\'s guess, NOT the owner\'s: open it after answering</summary>'
             f'<div class="how">A session looked at this preview\'s tiles and wrote this ({html.escape(row["from"])} line {row["line"]}, recorded '
             f'{html.escape(str(row.get("recorded_at", "at a time it does not give")))}). It is a reading of a picture, not an answer, and nothing '

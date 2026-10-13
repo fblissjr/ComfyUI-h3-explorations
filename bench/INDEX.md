@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 123 |
+| [`check_*`](#check) | 124 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 160 |
+| [the rest](#the-rest) | 161 |
 
 ## check
 
@@ -90,6 +90,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_pdd_sidecar_contract.py`](check_pdd_sidecar_contract.py) | The PDD sidecar's bake contract: exact pairing and the fixed population. |
 | [`check_pdd_sigmas.py`](check_pdd_sigmas.py) | The PDD node's SIGMAS output is the block boundaries, and the graphs use it. |
 | [`check_pdd_unmerged.py`](check_pdd_unmerged.py) | Grade the un-merged backbone path against the merged one it replaces. |
+| [`check_picks_against_answers.py`](check_picks_against_answers.py) | `bench/picks_against_answers.py` keeps what a tracker picked and what a session read against what the owner clicked; each case is a way a line could say the wrong thing of one of the three. |
 | [`check_pipeline_telemetry.py`](check_pipeline_telemetry.py) | Controls for `pipeline_telemetry.py` and `bench/telemetry_report.py`. |
 | [`check_plate_restore.py`](check_plate_restore.py) | A masked render split across two samplers ends on the clean plate, and resumes where it stopped. |
 | [`check_pose_along_shot.py`](check_pose_along_shot.py) | `bench/pose_along_shot.py` with the model replaced by a function whose answer is known: everything round the model. |
@@ -392,6 +393,7 @@ this file is only a way to find a script by what it says it does.
 | [`page_answers_to_verdicts.py`](page_answers_to_verdicts.py) | The owner's verdicts and notes on the review page's clips, copied from the page's raw file into the video's record, one line each, with the render they are about. |
 | [`patch_render_window.py`](patch_render_window.py) | Redo one stretch of a finished masked render: build the one-window graph that patches it, and join the patch back. |
 | [`pdd_artifact_inventory.py`](pdd_artifact_inventory.py) | The PDD artifact record and the generated regions of `docs/pdd_artifacts.md`, derived from the files, from git, and from the node's source -- never typed. |
+| [`picks_against_answers.py`](picks_against_answers.py) | What the models thought against what the owner said, kept a batch at a time: one line a subject of a preview, with what each got right. |
 | [`pose_along_shot.py`](pose_along_shot.py) | Run the pose model on every frame of a shot and keep its points: what the eye marks and the reader are made from. |
 | [`preflight_graph.py`](preflight_graph.py) | Grade a graph's prompt and price its sequence, BEFORE you press Queue. |
 | [`prepare_encoder_ab_compare.py`](prepare_encoder_ab_compare.py) | Stage two generated clips and build the requested side-by-side API graph. |
