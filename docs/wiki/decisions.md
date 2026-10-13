@@ -301,12 +301,19 @@ owner's words in its terminal.*
   owner, 2026-10-13, in the lead's terminal, later the same afternoon,
   after agreeing that the record's boundary at frame 1920 of `fun.mp4` is
   not a cut). Their words, in substance: when they say shot they mean a
-  cut, and "shot" is H3's language for one; if a text has to be broken
-  into several shots by H3's prompting form, that is not a reason to break
-  it into more than one window, and doing so invites trouble; a window is
-  split only where it is absolutely necessary: an edge case, a fix or
-  polish pass, resources that will not hold the full window, or a shot
-  longer than `h3_rules.MAX_LENGTH`. With it, of the frames past a load's
+  cut, and "shot" is H3's language for one; one shot is not broken into
+  two windows (their example: the shot in the kitchen with both subjects
+  at the start of the video); it is divided only where that is absolutely
+  necessary: an edge case, a fix or polish pass, resources that will not
+  hold the full window, or a shot longer than `h3_rules.MAX_LENGTH`. A cut
+  to another place is another shot: two short ones can share a window
+  where the tracking is easy, and the text then has to account for both.
+  As the lane is built, each shot is its own load with its own text and no
+  load holds two. *Corrected the same hour: this entry and the lane's rule
+  first said that a text with several shots "stays in one window", which
+  read their sentence as a rule about texts. They asked what that meant
+  and said what they mostly mean: do not break one shot into two windows.*
+  With it, of the frames past a load's
   own: the only reason to sample more is an overlap buffer before its
   start or past its end; and of Sol-Attn at a short window: if it declines
   a call that is fine, since its sparsity can only take quality away. What

@@ -380,11 +380,16 @@ session cannot work around; these are the lane's own habits, each earned on
   no join inside the shot to settle. A shot is a cut: "shot" is H3's own
   word for one (the owner, 2026-10-13), and it is the word a text uses when
   it has to describe more than one (`docs/prompting.md`, the `[Shot N]`
-  form). A text that has several shots is not a reason for several windows:
-  they stay in one window, and splitting it to follow the text is asking for
-  trouble. A window is split only when it has to be: a shot longer than
-  `h3_rules.MAX_LENGTH`; memory or time that will not hold the whole
-  window; an edge case; a fix or polish pass on part of it. As built, a
+  form). One cut is not divided between two windows: a shot in the kitchen
+  with both subjects in it is one window, however it is lit or however
+  long, up to what the model takes. A cut to another place is another shot,
+  and as the lane is built each shot is its own load with a text written
+  for that one shot. (Two short shots could share one window where the
+  tracking across the cut is easy, and the text would then have to
+  describe both, as `[Shot 1]` and `[Shot 2]`; no load is made that way
+  today.) A shot is divided between windows only when it has to be: it is
+  longer than `h3_rules.MAX_LENGTH`; memory or time will not hold the
+  whole window; an edge case; a fix or polish pass on part of it. As built, a
   load longer than the planner's longest length runs in chained windows
   even where `h3_rules.MAX_LENGTH` would hold it whole
   ([`next_steps.md`](next_steps.md)). Not every count on the grid is exact
