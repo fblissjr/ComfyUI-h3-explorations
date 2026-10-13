@@ -7,6 +7,154 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.286.0
+<!-- changelog.d/day-2026-10-13.md -->
+
+### Added
+
+- A render ledger: `bench/render_ledger.py` lists every render of a video
+  on the share, a shot and a subject at a time, with how each was made and
+  whether its file agrees with its build record. It reads a video's copies
+  from the analysis manifest (`--copies-of`) and keeps its own command in
+  its JSON. It says nothing about whether a render is good.
+- The delivery table, generated: `bench/delivery_table.py` writes the table
+  `bench/assemble_delivery.py` builds a clip from, out of the ledger, the
+  shots record and the plan, by one stated rule for which render stands on
+  a shot, and beside it a reading that says why each piece stands and what
+  was passed over. It prints the ledger's, the table's, the clip's and the
+  stack's commands whole, ties every row to the run that made its piece
+  (`run=<capture folder>:<run name>`, which the assembler now reads), and
+  writes a `source` line for a subject the shots record says is not in a
+  shot.
+- `bench/stack_delivery.py`: a delivery clip stacked for looking (the
+  original, what each render was given, the clip, frame numbers burned
+  in), built from the delivery's own table.
+- `bench/load_chain.py`: one load of a masked job from its preview to the
+  page as one tool, a step each (first, plan, on-plan, render, land, page),
+  everything read from the job file. It keeps the first capture as a copy
+  before building the capture on the plan in place, refuses a render whose
+  masks no longer decode equal to what the plan read or whose job file
+  changed since the plan, and lands a load of several windows from its
+  joined file.
+- `bench/shot_to_load.py`: from a shot of the shots record to a preview, a
+  head reference and a load's job file. Each subject's still and part
+  ticks are read from `data/<video>/plan.json`; a seeded subject is
+  tracked before an unseeded one; the drawn head reference is the default
+  and the plain cut is taken only with `--plain "why"`; a load renders
+  from the video's present working copy.
+- `bench/copy_sound.py`: a working copy's sound read against its source's
+  at the rate the copy's picture was re-stamped by, as figures along the
+  whole length.
+- An analysis folder keeps every working copy its video has had
+  (`copies_before` in the manifest; `clip_analysis.py init
+  --replaces-because`, `clip_analysis.py copy-before`), so a job that names
+  an earlier copy still builds and is held to that file's bytes.
+- A video's voice tables are named in its analysis manifest
+  (`clip_analysis.py voice`) with the frames they cover, and the chain
+  refuses a load outside them. `voice_spans.py spans --frames` holds a
+  table to the video's own frame count.
+- Constants for what a tool-written job file is given
+  (`MASKED_LOAD_DEFAULTS`, `MASKED_LOAD_MARGIN`, `MASKED_JOB_CANVAS` in
+  `workflows/h3_config.py`), each marked inherited.
+- `bench/load_chain.py no-look`: an ordinary load renders on its gate
+  alone. The load's maker records that no look is owed; the step refuses
+  where a forcing flag stands, and `render` holds the record again to the
+  capture's flags.
+- `bench/shots_record.py`: the shots record mended by a tool, never by
+  hand: two shots joined that are one, a shot cut that is two, a cut
+  moved, a note added, and who is in a shot read from the owner's own
+  answer lines. Each mend carries its reason.
+- `bench/shot_parts.py`: two lists of a whole video from its records, what
+  each shot and each subject still needs.
+- `bench/day_pieces.py`: a folder for a day's end, each standing piece
+  with the graph it was queued with and an index page.
+- `bench/two_shot_load.py`: two neighbouring shots as one load, on a job's
+  word (`two_shots`). A tool to reach for, not a default; no load had
+  rendered that way when this was written.
+- `bench/clip_signals.py`: phrases, a beat grid, the sound's offset and a
+  table of every dip of the vocal level, a row a source frame, for
+  whoever sets a window's edges. It makes its own voiced runs from its own
+  level by the voice table's rule, so runs, gaps and dips are on one
+  scale; the voice table is unchanged. Figures only; nothing reads them
+  yet.
+- `bench/picks_against_answers.py`: what the trackers picked kept against
+  what the owner answered, a batch a cast run.
+- `shot_to_load.py`: a preview made to ask who is on a shot nobody has
+  answered on (`preview --ask`); a seed a cut where the tracker cuts a
+  shot (`preview --seed-cuts-of`); a load rendered zoomed in and its
+  part's floor set on a person's word (`job --zoomed`, `--least`); a
+  subject's keep-outs and how the capture reads its part named by the
+  plan.
+- The who-is-who page shows a shot cut by cut with each person's box in a
+  colour of their own, takes a span or a list of named shots, prints what
+  the owner already answered, and shows a session's reading of the tiles
+  as a guess in a closed fold.
+- The delivery table takes a lead's "not this one" with its reason
+  (`--hold`) and prints the owner's typed words under each render.
+- `docs/wiki/window_edges_data.md`: the data wanted in front of whoever
+  sets a window's first and last frame, general to any clip.
+
+### Changed
+
+- A load rendered zoomed in takes a wired motion video as it is wired, and
+  the builder takes one on a zoomed load as a `motion_file` the load names.
+- The capture's part floor (`PART_LEAST_PX`) is a marked starting value:
+  `files` prints each part's size on the capture's own frames against it,
+  `least=PX` on a `--mask` sets it, and `sizes` prints the same for
+  captures that exist.
+- `capture_masked_run.py verify` fails a sighting whose `at` is not the
+  source frame its preview's own job says its files begin on, and names
+  the sightings it could not check. `video --load` takes `--strip-folder`.
+- The strip's movement tile has its outline drawn and its heading says it
+  is the whole reference frame.
+- `page_answers_to_cast.py --shots` writes the frames a subject was marked
+  on as fields beside the prose.
+- The masked job builder passes a subject's `seeds` to its tracker.
+- A load that one window holds is sampled at the shortest length valid
+  for H3 that holds it (`masked_job_graph.window_for`,
+  `h3_rules.snap_length`), in place of the planner's shortest whatever the
+  load's own length.
+- The assembler cuts where the shots record cuts (`--shots`) on frames no
+  capture covers, in place of its own reading of the picture alone.
+- The capture reads a load rendered zoomed in, on the canvas where the
+  node lays it.
+- The coverage tool and the two lists read the render ledger: one
+  inventory of what exists.
+- `load_chain.py land` frees the card before its pose pass, and a land
+  whose pose pass did not finish is a failed land.
+- A preview made again takes the next letter and a kept output is not
+  replaced; a capture's and a strip's times print in UTC.
+- The cast step reads every tile before it writes one and writes its
+  picks batch every time.
+- `AGENTS.md`: the sentence asking a look on every load is removed (the
+  chain holds where a look is owed), and the owner's looks come in
+  batches where possible.
+- The `h3-ab-session` skill is removed.
+
+### Fixed
+
+- A load that began after its preview had every mask on the wrong frames
+  when a caller passed the load's first frame as `at=`: `verify` now fails
+  it, and the load chain reads `at` from the preview's own job.
+- The delivery table's reading no longer says the assembler flags a
+  restore that gives nothing back: a capture that covers a frame with an
+  empty track is a mask of nothing and is not flagged; each restore is now
+  printed as three counts.
+- The stacking tool opens a reference named in a picture's metadata only
+  when it is a plain local video file, and reads each file as the
+  container its suffix names.
+- The preview step no longer makes the folder its own builder refuses,
+  and a load its builder would refuse is not written.
+- A plan is not built on a blocked first gate, and a capture step says
+  how it ended.
+- `claimed_by_more_than_one_track` counts two people; a person and a
+  keep-out are counted beside it.
+- Another subject's empty track in a shot that is taken is data, not a
+  failure; a load's own subject's still fails.
+- A sentence that names a reference picture is no longer read as a voice
+  sentence.
+- The who page cuts its frames by the loader's own fit.
+
 ## 0.285.0
 <!-- changelog.d/day-2026-10-12.md -->
 
