@@ -116,6 +116,13 @@ of known place and size into them, and reads the tool's answers back.
     canvas's size the zoomed file is not used and the file is the plain piece's. With the box in the json moved
     eight pixels the build fails on the agreement and names the piece. Refused before anything is read: no zoomed
     file beside the json, a zoomed file with another frame count, a box not fixed, another run's name.
+21. **A row that names its capture's run** (`run=<capture folder>:<run name>`). A capture made as a plan, before its
+    render, whose run names no render, as every load of the masked lane's does. With `subject=` alone on the row
+    nothing is read under the mask the run carried and no table is written into the capture (the control: the
+    state before 2026-10-13). With the run named, the five frames the run carried nothing on are the source's
+    and are named, and the capture gets its table. Refused before anything is written: a folder that is not a
+    capture given, a run the capture does not have, a run of another subject than the row's, a run that names
+    another render, no `--capture` at all, and a token that is no run.
 
 ## Running it
 
@@ -1056,6 +1063,49 @@ with tempfile.TemporaryDirectory() as _tmp:
         assert code == 0 and to_piece < 1.5 and not flag, "with no carried mask in the capture a frame was dropped or flagged"
         return "five frames the node's own carried mask is empty on are the original and are named; a review's reading drops nothing and says so; no carried mask, nothing changes"
 
+    def a_run_named_on_the_row() -> str:
+        # a capture made as a plan, before its render: its run names no render, as every load of the lane's does
+        on = mask_of(RECT_A, 30, grow=4)
+        held = on.copy()
+        held[12:17] = False                                             # source frames 22-26: the run carried nothing
+        planned = {"name": "run_a", "planned": True, "render": None, "subject": "a", "margin_px": 16,
+                   "carried_is": "the mask each window was given", "files": ["piece_a_window_1_planned_region.npz"]}
+        folder = capture(TMP / "cap_planned", 10, 30, {"a": on, "b": mask_of(RECT_B, 30)}, [planned, {**planned, "name": "run_b", "subject": "b"},
+                                                                                    {**planned, "name": "run_c", "render": "another.mp4"}],
+                         carried={"run_a": held})
+        o_in, a_in = original(24), planes_of(PIECE_A, 24)
+
+        def box_mean(x, y, rect):
+            return float(np.abs(x[0][rect[1] + 3:rect[3] - 3, rect[0] + 3:rect[2] - 3] - y[0][rect[1] + 3:rect[3] - 3, rect[0] + 3:rect[2] - 3]).mean())
+        carried_flag = lambda r: [f for f in r["flags"] if f["rule"] == "piece_changed_where_its_run_carried_no_mask"]   # noqa: E731
+        # the row as it was read until now: whose it is and no run. Nothing is read under the mask the run carried
+        code, r, out = deliver(TMP, "planned_subject_only", [(10, 39, PIECE_A, "10 subject=a")], "10-39", "--capture", str(folder))
+        assert code == 0 and not carried_flag(r) and not r["written_to_captures"] and box_mean(planes_of(str(out), 24), a_in, RECT_A) < 1.5, \
+            "a row with subject= alone was read under a run's mask: the case below would prove nothing"
+        # the same row naming its run: the five frames the run carried nothing on are the source's and are named
+        code, r, out = deliver(TMP, "planned_run_named", [(10, 39, PIECE_A, f"10 subject=a run={folder}:run_a")], "10-39", "--capture", str(folder))
+        flag = carried_flag(r)
+        got = planes_of(str(out), 24)
+        assert code == 0 and flag and flag[0]["source_frames"] == [[22, 26]] and flag[0]["figures"]["left_as_the_source"] is True and flag[0]["run"] == "run_a", \
+            f"a row that names its run was not read under the mask that run carried: {flag}"
+        assert box_mean(got, o_in, RECT_A) < 1.5 and box_mean(got, a_in, RECT_A) > 20, "the frame the run carried nothing on still shows the piece"
+        assert not r["pieces_with_no_capture"] and any(w.endswith("runs/run_a/changed__planned_run_named.csv") for w in r["written_to_captures"]), r["written_to_captures"]
+        assert tool.read_table(table(TMP / "run_row.txt", [(10, 39, PIECE_A, "10 run=data/a_capture:its:run")]))[0]["run"] == ("data/a_capture:its", "run")
+        # what is refused, each before anything is written
+        refusals = {"a folder that is not a capture given": (f"10 subject=a run={TMP / 'cap_elsewhere'}:run_a", ["--capture", str(folder)], "not one of the captures given"),
+                    "a run the capture does not have": (f"10 subject=a run={folder}:run_z", ["--capture", str(folder)], "holds no run named 'run_z'"),
+                    "a run of another subject": (f"10 subject=a run={folder}:run_b", ["--capture", str(folder)], "the run is of 'b'"),
+                    "a run that names another render": (f"10 subject=a run={folder}:run_c", ["--capture", str(folder)], "names another render"),
+                    "no capture given at all": (f"10 subject=a run={folder}:run_a", [], "no --capture was given"),
+                    "a token that is no run": ("10 subject=a run=run_a", ["--capture", str(folder)], "is not `run=<capture folder>:<run name>`")}
+        for name, (rest, more, words) in refusals.items():
+            stem = "refused_" + name.replace(" ", "_")
+            proc = subprocess.run([sys.executable, str(Path(tool.__file__)), "--source", str(TMP / "source.mp4"), "--table", str(table(TMP / f"{stem}.txt", [(10, 39, PIECE_A, rest)])),
+                                   "--span", "10-39", "--out", str(TMP / f"{stem}.mp4"), *more], capture_output=True, text=True)
+            assert proc.returncode != 0 and words in proc.stderr + proc.stdout and not (TMP / f"{stem}.mp4").exists(), f"{name}: not refused in words before the build: {(proc.stderr or proc.stdout)[-200:]}"
+        return ("a row that names the run of a capture made before its render is read under the mask that run carried (five frames left as the source, "
+                "named; its table written into the capture); with subject= alone it is not; six malformed ties are refused before anything is written")
+
     def ends_on_the_source() -> str:
         base = WHOLE[10:40]
         on = mask_of(RECT_A, 30, grow=4)
@@ -1193,6 +1243,7 @@ with tempfile.TemporaryDirectory() as _tmp:
     case("a locked file is not built over", a_locked_file)
     case("a shot where a named subject is the source's own", shots_left_as_the_source)
     case("a frame its run carried no mask on", no_mask_no_lay)
+    case("a row that names its capture's run", a_run_named_on_the_row)
     case("a row that ends or begins on the source's own picture", ends_on_the_source)
     case("a piece rendered zoomed in", a_zoomed_piece)
 sys.exit(finish())

@@ -49,6 +49,16 @@ from that render, has no run of its own. The first delivery built with a patch r
 gave the patched frames back to the piece they replaced, inside its subject's mask, because the piece's subject
 was known and the patch's was not; every proof passed and the shared-pixel figure was what showed it.
 
+**`run=<capture folder>:<run name>`** on a row says which run of which capture made the piece, where the capture
+cannot say it itself (2026-10-13). A capture ties a piece to a run by the run's `render`, and a capture made as a
+plan, before its render, has `render: null` for good: every load of the masked lane since 2026-10-11 is captured
+so. Their rows were read by the stand-in `subject=` gives, with no folder, so nothing was read under the mask the
+run carried, the ends net was not read on a part row, and no table was written into the capture (the first
+generated table, 2026-10-13: all fifteen rows). The tie is handed in on the row, from the piece's build record
+(`bench/delivery_table.py` writes it); it is not found by a name and nothing is written back into a capture.
+The folder must be one of `--capture`, hold a run of that name, and that run must be of the row's `subject=`
+when the row has one and must not name another render; each lack is refused before anything is built.
+
 **Whose a pixel is.** Two tracked masks can claim one pixel (an arm reaching across somebody), and then a mask
 alone does not say whose it is. A capture folder made with more than one subject holds `owners.npz`
 (`capture_masked_run.owner_map`: a pixel several tracks claim is the subject's whose class map names it
@@ -392,8 +402,15 @@ def read_table(path) -> list[dict]:
             if key == "subject" and value:
                 row["subject"] = value                   # whose the piece is, when no capture holds it as a run
                 continue
+            if key == "run":
+                folder, colon, name = value.rpartition(":")
+                if not (folder and colon and name):
+                    raise SystemExit(f"{path}: `{token}` is not `run=<capture folder>:<run name>`")
+                row["run"] = (folder, name)              # the run that made the piece, where its capture names no render
+                continue
             if key != "restore" or not value:
-                raise SystemExit(f"{path}: `{token}` is not `subject=<label>`, `restore=<subject>` or `restore=<subject>.<Class>[+<Class>...]`")
+                raise SystemExit(f"{path}: `{token}` is not `subject=<label>`, `run=<capture folder>:<run name>`, `restore=<subject>` or "
+                                 "`restore=<subject>.<Class>[+<Class>...]`")
             label, dot, classes = value.partition(".")
             if not dot:
                 label, colon, how = label.partition(":")
@@ -467,9 +484,12 @@ def read_intents(path) -> list[dict]:
 
 
 def run_for(row, captures):
-    """(folder, manifest, run) for a row's piece: the capture's run whose render it is, or, for a row that says
-    whose it is (`subject=`), a stand-in with that subject and no folder; None when neither."""
+    """(folder, manifest, run) for a row's piece: the capture's run whose render it is; else the run the row names
+    (`run=`); else, for a row that says whose it is (`subject=`), a stand-in with that subject and no folder; None
+    when none of these."""
     found = captures.run_of(row["piece"]) if captures else None
+    if found is None and captures and row.get("run"):
+        return captures.run_named(row)
     if found is None and captures and row.get("subject"):
         return None, None, {"name": None, "subject": row["subject"], "margin_px": None}
     return found
@@ -640,6 +660,26 @@ class Captures:
                 if run.get("render") and os.path.basename(run["render"]) == os.path.basename(piece):
                     return folder, m, run
         return None
+
+    def run_named(self, row):
+        """(folder, manifest, run) of the run a row names (`run=<capture folder>:<run name>`), or a refusal in words:
+        the folder is not a capture given, it holds no run of that name, the run is another subject's than the row
+        says, or the run names a render that is not the row's piece."""
+        where, name = row["run"]
+        piece = os.path.basename(row["piece"])
+        for folder, m in self.folders:
+            if folder.resolve() != Path(where).resolve():
+                continue
+            run = next((r for r in m["runs"] if r.get("name") == name), None)
+            if run is None:
+                raise SystemExit(f"run={where}:{name} on the row of {piece}: that capture holds no run named {name!r} "
+                                 f"(it has {', '.join(str(r.get('name')) for r in m['runs']) or 'none'})")
+            if row.get("subject") and run["subject"] != row["subject"]:
+                raise SystemExit(f"run={where}:{name} on the row of {piece}: the run is of {run['subject']!r} and the row says subject={row['subject']}")
+            if run.get("render") and os.path.basename(run["render"]) != piece:
+                raise SystemExit(f"run={where}:{name} on the row of {piece}: the run names another render, {os.path.basename(run['render'])}")
+            return folder, m, run
+        raise SystemExit(f"run={where}:{name} on the row of {piece}: {where} is not one of the captures given (--capture)")
 
     def _carried(self, run):
         folder, _m, entry = run
@@ -2037,6 +2077,11 @@ def main():
             raise SystemExit(f"--alias `{pair}` is not LABEL=NAME")
         alias[label] = name
     captures = Captures(args.capture, canvas, alias) if args.capture else None
+    named = [r for r in rows if r.get("run")]
+    if named and captures is None:
+        raise SystemExit("a row names its run (`run=`) and no --capture was given: the run is read from its capture folder")
+    for r in named:
+        run_for(r, captures)                             # each tie is held to its capture before anything is built
     segs = segments(rows, span)
     for first, last, covering in segs:
         print(f"{first:5d}-{last:<5d} {last - first + 1:5d} frames  " + (" + ".join(

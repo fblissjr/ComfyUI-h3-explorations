@@ -608,3 +608,21 @@ and goes if the gain cannot be seen or measured there.
   dated line says what was removed and why, pointing at that entry. The
   capture session has said nothing of its reads the per-frame csv, so
   line 18 is a removal with no condition left.
+
+- 2026-10-13: **a row can name the run that made its piece**
+  (`run=<capture folder>:<run name>`). A capture ties a piece to a run by
+  the run's `render`, and a capture made as a plan, before its render,
+  never names one: every load of the masked lane since 2026-10-11. The
+  first clip built from a generated table (a throwaway, 2026-10-13,
+  `data/2026-10-13_fun_delivery_tables/read_fun_0000_1919_generated_THROWAWAY_2026-10-13.md`)
+  showed what that cost: all fifteen rows read by the stand-in `subject=`
+  gives, nothing read under the mask a run carried, the ends net not read
+  on eight part rows, no table written into any capture, and
+  `pieces_with_no_capture` empty all the same. The lead's ruling of that
+  day: the tie is handed in on the row from the piece's build record, is
+  not found by a name, and nothing is written back into a capture. What
+  changes for a row so tied: frames its run carried no mask on are left as
+  the source and named; its changes are measured from the mask the run
+  carried; the ends net reads it; its capture's masks have the word on its
+  frames; its table is written into the capture. Case 21 of
+  `bench/check_assemble_delivery.py`, which fails without the reading.
