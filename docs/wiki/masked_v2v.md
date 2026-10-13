@@ -31,6 +31,7 @@ One line a section, in the page's order, with the question it answers.
 | | "Reading one window whole: its text, its frames, its mask, its audio" | what to put side by side before building on a load or diagnosing a render |
 | | "Rules of the lane" | the lane's habits in one list, each with where its reasoning is |
 | a job | "Running a job: one tool, on the video's analysis folder" | how a job is built and queued, stage by stage, and what the builder refuses or shows |
+| | "Two neighbouring shots in one load: a tool, not a default" | when a load may hold a cut, what it is made from, what it costs, and what is not known |
 | | "Seeing what the tracker and the masks did" | which file or command holds what a run was given, what it wrote, and the file that gets watched |
 | | "Who is who: a session reads first, the owner answers, and both are kept" | how a tracker's pick becomes the owner's answer in the cast file, and where what each of them thought is kept |
 | the pieces | "The pieces, in the order a render meets them" | what each of the four nodes does, with its inputs and their dated notes |
@@ -387,7 +388,10 @@ session cannot work around; these are the lane's own habits, each earned on
   for that one shot. (Two short shots could share one window where the
   tracking across the cut is easy, and the text would then have to
   describe both, as `[Shot 1]` and `[Shot 2]`; no load is made that way
-  today.) A shot is divided between windows only when it has to be: it is
+  today. *Later the same day: one can be made that way on purpose, by a
+  job that names its two shots; "Two neighbouring shots in one load: a
+  tool, not a default", below. It stays a tool: no builder or planner
+  makes one unasked.*) A shot is divided between windows only when it has to be: it is
   longer than `h3_rules.MAX_LENGTH`; memory or time will not hold the
   whole window; an edge case; a fix or polish pass on part of it. As built, a
   load longer than the planner's longest length runs in chained windows
@@ -469,7 +473,10 @@ session starting a job needs to know:
   prints each load's text in full with where it was written from. A load
   that holds a cut cannot be built for now: one load a shot, each with its
   own text. That last part is an edge accepted, not a rule of the model
-  (`bench/masked_job.py::ONE_SHOT`).
+  (`bench/masked_job.py::ONE_SHOT`). *2026-10-13: until that day this
+  bullet ended there. A load may now hold ONE cut when its job block names
+  `two_shots`, and only then; the section "Two neighbouring shots in one
+  load: a tool, not a default", below, has it.*
 - **A load of two subjects in one pass** (2026-10-12, the owner's "yes,
   build it next" on Open List row z09; a load's `subjects`, a list of two).
   Each entry is one subject's own: its label, its `region` in the plan's
@@ -577,7 +584,8 @@ session starting a job needs to know:
   `seeds` in a job file (the tracker has the input, section 1 below); a
   cheap variant of a built load for a test that changes one thing, and a
   load over several shots with a text that describes each shot (both on
-  the same card). *2026-10-12: the first of those two is half built.
+  the same card; *2026-10-13: the second is built for two neighbouring
+  shots, in the section below*). *2026-10-12: the first of those two is half built.
   `bench/sweep_loads.py` writes copies of job files with one named change
   (a subject's still, a text, a load's motion video, or one setting of
   every load) and new names, proves each copy differs from its source in
@@ -586,6 +594,112 @@ session starting a job needs to know:
   queues nothing, so a copy still goes through plan, the capture, the look
   and the gate like any load: it is not cheaper to run, only harder to get
   wrong.*
+
+## Two neighbouring shots in one load: a tool, not a default
+
+Built 2026-10-13 at the owner's word ([`decisions.md`](decisions.md)). One
+load a shot is still what every tool makes: a join at a cut costs nothing,
+a cut inside a latent step is a known fault ("A latent step is several
+frames", below), and a long window costs more than two short ones. This is
+the other thing, reached for on a person's word for one pair of shots.
+
+**What it could buy**, in the owner's words: one face for a subject across
+a cut, where two shots of them sit side by side; and a tough shot helped by
+an easier one beside it. Neither is shown yet: no load had rendered this
+way when this section was written.
+
+**Why it may sit well with the model: the owner's account** (2026-10-13,
+to the lead; their reasoning, not something measured here). H3 does well
+with shots because it expects several of them inside its longest length,
+and each new shot breaks up the drift a long single take decays into. That
+is their reason a window fitted to a short shot is no worse than a long
+one, and a reason a window of two shots may suit the model. What was
+measured that day bears on the first half only: one short shot rendered at
+a long window and again at its fitted one with nothing else changed
+(`lead_fp_1920c` and `lead_fp_1920d` on the review page, one pair, one
+seed, measured by the lead's session script and watched by the owner, who
+found the fitted one at least as good). Nothing measured says anything yet
+of two shots in one window.
+
+**The opt-in.** A job block's `two_shots`: the source frame the second shot
+begins on, the two shots, why they share a window and who said so
+(`workflows/masked_job_graph.py::two_shots_of`). Nothing sets it for
+anybody. Without it the builder refuses a load that holds a cut, as before.
+With it:
+
+- the load is held to one subject, one window that holds both shots whole,
+  the named cut inside it, not zoomed and not a continuation
+  (`masked_job_graph.check_load`);
+- its text may hold that one cut and no other, as the capture's own shot
+  tables have them, and has to carry a `[Shot 1]` and a `[Shot 2]` and no
+  third (`bench/masked_job.py::held_as_two_shots`). The headers are held by
+  presence. Whether each shot's sentences are true of its frames is a
+  reader's to see on the strip, as for any text;
+- the build's record carries the key and its printed lines say TWO SHOTS IN
+  ONE WINDOW, with whose word it is.
+
+**What it is made from: the two shots' own ordinary loads**
+(`bench/two_shot_load.py job --a A.json --b B.json`). Nothing is tracked or
+posed again. Each preview's track, part and class-map videos are laid end
+to end, lossless, into files of a new name, and every frame of every joined
+file is held equal to its source's by its decoded hash before anything is
+built on it. The shot tables and pose tables are joined the same way, the
+second's frame numbers moved on, and the joined table holds the cut where
+the two meet. The two head references are laid end to end too, each side
+with its own box and scale, so the reference's framing jumps at the cut as
+the source does. The joined masks go into a folder shaped as a preview's
+job folder and said in both its files to be joined, so
+`bench/load_chain.py` reads it by name like any preview and every step of
+the chain runs unchanged. The reason for making it this way and not with a
+tracker that crosses the cut: a pair made both ways then differs in the
+window and in no mask. One step of the chain is not for it: `no-look`
+records that no look is owed for an ordinary load, on its maker's statement
+that the load is not the first of its kind (`--not-first`), and a two-shot
+load is looked at.
+
+**What the two loads must be.** The same subject, source, canvas, still,
+settings and reference form; on two neighbouring shots of the shots
+record; and meeting at the cut, the first ending on the frame before it and
+the second beginning on it, so that the one load replaces exactly the
+frames the two replace. The tool's docstring lists what it refuses and
+what is not built.
+
+**The cut and the latent steps.** A step's grid counts from the load's
+first frame, so a cut falls inside a step or on its edge by arithmetic
+alone. The tool prints it before anything is built on the job, with the
+planner's own function (`loop_plan.split_steps`) on the frames the
+subject's part is on: the step that holds the cut, which of the capture's
+two flags that will be (`region_carried_across_a_cut` blocks the gate,
+`region_shared_across_a_cut` does not), and the first frames, from the
+load's own and one cycle on, that put the cut on a step's edge. Moving the
+first load's first frame onto one of those is the lever; the frames before
+it are left as the source and said so in `left_out`.
+
+**The node finds the cut itself.** The builder wires no shot table to the
+Masked Source, so the node reads a load's cuts from the picture
+(`video_mask.source_cuts`) and gates the composite by them (`cut_gate`,
+`unlaid_frames`). `bench/two_shot_load.py plan-cuts JOB.json`, run after
+the chain's `plan`, prints the cuts in the node's own plan beside the
+job's, and exits 1 when they are not the same list. A load whose node
+missed its cut is not rendered as it stands.
+
+**What it costs.** One window as long as both shots together, where the
+ordinary way samples each shot at its own fitted length; attention grows
+faster than the frames, so a step of the long window costs more than a
+step of each short one added together. The seconds a step are the
+server's own, read from its log (`GET /internal/logs/raw`), never a queue's
+wall time: `land` and `reference` free the card, and what is queued next
+starts cold. The figures of the first pair made both ways go in its record
+under `bench/results/` when it has rendered, and this paragraph will point
+at it: seconds a step for each of the three loads, the sequence length the
+log prints for each, and whether the card held the window.
+
+**Not known.** What the model draws in a step that holds frames of two
+shots. What it makes of a reference whose framing jumps at the cut.
+Whether the face is more one person across the cut than in two loads from
+the same still, which is what the first pair is made to show. Whether a
+real preview's tables, joined, read through the capture without fault: the
+check holds the join on made tables, and no real load has run.
 
 ## Seeing what the tracker and the masks did
 
@@ -2060,6 +2174,11 @@ table of the clips and files that were opened is
 2026-10-13: "Who is who: a session reads first, the owner answers, and
 both are kept" added after "Seeing what the tracker and the masks did", at
 the lead's order, from the day's first batch of picks kept against answers.
+
+2026-10-13, the evening: "Two neighbouring shots in one load: a tool, not
+a default" added after "Running a job", when the tool was built at the
+owner's word; three dated notes where the page had said such a load could
+not be built.
 
 The header's list of edits as it stood before that day:
 

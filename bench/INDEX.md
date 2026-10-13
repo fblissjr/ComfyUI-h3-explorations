@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 127 |
+| [`check_*`](#check) | 128 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 164 |
+| [the rest](#the-rest) | 165 |
 
 ## check
 
@@ -140,6 +140,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_subject_yaw.py`](check_subject_yaw.py) | The turn metric's arithmetic: angles across the seam, the verdict, and the comparison with the eye. |
 | [`check_sweep_loads.py`](check_sweep_loads.py) | `bench/sweep_loads.py` against job files made here: a copy differs from its source in the named change and the names only. |
 | [`check_token_routing.py`](check_token_routing.py) | `token_routing` on MiniMaxH3Sol becomes a {block: budget} map; assert which. |
+| [`check_two_shot_load.py`](check_two_shot_load.py) | Two neighbouring shots as one load (`bench/two_shot_load.py`) on a made video: what it lays end to end, writes and refuses. |
 | [`check_typed_reference_consumers.py`](check_typed_reference_consumers.py) | Static consumers understand the typed ordered-reference chain. |
 | [`check_vae_precision_quantized.py`](check_vae_precision_quantized.py) | `MiniMaxH3VAEPrecision` refuses to cast a quantized half, and only that. |
 | [`check_vendor_config.py`](check_vendor_config.py) | That `vendor_config/` still is what the release ships, and still parses. |
@@ -467,6 +468,7 @@ this file is only a way to find a script by what it says it does.
 | [`time_dense_blocks.py`](time_dense_blocks.py) | What does a dense block actually COST, in seconds, on this box? |
 | [`time_dense_on_capture.py`](time_dense_on_capture.py) | Time comfy_kitchen.int8_attention (the dense kernel) on captured q/k/v cells. |
 | [`time_sol_options_on_capture.py`](time_sol_options_on_capture.py) | Time comfy_kitchen.sol_attn on a capture: plain vs qk_balance vs rotate, CUDA events, warm. |
+| [`two_shot_load.py`](two_shot_load.py) | Two neighbouring shots as ONE load in ONE window, made from the two shots' own ordinary loads. Not a default. |
 | [`verify_multistep_capture.py`](verify_multistep_capture.py) | Pre-flight verification for multi-step activation captures. |
 | [`verify_partition_delta_float64.py`](verify_partition_delta_float64.py) | FL2VA against Ref2VA, weight by weight, on a path independent of `bench/map_partition_delta.py`. |
 | [`verify_token_aug_repro_shapes.py`](verify_token_aug_repro_shapes.py) | Which shapes reproduce the `token_aug` nondeterminism IN A FRESH PROCESS? |

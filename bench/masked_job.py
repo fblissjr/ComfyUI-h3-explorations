@@ -37,8 +37,12 @@ load is a label, and the job block's `texts` maps a label to `{"file", "frames":
 beside the job file, the source frames the words were written from, and who wrote them. A text serves the loads
 inside its frames and no other, and it is of one shot: its frames hold no cut of the capture. So one text for
 loads of different shots cannot be built, and neither can a load that holds a cut: one load a shot, each with
-a text of its own frames. That second part is an edge accepted, not a law of the model (`ONE_SHOT`): a load over
-several shots with a text that describes each shot under its own header is not built yet. The graph carries the text
+a text of its own frames. That second part is an edge accepted, not a law of the model (`ONE_SHOT`), and since
+2026-10-13 a job may say otherwise ON PURPOSE: a job block with `two_shots` (`masked_job_graph.two_shots_of`;
+written by `bench/two_shot_load.py` from two ordinary loads) names two neighbouring shots, their one cut, why and
+who said so, and its load may hold that cut and no other, with a text that describes each shot under its own
+header, `[Shot 1]` and `[Shot 2]` (`held_as_two_shots`). It is not a default: without the key every refusal
+stands as it did. The graph carries the text
 because the node needs it; it is a product of the job and never where a text is kept or edited.
 
 `build` prints, for each load, what each model will be shown (step 6): the frames, the window and what is held past
@@ -86,7 +90,9 @@ only an "absent" on every row of a table nobody opens.
   the server's input folder does not hold (`H3_INPUT_DIR`);
 - a text that does not say the frames it was written from or who wrote it (a bare file name, the form until
   2026-10-10, included); a load whose frames do not lie inside its text's; a text whose frames hold a cut of the
-  capture's shot tables or reach outside the frames the capture saw; the same words served under two labels.
+  capture's shot tables or reach outside the frames the capture saw (in a job that names `two_shots`: a text
+  whose frames hold any cut but the one named, or do not hold it, or that lacks `[Shot 1]` or `[Shot 2]` or
+  names a `[Shot 3]`); the same words served under two labels.
   Every chosen load is tested before anything is written and the refusal lists them all (`texts_for`);
 - at `queue` of a render, a text file that no longer reads as the text in the built graph. `--override` does not
   let it through: it answers uncommitted node code and nothing else;
@@ -318,8 +324,9 @@ TEXT_RULE = ('A text needs the frames it was written from and who wrote it, beca
 #: 2026-10-10): the owner ruled out one shot's text served to another shot, not long loads.
 ONE_SHOT = ("The way out: one load a shot, each with a text written from its own frames. This is an edge accepted "
             "and not a law of the model: the vendor's format has a text for several shots, each under its own shot "
-            "header, and a load over several shots with such a text is not built yet (its headers would have to be "
-            "held against the capture's cuts).")
+            "header. Two NEIGHBOURING shots can share one load on purpose, never by default: a job whose block names "
+            "them (`two_shots`: the cut, the two shots, why and who said so), which bench/two_shot_load.py writes "
+            "from the two shots' ordinary loads, with a text that has a [Shot 1] and a [Shot 2].")
 
 
 def text_entry(job: dict, label: str, beside: Path) -> dict:
@@ -386,13 +393,46 @@ def cuts_of(capture: Path) -> tuple[list[int], int, int]:
     return sorted(cuts), manifest["first_frame"], manifest["first_frame"] + manifest["frames"] - 1
 
 
+def held_as_two_shots(two: dict | None, told: dict, inside: list[int]) -> str | None:
+    """Why a text is not the text its job may serve, by the cuts of the capture its frames hold (`inside`); None when it is.
+
+    A job with no `two_shots` is held to one shot: no cut inside the text's frames. A job with the key
+    (`masked_job_graph.two_shots_of`: two neighbouring shots in one window, on a person's word) is held to the
+    other thing exactly: the ONE cut it names inside the text's frames and no other, as the capture's own shot
+    tables have them, and a text that describes each shot under its own header, `[Shot 1]` and `[Shot 2]`, with
+    no third. The headers are held by presence: where each shot's sentences are true of its frames is a reader's
+    to see, on the strip, as for any text."""
+    a, b = told["frames"]
+    where = f"its text `{told['label']}` was written from source frames {a}-{b}"
+    if two is None:
+        return None if not inside else f"{where}, which hold the cut(s) on {', '.join(map(str, inside))}: a text is of one shot"
+    if inside != [two["cut"]]:
+        return (f"{where}; the job's `two_shots` names the ONE cut on {two['cut']}, and the capture's shot tables hold "
+                + (f"the cut(s) on {', '.join(map(str, inside))}" if inside else "no cut") + " inside those frames: a two-shot "
+                "load holds the cut its job names and no other")
+    lacking = [h for h in graphs.TWO_SHOT_HEADERS if h not in told["text"]]
+    if lacking or graphs.THIRD_SHOT_HEADER in told["text"]:
+        return (f"{where}, across the cut on {two['cut']} its job names (`two_shots`), and "
+                + (f"has no {' and no '.join(lacking)}" if lacking else f"names a {graphs.THIRD_SHOT_HEADER}")
+                + f": the text of a two-shot load describes each of its two shots under its own header, {' and '.join(graphs.TWO_SHOT_HEADERS)}, "
+                  "and no third")
+    return None
+
+
 def texts_for(job: dict, chosen: list[dict], beside: Path, capture: Path) -> dict:
     """The text of every chosen load, by load name, each held to the rule (`TEXT_RULE`): it says its frames and
     its writer; it covers its load; it is of one shot, so its frames hold no cut of the capture and stay inside
     the frames the capture saw; and no two labels serve the same words. One text across different shots, the
     fault this is for, needs no rule of its own: a text of one shot covers no load outside that shot. Every
-    load is tested before anything is said, and the refusal lists them all."""
+    load is tested before anything is said, and the refusal lists them all.
+
+    The one way a text may hold a cut is a job that names `two_shots` (`held_as_two_shots`): then it holds that
+    cut and no other, under a `[Shot 1]` and a `[Shot 2]`."""
     cuts, lo, hi = cuts_of(capture)
+    try:
+        two = graphs.two_shots_of(job)
+    except ValueError as e:
+        raise Refused(str(e)) from e
     told, refused, entries, bad, cut = {}, [], {}, {}, False
     for label in sorted({one["text"] for one in chosen if one.get("text")}):
         try:
@@ -414,12 +454,13 @@ def texts_for(job: dict, chosen: list[dict], beside: Path, capture: Path) -> dic
         if a < lo or b > hi:
             refused.append(f"load {one['name']!r}: its text `{mine['label']}` was written from source frames {a}-{b}, and the "
                            f"capture {capture.name} holds {lo}-{hi}: where the shots are cut outside those is not known")
-        elif inside:
-            cut = True
-            refused.append(f"load {one['name']!r}: its text `{mine['label']}` was written from source frames {a}-{b}, which "
-                           f"hold the cut(s) on {', '.join(map(str, inside))}: a text is of one shot")
-        else:
+            continue
+        why = held_as_two_shots(two, mine, inside)
+        if why is None:
             told[one["name"]] = mine
+        else:
+            cut = cut or two is None
+            refused.append(f"load {one['name']!r}: {why}")
     same = {}
     for label in sorted(job.get("texts") or {}):
         try:
@@ -803,6 +844,21 @@ def pair_lines(one: dict, files: dict, src: dict, text: str, ref: dict, inputs: 
     return lines
 
 
+def two_shot_lines(job: dict, one: dict, text: str) -> list[str]:
+    """What is shown of a load that holds a cut on its job's word (`two_shots`); nothing for any other load."""
+    two = graphs.two_shots_of(job)
+    if two is None:
+        return []
+    (a0, a1), (b0, b1) = two["shots"]
+    first, last = one["first"], one["first"] + one["frames"] - 1
+    return [f"TWO SHOTS IN ONE WINDOW, on {two['said_by'].strip()}'s word ({' '.join(two['why'].split())}): the shots {a0}-{a1} and {b0}-{b1} "
+            f"of the source, the cut on {two['cut']}, which is frame {two['cut'] - first} of the load; {two['cut'] - first} frames of the first shot "
+            f"and {last - two['cut'] + 1} of the second. Not a default: this job names them",
+            "the text names " + ", ".join(f"{h}: {'yes' if h in text else 'NO'}" for h in graphs.TWO_SHOT_HEADERS)
+            + ". Which of a cut's neighbouring frames share a latent step, and what the gate then says, is the capture's to print "
+              "(`region_carried_across_a_cut`, `region_shared_across_a_cut`); bench/two_shot_load.py says it beforehand"]
+
+
 def shown(job: dict, one: dict, files: dict, graph: dict, inputs: Path) -> list[str]:
     """What each model will be shown for a load, one line a thing (the order's step 6), read from the graph."""
     src = graph[graphs._the(graph, graphs.SOURCE)]["inputs"]
@@ -837,6 +893,7 @@ def shown(job: dict, one: dict, files: dict, graph: dict, inputs: Path) -> list[
                         "model cut to the head), and for one of the whole frame its figure is at the frame's place and size beside a "
                         "plate that is the box enlarged. Nothing here can tell which this file is" if files["motion"] else ""))
     lines += pair_lines(one, files, src, str(run.get("prompt", "")), ref, inputs)
+    lines += two_shot_lines(job, one, str(run.get("prompt", "")))
     lines.append(f"audio: {one['audio']} cut to the load" if one.get("audio") else "audio: the source's own, as the loader cuts it")
     lines.append(f"seed {run['seed']}"
                  + (f"; continues {run['continue_from']} with its kept frames at noise {run['context_noise']}"
@@ -990,7 +1047,7 @@ def build_loads(job_file: Path, stage: str, names: list[str], *, date: str, data
                   "output_folder": str(saves_to),
                   "windows_folder": str(output / (graphs.run_prefix(job, one, stage == "plan") + "_windows")),
                   "shown": says + look_lines(looks.get(one["name"])) + text_lines, "settings": settings_of(one, graph),
-                  "hair_band": cut, "subjects": pair_of(one, files),
+                  "hair_band": cut, "subjects": pair_of(one, files), "two_shots": job.get("two_shots"),
                   "left_out_on_purpose": on_purpose,
                   "what_this_clips_preview_measured": seen}
         graph_file.with_suffix(".built.json").write_text(json.dumps(record, indent=1) + "\n")

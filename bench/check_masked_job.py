@@ -551,9 +551,9 @@ def the_nodes_schemas_accept_a_load():
         assert not errors, "\n      ".join(errors)
 
 
-def _unbuildable(words: str, one: dict, files: dict = FILES_WHOLE, plan: bool = False) -> None:
+def _unbuildable(words: str, one: dict, files: dict = FILES_WHOLE, plan: bool = False, job: dict = LOAD_JOB) -> None:
     try:
-        _a_load(one, files, plan=plan)
+        _a_load(one, files, plan=plan, job=job)
     except ValueError as e:
         assert all(w in str(e) for w in words.split("|")), f"refused without saying {words!r}: {e}"
         return
@@ -810,6 +810,71 @@ def a_hair_band_under_a_part():
         _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**banded, "name": "a_none"},)), "plan", [], **where), "empty on every frame")
         assert not list(written[0].parent.glob("a_no*")) and not list(written[0].parent.glob("a_none*")), "a refused load left a file"
     return "the keep-out is cut under the part and nowhere else, its edge holds on a frame whose part shrinks, and the capture's own file is untouched"
+
+
+#: A job that names two shots, and a load on both. The made capture's shots are 650-689, 690-899 and 900-949 (`_a_capture`).
+TWO_SHOTS = {"cut": 900, "shots": [[690, 899], [900, 949]], "why": "one face across the cut", "said_by": "a check"}
+TWO_JOB = {**LOAD_JOB, "two_shots": TWO_SHOTS, "texts": {"w2": {"file": "two.txt", "frames": [850, 939], "by": "a check"}}}
+TWO = {"name": "b_two_0850", "first": 850, "frames": 90, "subject": "b", "others": ["a", "c"], "margin": 48, "feather": 4, "edge": "cells",
+       "still": "b.png", "seed": 11, "motion": "none", "text": "w2"}
+
+
+def a_load_of_two_shots():
+    """The one way a load may hold a cut: a job that names `two_shots`. Not a default: every hold is on the key."""
+    # the key's form: the cut, two neighbouring shots that meet on it, why and who
+    assert graphs.two_shots_of(LOAD_JOB) is None and graphs.two_shots_of(TWO_JOB) == TWO_SHOTS
+    for bad, words in (("yes", "`two_shots` is"), ({**TWO_SHOTS, "cut": "900"}, "cut '900'"), ({**TWO_SHOTS, "shots": [[690, 899]]}, "shots [[690, 899]]"),
+                       ({**TWO_SHOTS, "shots": [[690, 899], [901, 949]]}, "NEIGHBOURING"), ({**TWO_SHOTS, "cut": 899}, "NEIGHBOURING"),
+                       ({**TWO_SHOTS, "shots": [[690, 899], [900, 899]]}, "shots [[690, 899], [900, 899]]"), ({**TWO_SHOTS, "shots": [[690, 899.0], [900, 949]]}, "shots"),
+                       ({**TWO_SHOTS, "why": " "}, "`why`"), ({k: v for k, v in TWO_SHOTS.items() if k != "said_by"}, "`said_by`")):
+        try:
+            graphs.two_shots_of({**LOAD_JOB, "two_shots": bad})
+            raise AssertionError(f"`two_shots` {bad!r} was taken")
+        except ValueError as e:
+            assert words in str(e), f"{bad!r} refused without saying {words!r}: {e}"
+    # a load of such a job: it builds, as one window on the video grid that holds both shots' frames
+    files = {**FILES_WHOLE, "motion": None}
+    g = _a_load(TWO, files, job=TWO_JOB)
+    run, src = g[graphs._the(g, graphs.SONG)]["inputs"], g[graphs._the(g, graphs.SOURCE)]["inputs"]
+    assert (run["window_frames"], run["extent.seconds"]) == (90, 90 / cfg.FPS) and g[src["frames"][0]]["inputs"]["frame_load_cap"] == 90, run
+    assert "shot_table" not in src, "a two-shot load wires the node a shot table: the node finds a load's cuts itself, and `plan-cuts` reads what it found"
+    # and is held: it holds the cut, inside the two shots, one subject, not zoomed, not continued, one window
+    two = lambda **more: {**TWO, **more}   # noqa: E731
+    _unbuildable("holds its cut|900", two(first=700), files, job=TWO_JOB)
+    _unbuildable("holds its cut", two(first=900, frames=39), files, job=TWO_JOB)
+    _unbuildable("reaches outside|690-899", two(first=680, frames=226), files, job=TWO_JOB)
+    _unbuildable("zoomed|`two_shots`", two(carried="held", render_region="part"), {**FILES_PART, "track": FILES_WHOLE["track"], "others": FILES_WHOLE["others"]}, job=TWO_JOB)
+    _unbuildable("continues another run|`two_shots`", two(continue_from="before.safetensors"), files, job=TWO_JOB)
+    pair = {k: v for k, v in PAIR.items()} | {"name": "pair_two", "first": 850, "frames": 90, "text": "w2"}
+    _unbuildable("two subjects|`two_shots`", graphs.one_subject_view(pair), FILES_PAIR, job=TWO_JOB)
+    long_job = {**TWO_JOB, "two_shots": {**TWO_SHOTS, "shots": [[604, 899], [900, 1050]]}}
+    _unbuildable("ONE window|two loads", two(first=650, frames=400), files, job=long_job)
+    assert graphs.one_window(346, 362, WINDOWS) is False, "a window past the planner's longest was taken as one window"
+    # through a whole build: the text across the named cut is taken, the record and the printed lines say what the load is
+    with tempfile.TemporaryDirectory() as t:
+        tmp = Path(t)
+        capture = _a_capture(tmp)
+        where = dict(date="2026-01-01", data=tmp / "data", output=tmp / "output", inputs=tmp / "input",
+                     analysis=lambda job, data: {"folder": "check", "fingerprint": "none: this case is about something else"},
+                     look=lambda capture, one, told: {"by": "nobody: this case is about something else"})
+        (tmp / "output").mkdir()
+        (tmp / "two.txt").write_text("[Shot 1] She stands in the hall. [Shot 2] The shot cuts to a closer view of her.\n")
+        path = _loads_file(tmp, capture, loads=(TWO,), two_shots=TWO_SHOTS, texts=TWO_JOB["texts"])
+        built = json.loads(tool.build_loads(path, "plan", [], **where)[0].with_suffix(".built.json").read_text())
+        assert built["two_shots"] == TWO_SHOTS and built["what_this_clips_preview_measured"]["cuts_inside_this_load"] == [900], built["two_shots"]
+        said = [line for line in built["shown"] if "TWO SHOTS IN ONE WINDOW" in line]
+        assert len(said) == 1 and all(w in said[0] for w in ("a check's word", "one face across the cut", "690-899 and 900-949", "the cut on 900", "frame 50 of the load", "Not a default")), said
+        assert any("[Shot 1]: yes, [Shot 2]: yes" in line for line in built["shown"]), built["shown"]
+        # the same job without the key: a load that holds a cut, refused as it always was, and nothing written
+        other = tmp / "other"
+        other.mkdir()
+        (other / "two.txt").write_text((tmp / "two.txt").read_text())
+        (other / "loads.json").write_text(json.dumps({"job": {**LOAD_JOB, "name": "no_key", "capture": str(capture), "texts": TWO_JOB["texts"]}, "defaults": {}, "loads": [TWO]}))
+        _refused(lambda: tool.build_loads(other / "loads.json", "plan", [], **where), "cut(s) on 900", "a text is of one shot", "`two_shots`")
+        assert not (tmp / "data" / "2026-01-01_no_key_job").exists(), "a refused build left a folder behind"
+        # an ordinary load is shown no such line
+        assert not tool.two_shot_lines(LOAD_JOB, WHOLE, "the words")
+    return "the key's form; one window, one subject, the cut inside; built with the record saying so; refused without the key"
 
 
 def _loads_file(tmp: Path, capture: Path, loads=(WHOLE, PART), **job) -> Path:
@@ -1426,7 +1491,7 @@ def main() -> int:
                a_load_lands_on_the_inputs_it_names, a_plan_is_the_render_with_nothing_sampled,
                a_load_leaves_the_rows_model_alone, the_nodes_schemas_accept_a_load,
                a_load_the_graph_cannot_be_built_from, loads_from_a_capture, a_load_of_two_subjects, a_hair_band_under_a_part,
-               a_text_is_of_its_frames,
+               a_text_is_of_its_frames, a_load_of_two_shots,
                the_gate_before_a_render):
         case(fn.__name__.replace("_", " "), fn)
     return finish()

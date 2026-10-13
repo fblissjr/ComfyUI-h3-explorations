@@ -438,21 +438,32 @@ fixed the same day, said inline below.**
   shot beside it; the counts then say how many cuts a line stands for.
   It goes away by itself for a shot whose record is split to the cuts.
   Not started.
-- **Two shots in one window have not been tried** (2026-10-13, from the
-  owner's questions on windows). Every load is one shot with a text that
-  has one `[Shot 1]`; no load's text names a second
+- **Two shots in one window: the tool is built, and no load has rendered
+  that way** (2026-10-13, from the owner's questions on windows; the
+  owner's word to build it came later the same afternoon,
+  [`decisions.md`](decisions.md)). Every load made so far is one shot with
+  a text that has one `[Shot 1]`
   (`grep -l '\[Shot 2\]'` over the job folders' `*.render.txt`). What a
-  window holding two short neighbouring shots could buy, in the owner's
-  words: one face for the subject across the cut, and on a tough shot the
-  help of an easier one beside it. What it costs and risks is in
-  [`masked_v2v.md`](masked_v2v.md), "Rules of the lane" and "A latent step
-  is several frames, and its grid is fixed for a whole load": a cut inside
-  a step, a tracker and a reference video that have to cross the cut, a
-  text that describes both shots, and sampling that grows faster than the
-  frames. Wanted first: the day's joined clip of the whole video read for
-  whether the subject is one person from shot to shot. Then, if it is
-  not, or a shot is one the single-shot form cannot carry: one pair made
-  both ways with nothing else changed, for the owner's eye. Not started.
+  window holding two neighbouring shots could buy, in the owner's words:
+  one face for the subject across the cut, and on a tough shot the help of
+  an easier one beside it. What it costs and risks is in
+  [`masked_v2v.md`](masked_v2v.md), "Two neighbouring shots in one load: a
+  tool, not a default" and "A latent step is several frames, and its grid
+  is fixed for a whole load": a cut inside a step, a reference video whose
+  framing jumps at the cut, a text that describes both shots, and sampling
+  that grows faster than the frames. Built: `bench/two_shot_load.py` with
+  `bench/check_two_shot_load.py`, and the opt-in in the builder. Wanted
+  next, in this order: one pair made both ways with nothing else changed,
+  for the owner's eye, on two shots where the subject's face is on both
+  sides of the cut and the load's first frame puts the cut on a step's
+  edge; then a tough shot beside an easy one. Not built, each refused by
+  name by the tool: two loads that do not meet at the cut (a part emptied
+  between them), a subject one preview tracks and the other does not, two
+  subjects, a zoomed or continued load, keep-outs and a hair band, and a
+  tracker that crosses the cut in one preview. Not known: what the model
+  draws in a latent step that holds frames of two shots; whether the
+  node's own cut detector finds every cut a job names
+  (`bench/two_shot_load.py plan-cuts` prints it for each load).
 - **A shot longer than the planner's longest length and no longer than the
   model's is cut into two windows** (2026-10-13, read by the tooling
   session while fitting a single window to its load). The builder gives

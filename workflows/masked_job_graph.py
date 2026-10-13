@@ -53,6 +53,15 @@ when set: `pieces`, `least`, `hold`, `drop`, `grade` (`bench/capture_masked_run.
 `reference`, written by `bench/shot_to_load.py`: the form of the load's head reference (`drawn`, or `plain` with
 a person's why), who said so, the record and the points it was made from, and the face's figures along the load.
 
+**`two_shots`, the one key by which a load may hold a cut** (2026-10-13; `two_shots_of`, `check_load`): two
+neighbouring shots of the source in ONE window, on purpose. `{"cut": the source frame the second shot begins on,
+"shots": [[first, last], [first, last]], "why": a person's words, "said_by": who}`, with whatever else its writer
+keeps beside them (`bench/two_shot_load.py` writes it, from two ordinary loads' job files). It is not a default
+and nothing sets it for anybody: a job without it is held to one shot a load, as ever
+(`bench/masked_job.py::ONE_SHOT`). A job with it is held to ONE load of ONE subject that holds the named cut,
+lies inside the two shots, runs as one window, and is neither zoomed nor a continuation; its text has to
+describe each shot under its own header (`TWO_SHOT_HEADERS`).
+
 **A load** is one entry of the file's `loads`, with the file's `defaults` under it: one subject on one
 stretch of frames, as a rule one shot. It is written in the capture's words, since the capture reads the same
 entry as a plan (`first`, `frames`, `subject`, `others`, `margin`, `edge`, `carried`, `text`, `audio`,
@@ -494,6 +503,42 @@ def contexts_for(window: int, windows: tuple[int, ...]) -> tuple[int, ...]:
     return tuple(c for c in range(windows[0] % step, window, step) if c > 0)
 
 
+#: The shot headers a two-shot load's text carries, and the one it must not: the vendor's form for a text of
+#: several shots (`docs/prompting.md`, the `[Shot N]` form). Held by presence, never by count: a text's other
+#: sections name a shot as well (`(appears in [Shot 1])`).
+TWO_SHOT_HEADERS, THIRD_SHOT_HEADER = ("[Shot 1]", "[Shot 2]"), "[Shot 3]"
+
+
+def two_shots_of(job: dict) -> dict | None:
+    """A job block's `two_shots`, held to its form; None for a job without the key.
+
+    The key is the one way a load may hold a cut, so what it says is exact: `cut`, the source frame the second
+    shot begins on; `shots`, the two shots as `[first, last]`, the first ending on the frame before the cut and
+    the second beginning on it; `why` and `said_by`, a person's words and who they are. Two shots in one window
+    are a choice somebody made for one load, never a default, and a choice with no reason or no name is refused."""
+    two = job.get("two_shots")
+    if two is None:
+        return None
+    form = ('`two_shots` is {"cut": the source frame the second shot begins on, "shots": [[first, last], [first, last]], '
+            '"why": a person\'s words, "said_by": who}')
+    if not isinstance(two, dict):
+        raise ValueError(f"the job block's `two_shots` is {two!r}: {form}")
+    cut, shots = two.get("cut"), two.get("shots")
+    whole = lambda n: type(n) is int and n >= 0   # noqa: E731
+    if not (whole(cut) and isinstance(shots, list) and len(shots) == 2
+            and all(isinstance(x, list) and len(x) == 2 and all(whole(n) for n in x) and x[0] <= x[1] for x in shots)):
+        raise ValueError(f"the job block's `two_shots` has cut {cut!r} and shots {shots!r}: {form}")
+    if shots[0][1] + 1 != cut or shots[1][0] != cut:
+        raise ValueError(f"the job block's `two_shots` names the cut on {cut} and the shots {shots[0][0]}-{shots[0][1]} and "
+                         f"{shots[1][0]}-{shots[1][1]}: two NEIGHBOURING shots, the first ending on the frame before the cut "
+                         f"and the second beginning on it")
+    for key, what in (("why", "why these two shots share a window"), ("said_by", "who said so")):
+        if not isinstance(two.get(key), str) or not two[key].strip():
+            raise ValueError(f"the job block's `two_shots` does not say {what} (`{key}`): two shots in one window are a "
+                             f"person's choice for one load, never a default")
+    return two
+
+
 def check_load(job: dict, one: dict, windows: tuple[int, ...]) -> None:
     """Refuse a load a graph cannot be built from, in words that name the key."""
     name = str(one.get("name", ""))
@@ -576,6 +621,29 @@ def check_load(job: dict, one: dict, windows: tuple[int, ...]) -> None:
                          f"the blend would reach past the region that was regenerated")
     if one.get("context_noise") is not None and not one.get("continue_from"):
         raise ValueError(f"load {name!r}: context_noise with no continue_from; a load of its own keeps no frames")
+    two = two_shots_of(job)
+    if two is not None:
+        # two neighbouring shots in one window, on the job's word: the load holds the one named cut, and is the
+        # plainest kind of load in everything else, so that the cut is the only new thing in it
+        cut, (shot_1, shot_2), last = two["cut"], two["shots"], first + frames - 1
+        if not first < cut <= last:
+            raise ValueError(f"load {name!r} is source frames {first}-{last} and the job's `two_shots` names the cut on {cut}: "
+                             f"a load of a two-shot job holds its cut. A load of one shot is a job without the key")
+        if first < shot_1[0] or last > shot_2[1]:
+            raise ValueError(f"load {name!r} is source frames {first}-{last} and the job's `two_shots` names the shots "
+                             f"{shot_1[0]}-{shot_1[1]} and {shot_2[0]}-{shot_2[1]}: the load reaches outside them")
+        if also is not None:
+            raise ValueError(f"load {name!r} is of two subjects in a job of two shots (`two_shots`): not built. One subject")
+        if region != "frame":
+            raise ValueError(f"load {name!r} is rendered zoomed in in a job of two shots (`two_shots`): a zoomed load takes one "
+                             f"box for the whole load and the node refuses a cut inside it")
+        if one.get("continue_from"):
+            raise ValueError(f"load {name!r} continues another run (`continue_from`) in a job of two shots (`two_shots`): a "
+                             f"two-shot load is a run of its own")
+        if not one_window(frames, window, windows):
+            raise ValueError(f"load {name!r} is {frames} frames in a window of {window}: a two-shot load is ONE window that holds "
+                             f"both shots whole (on the video grid, no longer than {max(windows)}). Two shots too long for one "
+                             f"window are two loads")
 
 
 def run_prefix(job: dict, one: dict, plan: bool) -> str:

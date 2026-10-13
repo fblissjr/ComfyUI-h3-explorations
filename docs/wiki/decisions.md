@@ -329,6 +329,26 @@ owner's words in its terminal.*
   its cuts from the record, and one window for a load between the
   planner's longest length and the model's
   ([`next_steps.md`](next_steps.md)).
+- **Two neighbouring shots in one load: built as a tool, not a default**
+  (the owner, 2026-10-13, in the lead's terminal later the same afternoon,
+  after agreeing that one load a shot stays the default: build it, as one
+  more tool, and run it on whatever pair the lead thinks best). What they
+  want it for, in their words earlier that hour: one face for a subject
+  across a cut, and a tough shot helped by an easier one beside it. Built
+  that evening by the session the owner started for it, on the lead's plan
+  and word: a job block's `two_shots` key
+  (`workflows/masked_job_graph.py::two_shots_of`), written only by
+  `bench/two_shot_load.py` from the two shots' ordinary loads, and the one
+  thing by which `bench/masked_job.py` lets a text hold a cut
+  (`held_as_two_shots`). What the repo held, and what it used to claim:
+  `masked_v2v.md`, "Running a job", said "A load that holds a cut cannot
+  be built for now", and its "Not built" list named "a load over several
+  shots with a text that describes each shot"; `bench/masked_job.py` said
+  such a load "is not built yet" (`ONE_SHOT`). Each now carries a dated
+  note. Unchanged: one load a shot is what every tool makes unless a job
+  names the key. Where it lives now: `masked_v2v.md`, "Two neighbouring
+  shots in one load: a tool, not a default". No load had rendered that way
+  when this was written.
 
 - **An ordinary load renders on the gate alone; a look is owed where a forcing
   rule stands or the load is the first of its kind** (the owner's go-fast
