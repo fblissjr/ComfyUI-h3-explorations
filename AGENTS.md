@@ -113,10 +113,8 @@ One home per kind of fact. Not two.
 - **Two sessions during the day**: one holds the card and builds, one reads
   cold and builds tooling. A third only as a blind reader on a finished
   result, briefed with file paths and no conclusions; a subagent counts.
-- **One look per load, by a reader who did not build it**, who writes what
-  it expects the render to show before it samples. The owner, when
-  available, takes the cheap looks first (who is in a shot, what is
-  replaced), before anything is built on them.
+- **The owner, when available, takes the cheap looks first** (who is in a
+  shot, what is replaced), before anything is built on them.
 - **A render is handed over stacked** (the masked input with its segments
   and ids on top, the render below, frame numbers burned in), never bare;
   a thing seen on playback is reported with the file and the frame.

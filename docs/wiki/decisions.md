@@ -349,11 +349,14 @@ owner's words in its terminal.*
   forcing rule standing it is refused, the flag named, and a look by
   somebody else is owed as before. What the list names and no flag says
   today is printed in every such record (`FORCING_NOT_READ`). What it used
-  to claim, and where the claim still stands in words: `AGENTS.md` ("One
-  look per load, by a reader who did not build it") is the owner's file and
-  was not edited by a session; until the owner changes that line, it and
-  the chain differ for an ordinary load, and this entry is where that is
-  said.
+  to claim: `AGENTS.md` said "One look per load, by a reader who did not
+  build it, who writes what it expects the render to show before it
+  samples". The owner took that sentence out the same evening (their word
+  in the lead's terminal: the answer is to remove it), and the lead made
+  the edit; the sentence beside it, that the owner takes the cheap looks
+  first, stays. Where a look is owed, and that it is by somebody who did
+  not make the capture, is now held by the chain (`render` and `no-look`
+  in `bench/load_chain.py`) and said in this entry, not in `AGENTS.md`.
 
 ## 2026-10-12
 
