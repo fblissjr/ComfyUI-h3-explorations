@@ -863,6 +863,103 @@ def window_region_files(render: str) -> list[Path]:
     return [found[n] for n in sorted(found)]
 
 
+#: What a zoomed run's record says of its cells, carried with them.
+ZOOMED_CELLS_ARE = ("the node's token region and fitted mask are of the zoomed picture; they were laid on the canvas as the node lays the render "
+                    "(`video_mask.lay_back`) and cut at a half. A cell of this capture is in the region when any pixel of it is, so the "
+                    "region here covers up to one cell more at its own edges than the node regenerated")
+
+
+def zoomed_on_the_canvas(vm, mask, tokens, zoom: dict, size: tuple[int, int]):
+    """A zoomed window's fitted mask and token region, on the whole frame: (mask [F, h, w] of 0 or 1, the share of
+    each cell the region covers [F, h // CELL, w // CELL], no words), or (None, None, a refusal in words). A cell is
+    in the region when its share is over 0 (`ZOOMED_CELLS_ARE`); the shares are kept so a run can say how many of
+    its cells that rule added (`zoomed_cells_counted`).
+
+    A window rendered zoomed in (`video_mask.zoomed_source`) holds both in the ZOOMED picture: one box of the load's
+    frames scaled to the canvas. The node puts its render back with `video_mask.lay_back`: scaled down to the
+    box's size on the canvas and placed at the box's own position. The same call is made here with a weight of 1
+    where the mask (or the region) is on and an empty frame under it, and the result cut at a half: a carried
+    mask and a region in canvas pixels, where the node laid them. The region is laid once a latent step, since a
+    step's region is the same on every frame of its run (`video_mask.run_lengths`), and given to each of them.
+
+    What it cannot say: where the node's `only what changed` kept less than the region (no reader can), and
+    anything about a pixel the weight leaves under a half at the box's edge, which the node blends."""
+    import torch
+    w, h = size
+    if [int(v) for v in zoom.get("canvas", [])] != [w, h]:
+        return None, None, f"the zoom is for a canvas of {zoom.get('canvas')} and the capture is {w}x{h}"
+    if tuple(mask.shape[1:]) != (h, w):
+        return None, None, f"the zoomed mask is {int(mask.shape[2])}x{int(mask.shape[1])} and the canvas is {w}x{h}"
+
+    def laid(weight):                                   # [N, h, w] of 0 or 1, in the zoomed picture, onto the canvas
+        on = (weight > 0.5).to(torch.float32)
+        back = vm.lay_back(torch.ones(*on.shape, 3), on, torch.zeros(int(on.shape[0]), h, w, 3), zoom)
+        return back[..., 0] > 0.5
+
+    steps = torch.nn.functional.interpolate(tokens[:, None].to(torch.float32), size=(h, w), mode="nearest")[:, 0]
+    region = laid(steps)                                # one a latent step
+    share = region.reshape(-1, h // CELL, CELL, w // CELL, CELL).to(torch.float32).mean((2, 4))
+    runs = torch.tensor(vm.run_lengths(int(tokens.shape[0])))
+    share = share.repeat_interleave(runs, dim=0)[:int(mask.shape[0])]
+    on_canvas = torch.cat([laid(mask[i:i + 24]) for i in range(0, int(mask.shape[0]), 24)]).to(torch.float32)
+    return on_canvas, share, None
+
+
+def zoomed_cells_counted(shares: list) -> dict:
+    """How many cells a zoomed run's region has by three rules, over the frames read: any pixel of the cell in the
+    region (the rule used), more than half of it, every pixel. Figures: the box is on no grid of the canvas's, so a
+    token of the zoomed picture can lie across two cells, and the first figure is the larger by those."""
+    import torch
+    if not shares:
+        return {"any_pixel": 0, "more_than_half": 0, "every_pixel": 0, "counted_over": "the frames read"}
+    every = torch.stack(shares)
+    return {"any_pixel": int((every > 0).sum()), "more_than_half": int((every > 0.5).sum()), "every_pixel": int((every >= 1).sum()),
+            "counted_over": "the frames read"}
+
+
+def canvas_margin(margin, how: dict) -> tuple[int | None, int | None]:
+    """A run's margin in canvas pixels, and, for a run rendered zoomed in, the node's own figure beside it:
+    (margin_px, margin_px_in_the_zoomed_picture or None).
+
+    The node grows its region by `grow_pixels` in the picture it renders, which for a zoomed run is the box enlarged
+    by the zoom's `scale` (zoomed pixels a canvas pixel). Everything that reads a run's `margin_px` reads canvas
+    pixels (this tool's reach of a region into another subject, the delivery assembler), so a zoomed run's is the
+    node's figure divided by the scale, rounded, with the node's own kept beside it."""
+    if margin is None:
+        return None, None
+    if not how.get("zoom"):
+        return int(margin), None
+    return int(round(int(margin) / float(how["zoom"]["scale"]))), int(margin)
+
+
+def review_is_of_a_box(files: list[Path], graph: dict | None, vm) -> str | None:
+    """Why a render's review picture must not be read back onto the canvas, or None: the review of a run rendered
+    zoomed in is of the BOX (`video_mask.render_zoom_note`), and un-tinted against the whole frame's cells it puts
+    a region where there is none. Said when a window's own region file says the run was zoomed; and, when no window
+    saved its region, when the render's graph ASKS for a zoomed render: whether it was one cannot then be read (a
+    zoomed choice comes to the whole frame for a subject too large), so it is refused and not guessed."""
+    for f in files[:1]:
+        zoom = vm.load_window_region(str(f)).get("zoom")
+        if zoom:
+            return (f"{f.name} says the run was rendered zoomed in (box {zoom.get('box')}): its review is of the box, not of the frame, "
+                    "and is not read back onto the canvas. Read the regions its windows saved (leave `region=review` out)")
+    if not files:
+        asked = next((n.get("inputs", {}).get("render_region") for n in (graph or {}).values() if n.get("class_type") == "MiniMaxH3MaskedSource"), None)
+        if asked and asked != vm.RENDER_WHOLE:
+            return (f"the render's graph asks for `{asked}` and no window saved its region: whether it was rendered zoomed in cannot be "
+                    "read, and if it was its review is of the box. Not read back onto the canvas")
+    return None
+
+
+def zoom_of_the_run(got: dict, zoom, name: str):
+    """A window's own box held to the run's: a run is rendered in ONE box (`zoomed_source`), so a window that says
+    another, or says none where the run is zoomed, is not this run's. Returns the refusal in words, or None."""
+    if (got.get("zoom") or {}).get("box") != (zoom or {}).get("box"):
+        return (f"{name} says it was rendered in the box {(got.get('zoom') or {}).get('box')} and the run's box is {(zoom or {}).get('box')}: "
+                "a zoomed run has one box for the whole load")
+    return None
+
+
 def read_saved_regions(files: list[Path], first: int, frames: int, size: tuple[int, int], at: int | None = None,
                        render_frames: int | None = None):
     """A run's region and carried mask from what each window was run with, in place of un-tinting the review.
@@ -885,35 +982,46 @@ def read_saved_regions(files: list[Path], first: int, frames: int, size: tuple[i
     region = np.zeros((frames, h // CELL, w // CELL), bool)
     carried, read = np.zeros((frames, h, w), bool), np.zeros(frames, bool)
     at = first if at is None else int(at)
-    end, across, bare, names, composite = 0, [], [], [], None
+    end, across, bare, names, composite, zoom, shares = 0, [], [], [], None, None, []
     last = None if render_frames is None else int(render_frames)
     for f in files:
         if last is not None and end >= last:
             break
         got = vm.load_window_region(str(f))
-        if got.get("zoom"):
-            # a window rendered zoomed in holds its mask and tokens in the zoomed picture's space: read on the canvas
-            # grid they would land in the wrong place. Refused until this reader maps them through the file's box
-            return None, None, None, {"refused": f"{f.name} is of a run rendered zoomed in (box {got['zoom'].get('box')}); this reader "
-                                                 "does not map a zoomed region back to the frame yet", "zoomed": True}
+        if not names:
+            zoom = got.get("zoom")                      # the run's box is its first window's; every window is held to it
+        wrong = zoom_of_the_run(got, zoom, f.name)
+        if wrong:
+            return None, None, None, {"refused": wrong, "zoomed": True}
         start, trim, mask, tokens = got["first_frame"], got["trim"], got["mask"], got["tokens"]
         count = int(mask.shape[0])
         if start + trim != end:
             return None, None, None, {"refused": f"{f.name} starts its video on frame {start + trim} of the load and the "
                                                  f"window before it ended on {end}"}
-        cells = vm.pixel_alpha(tokens, h // CELL, w // CELL, 0) > 0.5
+        # the gate and "no mask on this frame" are the node's own, on the mask it was given (the zoomed one, for a zoomed run)
         gate = vm.cut_gate(mask, int(tokens.shape[0]), got["source"].get("cuts"), start) > 0.5
-        if tuple(mask.shape[1:]) != (h, w):
-            mask = torch.nn.functional.interpolate(mask[:, None], size=(h, w), mode="nearest")[:, 0]
+        given = mask
+        if zoom:
+            # a window rendered zoomed in holds its mask and tokens in the zoomed picture: laid on the canvas as the node lays them
+            mask, share, why = zoomed_on_the_canvas(vm, mask, tokens, zoom, size)
+            if why:
+                return None, None, None, {"refused": f"{f.name}: {why}", "zoomed": True}
+            cells = share > 0
+        else:
+            cells = vm.pixel_alpha(tokens, h // CELL, w // CELL, 0) > 0.5
+            if tuple(mask.shape[1:]) != (h, w):
+                mask = torch.nn.functional.interpolate(mask[:, None], size=(h, w), mode="nearest")[:, 0]
         # the composite leaves every frame with no mask of its own as the source. A render from before that rule
         # (2026-10-10) laid such frames with their step's region, and read back here it differs on them: an edge
         # accepted with the node, which no longer keeps the switch that said which kind a file was
         for k in range(trim, count if last is None else min(count, last - start)):
             n = at + start + k - first
-            empty = not bool((mask[k] > 0.5).any())
+            empty = not bool((given[k] > 0.5).any())
             unlaid = empty and bool(cells[k].any())
             if 0 <= n < frames:
                 region[n], carried[n], read[n] = (cells[k] & gate[k]).numpy() & (not unlaid), (mask[k] > 0.5).numpy(), True
+                if zoom and bool(gate[k]) and not unlaid:
+                    shares.append(share[k])
             if unlaid:
                 bare.append(at + start + k)
             elif not bool(gate[k]):
@@ -926,7 +1034,8 @@ def read_saved_regions(files: list[Path], first: int, frames: int, size: tuple[i
                                    "composite": composite, "left_as_the_source_across_a_cut": across,
                                    "left_as_the_source_with_no_mask": bare,
                                    "held_frames_past_the_render": 0 if last is None else max(end - last, 0),
-                                   "files_of_another_run_left_unread": [f.name for f in files if f.name not in names]}
+                                   "files_of_another_run_left_unread": [f.name for f in files if f.name not in names],
+                                   **({"zoom": zoom, "zoomed_cells_are": ZOOMED_CELLS_ARE, "zoomed_cells_counted": zoomed_cells_counted(shares)} if zoom else {})}
 
 
 def plan_file(preview: str) -> Path:
@@ -989,22 +1098,24 @@ def read_planned_regions(plan_path: Path, first: int, frames: int, size: tuple[i
     the file and the source frames. Added 2026-10-12, when the first continuation load met this reader and
     was refused as a gap.
 
+    A load rendered zoomed in (the plan's `zoom`: one box of the load's frames, scaled to the canvas) holds its
+    masks and tokens in the zoomed picture. They are laid on the canvas as the node lays the render
+    (`zoomed_on_the_canvas`), and `how` carries the `zoom` and what the cells then are. Refused until 2026-10-13.
+
     Returns what `read_region` does. Refuses (None) when a window has no region file (the plan says why: it
-    starts past the source's end), when a file the plan names is not there, or when the windows' written
-    frames leave a gap."""
+    starts past the source's end), when a file the plan names is not there, when the windows' written
+    frames leave a gap, when a window's box is not the plan's, or when the zoom is for another canvas."""
     vm = _pack("video_mask")
     plan = json.loads(plan_path.read_text())
     if plan.get("plan") != "h3 song plan":
         raise SystemExit(f"{plan_path.name} is not a song node plan (its `plan` is {plan.get('plan')!r})")
-    if plan.get("zoom"):
-        return None, None, None, {"refused": f"the plan is for a load rendered zoomed in (box {plan['zoom'].get('box')}); its regions are in "
-                                             "the zoomed picture's space and this reader does not map them back to the frame yet"}
+    zoom = plan.get("zoom")
     w, h = size
     region = np.zeros((frames, h // CELL, w // CELL), bool)
     carried, read = np.zeros((frames, h, w), bool), np.zeros(frames, bool)
     placed = at is not None
     at = first if at is None else int(at)
-    end, across, bare, windows, stored = 0, [], [], [], None
+    end, across, bare, windows, stored, shares = 0, [], [], [], None, []
     for row in plan["windows"]:
         if not row.get("region_file"):
             return None, None, None, {"refused": f"window {row['number']} is not planned: {row.get('why', 'no region file')}"}
@@ -1020,15 +1131,27 @@ def read_planned_regions(plan_path: Path, first: int, frames: int, size: tuple[i
             return None, None, None, {"refused": f"window {row['number']} writes from frame {row['first_written_frame']} of the load and "
                                                  f"the window before it ended on {end}"}
         got = vm.load_window_region(str(path))
-        cells = vm.pixel_alpha(got["tokens"], h // CELL, w // CELL, 0) > 0.5
+        wrong = zoom_of_the_run(got, zoom, row["region_file"])
+        if wrong:
+            return None, None, None, {"refused": wrong}
         mask, left = got["mask"], set(row.get("frames_left_as_source", []))
-        if tuple(mask.shape[1:]) != (h, w):
-            import torch
-            mask = torch.nn.functional.interpolate(mask[:, None], size=(h, w), mode="nearest")[:, 0]
+        if zoom:
+            # a load rendered zoomed in: the plan's mask and tokens are of the zoomed picture, laid on the canvas as the node lays them
+            mask, share, why = zoomed_on_the_canvas(vm, mask, got["tokens"], zoom, size)
+            if why:
+                return None, None, None, {"refused": f"{row['region_file']}: {why}"}
+            cells = share > 0
+        else:
+            cells = vm.pixel_alpha(got["tokens"], h // CELL, w // CELL, 0) > 0.5
+            if tuple(mask.shape[1:]) != (h, w):
+                import torch
+                mask = torch.nn.functional.interpolate(mask[:, None], size=(h, w), mode="nearest")[:, 0]
         for f in range(row["first_written_frame"], row["last_written_frame"] + 1):
             k, n = f - row["first_frame"], at + f - first
             if 0 <= n < frames:
                 region[n], carried[n], read[n] = (cells[k].numpy() if f not in left else False), (mask[k] > 0.5).numpy(), True
+                if zoom and f not in left:
+                    shares.append(share[k])
             if f in left:
                 # a plan of version 2 says which kind; an older one has only the cut gate's
                 (bare if f in set(row.get("frames_with_no_mask", [])) else across).append(at + f)
@@ -1048,7 +1171,8 @@ def read_planned_regions(plan_path: Path, first: int, frames: int, size: tuple[i
                                    "composite": plan["source"].get("composite"), "left_as_the_source_across_a_cut": across,
                                    "left_as_the_source_with_no_mask": bare, "plan_version": plan.get("version"),
                                    "planned_windows": windows, "frames_written": end, "source_settings": plan["source"],
-                                   **({"kept_from_a_stored_window": stored} if stored else {})}
+                                   **({"kept_from_a_stored_window": stored} if stored else {}),
+                                   **({"zoom": zoom, "zoomed_cells_are": ZOOMED_CELLS_ARE, "zoomed_cells_counted": zoomed_cells_counted(shares)} if zoom else {})}
 
 
 def graph_of(render: str) -> dict | None:
@@ -1408,7 +1532,8 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
         else:
             graph = graph_of(r["render"])
             settings = source_settings(graph)
-            saved = [] if r.get("region") == "review" else window_region_files(r["render"])
+            every_saved = window_region_files(r["render"])
+            saved = [] if r.get("region") == "review" else every_saved
             region = None
             if saved:
                 region, carried, read, how = read_saved_regions(saved, first, frames, size, r.get("at"), probe(r["render"])[2])
@@ -1422,6 +1547,10 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                     back = read_region(r["render"], a.source, first, frames, size, r.get("at"))
                     how["readers"] = readers_agreement((region, carried, read), back[:3])
             if region is None:
+                # the two ways a zoomed run reached the review reader with nothing in between (2026-10-13)
+                boxed = review_is_of_a_box(every_saved, graph, _pack("video_mask"))
+                if boxed:
+                    raise SystemExit(f"run {name!r}: {boxed}")
                 refused = (how or {}).get("refused") if saved else None
                 region, carried, read, how = read_region(r["render"], a.source, first, frames, size, r.get("at"))
                 if refused:
@@ -1430,7 +1559,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
         folder.mkdir(parents=True, exist_ok=True)
         entry = {"subject": label, **({"subjects": both} if also else {}), "others": others, "region": region, "carried": carried,
                  "read": read, "reached": {}, "back": {}}
-        margin = r.get("margin", settings.get("grow_pixels"))
+        margin, zoomed_margin = canvas_margin(r.get("margin", settings.get("grow_pixels")), how)
         fixed = settings.get("grow_by") in (None, "a fixed margin")
         if margin is not None and fixed and others:
             grow = _pack("video_mask").grow
@@ -1457,10 +1586,19 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                  # the node carried no mask on): the carried mask is the node's own, not read off a review
                                  "carried_from_the_node": bool(how.get("files")),
                                  "first_source_frame": int(r.get("at", first)), "margin_px": None if margin is None else int(margin),
+                                 # a run rendered zoomed in: the node's own grow, in pixels of the zoomed picture (`canvas_margin`)
+                                 **({"margin_px_in_the_zoomed_picture": zoomed_margin} if zoomed_margin is not None else {}),
                                  "masked_source": settings,
                                  "given_back_worked_out": bool(entry["back"]), "frames_read": int(read.sum()), **how})
         print(f"{'plan' if r['planned'] else 'run'} {name}: region {'worked out' if r['planned'] and not r.get('preview') else 'read'} on "
               f"{int(read.sum())} of {frames} frames, mean share {float(region[read].mean()) if read.any() else 0.0:.4f}", flush=True)
+        if how.get("zoom"):
+            print(f"  RENDERED ZOOMED IN {float(how['zoom']['scale']):.2f}x, in the box {how['zoom']['box']} of its {how['zoom']['source_size'][0]}x"
+                  f"{how['zoom']['source_size'][1]} frames: {ZOOMED_CELLS_ARE}. Cells in the region over the frames read: "
+                  f"{how['zoomed_cells_counted']['any_pixel']} by that rule, {how['zoomed_cells_counted']['more_than_half']} more than half "
+                  f"covered, {how['zoomed_cells_counted']['every_pixel']} wholly covered. Its margin is {zoomed_margin} px of the zoomed picture, "
+                  f"{margin} px on the canvas. NOT changed for the zoom: the part's sizes, the floor and the face-size flag, which are "
+                  "of the whole frame, where the part is smaller than it is drawn by the scale squared", flush=True)
     voice = read_voice(a.voice) if a.voice else None
     manifest["voice_table"] = Path(a.voice).name if a.voice else None
     cross = cross_rows(first, frames, sightings, captured, voice)

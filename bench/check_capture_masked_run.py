@@ -637,17 +637,101 @@ def saved_regions() -> str:
         assert cap.read_saved_regions(with_stale, 100, 13, (W, H))[0] is None, "with no render length, a gap before a stale window was read"
         # a window rendered zoomed in holds its region in the zoomed picture's space: refused, not read on the canvas's grid
         real = vm.load_window_region
-        vm.load_window_region = lambda path: {**real(path), "zoom": {"box": [0, 0, 80, 48], "scale": 2.0}}
+        vm.load_window_region = lambda path: {**real(path), "zoom": {"box": [0, 0, 80, 48], "scale": 2.0, "canvas": [W * 2, H * 2]}}
         try:
             refused = cap.read_saved_regions(found, 100, 13, (W, H), render_frames=13)
         finally:
             vm.load_window_region = real
-        assert refused[0] is None and refused[3]["zoomed"] and "zoomed in" in refused[3]["refused"], refused[3]
+        # (a zoomed window is READ since 2026-10-13, `zoomed_regions` below; one whose zoom is for another canvas is still refused)
+        assert refused[0] is None and refused[3]["zoomed"] and "for a canvas of" in refused[3]["refused"], refused[3]
         # files that do not reach the render's end, or leave a gap, are not this render's
         assert cap.read_saved_regions(found, 100, 13, (W, H), render_frames=21)[0] is None, "a longer render, and its region read"
         assert cap.read_saved_regions(found[1:], 100, 13, (W, H))[0] is None, "a window missing from the front, and its region read"
     return ("two windows tile one run's region, each frame from the window whose video holds it; a frame left as the "
             "source across a cut has none and is named; files that do not fit the render are refused")
+
+
+def zoomed_regions() -> str:
+    """A load rendered zoomed in, read onto the canvas where the node lays it. Refused by both readers until 2026-10-13.
+
+    The canvas is 160 by 96. The box is its middle half, 80 by 48 at (32, 16): a zoom of 2. The subject is one cell of
+    the canvas, (64..80, 32..48); cut to the box as the node cuts it, it is one token of the zoomed picture."""
+    import tempfile
+    import torch
+    vm = cap._pack("video_mask")
+    zoom = {"box": [32, 16, 112, 64], "source_size": [W, H], "canvas": [W, H], "scale": 2.0, "render_region": vm.RENDER_ZOOM_REPLACED, "set_by": "a check"}
+    settings = {"composite": "whole region", "feather_pixels": 0, "change_threshold": None, "cuts": [], "grow_pixels": 16,
+                "grow_by": "a fixed margin", "replace": "subject", "edge": "latent cells", "zoom": zoom}
+    whole = torch.zeros(9, H, W)
+    whole[:, 32:48, 64:80] = 1.0
+    zoomed = vm.crop_mask(whole, zoom["box"], W, H)
+    assert bool((zoomed[0, 32:64, 64:96] == 1).all()) and float(zoomed[0].sum()) == 32 * 32, "the node's own cut of the box is not the one this case was written for"
+    tokens = torch.zeros(3, H // 32, W // 32)
+    tokens[:, 1, 2] = 1.0
+    mask, share, why = cap.zoomed_on_the_canvas(vm, zoomed, tokens, zoom, (W, H))
+    assert why is None and bool(((mask > 0.5) == (whole > 0.5)).all()), "the zoomed mask laid back is not the mask it was cut from"
+    cells = share > 0
+    assert cells.shape == (9, H // 16, W // 16) and cells[:, 2, 4].all() and int(cells[0].sum()) == 1, f"the zoomed token is not the canvas cell it covers: {cells[0].nonzero().tolist()}"
+    # the three counts: a token that is one whole cell counts once by each rule; one that lies across cells counts more by the first
+    assert cap.zoomed_cells_counted(list(share)) == {"any_pixel": 9, "more_than_half": 9, "every_pixel": 9, "counted_over": "the frames read"}
+    across = cap.zoomed_on_the_canvas(vm, zoomed, tokens, {**zoom, "box": [40, 24, 120, 72]}, (W, H))[1]      # the same box, half a cell over and down
+    counted = cap.zoomed_cells_counted([across[0]])
+    assert counted["any_pixel"] == 4 and counted["every_pixel"] == 0, counted
+    # THE ROUND TRIP on a box that is on no grid (100 by 60 at (30, 18), a zoom of 1.6): the node's cut, then this reader's
+    # laying back. The line: no more pixels differ than the mask's own one-pixel ring. Reasoned, not measured on a render: each
+    # of the two scalings places an edge within a pixel of where it was. What was measured is printed.
+    off = {**zoom, "box": [30, 18, 130, 78], "scale": 1.6}
+    odd = torch.zeros(3, H, W)
+    odd[:, 30:60, 60:90] = 1.0
+    back, _, why = cap.zoomed_on_the_canvas(vm, vm.crop_mask(odd, off["box"], W, H), torch.zeros(1, H // 32, W // 32), off, (W, H))
+    differ, ring = int(((back[0] > 0.5) != (odd[0] > 0.5)).sum()), 2 * (30 + 30)
+    assert why is None and differ <= ring, f"{differ} pixels differ after the round trip, over the ring of {ring}"
+    # another canvas than the capture's, and a mask of another size, are refused in words
+    assert "for a canvas of [160, 96] and the capture is 320x192" in cap.zoomed_on_the_canvas(vm, zoomed, tokens, zoom, (W * 2, H * 2))[2]
+    # the margin: the node's figure is of the zoomed picture; the capture's is canvas pixels, with the node's beside it
+    assert cap.canvas_margin(64, {"zoom": zoom}) == (32, 64) and cap.canvas_margin(64, {}) == (64, None) and cap.canvas_margin(None, {"zoom": zoom}) == (None, None)
+
+    def row(writes: int) -> dict:
+        return {"number": 1, "first_frame": 0, "frames": 9, "trim": 0, "frames_written": writes, "first_written_frame": 0,
+                "last_written_frame": writes - 1, "text": "t", "region_file": "pass_window_1_planned_region.npz", "frames_left_as_source": [],
+                "regenerating_share": 0.07}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp) / "pass_windows"
+        folder.mkdir()
+        vm.save_window_region(str(folder / "pass_window_1_planned_region.npz"), zoomed, tokens, settings, 16, 0, 0)
+        plan = {"plan": "h3 song plan", "version": 2, "zoom": zoom, "source": {"frames": 9, **settings}, "windows": [row(9)]}
+        (folder / "pass_plan.json").write_text(json.dumps(plan))
+        region, carried, read, how = cap.read_planned_regions(folder / "pass_plan.json", 100, 9, (W, H), at=100)
+        assert read.all() and region[:, 2, 4].all() and int(region.sum()) == 9, "a zoomed plan's region is not on the canvas cell it covers"
+        assert (carried == (whole.numpy() > 0.5)).all() and how["zoom"] == zoom and "up to one cell more" in how["zoomed_cells_are"], how.get("zoom")
+        assert how["zoomed_cells_counted"]["any_pixel"] == how["zoomed_cells_counted"]["every_pixel"] == 9, how["zoomed_cells_counted"]
+        # the same plan read as if it were of the whole frame would put the region on the zoomed picture's own cells: not there
+        assert not region[:, 2:4, 4:6].all(), "the region is on the zoomed picture's cells, not laid back"
+        # a window that says another box than the plan's, and one that says none, are not this run's
+        vm.save_window_region(str(folder / "pass_window_1_planned_region.npz"), zoomed, tokens, {**settings, "zoom": off}, 16, 0, 0)
+        assert "one box for the whole load" in cap.read_planned_regions(folder / "pass_plan.json", 100, 9, (W, H), at=100)[3]["refused"]
+        vm.save_window_region(str(folder / "pass_window_1_planned_region.npz"), zoomed, tokens, {**settings, "zoom": None}, 16, 0, 0)
+        assert "one box for the whole load" in cap.read_planned_regions(folder / "pass_plan.json", 100, 9, (W, H), at=100)[3]["refused"]
+        # a zoomed RENDER's windows, read the same way; and a second window of another box refused
+        render = str(Path(tmp) / "pass_00001.mp4")
+        vm.save_window_region(str(folder / "pass_window_1_region.npz"), zoomed, tokens, settings, 16, 0, 0)
+        found = cap.window_region_files(render)
+        region, carried, read, how = cap.read_saved_regions(found, 100, 9, (W, H), render_frames=9)
+        assert read.all() and region[:, 2, 4].all() and int(region.sum()) == 9 and (carried == (whole.numpy() > 0.5)).all() and how["zoom"] == zoom, how
+        vm.save_window_region(str(folder / "pass_window_2_region.npz"), zoomed, tokens, {**settings, "zoom": None}, 16, 9, 0)
+        mixed = cap.read_saved_regions(cap.window_region_files(render), 100, 18, (W, H), render_frames=18)
+        assert mixed[0] is None and mixed[3]["zoomed"] and "one box for the whole load" in mixed[3]["refused"], mixed[3]
+        # the review of a zoomed run is of the box: said from a window's own file, or from a graph that asks for a zoom when no window saved a region
+        (folder / "pass_window_2_region.npz").unlink()
+        asks = {"1": {"class_type": "MiniMaxH3MaskedSource", "inputs": {"render_region": vm.RENDER_ZOOM_REPLACED}}}
+        assert "its review is of the box" in cap.review_is_of_a_box(found, None, vm) and "cannot be read" in cap.review_is_of_a_box([], asks, vm)
+        whole_frame = {"1": {"class_type": "MiniMaxH3MaskedSource", "inputs": {"render_region": vm.RENDER_WHOLE}}}
+        assert cap.review_is_of_a_box([], whole_frame, vm) is None and cap.review_is_of_a_box([], None, vm) is None
+        vm.save_window_region(str(folder / "pass_window_1_region.npz"), zoomed, tokens, {**settings, "zoom": None}, 16, 0, 0)
+        assert cap.review_is_of_a_box(found, asks, vm) is None, "a window that says it was not zoomed was refused on the graph's asking"
+    return (f"a zoomed plan and a zoomed render's windows are read onto the canvas where the node lays them; the node's cut of a box laid back is the mask "
+            f"it was cut from (on a box on no grid {differ} pixel(s) differ, of a ring of {ring}); another box, another canvas and a zoomed run's review are refused")
 
 
 def graded_holds() -> str:
@@ -1618,6 +1702,7 @@ case("what lies under a doubted part", under_a_doubted_part)
 case("the look between the original and a render that held", the_look)
 case("preflight: a region carried across a cut", across_a_cut)
 case("a run's region from the files its windows saved", saved_regions)
+case("a load rendered zoomed in, read onto the canvas", zoomed_regions)
 case("a pass read from the node's own plan", planned_regions)
 case("preflight: the original shown in a held tail", held_tails)
 case("preflight: a face only a few tokens tall", face_sizes)
