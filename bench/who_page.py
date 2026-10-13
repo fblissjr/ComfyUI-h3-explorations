@@ -201,14 +201,14 @@ def owner_words(answers: list[dict], first: int, last: int) -> list[dict]:
 
 def fitted_frame(source: str, frame: int, size: list[int], out: Path) -> str | None:
     """The source's own frame as a preview's tracker saw it: cut to the table's proportions about the middle and
-    scaled to the table's size, which is what the job's video loader does with its width and height (inherited:
-    VideoHelperSuite's `crop=...,scale=...` for a custom size; the job's loader is that node). A box of the table
-    then lies on this picture pixel for pixel."""
+    scaled to the table's size, which is what the job's video loader does with its width and height
+    (`_lib.frames.FIT`, the one place that crop is written). A box of the table then lies on this picture pixel
+    for pixel."""
     (out / "tiles").mkdir(parents=True, exist_ok=True)
     w, h = int(size[0]), int(size[1])
-    name, ar = f"{frame:04d}_as_tracked_{w}x{h}.jpg", w / h
-    r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", source, "-vf",
-                        f"select=eq(n\\,{frame}),crop=if(gt({ar}\\,a)\\,iw\\,ih*{ar}):if(gt({ar}\\,a)\\,iw/{ar}\\,ih),scale={w}:{h}",
+    name = f"{frame:04d}_as_tracked_{w}x{h}.jpg"
+    from _lib.frames import FIT        # the loader's crop and scale, in its one place
+    r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", source, "-vf", f"select=eq(n\\,{frame})," + FIT.format(w=w, h=h),
                         "-frames:v", "1", str(out / "tiles" / name)], capture_output=True, text=True)
     return f"tiles/{name}" if r.returncode == 0 and (out / "tiles" / name).is_file() else None
 
