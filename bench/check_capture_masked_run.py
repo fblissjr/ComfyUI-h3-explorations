@@ -1267,8 +1267,17 @@ def face_sizes() -> str:
     piece, stray = cap.largest_piece(head | sliver)
     assert (piece == head).all() and stray.tolist() == [120, 120, 120, 0], stray.tolist()
     assert cap.largest_piece(np.zeros((2, H, W), bool))[1].tolist() == [0, 0]
+    # what the option took away is said a frame at a time, with what it cannot see: the flag is silent once it is set
+    took = cap.pieces_taken(stray, 949)
+    assert (took["frames"], took["frames_read"], took["px_most"], took["px_by_source_frame"]) == (3, 4, 120, [[949, 120], [950, 120], [951, 120]]), took
+    said = cap.pieces_lines("a", took)
+    assert "TOOK PIXELS OF a's PART AWAY on 3 of 4 frame(s), up to 120 px" in said[0] and "949: 120, 950: 120, 951: 120" in said[0] \
+        and said[1].strip().startswith("cannot see: whether a piece taken away was the part"), said
+    none = cap.pieces_lines("a", cap.pieces_taken(np.zeros(4, np.int64), 949))
+    assert len(none) == 1 and "took nothing away" in none[0], none
     return ("a face under the line in tokens is named, with its height; a face at the line, a part that is not a face, and a "
-            "subject no run replaces are not; a part's pieces away from its largest are counted and can be dropped")
+            "subject no run replaces are not; a part's pieces away from its largest are counted and can be dropped, and what "
+            "dropping them took away is said a frame at a time")
 
 
 def who_is_who() -> str:

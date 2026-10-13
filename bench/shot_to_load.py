@@ -26,7 +26,9 @@ files and runs the two tools, from the video's own records, and leaves to a pers
   starting value and nothing measured.
 - The plan (`data/<video>/plan.json`): for each subject the `region` (what is replaced), and, new with this tool,
   the `still` its face is taken from, the `parts` the part model ticks for it, and optionally `hair_band`. A
-  subject whose plan lacks `still` or `parts` is refused with the keys to add.
+  subject whose plan lacks `still` or `parts` is refused with the keys to add. Optionally `pieces` (with
+  `pieces_by`: who chose it, on what): how the capture reads the subject's part, copied by `job` onto the
+  subject in the load's job file, where the chain passes it to the capture. This tool sets it for nobody.
 - The cast file (`--cast`): where it holds an answer inside the shot for a subject, that tracker is seeded from
   it (`bench/cast_file.py::seeds`; a "none of the outlined people" answer leaves the shot unseeded). A seeded
   subject's tracker runs before an unseeded one's, whatever the plan's order: the unseeded one's guess then
@@ -112,6 +114,8 @@ REFERENCES = "Video/{video}/references/{subject}_{first:04d}_{last:04d}"
 FORM = {"face": "fp", "face and hair": "hfp"}
 #: What a preview's tracker picks with. A guess, which is why the preview step stops for the tiles.
 PICK = "largest"
+#: What a plan may say of how the capture reads a subject's part (`bench/capture_masked_run.py`, `pieces=` on a `--mask`).
+PIECES = ("largest",)
 PLAN_KEYS = "`still` (the picture its face is taken from, under the server's input folder) and `parts` (the part model's ticks for it)"
 
 
@@ -358,11 +362,23 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
                           f"preview that tracks the keep-out")
         load["hair_band"] = band["value"] if isinstance(band, dict) else band
     subjects = [{k: v for k, v in s.items() if k in ("label", "phrase", "pick", "parts", "still", "pose")} for s in preview["subjects"]]
+    # The capture's `pieces` for the load's subject, when the plan says one: a key on the subject in the job file, where
+    # the chain reads it. The tool sets it for nobody; every load before the chain ran with `pieces=largest` typed into
+    # a script, and the first loads through the chain had none (2026-10-13: specks of the part on an arm put a margin there).
+    pieces = ""
+    if p.get("pieces") is not None:
+        if p["pieces"] not in PIECES or not str(p.get("pieces_by") or "").strip():
+            raise Refused(f"the plan's `pieces` for {subject!r} is {p['pieces']!r} with `pieces_by` {p.get('pieces_by')!r}: `pieces` is one of {PIECES}, "
+                          "and `pieces_by` says who chose it and on what")
+        mine = next(s for s in subjects if s["label"] == subject)
+        mine["pieces"], mine["pieces_by"] = p["pieces"], f"the plan ({p['pieces_by']})"
+        pieces = (f" THE CAPTURE READS {subject}'s PART WITH pieces={p['pieces']}, from the plan ({' '.join(str(p['pieces_by']).split())}): each frame's largest "
+                  "piece of the part is loaded and its other pieces are not; the capture's `files` step prints what that takes away, a frame at a time.")
     note = (f"Written by bench/shot_to_load.py for {by}, {now}. ONE LOAD: {subject}, {region}, source frames {a} to {b} ({n} frames) of the shot "
             f"{shot['first']}-{shot['last']}, its masks from the preview {preview['name']} (job.preview), in the frozen form: the body model cut to the head "
             f"with the face points drawn, made on these frames by this tool's `reference` step. Its settings are in `defaults`, from workflows/h3_config.py. "
             f"THE TEXT IS NOT WRITTEN: {name}.txt beside this file is a person's, and texts.{name}.by says who wrote it."
-            + (f" CUT BY A LOOK: {cut_said}" if cut else ""))
+            + pieces + (f" CUT BY A LOOK: {cut_said}" if cut else ""))
     return {"job": {"name": name, "note": note, "source": source or preview["source"], "first": a, "frames": n, "canvas": list(preview["canvas"]),
                     "output": OUTPUT_KEY.format(video=video, session=by), "subjects": subjects,
                     "left_out": [{"subject": subject, "first": x, "frames": y - x + 1, "why": said} for x, y, said in cut],

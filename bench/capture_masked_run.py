@@ -480,6 +480,32 @@ SIZES_CANNOT_SEE = ("whether a small part is a sliver of the part or a whole sma
                     "which is larger than these whole-frame pixels by the zoom, squared")
 
 
+#: What the pixels `pieces=largest` took away cannot say, carried with them wherever they are written.
+PIECES_CANNOT_SEE = ("whether a piece taken away was the part (a face behind a raised arm or behind hair is rightly in two pieces, and "
+                     "the smaller one is then lost) or something else the class map calls the part: look at a frame it names")
+
+
+def pieces_taken(stray: np.ndarray, first: int) -> dict:
+    """What `pieces=largest` took away from a part, a frame at a time: `stray` is each frame's pixels away from its
+    largest piece (`largest_piece`). Figures and what they cannot see; nothing is judged.
+
+    With the option set, `flag_pieces` says nothing of the subject (the pieces are gone from the part it reads), so
+    until 2026-10-13 the choice showed in one key of the manifest and nowhere a person reads."""
+    hit = np.nonzero(stray > 0)[0]
+    return {"frames": int(len(hit)), "frames_read": int(len(stray)), "px_most": int(stray.max()) if len(stray) else 0,
+            "px_by_source_frame": [[int(first + f), int(stray[f])] for f in hit], "cannot_see": PIECES_CANNOT_SEE}
+
+
+def pieces_lines(label: str, taken: dict) -> list[str]:
+    """What the files step prints of `pieces_taken`, every frame named with its pixels."""
+    if not taken["frames"]:
+        return [f"    pieces=largest is set for {label} and took nothing away: the part is one piece on every frame read"]
+    return [f"    PIECES=LARGEST TOOK PIXELS OF {label}'s PART AWAY on {taken['frames']} of {taken['frames_read']} frame(s), up to {taken['px_most']} px: "
+            "each frame's largest piece is kept and the others are not loaded. Source frame: px taken: "
+            + ", ".join(f"{f}: {px}" for f, px in taken["px_by_source_frame"]),
+            f"    cannot see: {taken['cannot_see']}"]
+
+
 def part_sizes(parts: np.ndarray, first: int, least_px: int, set_by: str, emptied: list[int] | None = None,
                not_applied: str = "") -> dict:
     """The size of a subject's part on each frame of the span, and where the floor falls among them.
@@ -1206,6 +1232,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
     width, height, _ = probe(masks[0][1]["track"])
     size = (width, height)
     sightings: dict = {}
+    pieces_by_sighting: dict = {}
     class_maps: dict = {}
     made_of: dict = {}
     held_masks: dict = {}
@@ -1220,9 +1247,12 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             raise SystemExit(f"subject {label!r}: least={m['least']}; a part's least size is 0 (nothing emptied by size) or more, in px")
         track, covered = read_mask(m["track"], size, at, first, frames)
         parts = read_mask(m["parts"], size, at, first, frames)[0] if m.get("parts") else None
+        took = None
         if parts is not None and m.get("pieces") == "largest":
-            # the caller looked and the part's other pieces are not the part (`flag_pieces`)
-            parts = largest_piece(parts)[0]
+            # the caller looked and the part's other pieces are not the part (`flag_pieces`); what that took away is
+            # counted, printed and kept in the manifest, since the flag is then silent
+            parts, stray = largest_piece(parts)
+            took = pieces_taken(stray, first)
         if m.get("classes"):
             names = _pack("sapiens2_parts").CLASS_NAMES
             cmap = read_classes(m["classes"], size, at, first, frames)
@@ -1237,6 +1267,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
         if by in sightings.setdefault(label, {}):
             raise SystemExit(f"subject {label!r} has two masks by {by!r}; name each sighting's run with by=")
         sightings[label][by] = (track, covered, parts)
+        pieces_by_sighting[(label, by)] = took
         folder = out / "subjects" / label
         folder.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(folder / f"masks__{by}.npz", track=np.packbits(track, axis=-1), covered=covered,
@@ -1305,6 +1336,8 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                    # a shot table counts from its own load's first frame, which need not be the mask video's
                                    "shots_first_source_frame": int(m.get("shots_at", at)),
                                    "frames_covered": int(covered.sum()), "pose": posed, "parts_pieces": m.get("pieces"),
+                                   # what `pieces=largest` took away, a frame at a time (`pieces_taken`); None when it is not set
+                                   "parts_pieces_taken": pieces_by_sighting.get((label, by)),
                                    "inputs": {k: input_facts(m[k]) for k in ("track", "parts", "classes", "held", "shots", "pose") if m.get(k)},
                                    "classes": Path(m["classes"]).name if m.get("classes") else None,
                                    "part_is_made_of": made_of.get(label),
@@ -1319,6 +1352,8 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
               f"mask on {int(track.reshape(frames, -1).any(1).sum())}", flush=True)
         if sizes is not None:
             print("\n".join(size_lines(f"  {label}'s part, source frames {first}-{first + frames - 1}, canvas {width}x{height}", sizes)), flush=True)
+        if pieces_by_sighting.get((label, by)) is not None:
+            print("\n".join(pieces_lines(label, pieces_by_sighting[(label, by)])), flush=True)
     for label, seen in sightings.items():
         rows = [row for by, (track, covered, parts) in seen.items() for row in subject_rows(label, by, first, track, covered, parts)]
         write_table(out / "subjects" / label / "per_frame", rows)
@@ -2845,7 +2880,9 @@ def flag_pieces(manifest: dict, folder: Path) -> list[dict]:
     dish on the table carried the part's class. They pass the graded fill (they ARE on the part's classes; it
     is the class map that is wrong there), and a margin grows round each of them, so a region appears on an arm
     and on the table. Iffy, with the frames and the most pixels: a part can rightly be in two pieces (a face
-    behind a raised arm), so look, and give `pieces=largest` on `--mask` to keep each frame's largest piece."""
+    behind a raised arm), so look, and give `pieces=largest` on `--mask` to keep each frame's largest piece. With
+    that set this flag is silent for the subject, and what the option took away is the files step's to say
+    (`pieces_taken`: printed a frame at a time, and kept in the manifest as `parts_pieces_taken`)."""
     out, w, first = [], manifest["size"][0], manifest["first_frame"]
     for s in manifest["subjects"]:
         seen = s["sightings"][0]

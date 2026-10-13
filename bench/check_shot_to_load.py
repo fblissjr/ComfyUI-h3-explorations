@@ -33,7 +33,8 @@ builder's own `check_job`, and a load's to `masked_job.loads_of`, so a file the 
 7. **A load's job file stands alone**: `defaults` are `h3_config`'s, the margin by the plan's region; `pick`
    copied and no `pick_at`; the reference named by subject and span, not by the load's name; a text entry with
    no writer, which the chain refuses; a cut with no words refused and with them written into `left_out`; a
-   plan's `hair_band` refused (7c); and the refusals (a subject not in the shot, a preview of other frames, no pose
+   plan's `hair_band` refused (7c); the plan's `pieces` copied onto the load's subject with who chose it, where the
+   chain reads it, and onto no other subject, refused when it is not a value the capture takes or names nobody; and the refusals (a subject not in the shot, a preview of other frames, no pose
    pass for the subject, a whole-person region).
 7c. **A load the builder would refuse is not written** (the first real load's fault, 2026-10-13). A `hair_band` in
    the plan is refused at `job`, naming the keep-out the preview does not track; a load under the song node's
@@ -477,6 +478,22 @@ def a_loads_job_file_stands_alone() -> str:
         refused(lambda: made.load(first=104, frames=40, why_after="only the end is said", name="a_fp_0104"), "say what a look cut before it", "--why-before")
         refused(lambda: made.load(first=100, frames=40, why_before="nothing is cut there", why_after="w", name="a_fp_0100"), "--why-before is given and no frame before the load is cut")
         masked_job.left_out(two["job"])
+        # the plan's `pieces` goes onto the load's subject, with who chose it, and onto nobody else; with none in the plan the job has none
+        assert all("pieces" not in s for s in d["job"]["subjects"]) and "pieces=" not in job["note"], d["job"]["subjects"]
+        made.plan["subjects"]["a"].update(pieces="largest", pieces_by="a person, 2026-01-01: her arm carried specks of the part")
+        pieced = made.load()
+        mine, others = next(s for s in pieced["job"]["subjects"] if s["label"] == "a"), [s for s in pieced["job"]["subjects"] if s["label"] != "a"]
+        assert (mine["pieces"], mine["pieces_by"]) == ("largest", "the plan (a person, 2026-01-01: her arm carried specks of the part)"), mine
+        assert all("pieces" not in s for s in others) and "THE CAPTURE READS a's PART WITH pieces=largest, from the plan" in pieced["job"]["note"], pieced["job"]["note"]
+        graphs.check_job(pieced["job"])
+        (made.jobs / "a_fp_0100.json").write_text(json.dumps(pieced))
+        ctx = lc.read_job(made.jobs / "a_fp_0100.json", made.root, need_text=False)
+        assert ctx["subject_keys"]["pieces"] == "largest", ctx["subject_keys"]
+        made.plan["subjects"]["a"]["pieces"] = "smallest"
+        refused(made.load, "`pieces` is one of", "'smallest'")
+        made.plan["subjects"]["a"].update(pieces="largest", pieces_by=" ")
+        refused(made.load, "`pieces_by` says who chose it")
+        del made.plan["subjects"]["a"]["pieces"], made.plan["subjects"]["a"]["pieces_by"]
         # the margin is the plan's region's. A band the plan asks is REFUSED: it is cut out of a keep-out the preview does not track
         refused(lambda: made.load("b", name="b_hfp_0100"), "the plan asks a hair band for 'b' (0.6)", f"{cfg.MASKED_JOB_HAIR_BAND['cuts']!r}",
                 "tracks b, a, c", "would refuse this load at its plan", "take `hair_band` out")
