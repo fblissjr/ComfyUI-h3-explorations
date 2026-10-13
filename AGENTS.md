@@ -114,7 +114,8 @@ One home per kind of fact. Not two.
   cold and builds tooling. A third only as a blind reader on a finished
   result, briefed with file paths and no conclusions; a subagent counts.
 - **The owner, when available, takes the cheap looks first** (who is in a
-  shot, what is replaced), before anything is built on them.
+  shot, what is replaced), before anything is built on them: in batches
+  where possible, one by one only when a decision is urgent.
 - **A render is handed over stacked** (the masked input with its segments
   and ids on top, the render below, frame numbers burned in), never bare;
   a thing seen on playback is reported with the file and the frame.

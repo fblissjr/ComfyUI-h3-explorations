@@ -354,7 +354,8 @@ owner's words in its terminal.*
   samples". The owner took that sentence out the same evening (their word
   in the lead's terminal: the answer is to remove it), and the lead made
   the edit; the sentence beside it, that the owner takes the cheap looks
-  first, stays. Where a look is owed, and that it is by somebody who did
+  first, stays, with their addition of the same hour: in batches where
+  possible, one by one only when a decision is urgent. Where a look is owed, and that it is by somebody who did
   not make the capture, is now held by the chain (`render` and `no-look`
   in `bench/load_chain.py`) and said in this entry, not in `AGENTS.md`.
 
