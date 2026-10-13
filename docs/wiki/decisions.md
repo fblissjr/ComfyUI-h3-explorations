@@ -255,6 +255,36 @@ commits.*
   queued: one render of a zoomed inset on a 3:2 box and canvas, which is
   where the full frame's shape would not matter.
 
+*The entry below was written by the lead that followed (mrtower), from the
+owner's words in its terminal.*
+
+- **A window's length is a choice: any frame count valid for H3, and one
+  shot in one window where it fits** (the owner, 2026-10-13, in the lead's
+  terminal, in their afternoon, after asking why the rest of the video
+  would cost so much card time). Their words, in substance: there is no
+  reason to render the same number of frames every time; the length is
+  adjustable for a reason and only has to be a count H3 takes; the
+  planner's list begins where it does because someone set it so and for no
+  other reason; `h3_rules.MAX_LENGTH` is the most, and very short counts
+  are possible though they would not use the shortest; more frames raise
+  what attention costs and may run out of memory with enough references,
+  and are still right when they let a longer static shot sit in one window
+  with no cut; and one shot or cut is better kept in a single window, which
+  also makes its text easier to write. What prompted it: every load of the
+  day sampled the shortest length of `loop_plan.CHAIN_LENGTHS` whatever its
+  own length (each plan's line says how many frames its last one was held
+  for), so most of what a short piece sampled was thrown away. What the
+  repo already held: `h3_rules.snap_length` and the grid it rounds to;
+  nothing in the lane's page said the builder's lengths were a default and
+  not a limit. What it used to claim: a session's list of what going fast
+  did not allow carried "no shorter sampling" as if ruled; that was one
+  word of an earlier lead's about fewer sampling steps, the owner never
+  ruled on it, and a shorter window had not been raised. Where it lives
+  now: `masked_v2v.md`, "Rules of the lane". In hand, not built when this
+  was written: the builder giving a single-window load the shortest valid
+  length that holds it, and what the lane's sound does with a count that
+  is not exact on the audio clock.
+
 ## 2026-10-12
 
 *Written by the afternoon's lead session (mrfern) from the operative files

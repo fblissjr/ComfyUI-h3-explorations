@@ -356,6 +356,29 @@ session cannot work around; these are the lane's own habits, each earned on
   subject, rendered zoomed in", below): it buys size for the subject, not
   time. Asked and settled with the owner on 2026-10-13
   ([`decisions.md`](decisions.md)).
+- **A window's length is a choice, and one shot stays in one window where a
+  valid length holds it.** H3 takes every frame count on its own grid: what
+  `h3_rules.snap_length` returns (the grid of `h3_rules.FRAME_FACTOR` and
+  `h3_rules.FRAME_REMAINDER`), from core's floor up to
+  `h3_rules.MAX_LENGTH`. The lengths the planner and the builder choose from
+  (`loop_plan.CHAIN_LENGTHS`, read by `bench/masked_job.py`) are a default
+  somebody set, not a limit of the model, and nothing about the model stops
+  a load from sampling fewer frames than the shortest of them or more than
+  the longest. Fewer: a short single-window load needs no frames past its
+  own, and a window longer than its load is sampling that is thrown away
+  (the plan's own line says how many frames the last one is held for).
+  More: every frame added raises what attention costs, and with enough
+  references a long window can run out of memory, but it is the right
+  choice when it lets a longer static shot sit in one window with no cut
+  between windows. Keep one shot or cut in a single window wherever a valid
+  length holds it: it is one text, written from that window's frames, and
+  no join inside the shot to settle. Not every count on the grid is exact
+  on the audio clock as well (`workflows/h3_config.py`, the note on
+  `LONG_LENGTH`); what the lane's sound does with one that is not has not
+  been read. The owner's word of 2026-10-13
+  ([`decisions.md`](decisions.md)); as built that day the builder still
+  gives every load a length from `CHAIN_LENGTHS`, and fitting a
+  single-window load to its own length is a change to the builder.
 - **What is on a frame of an input video is already in `contact_sheets/`**
   (`bench/contact_sheets.py find <video> <frame>`): open a sheet before
   sampling a video again.
