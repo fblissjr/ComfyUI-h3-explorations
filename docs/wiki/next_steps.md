@@ -339,6 +339,61 @@ fixed the same day, said inline below.**
   Owed to it: a field in the job file, carried by the build record, that
   says why a load took the plain cut (today the reading says the reason
   was not read, and the lead hands it in with `--prefer`).
+- **The capture cannot read a load rendered zoomed in, so such a load
+  cannot be rendered through the job tool** (2026-10-13; the list, nothing
+  built). Asked for by the lead as the next piece of tooling after the
+  chain. Why it matters: by the saved part masks and the node's own box
+  rule (`video_mask.zoom_box`), the lead's face on 438-483 is the one
+  small face of the three shots thought to need it (the owner kept the
+  zoomed render of it made on 2026-10-10 by a session's own builder, which
+  has no build record and is not laid); 1010-1038 is a large face and
+  604-1009 cannot zoom as one load, her part's union being the whole
+  frame.
+  - *What refuses today.* `bench/capture_masked_run.py::read_planned_regions`
+    and `read_saved_regions` each return a refusal when the plan or a
+    window's region file carries `zoom`; the caller exits on it. So
+    `bench/load_chain.py on-plan` fails, and `bench/masked_job.py::gate`
+    refuses a render whose run was not read from the node's plan.
+  - *What the node already saves.* Each region file holds `mask` at the
+    pixels of the picture the window was rendered in and `tokens` in its
+    latent cells, with `zoom` in its meta (the box in pixels of the frames
+    the node was handed, the canvas, the scale); the plan carries the same
+    `zoom`. `video_mask.py` says of them that a reader "maps through the
+    box".
+  - *What exists to map with.* `video_mask.lay_back` is the node's own
+    placement of a zoomed window on the whole frame, and
+    `bench/recomposite_window.py` already uses it to put a zoomed window's
+    weight on the canvas. A reader can lay the zoomed mask and the zoomed
+    tokens the same way and cut the result at a half: a region and a
+    carried mask in canvas pixels, where the node laid them.
+  - *An order of work, a plan and not a fact.* One helper beside the two
+    readers that does that; the capture's cell grid then taken from the
+    canvas-pixel region, which covers up to one cell more at the edges
+    than the node regenerated, and says so; the helper used in
+    `read_planned_regions` first, then in `read_saved_regions`; the run
+    recorded as zoomed with its box; a case in
+    `bench/check_capture_masked_run.py` for a zoomed plan (its
+    `planned_regions` case has none) and the refusal case of
+    `saved_regions` turned round. Every consumer of the region then runs
+    as it does now.
+  - *What stays wrong unless it is touched too.* The run's `margin_px` is
+    the node's grow in pixels of the ZOOMED picture and is used as canvas
+    pixels by the capture and by the assembler's reach; the part floor
+    (`least=`), the face-size flag and the rule inputs measure the part at
+    whole-frame size, smaller than it is drawn by the zoom squared; the
+    review picture the capture can fall back to is of the zoomed box, and
+    two paths reach that reader for a zoomed run with no guard (a run
+    given `region=review`, and a run with no region files); the strip and
+    `bench/stack_delivery.py` show the mask picture, which is of the box;
+    `bench/shot_to_load.py` never writes `render_region`, and the head
+    reference's box and the render's box are worked out apart.
+  - *Not verified.* That the core's enlargement and `lay_back` agree on
+    where a pixel's centre is; that the capture's fit of the source and
+    the node's crop agree when the frames handed are not the canvas's
+    size (the assembler refuses that case). The node's own remark on the
+    one zoomed plan of 2026-10-12: handed canvas-size frames, a zoom
+    enlarges those pixels and is "not a sharper picture"; whether a job
+    can hand the node the clip's own frames has not been read.
 - **A delivery record's `claimed_by_more_than_one_track` is not traced**
   (2026-10-13). The two builds of that day from the generated table give
   the same figure, and it is larger than the typed table's of 2026-10-12
