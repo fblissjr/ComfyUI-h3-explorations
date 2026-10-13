@@ -101,6 +101,10 @@ class Machine:
     def queue(self):
         return self.busy
 
+    def free(self):
+        self.ran.append(("free the card", []))
+        return "the card after it: free."
+
     def run(self, ctx, label, argv, stop=True):
         self.ran.append((label, [str(x) for x in argv]))
         self.kept_in[label] = ctx.get("logs")          # where the step says its output is kept; None is the job folder
@@ -798,7 +802,8 @@ def the_reference_step() -> str:
             assert made.m.kept_in["pose pass"] == made.m.kept_in["head reference"] == made.jobs / "chain", made.m.kept_in
         finally:
             lc.REPO = kept
-        assert made.m.labels() == ["pose pass", "head reference"], made.m.labels()
+        # the card is freed before the pose pass, which runs in its own process beside the server
+        assert made.m.labels() == ["free the card", "pose pass", "head reference"], made.m.labels()
         pose, ref = made.m.said("pose pass"), made.m.said("head reference")
         opt = lambda argv, key: argv[argv.index(key) + 1]
         track = made.m.output / "Video/v/the session/shot_c_0100/shot_c_0100_a_track_00001.mkv"

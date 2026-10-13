@@ -70,7 +70,11 @@ fact of the machine is an environment key; nothing is found by a name left over 
   every mask video the render graph reads decoding equal to what the plan read. Then it is queued.
 - `land`: the queue empty (no pose pass beside a render); the pose pass on the one window's own video, or for a
   load of several windows on the joined file, held to the load's frame count first; the render's cost lines from
-  the server's history; the pose pass in the subject's tracked box; the stacked clip.
+  the server's history; the card freed first (`POST /free`: the pass runs in its own process and the server keeps
+  a render's models resident; said, since the next thing queued then starts cold); the pose pass in the subject's
+  tracked box; the stacked clip. A POSE PASS THAT DOES NOT FINISH IS A LAND THAT DID NOT HAPPEN: the clip is still
+  made, the step ends with `POSE_PASS_FAILED` and the reason in capitals, and run again with the clip there it does
+  the pass alone. Landed is the render's points written.
 - `page`: the render's item at the top of the video's review list, its buttons `delivery_table.RENDER_ITEM_BUTTONS`
   (the words the generated delivery table reads), a copy of the list kept in the job folder first.
 
@@ -94,6 +98,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 import urllib.request
 from pathlib import Path
 
@@ -120,6 +125,12 @@ BAND_SUFFIXES = (".plan.clothes_less_hair_band.mkv", ".render.clothes_less_hair_
 #: What the capture tool exits with for a verify that failed and for a gate that is blocked
 #: (`bench/capture_masked_run.py`, the same two names); `bench/check_load_chain.py` holds them to that file.
 VERIFY_FAILED, GATE_BLOCKED = 4, 3
+#: `land`'s exit status when its pose pass did not finish. Reasoned: not 5 (a refusal: nothing was run), nor the
+#: capture's two; a land with no render points is a land that did not happen, whatever else it made.
+POSE_PASS_FAILED = 6
+#: Seconds waited after `POST /free` before the card is read: the server frees on its next turn of its own loop.
+#: Reasoned, a starting value; the figure printed is what the server says then, whatever it is.
+FREE_SETTLES_S = 3
 #: How much of a line of a command's output is shown on the screen; the kept file has it whole.
 TAIL_CHARS = 300
 #: A window's own video in a load's windows folder: `<name>_window_<N>.mp4`, and not its mask review or its zoomed picture.
@@ -466,6 +477,20 @@ def card_line(host: str) -> str:
     return f"from the server's /system_stats (MiB): {stats}; nvidia-smi (pid, used): {smi or 'nothing'}; queue empty; HEAD is {head}."
 
 
+def free_card(host: str) -> str:
+    """Ask the server to unload its models and free the card (`POST /free`, as `docs/comfy_notes.md` has it), and
+    say what the card then holds. A pose pass runs in its own process beside the server; with the server's models
+    resident after a render it has no room (2026-10-13: a land's pose pass died of it, and the step went on)."""
+    body = json.dumps({"unload_models": True, "free_memory": True}).encode()
+    req = urllib.request.Request(f"http://{host}/free", data=body, headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        r.read()
+    time.sleep(FREE_SETTLES_S)
+    with urllib.request.urlopen(f"http://{host}/system_stats", timeout=5) as r:
+        v = json.loads(r.read())["devices"][0]
+    return f"the card after it, by the server's /system_stats (MiB): vram_free {round(v['vram_free'] / 2 ** 20)} of {round(v['vram_total'] / 2 ** 20)}"
+
+
 def cost_lines(host: str, prompt_id: str) -> list[str]:
     with urllib.request.urlopen(f"http://{host}/history/{prompt_id}", timeout=10) as r:
         entries = list(json.loads(r.read()).values())
@@ -497,6 +522,9 @@ class World:
 
     def costs(self, prompt_id: str) -> list[str]:
         return cost_lines(self.host, prompt_id)
+
+    def free(self) -> str:
+        return free_card(self.host)
 
     def voice(self, source_name: str) -> dict:
         import clip_analysis
@@ -572,6 +600,16 @@ def voice_for(ctx: dict, world) -> dict:
         raise Refused(f"the video's voice tables cover source frames {a}-{b} and the load is {first}-{last}: make the tables for these frames and name "
                       "them (`bench/clip_analysis.py voice`); a capture reads the voice on every frame of its load")
     return voice
+
+
+def free_for_a_pose_pass(world) -> None:
+    """Free the card before a pose pass and say so: the pass loads its own model in its own process, and the
+    server keeps a render's models resident. What it costs is said with it."""
+    print("\n--- the card is freed before the pose pass (POST /free: unload_models, free_memory)", flush=True)
+    if world.dry:
+        return
+    print(f"    {world.free()}\n    THE SERVER'S MODELS ARE UNLOADED: the next thing queued starts cold, and its wall time is the load of the models "
+          "as well as its own work", flush=True)
 
 
 def empty_queue(world, why: str) -> None:
@@ -795,7 +833,7 @@ def rendered_video(ctx: dict, world, r: Path) -> Path:
     return joined
 
 
-def step_land(ctx: dict, world, a) -> None:
+def step_land(ctx: dict, world, a) -> tuple[int, str] | None:
     name, cap, load, job = ctx["name"], ctx["capture"], ctx["load"], ctx["job"]
     store = a.model_store or os.environ.get(MODEL_STORE)
     if not store:
@@ -809,8 +847,12 @@ def step_land(ctx: dict, world, a) -> None:
     first, last = load["first"], load["first"] + load["frames"] - 1
     clip = world.output / REVIEW_CLIPS.format(video=video_of(ctx, world.data)) / f"{name}_{first:04d}_{last:04d}_stacked.mp4"
     points = cap / f"{name}_render_points.npz"
-    if clip.exists() or points.exists():
-        raise Refused(f"the stacked clip or the render's points exist ({clip.name}, {points.name}): this load is landed")
+    # LANDED is the render's points written. A stacked clip with no points beside it is a land whose pose pass did not
+    # finish: the step is run again and does the pose pass alone (until 2026-10-13 it was refused as landed, and the
+    # pass had to be run by hand).
+    if points.exists():
+        raise Refused(f"the render's points exist ({points.name}): this load is landed")
+    pose_alone = clip.exists()
     queued = ctx["job_folder"] / f"{name}.render.queued.json"
     if not queued.is_file():
         raise Refused(f"{queued} is not there: the render was not queued through the job tool")
@@ -818,16 +860,25 @@ def step_land(ctx: dict, world, a) -> None:
     manifest = json.loads((cap / "manifest.json").read_text())
     seen = next(s for s in manifest["subjects"] if s["label"] == ctx["subject"])["sightings"][0]
     box = cap / "subjects" / ctx["subject"] / f"track__{seen['by']}.mkv"      # the capture's own copy, whose frame 0 is the capture's first frame
-    world.run(ctx, "pose pass", tool(world, "pose_along_shot.py") + ["run", "--video", window, "--first", 0, "--count", load["frames"],
-                                                                     "--canvas", f"{job['canvas'][0]}x{job['canvas'][1]}", "--source-first", first,
-                                                                     "--box-mask", box, "--box-mask-first", manifest["first_frame"],
-                                                                     "--model-folder", model, "--out", points, "--by", a.by], stop=False)
+    free_for_a_pose_pass(world)
+    # the stack is made whether or not the pose pass finishes (a person needs the clip to see the render), and the step
+    # then ENDS ON THE PASS: until 2026-10-13 a pass that died left the step's status 0 and its last line plain
+    pose = world.run(ctx, "pose pass", tool(world, "pose_along_shot.py") + ["run", "--video", window, "--first", 0, "--count", load["frames"],
+                                                                            "--canvas", f"{job['canvas'][0]}x{job['canvas'][1]}", "--source-first", first,
+                                                                            "--box-mask", box, "--box-mask-first", manifest["first_frame"],
+                                                                            "--model-folder", model, "--out", points, "--by", a.by], stop=False)
+    failed = (POSE_PASS_FAILED, f"THE POSE PASS DID NOT FINISH (exit {pose}): THE RENDER'S POINTS ARE NOT WRITTEN AND THIS LOAD IS NOT LANDED. "
+              f"Its output is kept in the job folder's chain/. Run `land` again: with the stacked clip there it runs the pose pass alone") if pose else None
+    if pose_alone:
+        print(f"\n--- the stacked clip is there from a land whose pose pass did not finish ({clip.name}): only the pose pass was run", flush=True)
+        return failed
     # the render's frame 0 is the load's first frame, and it is SAID: the capture was made on the plan, before there was a
     # render, so no run of it names the file, and the stack then took the capture's first frame and printed NOT SAID
     stack = tool(world, "capture_masked_run.py") + ["video", cap, "--source", job["source"], "--render", r / f"{name}_00001.mp4", "--render-first", first]
     if load.get("motion_file"):
         stack += ["--motion", load["motion_file"]]
     world.run(ctx, "stack", stack + ["--still", f"{ctx['subject']}={still_of(ctx, world.inputs)}", "--out", clip])
+    return failed
 
 
 def step_page(ctx: dict, world, a) -> None:
@@ -867,6 +918,8 @@ def last_line(step: str, name: str, ended, now: str) -> tuple[int, str]:
     code, words = ended or (0, "")
     if not code:
         return 0, f"{step} of {name} ended {now}"
+    if step == "land":
+        return code, f"{step} of {name} ENDED {now} AND IS NOT GOOD: {words}. EXIT {code}."
     return code, (f"{step} of {name} ENDED {now} AND IS NOT GOOD: {words}. EXIT {code}. The capture and its strip are there to be read. "
                   + ("`plan` refuses this load as it stands." if step == "first" else "`render` refuses this load as it stands."))
 

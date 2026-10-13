@@ -92,6 +92,10 @@ class Machine:
     def card(self):
         return "a card line."
 
+    def free(self):
+        self.ran.append(("free the card", []))
+        return "the card after it: free."
+
     def costs(self, prompt_id):
         return [f"success True ({prompt_id})"]
 
@@ -663,7 +667,10 @@ def the_land_step() -> str:
             # one window: its own video, as ever, and the joined file's frames are not asked for
             m.frames = {}
             assert lc.rendered_video(made.ctx(), m, joined.parent) == windows / "ld_window_1.mp4"
-            lc.step_land(made.ctx(), m, a)
+            m.ran.clear()
+            assert lc.step_land(made.ctx(), m, a) is None, "a land whose pose pass and stack ran did not end clean"
+            # THE CARD IS FREED BEFORE THE POSE PASS, which runs beside the server in its own process
+            assert m.labels() == ["free the card", "pose pass", "stack"], m.labels()
             pose, stack = m.said("pose pass"), m.said("stack")
             assert stack[stack.index("--render-first") + 1] == "110", f"the stack is not told the render's first source frame: {stack}"
             assert pose[pose.index("--video") + 1] == str(windows / "ld_window_1.mp4"), pose
@@ -676,16 +683,36 @@ def the_land_step() -> str:
             m.ran.clear()
             lc.step_land(made.ctx(), m, args())
             assert m.said("pose pass")[m.said("pose pass").index("--model-folder") + 1] == str(store / "pose-model"), "the environment's store was not read"
+            # A POSE PASS THAT DID NOT FINISH IS A LAND THAT DID NOT HAPPEN. The stack is still made, so the render can be
+            # seen, and the step ends on the pass: its own exit status and the reason in capitals in its last line
+            m.ran.clear()
+            m.exits = {"pose pass": 1}
+            ended = lc.step_land(made.ctx(), m, a)
+            assert ended is not None and ended[0] == lc.POSE_PASS_FAILED and lc.POSE_PASS_FAILED not in (0, 5, lc.VERIFY_FAILED, lc.GATE_BLOCKED), ended
+            assert "THE POSE PASS DID NOT FINISH (exit 1)" in ended[1] and "THIS LOAD IS NOT LANDED" in ended[1] and m.labels() == ["free the card", "pose pass", "stack"], (ended, m.labels())
+            code, line = lc.last_line("land", "ld", ended, "NOW")
+            assert code == lc.POSE_PASS_FAILED and "land of ld ENDED NOW AND IS NOT GOOD" in line and f"EXIT {lc.POSE_PASS_FAILED}" in line and "`render` refuses" not in line, line
+            assert lc.last_line("land", "ld", None, "NOW") == (0, "land of ld ended NOW")
+            # the stacked clip is there and the points are not: `land` again runs the pose pass alone, and is not refused as landed
             clip.parent.mkdir(parents=True)
             clip.write_bytes(b"")
-            refused(lambda: lc.step_land(made.ctx(), m, a), "this load is landed")
+            m.ran.clear()
+            assert lc.step_land(made.ctx(), m, a)[0] == lc.POSE_PASS_FAILED and m.labels() == ["free the card", "pose pass"], m.labels()
+            m.ran.clear()
+            m.exits = {}
+            assert lc.step_land(made.ctx(), m, a) is None and m.labels() == ["free the card", "pose pass"], "a land run again for its pose pass made the stack again, or did not end clean"
+            # landed is the render's points written
+            (cap / "ld_render_points.npz").write_bytes(b"")
+            refused(lambda: lc.step_land(made.ctx(), m, a), "the render's points exist", "this load is landed")
         finally:
             lc.video_of = kept
             os.environ.pop(lc.MODEL_STORE, None)
             if env is not None:
                 os.environ[lc.MODEL_STORE] = env
-    return ("landing is refused without the pose model's store, on a queue that is not empty, with no window, with a second one, and when the clip "
-            "exists; the pose pass takes the capture's own track video and first frame, and the store from the flag or the environment")
+    return ("landing is refused without the pose model's store, on a queue that is not empty, with no window, with a second one, and when the render's "
+            "points exist; the card is freed before the pose pass; the pass takes the capture's own track video and first frame, and the store from the "
+            "flag or the environment; a pass that does not finish ends the step on its own exit status with the reason in capitals, the stack still made; "
+            "run again with the clip there, the step does the pass alone")
 
 
 def the_page_step() -> str:

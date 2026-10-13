@@ -674,6 +674,7 @@ def step_reference(a, world, figures=figures_of) -> None:
     canvas = f"{job['canvas'][0]}x{job['canvas'][1]}"
     if not world.dry:
         folder.mkdir(parents=True)
+    load_chain.free_for_a_pose_pass(world)
     world.run(ctx, "pose pass", [world.python, "bench/pose_along_shot.py", "run", "--video", job["source"], "--first", first, "--count", load["frames"], "--canvas", canvas,
                                  "--box-mask", files["track"], "--box-mask-first", ctx["preview"]["first"], "--model-folder", Path(store) / world.pose_model,
                                  "--out", points, "--by", a.by])
