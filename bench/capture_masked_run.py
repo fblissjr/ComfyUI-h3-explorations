@@ -320,6 +320,12 @@ NOT_SUBJECT = 0.5
 #: from the lane's own prompt texts; a heuristic, and `flag_text` prints the sentences it counted.
 VOICE_WORDS = ("sing", "voice", "vocal", "lip", "syllable", "speak", "talk", "mouth")
 DENIALS = ("not", "none", "never", "without", "no voice", "silent")
+#: A sentence that names a reference picture says what is taken from a still, never what is performed, and is not a
+#: voice sentence whatever its words. Measured 2026-10-13 on the lane's texts under `data/`: every sentence there
+#: that holds a voice word and names a picture is a retention line ("only the face is retained: her eyes,
+#: eyebrows, nose, mouth and skin; the hair ... of <Picture 1> are not used"), read until then as a voice denied,
+#: or, without its "not", as a voice performed; no sentence of a performance names a picture.
+REFERENCE_PICTURE = "<picture"
 #: One colour a subject, in the order subjects are given. Reasoned: told apart by hue at a glance, none of
 #: them the review's own red and cyan, so the two pictures are never confused.
 COLOURS = ((60, 220, 90), (255, 70, 220), (255, 170, 40), (70, 150, 255), (240, 240, 60), (120, 240, 240))
@@ -3168,11 +3174,14 @@ def flag_loads(manifest: dict, folder: Path, not_in: dict | None = None) -> list
 
 
 def voice_sentences(text: str) -> tuple[list[str], list[str]]:
-    """The sentences of a prompt that say a voice is performed, and those that deny one."""
+    """The sentences of a prompt that say a voice is performed, and those that deny one. A sentence that names a
+    reference picture is neither (`REFERENCE_PICTURE`)."""
     import re
     says, denies = [], []
     for sentence in re.split(r"(?<=[.!?])\s+|\n+", text):
         low = sentence.lower()
+        if REFERENCE_PICTURE in low:
+            continue
         if any(w in low for w in VOICE_WORDS):
             (denies if any(re.search(rf"\b{re.escape(d)}\b", low) for d in DENIALS) else says).append(sentence.strip())
     return says, denies

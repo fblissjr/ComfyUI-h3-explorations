@@ -1575,7 +1575,20 @@ def text_rules() -> str:
     assert cap.flag_text(denies, [[500, 600]], 100, 50) == [], "a denial was read as a voice sentence"
     over = cap.flag_text(denies, [[120, 130]], 100, 50)
     assert [f["rule"] for f in over] == ["voiced_frames_and_no_voice_sentence"] and over[0]["source_frames"] == [[120, 130]], over
-    return "a voice sentence over silence, a denial over a voice; neither the other way round"
+    # A sentence that names a reference picture says what is taken from a still, never what is performed (2026-10-13: the
+    # lead's retention line was read as a voice denied, and the same line with no "not" as a voice performed).
+    kept = ("<Subject 1> (appears in [Shot 1]): partially_preserved - only the girl's face is retained, wherever it shows: her eyes, eyebrows, "
+            "nose, mouth and skin; the hair, the clothing and the background of <Picture 1> are not used.")
+    kept_plain = "<Subject 1> (appears in [Shot 1]): partially_preserved - only the face is retained: the eyes, eyebrows, nose, mouth and skin of <Picture 1>."
+    for line in (kept, kept_plain):
+        assert cap.voice_sentences(line) == ([], []), f"a retention line was read as a voice sentence: {cap.voice_sentences(line)}"
+        assert cap.flag_text("She is in a room. " + line, [[500, 600]], 100, 50) == [], "a retention line over silence was flagged as naming a voice"
+        said = cap.flag_text("She is in a room. " + line, [[120, 130]], 100, 50)
+        assert [(f["rule"], f["level"]) for f in said] == [("voiced_frames_and_no_voice_sentence", cap.LEVELS[0])] and "says nothing of one" in said[0]["why"], said
+    # beside a real voice sentence, or a real denial, the retention line changes nothing
+    assert cap.flag_text(sings + " " + kept, [[120, 130]], 100, 50) == [] and cap.voice_sentences(denies + " " + kept)[1] == ["She does not speak or sing at any point."]
+    return ("a voice sentence over silence, a denial over a voice; neither the other way round; a sentence naming a reference picture is neither, "
+            "whatever its words")
 
 
 case("one subject's row", one_subject)
