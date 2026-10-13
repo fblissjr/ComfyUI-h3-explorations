@@ -394,7 +394,11 @@ owner's words in its terminal.*
   words on each are printed, and the lead's `--prefer` carries the other
   two grounds with the reason written. On that shot all three point the
   same way: the whole-shot piece is the later keep and is one piece for
-  one shot.
+  one shot. Their preference, said the same evening with the three pieces
+  of that shot measured side by side (the whole-shot piece a little softer
+  inside the region than the half; its step across the frame where the
+  half begins about the original's own, the half's two to three times
+  that): a whole shot wins over creating a seam.
 
 ## 2026-10-12
 
