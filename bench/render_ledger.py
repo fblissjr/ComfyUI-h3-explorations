@@ -653,7 +653,8 @@ def page(out: dict, made: str, table: str | None) -> str:
 
 def summary(out: dict, made: str) -> str:
     """The counts a shot and a subject, with no path of a private folder and none of the owner's words: what a
-    tracked record can hold. The page beside the JSON is the ledger; this says where it is and what it counted."""
+    tracked record can hold. The page beside the JSON is the ledger; this says where it is and what it counted.
+    `made` is printed as given, so the caller hands in a line with no path of the machine (`main` does)."""
     lines = ["| frames | subject | renders | " + " | ".join(MAKING) + " | laid in the table | with a line of the owner's |", "|" + "---|" * (len(MAKING) + 5)]
     for s in out["sections"]:
         rs = [out["renders"][f] for f in s["renders"]]
@@ -706,7 +707,12 @@ def main() -> int:
     Path(a.json).write_text(json.dumps(out, indent=1, ensure_ascii=False) + "\n")
     Path(a.md).write_text(page(out, made, a.table))
     if a.summary:
-        Path(a.summary).write_text(summary(out, made))
+        # what a tracked record can hold: no path of the machine (the share's root, a records folder given by its
+        # whole path), so the inputs are named by what they are and the page beside the JSON has where they were
+        Path(a.summary).write_text(summary(out, f"Made {made.split(' ')[1]} at commit {commit} by `bench/render_ledger.py` from the share's output "
+                                                f"root, the job tool's records, the video's shots and plan files, the copies {', '.join(sources)}"
+                                                + (", a delivery table" if a.table else "") + (", the owner's lines" if a.verdicts or a.answers else "")
+                                                + f". Where each was read from is on the page beside `{Path(a.json).name}`, which is not tracked."))
     c = out["counts"]
     print(f"{c['renders']} renders of this video: " + ", ".join(f"{m}: {c[m]}" for m in MAKING) + f"; laid in the table: {c['laid_in_the_table']}")
     print(f"sections (a shot and a subject): {len(out['sections'])}; not placed: " + ", ".join(
