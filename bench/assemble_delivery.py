@@ -744,6 +744,19 @@ class Captures:
                                        "state": (x.get("subject") or {}).get("state")} for x in table.get("shots", [])]})
         return out
 
+    def people(self) -> list[str]:
+        """The labels that are a PERSON, as against a keep-out: a subject with a part model's class map in some capture
+        given; or every label, when none has one. The capture tool's own rule for who can own a pixel
+        (`bench/capture_masked_run.py`: a kept-out mask given as a subject is a union of things and owns nothing)."""
+        labels, mapped = [], []
+        for folder, m in self.folders:
+            for s in m["subjects"]:
+                if s["label"] not in labels:
+                    labels.append(s["label"])
+                if s["label"] not in mapped and (folder / "subjects" / s["dir"] / f"classes__{s['sightings'][0]['by']}.npz").is_file():
+                    mapped.append(s["label"])
+        return mapped or labels
+
     def owned(self, label, frame, prefer=None):
         """The pixels a subject OWNS on a source frame by a capture's `owners.npz`, or None where no capture given
         holds an owner map that lists the subject and covers the frame.
@@ -1615,7 +1628,15 @@ def luma_at_canvas(path, w, h):
 
 
 class Subjects:
-    """What the delivered file did to each subject a capture knows: its pixels more than `OFF` from the source."""
+    """What the delivered file did to each subject a capture knows: its pixels more than `OFF` from the source.
+
+    `claimed_by_more_than_one_track` counts the pixels TWO PEOPLE's tracks both hold (`Captures.people`). Until
+    2026-10-13 it counted any two tracks, and a keep-out is a track of things ON a person (their clothes, their
+    hands, what they hold), so it overlaps that person's own track by design. Measured that day by recounting two
+    builds of one stretch from the captures each read: of 30,391,953 px in two or more tracks, 30,153,677 were one
+    person and a keep-out and 238,276 two people; the build of the day before, whose captures had one keep-out
+    label where these had four, read 15,077,070, 14,864,427 and 212,643. The figure had doubled between the days
+    and the two people's part of it had not moved. A person and a keep-out are now counted beside it, by name."""
 
     def __init__(self, captures):
         self.captures = captures
@@ -1624,7 +1645,9 @@ class Subjects:
             self.labels += [s["label"] for s in m["subjects"] if s["label"] not in self.labels]
         self.rows = {label: {"frames": 0, "tracked_px": 0, "tracked_off": 0, "owned_px": 0, "owned_off": 0, "classes": {}}
                      for label in self.labels}
+        self.people = captures.people()
         self.shared = {"px": 0, "off": 0, "settled_px": 0, "contested_px": 0, "frames": 0, "most": [0, None]}
+        self.by_design = {"px": 0, "off": 0, "frames": 0}      # a person's track and a keep-out's, which lie on one another by design
         self.floor = [0, 0]
 
     def add(self, frame, delivered, fitted, changed_):
@@ -1652,7 +1675,13 @@ class Subjects:
                     t[2] += int((m & ~track).sum()); t[3] += int((off & m & ~track).sum())
         if tracks:
             claims = np.sum(list(tracks.values()), axis=0)
-            both = claims > 1
+            persons = {label: t for label, t in tracks.items() if label in self.people}
+            both = np.sum(list(persons.values()), axis=0) > 1 if persons else np.zeros_like(off)
+            beside = (claims > 1) & ~both
+            if beside.any():
+                self.by_design["px"] += int(beside.sum())
+                self.by_design["off"] += int((off & beside).sum())
+                self.by_design["frames"] += 1
             if both.any():
                 px = int(both.sum())
                 self.shared["px"] += px
@@ -1660,7 +1689,7 @@ class Subjects:
                 self.shared["frames"] += 1
                 if px > self.shared["most"][0]:
                     self.shared["most"] = [px, frame]
-                owned = [self.captures.owned(label, frame) for label in tracks]
+                owned = [self.captures.owned(label, frame) for label in persons]
                 if all(o is not None for o in owned):
                     settled = int((both & np.any(owned, axis=0)).sum())
                     self.shared["settled_px"] += settled
@@ -1683,11 +1712,17 @@ class Subjects:
                           "by_class": {names[c]: {"px_in_its_track": t[0], "off_pct_in_its_track": share(t[1], t[0]),
                                                   "px_outside_its_track": t[2], "off_pct_outside_its_track": share(t[3], t[2])}
                                        for c, t in sorted(r["classes"].items())}}
-        s = self.shared
+        s, d = self.shared, self.by_design
         return {"off_over_levels": OFF, "floor_off_pct": share(self.floor[1], self.floor[0]), "subjects": out,
                 "claimed_by_more_than_one_track": {"px": s["px"], "off_pct": share(s["off"], s["px"]), "frames": s["frames"],
                                                    "most_px_on_a_frame": s["most"], "settled_by_an_owner_map_px": s["settled_px"],
-                                                   "left_contested_px": s["contested_px"]}}
+                                                   "left_contested_px": s["contested_px"],
+                                                   "counted_between": self.people,
+                                                   "what": "pixels two PEOPLE's tracks both hold; a keep-out is not a person"},
+                "a_person_and_a_keep_out_by_design": {"px": d["px"], "off_pct": share(d["off"], d["px"]), "frames": d["frames"],
+                                                      "keep_outs": [label for label in self.labels if label not in self.people],
+                                                      "what": "pixels in a person's track and a keep-out's and in no second person's: a keep-out "
+                                                              "is a track of things on a person, so these lie on one another by design"}}
 
 
 def compare(a_path, b_path):
@@ -1715,6 +1750,10 @@ def compare(a_path, b_path):
             print(f"      {name:16s} in its track ({ca.get('px_in_its_track', cb.get('px_in_its_track'))} px) {cell(ca.get('off_pct_in_its_track'))} -> {cell(cb.get('off_pct_in_its_track'))}"
                   f"   outside it ({ca.get('px_outside_its_track', cb.get('px_outside_its_track'))} px) {cell(ca.get('off_pct_outside_its_track'))} -> {cell(cb.get('off_pct_outside_its_track'))}")
     ca, cb = sa["claimed_by_more_than_one_track"], sb["claimed_by_more_than_one_track"]
+    for which, c in (("A", ca), ("B", cb)):
+        if "counted_between" not in c:
+            print(f"  ({which} was written before 2026-10-13: its count is of ANY two tracks, a person's and a keep-out's among them, "
+                  "and is not the same figure as one counted between people)")
     print(f"  claimed by more than one track: {ca['px']} px on {ca['frames']} frames (most {ca['most_px_on_a_frame']}), "
           f"{cell(ca['off_pct'])} -> {cell(cb['off_pct'])}; an owner map settled {cb['settled_by_an_owner_map_px']} and left {cb['left_contested_px']} contested")
     fa, fb = ([f"{f['rule']} {f['source_frames'][:6]}" for f in r["flags"]] for r in (a, b))

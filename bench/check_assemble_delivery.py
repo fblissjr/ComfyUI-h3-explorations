@@ -802,6 +802,32 @@ with tempfile.TemporaryDirectory() as _tmp:
         assert 40 <= before <= 60 and after < 2, line
         return f"b's tracked mask {got['table_plain']['subjects']['b']['tracked_off_pct']:.1f}% off the source, {back['tracked_off_pct']:.1f}% with the restore; the floor {got['table_plain']['floor_off_pct']}%"
 
+    def two_people_and_a_keep_out() -> str:
+        """`claimed_by_more_than_one_track` is of two PEOPLE; a person's track under a keep-out of theirs is by design."""
+        a, b = mask_of((40, 40, 100, 120), 4), mask_of((90, 40, 150, 120), 4)        # two people, 10 columns of 80 rows in common
+        clothes = mask_of((40, 80, 100, 120), 4)                                         # a keep-out on a: the lower half of a
+        cmap = np.zeros((4, H, W), np.uint8)
+        cmap[a] = 4
+        folder = capture(TMP / "cap_people", 10, 4, {"a": a, "b": b, "clothes": clothes}, [], {"a": cmap, "b": cmap})
+        caps = tool.Captures([folder], (W, H))
+        assert caps.people() == ["a", "b"], caps.people()
+        tally = tool.Subjects(caps)
+        flat = np.zeros((H, W), np.float32)
+        for f in range(10, 14):
+            tally.add(f, flat, flat, np.zeros((H, W), bool))
+        got = tally.report()
+        two, beside = got["claimed_by_more_than_one_track"], got["a_person_and_a_keep_out_by_design"]
+        assert two["px"] == 4 * 10 * 80 and two["frames"] == 4 and two["counted_between"] == ["a", "b"], two
+        # clothes on a: 60 by 40, of which the 10 columns b also holds are already two people's
+        assert beside["px"] == 4 * 50 * 40 and beside["keep_outs"] == ["clothes"] and beside["frames"] == 4, beside
+        assert set(got["subjects"]) == {"a", "b", "clothes"}, "a keep-out lost its own row of the table"
+        # with no class map anywhere nothing says who is a person, and every label is counted as one, as before
+        bare = capture(TMP / "cap_no_maps", 10, 4, {"a": a, "clothes": clothes}, [])
+        plain = tool.Subjects(tool.Captures([bare], (W, H)))
+        plain.add(10, flat, flat, np.zeros((H, W), bool))
+        assert plain.report()["claimed_by_more_than_one_track"]["px"] == 60 * 40 and plain.report()["a_person_and_a_keep_out_by_design"]["px"] == 0
+        return f"two people share {two['px']} px; a person under their own keep-out, {beside['px']} px, is counted beside it and not in it"
+
     def a_patch_as_a_later_row() -> str:
         hole = (18, 24)
         redo = (60, 60, 96, 110)                           # inside RECT_A: what the patch draws again
@@ -1238,6 +1264,7 @@ with tempfile.TemporaryDirectory() as _tmp:
     case("a piece that spills over a cut", spill_over_a_cut)
     case("whose a pixel is, from the owner map", by_the_owner_map)
     case("what the record says the file did to a subject", the_subjects_table)
+    case("two people's tracks, and a person's under a keep-out", two_people_and_a_keep_out)
     case("a patch as a later row", a_patch_as_a_later_row)
     case("a patch as a later row, with a capture", a_patch_with_a_capture)
     case("a locked file is not built over", a_locked_file)

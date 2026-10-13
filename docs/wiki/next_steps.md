@@ -470,24 +470,18 @@ fixed the same day, said inline below.**
     folder's `<load>.plan.json`), graded at the load's own frame count.
     Until then a masked text's form is held by a reader, and the
     command's FAIL on such a text says nothing about the text.
-- **A delivery record's `claimed_by_more_than_one_track` is not traced**
-  (2026-10-13). The two builds of that day from the generated table give
-  the same figure, and it is larger than the typed table's of 2026-10-12
-  on more frames; the three records hold them
-  (`<clip>.mp4.check.json`, `subjects.claimed_by_more_than_one_track`:
-  the 12th's `fun_0000_1919_joined_2026-10-12`, the 13th's
-  `NOT_PLACED_fun_0000_1919_generated_2026-10-13` and the throwaway
-  before it). It is a figure about the captures' tracks, not about the
-  pieces: no build of the 13th has a pixel two pieces changed. Where to
-  start, a guess and nothing more: the frame the record names as the
-  worst is in a cutaway whose capture lists the second subject beside
-  `held`, `hands` and `clothes`, keep-outs that are tracks of things on
-  the same person, and the record's subjects that day include
-  `keepout`, `held`, `hands` and `clothes`, which the 12th's did not.
-  If a keep-out's track is counted against its own subject's, the
-  figure counts an overlap that is there by design; `Subjects.add` in
-  `bench/assemble_delivery.py` is where it is counted. Not looked at:
-  whether that is what happens.
+- **A delivery record's `claimed_by_more_than_one_track` is of two
+  people** (2026-10-13, traced and closed the same day). It counted any
+  two tracks, and a keep-out is a track of things on a person, lying on
+  that person's own track by design; the 13th's captures carry four
+  keep-out labels on the second subject where the 12th's had one, which
+  is all of the rise between the two days' records. It is now counted
+  between people (`Captures.people`: a subject with a class map), with
+  a person and a keep-out counted beside it by name
+  (`a_person_and_a_keep_out_by_design`). The recount of both days is in
+  `Subjects`' own words in `bench/assemble_delivery.py`. A record
+  written before the change holds the old figure under the same key,
+  and `--compare` says so of it.
 - **The four reds of the green-and-red census are cut** (the owner, row
   z08, 2026-10-12 15:52:12Z): `check_correctness`'s bar, `check_sol_chunked`'s
   cosine and peak, `check_channel_balance`'s fragile-selection red,
