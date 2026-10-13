@@ -400,6 +400,64 @@ owner's words in its terminal.*
   half begins about the original's own, the half's two to three times
   that): a whole shot wins over creating a seam.
 
+- **On the lead's zoomed loads the capture reads her part with
+  `pieces=largest` from the start** (the lead, mrtower, 2026-10-13, about
+  20:22Z, after the plan looks of the first four inset loads). What
+  prompted it: every one of those looks said the same two things, that her
+  face is one piece and is never divided, and that every piece away from
+  it is not her face; and the first loads through the chain, which set no
+  `pieces`, had put a margin on another subject's arm where specks of the
+  part lay (`lead_fp_1424b`, its forced look under
+  `data/2026-10-13_lead_fp_1424b/`). So a remake after a look was being
+  spent on a thing the look always found. What it covers: the lead's loads
+  rendered zoomed in (the phone and oval insets, the small-face shots);
+  every other forcing flag still forces a look. What it does not cover:
+  her plain single-window loads, which keep the flag as it is for now, and
+  the other two subjects. Where it lives: the
+  plan's `pieces` and `pieces_by` for the subject
+  (`bench/shot_to_load.py::PIECES`), the `pieces_by` naming this ruling;
+  the tool still sets it for nobody. The guard, a practice of the maker
+  and not built into the chain: the capture's `files` step prints what the
+  setting takes away a frame at a time, and where that is half the kept
+  piece or more on any frame the maker stops and a look is owed. Half is a
+  starting value from four loads of one clip, reasoned and not measured
+  against a render.
+- **The shots record was wrong at five places, and what a shot's frames
+  are is now mended by one tool** (the lead on a blind reader's look at
+  the frames, and the owner's clicks where who is in a half had to be
+  answered, 2026-10-13, from about 21:20Z). One boundary of the record was
+  not a cut (the frame where the short working copy of `fun.mp4` ends, in
+  the middle of an inset shot); three cuts were missing (a wipe that
+  uncovers the lead, a cut from a crowd to a kitchen, a cut inside the
+  last shot); one sat two frames before the plain cut. What prompted it: a
+  trial of the whole-video joined clip failed its own verdict at two
+  boundaries, and the look that followed
+  (`data/fun/cuts_look_2026-10-13/reading.md`, the frames either side of
+  each boundary) found the record, not the clip, at fault at one of them.
+  What it used to claim: the record's shots were taken as cuts by every
+  tool that reads it, and the tracker's cuts inside a long shot as shot
+  changes; most of the tracker's cuts in the last shot were a head going
+  down or an arm across the lens. Mended with `bench/shots_record.py`
+  (`merge`, `split`, `move`, `answer`; a copy of the record before each),
+  never by hand, each mend carrying its reason in the shot's note; where a
+  split left a half nobody had answered on, the owner's answer was asked
+  on the who-is-who page and read in from their own lines. Not done when
+  this was written: the previews of three of the mended shots seeded from
+  those answers; and nobody has looked at the frames between the reader's
+  sheets.
+- **Why a short shot in its own window is no loss: the owner's account,
+  theirs and not measured here** (the owner, 2026-10-13, in the lead's
+  terminal, the same evening). H3 does well with shots because it expects
+  several inside its longest length, and each new shot breaks up the drift
+  a long take decays into. It is written out, with what was and was not
+  measured that day, in [`masked_v2v.md`](masked_v2v.md), "Two
+  neighbouring shots in one load: a tool, not a default". With it, their
+  words on where a window begins and ends: a shorter window makes more
+  sense unless the context before it is needed, and the sound is not to be
+  cut in the middle of a sung line or a beat of the vocal. No rule came of
+  that at their word; it is data to have in front of whoever sets a
+  window's edges ([`window_edges_data.md`](window_edges_data.md)).
+
 ## 2026-10-12
 
 *Written by the afternoon's lead session (mrfern) from the operative files
