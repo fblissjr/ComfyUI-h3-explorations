@@ -488,6 +488,18 @@ fixed the same day, said inline below.**
   not a fix made beside running loads. The small way: the strip's label
   says "N of these frames" where a span holds more than the flag counts.
   Not started.
+- **A who picture does not say how much of its box a person fills**
+  (2026-10-13, from the cut-by-cut page of 5935-6394, frame 6360). A thin
+  detection's box lay inside another person's, and on the numbered
+  picture the owner could not tell alone whose a number was; the lead
+  read it with them. The page already puts each number on ground its own
+  box owns (`bench/who_page.py`, the smallest box owns a point), which
+  does not help when the picture inside the box is mostly somebody else.
+  Wanted, one of two, a person's choice: the picture says for each
+  number how much of its box its own mask fills, or a box whose mask
+  fills little of it is left off the picture and listed under it. The
+  masks are in the preview's saved tables' files; nothing new is tracked.
+  Not started.
 - **A zoomed load's part floor is counted at the canvas, not at the size
   the load renders at** (2026-10-13, from the holder of the card on
   `lead_fp_1802`, a load the node enlarges). The capture empties a part
