@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 122 |
+| [`check_*`](#check) | 123 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 159 |
+| [the rest](#the-rest) | 160 |
 
 ## check
 
@@ -41,6 +41,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_clone_v_wiring.py`](check_clone_v_wiring.py) | Check that `clone_v` reaches the forward, and only on modes that earn it. |
 | [`check_conditioning_behaviour.py`](check_conditioning_behaviour.py) | Does `MiniMaxH3Conditioning` still do the things it exists to do? |
 | [`check_contact_sheets.py`](check_contact_sheets.py) | `bench/contact_sheets.py` against a clip made for the purpose: the folder, the names, the tiles, and no second set. |
+| [`check_copy_sound.py`](check_copy_sound.py) | A copy's sound against its source's (`bench/copy_sound.py`) on made sound whose answer is known. |
 | [`check_core_sparse_capture.py`](check_core_sparse_capture.py) | `core_sparse_capture.py` records core's sparse path and changes nothing. |
 | [`check_correctness.py`](check_correctness.py) | Check the patched MiniMax H3 forward against the stock one. |
 | [`check_crop_reference_to_head.py`](check_crop_reference_to_head.py) | `bench/crop_reference_to_head.py` against a reference video whose every frame says where its face is, read from the VIDEO IT WROTE. |
@@ -344,6 +345,7 @@ this file is only a way to find a script by what it says it does.
 | [`convert_sam3_checkpoint.py`](convert_sam3_checkpoint.py) | Repack Meta's SAM 3 / SAM 3.1 checkpoint as a safetensors file core loads, changing no weight. |
 | [`convert_sam3d_body_checkpoint.py`](convert_sam3d_body_checkpoint.py) | Repack Meta's SAM 3D Body checkpoint and its MHR rig as the one safetensors file core loads, from the originals. |
 | [`convert_sam3d_body_vith_checkpoint.py`](convert_sam3d_body_vith_checkpoint.py) | Repack Meta's ViT-H SAM 3D Body checkpoint and its MHR rig as the one safetensors file this pack's loader reads. |
+| [`copy_sound.py`](copy_sound.py) | A working copy's sound against its source's, at the time the copy's picture says it is: is the sound in step. |
 | [`count_packed_rows.py`](count_packed_rows.py) | Exact packed-sequence rows, per segment, from the real `PackedLayout`. |
 | [`crop_reference_to_head.py`](crop_reference_to_head.py) | Cut a reference video to ONE box round a shot's head and scale it back up to the canvas. |
 | [`decode_draft_keepers.py`](decode_draft_keepers.py) | Give draft renders their real decode, from the latents the drafts saved. |
@@ -606,7 +608,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-217 tracked files: [`results/INDEX.md`](results/INDEX.md).
+218 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 

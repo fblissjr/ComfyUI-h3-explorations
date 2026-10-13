@@ -16,6 +16,7 @@ replaces `docs/evidence.md`, which says what the records established.
 
 | date | lane | record | verdict |
 |---|---|---|---|
+| 2026-10-13 | working | [A working copy's sound against its picture: the copy made without the stretch, and the one that replaces it](2026-10-13_working_copy_sound_against_its_picture.md) |  |
 | 2026-10-13 | fun | [Every render of the fun clip on the share, and how each was made: the ledger's first record](2026-10-13_fun_render_ledger.md) |  |
 | 2026-10-12 | masked video to video | [The masked lane's page held to the clips and files it names](2026-10-12_masked_v2v_page_held_to_its_clips.md) | no render. Every clip, strip, sheet and data file `docs/wiki/masked_v2v.md` names was opened and its sentence held to it; the pictures hold, and the sentences that had lost to a file, to the code or to a saved graph are corrected in the page: the rows that say "does not hold", and the second table. |
 | 2026-10-12 | green | [Green and red: a census of what goes red in this repo, and on what kind of failure](2026-10-12_green_red_census.md) |  |
