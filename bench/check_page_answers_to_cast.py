@@ -220,8 +220,12 @@ def main() -> int:
              r.stdout + r.stderr + json.dumps(cast_lines(p7)) + json.dumps(who(p7, 2000, "second")))
         case("the_latest_plain_click_stands", who(p7, 2000, "lead")["how"] == "frame 2050 (the source itself): on this frame, not outlined",
              json.dumps(who(p7, 2000, "lead")))
+        # the frames as fields beside the prose: marked ON by a click is in `frames_on`; marked not on is not
+        case("a_frame_marked_on_is_a_field", who(p7, 2000, "lead")["frames_on"] == [2050] and who(p7, 2000, "lead")["frames_boxed"] == []
+             and who(p7, 2000, "second")["frames_on"] == [], json.dumps(who(p7, 2000, "lead")) + json.dumps(who(p7, 2000, "second")))
         case("a_subject_on_any_answered_frame_is_yes", who(p7, 2100, "lead") == {
             "present": "yes", "how": "frame 2150 (the source itself): on this frame, not outlined; frame 2250 (the source itself): not on this frame",
+            "frames_on": [2150], "frames_boxed": [],
             "by": "owner, on the who page at 2026-10-12T10:00:05Z (answers.jsonl lines 4-5), entered by page_answers_to_cast"},
             json.dumps(who(p7, 2100, "lead")))
         case("a_subject_not_answered_is_left", who(p7, 2100, "second") == {"present": "unsure", "how": "nobody has looked", "by": "nobody"},
@@ -276,6 +280,8 @@ def main() -> int:
         case("a_standing_box_in_the_shot_makes_it_yes", r.returncode == 0 and lead10["present"] == "yes"
              and lead10["how"] == "frame 1050 (the source itself): not on this frame; frame 1010: a box in the cast file (pv_lead_shots_00001_shots.json)"
              and who(p10, 1000, "second")["present"] == "no" and len(cast_lines(p10)) == 2, r.stdout + r.stderr + json.dumps(lead10))
+        # the frames as fields: marked ON by a click, and boxed in the cast file; a frame marked not-on is in neither
+        case("a_boxed_frame_is_a_field_and_a_frame_marked_not_on_is_in_neither", (lead10["frames_on"], lead10["frames_boxed"]) == ([], [1010]), json.dumps(lead10))
 
         f11 = Path(tempfile.mkdtemp(dir=d))
         p11 = setup(f11, [plain(1, 2050, "lead", "not outlined")])

@@ -240,7 +240,10 @@ def shot_entries(shot: dict, plains: list[dict], standing: dict, name: str) -> d
         how = "; ".join(f"frame {f} (the source itself): {v['label']}" for f, v in frames)
         how += "".join(f"; frame {f}: a box in the cast file ({standing[(subject, f)]['table']})" for f in boxes)
         lines = [v["line"] for _, v in frames]
+        # the frames themselves, as fields beside the prose (2026-10-13): a tool that needs a frame the subject was marked
+        # ON reads `frames_on`, never a sentence of `how`
         out[subject] = {"present": "yes" if boxes or any(v["present"] == "yes" for _, v in frames) else "no", "how": how,
+                        "frames_on": [f for f, v in frames if v["present"] == "yes"], "frames_boxed": boxes,
                         "by": f"owner, on the who page at {max(v['at'] for _, v in frames)} ({name} lines {min(lines)}-{max(lines)}), {ENTERED}"}
     return out
 
