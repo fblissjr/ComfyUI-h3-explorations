@@ -552,17 +552,26 @@ fixed the same day, said inline below.**
   commit made inside the copy. Wanted: the copy carries enough of a
   repository for a check that asks for HEAD, or the check takes the
   commit from its caller. Not started.
-- **The first real run of the sound's signals wants three looks**
-  (2026-10-13, `bench/clip_signals.py`, from its throwaway run on
-  `fun.mp4`). The tempo it settles on is half of what two of its own
-  stretches give, and its strongest unweighted candidates sit either
-  side of the doubled tempo and not on it; several phrases are a whole
-  voiced run long, the line being a level and the singing unbroken; and
-  all three copies give no offset at all, where a session of 2026-10-10
-  noted the source's sound starting a part of a frame early. Each is
-  what the method's own record says it cannot see; whether a finer beat
-  level and a phrase cut by the fall of the level against its own
-  neighbourhood are wanted is for whoever reads that run. Not started.
+- **The voice table's level is the two channels' mean** (2026-10-13,
+  from the blind reader of `bench/clip_signals.py`'s first run).
+  `bench/voice_spans.py` reads each stem as the mean of its two
+  channels, and its line and its voiced runs are on that scale. Where
+  the channels differ the mean reads low: on `fun.mp4` the power of
+  both channels is above it by the figures in the reader's file
+  (`reader_first_run/reading.md` in the clip's audio folder, section
+  2). The signals tool now reads the power of both channels and says
+  in its record that the voice table does not. NOT CHANGED, on the
+  lead's word: every load's text leans on the table's `voiced` column,
+  so the table is made again only with a read of which frames change
+  sides and which texts that touches. Wanted: that read, then the
+  table by the power of both channels with its line set again on the
+  new scale. Not started.
+- **A phrase break by the fall of the level, not by a line**
+  (2026-10-13). What `clip_signals.py phrases` does not build and its
+  page says so (`window_edges_data.md`, "Not built, and written
+  down"): a break where the level falls a set depth under the sung
+  level round it. The depth and the length are a setting for the
+  owner's ear. Not started.
 - **Of several boxes in one cut, the seed is the one clicked last**
   (2026-10-13, from the preview of 6105-6394, where it was a frame inside
   a fade to black). `bench/cast_file.py::seeds` gives a cut one seed and,

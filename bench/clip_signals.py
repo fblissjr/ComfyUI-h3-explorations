@@ -28,19 +28,31 @@ say is EMPTY, never zero.
 has it, in seconds and in the copy's frames. Read with PyAV. It cannot see what is HEARD: an encoder's priming
 samples sit in the first packet's time and are not sound, and an edit list can hide them from a player.
 
-**phrases.** The vocals stem's level at `STEPS` steps a frame, where the voice table has one. Inside each voiced
-run of `voice_spans.json`, every stretch under that table's own line is a GAP, listed with its length and its
-deepest level; a gap of `BREAK` steps or more is a phrase break, and the stretches between breaks are the
-phrases. It cannot see: a break sung through with no drop in level; a held note from a new phrase; whose voice
-it is, or a backing voice (the stem holds every voice); a breath the separation put in the other stem.
+**phrases.** The vocals stem's level at `STEPS` steps a frame, where the voice table has one. THE LEVEL IS THE
+POWER OF BOTH CHANNELS, not of their mean: where the two channels differ their mean reads low, and on the first
+real run ten of thirty-five breaks hung on that (a reader's finding, 2026-10-13). The voice table's own level IS
+of the mean, and its line was set on that scale; the record says so. Inside each voiced run of
+`voice_spans.json`, every stretch under that table's line is a GAP, listed with its length and its deepest
+level; a gap of `BREAK` steps or more is a phrase break, and the stretches between breaks are the phrases. It
+cannot see: a break sung through with no drop in level; a held note from a new phrase; whose voice it is, or a
+backing voice (the stem holds every voice); a breath the separation put in the other stem. NOT BUILT: a break
+found by the fall of the level against the sung level round it, which is how a reader found, by hand, the dips
+this line passes over; how deep and how long such a fall has to be is a setting for the owner's ear.
 
 **beats.** From the rest stem: an onset curve (the rise of the spectrum from one short step to the next), a
 tempo from that curve's likeness to itself a beat later, and a grid laid by the tracker of Ellis (2007), which
 walks the curve keeping beats near one period apart. Beside the grid: the tempo, the three strongest tempo
 candidates (a tempo and its double or half are the same music to this method), how much stronger the curve is on
 the beats than off them, and the tempo found in each stretch of `LOCAL_SECONDS`, so a track whose tempo moves
-shows as a spread and the one grid is read as the poor fit it is. NO DOWNBEAT is claimed: for each of the four
-ways of counting the beats in fours the record gives the low band's level on that count, a figure and no more.
+shows as a spread and the one grid is read as the poor fit it is. A beat's time and the per-frame onset column
+are on ONE clock (the middle of the tracker's window). Each beat keeps its own strength, as it is and against the
+middle beat's, and the frames since the beat before; the record says where the STEADY RUN of beats begins and
+ends, since the tracker lays beats before a pulse starts and after it stops, on single sounds or on nothing.
+Where the curve is as like itself two beats on, the record says every other beat may be the pulse and gives the
+beats' strength on each of the two ways of taking them. Where the curve is also like itself at about HALF the
+period, the place half-way between each pair of beats is written beside the grid with the curve's strength there: a hit of another band can sit there (on the first real
+run a low hit sat half-way between every pair of beats). It is a place half-way, never called a beat: which of
+the two a listener counts is not something these figures can say. NO DOWNBEAT and no count in fours is given.
 With `--shots` the record's cuts are printed against the grid once, with what cuts placed by chance would give.
 It cannot see: a tempo that drifts or changes (one fit); a bar's first beat; music with no steady pulse.
 
@@ -48,7 +60,9 @@ It cannot see: a tempo that drifts or changes (one fit); a bar's first beat; mus
 in and the frames from that phrase's start and to its end; the nearest beat before and after; for the first
 frame, how many frames earlier the load would begin on the phrase's start and on the beat before, and whether
 that frame is inside the same shot (`--shots`); for the last frame, the same looking forward, since the frames
-after a load's end are held open. A reader's print: summaries are never stored.
+after a load's end are held open. Then what lies INSIDE the load, between its two edges: every phrase that starts
+or ends there, every beat and every half-way place, each with its place counted from the load's first frame. A
+reader's print: summaries are never stored.
 
 The settings' checks are `bench/check_clip_signals.py`, on made sound.
 """
@@ -82,20 +96,30 @@ BEAT_RATE, WINDOW, HOP = 22050, 1024, 256
 TEMPO_RANGE, TEMPO_CENTER, TEMPO_OCTAVES = (50.0, 220.0), 120.0, 1.0
 #: How hard the tracker holds beats to one period apart. Inherited: Ellis 2007's own value.
 TIGHTNESS = 100.0
+#: The seconds from a step of the onset curve to the middle of the window it is the rise into: the one clock of
+#: a beat's time and of the per-frame onset column. Derived from the window.
+HALF_WINDOW = (WINDOW / 2) / BEAT_RATE
 #: The stretch a local tempo is read in, and its step. Reasoned: long enough to hold a dozen beats at the slowest
 #: tempo looked for, short enough that a tempo moving over a minute shows.
 LOCAL_SECONDS, LOCAL_STEP = 16.0, 8.0
-#: The low band whose level is given for each way of counting in fours, in Hz. Reasoned: a kick drum and a bass
-#: note sit under it; nothing was measured on a track to set it.
-LOW_HZ = 150.0
+#: A tempo candidate this near twice the tempo, as a share of it, is taken as "the curve is also like itself at
+#: half the period", and the half-way places are then written. Reasoned: one step of the curve's own lag near
+#: 120 a minute is about a fortieth of the period, and the candidates of a split peak sit a step either side.
+NEAR = 0.05
+#: The steady run: beats whose gap to the beat before is within this share of the middle gap, and whose own
+#: strength is at least this share of the middle beat's. STARTING VALUES from one reading of one track
+#: (2026-10-13): inside the pulse the gaps moved by about a thirtieth and before it by a tenth and more; two beats
+#: laid on silence had a twentieth and a tenth of a strong onset. The figures themselves are in every row.
+STEADY_GAP, STEADY_STRENGTH = 0.08, 0.25
 
 CANNOT = {
     "offset": "what is heard: an encoder's priming samples sit in the first packet's time and are not sound, and an edit list can hide them from a player; "
-              "a drift later in the file (this is the start only)",
+              "a drift later in the file (this is the start only). A note of 2026-10-10 that a source's sound starts a part of a frame before its picture is "
+              "therefore neither confirmed nor refuted by a figure of zero here",
     "phrases": "a break sung through with no drop in level; a held note from a new phrase; whose voice it is, or a backing voice (the stem holds every voice); "
                "a breath the separation put in the other stem",
-    "beats": "a tempo that drifts or changes (the grid is one fit; the local tempos show it and do not mend it); a bar's first beat (no downbeat is claimed); "
-             "music with no steady pulse; a tempo from its double or its half",
+    "beats": "a tempo that drifts or changes (the grid is one fit; the local tempos show it and do not mend it); a bar's first beat (no downbeat and no count "
+             "in fours is given); music with no steady pulse; a tempo from its double or its half, or which of a beat and the place half-way a listener counts",
 }
 
 
@@ -116,9 +140,9 @@ def record(what: str, read_from: list[Path], settings: dict, table: Path | None,
     commit = subprocess.run(["git", "-C", str(HERE), "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip() or "not in a repository"
     out = {"signal": what, "made_at": now(), "made_by": "bench/clip_signals.py", "tool_commit": commit,
            "read_from": [about(p) for p in read_from], "libraries": {"numpy": np.__version__, "scipy": scipy.__version__},
-           "settings": settings, "cannot_see": CANNOT[what],
-           "rows_are": "source frames, counted from 0; an empty cell has nothing to say and is not a zero"}
+           "settings": settings, "cannot_see": CANNOT[what]}
     if table is not None:
+        out["rows_are"] = "source frames, counted from 0; an empty cell has nothing to say and is not a zero"
         out["table"] = {"file": table.name, "sha256": about(table)["sha256"]}
         out["fingerprint"] = out["table"]["sha256"]
     out.update(more)
@@ -126,19 +150,20 @@ def record(what: str, read_from: list[Path], settings: dict, table: Path | None,
 
 
 def read_wav(path: Path) -> tuple[np.ndarray, int]:
-    """A wav as float mono in -1..1, and its rate."""
+    """A wav as float in -1..1, [samples, channels], and its rate."""
     from scipy.io import wavfile
     rate, data = wavfile.read(str(path))
     data = data.astype(np.float32) / (32768.0 if data.dtype == np.int16 else 1.0)
-    return (data.mean(1) if data.ndim == 2 else data), int(rate)
+    return (data if data.ndim == 2 else data[:, None]), int(rate)
 
 
-def step_levels(mono: np.ndarray, rate: int, fps: float, frames: int, steps: int = STEPS) -> np.ndarray:
-    """The level in dBFS of each of `steps` equal stretches of each video frame: [frames, steps]. A stretch past the
-    sound's end is NaN: there is nothing to read there."""
+def step_levels(sound: np.ndarray, rate: int, fps: float, frames: int, steps: int = STEPS) -> np.ndarray:
+    """The level in dBFS of each of `steps` equal stretches of each video frame: [frames, steps]. `sound` is
+    [samples, channels] and the level is the power of EVERY channel's samples, not of the channels' mean: two
+    channels that differ cancel in their mean and read low. A stretch past the sound's end is NaN."""
     out = np.full((frames, steps), np.nan, np.float32)
     for k in range(frames * steps):
-        seg = mono[int(round(k * rate / fps / steps)):int(round((k + 1) * rate / fps / steps))]
+        seg = sound[int(round(k * rate / fps / steps)):int(round((k + 1) * rate / fps / steps))]
         if len(seg):
             out[k // steps, k % steps] = 20.0 * np.log10(max(float(np.sqrt(np.mean(seg ** 2))), 1e-7))
     return out
@@ -176,21 +201,21 @@ def gaps_and_phrases(level: np.ndarray, runs: list[list[int]], line: float, step
     return gaps, phrases
 
 
-def onset_curve(mono: np.ndarray, rate: int) -> tuple[np.ndarray, float, np.ndarray]:
-    """The onset curve of a signal, its steps a second, and the low band's level at each step."""
+def onset_curve(mono: np.ndarray, rate: int) -> tuple[np.ndarray, float]:
+    """The onset curve of a signal and its steps a second. Step k of the curve is the rise into the window whose
+    MIDDLE is at k / steps-a-second + `HALF_WINDOW` seconds: every time read off the curve has that added."""
     from scipy import signal
     if rate != BEAT_RATE:
         g = np.gcd(rate, BEAT_RATE)
         mono = signal.resample_poly(mono, BEAT_RATE // g, rate // g)
-    f, _, z = signal.stft(mono, fs=BEAT_RATE, nperseg=WINDOW, noverlap=WINDOW - HOP, boundary=None, padded=False)
+    _, _, z = signal.stft(mono, fs=BEAT_RATE, nperseg=WINDOW, noverlap=WINDOW - HOP, boundary=None, padded=False)
     mag = np.log1p(1000.0 * np.abs(z))
     flux = np.maximum(mag[:, 1:] - mag[:, :-1], 0.0).sum(0)
     flux = np.concatenate([[0.0], flux])
     per_second = BEAT_RATE / HOP
     wide = max(int(per_second), 1)
     curve = np.maximum(flux - np.convolve(flux, np.ones(wide) / wide, mode="same"), 0.0)
-    low = 20.0 * np.log10(np.maximum(np.abs(z[f <= LOW_HZ]).mean(0), 1e-7))
-    return curve.astype(np.float64), per_second, low
+    return curve.astype(np.float64), per_second
 
 
 def tempo_of(curve: np.ndarray, per_second: float) -> tuple[float, list[dict]]:
@@ -295,8 +320,8 @@ def step_phrases(a) -> int:
     folder = Path(a.folder)
     spans = read_spans(folder)
     fps, frames, line, runs = float(spans["fps"]), int(spans["frames"]), float(spans["threshold_dbfs"]), spans["voiced_spans_inclusive"]
-    mono, rate = read_wav(folder / "vocals.wav")
-    level = step_levels(mono, rate, fps, frames)
+    sound, rate = read_wav(folder / "vocals.wav")
+    level = step_levels(sound, rate, fps, frames)
     gaps, phrases = gaps_and_phrases(level, runs, line)
     of = {}
     for p in phrases:
@@ -311,7 +336,11 @@ def step_phrases(a) -> int:
             w.writerow([n] + ["" if np.isnan(v) else round(float(v), 1) for v in level[n]] + [run_of.get(n, ""), of.get(n, "")])
     rec = record("phrases", [folder / "vocals.wav", folder / "voice_spans.json"],
                  {"steps_a_frame": STEPS, "a_break_is_a_gap_of_steps_or_more": BREAK, "a_break_is_frames": BREAK / STEPS, "the_line_dbfs": line,
-                  "the_line_is": "the voice table's own (voice_spans.json threshold_dbfs)", "fps": fps, "frames": frames,
+                  "the_line_is": "the voice table's own (voice_spans.json threshold_dbfs)",
+                  "the_level_is": "the power of both channels of the vocals stem. The voice table's own level (voice_per_frame.csv) and its voiced runs are of "
+                                  "the two channels' MEAN, which reads lower wherever the channels differ; its line was set on that scale and is used here on "
+                                  "this one, so a stretch can be over the line here and under it there",
+                  "channels": int(sound.shape[1]), "fps": fps, "frames": frames,
                   "where_the_settings_are_from": "bench/clip_signals.py, beside each constant"},
                  table, {"voiced_runs": len(runs), "phrases": phrases, "gaps": gaps})
     (folder / "phrases.record.json").write_text(json.dumps(rec, indent=1) + "\n")
@@ -323,59 +352,118 @@ def step_phrases(a) -> int:
     return 0
 
 
+def shown(place: float) -> float:
+    """A place in frames as it is written: cut to a hundredth, never rounded up, so a place written is in the frame
+    its whole part names (a place a thousandth short of a frame was written as the next frame's)."""
+    return float(np.floor(float(place) * 100.0) / 100.0)
+
+
 def grid(mono: np.ndarray, rate: int) -> dict:
     """The onset curve, the tempo, the beats in seconds and the figures beside them."""
-    curve, per_second, low = onset_curve(mono, rate)
+    curve, per_second = onset_curve(mono, rate)
     bpm, candidates = tempo_of(curve, per_second)
     if np.isnan(bpm):
         return {"curve": curve, "per_second": per_second, "bpm": None, "candidates": [], "beats": np.array([]), "strength": np.array([]), "on_over_off": None,
-                "local": [], "phases": []}
+                "local": [], "half": None, "steady": None, "every_other": None}
     places = track(curve, per_second, bpm)
     at = places.astype(int)
     off = np.ones(len(curve), bool)
     for k in (-1, 0, 1):
         off[np.clip(at + k, 0, len(curve) - 1)] = False
-    strength = np.array([curve[max(i - 1, 0):i + 2].max() for i in at])
-    phases = [{"count_from_beat": k + 1, "beats": int(len(at[k::4])), "low_band_dbfs_on_them": round(float(np.mean(low[np.clip(at[k::4], 0, len(low) - 1)])), 1)}
-              for k in range(4) if len(at[k::4])]
-    return {"curve": curve, "per_second": per_second, "bpm": bpm, "candidates": candidates, "beats": places / per_second + (WINDOW / 2) / BEAT_RATE, "strength": strength,
+    around = lambda i: float(curve[max(int(i) - 1, 0):int(i) + 2].max())            # noqa: E731
+    strength = np.array([around(i) for i in at])
+    # the place half-way between each pair of beats, where the curve is also like itself at about half the period
+    near = [c for c in candidates if abs(c["bpm"] / (2.0 * bpm) - 1.0) <= NEAR]
+    half = None
+    if near and len(places) > 1:
+        mid = (places[:-1] + places[1:]) / 2.0
+        half = {"places": mid / per_second + HALF_WINDOW, "strength": np.array([around(round(i)) for i in mid]), "the_candidates_near_twice_the_tempo": near}
+    # the steady run: the longest run of beats each within STEADY_GAP of the middle gap from the beat before, and no weaker than STEADY_STRENGTH of the middle beat
+    steady = None
+    if len(places) > 2:
+        gaps = np.diff(places)
+        ok = np.concatenate([[False], np.abs(gaps / np.median(gaps) - 1.0) <= STEADY_GAP]) & (strength >= STEADY_STRENGTH * np.median(strength))
+        ok[:-1] |= ok[1:] & (strength[:-1] >= STEADY_STRENGTH * np.median(strength))      # the beat a steady gap starts from is in the run too
+        best, start = (0, 0), None
+        for k, good in enumerate(list(ok) + [False]):
+            if good and start is None:
+                start = k
+            elif not good and start is not None:
+                best, start = max(best, (k - start, start)), None
+        if best[0]:
+            steady = (best[1], best[1] + best[0] - 1)
+    # the other way round: a candidate near HALF the tempo, where every other beat may be the pulse a listener counts
+    slower = [c for c in candidates if abs(c["bpm"] / (0.5 * bpm) - 1.0) <= NEAR]
+    other = None if not slower or len(strength) < 4 else {
+        "the_candidates_near_half_the_tempo": slower,
+        "onset_strength_on_the_beats_counted_from_the_first": round(float(strength[0::2].mean()), 3),
+        "onset_strength_on_the_beats_counted_from_the_second": round(float(strength[1::2].mean()), 3),
+        "said": "the curve is as like itself two beats on as one: every other beat may be the pulse a listener counts. The strength of the beats on each of "
+                "the two ways of taking every other one is given; which is the pulse these figures cannot say"}
+    return {"curve": curve, "per_second": per_second, "bpm": bpm, "candidates": candidates, "beats": places / per_second + HALF_WINDOW, "strength": strength,
             "on_over_off": round(float(strength.mean() / (curve[off].mean() or 1e-9)), 2) if off.any() else None,
-            "local": local_tempos(curve, per_second), "phases": phases}
+            "local": local_tempos(curve, per_second), "half": half, "steady": steady, "every_other": other}
 
 
 def step_beats(a) -> int:
     folder = Path(a.folder)
     spans = read_spans(folder)
     fps, frames = float(spans["fps"]), int(spans["frames"])
-    mono, rate = read_wav(folder / "rest.wav")
-    g = grid(mono, rate)
+    sound, rate = read_wav(folder / "rest.wav")
+    g = grid(sound.mean(1), rate)
     beat_frames = g["beats"] * fps                                   # a beat's place in frames, with its part of a frame
+    # the per-frame onset column on the beats' own clock: a step of the curve is the rise into a window whose middle is HALF_WINDOW later
     onset = np.full(frames, np.nan)
-    edges = np.round(np.arange(frames + 1) / fps * g["per_second"]).astype(int)
+    edges = np.clip(np.round((np.arange(frames + 1) / fps - HALF_WINDOW) * g["per_second"]).astype(int), 0, None)
     for n in range(frames):
         seg = g["curve"][edges[n]:max(edges[n + 1], edges[n] + 1)]
         if len(seg):
             onset[n] = seg.max()
-    in_frame = {}
-    for k, (place, s) in enumerate(zip(beat_frames, g["strength"]), 1):
+    middle = float(np.median(g["strength"])) if len(g["strength"]) else None
+    in_frame, half_in = {}, {}
+    for k, (place, st) in enumerate(zip(beat_frames, g["strength"]), 1):
         if 0 <= int(place) < frames:
-            in_frame.setdefault(int(place), (k, place, s))
+            in_frame.setdefault(int(place), (k, place, st, None if k == 1 else place - beat_frames[k - 2]))
+    if g["half"] is not None:
+        for place, st in zip(g["half"]["places"] * fps, g["half"]["strength"]):
+            if 0 <= int(place) < frames:
+                half_in.setdefault(int(place), (place, st))
+    steady = g["steady"]
     table = folder / "beats_per_frame.csv"
     with open(table, "w", newline="") as fh:
         w = csv.writer(fh)
-        w.writerow(["frame", "onset_strength", "beat", "beat_at_frame", "beat_onset_strength", "count_in_fours_from_the_first_beat"])
+        w.writerow(["frame", "onset_strength", "beat", "beat_at_frame", "beat_onset_strength", "beat_strength_over_the_middle_beat", "frames_since_the_beat_before",
+                    "in_the_steady_run", "half_way_at_frame", "half_way_onset_strength"])
         for n in range(frames):
-            b = in_frame.get(n)
+            b, h = in_frame.get(n), half_in.get(n)
             w.writerow([n, "" if np.isnan(onset[n]) else round(float(onset[n]), 3)]
-                       + (["", "", "", ""] if b is None else [b[0], round(float(b[1]), 2), round(float(b[2]), 3), (b[0] - 1) % 4 + 1]))
+                       + (["", "", "", "", "", ""] if b is None else [b[0], shown(b[1]), round(float(b[2]), 3), round(float(b[2]) / middle, 3) if middle else "",
+                                                                      "" if b[3] is None else round(float(b[3]), 2),
+                                                                      "yes" if steady and steady[0] <= b[0] - 1 <= steady[1] else ""])
+                       + (["", ""] if h is None else [shown(h[0]), round(float(h[1]), 3)]))
     local = [x["bpm"] for x in g["local"]]
     more = {"tempo_bpm": None if g["bpm"] is None else round(g["bpm"], 2), "a_beat_is_frames": None if g["bpm"] is None else round(60.0 / g["bpm"] * fps, 3),
             "tempo_candidates_unweighted": g["candidates"], "beats": int(len(beat_frames)),
             "the_fit": {"onset_strength_on_the_beats_over_off_them": g["on_over_off"],
                         "local_tempo_bpm": {"stretches": g["local"], "least": min(local) if local else None, "most": max(local) if local else None,
-                                            "said": "a tempo that holds gives one figure in every stretch; a spread here is a tempo that moves or a pulse the method "
-                                                    "loses, and one grid is then a poor fit"}},
-            "counting_in_fours": {"said": "no downbeat is claimed: the low band's level on each of the four ways of counting, a figure", "the_four": g["phases"]}}
+                                            "said": "a tempo that holds gives one figure in every stretch. A spread here is one of three things, and the "
+                                                    "figures say which only in part: the same pulse and its half or double (one stretch's figure about twice "
+                                                    "another's, and nothing between), a tempo that moves, or a pulse the method loses; for the last two one "
+                                                    "grid is a poor fit"}},
+            "the_steady_run": None if steady is None else {
+                "first_beat": steady[0] + 1, "last_beat": steady[1] + 1, "beats": steady[1] - steady[0] + 1,
+                "from_frame": shown(beat_frames[steady[0]]), "to_frame": shown(beat_frames[steady[1]]),
+                "beats_before_it": steady[0], "beats_after_it": int(len(beat_frames)) - 1 - steady[1],
+                "said": "the longest run of beats each within the gap setting of the middle gap from the beat before and no weaker than the strength setting "
+                        "of the middle beat. The tracker lays beats outside it too, on single sounds or on nothing: they are in the table with their own "
+                        "strength and are not on a steady pulse by these figures"},
+            "half_way": None if g["half"] is None else {
+                "places": int(len(g["half"]["places"])), "the_candidates_near_twice_the_tempo": g["half"]["the_candidates_near_twice_the_tempo"],
+                "onset_strength_half_way_over_on_the_beats": round(float(g["half"]["strength"].mean() / (g["strength"].mean() or 1e-9)), 3),
+                "said": "the curve is also like itself at about half the period, so the place half-way between each pair of beats is written. It is a place "
+                        "half-way, not a beat: a hit of another band can sit there, and which of the two a listener counts these figures cannot say"},
+            "every_other_beat": g["every_other"],
+            "no_count_in_fours": "none is given: no downbeat can be read without a trained model, and a count has no place to start from"}
     if a.shots:
         shots = json.loads(Path(a.shots).read_text())
         cuts = [s["first"] for s in shots["shots"] if 0 < s["first"] < frames]
@@ -389,7 +477,7 @@ def step_beats(a) -> int:
     rec = record("beats", [folder / "rest.wav", folder / "voice_spans.json"] + ([Path(a.shots)] if a.shots else []),
                  {"sound_rate": BEAT_RATE, "window": WINDOW, "step": HOP, "tempos_looked_for_bpm": list(TEMPO_RANGE), "leans_to_bpm": TEMPO_CENTER,
                   "lean_octaves": TEMPO_OCTAVES, "tightness": TIGHTNESS, "local_tempo_seconds": LOCAL_SECONDS, "local_tempo_step_seconds": LOCAL_STEP,
-                  "low_band_hz": LOW_HZ, "fps": fps, "frames": frames, "where_the_settings_are_from": "bench/clip_signals.py, beside each constant"}, table, more)
+                  "near_twice_the_tempo": NEAR, "steady_gap": STEADY_GAP, "steady_strength": STEADY_STRENGTH, "half_window_seconds": HALF_WINDOW, "fps": fps, "frames": frames, "where_the_settings_are_from": "bench/clip_signals.py, beside each constant"}, table, more)
     (folder / "beats.record.json").write_text(json.dumps(rec, indent=1) + "\n")
     if g["bpm"] is None:
         print("no pulse: the onset curve is flat, and no beat is listed")
@@ -397,7 +485,20 @@ def step_beats(a) -> int:
         print(f"tempo {more['tempo_bpm']} a minute, a beat every {more['a_beat_is_frames']} frames; {more['beats']} beat(s); the onset curve is "
               f"{g['on_over_off']} times as strong on the beats as off them; local tempo {more['the_fit']['local_tempo_bpm']['least']} to "
               f"{more['the_fit']['local_tempo_bpm']['most']} over {len(local)} stretch(es) of {LOCAL_SECONDS:g} s; candidates unweighted: {g['candidates']}")
-        print("counting in fours, the low band on each count (no downbeat is claimed): " + "; ".join(f"from beat {p['count_from_beat']}: {p['low_band_dbfs_on_them']} dBFS" for p in g["phases"]))
+        if more["the_steady_run"]:
+            r = more["the_steady_run"]
+            print(f"the steady run: beats {r['first_beat']} to {r['last_beat']}, frames {r['from_frame']} to {r['to_frame']}; {r['beats_before_it']} beat(s) before it and "
+                  f"{r['beats_after_it']} after it are laid on no steady pulse")
+        if more["half_way"]:
+            h = more["half_way"]
+            print(f"half-way places written: {h['places']} (a candidate near twice the tempo: {h['the_candidates_near_twice_the_tempo']}); the onset curve half-way is "
+                  f"{h['onset_strength_half_way_over_on_the_beats']} of its strength on the beats. A place half-way is not called a beat")
+        else:
+            print("no half-way places written: no tempo candidate lies near twice the tempo")
+        if more["every_other_beat"]:
+            e = more["every_other_beat"]
+            print(f"a candidate lies near half the tempo ({e['the_candidates_near_half_the_tempo']}): every other beat may be the pulse; the beats' strength counted from "
+                  f"the first is {e['onset_strength_on_the_beats_counted_from_the_first']} and from the second {e['onset_strength_on_the_beats_counted_from_the_second']}")
         if "cuts_against_the_grid" in more:
             c = more["cuts_against_the_grid"]
             print(f"the record's {len(c['cuts'])} cut(s) against the grid: a cut is {c['a_cut_is_frames_from_a_beat']['least']} to {c['a_cut_is_frames_from_a_beat']['most']} "
@@ -426,8 +527,8 @@ def edge_figures(frame: int, phrases: list[dict], runs: list[list[int]], beats: 
     return out
 
 
-def read_signals(folder: Path) -> tuple[list[dict], list[list[int]], np.ndarray, list[str]]:
-    absent, phrases, beats = [], [], np.array([])
+def read_signals(folder: Path) -> tuple[list[dict], list[list[int]], np.ndarray, list[str], np.ndarray]:
+    absent, phrases, beats, halves = [], [], np.array([]), np.array([])
     runs = read_spans(folder)["voiced_spans_inclusive"]
     if (folder / "phrases.record.json").is_file():
         phrases = json.loads((folder / "phrases.record.json").read_text())["phrases"]
@@ -435,10 +536,12 @@ def read_signals(folder: Path) -> tuple[list[dict], list[list[int]], np.ndarray,
         absent.append("phrases (no phrases.record.json: `clip_signals.py phrases`)")
     if (folder / "beats_per_frame.csv").is_file():
         with open(folder / "beats_per_frame.csv") as fh:
-            beats = np.array([float(r["beat_at_frame"]) for r in csv.DictReader(fh) if r["beat_at_frame"] != ""])
+            table = list(csv.DictReader(fh))
+        beats = np.array([float(r["beat_at_frame"]) for r in table if r["beat_at_frame"] != ""])
+        halves = np.array([float(r["half_way_at_frame"]) for r in table if r.get("half_way_at_frame", "") != ""])
     else:
         absent.append("beats (no beats_per_frame.csv: `clip_signals.py beats`)")
-    return phrases, runs, beats, absent
+    return phrases, runs, beats, absent, halves
 
 
 def step_at(a) -> int:
@@ -447,7 +550,7 @@ def step_at(a) -> int:
     if not (first.isdigit() and last.isdigit()) or int(first) > int(last):
         raise SystemExit(f"--frames {a.frames!r}: write FIRST-LAST, two source frames")
     first, last = int(first), int(last)
-    phrases, runs, beats, absent = read_signals(folder)
+    phrases, runs, beats, absent, halves = read_signals(folder)
     shot = None
     if a.shots:
         shot = next((s for s in json.loads(Path(a.shots).read_text())["shots"] if s["first"] <= first <= s["last"]), None)
@@ -478,6 +581,24 @@ def step_at(a) -> int:
             if p and p["frames_to_its_end"] > 0:
                 where = "" if shot is None else (", inside the same shot" if p["frames"][1] <= shot["last"] else f", past the shot's last frame {shot['last']}")
                 print(f"    the phrase runs {p['frames_to_its_end']} frame(s) past the load's last frame, to frame {p['frames'][1]}{where}")
+    # what lies between the two edges, each with its place counted from the load's first frame
+    inside = []
+    for p in phrases:
+        if first < p["first_frame"] <= last:
+            inside.append((p["first_frame"], f"phrase {p['phrase']} STARTS on frame {p['first_frame']}"))
+        if first <= p["last_frame"] < last:
+            inside.append((p["last_frame"], f"phrase {p['phrase']} ENDS on frame {p['last_frame']}"))
+    print("  INSIDE THE LOAD, between its first and last frame (the load's own frame in brackets, counted from 0):")
+    if "phrases" not in " ".join(absent):
+        print("    phrases: " + ("; ".join(f"{text} [{at - first}]" for at, text in sorted(inside)) or "none starts or ends inside it"))
+    if len(beats):
+        here = [b for b in beats if first <= b < last + 1]
+        print(f"    beats: {len(here)}" + (": " + ", ".join(f"{b:g} [{b - first:g}]" for b in here) if here else ""))
+        if len(halves):
+            there = [b for b in halves if first <= b < last + 1]
+            print(f"    places half-way between beats (not beats; a hit of another band can sit there): {len(there)}" + (": " + ", ".join(f"{b:g} [{b - first:g}]" for b in there) if there else ""))
+        else:
+            print("    places half-way between beats: none is written for this clip")
     print("  These are figures. Nothing here says where an edge should be.")
     return 0
 
