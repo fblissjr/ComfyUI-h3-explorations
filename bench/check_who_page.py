@@ -21,6 +21,8 @@ own words beside it, and each of those can be off by one.
   a_sessions_reading_is_a_guess_in_a_closed_fold   with --notes, a preview's line is under that preview's tiles and no other, in a
                                         fold that is not open, headed as a session's guess; it holds no button and presses
                                         none; a line naming no preview given is printed; with no notes there is no fold
+  a_guess_says_when_its_number_is_of_another_picture   a note's person number is of its subject's own tracker's picture; where
+                                        that tracker showed another frame than the picture on the page, the fold says so in capitals
   a_tile_asks_only_its_jobs_subjects    a numbered picture has buttons for the subjects its preview's job names and for no other
                                         subject of the record, who is named under it in words
 
@@ -156,6 +158,21 @@ def main() -> int:
              and "picked person 2 (A TALL ONE &lt;b&gt;)" in fold and "<b>no</b>" in fold and "THE SMALL ONE IS a" in fold
              and "<button" not in fold and 'class="on"' not in text and "data-chosen" not in fold
              and "elsewhere (first frame 700), run.jsonl line 1" in r.stdout and "pv (first frame 101), run.jsonl line 2" in r.stdout and "<details" not in page, r.stdout + r.stderr + fold)
+        # a note's number is of its own tracker's picture: where that is another frame than the picture shown, the fold says so
+        (Path(d) / "t" / "pv_b_shots_00001_shots.json").write_text(json.dumps(table([
+            {"shot": 1, "first_frame": 0, "last_frame": 0, "shown_frame": 0, "people": []},
+            {"shot": 2, "first_frame": 1, "last_frame": 1, "shown_frame": 1, "people": []},
+            {"shot": 3, "first_frame": 2, "last_frame": 29, "shown_frame": 20, "people": [{"person": 1, "box": [1, 1, 5, 5]}]},
+            {"shot": 4, "first_frame": 30, "last_frame": 59, "shown_frame": 40, "people": [{"person": 1, "box": [1, 1, 5, 5]}, {"person": 2, "box": [9, 9, 5, 5]}]}])))
+        notes.write_text(json.dumps({"first": 100, "job_file": "inputs/pv.json", "subjects": [
+            {"label": "a", "picked_number": 1, "why": "ON a's OWN"}, {"label": "b", "picked_number": 1, "why": "ON b's OWN"}]}) + "\n")
+        other = Path(d) / "other_frame"
+        r = run({**p, "out": other}, "--preview", p["pv"], "--notes", str(notes))
+        text = (other / "index.html").read_text() if r.returncode == 0 else ""
+        row2, row3 = text.split("<tr>")[3], text.split("<tr>")[4]
+        case("a_guess_says_when_its_number_is_of_another_picture", r.returncode == 0 and 'data-frame="110"' in row2
+             and row2.count("THAT NUMBER IS NOT OF THE PICTURE ABOVE") == 1 and "it is of b's own tracker's picture (frame 120), and the picture above is frame 110" in row2
+             and "THAT NUMBER IS NOT OF THE PICTURE ABOVE" not in row3, r.stdout + r.stderr + row2[-1500:])
         # the same tables under a job that names `a` alone: `b` is a subject of the record and not of the job
         solo = Path(d) / "solo.json"
         solo.write_text(json.dumps({"job": {"name": "pv", "first": 100, "frames": 60, "subjects": [{"label": "a"}]}}))

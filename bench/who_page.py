@@ -217,17 +217,31 @@ def notes_of(path: str | None) -> dict[tuple[str, int], dict] | None:
     return out
 
 
-def guess(notes: dict | None, t: dict) -> str:
-    """A session's reading of one tile's preview, in a closed fold under it: a guess, labelled, that answers nothing."""
+def guess(notes: dict | None, t: dict, found: list[dict] = ()) -> str:
+    """A session's reading of one tile's preview, in a closed fold under it: a guess, labelled, that answers nothing.
+
+    A NUMBER IN A NOTE IS OF THAT SUBJECT'S OWN TRACKER'S PICTURE, and the page shows one picture a shot. Each tracker's
+    table shows a frame of its own choosing and numbers the people on THAT frame, so where the subject's tracker
+    showed another frame than the picture above, its number names somebody else there, and the note says so in
+    capitals (2026-10-13: three of the first page's forty-two folds gave such a number with nothing said). `found`
+    is every tracker's tile of the shot, the one shown among them."""
     if notes is None:
         return ""
     row = notes.get((t["preview"], t["preview_first"]))
     if row is None:
         return '<div class="how">no session\'s reading of this preview is in the notes this page was built with</div>'
+
+    def whose_picture(label: str) -> str:
+        own = sorted(x["shown"] for x in found if x["preview"] == t["preview"] and x["label"] == label)
+        if t["shown"] in own or (not found and label == t["label"]):
+            return ""
+        where = f"frame {', '.join(str(f) for f in own)}" if own else "a frame not among this shot's pictures"
+        return (f' <b>THAT NUMBER IS NOT OF THE PICTURE ABOVE</b>: it is of {html.escape(label)}\'s own tracker\'s picture ({where}), '
+                f'and the picture above is frame {t["shown"]}, where the people are numbered afresh.')
     said = "".join(
         f'<div><b>{html.escape(str(s.get("label", "")))}</b>: the tracker picked person {html.escape(str(s.get("picked_number", "not said")))}'
-        f' ({html.escape(str(s.get("picked_looks_like", "")))}). Is that the right person, by this reading: <b>{html.escape(str(s.get("right_person", "not said")))}</b>. '
-        f'{html.escape(str(s.get("why", "")))}</div>' for s in row.get("subjects", []))
+        f' ({html.escape(str(s.get("picked_looks_like", "")))}).{whose_picture(str(s.get("label", "")))} Is that the right person, by this reading: '
+        f'<b>{html.escape(str(s.get("right_person", "not said")))}</b>. {html.escape(str(s.get("why", "")))}</div>' for s in row.get("subjects", []))
     return (f'<details class="guess"><summary>a session\'s guess, NOT the owner\'s: open it after answering</summary>'
             f'<div class="how">A session looked at this preview\'s tiles and wrote this ({html.escape(row["from"])} line {row["line"]}, recorded '
             f'{html.escape(str(row.get("recorded_at", "at a time it does not give")))}). It is a reading of a picture, not an answer, and nothing '
@@ -308,7 +322,7 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
             tiles.append(f'<div class="tile" data-table="{html.escape(t["table"])}" data-frame="{t["shown"]}" data-tf="{t["table_frame"]}" '
                          f'data-shot="{t["shot"]}" data-lo="{s["first"]}" data-hi="{s["last"]}"><img src="{t["file"]}" alt="">'
                          f'<div>frame {t["shown"]} as {html.escape(t["label"])}\'s tracker numbered it ({html.escape(t["preview"])} shot {t["shot"]}), '
-                         f'people {t["people"] or "none"}{part}</div>{ask}<div class="st"></div>{also}{guess(notes, t)}</div>')
+                         f'people {t["people"] or "none"}{part}</div>{ask}<div class="st"></div>{also}{guess(notes, t, found)}</div>')
         if source:      # a long shot: its first and last quarter as well, so an entrance after the shown frame has a frame to be said on
             for q, which in zip(quarter_frames(s, long_frames), ("first", "last")):
                 f = plain_frame(source, q, out)
