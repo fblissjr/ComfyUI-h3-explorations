@@ -6,6 +6,7 @@
         file, and the preview is made again with --remake, under the next letter)
     <python> bench/shot_to_load.py job --shots SHOTS.json --plan PLAN.json --shot FIRST --subject LABEL --preview PREVIEW_JOB_FOLDER \\
         --folder INPUTS --by SESSION [--first F --frames N --why "what a look cut" | --why-before ".." --why-after ".."] [--remake]
+        [--zoomed "why this load is rendered zoomed in"] [--least PX --least-why "why the floor is set there"]
     <python> bench/shot_to_load.py reference JOB.json --by SESSION [--plain "why"] [--model-store FOLDER] [--existing]
         (a person writes the load's text, a file beside the job file)
     <python> bench/shot_to_load.py text JOB.json --by SESSION --writer "who wrote it, and from which frames"
@@ -59,7 +60,14 @@ files and runs the two tools, from the video's own records, and leaves to a pers
   (2026-10-13: a load remade shorter carried one sentence on both entries, true of one). The name is made here: `<subject>_<form>_<first>`, a
   letter after it for a remake (`--remake`), and one that exists is refused. The job file names its preview
   (`job.preview`), its capture, its reference by where it WILL be, and a text file that is not written yet.
-  A subject's `pick` is the preview's; it carries no `pick_at`, since a load tracks nobody. Before the file is
+  A subject's `pick` is the preview's; it carries no `pick_at`, since a load tracks nobody. TWO CHOICES ABOUT ONE
+  LOAD, each a person's, each with its words, neither with a default (the lead's ruling, 2026-10-13: they change
+  how a load is rendered, not what the owner ruled is replaced). `--zoomed "why"` renders the load zoomed in on
+  what is replaced (the load's `render_region: part`; one box for the load, the node's own), for a part too
+  small on the whole frame; the words and who said them are kept in the job file (`job.zoomed`) and its note.
+  `--least PX --least-why "why"` sets the capture's floor for the subject's part on this load (`least` on the
+  subject, with `least_by`), which a zoomed load usually needs: the floor is counted in whole-frame pixels, where
+  a part rendered zoomed in is smaller than it is drawn. Before the file is
   written, and in a `--dry` run as well, the load is held to the builder's refusals that need neither its
   capture nor its text (`load_held_as_the_builder_holds`). A plan that asks a `hair_band` is refused here: the
   band is cut out of a keep-out no preview of this tool tracks, and until 2026-10-13 the load was written and
@@ -309,7 +317,7 @@ def free_name(base: str, taken, remake: bool) -> str:
 
 def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, preview_folder: str, video: str, output: Path, by: str, day: str,
              name: str, first: int | None = None, frames: int | None = None, why: str = "", now: str = "", source: str | None = None,
-             why_before: str = "", why_after: str = "") -> dict:
+             why_before: str = "", why_after: str = "", zoomed: str | None = None, least: int | None = None, least_why: str | None = None) -> dict:
     """The job file of one subject's load on a shot, from the shot's preview. `preview` is the preview's own job
     block; `source` is the file the load renders from, the video's present copy (the preview's own when left out)."""
     import h3_config
@@ -374,16 +382,35 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         mine["pieces"], mine["pieces_by"] = p["pieces"], f"the plan ({p['pieces_by']})"
         pieces = (f" THE CAPTURE READS {subject}'s PART WITH pieces={p['pieces']}, from the plan ({' '.join(str(p['pieces_by']).split())}): each frame's largest "
                   "piece of the part is loaded and its other pieces are not; the capture's `files` step prints what that takes away, a frame at a time.")
+    # Two choices about this one load, each a person's with its words, neither with a default.
+    chosen, zoom_block = "", None
+    if zoomed is not None:
+        if not zoomed.strip():
+            raise Refused("--zoomed takes the reason in words: a load is rendered zoomed in on a person's word, after a look at its part's size, and the word is kept")
+        load["render_region"] = "part"
+        zoom_block = {"why": " ".join(zoomed.split()), "said_by": by, "at": now}
+        chosen += (f" RENDERED ZOOMED IN on what is replaced (`render_region: part`), on {by}'s word: {zoom_block['why']}. One box for the whole load, the node's "
+                   "own; the capture reads the node's plan back onto the frame, and the part's sizes and floor it prints are still of the whole frame.")
+    if (least is None) != (not str(least_why or "").strip()):
+        raise Refused("--least and --least-why go together: the capture's floor for a part is a person's number, and the reason is kept beside it")
+    if least is not None:
+        if int(least) < 0:
+            raise Refused(f"--least {least}: a part's least size is 0 (nothing emptied by size) or more, in px of the whole frame")
+        mine = next(s for s in subjects if s["label"] == subject)
+        mine["least"], mine["least_by"] = int(least), f"{by}, {now}: {' '.join(least_why.split())}"
+        chosen += (f" THE CAPTURE'S FLOOR FOR {subject}'s PART IS SET FOR THIS LOAD: least={int(least)} px of the whole frame, on {by}'s word: "
+                   f"{' '.join(least_why.split())}.")
     note = (f"Written by bench/shot_to_load.py for {by}, {now}. ONE LOAD: {subject}, {region}, source frames {a} to {b} ({n} frames) of the shot "
             f"{shot['first']}-{shot['last']}, its masks from the preview {preview['name']} (job.preview), in the frozen form: the body model cut to the head "
             f"with the face points drawn, made on these frames by this tool's `reference` step. Its settings are in `defaults`, from workflows/h3_config.py. "
             f"THE TEXT IS NOT WRITTEN: {name}.txt beside this file is a person's, and texts.{name}.by says who wrote it."
-            + pieces + (f" CUT BY A LOOK: {cut_said}" if cut else ""))
+            + pieces + chosen + (f" CUT BY A LOOK: {cut_said}" if cut else ""))
     return {"job": {"name": name, "note": note, "source": source or preview["source"], "first": a, "frames": n, "canvas": list(preview["canvas"]),
                     "output": OUTPUT_KEY.format(video=video, session=by), "subjects": subjects,
                     "left_out": [{"subject": subject, "first": x, "frames": y - x + 1, "why": said} for x, y, said in cut],
                     "capture": f"data/{day}_{name}", "preview": preview_folder,
                     "texts": {name: {"file": f"{name}.txt", "frames": [a, b], "by": ""}},
+                    **({"zoomed": zoom_block} if zoom_block else {}),
                     "reference": {"form": "drawn", "why": "the form for a face, head or hair replacement (AGENTS.md, Settled)", "made": None}},
             "defaults": {**h3_config.MASKED_LOAD_DEFAULTS, "margin": h3_config.MASKED_LOAD_MARGIN[region], "seed": h3_config.SEED},
             "loads": [load]}
@@ -475,7 +502,7 @@ def step_job(a, world) -> None:
     name = free_name(f"{a.subject}_{FORM[region]}_{first:04d}", taken, a.remake)
     rel = str(pfolder.resolve().relative_to(REPO.resolve())) if pfolder.resolve().is_relative_to(REPO.resolve()) else str(pfolder)
     job = load_job(shots, plan, shot, a.subject, preview, rel, video, world.output, a.by, a.day, name, a.first, a.frames, a.why or "", load_chain.utc_now(),
-                   source=str(source), why_before=a.why_before or "", why_after=a.why_after or "")
+                   source=str(source), why_before=a.why_before or "", why_after=a.why_after or "", zoomed=a.zoomed, least=a.least, least_why=a.least_why)
     job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "ITS PREVIEW WAS MADE ON AN EARLIER COPY")
     out = folder / f"{name}.json"
     print(f"{name}: {a.subject}, {region}, source frames {job['loads'][0]['first']}-{job['loads'][0]['first'] + job['loads'][0]['frames'] - 1}; "
@@ -611,6 +638,9 @@ def main() -> int:
     j.add_argument("--why-before", help="what was cut BEFORE the load and why, when it is not the reason for the frames after")
     j.add_argument("--why-after", help="what was cut AFTER the load and why, when it is not the reason for the frames before")
     j.add_argument("--remake", action="store_true", help="the next free letter after the name, for a load made again")
+    j.add_argument("--zoomed", metavar="WHY", help="render this load zoomed in on what is replaced, on a person's word; the reason is kept in the job file")
+    j.add_argument("--least", type=int, metavar="PX", help="the capture's floor for the subject's part on this load, in px of the whole frame; with --least-why")
+    j.add_argument("--least-why", metavar="WHY", help="why the floor is set there; kept beside it in the job file")
     r = sub.add_parser("reference")
     r.add_argument("job_file")
     r.add_argument("--plain", metavar="WHY", help="take the plain cut, on a person's word; the reason is kept in the job file")

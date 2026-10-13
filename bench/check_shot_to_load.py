@@ -34,7 +34,10 @@ builder's own `check_job`, and a load's to `masked_job.loads_of`, so a file the 
    copied and no `pick_at`; the reference named by subject and span, not by the load's name; a text entry with
    no writer, which the chain refuses; a cut with no words refused and with them written into `left_out`; a
    plan's `hair_band` refused (7c); the plan's `pieces` copied onto the load's subject with who chose it, where the
-   chain reads it, and onto no other subject, refused when it is not a value the capture takes or names nobody; and the refusals (a subject not in the shot, a preview of other frames, no pose
+   chain reads it, and onto no other subject, refused when it is not a value the capture takes or names nobody; `--zoomed`
+   with its words makes the load `render_region: part` and keeps who said it, and `--least` with `--least-why` sets the
+   subject's floor with its reason, each refused without its words, neither set when not asked, and the load the builder's
+   `check_load` takes; and the refusals (a subject not in the shot, a preview of other frames, no pose
    pass for the subject, a whole-person region).
 7c. **A load the builder would refuse is not written** (the first real load's fault, 2026-10-13). A `hair_band` in
    the plan is refused at `job`, naming the keep-out the preview does not track; a load under the song node's
@@ -192,7 +195,7 @@ class Made:
 
 def args(**more) -> argparse.Namespace:
     given = dict(by="the session", day="2026-01-03", cast=None, queue=False, first=None, frames=None, why=None, remake=False, plain=None, model_store="",
-                 existing=False, writer=None, why_before=None, why_after=None)
+                 existing=False, writer=None, why_before=None, why_after=None, zoomed=None, least=None, least_why=None)
     given.update(more)
     return argparse.Namespace(**given)
 
@@ -494,6 +497,26 @@ def a_loads_job_file_stands_alone() -> str:
         made.plan["subjects"]["a"].update(pieces="largest", pieces_by=" ")
         refused(made.load, "`pieces_by` says who chose it")
         del made.plan["subjects"]["a"]["pieces"], made.plan["subjects"]["a"]["pieces_by"]
+        # TWO CHOICES ABOUT ONE LOAD, each with its words and neither with a default: rendered zoomed in, and the capture's floor
+        assert "render_region" not in load and "zoomed" not in job and all("least" not in s for s in job["subjects"]), "a load is zoomed or floored with nobody saying so"
+        z = made.load(zoomed="her face is  40 px tall on the whole frame", least=600, least_why="the part is drawn four times its whole-frame size")
+        zl, zs = z["loads"][0], next(s for s in z["job"]["subjects"] if s["label"] == "a")
+        assert zl["render_region"] == "part" and z["job"]["zoomed"] == {"why": "her face is 40 px tall on the whole frame", "said_by": "the session", "at": "now"}, z["job"].get("zoomed")
+        assert (zs["least"], zs["least_by"]) == (600, "the session, now: the part is drawn four times its whole-frame size"), zs
+        assert all("least" not in s for s in z["job"]["subjects"] if s["label"] != "a"), "another subject's floor was set"
+        assert "RENDERED ZOOMED IN on what is replaced (`render_region: part`), on the session's word: her face is 40 px tall" in z["job"]["note"] \
+            and "THE CAPTURE'S FLOOR FOR a's PART IS SET FOR THIS LOAD: least=600 px" in z["job"]["note"], z["job"]["note"]
+        graphs.check_job(z["job"])
+        for one in masked_job.loads_of(z):                        # the builder takes a zoomed load written this way: a part, with a motion file of its own
+            graphs.check_load(z["job"], one, masked_job.chain_lengths())
+        (made.jobs / "a_fp_0100.json").write_text(json.dumps(z))
+        ctx = lc.read_job(made.jobs / "a_fp_0100.json", made.root, need_text=False)
+        assert ctx["subject_keys"]["least"] == 600 and ctx["load"]["render_region"] == "part", ctx["subject_keys"]
+        refused(lambda: made.load(zoomed="  "), "--zoomed takes the reason in words")
+        refused(lambda: made.load(least=600), "--least and --least-why go together")
+        refused(lambda: made.load(least_why="words and no number"), "--least and --least-why go together")
+        refused(lambda: made.load(least=-1, least_why="w"), "0 (nothing emptied by size) or more")
+        assert made.load(least=0, least_why="nothing is emptied by size on this load")["job"]["subjects"][1]["least"] == 0
         # the margin is the plan's region's. A band the plan asks is REFUSED: it is cut out of a keep-out the preview does not track
         refused(lambda: made.load("b", name="b_hfp_0100"), "the plan asks a hair band for 'b' (0.6)", f"{cfg.MASKED_JOB_HAIR_BAND['cuts']!r}",
                 "tracks b, a, c", "would refuse this load at its plan", "take `hair_band` out")
