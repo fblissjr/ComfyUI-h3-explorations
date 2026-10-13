@@ -393,6 +393,8 @@ def the_commands() -> str:
         # one line, with the caller's argument that holds a space quoted again
         assert built["command"] == ("py bench/assemble_delivery.py --table data/t.txt --span 0-149 --source '/in/a clip.mp4' --out /out/clip.mp4 --size source "
                                     "--capture data/cap_b --capture data/cap_a --capture data/preview --alias singer=a"), built["command"]
+        with_record = dt.assembly(out, made, PLAN, repo, "data/t.txt", (0, 149), "--source '/in/a clip.mp4' --out /out/clip.mp4", (), python="py", shots_file="data/v/shots.json")
+        assert " --out /out/clip.mp4 --shots data/v/shots.json --capture " in with_record["command"] and "--shots" not in built["command"], with_record["command"]
         assert built["stack"] == {"build": "py bench/stack_delivery.py build --source '/in/a clip.mp4' --table data/t.txt --joined /out/clip.mp4 "
                                            "--out /out/clip_STACKED.mp4 --work /scratch/work",
                                   "check": "py bench/stack_delivery.py check --source '/in/a clip.mp4' --joined /out/clip.mp4 --out /out/clip_STACKED.mp4",

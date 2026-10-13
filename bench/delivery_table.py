@@ -403,7 +403,7 @@ def run_of(capture: Path, load: str | None, labels: set[str]) -> tuple[str | Non
 
 
 def assembly(out: dict, ledger: dict, plan: dict, repo: Path, table: str, span: tuple[int, int], args: str = "", also: tuple[str, ...] = (),
-             python: str = "python", own: str = "", stack_work: str = "") -> dict:
+             python: str = "python", own: str = "", stack_work: str = "", shots_file: str = "") -> dict:
     """The commands for this table, whole, the run each row is tied to, and what each `restore=` has to go on.
 
     The captures are the standing pieces' own (each piece's build record names its capture), in the table's row order, then any handed in
@@ -463,6 +463,9 @@ def assembly(out: dict, ledger: dict, plan: dict, repo: Path, table: str, span: 
     q = shlex.quote
     line = lambda words: " ".join(q(str(w)) for w in words)
     build = [python, "bench/assemble_delivery.py", "--table", table, "--span", f"{span[0]}-{span[1]}", *given]
+    if shots_file:
+        # the record this table's `source` lines were written a shot of: the assembler cuts where it cuts
+        build += ["--shots", shots_file]
     for c in captures:
         build += ["--capture", c]
     for old in sorted(used):
@@ -595,7 +598,7 @@ def main() -> int:
             + ("; and HELD BACK by the lead, a session's word and not the owner's: " + "; ".join(f"--hold {x!r}" for x in a.hold) if a.hold else "; no --hold") + ".")
     own = " ".join(shlex.quote(w) for w in [sys.executable, "bench/delivery_table.py", *sys.argv[1:]])
     built = assembly(out, ledger, plan, HERE.parent, a.table, span, a.assemble_args, tuple(a.also_capture), python=sys.executable, own=own,
-                     stack_work=a.stack_work)
+                     stack_work=a.stack_work, shots_file=a.shots)
     Path(a.table).write_text(table_text(out, ledger["share"], made, plan, Path(a.table).stem))
     Path(a.reading).write_text(reading_text(out, made, a.table, built))
     if a.json:

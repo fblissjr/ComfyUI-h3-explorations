@@ -224,6 +224,15 @@ capture's shot table covers the frames and puts its cuts elsewhere, the record s
 is the better one, and this one (a mean change of the luma against one line) is only what needs no capture. So
 give the build the capture of a preview that covers the span, or a `source` line may fit no shot.
 
+**With the video's shots record (`--shots`), its cuts are the cuts wherever no capture's shot table covers the
+frames**, in place of this tool's own reading. The delivery table writes its `source` lines a shot of that record,
+so a build of a span no capture covers has to cut where the record cuts or those lines fit no shot of it: the first
+whole-video build (2026-10-13, a throwaway) failed on eleven of them, from two cuts. One was a cut between two grey
+pictures that this tool's line did not find. The other was a cut the record had and the picture did not, where two
+working copies of the source met inside one shot: this tool was right about the picture, and the record was mended
+by a person who read the list. So where the record and this reading differ the record's `shots` section says so
+both ways (`the_record_against_this_reading`), as data, and neither fails.
+
 **A locked file is never written over.** A folder's `LOCKED.md` lists the files the owner has accepted, one to a
 list line: the name in backticks, then `md5 <sum>`. A build whose `--out` is one of them is refused before anything
 is read, with the names that are free; a later version of the same span is a new file beside it. `--check-only`
@@ -1382,8 +1391,23 @@ def source_moved_over(source, span, w, h) -> dict[int, float]:
     return moved
 
 
-def shots_of(record, rows, captures, span, moved, intents) -> tuple[dict, list[str]]:
-    """The record's `shots` section and the failures it raises: per shot and named subject, was anything laid."""
+def record_cuts_of(path) -> list[int]:
+    """The cuts of a video's shots record (`data/<stem>/shots.json`, schema `h3_shots/1`): the first frame of each shot."""
+    d = json.load(open(path))
+    if d.get("schema") != "h3_shots/1":
+        sys.exit(f"--shots {path}: schema is {d.get('schema')!r}, not 'h3_shots/1': this is not a video's shots record")
+    return sorted(int(s["first"]) for s in d["shots"])
+
+
+def shots_of(record, rows, captures, span, moved, intents, record_cuts=None) -> tuple[dict, list[str]]:
+    """The record's `shots` section and the failures it raises: per shot and named subject, was anything laid.
+
+    `record_cuts`, when the build was handed the video's shots record (`--shots`), are the cuts on every frame no
+    capture's shot table has the word on, IN PLACE OF this tool's own reading of the picture: the record is where a
+    person settles a cut, and this tool's line misses a cut between two grey pictures and cannot see a dissolve.
+    Where the record and this tool's reading differ it is written down both ways as data
+    (`the_record_against_this_reading`) and fails nothing: a cut the record has and the picture does not show may be
+    a record that split one shot, which a person reads from that list."""
     over = sorted(n for n, v in moved.items() if v > CUT)
     # consecutive frames that each move over the line are one event (a whip, a flash, a blur), not a shot a frame:
     # the first of them is the cut. Read as several cuts, a blur of five frames inside one shot made three shots of
@@ -1401,7 +1425,18 @@ def shots_of(record, rows, captures, span, moved, intents) -> tuple[dict, list[s
     for t in tables:
         covered.update(range(min(x["frames"][0] for x in t["shots"]) + 1, max(x["frames"][1] for x in t["shots"]) + 1))
     from_tables = {c for t in tables for c in t["cuts"]}
-    cuts = sorted({c for c in from_tables if span[0] < c <= span[1]} | {c for c in found if c not in covered})
+    read_here = {c for c in found if c not in covered}
+    against = None
+    if record_cuts is None:
+        elsewhere = read_here
+    else:
+        elsewhere = {int(c) for c in record_cuts if span[0] < c <= span[1] and c not in covered}
+        against = {"about": "the frames no capture's shot table has the word on; data, nothing here fails",
+                   "cuts_the_record_has_and_this_reading_does_not_find": sorted(elsewhere - read_here),
+                   "cuts_this_reading_finds_and_the_record_does_not_have": sorted(c for c in read_here - elsewhere if span[0] < c <= span[1]),
+                   "cuts_the_record_has_where_a_shot_table_has_the_word_and_has_none": sorted(
+                       int(c) for c in record_cuts if span[0] < c <= span[1] and c in covered and c not in from_tables)}
+    cuts = sorted({c for c in from_tables if span[0] < c <= span[1]} | elsewhere)
     edges = [span[0], *cuts, span[1] + 1]
     shots = [(a, b - 1) for a, b in zip(edges, edges[1:]) if b > a]
     named, unknown = {}, []                           # label -> its rows' pieces
@@ -1514,7 +1549,9 @@ def shots_of(record, rows, captures, span, moved, intents) -> tuple[dict, list[s
     if not tables and not flagged:
         missing.append("no capture given holds a shot table or the flag, so no shot can read as people detected")
     return ({"cut_over_levels": CUT, "cuts": cuts,
-             "cuts_are": "a capture's shot table's where one covers the frames, this tool's own (a move over the line) elsewhere",
+             "cuts_are": ("a capture's shot table's where one covers the frames, this tool's own (a move over the line) elsewhere" if record_cuts is None
+                          else "a capture's shot table's where one covers the frames, the shots record's (--shots) elsewhere"),
+             "the_record_against_this_reading": against,
              "frames_a_shot_table_has_the_word_on": frame_spans(sorted(n for n in covered if span[0] <= n <= span[1])),
              "runs_of_frames_over_the_line_read_as_one_cut": blurs,
              "cuts_a_capture_puts_elsewhere": apart, "shots": out,
@@ -1967,7 +2004,8 @@ def check(args, segs, canvas, span, src, rows, captures):
     if tally:
         result["subjects"] = tally.report()
     result["shots"], unlaid = shots_of(record, rows, captures, span, source_moved_over(args.source, span, w, h),
-                                       read_intents(args.table))
+                                       read_intents(args.table), record_cuts_of(args.shots) if args.shots else None)
+    result["shots"]["shots_record"] = args.shots
     for line in unlaid:
         fail(line)
     result["ends"], slid = ends_of(record, [e["frames"] for e in result["shots"]["shots"]], rows, captures)
@@ -2064,6 +2102,8 @@ def main():
     p.add_argument("--size", choices=("canvas", "source"), default="canvas",
                    help="canvas: the pieces' size. source: the source's own size, with only what the pieces changed put back over it")
     p.add_argument("--capture", action="append", default=[], help="a capture folder of bench/capture_masked_run.py; repeatable")
+    p.add_argument("--shots", help="the video's shots record (data/<stem>/shots.json): its cuts are the cuts on every frame no capture's shot table "
+                   "covers, in place of this tool's own reading of the picture; where the two differ the record says so and nothing fails")
     p.add_argument("--alias", action="append", default=[], metavar="LABEL=NAME",
                    help="a subject's label as some capture writes it, and the name the table uses for that subject; repeatable")
     p.add_argument("--crf", type=int, default=12)

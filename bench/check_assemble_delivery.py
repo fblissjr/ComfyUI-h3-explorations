@@ -1044,6 +1044,33 @@ with tempfile.TemporaryDirectory() as _tmp:
             and section["frames_a_shot_table_has_the_word_on"] == [[1, 34], [36, 39]], (section["cuts"], section["frames_a_shot_table_has_the_word_on"])
         apart = section["cuts_a_capture_puts_elsewhere"][0]
         assert apart["its_cuts_not_found_here"] == [10, 25] and apart["cuts_here_it_does_not_have"] == [20, 31], apart
+        assert section["the_record_against_this_reading"] is None and "this tool's own" in section["cuts_are"], "with no shots record the section says one was read"
+        # THE SHOTS RECORD'S CUTS (--shots), where no capture's shot table has the word. With no capture: the record's are the
+        # cuts, this tool's own reading is set beside them both ways, and nothing fails. The record has a cut at 25 the
+        # picture does not show (two grey pictures, or a record that split one shot) and none at 31, where the picture moves
+        section, problems = tool.shots_of({"rows": {}}, [], None, (0, 39), moved, [], record_cuts=[0, 20, 25, 80])
+        assert [e["frames"] for e in section["shots"]] == [[0, 19], [20, 24], [25, 39]] and not problems, (section["cuts"], problems)
+        told = section["the_record_against_this_reading"]
+        assert told["cuts_the_record_has_and_this_reading_does_not_find"] == [25] and told["cuts_this_reading_finds_and_the_record_does_not_have"] == [31] \
+            and told["cuts_the_record_has_where_a_shot_table_has_the_word_and_has_none"] == [] and "the shots record's" in section["cuts_are"], told
+        # with a capture's shot table: the table still has the word on the frames it covers (a record cut at 30 and one at
+        # 37, inside its shots, are not cuts and are listed), and the record has it on the one frame no table covers, 35
+        section, problems = tool.shots_of({"rows": {}}, [], Tables(), (0, 39), moved, [], record_cuts=[0, 10, 30, 35, 37])
+        assert [e["frames"] for e in section["shots"]] == [[0, 9], [10, 24], [25, 34], [35, 39]] and not problems, (section["cuts"], problems)
+        told = section["the_record_against_this_reading"]
+        assert told["cuts_the_record_has_where_a_shot_table_has_the_word_and_has_none"] == [30, 37] \
+            and told["cuts_the_record_has_and_this_reading_does_not_find"] == [35] and told["cuts_this_reading_finds_and_the_record_does_not_have"] == [], told
+        # a record with no cut at 35: the two shots either side are then one, since neither a table nor the record cuts there
+        section, _ = tool.shots_of({"rows": {}}, [], Tables(), (0, 39), {**moved, 35: 66.0}, [], record_cuts=[0, 10])
+        assert [e["frames"] for e in section["shots"]][-1] == [25, 39] and section["the_record_against_this_reading"]["cuts_this_reading_finds_and_the_record_does_not_have"] == [35]
+        (TMP / "not_a_record.json").write_text(json.dumps({"schema": "h3_plan/1", "shots": []}))
+        (TMP / "a_record.json").write_text(json.dumps({"schema": "h3_shots/1", "shots": [{"first": 0, "last": 9}, {"first": 10, "last": 39}]}))
+        assert tool.record_cuts_of(TMP / "a_record.json") == [0, 10]
+        try:
+            tool.record_cuts_of(TMP / "not_a_record.json")
+            raise AssertionError("a file that is not a shots record was read as one")
+        except SystemExit as stop:
+            assert "not a video's shots record" in str(stop), stop
         return ("a shot with its subject tracked and nothing laid fails by its frames; so does one called absent with people detected, by the "
                 "capture's flag or a shot table; a `source` line answers it and its words are kept; another subject's person, nobody, and "
                 "nothing known are listed and pass; a `source` line over a laid shot or over part of one fails")
