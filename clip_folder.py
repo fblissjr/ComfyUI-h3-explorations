@@ -5,8 +5,10 @@ One folder holds everything measured or decided about one input video before any
 (2026-10-10): a rule that depends on the picture takes its value from this clip, measured up front, in a
 workflow of its own that runs first; its data sits in the data folder named by the input video, by file name
 and never by path; and the renders read from it. This module is the part of that every reader shares: the
-bench tools that write the folder and the node that reads it import the same functions, so "which folder",
-"is it this file's" and "has anything a render reads changed" have one answer each.
+bench tools that write the folder and the ones that read it import the same functions, so "which folder",
+"is it this file's" and "has anything a render reads changed" have one answer each. (No node imports it: a
+job's graph is built by `bench/masked_job.py`, which does. This sentence said "the node that reads it" until
+2026-10-13.)
 
 Nothing here imports ComfyUI or torch, and nothing here writes outside the folder it is given.
 
@@ -15,6 +17,7 @@ Nothing here imports ComfyUI or torch, and nothing here writes outside the folde
     {"schema": "h3_clip_analysis", "version": 1,
      "source":  {"name", "bytes", "frames", "rate", "size": [w, h], "head_sha256"},
      "derived": {"name", ..., "made_by": how, "checked": what the frame-for-frame check said} or null,
+     "copies_before": [{"name", ..., "first_source_frame", "replaced_by", "replaced_at", "why", ...}],
      "masks":   [{"subject", "kind", "file", "size": [w, h], "first_source_frame", "frames", "sha256", "by"}],
      "fingerprint": "..."}
 
@@ -32,6 +35,18 @@ as it is NOW, and a reader takes it from there and never from the file.
 **One clock.** Every frame number in the folder (a mask's `first_source_frame`, a shot's frames, a load's) is
 a frame of the file the masks were made from: the `derived` copy when the manifest has one, else the source.
 A job renders from that same file, so a job's frame numbers are the folder's.
+
+**The copies a video has had** (`copies_before`, 2026-10-13). A video's working copy is replaced now and then: a
+longer one, one with its sound made again. The manifest held one copy's name, so the day a copy was replaced
+every job that named the one before it found no folder and could not be built again, though its file was where
+it had been. `copies_before` keeps each earlier copy as `derived` kept it (its name and identity, how it was
+made, what was checked) with `first_source_frame` (the source frame its frame 0 is: its frame clock),
+`replaced_by`, `replaced_at` and `why`. A folder is found by any of those names (`folder_of_file`), and a file
+is held to the entry OF ITS OWN NAME (`verify`): a job from an earlier copy builds again and is still refused
+if that file's bytes have changed. A copy whose frame 0 is not the present copy's is on another clock
+(`same_clock`): its frame numbers are not the folder's, and a reader that carries frame numbers across copies
+asks first. The fingerprint does not hold `copies_before`: retiring a copy changes nothing a render from the
+present copy reads, and the present copy is in the fingerprint as before.
 
 **Two layers of settings**, never merged in a file. What the analysis decided for a load is in the folder's
 `profile.json`, each key with the figure it read and the line it compared with, and `line_is` one of
@@ -102,6 +117,64 @@ def stem(name: str) -> str:
     return Path(name).stem
 
 
+def copies(manifest: dict) -> list[dict]:
+    """Every copy the video has or has had, the present one first: each as its entry, with `present` and
+    `first_source_frame` (0 for the present copy unless its entry says otherwise)."""
+    out = []
+    if manifest.get("derived"):
+        out.append({"first_source_frame": 0, **manifest["derived"], "present": True})
+    out += [{**c, "present": False} for c in manifest.get("copies_before") or []]
+    return out
+
+
+def copy_named(manifest: dict, name: str) -> dict | None:
+    """The entry of the copy of this file name, present or earlier, or None."""
+    return next((c for c in copies(manifest) if c["name"] == name), None)
+
+
+def same_clock(manifest: dict, name: str) -> bool:
+    """Whether a file's frame numbers are the folder's: it is the source, or a copy whose frame 0 is the present
+    copy's. Refused for a name the manifest does not hold."""
+    if name == manifest["source"]["name"]:
+        return True
+    entry = copy_named(manifest, name)
+    if entry is None:
+        raise Refused(f"{name!r} is not this video's source or a copy it has had")
+    present = next((c for c in copies(manifest) if c["present"]), None)
+    return int(entry["first_source_frame"]) == int(present["first_source_frame"] if present else 0)
+
+
+def retire(manifest: dict, replaced_by: str, why: str, at: str, first_source_frame: int = 0) -> dict:
+    """Move the manifest's present copy into `copies_before`, as it stands, with what replaced it and why. The
+    caller then sets the new `derived`. Refused with no present copy, with no reason in words, or when a copy of
+    that name is already among the earlier ones."""
+    present = manifest.get("derived")
+    if not present:
+        raise Refused("the manifest has no copy to retire")
+    if not str(why).strip():
+        raise Refused(f"the copy {present['name']!r} is being replaced by {replaced_by!r}: say why, in words; it is kept with the copy")
+    if replaced_by == present["name"]:
+        raise Refused(f"the copy {present['name']!r} cannot be replaced by a file of its own name")
+    return add_copy_before(manifest, {**present, "first_source_frame": int(present.get("first_source_frame", first_source_frame)),
+                                      "replaced_by": replaced_by, "replaced_at": at, "why": str(why).strip()}, retiring=True)
+
+
+def add_copy_before(manifest: dict, entry: dict, retiring: bool = False) -> dict:
+    """Enter an earlier copy in the manifest. Refused when its name is the source's, the present copy's (unless it
+    is the present copy being retired, `retire`) or one already entered, or when its frames do not lie inside the
+    source's."""
+    name = entry.get("name")
+    if name == manifest["source"]["name"] or any(c["name"] == name for c in manifest.get("copies_before") or []) \
+            or (name == (manifest.get("derived") or {}).get("name") and not retiring):
+        raise Refused(f"{name!r} is already the source, the present copy or an earlier copy of this video")
+    first = int(entry.get("first_source_frame", -1))
+    if first < 0 or first + int(entry.get("frames", 0)) > int(manifest["source"]["frames"]):
+        raise Refused(f"the copy {name!r} is said to begin on source frame {entry.get('first_source_frame')} and holds {entry.get('frames')} frames: "
+                      f"that is not inside the source's {manifest['source']['frames']}")
+    manifest["copies_before"] = [*(manifest.get("copies_before") or []), dict(entry)]
+    return manifest
+
+
 def find_source(name: str, input_folder: Path) -> Path:
     """The one file of this name under the server's input folder: directly in it, else anywhere below it."""
     if Path(name).name != name:
@@ -157,7 +230,8 @@ def folder_for(name: str, data: Path, ident: dict | None = None) -> Path:
 
 
 def folder_of_file(name: str, data: Path) -> Path:
-    """The folder whose manifest names a file of this name, as its source or as its derived copy.
+    """The folder whose manifest names a file of this name, as its source, as its derived copy, or as a copy it
+    had before (`copies_before`).
 
     A job is given the file it renders from, which is as a rule the copy and not the input; this is how a job
     finds its video's folder from that file's name alone."""
@@ -169,29 +243,36 @@ def folder_of_file(name: str, data: Path) -> Path:
             manifest = json.loads(path.read_text())
         except (ValueError, OSError):
             continue
-        if isinstance(manifest, dict) and manifest.get("schema") == SCHEMA and name in ((manifest.get("source") or {}).get("name"),
-                                                         (manifest.get("derived") or {}).get("name")):
+        # by the source's name, the present copy's, or the name of any copy the video has had: a job that renders
+        # from a copy since replaced is still this video's
+        if isinstance(manifest, dict) and manifest.get("schema") == SCHEMA and name in (
+                (manifest.get("source") or {}).get("name"), (manifest.get("derived") or {}).get("name"),
+                *((c or {}).get("name") for c in manifest.get("copies_before") or [])):
             held.append(path.parent)
     if len(held) == 1:
         return held[0]
     if not held:
-        raise Refused(f"no analysis folder under {data} names a file called {name!r}, as its source or as the "
-                      f"copy made from it: this video has not been analysed. Run bench/clip_analysis.py init on "
-                      f"its input video first.")
+        raise Refused(f"no analysis folder under {data} names a file called {name!r}, as its source, as the "
+                      f"copy made from it, or as a copy it had before: this video has not been analysed, or this copy "
+                      f"was replaced before copies were kept. Run bench/clip_analysis.py init on its input video, or "
+                      f"`copy-before` to enter an earlier copy.")
     raise Refused(f"{len(held)} analysis folders name a file called {name!r}: {', '.join(p.name for p in held)}")
 
 
 def verify(manifest: dict, path: Path, frames: bool = False) -> None:
     """Refuse when `path` is not the file the folder was made from: another file of that name, or the file changed.
 
-    `path` is the source or the derived copy, told by its name. The byte size and the head hash are read
-    every time; the frame count, which needs ffprobe, when asked."""
+    `path` is the source, the derived copy or a copy the video had before, told by its name, and it is held to
+    the entry of that name: an earlier copy to its own identity, never to the present copy's. The byte size and
+    the head hash are read every time; the frame count, which needs ffprobe, when asked."""
     path = Path(path)
     derived = manifest.get("derived") or {}
-    source = derived if path.name == derived.get("name") else manifest["source"]
+    source = copy_named(manifest, path.name) or manifest["source"]
     if path.name != source["name"]:
+        before = [c["name"] for c in manifest.get("copies_before") or []]
         raise Refused(f"the folder is {manifest['source']['name']!r}'s"
-                      + (f" (its copy is {derived['name']!r})" if derived else "") + f" and the file is named {path.name!r}")
+                      + (f" (its copy is {derived['name']!r}" + (f"; before it: {', '.join(before)}" if before else "") + ")" if derived else "")
+                      + f" and the file is named {path.name!r}")
     now = {"bytes": path.stat().st_size, "head_sha256": head_hash(path)}
     if frames:
         now["frames"] = probe(path)["frames"]
@@ -203,8 +284,9 @@ def verify(manifest: dict, path: Path, frames: bool = False) -> None:
 
 
 def check_manifest(manifest: dict) -> None:
-    """Refuse a manifest a reader could misread: a source or a copy lacking a field of its identity, an
-    unknown mask kind, a mask with no size or first frame, a mask named by a path."""
+    """Refuse a manifest a reader could misread: a source or a copy lacking a field of its identity, an earlier
+    copy lacking its identity, its frame clock or what replaced it and why, two files of one name, an unknown mask
+    kind, a mask with no size or first frame, a mask named by a path."""
     for block in ("source", "derived"):
         about = manifest.get(block)
         if about is None and block == "derived":
@@ -212,6 +294,15 @@ def check_manifest(manifest: dict) -> None:
         lacking = [k for k in ("name", "bytes", "frames", "rate", "size", "head_sha256") if not isinstance(about, dict) or k not in about]
         if lacking:
             raise Refused(f"the manifest's `{block}` lacks {', '.join(lacking)}")
+    seen = {manifest["source"].get("name"), (manifest.get("derived") or {}).get("name")}
+    for n, copy in enumerate(manifest.get("copies_before") or []):
+        lacking = [k for k in ("name", "bytes", "frames", "rate", "size", "head_sha256", "first_source_frame", "replaced_by", "replaced_at", "why")
+                   if not isinstance(copy, dict) or k not in copy]
+        if lacking:
+            raise Refused(f"earlier copy {n} of the manifest lacks {', '.join(lacking)}")
+        if copy["name"] in seen:
+            raise Refused(f"earlier copy {n} of the manifest is named {copy['name']!r}, as the source, the present copy or another earlier copy is")
+        seen.add(copy["name"])
     for n, mask in enumerate(manifest.get("masks") or []):
         lacking = [k for k in ("subject", "kind", "file", "size", "first_source_frame", "frames", "sha256", "by") if k not in mask]
         if lacking:
