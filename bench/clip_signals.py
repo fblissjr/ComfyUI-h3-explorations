@@ -3,6 +3,7 @@
 
     <python> bench/clip_signals.py offset --out AUDIO_DIR COPY [COPY ...]          # sound_offset.record.json
     <python> bench/clip_signals.py phrases AUDIO_DIR                               # phrases_per_frame.csv + phrases.record.json
+    <python> bench/clip_signals.py dips AUDIO_DIR                                  # dips_per_frame.csv + dips.record.json
     <python> bench/clip_signals.py beats AUDIO_DIR [--shots data/<stem>/shots.json] # beats_per_frame.csv + beats.record.json
     <python> bench/clip_signals.py at AUDIO_DIR --frames FIRST-LAST [--name LOAD] [--shots data/<stem>/shots.json]
 
@@ -35,9 +36,18 @@ of the mean, and its line was set on that scale; the record says so. Inside each
 `voice_spans.json`, every stretch under that table's line is a GAP, listed with its length and its deepest
 level; a gap of `BREAK` steps or more is a phrase break, and the stretches between breaks are the phrases. It
 cannot see: a break sung through with no drop in level; a held note from a new phrase; whose voice it is, or a
-backing voice (the stem holds every voice); a breath the separation put in the other stem. NOT BUILT: a break
-found by the fall of the level against the sung level round it, which is how a reader found, by hand, the dips
-this line passes over; how deep and how long such a fall has to be is a setting for the owner's ear.
+backing voice (the stem holds every voice); a breath the separation put in the other stem.
+
+**dips.** What the line cannot see, as data: a breath inside unbroken singing does not fall under the voice
+table's line, so the phrases pass over it (on the first real run a "phrase" a whole voiced run long held a dip of
+several frames a reader found by hand). Every step's level is set against THE SUNG LEVEL ROUND IT (a high
+percentile of the level within a window either side), and every stretch that lies `DIP_FLOOR` decibels or more
+under it for `DIP_LEAST` steps or more, and touches a voiced run, is listed: where it starts and ends, how long,
+how deep at its deepest, the level there, how many of its frames are under the voice table's line, and the
+vocals stem's own onset strength where the dip ends (a line that begins after a breath shows as a spike there
+even where the level barely moved). NOTHING IS CUT: the floor only bounds the list, and whether a dip is a
+breath between two sung lines, a consonant inside one or the separation's residue is a reading of the table, the
+reader's. It cannot see which of those a dip is, nor a breath with no fall in level at all.
 
 **beats.** From the rest stem: an onset curve (the rise of the spectrum from one short step to the next), a
 tempo from that curve's likeness to itself a beat later, and a grid laid by the tracker of Ellis (2007), which
@@ -88,6 +98,14 @@ STEPS = 4
 #: UNTESTED ON ANY TRACK: a stop consonant closes the voice for under a tenth of a second and a breath for longer.
 #: Every gap is listed with its length whichever side of this it falls.
 BREAK = 3 * STEPS
+#: The sung level round a step: this percentile of the level within this many frames either side. INHERITED from
+#: the blind reader's own check of the first run (2026-10-13), who chose them for that check and tested them on
+#: no other track: a starting value.
+DIP_PERCENTILE, DIP_WINDOW_FRAMES = 90.0, 36
+#: The list's floor: a stretch this many decibels or more under the sung level round it, for this many steps or
+#: more (half a frame). The floor bounds the LIST and cuts nothing. Reasoned: half the depth the reader listed at,
+#: so that a reader who cuts at any depth from there up finds every dip in the table; untested.
+DIP_FLOOR, DIP_LEAST = 6.0, STEPS // 2
 #: The onset curve's sound rate, window and step. Inherited: the usual values for a beat tracker's curve
 #: (Ellis 2007 used 8 kHz and 4 ms; these are the common later ones at half the stems' rate).
 BEAT_RATE, WINDOW, HOP = 22050, 1024, 256
@@ -118,6 +136,9 @@ CANNOT = {
               "therefore neither confirmed nor refuted by a figure of zero here",
     "phrases": "a break sung through with no drop in level; a held note from a new phrase; whose voice it is, or a backing voice (the stem holds every voice); "
                "a breath the separation put in the other stem",
+    "dips": "which of a breath between two sung lines, a consonant inside one and the separation's residue a dip is; a breath with no fall in level; "
+            "whose voice falls (the stem holds every voice). The sung level round a step is a percentile over a window, so the first dip after a long "
+            "silence is measured against less singing than the others",
     "beats": "a tempo that drifts or changes (the grid is one fit; the local tempos show it and do not mend it); a bar's first beat (no downbeat and no count "
              "in fours is given); music with no steady pulse; a tempo from its double or its half, or which of a beat and the place half-way a listener counts",
 }
@@ -199,6 +220,40 @@ def gaps_and_phrases(level: np.ndarray, runs: list[list[int]], line: float, step
                                 "first_frame": edge // steps, "last_frame": (a - 1) // steps})
             edge = b
     return gaps, phrases
+
+
+def dips_of(level: np.ndarray, runs: list[list[int]], line: float, steps: int = STEPS) -> tuple[np.ndarray, list[dict]]:
+    """The sung level round every step, and every dip under it down to the floor that touches a voiced run.
+    `level` is [frames, steps]; places are given back in frames."""
+    flat = level.reshape(-1).astype(np.float64)
+    n, half = len(flat), DIP_WINDOW_FRAMES * steps
+    ref = np.full(n, np.nan)
+    for k in range(n):
+        seg = flat[max(k - half, 0):k + half + 1]
+        seg = seg[~np.isnan(seg)]
+        if len(seg):
+            ref[k] = np.percentile(seg, DIP_PERCENTILE)
+    depth = ref - flat
+    voiced = np.zeros(n, bool)
+    for lo, hi in runs:
+        voiced[lo * steps:(hi + 1) * steps] = True
+    under = np.nan_to_num(depth, nan=0.0) >= DIP_FLOOR
+    out, start = [], None
+    for k, u in enumerate(list(under) + [False]):
+        if u and start is None:
+            start = k
+        elif not u and start is not None:
+            a, b, start = start, k, None
+            if b - a < DIP_LEAST or not voiced[a:b].any():
+                continue
+            deep = a + int(np.nanargmax(depth[a:b]))
+            run = next((i for i, (lo, hi) in enumerate(runs, 1) if lo * steps < b and a < (hi + 1) * steps), None)
+            out.append({"dip": len(out) + 1, "starts": round(a / steps, 2), "ends": round(b / steps, 2), "frames": round((b - a) / steps, 2),
+                        "deepest_db_under_the_sung_level": round(float(depth[deep]), 1), "deepest_dbfs": round(float(flat[deep]), 1),
+                        "deepest_at": round(deep / steps, 2), "the_sung_level_there_dbfs": round(float(ref[deep]), 1),
+                        "frames_under_the_voice_tables_line": round(float((flat[a:b] <= line).sum()) / steps, 2),
+                        "voiced_run": run, "wholly_inside_the_run": bool(voiced[a:b].all())})
+    return ref.reshape(level.shape), out
 
 
 def onset_curve(mono: np.ndarray, rate: int) -> tuple[np.ndarray, float]:
@@ -356,6 +411,55 @@ def shown(place: float) -> float:
     """A place in frames as it is written: cut to a hundredth, never rounded up, so a place written is in the frame
     its whole part names (a place a thousandth short of a frame was written as the next frame's)."""
     return float(np.floor(float(place) * 100.0) / 100.0)
+
+
+def step_dips(a) -> int:
+    folder = Path(a.folder)
+    spans = read_spans(folder)
+    fps, frames, line, runs = float(spans["fps"]), int(spans["frames"]), float(spans["threshold_dbfs"]), spans["voiced_spans_inclusive"]
+    sound, rate = read_wav(folder / "vocals.wav")
+    level = step_levels(sound, rate, fps, frames)
+    ref, dips = dips_of(level, runs, line)
+    # the vocals stem's own onset curve, on the clock of the beats' table, and its strength where each dip ends
+    curve, per_second = onset_curve(sound.mean(1), rate)
+    top = float(np.percentile(curve, 99)) if np.any(curve) else 0.0
+    at = lambda frame: int(np.clip(round((frame / fps - HALF_WINDOW) * per_second), 0, max(len(curve) - 1, 0)))        # noqa: E731
+    onset = np.full(frames, np.nan)
+    for n in range(frames):
+        seg = curve[at(n):max(at(n + 1), at(n) + 1)]
+        if len(seg):
+            onset[n] = seg.max()
+    for d in dips:
+        seg = curve[at(d["ends"] - 0.5):at(d["ends"] + 1.5) + 1]
+        d["vocal_onset_where_it_ends_over_the_songs_strong_onset"] = round(float(seg.max()) / top, 3) if len(seg) and top else None
+    of = {}
+    for d in dips:
+        for n in range(int(d["starts"]), int(np.ceil(d["ends"]))):
+            of.setdefault(n, d["dip"])
+    table = folder / "dips_per_frame.csv"
+    with open(table, "w", newline="") as fh:
+        w = csv.writer(fh)
+        w.writerow(["frame", "the_sung_level_round_it_dbfs"] + [f"db_under_it_step_{k + 1}_of_{STEPS}" for k in range(STEPS)] + ["vocal_onset_strength", "dip"])
+        for n in range(frames):
+            cells = ["" if np.isnan(ref[n, k]) or np.isnan(level[n, k]) else round(float(ref[n, k] - level[n, k]), 1) for k in range(STEPS)]
+            w.writerow([n, "" if np.all(np.isnan(ref[n])) else round(float(np.nanmax(ref[n])), 1)] + cells
+                       + ["" if np.isnan(onset[n]) else round(float(onset[n]), 3), of.get(n, "")])
+    rec = record("dips", [folder / "vocals.wav", folder / "voice_spans.json"],
+                 {"steps_a_frame": STEPS, "the_sung_level_is_percentile": DIP_PERCENTILE, "within_frames_either_side": DIP_WINDOW_FRAMES,
+                  "listed_from_db_under_it": DIP_FLOOR, "listed_from_steps": DIP_LEAST, "the_voice_tables_line_dbfs": line,
+                  "the_level_is": "the power of both channels of the vocals stem, as in the phrases table",
+                  "the_songs_strong_onset_is": "the 99th percentile of the vocals stem's own onset curve", "fps": fps, "frames": frames,
+                  "where_the_settings_are_from": "bench/clip_signals.py, beside each constant"},
+                 table, {"said": "a list, not a cut: the floor bounds what is listed and nothing here says which dip is a break between two sung lines",
+                         "dips": dips})
+    (folder / "dips.record.json").write_text(json.dumps(rec, indent=1) + "\n")
+    inside = [d for d in dips if d["wholly_inside_the_run"]]
+    over = [d for d in inside if d["frames_under_the_voice_tables_line"] < BREAK / STEPS]
+    print(f"{len(dips)} dip(s) of {DIP_FLOOR:g} dB or more under the sung level round them, for {DIP_LEAST / STEPS:g} frame or more, touching a voiced run; "
+          f"{len(inside)} wholly inside a run, and {len(over)} of those are under the voice table's line for less than the {BREAK / STEPS:g} frames a phrase break takes: "
+          "the dips the phrases pass over")
+    print(f"written: {table} and {folder / 'dips.record.json'}. It cannot see: {CANNOT['dips']}")
+    return 0
 
 
 def grid(mono: np.ndarray, rate: int) -> dict:
@@ -527,8 +631,12 @@ def edge_figures(frame: int, phrases: list[dict], runs: list[list[int]], beats: 
     return out
 
 
-def read_signals(folder: Path) -> tuple[list[dict], list[list[int]], np.ndarray, list[str], np.ndarray]:
-    absent, phrases, beats, halves = [], [], np.array([]), np.array([])
+def read_signals(folder: Path) -> tuple[list[dict], list[list[int]], np.ndarray, list[str], np.ndarray, list[dict] | None]:
+    absent, phrases, beats, halves, dips = [], [], np.array([]), np.array([]), None
+    if (folder / "dips.record.json").is_file():
+        dips = json.loads((folder / "dips.record.json").read_text())["dips"]
+    else:
+        absent.append("dips (no dips.record.json: `clip_signals.py dips`)")
     runs = read_spans(folder)["voiced_spans_inclusive"]
     if (folder / "phrases.record.json").is_file():
         phrases = json.loads((folder / "phrases.record.json").read_text())["phrases"]
@@ -541,7 +649,7 @@ def read_signals(folder: Path) -> tuple[list[dict], list[list[int]], np.ndarray,
         halves = np.array([float(r["half_way_at_frame"]) for r in table if r.get("half_way_at_frame", "") != ""])
     else:
         absent.append("beats (no beats_per_frame.csv: `clip_signals.py beats`)")
-    return phrases, runs, beats, absent, halves
+    return phrases, runs, beats, absent, halves, dips
 
 
 def step_at(a) -> int:
@@ -550,7 +658,7 @@ def step_at(a) -> int:
     if not (first.isdigit() and last.isdigit()) or int(first) > int(last):
         raise SystemExit(f"--frames {a.frames!r}: write FIRST-LAST, two source frames")
     first, last = int(first), int(last)
-    phrases, runs, beats, absent, halves = read_signals(folder)
+    phrases, runs, beats, absent, halves, dips = read_signals(folder)
     shot = None
     if a.shots:
         shot = next((s for s in json.loads(Path(a.shots).read_text())["shots"] if s["first"] <= first <= s["last"]), None)
@@ -591,6 +699,13 @@ def step_at(a) -> int:
     print("  INSIDE THE LOAD, between its first and last frame (the load's own frame in brackets, counted from 0):")
     if "phrases" not in " ".join(absent):
         print("    phrases: " + ("; ".join(f"{text} [{at - first}]" for at, text in sorted(inside)) or "none starts or ends inside it"))
+    if dips is not None:
+        # every listed dip that touches the load or lies within a second after its last frame, where the held tail is
+        near = [d for d in dips if d["ends"] > first and d["starts"] < last + 1 + 24]
+        print(f"    dips under the sung level (a list down to its floor, nothing cut; the last ones lie after the load's end): {len(near)}"
+              + ("".join(f"\n      from {d['starts']:g} for {d['frames']:g} frames, {d['deepest_db_under_the_sung_level']:g} dB under at its deepest ({d['deepest_dbfs']:g} dBFS), "
+                         f"{d['frames_under_the_voice_tables_line']:g} of them under the voice table's line; the voice's onset where it ends "
+                         f"{d['vocal_onset_where_it_ends_over_the_songs_strong_onset']} of a strong one [{d['starts'] - first:g}]" for d in near)))
     if len(beats):
         here = [b for b in beats if first <= b < last + 1]
         print(f"    beats: {len(here)}" + (": " + ", ".join(f"{b:g} [{b - first:g}]" for b in here) if here else ""))
@@ -609,16 +724,16 @@ def main() -> int:
     o = sub.add_parser("offset")
     o.add_argument("copies", nargs="+")
     o.add_argument("--out", required=True)
-    for name in ("phrases", "beats", "at"):
+    for name in ("phrases", "dips", "beats", "at"):
         p = sub.add_parser(name)
         p.add_argument("folder")
-        if name != "phrases":
+        if name in ("beats", "at"):
             p.add_argument("--shots")
         if name == "at":
             p.add_argument("--frames", required=True, metavar="FIRST-LAST")
             p.add_argument("--name")
     a = ap.parse_args()
-    return {"offset": step_offset, "phrases": step_phrases, "beats": step_beats, "at": step_at}[a.what](a)
+    return {"offset": step_offset, "phrases": step_phrases, "dips": step_dips, "beats": step_beats, "at": step_at}[a.what](a)
 
 
 if __name__ == "__main__":

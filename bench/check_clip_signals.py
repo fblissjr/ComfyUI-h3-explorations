@@ -26,6 +26,11 @@
                                         its whole part names, never rounded up onto the next
   an_accent_every_second_click          the tempo comes back as the accents', the place half-way between each pair of beats is written with
                                         the weak click on it and is not called a beat; a track with nothing half-way gets no such column
+  a_dip_the_line_passes_over_is_listed  a fall of the level inside unbroken singing that never reaches the voice table's line: the phrases
+                                        pass over it (one phrase, no gap) and the dips table lists it on its frames, at its depth, with
+                                        the voice's onset where it ends; a swell shallower than the list's floor and a fall shorter than
+                                        half a frame are in the per-frame columns and not in the list; a silent stem has no dip; `at`
+                                        prints the dips of a load; nothing is cut
   beats_before_the_pulse_are_said       clicks that start late after two stray sounds: the steady run begins where the pulse does, and the
                                         beats laid before it are in the table with their own strength, outside the run
 
@@ -135,7 +140,17 @@ with tempfile.TemporaryDirectory() as tmp:
     n2 = int(round(140 * RATE / FPS))
     back[n1:n2] = 0.1 * np.sin(2 * np.pi * 660.0 * np.arange(n2 - n1) / RATE)
     gaps = folder_of(root, "gaps", back, np.zeros_like(back), FRAMES)
-    ran = {d.name: (run("phrases", str(d)), run("beats", str(d), "--shots", str(shots))) for d in (voiced, silent, steady, drift, accent, faint, slow, late, cancel, gaps)}
+    # unbroken singing with a fall of twenty decibels for five frames that stays over the line, a shallow swell, and a fall of one step
+    def level_of(pieces):
+        out = tones(FRAMES, [(20, 140)], 0.3)
+        t = np.arange(len(out)) / RATE
+        for a_, b_, amp in pieces:
+            lo, hi = int(round(a_ * RATE / FPS)), int(round(b_ * RATE / FPS))
+            out[lo:hi] = amp * np.sin(2 * np.pi * 440.0 * t[lo:hi])
+        return out
+    dipped = folder_of(root, "dipped", level_of([(60, 65, 0.03), (90, 95, 0.21), (110, 110.25, 0.03)]), np.zeros(int(FRAMES * RATE / FPS), np.float32), FRAMES)
+    ran_dips = {d.name: run("dips", str(d)) for d in (dipped, silent)}
+    ran = {d.name: (run("phrases", str(d)), run("beats", str(d), "--shots", str(shots))) for d in (voiced, silent, steady, drift, accent, faint, slow, late, cancel, gaps, dipped)}
 
     def phrases_come_back():
         assert ran["voiced"][0].returncode == 0, ran["voiced"][0].stderr
@@ -314,6 +329,31 @@ with tempfile.TemporaryDirectory() as tmp:
         return (f"an accent at a third: tempo {both['tempo_bpm']}, every other beat named ({a} against {b}); a faint click between: tempo {rec['tempo_bpm']}, "
                 f"{h['places']} half-way places on the faint clicks; none written for clicks with nothing between them")
 
+    def a_dip_the_line_passes_over():
+        assert ran_dips["dipped"].returncode == 0, ran_dips["dipped"].stderr
+        ph = json.loads((dipped / "phrases.record.json").read_text())
+        assert [(x["first_frame"], x["last_frame"]) for x in ph["phrases"]] == [(20, 139)] and ph["gaps"] == [], (ph["phrases"], ph["gaps"])
+        rec = json.loads((dipped / "dips.record.json").read_text())
+        inside = [d for d in rec["dips"] if d["wholly_inside_the_run"]]
+        assert len(inside) == 1, [(d["starts"], d["frames"], d["deepest_db_under_the_sung_level"]) for d in rec["dips"]]
+        d = inside[0]
+        assert (d["starts"], d["ends"], d["frames"]) == (60.0, 65.0, 5.0) and 19.0 < d["deepest_db_under_the_sung_level"] < 21.0 and d["frames_under_the_voice_tables_line"] == 0.0 \
+            and d["voiced_run"] == 1 and -35.0 < d["deepest_dbfs"] < -32.0 and d["vocal_onset_where_it_ends_over_the_songs_strong_onset"] > 0.5, d
+        table = rows(dipped / "dips_per_frame.csv")
+        assert len(table) == FRAMES and table[62]["dip"] == str(d["dip"]) and 19.0 < float(table[62]["db_under_it_step_2_of_4"]) < 21.0, table[62]
+        assert table[92]["dip"] == "" and 2.5 < float(table[92]["db_under_it_step_2_of_4"]) < 3.7, table[92]                   # the swell: in the columns, not in the list
+        assert table[110]["dip"] == "" and float(table[110]["db_under_it_step_1_of_4"]) > 15, table[110]                       # one step: in the columns, not in the list
+        assert float(table[65]["vocal_onset_strength"]) > float(table[80]["vocal_onset_strength"]) and "a list, not a cut" in rec["said"], (table[65], table[80])
+        quiet = json.loads((silent / "dips.record.json").read_text())
+        assert quiet["dips"] == [] and len(rows(silent / "dips_per_frame.csv")) == FRAMES and all(r["dip"] == "" for r in rows(silent / "dips_per_frame.csv"))
+        import hashlib
+        assert rec["fingerprint"] == hashlib.sha256((dipped / "dips_per_frame.csv").read_bytes()).hexdigest() and rec["cannot_see"] == cs.CANNOT["dips"] \
+            and rec["settings"]["listed_from_db_under_it"] == cs.DIP_FLOOR
+        said = run("at", str(dipped), "--frames", "50-70").stdout
+        assert "dips under the sung level" in said and "from 60 for 5 frames, " in said and "[10]" in said and "0 of them under the voice table's line" in said, said
+        assert "the dips the phrases pass over" in ran_dips["dipped"].stdout, ran_dips["dipped"].stdout
+        return f"one phrase with no gap; the dip listed at 60 for 5 frames, {d['deepest_db_under_the_sung_level']} dB under, onset where it ends {d['vocal_onset_where_it_ends_over_the_songs_strong_onset']} of a strong one"
+
     def beats_before_the_pulse():
         rec = json.loads((late / "beats.record.json").read_text())
         table = rows(late / "beats_per_frame.csv")
@@ -339,6 +379,7 @@ with tempfile.TemporaryDirectory() as tmp:
     case("two frames do not break a phrase, three do", two_frames_do_not_break)
     case("one clock in one table", one_clock)
     case("an accent every second click", an_accent)
+    case("a dip the line passes over is listed", a_dip_the_line_passes_over)
     case("beats before the pulse are said", beats_before_the_pulse)
 
 if __name__ == "__main__":

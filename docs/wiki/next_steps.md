@@ -566,12 +566,6 @@ fixed the same day, said inline below.**
   sides and which texts that touches. Wanted: that read, then the
   table by the power of both channels with its line set again on the
   new scale. Not started.
-- **A phrase break by the fall of the level, not by a line**
-  (2026-10-13). What `clip_signals.py phrases` does not build and its
-  page says so (`window_edges_data.md`, "Not built, and written
-  down"): a break where the level falls a set depth under the sung
-  level round it. The depth and the length are a setting for the
-  owner's ear. Not started.
 - **Of several boxes in one cut, the seed is the one clicked last**
   (2026-10-13, from the preview of 6105-6394, where it was a frame inside
   a fade to black). `bench/cast_file.py::seeds` gives a cut one seed and,
