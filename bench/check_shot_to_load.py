@@ -10,6 +10,10 @@ builder's own `check_job`, and a load's to `masked_job.loads_of`, so a file the 
    the prose of `how` is NOT read, and the subject falls back to the shot's middle with the note saying so.
 2. **The order** is the plan's unless the shot carries a person's `order`, and an `order` that is not the
    shot's subjects is refused. A subject the record does not say is in the shot gets no tracker.
+2b. **A preview made to ask** (`--ask SUBJECT:why`): a subject the record is `unsure` of is tracked all the same,
+   picked as an unseeded subject is, the note and the job's `made_to_ask` saying it is tracked to ask and why; a
+   shot where everybody is unsure is refused without it, the refusal naming the flag. Asking about a subject who
+   is `yes` or `no`, or with no reason, is refused, and NO LOAD is built on a subject the record is unsure of.
 3. **A subject with a box in the cast file inside the shot is seeded** from it and carries no `pick_at`; a box
    outside the shot, or another subject's, seeds nothing. THE SEEDED ARE TRACKED FIRST, whatever the plan's order,
    and the note says the seed decides and the job's `pick` does not; a person's `order` on the shot is still over
@@ -210,7 +214,7 @@ class Made:
 
 def args(**more) -> argparse.Namespace:
     given = dict(by="the session", day="2026-01-03", cast=None, queue=False, first=None, frames=None, why=None, remake=False, plain=None, model_store="",
-                 existing=False, writer=None, why_before=None, why_after=None, zoomed=None, least=None, least_why=None)
+                 existing=False, writer=None, why_before=None, why_after=None, zoomed=None, least=None, least_why=None, ask=[])
     given.update(more)
     return argparse.Namespace(**given)
 
@@ -256,6 +260,44 @@ def the_order_and_who_is_in_the_shot() -> str:
         made.shots["shots"][1]["who"]["b"]["present"] = "unsure"
         assert order(made.preview()) == ["a", "c"], "a subject the record is unsure of got a tracker"
     return "the trackers run in the plan's order unless the shot carries a person's; only subjects the record says are in the shot are tracked"
+
+
+def a_preview_made_to_ask() -> str:
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        who = made.shots["shots"][3]["who"]                                # 200-259, nobody
+        for k in who:
+            who[k] = {"present": "unsure", "how": "no answer of the owner's is on a frame of this shot", "by": "a session"}
+        refused(lambda: made.preview(200), "nobody of ours", "`unsure`", '--ask "SUBJECT:why"')
+        refused(lambda: made.preview(0), "nobody of ours")                 # nobody, and nobody unsure: the flag is not offered
+        assert "--ask" not in refused(lambda: made.preview(0), "nobody of ours"), "a shot the owner said nobody is in was offered an asking preview"
+        job = made.preview(200, ask={"a": "the owner has not answered on this cut"})
+        one = job["job"]["subjects"]
+        assert [s["label"] for s in one] == ["a"] and one[0]["pick_at"] == 229 and "seeds" not in one[0], one
+        assert "TRACKED TO ASK, NOT BECAUSE THE RECORD SAYS THEY ARE HERE" in job["job"]["note"] and "the owner has not answered on this cut" in job["job"]["note"], job["job"]["note"]
+        graphs.check_job(job["job"])
+        refused(lambda: made.preview(100, ask={"a": "why"}), "--ask a", "'yes'")
+        refused(lambda: made.preview(160, ask={"b": "why"}), "--ask b", "'no'")
+        refused(lambda: made.preview(200, ask={"a": "  "}), "--ask a", "with the reason")
+        made.shots["shots"][1]["who"]["b"]["present"] = "unsure"           # a shot with others in it: the asked one is tracked beside them
+        assert sorted(s["label"] for s in made.preview(100, ask={"b": "is the second person b"})["job"]["subjects"]) == ["a", "b", "c"]
+        made.shots["shots"][1]["who"]["b"]["present"] = "yes"
+        a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=200, folder=str(made.jobs), ask=["a: the owner has not answered on this cut"])
+        stl.step_preview(a, made.m)
+        kept = json.loads((made.jobs / "shot_c_0200.json").read_text())["job"]
+        graphs.check_job(kept)
+        assert kept["made_to_ask"]["subjects"] == {"a": "the owner has not answered on this cut"} and kept["made_to_ask"]["by"] == "the session", kept.get("made_to_ask")
+        a.ask = ["a"]
+        (made.jobs / "shot_c_0200.json").unlink()
+        refused(lambda: stl.step_preview(a, made.m), "is not `SUBJECT:why`")
+        # no load on it: the record still does not say the subject is in the shot
+        pjob = made.preview(200, ask={"a": "asked"})
+        folder = made.preview_ran(pjob)
+        shots, plan = made.read()
+        saved = json.loads((folder / "preview.queued.json").read_text())["files"]
+        refused(lambda: stl.load_job(shots, plan, stl.shot_of(shots, 200), "a", pjob["job"], str(folder), "v", made.m.output, "the session", "2026-01-03", "a_fp_0200",
+                                     now="now", preview_files=saved), "does not say 'a' is in 200-259", "unsure")
+    return "a subject the record is unsure of is tracked only when the preview is made to ask, with the reason; no load is built on it"
 
 
 def a_box_in_the_cast_file_seeds() -> str:
@@ -880,6 +922,7 @@ def the_figures() -> str:
 
 case("the frame a tracker picks on is a field of the shots record", the_pick_frame_is_a_field)
 case("the trackers' order, and who is in the shot", the_order_and_who_is_in_the_shot)
+case("a preview made to ask who is on a shot the record is unsure of", a_preview_made_to_ask)
 case("a box in the cast file seeds its tracker", a_box_in_the_cast_file_seeds)
 case("the plan says what a subject's face is taken from", the_plan_says_what_from)
 case("preview: the job file, once, queued only when told", the_preview_step)

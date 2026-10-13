@@ -744,6 +744,11 @@ The steps, each with the tool that holds it:
    it). The owner's answer is the reference. A shot their own words doubt
    is marked unsure by a person, with the lines of those words, and is
    counted apart (`--owner-unsure`).
+   A shot the record is `unsure` of for a subject (a cut the owner has
+   not answered on) is planned by nothing and is asked about: its preview
+   is made to ask (`bench/shot_to_load.py preview --ask SUBJECT:why`), the
+   owner is asked once, on its numbered picture, and no load is built on
+   it until they have answered.
 4. **Each batch is read against the last**: counts, never a rate from one
    batch, with what the table cannot see
    (`bench/picks_against_answers.py`'s docstring).

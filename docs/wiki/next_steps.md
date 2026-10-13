@@ -488,6 +488,20 @@ fixed the same day, said inline below.**
   not a fix made beside running loads. The small way: the strip's label
   says "N of these frames" where a span holds more than the flag counts.
   Not started.
+- **A zoomed load's part floor is counted at the canvas, not at the size
+  the load renders at** (2026-10-13, from the holder of the card on
+  `lead_fp_1802`, a load the node enlarges). The capture empties a part
+  left under its floor (`bench/capture_masked_run.py::PART_LEAST_PX`, a
+  starting value, or the load's own `least`) and counts that size on the
+  canvas; a load rendered zoomed in gives the model the same part at the
+  zoom's scale squared, so a part under the floor on the canvas can be
+  well over it where the model works. On that load one frame was lost to
+  it, by the margin its capture prints, and the load was made again with
+  `--least` set by hand. Wanted: the floor is held to the part's size at
+  the size the load renders at (the capture has the zoom,
+  `zoomed_on_the_canvas`), with the canvas figure still printed beside
+  it. A change to the capture, so built in a worktree and landed when no
+  load is between its plan and its render. Not started.
 - **The shots record calls 5935-6394 one shot, and the tracker cut it
   into twenty-five** (2026-10-13, from the who page of the previews of
   1920-6394). The record's shots of that half are from scene scores of
@@ -511,6 +525,15 @@ fixed the same day, said inline below.**
   - *Until then.* No seed work on that stretch from the one answer. A
     page of the stretch with one picture a long cut is the way the
     owner offered to help, and is listed with the lead.
+  - *Looked at, the same day.* A blind reader looked at the frames either
+    side of each of the tracker's cuts and of the picture's reading
+    (`data/fun/cuts_look_2026-10-13/reading.md`, with its second list):
+    one is a cut, at 6105, and none of the others is (a pan, a head
+    going down and coming up, an arm across the lens, a fade to black at
+    the end). The record was split there on the lead's ruling with
+    `bench/shots_record.py`, each half one window, and the owner's
+    answers of the cut-by-cut page divided by the frame each is on. What
+    the reader did not look at: the frames between its sheets.
 - **The owner's typed words on the shots of 1920-6394 are in no
   shot's note** (2026-10-13; a row, waiting on a read). The owner asked
   that day that their free-text words are read with their clicks.

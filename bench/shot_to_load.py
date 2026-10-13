@@ -274,13 +274,30 @@ def seed_of(cast_lines: list[dict] | None, label: str, shot: dict, canvas) -> di
     return got if got["text"] else None
 
 
-def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by: str, cast_lines=None, now: str = "", name: str = "") -> dict:
+def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by: str, cast_lines=None, now: str = "", name: str = "",
+                ask: dict | None = None) -> dict:
     """The job file of one shot's preview: every subject the record says is in it, a pose pass for each. `name` is
-    the preview's, `shot_c_<first>` when left out; a preview made again is handed its lettered name."""
+    the preview's, `shot_c_<first>` when left out; a preview made again is handed its lettered name.
+
+    `ask` is {subject: why}: a subject the record is UNSURE of on this shot, tracked all the same because the preview
+    is MADE TO ASK THE OWNER who the people on it are (2026-10-13: a shot cut out of another had no answer of the
+    owner's on any frame, all three subjects unsure, and the preview its who-page picture is cut from was refused
+    for having nobody to track). An unsure subject is planned by nothing, and it is asked about: the tracker picks
+    as it does with no seed, the job says the preview is made to ask, and no load is built on it
+    (`load_job` refuses a subject the record does not say is in the shot). A subject who is `yes` needs no asking
+    and one who is `no` is the owner's answer: both are refused here."""
     import h3_config
-    present = [k for k in shots["subjects"] if shot["who"][k]["present"] == "yes"]
+    ask = ask or {}
+    for label, why in ask.items():
+        said_ = (shot["who"].get(label) or {}).get("present")
+        if said_ != "unsure" or not str(why).strip():
+            raise Refused(f"--ask {label}: a preview is made to ask about a subject the shots record is `unsure` of on {shot['first']}-{shot['last']}, with the reason; "
+                          f"the record says {said_!r} of {label!r} there")
+    present = [k for k in shots["subjects"] if shot["who"][k]["present"] == "yes" or k in ask]
     if not present:
-        raise Refused(f"the shots record says nobody of ours is in {shot['first']}-{shot['last']}: there is nothing to preview")
+        raise Refused(f"the shots record says nobody of ours is in {shot['first']}-{shot['last']}: there is nothing to preview"
+                      + (". A subject the record is `unsure` of there may be tracked to ASK the owner who is on it: --ask \"SUBJECT:why\""
+                         if any(w["present"] == "unsure" for w in shot["who"].values()) else ""))
     canvas = list(h3_config.MASKED_JOB_CANVAS)
     seeds = {label: seed_of(cast_lines, label, shot, canvas) for label in present}
     order, order_from = order_of(shot, plan, present, [k for k, v in seeds.items() if v is not None])
@@ -301,7 +318,9 @@ def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by
                           "subject, and decides nothing here")
         else:
             one["pick_at"], where = pick_of(shot, label)
-            said.append(f"{label}: the {PICK} person on frame {one['pick_at']}, {where}")
+            said.append(f"{label}: the {PICK} person on frame {one['pick_at']}, {where}"
+                        + (f". TRACKED TO ASK, NOT BECAUSE THE RECORD SAYS THEY ARE HERE: the record is `unsure` of {label} on this shot ({' '.join(str(ask[label]).split())})"
+                           if label in ask else ""))
         subjects.append(one)
     frames = shot["last"] - shot["first"] + 1
     base = preview_name(shot)
@@ -563,7 +582,16 @@ def step_preview(a, world) -> None:
         # a name is taken by a job file in this folder and by a job folder of any day, as a load's is
         taken = lambda n: (Path(a.folder) / f"{n}.json").exists() or any(world.data.glob(f"????-??-??_{n}_job"))   # noqa: E731
         name = free_name(name, taken, True)
-    job = preview_job(shots, plan, shot, video, str(source), a.by, cast, load_chain.utc_now(), name=name)
+    ask = {}
+    for text in a.ask:
+        label, _, why = text.partition(":")
+        if not label.strip() or not why.strip():
+            raise Refused(f"--ask {text!r} is not `SUBJECT:why`")
+        ask[label.strip()] = " ".join(why.split())
+    job = preview_job(shots, plan, shot, video, str(source), a.by, cast, load_chain.utc_now(), name=name, ask=ask)
+    if ask:
+        job["job"]["made_to_ask"] = {"what": "this preview tracks a subject the shots record is unsure of, to ask the owner who is on the shot; nothing is built on it "
+                                              "until they have answered", "subjects": ask, "by": a.by}
     job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "THE SHOTS RECORD NAMES AN EARLIER COPY")
     out = Path(a.folder) / f"{job['job']['name']}.json"
     if out.exists():
@@ -746,6 +774,9 @@ def main() -> int:
         s.add_argument("--folder", required=True, help="where the job file is written")
         s.add_argument("--day", default=today, help="the day in the names of the job's folders; today when left out")
     sub.choices["preview"].add_argument("--cast", help="the cast file: a subject with an answer inside the shot is seeded from it")
+    sub.choices["preview"].add_argument("--ask", action="append", default=[], metavar="SUBJECT:why",
+                                        help="track a subject the record is `unsure` of on this shot, because the preview is made to ask the owner who is on it; "
+                                             "repeatable. No load is built on it until they have answered")
     sub.choices["preview"].add_argument("--queue", action="store_true", help="build and queue the preview, on an empty queue")
     sub.choices["preview"].add_argument("--remake", action="store_true", help="the next free letter after the name, for a preview made again; the earlier one stands")
     j = sub.choices["job"]
