@@ -74,7 +74,12 @@ from collections import defaultdict
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-SCHEMA = "h3_render_ledger/1"
+#: 2 (2026-10-13): a render's form also carries `region` and its reference `has`, as fields a tool can read
+#: without parsing a sentence; an owner's line says whether it is a choice (a button) or words; and the ledger
+#: says the share it walked (`bench/delivery_table.py` reads all of these).
+SCHEMA = "h3_render_ledger/2"
+#: A reference with none of these steps in its records, for a form's `has`.
+NO_STEPS = {"cut_to_the_head": False, "face_points": False, "lid_marks": False}
 #: A numbered output of the server, and the files beside a render that are not renders themselves.
 NUMBERED = re.compile(r"_\d{5}_?\.mp4$")
 NOT_A_RENDER = ("_with_mask", "-audio", "_zoomed", "_motion_video_")
@@ -263,34 +268,38 @@ def reference_form(path: str | None, depth: int = 0) -> dict:
     back and says each step in the tool's own fields; a video with no record beside it ends the chain and is
     said as that. Nothing is read from a file's name."""
     if not path:
-        return {"steps": [], "says": "no reference video"}
+        return {"steps": [], "has": None, "says": "no reference video"}
     if path.startswith("made in the graph by "):
-        return {"steps": [], "says": f"{path}: not a file, so no record of it but the saved graph"}
+        return {"steps": [], "has": dict(NO_STEPS), "says": f"{path}: not a file, so no record of it but the saved graph"}
     video = Path(path)
     record = video.with_suffix(".json")
     if not video.is_file():
-        return {"steps": [], "says": f"the reference video is not on disk ({video.name})"}
+        return {"steps": [], "has": dict(NO_STEPS), "says": f"the reference video is not on disk ({video.name})"}
     if not record.is_file() or depth > 4:
         beside = "a saved graph beside it (a node's own output: a preview's body model, as it came)" if video.with_suffix(".png").is_file() else "no record beside it"
-        return {"steps": [], "says": f"{video.name}: {beside}", "ends_at": str(video)}
+        return {"steps": [], "has": dict(NO_STEPS), "says": f"{video.name}: {beside}", "ends_at": str(video)}
     try:
         r = json.loads(record.read_text())
     except ValueError:
-        return {"steps": [], "says": f"{video.name}: its record does not read", "ends_at": str(video)}
-    steps = []
+        return {"steps": [], "has": dict(NO_STEPS), "says": f"{video.name}: its record does not read", "ends_at": str(video)}
+    steps, has = [], dict(NO_STEPS)
     drawn = r.get("drawn") or (r if "parts_left_out" in r and "line_width_px" in r else None)
     if "box" in r:
+        has["cut_to_the_head"] = True
         scale = r.get("scale")
         steps.append(f"cut to one box round the head ({r['box']}" + (f", enlarged {scale[0]:g} times" if isinstance(scale, list) and scale else "") + ")")
     if drawn is not None:
+        has["face_points"] = True
         steps.append("the face points drawn as lines" + (f" (left out: {', '.join(drawn['parts_left_out'])})" if drawn.get("parts_left_out") else "")
                      + ("" if not drawn.get("a_dot_at_every_point") else ", a dot at every point"))
     if "lid_gap_px_median" in r or "a_mark_on_the_canvas_px" in r:
+        has["lid_marks"] = True
         steps.append("marks drawn on the lids" + (f" (grown {r['grown']:g} times)" if r.get("grown") else ""))
     made = r.get("made_from") or r.get("inputs") or {}
     before = reference_form(made.get("body_model_video") or made.get("reference_video"), depth + 1) if isinstance(made, dict) else {"steps": [], "says": ""}
     chain = before["steps"] + steps
-    return {"steps": chain, "record": str(record), "made_by": r.get("made_by"), "made_at": r.get("made_at"), "frames": r.get("frames"),
+    has = {k: bool(v or (before.get("has") or {}).get(k)) for k, v in has.items()}      # a step of an earlier record of the chain counts
+    return {"steps": chain, "has": has, "record": str(record), "made_by": r.get("made_by"), "made_at": r.get("made_at"), "frames": r.get("frames"),
             "passed": r.get("passed"), "ends_at": before.get("ends_at"),
             "says": "the body model" + ("".join(", then " + s for s in chain) if chain else ", as it came")
                     + f" [from the records beside {video.name}" + (f"; the chain ends at {Path(before['ends_at']).name}" if before.get("ends_at") else "") + "]"}
@@ -310,16 +319,28 @@ def part_classes(capture: Path | None, label: str | None) -> list[str] | None:
     return None
 
 
+def region_of(carried: str | None, classes: list[str] | None) -> str | None:
+    """What a render replaces as one of the plan's regions (`whole`, `face`, `face and hair`), `a part` when the
+    part's classes are not a face's or were not read, or None when the files do not say what was carried."""
+    if carried in ("track", "whole subject"):
+        return "whole"
+    if carried in ("held", "the wired parts"):
+        if classes is not None and FACE_CLASS in classes:
+            return "face and hair" if HAIR_CLASS in classes else "face"
+        return "a part"
+    return None
+
+
 def region_form(carried: str | None, classes: list[str] | None, read_from: str) -> str:
     """What a render replaces, in the plan's words where the files say it."""
-    if carried in ("track", "whole subject"):
+    region = region_of(carried, classes)
+    if region == "whole":
         return f"whole person [{read_from}]"
-    if carried in ("held", "the wired parts"):
-        if classes is None:
-            return f"a part; which classes is not in what was read [{read_from}]"
-        if FACE_CLASS in classes:
-            return ("face and hair" if HAIR_CLASS in classes else "face") + f" (the capture's part is made of {', '.join(classes)}) [{read_from}]"
-        return f"a part made of {', '.join(classes)} [{read_from}]"
+    if region == "a part":
+        return (f"a part; which classes is not in what was read [{read_from}]" if classes is None
+                else f"a part made of {', '.join(classes)} [{read_from}]")
+    if region is not None:
+        return region + f" (the capture's part is made of {', '.join(classes or [])}) [{read_from}]"
     return f"not known ({carried!r}) [{read_from}]"
 
 
@@ -413,7 +434,7 @@ def on_a_joined_clip(rel: str, spots: list[dict], verdicts: list[dict]) -> list[
             for v in verdicts:
                 said = v.get("chosen") if v.get("what") == "choice" else v.get("words")
                 if v.get("row") == spot["row"] and said:
-                    out.append({"at": v.get("at"), "frame": v.get("frame"), "said": said, "from": f"verdicts ({v.get('source')})", "row": v.get("row"),
+                    out.append({"at": v.get("at"), "frame": v.get("frame"), "said": said, "what": v.get("what"), "from": f"verdicts ({v.get('source')})", "row": v.get("row"),
                                 "on_the_joined_clip": given["clip"], "at_frames": [spot["first"], spot["last"]], "through_the_table": given["table"]})
     return out
 
@@ -424,9 +445,9 @@ def owner_lines(rel: str, ids: set[str], verdicts: list[dict], answers: list[tup
     copied = {v.get("source") for v in verdicts}
     mine = lambda row, render: (render and rel.endswith(render)) or row in ids or item_of.get(row) == rel
     out = [{"at": v.get("at"), "frame": v.get("frame"), "said": v.get("chosen") if v.get("what") == "choice" else v.get("words"),
-            "from": f"verdicts ({v.get('source')})", "row": v.get("row")} for v in verdicts if mine(v.get("row"), v.get("render"))]
+            "what": v.get("what"), "from": f"verdicts ({v.get('source')})", "row": v.get("row")} for v in verdicts if mine(v.get("row"), v.get("render"))]
     out += [{"at": a.get("at"), "frame": a.get("frame"), "said": a.get("chosen") if a.get("what") == "choice" else a.get("words"),
-             "from": f"answers.jsonl:{n}", "row": a.get("row")} for n, a in answers
+             "what": a.get("what"), "from": f"answers.jsonl:{n}", "row": a.get("row")} for n, a in answers
             if a.get("who") == "owner" and f"answers.jsonl:{n}" not in copied and mine(a.get("row"), None)]
     return sorted((o for o in out if o["said"]), key=lambda o: str(o["at"]))
 
@@ -500,8 +521,10 @@ def ledger(shots: dict, plan: dict, share: Path, records: Path, repo: Path, sour
             text = t.read_text() if t.is_file() else None
         text = text or (ask or {}).get("text")
         carried = load.get("carried") or (ask or {}).get("replace")
+        classes = part_classes(capture, load.get("subject") or label) if carried in ("held", "the wired parts") else None
         row["form"] = {
-            "replaces": region_form(carried, part_classes(capture, load.get("subject") or label) if carried in ("held", "the wired parts") else None,
+            "region": region_of(carried, classes),
+            "replaces": region_form(carried, classes,
                                     "the build record and its capture" if rec0 else "the saved graph" + (" and the capture its mask file sits in" if capture else "")),
             "rendered": load.get("render_region") or (ask or {}).get("render_region") or "the whole frame",
             "reference": reference_form(load.get("motion_file") or files.get("motion_video")),
@@ -539,7 +562,7 @@ def ledger(shots: dict, plan: dict, share: Path, records: Path, repo: Path, sour
                                   else "a row with no render's file, no page item and no stated frames on a joined clip"),
               "title": titles.get(row) or next((v.get("title") for v in verdicts if v.get("row") == row and v.get("title")), None)}
              for row in sorted({v.get("row") for v in verdicts if v.get("row") not in rows_tied} - {None})]
-    return {"schema": SCHEMA, "video": shots.get("video"), "sources": sources, "since": since,
+    return {"schema": SCHEMA, "video": shots.get("video"), "share": str(share), "sources": sources, "since": since,
             "counts": {"renders": len(renders), **{m: sum(r["making"] == m for r in renders) for m in MAKING},
                        "laid_in_the_table": sum(bool(r["laid_in_the_table"]) for r in renders)},
             "sections": sections, "renders": {r["file"]: r for r in renders},

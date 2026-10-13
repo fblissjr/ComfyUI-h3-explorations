@@ -173,6 +173,9 @@ def a_render_its_record_agrees_with() -> str:
         assert [(s["first"], s["subject"], s["renders"]) for s in out["sections"]] == [(0, "a", [rel]), (50, "a", [rel]), (50, "b", [])], out["sections"]
         form = r["form"]
         assert form["replaces"].startswith("face and hair (the capture's part is made of Face_Neck, Hair, Upper_Lip)"), form["replaces"]
+        # the same as fields, for a tool: the region in the plan's word, and which steps the reference's records hold
+        assert form["region"] == "face and hair" and form["reference"]["has"] == {"cut_to_the_head": True, "face_points": True, "lid_marks": False}, form
+        assert out["schema"] == led.SCHEMA and out["share"] == str(made.share)
         says = form["reference"]["says"]
         assert "cut to one box round the head ([10, 20, 110, 95], enlarged 2.5 times), then the face points drawn as lines (left out: mouth)" in says \
             and "the chain ends at mesh_00001.mp4" in says and form["reference"]["made_by"] == "s1", says
@@ -257,6 +260,7 @@ def an_older_record_and_no_record() -> str:
         r = out["renders"][bare]
         assert (r["making"], r["subject"], r["subject_read_from"], r["span"]) == (led.MAKING[3], "a", "the capture folder its mask file sits in", [50, 99]), r
         assert r["form"]["replaces"] == "whole person [the saved graph and the capture its mask file sits in]", r["form"]["replaces"]
+        assert r["form"]["region"] == "whole" and r["form"]["reference"]["has"] == led.NO_STEPS, r["form"]
         assert r["form"]["reference"]["says"].startswith("made in the graph by BodyModelRender: not a file"), r["form"]["reference"]
         assert (out["renders"][named]["subject"], out["renders"][named]["subject_read_from"]) == ("b", "the load name's prefix, by the plan")
         assert out["renders"][nobody]["subject"] is None and out["renders"][nobody]["subjects"] == []

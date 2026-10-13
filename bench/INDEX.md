@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 118 |
+| [`check_*`](#check) | 119 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 155 |
+| [the rest](#the-rest) | 156 |
 
 ## check
 
@@ -44,6 +44,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_core_sparse_capture.py`](check_core_sparse_capture.py) | `core_sparse_capture.py` records core's sparse path and changes nothing. |
 | [`check_correctness.py`](check_correctness.py) | Check the patched MiniMax H3 forward against the stock one. |
 | [`check_crop_reference_to_head.py`](check_crop_reference_to_head.py) | `bench/crop_reference_to_head.py` against a reference video whose every frame says where its face is, read from the VIDEO IT WROTE. |
+| [`check_delivery_table.py`](check_delivery_table.py) | The generated delivery table (`bench/delivery_table.py`) on a small made-up ledger: each step of its rule, with the render that must NOT stand beside the one that does. |
 | [`check_denoise_mask_probe.py`](check_denoise_mask_probe.py) | `denoise_mask_probe.py` observes the mask and changes nothing. |
 | [`check_distill_grid.py`](check_distill_grid.py) | Check every distilled graph samples ON the sigma grid its LoRA was distilled at. |
 | [`check_distill_settings.py`](check_distill_settings.py) | Check every distill is loaded at the shift and step count it was trained at. |
@@ -343,6 +344,7 @@ this file is only a way to find a script by what it says it does.
 | [`count_packed_rows.py`](count_packed_rows.py) | Exact packed-sequence rows, per segment, from the real `PackedLayout`. |
 | [`crop_reference_to_head.py`](crop_reference_to_head.py) | Cut a reference video to ONE box round a shot's head and scale it back up to the canvas. |
 | [`decode_draft_keepers.py`](decode_draft_keepers.py) | Give draft renders their real decode, from the latents the drafts saved. |
+| [`delivery_table.py`](delivery_table.py) | The delivery table, generated from the render ledger by one stated rule: which render stands on each shot, and why. |
 | [`depth_profile_tables.py`](depth_profile_tables.py) | Per-block tables from the depth-profile outputs: Sol's error, the dense kernels' error, and whether the ranking holds across scenes. |
 | [`derive_attention_share.py`](derive_attention_share.py) | What fraction of an H3 sampler is attention, bounded from an A/B we already ran. |
 | [`diff_clip_graphs.py`](diff_clip_graphs.py) | What actually differs between two rendered clips? Read from the graphs they were rendered from. |
