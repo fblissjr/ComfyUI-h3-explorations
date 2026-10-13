@@ -348,16 +348,18 @@ def words_to_notes(records: list[dict], answers: list[tuple[int, dict]], span, a
         frame = int(d["source_frame"])
         if span and not span[0] <= frame <= span[1]:
             continue
+        # cited in ANY shot's note of a record is cited: a line a hand carried may name its video another way than the
+        # record does (the first who page's lines say `fun` where the record says `fun.mp4`), and it is not carried again
+        cite = f"{answers_name} line {n},"
+        if any(cite in str(s.get("note") or "") for f in records for s in f["record"]["shots"]):
+            done["cited"] += 1
+            continue
         held = next(((k, f, s) for k, f in enumerate(records) for s in f["record"]["shots"]
                      if d.get("video") in (None, f["record"].get("video")) and s["first"] <= frame <= s["last"]), None)
         if held is None:
-            done["in_no_shot"].append(n)
+            done["in_no_shot"].append((n, d.get("video")))
             continue
         k, f, shot = held
-        cite = f"{answers_name} line {n},"
-        if cite in str(shot.get("note") or ""):
-            done["cited"] += 1
-            continue
         said = f"the owner on the who page (frame {frame}, {cite} {str(d.get('at', ''))[:16]}): {str(d['words']).strip()}"
         shot["note"] = f"{shot['note']} | {said}" if str(shot.get("note") or "").strip() else said
         done["changed"][k] = done["changed"].get(k, 0) + 1
@@ -415,7 +417,8 @@ def main() -> int:
         for n, path, first, last, frame in done["carried"]:
             print(f"{'would carry' if a.dry_run else 'carried'}: {answers_name} line {n} (the owner's words on frame {frame}) into the note of {path} shot {first}-{last}")
         if done["in_no_shot"]:
-            print(f"in no shot of a --shots record, left: lines {done['in_no_shot']}")
+            print("in no shot of a --shots record (a frame no shot holds, or a line whose `video` is not a record's), left, as (line, its video): "
+                  f"{done['in_no_shot']}")
         for k, count in sorted(done["changed"].items()):
             rec = records[k]["record"]
             lines = sorted(n for n, path, *_ in done["carried"] if path == records[k]["path"])

@@ -275,9 +275,12 @@ def main() -> int:
         said16 = lambda n, frame, words, **kw: {"at": f"2026-10-13T18:27:{n:02d}Z", "who": "owner", "row": "who", "what": "words", "words": words,   # noqa: E731
                                                 "source_frame": frame, "frames": [2000, 2099], "video": "v.mp4", **kw}
         p16 = setup_plain(f16, [said16(1, 2000, "1 is a picture on a box; 2 is the lead, the face only"), said16(2, 2050, "NOT THE OWNER'S", who="mrx"),
-                                said16(3, 2150, "words on the second shot"), plain(4, 2050, "lead", "not outlined")])
+                                said16(3, 2150, "words on the second shot"), plain(4, 2050, "lead", "not outlined"),
+                                said16(5, 2160, "CARRIED BY A HAND ALREADY", video="v"),          # cited below, its video named another way
+                                said16(6, 2170, "OF ANOTHER VIDEO", video="w.mp4")])
         rec16 = json.loads(Path(p16["shots"]).read_text())
         rec16["shots"][0]["note"] = "a session, earlier: the cuts are the tracker's"
+        rec16["shots"][1]["who"]["lead"]["how"] = "a hand: (frame 2160, answers.jsonl line 5, 2026-10-13T18:27) is cited in a NOTE, not here"
         Path(p16["shots"]).write_text(json.dumps(rec16, indent=1))
         before16 = Path(p16["shots"]).read_bytes()
         cmd16 = [sys.executable, str(TOOL), "--answers", str(p16["answers"]), "--cast", str(p16["cast"]), "--shots", str(p16["shots"]), "--words-to-notes"]
@@ -286,6 +289,11 @@ def main() -> int:
         r_span = subprocess.run(cmd16 + ["--span", "2000-2099"], capture_output=True, text=True)
         got16 = json.loads(Path(p16["shots"]).read_text())
         first16, second16 = got16["shots"][0], got16["shots"][1]
+        # a line a note cites under another name for the video is cited, not "in no shot"; one of another video is left and named
+        rec_c = json.loads(Path(p16["shots"]).read_text())
+        rec_c["shots"][0]["note"] += " | the owner on the who page (frame 2160, answers.jsonl line 5, 2026-10-13T18:27): CARRIED BY A HAND ALREADY"
+        Path(p16["shots"]).write_text(json.dumps(rec_c, indent=1))
+        first16 = dict(first16, note=first16["note"])
         r_rest = subprocess.run(cmd16, capture_output=True, text=True)
         all16 = json.loads(Path(p16["shots"]).read_text())
         r_again = subprocess.run(cmd16, capture_output=True, text=True)
@@ -295,7 +303,9 @@ def main() -> int:
              and "note" not in second16 and "NOT THE OWNER'S" not in Path(p16["shots"]).read_text() and first16["who"] == rec16["shots"][0]["who"]
              and "carried 1 line(s)" in r_span.stdout and "answers.jsonl line 1 (the owner's words on frame 2000)" in r_span.stdout
              and all16["shots"][1]["note"] == "the owner on the who page (frame 2150, answers.jsonl line 3, 2026-10-13T18:27): words on the second shot"
-             and "carried 1 line(s); already cited in a note 1" in r_rest.stdout and "carried 0 line(s); already cited in a note 2" in r_again.stdout
+             and "carried 1 line(s); already cited in a note 2; in no shot 1" in r_rest.stdout and "(6, 'w.mp4')" in r_rest.stdout
+             and "OF ANOTHER VIDEO" not in json.dumps(all16) and json.dumps(all16).count("CARRIED BY A HAND ALREADY") == 1
+             and "carried 0 line(s); already cited in a note 3; in no shot 1" in r_again.stdout
              and not cast_lines(p16) and "--words-to-notes at 20" in all16["written_by"],
              r_dry.stdout + r_span.stdout + r_span.stderr + r_rest.stdout + r_again.stdout + json.dumps(all16["shots"])[:600])
 
