@@ -379,6 +379,23 @@ owner's words in its terminal.*
   not make the capture, is now held by the chain (`render` and `no-look`
   in `bench/load_chain.py`) and said in this entry, not in `AGENTS.md`.
 
+- **Where the owner has kept more than one render of the same frames, which
+  stands** (the owner, 2026-10-13, in the lead's terminal, after keeping a
+  piece of a whole shot, `lead_fp_1898` on 1898-1943, over frames where
+  they had earlier kept a piece of its second half, `lead_fp_1920c`). Their
+  rule, in order: their comments on the pieces and which keep is the more
+  recent; where that does not settle it, the simpler and more elegant
+  piece, the one easier to make again, to join in and to use as the
+  pattern for other shots; unless measurement shows a clear difference in
+  quality between them, which then decides. What the delivery table held
+  until then: a keep stands (`bench/delivery_table.py`, its docstring), with
+  nothing said for two keeps on the same frames. How it is applied until
+  the tool says more: the later keep stands, both keeps and the owner's
+  words on each are printed, and the lead's `--prefer` carries the other
+  two grounds with the reason written. On that shot all three point the
+  same way: the whole-shot piece is the later keep and is one piece for
+  one shot.
+
 ## 2026-10-12
 
 *Written by the afternoon's lead session (mrfern) from the operative files
