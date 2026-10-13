@@ -610,6 +610,7 @@ def the_land_step() -> str:
             assert lc.rendered_video(made.ctx(), m, joined.parent) == windows / "ld_window_1.mp4"
             lc.step_land(made.ctx(), m, a)
             pose, stack = m.said("pose pass"), m.said("stack")
+            assert stack[stack.index("--render-first") + 1] == "110", f"the stack is not told the render's first source frame: {stack}"
             assert pose[pose.index("--video") + 1] == str(windows / "ld_window_1.mp4"), pose
             assert pose[pose.index("--box-mask") + 1] == str(cap / "subjects/a/track__pv.mkv") and pose[pose.index("--box-mask-first") + 1] == "110", pose
             assert pose[pose.index("--model-folder") + 1] == str(store / "pose-model") and pose[pose.index("--count") + 1] == "20" \

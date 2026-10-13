@@ -796,7 +796,9 @@ def step_land(ctx: dict, world, a) -> None:
                                                                      "--canvas", f"{job['canvas'][0]}x{job['canvas'][1]}", "--source-first", first,
                                                                      "--box-mask", box, "--box-mask-first", manifest["first_frame"],
                                                                      "--model-folder", model, "--out", points, "--by", a.by], stop=False)
-    stack = tool(world, "capture_masked_run.py") + ["video", cap, "--source", job["source"], "--render", r / f"{name}_00001.mp4"]
+    # the render's frame 0 is the load's first frame, and it is SAID: the capture was made on the plan, before there was a
+    # render, so no run of it names the file, and the stack then took the capture's first frame and printed NOT SAID
+    stack = tool(world, "capture_masked_run.py") + ["video", cap, "--source", job["source"], "--render", r / f"{name}_00001.mp4", "--render-first", first]
     if load.get("motion_file"):
         stack += ["--motion", load["motion_file"]]
     world.run(ctx, "stack", stack + ["--still", f"{ctx['subject']}={still_of(ctx, world.inputs)}", "--out", clip])
