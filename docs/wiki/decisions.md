@@ -231,6 +231,30 @@ commits.*
   A voice table is made from the SOURCE's sound at the source's frame
   rate, never from a copy's.
 
+*The entry below was written by the lead of the later part of the day
+(mrtan), from the owner's words in its terminal.*
+
+- **The masked lane's canvas stays as it is, and why** (the owner,
+  2026-10-13, in the lead's terminal, early in their afternoon: they asked
+  whether the insets would sample faster on a small canvas, then whether
+  1152x768 would be the more native size, and agreed it stays once the
+  three facts below were read out). The job's canvas
+  (`workflows/h3_config.py::MASKED_JOB_CANVAS`) is the 4:3 row of
+  `docs/h3_resolutions.md`; 1152x768 is that page's 3:2 row, as much a
+  trained size and the wrong shape for a 4:3 source (`ffprobe` on the
+  working copy gives the source's size). Every preview, track and mask is
+  made at the job's canvas and `verify` holds them to it
+  (`inputs_at_the_canvas`), so another canvas is every preview made again
+  and kept pieces on two canvases. And a load rendered zoomed in scales its
+  box to the same canvas (`video_mask.zoomed_source`), so an inset costs a
+  whole render's sampling and buys size for the face, not time. What it
+  used to claim: the constant's comment says only that the value was
+  inherited from the job files since 2026-10-10 and names the table's row;
+  nothing said why that row, and the question was re-derived in the
+  terminal. Where it lives now: `masked_v2v.md`, "Rules of the lane". Not
+  queued: one render of a zoomed inset on a 3:2 box and canvas, which is
+  where the full frame's shape would not matter.
+
 ## 2026-10-12
 
 *Written by the afternoon's lead session (mrfern) from the operative files

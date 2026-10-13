@@ -342,6 +342,19 @@ session cannot work around; these are the lane's own habits, each earned on
 - **Nothing an earlier run made is reused by a key** ("Nothing is kept
   between runs by a key", below): a mask is preprocessing data for the job
   that reads it, rebuilt when preprocessing runs again.
+- **The canvas follows the source's shape, and every mask is made at it.**
+  A job is made on `h3_config.MASKED_JOB_CANVAS`, the 4:3 row of
+  [`../h3_resolutions.md`](../h3_resolutions.md), because the video is 4:3
+  (`ffprobe` on its working copy) and the whole frame then fits with nothing
+  cropped or padded. The 3:2 row of that page (1152x768) is as much a trained
+  size and is the wrong shape for this source. Every preview, track and mask is
+  made at the job's canvas (`capture_masked_run.py verify`,
+  `inputs_at_the_canvas`), so a change of canvas is every preview made again,
+  and pieces kept before it are on another canvas than pieces made after. A
+  load rendered zoomed in samples the same canvas whatever its box ("A small
+  subject, rendered zoomed in", below): it buys size for the subject, not
+  time. Asked and settled with the owner on 2026-10-13
+  ([`decisions.md`](decisions.md)).
 - **What is on a frame of an input video is already in `contact_sheets/`**
   (`bench/contact_sheets.py find <video> <frame>`): open a sheet before
   sampling a video again.
