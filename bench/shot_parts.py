@@ -40,7 +40,9 @@ who is `unsure` on a shot is under a heading of their own and in neither list.
   planner's lengths, read by `masked_job.chain_lengths`), and whether the shot is longer than the longest;
 - what stands there: the coverage tool's own state for the row, the pieces the table lays and the other
   renders on those frames, each with the owner's lines on it;
-- the owner's typed words on the shot, every line, whole.
+- the owner's typed words on the shot, every line, whole; the shot's own note; and the plan's dated notes on any
+  stretch of it (`departures`, each with who wrote it: where a person's or a session's reading of a stretch lives,
+  such as "no face on these frames, no load", which no mask can say for a shot no preview was made of).
 
 **No verdict.** "The part is on no frame of the preview" is a fact and has a heading. Anything of degree has
 none: the other rows are sorted by the frames the part is there, fewest first, and the reading is left to
@@ -176,6 +178,7 @@ def lists(shots: dict, plan: dict, covered: dict, made: list[dict], answers: lis
                    "stands": {"state": there["state"], "laid": there["laid"], "left_as_the_source": there["left"],
                               "other_renders": [o for o in there["others"] if not o["in_table"]]},
                    "the_owners_words": who_page.owner_words(answers, s["first"], s["last"]), "shot_note": s.get("note", ""),
+                   "the_plans_notes": there["notes"],
                    "preview": None, "tracker": None, "part": None, "parts_apart": {}}
             mine = [pv for pv in made if label in pv["subjects"] and not (pv["last"] < s["first"] or pv["first"] > s["last"])]
             if not mine:
@@ -249,6 +252,8 @@ def row_text(r: dict) -> list[str]:
         out.append(f"- the owner's words, frame {line['frame']} ({line['at']}): {line['words']}")
     if r["shot_note"]:
         out.append(f"- the shot's note: {r['shot_note']}")
+    for note in r["the_plans_notes"]:
+        out.append(f"- the plan's note on a stretch of it: {note}")
     return out + [""]
 
 

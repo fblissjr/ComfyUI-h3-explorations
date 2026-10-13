@@ -13,7 +13,7 @@ the coverage tool's own words; each of those can be off by a frame, a preview or
   no_preview_says_so                a row no preview covers, and a row whose preview does not track the subject, each say which and carry what stands there alone
   one_window_or_more                the window the builder would take, and the frames over the planner's longest
   what_stands_is_the_coverage_tools the row's state is `shot_coverage.coverage()`'s for the same files, with the piece laid and the owner's line on it
-  the_owners_words_are_whole        every words line of the owner on the shot's frames, and no session's
+  the_owners_words_are_whole        every words line of the owner on the shot's frames, and no session's; the plan's dated note on a stretch of the shot is on that subject's row and no other
   no_frame_is_a_heading_and_the_rest_are_sorted   the row whose part is on no frame is under that heading; the others are in order of the frames the part is there, fewest first; no row is called anything
   pure_runs_and_figures             the two pure functions on small arrays
 
@@ -105,7 +105,8 @@ def main() -> int:
             {"first": last + 1, "last": last + 10, "who": {"a": {"present": "unsure", "how": "a back", "by": "y"}, "b": {"present": "no"}}}]}
         plan = {"schema": "h3_plan/1", "subjects": {"a": {"region": "face", "parts": ["face_and_neck"]},
                                                     "b": {"region": "face and hair", "parts": ["hair", "face_and_neck"], "keep_outs": ["held", "hands"]}},
-                "load_prefixes": {"a": ["a_"], "b": ["b_"]}, "departures": []}
+                "load_prefixes": {"a": ["a_"], "b": ["b_"]},
+                "departures": [{"first": 170, "last": 175, "subject": "a", "note": "THE BACK OF A HEAD, NO LOAD", "by": "a session's reading"}]}
         (d / "shots.json").write_text(json.dumps(shots))
         (d / "plan.json").write_text(json.dumps(plan))
         (d / "t.txt").write_text("100-119 /share/Video/x/a_one/a_one_00001.mp4 100\n")
@@ -175,7 +176,9 @@ def main() -> int:
              and (not laid[0]["owner_said"] or "KEEP a_one" in " ".join(laid[0]["owner_said"])), (laid, want))
         words = [w["words"] for w in row[(160, "a")]["the_owners_words"]]
         case("the_owners_words_are_whole", words == ["NOT SURE ANYTHING CAN BE REPLACED HERE", "A SECOND LINE"] and row[(100, "a")]["the_owners_words"] == []
-             and "A SESSION'S" not in md and md.count("NOT SURE ANYTHING CAN BE REPLACED HERE") == 2 and "the shot's note: A NOTE ON 160" in md, words)
+             and "A SESSION'S" not in md and md.count("NOT SURE ANYTHING CAN BE REPLACED HERE") == 2 and "the shot's note: A NOTE ON 160" in md
+             and row[(160, "a")]["the_plans_notes"] == ["170-175: THE BACK OF A HEAD, NO LOAD (a session's reading)"] and row[(160, "b")]["the_plans_notes"] == []
+             and md.count("the plan's note on a stretch of it: 170-175: THE BACK OF A HEAD, NO LOAD (a session's reading)") == 1, words)
         none_at = md.index("### The part is on NO frame of the preview: 1 row(s)")
         some_at = md.index("### The part is on some frame: 4 row(s), fewest frames first, no line drawn")
         heads = [line for line in md[some_at:md.index("### No part read")].splitlines() if line.startswith("### ") and "-" in line]
