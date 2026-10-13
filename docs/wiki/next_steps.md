@@ -425,6 +425,28 @@ fixed the same day, said inline below.**
     frames, a zoom enlarges those pixels and is "not a sharper
     picture"; whether a job can hand the node the clip's own frames
     has not been read.
+- **A plan strip does not say that its load renders zoomed in**
+  (2026-10-13, from the blind reader of the first zoomed load's plan,
+  `lead_fp_1920b`). The strip shows the region on the whole frame, as the
+  capture reads it back onto the canvas, and nothing on it says the node
+  will cut a box round the region and enlarge it, nor which box. A plan
+  reader therefore cannot see the zoom or judge the box. The capture
+  knows both (`bench/capture_masked_run.py::zoomed_on_the_canvas`, the
+  run's `_zoomed.json` once it exists). Wanted: a line on the strip
+  saying the load is zoomed, by how much and in which box, and the box
+  drawn. Not started.
+- **A flag's frame count and the frames burned for it can differ by the
+  frames between its runs** (2026-10-13, from the render reader of
+  `lead_fp_1920c`: a flag that says fourteen frames is burned on a span of
+  fifteen). The cause is read, not guessed: a flag's `source_frames` are
+  made by `capture_masked_run.frame_spans` with its default `join`, which
+  makes one run of two runs a frame apart, so a span can hold a frame the
+  flag does not count; the flag's own figures hold the exact count. The
+  flag's key is made from those spans (`flag_key`), so exact spans would
+  change the key of every standing override: that is why it is a row and
+  not a fix made beside running loads. The small way: the strip's label
+  says "N of these frames" where a span holds more than the flag counts.
+  Not started.
 - **The shots record calls 5935-6394 one shot, and the tracker cut it
   into twenty-five** (2026-10-13, from the who page of the previews of
   1920-6394). The record's shots of that half are from scene scores of
