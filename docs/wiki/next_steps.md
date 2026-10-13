@@ -425,6 +425,19 @@ fixed the same day, said inline below.**
     frames, a zoom enlarges those pixels and is "not a sharper
     picture"; whether a job can hand the node the clip's own frames
     has not been read.
+- **A picks batch holds one line for a shot of the record, however many
+  of the tracker's cuts the owner answered on** (2026-10-13, the cast run
+  for the page of 5935-6394 shown cut by cut). The owner answered on
+  seven pictures of that one record shot; all seven are in the cast file,
+  and the batch the run wrote holds the one clicked last
+  (`bench/picks_against_answers.py::lines_of` walks a subject of a
+  preview and a shot of the RECORD, and reads one answered picture
+  there). So six answers are kept and not held against the tracker's
+  picks. The fix: a line a tracker cut that has an answer of its own
+  (the answer's table shot is on the answers line), with the record's
+  shot beside it; the counts then say how many cuts a line stands for.
+  It goes away by itself for a shot whose record is split to the cuts.
+  Not started.
 - **A plan strip does not say that its load renders zoomed in**
   (2026-10-13, from the blind reader of the first zoomed load's plan,
   `lead_fp_1920b`). The strip shows the region on the whole frame, as the
