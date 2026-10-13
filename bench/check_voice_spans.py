@@ -12,6 +12,10 @@ audio a frame off its picture. The separation itself needs the weights and a rea
 3. **A cut.** Frames first to last of a stem start on their first frame and are (last - first + 1) / fps long,
    and two cuts that meet share no sample and lose none.
 
+4. **Held to the video's frames** (`--frames`). Sound that runs past the video's last picture loses those rows and
+   says how many; sound that ends first is written as far as it goes and says which frames have no row; with no
+   count, or the exact count, nothing changes.
+
 No model, no weights, no ffmpeg, no card.
 
     <comfy venv python> bench/check_voice_spans.py
@@ -71,7 +75,20 @@ def a_cut() -> str:
     return "a cut starts on its first frame, is its frames long, and two that meet neither overlap nor leave a gap"
 
 
+def held_to_the_videos_frames() -> str:
+    a, b = np.arange(10, dtype=np.float32), np.arange(10, dtype=np.float32) * 2
+    (x, y), said = vs.fit_to_frames([a, b], 8)
+    assert len(x) == len(y) == 8 and x[-1] == 7 and y[-1] == 14 and said["rows_of_sound_after_the_last_frame_not_written"] == 2 and said["rows"] == 8, said
+    (x, y), said = vs.fit_to_frames([a, b], 12)
+    assert len(x) == 10 and said["frames_with_no_row"] == [10, 11] and "ENDS BEFORE THE VIDEO" in said["said"], said
+    for count in (None, 10):
+        (x, y), said = vs.fit_to_frames([a, b], count)
+        assert len(x) == 10 and "frames_with_no_row" not in said and "rows_of_sound_after_the_last_frame_not_written" not in said, said
+    return "two rows of sound past the last frame are dropped and counted; sound two frames short says which frames have no row; no count and the exact count change nothing"
+
+
 case("levels by video frame", levels)
 case("the span rule", the_spans)
 case("a cut by frames", a_cut)
+case("held to the video's frames", held_to_the_videos_frames)
 sys.exit(finish())

@@ -2,7 +2,7 @@
 """Where a voice is on a clip's track, by video frame, on this machine only.
 
     <python> bench/voice_spans.py separate CLIP OUT_DIR                  # the vocals stem and the rest, as wav
-    <python> bench/voice_spans.py spans OUT_DIR [--fps 24]               # voice_per_frame.csv and voice_spans.json
+    <python> bench/voice_spans.py spans OUT_DIR [--fps 24] [--frames N]  # voice_per_frame.csv and voice_spans.json
     <python> bench/voice_spans.py cut OUT_DIR --frames 604-1050 [--band-db -12]   # a stem cut to a window's frames
 
 **What it buys.** A masked render freezes the clip's audio, and whether a mouth should move depends on whether a
@@ -28,6 +28,15 @@ eye, put the first voice within a frame of where the stem did.
 singing (a voice-activity model read a whole sung stem as not speech; an English letter model gave scattered
 words). Which person on screen the voice belongs to. A second voice under the lead: there is one vocals stem.
 A quiet spoken line under a loud band may never reach the vocals stem; nothing here would say so.
+
+**Whose sound, at what rate.** A table's row is a video frame, so the sound it is read from has to be in step with
+that video's picture and `--fps` has to be the rate that picture plays at beside that sound. For a video and its
+working copies the sure pair is the SOURCE's own sound at the source's own frame rate: a copy's picture is the
+source's frame for frame, and a copy's sound is only as good as its stretch (one made without it gave a table a
+frame late at eighty seconds; `bench/results/2026-10-13_working_copy_sound_against_its_picture.md`).
+`--frames N` is the video's frame count: a track often runs a little past its last picture, and the rows of sound
+after it are not written (and said), so the table covers the video's frames and no frame the video lacks. Sound
+that ends before the video does is written as far as it goes, and said.
 
 Output goes where the caller says, which for a clip is the untracked `data/<date>_<name>_audio/`.
 """
@@ -97,6 +106,21 @@ def voiced_spans(level_db: np.ndarray, threshold: float = THRESHOLD_DB, join: in
     return [r for r in merged if r[1] - r[0] + 1 >= least]
 
 
+def fit_to_frames(levels: list[np.ndarray], frames: int | None) -> tuple[list[np.ndarray], dict]:
+    """Per-frame levels held to a video's frame count: rows after its last frame dropped, and what was done in
+    words. With no count the levels are as they are. Sound that ends before the video does is not padded."""
+    rows = len(levels[0])
+    if frames is None:
+        return levels, {"rows": rows, "the_videos_frames": None, "said": "no frame count was given: a row for every frame's stretch of the sound"}
+    if rows > frames:
+        return [x[:frames] for x in levels], {"rows": frames, "the_videos_frames": frames, "rows_of_sound_after_the_last_frame_not_written": rows - frames,
+                                               "said": f"the sound runs {rows - frames} frame(s) past the video's last picture; those rows are not written"}
+    if rows < frames:
+        return levels, {"rows": rows, "the_videos_frames": frames, "frames_with_no_row": [rows, frames - 1],
+                        "said": f"THE SOUND ENDS BEFORE THE VIDEO DOES: frames {rows} to {frames - 1} have no row"}
+    return levels, {"rows": rows, "the_videos_frames": frames, "said": "the sound covers the video's frames exactly"}
+
+
 def frame_cut(audio: np.ndarray, first: int, last: int, rate: int, fps: float) -> np.ndarray:
     """The samples of frames `first` to `last` inclusive: it starts on its first frame and is (last - first + 1) / fps long."""
     return audio[..., int(round(first * rate / fps)):int(round((last + 1) * rate / fps))]
@@ -142,7 +166,7 @@ def separate(a: argparse.Namespace) -> None:
 def spans(a: argparse.Namespace) -> None:
     out = Path(a.out)
     vocals, rest = read_audio(str(out / "vocals.wav")).mean(0), read_audio(str(out / "rest.wav")).mean(0)
-    lv, lr = frame_levels(vocals, RATE, a.fps), frame_levels(rest, RATE, a.fps)
+    (lv, lr), held = fit_to_frames([frame_levels(vocals, RATE, a.fps), frame_levels(rest, RATE, a.fps)], a.frames)
     found = voiced_spans(lv, a.threshold)
     voiced = np.zeros(len(lv), bool)
     for lo, hi in found:
@@ -155,7 +179,7 @@ def spans(a: argparse.Namespace) -> None:
     quiet = voiced_spans(-lv, -a.threshold, 0, 1)                 # the unvoiced runs, by the same walk
     control = max(quiet, key=lambda r: r[1] - r[0], default=None)
     record = {"fps": a.fps, "frames": int(len(lv)), "threshold_dbfs": a.threshold, "join_gaps_up_to_frames": JOIN,
-              "drop_spans_under_frames": LEAST, "voiced_spans_inclusive": found,
+              "drop_spans_under_frames": LEAST, "held_to_the_videos_frames": held, "voiced_spans_inclusive": found,
               "vocals_level_spread_dbfs": [round(float(x), 1) for x in np.percentile(lv, [5, 25, 50, 75, 95])]}
     if control:
         lo, hi = control
@@ -163,6 +187,7 @@ def spans(a: argparse.Namespace) -> None:
                                               "rest_stem_dbfs_median": round(float(np.median(lr[lo:hi + 1])), 1)}
     (out / "voice_spans.json").write_text(json.dumps(record, indent=1) + "\n")
     print(f"{len(found)} voiced span(s) over {len(lv)} frames: {found}")
+    print("frames:", held["said"])
     print("vocals stem level at the 5th, 25th, 50th, 75th and 95th percentile, dBFS:", record["vocals_level_spread_dbfs"],
           "(two separate modes is a track this rule fits; one smear is not)")
     if control:
@@ -195,6 +220,7 @@ def main() -> None:
     v.add_argument("out")
     v.add_argument("--fps", type=float, default=24.0)
     v.add_argument("--threshold", type=float, default=THRESHOLD_DB)
+    v.add_argument("--frames", type=int, help="the video's frame count: rows of sound after its last frame are not written")
     c = sub.add_parser("cut")
     c.add_argument("out")
     c.add_argument("--frames", required=True, metavar="FIRST-LAST", help="video frames, inclusive")
