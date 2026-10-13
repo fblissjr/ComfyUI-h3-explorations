@@ -51,8 +51,9 @@ render ledger and the delivery table; the Open List).
 - **The second subject**: 1010-1038 (the owner's answer to the Open List's
   row 24: face and hair, her new hair alone where her head is bowed; it
   needs a load that names a subset of its subject's parts, not built);
-  1419-1465 (at the size floor even zoomed); 155-167 and 999-1009; IN
-  FLIGHT, 1093-1133.
+  1419-1465 and 1093-1133 (too small even zoomed: on 1093-1133 the first
+  capture's verify and gate refused the load, kept under
+  `data/2026-10-13_second_hfp_1093_job/chain/`); 155-167 and 999-1009.
 - **The third subject**: IN FLIGHT, 1419-1465; not started, what shows of
   him on 1397-1418 and after 1531.
 - Not gaps: frames where no face of a subject shows (`data/fun/plan.json`,
