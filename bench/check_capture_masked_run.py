@@ -74,6 +74,15 @@ overlaps and margins can be counted by hand and reads the rows back.
    a segment "inside the region", and what else of theirs is inside it is their own, to name in the text; and
    told one subject, the second is flagged as before (the control).
 
+18. **The floor under a small part is a starting value, held against the clip's own sizes.** A capture sizes a
+   subject's part on its own frames (the least, the most, five percentiles; the frames under the floor and
+   under a quarter, a half and twice the starting value), says who set the floor and which frames it emptied,
+   and takes another floor from `least=`: the grade empties under that one and no other, and 0 empties
+   nothing. A sighting that was not graded says why nothing was emptied; a part on no frame has no sizes. A
+   capture that exists is sized from its record, or from its own saved masks when it was made before sizes
+   were recorded. Not covered: the `files` command's own reading of `least=` from a `--mask`, which takes mask
+   videos; it was run by hand on one capture's inputs the day it was written (`docs/wiki/decisions.md`).
+
 No video, no model, no card, no server.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/check_capture_masked_run.py
@@ -671,6 +680,67 @@ def graded_holds() -> str:
     assert (large[3] == face[3]).all() and 3 not in quiet, "a part at the least size was emptied"
     return ("a fill on an arm is refused where the saved part is right; a fill on the part replaces a saved part that is "
             "off it or lost; a frame with no part under either is emptied; an undoubted frame is left alone")
+
+
+def the_floor_against_the_clip() -> str:
+    """The floor that empties a small part is a starting value: a capture sizes the part on its own frames, says
+    where the floor falls among them and what it emptied, and takes another floor from `least=`."""
+    import tempfile
+    parts = rect(40, 20, 60, 40, 6)                  # 400 px on frames 0 to 3
+    parts[4] = False
+    parts[4, 20:23, 40:44] = True                    # frame 4: a sliver of 12 px
+    parts[5] = False                                 # frame 5: no part, which is not a size
+    found = cap.part_sizes(parts, 100, 100, cap.LEAST_GIVEN, emptied=[4])
+    assert (found["frames"], found["frames_with_a_part"]) == (6, 5) and found["px"] == {
+        "least": 12, "p10": 167, "p25": 400, "median": 400, "p75": 400, "p90": 400, "most": 400}, found
+    assert (found["floor_px"], found["floor_set_by"], found["frames_under_the_floor"], found["source_frames_under_the_floor"]) == \
+        (100, cap.LEAST_GIVEN, 1, [[104, 104]]), found
+    # the counts under a quarter, a half, one and two times the STARTING value are always there, and under the floor in use
+    assert found["frames_under_px"] == {"100": 1, **{str(cap.PART_LEAST_PX * k // 4): 5 for k in (1, 2, 4, 8)}}, found["frames_under_px"]
+    assert found["emptied_by_the_floor"] == {"frames": 1, "source_frames": [[104, 104]]} and found["cannot_see"] == cap.SIZES_CANNOT_SEE
+    said = "\n".join(cap.size_lines("a's part", found))
+    for words in ("on 5 of 6 frames", "least 12", "median 400", "the floor is 100 px", cap.LEAST_GIVEN, "source frames 104",
+                  "EMPTIED BY THE FLOOR in the part to load: 1 frame(s)", "least=PX", "cannot see"):
+        assert words in said, f"the printed sizes lack {words!r}:\n{said}"
+    # the starting value says of itself that it is not this clip's; a floor of 0 is under nothing and empties nothing
+    start = cap.part_sizes(parts, 100, cap.PART_LEAST_PX, cap.LEAST_STARTING, emptied=[0, 1, 2, 3, 4])
+    assert start["frames_under_the_floor"] == 5 and "not set from this clip" in "\n".join(cap.size_lines("a", start)), start
+    none = cap.part_sizes(parts, 100, 0, cap.LEAST_GIVEN, emptied=[])
+    assert none["frames_under_the_floor"] == 0 and "0" not in none["frames_under_px"] and "emptied no frame" in "\n".join(cap.size_lines("a", none))
+    # a sighting whose part was not graded says why nothing was emptied; a part on no frame has no sizes
+    off = cap.part_sizes(parts, 100, cap.PART_LEAST_PX, cap.LEAST_STARTING, not_applied="grade=off on this --mask")
+    assert off["emptied_by_the_floor"] is None and "nothing was emptied by size on this sighting: grade=off" in "\n".join(cap.size_lines("a", off))
+    empty = cap.part_sizes(np.zeros_like(parts), 100, cap.PART_LEAST_PX, cap.LEAST_STARTING)
+    assert empty["px"] is None and "on no frame" in cap.size_lines("a", empty)[0]
+    # the floor a capture is given is the one the grade uses (`grade_holds`): 100 empties the sliver and leaves the face
+    classes = np.where(rect(40, 20, 60, 40, 6), 2, 0).astype(np.uint8)
+    held, decided = cap.grade_holds(parts, parts, classes, [2], least_px=100)
+    assert held[:4].all(axis=(1, 2)).tolist() == [False] * 4 and held[:4].any(axis=(1, 2)).all() and not held[4].any(), "a floor of 100 px"
+    assert [f for f, d in decided.items() if "least_px" in d] == [4] and decided[4]["px"] == 12, decided
+    # `sizes` on a folder: a capture that recorded its sizes is read; an earlier one is measured again from its own
+    # masks, with the starting value and the frames its grades say were emptied for size
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp) / "2026-01-01_x"
+        (folder / "subjects" / "a").mkdir(parents=True)
+        np.savez_compressed(folder / "subjects" / "a" / "masks__p.npz", parts=np.packbits(parts, axis=-1), track=np.packbits(parts, axis=-1))
+        manifest = {"size": [W, H], "first_frame": 100, "frames": 6, "runs": [],
+                    "subjects": [{"label": "a", "sightings": [{"by": "p", "parts": "a_parts.mkv"}]},
+                                 {"label": "b", "sightings": [{"by": "p", "parts": None}]}]}
+        (folder / "manifest.json").write_text(json.dumps(manifest))
+        (folder / "subjects" / "a" / "part_grades.json").write_text(json.dumps({"frames": [
+            {"source_frame": 104, "did": "emptied", "why": "too small to be drawn as the part", "px": 12, "least_px": cap.PART_LEAST_PX},
+            {"source_frame": 101, "did": "filled"}]}))
+        (where, again, how), = cap.sizes_of(folder)
+        assert "2026-01-01_x a (by p)" in where and "source frames 100-105" in where and "measured now" in how, (where, how)
+        assert again["px"] == found["px"] and again["floor_px"] == cap.PART_LEAST_PX and again["floor_set_by"] == cap.LEAST_STARTING \
+            and again["emptied_by_the_floor"] == {"frames": 1, "source_frames": [[104, 104]]}, again
+        manifest["subjects"][0]["sightings"][0]["part_sizes"] = found
+        (folder / "manifest.json").write_text(json.dumps(manifest))
+        (_, read, how), = cap.sizes_of(folder)
+        assert read == found and "as the capture recorded it" in how, how
+    return ("a part's size on its own frames, the floor and who set it, the frames under it and the frames it emptied are figures a "
+            "capture prints and records; the starting value says it is not the clip's; `least=` is the floor the grade uses and 0 "
+            "empties nothing; a capture that exists is sized from its record, or from its own masks when it has none")
 
 
 def verifying() -> str:
@@ -1506,6 +1576,7 @@ case("shots: the gate's answer per shot and subject", gate_by_shot)
 case("the look: what a strip shows of a load and its text, and the line that records it", a_look)
 case("preflight: a load that lays nothing where its subject is", a_load_that_lays_nothing)
 case("a fill of a doubted part, graded by the class map", graded_holds)
+case("the floor under a small part: a starting value, held against the clip's own sizes", the_floor_against_the_clip)
 case("verify: the capture reads what the nodes wrote", verifying)
 case("a pose table as an input", pose_tables)
 case("a pass as a list of loads", loads)

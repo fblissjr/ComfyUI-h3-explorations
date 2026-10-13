@@ -155,7 +155,10 @@ the subject, a jump in size, moved within the subject's box) filled from their u
 `--mask` spec to fill only the source frames you chose; without it every doubted frame in reach is offered a
 fill. With a class map every offer is graded (`grade_holds`, `part_grades.json`): the fill is taken only
 where it lies on the part's own classes better than the saved part does, and a frame where neither does is
-emptied; `grade=off` in the spec leaves the fill ungraded.
+emptied; `grade=off` in the spec leaves the fill ungraded. The grade also empties a part smaller than a floor,
+which is a STARTING VALUE and not this clip's (`PART_LEAST_PX`): the capture prints the part's size on this
+clip's frames against it for every subject (`part_sizes`), and `least=PX` in the spec sets it for that subject
+(`least=0` empties nothing by size). `sizes CAPTURE...` prints the same figures for captures that exist.
 `drop=FIRST-LAST+FIRST-LAST` empties the part on source frames where it should take nothing (it lies on
 something that is not the part and there is nothing to fill it from). A plan with `carried=held` works its
 region out from that mask. The manifest lists the frames filled, the doubted frames left and those emptied. Written only when the mask video covers
@@ -452,7 +455,75 @@ HOLD_INSIDE = 0.5
 # reader called fragments; on the other it empties most of the stretch the reader cut and leaves a few frames of
 # it standing. So it is a floor, not a judge of a part. The class map cannot see these frames: it calls the
 # fragment the part's own class, which is how the part came to be there.
+# A STARTING VALUE, NOT THE CLIP'S (2026-10-13; the owner's answer on the Open List's row p07, 2026-10-12). It was
+# reasoned from the model's token and held against that one clip. On 2026-10-12 it emptied a small face on about
+# half the frames of a load of another clip whose whole-frame render the owner had accepted, so the reasoning
+# ("nothing to draw the part in") does not hold as a rule. A capture therefore says, for every subject with a
+# part, what size the part is on this clip's own frames and where the floor falls among them (`part_sizes`:
+# printed, and written to the manifest and to `part_grades.json`), and `least=PX` on a `--mask` sets the floor for
+# that subject from those figures (`least=0` empties nothing by size). `sizes` prints the same for a capture
+# that exists. Nothing here judges the figures: a floor that empties many frames is said, not refused.
 PART_LEAST_PX = 4 * 32 * 32
+#: Who set a sighting's floor, as the record says it.
+LEAST_STARTING = ("the starting value (PART_LEAST_PX): reasoned from the model's token and held once against another "
+                  "clip; not set from this clip")
+LEAST_GIVEN = "this capture's --mask (least=)"
+#: What the sizes cannot say, carried with them wherever they are written.
+SIZES_CANNOT_SEE = ("whether a small part is a sliver of the part or a whole small face (the class map calls both the "
+                    "part's class): look at a frame; and the size the part is drawn at on a load rendered zoomed in, "
+                    "which is larger than these whole-frame pixels by the zoom, squared")
+
+
+def part_sizes(parts: np.ndarray, first: int, least_px: int, set_by: str, emptied: list[int] | None = None,
+               not_applied: str = "") -> dict:
+    """The size of a subject's part on each frame of the span, and where the floor falls among them.
+
+    Measured on the saved part (`parts__<by>.mkv`, before any fill), in pixels of the capture's own canvas, over
+    the frames that have a part: the least, the most and five percentiles; how many of those frames are under
+    the floor and which source frames; and how many are under a quarter, a half and twice the STARTING value,
+    so a reader can see whether the small frames sit apart from the rest or run into them. `emptied` is the
+    frames (of the span) the floor emptied in the part to load, which is counted after the fills and can differ
+    from the count on the saved part; `not_applied` says why nothing was emptied by size on this sighting.
+    Figures and nothing else: no level here is good or bad."""
+    px = parts.reshape(len(parts), -1).sum(axis=1)
+    has = px > 0
+    under = np.nonzero(has & (px < least_px))[0]
+    levels = sorted({PART_LEAST_PX // 4, PART_LEAST_PX // 2, PART_LEAST_PX, PART_LEAST_PX * 2} | ({int(least_px)} if least_px else set()))
+    return {"measured_on": "the saved part, before any fill, in pixels of the capture's canvas, on the frames that have a part",
+            "frames": int(len(px)), "frames_with_a_part": int(has.sum()),
+            "px": {name: int(np.percentile(px[has], q)) for name, q in (("least", 0), ("p10", 10), ("p25", 25), ("median", 50),
+                                                                        ("p75", 75), ("p90", 90), ("most", 100))} if has.any() else None,
+            "floor_px": int(least_px), "floor_set_by": set_by,
+            "frames_under_the_floor": int(len(under)), "source_frames_under_the_floor": frame_spans([first + int(f) for f in under]),
+            "frames_under_px": {str(level): int((has & (px < level)).sum()) for level in levels},
+            "emptied_by_the_floor": None if emptied is None else {"frames": len(emptied), "source_frames": frame_spans([first + int(f) for f in sorted(emptied)])},
+            "floor_not_applied": not_applied or None,
+            "cannot_see": SIZES_CANNOT_SEE}
+
+
+def size_lines(where: str, sizes: dict) -> list[str]:
+    """What `part_sizes` found, as lines to print: the figures, the floor and who set it, and what it emptied."""
+    if not sizes["frames_with_a_part"]:
+        return [f"{where}: the part is on no frame of the span's {sizes['frames']}; nothing to size"]
+    px, spans = sizes["px"], lambda rows: ", ".join(f"{a}-{b}" if a != b else str(a) for a, b in rows)
+    lines = [f"{where}: the part is on {sizes['frames_with_a_part']} of {sizes['frames']} frames; its size in px: least {px['least']}, "
+             f"p10 {px['p10']}, p25 {px['p25']}, median {px['median']}, p75 {px['p75']}, p90 {px['p90']}, most {px['most']}; "
+             + "frames under " + ", ".join(f"{level} px: {n}" for level, n in sizes["frames_under_px"].items())]
+    floor = f"    the floor is {sizes['floor_px']} px, set by {sizes['floor_set_by']}; under it on the saved part: {sizes['frames_under_the_floor']} frame(s)"
+    if sizes["frames_under_the_floor"]:
+        floor += f" (source frames {spans(sizes['source_frames_under_the_floor'])})"
+    lines.append(floor)
+    emptied = sizes["emptied_by_the_floor"]
+    if emptied is None:
+        lines.append(f"    nothing was emptied by size on this sighting: {sizes['floor_not_applied']}")
+    elif emptied["frames"]:
+        lines.append(f"    EMPTIED BY THE FLOOR in the part to load: {emptied['frames']} frame(s), source frames {spans(emptied['source_frames'])}. "
+                     "The original stays on those frames. To set the floor from the figures above: least=PX on this subject's "
+                     "--mask (least=0 empties nothing by size)")
+    else:
+        lines.append("    the floor emptied no frame of the part to load")
+    lines.append(f"    cannot see: {sizes['cannot_see']}")
+    return lines
 
 
 def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made: list[int],
@@ -1138,6 +1209,9 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                          capture_output=True, text=True).stdout.strip()}
     for label, m in masks:
         by, at = m.get("by", "preview"), int(m.get("at", first))
+        least, least_by = (int(m["least"]), LEAST_GIVEN) if m.get("least") is not None else (PART_LEAST_PX, LEAST_STARTING)
+        if least < 0:
+            raise SystemExit(f"subject {label!r}: least={m['least']}; a part's least size is 0 (nothing emptied by size) or more, in px")
         track, covered = read_mask(m["track"], size, at, first, frames)
         parts = read_mask(m["parts"], size, at, first, frames)[0] if m.get("parts") else None
         if parts is not None and m.get("pieces") == "largest":
@@ -1167,7 +1241,11 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
         dropped: list[list[int]] = []
         refused: list[int] = []
         emptied_by_grade: list[int] = []
+        sizes = None
         if parts is not None:
+            sizes = part_sizes(parts, first, least, least_by, not_applied=(
+                "grade=off on this --mask" if m.get("grade") == "off" else "no class map was given for this subject, so its part is not graded"
+                if not m.get("classes") else "the mask video does not cover the whole span, so no part to load was written"))
             write_mask_video(folder / f"parts__{by}.mkv", parts)
             mine = [r for r in subject_rows(label, by, first, track, covered, parts)]
             if all(r["covered"] for r in mine):
@@ -1178,12 +1256,14 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                     every, doubted, _ = held_parts(track, parts, mine)
                     made = [names.index(c) for c in made_of.get(label, [])]
                     if m.get("grade") != "off":
-                        held, graded = grade_holds(parts, held, class_maps[label], made, PART_LEAST_PX)
+                        held, graded = grade_holds(parts, held, class_maps[label], made, least)
+                        sizes = part_sizes(parts, first, least, least_by, emptied=[f for f, d in graded.items() if "least_px" in d])
                         held_frames = [f for f, d in graded.items() if d["did"] == "filled"]
                         refused = [first + f for f, d in graded.items() if d["did"].startswith("saved")]
                         emptied_by_grade = [first + f for f, d in graded.items() if d["did"] == "emptied"]
                         (folder / "part_grades.json").write_text(json.dumps(
                             {"subject": label, "seen_by": by, "bar": HOLD_INSIDE, "part_is_made_of": made_of.get(label),
+                             "least_px": least, "least_px_set_by": least_by, "part_sizes": sizes,
                              "frames": [{"source_frame": first + f, **d} for f, d in sorted(graded.items())]}, indent=1) + "\n")
                     others_now = [t for other, seen in sightings.items() if other != label and other in class_maps
                                   for t in [next(iter(seen.values()))[0]]]
@@ -1226,9 +1306,13 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                    "parts_doubted_and_left_on_source_frames": frame_spans([first + f for f in left_frames]),
                                    "parts_emptied_on_source_frames": dropped,
                                    "parts_fill_refused_by_grade_on_source_frames": frame_spans(refused),
-                                   "parts_emptied_by_grade_on_source_frames": frame_spans(emptied_by_grade)})
+                                   "parts_emptied_by_grade_on_source_frames": frame_spans(emptied_by_grade),
+                                   # the part's size on this clip's frames, and where the floor fell among them (`part_sizes`)
+                                   "part_sizes": sizes})
         print(f"subject {label} seen by {by}: {int(covered.sum())} of {frames} frames covered, "
               f"mask on {int(track.reshape(frames, -1).any(1).sum())}", flush=True)
+        if sizes is not None:
+            print("\n".join(size_lines(f"  {label}'s part, source frames {first}-{first + frames - 1}, canvas {width}x{height}", sizes)), flush=True)
     for label, seen in sightings.items():
         rows = [row for by, (track, covered, parts) in seen.items() for row in subject_rows(label, by, first, track, covered, parts)]
         write_table(out / "subjects" / label / "per_frame", rows)
@@ -2729,6 +2813,45 @@ def flag_pieces(manifest: dict, folder: Path) -> list[dict]:
                         "figures": {"frames": int(len(hit)), "stray_px_most": int(stray.max()), "stray_px_median": int(np.median(stray[hit]))},
                         "threshold": {"SEGMENT_PX": SEGMENT_PX}})
     return out
+
+
+def sizes_of(folder: Path) -> list[tuple[str, dict, str]]:
+    """Every subject's part sizes in a capture folder: (where, `part_sizes`, how it was got) a sighting with a part.
+
+    A capture made since 2026-10-13 recorded them and they are read from its manifest. An earlier one is
+    measured again here from its own saved masks (`masks__<by>.npz`), with the floor it ran under (the starting
+    value: the only one there was) and the frames its `part_grades.json` says were emptied for size."""
+    manifest = json.loads((folder / "manifest.json").read_text())
+    first, frames, (width, height) = manifest["first_frame"], manifest["frames"], manifest["size"]
+    out = []
+    for s in manifest["subjects"]:
+        for seen in s["sightings"]:
+            if not seen.get("parts"):
+                continue
+            where = f"{folder.name} {s['label']} (by {seen['by']}), source frames {first}-{first + frames - 1}, canvas {width}x{height}"
+            if seen.get("part_sizes"):
+                out.append((where, seen["part_sizes"], "as the capture recorded it"))
+                continue
+            saved = np.load(folder / "subjects" / s["label"] / f"masks__{seen['by']}.npz")
+            parts = np.unpackbits(saved["parts"], axis=-1)[..., :width].astype(bool)
+            grades = folder / "subjects" / s["label"] / "part_grades.json"
+            emptied = [d["source_frame"] - first for d in json.loads(grades.read_text())["frames"] if "least_px" in d] if grades.is_file() else None
+            out.append((where, part_sizes(parts, first, PART_LEAST_PX, LEAST_STARTING, emptied=emptied,
+                                          not_applied="" if emptied is not None else "this capture graded no part (no part_grades.json)"),
+                        "measured now from the capture's saved masks; the capture is from before it recorded sizes"))
+    return out
+
+
+def sizes(a: argparse.Namespace) -> None:
+    """Print the part sizes of one or more captures, each against the floor it ran under."""
+    rows = []
+    for name in a.capture:
+        for where, found, how in sizes_of(Path(name)):
+            rows.append({"capture": Path(name).name, "where": where, "how": how, **found})
+            if not a.json:
+                print("\n".join(size_lines(where, found)) + f"\n    ({how})")
+    if a.json:
+        print(json.dumps(rows, indent=1))
 
 
 def flag_face_size(manifest: dict, folder: Path) -> list[dict]:
@@ -4351,7 +4474,7 @@ def main() -> None:
     f.add_argument("--source", required=True, help="the clip every run was loaded from")
     f.add_argument("--first", type=int, required=True, help="the source frame that is the span's frame 0")
     f.add_argument("--frames", type=int, required=True)
-    f.add_argument("--mask", action="append", default=[], metavar="LABEL:track=V[,parts=V][,classes=V][,held=V][,shots=J][,shots_at=N][,pose=J][,pose_at=N][,by=RUN][,at=N][,hold=A-B+C-D][,drop=A-B+C-D][,grade=off][,pieces=largest]",
+    f.add_argument("--mask", action="append", default=[], metavar="LABEL:track=V[,parts=V][,classes=V][,held=V][,shots=J][,shots_at=N][,pose=J][,pose_at=N][,by=RUN][,at=N][,hold=A-B+C-D][,drop=A-B+C-D][,grade=off][,least=PX][,pieces=largest]",
                    help="one sighting of a subject: its saved mask videos; repeatable")
     f.add_argument("--run", action="append", default=[], metavar="RUN:render=V|preview=DIR,subject=LABEL[,others=L+L][,margin=PX][,at=N][,region=review]",
                    help="one pass that regenerated a subject; its region is the one each window saved beside its latent, or is "
@@ -4452,11 +4575,14 @@ def main() -> None:
     x.add_argument("--classes", metavar="Class+Class", help="classes as the class map has them, joined by +")
     x.add_argument("--classes-owned", metavar="Class+Class", help="classes taken only where the owner map gives the subject the pixel")
     x.add_argument("--out", required=True, help="the .mkv to write: ffv1, grey, white on the mask, frame 0 the span's first frame")
+    sz = sub.add_parser("sizes", help="each subject's part size on a capture's frames, against the floor that empties a small part")
+    sz.add_argument("capture", nargs="+", help="capture folders")
+    sz.add_argument("--json", action="store_true", help="the figures as json, for a tool")
     d = sub.add_parser("diagnose", help="everything the capture says about a stretch marked as wrong")
     d.add_argument("capture")
     d.add_argument("--frames", required=True, metavar="FIRST-LAST", help="source frames")
     a = p.parse_args()
-    {"files": files, "video": video, "verify": verify, "preflight": preflight, "rules": rules, "shots": shots, "looked": looked, "outcome": outcome, "diagnose": diagnose, "look": look, "mask": mask, "changed": changed, "mouth": mouth}[a.mode](a)
+    {"files": files, "sizes": sizes, "video": video, "verify": verify, "preflight": preflight, "rules": rules, "shots": shots, "looked": looked, "outcome": outcome, "diagnose": diagnose, "look": look, "mask": mask, "changed": changed, "mouth": mouth}[a.mode](a)
 
 
 if __name__ == "__main__":

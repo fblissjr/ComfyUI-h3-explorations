@@ -15,6 +15,35 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-10-13
+
+- **The floor that empties a small part is a starting value, and a
+  capture says where a clip's own sizes fall against it** (the owner's
+  answer on the Open List's row p07, 2026-10-12: set the floor from this
+  clip, or mark it a starting value and have the tool say when a clip's
+  own sizes disagree; built 2026-10-13 by the tooling session at the
+  lead's relay). `bench/capture_masked_run.py::PART_LEAST_PX` keeps its
+  value and loses its standing: its comment had said "Reasoned: under
+  that the model has nothing to draw the part in", and on 2026-10-12 it
+  emptied a small face on about half the frames of a load whose
+  whole-frame render the owner had accepted, with nothing printed. Now
+  `files` prints, for every subject with a part, the part's size on the
+  capture's own frames, the floor and who set it, the frames under it and
+  the frames it emptied (`part_sizes`, also in the manifest and in
+  `part_grades.json`); `least=PX` on a `--mask` sets the floor for that
+  subject and `least=0` empties nothing by size; `sizes CAPTURE...`
+  prints the same for captures that exist. The second form of the
+  owner's answer was taken and not the first: a floor worked out from the
+  clip needs a rule for what a fragment is, and the one tried on paper (a
+  share of the part's median size) would empty whole faces on a shot
+  where the subject walks toward the camera. No new red: the figures are
+  printed and the reading is left to whoever runs the capture. A capture
+  with no `least=` empties what it emptied before (run by hand on the
+  street walk's saved masks: the same frames as the capture of the 12th;
+  with `least=1024` and `least=0`, fewer and none by size). What the
+  sizes cannot see is printed with them: whether a small part is a sliver
+  or a whole small face, and the size it is drawn at on a zoomed load.
+
 ## 2026-10-12
 
 *Written by the afternoon's lead session (mrfern) from the operative files

@@ -187,7 +187,11 @@ renders after it.
   size or moved, in a list long enough that its own author had stopped
   reading it. What changed: the grade empties a part under
   `PART_LEAST_PX` (`bench/capture_masked_run.py::grade_holds`), so such a
-  frame is a frame with no part and is named at the top level; "is the part
+  frame is a frame with no part and is named at the top level (that
+  figure is a starting value from that clip and not a rule: since
+  2026-10-13 a capture prints each part's size on its own frames against
+  it and takes another from `least=` on the `--mask`; `sizes` prints the
+  same for a capture that exists); "is the part
   on its own subject" was tested as the rule and does not separate (the
   class map calls a fragment the part's own class). What did not become a
   rule: a track's size against its neighbouring shots, which fires on right
