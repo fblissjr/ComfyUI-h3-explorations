@@ -5,7 +5,10 @@
         --why "what was looked at and what it showed" --by SESSION [--stands "SUBJECT=yes:why"] [--dry-run]
     <python> bench/shots_record.py split --shots data/<stem>/shots.json --shot FIRST --at FRAME --keeps first|second \\
         --other "SUBJECT=unsure:what is known of them on the other cut" [--other ...] [--note-other "words"] \\
+        --why "..." --by SESSION [--answers-on-both "who divides them, and how"] [--dry-run]
+    <python> bench/shots_record.py move --shots data/<stem>/shots.json --first FIRST_OF_A --second FIRST_OF_B --to FRAME \\
         --why "..." --by SESSION [--dry-run]
+    <python> bench/shots_record.py note --shots data/<stem>/shots.json --shot FIRST --add "words" --by SESSION [--dry-run]
 
 **What it buys.** The record's cuts are where every later tool takes its shots from (a preview is of a shot, a load
 of a shot, a `source` line of the delivery table of a shot), and a cut can be wrong both ways. On 2026-10-13 two
@@ -25,7 +28,17 @@ shot's entries whole (`--keeps`: the half the owner's answers are on) and what t
 (`--other`, one for each: usually `unsure`, since no answer is on it). REFUSED when a frame an entry names
 (`frames_on`, `frames_boxed`, or a `frame N` in its `how`) lies on the other half: the entries then belong to both
 and a person divides them by hand. The other half's entries say they came of a split and what the whole shot said.
-The shot AS IT WAS is kept under both halves' `split_from`.
+The shot AS IT WAS is kept under both halves' `split_from`. Where the owner DID answer on both cuts
+(`--answers-on-both`, with who divides them and how), the split goes through: the kept half keeps its entries
+whole, its note says which of the frames they name are now the other shot's, and the other half says what the
+caller gives, which is then the owner's own answer on its frames, quoted with its lines.
+
+**move.** The cut between two neighbours moves to `--to`, the second's new first frame: a cut found a frame or two
+from where the picture has it. Each shot keeps its own entries whole. REFUSED when a frame either shot's entries
+name would change sides: that is a merge and a split, a person's to divide. Both shots as they were are kept
+under `moved_from`.
+
+**note.** Words added to a shot's note, with when and by whom: what a look found there that changes no cut.
 
 A dry run prints the shots before and after and writes nothing. A real run writes the record whole, as its other
 writers do, and refuses if the file changed while it ran. It does not make a copy of the record: the session that
@@ -100,7 +113,8 @@ def named_frames(entry: dict) -> set[int]:
     return set(entry.get("frames_on") or []) | set(entry.get("frames_boxed") or []) | {int(n) for n in re.findall(r"\bframe (\d+)", str(entry.get("how", "")))}
 
 
-def split(shot: dict, at: int, keeps: str, other: dict, subjects: list[str], why: str, by: str, now: str, note_other: str = "") -> tuple[dict, dict]:
+def split(shot: dict, at: int, keeps: str, other: dict, subjects: list[str], why: str, by: str, now: str, note_other: str = "",
+          on_both: str = "") -> tuple[dict, dict]:
     """The two shots of one, cut so that `at` is the second's first frame. `keeps` is the half the entries stay whole on."""
     if not shot["first"] < at <= shot["last"]:
         raise Refused(f"--at {at} is not inside {frames(shot)} past its first frame: it is the first frame of the second shot")
@@ -110,12 +124,17 @@ def split(shot: dict, at: int, keeps: str, other: dict, subjects: list[str], why
     missing = [s for s in subjects if s not in other]
     if missing:
         raise Refused(f"the other half needs a word for every subject: none was given for {', '.join(missing)} (--other \"SUBJECT=unsure:words\")")
+    both = set()
     for subject in subjects:
         astray = sorted(n for n in named_frames(shot["who"][subject]) if shot["first"] <= n <= shot["last"] and not lo <= n <= hi)
-        if astray:
+        both.update(astray)
+        if astray and not on_both:
             raise Refused(f"{subject}'s entry names frame(s) {astray}, which lie on the other half ({'second' if keeps == 'first' else 'first'}): its "
-                          "answers are on both cuts and are divided by a person, not by this tool")
+                          "answers are on both cuts and are divided by a person, not by this tool (--answers-on-both \"who divides them, and how\")")
     line = f"SPLIT {now} by {by} from the record's shot {frames(shot)} at {at}: {why}"
+    if both:
+        line += (f" THE OWNER'S ANSWERS WERE ON BOTH CUTS: the entries here are kept whole and also name frame(s) {sorted(both)}, which are now the other "
+                 f"shot's; divided by {by}: {on_both}")
     kept = {k: copy.deepcopy(v) for k, v in shot.items() if k not in ("first", "last", "note")}
     kept.update(note=" || ".join(x for x in (shot.get("note", ""), line) if x), split_from=copy.deepcopy(shot))
     who = {}
@@ -127,6 +146,26 @@ def split(shot: dict, at: int, keeps: str, other: dict, subjects: list[str], why
     made = {"who": who, "note": " || ".join(x for x in (line, note_other) if x), "split_from": copy.deepcopy(shot)}
     first_half, second_half = (kept, made) if keeps == "first" else (made, kept)
     return ({"first": shot["first"], "last": at - 1, **first_half}, {"first": at, "last": shot["last"], **second_half})
+
+
+def moved(a: dict, b: dict, to: int, subjects: list[str], why: str, by: str, now: str) -> tuple[dict, dict]:
+    """Two neighbours with the cut between them moved to `to`, the second's new first frame; each keeps its entries whole."""
+    if a["last"] + 1 != b["first"]:
+        raise Refused(f"{frames(a)} and {frames(b)} are not neighbours: a cut is moved between a shot and the one after it")
+    if not a["first"] < to <= b["last"] or to == b["first"]:
+        raise Refused(f"--to {to} is not a new first frame for the second shot: it is past {a['first']}, no later than {b['last']}, and not {b['first']}, where the cut is")
+    for subject in subjects:
+        gone = sorted(n for n in named_frames(a["who"][subject]) if to <= n <= b["last"]) + sorted(n for n in named_frames(b["who"][subject]) if a["first"] <= n < to)
+        if gone:
+            raise Refused(f"{subject}'s answers name frame(s) {gone}, which would change shots with the cut at {to}: that is a merge and a split, divided by a person")
+    line = f"CUT MOVED {now} by {by} from {b['first']} to {to} (the shots were {frames(a)} and {frames(b)}): {why}"
+    was = [copy.deepcopy(a), copy.deepcopy(b)]
+    out = []
+    for shot, first, last in ((a, a["first"], to - 1), (b, to, b["last"])):
+        new = copy.deepcopy(shot)
+        new.update(first=first, last=last, note=" || ".join(x for x in (shot.get("note", ""), line) if x), moved_from=was)
+        out.append(new)
+    return out[0], out[1]
 
 
 def checked(record: dict) -> None:
@@ -146,13 +185,21 @@ def checked(record: dict) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n")[0])
     sub = ap.add_subparsers(dest="what", required=True)
-    for name in ("merge", "split"):
+    for name in ("merge", "split", "move", "note"):
         p = sub.add_parser(name)
         p.add_argument("--shots", required=True)
-        p.add_argument("--why", required=True, help="what was looked at and what it showed; written into the shot's note")
+        if name != "note":
+            p.add_argument("--why", required=True, help="what was looked at and what it showed; written into the shot's note")
         p.add_argument("--by", required=True, help="the session")
         p.add_argument("--dry-run", action="store_true")
-        if name == "merge":
+        if name == "move":
+            p.add_argument("--first", type=int, required=True, help="the first frame of the first of the two shots")
+            p.add_argument("--second", type=int, required=True, help="the first frame of the second, where the cut is now")
+            p.add_argument("--to", type=int, required=True, help="the second shot's new first frame")
+        elif name == "note":
+            p.add_argument("--shot", type=int, required=True, help="the first frame of the shot")
+            p.add_argument("--add", required=True, help="the words to add to its note")
+        elif name == "merge":
             p.add_argument("--first", type=int, required=True, help="the first frame of the first of the two shots")
             p.add_argument("--second", type=int, required=True, help="the first frame of the second")
             p.add_argument("--stands", action="append", default=[], metavar="SUBJECT=yes|no|unsure:why", help="where the two halves differ for a subject: which stands, and why")
@@ -162,6 +209,8 @@ def main() -> int:
             p.add_argument("--keeps", required=True, choices=("first", "second"), help="the half the shot's entries stay whole on: the one the answers are on")
             p.add_argument("--other", action="append", default=[], metavar="SUBJECT=yes|no|unsure:words", help="what the other half says of a subject; one for each")
             p.add_argument("--note-other", default="", help="words for the other half's note: a session's reading of it, said as that")
+            p.add_argument("--answers-on-both", default="", metavar="WORDS", help="the owner answered on frames of both cuts: who divides the answers, and how; "
+                           "without it such a split is refused")
     a = ap.parse_args()
     text = Path(a.shots).read_text()
     record = json.loads(text)
@@ -181,23 +230,43 @@ def main() -> int:
                             {s: (p, w) for s, p, w in (said(t, "--stands") for t in a.stands)})]
             record["shots"][i:i + 2] = after
             did = f"shots {frames(before[0])} and {frames(before[1])} merged into {frames(after[0])}"
+        elif a.what == "move":
+            if a.first not in by_first or a.second not in by_first:
+                raise Refused(f"{a.first} and {a.second} are not both the first frame of a shot of the record")
+            i = by_first[a.first]
+            if i + 1 >= len(record["shots"]) or record["shots"][i + 1]["first"] != a.second:
+                raise Refused(f"the shot after {frames(record['shots'][i])} does not begin on {a.second}")
+            before = record["shots"][i:i + 2]
+            after = list(moved(before[0], before[1], a.to, record["subjects"], " ".join(a.why.split()), a.by, now))
+            record["shots"][i:i + 2] = after
+            did = f"the cut between {frames(before[0])} and {frames(before[1])} moved to {a.to}: now {frames(after[0])} and {frames(after[1])}"
+        elif a.what == "note":
+            if a.shot not in by_first or not a.add.strip():
+                raise Refused(f"{a.shot} is not the first frame of a shot of the record, or --add has no words")
+            i = by_first[a.shot]
+            before = record["shots"][i:i + 1]
+            new = copy.deepcopy(before[0])
+            new["note"] = " || ".join(x for x in (new.get("note", ""), f"NOTE {now} by {a.by}: {' '.join(a.add.split())}") if x)
+            after = [new]
+            record["shots"][i:i + 1] = after
+            did = f"a note added to shot {frames(new)}"
         else:
             if a.shot not in by_first:
                 raise Refused(f"{a.shot} is not the first frame of a shot of the record")
             i = by_first[a.shot]
             before = record["shots"][i:i + 1]
             after = list(split(before[0], a.at, a.keeps, {s: (p, w) for s, p, w in (said(t, "--other") for t in a.other)}, record["subjects"],
-                               " ".join(a.why.split()), a.by, now, " ".join(a.note_other.split())))
+                               " ".join(a.why.split()), a.by, now, " ".join(a.note_other.split()), " ".join(a.answers_on_both.split())))
             record["shots"][i:i + 1] = after
             did = f"shot {frames(before[0])} split into {frames(after[0])} and {frames(after[1])}"
         checked(record)
     except Refused as e:
         print(f"REFUSED, nothing written: {e}")
         return 5
-    line = f"{did} by bench/shots_record.py for {a.by} at {now}: {' '.join(a.why.split())}"
+    line = f"{did} by bench/shots_record.py for {a.by} at {now}: {' '.join((a.add if a.what == 'note' else a.why).split())}"
     record["written_by"] = f"{record['written_by']}; {line}" if record.get("written_by") else line
-    show = lambda shots: json.dumps([{k: v for k, v in s.items() if k not in ("merged_from", "split_from")} for s in shots], indent=1)      # noqa: E731
-    print(f"BEFORE:\n{show(before)}\n\nAFTER (each also keeps the shot or shots as they were, whole, under `merged_from` or `split_from`):\n{show(after)}\n")
+    show = lambda shots: json.dumps([{k: v for k, v in s.items() if k not in ("merged_from", "split_from", "moved_from")} for s in shots], indent=1)      # noqa: E731
+    print(f"BEFORE:\n{show(before)}\n\nAFTER (each also keeps the shot or shots as they were, whole, under `merged_from`, `split_from` or `moved_from`):\n{show(after)}\n")
     print(f"the record: {len(record['shots'])} shots; " + ("DRY: nothing written" if a.dry_run else f"{did}; written to {a.shots}"))
     if a.dry_run:
         return 0

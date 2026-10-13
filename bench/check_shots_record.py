@@ -9,6 +9,12 @@
                                         whole shot said; both keep the shot as it was under `split_from`
   an_answer_on_the_other_cut_is_refused a frame in an entry's lists or in its words that lies on the other half stops the split
   a_split_needs_a_word_for_everybody    the other half with a subject nobody spoke for is refused; so is a cut on the shot's first frame or outside it
+  answers_on_both_cuts_need_a_person    with --answers-on-both the split goes through: the kept half keeps its entries whole and its note says
+                                        which frames they name are now the other shot's and who divided them
+  a_cut_moves_with_every_answer_in_place   the two shots keep their entries whole with the cut at its new frame and both as they were under
+                                        `moved_from`; refused when an answer's frame would change shots, when the two are not neighbours, and
+                                        when the new frame is where the cut is or outside them
+  a_note_is_added_not_replaced          to the shot's own note, with when and by whom
   a_dry_run_writes_nothing              and prints the shots before and after
   the_record_is_written_as_its_others_are   one space of indent and no last newline, every other shot byte for byte, its span still covered, a
                                         line added to `written_by`; the coverage tool's own reader takes it
@@ -107,6 +113,29 @@ def main() -> int:
             wrong_half = str(e)
         case("an_answer_on_the_other_cut_is_refused", "a's entry names frame(s) [70]" in astray and "divided by a person" in astray
              and "a's entry names frame(s) [60, 70]" in wrong_half, astray + " | " + wrong_half)
+        f2, s2 = sr.split(long, 65, "first", {"a": ("no", "the owner on frame 70: not on this frame"), "b": ("unsure", "x")}, ["a", "b"], "w", "c", "NOW", on_both="the lead; frame 70 is the second cut's")
+        case("answers_on_both_cuts_need_a_person", f2["who"] == long["who"] and (f2["last"], s2["first"]) == (64, 65) and s2["who"]["a"]["present"] == "no"
+             and "THE OWNER'S ANSWERS WERE ON BOTH CUTS" in f2["note"] and "also name frame(s) [70]" in f2["note"] and "divided by c: the lead; frame 70 is the second cut's" in f2["note"]
+             and "ON BOTH CUTS" in s2["note"], (f2["note"], s2["who"]["a"]))
+        x, y = r0["shots"][1], r0["shots"][2]                     # 10-29 (a boxed on 12) and 30-49 (a on 33)
+        m1, m2 = sr.moved(x, y, 32, ["a", "b"], "the cut is two frames later", "a check", "NOW")
+        tries = {}
+        for name, call in (("an answer changes shots", lambda: sr.moved(x, y, 34, ["a", "b"], "w", "c", "NOW")), ("earlier, past an answer", lambda: sr.moved(x, y, 12, ["a", "b"], "w", "c", "NOW")),
+                           ("not neighbours", lambda: sr.moved(x, r0["shots"][3], 40, ["a", "b"], "w", "c", "NOW")), ("where the cut is", lambda: sr.moved(x, y, 30, ["a", "b"], "w", "c", "NOW")),
+                           ("outside", lambda: sr.moved(x, y, 60, ["a", "b"], "w", "c", "NOW"))):
+            try:
+                call()
+                tries[name] = "NOT REFUSED"
+            except sr.Refused as e:
+                tries[name] = str(e)
+        case("a_cut_moves_with_every_answer_in_place", (m1["first"], m1["last"], m2["first"], m2["last"]) == (10, 31, 32, 49) and m1["who"] == x["who"] and m2["who"] == y["who"]
+             and m1["moved_from"] == [x, y] == m2["moved_from"] and m2["scene_score"] == 0.4
+             and m1["note"] == "THE OWNER'S NOTE ON 10 || CUT MOVED NOW by a check from 30 to 32 (the shots were 10-29 and 30-49): the cut is two frames later"
+             and "a's answers name frame(s) [33]" in tries["an answer changes shots"] and "[12]" in tries["earlier, past an answer"] and "not neighbours" in tries["not neighbours"]
+             and "is not a new first frame" in tries["where the cut is"] and "is not a new first frame" in tries["outside"], (m1, tries))
+        noted = run(path, "note", "--shot", "10", "--add", "frames 12 to 14 are a hand over the lens", "--by", "c", "--dry-run")
+        case("a_note_is_added_not_replaced", noted.returncode == 0 and "THE OWNER'S NOTE ON 10 || NOTE " in noted.stdout and "by c: frames 12 to 14 are a hand over the lens" in noted.stdout
+             and path.read_text() == was and run(path, "note", "--shot", "11", "--add", "x", "--by", "c").returncode == 5, noted.stdout[-500:])
         nobody = run(path, "split", "--shot", "50", "--at", "80", "--keeps", "first", "--other", "a=unsure:nothing known", "--why", "w", "--by", "c")
         edge = run(path, "split", "--shot", "50", "--at", "50", "--keeps", "first", "--other", "a=unsure:x", "--other", "b=unsure:x", "--why", "w", "--by", "c")
         out = run(path, "split", "--shot", "50", "--at", "120", "--keeps", "first", "--other", "a=unsure:x", "--other", "b=unsure:x", "--why", "w", "--by", "c")
@@ -131,7 +160,7 @@ def main() -> int:
             ok = False
             text = str(stop)
         case("the_record_is_written_as_its_others_are", ok, real.stdout[-300:] + cut.stdout[-300:] + text[:300])
-    print(f"\n{'all' if not fails else fails} {'of ' if fails else ''}8 case(s) {'FAILED' if fails else 'ok'}")
+    print(f"\n{'all' if not fails else fails} {'of ' if fails else ''}11 case(s) {'FAILED' if fails else 'ok'}")
     return 1 if fails else 0
 
 
