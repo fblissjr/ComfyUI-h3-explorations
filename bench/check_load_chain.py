@@ -160,7 +160,7 @@ class Made:
         return lc.read_job(self.job_file, self.root)
 
     def capture(self, *, on_plan: bool = True, written: str = "2026-01-03T10:00:00", look_at: str | None = "2026-01-03T10:30:00",
-                look_by: str = "a reader", loads=("ld",), verdict: str = "clear", blocking=()) -> Path:
+                look_by: str = "a reader", loads=("ld",), verdict: str = "clear", blocking=(), flags=None) -> Path:
         """A capture folder as the capture tool leaves one, with a look recorded on it unless told otherwise."""
         cap = self.root / "data" / "2026-01-03_ld"
         (cap / "subjects" / "a").mkdir(parents=True, exist_ok=True)
@@ -168,7 +168,7 @@ class Made:
         (cap / "manifest.json").write_text(json.dumps({"first_frame": 110, "frames": 20, "runs": [{"carried_from_the_node": on_plan}],
                                                        "subjects": [{"label": "a", "sightings": [{"by": "pv"}]}]}))
         (cap / "status.json").write_text(json.dumps({"written": written, "made_by": "the maker"}))
-        (cap / "flags.json").write_text(json.dumps({"verdict": verdict, "blocking": list(blocking), "flags": [{}, {}]}))
+        (cap / "flags.json").write_text(json.dumps({"verdict": verdict, "blocking": list(blocking), "flags": [{}, {}] if flags is None else flags}))
         if look_at is not None:
             (cap / "looks.json").write_text(json.dumps({"looks": [{"by": "an earlier reader", "at": "2026-01-03T09:00:00", "loads": ["ld"]},
                                                                   {"by": look_by, "at": look_at, "loads": list(loads)}]}))
@@ -198,7 +198,7 @@ def refused(fn, *words: str) -> str:
 
 
 def args(**more) -> argparse.Namespace:
-    given = dict(by="the session", grounds=None, show=None, model_store="", spec=None)
+    given = dict(by="the session", grounds=None, show=None, model_store="", spec=None, not_first=None)
     given.update(more)
     return argparse.Namespace(**given)
 
@@ -520,6 +520,100 @@ def the_look_and_the_gate() -> str:
             "clear; a time with an offset against one without is refused")
 
 
+def a_render_on_the_gate_alone() -> str:
+    """The owner's go-fast word: an ordinary load renders on the gate alone. The maker's record that no look is owed
+    stands in a look's place only while the gate is clear and no forcing rule stands, and it is never a look."""
+    quiet = [{"id": "f001", "rule": "hand_not_refined", "level": "iffy", "figures": {"frames": 9}},
+             {"id": "f002", "rule": "part_not_visible", "level": "iffy", "figures": {"frames": 2}},                                    # two frames: not over two
+             {"id": "f003", "rule": "region_mostly_not_the_subject", "level": "iffy", "figures": {"median_share_not_subject": 0.5}},    # a half: not over a half
+             {"id": "f004", "rule": "segment_inside_region", "level": "iffy", "segment": "a.Torso"},                                   # the load's own subject
+             {"id": "f005", "rule": "segment_inside_region", "level": "iffy", "segment": "b.Hair"},                                    # another's, not clothing or hands
+             {"id": "f006", "rule": "segment_inside_region", "level": "iffy", "segment": "a.Left_Hand"}]                               # a hand, and the load's own subject's
+    forcing = {"part_in_pieces": ({"id": "f9", "rule": "part_in_pieces"}, "f9 part_in_pieces"),
+               "part_changes_size": ({"id": "f9", "rule": "part_changes_size"}, "f9 part_changes_size"),
+               "part_off_the_subject": ({"id": "f9", "rule": "part_off_the_subject"}, "f9 part_off_the_subject"),
+               "part_moves_on_the_subject": ({"id": "f9", "rule": "part_moves_on_the_subject"}, "f9 part_moves_on_the_subject"),
+               "three frames": ({"id": "f9", "rule": "part_not_visible", "figures": {"frames": 3}}, "on more than two frames"),
+               "no figure": ({"id": "f9", "rule": "part_not_visible"}, "held as standing"),
+               "over a half": ({"id": "f9", "rule": "region_mostly_not_the_subject", "figures": {"median_share_not_subject": 0.51}}, "over a half"),
+               "another's clothing": ({"id": "f9", "rule": "segment_inside_region", "segment": "b.Upper_Clothing"}, "another subject's clothing or hands"),
+               "another's hand": ({"id": "f9", "rule": "segment_inside_region", "segment": "b.Left_Hand"}, "another subject's clothing or hands")}
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        m = made.m
+        cap = made.capture(look_at=None, flags=quiet)
+        words = made.root / "not_first.txt"
+        words.write_text("the fourth oval inset;\n it follows lead_fp_1920c, whose plan and render were read blind")
+        a = args(not_first=str(words))
+        # no look and no record: refused as ever, and told of the other way
+        refused(lambda: lc.the_look(made.ctx()), "nobody has recorded a look", "load_chain.py no-look")
+        refused(lambda: lc.step_no_look(made.ctx(), m, args()), "--not-first", "not the first of its kind")
+        assert not (cap / lc.NO_LOOK).exists()
+        # EVERY FORCING RULE REFUSES THE RECORD, with the flag named; the quiet flags beside it do not
+        for name, (flag, said) in forcing.items():
+            made.capture(look_at=None, flags=quiet + [flag])
+            refused(lambda: lc.step_no_look(made.ctx(), m, a), "A FORCING FLAG STANDS", said, "is owed")
+            assert not (cap / lc.NO_LOOK).exists(), f"{name}: a record that no look is owed was written over a forcing flag"
+        made.capture(look_at=None, flags=quiet, verdict="blocked")
+        refused(lambda: lc.step_no_look(made.ctx(), m, a), "'blocked', not clear")
+        made.capture(look_at=None, flags=quiet, on_plan=False)
+        refused(lambda: lc.step_no_look(made.ctx(), m, a), "not the capture on the node's plan")
+        # A CLEAN LOAD: the record is written, it is not a look, and the render rests on the gate alone
+        made.capture(look_at=None, flags=quiet)
+        m.dry = True
+        lc.step_no_look(made.ctx(), m, a)
+        assert not (cap / lc.NO_LOOK).exists(), "a dry run wrote the record"
+        m.dry = False
+        lc.step_no_look(made.ctx(), m, a)
+        kept = json.loads((cap / lc.NO_LOOK).read_text())
+        rec = kept["records"][0]
+        assert "NOT looks" in kept["what"] and not (cap / "looks.json").exists(), "the record was written as a look"
+        assert (rec["load"], rec["by"], rec["gate"], rec["rests_on"]) == ("ld", "the session", "clear", lc.FORCING_WORD) and len(rec["flags_read"]) == 6 \
+            and rec["not_the_first_of_its_kind"] == "the fourth oval inset; it follows lead_fp_1920c, whose plan and render were read blind" \
+            and rec["of_the_list_and_not_read"] == list(lc.FORCING_NOT_READ) and "f002 part_not_visible (iffy)" in rec["flags_read"], rec
+        look = lc.the_look(made.ctx())
+        assert look["gate_alone"] is True and "rendered on the gate alone" in look["by"] and look["capture_made_by"] == "the maker" and look["flags"] == 6 \
+            and look["rests_on"] == lc.FORCING_WORD, look
+        text = lc.go_text(made.ctx(), "the session", "NOW", "the lead's relay", "the face", look, "p1", "a card line.")
+        assert "**NO LOOK: RENDERED ON THE GATE ALONE.**" in text and "**The look**" not in text and "the fourth oval inset" in text, text
+        # THE RECORD NEVER SATISFIES A LOAD THAT NEEDS A LOOK: a forcing flag on the capture as it stands now refuses the render with the record there
+        (cap / "flags.json").write_text(json.dumps({"verdict": "clear", "blocking": [], "flags": quiet + [forcing["part_in_pieces"][0]]}))
+        refused(lambda: lc.the_look(made.ctx()), "A FORCING FLAG STANDS", "f9 part_in_pieces", "does not hold against it", "nobody has recorded a look")
+        (cap / "flags.json").write_text(json.dumps({"verdict": "blocked", "blocking": ["f001"], "flags": quiet}))
+        refused(lambda: lc.the_look(made.ctx()), "'blocked', not clear")
+        (cap / "flags.json").write_text(json.dumps({"verdict": "clear", "blocking": [], "flags": quiet}))
+        # a head reference whose record does not say it passed is a forcing rule; one that says so is not
+        record = made.root / "reference.json"
+        record.write_text(json.dumps({"passed": False}))
+        made.job["reference"] = {"record": str(record)}
+        made.write()
+        refused(lambda: lc.the_look(made.ctx()), "A FORCING FLAG STANDS", "the head reference's record does not say its read-backs passed")
+        record.write_text(json.dumps({"passed": True}))
+        assert lc.the_look(made.ctx())["gate_alone"] is True
+        # THE RULE FOR A LOOK IS AS IT WAS: the maker's own look is no look. With the record the render rests on the gate
+        # alone and says so; with a forcing flag it is refused, the maker's look named
+        (cap / "looks.json").write_text(json.dumps({"looks": [{"by": "the maker", "at": "2026-01-03T10:30:00", "loads": ["ld"]}]}))
+        assert lc.the_look(made.ctx())["gate_alone"] is True
+        (cap / "flags.json").write_text(json.dumps({"verdict": "clear", "blocking": [], "flags": [forcing["three frames"][0]]}))
+        refused(lambda: lc.the_look(made.ctx()), "A FORCING FLAG STANDS", "who made the capture")
+        # somebody else's look is a look, and is what the render rests on, record or no record
+        (cap / "looks.json").write_text(json.dumps({"looks": [{"by": "a reader", "at": "2026-01-03T10:30:00", "loads": ["ld"]}]}))
+        assert lc.the_look(made.ctx())["by"] == "a reader" and "gate_alone" not in lc.the_look(made.ctx())
+        # a record of an earlier capture, and a record of another load, are not this load's
+        (cap / "looks.json").unlink()
+        (cap / "flags.json").write_text(json.dumps({"verdict": "clear", "blocking": [], "flags": quiet}))
+        (cap / "status.json").write_text(json.dumps({"written": "2099-01-01T00:00:00", "made_by": "the maker"}))
+        refused(lambda: lc.the_look(made.ctx()), "is not later than the capture", "of an earlier capture")
+        (cap / "status.json").write_text(json.dumps({"written": "2026-01-03T10:00:00", "made_by": "the maker"}))
+        (cap / lc.NO_LOOK).write_text(json.dumps({"records": [{**rec, "load": "another"}]}))
+        refused(lambda: lc.the_look(made.ctx()), "nobody has recorded a look", "load_chain.py no-look")
+        assert "no-look" in lc.STEPS and "FORCING" in lc.step_help("no-look") and "gate alone" in lc.step_help("render").lower()
+    return ("with no look, a render rests on the gate alone only by the maker's record that none is owed: refused, the flag named, for each of the nine "
+            "forcing shapes, a blocked gate and a capture not on the plan; written for a clean load, as a record that is not a look; held again at the "
+            "render to the flags as they stand, so it never serves a load that needs a look; the maker's own look is still no look; somebody else's look "
+            "is what a render rests on when it is there")
+
+
 def a_render_against_its_plan() -> str:
     plan = {"1": {"inputs": {"video": "/cap/m.mkv"}}, "9": {"inputs": {"preview": True, "filename_prefix": "p", "seed": 1}}}
     render = {"1": {"inputs": {"video": "/cap/m.mkv"}}, "9": {"inputs": {"preview": False, "filename_prefix": "r", "seed": 1}}}
@@ -767,6 +861,7 @@ case("a kept output is not replaced, and a step has its own help", a_kept_output
 case("plan: built and queued on an empty queue, once", the_plan_step)
 case("on-plan: the masks hashed, the capture copied, then built in place", the_on_plan_step)
 case("the look and the gate a render rests on", the_look_and_the_gate)
+case("a render on the gate alone", a_render_on_the_gate_alone)
 case("a render graph against its plan graph, its masks and its job file", a_render_against_its_plan)
 case("render: the go beside the job file, and what stops it", the_render_step)
 case("land: the pose pass and the stacked clip", the_land_step)

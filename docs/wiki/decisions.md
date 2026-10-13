@@ -330,6 +330,31 @@ owner's words in its terminal.*
   planner's longest length and the model's
   ([`next_steps.md`](next_steps.md)).
 
+- **An ordinary load renders on the gate alone; a look is owed where a forcing
+  rule stands or the load is the first of its kind** (the owner's go-fast
+  word of 2026-10-13, relayed by the day's leads and set down in their
+  handoffs; built into the chain the same day at the lead's order). Until
+  then `bench/load_chain.py render` refused every load whose capture held no
+  look by somebody who did not make it, and every load of the day had been
+  one with a forced look, so nobody met the refusal; once ordinary loads
+  came, a blind reader was being spent on each to get past it. The chain now
+  has a step of its own, `no-look`: where the gate is clear and none of the
+  forcing rules stands (`load_chain.FORCING_FLAGS`, `FORCING_FIGURES`,
+  another subject's clothing or hands inside the region, the head
+  reference's read-backs), the load's MAKER records that no look is owed,
+  with their own words that the load is not the first of its kind; `render`
+  takes that record where there is no look, holds it again to the capture's
+  flags as they stand, and the go file says NO LOOK, RENDERED ON THE GATE
+  ALONE. The record is not a look and is never counted as one; with a
+  forcing rule standing it is refused, the flag named, and a look by
+  somebody else is owed as before. What the list names and no flag says
+  today is printed in every such record (`FORCING_NOT_READ`). What it used
+  to claim, and where the claim still stands in words: `AGENTS.md` ("One
+  look per load, by a reader who did not build it") is the owner's file and
+  was not edited by a session; until the owner changes that line, it and
+  the chain differ for an ordinary load, and this entry is where that is
+  said.
+
 ## 2026-10-12
 
 *Written by the afternoon's lead session (mrfern) from the operative files

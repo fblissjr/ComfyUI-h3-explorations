@@ -4,7 +4,9 @@
     <python> bench/load_chain.py first   JOB.json --by SESSION
     <python> bench/load_chain.py plan    JOB.json --by SESSION
     <python> bench/load_chain.py on-plan JOB.json --by SESSION
-        (a reader who did not make the capture looks at the plan's strip: `capture_masked_run.py looked`)
+        (a reader who did not make the capture looks at the plan's strip: `capture_masked_run.py looked`;
+         or, on a clear gate with no forcing flag, the maker records that no look is owed:)
+    <python> bench/load_chain.py no-look JOB.json --by SESSION --not-first WORDS.txt
     <python> bench/load_chain.py render  JOB.json --by SESSION --grounds GROUNDS.txt --show SHOW.txt
     <python> bench/load_chain.py land    JOB.json --by SESSION [--model-store FOLDER]
     <python> bench/load_chain.py page    JOB.json --by SESSION --spec WORDS.json
@@ -61,9 +63,19 @@ fact of the machine is an environment key; nothing is found by a name left over 
   video the plan graph reads is recorded; the first capture is COPIED to `<capture>_first` and the copy checked
   file for file before anything is overwritten; then the capture is built in place on the plan, verified, gated,
   and its strip drawn. Nothing is renamed or moved and no record is rewritten.
+- `no-look`: the load's MAKER records that no look is owed, where the owner's go-fast word allows a render on the
+  gate alone (`FORCING_WORD`): the capture on the node's plan, its gate clear, and NONE of the forcing rules
+  standing on its flags or its head reference (`FORCING_FLAGS`, `FORCING_FIGURES`, another subject's clothing or
+  hands inside the region, the reference's read-backs), with the maker's own words that the load is not the first
+  of its kind (`--not-first`, a file). It writes `no_look_owed.json` into the capture: a record of its own kind,
+  NOT a look and never counted as one, holding whose word it rests on, the gate's verdict, the flags read and
+  what of the list no flag says. REFUSED, with the flag named, when a forcing rule stands: a look by somebody
+  who did not make the capture is then owed as ever.
 - `render`: the queue empty; the last look on this load, on the capture on the node's plan, later than the
-  capture (compared as times; refused when the two cannot be set in one zone) and not by the capture's maker;
-  the gate clear; the job file byte-equal to the one the plan was built from (`job.plan.json`); the go written
+  capture (compared as times; refused when the two cannot be set in one zone) and not by the capture's maker,
+  OR, where there is no such look, the maker's record that none is owed, later than the capture and held again
+  to the forcing rules as the capture stands (the go file and the render's record then say NO LOOK, RENDERED ON
+  THE GATE ALONE); the gate clear; the job file byte-equal to the one the plan was built from (`job.plan.json`); the go written
   to `<load>.render.go.md` BESIDE the job file (the job file is not edited after its plan is built); the render
   graph built, differing from the plan graph in the song node's `preview` and `filename_prefix` only (and, for
   a hair-band load, in the band's own keep-out file when the two decode equal), with no uncommitted node code;
@@ -107,7 +119,7 @@ REPO = HERE.parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(REPO / "workflows"))
 
-STEPS = ("first", "plan", "on-plan", "render", "land", "page")
+STEPS = ("first", "plan", "on-plan", "no-look", "render", "land", "page")
 HOST = "127.0.0.1:8188"
 #: The environment key for the folder that holds the pose model's own folder (`h3_config.POSE_MODEL`): a fact of
 #: the machine, so never a path in a tracked file. Named 2026-10-13 with the lead.
@@ -327,9 +339,137 @@ def in_utc(text: str) -> str:
     return (t.astimezone(datetime.timezone.utc) if t.tzinfo else t.astimezone().astimezone(datetime.timezone.utc)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+# ---------------------------------------------------------------- a render on the gate alone
+
+#: WHOSE WORD THE GATE-ALONE PATH RESTS ON. Relayed by the day's leads and set down in their handoffs; not typed by the
+#: owner into this file. The standing rule beside it is one look a load by a reader who did not build it.
+FORCING_WORD = ("the owner's go-fast word of 2026-10-13 (18:56Z, as the lead's handoff of that day has it): the gate before every render; a look at a "
+                "plan's strip by somebody who did not make it only when the gate does not read clear, a forcing flag stands, or the load is the "
+                "first of its kind")
+#: THE FORCING RULES, in this one place. A load whose capture holds one is owed a look by somebody who did not make it,
+#: whatever the gate says. Inherited, word for word in what they name, from that list. Any flag of these four rules:
+FORCING_FLAGS = ("part_in_pieces", "part_changes_size", "part_off_the_subject", "part_moves_on_the_subject")
+#: A flag of these two, when its own figure is over the list's number: (the figure in the flag, the number, the list's
+#: words). The numbers are the list's ("on more than two frames", "over a half"), not this tool's.
+FORCING_FIGURES = {"part_not_visible": ("frames", 2, "on more than two frames"),
+                   "region_mostly_not_the_subject": ("median_share_not_subject", 0.5, "over a half")}
+#: What of the list no flag says today, printed in every no-look record so nobody reads its silence as a pass.
+FORCING_NOT_READ = ("ANOTHER SUBJECT'S HELD THINGS inside the region have no flag of their own (their clothing and hands do: `segment_inside_region`)",
+                    "a head reference whose HEAD LEAVES ITS BOX is read only as the reference record's `passed`, which holds its three read-backs")
+NO_LOOK = "no_look_owed.json"
+
+
+def forcing_flags(cap: Path, load: dict, job: dict) -> list[str]:
+    """Each forcing rule that stands on a capture's flags and a job's reference, in words that name it; none when
+    none does. What the list names and no flag says is `FORCING_NOT_READ`."""
+    import shot_to_load                 # the keep-outs' classes: what "clothing" and "hands" are, in their one place
+    classes = set(shot_to_load.KEEP_OUTS["hands"]) | set(shot_to_load.KEEP_OUTS["clothes"])
+    mine = {load.get("subject"), load.get("second_subject")} - {None}
+    said = []
+    for f in json.loads((cap / "flags.json").read_text())["flags"]:
+        rule, figures = f.get("rule"), f.get("figures") or {}
+        if rule in FORCING_FLAGS:
+            said.append(f"{f.get('id')} {rule}")
+        elif rule in FORCING_FIGURES:
+            key, over, words = FORCING_FIGURES[rule]
+            if figures.get(key) is None:
+                said.append(f"{f['id']} {rule} (its figure `{key}` is not in the flag, so it is held as standing)")
+            elif figures[key] > over:
+                said.append(f"{f['id']} {rule} ({key} {figures[key]}: {words})")
+        elif rule == "segment_inside_region" and "." in str(f.get("segment", "")):
+            whose, cls = f["segment"].split(".", 1)
+            if whose not in mine and cls in classes:
+                said.append(f"{f['id']} segment_inside_region ({f['segment']}: another subject's clothing or hands inside the region)")
+    ref = job.get("reference") or {}
+    if ref.get("record"):
+        record = Path(ref["record"])
+        if not record.is_file() or json.loads(record.read_text()).get("passed") is not True:
+            said.append(f"the head reference's record does not say its read-backs passed ({record})")
+    return said
+
+
+def capture_on_the_plan(ctx: dict) -> tuple[dict, dict]:
+    """The capture's status and flags, held to what any go rests on: the capture on the node's plan, its gate clear."""
+    cap = ctx["capture"]
+    for name in ("manifest.json", "status.json", "flags.json"):
+        if not (cap / name).is_file():
+            raise Refused(f"{cap.name} holds no {name}")
+    manifest = json.loads((cap / "manifest.json").read_text())
+    if not manifest["runs"] or not manifest["runs"][0].get("carried_from_the_node"):
+        raise Refused(f"{cap.name} is not the capture on the node's plan: run the on-plan step first")
+    flags = json.loads((cap / "flags.json").read_text())
+    if flags.get("verdict") != "clear":
+        raise Refused(f"the gate on {cap.name} is {flags.get('verdict')!r}, not clear")
+    return json.loads((cap / "status.json").read_text()), flags
+
+
+def step_no_look(ctx: dict, world, a) -> None:
+    """The load's maker records that NO LOOK IS OWED: a record of its own kind in the capture, never a look."""
+    said = " ".join(Path(a.not_first).read_text().split()) if a.not_first and Path(a.not_first).is_file() else ""
+    if not said:
+        raise Refused("--not-first is a file with words in it: the maker's statement that this load is not the first of its kind, and which earlier load of "
+                      "the kind it follows (a first of a kind is owed a look whatever its flags)")
+    cap = ctx["capture"]
+    status, flags = capture_on_the_plan(ctx)
+    standing = forcing_flags(cap, ctx["load"], ctx["job"])
+    if standing:
+        raise Refused(f"A FORCING FLAG STANDS on {cap.name}: {'; '.join(standing)}. A look by somebody who did not make the capture is owed "
+                      "(`capture_masked_run.py looked`); no record that none is owed is written")
+    entry = {"load": ctx["name"], "at": datetime.datetime.now().isoformat(timespec="seconds"), "by": a.by, "rests_on": FORCING_WORD, "gate": flags.get("verdict"),
+             "capture_written": status.get("written"), "capture_made_by": status.get("made_by"),
+             "flags_read": [f"{f.get('id')} {f.get('rule')} ({f.get('level')})" for f in flags["flags"]],
+             "forcing_rules_held_to": {"any flag of": list(FORCING_FLAGS), "a flag over its figure": {k: v[2] for k, v in FORCING_FIGURES.items()},
+                                       "another subject's": "clothing or hands inside the region (segment_inside_region)",
+                                       "the head reference": "its record's `passed`"},
+             "of_the_list_and_not_read": list(FORCING_NOT_READ), "not_the_first_of_its_kind": said}
+    print(f"\n--- no look is owed on {ctx['name']}: the gate is clear, {len(flags['flags'])} flag(s) read and none is a forcing one; recorded for {a.by} in "
+          f"{cap.name}/{NO_LOOK}\n    NOT READ BY THIS: " + "; ".join(FORCING_NOT_READ), flush=True)
+    if world.dry:
+        return
+    kept = cap / NO_LOOK
+    records = json.loads(kept.read_text())["records"] if kept.is_file() else []
+    records.append(entry)
+    kept.write_text(json.dumps({"what": "the maker's records that no look is owed on a load: NOT looks, and never counted as one; appended and never rewritten",
+                                "records": records}, indent=1) + "\n")
+
+
+def gate_alone(ctx: dict, why_no_look: str) -> dict:
+    """What a render rests on when no look does: the maker's record that none is owed, held again to the capture as it is now."""
+    cap = ctx["capture"]
+    kept = cap / NO_LOOK
+    mine = [r for r in json.loads(kept.read_text())["records"] if r.get("load") == ctx["name"]] if kept.is_file() else []
+    if not mine:
+        raise Refused(f"{why_no_look}. Or, where the gate is clear and no forcing flag stands, the load's maker records that no look is owed "
+                      "(`load_chain.py no-look`): a render on the gate alone")
+    status, flags = capture_on_the_plan(ctx)
+    standing = forcing_flags(cap, ctx["load"], ctx["job"])
+    if standing:
+        raise Refused(f"A FORCING FLAG STANDS on {cap.name}: {'; '.join(standing)}. The record that no look is owed does not hold against it: a look by "
+                      f"somebody who did not make the capture is owed ({why_no_look})")
+    record = mine[-1]
+    if not later(record["at"], status["written"]):
+        raise Refused(f"the record that no look is owed ({in_utc(record['at'])}) is not later than the capture ({in_utc(status['written'])}): it is of an earlier capture")
+    outcomes = cap / "outcomes.json"
+    overridden = [o["flag"] for o in json.loads(outcomes.read_text())["outcomes"] if o.get("overridden")] if outcomes.is_file() else []
+    return {"gate_alone": True, "by": f"NOBODY: rendered on the gate alone; {record['by']} recorded that no look is owed", "at_utc": in_utc(record["at"]),
+            "capture_written_utc": in_utc(status["written"]), "capture_made_by": status.get("made_by"), "flags": len(flags["flags"]), "overridden": overridden,
+            "rests_on": record["rests_on"], "not_the_first_of_its_kind": record["not_the_first_of_its_kind"]}
+
+
 def the_look(ctx: dict) -> dict:
     """The look a render rests on: the last one recorded on the capture, which must be of this load, on the capture
-    on the node's plan, later than the capture and not by the capture's maker. Returns what the go file says of it."""
+    on the node's plan, later than the capture and not by the capture's maker. Returns what the go file says of it.
+
+    Where no such look is there, the render may rest on the gate alone (`gate_alone`): the maker's record that no
+    look is owed, good only while the gate is clear and no forcing flag stands. A record of that kind is never a
+    look: a load with a forcing flag is refused with one, and the rule that a look is somebody else's is as it was."""
+    try:
+        return a_look(ctx)
+    except Refused as no_look:
+        return gate_alone(ctx, str(no_look))
+
+
+def a_look(ctx: dict) -> dict:
     cap = ctx["capture"]
     for name in ("looks.json", "manifest.json", "status.json", "flags.json"):
         if not (cap / name).is_file():
@@ -438,8 +578,11 @@ def go_text(ctx: dict, by: str, now: str, grounds: str, show: str, look: dict, p
     return (f"# The go for the render of {ctx['name']}\n\n"
             f"Written by {by} BEFORE the render was queued, {now} by date -u. The job file ({ctx['job_file'].name}) is as its plan was built from it.\n\n"
             f"**The go:** {' '.join(grounds.split())}\n\n"
-            f"**The look** on this capture on the node's plan: {look['by']}, {look['at_utc']}. The capture was written {look['capture_written_utc']} "
-            f"by {look['capture_made_by']}.\n\n"
+            + (f"**NO LOOK: RENDERED ON THE GATE ALONE.** {look['by']}, {look['at_utc']}; not the first of its kind by the maker's statement: "
+               f"{look['not_the_first_of_its_kind']} It rests on {look['rests_on']}. The capture was written {look['capture_written_utc']} by {look['capture_made_by']}.\n\n"
+               if look.get("gate_alone") else
+               f"**The look** on this capture on the node's plan: {look['by']}, {look['at_utc']}. The capture was written {look['capture_written_utc']} "
+               f"by {look['capture_made_by']}.\n\n") +
             f"**The plan:** prompt {plan_prompt}, nothing sampled. **The capture on the plan:** gate clear, {look['flags']} flags, "
             + (f"overridden by a person: {', '.join(look['overridden'])}" if look["overridden"] else "no override") + ".\n\n"
             f"**What the render is to show:** {' '.join(show.split())}\n\n"
@@ -781,7 +924,8 @@ def step_render(ctx: dict, world, a, hashed=frame_hash) -> None:
         raise Refused(f"{planned} is not there: the plan was not queued through the job tool")
     now = utc_now()
     text = go_text(ctx, a.by, now, grounds, show, look, json.loads(planned.read_text()).get("prompt_id", "not recorded"), world.card())
-    print(f"\n--- the go, {now}: the look is {look['by']}'s of {look['at_utc']}, on a capture written {look['capture_written_utc']} by {look['capture_made_by']}", flush=True)
+    print(f"\n--- the go, {now}: " + ("NO LOOK, RENDERED ON THE GATE ALONE: " + look["by"] if look.get("gate_alone") else f"the look is {look['by']}'s") +
+          f" of {look['at_utc']}, on a capture written {look['capture_written_utc']} by {look['capture_made_by']}", flush=True)
     if not world.dry:
         go.write_text(text)
     world.run(ctx, "build render", tool(world, "masked_job.py") + ["build", "render", ctx["job_file"], "--date", ctx["day"]])
@@ -941,7 +1085,7 @@ def step_help(step: str) -> str:
                                                   "refuses on the files alone. `load_chain.py --help` has every flag."])
 
 
-STEP = {"first": step_first, "plan": step_plan, "on-plan": step_on_plan, "render": step_render, "land": step_land, "page": step_page}
+STEP = {"first": step_first, "plan": step_plan, "on-plan": step_on_plan, "no-look": step_no_look, "render": step_render, "land": step_land, "page": step_page}
 
 
 def main() -> int:
@@ -953,6 +1097,7 @@ def main() -> int:
     p.add_argument("--dry", action="store_true", help="print the commands and run none; the step still refuses what it refuses on the files alone")
     p.add_argument("--grounds", help="render: a file saying who relayed the go, at what time by whose clock, and on what it rests")
     p.add_argument("--show", help="render: a file saying what the render is to show")
+    p.add_argument("--not-first", help="no-look: a file with the maker's statement that the load is not the first of its kind, and which earlier load of the kind it follows")
     p.add_argument("--model-store", default="", help=f"land: the folder holding the pose model's folder; over the environment's {MODEL_STORE}")
     p.add_argument("--spec", help="page: a JSON file with the page's words: title_rest, state_words, what, look, prompt_note")
     if len(sys.argv) > 2 and sys.argv[1] in STEPS and ("-h" in sys.argv[2:] or "--help" in sys.argv[2:]):
