@@ -339,6 +339,24 @@ fixed the same day, said inline below.**
   Owed to it: a field in the job file, carried by the build record, that
   says why a load took the plain cut (today the reading says the reason
   was not read, and the lead hands it in with `--prefer`).
+- **A delivery record's `claimed_by_more_than_one_track` is not traced**
+  (2026-10-13). The two builds of that day from the generated table give
+  the same figure, and it is larger than the typed table's of 2026-10-12
+  on more frames; the three records hold them
+  (`<clip>.mp4.check.json`, `subjects.claimed_by_more_than_one_track`:
+  the 12th's `fun_0000_1919_joined_2026-10-12`, the 13th's
+  `NOT_PLACED_fun_0000_1919_generated_2026-10-13` and the throwaway
+  before it). It is a figure about the captures' tracks, not about the
+  pieces: no build of the 13th has a pixel two pieces changed. Where to
+  start, a guess and nothing more: the frame the record names as the
+  worst is in a cutaway whose capture lists the second subject beside
+  `held`, `hands` and `clothes`, keep-outs that are tracks of things on
+  the same person, and the record's subjects that day include
+  `keepout`, `held`, `hands` and `clothes`, which the 12th's did not.
+  If a keep-out's track is counted against its own subject's, the
+  figure counts an overlap that is there by design; `Subjects.add` in
+  `bench/assemble_delivery.py` is where it is counted. Not looked at:
+  whether that is what happens.
 - **The four reds of the green-and-red census are cut** (the owner, row
   z08, 2026-10-12 15:52:12Z): `check_correctness`'s bar, `check_sol_chunked`'s
   cosine and peak, `check_channel_balance`'s fragile-selection red,
