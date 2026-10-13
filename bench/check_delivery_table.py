@@ -23,6 +23,13 @@ with only the fields the rule reads, a shots file of three shots and a plan of t
 7. **`--prefer`** goes first among the renders that may stand, with its reason printed; naming a render that never
    stands, a load the ledger lacks, or frames that are no shot is refused.
 8. **The table reads back** through the assembler's own two readers to the rows and `source` lines decided.
+9. **A render whose last choice by the owner says it is not the one** does not stand by step 2 (the next newest
+   frozen render is tried and the passed-over line says the choice was why) and cannot be preferred; `not sure`,
+   a choice taken back, typed words and a choice said of a joined clip bar nothing.
+10. **The assembler's command is whole**: the standing pieces' own captures from their build records, those
+   handed in, an `--alias` only for an older name a listed capture uses, the caller's arguments as given, and
+   said to be not whole without a `--source` and an `--out`. Each `restore=` says on how many of its row's
+   frames a listed capture holds that subject's track: all, some, or none, with which captures.
 
 No video, no model, no card, no server.
 
@@ -85,12 +92,25 @@ def the_owners_keep() -> str:
         e = entry(decide(render(name, (0, 49), "01", has=LIDS, owner=owner), newer), 0, "a")
         assert [s["render"] for s in e["stands"]] == ["newer_frozen"], (name, e["stands"])
         assert "has no keep and is not in the frozen form" in e["passed_over"][0]["why"], (name, e["passed_over"])
-    # and the newest frozen one says what the owner's last choice on it was, where it stands in spite of one
-    said_wrong = render("frozen_called_wrong", (0, 49), "09", owner=(("04", "choice", "wrong, and I say where"),))
-    stands = entry(decide(said_wrong), 0, "a")["stands"][0]
-    assert stands["why"].startswith("step 2") and stands["the_owners_last_choice"]["said"] == "wrong, and I say where", stands
+    # A FROZEN RENDER THE OWNER'S LAST CHOICE SAYS IS NOT THE ONE does not stand by step 2: the next newest is tried,
+    # and the passed-over line says the choice was why. `not sure` bars nothing and is printed; a choice taken back
+    # is no choice; a barring choice said of a joined clip is not on the render
+    older = render("older_frozen", (0, 49), "03")
+    for said in dt.NOT_THE_ONE:
+        e = entry(decide(render("called_it", (0, 49), "09", owner=(("04", "choice", said),)), older), 0, "a")
+        assert [s["render"] for s in e["stands"]] == ["older_frozen"], (said, e["stands"])
+        assert f'the owner\'s last choice on it was "{said}"' in e["passed_over"][0]["why"] and "not the one" in e["passed_over"][0]["why"], e["passed_over"]
+    for owner, last in (((("04", "choice", "not sure"),), "not sure"), ((("04", "choice", "wrong"), ("05", "choice", dt.TAKEN_BACK)), None),
+                        ((("04", "choice", "wrong", "the joined clip"),), None), ((("04", "words", "wrong"),), None)):
+        stands = entry(decide(render("newest", (0, 49), "09", owner=owner), older), 0, "a")["stands"][0]
+        assert stands["render"] == "newest" and stands["why"].startswith("step 2"), (owner, stands)
+        assert (stands["the_owners_last_choice"] or {}).get("said") == last, (owner, stands["the_owners_last_choice"])
+    # with nothing else to try, a barred render leaves the shot as the source, and it is the one named as passed over
+    alone = decide(render("called_it", (0, 49), "09", owner=(("04", "choice", "wrong"),)))
+    assert entry(alone, 0, "a")["stands"] == [] and "the newest render passed over: called_it" in alone["sources"][0]["why"], alone["sources"][0]
     return ("the owner's keep on an agreeing render stands over a newer frozen one; a keep changed later, one said of a joined clip and typed "
-            "words are not a keep; a frozen render the owner called wrong still stands by step 2 and its line says so")
+            "words are not a keep; a frozen render whose last choice says it is not the one does not stand and the next newest is tried, while "
+            "`not sure`, a choice taken back and one said of a joined clip bar nothing")
 
 
 def the_frozen_form() -> str:
@@ -180,6 +200,13 @@ def a_preference() -> str:
         assert "it never stands: no build record" in str(e), str(e)
     else:
         raise AssertionError("--prefer made a render with no build record stand")
+    # the owner's choice is over the lead's preference
+    try:
+        decide(render("called_wrong", (0, 49), "09", owner=(("04", "choice", "wrong"),)), prefers=["0-49:a=called_wrong:the lead wants it"])
+    except SystemExit as e:
+        assert 'the owner\'s last choice on it was "wrong"' in str(e) and "over the lead's preference" in str(e), str(e)
+    else:
+        raise AssertionError("--prefer made a render the owner called wrong stand")
     return "a preferred load goes first with its reason printed; one that never stands, a load the ledger lacks and frames that are no shot are refused"
 
 
@@ -212,6 +239,59 @@ def the_table_reads_back() -> str:
     return "the table reads back through the assembler's two readers to the rows, restores and `source` lines decided; an older ledger is refused"
 
 
+def the_command() -> str:
+    import json
+
+    import numpy as np
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = Path(tmp)
+
+        def capture(name: str, first: int, frames: int, tracks: dict) -> str:
+            """A capture folder as the capture tool leaves one: a manifest, and each subject's packed track."""
+            folder = repo / "data" / name
+            for label, on in tracks.items():
+                (folder / "subjects" / label).mkdir(parents=True)
+                track = np.zeros((frames, 4, 8), bool)
+                track[[f - first for f in on]] = True
+                np.savez_compressed(folder / "subjects" / label / "masks__p.npz", track=np.packbits(track, axis=-1))
+            (folder / "manifest.json").write_text(json.dumps({"first_frame": first, "frames": frames, "subjects": [
+                {"label": label, "sightings": [{"by": "p"}]} for label in tracks]}))
+            return str(folder)
+
+        face = render("a_face", (50, 99), "05")
+        hair = render("b_hair", (50, 99), "05", subject="b", region="face and hair")
+        # a's capture is of a longer stretch than the row and holds b on half the row's frames (and on frames before
+        # it, which are not the row's); b's capture knows a by the plan's older name, on all of them
+        face["records"] = [{"capture": capture("cap_a", 40, 70, {"a": range(40, 110), "b": range(40, 75)})}]
+        hair["records"] = [{"capture": capture("cap_b", 50, 50, {"b": range(50, 100), "singer": range(50, 100)})}]
+        made = ledger(face, hair)
+        out = dt.decide(made, SHOTS, PLAN)
+        built = dt.assembly(out, made, PLAN, repo, "data/t.txt", (0, 149), "--source /in/clip.mp4 --out /out/clip.mp4 --size source", (str(repo / "data" / "preview"),))
+        # in the table's own row order (b's row is before a's face row on the frames they share), then those handed in
+        assert built["captures"] == ["data/cap_b", "data/cap_a", "data/preview"] and built["captures_handed_in"] == ["data/preview"], built["captures"]
+        assert built["whole"] and built["aliases_used_by_a_capture"] == ["singer"], built
+        want = ["bench/assemble_delivery.py", "--table data/t.txt", "--span 0-149", "--source /in/clip.mp4 --out /out/clip.mp4 --size source",
+                "--capture data/cap_b", "--capture data/cap_a", "--capture data/preview", "--alias singer=a"]
+        assert [part.strip() for part in built["command"].split("\\\n")] == want, built["command"]
+        by = {(x["row"], x["restore"]): x for x in built["restores"]}
+        # b given back on a's face row: tracked on every frame by cap_b; a given back on b's row: by cap_a, and by cap_b under its older name
+        assert by[("50-99 a_face (a)", "b:whole")]["frames_with_a_track"] == 50 and by[("50-99 a_face (a)", "b:whole")]["in_the_captures"] == ["data/cap_b", "data/cap_a"], by
+        assert by[("50-99 b_hair (b)", "a")]["in_the_captures"] == ["data/cap_b", "data/cap_a"], by
+        # with b's own capture gone from the list, b's track is on half the frames; with none that holds b, on none, and it is said
+        hair["records"] = []
+        half = dt.assembly(out, made, PLAN, repo, "data/t.txt", (0, 149))
+        assert {(x["restore"], x["frames_with_a_track"], x["frames"]) for x in half["restores"]} == {("b:whole", 25, 50), ("a", 50, 50)}, half["restores"]
+        assert not half["whole"] and half["aliases_used_by_a_capture"] == [], "no --source and --out were given, and no listed capture uses an older name"
+        face["records"] = [{"capture": capture("cap_c", 50, 50, {"a": range(50, 100)})}]
+        none = dt.assembly(out, made, PLAN, repo, "data/t.txt", (0, 149))
+        nobody = next(x for x in none["restores"] if x["restore"] == "b:whole")
+        assert (nobody["frames_with_a_track"], nobody["in_the_captures"]) == (0, []), nobody
+        text = dt.reading_text(out, "Made for the check.", "data/t.txt", none)
+        assert "NOT WHOLE" in text and "NO listed capture holds that subject's track on these frames" in text and "--capture data/cap_c" in text, text
+    return ("the command lists the standing pieces' own captures and those handed in, an --alias only for an older name a listed capture "
+            "uses, and the caller's arguments as given; each restore says on how many of its row's frames a listed capture holds the track")
+
+
 case("the owner's keep", the_owners_keep)
 case("the frozen form", the_frozen_form)
 case("what never stands", what_never_stands)
@@ -219,6 +299,7 @@ case("nothing left, and several renders on one shot", nothing_left_and_several_o
 case("restore: the other subjects of the shot", restores)
 case("a preference of the lead's", a_preference)
 case("the table reads back through the assembler", the_table_reads_back)
+case("the assembler's command, whole, and what a restore has to go on", the_command)
 
 if __name__ == "__main__":
     sys.exit(finish())

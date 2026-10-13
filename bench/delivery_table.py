@@ -13,10 +13,12 @@ passed over with why. It assembles nothing.
 **The rule for "stands", in this order. Each step is a fact from the files, never a judgement of a picture.**
 
 0. `--prefer`: a render the lead names for a shot and a subject, with a reason that is printed on its line. It
-   goes first among the renders that MAY stand; it cannot make one stand that step 3 rules out.
+   goes first among the renders that MAY stand; it cannot make one stand that step 3 rules out, or one the
+   owner's last choice says is not the one.
 1. The owner's keep (`KEEP`: the last choice the owner made on that render is one of those words; a line said
    of a joined clip is not a choice on a render) on a render whose file agrees with its build record.
-2. Else the newest render whose file agrees with its build record and whose form is the frozen one for that
+2. Else the newest render whose file agrees with its build record, whose last choice by the owner does not say
+   it is not the one (`NOT_THE_ONE`; `not sure` bars nothing), and whose form is the frozen one for that
    subject: the plan's region for the subject, and a reference whose own records say it is the body model cut
    to the head with the face points drawn. The plain body model cut to the head (no points, no marks) is the
    form's stated exception for a face under the drawing line; no field this tool reads says why a load took
@@ -37,12 +39,18 @@ back every OTHER subject the shots file has in that shot (`yes` or `unsure`): `r
 row, which has no business inside anybody else, and `restore=<other>` on any other row. The assembler needs a
 capture that holds each named subject's track to act on one.
 
-**The names** are the plan's labels. The plan's `aliases` are printed as the `--alias` flags to hand the
-assembler when a capture labels a subject by an older name.
+**The names** are the plan's labels. The plan's `aliases` are printed in the table's header as the `--alias`
+flags a capture with an older name needs.
+
+**The assembler's command** is printed whole, in the reading and on the terminal (`assembly`): the table, the
+span, every capture the standing pieces' build records name, any handed in with `--also-capture`, an `--alias`
+only for an older name a listed capture uses, and `--assemble-args` as given (`--source`, `--out`, `--size`:
+what only the caller knows). Beside it, for each `restore=`, on how many of its row's frames a listed capture
+holds that subject's track.
 
 **What it cannot see.** Whether a render is good. Whether the render the rule lets stand is the one the owner
-would pick: step 2 lets the newest frozen render stand even where the owner's last choice on it was not a keep,
-and the reading prints that choice beside it. Why a load took the plain cut. Whether a restore's subject is
+would pick: step 2 lets the newest frozen render stand where the owner has made no choice on it or was not sure,
+and the reading prints their last choice beside it. Why a load took the plain cut. Whether a restore's subject is
 tracked on those frames. A render made after the ledger was: the reading says which ledger it read.
 """
 from __future__ import annotations
@@ -58,6 +66,13 @@ HERE = Path(__file__).resolve().parent
 LEDGER_SCHEMA = "h3_render_ledger/2"
 #: The owner's choices that are a keep, as the review page's buttons word them.
 KEEP = ("keep this one",)
+#: The owner's choices that say a render is NOT the one: a render whose last choice is one of these does not stand
+#: by step 2 or by `--prefer` (the lead's ruling, 2026-10-13). The words are the buttons the review page has shown
+#: under a render (`data/<video>/review/items.json`, each item's `options`, as they stood that day); `not sure` is
+#: not among them and bars nothing. A button worded otherwise bars nothing until it is added here.
+NOT_THE_ONE = ("wrong", "wrong, and I say where", "not needed", "worse, and I say where")
+#: The page's word for a choice withdrawn: the owner then has no choice on the render.
+TAKEN_BACK = "taken back"
 #: The ledger's states of a making (`render_ledger.MAKING`), by what each means here.
 AGREES = "recorded, the file agrees"
 NO_SOURCE_YET = "no render in the frozen form yet"
@@ -76,7 +91,8 @@ def last_choice(render: dict) -> dict | None:
     """The owner's last CHOICE on a render (a button, not typed words), or None. A line said of a joined clip is
     of that clip and is not a choice on the render."""
     choices = [o for o in render.get("owner") or [] if o.get("what") == "choice" and not o.get("on_the_joined_clip")]
-    return max(choices, key=lambda o: str(o.get("at"))) if choices else None
+    last = max(choices, key=lambda o: str(o.get("at"))) if choices else None
+    return None if last is None or last.get("said") == TAKEN_BACK else last
 
 
 def never_stands(render: dict) -> str | None:
@@ -162,17 +178,25 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
                 never = never_stands(r)
                 choice = last_choice(r)
                 kept = bool(choice and choice["said"] in KEEP)
+                barred = (f"the owner's last choice on it was \"{choice['said']}\" ({str(choice['at'])[:16]}, row {choice.get('row')}): not the one"
+                          if choice and choice["said"] in NOT_THE_ONE else None)
                 frozen, form_words = form_of(r, wanted)
                 named = next((p for p in preferred if p["load"] == r["name"]), None)
                 if never:
                     if named:
                         raise SystemExit(f"--prefer names {r['name']} for {s['first']}-{s['last']}, {label}, and it never stands: {never}")
                     passed.append({"render": r["name"], "file": r["file"], "written": r["written"], "why": "never stands: " + never})
+                elif named and barred:
+                    raise SystemExit(f"--prefer names {r['name']} for {s['first']}-{s['last']}, {label}, and {barred}. The owner's choice is "
+                                     "over the lead's preference: it stands when the owner changes it")
                 elif named:
                     may.append((0, r["written"], r, f"step 0: named by --prefer: {named['reason']}", choice))
                 elif kept:
                     may.append((1, choice["at"], r, f"step 1: the owner's keep of {str(choice['at'])[:16]} (row {choice.get('row')}); its file agrees "
                                                      f"with its build record", choice))
+                elif frozen and barred:
+                    passed.append({"render": r["name"], "file": r["file"], "written": r["written"],
+                                   "why": f"its file agrees with its build record and it is in the frozen form, and {barred}"})
                 elif frozen:
                     may.append((2, r["written"], r, f"step 2: {form_words}; its file agrees with its build record", choice))
                 else:
@@ -229,6 +253,68 @@ def frames(a, b) -> str:
     return f"{a}-{b}"
 
 
+def tracked_in(capture: Path, labels: set[str], first: int, last: int) -> set[int] | None:
+    """The source frames of `first`..`last` on which a capture holds a non-empty track of a subject known by any of
+    `labels`, or None when the capture has no such subject or no manifest."""
+    import numpy as np
+    manifest = capture / "manifest.json"
+    if not manifest.is_file():
+        return None
+    m = json.loads(manifest.read_text())
+    entry = next((s for s in m.get("subjects", []) if s["label"] in labels), None)
+    if entry is None or not entry.get("sightings"):
+        return None
+    saved = capture / "subjects" / entry["label"] / f"masks__{entry['sightings'][0]['by']}.npz"
+    if not saved.is_file():
+        return None
+    on = np.load(saved)["track"].reshape(m["frames"], -1).any(axis=1)
+    return {m["first_frame"] + int(f) for f in np.nonzero(on)[0] if first <= m["first_frame"] + int(f) <= last}
+
+
+def assembly(out: dict, ledger: dict, plan: dict, repo: Path, table: str, span: tuple[int, int], args: str = "", also: tuple[str, ...] = ()) -> dict:
+    """The assembler's command for this table, whole, and what each `restore=` has to go on.
+
+    The captures are the standing pieces' own (each piece's build record names its capture), in the table's row order, then any handed in
+    (`also`: a preview's capture of the span, for its shot tables). `--alias` is printed for a name of the plan's
+    `aliases` that a listed capture labels a subject by, and for no other. `args` is what only the caller knows
+    (`--source`, `--out`, `--size`), taken as given; without a `--source` and an `--out` in it the command is said
+    to be not whole. For each `restore=` on a row: on how many of the row's frames a listed capture holds that
+    subject's track. Figures; a restore with nothing to go on is the assembler's to flag when it builds."""
+    rel = lambda p: str(Path(p).relative_to(repo)) if Path(p).is_absolute() and Path(p).is_relative_to(repo) else str(p)
+    captures: list[str] = []
+    for r in out["rows"]:
+        records = ledger["renders"][r["file"]].get("records") or []
+        capture = records[-1].get("capture") if records else None
+        if capture and rel(capture) not in captures:
+            captures.append(rel(capture))
+    captures += [rel(c) for c in also if rel(c) not in captures]
+    aliases = {k: v for k, v in (plan.get("aliases") or {}).items() if not k.startswith("_")}
+    names = lambda label: {label} | {old for old, new in aliases.items() if new == label}
+    used = set()
+    real = lambda c: Path(c) if Path(c).is_absolute() else repo / c
+    for c in captures:
+        manifest = real(c) / "manifest.json"
+        if manifest.is_file():
+            used |= {s["label"] for s in json.loads(manifest.read_text()).get("subjects", [])} & set(aliases)
+    restores = []
+    for r in out["rows"]:
+        for x in r["restore"]:
+            other = x.split(":")[0]
+            held, where = set(), []
+            for c in captures:
+                got = tracked_in(real(c), names(other), r["first"], r["last"])
+                if got:
+                    held |= got
+                    where.append(c)
+            restores.append({"row": f"{frames(r['first'], r['last'])} {r['name']} ({r['subject']})", "restore": x, "frames": r["last"] - r["first"] + 1,
+                             "frames_with_a_track": len(held), "in_the_captures": where})
+    whole = "--source " in f" {args} " and "--out " in f" {args} "
+    parts = ["bench/assemble_delivery.py", f"--table {table}", f"--span {span[0]}-{span[1]}"] + ([args] if args else []) \
+        + [f"--capture {c}" for c in captures] + [f"--alias {old}={aliases[old]}" for old in sorted(used)]
+    return {"command": " \\\n    ".join(parts), "whole": whole, "captures": captures, "captures_handed_in": [rel(c) for c in also],
+            "aliases_used_by_a_capture": sorted(used), "restores": restores}
+
+
 def table_text(out: dict, share: str, made: str, plan: dict, name: str) -> str:
     """The table as the assembler reads it (`assemble_delivery.read_table`, `read_intents`)."""
     aliases = {k: v for k, v in (plan.get("aliases") or {}).items() if not k.startswith("_")}
@@ -250,11 +336,26 @@ def table_text(out: dict, share: str, made: str, plan: dict, name: str) -> str:
     return "\n".join(lines) + "\n"
 
 
-def reading_text(out: dict, made: str, table: str) -> str:
-    """The reading: a section a shot and a subject, what stands and why, what was passed over and why."""
+def reading_text(out: dict, made: str, table: str, built: dict | None = None) -> str:
+    """The reading: the assembler's command, then a section a shot and a subject, what stands and why, what was
+    passed over and why."""
     lines = ["# Which render stands on each shot, and why: the reading beside a generated delivery table", "", made, "",
              f"The table: `{table}`. Nothing was assembled. The rule is in `bench/delivery_table.py`'s docstring; every `why` below is one of its steps, "
              "a fact from the files, and none says a render is good.", ""]
+    if built is not None:
+        lines += ["## The command that builds a clip from this table", "", "```", "<the ComfyUI venv's python> " + built["command"], "```", ""]
+        if not built["whole"]:
+            lines += ["NOT WHOLE: no `--source` and `--out` were handed to this tool (`--assemble-args`), so the command lacks them.", ""]
+        lines += ["The captures are the standing pieces' own, from each piece's build record"
+                  + (f", then those handed in: {', '.join(built['captures_handed_in'])}" if built["captures_handed_in"] else "; none was handed in")
+                  + ". " + ("`--alias` is given for the older names a listed capture uses: " + ", ".join(built["aliases_used_by_a_capture"]) + "."
+                            if built["aliases_used_by_a_capture"] else "No listed capture labels a subject by an older name, so there is no `--alias`."), "",
+                  "What each `restore=` has to go on: the frames of its row on which a listed capture holds that subject's track. A figure, not a "
+                  "failure; the assembler flags a restore with no mask when it builds.", ""]
+        lines += [f"- `{x['row']}` `restore={x['restore']}`: a track on {x['frames_with_a_track']} of the row's {x['frames']} frames"
+                  + (f" (in {', '.join(x['in_the_captures'])})" if x["in_the_captures"] else ": NO listed capture holds that subject's track on these frames")
+                  for x in built["restores"]]
+        lines += ["" if built["restores"] else "No row has a `restore=`.", ""]
     for e in out["reading"]:
         lines += [f"## {frames(e['first'], e['last'])}, {e['subject']} (the plan: {e['plan_region']}"
                   + ("" if e["present"] == "yes" else f"; the shots file says present: {e['present']}") + ")", ""]
@@ -279,6 +380,10 @@ def main() -> int:
     p.add_argument("--plan", required=True)
     p.add_argument("--prefer", action="append", default=[], metavar="FIRST-LAST:SUBJECT=LOAD:reason",
                    help="on that shot, for that subject, the load to go first among those that may stand; the reason is printed; repeatable")
+    p.add_argument("--assemble-args", default="", metavar='"--source S --out O --size source"',
+                   help="what only the caller knows of the build, printed into the assembler's command as given")
+    p.add_argument("--also-capture", action="append", default=[], metavar="FOLDER",
+                   help="a capture to hand the assembler beside the standing pieces' own (a preview's capture of the span); repeatable")
     p.add_argument("--table", required=True, help="where the table is written")
     p.add_argument("--reading", required=True, help="where the reading is written")
     p.add_argument("--json", help="the same as data")
@@ -292,10 +397,12 @@ def main() -> int:
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     made = (f"Made {now} at commit {commit} from the ledger `{a.ledger}` ({str(ledger.get('made') or 'which does not say when it was made').split(' from')[0]}), "
             f"`{a.shots}` and `{a.plan}`" + ("; with " + "; ".join(f"--prefer {x!r}" for x in a.prefer) if a.prefer else "; no --prefer") + ".")
+    built = assembly(out, ledger, plan, HERE.parent, a.table, tuple(shots["span"]), a.assemble_args, tuple(a.also_capture))
     Path(a.table).write_text(table_text(out, ledger["share"], made, plan, Path(a.table).stem))
-    Path(a.reading).write_text(reading_text(out, made, a.table))
+    Path(a.reading).write_text(reading_text(out, made, a.table, built))
     if a.json:
-        Path(a.json).write_text(json.dumps({"made": made, **out}, indent=1) + "\n")
+        Path(a.json).write_text(json.dumps({"made": made, **out, "assembly": built}, indent=1) + "\n")
+    print("the assembler's command" + ("" if built["whole"] else " (NOT WHOLE: no --source and --out in --assemble-args)") + ":\n  " + built["command"])
     laid = sum(r["last"] - r["first"] + 1 for r in out["rows"])
     print(f"{len(out['rows'])} piece row(s) over {laid} frame-rows, {len(out['sources'])} `source` line(s), {len(out['gaps'])} stretch(es) left as the "
           f"source inside a shot that has a piece")
