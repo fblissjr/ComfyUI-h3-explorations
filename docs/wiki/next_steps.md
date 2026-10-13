@@ -319,8 +319,8 @@ fixed the same day, said inline below.**
   and held the day, one video's paths and one machine's folders in their
   text. A job file needs `preview` (the preview's job folder) for it, and
   the video's manifest its voice tables (`clip_analysis.py voice`). Not
-  in it: a load of more than one window, or more than one load a job
-  file (both refused); the loads made before it ran with `pieces=largest`
+  in it: more than one load a job file (refused); the loads made before
+  it ran with `pieces=largest`
   typed into the script, which their job files do not say.
 - **The step before the chain is one tool** (2026-10-13):
   `bench/shot_to_load.py`, a step each for the shot's preview, a load's

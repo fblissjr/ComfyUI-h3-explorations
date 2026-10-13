@@ -32,8 +32,11 @@ rulings that changed them.
    more than the preview and the prefix, uncommitted node code, a band file that does not decode equal and a
    mask that no longer decodes equal to what the plan read each stop it before anything is queued; the band
    rule passes a band file that decodes equal.
-8. **land**: refused without the pose model's store, on a queue that is not empty, with no window or a second
-   one, or when the clip exists; the pose pass takes the capture's own track video and first frame.
+8. **land**: refused without the pose model's store, on a queue that is not empty, with no window, or when the
+   clip exists; the pose pass takes the capture's own track video and first frame, and reads the one window's own
+   video. A load of SEVERAL windows: the pose pass reads the joined file; refused when it is not there, when it
+   does not hold the load's frame count, or when a window is missing; a window's mask review and zoomed picture
+   are not counted as windows.
 9. **page**: the item's buttons are the delivery table's own; refused without a person's words, for an item that
    is there, or with no clip; the list is copied into the job folder first.
 
@@ -62,7 +65,7 @@ class Machine:
     def __init__(self, root: Path):
         self.host, self.dry, self.python, self.pose_model = "nowhere:0", False, "PY", "pose-model"
         self.output, self.inputs, self.data = root / "output", root / "input", root / "data"
-        self.busy, self.ran, self.on, self.voiced, self.voice_frames = (0, 0), [], {}, True, (0, 199)
+        self.busy, self.ran, self.on, self.voiced, self.voice_frames, self.frames = (0, 0), [], {}, True, (0, 199), {}
 
     def queue(self):
         return self.busy
@@ -77,6 +80,9 @@ class Machine:
         if not self.voiced:
             raise lc.Refused("the manifest names no voice tables")
         return {"per_frame": self.data / "voice.csv", "spans": self.data / "spans.json", "frames": list(self.voice_frames)}
+
+    def frames_of(self, path):
+        return self.frames[Path(path).name]
 
     def run(self, ctx, label, argv, stop=True):
         self.ran.append((label, [str(x) for x in argv]))
@@ -505,11 +511,32 @@ def the_land_step() -> str:
             windows = m.output / "Video/v/s/ld/ld/ld_windows"
             windows.mkdir(parents=True)
             (windows / "ld_window_1.mp4").write_bytes(b"")
+            # a mask review and a zoomed picture beside a window are not windows
+            (windows / "ld_window_1_with_mask.mp4").write_bytes(b"")
+            (windows / "ld_window_1_zoomed.mp4").write_bytes(b"")
+            # A LOAD OF TWO WINDOWS: each window's own file holds only the frames that window wrote, so the pose pass
+            # reads the joined file, which is held to the load's frame count first
             (windows / "ld_window_2.mp4").write_bytes(b"")
-            refused(lambda: lc.step_land(made.ctx(), m, a), "more than one window")
+            joined = m.output / "Video/v/s/ld/ld/ld_00001.mp4"
+            refused(lambda: lc.step_land(made.ctx(), m, a), "2 windows", "the joined file", "is not there")
+            joined.write_bytes(b"")
+            m.frames = {"ld_00001.mp4": 19}
+            refused(lambda: lc.step_land(made.ctx(), m, a), "the load is 20 frames in 2 windows", "holds 19")
+            assert "pose pass" not in m.labels(), "a pose pass ran on a joined file that is not the load's frames"
+            (windows / "ld_window_3.mp4").write_bytes(b"")
             (windows / "ld_window_2.mp4").unlink()
+            refused(lambda: lc.step_land(made.ctx(), m, a), "windows [1, 3]", "did not finish")
+            (windows / "ld_window_3.mp4").unlink()
+            (windows / "ld_window_2.mp4").write_bytes(b"")
+            m.frames = {"ld_00001.mp4": 20}
+            assert lc.rendered_video(made.ctx(), m, joined.parent) == joined
+            (windows / "ld_window_2.mp4").unlink()
+            # one window: its own video, as ever, and the joined file's frames are not asked for
+            m.frames = {}
+            assert lc.rendered_video(made.ctx(), m, joined.parent) == windows / "ld_window_1.mp4"
             lc.step_land(made.ctx(), m, a)
             pose, stack = m.said("pose pass"), m.said("stack")
+            assert pose[pose.index("--video") + 1] == str(windows / "ld_window_1.mp4"), pose
             assert pose[pose.index("--box-mask") + 1] == str(cap / "subjects/a/track__pv.mkv") and pose[pose.index("--box-mask-first") + 1] == "110", pose
             assert pose[pose.index("--model-folder") + 1] == str(store / "pose-model") and pose[pose.index("--count") + 1] == "20" \
                 and pose[pose.index("--source-first") + 1] == "110" and pose[pose.index("--canvas") + 1] == "64x48" and pose[pose.index("--by") + 1] == "the session", pose

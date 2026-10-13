@@ -59,7 +59,8 @@ fact of the machine is an environment key; nothing is found by a name left over 
   graph built, differing from the plan graph in the song node's `preview` and `filename_prefix` only (and, for
   a hair-band load, in the band's own keep-out file when the two decode equal), with no uncommitted node code;
   every mask video the render graph reads decoding equal to what the plan read. Then it is queued.
-- `land`: the queue empty (no pose pass beside a render); one window, or refused; the render's cost lines from
+- `land`: the queue empty (no pose pass beside a render); the pose pass on the one window's own video, or for a
+  load of several windows on the joined file, held to the load's frame count first; the render's cost lines from
   the server's history; the pose pass in the subject's tracked box; the stacked clip.
 - `page`: the render's item at the top of the video's review list, its buttons `delivery_table.RENDER_ITEM_BUTTONS`
   (the words the generated delivery table reads), a copy of the list kept in the job folder first.
@@ -104,7 +105,8 @@ REVIEW_MEDIA = "data/{video}/review/media"             # links to the clips, whe
 #: The song node's inputs a render graph may differ from its plan graph in.
 RENDER_DIFFERS_IN = ["filename_prefix", "preview"]
 BAND_SUFFIXES = (".plan.clothes_less_hair_band.mkv", ".render.clothes_less_hair_band.mkv")
-SECOND_WINDOW = "more than one window: this tool lands a load of one window, and a longer load is landed by hand until it is taught"
+#: A window's own video in a load's windows folder: `<name>_window_<N>.mp4`, and not its mask review or its zoomed picture.
+WINDOW_VIDEO = r"_window_(\d+)\.mp4$"
 
 
 class Refused(Exception):
@@ -464,6 +466,14 @@ class World:
         except clip_folder.Refused as e:
             raise Refused(str(e)) from None
 
+    def frames_of(self, path: Path) -> int:
+        """A video's frame count, by ffprobe's count of its packets."""
+        import clip_folder
+        try:
+            return clip_folder.probe(Path(path))["frames"]
+        except clip_folder.Refused as e:
+            raise Refused(str(e)) from None
+
     def run(self, ctx: dict, label: str, argv: list[str], stop: bool = True) -> int:
         """Run one command of a step: printed first, its output kept under the job folder, its last lines shown."""
         line = " ".join(str(a) for a in argv)
@@ -643,6 +653,35 @@ def step_render(ctx: dict, world, a, hashed=frame_hash) -> None:
     world.run(ctx, "queue render", tool(world, "masked_job.py") + ["queue", folder, "render", "--load", name, "--host", world.host, "--wait"])
 
 
+def rendered_video(ctx: dict, world, r: Path) -> Path:
+    """The file the render's pose pass reads, whose frame 0 is the load's first frame and which holds every frame
+    of the load: the one window's own video for a load of one window, as ever; the joined file for a load of
+    several. Each window's own file holds only the frames that window wrote (a render of 447 frames on the share,
+    2026-10-10: 345 in the first window's file, 102 in the second's, 447 in the joined file), so no one window's
+    file is the load; the joined file is the load's frames once each, and it is held to the load's frame count
+    before anything reads it."""
+    import re
+    name, load = ctx["name"], ctx["load"]
+    folder = r / f"{name}_windows"
+    numbers = sorted(int(m.group(1)) for p in folder.glob(f"{name}_window_*.mp4") if (m := re.search(WINDOW_VIDEO, p.name[len(name):])))
+    if not numbers:
+        raise Refused(f"no window file {folder / (name + '_window_1.mp4')}")
+    if numbers != list(range(1, len(numbers) + 1)):
+        raise Refused(f"the windows folder holds windows {numbers}: one is missing, so the render did not finish")
+    if len(numbers) == 1:
+        return folder / f"{name}_window_1.mp4"
+    joined = r / f"{name}_00001.mp4"
+    if not joined.is_file():
+        raise Refused(f"the load has {len(numbers)} windows and the joined file {joined} is not there")
+    if not world.dry:
+        held = world.frames_of(joined)
+        if held != load["frames"]:
+            raise Refused(f"the load is {load['frames']} frames in {len(numbers)} windows and the joined file {joined.name} holds {held}: its frames "
+                          "are not the load's, and a pose pass on it would be read against the wrong source frames")
+    print(f"\n--- {len(numbers)} windows: the pose pass reads the joined file {joined.name}, the load's {load['frames']} frames once each", flush=True)
+    return joined
+
+
 def step_land(ctx: dict, world, a) -> None:
     name, cap, load, job = ctx["name"], ctx["capture"], ctx["load"], ctx["job"]
     store = a.model_store or os.environ.get(MODEL_STORE)
@@ -653,11 +692,7 @@ def step_land(ctx: dict, world, a) -> None:
         raise Refused(f"{model} is not a folder")
     empty_queue(world, "no pose pass beside a render")
     r = render_folder(ctx, world.output)
-    window = r / f"{name}_windows" / f"{name}_window_1.mp4"
-    if not window.is_file():
-        raise Refused(f"no window file {window}")
-    if (r / f"{name}_windows" / f"{name}_window_2.mp4").exists():
-        raise Refused(SECOND_WINDOW)
+    window = rendered_video(ctx, world, r)
     first, last = load["first"], load["first"] + load["frames"] - 1
     clip = world.output / REVIEW_CLIPS.format(video=video_of(ctx, world.data)) / f"{name}_{first:04d}_{last:04d}_stacked.mp4"
     points = cap / f"{name}_render_points.npz"
