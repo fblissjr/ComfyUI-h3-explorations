@@ -33,7 +33,10 @@ person to settle, by a `withdraw` and an `answer` on `cast_file.py`.
 the job gives the subjects every tile of that preview asks about and the source frame its table frame 0 is on
 (`job.first`); the tables are `<job name>_<label>_shots_00001_shots.json` in the folder. A line's tile is the
 shot of its table whose shown frame is the line's source frame; a line naming a table no preview holds, or a
-frame no shot shows, is refused by name.
+frame no shot shows, is refused by name. Every tile is read before any is written, so such a refusal leaves the
+cast file as it was (until 2026-10-13 it came after the tiles before it had been appended). A click naming a
+subject the tile's job does not track (a page made before `who_page.py` asked only about a job's subjects) is
+not a reason to stop: that tile is printed as NOT STORED, whole, and the run goes on.
 
 **A plain frame** (the who page's tile of the source itself, where no tracker outlined anybody, and a long shot's
 quarter frames: table `plain`, no person's number). The owner says of each subject `on this frame, not outlined`
@@ -187,7 +190,9 @@ def plan(tile_key, tile, table_info, table: dict) -> dict:
     if clash:
         raise SystemExit(f"{name} frame {frame}: one number is claimed for two subjects by the owner's latest clicks: {clash}; "
                          f"a person settles it with cast_file.py withdraw and answer")
+    clicked = sorted({sub.partition("\x00")[0] for sub in claims})
     return {"table": name, "frame": frame, "shot": int(shot["shot"]), "named": named, "none_of_these": none,
+            "not_the_jobs": [sub for sub in clicked if sub not in table_info["subjects"]],
             "unsure": unsure, "words": tile["words"], "lines": tile["lines"],
             "last_at": max((at for _, _, at in tile["buttons"].values()), default="")}
 
@@ -282,18 +287,44 @@ def main() -> int:
     left_out = [(n, d.get("who")) for n, d in answers if d.get("row") in WHO_ROWS and d.get("who") != "owner"]
     if left_out:
         print(f"left out, not the owner's: {len(left_out)} line(s) by " + ", ".join(sorted({str(w) for _, w in left_out})))
-    stored = waiting = already = refused = plain = taken = left = 0
+    stored = waiting = already = refused = plain = taken = left = outside = 0
     left_tables: set[str] = set()
     by_shot: dict[tuple[int, int], dict] = {}        # (which --shots file, the shot's first frame) -> its plain frames
     grouped = tiles(answers)
+    # EVERYTHING IS READ BEFORE ANYTHING IS WRITTEN. A tile that cannot be read (a table no preview holds, a frame no
+    # shot shows, a button this tool does not know, a tile the cast file cannot take) stops the run in this loop, with
+    # the cast file as it was. Until 2026-10-13 it stopped the run after the tiles before it had been appended.
+    work = []
     for key in sorted(grouped, key=lambda k: (k[1], k[0])):
         tile = grouped[key]
         name, frame = key
         if name == PLAIN:
             # the who page's plain frame (nobody outlined, or a long shot's quarter): no table and no box
-            pp = plain_plan(frame, tile)
             head = f"plain frame {frame}, lines {tile['lines'][0]}-{tile['lines'][-1]}"
-            held = shot_holding(records, tile["video"], frame, tile["shot_frames"], head)
+            work.append({"kind": "plain", "head": head, "pp": plain_plan(frame, tile),
+                         "held": shot_holding(records, tile["video"], frame, tile["shot_frames"], head)})
+            continue
+        if not a.preview:
+            work.append({"kind": "left", "name": name})
+            continue
+        if name not in tables:
+            raise SystemExit(f"{name}: no --preview holds this table (line {tile['lines'][0]} of {a.answers})")
+        p = plan(key, tile, tables[name], loaded[name])
+        one = {"kind": "tile", "name": name, "p": p, "lines": None,
+               "head": f"{name} shot {p['shot']} (source frame {frame}), lines {p['lines'][0]}-{p['lines'][-1]}",
+               "words": "".join(f"\n    words (line {n}): {w.strip()}" for n, w in p["words"])}
+        if not p["not_the_jobs"] and not p["unsure"] and (p["named"] or p["none_of_these"]):
+            # an answer with no time on it is said so: until 2026-10-13 the line then read "on the page at  (", a hole
+            when = f"at {p['last_at']}" if p["last_at"] else "at a time the answers do not give"
+            by = f"owner, on the page {when} ({Path(a.answers).name} lines {p['lines'][0]}-{p['lines'][-1]}), entered by page_answers_to_cast"
+            try:
+                one["lines"] = cf.from_tile(loaded[name], name, tables[name]["first"], p["shot"], tables[name]["subjects"], p["named"], by)
+            except ValueError as e:
+                raise SystemExit(f"{one['head']}: {e}")
+        work.append(one)
+    for one in work:
+        if one["kind"] == "plain":
+            pp, head, held = one["pp"], one["head"], one["held"]
             if held is None:
                 plain += 1
                 said = ", ".join(f"{sub}: {v['label']}" for sub, v in sorted(pp["said"].items()))
@@ -305,29 +336,24 @@ def main() -> int:
             taken += 1
             by_shot.setdefault((records.index(f), shot["first"]), {"file": f, "shot": shot, "plains": []})["plains"].append(pp)
             continue
-        if not a.preview:
+        if one["kind"] == "left":
             left += 1
-            left_tables.add(name)
+            left_tables.add(one["name"])
             continue
-        if name not in tables:
-            raise SystemExit(f"{name}: no --preview holds this table (line {tile['lines'][0]} of {a.answers})")
-        p = plan(key, tile, tables[name], loaded[name])
-        head = f"{name} shot {p['shot']} (source frame {frame}), lines {p['lines'][0]}-{p['lines'][-1]}"
-        words = "".join(f"\n    words (line {n}): {w.strip()}" for n, w in p["words"])
+        name, p, head, words, lines = one["name"], one["p"], one["head"], one["words"], one["lines"]
+        if p["not_the_jobs"]:
+            # a tile is stored whole or not at all, so the clicks on it that do name the job's subjects wait with it
+            outside += 1
+            print(f"NOT STORED, a click names a subject this tile's job does not track: {head}: {', '.join(p['not_the_jobs'])}; "
+                  f"the job ({tables[name]['job']}) tracks {', '.join(tables[name]['subjects'])}; nothing of the tile is stored{words}")
+            continue
         if p["unsure"]:
             waiting += 1
             print(f"WAITING on the owner: {head}: `not sure` stands on person {p['unsure']}; nothing stored{words}")
             continue
-        if not p["named"] and not p["none_of_these"]:
+        if lines is None:
             print(f"no button stands: {head}; nothing stored{words}")
             continue
-        # an answer with no time on it is said so: until 2026-10-13 the line then read "on the page at  (", a hole
-        when = f"at {p['last_at']}" if p["last_at"] else "at a time the answers do not give"
-        by = f"owner, on the page {when} ({Path(a.answers).name} lines {p['lines'][0]}-{p['lines'][-1]}), entered by page_answers_to_cast"
-        try:
-            lines = cf.from_tile(loaded[name], name, tables[name]["first"], p["shot"], tables[name]["subjects"], p["named"], by)
-        except ValueError as e:
-            raise SystemExit(f"{head}: {e}")
         said = ", ".join(f"{n}={s}" for n, s in p["named"]) or "nobody of ours"
         if p["none_of_these"]:
             said += f"; none of these: {p['none_of_these']}"
@@ -404,7 +430,8 @@ def main() -> int:
             write_whole(records[k]["path"], json.dumps(rec, indent=1), records[k]["text"])
 
     print(f"\n{'would store' if a.dry_run else 'stored'} {stored} tile(s); already there {already}; waiting on the owner {waiting}; "
-          f"refused by the cast file {refused}; plain frames no --shots file holds {plain}; cast file {a.cast}")
+          f"refused by the cast file {refused}; naming a subject their job does not track, not stored {outside}; "
+          f"plain frames no --shots file holds {plain}; cast file {a.cast}")
     if records:
         print(f"shots record: {'would write' if a.dry_run else 'written'} {wrote} entr{'y' if wrote == 1 else 'ies'} "
               f"(yes {counts['yes']}, no {counts['no']}) from {taken} plain frame(s) in {len(by_shot)} shot(s); already there {there}; "

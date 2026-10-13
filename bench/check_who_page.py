@@ -14,6 +14,8 @@ own words beside it, and each of those can be off by one.
   a_long_shot_asks_at_its_quarters      with --source, a shot longer than --long-shot-frames shows its first- and last-quarter
                                         frames plain with the two frame buttons, beside the numbered picture; a shorter shot does not
   quarter_frames_are_the_shots_own      the pure rule: nothing under the line, the quarters of the shot's own length over it
+  a_tile_asks_only_its_jobs_subjects    a numbered picture has buttons for the subjects its preview's job names and for no other
+                                        subject of the record, who is named under it in words
 
     <python> bench/check_who_page.py
 
@@ -113,6 +115,14 @@ def main() -> int:
              and "NOT THE OWNER" not in page, "")
         r = run(p, "--preview", f"{Path(d) / 'pv.json'}={Path(d) / 'nowhere'}")
         case("a_missing_table_is_refused", r.returncode != 0 and "no table" in r.stdout + r.stderr, r.stdout + r.stderr)
+        # the same tables under a job that names `a` alone: `b` is a subject of the record and not of the job
+        solo = Path(d) / "solo.json"
+        solo.write_text(json.dumps({"job": {"name": "pv", "first": 100, "frames": 60, "subjects": [{"label": "a"}]}}))
+        r = run(p, "--preview", f"{solo}={Path(d) / 't'}")
+        assert r.returncode == 0, r.stdout + r.stderr
+        row3 = (p["out"] / "index.html").read_text().split("<tr>")[4]
+        case("a_tile_asks_only_its_jobs_subjects", row3.count('data-sub="a"') == 4 and 'data-sub="b"' not in row3
+             and "not asked here: b." in row3 and page.split("<tr>")[4].count('data-sub="b"') == 4, row3)
         case("quarter_frames_are_the_shots_own",
              quarter_frames({"first": 102, "last": 129}, 20) == [109, 123] and quarter_frames({"first": 102, "last": 129}, 28) == []
              and quarter_frames({"first": 604, "last": 1009}) == [705, 908], str(quarter_frames({"first": 102, "last": 129}, 20)))

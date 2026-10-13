@@ -18,6 +18,12 @@ that shot, cut from the table's picture and labelled with the tracker it belongs
 the owner's typed words on any numbered picture of those frames (the page's `answers.jsonl`, rows `b20` and
 `who`, unreworded). A shot no preview covers says so.
 
+**Who a numbered picture asks about.** The subjects of the job that made it, and no other: a preview tracks the
+subjects its job names, and a number clicked for anybody else has no tracker to seed and no table of theirs to
+take a box from (`cast_file.from_tile` refuses it). Until 2026-10-13 every tile asked about every subject of
+the shots record, and most of a video's previews name one. A subject of the record the job does not track is
+named under the tile in words, with no button.
+
 **What it does not do.** It draws nothing: the numbers and outlines are the table's own, made by the tracker
 when the preview ran, so a later correction is not on them. The numbered picture is one frame a shot, the
 table's shown frame. A shot longer than `LONG_SHOT_FRAMES` (or `--long-shot-frames`) also shows the source's
@@ -66,7 +72,7 @@ def previews(specs: list[str]) -> list[dict]:
                 raise SystemExit(f"{spec}: no table {p}")
             tables[s["label"]] = json.loads(p.read_text())
         out.append({"name": job["name"], "first": int(job["first"]), "last": int(job["first"]) + int(job["frames"]) - 1,
-                    "folder": Path(folder), "tables": tables})
+                    "folder": Path(folder), "tables": tables, "subjects": list(tables)})
     return out
 
 
@@ -95,7 +101,7 @@ def tiles_for(shot: dict, pv: dict, out: Path) -> list[dict]:
             found.append({"file": f"tiles/{name}", "label": label, "preview": pv["name"], "shot": int(ts["shot"]),
                           "shown": pv["first"] + int(ts["shown_frame"]), "table_frame": int(ts["shown_frame"]),
                           "table": picture.name.replace(".png", ".json"), "frames": [lo, hi],
-                          "people": [int(p["person"]) for p in ts.get("people", [])],
+                          "people": [int(p["person"]) for p in ts.get("people", [])], "subjects": pv["subjects"],
                           "partial": lo < shot["first"] or hi > shot["last"]})
     return found
 
@@ -209,12 +215,18 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
             t = max(found, key=lambda x: (len(x["people"]), -abs(x["shown"] - mid)))   # most people; then nearest the middle
             others = [x for x in found if x is not t]
             part = " (the table's shot runs %d-%d)" % tuple(t["frames"]) if t["partial"] else ""
+            # only the subjects this tile's job tracks, in the record's order (then any the record does not name)
+            asked = [sub for sub in shots["subjects"] if sub in t["subjects"]] + [sub for sub in t["subjects"] if sub not in shots["subjects"]]
             ask = "".join(
                 f'<div class="ask"><span class="lab">{html.escape(sub)} is</span>'
                 + "".join(f'<button data-sub="{html.escape(sub)}" data-chosen="{n}">{n}</button>' for n in t["people"])
                 + f'<button data-sub="{html.escape(sub)}" data-chosen="not outlined">on this frame, not outlined</button>'
                 + f'<button data-sub="{html.escape(sub)}" data-chosen="not on frame">not on this frame</button></div>'
-                for sub in shots["subjects"])
+                for sub in asked)
+            unasked = [sub for sub in shots["subjects"] if sub not in t["subjects"]]
+            if unasked:
+                ask += (f'<div class="how">not asked here: {html.escape(", ".join(unasked))}. This preview\'s job ({html.escape(t["preview"])}) '
+                        f'tracks {html.escape(", ".join(t["subjects"]))} and nobody else, so a number for another subject has no tracker to go to.</div>')
             also = (f'<div class="how">{len(others)} other picture(s) of this shot exist (' + "; ".join(
                 f"{html.escape(x['label'])}'s tracker, frame {x['shown']}, people {x['people'] or 'none'}" for x in others)
                 + '); not shown, one question a shot</div>') if others else ""

@@ -17,6 +17,10 @@ only worth having if what it stores is what the owner last said, once, through t
   a_frame_no_shot_shows_is_refused           by table name and frame
   a_subjects_click_names_their_number        the who page's line shape: a subject and their number, or not outlined / not in shot
   dry_run_writes_nothing
+  a_click_outside_the_job_stores_nothing_of_its_tile   a subject the tile's job does not track: that tile is printed as NOT
+                                             STORED, whole, and the tiles after it are stored
+  a_tile_that_cannot_be_read_leaves_the_cast_as_it_was every tile is read before any is written: a refusal on a later tile
+                                             stores nothing of an earlier one
 
 A plain frame (the who page's tile of the source itself: table `plain`, no number), into a `--shots` record and
 never into the cast file:
@@ -201,6 +205,23 @@ def main() -> int:
         p3 = setup(folder3, [line(1, source_frame=1042, person=1, chosen="the lead")])
         r = run(p3)
         case("a_frame_no_shot_shows_is_refused", r.returncode != 0 and "no shot shows source frame 1042" in r.stdout + r.stderr, r.stdout + r.stderr)
+
+        f4 = Path(tempfile.mkdtemp(dir=d))
+        p4 = setup(f4, [line(1, source_frame=1010, subject="lead", chosen="1"),
+                        line(2, source_frame=1010, subject="third", chosen="2"),      # the job names lead and second
+                        line(3, source_frame=1150, subject="lead", chosen="1")])
+        r = run(p4)
+        got4 = cast_lines(p4)
+        case("a_click_outside_the_job_stores_nothing_of_its_tile", r.returncode == 0 and "NOT STORED, a click names a subject" in r.stdout
+             and "(source frame 1010), lines 1-2: third; the job (pv) tracks lead, second" in r.stdout and "not stored 1;" in r.stdout
+             and got4 and {x["frame"] for x in got4} == {1150}, r.stdout + r.stderr + json.dumps(got4))
+
+        f5 = Path(tempfile.mkdtemp(dir=d))
+        p5 = setup(f5, [line(1, source_frame=1010, subject="lead", chosen="1"),
+                        line(2, source_frame=1042, subject="lead", chosen="1")])      # no shot shows 1042, and it sorts after 1010
+        r = run(p5)
+        case("a_tile_that_cannot_be_read_leaves_the_cast_as_it_was", r.returncode != 0 and "no shot shows source frame 1042" in r.stdout + r.stderr
+             and not cast_lines(p5), r.stdout + r.stderr + json.dumps(cast_lines(p5)))
 
         # --- a plain frame: the cast file and the shots record -------------------------------------------------------
         f7 = Path(tempfile.mkdtemp(dir=d))
