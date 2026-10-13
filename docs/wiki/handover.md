@@ -82,10 +82,21 @@ delivery tables folder, regenerated and never typed.
 ### Left open when closed
 
 - Pieces in the clip the owner has not clicked on (the review page shows
-  each as open; `verdicts.jsonl` is the record). The owner does not yet
-  know which look of the third subject they like best, with a beard or
-  without: three of his pieces have stubble and the newest a drawn beard.
-  Settle that with them before building more of him.
+  each as open; `verdicts.jsonl` is the record).
+- **The third subject's look is settled by the owner, after watching the
+  joined clip: no beard**, the look of his pieces on 1222-1305 and
+  1466-1531 (stubble, his beard gone, as they answered row 23). Their word
+  in the lead's terminal stands over their clicks of that evening:
+  `third_fp_1222b` is kept. His newest piece, `third_fp_1419b` on
+  1452-1465, came out with a drawn moustache and beard and is to be made
+  again without; why that load drew one is not known (its text and
+  reference against the other three's is the first thing to read).
+- **Where the owner saw a subject go back to the original on the joined
+  clip**, each a stretch with no piece and none a loss of tracking: the
+  third subject from the end of `third_fp_1310c` to 1451 (1397-1418 not
+  made; on 1419-1451 he is bowed or has his back to the camera); the lead
+  on the street at 516-603; the second subject on 999-1009, the tail of
+  her kitchen shot.
 - The sound signals: mended twice after three readings; the run to read is
   the tooling session's third throwaway (its notes say how to make it
   again). A reader who did not build it reads that run before anything
@@ -136,14 +147,12 @@ has landed.
 6. The long shot 2050-2341, the first window near the planner's longest: a
    plan look, its render read, the owner's eye, before the two halves of
    the last shot go that way.
-7. A look at the stretches listed above as not looked at; the third subject
-   on 1397-1418 by the recipe of his first piece; then 2050 onward in frame
-   order.
+7. What the owner saw go back to the original: the third subject's
+   1452-1465 again without the beard, and 1397-1418 by the same recipe; the
+   second subject's 999-1009; a look at the stretches listed above as not
+   looked at. Then 2050 onward in frame order.
 
-For the owner's first batch: the third subject with or without a beard
-(they answered row 23 as rendered, his beard gone; that evening they wrote
-on the page that they may like him better with it, and his newest piece
-came out with a drawn one); folder names on the share (row 21); whether her
+For the owner's first batch: folder names on the share (row 21); whether her
 face on the spinning ball (2218-2341) is replaced; a skill for the lane and
 a pointer in `AGENTS.md` to the who-is-who procedure; one listening check
 for the sound signals (whether a dip inside one long sung run is a breath
