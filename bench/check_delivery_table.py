@@ -15,7 +15,9 @@ with only the fields the rule reads, a shots file of three shots and a plan of t
 3. **What never stands**, kept or not: no build record, a queue record that names no file, a file that disagrees
    with its record (the reading carries the ledger's own line), a whole-person render, a render of two subjects.
 4. **Nothing left** is a `source` line over the whole shot naming the newest render passed over; a subject the
-   shots file is unsure of says so; a subject not in a shot has no line.
+   shots file is unsure of says so; a subject the shots file says is NOT in a shot has a `source` line of its own
+   kind, saying so and who said it (the assembler does not read the shots file), with a `#` in that name taken
+   out, since the assembler's reader ends a line at one.
 5. **Several renders on one shot** stand on different frames, each later one only on frames no earlier one
    took; frames no render takes inside a shot that has a piece are a comment and not a `source` line.
 6. **`restore=`**: every other subject the shots file has in the shot, `:whole` on a face row and bare on a face
@@ -26,10 +28,17 @@ with only the fields the rule reads, a shots file of three shots and a plan of t
 9. **A render whose last choice by the owner says it is not the one** does not stand by step 2 (the next newest
    frozen render is tried and the passed-over line says the choice was why) and cannot be preferred; `not sure`,
    a choice taken back, typed words and a choice said of a joined clip bar nothing.
-10. **The assembler's command is whole**: the standing pieces' own captures from their build records, those
-   handed in, an `--alias` only for an older name a listed capture uses, the caller's arguments as given, and
-   said to be not whole without a `--source` and an `--out`. Each `restore=` says on how many of its row's
-   frames a listed capture holds that subject's track: all, some, or none, with which captures.
+10. **The commands are whole, each one line**: the ledger's own where the ledger keeps it (and said where it does
+   not), this tool's own, the assembler's (the standing pieces' own captures from their build records, those
+   handed in, an `--alias` only for an older name a listed capture uses, the caller's arguments, an argument
+   with a space quoted) and the stack's build and check, made from the caller's `--source` and `--out`; not
+   whole without those two, and the stack's not whole without its scratch folder.
+11. **A row is tied to its capture's run from records**: the run of the capture its build record names that is
+   named as the record's load and is of the row's subject; written on the row as `run=` and read back by the
+   assembler's reader. No tie, with which lack, for a capture with no such run, a run of another subject, and a
+   record that names no load.
+12. **Each `restore=` has three counts** of its row's frames: a track, covered with an empty track, covered by no
+   capture. They add up to the row, and the reading says the assembler flags only the third.
 
 No video, no model, no card, no server.
 
@@ -47,7 +56,7 @@ from _lib import case, finish  # noqa: E402
 import delivery_table as dt  # noqa: E402
 
 SHOTS = {"subjects": ["a", "b"], "span": [0, 149], "shots": [
-    {"first": 0, "last": 49, "who": {"a": {"present": "yes"}, "b": {"present": "no"}}},
+    {"first": 0, "last": 49, "who": {"a": {"present": "yes"}, "b": {"present": "no", "by": "a person, on a page # of 2026-01-01", "how": "words that are not carried"}}},
     {"first": 50, "last": 99, "who": {"a": {"present": "yes"}, "b": {"present": "yes"}}},
     {"first": 100, "last": 149, "who": {"a": {"present": "no"}, "b": {"present": "unsure"}}}]}
 PLAN = {"subjects": {"a": {"region": "face"}, "b": {"region": "face and hair"}}, "aliases": {"singer": "a", "_by": "a note"}}
@@ -156,6 +165,10 @@ def nothing_left_and_several_on_a_shot() -> str:
     assert out["rows"] == [] and [(s["first"], s["subject"]) for s in out["sources"]] == [(0, "a"), (50, "a"), (50, "b"), (100, "b")], out["sources"]
     assert out["sources"][0]["why"] == dt.NO_SOURCE_YET + " (no render of this subject covers these frames)"
     assert out["sources"][3]["why"].startswith("the shots file is unsure this subject is in the shot; " + dt.NO_SOURCE_YET), out["sources"][3]
+    # a subject the shots file says is not in a shot: a line of its own kind, who said so and never what they said
+    assert [(n["first"], n["subject"], n["why"]) for n in out["not_in_the_shot"]] == [
+        (0, "b", dt.NOT_IN_THE_SHOT + " (a person, on a page of 2026-01-01)"), (100, "a", dt.NOT_IN_THE_SHOT + " (it does not say who said so)")], out["not_in_the_shot"]
+    assert not any((e["first"], e["subject"]) in ((0, "b"), (100, "a")) for e in out["reading"]), "a subject not in a shot was looked for"
     # two renders on one shot: the kept one takes its frames, the newer frozen one only what is left, and the rest is a gap
     kept = render("kept", (60, 79), "01", has=LIDS, owner=(("02", "choice", "keep this one"),))
     wide = render("wide", (55, 89), "09")
@@ -239,9 +252,14 @@ def the_table_reads_back() -> str:
     assert [(r["first"], r["last"], r["piece"], r["piece_first"], r.get("subject"), r["restore"]) for r in rows] == [
         (50, 99, "/share/Video/s/a_face/a_face_00001.mp4", 50, "a", [("b", "whole")]),
         (55, 99, "/share/Video/s/b_hair/b_hair_00001.mp4", 55, "b", [("a", None)])], rows
-    assert [(i["first"], i["last"], i["subject"]) for i in intents] == [(0, 49, "a"), (100, 149, "b")] and intents[0]["why"].startswith(dt.NO_SOURCE_YET), intents
+    assert [(i["first"], i["last"], i["subject"]) for i in intents] == [(0, 49, "a"), (100, 149, "b"), (0, 49, "b"), (100, 149, "a")] \
+        and intents[0]["why"].startswith(dt.NO_SOURCE_YET), intents
+    # the absent subject's line reads back whole: the `#` in who said so did not end it
+    assert intents[2]["why"] == dt.NOT_IN_THE_SHOT + " (a person, on a page of 2026-01-01)", intents[2]
+    assert not any("run" in r for r in rows), "a row with no tie handed in was given one"
     reading = dt.reading_text(out, "Made for the check.", "t.txt")
     assert "- STANDS on 50-99: **`a_face`**" in reading and "- NOTHING STANDS. The table's line: `source 0-49 subject=a" in reading, reading
+    assert "## Subjects the shots file says are not in a shot" in reading and "- `source 0-49 subject=b`: " + dt.NOT_IN_THE_SHOT in reading, reading
     # a ledger of the schema before the fields this reads is refused, not read wrongly
     try:
         dt.decide({"schema": "h3_render_ledger/1", "renders": {}}, SHOTS, PLAN)
@@ -252,57 +270,140 @@ def the_table_reads_back() -> str:
     return "the table reads back through the assembler's two readers to the rows, restores and `source` lines decided; an older ledger is refused"
 
 
-def the_command() -> str:
+def _assembler():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("assemble_delivery", Path(__file__).resolve().parent / "assemble_delivery.py")
+    assert spec is not None and spec.loader is not None
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _capture(repo: Path, name: str, first: int, frames: int, tracks: dict, runs=(), not_covered: dict | None = None) -> str:
+    """A capture folder as the capture tool leaves one: a manifest with its runs, and each subject's packed track
+    with the frames it covers (every frame unless `not_covered[label]` names some)."""
     import json
 
     import numpy as np
+    folder = repo / "data" / name
+    for label, on in tracks.items():
+        (folder / "subjects" / label).mkdir(parents=True)
+        track = np.zeros((frames, 4, 8), bool)
+        track[[f - first for f in on]] = True
+        covered = np.ones(frames, bool)
+        covered[[f - first for f in (not_covered or {}).get(label, ())]] = False
+        np.savez_compressed(folder / "subjects" / label / "masks__p.npz", track=np.packbits(track, axis=-1), covered=covered)
+    (folder / "manifest.json").write_text(json.dumps({"first_frame": first, "frames": frames, "runs": list(runs), "subjects": [
+        {"label": label, "sightings": [{"by": "p"}]} for label in tracks]}))
+    return str(folder)
+
+
+def the_commands() -> str:
     with tempfile.TemporaryDirectory() as tmp:
         repo = Path(tmp)
-
-        def capture(name: str, first: int, frames: int, tracks: dict) -> str:
-            """A capture folder as the capture tool leaves one: a manifest, and each subject's packed track."""
-            folder = repo / "data" / name
-            for label, on in tracks.items():
-                (folder / "subjects" / label).mkdir(parents=True)
-                track = np.zeros((frames, 4, 8), bool)
-                track[[f - first for f in on]] = True
-                np.savez_compressed(folder / "subjects" / label / "masks__p.npz", track=np.packbits(track, axis=-1))
-            (folder / "manifest.json").write_text(json.dumps({"first_frame": first, "frames": frames, "subjects": [
-                {"label": label, "sightings": [{"by": "p"}]} for label in tracks]}))
-            return str(folder)
-
         face = render("a_face", (50, 99), "05")
         hair = render("b_hair", (50, 99), "05", subject="b", region="face and hair")
-        # a's capture is of a longer stretch than the row and holds b on half the row's frames (and on frames before
-        # it, which are not the row's); b's capture knows a by the plan's older name, on all of them
-        face["records"] = [{"capture": capture("cap_a", 40, 70, {"a": range(40, 110), "b": range(40, 75)})}]
-        hair["records"] = [{"capture": capture("cap_b", 50, 50, {"b": range(50, 100), "singer": range(50, 100)})}]
-        made = ledger(face, hair)
+        face["records"] = [{"capture": _capture(repo, "cap_a", 40, 70, {"a": range(40, 110), "b": range(40, 75)})}]
+        hair["records"] = [{"capture": _capture(repo, "cap_b", 50, 50, {"b": range(50, 100), "singer": range(50, 100)})}]
+        made = {**ledger(face, hair), "command": {"line": "py bench/render_ledger.py --share /share"}}
         out = dt.decide(made, SHOTS, PLAN)
-        built = dt.assembly(out, made, PLAN, repo, "data/t.txt", (0, 149), "--source /in/clip.mp4 --out /out/clip.mp4 --size source", (str(repo / "data" / "preview"),))
+        built = dt.assembly(out, made, PLAN, repo, "data/t.txt", (0, 149), "--source '/in/a clip.mp4' --out /out/clip.mp4 --size source", (str(repo / "data" / "preview"),),
+                            python="py", own="py bench/delivery_table.py --ledger L", stack_work="/scratch/work")
         # in the table's own row order (b's row is before a's face row on the frames they share), then those handed in
         assert built["captures"] == ["data/cap_b", "data/cap_a", "data/preview"] and built["captures_handed_in"] == ["data/preview"], built["captures"]
         assert built["whole"] and built["aliases_used_by_a_capture"] == ["singer"], built
-        want = ["bench/assemble_delivery.py", "--table data/t.txt", "--span 0-149", "--source /in/clip.mp4 --out /out/clip.mp4 --size source",
-                "--capture data/cap_b", "--capture data/cap_a", "--capture data/preview", "--alias singer=a"]
-        assert [part.strip() for part in built["command"].split("\\\n")] == want, built["command"]
-        by = {(x["row"], x["restore"]): x for x in built["restores"]}
-        # b given back on a's face row: tracked on every frame by cap_b; a given back on b's row: by cap_a, and by cap_b under its older name
-        assert by[("50-99 a_face (a)", "b:whole")]["frames_with_a_track"] == 50 and by[("50-99 a_face (a)", "b:whole")]["in_the_captures"] == ["data/cap_b", "data/cap_a"], by
-        assert by[("50-99 b_hair (b)", "a")]["in_the_captures"] == ["data/cap_b", "data/cap_a"], by
-        # with b's own capture gone from the list, b's track is on half the frames; with none that holds b, on none, and it is said
+        # one line, with the caller's argument that holds a space quoted again
+        assert built["command"] == ("py bench/assemble_delivery.py --table data/t.txt --span 0-149 --source '/in/a clip.mp4' --out /out/clip.mp4 --size source "
+                                    "--capture data/cap_b --capture data/cap_a --capture data/preview --alias singer=a"), built["command"]
+        assert built["stack"] == {"build": "py bench/stack_delivery.py build --source '/in/a clip.mp4' --table data/t.txt --joined /out/clip.mp4 "
+                                           "--out /out/clip_STACKED.mp4 --work /scratch/work",
+                                  "check": "py bench/stack_delivery.py check --source '/in/a clip.mp4' --joined /out/clip.mp4 --out /out/clip_STACKED.mp4",
+                                  "whole": True, "out": "/out/clip_STACKED.mp4"}, built["stack"]
+        assert built["ledger_command"] == "py bench/render_ledger.py --share /share" and built["own_command"] == "py bench/delivery_table.py --ledger L"
+        text = dt.reading_text(out, "Made for the check.", "data/t.txt", built)
+        for line in (built["ledger_command"], built["own_command"], built["command"], built["stack"]["build"], built["stack"]["check"]):
+            assert f"\n{line}\n" in text, f"the reading does not hold this command as one line: {line}"
+        assert "NOT WHOLE" not in text, text
+        # with nothing of the caller's: not whole, no stack; a ledger that does not keep its command is said; no scratch folder is said
+        bare = dt.assembly(out, ledger(face, hair), PLAN, repo, "data/t.txt", (0, 149))
+        assert not bare["whole"] and bare["stack"] is None and bare["ledger_command"] is None, bare
+        text = dt.reading_text(out, "Made for the check.", "data/t.txt", bare)
+        assert "NOT WHOLE: no `--source` and `--out`" in text and "this ledger does not keep its command" in text, text
+        no_work = dt.assembly(out, made, PLAN, repo, "data/t.txt", (0, 149), "--source /in/clip.mp4 --out /out/clip.mp4")
+        assert no_work["stack"]["whole"] is False and "NOT WHOLE: no `--stack-work`" in dt.reading_text(out, "m", "data/t.txt", no_work), no_work["stack"]
+    return ("the ledger's, the table's, the clip's and the stack's commands are each one line, an argument with a space quoted; not whole without a source "
+            "and an out, or without the stack's scratch folder; a ledger that keeps no command is said")
+
+
+def a_row_is_tied_to_its_run() -> str:
+    assembler = _assembler()
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = Path(tmp)
+        face = render("a_face", (50, 99), "05")
+        hair = render("b_hair", (50, 99), "05", subject="b", region="face and hair")
+        planned = lambda name, subject: {"name": name, "planned": True, "render": None, "subject": subject}   # noqa: E731
+        # a's capture holds the run its record's load names, under the plan's OLDER name for a, beside another subject's run
+        face["records"] = [{"capture": _capture(repo, "cap_a", 50, 50, {"singer": range(50, 100)}, [planned("other", "b"), planned("a_face", "singer")]), "load": {"name": "a_face"}}]
+        hair["records"] = [{"capture": _capture(repo, "cap_b", 50, 50, {"b": range(50, 100)}, [planned("not_this_load", "b")]), "load": {"name": "b_hair"}}]
+        made = ledger(face, hair)
+        out = dt.decide(made, SHOTS, PLAN)
+        built = dt.assembly(out, made, PLAN, repo, "data/t.txt", (0, 149))
+        ties = {t["row"]: t for t in built["runs"]}
+        assert ties["50-99 a_face (a)"]["run"] == "data/cap_a:a_face", ties
+        assert ties["50-99 b_hair (b)"]["run"] is None and "holds no run named b_hair" in ties["50-99 b_hair (b)"]["why_not"], ties
+        path = repo / "t.txt"
+        path.write_text(dt.table_text(out, "/share", "Made for the check.", PLAN, "t_check"))
+        rows = {r["subject"]: r for r in assembler.read_table(path)}
+        assert rows["a"]["run"] == ("data/cap_a", "a_face") and "run" not in rows["b"], rows
+        text = dt.reading_text(out, "m", "data/t.txt", built)
+        assert "1 of 2 rows are tied" in text and "- `50-99 b_hair (b)`: the capture its build record names holds no run named b_hair" in text, text
+        # the lacks, each by name: a run of another subject, a record with no load, no record at all
+        hair["records"] = [{"capture": _capture(repo, "cap_b2", 50, 50, {"b": range(50, 100)}, [planned("b_hair", "a")]), "load": {"name": "b_hair"}}]
+        face["records"] = [{"capture": str(repo / "data" / "cap_a")}]
+        why = {t["row"]: t["why_not"] for t in dt.assembly(out, made, PLAN, repo, "data/t.txt", (0, 149))["runs"]}
+        assert "is of a, not of this subject" in why["50-99 b_hair (b)"] and why["50-99 a_face (a)"] == "its build record names no load", why
+        assert not any("run" in r for r in out["rows"]), "a tie of an earlier pass was left on a row"
         hair["records"] = []
-        half = dt.assembly(out, made, PLAN, repo, "data/t.txt", (0, 149))
-        assert {(x["restore"], x["frames_with_a_track"], x["frames"]) for x in half["restores"]} == {("b:whole", 25, 50), ("a", 50, 50)}, half["restores"]
-        assert not half["whole"] and half["aliases_used_by_a_capture"] == [], "no --source and --out were given, and no listed capture uses an older name"
-        face["records"] = [{"capture": capture("cap_c", 50, 50, {"a": range(50, 100)})}]
+        assert {t["row"]: t["why_not"] for t in dt.assembly(out, made, PLAN, repo, "data/t.txt", (0, 149))["runs"]}["50-99 b_hair (b)"] == "the ledger has no build record of it"
+    return ("a row is tied to the run its build record's load names in the capture that record names, of its own subject under any of its names, and the "
+            "assembler's reader takes it; three lacks are each said and leave the row untied")
+
+
+def what_a_restore_has_to_go_on() -> str:
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = Path(tmp)
+        face = render("a_face", (50, 99), "05")
+        hair = render("b_hair", (50, 99), "05", subject="b", region="face and hair")
+        # a's capture is of a longer stretch than the row. It holds b on the row's first 25 frames (and on frames before
+        # the row, which are not the row's), covers the next 15 with an empty track, and does not cover the last 10
+        face["records"] = [{"capture": _capture(repo, "cap_a", 40, 70, {"a": range(40, 110), "b": range(40, 75)}, not_covered={"b": range(90, 110)})}]
+        hair["records"] = [{"capture": _capture(repo, "cap_b", 50, 50, {"b": range(50, 100), "singer": range(50, 100)})}]
+        made = ledger(face, hair)
+        out = dt.decide(made, SHOTS, PLAN)
+        counts = lambda x: (x["frames_with_a_track"], x["frames_covered_with_an_empty_track"], x["frames_no_capture_covers"])   # noqa: E731
+        by = {(x["row"], x["restore"]): x for x in dt.assembly(out, made, PLAN, repo, "data/t.txt", (0, 149))["restores"]}
+        # b given back on a's face row: tracked on every frame by cap_b; a given back on b's row: by cap_a, and by cap_b under its older name
+        assert counts(by[("50-99 a_face (a)", "b:whole")]) == (50, 0, 0) and by[("50-99 a_face (a)", "b:whole")]["in_the_captures"] == ["data/cap_b", "data/cap_a"], by
+        assert by[("50-99 b_hair (b)", "a")]["in_the_captures"] == ["data/cap_b", "data/cap_a"], by
+        # with b's own capture gone from the list the three counts are a's capture's alone, and they add up to the row
+        hair["records"] = []
+        half = {x["restore"]: x for x in dt.assembly(out, made, PLAN, repo, "data/t.txt", (0, 149))["restores"]}
+        assert counts(half["b:whole"]) == (25, 15, 10) and sum(counts(half["b:whole"])) == half["b:whole"]["frames"] == 50, half["b:whole"]
+        assert counts(half["a"]) == (50, 0, 0), half["a"]
+        # a capture that covers the row and never saw b: every frame covered by no capture, and it is said
+        face["records"] = [{"capture": _capture(repo, "cap_c", 50, 50, {"a": range(50, 100)})}]
         none = dt.assembly(out, made, PLAN, repo, "data/t.txt", (0, 149))
         nobody = next(x for x in none["restores"] if x["restore"] == "b:whole")
-        assert (nobody["frames_with_a_track"], nobody["in_the_captures"]) == (0, []), nobody
+        assert (counts(nobody), nobody["in_the_captures"]) == ((0, 0, 50), []), nobody
+        # one that covers every frame of the row with b's track empty: nothing to give back, and by the assembler's rule no flag
+        face["records"] = [{"capture": _capture(repo, "cap_d", 50, 50, {"a": range(50, 100), "b": ()})}]
+        empty = next(x for x in dt.assembly(out, made, PLAN, repo, "data/t.txt", (0, 149))["restores"] if x["restore"] == "b:whole")
+        assert counts(empty) == (0, 50, 0), empty
         text = dt.reading_text(out, "Made for the check.", "data/t.txt", none)
-        assert "NOT WHOLE" in text and "NO listed capture holds that subject's track on these frames" in text and "--capture data/cap_c" in text, text
-    return ("the command lists the standing pieces' own captures and those handed in, an --alias only for an older name a listed capture "
-            "uses, and the caller's arguments as given; each restore says on how many of its row's frames a listed capture holds the track")
+        assert "NO listed capture holds that subject's track on these frames" in text and "covered by no capture on 50" in text \
+            and "the assembler raises no flag" in text and "`restore_has_no_mask`" in text, text
+    return ("each restore says on how many of its row's frames a listed capture holds the track, covers the frame with an empty one, or does not cover "
+            "it; the three add up to the row; the reading says the assembler flags only the last")
 
 
 case("the owner's keep", the_owners_keep)
@@ -312,7 +413,9 @@ case("nothing left, and several renders on one shot", nothing_left_and_several_o
 case("restore: the other subjects of the shot", restores)
 case("a preference of the lead's", a_preference)
 case("the table reads back through the assembler", the_table_reads_back)
-case("the assembler's command, whole, and what a restore has to go on", the_command)
+case("the commands, each whole and one line", the_commands)
+case("a row is tied to its capture's run, from records", a_row_is_tied_to_its_run)
+case("what a restore has to go on, as three counts", what_a_restore_has_to_go_on)
 
 if __name__ == "__main__":
     sys.exit(finish())

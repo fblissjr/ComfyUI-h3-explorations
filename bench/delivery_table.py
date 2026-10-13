@@ -3,7 +3,7 @@
 
     <python> bench/delivery_table.py --ledger LEDGER.json --shots SHOTS.json --plan PLAN.json \\
         [--prefer "FIRST-LAST:SUBJECT=LOAD:the reason"]... [--span FIRST-LAST] [--assemble-args "..."] [--also-capture FOLDER]... \\
-        --table OUT.txt --reading OUT.md [--json OUT.json]
+        [--stack-work SCRATCH_FOLDER] --table OUT.txt --reading OUT.md [--json OUT.json]
 
 **What it buys.** The table `bench/assemble_delivery.py` builds a clip from was typed by hand at the end of a day,
 from memory of which render was the good one. This writes it from files: the ledger (`bench/render_ledger.py`:
@@ -30,6 +30,12 @@ passed over with why. It assembles nothing.
 4. Nothing left: a `source` line for the shot saying no render in the frozen form exists yet, and the reading
    names the newest render that was passed over, which is not laid.
 
+**A subject the shots file says is NOT in a shot gets a `source` line too**, saying so and who said it
+(2026-10-13). The assembler does not read the shots file: where a capture's shot table counts people in a shot
+and nothing is laid or tracked under a label, it fails the build until a row or a `source` line answers for that
+label. The first clip built from a generated table failed sixteen times on exactly that, every one a subject
+the shots file had answered `no` for.
+
 On one shot several renders can stand on different frames. They are taken in the order above, and each later
 one is laid only on frames no earlier one took. Frames of a shot that no render takes are a `source` line when
 they are the whole shot (the assembler takes a `source` line only over a whole shot) and a comment in the table
@@ -40,25 +46,43 @@ back every OTHER subject the shots file has in that shot (`yes` or `unsure`): `r
 row, which has no business inside anybody else, and `restore=<other>` on any other row. The assembler needs a
 capture that holds each named subject's track to act on one.
 
+**`run=<capture folder>:<run name>`** on a row ties the piece to the run that made it (the lead's ruling of
+2026-10-13; `bench/assemble_delivery.py` has what the tie buys). It is written from records and never found by a
+name: the capture is the one the piece's build record names, the run is the one in that capture's manifest named
+as the record's load, and it must be of the row's subject. A row that cannot be tied has no `run=` and the
+reading says which lack it was.
+
 **The names** are the plan's labels. The plan's `aliases` are printed in the table's header as the `--alias`
 flags a capture with an older name needs.
 
-**The assembler's command** is printed whole, in the reading and on the terminal (`assembly`): the table, the
-span, every capture the standing pieces' build records name, any handed in with `--also-capture`, an `--alias`
-only for an older name a listed capture uses, and `--assemble-args` as given (`--source`, `--out`, `--size`:
-what only the caller knows). Beside it, for each `restore=`, on how many of its row's frames a listed capture
-holds that subject's track.
+**The commands are printed whole, in order, so a second run types nothing** (`assembly`; in the reading, the
+JSON and on the terminal), each as one line a shell takes as it stands, run from the repo's root: the ledger's
+own (kept in the ledger's JSON by `bench/render_ledger.py`; an older ledger does not have it, and that is said),
+this tool's own, the assembler's, and the stacking tool's build and check. The assembler's: the table, the span,
+every capture the standing pieces' build records name, any handed in with `--also-capture`, an `--alias` only
+for an older name a listed capture uses, and `--assemble-args` (`--source`, `--out`, `--size`: what only the
+caller knows). The stack's is made from that `--source` and `--out` and is whole only with `--stack-work`.
+
+**What each `restore=` has to go on** is printed beside the commands as three counts of its row's frames: those on
+which a listed capture holds that subject's track (the restore can give pixels back); those a listed capture
+covers with an EMPTY track (the restore gives nothing back, and the assembler raises no flag: by its rule nobody
+is there to give back); and those no listed capture covers at all (the assembler's `restore_has_no_mask`). Until
+2026-10-13 one count stood for the last two and the text said the assembler would flag them; it flags only the
+third (`data/2026-10-13_fun_delivery_tables/read_fun_0000_1919_generated_THROWAWAY_2026-10-13.md`).
 
 **What it cannot see.** Whether a render is good. Whether the render the rule lets stand is the one the owner
 would pick: step 2 lets the newest frozen render stand where the owner has made no choice on it or was not sure,
 and the reading prints their last choice beside it. Why a load took the plain cut. Whether a restore's subject is
-tracked on those frames. A render made after the ledger was: the reading says which ledger it read.
+on screen where no capture tracks them. Whether the shots file is right that a subject is not in a shot. Whether
+the mask a tied run carried is the one its render was given (the load's own chain holds that). A render made
+after the ledger was: the reading says which ledger it read.
 """
 from __future__ import annotations
 
 import argparse
 import datetime
 import json
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -83,6 +107,7 @@ RENDER_ITEM_BUTTONS = (KEEP[0], NOT_THE_ONE[1], NOT_SURE)
 #: The ledger's states of a making (`render_ledger.MAKING`), by what each means here.
 AGREES = "recorded, the file agrees"
 NO_SOURCE_YET = "no render in the frozen form yet"
+NOT_IN_THE_SHOT = "the shots file says this subject is not in the shot"
 
 
 def _shot_coverage():
@@ -173,7 +198,7 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
             raise SystemExit(f"--span {span[0]}-{span[1]} cuts the shot {cut[0]['first']}-{cut[0]['last']} of the shots file: a span ends on shots' edges")
         shots = {**shots, "shots": [s for s in shots["shots"] if span[0] <= s["first"] and s["last"] <= span[1]]}
     renders = list(ledger["renders"].values())
-    rows, sources, gaps, reading = [], [], [], []
+    rows, sources, gaps, reading, absent = [], [], [], [], []
     for p in prefers:
         if not any(s["first"] == p["first"] and s["last"] == p["last"] for s in shots["shots"]):
             raise SystemExit(f"--prefer names frames {p['first']}-{p['last']}, which is not a shot of the shots file")
@@ -183,6 +208,10 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
         present = {label: s["who"][label]["present"] for label in shots["subjects"]}
         for label in shots["subjects"]:
             if present[label] == "no":
+                # a line all the same: the assembler does not read the shots file, and asks for one wherever people are
+                # detected in a shot and nothing answers for a label. Who said so, never what they said of it
+                by = " ".join(str(s["who"][label].get("by") or "it does not say who said so").replace("#", " ").split())
+                absent.append({"first": s["first"], "last": s["last"], "subject": label, "why": f"{NOT_IN_THE_SHOT} ({by})"})
                 continue
             wanted = plan["subjects"][label]["region"]
             on = [r for r in renders if label in (r.get("subjects") or []) and r.get("span") and r["span"][0] <= s["last"] and r["span"][1] >= s["first"]]
@@ -260,16 +289,18 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
         else:
             merged.append(dict(r))
     merged.sort(key=lambda r: (r["first"], r["region"] == "face", r["subject"]))
-    return {"rows": merged, "sources": sources, "gaps": gaps, "reading": reading}
+    return {"rows": merged, "sources": sources, "not_in_the_shot": absent, "gaps": gaps, "reading": reading}
 
 
 def frames(a, b) -> str:
     return f"{a}-{b}"
 
 
-def tracked_in(capture: Path, labels: set[str], first: int, last: int) -> set[int] | None:
-    """The source frames of `first`..`last` on which a capture holds a non-empty track of a subject known by any of
-    `labels`, or None when the capture has no such subject or no manifest."""
+def tracked_in(capture: Path, labels: set[str], first: int, last: int) -> dict | None:
+    """Of the source frames `first`..`last`, those on which a capture holds a non-empty track of a subject known by
+    any of `labels` (`on`) and those it covers with an empty one (`empty`); None when the capture has no such subject
+    or no manifest. As the assembler reads it (`Captures.mask`): a frame is covered when it is inside the capture's
+    frames and the subject's `covered` says so (a file with no `covered` covers every frame of the capture)."""
     import numpy as np
     manifest = capture / "manifest.json"
     if not manifest.is_file():
@@ -281,31 +312,64 @@ def tracked_in(capture: Path, labels: set[str], first: int, last: int) -> set[in
     saved = capture / "subjects" / entry["label"] / f"masks__{entry['sightings'][0]['by']}.npz"
     if not saved.is_file():
         return None
-    on = np.load(saved)["track"].reshape(m["frames"], -1).any(axis=1)
-    return {m["first_frame"] + int(f) for f in np.nonzero(on)[0] if first <= m["first_frame"] + int(f) <= last}
+    z = np.load(saved)
+    on = z["track"].reshape(m["frames"], -1).any(axis=1)
+    covered = z["covered"].astype(bool) if "covered" in z.files else np.ones(m["frames"], bool)
+    inside = lambda picked: {m["first_frame"] + int(f) for f in np.nonzero(picked)[0] if first <= m["first_frame"] + int(f) <= last}
+    return {"on": inside(on & covered), "empty": inside(~on & covered)}
 
 
-def assembly(out: dict, ledger: dict, plan: dict, repo: Path, table: str, span: tuple[int, int], args: str = "", also: tuple[str, ...] = ()) -> dict:
-    """The assembler's command for this table, whole, and what each `restore=` has to go on.
+def run_of(capture: Path, load: str | None, labels: set[str]) -> tuple[str | None, str]:
+    """(the name of the run of a capture that made a load's render, why not when None). From records: the run in the
+    capture's manifest named as the load, of this subject, naming no other render. Never found by a file's name."""
+    manifest = capture / "manifest.json"
+    if not load:
+        return None, "its build record names no load"
+    if not manifest.is_file():
+        return None, "the capture its build record names has no manifest"
+    run = next((r for r in json.loads(manifest.read_text()).get("runs") or [] if r.get("name") == load), None)
+    if run is None:
+        return None, f"the capture its build record names holds no run named {load}"
+    if run.get("subject") not in labels:
+        return None, f"the run {load} of its capture is of {run.get('subject')}, not of this subject"
+    return load, ""
+
+
+def assembly(out: dict, ledger: dict, plan: dict, repo: Path, table: str, span: tuple[int, int], args: str = "", also: tuple[str, ...] = (),
+             python: str = "python", own: str = "", stack_work: str = "") -> dict:
+    """The commands for this table, whole, the run each row is tied to, and what each `restore=` has to go on.
 
     The captures are the standing pieces' own (each piece's build record names its capture), in the table's row order, then any handed in
-    (`also`: a preview's capture of the span, for its shot tables). `--alias` is printed for a name of the plan's
-    `aliases` that a listed capture labels a subject by, and for no other. `args` is what only the caller knows
-    (`--source`, `--out`, `--size`), taken as given; without a `--source` and an `--out` in it the command is said
-    to be not whole. For each `restore=` on a row: on how many of the row's frames a listed capture holds that
-    subject's track. Figures; a restore with nothing to go on is the assembler's to flag when it builds."""
+    (`also`: a preview's capture of the span, for its shot tables). Each row is given its `run` here, in `out`, where
+    its capture's manifest holds the run its build record's load names (`run_of`), and the lack is kept where not.
+    `--alias` is printed for a name of the plan's `aliases` that a listed capture labels a subject by, and for no
+    other. `args` is what only the caller knows (`--source`, `--out`, `--size`); without a `--source` and an `--out`
+    in it the command is said to be not whole. `own` is this tool's own command, `python` the interpreter the
+    commands are printed with, `stack_work` the stacking tool's scratch folder. Every command is one line a shell
+    takes as it stands. For each `restore=` on a row: three counts of the row's frames (`tracked_in`). Figures."""
     rel = lambda p: str(Path(p).relative_to(repo)) if Path(p).is_absolute() and Path(p).is_relative_to(repo) else str(p)
+    aliases = {k: v for k, v in (plan.get("aliases") or {}).items() if not k.startswith("_")}
+    names = lambda label: {label} | {old for old, new in aliases.items() if new == label}
+    real = lambda c: Path(c) if Path(c).is_absolute() else repo / c
     captures: list[str] = []
+    ties = []
     for r in out["rows"]:
         records = ledger["renders"][r["file"]].get("records") or []
         capture = records[-1].get("capture") if records else None
         if capture and rel(capture) not in captures:
             captures.append(rel(capture))
+        if not capture:
+            run, why = None, "its build record names no capture" if records else "the ledger has no build record of it"
+        elif any(c.isspace() for c in rel(capture)):
+            run, why = None, "its capture's path holds a space, which a table's row cannot"
+        else:
+            run, why = run_of(real(capture), (records[-1].get("load") or {}).get("name"), names(r["subject"]))
+        r.pop("run", None)
+        if run:
+            r["run"] = f"{rel(capture)}:{run}"
+        ties.append({"row": f"{frames(r['first'], r['last'])} {r['name']} ({r['subject']})", "run": r.get("run"), "why_not": why})
     captures += [rel(c) for c in also if rel(c) not in captures]
-    aliases = {k: v for k, v in (plan.get("aliases") or {}).items() if not k.startswith("_")}
-    names = lambda label: {label} | {old for old, new in aliases.items() if new == label}
     used = set()
-    real = lambda c: Path(c) if Path(c).is_absolute() else repo / c
     for c in captures:
         manifest = real(c) / "manifest.json"
         if manifest.is_file():
@@ -314,19 +378,38 @@ def assembly(out: dict, ledger: dict, plan: dict, repo: Path, table: str, span: 
     for r in out["rows"]:
         for x in r["restore"]:
             other = x.split(":")[0]
-            held, where = set(), []
+            on, empty, where = set(), set(), []
             for c in captures:
                 got = tracked_in(real(c), names(other), r["first"], r["last"])
                 if got:
-                    held |= got
-                    where.append(c)
-            restores.append({"row": f"{frames(r['first'], r['last'])} {r['name']} ({r['subject']})", "restore": x, "frames": r["last"] - r["first"] + 1,
-                             "frames_with_a_track": len(held), "in_the_captures": where})
-    whole = "--source " in f" {args} " and "--out " in f" {args} "
-    parts = ["bench/assemble_delivery.py", f"--table {table}", f"--span {span[0]}-{span[1]}"] + ([args] if args else []) \
-        + [f"--capture {c}" for c in captures] + [f"--alias {old}={aliases[old]}" for old in sorted(used)]
-    return {"command": " \\\n    ".join(parts), "whole": whole, "captures": captures, "captures_handed_in": [rel(c) for c in also],
-            "aliases_used_by_a_capture": sorted(used), "restores": restores}
+                    on |= got["on"]
+                    empty |= got["empty"]
+                    where += [c] if got["on"] else []
+            count = r["last"] - r["first"] + 1
+            restores.append({"row": f"{frames(r['first'], r['last'])} {r['name']} ({r['subject']})", "restore": x, "frames": count,
+                             "frames_with_a_track": len(on), "frames_covered_with_an_empty_track": len(empty - on),
+                             "frames_no_capture_covers": count - len(on | empty), "in_the_captures": where})
+    given = shlex.split(args)
+    value = lambda flag: given[given.index(flag) + 1] if flag in given and given.index(flag) + 1 < len(given) else None
+    source, clip = value("--source"), value("--out")
+    whole = bool(source and clip)
+    q = shlex.quote
+    line = lambda words: " ".join(q(str(w)) for w in words)
+    build = [python, "bench/assemble_delivery.py", "--table", table, "--span", f"{span[0]}-{span[1]}", *given]
+    for c in captures:
+        build += ["--capture", c]
+    for old in sorted(used):
+        build += ["--alias", f"{old}={aliases[old]}"]
+    stack = None
+    if whole:
+        stacked = str(Path(clip).with_name(Path(clip).stem + "_STACKED.mp4"))
+        work = stack_work or "A_SCRATCH_FOLDER"
+        stack = {"build": line([python, "bench/stack_delivery.py", "build", "--source", source, "--table", table, "--joined", clip, "--out", stacked, "--work", work]),
+                 "check": line([python, "bench/stack_delivery.py", "check", "--source", source, "--joined", clip, "--out", stacked]),
+                 "whole": bool(stack_work), "out": stacked}
+    return {"command": line(build), "whole": whole, "captures": captures, "captures_handed_in": [rel(c) for c in also],
+            "aliases_used_by_a_capture": sorted(used), "runs": ties, "restores": restores, "stack": stack,
+            "ledger_command": (ledger.get("command") or {}).get("line"), "own_command": own or None}
 
 
 def table_text(out: dict, share: str, made: str, plan: dict, name: str) -> str:
@@ -341,12 +424,15 @@ def table_text(out: dict, share: str, made: str, plan: dict, name: str) -> str:
              "# restore= is the practice of the table of 2026-10-12: every other subject the shots file has in the shot is given back, `:whole` on a face row."]
     for r in out["rows"]:
         lines.append(f"{frames(r['first'], r['last'])} {Path(share) / r['file']} {r['piece_first']} subject={r['subject']}"
-                     + "".join(f" restore={x}" for x in r["restore"]))
+                     + (f" run={r['run']}" if r.get("run") else "") + "".join(f" restore={x}" for x in r["restore"]))
     if out["gaps"]:
         lines.append("# Left as the source INSIDE a shot that has a piece (a `source` line covers a whole shot, so these are said here):")
         lines += [f"#   {frames(g['first'], g['last'])} {g['subject']}: no render that may stand covers these frames" for g in out["gaps"]]
     for s in out["sources"]:
         lines.append(f"source {frames(s['first'], s['last'])} subject={s['subject']} {s['why']}")
+    if out.get("not_in_the_shot"):
+        lines.append("# A subject the shots file says is NOT in a shot: said here, since the assembler does not read the shots file.")
+        lines += [f"source {frames(s['first'], s['last'])} subject={s['subject']} {s['why']}" for s in out["not_in_the_shot"]]
     return "\n".join(lines) + "\n"
 
 
@@ -357,17 +443,31 @@ def reading_text(out: dict, made: str, table: str, built: dict | None = None) ->
              f"The table: `{table}`. Nothing was assembled. The rule is in `bench/delivery_table.py`'s docstring; every `why` below is one of its steps, "
              "a fact from the files, and none says a render is good.", ""]
     if built is not None:
-        lines += ["## The command that builds a clip from this table", "", "```", "<the ComfyUI venv's python> " + built["command"], "```", ""]
+        stack = built["stack"]
+        lines += ["## The commands, in order, each one line a shell takes as it stands (run from the repo's root)", "",
+                  "1. The ledger this table read:", "", "```", built["ledger_command"] or "# this ledger does not keep its command (made by bench/render_ledger.py before 2026-10-13)", "```", "",
+                  "2. This table:", "", "```", built["own_command"] or "# not handed to this function", "```", "",
+                  "3. The clip:", "", "```", built["command"], "```", ""]
         if not built["whole"]:
-            lines += ["NOT WHOLE: no `--source` and `--out` were handed to this tool (`--assemble-args`), so the command lacks them.", ""]
+            lines += ["NOT WHOLE: no `--source` and `--out` were handed to this tool (`--assemble-args`), so the clip's command lacks them and there is no stack command.", ""]
+        if stack:
+            lines += ["4. The clip stacked for the eye, and the stack read back:", "", "```", stack["build"], stack["check"], "```", ""]
+            if not stack["whole"]:
+                lines += ["NOT WHOLE: no `--stack-work` was handed to this tool, so the stack's scratch folder is a word to replace.", ""]
         lines += ["The captures are the standing pieces' own, from each piece's build record"
                   + (f", then those handed in: {', '.join(built['captures_handed_in'])}" if built["captures_handed_in"] else "; none was handed in")
                   + ". " + ("`--alias` is given for the older names a listed capture uses: " + ", ".join(built["aliases_used_by_a_capture"]) + "."
-                            if built["aliases_used_by_a_capture"] else "No listed capture labels a subject by an older name, so there is no `--alias`."), "",
-                  "What each `restore=` has to go on: the frames of its row on which a listed capture holds that subject's track. A figure, not a "
-                  "failure; the assembler flags a restore with no mask when it builds.", ""]
-        lines += [f"- `{x['row']}` `restore={x['restore']}`: a track on {x['frames_with_a_track']} of the row's {x['frames']} frames"
-                  + (f" (in {', '.join(x['in_the_captures'])})" if x["in_the_captures"] else ": NO listed capture holds that subject's track on these frames")
+                            if built["aliases_used_by_a_capture"] else "No listed capture labels a subject by an older name, so there is no `--alias`."), ""]
+        loose = [t for t in built["runs"] if not t["run"]]
+        lines += [f"The run each row is tied to (`run=` on the row, from the piece's build record): {len(built['runs']) - len(loose)} of {len(built['runs'])} rows are tied."
+                  + (" NOT TIED, and read by the assembler as a subject with no run:" if loose else ""), ""]
+        lines += [f"- `{t['row']}`: {t['why_not']}" for t in loose] + ([""] if loose else [])
+        lines += ["What each `restore=` has to go on, as three counts of its row's frames: a listed capture holds that subject's track (pixels can be given "
+                  "back); a listed capture covers the frame with an EMPTY track (nothing is given back and the assembler raises no flag); no listed capture "
+                  "covers the frame (the assembler flags it, `restore_has_no_mask`). Figures, not failures.", ""]
+        lines += [f"- `{x['row']}` `restore={x['restore']}`: of the row's {x['frames']} frames, a track on {x['frames_with_a_track']}, covered with an empty "
+                  f"track on {x['frames_covered_with_an_empty_track']}, covered by no capture on {x['frames_no_capture_covers']}"
+                  + (f" (the track in {', '.join(x['in_the_captures'])})" if x["in_the_captures"] else ": NO listed capture holds that subject's track on these frames")
                   for x in built["restores"]]
         lines += ["" if built["restores"] else "No row has a `restore=`.", ""]
     for e in out["reading"]:
@@ -384,6 +484,10 @@ def reading_text(out: dict, made: str, table: str, built: dict | None = None) ->
         for p in e["passed_over"]:
             lines.append(f"- passed over: `{p['render']}` (written {p['written']}): {p['why']}")
         lines.append("")
+    if out.get("not_in_the_shot"):
+        lines += ["## Subjects the shots file says are not in a shot", "",
+                  "Each has a `source` line in the table saying so, since the assembler does not read the shots file. Nothing was looked for on these.", ""]
+        lines += [f"- `source {frames(n['first'], n['last'])} subject={n['subject']}`: {n['why']}" for n in out["not_in_the_shot"]] + [""]
     return "\n".join(lines) + "\n"
 
 
@@ -399,6 +503,7 @@ def main() -> int:
                    help="what only the caller knows of the build, printed into the assembler's command as given")
     p.add_argument("--also-capture", action="append", default=[], metavar="FOLDER",
                    help="a capture to hand the assembler beside the standing pieces' own (a preview's capture of the span); repeatable")
+    p.add_argument("--stack-work", default="", metavar="FOLDER", help="the stacking tool's scratch folder (never the share), for its printed command")
     p.add_argument("--table", required=True, help="where the table is written")
     p.add_argument("--reading", required=True, help="where the reading is written")
     p.add_argument("--json", help="the same as data")
@@ -413,15 +518,24 @@ def main() -> int:
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     made = (f"Made {now} at commit {commit} from the ledger `{a.ledger}` ({str(ledger.get('made') or 'which does not say when it was made').split(' from')[0]}), "
             f"`{a.shots}`" + (f" (its shots inside {a.span})" if a.span else "") + f" and `{a.plan}`" + ("; with " + "; ".join(f"--prefer {x!r}" for x in a.prefer) if a.prefer else "; no --prefer") + ".")
-    built = assembly(out, ledger, plan, HERE.parent, a.table, span, a.assemble_args, tuple(a.also_capture))
+    own = " ".join(shlex.quote(w) for w in [sys.executable, "bench/delivery_table.py", *sys.argv[1:]])
+    built = assembly(out, ledger, plan, HERE.parent, a.table, span, a.assemble_args, tuple(a.also_capture), python=sys.executable, own=own,
+                     stack_work=a.stack_work)
     Path(a.table).write_text(table_text(out, ledger["share"], made, plan, Path(a.table).stem))
     Path(a.reading).write_text(reading_text(out, made, a.table, built))
     if a.json:
         Path(a.json).write_text(json.dumps({"made": made, **out, "assembly": built}, indent=1) + "\n")
-    print("the assembler's command" + ("" if built["whole"] else " (NOT WHOLE: no --source and --out in --assemble-args)") + ":\n  " + built["command"])
+    print("the commands, in order (each one line, run from the repo's root):")
+    print("  the ledger:  " + (built["ledger_command"] or "(this ledger does not keep its command)"))
+    print("  this table:  " + own)
+    print("  the clip" + ("" if built["whole"] else " (NOT WHOLE: no --source and --out in --assemble-args)") + ":  " + built["command"])
+    if built["stack"]:
+        print("  the stack" + ("" if built["stack"]["whole"] else " (NOT WHOLE: no --stack-work)") + ":  " + built["stack"]["build"] + "\n  its check:  " + built["stack"]["check"])
     laid = sum(r["last"] - r["first"] + 1 for r in out["rows"])
-    print(f"{len(out['rows'])} piece row(s) over {laid} frame-rows, {len(out['sources'])} `source` line(s), {len(out['gaps'])} stretch(es) left as the "
-          f"source inside a shot that has a piece")
+    tied = sum(bool(t["run"]) for t in built["runs"])
+    print(f"{len(out['rows'])} piece row(s) over {laid} frame-rows ({tied} tied to their capture's run), {len(out['sources'])} `source` line(s) for a subject "
+          f"with no render that may stand, {len(out['not_in_the_shot'])} for a subject the shots file says is not in the shot, {len(out['gaps'])} stretch(es) "
+          f"left as the source inside a shot that has a piece")
     print("wrote", a.table, "and", a.reading, *(["and", a.json] if a.json else []))
     return 0
 

@@ -176,6 +176,9 @@ def a_render_its_record_agrees_with() -> str:
         # the same as fields, for a tool: the region in the plan's word, and which steps the reference's records hold
         assert form["region"] == "face and hair" and form["reference"]["has"] == {"cut_to_the_head": True, "face_points": True, "lid_marks": False}, form
         assert out["schema"] == led.SCHEMA and out["share"] == str(made.share)
+        # the tool's own command as the ledger keeps it: one line a shell takes as it stands, an argument with a space quoted
+        kept = led.command_of(["--share", "/a share", "--source", "c.mov=23.976"], python="py")
+        assert kept["line"] == "py bench/render_ledger.py --share '/a share' --source c.mov=23.976" and kept["argv"][1] == "/a share", kept
         says = form["reference"]["says"]
         assert "cut to one box round the head ([10, 20, 110, 95], enlarged 2.5 times), then the face points drawn as lines (left out: mouth)" in says \
             and "the chain ends at mesh_00001.mp4" in says and form["reference"]["made_by"] == "s1", says

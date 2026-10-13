@@ -37,6 +37,10 @@ was made or whether its file is the one its record describes. This does, and pla
   those frames, as said of the joined clip there and never as a verdict on the render alone.
 - `--inputs`: the server's input root, so a record's still can be looked for.
 
+The JSON keeps the command it was made by (`command`: the arguments, and one line a shell takes as it stands),
+so the table made from it (`bench/delivery_table.py`) prints it and a second run types nothing. The tracked
+summary does not: the command holds this machine's paths.
+
 **What it prints: a section a shot and a subject, every render on those frames, oldest first, each with**
 its file and frames (the record's, the file's by ffprobe, the saved graph's); ITS MAKING (`MAKING`: a build
 record whose figures the file agrees with; one it disagrees with, and how; a build record for its load whose
@@ -686,6 +690,14 @@ def summary(out: dict, made: str) -> str:
     return made + "\n\n" + "\n".join(lines) + "\n"
 
 
+def command_of(argv: list[str], python: str | None = None) -> dict:
+    """This tool's own command as the ledger keeps it: the arguments, and one line a shell takes as it stands, run
+    from the repo's root."""
+    import shlex
+    return {"argv": list(argv), "line": " ".join(shlex.quote(w) for w in [python or sys.executable, "bench/render_ledger.py", *argv]),
+            "run_from": "the repo's root"}
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     p.add_argument("--shots", required=True)
@@ -727,6 +739,8 @@ def main() -> int:
             + f"; the records under `{a.records}`; `{a.shots}`; `{a.plan}`; the copies {', '.join(sources)}"
             + "".join(f"; `{x}`" for x in (a.verdicts, a.answers, a.items, *a.spots) if x) + ".")
     out["made"] = made
+    # its own command, so the table made from it can print it and a second run types nothing (2026-10-13)
+    out["command"] = command_of(sys.argv[1:])
     Path(a.json).write_text(json.dumps(out, indent=1, ensure_ascii=False) + "\n")
     Path(a.md).write_text(page(out, made, a.table))
     if a.summary:
