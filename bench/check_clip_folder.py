@@ -253,9 +253,63 @@ def the_hand_layer_is_apart():
             _refused(lambda: cf.read_hand(folder, job, load), "no path")
 
 
+def a_video_keeps_the_copies_it_has_had():
+    with _tmp() as t:
+        tmp = Path(t)
+        clip = _clip(tmp / "in" / "fun.mkv", frames=60)
+        first = _clip(tmp / "in" / "fun_first.mkv", frames=24, level=90)
+        part = _clip(tmp / "in" / "fun_part.mkv", frames=20, level=120)
+        whole = _clip(tmp / "in" / "fun_whole.mkv", frames=60, level=150)
+        folder = tmp / "data" / "fun"
+        made = cf.write_manifest(folder, {"source": cf.identity(clip), "derived": dict(cf.identity(first), made_by="a recipe", checked="frame for frame")})
+        # with no copies before, a manifest reads as it always did, and only its two names find it
+        assert cf.copies(made) == [dict(made["derived"], first_source_frame=0, present=True)] and "copies_before" not in made
+        _refused(lambda: cf.folder_of_file("fun_whole.mkv", tmp / "data"), "fun_whole.mkv", "or as a copy it had before", "copy-before")
+        # the present copy is replaced: it is kept as it stood, with what replaced it and why
+        _refused(lambda: cf.retire(dict(made), "fun_whole.mkv", "  ", "2026-01-02T00:00:00Z"), "say why")
+        _refused(lambda: cf.retire(dict(made), "fun_first.mkv", "why", "t"), "its own name")
+        kept = cf.retire(dict(made), "fun_whole.mkv", "the whole video in one copy", "2026-01-02T00:00:00Z")
+        kept["derived"] = dict(cf.identity(whole), made_by="another recipe", checked="frame for frame")
+        kept = cf.write_manifest(folder, kept)
+        before = kept["copies_before"][0]
+        assert (before["name"], before["first_source_frame"], before["replaced_by"], before["why"], before["made_by"]) == (
+            "fun_first.mkv", 0, "fun_whole.mkv", "the whole video in one copy", "a recipe"), before
+        # the folder is found by the earlier copy's name, and that file is held to ITS OWN identity, not the present copy's
+        for name in ("fun.mkv", "fun_whole.mkv", "fun_first.mkv"):
+            assert cf.folder_of_file(name, tmp / "data") == folder, f"the folder is not found by {name}"
+        cf.verify(kept, first, frames=True)
+        cf.verify(kept, whole, frames=True)
+        _refused(lambda: cf.verify(kept, _clip(tmp / "elsewhere" / "fun_first.mkv", frames=24, level=10)), "not the file", "head_sha256")
+        _refused(lambda: cf.verify(kept, _clip(tmp / "in" / "fun_stranger.mkv", frames=24)), "fun_stranger.mkv", "before it: fun_first.mkv")
+        # the fingerprint is what a render from the present copy reads: an earlier copy entered does not move it
+        with_part = cf.write_manifest(folder, cf.add_copy_before(dict(kept), dict(cf.identity(part), first_source_frame=24, replaced_by="fun_whole.mkv",
+                                                                                 replaced_at="not stated", why="one clock for every job")))
+        assert with_part["fingerprint"] == kept["fingerprint"], "entering an earlier copy moved the fingerprint"
+        assert [c["name"] for c in cf.copies(with_part)] == ["fun_whole.mkv", "fun_first.mkv", "fun_part.mkv"] and cf.copies(with_part)[0]["present"]
+        # the frame clock: a copy that begins on the source's frame 0 is on the present copy's; one that begins later is not
+        assert cf.same_clock(with_part, "fun_first.mkv") and cf.same_clock(with_part, "fun.mkv") and cf.same_clock(with_part, "fun_whole.mkv")
+        assert not cf.same_clock(with_part, "fun_part.mkv"), "a copy that begins on source frame 24 was read as on the present copy's clock"
+        _refused(lambda: cf.same_clock(with_part, "fun_stranger.mkv"), "not this video's source or a copy it has had")
+        # what cannot be entered: a name the manifest has, frames that are not inside the source's
+        entry = dict(cf.identity(part), first_source_frame=24, replaced_by="fun_whole.mkv", replaced_at="t", why="w")
+        for name in ("fun.mkv", "fun_whole.mkv", "fun_first.mkv", "fun_part.mkv"):
+            _refused(lambda: cf.add_copy_before(dict(with_part), dict(entry, name=name)), "already the source, the present copy or an earlier copy")
+        _refused(lambda: cf.add_copy_before(dict(kept), dict(entry, first_source_frame=41)), "not inside the source's 60")
+        _refused(lambda: cf.add_copy_before(dict(kept), {k: v for k, v in entry.items() if k != "first_source_frame"}), "not inside the source's")
+        # a manifest a reader could misread: an earlier copy with no clock or no reason, or a name twice
+        for lack in ("first_source_frame", "why", "replaced_by", "head_sha256"):
+            bad = dict(kept, copies_before=[{k: v for k, v in before.items() if k != lack}])
+            _refused(lambda: cf.check_manifest(bad), "earlier copy 0", lack)
+        _refused(lambda: cf.check_manifest(dict(kept, copies_before=[before, before])), "earlier copy 1", "is named 'fun_first.mkv'")
+        # two videos that both had a copy of one name: the name finds neither alone
+        cf.write_manifest(tmp / "data" / "twin", {"source": dict(cf.identity(clip), name="twin.mkv"), "derived": dict(cf.identity(whole), name="twin_whole.mkv"),
+                                                   "copies_before": [dict(before)]})
+        _refused(lambda: cf.folder_of_file("fun_first.mkv", tmp / "data"), "2 analysis folders")
+
+
 def main() -> int:
     for fn in (an_identity_names_a_file_and_no_place, a_video_is_found_by_its_name, the_folder_is_named_by_the_file_name,
-               a_folder_that_is_another_files_or_stale_is_refused,
+               a_folder_that_is_another_files_or_stale_is_refused, a_video_keeps_the_copies_it_has_had,
                the_fingerprint_moves_with_what_a_render_reads_and_with_nothing_else,
                a_manifest_a_reader_could_misread_is_refused, the_hand_layer_is_apart):
         case(fn.__name__.replace("_", " "), fn)

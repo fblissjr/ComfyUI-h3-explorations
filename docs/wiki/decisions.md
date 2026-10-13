@@ -187,6 +187,38 @@ commits.*
   with `least=1024` and `least=0`, fewer and none by size). What the
   sizes cannot see is printed with them: whether a small part is a sliver
   or a whole small face, and the size it is drawn at on a zoomed load.
+- **An analysis folder keeps every copy its video has had, and a job
+  renders from the present one** (the lead, mrpin, 2026-10-13 about 16:04Z,
+  on the tooling session's audit; the owner's ask of that morning behind
+  it, that a load of yesterday builds again tomorrow with one thing
+  changed). What it replaces: the manifest held ONE copy's name, so when
+  the manifest was pointed at a copy of the whole video that afternoon,
+  every job that named the first copy found no folder and could not be
+  built, though the file had not moved. Now `copies_before` in the
+  manifest holds each earlier copy with its identity, the source frame
+  its frame 0 is, what replaced it and why; a folder is found by any of
+  those names and a file is held to the entry of its own name
+  (`clip_folder.py`); `bench/clip_analysis.py init --copy` keeps the copy
+  it replaces and `copy-before` enters one dropped earlier;
+  `bench/shot_to_load.py` writes the PRESENT copy into a job whatever copy
+  its preview was made on, and refuses a copy on another frame clock.
+  PROSE THAT LOST TO CODE, corrected the same day: `clip_folder.py`'s
+  docstring said the bench tools "and the node that reads it" import it.
+  No node does and none did when this was written: a job's graph is built
+  by `bench/masked_job.py`. The module is at the repo's root, so it is
+  landed as node code is; the server reads nothing from it.
+- **A working copy's sound is stretched as its picture is re-stamped, and
+  is read after it is made** (the lead, mrpin, 2026-10-13 about 15:46Z).
+  The copy of the whole video made that morning had its picture held to
+  the source's frame by frame and its sound not read at all; the sound ran
+  at the source's speed and fell behind the picture by a thousandth of
+  the elapsed time. It is replaced by a new file under a new name that
+  holds its picture stream untouched; the old file stays, with a dated
+  line in its record. `bench/copy_sound.py` reads a copy's sound against
+  its source's; the record is
+  `bench/results/2026-10-13_working_copy_sound_against_its_picture.md`.
+  A voice table is made from the SOURCE's sound at the source's frame
+  rate, never from a copy's.
 
 ## 2026-10-12
 

@@ -180,9 +180,50 @@ def the_videos_voice_tables_are_named_in_its_manifest():
             tool.REPO = kept
 
 
+def a_copy_replaced_is_kept_and_a_copy_dropped_is_entered():
+    with _tmp() as t:
+        tmp = Path(t)
+        where = dict(data=tmp / "data", inputs=tmp / "input")
+        _clip(tmp / "input" / "fun.mkv", frames=60)
+        _clip(tmp / "input" / "fun_first.mkv", frames=24, level=90)
+        _clip(tmp / "input" / "fun_part.mkv", frames=20, level=120)
+        _clip(tmp / "input" / "fun_whole.mkv", frames=60, level=150)
+        folder, first = tool.init("fun.mkv", copy="fun_first.mkv", made_by="the first recipe", checked="every frame equal", **where)
+        # another copy: refused without a reason, and nothing is written; with one, the copy the folder had is kept as it stood
+        _refused(lambda: tool.init("fun.mkv", copy="fun_whole.mkv", **where), "fun_first.mkv", "say why")
+        assert cf.read_manifest(folder) == first, "a refused replacement changed the manifest"
+        _, now = tool.init("fun.mkv", copy="fun_whole.mkv", made_by="the whole recipe", replaces_because="the whole video on one clock", **where)
+        before = now["copies_before"][0]
+        assert now["derived"]["name"] == "fun_whole.mkv" and now["derived"]["made_by"] == "the whole recipe" and now["derived"]["checked"] == tool.NOT_STATED, \
+            f"the new copy took the old copy's check as its own: {now['derived']}"
+        assert (before["name"], before["made_by"], before["checked"], before["replaced_by"], before["why"], before["first_source_frame"]) == (
+            "fun_first.mkv", "the first recipe", "every frame equal", "fun_whole.mkv", "the whole video on one clock", 0) and before["replaced_at"].endswith("Z"), before
+        assert {k: before[k] for k in first["derived"]} == first["derived"], "the copy was not kept as the manifest had it"
+        # a job from the first copy still finds the folder, and the file is held to its own entry
+        assert cf.folder_of_file("fun_first.mkv", tmp / "data") == folder
+        cf.verify(now, tmp / "input" / "fun_first.mkv")
+        # init again, on the same copy, keeps the copies before and asks for no reason
+        _, again = tool.init("fun.mkv", copy="fun_whole.mkv", **where)
+        assert again["copies_before"] == now["copies_before"] and again["derived"] == now["derived"]
+        _refused(lambda: tool.init("fun.mkv", copy="fun_first.mkv", replaces_because="back again", **where), "a copy this video had before", "a new file under a new name")
+        # a copy dropped before copies were kept: entered by one command, its identity read from the file, by any name of the video
+        _refused(lambda: tool.copy_before("fun.mkv", "fun_part.mkv", first_source_frame=24, replaced_by="fun_whole.mkv", why=" ", by="a session", **where), "each in words")
+        _refused(lambda: tool.copy_before("fun.mkv", "fun_part.mkv", first_source_frame=41, replaced_by="fun_whole.mkv", why="w", by="a session", **where), "not inside the source's 60")
+        _refused(lambda: tool.copy_before("fun.mkv", "fun_first.mkv", first_source_frame=0, replaced_by="fun_whole.mkv", why="w", by="a session", **where), "already the source")
+        _, entered = tool.copy_before("fun_whole.mkv", "fun_part.mkv", first_source_frame=24, replaced_by="fun_whole.mkv", why="one clock for every job",
+                                      by="a session", replaced_at="2026-01-01", **where)
+        part = cf.copy_named(entered, "fun_part.mkv")
+        assert part["frames"] == 20 and part["head_sha256"] == cf.head_hash(tmp / "input" / "fun_part.mkv") and part["entered_by"] == "a session" \
+            and part["replaced_at"] == "2026-01-01" and part["made_by"] == tool.NOT_STATED, part
+        assert not cf.same_clock(entered, "fun_part.mkv") and cf.same_clock(entered, "fun_first.mkv")
+        assert entered["fingerprint"] == now["fingerprint"], "entering an earlier copy moved the fingerprint"
+        readme = (folder / "README.md").read_text()
+        assert "## The copies this video had before" in readme and "`fun_part.mkv`: frame 0 is source frame 24" in readme and "fun_first.mkv" in readme, readme
+
+
 def main() -> int:
     for fn in (init_makes_the_folder_by_the_file_name, init_again_keeps_what_a_render_reads, the_readme_names_earlier_work,
-               what_init_refuses, the_videos_voice_tables_are_named_in_its_manifest):
+               what_init_refuses, the_videos_voice_tables_are_named_in_its_manifest, a_copy_replaced_is_kept_and_a_copy_dropped_is_entered):
         case(fn.__name__.replace("_", " "), fn)
     return finish()
 

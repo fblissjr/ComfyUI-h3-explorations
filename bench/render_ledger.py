@@ -36,6 +36,10 @@ was made or whether its file is the one its record describes. This does, and pla
   table it was built from, each row's frames). Such a line is printed under every render that table laid on
   those frames, as said of the joined clip there and never as a verdict on the render alone.
 - `--inputs`: the server's input root, so a record's still can be looked for.
+- `--copies-of`: the video's analysis folder. The copies a render may load are then read from its manifest (the
+  source and every copy the video has or has had, each at its own rate; `clip_folder.py`), so a copy made since
+  the last run is not a name somebody has to remember to type. A copy on another frame clock is left out and
+  named in the record: a render from it cannot be placed by its seconds.
 
 The JSON keeps the command it was made by (`command`: the arguments, and one line a shell takes as it stands),
 so the table made from it (`bench/delivery_table.py`) prints it and a second run types nothing. The tracked
@@ -690,6 +694,23 @@ def summary(out: dict, made: str) -> str:
     return made + "\n\n" + "\n".join(lines) + "\n"
 
 
+def copies_of(folder: str) -> tuple[dict, list[str]]:
+    """({file name: frame rate} of a video's source and every copy it has or has had on the present copy's frame
+    clock, the names of its copies on another clock), from its analysis folder's manifest. A render's first frame
+    is worked out from the copy's seconds as a frame of the video, which holds only on that clock."""
+    sys.path.insert(0, str(HERE.parent))
+    import clip_folder
+    manifest = clip_folder.read_manifest(Path(folder))
+    held = {manifest["source"]["name"]: float(manifest["source"]["rate"])}
+    other = []
+    for c in clip_folder.copies(manifest):
+        if clip_folder.same_clock(manifest, c["name"]):
+            held[c["name"]] = float(c["rate"])
+        else:
+            other.append(c["name"])
+    return held, other
+
+
 def command_of(argv: list[str], python: str | None = None) -> dict:
     """This tool's own command as the ledger keeps it: the arguments, and one line a shell takes as it stands, run
     from the repo's root."""
@@ -704,8 +725,10 @@ def main() -> int:
     p.add_argument("--plan", required=True)
     p.add_argument("--share", required=True, help="the server's output root; its Video/ folder is walked")
     p.add_argument("--records", required=True, help="the folder the job tool writes under: <records>/*_job/<load>.render.*.json")
-    p.add_argument("--source", action="append", required=True, metavar="FILE[=RATE]",
+    p.add_argument("--source", action="append", default=[], metavar="FILE[=RATE]",
                    help="a copy of the video a render may load, by file name, with its rate when it is not 24; repeatable")
+    p.add_argument("--copies-of", metavar="FOLDER", help="the video's analysis folder: its source and every copy it has or has had on the present "
+                                                           "copy's frame clock are read from its manifest, each at its own rate; --source adds to them")
     p.add_argument("--table", help="a delivery table")
     p.add_argument("--verdicts")
     p.add_argument("--answers")
@@ -724,7 +747,10 @@ def main() -> int:
     plan = coverage.load_plan(a.plan, shots["subjects"])
     rows = _module("assemble_delivery").read_table(a.table) if a.table else []
     lines = lambda path: [(n, json.loads(line)) for n, line in enumerate(open(path), 1) if line.strip()] if path else []
-    sources = {s.partition("=")[0]: float(s.partition("=")[2] or 24) for s in a.source}
+    sources, other_clock = ({}, []) if not a.copies_of else copies_of(a.copies_of)
+    sources.update({s.partition("=")[0]: float(s.partition("=")[2] or 24) for s in a.source})
+    if not sources:
+        raise SystemExit("no copy of the video is named: give --copies-of the video's analysis folder, or --source")
     repo = HERE.parent
     read_table = _module("assemble_delivery").read_table
     spots = []
@@ -737,6 +763,7 @@ def main() -> int:
     commit = subprocess.run(["git", "-C", str(repo), "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
     made = (f"Made {utc(datetime.datetime.now().timestamp())} at commit {commit} from: the share `{a.share}`" + (f" (files since {a.since})" if a.since else " (every file)")
             + f"; the records under `{a.records}`; `{a.shots}`; `{a.plan}`; the copies {', '.join(sources)}"
+            + (f" (from `{a.copies_of}`'s manifest" + (f"; LEFT OUT, on another frame clock: {', '.join(other_clock)}" if other_clock else "") + ")" if a.copies_of else "")
             + "".join(f"; `{x}`" for x in (a.verdicts, a.answers, a.items, *a.spots) if x) + ".")
     out["made"] = made
     # its own command, so the table made from it can print it and a second run types nothing (2026-10-13)

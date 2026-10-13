@@ -176,6 +176,16 @@ def a_render_its_record_agrees_with() -> str:
         # the same as fields, for a tool: the region in the plan's word, and which steps the reference's records hold
         assert form["region"] == "face and hair" and form["reference"]["has"] == {"cut_to_the_head": True, "face_points": True, "lid_marks": False}, form
         assert out["schema"] == led.SCHEMA and out["share"] == str(made.share)
+        # the video's copies read from its analysis folder: the source and every copy on the present copy's clock, each at
+        # its own rate; a copy that begins on a later frame is left out and named
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+        import clip_folder
+        about = lambda name, frames, rate: {"name": name, "bytes": 1, "frames": frames, "rate": rate, "size": [8, 8], "head_sha256": "made"}   # noqa: E731
+        clip_folder.write_manifest(Path(tmp) / "analysis", {"source": about("v.mp4", 100, 23.976024), "derived": about("whole.mov", 100, 24.0), "copies_before": [
+            dict(about("first.mov", 40, 24.0), first_source_frame=0, replaced_by="whole.mov", replaced_at="t", why="w"),
+            dict(about("part.mov", 60, 24.0), first_source_frame=40, replaced_by="whole.mov", replaced_at="t", why="w")]})
+        held, other = led.copies_of(str(Path(tmp) / "analysis"))
+        assert held == {"v.mp4": 23.976024, "whole.mov": 24.0, "first.mov": 24.0} and other == ["part.mov"], (held, other)
         # the tool's own command as the ledger keeps it: one line a shell takes as it stands, an argument with a space quoted
         kept = led.command_of(["--share", "/a share", "--source", "c.mov=23.976"], python="py")
         assert kept["line"] == "py bench/render_ledger.py --share '/a share' --source c.mov=23.976" and kept["argv"][1] == "/a share", kept

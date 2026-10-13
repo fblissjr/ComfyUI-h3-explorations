@@ -17,6 +17,9 @@ builder's own `check_job`, and a load's to `masked_job.loads_of`, so a file the 
    empty queue.
 6. **A load's name is made**: `<subject>_<form>_<first>`, refused when a job file, a capture or a job folder of
    any day has it, and the next free letter with `--remake`.
+7b. **A job renders from the video's present copy**, whatever copy its preview or the shots record was made on:
+   an earlier copy on the same frame clock is said in the job's note with why it was replaced; a copy that begins
+   on a later frame, and a file the video never had, are refused with nothing written.
 7. **A load's job file stands alone**: `defaults` are `h3_config`'s, the margin by the plan's region; `pick`
    copied and no `pick_at`; the reference named by subject and span, not by the load's name; a text entry with
    no writer, which the chain refuses; a cut with no words refused and with them written into `left_out`; a
@@ -117,8 +120,13 @@ class Made:
         self.root, self.m = root, Machine(root)
         for d in ("input", "output", "data/v", "jobs"):
             (root / d).mkdir(parents=True)
-        (root / "input" / "copy.mov").write_bytes(b"")
-        (root / "data/v" / clip_folder.MANIFEST).write_text(json.dumps({"schema": clip_folder.SCHEMA, "source": {"name": "v.mp4"}, "derived": {"name": "copy.mov"}}))
+        for name in ("copy.mov", "copy_first.mov", "copy_part.mov"):
+            (root / "input" / name).write_bytes(b"")
+        about = lambda name, frames: {"name": name, "bytes": 0, "frames": frames, "rate": 24.0, "size": [64, 48], "head_sha256": "made"}   # noqa: E731
+        # the video's present copy, a copy it had before on the same frame clock, and one that begins on a later frame
+        clip_folder.write_manifest(root / "data/v", {"source": about("v.mp4", 260), "derived": about("copy.mov", 260), "copies_before": [
+            dict(about("copy_first.mov", 200), first_source_frame=0, replaced_by="copy.mov", replaced_at="2026-01-01", why="its sound was made again"),
+            dict(about("copy_part.mov", 160), first_source_frame=100, replaced_by="copy.mov", replaced_at="2026-01-01", why="one clock")]})
         self.shots_file, self.plan_file, self.jobs = root / "shots.json", root / "plan.json", root / "jobs"
         self.shots, self.plan = shots_record(), plan_record()
         self.write()
@@ -344,6 +352,57 @@ def a_loads_job_file_stands_alone() -> str:
             "subject and span, a text with no writer that the chain refuses, and a cut's words in left_out")
 
 
+def a_job_renders_from_the_present_copy() -> str:
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        present = str(made.root / "input" / "copy.mov")
+        # a preview made on a copy the video had before, on the same frame clock: the load renders from the PRESENT copy and says so
+        old = made.preview()
+        old["job"]["source"] = "/elsewhere/copy_first.mov"
+        folder = made.preview_ran(old)
+        a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="a", preview=str(folder))
+        stl.step_job(a, made.m)
+        job = json.loads((made.jobs / "a_fp_0100.json").read_text())["job"]
+        assert job["source"] == present != old["job"]["source"], f"a load took its preview's copy: {job['source']}"
+        assert "ITS PREVIEW WAS MADE ON AN EARLIER COPY: copy_first.mov, which copy.mov replaced (its sound was made again)" in job["note"], job["note"]
+        graphs.check_job(job)
+        # a preview made on the present copy says nothing of it
+        now = made.preview()
+        now["job"]["source"] = present
+        made.preview_ran(now)
+        a.remake = True
+        stl.step_job(a, made.m)
+        assert "EARLIER COPY" not in json.loads((made.jobs / "a_fp_0100b.json").read_text())["job"]["note"]
+        # a preview made on a copy that begins on a later frame: its frame numbers are another clock, and nothing is written
+        part = made.preview()
+        part["job"]["source"] = "/elsewhere/copy_part.mov"
+        made.preview_ran(part)
+        before = sorted(p.name for p in made.jobs.iterdir())
+        refused(lambda: stl.step_job(a, made.m), "copy_part.mov begins on source frame 100", "another clock")
+        assert sorted(p.name for p in made.jobs.iterdir()) == before
+        # a copy the manifest has never held is not this video's
+        part["job"]["source"] = "/elsewhere/stranger.mov"
+        made.preview_ran(part)
+        try:
+            stl.step_job(a, made.m)
+        except clip_folder.Refused as e:
+            assert "stranger.mov" in str(e), str(e)
+        else:
+            raise AssertionError("a preview made on a file the video never had was taken")
+        # the shots record naming an earlier copy: the preview is written for the present one, and says so
+        made.shots["copy"] = "copy_first.mov"
+        made.write()
+        p = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=160, folder=str(made.jobs))
+        stl.step_preview(p, made.m)
+        pv = json.loads((made.jobs / "shot_c_0160.json").read_text())["job"]
+        assert pv["source"] == present and "THE SHOTS RECORD NAMES AN EARLIER COPY: copy_first.mov" in pv["note"], pv
+        made.shots["copy"] = "copy_part.mov"
+        made.write()
+        refused(lambda: stl.step_preview(args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs)), made.m), "another clock")
+    return ("a load whose preview was made on an earlier copy renders from the video's present copy and its note says which copy and why it was replaced; "
+            "a copy on another frame clock is refused and nothing is written; so is a file the video never had")
+
+
 def the_reference_step() -> str:
     with tempfile.TemporaryDirectory() as tmp:
         made = Made(Path(tmp))
@@ -460,6 +519,7 @@ case("the plan says what a subject's face is taken from", the_plan_says_what_fro
 case("preview: the job file, once, queued only when told", the_preview_step)
 case("a load's name is made, and refused when taken", a_loads_name_is_made)
 case("a load's job file stands alone", a_loads_job_file_stands_alone)
+case("a job renders from the video's present copy", a_job_renders_from_the_present_copy)
 case("reference: on the load's frames, drawn by default", the_reference_step)
 case("the figures, at the canvas and in the reference", the_figures)
 

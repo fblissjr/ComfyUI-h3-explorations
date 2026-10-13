@@ -1309,6 +1309,18 @@ def a_job_is_built_on_its_videos_analysis_folder():
                  "sun_24p.mkv", "not been analysed")
         # the loads are held to it too, before any capture is read
         _refused(lambda: tool.build_loads(_job_file(tmp, dict(job, name="check_d")), "plan", [], inputs=tmp / "input", **where), "not the file")
+        # the copy is replaced by another: a job that renders from the one before still builds, on the same folder, held to
+        # ITS OWN bytes; a copy the manifest was never told of does not (the state of 2026-10-13, when one name was kept)
+        copy.write_bytes(b"the copy a job renders from")
+        newer = tmp / "input" / "fun_whole.mkv"
+        newer.write_bytes(b"the copy that replaced it")
+        kept = cf.retire(cf.read_manifest(tmp / "data" / "fun"), newer.name, "the whole video on one clock", "2026-01-02T00:00:00Z")
+        kept = cf.write_manifest(tmp / "data" / "fun", dict(kept, derived=about(newer, 30)))
+        old = tool.build(_job_file(tmp, dict(job, name="check_e")), "preview", **where)
+        assert json.loads((old / "preview.built.json").read_text())["analysis"] == {"folder": "fun", "fingerprint": kept["fingerprint"]}
+        tool.build(_job_file(tmp, dict(job, name="check_f", source=str(newer))), "preview", **where)
+        copy.write_bytes(b"the earlier copy, changed since")
+        _refused(lambda: tool.build(_job_file(tmp, dict(job, name="check_g")), "preview", **where), "not the file")
 
 
 def _git(repo: Path, *args: str) -> None:

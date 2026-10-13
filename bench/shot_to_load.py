@@ -27,6 +27,9 @@ files and runs the two tools, from the video's own records, and leaves to a pers
 - The cast file (`--cast`): where it holds an answer inside the shot for a subject, that tracker is seeded from
   it (`bench/cast_file.py::seeds`; a "none of the outlined people" answer leaves the shot unseeded).
 - The preview's own job folder (`--preview`, handed in by name): its subjects, its files, the frame they begin on.
+- The video's analysis folder (`clip_folder.py`), found by the file a record was made on: a job is written to
+  render from the video's PRESENT copy, whatever copy the shots record or the preview names, and a record made
+  on a copy with another frame clock is refused (`working_copy`).
 - `workflows/h3_config.py`: the canvas, and what goes into a job file's `defaults` (`MASKED_LOAD_DEFAULTS`,
   `MASKED_LOAD_MARGIN` by the plan's region, `SEED`), so the job file stands alone.
 
@@ -91,6 +94,33 @@ def _load(shots_file: str, plan_file: str) -> tuple[dict, dict]:
     import shot_coverage
     shots = shot_coverage.load_shots(shots_file)
     return shots, shot_coverage.load_plan(plan_file, shots["subjects"])
+
+
+def working_copy(name: str, world) -> tuple[str, Path, str]:
+    """(the video's analysis folder's name, the file jobs render from now, words when `name` is not that file).
+
+    `name` is the file a record was made on: the shots record's copy, a preview's source. The video is found by
+    it, as its present copy or one it had before (`clip_folder.py`, "The copies a video has had"), and a job is
+    written to render from the PRESENT copy whatever the record was made on: a load must not inherit a copy that
+    was replaced (2026-10-13: a copy's sound was out of step with its picture, and a load written from a preview
+    made on it would have loaded it). Refused when `name` is on another frame clock than the present copy: its
+    frame numbers are not the video's."""
+    import clip_folder
+    folder = clip_folder.folder_of_file(name, world.data)
+    manifest = clip_folder.read_manifest(folder)
+    present = manifest.get("derived")
+    if not present:
+        raise Refused(f"{folder.name}'s manifest names no copy that jobs render from")
+    if not clip_folder.same_clock(manifest, name):
+        was = clip_folder.copy_named(manifest, name)
+        raise Refused(f"{name} begins on source frame {was['first_source_frame']} and the video's working copy {present['name']} on frame 0: its frame "
+                      "numbers are another clock, and nothing made on it is carried to a job here")
+    said = ""
+    if name not in (present["name"], manifest["source"]["name"]):
+        was = clip_folder.copy_named(manifest, name)
+        said = (f" MADE ON AN EARLIER COPY: {name}, which {present['name']} replaced ({was['why']}); both hold the source's frames on one clock, "
+                f"and this job renders from {present['name']}.")
+    return folder.name, clip_folder.find_source(present["name"], world.inputs), said
 
 
 def shot_of(shots: dict, first: int) -> dict:
@@ -183,8 +213,9 @@ def free_name(base: str, taken, remake: bool) -> str:
 
 
 def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, preview_folder: str, video: str, output: Path, by: str, day: str,
-             name: str, first: int | None = None, frames: int | None = None, why: str = "", now: str = "") -> dict:
-    """The job file of one subject's load on a shot, from the shot's preview. `preview` is the preview's own job block."""
+             name: str, first: int | None = None, frames: int | None = None, why: str = "", now: str = "", source: str | None = None) -> dict:
+    """The job file of one subject's load on a shot, from the shot's preview. `preview` is the preview's own job
+    block; `source` is the file the load renders from, the video's present copy (the preview's own when left out)."""
     import h3_config
     if shot["who"][subject]["present"] != "yes":
         raise Refused(f"the shots record does not say {subject!r} is in {shot['first']}-{shot['last']} (present: {shot['who'][subject]['present']})")
@@ -220,7 +251,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             f"with the face points drawn, made on these frames by this tool's `reference` step. Its settings are in `defaults`, from workflows/h3_config.py. "
             f"THE TEXT IS NOT WRITTEN: {name}.txt beside this file is a person's, and texts.{name}.by says who wrote it."
             + (f" CUT BY A LOOK: {why.strip()}" if cut else ""))
-    return {"job": {"name": name, "note": note, "source": preview["source"], "first": a, "frames": n, "canvas": list(preview["canvas"]),
+    return {"job": {"name": name, "note": note, "source": source or preview["source"], "first": a, "frames": n, "canvas": list(preview["canvas"]),
                     "output": OUTPUT_KEY.format(video=video, session=by), "subjects": subjects,
                     "left_out": [{"subject": subject, "first": x, "frames": y - x + 1, "why": why.strip()} for x, y in cut],
                     "capture": f"data/{day}_{name}", "preview": preview_folder,
@@ -253,16 +284,15 @@ def reference_block(form: str, why: str, by: str, now: str, record: Path, points
 # ---------------------------------------------------------------- the steps
 
 def step_preview(a, world) -> None:
-    import clip_folder
     shots, plan = _load(a.shots, a.plan)
     shot = shot_of(shots, a.shot)
-    video = clip_folder.folder_of_file(shots["copy"], world.data).name
-    source = clip_folder.find_source(shots["copy"], world.inputs)
+    video, source, earlier = working_copy(shots["copy"], world)
     cast = None
     if a.cast:
         import cast_file
         cast = cast_file.read(a.cast)
     job = preview_job(shots, plan, shot, video, str(source), a.by, cast, load_chain.utc_now())
+    job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "THE SHOTS RECORD NAMES AN EARLIER COPY")
     out = Path(a.folder) / f"{job['job']['name']}.json"
     if out.exists():
         raise Refused(f"{out} exists: a preview made again takes a shot's record changed first, and its job file moved aside by a person")
@@ -287,7 +317,6 @@ def step_preview(a, world) -> None:
 
 
 def step_job(a, world) -> None:
-    import clip_folder
     shots, plan = _load(a.shots, a.plan)
     shot = shot_of(shots, a.shot)
     pfolder = Path(a.preview)
@@ -297,7 +326,7 @@ def step_job(a, world) -> None:
     if json.loads((pfolder / "preview.queued.json").read_text()).get("status") != "success":
         raise Refused(f"the preview in {pfolder} did not end in success")
     preview = json.loads((pfolder / "job.json").read_text())["job"]
-    video = clip_folder.folder_of_file(Path(preview["source"]).name, world.data).name
+    video, source, earlier = working_copy(Path(preview["source"]).name, world)
     region = plan["subjects"][a.subject]["region"]
     if region not in FORM:
         raise Refused(f"the plan's region for {a.subject!r} is {region!r}: this tool names and makes part loads ({', '.join(FORM)})")
@@ -307,7 +336,9 @@ def step_job(a, world) -> None:
     taken = lambda n: (folder / f"{n}.json").exists() or any(world.data.glob(f"????-??-??_{n}")) or any(world.data.glob(f"????-??-??_{n}_job"))
     name = free_name(f"{a.subject}_{FORM[region]}_{first:04d}", taken, a.remake)
     rel = str(pfolder.resolve().relative_to(REPO.resolve())) if pfolder.resolve().is_relative_to(REPO.resolve()) else str(pfolder)
-    job = load_job(shots, plan, shot, a.subject, preview, rel, video, world.output, a.by, a.day, name, a.first, a.frames, a.why or "", load_chain.utc_now())
+    job = load_job(shots, plan, shot, a.subject, preview, rel, video, world.output, a.by, a.day, name, a.first, a.frames, a.why or "", load_chain.utc_now(),
+                   source=str(source))
+    job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "ITS PREVIEW WAS MADE ON AN EARLIER COPY")
     out = folder / f"{name}.json"
     print(f"{name}: {a.subject}, {region}, source frames {job['loads'][0]['first']}-{job['loads'][0]['first'] + job['loads'][0]['frames'] - 1}; "
           f"its reference will be {job['loads'][0]['motion_file']}")
