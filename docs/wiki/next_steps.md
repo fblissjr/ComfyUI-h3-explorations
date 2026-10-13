@@ -295,11 +295,20 @@ fixed the same day, said inline below.**
   The plan of a zoomed load (`render_region: part`) is cheap today and
   says the box the node would take; it was run on 1010-1038 as
   `second_hf_1010_z` (mrhorn).
-- **The stacked form of a joined clip is a one-off for the second time**
-  (`data/2026-10-13_fun_joined_stacked/build_stacked_join.py`, after
-  `data/2026-10-11_fun_joined_b/`): the delivery of 0-1919 will want a
-  third. As a tracked tool it belongs beside `bench/assemble_delivery.py`,
-  reading the same table, with a check. Not started.
+- **The stacked form of a joined clip was a one-off twice**
+  (`data/2026-10-11_fun_joined_b/`, then
+  `data/2026-10-13_fun_joined_stacked/build_stacked_join.py`). **Built
+  2026-10-13 as a tracked tool**: `bench/stack_delivery.py`, reading the
+  table the assembler built the clip from, with
+  `bench/check_stack_delivery.py`. Not in it: the parts in their own
+  colours, and a zoomed render's mask at its whole-frame place.
+- **The delivery table is generated, never typed** (2026-10-13):
+  `bench/render_ledger.py` (every render, how it was made), then
+  `bench/delivery_table.py` (which render stands on each shot by one
+  stated rule, the reading of why, and the assembler's command whole).
+  Owed to it: a field in the job file, carried by the build record, that
+  says why a load took the plain cut (today the reading says the reason
+  was not read, and the lead hands it in with `--prefer`).
 - **The four reds of the green-and-red census are cut** (the owner, row
   z08, 2026-10-12 15:52:12Z): `check_correctness`'s bar, `check_sol_chunked`'s
   cosine and peak, `check_channel_balance`'s fragile-selection red,

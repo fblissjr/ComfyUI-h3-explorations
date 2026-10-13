@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 119 |
+| [`check_*`](#check) | 120 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 156 |
+| [the rest](#the-rest) | 157 |
 
 ## check
 
@@ -125,6 +125,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_sol_observe.py`](check_sol_observe.py) | Grade the Sol route observer before it is given a render. |
 | [`check_solattn_correctness.py`](check_solattn_correctness.py) | Check Sol-Attn's CUDA kernel against the algorithm's own eager reference. |
 | [`check_speaker_id_control.py`](check_speaker_id_control.py) | Red control for `preflight_graph.py::speaker_id_rules`. |
+| [`check_stack_delivery.py`](check_stack_delivery.py) | The stacked delivery clip (`bench/stack_delivery.py`) on a clip and pieces whose every frame is known by construction. |
 | [`check_step_x0_observer.py`](check_step_x0_observer.py) | `step_x0_observer.py` saves each step's prediction and changes nothing. |
 | [`check_subject_parts.py`](check_subject_parts.py) | The Sapiens2 part node's geometry and bookkeeping, on stand-ins for the two models. |
 | [`check_subject_track.py`](check_subject_track.py) | Following one person across cuts: the node's own logic, with stand-ins for SAM 3. |
@@ -437,6 +438,7 @@ this file is only a way to find a script by what it says it does.
 | [`smoke_h3.py`](smoke_h3.py) | Confirm the H3 chain composes and runs, after any node-pack update. |
 | [`sol_duckdb_analyzer.py`](sol_duckdb_analyzer.py) | DuckDB ingest and static dashboard for Sol probe and observer captures. |
 | [`sol_observe_report.py`](sol_observe_report.py) | Read a Sol route record and say what it holds, per render, step and block. |
+| [`stack_delivery.py`](stack_delivery.py) | A delivery clip stacked for the owner's eye: the original, what each render on the frame was given, the clip. |
 | [`stack_eval_clips.py`](stack_eval_clips.py) | Side-by-side and top-to-bottom video stacking utility for paired evaluation. |
 | [`stack_labeled_clips.py`](stack_labeled_clips.py) | Stack N clips vertically with a caption on each, for side-by-side viewing. |
 | [`subject_alone_or_in_a_group.py`](subject_alone_or_in_a_group.py) | Is ONE subject in a crowd followed better alone, or seeded together with the people around them? |
