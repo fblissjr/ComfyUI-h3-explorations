@@ -9,6 +9,8 @@
     <python> bench/shots_record.py move --shots data/<stem>/shots.json --first FIRST_OF_A --second FIRST_OF_B --to FRAME \\
         --why "..." --by SESSION [--dry-run]
     <python> bench/shots_record.py note --shots data/<stem>/shots.json --shot FIRST --add "words" --by SESSION [--dry-run]
+    <python> bench/shots_record.py answer --shots data/<stem>/shots.json --shot FIRST --answers data/<stem>/poc/answers.jsonl \\
+        --lines N[,N...] --why "..." --by SESSION [--dry-run]
 
 **What it buys.** The record's cuts are where every later tool takes its shots from (a preview is of a shot, a load
 of a shot, a `source` line of the delivery table of a shot), and a cut can be wrong both ways. On 2026-10-13 two
@@ -39,6 +41,14 @@ name would change sides: that is a merge and a split, a person's to divide. Both
 under `moved_from`.
 
 **note.** Words added to a shot's note, with when and by whom: what a look found there that changes no cut.
+
+**answer.** Who is in ONE shot, set from the owner's own answer lines, named by their numbers in the page's
+answers file (2026-10-13: a shot cut out of another said `unsure` for everybody, the owner answered on its
+numbered picture, and the step that carries a plain frame's answers into this record does not carry a numbered
+picture's). Each named line must be the owner's, a choice, on a frame inside the shot. A subject with a line that
+names a person or says "not outlined" is `yes`; one whose lines all say "not on frame" is `no`, as a plain
+frame's answers have always been read; a subject with no line among those named is left exactly as it was. The
+value is READ from the lines and never typed. The entries as they were are kept under `answered_over`.
 
 A dry run prints the shots before and after and writes nothing. A real run writes the record whole, as its other
 writers do, and refuses if the file changed while it ran. It does not make a copy of the record: the session that
@@ -168,6 +178,38 @@ def moved(a: dict, b: dict, to: int, subjects: list[str], why: str, by: str, now
     return out[0], out[1]
 
 
+def answered(shot: dict, lines: list[tuple[int, dict]], subjects: list[str], why: str, by: str, now: str, answers_name: str) -> dict:
+    """One shot with `present` set for every subject the owner's named answer lines speak of. `lines` is (line number, line)."""
+    said: dict[str, list] = {}
+    for n, d in lines:
+        frame = d.get("source_frame")
+        if d.get("who") != "owner" or d.get("what") != "choice" or d.get("subject") not in subjects or not str(frame).isdigit():
+            raise Refused(f"line {n} of {answers_name} is not a choice of the owner's for a subject of the record on a frame: {json.dumps(d)[:200]}")
+        if not shot["first"] <= int(frame) <= shot["last"]:
+            raise Refused(f"line {n} of {answers_name} is on frame {frame}, which is not in the shot {frames(shot)}")
+        said.setdefault(d["subject"], []).append((n, int(frame), str(d.get("chosen")), d))
+    if not said:
+        raise Refused("no answer line was named")
+    new = copy.deepcopy(shot)
+    new["answered_over"] = (shot.get("answered_over") or []) + [{"at": now, "by": by, "who": copy.deepcopy(shot["who"])}]
+    told = []
+    for subject, rows in said.items():
+        rows = {(frame, d.get("table") or ""): (n, frame, chosen, d) for n, frame, chosen, d in rows}.values()      # the last line on a picture is the answer
+        here = [r for r in rows if r[2] != "not on frame"]
+        words = []
+        for n, frame, chosen, d in rows:
+            where = f"the numbered picture {d['table']}" if d.get("table") else "the source itself"
+            what = f"person {chosen}" if chosen.isdigit() else "on this frame, not outlined" if chosen == "not outlined" else "not on this frame"
+            words.append(f"frame {frame} ({where}): {what}")
+        ns = sorted(n for n, *_ in rows)
+        at = max(str(d.get("at", "")) for *_, d in rows)
+        new["who"][subject] = {"present": "yes" if here else "no", "how": "; ".join(words),
+                               "by": f"owner, on the who page at {at} ({answers_name} lines {', '.join(map(str, ns))}), entered by shots_record.py answer for {by}"}
+        told.append(f"{subject} {'yes' if here else 'no'} (was {shot['who'][subject]['present']})")
+    new["note"] = " || ".join(x for x in (shot.get("note", ""), f"ANSWERED {now}, entered by {by}: {', '.join(told)}, by the owner's own lines. {why}") if x)
+    return new
+
+
 def checked(record: dict) -> None:
     """The record still covers its span with no gap and no overlap, and every shot has every subject."""
     last = None
@@ -185,7 +227,7 @@ def checked(record: dict) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n")[0])
     sub = ap.add_subparsers(dest="what", required=True)
-    for name in ("merge", "split", "move", "note"):
+    for name in ("merge", "split", "move", "note", "answer"):
         p = sub.add_parser(name)
         p.add_argument("--shots", required=True)
         if name != "note":
@@ -199,6 +241,10 @@ def main() -> int:
         elif name == "note":
             p.add_argument("--shot", type=int, required=True, help="the first frame of the shot")
             p.add_argument("--add", required=True, help="the words to add to its note")
+        elif name == "answer":
+            p.add_argument("--shot", type=int, required=True, help="the first frame of the shot")
+            p.add_argument("--answers", required=True, help="the page's answers file the lines are in")
+            p.add_argument("--lines", required=True, metavar="N[,N...]", help="the owner's answer lines, by their numbers in that file, counted from 1")
         elif name == "merge":
             p.add_argument("--first", type=int, required=True, help="the first frame of the first of the two shots")
             p.add_argument("--second", type=int, required=True, help="the first frame of the second")
@@ -240,6 +286,20 @@ def main() -> int:
             after = list(moved(before[0], before[1], a.to, record["subjects"], " ".join(a.why.split()), a.by, now))
             record["shots"][i:i + 2] = after
             did = f"the cut between {frames(before[0])} and {frames(before[1])} moved to {a.to}: now {frames(after[0])} and {frames(after[1])}"
+        elif a.what == "answer":
+            if a.shot not in by_first:
+                raise Refused(f"{a.shot} is not the first frame of a shot of the record")
+            every = Path(a.answers).read_text().splitlines()
+            try:
+                wanted = [int(x) for x in a.lines.split(",")]
+                named = [(n, json.loads(every[n - 1])) for n in wanted]
+            except (ValueError, IndexError):
+                raise Refused(f"--lines {a.lines!r}: line numbers of {a.answers}, counted from 1, with commas ({len(every)} lines there)") from None
+            i = by_first[a.shot]
+            before = record["shots"][i:i + 1]
+            after = [answered(before[0], named, record["subjects"], " ".join(a.why.split()), a.by, now, Path(a.answers).name)]
+            record["shots"][i:i + 1] = after
+            did = f"who is in shot {frames(after[0])} set from the owner's answer lines {a.lines}"
         elif a.what == "note":
             if a.shot not in by_first or not a.add.strip():
                 raise Refused(f"{a.shot} is not the first frame of a shot of the record, or --add has no words")
@@ -265,7 +325,7 @@ def main() -> int:
         return 5
     line = f"{did} by bench/shots_record.py for {a.by} at {now}: {' '.join((a.add if a.what == 'note' else a.why).split())}"
     record["written_by"] = f"{record['written_by']}; {line}" if record.get("written_by") else line
-    show = lambda shots: json.dumps([{k: v for k, v in s.items() if k not in ("merged_from", "split_from", "moved_from")} for s in shots], indent=1)      # noqa: E731
+    show = lambda shots: json.dumps([{k: v for k, v in s.items() if k not in ("merged_from", "split_from", "moved_from", "answered_over")} for s in shots], indent=1)      # noqa: E731
     print(f"BEFORE:\n{show(before)}\n\nAFTER (each also keeps the shot or shots as they were, whole, under `merged_from`, `split_from` or `moved_from`):\n{show(after)}\n")
     print(f"the record: {len(record['shots'])} shots; " + ("DRY: nothing written" if a.dry_run else f"{did}; written to {a.shots}"))
     if a.dry_run:

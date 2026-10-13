@@ -15,6 +15,10 @@
                                         `moved_from`; refused when an answer's frame would change shots, when the two are not neighbours, and
                                         when the new frame is where the cut is or outside them
   a_note_is_added_not_replaced          to the shot's own note, with when and by whom
+  an_answer_is_read_from_the_owners_lines   a subject with a line naming a person is `yes` and one whose lines say "not on frame" is `no`,
+                                        each with the frame and the line numbers in its words; a subject with no line is left as it was;
+                                        the last line on one picture is the answer; the entries as they were are kept; refused for a line
+                                        that is not the owner's, not a choice, on a frame outside the shot, or past the file's end
   a_dry_run_writes_nothing              and prints the shots before and after
   the_record_is_written_as_its_others_are   one space of indent and no last newline, every other shot byte for byte, its span still covered, a
                                         line added to `written_by`; the coverage tool's own reader takes it
@@ -136,6 +140,38 @@ def main() -> int:
         noted = run(path, "note", "--shot", "10", "--add", "frames 12 to 14 are a hand over the lens", "--by", "c", "--dry-run")
         case("a_note_is_added_not_replaced", noted.returncode == 0 and "THE OWNER'S NOTE ON 10 || NOTE " in noted.stdout and "by c: frames 12 to 14 are a hand over the lens" in noted.stdout
              and path.read_text() == was and run(path, "note", "--shot", "11", "--add", "x", "--by", "c").returncode == 5, noted.stdout[-500:])
+        ans = Path(d) / "answers.jsonl"
+        line = lambda who, what, sub, chosen, frame, table="t_shots.json": {"who": who, "what": what, "subject": sub, "chosen": chosen, "source_frame": str(frame),   # noqa: E731
+                                                                            "table": table, "at": "2026-01-01T10:00:00Z", "row": "who"}
+        ans.write_text("".join(json.dumps(x) + "\n" for x in [
+            line("owner", "choice", "a", "2", 5), line("owner", "choice", "b", "not on frame", 5),          # 1, 2
+            line("a session", "choice", "a", "1", 5), line("owner", "words", None, None, 5),                 # 3, 4
+            line("owner", "choice", "a", "1", 40), line("owner", "choice", "a", "not on frame", 5),          # 5 (another shot), 6 (a later line on the same picture)
+            line("owner", "choice", "b", "not outlined", 7, "")]))                                           # 7, a plain frame
+        names = lambda *n: [(k, json.loads(ans.read_text().splitlines()[k - 1])) for k in n]                 # noqa: E731
+        first = r0["shots"][0]                                                                               # 0-9: a no, b no
+        got = sr.answered(first, names(1, 2), ["a", "b"], "the hat is a", "c", "NOW", "answers.jsonl")
+        only_a = sr.answered(first, names(1), ["a", "b"], "w", "c", "NOW", "answers.jsonl")
+        later = sr.answered(first, names(1, 6, 7), ["a", "b"], "w", "c", "NOW", "answers.jsonl")
+        tries = {}
+        for name, n in (("a session's", (3,)), ("words", (4,)), ("another shot", (5,))):
+            try:
+                sr.answered(first, names(*n), ["a", "b"], "w", "c", "NOW", "answers.jsonl")
+                tries[name] = "NOT REFUSED"
+            except sr.Refused as e:
+                tries[name] = str(e)
+        past = run(path, "answer", "--shot", "0", "--answers", str(ans), "--lines", "99", "--why", "w", "--by", "c")
+        dry_a = run(path, "answer", "--shot", "0", "--answers", str(ans), "--lines", "1,2", "--why", "w", "--by", "c", "--dry-run")
+        case("an_answer_is_read_from_the_owners_lines", got["who"]["a"] == {"present": "yes", "how": "frame 5 (the numbered picture t_shots.json): person 2",
+                                                                              "by": "owner, on the who page at 2026-01-01T10:00:00Z (answers.jsonl lines 1), entered by shots_record.py answer for c"}
+             and got["who"]["b"]["present"] == "no" and got["who"]["b"]["how"] == "frame 5 (the numbered picture t_shots.json): not on this frame" and "lines 2)" in got["who"]["b"]["by"]
+             and got["answered_over"] == [{"at": "NOW", "by": "c", "who": first["who"]}] and got["note"] == "ANSWERED NOW, entered by c: a yes (was no), b no (was no), by the owner's own lines. the hat is a"
+             and sr.named_frames(got["who"]["a"]) == {5} and only_a["who"]["b"] == first["who"]["b"] and only_a["who"]["a"]["present"] == "yes"
+             and later["who"]["a"]["present"] == "no" and "lines 6)" in later["who"]["a"]["by"] and later["who"]["b"]["present"] == "yes"
+             and later["who"]["b"]["how"] == "frame 7 (the source itself): on this frame, not outlined"
+             and "line 3" in tries["a session's"] and "is not a choice of the owner's" in tries["a session's"] and "is not a choice of the owner's" in tries["words"]
+             and "frame 40, which is not in the shot 0-9" in tries["another shot"] and past.returncode == 5 and "counted from 1" in past.stdout
+             and dry_a.returncode == 0 and path.read_text() == was and "DRY: nothing written" in dry_a.stdout, (got, later["who"], tries, past.stdout[-300:], dry_a.stdout[-200:]))
         nobody = run(path, "split", "--shot", "50", "--at", "80", "--keeps", "first", "--other", "a=unsure:nothing known", "--why", "w", "--by", "c")
         edge = run(path, "split", "--shot", "50", "--at", "50", "--keeps", "first", "--other", "a=unsure:x", "--other", "b=unsure:x", "--why", "w", "--by", "c")
         out = run(path, "split", "--shot", "50", "--at", "120", "--keeps", "first", "--other", "a=unsure:x", "--other", "b=unsure:x", "--why", "w", "--by", "c")
@@ -160,7 +196,7 @@ def main() -> int:
             ok = False
             text = str(stop)
         case("the_record_is_written_as_its_others_are", ok, real.stdout[-300:] + cut.stdout[-300:] + text[:300])
-    print(f"\n{'all' if not fails else fails} {'of ' if fails else ''}11 case(s) {'FAILED' if fails else 'ok'}")
+    print(f"\n{'all' if not fails else fails} {'of ' if fails else ''}12 case(s) {'FAILED' if fails else 'ok'}")
     return 1 if fails else 0
 
 

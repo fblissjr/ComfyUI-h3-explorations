@@ -531,6 +531,20 @@ fixed the same day, said inline below.**
   both keeps and the owner's words on each printed, and the rule's
   other grounds left to the lead's `--prefer` with its reason. Not
   started.
+- **After a cut is mended, the step that carries page answers into the
+  record refuses** (2026-10-13). `bench/page_answers_to_cast.py --shots`
+  holds every plain-frame answer to the shot the page showed it under,
+  and an answer given under a shot the record has since joined, cut or
+  moved is refused by name (the first met: frame 1926, shown under
+  1920-1944, the record now 1898-1944). Right for an answer whose shot
+  is gone; but it stops the whole run, so no answer of that day's page
+  reached the record through it and the cast file was written without
+  `--shots`. The one shot that had to change was written by
+  `bench/shots_record.py answer`, from the owner's lines by number.
+  Wanted: an answer under a shot the record no longer has is counted
+  and listed, each with the shot that now holds its frame, and the run
+  goes on; whether such an answer is carried to the new shot is a
+  person's ruling, shot by shot. Not started.
 - **`bench/break_checks.py` cannot run `check_masked_job`** (2026-10-13,
   from the build of the two-shot load). Its copy of the repo leaves
   `.git` out and that check asks git for HEAD, so the control is red in
