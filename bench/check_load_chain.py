@@ -980,8 +980,14 @@ def what_the_gate_is_told() -> str:
                      ("--named-empty", "second:90-99=the job's left_out (CUT BY A LOOK)")], pairs
     other = dict(ctx, job=dict(ctx["job"], keep_outs={**ctx["job"]["keep_outs"], "of": "lead"}), subject_keys={})
     assert [x for x in lc.told_to_the_gate(other) if x.startswith("--")] == ["--named-empty"], "another subject's keep-outs told as hers, or a drop with no reason"
+    # the job's reference points go to the gate, for the chin the held keep-out's split reads her clothing below (the lead, 2026-10-14)
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix="_points.npz") as pts:
+        told = lc.told_to_the_gate(dict(ctx, job=dict(ctx["job"], reference={"points": pts.name})))
+        assert told[-2:] == ["--chin-points", pts.name], told
+    assert "--chin-points" not in lc.told_to_the_gate(dict(ctx, job=dict(ctx["job"], reference={"points": "/nowhere/x_points.npz"}))), "a missing points file was told"
     return ("her own keep-outs with their classes, not strangers; a restore span gives back only a keep-out whose classes it holds, on the load's frames; the "
-            "job's drop= with its reason and its left_out told as named; nothing of another subject's keep-outs")
+            "job's drop= with its reason and its left_out told as named; nothing of another subject's keep-outs; the reference's points as the chin")
 
 
 case("render: the go beside the job file, and what stops it", the_render_step)

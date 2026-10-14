@@ -886,7 +886,8 @@ def told_to_the_gate(ctx: dict) -> list[str]:
     - `--given-back NAME:FIRST-LAST=WHY`: each span of the job's `restore` (the plan's, written by the job step) whose
       classes hold all of an own keep-out's, on the load's frames;
     - `--named-empty SUBJECT:FIRST-LAST=WHY`: the frames the job empties on purpose: its subject's `drop` with `drop_by`,
-      and its `left_out` with each reason."""
+      and its `left_out` with each reason;
+    - `--chin-points POINTS.npz`: the job's reference points, whose chin the held keep-out's split reads her clothing below."""
     job, out = ctx["job"], []
     kept = job.get("keep_outs") or {}
     own = {}
@@ -907,6 +908,9 @@ def told_to_the_gate(ctx: dict) -> list[str]:
     for x in job.get("left_out") or []:
         if x.get("why"):
             out += ["--named-empty", f"{x['subject']}:{x['first']}-{x['first'] + x['frames'] - 1}=the job's left_out ({' '.join(str(x['why']).split())})"]
+    points = (job.get("reference") or {}).get("points")
+    if points and Path(points).is_file():
+        out += ["--chin-points", str(points)]
     return out
 
 

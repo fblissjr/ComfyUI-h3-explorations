@@ -302,6 +302,27 @@ REGION_ON_OTHER = 0.05
 REGION_ON_OTHER_LEAST_PX = 1024
 #: The strangers keep-out's label in a capture (`bench/strangers.py`, `bench/shot_to_load.py`): the one other the floor applies to.
 STRANGERS_LABEL = "strangers"
+#: The keep-out of the things a subject holds (`--own-keep-out held`): what of it lies inside a run's region is split, frame by frame,
+#: before it counts against the load (the lead, 2026-10-14, on mrpre's read `internal/claude/2026-10-14_mrpre_held_own_read.md`,
+#: steps 1, 2 and 4; no step 3, her own held thing, which neither capture of the day had):
+#:   1. edge slivers: held pixels a HELD_THIN_PX x HELD_THIN_PX opening removes, data;
+#:   2. her clothing: what is left on her track's HELD_CLOTHING classes, or Background below her chin (the pose model's `tip_of_chin`
+#:      from the load's reference points, `--chin-points`; on a frame with none, her Face_Neck's lowest row on her track, said so),
+#:      data with its frames and px;
+#:   4. the rest: the flag, with its frames and px named.
+HELD_LABEL = "held"
+#: A starting value MEASURED on second_hfp_0014d and second_hfp_1010d (mrpre, 2026-10-14): on their flagged frames the opening took
+#: 1052 of 3067 and 607 of 797 held px, all slivers on the crops. What it takes from a real thin held thing (a spoon) is not known.
+HELD_THIN_PX = 5
+#: Her clothing as the part model names it (mrpre's read: K's classes without the band's cut). "Below her neck" is the chin point
+#: (the lead's ruling, 2026-10-14, on mrpre's measure): the part model calls her chest skin Face_Neck, down to rows 577-633 on
+#: 0014d's 123-128, below the bib's fold at 456-511, which Face_Neck's lowest row left in the flag (810 px) and the chin takes
+#: (54 px left). A chin point is taken from CHIN_LEAST_SCORE up; each frame's score is printed.
+HELD_CLOTHING = ("Upper_Clothing", "Apparel")
+#: A chin point scored under this is the pose model guessing, and counts as no chin point (Face_Neck's lowest row, said). REASONED, a
+#: starting value (the lead, 2026-10-14): well above second_hfp_1010d's 0.02-0.07, where her chin is in her hand and "below the chin"
+#: could start anywhere and silence face-height pixels as her clothing; well below second_hfp_0014d's median 0.91.
+CHIN_LEAST_SCORE = 0.3
 #: A segment with fewer pixels than this inside a region is its edge and is not flagged. Reasoned: under a
 #: quarter of one latent cell.
 SEGMENT_PX = 64
@@ -2743,7 +2764,70 @@ def spans_said(frames) -> str:
     return ", ".join(f"{a}-{b}" for a, b in frame_spans(sorted(frames), join=1))
 
 
-def flag_runs(manifest: dict, folder: Path, own: dict | None = None, given: dict | None = None) -> list[dict]:
+def chin_rows(path: str | None, size: tuple[int, int]) -> dict:
+    """The pose model's `tip_of_chin` by source frame from a points file (`pose_along_shot`'s, the load's reference points), as
+    (the first row on the capture's canvas at or below the point, score). A frame the file does not hold, or whose point is off the canvas, is not in it."""
+    if not path:
+        return {}
+    from _lib import face_points
+    pts = face_points.load(path)
+    if "tip_of_chin" not in pts["index"] or pts["first"] is None:
+        raise SystemExit(f"--chin-points {path}: no tip_of_chin, or no first source frame, in the file")
+    scale = size[1] / pts["size"][1] if pts.get("size") else 1.0
+    i, out = pts["index"]["tip_of_chin"], {}
+    for k, (xy, sc) in enumerate(zip(pts["keypoints"][:, i], pts["scores"][:, i])):
+        y = float(xy[1]) * scale
+        if np.isfinite(y) and 0 <= y < size[1]:
+            out[pts["first"] + k] = (int(np.ceil(y)), round(float(sc), 2))   # the first row at or below the point
+    return out
+
+
+def held_split(folder: Path, manifest: dict, run: dict, frames: list[int], chin: dict | None = None) -> dict | None:
+    """Held's pixels inside a run's region, frame by frame: {frame: {"inside", "slivers", "clothing", "rest", "below"}} in px
+    (`HELD_LABEL`); `below` is what "below her chin" was read from that frame: the chin point's row and score, or her Face_Neck's
+    lowest row where `chin` (`chin_rows`) has no point. None when the capture holds no held mask or no class map of the run's subject:
+    the flag is then as before."""
+    import cv2
+    held_dir, sub = folder / "subjects" / HELD_LABEL, run["subject"]
+    sighted = {s["label"]: s["sightings"][0]["by"] for s in manifest["subjects"]}
+    paths = (held_dir / f"masks__{sighted.get(HELD_LABEL)}.npz", folder / "subjects" / sub / f"masks__{sighted.get(sub)}.npz",
+             folder / "subjects" / sub / f"classes__{sighted.get(sub)}.npz", folder / "runs" / run["name"] / "region.npz")
+    if not all(p.is_file() for p in paths):
+        return None
+    held, track = (np.unpackbits(np.load(p)["track"], axis=-1).astype(bool) for p in paths[:2])
+    classes, region = np.load(paths[2])["classes"], np.load(paths[3])["region"]
+    names = list(_pack("sapiens2_parts").CLASS_NAMES)
+    first = int(run.get("first_source_frame", manifest["first_frame"]))
+    w = classes.shape[2]
+    kernel = np.ones((HELD_THIN_PX, HELD_THIN_PX), np.uint8)
+    out = {}
+    for f in frames:
+        i = f - first
+        if not 0 <= i < len(region):
+            continue
+        h, c, t = held[i][:, :w], classes[i], track[i][:, :w]
+        inside = h & cells_up(region[i])
+        thick = inside & (cv2.morphologyEx(h.astype(np.uint8), cv2.MORPH_OPEN, kernel) > 0)
+        if f in (chin or {}) and chin[f][1] >= CHIN_LEAST_SCORE:
+            row, said = chin[f][0], f"the chin point, row {chin[f][0]} and down, score {chin[f][1]}"
+        else:
+            neck = np.nonzero(((c == names.index("Face_Neck")) & t).any(1))[0]
+            row = int(neck.max()) + 1 if len(neck) else 0
+            why = (f"CHIN POINT SCORED UNDER {CHIN_LEAST_SCORE} ({chin[f][1]})" if f in (chin or {}) else "NO CHIN POINT")
+            said = f"{why}: her Face_Neck's lowest row, {row - 1}" if len(neck) else f"{why} and no Face_Neck: the whole frame"
+        below = np.zeros_like(h)
+        below[row:] = True
+        clothing = t & (np.isin(c, [names.index(x) for x in HELD_CLOTHING]) | ((c == names.index("Background")) & below))
+        out[f] = {"inside": int(inside.sum()), "slivers": int((inside & ~thick).sum()), "clothing": int((thick & clothing).sum()),
+                  "rest": int((thick & ~clothing).sum()), "below": said}
+    return out
+
+
+def px_said(split: dict, key: str) -> str:
+    return ", ".join(f"{f} ({v[key]} px)" for f, v in sorted(split.items()) if v[key])
+
+
+def flag_runs(manifest: dict, folder: Path, own: dict | None = None, given: dict | None = None, chin: dict | None = None) -> list[dict]:
     """A run's region over another subject, and a region that is mostly not its subject.
 
     `own`: the keep-outs that are the load's subject's own things (`--own-keep-out`: her hands, clothes, held things),
@@ -2781,6 +2865,21 @@ def flag_runs(manifest: dict, folder: Path, own: dict | None = None, given: dict
                             "figures": {"frames": len(specks), "px_inside_most": round(max(px_in[f] for f, _ in specks))},
                             "threshold": {"REGION_ON_OTHER_LEAST_PX": REGION_ON_OTHER_LEAST_PX}})
                 hit = [(f, v) for f, v in hit if px_in[f] >= REGION_ON_OTHER_LEAST_PX]
+            split = held_split(folder, manifest, run, [f for f, _ in hit], chin) if other == HELD_LABEL and hit else None
+            if split:
+                for key, rule, words in (("slivers", "region_over_held_slivers", f"edge slivers between her classes (gone under a {HELD_THIN_PX}x{HELD_THIN_PX} opening)"),
+                                         ("clothing", "region_over_her_clothing", "her clothing regenerated inside the region (inside the hair band's box where the "
+                                                                                  "load has one): " + "+".join(HELD_CLOTHING) + " or Background below her chin")):
+                    on = {f: v for f, v in split.items() if v[key]}
+                    if on:
+                        out.append({"rule": rule, "level": LEVELS[0], "subject": run["subject"], "run": name, "other": other,
+                                    "source_frames": frame_spans(sorted(on)),
+                                    "why": f"{kind} {name}'s region holds {other}'s mask where it is {words}, on {px_said(split, key)}: "
+                                           f"{sum(v[key] for v in on.values())} px, said as data and not counted against the load",
+                                    "figures": {"frames": len(on), "px": sum(v[key] for v in on.values()), "px_a_frame": {f: v[key] for f, v in on.items()},
+                                                **({"below_her_chin_from": {f: v["below"] for f, v in on.items()}} if key == "clothing" else {})},
+                                    "threshold": {"HELD_THIN_PX": HELD_THIN_PX}})
+                hit = [(f, v) for f, v in hit if split.get(f, {"rest": 1})["rest"]]
             if hit:
                 worst = max(v for _, v in hit)
                 held = sum(1 for r in cross if r.get(f"cells_given_back__{name}__{other}"))
@@ -2788,8 +2887,17 @@ def flag_runs(manifest: dict, folder: Path, own: dict | None = None, given: dict
                        f"there by {whom}'s pass" + (f" (margin cells were given back on {held} frames)" if held else ""))
                 level = LEVELS[2] if worst > 5 * REGION_ON_OTHER else LEVELS[1]
                 figures = {"frames": len(hit), "worst_share": round(worst, 3), **({"px_inside_most": round(max(px_in[f] for f, _ in hit))} if px_in else {})}
-                if px_in:
+                if px_in and not split:
                     why += f"; at most {round(max(px_in[f] for f, _ in hit))} px of it inside the region on a frame"
+                if split:
+                    left = {f: split[f]["rest"] for f, _ in hit if f in split}
+                    why += (f"; LEFT after the edge slivers and her clothing: {sum(left.values())} px, on {px_said(split, 'rest')}"
+                            if left else "")
+                    figures["px_left_a_frame"] = left
+                    figures["below_her_chin_from"] = {f: split[f]["below"] for f in left}
+                    for start, words in (("NO CHIN", "no chin point"), ("CHIN POINT SCORED", f"chin point scored under {CHIN_LEAST_SCORE}")):
+                        fell = [f for f in left if split[f]["below"].startswith(start)]
+                        why += f" ({words} on {spans_said(fell)}: her Face_Neck's lowest row there)" if fell else ""
                 if other in own:
                     back = {f for a, b, _ in given.get(other, []) for f in range(a, b + 1)}
                     rest = [(f, v) for f, v in hit if f not in back]
@@ -3574,7 +3682,7 @@ def told_by_the_job(a: argparse.Namespace) -> dict:
     for x in getattr(a, "named_empty", None) or []:
         n, lo, hi, why = span_why(x, "--named-empty")
         named.setdefault(n, []).append((lo, hi, why))
-    return {"own": own, "given": given, "named": named}
+    return {"own": own, "given": given, "named": named, "chin": getattr(a, "chin_points", None)}
 
 
 def preflight(a: argparse.Namespace) -> None:
@@ -3607,7 +3715,7 @@ def preflight(a: argparse.Namespace) -> None:
                 flags += flag_pose(s["label"], by, json.loads(path.read_text())["rows"], mine, others_on,
                                    bool((seen.get("pose") or {}).get("hand_refinement")))
     told = told_by_the_job(a)
-    flags += flag_runs(m, folder, told["own"], told["given"]) + flag_segments(m, folder) + flag_keep(m, folder) + flag_cuts(m, folder) + flag_loads(m, folder, not_in) + flag_lent(m, folder, told["named"]) + flag_held_tail(m, folder) + flag_kept(m, folder) + flag_mouth(m, folder) + flag_face_size(m, folder) + flag_pieces(m, folder)
+    flags += flag_runs(m, folder, told["own"], told["given"], chin_rows(told["chin"], tuple(m["size"]))) + flag_segments(m, folder) + flag_keep(m, folder) + flag_cuts(m, folder) + flag_loads(m, folder, not_in) + flag_lent(m, folder, told["named"]) + flag_held_tail(m, folder) + flag_kept(m, folder) + flag_mouth(m, folder) + flag_face_size(m, folder) + flag_pieces(m, folder)
     cross = json.loads((folder / "frames.json").read_text())["rows"]
     # a kept-out or keep mask given as a subject is a union of things, not somebody: it has no class map
     whos = {x["label"] for x in m["subjects"] if x["sightings"][0].get("classes")} or {x["label"] for x in m["subjects"]}
@@ -5002,6 +5110,8 @@ def main() -> None:
                    help="a keep-out that is the load's subject's own (her hands, clothes, held things), with the classes a restore span names; repeatable")
     g.add_argument("--given-back", action="append", default=[], metavar="NAME:FIRST-LAST=WHY",
                    help="source frames on which an own keep-out is given back to the original (the plan's restore span), and why; repeatable")
+    g.add_argument("--chin-points", metavar="POINTS.npz", help="the load's reference points (the job's reference.points): the pose model's "
+                   "tip_of_chin a frame, below which Background on her track is her clothing in the held keep-out's split")
     g.add_argument("--named-empty", action="append", default=[], metavar="SUBJECT:FIRST-LAST=WHY",
                    help="source frames the job leaves the subject empty on purpose (its drop= or left_out), with its reason; repeatable")
     ri = sub.add_parser("rules", help="every figure a per-clip rule needs, in one file: writes rules_input.json")

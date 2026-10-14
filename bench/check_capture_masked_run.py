@@ -1735,7 +1735,7 @@ def what_the_job_says_is_its_own() -> str:
     told = cap.told_by_the_job(argparse.Namespace(own_keep_out=["hands=Left_Hand+Right_Hand", "held="], given_back=["hands:100-102=THE RESTORE"],
                                                   named_empty=["a:5-6=THE DROP"]))
     assert told == {"own": {"hands": ["Left_Hand", "Right_Hand"], "held": []}, "given": {"hands": [(100, 102, "THE RESTORE")]},
-                    "named": {"a": [(5, 6, "THE DROP")]}}, told
+                    "named": {"a": [(5, 6, "THE DROP")]}, "chin": None}, told
     for bad, words in ((dict(given_back=["clothes:1-2=X"]), "not one of the --own-keep-out"), (dict(given_back=["hands:1-2="]), "with the why"),
                        (dict(named_empty=["a:9-2=X"]), "with the why"), (dict(named_empty=["a:x=X"]), "not NAME:FIRST-LAST")):
         try:
@@ -1765,6 +1765,71 @@ def what_the_job_says_is_its_own() -> str:
         assert by(cap.flag_runs(m, folder, own, {}))["hands"]["level"] == cap.LEVELS[2], "her own hands with nothing given back went quiet"
     return ("frames the job names are said with its reason and do not block, others do; her own keep-out drops a level only where given back on every "
             "frame, and says which restore would answer it; another person's is unchanged; the gate's job flags parsed and refused")
+
+
+def held_split() -> str:
+    """The lead, 2026-10-14, on mrpre's read: held's pixels inside the region are split before they count. Edge slivers (gone under a
+    HELD_THIN_PX opening) and her clothing (Upper_Clothing, Apparel, or Background below her chin) are data with frames and px; the
+    rest stays the flag, its px named. Made on the two mechanisms of the day: on 0014d her chest skin is Face_Neck below the bib's fold,
+    so only the chin takes the fold (810 px left without it, 54 with); on 1010d a thick sliver above her chin stays (157 px)."""
+    import tempfile
+    W_, H_ = 1024, 768
+    names = list(cap._pack("sapiens2_parts").CLASS_NAMES)
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp)
+        for d in ("runs/r", "subjects/a", "subjects/held"):
+            (folder / d).mkdir(parents=True)
+        track, held = np.zeros((2, H_, W_), bool), np.zeros((2, H_, W_), bool)
+        classes = np.zeros((2, H_, W_), np.uint8)
+        track[:, 100:700, 300:700] = True
+        classes[:, 100:700, 300:700] = names.index("Background")
+        classes[:, 150:650, 450:550] = names.index("Face_Neck")          # her chest skin called Face_Neck, down to row 649
+        classes[0, 500:520, 320:340] = names.index("Upper_Clothing")
+        held[0, 300:303, 300:401] = True                                  # a sliver 3 px thick: 303 px
+        held[0, 460:480, 600:620] = True                                  # 14d: the bib's fold, Background under her chin and above row 649: 400 px
+        held[0, 500:520, 320:340] = True                                  # on her Upper_Clothing: 400 px
+        held[1, 340:350, 640:652] = True                                  # 1010d: a thick sliver above her chin: 120 px
+        np.savez(folder / "subjects" / "a" / "masks__p.npz", track=np.packbits(track, axis=-1), parts=np.packbits(track, axis=-1))
+        np.savez(folder / "subjects" / "held" / "masks__p.npz", track=np.packbits(held, axis=-1))
+        np.savez(folder / "subjects" / "a" / "classes__p.npz", classes=classes)
+        np.savez(folder / "runs" / "r" / "region.npz", region=np.ones((2, H_ // 16, W_ // 16), bool))
+        (folder / "frames.json").write_text(json.dumps({"rows": [{"source_frame": f, "region_on__r__held": 0.5} for f in (120, 121)]}))
+        (folder / "runs" / "r" / "per_frame.json").write_text(json.dumps({"rows": []}))
+        m = {"size": [W_, H_], "first_frame": 120, "subjects": [{"label": x, "sightings": [{"by": "p"}]} for x in ("a", "held")],
+             "runs": [{"name": "r", "subject": "a", "planned": True, "first_source_frame": 120}]}
+        pts = folder / "points.npz"            # the reference's points at half the canvas: row 200 is 400; 121's, a guess, is set high, above the sliver
+        kp = np.zeros((3, 2, 2), np.float32)
+        kp[:, 1] = [[300, 200], [300, 150], [300, 999]]
+        np.savez(pts, keypoints=kp, scores=np.array([[1, 0.9], [1, 0.04], [1, 0.5]], np.float32), names=np.array(["nose", "tip_of_chin"]),
+                 first_frame=np.array(120), size=np.array([512, 384]))
+        chin = cap.chin_rows(str(pts), (W_, H_))
+        assert chin == {120: (400, 0.9), 121: (300, 0.04)}, chin             # scaled to the canvas; a point off it is no point
+        own = {"held": []}
+        got = {f["rule"]: f for f in cap.flag_runs(m, folder, own, {}, chin) if f.get("other") == "held"}
+        # THE CASE THAT GOES RED when slivers or her clothing count against the load, or what is left is not named with its px
+        assert got["region_over_held_slivers"]["level"] == cap.LEVELS[0] and got["region_over_held_slivers"]["figures"]["px_a_frame"] == {120: 303}, got["region_over_held_slivers"]
+        cl = got["region_over_her_clothing"]
+        assert cl["level"] == cap.LEVELS[0] and cl["figures"]["px_a_frame"] == {120: 800} and "her clothing regenerated inside the region" in cl["why"], cl
+        assert cl["figures"]["below_her_chin_from"][120] == "the chin point, row 400 and down, score 0.9", cl["figures"]
+        left = got["region_over_another_subject"]
+        # THE CASE THAT GOES RED when a chin point scored under CHIN_LEAST_SCORE is taken: set high, it would silence 121's sliver as her clothing
+        assert left["source_frames"] == [[121, 121]] and "LEFT after the edge slivers and her clothing: 120 px, on 121 (120 px)" in left["why"] \
+            and f"chin point scored under {cap.CHIN_LEAST_SCORE} on 121-121: her Face_Neck's lowest row there" in left["why"], left
+        assert left["figures"]["below_her_chin_from"][121] == f"CHIN POINT SCORED UNDER {cap.CHIN_LEAST_SCORE} (0.04): her Face_Neck's lowest row, 649", left["figures"]
+        # THE CASE THAT GOES RED when "below her chin" is read off Face_Neck's lowest row where a chin point is given: 14d's fold stays flagged
+        no_chin = {f["rule"]: f for f in cap.flag_runs(m, folder, own, {}, {}) if f.get("other") == "held"}["region_over_another_subject"]
+        assert no_chin["source_frames"] == [[120, 121]] and "LEFT after the edge slivers and her clothing: 520 px, on 120 (400 px), 121 (120 px)" in no_chin["why"] \
+            and "no chin point on 120-121: her Face_Neck's lowest row there" in no_chin["why"], no_chin["why"]
+        # nothing left: no flag at all, the data stays
+        held[1] = False
+        np.savez(folder / "subjects" / "held" / "masks__p.npz", track=np.packbits(held, axis=-1))
+        rules = [f["rule"] for f in cap.flag_runs(m, folder, own, {}, chin) if f.get("other") == "held"]
+        assert rules == ["region_over_held_slivers", "region_over_her_clothing"], rules
+        # another subject's mask is not split, and with no class map the held flag is as before
+        (folder / "subjects" / "a" / "classes__p.npz").unlink()
+        assert [f["rule"] for f in cap.flag_runs(m, folder, own, {}, chin) if f.get("other") == "held"] == ["region_over_another_subject"]
+    return ("held's pixels in the region split: edge slivers and her clothing (Upper_Clothing, Apparel, Background below the reference's chin point) are data "
+            "with frames and px; the rest stays the flag with its px; without a chin point Face_Neck's lowest row, said so; no class map, as before")
 
 
 def specks_of_another() -> str:
@@ -1897,6 +1962,7 @@ case("preflight: a load that lays nothing where its subject is", a_load_that_lay
 case("preflight: what the job says is its own", what_the_job_says_is_its_own)
 case("preflight: specks of another are data", specks_of_another)
 case("a strip says what the node will render", what_the_node_will_render)
+case("preflight: held's slivers and her clothing are data", held_split)
 case("a fill of a doubted part, graded by the class map", graded_holds)
 case("the floor under a small part: a starting value, held against the clip's own sizes", the_floor_against_the_clip)
 case("verify: the capture reads what the nodes wrote", verifying)
