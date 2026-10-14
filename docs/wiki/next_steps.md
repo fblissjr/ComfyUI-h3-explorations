@@ -551,19 +551,33 @@ fixed the same day, said inline below.**
   job file for the reason it left frames; the capture says only that it
   emptied the part, not why (the grade, the floor, a keep-out), and the
   manifest holds which. Not started.
-- **A load of the hair alone has not been through a reference or a gate**
-  (2026-10-13, late). `bench/shot_to_load.py job --parts hair --parts-by
-  "..."` now makes a load whose part is some of its subject's plan parts
-  (the owner's answer on the second subject: where her head is bowed and
-  no face shows, her hair stays the new hair), cut from the preview's
-  class map and handed to the capture as the load's part. NOT KNOWN
-  until the card says: how the head-reference step reads a load on
-  frames where no face shows (the reference is the body model cut to
-  the head with the face points drawn), and how the gate's part flags
-  read a part that is hair alone. The first such load owes a look
-  whatever its flags; what it shows goes here or closes this row. The
-  delivery table takes such a piece by its region, the plan's: nothing
-  in a piece's record says to the table that its part was a subset.
+- **A part that changes inside one load** (2026-10-13, late; THE NEXT
+  WORKING DAY'S FIRST TOOLING JOB, the lead's ruling). `shot_to_load.py
+  job --parts` makes a load whose part is some of its subject's parts
+  on EVERY frame. The first one (the second subject's hair alone on
+  1025-1038) was stopped at its reference: seven of its frames are all
+  that the reference follows her on, under the builder's shortest
+  load, and a face-and-hair load ending on 1024 beside it would put the
+  change inside the shot, which is what the owner saw and disliked.
+  Wanted: `--parts-on FIRST-LAST=NAME`, so ONE load 1010-1031 carries
+  face and hair to 1024 and the hair alone on 1025-1031, cut from the
+  class map a frame at a time, with one reference made on 1010-1031;
+  1032-1038 left the source with the reason. Until then she is the
+  original on the whole of 1010-1038. No hair-alone render exists yet,
+  so the table's taking of a named part as the plan's region is unread
+  on a real piece. Not started.
+- **The reference step passes a body model that is not the subject**
+  (2026-10-13, late, from the holder of the card on that load). On
+  1032-1038 the lead crosses in front of the second subject, the body
+  model goes elsewhere (upright, an arm raised, the face marks flung off
+  the head), and `shot_to_load.py reference` printed PASSED: its
+  read-back measures slip against the pose, not whose body it is. Its
+  own print carried the sign (a face a few pixels tall on a head with no
+  face showing). Wanted: the step holds the body model's head to the
+  subject's own track a frame at a time, prints the frames on which it
+  leaves it, and does not say passed over them; and the gate-alone
+  path's list (`load_chain.FORCING_NOT_READ`) stops having to say that a
+  head leaving its box is read only as "passed". Not started.
 - **The delivery table orders overlapping keeps by the render's time, not
   the keep's** (2026-10-13). Where the owner kept more than one render
   on the same frames, `bench/delivery_table.py` takes the newer RENDER
