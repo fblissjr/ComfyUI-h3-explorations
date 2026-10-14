@@ -383,6 +383,22 @@ def items_at_the_top() -> str:
             "unbuilt span, a listed id, a failing record, a stack fault and a link to another build refused; a relative --clips links to the clip")
 
 
+def sentences_in_order() -> str:
+    """A fourth reader (2026-10-14): inside a shot, a subject's sentences came in the table's order, not the frames'."""
+    t = {"reading": [entry(100, 160, "lead", stands=[stand("lead_late", [(140, 160)], "2026-10-13T15:00:00Z"), stand("lead_early", [(110, 139)], "2026-10-13T15:00:00Z")],
+                           passed_over=[passed("lead_kept", "2026-10-12T15:00:00Z", "set aside", {"said": dt.KEEP[0], "at": "2026-10-12T16:00:00Z"})],
+                           left=[[100, 109]]),
+                     entry(100, 160, "second", present="unsure", stands=[stand("second_a", [(100, 160)], "2026-10-13T15:00:00Z")]),
+                     entry(161, 170, "lead", stands=[stand("lead_next", [(161, 170)], "2026-10-13T15:00:00Z")])],
+         "not_in_the_shot": [{"first": 100, "last": 160, "subject": "third", "why": "the record"}]}
+    _, said = src.item_words(t)
+    order = [next(k for k in ("the original on 100-109", "lead_early", "lead_late", "YOUR KEEP lead_kept", "second: the shots record is unsure", "second_a",
+                              "third: not in this shot", "lead_next") if k in w) for w in said]
+    # THE CASE THAT GOES RED when a subject's sentences inside a shot follow the table's order and not the frames'
+    assert order == ["the original on 100-109", "lead_early", "lead_late", "YOUR KEEP lead_kept", "second: the shots record is unsure", "second_a",
+                     "third: not in this shot", "lead_next"], said
+    return "shot by shot, subject by subject in the table's order, a subject's sentences by frame: unsure first, passed over and held last"
+
 def by_the_day() -> str:
     t = made_table()
     t["made"] = "Made at commit x from the ledger `LEDGER` (...)"
@@ -447,6 +463,7 @@ case("the item itself", the_item_itself)
 case("the table is handed what it needs", the_table_is_handed_what_it_needs)
 case("a build writes over nothing, and stops on a stack's hard fault", build_writes_over_nothing)
 case("items at the top, and a copy first", items_at_the_top)
+case("an item's sentences in order", sentences_in_order)
 case("by the day", by_the_day)
 
 if __name__ == "__main__":

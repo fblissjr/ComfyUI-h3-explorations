@@ -212,23 +212,30 @@ def cut(words: str) -> str:
 
 
 def item_words(table: dict, keep: tuple = delivery_table.KEEP) -> tuple[int, list[str]]:
-    """(pieces, one sentence a piece or a subject) for a span's item, from the span's table JSON alone, in frame order.
-    Where the span holds more than one shot, every sentence begins with its shot. Why each piece stands is the table's
+    """(pieces, one sentence a piece or a subject) for a span's item, from the span's table JSON alone: shot by shot,
+    inside a shot subject by subject in the table's order, and a subject's sentences by the frame each is about
+    (what is unsure of them first, what was passed over or held last). Where the span holds more than one shot,
+    every sentence begins with its shot. Why each piece stands is the table's
     rule: a piece the lead put first (`--prefer`) says so, with the lead's reason whole, and so does a keep of the
     owner's that it set aside; a render the lead held back (`--hold`) is named with its reason whole."""
     entries = [("reading", e) for e in table["reading"]] + [("absent", n) for n in table.get("not_in_the_shot") or []]
     shots = {(e["first"], e["last"]) for _, e in entries}
     said, pieces, seen = [], 0, set()
+    rank = {}
+    for _, e in entries:
+        rank.setdefault(e["subject"], len(rank))
 
-    def say(e: dict, words: str) -> None:
-        said.append((e["first"], (f"on {e['first']}-{e['last']}, " if len(shots) > 1 else "") + words))
+    def say(e: dict, words: str, at: float | None = None) -> None:
+        key = (e["first"], rank[e["subject"]], e["first"] if at is None else at, len(said))
+        said.append((key, (f"on {e['first']}-{e['last']}, " if len(shots) > 1 else "") + words))
     for kind, e in entries:
         who = e["subject"]
         if kind == "absent":
             say(e, f"{who}: not in this shot by the shots record ({e['why']})")
             continue
         if e["present"] == "unsure":
-            say(e, f"{who}: the shots record is unsure they are in this shot (yours to answer on the who page)" + ("" if e["stands"] else "; the original throughout"))
+            say(e, f"{who}: the shots record is unsure they are in this shot (yours to answer on the who page)" + ("" if e["stands"] else "; the original throughout"),
+                e["first"] - 0.5)
         for s in e["stands"]:
             if s["render"] not in seen:
                 pieces += 1
@@ -243,13 +250,13 @@ def item_words(table: dict, keep: tuple = delivery_table.KEEP) -> tuple[int, lis
                 + (f"; IT STANDS BY THE LEAD'S CHOICE (--prefer), a session's word and not yours: {led}" if led else "")
                 + ("; what it leaves as the original inside it is NOT KNOWN (its ledger entry does not say)" if left is None
                    else f"; inside it the piece leaves the original on {', '.join(f'{x}-{y}' for x, y in left)} (its capture had no part of them there)"
-                   if left else ""))
+                   if left else ""), min(x for x, _ in s["frames"]))
         for p in e["passed_over"]:
             c = p.get("the_owners_last_choice")
             if p.get("held"):
-                say(e, f"{who}: {p['render']} is HELD BACK by the lead (--hold), a session's word and not yours: {p['held']}")
+                say(e, f"{who}: {p['render']} is HELD BACK by the lead (--hold), a session's word and not yours: {p['held']}", e["last"] + 1)
             elif c and c["said"] in keep:
-                say(e, f"{who}: YOUR KEEP {p['render']} (of {owners_clock(c['at']):%m/%d}) is not laid here: {p['why']}")
+                say(e, f"{who}: YOUR KEEP {p['render']} (of {owners_clock(c['at']):%m/%d}) is not laid here: {p['why']}", e["last"] + 1)
         if not e["stands"] and e["present"] != "unsure":
             passed = [p for p in e["passed_over"] if not p.get("held")]
             say(e, f"{who}: the original on the whole shot: no piece of theirs stands here"
@@ -257,7 +264,7 @@ def item_words(table: dict, keep: tuple = delivery_table.KEEP) -> tuple[int, lis
                    + "; ".join(p["render"] + ", " + cut(p["why"]) for p in passed[:PASSED_OVER_NAMED]) + ")" if passed else ""))
         elif e["stands"]:
             for g in e.get("left_as_the_source") or []:
-                say(e, f"{who}: the original on {g[0]}-{g[1]}, where no piece of theirs is laid")
+                say(e, f"{who}: the original on {g[0]}-{g[1]}, where no piece of theirs is laid", g[0])
     return pieces, [w for _, w in sorted(said, key=lambda x: x[0])]
 
 
