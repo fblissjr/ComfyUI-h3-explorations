@@ -33,15 +33,20 @@ The first local page was unreadable in dark mode because its dark rule sat befor
 
 **`to-review`: what the CURRENT table lays and the owner has not settled**, never every open item of the review
 list (it holds the dead items of earlier days). Settled is a keep or a "not the one" (`SETTLED`, the table's own
-words); a "not sure" leaves a piece to review, and words the owner typed after their last click are shown with it.
+words) with no words of the owner's after it: their words rule over the button, so a keep followed by words is shown
+again with them; a "not sure" leaves a piece to review. Each line of words says where it came from: typed in the
+page's box, or said elsewhere and taken down by a session (the verdicts record's `source` and `note`).
 A record shot of the table with two or more of the subjects in it (the table's reading: present or unsure) is shown
 as its joined clip, the newest item on the list of exactly that shot's frames, ONLY when the table that clip was
-built from (`--tables`) lays the same pieces on the shot as this one; otherwise, and where no joined clip is built,
-each unsettled piece of the shot is shown on its own, with why. A piece of a one-subject shot is shown on its own. A
+built from (`--tables`) lays the same pieces on the shot as this one, until the owner KEEPS that clip (a "wrong" on
+it leaves the shot here with its pieces); otherwise, and where no joined clip is built, each unsettled piece of the
+shot is shown on its own, with why. A piece of a one-subject shot is shown on its own. A
 piece's item is the one whose id or `name` is the render's. Each piece carries the day it was rendered on the
 owner's clock, its item's look line (said as the card's words), and what it replaces: the rows of its subject that
-`--previous-table` laid on its frames. With `--previous-table`, a part "since the last page": the pieces added and
-the pieces that left, and for each subject the frames that gained a piece (a gap closed) or lost one (opened).
+`--previous-table` laid on its frames. With `--previous-table`, a part "since the last page", on the frames both
+tables cover (said, with each one's): the pieces added and the pieces that left, and for each subject the frames
+that gained a piece (a gap closed) or lost one (opened). Both pages end, or begin, with the lead's holds (the table's
+`held`, a session's word, its reason whole) and the owner's keeps this table does not lay, with the table's reason.
 Links are `--page-url` + an item's id.
 
 **`provenance`**: a timeline a subject (the table's subjects in the order it reads them), each stretch a piece, a
@@ -68,6 +73,7 @@ import glob
 import html
 import json
 import os
+import re
 import subprocess
 import sys
 from fractions import Fraction
@@ -83,10 +89,11 @@ E = html.escape
 # Light and dark values of every colour either page uses. Picked by eye on both pages (2026-10-13, the lead's session
 # script); the day colours are the newest day first. The light day0 and day1 were darkened on 2026-10-14 to at least
 # 4.5:1 against the page and the card (a reader measured 4.08 and 3.44); `check_review_pages.py` holds every text
-# token to that. Nothing below names a colour of its own.
+# token to that, and every token a timeline shape is drawn in to 3:1, drawn solid: `left` was drawn at .55 opacity and
+# came to 1.8:1 in light and 2.3:1 in dark (a reader, 2026-10-14). Nothing below names a colour of its own.
 TOKENS = {
     "bg": ("#fafafa", "#161616"), "fg": ("#1a1a1a", "#e8e8e8"), "mut": ("#555555", "#b0b0b0"), "line": ("#d0d0d0", "#3a3a3a"),
-    "card": ("#ffffff", "#222222"), "link": ("#0b57d0", "#8ab4f8"), "gap": ("#c0392b", "#e8604c"), "left": ("#8e8e8e", "#8a8a8a"),
+    "card": ("#ffffff", "#222222"), "link": ("#0b57d0", "#8ab4f8"), "gap": ("#c0392b", "#e8604c"), "left": ("#808080", "#8c8c8c"),
     "bare": ("#444444", "#bbbbbb"),
     "day0": ("#17705a", "#35b596"), "day1": ("#8a5a00", "#e0a83c"), "day2": ("#6a4fb3", "#a990f0"), "day3": ("#5f6b7a", "#9aa7b8"),
 }
@@ -140,6 +147,16 @@ def read_verdicts(path: str) -> dict[str, list[dict]]:
     return out
 
 
+def how_said(v: dict) -> str:
+    """Where a line of the owner's words came from, by the verdicts record's `source`: typed in the review page's box
+    (the page's own answers file), or said elsewhere and taken down by a session (its `source` says where, and its
+    `note` who took it down)."""
+    src = str(v.get("source") or "")
+    if not src or src.startswith("answers.jsonl"):
+        return "the words typed in its box (they may quote a session's question)"
+    return f"your words as a session took them down ({src}; {v.get('note') or 'who took them down is not said'})"
+
+
 #: The buttons that settle a piece for the owner: a keep, or that it is not the one (the table's own words). Any
 #: other button ("not sure") leaves it to review.
 SETTLED = tuple(delivery_table.KEEP) + tuple(delivery_table.NOT_THE_ONE)
@@ -152,8 +169,12 @@ class Records:
         self.table_path = table
         self.T = json.load(open(table))
         self.L = json.load(open(ledger))
-        if Path(ledger).name not in str(self.T.get("made") or ""):
-            raise SystemExit(f"--ledger {ledger}: the table says it was made from another ledger ({str(self.T.get('made'))[:200]})")
+        named = re.search(r"from the ledger `([^`]+)`", str(self.T.get("made") or ""))
+        if not named:
+            raise SystemExit(f"--table {table}: the table names no ledger it was made from ({str(self.T.get('made'))[:200]})")
+        made_from = Path(named.group(1)) if Path(named.group(1)).is_absolute() else HERE.parent / named.group(1)
+        if made_from.resolve() != Path(ledger).resolve():               # by its path: a ledger of the same name elsewhere is another ledger
+            raise SystemExit(f"--ledger {ledger}: the table says it was made from another ledger, {named.group(1)}")
         self.by_name = {r["name"]: r for r in self.L["renders"].values()}
         self.lines = read_verdicts(verdicts)
         self.items_in_order = json.load(open(items))["items"]
@@ -178,9 +199,16 @@ class Records:
     def last_choice(self, rows) -> dict | None:
         return next((v for v in reversed(self.owner_lines(rows)) if v.get("what") == "choice"), None)
 
-    def settled(self, rows) -> bool:
+    def words_since(self, rows) -> list[dict]:
+        """The owner's words after their last click (all their words where there is no click)."""
         c = self.last_choice(rows)
-        return bool(c and c["chosen"] in SETTLED)
+        return [v for v in self.owner_lines(rows) if v.get("words") and (c is None or v["at"] > c["at"])]
+
+    def settled(self, rows, by=SETTLED) -> bool:
+        """Settled by a click in `by` with no words of the owner's after it: their words rule over the button
+        (the owner's rule, 2026-10-12), so a keep followed by words is to review again, with the words."""
+        c = self.last_choice(rows)
+        return bool(c and c["chosen"] in by and not self.words_since(rows))
 
     def day(self, name: str) -> str:
         return owners(self.by_name[name]["written"], "%Y-%m-%d")
@@ -192,10 +220,8 @@ class Records:
     def last_click(self, rows) -> str:
         """The owner's last button and, after it, any words they typed: the words rule over the button."""
         c = self.last_choice(rows)
-        after = [v for v in self.owner_lines(rows) if v.get("words") and (c is None or v["at"] > c["at"])]
         said = f"your last click: {c['chosen']} ({owners(c['at'], '%m/%d %H:%M')})" if c else "no click of yours"
-        return said + "".join(f'; the words typed in its box since ({owners(v["at"], "%m/%d %H:%M")}; they may quote a session\'s question): "{v["words"]}"'
-                              for v in after)
+        return said + "".join(f'; {how_said(v)} since ({owners(v["at"], "%m/%d %H:%M")}): "{v["words"]}"' for v in self.words_since(rows))
 
     def left_by_ledger(self, name: str) -> set[int]:
         lo = (self.by_name.get(name) or {}).get("leaves_as_the_original") or {}
@@ -282,9 +308,21 @@ def piece_line(rec: "Records", r: dict, first: int, last: int, link, rel, previo
 def since(rec: "Records", previous: str) -> list[str]:
     """The pieces added and the pieces that left against the previous table, and the frames each subject gained or lost."""
     P = json.load(open(previous))
-    new_rows, old_rows = {(r["name"], r["subject"]) for r in rec.T["rows"]}, {(r["name"], r["subject"]) for r in P["rows"]}
-    cover = lambda TT, sub: {x for r in TT["rows"] if r["subject"] == sub for x in range(r["first"], r["last"] + 1)}
-    out = [f"<p class='mut'>Against {E(os.path.basename(previous))}.</p>", "<ul>"]
+
+    def span(TT):
+        shots = list(TT.get("reading") or []) + list(TT.get("not_in_the_shot") or [])
+        rr = shots or TT["rows"]
+        return (min(r["first"] for r in rr), max(r["last"] for r in rr)) if rr else None
+    # only the frames both tables cover are compared: against a table of other frames (a span's, or the whole video's),
+    # what lies outside one of them neither came nor went (a reader, 2026-10-14)
+    ours, theirs = span(rec.T), span(P)
+    lo, hi = (max(ours[0], theirs[0]), min(ours[1], theirs[1])) if ours and theirs else (1, 0)
+    inside = lambda TT: [r for r in TT["rows"] if r["first"] <= hi and r["last"] >= lo]
+    new_rows, old_rows = {(r["name"], r["subject"]) for r in inside(rec.T)}, {(r["name"], r["subject"]) for r in inside(P)}
+    cover = lambda TT, sub: {x for r in inside(TT) if r["subject"] == sub for x in range(max(r["first"], lo), min(r["last"], hi) + 1)}
+    out = [f"<p class='mut'>Against {E(os.path.basename(previous))}, on the frames both tables cover"
+           + (f": {lo}-{hi} (this one covers {ours[0]}-{ours[1]}, that one {theirs[0]}-{theirs[1]})." if lo <= hi else ": none, so nothing is compared.")
+           + "</p>", "<ul>"]
     out += [f"<li>added: {E(n)} ({E(sub)})</li>" for n, sub in sorted(new_rows - old_rows)] or ["<li>no piece added</li>"]
     out += [f"<li>left: {E(n)} ({E(sub)})</li>" for n, sub in sorted(old_rows - new_rows)] or ["<li>no piece left</li>"]
     for sub in rec.subjects():
@@ -296,6 +334,23 @@ def since(rec: "Records", previous: str) -> list[str]:
             out.append(f"<li>{E(sub)}: no piece now on " + ", ".join(f"{p}-{q}" for p, q in opened) + "</li>")
     return out + ["</ul>"]
 
+
+def held_and_set_aside(rec: "Records") -> list[str]:
+    """The lead's holds (the table's `held`: a session's word, the reason whole) and the owner's keeps this table does
+    not lay (a render passed over on a shot whose last choice is a keep, with the table's reason), as page lines."""
+    out = ["<h2>Held back by the lead, and your keeps this table does not lay</h2>"]
+    held = rec.T.get("held") or []
+    out += [f'<div class="e"><h3>{E(h["load"])} <span>{E(h["subject"])} &middot; {h["first"]}-{h["last"]}</span></h3><p class="why">HELD BACK BY THE LEAD, '
+            f'a session\'s word and not yours: {E(h["reason"])}</p></div>' for h in held]
+    kept = []
+    for rd in rec.T["reading"]:
+        for p in rd.get("passed_over") or []:
+            c = p.get("the_owners_last_choice") or {}
+            if c.get("said") in delivery_table.KEEP:
+                kept.append(f'<li><b>{E(rd["subject"])}</b>, {rd["first"]}-{rd["last"]}: your keep of {E(p["render"])} ({E(c["said"])}, '
+                            f'{owners(c["at"], "%m/%d %H:%M")}) is not laid here. The table\'s reason: {E(p["why"])}</li>')
+    out += ([f"<ul>{''.join(kept)}</ul>"] if kept else []) + ([] if held or kept else ["<p class='mut'>None.</p>"])
+    return out
 
 def to_review(a: argparse.Namespace) -> str:
     rec = Records(a.table, a.ledger, a.verdicts, a.items)
@@ -324,7 +379,9 @@ def to_review(a: argparse.Namespace) -> str:
         if len(sh["subjects"]) >= 2:
             it, why = joined_item(rec, first, last, a.tables or [])
             if it is not None:
-                if not rec.settled(rec.rows_of(it["id"]) | {it["id"]}):
+                # hidden only when the owner KEPT the joined clip: "wrong" on it says something in the shot is wrong, and the shot
+                # stays here with each piece (a reader, 2026-10-14: a "wrong" on a joined clip hid the shot's unsettled pieces)
+                if not rec.settled(rec.rows_of(it["id"]) | {it["id"]}, delivery_table.KEEP):
                     joined.append(f'<div class="e"><h3>{link(it["id"], f"The shot {first}-{last}")} <span>{E(", ".join(sh["subjects"]))} &middot; {when} &middot; '
                                   f'{E(rec.last_click({it["id"]}))}</span></h3><ul>{lines(rows)}</ul></div>')
                 continue
@@ -341,6 +398,7 @@ def to_review(a: argparse.Namespace) -> str:
     if apart:
         body += ["<h2>Shots with two or more of them with no joined clip of this table</h2>", *apart]
     body += ["<h2>Pieces in a shot of one of them</h2>", *(single or ["<p class='mut'>None waiting on you.</p>"])]
+    body += held_and_set_aside(rec)
     return page(f"To review: {stem}", "", "\n".join(body), 900)
 
 
@@ -360,7 +418,7 @@ def why_left(rec: Records, name: str, sub: str, a: int, b: int) -> str:
     else what the ledger read the frames from (the capture's manifest: the frames on which it emptied the part)."""
     for lo in left_out_of(rec, name):
         if lo.get("subject") in (sub, None) and lo["first"] <= b and a <= lo["first"] + lo["frames"] - 1:
-            return " ".join(str(lo.get("why", "")).split())
+            return "a session's word in the load's job file (its `left_out`, a look's): " + " ".join(str(lo.get("why", "")).split())
     said = ((rec.by_name.get(name) or {}).get("leaves_as_the_original") or {}).get("read_from")
     return f"its load emptied the part here, by the ledger ({said})" if said else ""
 
@@ -439,9 +497,9 @@ PROVENANCE_CSS = """.scroll{overflow-x:auto;border:1px solid var(--line);backgro
 .tlwrap{display:flex} .lanelabels{flex:0 0 auto;font-size:12px;font-weight:600;white-space:nowrap}
 .lanelabels div{padding-right:8px;box-sizing:border-box}
 .tick{stroke:var(--line);stroke-width:1} .tl{font:11px system-ui;fill:var(--mut)}
-rect.gap{fill:none;stroke:var(--gap);stroke-width:2} rect.left{fill:var(--left);opacity:.55} rect.bare{fill:var(--bare)}
+rect.gap{fill:none;stroke:var(--gap);stroke-width:2} rect.left{fill:var(--left)} rect.bare{fill:var(--bare)}
 .lanes{display:flex;gap:18px;flex-wrap:wrap;margin:.5em 0} .k{display:inline-block;width:22px;height:12px;vertical-align:middle;margin-right:5px}
-.k.gap{border:2px solid var(--gap)} .k.left{background:var(--left);opacity:.55} .k.bare{background:var(--bare)}
+.k.gap{border:2px solid var(--gap)} .k.left{background:var(--left)} .k.bare{background:var(--bare)}
 table{border-collapse:collapse;width:100%;font-size:14px} td,th{border-bottom:1px solid var(--line);padding:4px 8px;text-align:left;vertical-align:top}
 .tw{overflow-x:auto} .card{border-left:6px solid var(--line)} .gapr td:nth-child(4){color:var(--gap);font-weight:600} .leftr td:nth-child(4){color:var(--mut);font-weight:600}
 dl{display:grid;grid-template-columns:minmax(150px,240px) 1fr;gap:2px 12px;margin:.4em 0} dt{color:var(--mut)} dd{margin:0;overflow-wrap:anywhere}
@@ -487,6 +545,7 @@ def provenance(a: argparse.Namespace) -> str:
                  "<th>why (the record's words)</th></tr></thead><tbody>"
                  + "".join(f"<tr><td>{p}-{q}</td><td>{clock(p, rate)}-{clock(q + 1, rate)}</td><td>{E(s)}</td><td>{E(o)}</td><td>{E(n)}</td><td>{E(w)}</td></tr>"
                            for p, q, s, o, n, w in ch) + "</tbody></table></div>"]
+    body += held_and_set_aside(rec)
     body += ["<h2>Loads stopped before a render</h2>"]
     if stopped is None:
         body += ["<p class='mut'>This ledger was made before it read the stopped loads: none is shown, and that is not none.</p>"]
@@ -498,7 +557,7 @@ def provenance(a: argparse.Namespace) -> str:
                if fr and r["subject"] == x.get("subject") and r["first"] <= fr[1] and r["last"] >= fr[0]]
         body.append(f'<div class="card"><h3>{E(x["load"])} <span>{E(str(x.get("subject")))} &middot; {f"{fr[0]}-{fr[1]}" if fr else "frames not in its job file"}'
                     f'</span></h3><p class="why">What of {E(str(x.get("subject")))} stands on those frames now: {E(", ".join(now)) if now else "nothing"}. '
-                    f'The note, whole ({E(x["note"])}, {E(x["note_written"])}):</p><pre>{E(x["note_says"])}</pre></div>')
+                    f'The note, whole, a session\'s words ({E(x["note"])}, {E(x["note_written"])}):</p><pre>{E(x["note_says"])}</pre></div>')
     lanes = len(subjects) + 1
     height = TOP + LANE * lanes + 8
     svg = [f'<svg viewBox="0 0 {up_to + 1} {height}" preserveAspectRatio="none" style="width:{max(1200, (up_to + 1) * 5 // 4)}px;height:{height}px;display:block" '
@@ -576,7 +635,7 @@ def provenance(a: argparse.Namespace) -> str:
                  ("built at the commit", f"{made.get('commit')} ({made.get('built_at')}); its record: {g.get('making')}"),
                  ("why it stands", stand_why(next((s for rd in rec.T["reading"] for s in rd.get("stands") or [] if s["render"] == n), {}))),
                  ("on the review page", rec.last_click(rec.rows_of(n)))]
-        said = "".join(f"<li>{owners(v['at'], '%m/%d %H:%M')}: {E(v['words'])}</li>" for v in rec.owner_lines(rec.rows_of(n)) if v.get("words"))
+        said = "".join(f"<li>{owners(v['at'], '%m/%d %H:%M')}, {E(how_said(v))}: {E(v['words'])}</li>" for v in rec.owner_lines(rec.rows_of(n)) if v.get("words"))
         links = []
         if folder:
             links.append(f'<a href="{E(os.path.relpath(folder, out_dir))}/">its workflow folder</a> (the graph as queued, its text, its inputs, how to queue it again)')
@@ -587,8 +646,7 @@ def provenance(a: argparse.Namespace) -> str:
             links.append(f'<a href="{E(rel(stacked))}">its stacked clip</a> (this load alone)')
         body.append(f'<section class="card {tok(n)}" id="p-{E(n)}"><h3>{E(n)} <span>{E(r["subject"])} &middot; {r["first"]}-{r["last"]} &middot; rendered '
                     f'{owners(g["written"])}</span></h3><dl>' + "".join(f"<dt>{E(k)}</dt><dd>{E(str(v))}</dd>" for k, v in facts) + "</dl>"
-                    + (f"<p><b>The verdicts record's words on it, whole</b> (what was typed in the review page's box under it; a line may hold a "
-                       f"session's question with the owner's answer):</p><ul>{said}</ul>" if said else "") + "<p>" + " &middot; ".join(links) + "</p>"
+                    + (f"<p><b>The verdicts record's words on it, whole</b>, each with where it came from:</p><ul>{said}</ul>" if said else "") + "<p>" + " &middot; ".join(links) + "</p>"
                     + (f"<details><summary>its text as queued</summary><pre>{E(text)}</pre></details>" if text else "") + "</section>")
     return page(f"Provenance: {stem}", PROVENANCE_CSS, "\n".join(body), 1200)
 

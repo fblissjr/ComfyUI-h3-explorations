@@ -71,10 +71,13 @@ def world(d: Path, stopped=True, joined_table="same", verdicts=None, ledger_name
                {"first": 150, "last": 199, "subject": "b", "present": "no", "stands": []},
                {"first": 200, "last": 219, "subject": "a", "present": "yes", "stands": [stand("a_kept", 200, 219)]},
                {"first": 220, "last": 239, "subject": "a", "present": "yes", "stands": [stand("a_x", 220, 239)]},
-               {"first": 220, "last": 239, "subject": "b", "present": "yes", "stands": []},
+               {"first": 220, "last": 239, "subject": "b", "present": "yes", "stands": [],
+                "passed_over": [{"render": "b_owner_kept", "why": "THE TABLE'S REASON FOR B_OWNER_KEPT",
+                                 "the_owners_last_choice": {"said": "keep this one", "at": "2026-10-12T20:00:00Z"}}]},
                {"first": 240, "last": 259, "subject": "a", "present": "yes", "stands": [stand("a_y", 240, 259)]},
                {"first": 240, "last": 259, "subject": "b", "present": "yes", "stands": []}]
-    table = {"made": f"from the ledger `data/{ledger_name}` (...)", "rows": rows, "sources": [], "gaps": [], "not_in_the_shot": [], "reading": reading}
+    table = {"made": f"from the ledger `{d / ledger_name}` (...)", "rows": rows, "sources": [], "gaps": [], "not_in_the_shot": [], "reading": reading,
+             "held": [{"first": 220, "last": 239, "subject": "b", "load": "b_held_load", "reason": "THE LEAD'S HOLD, whole"}]}
     renders = [render(d, "a_new", "a", 100, 149, "2026-10-14T15:00:00Z", left=[[120, 122]]), render(d, "b_new", "b", 100, 149, "2026-10-13T15:00:00Z"),
                render(d, "a_solo", "a", 150, 199, "2026-10-12T15:00:00Z", left=[[160, 161]], left_out=[{"subject": "a", "first": 161, "frames": 1, "why": "A LOOK'S WORD"}]),
                render(d, "a_kept", "a", 200, 219, "2026-10-12T15:00:00Z"), render(d, "a_x", "a", 220, 239, "2026-10-14T15:00:00Z"),
@@ -175,7 +178,15 @@ def both_modes_read() -> str:
                 r = contrast(rp.TOKENS[k][mode], rp.TOKENS[ground][mode])
                 assert r >= 4.5, f"{k} on {ground} in {'dark' if mode else 'light'} mode: {r:.2f}:1"
         assert rp.TOKENS[k][0] != rp.TOKENS[k][1], f"{k} is the same in both modes"
-    return "nothing but tokens names a colour; every text token at least 4.5:1 on the page and the card in light and dark, and differs between them"
+    # every token a timeline shape is drawn in, at least 3:1 on the page and the card, and drawn solid (a reader, 2026-10-14: `left` at .55 opacity)
+    for k in ("left", "bare", "gap", *rp.DAY_TOKENS):
+        for mode in (0, 1):
+            for ground in ("bg", "card"):
+                r = contrast(rp.TOKENS[k][mode], rp.TOKENS[ground][mode])
+                assert r >= 3, f"the shape token {k} on {ground} in {'dark' if mode else 'light'} mode: {r:.2f}:1"
+    assert "opacity" not in rp.PROVENANCE_CSS + rp.BASE_CSS, "a shape is drawn see-through: its contrast is not its token's"
+    return ("nothing but tokens names a colour; every text token at least 4.5:1 on the page and the card in light and dark, and differs between them; "
+            "every shape token at least 3:1, drawn solid")
 
 
 def to_review_is_the_tables() -> str:
@@ -187,7 +198,7 @@ def to_review_is_the_tables() -> str:
         assert "A DEAD ITEM" not in text and "dead_of_10_11" not in page, "an open item the table does not lay is shown"
         assert "a_kept" not in text.split("Shots with two or more")[1], "a piece the owner kept is shown"
         # "not sure" stays, with the owner's words since; a shot with no joined clip shows its piece on its own, with why
-        assert ("your last click: not sure (10/13 05:00); the words typed in its box since (10/13 06:00; they may quote a session's question): "
+        assert ("your last click: not sure (10/13 05:00); the words typed in its box (they may quote a session's question) since (10/13 06:00): "
                 "\"i cant choose between them\"") in text, text
         assert "The shot 220-239" in text and "no joined clip of this shot is on the list" in text, text
         # a joined clip of an older table: said, and its piece shown on its own with its look line
@@ -213,18 +224,51 @@ def to_review_is_the_tables() -> str:
             "same pieces, else each piece on its own with why, so a piece never vanishes; items by name; the look line a session's; what each replaces")
 
 
+def the_owners_words_rule() -> str:
+    """A fourth reader (2026-10-14): words after a keep were ignored, a line a session took down was labelled as typed in
+    the box, a "wrong" on a joined clip hid the shot's pieces, and the lead's --hold and the owner's keeps the table
+    does not lay were on neither page."""
+    words_after_keep = [{"what": "choice", "row": "a_kept", "chosen": "keep this one", "at": "2026-10-13T10:00:00Z"},
+                        {"what": "words", "row": "a_kept", "words": "ACTUALLY HER CHIN IS OFF", "at": "2026-10-13T11:00:00Z", "source": "answers.jsonl:9"},
+                        {"what": "words", "row": "a_solo", "words": "SAID IN THE TERMINAL", "at": "2026-10-13T12:00:00Z",
+                         "source": "the lead's terminal (mrx), 2026-10-13", "note": "taken down whole by mrx"},
+                        {"what": "choice", "row": "v_0100_0149_joined_NEW_stacked", "chosen": "wrong", "at": "2026-10-14T16:00:00Z"}]
+    with tempfile.TemporaryDirectory() as tmp:
+        text = text_of(to_review(Path(tmp), verdicts=words_after_keep))
+        # THE CASES THAT GO RED: a keep followed by words is to review again; a session's taking-down is said as such
+        assert "a_kept" in text and "ACTUALLY HER CHIN IS OFF" in text, "words after a keep were ignored"
+        assert ("your words as a session took them down (the lead's terminal (mrx), 2026-10-13; taken down whole by mrx) since (10/13 07:00): "
+                "\"SAID IN THE TERMINAL\"") in text and "typed in its box (they may quote a session's question) since (10/13 07:00): \"SAID" not in text, text
+        assert "The shot 100-149" in text and "your last click: wrong" in text and "a_new" in text.split("The shot 100-149")[1], "a wrong on the joined clip hid the shot"
+        assert "HELD BACK BY THE LEAD, a session's word and not yours: THE LEAD'S HOLD, whole" in text and "b_held_load" in text, text
+        assert "your keep of b_owner_kept (keep this one, 10/12 15:00) is not laid here. The table's reason: THE TABLE'S REASON FOR B_OWNER_KEPT" in text, text
+    with tempfile.TemporaryDirectory() as tmp:
+        text = text_of(provenance(Path(tmp)))
+        assert "HELD BACK BY THE LEAD" in text and "your keep of b_owner_kept" in text, "provenance does not say the hold or the keep"
+        assert "a session's word in the load's job file (its `left_out`, a look's): A LOOK'S WORD" in text, text
+        assert "The note, whole, a session's words (data/x/b_fp_0220.STOPPED.txt" in text, text
+    return ("a keep followed by the owner's words is shown again with them; a line a session took down says so and who; a wrong on a joined clip leaves the "
+            "shot with its pieces; the lead's holds and the owner's keeps the table does not lay are on both pages; a look's word and a stopped note say whose")
+
 def since_the_last_page() -> str:
     with tempfile.TemporaryDirectory() as tmp:
         d = Path(tmp)
         text = text_of(to_review(d, ["--previous-table", str(d / "t_before.json")]))
         part = text.split("Since the last page")[1].split("Shots with two")[0]
-        for said in ("added: a_new (a)", "added: b_new (b)", "added: a_kept (a)", "added: a_x (a)", "left: a_older (a)", "left: a_gone (a)",
-                     "a: a piece now on 210-259", "a: no piece now on 300-309"):
+        for said in ("added: a_new (a)", "added: b_new (b)", "added: a_kept (a)", "added: a_x (a)", "left: a_older (a)", "a: a piece now on 210-259",
+                     "on the frames both tables cover: 100-259 (this one covers 100-259, that one 100-309)"):
             assert said in part, (said, part)
-        assert "a_solo" not in part, part
+        # THE CASE THAT GOES RED when a table of other frames makes what lies outside this one's frames "left" (a reader, 2026-10-14)
+        assert "a_solo" not in part and "a_gone" not in part and "300-309" not in part, part
+        # against a narrower table, nothing outside its frames is "added"
+        (d / "t_narrow.json").write_text(json.dumps({"rows": [{"first": 150, "last": 199, "name": "a_solo", "subject": "a"}],
+                                                     "reading": [{"first": 150, "last": 199, "subject": "a"}]}))
+        part = text_of(to_review(d, ["--previous-table", str(d / "t_narrow.json")])).split("Since the last page")[1].split("Shots with two")[0]
+        assert "no piece added" in part and "no piece left" in part and "150-199 (this one covers 100-259, that one 150-199)" in part, part
     with tempfile.TemporaryDirectory() as tmp:
         assert "Since the last page" not in text_of(to_review(Path(tmp))), "the part is made with no previous table"
-    return "pieces added and left, and the frames each subject gained and lost, against the previous table; no part without one"
+    return ("pieces added and left, and the frames each subject gained and lost, on the frames both tables cover and said so; against a narrower table "
+            "nothing outside it is added; no part without one")
 
 
 def provenance_reads_the_records() -> str:
@@ -266,7 +310,17 @@ def another_ledger_is_refused() -> str:
             assert "made from another ledger" in str(stop), stop
         else:
             raise AssertionError("a ledger the table does not name was read")
-    return "a ledger the table was not made from is refused"
+        # one of the same name in another folder is another ledger
+        (d / "elsewhere").mkdir()
+        (d / "elsewhere" / "l.json").write_text((d / "l.json").read_text())
+        args[args.index("--ledger") + 1] = str(d / "elsewhere" / "l.json")
+        try:
+            rp.main(["to-review", *args, "--page-url", "p#", "--open-list", "o", "--out", str(d / "x.html")])
+        except SystemExit as stop:
+            assert "made from another ledger" in str(stop), stop
+        else:
+            raise AssertionError("a ledger of the same name in another folder was read")
+    return "a ledger the table was not made from is refused, one of the same name in another folder too"
 
 
 def nothing_of_a_video_in_code() -> str:
@@ -279,6 +333,7 @@ def nothing_of_a_video_in_code() -> str:
 case("both modes read", both_modes_read)
 case("to-review is the table's, and hides no live piece", to_review_is_the_tables)
 case("since the last page", since_the_last_page)
+case("the owner's words rule, and whose words are whose", the_owners_words_rule)
 case("provenance reads the records", provenance_reads_the_records)
 case("another ledger is refused", another_ledger_is_refused)
 case("nothing of a video in the code", nothing_of_a_video_in_code)
