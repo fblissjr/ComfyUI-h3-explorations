@@ -2,7 +2,7 @@
 """A delivery clip stacked for the owner's eye: the original, what each render on the frame was given, the clip.
 
     <python> bench/stack_delivery.py build --source SOURCE --table TABLE.txt --joined CLIP.mp4 --out STACKED.mp4 \\
-        --work SCRATCH_FOLDER [--tag WORDS] [--alias OLD=NEW]... [--copy-rate 24] [--only FIRST-LAST]
+        --work SCRATCH_FOLDER [--tag WORDS] [--alias OLD=NEW]... [--copy-rate 24] [--only FIRST-LAST] [--first SOURCE_FRAME]
     <python> bench/stack_delivery.py check --source SOURCE --joined CLIP.mp4 --out STACKED.mp4
 
 **What it buys.** A render is handed over stacked, never bare: the masked input on top, the render below, frame
@@ -262,12 +262,19 @@ def build(a: argparse.Namespace) -> None:
         print(f"{r['first']:5d}-{r['last']:<5d} {r['name']:34s} file starts at {r['piece_first']}, its graph at {r['graph_first']}; reference: "
               + (f"{Path(r['ref'][0]).name} from its frame {r['ref'][1]}" if r["ref"] else "none wired"), flush=True)
     total = probe(a.joined)[2]
-    first_f, last_f = (int(v) for v in a.only.split("-")) if a.only else (0, total - 1)
+    # THE SOURCE FRAME THE CLIP BEGINS ON (`--first`): a clip of a span that does not begin on frame 0. Every frame below is a SOURCE
+    # frame: the table's rows, the original read, the number burned in; the clip's own frame is that less `base`. Until 2026-10-14
+    # a span clip was stacked as if it began on 0: the original and the masks rows were of other frames and the number was the
+    # clip's own count (six per-shot clips, seen on two frames by a reader; the check had passed, reading the source from 0 too).
+    base = int(getattr(a, "first", 0) or 0)
+    first_f, last_f = (int(v) for v in a.only.split("-")) if a.only else (base, base + total - 1)
+    if first_f < base or last_f > base + total - 1:
+        raise SystemExit(f"--only {a.only} is not inside the clip's frames, {base} to {base + total - 1} of the source")
     work = Path(a.work)
     work.mkdir(parents=True, exist_ok=True)
     silent = str(work / (Path(a.out).stem + ".video.mp4"))
     fit = FIT.format(w=w, h=h)
-    src, joined = Reader(a.source, 0, fit, w, h), Reader(a.joined, 0, fit, w, h)
+    src, joined = Reader(a.source, first_f, fit, w, h), Reader(a.joined, first_f - base, fit, w, h)
     enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{w}x{h * 3 + bar}", "-r", _rate(a.joined), "-i", "-",
                             "-c:v", "libx264", "-crf", "17", "-pix_fmt", "yuv420p", "-preset", "medium", silent], stdin=subprocess.PIPE)
     readers: dict[tuple, Reader] = {}
@@ -303,7 +310,7 @@ def build(a: argparse.Namespace) -> None:
                 tile = Image.fromarray(arr).resize((pw, ph), Image.BILINEAR)
                 label(tile, said, small)
                 mid_img.paste(tile, ((i % 2) * pw, (i // 2) * ph if len(shown) > 2 else ph // 2))
-        s, j = src.frame(f), joined.frame(f)
+        s, j = src.frame(f), joined.frame(f - base)
         if s is None or j is None:
             raise SystemExit(f"frame {f}: the {'source' if s is None else 'clip'} could not be read; nothing written")
         top, bot = Image.fromarray(s), Image.fromarray(j)
@@ -337,11 +344,12 @@ def build(a: argparse.Namespace) -> None:
     print("panels or words that could not be shown, as first frame, last frame, count:", {name: (v[0], v[-1], len(v)) for name, v in missing.items()} or "none")
 
 
-def _small(path: str, vf: str, n: int) -> np.ndarray:
+def _small(path: str, vf: str, n: int, first: int = 0) -> np.ndarray:
+    """`n` frames of a file from its frame `first`, small and grey."""
     w, h = 256, 192
-    r = Reader(path, 0, vf + f",scale={w}:{h}", w, h, "gray")
+    r = Reader(path, first, vf + f",scale={w}:{h}", w, h, "gray")
     out = []
-    for f in range(n):
+    for f in range(first, first + n):
         got = r.frame(f)
         if got is None:
             break
@@ -364,7 +372,8 @@ def fits(row: np.ndarray, ref: np.ndarray, cut: int = 24) -> dict:
             "greatest_to_its_own_frame": round(float(here.max()), 2), "mean_to_the_nearer_neighbour": round(float(other.mean()), 2)}
 
 
-def read_back(source: str, joined: str, out: str) -> dict:
+def read_back(source: str, joined: str, out: str, first: int = 0) -> dict:
+    """`first` is the source frame the clip begins on: the original row is held to the source from THAT frame."""
     w, total_h, n = probe(out)
     nj = probe(joined)[2]
     h = None
@@ -378,13 +387,14 @@ def read_back(source: str, joined: str, out: str) -> dict:
     md5 = lambda p: subprocess.run(["ffmpeg", "-v", "error", "-i", p, "-map", "0:a", "-c", "copy", "-f", "md5", "-"], capture_output=True, text=True).stdout.strip()
     sound = (md5(out), md5(joined))
     return {"frames": n, "clip_frames": nj, "size": [w, total_h], "canvas": [w, h], "sound_packets": {"stacked": sound[0], "clip": sound[1], "the_same": bool(sound[0]) and sound[0] == sound[1]},
-            "the_original_row": fits(_small(out, f"crop={w}:{h}:0:0", n), _small(source, fit, n)),
+            "the_clip_begins_on_source_frame": first,
+            "the_original_row": fits(_small(out, f"crop={w}:{h}:0:0", n), _small(source, fit, n, first)),
             "the_clip_row": fits(_small(out, f"crop={w}:{h}:0:{h * 2 + bar}", n), _small(joined, fit, n))}
 
 
 def check(a: argparse.Namespace) -> None:
-    got = read_back(a.source, a.joined, a.out)
-    print(f"frames: the stacked file {got['frames']}, the clip {got['clip_frames']}; picture {got['size'][0]} by {got['size'][1]}, canvas {got['canvas'][0]} by {got['canvas'][1]}")
+    got = read_back(a.source, a.joined, a.out, a.first)
+    print(f"frames: the stacked file {got['frames']}, the clip {got['clip_frames']}, which begins on source frame {a.first}; picture {got['size'][0]} by {got['size'][1]}, canvas {got['canvas'][0]} by {got['canvas'][1]}")
     s = got["sound_packets"]
     print(f"sound packets: stacked {s['stacked'] or 'none'}, the clip {s['clip'] or 'none'}: {'the same' if s['the_same'] else 'NOT the same'}")
     for name, key in (("ORIGINAL row against the source", "the_original_row"), ("CLIP row against the clip", "the_clip_row")):
@@ -409,10 +419,12 @@ def main() -> int:
     b.add_argument("--alias", action="append", default=[], metavar="OLD=NEW", help="a subject's name in the table shown as another on the picture; repeatable")
     b.add_argument("--copy-rate", type=float, default=24.0, help="the rate of the copy the pieces' graphs load: a loader's start is in its seconds")
     b.add_argument("--only", metavar="FIRST-LAST", help="a trial on these source frames alone (the sound is then the whole clip's)")
+    b.add_argument("--first", type=int, default=0, metavar="SOURCE_FRAME", help="the source frame the clip's first frame is, for a clip of a span that does not begin on 0")
     c = sub.add_parser("check", help="read a stacked file back against the source and the clip")
     c.add_argument("--source", required=True)
     c.add_argument("--joined", required=True)
     c.add_argument("--out", required=True)
+    c.add_argument("--first", type=int, default=0, metavar="SOURCE_FRAME", help="the source frame the clip's first frame is: the original row is held to the source from there")
     a = p.parse_args()
     {"build": build, "check": check}[a.mode](a)
     return 0

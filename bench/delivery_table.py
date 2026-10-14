@@ -494,8 +494,10 @@ def assembly(out: dict, ledger: dict, plan: dict, repo: Path, table: str, span: 
     if whole:
         stacked = str(Path(clip).with_name(Path(clip).stem + "_STACKED.mp4"))
         work = stack_work or "A_SCRATCH_FOLDER"
-        stack = {"build": line([python, "bench/stack_delivery.py", "build", "--source", source, "--table", table, "--joined", clip, "--out", stacked, "--work", work]),
-                 "check": line([python, "bench/stack_delivery.py", "check", "--source", source, "--joined", clip, "--out", stacked]),
+        # a clip of a span begins on the span's first frame, and the stack is told so: its original row, its panels and the number it burns are the source's
+        begins = ["--first", str(span[0])] if span and span[0] else []
+        stack = {"build": line([python, "bench/stack_delivery.py", "build", "--source", source, "--table", table, "--joined", clip, "--out", stacked, "--work", work, *begins]),
+                 "check": line([python, "bench/stack_delivery.py", "check", "--source", source, "--joined", clip, "--out", stacked, *begins]),
                  "whole": bool(stack_work), "out": stacked}
     return {"command": line(build), "whole": whole, "captures": captures, "captures_handed_in": [rel(c) for c in also],
             "aliases_used_by_a_capture": sorted(used), "runs": ties, "restores": restores, "stack": stack,

@@ -436,6 +436,11 @@ def the_commands() -> str:
         assert not bare["whole"] and bare["stack"] is None and bare["ledger_command"] is None, bare
         text = dt.reading_text(out, "Made for the check.", "data/t.txt", bare)
         assert "NOT WHOLE: no `--source` and `--out`" in text and "this ledger does not keep its command" in text, text
+        # A CLIP OF A SPAN begins on the span's first frame, and the stack and its check are told so (2026-10-14: six one-shot clips were
+        # stacked as if each began on frame 0); a clip from frame 0 carries no such word
+        part = dt.assembly(out, made, PLAN, repo, "data/t.txt", (50, 149), "--source /in/clip.mp4 --out /out/clip.mp4", stack_work="/scratch/w")
+        assert part["stack"]["build"].endswith("--work /scratch/w --first 50") and part["stack"]["check"].endswith("--out /out/clip_STACKED.mp4 --first 50"), part["stack"]
+        assert "--first" not in built["stack"]["build"] + built["stack"]["check"], built["stack"]
         no_work = dt.assembly(out, made, PLAN, repo, "data/t.txt", (0, 149), "--source /in/clip.mp4 --out /out/clip.mp4")
         assert no_work["stack"]["whole"] is False and "NOT WHOLE: no `--stack-work`" in dt.reading_text(out, "m", "data/t.txt", no_work), no_work["stack"]
     return ("the ledger's, the table's, the clip's and the stack's commands are each one line, an argument with a space quoted; not whole without a source "

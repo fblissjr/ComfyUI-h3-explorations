@@ -101,7 +101,7 @@ class Made:
 
     def build(self, **more) -> None:
         given = dict(source=str(self.source), table=str(self.table), joined=str(self.clip), out=str(self.out), work=str(self.root / "work"),
-                     tag="", alias=[], copy_rate=24.0, only=None)
+                     tag="", alias=[], copy_rate=24.0, only=None, first=0)
         given.update(more)
         sd.build(argparse.Namespace(**given))
 
@@ -239,6 +239,46 @@ def the_read_back() -> str:
     return "the frame counts, the sound's packets and each row against its file read as built; a row one frame late is said to fit a neighbour"
 
 
+def a_clip_of_a_span() -> str:
+    """THE FAULT OF 2026-10-14: six clips of one shot each were stacked as if each began on source frame 0. The original row
+    and the masks row were of other frames, the burned number was the clip's own count, and the check passed, since it
+    read the source from 0 too."""
+    m = made()
+    k, n = 4, 7                                                    # the clip is source frames 4 to 10
+    span, out = m.root / "span.mp4", m.root / "span_stacked.mp4"
+    ffmpeg("-i", str(m.clip), "-vf", f"select='between(n\\,{k}\\,{k + n - 1})',setpts=N/24/TB", "-an", "-frames:v", str(n), "-pix_fmt", "yuv420p", str(span))
+    m.build(joined=str(span), out=str(out), first=k)
+    line, bar = sd.sizes(H)
+    assert sd.probe(str(out))[2] == n, sd.probe(str(out))
+    cut = H // 4
+    row = grey(out, f"crop={W}:{H - cut}:0:{cut}", W, H - cut)
+    own = grey(m.source, f"crop={W}:{H - cut}:0:{cut}", W, H - cut)
+    for i in range(n):
+        here, from_zero = np.abs(row[i] - own[k + i]).mean(), np.abs(row[i] - own[i]).mean()
+        assert here < from_zero and here < 6, f"stacked frame {i}: the original row is {here:.2f} from source frame {k + i} and {from_zero:.2f} from source frame {i}"
+    # the middle row is the table's rows on the SOURCE frame: piece a's mask on 4-7, piece b's on 8-10 (as the_built_file reads them, at index f - k)
+    pw, ph = W // 2, H // 2
+    mask = grey(out, f"crop={pw // 2}:{ph // 2}:{pw // 2}:{H + ph // 2 + ph // 2}", pw // 2, ph // 2).mean(axis=(1, 2))
+    for f, mask_frame in ((4, 2), (7, 5), (8, 0), (10, 2)):
+        assert abs(mask[f - k] - MASK(mask_frame)) < NEAR, f"source frame {f}: the mask panel reads {mask[f - k]:.0f}, its frame {mask_frame} was made {MASK(mask_frame)}"
+    right = sd.read_back(str(m.source), str(span), str(out), k)
+    assert right["the_clip_begins_on_source_frame"] == k and right["the_original_row"]["a_neighbour_fits_better"] == [] and right["the_original_row"]["own_frame_fits_best"] >= n - 2, right
+    # THE CONTROL: the same file held to the source from 0, as the check did, does not fit
+    wrong = sd.read_back(str(m.source), str(span), str(out), 0)["the_original_row"]
+    assert wrong["mean_to_its_own_frame"] > 3 * max(right["the_original_row"]["mean_to_its_own_frame"], 0.5), (wrong, right["the_original_row"])
+    # --only outside the clip's own frames is refused; and a build that is not told where the clip begins lays the wrong rows (the control for the fixture)
+    try:
+        m.build(joined=str(span), out=str(m.root / "x.mp4"), first=k, only="0-3")
+        raise AssertionError("--only outside the span clip's frames was taken")
+    except SystemExit as e:
+        assert "is not inside the clip's frames, 4 to 10" in str(e), e
+    untold = m.root / "span_untold.mp4"
+    m.build(joined=str(span), out=str(untold), first=0)
+    bad = grey(untold, f"crop={W}:{H - cut}:0:{cut}", W, H - cut)
+    assert np.abs(bad[2] - own[k + 2]).mean() > np.abs(bad[2] - own[2]).mean(), "the fixture cannot tell a clip of a span from a clip from 0"
+    return "a clip of source frames 4 to 10, told so: the original row and the panels are the source's 4 to 10, and the read-back held from 0 does not fit"
+
+
 def a_table_that_lays_nothing() -> str:
     m = made()
     empty = m.root / "empty.txt"
@@ -257,6 +297,7 @@ case("the table as read, through the assembler's readers", the_table_as_read)
 case("what the middle row reads on each frame", what_each_frame_reads)
 case("the built file shows those frames", the_built_file)
 case("check: the file read back", the_read_back)
+case("a clip of a span that does not begin on frame 0", a_clip_of_a_span)
 case("a table that lays nothing", a_table_that_lays_nothing)
 
 if __name__ == "__main__":
