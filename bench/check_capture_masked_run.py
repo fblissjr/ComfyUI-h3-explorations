@@ -82,6 +82,10 @@ overlaps and margins can be counted by hand and reads the rows back.
    capture that exists is sized from its record, or from its own saved masks when it was made before sizes
    were recorded. Not covered: the `files` command's own reading of `least=` from a `--mask`, which takes mask
    videos; it was run by hand on one capture's inputs the day it was written (`docs/wiki/decisions.md`).
+   The starting floor is held at the size the load renders at (`starting_floor`, 2026-10-14): PART_LEAST_PX over
+   the square of the node's own zoom_box on the part's boxes, so a far face is kept where the canvas value
+   emptied it; not scaled with `zoom=off` or where the node will not zoom; a run at another zoom names the frames
+   whose emptying would change (`floor_against_the_run`).
 
 19. **A mask's `at` is the source frame its preview's files begin on** (inside the verify case). A sighting read
    from another frame than its preview's own job says, for the masks or for the shot table, fails with the
@@ -801,6 +805,46 @@ def graded_holds() -> str:
     assert (large[3] == face[3]).all() and 3 not in quiet, "a part at the least size was emptied"
     return ("a fill on an arm is refused where the saved part is right; a fill on the part replaces a saved part that is "
             "off it or lost; a frame with no part under either is emptied; an undoubted frame is left alone")
+
+
+def the_floor_at_the_size_it_renders() -> str:
+    """The starting floor held at the size the load renders at (2026-10-14): a load the node zooms by Z gives the model its part
+    Z squared larger, so the floor on the canvas is PART_LEAST_PX / Z^2, Z the node's own zoom_box on the part's boxes; least= is
+    not scaled; zoom=off (the job's whole_frame) is not; at on-plan, a run whose zoom differs says the frames that would change."""
+    import torch
+    W_, H_ = 1024, 768
+    vm = cap._pack("video_mask")
+    small = np.zeros((20, H_, W_), bool)
+    small[:, 300:340, 500:530] = True                                  # a far face, 1200 px: under the canvas floor
+    small[5, 300:310, 500:530] = False
+    small[5, 300:302, 500:530] = True                                  # one frame of 60 px
+    least, by, z = cap.starting_floor(small, (W_, H_), whole_frame=False)
+    box, why = vm.zoom_box(torch.tensor(np.tile([500, 300, 530, 340], (20, 1))), W_, H_, W_, H_)
+    # THE CASE THAT GOES RED when the zoom is not the node's own, or the floor is not the starting value at the zoom's size
+    assert z["box"] == list(box) and z["scale"] == round(W_ / (box[2] - box[0]), 4) and z["scale"] == 2.0, (z, box, why)
+    assert least == cap.PART_LEAST_PX // 4 == cap.floor_on_the_canvas(2.0) and "zoomed 2.00x" in by and f"{least} px on the canvas" in by, (least, by)
+    # the grade under it keeps the far face and empties the 60 px frame; under the canvas value it would empty all of them
+    kept, said = cap.grade_holds(small, small, np.ones((20, H_, W_), np.uint8), [1], least)
+    assert kept[0].any() and not kept[5].any() and said[5]["least_px"] == least, said.get(5)
+    assert not cap.grade_holds(small, small, np.ones((20, H_, W_), np.uint8), [1], cap.PART_LEAST_PX)[0].any(), "the control: the canvas floor empties every frame"
+    # THE CASE THAT GOES RED when a whole-frame load's floor is scaled
+    whole = cap.starting_floor(small, (W_, H_), whole_frame=True)
+    assert whole[0] == cap.PART_LEAST_PX and "zoom=off" in whole[1] and whole[2] is None, whole
+    wide = np.zeros((3, H_, W_), bool)
+    wide[:, 10:760, 10:1010] = True                                     # across the frame: the node does not zoom
+    w = cap.starting_floor(wide, (W_, H_), whole_frame=False)
+    assert w[0] == cap.PART_LEAST_PX and w[2]["box"] is None and "under 1.25 times" in w[1], w
+    # at on-plan: the zoom the floor used against the run's
+    px = np.array([5000, 2000, 1100, 900, 0, 3000])
+    assert cap.floor_against_the_run(px, 100, np.ones(6, bool), 2.0, 2.0) is None
+    ag = cap.floor_against_the_run(px, 100, np.ones(6, bool), 2.0, 1.33)      # used 1024 px; at 1.33x 2316 px
+    # THE CASE THAT GOES RED when a run's other zoom is not said with the frames whose emptying it would change
+    assert ag["floor_px_used"] == 1024 and ag["floor_px_at_the_run_zoom"] == cap.floor_on_the_canvas(1.33) \
+        and ag["frames_whose_emptying_would_change"] == [[101, 102]] and ag["frames"] == 2 and ag["would"].startswith("be emptied"), ag
+    back = cap.floor_against_the_run(px, 100, np.array([1, 0, 1, 1, 1, 1], bool), 1.0, 2.0)
+    assert back["frames_whose_emptying_would_change"] == [[102, 102], [105, 105]] and back["would"].startswith("be kept"), back
+    return ("the starting floor is PART_LEAST_PX at the zoom the node's zoom_box gives the part's boxes, so a far face is kept where the canvas floor "
+            "emptied it; not scaled on the whole frame, by zoom=off or where the node will not zoom; a run whose zoom differs names the frames")
 
 
 def the_floor_against_the_clip() -> str:
@@ -1962,6 +2006,7 @@ case("preflight: a load that lays nothing where its subject is", a_load_that_lay
 case("preflight: what the job says is its own", what_the_job_says_is_its_own)
 case("preflight: specks of another are data", specks_of_another)
 case("a strip says what the node will render", what_the_node_will_render)
+case("the floor at the size the load renders at", the_floor_at_the_size_it_renders)
 case("preflight: held's slivers and her clothing are data", held_split)
 case("a fill of a doubted part, graded by the class map", graded_holds)
 case("the floor under a small part: a starting value, held against the clip's own sizes", the_floor_against_the_clip)

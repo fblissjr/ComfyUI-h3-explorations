@@ -261,6 +261,13 @@ def a_masks_at_is_the_previews_first_frame() -> str:
         made.write()
         mine = lc.mask_specs(made.ctx(), files)[1]
         assert mine.endswith(",by=pv,at=100,pieces=largest,least=1024"), mine
+        # a load the job renders on the whole frame: its capture is told so, and its starting floor is not held to a zoom (2026-10-14)
+        made.job["whole_frame"] = {"why": "A REASON", "said_by": "x", "at": "t"}
+        made.write()
+        assert lc.mask_specs(made.ctx(), files)[1].endswith(",pieces=largest,least=1024,zoom=off"), lc.mask_specs(made.ctx(), files)[1]
+        del made.job["whole_frame"]
+        made.write()
+        assert "zoom=" not in lc.mask_specs(made.ctx(), files)[1]
         # A LOAD'S OWN PART (`parts_file` on its subject): the capture is handed that file as the part, and no other subject's mask changes;
         # a file that is not there is refused; a job that names none is handed the preview's saved part, as ever
         usual = lc.mask_specs(made.ctx(), files)

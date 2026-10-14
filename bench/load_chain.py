@@ -310,6 +310,8 @@ def mask_specs(ctx: dict, files: dict, band: Path | None = None, hashed=None) ->
         for key in MASK_OPTIONS:              # only what the job says: no default of `pieces=largest`
             if key in ctx["subject_keys"]:
                 spec += f",{key}={ctx['subject_keys'][key]}"
+        if (ctx.get("job") or {}).get("whole_frame"):     # the capture's starting floor is held to the zoom; a whole-frame load is not zoomed
+            spec += ",zoom=off"
         out.append(spec)
     cuts = band_cuts(ctx) if band is not None else None
     for name, track in ctx.get("keep_outs") or []:

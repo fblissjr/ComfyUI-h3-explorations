@@ -44,7 +44,7 @@ the card, and build from what it stops on.
    [`window_edges_data.md`](window_edges_data.md).
 5. A pair measure as a tracked tool; a zoom box that follows the subject.
 6. The rows of 2026-10-13 not started: a zoomed load's floor at the size it
-   renders at; overlapping keeps ordered by the keep's time; a shot between the
+   renders at (built 2026-10-14); overlapping keeps ordered by the keep's time; a shot between the
    planner's longest length and the model's; the plan strip drawing a zoomed
    load's box (its words are done); `break_checks.py` and `check_masked_job`; choosing among several
    boxes in one cut; how much of its box a person fills on a who picture.
@@ -810,7 +810,15 @@ fixed the same day, said inline below.**
   the size the load renders at (the capture has the zoom,
   `zoomed_on_the_canvas`), with the canvas figure still printed beside
   it. A change to the capture, so built in a worktree and landed when no
-  load is between its plan and its render. Not started.
+  load is between its plan and its render. BUILT 2026-10-14
+  (`bench/capture_masked_run.py::starting_floor`): with no `least=`, the
+  starting value is held at the zoom the node's `zoom_box` gives the
+  part's boxes over the span; `zoom=off` (the job's `whole_frame`, told by
+  `bench/load_chain.py`) keeps it; at on-plan a run at another zoom prints
+  both and the frames whose emptying would change. Taken up for the
+  card's queue past 2049 (`internal/claude/2026-10-14_mrdrill_runs_past_2049.md`:
+  each run's px and zoom), whose small zoomed runs the canvas floor
+  emptied.
 - **The shots record calls 5935-6394 one shot, and the tracker cut it
   into twenty-five** (2026-10-13, from the who page of the previews of
   1920-6394). The record's shots of that half are from scene scores of

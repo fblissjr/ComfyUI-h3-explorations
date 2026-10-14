@@ -158,9 +158,12 @@ the subject, a jump in size, moved within the subject's box) filled from their u
 fill. With a class map every offer is graded (`grade_holds`, `part_grades.json`): the fill is taken only
 where it lies on the part's own classes better than the saved part does, and a frame where neither does is
 emptied; `grade=off` in the spec leaves the fill ungraded. The grade also empties a part smaller than a floor,
-which is a STARTING VALUE and not this clip's (`PART_LEAST_PX`): the capture prints the part's size on this
-clip's frames against it for every subject (`part_sizes`), and `least=PX` in the spec sets it for that subject
-(`least=0` empties nothing by size). `sizes CAPTURE...` prints the same figures for captures that exist.
+which is a STARTING VALUE and not this clip's (`PART_LEAST_PX`), held at the size the load renders at: on the
+canvas it is PART_LEAST_PX over the square of the zoom the node's `zoom_box` gives the part's boxes (`starting_floor`;
+`zoom=off` in the spec, the job's whole frame, keeps it as it is; a run that renders at another zoom names the frames
+that would change). The capture prints the part's size on this clip's frames against it for every subject
+(`part_sizes`), and `least=PX` in the spec sets it for that subject in canvas px, not scaled (`least=0` empties
+nothing by size). `sizes CAPTURE...` prints the same figures for captures that exist.
 `drop=FIRST-LAST+FIRST-LAST` empties the part on source frames where it should take nothing (it lies on
 something that is not the part and there is nothing to fill it from). A plan with `carried=held` works its
 region out from that mask. The manifest lists the frames filled, the doubted frames left and those emptied. Written only when the mask video covers
@@ -510,10 +513,70 @@ PART_LEAST_PX = 4 * 32 * 32
 LEAST_STARTING = ("the starting value (PART_LEAST_PX): reasoned from the model's token and held once against another "
                   "clip; not set from this clip")
 LEAST_GIVEN = "this capture's --mask (least=)"
+#: The starting value is held at the size the load RENDERS at (2026-10-14, the lead's go on the row of 2026-10-13, "a zoomed
+#: load's part floor is counted at the canvas"): a load the node zooms by Z gives the model its part Z squared larger than on
+#: the canvas, so the floor on the canvas is PART_LEAST_PX / Z^2. Z is the node's own `video_mask.zoom_box` on the part's
+#: boxes over the span, as `bench/propose_runs.py` takes it: the node boxes the load's REGION (the part grown by its margin),
+#: so at plan its zoom can be smaller, and the on-plan capture prints both and the frames whose emptying would change
+#: (`floor_against_the_run`). Why now: on the runs of the card's queue past 2049 (internal/claude/2026-10-14_mrdrill_runs_past_2049.md,
+#: its per-run px and zoom), frames under the floor on the canvas were over it at their run's zoom, which the card set by hand.
+#: `least=` on a --mask is the card's own floor in canvas px and is not scaled; `zoom=off` (the job's `whole_frame`, told by
+#: `bench/load_chain.py`) keeps the starting value as it is.
+LEAST_AT_THE_RENDER = "the starting value (PART_LEAST_PX) at the size the load renders at"
+
+
+def floor_zoom(parts: np.ndarray, size: tuple[int, int]) -> dict:
+    """The zoom the starting floor is held to: the node's own `zoom_box` on the boxes of the part over the span (a row of -1
+    where a frame has none), as `propose_runs` takes it. {"scale": 1.0 and "why": the node's words} where it would not zoom."""
+    import torch
+    n = len(parts)
+    boxes = np.full((n, 4), -1, int)
+    for f in range(n):
+        ys, xs = np.nonzero(parts[f].any(1))[0], np.nonzero(parts[f].any(0))[0]
+        if len(ys):
+            boxes[f] = (xs[0], ys[0], xs[-1] + 1, ys[-1] + 1)
+    box, why = _pack("video_mask").zoom_box(torch.tensor(boxes), size[0], size[1], size[0], size[1])
+    if box is None:
+        return {"scale": 1.0, "box": None, "why": why, "measured_on": "the part's boxes over the span (the node's zoom_box)"}
+    return {"scale": round(size[0] / (box[2] - box[0]), 4), "box": [int(v) for v in box], "set_by": why,
+            "measured_on": "the part's boxes over the span (the node's zoom_box)"}
+
+
+def starting_floor(parts: np.ndarray, size: tuple[int, int], whole_frame: bool) -> tuple[int, str, dict | None]:
+    """A sighting's floor when its --mask gives no `least=`: (px on the canvas, who set it, the zoom it was held to or None).
+    `whole_frame` (`zoom=off`) keeps the starting value as it is (LEAST_AT_THE_RENDER)."""
+    if whole_frame:
+        return PART_LEAST_PX, LEAST_STARTING + "; the load renders on the whole frame (zoom=off: the job's whole_frame), so it is not scaled", None
+    z = floor_zoom(parts, size)
+    least = floor_on_the_canvas(z["scale"])
+    if z["box"] is None:
+        return least, f"{LEAST_AT_THE_RENDER}: not zoomed ({z['why']}), so {least} px on the canvas", z
+    return least, (f"{LEAST_AT_THE_RENDER}: zoomed {z['scale']:.2f}x on the box {z['box']} ({z['set_by']}; {z['measured_on']}), "
+                   f"so {PART_LEAST_PX} px drawn is {least} px on the canvas"), z
+
+
+def floor_on_the_canvas(scale: float) -> int:
+    """`PART_LEAST_PX` at the size the load renders at, in px of the canvas: a part drawn `scale` times larger."""
+    import math
+    return int(math.ceil(PART_LEAST_PX / (float(scale) ** 2)))
+
+
+def floor_against_the_run(px: np.ndarray, first: int, read: np.ndarray, floor_scale: float, run_scale: float) -> dict | None:
+    """Where the zoom the floor was held to and the zoom a run renders at differ: both, both floors on the canvas, and the
+    frames of the run whose emptying would change (a saved part between the two floors). None where they agree."""
+    if round(float(floor_scale), 2) == round(float(run_scale), 2):
+        return None
+    used, theirs = floor_on_the_canvas(floor_scale), floor_on_the_canvas(run_scale)
+    lo, hi = min(used, theirs), max(used, theirs)
+    moved = [first + int(f) for f in np.nonzero(read & (px > 0) & (px >= lo) & (px < hi))[0]]
+    return {"floor_zoom": round(float(floor_scale), 2), "run_zoom": round(float(run_scale), 2), "floor_px_used": used, "floor_px_at_the_run_zoom": theirs,
+            "frames_whose_emptying_would_change": frame_spans(moved, join=1), "frames": len(moved),
+            "would": "be emptied at the run's zoom and were kept" if theirs > used else "be kept at the run's zoom and were emptied",
+            "measured_on": "the saved part, before any fill, in px of the canvas"}
 #: What the sizes cannot say, carried with them wherever they are written.
 SIZES_CANNOT_SEE = ("whether a small part is a sliver of the part or a whole small face (the class map calls both the "
                     "part's class): look at a frame; and the size the part is drawn at on a load rendered zoomed in, "
-                    "which is larger than these whole-frame pixels by the zoom, squared")
+                    "which is larger than these whole-frame pixels by the zoom, squared (the starting floor is held to it: floor_zoom)")
 
 
 #: What the pixels `pieces=largest` took away cannot say, carried with them wherever they are written.
@@ -1393,6 +1456,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
     size = (width, height)
     sightings: dict = {}
     pieces_by_sighting: dict = {}
+    floors: dict = {}                 # a subject's starting floor held at the render's size: its zoom and the saved part's px a frame
     class_maps: dict = {}
     made_of: dict = {}
     held_masks: dict = {}
@@ -1403,6 +1467,8 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
     for label, m in masks:
         by, at = m.get("by", "preview"), int(m.get("at", first))
         least, least_by = (int(m["least"]), LEAST_GIVEN) if m.get("least") is not None else (PART_LEAST_PX, LEAST_STARTING)
+        if m.get("zoom") not in (None, "off"):
+            raise SystemExit(f"subject {label!r}: zoom={m['zoom']}; the one value is zoom=off (the load renders on the whole frame)")
         if least < 0:
             raise SystemExit(f"subject {label!r}: least={m['least']}; a part's least size is 0 (nothing emptied by size) or more, in px")
         track, covered = read_mask(m["track"], size, at, first, frames)
@@ -1413,6 +1479,10 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             # counted, printed and kept in the manifest, since the flag is then silent
             parts, stray = largest_piece(parts)
             took = pieces_taken(stray, first)
+        zoomed_floor = None
+        if parts is not None and m.get("least") is None:
+            least, least_by, zoomed_floor = starting_floor(parts, size, m.get("zoom") == "off")
+            floors[label] = {"scale": zoomed_floor["scale"] if zoomed_floor else 1.0, "px": parts.reshape(len(parts), -1).sum(axis=1)}
         if m.get("classes"):
             names = _pack("sapiens2_parts").CLASS_NAMES
             cmap = read_classes(m["classes"], size, at, first, frames)
@@ -1508,7 +1578,9 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                    "parts_fill_refused_by_grade_on_source_frames": frame_spans(refused),
                                    "parts_emptied_by_grade_on_source_frames": frame_spans(emptied_by_grade),
                                    # the part's size on this clip's frames, and where the floor fell among them (`part_sizes`)
-                                   "part_sizes": sizes})
+                                   "part_sizes": sizes,
+                                   # the zoom the starting floor was held to (`floor_zoom`); None with least= or zoom=off
+                                   "floor_zoom": zoomed_floor})
         print(f"subject {label} seen by {by}: {int(covered.sum())} of {frames} frames covered, "
               f"mask on {int(track.reshape(frames, -1).any(1).sum())}", flush=True)
         if sizes is not None:
@@ -1627,6 +1699,16 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                  **({"margin_px_in_the_zoomed_picture": zoomed_margin} if zoomed_margin is not None else {}),
                                  "masked_source": settings,
                                  "given_back_worked_out": bool(entry["back"]), "frames_read": int(read.sum()), **how})
+        if label in floors:
+            # the zoom the floor was held to, against the one this run renders at (1 for the whole frame)
+            against = floor_against_the_run(floors[label]["px"], first, read, floors[label]["scale"],
+                                            float(how["zoom"]["scale"]) if how.get("zoom") else 1.0)
+            manifest["runs"][-1]["floor_against_the_run"] = against
+            if against:
+                print(f"  THE FLOOR'S ZOOM AND THIS RUN'S DIFFER: the floor was held to {against['floor_zoom']}x ({against['floor_px_used']} px on the canvas), "
+                      f"the run renders at {against['run_zoom']}x ({against['floor_px_at_the_run_zoom']} px). Frames that would "
+                      f"{against['would']}: {against['frames']}" + (f", source frames {', '.join(f'{p}-{q}' for p, q in against['frames_whose_emptying_would_change'])}"
+                                                                   if against["frames"] else "") + f" (on {against['measured_on']}). Data: the floor is not changed", flush=True)
         print(f"{'plan' if r['planned'] else 'run'} {name}: region {'worked out' if r['planned'] and not r.get('preview') else 'read'} on "
               f"{int(read.sum())} of {frames} frames, mean share {float(region[read].mean()) if read.any() else 0.0:.4f}", flush=True)
         if how.get("zoom"):
@@ -1634,8 +1716,9 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                   f"{how['zoom']['source_size'][1]} frames: {ZOOMED_CELLS_ARE}. Cells in the region over the frames read: "
                   f"{how['zoomed_cells_counted']['any_pixel']} by that rule, {how['zoomed_cells_counted']['more_than_half']} more than half "
                   f"covered, {how['zoomed_cells_counted']['every_pixel']} wholly covered. Its margin is {zoomed_margin} px of the zoomed picture, "
-                  f"{margin} px on the canvas. NOT changed for the zoom: the part's sizes, the floor and the face-size flag, which are "
-                  "of the whole frame, where the part is smaller than it is drawn by the scale squared", flush=True)
+                  f"{margin} px on the canvas. NOT changed for the zoom: the part's sizes and the face-size flag, which are of the whole "
+                  "frame, where the part is smaller than it is drawn by the scale squared; the starting floor is held to the zoom of the "
+                  "part's boxes (floor_zoom), said above where it differs from this run's", flush=True)
     voice = read_voice(a.voice) if a.voice else None
     manifest["voice_table"] = Path(a.voice).name if a.voice else None
     cross = cross_rows(first, frames, sightings, captured, voice)
@@ -5055,7 +5138,7 @@ def main() -> None:
     f.add_argument("--source", required=True, help="the clip every run was loaded from")
     f.add_argument("--first", type=int, required=True, help="the source frame that is the span's frame 0")
     f.add_argument("--frames", type=int, required=True)
-    f.add_argument("--mask", action="append", default=[], metavar="LABEL:track=V[,parts=V][,classes=V][,held=V][,shots=J][,shots_at=N][,pose=J][,pose_at=N][,by=RUN][,at=N][,hold=A-B+C-D][,drop=A-B+C-D][,grade=off][,least=PX][,pieces=largest]",
+    f.add_argument("--mask", action="append", default=[], metavar="LABEL:track=V[,parts=V][,classes=V][,held=V][,shots=J][,shots_at=N][,pose=J][,pose_at=N][,by=RUN][,at=N][,hold=A-B+C-D][,drop=A-B+C-D][,grade=off][,least=PX][,pieces=largest][,zoom=off]",
                    help="one sighting of a subject: its saved mask videos; repeatable")
     f.add_argument("--run", action="append", default=[], metavar="RUN:render=V|preview=DIR,subject=LABEL[,others=L+L][,margin=PX][,at=N][,region=review]",
                    help="one pass that regenerated a subject; its region is the one each window saved beside its latent, or is "
