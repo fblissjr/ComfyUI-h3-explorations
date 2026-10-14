@@ -210,7 +210,11 @@ its own heading with one reading:
   clip would.
 - *by intent*: the table says so, one line a shot: `source  first-last  subject=<label>  words saying why`. This
   is where the question is answered; the words are kept in the record. A `source` line over a shot where
-  something IS laid for that subject, or one that covers no whole shot, fails as a contradiction.
+  something IS laid for that subject, or one that covers no whole shot, fails as a contradiction. A `source` line
+  for a subject no row of the table has is the table of one shot saying who is the original there: with the shots
+  record (`--shots`) it is kept under `shots.said_of_subjects_no_row_has`, with the subject and that the record
+  lists them, and checked against nothing (no capture of theirs is read); a name the record does not list, or any
+  such line with no record, fails as a name that may be a slip.
 
 Inside a shot that has rows laid, the runs of frames where the subject is tracked and nothing is laid are listed
 with the longest (said, not failed: a face pass lays nothing while a face is turned away, and a second of that is
@@ -1399,7 +1403,12 @@ def record_cuts_of(path) -> list[int]:
     return sorted(int(s["first"]) for s in d["shots"])
 
 
-def shots_of(record, rows, captures, span, moved, intents, record_cuts=None) -> tuple[dict, list[str]]:
+def record_subjects_of(path) -> set[str]:
+    """The subjects a video's shots record names on any of its shots (`who` of each shot)."""
+    return {label for s in json.load(open(path))["shots"] for label in s.get("who") or {}}
+
+
+def shots_of(record, rows, captures, span, moved, intents, record_cuts=None, record_subjects=None) -> tuple[dict, list[str]]:
     """The record's `shots` section and the failures it raises: per shot and named subject, was anything laid.
 
     `record_cuts`, when the build was handed the video's shots record (`--shots`), are the cuts on every frame no
@@ -1407,7 +1416,10 @@ def shots_of(record, rows, captures, span, moved, intents, record_cuts=None) -> 
     person settles a cut, and this tool's line misses a cut between two grey pictures and cannot see a dissolve.
     Where the record and this tool's reading differ it is written down both ways as data
     (`the_record_against_this_reading`) and fails nothing: a cut the record has and the picture does not show may be
-    a record that split one shot, which a person reads from that list."""
+    a record that split one shot, which a person reads from that list.
+
+    `record_subjects`, the subjects that record names: a `source` line for a subject no row has is kept as said when
+    they are among them, and fails otherwise."""
     over = sorted(n for n, v in moved.items() if v > CUT)
     # consecutive frames that each move over the line are one event (a whip, a flash, a blur), not a shot a frame:
     # the first of them is the cut. Read as several cuts, a blur of five frames inside one shot made three shots of
@@ -1524,11 +1536,17 @@ def shots_of(record, rows, captures, span, moved, intents, record_cuts=None) -> 
             entry["subjects"][label] = st
             own.append({"frames": [a, b], "subject": label, **{k: v for k, v in st.items() if k not in ("frames_laid",)}})
         out.append(entry)
+    no_row = []
     for i in intents:
         if id(i) in used:
             continue
         if i["subject"] not in named:
-            problems.append(f"the table's `source {i['first']}-{i['last']}` names {i['subject']}, a subject no row of it has")
+            if record_subjects is not None and i["subject"] in record_subjects:
+                no_row.append({"frames": [i["first"], i["last"]], "subject": i["subject"], "why": i["why"],
+                               "the_shots_record_lists_them": True, "checked_against": "nothing: no row is theirs, so no capture of theirs is read"})
+            else:
+                problems.append(f"the table's `source {i['first']}-{i['last']}` names {i['subject']}, a subject no row of it has"
+                                + (" and the shots record does not list" if record_subjects is not None else " (no shots record given to say they exist)"))
         else:
             problems.append(f"the table's `source {i['first']}-{i['last']} subject={i['subject']}` covers no whole shot "
                             f"(the shots: {', '.join(f'{a}-{b}' for a, b in shots[:24])})")
@@ -1544,6 +1562,8 @@ def shots_of(record, rows, captures, span, moved, intents, record_cuts=None) -> 
                "a subject with no shot table of its own is given the count another subject's table has for the shot",
                "a dissolve is not a cut here: two shots it joins are read as one",
                "consecutive frames that each move over the line are read as one cut, so a shot one frame long is not seen as a shot"]
+    if no_row:
+        missing.append("a `source` line for a subject no row has is the table's word alone: nothing of theirs is read on its frames")
     if unknown:
         missing.append("rows whose subject is not known are not asked about: " + ", ".join(sorted(set(unknown))))
     if not tables and not flagged:
@@ -1555,7 +1575,7 @@ def shots_of(record, rows, captures, span, moved, intents, record_cuts=None) -> 
              "frames_a_shot_table_has_the_word_on": frame_spans(sorted(n for n in covered if span[0] <= n <= span[1])),
              "runs_of_frames_over_the_line_read_as_one_cut": blurs,
              "cuts_a_capture_puts_elsewhere": apart, "shots": out,
-             "where_a_named_subject_is_the_source's_own": own, "missing": missing}, problems)
+             "where_a_named_subject_is_the_source's_own": own, "said_of_subjects_no_row_has": no_row, "missing": missing}, problems)
 
 
 def ends_of(record, shots, rows=(), captures=None) -> tuple[dict, list[str]]:
@@ -2004,7 +2024,8 @@ def check(args, segs, canvas, span, src, rows, captures):
     if tally:
         result["subjects"] = tally.report()
     result["shots"], unlaid = shots_of(record, rows, captures, span, source_moved_over(args.source, span, w, h),
-                                       read_intents(args.table), record_cuts_of(args.shots) if args.shots else None)
+                                       read_intents(args.table), record_cuts_of(args.shots) if args.shots else None,
+                                       record_subjects_of(args.shots) if args.shots else None)
     result["shots"]["shots_record"] = args.shots
     for line in unlaid:
         fail(line)
@@ -2032,6 +2053,10 @@ def check(args, segs, canvas, span, src, rows, captures):
         + ", ".join(f"{n} {kind}" for kind, n in sorted(kinds.items())) + ")" if own
         else "; every named subject has something laid on every shot" if any(e["subjects"] for e in result["shots"]["shots"])
         else "; no row's subject is known, so no shot is asked about")
+    said = result["shots"]["said_of_subjects_no_row_has"]
+    if said:
+        result["verdict_line"] += ("; the table's word alone, unchecked, that " + ", ".join(
+            f"{x['subject']} is the original on {x['frames'][0]}-{x['frames'][1]}" for x in said) + " (no row is theirs; the shots record lists them)")
     if unlaid or slid:
         result["verdict_line"] += ": " + "; ".join([line.split(". Lay a row")[0] for line in unlaid] + [line.split(" (its outermost")[0] for line in slid])
     return result

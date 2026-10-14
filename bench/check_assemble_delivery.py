@@ -1066,6 +1066,22 @@ with tempfile.TemporaryDirectory() as _tmp:
         (TMP / "not_a_record.json").write_text(json.dumps({"schema": "h3_plan/1", "shots": []}))
         (TMP / "a_record.json").write_text(json.dumps({"schema": "h3_shots/1", "shots": [{"first": 0, "last": 9}, {"first": 10, "last": 39}]}))
         assert tool.record_cuts_of(TMP / "a_record.json") == [0, 10]
+        # A TABLE OF ONE SHOT says a subject with no row there is the original (the first per-shot review clip,
+        # 2026-10-14, failed on it): kept as said when the shots record lists them; a name it does not list, or
+        # any such line with no record, fails as a slip
+        (TMP / "a_record_who.json").write_text(json.dumps({"schema": "h3_shots/1", "shots": [
+            {"first": 0, "last": 19, "who": {"a": {"present": "yes"}}}, {"first": 20, "last": 39, "who": {"a": {}, "c": {"present": "no"}}}]}))
+        assert tool.record_subjects_of(TMP / "a_record_who.json") == {"a", "c"}
+        line = [{"first": 20, "last": 39, "subject": "c", "why": "not in the shot by the shots record"}]
+        section, problems = tool.shots_of({"rows": {}}, [], None, (0, 39), moved, line, record_cuts=[0, 20], record_subjects={"a", "c"})
+        assert not problems and section["said_of_subjects_no_row_has"] == [
+            {"frames": [20, 39], "subject": "c", "why": "not in the shot by the shots record", "the_shots_record_lists_them": True,
+             "checked_against": "nothing: no row is theirs, so no capture of theirs is read"}] \
+            and any("the table's word alone" in m for m in section["missing"]), (problems, section["said_of_subjects_no_row_has"])
+        for subjects, said in (({"a"}, "the shots record does not list"), (None, "no shots record given")):
+            section, problems = tool.shots_of({"rows": {}}, [], None, (0, 39), moved, line, record_cuts=[0, 20], record_subjects=subjects)
+            assert not section["said_of_subjects_no_row_has"] and len(problems) == 1 and "names c, a subject no row of it has" in problems[0] \
+                and said in problems[0], (subjects, problems)
         try:
             tool.record_cuts_of(TMP / "not_a_record.json")
             raise AssertionError("a file that is not a shots record was read as one")
@@ -1073,7 +1089,8 @@ with tempfile.TemporaryDirectory() as _tmp:
             assert "not a video's shots record" in str(stop), stop
         return ("a shot with its subject tracked and nothing laid fails by its frames; so does one called absent with people detected, by the "
                 "capture's flag or a shot table; a `source` line answers it and its words are kept; another subject's person, nobody, and "
-                "nothing known are listed and pass; a `source` line over a laid shot or over part of one fails")
+                "nothing known are listed and pass; a `source` line over a laid shot or over part of one fails; one for a subject no row has "
+                "is kept when the shots record lists them and fails when it does not")
 
     def no_mask_no_lay() -> str:
         on = mask_of(RECT_A, 30, grow=4)

@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 130 |
+| [`check_*`](#check) | 131 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 167 |
+| [the rest](#the-rest) | 168 |
 
 ## check
 
@@ -124,6 +124,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_schema_defaults.py`](check_schema_defaults.py) | Check every node's schema defaults match its `execute` signature defaults. |
 | [`check_shot_coverage.py`](check_shot_coverage.py) | `bench/shot_coverage.py` lays a plan, a delivery table and a renders inventory side by side, a shot and a subject at a time; each case is a way a row could say the wrong thing. |
 | [`check_shot_parts.py`](check_shot_parts.py) | `bench/shot_parts.py` lists the shots with nobody and, for each shot and subject present, the frames their part is on; each case is a way a row could count the wrong frames, read the wrong preview or call something it should only show. |
+| [`check_shot_review_clips.py`](check_shot_review_clips.py) | `bench/shot_review_clips.py` on made tables, records and lists: each case is a way a shot's review clip could say the wrong day, lose a piece or a subject, or write over what stands. |
 | [`check_shot_table.py`](check_shot_table.py) | The per-shot table says what the tracker did, and its person numbers mean one thing everywhere. |
 | [`check_shot_to_load.py`](check_shot_to_load.py) | From a shot to a load's job file (`bench/shot_to_load.py`) on a made video: what each step reads, writes and refuses. |
 | [`check_shots_record.py`](check_shots_record.py) | `bench/shots_record.py` joins two shots of a shots record or cuts one, keeping every answer whole; each case is a way an answer could be lost, moved to the wrong cut, or a record left that no longer covers its video. |
@@ -451,6 +452,7 @@ this file is only a way to find a script by what it says it does.
 | [`score_sol_dense_blocks_panel.py`](score_sol_dense_blocks_panel.py) | Score the Sol dense_blocks panel: each arm's saved latents against the all-dense arm at the same scene and seed, with each arm's sampler time. |
 | [`shot_coverage.py`](shot_coverage.py) | Where a masked video stands: one row a shot and a subject, with what the plan wants there, what the delivery table lays there, and what else has been rendered on those frames. |
 | [`shot_parts.py`](shot_parts.py) | Where a masked video has somebody to replace and how much of them is there: the shots with none of the subjects, and for each shot and subject present the frames their part is on, read from a preview's own masks. |
+| [`shot_review_clips.py`](shot_review_clips.py) | A shot's joined review clip: the shot with every piece that stands on it laid, stacked for the eye, one review item a shot, each piece with the day it was rendered. |
 | [`shot_to_load.py`](shot_to_load.py) | From a shot to a load's job file: the preview of the shot, the load's job, its head reference. Then it stops for the text. |
 | [`shots_record.py`](shots_record.py) | Join two shots of a video's shots record that are one shot, or cut one that is two, keeping every answer whole. |
 | [`simulate_track_b_lite.py`](simulate_track_b_lite.py) | Priority 3d: Track B-Lite Eager FP16-PV Simulation. |
