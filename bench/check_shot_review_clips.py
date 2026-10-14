@@ -25,6 +25,8 @@
   the_sixth_readers_findings        the owner's words with no click and after a not sure; the lead's word beside a click; a piece of no frame
                                     not counted; nothing to make; unsure passed over; Central in November; by-day's newest click and words alone;
                                     an older build, an overlapping item, a dangling link, the owner as --by and a peer's write refused or named
+  the_seventh_readers_findings      a passed-over render's clicks and words with its reason whole; words sent with the click; reasons not cut;
+                                    the cut's length; the shots counted; by-day's pieces that show nothing; an escaped |
   by_the_day                        a row a piece (one render on two shots is one row) with the table's own words, the lead's --prefer said as
                                     the lead's; the day's renders this table does not lay, never one that stands in it; the ledger must be the one
                                     the table names; a kept output stays
@@ -237,12 +239,20 @@ def build_writes_over_nothing() -> str:
             assert target.read_text() == "kept" and not (tables / "t_fun_0020_0030_joined_T.txt").exists(), "something was written before the refusal"
         refused(lambda: src.main(["build", "--ledger", "L", "--shots", "S", "--plan", "P", "--source", "/in/fun.mp4", "--clips", str(d / "c"), "--tables",
                                   str(d / "t"), "--stack-work", str(d / "w"), "--stamp", "T", "1-9", "1-9"]), "given twice")
+        # a ledger made without the joined clips' tables reads no click on one: refused before anything runs (a seventh reader)
+        ledger = d / "L.json"
+        ledger.write_text(json.dumps({"command": {"argv": ["--shots", "S"]}}))
+        refused(lambda: src.main(["build", "--ledger", str(ledger), "--shots", "S", "--plan", "P", "--source", "/in/fun.mp4", "--clips", str(d / "c"), "--tables",
+                                  str(d / "t"), "--stack-work", str(d / "w"), "--stamp", "T", "1-9"]), "made without --joined-tables")
+        assert not (d / "c").exists(), "something was written before the refusal"
+        ledger.write_text(json.dumps({"command": {"argv": ["--shots", "S", "--joined-tables", "tables"]}}))
         # the steps stood in for: a capture that holds an earlier build's record of the name, then a stack with a hard fault
         capture = d / "capture"
         capture.mkdir()
         real_run, real_read = src.subprocess.run, src.stack_delivery.read_back
         for stamp, earlier, got, want in (("A", True, reading(11), "REFUSED after the table"), ("B", False, reading(11, clip_frames=10), "HARD FAULT"),
-                                          ("C", False, reading(11), None), ("D", False, reading(11), "dry"), ("E", "relative", reading(11), "REFUSED after the table")):
+                                          ("C", False, reading(11), None), ("D", False, reading(11), "dry"), ("E", "relative", reading(11), "REFUSED after the table"),
+                                          ("F", "csv", reading(11), "REFUSED after the table")):
             steps = Steps(capture, got)
             steps.clip = d / "clips" / f"fun_0200_0210_joined_{stamp}.mp4"
             (d / "clips").mkdir(exist_ok=True)
@@ -253,6 +263,9 @@ def build_writes_over_nothing() -> str:
                 (d / "repo" / "cap" / f"delivery__fun_0200_0210_joined_{stamp}.json").write_text("{}")
                 steps.capture = Path("cap")
                 src.HERE = d / "repo" / "bench"
+            elif earlier == "csv":                    # the assembler's other write: a run's changed cells under the build's name (a seventh reader)
+                (capture / "runs" / "r").mkdir(parents=True, exist_ok=True)
+                (capture / "runs" / "r" / f"changed__fun_0200_0210_joined_{stamp}.csv").write_text("x")
             elif earlier:
                 (capture / f"delivery__fun_0200_0210_joined_{stamp}.json").write_text("{}")
             src.subprocess.run, src.stack_delivery.read_back = steps.run, (lambda *a, **k: steps.got)
@@ -260,7 +273,7 @@ def build_writes_over_nothing() -> str:
             real_print = builtins.print
             try:
                 builtins.print = lambda *a, **k: said.append(" ".join(str(x) for x in a))
-                code = src.main(["build", "--ledger", "L", "--shots", "S", "--plan", "P", "--source", "/in/fun.mp4", "--clips", str(d / "clips"), "--tables",
+                code = src.main(["build", "--ledger", str(ledger), "--shots", "S", "--plan", "P", "--source", "/in/fun.mp4", "--clips", str(d / "clips"), "--tables",
                                  str(d / "tables"), "--stack-work", str(d / "w"), "--stamp", stamp, *(["--dry"] if want == "dry" else []), "200-210"])
             finally:
                 builtins.print = real_print
@@ -474,16 +487,22 @@ def the_sixth_readers_findings() -> str:
         f = src.files_of(src.clip_name("fun", 100, 140, "T2"), clips, tables)
         f["stacked"].write_bytes(b"clip")
         f["record"].write_text(json.dumps(RECORD))
-        f["json"].write_text(json.dumps(made_table()))
+        laid = dict(made_table(), rows=[{"first": 100, "last": 140, "name": "lead_a", "subject": "lead"}])
+        f["json"].write_text(json.dumps(laid))
         f["stack_reading"].write_text(json.dumps(reading(41)))
+        # an older build of the same pieces is retired into this one; one of other pieces is left open, its lines its own (the lead's ruling)
+        src.files_of(src.clip_name("fun", 100, 140, "T1"), clips, tables)["json"].write_text(json.dumps(laid))
+        src.files_of(src.clip_name("fun", 100, 140, "T0"), clips, tables)["json"].write_text(json.dumps(dict(laid, rows=[dict(laid["rows"][0], name="lead_old")])))
         listed = {"updated": "x", "by": "y", "items": [
             {"id": "keep_me", "state": "open"},
+            {"id": "fun_0100_0140_joined_T0_stacked", "first": "100", "frames": "41", "state": "open"},            # other pieces: left open
             {"id": "fun_0100_0140_joined_T1_stacked", "first": "100", "frames": "41", "state": "open"},            # older, second on the list: retired
             {"id": "fun_0100_0140_joined_T1_check", "state": "open"},                                               # not a stacked item: left
             {"id": "fun_0090_0110_joined_T1_stacked", "first": "90", "frames": "21", "state": "open"}]}             # overlapping: named, left
         page.write_text(json.dumps(listed, indent=1) + "\n")
         base = ["items", "--items", str(page), "--clips", str(clips), "--tables", str(tables), "--stem", "fun", "--by", "tester"]
-        refused(lambda: src.main([*base, "--stamp", "T2", "--by", "the owner", "100-140"]), "never the owner's")
+        for who in ("the owner", "Owner", "the_owner", "fblissjr"):
+            refused(lambda w=who: src.main([*base, "--stamp", "T2", "--by", w, "100-140"]), "never the owner's")
         newer = json.loads(page.read_text())
         newer["items"].append({"id": "fun_0100_0140_joined_T3_stacked", "first": "100", "frames": "41", "state": "open"})
         page.write_text(json.dumps(newer, indent=1) + "\n")
@@ -511,6 +530,8 @@ def the_sixth_readers_findings() -> str:
             assert src.main([*base, "--stamp", "T2", "100-140"]) == 0
         after = {x["id"]: x for x in json.loads(page.read_text())["items"]}
         assert after["fun_0100_0140_joined_T1_stacked"]["state"] == "superseded" and after["fun_0100_0140_joined_T1_check"]["state"] == "open", after
+        # THE CASE THAT GOES RED when a build of other pieces takes an older item's place, and the owner's lines on it with it
+        assert after["fun_0100_0140_joined_T0_stacked"]["state"] == "open" and "leaves fun_0100_0140_joined_T0_stacked open: it lays other pieces" in out.getvalue()
         assert after["fun_0090_0110_joined_T1_stacked"]["state"] == "open" and "overlaps it and stays open: fun_0090_0110_joined_T1_stacked (90-110)" in out.getvalue()
         assert after["fun_0100_0140_joined_T2_stacked"]["seconds"] == "about 4.2 s to 5.9 s of the video", after["fun_0100_0140_joined_T2_stacked"]["seconds"]
         # the seconds of a span's first frame are its own, not the next one's: on 200 the two round apart
@@ -527,6 +548,41 @@ def the_sixth_readers_findings() -> str:
             "said; an unsure subject's passed-over renders; a passed-over keep named once; Central in November; by-day's newest click, words alone and a "
             "good-to-go set aside; an older build refused, an overlapping item named, a non-stacked item left, an older item anywhere on the list retired, a "
             "dangling link, the owner as --by and a peer's write in between refused; the seconds; a wider table refused")
+
+
+def the_seventh_readers_findings() -> str:
+    """A seventh reader (2026-10-14), its findings and the changes that left every case green."""
+    long = "A REASON WHOLE " + "x" * 130
+    t = {"reading": [
+        entry(100, 120, "lead", stands=[stand("lead_a", [(100, 120)], "2026-10-13T15:00:00Z")], passed_over=[
+            dict(passed("lead_other", "2026-10-12T15:00:00Z", long, {"said": "wrong", "at": "2026-10-13T16:00:00Z"}),
+                 the_owners_words=[{"at": "2026-10-13T16:00:00Z", "said": "SENT WITH THE CLICK"}, {"at": "2026-10-13T17:00:00Z", "said": "LINE ONE\nLINE TWO"}]),
+            dict(passed("lead_words", "2026-10-12T15:00:00Z", "set aside"), the_owners_words=[{"at": "2026-10-13T18:00:00Z", "said": "I LIKE THIS ONE"}]),
+            passed("lead_kept", "2026-10-12T15:00:00Z", long, {"said": dt.KEEP[0], "at": "2026-10-12T16:00:00Z"})]),
+        dict(entry(100, 120, "second", present="unsure"), nothing_to_make=[long]),
+        dict(entry(100, 120, "third"), nothing_to_make=[long])],
+        "not_in_the_shot": [{"first": 121, "last": 130, "subject": "lead", "why": "not in the shot"}]}
+    pieces, said = src.item_words(t)
+    text = " ".join(said)
+    # THE CASES THAT GO RED: a passed-over render's clicks and words only counted; words sent with the click hidden; a reason cut
+    assert ("lead_other is not laid here (" + long + "); your last choice on it: \"wrong\" (10/13), and your words: \"SENT WITH THE CLICK\" "
+            "(10/13 11:00 Central); \"LINE ONE / LINE TWO\" (10/13 12:00 Central)") in text, text
+    assert "lead_words is not laid here (set aside); no click of yours on it, and your words: \"I LIKE THIS ONE\"" in text, text
+    assert "YOUR KEEP lead_kept (of 10/12) is not laid here: " + long in text, "a passed-over keep's reason cut"
+    assert "the original throughout; present, nothing to make under this plan, by the table: " + long in text, "an unsure subject's nothing-to-make reason lost or cut"
+    assert "present, nothing to make under this plan, by the table: " + long in text.split("third:")[1], "the nothing-to-make reason cut"
+    assert src.REASON_CHARS == 110 and src.cut("y" * 110) == "y" * 110 and src.cut("y" * 111) == "y" * 110 + "...", "the display cut is not 110 characters"
+    item = src.make_item("x", (100, 130), t, RECORD, "l", "T", "s", None)
+    assert item["what"].startswith("The 2 shots of 100-130"), "a shot only the not-in list holds is not counted"
+    day = src.by_day_text(dict(t, reading=t["reading"] + [entry(140, 150, "lead", stands=[stand("all_gone", [(140, 150)], "2026-10-13T15:00:00Z", left=[[140, 150]],
+                                                                                                why="a | in a reason")])]), {"renders": {}}, "2026-10-13", "t.json", "l.json")
+    assert "| all_gone (NOTHING OF IT SHOWS: it leaves the original on all its frames) |" in day and "1 of them show nothing" in day, day
+    assert "a \\| in a reason" in day, "a | in a cell breaks the table"
+    tail = day.split("## Renders this table does not lay that carry your clicks or words")[1]
+    assert "| 100-120 | lead | lead_other | 'wrong', 10-13 11:00 |" in tail and "| lead_words | none | \"I LIKE THIS ONE\"" in tail, tail
+    return ("a passed-over render's clicks and words said with its reason whole, in the item and by-day; words sent with the click; multi-line words whole; "
+            "a passed-over keep's and a nothing-to-make reason whole, an unsure subject's too; the cut at 110; the shots counted from the not-in list; "
+            "by-day's pieces that show nothing and an escaped |")
 
 
 def by_the_day() -> str:
@@ -549,7 +605,7 @@ def by_the_day() -> str:
         "ghost_r": {"name": "ghost_r", "subjects": ["ghost"], "written": "2026-10-13T14:00:00Z", "graph": {"first": 145, "frames": 10}},
         "next_day": {"name": "next_day", "written": "2026-10-14T06:00:00Z", "graph": {"first": 5, "frames": 10}}}}
     text = src.by_day_text(t, ledger, "2026-10-13", "t.json", "l.json")
-    rows = [x for x in text.splitlines() if x.startswith("| ") and not x.startswith("| frames")]
+    rows = [x for x in text.split("## Renders this table does not lay that carry")[0].splitlines() if x.startswith("| ") and not x.startswith("| frames")]
     pieces = [r for r in rows if r.count("|") == 7]
     assert [r.split(" | ")[2] for r in pieces] == ["lead_a", "second_a", "sixth_a", "lead_b", "lead_pref"], pieces
     # THE CASE THAT GOES RED when an owner's keep the lead's --prefer set aside is hidden under the lead's word
@@ -598,6 +654,7 @@ case("an item's sentences in order", sentences_in_order)
 case("the owner's words after a keep", the_owners_words_after_a_keep)
 case("by the day", by_the_day)
 case("a sixth reader's findings", the_sixth_readers_findings)
+case("a seventh reader's findings", the_seventh_readers_findings)
 
 if __name__ == "__main__":
     sys.exit(finish())

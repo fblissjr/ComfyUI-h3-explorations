@@ -155,6 +155,12 @@ def build(a: argparse.Namespace) -> int:
     taken = [str(p) for span in spans for p in files_of(named[span], clips, tables).values() if p.exists()]
     if taken:
         raise SystemExit("refused, nothing run: a kept output is not replaced; these are there already:\n  " + "\n  ".join(taken))
+    # a ledger made without the joined items' tables reads no click on a joined clip, and the item would say "not judged" of pieces the
+    # owner judged on one (a seventh reader, 2026-10-14: the 1854Z and 1929Z ledgers)
+    argv = (json.loads(Path(a.ledger).read_text()).get("command") or {}).get("argv") or []
+    if "--joined-tables" not in argv:
+        raise SystemExit(f"refused, nothing run: the ledger {a.ledger} was made without --joined-tables, so it reads none of the owner's lines on a "
+                         "joined clip; make it again with the folder of the joined clips' tables (bench/render_ledger.py --joined-tables)")
     clips.mkdir(parents=True, exist_ok=True)
     tables.mkdir(parents=True, exist_ok=True)
     for span in spans:
@@ -168,7 +174,8 @@ def build(a: argparse.Namespace) -> int:
             return 1
         made = json.loads(f["json"].read_text())["assembly"]
         # the assembler writes its record into every capture it reads, with no check of its own: an earlier build of this name is not written over
-        earlier = [str(p) for c in made["captures"] for p in (HERE.parent / c / f"delivery__{name}.json", Path(c) / f"delivery__{name}.json") if p.is_file()]
+        earlier = [str(p) for c in made["captures"] for base in (HERE.parent / c, Path(c))
+                   for p in [base / f"delivery__{name}.json", *base.glob(f"runs/*/changed__{name}.csv")] if p.is_file()]
         if earlier:
             print(f"{span[0]}-{span[1]}: REFUSED after the table: a capture holds an earlier build's record of this name ({', '.join(sorted(set(earlier)))}); "
                   "take another --stamp")
@@ -217,13 +224,13 @@ def words_after(choice: dict | None, entry: dict) -> list[str]:
     click they wrote after is said with them, and words with no click are said (a sixth reader, 2026-10-14: third_fp_1419b's
     "i dont like beard", with no click, read as "not judged by you yet")."""
     return [f"\"{' / '.join(w['said'].splitlines())}\" ({owners_clock(w['at']):%m/%d %H:%M} Central)" for w in entry.get("the_owners_words") or []
-            if choice is None or str(w.get("at")) > str(choice["at"])]
+            if choice is None or str(w.get("at")) >= str(choice["at"])]       # words sent with the click go with it (a seventh reader)
 
 
 def passed_said(e: dict, keep: tuple) -> str:
-    """The renders passed over on a subject's shot, not held and not a keep of the owner's (each of those has its own
-    sentence): how many, and the newest few with their reasons cut."""
-    passed = [p for p in e["passed_over"] if not p.get("held") and (p.get("the_owners_last_choice") or {}).get("said") not in keep]
+    """The renders passed over on a subject's shot, not held and with no click or words of the owner's (each of those has its
+    own sentence, its reason whole): how many, and the newest few with their reasons cut."""
+    passed = [p for p in e["passed_over"] if not p.get("held") and not p.get("the_owners_last_choice") and not p.get("the_owners_words")]
     return (f" ({len(passed)} other render(s) passed over, the newest {min(len(passed), PASSED_OVER_NAMED)}: "
             + "; ".join(p["render"] + ", " + cut(p["why"]) for p in passed[:PASSED_OVER_NAMED]) + ")") if passed else ""
 
@@ -252,7 +259,9 @@ def item_words(table: dict, keep: tuple = delivery_table.KEEP) -> tuple[int, lis
             continue
         if e["present"] == "unsure":
             say(e, f"{who}: the shots record is unsure they are in this shot (yours to answer on the who page)"
-                + ("" if e["stands"] else "; the original throughout" + passed_said(e, keep)), e["first"] - 0.5)
+                + ("" if e["stands"] else "; the original throughout"
+                   + (f"; present, nothing to make under this plan, by the table: {'; '.join(e['nothing_to_make'])}" if e.get("nothing_to_make") else "")
+                   + passed_said(e, keep)), e["first"] - 0.5)
         for s in e["stands"]:
             left = s.get("leaves_as_the_original")
             own = {x for x, y in s["frames"] for x in range(x, y + 1)}
@@ -281,6 +290,13 @@ def item_words(table: dict, keep: tuple = delivery_table.KEEP) -> tuple[int, lis
                 after = words_after(c, p)
                 say(e, f"{who}: YOUR KEEP {p['render']} (of {owners_clock(c['at']):%m/%d}" + (f", and your words after it: {'; '.join(after)}" if after else "")
                     + f") is not laid here: {p['why']}", e["last"] + 1)
+            elif c or p.get("the_owners_words"):
+                # the owner's other clicks and words on a render passed over are said with it, its reason whole (a seventh reader, 2026-10-14:
+                # 48 such renders on the 1929Z table were only counted, and the cut reason chopped the owner's quoted click)
+                after = words_after(c, p)
+                say(e, f"{who}: {p['render']} is not laid here ({p['why']}); " + (f"your last choice on it: \"{c['said']}\" ({owners_clock(c['at']):%m/%d})" if c
+                                                                                  else "no click of yours on it")
+                    + (f", and your words: {'; '.join(after)}" if after else ""), e["last"] + 1)
         if not e["stands"] and e["present"] != "unsure":
             nothing = e.get("nothing_to_make")
             say(e, f"{who}: the original on the whole shot: " + (f"present, nothing to make under this plan, by the table: {'; '.join(nothing)}" if nothing
@@ -314,7 +330,7 @@ def make_item(name: str, span: tuple[int, int], table: dict, record: dict, link:
 
 
 def items(a: argparse.Namespace) -> int:
-    if re.search(r"\bowner\b", a.by, re.I):           # the note is said as the --by session's words: never the owner's (a sixth reader)
+    if re.search(r"owner|fblissjr", a.by, re.I):           # the note is said as the --by session's words: never the owner's (a sixth reader)
         raise SystemExit(f"--by {a.by!r}: the session that puts the items on the list; its note is said as its words, never the owner's")
     spans = [span_of(s) for s in a.spans]
     if len(set(spans)) != len(spans):
@@ -332,7 +348,7 @@ def items(a: argparse.Namespace) -> int:
     listed = json.loads(raw)
     ids = {x["id"] for x in listed["items"]}
     media = path.parent / "media"
-    new = []
+    new, new_tables = [], {}
     for span in spans:
         name = clip_name(a.stem, *span, a.stamp)
         f = files_of(name, clips, tables)
@@ -358,7 +374,8 @@ def items(a: argparse.Namespace) -> int:
             raise SystemExit(f"{span[0]}-{span[1]}: the stack's reading has a hard fault: {'; '.join(faults)}: no item for it")
         print(f"{span[0]}-{span[1]}: the stack read back: " + " | ".join(stack_delivery.check_lines(got, span[0])[2:]))
         link = os.path.relpath(media / f["stacked"].name, HERE.parent)
-        new.append((f["stacked"], media / f["stacked"].name, make_item(name, span, json.loads(f["json"].read_text()), record, link, a.stamp, a.by, notes.get(span))))
+        new.append((f["stacked"], media / f["stacked"].name, make_item(name, span, made_table, record, link, a.stamp, a.by, notes.get(span))))
+        new_tables[f"{name}_stacked"] = made_table
     for _, _, item in new:
         print(f"{item['id']}: {item['what']}")
     # AN EARLIER JOINED ITEM OF THE SAME SPAN is retired by the new one (the lead, 2026-10-14: three open items of 1222-1305 stood on
@@ -374,11 +391,21 @@ def items(a: argparse.Namespace) -> int:
                 if stamp > a.stamp:                 # an older build never retires a newer one (a sixth reader, 2026-10-14)
                     raise SystemExit(f"{a0}-{b0}: the list holds a LATER build of the same frames, {old['id']} (its stamp {stamp}, this one's {a.stamp}): "
                                      "nothing written")
-                if old.get("state") == "open":
-                    retire.append((old, item["id"]))
-                    print(f"retires {old['id']}: superseded by {item['id']}, a later build of the same frames")
-                else:
+                if old.get("state") != "open":
                     print(f"leaves {old['id']} as it is: its state is {old.get('state')!r}, not open")
+                    continue
+                # retired only into a build that lays the same pieces on the same frames, which inherits its lines on the owner's
+                # page (the lead's ruling of 2026-10-14, on a seventh reader: a kept item was retired into one of other pieces)
+                old_json = files_of(old["id"].removesuffix("_stacked"), clips, tables)["json"]
+                lays = lambda T: sorted((r["name"], r["subject"], max(r["first"], a0), min(r["last"], b0)) for r in T.get("rows") or []  # noqa: E731
+                                        if r["first"] <= b0 and r["last"] >= a0)
+                if not old_json.is_file():
+                    print(f"leaves {old['id']} open: its table {old_json.name} is not there to say what it lays, so its lines are not known to pass to the new one")
+                elif lays(json.loads(old_json.read_text())) != lays(new_tables[item["id"]]):
+                    print(f"leaves {old['id']} open: it lays other pieces than {item['id']}, so the owner's lines on it stay its own")
+                else:
+                    retire.append((old, item["id"]))
+                    print(f"retires {old['id']}: superseded by {item['id']}, a later build of the same pieces on the same frames, which takes its lines")
             elif ("_joined_" in old["id"] and old["id"].endswith("_stacked") and old.get("state") == "open" and old.get("first") and old.get("frames")
                   and int(old["first"]) <= b0 and int(old["first"]) + int(old["frames"]) - 1 >= a0):
                 print(f"an open item of other frames overlaps it and stays open: {old['id']} ({old['first']}-{int(old['first']) + int(old['frames']) - 1}); "
@@ -426,8 +453,10 @@ def by_day_text(table: dict, ledger: dict, day: str, table_name: str, ledger_nam
                      + "".join(f"; your words after it: {w}" for w in words_after(p["the_owners_last_choice"], p)) + ")"
                      for p in r.get("passed_over") or [] if (p.get("the_owners_last_choice") or {}).get("said") in delivery_table.KEEP]
         for s in r.get("stands") or []:
-            one = pieces.setdefault((s["render"], r["subject"]), {"frames": [], "written": s["written"], "why": [], "led": None, "owner": None, "set_aside": []})
+            one = pieces.setdefault((s["render"], r["subject"]), {"frames": [], "written": s["written"], "why": [], "led": None, "owner": None, "set_aside": [],
+                                                                 "left": set()})
             one["frames"] += s["frames"]
+            one["left"] |= {x for a, b in s.get("leaves_as_the_original") or [] for x in range(a, b + 1)}
             if s["why"] not in one["why"]:
                 one["why"].append(s["why"])
             one["led"] = one["led"] or s.get("the_leads_prefer")            # the lead's word on any shot of it is said
@@ -452,10 +481,15 @@ def by_day_text(table: dict, ledger: dict, day: str, table_name: str, ledger_nam
         if not o:
             return "no click" + "".join(f"; your words on it: {w}" for w in p.get("owner_after") or []) if p.get("owner_after") else "none"
         return f"{o['said']!r}, {owners_clock(o['at']):%m-%d %H:%M}" + "".join(f"; your words after it: {w}" for w in p.get("owner_after") or [])
-    rows = sorted(((min(a for a, _ in p["frames"]), ",".join(f"{x}-{y}" for x, y in sorted(p["frames"])), sub, name, owners_clock(p["written"]),
-                    owner_of(p), why_of(p))
+    def shows_nothing(p: dict) -> bool:      # a piece that leaves the original on all its frames lays nothing (as the item says; a seventh reader)
+        return bool(p["left"]) and {x for a, b in p["frames"] for x in range(a, b + 1)} <= p["left"]
+    cell = lambda x: str(x).replace("|", "\\|")                                          # noqa: E731
+    rows = sorted(((min(a for a, _ in p["frames"]), ",".join(f"{x}-{y}" for x, y in sorted(p["frames"])), sub,
+                    name + (" (NOTHING OF IT SHOWS: it leaves the original on all its frames)" if shows_nothing(p) else ""), owners_clock(p["written"]),
+                    cell(owner_of(p)), cell(why_of(p)))
                    for (name, sub), p in pieces.items()))
-    stands = {x[3] for x in rows}
+    blank = sum(1 for p in pieces.values() if shows_nothing(p))
+    stands = {name for name, _ in pieces}
     shots = list(table["reading"]) + list(table.get("not_in_the_shot") or [])
     span = [min(e["first"] for e in shots), max(e["last"] for e in shots)] if shots else None
     lines = [f"# What stands in {table_name}, by the day each piece was rendered", "",
@@ -464,7 +498,15 @@ def by_day_text(table: dict, ledger: dict, day: str, table_name: str, ledger_nam
              "| frames | subject | piece | rendered (Central) | the owner's last choice on it (Central) | why it stands |", "|---|---|---|---|---|---|"]
     lines += [f"| {fr} | {sub} | {name} | {t:%m-%d %H:%M} | {o} | {w} |" for _, fr, sub, name, t, o, w in rows]
     on_day = sum(1 for x in rows if f"{x[4]:%Y-%m-%d}" == day)
-    lines += ["", f"{len(rows)} pieces stand: {on_day} rendered on {day}, {len(rows) - on_day} on other days.", "",
+    lines += ["", f"{len(rows)} pieces stand: {on_day} rendered on {day}, {len(rows) - on_day} on other days"
+              + (f"; {blank} of them show nothing (each leaves the original on all its frames)" if blank else "") + ".", "",
+              "## Renders this table does not lay that carry your clicks or words", "",
+              "| frames | subject | piece | your last choice on it (Central) | your words | why this table does not lay it |", "|---|---|---|---|---|---|",
+              *[f"| {r['first']}-{r['last']} | {r['subject']} | {p['render']} | "
+                + (f"{p['the_owners_last_choice']['said']!r}, {owners_clock(p['the_owners_last_choice']['at']):%m-%d %H:%M}" if p.get("the_owners_last_choice") else "none")
+                + f" | {cell('; '.join(words_after(p.get('the_owners_last_choice'), p)) or 'none')} | {cell(p['why'])} |"
+                for r in table["reading"] for p in r.get("passed_over") or [] if p.get("the_owners_last_choice") or p.get("the_owners_words")],
+              "",
               f"## Renders of {day} in the ledger that this table does not lay", "",
               f"This table covers {span[0]}-{span[1]}; a render on other frames is in no shot of it, and may stand in another table." if span else "This table has no shot.",
               "", "| frames | piece | rendered (Central) | why this table does not lay it |", "|---|---|---|---|"]
