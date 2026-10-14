@@ -7,6 +7,149 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.287.0
+<!-- changelog.d/day-2026-10-14.md -->
+
+### Added
+
+- `bench/shot_review_clips.py`: a shot's joined review clip, with every
+  subject's piece laid and each piece marked with the day it was rendered,
+  built from the delivery table (`build`). It also writes one review item a
+  span on the list, with each piece's render day, the owner's choice and
+  words, and the frames left as the original (`items`), and what stands by
+  the day it was rendered (`by-day`). A later build of the same pieces on
+  the same frames retires the earlier item; a build of other pieces leaves
+  it open. Its docstring says it is not yet made until a further blind read.
+- `bench/review_pages.py`: the owner's two local pages, `TO_REVIEW.html` and
+  `PROVENANCE.html`, made from the delivery table and the ledger alone and
+  readable in light and dark mode. To-review files what it lists under
+  "Waiting on you" or a closed "Done" fold by the owner's last click, each
+  heading a link to its items. Provenance carries the timeline, a card a
+  piece, and the stopped loads with their notes whole. Both say whose words
+  each line is: the owner's, a session's, or not known. Its docstring says
+  it is not yet made until a further blind read.
+- The render ledger (`bench/render_ledger.py`) lists the loads stopped
+  before a render, read whole from the note beside each load's job file,
+  and the defaults each render's load carried. With `--joined-tables` it
+  reads the owner's clicks on joined clips: a keep counts on each piece the
+  clip lays; any other click, or words, are the owner's word on the shot.
+- `bench/strangers.py`: a keep-out of every person in a shot who is not one
+  of its subjects, from the part model on the preview's frames. A subject's
+  own track, held things, parts and hair joined to theirs are taken out,
+  and a piece touching a subject with no body core of its own is theirs.
+  The file is held to its record and a hash of its frames, and the load's
+  own part is held to its subject's track.
+- `bench/others_present.py`: whether anyone besides the subjects is in a
+  shot, from the previews' own tables and the owner's cast answers. The job
+  step writes the answer into the job and keeps the strangers keep-out out
+  of loads where nobody else is; a plan's `not_people` names what is not a
+  person (a face printed on a box).
+- `bench/load_text.py`: a load's text generated from the plan's `text`
+  words and the reference's own record, around one place-and-action
+  sentence a person writes (`shot_to_load.py text --place-and-action`). A
+  text written whole by hand takes `--by-hand "why"`.
+- The chain's defaults: every job step of `bench/shot_to_load.py` prints
+  THE DEFAULTS THIS LOAD CARRIES and keeps them in the job file
+  (`job.defaults`). A part load renders zoomed in where the node allows;
+  the reference draws the contrast eye and the mouth by a check; the
+  strangers keep-out, the hair band, the restore spans and the generated
+  text are named with where each comes from. Turning one off takes a
+  person's word with its reason (`--whole-frame "why"`, the plan's
+  `zoom: false` or `reference`).
+- `bench/head_reference.py --mouth auto`: the mouth drawn over the
+  subject's mouth in the preview's class map where the lip lines lie on it,
+  the class map's own mouth where they do not, and left out otherwise. A
+  frame whose lips miss the mouth, or whose part holds no lips, gets none.
+- `bench/draw_face_points.py`: the eye ring is drawn only where it lies
+  between the lids (the new default), and `--iris filled` and
+  `--iris contrast` fill the iris, and in contrast the white of the eye,
+  inside the lids with the lines over them. `bench/head_reference.py`
+  passes the form through.
+- `bench/look_rooms.py`: areas a subject's look needs regenerated though
+  they are not the part, joined to the capture's part on frames where it
+  kept one. One kind is built, `hairline` (`h3_config.LOOK_HAIRLINE`), and
+  its `check` reads the node's own planned region.
+- `bench/shots_look.py`: a person's look, written into the shots record,
+  that a subject's part is or is not seen on a shot's frames. Where every
+  part the plan replaces is not seen, the coverage tool, the delivery table
+  and the gap lists say the subject is present with nothing to make.
+- `bench/propose_runs.py`: loads proposed on a stretch from the preview
+  alone, by the part's size against a floor, with each run's zoom from the
+  node's own code. Figures only; the card and the lead decide.
+- `bench/look_carry.py`: whether a load made again can rest on an earlier
+  capture's reading. It records the look only when track, part and region
+  are equal or a subset on every frame, and otherwise says a reader is
+  owed.
+- `shot_to_load.py job --parts-on FIRST-LAST=NAME[+NAME]`: a part that
+  changes inside one load. `--track-not SUBJECT:FIRST-LAST=WHY` with
+  `--track-not-by WHO`: a person's word that another subject's track is
+  not that person on named frames.
+- A plan's `restore` spans give a subject's accessories back at assembly
+  on named frames only; the delivery table cuts its rows at each span's
+  edges.
+- A plan look's stay item makes one `clothing` keep-out of the subject's
+  clothing in place of the keep-out it replaces.
+- `capture_masked_run.py preflight` takes `--own-keep-out`, `--given-back`
+  and `--named-empty`, which the load chain reads from the job, so the
+  gate knows what is the load's own.
+
+### Changed
+
+- The head reference reads face points held to the subject's own track
+  (`bench/pose_along_shot.py` greys out everything outside it) and fails
+  a reference whose face's middle is off the track; a short run of such
+  frames is filled from its neighbors. A render's points are read held
+  too, so those read before this are not comparable with those after.
+- The hair band starts at the part box's top and reaches the load's margin
+  past the box on each side (`MASKED_JOB_HAIR_BAND`'s `starts` and
+  `wider`). The capture on the plan reads a banded keep-out as the plan
+  cut it, and a stay keep-out the band empties on every frame is dropped
+  from its load with why.
+- The capture's starting part floor is held at the size the load renders
+  at, scaled by the node's zoom; `least=` stays in canvas pixels.
+- The capture gate takes as data, not a blocked load: frames the job names
+  as empty with a reason, specks of the strangers mask, and the held
+  keep-out's edge slivers and the subject's clothing. A region over the
+  subject's own keep-out drops a level only where a restore span gives it
+  back.
+- `capture_masked_run.py verify` holds a load's own part to the preview
+  file it was made from.
+- The plan strip says whether the load renders zoomed and on which box,
+  its windows, and the defaults it carries.
+- A two-shot load sets the chain's default zoom aside and renders on the
+  whole frame; a zoom a person asked for is refused as before.
+- `bench/shot_parts.py` lists every part and class on every row and says
+  who else is in each shot.
+- The delivery table carries the step and the lead's reason on each
+  stand, and the owner's last choice on every render passed over. The
+  assembler keeps a one-shot table's line for a subject with no row only
+  where it fits the span and the shots record, and its verdict line says
+  what the record says.
+- `AGENTS.md`: one ledger, made new on every landing, with the owner's two
+  pages made from it; three seats from the start of each day; the
+  reference form is the chain's defaults, printed by every job step.
+- `docs/wiki/decisions.md` records the day's decisions: a shot may be
+  split where no face of the subject shows; accessories are kept; one
+  prompt form on every load; a better form does not remake a kept piece;
+  gaze is a known limit.
+- `docs/wiki/masked_v2v.md` points at the text generator as the one home
+  of a load's text, and `docs/h3_geometry_and_nodes.md` records video
+  lengths on the audio grid as a community finding, not a rule.
+
+### Fixed
+
+- The review clip and pages no longer drop the owner's words: words after
+  a keep, words with no click, words sent just before a click, a line's
+  frame, and the clicks on a render the lead held back are all said. A
+  live piece no longer vanishes from to-review, and a session's words are
+  no longer shown as the owner's.
+- The job step's own strangers pass no longer fails with a traceback for
+  want of the load's name.
+- A drawn mouth no longer lands off the face or on the chest where the lip
+  lines fail.
+- `docs/checks.md`: the two review tools' rows no longer claim every rule
+  was seen red.
+
 ## 0.286.0
 <!-- changelog.d/day-2026-10-13.md -->
 
