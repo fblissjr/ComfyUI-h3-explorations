@@ -28,6 +28,13 @@ Older history lives elsewhere and is not copied here:
   keeping them current; one input (the stopped loads) was a typed list and the review file's decisions were
   typed into the script. Where it lives now: `AGENTS.md`, "Operative rules" and "Where state lives". The
   pages becoming tracked tools that read only generated files is the tooling seat's job of the day.
+- **One prompt form on every load, and the tools on by default** (the owner, about 18:05Z, on `lead_fp_1156`:
+  her mouth does not open and the piece is weaker than it could be). Every window's text is the same reference
+  prompt we have been using; no per-load words for the face (not "grin", not "mouth wide open"): the reference
+  video carries the face. What carries it better is the tools, and each becomes a default of the chain from the
+  plan rather than a session's choice per load: zoomed wherever the node allows, the mouth drawn on the reference
+  where its lip lines lie on the mouth (else left out, with the figure printed), the iris between the lids. What
+  it replaces: each of these was opt-in, so `lead_fp_1156` rendered on the whole frame with no mouth drawn.
 - **Keep accessories, for the whole of `fun`** (the owner, about 17:45Z, on the lead's white sunglasses on
   3909-4052). A face replacement keeps what the person wears on the face and head: sunglasses, earrings, a hat.
   What the part model names (its `Eyeglass` class, which `sapiens2_parts.PARTS["face_and_neck"]` puts inside the
