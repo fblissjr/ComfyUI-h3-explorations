@@ -25,8 +25,10 @@ mask is never given back to a keep-out (`video_mask.window`). One kind is built:
   provenance: `h3_config.LOOK_HAIRLINE`. The hold reaches as far as his head moves in it: on a fast turn the room is
   as wide as the turn (the record prints the room's px a frame).
 
-A kind it does not know is refused by name; `add` (a new person's hair from their still) and a `change` room
-carried from large frames (his beard) are designed in the read and not built.
+Every room is kept only on frames where the capture's part is there: a frame the capture leaves as the source
+(turned away, under its floor, dropped by a person) stays the source, room and all. A kind it does not know is
+refused by name; `add` (a new person's hair from their still) and a `change` room carried from large frames (his
+beard) are designed in the read and not built.
 
 **When `room` runs, and what it writes.** After the chain's `first` (the load's capture is made and verified) and
 before its plan. It joins the rooms to the part the CAPTURE made for the load, `parts_held` where the capture has it
@@ -124,8 +126,10 @@ def hairline_room(classes: np.ndarray, track: np.ndarray, hold: int, band: int, 
     return room
 
 
-def rooms_of(look: dict, classes: np.ndarray, track: np.ndarray, others: np.ndarray | None = None) -> tuple[np.ndarray, list[dict]]:
-    """Every `change` room of a subject's look joined, and what each was made with."""
+def rooms_of(look: dict, classes: np.ndarray, track: np.ndarray, others: np.ndarray | None = None,
+             part: np.ndarray | None = None) -> tuple[np.ndarray, list[dict]]:
+    """Every `change` room of a subject's look joined, and what each was made with. With `part` (the part the capture
+    made), a room is kept only on frames where the part is there."""
     room, made = np.zeros(track.shape, bool), []
     for r in look.get("change") or []:
         kind = r.get("room")
@@ -134,6 +138,8 @@ def rooms_of(look: dict, classes: np.ndarray, track: np.ndarray, others: np.ndar
         # one kind is built; a second is a branch here
         s = {**h3_config.LOOK_HAIRLINE, **{k: r[k] for k in ("hold_frames", "band_px") if k in r}}
         got = hairline_room(classes, track, int(s["hold_frames"]), int(s["band_px"]), others)
+        if part is not None:
+            got &= part.reshape(len(part), -1).any(1)[:, None, None]
         room |= got
         px = got.reshape(len(got), -1).sum(1)
         made.append({"room": kind, "settings": s, "by": r.get("by"), "px_a_frame": {"median": float(np.median(px)), "most": int(px.max())}})
@@ -204,7 +210,7 @@ def step_room(job_file: Path, plan_file: Path, by: str, dry: bool, output: Path 
     for path in k["others"].values():
         others |= tracks_of(path, w)
     part = c.read_mask(str(k["part"]), (w, h), 0, 0, n)[0]
-    room, made = rooms_of(look, classes, track, others)
+    room, made = rooms_of(look, classes, track, others, part)
     joined = part | room
     added = (joined & ~part).reshape(n, -1).sum(1)
     folder = output / PARTS_AT.format(video=load_chain.video_of(ctx, REPO / "data"), preview=ctx["preview"]["name"])

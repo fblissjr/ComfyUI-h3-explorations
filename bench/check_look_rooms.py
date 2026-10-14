@@ -17,6 +17,7 @@ node's own plan is read.
    switches between regenerated and kept is counted; a notch is a kept cell three or four of whose neighbours are
    regenerated, and a cell at the grid's edge has only the neighbours inside it.
 6. **Where it writes** is the job step's parts folder (`shot_to_load.PARTS_AT`).
+7. **A room only where the capture kept a part**: on a frame the capture left as the source, the room is empty.
 
 NOT HELD: the `room` and `check` steps end to end on a real job (a capture's folder, the server's files); the job
 file's rewrite; what the model draws; whether a band of 16 px is right for another face. The region reader was held
@@ -76,6 +77,20 @@ def a_look_names_its_rooms() -> str:
     _, made = lr.rooms_of({"change": [{"room": "hairline", "band_px": 5}]}, cls, track)
     assert made[0]["settings"]["band_px"] == 5 and made[0]["settings"]["hold_frames"] == lr.h3_config.LOOK_HAIRLINE["hold_frames"], made
     return "an unknown kind, no change room, no look and no look_by refused; a room's own band_px wins over h3_config's"
+
+
+def only_where_the_capture_kept_a_part() -> str:
+    cls = np.zeros((5, 20, 20), np.uint8)
+    cls[:, 10:, :] = FACE
+    cls[:, :10, :] = HAIR
+    track = np.ones((5, 20, 20), bool)
+    part = np.zeros_like(track)
+    part[[0, 1, 3, 4], 12:, :] = True                       # the capture left frame 2 as the source
+    room, _ = lr.rooms_of({"change": [{"room": "hairline"}]}, cls, track, None, part)
+    assert room[1].any() and room[3].any() and not room[2].any(), [int(x) for x in room.sum((1, 2))]
+    room, _ = lr.rooms_of({"change": [{"room": "hairline"}]}, cls, track)
+    assert room[2].any(), "with no part given, every frame keeps its room"
+    return "a frame with no part keeps no room: the capture's word that it stays the source holds"
 
 
 def after_the_capture() -> str:
@@ -179,6 +194,7 @@ def where_it_writes() -> str:
 
 case("a hairline room: the fringe and the band, held, on his track, off another's", a_hairline_room)
 case("a look names its rooms, and what it does not name is refused", a_look_names_its_rooms)
+case("a room only where the capture kept a part", only_where_the_capture_kept_a_part)
 case("the room is joined after the capture", after_the_capture)
 case("the node's own region, from its own files", the_nodes_region)
 case("the figures the check prints", the_figures)
