@@ -4,8 +4,8 @@
     <python> bench/shot_review_clips.py build --ledger LEDGER.json --shots SHOTS.json --plan PLAN.json --source SOURCE.mp4 \\
         --clips <share>/Video/<stem>/day_<date>/shots --tables data/<date>_<stem>_delivery_tables --stack-work SCRATCH \\
         [--stamp T] [--also-capture FOLDER]... [--prefer ...]... [--hold ...]... [--dry] FIRST-LAST [FIRST-LAST ...]
-    <python> bench/shot_review_clips.py items --items data/<stem>/review/items.json --clips FOLDER --tables FOLDER --stamp T \\
-        --by NAME [--note FIRST-LAST=words]... [--dry] FIRST-LAST [FIRST-LAST ...]
+    <python> bench/shot_review_clips.py items --items data/<stem>/review/items.json --clips FOLDER --tables FOLDER --stem STEM \\
+        --stamp T --by NAME [--note FIRST-LAST=words]... [--dry] FIRST-LAST [FIRST-LAST ...]
     <python> bench/shot_review_clips.py by-day --table T.json --ledger LEDGER.json --day YYYY-MM-DD --out OUT.md
 
 **What it buys.** The owner's rule of 2026-10-13: a shot with two of our subjects in it is judged with every piece
@@ -27,7 +27,9 @@ its stamp is then taken, and a real build takes another.
 
 THE ASSEMBLER ALSO WRITES INTO THE CAPTURES IT READS: its record of the clip, `delivery__<name>.json`, into each
 capture folder, and `runs/<run>/changed__<name>.csv`, which the capture's own tool lists beside the real
-deliveries' (`bench/capture_masked_run.py`). A throwaway build leaves them there, and a person removes them.
+deliveries' (`bench/capture_masked_run.py`), and it writes them with no check of its own. So a build whose name a
+capture already holds a record of is refused once its table is made (the captures are the table's), and a throwaway
+build leaves its records there for a person to remove.
 
 A one-shot table says, for a subject the shots record has and no row of that table lays, that they are the
 original there. The assembler takes that line when the shots record lists the subject and keeps it in its record
@@ -37,16 +39,20 @@ as the table's word alone (`shots.said_of_subjects_no_row_has`); the evening's s
 folder. It is handed the build by its stamp and reads that build's named files. Its words are made from the span's
 table JSON and the assembler's record: every piece that stands, its frames, the day and hour it was rendered on the
 owner's clock (`piece_gaps.OWNERS_CLOCK`), the owner's last choice on it or that they made none, the frames inside
-it that its load left as the original or that what it leaves is NOT KNOWN; a subject the shots record is unsure of
-(with any piece of theirs that stands), one it says is not in the shot (the table's `not_in_the_shot`), and one
-with nothing standing. `--note` adds a person's words to a span's item, whole, after the pieces; one a span. The
+it that its load left as the original or that what it leaves is NOT KNOWN; a piece that stands by the lead's
+`--prefer`, said as the lead's choice with its reason whole, and a keep of the owner's it set aside; a render the
+lead held back (`--hold`) with its reason whole; a subject the shots record is unsure of (with any piece of theirs
+that stands), one it says is not in the shot (the table's `not_in_the_shot`), and one with nothing standing. A span
+of several shots begins each sentence with its shot, in frame order. `--note` adds a person's words to a span's
+item, whole, after the pieces; one a span. A media link of the clip's name that points elsewhere is refused. The
 buttons are the table's own (`delivery_table.RENDER_ITEM_BUTTONS`). Refused: a span not built, an id already on the
 list, a clip whose assembler's record fails, and a stack whose reading has a hard fault (a frame count that is not
 the span's, or sound that is not the clip's). How well each stack row fits its frames is printed, not judged. A
 copy of the list, named with the time of the write, goes into `--tables` before the one write.
 
 **`by-day`** writes the table of what stands by the day it was rendered: a row a piece in frame order with why it
-stands (the step of the table's rule), then the renders of `--day` in the ledger that do not stand, with why.
+stands in the table's own words (the lead's `--prefer` said as the lead's choice), then the renders of `--day` in
+the ledger that this table does not lay, with why. The ledger must be the one the table says it was made from.
 
 **What it cannot see.** Whether a piece is good, or whether the owner would pick it: the table's rule says why it
 stands and no more. A `source` line for a subject no row lays is checked against no picture. The day is the
@@ -71,9 +77,6 @@ import delivery_table  # noqa: E402
 import stack_delivery  # noqa: E402
 from piece_gaps import OWNERS_CLOCK  # noqa: E402
 
-STEP_WORDS = {"step 0": "the lead's --prefer (a session's word)", "step 1": "the owner's keep",
-              "step 2": "the newest render in the frozen form; the owner has made no keep on it"}
-
 
 def span_of(text: str) -> tuple[int, int]:
     try:
@@ -90,7 +93,10 @@ def clip_name(stem: str, a: int, b: int, stamp: str) -> str:
 
 
 def owners_clock(utc: str) -> datetime.datetime:
-    return datetime.datetime.fromisoformat(utc.replace("Z", "+00:00")).astimezone(OWNERS_CLOCK)
+    """A stamp of the records on the owner's clock. Every stamp is UTC (a stamp with no zone is read as UTC, never as
+    the machine's own clock)."""
+    t = datetime.datetime.fromisoformat(utc.replace("Z", "+00:00"))
+    return (t if t.tzinfo else t.replace(tzinfo=datetime.timezone.utc)).astimezone(OWNERS_CLOCK)
 
 
 def files_of(name: str, clips: Path, tables: Path) -> dict[str, Path]:
@@ -124,7 +130,10 @@ def stack_faults(got: dict, span: tuple[int, int]) -> list[str]:
     want = span[1] - span[0] + 1
     out = [f"the stacked file has {got['frames']} frames and the clip {got['clip_frames']}, where the span is {want}"] \
         if not got["frames"] == got["clip_frames"] == want else []
-    return out + ([] if got["sound_packets"]["the_same"] else ["the stacked file's sound is NOT the clip's"])
+    sound = got["sound_packets"]
+    if not sound["stacked"] and not sound["clip"]:
+        return out + ["neither the stacked file nor the clip carries sound"]
+    return out + ([] if sound["the_same"] else ["the stacked file's sound is NOT the clip's"])
 
 
 def build(a: argparse.Namespace) -> int:
@@ -152,6 +161,12 @@ def build(a: argparse.Namespace) -> int:
             print(f"{span[0]}-{span[1]}: THE TABLE exit {r.returncode}: {last_line(r.stdout + r.stderr)} (all of it: {f['table_out']})")
             return 1
         made = json.loads(f["json"].read_text())["assembly"]
+        # the assembler writes its record into every capture it reads, with no check of its own: an earlier build of this name is not written over
+        earlier = [str(p) for c in made["captures"] for p in (HERE.parent / c / f"delivery__{name}.json", Path(c) / f"delivery__{name}.json") if p.is_file()]
+        if earlier:
+            print(f"{span[0]}-{span[1]}: REFUSED after the table: a capture holds an earlier build's record of this name ({', '.join(sorted(set(earlier)))}); "
+                  "take another --stamp")
+            return 1
         steps = [("build", made["command"]), ("stack", made["stack"]["build"])]
         if a.dry:
             print(f"{span[0]}-{span[1]}: {name}: the table is written ({f['table']}); dry, so neither was run, nor the stack's reading:")
@@ -180,42 +195,64 @@ def build(a: argparse.Namespace) -> int:
     return 0
 
 
-#: How many renders passed over are named in an item, and how much of each one's reason. A display cut, reasoned: the
-#: item is read on the owner's page; the table's reading beside the clip has every one whole, and the item says how many.
+#: How many renders passed over are named in an item when nothing of a subject stands, and how much of each one's
+#: reason. A display cut, reasoned: the item is read on the owner's page; the table's reading beside the clip has every
+#: one whole, and the item says how many there are. A HOLD of the lead's is never cut: it is a session's word.
 PASSED_OVER_NAMED, REASON_CHARS = 3, 110
 
 
+def cut(words: str) -> str:
+    return words if len(words) <= REASON_CHARS else words[:REASON_CHARS] + "..."
+
+
 def item_words(table: dict, keep: tuple = delivery_table.KEEP) -> tuple[int, list[str]]:
-    """(pieces, one sentence a piece or a subject) for a span's item, from the span's table JSON alone: the subjects
-    of its reading (present or unsure), then those its `not_in_the_shot` says are not in the shot."""
-    said, pieces = [], 0
-    for e in table["reading"]:
+    """(pieces, one sentence a piece or a subject) for a span's item, from the span's table JSON alone, in frame order.
+    Where the span holds more than one shot, every sentence begins with its shot. Why each piece stands is the table's
+    rule: a piece the lead put first (`--prefer`) says so, with the lead's reason whole, and so does a keep of the
+    owner's that it set aside; a render the lead held back (`--hold`) is named with its reason whole."""
+    entries = [("reading", e) for e in table["reading"]] + [("absent", n) for n in table.get("not_in_the_shot") or []]
+    shots = {(e["first"], e["last"]) for _, e in entries}
+    said, pieces, seen = [], 0, set()
+
+    def say(e: dict, words: str) -> None:
+        said.append((e["first"], (f"on {e['first']}-{e['last']}, " if len(shots) > 1 else "") + words))
+    for kind, e in entries:
         who = e["subject"]
+        if kind == "absent":
+            say(e, f"{who}: not in this shot by the shots record ({e['why']})")
+            continue
         if e["present"] == "unsure":
-            said.append(f"{who}: the shots record is unsure they are in this shot (yours to answer on the who page)"
-                        + ("" if e["stands"] else "; the original throughout"))
+            say(e, f"{who}: the shots record is unsure they are in this shot (yours to answer on the who page)" + ("" if e["stands"] else "; the original throughout"))
         for s in e["stands"]:
-            pieces += 1
+            if s["render"] not in seen:
+                pieces += 1
+                seen.add(s["render"])
             c = s.get("the_owners_last_choice")
             day = owners_clock(s["written"])
             choice = (f"your keep of {owners_clock(c['at']):%m/%d}" if c and c["said"] in keep
                       else f"your last choice on it: \"{c['said']}\"" if c else "not judged by you yet")
             left = s.get("leaves_as_the_original")
-            said.append(f"{who}: {s['render']} on {', '.join(f'{x}-{y}' for x, y in s['frames'])}, rendered {day:%m/%d} ({day:%H:%M} Central); {choice}"
-                        + ("; what it leaves as the original inside it is NOT KNOWN (its ledger entry does not say)" if left is None
-                           else f"; inside it the piece leaves the original on {', '.join(f'{x}-{y}' for x, y in left)} (its capture had no part of them there)"
-                           if left else ""))
+            led = s.get("the_leads_prefer")
+            say(e, f"{who}: {s['render']} on {', '.join(f'{x}-{y}' for x, y in s['frames'])}, rendered {day:%m/%d} ({day:%H:%M} Central); {choice}"
+                + (f"; IT STANDS BY THE LEAD'S CHOICE (--prefer), a session's word and not yours: {led}" if led else "")
+                + ("; what it leaves as the original inside it is NOT KNOWN (its ledger entry does not say)" if left is None
+                   else f"; inside it the piece leaves the original on {', '.join(f'{x}-{y}' for x, y in left)} (its capture had no part of them there)"
+                   if left else ""))
+        for p in e["passed_over"]:
+            c = p.get("the_owners_last_choice")
+            if p.get("held"):
+                say(e, f"{who}: {p['render']} is HELD BACK by the lead (--hold), a session's word and not yours: {p['held']}")
+            elif c and c["said"] in keep:
+                say(e, f"{who}: YOUR KEEP {p['render']} (of {owners_clock(c['at']):%m/%d}) is not laid here: {p['why']}")
         if not e["stands"] and e["present"] != "unsure":
-            passed = e["passed_over"]
-            said.append(f"{who}: the original on the whole shot: no piece of theirs stands here"
-                        + (f" ({len(passed)} render(s) passed over, the newest {min(len(passed), PASSED_OVER_NAMED)}: "
-                           + "; ".join(p["render"] + ", " + (p["why"] if len(p["why"]) <= REASON_CHARS else p["why"][:REASON_CHARS] + "...")
-                                       for p in passed[:PASSED_OVER_NAMED]) + ")" if passed else ""))
-        for g in (e.get("left_as_the_source") or []) if e["stands"] else []:
-            said.append(f"{who}: the original on {g[0]}-{g[1]}, where no piece of theirs is laid")
-    for n in table.get("not_in_the_shot") or []:
-        said.append(f"{n['subject']}: not in this shot by the shots record ({n['why']})")
-    return pieces, said
+            passed = [p for p in e["passed_over"] if not p.get("held")]
+            say(e, f"{who}: the original on the whole shot: no piece of theirs stands here"
+                + (f" ({len(passed)} other render(s) passed over, the newest {min(len(passed), PASSED_OVER_NAMED)}: "
+                   + "; ".join(p["render"] + ", " + cut(p["why"]) for p in passed[:PASSED_OVER_NAMED]) + ")" if passed else ""))
+        elif e["stands"]:
+            for g in e.get("left_as_the_source") or []:
+                say(e, f"{who}: the original on {g[0]}-{g[1]}, where no piece of theirs is laid")
+    return pieces, [w for _, w in sorted(said, key=lambda x: x[0])]
 
 
 def make_item(name: str, span: tuple[int, int], table: dict, record: dict, link: str, stamp: str, by: str, note: str | None) -> dict:
@@ -223,15 +260,18 @@ def make_item(name: str, span: tuple[int, int], table: dict, record: dict, link:
     num, den = (int(v) for v in record["video"]["rate"].split("/"))
     fps = num / den
     pieces, said = item_words(table)
+    n_shots = len({(e["first"], e["last"]) for e in list(table["reading"]) + list(table.get("not_in_the_shot") or [])})
+    what = f"the shot {a}-{b}" if n_shots <= 1 else f"the {n_shots} shots of {a}-{b}"
     return {"id": f"{name}_stacked",
-            "title": f"{name}_stacked: the shot {a}-{b} with every piece that stands on it laid, stacked: the original on top, what each render was given "
-                     "in the middle, the joined shot below, the frame number on every frame",
+            "title": f"{name}_stacked: {what} with every piece that stands laid, stacked: the original on top, what each render was given "
+                     "in the middle, the joined clip below, the frame number on every frame",
             "file": Path(link).name, "path": link, "first": str(a), "frames": str(b - a + 1), "fps": f"{fps:.3f}",
             "seconds": f"about {a / fps:.1f} s to {(b + 1) / fps:.1f} s of the video",
-            "state": "open", "state_words": "not watched by anyone on playback; yours to watch. A joined clip of one shot: every piece that stands on it is laid, "
+            "state": "open", "state_words": "not watched by anyone on playback; yours to watch. A joined clip: every piece that stands on these frames is laid, "
                                             "so nobody in it is the original where a piece stands.",
-            "what": f"The shot {a}-{b}, {b - a + 1} frames, built by {by} from the table of {stamp}; nothing was rendered for it. "
-                    f"{pieces} piece(s) laid, each with the day it was rendered: " + ". ".join(said) + "." + (f" {note}" if note else ""),
+            "what": f"{what[0].upper() + what[1:]}, {b - a + 1} frames, from the build of {stamp}, put on this list by {by}; nothing was rendered for it. "
+                    + (f"{pieces} piece(s) laid, each with the day it was rendered: " if pieces else "No piece is laid" + (": " if said else "."))
+                    + (". ".join(said) + "." if said else "") + (f" {note}" if note else ""),
             "think": "", "look": "", "options": list(delivery_table.RENDER_ITEM_BUTTONS),
             "prompt": "No single text: this clip is laid from the pieces named above, each rendered with its own text. Each piece's own item on this page shows its text.",
             "prompt_note": f"The table this clip was built from: t_{name}.txt beside the day's tables, with its reading.", "fixed": "Nothing was fixed in this clip."}
@@ -278,6 +318,9 @@ def items(a: argparse.Namespace) -> int:
     if a.dry:
         print(f"dry: nothing written; {len(new)} item(s) would go to the top of {path}")
         return 0
+    for target, link, _ in new:
+        if os.path.lexists(link) and Path(os.path.realpath(link)) != target.resolve():
+            raise SystemExit(f"{link} is a link to {os.path.realpath(link)}, not to this build's {target}: nothing written")
     base = f"items.before_{a.by}_{a.stamp}_{datetime.datetime.now(datetime.timezone.utc):%Y%m%dT%H%M%SZ}"
     copy, k = tables / f"{base}.json", 1
     while copy.exists():                          # two writes in one second: each keeps its own copy
@@ -298,27 +341,29 @@ def items(a: argparse.Namespace) -> int:
     return 0
 
 
-def why_words(why: str) -> str:
-    return next((words for step, words in STEP_WORDS.items() if why.startswith(step)), why)
-
-
-def by_day_text(table: dict, ledger: dict, day: str, table_name: str) -> str:
-    """What stands in a table, a row a piece by the day it was rendered, and the renders of `day` that do not stand."""
-    rows = []
+def by_day_text(table: dict, ledger: dict, day: str, table_name: str, ledger_name: str) -> str:
+    """What stands in a table, a row a piece by the day it was rendered, with the table's own words on why; and the
+    renders of `day` in the ledger that this table does not lay."""
+    pieces: dict[tuple[str, str], dict] = {}
     for r in table["reading"]:
         for s in r.get("stands") or []:
-            rows.append((s["frames"][0][0], ",".join(f"{x}-{y}" for x, y in s["frames"]), r["subject"], s["render"], owners_clock(s["written"]), why_words(s["why"])))
-    rows.sort()
+            one = pieces.setdefault((s["render"], r["subject"]), {"frames": [], "written": s["written"], "why": s["why"], "led": s.get("the_leads_prefer")})
+            one["frames"] += s["frames"]
+    rows = sorted(((min(a for a, _ in p["frames"]), ",".join(f"{x}-{y}" for x, y in sorted(p["frames"])), sub, name, owners_clock(p["written"]),
+                    (f"THE LEAD'S CHOICE (--prefer), a session's word: {p['led']}" if p["led"] else p["why"]))
+                   for (name, sub), p in pieces.items()))
     stands = {x[3] for x in rows}
+    span = [min(e["first"] for e in table["reading"]), max(e["last"] for e in table["reading"])] if table["reading"] else None
     lines = [f"# What stands in {table_name}, by the day each piece was rendered", "",
-             f"Read from the table's own reading and the ledger by `bench/shot_review_clips.py by-day`; the day is the render file's `written` time on the "
-             f"owner's clock (US Central). `{day}` is the day asked about.", "",
+             f"Read from the table's own reading and the ledger `{ledger_name}` by `bench/shot_review_clips.py by-day`; the day is the render file's "
+             f"`written` time on the owner's clock (US Central). `{day}` is the day asked about. Why each piece stands is the table's own words.", "",
              "| frames | subject | piece | rendered (Central) | why it stands |", "|---|---|---|---|---|"]
     lines += [f"| {fr} | {sub} | {name} | {t:%m-%d %H:%M} | {w} |" for _, fr, sub, name, t, w in rows]
     on_day = sum(1 for x in rows if f"{x[4]:%Y-%m-%d}" == day)
     lines += ["", f"{len(rows)} pieces stand: {on_day} rendered on {day}, {len(rows) - on_day} on other days.", "",
-              f"## Renders of {day} in the ledger that do not stand", "",
-              "| frames | piece | rendered (Central) | why it does not stand |", "|---|---|---|---|"]
+              f"## Renders of {day} in the ledger that this table does not lay", "",
+              f"This table covers {span[0]}-{span[1]}; a render on other frames is in no shot of it, and may stand in another table." if span else "This table has no shot.",
+              "", "| frames | piece | rendered (Central) | why this table does not lay it |", "|---|---|---|---|"]
     passed = {}
     for r in table["reading"]:
         for s in r.get("passed_over") or []:
@@ -330,7 +375,7 @@ def by_day_text(table: dict, ledger: dict, day: str, table_name: str) -> str:
         g = r.get("graph") or {}
         frames = f"{g['first']}-{g['first'] + g['frames'] - 1}" if g.get("first") is not None and g.get("frames") else "not in its record"
         lines.append(f"| {frames} | {r['name']} | {owners_clock(r['written']):%m-%d %H:%M} | {passed.get(r['name'], 'on no shot of this table')} |")
-    lines += ["", f"{len(that_day)} renders of {day} in the ledger; {sum(1 for r in that_day if r['name'] in stands)} of them stand."]
+    lines += ["", f"{len(that_day)} renders of {day} in the ledger; {sum(1 for r in that_day if r['name'] in stands)} of them stand in this table."]
     return "\n".join(lines) + "\n"
 
 
@@ -342,7 +387,10 @@ def by_day(a: argparse.Namespace) -> int:
     out = Path(a.out)
     if out.exists():
         raise SystemExit(f"refused: {out} is there already; a kept output is not replaced")
-    text = by_day_text(json.loads(Path(a.table).read_text()), json.loads(Path(a.ledger).read_text()), a.day, Path(a.table).name)
+    table = json.loads(Path(a.table).read_text())
+    if Path(a.ledger).name not in str(table.get("made") or ""):
+        raise SystemExit(f"--ledger {a.ledger}: the table says it was made from another ledger ({str(table.get('made'))[:200]})")
+    text = by_day_text(table, json.loads(Path(a.ledger).read_text()), a.day, Path(a.table).name, Path(a.ledger).name)
     out.write_text(text)
     print(text, end="")
     print(f"wrote {out}")
@@ -365,7 +413,7 @@ def main(argv=None) -> int:
     b.add_argument("--also-capture", action="append", default=[], metavar="FOLDER", help="handed to the table as given; repeatable")
     b.add_argument("--prefer", action="append", default=[], metavar="FIRST-LAST:SUBJECT=LOAD:reason", help="handed to the table as given; repeatable")
     b.add_argument("--hold", action="append", default=[], metavar="FIRST-LAST:SUBJECT=LOAD:reason", help="handed to the table as given; repeatable")
-    b.add_argument("--dry", action="store_true", help="write the table and print the three commands; run none of them")
+    b.add_argument("--dry", action="store_true", help="write the table and print the two commands; run neither (the stamp is then taken)")
     b.add_argument("spans", nargs="+", metavar="FIRST-LAST", help="a whole shot, or a run of whole shots, of the shots record")
     i = sub.add_parser("items", help="one review item a built span, at the top of the review list")
     i.add_argument("--items", required=True, help="the review list (data/<stem>/review/items.json); the clips are linked into its media folder")

@@ -1404,9 +1404,10 @@ def record_cuts_of(path) -> list[int]:
     return sorted(int(s["first"]) for s in d["shots"])
 
 
-def record_subjects_of(path) -> list[tuple[int, int, set[str]]]:
-    """Each shot of a video's shots record with the subjects it names (`who`, whatever it says of them)."""
-    return [(int(s["first"]), int(s["last"]), set(s.get("who") or {})) for s in json.load(open(path))["shots"]]
+def record_subjects_of(path) -> list[tuple[int, int, dict[str, str | None]]]:
+    """Each shot of a video's shots record with the subjects it names and what it says of each (`who`: `present`)."""
+    return [(int(s["first"]), int(s["last"]), {label: (v or {}).get("present") for label, v in (s.get("who") or {}).items()})
+            for s in json.load(open(path))["shots"]]
 
 
 def no_row_fault(i: dict, shots: list, span, record_subjects, unknown: list) -> str | None:
@@ -1567,9 +1568,10 @@ def shots_of(record, rows, captures, span, moved, intents, record_cuts=None, rec
             if wrong:
                 problems.append(f"the table's `source {i['first']}-{i['last']}` names {i['subject']}, a subject no row of it has, and {wrong}")
             else:
+                says = sorted({str(who[i["subject"]]) for x, y, who in record_subjects if x <= i["last"] and y >= i["first"]})
                 no_row.append({"frames": [i["first"], i["last"]], "subject": i["subject"], "why": i["why"],
-                               "the_shots_record_lists_them": True, "checked_against": "the shots' edges and the shots record; no picture: no row is "
-                                                                                      "theirs, so no capture of theirs is read"})
+                               "the_shots_record_lists_them": True, "the_shots_record_says_present": says,
+                               "checked_against": "the shots' edges and the shots record; no picture: no row is theirs, so no capture of theirs is read"})
         else:
             problems.append(f"the table's `source {i['first']}-{i['last']} subject={i['subject']}` covers no whole shot "
                             f"(the shots: {', '.join(f'{a}-{b}' for a, b in shots[:24])})")
@@ -2078,8 +2080,10 @@ def check(args, segs, canvas, span, src, rows, captures):
         else "; no row's subject is known, so no shot is asked about")
     said = result["shots"]["said_of_subjects_no_row_has"]
     if said:
-        result["verdict_line"] += ("; the table's word alone, unchecked, that " + ", ".join(
-            f"{x['subject']} is the original on {x['frames'][0]}-{x['frames'][1]}" for x in said) + " (no row is theirs; the shots record lists them)")
+        result["verdict_line"] += ("; the table's word alone, checked against no picture, that " + ", ".join(
+            f"{x['subject']} is " + ("not in the shot" if x["the_shots_record_says_present"] == ["no"] else "the original")
+            + f" on {x['frames'][0]}-{x['frames'][1]} (the shots record: present {'/'.join(x['the_shots_record_says_present'])})" for x in said)
+            + " (no row is theirs)")
     if unlaid or slid:
         result["verdict_line"] += ": " + "; ".join([line.split(". Lay a row")[0] for line in unlaid] + [line.split(" (its outermost")[0] for line in slid])
     return result

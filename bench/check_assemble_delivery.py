@@ -1074,13 +1074,14 @@ with tempfile.TemporaryDirectory() as _tmp:
         (TMP / "a_record_who.json").write_text(json.dumps({"schema": "h3_shots/1", "shots": [
             {"first": 0, "last": 19, "who": {"a": {"present": "yes"}}}, {"first": 20, "last": 39, "who": {"a": {}, "c": {"present": "no"}}}]}))
         who = tool.record_subjects_of(TMP / "a_record_who.json")
-        assert who == [(0, 19, {"a"}), (20, 39, {"a", "c"})], who
+        assert who == [(0, 19, {"a": "yes"}), (20, 39, {"a": None, "c": "no"})], who
         one = lambda first, last, label="c": [{"first": first, "last": last, "subject": label, "why": "not in the shot by the shots record"}]
         section, problems = tool.shots_of({"rows": {}}, [], None, (0, 39), moved, one(20, 39), record_cuts=[0, 20], record_subjects=who)
         kept = section["said_of_subjects_no_row_has"]
         assert not problems and len(kept) == 1 and kept[0]["frames"] == [20, 39] and kept[0]["subject"] == "c" and kept[0]["the_shots_record_lists_them"] \
-            and "the shots' edges" in kept[0]["checked_against"] and any("the table's word alone" in m for m in section["missing"]), (problems, kept)
-        for line, subjects, said in ((one(20, 39), [(0, 19, {"a", "c"}), (20, 39, {"a"})], "does not list them on 20-39"),
+            and "the shots' edges" in kept[0]["checked_against"] and kept[0]["the_shots_record_says_present"] == ["no"] \
+            and any("the table's word alone" in m for m in section["missing"]), (problems, kept)
+        for line, subjects, said in ((one(20, 39), [(0, 19, {"a": "yes", "c": "yes"}), (20, 39, {"a": "yes"})], "does not list them on 20-39"),
                                      (one(5000, 6000), who, "outside the build's span 0-39"),
                                      (one(23, 30), who, "does not begin and end on the shots' edges"),
                                      (one(0, 39), who, "does not list them on 0-19"),
@@ -1090,6 +1091,9 @@ with tempfile.TemporaryDirectory() as _tmp:
             assert not section["said_of_subjects_no_row_has"] and len(problems) == 1 and f"names {line[0]['subject']}, a subject no row of it has" in problems[0] \
                 and said in problems[0], (line, problems)
         assert "whether they have a row cannot be said" in tool.no_row_fault(one(20, 39)[0], [(0, 19), (20, 39)], (0, 39), who, ["piece_x.mp4"])
+        # and through shots_of itself: a row whose subject is not known (no capture to say whose it is) refuses the line
+        section, problems = tool.shots_of({"rows": {}}, [{"piece": "/x/piece_x.mp4"}], None, (0, 39), moved, one(20, 39), record_cuts=[0, 20], record_subjects=who)
+        assert not section["said_of_subjects_no_row_has"] and len(problems) == 1 and "piece_x.mp4" in problems[0] and "cannot be said" in problems[0], problems
         try:
             tool.record_cuts_of(TMP / "not_a_record.json")
             raise AssertionError("a file that is not a shots record was read as one")

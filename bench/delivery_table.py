@@ -328,7 +328,9 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
                 take = sorted(free & set(range(r["span"][0], r["span"][1] + 1)))
                 if not take:
                     passed.append({"render": r["name"], "file": r["file"], "written": r["written"],
-                                   "why": f"may stand ({why.split(':')[0]}) and every frame of it on this shot is taken by a render before it in the rule's order"})
+                                   "why": f"may stand ({why.split(':')[0]}) and every frame of it on this shot is taken by a render before it in the rule's order",
+                                   # an owner's keep set aside by a render before it (the lead's --prefer) is said where the owner reads it
+                                   "the_owners_last_choice": None if not choice else {"said": choice["said"], "at": choice["at"], "row": choice.get("row")}})
                     continue
                 free -= set(take)
                 others = [o for o in shots["subjects"] if o != label and present[o] != "no"]
@@ -338,7 +340,9 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
                     rows.append({"first": a, "last": b, "file": r["file"], "name": r["name"], "piece_first": r["span"][0], "subject": label,
                                  "region": region, "restore": restores})
                 took = set(take)
-                stands.append({"render": r["name"], "file": r["file"], "written": r["written"], "frames": runs(take), "why": why,
+                stands.append({"render": r["name"], "file": r["file"], "written": r["written"], "frames": runs(take), "why": why, "step": step,
+                               # step 0 is the lead's word, not the owner's: its reason whole, for every page that shows the piece
+                               "the_leads_prefer": next((p["reason"] for p in preferred if p["load"] == r["name"]), None) if step == 0 else None,
                                # the frames of these that the piece's own load left as the original (the ledger's read of its capture)
                                # None where the ledger does not say (no capture record of it): not known is not none
                                "leaves_as_the_original": None if r.get("leaves_as_the_original") is None else runs(sorted(
