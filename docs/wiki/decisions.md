@@ -28,6 +28,12 @@ Older history lives elsewhere and is not copied here:
   keeping them current; one input (the stopped loads) was a typed list and the review file's decisions were
   typed into the script. Where it lives now: `AGENTS.md`, "Operative rules" and "Where state lives". The
   pages becoming tracked tools that read only generated files is the tooling seat's job of the day.
+- **Keep accessories, for the whole of `fun`** (the owner, about 17:45Z, on the lead's white sunglasses on
+  3909-4052). A face replacement keeps what the person wears on the face and head: sunglasses, earrings, a hat.
+  What the part model names (its `Eyeglass` class, which `sapiens2_parts.PARTS["face_and_neck"]` puts inside the
+  face region) is given back to the original at assembly by a plan key per subject, written onto that subject's
+  rows by the generated table (the tooling seat's job of the day). What it does not name, the load's text names
+  so the model draws it.
 - **A shot may be split into runs where the split falls on frames with no face of the subject** (the lead,
   2026-10-14, on the tooling seat's design read `internal/claude/2026-10-14_mrdrill_box_read.md`, untracked,
   and the card's `lead_fp_1466b`/`lead_fp_1575b`). The rule of 2026-10-13 that one shot is not divided between
