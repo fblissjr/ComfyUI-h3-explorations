@@ -187,18 +187,22 @@ fixed the same day, said inline below.**
   keep-out's track (`data/2026-10-12_second_hf_0604_b/subjects/clothes/`) has a
   thin strip down the original woman's hair edge. Every cell it touches beside
   her head is handed back to the source (`video_mask.py`, the keep-out rule), on
-  90 frames of the render, stepping every latent step. **BUILT, NOT LANDED**
-  (worktree branch `hair-band-from-top`, d2591ad5; `bench/masked_job.py` is
-  frozen until the card's first ten renders): the hair band starts at the part
-  box's TOP (`h3_config.MASKED_JOB_HAIR_BAND["starts"]`), so the clothes keep-out
-  is emptied beside the head as well as under it. On that load's own capture, by
-  the plan's rule, every hole cell beside the head on 685-723 regenerates (26112
-  of 26112 px), and no cell is handed back that was not before. 43 frames gain a
-  hole by the enclosure measure: each is the `held` keep-out near her chin (one,
-  the lead's), cells the source kept before too, now enclosed. Open: whether
-  those count, the lead's word; the band is in no plan (taken out of the second
-  subject's plan on 2026-10-13: a load names it itself); a render with it, read
-  by a session that did not build it.
+  90 frames of the render, stepping every latent step. **LANDED, in two steps.**
+  fa5c58ac: the hair band starts at the part box's TOP
+  (`h3_config.MASKED_JOB_HAIR_BAND["starts"]`), so the clothes keep-out is
+  emptied beside the head as well as under it. 7504bbc4: the band reaches the
+  load's own margin past the part's box each side (`wider: "margin"`), where a
+  tenth of the box's width had left a column of clothes cells at each shoulder,
+  inside the margin, for the clothes keep-out to hand back (second_hfp_0484b's
+  frame 488, the owner's annotation; the read is
+  `internal/claude/2026-10-14_mrdrill_hair_read.md`). **THE OWNER'S EYE on the
+  first render carrying both, second_hfp_0484c (2026-10-14, about 18:15Z): "hair
+  stays put. nice work."** Left there by the band: her held thing and her hands
+  (the necklace and pendant under her chin, by the lead's look, stay the
+  original). Open: 604-948 itself made again with the band; four held cells
+  beside her neck on 486-490 of 484b, the lead's look on 484c's render.
+  WHAT THIS ROW CLAIMED UNTIL ABOUT 18:15Z 2026-10-14: "BUILT, NOT LANDED" (worktree
+  branch `hair-band-from-top`, d2591ad5), the band in no plan, and no render with it.
   WHAT THIS ROW USED TO CLAIM (2026-10-12, the row "Her long hair flickers at the
   region's edge"): that the region's LOWER edge was the clothes keep-out giving
   the margin's cells back under the jaw, so the hair was drawn where the region
