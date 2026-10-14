@@ -62,6 +62,34 @@ Valid counts near the top: **… 311, 328, 345, 362**.
 
 Duration is `frames / 24`, so 362 frames is 15.08 s and 124 is ~5.2 s.
 
+**Video lengths that also land on the audio grid: 39 + 51k (39, 90, 141,
+192, 243, 294, 345).** This is a community finding, relayed by the owner on
+2026-10-14 from a Reddit thread. It is not a rule this repo has measured. As
+the thread states it, 39 is the shortest length whose video and audio
+timing line up exactly. 22 is a valid video-VAE length, but it is about
+8.3 ms off the audio grid.
+
+The arithmetic agrees with the code, and the repo already had it. The
+audio latent rate is 40 Hz against 24 fps, so a length is on the audio grid
+when `frames * 40 / 24` is whole. The derivation and the set are in
+`workflows/h3_config.py`, the comment on `LONG_LENGTH` ("It is exact on the
+audio clock"), verified there by arithmetic on 2026-08-30. A count on the
+17k+5 grid meets that only when k ≡ 2 (mod 3), which gives 39 + 51k. One
+audio step is 25 ms, and 22 frames is 36⅔ steps, so it is a third of a step
+off: 8.3 ms.
+
+What it touches here:
+- Chained windows and their contexts already keep to it (`audio_freeze.py`).
+- The planner's lengths do too (`loop_plan.CHAIN_LENGTHS`, 141 to 345).
+- A one-window masked load does not: since 2026-10-13 it takes the shortest
+  17k+5 length that holds it (`h3_rules.snap_length`), so it can be 22, 56
+  or 73.
+- The delivered clip keeps the source's own sound, so any effect is confined
+  to the audio the model is given while it samples.
+
+Nobody here has tested whether that offset shows on a mouth. Treat it as a
+consideration when choosing a window, not a reason to refuse one.
+
 **Two things worth knowing at the top of the range.** Attention grows as S²
 while everything else grows linearly, so the attention share rises with clip
 length, and long clips are where kernel and sparsity work pays off most. The
