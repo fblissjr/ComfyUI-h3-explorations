@@ -25,6 +25,7 @@
                                 Central; the counts; which piece; no source; a piece across a shot's edge; the newest look line
   the_eighth_readers_findings   a line's frame; the folders read; every piece kept with the clip unwatched; the last line's day; a
                                 wrong on a clip; times in Central; a session's source quoting the answers file
+  every_heading_is_its_way_in   each entry's heading links the joined clip or each standing piece, named; a piece with no item says so
   the_owners_words_rule         a keep followed by the owner's words is shown again; a line a session took down said so; a wrong
                                 on a joined clip keeps the shot; the lead's holds and the owner's keeps not laid on both pages
   the_fifth_readers_findings    words just before the last click go with it; an older line written later does not undo a keep; a
@@ -487,6 +488,24 @@ def the_eighth_readers_findings() -> str:
             "line; a wrong on a clip names no piece and stays; times in Central; a session's source quoting the answers file")
 
 
+def every_heading_is_its_way_in() -> str:
+    """The owner, 2026-10-14: the links were not at the top. Every entry's heading is its link: the joined clip's item, or else
+    each standing piece's item, named; a piece with no item says so."""
+    with tempfile.TemporaryDirectory() as tmp:
+        page = page_of(Path(tmp), ["--today", "2026-10-20"])
+        # THE CASE THAT GOES RED when a two-person shot with no joined clip, or a one-person shot, has a heading with no link
+        assert '<h3>The shot 220-239: <a href="p#a_x">a_x</a> <span>' in page, re.findall(r"<h3>The shot 220-239.*?</h3>", page)
+        assert '<h3>a, 150-199: <a href="p#r__s__a_solo">a_solo</a> <span>' in page, re.findall(r"<h3>a, 150-199.*?</h3>", page)
+        assert '<h3><a href="p#v_0100_0149_joined_NEW_stacked">The shot 100-149</a>' in page
+        def no_item(d: Path) -> None:
+            items = json.loads((d / "items.json").read_text())
+            items["items"] = [i for i in items["items"] if i["id"] != "a_x"]
+            (d / "items.json").write_text(json.dumps(items))
+        page = page_of(Path(tmp) / "x", ["--today", "2026-10-20"], no_item) if (Path(tmp) / "x").mkdir() is None else ""
+        assert "<h3>The shot 220-239: a_x (no item of it on the review list yet) <span>" in page, re.findall(r"<h3>The shot 220-239.*?</h3>", page)
+    return "a two-person shot with no joined clip and a one-person shot each name their pieces' links in the heading; a piece with no item says so"
+
+
 def the_owners_words_rule() -> str:
     """A fourth reader (2026-10-14): words after a keep were ignored, a line a session took down was labelled as typed in
     the box, a "wrong" on a joined clip hid the shot's pieces, and the lead's --hold and the owner's keeps the table
@@ -668,6 +687,7 @@ case("waiting on you, and done", waiting_on_you_and_done)
 case("a sixth reader's findings, and the lead's rulings on them", the_sixth_readers_findings)
 case("a seventh reader's findings", the_seventh_readers_findings)
 case("an eighth reader's findings", the_eighth_readers_findings)
+case("every heading is its way in", every_heading_is_its_way_in)
 case("the owner's words rule, and whose words are whose", the_owners_words_rule)
 case("provenance reads the records", provenance_reads_the_records)
 case("another ledger is refused", another_ledger_is_refused)

@@ -488,6 +488,9 @@ def to_review(a: argparse.Namespace) -> str:
         if not rows:
             continue
         lines = lambda rr: "".join(piece_line(rec, r, first, last, link, previous) for r in rr)
+        # the heading IS the way in (the owner, 2026-10-14, could not find the links): each piece it shows, by its item, named
+        heads = lambda rr: ", ".join(link(rec.item_of(r["name"])["id"], r["name"]) if rec.item_of(r["name"]) else  # noqa: E731
+                                     f'{E(r["name"])} (no item of it on the review list yet)' for r in rr)
         who = ", ".join(x + (" (the record is unsure)" if x in sh["unsure"] else "") for x in sh["subjects"])
         state = {r["name"]: rec.answered(rec.rows_of(r["name"]), today) for r in rows}
         if len(sh["subjects"]) >= 2:
@@ -523,13 +526,13 @@ def to_review(a: argparse.Namespace) -> str:
             for to, kind in ((waiting, "waiting"), (done, "done")):
                 rr = [r for r in rows if state[r["name"]] == kind]
                 if rr:
-                    to["apart"].append(f'<div class="e"><h3>The shot {first}-{last} <span>{E(who)} &middot; {when}</span></h3>'
+                    to["apart"].append(f'<div class="e"><h3>The shot {first}-{last}: {heads(rr)} <span>{E(who)} &middot; {when}</span></h3>'
                                        f'<p class="why">{E(why)}. Each piece meanwhile, on its own:</p><ul>{lines(rr)}</ul></div>')
         else:
             for r in rows:
                 if state[r["name"]] != "gone":
                     (waiting if state[r["name"]] == "waiting" else done)["single"].append(
-                        f'<div class="e"><h3>{E(r["subject"])}, {max(r["first"], first)}-{min(r["last"], last)} <span>{when}</span></h3>'
+                        f'<div class="e"><h3>{E(r["subject"])}, {max(r["first"], first)}-{min(r["last"], last)}: {heads([r])} <span>{when}</span></h3>'
                         f'<ul>{lines([r])}</ul></div>')
 
     def sections(got: dict, tag: str) -> list[str]:
