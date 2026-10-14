@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 137 |
+| [`check_*`](#check) | 138 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 174 |
+| [the rest](#the-rest) | 175 |
 
 ## check
 
@@ -105,6 +105,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_prompt_guide_conformance.py`](check_prompt_guide_conformance.py) | Check every shipped ref prompt against the OFFICIAL guide, not against us. |
 | [`check_prompt_lists.py`](check_prompt_lists.py) | The prompt list contract, and the controls that show each rule can fail. |
 | [`check_prompt_rule_controls.py`](check_prompt_rule_controls.py) | Controls for the prompt grader's rules, and its copies of the guide's closed sets. |
+| [`check_propose_runs.py`](check_propose_runs.py) | `bench/propose_runs.py` on made part masks: each case is a way a proposed load could be wrong. |
 | [`check_provenance_stamp.py`](check_provenance_stamp.py) | Check that `provenance.py` records the knobs that actually ran. |
 | [`check_read_hair_band.py`](check_read_hair_band.py) | `bench/read_hair_band.py` prints a hair band as figures; each case is a way a figure could say something the frames do not. |
 | [`check_read_render_against_original.py`](check_read_render_against_original.py) | `bench/read_render_against_original.py` against faces whose every figure is chosen here. |
@@ -422,6 +423,7 @@ this file is only a way to find a script by what it says it does.
 | [`profile_block_ops.py`](profile_block_ops.py) | Every non-attention op of one H3 DiT block, timed alone, at a ref2va length. |
 | [`profile_lora_branch.py`](profile_lora_branch.py) | Where a LoRA applied at the call spends its time, one block's modules at a time. |
 | [`profile_sol_stages.py`](profile_sol_stages.py) | Where a `comfy_kitchen.sol_attn` call spends its device time, by stage, on captured q/k/v. |
+| [`propose_runs.py`](propose_runs.py) | Loads to propose on a stretch of one subject: where the part clears the capture's floor, frame by frame, and the runs long enough to be a load, each with the node's own zoom. Data only: it proposes; the card and the lead decide. |
 | [`quality_metrics.py`](quality_metrics.py) | Rank two renders of the same brief: pixel metrics, no model deps. |
 | [`rank_dense_blocks.py`](rank_dense_blocks.py) | Rank blocks by the error `dense_blocks` actually REMOVES, not by Sol's error. |
 | [`read_hair_band.py`](read_hair_band.py) | A hair band read as figures, frame by frame, on the band's own pixels: for the load that has it and a load of the same frames that does not. |
