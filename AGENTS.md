@@ -32,11 +32,15 @@ once; `docs/evidence.md`, "Settled about H3", has the rest.
   claim across.
 - A face, head or hair replacement takes its reference as the body model cut
   to one box round the head with the pose model's face points drawn on it
-  (eye outlines with the iris, brows, nose; `bench/head_reference.py`), and a
-  text that says exactly what that video is. The owner's standard of
-  2026-10-12, judged better by their eye on three of the lead's shots that
-  evening (`docs/wiki/decisions.md`, 2026-10-12; `data/fun/verdicts/`).
-  The lid marks at full-frame size are the form it replaced.
+  (`bench/head_reference.py`), and a text that says exactly what that video
+  is. What every load carries beyond that is the chain's defaults, never a
+  session's pick: each job step prints them as "THE DEFAULTS THIS LOAD
+  CARRIES" and keeps them in the job file
+  (`bench/shot_to_load.py::defaults_carried`; the drawing's form is
+  `REFERENCE_DEFAULT`). Turning one off takes a written reason. The owner's
+  standard of 2026-10-12, made the chain's defaults on 2026-10-14 so the
+  tools are not forgotten (`docs/wiki/decisions.md`, both days). A better
+  form does not remake a piece the owner kept.
 
 ## Operative rules
 

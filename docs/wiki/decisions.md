@@ -28,6 +28,12 @@ Older history lives elsewhere and is not copied here:
   keeping them current; one input (the stopped loads) was a typed list and the review file's decisions were
   typed into the script. Where it lives now: `AGENTS.md`, "Operative rules" and "Where state lives". The
   pages becoming tracked tools that read only generated files is the tooling seat's job of the day.
+- **AGENTS.md's reference-form line points at the chain's defaults** (the owner, about 18:13Z: "make these our
+  defaults and stop forgetting these tools we built"; built in e92085d5). What it used to say: the reference is
+  drawn with "eye outlines with the iris, brows, nose", a list of what was drawn on 2026-10-12. What it says now:
+  every load carries the chain's defaults (the reference held to the track, the eye, the mouth by its check,
+  zoom, the strangers keep-out, the part's largest piece, the hair band, restore spans, the text), printed by each
+  job step and kept in the job file, and a default is turned off only with a written reason.
 - **A better form does not remake a kept piece** (the owner, about 18:12Z: they have loved many of the clips;
   the nitpicking is for tooling that handles future windows without being rebuilt). The defaults of the day (the
   contrast eye, the drawn mouth, zoom, the generated reference sentence) apply to windows still to make. Of the
