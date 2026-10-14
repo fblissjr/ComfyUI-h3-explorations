@@ -36,6 +36,9 @@ was made or whether its file is the one its record describes. This does, and pla
   table it was built from, each row's frames). Such a line is printed under every render that table laid on
   those frames, as said of the joined clip there and never as a verdict on the render alone.
 - `--inputs`: the server's input root, so a record's still can be looked for.
+- The loads stopped before a render (`stopped`): the note a card session writes beside a load's job file under
+  `--records`, `<load>.STOPPED*.txt` or `.md`, read whole, of a job whose source is one of `--source`
+  (`stopped_loads`). The owner's provenance page takes them from here, never from a typed list (2026-10-14).
 - `--copies-of`: the video's analysis folder. The copies a render may load are then read from its manifest (the
   source and every copy the video has or has had, each at its own rate; `clip_folder.py`), so a copy made since
   the last run is not a name somebody has to remember to type. A copy on another frame clock is left out and
@@ -255,6 +258,32 @@ def load_records(records: Path, repo: Path) -> tuple[dict[str, list[dict]], list
         for f in rec["files"]:
             by_file[f].append(rec)
     return by_file, every
+
+
+def stopped_loads(records: Path, repo: Path, sources: dict) -> list[dict]:
+    """The loads stopped before a render, from the note the card writes beside a load's job file: `<load>.STOPPED*`
+    (`.txt` or `.md`) with `<load>.json` beside it, whose job's source is one of this video's copies. The note is
+    read whole and nothing in it is parsed; the load's subject and frames are its job file's. A note with no job
+    file beside it (a copy in the load's capture folder, `STOPPED.txt`) is not read: the one beside the job is.
+    Until 2026-10-14 the owner's page took the stopped loads from a list a session typed."""
+    where = lambda p: str(p.relative_to(repo)) if p.is_relative_to(repo) else str(p)
+    out = []
+    for note in sorted(records.glob("*/*.STOPPED*")):
+        load = note.name.split(".STOPPED")[0]
+        job_file = note.with_name(f"{load}.json")
+        if note.suffix not in (".txt", ".md") or not job_file.is_file():
+            continue
+        try:
+            d = json.loads(job_file.read_text())
+        except ValueError:
+            continue
+        if Path(str((d.get("job") or {}).get("source") or "")).name not in sources:
+            continue
+        one = next((x for x in d.get("loads") or [] if x.get("name") == load), (d.get("loads") or [{}])[0])
+        span = [one["first"], one["first"] + one["frames"] - 1] if one.get("first") is not None and one.get("frames") else None
+        out.append({"load": load, "subject": one.get("subject"), "frames": span, "job_file": where(job_file), "note": where(note),
+                    "note_written": utc(note.stat().st_mtime), "note_says": note.read_text().strip()})
+    return sorted(out, key=lambda x: (x["frames"] or [10 ** 9])[0])
 
 
 def records_of(rel: str, share: Path, by_file: dict, every: list[dict]) -> tuple[list[dict], bool]:
@@ -621,6 +650,7 @@ def ledger(shots: dict, plan: dict, share: Path, records: Path, repo: Path, sour
             "counts": {"renders": len(renders), **{m: sum(r["making"] == m for r in renders) for m in MAKING},
                        "laid_in_the_table": sum(bool(r["laid_in_the_table"]) for r in renders)},
             "sections": sections, "renders": {r["file"]: r for r in renders},
+            "stopped": stopped_loads(records, repo, sources),
             "not_placed": {"renders_outside_the_shots_span": outside,
                            "numbered_videos_with_no_saved_graph_and_no_record": no_graph,
                            "renders_of_other_videos_by_the_copy_loaded": dict(other),
@@ -709,6 +739,12 @@ def page(out: dict, made: str, table: str | None) -> str:
                 told[f] = here
                 lines += render_lines(r)
         lines.append("")
+    stopped = out.get("stopped") or []
+    lines += ["## Loads stopped before a render", "",
+              f"{len(stopped)} load(s), each from the note its card session wrote beside its job file, read whole (`stopped_loads`).", ""]
+    for x in stopped:
+        lines += [f"- **`{x['load']}`**, {x['subject']}, " + (frames(*x["frames"]) if x["frames"] else "frames not in its job file")
+                  + f": `{x['note']}` (written {x['note_written']})", ""] + ["  > " + t for t in x["note_says"].splitlines()] + [""]
     n = out["not_placed"]
     lines += ["## Not placed", "",
               f"- renders of this video outside the shots file's span: {len(n['renders_outside_the_shots_span'])}"]

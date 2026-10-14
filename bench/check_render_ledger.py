@@ -30,6 +30,9 @@ NOT be read that way beside it.
    its audio copy, its windows). A record whose render is gone is listed.
 6. **The page tells a render once** and points at it from its other sections; **the summary holds no private
    path and none of the owner's words**.
+7. **The loads stopped before a render** are the notes the card writes beside a job file of this video, read
+   whole, with the load's frames and subject from that job file; another video's note, a note with no job file
+   and a copy in a capture folder are not read.
 
 No video is decoded, no model, no card, no server.
 
@@ -375,7 +378,39 @@ def the_page_and_the_summary() -> str:
             "the counts and neither the owner's words nor a path of the machine")
 
 
+def the_loads_stopped_before_a_render() -> str:
+    """The notes the card writes beside a job file (2026-10-14: the owner's page took them from a typed list)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        inputs = made.records / "2026-01-02_clip_batch_inputs"
+        inputs.mkdir(parents=True)
+        job = lambda name, first, source=f"/in/{COPY}": json.dumps({"job": {"name": name, "source": source},
+                                                                   "loads": [{"name": name, "subject": "a", "first": first, "frames": 20}]})
+        (inputs / "a_fp_0060.json").write_text(job("a_fp_0060", 60))
+        (inputs / "a_fp_0060.STOPPED_AT_REFERENCE.md").write_text("# a_fp_0060: stopped at its reference\n\nOn 11 of 20 frames the points lie off her track.\n")
+        (inputs / "a_fp_0010.json").write_text(job("a_fp_0010", 10))
+        (inputs / "a_fp_0010.STOPPED.txt").write_text("STOPPED AT ITS FIRST CAPTURE. Its gate blocked twice.")
+        (inputs / "x_fp_0001.json").write_text(job("x_fp_0001", 1, source="/in/another_video.mov"))      # another video's load
+        (inputs / "x_fp_0001.STOPPED.txt").write_text("not this video's")
+        (inputs / "lonely.STOPPED.txt").write_text("a note with no job file beside it")
+        (inputs / "a_fp_0010.STOPPED.png").write_bytes(b"")                                              # not a note
+        capture = made.records / "2026-01-02_a_fp_0010"
+        capture.mkdir()
+        (capture / "STOPPED.txt").write_text("STOPPED AT ITS FIRST CAPTURE. Its gate blocked twice.")      # the same note's copy in the capture folder
+        out = made.ledger()
+        got = out["stopped"]
+        assert [x["load"] for x in got] == ["a_fp_0010", "a_fp_0060"], got
+        assert got[0]["frames"] == [10, 29] and got[0]["subject"] == "a" and got[0]["note_says"] == "STOPPED AT ITS FIRST CAPTURE. Its gate blocked twice." \
+            and got[0]["note"].endswith("a_fp_0010.STOPPED.txt") and got[0]["job_file"].endswith("a_fp_0010.json") and got[0]["note_written"].endswith("Z"), got[0]
+        assert got[1]["note_says"].endswith("On 11 of 20 frames the points lie off her track."), got[1]
+        text = led.page(out, "Made for the check.", None)
+        assert "## Loads stopped before a render" in text and "2 load(s)" in text and "  > On 11 of 20 frames the points lie off her track." in text, text
+    return ("a note beside a job file of this video is read whole with the load's frames and subject from its job file, in frame order, and printed on "
+            "the page; another video's, one with no job file, a picture, and the copy in a capture folder are not read")
+
+
 case("a render its record agrees with", a_render_its_record_agrees_with)
+case("the loads stopped before a render, from the card's notes", the_loads_stopped_before_a_render)
 case("a part the job named is carried in the form", a_part_the_job_named)
 case("a file against its record: the frames, the outcome, the graph, the time", a_file_against_its_record)
 case("a record that names no file, and no record at all", an_older_record_and_no_record)
