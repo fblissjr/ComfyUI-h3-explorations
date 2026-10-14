@@ -55,6 +55,12 @@ hair band as the fix for 693-703 is now the row "Her hair comes and goes beside
 her head" below: the fault was found elsewhere on 2026-10-14.)
 
 **Masked video to video, 2026-10-14: rows of the day.**
+- **On a laughing squint the drawn lids stay open, and the body model's eyes are open under every drawing**
+  (2026-10-14, the lead's look at the sheets of the iris drawn between the lids, the lead's 3240-3276). Where
+  she squeezes her eyes shut (3247, 3261, 3276) the lid outline stays an open almond: the pose model's lid points
+  do not close fully on a laughing squint. And the body model's own sculpted eyes are open on every frame,
+  whatever is drawn over them. Both are in the drawing's record ("not_known"). A row, not a job: a render of
+  3240 carrying the iris between the lids decides whether either matters. Not started.
 - **The reference draws her eyes open where she laughs with them shut**
   (2026-10-14, the lead, from `lead_fp_3167`'s blind reading,
   `data/2026-10-14_lead_fp_3167/look_blind/reading.md`). On 3167-3213 the
