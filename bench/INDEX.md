@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 136 |
+| [`check_*`](#check) | 137 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 173 |
+| [the rest](#the-rest) | 174 |
 
 ## check
 
@@ -83,6 +83,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_mutant_parity.py`](check_mutant_parity.py) | The standalone `H3ExactLoRA` node computes what this pack's two nodes compute. |
 | [`check_no_owner_paths.py`](check_no_owner_paths.py) | Reject machine-owner home paths in repository text artifacts. |
 | [`check_node_ids.py`](check_node_ids.py) | Guard the one rule that matters, against a baseline the schema cannot move. |
+| [`check_others_present.py`](check_others_present.py) | `bench/others_present.py` on made previews, a cast file and a shots record: each case is a way the answer to "are there people in the shot who are not ours" could be wrong. |
 | [`check_output_dir_resolution.py`](check_output_dir_resolution.py) | No script derives the render output directory by counting `..`. |
 | [`check_override_routing.py`](check_override_routing.py) | Check which calls the attention override sends to sage, and which it declines. |
 | [`check_page_answers_ledger.py`](check_page_answers_ledger.py) | `bench/page_answers_ledger.py` lays each owner line beside the record that cites it; each case is a way a citation could be missed or invented. |
@@ -404,6 +405,7 @@ this file is only a way to find a script by what it says it does.
 | [`masked_render_time_breakdown.py`](masked_render_time_breakdown.py) | Where a masked song render's seconds go: by node, and by stage inside the song node. |
 | [`minimise_token_aug_repro.py`](minimise_token_aug_repro.py) | How small can the `token_aug` nondeterminism repro get? |
 | [`o1_lossless_blocking.py`](o1_lossless_blocking.py) | O1's own test: is dark-region blocking the model's or the video encoder's? |
+| [`others_present.py`](others_present.py) | Who else is in a shot: the people a preview's trackers numbered that are none of the video's subjects, a shot at a time. |
 | [`page_answers_ledger.py`](page_answers_ledger.py) | Every line the owner saved on the local page, beside the record that carries it, and the lines no record cites yet. |
 | [`page_answers_to_cast.py`](page_answers_to_cast.py) | The owner's answers on the review page's numbered pictures, taken into the video's cast file through `bench/cast_file.py`. |
 | [`page_answers_to_verdicts.py`](page_answers_to_verdicts.py) | The owner's verdicts and notes on the review page's clips, copied from the page's raw file into the video's record, one line each, with the render they are about. |

@@ -838,6 +838,153 @@ def a_subjects_keep_outs() -> str:
 
 
 
+def her_clothing_as_one_stay_keep_out() -> str:
+    """The lead's ruling of 2026-10-14 (K, build path (a)) on mrpre's apron read: the part model calls the second subject's white
+    apron Background, so the clothes keep-out missed it. A plan look's stay item makes ONE keep-out in place of `clothes`: her
+    track's Upper_Clothing, Apparel and Background, less the hair band's box (the builder's own), held over 9 frames."""
+    import numpy as np
+    import capture_masked_run as cap
+    import masked_job
+    from _lib.frames import read_mask, write_mask_video
+    STAY = {"what": "her clothing", "as": "one keep-out", "replaces_keep_out": "clothes", "classes_on_her_track": ["Upper_Clothing", "Apparel", "Background"],
+            "hold_frames": 4}
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        made.plan["subjects"]["a"].update(keep_outs=["held", "hands", "clothes"], keep_outs_by="a person: her apron", hair_band={"value": 0.6, "by": "a person"},
+                                          look={"stay": [STAY]}, look_by="THE LEAD'S RULING K")
+        d = made.load()
+        job, load = d["job"], d["loads"][0]
+        kept = {k["name"]: k for k in job["keep_outs"]["made"]}
+        # THE CASE THAT GOES RED when the look's stay item is not made in place of the keep-out it replaces, or the band cuts it again
+        assert list(kept) == ["held", "hands", "clothing"] and load["others"][-3:] == ["held", "hands", "clothing"] and "clothes" not in load["others"], (list(kept), load["others"])
+        st = kept["clothing"]["stay"]
+        assert "hair_band" not in load and st["less_the_hair_band"]["share"] == 0.6 and st["hold_frames"] == 4 and st["first"] == 100, (load, st)
+        assert st["less_the_hair_band"]["side_px"] == float(cfg.MASKED_LOAD_MARGIN[made.plan["subjects"]["a"]["region"]]), st
+        assert "HER CLOTHING IS ONE STAY KEEP-OUT, `clothing`, in place of `clothes`, from the plan's look (THE LEAD'S RULING K)" in job["note"], job["note"]
+        assert "so the load asks the builder for no band" in job["note"]
+        graphs.check_job(job)
+        for one in masked_job.loads_of(d):
+            graphs.check_load(job, one, masked_job.chain_lengths())
+        for wrong, words in (({"look_by": " "}, "names no `look_by`"), ({"look": {"stay": [dict(STAY, replaces_keep_out="apron")]}}, "replaces the keep-out 'apron'"),
+                             ({"look": {"stay": [dict(STAY, classes_on_her_track=["Apron"])]}}, "the part model's classes"),
+                             ({"look": {"stay": [STAY, STAY]}}, "one a subject")):
+            was = json.loads(json.dumps(made.plan["subjects"]["a"]))
+            made.plan["subjects"]["a"].update(wrong)
+            refused(made.load, words)
+            made.plan["subjects"]["a"] = was
+        # the job step makes it after the held part, writes its hash into the job, makes nothing dry, and holds a file that is there
+        folder = made.preview_ran(made.preview())
+        a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="a", preview=str(folder))
+        stays = []
+
+        def stay_cut(stay, to):
+            stays.append((stay["first"], Path(to).name))
+            Path(to).parent.mkdir(parents=True, exist_ok=True)
+            Path(to).write_bytes(b"made")
+            return {"frames": 60, "size": [64, 48], "px_a_frame_median": 5, "px_most": 9, "px_the_hold_changed": 1, "px_the_band_took_out": 2}
+        cut = lambda class_map, classes, to: (Path(to).parent.mkdir(parents=True, exist_ok=True), Path(to).write_bytes(b"cut"),   # noqa: E731
+                                              {"frames": 60, "size": [64, 48], "frames_with_the_mask": 60, "px_most": 9})[-1]
+        made.m.dry = True
+        stl.step_job(a, made.m, cut=cut, stay_cut=stay_cut, hashed=lambda path: "H")
+        assert stays == [] and not list(made.jobs.glob("*.json")), "a dry run made the stay keep-out or wrote a job"
+        made.m.dry = False
+        stl.step_job(a, made.m, cut=cut, stay_cut=stay_cut, hashed=lambda path: "H")
+        written = json.loads((made.jobs / "a_fp_0100.json").read_text())
+        stay_k = next(k for k in written["job"]["keep_outs"]["made"] if k["name"] == "clothing")
+        assert stays == [(100, "a_fp_0100_a_clothing.mkv")] and stay_k["frame_hash"] == "H" and Path(stay_k["track"]).with_suffix(".json").is_file(), (stays, stay_k)
+        # a file of the name that is there: made again and held equal, or refused
+        Path(stay_k["track"]).rename(Path(stay_k["track"]).with_name("a_fp_0100b_a_clothing.mkv"))
+        a.remake = True
+        stl.step_job(a, made.m, cut=cut, stay_cut=stay_cut, hashed=lambda path: "H")
+        assert stays[-1][1] == "a_fp_0100b_a_clothing.made_again.mkv" and not list(Path(stay_k["track"]).parent.glob("*made_again*")), stays
+        Path(stay_k["track"]).with_name("a_fp_0100b_a_clothing.mkv").rename(Path(stay_k["track"]).with_name("a_fp_0100c_a_clothing.mkv"))
+        refused(lambda: stl.step_job(a, made.m, cut=cut, stay_cut=stay_cut, hashed=lambda path: path if "clothing" in path else "H"), "is NOT the stay keep-out its plan makes now")
+    # THE KEEP-OUT ITSELF against the definition, written out here apart from the tool (mrpre's arm K): 6 preview frames from 100, the load 101-104
+    names = cap._pack("sapiens2_parts").CLASS_NAMES
+    W_, H_, N_ = 64, 48, 6
+    track = np.zeros((N_, H_, W_), bool)
+    track[:, 10:40, 10:40] = True
+    cls = np.zeros((N_, H_, W_), np.uint8)                       # Background on her track is her apron
+    cls[:, 10:20, 10:40] = names.index("Upper_Clothing")
+    cls[:, 30:40, 10:40] = names.index("Torso")                  # not clothing
+    cls[3, 20:30, 10:40] = names.index("Torso")                  # one frame the apron reads otherwise: the hold keeps it
+    part = np.zeros((N_, H_, W_), bool)
+    part[:, 2:9, 20:30] = True                                   # the head above her: its band runs down into her blouse
+    with tempfile.TemporaryDirectory() as tmp:
+        t = Path(tmp)
+        write_mask_video(t / "track.mkv", track)
+        write_mask_video(t / "part.mkv", part)
+        enc = subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "gray", "-s", f"{W_}x{H_}", "-r", "24", "-i", "-", "-c:v", "ffv1",
+                              "-level", "3", str(t / "classes.mkv")], input=cls.tobytes())
+        assert enc.returncode == 0
+        stay = {"classes_on_her_track": STAY["classes_on_her_track"], "hold_frames": 1, "track": str(t / "track.mkv"), "class_map": str(t / "classes.mkv"),
+                "preview_first": 100, "preview_frames": N_, "first": 101, "frames": 4,
+                "less_the_hair_band": {"share": 0.6, "side_px": 2.0, "part": str(t / "part.mkv"), "part_first_source_frame": 100}}
+        got = stl.cut_stay(stay, t / "out" / "clothing.mkv")
+        back = read_mask(str(t / "out" / "clothing.mkv"), (W_, H_), 100, 100, N_)[0]
+        a = track[1:5] & np.isin(cls[1:5], [names.index(c) for c in STAY["classes_on_her_track"]])
+        bands, _ = masked_job.band_boxes(str(t / "part.mkv"), 100, 101, 4, (W_, H_), 0.6, 2.0)
+        for f in range(4):
+            x0, y0, x1, y1 = bands[f]
+            a[f, y0:y1, x0:x1] = False
+        held = np.stack([a[max(f - 1, 0):f + 2].sum(0) * 2 > len(a[max(f - 1, 0):f + 2]) for f in range(4)])
+        want = np.zeros((N_, H_, W_), bool)
+        want[1:5] = held
+        assert (back == want).all(), "the stay keep-out is not her track's clothing less the band, held over frames, on the load's frames only"
+        assert back[2, 20:30, 10:40].any() and not back[:, 30:40].any() and not back[0].any() and not back[5].any(), "the apron, the torso or the frames outside"
+        assert bands[0, 0] >= 0 and not back[1, bands[0, 1]:bands[0, 3], bands[0, 0]:bands[0, 2]].any() and got["px_the_band_took_out"] > 0, got
+        assert got["px_the_hold_changed"] > 0, got
+    return ("a plan look's stay item is made as one keep-out in place of the one it replaces, the band's box taken out of it and no band asked of the builder; "
+            "what the plan may say; the keep-out is her track's clothing classes, Background included, less the band, held over frames, on the load's frames only")
+
+
+def who_else_is_in_the_shot() -> str:
+    """The owner's word of 2026-10-14: "are there people in the shot who are not ours" belongs in the job file. The job step
+    reads it from the preview's own tables and the owner's answers (bench/others_present.py), prints it among the defaults,
+    and keeps the strangers out by it: where someone else is there or the frames shown cannot say, and on no load where nobody
+    is, whatever the plan's key; the plan's key only where it is not known."""
+    def load_with(made, people, plan_keep=None, not_people=None):
+        if plan_keep is not None:
+            made.plan["subjects"]["a"].update(keep_outs=plan_keep, keep_outs_by="a person: the plan's own")
+        if not_people is not None:
+            made.plan["not_people"] = not_people
+        shots, plan = made.read()
+        pjob = made.preview(100)
+        folder = made.preview_ran(pjob)
+        out = made.m.output / pjob["job"]["output"] / pjob["job"]["name"]
+        for label, pick in (("a", 1), ("b", 2), ("c", 3)):
+            (out / f"{pjob['job']['name']}_{label}_shots_00001_shots.json").write_text(json.dumps({"people_are": "every detection", "shots": [
+                {"first_frame": 0, "last_frame": 59, "shown_frame": 20, "subject": {"state": "seeded", "person": pick},
+                 "people": [{"person": n, "box": box, "share_of_frame": share, "held_by_another_tracker": False} for n, box, share in people]}]}))
+        saved = json.loads((folder / "preview.queued.json").read_text())["files"]
+        return stl.load_job(shots, plan, stl.shot_of(shots, 100), "a", pjob["job"], str(folder), "v", made.m.output, "the session", "2026-01-03", "a_fp_0100",
+                            now="now", preview_files=saved, cast=[], cast_from="cast.jsonl")
+    ours = [(1, [0, 0, 10, 10], 0.1), (2, [20, 0, 10, 10], 0.1), (3, [40, 0, 10, 10], 0.1)]
+    with tempfile.TemporaryDirectory() as tmp:
+        d = load_with(Made(Path(tmp)), ours + [(4, [55, 30, 5, 5], 0.01)])
+        job = d["job"]
+        lines = {x["what"]: x for x in job["defaults"]}
+        # THE CASE THAT GOES RED when someone else in the shot is not in the job file, or the strangers are not kept out by it
+        assert job["others_present"]["others_present"] == "yes" and job["others_present"]["frames_with_others"] == [120], job["others_present"]
+        assert [k["name"] for k in job["keep_outs"]["made"]] == ["strangers"] and "strangers" in d["loads"][0]["others"], job.get("keep_outs")
+        assert lines["other people in the shot"]["carries"].startswith("yes: someone not ours on 1 of the 1 frame(s)") and \
+            lines["the strangers keep-out"]["from"].startswith("the data: who else is in the shot, yes"), lines
+        assert job["others_present"]["owners_answers"] == "read from cast.jsonl"
+    with tempfile.TemporaryDirectory() as tmp:
+        # nobody else: no strangers keep-out, though the plan names one; the plan's other keep-outs stand
+        d = load_with(Made(Path(tmp)), ours, plan_keep=["held", "strangers"])
+        assert d["job"]["others_present"]["others_present"] == "no" and [k["name"] for k in d["job"]["keep_outs"]["made"]] == ["held"], d["job"]["keep_outs"]
+        assert "strangers" not in d["loads"][0]["others"] and d["job"]["keep_outs"]["by"].startswith("the plan (a person: the plan's own"), d["job"]["keep_outs"]
+    with tempfile.TemporaryDirectory() as tmp:
+        # the video's not_people: a lone small other in a shot it names counts as no one, said with its box
+        d = load_with(Made(Path(tmp)), ours + [(4, [55, 30, 5, 5], 0.01)], not_people=[{"what": "THE BOX", "shots": [[100, 159]], "by": "the owner"}])
+        got = d["job"]["others_present"]
+        assert got["others_present"] == "no" and got["not_people"][0]["box"] == [55, 30, 60, 35] and got["not_people"][0]["owners_words"] == "THE BOX", got
+        assert "keep_outs" not in d["job"], "the strangers kept out where the plan's not_people leave nobody"
+    return ("who else is in the shot is in the job file and its defaults, from the preview's tables; the strangers kept out where someone is, and not where "
+            "nobody is whatever the plan's key; the video's not_people counted as no one, with its box")
+
+
 def a_plan_that_keeps_the_strangers_out() -> str:
     """The lead's 3167 (2026-10-14): the region lay on other women's chins and faces, and her own part lay outside her
     track on another woman's face. The plan's `strangers` keeps every other person out and holds her part to her track."""
@@ -898,6 +1045,19 @@ def a_plan_that_keeps_the_strangers_out() -> str:
         write_mask_video(a_track, on)
         refused(lambda: stl.step_job(a, made.m, hold=hold, cut=cut), "shot_c_0100_strangers.mkv is not there", "bench/strangers.py run --preview", "Nothing is written")
         assert not holds and not cuts and not held.exists() and not list(made.jobs.glob("*.json")), "something was written for a load the job step refused"
+        # with the model store known, the job step runs the strangers pass its load needs, on an empty queue (the lead's order of 2026-10-14)
+        ran_before = len(made.m.ran)
+        a.model_store = "/store"
+        refused(lambda: stl.step_job(a, made.m, hold=hold, cut=cut), "shot_c_0100_strangers.mkv is not there")     # the stand-in pass makes no file
+        passes = [argv for label, argv in made.m.ran[ran_before:] if label == "strangers pass"]
+        assert len(passes) == 1 and passes[0][1:4] == ["bench/strangers.py", "run", "--preview"] and "/store/facebook_sapiens2-seg-1b" in passes[0], passes
+        made.m.busy = (1, 0)
+        refused(lambda: stl.step_job(a, made.m, hold=hold, cut=cut), "the queue is not empty", "no strangers pass beside a render")
+        made.m.busy, made.m.dry = (0, 0), True
+        before_dry = len([1 for label, _ in made.m.ran if label == "strangers pass"])
+        stl.step_job(a, made.m, hold=hold, cut=cut)
+        assert len([1 for label, _ in made.m.ran if label == "strangers pass"]) == before_dry, "a dry run ran the strangers pass"
+        made.m.dry, a.model_store = False, ""
         want.parent.mkdir(parents=True, exist_ok=True)
         write_mask_video(want, ~on)
         refused(lambda: stl.step_job(a, made.m, hold=hold, cut=cut), "is not there beside it")
@@ -1391,7 +1551,7 @@ def the_defaults_this_load_carries() -> str:
         made = Made(Path(tmp))
         d = made.load()
         lines = {x["what"]: x for x in d["job"]["defaults"]}
-        assert list(lines) == ["the reference held to the subject's track", "the eye", "the mouth", "zoom", "the strangers keep-out", "the part's pieces",
+        assert list(lines) == ["the reference held to the subject's track", "the eye", "the mouth", "zoom", "other people in the shot", "the strangers keep-out", "the part's pieces",
                                "the hair band", "restore spans", "the text"], list(lines)
         assert lines["the eye"]["carries"].startswith("white sclera and black iris") and lines["the eye"]["from"].startswith("the chain's default"), lines["the eye"]
         assert lines["the mouth"]["carries"].startswith("drawn when the lip lines lie") and lines["zoom"]["from"].startswith("the chain's default"), lines
@@ -1466,6 +1626,8 @@ case("a load the builder would refuse is not written, in a dry run as well", a_l
 case("a subject's keep-outs: named by the plan, made and named by the job step", a_subjects_keep_outs)
 case("a load of some of its subject's parts", a_load_of_some_of_its_parts)
 case("a plan that keeps the strangers out", a_plan_that_keeps_the_strangers_out)
+case("who else is in the shot", who_else_is_in_the_shot)
+case("her clothing as one stay keep-out", her_clothing_as_one_stay_keep_out)
 case("a track that is not its person on named frames", a_track_that_is_not_its_person)
 case("text: who wrote it, said with a flag", the_text_step)
 case("a job renders from the video's present copy", a_job_renders_from_the_present_copy)

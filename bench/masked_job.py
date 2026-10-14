@@ -666,6 +666,30 @@ def capture_files(job: dict, one: dict, capture: Path, mesh_of) -> dict:
     return files
 
 
+def band_boxes(part: str, part_at: int, first: int, frames: int, size: tuple[int, int], share: float, side_px: float | None) -> tuple:
+    """The hair band's box a frame of a load (`hair_band`'s own, one copy: the job step's stay keep-out takes the same box out):
+    (bands [frames, 4] as x0, y0, x1, y1, -1 where no part is near; the part's own box a frame, nan where it has none)."""
+    rule = h3_config.MASKED_JOB_HAIR_BAND
+    w, h = size
+    reach = int(rule["smooth_frames"])
+    boxes = np.full((frames, 4), np.nan)
+    for f, frame in enumerate(stream(part, (w, h), first - part_at, frames, vf=f"scale={w}:{h}:flags=neighbor")):
+        on = frame > 127
+        rows, cols = np.nonzero(on.any(1))[0], np.nonzero(on.any(0))[0]
+        if len(rows):
+            boxes[f] = (cols[0], rows[0], cols[-1] + 1, rows[-1] + 1)
+    bands = np.full((frames, 4), -1, int)
+    for f in range(frames):
+        near = boxes[max(f - reach, 0):f + reach + 1]
+        near = near[~np.isnan(near[:, 0])]
+        if len(near):
+            x0, y0, x1, y1 = np.median(near, axis=0)
+            side = side_px if side_px is not None else rule["wider"] * (x1 - x0)
+            bands[f] = (max(int(np.floor(x0 - side)), 0), min(int(round(y0 if rule["starts"] == "top" else y1)), h),
+                        min(int(np.ceil(x1 + side)), w), min(int(np.ceil(y1 + share * (y1 - y0))), h))
+    return bands, boxes
+
+
 def hair_band(one: dict, files: dict, target: Path) -> tuple[dict, dict | None]:
     """A load's files with a band cut out of one keep-out, and what the band is; (files, None) for a load that asks for none.
 
@@ -715,25 +739,11 @@ def hair_band(one: dict, files: dict, target: Path) -> tuple[dict, dict | None]:
     if first < part_at or first < keep_at:
         raise Refused(f"load {one['name']!r}: the hair band reads the part from source frame {part_at} and the keep-out "
                       f"{cuts!r} from {keep_at}, and the load begins on {first}")
-    boxes = np.full((frames, 4), np.nan)
-    for f, frame in enumerate(stream(part, (w, h), first - part_at, frames, vf=f"scale={w}:{h}:flags=neighbor")):
-        on = frame > 127
-        rows, cols = np.nonzero(on.any(1))[0], np.nonzero(on.any(0))[0]
-        if len(rows):
-            boxes[f] = (cols[0], rows[0], cols[-1] + 1, rows[-1] + 1)
+    bands, boxes = band_boxes(part, part_at, first, frames, (w, h), share, side_px)
     seen = ~np.isnan(boxes[:, 0])
     if not seen.any():
         raise Refused(f"load {one['name']!r}: the part mask {part} is empty on every frame of the load: there is no head "
                       f"to put a hair band under")
-    bands = np.full((frames, 4), -1, int)
-    for f in range(frames):
-        near = boxes[max(f - reach, 0):f + reach + 1]
-        near = near[~np.isnan(near[:, 0])]
-        if len(near):
-            x0, y0, x1, y1 = np.median(near, axis=0)
-            side = side_px if side_px is not None else rule["wider"] * (x1 - x0)
-            bands[f] = (max(int(np.floor(x0 - side)), 0), min(int(round(y0 if rule["starts"] == "top" else y1)), h),
-                        min(int(np.ceil(x1 + side)), w), min(int(np.ceil(y1 + share * (y1 - y0))), h))
     has = bands[:, 0] >= 0
     figures = {"share_of_the_parts_height": share, "cut_out_of": cuts, "starts_at_the_part_boxs": rule["starts"], "file": str(target), "its_first_frame_is_source_frame": first,
                "made_from": {"part": part, "its_first_frame_is_source_frame": part_at, "keep_out": keep, "keep_outs_first_frame_is_source_frame": keep_at},

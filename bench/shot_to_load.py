@@ -37,7 +37,9 @@ CARRIES, a line each with where it comes from, and keeps the same in the job fil
   starting value and nothing measured.
 - The plan (`data/<video>/plan.json`): for each subject the `region` (what is replaced), and, new with this tool,
   the `still` its face is taken from, the `parts` the part model ticks for it, and optionally `hair_band`. A
-  subject whose plan lacks `still` or `parts` is refused with the keys to add. Optionally `pieces` (with
+  subject whose plan lacks `still` or `parts` is refused with the keys to add. A plan look's stay item made as one
+  keep-out (`look.stay[]` with `as: "one keep-out"`, `replaces_keep_out`, `classes_on_her_track`, `hold_frames`, and
+  `look_by`) is made by the job step in place of the keep-out it replaces (`stay_of`, `cut_stay`). Optionally `pieces` (with
   `pieces_by`: who chose it, on what): how the capture reads the subject's part, copied by `job` onto the
   subject in the load's job file, where the chain passes it to the capture. This tool sets it for nobody.
   Optionally `keep_outs` (with `keep_outs_by`): which of `held`, `hands`, `clothes` and `strangers` that subject's
@@ -843,7 +845,7 @@ def looked_for(kept: dict | None, world) -> list[str]:
     import strangers
     lines = []
     for k in (kept or {}).get("made", []):
-        if "classes" in k:
+        if "classes" in k or "stay" in k:          # made by this step (make_keep_outs, make_stay), not looked for
             continue
         track = Path(k["track"])
         why = [] if track.is_file() else [f"{track} is not there" + (f": `{k['made_by']} --preview <the preview's job folder>` makes it, on the card"
@@ -871,6 +873,8 @@ def make_keep_outs(kept: dict | None, world, cut=cut_keep_out, hashed=None) -> l
     lines = []
     for k in (kept or {}).get("made", []):
         track = Path(k["track"])
+        if "stay" in k:
+            continue
         if "classes" not in k:
             lines.append(f"keep-out `{k['name']}`: {track} ({k['what']})")
             continue
@@ -892,6 +896,167 @@ def make_keep_outs(kept: dict | None, world, cut=cut_keep_out, hashed=None) -> l
                                                          "first_source_frame": kept["first"], "made_at": load_chain.utc_now(), **got}, indent=1) + "\n")
         lines.append(f"keep-out `{k['name']}`: cut {' + '.join(k['classes'])} from {k['cut_from']} to {track}: {got['frames']} frames, on the mask on "
                      f"{got['frames_with_the_mask']}, up to {got['px_most']} px")
+    return lines
+
+
+def others_of_load(preview: dict, output: Path, shot: dict, cast: list[dict] | None, cast_from: str, not_people: list[dict] | None = None) -> dict:
+    """Who else is in the load's shot (`others_present.shot_others`), from its preview's tables in the folder its job wrote to."""
+    import others_present
+    folder = output / preview["output"] / preview["name"]
+    tables = {}
+    for s in preview["subjects"]:
+        found = sorted(folder.glob(f"{preview['name']}_{s['label']}_shots_*_shots.json"))
+        if found:
+            tables[s["label"]] = (found[-1].name, json.loads(found[-1].read_text()))
+    pv = {"name": preview["name"], "first": int(preview["first"]), "last": int(preview["first"]) + int(preview["frames"]) - 1, "tables": tables}
+    row = others_present.shot_others({"first": int(shot["first"]), "last": int(shot["last"]), "note": shot.get("note")}, pv if tables else None, cast or [],
+                                     None, not_people)
+    if not tables:
+        row = {"frames": [int(shot["first"]), int(shot["last"])], "others_present": "not known", "why": f"the preview {preview['name']} saved no shot table"}
+    out = others_present.summary(row)
+    out["said"] = others_present.said(row)
+    out["owners_answers"] = f"read from {cast_from}" if cast is not None else "not handed in (--cast): each tracker's pick is taken as ours"
+    return out
+
+
+def strangers_by_the_data(p: dict, others: dict) -> dict:
+    """The plan's subject with the strangers keep-out as the data says: kept out where someone else is in the shot or the
+    frames shown cannot say, and on no load where nobody is; the plan's key only where the data is not known."""
+    if others["others_present"] not in ("yes", "cannot say", "no"):
+        return dict(p, strangers_from=f"the plan, since who else is in the shot is not known ({others['said']})")
+    names = [k for k in p.get("keep_outs") or [] if k != "strangers"] + (["strangers"] if others["others_present"] != "no" else [])
+    by = " ".join(str(p.get("keep_outs_by") or "").split())
+    strangers_by = f"the data: who else is in the shot, {others['said']}"
+    out = dict(p, keep_outs=names or None, strangers_from=strangers_by)
+    out.pop("keep_outs_by", None)
+    if names:
+        out["keep_outs_by"] = "; ".join(x for x in (by if [k for k in names if k != "strangers"] else "",
+                                                    f"strangers: {strangers_by}" if "strangers" in names else "") if x)
+    return out
+
+
+#: The name a look's stay keep-out is written under in a load's `others` (`stay_of`). Not the name of the keep-out it replaces,
+#: so the builder's hair band, which cuts `clothes`, does not cut it again: its box is already out of it.
+STAY_NAME = "clothing"
+
+
+def stay_of(p: dict, subject: str, kept: dict | None, load: dict, preview: dict, on_track: dict | None, part: dict | None, video: str, output: Path,
+            preview_files, name: str, region: str) -> tuple[dict | None, str]:
+    """A plan look's STAY item made as ONE keep-out (`look.stay[]` with `as: "one keep-out"`), in place of the keep-out it
+    `replaces_keep_out`, and the note's sentence. Her track's pixels whose class is one of `classes_on_her_track`, less the
+    hair band's box a frame (`masked_job.band_boxes`, the builder's own; the load's band is then not asked of the builder),
+    held over frames: in on a frame when in on most of the frames within `hold_frames` either side, the window cut at the
+    load's ends. Written on the preview's frames, empty outside the load's; one file a load (the band is the load's).
+    The lead's ruling of 2026-10-14 (K, build path (a)), on mrpre's measured apron read: the part model calls the second
+    subject's white apron Background, so the clothes keep-out missed it and the held rule gave its strap back cell by cell."""
+    items = [x for x in ((p.get("look") or {}).get("stay") or []) if x.get("as") == "one keep-out"]
+    if not items:
+        return kept, ""
+    import h3_config
+    import capture_masked_run as cap
+    if len(items) > 1:
+        raise Refused(f"the plan's look for {subject!r} has {len(items)} stay items made as one keep-out; one a subject is built")
+    x = items[0]
+    by = " ".join(str(p.get("look_by") or x.get("by") or "").split())
+    names = cap._pack("sapiens2_parts").CLASS_NAMES
+    gone = x.get("replaces_keep_out")
+    classes, hold = x.get("classes_on_her_track") or [], x.get("hold_frames")
+    if not by:
+        raise Refused(f"the plan's look for {subject!r} names no `look_by`: who ruled it, and on what")
+    if not kept or gone not in [k["name"] for k in kept["made"]]:
+        raise Refused(f"the plan's stay item for {subject!r} replaces the keep-out {gone!r}, which the plan's `keep_outs` do not name for this load")
+    if not classes or any(c not in names for c in classes) or not isinstance(hold, int) or hold < 0:
+        raise Refused(f"the plan's stay item for {subject!r}: `classes_on_her_track` {classes!r} are the part model's classes and `hold_frames` {hold!r} a "
+                      "whole number of frames either side, 0 or more")
+
+    def saved(kind: str) -> Path:
+        found = [f for f in preview_files or [] if f"_{subject}_{kind}_" in Path(f).name and f.endswith(".mkv")]
+        if len(found) != 1:
+            raise Refused(f"the preview {preview['name']} saved {len(found)} `{kind}` video(s) of {subject!r} where one is meant: the stay keep-out is made from it")
+        return output / found[0]
+    band = None
+    rule = h3_config.MASKED_JOB_HAIR_BAND
+    if "hair_band" in load and load.get("hair_band_cuts", rule["cuts"]) == gone:
+        margin = load.get("margin", h3_config.MASKED_LOAD_MARGIN[region])
+        band = {"share": float(load.pop("hair_band")), "side_px": float(margin) if rule["wider"] == "margin" else None,
+                "part": str(Path(on_track["file"]) if on_track else Path(part["made"][0]["track"]) if part else saved("parts")),
+                "part_first_source_frame": preview["first"]}
+    file = output / KEEP_OUTS_AT.format(video=video, preview=preview["name"]) / f"{name}_{subject}_{STAY_NAME}.mkv"
+    entry = {"name": STAY_NAME, "track": str(file), "replaces": gone, "by": by,
+             "stay": {"what": x.get("what", ""), "classes_on_her_track": list(classes), "hold_frames": hold, "track": str(saved("track")),
+                      "class_map": str(saved("classes")), "preview_first": preview["first"], "preview_frames": preview["frames"],
+                      "first": load["first"], "frames": load["frames"], "less_the_hair_band": band},
+             "what": f"her clothing as one stay keep-out: {' + '.join(classes)} on her track, less the hair band's box, held over {2 * hold + 1} frames (the plan's look)"}
+    kept = dict(kept, made=[entry if k["name"] == gone else k for k in kept["made"]])
+    load["others"] = [STAY_NAME if o == gone else o for o in load["others"]]
+    said = (f" HER CLOTHING IS ONE STAY KEEP-OUT, `{STAY_NAME}`, in place of `{gone}`, from the plan's look ({by}): {' + '.join(classes)} of her class map on her "
+            f"own track, held over {2 * hold + 1} frames (in on a frame when in on most of them)"
+            + (f", less the hair band's box a frame ({band['share']:g} of the part's height; the builder's own box, masked_job.band_boxes), so the load asks the "
+               f"builder for no band: its box is already out" if band else "") + ".")
+    return kept, said
+
+
+def cut_stay(stay: dict, out: Path) -> dict:
+    """Write a stay keep-out (`stay_of`) as a mask video on the preview's frames, and its figures."""
+    import numpy as np
+    import capture_masked_run as cap
+    import masked_job
+    from _lib.frames import read_mask, write_mask_video
+    names = cap._pack("sapiens2_parts").CLASS_NAMES
+    pf, first, n = stay["preview_first"], stay["first"], stay["frames"]
+    w, h, _ = cap.probe(stay["class_map"])
+    cls = cap.read_classes(stay["class_map"], (w, h), pf, first, n)
+    on = read_mask(stay["track"], (w, h), pf, first, n)[0] & np.isin(cls, [names.index(c) for c in stay["classes_on_her_track"]])
+    band = stay.get("less_the_hair_band")
+    taken = 0
+    if band:
+        bands, _ = masked_job.band_boxes(band["part"], band["part_first_source_frame"], first, n, (w, h), band["share"], band["side_px"])
+        for f in range(n):
+            if bands[f, 0] >= 0:
+                x0, y0, x1, y1 = bands[f]
+                taken += int(on[f, y0:y1, x0:x1].sum())
+                on[f, y0:y1, x0:x1] = False
+    k = stay["hold_frames"]
+    held = np.zeros_like(on)
+    for f in range(n):
+        window = on[max(f - k, 0):f + k + 1]
+        held[f] = window.sum(0) * 2 > len(window)
+    whole = np.zeros((stay["preview_frames"], h, w), bool)
+    whole[first - pf:first - pf + n] = held
+    out.parent.mkdir(parents=True, exist_ok=True)
+    write_mask_video(out, whole)
+    a = held.reshape(n, -1).sum(1)
+    return {"frames": n, "size": [w, h], "px_a_frame_median": int(np.median(a)), "px_most": int(a.max()),
+            "px_the_hold_changed": int((held ^ on).sum()), "px_the_band_took_out": taken}
+
+
+def make_stay(kept: dict | None, world, cut=cut_stay, hashed=None) -> list[str]:
+    """Make a load's stay keep-out: written, or, when a file of the name is there, made again beside it and held equal to it
+    frame by frame (`load_chain.frame_hash`), refused when not. Its hash goes into the job, as the strangers file's does."""
+    hashed = hashed or load_chain.frame_hash
+    lines = []
+    for k in (kept or {}).get("made", []):
+        if "stay" not in k:
+            continue
+        track = Path(k["track"])
+        if world.dry:
+            lines.append(f"keep-out `{k['name']}`: WOULD BE MADE, {k['what']}, to {track}" + (" (a file is there: held to one made again)" if track.exists() else ""))
+            continue
+        if track.exists():
+            again = track.with_name(track.stem + ".made_again.mkv")
+            cut(k["stay"], again)
+            same = hashed(str(again)) == hashed(str(track))
+            again.unlink()
+            if not same:
+                raise Refused(f"{track} is there and is NOT the stay keep-out its plan makes now: a keep-out of another making. It is read and moved aside by a person")
+            lines.append(f"keep-out `{k['name']}`: {track} was there, and one made again now decodes equal to it on every frame")
+        else:
+            got = cut(k["stay"], track)
+            track.with_suffix(".json").write_text(json.dumps({"what": "a look's stay keep-out made by bench/shot_to_load.py", "name": k["name"], "replaces": k["replaces"],
+                                                             "by": k["by"], **k["stay"], "made_at": load_chain.utc_now(), **got}, indent=1) + "\n")
+            lines.append(f"keep-out `{k['name']}`: made to {track}: {got['frames']} frames, {got['px_a_frame_median']} px a frame at the median and {got['px_most']} at "
+                         f"most; the hold changed {got['px_the_hold_changed']} px, the band took out {got['px_the_band_took_out']} (figures of the mask, not of a render)")
+        k["frame_hash"] = hashed(str(track))
     return lines
 
 
@@ -918,7 +1083,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
              whole_frame: str | None = None,
              preview_files: list[str] | None = None, parts: list[str] | None = None, parts_by: str | None = None, classes_of=part_classes,
              parts_on: list[tuple[int, int, list[str]]] | None = None, track_not: list[tuple[str, int, int, str]] | None = None,
-             track_not_by: str | None = None) -> dict:
+             track_not_by: str | None = None, cast: list[dict] | None = None, cast_from: str = "") -> dict:
     """The job file of one subject's load on a shot, from the shot's preview. `preview` is the preview's own job
     block; `source` is the file the load renders from, the video's present copy (the preview's own when left out).
     `parts` with `parts_by` makes the load's part some of its subject's plan parts (`part_of`)."""
@@ -933,6 +1098,10 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
     if (preview["first"], preview["first"] + preview["frames"] - 1) != (shot["first"], shot["last"]):
         raise Refused(f"the preview {preview['name']} is of {preview['first']}-{preview['first'] + preview['frames'] - 1}, not of the shot {shot['first']}-{shot['last']}")
     p = planned(plan, subject)
+    # WHO ELSE IS IN THE SHOT (the owner's word of 2026-10-14: it belongs in the job file), from the preview's own tables and the
+    # owner's answers (bench/others_present.py); the strangers keep-out follows it and not the plan's key, where it can say
+    others = others_of_load(preview, output, shot, cast, cast_from, plan.get("not_people"))
+    p = dict(strangers_by_the_data(p, others), others_present=others)
     region = p["region"]
     if region not in h3_config.MASKED_LOAD_MARGIN:
         raise Refused(f"the plan's region for {subject!r} is {region!r}: this tool makes part loads ({', '.join(h3_config.MASKED_LOAD_MARGIN)})")
@@ -982,6 +1151,10 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
                           f"carry a band: take `hair_band` out of {subject!r} in the plan file and the load is made without one, or write by hand a load on a "
                           f"preview that tracks the keep-out")
         load["hair_band"] = band["value"] if isinstance(band, dict) else band
+    # A LOOK'S STAY ITEM made as one keep-out in place of one the plan names (the plan's `look.stay`; the lead's ruling of
+    # 2026-10-14 on mrpre's apron read): her clothing held over frames, the band's box already out of it
+    kept, stay_said = stay_of(p, subject, kept, load, preview, on_track, part, video, output, preview_files, name, region)
+    kept_said += stay_said
     ref_form = reference_form(p, subject)
     subjects = [{k: v for k, v in s.items() if k in ("label", "phrase", "pick", "parts", "still", "pose")} for s in preview["subjects"]]
     # The capture's `pieces` for the load's subject, when the plan says one: a key on the subject in the job file, where
@@ -1062,7 +1235,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
                     **({"track_not": gone} if gone else {}),
                     "reference": {"form": "drawn", "why": "the form for a face, head or hair replacement (AGENTS.md, Settled)", "made": None,
                                   "mouth": ref_form["mouth"], "iris": ref_form["iris"]},
-                    "defaults": carried},
+                    "others_present": others, "defaults": carried},
             "defaults": {**h3_config.MASKED_LOAD_DEFAULTS, "margin": h3_config.MASKED_LOAD_MARGIN[region], "seed": h3_config.SEED},
             "loads": [load]}
 
@@ -1129,7 +1302,8 @@ def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: di
                                "the reference step", "drawn": "drawn", "left out": "left out"}[mouth["form"]], f"{mouth['said_by']}: {mouth['why']}"),
         ("zoom", "zoomed in where the node's box allows (the node decides at plan)" if zoom_block else "the whole frame",
          f"{(zoom_block or whole_block)['said_by']}: {(zoom_block or whole_block)['why']}"),
-        ("the strangers keep-out", "kept out" if "strangers" in names else "not kept out", "the plan" + (f": {p.get('keep_outs_by')}" if p.get("keep_outs") else "")),
+        ("other people in the shot", (p.get("others_present") or {}).get("said", "not read"), "bench/others_present.py, from the preview's tables and the owner's answers"),
+        ("the strangers keep-out", "kept out" if "strangers" in names else "not kept out", p.get("strangers_from") or ("the plan" + (f": {p.get('keep_outs_by')}" if p.get("keep_outs") else ""))),
         ("the part's pieces", f"pieces={mine['pieces']}" if mine.get("pieces") else "every piece", "the plan" + (f": {p.get('pieces_by')}" if p.get("pieces") else "")),
         ("the hair band", f"{band:g} of the part's height under it, from the box's top, the margin's width each side"
          + f" (h3_config.MASKED_JOB_HAIR_BAND: starts {h3_config.MASKED_JOB_HAIR_BAND['starts']}, wider {h3_config.MASKED_JOB_HAIR_BAND['wider']})" if band is not None else "none",
@@ -1213,8 +1387,22 @@ def step_preview(a, world) -> None:
     print("THE TILES ARE TO BE LOOKED AT before a load is built on this preview: a pick by the largest person is a guess.")
 
 
+def run_strangers(kept: dict | None, a, world) -> None:
+    """The strangers pass (bench/strangers.py, the part model on the whole frame, on the card) where the job keeps the strangers
+    out and its preview's file is not there: run by this step when the model store is known, on an empty queue (the lead's order
+    of 2026-10-14: the chain runs it where someone else is in the shot); else left to `looked_for`, which refuses with the command."""
+    owed = [k for k in (kept or {}).get("made", []) if k["name"] == "strangers" and not Path(k["track"]).is_file()]
+    store = getattr(a, "model_store", "") or os.environ.get(load_chain.MODEL_STORE)
+    if not owed or world.dry or not store:
+        return
+    import h3_config
+    load_chain.empty_queue(world, "no strangers pass beside a render")
+    world.run({"logs": Path(a.folder) / "chain"}, "strangers pass", [world.python, "bench/strangers.py", "run", "--preview", a.preview, "--model-folder",
+                                                                      str(Path(store) / h3_config.SAPIENS2["segmentation"]), "--by", a.by])
+
+
 def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classes_of=part_classes, hold=hold_to_track, track_cut=cut_track,
-             over=track_over_track) -> None:
+             over=track_over_track, stay_cut=cut_stay) -> None:
     shots, plan = _load(a.shots, a.plan)
     shot = shot_of(shots, a.shot)
     pfolder = Path(a.preview)
@@ -1242,7 +1430,8 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
                    source=str(source), why_before=a.why_before or "", why_after=a.why_after or "", zoomed=a.zoomed, least=a.least, least_why=a.least_why,
                    whole_frame=a.whole_frame,
                    preview_files=ran.get("files") or [], parts=a.parts, parts_by=a.parts_by, classes_of=classes_of,
-                   parts_on=[parts_on_arg(x) for x in a.parts_on], track_not=[track_not_arg(x) for x in a.track_not], track_not_by=a.track_not_by)
+                   parts_on=[parts_on_arg(x) for x in a.parts_on], track_not=[track_not_arg(x) for x in a.track_not], track_not_by=a.track_not_by,
+                   cast=[json.loads(x) for x in open(a.cast) if x.strip()] if getattr(a, "cast", None) else None, cast_from=getattr(a, "cast", None) or "")
     job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "ITS PREVIEW WAS MADE ON AN EARLIER COPY")
     out = folder / f"{name}.json"
     print(f"{name}: {a.subject}, {region}, source frames {job['loads'][0]['first']}-{job['loads'][0]['first'] + job['loads'][0]['frames'] - 1}; "
@@ -1255,6 +1444,7 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
     # the keep-outs the plan names are made before the job file that points at them is written; a dry run says what would be
     # what is looked for is held first, and the track a part is held to, so a refusal writes nothing; the held part last: it is
     # made from the load's own part
+    run_strangers(job["job"].get("keep_outs"), a, world)
     on_track = job["job"].get("part_on_track")
     why = track_refusals(Path(on_track["track"]), on_track["canvas"], on_track["frames"]) if on_track else []
     if why and not world.dry:
@@ -1262,7 +1452,8 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
     for line in ([f"the part held to the track: WOULD BE REFUSED: {'; '.join(why)}"] if why else []) + (looked_for(job["job"].get("keep_outs"), world) + make_part(job["job"].get("part"), world, cut, hashed, inside)
                  + make_keep_outs(job["job"].get("keep_outs"), world, cut, hashed)
                  + make_track_not(job["job"].get("track_not"), world, track_cut, hashed)
-                 + make_part_on_track(job["job"].get("part_on_track"), world, hold, hashed)):
+                 + make_part_on_track(job["job"].get("part_on_track"), world, hold, hashed)
+                 + make_stay(job["job"].get("keep_outs"), world, stay_cut, hashed)):
         print(line)
     # where one subject's preview track lies on another's, as a figure, before anything is built on it
     for line in over(preview, ran.get("files") or [], world.output, a.subject, job["loads"][0]["first"], job["loads"][0]["first"] + job["loads"][0]["frames"] - 1):
@@ -1476,6 +1667,10 @@ def main() -> int:
     j.add_argument("--zoomed", metavar="WHY", help="render this load zoomed in on what is replaced, with a person's reason kept in the job file "
                    "(the chain's default since 2026-10-14 without it)")
     j.add_argument("--whole-frame", metavar="WHY", help="render this load on the whole frame, not zoomed in as the chain's default; the reason is kept in the job file")
+    j.add_argument("--model-store", default="", help=f"the folder holding the part model's folder, over the environment's {load_chain.MODEL_STORE}: with it, "
+                   "a strangers pass the job needs and its preview lacks is run here, on an empty queue")
+    j.add_argument("--cast", help="the video's cast file (data/<stem>/cast/cast.jsonl): the owner's answers on which numbered person is ours, read for who "
+                                  "else is in the shot (bench/others_present.py); each tracker's pick is taken without it, and the job says so")
     j.add_argument("--least", type=int, metavar="PX", help="the capture's floor for the subject's part on this load, in px of the whole frame; with --least-why")
     j.add_argument("--least-why", metavar="WHY", help="why the floor is set there; kept beside it in the job file")
     r = sub.add_parser("reference")

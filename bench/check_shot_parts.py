@@ -141,6 +141,11 @@ def main() -> int:
         assert r.returncode == 0, r.stdout + r.stderr
         out, md = json.loads((d / "out.json").read_text()), (d / "out.md").read_text()
         row = {(x["first"], x["subject"]): x for x in out["rows"]}
+        # who else is in each shot is printed per shot, from the same previews (the lead's order of 2026-10-14); these made tables number
+        # nobody on a shown frame, so it is not known, said, and no cast file was handed in
+        case("others_present_per_shot", len(out["others_present"]) == len(json.loads((d / "shots.json").read_text())["shots"])
+             and "## Other people in the shot:" in md and "with no cast file handed in" in out["others_present_from"]
+             and all(r["others_present"] in ("not known", "no preview") for r in out["others_present"]), out.get("others_present"))
 
         case("nobody_and_unsure", out["nobody"] == [{"first": 120, "last": 139, "frames": 20}] and [(u["first"], u["subject"]) for u in out["unsure"]] == [(140, "a"), (last + 1, "a")]
              and len(out["rows"]) == 7 and "## List 1. Nobody: 1 shot(s), 20 frames, of 6 shots" in md and "- 140-159, a: two say (x)" in md, (out["nobody"], out["unsure"]))

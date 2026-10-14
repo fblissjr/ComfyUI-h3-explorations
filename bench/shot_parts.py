@@ -19,6 +19,9 @@ preview: the job file and the folder its trackers saved into. Where two previews
 the subject, THE LAST LISTED is read and the row names it. `--answers` is the page's answers file, for the
 owner's typed words on a shot.
 
+**Who else is in each shot** (2026-10-14, the owner's ask): from the same previews, with `--cast` (the owner's answers) and the
+plan's `not_people`, by `bench/others_present.py`: yes, no, cannot say, not known or no preview, a line a shot.
+
 **List 1, nobody.** The shots on which every subject is `no` in the shots record, with their frames. A subject
 who is `unsure` on a shot is under a heading of their own and in neither list.
 
@@ -313,6 +316,14 @@ def as_md(out: dict) -> str:
     lines += [f"### No part read: {len(unread)} row(s) (no preview handed in, or its part file is not there)", ""]
     for r in unread:
         lines += row_text(r)
+    if out.get("others_present") is not None:
+        rows_o = out["others_present"]
+        lines += ["", f"## Other people in the shot: " + ", ".join(f"{k} {sum(1 for r in rows_o if r['others_present'] == k)}"
+                                                                  for k in ("yes", "cannot say", "no", "not known", "no preview")), "",
+                  f"From {out['others_present_from']}. `yes` and `cannot say` keep the strangers out of a load (bench/shot_to_load.py), and want a strangers "
+                  "pass on the card before its job is written.", ""]
+        lines += [f"- {r['frames'][0]}-{r['frames'][1]}: {r['said']}" + "".join(f"; counted as no one: person {x['person']} at {x['box']} ({x['owners_words']})"
+                                                                         for x in r.get("not_people") or []) for r in rows_o]
     return "\n".join(lines) + "\n"
 
 
@@ -327,6 +338,8 @@ def main() -> int:
     ap.add_argument("--answers", help="the page's answers file, for the owner's typed words on a shot")
     ap.add_argument("--preview", action="append", default=[], metavar="JOB.json=TABLES_DIR", help="a preview and the folder its trackers saved into; repeatable, "
                     "and where two cover a shot and track the subject the LAST listed is read")
+    ap.add_argument("--cast", help="the video's cast file: the owner's answers on which numbered person is ours, for who else is in each shot "
+                                  "(bench/others_present.py); each tracker's pick is taken without it, and the table says so")
     ap.add_argument("--json", required=True, help="the table a session takes its shots from")
     ap.add_argument("--md", required=True, help="the same, to be read")
     a = ap.parse_args()
@@ -338,9 +351,20 @@ def main() -> int:
     answers = [json.loads(t) for t in Path(a.answers).read_text().splitlines() if t.strip()] if a.answers else []
     covered = shot_coverage.coverage(shots, plan, read_table(a.table), read_intents(a.table), renders, verdicts)
     out = lists(shots, plan, covered, previews(a.preview), answers)
+    # who else is in each shot (the lead's order of 2026-10-14, at the owner's ask), from the same previews and the owner's answers
+    import others_present
+    cast = [json.loads(t) for t in Path(a.cast).read_text().splitlines() if t.strip()] if a.cast else []
+    seen = [others_present.read_preview(x) for x in a.preview]
+    out["others_present"] = [dict(others_present.summary(r), frames=r["frames"], said=others_present.said(r))
+                             for r in (others_present.shot_others(dict(x, first=int(x["first"]), last=int(x["last"])),
+                                                                   others_present.of_shot(dict(x, first=int(x["first"]), last=int(x["last"])), seen), cast, None,
+                                                                   plan.get("not_people")) for x in shots["shots"])]
+    out["others_present_from"] = ("the previews above, " + (f"the owner's answers in {a.cast}" if a.cast else "with no cast file handed in: each tracker's pick "
+                                                             "taken as ours") + ", and the plan's not_people (bench/others_present.py)")
     out["made_at"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     out["tool_commit"] = subprocess.run(["git", "-C", str(HERE.parent), "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip() or "not read"
-    out["read_from"] = {"shots": a.shots, "plan": a.plan, "table": a.table, "ledger": a.ledger, "renders": a.renders, "verdicts": a.verdicts, "answers": a.answers, "previews": a.preview}
+    out["read_from"] = {"shots": a.shots, "plan": a.plan, "table": a.table, "ledger": a.ledger, "renders": a.renders, "verdicts": a.verdicts, "answers": a.answers,
+                        "cast": a.cast, "previews": a.preview}
     Path(a.json).write_text(json.dumps(out, indent=1) + "\n")
     Path(a.md).write_text(as_md(out))
     rows = out["rows"]
