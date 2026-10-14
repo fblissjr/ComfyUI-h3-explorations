@@ -1593,6 +1593,13 @@ def the_defaults_this_load_carries() -> str:
         refused(lambda: stl.drawn_form(job, args(iris="whole"), files, 100), "say why with --form-why")
         refused(lambda: stl.drawn_form(job, args(), {"classes": None}, 100), "the preview saved none")
         assert stl.drawn_form({}, args(), files, 100) == [], "a job written before the defaults is drawn as the tool's own"
+        # a load whose part is hair alone on some frames (`--parts-on`, 1010d's 1025-1031): no mouth there, said with the job's own words
+        hair = {**job, "part": {"by": "THE OWNER'S ANSWER", "parts_on": [{"first": 1025, "last": 1031, "parts": ["hair"]}],
+                                "made": [{"classes_on": [{"first": 1025, "last": 1031, "classes": ["Hair"]},
+                                                         {"first": 1040, "last": 1041, "classes": ["Face_Neck", "Upper_Lip", "Lower_Lip"]}]}]}}
+        got = stl.drawn_form(hair, args(), files, 100)
+        # THE CASE THAT GOES RED when the reference is not told the load's lipless frames, or is told a range that holds the lips
+        assert got[-2:] == ["--no-mouth-on", "1025-1031=the load's part is hair alone there (THE OWNER'S ANSWER)"] and got.count("--no-mouth-on") == 1, got
     return ("the job prints and keeps the defaults it carries, each with where it comes from (the eye in contrast, the mouth by the lip check, zoomed where "
             "the node allows); the plan's reference form stands over them with its reason, and not without one; the reference step's word with its reason over both")
 

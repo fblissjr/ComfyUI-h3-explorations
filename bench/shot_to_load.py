@@ -1529,6 +1529,7 @@ def step_reference(a, world, figures=figures_of) -> None:
 
 def drawn_form(job: dict, a, files: dict, preview_first: int) -> list:
     """The head reference tool's flags for the mouth and the eye: the job's (the plan's or the chain's default, `reference_form`),
+    and `--no-mouth-on` for the load's frames whose own part holds no lips (the job's `part.parts_on`),
     or the reference step's own `--mouth`/`--iris` with `--form-why`. A job written before 2026-10-14 says neither: its form is the
     tool's own as before (the mouth left out, the iris between the lids)."""
     said = job.get("reference") or {}
@@ -1545,6 +1546,12 @@ def drawn_form(job: dict, a, files: dict, preview_first: int) -> list:
         out += ["--mouth", "auto", "--classes", str(files["classes"]), "--classes-first", preview_first]
     elif mouth:
         out += ["--mouth", mouth, "--mouth-why", a.form_why if a.mouth else (said["mouth"].get("why") or "")]
+    # the load's frames whose part holds no lips (`--parts-on`, hair alone): no mouth drawn there (the lead, 2026-10-14, on 1010d's chest)
+    part = job.get("part") or {}
+    for on in next(iter(part.get("made") or []), {}).get("classes_on") or []:
+        if not {"Upper_Lip", "Lower_Lip"} & set(on["classes"]):
+            out += ["--no-mouth-on", f"{on['first']}-{on['last']}=the load's part is {'+'.join(next((x['parts'] for x in part.get('parts_on') or [] if x['first'] == on['first']), on['classes']))} "
+                                     f"alone there ({' '.join(str(part.get('by') or 'who said so is not in the job').split())})"]
     return out
 
 

@@ -557,11 +557,13 @@ def width_for(points: dict, width: float | None) -> tuple[float, float, str]:
 def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by: str, *, names: list[str] | None = None,
         mesh_first: int | None = None, points_first: int | None = None, width: float | None = None, dots: bool = True,
         leave_out: frozenset = frozenset(), bare: list[int] | None = None, bare_by: str = "", source: str = "", source_first: int = 0,
-        iris: str = IRIS_FORMS[0], mouths: list | None = None, mouth_lines: bool = True, say=print) -> dict:
+        iris: str = IRIS_FORMS[0], mouths: list | None = None, mouth_lines: bool = True, no_mouth: list[int] | None = None, say=print) -> dict:
     """Draw, write, read back, record. `mouths`: a class-map mouth a frame ((whole, hole) masks of the frame, or None), drawn in
     place of the points' mouth (`head_reference`, `--mouth auto` where the lip check fails and the class map holds the mouth);
     with `mouth_lines` False its lips are painted out and its inside filled under the points' own mouth lines, and no
-    outline of its own is drawn. Returns the record; `passed` is False when the read-back or the look at the source fails."""
+    outline of its own is drawn. `no_mouth`: source frames on which no mouth is drawn at all, neither the points' lip rings nor a
+    class-map mouth (`head_reference`: the lips do not lie on the mouth there, or the load's part holds no lips): the body model's
+    own lips stay. Returns the record; `passed` is False when the read-back or the look at the source fails."""
     if bare and not bare_by:
         raise SystemExit("--bare names frames a person looked at: say who with --bare-by")
     points, pf = rows_of(points_path, names, first, count, points_first)
@@ -583,9 +585,13 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     wide, face, wide_by = width_for(points, width)
     left = {f - first for f in (bare or []) if first <= f < first + count}
     fills = [discs(p, s, idx, line, leave_out) for p, s in zip(points["keypoints"], points["scores"])] if iris in IRIS_FORMS[2:] else None
+    bare_mouth = sorted({f - first for f in (no_mouth or []) if first <= f < first + count})
+    for f in bare_mouth:
+        drawings[f] = [d for d in drawings[f] if not d[0].endswith("_lip_ring")]
     if mouths:
         if len(mouths) != count:
             raise SystemExit(f"{len(mouths)} class-map mouths for {count} frames")
+        mouths = [None if f in bare_mouth else m for f, m in enumerate(mouths)]
         if mouth_lines:
             drawings = [d + (mouth_shapes(*mouths[f]) if mouths[f] is not None else []) for f, d in enumerate(drawings)]
     pictures = draw(mesh, drawings, wide, left, dots, fills, contrast=iris == IRIS_FORMS[3], mouths=mouths)
@@ -625,6 +631,7 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
                           k: ([round(float(v), 2) for v in np.percentile(vals, [0, 50, 100])] if vals else None)
                           for k in rings for vals in [[o[k] for o in offs if k in o]]}},
         "frames_left_bare": sorted(first + f for f in left), "left_bare_by": bare_by,
+        "frames_with_no_mouth": [first + f for f in bare_mouth],
         "not_known": ["whether a head is turned away on any frame: the model places and scores face points on the back of a head",
                       "whether the lines sit on her face, and whether they can be told apart at this size: open the sheet",
                       "whether the lids are drawn shut where hers are: on a laughing squint the pose model's lid points do not close, and the lid "

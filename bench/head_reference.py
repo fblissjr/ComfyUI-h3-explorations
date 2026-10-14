@@ -52,7 +52,10 @@ enough frames (`CLASS_MOUTH_OF_FRAMES`), the mouth is drawn from the class map i
 sculpted lips painted out to the grey round them, the lips' outline and inner edge white, the open inside dark
 (`drawn.mouth.drawn_as`: "the class map"; the lead's ruling of 2026-10-14 on 0294d). Where the lines pass, they are drawn
 over the class map's painted-out lips and dark inside on each frame where they lie on its mouth (`drawn.mouth.inside`). `--mouth drawn|left out` is a person's
-word with `--mouth-why`.
+word with `--mouth-why`. NO MOUTH on a frame whose lip lines lie on the class map's mouth under `MOUTH_CHECK["on_share"]`, whichever form it is
+drawn in, nor on the frames `--no-mouth-on` names (the job's frames whose part holds no lips, hair alone): the body model's own lips stay, and
+the record says on which frames and by which rule (`drawn.mouth.no_mouth_on`; the lead's ruling of 2026-10-14 on 630b's profile, 805b and
+1010d's chest).
 Without `--mouth` the tool leaves the mouth out as before (`FORM_LEAVES_OUT`), unless `--leave-out` says otherwise.
 
 A passing run says each step's file holds what that step made, on the frames it was told, and that the face it
@@ -216,6 +219,38 @@ def mouth_check(points: str, classes: str, classes_first: int, first: int, count
             "drawn": bool(on >= MOUTH_CHECK["of_frames"] * count), "_shares": shares}
 
 
+#: Why a frame has no mouth (`no_mouth_frames`), as the record and the run say it.
+NO_MOUTH_UNDER_THE_SHARE = (f"the lip lines lie on the class map's mouth under {MOUTH_CHECK['on_share']:g} (MOUTH_CHECK on_share): the lips are not on her "
+                            "mouth there, and whatever is drawn of a mouth lands off her face (630b's profile, 805b)")
+NO_MOUTH_PART = "the load's part holds no lips there (--no-mouth-on, the job's parts_on: {why})"
+
+
+def no_mouth_frames(shares: list[float] | None, first: int, count: int, spans: list[tuple[int, int, str]]) -> dict[str, list[int]]:
+    """The source frames that get no mouth at all, by rule: a frame whose lip-ring share is under `MOUTH_CHECK["on_share"]` (with
+    `--mouth auto`, so `shares` is the check's), whichever form the mouth is drawn in; and the frames of `spans` (`--no-mouth-on`),
+    the load's frames whose part holds no lips (hair alone). The body model's own lips stay on them."""
+    out: dict[str, list[int]] = {}
+    if shares is not None:
+        under = [first + f for f, v in enumerate(shares) if v < MOUTH_CHECK["on_share"]]
+        if under:
+            out[NO_MOUTH_UNDER_THE_SHARE] = under
+    for a, b, why in spans:
+        fs = [f for f in range(max(a, first), min(b, first + count - 1) + 1)]
+        if fs:
+            out.setdefault(NO_MOUTH_PART.format(why=why), []).extend(fs)
+    return out
+
+
+def spans_of(frames: list[int]) -> list[list[int]]:
+    out: list[list[int]] = []
+    for f in sorted(frames):
+        if out and f == out[-1][1] + 1:
+            out[-1][1] = f
+        else:
+            out.append([f, f])
+    return out
+
+
 def class_mouths(classes: str, classes_first: int, first: int, count: int, box: list[int], size: tuple[int, int]) -> tuple[list, dict]:
     """The subject's mouth from a class map, a frame at a time, cut by the reference's box and brought to its size: (whole, hole)
     masks, the whole being the lips and what they hold (the teeth, Tongue) filled, its largest piece, and the hole its inside
@@ -256,7 +291,8 @@ def class_mouths(classes: str, classes_first: int, first: int, count: int, box: 
 def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, by: str, *, names: list[str] | None = None,
         mesh_first: int | None = None, points_first: int | None = None, width: float = FORM_WIDTH, room: float | None = None,
         leave_out: frozenset = frozenset({FORM_LEAVES_OUT}), dots: bool = False, iris: str = faces.IRIS_FORMS[0], repo: Path = REPO,
-        mouth: str | None = None, mouth_why: str = "", classes: str | None = None, classes_first: int | None = None, say=print) -> dict:
+        mouth: str | None = None, mouth_why: str = "", classes: str | None = None, classes_first: int | None = None,
+        no_mouth_on: list[tuple[int, int, str]] | None = None, say=print) -> dict:
     """Cut, cut, draw, record. Returns the record; `passed` is True only when all three steps passed."""
     if out.suffix != ".mp4":
         raise SystemExit(f"--out {out} must end in .mp4: the other files are named from it")
@@ -335,11 +371,20 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
             mouths = None
             say(f"    the mouth: LEFT OUT: the class map holds her lips on {held['frames_holding_the_lips']} of {count} frames, under "
                 f"{CLASS_MOUTH_OF_FRAMES:g} of them")
+    # NO MOUTH ON A FRAME where the lips do not lie on her mouth, or where the load's part holds no lips (the lead's ruling of
+    # 2026-10-14 on the blind readers of 630b, 805b and 1010d: the mouth drawn off her face in profile and on her chest)
+    bare = no_mouth_frames(shares if mouth_said and mouth_said["form"] == "auto" else None, first, count, no_mouth_on or [])
+    if mouth_said and mouth_said["drawn"] and bare:
+        mouth_said["no_mouth_on"] = {rule: spans_of(fs) for rule, fs in bare.items()}
+        mouth_said["frames_with_no_mouth"] = len({f for fs in bare.values() for f in fs})
+        for rule, fs in bare.items():
+            say(f"    NO MOUTH on {len(fs)} of {count} frames ({', '.join(f'{a}-{b}' if a != b else str(a) for a, b in spans_of(fs))}): {rule}")
+    no_mouth = sorted({f for fs in bare.values() for f in fs}) if mouth_said and mouth_said["drawn"] else []
     say(f"3 of 3: the face drawn on the cut body model, {width:g} px, {'a dot at every point' if dots else 'no dots'}"
         + (f", left out: {', '.join(sorted(leave_out))}" if leave_out else "")
         + ((", the mouth from the class map" if lines else ", the mouth's inside from the class map") if mouths else ""))
     drawn = faces.run(str(made["plain_cut"]), str(made["plain_cut_points"]), first, count, out, by, width=width, dots=dots, leave_out=leave_out,
-                      source=str(made["source_cut"]), source_first=first, iris=iris, mouths=mouths, mouth_lines=lines, say=quiet)
+                      source=str(made["source_cut"]), source_first=first, iris=iris, mouths=mouths, mouth_lines=lines, no_mouth=no_mouth, say=quiet)
     fit = drawn["read_back"]["white_from_the_lines_px_mean_by_frames_of_slip"]
     say(f"    white {fit['0']} px from its own frame's lines, {fit['1']} and {fit['-1']} from the neighbours'; "
         + ("PASSED" if drawn["passed"] else "FAILED"))
@@ -391,6 +436,17 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     return record
 
 
+def no_mouth_arg(text: str) -> tuple[int, int, str]:
+    rng, sep, why = text.partition("=")
+    try:
+        a, b = (int(x) for x in (rng.split("-") * 2)[:2])
+    except ValueError:
+        raise SystemExit(f"--no-mouth-on {text!r} is not FIRST-LAST=WHY") from None
+    if not sep or not why.strip() or a > b:
+        raise SystemExit(f"--no-mouth-on {text!r} is not FIRST-LAST=WHY, with the why")
+    return a, b, " ".join(why.split())
+
+
 def main() -> int:
     a = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     a.add_argument("--mesh", required=True, help="the PLAIN body-model video, at the canvas's size, nothing drawn on it")
@@ -411,6 +467,8 @@ def main() -> int:
     a.add_argument("--mouth-why", default="", help="why the mouth is drawn or left out whatever the check says")
     a.add_argument("--classes", help="the subject's class map from the preview, for --mouth auto")
     a.add_argument("--classes-first", type=int, help="the source frame of the class map's frame 0")
+    a.add_argument("--no-mouth-on", action="append", default=[], metavar="FIRST-LAST=WHY",
+                   help="source frames on which no mouth is drawn: the load's part holds no lips there (the job's parts_on, hair alone); repeatable")
     a.add_argument("--names", help="a json list of the points' names, for a points file made before they were kept")
     a.add_argument("--mesh-first", type=int, help="the source frame of the body-model video's frame 0; the span's first when left out")
     a.add_argument("--points-first", type=int, help="the source frame of the points file's row 0; the file's own when it says")
@@ -418,7 +476,7 @@ def main() -> int:
     names = json.loads(Path(v.names).read_text()) if v.names else None
     rec = run(v.mesh, v.points, v.source, v.first, v.count, Path(v.out), v.by, names=names, mesh_first=v.mesh_first, points_first=v.points_first,
               width=v.width, room=v.room, leave_out=faces.parts_arg(v.leave_out), dots=v.dots, iris=v.iris, mouth=v.mouth, mouth_why=v.mouth_why,
-              classes=v.classes, classes_first=v.classes_first)
+              classes=v.classes, classes_first=v.classes_first, no_mouth_on=[no_mouth_arg(x) for x in v.no_mouth_on])
     return 0 if rec["passed"] else 1
 
 
