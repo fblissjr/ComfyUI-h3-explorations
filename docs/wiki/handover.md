@@ -104,9 +104,18 @@ and a record disagree, the record is right (`decisions.md`, 2026-10-14;
    it from her face, so measure on 604d's hair frames as well as the bowl;
    (c) both fixes and the composite pooling are in the node's own code
    (`video_mask.py`, the pack's, not ComfyUI core): built in a worktree and
-   landed only when no load sits between its plan and its render; (d) the
-   order of the hold and the floor in the 761 diagnosis was not checked
-   against the code tonight.
+   landed only when no load sits between its plan and its render; (d) on 761,
+   read against `bench/capture_masked_run.py::grade_holds` (lines 684-701)
+   after the reviewer cited them: the hold DID offer a fill
+   (`fill_on_its_classes` 0.0 is only recorded when one is offered), and the
+   first loop already empties 761, because the fill lies on none of her
+   classes on a frame where the part model labelled nothing. So the floor's
+   order is not the cause; the reviewer's second proposal is (accept a short
+   fill where the doubted-frames file says "nothing labelled"). Check this
+   against `part_grades.json` before building.
+   **All the reviewer's recommendations in one file**:
+   `internal/gemini/2026-10-14_consolidated_recommendations_for_tomorrow.md`
+   (it carries the lead's caveats (a)-(c) too); read it in place of section 12.
 4. **The owner, none blocking**: who is in the shot for the second subject on
    1156-1188, 1466-1729 and 1535-1574 (a who page); row z19.
 
