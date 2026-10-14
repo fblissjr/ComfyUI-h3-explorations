@@ -47,7 +47,10 @@ owner's clock, its item's look line (said as the card's words), and what it repl
 tables cover (said, with each one's): the pieces added and the pieces that left, and for each subject the frames
 that gained a piece (a gap closed) or lost one (opened). Each entry is put under WAITING ON YOU when it has no click of
 the owner's, and under DONE, a closed fold, when it has one, with a piece they settled on `--today` (their clock) shown
-there too (the lead's page of 2026-10-14, at the owner's ask of which items were still theirs). Both pages end, or begin, with the lead's holds (the table's
+there too (the lead's page of 2026-10-14, at the owner's ask of which items were still theirs). The lead's rulings the
+same day, on a sixth reader's findings: a keep with words after it, and words with no click, are answers, under Done on the
+day of the last line and off the page after it; the clicks and words on any joined clip that lays a piece count as
+answers on it (a keep also settles it). Both pages end, or begin, with the lead's holds (the table's
 `held`, a session's word, its reason whole) and the owner's keeps this table does not lay, with the table's reason.
 Links are `--page-url` + an item's id.
 
@@ -156,7 +159,22 @@ def how_said(v: dict) -> str:
     src = str(v.get("source") or "")
     if not src or src.startswith("answers.jsonl"):
         return "the words typed in its box (they may quote a session's question)"
-    return f"your words as a session took them down ({src}" + (f"; the session's note on the line: {v['note']}" if v.get("note") else "; who took them down is not said") + ")"
+    if src.startswith("comments.jsonl"):                   # an earlier page's comment box (a sixth reader, 2026-10-14)
+        return f"the words typed in an earlier page's comment box ({src})"
+    if not v.get("note"):
+        return f"words from {src}, where who wrote them is not said"
+    return f"your words as a session took them down ({src}; the session's note on the line: {v['note']})"
+
+
+def in_repo(path: str, near: str) -> Path:
+    """A path a record holds, absolute or relative to the repo its record sits in: the first folder above `near` that holds
+    it, else this repo (a sixth reader, 2026-10-14: read against the folder the tool ran from, the pages changed silently)."""
+    if Path(path).is_absolute():
+        return Path(path)
+    for anc in [*Path(near).resolve().parents, HERE.parent]:
+        if (anc / path).exists():
+            return anc / path
+    return HERE.parent / path
 
 
 #: The buttons that settle a piece for the owner: a keep, or that it is not the one (the table's own words). Any
@@ -173,13 +191,13 @@ class Records:
     """The table, the ledger, the review list and the owner's lines, read once, with the day of each piece."""
 
     def __init__(self, table: str, ledger: str, verdicts: str, items: str, tables: list[str] | None = None):
-        self.table_path = table
+        self.table_path, self.ledger_path, self.items_path = table, ledger, items
         self.T = json.load(open(table))
         self.L = json.load(open(ledger))
         named = re.search(r"from the ledger `([^`]+)`", str(self.T.get("made") or ""))
         if not named:
             raise SystemExit(f"--table {table}: the table names no ledger it was made from ({str(self.T.get('made'))[:200]})")
-        made_from = Path(named.group(1)) if Path(named.group(1)).is_absolute() else HERE.parent / named.group(1)
+        made_from = in_repo(named.group(1), table)
         if made_from.resolve() != Path(ledger).resolve():               # by its path: a ledger of the same name elsewhere is another ledger
             raise SystemExit(f"--ledger {ledger}: the table says it was made from another ledger, {named.group(1)}")
         self.by_name = {r["name"]: r for r in self.L["renders"].values()}
@@ -211,29 +229,44 @@ class Records:
         out.piece = name
         return out
 
-    def owner_lines(self, rows) -> list[dict]:
-        """The owner's lines on these rows, by time; for a piece, with the KEEPS on a joined item that lays it, marked."""
+    def owner_lines(self, rows, every=False) -> list[dict]:
+        """The owner's lines on these rows, by time; for a piece, with the KEEPS on every joined item that lays it, marked
+        (a keep counts on each piece a joined clip lays: the lead's ruling, 2026-10-14). With `every`, all their lines on
+        those joined items, clicks and words, for what they have ANSWERED (a sixth reader, 2026-10-14: a "wrong" and words
+        on an older joined clip of the same pieces vanished from both pages)."""
         own = [v for r in rows for v in self.lines.get(r, [])]
         piece = getattr(rows, "piece", None)
         if piece:
             own += [dict(v, through_the_joined_item=j) for j in self.joined_lays.get(piece, []) for v in self.lines.get(j, [])
-                    if v.get("what") == "choice" and v.get("chosen") in delivery_table.KEEP]
+                    if every or v.get("what") == "choice" and v.get("chosen") in delivery_table.KEEP]
         return sorted(own, key=lambda v: v["at"])
 
-    def last_choice(self, rows) -> dict | None:
-        return next((v for v in reversed(self.owner_lines(rows)) if v.get("what") == "choice"), None)
+    def last_choice(self, rows, every=False) -> dict | None:
+        return next((v for v in reversed(self.owner_lines(rows, every)) if v.get("what") == "choice"), None)
+
+    def answered(self, rows, today: str) -> str:
+        """Where an entry goes on to-review, by the owner's lines on it (the lead's rulings of 2026-10-14): `waiting` with no line
+        of theirs; `gone` when they settled it, or kept it and wrote after, or wrote with no click, before `today`; else `done`."""
+        lines = self.owner_lines(rows, every=True)
+        if not lines:
+            return "waiting"
+        last_day = owners(lines[-1]["at"], "%Y-%m-%d")
+        c = self.last_choice(rows)
+        closed = self.settled(rows) or (c and c["chosen"] in delivery_table.KEEP) or not any(v.get("what") == "choice" for v in lines)
+        return "gone" if closed and last_day != today else "done"
 
     def words_after(self, rows) -> list[dict]:
         """The owner's words after their last click (all their words where there is no click): what rules over it."""
         c = self.last_choice(rows)
         return [v for v in self.owner_lines(rows) if v.get("words") and (c is None or v["at"] > c["at"])]
 
-    def words_with(self, rows) -> list[dict]:
+    def words_with(self, rows, every=False) -> list[dict]:
         """The owner's words since the click before their last: the words that went with the last click, typed before
         it or after it (a reader, 2026-10-14: words typed two seconds before a click were hidden)."""
-        choices = [v for v in self.owner_lines(rows) if v.get("what") == "choice"]
+        lines = self.owner_lines(rows, every)
+        choices = [v for v in lines if v.get("what") == "choice"]
         before = choices[-2]["at"] if len(choices) > 1 else None
-        return [v for v in self.owner_lines(rows) if v.get("words") and (before is None or v["at"] > before)]
+        return [v for v in lines if v.get("words") and (before is None or v["at"] > before)]
 
     def settled(self, rows, by=SETTLED) -> bool:
         """Settled by a click in `by` with no words of the owner's after it: their words rule over the button
@@ -249,13 +282,16 @@ class Records:
         return f'<span class="d {self.day_token[d]}">{owners(self.by_name[name]["written"])}</span>'
 
     def last_click(self, rows) -> str:
-        """The owner's last button and, after it, any words they typed: the words rule over the button."""
-        c = self.last_choice(rows)
+        """The owner's last button, on the piece or on any joined clip that lays it, and the words that went with it: the words
+        rule over the button."""
+        c = self.last_choice(rows, every=True)
         said = (f"your last click: {c['chosen']} ({owners(c['at'], '%m/%d %H:%M')})"
                 + (f", on the whole joined clip {c['through_the_joined_item']}, which counts on each piece it lays" if c.get("through_the_joined_item") else "")
                 if c else "no click of yours")
         when = lambda v: "since" if c is None or v["at"] > c["at"] else "before it"        # noqa: E731
-        return said + "".join(f'; {how_said(v)} {when(v)} ({owners(v["at"], "%m/%d %H:%M")}): "{v["words"]}"' for v in self.words_with(rows))
+        return said + "".join(f'; {how_said(v)} {when(v)} ({owners(v["at"], "%m/%d %H:%M")})'
+                              + (f" on the whole joined clip {v['through_the_joined_item']}" if v.get("through_the_joined_item") else "")
+                              + f': "{v["words"]}"' for v in self.words_with(rows, every=True))
 
     def left_by_ledger(self, name: str) -> set[int]:
         lo = (self.by_name.get(name) or {}).get("leaves_as_the_original") or {}
@@ -401,7 +437,8 @@ def to_review(a: argparse.Namespace) -> str:
             f'<p class="mut">Made {datetime.datetime.now(OWNERS_CLOCK):%Y-%m-%d %H:%M} US Central from the table {E(os.path.basename(a.table))} and its '
             f"ledger. Each piece is marked with the day its file was written: "
             + ", ".join(f'<span class="d {t}">{datetime.date.fromisoformat(d):%m/%d}</span>' for d, t in rec.day_token.items())
-            + ". Shown: what this table lays and you have not settled: no keep or not-the-one of yours on it, or one with your words after it.</p>",
+            + ". Shown: what this table lays and waits on you, then, folded, what you answered: your lines of today, and a not sure or a click on "
+            "a joined clip that names no piece until you say more.</p>",
             f'<p>Decisions waiting on you are on <a href="{E(a.open_list)}">the Open List</a>.'
             + (f' Beside this file: <a href="{E(a.provenance)}">{E(a.provenance)}</a>, every stretch and every gap.' if a.provenance else "") + "</p>"]
     if previous is not None:
@@ -409,8 +446,6 @@ def to_review(a: argparse.Namespace) -> str:
     # WAITING ON YOU, AND DONE: each entry by the owner's last click on it (the lead's page of 2026-10-14, at the owner's ask of
     # which items were still theirs): no click is waiting on them; a click of theirs, or a piece they settled today, is done
     today = a.today or datetime.datetime.now(OWNERS_CLOCK).strftime("%Y-%m-%d")
-    clicked = lambda rows: rec.last_choice(rows) is not None                                                        # noqa: E731
-    settled_today = lambda rows: rec.settled(rows) and owners(rec.last_choice(rows)["at"], "%Y-%m-%d") == today   # noqa: E731
     waiting = {"joined": [], "apart": [], "single": []}
     done = {"joined": [], "apart": [], "single": []}
     for sh in shots_of_table(rec.T):
@@ -421,30 +456,33 @@ def to_review(a: argparse.Namespace) -> str:
             continue
         lines = lambda rr: "".join(piece_line(rec, r, first, last, link, previous) for r in rr)
         who = ", ".join(x + (" (the record is unsure)" if x in sh["unsure"] else "") for x in sh["subjects"])
+        state = {r["name"]: rec.answered(rec.rows_of(r["name"]), today) for r in rows}
         if len(sh["subjects"]) >= 2:
             it, why = joined_item(rec, first, last, a.tables or [])
             if it is not None:
-                # hidden only when the owner KEPT the joined clip: "wrong" on it says something in the shot is wrong, and the shot
-                # stays here with each piece (a reader, 2026-10-14: a "wrong" on a joined clip hid the shot's unsettled pieces)
-                kept = rec.settled(rec.rows_of(it["id"]) | {it["id"]}, delivery_table.KEEP)
-                if not kept or settled_today({it["id"]}):
-                    c = rec.last_choice({it["id"]})
+                # the joined clip is filed by the owner's lines on it: none, waiting; a keep (with words after or not) leaves the
+                # page after the day of their last line, and only when no piece of it has a later line of theirs; any other
+                # click ("wrong" names no piece) stays under Done
+                own = rec.owner_lines({it["id"]})
+                c = rec.last_choice({it["id"]})
+                kept = bool(c and c["chosen"] in delivery_table.KEEP)
+                gone = own and kept and owners(own[-1]["at"], "%Y-%m-%d") != today and all(v == "gone" for v in state.values())
+                if not gone:
                     ask = ('<p class="why">Your click on the whole clip names no piece: which piece is it? Say it on that piece\'s own line below.</p>'
-                           if c and c["chosen"] not in delivery_table.KEEP else "")
-                    (done if c else waiting)["joined"].append(
-                        f'<div class="e"><h3>{link(it["id"], f"The shot {first}-{last}")} <span>{E(who)} &middot; {when} &middot; '
+                           if c and not kept else "")
+                    (done if own else waiting)["joined"].append(
+                        f'<div class="e"><h3>{link(it["id"], f"The shot {first}-{last}")} <span>{E(who)} &middot; {when} &middot; the joined clip: '
                         f'{E(rec.last_click({it["id"]}))}</span></h3>{ask}<ul>{lines(rows)}</ul></div>')
                 continue
-            shown = [r for r in rows if not rec.settled(rec.rows_of(r["name"])) or settled_today(rec.rows_of(r["name"]))]
-            for to, rr in ((waiting, [r for r in shown if not clicked(rec.rows_of(r["name"]))]), (done, [r for r in shown if clicked(rec.rows_of(r["name"]))])):
+            for to, kind in ((waiting, "waiting"), (done, "done")):
+                rr = [r for r in rows if state[r["name"]] == kind]
                 if rr:
                     to["apart"].append(f'<div class="e"><h3>The shot {first}-{last} <span>{E(who)} &middot; {when}</span></h3>'
                                        f'<p class="why">{E(why)}. Each piece meanwhile, on its own:</p><ul>{lines(rr)}</ul></div>')
         else:
             for r in rows:
-                rr = rec.rows_of(r["name"])
-                if not rec.settled(rr) or settled_today(rr):
-                    (done if clicked(rr) else waiting)["single"].append(
+                if state[r["name"]] != "gone":
+                    (waiting if state[r["name"]] == "waiting" else done)["single"].append(
                         f'<div class="e"><h3>{E(r["subject"])}, {max(r["first"], first)}-{min(r["last"], last)} <span>{when}</span></h3>'
                         f'<ul>{lines([r])}</ul></div>')
 
@@ -454,12 +492,15 @@ def to_review(a: argparse.Namespace) -> str:
             out += [f"<{tag}>Shots with two or more of them with no joined clip of this table</{tag}>", *got["apart"]]
         return out + [f"<{tag}>Pieces in a shot of one of them</{tag}>", *(got["single"] or ["<p class='mut'>None.</p>"])]
     n_wait, n_done = (sum(map(len, g.values())) for g in (waiting, done))
-    body += [f"<h2>Waiting on you: {n_wait} with no click of yours yet</h2>",
-             "<p class='mut'>Watch these on playback, top to bottom. Each is something this table lays that you have not clicked.</p>",
+    body += [f"<h2>Waiting on you: {n_wait} with no click or words of yours yet</h2>",
+             "<p class='mut'>Watch these on playback, top to bottom. Each is something this table lays that you have not answered: a shot with a "
+             "joined clip by the joined clip, whatever its pieces' own lines say (each piece's line says them).</p>",
              *sections(waiting, "h3"),
-             f"<details><summary><b>Done: {n_done} you have already clicked</b>, the last click and your words with each</summary>",
-             f"<p class='mut'>Each has a click of yours: a wrong or not sure, a keep with your words after it, or a keep or not-the-one of today "
-             f"({datetime.date.fromisoformat(today):%m/%d}, your clock), which leaves the page tomorrow.</p>",
+             f"<details><summary><b>Done: {n_done} you have answered</b>, the last click and your words with each</summary>",
+             f"<p class='mut'>Each has a line of yours. A keep or not-the-one, a keep with your words after it, or words with no click stay here on "
+             f"the day of your last line on it ({datetime.date.fromisoformat(today):%m/%d}, your clock) and leave the page after it; your words reach "
+             "the sessions through the table and the item. A not sure, and a click on a joined clip that is not a keep (it names no piece), stay "
+             "here until you say more.</p>",
              *sections(done, "h3"), "</details>"]
     body += held_and_set_aside(rec)
     return page(f"To review: {stem}", "", "\n".join(body), 900)
@@ -470,7 +511,7 @@ def to_review(a: argparse.Namespace) -> str:
 def left_out_of(rec: Records, name: str) -> list[dict]:
     """The job's own `left_out` list, beside its build record; empty where the record names no build file."""
     built = ((rec.by_name.get(name, {}).get("records") or [{}])[0]).get("built_file")
-    job = Path(built).parent / "job.render.json" if built else None
+    job = in_repo(built, rec.ledger_path).parent / "job.render.json" if built else None
     if not job or not job.is_file():
         return []
     return json.loads(job.read_text()).get("job", {}).get("left_out") or []
@@ -682,7 +723,7 @@ def provenance(a: argparse.Namespace) -> str:
         text_file = os.path.join(folder, "text.txt") if folder else None
         text = open(text_file).read() if text_file and os.path.exists(text_file) else ""
         it = rec.item_of(n) or {}
-        stacked = it.get("path") and os.path.realpath(it["path"])
+        stacked = it.get("path") and str(in_repo(it["path"], rec.items_path).resolve())
         unchanged = runs(x for x in nothing.get(n, ()) if r["first"] <= x <= r["last"])
         facts = [("rendered", f"{owners(g['written'], '%Y-%m-%d %H:%M')} US Central ({g['written']}) by the session {g.get('session_folder')}"),
                  ("frames", f"{r['first']}-{r['last']} of the source ({clock(r['first'], rate)}-{clock(r['last'] + 1, rate)}); the load is {gr.get('frames')} frames from {gr.get('first')}"),
@@ -707,6 +748,8 @@ def provenance(a: argparse.Namespace) -> str:
         links.append(f'<a href="{E(rel(g["file"]))}">the render itself</a>')
         if stacked and os.path.exists(stacked):
             links.append(f'<a href="{E(rel(stacked))}">its stacked clip</a> (this load alone)')
+        else:
+            links.append("no stacked clip of it: " + (f"its item's file {it['path']} is not there" if it.get("path") else "no item on the list names a file of it"))
         body.append(f'<section class="card {tok(n)}" id="p-{E(n)}"><h3>{E(n)} <span>{E(r["subject"])} &middot; {r["first"]}-{r["last"]} &middot; rendered '
                     f'{owners(g["written"])}</span></h3><dl>' + "".join(f"<dt>{E(k)}</dt><dd>{E(str(v))}</dd>" for k, v in facts) + "</dl>"
                     + (f"<p><b>The verdicts record's words on it, whole</b>, each with where it came from:</p><ul>{said}</ul>" if said else "") + "<p>" + " &middot; ".join(links) + "</p>"
