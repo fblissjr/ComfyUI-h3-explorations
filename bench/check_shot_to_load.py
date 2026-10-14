@@ -109,7 +109,8 @@ import h3_config as cfg  # noqa: E402
 import load_chain as lc  # noqa: E402
 import masked_job  # noqa: E402
 import masked_job_graph as graphs  # noqa: E402
-import shot_to_load as stl  # noqa: E402
+import shot_to_load as stl
+import strangers as strangers_tool  # noqa: E402
 
 
 class Machine:
@@ -902,16 +903,23 @@ def a_plan_that_keeps_the_strangers_out() -> str:
         refused(lambda: stl.step_job(a, made.m, hold=hold, cut=cut), "is not there beside it")
         tracks = kept["strangers"]["tracks"]
         record = {"preview": "shot_c_0100", "first_source_frame": 100, "frames": 60, "grow_px": px, "hold_frames": int(h3_config.MASKED_STRANGERS["hold_frames"]),
-                  "subjects_taken_out": tracks, "file": str(want), "frame_hash": lc.frame_hash(str(want))}
+                  "subjects_taken_out": tracks, "file": str(want), "frame_hash": lc.frame_hash(str(want)), "taken_out": strangers_tool.OWN_FORM,
+                  "handed_back_said": "a: 1 piece(s) handed back on 1 frame(s) (130), the largest 40 px at 130 in [1, 2, 3, 4]"}
         for wrong, words in (({"preview": "shot_c_0099"}, "record's preview"), ({"grow_px": px + 1}, "record's grow_px"), ({"frames": 59}, "record's frames"),
                              ({"file": str(want) + ".elsewhere"}, "record's file"), ({"frame_hash": None}, "holds no hash of its frames"),
                              ({"frame_hash": "0" * 32}, "not the ones its record hashed"),
-                             ({"subjects_taken_out": {"a": tracks["a"]}}, "record's subjects_taken_out")):
+                             ({"subjects_taken_out": {"a": tracks["a"]}}, "record's subjects_taken_out"),
+                             ({"taken_out": None}, "made before 2026-10-14's mend")):
             want.with_suffix(".json").write_text(json.dumps({**record, **wrong}))
             refused(lambda: stl.step_job(a, made.m, hold=hold, cut=cut), words)
         assert not holds and not cuts, "something was written for a strangers file of another making"
         want.with_suffix(".json").write_text(json.dumps(record))
-        stl.step_job(a, made.m, hold=hold, cut=cut)
+        import contextlib
+        import io
+        with contextlib.redirect_stdout(io.StringIO()) as printed:
+            stl.step_job(a, made.m, hold=hold, cut=cut)
+        # the pieces the strangers pass handed back to a subject are printed for the load, so a look sees them (the lead, 2026-10-14)
+        assert "a: 1 piece(s) handed back on 1 frame(s) (130)" in printed.getvalue(), printed.getvalue()[-2000:]
         assert holds and holds[-1][1:] == ("shot_c_0100_a_track_00001.mkv", px, held.name) and cuts == ["shot_c_0100_a_hands.mkv"], (holds, cuts)
         # the job carries the hash its strangers file was held to: the chain holds the capture's copy to it
         written = json.loads((made.jobs / "a_fp_0100.json").read_text())

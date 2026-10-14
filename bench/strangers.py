@@ -13,7 +13,12 @@ Read before building in internal/claude/2026-10-14_mrdrill_stranger_read.md; rul
 **What `run` writes.** The part model on the WHOLE frame, a frame at a time, on the preview's own frames of its
 own source, fitted to its canvas as the lane's loader fits it: every pixel it calls human. Less each of the
 preview's subjects' tracks (the files its record lists) grown by `h3_config.MASKED_STRANGERS["grow_px"]`, since the
-part model reaches past the tracker's edge on a subject's own body. What is left is the strangers, written as a mask
+part model reaches past the tracker's edge on a subject's own body, and with them each subject's held things and parts
+as the preview saved them (`OWN_FILES`; the lead's rule of 2026-10-14: nothing of a subject's own is ever a stranger; on
+1156b her track left out her black hat as a held thing, and the hat was a stranger). Of what is left, a piece that
+touches a subject's own, grown, and holds no face of its own (the part model's `FACE_CLASS`) is that subject's, and is
+listed in the record with its frame, size and box (`handed_back`; the lead's ruling (A) of 2026-10-14: her hat lifted
+in her hand at 1164 and her mitt's fingertips lay outside her track and her held things). What is left is the strangers, written as a mask
 video on the preview's frames (frame 0 the preview's first) to `bench/shot_to_load.py`'s `KEEP_OUTS_AT` as
 `<preview>_strangers.mkv`, with a record beside it. One file a preview, for every load made from it. A file that is
 there is not replaced: a preview made again is a new name and a new file. A frame where a subject's track is empty
@@ -55,6 +60,18 @@ from _lib.frames import FIT, probe, read_mask, stream, write_mask_video  # noqa:
 
 #: The preview's output key, as `bench/shot_to_load.py` writes it: the video's name is its second part.
 OUTPUT_PARTS = 3
+#: What of each subject's own is taken out of the people found, beside the track: the files a preview saves under these keys
+#: (`_<label>_<key>_`), when its record lists them. The lead's rule of 2026-10-14, on mrcircle's 1156b: nothing of a subject's
+#: own is ever a stranger. Her track leaves out her black hat as a held thing, and the hat was a stranger at 1164.
+OWN_FILES = ("held_things", "parts")
+#: Said in the record, and held by the job step: a file made before this form is made again. A piece of what is left that
+#: touches a subject's own, grown, and holds no face of its own (`FACE_CLASS`) is that subject's (`handed_back`; the lead's
+#: ruling (A) of 2026-10-14: on 1156b the tracker left out her hat lifted in her hand at 1164 and her mitt's fingertips,
+#: and her held-things file held none of them).
+OWN_FORM = "each subject's track, held things and parts, grown; and a piece touching them with no face of its own"
+#: The part model's class a stranger is known by: a piece holding any of it stays a stranger, touching a subject or not
+#: (on 3167 the other woman's chin and face lay against the lead's).
+FACE_CLASS = "Face_Neck"
 
 
 class Refused(Exception):
@@ -92,11 +109,46 @@ def held_track(track: np.ndarray, reach: int | None = None) -> tuple[np.ndarray,
 
 
 def strangers_of(people: np.ndarray, tracks: list[np.ndarray], px: int) -> np.ndarray:
-    """The people found on each frame less every subject's track grown by `px`."""
+    """The people found on each frame less every subject's own (each mask in `tracks`: a track, held things, parts) grown by `px`."""
     out = people.copy()
     for t in tracks:
         out &= ~grown(t, px)
     return out
+
+
+def handed_back(strangers: np.ndarray, own: dict[str, np.ndarray], face: np.ndarray, first: int) -> tuple[np.ndarray, list[dict]]:
+    """Each frame's pieces of `strangers` (8-connected) that touch a subject's own grown (`own`: a label's mask, already
+    grown) and hold no pixel of `face`: taken out, and listed with the subject, the frame, the size and the box."""
+    from scipy import ndimage
+    out, given = strangers.copy(), []
+    near = {k: ndimage.binary_dilation(v, structure=np.ones((1, 3, 3), bool)) for k, v in own.items()}
+    for i in range(len(strangers)):
+        parts, n = ndimage.label(strangers[i], structure=np.ones((3, 3), bool))
+        for j in range(1, n + 1):
+            piece = parts == j
+            if (piece & face[i]).any():
+                continue
+            touches = [k for k, m in near.items() if (piece & m[i]).any()]
+            if not touches:
+                continue
+            out[i] &= ~piece
+            ys, xs = np.nonzero(piece)
+            given.append({"subject": touches[0], **({"touches_also": touches[1:]} if touches[1:] else {}), "frame": first + i,
+                          "px": int(piece.sum()), "box": [int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1]})
+    return out, given
+
+
+def said_back(given: list[dict]) -> str:
+    """The pieces handed back, said for a look: by subject, the frames and the largest."""
+    if not given:
+        return "no piece was handed back to a subject"
+    by = {}
+    for g in given:
+        by.setdefault(g["subject"], []).append(g)
+    return "; ".join(f"{k}: {len(v)} piece(s) handed back on {len({g['frame'] for g in v})} frame(s) "
+                     f"({', '.join(str(f) for f in sorted({g['frame'] for g in v})[:12])}{' ...' if len({g['frame'] for g in v}) > 12 else ''}), "
+                     f"the largest {max(g['px'] for g in v)} px at {max(v, key=lambda g: g['px'])['frame']} in {max(v, key=lambda g: g['px'])['box']}"
+                     for k, v in by.items())
 
 
 def preview_of(folder: Path) -> tuple[dict, list[str]]:
@@ -131,6 +183,21 @@ def tracks_of(pjob: dict, files: list[str], output: Path) -> dict[str, Path]:
     return out
 
 
+def own_of(pjob: dict, files: list[str], output: Path) -> dict[str, list[Path]]:
+    """Each subject's own files beside the track (`OWN_FILES`), as the preview's record lists them: none or one of each key,
+    or refused. A preview made before a key was saved lists none of it."""
+    out = {}
+    for s in pjob["subjects"]:
+        label, got = s["label"], []
+        for key in OWN_FILES:
+            found = [f for f in files if f"_{label}_{key}_" in Path(f).name and f.endswith(".mkv")]
+            if len(found) > 1:
+                raise Refused(f"the preview {pjob['name']} lists {len(found)} {key} videos for {label!r} where one is meant")
+            got += [output / f for f in found]
+        out[label] = got
+    return out
+
+
 def held_to_its_record(path: Path, preview: str, first: int, frames: int, tracks: dict[str, str]) -> list[str]:
     """Why a strangers file is not the one this preview's load can take, from the record beside it: an empty list
     when the record says it was made of this preview, on its frames, with the grow `h3_config` has now, taking out
@@ -144,6 +211,9 @@ def held_to_its_record(path: Path, preview: str, first: int, frames: int, tracks
                       ("hold_frames", int(h3_config.MASKED_STRANGERS["hold_frames"])), ("subjects_taken_out", tracks), ("file", str(path))):
         if r.get(key) != want:
             out.append(f"its record's {key} is {r.get(key)!r}, and this load's is {want!r}")
+    if r.get("taken_out") != OWN_FORM:
+        out.append(f"its record does not say it took out {OWN_FORM} (made before 2026-10-14's mend, when a subject's own hat could be a "
+                   "stranger): it is made again")
     if not r.get("frame_hash"):
         out.append("its record holds no hash of its frames (made before 2026-10-14's second mend): it is made again")
     elif not out:
@@ -153,7 +223,7 @@ def held_to_its_record(path: Path, preview: str, first: int, frames: int, tracks
     return out
 
 def seg_model(folder: str):
-    """The part model on the card: a function from one RGB picture [h, w, 3] to where it finds a person, [h, w] of bool."""
+    """The part model on the card: a function from one RGB picture [h, w, 3] to its class a pixel, [h, w] (0 is Background)."""
     import torch
     from transformers import Sapiens2ForSemanticSegmentation
     from transformers.models.sapiens2.image_processing_sapiens2 import Sapiens2ImageProcessor
@@ -165,7 +235,7 @@ def seg_model(folder: str):
         inputs = proc(images=[np.ascontiguousarray(pic)], return_tensors="pt")
         with torch.no_grad(), torch.autocast("cuda", dtype=torch.bfloat16):
             logits = net(pixel_values=inputs["pixel_values"].to("cuda")).logits.float()
-        return (torch.nn.functional.interpolate(logits, size=(h, w), mode="bilinear", align_corners=False).argmax(1)[0] > 0).cpu().numpy()
+        return torch.nn.functional.interpolate(logits, size=(h, w), mode="bilinear", align_corners=False).argmax(1)[0].to(torch.uint8).cpu().numpy()
     return predict
 
 
@@ -188,21 +258,35 @@ def run(preview: Path, output: Path, by: str, predict, model: str, say=print) ->
                           "Nothing written")
         held[label], h_i, e_i = held_track(mask)
         gone[label], empty[label] = [first + i for i in h_i], [first + i for i in e_i]
+    own = own_of(pjob, files, output)
+    owned = {label: held[label].copy() for label in held}
+    for label, paths in own.items():
+        for f in paths:
+            fw, fh, fn = probe(str(f))
+            if (fw, fh) != (w, h) or fn < n:
+                raise Refused(f"{label}'s {f.name} is {fw}x{fh} with {fn} frames, and the preview's canvas is {w}x{h} on {n} frames: nothing written")
+            owned[label] |= read_mask(str(f), (w, h), first, first, n)[0]
     sw, sh, _ = probe(pjob["source"])
     px = int(h3_config.MASKED_STRANGERS["grow_px"])
-    people = np.zeros((n, h, w), bool)
+    import capture_masked_run as cap
+    face_id = cap._pack("sapiens2_parts").CLASS_NAMES.index(FACE_CLASS)
+    people, face = np.zeros((n, h, w), bool), np.zeros((n, h, w), bool)
     got = 0
     for i, pic in enumerate(stream(pjob["source"], (w, h), first, n, vf=FIT.format(w=w, h=h), pix="rgb24")):
-        people[i] = predict(pic)
+        c = predict(pic)
+        people[i], face[i] = c > 0, c == face_id
         got += 1
     if got != n:
         raise Refused(f"{pjob['source']} gave {got} frames from {first} where the preview has {n}: nothing written")
-    strangers = strangers_of(people, list(held.values()), px)
+    strangers = strangers_of(people, list(owned.values()), px)
+    strangers, given = handed_back(strangers, {k: grown(v, px) for k, v in owned.items()}, face, first)
     out.parent.mkdir(parents=True, exist_ok=True)
     write_mask_video(out, strangers)
     import load_chain
     a = strangers.reshape(n, -1).sum(1)
-    record = {"what": "every person the part model finds on the whole frame, less each of the preview's subjects' tracks grown; bench/strangers.py",
+    record = {"what": "every person the part model finds on the whole frame, less each of the preview's subjects' own grown; bench/strangers.py",
+              "taken_out": OWN_FORM, "subjects_own_taken_out": {label: [str(f) for f in v] for label, v in own.items()},
+              "face_class": FACE_CLASS, "handed_back": given, "handed_back_said": said_back(given),
               "preview": pjob["name"], "preview_folder": str(preview), "source": pjob["source"], "source_size": [sw, sh],
               "source_fitted": "cropped to the canvas's shape and scaled, as the lane's loader fits it (_lib.frames.FIT)" if (sw, sh) != (w, h) else "the canvas's size",
               "first_source_frame": first, "frames": n, "canvas": [w, h], "model": model,
@@ -217,7 +301,11 @@ def run(preview: Path, output: Path, by: str, predict, model: str, say=print) ->
                           "strangers_px_most": int(a.max()), "frames_with_a_stranger": int((a > 0).sum())},
               "cannot_see": ["a person the part model does not find stays regenerable",
                              "a person in the shot the preview did not track (a subject the shots record is unsure of) is a stranger here",
-                             f"a subject's own pixels more than {px} px off their track (an arm the tracker cut off) are a stranger here",
+                             f"a subject's own pixels more than {px} px off their track, held things and parts (an arm the tracker cut off) are a stranger here",
+                             "a preview made before held things were saved: its subjects' held things are strangers here",
+                             "another person's arm or hand reaching across a subject, with their face elsewhere, touches her and holds no face: "
+                             "it is handed back to her and regenerated (`handed_back` lists every such piece)",
+                             f"a stranger whose face the part model does not call {FACE_CLASS} and who touches a subject is handed back to her",
                              "on a frame whose track is held, where the subject moved since",
                              "on a load whose job says another subject's track is not them on named frames (`--track-not`), the pixels under that "
                              "track there are taken out here as that subject's, and are no keep-out of the load: neither a stranger nor an other",
@@ -231,7 +319,8 @@ def run(preview: Path, output: Path, by: str, predict, model: str, say=print) ->
     out.with_suffix(".json").write_text(json.dumps(record, indent=1) + "\n")
     say(f"wrote {out}: {n} frames from {first}; strangers on {record['figures']['frames_with_a_stranger']} of them, "
         f"{record['figures']['strangers_px_a_frame_median']} px a frame at the median and {record['figures']['strangers_px_most']} at most; "
-        f"the subjects' tracks ({', '.join(tracks)}) grown {px} px taken out")
+        f"the subjects' tracks ({', '.join(tracks)}) and their own held things and parts ({sum(map(len, own.values()))} files) grown {px} px taken out; "
+        f"touching them with no face of its own: {said_back(given)}")
     return record
 
 

@@ -41,7 +41,11 @@ import strangers as st  # noqa: E402
 
 W, H, N, FIRST, SRC_W, LEAD = 64, 48, 4, 2, 80, 2          # the preview: 4 frames from source frame 2; the source is 80 wide, cropped to 64
 GROW = st.h3_config.MASKED_STRANGERS["grow_px"]
-MODEL = lambda pic: pic[..., 0] > 127                       # noqa: E731
+import capture_masked_run as _cap  # noqa: E402
+_NAMES = _cap._pack("sapiens2_parts").CLASS_NAMES
+FACE, BODY = _NAMES.index(st.FACE_CLASS), _NAMES.index("Torso")
+#: The part model, faked: white is a person's body, mid grey a face (`preview(faces=...)`), black nobody.
+MODEL = lambda pic: np.where(pic[..., 0] > 200, BODY, np.where(pic[..., 0] > 90, FACE, 0)).astype(np.uint8)  # noqa: E731
 
 
 def refused(fn, *words: str) -> None:
@@ -70,7 +74,8 @@ def picture():
     return people, a, b
 
 
-def preview(root: Path, people: np.ndarray, tracks: dict, frames: int = N, listed_twice: bool = False) -> Path:
+def preview(root: Path, people: np.ndarray, tracks: dict, frames: int = N, listed_twice: bool = False, own: dict | None = None,
+            faces: np.ndarray | None = None) -> Path:
     out = root / "output" / "Video/v/s/pv"
     out.mkdir(parents=True)
     src = root / "source.mkv"
@@ -79,7 +84,12 @@ def preview(root: Path, people: np.ndarray, tracks: dict, frames: int = N, liste
     canvas = np.concatenate([np.ones((LEAD, H, W), bool), people[:frames]])
     wide = np.ones((len(canvas), H, SRC_W), bool)
     wide[:, :, 8:8 + W] = canvas
-    rgb = np.repeat((wide.astype(np.uint8) * 255)[..., None], 3, -1)
+    level = wide.astype(np.uint8) * 255
+    if faces is not None:                                   # a face, as the part model would call it: mid grey
+        f = np.zeros_like(wide)
+        f[LEAD:, :, 8:8 + W] = faces[:frames]
+        level[f] = 128
+    rgb = np.repeat(level[..., None], 3, -1)
     enc = subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{SRC_W}x{H}", "-r", "24", "-i", "-",
                           "-c:v", "ffv1", "-pix_fmt", "bgr0", str(src)], input=rgb.tobytes())
     assert enc.returncode == 0
@@ -87,6 +97,9 @@ def preview(root: Path, people: np.ndarray, tracks: dict, frames: int = N, liste
     for label, m in tracks.items():
         write_mask_video(out / f"pv_{label}_track_00001.mkv", m)
         files.append(f"Video/v/s/pv/pv_{label}_track_00001.mkv")
+    for name, m in (own or {}).items():                    # e.g. "a_held_things": a subject's own file beside the track
+        write_mask_video(out / f"pv_{name}_00001.mkv", m)
+        files.append(f"Video/v/s/pv/pv_{name}_00001.mkv")
     if listed_twice:
         files.append("Video/v/s/pv/pv_a_track_00002.mkv")
     folder = root / "data" / "2026-01-01_pv_job"
@@ -125,7 +138,8 @@ def where_it_writes() -> str:
         held = a_lost.copy()
         held[2] = a_lost[1]                                 # her lost frame takes the frame before it
         # THE CASE THAT GOES RED on a wrong clock, a source not cropped as the loader crops it, or a lost track left empty
-        assert (back == st.strangers_of(people, [held, b], GROW)).all(), "the file is not the strangers of the preview's own frames, cropped, with her lost frame held"
+        want = st.handed_back(st.strangers_of(people, [held, b], GROW), {"a": st.grown(held, GROW), "b": st.grown(b, GROW)}, np.zeros_like(people), FIRST)[0]
+        assert (back == want).all(), "the file is not the strangers of the preview's own frames, cropped, with her lost frame held"
         assert not back[2, 10:30, 10:14].any(), "the subject is a stranger on the frame her track was lost"
         w = json.loads(path.with_suffix(".json").read_text())
         assert w["grow_px"] == GROW and w["first_source_frame"] == FIRST and w["frames_a_track_is_empty_and_held"] == {"a": [FIRST + 2]} and w["source_size"] == [SRC_W, H], w
@@ -166,6 +180,84 @@ def it_writes_over_nothing() -> str:
             "every frame and an output key with no video are refused, and nothing is written")
 
 
+def nothing_of_a_subjects_own_is_a_stranger() -> str:
+    """The lead's rule of 2026-10-14, on mrcircle's 1156b: her track leaves out her black hat as a held thing, and the
+    strangers file took the hat (1164) and slivers at her mitts (1186) as somebody else's. Her held things and her parts, as
+    her preview saves them, are taken out with her track."""
+    people, a, b = picture()
+    hat = np.zeros_like(a)
+    hat[:, 0:1, 0:6] = True                                 # above her track, past the grow and not touching it: her hat as a held thing
+    mitt = np.zeros_like(a)
+    mitt[:, 39:42, 0:3] = True                              # below her track's corner, past the grow: a sliver of her part outside it
+    people = people | hat | mitt
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        bare = st.run(preview(root, people, {"a": a, "b": b}), root / "output", "s", MODEL, "m", say=lambda *_: None)
+        before = read_mask(bare["file"], (W, H), 0, 0, N)[0]
+    assert before[:, 0, 2].all() and before[:, 40, 1].all(), "the fixture's hat or mitt is not a stranger without her own files: the case reads nothing"
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        rec = st.run(preview(root, people, {"a": a, "b": b}, own={"a_held_things": hat, "a_parts": mitt}), root / "output", "s", MODEL, "m", say=lambda *_: None)
+        back = read_mask(rec["file"], (W, H), 0, 0, N)[0]
+        # THE CASE THAT GOES RED when a subject's held things or parts are not taken out
+        assert not (back & (hat | mitt)).any(), "her hat or her part outside her track is a stranger"
+        assert back[:, 40:46, 30:40].all(), "the stranger off everybody's own was taken out"
+        assert rec["taken_out"] == st.OWN_FORM and [Path(f).name for f in rec["subjects_own_taken_out"]["a"]] == ["pv_a_held_things_00001.mkv", "pv_a_parts_00001.mkv"], rec
+        tracks = {k: str(root / f"output/Video/v/s/pv/pv_{k}_track_00001.mkv") for k in ("a", "b")}
+        assert st.held_to_its_record(Path(rec["file"]), "pv", FIRST, N, tracks) == []
+        old = json.loads(Path(rec["file"]).with_suffix(".json").read_text())
+        old.pop("taken_out")
+        Path(rec["file"]).with_suffix(".json").write_text(json.dumps(old))
+        assert any("made before 2026-10-14's mend" in x for x in st.held_to_its_record(Path(rec["file"]), "pv", FIRST, N, tracks)), "a file of tracks only was taken"
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        refused(lambda: st.run(preview(root, people, {"a": a, "b": b}, own={"a_held_things": hat, "a_held_things_x": hat}), root / "output", "s", MODEL, "m"),
+                "lists 2 held_things videos for 'a'")
+    return "her held things and her part outside her track are not strangers, the record names them, and a file made of tracks only is made again"
+
+
+def a_piece_touching_her_with_no_face_is_hers() -> str:
+    """The lead's ruling (A) of 2026-10-14, on 1156b: the tracker left out her hat lifted in her hand (1164) and her mitt's
+    fingertips, past the grow, and her held-things file held none of them. A piece of what is left that touches her own,
+    grown, and holds no face is hers, and is listed; a piece that holds a face stays a stranger however close (3167: the
+    other woman's chin and face against the lead's)."""
+    people, a, b = picture()
+    hat = np.zeros_like(a)
+    for i in range(N):
+        hat[i, 0:10 - GROW, 6 + 2 * i:16 + 2 * i] = True     # above her track, reaching down to just past her grow: lifted in her hand
+    tips = np.zeros_like(a)
+    for i in range(N):
+        e = 14 + 2 * i
+        tips[i, 20:22, e + GROW:e + GROW + 6] = True        # straight out of her right edge, past the grow and touching it
+    other = np.zeros_like(a)
+    other[:, 30 + GROW:30 + GROW + 6, 4:12] = True          # under her, touching her grow: another woman's chin and face
+    face = other.copy()
+    people = people | hat | tips | other
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        said: list[str] = []
+        rec = st.run(preview(root, people, {"a": a, "b": b}, faces=face), root / "output", "s", MODEL, "m", say=said.append)
+        back = read_mask(rec["file"], (W, H), 0, 0, N)[0]
+    # THE CASE THAT GOES RED when a faceless piece touching her stays a stranger, or a face touching her is handed back
+    assert not (back & (hat | tips)).any(), "her lifted hat or her fingertips past the grow are strangers"
+    assert back[:, 30 + GROW + 1:30 + GROW + 6, 5:11].all(), "a face touching her was handed back to her"
+    assert back[:, 40:46, 30:40].all(), "a stranger touching nobody was handed back"
+    got = rec["handed_back"]
+    # four a frame: the hat, the fingertips, and the fixture's two lone pixels just past her grow (picture())
+    assert {g["subject"] for g in got} == {"a"} and sorted({g["frame"] for g in got}) == [FIRST + i for i in range(N)] and len(got) == 4 * N, got
+    assert f"a: {4 * N} piece(s) handed back on {N} frame(s)" in rec["handed_back_said"] and rec["handed_back_said"] in said[0], (rec["handed_back_said"], said)
+    assert any("arm or hand reaching across" in x for x in rec["cannot_see"])
+    # handed_back alone: a face pixel anywhere in the piece keeps it
+    s1 = np.zeros((1, 8, 8), bool)
+    s1[0, 2:5, 2:5] = True
+    own = np.zeros_like(s1)
+    own[0, 2:5, 5:7] = True
+    f1 = np.zeros_like(s1)
+    f1[0, 4, 2] = True
+    assert st.handed_back(s1, {"x": own}, f1, 0)[1] == [] and st.handed_back(s1, {"x": own}, np.zeros_like(s1), 0)[1][0]["px"] == 9
+    return "a faceless piece touching her own, grown (a hat lifted, fingertips), is hers and listed; a piece with a face stays a stranger however close"
+
+
 def a_lost_track_is_held_a_little() -> str:
     """A blind reader (2026-10-14): a subject who left was held at their last place to the end of the shot, keeping a
     newcomer to that spot out of the strangers file; and the start of a preview was held to the first later frame
@@ -188,4 +280,6 @@ case("a subject, and their rim within the grow, is not a stranger", a_subject_an
 case("where it writes, its clocks, and its record", where_it_writes)
 case("it writes over nothing", it_writes_over_nothing)
 case("a lost track is held a little, and no further", a_lost_track_is_held_a_little)
+case("nothing of a subject's own is a stranger", nothing_of_a_subjects_own_is_a_stranger)
+case("a piece touching her with no face is hers; a face stays a stranger", a_piece_touching_her_with_no_face_is_hers)
 sys.exit(finish())
