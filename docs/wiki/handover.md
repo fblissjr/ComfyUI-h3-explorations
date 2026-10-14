@@ -26,8 +26,8 @@ and a record disagree, the record is right (`decisions.md`, 2026-10-14;
   last zoomed, did not follow a sideways look. The drawn mouth does carry.
 - **Landed at the close, not yet seen by the owner**: `lead_fp_0751b` (751-778,
   the owner's 758; 761 a one-frame flicker) and `second_hfp_5675b` (5675-5715).
-  751b sits in the two-subject shot 604-1009: its joined clip is to build
-  before the owner sees it.
+  751b is laid in the 604-1009 cut `fun_0604_1009_joined_2026-10-14T2257Z`,
+  built and on `TO_REVIEW.html` at the close; 5675b is its own item.
 - **Both servers stopped at the close** (ComfyUI pid 10995 at 22:41:51Z by the
   recipe; the review page on 8765 at 22:43Z). `docs/comfy_notes.md` has how to
   start them.
@@ -71,13 +71,12 @@ and a record disagree, the record is right (`decisions.md`, 2026-10-14;
 
 ## Tomorrow, in order
 
-1. **The card**: 630c, 805c and 1010e, then 5461c and 5114c (above); build the
-   604-1009 joined clip with 751b for the owner; then the remaining 0-2049 gaps (run
+1. **The card**: 630c, 805c and 1010e, then 5461c and 5114c (above); then the remaining 0-2049 gaps (run
    `bench/propose_runs.py` first, then `bench/piece_gaps.py` on the newest
    table); then the joined clip of 0-2049 for the owner.
 2. **Past 2049**: the queue in `internal/claude/2026-10-14_mrdrill_runs_past_2049.md`
    (gaps longest first: the lead's 2823-3097 and 2050-2248), with the second
-   subject's 5114b, 5461b and 5675b.
+   subject's 5114c and 5461c.
 3. **Tooling** (mrdrill's order): the zoom-held floor's first real capture
    read, and a case running the files step on made mask videos; overlapping
    keeps ordered by the keep's time; the gaps print in `shot_parts` and the job
@@ -91,7 +90,23 @@ and a record disagree, the record is right (`decisions.md`, 2026-10-14;
    windows, no GPU), traces the bowl island on 604d to the margin cut off by
    her forearms' keep-outs (keep only region parts that touch her own), and
    offers a geometric gate for a class-map mouth on small faces (parked).
-   Each is a peer's data, verified before it is built on.
+   It also diagnoses 751b's flicker on 761: the part model lost her face for
+   one frame and left a 142 px speck off her track; the hold step saw that
+   speck as a part and did not bridge 761, and the floor then emptied it. Its
+   proposal: apply the floor before the hold, and let a one- or two-frame gap
+   the doubted-frames file calls "nothing labelled" be filled. Each is a peer's
+   data, verified before it is built on.
+   **Where the lead's reading differs, for the team to settle**: (a) a rule
+   that fills a single-cell hole a keep-out punches inside the region must
+   stay to specks under a size floor, since a real stranger's or subject's
+   face can be one cell on a small shot; (b) keeping only region parts that
+   touch her own part could also drop her long hair where a hand or arm cuts
+   it from her face, so measure on 604d's hair frames as well as the bowl;
+   (c) both fixes and the composite pooling are in the node's own code
+   (`video_mask.py`, the pack's, not ComfyUI core): built in a worktree and
+   landed only when no load sits between its plan and its render; (d) the
+   order of the hold and the floor in the 761 diagnosis was not checked
+   against the code tonight.
 4. **The owner, none blocking**: who is in the shot for the second subject on
    1156-1188, 1466-1729 and 1535-1574 (a who page); row z19.
 
