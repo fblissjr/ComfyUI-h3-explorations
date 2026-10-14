@@ -12,6 +12,10 @@ subjects, a table and an inventory made here, so the expected rows are known by 
   a_piece_on_some_frames_is_partly               and the row says which frames, and still says the piece's kind
   a_source_line_is_said_why                      and its words are on the row
   nothing_on_a_present_subject_is_no_line        the gap the table is silent on
+  a_persons_look_is_nothing_to_make              a look that every plan part is not seen on every frame: "present, nothing to make under this plan";
+                                                 a look on one of two parts is not
+  nothing_to_make_is_printed_with_the_look       the look's words under the row
+  a_look_outside_its_shot_is_refused             by the shots file's reader
   unsure_presence_plans_nothing                  the row is `presence unsure` whatever the table says
   absent_subjects_have_no_row                    and the frames by state add up to the present shots only
   a_row_outside_the_span_is_refused              by name
@@ -130,6 +134,25 @@ def main() -> int:
         folder3 = Path(tempfile.mkdtemp(dir=d))
         out = rows_of(fixture(folder3, table="source 60-99 subject=b too small to track\n"), folder3)
         case("nothing_on_a_present_subject_is_no_line", row(out, 0, "a")["state"] == "source, no line", row(out, 0, "a")["state"])
+
+        # PRESENT, NOTHING TO MAKE UNDER THIS PLAN (the owner's word of 2026-10-14; a person's line, the lead's ruling): with no piece laid
+        folder8 = Path(tempfile.mkdtemp(dir=d))
+        looked = json.loads(fixture(folder8, table="")["shots"].read_text())
+        plan8 = {"schema": "h3_plan/1", "subjects": {"a": {"region": "face and hair", "parts": ["hair", "face_and_neck"]}, "b": {"region": "face", "parts": ["face_and_neck"]}},
+                 "load_prefixes": {"a": ["a_"], "b": ["b_"]}, "departures": []}
+        look = {"first": 0, "last": 29, "is": "not seen", "why": "A LOOK: HER LEGS ONLY", "by": "a reader", "at": "2026-01-02T00:00:00Z"}
+        looked["shots"][0]["who"]["a"]["seen_looks"] = [dict(look, part="hair"), dict(look, part="face_and_neck")]
+        looked["shots"][1]["who"]["a"]["seen_looks"] = [dict(look, part="hair", first=30, last=59)]           # one part of two: not enough
+        out = rows_of(fixture(folder8, shots=looked, plan=plan8, table=""), folder8)
+        r = row(out, 0, "a")
+        case("a_persons_look_is_nothing_to_make", r["state"] == "present, nothing to make under this plan" and "A LOOK: HER LEGS ONLY" in r["nothing_to_make"][0]
+             and row(out, 30, "a")["state"] == "source, no line", (r["state"], row(out, 30, "a")["state"]))
+        printed = run(fixture(folder8, shots=looked, plan=plan8, table=""))
+        case("nothing_to_make_is_printed_with_the_look", "NOTHING TO MAKE UNDER THIS PLAN, a person's look: hair not seen on 0-29: A LOOK" in printed.stdout, printed.stdout[-800:])
+        bad = json.loads(json.dumps(looked))
+        bad["shots"][0]["who"]["a"]["seen_looks"] = [dict(look, part="hair", last=40)]                       # frames outside the shot
+        refused = run(fixture(Path(tempfile.mkdtemp(dir=d)), shots=bad, plan=plan8, table=""))
+        case("a_look_outside_its_shot_is_refused", refused.returncode != 0 and "a look on `a` is not" in refused.stdout + refused.stderr, refused.stdout + refused.stderr)
 
         folder4 = Path(tempfile.mkdtemp(dir=d))
         r = run(fixture(folder4, table="0-120 /share/Video/x/a_one/a_one_00001.mp4 0\n"))

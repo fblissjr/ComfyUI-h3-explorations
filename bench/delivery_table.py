@@ -122,6 +122,9 @@ RENDER_ITEM_BUTTONS = (KEEP[0], NOT_THE_ONE[1], NOT_SURE)
 #: The ledger's states of a making (`render_ledger.MAKING`), by what each means here.
 AGREES = "recorded, the file agrees"
 NO_SOURCE_YET = "no render in the frozen form yet"
+#: The source line's words for a subject a person's look says has nothing of the plan's parts on the shot
+#: (`shot_coverage.nothing_to_make`); its own state in the coverage table, and not a gap in `bench/piece_gaps.py`.
+NOTHING_TO_MAKE = "present, nothing to make under this plan, by a person's look"
 #: A shot whose only renders that may stand are held back by the lead (`--hold`): a render exists, and is not laid.
 HELD_BACK = "a render that may stand is HELD BACK by the lead (--hold), a session's word and not the owner's, and nothing else may stand"
 NOT_IN_THE_SHOT = "the shots file says this subject is not in the shot"
@@ -237,6 +240,7 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
            holds: list[dict] | None = None) -> dict:
     """The table as data: `rows` (pieces laid), `sources` (whole shots left as the source), `gaps` (frames inside a
     shot that has a piece and that no piece takes) and `reading` (one entry a shot and a subject)."""
+    looks_say = _shot_coverage().nothing_to_make          # the rule has one home: the coverage tool's
     if ledger.get("schema") != LEDGER_SCHEMA:
         raise SystemExit(f"the ledger's schema is {ledger.get('schema')!r}, not {LEDGER_SCHEMA!r}: make it again with bench/render_ledger.py")
     prefers, holds = list(prefers or []), list(holds or [])
@@ -362,7 +366,14 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
                     gone["the_owners_last_choice"] = None if not c else {"said": c["said"], "at": c["at"], "row": c.get("row")}
             entry = {"first": s["first"], "last": s["last"], "subject": label, "present": present[label], "plan_region": wanted,
                      "stands": stands, "passed_over": sorted(passed, key=lambda x: x["written"], reverse=True), "left_as_the_source": left}
-            if not stands:
+            nothing = looks_say(s["who"][label], plan["subjects"][label], s["first"], s["last"]) if not stands else None
+            if nothing:
+                # a person's lines say none of the plan's parts is seen on the shot: not a gap, no job, no stopped load
+                entry["nothing_to_make"] = nothing
+                why = f"{NOTHING_TO_MAKE}: " + "; ".join(nothing)
+                sources.append({"first": s["first"], "last": s["last"], "subject": label, "why": why})
+                entry["source_line"] = why
+            elif not stands:
                 newest = entry["passed_over"][0]["render"] if entry["passed_over"] else None
                 if held_from_standing:
                     why = ("" if present[label] == "yes" else "the shots file is unsure this subject is in the shot; ") \

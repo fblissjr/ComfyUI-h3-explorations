@@ -44,7 +44,9 @@ three files that already hold those facts and prints them side by side, so "fini
 
 **What it prints, a row a shot and a subject present or unsure:** the frames, the subject, what the plan
 wants, what the table lays there (a piece and its region, or the `source` line's own words, or nothing), and
-one of the states in `STATES`, each a plain fact about the files and not a judgement of any render. Then
+one of the states in `STATES`, each a plain fact about the files and not a judgement of any render. "Present, nothing
+to make under this plan" is a subject in the shot whose plan parts a person's lines (`seen_looks` in the shots file,
+written by `bench/shots_look.py`) say are seen on no frame of it (`nothing_to_make`): not a gap and not a stopped load. Then
 frames by state for each subject, and the pieces the table lays that no plan row claims. A render in the
 table is "as planned" when its graph's region is the kind the plan names (parts for `face` and `face and
 hair`; the graph does not say which parts, so with `--renders` face against face and hair is NOT read and the
@@ -82,7 +84,10 @@ STATES = (
     "source, said why",      # a `source` line leaves the subject as the original here, with words
     "source, no line",       # the subject is here and the table says nothing about them on these frames
     "presence unsure",       # the shots file cannot say the subject is here, so nothing is planned
+    "present, nothing to make under this plan",   # a person's lines (`seen_looks`) say none of the plan's parts is seen on any frame
 )
+#: What a look may say of a part on frames of a shot (`who[label].seen_looks`, written by `bench/shots_look.py`).
+SEEN_IS = ("not seen", "seen")
 
 
 def _delivery():
@@ -108,6 +113,11 @@ def load_shots(path) -> dict:
             who = s["who"].get(label)
             if not who or who.get("present") not in PRESENT:
                 raise SystemExit(f"{path}: shot {s['first']}-{s['last']}: `{label}` needs `present` in {PRESENT}")
+            for look in who.get("seen_looks") or []:
+                bad = [k for k in ("part", "why", "by", "at") if not str(look.get(k) or "").strip()]
+                if bad or look.get("is") not in SEEN_IS or not (s["first"] <= int(look.get("first", -1)) <= int(look.get("last", -2)) <= s["last"]):
+                    raise SystemExit(f"{path}: shot {s['first']}-{s['last']}: a look on `{label}` is not a part, frames inside the shot, `is` in "
+                                     f"{SEEN_IS}, why, by and at: {look}")
     lo, hi = d["span"]
     if shots and (shots[0]["first"] != lo or shots[-1]["last"] != hi):
         raise SystemExit(f"{path}: the shots cover {shots[0]['first']}-{shots[-1]['last']}, the span says {lo}-{hi}")
@@ -127,6 +137,30 @@ def load_plan(path, subjects) -> dict:
         if label not in d["subjects"]:
             raise SystemExit(f"{path}: no plan for `{label}`")
     return d
+
+
+def nothing_to_make(who: dict, wanted: dict, first: int, last: int) -> list[str] | None:
+    """A person's lines that none of the plan's parts for a subject is seen on any frame of a shot, as said; None where
+    they do not say so. THE OWNER'S WORD OF 2026-10-14 (about 17:05Z): a subject is IN a shot even where nothing is made
+    of them, and a later plan (another part of them replaced) re-derives its loads from the same records. THE LEAD'S
+    RULING: a person's line is needed; a part model's reading under a floor only marks a candidate (`bench/shot_parts.py`),
+    since faces that are made sit under it. Read: the subject present `yes`, the plan names its `parts`, and for each of
+    them the looks (`who[label].seen_looks`, in the order they were written, a later `seen` taking back an earlier `not
+    seen`) leave every frame of the shot `not seen`."""
+    parts = list(wanted.get("parts") or [])
+    looks = sorted(who.get("seen_looks") or [], key=lambda x: x["at"])
+    if who.get("present") != "yes" or not parts or not looks:
+        return None
+    whole = set(range(first, last + 1))
+    for part in parts:
+        unseen: set[int] = set()
+        for x in looks:
+            if x["part"] == part:
+                span = set(range(max(int(x["first"]), first), min(int(x["last"]), last) + 1))
+                unseen = unseen | span if x["is"] == "not seen" else unseen - span
+        if unseen != whole:
+            return None
+    return [f"{x['part']} {x['is']} on {x['first']}-{x['last']}: {x['why']} ({x['by']}, {x['at']})" for x in looks if x["part"] in parts]
 
 
 def alias(label: str, plan: dict) -> str:
@@ -227,7 +261,8 @@ def coverage(shots: dict, plan: dict, rows: list[dict], intents: list[dict], ren
                    "present": who["present"], "present_how": who.get("how", ""), "present_by": who.get("by", ""),
                    "wanted": wanted["region"], "wanted_by": wanted.get("by", ""),
                    "notes": [f"{d['first']}-{d['last']}: {d['note']} ({d.get('by', '')})" for d in notes],
-                   "shot_note": s.get("note", ""), "laid": [], "left": [], "others": []}
+                   "shot_note": s.get("note", ""), "laid": [], "left": [], "others": [],
+                   "nothing_to_make": nothing_to_make(who, wanted, s["first"], s["last"])}
             mine = [p for p in pieces if p["label"] == label and overlap(s["first"], s["last"], p["first"], p["last"])]
             for p in mine:
                 lo, hi = overlap(s["first"], s["last"], p["first"], p["last"]) or (0, -1)
@@ -270,6 +305,8 @@ def state_of(row: dict) -> str:
                 else row["wanted"] in GRAPH_KIND.get(p["region"], ()) for p in row["laid"]]
         kind = "region not readable" if None in held else "as planned" if all(held) else "not as planned"
         return f"partly, {kind}" if covered != whole else kind
+    if row.get("nothing_to_make"):
+        return "present, nothing to make under this plan"
     return "source, said why" if row["left"] else "source, no line"
 
 
@@ -297,6 +334,8 @@ def print_report(out: dict) -> None:
         print(f"{frames(r['first'], r['last'])}  {r['frames']:4d} f  {r['subject']:<7} wanted: {r['wanted']:<14} STATE: {r['state']}")
         if r["present"] == "unsure" or r["present_how"]:
             print(f"    here: {r['present']}; {r['present_how']} ({r['present_by']})")
+        for line in r.get("nothing_to_make") or []:
+            print(f"    NOTHING TO MAKE UNDER THIS PLAN, a person's look: {line}")
         for p in r["laid"]:
             cut = "; crosses a cut" if p["crosses_a_cut"] else ""
             print(f"    laid {frames(*p['frames'])}: {Path(p['piece']).name}  region: {p.get('region_exact') or p['region'] or 'not read (no renders entry)'}"

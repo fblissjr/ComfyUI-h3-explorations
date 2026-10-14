@@ -154,6 +154,28 @@ def a_recorded_look():
     return "a NO LOAD departure is printed with its run, and the run stays"
 
 
+
+def nothing_to_make():
+    """The owner's word of 2026-10-14: a subject in a shot with nothing of the plan's parts on it, by a person's look, is
+    present with nothing to make: not a gap. Here 26-29 and 30-49 stay; 10-29's b has a look and a has a piece."""
+    t = table()
+    look = ["face_and_neck not seen on 70-99: A PERSON'S LOOK (x, t)"]
+    t["reading"][-1]["nothing_to_make"] = look                    # 70-99, a: present, nothing to make
+    t["reading"].append(dict(entry(100, 109, "a", "yes"), nothing_to_make=look))
+    t["reading"].append(entry(110, 119, "a", "yes", [("p3", [(110, 119)], "2026-01-04T18:00:00Z", [])]))
+    t["not_in_the_shot"] += [{"first": 100, "last": 119, "subject": "b", "why": "not in"}]
+    t["reading"][1]["nothing_to_make"] = ["hair not seen: B'S LOOK"]   # 10-29, b; a stands there in part
+    g = pg.gaps_of(t)
+    # THE CASE THAT GOES RED when a subject with nothing to make is listed as a gap
+    assert [(r["first"], r["last"]) for r in g["nothing_to_make"]] == [(70, 109)], g["nothing_to_make"]
+    assert all(not (r["first"] <= 109 and r["last"] >= 70) for r in g["no_piece"]), g["no_piece"]
+    assert not any(r["subject"] == "b" and r["shot"] == [10, 29] for r in g["another_subject_with_none"]), g["another_subject_with_none"]
+    assert any(r["first"] <= 26 <= r["last"] for r in g["no_piece"]), "a shot with a subject who has a piece is not a nothing-to-make shot"
+    text = "\n".join(pg.loud(t))
+    assert "PRESENT, NOTHING TO MAKE UNDER THIS PLAN, by a person's look (not a gap): 40 FRAME(S) IN 1 RUN(S):" in text and "A PERSON'S LOOK" in text, text
+    assert "## D. Present, nothing to make under this plan" in pg.markdown(g, "t.json")
+    return "a shot whose every subject in it has nothing to make by a person's look is its own list, with the look, and in neither A nor C"
+
 def up_to_moves():
     g = pg.gaps_of(table(), up_to=80)
     assert [(r["first"], r["last"]) for r in g["no_piece"]][-1] == (70, 80) and g["nothing_is_made_past"] == {"from_frame": 81, "to_frame": 99}, g["no_piece"][-1]
@@ -216,6 +238,7 @@ case("a piece that leaves frames", a_piece_that_leaves)
 case("not known is not none, and the print is the file's list", not_known_is_not_none)
 case("a subject with none under a piece", under_a_piece)
 case("a recorded look is said, not hidden", a_recorded_look)
+case("present, nothing to make: not a gap", nothing_to_make)
 case("--up-to moves the end", up_to_moves)
 case("loud is capitals and counts", loud_lines)
 case("the table prints it by itself, and the files", the_table_prints_it)

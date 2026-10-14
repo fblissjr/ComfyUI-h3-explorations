@@ -45,6 +45,9 @@ with only the fields the rule reads, a shots file of three shots and a plan of t
    record that names no load.
 12. **Each `restore=` has three counts** of its row's frames: a track, covered with an empty track, covered by no
    capture. They add up to the row, and the reading says the assembler flags only the third.
+13. **Present, nothing to make, by a person's look**: a look in the shots record that every part the plan replaces is
+   not seen on every frame of a shot makes its source line say so and its reading carry the look; a later `seen`, a
+   look on part of the shot, a look on one of two parts, and a piece that stands each leave the shot as it was.
 
 No video, no model, no card, no server.
 
@@ -195,6 +198,32 @@ def what_never_stands() -> str:
     assert [s["render"] for s in entry(decide(render("fine", (0, 49), "09", has=LIDS, owner=keep)), 0, "a")["stands"]] == ["fine"]
     return "a render with no record, one whose record names no file, one whose file disagrees, a whole person and two subjects never stand, kept or not"
 
+
+
+def nothing_to_make() -> str:
+    """The owner's word of 2026-10-14 and the lead's ruling: a person's look that none of the plan's parts is seen on a shot."""
+    import copy
+    shots = copy.deepcopy(SHOTS)
+    look = {"part": "face_and_neck", "first": 0, "last": 49, "is": "not seen", "why": "A LOOK: HER LEGS ONLY", "by": "a reader", "at": "2026-01-02T00:00:00Z"}
+    shots["shots"][0]["who"]["a"]["seen_looks"] = [look]
+    out = dt.decide(ledger(), shots, PLAN)
+    e = entry(out, 0, "a")
+    # THE CASE THAT GOES RED when the look is not carried into the table
+    assert e["nothing_to_make"] and "A LOOK: HER LEGS ONLY" in e["nothing_to_make"][0] and e["source_line"].startswith(dt.NOTHING_TO_MAKE), e
+    # a later `seen` takes it back on its frames, and a look on part of the shot is not the whole shot
+    shots["shots"][0]["who"]["a"]["seen_looks"].append(dict(look, first=40, last=49, **{"is": "seen", "at": "2026-01-03T00:00:00Z"}))
+    assert "nothing_to_make" not in entry(dt.decide(ledger(), shots, PLAN), 0, "a")
+    shots["shots"][0]["who"]["a"]["seen_looks"] = [dict(look, last=48)]
+    assert "nothing_to_make" not in entry(dt.decide(ledger(), shots, PLAN), 0, "a")
+    # b's plan replaces two parts: a look on one of them is not enough
+    shots["shots"][1]["who"]["b"]["seen_looks"] = [dict(look, first=50, last=99)]
+    assert "nothing_to_make" not in entry(dt.decide(ledger(), shots, PLAN), 50, "b")
+    # a piece that stands is laid whatever a look says
+    shots["shots"][0]["who"]["a"]["seen_looks"] = [look]
+    kept = entry(dt.decide(ledger(render("kept", (0, 49), "01")), shots, PLAN), 0, "a")
+    assert kept["stands"] and "nothing_to_make" not in kept, kept
+    return ("a look that every plan part is not seen on every frame makes the shot's source line 'present, nothing to make'; a later seen, a look on "
+            "part of the shot, a look on one of two parts, and a piece that stands each leave it as it was")
 
 def nothing_left_and_several_on_a_shot() -> str:
     out = decide()
@@ -531,6 +560,7 @@ case("the frozen form", the_frozen_form)
 case("a part the job named stands as the plan's region", a_part_the_job_named)
 case("what never stands", what_never_stands)
 case("nothing left, and several renders on one shot", nothing_left_and_several_on_a_shot)
+case("present, nothing to make, by a person's look", nothing_to_make)
 case("restore: the other subjects of the shot", restores)
 case("the owner's words, under the render they are on", the_owners_words_are_in_the_reading)
 case("a preference of the lead's", a_preference)

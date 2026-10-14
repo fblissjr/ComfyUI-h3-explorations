@@ -31,8 +31,14 @@ who is `unsure` on a shot is under a heading of their own and in neither list.
 - THE PART as the preview saved it (`<preview>_<subject>_parts_*.mkv`, what a load would carry): the frames it is
   there, the frames at or over the floor, the frames under it and the frames it is not there, as counts and as
   runs of source frames both ways; its size in pixels on the frames it is there, least, median and most; and
-  how many times the floor the median is. Where the plan gives the subject more than one part, EACH PART APART
-  as well, from the preview's class map (`sapiens2_parts.PARTS`): hair that shows with no face reads as that;
+  how many times the floor the median is. EVERY PART NAME APART (`sapiens2_parts.PARTS`) and EVERY CLASS of the
+  preview's class map on any frame, whatever the plan names (since 2026-10-14, the owner's word: a later plan of
+  another part, a red skirt made blue, re-derives its loads from the same record): hair that shows with no face
+  reads as that;
+- "present, nothing to make under this plan": a person's look in the shots record (`seen_looks`, written by
+  `bench/shots_look.py`), as the coverage tool reads it; and A CANDIDATE FOR A LOOK where none of the plan's parts
+  is at or over the floor on any frame of a seeded tracker's row: a candidate only, since a face the lane makes
+  may sit under the floor (the lead's ruling, 2026-10-14);
 - the floor: `capture_masked_run.PART_LEAST_PX`, a STARTING VALUE by its own comment, printed beside the
   figures and decided by nobody here. A part that is there and small is a shot for the zoomed load, and reads so
   in the figures;
@@ -128,7 +134,8 @@ def previews(specs: list[str]) -> list[dict]:
 def measured(pv: dict, label: str, parts: list[str], names: tuple, menu: dict) -> dict:
     """Per frame of a preview, a subject's track, saved part and each plan part in pixels, at the saved videos' own size."""
     files = pv["subjects"][label]
-    out = {"size": None, "track_px": None, "part_px": None, "apart_px": {}, "missing": [k for k in ("track", "parts", "classes", "table") if not files[k]]}
+    out = {"size": None, "track_px": None, "part_px": None, "apart_px": {}, "class_px": {},
+           "missing": [k for k in ("track", "parts", "classes", "table") if not files[k]]}
 
     def counted(path) -> np.ndarray:
         w, h, _ = probe(str(path))
@@ -141,12 +148,18 @@ def measured(pv: dict, label: str, parts: list[str], names: tuple, menu: dict) -
         out["track_px"] = counted(files["track"])
     if files["parts"]:
         out["part_px"] = counted(files["parts"])
-    if files["classes"] and len(parts) > 1:
+    # EVERY PART NAME AND EVERY CLASS of the class map, on every row, whatever the plan names (the owner's word of
+    # 2026-10-14: a later plan of another part re-derives its loads from the same record; until then only the plan's
+    # parts were read, and only where it named two or more)
+    if files["classes"]:
         w, h, _ = probe(str(files["classes"]))
-        wanted = {p: [names.index(c) for c in menu[p]] for p in parts}
-        out["apart_px"] = {p: np.zeros(pv["frames"], np.int64) for p in parts}
+        wanted = {p: [names.index(c) for c in menu[p]] for p in menu}
+        out["apart_px"] = {p: np.zeros(pv["frames"], np.int64) for p in menu}
+        out["class_px"] = {c: np.zeros(pv["frames"], np.int64) for c in names if c != "Background"}
         for at in range(0, pv["frames"], CHUNK):
             classes = cap.read_classes(str(files["classes"]), (w, h), 0, at, min(CHUNK, pv["frames"] - at))
+            for c in out["class_px"]:
+                out["class_px"][c][at:at + len(classes)] = (classes == names.index(c)).reshape(len(classes), -1).sum(axis=1)
             for p, indices in wanted.items():
                 out["apart_px"][p][at:at + len(classes)] = np.isin(classes, indices).reshape(len(classes), -1).sum(axis=1)
     table = json.loads(files["table"].read_text()) if files["table"] else None
@@ -176,6 +189,7 @@ def lists(shots: dict, plan: dict, covered: dict, made: list[dict], answers: lis
                    "region": wanted["region"], "parts": list(wanted.get("parts") or []), "keep_outs": list(wanted.get("keep_outs") or []),
                    "window": {"the_builder_would_take": masked_job_graph.window_for(n, windows), "the_planners_lengths": list(windows),
                               "one_window": n <= max(windows), "frames_over_the_longest": max(n - max(windows), 0)},
+                   "nothing_to_make": there.get("nothing_to_make"),
                    "stands": {"state": there["state"], "laid": there["laid"], "left_as_the_source": there["left"],
                               "other_renders": [o for o in there["others"] if not o["in_table"]]},
                    "the_owners_words": who_page.owner_words(answers, s["first"], s["last"]), "shot_note": s.get("note", ""),
@@ -205,6 +219,15 @@ def lists(shots: dict, plan: dict, covered: dict, made: list[dict], answers: lis
                                "floor_is": "capture_masked_run.PART_LEAST_PX, a starting value by its own comment", **figures(m["part_px"][cut], lo, floor)}
             row["parts_apart"] = {p: {"is": f"the classes of `{p}` in the preview's class map: " + ", ".join(sp.PARTS[p]), **figures(px[cut], lo, floor)}
                                   for p, px in m["apart_px"].items()}
+            row["classes_seen"] = {c: figures(px[cut], lo, floor) for c, px in m["class_px"].items() if px[cut].any()}
+            # A CANDIDATE for a look, never the state: none of the plan's parts at or over the floor on any frame, on a tracker a
+            # person seeded. A face the lane makes may sit under the floor (the third subject's 4479, 29 px, made at --least 480):
+            # only a person's line in the shots record (`bench/shots_look.py`) makes it "nothing to make" (the lead's ruling)
+            read = {p: row["parts_apart"][p] for p in row["parts"] if p in row["parts_apart"]} or ({"the part as saved": row["part"]} if row["part"] else {})
+            if (row["present"] == "yes" and read and not there["laid"] and not there.get("nothing_to_make") and m["seeded"]
+                    and all(not f["frames_at_or_over_the_floor"] for f in read.values())):
+                row["a_candidate_for_a_look"] = (f"none of the plan's parts ({', '.join(read)}) is at or over the floor on any frame read; a person's "
+                                                 "look decides (bench/shots_look.py add ... --is 'not seen'), the floor does not")
             rows.append(row)
     return {"video": shots["video"], "span": shots["span"], "nobody": nobody, "unsure": unsure, "rows": rows, "cannot_see": CANNOT_SEE,
             "floor_px": floor, "the_planners_lengths": list(windows)}
@@ -242,7 +265,15 @@ def row_text(r: dict) -> list[str]:
         if r["part"]:
             out.append(f"- THE PART as saved: {said(r['part'])}")
         for name, f in r["parts_apart"].items():
-            out.append(f"- `{name}` apart: {said(f)}")
+            if f["frames_there"] or name in r["parts"]:
+                out.append(f"- `{name}` apart{' (a part the plan replaces)' if name in r['parts'] else ''}: {said(f)}")
+        if r.get("classes_seen"):
+            out.append("- every class on any frame: " + "; ".join(f"{c} on {f['frames_there']} ({f['frames_at_or_over_the_floor']} at or over the floor)"
+                                                                 for c, f in r["classes_seen"].items()))
+        if r.get("a_candidate_for_a_look"):
+            out.append(f"- A CANDIDATE FOR A LOOK: {r['a_candidate_for_a_look']}")
+    for line in r.get("nothing_to_make") or []:
+        out.append(f"- NOTHING TO MAKE UNDER THIS PLAN, a person's look: {line}")
     st = r["stands"]
     out.append(f"- what stands there: {st['state']}" + "".join(
         f"\n      laid {x['frames'][0]}-{x['frames'][1]}: {x['piece']} (region: {x.get('region_exact') or x['region'] or 'not read'})" + "".join(f"\n          the owner: {line}" for line in x["owner_said"]) for x in st["laid"])

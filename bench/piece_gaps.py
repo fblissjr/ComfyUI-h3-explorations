@@ -30,6 +30,11 @@ six runs from the record, one of them the stretch the owner had seen).
 **C, a subject in the shot with no piece of their own, on frames another's piece covers.** Not in A, since a
 piece is laid there; the subject is the source's own on those frames all the same.
 
+**D, present with nothing to make under this plan.** The frames of a shot whose every subject in it has, by a
+person's look in the shots record (`seen_looks`, `bench/shots_look.py`; the table carries it as `nothing_to_make`),
+none of the plan's parts on any frame. Not a gap, so not in A or C: its own list, with the look whole (the owner's
+word of 2026-10-14: a later plan of another part re-derives its loads from the same records).
+
 **A recorded look is said, not hidden.** Where the plan's `departures` hold a `NO LOAD` note for a subject over a
 run's frames (somebody looked and found no face to replace), the row says so with the note: it stays in the list.
 
@@ -89,9 +94,17 @@ def gaps_of(table: dict, plan: dict | None = None, ledger: dict | None = None, r
     who = {}                                                         # shot -> {subject: present}
     for e in table.get("not_in_the_shot") or []:
         who.setdefault((e["first"], e["last"]), {})[e["subject"]] = "no"
+    nothing = {}                                                     # shot -> {subject: a person's lines that nothing is to be made}
     for e in reading:
         who.setdefault((e["first"], e["last"]), {})[e["subject"]] = e["present"]
+        if e.get("nothing_to_make"):
+            nothing.setdefault((e["first"], e["last"]), {})[e["subject"]] = e["nothing_to_make"]
     shots = sorted(who)
+    # D: the frames of a shot whose every subject in it has nothing to make under this plan, by a person's look: not a gap
+    # (the owner's word and the lead's ruling, 2026-10-14), its own list
+    nothing_frames = {x for (lo, hi), here in who.items()
+                      if [k for k, v in here.items() if v == "yes"] and not [k for k, v in here.items() if v == "unsure"]
+                      and all(k in nothing.get((lo, hi), {}) for k, v in here.items() if v == "yes") for x in range(lo, hi + 1)}
     pieces = sorted(({"name": s["render"], "subject": e["subject"], "first": a, "last": b, "written": s.get("written"), "day": day(s.get("written"))}
                      for e in reading for s in e["stands"] for a, b in s["frames"]), key=lambda p: (p["first"], p["last"]))
     covered = {x for p in pieces for x in range(p["first"], p["last"] + 1)}
@@ -114,7 +127,7 @@ def gaps_of(table: dict, plan: dict | None = None, ledger: dict | None = None, r
     # A: inside no standing piece, as plain runs; whose each stretch is, a record shot at a time
     part_a = []
     if end is not None:
-        for a, b in runs(x for x in range(first, end + 1) if x not in covered):
+        for a, b in runs(x for x in range(first, end + 1) if x not in covered and x not in nothing_frames):
             crossed = []
             for lo, hi in shots:
                 if lo <= b and hi >= a:
@@ -125,6 +138,12 @@ def gaps_of(table: dict, plan: dict | None = None, ledger: dict | None = None, r
                     crossed.append({"frames": [x, y], "shot": [lo, hi], "in_the_shot": names, "unsure": unsure, "nobody_of_ours": not names and not unsure,
                                     "a_recorded_look": {k: looked(k, x, y) for k in names if looked(k, x, y)}})
             part_a.append({"first": a, "last": b, "frames": b - a + 1, "clip": f"{clock(a)}-{clock(b + 1)}", "by_shot": crossed, **either_side(a, b)})
+    part_d = []
+    if end is not None:
+        for a, b in runs(x for x in range(first, end + 1) if x not in covered and x in nothing_frames):
+            part_d.append({"first": a, "last": b, "frames": b - a + 1, "clip": f"{clock(a)}-{clock(b + 1)}",
+                           "by_shot": [{"frames": [max(a, lo), min(b, hi)], "shot": [lo, hi], "looks": nothing[(lo, hi)]}
+                                       for lo, hi in shots if lo <= b and hi >= a and (lo, hi) in nothing]})
     # B: inside a piece's own frames, what its load left as the original
     by_name = {r["name"]: r for r in (ledger or {}).get("renders", {}).values()}
     flagged = {}
@@ -171,7 +190,7 @@ def gaps_of(table: dict, plan: dict | None = None, ledger: dict | None = None, r
     # C: a subject in the shot with no piece of their own, on frames another's piece covers
     part_c = []
     for e in reading:
-        if e["present"] not in ("yes", "unsure"):
+        if e["present"] not in ("yes", "unsure") or e.get("nothing_to_make"):
             continue
         taken = {x for s in e["stands"] for a, b in s["frames"] for x in range(a, b + 1)}
         for a, b in runs(x for x in range(e["first"], e["last"] + 1) if x not in taken and x in covered and (end is None or x <= end)):
@@ -185,7 +204,7 @@ def gaps_of(table: dict, plan: dict | None = None, ledger: dict | None = None, r
         past = {"from_frame": (end if end is not None else last_piece) + 1, "to_frame": shots[-1][1]}
     return {"up_to": end, "up_to_was_given": up_to is not None, "the_last_frame_with_any_piece": last_piece, "first": first, "pieces": len(pieces),
             "pieces_named": len({p["name"] for p in pieces}),
-            "no_piece": part_a, "left_by_a_piece": part_b, "left_by_a_piece_not_known_for": sorted(set(not_known)), "another_subject_with_none": part_c, "nothing_is_made_past": past, "cannot_see": CANNOT}
+            "no_piece": part_a, "nothing_to_make": part_d, "left_by_a_piece": part_b, "left_by_a_piece_not_known_for": sorted(set(not_known)), "another_subject_with_none": part_c, "nothing_is_made_past": past, "cannot_see": CANNOT}
 
 
 def _whose(seg: dict) -> str:
@@ -209,6 +228,11 @@ def loud(table: dict, plan: dict | None = None, up_to: int | None = None, ledger
     for r in a:
         by = "; ".join((f"{s['frames'][0]}-{s['frames'][1]}: " if len(r["by_shot"]) > 1 else "") + _whose(s) for s in r["by_shot"])
         lines.append(f"  {r['first']}-{r['last']}  ({r['frames']} frame(s), {r['clip']})  {by}")
+    d = g["nothing_to_make"]
+    if d:
+        lines.append(f"PRESENT, NOTHING TO MAKE UNDER THIS PLAN, by a person's look (not a gap): {sum(r['frames'] for r in d)} FRAME(S) IN {len(d)} RUN(S):")
+        lines += [f"  {r['first']}-{r['last']}  ({r['frames']} frame(s), {r['clip']})  "
+                  + "; ".join(f"{k}: {' | '.join(v)}" for s in r["by_shot"] for k, v in s["looks"].items()) for r in d]
     unknown = g["left_by_a_piece_not_known_for"]
     if unknown and len(unknown) == g["pieces_named"]:
         lines.append("FRAMES A PIECE COVERS AND LEAVES AS THE ORIGINAL: NOT KNOWN. This table's ledger does not say it of any piece (it predates the field) and no "
@@ -242,6 +266,10 @@ def markdown(g: dict, read_from: str) -> str:
         whose = "; ".join(f"{s['frames'][0]}-{s['frames'][1]} (shot {s['shot'][0]}-{s['shot'][1]}): {_whose(s)}"
                           + "".join(f" [{k}: {v[:200]}]" for k, v in (s.get("a_recorded_look") or {}).items()) for s in r["by_shot"])
         out.append(f"| {r['first']}-{r['last']} | {r['clip']} | {r['frames']} | {whose} | {side(r['the_piece_before'], 'before')} | {side(r['the_piece_after'], 'after')} |")
+    out += ["", f"## D. Present, nothing to make under this plan, by a person's look (not a gap): {sum(r['frames'] for r in g['nothing_to_make'])} frame(s) "
+            f"in {len(g['nothing_to_make'])} run(s)", "", "| frames | clip time | n | the look, whole |", "|---|---|---|---|"]
+    out += [f"| {r['first']}-{r['last']} | {r['clip']} | {r['frames']} | "
+            + "; ".join(f"{k}: {' | '.join(v)}" for s in r["by_shot"] for k, v in s["looks"].items()) + " |" for r in g["nothing_to_make"]]
     out += ["", f"## B. Inside a piece, left as the original by its load: {sum(r['frames'] for r in g['left_by_a_piece'])} frame(s) in {len(g['left_by_a_piece'])} run(s)", ""]
     if g["left_by_a_piece_not_known_for"]:
         out += [f"NOT KNOWN for {len(g['left_by_a_piece_not_known_for'])} of the {g['pieces_named']} piece(s), whose ledger entry does not say it and for which no assembler's record "

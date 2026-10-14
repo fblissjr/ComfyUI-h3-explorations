@@ -7,7 +7,9 @@ the coverage tool's own words; each of those can be off by a frame, a preview or
 
   nobody_and_unsure                 list 1 is the shots where every subject is `no`; an `unsure` subject is under its own heading and its shot is not in list 1
   the_part_is_counted_on_its_frames a saved part that is large, then small, then gone: there, at or over the floor, under it and not there, as counts and as runs in source frames
-  each_part_apart                   a subject the plan gives two parts has each apart from the class map, and hair that shows with no face reads so; a subject with one part has none apart
+  each_part_apart                   every part name and every class of a class map on any frame, on every row whatever the plan names, and hair that shows with no face reads so
+  nothing_to_make_is_a_persons      a row whose plan parts a person's look says are seen on no frame is "present, nothing to make under this plan"; a seeded row whose
+                                    plan parts are under the floor on every frame is only a candidate for a look
   seeded_or_picked                  from the preview's own table; the frames the track is off are counted and named
   the_last_preview_listed_is_read   where two cover a shot and track the subject, the last listed is read, the other is named, and the row says how many of the shot's frames it covers
   no_preview_says_so                a row no preview covers, and a row whose preview does not track the subject, each say which and carry what stands there alone
@@ -82,12 +84,13 @@ def preview(folder: Path, name: str, first: int, frames: int, subjects: dict) ->
 
 
 def main() -> int:
-    fails = 0
+    fails = ran = 0
 
     def case(name, ok, why=""):
-        nonlocal fails
+        nonlocal fails, ran
         print(("ok    " if ok else "FAIL  ") + name + ("" if ok else f": {str(why)[:900]}"))
         fails += not ok
+        ran += 1
 
     names = cap._pack("sapiens2_parts").CLASS_NAMES
     hair, face = names.index("Hair"), names.index("Face_Neck")
@@ -100,7 +103,9 @@ def main() -> int:
             {"first": 120, "last": 139, "who": {"a": {"present": "no"}, "b": {"present": "no"}}},
             {"first": 140, "last": 159, "who": {"a": {"present": "unsure", "how": "two say", "by": "x"}, "b": {"present": "yes"}}},
             {"first": 160, "last": 199, "who": {"a": {"present": "yes"}, "b": {"present": "yes"}}, "note": "A NOTE ON 160"},
-            {"first": 200, "last": last, "who": {"a": {"present": "yes"}, "b": {"present": "no"}}},
+            {"first": 200, "last": last, "who": {"a": {"present": "yes", "seen_looks": [
+                {"part": "face_and_neck", "first": 200, "last": last, "is": "not seen", "why": "A LOOK: HER LEGS ONLY", "by": "a reader", "at": "2026-01-02T00:00:00Z"}]},
+                "b": {"present": "no"}}},
             # nobody is `yes` here and one is `unsure`: not a shot with nobody
             {"first": last + 1, "last": last + 10, "who": {"a": {"present": "unsure", "how": "a back", "by": "y"}, "b": {"present": "no"}}}]}
         plan = {"schema": "h3_plan/1", "subjects": {"a": {"region": "face", "parts": ["face_and_neck"]},
@@ -145,10 +150,29 @@ def main() -> int:
              and p["px"] == {"least": 400, "median": 6300, "most": 6300} and p["floor_px"] == FLOOR and p["median_over_the_floor"] == round(6300 / FLOOR, 2)
              and row[(100, "a")]["preview"]["size"] == [W, H], p)
         apart = row[(160, "b")]["parts_apart"]
-        case("each_part_apart", set(apart) == {"hair", "face_and_neck"} and apart["hair"]["frames_there"] == 40 and apart["face_and_neck"]["frames_there"] == 10
+        case("each_part_apart", set(apart) == set(cap._pack("sapiens2_parts").PARTS) and apart["hair"]["frames_there"] == 40 and apart["face_and_neck"]["frames_there"] == 10
+             and all(apart[k]["frames_there"] == 0 for k in apart if k not in ("hair", "face_and_neck"))
+             and {k: v["frames_there"] for k, v in row[(160, "b")]["classes_seen"].items()} == {"Hair": 40, "Face_Neck": 10}
+             and "every class on any frame: Face_Neck on 10 (10 at or over the floor); Hair on 40 (0 at or over the floor)" in md
              and apart["face_and_neck"]["runs_there"] == [[160, 169]] and apart["face_and_neck"]["runs_not_there"] == [[170, 199]] and row[(160, "b")]["part"]["frames_there"] == 40
              and row[(140, "b")]["parts_apart"]["face_and_neck"]["frames_there"] == 20 and row[(100, "a")]["parts_apart"] == {}
-             and "`hair` apart: there on 40 of 40 frames" in md and "`face_and_neck` apart: there on 10 of 40 frames" in md, {k: (v["frames_there"], v["runs_there"]) for k, v in apart.items()})
+             and "`hair` apart (a part the plan replaces): there on 40 of 40 frames" in md and "`face_and_neck` apart (a part the plan replaces): there on 10 of 40 frames" in md, {k: (v["frames_there"], v["runs_there"]) for k, v in apart.items()})
+        far_a, small = row[(200, "a")], row[(160, "a")]
+        case("nothing_to_make_is_a_persons", far_a["stands"]["state"] == "present, nothing to make under this plan" and far_a["nothing_to_make"]
+             and "A LOOK: HER LEGS ONLY" in far_a["nothing_to_make"][0] and "NOTHING TO MAKE UNDER THIS PLAN, a person's look: face_and_neck not seen" in md
+             and small["stands"]["state"] != "present, nothing to make under this plan" and "a_candidate_for_a_look" in small
+             and "A CANDIDATE FOR A LOOK" in md and "a_candidate_for_a_look" not in row[(100, "a")], (far_a.get("nothing_to_make"), small.get("a_candidate_for_a_look")))
+        # the candidate needs a SEEDED tracker: a picked one may hold somebody else (the lead's ruling, 2026-10-14)
+        sh = {"video": "t.mp4", "span": [0, 9], "subjects": ["a"], "shots": [{"first": 0, "last": 9, "who": {"a": {"present": "yes"}}}]}
+        pl = {"subjects": {"a": {"region": "face", "parts": ["face_and_neck"]}}}
+        covered = shot_coverage.coverage(sh, pl, [], [], [], [])
+        tiny = lambda seeded: lambda pv, label, parts, names, menu: {"size": [W, H], "track_px": np.full(10, 900), "part_px": np.full(10, 5), "apart_px": {},  # noqa: E731
+                                                                     "class_px": {}, "missing": [], "seeded": seeded, "cuts": []}
+        made = [{"name": "pz", "spec": "pz", "first": 0, "last": 9, "subjects": {"a": {}}}]
+        picked = shot_parts.lists(sh, pl, covered, made, [], measure=tiny(False))["rows"][0]
+        seeded = shot_parts.lists(sh, pl, covered, made, [], measure=tiny(True))["rows"][0]
+        case("a_candidate_needs_a_seeded_tracker", "a_candidate_for_a_look" not in picked and "a_candidate_for_a_look" in seeded
+             and seeded["stands"]["state"] == "source, no line", (picked.get("a_candidate_for_a_look"), seeded.get("a_candidate_for_a_look")))
         t = row[(100, "a")]["tracker"]
         case("seeded_or_picked", t["seeded"] is False and (t["frames_on"], t["frames_off"], t["runs_off"]) == (18, 2, [[118, 119]]) and row[(160, "b")]["tracker"]["seeded"] is True
              and row[(160, "a")]["tracker"]["seeded"] is True and "PICKED, which may be somebody else; on 18 frames, off 2 (118-119)" in md and "SEEDED from a person's answer" in md, t)
@@ -190,7 +214,7 @@ def main() -> int:
          and (f["frames_there"], f["frames_at_or_over_the_floor"], f["frames_under_the_floor"], f["frames_not_there"]) == (3, 1, 2, 3)
          and f["runs_there"] == [[51, 52], [55, 55]] and f["runs_not_there"] == [[50, 50], [53, 54]] and f["px"] == {"least": 5, "median": 9, "most": 12}
          and shot_parts.figures(np.zeros(3, int), 0, 10)["px"] is None, f)
-    print(f"\n{'all' if not fails else fails} {'of ' if fails else ''}11 case(s) {'FAILED' if fails else 'ok'}")
+    print(f"\n{'all' if not fails else fails} {'of ' if fails else ''}{ran} case(s) {'FAILED' if fails else 'ok'}")
     return 1 if fails else 0
 
 
