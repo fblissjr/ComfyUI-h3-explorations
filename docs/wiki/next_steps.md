@@ -260,6 +260,18 @@ fixed the same day, said inline below.**
   render whatever was drawn, since a room is joined to the carried mask. What it cannot see: the drawing against the
   composite. The window's video on disk is composited, and telling them apart needs a decode of the window's latent
   before the composite, on the card.
+  **A second shot, second_hfp_0014d** (the owner's frames 57 and 163: a glitch at her neck where her hair ends, at the
+  right of the picture; the owner's screenshots and crops are in `internal/claude/2026-10-14_mrpre/`, `neck_0014d_*.jpg`).
+  It splits two ways, and neither is the keep-out the owner's frame suggests:
+  - **On 50-65 it is the drawing.** The region holds no hole there, and the composite keeps the render over the
+    place. Beside her drawn hair's end the model draws a dark patch where the original has its dark hair.
+  - **On 159-166 it is a hole in the node's own region:** 432 px on 159-162, then 84-144 px on 163-166, exactly two
+    latent steps. Held pixels lie in it on 161-162 and the strangers keep-out on 164-165. The region is one per
+    latent step, and a keep-out cell on one frame of a step gives the cell back on all four. So the strangers' 22 px
+    on 164-165 hole the region on 163 as well, where the strangers mask is empty.
+  That is a third candidate beside the composite and the drawing: a keep-out's one-frame speck shared across its
+  step. Read on 2026-10-14 at the day's close, from the plan, the render and the capture. Not checked: which cell of
+  the zoomed grid each speck falls in.
 - **Nothing prints whether a body model is on its subject.** A preview posed
   the person behind the subject for half a second and every table read the
   same. The node is fixed (`../../bench/results/2026-10-12_body_model_posed_the_other_person.md`);
