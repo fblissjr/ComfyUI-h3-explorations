@@ -1512,9 +1512,11 @@ MASKED_JOB_HAIR_BAND = dict(cuts="clothes", wider=0.1, smooth_frames=4, most=2.0
 #: has its part held to its own subject's track grown by the same (`bench/shot_to_load.py`). The grow is there
 #: because the part model reaches past the tracker's edge on the subject's own body. **Measured** 8 px as a
 #: starting value, 2026-10-14, on two close groups (the lead's 3167-3213 and 3240-3276; read in
-#: internal/claude/2026-10-14_mrdrill_stranger_read.md): no cell of her part inside her track lost on either at
-#: 0, 4, 8 or 16; at 8 fewer frames with an enclosed hole than at 0, and on 3240 every hole left there with no
-#: keep-out at all. Faces about 109 px tall on 3167; a face of another size may want another.
+#: internal/claude/2026-10-14_mrdrill_stranger_read.md), against 0, 4 and 16: at 8 the region took back 812 of
+#: 7546 cells on 3167 and 293 of 4464 on 3240, with fewer frames holding an enclosed hole than at 0, and on 3240
+#: every hole left there is there with no keep-out at all. (That no cell of her part inside her track is lost is
+#: so by the rule, a cell holding her part is never given back, not a measure.) Faces about 109 px tall on 3167;
+#: a face of another size may want another.
 MASKED_STRANGERS = dict(grow_px=8)
 #: What the text encoder is shown of a load's still: the video model's own copy, not a smaller one of its
 #: own. **Decided** by the owner, 2026-10-08, for the reference stills of this lane (the largest size, enlarged
