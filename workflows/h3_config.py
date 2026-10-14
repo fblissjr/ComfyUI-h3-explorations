@@ -1494,10 +1494,16 @@ MASKED_JOB_MOTION = dict(none="none", wired="a video I wire")
 #: a keep-out's to give back to the source, and the clothing mask's pieces change frame to frame, so the
 #: region's lower edge moved and the drawn hair was cut where it moved (the long kitchen shot, source frames
 #: 693 to 703, on playback). `cuts`: the keep-out the band is taken out of, by its label in a load's `others`.
-#: `wider`: how far the band reaches past the part's box on each side, as a share of the box's width.
+#: `wider`: how far the band reaches past the part's box on each side: "margin", the load's own margin in px
+#: (`margin`, what the region reaches past the part). **Measured**, 2026-10-14: as 0.1 of the box's width, on
+#: second_hfp_0484b the clothes keep-out handed back a column of margin cells at each shoulder beside the neck, just
+#: outside the band and inside the 64 px margin, where the new long hair falls; the owner saw her hair come and go
+#: there (frame 488). With the band the margin's width each side, no clothes cell beside her head was handed back on
+#: 484b (516 before) and 362 on 0604_b (7436), and nothing new was drawn over a held thing, the hands or the other
+#: subject on either (internal/claude/2026-10-14_mrdrill_hair_read.md). A share of the width stays allowed (a number).
 #: `smooth_frames`: the box is the median of the boxes this many frames either side, so the band's edge does
 #: not move with one frame's mask. `most`: the deepest band a load may ask for, in part heights.
-#: **Reasoned**, those four: the lead's design of 2026-10-12, built that day. No render had been made with a
+#: **Reasoned**, `cuts`, `smooth_frames` and `most` (and `wider` until 2026-10-14): the lead's design of 2026-10-12, built that day. No render had been made with a
 #: band when this was written, and none of these was measured on one; the first face-and-hair load that
 #: carries a band is read by a session that did not build it.
 #: `starts`: where the band begins, "top" (the part box's top: the cut keep-out is emptied beside the head as well
@@ -1506,7 +1512,7 @@ MASKED_JOB_MOTION = dict(none="none", wired="a video I wire")
 #: the cells it touched were handed back to the source beside her head on 90 frames, stepping every latent step
 #: (internal/claude/2026-10-14_mrtwo_scripts/hair_0604/findings.md); a band from the box's bottom never reaches
 #: there. What "top" did to that load's planned region is in the commit that set it.
-MASKED_JOB_HAIR_BAND = dict(cuts="clothes", wider=0.1, smooth_frames=4, most=2.0, starts="top")
+MASKED_JOB_HAIR_BAND = dict(cuts="clothes", wider="margin", smooth_frames=4, most=2.0, starts="top")
 #: THE STRANGERS KEEP-OUT (`bench/strangers.py`): every person the part model (`SAPIENS2["segmentation"]`) finds on
 #: the whole frame, less each of the preview's subjects' tracks grown by `grow_px`; and a load whose plan names it
 #: has its part held to its own subject's track grown by the same (`bench/shot_to_load.py`). The grow is there

@@ -680,8 +680,9 @@ def hair_band(one: dict, files: dict, target: Path) -> tuple[dict, dict | None]:
     **The band, a frame.** The part mask's box on that frame, each side the median of the boxes
     `h3_config.MASKED_JOB_HAIR_BAND["smooth_frames"]` frames before and after it (frames with no part are left out
     of the median, and a frame with none near it has no band); from the box's top (`starts`: "top") or its bottom
-    ("bottom") down to `hair_band` times the box's height below its bottom; as wide as the box and `wider` of its
-    width more on each side; cut at the picture's edges. From the top, the keep-out is emptied beside the head as
+    ("bottom") down to `hair_band` times the box's height below its bottom; as wide as the box and, each side, the load's
+    margin in px more (`wider`: "margin", since 2026-10-14: a narrower band left the margin's cells beside the neck to
+    the clothing to hand back, and the new hair came and went there) or a share of its width; cut at the picture's edges. From the top, the keep-out is emptied beside the head as
     well as under it: a keep-out's mis-cut strip down the original's hair edge handed cells back to the source
     there on 90 frames of the second subject's 604-948 (2026-10-14), and a band from the bottom never reached it.
 
@@ -696,6 +697,15 @@ def hair_band(one: dict, files: dict, target: Path) -> tuple[dict, dict | None]:
         return files, None
     rule = h3_config.MASKED_JOB_HAIR_BAND
     share, cuts = float(one["hair_band"]), one.get("hair_band_cuts", rule["cuts"])
+    if rule["wider"] == "margin":
+        if not isinstance(one.get("margin"), (int, float)) or one["margin"] < 0:
+            raise Refused(f"load {one.get('name')!r}: the hair band reaches the load's margin past the part's box, and the load has no margin in px "
+                          f"({one.get('margin')!r})")
+        side_px = float(one["margin"])
+    elif isinstance(rule["wider"], (int, float)) and not isinstance(rule["wider"], bool):
+        side_px = None
+    else:
+        raise Refused(f"h3_config.MASKED_JOB_HAIR_BAND['wider'] is {rule['wider']!r}: \"margin\" (the load's margin in px) or a share of the box's width")
     if rule["starts"] not in ("top", "bottom"):
         raise Refused(f"h3_config.MASKED_JOB_HAIR_BAND['starts'] is {rule['starts']!r}: the band starts at the part box's \"top\" or its \"bottom\"")
     where = list(one.get("others") or ()).index(cuts)
@@ -721,15 +731,17 @@ def hair_band(one: dict, files: dict, target: Path) -> tuple[dict, dict | None]:
         near = near[~np.isnan(near[:, 0])]
         if len(near):
             x0, y0, x1, y1 = np.median(near, axis=0)
-            bands[f] = (max(int(np.floor(x0 - rule["wider"] * (x1 - x0))), 0), min(int(round(y0 if rule["starts"] == "top" else y1)), h),
-                        min(int(np.ceil(x1 + rule["wider"] * (x1 - x0))), w), min(int(np.ceil(y1 + share * (y1 - y0))), h))
+            side = side_px if side_px is not None else rule["wider"] * (x1 - x0)
+            bands[f] = (max(int(np.floor(x0 - side)), 0), min(int(round(y0 if rule["starts"] == "top" else y1)), h),
+                        min(int(np.ceil(x1 + side)), w), min(int(np.ceil(y1 + share * (y1 - y0))), h))
     has = bands[:, 0] >= 0
     figures = {"share_of_the_parts_height": share, "cut_out_of": cuts, "starts_at_the_part_boxs": rule["starts"], "file": str(target), "its_first_frame_is_source_frame": first,
                "made_from": {"part": part, "its_first_frame_is_source_frame": part_at, "keep_out": keep, "keep_outs_first_frame_is_source_frame": keep_at},
                "mask_size": [w, h],
                "part_height_px_median": float(np.median(boxes[seen, 3] - boxes[seen, 1])),
                "band_px_median": {"deep": float(np.median(bands[has, 3] - bands[has, 1])), "wide": float(np.median(bands[has, 2] - bands[has, 0]))},
-               "the_box_is_the_median_over_frames": 2 * reach + 1, "wider_each_side_by_share_of_width": rule["wider"],
+               "the_box_is_the_median_over_frames": 2 * reach + 1,
+               **({"wider_each_side_px": side_px, "wider_is": "the load's margin"} if side_px is not None else {"wider_each_side_by_share_of_width": rule["wider"]}),
                "frames_with_a_band": int(has.sum()), "frames_with_no_part_within_reach": [first + int(f) for f in np.nonzero(~has)[0]][:40],
                "frames_with_no_part_of_their_own": int((~seen).sum()),
                "what_it_does_not_do": "it adds nothing to the region: the margin still bounds what is regenerated, and the other keep-outs give their cells back inside the band too",

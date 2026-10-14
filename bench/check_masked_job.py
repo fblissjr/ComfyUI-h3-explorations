@@ -781,7 +781,9 @@ def a_hair_band_under_a_part():
         got, covered = read_mask(str(made), (w, h), banded["first"], banded["first"], banded["frames"])
         assert covered.all(), "the cut keep-out has fewer frames than the load"
         at = banded["first"] - CAPTURE_FIRST
-        x0, x1 = 40 - int(rule["wider"] * 40), 80 + int(rule["wider"] * 40)          # the box and a tenth of its width each side
+        side = int(banded["margin"])                                                 # the box and the load's margin each side (2026-10-14)
+        assert rule["wider"] == "margin", rule
+        x0, x1 = max(40 - side, 0), min(80 + side, w)
         assert rule["starts"] == "top", rule
         y0, y1 = 20, 50 + 15                                                          # from the box's top to half its height under its bottom
         want = keep[at:at + banded["frames"]].copy()
@@ -818,6 +820,16 @@ def a_hair_band_under_a_part():
         cut_under = Path(json.loads(under[0].with_suffix(".built.json").read_text())["files"]["others"][0][0])
         low = read_mask(str(cut_under), (w, h), banded["first"], banded["first"], banded["frames"])[0]
         assert low[:, 25:45, 36:40].all() and not low[:, 50:65, x0:x1].any(), "from the bottom the band reaches beside the head, or does not cut under it"
+        # a share of the box's width, as built on 2026-10-12, is still a number the rule takes: a tenth each side
+        cfg.MASKED_JOB_HAIR_BAND["wider"] = 0.1
+        try:
+            tenth = tool.build_loads(_loads_file(tmp, capture, loads=({**banded, "name": "a_tenth"},)), "plan", [], **where)
+        finally:
+            cfg.MASKED_JOB_HAIR_BAND.clear()
+            cfg.MASKED_JOB_HAIR_BAND.update(old)
+        narrow = read_mask(str(Path(json.loads(tenth[0].with_suffix(".built.json").read_text())["files"]["others"][0][0])), (w, h), banded["first"], banded["first"], banded["frames"])[0]
+        # THE CASE THAT GOES RED when the band is narrower than the margin: a keep-out column just outside the box's tenth, inside the margin
+        assert narrow[:, 50:65, 36 - side // 2].all() and not got[:, 50:65, 36 - side // 2].any(), "the band the margin's width does not reach past a tenth"
         cfg.MASKED_JOB_HAIR_BAND["starts"] = "middle"
         try:
             _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**banded, "name": "a_mid"},)), "plan", [], **where), "starts", "top")
