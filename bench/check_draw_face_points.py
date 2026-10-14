@@ -472,6 +472,12 @@ def the_iris_between_the_lids() -> str:
     hi = df.draw(mesh, [[]], 1.0, set(), False, [[("l_iris_disc", iris, lids)]], contrast=True)[0]
     assert hi[100, 140].max() < 40 and hi[100, 110].min() > 215 and hi[100, 170].min() > 215, "the iris is not black, or the sclera not white, inside the lids"
     assert (hi[80, 140] == 128).all() and (hi[120, 140] == 128).all() and (hi[100, 190] == 128).all(), "something was filled outside the lids"
+    # THE EDGE STAYS (an outside reviewer, 2026-10-14): with the lash ring drawn over the fill, its black edge lies between the white
+    # sclera and the white line; filled after the lines, the white ran from the sclera into the line with no dark between
+    ring = [("l_lash_ring", lids, True)]
+    edged = df.draw(mesh, [ring], 3.0, set(), False, [[("l_iris_disc", iris, lids)]], contrast=True)[0]
+    cut = edged[100, 100:115].min(-1).astype(int)                       # from the lid's left corner into the sclera
+    assert cut[-1] > 215 and cut.min() < 150, ("no dark edge between the white sclera and the white lid line", cut.tolist())
     but = df.filled_px([[("l_iris_disc", iris, lids)]], (W_, H_))
     assert but[0, 100, 110] and but[0, 100, 140] and not but[0, 80, 140], "the read-back's leave-out is not the lids' inside"
     return (f"a ring larger than a narrow opening is drawn only where it lies between the lids ({off:.2f} of it outside), a ring wholly inside "

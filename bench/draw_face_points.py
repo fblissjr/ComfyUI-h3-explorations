@@ -58,8 +58,8 @@ An iris or a pupil ring runs by angle round its own centre point.
 AN IRIS OR A PUPIL RING IS DRAWN ONLY BETWEEN THE LIDS (`IRIS_FORMS`, since 2026-10-14): the ring is sampled densely
 (`RING_SAMPLES`) and only its stretches inside that eye's lash ring are drawn, each as an open line; a ring wholly
 inside is drawn closed, as before. `--iris whole` draws the whole ring, the form before; `--iris filled` draws each iris as a dark disc inside the lash ring
-(the edge colour) and no ring, a form a render is to decide on; `--iris contrast` fills, after the lines, each lash ring's
-sclera solid white and its iris solid black (the owner's word: the grey disc was lossy), the white left out of the read-back. With the lids lowered the
+(the edge colour) and no ring, a form a render is to decide on; `--iris contrast` fills, before the lines, each lash ring's
+sclera solid white and its iris solid black, the lines' black edge round them (the owner's word: the grey disc was lossy), the white left out of the read-back. With the lids lowered the
 whole ring was larger than the opening and read as an open eye looking down. The record says which was drawn and,
 for each ring, the share of it that lay outside the lids, least, median and most over the frames.
 
@@ -157,7 +157,8 @@ RINGS = ("iris", "pupil")
 #: widths on 1121-1133) and the reference drew the ring off-centre, and the render looked at the camera: a thin outline
 #: did not carry it (internal/claude/2026-10-14_mrtwo_scripts/gaze/).
 #: `contrast` (2026-10-14, the owner's word after seeing `filled` as "a slightly darker grey" at 1131): the sclera inside each
-#: lash ring filled solid white and the iris solid black, both clipped to the lids, drawn after the lid lines.
+#: lash ring filled solid white and the iris solid black, both clipped to the lids, drawn before the lid lines so their
+#: black edge stays round both (drawn after them until an outside reviewer's sheet showed the edge lost).
 IRIS_FORMS = ("between the lids", "whole", "filled", "contrast")
 #: Points a ring is sampled at to find where it lies between the lids. Reasoned: a ring is eight points round a
 #: centre; 64 along it puts a sample about every 6 degrees, finer than a line is wide on any face drawn so far.
@@ -373,9 +374,11 @@ def white_expected(drawing: list[tuple[str, np.ndarray, bool]], width: float, do
 
 def draw(mesh: np.ndarray, drawings: list[list], width: float, bare: set[int], dots: bool = True, fills: list[list] | None = None,
          contrast: bool = False) -> np.ndarray:
-    """The mesh frames [n, h, w, 3] with every frame's drawing on it. With `fills` and not `contrast`: an iris disc first, in
-    the edge colour and inside its lash ring only; then the lines, black a little wider first, then white. With `contrast`:
-    the lines, then inside each lash ring the sclera solid white (the line colour) and the iris solid black (the edge colour)."""
+    """The mesh frames [n, h, w, 3] with every frame's drawing on it. With `fills`: first, inside each lash ring only, the
+    iris in the edge colour, and with `contrast` the sclera solid white (the line colour) under it; then the lines over
+    them, black a little wider first, then white, so the black edge stays round the white sclera and the black iris (an
+    outside reviewer, 2026-10-14: filled after the lines, the white sclera covered the lash ring's black edge and the
+    eye ran into the lid line)."""
     from PIL import ImageChops
     look = h3_config.FACE_POINTS
     h, w = mesh.shape[1:3]
@@ -391,8 +394,7 @@ def draw(mesh: np.ndarray, drawings: list[list], width: float, bare: set[int], d
             im.paste(tuple(look["edge"]), mask=ImageChops.multiply(a, b))
     for f in range(len(mesh)):
         im = Image.fromarray(mesh[f]).resize((w * SUPER, h * SUPER), Image.BICUBIC)
-        if not contrast:
-            fill(im, f, False)
+        fill(im, f, contrast)
         d = ImageDraw.Draw(im)
         for colour, pad in ((tuple(look["edge"]), look["edge_px"]), (tuple(look["line"]), 0.0)):
             for _, pts, closed in ([] if f in bare else drawings[f]):
@@ -402,8 +404,6 @@ def draw(mesh: np.ndarray, drawings: list[list], width: float, bare: set[int], d
                 r = ((width if dots else width / 2) + pad) * SUPER   # a dot at every point; with none, a round end and a round joint
                 for x, y in run:
                     d.ellipse([x - r, y - r, x + r, y + r], fill=colour)
-        if contrast:
-            fill(im, f, True)
         out[f] = np.asarray(im.resize((w, h), Image.LANCZOS))
     return out
 
@@ -583,8 +583,8 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
                       "frames_a_ring_is_left_out_on": rings, "score_a_frame_least_median_most": scores,
                       "drawn": iris, "drawn_is": {IRIS_FORMS[0]: "only the stretches of each ring between the lids", IRIS_FORMS[1]: "each ring whole",
                                                   IRIS_FORMS[2]: "each iris a dark disc inside the lash ring, and no ring",
-                                                  IRIS_FORMS[3]: "inside each lash ring the sclera solid white and the iris solid black, drawn after "
-                                                                 "the lines; the white of the sclera is left out of the read-back"}[iris],
+                                                  IRIS_FORMS[3]: "inside each lash ring the sclera solid white and the iris solid black, drawn before "
+                                                                 "the lines, whose black edge stays round them; the white of the sclera is left out of the read-back"}[iris],
                       "share_of_the_ring_outside_the_lids_least_median_most": {
                           k: ([round(float(v), 2) for v in np.percentile(vals, [0, 50, 100])] if vals else None)
                           for k in rings for vals in [[o[k] for o in offs if k in o]]}},
