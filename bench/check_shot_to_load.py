@@ -231,7 +231,7 @@ class Made:
 
 def args(**more) -> argparse.Namespace:
     given = dict(by="the session", day="2026-01-03", cast=None, queue=False, first=None, frames=None, why=None, remake=False, plain=None, model_store="",
-                 existing=False, writer=None, why_before=None, why_after=None, zoomed=None, least=None, least_why=None, ask=[], seed_cuts_of=None, parts=None, parts_by=None, parts_on=[],
+                 existing=False, writer=None, why_before=None, why_after=None, zoomed=None, least=None, least_why=None, ask=[], seed_cuts_of=None, parts=None, parts_by=None, parts_on=[], whole_frame=None, mouth=None, iris=None, form_why="",
                  track_not=[], track_not_by=None)
     given.update(more)
     return argparse.Namespace(**given)
@@ -647,14 +647,28 @@ def a_loads_job_file_stands_alone() -> str:
         made.plan["subjects"]["a"].update(pieces="largest", pieces_by=" ")
         refused(made.load, "`pieces_by` says who chose it")
         del made.plan["subjects"]["a"]["pieces"], made.plan["subjects"]["a"]["pieces_by"]
-        # TWO CHOICES ABOUT ONE LOAD, each with its words and neither with a default: rendered zoomed in, and the capture's floor
-        assert "render_region" not in load and "zoomed" not in job and all("least" not in s for s in job["subjects"]), "a load is zoomed or floored with nobody saying so"
+        # ZOOMED IN BY DEFAULT (the owner's word of 2026-10-14), the node deciding at plan; the whole frame on a word, the load's or the plan's
+        assert load["render_region"] == "part" and job["zoomed"]["said_by"] == "the chain's default" and "whole_frame" not in job, (load, job.get("zoomed"))
+        assert "RENDERED ZOOMED IN" in job["note"] and "the chain's default" in job["note"], job["note"]
+        whole = made.load(whole_frame="the shot is a crowd and her face fills a third of the frame")
+        assert "render_region" not in whole["loads"][0] and whole["job"]["whole_frame"]["why"].startswith("the shot is a crowd") and "zoomed" not in whole["job"], whole["job"]
+        assert "RENDERED ON THE WHOLE FRAME, not zoomed in as the chain's default, on the session's word" in whole["job"]["note"], whole["job"]["note"]
+        refused(lambda: made.load(whole_frame=" "), "--whole-frame takes the reason in words")
+        refused(lambda: made.load(whole_frame="x", zoomed="y"), "one load is rendered one way")
+        made.plan["subjects"]["a"].update(zoom=False, zoom_by="the owner: this subject's loads stay on the whole frame")
+        planned_whole = made.load()
+        assert "render_region" not in planned_whole["loads"][0] and planned_whole["job"]["whole_frame"]["said_by"] == "the plan", planned_whole["job"]
+        made.plan["subjects"]["a"]["zoom_by"] = " "
+        refused(made.load, "`zoom: false` for 'a' with no `zoom_by`")
+        del made.plan["subjects"]["a"]["zoom"], made.plan["subjects"]["a"]["zoom_by"]
+        # THE CAPTURE'S FLOOR is a choice with its words and no default
+        assert all("least" not in s for s in job["subjects"]), "a load is floored with nobody saying so"
         z = made.load(zoomed="her face is  40 px tall on the whole frame", least=600, least_why="the part is drawn four times its whole-frame size")
         zl, zs = z["loads"][0], next(s for s in z["job"]["subjects"] if s["label"] == "a")
         assert zl["render_region"] == "part" and z["job"]["zoomed"] == {"why": "her face is 40 px tall on the whole frame", "said_by": "the session", "at": "now"}, z["job"].get("zoomed")
         assert (zs["least"], zs["least_by"]) == (600, "the session, now: the part is drawn four times its whole-frame size"), zs
         assert all("least" not in s for s in z["job"]["subjects"] if s["label"] != "a"), "another subject's floor was set"
-        assert "RENDERED ZOOMED IN on what is replaced (`render_region: part`), on the session's word: her face is 40 px tall" in z["job"]["note"] \
+        assert "RENDERED ZOOMED IN on what is replaced (`render_region: part`) where the node's box allows, on the session's word: her face is 40 px tall" in z["job"]["note"] \
             and "THE CAPTURE'S FLOOR FOR a's PART IS SET FOR THIS LOAD: least=600 px" in z["job"]["note"], z["job"]["note"]
         graphs.check_job(z["job"])
         for one in masked_job.loads_of(z):                        # the builder takes a zoomed load written this way: a part, with a motion file of its own
@@ -1269,10 +1283,14 @@ def the_reference_step() -> str:
         assert opt(pose, "--model-folder") == "/store/pose-model" and opt(pose, "--canvas") == "1024x768" and opt(pose, "--video") == "/in/copy.mov", pose
         assert (opt(ref, "--first"), opt(ref, "--count"), opt(ref, "--mesh"), opt(ref, "--mesh-first"), opt(ref, "--out")) == ("104", "40", str(mesh), "100", str(drawn)), ref
         assert opt(ref, "--points") == opt(pose, "--out") == str(folder / "a_0104_0143_points.npz")
+        # THE CHAIN'S DEFAULTS (2026-10-14): the eye in contrast, the mouth by the lip check against the preview's class map of the subject
+        classes = made.m.output / "Video/v/the session/shot_c_0100/shot_c_0100_a_classes_00001.mkv"
+        assert (opt(ref, "--iris"), opt(ref, "--mouth"), opt(ref, "--classes"), opt(ref, "--classes-first")) == ("contrast", "auto", str(classes), "100"), ref
         after = json.loads(job_file.read_text())
         block = after["job"]["reference"]
         assert (block["form"], block["said_by"], block["record"]) == ("drawn", "the session", str(drawn.with_suffix(".json"))) and block["made"].endswith("Z"), block
         assert block["figures"]["in_the_reference"]["enlarged"] == 2.5 and after["loads"][0]["motion_file"] == str(drawn), block
+        assert block["mouth"]["said_by"] == block["iris"]["said_by"] == "the chain's default" and "drawn" in block, block
         # the figures decide nothing: thirty frames under the line at the canvas, and the form is the drawn one
         assert block["figures"]["at_the_canvas"]["frames_with_the_gap_under_the_line"] == 30 and block["form"] == "drawn"
         # made once: a reference for this subject and span is there
@@ -1320,6 +1338,50 @@ def the_reference_step() -> str:
             "written by default and the plain cut only with words; refused without the store, on a busy queue and where the folder is there")
 
 
+def the_defaults_this_load_carries() -> str:
+    """The owner's word of 2026-10-14: make these our defaults and stop forgetting the tools we built. Every job step prints, and the
+    job file keeps, the defaults the load carries, each with where it comes from; the plan may say otherwise with its reason."""
+    import io
+    from contextlib import redirect_stdout
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        d = made.load()
+        lines = {x["what"]: x for x in d["job"]["defaults"]}
+        assert list(lines) == ["the reference held to the subject's track", "the eye", "the mouth", "zoom", "the strangers keep-out", "the part's pieces",
+                               "the hair band", "restore spans", "the text"], list(lines)
+        assert lines["the eye"]["carries"].startswith("white sclera and black iris") and lines["the eye"]["from"].startswith("the chain's default"), lines["the eye"]
+        assert lines["the mouth"]["carries"].startswith("drawn when the lip lines lie") and lines["zoom"]["from"].startswith("the chain's default"), lines
+        made.plan["subjects"]["a"]["reference"] = {"mouth": "left out", "iris": "between the lids", "why": "the owner, on this subject's stills"}
+        d = made.load()
+        lines = {x["what"]: x for x in d["job"]["defaults"]}
+        assert d["job"]["reference"]["mouth"] == {"form": "left out", "said_by": "the plan", "why": "the owner, on this subject's stills"}, d["job"]["reference"]
+        assert lines["the mouth"]["carries"] == "left out" and lines["the eye"]["from"] == "the plan: the owner, on this subject's stills", lines
+        made.plan["subjects"]["a"]["reference"] = {"mouth": "open"}
+        refused(made.load, "says no `why`")
+        made.plan["subjects"]["a"]["reference"] = {"mouth": "open", "why": "w"}
+        refused(made.load, "`reference.mouth`", "one of")
+        del made.plan["subjects"]["a"]["reference"]
+        # printed by the job step, one line each with where it comes from
+        folder = made.preview_ran(made.preview())
+        out = io.StringIO()
+        made.m.dry = True
+        with redirect_stdout(out):
+            stl.step_job(args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="a", preview=str(folder)), made.m)
+        made.m.dry = False
+        text = out.getvalue()
+        assert "THE DEFAULTS THIS LOAD CARRIES:" in text and "  the eye: white sclera and black iris inside the lids  [the chain's default" in text, text[-1500:]
+        # the reference step's own word stands over the job's, with its reason, and not without one
+        job = {"reference": {"mouth": {"form": "auto"}, "iris": {"form": "contrast"}}}
+        files = {"classes": Path("/c.mkv")}
+        assert stl.drawn_form(job, args(), files, 100) == ["--iris", "contrast", "--mouth", "auto", "--classes", "/c.mkv", "--classes-first", 100]
+        assert stl.drawn_form(job, args(mouth="drawn", form_why="her mouth reads on the stills"), files, 100) == \
+            ["--iris", "contrast", "--mouth", "drawn", "--mouth-why", "her mouth reads on the stills"]
+        refused(lambda: stl.drawn_form(job, args(iris="whole"), files, 100), "say why with --form-why")
+        refused(lambda: stl.drawn_form(job, args(), {"classes": None}, 100), "the preview saved none")
+        assert stl.drawn_form({}, args(), files, 100) == [], "a job written before the defaults is drawn as the tool's own"
+    return ("the job prints and keeps the defaults it carries, each with where it comes from (the eye in contrast, the mouth by the lip check, zoomed where "
+            "the node allows); the plan's reference form stands over them with its reason, and not without one; the reference step's word with its reason over both")
+
 def the_figures() -> str:
     from _lib import face_points as fp
     kept = fp.load, fp.table
@@ -1357,6 +1419,7 @@ case("a track that is not its person on named frames", a_track_that_is_not_its_p
 case("text: who wrote it, said with a flag", the_text_step)
 case("a job renders from the video's present copy", a_job_renders_from_the_present_copy)
 case("reference: on the load's frames, drawn by default", the_reference_step)
+case("the defaults this load carries", the_defaults_this_load_carries)
 case("the figures, at the canvas and in the reference", the_figures)
 
 if __name__ == "__main__":

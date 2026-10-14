@@ -19,6 +19,13 @@ record, a pose pass and a head reference run with each other's outputs for argum
 the last one with its settings typed again. The video has some sixty shots still to make. This writes the job
 files and runs the two tools, from the video's own records, and leaves to a person only what is a person's.
 
+**The defaults a load carries** (the owner's word of 2026-10-14: make these our defaults and stop forgetting the tools we
+built): zoomed in where the node's box allows (`--whole-frame "why"`, or the plan's `zoom: false` with `zoom_by`, for the
+whole frame); the reference's eye in the contrast form and its mouth by the lip check (`REFERENCE_DEFAULT`; the plan's
+`reference: {mouth, iris, why}`, or the reference step's `--mouth`/`--iris` with `--form-why`); and from the plan, the
+strangers keep-out, `pieces`, the hair band and the restore spans. The job step prints them as THE DEFAULTS THIS LOAD
+CARRIES, a line each with where it comes from, and keeps the same in the job file (`job.defaults`).
+
 **What is read, and from where.**
 
 - The shots record (`data/<video>/shots.json`): the shot's frames and who is in it. For a subject with no line in
@@ -904,6 +911,7 @@ def free_name(base: str, taken, remake: bool) -> str:
 def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, preview_folder: str, video: str, output: Path, by: str, day: str,
              name: str, first: int | None = None, frames: int | None = None, why: str = "", now: str = "", source: str | None = None,
              why_before: str = "", why_after: str = "", zoomed: str | None = None, least: int | None = None, least_why: str | None = None,
+             whole_frame: str | None = None,
              preview_files: list[str] | None = None, parts: list[str] | None = None, parts_by: str | None = None, classes_of=part_classes,
              parts_on: list[tuple[int, int, list[str]]] | None = None, track_not: list[tuple[str, int, int, str]] | None = None,
              track_not_by: str | None = None) -> dict:
@@ -970,6 +978,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
                           f"carry a band: take `hair_band` out of {subject!r} in the plan file and the load is made without one, or write by hand a load on a "
                           f"preview that tracks the keep-out")
         load["hair_band"] = band["value"] if isinstance(band, dict) else band
+    ref_form = reference_form(p, subject)
     subjects = [{k: v for k, v in s.items() if k in ("label", "phrase", "pick", "parts", "still", "pose")} for s in preview["subjects"]]
     # The capture's `pieces` for the load's subject, when the plan says one: a key on the subject in the job file, where
     # the chain reads it. The tool sets it for nobody; every load before the chain ran with `pieces=largest` typed into
@@ -993,14 +1002,32 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         mine = next(s for s in subjects if s["label"] == subject)
         mine["parts_file"], mine["parts_held_to_track_px"] = on_track["file"], on_track["grow_px"]
     # Two choices about this one load, each a person's with its words, neither with a default.
-    chosen, zoom_block = "", None
-    if zoomed is not None:
-        if not zoomed.strip():
-            raise Refused("--zoomed takes the reason in words: a load is rendered zoomed in on a person's word, after a look at its part's size, and the word is kept")
+    # ZOOMED IN BY DEFAULT (the owner's word of 2026-10-14: every load made with our tools, not a session's choice per load): a part
+    # load is rendered `render_region: part`, and the node's own box decides at plan (`video_mask.zoom_box`: under ZOOM_SMALLEST it
+    # renders the whole frame itself, and says so). The whole frame is a person's word with its reason: on the load (--whole-frame)
+    # or on the subject in the plan (`zoom: false` with `zoom_by`).
+    chosen, zoom_block, whole_block = "", None, None
+    if zoomed is not None and whole_frame is not None:
+        raise Refused("--zoomed and --whole-frame together: one load is rendered one way")
+    for flag, words in (("--zoomed", zoomed), ("--whole-frame", whole_frame)):
+        if words is not None and not words.strip():
+            raise Refused(f"{flag} takes the reason in words, and the word is kept")
+    if p.get("zoom", True) is not False and not str(p.get("zoom_by") or "").strip() and "zoom" in p:
+        raise Refused(f"the plan's `zoom` for {subject!r} is {p['zoom']!r}: `false` with `zoom_by` (who said so, and why), or leave it out")
+    if p.get("zoom") is False and not str(p.get("zoom_by") or "").strip():
+        raise Refused(f"the plan says `zoom: false` for {subject!r} with no `zoom_by`: who said so, and why")
+    if whole_frame is not None or (p.get("zoom") is False and zoomed is None):
+        whole_block = ({"why": " ".join(whole_frame.split()), "said_by": by, "at": now} if whole_frame is not None
+                       else {"why": " ".join(str(p["zoom_by"]).split()), "said_by": "the plan", "at": now})
+        chosen += (f" RENDERED ON THE WHOLE FRAME, not zoomed in as the chain's default, on {whole_block['said_by']}'s word: {whole_block['why']}.")
+    else:
         load["render_region"] = "part"
-        zoom_block = {"why": " ".join(zoomed.split()), "said_by": by, "at": now}
-        chosen += (f" RENDERED ZOOMED IN on what is replaced (`render_region: part`), on {by}'s word: {zoom_block['why']}. One box for the whole load, the node's "
-                   "own; the capture reads the node's plan back onto the frame, and the part's sizes and floor it prints are still of the whole frame.")
+        zoom_block = ({"why": " ".join(zoomed.split()), "said_by": by, "at": now} if zoomed is not None
+                      else {"why": "the chain's default (2026-10-14): rendered zoomed in whenever the node's own box allows; the node decides at plan and "
+                                   "renders on the whole frame under its smallest zoom", "said_by": "the chain's default", "at": now})
+        chosen += (f" RENDERED ZOOMED IN on what is replaced (`render_region: part`) where the node's box allows, on {zoom_block['said_by']}'s word: "
+                   f"{zoom_block['why']}. One box for the whole load, the node's own; the capture reads the node's plan back onto the frame, and the part's "
+                   "sizes and floor it prints are still of the whole frame.")
     if (least is None) != (not str(least_why or "").strip()):
         raise Refused("--least and --least-why go together: the capture's floor for a part is a person's number, and the reason is kept beside it")
     if least is not None:
@@ -1010,6 +1037,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         mine["least"], mine["least_by"] = int(least), f"{by}, {now}: {' '.join(least_why.split())}"
         chosen += (f" THE CAPTURE'S FLOOR FOR {subject}'s PART IS SET FOR THIS LOAD: least={int(least)} px of the whole frame, on {by}'s word: "
                    f"{' '.join(least_why.split())}.")
+    carried = defaults_carried(p, load, subjects, subject, kept, ref_form, zoom_block, whole_block)
     note = (f"Written by bench/shot_to_load.py for {by}, {now}. ONE LOAD: {subject}, {region}, source frames {a} to {b} ({n} frames) of the shot "
             f"{shot['first']}-{shot['last']}, its masks from the preview {preview['name']} (job.preview), in the frozen form: the body model cut to the head "
             f"with the face points drawn, made on these frames by this tool's `reference` step. Its settings are in `defaults`, from workflows/h3_config.py. "
@@ -1021,8 +1049,11 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
                     "capture": f"data/{day}_{name}", "preview": preview_folder,
                     "texts": {name: {"file": f"{name}.txt", "frames": [a, b], "by": ""}},
                     **({"keep_outs": kept} if kept else {}), **({"part": part} if part else {}), **({"part_on_track": on_track} if on_track else {}), **({"zoomed": zoom_block} if zoom_block else {}),
+                    **({"whole_frame": whole_block} if whole_block else {}),
                     **({"track_not": gone} if gone else {}),
-                    "reference": {"form": "drawn", "why": "the form for a face, head or hair replacement (AGENTS.md, Settled)", "made": None}},
+                    "reference": {"form": "drawn", "why": "the form for a face, head or hair replacement (AGENTS.md, Settled)", "made": None,
+                                  "mouth": ref_form["mouth"], "iris": ref_form["iris"]},
+                    "defaults": carried},
             "defaults": {**h3_config.MASKED_LOAD_DEFAULTS, "margin": h3_config.MASKED_LOAD_MARGIN[region], "seed": h3_config.SEED},
             "loads": [load]}
 
@@ -1045,6 +1076,60 @@ def figures_of(points: Path, scale: float) -> dict:
 
 def reference_block(form: str, why: str, by: str, now: str, record: Path, points: Path, figures: dict) -> dict:
     return {"form": form, "why": why, "said_by": by, "made": now, "record": str(record), "points": str(points), "figures": figures}
+
+
+#: THE REFERENCE'S FORM BY DEFAULT (the owner's word of 2026-10-14: "make these our defaults and stop forgetting the tools we
+#: built"): the mouth by the lip check (`head_reference.mouth_check`), the eye in the contrast form (white sclera, black iris,
+#: 264c0840). A subject's plan may say otherwise (`reference: {mouth, iris, why}`), and a load at its reference step, each
+#: with its reason.
+REFERENCE_DEFAULT = {"mouth": "auto", "iris": "contrast"}
+
+
+def reference_form(p: dict, subject: str) -> dict:
+    """The mouth and the eye a subject's references are drawn with, and whose word each is."""
+    import draw_face_points
+    import head_reference
+    said = p.get("reference") or {}
+    if said and not str(said.get("why") or "").strip():
+        raise Refused(f"the plan's `reference` for {subject!r} says no `why`: who said so, and why")
+    out = {}
+    for key, choices in (("mouth", head_reference.MOUTH_FORMS), ("iris", draw_face_points.IRIS_FORMS)):
+        if key in said:
+            if said[key] not in choices:
+                raise Refused(f"the plan's `reference.{key}` for {subject!r} is {said[key]!r}: one of {choices}")
+            out[key] = {"form": said[key], "said_by": "the plan", "why": " ".join(str(said["why"]).split())}
+        else:
+            out[key] = {"form": REFERENCE_DEFAULT[key], "said_by": "the chain's default", "why": "REFERENCE_DEFAULT (2026-10-14)"}
+    return out
+
+
+def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: dict | None, ref_form: dict, zoom_block, whole_block) -> list[dict]:
+    """THE DEFAULTS THIS LOAD CARRIES (the owner's word of 2026-10-14), one line each, with where each comes from: printed by the
+    job step and kept in the job file (`job.defaults`)."""
+    import h3_config
+    mine = next(s for s in subjects if s["label"] == subject)
+    names = [k["name"] for k in (kept or {}).get("made", [])]
+    band = load.get("hair_band")
+    mouth, iris = ref_form["mouth"], ref_form["iris"]
+    lines = [
+        ("the reference held to the subject's track", "the pose pass reads the face inside the subject's track (pose_along_shot HOLD_GROW_PX); "
+         "a short run of frames off it takes its neighbours' points (head_reference FILL_GAP)", "the chain"),
+        ("the eye", {"contrast": "white sclera and black iris inside the lids", "between the lids": "the iris ring between the lids",
+                     "filled": "a dark iris disc inside the lids", "whole": "the whole iris ring"}[iris["form"]], f"{iris['said_by']}: {iris['why']}"),
+        ("the mouth", {"auto": "drawn when the lip lines lie on the class map's mouth (head_reference.MOUTH_CHECK), else left out: decided and printed at "
+                               "the reference step", "drawn": "drawn", "left out": "left out"}[mouth["form"]], f"{mouth['said_by']}: {mouth['why']}"),
+        ("zoom", "zoomed in where the node's box allows (the node decides at plan)" if zoom_block else "the whole frame",
+         f"{(zoom_block or whole_block)['said_by']}: {(zoom_block or whole_block)['why']}"),
+        ("the strangers keep-out", "kept out" if "strangers" in names else "not kept out", "the plan" + (f": {p.get('keep_outs_by')}" if p.get("keep_outs") else "")),
+        ("the part's pieces", f"pieces={mine['pieces']}" if mine.get("pieces") else "every piece", "the plan" + (f": {p.get('pieces_by')}" if p.get("pieces") else "")),
+        ("the hair band", f"{band:g} of the part's height under it, from the box's top, the margin's width each side"
+         + f" (h3_config.MASKED_JOB_HAIR_BAND: starts {h3_config.MASKED_JOB_HAIR_BAND['starts']}, wider {h3_config.MASKED_JOB_HAIR_BAND['wider']})" if band is not None else "none",
+         "the plan" if band is not None else "the plan names none"),
+        ("restore spans", "; ".join(f"{'+'.join(x['classes'])} on {x['first']}-{x['last']}" for x in p.get("restore") or []) or "none",
+         "the plan (bench/delivery_table.py writes them onto the rows)" + (f": {p.get('restore_by')}" if p.get("restore") else "")),
+        ("the text", "written by a person, as the job file's `texts` says", "until the text generator lands"),
+    ]
+    return [{"what": a, "carries": b, "from": c} for a, b, c in lines]
 
 
 # ---------------------------------------------------------------- the steps
@@ -1145,6 +1230,7 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
     rel = str(pfolder.resolve().relative_to(REPO.resolve())) if pfolder.resolve().is_relative_to(REPO.resolve()) else str(pfolder)
     job = load_job(shots, plan, shot, a.subject, preview, rel, video, world.output, a.by, a.day, name, a.first, a.frames, a.why or "", load_chain.utc_now(),
                    source=str(source), why_before=a.why_before or "", why_after=a.why_after or "", zoomed=a.zoomed, least=a.least, least_why=a.least_why,
+                   whole_frame=a.whole_frame,
                    preview_files=ran.get("files") or [], parts=a.parts, parts_by=a.parts_by, classes_of=classes_of,
                    parts_on=[parts_on_arg(x) for x in a.parts_on], track_not=[track_not_arg(x) for x in a.track_not], track_not_by=a.track_not_by)
     job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "ITS PREVIEW WAS MADE ON AN EARLIER COPY")
@@ -1152,6 +1238,9 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
     print(f"{name}: {a.subject}, {region}, source frames {job['loads'][0]['first']}-{job['loads'][0]['first'] + job['loads'][0]['frames'] - 1}; "
           f"its reference will be {job['loads'][0]['motion_file']}")
     print(job["job"]["note"])                # the load in words, as the preview step prints its own: a dry run shows every choice made for it
+    print("THE DEFAULTS THIS LOAD CARRIES:")
+    for line in job["job"]["defaults"]:
+        print(f"  {line['what']}: {line['carries']}  [{line['from']}]")
     load_held_as_the_builder_holds(job, world)
     # the keep-outs the plan names are made before the job file that points at them is written; a dry run says what would be
     # what is looked for is held first, and the track a part is held to, so a refusal writes nothing; the held part last: it is
@@ -1225,12 +1314,34 @@ def step_reference(a, world, figures=figures_of) -> None:
     world.run(ctx, "pose pass", [world.python, "bench/pose_along_shot.py", "run", "--video", job["source"], "--first", first, "--count", load["frames"], "--canvas", canvas,
                                  "--box-mask", files["track"], "--box-mask-first", ctx["preview"]["first"], "--model-folder", Path(store) / world.pose_model,
                                  "--out", points, "--by", a.by])
+    flags = drawn_form(job, a, files, ctx["preview"]["first"])
     world.run(ctx, "head reference", [world.python, "bench/head_reference.py", "--mesh", mesh, "--mesh-first", ctx["preview"]["first"], "--points", points,
-                                      "--source", job["source"], "--first", first, "--count", load["frames"], "--out", drawn, "--by", a.by])
+                                      "--source", job["source"], "--first", first, "--count", load["frames"], "--out", drawn, "--by", a.by, *flags])
     if world.dry:
         return
     record = drawn.with_suffix(".json")
     written(a, ctx, json.loads(record.read_text()), record, points, drawn, form, why, figures)
+
+
+def drawn_form(job: dict, a, files: dict, preview_first: int) -> list:
+    """The head reference tool's flags for the mouth and the eye: the job's (the plan's or the chain's default, `reference_form`),
+    or the reference step's own `--mouth`/`--iris` with `--form-why`. A job written before 2026-10-14 says neither: its form is the
+    tool's own as before (the mouth left out, the iris between the lids)."""
+    said = job.get("reference") or {}
+    mouth = a.mouth or (said.get("mouth") or {}).get("form")
+    iris = a.iris or (said.get("iris") or {}).get("form")
+    if (a.mouth or a.iris) and not str(a.form_why or "").strip():
+        raise Refused("--mouth and --iris at the reference step are a person's word: say why with --form-why")
+    out = []
+    if iris:
+        out += ["--iris", iris]
+    if mouth == "auto":
+        if files.get("classes") is None:
+            raise Refused("the mouth is drawn by the lip check, which reads the subject's class map, and the preview saved none")
+        out += ["--mouth", "auto", "--classes", str(files["classes"]), "--classes-first", preview_first]
+    elif mouth:
+        out += ["--mouth", mouth, "--mouth-why", a.form_why if a.mouth else (said["mouth"].get("why") or "")]
+    return out
 
 
 def written(a, ctx: dict, made: dict, record: Path, points: Path, drawn: Path, form: str, why: str, figures, taken: bool = False) -> None:
@@ -1238,7 +1349,12 @@ def written(a, ctx: dict, made: dict, record: Path, points: Path, drawn: Path, f
     load = ctx["load"]
     got = figures(points, float(made["scale"][0]))
     d = json.loads(Path(a.job_file).read_text())
+    was = d["job"].get("reference") or {}
     d["job"]["reference"] = reference_block(form, why, a.by, made["made_at"] if taken else load_chain.utc_now(), record, points, got)
+    # the mouth and the eye as asked, and as drawn (the record's own words: the check's figures, the iris form)
+    d["job"]["reference"].update({k: was[k] for k in ("mouth", "iris") if k in was},
+                                 drawn={"mouth": (made.get("drawn") or {}).get("mouth"), "iris": (made.get("drawn") or {}).get("iris"),
+                                        "parts_left_out": (made.get("drawn") or {}).get("parts_left_out")})
     if taken:
         d["job"]["reference"]["taken_as_it_was"] = f"made by {made.get('made_by')}; read into this job by {a.by} at {load_chain.utc_now()}, nothing run"
     # the plain cut's name is the reference tool's own, read from its record
@@ -1321,7 +1437,9 @@ def main() -> int:
     j.add_argument("--parts-on", action="append", default=[], metavar="FIRST-LAST=NAME[+NAME]",
                    help="on these source frames the load's part is these of the plan's parts, and elsewhere --parts or the plan's (a part that changes "
                         "inside one load); with --parts-by; repeatable")
-    j.add_argument("--zoomed", metavar="WHY", help="render this load zoomed in on what is replaced, on a person's word; the reason is kept in the job file")
+    j.add_argument("--zoomed", metavar="WHY", help="render this load zoomed in on what is replaced, with a person's reason kept in the job file "
+                   "(the chain's default since 2026-10-14 without it)")
+    j.add_argument("--whole-frame", metavar="WHY", help="render this load on the whole frame, not zoomed in as the chain's default; the reason is kept in the job file")
     j.add_argument("--least", type=int, metavar="PX", help="the capture's floor for the subject's part on this load, in px of the whole frame; with --least-why")
     j.add_argument("--least-why", metavar="WHY", help="why the floor is set there; kept beside it in the job file")
     r = sub.add_parser("reference")
@@ -1329,6 +1447,9 @@ def main() -> int:
     r.add_argument("--plain", metavar="WHY", help="take the plain cut, on a person's word; the reason is kept in the job file")
     r.add_argument("--existing", action="store_true", help="a load made again on the same frames: read the reference that is there, run nothing")
     r.add_argument("--model-store", default="", help=f"the folder holding the pose model's folder; over the environment's {load_chain.MODEL_STORE}")
+    r.add_argument("--mouth", choices=("auto", "drawn", "left out"), help="the mouth, over the job's (the plan's or the chain's default), with --form-why")
+    r.add_argument("--iris", choices=("between the lids", "whole", "filled", "contrast"), help="the eye, over the job's, with --form-why")
+    r.add_argument("--form-why", default="", help="why this load's mouth or eye is drawn otherwise than its job says")
     t = sub.add_parser("text")
     t.add_argument("job_file")
     t.add_argument("--writer", required=True, metavar="WORDS", help="who wrote the load's text, and from which frames; into texts.<label>.by")

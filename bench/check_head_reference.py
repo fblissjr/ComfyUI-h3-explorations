@@ -246,9 +246,49 @@ def a_face_off_the_track_fails() -> str:
             "interpolated, and the record says so and calls them filled, not read; a frame at the span's edge and a longer run fail the run, with every "
             "read-back passing and the sheet written; a frame outside the span is not counted; a record with none passes; one that says nothing passes as not known")
 
+def the_mouth_by_the_check() -> str:
+    """The chain's default of 2026-10-14: the mouth drawn when the lip lines lie on the class map's mouth, left out when they do not
+    (the lead's 0294d: the points bunched on her upper lip while the class map held her open mouth)."""
+    import cv2
+    import capture_masked_run as cap
+    from _lib import face_points as fp
+    names = cap._pack("sapiens2_parts").CLASS_NAMES
+    seen = {}
+    for name, on in (("on", True), ("off", False)):
+        folder, mesh, pts, source = rooms(f"mouth_{name}", [90] * N, [60] * N, CENTRES, 0)
+        P = fp.load(str(pts), None)
+        lips = [i for k, i in P["index"].items() if "outer_lip" in k or k in ("r_outer_corner_of_mouth", "l_outer_corner_of_mouth")]
+        cm = np.zeros((N, H, W), np.uint8)
+        for f in range(N):
+            for x, y in P["keypoints"][f][lips]:
+                cx, cy = (int(round(x)), int(round(y))) if on else (int(round(x)) + 40, int(round(y)) + 40)
+                cv2.circle(cm[f], (cx, cy), 2, names.index("Upper_Lip"), -1)
+        classes = folder / "classes.mkv"
+        enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "gray", "-s", f"{W}x{H}", "-r", "24", "-i", "-", "-c:v", "ffv1",
+                                "-level", "3", str(classes)], stdin=subprocess.PIPE)
+        enc.stdin.write(cm.tobytes()); enc.stdin.close(); assert enc.wait() == 0
+        said: list[str] = []
+        rec = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head.mp4", "the check", room=ROOM, mouth="auto", classes=str(classes), classes_first=0, say=said.append)
+        seen[name] = (rec, said)
+    on, said_on = seen["on"]
+    off, said_off = seen["off"]
+    # THE CASE THAT GOES RED when the mouth is drawn whatever the check says, or left out whatever it says
+    assert on["drawn"]["mouth"]["drawn"] and "mouth" not in on["drawn"]["parts_left_out"] and on["drawn"]["mouth"]["check"]["frames_at_or_over_the_share"] == N, on["drawn"]
+    assert not off["drawn"]["mouth"]["drawn"] and "mouth" in off["drawn"]["parts_left_out"] and off["drawn"]["mouth"]["check"]["frames_at_or_over_the_share"] == 0, off["drawn"]
+    assert any("the mouth: DRAWN by the check" in x for x in said_on) and any("the mouth: LEFT OUT by the check" in x for x in said_off), (said_on, said_off)
+    folder, mesh, pts, source = rooms("mouth_word", [90] * N, [60] * N, CENTRES, 0)
+    try:
+        hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head.mp4", "the check", room=ROOM, mouth="drawn", say=lambda *_: None)
+    except SystemExit as e:
+        assert "--mouth-why" in str(e), e
+    else:
+        raise AssertionError("the mouth drawn on a word with no reason")
+    return "the mouth drawn where the lip lines lie on the class map's mouth and left out where they do not, the figures in the record; drawn on a word only with its reason"
+
 case("one run makes the form", one_run_makes_the_form)
 case("a face off the subject's track fails the run", a_face_off_the_track_fails)
 case("frames from the middle of all three files", frames_from_the_middle)
+case("the mouth by the check", the_mouth_by_the_check)
 case("it writes over nothing, and nothing when it cannot finish", it_writes_over_nothing)
 case("the form's defaults can be set aside, and the record says so", the_defaults_can_be_set_aside)
 case("a step that fails fails the run", a_step_that_fails_fails_the_run)
