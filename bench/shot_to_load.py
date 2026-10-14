@@ -1052,7 +1052,12 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
                     "left_out": [{"subject": subject, "first": x, "frames": y - x + 1, "why": said} for x, y, said in cut],
                     "capture": f"data/{day}_{name}", "preview": preview_folder,
                     "texts": {name: {"file": f"{name}.txt", "frames": [a, b], "by": ""}},
-                    **({"keep_outs": kept} if kept else {}), **({"part": part} if part else {}), **({"part_on_track": on_track} if on_track else {}), **({"zoomed": zoom_block} if zoom_block else {}),
+                    **({"keep_outs": kept} if kept else {}),
+                    # the plan's restore spans on the load's frames, for the gate (`load_chain.told_to_the_gate`): what is given back at
+                    # assembly is no region over the subject's own things that nothing answers
+                    **({"restore": restore} if (restore := [dict(r, by=p.get("restore_by")) for r in p.get("restore") or []
+                                                            if r["first"] <= b and r["last"] >= a]) else {}),
+                    **({"part": part} if part else {}), **({"part_on_track": on_track} if on_track else {}), **({"zoomed": zoom_block} if zoom_block else {}),
                     **({"whole_frame": whole_block} if whole_block else {}),
                     **({"track_not": gone} if gone else {}),
                     "reference": {"form": "drawn", "why": "the form for a face, head or hair replacement (AGENTS.md, Settled)", "made": None,

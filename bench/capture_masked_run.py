@@ -2726,8 +2726,20 @@ def flag_parts(label: str, by: str, rows: list[dict]) -> list[dict]:
     return out
 
 
-def flag_runs(manifest: dict, folder: Path) -> list[dict]:
-    """A run's region over another subject, and a region that is mostly not its subject."""
+def spans_said(frames) -> str:
+    return ", ".join(f"{a}-{b}" for a, b in frame_spans(sorted(frames), join=1))
+
+
+def flag_runs(manifest: dict, folder: Path, own: dict | None = None, given: dict | None = None) -> list[dict]:
+    """A run's region over another subject, and a region that is mostly not its subject.
+
+    `own`: the keep-outs that are the load's subject's own things (`--own-keep-out`: her hands, clothes, held things),
+    with the classes a restore span would name; `given`: the frames on which something gives a keep-out's pixels back
+    (`--given-back`: the plan's restore span of those classes). The lead's ruling of 2026-10-14: a region over her OWN
+    hands or held things is the contact fault the owner named (an egg in thin air), so it does not go quiet; it is
+    said at the level below the top, with its figure, only where it is given back on every frame it is over, and
+    otherwise stays where it was with the restore that would answer it."""
+    own, given = own or {}, given or {}
     cross = json.loads((folder / "frames.json").read_text())["rows"]
     labels = [s["label"] for s in manifest["subjects"]]
     out = []
@@ -2742,11 +2754,28 @@ def flag_runs(manifest: dict, folder: Path) -> list[dict]:
             if hit:
                 worst = max(v for _, v in hit)
                 held = sum(1 for r in cross if r.get(f"cells_given_back__{name}__{other}"))
-                out.append({"rule": "region_over_another_subject", "level": LEVELS[2] if worst > 5 * REGION_ON_OTHER else LEVELS[1],
+                why = (f"{kind} {name} regenerates up to {100 * worst:.0f}% of {other}'s mask: {other} is drawn again "
+                       f"there by {whom}'s pass" + (f" (margin cells were given back on {held} frames)" if held else ""))
+                level = LEVELS[2] if worst > 5 * REGION_ON_OTHER else LEVELS[1]
+                figures = {"frames": len(hit), "worst_share": round(worst, 3)}
+                if other in own:
+                    back = {f for a, b, _ in given.get(other, []) for f in range(a, b + 1)}
+                    rest = [(f, v) for f, v in hit if f not in back]
+                    said = sorted({w for a, b, w in given.get(other, []) if any(a <= f <= b for f, _ in hit)})
+                    why += f". {other} is {run['subject']}'s OWN"
+                    if not rest:
+                        level = LEVELS[1]
+                        why += f", and on every one of those frames it is given back: {'; '.join(said)}"
+                    else:
+                        level = LEVELS[2] if max(v for _, v in rest) > 5 * REGION_ON_OTHER else LEVELS[1]
+                        why += ((f"; it is given back on {len(hit) - len(rest)} of the frames ({'; '.join(said)})" if said else "")
+                                + (f"; a restore span of the plan naming {'+'.join(own[other])} on {spans_said(f for f, _ in rest)} would give "
+                                   "those pixels back" if own[other] else
+                                   f"; it has no class a restore span can name, so nothing gives it back on {spans_said(f for f, _ in rest)}"))
+                    figures.update(own=True, frames_given_back=len(hit) - len(rest))
+                out.append({"rule": "region_over_another_subject", "level": level,
                             "subject": run["subject"], "run": name, "other": other, "source_frames": frame_spans([f for f, _ in hit]),
-                            "why": f"{kind} {name} regenerates up to {100 * worst:.0f}% of {other}'s mask: {other} is drawn again "
-                                   f"there by {whom}'s pass" + (f" (margin cells were given back on {held} frames)" if held else ""),
-                            "figures": {"frames": len(hit), "worst_share": round(worst, 3)}, "threshold": {"REGION_ON_OTHER": REGION_ON_OTHER}})
+                            "why": why, "figures": figures, "threshold": {"REGION_ON_OTHER": REGION_ON_OTHER}})
         rows = json.loads((folder / "runs" / name / "per_frame.json").read_text())["rows"]
         outside = [(r["source_frame"], r["margin_share"] / r["region_share"]) for r in rows if r.get("region_share")]
         hit = [(f, v) for f, v in outside if v > NOT_SUBJECT]
@@ -2861,7 +2890,33 @@ def bare_frames(carried: np.ndarray, region: np.ndarray, read: np.ndarray, track
     return [int(f) for f in np.nonzero(read & tracked & ~has & ~on)[0]]
 
 
-def flag_lent(manifest: dict, folder: Path) -> list[dict]:
+def lays_nothing(run: dict, bare: list[int], said: dict, total: int) -> list[dict]:
+    """The flags of a load that lays nothing on `bare` frames where its subject is tracked: the frames its job names in
+    `said` ({frame: the job's reason}) at the level below the top with the reason; the others at the top."""
+    out = []
+    meant = [f for f in bare if f in said]
+    bare = [f for f in bare if f not in said]
+    if meant:
+        kind = "plan" if run.get("planned") else "run"
+        out.append({"rule": "load_lays_nothing_where_named", "level": LEVELS[1], "subject": run["subject"], "run": run["name"],
+                    "source_frames": frame_spans(meant, join=1),
+                    "why": f"{kind} {run['name']}: on {len(meant)} frame(s) {run['subject']} is tracked and the load lays nothing, as its job "
+                           f"says it means to: " + "; ".join(f"{spans_said(f for f in meant if said[f] == w)}: {w}" for w in sorted({said[f] for f in meant})),
+                    "figures": {"frames": len(meant)}})
+    if bare:
+        kind = "plan" if run.get("planned") else "run"
+        out.append({"rule": "load_lays_nothing_on_frames", "level": LEVELS[2], "subject": run["subject"], "run": run["name"],
+                    "source_frames": frame_spans(bare, join=1),
+                    "why": f"{kind} {run['name']}: on {len(bare)} of its {total} frame(s) {run['subject']} is tracked and the mask the "
+                           "load carries is empty: nothing is laid there and the source shows. The part was lost, dropped, or emptied "
+                           f"by the grade (subjects/{run['subject']}/part_grades.json says which and why). If the subject is rightly "
+                           "left as the source there, override with the reason or cut the load to the frames it does lay; if the "
+                           "part should be there, look at those frames before anything renders",
+                    "figures": {"frames": len(bare), "frames_of_the_load": total}})
+    return out
+
+
+def flag_lent(manifest: dict, folder: Path, named: dict | None = None) -> list[dict]:
     """A run, or a plan read from the node's files, with frames that have no mask of their own inside a latent
     step that has a region.
 
@@ -2873,7 +2928,12 @@ def flag_lent(manifest: dict, folder: Path) -> list[dict]:
     and wrong where a tracker or the part model dropped a subject who is plainly there: one frame of the
     original in a run of the new subject. So it is at the top level either way, until the mask is fixed or an
     override says in writing why the frame is rightly empty. A plan worked out from the masks (`--plan`)
-    cannot show it: its region is per frame."""
+    cannot show it: its region is per frame.
+
+    `named`: frames the job leaves empty on purpose, with the reason it writes (`--named-empty`: the job's `drop=` with
+    its `drop_by`, its `left_out`). The lead's ruling of 2026-10-14 (21 of 26 overrides on 0-2049 said only that): those
+    frames are said with that reason, a level below the top, and only frames nobody named stay at the top."""
+    named_frames = {lab: {f: w for a, b, w in v for f in range(a, b + 1)} for lab, v in (named or {}).items()}
     first, w, out = manifest["first_frame"], manifest["size"][0], []
     for run in manifest["runs"]:
         saved = np.load(folder / "runs" / run["name"] / "region.npz")
@@ -2890,17 +2950,7 @@ def flag_lent(manifest: dict, folder: Path) -> list[dict]:
                 tracked[r["source_frame"] - first] = True
         named = set(lent) | set(run.get("left_as_the_source_with_no_mask") or [])     # the rule below names these
         bare = [first + f for f in bare_frames(carried, saved["region"], saved["read"], tracked) if first + f not in named]
-        if bare:
-            total = int(saved["read"].sum())
-            kind = "plan" if run.get("planned") else "run"
-            out.append({"rule": "load_lays_nothing_on_frames", "level": LEVELS[2], "subject": run["subject"], "run": run["name"],
-                        "source_frames": frame_spans(bare, join=1),
-                        "why": f"{kind} {run['name']}: on {len(bare)} of its {total} frame(s) {run['subject']} is tracked and the mask the "
-                               "load carries is empty: nothing is laid there and the source shows. The part was lost, dropped, or emptied "
-                               f"by the grade (subjects/{run['subject']}/part_grades.json says which and why). If the subject is rightly "
-                               "left as the source there, override with the reason or cut the load to the frames it does lay; if the "
-                               "part should be there, look at those frames before anything renders",
-                        "figures": {"frames": len(bare), "frames_of_the_load": total}})
+        out += lays_nothing(run, bare, named_frames.get(run["subject"], {}), int(saved["read"].sum()))
         unlaid = [f for f in run.get("left_as_the_source_with_no_mask") or [] if first <= f < first + manifest["frames"]]
         if lent or unlaid:
             kind = "plan" if run.get("planned") else "run"
@@ -3463,6 +3513,35 @@ def flag_text(text: str, spans: list[list[int]], first: int, frames: int) -> lis
     return out
 
 
+def told_by_the_job(a: argparse.Namespace) -> dict:
+    """What the caller says of the load's job (`bench/load_chain.py` reads it from the job file): its subject's own keep-outs
+    with their classes, the frames something gives a keep-out back on, and the frames the job leaves empty on purpose."""
+    def span_why(text: str, flag: str) -> tuple[str, int, int, str]:
+        who, _, rest = text.partition(":")
+        rng, sep, why = rest.partition("=")
+        try:
+            lo, hi = (int(x) for x in rng.split("-"))
+        except ValueError:
+            raise SystemExit(f"{flag} {text!r}: not NAME:FIRST-LAST=WHY") from None
+        if not who or not sep or not why.strip() or lo > hi:
+            raise SystemExit(f"{flag} {text!r}: not NAME:FIRST-LAST=WHY, with the why")
+        return who, lo, hi, " ".join(why.split())
+    own = {}
+    for x in getattr(a, "own_keep_out", None) or []:
+        name, _, classes = x.partition("=")
+        own[name] = [c for c in classes.split("+") if c]
+    given, named = {}, {}
+    for x in getattr(a, "given_back", None) or []:
+        n, lo, hi, why = span_why(x, "--given-back")
+        if n not in own:
+            raise SystemExit(f"--given-back {x!r}: {n!r} is not one of the --own-keep-out names ({', '.join(own) or 'none'})")
+        given.setdefault(n, []).append((lo, hi, why))
+    for x in getattr(a, "named_empty", None) or []:
+        n, lo, hi, why = span_why(x, "--named-empty")
+        named.setdefault(n, []).append((lo, hi, why))
+    return {"own": own, "given": given, "named": named}
+
+
 def preflight(a: argparse.Namespace) -> None:
     folder = Path(a.capture)
     m = json.loads((folder / "manifest.json").read_text())
@@ -3492,7 +3571,8 @@ def preflight(a: argparse.Namespace) -> None:
                              if r.get("track_share")}
                 flags += flag_pose(s["label"], by, json.loads(path.read_text())["rows"], mine, others_on,
                                    bool((seen.get("pose") or {}).get("hand_refinement")))
-    flags += flag_runs(m, folder) + flag_segments(m, folder) + flag_keep(m, folder) + flag_cuts(m, folder) + flag_loads(m, folder, not_in) + flag_lent(m, folder) + flag_held_tail(m, folder) + flag_kept(m, folder) + flag_mouth(m, folder) + flag_face_size(m, folder) + flag_pieces(m, folder)
+    told = told_by_the_job(a)
+    flags += flag_runs(m, folder, told["own"], told["given"]) + flag_segments(m, folder) + flag_keep(m, folder) + flag_cuts(m, folder) + flag_loads(m, folder, not_in) + flag_lent(m, folder, told["named"]) + flag_held_tail(m, folder) + flag_kept(m, folder) + flag_mouth(m, folder) + flag_face_size(m, folder) + flag_pieces(m, folder)
     cross = json.loads((folder / "frames.json").read_text())["rows"]
     # a kept-out or keep mask given as a subject is a union of things, not somebody: it has no class map
     whos = {x["label"] for x in m["subjects"] if x["sightings"][0].get("classes")} or {x["label"] for x in m["subjects"]}
@@ -3551,6 +3631,8 @@ def preflight(a: argparse.Namespace) -> None:
               "subjects": [{"label": s["label"], "tracker_object_id": None, "seen_by": [x["by"] for x in s["sightings"]]}
                            for s in m["subjects"]],
               "shots": shots, "flags": flags,
+              "told_by_the_job": {"own_keep_outs": told["own"], "given_back": {k: [list(x) for x in v] for k, v in told["given"].items()},
+                                  "named_empty": {k: [list(x) for x in v] for k, v in told["named"].items()}},
               "outcomes": "outcomes.json, beside this file: what happened in a render against each flag id, once one exists"}
     if (folder / "flags.json").is_file() and (folder / "outcomes.json").is_file():
         # outcomes name flags by the id they had when they were written; a new list renumbers. Keep the list they
@@ -4846,6 +4928,12 @@ def main() -> None:
     g.add_argument("--voice-spans", help="voice_spans.json for the clip")
     g.add_argument("--who-is-who", help="the corrections file of bench/who_is_who_across_shots.py for this load; copied into the capture")
     g.add_argument("--gate", action="store_true", help=f"exit {GATE_BLOCKED} when a flag at the top level stands with no override")
+    g.add_argument("--own-keep-out", action="append", default=[], metavar="NAME=CLASS+CLASS",
+                   help="a keep-out that is the load's subject's own (her hands, clothes, held things), with the classes a restore span names; repeatable")
+    g.add_argument("--given-back", action="append", default=[], metavar="NAME:FIRST-LAST=WHY",
+                   help="source frames on which an own keep-out is given back to the original (the plan's restore span), and why; repeatable")
+    g.add_argument("--named-empty", action="append", default=[], metavar="SUBJECT:FIRST-LAST=WHY",
+                   help="source frames the job leaves the subject empty on purpose (its drop= or left_out), with its reason; repeatable")
     ri = sub.add_parser("rules", help="every figure a per-clip rule needs, in one file: writes rules_input.json")
     ri.add_argument("capture")
     ri.add_argument("--not-in", action="append", default=[], metavar="LABEL:FIRST-LAST")

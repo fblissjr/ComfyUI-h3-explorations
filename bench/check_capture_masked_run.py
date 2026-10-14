@@ -94,6 +94,7 @@ No video, no model, no card, no server.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -1691,6 +1692,54 @@ def a_load_that_lays_nothing() -> str:
     return "a frame the load reads, with the subject tracked, an empty mask and no region is named; a lent frame, an untracked one and one outside the load are not"
 
 
+def what_the_job_says_is_its_own() -> str:
+    """The lead's rulings of 2026-10-14 on the card's stops: frames the job empties on purpose are said with its reason a level
+    below the top; a region over the subject's OWN keep-out (her hands, held things) drops a level only where something
+    gives it back on every frame it is over, and otherwise says what would; another person's stays as it was."""
+    import tempfile
+    run = {"name": "r", "subject": "a", "planned": True}
+    flags = cap.lays_nothing(run, [10, 11, 12, 20], {10: "THE JOB'S DROP", 11: "THE JOB'S DROP", 12: "A LOOK"}, 50)
+    named = next(f for f in flags if f["rule"] == "load_lays_nothing_where_named")
+    top = next(f for f in flags if f["rule"] == "load_lays_nothing_on_frames")
+    # THE CASE THAT GOES RED when a frame the job named still blocks, or one nobody named does not
+    assert named["level"] == cap.LEVELS[1] and named["source_frames"] == [[10, 12]] and "10-11: THE JOB'S DROP" in named["why"] and "12-12: A LOOK" in named["why"], named
+    assert top["level"] == cap.LEVELS[2] and top["source_frames"] == [[20, 20]] and top["figures"] == {"frames": 1, "frames_of_the_load": 50}, top
+    assert [f["rule"] for f in cap.lays_nothing(run, [10], {}, 50)] == ["load_lays_nothing_on_frames"]
+    told = cap.told_by_the_job(argparse.Namespace(own_keep_out=["hands=Left_Hand+Right_Hand", "held="], given_back=["hands:100-102=THE RESTORE"],
+                                                  named_empty=["a:5-6=THE DROP"]))
+    assert told == {"own": {"hands": ["Left_Hand", "Right_Hand"], "held": []}, "given": {"hands": [(100, 102, "THE RESTORE")]},
+                    "named": {"a": [(5, 6, "THE DROP")]}}, told
+    for bad, words in ((dict(given_back=["clothes:1-2=X"]), "not one of the --own-keep-out"), (dict(given_back=["hands:1-2="]), "with the why"),
+                       (dict(named_empty=["a:9-2=X"]), "with the why"), (dict(named_empty=["a:x=X"]), "not NAME:FIRST-LAST")):
+        try:
+            cap.told_by_the_job(argparse.Namespace(**{"own_keep_out": ["hands=Left_Hand"], "given_back": [], "named_empty": [], **bad}))
+            raise AssertionError(f"taken: {bad}")
+        except SystemExit as e:
+            assert words in str(e), (bad, str(e))
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp)
+        (folder / "runs" / "r").mkdir(parents=True)
+        (folder / "frames.json").write_text(json.dumps({"rows": [{"source_frame": 100 + n, "region_on__r__hands": 0.5, "region_on__r__held": 0.5,
+                                                                    "region_on__r__b": 0.5} for n in range(6)]}))
+        (folder / "runs" / "r" / "per_frame.json").write_text(json.dumps({"rows": [{"source_frame": 100 + n, "region_share": 0.2, "margin_share": 0.0}
+                                                                                     for n in range(6)]}))
+        m = {"subjects": [{"label": x, "sightings": [{"by": "p"}]} for x in ("a", "b", "hands", "held")], "runs": [run]}
+        own = {"hands": ["Left_Hand", "Right_Hand"], "held": []}
+        by = lambda fl: {f["other"]: f for f in fl if f["rule"] == "region_over_another_subject"}       # noqa: E731
+        before = by(cap.flag_runs(m, folder))
+        assert {k: f["level"] for k, f in before.items()} == {"b": cap.LEVELS[2], "hands": cap.LEVELS[2], "held": cap.LEVELS[2]}, "the control"
+        whole = by(cap.flag_runs(m, folder, own, {"hands": [(100, 105, "THE PLAN'S RESTORE")]}))
+        assert whole["hands"]["level"] == cap.LEVELS[1] and "a's OWN, and on every one of those frames it is given back: THE PLAN'S RESTORE" in whole["hands"]["why"], whole["hands"]
+        assert whole["held"]["level"] == cap.LEVELS[2] and "no class a restore span can name, so nothing gives it back on 100-105" in whole["held"]["why"], whole["held"]
+        assert whole["b"] == before["b"], "another person's region changed"
+        part = by(cap.flag_runs(m, folder, own, {"hands": [(100, 102, "THE PLAN'S RESTORE")]}))["hands"]
+        assert part["level"] == cap.LEVELS[2] and "given back on 3 of the frames (THE PLAN'S RESTORE)" in part["why"] \
+            and "a restore span of the plan naming Left_Hand+Right_Hand on 103-105 would give those pixels back" in part["why"], part
+        assert by(cap.flag_runs(m, folder, own, {}))["hands"]["level"] == cap.LEVELS[2], "her own hands with nothing given back went quiet"
+    return ("frames the job names are said with its reason and do not block, others do; her own keep-out drops a level only where given back on every "
+            "frame, and says which restore would answer it; another person's is unchanged; the gate's job flags parsed and refused")
+
+
 def a_strip_of_a_render() -> str:
     """Which frames the stacked strip shows of a render that does not begin or end where the capture's span does."""
     whole = cap.render_span(1093, 41, 1093, 41)
@@ -1765,6 +1814,7 @@ case("preflight: a shot where a tracker's call is nobody's word", who_is_who)
 case("shots: the gate's answer per shot and subject", gate_by_shot)
 case("the look: what a strip shows of a load and its text, and the line that records it", a_look)
 case("preflight: a load that lays nothing where its subject is", a_load_that_lays_nothing)
+case("preflight: what the job says is its own", what_the_job_says_is_its_own)
 case("a fill of a doubted part, graded by the class map", graded_holds)
 case("the floor under a small part: a starting value, held against the clip's own sizes", the_floor_against_the_clip)
 case("verify: the capture reads what the nodes wrote", verifying)

@@ -961,9 +961,33 @@ case("on-plan: the masks hashed, the capture copied, then built in place", the_o
 case("the look and the gate a render rests on", the_look_and_the_gate)
 case("a render on the gate alone", a_render_on_the_gate_alone)
 case("a render graph against its plan graph, its masks and its job file", a_render_against_its_plan)
+def what_the_gate_is_told() -> str:
+    """The lead's rulings of 2026-10-14: the gate is told which keep-outs are the subject's own, what gives them back (the
+    job's restore spans holding all of a keep-out's classes) and which frames the job empties on purpose, with its reasons."""
+    ctx = {"subject": "second", "load": {"first": 100, "frames": 60}, "subject_keys": {"drop": "110-112+130", "drop_by": "A LOOK'S\n WORD"},
+           "job": {"keep_outs": {"of": "second", "made": [{"name": "hands", "classes": ["Left_Hand", "Right_Hand"]}, {"name": "held", "track": "h"},
+                                                          {"name": "strangers", "track": "s"}]},
+                   "restore": [{"classes": ["Left_Hand", "Right_Hand"], "first": 14, "last": 120, "by": "THE LEAD"},
+                               {"classes": ["Left_Hand"], "first": 140, "last": 150, "by": "ONE HAND"},
+                               {"classes": ["Eyeglass", "Left_Hand", "Right_Hand"], "first": 300, "last": 310, "by": "ELSEWHERE"}],
+                   "left_out": [{"subject": "second", "first": 90, "frames": 10, "why": "CUT BY A LOOK"}]}}
+    told = lc.told_to_the_gate(ctx)
+    pairs = list(zip(told[::2], told[1::2]))
+    # THE CASE THAT GOES RED when strangers is told as her own, a restore of one hand gives back both, or a drop goes untold
+    assert pairs == [("--own-keep-out", "hands=Left_Hand+Right_Hand"), ("--own-keep-out", "held="),
+                     ("--given-back", "hands:100-120=the plan's restore of Left_Hand+Right_Hand on 14-120 gives it back at assembly (THE LEAD)"),
+                     ("--named-empty", "second:110-112=the job's drop= (A LOOK'S WORD)"), ("--named-empty", "second:130-130=the job's drop= (A LOOK'S WORD)"),
+                     ("--named-empty", "second:90-99=the job's left_out (CUT BY A LOOK)")], pairs
+    other = dict(ctx, job=dict(ctx["job"], keep_outs={**ctx["job"]["keep_outs"], "of": "lead"}), subject_keys={})
+    assert [x for x in lc.told_to_the_gate(other) if x.startswith("--")] == ["--named-empty"], "another subject's keep-outs told as hers, or a drop with no reason"
+    return ("her own keep-outs with their classes, not strangers; a restore span gives back only a keep-out whose classes it holds, on the load's frames; the "
+            "job's drop= with its reason and its left_out told as named; nothing of another subject's keep-outs")
+
+
 case("render: the go beside the job file, and what stops it", the_render_step)
 case("land: the pose pass and the stacked clip", the_land_step)
 case("page: the item, with the table's buttons", the_page_step)
+case("the gate is told what is the subject's own", what_the_gate_is_told)
 
 if __name__ == "__main__":
     sys.exit(finish())

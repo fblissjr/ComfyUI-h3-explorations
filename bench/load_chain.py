@@ -879,11 +879,42 @@ def gate_clear(ctx: dict, what: str) -> None:
                       f"{cap} <flag> overridden --by WHO --note WHY (the gate then reads clear and lists who overrode what)")
 
 
+def told_to_the_gate(ctx: dict) -> list[str]:
+    """What the gate is told of the load's job (`capture_masked_run.py preflight`; the lead's rulings of 2026-10-14):
+    - `--own-keep-out NAME=CLASSES`: each keep-out of the job made of the load's subject's own things (the job's `keep_outs`
+      `of` its subject; strangers are other people), with the classes it is cut from, which a restore span would name;
+    - `--given-back NAME:FIRST-LAST=WHY`: each span of the job's `restore` (the plan's, written by the job step) whose
+      classes hold all of an own keep-out's, on the load's frames;
+    - `--named-empty SUBJECT:FIRST-LAST=WHY`: the frames the job empties on purpose: its subject's `drop` with `drop_by`,
+      and its `left_out` with each reason."""
+    job, out = ctx["job"], []
+    kept = job.get("keep_outs") or {}
+    own = {}
+    if kept.get("of") == ctx["subject"]:
+        own = {k["name"]: list(k.get("classes") or []) for k in kept.get("made") or [] if k["name"] != "strangers"}
+    out += [x for n, c in own.items() for x in ("--own-keep-out", f"{n}={'+'.join(c)}")]
+    lo, hi = ctx["load"]["first"], ctx["load"]["first"] + ctx["load"]["frames"] - 1
+    for r in job.get("restore") or []:
+        for n, c in own.items():
+            if c and set(c) <= set(r["classes"]) and r["first"] <= hi and r["last"] >= lo:
+                out += ["--given-back", f"{n}:{max(r['first'], lo)}-{min(r['last'], hi)}=the plan's restore of {'+'.join(r['classes'])} "
+                                        f"on {r['first']}-{r['last']} gives it back at assembly ({' '.join(str(r.get('by') or 'who said so is not in the job').split())})"]
+    keys = ctx["subject_keys"]
+    if keys.get("drop") and str(keys.get("drop_by") or "").strip():
+        for span in str(keys["drop"]).split("+"):
+            a, b = (span.split("-") * 2)[:2]
+            out += ["--named-empty", f"{ctx['subject']}:{a}-{b}=the job's drop= ({' '.join(str(keys['drop_by']).split())})"]
+    for x in job.get("left_out") or []:
+        if x.get("why"):
+            out += ["--named-empty", f"{x['subject']}:{x['first']}-{x['first'] + x['frames'] - 1}=the job's left_out ({' '.join(str(x['why']).split())})"]
+    return out
+
+
 def gate_and_strip(ctx: dict, world, by: str, who_is_who: Path, voice: dict, strip_folder: str = "") -> tuple[int, str]:
     cap, job = ctx["capture"], ctx["job"]
     verify = world.run(ctx, f"verify{strip_folder and ' first'}", tool(world, "capture_masked_run.py") + ["verify", cap, "--by", by], stop=False)
     gate = world.run(ctx, f"gate{strip_folder and ' first'}", tool(world, "capture_masked_run.py") + ["preflight", cap, "--text", ctx["text"], "--voice-spans", voice["spans"],
-                                                                                                     "--who-is-who", who_is_who, "--gate"], stop=False)
+                                                                                                     "--who-is-who", who_is_who, "--gate", *told_to_the_gate(ctx)], stop=False)
     strip = tool(world, "capture_masked_run.py") + ["video", cap, "--source", job["source"], "--job", ctx["job_file"], "--load", ctx["name"]]
     if ctx["load"].get("motion_file"):
         strip += ["--motion", ctx["load"]["motion_file"]]

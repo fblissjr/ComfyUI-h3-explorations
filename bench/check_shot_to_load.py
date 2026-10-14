@@ -1405,6 +1405,13 @@ def the_defaults_this_load_carries() -> str:
         made.plan["subjects"]["a"]["reference"] = {"mouth": "open", "why": "w"}
         refused(made.load, "`reference.mouth`", "one of")
         del made.plan["subjects"]["a"]["reference"]
+        # the plan's restore spans on the load's frames go into the job, for the gate (load_chain.told_to_the_gate); none elsewhere
+        made.plan["subjects"]["a"].update(restore=[{"classes": ["Left_Hand", "Right_Hand"], "first": 110, "last": 120},
+                                                    {"classes": ["Eyeglass"], "first": 5000, "last": 5010}], restore_by="THE LEAD, ON HER HANDS")
+        d = made.load()
+        assert d["job"]["restore"] == [{"classes": ["Left_Hand", "Right_Hand"], "first": 110, "last": 120, "by": "THE LEAD, ON HER HANDS"}], d["job"].get("restore")
+        del made.plan["subjects"]["a"]["restore"], made.plan["subjects"]["a"]["restore_by"]
+        assert "restore" not in made.load()["job"]
         # printed by the job step, one line each with where it comes from
         folder = made.preview_ran(made.preview())
         out = io.StringIO()
