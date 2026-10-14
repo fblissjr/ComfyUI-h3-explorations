@@ -15,6 +15,26 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-10-14
+
+*Written by the lead of the day (mrtwo) with the commits; the owner's words are the Open List's inbox notes
+`owner_terminal_2026-10-14T*`.*
+
+- **One ledger, made new on every landing, is a standing rule** (the owner, about 15:20Z in the lead's
+  terminal: built into the project's rules for later sessions). The lead owns it. After every landing or
+  stopped load, the render ledger and the delivery table are made new from the build records. The owner's
+  `PROVENANCE.html` and `TO_REVIEW.html` are made from those same two files, never typed and never written
+  twice. What it replaces: on 2026-10-13 the pages were a lead's session scripts with no owner named for
+  keeping them current; one input (the stopped loads) was a typed list and the review file's decisions were
+  typed into the script. Where it lives now: `AGENTS.md`, "Operative rules" and "Where state lives". The
+  pages becoming tracked tools that read only generated files is the tooling seat's job of the day.
+- **Every piece of 2026-10-12 is made again, each as its whole shot, through the present chain** (the
+  owner, about 14:43Z: the 10/12 pieces are not trusted). Until the owner judges a remake, the lead lays it
+  over the owner's 10/12 keep on the same frames with `delivery_table.py --prefer`, citing that word.
+- **The team is three seats from the start of each day**: a lead that reads, rules and holds the Open List,
+  a card session and a tooling session (the owner, about 14:20Z). `AGENTS.md`, "How the owner and the
+  sessions talk", still says two sessions; that line is the owner's to change.
+
 ## 2026-10-13
 
 *The entries from here to the next note were written by the afternoon's lead
