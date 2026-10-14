@@ -551,6 +551,35 @@ fixed the same day, said inline below.**
   job file for the reason it left frames; the capture says only that it
   emptied the part, not why (the grade, the floor, a keep-out), and the
   manifest holds which. Not started.
+- **A preview's track for one subject can lie on another after the first
+  has left the picture** (2026-10-13, late, from the holder of the card).
+  In the preview of 604-1009 the lead is out of the picture from 999,
+  and her track comes back on 1003-1006 and 1008-1009 lying almost
+  wholly inside the second subject's track (counted from the two track
+  files by the card holder). A load of the second subject there is then
+  blocked for a region over another subject, and with the lead taken out
+  of the load's others by hand the capture's verify fails on a track the
+  shot table says is taken, since both read the preview's tracks
+  whatever the load's others are. Very likely why her kept piece of
+  that shot ends where it does. Wanted: the preview's own tables say where
+  one subject's track lies inside another's (a figure a frame), so it
+  is seen at the preview and not at a load's gate; and a way, with a
+  person's word, to end a subject's track at a frame for the loads of
+  that preview. Not started.
+- **A zoomed load with keep-outs is blocked at its first capture**
+  (2026-10-13, late, same source). A zoomed load of the second subject
+  with her three keep-outs was blocked at the gate of its FIRST capture
+  for a region over another subject, the others being her own
+  keep-outs: on a small head with her hands at her face they take most
+  of the region (the gate's print in that load's job folder has the
+  shares; an earlier load of hers read far lower by the same rule). The
+  lead's reading: the same wall as her load on 1093 that afternoon. Not
+  known: whether the first capture's region for a zoomed
+  load is the whole-frame estimate, the on-plan step being where a
+  zoomed load's region is laid back; if so the gate blocks such a load
+  before the step that would measure it rightly. To read first:
+  `bench/capture_masked_run.py::zoomed_on_the_canvas` and which region
+  the first gate reads. Not started.
 - **A part that changes inside one load** (2026-10-13, late; THE NEXT
   WORKING DAY'S FIRST TOOLING JOB, the lead's ruling). `shot_to_load.py
   job --parts` makes a load whose part is some of its subject's parts
