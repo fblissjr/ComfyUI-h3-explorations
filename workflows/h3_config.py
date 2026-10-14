@@ -1529,6 +1529,16 @@ MASKED_JOB_HAIR_BAND = dict(cuts="clothes", wider="margin", smooth_frames=4, mos
 #: spot out of the strangers file (a blind reader, 2026-10-14). Nothing measured it; the records list every frame held
 #: and every frame left empty.
 MASKED_STRANGERS = dict(grow_px=8, hold_frames=4)
+#: A look's `hairline` room (`bench/look_rooms.py`): for a subject whose hair is kept and whose region is the face,
+#: his hair over his face and a band of his hair at the hairline, regenerated, so the region's edge sits in his curls
+#: and holds still. `hold_frames`: a pixel is in the room on a frame when the class map has it so on any frame this
+#: many either side. `band_px`: how far into his hair from Face_Neck the band reaches, in px of the canvas.
+#: **Measured** both, 2026-10-14, on third_fp_1222b's masks (the region re-made as the node makes one, zoomed 2x as
+#: the remake would be; internal/claude/2026-10-14_mrpre/figures/hairline_ab_1222b_zoomed2x.json): his hair switching
+#: between regenerated and kept fell from 263 cells on 24 frames (his part alone) to 46 on 14, with 4 notch cells
+#: against 37, at the cost of the region reaching 42-54 px above his hairline instead of 16-26; a 24 px band gave 33
+#: on 13. Ruled by the lead that day (arm A, 16 px). One shot, one face of about 58 px: a starting value for others.
+LOOK_HAIRLINE = dict(hold_frames=4, band_px=16)
 #: What the text encoder is shown of a load's still: the video model's own copy, not a smaller one of its
 #: own. **Decided** by the owner, 2026-10-08, for the reference stills of this lane (the largest size, enlarged
 #: to it, one copy for both models); the 2026-10-08 final and every render of 2026-10-10 ran so. The shipped
