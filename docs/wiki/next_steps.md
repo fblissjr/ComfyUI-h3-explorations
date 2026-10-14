@@ -246,6 +246,20 @@ fixed the same day, said inline below.**
   reached and cut where it did not; and that a band under the part (`hair_band`,
   built that day from the box's bottom) answered it, untested. The hole is
   beside the head, not under it, and a band from the bottom never reached it.
+- **The composite's `only what changed` decides, per pixel and per frame, where a drawn hair end stops: a
+  node-composite question, not a job today** (mrpre, 2026-10-14, on the owner's "hair clips a bit on bottom left but
+  its ok move on" on second_hfp_0604d; the read is `internal/claude/2026-10-14_mrpre_hair_room_0604d_read.md`, its
+  last section). At her right shoulder on 604-622 the node's region reaches well below her drawn hair, and its edge
+  cuts almost none of it. But 35-52% of the region there is shown as the original, nearly all of it outside her part,
+  because `video_mask.changed_alpha` keeps the render only where it differs from the source or where her original part
+  was. The line between drawn hair and original is the composite's threshold, frame by frame: the white "kept" outline
+  of the render's own mask view (crops `internal/claude/2026-10-14_mrpre/crops/hair_0604d_bottom_left_604_612.jpg`
+  and `_614_622.jpg`). It is a candidate cause of more than one come-and-go of the day. The question for the node:
+  whether the changed mask should be held steady over a latent step's frames, or its threshold softened toward the
+  region's margin. A look-spec room (`bench/look_rooms.py`) is today the one place the composite is told to keep the
+  render whatever was drawn, since a room is joined to the carried mask. What it cannot see: the drawing against the
+  composite. The window's video on disk is composited, and telling them apart needs a decode of the window's latent
+  before the composite, on the card.
 - **Nothing prints whether a body model is on its subject.** A preview posed
   the person behind the subject for half a second and every table read the
   same. The node is fixed (`../../bench/results/2026-10-12_body_model_posed_the_other_person.md`);
