@@ -372,8 +372,22 @@ def white_expected(drawing: list[tuple[str, np.ndarray, bool]], width: float, do
     return float(inside.sum())
 
 
+def mouth_shapes(whole: np.ndarray, hole: np.ndarray) -> list[tuple[str, np.ndarray, bool]]:
+    """A class-map mouth's outlines as the drawing's shapes: the lips' outer outline and, where the mouth is open, its inner
+    edge, each a closed line (`mouth_outer`, `mouth_inner`)."""
+    import cv2
+    out = []
+    for name, m in (("mouth_outer", whole), ("mouth_inner", hole)):
+        cs, _ = cv2.findContours(m.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        for c in cs:
+            c = cv2.approxPolyDP(c, 1.0, True)[:, 0, :].astype(float)
+            if len(c) >= 3:
+                out.append((name, c, True))
+    return out
+
+
 def draw(mesh: np.ndarray, drawings: list[list], width: float, bare: set[int], dots: bool = True, fills: list[list] | None = None,
-         contrast: bool = False) -> np.ndarray:
+         contrast: bool = False, mouths: list | None = None) -> np.ndarray:
     """The mesh frames [n, h, w, 3] with every frame's drawing on it. With `fills`: first, inside each lash ring only, the
     iris in the edge colour, and with `contrast` the sclera solid white (the line colour) under it; then the lines over
     them, black a little wider first, then white, so the black edge stays round the white sclera and the black iris (an
@@ -392,8 +406,22 @@ def draw(mesh: np.ndarray, drawings: list[list], width: float, bare: set[int], d
             if white:
                 im.paste(tuple(look["line"]), mask=b)
             im.paste(tuple(look["edge"]), mask=ImageChops.multiply(a, b))
+    def mouth(im, f: int) -> None:
+        """A class-map mouth (`mouths[f]`: the mouth's whole outline filled, and its open inside, as masks of the frame): the body
+        model's own lips painted out to the grey round them, and the open inside in the edge colour; its outlines are lines."""
+        import cv2
+        got = None if f in bare or not mouths else mouths[f]
+        if got is None or not got[0].any():
+            return
+        whole, hole = got
+        ring = cv2.dilate(whole.astype(np.uint8), np.ones((15, 15), np.uint8)).astype(bool) & ~cv2.dilate(whole.astype(np.uint8), np.ones((7, 7), np.uint8)).astype(bool)
+        grey = tuple(int(v) for v in np.median(mesh[f][ring], axis=0)) if ring.any() else (128, 128, 128)
+        big = lambda m: Image.fromarray((m.astype(np.uint8) * 255)).resize(im.size, Image.NEAREST)        # noqa: E731
+        im.paste(grey, mask=big(cv2.dilate(whole.astype(np.uint8), np.ones((5, 5), np.uint8)).astype(bool)))
+        im.paste(tuple(look["edge"]), mask=big(hole))
     for f in range(len(mesh)):
         im = Image.fromarray(mesh[f]).resize((w * SUPER, h * SUPER), Image.BICUBIC)
+        mouth(im, f)
         fill(im, f, contrast)
         d = ImageDraw.Draw(im)
         for colour, pad in ((tuple(look["edge"]), look["edge_px"]), (tuple(look["line"]), 0.0)):
@@ -529,8 +557,11 @@ def width_for(points: dict, width: float | None) -> tuple[float, float, str]:
 def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by: str, *, names: list[str] | None = None,
         mesh_first: int | None = None, points_first: int | None = None, width: float | None = None, dots: bool = True,
         leave_out: frozenset = frozenset(), bare: list[int] | None = None, bare_by: str = "", source: str = "", source_first: int = 0,
-        iris: str = IRIS_FORMS[0], say=print) -> dict:
-    """Draw, write, read back, record. Returns the record; `passed` is False when the read-back or the look at the source fails."""
+        iris: str = IRIS_FORMS[0], mouths: list | None = None, mouth_lines: bool = True, say=print) -> dict:
+    """Draw, write, read back, record. `mouths`: a class-map mouth a frame ((whole, hole) masks of the frame, or None), drawn in
+    place of the points' mouth (`head_reference`, `--mouth auto` where the lip check fails and the class map holds the mouth);
+    with `mouth_lines` False its lips are painted out and its inside filled under the points' own mouth lines, and no
+    outline of its own is drawn. Returns the record; `passed` is False when the read-back or the look at the source fails."""
     if bare and not bare_by:
         raise SystemExit("--bare names frames a person looked at: say who with --bare-by")
     points, pf = rows_of(points_path, names, first, count, points_first)
@@ -552,7 +583,12 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     wide, face, wide_by = width_for(points, width)
     left = {f - first for f in (bare or []) if first <= f < first + count}
     fills = [discs(p, s, idx, line, leave_out) for p, s in zip(points["keypoints"], points["scores"])] if iris in IRIS_FORMS[2:] else None
-    pictures = draw(mesh, drawings, wide, left, dots, fills, contrast=iris == IRIS_FORMS[3])
+    if mouths:
+        if len(mouths) != count:
+            raise SystemExit(f"{len(mouths)} class-map mouths for {count} frames")
+        if mouth_lines:
+            drawings = [d + (mouth_shapes(*mouths[f]) if mouths[f] is not None else []) for f, d in enumerate(drawings)]
+    pictures = draw(mesh, drawings, wide, left, dots, fills, contrast=iris == IRIS_FORMS[3], mouths=mouths)
     but = filled_px(fills, (w, h)) if iris == IRIS_FORMS[3] else None
     out.parent.mkdir(parents=True, exist_ok=True)
     marks.write_video(out, pictures)

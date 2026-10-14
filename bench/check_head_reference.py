@@ -254,15 +254,23 @@ def the_mouth_by_the_check() -> str:
     from _lib import face_points as fp
     names = cap._pack("sapiens2_parts").CLASS_NAMES
     seen = {}
-    for name, on in (("on", True), ("off", False)):
+    for name, on in (("on", True), ("off", False), ("none", None)):
         folder, mesh, pts, source = rooms(f"mouth_{name}", [90] * N, [60] * N, CENTRES, 0)
         P = fp.load(str(pts), None)
         lips = [i for k, i in P["index"].items() if "outer_lip" in k or k in ("r_outer_corner_of_mouth", "l_outer_corner_of_mouth")]
         cm = np.zeros((N, H, W), np.uint8)
         for f in range(N):
-            for x, y in P["keypoints"][f][lips]:
-                cx, cy = (int(round(x)), int(round(y))) if on else (int(round(x)) + 40, int(round(y)) + 40)
-                cv2.circle(cm[f], (cx, cy), 2, names.index("Upper_Lip"), -1)
+            if on is None:
+                continue                                                  # a class map with no lips on it
+            xy = P["keypoints"][f][lips]
+            if on:                                                        # the lips on the points, an open mouth inside them
+                ring = np.round(xy).astype(np.int32)
+                cv2.fillPoly(cm[f], [cv2.convexHull(ring)], names.index("Tongue"))
+                cv2.polylines(cm[f], [cv2.convexHull(ring)], True, names.index("Upper_Lip"), 3)
+            else:                                                         # the lips 40 px off the points, an open mouth inside them
+                cx, cy = (int(round(v)) + 40 for v in xy.mean(0))
+                cv2.ellipse(cm[f], (cx, cy), (14, 9), 0, 0, 360, names.index("Upper_Lip"), -1)
+                cv2.ellipse(cm[f], (cx, cy), (8, 4), 0, 0, 360, names.index("Tongue"), -1)
         classes = folder / "classes.mkv"
         enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "gray", "-s", f"{W}x{H}", "-r", "24", "-i", "-", "-c:v", "ffv1",
                                 "-level", "3", str(classes)], stdin=subprocess.PIPE)
@@ -272,10 +280,43 @@ def the_mouth_by_the_check() -> str:
         seen[name] = (rec, said)
     on, said_on = seen["on"]
     off, said_off = seen["off"]
+    none, said_none = seen["none"]
     # THE CASE THAT GOES RED when the mouth is drawn whatever the check says, or left out whatever it says
-    assert on["drawn"]["mouth"]["drawn"] and "mouth" not in on["drawn"]["parts_left_out"] and on["drawn"]["mouth"]["check"]["frames_at_or_over_the_share"] == N, on["drawn"]
-    assert not off["drawn"]["mouth"]["drawn"] and "mouth" in off["drawn"]["parts_left_out"] and off["drawn"]["mouth"]["check"]["frames_at_or_over_the_share"] == 0, off["drawn"]
-    assert any("the mouth: DRAWN by the check" in x for x in said_on) and any("the mouth: LEFT OUT by the check" in x for x in said_off), (said_on, said_off)
+    assert on["drawn"]["mouth"]["drawn"] and on["drawn"]["mouth"]["drawn_as"] == "the lip lines" and "mouth" not in on["drawn"]["parts_left_out"] \
+        and on["drawn"]["mouth"]["check"]["frames_at_or_over_the_share"] == N, on["drawn"]
+    # the lines drawn over the class map's inside, not over the body model's sculpted lips: no hollow mouth (the outside reviewer)
+    assert on["drawn"]["mouth"]["inside"] == "the class map" and on["drawn"]["mouth"]["inside_on_frames"] == N, on["drawn"]["mouth"]
+    import draw_face_points as dfp
+    P = fp.load(str(WORK / "mouth_on" / "shot_points.npz"), None)
+    lips = [i for k, i in P["index"].items() if "outer_lip" in k or k in ("r_outer_corner_of_mouth", "l_outer_corner_of_mouth")]
+    rw, rh = on["size"]
+    x0, y0, x1, y1 = on["box"]
+    cx, cy = P["keypoints"][N // 2][lips].mean(0)
+    pic = next(dfp.stream(str(WORK / "mouth_on" / "head.mp4"), (rw, rh), N // 2, 1, pix="rgb24"))
+    inner = pic[int(round((cy - y0) * rh / (y1 - y0))), int(round((cx - x0) * rw / (x1 - x0)))]
+    assert inner.max() < 60, ("the lip lines' inside is not dark where the class map's mouth is open", inner.tolist())
+    assert any("the mouth: DRAWN by the check" in x for x in said_on), said_on
+    # where the lines miss and the class map holds the lips, the mouth is the class map's: the points' mouth left out, its own drawn
+    m = off["drawn"]["mouth"]
+    assert m["drawn"] and m["drawn_as"] == "the class map" and "mouth" in off["drawn"]["parts_left_out"] and m["check"]["frames_at_or_over_the_share"] == 0 \
+        and m["class_map"]["frames_holding_the_lips"] == N and m["class_map"]["frames_open"] == N, off["drawn"]
+    assert any("DRAWN FROM THE CLASS MAP" in x for x in said_off), said_off
+    # ... and it is there in the picture: the open inside dark, ringed by a white outline, where the class map puts it
+    rw, rh = off["size"]
+    x0, y0, x1, y1 = off["box"]
+    sx, sy = rw / (x1 - x0), rh / (y1 - y0)
+    P = fp.load(str(WORK / "mouth_off" / "shot_points.npz"), None)
+    lips = [i for k, i in P["index"].items() if "outer_lip" in k or k in ("r_outer_corner_of_mouth", "l_outer_corner_of_mouth")]
+    cx, cy = (P["keypoints"][N // 2][lips].mean(0) + 40)
+    ux, uy = int(round((round(cx) - x0) * sx)), int(round((round(cy) - y0) * sy))
+    pic = next(dfp.stream(str(WORK / "mouth_off" / "head.mp4"), (rw, rh), N // 2, 1, pix="rgb24"))
+    assert pic[uy, ux].max() < 60, ("the class map's open mouth is not dark in the reference", pic[uy, ux].tolist())
+    col = pic[:, ux].max(-1)
+    assert (col[max(uy - int(30 * sy), 0):uy] > 200).any(), "no white outline above the class map's open mouth"
+    # with no lips in the class map either, nothing is drawn of the mouth, and the record says why
+    n = none["drawn"]["mouth"]
+    assert not n["drawn"] and "drawn_as" not in n and n["class_map"]["frames_holding_the_lips"] == 0 and "mouth" in none["drawn"]["parts_left_out"], none["drawn"]
+    assert any("the mouth: LEFT OUT: the class map holds her lips on 0" in x for x in said_none), said_none
     folder, mesh, pts, source = rooms("mouth_word", [90] * N, [60] * N, CENTRES, 0)
     try:
         hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head.mp4", "the check", room=ROOM, mouth="drawn", say=lambda *_: None)
@@ -283,7 +324,8 @@ def the_mouth_by_the_check() -> str:
         assert "--mouth-why" in str(e), e
     else:
         raise AssertionError("the mouth drawn on a word with no reason")
-    return "the mouth drawn where the lip lines lie on the class map's mouth and left out where they do not, the figures in the record; drawn on a word only with its reason"
+    return ("the mouth drawn where the lip lines lie on the class map's mouth; where they do not, the class map's own mouth drawn, dark inside and outlined, "
+            "where it holds the lips, else left out; the figures in the record; drawn on a word only with its reason")
 
 case("one run makes the form", one_run_makes_the_form)
 case("a face off the subject's track fails the run", a_face_off_the_track_fails)

@@ -60,6 +60,9 @@ def what_a_reference_draws_the_text_says() -> str:
     drawn = s2({"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast", "mouth": {"drawn": True}}})
     assert "with its eyes, eyebrows, nose and mouth drawn on its face" in drawn and "the white of the eye is white and the iris black" in drawn \
         and "the mouth is outlined, and it opens and closes where the person's mouth does" in drawn, drawn
+    from_map = s2({"form": "drawn", "drawn": {"parts_left_out": ["mouth"], "iris": "contrast", "mouth": {"drawn": True, "drawn_as": "the class map", "inside": "the class map"}}})
+    assert "nose and mouth drawn" in from_map and "the mouth is outlined, dark inside where it is open, and it opens and closes" in from_map, from_map
+    assert "dark inside" not in drawn, drawn
     left = s2({"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast", "mouth": {"drawn": False}}})
     assert "eyes, eyebrows and nose drawn" in left and "mouth" not in left, left
     assert "a dark iris inside them" in s2({"form": "drawn", "drawn": {"parts_left_out": ["mouth"], "iris": "filled"}})

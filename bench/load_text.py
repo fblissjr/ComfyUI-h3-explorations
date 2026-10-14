@@ -20,7 +20,8 @@ records, and a person writes only the shot's place and action, once.
 - `<Subject 2>`'s sentence: the reference's record. "a closer view of the head and shoulders" (the lead's ruling of
   2026-10-14: the fewest words, nothing typed by sight); the parts drawn (`drawn.parts_left_out`: eyes, eyebrows, nose,
   and the mouth when drawn); the eyes' clause by the iris form (`drawn.iris`); the mouth's clause when it is drawn
-  (`drawn.mouth.drawn`). A plain cut (no drawing) has no outline clause.
+  (`drawn.mouth.drawn`), dark inside where it is open when its inside is the class map's (`drawn.mouth.inside`). A plain cut
+  (no drawing) has no outline clause.
 - The summary and `[Shot 1]`: the person's place-and-action sentence, as written, in both. With the face, or with the
   face and the hair, of <Picture 1>, by the plan's region.
 - The film line: the plan's `text.film`, the video's, written once.
@@ -88,7 +89,8 @@ def subject_2(drawn: dict | None) -> str:
             raise Refused(f"the reference's record says the iris was drawn {iris!r}: no words for it ({', '.join(EYES)})")
         clauses.append(EYES[iris] + ", and they open, close and look where the person's eyes do")
     if "mouth" in parts:
-        clauses.append("the mouth is outlined, and it opens and closes where the person's mouth does")
+        clauses.append("the mouth is outlined" + (", dark inside where it is open" if (drawn.get("mouth") or {}).get("inside") == "the class map" else "")
+                       + ", and it opens and closes where the person's mouth does")
     return head + f", with its {joined(parts)} drawn on its face as thin white outlines" + "".join(f"; {c}" for c in clauses) + "."
 
 

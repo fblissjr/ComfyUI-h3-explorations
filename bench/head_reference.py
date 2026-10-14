@@ -47,7 +47,12 @@ then, or read on the whole frame) is said as not known and does not fail.
 
 **The mouth, by a check** (`--mouth auto`, the chain's default since 2026-10-14): drawn when the drawn outer-lip ring's points
 lie on the subject's mouth classes in the preview's class map on enough frames (`MOUTH_CHECK`, starting values), left out
-otherwise, the figures in the record (`drawn.mouth`). `--mouth drawn|left out` is a person's word with `--mouth-why`.
+otherwise, the figures in the record (`drawn.mouth`). Where the lines fail and the class map holds the subject's lips on
+enough frames (`CLASS_MOUTH_OF_FRAMES`), the mouth is drawn from the class map itself, cut by the same box: the body model's
+sculpted lips painted out to the grey round them, the lips' outline and inner edge white, the open inside dark
+(`drawn.mouth.drawn_as`: "the class map"; the lead's ruling of 2026-10-14 on 0294d). Where the lines pass, they are drawn
+over the class map's painted-out lips and dark inside on each frame where they lie on its mouth (`drawn.mouth.inside`). `--mouth drawn|left out` is a person's
+word with `--mouth-why`.
 Without `--mouth` the tool leaves the mouth out as before (`FORM_LEAVES_OUT`), unless `--leave-out` says otherwise.
 
 A passing run says each step's file holds what that step made, on the frames it was told, and that the face it
@@ -89,9 +94,20 @@ FILL_GAP = 4
 #: lay on the mouth (18 of 25, 21 of 33, 32 of 32 frames at 0.8); on 0294d they did not (0 of 120), the pose points bunched on
 #: her upper lip in near-profile under a hat while her mouth was open (frame 375).
 MOUTH_CHECK = dict(on_share=0.8, of_frames=0.5, reach_px=3)
+#: Where the lip lines fail the check, the mouth drawn from the class map itself (`class_mouths`; the lead's ruling of 2026-10-14
+#: on mrdrill's read of 0294d, where the class map held her open mouth on 370, 375 and 380 and the points did not) when the
+#: class map holds the subject's lips on at least this share of the span's frames. A STARTING VALUE, reasoned as the check's
+#: own half: 0294d holds them on 113 of 120.
+CLASS_MOUTH_OF_FRAMES = 0.5
 #: The mouth's forms: drawn whatever the check says, left out, or by the check.
 MOUTH_FORMS = ("auto", "drawn", "left out")
 TOOLS = ("bench/head_reference.py", "bench/crop_reference_to_head.py", "bench/draw_face_points.py")
+
+
+def cap_probe(path: str) -> tuple[int, int, int]:
+    """(width, height, frames) of a video, by the capture tool's own probe."""
+    import capture_masked_run as cap
+    return cap.probe(path)
 
 
 def _git(*args: str, repo: Path = REPO) -> str:
@@ -197,7 +213,44 @@ def mouth_check(points: str, classes: str, classes_first: int, first: int, count
     return {"what": "the share of the drawn outer-lip ring's points on the mouth classes of the class map, a frame at a time", "class_map": str(classes),
             "share_least_median_most": [round(float(s.min()), 2), round(float(np.median(s)), 2), round(float(s.max()), 2)],
             "frames_at_or_over_the_share": on, "frames": count, "rule": dict(MOUTH_CHECK), "rule_is": "starting values, the lead's ruling of 2026-10-14",
-            "drawn": bool(on >= MOUTH_CHECK["of_frames"] * count)}
+            "drawn": bool(on >= MOUTH_CHECK["of_frames"] * count), "_shares": shares}
+
+
+def class_mouths(classes: str, classes_first: int, first: int, count: int, box: list[int], size: tuple[int, int]) -> tuple[list, dict]:
+    """The subject's mouth from a class map, a frame at a time, cut by the reference's box and brought to its size: (whole, hole)
+    masks, the whole being the lips and what they hold (the teeth, Tongue) filled, its largest piece, and the hole its inside
+    with the lips taken out; None on a frame with no lips. With the figures: frames held, frames open, the open area."""
+    import cv2
+    import numpy as np
+    from scipy import ndimage
+    import capture_masked_run as cap
+    names = cap._pack("sapiens2_parts").CLASS_NAMES
+    lips_of = [names.index(c) for c in ("Upper_Lip", "Lower_Lip")]
+    held_in = [names.index(c) for c in ("Upper_Teeth", "Lower_Teeth", "Tongue")]
+    w, h, _ = cap.probe(classes)
+    cm = cap.read_classes(classes, (w, h), classes_first, first, count)
+    x0, y0, x1, y1 = box
+    out, open_px = [], []
+    for f in range(count):
+        lips = np.isin(cm[f], lips_of)
+        if not lips.any():
+            out.append(None); open_px.append(0)
+            continue
+        whole = ndimage.binary_fill_holes(lips | np.isin(cm[f], held_in))
+        parts, n = ndimage.label(whole)
+        if n > 1:
+            whole = parts == 1 + int(np.argmax(ndimage.sum(whole, parts, range(1, n + 1))))
+        hole = whole & ~lips
+        open_px.append(int(hole.sum()))
+        cut = lambda m: cv2.resize(m.astype(np.uint8)[max(y0, 0):y1, max(x0, 0):x1], size, interpolation=cv2.INTER_NEAREST).astype(bool)  # noqa: E731
+        out.append((cut(whole), cut(hole)))
+    held = sum(m is not None for m in out)
+    a = np.array(open_px)
+    return out, {"what": "the subject's lips and what they hold in the class map, cut by the reference's box", "class_map": str(classes),
+                 "frames_holding_the_lips": held, "frames": count, "frames_open": int((a > 0).sum()),
+                 "open_px_on_the_canvas_most": [int(a.max()), first + int(a.argmax())] if a.any() else None,
+                 "held_of_frames_at_least": CLASS_MOUTH_OF_FRAMES, "that_is": "a starting value, the check's own half",
+                 "held": bool(held >= CLASS_MOUTH_OF_FRAMES * count)}
 
 
 def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, by: str, *, names: list[str] | None = None,
@@ -235,15 +288,17 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
             if not classes or classes_first is None:
                 raise SystemExit("--mouth auto checks the lip lines against the subject's class map: give --classes and --classes-first")
             check = mouth_check(points, classes, classes_first, first, count)
-            mouth_said = {"form": "auto", "check": check, "drawn": check["drawn"]}
-            say(f"    the mouth: {'DRAWN' if check['drawn'] else 'LEFT OUT'} by the check: the lip lines on the mouth classes at "
+            shares = check.pop("_shares")
+            mouth_said = {"form": "auto", "check": check, "drawn": check["drawn"], **({"drawn_as": "the lip lines"} if check["drawn"] else {})}
+            say(f"    the mouth: {'DRAWN' if check['drawn'] else 'NOT DRAWN FROM THE POINTS'} by the check: the lip lines on the mouth classes at "
                 f"{MOUTH_CHECK['on_share']:g} or more on {check['frames_at_or_over_the_share']} of {count} frames (half is {MOUTH_CHECK['of_frames'] * count:g}); "
                 f"share least/median/most {check['share_least_median_most']}")
         else:
             if not str(mouth_why or "").strip():
                 raise SystemExit(f"--mouth {mouth} is a person's word: say why with --mouth-why")
             mouth_said = {"form": mouth, "why": " ".join(mouth_why.split()), "drawn": mouth == "drawn"}
-        leave_out = (frozenset(leave_out) - {"mouth"}) if mouth_said["drawn"] else (frozenset(leave_out) | {"mouth"})
+        by_points = mouth_said["drawn"] and mouth_said.get("drawn_as") != "the class map"
+        leave_out = (frozenset(leave_out) - {"mouth"}) if by_points else (frozenset(leave_out) | {"mouth"})
     say(f"1 of 3: the plain body model cut to the head, frames {first} to {first + count - 1}")
     cut = crop.run(mesh, points, first, count, made["plain_cut"], by, names=names, video_first=mesh_first, points_first=points_first,
                    room=room, say=quiet)
@@ -254,10 +309,37 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     if under["box"] != cut["box"]:
         raise SystemExit(f"the source was cut by {under['box']} and the body model by {cut['box']}: one box is the form")
     say("    " + ("PASSED" if under["passed"] else "FAILED"))
+    # THE CLASS MAP'S MOUTH, cut by the box just made. Where the lip lines pass, it gives their inside on the frames they lie on
+    # it (the lead's ruling of 2026-10-14, the outside reviewer's: a white outline over the body model's sculpted, closed lips is
+    # a hollow mouth); where they fail, the mouth itself (the lead's ruling of 2026-10-14 on 0294d)
+    mouths, lines = None, True
+    if mouth_said and mouth_said["form"] == "auto":
+        cw, ch, _ = cap_probe(str(made["plain_cut"]))
+        mouths, held = class_mouths(classes, classes_first, first, count, cut["box"], (cw, ch))
+        mouth_said["class_map"] = held
+    if mouths is not None and mouth_said["drawn"]:
+        lines = False
+        mouths = [m if shares[f] >= MOUTH_CHECK["on_share"] else None for f, m in enumerate(mouths)]
+        agree = sum(m is not None for m in mouths)
+        mouth_said["inside"] = "the class map"
+        mouth_said["inside_on_frames"] = agree
+        say(f"    the mouth's inside from the class map on the {agree} of {count} frames the lip lines lie on it: the sculpted lips painted "
+            "out, the inside dark where it is open")
+    elif mouths is not None:
+        if held["held"]:
+            mouth_said.update(drawn=True, drawn_as="the class map", inside="the class map")
+            say(f"    the mouth: DRAWN FROM THE CLASS MAP, which holds her lips on {held['frames_holding_the_lips']} of {count} frames "
+                f"(at least {CLASS_MOUTH_OF_FRAMES:g} of them), open on {held['frames_open']}: the sculpted lips painted out, the outline white, "
+                "the inside dark")
+        else:
+            mouths = None
+            say(f"    the mouth: LEFT OUT: the class map holds her lips on {held['frames_holding_the_lips']} of {count} frames, under "
+                f"{CLASS_MOUTH_OF_FRAMES:g} of them")
     say(f"3 of 3: the face drawn on the cut body model, {width:g} px, {'a dot at every point' if dots else 'no dots'}"
-        + (f", left out: {', '.join(sorted(leave_out))}" if leave_out else ""))
+        + (f", left out: {', '.join(sorted(leave_out))}" if leave_out else "")
+        + ((", the mouth from the class map" if lines else ", the mouth's inside from the class map") if mouths else ""))
     drawn = faces.run(str(made["plain_cut"]), str(made["plain_cut_points"]), first, count, out, by, width=width, dots=dots, leave_out=leave_out,
-                      source=str(made["source_cut"]), source_first=first, iris=iris, say=quiet)
+                      source=str(made["source_cut"]), source_first=first, iris=iris, mouths=mouths, mouth_lines=lines, say=quiet)
     fit = drawn["read_back"]["white_from_the_lines_px_mean_by_frames_of_slip"]
     say(f"    white {fit['0']} px from its own frame's lines, {fit['1']} and {fit['-1']} from the neighbours'; "
         + ("PASSED" if drawn["passed"] else "FAILED"))
