@@ -457,6 +457,58 @@ owner's words in its terminal.*
   cut in the middle of a sung line or a beat of the vocal. No rule came of
   that at their word; it is data to have in front of whoever sets a
   window's edges ([`window_edges_data.md`](window_edges_data.md)).
+- **What the owner is shown to judge is the shot as the final cut; and
+  where review links may be written** (the owner, 2026-10-13, in the
+  lead's terminal that evening, after clicking through single loads' clips
+  and watching the day's joined clip). Their words, in substance: a clip
+  that shows half the subjects of a shot swapped (the kitchen with only
+  one of the two replaced) is really hard to judge; a clip put to them has
+  both, like the final cut; for every piece they want the day it was
+  rendered, what to look at and what to compare it with; and the links to
+  review go in no hosted page and no tracked file, only one local file
+  they can find. What prompted it: they kept a load of the lead on a hall
+  shot and asked what to do with a clip in which the third subject was
+  still the original; and they could not judge the joined clip without
+  knowing which pieces were the day's and which the day before's. What
+  stands unchanged: a single load's stacked clip still goes on the local
+  page as the record of that load (`AGENTS.md`, "A render is handed over
+  stacked"). What changes: the list handed to the owner points at a clip
+  of the SHOT with every standing piece laid, each piece marked with its
+  render day and their last choice; a shot with one subject in it is
+  already its final cut. Built that evening as session scripts, not yet
+  tools: six per-shot clips, a local review file and a local provenance
+  page in the day's folder on the share; each as a tracked tool is a row
+  in [`next_steps.md`](next_steps.md).
+- **The third subject's look is no beard; and one line of the owner's was
+  taken out of the record at their word** (the owner, 2026-10-13, the same
+  evening). Their answer on the Open List's row for his beard was as
+  rendered, his beard gone. That evening one load of him drew a moustache
+  and beard, and they clicked keep on it before watching the joined clip;
+  having watched it they said the beardless look stands whatever they had
+  clicked, and asked that the data not say they kept the beard. What was
+  done, with a copy of each file kept first: in the review page's raw
+  answers file that one line was replaced in place by a line saying a line
+  stood there and was removed at the owner's word (so every later line
+  keeps its number); in `verdicts.jsonl` the copied keep was removed and
+  their words stand in its place. The page's file is otherwise never
+  rewritten, and this is the one exception on record. Observed on the way,
+  one load and two changes at once, so not a rule: the load that drew the
+  beard sampled a window that also held frames of him left as the
+  original, bearded; the load made again holds only its own frames, zoomed
+  in, and drew none.
+- **Where nothing is made is printed by the table, not listed by hand**
+  (the owner, 2026-10-13, the same evening: a tool that finds the frames
+  missing between pieces, run by itself by the common operations, and
+  loud; and the ledger should hold what a piece leaves as the original).
+  What prompted it: three places on the joined clip where they saw a
+  subject go back to the original, each a stretch nothing was made on;
+  and the lead's own hand-written list of gaps, which had missed several
+  stretches the records already held. Built the same evening:
+  `bench/piece_gaps.py` with its check, printed at the end of every
+  `bench/delivery_table.py` run; the render ledger carries the frames each
+  render leaves as the original, read from its capture. What it used to
+  claim: the handover of that day carried a typed list of known gaps;
+  it now points at the tool.
 
 ## 2026-10-12
 

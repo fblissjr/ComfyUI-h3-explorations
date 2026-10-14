@@ -1,175 +1,137 @@
 # Handover: read this before anything else
 
 **Rewritten at the end of each working day by the session that led it; the
-day before is in git.** This one was written on 2026-10-13 by `mrtower`, the
-lead from 19:07Z (after `mrfit`, `mrpin` and `mrtan`), with `mrpen` on the
-card, `mrohmy` on tooling and `mrlongtake` building the two-shot tool. Where
-this page and a record disagree, the record is right (`decisions.md`,
+day before is in git.** This one was written at the close of 2026-10-13 (the
+owner's evening; the clock had passed midnight UTC) by `mrtower`, the lead
+from 19:07Z, with `mrpen` on the card and `mrohmy` on tooling. Where this
+page and a record disagree, the record is right (`decisions.md`,
 2026-10-13; `data/fun/verdicts/verdicts.jsonl`; the render ledger and the
 delivery table; the Open List).
 
-## State when closed (2026-10-13, the owner's evening)
+## State when closed
 
-- **The day's end-of-day clip is placed**: the WHOLE of `fun.mp4` in one
-  file, `Video/fun/day_2026-10-13/fun_0000_6394_joined_2026-10-13T2319Z.mp4`
-  on the share, with its stacked form, a text file beside it (how it was
-  made, the known gaps, the table), an index page and one small folder a
-  standing piece holding the graph it was queued with (`bench/day_pieces.py`).
-  Its build record passes and was read by the lead; nobody had watched it
-  on playback when this was written. It is on the local review page as two
-  items.
-- **What is in it**: every piece up to frame 2037 that has a record of how
-  it was made, most rendered that day and the rest the day before, standing
-  only where nothing was rendered for that subject that day; the list by
-  day with why each stands is
-  `data/2026-10-13_fun_delivery_tables/pieces_by_day_fun_0000_6394_2026-10-13T2319Z.md`.
-  From 2050 to the end the clip is the original: nothing is made there yet.
-- **Kept by the owner on playback that day** (their clicks, in
-  `verdicts.jsonl`): the second subject on 949-998; the lead on the street
-  walk 294-413, on 460-483, 852-965, 1010-1038, 1061-1079, 1134-1155, the
-  hall face 1425-1441, and EVERY phone and oval inset from 1730 to 2037
-  (the first pieces rendered zoomed in; the shot 1898-1943 as one piece,
-  `lead_fp_1898`, which stands over the half `lead_fp_1920c` kept earlier);
-  the third subject's face on 1452-1465, his first piece through the chain.
-- **Every load now samples a window fitted to its own length**
-  (`masked_job_graph.window_for`, `h3_rules.snap_length`), by the owner's
-  word; what that did to a render's time is in the server's log lines
-  quoted in the day's page items and in the card session's handoff.
-- **The shots record was mended at five places** where it and the picture
-  disagreed (`bench/shots_record.py`; the looks are
-  `data/fun/cuts_look_2026-10-13/reading.md`). Every preview of 1920-6394
-  was made again from the owner's who-is-who; `bench/shot_parts.py` prints
-  what each shot and subject needs.
-- **Built that day, each with its check**: the render ledger and the
-  delivery table generated from it; the chain from a shot to a page item
-  (`shot_to_load.py`, `load_chain.py`) with a gate-alone path for ordinary
-  loads (`no-look`); a preview made to ask the owner; a seed a tracker cut;
-  the day's folder of pieces; a tool for two neighbouring shots in one load,
-  opt-in (`bench/two_shot_load.py`); the first sound signals for choosing a
-  window's edges (`bench/clip_signals.py`, NOT yet called made).
+- **The owner watched the day's joined clip of the whole of `fun.mp4`**
+  (`Video/fun/day_2026-10-13/` on the share: the clip, its stacked form, a
+  text file with how it was made, an index page and a workflow folder for
+  every piece in it). Up to frame 2037 it is pieces, each laid from its own
+  build record; from 2050 on it is the original: nothing is made there yet.
+- **After watching, the owner rated what they had not judged.** Kept on
+  playback that day: the second subject on 949-998; the lead on 294-413,
+  460-483, 852-965, 1010-1038, 1061-1079, 1134-1155, 1306-1396, the hall
+  face 1425-1441 and every phone and oval inset from 1730 to 2037; the third
+  subject on 1310-1396 and 1466-1531, and by their word 1222-1305. Rated
+  wrong, on one fault (her eyes do not follow the original's lowered look):
+  the second subject's pieces of the 12th on 14-154, 415-437 and 484-515.
+  Not sure: her 278-293 and the lead's 1466-1534 and 1575-1729, all of the
+  12th. `verdicts.jsonl` is the record.
+- **The third subject's look is settled by the owner: no beard**, as on
+  1222-1305 and 1466-1531. His 1452-1465, which had drawn one, was made
+  again without (`third_fp_1452`, not yet judged).
+- **A table made after those ratings stands, and no clip is built from it**
+  (`t_fun_0000_6394_2026-10-14T0033Z` in
+  `data/2026-10-13_fun_delivery_tables/`): the three pieces rated wrong are
+  out and the original is laid there, so the whole-video clip is NOT built
+  again until they are remade. Six per-shot clips with every piece laid are
+  built from it (`Video/fun/day_2026-10-13/shots/`).
+- **What the owner reviews from**, both local files in the day's folder on
+  the share, generated from the table, the ledger and the verdicts, never
+  typed: `TO_REVIEW.html` (the one place with review links, at their word:
+  none in a hosted page or a tracked file) and `PROVENANCE.html` (a timeline
+  a subject, every stretch and gap sorted by frame, where each piece came
+  from, and what changes in the next clip and why).
+- **The gaps are printed by a tool at the end of every delivery table**
+  (`bench/piece_gaps.py`): frames no piece covers, frames a piece covers and
+  leaves as the original, and a subject in the shot under another's piece.
+  The ledger carries the frames each render leaves as the original.
+- **Built that day, each with its check**: the ledger and the generated
+  table; the chain from a shot to a page item with a gate-alone path
+  (`no-look`); a window fitted to a load's own length; the shots record's
+  tool (five mends); the day's folder; two shots in one load, opt-in, its
+  test not run (`bench/two_shot_load.py`); a load that names some of its
+  subject's parts (`shot_to_load.py job --parts`); the sound signals for a
+  window's edges (`bench/clip_signals.py`, NOT called made).
+- **Both servers were stopped at the close.** How the review page's server
+  is started by hand is in [`../comfy_notes.md`](../comfy_notes.md).
 
 ### Known gaps up to frame 2049
 
-Where one of the three subjects is in the picture and the clip shows the
-original. The text file beside the clip has the same list; what every shot
-still needs is `coverage_fun_0000_6394_2026-10-13T2319Z.txt` in the day's
-delivery tables folder, regenerated and never typed.
+The list is generated: run `bench/piece_gaps.py` on the newest table, or
+read the tail of the table's own print. What the evening found, in short:
 
-- **The lead**: the kitchen before her piece (604-851: mostly the back of
-  her head; where her face shows it is small and in short runs); 516-603
-  (her face a few pixels: nothing makeable at the node's largest zoom);
-  168-185 (the node refused the zoom: she walks across more than half the
-  frame and a load has one box; a row in `next_steps.md`). Left as the
-  original on purpose inside her pieces: three stretches of the street walk
-  and the middle of 1134-1155.
-- **The second subject**: 1010-1038 (the owner's answer to the Open List's
-  row 24: face and hair, her new hair alone where her head is bowed; it
-  needs a load that names a subset of its subject's parts, not built);
-  1419-1465 and 1093-1133 (too small even zoomed: on 1093-1133 the first
-  capture's verify and gate refused the load, kept under
-  `data/2026-10-13_second_hfp_1093_job/chain/`); 155-167 and 999-1009.
-- **The third subject**: 1419-1451 (his head bowed, left as the original on
-  purpose) and 1397-1418 (his face shows on a few frames in two runs; not
-  started).
-- **Not looked at as frames**, each the original because that day's piece
-  covers fewer frames than the older clip's did: the lead on 438-459,
-  966-1009, 1080-1097, 1397-1424 and 1442-1465; the third subject on
-  1306-1309 and 1397-1410. Whether each is a gap is a look for the next day.
-- Not gaps: frames where no face of a subject shows (`data/fun/plan.json`,
-  `departures`, and each job file's `left_out`); the third subject on
-  1532-1729, his back to the camera by the card session's sampled look.
-
-### Left open when closed
-
-- Pieces in the clip the owner has not clicked on (the review page shows
-  each as open; `verdicts.jsonl` is the record).
-- **The third subject's look is settled by the owner, after watching the
-  joined clip: no beard**, the look of his pieces on 1222-1305 and
-  1466-1531 (stubble, his beard gone, as they answered row 23). Their word
-  in the lead's terminal stands over their clicks of that evening:
-  `third_fp_1222b` is kept. His newest piece, `third_fp_1419b` on
-  1452-1465, came out with a drawn moustache and beard and is to be made
-  again without; why that load drew one is not known (its text and
-  reference against the other three's is the first thing to read).
-- **Where the owner saw a subject go back to the original on the joined
-  clip**, each a stretch with no piece and none a loss of tracking: the
-  third subject from the end of `third_fp_1310c` to 1451 (1397-1418 not
-  made; on 1419-1451 he is bowed or has his back to the camera); the lead
-  on the street at 516-603; the second subject on 999-1009, the tail of
-  her kitchen shot.
-- The sound signals: mended twice after three readings; the run to read is
-  the tooling session's third throwaway (its notes say how to make it
-  again). A reader who did not build it reads that run before anything
-  reads the tables.
-- The servers: ComfyUI was stopped at the close, its queue empty; the page
-  server was left running because the owner was still reviewing on it. It
-  is to be stopped by whoever finds it idle.
-- Three previews of the mended shots are still to be made seeded from the
-  owner's answers (4602, 5889, 2623); the standing previews of 4602 and
-  5889 have the second and third subjects the wrong way round.
+- **Where the owner saw a subject go back to the original**, none a loss of
+  tracking: the third subject on 1397-1451 (his arm, a bowed head, then his
+  back; what returns is his beard); the lead on 516-603 (her face a few
+  pixels); the second subject on 999-1009, where her own hair returns.
+- **Tried that evening and stopped, each on a named fault with a row in
+  [`next_steps.md`](next_steps.md)**: the second subject on 998-1009 (the
+  lead's track lies on her head though the lead has left the picture) and
+  on 1010-1038 (her keep-outs take most of a small region; the reference
+  follows another body where the lead crosses in front of her); the third
+  subject on 1397-1418 (the fill on his arm and on the lead's hair).
+- **Not looked at as frames**: the lead on 438-459, 966-998, 1080-1097,
+  1397-1424 and 1442-1465; the third subject on 1306-1309.
+- **The shots record is unsure** the second subject is in 1156-1188 and
+  1466-1729: the owner's click on the who-is-who page before anything is
+  built there.
 
 ## What not to assume
 
-- That a piece in the clip was kept by the owner: where there is no keep
-  the table lays the newest render in the form, and says which is which.
-- That a piece on the page was read frame by frame: since the owner's
-  go-fast word an ordinary load renders on the gate alone, and its item's
-  think is empty unless a reading exists.
-- That `AGENTS.md` still asks for a look on every load: the owner removed
-  that sentence; the chain holds where a look is owed.
-- That the tracker's own pick is the owner's person: build only on a row
-  `bench/shot_parts.py` marks as seeded.
-- That a record shot is a cut, or that a tracker's cut is one: five were
-  wrong, and most of the tracker's cuts in the last shot were a head
-  dropping or an arm crossing.
+- That a piece in a clip was kept by the owner: where there is no keep the
+  table lays the newest render in the form, and says which is which.
+- That a load's own frames are all replaced: a load leaves frames as the
+  original, and a reason in its job file may rest on a look at every fifth
+  frame. Look at every frame of a stretch before ruling or building on it.
+- That another try will fix a blocked load: every stop of the evening was a
+  fault in a record or a step (a track, a reference, a keep-out).
+- That a window may hold frames of the subject left as the original at no
+  cost: the one load that did drew the original's beard onto the new face.
+- That the owner can judge one load's clip of a two-person shot: they are
+  shown the shot with every piece laid, each marked with its render day.
+- That the tracker's pick is the owner's person, or a record shot a cut:
+  build only on a row `bench/shot_parts.py` marks as seeded.
 - That the phrases, beats or dips of `clip_signals.py` may be read yet.
-- That a two-shot load has been rendered: the tool is in main and its test
-  is not run.
-- That a server is running or is the one of the morning: find the port's
-  owner before trusting a pid (`docs/comfy_notes.md`).
+- That a server is running: find the port's owner before trusting a pid.
 
 ## Tomorrow, in order
 
-Start in three seats (a card session, a tooling session, a lead that reads
-and rules) and change none of `bench/masked_job.py`, `load_chain.py`,
-`shot_to_load.py`, `capture_masked_run.py` until the first batch of renders
-has landed.
+Three seats from the start (a card session, a tooling session, a lead that
+reads and rules). The owner reviews first, from `TO_REVIEW.html`.
 
-1. Two small things left for a gap: `no-look` refusing a job that names
-   `two_shots`; a sentence in `two_shots_of`'s docstring.
-2. The two-shot test (the hall shots 1225-1305 and 1306-1396 as two loads
-   and as one), all three renders or none, with one blind reading.
-3. The second subject on 1010-1038, once a load can name a subset of its
-   subject's parts (tooling's first job).
-4. `lead_fp_1898` made once more: whether its second half is softer than the
-   half by chance or by the longer load. A whole shot wins over a seam.
-5. The hall face from the cut (1419-1441) beside `lead_fp_1425b`.
-6. The long shot 2050-2341, the first window near the planner's longest: a
-   plan look, its render read, the owner's eye, before the two halves of
-   the last shot go that way.
-7. What the owner saw go back to the original: the third subject's
-   1452-1465 again without the beard, and 1397-1418 by the same recipe; the
-   second subject's 999-1009; a look at the stretches listed above as not
-   looked at. Then 2050 onward in frame order.
+1. **The owner's answers**, which decide the card's order: whether every
+   piece of the 12th is made again with the present tooling; whether the
+   three short runs of the third subject on 1397-1418 are built; what they
+   want to send to the sessions from the provenance page.
+2. **Tooling first**, since the gaps the owner saw are tooling rows away and
+   not renders away: a part that changes inside one load (`--parts-on`);
+   the reference step held to the subject's own track; a way to say a
+   track is not that person on named frames; the gate's reading of
+   keep-outs on a small head. Before any tool for a new kind of load, one
+   dry run of that load to its gate on the card.
+3. **The card meanwhile**: the second subject's eyes, as a test on her
+   shortest shot (415-437) before her three pieces are made again; then the
+   two-shot test on the hall shots; the long shot at 2050 with a look, a
+   reading and the owner's eye; then 2050 onward in frame order.
+4. **When tooling lands**: the second subject on 998-1009 and 1010-1038;
+   the third subject on 1397-1418 if the owner says so; then the
+   whole-video clip built again.
+5. Carried: `lead_fp_1898` once more (softness); the hall face from the cut
+   beside `lead_fp_1425b`; a look at the stretches not looked at.
 
-For the owner's first batch: folder names on the share (row 21); whether her
-face on the spinning ball (2218-2341) is replaced; a skill for the lane and
-a pointer in `AGENTS.md` to the who-is-who procedure; one listening check
-for the sound signals (whether a dip inside one long sung run is a breath
-between two lines).
+Still the owner's, none blocking: folder names on the share (row 21);
+whether her face on the spinning ball (2218-2341) is replaced; a skill for
+the lane and a pointer in `AGENTS.md` to the who-is-who procedure; one
+listening check for the sound signals; the unplaced copies and throwaway
+tables of the day, kept until they say.
 
 ## Where things are
 
 - The day's rulings: [`decisions.md`](decisions.md), 2026-10-13. The lane:
   [`masked_v2v.md`](masked_v2v.md). Rows owed and tooling in order:
-  [`next_steps.md`](next_steps.md). The data wanted for a window's edges:
-  [`window_edges_data.md`](window_edges_data.md).
-- The day's clip, its notes and a workflow for every piece:
-  `Video/fun/day_2026-10-13/` on the share. Its ledger, table, reading,
-  coverage and records: `data/2026-10-13_fun_delivery_tables/`, the files
-  named `2026-10-13T2319Z`.
+  [`next_steps.md`](next_steps.md).
+- The day's clip, the per-shot clips, the two local files and a workflow
+  for every piece: `Video/fun/day_2026-10-13/` on the share. Ledgers,
+  tables, readings and gap prints: `data/2026-10-13_fun_delivery_tables/`.
 - What each shot needs: the newest `data/fun/shot_parts_*.md`. Who is in
   each shot: `data/fun/shots.json`, `data/fun/cast/cast.jsonl`.
-- The owner's pages: the H3 Open List; the local review page (the page
-  server under `data/fun/poc/`).
-- Each session's notes and handoff of the day: `internal/claude/` (untracked).
+- Each session's notes, handoff and feedback on the day: `internal/claude/`
+  (untracked), `2026-10-13_what_we_did_and_feedback.md` among them.

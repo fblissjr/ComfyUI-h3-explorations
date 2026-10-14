@@ -24,18 +24,26 @@ day's rulings are [`decisions.md`](decisions.md), 2026-10-13. The queue of
 delivery of 0-1919 and the previews of 1920-6394 were done; what it left open is
 carried below.**
 
-Tooling, in order (each is a row further down this page unless it says otherwise):
-1. A load that names a subset of its subject's parts ("A load cannot name a
-   subset of its subject's parts"): the second subject on 1010-1038 waits on it.
-2. The sound signals for a window's edges (`bench/clip_signals.py`): its second
+Tooling, in order (each is a row further down this page unless it says otherwise).
+Before any tool for a new kind of load: one dry run of that load to its gate on
+the card, and build from what it stops on.
+1. What stands between the owner and the gaps they saw on the joined clip: a
+   part that changes inside one load (`--parts-on`); the reference step held to
+   the subject's own track; a track that lies on another subject, and a way to
+   say so on named frames; a zoomed load whose keep-outs block its first
+   capture.
+2. What the owner reviews from, as tracked tools with a check each (built
+   2026-10-13 as session scripts under `internal/`): the per-shot clip with
+   every piece laid; the local review file; the provenance page, with a way to
+   write to the sessions from it once the owner says what they want to send;
+   the review page's server and its page check.
+3. The gaps print in `shot_parts.py` and in the job step (the table prints it).
+4. The sound signals for a window's edges (`bench/clip_signals.py`): its third
    run read by somebody who did not build it, then the figures into a load's
-   details and onto the plan strip, the capture's manifest naming the signals'
-   fingerprint, then the picture rows of
-   [`window_edges_data.md`](window_edges_data.md). Nothing reads its tables
-   until that reading.
-3. A pair measure as a tracked tool (a row below, new).
-4. A zoom box that follows the subject (a row below, new).
-5. The rows of 2026-10-13 not started: a zoomed load's floor at the size it
+   details and onto the plan strip, then the picture rows of
+   [`window_edges_data.md`](window_edges_data.md).
+5. A pair measure as a tracked tool; a zoom box that follows the subject.
+6. The rows of 2026-10-13 not started: a zoomed load's floor at the size it
    renders at; overlapping keeps ordered by the keep's time; a shot between the
    planner's longest length and the model's; the plan strip saying a load is
    zoomed; `break_checks.py` and `check_masked_job`; choosing among several
