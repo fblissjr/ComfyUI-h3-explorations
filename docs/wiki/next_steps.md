@@ -45,8 +45,8 @@ the card, and build from what it stops on.
 5. A pair measure as a tracked tool; a zoom box that follows the subject.
 6. The rows of 2026-10-13 not started: a zoomed load's floor at the size it
    renders at; overlapping keeps ordered by the keep's time; a shot between the
-   planner's longest length and the model's; the plan strip saying a load is
-   zoomed; `break_checks.py` and `check_masked_job`; choosing among several
+   planner's longest length and the model's; the plan strip drawing a zoomed
+   load's box (its words are done); `break_checks.py` and `check_masked_job`; choosing among several
    boxes in one cut; how much of its box a person fills on a who picture.
 
 Carried from 2026-10-12: the third subject's other shots, face only, and
@@ -627,7 +627,12 @@ fixed the same day, said inline below.**
   knows both (`bench/capture_masked_run.py::zoomed_on_the_canvas`, the
   run's `_zoomed.json` once it exists). Wanted: a line on the strip
   saying the load is zoomed, by how much and in which box, and the box
-  drawn. Not started.
+  drawn. DONE 2026-10-14 except the box drawn: once its capture is on the
+  node's plan, a load's strip says zoomed in by how much and on which box,
+  or the whole frame with the node's words why, each window's frames and
+  held frames, and the job's defaults
+  (`bench/capture_masked_run.py::render_said`, commit b543d899). The box
+  is not drawn on the picture yet.
 - **A flag's frame count and the frames burned for it can differ by the
   frames between its runs** (2026-10-13, from the render reader of
   `lead_fp_1920c`: a flag that says fourteen frames is burned on a span of
