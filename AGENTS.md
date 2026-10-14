@@ -119,9 +119,12 @@ One home per kind of fact. Not two.
   the inbox and carries on. A go is a row on the Open List or a line in the
   lead's terminal; a session that is not the lead takes the lead's relay as
   the go and writes the relay's time in the job's note.
-- **Two sessions during the day**: one holds the card and builds, one reads
-  cold and builds tooling. A third only as a blind reader on a finished
-  result, briefed with file paths and no conclusions; a subagent counts.
+- **Three seats from the start of each day**: a lead that reads, rules and
+  holds the Open List and the inbox; one session that holds the card and
+  builds loads; one that reads cold and builds tooling. The lead hands each
+  seat a brief file before it starts. A fourth only as a blind reader on a
+  finished result, briefed with file paths and no conclusions; a subagent
+  counts.
 - **The owner, when available, takes the cheap looks first** (who is in a
   shot, what is replaced), before anything is built on them: in batches
   where possible, one by one only when a decision is urgent.

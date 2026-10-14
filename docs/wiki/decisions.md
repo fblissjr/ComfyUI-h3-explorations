@@ -41,8 +41,9 @@ Older history lives elsewhere and is not copied here:
   owner, about 14:43Z: the 10/12 pieces are not trusted). Until the owner judges a remake, the lead lays it
   over the owner's 10/12 keep on the same frames with `delivery_table.py --prefer`, citing that word.
 - **The team is three seats from the start of each day**: a lead that reads, rules and holds the Open List,
-  a card session and a tooling session (the owner, about 14:20Z). `AGENTS.md`, "How the owner and the
-  sessions talk", still says two sessions; that line is the owner's to change.
+  a card session and a tooling session (the owner, about 14:20Z; written into `AGENTS.md`, "How the owner
+  and the sessions talk", on their yes of about 17:05Z). What it replaces: "Two sessions during the day",
+  one on the card and one on tooling, with the lead's work folded into whichever held the card.
 
 ## 2026-10-13
 
