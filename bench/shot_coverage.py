@@ -133,6 +133,10 @@ def load_plan(path, subjects) -> dict:
             raise SystemExit(f"{path}: `{label}` is not a subject of the shots file ({', '.join(subjects)})")
         if p.get("region") not in REGIONS:
             raise SystemExit(f"{path}: `{label}`: region must be one of {REGIONS}")
+        if "restore" in p and (not isinstance(p["restore"], list) or not p["restore"] or not all(isinstance(c, str) and c for c in p["restore"])
+                               or not str(p.get("restore_by") or "").strip()):
+            raise SystemExit(f"{path}: `{label}`: `restore` is a list of the part model's classes given back to the source on every piece of "
+                             "this subject (bench/delivery_table.py), with `restore_by` saying who asked and why")
     for label in subjects:
         if label not in d["subjects"]:
             raise SystemExit(f"{path}: no plan for `{label}`")

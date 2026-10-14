@@ -55,6 +55,7 @@ No video, no model, no card, no server.
 """
 from __future__ import annotations
 
+import json
 import sys
 import tempfile
 from pathlib import Path
@@ -440,6 +441,47 @@ def _capture(repo: Path, name: str, first: int, frames: int, tracks: dict, runs=
     return str(folder)
 
 
+
+def a_plan_that_keeps_an_accessory() -> str:
+    """The owner's rule of 2026-10-14, keep accessories: the plan's `restore` for a subject is written onto every row of theirs."""
+    import copy
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("assemble_delivery", Path(__file__).resolve().parent / "assemble_delivery.py")
+    assembler = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(assembler)
+    plan = copy.deepcopy(PLAN)
+    plan["subjects"]["a"].update(restore=["Eyeglass"], restore_by="the owner, 2026-10-14: keep her white sunglasses")
+    out = dt.decide(ledger(render("a_face", (50, 99), "05"), render("b_hair", (55, 99), "05", subject="b", region="face and hair")), SHOTS, plan)
+    text = dt.table_text(out, "/share", "Made for the check.", plan, "t_check")
+    # THE CASE THAT GOES RED when the plan's accessory is not on every row of its subject
+    assert all("a.Eyeglass" in r["restore"] for r in out["rows"] if r["subject"] == "a") and not any("a.Eyeglass" in r["restore"] for r in out["rows"] if r["subject"] != "a"), out["rows"]
+    assert "# restore=a.Eyeglass on every row of a: from the plan, by the owner, 2026-10-14: keep her white sunglasses" in text, text
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "t.txt"
+        path.write_text(text)
+        rows = assembler.read_table(path)
+    import capture_masked_run as cap
+    eyeglass = cap._pack("sapiens2_parts").CLASS_NAMES.index("Eyeglass")
+    assert [r["restore"] for r in rows if r.get("subject") == "a"] == [[("b", "whole"), ("a", [eyeglass])]], rows
+    plan["subjects"]["a"]["restore"] = ["Sunglasses"]
+    try:
+        dt.decide(ledger(render("a_face", (50, 99), "05")), SHOTS, plan)
+    except SystemExit as e:
+        assert "not classes of the part model" in str(e), e
+    else:
+        raise AssertionError("a class the part model has not was written")
+    import shot_coverage
+    with tempfile.TemporaryDirectory() as tmp:
+        bad = {"schema": "h3_plan/1", "subjects": {"a": {"region": "face", "restore": ["Eyeglass"]}, "b": {"region": "face"}}}
+        (Path(tmp) / "plan.json").write_text(json.dumps(bad))
+        try:
+            shot_coverage.load_plan(str(Path(tmp) / "plan.json"), ["a", "b"])
+        except SystemExit as e:
+            assert "restore_by" in str(e), e
+        else:
+            raise AssertionError("a restore with no restore_by was read")
+    return "a plan's restore is on every row of its subject and no other, said in the table's header with who asked, read back by the assembler; a class the model has not, and no restore_by, are refused"
+
 def the_commands() -> str:
     with tempfile.TemporaryDirectory() as tmp:
         repo = Path(tmp)
@@ -566,6 +608,7 @@ case("the owner's words, under the render they are on", the_owners_words_are_in_
 case("a preference of the lead's", a_preference)
 case("a hold of the lead's: not this one, and why", a_hold_of_the_leads)
 case("the table reads back through the assembler", the_table_reads_back)
+case("a plan that keeps an accessory", a_plan_that_keeps_an_accessory)
 case("the commands, each whole and one line", the_commands)
 case("a row is tied to its capture's run, from records", a_row_is_tied_to_its_run)
 case("what a restore has to go on, as three counts", what_a_restore_has_to_go_on)

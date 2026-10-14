@@ -56,6 +56,11 @@ one is laid only on frames no earlier one took. Frames of a shot that no render 
 they are the whole shot (the assembler takes a `source` line only over a whole shot) and a comment in the table
 otherwise.
 
+**A plan's `restore`** (a subject's `restore: [classes]` with `restore_by`; the owner's rule of 2026-10-14, keep
+accessories): `restore=<subject>.<Class>+...` on every row of that subject, so the assembler gives those classes of
+their own class map back to the source (an earring-like thing inside a region). Generated here, never typed per row;
+the header says who asked. A class the part model has not is refused.
+
 **`restore=`** follows the practice of the table of 2026-10-12, as its header states it: a subject's row gives
 back every OTHER subject the shots file has in that shot (`yes` or `unsure`): `restore=<other>:whole` on a face
 row, which has no business inside anybody else, and `restore=<other>` on any other row. The assembler needs a
@@ -241,6 +246,19 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
     """The table as data: `rows` (pieces laid), `sources` (whole shots left as the source), `gaps` (frames inside a
     shot that has a piece and that no piece takes) and `reading` (one entry a shot and a subject)."""
     looks_say = _shot_coverage().nothing_to_make          # the rule has one home: the coverage tool's
+
+    def own_restore(label: str) -> list[str]:
+        """The plan's `restore` for a subject (the owner's rule of 2026-10-14, keep accessories): those classes of the
+        subject's own class map given back to the source on every piece of theirs, at assembly; generated here, never typed."""
+        classes = list(plan["subjects"][label].get("restore") or [])
+        if not classes:
+            return []
+        import capture_masked_run as cap
+        names = cap._pack("sapiens2_parts").CLASS_NAMES
+        bad = [c for c in classes if c not in names or c == "Background"]
+        if bad:
+            raise SystemExit(f"the plan's `restore` for {label!r} names {bad}, which are not classes of the part model: one of {', '.join(names[1:])}")
+        return [f"{label}.{'+'.join(classes)}"]
     if ledger.get("schema") != LEDGER_SCHEMA:
         raise SystemExit(f"the ledger's schema is {ledger.get('schema')!r}, not {LEDGER_SCHEMA!r}: make it again with bench/render_ledger.py")
     prefers, holds = list(prefers or []), list(holds or [])
@@ -339,7 +357,7 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
                 free -= set(take)
                 others = [o for o in shots["subjects"] if o != label and present[o] != "no"]
                 region = r["form"].get("region")
-                restores = [f"{o}:whole" if region == "face" else o for o in others]
+                restores = [f"{o}:whole" if region == "face" else o for o in others] + own_restore(label)
                 for a, b in runs(take):
                     rows.append({"first": a, "last": b, "file": r["file"], "name": r["name"], "piece_first": r["span"][0], "subject": label,
                                  "region": region, "restore": restores})
@@ -537,6 +555,8 @@ def table_text(out: dict, share: str, made: str, plan: dict, name: str) -> str:
              *[f"# HELD BACK by the lead (--hold), a session's word and not the owner's: {h['load']} on {frames(h['first'], h['last'])}, {h['subject']}: "
                + " ".join(h["reason"].replace("#", " ").split()) for h in out.get("held", [])],
              "# restore= is the practice of the table of 2026-10-12: every other subject the shots file has in the shot is given back, `:whole` on a face row."]
+    lines += [f"# restore={label}.{'+'.join(p['restore'])} on every row of {label}: from the plan, by {' '.join(str(p['restore_by']).split())}"
+              for label, p in plan["subjects"].items() if p.get("restore")]
     for r in out["rows"]:
         lines.append(f"{frames(r['first'], r['last'])} {Path(share) / r['file']} {r['piece_first']} subject={r['subject']}"
                      + (f" run={r['run']}" if r.get("run") else "") + "".join(f" restore={x}" for x in r["restore"]))
