@@ -28,6 +28,14 @@ Older history lives elsewhere and is not copied here:
   keeping them current; one input (the stopped loads) was a typed list and the review file's decisions were
   typed into the script. Where it lives now: `AGENTS.md`, "Operative rules" and "Where state lives". The
   pages becoming tracked tools that read only generated files is the tooling seat's job of the day.
+- **Gaze is a known limit; no more card time on the eye's form for it** (the lead, 2026-10-14, on the measure the
+  lead set in advance). The pose model's iris points do follow a sideways look (lead_fp_1097b, 1119-1133: +0.25 to +0.31
+  eye widths, scores 0.96-1.0) and the reference draws it, but no render followed: median iris x +0.253 in the original
+  against -0.022 (the ring), -0.030 (filled), -0.030 (contrast) on the whole frame and +0.004 zoomed 1.80x
+  (internal/claude/2026-10-14_mrdrill_scripts/iris_offset_render_*_1097_1133.csv). The contrast eye stays the default
+  (no worse by this measure, and it paints out the sculpted eyeball). Open: a larger zoom or a reference of the eyes
+  alone, not tried. In the same run the drawn mouth DID carry (lead_fp_1156c: the mouth opens with hers on 1170 and
+  1182, where lead_fp_1156's stayed shut).
 - **AGENTS.md's reference-form line points at the chain's defaults** (the owner, about 18:13Z: "make these our
   defaults and stop forgetting these tools we built"; built in e92085d5). What it used to say: the reference is
   drawn with "eye outlines with the iris, brows, nose", a list of what was drawn on 2026-10-12. What it says now:
