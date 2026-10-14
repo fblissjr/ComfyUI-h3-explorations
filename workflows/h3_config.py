@@ -1497,10 +1497,16 @@ MASKED_JOB_MOTION = dict(none="none", wired="a video I wire")
 #: `wider`: how far the band reaches past the part's box on each side, as a share of the box's width.
 #: `smooth_frames`: the box is the median of the boxes this many frames either side, so the band's edge does
 #: not move with one frame's mask. `most`: the deepest band a load may ask for, in part heights.
-#: **Reasoned**, all four: the lead's design of 2026-10-12, built that day. No render had been made with a
+#: **Reasoned**, those four: the lead's design of 2026-10-12, built that day. No render had been made with a
 #: band when this was written, and none of these was measured on one; the first face-and-hair load that
 #: carries a band is read by a session that did not build it.
-MASKED_JOB_HAIR_BAND = dict(cuts="clothes", wider=0.1, smooth_frames=4, most=2.0)
+#: `starts`: where the band begins, "top" (the part box's top: the cut keep-out is emptied beside the head as well
+#: as under it) or "bottom" (under the part only, as built on 2026-10-12). **Measured** "top", 2026-10-14: on
+#: second_hf_0604_b (604-948) the clothes keep-out's track had a strip down the original woman's hair edge, and
+#: the cells it touched were handed back to the source beside her head on 90 frames, stepping every latent step
+#: (internal/claude/2026-10-14_mrtwo_scripts/hair_0604/findings.md); a band from the box's bottom never reaches
+#: there. What "top" did to that load's planned region is in the commit that set it.
+MASKED_JOB_HAIR_BAND = dict(cuts="clothes", wider=0.1, smooth_frames=4, most=2.0, starts="top")
 #: What the text encoder is shown of a load's still: the video model's own copy, not a smaller one of its
 #: own. **Decided** by the owner, 2026-10-08, for the reference stills of this lane (the largest size, enlarged
 #: to it, one copy for both models); the 2026-10-08 final and every render of 2026-10-10 ran so. The shipped

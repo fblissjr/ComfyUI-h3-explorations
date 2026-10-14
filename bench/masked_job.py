@@ -679,8 +679,11 @@ def hair_band(one: dict, files: dict, target: Path) -> tuple[dict, dict | None]:
 
     **The band, a frame.** The part mask's box on that frame, each side the median of the boxes
     `h3_config.MASKED_JOB_HAIR_BAND["smooth_frames"]` frames before and after it (frames with no part are left out
-    of the median, and a frame with none near it has no band); from the box's bottom DOWN by `hair_band` times the
-    box's height; as wide as the box and `wider` of its width more on each side; cut at the picture's edges.
+    of the median, and a frame with none near it has no band); from the box's top (`starts`: "top") or its bottom
+    ("bottom") down to `hair_band` times the box's height below its bottom; as wide as the box and `wider` of its
+    width more on each side; cut at the picture's edges. From the top, the keep-out is emptied beside the head as
+    well as under it: a keep-out's mis-cut strip down the original's hair edge handed cells back to the source
+    there on 90 frames of the second subject's 604-948 (2026-10-14), and a band from the bottom never reached it.
 
     **What it does not do.** It adds nothing to the region: the margin still bounds what is regenerated, and hair
     longer than the margin needs a larger margin. Only the one keep-out is cut; the others give their cells back
@@ -693,6 +696,8 @@ def hair_band(one: dict, files: dict, target: Path) -> tuple[dict, dict | None]:
         return files, None
     rule = h3_config.MASKED_JOB_HAIR_BAND
     share, cuts = float(one["hair_band"]), one.get("hair_band_cuts", rule["cuts"])
+    if rule["starts"] not in ("top", "bottom"):
+        raise Refused(f"h3_config.MASKED_JOB_HAIR_BAND['starts'] is {rule['starts']!r}: the band starts at the part box's \"top\" or its \"bottom\"")
     where = list(one.get("others") or ()).index(cuts)
     (part, part_at), (keep, keep_at) = files["parts"], files["others"][where]
     first, frames, reach = one["first"], one["frames"], int(rule["smooth_frames"])
@@ -716,10 +721,10 @@ def hair_band(one: dict, files: dict, target: Path) -> tuple[dict, dict | None]:
         near = near[~np.isnan(near[:, 0])]
         if len(near):
             x0, y0, x1, y1 = np.median(near, axis=0)
-            bands[f] = (max(int(np.floor(x0 - rule["wider"] * (x1 - x0))), 0), min(int(round(y1)), h),
+            bands[f] = (max(int(np.floor(x0 - rule["wider"] * (x1 - x0))), 0), min(int(round(y0 if rule["starts"] == "top" else y1)), h),
                         min(int(np.ceil(x1 + rule["wider"] * (x1 - x0))), w), min(int(np.ceil(y1 + share * (y1 - y0))), h))
     has = bands[:, 0] >= 0
-    figures = {"share_of_the_parts_height": share, "cut_out_of": cuts, "file": str(target), "its_first_frame_is_source_frame": first,
+    figures = {"share_of_the_parts_height": share, "cut_out_of": cuts, "starts_at_the_part_boxs": rule["starts"], "file": str(target), "its_first_frame_is_source_frame": first,
                "made_from": {"part": part, "its_first_frame_is_source_frame": part_at, "keep_out": keep, "keep_outs_first_frame_is_source_frame": keep_at},
                "mask_size": [w, h],
                "part_height_px_median": float(np.median(boxes[seen, 3] - boxes[seen, 1])),
@@ -760,7 +765,8 @@ def band_lines(band: dict | None) -> list[str]:
     if band is None:
         return []
     fig = band["figures"]
-    return [f"hair band: the keep-out `{fig['cut_out_of']}` is cut by a band under the part, {fig['band_px_median']['deep']:.0f} px deep "
+    where = "from the part box's top, beside the head and under it" if fig.get("starts_at_the_part_boxs") == "top" else "under the part"
+    return [f"hair band: the keep-out `{fig['cut_out_of']}` is cut by a band {where}, {fig['band_px_median']['deep']:.0f} px deep "
             f"({fig['share_of_the_parts_height']:g} of the part's height of {fig['part_height_px_median']:.0f} px) and "
             f"{fig['band_px_median']['wide']:.0f} px wide at the median, on {fig['frames_with_a_band']} of the load's frames, its box the median over "
             f"{fig['the_box_is_the_median_over_frames']} frames; the mask's own pixels ({fig['mask_size'][0]}x{fig['mask_size'][1]}); "

@@ -749,6 +749,7 @@ def a_hair_band_under_a_part():
     keep = np.zeros((n, h, w), bool)
     keep[:, 50:, :] = True                                    # clothing: everything under the jaw
     keep[:, 5:10, 100:120] = True                             # and a piece nowhere near the band
+    keep[:, 25:45, 36:40] = True                              # and a strip down the hair's edge BESIDE the head (2026-10-14: the second subject's 604-948)
     with tempfile.TemporaryDirectory() as t:
         tmp = Path(t)
         capture = _a_capture(tmp)
@@ -781,7 +782,8 @@ def a_hair_band_under_a_part():
         assert covered.all(), "the cut keep-out has fewer frames than the load"
         at = banded["first"] - CAPTURE_FIRST
         x0, x1 = 40 - int(rule["wider"] * 40), 80 + int(rule["wider"] * 40)          # the box and a tenth of its width each side
-        y0, y1 = 50, 50 + 15                                                          # from the box's bottom, half its height down
+        assert rule["starts"] == "top", rule
+        y0, y1 = 20, 50 + 15                                                          # from the box's top to half its height under its bottom
         want = keep[at:at + banded["frames"]].copy()
         want[:, y0:y1, x0:x1] = False
         assert x0 < 40 and x1 > 80, "the band is no wider than the part's box: nothing is left for hair that falls outward"
@@ -793,23 +795,45 @@ def a_hair_band_under_a_part():
         assert part[shrunk].any(1).nonzero()[0][-1] + 1 == 35, "control failed: the part's own box did not move on that frame"
         fig = built["hair_band"]
         assert fig["share_of_the_parts_height"] == 0.5 and fig["cut_out_of"] == "b" and fig["part_height_px_median"] == 30.0, fig
-        assert fig["band_px_median"] == {"deep": 15.0, "wide": float(x1 - x0)} and fig["the_box_is_the_median_over_frames"] == 2 * rule["smooth_frames"] + 1
-        assert fig["frames_with_a_band"] == banded["frames"] and fig["frames_written"] == banded["frames"] and fig["keep_out_px_taken_out_a_frame"]["median"] == 15.0 * (x1 - x0)
+        assert fig["band_px_median"] == {"deep": float(y1 - y0), "wide": float(x1 - x0)} and fig["the_box_is_the_median_over_frames"] == 2 * rule["smooth_frames"] + 1
+        assert fig["frames_with_a_band"] == banded["frames"] and fig["frames_written"] == banded["frames"] \
+            and fig["keep_out_px_taken_out_a_frame"]["median"] == float(keep[at][y0:y1, x0:x1].sum()) and fig["starts_at_the_part_boxs"] == "top", fig
+        assert not got[:, 25:45, 36:40].any(), "the strip beside the head is still in the keep-out"
         assert "not when the band was built" in fig["tested_on_a_render"] and fig["made_from"]["keep_out"].endswith("subjects/b/track__p.mkv")
-        assert any(line.startswith("hair band:") and "15 px deep" in line and "not when the band was built" in line for line in built["shown"]), built["shown"]
+        assert any(line.startswith("hair band:") and f"{y1 - y0} px deep" in line and "from the part box's top" in line and "not when the band was built" in line
+                   for line in built["shown"]), built["shown"]
         assert built["settings"]["hair_band"] == {"value": 0.5, "set_by": "the job file"} and other["settings"]["hair_band"]["value"].startswith("none")
         rendered = tool.build_loads(_loads_file(tmp, capture, loads=(banded, plain)), "render", ["a_band"], **where)
         again = Path(json.loads(rendered[0].with_suffix(".built.json").read_text())["files"]["others"][0][0])
         assert again.name == "a_band.render.b_less_hair_band.mkv" and np.array_equal(read_mask(str(again), (w, h), 700, 700, banded["frames"])[0], got), \
             "the render's cut keep-out is not the plan's"
+        # from the box's BOTTOM, as built on 2026-10-12: the strip beside the head stays, and only the rows under the part are cut
+        old = dict(rule)
+        cfg.MASKED_JOB_HAIR_BAND["starts"] = "bottom"
+        try:
+            under = tool.build_loads(_loads_file(tmp, capture, loads=({**banded, "name": "a_under"},)), "plan", [], **where)
+        finally:
+            cfg.MASKED_JOB_HAIR_BAND.clear()
+            cfg.MASKED_JOB_HAIR_BAND.update(old)
+        cut_under = Path(json.loads(under[0].with_suffix(".built.json").read_text())["files"]["others"][0][0])
+        low = read_mask(str(cut_under), (w, h), banded["first"], banded["first"], banded["frames"])[0]
+        assert low[:, 25:45, 36:40].all() and not low[:, 50:65, x0:x1].any(), "from the bottom the band reaches beside the head, or does not cut under it"
+        cfg.MASKED_JOB_HAIR_BAND["starts"] = "middle"
+        try:
+            _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**banded, "name": "a_mid"},)), "plan", [], **where), "starts", "top")
+        finally:
+            cfg.MASKED_JOB_HAIR_BAND.clear()
+            cfg.MASKED_JOB_HAIR_BAND.update(old)
         for words, change in (("hair_band|over 0", {"hair_band": 0}), ("hair_band|over 0", {"hair_band": True}), ("hair_band|up to", {"hair_band": rule["most"] + 1}),
                               ("not among", {"hair_band_cuts": "c"}), ("whole subject", {"carried": "track"})):
             _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**banded, "name": "a_no", **change},)), "plan", [], **where), *words.split("|"))
         _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**plain, "name": "a_no", "hair_band_cuts": "b"},)), "plan", [], **where), "hair_band_cuts", "no `hair_band`")
         write_mask_video(capture / "subjects/a/parts_held__p.mkv", np.zeros((n, h, w), bool))
         _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**banded, "name": "a_none"},)), "plan", [], **where), "empty on every frame")
-        assert not list(written[0].parent.glob("a_no*")) and not list(written[0].parent.glob("a_none*")), "a refused load left a file"
-    return "the keep-out is cut under the part and nowhere else, its edge holds on a frame whose part shrinks, and the capture's own file is untouched"
+        assert not list(written[0].parent.glob("a_no*")) and not list(written[0].parent.glob("a_none*")) and not list(written[0].parent.glob("a_mid*")), \
+            "a refused load left a file"
+    return ("the keep-out is cut from the part box's top to under it, a strip beside the head included, and nowhere else; from the bottom the strip stays; "
+            "its edge holds on a frame whose part shrinks, and the capture's own file is untouched")
 
 
 #: A job that names two shots, and a load on both. The made capture's shots are 650-689, 690-899 and 900-949 (`_a_capture`).
