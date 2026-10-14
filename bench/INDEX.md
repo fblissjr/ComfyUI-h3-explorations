@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 131 |
+| [`check_*`](#check) | 132 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 168 |
+| [the rest](#the-rest) | 169 |
 
 ## check
 
@@ -117,6 +117,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_render_ledger.py`](check_render_ledger.py) | The render ledger (`bench/render_ledger.py`) on a made share: what each state of a render's making takes. |
 | [`check_renders_page.py`](check_renders_page.py) | `bench/renders_page.py` lays the renders inventory beside the owner's verdict lines; each case is a way a row could be out of order, carry another render's lines, drop a line or link to the wrong place. |
 | [`check_retraction_consumers.py`](check_retraction_consumers.py) | Fail when a retracted claim reaches a file nobody signed off on. |
+| [`check_review_pages.py`](check_review_pages.py) | `bench/review_pages.py` on a made table, ledger, review list and verdicts: each case is a way the owner's two local pages could show a dead item, cut a session's word, lose a stopped load, or be unreadable in dark mode. |
 | [`check_sam31_corrections.py`](check_sam31_corrections.py) | The SAM 3.1 Corrections node on stand-in modules, through ComfyUI's real ModelPatcher. No SAM weights, no card. |
 | [`check_sam31_corrections_on_card.py`](check_sam31_corrections_on_card.py) | The SAM 3.1 Corrections node on the real model, on the patcher class the server uses, with a stock pair in the same process. |
 | [`check_sam3d_body_conversion.py`](check_sam3d_body_conversion.py) | Hold `bench/convert_sam3d_body_checkpoint.py`'s mapping to core's SAM 3D Body model, without weights. |
@@ -429,6 +430,7 @@ this file is only a way to find a script by what it says it does.
 | [`renders_page.py`](renders_page.py) | One plain page, a row a render of a video in frame order, with the owner's verdict lines under each: what was rendered, from what, and what the owner said of it. |
 | [`repro_token_aug_nondeterminism.py`](repro_token_aug_nondeterminism.py) | Standalone repro: comfy_kitchen `sol_attn` is not deterministic with `token_aug`. |
 | [`restart_comfy.sh`](restart_comfy.sh) | DISABLED 2026-09-02, owner's call: this script hangs on every run and is |
+| [`review_pages.py`](review_pages.py) | The owner's two local pages in a day's folder, made from the delivery table and the ledger alone: what is to review now (`to-review`), and what every stretch of the video is made of and from which day (`provenance`). |
 | [`run_audio_carry_arms.py`](run_audio_carry_arms.py) | Render the audio-carry ablation and grade it on ENERGY, not on rel L2. |
 | [`run_capture.py`](run_capture.py) | Submit and track the production reference capture workflow. |
 | [`run_checks.py`](run_checks.py) | Run every `bench/check_*.py` with the card masked, and say what is red that should not be. |
