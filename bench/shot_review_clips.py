@@ -328,8 +328,21 @@ def items(a: argparse.Namespace) -> int:
         new.append((f["stacked"], media / f["stacked"].name, make_item(name, span, json.loads(f["json"].read_text()), record, link, a.stamp, a.by, notes.get(span))))
     for _, _, item in new:
         print(f"{item['id']}: {item['what']}")
+    # AN EARLIER JOINED ITEM OF THE SAME SPAN is retired by the new one (the lead, 2026-10-14: three open items of 1222-1305 stood on
+    # the page at once, each a build of the same frames). Only an open one: an item in any other state is somebody's, left as it is.
+    now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    retire = []
+    for _, _, item in new:
+        prefix = f"{a.stem}_{int(item['first']):04d}_{int(item['first']) + int(item['frames']) - 1:04d}_joined_"
+        for old in listed["items"]:
+            if old["id"].startswith(prefix) and old["id"].endswith("_stacked"):
+                if old.get("state") == "open":
+                    retire.append((old, item["id"]))
+                    print(f"retires {old['id']}: superseded by {item['id']}, a later build of the same frames")
+                else:
+                    print(f"leaves {old['id']} as it is: its state is {old.get('state')!r}, not open")
     if a.dry:
-        print(f"dry: nothing written; {len(new)} item(s) would go to the top of {path}")
+        print(f"dry: nothing written; {len(new)} item(s) would go to the top of {path}" + (f", and {len(retire)} retired" if retire else ""))
         return 0
     for target, link, _ in new:
         if os.path.lexists(link) and Path(os.path.realpath(link)) != target.resolve():
@@ -343,8 +356,12 @@ def items(a: argparse.Namespace) -> int:
     for target, link, _ in new:
         if not os.path.lexists(link):
             os.symlink(target, link)
+    for old, by_id in retire:
+        old.update(state="superseded", superseded_by=by_id,
+                   state_words=f"superseded, kept for the record: an earlier build of the same frames; {by_id} is the one to watch "
+                               f"({a.by}, {now}, by bench/shot_review_clips.py items)")
     listed["items"][0:0] = [x for _, _, x in new]
-    listed["updated"], listed["by"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), a.by
+    listed["updated"], listed["by"] = now, a.by
     out = json.dumps(listed, indent=1) + ("\n" if raw.endswith("\n") else "")
     tmp = path.with_name(path.name + f".tmp_{a.by}")
     tmp.write_text(out)

@@ -327,6 +327,25 @@ def items_at_the_top() -> str:
         assert len(copies) == 1 and json.loads(copies[0].read_text()) == before and after["items"][1]["what"].endswith(" the lead's words"), "copy or note"
         assert stale.is_symlink() and stale.resolve() == (clips / "fun_0100_0140_joined_T_STACKED.mp4").resolve(), stale
         refused(lambda: src.main([*base, "100-140"]), "already has an item")
+        # A LATER BUILD OF THE SAME SPAN retires the earlier open joined item, and leaves one in another state as it is
+        later = [*base[:-4], "--stamp", "U", "--by", "tester"]
+        f_u = src.files_of(src.clip_name("fun", 100, 140, "U"), clips, tables)
+        f_u["stacked"].write_bytes(b"clip")
+        f_u["record"].write_text(json.dumps(RECORD))
+        f_u["json"].write_text(json.dumps(table_of(100, 140)))
+        f_u["stack_reading"].write_text(json.dumps(reading(41)))
+        listed = json.loads(page.read_text())
+        listed["items"].append({"id": "fun_0100_0140_joined_S_stacked", "state": "ok"})
+        listed["items"].append({"id": "fun_0100_0141_joined_S_stacked", "state": "open"})
+        page.write_text(json.dumps(listed, indent=1) + "\n")
+        assert src.main([*later, "--dry", "100-140"]) == 0 and json.loads(page.read_text()) == listed, "dry wrote"
+        assert src.main([*later, "100-140"]) == 0
+        state = {x["id"]: x for x in json.loads(page.read_text())["items"]}
+        # THE CASE THAT GOES RED when two open joined items of one span stand on the page at once
+        assert state["fun_0100_0140_joined_T_stacked"]["state"] == "superseded" and state["fun_0100_0140_joined_T_stacked"]["superseded_by"] == "fun_0100_0140_joined_U_stacked", state
+        assert "fun_0100_0140_joined_U_stacked is the one to watch" in state["fun_0100_0140_joined_T_stacked"]["state_words"]
+        assert state["fun_0100_0140_joined_U_stacked"]["state"] == "open" and state["fun_0100_0140_joined_S_stacked"]["state"] == "ok", state
+        assert state["fun_0100_0141_joined_S_stacked"]["state"] == "open" and state["fun_0200_0210_joined_T_stacked"]["state"] == "open", "another span was retired"
         # a table that is not of the span is refused
         f_wrong = src.files_of(src.clip_name("fun", 400, 410, "T"), clips, tables)
         f_wrong["stacked"].write_bytes(b"clip")
