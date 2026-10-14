@@ -68,10 +68,11 @@ her head" below: the fault was found elsewhere on 2026-10-14.)
   lowering (`internal/claude/2026-10-14_mrtwo_scripts/eyes/findings.md`, section 3). A row, not a job: the zoomed
   case decides whether the eye form is worth more spend.
 - **The pose model's lid points sometimes miss a lowered or closing eye, and the render opens it** (2026-10-14, the
-  lead's reading; the owner's old fault on the second subject, recorded with its cause). On second_hfp_0278c at 290-293
-  the render's lid gap is 0.180-0.202 while hers stays lowered at 0.097-0.102, and the reference draws the eyes open
-  there because the lid points open on 288-293 (278b's reader). On second_hfp_0415d at 437 hers closes to 0.092 and
-  the render's stays at 0.221. Figures: `data/2026-10-14_second_hfp_0278c/eyes/lid_gap_render_vs_original.txt` and
+  lead's reading; the owner's old fault on the second subject, recorded with its cause). On second_hfp_0278c the
+  render's eyes open on 290-293 while hers stay lowered, and the reference draws them open there because the lid
+  points open on 288-293 (278b's reader). On second_hfp_0415d at 437 hers close and the render's stay open. The lid
+  gap a frame, original against render (the lead's `eye_open_table.py`):
+  `data/2026-10-14_second_hfp_0278c/eyes/lid_gap_render_vs_original.txt` and
   `data/2026-10-14_second_hfp_0415d/eyes/lid_gap_render_vs_original.txt`. Upstream of the drawing, beside the gaze
   row above and 415's lowering. Not a job today.
 - **On a laughing squint the drawn lids stay open, and the body model's eyes are open under every drawing**
