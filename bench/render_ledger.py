@@ -536,9 +536,11 @@ def on_a_joined_clip(rel: str, spots: list[dict], verdicts: list[dict]) -> list[
 
 def on_a_joined_item(rel: str, joined: list[dict], verdicts: list[dict]) -> list[dict]:
     """The owner's lines on a JOINED ITEM of the review page (`bench/shot_review_clips.py items`: a whole clip of a span,
-    every piece that stood laid), under each render the item's own table laid, marked `the_whole_clip`. The lead's
-    ruling of 2026-10-14: the owner judges the final cut whole, so a KEEP there counts as a keep on each piece it lays
-    (`delivery_table.last_choice`); a "wrong" or "not sure" names no piece and counts on none.
+    every piece that stood laid), under each render the item's own table laid, marked `the_whole_clip`: its KEEPS only. The
+    lead's rulings of 2026-10-14: the owner judges the final cut whole, so a KEEP there counts as a keep on each piece it lays
+    (`delivery_table.last_choice`); a "wrong", a "not sure" or words there are the owner's word on the SHOT and are no piece's
+    own (a reader saw "See hair right above his eye", said of the third subject, under the lead's piece): they are kept
+    whole under the clip in the ledger's `joined_clips` (`lines_on_joined_clips`).
 
     `joined` is [{"clip": the item's clip name, "row": the item's id, "table": its table's file, "rows": that table's rows}]."""
     out = []
@@ -547,10 +549,31 @@ def on_a_joined_item(rel: str, joined: list[dict], verdicts: list[dict]) -> list
         for t in laid:
             for v in verdicts:
                 said = v.get("chosen") if v.get("what") == "choice" else v.get("words")
-                if v.get("row") == given["row"] and said:
+                if v.get("row") == given["row"] and said and v.get("what") == "choice" and v.get("chosen") in keeps():
                     out.append({"at": v.get("at"), "frame": v.get("frame"), "said": said, "what": v.get("what"), "from": f"verdicts ({v.get('source')})",
                                 "row": v.get("row"), "on_the_joined_clip": given["clip"], "the_whole_clip": True, "at_frames": [t["first"], t["last"]],
                                 "through_the_table": given["table"]})
+    return out
+
+
+def keeps() -> tuple:
+    """The buttons that are a keep: the delivery table's (`delivery_table.KEEP`), one copy, read when needed."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import delivery_table
+    return tuple(delivery_table.KEEP)
+
+
+def lines_on_joined_clips(joined: list[dict], verdicts: list[dict]) -> list[dict]:
+    """Each joined item's own lines whole, clicks and words, oldest first, with the pieces its table laid: the owner's word on
+    the shot (a keep among them is also under each piece, `on_a_joined_item`)."""
+    out = []
+    for given in joined:
+        mine = [{"at": v.get("at"), "frame": v.get("frame"), "said": v.get("chosen") if v.get("what") == "choice" else v.get("words"), "what": v.get("what"),
+                 "from": f"verdicts ({v.get('source')})"} for v in verdicts if v.get("row") == given["row"]]
+        mine = sorted((m for m in mine if m["said"]), key=lambda m: str(m["at"]))
+        if mine:
+            out.append({"clip": given["clip"], "row": given["row"], "table": given["table"],
+                        "lays": [{"name": t.get("name"), "subject": t.get("subject"), "frames": [t["first"], t["last"]]} for t in given["rows"]], "lines": mine})
     return out
 
 
@@ -697,6 +720,7 @@ def ledger(shots: dict, plan: dict, share: Path, records: Path, repo: Path, sour
                        "laid_in_the_table": sum(bool(r["laid_in_the_table"]) for r in renders)},
             "sections": sections, "renders": {r["file"]: r for r in renders},
             "stopped": stopped_loads(records, repo, sources),
+            "joined_clips": lines_on_joined_clips(joined or [], verdicts),
             "not_placed": {"renders_outside_the_shots_span": outside,
                            "numbered_videos_with_no_saved_graph_and_no_record": no_graph,
                            "renders_of_other_videos_by_the_copy_loaded": dict(other),

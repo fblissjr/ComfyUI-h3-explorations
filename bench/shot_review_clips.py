@@ -142,6 +142,23 @@ def stack_faults(got: dict, span: tuple[int, int]) -> list[str]:
     return out + ([] if sound["the_same"] else ["the stacked file's sound is NOT the clip's"])
 
 
+def names_the_owner(by: str) -> bool:
+    """Whether `by` holds the repo's git user name or a word of it (three letters or more), read when asked and never written
+    down (an eighth reader, 2026-10-14: the owner's own name passed the guard)."""
+    name = subprocess.run(["git", "-C", str(HERE.parent), "config", "user.name"], capture_output=True, text=True).stdout.strip().lower()
+    words = [w for w in re.split(r"\W+", name) if len(w) >= 3]
+    return bool(name) and (name in by.lower() or any(re.search(rf"\b{re.escape(w)}\b", by.lower()) for w in words))
+
+
+def joined_ledger(path: str) -> None:
+    """Refuse a ledger made without --joined-tables: it reads none of the owner's lines on a joined clip, so an item or by-day
+    would say "not judged" of pieces the owner judged on one (a seventh reader; an eighth found items and by-day unguarded)."""
+    argv = (json.loads(Path(path).read_text()).get("command") or {}).get("argv") or []
+    if "--joined-tables" not in argv:
+        raise SystemExit(f"refused, nothing run: the ledger {path} was made without --joined-tables, so it reads none of the owner's lines on a "
+                         "joined clip; make it again with the folder of the joined clips' tables (bench/render_ledger.py --joined-tables)")
+
+
 def build(a: argparse.Namespace) -> int:
     spans = [span_of(s) for s in a.spans]
     if len(set(spans)) != len(spans):
@@ -157,10 +174,7 @@ def build(a: argparse.Namespace) -> int:
         raise SystemExit("refused, nothing run: a kept output is not replaced; these are there already:\n  " + "\n  ".join(taken))
     # a ledger made without the joined items' tables reads no click on a joined clip, and the item would say "not judged" of pieces the
     # owner judged on one (a seventh reader, 2026-10-14: the 1854Z and 1929Z ledgers)
-    argv = (json.loads(Path(a.ledger).read_text()).get("command") or {}).get("argv") or []
-    if "--joined-tables" not in argv:
-        raise SystemExit(f"refused, nothing run: the ledger {a.ledger} was made without --joined-tables, so it reads none of the owner's lines on a "
-                         "joined clip; make it again with the folder of the joined clips' tables (bench/render_ledger.py --joined-tables)")
+    joined_ledger(a.ledger)
     clips.mkdir(parents=True, exist_ok=True)
     tables.mkdir(parents=True, exist_ok=True)
     for span in spans:
@@ -218,13 +232,21 @@ def cut(words: str) -> str:
     return words if len(words) <= REASON_CHARS else words[:REASON_CHARS] + "..."
 
 
+#: Words the owner sent up to this many seconds before a click go WITH that click (the lead's ruling of 2026-10-14, on an eighth
+#: reader: the review page saves the words a few seconds before the click). A starting value from three cases: 0294d, 1222b and
+#: 0415d, 2 to 3 s before.
+WITH_THE_CLICK_S = 10
+
+
 def words_after(choice: dict | None, entry: dict) -> list[str]:
     """The owner's words on a render after their last choice (the table's `the_owners_words`), each with its day and hour on
     their clock; with no choice, all their words on it. Their words rule over the button (the owner's rule of 2026-10-12): a
     click they wrote after is said with them, and words with no click are said (a sixth reader, 2026-10-14: third_fp_1419b's
     "i dont like beard", with no click, read as "not judged by you yet")."""
-    return [f"\"{' / '.join(w['said'].splitlines())}\" ({owners_clock(w['at']):%m/%d %H:%M} Central)" for w in entry.get("the_owners_words") or []
-            if choice is None or str(w.get("at")) >= str(choice["at"])]       # words sent with the click go with it (a seventh reader)
+    def with_click(w: dict) -> bool:          # the same second as the click, or up to WITH_THE_CLICK_S before it, goes with it
+        return (owners_clock(choice["at"]) - owners_clock(w["at"])).total_seconds() <= WITH_THE_CLICK_S
+    return [f"\"{' / '.join(w['said'].splitlines())}\" ({owners_clock(w['at']):%m/%d %H:%M} Central" + (f", at frame {w['frame']}" if w.get("frame") is not None else "") + ")"
+            for w in entry.get("the_owners_words") or [] if choice is None or with_click(w)]
 
 
 def passed_said(e: dict, keep: tuple) -> str:
@@ -285,7 +307,10 @@ def item_words(table: dict, keep: tuple = delivery_table.KEEP) -> tuple[int, lis
         for p in e["passed_over"]:
             c = p.get("the_owners_last_choice")
             if p.get("held"):
-                say(e, f"{who}: {p['render']} is HELD BACK by the lead (--hold), a session's word and not yours: {p['held']}", e["last"] + 1)
+                after = words_after(c, p)
+                say(e, f"{who}: {p['render']} is HELD BACK by the lead (--hold), a session's word and not yours: {p['held']}"
+                    + (f"; your last choice on it: \"{c['said']}\" ({owners_clock(c['at']):%m/%d})" if c else "")
+                    + (f", and your words: {'; '.join(after)}" if after else ""), e["last"] + 1)
             elif c and c["said"] in keep:
                 after = words_after(c, p)
                 say(e, f"{who}: YOUR KEEP {p['render']} (of {owners_clock(c['at']):%m/%d}" + (f", and your words after it: {'; '.join(after)}" if after else "")
@@ -330,7 +355,7 @@ def make_item(name: str, span: tuple[int, int], table: dict, record: dict, link:
 
 
 def items(a: argparse.Namespace) -> int:
-    if re.search(r"owner|fblissjr", a.by, re.I):           # the note is said as the --by session's words: never the owner's (a sixth reader)
+    if re.search(r"owner|fblissjr", a.by, re.I) or names_the_owner(a.by):   # the note is said as the --by session's words: never the owner's
         raise SystemExit(f"--by {a.by!r}: the session that puts the items on the list; its note is said as its words, never the owner's")
     spans = [span_of(s) for s in a.spans]
     if len(set(spans)) != len(spans):
@@ -358,6 +383,11 @@ def items(a: argparse.Namespace) -> int:
         if f"{name}_stacked" in ids:
             raise SystemExit(f"{span[0]}-{span[1]}: the list already has an item {name}_stacked")
         made_table = json.loads(f["json"].read_text())
+        named_ledger = re.search(r"from the ledger `([^`]+)`", str(made_table.get("made") or ""))
+        if named_ledger:
+            ledger_path = Path(named_ledger.group(1)) if Path(named_ledger.group(1)).is_absolute() else HERE.parent / named_ledger.group(1)
+            if ledger_path.is_file():
+                joined_ledger(str(ledger_path))
         shots = [(e["first"], e["last"]) for e in made_table["reading"] + list(made_table.get("not_in_the_shot") or [])]
         if not shots or (min(x for x, _ in shots), max(y for _, y in shots)) != span:
             raise SystemExit(f"{span[0]}-{span[1]}: its table {f['json'].name} is of "
@@ -545,6 +575,7 @@ def by_day(a: argparse.Namespace) -> int:
     made_from = Path(named.group(1)) if Path(named.group(1)).is_absolute() else HERE.parent / named.group(1)
     if made_from.resolve() != Path(a.ledger).resolve():
         raise SystemExit(f"--ledger {a.ledger}: the table says it was made from another ledger, {named.group(1)}")
+    joined_ledger(a.ledger)
     text = by_day_text(table, json.loads(Path(a.ledger).read_text()), a.day, Path(a.table).name, Path(a.ledger).name)
     out.write_text(text)
     print(text, end="")

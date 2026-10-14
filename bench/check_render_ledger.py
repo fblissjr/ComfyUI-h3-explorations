@@ -435,7 +435,16 @@ def a_joined_items_lines() -> str:
         a = led.on_a_joined_item("Video/s/lead_a/lead_a_00001.mp4", joined, verdicts)
         b = led.on_a_joined_item("Video/s/lead_c/lead_c_00001.mp4", joined, verdicts)
         assert len(a) == 1 and a[0]["the_whole_clip"] and a[0]["at_frames"] == [0, 29] and a[0]["said"] == "keep this one" and not b, (a, b)
-    return "a joined item's lines are under each render its own table laid, marked the whole clip; an item whose table is not handed in is not read"
+        # THE CASE THAT GOES RED when a wrong or words on the whole clip are handed to a piece as its own (the lead's ruling of 2026-10-14)
+        more = verdicts + [{"row": "v_0000_0049_joined_T_stacked", "what": "choice", "chosen": "wrong, and I say where", "at": "t3", "source": "answers.jsonl:5"},
+                           {"row": "v_0000_0049_joined_T_stacked", "what": "words", "words": "SEE HAIR ABOVE HIS EYE", "at": "t4", "source": "answers.jsonl:6"}]
+        a = led.on_a_joined_item("Video/s/lead_a/lead_a_00001.mp4", joined, more)
+        assert [x["said"] for x in a] == ["keep this one"], a
+        whole = led.lines_on_joined_clips(joined, more)
+        assert len(whole) == 1 and [x["said"] for x in whole[0]["lines"]] == ["keep this one", "wrong, and I say where", "SEE HAIR ABOVE HIS EYE"] \
+            and [x["name"] for x in whole[0]["lays"]] == [r["name"] for r in json.loads((folder / "t_v_0000_0049_joined_T.json").read_text())["rows"]], whole
+    return ("a joined item's KEEP is under each render its own table laid, marked the whole clip; its wrong, not sure and words are the shot's, kept whole "
+            "under the clip and given to no piece; an item whose table is not handed in is not read")
 
 case("a render its record agrees with", a_render_its_record_agrees_with)
 case("a joined item's lines, under each render it lays", a_joined_items_lines)
