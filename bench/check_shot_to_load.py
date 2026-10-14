@@ -39,6 +39,15 @@ builder's own `check_job`, and a load's to `masked_job.loads_of`, so a file the 
    with no hole and the empty field said to be the file's.
 6. **A load's name is made**: `<subject>_<form>_<first>`, refused when a job file, a capture or a job folder of
    any day has it, and the next free letter with `--remake`.
+6c. **A load of some of its subject's parts** (`job --parts NAME ... --parts-by`; 2026-10-13: where her head is
+   bowed and no face shows, her hair stays the new hair, and no job could say a load's part is the hair alone). The
+   job names the part's file, its classes from the part model's own table, the class map it is cut from and the
+   preview's saved part it is held to; the load's subject carries `parts_file`; the name is by the parts (`hp`). A
+   load that names no parts has none of it and reads as before. Refused: a part the plan does not name, a part
+   twice, every part of the plan, parts with no `--parts-by`. The step cuts the file before the job file is
+   written, holds it to the saved part (a pixel outside it is refused and nothing is kept), holds a file that is
+   there to a fresh cut, and a dry run cuts nothing. The cut itself, on a made class map and part: only the
+   named part's pixels, every one inside the saved part.
 7b. **A job renders from the video's present copy**, whatever copy its preview or the shots record was made on:
    an earlier copy on the same frame clock is said in the job's note with why it was replaced; a copy that begins
    on a later frame, and a file the video never had, are refused with nothing written.
@@ -222,7 +231,7 @@ class Made:
 
 def args(**more) -> argparse.Namespace:
     given = dict(by="the session", day="2026-01-03", cast=None, queue=False, first=None, frames=None, why=None, remake=False, plain=None, model_store="",
-                 existing=False, writer=None, why_before=None, why_after=None, zoomed=None, least=None, least_why=None, ask=[], seed_cuts_of=None)
+                 existing=False, writer=None, why_before=None, why_after=None, zoomed=None, least=None, least_why=None, ask=[], seed_cuts_of=None, parts=None, parts_by=None)
     given.update(more)
     return argparse.Namespace(**given)
 
@@ -804,6 +813,104 @@ def a_subjects_keep_outs() -> str:
             "the preview's class map and takes the held things as saved; a file that is there is held to a fresh cut; the torso is not clothing")
 
 
+def a_load_of_some_of_its_parts() -> str:
+    import numpy as np
+    from _lib.frames import read_mask
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        out = made.m.output
+        why = "the lead, on the owner's answer: her hair stays the new hair where no face shows"
+        del made.plan["subjects"]["b"]["hair_band"]              # a band is another case's: it needs a keep-out this fixture's preview does not track
+        plain = made.load(subject="b", name="b_hfp_0100")
+        assert "part" not in plain["job"] and not any("parts_file" in x for x in plain["job"]["subjects"]) and "ALONE" not in plain["job"]["note"], "a load has a part of its own nobody named"
+        d = made.load(subject="b", name="b_hp_0100", parts=["hair"], parts_by=why)
+        job = d["job"]
+        part, one = job["part"], job["part"]["made"][0]
+        assert (part["of"], part["parts"], part["the_plans_parts"], part["by"], part["first"]) == ("b", ["hair"], ["hair", "face_and_neck"], why, 100), part
+        assert one["classes"] == ["Hair"] and one["track"] == str(out / "Video/v/parts/shot_c_0100/shot_c_0100_b_part_hair.mkv") \
+            and one["cut_from"] == str(out / "Video/v/the session/shot_c_0100/shot_c_0100_b_classes_00001.mkv") \
+            and one["inside"] == str(out / "Video/v/the session/shot_c_0100/shot_c_0100_b_parts_00001.mkv"), one
+        mine = next(x for x in job["subjects"] if x["label"] == "b")
+        assert mine["parts_file"] == one["track"] and mine["parts_of_this_load"] == ["hair"] and mine["parts_by"] == why and mine["parts"] == ["hair", "face_and_neck"], mine
+        assert not any("parts_file" in x for x in job["subjects"] if x["label"] != "b")
+        assert "THIS LOAD'S PART IS HAIR ALONE, not the plan's hair + face_and_neck" in job["note"] and "the chain hands the capture that file" in job["note"], job["note"]
+        graphs.check_job(job)
+        for load in masked_job.loads_of(d):
+            graphs.check_load(job, load, masked_job.chain_lengths())
+        # the face alone is the other subset, by the part model's own classes for it
+        face = made.load(subject="b", name="b_fp_0100", parts=["face_and_neck"], parts_by=why)["job"]["part"]["made"][0]
+        assert face["classes"] == list(stl.part_classes()["face_and_neck"]) and "Face_Neck" in face["classes"] and face["track"].endswith("shot_c_0100_b_part_face_and_neck.mkv"), face
+        for wrong, words in (({"parts": ["nose"], "parts_by": why}, "some of the plan's"), ({"parts": ["hair", "hair"], "parts_by": why}, "each once"),
+                             ({"parts": ["hair"], "parts_by": " "}, "--parts-by says who chose them"), ({"parts": None, "parts_by": why}, "some of the plan's"),
+                             ({"parts": ["face_and_neck", "hair"], "parts_by": why}, "that is the load as it is"), ({"parts": ["upper_clothing"], "parts_by": why}, "some of the plan's")):
+            refused(lambda w=wrong: made.load(subject="b", name="b_hp_0100", **w), words)
+        # THE STEP: named by its parts; a dry run cuts nothing; the cut is made and held before the job file is written
+        folder = made.preview_ran(made.preview())
+        a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="b", preview=str(folder), parts=["hair"], parts_by=why)
+        cuts, held = [], []
+
+        def cut(class_map, classes, to):
+            cuts.append((Path(class_map).name, tuple(classes), Path(to).name))
+            Path(to).parent.mkdir(parents=True, exist_ok=True)
+            Path(to).write_bytes(b"cut")
+            return {"frames": 60, "size": [64, 48], "frames_with_the_mask": 60, "px_most": 9}
+
+        def inside(px):
+            def look(cut_file, whole):
+                held.append((Path(cut_file).name, Path(whole).name))
+                return px
+            return look
+        made.m.dry = True
+        stl.step_job(a, made.m, cut=cut, inside=inside(0))
+        assert cuts == [] and held == [] and not (out / "Video/v/parts").exists() and not list(made.jobs.iterdir()), "a dry run cut a part or wrote a job file"
+        made.m.dry = False
+        refused(lambda: stl.step_job(a, made.m, cut=cut, inside=inside(7)), "has 7 px that are NOT in the preview's saved part", "Nothing is kept")
+        assert not (out / "Video/v/parts/shot_c_0100/shot_c_0100_b_part_hair.mkv").exists() and not list(made.jobs.iterdir()), "a part with pixels outside the saved part was kept"
+        cuts.clear(), held.clear()
+        stl.step_job(a, made.m, cut=cut, inside=inside(0))
+        assert cuts == [("shot_c_0100_b_classes_00001.mkv", ("Hair",), "shot_c_0100_b_part_hair.mkv")] and held == [("shot_c_0100_b_part_hair.mkv", "shot_c_0100_b_parts_00001.mkv")], (cuts, held)
+        record = json.loads((out / "Video/v/parts/shot_c_0100/shot_c_0100_b_part_hair.json").read_text())
+        assert record["parts"] == ["hair"] and record["classes"] == ["Hair"] and record["of"] == "b" and record["px_outside_the_saved_part"] == 0 and record["first_source_frame"] == 100, record
+        kept = json.loads((made.jobs / "b_hp_0100.json").read_text())
+        assert kept["job"]["part"]["parts"] == ["hair"] and next(x for x in kept["job"]["subjects"] if x["label"] == "b")["parts_file"].endswith("_b_part_hair.mkv")
+        assert not (made.jobs / "b_hfp_0100.json").exists(), "a load of the hair alone was named as face and hair"
+        # a second load on the same preview with the same parts: the file is there, cut again and held equal; not equal is refused
+        a.remake = True
+        stl.step_job(a, made.m, cut=cut, inside=inside(0), hashed=lambda path: "the same")
+        assert cuts[-1][2].endswith(".cut_again.mkv") and (made.jobs / "b_hp_0100b.json").is_file() and not list((out / "Video/v/parts/shot_c_0100").glob("*cut_again*")), cuts
+        refused(lambda: stl.step_job(a, made.m, cut=cut, inside=inside(0), hashed=lambda path: path), "is there and is NOT what its classes cut", "a part of another making")
+        assert not (made.jobs / "b_hp_0100c.json").exists()
+        # a load of the same subject with no --parts is as it ever was, on the same preview
+        a.parts, a.parts_by, a.remake = None, None, False
+        stl.step_job(a, made.m, cut=cut, inside=inside(0))
+        usual = json.loads((made.jobs / "b_hfp_0100.json").read_text())
+        assert "part" not in usual["job"] and not any("parts_file" in x for x in usual["job"]["subjects"]), "a load with no --parts carries a part of its own"
+        # THE CUT AND THE HOLD THEMSELVES, on a class map and a part written as the nodes write them
+        import capture_masked_run as cap
+        names = cap._pack("sapiens2_parts").CLASS_NAMES
+        cmap = np.zeros((3, 48, 64), np.uint8)
+        cmap[:, 4:20, 4:30] = names.index("Hair")
+        cmap[:, 20:34, 8:26] = names.index("Face_Neck")
+        cmap[1, 36:44, 40:60] = names.index("Upper_Clothing")
+        video, whole, hair = (Path(tmp) / n for n in ("classes.mkv", "parts.mkv", "hair.mkv"))
+        enc = subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "gray", "-s", "64x48", "-r", "24", "-i", "-", "-c:v", "ffv1", "-level", "3",
+                              str(video)], input=cmap.tobytes())
+        assert enc.returncode == 0 and (cap.read_classes(str(video), (64, 48), 0, 0, 3) == cmap).all(), "the class map did not come back as written"
+        table = stl.part_classes()
+        both = np.isin(cmap, [names.index(c) for k in ("hair", "face_and_neck") for c in table[k]])
+        cap.write_mask_video(whole, both)                                  # the preview's saved part: the plan's two parts, as the part node saves them
+        got = stl.cut_keep_out(video, list(table["hair"]), hair)
+        back = read_mask(str(hair), (64, 48), 0, 0, 3)[0]
+        assert (back == (cmap == names.index("Hair"))).all() and not back[:, 20:34, 8:26].any() and got["px_most"] == 16 * 26, got
+        assert stl.part_inside(hair, whole) == 0, "the hair cut from the class map is not inside the part of hair and face"
+        # a cut of a class the saved part does not hold is no part of it: every one of its pixels is outside
+        clothes = Path(tmp) / "clothes.mkv"
+        stl.cut_keep_out(video, ["Upper_Clothing"], clothes)
+        assert stl.part_inside(clothes, whole) == 8 * 20, stl.part_inside(clothes, whole)
+    return ("a load may name some of its subject's plan parts: the job names the file, its classes and what it is held to, the subject carries `parts_file`, the "
+            "name says the parts; the step cuts it, holds it inside the preview's saved part and to a fresh cut; a load that names none is as it was")
+
+
 def the_text_step() -> str:
     """The text's writer had to be set in the job file by hand after the chain refused it (the first real load, twice)."""
     with tempfile.TemporaryDirectory() as tmp:
@@ -1015,6 +1122,7 @@ case("a load's name is made, and refused when taken", a_loads_name_is_made)
 case("a load's job file stands alone", a_loads_job_file_stands_alone)
 case("a load the builder would refuse is not written, in a dry run as well", a_load_the_builder_would_refuse_is_not_written)
 case("a subject's keep-outs: named by the plan, made and named by the job step", a_subjects_keep_outs)
+case("a load of some of its subject's parts", a_load_of_some_of_its_parts)
 case("text: who wrote it, said with a flag", the_text_step)
 case("a job renders from the video's present copy", a_job_renders_from_the_present_copy)
 case("reference: on the load's frames, drawn by default", the_reference_step)

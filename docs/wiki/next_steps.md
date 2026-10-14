@@ -528,27 +528,19 @@ fixed the same day, said inline below.**
   not a fix made beside running loads. The small way: the strip's label
   says "N of these frames" where a span holds more than the flag counts.
   Not started.
-- **A load cannot name a subset of its subject's parts** (2026-10-13;
-  the next working day's first tooling job, the lead's ruling). The
-  owner's answer of that day on the second subject in 1010-1038: where
-  her head is bowed and no face shows, her hair stays the new hair. So
-  that shot is face and hair on 1010-1024 and hair alone on 1025-1038,
-  and no job can say it: a load's part is the preview's saved parts
-  file, every part the plan names for the subject. Measured on the
-  class map of `shot_c_1010`, why the saved part will not do: her
-  face-and-neck classes are on every frame of 1025-1038, about as many
-  pixels as her hair. Wanted: `shot_to_load.py job --parts NAME ...
-  --parts-by "who and why"`, a subset of the subject's plan parts; the
-  job step cuts that load's part mask from the preview's class map as a
-  keep-out is cut (`cut_keep_out`), and the chain hands the capture
-  that file as the load's part (`load_chain.mask_specs`, one place), so
-  the builder loads what the capture read. A load naming no subset has
-  no new key and reads as before; a part not in the subject's plan is
-  refused. NOT KNOWN, and the card will say: how the head-reference
-  step and the gate read a load whose part is hair alone where no face
-  shows. It is the first of its kind and owes a look whatever its
-  flags. The piece it is held against is the one of 2026-10-10 on the
-  review page. Not started.
+- **A load of the hair alone has not been through a reference or a gate**
+  (2026-10-13, late). `bench/shot_to_load.py job --parts hair --parts-by
+  "..."` now makes a load whose part is some of its subject's plan parts
+  (the owner's answer on the second subject: where her head is bowed and
+  no face shows, her hair stays the new hair), cut from the preview's
+  class map and handed to the capture as the load's part. NOT KNOWN
+  until the card says: how the head-reference step reads a load on
+  frames where no face shows (the reference is the body model cut to
+  the head with the face points drawn), and how the gate's part flags
+  read a part that is hair alone. The first such load owes a look
+  whatever its flags; what it shows goes here or closes this row. The
+  delivery table takes such a piece by its region, the plan's: nothing
+  in a piece's record says to the table that its part was a subset.
 - **The delivery table orders overlapping keeps by the render's time, not
   the keep's** (2026-10-13). Where the owner kept more than one render
   on the same frames, `bench/delivery_table.py` takes the newer RENDER

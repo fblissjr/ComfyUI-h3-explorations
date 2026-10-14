@@ -261,6 +261,20 @@ def a_masks_at_is_the_previews_first_frame() -> str:
         made.write()
         mine = lc.mask_specs(made.ctx(), files)[1]
         assert mine.endswith(",by=pv,at=100,pieces=largest,least=1024"), mine
+        # A LOAD'S OWN PART (`parts_file` on its subject): the capture is handed that file as the part, and no other subject's mask changes;
+        # a file that is not there is refused; a job that names none is handed the preview's saved part, as ever
+        usual = lc.mask_specs(made.ctx(), files)
+        own = Path(tmp) / "pv_a_part_hair.mkv"
+        made.job["subjects"][1]["parts_file"] = str(own)
+        made.write()
+        refused(lambda: lc.mask_specs(made.ctx(), files), "names a part of the load's own for 'a'", "is not there")
+        own.write_bytes(b"")
+        others_, mine = lc.mask_specs(made.ctx(), files)
+        assert f",parts={own}," in mine and others_ == usual[0] and mine == usual[1].replace(f"parts={files['a']['parts']}", f"parts={own}"), mine
+        assert f"parts={files['a']['parts']}" in usual[1] and str(own) not in usual[1], usual[1]
+        del made.job["subjects"][1]["parts_file"]
+        made.write()
+        assert lc.mask_specs(made.ctx(), files) == usual, "a job with no part of its own was handed another part"
         made.job["subjects"][1]["pose"] = False
         made.write()
         assert "pose" not in lc.mask_specs(made.ctx(), files)[1], "a pose table was given to a subject whose job says pose: false"
