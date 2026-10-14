@@ -99,7 +99,8 @@ def one_run_makes_the_form() -> str:
     said = []
     rec = hr.run(str(mesh), str(pts), str(source), 0, N, out, "the check", room=ROOM, say=said.append)
     made = hr.outputs(out)
-    assert all(p.is_file() for p in made.values()), [k for k, p in made.items() if not p.is_file()]
+    assert all(p.is_file() for k, p in made.items() if k != "filled_points") and not made["filled_points"].exists(), \
+        [k for k, p in made.items() if p.is_file() != (k != "filled_points")]          # nothing was filled: no filled copy
     assert rec["passed"] and json.loads(made["record"].read_text()) == rec and any(line.startswith("PASSED") for line in said)
     # the body model against the source is printed on a line of its own, as figures: it is no step's PASSED or FAILED
     assert any(line.strip().startswith("the body model against the source") and "no part of PASSED" in line for line in said), said
@@ -208,26 +209,42 @@ def a_step_that_fails_fails_the_run() -> str:
 
 def a_face_off_the_track_fails() -> str:
     """The points' own record says on which frames the face's middle is off the subject's track (2026-10-14: on the
-    lead's 3167 eleven frames drew another woman's face and the run said PASSED)."""
+    lead's 3167 eleven frames drew another woman's face and the run said PASSED). A short run of them inside the span
+    takes its points from its neighbours (the lead's ruling that day, for the second subject's 895 and 897)."""
     seen = {}
-    for name, said_of_track in (("off", {"what": "the check's", "frames_whose_face_middle_is_off_the_mask": [3, 4, 7, 40]}),
+    gap = hr.FILL_GAP
+    longer = list(range(6, 6 + gap + 1))                                             # one frame longer than the gap: not filled
+    for name, said_of_track in (("off", {"what": "the check's", "frames_whose_face_middle_is_off_the_mask": [0, 3, 4, *longer, 40]}),
+                                ("short", {"what": "the check's", "frames_whose_face_middle_is_off_the_mask": [3, 4]}),
                                 ("on", {"what": "the check's", "frames_whose_face_middle_is_off_the_mask": []}), ("unsaid", None)):
         folder, mesh, pts, source = rooms(f"track_{name}", [90] * N, [60] * N, CENTRES, 0)
         pts.with_suffix(".json").write_text(json.dumps({"made_by": "the check", "face_on_the_mask": said_of_track}))
         said: list[str] = []
         rec = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head.mp4", "the check", room=ROOM, say=said.append)
-        seen[name] = (rec, said, json.loads((folder / "head.json").read_text()), folder)
-    rec, said, kept, folder = seen["off"]
-    assert rec["passed"] is False and kept["passed"] is False and rec["face_on_the_track"]["frames_whose_face_middle_is_off_the_track"] == [3, 4, 7], rec["face_on_the_track"]
+        seen[name] = (rec, said, json.loads((folder / "head.json").read_text()), folder, pts)
+    rec, said, kept, folder, _ = seen["off"]
+    t = rec["face_on_the_track"]
+    # THE CASE THAT GOES RED when a frame at the span's edge, or a run longer than the gap, is filled; or a short one is not
+    assert rec["passed"] is False and kept["passed"] is False and t["frames_off_the_track_not_filled"] == [0, *longer] \
+        and t["frames_filled_from_their_neighbours"] == {"3": [2, 5], "4": [2, 5]}, t
     assert all(r["passed"] for r in rec["read_backs"].values()) and (folder / "head_sheet.jpg").is_file(), "the sheet is not there to be read"
-    assert any("THE FACE IS OFF THE SUBJECT'S TRACK on 3 of" in line and "(3, 4, 7)" in line for line in said) and any(line.startswith("FAILED") for line in said), said
-    rec, said, _, _ = seen["on"]
+    assert any(f"THE FACE IS OFF THE SUBJECT'S TRACK on {1 + len(longer)} of" in line for line in said) and any(line.startswith("FAILED") for line in said), said
+    rec, said, kept, folder, pts = seen["short"]
+    t = rec["face_on_the_track"]
+    assert rec["passed"] is True and t["frames_filled_from_their_neighbours"] == {"3": [2, 5], "4": [2, 5]} and "filled, not read" in t["filled_are"], t
+    assert any("3 from 2 and 5, 4 from 2 and 5" in line for line in said) and rec["inputs"]["points"] == str(pts), said
+    z, f = np.load(pts), np.load(folder / "head_points_filled.npz")
+    assert np.allclose(f["keypoints"][3], z["keypoints"][2] + (z["keypoints"][5] - z["keypoints"][2]) / 3, atol=1e-3) and np.allclose(f["keypoints"][6], z["keypoints"][6]), \
+        "a filled frame is not the straight line between its neighbours, or a frame not filled changed"
+    assert json.loads((folder / "head_points_filled.json").read_text())["filled_from_neighbours"] == {"3": [2, 5], "4": [2, 5]}
+    rec, said, _, _, _ = seen["on"]
     assert rec["passed"] is True and rec["face_on_the_track"]["known"] and any(f"on all {N} frames" in line for line in said), said
-    rec, said, _, _ = seen["unsaid"]
+    rec, said, _, _, _ = seen["unsaid"]
     assert rec["passed"] is True and rec["face_on_the_track"]["known"] is False and any("NOT KNOWN" in line and "says nothing of a track" in line for line in said), said
-    return ("three frames of the span whose face is off the track fail the run, with every read-back passing and the sheet written to be read, and a frame "
-            "outside the span is not counted; a record with none passes; one that says nothing of a track passes and says not known")
-
+    assert hr.fill_from_neighbours([5, 6], 0, 12, gap=1) == ({}, [5, 6]) and hr.fill_from_neighbours([11], 0, 12) == ({}, [11])
+    return (f"a run of frames off the track at most {gap} long, inside the span with frames on the track either side, takes its points from them, "
+            "interpolated, and the record says so and calls them filled, not read; a frame at the span's edge and a longer run fail the run, with every "
+            "read-back passing and the sheet written; a frame outside the span is not counted; a record with none passes; one that says nothing passes as not known")
 
 case("one run makes the form", one_run_makes_the_form)
 case("a face off the subject's track fails the run", a_face_off_the_track_fails)

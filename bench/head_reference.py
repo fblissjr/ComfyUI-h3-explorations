@@ -39,7 +39,9 @@ It refuses to write over any of them: a reference made again takes a new name.
 **A reference drawn from another person's face is a failure.** The points file's own record
 (`bench/pose_along_shot.py`) says, a frame at a time, whether the face's middle lies on the subject's tracked
 mask. A reference whose span has a frame where it does not is written, so its sheet can be read, and marked
-FAILED with those frames (`face_on_the_track`). On the lead's 3167-3213 (2026-10-14) eleven frames drew the face
+FAILED with those frames (`face_on_the_track`), but for one case: a run of such frames at most `FILL_GAP` long with
+frames on the track just before and after it takes its face points from those two, interpolated, before anything is
+cut (`fill_from_neighbours`); the record names each frame so filled and from which, and calls them filled, not read. On the lead's 3167-3213 (2026-10-14) eleven frames drew the face
 of a woman above her and the run said PASSED. A points file whose record says nothing of a track (made before
 then, or read on the whole frame) is said as not known and does not fail.
 
@@ -70,6 +72,11 @@ FORM_WIDTH = 1.5
 #: What the form leaves out unless told otherwise. Inherited: the same references; the lips' points were off the
 #: mouth on the first shot.
 FORM_LEAVES_OUT = "mouth"
+#: The longest run of frames whose face's middle is off the subject's track that takes its face points from the frames
+#: on either side, interpolated (`fill_from_neighbours`). A STARTING VALUE, reasoned: one latent step of the video
+#: model; asked for by the lead on 2026-10-14 for the second subject's 604-948, where the lead stands just behind her
+#: shoulder and the pose pass took the lead's face on 895 and 897 (a frame on track between them). A longer run fails, as before.
+FILL_GAP = 4
 TOOLS = ("bench/head_reference.py", "bench/crop_reference_to_head.py", "bench/draw_face_points.py")
 
 
@@ -88,7 +95,8 @@ def outputs(out: Path) -> dict[str, Path]:
     """Every file a run writes, by what it is."""
     stem = out.with_suffix("")
     plain, source = Path(f"{stem}_plain_cut.mp4"), Path(f"{stem}_source_cut.mp4")
-    made = {"reference": out, "record": out.with_suffix(".json"), "sheet": Path(f"{stem}_sheet.jpg"), "plain_cut": plain, "source_cut": source}
+    made = {"reference": out, "record": out.with_suffix(".json"), "sheet": Path(f"{stem}_sheet.jpg"), "plain_cut": plain, "source_cut": source,
+            "filled_points": Path(f"{stem}_points_filled.npz")}
     for key, video in (("plain_cut", plain), ("source_cut", source)):
         made.update({f"{key}_record": video.with_suffix(".json"), f"{key}_points": video.with_name(video.stem + "_points.npz"),
                      f"{key}_sheet": video.with_name(video.stem + "_sheet.jpg")})
@@ -106,6 +114,48 @@ def face_on_the_track(points: str, first: int, count: int) -> dict:
             "frames_whose_face_middle_is_off_the_track": [f for f in said["frames_whose_face_middle_is_off_the_mask"] if first <= f < first + count]}
 
 
+def fill_from_neighbours(off: list[int], first: int, count: int, gap: int = FILL_GAP) -> tuple[dict[int, tuple[int, int]], list[int]]:
+    """Which off-track frames take their points from the frames on either side: ({frame: (before, after)}, the frames
+    that do not). A run fills when it is at most `gap` frames long and the frames just before and just after it are in
+    the span and on the track."""
+    bad = set(off)
+    filled, left = {}, []
+    runs, run = [], []
+    for f in sorted(bad):
+        if run and f != run[-1] + 1:
+            runs.append(run)
+            run = []
+        run.append(f)
+    if run:
+        runs.append(run)
+    for r in runs:
+        before, after = r[0] - 1, r[-1] + 1
+        if len(r) <= gap and before >= first and after <= first + count - 1 and before not in bad and after not in bad:
+            filled.update({f: (before, after) for f in r})
+        else:
+            left += r
+    return filled, left
+
+
+def write_filled(points: str, filled: dict[int, tuple[int, int]], out: Path) -> None:
+    """A copy of a points file with each filled frame's points the straight line between its two neighbours' (the
+    score of a point the lesser of theirs), and a record beside it saying which, from which."""
+    import numpy as np
+    z = np.load(points)
+    kp, sc = z["keypoints"].copy(), z["scores"].copy()
+    at = int(z["first_frame"])
+    for f, (a, b) in filled.items():
+        t = (f - a) / (b - a)
+        kp[f - at] = (1 - t) * kp[a - at] + t * kp[b - at]
+        sc[f - at] = np.minimum(sc[a - at], sc[b - at])
+    np.savez_compressed(out, **{k: z[k] for k in z.files if k not in ("keypoints", "scores")}, keypoints=kp, scores=sc)
+    rec = Path(points).with_suffix(".json")
+    said = json.loads(rec.read_text()) if rec.is_file() else {}
+    out.with_suffix(".json").write_text(json.dumps({**said, "filled_from_neighbours": {str(f): list(v) for f, v in sorted(filled.items())},
+                                                    "filled_from": str(points), "filled_is": "each filled frame's points the straight line between its "
+                                                    "neighbours' (bench/head_reference.py, FILL_GAP)"}, indent=1) + "\n")
+
+
 def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, by: str, *, names: list[str] | None = None,
         mesh_first: int | None = None, points_first: int | None = None, width: float = FORM_WIDTH, room: float | None = None,
         leave_out: frozenset = frozenset({FORM_LEAVES_OUT}), dots: bool = False, iris: str = faces.IRIS_FORMS[0], repo: Path = REPO, say=print) -> dict:
@@ -121,6 +171,16 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
             raise SystemExit(f"{what} {path} is not a file")
     faces.rows_of(points, names, first, count, points_first)        # the span and the names, before anything is written
     quiet = lambda *_: None  # noqa: E731
+    # A SHORT RUN OF FRAMES OFF THE TRACK takes its points from its neighbours, before anything is cut: another person's face
+    # on a frame would move the box as well as draw them (the lead's ruling, 2026-10-14, for the second subject's 895 and 897)
+    on_track = face_on_the_track(points, first, count)
+    filled, unfilled = fill_from_neighbours(on_track["frames_whose_face_middle_is_off_the_track"], first, count)
+    read_from = points
+    if filled:
+        write_filled(points, filled, made["filled_points"])
+        points = str(made["filled_points"])
+        say(f"    {len(filled)} frame(s) off the subject's track take their face points from the frames either side: "
+            + ", ".join(f"{f} from {a} and {b}" for f, (a, b) in sorted(filled.items())))
     say(f"1 of 3: the plain body model cut to the head, frames {first} to {first + count - 1}")
     cut = crop.run(mesh, points, first, count, made["plain_cut"], by, names=names, video_first=mesh_first, points_first=points_first,
                    room=room, say=quiet)
@@ -139,21 +199,27 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     say(f"    white {fit['0']} px from its own frame's lines, {fit['1']} and {fit['-1']} from the neighbours'; "
         + ("PASSED" if drawn["passed"] else "FAILED"))
     say("    " + faces.marks.against_the_source_line(drawn["body_model_against_the_source"]))
-    on_track = face_on_the_track(points, first, count)
-    if on_track["frames_whose_face_middle_is_off_the_track"]:
-        say(f"    THE FACE IS OFF THE SUBJECT'S TRACK on {len(on_track['frames_whose_face_middle_is_off_the_track'])} of {count} frames "
-            f"({', '.join(map(str, on_track['frames_whose_face_middle_is_off_the_track']))}): another person's face is drawn there; FAILED")
+    on_track = {**on_track, "frames_filled_from_their_neighbours": {str(f): list(v) for f, v in sorted(filled.items())},
+                "frames_off_the_track_not_filled": unfilled, "fill_gap_frames": FILL_GAP,
+                "filled_are": ("filled, not read: their points are the straight line between their neighbours', and the read-back reads the drawing "
+                               "from those points, so it says nothing of the person there") if filled else None}
+    if unfilled:
+        say(f"    THE FACE IS OFF THE SUBJECT'S TRACK on {len(unfilled)} of {count} frames ({', '.join(map(str, unfilled))}), in runs longer than "
+            f"{FILL_GAP} frames or at the span's edge: another person's face is drawn there; FAILED")
+    elif filled:
+        say(f"    the face's middle is on the subject's track on every frame but the {len(filled)} filled, not read")
     elif on_track["known"]:
         say(f"    the face's middle is on the subject's track on all {count} frames")
     else:
         say(f"    whether the face is on the subject's track is NOT KNOWN: {on_track['why']}")
-    passed = bool(cut["passed"] and under["passed"] and drawn["passed"] and not on_track["frames_whose_face_middle_is_off_the_track"])
+    passed = bool(cut["passed"] and under["passed"] and drawn["passed"] and not unfilled)
     record = {
         "video": out.name, "what": "the reference of a head replacement: the body model cut to the head, with the face drawn on it",
         "made_by": by, "made_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "frames": [first, first + count - 1], "its_first_frame_is_source_frame": first, "size": drawn["size"],
         "inputs": {"body_model_video": str(mesh), "its_first_frame_is_source_frame": cut["made_from"]["its_first_frame_is_source_frame"],
-                   "points": str(points), "their_first_row_is_source_frame": cut["made_from"]["their_first_row_is_source_frame"],
+                   "points": str(read_from), **({"points_filled": str(points)} if filled else {}),
+                   "their_first_row_is_source_frame": cut["made_from"]["their_first_row_is_source_frame"],
                    "the_points_own_record_says": cut["made_from"]["the_points_own_record_says"],
                    "source": str(source), "the_source_was": under["made_from"]["fitted"]},
         "ran_on": ran_on(repo),
