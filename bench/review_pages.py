@@ -45,7 +45,9 @@ piece's item is the one whose id or `name` is the render's. Each piece carries t
 owner's clock, its item's look line (said as the card's words), and what it replaces: the rows of its subject that
 `--previous-table` laid on its frames. With `--previous-table`, a part "since the last page", on the frames both
 tables cover (said, with each one's): the pieces added and the pieces that left, and for each subject the frames
-that gained a piece (a gap closed) or lost one (opened). Both pages end, or begin, with the lead's holds (the table's
+that gained a piece (a gap closed) or lost one (opened). Each entry is put under WAITING ON YOU when it has no click of
+the owner's, and under DONE, a closed fold, when it has one, with a piece they settled on `--today` (their clock) shown
+there too (the lead's page of 2026-10-14, at the owner's ask of which items were still theirs). Both pages end, or begin, with the lead's holds (the table's
 `held`, a session's word, its reason whole) and the owner's keeps this table does not lay, with the table's reason.
 Links are `--page-url` + an item's id.
 
@@ -404,7 +406,13 @@ def to_review(a: argparse.Namespace) -> str:
             + (f' Beside this file: <a href="{E(a.provenance)}">{E(a.provenance)}</a>, every stretch and every gap.' if a.provenance else "") + "</p>"]
     if previous is not None:
         body += ["<h2>Since the last page</h2>", *since(rec, a.previous_table)]
-    joined, apart, single = [], [], []
+    # WAITING ON YOU, AND DONE: each entry by the owner's last click on it (the lead's page of 2026-10-14, at the owner's ask of
+    # which items were still theirs): no click is waiting on them; a click of theirs, or a piece they settled today, is done
+    today = a.today or datetime.datetime.now(OWNERS_CLOCK).strftime("%Y-%m-%d")
+    clicked = lambda rows: rec.last_choice(rows) is not None                                                        # noqa: E731
+    settled_today = lambda rows: rec.settled(rows) and owners(rec.last_choice(rows)["at"], "%Y-%m-%d") == today   # noqa: E731
+    waiting = {"joined": [], "apart": [], "single": []}
+    done = {"joined": [], "apart": [], "single": []}
     for sh in shots_of_table(rec.T):
         first, last = sh["first"], sh["last"]
         when = f"{clock(first, rate)} to {clock(last + 1, rate)} of the video"
@@ -418,26 +426,41 @@ def to_review(a: argparse.Namespace) -> str:
             if it is not None:
                 # hidden only when the owner KEPT the joined clip: "wrong" on it says something in the shot is wrong, and the shot
                 # stays here with each piece (a reader, 2026-10-14: a "wrong" on a joined clip hid the shot's unsettled pieces)
-                if not rec.settled(rec.rows_of(it["id"]) | {it["id"]}, delivery_table.KEEP):
+                kept = rec.settled(rec.rows_of(it["id"]) | {it["id"]}, delivery_table.KEEP)
+                if not kept or settled_today({it["id"]}):
                     c = rec.last_choice({it["id"]})
                     ask = ('<p class="why">Your click on the whole clip names no piece: which piece is it? Say it on that piece\'s own line below.</p>'
                            if c and c["chosen"] not in delivery_table.KEEP else "")
-                    joined.append(f'<div class="e"><h3>{link(it["id"], f"The shot {first}-{last}")} <span>{E(who)} &middot; {when} &middot; '
-                                  f'{E(rec.last_click({it["id"]}))}</span></h3>{ask}<ul>{lines(rows)}</ul></div>')
+                    (done if c else waiting)["joined"].append(
+                        f'<div class="e"><h3>{link(it["id"], f"The shot {first}-{last}")} <span>{E(who)} &middot; {when} &middot; '
+                        f'{E(rec.last_click({it["id"]}))}</span></h3>{ask}<ul>{lines(rows)}</ul></div>')
                 continue
-            open_rows = [r for r in rows if not rec.settled(rec.rows_of(r["name"]))]
-            if open_rows:
-                apart.append(f'<div class="e"><h3>The shot {first}-{last} <span>{E(who)} &middot; {when}</span></h3>'
-                             f'<p class="why">{E(why)}. Each piece meanwhile, on its own:</p><ul>{lines(open_rows)}</ul></div>')
+            shown = [r for r in rows if not rec.settled(rec.rows_of(r["name"])) or settled_today(rec.rows_of(r["name"]))]
+            for to, rr in ((waiting, [r for r in shown if not clicked(rec.rows_of(r["name"]))]), (done, [r for r in shown if clicked(rec.rows_of(r["name"]))])):
+                if rr:
+                    to["apart"].append(f'<div class="e"><h3>The shot {first}-{last} <span>{E(who)} &middot; {when}</span></h3>'
+                                       f'<p class="why">{E(why)}. Each piece meanwhile, on its own:</p><ul>{lines(rr)}</ul></div>')
         else:
             for r in rows:
-                if not rec.settled(rec.rows_of(r["name"])):
-                    single.append(f'<div class="e"><h3>{E(r["subject"])}, {max(r["first"], first)}-{min(r["last"], last)} <span>{when}</span></h3>'
-                                  f'<ul>{lines([r])}</ul></div>')
-    body += ["<h2>Shots with two or more of them, each as its joined clip</h2>", *(joined or ["<p class='mut'>None waiting on you.</p>"])]
-    if apart:
-        body += ["<h2>Shots with two or more of them with no joined clip of this table</h2>", *apart]
-    body += ["<h2>Pieces in a shot of one of them</h2>", *(single or ["<p class='mut'>None waiting on you.</p>"])]
+                rr = rec.rows_of(r["name"])
+                if not rec.settled(rr) or settled_today(rr):
+                    (done if clicked(rr) else waiting)["single"].append(
+                        f'<div class="e"><h3>{E(r["subject"])}, {max(r["first"], first)}-{min(r["last"], last)} <span>{when}</span></h3>'
+                        f'<ul>{lines([r])}</ul></div>')
+
+    def sections(got: dict, tag: str) -> list[str]:
+        out = [f"<{tag}>Shots with two or more of them, each as its joined clip</{tag}>", *(got["joined"] or ["<p class='mut'>None.</p>"])]
+        if got["apart"]:
+            out += [f"<{tag}>Shots with two or more of them with no joined clip of this table</{tag}>", *got["apart"]]
+        return out + [f"<{tag}>Pieces in a shot of one of them</{tag}>", *(got["single"] or ["<p class='mut'>None.</p>"])]
+    n_wait, n_done = (sum(map(len, g.values())) for g in (waiting, done))
+    body += [f"<h2>Waiting on you: {n_wait} with no click of yours yet</h2>",
+             "<p class='mut'>Watch these on playback, top to bottom. Each is something this table lays that you have not clicked.</p>",
+             *sections(waiting, "h3"),
+             f"<details><summary><b>Done: {n_done} you have already clicked</b>, the last click and your words with each</summary>",
+             f"<p class='mut'>Each has a click of yours: a wrong or not sure, a keep with your words after it, or a keep or not-the-one of today "
+             f"({datetime.date.fromisoformat(today):%m/%d}, your clock), which leaves the page tomorrow.</p>",
+             *sections(done, "h3"), "</details>"]
     body += held_and_set_aside(rec)
     return page(f"To review: {stem}", "", "\n".join(body), 900)
 
@@ -711,6 +734,7 @@ def main(argv=None) -> int:
             s.add_argument("--open-list", required=True, help="the Open List's link, where decisions waiting on the owner are")
             s.add_argument("--previous-table", help="the table the last page was made from: what changed since, and what each piece replaces")
             s.add_argument("--provenance", help="the provenance page's file name beside this one, linked from the top")
+            s.add_argument("--today", help="the owner's day (YYYY-MM-DD, their clock) whose settled pieces are listed under Done; today when left out")
         else:
             s.add_argument("--record", help="the assembler's record of the clip (.mp4.check.json); without it the ledger says what a piece leaves")
             s.add_argument("--day-folder", required=True, help="the day's folder: bench/day_pieces.py's piece folders are read from it")

@@ -16,6 +16,8 @@
                                 stretches and on the card; no reason cut; a frame left as the original says the ledger's
                                 reason where no look's word covers it; the folder link relative to the page and its absence
                                 said; the verdicts record's words labelled as the record's; a lane a subject, in order
+  waiting_on_you_and_done       an entry with no click of the owner's waits on them; one with a click is under Done, a closed
+                                fold, with the click; a piece settled on --today is under Done, one settled before on neither
   the_owners_words_rule         a keep followed by the owner's words is shown again; a line a session took down said so; a wrong
                                 on a joined clip keeps the shot; the lead's holds and the owner's keeps not laid on both pages
   the_fifth_readers_findings    words just before the last click go with it; an older line written later does not undo a keep; a
@@ -134,7 +136,7 @@ def world(d: Path, stopped=True, joined_table="same", verdicts=None, ledger_name
 def to_review(d: Path, more=(), **kw) -> str:
     out = d / "day" / "TO_REVIEW.html"
     assert rp.main(["to-review", *world(d, **kw), "--page-url", "p#", "--open-list", "https://the-open-list", "--tables", str(d / "tables"),
-                    "--out", str(out), *more]) == 0
+                    "--out", str(out), *(more if "--today" in more else [*more, "--today", "2026-10-20"])]) == 0
     return out.read_text()
 
 
@@ -230,6 +232,29 @@ def to_review_is_the_tables() -> str:
         assert "joined_NEW" not in text and "The shot 100-149" not in text, "a joined clip of this table the owner kept is shown"
     return ("only what this table lays and the owner has not settled; not sure stays with the words since; a joined clip only when its own table lays the "
             "same pieces, else each piece on its own with why, so a piece never vanishes; items by name; the look line a session's; what each replaces")
+
+
+def waiting_on_you_and_done() -> str:
+    """The lead's page of 2026-10-14, at the owner's ask of which items were still theirs: an entry with no click of the
+    owner's is WAITING ON YOU; one with a click is under DONE, a closed fold, with the click; a piece settled on the
+    owner's today is there too, and one settled before today is on neither."""
+    lines = [{"what": "choice", "row": "a_kept", "chosen": "keep this one", "at": "2026-10-14T15:00:00Z"},           # 10/14 10:00 Central: today
+             {"what": "choice", "row": "r__s__a_solo", "chosen": "wrong, and I say where", "at": "2026-10-13T15:00:00Z"},  # settled before today
+             {"what": "choice", "row": "a_x", "chosen": "not sure", "at": "2026-10-13T10:00:00Z"}]                 # clicked, not settled
+    with tempfile.TemporaryDirectory() as tmp:
+        page = to_review(Path(tmp), ["--today", "2026-10-14"], verdicts=lines)
+        wait, done = page.split("<details><summary><b>Done:")
+        wt, dt = text_of(wait).split("Waiting on you")[1], text_of(done)
+        # THE CASE THAT GOES RED when a clicked entry is said to wait on the owner, or an unclicked one is folded away as done
+        assert "The shot 100-149" in wt and "your last click" not in wt.split("The shot 100-149")[1].split("Pieces in a shot")[0], wt
+        assert "a_y" in wt and "a_x" not in wt and "a_kept" not in wt, wt
+        assert "a_x" in dt and "your last click: not sure" in dt and "a_kept" in dt and "your last click: keep this one (10/14 10:00)" in dt, dt
+        assert "a_solo" not in wt and "a_solo" not in dt, "a piece settled before today is on the page"
+        assert "Waiting on you: 2 with no click of yours yet" in text_of(wait) and "Done: 2 you have already clicked" in text_of(page), text_of(page)
+    with tempfile.TemporaryDirectory() as tmp:
+        dt = text_of(to_review(Path(tmp), ["--today", "2026-10-15"], verdicts=lines).split("<details><summary><b>Done:")[1])
+        assert "a_kept" not in dt and "a_x" in dt, "a keep of another day is under Done, or a not sure left it"
+    return "an entry with no click waits on the owner; a click puts it under Done with the click; a piece settled today is under Done, and one settled before is on neither"
 
 
 def the_owners_words_rule() -> str:
@@ -409,6 +434,7 @@ case("to-review is the table's, and hides no live piece", to_review_is_the_table
 case("since the last page", since_the_last_page)
 case("a fifth reader's mutations, held", a_fifth_readers_mutations)
 case("a fifth reader's findings, and a joined click", the_fifth_readers_findings)
+case("waiting on you, and done", waiting_on_you_and_done)
 case("the owner's words rule, and whose words are whose", the_owners_words_rule)
 case("provenance reads the records", provenance_reads_the_records)
 case("another ledger is refused", another_ledger_is_refused)
