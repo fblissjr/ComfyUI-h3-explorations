@@ -1600,6 +1600,33 @@ def a_look() -> str:
                "THE BUILDER'S HASH WAS NOT COMPARED (its text_of does not give one in this tree)"))
 
 
+def what_the_node_will_render() -> str:
+    """The lead, 2026-10-14: every blind reader of that day read a strip that said nowhere whether its load renders zoomed, nor its
+    window, nor the defaults it carries. The strip says them, on 1097c's figures (zoomed) and 0604d's (the whole frame)."""
+    import tempfile
+    defaults = [{"what": "zoom", "carries": "zoomed in where the node's box allows"}, {"what": "the eye", "carries": "white sclera and black iris"}]
+    zoomed = {"zoom": {"box": [60, 26, 628, 452], "source_size": [1024, 768], "canvas": [1024, 768], "scale": 1.8028169014084507, "set_by": "the box"},
+              "planned_windows": [{"window": 1, "writes_source_frames": [1097, 1133], "first_frame": 1097, "frames": 39, "held_frames": 2, "kept_frames": 0}]}
+    whole = {"zoom": None, "planned_windows": [{"window": 1, "writes_source_frames": [604, 948], "first_frame": 604, "frames": 345, "held_frames": 0, "kept_frames": 0}]}
+    with tempfile.TemporaryDirectory() as tmp:
+        d = Path(tmp)
+        job = d / "j.json"
+        job.write_text(json.dumps({"job": {"capture": str(d / "cap"), "defaults": defaults}}))
+        z = cap.render_said(zoomed, job, "lead_fp_1097c")
+        # THE CASE THAT GOES RED when the strip leaves out the zoom, the window's held frames or the defaults
+        assert z[0].startswith("RENDERED ZOOMED IN 1.80x on the box [60, 26, 628, 452] of the 1024x768 frame"), z
+        assert z[1] == "window 1: 39 frames from source frame 1097, writing 1097-1133; 2 held frame(s), 0 kept", z
+        assert z[2] == "THE DEFAULTS THIS LOAD CARRIES: zoom: zoomed in where the node's box allows; the eye: white sclera and black iris", z
+        (d / "cap_job").mkdir()
+        (d / "cap_job" / "second_hfp_0604d.plan.queued.json").write_text(json.dumps({"out": "rendered on the whole frame: the subject with its room takes "
+                                                                                             "1080x810 of the 1024x768 the canvas shows, which is under 1.25 times\n[1] 00:00"}))
+        w = cap.render_said(whole, job, "second_hfp_0604d")
+        assert w[0] == ("RENDERED ON THE WHOLE FRAME: the node's words, the subject with its room takes 1080x810 of the 1024x768 the canvas shows, "
+                        "which is under 1.25 times"), w
+        assert cap.render_said(whole, d / "none.json", "x")[0] == "RENDERED ON THE WHOLE FRAME (the node's plan names no zoom)"
+    return "the strip says zoomed in by how much and on which box, or the whole frame with the node's words why; each window's frames and held frames; the defaults"
+
+
 def a_strip_of_two_subjects() -> str:
     """The strip's masks row for a load of two subjects: each subject's part in its own colour, one margin, a legend line each."""
     red, blue = (255, 0, 0), (0, 0, 255)
@@ -1818,8 +1845,27 @@ def text_rules() -> str:
         assert [(f["rule"], f["level"]) for f in said] == [("voiced_frames_and_no_voice_sentence", cap.LEVELS[0])] and "says nothing of one" in said[0]["why"], said
     # beside a real voice sentence, or a real denial, the retention line changes nothing
     assert cap.flag_text(sings + " " + kept, [[120, 130]], 100, 50) == [] and cap.voice_sentences(denies + " " + kept)[1] == ["She does not speak or sing at any point."]
+    # A sentence defining a subject by a reference video is read by its head (2026-10-14: the drawn mouth's words were read as a voice on
+    # lead_fp_1097c, which has none). 1097c's own sentences, as its text file holds them, and the same sentence as load_text writes it now.
+    drawn_1097c = ("<Subject 2> is the movements of the head and the facial expressions performed by the figure in <Video 1>: a closer view of the head "
+                   "and shoulders of a plain grey body model of a person on a black ground, posed as the person moves, with its eyes, eyebrows, nose "
+                   "and mouth drawn on its face as thin white outlines; inside each eye's outline the white of the eye is white and the iris black, and "
+                   "they open, close and look where the person's eyes do; the mouth is outlined, dark inside where it is open, and it opens and closes "
+                   "where the person's mouth does.")
+    sound_1097c = "overall_soundscape: Natural ambient atmosphere continues throughout the shot.\n\nnon_diegetic_music: A song plays throughout."
+    import load_text
+    written_now = load_text.subject_2({"mouth": {"drawn": True, "inside": "the class map"}, "iris": "whole"})
+    for line in (drawn_1097c, written_now, sound_1097c):
+        # THE CASE THAT GOES RED when the reference video's drawn mouth, or the music line, is read as a voice performed
+        assert cap.voice_sentences(line) == ([], []), (line[:60], cap.voice_sentences(line))
+    assert cap.flag_text("subject_definitions:\n" + drawn_1097c + "\n\n" + sound_1097c, [], 1097, 37) == []
+    # the head still counts, and the singing sentence load_text writes beside it is still a voice sentence
+    sung_head = "<Subject 2> is the singing and the lip movements performed by the figure in <Video 1>: a grey body model on a black ground."
+    assert cap.voice_sentences(sung_head)[0] == [sung_head], cap.voice_sentences(sung_head)
+    assert cap.voice_sentences(drawn_1097c + "\n<Subject 1> (S1) sings, her mouth opening wide on the sung phrases.")[0] == [
+        "<Subject 1> (S1) sings, her mouth opening wide on the sung phrases."]
     return ("a voice sentence over silence, a denial over a voice; neither the other way round; a sentence naming a reference picture is neither, "
-            "whatever its words")
+            "whatever its words; one defining a subject by a reference video is read by its head (1097c's drawn mouth is no voice)")
 
 
 case("one subject's row", one_subject)
@@ -1850,6 +1896,7 @@ case("the look: what a strip shows of a load and its text, and the line that rec
 case("preflight: a load that lays nothing where its subject is", a_load_that_lays_nothing)
 case("preflight: what the job says is its own", what_the_job_says_is_its_own)
 case("preflight: specks of another are data", specks_of_another)
+case("a strip says what the node will render", what_the_node_will_render)
 case("a fill of a doubted part, graded by the class map", graded_holds)
 case("the floor under a small part: a starting value, held against the clip's own sizes", the_floor_against_the_clip)
 case("verify: the capture reads what the nodes wrote", verifying)

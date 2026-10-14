@@ -335,6 +335,12 @@ DENIALS = ("not", "none", "never", "without", "no voice", "silent")
 #: eyebrows, nose, mouth and skin; the hair ... of <Picture 1> are not used"), read until then as a voice denied,
 #: or, without its "not", as a voice performed; no sentence of a performance names a picture.
 REFERENCE_PICTURE = "<picture"
+#: A sentence that defines a subject as what a reference video holds ("<Subject 2> is the movements ... performed by the
+#: figure in <Video 1>: a closer view of ...") is read for a voice by its head, before the colon: after it, the sentence
+#: says what the reference looks like. Reasoned, 2026-10-14: the drawn mouth's words (`load_text.subject_2`, "the mouth
+#: is outlined ... and it opens and closes where the person's mouth does") were read as a voice on lead_fp_1097c and
+#: second_hfp_0014d, which have none; the head still counts ("<Subject 2> is the singing performed by ... <Video 1>").
+REFERENCE_VIDEO_HEAD = r"<subject \d+> is [^:]*<video \d+>:"
 #: One colour a subject, in the order subjects are given. Reasoned: told apart by hue at a glance, none of
 #: them the review's own red and cyan, so the two pictures are never confused.
 COLOURS = ((60, 220, 90), (255, 70, 220), (255, 170, 40), (70, 150, 255), (240, 240, 60), (120, 240, 240))
@@ -3509,13 +3515,16 @@ def flag_loads(manifest: dict, folder: Path, not_in: dict | None = None) -> list
 
 def voice_sentences(text: str) -> tuple[list[str], list[str]]:
     """The sentences of a prompt that say a voice is performed, and those that deny one. A sentence that names a
-    reference picture is neither (`REFERENCE_PICTURE`)."""
+    reference picture is neither (`REFERENCE_PICTURE`); one that defines a subject by a reference video is read by its
+    head only (`REFERENCE_VIDEO_HEAD`)."""
     import re
     says, denies = [], []
     for sentence in re.split(r"(?<=[.!?])\s+|\n+", text):
         low = sentence.lower()
         if REFERENCE_PICTURE in low:
             continue
+        if re.match(REFERENCE_VIDEO_HEAD, low.strip()):
+            low = low.split(":", 1)[0]
         if any(w in low for w in VOICE_WORDS):
             (denies if any(re.search(rf"\b{re.escape(d)}\b", low) for d in DENIALS) else says).append(sentence.strip())
     return says, denies
@@ -4495,6 +4504,32 @@ def legend_lines(subjects: list, runs: list) -> list[tuple[tuple, str, str]]:
     return lines
 
 
+def render_said(run: dict, job_path: Path, name: str) -> list[str]:
+    """What the node will render of a load, said on its strip (the lead, 2026-10-14: every blind reader of that day read a strip
+    that said nowhere whether its load renders zoomed, nor its window, nor the defaults it carries): zoomed in, by how much and on
+    which box, or on the whole frame and the node's words why; each planned window's frames and held frames; the job's defaults."""
+    import re
+    zoom = run.get("zoom")
+    if zoom:
+        out = [f"RENDERED ZOOMED IN {float(zoom['scale']):.2f}x on the box {list(zoom['box'])} of the {zoom['source_size'][0]}x{zoom['source_size'][1]} "
+               f"frame (the node's plan; {zoom.get('set_by', '')}): what this strip shows is enlarged that much in the render"]
+    else:
+        why = ""
+        job = json.loads(job_path.read_text()) if job_path.is_file() else {}
+        report = REPO / f"{(job.get('job') or {}).get('capture', '')}_job" / f"{name}.plan.queued.json"
+        if report.is_file():
+            found = re.search(r"rendered on the whole frame: ([^\\\n\"]*)", report.read_text())
+            why = found.group(1) if found else ""
+        out = ["RENDERED ON THE WHOLE FRAME" + (f": the node's words, {why}" if why else " (the node's plan names no zoom)")]
+    for w in run.get("planned_windows") or []:
+        out.append(f"window {w.get('window')}: {w.get('frames')} frames from source frame {w.get('first_frame')}, writing {w['writes_source_frames'][0]}-"
+                   f"{w['writes_source_frames'][1]}; {w.get('held_frames', 0)} held frame(s), {w.get('kept_frames', 0)} kept")
+    defaults = (json.loads(job_path.read_text()).get("job") or {}).get("defaults") if job_path.is_file() else None
+    if isinstance(defaults, list) and defaults:
+        out.append("THE DEFAULTS THIS LOAD CARRIES: " + "; ".join(f"{d['what']}: {d['carries']}" for d in defaults))
+    return out
+
+
 def load_and_text(job_path: Path, name: str) -> dict:
     """One load of a job file and the text it will be given, as the look shows them and records them.
 
@@ -4657,11 +4692,23 @@ def video(a: argparse.Namespace) -> None:
     huge, line = ImageFont.truetype(MONO, 92), ImageFont.truetype(FONT, 19)
     text_lines = [] if shown is None else wrap_text(shown["text"] or "(no text was found for this load)", canvas_w - 32, line.getlength)
     notice = 26 if shown is not None and not runs else 0   # one more line when the capture holds no plan of the load
+    # where the text was written from, wrapped to the strip's width like every line under it (a generated text's "by" is long)
+    covers = shown is not None and shown["recorded"] and shown["text_frames"][0] <= shown["frames"][0] and shown["frames"][1] <= shown["text_frames"][1]
+    written = [] if shown is None else wrap_text(
+        (f"written from source frames {shown['text_frames'][0]}-{shown['text_frames'][1]} by {shown['text_by']}"
+         + ("" if covers else "   THIS LOAD HAS FRAMES THE TEXT WAS NOT WRITTEN FROM")) if shown["recorded"]
+        else "NOT RECORDED: which frames this text was written from, and by whom. No look of it can be recorded", canvas_w - 32, line.getlength)
+    more = 24 * max(0, len(written) - 1)
+    notice += more
     # a load of two subjects: which label is whose, in the list's order. Only the text tells the model, so the look says it
     whose = [] if shown is None or not shown.get("pair") else wrap_text("TWO SUBJECTS IN ONE PASS, IN THE LIST'S ORDER: " + "; ".join(
         f"{p_['subject']} ({p_['region']}) is {p_['is']}, its still {p_['picture']}" + (f" ({Path(p_['still']).name})" if p_.get("still") else " (none named)")
         + (f", its reference {p_['video']}" if p_["video"] else ", no reference video") for p_ in shown["pair"]), canvas_w - 32, line.getlength)
     notice += 24 * len(whose) + (6 if whose else 0)
+    # what the node will render of it, on the header of the strip: zoom or whole frame, windows, the defaults
+    rendered = [] if shown is None or not runs else [x for one in render_said(next((r for r in runs if r["name"] == a.load), runs[0]), Path(a.job), a.load)
+                                                    for x in wrap_text(one, canvas_w - 32, line.getlength)]
+    notice += 24 * len(rendered) + (6 if rendered else 0)
     band = 0 if shown is None else 2 * ((74 + notice + 24 * len(text_lines)) // 2 + 1)   # even: the encoder's pixel format needs it
     canvas_h = row_h * n_rows + PANEL + band
     # the panel's numbers come from the same tables the folder holds, so the picture and the tables agree
@@ -4858,16 +4905,13 @@ def video(a: argparse.Namespace) -> None:
             d.text((16, by_ + 8), f"THE TEXT OF LOAD {a.load} (source frames {shown['frames'][0]}-{shown['frames'][1]}), label "
                    f"{shown['text_label']!r}, from {shown['text_from'] or 'nowhere'}", font=text, fill=AMBER)
             if not runs:
-                d.text((16, by_ + 64), "NO PLAN OF THIS LOAD IN THE CAPTURE YET: ITS REGION IS NOT DRAWN", font=line, fill=AMBER)
+                d.text((16, by_ + 64 + more), "NO PLAN OF THIS LOAD IN THE CAPTURE YET: ITS REGION IS NOT DRAWN", font=line, fill=AMBER)
             for k, one_line in enumerate(whose):
-                d.text((16, by_ + 64 + (26 if not runs else 0) + 24 * k), one_line, font=line, fill=AMBER)
-            if shown["recorded"]:
-                covers = shown["text_frames"][0] <= shown["frames"][0] and shown["frames"][1] <= shown["text_frames"][1]
-                d.text((16, by_ + 38), f"written from source frames {shown['text_frames'][0]}-{shown['text_frames'][1]} by {shown['text_by']}"
-                       + ("" if covers else "   THIS LOAD HAS FRAMES THE TEXT WAS NOT WRITTEN FROM"), font=line, fill=WHITE if covers else AMBER)
-            else:
-                d.text((16, by_ + 38), "NOT RECORDED: which frames this text was written from, and by whom. No look of it can be recorded",
-                       font=line, fill=AMBER)
+                d.text((16, by_ + 64 + more + (26 if not runs else 0) + 24 * k), one_line, font=line, fill=AMBER)
+            for k, one_line in enumerate(rendered):
+                d.text((16, by_ + 64 + more + 24 * len(whose) + (6 if whose else 0) + 24 * k), one_line, font=line, fill=AMBER)
+            for k, one_line in enumerate(written):
+                d.text((16, by_ + 38 + 24 * k), one_line, font=line, fill=WHITE if covers else AMBER)
             for k, one_line in enumerate(text_lines):
                 d.text((16, by_ + 68 + notice + 24 * k), one_line, font=line, fill=WHITE)
         enc.stdin.write(np.asarray(img).tobytes())
