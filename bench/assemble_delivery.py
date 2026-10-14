@@ -1410,6 +1410,16 @@ def record_subjects_of(path) -> list[tuple[int, int, dict[str, str | None]]]:
             for s in json.load(open(path))["shots"]]
 
 
+def no_row_words(said: list[dict]) -> str:
+    """The verdict line's words for the `source` lines kept of subjects no row has: what the shots record says of each."""
+    if not said:
+        return ""
+    return ("; the table's word alone, checked against no picture, that " + ", ".join(
+        f"{x['subject']} is " + ("not in the shot" if x["the_shots_record_says_present"] == ["no"] else "the original")
+        + f" on {x['frames'][0]}-{x['frames'][1]} (the shots record: present {'/'.join(x['the_shots_record_says_present'])})" for x in said)
+        + " (no row is theirs)")
+
+
 def no_row_fault(i: dict, shots: list, span, record_subjects, unknown: list) -> str | None:
     """Why a `source` line for a subject no row has is not kept, or None. A table of one shot says that of a subject
     the shots record has there and no row lays (2026-10-14); the first form of this kept such a line on its name
@@ -2078,12 +2088,7 @@ def check(args, segs, canvas, span, src, rows, captures):
         + ", ".join(f"{n} {kind}" for kind, n in sorted(kinds.items())) + ")" if own
         else "; every named subject has something laid on every shot" if any(e["subjects"] for e in result["shots"]["shots"])
         else "; no row's subject is known, so no shot is asked about")
-    said = result["shots"]["said_of_subjects_no_row_has"]
-    if said:
-        result["verdict_line"] += ("; the table's word alone, checked against no picture, that " + ", ".join(
-            f"{x['subject']} is " + ("not in the shot" if x["the_shots_record_says_present"] == ["no"] else "the original")
-            + f" on {x['frames'][0]}-{x['frames'][1]} (the shots record: present {'/'.join(x['the_shots_record_says_present'])})" for x in said)
-            + " (no row is theirs)")
+    result["verdict_line"] += no_row_words(result["shots"]["said_of_subjects_no_row_has"])
     if unlaid or slid:
         result["verdict_line"] += ": " + "; ".join([line.split(". Lay a row")[0] for line in unlaid] + [line.split(" (its outermost")[0] for line in slid])
     return result

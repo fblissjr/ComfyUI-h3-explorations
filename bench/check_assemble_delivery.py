@@ -1091,6 +1091,10 @@ with tempfile.TemporaryDirectory() as _tmp:
             assert not section["said_of_subjects_no_row_has"] and len(problems) == 1 and f"names {line[0]['subject']}, a subject no row of it has" in problems[0] \
                 and said in problems[0], (line, problems)
         assert "whether they have a row cannot be said" in tool.no_row_fault(one(20, 39)[0], [(0, 19), (20, 39)], (0, 39), who, ["piece_x.mp4"])
+        # the verdict line says what the record says: not in the shot where it says no, the original where it says yes or unsure
+        words = tool.no_row_words(kept + [{**kept[0], "subject": "d", "the_shots_record_says_present": ["unsure", "yes"]}])
+        assert "c is not in the shot on 20-39 (the shots record: present no)" in words and "d is the original on 20-39 (the shots record: present unsure/yes)" in words \
+            and tool.no_row_words([]) == "", words
         # and through shots_of itself: a row whose subject is not known (no capture to say whose it is) refuses the line
         section, problems = tool.shots_of({"rows": {}}, [{"piece": "/x/piece_x.mp4"}], None, (0, 39), moved, one(20, 39), record_cuts=[0, 20], record_subjects=who)
         assert not section["said_of_subjects_no_row_has"] and len(problems) == 1 and "piece_x.mp4" in problems[0] and "cannot be said" in problems[0], problems

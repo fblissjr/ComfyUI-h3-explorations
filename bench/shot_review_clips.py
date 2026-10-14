@@ -304,6 +304,10 @@ def items(a: argparse.Namespace) -> int:
         if f"{name}_stacked" in ids:
             raise SystemExit(f"{span[0]}-{span[1]}: the list already has an item {name}_stacked")
         made_table = json.loads(f["json"].read_text())
+        shots = [(e["first"], e["last"]) for e in made_table["reading"] + list(made_table.get("not_in_the_shot") or [])]
+        if not shots or (min(x for x, _ in shots), max(y for _, y in shots)) != span:
+            raise SystemExit(f"{span[0]}-{span[1]}: its table {f['json'].name} is of "
+                             + (f"{min(x for x, _ in shots)}-{max(y for _, y in shots)}" if shots else "no shot") + ", not of this span")
         if any("step" not in s for e in made_table["reading"] for s in e["stands"]):
             raise SystemExit(f"{span[0]}-{span[1]}: its table was made before the table said why each piece stands in fields of its own "
                              "(bench/delivery_table.py, 2026-10-14): its words would hide the lead's --prefer. Build it again with another stamp")

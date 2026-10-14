@@ -78,6 +78,13 @@ def made_table() -> dict:
         "not_in_the_shot": [{"first": 100, "last": 140, "subject": "fifth", "why": "the shots file says this subject is not in the shot (owner, on the who page)"}]}
 
 
+def table_of(a: int, b: int) -> dict:
+    """The made table moved to the span a-b, as a build of that span writes it."""
+    if (a, b) == (100, 140):
+        return made_table()
+    return {"reading": [entry(a, b, "lead", stands=[stand(f"lead_{a}", [(a, b)], "2026-10-13T15:00:00Z")])], "not_in_the_shot": []}
+
+
 RECORD = {"verdict": "passes", "verdict_line": "passes; every named subject has something laid on every shot", "video": {"rate": "24000/1001"}}
 
 
@@ -116,6 +123,11 @@ def words_of_an_item() -> str:
     # nothing stands: the whole shot once (the table also lists it as left as the source), the newest three named, a long reason cut
     assert "third: the original on the whole shot: no piece of theirs stands here (4 other render(s) passed over, the newest 3: t_new, " + LONG[:src.REASON_CHARS] + "...; t_mid, short; t_old, short)" in text, text
     assert "third: the original on 100-140" not in text and "t_older" not in text, text
+    # a stamp with no zone is UTC, never the machine's clock; a render standing on two shots is one piece
+    assert f"{src.owners_clock('2026-10-14T03:10:00'):%m/%d %H:%M}" == "10/13 22:10"
+    two = {"reading": [entry(100, 140, "lead", stands=[stand("lead_a", [(100, 140)], "2026-10-13T15:00:00Z")]),
+                       entry(141, 160, "lead", stands=[stand("lead_a", [(141, 160)], "2026-10-13T15:00:00Z")])], "not_in_the_shot": []}
+    assert src.item_words(two)[0] == 1, "a render on two shots counted twice"
     return ("four pieces each with its day on the owner's clock, either keep word, choice or none, frames left or NOT KNOWN; unsure with and without a piece, "
             "said once; not in the shot from the table's list; nothing standing said once, with the count and the newest three, a long reason cut")
 
@@ -126,12 +138,17 @@ def the_leads_word() -> str:
                                                            led=reason)],
                            passed_over=[passed("lead_kept", "2026-10-12T15:00:00Z", "may stand (step 1) and every frame of it on this shot is taken by a render before it",
                                                {"said": dt.KEEP[0], "at": "2026-10-12T20:00:00Z"}),
-                                        passed("lead_held", "2026-10-13T15:00:00Z", "HELD BACK ...", held="its apron is a white top on all 50 frames, a reader's word")])],
+                                        passed("lead_held", "2026-10-13T15:00:00Z", "HELD BACK ...", held="its apron is a white top on all 50 frames, a reader's word"),
+                                        passed("lead_good", "2026-10-11T15:00:00Z", "never stands: no build record", {"said": dt.KEEP[1], "at": "2026-10-11T20:00:00Z"})]),
+                     entry(100, 140, "second", passed_over=[passed("s_held", "2026-10-13T15:00:00Z", "HELD", held="a reason"),
+                                                            passed("s_other", "2026-10-12T15:00:00Z", "never stands: no build record")])],
          "not_in_the_shot": []}
     text = ". ".join(src.item_words(t)[1])
     assert f"lead_new on 100-140, rendered 10/14 (10:00 Central); not judged by you yet; IT STANDS BY THE LEAD'S CHOICE (--prefer), a session's word and not yours: {reason}" in text, text
     assert "lead: YOUR KEEP lead_kept (of 10/12) is not laid here: may stand (step 1)" in text, text
     assert "lead: lead_held is HELD BACK by the lead (--hold), a session's word and not yours: its apron is a white top on all 50 frames, a reader's word" in text, text
+    assert "lead: YOUR KEEP lead_good (of 10/11) is not laid here: never stands" in text, "the table's second word for a keep, set aside, unsaid"
+    assert "second: the original on the whole shot: no piece of theirs stands here (1 other render(s) passed over, the newest 1: s_other" in text, text
     return "the lead's --prefer said as the lead's choice with its reason whole; the owner's keep it set aside named; a hold named with its reason whole"
 
 
@@ -158,6 +175,7 @@ def the_item_itself() -> str:
         and "4 piece(s) laid" in item["what"] and item["title"].startswith("fun_0100_0140_joined_T_stacked: the shot 100-140 "), item
     empty = src.make_item("fun_0100_0140_joined_T", (100, 140), {"reading": [], "not_in_the_shot": []}, RECORD, "m/x.mp4", "T", "tester", None)
     assert "No piece is laid: ." not in empty["what"] and "No piece is laid" in empty["what"], empty["what"]
+    assert item["seconds"] == "about 4.2 s to 5.9 s of the video", item["seconds"]
     return "the table's buttons, the record's rate, who put it on the list, the note at the end; an empty table says no piece is laid"
 
 
@@ -178,12 +196,13 @@ class Steps:
     """`build`'s subprocesses stood in for: the table writes its files and names a capture; the two steps write the clip, its record and the stack."""
 
     def __init__(self, capture: Path, got: dict):
-        self.capture, self.got, self.ran, self.clip = capture, got, [], Path()
+        self.capture, self.got, self.ran, self.clip, self.table_argv = capture, got, [], Path(), []
 
     def run(self, argv, **_):
         argv = [str(x) for x in argv]
         self.ran.append(argv[1] if len(argv) > 1 else argv[0])
         if any(x.endswith("delivery_table.py") for x in argv):
+            self.table_argv = argv
             j = Path(argv[argv.index("--json") + 1])
             j.write_text(json.dumps({"assembly": {"command": "STEP build", "stack": {"build": "STEP stack"}, "captures": [str(self.capture)]}}))
             Path(argv[argv.index("--table") + 1]).write_text("t")
@@ -198,7 +217,7 @@ class Steps:
 def build_writes_over_nothing() -> str:
     with tempfile.TemporaryDirectory() as tmp:
         d = Path(tmp)
-        for role in ("stacked", "table"):
+        for role in src.files_of("x", Path("c"), Path("t")):
             clips, tables = d / role / "clips", d / role / "tables"
             target = src.files_of("fun_0001_0009_joined_T", clips, tables)[role]
             target.parent.mkdir(parents=True)
@@ -213,11 +232,18 @@ def build_writes_over_nothing() -> str:
         capture.mkdir()
         real_run, real_read = src.subprocess.run, src.stack_delivery.read_back
         for stamp, earlier, got, want in (("A", True, reading(11), "REFUSED after the table"), ("B", False, reading(11, clip_frames=10), "HARD FAULT"),
-                                          ("C", False, reading(11), None)):
+                                          ("C", False, reading(11), None), ("D", False, reading(11), "dry"), ("E", "relative", reading(11), "REFUSED after the table")):
             steps = Steps(capture, got)
             steps.clip = d / "clips" / f"fun_0200_0210_joined_{stamp}.mp4"
             (d / "clips").mkdir(exist_ok=True)
-            if earlier:
+            real_here = src.HERE
+            if earlier == "relative":                 # a capture named relative to the repo, as real tables name them
+                (d / "repo" / "bench").mkdir(parents=True, exist_ok=True)
+                (d / "repo" / "cap").mkdir(exist_ok=True)
+                (d / "repo" / "cap" / f"delivery__fun_0200_0210_joined_{stamp}.json").write_text("{}")
+                steps.capture = Path("cap")
+                src.HERE = d / "repo" / "bench"
+            elif earlier:
                 (capture / f"delivery__fun_0200_0210_joined_{stamp}.json").write_text("{}")
             src.subprocess.run, src.stack_delivery.read_back = steps.run, (lambda *a, **k: steps.got)
             said = []
@@ -225,15 +251,22 @@ def build_writes_over_nothing() -> str:
             try:
                 builtins.print = lambda *a, **k: said.append(" ".join(str(x) for x in a))
                 code = src.main(["build", "--ledger", "L", "--shots", "S", "--plan", "P", "--source", "/in/fun.mp4", "--clips", str(d / "clips"), "--tables",
-                                 str(d / "tables"), "--stack-work", str(d / "w"), "--stamp", stamp, "200-210"])
+                                 str(d / "tables"), "--stack-work", str(d / "w"), "--stamp", stamp, *(["--dry"] if want == "dry" else []), "200-210"])
             finally:
                 builtins.print = real_print
                 src.subprocess.run, src.stack_delivery.read_back = real_run, real_read
+                src.HERE = real_here
+            given = steps.table_argv
+            assert all(Path(given[given.index(k) + 1]).is_absolute() for k in ("--ledger", "--shots", "--plan")), "a path handed on relative to the caller"
+            if want == "dry":
+                assert code == 0 and "build" not in steps.ran and "stack" not in steps.ran and not steps.clip.exists(), ("a dry build ran a step", steps.ran)
+                continue
             text = "\n".join(said)
             if want:
                 assert code == 1 and want in text, (stamp, code, text)
             else:
                 assert code == 0 and "frames: the stacked file 11, the clip 11" in text and "ORIGINAL row" in text, (stamp, text)
+                assert json.loads(src.files_of(f"fun_0200_0210_joined_{stamp}", d / "clips", d / "tables")["stack_reading"].read_text())["frames"] == 11
             if earlier:
                 assert "build" not in steps.ran and (capture / "delivery__fun_0200_0210_joined_A.json").read_text() == "{}", steps.ran
     # the stack's hard faults: a frame count not the span's (both counts equal included), sound not the clip's or none; a row's fit is not one
@@ -260,7 +293,7 @@ def items_at_the_top() -> str:
             f = src.files_of(src.clip_name("fun", *span, "T"), clips, tables)
             f["stacked"].write_bytes(b"clip")
             f["record"].write_text(json.dumps(RECORD))
-            f["json"].write_text(json.dumps(made_table()))
+            f["json"].write_text(json.dumps(table_of(*span)))
             f["stack_reading"].write_text(json.dumps(reading(span[1] - span[0] + 1)))
         base = ["items", "--items", str(page), "--clips", str(clips), "--tables", str(tables), "--stem", "fun", "--stamp", "T", "--by", "tester"]
         assert src.main([*base, "--dry", "100-140", "200-210"]) == 0 and json.loads(page.read_text()) == before and not list(tables.glob("items.before*")), "dry wrote"
@@ -294,10 +327,24 @@ def items_at_the_top() -> str:
         assert len(copies) == 1 and json.loads(copies[0].read_text()) == before and after["items"][1]["what"].endswith(" the lead's words"), "copy or note"
         assert stale.is_symlink() and stale.resolve() == (clips / "fun_0100_0140_joined_T_STACKED.mp4").resolve(), stale
         refused(lambda: src.main([*base, "100-140"]), "already has an item")
+        # a table that is not of the span is refused
+        f_wrong = src.files_of(src.clip_name("fun", 400, 410, "T"), clips, tables)
+        f_wrong["stacked"].write_bytes(b"clip")
+        f_wrong["record"].write_text(json.dumps(RECORD))
+        f_wrong["json"].write_text(json.dumps(table_of(500, 510)))
+        f_wrong["stack_reading"].write_text(json.dumps(reading(11)))
+        refused(lambda: src.main([*base, "400-410"]), "is of 500-510, not of this span")
+        # a link of the clip's name in the media folder that points at another build's file of the SAME name is not reused
+        other = d / "another_build"
+        other.mkdir()
+        (other / "fun_0400_0410_joined_T_STACKED.mp4").write_bytes(b"another")
+        f_wrong["json"].write_text(json.dumps(table_of(400, 410)))
+        os.symlink(other / "fun_0400_0410_joined_T_STACKED.mp4", page.parent / "media" / "fun_0400_0410_joined_T_STACKED.mp4")
+        refused(lambda: src.main([*base, "400-410"]), "not to this build's")
         f = src.files_of(src.clip_name("fun", 300, 310, "T"), clips, tables)
         f["stacked"].write_bytes(b"clip")
         f["record"].write_text(json.dumps({**RECORD, "verdict": "FAILS", "verdict_line": "FAILS: nothing laid"}))
-        f["json"].write_text(json.dumps(made_table()))
+        f["json"].write_text(json.dumps(table_of(300, 310)))
         f["stack_reading"].write_text(json.dumps(reading(11)))
         refused(lambda: src.main([*base, "300-310"]), "no item for a clip that fails")
         f["record"].write_text(json.dumps(RECORD))
