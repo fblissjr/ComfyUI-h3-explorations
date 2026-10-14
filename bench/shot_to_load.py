@@ -854,7 +854,7 @@ def looked_for(kept: dict | None, world) -> list[str]:
                 r = json.loads(track.with_suffix(".json").read_text())
                 k["frame_hash"] = r["frame_hash"]
                 lines.append(f"keep-out `strangers`, on the preview's frames: {r.get('handed_back_said', 'its record lists no piece handed back')} (bench/strangers.py `handed_back`: "
-                             "a piece touching a subject's own with no face of its own; a look sees each in the record)")
+                             "a piece touching a subject's own with no body core of its own; a look sees each in the record)")
         if why and not world.dry:
             raise Refused(f"the keep-out `{k['name']}`: {'; '.join(why)}. Nothing is written")
         lines += [f"keep-out `{k['name']}`: WOULD BE REFUSED: {'; '.join(why)}"] if why else []

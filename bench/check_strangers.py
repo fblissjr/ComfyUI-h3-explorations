@@ -43,9 +43,10 @@ W, H, N, FIRST, SRC_W, LEAD = 64, 48, 4, 2, 80, 2          # the preview: 4 fram
 GROW = st.h3_config.MASKED_STRANGERS["grow_px"]
 import capture_masked_run as _cap  # noqa: E402
 _NAMES = _cap._pack("sapiens2_parts").CLASS_NAMES
-FACE, BODY = _NAMES.index(st.FACE_CLASS), _NAMES.index("Torso")
-#: The part model, faked: white is a person's body, mid grey a face (`preview(faces=...)`), black nobody.
-MODEL = lambda pic: np.where(pic[..., 0] > 200, BODY, np.where(pic[..., 0] > 90, FACE, 0)).astype(np.uint8)  # noqa: E731
+#: The part model, faked: white is Apparel (a person the core test cannot tell: no core), mid grey a face, dark grey an arm
+#: (`preview(levels=...)`), black nobody.
+FACE, ARM, NOT_CORE = _NAMES.index("Face_Neck"), _NAMES.index("Left_Lower_Arm"), _NAMES.index("Apparel")
+MODEL = lambda pic: np.select([pic[..., 0] > 200, pic[..., 0] > 90, pic[..., 0] > 40], [NOT_CORE, FACE, ARM], 0).astype(np.uint8)  # noqa: E731
 
 
 def refused(fn, *words: str) -> None:
@@ -75,7 +76,7 @@ def picture():
 
 
 def preview(root: Path, people: np.ndarray, tracks: dict, frames: int = N, listed_twice: bool = False, own: dict | None = None,
-            faces: np.ndarray | None = None) -> Path:
+            levels: dict | None = None) -> Path:
     out = root / "output" / "Video/v/s/pv"
     out.mkdir(parents=True)
     src = root / "source.mkv"
@@ -85,10 +86,10 @@ def preview(root: Path, people: np.ndarray, tracks: dict, frames: int = N, liste
     wide = np.ones((len(canvas), H, SRC_W), bool)
     wide[:, :, 8:8 + W] = canvas
     level = wide.astype(np.uint8) * 255
-    if faces is not None:                                   # a face, as the part model would call it: mid grey
+    for v, m in (levels or {}).items():                     # a class the part model would call it: 128 a face, 64 an arm (MODEL)
         f = np.zeros_like(wide)
-        f[LEAD:, :, 8:8 + W] = faces[:frames]
-        level[f] = 128
+        f[LEAD:, :, 8:8 + W] = m[:frames]
+        level[f] = v
     rgb = np.repeat(level[..., None], 3, -1)
     enc = subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{SRC_W}x{H}", "-r", "24", "-i", "-",
                           "-c:v", "ffv1", "-pix_fmt", "bgr0", str(src)], input=rgb.tobytes())
@@ -216,11 +217,12 @@ def nothing_of_a_subjects_own_is_a_stranger() -> str:
     return "her held things and her part outside her track are not strangers, the record names them, and a file made of tracks only is made again"
 
 
-def a_piece_touching_her_with_no_face_is_hers() -> str:
+def a_piece_touching_her_with_no_core_is_hers() -> str:
     """The lead's ruling (A) of 2026-10-14, on 1156b: the tracker left out her hat lifted in her hand (1164) and her mitt's
     fingertips, past the grow, and her held-things file held none of them. A piece of what is left that touches her own,
-    grown, and holds no face is hers, and is listed; a piece that holds a face stays a stranger however close (3167: the
-    other woman's chin and face against the lead's)."""
+    grown, and holds no body core (`CORE_CLASSES`) is hers, and is listed; a piece that holds a face stays a stranger
+    however close (3167: the other woman's chin and face against the lead's), and so does an arm reaching across her
+    (the lead's refinement the same day, on an outside reviewer's point)."""
     people, a, b = picture()
     hat = np.zeros_like(a)
     for i in range(N):
@@ -232,22 +234,29 @@ def a_piece_touching_her_with_no_face_is_hers() -> str:
     other = np.zeros_like(a)
     other[:, 30 + GROW:30 + GROW + 6, 4:12] = True          # under her, touching her grow: another woman's chin and face
     face = other.copy()
-    people = people | hat | tips | other
+    arm = np.zeros_like(a)
+    for i in range(N):
+        e = 14 + 2 * i
+        arm[i, 25:27, e + GROW:e + GROW + 8] = True         # out of her right edge past the grow, touching it: a crowd's arm across her
+    people = people | hat | tips | other | arm
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         said: list[str] = []
-        rec = st.run(preview(root, people, {"a": a, "b": b}, faces=face), root / "output", "s", MODEL, "m", say=said.append)
+        rec = st.run(preview(root, people, {"a": a, "b": b}, levels={128: face, 64: arm}), root / "output", "s", MODEL, "m", say=said.append)
         back = read_mask(rec["file"], (W, H), 0, 0, N)[0]
-    # THE CASE THAT GOES RED when a faceless piece touching her stays a stranger, or a face touching her is handed back
+    # THE CASE THAT GOES RED when a piece with no core touching her stays a stranger, or a face or an arm touching her is handed back
     assert not (back & (hat | tips)).any(), "her lifted hat or her fingertips past the grow are strangers"
     assert back[:, 30 + GROW + 1:30 + GROW + 6, 5:11].all(), "a face touching her was handed back to her"
+    loose = arm & ~st.grown(a, GROW) & ~st.grown(b, GROW)
+    assert loose.any() and (back & loose).sum() == loose.sum(), "an arm touching her was handed back to her"
     assert back[:, 40:46, 30:40].all(), "a stranger touching nobody was handed back"
     got = rec["handed_back"]
     # four a frame: the hat, the fingertips, and the fixture's two lone pixels just past her grow (picture())
     assert {g["subject"] for g in got} == {"a"} and sorted({g["frame"] for g in got}) == [FIRST + i for i in range(N)] and len(got) == 4 * N, got
     assert f"a: {4 * N} piece(s) handed back on {N} frame(s)" in rec["handed_back_said"] and rec["handed_back_said"] in said[0], (rec["handed_back_said"], said)
-    assert any("arm or hand reaching across" in x for x in rec["cannot_see"])
-    # handed_back alone: a face pixel anywhere in the piece keeps it
+    assert any("hand, hat or prop alone" in x for x in rec["cannot_see"]) and rec["core_classes"] == list(st.CORE_CLASSES)
+    assert "Apparel" not in st.CORE_CLASSES and not any("Hand" in c for c in st.CORE_CLASSES) and all(c in _NAMES for c in st.CORE_CLASSES)
+    # handed_back alone: a core pixel anywhere in the piece keeps it
     s1 = np.zeros((1, 8, 8), bool)
     s1[0, 2:5, 2:5] = True
     own = np.zeros_like(s1)
@@ -255,7 +264,8 @@ def a_piece_touching_her_with_no_face_is_hers() -> str:
     f1 = np.zeros_like(s1)
     f1[0, 4, 2] = True
     assert st.handed_back(s1, {"x": own}, f1, 0)[1] == [] and st.handed_back(s1, {"x": own}, np.zeros_like(s1), 0)[1][0]["px"] == 9
-    return "a faceless piece touching her own, grown (a hat lifted, fingertips), is hers and listed; a piece with a face stays a stranger however close"
+    return ("a piece touching her own, grown, with no body core (a hat lifted, fingertips) is hers and listed; a piece with a face or an arm stays a "
+            "stranger however close")
 
 
 def a_lost_track_is_held_a_little() -> str:
@@ -281,5 +291,5 @@ case("where it writes, its clocks, and its record", where_it_writes)
 case("it writes over nothing", it_writes_over_nothing)
 case("a lost track is held a little, and no further", a_lost_track_is_held_a_little)
 case("nothing of a subject's own is a stranger", nothing_of_a_subjects_own_is_a_stranger)
-case("a piece touching her with no face is hers; a face stays a stranger", a_piece_touching_her_with_no_face_is_hers)
+case("a piece touching her with no body core is hers; a face or an arm stays a stranger", a_piece_touching_her_with_no_core_is_hers)
 sys.exit(finish())
