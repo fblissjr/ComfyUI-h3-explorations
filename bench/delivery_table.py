@@ -340,8 +340,9 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
                 took = set(take)
                 stands.append({"render": r["name"], "file": r["file"], "written": r["written"], "frames": runs(take), "why": why,
                                # the frames of these that the piece's own load left as the original (the ledger's read of its capture)
-                               "leaves_as_the_original": runs(sorted(x for a_, b_ in ((r.get("leaves_as_the_original") or {}).get("source_frames") or [])
-                                                                     for x in range(a_, b_ + 1) if x in took)),
+                               # None where the ledger does not say (no capture record of it): not known is not none
+                               "leaves_as_the_original": None if r.get("leaves_as_the_original") is None else runs(sorted(
+                                   x for a_, b_ in r["leaves_as_the_original"].get("source_frames") or [] for x in range(a_, b_ + 1) if x in took)),
                                "the_owners_last_choice": None if not choice else {"said": choice["said"], "at": choice["at"], "row": choice.get("row")}})
             left = runs(sorted(free))
             # the owner's typed words on each render named here, beside their choice: they asked that their words are read

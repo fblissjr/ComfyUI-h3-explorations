@@ -22,7 +22,10 @@ which its capture emptied the subject's part, so the node was given nothing to r
 ledger through the table's reading (`leaves_as_the_original`: the capture's manifest); in no ledger before
 2026-10-13. With `--ledger`, the load's own words where its job file gives a reason for frames it left. With
 `--record`, the assembler's record of a clip built from the table: its `piece_changes_nothing` flags are held to
-the ledger's frames, and where the two disagree both are printed.
+the ledger's frames, and where the two disagree both are printed. EVERY ROW SAYS WHAT IT WAS READ FROM, and a
+piece neither says anything of is NOT KNOWN, never none: a table whose ledger predates the field, with no record
+handed in, prints that B is not known (the tool's first real run printed "0 frames" beside a file that listed
+six runs from the record, one of them the stretch the owner had seen).
 
 **C, a subject in the shot with no piece of their own, on frames another's piece covers.** Not in A, since a
 piece is laid there; the subject is the source's own on those frames all the same.
@@ -141,17 +144,25 @@ def gaps_of(table: dict, plan: dict | None = None, ledger: dict | None = None, r
             return None
         said = [" ".join(str(x.get("why", "")).split()) for x in left if x["first"] <= b and a <= x["first"] + x["frames"] - 1]
         return " | ".join(said) or None
-    part_b = []
+    part_b, not_known = [], []
     for e in reading:
         for s in e["stands"]:
             mine = {x for a, b in s["frames"] for x in range(a, b + 1)}
+            if s.get("leaves_as_the_original") is None and record is None:
+                not_known.append(s["render"])              # the ledger does not say and no record was handed in
             ledgered = {x for a, b in s.get("leaves_as_the_original") or [] for x in range(a, b + 1)}
             seen = flagged.get(s["render"], set()) & mine
             for a, b in runs(ledgered | seen):
                 span = set(range(a, b + 1))
                 row = {"first": a, "last": b, "frames": b - a + 1, "clip": f"{clock(a)}-{clock(b + 1)}", "piece": s["render"], "subject": e["subject"],
                        "shot": [e["first"], e["last"]], "day": day(s.get("written")), "written": s.get("written"),
-                       "why": "its capture emptied this subject's part on these frames, so the node was given nothing to replace there",
+                       "read_from": ("the ledger (its capture's record) and the assembler's record" if span <= ledgered and span <= seen else
+                                     "the ledger: its capture's record of where it emptied the part" if span <= ledgered else
+                                     "the assembler's record alone (the piece is the original there); the ledger does not hold these frames"
+                                     + (", and predates the field" if s.get("leaves_as_the_original") is None else "") if not span & ledgered else
+                                     "the ledger for some of these frames and the assembler's record for others: see the difference"),
+                       "why": ("its capture emptied this subject's part on these frames, so the node was given nothing to replace there" if span & ledgered else
+                               "the assembler found the piece to be the original on these frames; why is in no file read here"),
                        "the_loads_own_words": the_loads_words(s["render"], a, b) if ledger else None}
                 if record is not None:
                     row["against_the_assemblers_record"] = ("the same frames" if span <= ledgered and span <= seen else
@@ -173,7 +184,8 @@ def gaps_of(table: dict, plan: dict | None = None, ledger: dict | None = None, r
     if last_piece is not None and shots and shots[-1][1] > (end if end is not None else last_piece):
         past = {"from_frame": (end if end is not None else last_piece) + 1, "to_frame": shots[-1][1]}
     return {"up_to": end, "up_to_was_given": up_to is not None, "the_last_frame_with_any_piece": last_piece, "first": first, "pieces": len(pieces),
-            "no_piece": part_a, "left_by_a_piece": part_b, "another_subject_with_none": part_c, "nothing_is_made_past": past, "cannot_see": CANNOT}
+            "pieces_named": len({p["name"] for p in pieces}),
+            "no_piece": part_a, "left_by_a_piece": part_b, "left_by_a_piece_not_known_for": sorted(set(not_known)), "another_subject_with_none": part_c, "nothing_is_made_past": past, "cannot_see": CANNOT}
 
 
 def _whose(seg: dict) -> str:
@@ -184,9 +196,10 @@ def _whose(seg: dict) -> str:
     return ", ".join(names)
 
 
-def loud(table: dict, plan: dict | None = None, up_to: int | None = None) -> list[str]:
-    """The lines a table prints at its end, under capitals: the three lists, short."""
-    g = gaps_of(table, plan, up_to=up_to)
+def loud(table: dict, plan: dict | None = None, up_to: int | None = None, ledger: dict | None = None, record: dict | None = None) -> list[str]:
+    """The lines a table prints at its end, under capitals: the three lists, short. The same lists as the files: what
+    is handed to `gaps_of` for the files is handed here."""
+    g = gaps_of(table, plan, ledger, record, up_to)
     if g["up_to"] is None:
         return ["NO PIECE STANDS IN THIS TABLE: every frame of it is the original."]
     a, b, c = g["no_piece"], g["left_by_a_piece"], g["another_subject_with_none"]
@@ -196,11 +209,21 @@ def loud(table: dict, plan: dict | None = None, up_to: int | None = None) -> lis
     for r in a:
         by = "; ".join((f"{s['frames'][0]}-{s['frames'][1]}: " if len(r["by_shot"]) > 1 else "") + _whose(s) for s in r["by_shot"])
         lines.append(f"  {r['first']}-{r['last']}  ({r['frames']} frame(s), {r['clip']})  {by}")
-    lines.append(f"FRAMES A PIECE COVERS AND LEAVES AS THE ORIGINAL (its capture emptied the part there): {sum(r['frames'] for r in b)} FRAME(S) IN {len(b)} RUN(S):")
-    lines += [f"  {r['first']}-{r['last']}  ({r['frames']} frame(s), {r['clip']})  {r['subject']}, inside {r['piece']} (rendered {r['day']})" for r in b]
+    unknown = g["left_by_a_piece_not_known_for"]
+    if unknown and len(unknown) == g["pieces_named"]:
+        lines.append("FRAMES A PIECE COVERS AND LEAVES AS THE ORIGINAL: NOT KNOWN. This table's ledger does not say it of any piece (it predates the field) and no "
+                     "assembler's record was handed in. NOT KNOWN IS NOT NONE: make the ledger and the table again, or hand in a clip's record (--record).")
+    else:
+        lines.append(f"FRAMES A PIECE COVERS AND LEAVES AS THE ORIGINAL: {sum(r['frames'] for r in b)} FRAME(S) IN {len(b)} RUN(S)"
+                     + (f"; NOT KNOWN for {len(unknown)} piece(s) whose capture does not say: {', '.join(unknown)}" if unknown else "") + ":")
+        lines += [f"  {r['first']}-{r['last']}  ({r['frames']} frame(s), {r['clip']})  {r['subject']}, inside {r['piece']} (rendered {r['day']}); read from {r['read_from']}" for r in b]
     lines.append(f"A SUBJECT IN THE SHOT WITH NO PIECE OF THEIR OWN, on frames another's piece covers: {sum(r['frames'] for r in c)} FRAME(S) IN {len(c)} RUN(S):")
     lines += [f"  {r['first']}-{r['last']}  ({r['frames']} frame(s), {r['clip']})  {r['subject']}" + (" (the record is unsure)" if r["present"] == "unsure" else "")
               + (" (a recorded look: no load)" if r["a_recorded_look"] else "") + f", under {', '.join(r['the_pieces_laid_there'])}" for r in c]
+    unsure = [r for r in c if r["present"] == "unsure"]
+    if unsure:
+        lines.append(f"  OF THESE, {sum(r['frames'] for r in unsure)} frame(s) in {len(unsure)} run(s) are of a subject THE RECORD IS UNSURE OF in the shot: the owner's to "
+                     "answer on the who page before anything is built there.")
     if g["nothing_is_made_past"]:
         p = g["nothing_is_made_past"]
         lines.append(f"NOTHING IS MADE FROM FRAME {p['from_frame']} ON (to {p['to_frame']}).")
@@ -219,10 +242,14 @@ def markdown(g: dict, read_from: str) -> str:
         whose = "; ".join(f"{s['frames'][0]}-{s['frames'][1]} (shot {s['shot'][0]}-{s['shot'][1]}): {_whose(s)}"
                           + "".join(f" [{k}: {v[:200]}]" for k, v in (s.get("a_recorded_look") or {}).items()) for s in r["by_shot"])
         out.append(f"| {r['first']}-{r['last']} | {r['clip']} | {r['frames']} | {whose} | {side(r['the_piece_before'], 'before')} | {side(r['the_piece_after'], 'after')} |")
-    out += ["", f"## B. Inside a piece, left as the original by its load: {sum(r['frames'] for r in g['left_by_a_piece'])} frame(s) in {len(g['left_by_a_piece'])} run(s)", "",
+    out += ["", f"## B. Inside a piece, left as the original by its load: {sum(r['frames'] for r in g['left_by_a_piece'])} frame(s) in {len(g['left_by_a_piece'])} run(s)", ""]
+    if g["left_by_a_piece_not_known_for"]:
+        out += [f"NOT KNOWN for {len(g['left_by_a_piece_not_known_for'])} of the {g['pieces_named']} piece(s), whose ledger entry does not say it and for which no assembler's record "
+                f"was handed in: {', '.join(g['left_by_a_piece_not_known_for'])}. Not known is not none.", ""]
+    out += [
             "| frames | clip time | n | subject | the piece, and the day it was rendered | the reason on record | against the assembler's record |", "|---|---|---|---|---|---|---|"]
     for r in g["left_by_a_piece"]:
-        words = r["why"] + (f". The load's own words: {r['the_loads_own_words'][:400]}" if r.get("the_loads_own_words") else "")
+        words = f"READ FROM {r['read_from']}. " + r["why"] + (f". The load's own words: {r['the_loads_own_words'][:400]}" if r.get("the_loads_own_words") else "")
         out.append(f"| {r['first']}-{r['last']} | {r['clip']} | {r['frames']} | {r['subject']} | {r['piece']}, {r['day']} | {words} | "
                    f"{json.dumps(r['against_the_assemblers_record']) if 'against_the_assemblers_record' in r else 'no record was handed in'} |")
     out += ["", f"## C. A subject in the shot with no piece of their own, where another's piece is laid: {sum(r['frames'] for r in g['another_subject_with_none'])} frame(s) "
@@ -248,7 +275,7 @@ def main() -> int:
     load = lambda p: json.loads(Path(p).read_text()) if p else None                       # noqa: E731
     table = load(a.table)
     g = gaps_of(table, load(a.plan), load(a.ledger), load(a.record), a.up_to)
-    for line in loud(table, load(a.plan), a.up_to):
+    for line in loud(table, load(a.plan), a.up_to, load(a.ledger), load(a.record)):
         print(line)
     if a.md:
         Path(a.md).write_text(markdown(g, a.table))
