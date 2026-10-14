@@ -28,6 +28,12 @@ Older history lives elsewhere and is not copied here:
   keeping them current; one input (the stopped loads) was a typed list and the review file's decisions were
   typed into the script. Where it lives now: `AGENTS.md`, "Operative rules" and "Where state lives". The
   pages becoming tracked tools that read only generated files is the tooling seat's job of the day.
+- **A better form does not remake a kept piece** (the owner, about 18:12Z: they have loved many of the clips;
+  the nitpicking is for tooling that handles future windows without being rebuilt). The defaults of the day (the
+  contrast eye, the drawn mouth, zoom, the generated reference sentence) apply to windows still to make. Of the
+  2026-10-12 remakes, only those with a known fault go on (14-154 and 415-437 rated wrong, 604-948's hair, 278-293's
+  wide eyes) plus 1010-1031, never made; 1039-1060 stays the owner's keep `second_hf_1039_g`. This narrows the
+  morning's "every piece of 2026-10-12 is made again" below.
 - **One prompt form on every load, and the tools on by default** (the owner, about 18:05Z, on `lead_fp_1156`:
   her mouth does not open and the piece is weaker than it could be). Every window's text is the same reference
   prompt we have been using; no per-load words for the face (not "grin", not "mouth wide open"): the reference
