@@ -21,6 +21,8 @@
   the_sixth_readers_findings    a wrong and words on an older joined clip of the same pieces; words alone and a praised keep under
                                 Done on their day and gone after; a joined keep hides no later line on a piece; Central days; a joined
                                 clip on other frames; section headings; where words came from; the stacked clip from any folder
+  the_seventh_readers_findings  a not sure on a joined clip after a keep stays; words on a joined clip; a joined clip's last line, in
+                                Central; the counts; which piece; no source; a piece across a shot's edge; the newest look line
   the_owners_words_rule         a keep followed by the owner's words is shown again; a line a session took down said so; a wrong
                                 on a joined clip keeps the shot; the lead's holds and the owner's keeps not laid on both pages
   the_fifth_readers_findings    words just before the last click go with it; an older line written later does not undo a keep; a
@@ -125,7 +127,8 @@ def world(d: Path, stopped=True, joined_table="same", verdicts=None, ledger_name
     (d / "t.json").write_text(json.dumps(table))
     (d / ledger_name).write_text(json.dumps(ledger))
     (d / "items.json").write_text(json.dumps({"items": items}))
-    (d / "verdicts.jsonl").write_text("".join(json.dumps(v) + "\n" for v in lines))
+    # each line as the page's server writes it, with the answers file's line as its source, unless a case gives its own
+    (d / "verdicts.jsonl").write_text("".join(json.dumps({"source": f"answers.jsonl:{k + 1}", **v}) + "\n" for k, v in enumerate(lines)))
     (d / "t_before.json").write_text(json.dumps(previous))
     src = d / "v.mp4"
     if not src.exists():
@@ -292,15 +295,18 @@ def the_sixth_readers_findings() -> str:
         page = page_of(Path(tmp), ["--today", "2026-10-14"], old_joined, verdicts=lines)
         wait, done = (text_of(x) for x in page.split("<details><summary><b>Done:"))
         # THE CASES THAT GO RED: a wrong and words on an older joined clip lost; words with no click left waiting; a praised keep lost on its day
-        # the shot is filed by its newest joined clip, unanswered: waiting; each piece's line says the older clip's wrong and words
-        assert "your last click: wrong, and I say where (10/14 12:03), on the whole joined clip v_0100_0149_joined_OLD_stacked" in wait, wait
-        assert "on the whole joined clip v_0100_0149_joined_OLD_stacked: \"HAIR CLIPS AT THE FOREHEAD\"" in wait, wait
-        assert "The shot 100-149" in wait and "the joined clip: no click of yours" in wait, "the newest joined clip, unanswered, is not waiting on the owner"
+        # the newest joined clip lays the same pieces on the same frames as the older one: it inherits the older clip's lines and the
+        # shot is under Done, the older build named (the lead's ruling, on a seventh reader's 1222-1305); each piece's line says them too
+        assert "The shot 100-149" not in wait and "The shot 100-149" in done, "a newer build of the same pieces did not inherit the older one's lines"
+        assert "the joined clip: your last click: wrong, and I say where (10/14 12:03)" in done, done
+        assert "earlier build(s) of the same pieces on the same frames: v_0100_0149_joined_OLD_stacked" in done, done
+        assert "your last click: wrong, and I say where (10/14 12:03), on the whole joined clip v_0100_0149_joined_OLD_stacked" in done, done
+        assert "on the whole joined clip v_0100_0149_joined_OLD_stacked: \"HAIR CLIPS AT THE FOREHEAD\"" in done, done
         assert "a_solo" not in wait and "I DONT LIKE BEARD" in done and "a_kept" in done and "LOOKS GREAT" in done, (wait, done)
         # each piece under its own section heading (M16)
         assert "a , 150-199: a_solo" in done.split("Pieces in a shot of one of them")[1] and "a_solo" not in done.split("Pieces in a shot of one of them")[0], done
         # a shot's times run to the frame after its last (M12)
-        assert "0:04.2 to 0:06.3 of the video" in wait, wait
+        assert "0:04.2 to 0:06.3 of the video" in done, done
     with tempfile.TemporaryDirectory() as tmp:
         # the next day: the praised keep and the words alone are gone; the wrong on a joined clip, which names no piece, stays
         page = page_of(Path(tmp), ["--today", "2026-10-15"], old_joined, verdicts=lines)
@@ -359,6 +365,58 @@ def the_sixth_readers_findings() -> str:
     return ("a wrong and words on an older joined clip of the same pieces said under Done; words with no click and a praised keep under Done on their day and "
             "gone after; a joined keep does not hide a later line on a piece; the owner's day in Central; a joined clip on other frames not this table's; "
             "each piece under its heading; times to the next frame; where words came from; the stacked clip found from any working folder")
+
+
+def the_seventh_readers_findings() -> str:
+    """A seventh reader (2026-10-14): what the rulings say, held where the page filed by other lines than it showed."""
+    def over_a_x(d: Path) -> None:            # a joined clip of 200-239 (not the shot's own frames) whose table lays a_x
+        items = json.loads((d / "items.json").read_text())
+        items["items"].insert(0, {"id": "v_0200_0239_joined_X_stacked", "first": "200", "frames": "40", "state": "open"})
+        items["items"].insert(0, {"id": "r__s__a_solo_newer", "name": "a_solo", "first": "150", "frames": "50", "state": "open", "look": "THE NEWER LOOK"})
+        (d / "items.json").write_text(json.dumps(items))
+        (d / "tables" / "t_v_0200_0239_joined_X.json").write_text(json.dumps({"rows": [{"first": 220, "last": 239, "name": "a_x", "subject": "a"}]}))
+    lines = [{"what": "choice", "row": "a_x", "chosen": "keep this one", "at": "2026-10-13T10:00:00Z"},
+             {"what": "choice", "row": "v_0200_0239_joined_X_stacked", "chosen": "not sure", "at": "2026-10-13T11:00:00Z"}]
+    with tempfile.TemporaryDirectory() as tmp:
+        page = page_of(Path(tmp), ["--today", "2026-10-15"], over_a_x, verdicts=lines)
+        done = text_of(page.split("<details><summary><b>Done:")[1])
+        # THE CASE THAT GOES RED (F1): a not sure on a joined clip after the piece's own keep is filed by the keep and leaves the page
+        assert "a_x" in done.split("Held back")[0] and "your last click: not sure (10/13 06:00), on the whole joined clip v_0200_0239_joined_X_stacked" in done, done
+        # the newest item of a render gives its look line (M25)
+        assert "THE NEWER LOOK" in text_of(page) and "her eyes on 160" not in text_of(page), "an older item's look line"
+    joined = "v_0100_0149_joined_NEW_stacked"
+    with tempfile.TemporaryDirectory() as tmp:
+        # F2: words with no click on the joined clip leave the page after their day, and are under Done on it (M05)
+        words = [{"what": "words", "row": joined, "words": "WORDS ON THE CLIP", "at": "2026-10-13T10:00:00Z"}]
+        assert "WORDS ON THE CLIP" not in text_of(page_of(Path(tmp) / "a", ["--today", "2026-10-20"], verdicts=words)) if (Path(tmp) / "a").mkdir() is None else 0
+        on_day = page_of(Path(tmp) / "b", ["--today", "2026-10-13"], verdicts=words) if (Path(tmp) / "b").mkdir() is None else ""
+        assert "The shot 100-149" in text_of(on_day.split("<details><summary><b>Done:")[1]), "words on a joined clip, on their day, not under Done"
+        # the joined clip leaves on the day of its LAST line (M04), on the owner's clock (M09): a keep, then words at 02:00Z on the 15th
+        late = [{"what": "choice", "row": joined, "chosen": "keep this one", "at": "2026-10-13T10:00:00Z"},
+                {"what": "words", "row": joined, "words": "AN EVENING LINE", "at": "2026-10-15T02:00:00Z"}]
+        page = page_of(Path(tmp) / "c", ["--today", "2026-10-14"], verdicts=late) if (Path(tmp) / "c").mkdir() is None else ""
+        wait, done = (text_of(x) for x in page.split("<details><summary><b>Done:"))
+        assert "The shot 100-149" in done, "a joined clip with a line of the owner's evening is not under Done that day"
+        # the two counts are each their own (M37)
+        n_wait, n_done = len(re.findall(r'<div class="e">', page.split("<details>")[0])), len(re.findall(r'<div class="e">', page.split("<details>")[1].split("</details>")[0]))
+        assert f"Waiting on you: {n_wait} with no click" in wait and f"Done: {n_done} you have answered" in text_of(page) and n_wait != n_done, (n_wait, n_done)
+        # a not sure on the whole joined clip asks which piece (M32)
+        ns = page_of(Path(tmp) / "d", verdicts=[{"what": "choice", "row": joined, "chosen": "not sure", "at": "2026-10-13T10:00:00Z"}]) if (Path(tmp) / "d").mkdir() is None else ""
+        assert "Your click on the whole clip names no piece: which piece is it?" in text_of(ns)
+    # F5: a line with no source is nobody's typing; F4's passed-over words say where they came from
+    assert rp.how_said({}) == "your words, where they came from is not said"
+    # a piece that crosses a shot's edge is a row of both shots (M01)
+    sh = rp.shots_of_table({"reading": [{"first": 0, "last": 9, "subject": "a", "present": "yes"}, {"first": 10, "last": 19, "subject": "a", "present": "yes"}],
+                            "rows": [{"first": 5, "last": 14, "name": "across", "subject": "a"}]})
+    assert [[r["name"] for r in x["rows"]] for x in sh] == [["across"], ["across"]], sh
+    with tempfile.TemporaryDirectory() as tmp:
+        text = text_of(provenance(Path(tmp)))
+        page = (Path(tmp) / "day" / "PROVENANCE.html").read_text()
+        # an unsure subject's pieces are on the timeline, marked (M10); every link is relative to the page (M22)
+        assert "(the record is unsure they are in the shot)" in text and not re.findall(r'href="/', page), "an unsure subject's stretch unmarked, or an absolute link"
+    return ("a not sure on a joined clip after the piece's own keep stays under Done; words on a joined clip on their day and gone after; a joined clip on "
+            "the day of its last line, in Central; the counts each their own; which piece on a not sure; a line with no source; a piece across a shot's edge; "
+            "the newest item's look line; an unsure subject's stretch marked; links relative")
 
 
 def the_owners_words_rule() -> str:
@@ -420,7 +478,7 @@ def the_fifth_readers_findings() -> str:
                 "--source", str(d / "v.mp4"), "--share", str(d / "share"), "--page-url", "p#", "--open-list", "o", "--tables", str(d / "tables"), "--out", str(out)]
         assert rp.main(["to-review", *args]) == 0
         text = text_of(out.read_text())
-        assert "your keep of b_wrong" not in text and "Your words after the keep (10/12 16:00): \"WORDS AFTER THE KEEP\"" in text, text
+        assert "your keep of b_wrong" not in text and "Your words after the keep (10/12 16:00, where they came from is not said): \"WORDS AFTER THE KEEP\"" in text, text
     with tempfile.TemporaryDirectory() as tmp:
         # a keep on the joined clip counts on each piece it lays: said so under the piece (the lead's ruling)
         page = provenance(Path(tmp)) if False else None
@@ -540,6 +598,7 @@ case("a fifth reader's mutations, held", a_fifth_readers_mutations)
 case("a fifth reader's findings, and a joined click", the_fifth_readers_findings)
 case("waiting on you, and done", waiting_on_you_and_done)
 case("a sixth reader's findings, and the lead's rulings on them", the_sixth_readers_findings)
+case("a seventh reader's findings", the_seventh_readers_findings)
 case("the owner's words rule, and whose words are whose", the_owners_words_rule)
 case("provenance reads the records", provenance_reads_the_records)
 case("another ledger is refused", another_ledger_is_refused)

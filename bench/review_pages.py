@@ -157,7 +157,9 @@ def how_said(v: dict) -> str:
     (the page's own answers file), or said elsewhere and taken down by a session (its `source` says where, and its
     `note` who took it down)."""
     src = str(v.get("source") or "")
-    if not src or src.startswith("answers.jsonl"):
+    if not src:
+        return "your words, where they came from is not said"
+    if src.startswith("answers.jsonl"):
         return "the words typed in its box (they may quote a session's question)"
     if src.startswith("comments.jsonl"):                   # an earlier page's comment box (a sixth reader, 2026-10-14)
         return f"the words typed in an earlier page's comment box ({src})"
@@ -251,8 +253,11 @@ class Records:
         if not lines:
             return "waiting"
         last_day = owners(lines[-1]["at"], "%Y-%m-%d")
-        c = self.last_choice(rows)
-        closed = self.settled(rows) or (c and c["chosen"] in delivery_table.KEEP) or not any(v.get("what") == "choice" for v in lines)
+        # on the same lines the page shows (a seventh reader, 2026-10-14: a not sure on a joined clip after a keep of the piece's own
+        # was filed by the keep, and left the page the next day)
+        c = self.last_choice(rows, every=True)
+        closed = (c is None or c["chosen"] in delivery_table.KEEP
+                  or c["chosen"] in delivery_table.NOT_THE_ONE and not c.get("through_the_joined_item"))
         return "gone" if closed and last_day != today else "done"
 
     def words_after(self, rows) -> list[dict]:
@@ -353,6 +358,19 @@ def joined_item(rec: "Records", first: int, last: int, tables: list[str]) -> tup
     return it, ""
 
 
+def kin_of(rec: "Records", it: dict, first: int, last: int, tables: list[str]) -> list[str]:
+    """The joined items of exactly these frames whose own table lays the same pieces on them as this one: the clip and every
+    earlier build of the same thing, whose lines it inherits (the lead's ruling of 2026-10-14, on a seventh reader's 1222-1305)."""
+    lays = lambda T: sorted((r["name"], r["subject"], max(r["first"], first), min(r["last"], last)) for r in T["rows"] if r["first"] <= last and r["last"] >= first)  # noqa: E731
+    ours, out = lays(rec.T), []
+    for i in rec.items_in_order:
+        if "_joined_" in i["id"] and str(i.get("first")) == str(first) and str(i.get("frames")) == str(last - first + 1):
+            built = next((Path(t) / f"t_{i['id'].removesuffix('_stacked')}.json" for t in tables if (Path(t) / f"t_{i['id'].removesuffix('_stacked')}.json").is_file()), None)
+            if built is not None and lays(json.load(open(built))) == ours:
+                out.append(i["id"])
+    return out if it["id"] in out else [it["id"], *out]
+
+
 def replaced(rec: "Records", previous: dict | None, name: str, subject: str, first: int, last: int) -> list[dict] | None:
     """What the piece replaces: the rows of the same subject the previous table laid on its frames (the same piece
     among them, where it stood there before); None when no previous table was given."""
@@ -423,7 +441,9 @@ def held_and_set_aside(rec: "Records") -> list[str]:
                 after = [w for w in p.get("the_owners_words") or [] if str(w.get("at")) > str(c["at"])]
                 kept.append(f'<li><b>{E(rd["subject"])}</b>, {rd["first"]}-{rd["last"]}: your keep of {E(p["render"])} ({E(c["said"])}, '
                             f'{owners(c["at"], "%m/%d %H:%M")}) is not laid here. The table\'s reason: {E(p["why"])}'
-                            + "".join(f'. Your words after the keep ({owners(w["at"], "%m/%d %H:%M")}): "{E(w["said"])}"' for w in after) + "</li>")
+                            + "".join(f'. Your words after the keep ({owners(w["at"], "%m/%d %H:%M")}'
+                                      + (f', from {E(str(w["from"]))}' if w.get("from") else ", where they came from is not said")
+                                      + f'): "{E(w["said"])}"' for w in after) + "</li>")
     out += ([f"<ul>{''.join(kept)}</ul>"] if kept else []) + ([] if held or kept else ["<p class='mut'>None.</p>"])
     return out
 
@@ -463,16 +483,21 @@ def to_review(a: argparse.Namespace) -> str:
                 # the joined clip is filed by the owner's lines on it: none, waiting; a keep (with words after or not) leaves the
                 # page after the day of their last line, and only when no piece of it has a later line of theirs; any other
                 # click ("wrong" names no piece) stays under Done
-                own = rec.owner_lines({it["id"]})
-                c = rec.last_choice({it["id"]})
+                kin = set(kin_of(rec, it, first, last, a.tables or []))
+                own = rec.owner_lines(kin)
+                c = rec.last_choice(kin)
                 kept = bool(c and c["chosen"] in delivery_table.KEEP)
-                gone = own and kept and owners(own[-1]["at"], "%Y-%m-%d") != today and all(v == "gone" for v in state.values())
+                # a keep, or words with no click, leave the page after the day of the last line; any other click stays (a seventh reader)
+                gone = own and (kept or c is None) and owners(own[-1]["at"], "%Y-%m-%d") != today and all(v == "gone" for v in state.values())
                 if not gone:
                     ask = ('<p class="why">Your click on the whole clip names no piece: which piece is it? Say it on that piece\'s own line below.</p>'
                            if c and not kept else "")
+                    older = sorted(kin - {it["id"]})
                     (done if own else waiting)["joined"].append(
                         f'<div class="e"><h3>{link(it["id"], f"The shot {first}-{last}")} <span>{E(who)} &middot; {when} &middot; the joined clip: '
-                        f'{E(rec.last_click({it["id"]}))}</span></h3>{ask}<ul>{lines(rows)}</ul></div>')
+                        f'{E(rec.last_click(kin))}</span></h3>'
+                        + (f'<p class="why">With your lines on the earlier build(s) of the same pieces on the same frames: {E(", ".join(older))}</p>' if older else "")
+                        + f'{ask}<ul>{lines(rows)}</ul></div>')
                 continue
             for to, kind in ((waiting, "waiting"), (done, "done")):
                 rr = [r for r in rows if state[r["name"]] == kind]
@@ -702,7 +727,8 @@ def provenance(a: argparse.Namespace) -> str:
         t = f"{clock(s['a'], rate)}-{clock(s['b'] + 1, rate)}"
         if s["kind"] == "piece":
             n = s["name"]
-            tr.append(f'<tr><td>{s["a"]}-{s["b"]}</td><td>{t}</td><td>{E(s["sub"])}</td><td><a href="#p-{E(n)}">{E(n)}</a></td><td>{rec.day_badge(n)}</td>'
+            tr.append(f'<tr><td>{s["a"]}-{s["b"]}</td><td>{t}</td><td>{E(s["sub"])}{" (the record is unsure they are in the shot)" if s["unsure"] else ""}</td>'
+                      f'<td><a href="#p-{E(n)}">{E(n)}</a></td><td>{rec.day_badge(n)}</td>'
                       f'<td>{E(rec.last_click(rec.rows_of(n)))}</td><td>{E(s["why"])}</td></tr>')
         else:
             what = f'the original inside <a href="#p-{E(s["name"])}">{E(s["name"])}</a>' if s["kind"] == "left" else "the original: no piece"
@@ -739,7 +765,9 @@ def provenance(a: argparse.Namespace) -> str:
                  ("built at the commit", f"{made.get('commit')} ({made.get('built_at')}); its record: {g.get('making')}"),
                  ("why it stands", stand_why(next((s for rd in rec.T["reading"] for s in rd.get("stands") or [] if s["render"] == n), {}))),
                  ("on the review page", rec.last_click(rec.rows_of(n)))]
-        said = "".join(f"<li>{owners(v['at'], '%m/%d %H:%M')}, {E(how_said(v))}: {E(v['words'])}</li>" for v in rec.owner_lines(rec.rows_of(n)) if v.get("words"))
+        said = "".join(f"<li>{owners(v['at'], '%m/%d %H:%M')}, {E(how_said(v))}"
+                       + (f", on the whole joined clip {E(v['through_the_joined_item'])}" if v.get("through_the_joined_item") else "")
+                       + f": {E(v['words'])}</li>" for v in rec.owner_lines(rec.rows_of(n), every=True) if v.get("words"))
         links = []
         if folder:
             links.append(f'<a href="{E(os.path.relpath(folder, out_dir))}/">its workflow folder</a> (the graph as queued, its text, its inputs, how to queue it again)')
