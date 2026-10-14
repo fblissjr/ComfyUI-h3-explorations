@@ -89,7 +89,8 @@ HERE = Path(__file__).resolve().parent
 #: without parsing a sentence; an owner's line says whether it is a choice (a button) or words; and the ledger
 #: says the share it walked (`bench/delivery_table.py` reads all of these). Since 2026-10-13, late, a form also
 #: carries `part_named` (the parts a load's job named as its own, or null): a field added, the schema's number kept,
-#: since every reader of 2 reads a ledger with it.
+#: since every reader of 2 reads a ledger with it. Since 2026-10-14 a render also carries `defaults_carried` (its job's
+#: `job.defaults`, or null for a job written before them), the same way.
 SCHEMA = "h3_render_ledger/2"
 #: A reference with none of these steps in its records, for a form's `has`.
 NO_STEPS = {"cut_to_the_head": False, "face_points": False, "lid_marks": False}
@@ -401,6 +402,18 @@ def part_named(job_file: str | None, repo: Path, label: str | None) -> dict | No
     return None
 
 
+def defaults_of(job_file: str | None, repo: Path) -> list[dict] | None:
+    """THE DEFAULTS THE LOAD CARRIED (`job.defaults`, written by `shot_to_load.py job` since 2026-10-14: a line each, with where it
+    came from), read from the job file its build record names; None for a job written before then, or one that cannot be read."""
+    if not job_file:
+        return None
+    path = Path(job_file) if Path(job_file).is_absolute() else repo / job_file
+    try:
+        return (json.loads(path.read_text()).get("job") or {}).get("defaults")
+    except (OSError, ValueError):
+        return None
+
+
 def region_of(carried: str | None, classes: list[str] | None) -> str | None:
     """What a render replaces as one of the plan's regions (`whole`, `face`, `face and hair`), `a part` when the
     part's classes are not a face's or were not read, or None when the files do not say what was carried."""
@@ -614,6 +627,7 @@ def ledger(shots: dict, plan: dict, share: Path, records: Path, repo: Path, sour
             "text_says_the_video_is": text_says(text),
             "still": load.get("still") or ", ".join((ask or {}).get("stills") or []) or None,
             "seed": load.get("seed") if load.get("seed") is not None else (ask or {}).get("seed")}
+        row["defaults_carried"] = defaults_of((rec0 or {}).get("job_file"), repo)
         first = load.get("first") if load.get("first") is not None else (ask or {}).get("first")
         count = load.get("frames") if load.get("frames") is not None else (ask or {}).get("frames")
         row["span"] = [first, first + count - 1] if first is not None and count else None
@@ -700,6 +714,9 @@ def render_lines(r: dict) -> list[str]:
                  + (f"; still {f['still']}" if f["still"] else "") + (f"; seed {f['seed']}" if f["seed"] is not None else ""))
     if f["text_says_the_video_is"]:
         lines.append(f"    - the text: {f['text_says_the_video_is']}")
+    carried = r.get("defaults_carried")
+    lines.append("  - the defaults it carried: " + ("not said: its job was written before `job.defaults` (2026-10-14)" if carried is None else
+                                                    "; ".join(f"{d['what']}: {d['carries']} [{d['from']}]" for d in carried)))
     lines.append(f"  - made: in the folder of `{r['session_folder']}` (the folder, not a signature); file written {r['written']}"
                  + (f"; subject read from {r['subject_read_from']}" if r["subject_read_from"] else "; SUBJECT NOT KNOWN from any file"))
     lines.append("  - in the delivery table: " + (", ".join(frames(a, b) for a, b in r["laid_in_the_table"]) if r["laid_in_the_table"] else "not laid"))

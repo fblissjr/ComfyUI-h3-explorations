@@ -262,12 +262,23 @@ def a_part_the_job_named() -> str:
         assert form("hair")["part_named"] == {"parts": ["hair"], "by": why, "read_from": str(made.records / "hair.json")}, form("hair")["part_named"]
         # a job that names no part of its own, a part named for ANOTHER subject of the job, and a record with no job file: none
         assert form("usual")["part_named"] is None and form("other")["part_named"] is None and form("no_job")["part_named"] is None, [form(n)["part_named"] for n in ("usual", "other", "no_job")]
+        # THE DEFAULTS THE LOAD CARRIED (2026-10-14: `job.defaults`), read from its job file per render, and said on the page; none for a job before them
+        job = json.loads((made.records / "hair.json").read_text())
+        job["job"]["defaults"] = [{"what": "the eye", "carries": "white sclera and black iris inside the lids", "from": "the chain's default"}]
+        (made.records / "hair.json").write_text(json.dumps(job))
+        again = made.ledger()
+        assert again["renders"]["Video/clip/s1/hair/hair_00001.mp4"]["defaults_carried"] == job["job"]["defaults"], again["renders"]["Video/clip/s1/hair/hair_00001.mp4"].get("defaults_carried")
+        assert again["renders"]["Video/clip/s1/usual/usual_00001.mp4"]["defaults_carried"] is None
+        text = led.page(again, "made", None)
+        assert "the defaults it carried: the eye: white sclera and black iris inside the lids [the chain's default]" in text, text
+        assert "the defaults it carried: not said: its job was written before `job.defaults`" in text
         # a job file that is gone or not JSON is not a crash and not a name
         (made.records / "hair.json").write_text("{ not json")
         assert made.ledger()["renders"]["Video/clip/s1/hair/hair_00001.mp4"]["form"]["part_named"] is None
         (made.records / "hair.json").unlink()
         assert made.ledger()["renders"]["Video/clip/s1/hair/hair_00001.mp4"]["form"]["part_named"] is None
-    return "a load whose job names its part as some of its subject's parts carries them in its form with whose word; no job, another subject's and an unreadable file carry none"
+    return ("a load whose job names its part as some of its subject's parts carries them in its form with whose word; no job, another subject's and an "
+            "unreadable file carry none; the defaults a load's job carried are read per render and said on the page")
 
 
 def a_file_against_its_record() -> str:
