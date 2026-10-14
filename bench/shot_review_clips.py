@@ -271,7 +271,7 @@ def make_item(name: str, span: tuple[int, int], table: dict, record: dict, link:
                                             "so nobody in it is the original where a piece stands.",
             "what": f"{what[0].upper() + what[1:]}, {b - a + 1} frames, from the build of {stamp}, put on this list by {by}; nothing was rendered for it. "
                     + (f"{pieces} piece(s) laid, each with the day it was rendered: " if pieces else "No piece is laid" + (": " if said else "."))
-                    + (". ".join(said) + "." if said else "") + (f" {note}" if note else ""),
+                    + (". ".join(said) + "." if said else "") + (f" Words of {by}, who put this item on the list: {note}" if note else ""),
             "think": "", "look": "", "options": list(delivery_table.RENDER_ITEM_BUTTONS),
             "prompt": "No single text: this clip is laid from the pieces named above, each rendered with its own text. Each piece's own item on this page shows its text.",
             "prompt_note": f"The table this clip was built from: t_{name}.txt beside the day's tables, with its reading.", "fixed": "Nothing was fixed in this clip."}
@@ -303,6 +303,10 @@ def items(a: argparse.Namespace) -> int:
             raise SystemExit(f"{span[0]}-{span[1]}: not built: {', '.join(missing)} not there")
         if f"{name}_stacked" in ids:
             raise SystemExit(f"{span[0]}-{span[1]}: the list already has an item {name}_stacked")
+        made_table = json.loads(f["json"].read_text())
+        if any("step" not in s for e in made_table["reading"] for s in e["stands"]):
+            raise SystemExit(f"{span[0]}-{span[1]}: its table was made before the table said why each piece stands in fields of its own "
+                             "(bench/delivery_table.py, 2026-10-14): its words would hide the lead's --prefer. Build it again with another stamp")
         record = json.loads(f["record"].read_text())
         if record["verdict"] != "passes":
             raise SystemExit(f"{span[0]}-{span[1]}: the assembler's record says {record['verdict_line']!r}: no item for a clip that fails")
@@ -347,8 +351,9 @@ def by_day_text(table: dict, ledger: dict, day: str, table_name: str, ledger_nam
     pieces: dict[tuple[str, str], dict] = {}
     for r in table["reading"]:
         for s in r.get("stands") or []:
-            one = pieces.setdefault((s["render"], r["subject"]), {"frames": [], "written": s["written"], "why": s["why"], "led": s.get("the_leads_prefer")})
+            one = pieces.setdefault((s["render"], r["subject"]), {"frames": [], "written": s["written"], "why": s["why"], "led": None})
             one["frames"] += s["frames"]
+            one["led"] = one["led"] or s.get("the_leads_prefer")            # the lead's word on any shot of it is said
     rows = sorted(((min(a for a, _ in p["frames"]), ",".join(f"{x}-{y}" for x, y in sorted(p["frames"])), sub, name, owners_clock(p["written"]),
                     (f"THE LEAD'S CHOICE (--prefer), a session's word: {p['led']}" if p["led"] else p["why"]))
                    for (name, sub), p in pieces.items()))
@@ -368,13 +373,18 @@ def by_day_text(table: dict, ledger: dict, day: str, table_name: str, ledger_nam
     for r in table["reading"]:
         for s in r.get("passed_over") or []:
             passed.setdefault(s["render"], s["why"])
+    absent = table.get("not_in_the_shot") or []
     that_day = sorted((r for r in ledger["renders"].values() if f"{owners_clock(r['written']):%Y-%m-%d}" == day), key=lambda r: r["written"])
     for r in that_day:
         if r["name"] in stands:
             continue
         g = r.get("graph") or {}
         frames = f"{g['first']}-{g['first'] + g['frames'] - 1}" if g.get("first") is not None and g.get("frames") else "not in its record"
-        lines.append(f"| {frames} | {r['name']} | {owners_clock(r['written']):%m-%d %H:%M} | {passed.get(r['name'], 'on no shot of this table')} |")
+        span_r = [g["first"], g["first"] + g["frames"] - 1] if g.get("first") is not None and g.get("frames") else None
+        out_of_shot = next((n for n in absent if span_r and n["subject"] in (r.get("subjects") or [r.get("subject")]) and n["first"] <= span_r[1] and n["last"] >= span_r[0]), None)
+        why = passed.get(r["name"]) or (f"its subject {out_of_shot['subject']} is not in the shot {out_of_shot['first']}-{out_of_shot['last']} by the shots record"
+                                       if out_of_shot else "on no shot of this table")
+        lines.append(f"| {frames} | {r['name']} | {owners_clock(r['written']):%m-%d %H:%M} | {why} |")
     lines += ["", f"{len(that_day)} renders of {day} in the ledger; {sum(1 for r in that_day if r['name'] in stands)} of them stand in this table."]
     return "\n".join(lines) + "\n"
 

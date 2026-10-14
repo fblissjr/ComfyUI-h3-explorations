@@ -188,6 +188,8 @@ def what_never_stands() -> str:
     assert e["stands"] == [] and all(w.startswith("never stands: ") for w in why.values()) and len(why) == 5, why
     assert "no build record" in why["no_record"] and "names no file and no outcome" in why["names_no_file"] and "a whole-person render" in why["whole_person"]
     assert "the record's load is 9 frames from 1; the file holds 3" in why["disagrees"] and "two subjects in one pass" in why["two_subjects"], why
+    # the owner's keep is carried on every render passed over, one that can never stand included, so a page can say it is not laid
+    assert all(p["the_owners_last_choice"]["said"] == "keep this one" for p in e["passed_over"]), e["passed_over"]
     assert out["rows"] == [] and {"first": 0, "last": 49, "subject": "a", "why": dt.NO_SOURCE_YET + " (the newest render passed over: " + e["passed_over"][0]["render"] + ")"} in out["sources"]
     # the control: the same render with none of those stands
     assert [s["render"] for s in entry(decide(render("fine", (0, 49), "09", has=LIDS, owner=keep)), 0, "a")["stands"]] == ["fine"]
@@ -271,6 +273,12 @@ def a_preference() -> str:
     out = decide(kept, plain_old, prefers=["0-49:a=older_frozen:the lead's ruling on its strip"])
     stands = entry(out, 0, "a")["stands"]
     assert [s["render"] for s in stands] == ["older_frozen"] and stands[0]["why"] == "step 0: named by --prefer: the lead's ruling on its strip", stands
+    # in fields of its own: the step, the lead's reason, and the owner's keep it set aside, for every page that shows the shot
+    assert stands[0]["step"] == 0 and stands[0]["the_leads_prefer"] == "the lead's ruling on its strip", stands[0]
+    gone = {p["render"]: p for p in entry(out, 0, "a")["passed_over"]}
+    assert gone["kept"]["the_owners_last_choice"]["said"] == "keep this one", gone
+    alone = entry(decide(kept, plain_old), 0, "a")["stands"]
+    assert alone[0]["render"] == "kept" and alone[0]["step"] == 1 and alone[0]["the_leads_prefer"] is None, alone
     for bad, words in ((["0-49:a=gone:why"], "the ledger has no render of"), (["3-9:a=kept:why"], "not a shot of the shots file"),
                        (["0-49:a=kept"], "is not `FIRST-LAST:SUBJECT=LOAD:the reason`"), (["50-99:a=kept:why"], "no render of that load covers those frames")):
         try:

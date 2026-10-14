@@ -354,6 +354,12 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
             by_name = {r["name"]: r for r in on}
             for named_here in stands + passed:
                 named_here["the_owners_words"] = owners_words(by_name[named_here["render"]])
+            # the owner's last choice on every render passed over, a keep on one that can never stand included: a page that
+            # shows the shot says the keep is not laid, and why (2026-10-14, a reader: eight keeps went unsaid)
+            for gone in passed:
+                if "the_owners_last_choice" not in gone:
+                    c = last_choice(by_name[gone["render"]])
+                    gone["the_owners_last_choice"] = None if not c else {"said": c["said"], "at": c["at"], "row": c.get("row")}
             entry = {"first": s["first"], "last": s["last"], "subject": label, "present": present[label], "plan_region": wanted,
                      "stands": stands, "passed_over": sorted(passed, key=lambda x: x["written"], reverse=True), "left_as_the_source": left}
             if not stands:

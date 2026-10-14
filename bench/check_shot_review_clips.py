@@ -154,7 +154,7 @@ def the_item_itself() -> str:
     item = src.make_item("fun_0100_0140_joined_T", (100, 140), made_table(), RECORD, "data/fun/review/media/fun_0100_0140_joined_T_STACKED.mp4",
                          "T", "tester", "A person's words, whole.")
     assert item["options"] == list(dt.RENDER_ITEM_BUTTONS) and item["fps"] == "23.976" and item["frames"] == "41" and item["first"] == "100", item
-    assert item["what"].endswith(" A person's words, whole.") and "from the build of T, put on this list by tester" in item["what"] \
+    assert item["what"].endswith(" Words of tester, who put this item on the list: A person's words, whole.") and "from the build of T, put on this list by tester" in item["what"] \
         and "4 piece(s) laid" in item["what"] and item["title"].startswith("fun_0100_0140_joined_T_stacked: the shot 100-140 "), item
     empty = src.make_item("fun_0100_0140_joined_T", (100, 140), {"reading": [], "not_in_the_shot": []}, RECORD, "m/x.mp4", "T", "tester", None)
     assert "No piece is laid: ." not in empty["what"] and "No piece is laid" in empty["what"], empty["what"]
@@ -277,6 +277,16 @@ def items_at_the_top() -> str:
         refused(lambda: src.main([*base, "100-140"]), "not to this build's", "nothing written")
         assert json.loads(page.read_text()) == before and not list(tables.glob("items.before*")), "a refused link left a copy or a write"
         stale.unlink()
+        # a table made before the table said why each piece stands, in fields of its own, is refused: its words would hide the lead's word
+        old_shape = made_table()
+        for e in old_shape["reading"]:
+            for st in e["stands"]:
+                del st["step"]
+        f_old = src.files_of(src.clip_name("fun", 100, 140, "T"), clips, tables)
+        kept_json = f_old["json"].read_text()
+        f_old["json"].write_text(json.dumps(old_shape))
+        refused(lambda: src.main([*base, "100-140"]), "made before the table said why", "Build it again")
+        f_old["json"].write_text(kept_json)
         assert src.main([*base, "--note", "200-210=the lead's words", "100-140", "200-210"]) == 0
         after = json.loads(page.read_text())
         assert [x["id"] for x in after["items"]] == ["fun_0100_0140_joined_T_stacked", "fun_0200_0210_joined_T_stacked", "old"] and after["by"] == "tester", after["items"]
@@ -311,24 +321,27 @@ def by_the_day() -> str:
     t = made_table()
     t["made"] = "Made at commit x from the ledger `data/l.json` (...)"
     t["reading"][0]["stands"].append(stand("lead_pref", [(141, 141)], "2026-10-13T16:00:00Z", None, step=0, led="the lead's own reason, whole"))
-    t["reading"].append(entry(141, 160, "lead", stands=[stand("lead_b", [(141, 160)], "2026-10-12T15:00:00Z")]))     # the same render on another shot
+    t["reading"].append(entry(141, 160, "lead", stands=[stand("lead_b", [(141, 160)], "2026-10-12T15:00:00Z", step=0, led="the lead's word on its second shot")]))
+    t["not_in_the_shot"].append({"first": 141, "last": 160, "subject": "ghost", "why": "not in the shot"})
     ledger = {"renders": {
         "lead_a": {"name": "lead_a", "written": "2026-10-14T03:10:00Z", "graph": {"first": 100, "frames": 21}},
         "lead_pref": {"name": "lead_pref", "written": "2026-10-13T16:00:00Z", "graph": {"first": 141, "frames": 1}},
         "second_a": {"name": "second_a", "written": "2026-10-13T18:00:00Z", "graph": {"first": 100, "frames": 30}},
         "t_new": {"name": "t_new", "written": "2026-10-13T12:00:00Z", "graph": {}},
         "elsewhere": {"name": "elsewhere", "written": "2026-10-13T13:00:00Z", "graph": {"first": 900, "frames": 10}},
+        "ghost_r": {"name": "ghost_r", "subjects": ["ghost"], "written": "2026-10-13T14:00:00Z", "graph": {"first": 145, "frames": 10}},
         "next_day": {"name": "next_day", "written": "2026-10-14T06:00:00Z", "graph": {"first": 5, "frames": 10}}}}
     text = src.by_day_text(t, ledger, "2026-10-13", "t.json", "l.json")
     rows = [x for x in text.splitlines() if x.startswith("| ") and not x.startswith("| frames")]
     pieces = [r for r in rows if r.count("|") == 6]
     assert [r.split(" | ")[2] for r in pieces] == ["lead_a", "second_a", "sixth_a", "lead_b", "lead_pref"], pieces
-    assert "| 121-140,141-160 | lead | lead_b | 10-12 10:00 |" in text and "| lead_pref | 10-13 11:00 | THE LEAD'S CHOICE (--prefer), a session's word: the lead's own reason, whole |" in text, text
+    assert "| 121-140,141-160 | lead | lead_b | 10-12 10:00 | THE LEAD'S CHOICE (--prefer), a session's word: the lead's word on its second shot |" in text \
+        and "| 145-154 | ghost_r | 10-13 09:00 | its subject ghost is not in the shot 141-160 by the shots record |" in text and "| lead_pref | 10-13 11:00 | THE LEAD'S CHOICE (--prefer), a session's word: the lead's own reason, whole |" in text, text
     assert "5 pieces stand: 4 rendered on 2026-10-13, 1 on other days." in text, text
     assert "## Renders of 2026-10-13 in the ledger that this table does not lay" in text and "This table covers 100-160" in text and "`l.json`" in text, text
     assert "| not in its record | t_new | 10-13 07:00 | " + LONG + " |" in text and "| 900-909 | elsewhere | 10-13 08:00 | on no shot of this table |" in text, text
     tail = text.split("## Renders of 2026-10-13")[1]
-    assert all(n not in tail for n in ("lead_pref", "second_a", "next_day")) and "5 renders of 2026-10-13 in the ledger; 3 of them stand in this table." in text, tail
+    assert all(n not in tail for n in ("lead_pref", "second_a", "next_day")) and "6 renders of 2026-10-13 in the ledger; 3 of them stand in this table." in text, tail
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "kept.md"
         out.write_text("kept")
