@@ -14,25 +14,36 @@ That evening it was a session script (`internal/claude/2026-10-13_mrohmy_scripts
 by day another (`internal/claude/2026-10-13_mrtower_scripts/pieces_by_day.py`). This is both, from files.
 
 **`build`**, a span at a time, each span a whole shot or run of shots of the shots record: the delivery table on
-that span alone (`bench/delivery_table.py --span`, which says which render stands and why), then the three
-commands that table writes into its own JSON (`assembly`): the assembler, the stack with `--first`, and the
-stack's check. Nothing is parsed out of a print. Every file is named `<source stem>_<first>_<last>_joined_<T>`:
-the clip, its `_STACKED.mp4` and the assembler's record in `--clips`; the table (`t_<name>.txt`, `.json`), its
-reading and each step's output (`<step>_<name>.out`) in `--tables`. A name any of those already holds is refused
-before anything runs: a kept output is not replaced. The first failing step stops the run with its last line.
-`--dry` writes the table and prints the three commands, and runs none.
+that span alone (`bench/delivery_table.py --span`, which says which render stands and why), then the two commands
+that table writes into its own JSON (`assembly`): the assembler and the stack with `--first`. The stack is then
+read back by the stack tool's own reading (`stack_delivery.read_back`, what its `check` prints), kept as data
+(`check_stack_<name>.json`) and printed whole. Nothing is parsed out of a print. Every file is named
+`<source stem>_<first>_<last>_joined_<T>`: the clip, its `_STACKED.mp4` and the assembler's record in `--clips`;
+the table (`t_<name>.txt`, `.json`), its reading, the stack's reading and each step's output (`<step>_<name>.out`)
+in `--tables`. A name any of those already holds, or a span given twice, is refused before anything runs: a kept
+output is not replaced. The first failing step stops the run with its last line. Every path is made absolute
+first: the steps run from the repo's root. `--dry` writes the table and prints the two commands, and runs none;
+its stamp is then taken, and a real build takes another.
+
+THE ASSEMBLER ALSO WRITES INTO THE CAPTURES IT READS: its record of the clip, `delivery__<name>.json`, into each
+capture folder, and `runs/<run>/changed__<name>.csv`, which the capture's own tool lists beside the real
+deliveries' (`bench/capture_masked_run.py`). A throwaway build leaves them there, and a person removes them.
 
 A one-shot table says, for a subject the shots record has and no row of that table lays, that they are the
 original there. The assembler takes that line when the shots record lists the subject and keeps it in its record
 as the table's word alone (`shots.said_of_subjects_no_row_has`); the evening's script cut those lines out first.
 
 **`items`** puts one item a span at the top of the review list, the stacked clip linked into the list's `media`
-folder. Its words are made from the span's table JSON and the assembler's record: every piece that stands, its
-frames, the day and hour it was rendered on the owner's clock (`piece_gaps.OWNERS_CLOCK`), the owner's last choice
-on it or that they made none, the frames inside it that its load left as the original; a subject the shots record
-is unsure of, one it says is not there, and one with nothing standing. `--note` adds a person's words to a span's
-item, whole, after the pieces. The buttons are the table's own (`delivery_table.RENDER_ITEM_BUTTONS`). A copy of
-the list is written into `--tables` before the one write; an id already on the list is refused.
+folder. It is handed the build by its stamp and reads that build's named files. Its words are made from the span's
+table JSON and the assembler's record: every piece that stands, its frames, the day and hour it was rendered on the
+owner's clock (`piece_gaps.OWNERS_CLOCK`), the owner's last choice on it or that they made none, the frames inside
+it that its load left as the original or that what it leaves is NOT KNOWN; a subject the shots record is unsure of
+(with any piece of theirs that stands), one it says is not in the shot (the table's `not_in_the_shot`), and one
+with nothing standing. `--note` adds a person's words to a span's item, whole, after the pieces; one a span. The
+buttons are the table's own (`delivery_table.RENDER_ITEM_BUTTONS`). Refused: a span not built, an id already on the
+list, a clip whose assembler's record fails, and a stack whose reading has a hard fault (a frame count that is not
+the span's, or sound that is not the clip's). How well each stack row fits its frames is printed, not judged. A
+copy of the list, named with the time of the write, goes into `--tables` before the one write.
 
 **`by-day`** writes the table of what stands by the day it was rendered: a row a piece in frame order with why it
 stands (the step of the table's rule), then the renders of `--day` in the ledger that do not stand, with why.
@@ -57,6 +68,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import delivery_table  # noqa: E402
+import stack_delivery  # noqa: E402
 from piece_gaps import OWNERS_CLOCK  # noqa: E402
 
 STEP_WORDS = {"step 0": "the lead's --prefer (a session's word)", "step 1": "the owner's keep",
@@ -85,6 +97,7 @@ def files_of(name: str, clips: Path, tables: Path) -> dict[str, Path]:
     """Every file `build` writes for one span, by its role."""
     return {"clip": clips / f"{name}.mp4", "stacked": clips / f"{name}_STACKED.mp4", "record": clips / f"{name}.mp4.check.json",
             "table": tables / f"t_{name}.txt", "json": tables / f"t_{name}.json", "reading": tables / f"reading_{name}.md",
+            "stack_reading": tables / f"check_stack_{name}.json",
             **{f"{step}_out": tables / f"{step}_{name}.out" for step in ("table", "build", "stack", "check_stack")}}
 
 
@@ -106,8 +119,21 @@ def last_line(text: str) -> str:
     return lines[-1][:300] if lines else "(no output)"
 
 
+def stack_faults(got: dict, span: tuple[int, int]) -> list[str]:
+    """The hard faults of a stack's reading: a frame count that is not the span's, sound that is not the clip's."""
+    want = span[1] - span[0] + 1
+    out = [f"the stacked file has {got['frames']} frames and the clip {got['clip_frames']}, where the span is {want}"] \
+        if not got["frames"] == got["clip_frames"] == want else []
+    return out + ([] if got["sound_packets"]["the_same"] else ["the stacked file's sound is NOT the clip's"])
+
+
 def build(a: argparse.Namespace) -> int:
     spans = [span_of(s) for s in a.spans]
+    if len(set(spans)) != len(spans):
+        raise SystemExit("refused, nothing run: a span is given twice")
+    for key in ("ledger", "shots", "plan", "source", "clips", "tables", "stack_work"):
+        setattr(a, key, str(Path(getattr(a, key)).resolve()))
+    a.also_capture = [str(Path(x).resolve()) for x in a.also_capture]
     clips, tables = Path(a.clips), Path(a.tables)
     stem = Path(a.source).stem
     named = {span: clip_name(stem, *span, a.stamp) for span in spans}
@@ -126,9 +152,9 @@ def build(a: argparse.Namespace) -> int:
             print(f"{span[0]}-{span[1]}: THE TABLE exit {r.returncode}: {last_line(r.stdout + r.stderr)} (all of it: {f['table_out']})")
             return 1
         made = json.loads(f["json"].read_text())["assembly"]
-        steps = [("build", made["command"]), ("stack", made["stack"]["build"]), ("check_stack", made["stack"]["check"])]
+        steps = [("build", made["command"]), ("stack", made["stack"]["build"])]
         if a.dry:
-            print(f"{span[0]}-{span[1]}: {name}: the table is written ({f['table']}); dry, so none of these was run:")
+            print(f"{span[0]}-{span[1]}: {name}: the table is written ({f['table']}); dry, so neither was run, nor the stack's reading:")
             for step, line in steps:
                 print(f"  {step}: {line}")
             continue
@@ -138,17 +164,36 @@ def build(a: argparse.Namespace) -> int:
             if s.returncode:
                 print(f"{span[0]}-{span[1]}: {step} exit {s.returncode}: {last_line(s.stdout + s.stderr)} (all of it: {f[f'{step}_out']})")
                 return 1
+        got = stack_delivery.read_back(a.source, str(f["clip"]), str(f["stacked"]), span[0])
+        f["stack_reading"].write_text(json.dumps(got, indent=1) + "\n")
+        lines = stack_delivery.check_lines(got, span[0])
+        f["check_stack_out"].write_text("\n".join(lines) + "\n")
         rec = json.loads(f["record"].read_text())
         print(f"{span[0]}-{span[1]}: {name}: wall {time.time() - t0:.0f} s; the assembler: {rec['verdict_line']}; failures {len(rec['failures'])}; "
-              f"frames {rec['frames_expected']}; the stack's check: {last_line(f['check_stack_out'].read_text())[:160]}")
+              f"frames {rec['frames_expected']}; the stack read back:")
+        for line in lines:
+            print("    " + line)
+        faults = stack_faults(got, span)
+        if faults:
+            print(f"{span[0]}-{span[1]}: THE STACK HAS A HARD FAULT: {'; '.join(faults)}. No item is made for it.")
+            return 1
     return 0
 
 
+#: How many renders passed over are named in an item, and how much of each one's reason. A display cut, reasoned: the
+#: item is read on the owner's page; the table's reading beside the clip has every one whole, and the item says how many.
+PASSED_OVER_NAMED, REASON_CHARS = 3, 110
+
+
 def item_words(table: dict, keep: tuple = delivery_table.KEEP) -> tuple[int, list[str]]:
-    """(pieces, one sentence a piece or a subject) for a span's item, from the span's table JSON alone."""
+    """(pieces, one sentence a piece or a subject) for a span's item, from the span's table JSON alone: the subjects
+    of its reading (present or unsure), then those its `not_in_the_shot` says are not in the shot."""
     said, pieces = [], 0
     for e in table["reading"]:
         who = e["subject"]
+        if e["present"] == "unsure":
+            said.append(f"{who}: the shots record is unsure they are in this shot (yours to answer on the who page)"
+                        + ("" if e["stands"] else "; the original throughout"))
         for s in e["stands"]:
             pieces += 1
             c = s.get("the_owners_last_choice")
@@ -157,18 +202,19 @@ def item_words(table: dict, keep: tuple = delivery_table.KEEP) -> tuple[int, lis
                       else f"your last choice on it: \"{c['said']}\"" if c else "not judged by you yet")
             left = s.get("leaves_as_the_original")
             said.append(f"{who}: {s['render']} on {', '.join(f'{x}-{y}' for x, y in s['frames'])}, rendered {day:%m/%d} ({day:%H:%M} Central); {choice}"
-                        + (f"; inside it the piece leaves the original on {', '.join(f'{x}-{y}' for x, y in left)} (its capture had no part of them there)"
+                        + ("; what it leaves as the original inside it is NOT KNOWN (its ledger entry does not say)" if left is None
+                           else f"; inside it the piece leaves the original on {', '.join(f'{x}-{y}' for x, y in left)} (its capture had no part of them there)"
                            if left else ""))
-        if e["present"] == "unsure":
-            said.append(f"{who}: the shots record is unsure they are in this shot (yours to answer on the who page); the original throughout")
-        elif e["present"] != "yes":
-            said.append(f"{who}: not in this shot by the shots record")
-        elif not e["stands"]:
+        if not e["stands"] and e["present"] != "unsure":
+            passed = e["passed_over"]
             said.append(f"{who}: the original on the whole shot: no piece of theirs stands here"
-                        + (f" (passed over: {'; '.join(p['render'] + ', ' + p['why'][:110] for p in e['passed_over'][:3])})" if e["passed_over"] else ""))
-        else:
-            for g in e.get("left_as_the_source") or []:
-                said.append(f"{who}: the original on {g[0]}-{g[1]}, where no piece of theirs is laid")
+                        + (f" ({len(passed)} render(s) passed over, the newest {min(len(passed), PASSED_OVER_NAMED)}: "
+                           + "; ".join(p["render"] + ", " + (p["why"] if len(p["why"]) <= REASON_CHARS else p["why"][:REASON_CHARS] + "...")
+                                       for p in passed[:PASSED_OVER_NAMED]) + ")" if passed else ""))
+        for g in (e.get("left_as_the_source") or []) if e["stands"] else []:
+            said.append(f"{who}: the original on {g[0]}-{g[1]}, where no piece of theirs is laid")
+    for n in table.get("not_in_the_shot") or []:
+        said.append(f"{n['subject']}: not in this shot by the shots record ({n['why']})")
     return pieces, said
 
 
@@ -178,8 +224,8 @@ def make_item(name: str, span: tuple[int, int], table: dict, record: dict, link:
     fps = num / den
     pieces, said = item_words(table)
     return {"id": f"{name}_stacked",
-            "title": f"{name}_stacked: the shot {a}-{b} with every piece laid, stacked: the original on top, what each render was given in the middle, "
-                     "the joined shot below, the frame number on every frame",
+            "title": f"{name}_stacked: the shot {a}-{b} with every piece that stands on it laid, stacked: the original on top, what each render was given "
+                     "in the middle, the joined shot below, the frame number on every frame",
             "file": Path(link).name, "path": link, "first": str(a), "frames": str(b - a + 1), "fps": f"{fps:.3f}",
             "seconds": f"about {a / fps:.1f} s to {(b + 1) / fps:.1f} s of the video",
             "state": "open", "state_words": "not watched by anyone on playback; yours to watch. A joined clip of one shot: every piece that stands on it is laid, "
@@ -193,13 +239,17 @@ def make_item(name: str, span: tuple[int, int], table: dict, record: dict, link:
 
 def items(a: argparse.Namespace) -> int:
     spans = [span_of(s) for s in a.spans]
+    if len(set(spans)) != len(spans):
+        raise SystemExit("a span is given twice")
     notes = {}
     for x in a.note:
         span, sep, words = x.partition("=")
         if not sep or not words.strip() or span_of(span) not in spans:
             raise SystemExit(f"--note {x!r}: not FIRST-LAST=words for one of the spans given")
+        if span_of(span) in notes:
+            raise SystemExit(f"--note: two for {span}: one a span, with all its words")
         notes[span_of(span)] = words.strip()
-    path, clips, tables = Path(a.items), Path(a.clips), Path(a.tables)
+    path, clips, tables = Path(a.items).resolve(), Path(a.clips).resolve(), Path(a.tables).resolve()
     raw = path.read_text()
     listed = json.loads(raw)
     ids = {x["id"] for x in listed["items"]}
@@ -208,7 +258,7 @@ def items(a: argparse.Namespace) -> int:
     for span in spans:
         name = clip_name(a.stem, *span, a.stamp)
         f = files_of(name, clips, tables)
-        missing = [str(f[k]) for k in ("stacked", "record", "json") if not f[k].is_file()]
+        missing = [str(f[k]) for k in ("stacked", "record", "json", "stack_reading") if not f[k].is_file()]
         if missing:
             raise SystemExit(f"{span[0]}-{span[1]}: not built: {', '.join(missing)} not there")
         if f"{name}_stacked" in ids:
@@ -216,14 +266,23 @@ def items(a: argparse.Namespace) -> int:
         record = json.loads(f["record"].read_text())
         if record["verdict"] != "passes":
             raise SystemExit(f"{span[0]}-{span[1]}: the assembler's record says {record['verdict_line']!r}: no item for a clip that fails")
+        got = json.loads(f["stack_reading"].read_text())
+        faults = stack_faults(got, span)
+        if faults:
+            raise SystemExit(f"{span[0]}-{span[1]}: the stack's reading has a hard fault: {'; '.join(faults)}: no item for it")
+        print(f"{span[0]}-{span[1]}: the stack read back: " + " | ".join(stack_delivery.check_lines(got, span[0])[2:]))
         link = os.path.relpath(media / f["stacked"].name, HERE.parent)
         new.append((f["stacked"], media / f["stacked"].name, make_item(name, span, json.loads(f["json"].read_text()), record, link, a.stamp, a.by, notes.get(span))))
     for _, _, item in new:
-        print(f"{item['id']}: {item['what'][:700]}")
+        print(f"{item['id']}: {item['what']}")
     if a.dry:
         print(f"dry: nothing written; {len(new)} item(s) would go to the top of {path}")
         return 0
-    copy = tables / f"items.before_{a.by}_{a.stamp}.json"
+    base = f"items.before_{a.by}_{a.stamp}_{datetime.datetime.now(datetime.timezone.utc):%Y%m%dT%H%M%SZ}"
+    copy, k = tables / f"{base}.json", 1
+    while copy.exists():                          # two writes in one second: each keeps its own copy
+        k += 1
+        copy = tables / f"{base}_{k}.json"
     shutil.copy(path, copy)
     for target, link, _ in new:
         if not os.path.lexists(link):

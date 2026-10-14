@@ -212,9 +212,10 @@ its own heading with one reading:
   is where the question is answered; the words are kept in the record. A `source` line over a shot where
   something IS laid for that subject, or one that covers no whole shot, fails as a contradiction. A `source` line
   for a subject no row of the table has is the table of one shot saying who is the original there: with the shots
-  record (`--shots`) it is kept under `shots.said_of_subjects_no_row_has`, with the subject and that the record
-  lists them, and checked against nothing (no capture of theirs is read); a name the record does not list, or any
-  such line with no record, fails as a name that may be a slip.
+  record (`--shots`) it is kept under `shots.said_of_subjects_no_row_has` when it lies inside the span, begins and
+  ends on the shots' edges and every record shot it covers names that subject, and is checked against no picture
+  (no capture of theirs is read). Otherwise it fails: a name the record does not list there, a line off the span or
+  over part of a shot, any such line with no record, and any such line where a row's subject is not known.
 
 Inside a shot that has rows laid, the runs of frames where the subject is tracked and nothing is laid are listed
 with the longest (said, not failed: a face pass lays nothing while a face is turned away, and a second of that is
@@ -1403,9 +1404,28 @@ def record_cuts_of(path) -> list[int]:
     return sorted(int(s["first"]) for s in d["shots"])
 
 
-def record_subjects_of(path) -> set[str]:
-    """The subjects a video's shots record names on any of its shots (`who` of each shot)."""
-    return {label for s in json.load(open(path))["shots"] for label in s.get("who") or {}}
+def record_subjects_of(path) -> list[tuple[int, int, set[str]]]:
+    """Each shot of a video's shots record with the subjects it names (`who`, whatever it says of them)."""
+    return [(int(s["first"]), int(s["last"]), set(s.get("who") or {})) for s in json.load(open(path))["shots"]]
+
+
+def no_row_fault(i: dict, shots: list, span, record_subjects, unknown: list) -> str | None:
+    """Why a `source` line for a subject no row has is not kept, or None. A table of one shot says that of a subject
+    the shots record has there and no row lays (2026-10-14); the first form of this kept such a line on its name
+    alone, and a line off the span or over part of a shot passed (the first reader's probe)."""
+    a, b = i["first"], i["last"]
+    if record_subjects is None:
+        return "no shots record was given to say they exist"
+    if unknown:
+        return f"rows whose subject is not known ({', '.join(sorted(set(unknown)))}) mean whether they have a row cannot be said"
+    if a < span[0] or b > span[1]:
+        return f"it lies outside the build's span {span[0]}-{span[1]}"
+    if a not in {x for x, _ in shots} or b not in {y for _, y in shots}:
+        return f"it does not begin and end on the shots' edges (the shots: {', '.join(f'{x}-{y}' for x, y in shots[:24])})"
+    missing = [f"{x}-{y}" for x, y, who in record_subjects if x <= b and y >= a and i["subject"] not in who]
+    if missing or not any(x <= b and y >= a for x, y, _ in record_subjects):
+        return f"the shots record does not list them on {', '.join(missing) or 'these frames'}"
+    return None
 
 
 def shots_of(record, rows, captures, span, moved, intents, record_cuts=None, record_subjects=None) -> tuple[dict, list[str]]:
@@ -1418,8 +1438,10 @@ def shots_of(record, rows, captures, span, moved, intents, record_cuts=None, rec
     (`the_record_against_this_reading`) and fails nothing: a cut the record has and the picture does not show may be
     a record that split one shot, which a person reads from that list.
 
-    `record_subjects`, the subjects that record names: a `source` line for a subject no row has is kept as said when
-    they are among them, and fails otherwise."""
+    `record_subjects`, that record's shots each with the subjects it names: a `source` line for a subject no row has
+    is kept as said when it lies inside the span, begins and ends on the shots' edges, and every record shot it
+    covers names that subject; when any row's subject is not known it is not kept (whether the subject has a row
+    cannot be said). It fails otherwise."""
     over = sorted(n for n, v in moved.items() if v > CUT)
     # consecutive frames that each move over the line are one event (a whip, a flash, a blur), not a shot a frame:
     # the first of them is the cut. Read as several cuts, a blur of five frames inside one shot made three shots of
@@ -1541,12 +1563,13 @@ def shots_of(record, rows, captures, span, moved, intents, record_cuts=None, rec
         if id(i) in used:
             continue
         if i["subject"] not in named:
-            if record_subjects is not None and i["subject"] in record_subjects:
-                no_row.append({"frames": [i["first"], i["last"]], "subject": i["subject"], "why": i["why"],
-                               "the_shots_record_lists_them": True, "checked_against": "nothing: no row is theirs, so no capture of theirs is read"})
+            wrong = no_row_fault(i, shots, span, record_subjects, unknown)
+            if wrong:
+                problems.append(f"the table's `source {i['first']}-{i['last']}` names {i['subject']}, a subject no row of it has, and {wrong}")
             else:
-                problems.append(f"the table's `source {i['first']}-{i['last']}` names {i['subject']}, a subject no row of it has"
-                                + (" and the shots record does not list" if record_subjects is not None else " (no shots record given to say they exist)"))
+                no_row.append({"frames": [i["first"], i["last"]], "subject": i["subject"], "why": i["why"],
+                               "the_shots_record_lists_them": True, "checked_against": "the shots' edges and the shots record; no picture: no row is "
+                                                                                      "theirs, so no capture of theirs is read"})
         else:
             problems.append(f"the table's `source {i['first']}-{i['last']} subject={i['subject']}` covers no whole shot "
                             f"(the shots: {', '.join(f'{a}-{b}' for a, b in shots[:24])})")

@@ -392,18 +392,23 @@ def read_back(source: str, joined: str, out: str, first: int = 0) -> dict:
             "the_clip_row": fits(_small(out, f"crop={w}:{h}:0:{h * 2 + bar}", n), _small(joined, fit, n))}
 
 
-def check(a: argparse.Namespace) -> None:
-    got = read_back(a.source, a.joined, a.out, a.first)
-    print(f"frames: the stacked file {got['frames']}, the clip {got['clip_frames']}, which begins on source frame {a.first}; picture {got['size'][0]} by {got['size'][1]}, canvas {got['canvas'][0]} by {got['canvas'][1]}")
+def check_lines(got: dict, first: int) -> list[str]:
+    """What `check` prints of a reading (`read_back`), a line each: the frames, the sound, the two rows."""
     s = got["sound_packets"]
-    print(f"sound packets: stacked {s['stacked'] or 'none'}, the clip {s['clip'] or 'none'}: {'the same' if s['the_same'] else 'NOT the same'}")
+    out = [f"frames: the stacked file {got['frames']}, the clip {got['clip_frames']}, which begins on source frame {first}; picture {got['size'][0]} by {got['size'][1]}, canvas {got['canvas'][0]} by {got['canvas'][1]}",
+           f"sound packets: stacked {s['stacked'] or 'none'}, the clip {s['clip'] or 'none'}: {'the same' if s['the_same'] else 'NOT the same'}"]
     for name, key in (("ORIGINAL row against the source", "the_original_row"), ("CLIP row against the clip", "the_clip_row")):
         r = got[key]
         worse = r["a_neighbour_fits_better"]
-        print(f"{name}, {r['frames']} frames at 256 by 192, grey, below the label: its own frame fits best on {r['own_frame_fits_best']}, ties a neighbour on "
-              f"{r['ties_a_neighbour']}, a neighbour fits better on {len(worse)}" + (f" (frames {', '.join(map(str, worse[:20]))})" if worse else "")
-              + f"; mean difference to its own frame {r['mean_to_its_own_frame']} of 255, greatest {r['greatest_to_its_own_frame']}; to the nearer neighbour "
-              f"{r['mean_to_the_nearer_neighbour']}")
+        out.append(f"{name}, {r['frames']} frames at 256 by 192, grey, below the label: its own frame fits best on {r['own_frame_fits_best']}, ties a neighbour on "
+                   f"{r['ties_a_neighbour']}, a neighbour fits better on {len(worse)}" + (f" (frames {', '.join(map(str, worse[:20]))})" if worse else "")
+                   + f"; mean difference to its own frame {r['mean_to_its_own_frame']} of 255, greatest {r['greatest_to_its_own_frame']}; to the nearer neighbour "
+                   f"{r['mean_to_the_nearer_neighbour']}")
+    return out
+
+
+def check(a: argparse.Namespace) -> None:
+    print("\n".join(check_lines(read_back(a.source, a.joined, a.out, a.first), a.first)))
 
 
 def main() -> int:
