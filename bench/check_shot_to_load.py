@@ -231,7 +231,8 @@ class Made:
 
 def args(**more) -> argparse.Namespace:
     given = dict(by="the session", day="2026-01-03", cast=None, queue=False, first=None, frames=None, why=None, remake=False, plain=None, model_store="",
-                 existing=False, writer=None, why_before=None, why_after=None, zoomed=None, least=None, least_why=None, ask=[], seed_cuts_of=None, parts=None, parts_by=None, parts_on=[])
+                 existing=False, writer=None, why_before=None, why_after=None, zoomed=None, least=None, least_why=None, ask=[], seed_cuts_of=None, parts=None, parts_by=None, parts_on=[],
+                 track_not=[], track_not_by=None)
     given.update(more)
     return argparse.Namespace(**given)
 
@@ -1011,6 +1012,81 @@ def a_load_of_some_of_its_parts() -> str:
             "name says the parts; the step cuts it, holds it inside the preview's saved part and to a fresh cut; a load that names none is as it was")
 
 
+def a_track_that_is_not_its_person() -> str:
+    """2026-10-13: in the preview of 604-1009 the lead's track came back on 1003-1009 lying almost wholly inside the second
+    subject's, after the lead had left the picture; a load of the second subject there was blocked, and taking the lead
+    out of its others failed the capture's verify. A person's word empties that track on those frames for the load."""
+    import numpy as np
+    from _lib.frames import read_mask, write_mask_video
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        out = made.m.output
+        why = "the lead has left the picture; her track lies on the second subject"
+        plain = made.load()
+        assert "track_not" not in plain["job"] and "TRACK IS NOT" not in plain["job"]["note"], "a load says a track is not its person when nobody did"
+        d = made.load(track_not=[("b", 110, 120, why)], track_not_by="a person, on the tiles")
+        t = d["job"]["track_not"]
+        one = t["made"][0]
+        # THE CASE THAT GOES RED when a person's word on another subject's track is not carried into the job
+        assert t["by"] == "a person, on the tiles" and one["subject"] == "b" and one["frames"] == [[110, 120]] and one["first"] == 100, t
+        assert one["track"] == str(out / "Video/v/tracks/shot_c_0100/shot_c_0100_b_track_not_110-120.mkv") \
+            and one["cut_from"] == str(out / "Video/v/the session/shot_c_0100/shot_c_0100_b_track_00001.mkv"), one
+        assert "B'S TRACK IS NOT B ON 110-120, on a person, on the tiles" in d["job"]["note"] and "b stays an other of the load" in d["job"]["note"], d["job"]["note"]
+        assert d["loads"][0]["others"] == ["b", "c"], "b was taken out of the load's others"
+        graphs.check_job(d["job"])
+        two = made.load(track_not=[("b", 130, 139, "x"), ("b", 110, 120, why), ("c", 100, 105, "y")], track_not_by="p")["job"]["track_not"]["made"]
+        assert [x["subject"] for x in two] == ["b", "c"] and two[0]["frames"] == [[110, 120], [130, 139]] and two[0]["track"].endswith("_b_track_not_110-120_130-139.mkv"), two
+        for wrong, words in (({"track_not": [("a", 110, 120, why)]}, "is the load's own subject"), ({"track_not": [("z", 110, 120, why)]}, "is not a subject of the preview"),
+                             ({"track_not": [("b", 90, 120, why)]}, "not inside the load's frames"),
+                             ({"track_not": [("b", 110, 120, why), ("b", 115, 125, why)]}, "overlaps"),
+                             ({"track_not": [("b", 110, 120, why)], "track_not_by": " "}, "--track-not-by")):
+            refused(lambda w=wrong: made.load(**{"track_not_by": "p", **w}), words)
+        for text in ("b:110-120", "b:110=why", ":110-120=why", "b:120-110=why", "b:110-120= "):
+            refused(lambda x=text: stl.track_not_arg(x), "SUBJECT:FIRST-LAST=WHY")
+        assert stl.track_not_arg("b:110-120=her track  is on   the second") == ("b", 110, 120, "her track is on the second")
+        # the copy itself: the named source frames emptied and no other
+        track = np.zeros((6, 48, 64), bool)
+        track[:, 10:20, 10:20] = True
+        write_mask_video(Path(tmp) / "t.mkv", track)
+        got = stl.cut_track(Path(tmp) / "t.mkv", [[102, 103]], 100, Path(tmp) / "c" / "t.mkv")
+        back = read_mask(str(Path(tmp) / "c" / "t.mkv"), (64, 48), 0, 0, 6)[0]
+        assert not back[2:4].any() and (back[[0, 1, 4, 5]] == track[[0, 1, 4, 5]]).all() and got["px_emptied"] == 200, got
+        # the figure: where one subject's track lies inside the load subject's, by runs of frames, and no word on it
+        a_t, b_t = np.zeros((6, 48, 64), bool), np.zeros((6, 48, 64), bool)
+        a_t[:, 5:40, 5:40] = True
+        b_t[:, 30:45, 30:60] = True
+        b_t[3:5] = False
+        b_t[3:5, 10:20, 10:20] = True                        # on 103-104 b's track lies wholly inside a's
+        folder = made.preview_ran(made.preview())
+        files = json.loads((folder / "preview.queued.json").read_text())["files"]
+        for label, m in (("a", a_t), ("b", b_t)):
+            write_mask_video(out / next(f for f in files if f"_{label}_track_" in f), m)
+        lines = stl.track_over_track(made.preview()["job"], files, out, "a", 100, 105)
+        assert any("b's track lies more than 0.5 inside a's on 2 frame(s), 103-104 (most 1.00)" in x and "--track-not b:FIRST-LAST=WHY" in x for x in lines), lines
+        # THE STEP makes the copy before the job file and prints the figure; a dry run makes nothing
+        a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="a", preview=str(folder),
+                 track_not=[f"b:110-120={why}"], track_not_by="a person, on the tiles")
+        copies, said = [], []
+
+        def copy(track, frames, first, to):
+            copies.append((Path(track).name, frames, first, Path(to).name))
+            Path(to).parent.mkdir(parents=True, exist_ok=True)
+            Path(to).write_bytes(b"copy")
+            return {"frames": 60, "px_emptied": 5}
+        over = lambda *x: said.append(x) or ["track over track: a figure"]          # noqa: E731
+        made.m.dry = True
+        stl.step_job(a, made.m, track_cut=copy, over=over)
+        assert not copies and not list(made.jobs.iterdir()) and said, "a dry run copied a track or wrote a job file"
+        made.m.dry = False
+        stl.step_job(a, made.m, track_cut=copy, over=over)
+        assert copies == [("shot_c_0100_b_track_00001.mkv", [[110, 120]], 100, "shot_c_0100_b_track_not_110-120.mkv")], copies
+        assert json.loads((made.jobs / "a_fp_0100.json").read_text())["job"]["track_not"]["made"][0]["frames"] == [[110, 120]]
+        a.remake = True
+        refused(lambda: stl.step_job(a, made.m, track_cut=copy, over=over, hashed=lambda path: path), "is there and is NOT the copy", "moved aside by a person")
+    return ("a person's word that another subject's track is not them on named frames goes into the job with who said it, why and the copy every step "
+            "reads, that subject staying an other; the copy empties those frames and no other; the load's own subject, a stranger to the preview, frames "
+            "outside the load, overlaps and no --track-not-by are refused; the figure names the frames where one track lies inside the other's")
+
 def the_text_step() -> str:
     """The text's writer had to be set in the job file by hand after the chain refused it (the first real load, twice)."""
     with tempfile.TemporaryDirectory() as tmp:
@@ -1230,6 +1306,7 @@ case("a load the builder would refuse is not written, in a dry run as well", a_l
 case("a subject's keep-outs: named by the plan, made and named by the job step", a_subjects_keep_outs)
 case("a load of some of its subject's parts", a_load_of_some_of_its_parts)
 case("a plan that keeps the strangers out", a_plan_that_keeps_the_strangers_out)
+case("a track that is not its person on named frames", a_track_that_is_not_its_person)
 case("text: who wrote it, said with a flag", the_text_step)
 case("a job renders from the video's present copy", a_job_renders_from_the_present_copy)
 case("reference: on the load's frames, drawn by default", the_reference_step)

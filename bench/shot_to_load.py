@@ -61,6 +61,9 @@ files and runs the two tools, from the video's own records, and leaves to a pers
   name, `shot_c_<first>b`, as a load made again does. Nothing of the earlier preview is moved, replaced or read;
   the load's `job` step is handed the preview it is built on by its folder, so which one stands is said there.
 - `job`: one subject's load on the shot, or on the frames a look left of it (`--first`, `--frames`, with `--why`;
+  `--track-not SUBJECT:FIRST-LAST=WHY` with `--track-not-by`: another subject's preview track is not that person
+  there, and every step reads a copy with those frames emptied; the step prints where one track lies more than
+  `TRACK_INSIDE` inside the load's subject's, a figure for a person to read;
   the frames cut go into `left_out` with those words). A load cut at both ends for two reasons says each:
   `--why-before` for the frames before it and `--why-after` for those after, each over `--why` for its side
   (2026-10-13: a load remade shorter carried one sentence on both entries, true of one). The name is made here: `<subject>_<form>_<first>`, a
@@ -138,6 +141,12 @@ PARTS_AT = "Video/{video}/parts/{preview}"
 PART_LETTER = {"hair": "h", "face_and_neck": "f", "upper_clothing": "u", "lower_clothing": "l", "hands": "n", "mouth": "m"}
 #: Where a subject's keep-outs go: by the video, the preview they were cut from and the subject, never by a load's name.
 KEEP_OUTS_AT = "Video/{video}/keep_outs/{preview}"
+#: Where a track copied with frames emptied goes (`--track-not`): by the video, the preview and the subject and frames.
+TRACKS_AT = "Video/{video}/tracks/{preview}"
+#: The share of one subject's track inside another's above which the job step names the frames (`track_over_track`).
+#: Reasoned: more than half of it lies on the other person, which is how the lead's track lay on the second subject on
+#: 1003-1009 (a card's count, 2026-10-13). A line for what is printed, not a verdict: a person says `--track-not`.
+TRACK_INSIDE = 0.5
 #: THE KEEP-OUTS A PLAN MAY NAME FOR A SUBJECT: things on that person a part load must leave as the source's. Each is
 #: a mask video on the preview's own frames, a subject of the load's capture and one of the load's `others`. `held` is
 #: the preview's own held-things file as saved; the other two are classes of the preview's class map of that subject,
@@ -524,6 +533,137 @@ def part_of(p: dict, subject: str, parts, parts_by, preview: dict, video: str, o
     return block, said
 
 
+def track_not_arg(text: str) -> tuple[str, int, int, str]:
+    """`SUBJECT:FIRST-LAST=WHY` of `--track-not`."""
+    head, sep, why = text.partition("=")
+    label, _, span = head.partition(":")
+    try:
+        a, b = (int(v) for v in span.split("-"))
+    except ValueError:
+        raise Refused(f"--track-not {text!r} is not SUBJECT:FIRST-LAST=WHY") from None
+    if not sep or not label.strip() or not why.strip() or a > b:
+        raise Refused(f"--track-not {text!r} is not SUBJECT:FIRST-LAST=WHY, with the reason in words")
+    return label.strip(), a, b, " ".join(why.split())
+
+
+def track_not_of(subject: str, preview: dict, words: list[tuple[str, int, int, str]], by: str | None, load_span: tuple[int, int], video: str,
+                 output: Path, preview_files) -> tuple[dict | None, str]:
+    """A person's word that another subject's preview track is not that person on named frames, as the job holds it:
+    one copy of that subject's track a subject, with those frames emptied, which every step of the load reads for that
+    subject (`load_chain.preview_files`).
+
+    2026-10-13: in the preview of 604-1009 the lead's track came back on 1003-1009 lying almost wholly inside the
+    second subject's, though the lead had left the picture; a load of the second subject there was blocked for a
+    region over another subject, and taking the lead out of its others failed the capture's verify (mrpen's notes on
+    second_hfp_0998b). With the lead kept as an other and her track empty there, the capture reads an other's empty
+    track in a taken shot as data (222a9e3b) and nothing of hers lies on the second subject. Refused: the load's own
+    subject (a load is cut where its own person is not: --first, --frames), a subject the preview did not track,
+    frames outside the load, no reason, no `--track-not-by`."""
+    if not words:
+        return None, ""
+    by = " ".join(str(by or "").split())
+    if not by:
+        raise Refused("--track-not is a person's word: say who says it, and on what, with --track-not-by")
+    order = [s["label"] for s in preview["subjects"]]
+    if preview_files is None:
+        raise Refused("--track-not is given and the preview's saved files were not handed in: the copy is made from the preview's own track")
+    made: dict[str, dict] = {}
+    for label, a, b, why in words:
+        if label == subject:
+            raise Refused(f"--track-not {label}:{a}-{b}: {label} is the load's own subject; a load is cut where its own person is not (--first, --frames)")
+        if label not in order:
+            raise Refused(f"--track-not {label}:{a}-{b}: {label!r} is not a subject of the preview {preview['name']} ({', '.join(order)})")
+        if not (load_span[0] <= a <= b <= load_span[1]):
+            raise Refused(f"--track-not {label}:{a}-{b} is not inside the load's frames {load_span[0]}-{load_span[1]}")
+        one = made.setdefault(label, {"subject": label, "frames": [], "why": []})
+        if any(x <= b and a <= y for x, y in one["frames"]):
+            raise Refused(f"--track-not {label}:{a}-{b} overlaps another range of {label}'s")
+        one["frames"].append([a, b])
+        one["why"].append(f"{a}-{b}: {why}")
+    for label, one in made.items():
+        found = [f for f in preview_files if f"_{label}_track_" in Path(f).name and f.endswith(".mkv")]
+        if len(found) != 1:
+            raise Refused(f"the preview {preview['name']} saved {len(found)} track video(s) of {label!r} where one is meant")
+        one["frames"].sort()
+        spans = "_".join(f"{a}-{b}" for a, b in one["frames"])
+        one.update(cut_from=str(output / found[0]), first=preview["first"],
+                   track=str(output / TRACKS_AT.format(video=video, preview=preview["name"]) / f"{preview['name']}_{label}_track_not_{spans}.mkv"))
+    block = {"by": by, "preview": preview["name"], "made": list(made.values())}
+    said = "".join(f" {x['subject'].upper()}'S TRACK IS NOT {x['subject'].upper()} ON {', '.join(f'{a}-{b}' for a, b in x['frames'])}, on {by}: "
+                   + "; ".join(x["why"]) + f". Every step reads the copy {x['track']}, those frames emptied; {x['subject']} stays an other of the load."
+                   for x in made.values())
+    return block, said
+
+
+def cut_track(track: Path, frames: list[list[int]], first: int, out: Path) -> dict:
+    """Write a track's copy with the named source frames emptied (its frame 0 is source frame `first`). Figures."""
+    import capture_masked_run as cap
+    w, h, n = cap.probe(str(track))
+    mask = cap.read_mask(str(track), (w, h), 0, 0, n)[0]
+    gone = 0
+    for a, b in frames:
+        at = slice(max(a - first, 0), max(min(b - first + 1, n), 0))
+        gone += int(mask[at].sum())
+        mask[at] = False
+    out.parent.mkdir(parents=True, exist_ok=True)
+    cap.write_mask_video(out, mask)
+    return {"frames": int(n), "px_emptied": gone}
+
+
+def make_track_not(block: dict | None, world, cut=cut_track, hashed=None) -> list[str]:
+    """Make the track copies a job names, as a keep-out is made: a copy that is there is held to a fresh one, frame by frame."""
+    hashed = hashed or load_chain.frame_hash
+    lines = []
+    for t in (block or {}).get("made", []):
+        out = Path(t["track"])
+        if world.dry:
+            lines.append(f"{t['subject']}'s track, not them on {', '.join(f'{a}-{b}' for a, b in t['frames'])}: WOULD BE COPIED from {t['cut_from']} to {out}"
+                         + (" (a file is there: held to a fresh copy)" if out.exists() else ""))
+            continue
+        if out.exists():
+            again = out.with_name(out.stem + ".cut_again.mkv")
+            cut(Path(t["cut_from"]), t["frames"], t["first"], again)
+            same = hashed(str(again)) == hashed(str(out))
+            again.unlink()
+            if not same:
+                raise Refused(f"{out} is there and is NOT the copy of {t['cut_from']} with those frames emptied: of another making. It is read and moved aside by a person")
+            lines.append(f"{t['subject']}'s track, not them on {', '.join(f'{a}-{b}' for a, b in t['frames'])}: {out} was there, and a copy made again decodes equal")
+            continue
+        got = cut(Path(t["cut_from"]), t["frames"], t["first"], out)
+        lines.append(f"{t['subject']}'s track, not them on {', '.join(f'{a}-{b}' for a, b in t['frames'])}: copied to {out} with {got['px_emptied']} px emptied")
+    return lines
+
+
+def track_over_track(preview: dict, preview_files, output: Path, subject: str, first: int, last: int) -> list[str]:
+    """A figure a frame, printed and decided on by nobody here: on the load's frames, the share of each other subject's
+    preview track that lies inside the load's subject's track, as runs of frames over `TRACK_INSIDE`, with the most."""
+    import capture_masked_run as cap
+    tracks = {s["label"]: next((output / f for f in preview_files or [] if f"_{s['label']}_track_" in Path(f).name and f.endswith(".mkv")), None)
+              for s in preview["subjects"]}
+    mine = tracks.get(subject)
+    if mine is None or not mine.is_file():
+        return [f"track over track: not read (the preview's track of {subject} is not there)"]
+    try:
+        w, h, n = cap.probe(str(mine))
+    except Exception:                      # an empty or broken file: said, not raised; the capture reads it later and fails there
+        return [f"track over track: not read ({mine.name} does not decode)"]
+    count = last - first + 1
+    me = cap.read_mask(str(mine), (w, h), preview["first"], first, count)[0]
+    lines = []
+    for label, path in tracks.items():
+        if label == subject or path is None or not path.is_file():
+            continue
+        other = cap.read_mask(str(path), (w, h), preview["first"], first, count)[0]
+        px = other.reshape(count, -1).sum(1)
+        inside = (other & me).reshape(count, -1).sum(1) / px.clip(min=1)
+        over = [first + i for i in range(count) if px[i] and inside[i] > TRACK_INSIDE]
+        if over:
+            lines.append(f"track over track: {label}'s track lies more than {TRACK_INSIDE:g} inside {subject}'s on {len(over)} frame(s), "
+                         + ", ".join(f"{a}-{b}" for a, b in cap.frame_spans(over, join=1)) + f" (most {float(inside.max()):.2f}): a figure. Where that track "
+                         f"is not {label}, a person says so: --track-not {label}:FIRST-LAST=WHY")
+    return lines or [f"track over track: no other subject's track lies more than {TRACK_INSIDE:g} inside {subject}'s on any frame of the load"]
+
+
 def part_inside(cut: Path, whole: Path) -> int:
     """The pixels of a cut part that are NOT in the preview's saved part, over every frame: none, for a part of it."""
     import capture_masked_run as cap
@@ -718,7 +858,8 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
              name: str, first: int | None = None, frames: int | None = None, why: str = "", now: str = "", source: str | None = None,
              why_before: str = "", why_after: str = "", zoomed: str | None = None, least: int | None = None, least_why: str | None = None,
              preview_files: list[str] | None = None, parts: list[str] | None = None, parts_by: str | None = None, classes_of=part_classes,
-             parts_on: list[tuple[int, int, list[str]]] | None = None) -> dict:
+             parts_on: list[tuple[int, int, list[str]]] | None = None, track_not: list[tuple[str, int, int, str]] | None = None,
+             track_not_by: str | None = None) -> dict:
     """The job file of one subject's load on a shot, from the shot's preview. `preview` is the preview's own job
     block; `source` is the file the load renders from, the video's present copy (the preview's own when left out).
     `parts` with `parts_by` makes the load's part some of its subject's plan parts (`part_of`)."""
@@ -764,6 +905,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
     part, part_said = part_of(p, subject, parts, parts_by, preview, video, output, preview_files, classes_of, parts_on)
     kept, kept_said = keep_outs_of(p, subject, preview, list(theirs), video, output, preview_files)
     on_track, on_track_said = part_on_track(p, subject, part, preview, video, output, preview_files)
+    gone, gone_said = track_not_of(subject, preview, track_not or [], track_not_by, (a, b), video, output, preview_files)
     load["others"] += [k["name"] for k in (kept or {}).get("made", [])]
     band = p.get("hair_band")
     if band is not None:
@@ -822,13 +964,14 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             f"{shot['first']}-{shot['last']}, its masks from the preview {preview['name']} (job.preview), in the frozen form: the body model cut to the head "
             f"with the face points drawn, made on these frames by this tool's `reference` step. Its settings are in `defaults`, from workflows/h3_config.py. "
             f"THE TEXT IS NOT WRITTEN: {name}.txt beside this file is a person's, and texts.{name}.by says who wrote it."
-            + pieces + part_said + kept_said + on_track_said + chosen + (f" CUT BY A LOOK: {cut_said}" if cut else ""))
+            + pieces + part_said + kept_said + on_track_said + gone_said + chosen + (f" CUT BY A LOOK: {cut_said}" if cut else ""))
     return {"job": {"name": name, "note": note, "source": source or preview["source"], "first": a, "frames": n, "canvas": list(preview["canvas"]),
                     "output": OUTPUT_KEY.format(video=video, session=by), "subjects": subjects,
                     "left_out": [{"subject": subject, "first": x, "frames": y - x + 1, "why": said} for x, y, said in cut],
                     "capture": f"data/{day}_{name}", "preview": preview_folder,
                     "texts": {name: {"file": f"{name}.txt", "frames": [a, b], "by": ""}},
                     **({"keep_outs": kept} if kept else {}), **({"part": part} if part else {}), **({"part_on_track": on_track} if on_track else {}), **({"zoomed": zoom_block} if zoom_block else {}),
+                    **({"track_not": gone} if gone else {}),
                     "reference": {"form": "drawn", "why": "the form for a face, head or hair replacement (AGENTS.md, Settled)", "made": None}},
             "defaults": {**h3_config.MASKED_LOAD_DEFAULTS, "margin": h3_config.MASKED_LOAD_MARGIN[region], "seed": h3_config.SEED},
             "loads": [load]}
@@ -925,7 +1068,8 @@ def step_preview(a, world) -> None:
     print("THE TILES ARE TO BE LOOKED AT before a load is built on this preview: a pick by the largest person is a guess.")
 
 
-def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classes_of=part_classes, hold=hold_to_track) -> None:
+def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classes_of=part_classes, hold=hold_to_track, track_cut=cut_track,
+             over=track_over_track) -> None:
     shots, plan = _load(a.shots, a.plan)
     shot = shot_of(shots, a.shot)
     pfolder = Path(a.preview)
@@ -952,7 +1096,7 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
     job = load_job(shots, plan, shot, a.subject, preview, rel, video, world.output, a.by, a.day, name, a.first, a.frames, a.why or "", load_chain.utc_now(),
                    source=str(source), why_before=a.why_before or "", why_after=a.why_after or "", zoomed=a.zoomed, least=a.least, least_why=a.least_why,
                    preview_files=ran.get("files") or [], parts=a.parts, parts_by=a.parts_by, classes_of=classes_of,
-                   parts_on=[parts_on_arg(x) for x in a.parts_on])
+                   parts_on=[parts_on_arg(x) for x in a.parts_on], track_not=[track_not_arg(x) for x in a.track_not], track_not_by=a.track_not_by)
     job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "ITS PREVIEW WAS MADE ON AN EARLIER COPY")
     out = folder / f"{name}.json"
     print(f"{name}: {a.subject}, {region}, source frames {job['loads'][0]['first']}-{job['loads'][0]['first'] + job['loads'][0]['frames'] - 1}; "
@@ -962,7 +1106,11 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
     # the keep-outs the plan names are made before the job file that points at them is written; a dry run says what would be
     # the held part last: it is made from the load's own part, and nothing is written for it while a keep-out is refused
     for line in (make_part(job["job"].get("part"), world, cut, hashed, inside) + make_keep_outs(job["job"].get("keep_outs"), world, cut, hashed)
+                 + make_track_not(job["job"].get("track_not"), world, track_cut, hashed)
                  + make_part_on_track(job["job"].get("part_on_track"), world, hold, hashed)):
+        print(line)
+    # where one subject's preview track lies on another's, as a figure, before anything is built on it
+    for line in over(preview, ran.get("files") or [], world.output, a.subject, job["loads"][0]["first"], job["loads"][0]["first"] + job["loads"][0]["frames"] - 1):
         print(line)
     if world.dry:
         print("DRY: nothing written. The load was held to the builder's refusals that need neither its capture nor its text (the job block, the file's "
@@ -1110,6 +1258,10 @@ def main() -> int:
     j.add_argument("--parts", nargs="+", metavar="NAME", help="this load's part is these of its subject's plan parts and no other (hair, face_and_neck, ...); "
                    "cut from the preview's class map as a keep-out is, and handed to the capture as the load's part")
     j.add_argument("--parts-by", metavar="WHO", help="who chose these parts for this load, and on what; kept in the job file")
+    j.add_argument("--track-not", action="append", default=[], metavar="SUBJECT:FIRST-LAST=WHY",
+                   help="another subject's preview track is not that person on these source frames (it lies on somebody else): every step reads a "
+                        "copy with those frames emptied; with --track-not-by; repeatable")
+    j.add_argument("--track-not-by", metavar="WHO", help="who says the track is not that person there, and on what look; kept in the job file")
     j.add_argument("--parts-on", action="append", default=[], metavar="FIRST-LAST=NAME[+NAME]",
                    help="on these source frames the load's part is these of the plan's parts, and elsewhere --parts or the plan's (a part that changes "
                         "inside one load); with --parts-by; repeatable")

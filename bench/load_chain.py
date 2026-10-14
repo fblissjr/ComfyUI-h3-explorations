@@ -219,6 +219,12 @@ def read_job(job_file: Path, repo: Path = REPO, need_text: bool = True) -> dict:
             raise Refused(f"{job_file}: the job names the keep-out {name!r} and the load's `others` does not: it would be drawn again")
         if name in order:
             raise Refused(f"{job_file}: the keep-out {name!r} has the label of a subject of the preview {pjob['name']}")
+    # A TRACK THAT IS NOT ITS PERSON ON NAMED FRAMES (`job.track_not`, a person's word written by `shot_to_load.py job
+    # --track-not`): another subject's preview track, copied with those frames emptied, is the track every step reads
+    # for that subject (`preview_files`). Never the load's own subject: a load is cut where its own person is not.
+    for t in (job.get("track_not") or {}).get("made", []):
+        if t["subject"] not in order or t["subject"] == subject:
+            raise Refused(f"{job_file}: `track_not` names {t['subject']!r}, which is not another subject of the preview {pjob['name']} ({', '.join(order)})")
     stray = [o for o in load.get("others") or [] if o not in order and o not in [n for n, _ in kept]]
     if stray:
         raise Refused(f"{job_file}: the load keeps out {stray}, which is neither a subject of the preview {pjob['name']} ({', '.join(order)}) nor a keep-out "
@@ -250,6 +256,14 @@ def preview_files(ctx: dict, output: Path) -> dict:
             raise Refused(f"{len(shots)} shot tables for {label!r} beside {track.name} where one is meant")
         pose = track.parent / f"{prefix}_{label}_pose_table.json"
         out[label] = {"track": track, "parts": listed("parts"), "classes": listed("classes"), "shots": shots[0], "pose": pose if pose.is_file() else None}
+    # a subject's track a person said is not that person on named frames: the copy with those frames emptied (`job.track_not`)
+    for t in ((ctx.get("job") or {}).get("track_not") or {}).get("made", []):
+        if t["subject"] in out:
+            if not Path(t["track"]).is_file():
+                raise Refused(f"the job says {t['subject']}'s track is not them on {', '.join(f'{a}-{b}' for a, b in t['frames'])} and its copy "
+                              f"{t['track']} is not there: `shot_to_load.py job` makes it")
+            out[t["subject"]]["track"] = Path(t["track"])
+            out[t["subject"]]["track_is_not_them_on"] = t["frames"]
     return out
 
 

@@ -386,6 +386,28 @@ def a_banded_keep_out_on_the_plan() -> str:
     return ("on the plan, the keep-out a load's hair band cuts reaches the capture as the plan's own cut file from the load's first frame; at first, "
             "and with no band, it is handed whole; a band file that is not there, and a load shorter than its capture, are refused")
 
+
+def a_track_that_is_not_its_person() -> str:
+    """2026-10-13 (second_hfp_0998b): the lead's preview track lay on the second subject on 1003-1009 after the lead had
+    left. The job names a copy with those frames emptied (`shot_to_load.py job --track-not`); every step reads it."""
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        copy = made.m.output / "Video/v/tracks/pv/pv_b_track_not_115-120.mkv"
+        made.job["track_not"] = {"by": "a person", "preview": "pv", "made": [{"subject": "b", "frames": [[115, 120]], "track": str(copy)}]}
+        made.write()
+        refused(lambda: lc.preview_files(made.ctx(), made.m.output), "track is not them on 115-120", "is not there")
+        copy.parent.mkdir(parents=True)
+        copy.write_bytes(b"")
+        files = lc.preview_files(made.ctx(), made.m.output)
+        # THE CASE THAT GOES RED when the chain hands the capture the preview's own track of b
+        assert files["b"]["track"] == copy and files["b"]["track_is_not_them_on"] == [[115, 120]] and files["a"]["track"] != copy, files
+        assert any(spec.startswith(f"b:track={copy},") for spec in lc.mask_specs(made.ctx(), files)), lc.mask_specs(made.ctx(), files)
+        for who in ("a", "z"):
+            made.job["track_not"]["made"][0]["subject"] = who
+            made.write()
+            refused(made.ctx, f"`track_not` names {who!r}", "not another subject of the preview")
+    return "a track a person said is not its person on named frames reaches every mask the capture is handed as its copy; a missing copy, the load's own subject and a stranger are refused"
+
 def the_first_step() -> str:
     with tempfile.TemporaryDirectory() as tmp:
         made = Made(Path(tmp))
@@ -916,6 +938,7 @@ case("the job file and the preview it names", the_job_file_and_its_preview)
 case("a mask's at is the preview's first frame", a_masks_at_is_the_previews_first_frame)
 case("a load's keep-outs reach its capture", a_loads_keep_outs)
 case("a banded keep-out reaches the capture on the plan as the plan cut it", a_banded_keep_out_on_the_plan)
+case("a track that is not its person on named frames", a_track_that_is_not_its_person)
 case("first: who is who, the first capture, its strip under _first", the_first_step)
 case("a kept output is not replaced, and a step has its own help", a_kept_output_is_not_replaced_and_a_step_has_its_own_help)
 case("plan: built and queued on an empty queue, once", the_plan_step)
