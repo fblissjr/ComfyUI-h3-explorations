@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""The owner's two local pages in a day's folder, made from the delivery table and the ledger alone: what is to review now (`to-review`), and what every stretch of the video is made of and from which day (`provenance`).
+"""The owner's two local pages in a day's folder, made from the delivery table and the ledger: what is to review now (`to-review`), and what every stretch of the video is made of and from which day (`provenance`).
 
     <python> bench/review_pages.py to-review --table T.json --ledger LEDGER.json [--previous-table T_BEFORE.json] \\
         --verdicts data/<stem>/verdicts/verdicts.jsonl --items data/<stem>/review/items.json --source SOURCE.mp4 \\
-        --share <the server's output folder> --page-url URL --open-list URL [--provenance PROVENANCE.html] --out TO_REVIEW.html
+        --share <the server's output folder> --page-url URL --open-list URL [--tables FOLDER] [--provenance PROVENANCE.html] --out TO_REVIEW.html
     <python> bench/review_pages.py provenance --table T.json --ledger LEDGER.json [--record CLIP.mp4.check.json] \\
         --verdicts data/<stem>/verdicts/verdicts.jsonl --items data/<stem>/review/items.json --source SOURCE.mp4 \\
         --share <the server's output folder> --day-folder <share>/Video/<stem>/day_<date> --up-to N \\
@@ -16,7 +16,9 @@ the video, the server's address and the day's folder in the code, the lead's wor
 the stopped loads a typed list in the other. Here every fact is read from the delivery table
 (`bench/delivery_table.py --json`), the ledger it was made from (`bench/render_ledger.py --json`, which also holds
 the stopped loads, read from the card's notes), the verdicts record, the review list and the source's frame rate;
-the address, the folders and the video are arguments; the only words that are not a record's are fixed headings.
+provenance's cards also read each piece's job record (`job.render.json`, for a look's `left_out`) and its folder in the
+day's folder (its text). The address, the folders and the video are arguments. Beside a record's words the pages say
+whose they are: the owner's, a session's (the lead's --prefer, a card's look line) or the table's rule.
 Decisions are not here: they are on the Open List (`--open-list`), which the page links to.
 
 **Both read in dark mode.** Every colour is a token on `:root`, set again for dark under
@@ -24,16 +26,18 @@ Decisions are not here: they are on the Open List (`--open-list`), which the pag
 The first local page was unreadable in dark mode because its dark rule sat before the rule it meant to override
 (the owner's screenshot, 2026-10-13); with tokens there is no such order to get wrong.
 
-**`to-review`: what the CURRENT table lays and the owner has not chosen on**, never every open item of the review
-list (it holds the dead items of earlier days). A record shot of the table with two or more of the subjects in it
-(the table's reading: present or unsure) is shown as its joined clip, the newest item on the list of exactly that
-shot's frames, while the owner has made no choice on it; a shot with none built is said so. A piece that stands in a
-shot with one of the subjects in it is shown as its own item while the owner has made no choice on it. Each piece
-carries the day it was rendered on the owner's clock, its own item's look line (the card's words, data on the list),
-and a "compare with": the newest render of the same subject on overlapping frames written before it (the ledger),
-with its day, linked to its item where the list has one. With `--previous-table`, a part "since the last page":
-the pieces added and the pieces that left, and for each subject the frames that gained a piece (a gap closed) or
-lost one (opened). Links are `--page-url` + an item's id.
+**`to-review`: what the CURRENT table lays and the owner has not settled**, never every open item of the review
+list (it holds the dead items of earlier days). Settled is a keep or a "not the one" (`SETTLED`, the table's own
+words); a "not sure" leaves a piece to review, and words the owner typed after their last click are shown with it.
+A record shot of the table with two or more of the subjects in it (the table's reading: present or unsure) is shown
+as its joined clip, the newest item on the list of exactly that shot's frames, ONLY when the table that clip was
+built from (`--tables`) lays the same pieces on the shot as this one; otherwise, and where no joined clip is built,
+each unsettled piece of the shot is shown on its own, with why. A piece of a one-subject shot is shown on its own. A
+piece's item is the one whose id or `name` is the render's. Each piece carries the day it was rendered on the
+owner's clock, its item's look line (said as the card's words), and what it replaces: the rows of its subject that
+`--previous-table` laid on its frames. With `--previous-table`, a part "since the last page": the pieces added and
+the pieces that left, and for each subject the frames that gained a piece (a gap closed) or lost one (opened).
+Links are `--page-url` + an item's id.
 
 **`provenance`**: a timeline a subject (the table's subjects in the order it reads them), each stretch a piece, a
 stretch a piece covers and its load left as the original, or a subject in the shot with nothing there; a lane of
@@ -44,7 +48,8 @@ card a piece with where it came from and links by relative path to its render, i
 piece leaves as the original are the assembler's record's (`--record`) where one is given, else the ledger's.
 
 **Colours of the days.** The newest day a piece was rendered on takes the first day colour, the one before it
-the second, and so on; the day is always written beside the colour.
+the second, and so on; the fourth day and every older one share the last colour. The day is always written beside it.
+Every link on either page is relative to where the page is written (`--out`).
 
 **What it cannot see.** The picture: whether a face shows on a frame, whether a piece is good. A reason is what a
 record says. Whether the review server is running when the owner opens a link. A joined clip built from an earlier
@@ -65,17 +70,20 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+import delivery_table  # noqa: E402
 from piece_gaps import OWNERS_CLOCK  # noqa: E402
 
 E = html.escape
 
 # Light and dark values of every colour either page uses. Picked by eye on both pages (2026-10-13, the lead's session
-# script); the day colours are the newest day first. Nothing below names a colour of its own.
+# script); the day colours are the newest day first. The light day0 and day1 were darkened on 2026-10-14 to at least
+# 4.5:1 against the page and the card (a reader measured 4.08 and 3.44); `check_review_pages.py` holds every text
+# token to that. Nothing below names a colour of its own.
 TOKENS = {
     "bg": ("#fafafa", "#161616"), "fg": ("#1a1a1a", "#e8e8e8"), "mut": ("#555555", "#b0b0b0"), "line": ("#d0d0d0", "#3a3a3a"),
     "card": ("#ffffff", "#222222"), "link": ("#0b57d0", "#8ab4f8"), "gap": ("#c0392b", "#e8604c"), "left": ("#8e8e8e", "#8a8a8a"),
     "bare": ("#444444", "#bbbbbb"),
-    "day0": ("#1f8a70", "#35b596"), "day1": ("#b97a10", "#e0a83c"), "day2": ("#6a4fb3", "#a990f0"), "day3": ("#5f6b7a", "#9aa7b8"),
+    "day0": ("#17705a", "#35b596"), "day1": ("#8a5a00", "#e0a83c"), "day2": ("#6a4fb3", "#a990f0"), "day3": ("#5f6b7a", "#9aa7b8"),
 }
 DAY_TOKENS = ("day0", "day1", "day2", "day3")
 
@@ -98,12 +106,13 @@ def rate_of(source: str) -> Fraction:
 
 
 def clock(frame: int, rate: Fraction) -> str:
-    s = float(frame / rate)
-    return f"{int(s // 60)}:{s % 60:04.1f}"
+    tenths = int(round(float(frame / rate) * 10))            # whole tenths first, so a time never reads 0:60.0
+    return f"{tenths // 600}:{tenths % 600 / 10:04.1f}"
 
 
 def owners(utc: str, fmt: str = "%m/%d") -> str:
-    return datetime.datetime.fromisoformat(utc.replace("Z", "+00:00")).astimezone(OWNERS_CLOCK).strftime(fmt)
+    t = datetime.datetime.fromisoformat(utc.replace("Z", "+00:00"))
+    return (t if t.tzinfo else t.replace(tzinfo=datetime.timezone.utc)).astimezone(OWNERS_CLOCK).strftime(fmt)
 
 
 def runs(frames) -> list[list[int]]:
@@ -116,27 +125,32 @@ def runs(frames) -> list[list[int]]:
     return out
 
 
-def read_verdicts(path: str) -> tuple[dict, dict]:
-    """(row -> (at, the last button), row -> [(at, words)]) from the verdicts record, in its own order."""
-    choice, words = {}, {}
+def read_verdicts(path: str) -> dict[str, list[dict]]:
+    """Every line of the verdicts record by its row, in the record's own order: a choice (a button) or words."""
+    out: dict[str, list[dict]] = {}
     for line in open(path):
         v = json.loads(line)
-        if v.get("what") == "choice" and v.get("chosen"):
-            choice[v["row"]] = (v["at"], v["chosen"])
-        elif v.get("words"):
-            words.setdefault(v["row"], []).append((v["at"], v["words"]))
-    return choice, words
+        if v.get("row") and (v.get("what") == "choice" and v.get("chosen") or v.get("words")):
+            out.setdefault(v["row"], []).append(v)
+    return out
+
+
+#: The buttons that settle a piece for the owner: a keep, or that it is not the one (the table's own words). Any
+#: other button ("not sure") leaves it to review.
+SETTLED = tuple(delivery_table.KEEP) + tuple(delivery_table.NOT_THE_ONE)
 
 
 class Records:
-    """The table, the ledger and the owner's lines, read once, with the day of each piece."""
+    """The table, the ledger, the review list and the owner's lines, read once, with the day of each piece."""
 
     def __init__(self, table: str, ledger: str, verdicts: str, items: str):
         self.table_path = table
         self.T = json.load(open(table))
         self.L = json.load(open(ledger))
+        if Path(ledger).name not in str(self.T.get("made") or ""):
+            raise SystemExit(f"--ledger {ledger}: the table says it was made from another ledger ({str(self.T.get('made'))[:200]})")
         self.by_name = {r["name"]: r for r in self.L["renders"].values()}
-        self.choice, self.words = read_verdicts(verdicts)
+        self.lines = read_verdicts(verdicts)
         self.items_in_order = json.load(open(items))["items"]
         self.items = {i["id"]: i for i in self.items_in_order}
         missing = sorted({r["name"] for r in self.T["rows"]} - set(self.by_name))
@@ -145,6 +159,24 @@ class Records:
         days = sorted({self.day(r["name"]) for r in self.T["rows"]}, reverse=True)
         self.day_token = {d: DAY_TOKENS[min(k, len(DAY_TOKENS) - 1)] for k, d in enumerate(days)}
 
+    def item_of(self, name: str) -> dict | None:
+        """The newest item of a render on the list: its id is the render's name, or its `name` is (the 10th's items)."""
+        return next((i for i in self.items_in_order if i["id"] == name), None) or next((i for i in self.items_in_order if i.get("name") == name), None)
+
+    def rows_of(self, name: str) -> set[str]:
+        """Every row the owner's lines on a render may stand under: its name and the id of every item of it."""
+        return {name} | {i["id"] for i in self.items_in_order if i["id"] == name or i.get("name") == name}
+
+    def owner_lines(self, rows) -> list[dict]:
+        return sorted((v for r in rows for v in self.lines.get(r, [])), key=lambda v: v["at"])
+
+    def last_choice(self, rows) -> dict | None:
+        return next((v for v in reversed(self.owner_lines(rows)) if v.get("what") == "choice"), None)
+
+    def settled(self, rows) -> bool:
+        c = self.last_choice(rows)
+        return bool(c and c["chosen"] in SETTLED)
+
     def day(self, name: str) -> str:
         return owners(self.by_name[name]["written"], "%Y-%m-%d")
 
@@ -152,9 +184,13 @@ class Records:
         d = self.day(name)
         return f'<span class="d {self.day_token[d]}">{owners(self.by_name[name]["written"])}</span>'
 
-    def last_click(self, name: str) -> str:
-        c = self.choice.get(name)
-        return f"your last click: {c[1]} ({owners(c[0], '%m/%d %H:%M')})" if c else "no click of yours"
+    def last_click(self, rows) -> str:
+        """The owner's last button and, after it, any words they typed: the words rule over the button."""
+        c = self.last_choice(rows)
+        after = [v for v in self.owner_lines(rows) if v.get("words") and (c is None or v["at"] > c["at"])]
+        said = f"your last click: {c['chosen']} ({owners(c['at'], '%m/%d %H:%M')})" if c else "no click of yours"
+        return said + "".join(f'; the words typed in its box since ({owners(v["at"], "%m/%d %H:%M")}; they may quote a session\'s question): "{v["words"]}"'
+                              for v in after)
 
     def left_by_ledger(self, name: str) -> set[int]:
         lo = (self.by_name.get(name) or {}).get("leaves_as_the_original") or {}
@@ -195,33 +231,47 @@ def shots_of_table(T: dict) -> list[dict]:
     return sorted(out.values(), key=lambda x: x["first"])
 
 
-def joined_item(rec: "Records", first: int, last: int) -> dict | None:
-    """The newest joined clip on the list of exactly these frames (the list keeps its newest first)."""
-    return next((i for i in rec.items_in_order if "_joined_" in i["id"] and str(i.get("first")) == str(first)
-                 and str(i.get("frames")) == str(last - first + 1)), None)
+def joined_item(rec: "Records", first: int, last: int, tables: list[str]) -> tuple[dict | None, str]:
+    """(the newest joined clip on the list of exactly these frames, and whether it is of THIS table) as (item, why).
+    A clip is this table's when the table its build wrote (`<tables>/t_<its name>.json`, bench/shot_review_clips.py)
+    lays on these frames the same pieces as this one: a clip built from an earlier table is not shown as this one's."""
+    it = next((i for i in rec.items_in_order if "_joined_" in i["id"] and str(i.get("first")) == str(first)
+               and str(i.get("frames")) == str(last - first + 1)), None)
+    if it is None:
+        return None, "no joined clip of this shot is on the list"
+    built = next((Path(t) / f"t_{it['id'].removesuffix('_stacked')}.json" for t in tables if (Path(t) / f"t_{it['id'].removesuffix('_stacked')}.json").is_file()), None)
+    if built is None:
+        return None, f"the newest joined clip of this shot ({it['id']}) has no table under --tables to say what it lays"
+    lays = lambda T: sorted((r["name"], r["subject"], max(r["first"], first), min(r["last"], last)) for r in T["rows"] if r["first"] <= last and r["last"] >= first)
+    theirs, ours = lays(json.load(open(built))), lays(rec.T)
+    if theirs != ours:
+        return None, (f"the newest joined clip of this shot ({it['id']}) lays {', '.join(n for n, *_ in theirs) or 'nothing'}, and this table lays "
+                      f"{', '.join(n for n, *_ in ours) or 'nothing'}: it is of an earlier table, and a joined clip of this one is to be built")
+    return it, ""
 
 
-def compare_with(rec: "Records", name: str, subject: str, first: int, last: int) -> dict | None:
-    """The newest render of the subject on overlapping frames written before this one: what the piece replaces."""
-    me = rec.by_name[name]
-    older = [r for r in rec.L["renders"].values() if r["name"] != name and subject in (r.get("subjects") or []) and r.get("span")
-             and r["span"][0] <= last and r["span"][1] >= first and r["written"] < me["written"]]
-    return max(older, key=lambda r: r["written"]) if older else None
+def replaced(rec: "Records", previous: dict | None, name: str, subject: str, first: int, last: int) -> list[dict] | None:
+    """What the piece replaces: the rows of the same subject the previous table laid on its frames (the same piece
+    among them, where it stood there before); None when no previous table was given."""
+    if previous is None:
+        return None
+    return [r for r in previous["rows"] if r["subject"] == subject and r["first"] <= last and r["last"] >= first]
 
 
-def piece_line(rec: "Records", r: dict, first: int, last: int, link, rel) -> str:
+def piece_line(rec: "Records", r: dict, first: int, last: int, link, rel, previous: dict | None) -> str:
     span = range(max(r["first"], first), min(r["last"], last) + 1)
     if set(span) <= rec.left_by_ledger(r["name"]):
-        return f'<li><b>{E(r["subject"])}</b>, {span[0]}-{span[-1]}: the original (inside {E(r["name"])}, which replaces nothing on these frames)</li>'
-    it = rec.items.get(r["name"]) or {}
-    older = compare_with(rec, r["name"], r["subject"], span[0], span[-1])
-    was = ("nothing of this subject was rendered on these frames before it" if older is None else
-           (link(older["name"]) if older["name"] in rec.items else f'<a href="{E(rel(older["file"]))}">{E(older["name"])}</a>')
-           + f" (rendered {owners(older['written'])})")
+        return f'<li><b>{E(r["subject"])}</b>, {span[0]}-{span[-1]}: the original (inside {E(r["name"])}, whose load emptied its part on these frames)</li>'
+    it = rec.item_of(r["name"]) or {}
+    was = replaced(rec, previous, r["name"], r["subject"], span[0], span[-1])
+    named = lambda n: (link(rec.item_of(n)["id"], n) if rec.item_of(n) else E(n)) + (f" (rendered {owners(rec.by_name[n]['written'])})" if n in rec.by_name else "")
+    said = ("not known here: no previous table was given" if was is None else "the original: the previous table laid no piece of this subject here"
+            if not was else ", ".join(("nothing: this same piece stood here in the previous table" if x["name"] == r["name"] else named(x["name"]))
+                                      + f" on {max(x['first'], span[0])}-{min(x['last'], span[-1])}" for x in was))
     return (f'<li>{rec.day_badge(r["name"])} <b>{E(r["subject"])}</b>, {span[0]}-{span[-1]}: '
-            + (link(r["name"]) if r["name"] in rec.items else E(r["name"])) + f' &middot; {E(rec.last_click(r["name"]))}'
-            + (f'<div class="why">look: {E(it["look"])}</div>' if it.get("look") else "")
-            + f'<div class="why">compare with: {was}</div></li>')
+            + (link(it["id"], r["name"]) if it else E(r["name"])) + f' &middot; {E(rec.last_click(rec.rows_of(r["name"])))}'
+            + (f'<div class="why">the card\'s look line (a session\'s words): {E(it["look"])}</div>' if it.get("look") else "")
+            + f'<div class="why">it replaces, in the previous table: {said}</div></li>')
 
 
 def since(rec: "Records", previous: str) -> list[str]:
@@ -245,38 +295,46 @@ def since(rec: "Records", previous: str) -> list[str]:
 def to_review(a: argparse.Namespace) -> str:
     rec = Records(a.table, a.ledger, a.verdicts, a.items)
     rate, out_dir = rate_of(a.source), os.path.dirname(os.path.abspath(a.out))
+    previous = json.load(open(a.previous_table)) if a.previous_table else None
     link = lambda i, label=None: f'<a href="{E(a.page_url + i)}">{E(label or i)}</a>'
     rel = lambda path: os.path.relpath(path if os.path.isabs(path) else os.path.join(a.share, path), out_dir)
     stem = Path(a.source).stem
     body = [f"<h1>{E(stem)}: to review</h1>",
             f'<p class="mut">Made {datetime.datetime.now(OWNERS_CLOCK):%Y-%m-%d %H:%M} US Central from the table {E(os.path.basename(a.table))} and its '
             f"ledger. Each piece is marked with the day it was rendered: "
-            + ", ".join(f'<span class="d {t}">{datetime.date.fromisoformat(d):%m/%d}</span>' for d, t in rec.day_token.items()) + ".</p>",
+            + ", ".join(f'<span class="d {t}">{datetime.date.fromisoformat(d):%m/%d}</span>' for d, t in rec.day_token.items())
+            + ". Shown: what this table lays and you have not kept or called not the one.</p>",
             f'<p>Decisions waiting on you are on <a href="{E(a.open_list)}">the Open List</a>.'
             + (f' Beside this file: <a href="{E(a.provenance)}">{E(a.provenance)}</a>, every stretch and every gap.' if a.provenance else "") + "</p>"]
-    if a.previous_table:
+    if previous is not None:
         body += ["<h2>Since the last page</h2>", *since(rec, a.previous_table)]
-    joined, single, unbuilt = [], [], []
+    joined, apart, single = [], [], []
     for sh in shots_of_table(rec.T):
         first, last = sh["first"], sh["last"]
         when = f"{clock(first, rate)} to {clock(last + 1, rate)} of the video"
-        if not sh["rows"]:
+        rows = sorted(sh["rows"], key=lambda r: (r["subject"], r["first"]))
+        if not rows:
             continue
+        lines = lambda rr: "".join(piece_line(rec, r, first, last, link, rel, previous) for r in rr)
         if len(sh["subjects"]) >= 2:
-            it = joined_item(rec, first, last)
-            if it is None:
-                unbuilt.append(f"<li>{first}-{last} ({E(', '.join(sh['subjects']))}): no joined clip of this shot is on the list</li>")
-            elif it["id"] not in rec.choice:
-                joined.append(f'<div class="e"><h3>{link(it["id"], f"The shot {first}-{last}")} <span>{E(", ".join(sh["subjects"]))} &middot; {when}</span></h3>'
-                              f'<ul>{"".join(piece_line(rec, r, first, last, link, rel) for r in sorted(sh["rows"], key=lambda r: (r["subject"], r["first"])))}</ul></div>')
+            it, why = joined_item(rec, first, last, a.tables or [])
+            if it is not None:
+                if not rec.settled(rec.rows_of(it["id"]) | {it["id"]}):
+                    joined.append(f'<div class="e"><h3>{link(it["id"], f"The shot {first}-{last}")} <span>{E(", ".join(sh["subjects"]))} &middot; {when} &middot; '
+                                  f'{E(rec.last_click({it["id"]}))}</span></h3><ul>{lines(rows)}</ul></div>')
+                continue
+            open_rows = [r for r in rows if not rec.settled(rec.rows_of(r["name"]))]
+            if open_rows:
+                apart.append(f'<div class="e"><h3>The shot {first}-{last} <span>{E(", ".join(sh["subjects"]))} &middot; {when}</span></h3>'
+                             f'<p class="why">{E(why)}. Each piece meanwhile, on its own:</p><ul>{lines(open_rows)}</ul></div>')
         else:
-            for r in sh["rows"]:
-                if r["name"] not in rec.choice:
+            for r in rows:
+                if not rec.settled(rec.rows_of(r["name"])):
                     single.append(f'<div class="e"><h3>{E(r["subject"])}, {max(r["first"], first)}-{min(r["last"], last)} <span>{when}</span></h3>'
-                                  f'<ul>{piece_line(rec, r, first, last, link, rel)}</ul></div>')
+                                  f'<ul>{lines([r])}</ul></div>')
     body += ["<h2>Shots with two or more of them, each as its joined clip</h2>", *(joined or ["<p class='mut'>None waiting on you.</p>"])]
-    if unbuilt:
-        body += ["<h3>Shots with two or more of them and no joined clip yet</h3>", "<ul>", *unbuilt, "</ul>"]
+    if apart:
+        body += ["<h2>Shots with two or more of them with no joined clip of this table</h2>", *apart]
     body += ["<h2>Pieces in a shot of one of them</h2>", *(single or ["<p class='mut'>None waiting on you.</p>"])]
     return page(f"To review: {stem}", "", "\n".join(body), 900)
 
@@ -293,10 +351,20 @@ def left_out_of(rec: Records, name: str) -> list[dict]:
 
 
 def why_left(rec: Records, name: str, sub: str, a: int, b: int) -> str:
+    """Why a piece leaves these frames as the original: a look's word in its job (`left_out`) where one covers them,
+    else what the ledger read the frames from (the capture's manifest: the frames on which it emptied the part)."""
     for lo in left_out_of(rec, name):
         if lo.get("subject") in (sub, None) and lo["first"] <= b and a <= lo["first"] + lo["frames"] - 1:
             return " ".join(str(lo.get("why", "")).split())
-    return ""
+    said = ((rec.by_name.get(name) or {}).get("leaves_as_the_original") or {}).get("read_from")
+    return f"its load emptied the part here, by the ledger ({said})" if said else ""
+
+
+def stand_why(s: dict) -> str:
+    """Why a piece stands, in the table's words; the lead's --prefer said as a session's word, never as the table's rule."""
+    if s.get("the_leads_prefer"):
+        return f"THE LEAD'S CHOICE (--prefer), a session's word: {s['the_leads_prefer']}"
+    return s.get("why", "")
 
 
 def stretches_of(rec: Records, nothing: dict, up_to: int) -> list[dict]:
@@ -321,9 +389,9 @@ def stretches_of(rec: Records, nothing: dict, up_to: int) -> list[dict]:
             for n, fr in groups.items():
                 for a, b in runs(fr):
                     if kind == "piece":
-                        why = next((s["why"] for s in rd.get("stands") or [] if s["render"] == n), "")
+                        why = stand_why(next((s for s in rd.get("stands") or [] if s["render"] == n), {}))
                     elif kind == "left":
-                        why = why_left(rec, n, sub, a, b) or "the load's job file gives no reason for these frames"
+                        why = why_left(rec, n, sub, a, b) or "no record read here says why"
                     else:
                         said = next((s for s in rec.T["sources"] + rec.T["gaps"] if s["subject"] == sub and s["first"] <= a <= s["last"]), {})
                         why = said.get("why", "")
@@ -354,7 +422,7 @@ def changes(rec: Records, watched: str, up_to: int, rate: Fraction) -> list[tupl
                 if a and a not in standing:
                     why.append(f"{a}: {why_gone.get(a, 'no line in the reading')}")
                 if b:
-                    why.append(f"{b}: " + next((s["why"] for rd in rec.T["reading"] for s in rd.get("stands") or [] if s["render"] == b), ""))
+                    why.append(f"{b}: " + stand_why(next((s for rd in rec.T["reading"] for s in rd.get("stands") or [] if s["render"] == b), {})))
                 if a and b is None and a in standing:
                     why.append(f"{a} still stands on its other frames; these are no longer its row's")
                 rows.append((f0, f1, sub, a or "the original", b or "the original", " | ".join(why)))
@@ -395,7 +463,8 @@ def provenance(a: argparse.Namespace) -> str:
     covered = {x for r in rec.T["rows"] for x in range(r["first"], r["last"] + 1)}
     bare = runs(x for x in range(0, up_to + 1) if x not in covered)
     tok = lambda name: rec.day_token[rec.day(name)]
-    rel = lambda path: os.path.relpath(path if os.path.isabs(path) else os.path.join(a.share, path), day)
+    out_dir = os.path.dirname(os.path.abspath(a.out))           # every link is relative to where the page is written
+    rel = lambda path: os.path.relpath(path if os.path.isabs(path) else os.path.join(a.share, path), out_dir)
     stem = Path(a.source).stem
     body = [f"<h1>{E(stem)}: what every stretch is made of, from which day, and where nothing is made</h1>",
             f'<p class="mut">Written {datetime.datetime.now(OWNERS_CLOCK):%Y-%m-%d %H:%M} US Central from the table <b>{E(os.path.basename(a.table))}</b> '
@@ -420,7 +489,8 @@ def provenance(a: argparse.Namespace) -> str:
         body += ["<p class='mut'>The ledger holds no note of a load stopped before a render.</p>"]
     for x in stopped or []:
         fr = x.get("frames")
-        now = [r["name"] for r in rec.T["rows"] if fr and r["subject"] == x.get("subject") and r["first"] <= fr[1] and r["last"] >= fr[0]]
+        now = [f'{r["name"]} on {max(r["first"], fr[0])}-{min(r["last"], fr[1])}' for r in rec.T["rows"]
+               if fr and r["subject"] == x.get("subject") and r["first"] <= fr[1] and r["last"] >= fr[0]]
         body.append(f'<div class="card"><h3>{E(x["load"])} <span>{E(str(x.get("subject")))} &middot; {f"{fr[0]}-{fr[1]}" if fr else "frames not in its job file"}'
                     f'</span></h3><p class="why">What of {E(str(x.get("subject")))} stands on those frames now: {E(", ".join(now)) if now else "nothing"}. '
                     f'The note, whole ({E(x["note"])}, {E(x["note_written"])}):</p><pre>{E(x["note_says"])}</pre></div>')
@@ -451,7 +521,7 @@ def provenance(a: argparse.Namespace) -> str:
               + "".join(f'<div style="height:{LANE}px;line-height:{LANE}px">{E(x)}</div>' for x in [*subjects, "inside no piece"]) + "</div>")
     body += ["<h2>The timeline: what stands now</h2>",
              '<div class="lanes">' + "".join(f'<span><i class="k {t}"></i>a piece rendered {datetime.date.fromisoformat(d):%m/%d}</span>' for d, t in rec.day_token.items())
-             + '<span><i class="k gap"></i>this person is in the shot and nothing is made: the original</span>'
+             + '<span><i class="k gap"></i>in the shot by the record (or the record unsure) and nothing is made: the original</span>'
                '<span><i class="k left"></i>inside a piece, left as the original by its load</span><span><i class="k bare"></i>bottom lane: frames inside no piece at all</span></div>',
              "<p class='mut'>The numbers are source frames with the video's time under them. Scroll sideways; click a block for its card or its row. "
              "An empty stretch in a lane means that person is not in the shot.</p>",
@@ -465,7 +535,7 @@ def provenance(a: argparse.Namespace) -> str:
         if s["kind"] == "piece":
             n = s["name"]
             tr.append(f'<tr><td>{s["a"]}-{s["b"]}</td><td>{t}</td><td>{E(s["sub"])}</td><td><a href="#p-{E(n)}">{E(n)}</a></td><td>{rec.day_badge(n)}</td>'
-                      f'<td>{E(rec.last_click(n))}</td><td>{E(s["why"])}</td></tr>')
+                      f'<td>{E(rec.last_click(rec.rows_of(n)))}</td><td>{E(s["why"])}</td></tr>')
         else:
             what = f'the original inside <a href="#p-{E(s["name"])}">{E(s["name"])}</a>' if s["kind"] == "left" else "the original: no piece"
             what += " (the record is unsure they are in the shot)" if s["unsure"] else ""
@@ -484,7 +554,7 @@ def provenance(a: argparse.Namespace) -> str:
         folder = next(iter(glob.glob(os.path.join(day, f"*_{n}"))), None)
         text_file = os.path.join(folder, "text.txt") if folder else None
         text = open(text_file).read() if text_file and os.path.exists(text_file) else ""
-        it = rec.items.get(n, {})
+        it = rec.item_of(n) or {}
         stacked = it.get("path") and os.path.realpath(it["path"])
         unchanged = runs(x for x in nothing.get(n, ()) if r["first"] <= x <= r["last"])
         facts = [("rendered", f"{owners(g['written'], '%Y-%m-%d %H:%M')} US Central ({g['written']}) by the session {g.get('session_folder')}"),
@@ -499,18 +569,21 @@ def provenance(a: argparse.Namespace) -> str:
                  ("cut to the head / face points drawn", f"{(ref.get('has') or {}).get('cut_to_the_head')} / {(ref.get('has') or {}).get('face_points')}"),
                  ("the working copy it read", str(gr.get("of"))),
                  ("built at the commit", f"{made.get('commit')} ({made.get('built_at')}); its record: {g.get('making')}"),
-                 ("why it stands", next((s["why"] for rd in rec.T["reading"] for s in rd.get("stands") or [] if s["render"] == n), "")),
-                 ("your last click", rec.last_click(n))]
-        said = "".join(f"<li>{owners(p, '%m/%d %H:%M')}: {E(w)}</li>" for p, w in rec.words.get(n, [])[-4:])
+                 ("why it stands", stand_why(next((s for rd in rec.T["reading"] for s in rd.get("stands") or [] if s["render"] == n), {}))),
+                 ("on the review page", rec.last_click(rec.rows_of(n)))]
+        said = "".join(f"<li>{owners(v['at'], '%m/%d %H:%M')}: {E(v['words'])}</li>" for v in rec.owner_lines(rec.rows_of(n)) if v.get("words"))
         links = []
         if folder:
-            links.append(f'<a href="{E(os.path.basename(folder))}/">its workflow folder</a> (the graph as queued, its text, its inputs, how to queue it again)')
+            links.append(f'<a href="{E(os.path.relpath(folder, out_dir))}/">its workflow folder</a> (the graph as queued, its text, its inputs, how to queue it again)')
+        else:
+            links.append("no folder of it in the day's folder (bench/day_pieces.py makes one for a piece that stands when it is run)")
         links.append(f'<a href="{E(rel(g["file"]))}">the render itself</a>')
         if stacked and os.path.exists(stacked):
             links.append(f'<a href="{E(rel(stacked))}">its stacked clip</a> (this load alone)')
         body.append(f'<section class="card {tok(n)}" id="p-{E(n)}"><h3>{E(n)} <span>{E(r["subject"])} &middot; {r["first"]}-{r["last"]} &middot; rendered '
                     f'{owners(g["written"])}</span></h3><dl>' + "".join(f"<dt>{E(k)}</dt><dd>{E(str(v))}</dd>" for k, v in facts) + "</dl>"
-                    + (f"<p><b>Your words on it:</b></p><ul>{said}</ul>" if said else "") + "<p>" + " &middot; ".join(links) + "</p>"
+                    + (f"<p><b>The verdicts record's words on it, whole</b> (what was typed in the review page's box under it; a line may hold a "
+                       f"session's question with the owner's answer):</p><ul>{said}</ul>" if said else "") + "<p>" + " &middot; ".join(links) + "</p>"
                     + (f"<details><summary>its text as queued</summary><pre>{E(text)}</pre></details>" if text else "") + "</section>")
     return page(f"Provenance: {stem}", PROVENANCE_CSS, "\n".join(body), 1200)
 
@@ -530,7 +603,9 @@ def main(argv=None) -> int:
         if name == "to-review":
             s.add_argument("--page-url", required=True, help="the review page's address up to the item id: its scheme, host, port and the # before an id")
             s.add_argument("--open-list", required=True, help="the Open List's link, where decisions waiting on the owner are")
-            s.add_argument("--previous-table", help="the table the last page was made from: what changed since")
+            s.add_argument("--previous-table", help="the table the last page was made from: what changed since, and what each piece replaces")
+            s.add_argument("--tables", action="append", default=[], help="a folder bench/shot_review_clips.py wrote joined clips' tables into: a "
+                           "joined clip is shown as this table's only when its own table lays the same pieces on its shot; repeatable")
             s.add_argument("--provenance", help="the provenance page's file name beside this one, linked from the top")
         else:
             s.add_argument("--record", help="the assembler's record of the clip (.mp4.check.json); without it the ledger says what a piece leaves")
