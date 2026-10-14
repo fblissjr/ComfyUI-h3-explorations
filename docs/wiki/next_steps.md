@@ -65,8 +65,16 @@ her head" below: the fault was found elsewhere on 2026-10-14.)
   frames, if the node's box allows. Upstream of the drawing: on lead_fp_1156b's held reference at 1158 and 1160 her
   eyes roll up with the whites below the iris, and the pose points put the iris centred in an open white eye
   (mrcircle's sheet `data/2026-10-14_fun_batch_r_inputs/lead_fp_1156b.eyes_1158_1160_1170.jpg`), beside 415's
-  lowering (`internal/claude/2026-10-14_mrtwo_scripts/eyes/findings.md`, section 3). A row, not a job: the zoomed
-  case decides whether the eye form is worth more spend.
+  lowering (`internal/claude/2026-10-14_mrtwo_scripts/eyes/findings.md`, section 3). The zoomed case came out the same:
+  lead_fp_1097c, zoomed 1.80x with the chain's defaults, leaves her iris near the middle of the eye where hers is to
+  the right (`internal/claude/2026-10-14_mrdrill_scripts/iris_offset_render_zoomed_1097c_1097_1133.csv` against the
+  original's), so the eye form gets no more spend. PARKED, NOT A JOB: the outside reviewer's section 11
+  (`internal/gemini/2026-10-14_relay_gaze_hair_expressions.md`, lines 263-293) reads it by the latent grid: at that
+  zoom her whole sideways shift is about half of one 16 px cell, while the open mouth that did carry on 1156c spans
+  several, and the still, fed large with its irises centred over many cells, outvotes a sub-cell cue (its table has
+  the figures). If gaze is revisited: a 3.5-4x zoom on a short, nearly still glance window (1121-1133) puts the shift
+  over a full cell; and a still with the irises turned to the glance. Its third idea, naming the glance in the text,
+  is out by the owner's one-form rule (no per-load face words).
 - **The pose model's lid points sometimes miss a lowered or closing eye, and the render opens it** (2026-10-14, the
   lead's reading; the owner's old fault on the second subject, recorded with its cause). On second_hfp_0278c the
   render's eyes open on 290-293 while hers stay lowered, and the reference draws them open there because the lid
