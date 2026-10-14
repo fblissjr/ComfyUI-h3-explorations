@@ -295,6 +295,13 @@ HOLD_REACH = 12
 #: A run's region over this share of ANOTHER subject's mask is flagged. Reasoned: under it is the margin's
 #: ordinary brush against a neighbour.
 REGION_ON_OTHER = 0.05
+#: The least of the STRANGERS mask's pixels inside a run's region on a frame for that frame to count toward `region_over_another_subject`
+#: at the top level: a share of a mask a few pixels across means nothing (the lead, 2026-10-14: on second_hfp_0014d the strangers
+#: mask was specks of 1-657 px on her own apron edge and wrist, read as "up to 100%"). A STARTING VALUE, reasoned: four 16 px
+#: latent cells, the least a person's face or hand redrawn could fill. Frames under it are said as data, with their size.
+REGION_ON_OTHER_LEAST_PX = 1024
+#: The strangers keep-out's label in a capture (`bench/strangers.py`, `bench/shot_to_load.py`): the one other the floor applies to.
+STRANGERS_LABEL = "strangers"
 #: A segment with fewer pixels than this inside a region is its edge and is not flagged. Reasoned: under a
 #: quarter of one latent cell.
 SEGMENT_PX = 64
@@ -2740,6 +2747,7 @@ def flag_runs(manifest: dict, folder: Path, own: dict | None = None, given: dict
     said at the level below the top, with its figure, only where it is given back on every frame it is over, and
     otherwise stays where it was with the restore that would answer it."""
     own, given = own or {}, given or {}
+    w_h = int(manifest["size"][0]) * int(manifest["size"][1]) if manifest.get("size") else 0
     cross = json.loads((folder / "frames.json").read_text())["rows"]
     labels = [s["label"] for s in manifest["subjects"]]
     out = []
@@ -2751,13 +2759,31 @@ def flag_runs(manifest: dict, folder: Path, own: dict | None = None, given: dict
                 continue                               # a subject of the load is not another subject to it
             col = f"region_on__{name}__{other}"
             hit = [(r["source_frame"], r[col]) for r in cross if r.get(col) is not None and r[col] > REGION_ON_OTHER]
+            # the other's own pixels inside the region a frame: its mask's share of the frame (its per_frame `track_share`) times the
+            # frame's pixels times the share of it the region holds
+            path = folder / "subjects" / other / "per_frame.json"
+            share_of_frame = {r["source_frame"]: r.get("track_share") for r in (json.loads(path.read_text())["rows"] if path.is_file() else [])}
+            px_in = {f: (share_of_frame.get(f) or 0) * w_h * v for f, v in hit} if share_of_frame and w_h else {}
+            # the floor is the STRANGERS mask's only: a subject of ours at a small size can be under it (the third's face at 27 px is about
+            # 700 px), and a region over a subject's face is what this flag exists to stop (the lead, 2026-10-14)
+            specks = [(f, v) for f, v in hit if other == STRANGERS_LABEL and px_in and px_in[f] < REGION_ON_OTHER_LEAST_PX]
+            if specks:
+                out.append({"rule": "region_over_another_subject_specks", "level": LEVELS[0], "subject": run["subject"], "run": name, "other": other,
+                            "source_frames": frame_spans([f for f, _ in specks]),
+                            "why": f"{kind} {name}'s region holds {other}'s mask on {len(specks)} frame(s) where under {REGION_ON_OTHER_LEAST_PX} px of it are "
+                                   f"inside (at most {round(max(px_in[f] for f, _ in specks))} px): specks, said as data and not counted against the load",
+                            "figures": {"frames": len(specks), "px_inside_most": round(max(px_in[f] for f, _ in specks))},
+                            "threshold": {"REGION_ON_OTHER_LEAST_PX": REGION_ON_OTHER_LEAST_PX}})
+                hit = [(f, v) for f, v in hit if px_in[f] >= REGION_ON_OTHER_LEAST_PX]
             if hit:
                 worst = max(v for _, v in hit)
                 held = sum(1 for r in cross if r.get(f"cells_given_back__{name}__{other}"))
                 why = (f"{kind} {name} regenerates up to {100 * worst:.0f}% of {other}'s mask: {other} is drawn again "
                        f"there by {whom}'s pass" + (f" (margin cells were given back on {held} frames)" if held else ""))
                 level = LEVELS[2] if worst > 5 * REGION_ON_OTHER else LEVELS[1]
-                figures = {"frames": len(hit), "worst_share": round(worst, 3)}
+                figures = {"frames": len(hit), "worst_share": round(worst, 3), **({"px_inside_most": round(max(px_in[f] for f, _ in hit))} if px_in else {})}
+                if px_in:
+                    why += f"; at most {round(max(px_in[f] for f, _ in hit))} px of it inside the region on a frame"
                 if other in own:
                     back = {f for a, b, _ in given.get(other, []) for f in range(a, b + 1)}
                     rest = [(f, v) for f, v in hit if f not in back]

@@ -1740,6 +1740,40 @@ def what_the_job_says_is_its_own() -> str:
             "frame, and says which restore would answer it; another person's is unchanged; the gate's job flags parsed and refused")
 
 
+def specks_of_another() -> str:
+    """The lead, 2026-10-14: on second_hfp_0014d the strangers mask was specks of 1-657 px on her own apron edge and wrist, at most
+    46 px of it inside the region, read as "up to 100%". A frame with under REGION_ON_OTHER_LEAST_PX of another's pixels inside the
+    region is said as data, with its size; a frame over it counts as before."""
+    import tempfile
+    W_, H_ = 1024, 768
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp)
+        (folder / "runs" / "r").mkdir(parents=True)
+        (folder / "subjects" / "strangers").mkdir(parents=True)
+        shares = {100: 46 / (W_ * H_), 101: 657 / (W_ * H_), 102: 4000 / (W_ * H_)}         # 14d's figures, and one frame of a real someone
+        (folder / "frames.json").write_text(json.dumps({"rows": [{"source_frame": f, "region_on__r__strangers": 1.0 if f < 102 else 0.5} for f in shares]}))
+        (folder / "subjects" / "strangers" / "per_frame.json").write_text(json.dumps({"rows": [{"source_frame": f, "track_share": v} for f, v in shares.items()]}))
+        (folder / "runs" / "r" / "per_frame.json").write_text(json.dumps({"rows": []}))
+        m = {"size": [W_, H_], "subjects": [{"label": x, "sightings": [{"by": "p"}]} for x in ("a", "strangers")], "runs": [{"name": "r", "subject": "a", "planned": True}]}
+        got = {f["rule"]: f for f in cap.flag_runs(m, folder) if f.get("other") == "strangers"}
+        # THE CASE THAT GOES RED when specks of another's mask count against a load as "up to 100%"
+        specks, real = got["region_over_another_subject_specks"], got["region_over_another_subject"]
+        assert specks["level"] == cap.LEVELS[0] and specks["source_frames"] == [[100, 101]] and specks["figures"]["px_inside_most"] == 657, specks
+        assert real["level"] == cap.LEVELS[2] and real["source_frames"] == [[102, 102]] and "at most 2000 px of it inside the region" in real["why"], real
+        (folder / "frames.json").write_text(json.dumps({"rows": [{"source_frame": f, "region_on__r__strangers": 1.0} for f in (100, 101)]}))
+        got = [f["rule"] for f in cap.flag_runs(m, folder) if f.get("other") == "strangers"]
+        assert got == ["region_over_another_subject_specks"], "specks alone still made a top-level flag"
+        # THE CASE THAT GOES RED when the floor reaches a subject of ours: a small face of 700 px inside the region still counts (the lead)
+        (folder / "subjects" / "third").mkdir()
+        (folder / "subjects" / "third" / "per_frame.json").write_text(json.dumps({"rows": [{"source_frame": 100, "track_share": 700 / (W_ * H_)}]}))
+        (folder / "frames.json").write_text(json.dumps({"rows": [{"source_frame": 100, "region_on__r__third": 1.0}]}))
+        m3 = dict(m, subjects=[{"label": x, "sightings": [{"by": "p"}]} for x in ("a", "third")])
+        third = [f for f in cap.flag_runs(m3, folder) if f.get("other") == "third"]
+        assert [f["rule"] for f in third] == ["region_over_another_subject"] and third[0]["level"] == cap.LEVELS[2], third
+    return (f"under {cap.REGION_ON_OTHER_LEAST_PX} px of the strangers mask inside the region a frame is data with its size; over it counts, with the "
+            "px said; a subject of ours counts at any size")
+
+
 def a_strip_of_a_render() -> str:
     """Which frames the stacked strip shows of a render that does not begin or end where the capture's span does."""
     whole = cap.render_span(1093, 41, 1093, 41)
@@ -1815,6 +1849,7 @@ case("shots: the gate's answer per shot and subject", gate_by_shot)
 case("the look: what a strip shows of a load and its text, and the line that records it", a_look)
 case("preflight: a load that lays nothing where its subject is", a_load_that_lays_nothing)
 case("preflight: what the job says is its own", what_the_job_says_is_its_own)
+case("preflight: specks of another are data", specks_of_another)
 case("a fill of a doubted part, graded by the class map", graded_holds)
 case("the floor under a small part: a starting value, held against the clip's own sizes", the_floor_against_the_clip)
 case("verify: the capture reads what the nodes wrote", verifying)
