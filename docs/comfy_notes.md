@@ -133,6 +133,32 @@ leaving one up costs the next person the card and a diagnosis. This applies to a
 server *you* started; one that was already running when you arrived is not yours
 to stop.
 
+**The local review page has its own small server, started and stopped by
+hand.** It is the page the owner watches renders and answers on
+(`AGENTS.md`, "Where state lives"). From the repo's root:
+
+    python3 data/<video>/poc/serve.py
+    # or, left running after the terminal closes:
+    (setsid nohup python3 data/<video>/poc/serve.py > <a log you can read> 2>&1 < /dev/null &)
+
+It prints each address it listens on when it starts: open one of them in a
+browser. It reads only the files beside it and appends each click as one line
+to `answers.jsonl` there; it needs no ComfyUI and no GPU, so it can be up
+while the card is busy or the ComfyUI server is down. Its port is `PORT` in
+the script (`--port` overrides it); `--bind` adds an address to listen on and
+is the owner's word to use. To stop it, go by the port's owner, as for
+ComfyUI:
+
+    ss -ltnp | grep ':<PORT> '        # who holds the port: pid=N
+    kill <N>; sleep 1; ss -ltnp | grep ':<PORT> ' || echo "port free"
+
+`python3 data/<video>/poc/check_page.py` says whether the page and its clips
+load. Whoever starts it stops it at the day's end; a session that finds it up
+asks before stopping it, since the owner may be reviewing. The script lives
+under the untracked `data/` folder and is a throwaway of 2026-10-11 that has
+been in daily use since: a tracked tool with a check is a row in
+[`wiki/next_steps.md`](wiki/next_steps.md).
+
 **No `check_*.py` submits a prompt** — they all reason about graphs.
 `smoke_h3.py` is the fast one that does, and `bench_e2e_h3.py` submits real
 renders. A static check cannot catch a bug whose cause is the static check, so **run the smoke after any generator

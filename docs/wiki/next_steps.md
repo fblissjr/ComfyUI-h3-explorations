@@ -61,6 +61,15 @@ look.
   inside one load. Not known: what a moving box does to the reference and
   to the lay-back at a frame where the box steps; that is the first thing
   to read, on a plan, before anything renders. Not started.
+- **The review page's server is an untracked throwaway** (2026-10-13,
+  from the owner asking how to start it by hand). `serve.py` and
+  `check_page.py` under a video's untracked `data/<video>/poc/` folder
+  have served the owner's review page every day since 2026-10-11, and no
+  tracked file held how to start or stop them until
+  [`../comfy_notes.md`](../comfy_notes.md) said so that evening. Wanted:
+  the server and the page check as tracked tools with a check each, the
+  page's folder handed in by path, nothing of a video or an address in
+  the code. Not started.
 - **A pair measure is two session scripts** (2026-10-13). Two renders of
   the same frames were set side by side twice that day, each time by a
   script of the session that asked: sharpness inside the region as
