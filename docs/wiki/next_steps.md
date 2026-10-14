@@ -54,6 +54,22 @@ Carried from 2026-10-12: the third subject's other shots, face only, and
 hair band as the fix for 693-703 is now the row "Her hair comes and goes beside
 her head" below: the fault was found elsewhere on 2026-10-14.)
 
+**Masked video to video, 2026-10-14: rows of the day.**
+- **The drawing of a face in profile draws the far side and stray lines**
+  (2026-10-14, the lead, from the card's sheet of the held reference of
+  `lead_fp_1466b` and its blind reading,
+  `data/2026-10-14_lead_fp_1466b/look_blind/reading.md`). The lead in
+  profile, looking up at the third subject, 1466-1534: the far eye and brow
+  are drawn in front of the body model's face, off its outline, and long
+  straight stray lines run off the face on 1478, 1496-1497, 1503-1506,
+  1509-1510, 1512, 1515 and 1524-1533. Likely cause, NOT VERIFIED: points of
+  the hidden side, scored low, are still joined into lines by
+  `bench/draw_face_points.py`. Wanted: the drawing leaves out a line whose
+  points are scored under the reading value, or that leaves the body
+  model's own face, and prints how many it left out on which frames.
+  Built after the track-not-that-person row (3b) unless it shows on the
+  owner's playback. Not started.
+
 **Masked video to video, 2026-10-13: two rows from the day's last hours.**
 - **A zoomed load has one box, so a small face that travels cannot be
   zoomed** (2026-10-13, from the holder of the card on the lead's 168-184).
