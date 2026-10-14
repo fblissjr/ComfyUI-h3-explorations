@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 135 |
+| [`check_*`](#check) | 136 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 172 |
+| [the rest](#the-rest) | 173 |
 
 ## check
 
@@ -69,6 +69,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_load_chain.py`](check_load_chain.py) | The load chain (`bench/load_chain.py`) on a made job: what each step reads, runs and refuses, with no server. |
 | [`check_load_text.py`](check_load_text.py) | The generated text of a load (`bench/load_text.py`) against the kept loads' own texts, and what it refuses. |
 | [`check_loader_fit.py`](check_loader_fit.py) | `bench/_lib/frames.py::FIT` against what the graphs' video loader does to a source that is not the canvas's shape. |
+| [`check_look_rooms.py`](check_look_rooms.py) | The look's rooms and the plan check (`bench/look_rooms.py`): what a room holds, and how the node's own plan is read. |
 | [`check_lora_alpha.py`](check_lora_alpha.py) | Check every LoRA this repo names is one ComfyUI can scale correctly. |
 | [`check_lora_branch.py`](check_lora_branch.py) | `MiniMaxH3LoRABranch` computes the merged LoRA exactly, on every module an H3 LoRA targets. |
 | [`check_lowvram_handoff.py`](check_lowvram_handoff.py) | Check that the sage forward survives KJNodes' low-VRAM block patch. |
@@ -389,6 +390,7 @@ this file is only a way to find a script by what it says it does.
 | [`list_prose_measurements.py`](list_prose_measurements.py) | Inventory the measurements that live in prose, so they can be moved out. |
 | [`load_chain.py`](load_chain.py) | One load of a masked job, a step at a time, read from its job file: first, plan, on-plan, render, land, page. |
 | [`load_text.py`](load_text.py) | A load's text, generated from its reference's record, the plan and the voice table, around the one sentence a person writes. |
+| [`look_rooms.py`](look_rooms.py) | A subject's look, declared once in the plan, made into the region a load regenerates; and the plan-time check that reads the node's own plan back against it. |
 | [`make_attention_defaults_json.py`](make_attention_defaults_json.py) | Emit `2026-08-18_attention_defaults.json` from the raw arm results. |
 | [`make_distill_run_manifest.py`](make_distill_run_manifest.py) | Write the manifest for the 2026-09-26 fresh distill run: many bank scenes, four models, one seed. |
 | [`make_followup_manifest.py`](make_followup_manifest.py) | Write the manifest for the 2026-09-26 follow-up batch: the distill run's remaining arms on the 0.154.0 code, and the tests its predictions need. |
