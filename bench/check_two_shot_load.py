@@ -13,8 +13,8 @@ picture on every frame), shot tables and pose tables, and an ordinary load on ea
    moved on, by hand for each field `shot_table.py` numbers by frame, and the cut where the two meet; the
    lane's own reader of a table cut to a stretch (`who_is_who_across_shots.cut_to`) gets each source's shots
    back. Tables of two sizes are refused. **A joined pose table** the same; two that do not meet are refused.
-3. **The two loads are held to each other**: another seed, margin, subject, still or reference form, a zoomed
-   load, keep-outs, loads that do not meet at the cut, a second load that is not on the next shot, a preview
+3. **The two loads are held to each other**: another seed, margin, subject, still or reference form, a load
+   zoomed on a person's word (the chain's default zoom is set aside and the load rendered on the whole frame, said), keep-outs, loads that do not meet at the cut, a second load that is not on the next shot, a preview
    that is not of its whole shot, and a load with no reference made are each refused by name.
 4. **The job step** lays every subject's track, part and class map end to end with each frame equal to its
    source's, writes the joined preview's folder SAID TO BE JOINED, the joined reference and the job file; the
@@ -315,7 +315,9 @@ def the_two_loads_are_held_to_each_other() -> str:
         with_b("b_still", lambda j: j["job"]["subjects"][0].update(still="other.png"), "the subject a's keys")
         with_b("b_pieces", lambda j: j["job"]["subjects"][0].update(pieces="largest"), "the subject a's keys")
         with_b("b_form", lambda j: j["job"]["reference"].update(form="plain"), "the form of the reference")
-        with_b("b_zoomed", lambda j: j["loads"][0].update(render_region="part"), "`render_region`", "not built")
+        # a zoom a person asked for is refused; the chain's default zoom (every ordinary load's since 2026-10-14) is set aside (the_job_step)
+        with_b("b_zoomed", lambda j: (j["loads"][0].update(render_region="part"), j["job"].update(zoomed={"why": "WHY", "said_by": "a person", "at": "t"})),
+               "`render_region`", "not built")
         with_b("b_kept", lambda j: j["job"].update(keep_outs={"made": []}), "`keep_outs`", "not built")
         with_b("b_band", lambda j: j["loads"][0].update(hair_band=0.5), "`hair_band`", "not built")
         with_b("b_no_ref", lambda j: j["job"]["reference"].update(made=None), "no head reference made")
@@ -356,6 +358,9 @@ def the_job_step() -> str:
         assert job["texts"] == {"a_two_0106": {"file": "a_two_0106.txt", "frames": [A_FIRST, SHOT_B[1]], "by": ""}}, job["texts"]
         assert [x["first"] for x in job["left_out"]] == [100], "the frames the first load left as the source are no longer said"
         assert "NOT A DEFAULT" in job["note"] and "a_fp_0106" in job["note"] and "[Shot 2]" in job["note"]
+        # THE CASE THAT GOES RED when the chain's default zoom reaches a two-shot load: the node refuses a cut inside a zoomed load
+        assert ordinary["loads"][0].get("render_region") == "part" and ordinary["job"]["zoomed"]["said_by"] == "the chain's default", ordinary["job"].get("zoomed")
+        assert "render_region" not in load and job["whole_frame"]["why"] == tsl.WHOLE_FRAME_WHY and "RENDERED ON THE WHOLE FRAME" in job["note"], (load, job.get("whole_frame"))
         graphs.check_job(job)
         graphs.check_load(job, masked_job.loads_of(d)[0], masked_job.chain_lengths())
         # the joined preview's folder says what it is, and every joined mask is its sources' frames, read back here

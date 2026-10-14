@@ -102,6 +102,11 @@ NOT_BUILT = (("load", "subjects", "a load of two subjects"), ("load", "render_re
              ("load", "audio", "an audio file in place of the source's"), ("load", "parts_mask", "a part mask of the load's own"),
              ("job", "keep_outs", "keep-outs"), ("job", "zoomed", "a load rendered zoomed in"),
              ("job", "who_is_who", "a who-is-who file handed in"), ("job", "two_shots", "a load that is itself of two shots"))
+#: Why a two-shot load is rendered on the whole frame when its two loads were zoomed in by the chain's default alone (the
+#: default of 2026-10-14, `shot_to_load.py`'s job step): the node refuses a cut inside a zoomed load (`video_mask`), and a
+#: two-shot load holds one. A zoom a person asked for (`--zoomed`) is refused as before.
+WHOLE_FRAME_WHY = ("a load of two shots holds a cut, and the node renders a zoomed load only inside one shot: the chain's default zoom of the two "
+                   "loads is set aside, and this load is rendered on the whole frame")
 #: Where a joined reference goes: by the video, the subject and the span, as an ordinary one does, and said to be two shots.
 REFERENCES = "Video/{video}/references/{subject}_{first:04d}_{last:04d}_two_shots"
 #: The keys of a shot table under which every whole number is a frame of the table, at any depth below them.
@@ -265,10 +270,18 @@ def shots_of(shots: dict, a: dict, b: dict) -> tuple[dict, dict]:
     return one, two
 
 
+def zoomed_by_default(ctx: dict) -> bool:
+    """A load zoomed in by the chain's default alone, not on a person's word (`job.zoomed.said_by`)."""
+    return ctx["load"].get("render_region") == "part" and (ctx["job"].get("zoomed") or {}).get("said_by") == "the chain's default"
+
+
 def held_to_each_other(a: dict, b: dict) -> None:
-    """Refuse two ordinary loads that are not one thing made twice: a pair made both ways differs in the window alone."""
+    """Refuse two ordinary loads that are not one thing made twice: a pair made both ways differs in the window alone.
+    A zoom of the chain's default is no person's word and is set aside (`WHOLE_FRAME_WHY`), not refused."""
     for ctx in (a, b):
         for where, key, what in NOT_BUILT:
+            if (where, key) in (("load", "render_region"), ("job", "zoomed")) and zoomed_by_default(ctx):
+                continue
             if key in (ctx["load"] if where == "load" else ctx["job"]):
                 raise Refused(f"the load {ctx['name']} has `{key}` ({what}): a two-shot load of that kind is not built")
     if a["subject"] != b["subject"]:
@@ -368,8 +381,9 @@ def two_shot_job(a: dict, b: dict, name: str, preview_name: str, preview_folder:
     la, lb, ja = a["load"], b["load"], a["job"]
     first, last = la["first"], lb["first"] + lb["frames"] - 1
     cut, shots = lb["first"], [[a["shot"]["first"], a["shot"]["last"]], [b["shot"]["first"], b["shot"]["last"]]]
-    load = {**{k: v for k, v in la.items() if k not in OWN_KEYS}, "name": name, "first": first, "frames": last - first + 1, "subject": a["subject"],
-            "others": list(la.get("others") or []), "text": name, "motion_file": reference["file"], "motion_first": first}
+    load = {**{k: v for k, v in la.items() if k not in OWN_KEYS and k != "render_region"}, "name": name, "first": first, "frames": last - first + 1,
+            "subject": a["subject"], "others": list(la.get("others") or []), "text": name, "motion_file": reference["file"], "motion_first": first}
+    unzoomed = zoomed_by_default(a) or zoomed_by_default(b)
     made_from = [{"name": ctx["name"], "job_file": str(ctx["job_file"]), "first": ctx["load"]["first"], "frames": ctx["load"]["frames"],
                   "preview": ctx["preview"]["name"], "reference": ctx["load"]["motion_file"], "text": str(ctx["text"])} for ctx in (a, b)]
     note = (f"Written by bench/two_shot_load.py for {by}, {now}. TWO NEIGHBOURING SHOTS IN ONE LOAD, NOT A DEFAULT, on {by}'s word: {' '.join(why.split())}. "
@@ -378,11 +392,13 @@ def two_shot_job(a: dict, b: dict, name: str, preview_name: str, preview_folder:
             f"({lb['first']}-{last}): their previews' masks laid end to end as {preview_name} (job.preview), every joined frame held equal to its source's; "
             f"their head references laid end to end, each side with its own box; their settings, which are equal. "
             f"THE TEXT IS NOT WRITTEN: {name}.txt beside this file is a person's, with a [Shot 1] and a [Shot 2], and texts.{name}.by says who wrote it. "
-            f"THE CUT IS {grid['the_cut_is']} of the load ({'; '.join(grid['the_captures_flags']) or 'neither cut flag of the capture has anything to fire on'}).")
+            f"THE CUT IS {grid['the_cut_is']} of the load ({'; '.join(grid['the_captures_flags']) or 'neither cut flag of the capture has anything to fire on'})."
+            + (f" RENDERED ON THE WHOLE FRAME: {WHOLE_FRAME_WHY}." if unzoomed else ""))
     return {"job": {"name": name, "note": note, "source": ja["source"], "first": first, "frames": last - first + 1, "canvas": list(ja["canvas"]), "output": output_key,
                     "subjects": copy.deepcopy(ja["subjects"]), "left_out": list(ja.get("left_out") or []) + list(b["job"].get("left_out") or []),
                     "capture": f"data/{day}_{name}", "preview": preview_folder,
                     "texts": {name: {"file": f"{name}.txt", "frames": [first, last], "by": ""}},
+                    **({"whole_frame": {"why": WHOLE_FRAME_WHY, "said_by": "bench/two_shot_load.py", "at": now}} if unzoomed else {}),
                     "two_shots": {"cut": cut, "shots": shots, "why": " ".join(why.split()), "said_by": by, "at": now, "loads": made_from, "latent_steps_at_the_cut": grid},
                     "reference": {"form": (ja.get("reference") or {}).get("form"), "why": (ja.get("reference") or {}).get("why"), "said_by": by, "made": now,
                                   "record": reference["record"], "laid_end_to_end_from": [ctx["job"]["reference"] for ctx in (a, b)]}},
