@@ -100,6 +100,15 @@ her head" below: the fault was found elsewhere on 2026-10-14.)
   owner's playback. Not started.
 
 **Masked video to video, 2026-10-13: two rows from the day's last hours.**
+- **The who page numbers a shot on one frame only, so a subject who comes back late cannot be clicked where he
+  returns** (2026-10-14, parked by the lead: 14 frames of a far third subject are not worth a card pass today). On
+  the record's shot 4647-4725 the one preview (shot_c_4647b) numbers each tracker's one cut at 4666 only; the third
+  subject is hidden behind the lead on about 4679-4710 and shows again at the right edge from about 4712, where no
+  preview saved a detection. The quarter frames give a frame to say he is there, but no box to seed his tracker.
+  The shape when it is wanted: a preview whose table numbers a frame in 4712-4725 (a card pass), and `who_page`
+  showing, for a frame named on the command line, that preview's numbered picture beside the shot's own, since the
+  page shows one picture a shot today and would drop one (about 40 lines). A plain `--frame` with the two frame
+  buttons is the cheaper half and records presence only.
 - **A zoomed load has one box, so a small face that travels cannot be
   zoomed** (2026-10-13, from the holder of the card on the lead's 168-184).
   The node zooms a load into one box that must hold the subject with its
