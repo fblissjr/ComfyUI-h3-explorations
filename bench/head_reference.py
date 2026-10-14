@@ -259,7 +259,7 @@ def main() -> int:
     a.add_argument("--leave-out", default=FORM_LEAVES_OUT, help=f"parts not drawn, any of {', '.join(faces.PARTS)}; `{FORM_LEAVES_OUT}` when left out, \"\" for none")
     a.add_argument("--dots", action="store_true", help="a dot at every point, and the points that belong to no line; lines only when left out")
     a.add_argument("--iris", default=faces.IRIS_FORMS[0], choices=faces.IRIS_FORMS,
-                   help="an eye ring drawn only between the lids (the default since 2026-10-14), whole (the form before), or the iris filled: a dark disc inside the lids (until a render decides)")
+                   help="an eye ring drawn only between the lids (the default since 2026-10-14), whole (the form before), the iris filled: a dark disc inside the lids, or contrast: the sclera solid white and the iris solid black inside the lids (until a render decides)")
     a.add_argument("--names", help="a json list of the points' names, for a points file made before they were kept")
     a.add_argument("--mesh-first", type=int, help="the source frame of the body-model video's frame 0; the span's first when left out")
     a.add_argument("--points-first", type=int, help="the source frame of the points file's row 0; the file's own when it says")

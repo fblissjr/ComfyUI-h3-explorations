@@ -179,6 +179,18 @@ def in_order_and_as_long() -> str:
 
 def where_the_points_are() -> str:
     rec = df.run(str(MESH), str(POINTS), 0, N, WORK / "a.mp4", "the check", width=WIDE, say=quiet)
+    # a whole run in the contrast form reads back as passed: the sclera's white is left out of what the lines are held to
+    hi = df.run(str(MESH), str(POINTS), 0, N, WORK / "a_contrast.mp4", "the check", width=WIDE, iris="contrast", say=quiet)
+    assert hi["passed"] and hi["eye_rings"]["drawn"] == "contrast", hi["read_back"]
+    pts = df.rows_of(str(POINTS), None, 0, N, None)[0]
+    fills = [df.discs(p, sc, pts["index"], h3_config.POSE_READING["eye_ring_score_at_least"]) for p, sc in zip(pts["keypoints"], pts["scores"])]
+    but = df.filled_px(fills, (W, H))
+    mesh_px = np.stack(list(stream(str(MESH), (W, H), 0, N, pix="rgb24")))
+    with_sclera, without = df.white_at(WORK / "a_contrast.mp4", mesh_px), df.white_at(WORK / "a_contrast.mp4", mesh_px, but=but)
+    inside = lambda found, f: int(but[f][found[f][:, 1].astype(int), found[f][:, 0].astype(int)].sum())      # noqa: E731
+    # THE CASE THAT GOES RED when the sclera's white is read back as a line's
+    assert sum(inside(with_sclera, f) for f in range(N)) > 0 and sum(inside(without, f) for f in range(N)) == 0, "the sclera's white is not left out"
+    assert hi["read_back"]["white_px_a_frame"]["most"] == max(len(v) for v in without), (hi["read_back"]["white_px_a_frame"], max(len(v) for v in without))
     assert rec["passed"] and not rec["read_back"]["no_neighbour_can_be_told_from_the_frame"], rec["read_back"]
     got = white(WORK / "a.mp4", N)
     mids, off = [], []
@@ -456,6 +468,12 @@ def the_iris_between_the_lids() -> str:
     dark = pic.max(-1) < 40
     assert dark[100, 140] and dark[100, 130] and not dark[88, 140] and not dark[112, 140] and not dark[100, 160], "the disc is not dark inside the lids only"
     assert (df.draw(mesh, [[]], 1.0, set(), False, None)[0] == 128).all(), "something was drawn with no fills"
+    # CONTRAST (the owner's word, 2026-10-14): inside the lids the sclera solid white and the iris solid black, after the lines; outside, nothing
+    hi = df.draw(mesh, [[]], 1.0, set(), False, [[("l_iris_disc", iris, lids)]], contrast=True)[0]
+    assert hi[100, 140].max() < 40 and hi[100, 110].min() > 215 and hi[100, 170].min() > 215, "the iris is not black, or the sclera not white, inside the lids"
+    assert (hi[80, 140] == 128).all() and (hi[120, 140] == 128).all() and (hi[100, 190] == 128).all(), "something was filled outside the lids"
+    but = df.filled_px([[("l_iris_disc", iris, lids)]], (W_, H_))
+    assert but[0, 100, 110] and but[0, 100, 140] and not but[0, 80, 140], "the read-back's leave-out is not the lids' inside"
     return (f"a ring larger than a narrow opening is drawn only where it lies between the lids ({off:.2f} of it outside), a ring wholly inside "
             "is drawn closed and one wholly outside not at all; on nearly shut lids the default draws open stretches and `whole` both rings closed")
 
