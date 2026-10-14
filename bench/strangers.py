@@ -20,7 +20,10 @@ touches a subject's own, grown, and holds no body core of its own (the part mode
 torso, arms, legs and clothing, and not a hand, a hat or a prop) is that subject's, and is listed in the record with
 its frame, size and box (`handed_back`; the lead's ruling (A) of 2026-10-14: her hat lifted in her hand at 1164 and her
 mitt's fingertips lay outside her track and her held things; the core, not the face alone, on an outside reviewer's
-point the same day, so another person's arm across her stays a stranger). What is left is the strangers, written as a mask
+point the same day, so another person's arm across her stays a stranger). Her own hair is the one core that can be hers
+past the grow: a piece whose only core is Hair, joined hair pixel by hair pixel to the Hair inside her own, is hers (the
+lead's ruling of 2026-10-14: her flying hair just outside her track was a stranger on 1097c and 1156c). Each piece that
+touches a subject and is kept is listed with the core classes that kept it (`kept_though_touching`). What is left is the strangers, written as a mask
 video on the preview's frames (frame 0 the preview's first) to `bench/shot_to_load.py`'s `KEEP_OUTS_AT` as
 `<preview>_strangers.mkv`, with a record beside it. One file a preview, for every load made from it. A file that is
 there is not replaced: a preview made again is a new name and a new file. A frame where a subject's track is empty
@@ -70,7 +73,10 @@ OWN_FILES = ("held_things", "parts")
 #: touches a subject's own, grown, and holds no body core of its own (`CORE_CLASSES`) is that subject's (`handed_back`; the
 #: lead's ruling (A) of 2026-10-14: on 1156b the tracker left out her hat lifted in her hand at 1164 and her mitt's
 #: fingertips, and her held-things file held none of them).
-OWN_FORM = "each subject's track, held things and parts, grown; and a piece touching them with no body core of its own"
+OWN_FORM = ("each subject's track, held things and parts, grown; and a piece touching them with no body core of its own, or whose only core "
+            "is hair meeting theirs")
+#: The class whose piece is the subject's own when it meets the subject's own hair (the lead's ruling of 2026-10-14).
+HAIR_CLASS = "Hair"
 #: The part model's classes a stranger is known by (`vendor/meta_sapiens2/seg_classes29.json`): a piece holding any of them
 #: stays a stranger, touching a subject or not. The lead's list of 2026-10-14, on an outside reviewer's point: the face,
 #: hair, torso, the arms and the clothing (on 3167 the other woman's chin and face lay against the lead's; a crowd's arm
@@ -124,27 +130,48 @@ def strangers_of(people: np.ndarray, tracks: list[np.ndarray], px: int) -> np.nd
     return out
 
 
-def handed_back(strangers: np.ndarray, own: dict[str, np.ndarray], core: np.ndarray, first: int) -> tuple[np.ndarray, list[dict]]:
+def handed_back(strangers: np.ndarray, own: dict[str, np.ndarray], core: np.ndarray, first: int, hair: np.ndarray | None = None,
+                classes: np.ndarray | None = None, names: tuple | None = None, own_raw: dict | None = None) -> tuple[np.ndarray, list[dict], list[dict]]:
     """Each frame's pieces of `strangers` (8-connected) that touch a subject's own grown (`own`: a label's mask, already
     grown) and hold no pixel of `core` (a body core, `CORE_CLASSES`): taken out, and listed with the subject, the frame,
-    the size and the box."""
+    the size and the box. With `hair` (the whole frame's Hair class) and `own_raw` (each subject's own, not grown): a piece
+    whose only core is Hair, joined by Hair pixels to the Hair inside a subject's own (through the grown band, not by touching
+    it: a stranger's hair lying in the band is no hair of hers), is that subject's too (the lead's ruling of 2026-10-14: the lead's own flying hair
+    just outside her track was a stranger on 1097c and 1156c). Also returned: each piece that touches a subject and is
+    kept as a stranger, with the core classes that kept it (from `classes`, by `names`), so a look sees why."""
     from scipy import ndimage
-    out, given = strangers.copy(), []
+    out, given, kept = strangers.copy(), [], []
+    ring = np.ones((3, 3), bool)
     near = {k: ndimage.binary_dilation(v, structure=np.ones((1, 3, 3), bool)) for k, v in own.items()}
     for i in range(len(strangers)):
-        parts, n = ndimage.label(strangers[i], structure=np.ones((3, 3), bool))
+        parts, n = ndimage.label(strangers[i], structure=ring)
         for j in range(1, n + 1):
             piece = parts == j
-            if (piece & core[i]).any():
-                continue
             touches = [k for k, m in near.items() if (piece & m[i]).any()]
             if not touches:
                 continue
-            out[i] &= ~piece
             ys, xs = np.nonzero(piece)
-            given.append({"subject": touches[0], **({"touches_also": touches[1:]} if touches[1:] else {}), "frame": first + i,
-                          "px": int(piece.sum()), "box": [int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1]})
-    return out, given
+            where = {"frame": first + i, "px": int(piece.sum()), "box": [int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1]}
+            held = piece & core[i]
+            by_hair = []
+            if held.any() and hair is not None and own_raw is not None and not (held & ~hair[i]).any():
+                # her own hair runs on past her track: the piece's hair joined, hair pixel by hair pixel through her grown band, to the
+                # hair inside her own
+                for k in touches:
+                    joined, _ = ndimage.label(hair[i] & (piece | own[k][i]), structure=ring)
+                    theirs = set(np.unique(joined[piece & hair[i]])) - {0}
+                    if theirs & (set(np.unique(joined[own_raw[k][i] & hair[i]])) - {0}):
+                        by_hair.append(k)
+            if held.any() and not by_hair:
+                if classes is not None and names is not None:
+                    counts = np.bincount(classes[i][held], minlength=len(names))
+                    where["core"] = {names[c]: int(v) for c, v in enumerate(counts) if v}
+                kept.append({"touches": touches, **where})
+                continue
+            who = by_hair or touches
+            out[i] &= ~piece
+            given.append({"subject": who[0], **({"touches_also": who[1:]} if who[1:] else {}), **where, **({"by": "its hair meets hers"} if by_hair else {})})
+    return out, given, kept
 
 
 def said_back(given: list[dict]) -> str:
@@ -280,23 +307,26 @@ def run(preview: Path, output: Path, by: str, predict, model: str, say=print) ->
     import capture_masked_run as cap
     names = cap._pack("sapiens2_parts").CLASS_NAMES
     core_ids = [names.index(c) for c in CORE_CLASSES]
-    people, core = np.zeros((n, h, w), bool), np.zeros((n, h, w), bool)
+    people, core, classes = np.zeros((n, h, w), bool), np.zeros((n, h, w), bool), np.zeros((n, h, w), np.uint8)
     got = 0
     for i, pic in enumerate(stream(pjob["source"], (w, h), first, n, vf=FIT.format(w=w, h=h), pix="rgb24")):
         c = predict(pic)
-        people[i], core[i] = c > 0, np.isin(c, core_ids)
+        people[i], core[i], classes[i] = c > 0, np.isin(c, core_ids), c
         got += 1
     if got != n:
         raise Refused(f"{pjob['source']} gave {got} frames from {first} where the preview has {n}: nothing written")
     strangers = strangers_of(people, list(owned.values()), px)
-    strangers, given = handed_back(strangers, {k: grown(v, px) for k, v in owned.items()}, core, first)
+    hair_id = names.index(HAIR_CLASS)
+    strangers, given, kept_touching = handed_back(strangers, {k: grown(v, px) for k, v in owned.items()}, core, first, hair=classes == hair_id,
+                                                  classes=classes, names=names, own_raw=owned)
     out.parent.mkdir(parents=True, exist_ok=True)
     write_mask_video(out, strangers)
     import load_chain
     a = strangers.reshape(n, -1).sum(1)
     record = {"what": "every person the part model finds on the whole frame, less each of the preview's subjects' own grown; bench/strangers.py",
               "taken_out": OWN_FORM, "subjects_own_taken_out": {label: [str(f) for f in v] for label, v in own.items()},
-              "core_classes": list(CORE_CLASSES), "handed_back": given, "handed_back_said": said_back(given),
+              "core_classes": list(CORE_CLASSES), "hair_class": HAIR_CLASS, "handed_back": given, "handed_back_said": said_back(given),
+              "kept_though_touching": kept_touching,
               "preview": pjob["name"], "preview_folder": str(preview), "source": pjob["source"], "source_size": [sw, sh],
               "source_fitted": "cropped to the canvas's shape and scaled, as the lane's loader fits it (_lib.frames.FIT)" if (sw, sh) != (w, h) else "the canvas's size",
               "first_source_frame": first, "frames": n, "canvas": [w, h], "model": model,
@@ -315,7 +345,9 @@ def run(preview: Path, output: Path, by: str, predict, model: str, say=print) ->
                              "a preview made before held things were saved: its subjects' held things are strangers here",
                              "another person's hand, hat or prop alone touching a subject, with no arm, face or clothing of theirs in the piece, is "
                              "handed back to her and regenerated (`handed_back` lists every such piece)",
-                             "a piece of the subject's own body core past her track and grown (her arm beyond the grow) stays a stranger",
+                             "a piece of the subject's own body core past her track and grown (her arm beyond the grow) stays a stranger, but her hair: "
+                             "a piece whose only core is Hair that meets the Hair inside her grown own is hers",
+                             "a stranger's hair touching hers, with no other core of theirs in the piece, is handed back to her and regenerated",
                              "on a frame whose track is held, where the subject moved since",
                              "on a load whose job says another subject's track is not them on named frames (`--track-not`), the pixels under that "
                              "track there are taken out here as that subject's, and are no keep-out of the load: neither a stranger nor an other",

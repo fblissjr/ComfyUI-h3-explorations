@@ -45,8 +45,8 @@ import capture_masked_run as _cap  # noqa: E402
 _NAMES = _cap._pack("sapiens2_parts").CLASS_NAMES
 #: The part model, faked: white is Apparel (a person the core test cannot tell: no core), mid grey a face, dark grey an arm
 #: (`preview(levels=...)`), black nobody.
-FACE, ARM, NOT_CORE = _NAMES.index("Face_Neck"), _NAMES.index("Left_Lower_Arm"), _NAMES.index("Apparel")
-MODEL = lambda pic: np.select([pic[..., 0] > 200, pic[..., 0] > 90, pic[..., 0] > 40], [NOT_CORE, FACE, ARM], 0).astype(np.uint8)  # noqa: E731
+FACE, ARM, NOT_CORE, HAIR = _NAMES.index("Face_Neck"), _NAMES.index("Left_Lower_Arm"), _NAMES.index("Apparel"), _NAMES.index("Hair")
+MODEL = lambda pic: np.select([pic[..., 0] > 200, pic[..., 0] > 90, pic[..., 0] > 40, pic[..., 0] > 15], [NOT_CORE, FACE, ARM, HAIR], 0).astype(np.uint8)  # noqa: E731
 
 
 def refused(fn, *words: str) -> None:
@@ -268,6 +268,42 @@ def a_piece_touching_her_with_no_core_is_hers() -> str:
             "stranger however close")
 
 
+def her_own_hair_past_her_track() -> str:
+    """The lead's ruling of 2026-10-14 on 1097c and 1156c: her flying hair just outside her track was a stranger, since Hair is
+    a body core. A piece whose only core is Hair, meeting the Hair inside her grown own, is hers; one that meets her where she
+    has no hair, or holds another core, stays a stranger, and the record says what kept it."""
+    people, a, b = picture()
+    her_hair = np.zeros_like(a)
+    for i in range(N):
+        her_hair[i, 2:14, 6 + 2 * i:12 + 2 * i] = True      # her hair: the top rows of her track and on up through her grow, as hair runs
+    flying = np.zeros_like(a)
+    for i in range(N):
+        flying[i, 0:2, 6 + 2 * i:12 + 2 * i] = True         # above her, past the grow, touching it: her hair flying
+    other = np.zeros_like(a)
+    other[:, 29 + GROW:29 + GROW + 3, 4:9] = True           # under her, touching her grow where she has no hair: someone's hair
+    neck = np.zeros_like(a)
+    neck[:, 24 + GROW:24 + GROW + 2, 40:46] = True          # under b, touching b's grow: hair with a face in it
+    neck_face = np.zeros_like(a)
+    neck_face[:, 24 + GROW + 1, 40:46] = True
+    people = people | her_hair | flying | other | neck
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        rec = st.run(preview(root, people, {"a": a, "b": b}, levels={30: her_hair | flying | other | (neck & ~neck_face), 128: neck_face}),
+                     root / "output", "s", MODEL, "m", say=lambda *_: None)
+        back = read_mask(rec["file"], (W, H), 0, 0, N)[0]
+    # THE CASE THAT GOES RED when her own hair past her track is a stranger, or a stranger's hair meeting her where she has none is hers
+    assert not (back & flying).any(), "her own hair past her track is a stranger"
+    assert (back & other & ~st.grown(a, GROW)).sum() == (other & ~st.grown(a, GROW)).sum() and (other & ~st.grown(a, GROW)).any(), "hair touching her where she has none was handed back"
+    assert (back & neck & ~st.grown(b, GROW)).any(), "hair with a face in it was handed back"
+    by_hair = [g for g in rec["handed_back"] if g.get("by") == "its hair meets hers"]
+    assert {g["subject"] for g in by_hair} == {"a"} and len(by_hair) == N, rec["handed_back"]
+    kept = rec["kept_though_touching"]
+    assert any(k["touches"] == ["a"] and set(k["core"]) == {"Hair"} for k in kept) and any(k["touches"] == ["b"] and "Face_Neck" in k["core"] for k in kept), kept
+    assert any("hair touching hers" in x for x in rec["cannot_see"]) and rec["hair_class"] == "Hair"
+    return ("her hair past her track, meeting her own hair, is hers; hair touching her where she has none, and hair with a face, stay strangers, "
+            "each with the classes that kept it in the record")
+
+
 def a_lost_track_is_held_a_little() -> str:
     """A blind reader (2026-10-14): a subject who left was held at their last place to the end of the shot, keeping a
     newcomer to that spot out of the strangers file; and the start of a preview was held to the first later frame
@@ -292,4 +328,5 @@ case("it writes over nothing", it_writes_over_nothing)
 case("a lost track is held a little, and no further", a_lost_track_is_held_a_little)
 case("nothing of a subject's own is a stranger", nothing_of_a_subjects_own_is_a_stranger)
 case("a piece touching her with no body core is hers; a face or an arm stays a stranger", a_piece_touching_her_with_no_core_is_hers)
+case("her own hair past her track is hers", her_own_hair_past_her_track)
 sys.exit(finish())
