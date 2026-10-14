@@ -55,6 +55,18 @@ hair band as the fix for 693-703 is now the row "Her hair comes and goes beside
 her head" below: the fault was found elsewhere on 2026-10-14.)
 
 **Masked video to video, 2026-10-14: rows of the day.**
+- **Gaze is a known limit: the render does not follow a horizontal gaze it is shown, and the pose model misses a
+  vertical eye roll** (2026-10-14). On lead_fp_1097b at 1119-1133 her iris sits at +0.25 eye widths to screen right
+  (median, both eyes) and the render's at -0.02; two sweeps with only the reference changed, the iris filled and the
+  iris in contrast (white sclera, black iris), rendered on the whole frame, put it at -0.03 each: the reference's eye
+  form moved nothing by this measure (the lead's `iris_offset.py` on each render's held pose pass;
+  `internal/claude/2026-10-14_mrdrill_scripts/iris_offset_render_iris*_1097_1133.csv`). A zoomed sweep would have
+  rendered on the whole frame (her raised arms on 1097-1104 widen the box), so the zoomed case is open: a load on fewer
+  frames, if the node's box allows. Upstream of the drawing: on lead_fp_1156b's held reference at 1158 and 1160 her
+  eyes roll up with the whites below the iris, and the pose points put the iris centred in an open white eye
+  (mrcircle's sheet `data/2026-10-14_fun_batch_r_inputs/lead_fp_1156b.eyes_1158_1160_1170.jpg`), beside 415's
+  lowering (`internal/claude/2026-10-14_mrtwo_scripts/eyes/findings.md`, section 3). A row, not a job: the zoomed
+  case decides whether the eye form is worth more spend.
 - **On a laughing squint the drawn lids stay open, and the body model's eyes are open under every drawing**
   (2026-10-14, the lead's look at the sheets of the iris drawn between the lids, the lead's 3240-3276). Where
   she squeezes her eyes shut (3247, 3261, 3276) the lid outline stays an open almond: the pose model's lid points
