@@ -133,10 +133,17 @@ def load_plan(path, subjects) -> dict:
             raise SystemExit(f"{path}: `{label}` is not a subject of the shots file ({', '.join(subjects)})")
         if p.get("region") not in REGIONS:
             raise SystemExit(f"{path}: `{label}`: region must be one of {REGIONS}")
-        if "restore" in p and (not isinstance(p["restore"], list) or not p["restore"] or not all(isinstance(c, str) and c for c in p["restore"])
-                               or not str(p.get("restore_by") or "").strip()):
-            raise SystemExit(f"{path}: `{label}`: `restore` is a list of the part model's classes given back to the source on every piece of "
-                             "this subject (bench/delivery_table.py), with `restore_by` saying who asked and why")
+        if "restore" in p:
+            ok = isinstance(p["restore"], list) and p["restore"] and str(p.get("restore_by") or "").strip()
+            for x in p["restore"] if isinstance(p["restore"], list) else []:
+                ok = ok and isinstance(x, dict) and isinstance(x.get("classes"), list) and x["classes"] and all(isinstance(c, str) and c for c in x["classes"]) \
+                    and isinstance(x.get("first"), int) and isinstance(x.get("last"), int) and x["first"] <= x["last"]
+            if not ok:
+                # named frames only: a class map calls her eye makeup Eyeglass on a shot without glasses, and a telephone receiver
+                # too (2026-10-14, the lead's rows 0294d, 1802b and 1575b), so a restore on every row would paste the original back
+                raise SystemExit(f"{path}: `{label}`: `restore` is a list of {{\"classes\": [the part model's classes], \"first\": F, \"last\": L}}, each "
+                                 "given back to the source on the pieces of this subject on those source frames only (bench/delivery_table.py), with "
+                                 "`restore_by` saying who asked and why")
     for label in subjects:
         if label not in d["subjects"]:
             raise SystemExit(f"{path}: no plan for `{label}`")
