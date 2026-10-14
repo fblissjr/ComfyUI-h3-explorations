@@ -49,11 +49,10 @@ the card, and build from what it stops on.
    zoomed; `break_checks.py` and `check_masked_job`; choosing among several
    boxes in one cut; how much of its box a person fills on a who picture.
 
-Carried from 2026-10-12: the hair band stays untested as a fix for the 693-703
-fault until a render draws her hair long enough to reach the keep-out
-(`bench/read_hair_band.py` reads it); the third subject's other shots, face
-only, and 1222-1305 as the first two-subject render on a day the owner can
-look.
+Carried from 2026-10-12: the third subject's other shots, face only, and
+1222-1305 as the first two-subject render on a day the owner can look. (The
+hair band as the fix for 693-703 is now the row "Her hair comes and goes beside
+her head" below: the fault was found elsewhere on 2026-10-14.)
 
 **Masked video to video, 2026-10-13: two rows from the day's last hours.**
 - **A zoomed load has one box, so a small face that travels cannot be
@@ -148,23 +147,31 @@ fixed the same day, said inline below.**
   single pass on the same frames, merged by the delivery, which is what the tools already do and costs a
   second render and a join inside one picture. Nothing is built before the previews of those frames say which
   shots hold three and for how long.
-- **Her long hair flickers at the region's edge on the long kitchen shot in form B** (the owner, 2026-10-12,
-  about 18:49Z, on playback of the joined clip: "look at frame 693 and then 703. you can see its disappearing
-  and filling in, like the mask isnt big enough", and "ghosting artifacts on the left side of mom's hair but
-  its not awful"). Seen on the render's masked copy at 693, 698 and 703
-  (`second_hf_0604_b_window_1_with_mask.mp4`): the still's hair falls past the jaw on the viewer's left, the
-  region's lower edge there is the clothes keep-out giving the margin's cells back, and that edge moves with the
-  clothes mask's pieces frame to frame, so the hair is drawn where the region reaches and cut where it does not.
-  The cost row z10 named (hair to the shoulder line) made visible in motion. QUEUED by the owner's word
-  (2026-10-12, about 18:52Z, in the lead's terminal: "the issue that caused the error - yes, we should build
-  that"): a region for her that keeps out the strap's cells (the patch) and leaves a band for the hair below the
-  jaw on both sides, with the band's edge held still across frames so the hair is not drawn and undrawn at
-  it; a builder change in `bench/masked_job.py` and the region's rules, with a check case and a one-change
-  test on 604-948 beside form B. Not designed yet; the lead owns the design.
-  **Built 2026-10-12** from the lead's design, as a load's `hair_band` (`bench/masked_job.py::hair_band`; a case in
-  `bench/check_masked_job.py`); the strap's patch is not part of it, the band cuts the one keep-out and nothing
-  else. Not tested on 604-948 alone, at the owner's word: it goes into her face-and-hair loads from here and is
-  read on the first that renders, by a session that did not build it. UNTESTED on a render as of its commit.
+- **Her hair comes and goes beside her head on the long kitchen shot (604-948):
+  a keep-out's mis-cut strip, and the band that did not reach it** (2026-10-14,
+  the lead's diagnosis of the owner's annotated frames 689, 693 and 703:
+  `internal/claude/2026-10-14_mrtwo_scripts/hair_0604/findings.md`). The clothes
+  keep-out's track (`data/2026-10-12_second_hf_0604_b/subjects/clothes/`) has a
+  thin strip down the original woman's hair edge. Every cell it touches beside
+  her head is handed back to the source (`video_mask.py`, the keep-out rule), on
+  90 frames of the render, stepping every latent step. **BUILT, NOT LANDED**
+  (worktree branch `hair-band-from-top`, d2591ad5; `bench/masked_job.py` is
+  frozen until the card's first ten renders): the hair band starts at the part
+  box's TOP (`h3_config.MASKED_JOB_HAIR_BAND["starts"]`), so the clothes keep-out
+  is emptied beside the head as well as under it. On that load's own capture, by
+  the plan's rule, every hole cell beside the head on 685-723 regenerates (26112
+  of 26112 px), and no cell is handed back that was not before. 43 frames gain a
+  hole by the enclosure measure: each is the `held` keep-out near her chin (one,
+  the lead's), cells the source kept before too, now enclosed. Open: whether
+  those count, the lead's word; the band is in no plan (taken out of the second
+  subject's plan on 2026-10-13: a load names it itself); a render with it, read
+  by a session that did not build it.
+  WHAT THIS ROW USED TO CLAIM (2026-10-12, the row "Her long hair flickers at the
+  region's edge"): that the region's LOWER edge was the clothes keep-out giving
+  the margin's cells back under the jaw, so the hair was drawn where the region
+  reached and cut where it did not; and that a band under the part (`hair_band`,
+  built that day from the box's bottom) answered it, untested. The hole is
+  beside the head, not under it, and a band from the bottom never reached it.
 - **Nothing prints whether a body model is on its subject.** A preview posed
   the person behind the subject for half a second and every table read the
   same. The node is fixed (`../../bench/results/2026-10-12_body_model_posed_the_other_person.md`);
