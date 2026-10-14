@@ -431,7 +431,20 @@ def part_classes() -> dict:
     return cap._pack("sapiens2_parts").PARTS
 
 
-def part_of(p: dict, subject: str, parts, parts_by, preview: dict, video: str, output: Path, preview_files, classes_of=part_classes) -> tuple[dict | None, str]:
+def parts_on_arg(text: str) -> tuple[int, int, list[str]]:
+    """`FIRST-LAST=NAME[+NAME...]` of `--parts-on`: source frames, and the parts the load's part is on them."""
+    span, sep, names = text.partition("=")
+    try:
+        a, b = (int(v) for v in span.split("-"))
+    except ValueError:
+        raise Refused(f"--parts-on {text!r} is not FIRST-LAST=NAME[+NAME]") from None
+    if not sep or a > b or not names.strip():
+        raise Refused(f"--parts-on {text!r} is not FIRST-LAST=NAME[+NAME]")
+    return a, b, [k for k in names.split("+") if k]
+
+
+def part_of(p: dict, subject: str, parts, parts_by, preview: dict, video: str, output: Path, preview_files, classes_of=part_classes,
+            parts_on: list[tuple[int, int, list[str]]] | None = None) -> tuple[dict | None, str]:
     """A load's own part where it is a SUBSET of its subject's plan parts, as the job file holds it, and the note's
     sentence: nothing when the load names none.
 
@@ -443,17 +456,39 @@ def part_of(p: dict, subject: str, parts, parts_by, preview: dict, video: str, o
     cut of some of them is a part of it. The part is cut from the preview's class map of the subject exactly as a
     keep-out is, and the chain hands the capture that file as the load's part. Refused: a part the plan does not
     name for the subject, a part named twice, every part of the plan (that is the load as it is), no `--parts-by`,
-    and a preview that saved no class map or no part of the subject."""
-    if not parts and not str(parts_by or "").strip():
+    and a preview that saved no class map or no part of the subject.
+
+    A PART THAT CHANGES INSIDE ONE LOAD (`parts_on`, `--parts-on FIRST-LAST=NAME[+NAME]`, 2026-10-14): on those
+    source frames the part is those parts, and on the load's other frames it is `--parts` or the plan's. For the
+    second subject on 1010-1031: face and hair to 1024, her hair alone on 1025-1031 where her head is bowed into her
+    hand, one load and one reference (a load of 1025-1031 alone was under the builder's twelve frames, and a load
+    ending on 1024 put her own hair back inside the shot). The file is cut a frame at a time, each frame with its own
+    classes, and held to the saved part as a whole. Refused besides: a range's parts not some of the plan's, named
+    twice, the same as the load's own elsewhere, or ranges that overlap; whether each lies inside the load is the
+    job's to hold (`load_job`)."""
+    parts_on = list(parts_on or [])
+    if not parts and not parts_on and not str(parts_by or "").strip():
         return None, ""
     by = " ".join(str(parts_by or "").split())
-    names = list(parts or [])
+    if not parts and not parts_on:
+        raise Refused(f"--parts-by {parts_by!r} with no --parts and no --parts-on: the parts are some of the plan's for {subject!r} ({', '.join(p['parts'])})")
+    names = list(parts or p["parts"])
     if not names or len(set(names)) != len(names) or any(k not in p["parts"] for k in names) or not by:
         raise Refused(f"--parts {names!r} with --parts-by {parts_by!r}: the parts are some of the plan's for {subject!r} ({', '.join(p['parts'])}), each once, "
                       "and --parts-by says who chose them for this load and on what")
-    if set(names) == set(p["parts"]):
+    if parts and set(names) == set(p["parts"]):
         raise Refused(f"--parts names every part the plan has for {subject!r} ({', '.join(p['parts'])}): that is the load as it is; leave --parts out")
     names = [k for k in p["parts"] if k in names]                 # the plan's order
+    ons = []
+    for a, b, these in sorted(parts_on):
+        if not these or len(set(these)) != len(these) or any(k not in p["parts"] for k in these):
+            raise Refused(f"--parts-on {a}-{b}={'+'.join(these)}: the parts are some of the plan's for {subject!r} ({', '.join(p['parts'])}), each once")
+        these = [k for k in p["parts"] if k in these]
+        if these == names:
+            raise Refused(f"--parts-on {a}-{b}={'+'.join(these)} is the load's own part on its other frames: leave that range out")
+        if ons and a <= ons[-1]["last"]:
+            raise Refused(f"--parts-on {a}-{b} overlaps {ons[-1]['first']}-{ons[-1]['last']}: one part a frame")
+        ons.append({"first": a, "last": b, "parts": these})
     if preview_files is None:
         raise Refused(f"--parts is given for {subject!r} and the preview's saved files were not handed in: the part is cut from the preview's own class map")
 
@@ -465,12 +500,19 @@ def part_of(p: dict, subject: str, parts, parts_by, preview: dict, video: str, o
         return output / found[0]
     table = classes_of()
     classes = [c for k in names for c in table[k]]
-    file = output / PARTS_AT.format(video=video, preview=preview["name"]) / f"{preview['name']}_{subject}_part_{'_'.join(names)}.mkv"
+    on_words = "".join(f"_{x['first']}-{x['last']}_{'_'.join(x['parts'])}" for x in ons)
+    file = output / PARTS_AT.format(video=video, preview=preview["name"]) / f"{preview['name']}_{subject}_part_{'_'.join(names)}{on_words}.mkv"
     block = {"of": subject, "by": by, "preview": preview["name"], "first": preview["first"], "parts": names, "the_plans_parts": list(p["parts"]),
+             **({"parts_on": ons} if ons else {}),
              "made": [{"name": "part", "track": str(file), "classes": classes, "cut_from": str(saved("classes")), "inside": str(saved("parts")),
-                       "what": "those classes of the preview's class map of the subject; every pixel of it is in the preview's saved part"}]}
-    said = (f" THIS LOAD'S PART IS {' + '.join(names).upper()} ALONE, not the plan's {' + '.join(p['parts'])}, on {by}. It is cut from the preview's class map "
-            f"({' + '.join(classes)}) as a keep-out is, to {file}, and the chain hands the capture that file as the load's part: what the builder loads is what "
+                       **({"classes_on": [{"first": x["first"], "last": x["last"], "classes": [c for k in x["parts"] for c in table[k]]} for x in ons]} if ons else {}),
+                       "what": "those classes of the preview's class map of the subject" + (", a frame at a time where a range says other parts" if ons else "")
+                               + "; every pixel of it is in the preview's saved part"}]}
+    own = (f"THIS LOAD'S PART IS {' + '.join(names).upper()} ALONE, not the plan's {' + '.join(p['parts'])}" if names != list(p["parts"])
+           else f"THIS LOAD'S PART IS THE PLAN'S, {' + '.join(names).upper()}")
+    on_said = "".join(f"; ON {x['first']}-{x['last']} IT IS {' + '.join(x['parts']).upper()} ALONE" for x in ons)
+    said = (f" {own}{on_said}, on {by}. It is cut from the preview's class map ({' + '.join(classes)}" + (", a frame at a time" if ons else "")
+            + f") as a keep-out is, to {file}, and the chain hands the capture that file as the load's part: what the builder loads is what "
             "the capture read. The load's region, its margin and its reference are the plan's, unchanged.")
     return block, said
 
@@ -483,14 +525,19 @@ def part_inside(cut: Path, whole: Path) -> int:
     return int((a & ~b).sum())
 
 
-def cut_keep_out(class_map: Path, classes: list[str], out: Path) -> dict:
+def cut_keep_out(class_map: Path, classes: list[str], out: Path, classes_on: list[dict] | None = None, first: int = 0) -> dict:
     """Write one keep-out: the pixels of a saved class map that carry any of `classes`, as a mask video on the class
-    map's own frames. Figures of what was written."""
+    map's own frames. With `classes_on` ({first, last, classes} in source frames; the class map's frame 0 is source
+    frame `first`) a frame in a range carries that range's classes instead. Figures of what was written."""
     import numpy as np
     import capture_masked_run as cap
     names = cap._pack("sapiens2_parts").CLASS_NAMES
     w, h, n = cap.probe(str(class_map))
-    mask = np.isin(cap.read_classes(str(class_map), (w, h), 0, 0, n), [names.index(c) for c in classes])
+    read = cap.read_classes(str(class_map), (w, h), 0, 0, n)
+    mask = np.isin(read, [names.index(c) for c in classes])
+    for x in classes_on or []:
+        at = slice(max(x["first"] - first, 0), max(min(x["last"] - first + 1, n), 0))
+        mask[at] = np.isin(read[at], [names.index(c) for c in x["classes"]])
     out.parent.mkdir(parents=True, exist_ok=True)
     cap.write_mask_video(out, mask)
     px = mask.reshape(n, -1).sum(1)
@@ -507,20 +554,21 @@ def make_part(part: dict | None, world, cut=cut_keep_out, hashed=None, inside=pa
     lines = []
     for k in (part or {}).get("made", []):
         file = Path(k["track"])
+        on = {"classes_on": k["classes_on"], "first": part["first"]} if k.get("classes_on") else {}
         if world.dry:
             lines.append(f"the load's own part ({' + '.join(part['parts'])}): WOULD BE CUT from {k['cut_from']} ({' + '.join(k['classes'])}) to {file}"
                          + (" (a file is there: held to a fresh cut)" if file.exists() else "") + f", and held to the preview's saved part {k['inside']}")
             continue
         if file.exists():
             again = file.with_name(file.stem + ".cut_again.mkv")
-            cut(Path(k["cut_from"]), k["classes"], again)
+            cut(Path(k["cut_from"]), k["classes"], again, **on)
             same = hashed(str(again)) == hashed(str(file))
             again.unlink()
             if not same:
                 raise Refused(f"{file} is there and is NOT what its classes cut from {k['cut_from']} now: a part of another making. It is read and moved aside by a person")
             lines.append(f"the load's own part ({' + '.join(part['parts'])}): {file} was there, and a cut made again now decodes equal to it on every frame")
             continue
-        got = cut(Path(k["cut_from"]), k["classes"], file)
+        got = cut(Path(k["cut_from"]), k["classes"], file, **on)
         outside = inside(file, Path(k["inside"]))
         if outside:
             file.unlink()
@@ -528,6 +576,7 @@ def make_part(part: dict | None, world, cut=cut_keep_out, hashed=None, inside=pa
                           "part of what the preview saved, so the class map and the part are not of one making. Nothing is kept")
         file.with_suffix(".json").write_text(json.dumps({"what": "a load's own part, some of its subject's parts, cut by bench/shot_to_load.py from a preview's class map",
                                                         "of": part["of"], "parts": part["parts"], "the_plans_parts": part["the_plans_parts"], "by": part["by"],
+                                                        **({"parts_on": part["parts_on"], "classes_on": k["classes_on"]} if k.get("classes_on") else {}),
                                                         "classes": k["classes"], "cut_from": k["cut_from"], "held_to": k["inside"], "px_outside_the_saved_part": 0,
                                                         "preview": part["preview"], "first_source_frame": part["first"], "made_at": load_chain.utc_now(), **got}, indent=1) + "\n")
         lines.append(f"the load's own part ({' + '.join(part['parts'])}): cut {' + '.join(k['classes'])} from {k['cut_from']} to {file}: {got['frames']} frames, on the "
@@ -592,7 +641,8 @@ def free_name(base: str, taken, remake: bool) -> str:
 def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, preview_folder: str, video: str, output: Path, by: str, day: str,
              name: str, first: int | None = None, frames: int | None = None, why: str = "", now: str = "", source: str | None = None,
              why_before: str = "", why_after: str = "", zoomed: str | None = None, least: int | None = None, least_why: str | None = None,
-             preview_files: list[str] | None = None, parts: list[str] | None = None, parts_by: str | None = None, classes_of=part_classes) -> dict:
+             preview_files: list[str] | None = None, parts: list[str] | None = None, parts_by: str | None = None, classes_of=part_classes,
+             parts_on: list[tuple[int, int, list[str]]] | None = None) -> dict:
     """The job file of one subject's load on a shot, from the shot's preview. `preview` is the preview's own job
     block; `source` is the file the load renders from, the video's present copy (the preview's own when left out).
     `parts` with `parts_by` makes the load's part some of its subject's plan parts (`part_of`)."""
@@ -632,7 +682,10 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
     reference = output / REFERENCES.format(video=video, subject=subject, first=a, last=b) / f"{subject}_head_reference_{a:04d}_{b:04d}.mp4"
     load = {"name": name, "first": a, "frames": n, "subject": subject, "others": [k for k in theirs if k != subject], "text": name,
             "motion_file": str(reference), "motion_first": a}
-    part, part_said = part_of(p, subject, parts, parts_by, preview, video, output, preview_files, classes_of)
+    for x, y, _ in parts_on or []:
+        if not (a <= x <= y <= b):
+            raise Refused(f"--parts-on {x}-{y} is not inside the load's frames {a}-{b}")
+    part, part_said = part_of(p, subject, parts, parts_by, preview, video, output, preview_files, classes_of, parts_on)
     kept, kept_said = keep_outs_of(p, subject, preview, list(theirs), video, output, preview_files)
     load["others"] += [k["name"] for k in (kept or {}).get("made", [])]
     band = p.get("hair_band")
@@ -665,6 +718,8 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
     if part:
         mine = next(s for s in subjects if s["label"] == subject)
         mine["parts_file"], mine["parts_of_this_load"], mine["parts_by"] = part["made"][0]["track"], list(part["parts"]), part["by"]
+        if part.get("parts_on"):
+            mine["parts_on"] = part["parts_on"]
     # Two choices about this one load, each a person's with its words, neither with a default.
     chosen, zoom_block = "", None
     if zoomed is not None:
@@ -816,7 +871,8 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
     rel = str(pfolder.resolve().relative_to(REPO.resolve())) if pfolder.resolve().is_relative_to(REPO.resolve()) else str(pfolder)
     job = load_job(shots, plan, shot, a.subject, preview, rel, video, world.output, a.by, a.day, name, a.first, a.frames, a.why or "", load_chain.utc_now(),
                    source=str(source), why_before=a.why_before or "", why_after=a.why_after or "", zoomed=a.zoomed, least=a.least, least_why=a.least_why,
-                   preview_files=ran.get("files") or [], parts=a.parts, parts_by=a.parts_by, classes_of=classes_of)
+                   preview_files=ran.get("files") or [], parts=a.parts, parts_by=a.parts_by, classes_of=classes_of,
+                   parts_on=[parts_on_arg(x) for x in a.parts_on])
     job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "ITS PREVIEW WAS MADE ON AN EARLIER COPY")
     out = folder / f"{name}.json"
     print(f"{name}: {a.subject}, {region}, source frames {job['loads'][0]['first']}-{job['loads'][0]['first'] + job['loads'][0]['frames'] - 1}; "
@@ -972,6 +1028,9 @@ def main() -> int:
     j.add_argument("--parts", nargs="+", metavar="NAME", help="this load's part is these of its subject's plan parts and no other (hair, face_and_neck, ...); "
                    "cut from the preview's class map as a keep-out is, and handed to the capture as the load's part")
     j.add_argument("--parts-by", metavar="WHO", help="who chose these parts for this load, and on what; kept in the job file")
+    j.add_argument("--parts-on", action="append", default=[], metavar="FIRST-LAST=NAME[+NAME]",
+                   help="on these source frames the load's part is these of the plan's parts, and elsewhere --parts or the plan's (a part that changes "
+                        "inside one load); with --parts-by; repeatable")
     j.add_argument("--zoomed", metavar="WHY", help="render this load zoomed in on what is replaced, on a person's word; the reason is kept in the job file")
     j.add_argument("--least", type=int, metavar="PX", help="the capture's floor for the subject's part on this load, in px of the whole frame; with --least-why")
     j.add_argument("--least-why", metavar="WHY", help="why the floor is set there; kept beside it in the job file")

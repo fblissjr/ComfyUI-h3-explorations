@@ -231,7 +231,7 @@ class Made:
 
 def args(**more) -> argparse.Namespace:
     given = dict(by="the session", day="2026-01-03", cast=None, queue=False, first=None, frames=None, why=None, remake=False, plain=None, model_store="",
-                 existing=False, writer=None, why_before=None, why_after=None, zoomed=None, least=None, least_why=None, ask=[], seed_cuts_of=None, parts=None, parts_by=None)
+                 existing=False, writer=None, why_before=None, why_after=None, zoomed=None, least=None, least_why=None, ask=[], seed_cuts_of=None, parts=None, parts_by=None, parts_on=[])
     given.update(more)
     return argparse.Namespace(**given)
 
@@ -844,6 +844,20 @@ def a_load_of_some_of_its_parts() -> str:
                              ({"parts": ["hair"], "parts_by": " "}, "--parts-by says who chose them"), ({"parts": None, "parts_by": why}, "some of the plan's"),
                              ({"parts": ["face_and_neck", "hair"], "parts_by": why}, "that is the load as it is"), ({"parts": ["upper_clothing"], "parts_by": why}, "some of the plan's")):
             refused(lambda w=wrong: made.load(subject="b", name="b_hp_0100", **w), words)
+        # A PART THAT CHANGES INSIDE ONE LOAD (2026-10-14, the second subject's 1010-1031): the plan's parts, and the hair alone on named frames
+        on = made.load(subject="b", name="b_hfp_0100", parts_on=[(110, 120, ["hair"])], parts_by=why)["job"]
+        po, pm = on["part"], on["part"]["made"][0]
+        assert po["parts"] == ["hair", "face_and_neck"] and po["parts_on"] == [{"first": 110, "last": 120, "parts": ["hair"]}], po
+        assert pm["classes_on"] == [{"first": 110, "last": 120, "classes": ["Hair"]}] and pm["track"].endswith("shot_c_0100_b_part_hair_face_and_neck_110-120_hair.mkv"), pm
+        assert next(x for x in on["subjects"] if x["label"] == "b")["parts_on"] == po["parts_on"] and "ON 110-120 IT IS HAIR ALONE" in on["note"] \
+            and "THIS LOAD'S PART IS THE PLAN'S" in on["note"], on["note"]
+        both_on = made.load(subject="b", name="b_hp_0100", parts=["hair"], parts_on=[(130, 139, ["face_and_neck"])], parts_by=why)["job"]["part"]
+        assert both_on["parts"] == ["hair"] and both_on["parts_on"][0]["parts"] == ["face_and_neck"], both_on
+        for wrong, words in (({"parts_on": [(90, 120, ["hair"])]}, "not inside the load's frames"), ({"parts_on": [(110, 120, ["nose"])]}, "some of the plan's"),
+                             ({"parts_on": [(110, 120, ["hair"]), (115, 125, ["hair"])]}, "overlaps"),
+                             ({"parts_on": [(110, 120, ["face_and_neck", "hair"])]}, "is the load's own part on its other frames"),
+                             ({"parts_on": [(110, 120, ["hair"])], "parts_by": ""}, "--parts-by says who chose them")):
+            refused(lambda w=wrong: made.load(subject="b", name="b_hfp_0100", **{"parts_by": why, **w}), words)
         # THE STEP: named by its parts; a dry run cuts nothing; the cut is made and held before the job file is written
         folder = made.preview_ran(made.preview())
         a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="b", preview=str(folder), parts=["hair"], parts_by=why)
@@ -880,6 +894,23 @@ def a_load_of_some_of_its_parts() -> str:
         assert cuts[-1][2].endswith(".cut_again.mkv") and (made.jobs / "b_hp_0100b.json").is_file() and not list((out / "Video/v/parts/shot_c_0100").glob("*cut_again*")), cuts
         refused(lambda: stl.step_job(a, made.m, cut=cut, inside=inside(0), hashed=lambda path: path), "is there and is NOT what its classes cut", "a part of another making")
         assert not (made.jobs / "b_hp_0100c.json").exists()
+        # the step with --parts-on hands the cut each range's classes and the class map's first source frame, and the record keeps them
+        seen_on = []
+
+        def cut_on(class_map, classes, to, classes_on=None, first=None):
+            seen_on.append((tuple(classes), classes_on, first))
+            Path(to).parent.mkdir(parents=True, exist_ok=True)
+            Path(to).write_bytes(b"cut")
+            return {"frames": 60, "size": [64, 48], "frames_with_the_mask": 60, "px_most": 9}
+        b2 = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="b", preview=str(folder), parts_by=why,
+                  parts_on=["110-120=hair"])
+        stl.step_job(b2, made.m, cut=cut_on, inside=inside(0))
+        assert seen_on == [(tuple(c for k in ("hair", "face_and_neck") for c in stl.part_classes()[k]), [{"first": 110, "last": 120, "classes": ["Hair"]}], 100)], seen_on
+        rec_on = json.loads((out / "Video/v/parts/shot_c_0100/shot_c_0100_b_part_hair_face_and_neck_110-120_hair.json").read_text())
+        assert rec_on["parts_on"] == [{"first": 110, "last": 120, "parts": ["hair"]}] and rec_on["classes_on"][0]["classes"] == ["Hair"], rec_on
+        assert json.loads((made.jobs / "b_hfp_0100.json").read_text())["job"]["part"]["parts_on"][0]["first"] == 110
+        (made.jobs / "b_hfp_0100.json").unlink()
+        refused(lambda: stl.step_job(args(**{**vars(b2), "parts_on": ["110=hair"]}), made.m, cut=cut_on, inside=inside(0)), "not FIRST-LAST=NAME")
         # a load of the same subject with no --parts is as it ever was, on the same preview
         a.parts, a.parts_by, a.remake = None, None, False
         stl.step_job(a, made.m, cut=cut, inside=inside(0))
@@ -898,6 +929,13 @@ def a_load_of_some_of_its_parts() -> str:
         assert enc.returncode == 0 and (cap.read_classes(str(video), (64, 48), 0, 0, 3) == cmap).all(), "the class map did not come back as written"
         table = stl.part_classes()
         both = np.isin(cmap, [names.index(c) for k in ("hair", "face_and_neck") for c in table[k]])
+        # a frame inside a range carries that range's classes: frame 1 of a class map whose frame 0 is source frame 100 is source frame 101
+        changing = Path(tmp) / "changing.mkv"
+        stl.cut_keep_out(video, [c for k in ("hair", "face_and_neck") for c in table[k]], changing, classes_on=[{"first": 101, "last": 101, "classes": list(table["hair"])}], first=100)
+        got_on = read_mask(str(changing), (64, 48), 0, 0, 3)[0]
+        only_hair = np.isin(cmap, [names.index(c) for c in table["hair"]])
+        assert (got_on[0] == both[0]).all() and (got_on[2] == both[2]).all() and (got_on[1] == only_hair[1]).all() and not (got_on[1] == both[1]).all(), \
+            "a frame in a range is not cut by the range's classes alone, or a frame outside it is"
         cap.write_mask_video(whole, both)                                  # the preview's saved part: the plan's two parts, as the part node saves them
         got = stl.cut_keep_out(video, list(table["hair"]), hair)
         back = read_mask(str(hair), (64, 48), 0, 0, 3)[0]
