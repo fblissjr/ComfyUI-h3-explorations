@@ -55,6 +55,17 @@ hair band as the fix for 693-703 is now the row "Her hair comes and goes beside
 her head" below: the fault was found elsewhere on 2026-10-14.)
 
 **Masked video to video, 2026-10-14: rows of the day.**
+- **The reference draws her eyes open where she laughs with them shut**
+  (2026-10-14, the lead, from `lead_fp_3167`'s blind reading,
+  `data/2026-10-14_lead_fp_3167/look_blind/reading.md`). On 3167-3213 the
+  held reference draws the lead's eyes open on all 47 frames while she laughs
+  with her eyes shut. Likely, NOT VERIFIED: the pose model's lid points on a
+  face about 109 px tall (the held pass's median, 2026-10-14) do not close.
+  The same kind of fault as the second subject's eyes that do not look down
+  (the owner's "wrong" on three pieces of 10/12); her test on 484-515 is the
+  next reading. Wanted, once that test is read: the eye opening the drawing
+  uses, against the original's on the same frames, as a figure a frame
+  (`bench/_lib/face_points.py::eye_opening`). A row only. Not started.
 - **The drawing of a face in profile draws the far side and stray lines**
   (2026-10-14, the lead, from the card's sheet of the held reference of
   `lead_fp_1466b` and its blind reading,
