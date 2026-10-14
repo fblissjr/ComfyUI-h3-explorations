@@ -341,6 +341,51 @@ def a_loads_keep_outs() -> str:
             "names and the load does not keep out, one kept out with no file, and a file that is not there are refused")
 
 
+
+def a_banded_keep_out_on_the_plan() -> str:
+    """second_hfp_0484 (2026-10-14): the capture on the plan was handed the clothes keep-out whole while the plan graph
+    read it with the hair band cut out, and the gate's region over another subject counted the band's own cells
+    (0.403 of the whole mask at most; 0.000 of the cut one)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        keeps = made.m.output / "Video/v/keep_outs/pv"
+        keeps.mkdir(parents=True)
+        kept = [{"name": "clothes", "track": str(keeps / "pv_a_clothes.mkv"), "classes": ["Apparel"]}]
+        Path(kept[0]["track"]).write_bytes(b"")
+        made.job["keep_outs"] = {"of": "a", "by": "the plan (a person)", "preview": "pv", "first": 100, "made": kept}
+        made.load["others"] = ["b", "clothes"]
+        made.load["hair_band"] = 0.6
+        made.write()
+        ctx = made.ctx()
+        # the first capture, before any plan, is handed the keep-out whole, from the preview's first frame
+        lc.step_first(ctx, made.m, args())
+        assert f"clothes:track={kept[0]['track']},by=pv,at=100" in made.m.said("files first"), made.m.said("files first")
+        made.capture(on_plan=False)
+        made.planned()
+        windows = lc.plan_windows(ctx, made.m.output)
+        windows.mkdir(parents=True)
+        (windows / "ld_plan.json").write_text("{}")
+        (made.root / "data/2026-01-03_ld_job/ld.who_is_who.json").write_text("{}")
+        made.m.ran.clear()
+        refused(lambda: lc.step_on_plan(made.ctx(), made.m, args(), hashed=lambda path: "h"), "has a hair band", "the plan step writes it")
+        band = made.root / "data/2026-01-03_ld_job/ld.plan.clothes_less_hair_band.mkv"
+        band.write_bytes(b"")
+        lc.step_on_plan(made.ctx(), made.m, args(), hashed=lambda path: "h")
+        on_plan = made.m.said("files on plan")
+        assert f"clothes:track={band},by=pv,at=110" in on_plan and kept[0]["track"] not in " ".join(map(str, on_plan)), on_plan
+        # a load with no band is handed its keep-out whole on the plan as well
+        del made.load["hair_band"]
+        made.write()
+        assert lc.plan_band_file(made.ctx()) is None
+        assert lc.mask_specs(made.ctx(), lc.preview_files(made.ctx(), made.m.output), None)[-1] == f"clothes:track={kept[0]['track']},by=pv,at=100"
+        # the band file holds the load's frames only: a load shorter than its capture is refused
+        made.load["hair_band"] = 0.6
+        made.load["frames"] = 19
+        made.write()
+        refused(lambda: lc.plan_band_file(made.ctx()), "holds the load's frames only")
+    return ("on the plan, the keep-out a load's hair band cuts reaches the capture as the plan's own cut file from the load's first frame; at first, "
+            "and with no band, it is handed whole; a band file that is not there, and a load shorter than its capture, are refused")
+
 def the_first_step() -> str:
     with tempfile.TemporaryDirectory() as tmp:
         made = Made(Path(tmp))
@@ -870,6 +915,7 @@ def the_page_step() -> str:
 case("the job file and the preview it names", the_job_file_and_its_preview)
 case("a mask's at is the preview's first frame", a_masks_at_is_the_previews_first_frame)
 case("a load's keep-outs reach its capture", a_loads_keep_outs)
+case("a banded keep-out reaches the capture on the plan as the plan cut it", a_banded_keep_out_on_the_plan)
 case("first: who is who, the first capture, its strip under _first", the_first_step)
 case("a kept output is not replaced, and a step has its own help", a_kept_output_is_not_replaced_and_a_step_has_its_own_help)
 case("plan: built and queued on an empty queue, once", the_plan_step)

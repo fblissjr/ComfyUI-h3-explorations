@@ -253,9 +253,15 @@ def preview_files(ctx: dict, output: Path) -> dict:
     return out
 
 
-def mask_specs(ctx: dict, files: dict) -> list[str]:
+def mask_specs(ctx: dict, files: dict, band: Path | None = None) -> list[str]:
     """The `--mask` of every preview subject for a capture of this load: the load's subject with its part, class map,
     shot table and (unless its job says `pose: false`) its pose table; every other with its track and shot table.
+
+    `band`: on the plan, the keep-out the load's hair band cuts is handed as the plan's own cut file
+    (`plan_band_file`), so the capture reads the mask the builder rendered with. Until 2026-10-14 it was handed
+    whole, and the gate's `region_over_another_subject` counted the band's own cells: on second_hfp_0484 the
+    region covered 0.403 of the whole clothes mask at most, every covered cell inside the band, and 0.000 of the
+    cut one.
 
     `at`, `shots_at` and `pose_at` are THE PREVIEW'S first frame: the source frame its files' frame 0 is on. The
     scripts this replaces passed the capture's own first frame, which is the same number only when a load begins
@@ -288,11 +294,40 @@ def mask_specs(ctx: dict, files: dict) -> list[str]:
             if key in ctx["subject_keys"]:
                 spec += f",{key}={ctx['subject_keys'][key]}"
         out.append(spec)
+    cuts = band_cuts(ctx) if band is not None else None
     for name, track in ctx.get("keep_outs") or []:
         if not track.is_file():
             raise Refused(f"the keep-out {name!r} is named at {track}, which is not a file: `bench/shot_to_load.py job` makes it when it writes the job file")
+        if name == cuts:                       # the band file's frame 0 is the load's first frame
+            out.append(f"{name}:track={band},by={by},at={ctx['load']['first']}")
+            continue
         out.append(f"{name}:track={track},by={by},at={at}")
     return out
+
+
+def band_cuts(ctx: dict) -> str | None:
+    """The keep-out the load's hair band is cut out of; None for a load with no band."""
+    if "hair_band" not in ctx["load"]:
+        return None
+    import h3_config
+    return ctx["load"].get("hair_band_cuts", h3_config.MASKED_JOB_HAIR_BAND["cuts"])
+
+
+def plan_band_file(ctx: dict) -> Path | None:
+    """The plan's cut keep-out (`masked_job.hair_band` writes it when the plan is built); None for a load with no band.
+    Refused when the load has a band and the file is not there, or when the load is not the capture's whole span:
+    the file holds the load's frames only, and the capture's frames outside them would read as no keep-out."""
+    cuts = band_cuts(ctx)
+    if cuts is None:
+        return None
+    path = ctx["job_folder"] / f"{ctx['name']}.plan.{cuts}_less_hair_band.mkv"
+    if not path.is_file():
+        raise Refused(f"the load has a hair band and the plan's cut keep-out {path} is not there: the plan step writes it")
+    load, job = ctx["load"], ctx["job"]
+    if (int(load["first"]), int(load["frames"])) != (int(job["first"]), int(job["frames"])):
+        raise Refused(f"the load is on {load['first']}+{load['frames']} and its capture on {job['first']}+{job['frames']}: the band file "
+                      "holds the load's frames only")
+    return path
 
 
 def others_of(ctx: dict) -> list[str]:
@@ -775,10 +810,10 @@ def tool(world, name: str) -> list[str]:
     return [world.python, f"bench/{name}"]
 
 
-def capture_args(ctx: dict, world, files: dict) -> list[str]:
+def capture_args(ctx: dict, world, files: dict, band: Path | None = None) -> list[str]:
     job = ctx["job"]
     out = ["--folder", ctx["capture"], "--source", job["source"], "--first", job["first"], "--frames", job["frames"]]
-    for spec in mask_specs(ctx, files):
+    for spec in mask_specs(ctx, files, band):
         out += ["--mask", spec]
     return out
 
@@ -896,6 +931,7 @@ def step_on_plan(ctx: dict, world, a, hashed=frame_hash) -> tuple[int, str]:
         raise Refused(f"{plan_graph} is not there")
     empty_queue(world, "the capture is built again in place, and a queued graph may be reading its masks")
     files, voice = preview_files(ctx, world.output), voice_for(ctx, world)
+    band = plan_band_file(ctx)
     who = who_is_who_file(ctx, world, files) if ctx["job"].get("who_is_who") else ctx["job_folder"] / f"{ctx['name']}.who_is_who.json"
     if not who.is_file() and not world.dry:
         raise Refused(f"{who} is not there: the first step, which makes it, has not run for this job folder")
@@ -911,7 +947,7 @@ def step_on_plan(ctx: dict, world, a, hashed=frame_hash) -> tuple[int, str]:
             raise Refused(f"the copy {first.name} is not the capture it was copied from ({'; '.join(differs[:4])}): nothing was overwritten")
         print(f"--- copied {cap.name} to {first.name}; the copy holds the same files with the same bytes", flush=True)
     run = f"{ctx['name']}:preview={windows},subject={ctx['subject']}" + (f",others={'+'.join(others_of(ctx))}" if others_of(ctx) else "") + f",at={ctx['load']['first']}"
-    world.run(ctx, "files on plan", tool(world, "capture_masked_run.py") + ["files"] + capture_args(ctx, world, files)
+    world.run(ctx, "files on plan", tool(world, "capture_masked_run.py") + ["files"] + capture_args(ctx, world, files, band)
               + ["--run", run, "--voice", voice["per_frame"], "--made-by", a.by, "--overwrite"])
     return gate_and_strip(ctx, world, a.by, who, voice)
 

@@ -765,9 +765,10 @@ def band_lines(band: dict | None) -> list[str]:
     if band is None:
         return []
     fig = band["figures"]
-    where = "from the part box's top, beside the head and under it" if fig.get("starts_at_the_part_boxs") == "top" else "under the part"
-    return [f"hair band: the keep-out `{fig['cut_out_of']}` is cut by a band {where}, {fig['band_px_median']['deep']:.0f} px deep "
-            f"({fig['share_of_the_parts_height']:g} of the part's height of {fig['part_height_px_median']:.0f} px) and "
+    share, tall = fig["share_of_the_parts_height"], fig["part_height_px_median"]
+    reach = f"{share:g} of the part's height of {tall:.0f} px under the part"
+    where = (f"from the part box's top, beside the head and under it, to {reach}" if fig.get("starts_at_the_part_boxs") == "top" else f"under the part, {reach}")
+    return [f"hair band: the keep-out `{fig['cut_out_of']}` is cut by a band {where}: {fig['band_px_median']['deep']:.0f} px deep and "
             f"{fig['band_px_median']['wide']:.0f} px wide at the median, on {fig['frames_with_a_band']} of the load's frames, its box the median over "
             f"{fig['the_box_is_the_median_over_frames']} frames; the mask's own pixels ({fig['mask_size'][0]}x{fig['mask_size'][1]}); "
             f"written to {Path(fig['file']).name}. {fig['tested_on_a_render']}"]
