@@ -17,10 +17,11 @@ part model reaches past the tracker's edge on a subject's own body. What is left
 video on the preview's frames (frame 0 the preview's first) to `bench/shot_to_load.py`'s `KEEP_OUTS_AT` as
 `<preview>_strangers.mkv`, with a record beside it. One file a preview, for every load made from it. A file that is
 there is not replaced: a preview made again is a new name and a new file. A frame where a subject's track is empty
-(the tracker lost them) is held to that track's last frame with one, as the pose pass holds its box, and the record
-lists those frames: an empty track would make the subject a stranger to their own load. A track not of the canvas's
-size is refused. The job step takes the file only with its record, held to the preview it is loading from
-(`held_to_its_record`).
+(the tracker lost them) is held to the nearest frame with one when it is at most `hold_frames` away (`held_track`),
+and left empty beyond, where a subject has left; the record lists both. A track empty on every frame, or not of the
+canvas's size or length, is refused. The record holds a hash of the file's frames: the job step takes it only with a
+record of the preview it is loading from that hashes its frames (`held_to_its_record`), and writes that hash into the
+job file, where the chain holds the capture's copy to it (`load_chain.mask_specs`).
 
 **How a load uses it.** A plan's `keep_outs` naming `strangers` makes the job step (`bench/shot_to_load.py job`)
 look for this file, name it among the load's `others` (the capture's keep-outs: a cell a stranger touches is the
@@ -69,22 +70,25 @@ def grown(masks: np.ndarray, px: int) -> np.ndarray:
     return np.stack([cv2.dilate(m.astype(np.uint8), disc).astype(bool) for m in masks])
 
 
-def held_track(track: np.ndarray) -> tuple[np.ndarray, list[int]]:
-    """A track with each empty frame held to the last frame before it that has one (the first after it, at the start),
-    as the pose pass holds its box; and the indices of the frames held. A tracker that lost its subject on a frame
-    would otherwise make the subject a stranger there, and hold the subject's part to nothing."""
-    out, held = track.copy(), []
+def held_track(track: np.ndarray, reach: int | None = None) -> tuple[np.ndarray, list[int], list[int]]:
+    """A track with each empty frame held to the nearest frame that has one, before it (or, at the start, after it),
+    when that frame is at most `reach` frames away (`h3_config.MASKED_STRANGERS["hold_frames"]`); and the indices of
+    the frames held, and of the frames left empty. A tracker that drops its subject for a moment would otherwise make
+    them a stranger there and hold their part to nothing; a track empty for longer is a subject who left. Refused by
+    the callers: a track empty on every frame."""
+    reach = int(h3_config.MASKED_STRANGERS["hold_frames"]) if reach is None else reach
+    out, held, empty = track.copy(), [], []
     has = track.reshape(len(track), -1).any(1)
-    if not has.any():
-        return out, list(range(len(track)))
-    last = int(np.argmax(has))
-    for i in range(len(track)):
-        if has[i]:
-            last = i
+    on = np.nonzero(has)[0]
+    for i in np.nonzero(~has)[0]:
+        before, after = on[on < i], on[on > i]
+        src = before[-1] if len(before) else (after[0] if len(after) else None)
+        if src is not None and abs(int(src) - int(i)) <= reach:
+            out[i] = track[src]
+            held.append(int(i))
         else:
-            out[i] = track[last]
-            held.append(i)
-    return out, held
+            empty.append(int(i))
+    return out, held, empty
 
 
 def strangers_of(people: np.ndarray, tracks: list[np.ndarray], px: int) -> np.ndarray:
@@ -137,9 +141,15 @@ def held_to_its_record(path: Path, preview: str, first: int, frames: int, tracks
     r = json.loads(rec.read_text())
     out = []
     for key, want in (("preview", preview), ("first_source_frame", first), ("frames", frames), ("grow_px", int(h3_config.MASKED_STRANGERS["grow_px"])),
-                      ("subjects_taken_out", tracks), ("file", str(path))):
+                      ("hold_frames", int(h3_config.MASKED_STRANGERS["hold_frames"])), ("subjects_taken_out", tracks), ("file", str(path))):
         if r.get(key) != want:
             out.append(f"its record's {key} is {r.get(key)!r}, and this load's is {want!r}")
+    if not r.get("frame_hash"):
+        out.append("its record holds no hash of its frames (made before 2026-10-14's second mend): it is made again")
+    elif not out:
+        import load_chain
+        if load_chain.frame_hash(str(path)) != r["frame_hash"]:
+            out.append("its frames are not the ones its record hashed: changed since it was made")
     return out
 
 def seg_model(folder: str):
@@ -167,10 +177,17 @@ def run(preview: Path, output: Path, by: str, predict, model: str, say=print) ->
         raise Refused(f"{out} is there: one strangers file a preview, never replaced. A preview made again has a new name")
     tracks = tracks_of(pjob, files, output)
     (w, h), first, n = pjob["canvas"], int(pjob["first"]), int(pjob["frames"])
+    held, gone, empty = {}, {}, {}
     for label, t in tracks.items():
         tw, th, tn = probe(str(t))
         if (tw, th) != (w, h) or tn < n:
             raise Refused(f"{label}'s track {t.name} is {tw}x{th} with {tn} frames, and the preview's canvas is {w}x{h} on {n} frames: nothing written")
+        mask = read_mask(str(t), (w, h), first, first, n)[0]
+        if not mask.any():
+            raise Refused(f"{label}'s track {t.name} is empty on every frame: the tracker never held them, and they would be a stranger throughout. "
+                          "Nothing written")
+        held[label], h_i, e_i = held_track(mask)
+        gone[label], empty[label] = [first + i for i in h_i], [first + i for i in e_i]
     sw, sh, _ = probe(pjob["source"])
     px = int(h3_config.MASKED_STRANGERS["grow_px"])
     people = np.zeros((n, h, w), bool)
@@ -180,30 +197,35 @@ def run(preview: Path, output: Path, by: str, predict, model: str, say=print) ->
         got += 1
     if got != n:
         raise Refused(f"{pjob['source']} gave {got} frames from {first} where the preview has {n}: nothing written")
-    held, empty = {}, {}
-    for label, t in tracks.items():
-        held[label], gone = held_track(read_mask(str(t), (w, h), first, first, n)[0])
-        empty[label] = [first + i for i in gone]
     strangers = strangers_of(people, list(held.values()), px)
     out.parent.mkdir(parents=True, exist_ok=True)
     write_mask_video(out, strangers)
+    import load_chain
     a = strangers.reshape(n, -1).sum(1)
     record = {"what": "every person the part model finds on the whole frame, less each of the preview's subjects' tracks grown; bench/strangers.py",
               "preview": pjob["name"], "preview_folder": str(preview), "source": pjob["source"], "source_size": [sw, sh],
               "source_fitted": "cropped to the canvas's shape and scaled, as the lane's loader fits it (_lib.frames.FIT)" if (sw, sh) != (w, h) else "the canvas's size",
               "first_source_frame": first, "frames": n, "canvas": [w, h], "model": model,
               "grow_px": px, "grow_is": "h3_config.MASKED_STRANGERS, a starting value measured on two shots",
+              "hold_frames": int(h3_config.MASKED_STRANGERS["hold_frames"]),
               "subjects_taken_out": {label: str(t) for label, t in tracks.items()},
-              "frames_a_track_is_empty_and_held": {k: v for k, v in empty.items() if v},
-              "empty_tracks_are": "held to the last frame before with one (the first after, at the start), as the pose pass holds its box",
+              "frames_a_track_is_empty_and_held": {k: v for k, v in gone.items() if v},
+              "frames_a_track_is_empty_and_left_empty": {k: v for k, v in empty.items() if v},
+              "empty_tracks_are": (f"held to the nearest frame with one, before (after, at the start), when it is at most "
+                                   f"{h3_config.MASKED_STRANGERS['hold_frames']} frames away; left empty beyond, where the subject's own body is a stranger"),
               "figures": {"people_px_a_frame_median": int(np.median(people.reshape(n, -1).sum(1))), "strangers_px_a_frame_median": int(np.median(a)),
                           "strangers_px_most": int(a.max()), "frames_with_a_stranger": int((a > 0).sum())},
               "cannot_see": ["a person the part model does not find stays regenerable",
                              "a person in the shot the preview did not track (a subject the shots record is unsure of) is a stranger here",
                              f"a subject's own pixels more than {px} px off their track (an arm the tracker cut off) are a stranger here",
                              "on a frame whose track is held, where the subject moved since",
+                             "on a load whose job says another subject's track is not them on named frames (`--track-not`), the pixels under that "
+                             "track there are taken out here as that subject's, and are no keep-out of the load: neither a stranger nor an other",
                              "how a stranger left as the source reads at the region's edge",
                              "frames_with_a_stranger counts a frame with a single pixel"],
+              "frame_hash": load_chain.frame_hash(str(out)), "canvas_of_the_file": [w, h],
+              "made_on_the_copy": "the preview's own source; a load renders from the video's present copy, which bench/shot_to_load.py holds to the "
+                                  "same frame clock (`working_copy`)",
               "commit": subprocess.run(["git", "-C", str(REPO), "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip(),
               "made_by": by, "made_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "file": str(out)}
     out.with_suffix(".json").write_text(json.dumps(record, indent=1) + "\n")

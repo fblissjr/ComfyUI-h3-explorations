@@ -853,7 +853,7 @@ def a_plan_that_keeps_the_strangers_out() -> str:
         a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="a", preview=str(folder))
         holds, cuts = [], []
 
-        def hold(part, track, grow, to):
+        def hold(part, track, grow, to, first=0):
             holds.append((Path(part).name, Path(track).name, grow, Path(to).name))
             Path(to).parent.mkdir(parents=True, exist_ok=True)
             Path(to).write_bytes(b"held")
@@ -865,14 +865,25 @@ def a_plan_that_keeps_the_strangers_out() -> str:
             Path(to).parent.mkdir(parents=True, exist_ok=True)
             Path(to).write_bytes(b"cut")
             return {"frames": 60, "size": [64, 48], "frames_with_the_mask": 60, "px_most": 9}
+        # the track the part is held to: empty on every frame is refused before anything is written
+        canvas = tuple(made.preview(100)["job"]["canvas"])
+        a_track = Path(kept["strangers"]["tracks"]["a"])
+        write_mask_video(a_track, np.zeros((60, canvas[1], canvas[0]), bool))
+        refused(lambda: stl.step_job(a, made.m, hold=hold, cut=cut), "empty on every frame", "Nothing is written")
+        on = np.zeros((60, canvas[1], canvas[0]), bool)
+        on[:, 10:40, 10:40] = True
+        write_mask_video(a_track, on)
         refused(lambda: stl.step_job(a, made.m, hold=hold, cut=cut), "shot_c_0100_strangers.mkv is not there", "bench/strangers.py run --preview", "Nothing is written")
         assert not holds and not cuts and not held.exists() and not list(made.jobs.glob("*.json")), "something was written for a load the job step refused"
         want.parent.mkdir(parents=True, exist_ok=True)
-        want.write_bytes(b"")
+        write_mask_video(want, ~on)
         refused(lambda: stl.step_job(a, made.m, hold=hold, cut=cut), "is not there beside it")
         tracks = kept["strangers"]["tracks"]
-        record = {"preview": "shot_c_0100", "first_source_frame": 100, "frames": 60, "grow_px": px, "subjects_taken_out": tracks, "file": str(want)}
-        for wrong, words in (({"preview": "shot_c_0099"}, "record's preview"), ({"grow_px": px + 1}, "record's grow_px"),
+        record = {"preview": "shot_c_0100", "first_source_frame": 100, "frames": 60, "grow_px": px, "hold_frames": int(h3_config.MASKED_STRANGERS["hold_frames"]),
+                  "subjects_taken_out": tracks, "file": str(want), "frame_hash": lc.frame_hash(str(want))}
+        for wrong, words in (({"preview": "shot_c_0099"}, "record's preview"), ({"grow_px": px + 1}, "record's grow_px"), ({"frames": 59}, "record's frames"),
+                             ({"file": str(want) + ".elsewhere"}, "record's file"), ({"frame_hash": None}, "holds no hash of its frames"),
+                             ({"frame_hash": "0" * 32}, "not the ones its record hashed"),
                              ({"subjects_taken_out": {"a": tracks["a"]}}, "record's subjects_taken_out")):
             want.with_suffix(".json").write_text(json.dumps({**record, **wrong}))
             refused(lambda: stl.step_job(a, made.m, hold=hold, cut=cut), words)
@@ -880,6 +891,9 @@ def a_plan_that_keeps_the_strangers_out() -> str:
         want.with_suffix(".json").write_text(json.dumps(record))
         stl.step_job(a, made.m, hold=hold, cut=cut)
         assert holds and holds[-1][1:] == ("shot_c_0100_a_track_00001.mkv", px, held.name) and cuts == ["shot_c_0100_a_hands.mkv"], (holds, cuts)
+        # the job carries the hash its strangers file was held to: the chain holds the capture's copy to it
+        written = json.loads((made.jobs / "a_fp_0100.json").read_text())
+        assert next(k for k in written["job"]["keep_outs"]["made"] if k["name"] == "strangers")["frame_hash"] == record["frame_hash"], written["job"]["keep_outs"]
         assert json.loads(held.with_suffix(".json").read_text())["grow_px"] == px
         # a held part that is there is held to a fresh making; one of another making is refused
         a.remake = True
@@ -889,16 +903,21 @@ def a_plan_that_keeps_the_strangers_out() -> str:
         # THE HOLD ITSELF, on masks: beyond the grow is taken off, within it stays, and a frame whose track is empty is held to the frame before
         part, track = np.zeros((3, 48, 64), bool), np.zeros((3, 48, 64), bool)
         track[:2, 10:30, 10:30] = True
+        write_mask_video(Path(tmp) / "short.mkv", track[:2])
+        write_mask_video(Path(tmp) / "p3.mkv", part)
+        refused(lambda: stl.hold_to_track(Path(tmp) / "p3.mkv", Path(tmp) / "short.mkv", px, Path(tmp) / "x.mkv"), "they are not of one preview")
+        write_mask_video(Path(tmp) / "small.mkv", np.ones((3, 24, 32), bool))
+        refused(lambda: stl.hold_to_track(Path(tmp) / "p3.mkv", Path(tmp) / "small.mkv", px, Path(tmp) / "x.mkv"), "they are not of one preview")
         part[:, 12:20, 12:20] = True
         part[:, 10:12, 30 + px - 1] = True                   # exactly the grow off the track's edge: kept
         part[:, 14:16, 30 + px] = True                       # a pixel further: taken off
         part[:, 40:44, 50:60] = True                         # far off it: taken off
         for m, f in ((part, "p.mkv"), (track, "t.mkv")):
             write_mask_video(Path(tmp) / f, m)
-        got = stl.hold_to_track(Path(tmp) / "p.mkv", Path(tmp) / "t.mkv", px, Path(tmp) / "held.mkv")
+        got = stl.hold_to_track(Path(tmp) / "p.mkv", Path(tmp) / "t.mkv", px, Path(tmp) / "held.mkv", first=500)
         back = read_mask(str(Path(tmp) / "held.mkv"), (64, 48), 0, 0, 3)[0]
         assert back[:, 12:20, 12:20].all() and back[:, 10:12, 30 + px - 1].all() and not back[:, 14:16, 30 + px].any() and not back[:, 40:44, 50:60].any(), got
-        assert got["frames_the_track_is_empty_and_held"] == [2] and got["px_taken_off_most"] == 42, got
+        assert got["frames_the_track_is_empty_and_held"] == [502] and got["px_taken_off_most"] == 42, got
     return ("a plan's `strangers` names the preview's strangers file among the load's others, at the path bench/strangers.py writes, and holds the load's "
             "part (the saved one, or the load's own) to its subject's track grown h3_config.MASKED_STRANGERS px through `parts_file`; the job step writes nothing "
             "until the file is there with a record of this preview, its frames, its grow and its tracks; a held part of another making is refused; the hold "

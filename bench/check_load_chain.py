@@ -337,8 +337,21 @@ def a_loads_keep_outs() -> str:
         made.write()
         Path(kept[1]["track"]).unlink()
         refused(lambda: lc.mask_specs(made.ctx(), lc.preview_files(made.ctx(), made.m.output)), "the keep-out 'hands' is named at", "not a file")
+        # THE STRANGERS FILE reaches the capture only as the frames the job step held to its record (2026-10-14, a second reader)
+        Path(kept[1]["track"]).write_bytes(b"")
+        strangers = {"name": "strangers", "track": str(keeps / "pv_strangers.mkv")}
+        Path(strangers["track"]).write_bytes(b"")
+        made.job["keep_outs"]["made"] = kept + [strangers]
+        made.load["others"] = ["b", "held", "hands", "clothes", "strangers"]
+        made.write()
+        refused(lambda: lc.mask_specs(made.ctx(), lc.preview_files(made.ctx(), made.m.output), hashed=lambda p: "h"), "with no hash of its frames", "made again")
+        strangers["frame_hash"] = "h"
+        made.write()
+        refused(lambda: lc.mask_specs(made.ctx(), lc.preview_files(made.ctx(), made.m.output), hashed=lambda p: "other"), "not the file the job step held", "changed since")
+        assert lc.mask_specs(made.ctx(), lc.preview_files(made.ctx(), made.m.output), hashed=lambda p: "h")[-1] == f"strangers:track={strangers['track']},by=pv,at=100"
     return ("a load's keep-outs are each a mask of the capture on the preview's frames and one of the run's others, at first and on the plan; a keep-out the job "
-            "names and the load does not keep out, one kept out with no file, and a file that is not there are refused")
+            "names and the load does not keep out, one kept out with no file, and a file that is not there are refused; the strangers file reaches the "
+            "capture only with the hash the job step held it to")
 
 
 

@@ -131,7 +131,15 @@ def where_it_writes() -> str:
         assert w["grow_px"] == GROW and w["first_source_frame"] == FIRST and w["frames_a_track_is_empty_and_held"] == {"a": [FIRST + 2]} and w["source_size"] == [SRC_W, H], w
         assert any("does not find" in x for x in w["cannot_see"]) and said and f"strangers on {N} of them" in said[0], said
         tracks = {"a": str(root / "output/Video/v/s/pv/pv_a_track_00001.mkv"), "b": str(root / "output/Video/v/s/pv/pv_b_track_00001.mkv")}
-        assert st.held_to_its_record(path, "pv", FIRST, N, tracks) == []
+        assert st.held_to_its_record(path, "pv", FIRST, N, tracks) == [] and w["frame_hash"] and w["hold_frames"] == st.h3_config.MASKED_STRANGERS["hold_frames"]
+        assert any("record's frames" in x for x in st.held_to_its_record(path, "pv", FIRST, N + 1, tracks))
+        moved = path.with_name("moved.mkv")
+        shutil.copy(path, moved)
+        shutil.copy(path.with_suffix(".json"), moved.with_suffix(".json"))
+        assert any("record's file" in x for x in st.held_to_its_record(moved, "pv", FIRST, N, tracks))
+        write_mask_video(path.with_name("changed.mkv"), ~back)
+        shutil.copy(path.with_name("changed.mkv"), path)
+        assert any("not the ones its record hashed" in x for x in st.held_to_its_record(path, "pv", FIRST, N, tracks)), "a changed file was taken"
         assert any("preview" in x for x in st.held_to_its_record(path, "pv2", FIRST, N, tracks))
         assert any("first_source_frame" in x for x in st.held_to_its_record(path, "pv", FIRST + 1, N, tracks))
         assert any("subjects_taken_out" in x for x in st.held_to_its_record(path, "pv", FIRST, N, {"a": tracks["a"]}))
@@ -146,16 +154,38 @@ def it_writes_over_nothing() -> str:
     nothing = lambda root: not (root / "output/Video/v/keep_outs").exists()   # noqa: E731
     for kw, tracks, words in (({"listed_twice": True}, {"a": a, "b": b}, ("lists 2 track videos for 'a'",)),
                               ({"frames": N - 1}, {"a": a, "b": b}, ("gave", "nothing written")),
-                              ({}, {"a": a[:, :24, :32], "b": b}, ("is 32x24", "nothing written"))):
+                              ({}, {"a": a[:, :24, :32], "b": b}, ("is 32x24", "nothing written")),
+                              ({}, {"a": a[:N - 1], "b": b}, (f"with {N - 1} frames", "nothing written")),
+                              ({}, {"a": np.zeros_like(a), "b": b}, ("empty on every frame", "Nothing written"))):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             refused(lambda: st.run(preview(root, people, tracks, **kw), root / "output", "s", MODEL, "m"), *words)
             assert nothing(root), f"a file was written on a refused run: {words}"
     refused(lambda: st.file_of({"name": "pv", "output": "elsewhere"}, Path("/o")), "not Video/<video>/<session>")
-    return "two tracks for one subject, a source shorter than the preview, a track not of the canvas's size and an output key with no video are refused, and nothing is written"
+    return ("two tracks for one subject, a source shorter than the preview, a track not of the canvas's size or shorter than the preview, a track empty on "
+            "every frame and an output key with no video are refused, and nothing is written")
+
+
+def a_lost_track_is_held_a_little() -> str:
+    """A blind reader (2026-10-14): a subject who left was held at their last place to the end of the shot, keeping a
+    newcomer to that spot out of the strangers file; and the start of a preview was held to the first later frame
+    with no test of it."""
+    reach = int(st.h3_config.MASKED_STRANGERS["hold_frames"])
+    n = 2 * reach + 6
+    t = np.zeros((n, 4, 4), bool)
+    t[2:4, 1, 1] = True                                     # on frames 2 and 3, then gone
+    out, held, empty = st.held_track(t)
+    assert held == [0, 1] + list(range(4, 4 + reach)) and empty == list(range(4 + reach, n)), (held, empty)
+    assert out[0, 1, 1] and out[3 + reach, 1, 1] and not out[4 + reach].any(), "a frame within reach was not held, or one beyond it was"
+    late = np.zeros((n, 4, 4), bool)
+    late[reach + 1:, 2, 2] = True                           # on from frame reach+1: frame 0 is reach+1 away, frame 1 is reach
+    _, held, empty = st.held_track(late)
+    assert empty == [0] and held == list(range(1, reach + 1)), (held, empty)
+    return f"an empty frame is held to the nearest frame with one when it is at most {reach} away, before or (at the start) after; beyond, left empty and listed"
 
 
 case("a subject, and their rim within the grow, is not a stranger", a_subject_and_their_rim_are_not_strangers)
 case("where it writes, its clocks, and its record", where_it_writes)
 case("it writes over nothing", it_writes_over_nothing)
+case("a lost track is held a little, and no further", a_lost_track_is_held_a_little)
 sys.exit(finish())

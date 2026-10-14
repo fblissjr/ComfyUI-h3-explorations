@@ -213,6 +213,7 @@ def read_job(job_file: Path, repo: Path = REPO, need_text: bool = True) -> dict:
     # job names and the load does not keep out is drawn again in silence; one the load keeps out with no file named
     # cannot be handed to the capture.
     kept = [(k["name"], Path(k["track"])) for k in (job.get("keep_outs") or {}).get("made", [])]
+    kept_hash = {k["name"]: k.get("frame_hash") for k in (job.get("keep_outs") or {}).get("made", [])}
     people_named = [o for o in load.get("others") or [] if o in order]
     for name, _track in kept:
         if name not in (load.get("others") or []):
@@ -230,7 +231,7 @@ def read_job(job_file: Path, repo: Path = REPO, need_text: bool = True) -> dict:
         raise Refused(f"{job_file}: the load keeps out {stray}, which is neither a subject of the preview {pjob['name']} ({', '.join(order)}) nor a keep-out "
                       "the job names with its file (`job.keep_outs`): the capture cannot be handed it")
     return {"job_file": Path(job_file), "raw": raw, "job": job, "load": load, "name": load["name"], "subject": subject, "subject_keys": mine,
-            "keep_outs": kept, "others_named": people_named,
+            "keep_outs": kept, "keep_out_hashes": kept_hash, "others_named": people_named,
             "capture": capture, "day": day, "job_folder": repo / "data" / f"{day}_{job['name']}_job", "repo": repo,
             "preview": {"folder": pfolder, "name": pjob["name"], "first": pjob["first"], "frames": pjob["frames"], "order": order,
                         "files": ran.get("files") or [], "output": pjob["output"]},
@@ -267,7 +268,7 @@ def preview_files(ctx: dict, output: Path) -> dict:
     return out
 
 
-def mask_specs(ctx: dict, files: dict, band: Path | None = None) -> list[str]:
+def mask_specs(ctx: dict, files: dict, band: Path | None = None, hashed=None) -> list[str]:
     """The `--mask` of every preview subject for a capture of this load: the load's subject with its part, class map,
     shot table and (unless its job says `pose: false`) its pose table; every other with its track and shot table.
 
@@ -312,6 +313,13 @@ def mask_specs(ctx: dict, files: dict, band: Path | None = None) -> list[str]:
     for name, track in ctx.get("keep_outs") or []:
         if not track.is_file():
             raise Refused(f"the keep-out {name!r} is named at {track}, which is not a file: `bench/shot_to_load.py job` makes it when it writes the job file")
+        # a keep-out the job step held to its record carries a hash of its frames: the capture is handed those frames and no others.
+        # The strangers file always does (bench/strangers.py): one with none was written into a job before the hash was kept.
+        want = (ctx.get("keep_out_hashes") or {}).get(name)
+        if name == "strangers" and not want:
+            raise Refused("the job names the strangers keep-out with no hash of its frames (written before 2026-10-14's second mend): the job is made again")
+        if want and (hashed or frame_hash)(str(track)) != want:
+            raise Refused(f"the keep-out {name!r} at {track} is not the file the job step held to its record: its frames changed since")
         if name == cuts:                       # the band file's frame 0 is the load's first frame
             out.append(f"{name}:track={band},by={by},at={ctx['load']['first']}")
             continue

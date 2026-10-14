@@ -1517,7 +1517,12 @@ MASKED_JOB_HAIR_BAND = dict(cuts="clothes", wider=0.1, smooth_frames=4, most=2.0
 #: every hole left there is there with no keep-out at all. (That no cell of her part inside her track is lost is
 #: so by the rule, a cell holding her part is never given back, not a measure.) Faces about 109 px tall on 3167;
 #: a face of another size may want another.
-MASKED_STRANGERS = dict(grow_px=8)
+#: `hold_frames`: how far an empty frame of a track is held to the nearest frame with one (`strangers.held_track`).
+#: **Reasoned** 4, one latent step of the video model: a tracker that drops its subject for a step is holding the
+#: same person; a track empty for longer is a subject who left, and holding them there would keep a newcomer to that
+#: spot out of the strangers file (a blind reader, 2026-10-14). Nothing measured it; the records list every frame held
+#: and every frame left empty.
+MASKED_STRANGERS = dict(grow_px=8, hold_frames=4)
 #: What the text encoder is shown of a load's still: the video model's own copy, not a smaller one of its
 #: own. **Decided** by the owner, 2026-10-08, for the reference stills of this lane (the largest size, enlarged
 #: to it, one copy for both models); the 2026-10-08 final and every render of 2026-10-10 ran so. The shipped
