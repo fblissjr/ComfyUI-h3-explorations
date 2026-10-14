@@ -48,11 +48,12 @@ it that its load left as the original or that what it leaves is NOT KNOWN; a pie
 `--prefer`, said as the lead's choice with its reason whole, and a keep of the owner's it set aside; a render the
 lead held back (`--hold`) with its reason whole; a subject the shots record is unsure of (with any piece of theirs
 that stands), one it says is not in the shot (the table's `not_in_the_shot`), and one with nothing standing. A span
-of several shots begins each sentence with its shot, in frame order. `--note` adds a person's words to a span's
-item, whole, after the pieces; one a span. A media link of the clip's name that points elsewhere is refused. The
+of several shots begins each sentence with its shot, in frame order. `--note` adds the words of the session that puts
+the item on the list (`--by`) to a span's item, whole, after the pieces, said as that session's; one a span. The
+owner's own words go into the verdicts record, never through `--note`. A media link of the clip's name that points elsewhere is refused. The
 buttons are the table's own (`delivery_table.RENDER_ITEM_BUTTONS`). Refused: a span not built, an id already on the
 list, a clip whose assembler's record fails, and a stack whose reading has a hard fault (a frame count that is not
-the span's, or sound that is not the clip's). How well each stack row fits its frames is printed, not judged. A
+the span's, sound that is not the clip's, or no sound at all). How well each stack row fits its frames is printed, not judged. A
 copy of the list, named with the time of the write, goes into `--tables` before the one write.
 
 **`by-day`** writes the table of what stands by the day it was rendered: a row a piece in frame order with why it
@@ -211,6 +212,15 @@ def cut(words: str) -> str:
     return words if len(words) <= REASON_CHARS else words[:REASON_CHARS] + "..."
 
 
+def words_after(choice: dict | None, entry: dict) -> list[str]:
+    """The owner's words on a render after their last choice (the table's `the_owners_words`), each with its day: their words
+    rule over the button (the owner's rule of 2026-10-12), so a keep they wrote after is said with them, never as a plain keep."""
+    if not choice:
+        return []
+    return [f"\"{' / '.join(w['said'].splitlines())}\" ({owners_clock(w['at']):%m/%d %H:%M})" for w in entry.get("the_owners_words") or []
+            if str(w.get("at")) > str(choice["at"])]
+
+
 def item_words(table: dict, keep: tuple = delivery_table.KEEP) -> tuple[int, list[str]]:
     """(pieces, one sentence a piece or a subject) for a span's item, from the span's table JSON alone: shot by shot,
     inside a shot subject by subject in the table's order, and a subject's sentences by the frame each is about
@@ -242,7 +252,8 @@ def item_words(table: dict, keep: tuple = delivery_table.KEEP) -> tuple[int, lis
                 seen.add(s["render"])
             c = s.get("the_owners_last_choice")
             day = owners_clock(s["written"])
-            choice = (f"your keep of {owners_clock(c['at']):%m/%d}" if c and c["said"] in keep
+            after = words_after(c, s)
+            choice = (f"your keep of {owners_clock(c['at']):%m/%d}" + (f", AND YOUR WORDS AFTER IT: {'; '.join(after)}" if after else "") if c and c["said"] in keep
                       else f"your last choice on it: \"{c['said']}\"" if c else "not judged by you yet")
             left = s.get("leaves_as_the_original")
             led = s.get("the_leads_prefer")
@@ -256,7 +267,9 @@ def item_words(table: dict, keep: tuple = delivery_table.KEEP) -> tuple[int, lis
             if p.get("held"):
                 say(e, f"{who}: {p['render']} is HELD BACK by the lead (--hold), a session's word and not yours: {p['held']}", e["last"] + 1)
             elif c and c["said"] in keep:
-                say(e, f"{who}: YOUR KEEP {p['render']} (of {owners_clock(c['at']):%m/%d}) is not laid here: {p['why']}", e["last"] + 1)
+                after = words_after(c, p)
+                say(e, f"{who}: YOUR KEEP {p['render']} (of {owners_clock(c['at']):%m/%d}" + (f", and your words after it: {'; '.join(after)}" if after else "")
+                    + f") is not laid here: {p['why']}", e["last"] + 1)
         if not e["stands"] and e["present"] != "unsure":
             passed = [p for p in e["passed_over"] if not p.get("held")]
             say(e, f"{who}: the original on the whole shot: no piece of theirs stands here"
@@ -385,7 +398,8 @@ def by_day_text(table: dict, ledger: dict, day: str, table_name: str, ledger_nam
     pieces: dict[tuple[str, str], dict] = {}
     for r in table["reading"]:
         # an owner's keep of a piece that does not stand on this shot: said beside what stands over it, never hidden under the lead's word
-        set_aside = [f"{p['render']} ({p['the_owners_last_choice']['said']!r}, {owners_clock(p['the_owners_last_choice']['at']):%m-%d %H:%M} Central)"
+        set_aside = [f"{p['render']} ({p['the_owners_last_choice']['said']!r}, {owners_clock(p['the_owners_last_choice']['at']):%m-%d %H:%M} Central"
+                     + "".join(f"; your words after it: {w}" for w in words_after(p["the_owners_last_choice"], p)) + ")"
                      for p in r.get("passed_over") or [] if (p.get("the_owners_last_choice") or {}).get("said") in delivery_table.KEEP]
         for s in r.get("stands") or []:
             one = pieces.setdefault((s["render"], r["subject"]), {"frames": [], "written": s["written"], "why": [], "led": None, "owner": None, "set_aside": []})
@@ -393,7 +407,8 @@ def by_day_text(table: dict, ledger: dict, day: str, table_name: str, ledger_nam
             if s["why"] not in one["why"]:
                 one["why"].append(s["why"])
             one["led"] = one["led"] or s.get("the_leads_prefer")            # the lead's word on any shot of it is said
-            one["owner"] = one["owner"] or s.get("the_owners_last_choice")
+            if not one["owner"] and s.get("the_owners_last_choice"):
+                one["owner"], one["owner_after"] = s["the_owners_last_choice"], words_after(s["the_owners_last_choice"], s)
             one["set_aside"] += [x for x in set_aside if x not in one["set_aside"]]
 
     def why_of(p: dict) -> str:
@@ -404,7 +419,7 @@ def by_day_text(table: dict, ledger: dict, day: str, table_name: str, ledger_nam
 
     def owner_of(p: dict) -> str:
         o = p["owner"]
-        return f"{o['said']!r}, {owners_clock(o['at']):%m-%d %H:%M}" if o else "none"
+        return (f"{o['said']!r}, {owners_clock(o['at']):%m-%d %H:%M}" + "".join(f"; your words after it: {w}" for w in p.get("owner_after") or [])) if o else "none"
     rows = sorted(((min(a for a, _ in p["frames"]), ",".join(f"{x}-{y}" for x, y in sorted(p["frames"])), sub, name, owners_clock(p["written"]),
                     owner_of(p), why_of(p))
                    for (name, sub), p in pieces.items()))
@@ -488,7 +503,7 @@ def main(argv=None) -> int:
     i.add_argument("--stem", required=True, help="the source video's stem, as in the clips' names")
     i.add_argument("--stamp", required=True, help="the time in the clips' names")
     i.add_argument("--by", required=True, help="the session that adds the items, written into them")
-    i.add_argument("--note", action="append", default=[], metavar="FIRST-LAST=words", help="a person's words for a span's item, added whole; repeatable")
+    i.add_argument("--note", action="append", default=[], metavar="FIRST-LAST=words", help="the words of the session putting the item on the list (--by) for a span's item, added whole and said as theirs; repeatable")
     i.add_argument("--dry", action="store_true", help="print the items; write nothing")
     i.add_argument("spans", nargs="+", metavar="FIRST-LAST")
     d = sub.add_parser("by-day", help="what stands in a table by the day each piece was rendered, and the day's renders that do not stand")

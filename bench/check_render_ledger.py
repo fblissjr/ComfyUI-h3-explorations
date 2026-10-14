@@ -420,7 +420,25 @@ def the_loads_stopped_before_a_render() -> str:
             "the page; another video's, one with no job file, a picture, and the copy in a capture folder are not read")
 
 
+
+def a_joined_items_lines() -> str:
+    """The lead's ruling (2026-10-14): the owner's lines on a joined item are under each render its own table laid."""
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp)
+        (folder / "t_v_0000_0049_joined_T.json").write_text(json.dumps({"rows": [
+            {"first": 0, "last": 29, "name": "lead_a", "file": "Video/s/lead_a/lead_a_00001.mp4"},
+            {"first": 30, "last": 49, "name": "lead_b", "file": "Video/s/lead_b/lead_b_00001.mp4"}]}))
+        verdicts = [{"row": "v_0000_0049_joined_T_stacked", "what": "choice", "chosen": "keep this one", "at": "t1", "source": "answers.jsonl:3"},
+                    {"row": "v_0000_0049_joined_U_stacked", "what": "choice", "chosen": "keep this one", "at": "t2", "source": "answers.jsonl:4"}]
+        joined = led.joined_items([str(folder)], verdicts)
+        assert [j["clip"] for j in joined] == ["v_0000_0049_joined_T"], "an item whose table is not handed in was read, or one that is was not"
+        a = led.on_a_joined_item("Video/s/lead_a/lead_a_00001.mp4", joined, verdicts)
+        b = led.on_a_joined_item("Video/s/lead_c/lead_c_00001.mp4", joined, verdicts)
+        assert len(a) == 1 and a[0]["the_whole_clip"] and a[0]["at_frames"] == [0, 29] and a[0]["said"] == "keep this one" and not b, (a, b)
+    return "a joined item's lines are under each render its own table laid, marked the whole clip; an item whose table is not handed in is not read"
+
 case("a render its record agrees with", a_render_its_record_agrees_with)
+case("a joined item's lines, under each render it lays", a_joined_items_lines)
 case("the loads stopped before a render, from the card's notes", the_loads_stopped_before_a_render)
 case("a part the job named is carried in the form", a_part_the_job_named)
 case("a file against its record: the frames, the outcome, the graph, the time", a_file_against_its_record)

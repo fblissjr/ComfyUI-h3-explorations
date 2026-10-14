@@ -149,8 +149,11 @@ def _shot_coverage():
 
 def last_choice(render: dict) -> dict | None:
     """The owner's last CHOICE on a render (a button, not typed words), or None. A line said of a joined clip is
-    of that clip and is not a choice on the render."""
-    choices = [o for o in render.get("owner") or [] if o.get("what") == "choice" and not o.get("on_the_joined_clip")]
+    of that clip and is not a choice on the render, but for one: a KEEP on a joined item of the review page, the whole
+    clip, counts as a keep on each piece it lays (the lead's ruling, 2026-10-14: the owner judges the final cut whole;
+    the ledger marks it `the_whole_clip`). A "wrong" or "not sure" there names no piece and counts on none."""
+    choices = [o for o in render.get("owner") or [] if o.get("what") == "choice"
+               and (not o.get("on_the_joined_clip") or (o.get("the_whole_clip") and o.get("said") in KEEP))]
     last = max(choices, key=lambda o: str(o.get("at"))) if choices else None
     return None if last is None or last.get("said") == TAKEN_BACK else last
 

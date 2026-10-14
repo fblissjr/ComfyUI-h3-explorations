@@ -226,6 +226,22 @@ def nothing_to_make() -> str:
     return ("a look that every plan part is not seen on every frame makes the shot's source line 'present, nothing to make'; a later seen, a look on "
             "part of the shot, a look on one of two parts, and a piece that stands each leave it as it was")
 
+
+def a_click_on_a_joined_item() -> str:
+    """The lead's ruling (2026-10-14): a KEEP on a joined item counts as a keep on each piece it lays; a "wrong" or
+    "not sure" there names no piece and counts on none; a line at frames of an older joined clip counts on none."""
+    def with_line(said: str, whole: bool = True) -> dict:
+        r = render("piece", (0, 49), "09", has=LIDS)              # not in the frozen form: it stands only by a keep
+        r["owner"] = [{"at": "2026-02-05T00:00:00Z", "what": "choice", "said": said, "row": "v_0000_0049_joined_T_stacked",
+                       "on_the_joined_clip": "v_0000_0049_joined_T", **({"the_whole_clip": True} if whole else {})}]
+        return r
+    stands = lambda r: [s["render"] for s in entry(decide(r), 0, "a")["stands"]]    # noqa: E731
+    # THE CASE THAT GOES RED when a keep on the whole joined clip is not a keep on the piece
+    assert stands(with_line(dt.KEEP[0])) == ["piece"], entry(decide(with_line(dt.KEEP[0])), 0, "a")
+    assert stands(with_line("wrong")) == [] and stands(with_line("not sure")) == [], "a wrong or not sure on a joined item counted on a piece"
+    assert stands(with_line(dt.KEEP[0], whole=False)) == [], "a line at frames of an older joined clip counted as a keep"
+    return "a keep on a joined item is a keep on each piece it lays; a wrong or not sure there, and a line at frames of an older joined clip, count on none"
+
 def nothing_left_and_several_on_a_shot() -> str:
     out = decide()
     assert out["rows"] == [] and [(s["first"], s["subject"]) for s in out["sources"]] == [(0, "a"), (50, "a"), (50, "b"), (100, "b")], out["sources"]
@@ -609,6 +625,7 @@ case("a part the job named stands as the plan's region", a_part_the_job_named)
 case("what never stands", what_never_stands)
 case("nothing left, and several renders on one shot", nothing_left_and_several_on_a_shot)
 case("present, nothing to make, by a person's look", nothing_to_make)
+case("a click on a joined item", a_click_on_a_joined_item)
 case("restore: the other subjects of the shot", restores)
 case("the owner's words, under the render they are on", the_owners_words_are_in_the_reading)
 case("a preference of the lead's", a_preference)

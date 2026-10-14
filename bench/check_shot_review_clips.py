@@ -19,6 +19,9 @@
                                     even with both counts equal; sound that is not the clip's or none) stops the build
   items_at_the_top_and_a_copy       the items at the top with a copy first; dry, a stray note, two notes, a span twice, an unbuilt span, a
                                     listed id, a failing record, a stack fault and a media link to another build are refused
+  sentences_in_order                inside a shot, subject by subject and a subject's sentences by frame: unsure first, passed over last
+  the_owners_words_after_a_keep     a keep the owner wrote after is said with their words in the item, a passed-over keep and by-day; a
+                                    passed-over wrong is never called a keep
   by_the_day                        a row a piece (one render on two shots is one row) with the table's own words, the lead's --prefer said as
                                     the lead's; the day's renders this table does not lay, never one that stands in it; the ledger must be the one
                                     the table names; a kept output stays
@@ -399,6 +402,27 @@ def sentences_in_order() -> str:
                      "third: not in this shot", "lead_next"], said
     return "shot by shot, subject by subject in the table's order, a subject's sentences by frame: unsure first, passed over and held last"
 
+
+def the_owners_words_after_a_keep() -> str:
+    """A fifth reader (2026-10-14): third_fp_1466b's last click is a keep and six seconds later the owner wrote "i dont know i cant
+    choose"; the item said "your keep of 10/13". Their words rule over the button, wherever a keep is said."""
+    words = [{"at": "2026-10-13T20:00:06Z", "said": "i dont know i cant choose"}]
+    keep = {"said": dt.KEEP[0], "at": "2026-10-13T20:00:00Z"}
+    stood = dict(stand("lead_kept", [(100, 120)], "2026-10-13T15:00:00Z", keep, step=1, why="step 1: the owner's keep"), the_owners_words=words)
+    t = {"reading": [entry(100, 120, "lead", stands=[stood], passed_over=[
+        dict(passed("lead_old", "2026-10-12T15:00:00Z", "set aside", keep), the_owners_words=words),
+        passed("lead_wrong", "2026-10-11T15:00:00Z", "never stands", {"said": "wrong", "at": "2026-10-12T16:00:00Z"})])], "not_in_the_shot": []}
+    _, said = src.item_words(t)
+    text = " ".join(said)
+    # THE CASES THAT GO RED when a keep is said plainly with the owner's words after it, or a passed-over wrong is called a keep
+    assert "your keep of 10/13, AND YOUR WORDS AFTER IT: \"i dont know i cant choose\"" in text, text
+    assert "YOUR KEEP lead_old (of 10/13, and your words after it: \"i dont know i cant choose\"" in text and "lead_wrong" not in text.split("YOUR KEEP")[-1].split(")")[0], text
+    assert not any("YOUR KEEP lead_wrong" in x for x in said), said
+    day = src.by_day_text(t, {"renders": {}}, "2026-10-13", "t.json", "l.json")
+    assert "lead_old ('keep this one', 10-13 15:00 Central; your words after it: \"i dont know i cant choose\"" in day, day
+    assert "| 'keep this one', 10-13 15:00; your words after it: \"i dont know i cant choose\" (10/13 15:00) |" in day, day
+    return "a keep the owner wrote after is said with their words, in the item, in a passed-over keep and in by-day; a passed-over wrong is never called a keep"
+
 def by_the_day() -> str:
     t = made_table()
     t["made"] = "Made at commit x from the ledger `LEDGER` (...)"
@@ -464,6 +488,7 @@ case("the table is handed what it needs", the_table_is_handed_what_it_needs)
 case("a build writes over nothing, and stops on a stack's hard fault", build_writes_over_nothing)
 case("items at the top, and a copy first", items_at_the_top)
 case("an item's sentences in order", sentences_in_order)
+case("the owner's words after a keep", the_owners_words_after_a_keep)
 case("by the day", by_the_day)
 
 if __name__ == "__main__":

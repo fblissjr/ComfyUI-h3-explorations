@@ -534,6 +534,37 @@ def on_a_joined_clip(rel: str, spots: list[dict], verdicts: list[dict]) -> list[
     return out
 
 
+def on_a_joined_item(rel: str, joined: list[dict], verdicts: list[dict]) -> list[dict]:
+    """The owner's lines on a JOINED ITEM of the review page (`bench/shot_review_clips.py items`: a whole clip of a span,
+    every piece that stood laid), under each render the item's own table laid, marked `the_whole_clip`. The lead's
+    ruling of 2026-10-14: the owner judges the final cut whole, so a KEEP there counts as a keep on each piece it lays
+    (`delivery_table.last_choice`); a "wrong" or "not sure" names no piece and counts on none.
+
+    `joined` is [{"clip": the item's clip name, "row": the item's id, "table": its table's file, "rows": that table's rows}]."""
+    out = []
+    for given in joined:
+        laid = [t for t in given["rows"] if str(t.get("file", "")).endswith(rel) or t.get("name") == Path(rel).stem.rsplit("_", 1)[0]]
+        for t in laid:
+            for v in verdicts:
+                said = v.get("chosen") if v.get("what") == "choice" else v.get("words")
+                if v.get("row") == given["row"] and said:
+                    out.append({"at": v.get("at"), "frame": v.get("frame"), "said": said, "what": v.get("what"), "from": f"verdicts ({v.get('source')})",
+                                "row": v.get("row"), "on_the_joined_clip": given["clip"], "the_whole_clip": True, "at_frames": [t["first"], t["last"]],
+                                "through_the_table": given["table"]})
+    return out
+
+
+def joined_items(folders: list[str], verdicts: list[dict]) -> list[dict]:
+    """Every joined item the verdicts name whose table is in one of the folders handed in (`--joined-tables`, the
+    folder `bench/shot_review_clips.py build` writes `t_<clip>.json` into); found by the item's own id, never by frames."""
+    out = []
+    for row in sorted({str(v.get("row")) for v in verdicts if str(v.get("row", "")).endswith("_stacked") and "_joined_" in str(v.get("row"))}):
+        clip = row.removesuffix("_stacked")
+        table = next((Path(f) / f"t_{clip}.json" for f in folders if (Path(f) / f"t_{clip}.json").is_file()), None)
+        if table is not None:
+            out.append({"clip": clip, "row": row, "table": str(table), "rows": json.loads(table.read_text())["rows"]})
+    return out
+
 def owner_lines(rel: str, ids: set[str], verdicts: list[dict], answers: list[tuple[int, dict]], item_of: dict[str, str]) -> list[dict]:
     """The owner's lines on a render, oldest first: by the render's file, by its ids as a row, or by a page item
     that names the file. An answers line the verdicts file already copied is taken once, from the verdicts file."""
@@ -549,7 +580,7 @@ def owner_lines(rel: str, ids: set[str], verdicts: list[dict], answers: list[tup
 
 def ledger(shots: dict, plan: dict, share: Path, records: Path, repo: Path, sources: dict[str, float], table_rows: list[dict],
            verdicts: list[dict], answers: list[tuple[int, dict]], items: list[dict], since: str | None = None,
-           frames_of=count_frames, alias=None, spots: list[dict] | None = None, inputs: Path | None = None) -> dict:
+           frames_of=count_frames, alias=None, spots: list[dict] | None = None, inputs: Path | None = None, joined: list[dict] | None = None) -> dict:
     """The whole ledger as data. `frames_of` counts a video's frames (ffprobe; a check hands in its own)."""
     alias = alias or (lambda label: label)
     by_file, every = load_records(records, repo)
@@ -635,7 +666,8 @@ def ledger(shots: dict, plan: dict, share: Path, records: Path, repo: Path, sour
         row["leaves_as_the_original"] = left_by_the_load(capture, load.get("subject") or label, row["span"]) if carried in ("held", "the wired parts") else None
         row["laid_in_the_table"] = [[t["first"], t["last"]] for t in table_rows if str(t["piece"]).endswith(rel)]
         row["owner"] = sorted(owner_lines(rel, {row["name"], f"r__{row['session_folder']}__{row['name']}", f"r__{Path(rel).parts[1]}__{row['name']}"},
-                                          verdicts, answers, item_of) + on_a_joined_clip(rel, spots or [], verdicts), key=lambda o: str(o["at"]))
+                                          verdicts, answers, item_of) + on_a_joined_clip(rel, spots or [], verdicts)
+                            + on_a_joined_item(rel, joined or [], verdicts), key=lambda o: str(o["at"]))
         renders.append(row)
     gone = [{"built_file": rec["built_file"], "queued_file": rec["queued_file"], "files": rec["files"], "status": rec["queued"].get("status"),
              "output_folder": rec["folder"],
@@ -836,6 +868,9 @@ def main() -> int:
     p.add_argument("--spots", action="append", default=[], metavar="SPOTS.json",
                    help='the owner\'s rows that were said of a JOINED clip at stated frames: {"clip", "table", "spots": [{"row", "first", "last"}]}; '
                         "each is printed under the renders that clip's table laid there; repeatable")
+    p.add_argument("--joined-tables", action="append", default=[], metavar="FOLDER",
+                   help="a folder bench/shot_review_clips.py wrote joined clips' tables into: the owner's lines on a joined item are printed under each "
+                        "render its table laid, and a keep there counts on each (the lead's ruling, 2026-10-14); repeatable")
     p.add_argument("--inputs", help="the server's input root, so a record's still can be looked for")
     p.add_argument("--since", metavar="YYYY-MM-DD", help="leave out files written before this day (UTC); said in the record")
     p.add_argument("--json", required=True)
@@ -859,12 +894,13 @@ def main() -> int:
         spots.append({**given, "rows": read_table(given["table"]), "file": path})
     out = ledger(shots, plan, Path(a.share), Path(a.records), repo, sources, rows, [v for _, v in lines(a.verdicts)], lines(a.answers),
                  (json.load(open(a.items)).get("items") or []) if a.items else [], a.since, alias=lambda label: coverage.alias(label, plan),
-                 spots=spots, inputs=Path(a.inputs) if a.inputs else None)
+                 spots=spots, inputs=Path(a.inputs) if a.inputs else None, joined=joined_items(a.joined_tables, [v for _, v in lines(a.verdicts)]))
     commit = subprocess.run(["git", "-C", str(repo), "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
     made = (f"Made {utc(datetime.datetime.now().timestamp())} at commit {commit} from: the share `{a.share}`" + (f" (files since {a.since})" if a.since else " (every file)")
             + f"; the records under `{a.records}`; `{a.shots}`; `{a.plan}`; the copies {', '.join(sources)}"
             + (f" (from `{a.copies_of}`'s manifest" + (f"; LEFT OUT, on another frame clock: {', '.join(other_clock)}" if other_clock else "") + ")" if a.copies_of else "")
-            + "".join(f"; `{x}`" for x in (a.verdicts, a.answers, a.items, *a.spots) if x) + ".")
+            + "".join(f"; `{x}`" for x in (a.verdicts, a.answers, a.items, *a.spots) if x)
+            + "".join(f"; the joined items' tables in `{x}`" for x in a.joined_tables) + ".")
     out["made"] = made
     # its own command, so the table made from it can print it and a second run types nothing (2026-10-13)
     out["command"] = command_of(sys.argv[1:])

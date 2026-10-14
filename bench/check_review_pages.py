@@ -16,7 +16,14 @@
                                 stretches and on the card; no reason cut; a frame left as the original says the ledger's
                                 reason where no look's word covers it; the folder link relative to the page and its absence
                                 said; the verdicts record's words labelled as the record's; a lane a subject, in order
-  another_ledger_is_refused     a ledger the table does not name
+  the_owners_words_rule         a keep followed by the owner's words is shown again; a line a session took down said so; a wrong
+                                on a joined clip keeps the shot; the lead's holds and the owner's keeps not laid on both pages
+  the_fifth_readers_findings    words just before the last click go with it; an older line written later does not undo a keep; a
+                                line on an item's own id is read; a keep on a joined clip counts on each piece it lays; unsure
+                                subjects marked; a passed-over wrong never called a keep
+  a_fifth_readers_mutations     a joined clip of fewer frames on the same first frame is not the shot's; the newest day is the
+                                first colour; the change table keeps each reason
+  another_ledger_is_refused     a ledger the table does not name, by its path
   nothing_of_a_video_in_code    the tool's source names no address, share, machine folder or video
 
     <comfy venv python> bench/check_review_pages.py
@@ -213,10 +220,11 @@ def to_review_is_the_tables() -> str:
         text = text_of(to_review(Path(tmp)))
         assert "it replaces, in the previous table: not known here: no previous table was given" in text, text
     with tempfile.TemporaryDirectory() as tmp:
-        # THE VANISHING PIECE (a reader, 2026-10-14): the joined clip of 100-149 is of another table and the owner kept it: a_new must still show
+        # THE VANISHING PIECE (a reader, 2026-10-14): the joined clip of 100-149 is of another table, laying a_new alone, and the owner kept it.
+        # By the lead's ruling of that day the keep counts on a_new, which it lays; b_new, which it does not lay, must still show
         text = text_of(to_review(Path(tmp), joined_table="other",
                                  verdicts=[{"what": "choice", "row": "v_0100_0149_joined_NEW_stacked", "chosen": "keep this one", "at": "2026-10-14T16:00:00Z"}]))
-        assert "a_new" in text and "lays a_new, and this table lays a_new, b_new" in text, text
+        assert "b , 100-149: b_new" in text and "a , 100-149: a_new" not in text and "lays a_new, and this table lays a_new, b_new" in text, text
     with tempfile.TemporaryDirectory() as tmp:
         text = text_of(to_review(Path(tmp), verdicts=[{"what": "choice", "row": "v_0100_0149_joined_NEW_stacked", "chosen": "keep this one", "at": "2026-10-14T16:00:00Z"}]))
         assert "joined_NEW" not in text and "The shot 100-149" not in text, "a joined clip of this table the owner kept is shown"
@@ -237,7 +245,7 @@ def the_owners_words_rule() -> str:
         text = text_of(to_review(Path(tmp), verdicts=words_after_keep))
         # THE CASES THAT GO RED: a keep followed by words is to review again; a session's taking-down is said as such
         assert "a_kept" in text and "ACTUALLY HER CHIN IS OFF" in text, "words after a keep were ignored"
-        assert ("your words as a session took them down (the lead's terminal (mrx), 2026-10-13; taken down whole by mrx) since (10/13 07:00): "
+        assert ("your words as a session took them down (the lead's terminal (mrx), 2026-10-13; the session's note on the line: taken down whole by mrx) since (10/13 07:00): "
                 "\"SAID IN THE TERMINAL\"") in text and "typed in its box (they may quote a session's question) since (10/13 07:00): \"SAID" not in text, text
         assert "The shot 100-149" in text and "your last click: wrong" in text and "a_new" in text.split("The shot 100-149")[1], "a wrong on the joined clip hid the shot"
         assert "HELD BACK BY THE LEAD, a session's word and not yours: THE LEAD'S HOLD, whole" in text and "b_held_load" in text, text
@@ -249,6 +257,72 @@ def the_owners_words_rule() -> str:
         assert "The note, whole, a session's words (data/x/b_fp_0220.STOPPED.txt" in text, text
     return ("a keep followed by the owner's words is shown again with them; a line a session took down says so and who; a wrong on a joined clip leaves the "
             "shot with its pieces; the lead's holds and the owner's keeps the table does not lay are on both pages; a look's word and a stopped note say whose")
+
+
+def the_fifth_readers_findings() -> str:
+    """A fifth reader (2026-10-14), each a change that left every case green, and the lead's ruling on a joined click."""
+    lines = [{"what": "words", "row": "a_x", "words": "WORDS JUST BEFORE THE CLICK", "at": "2026-10-13T09:59:58Z"},
+             {"what": "choice", "row": "a_x", "chosen": "not sure", "at": "2026-10-13T10:00:00Z"},
+             {"what": "choice", "row": "a_kept", "chosen": "keep this one", "at": "2026-10-13T10:00:00Z"},
+             {"what": "choice", "row": "a_kept", "chosen": "wrong", "at": "2026-10-13T09:00:00Z"},          # an older line written later in the file
+             {"what": "words", "row": "r__s__a_solo", "words": "ON THE ITEM'S OWN ID", "at": "2026-10-13T11:00:00Z"},
+             {"what": "choice", "row": "v_0100_0149_joined_NEW_stacked", "chosen": "wrong", "at": "2026-10-14T16:00:00Z"}]
+    with tempfile.TemporaryDirectory() as tmp:
+        page = to_review(Path(tmp), verdicts=lines)
+        text = text_of(page)
+        # words typed just before the last click go with it (B); an older line written later in the file does not undo a keep (M3)
+        assert "since the click before it" not in text and "before it (10/13 04:59): \"WORDS JUST BEFORE THE CLICK\"" in text, text
+        assert "a_kept" not in text.split("Pieces in a shot of one of them")[1].split("Held back")[0], "a keep was undone by an older line"
+        # a line under the item's own id is read (M8); a wrong on the joined clip asks which piece and hides none (the lead's ruling)
+        assert "ON THE ITEM'S OWN ID" in text, text
+        assert "Your click on the whole clip names no piece: which piece is it?" in text and "a , 100-149: a_new" in text, text
+        # the shot's header says which subject the record is unsure of
+        assert "a, b (the record is unsure)" in text, text
+        # a passed-over render whose last choice is not a keep is not called a keep (M1)
+    with tempfile.TemporaryDirectory() as tmp:
+        d = Path(tmp)
+        to_review(d)
+        t = json.loads((d / "t.json").read_text())
+        t["reading"][6]["passed_over"].append({"render": "b_wrong", "why": "WHY", "the_owners_last_choice": {"said": "wrong", "at": "2026-10-12T20:00:00Z"}})
+        t["reading"][6]["passed_over"][0]["the_owners_words"] = [{"at": "2026-10-12T21:00:00Z", "said": "WORDS AFTER THE KEEP"}]
+        (d / "t.json").write_text(json.dumps(t))
+        out = d / "day" / "again.html"
+        args = ["--table", str(d / "t.json"), "--ledger", str(d / "l.json"), "--verdicts", str(d / "verdicts.jsonl"), "--items", str(d / "items.json"),
+                "--source", str(d / "v.mp4"), "--share", str(d / "share"), "--page-url", "p#", "--open-list", "o", "--tables", str(d / "tables"), "--out", str(out)]
+        assert rp.main(["to-review", *args]) == 0
+        text = text_of(out.read_text())
+        assert "your keep of b_wrong" not in text and "Your words after the keep (10/12 16:00): \"WORDS AFTER THE KEEP\"" in text, text
+    with tempfile.TemporaryDirectory() as tmp:
+        # a keep on the joined clip counts on each piece it lays: said so under the piece (the lead's ruling)
+        page = provenance(Path(tmp)) if False else None
+        text = text_of(to_review(Path(tmp), verdicts=[{"what": "choice", "row": "v_0100_0149_joined_NEW_stacked", "chosen": "keep this one", "at": "2026-10-14T16:00:00Z"}],
+                                 joined_table="other"))
+        assert "a , 100-149: a_new" not in text, "a keep on the joined clip did not count on the piece it lays"
+    return ("words just before the last click go with it; an older line written later in the file does not undo a keep; a line on an item's own id is read; "
+            "a wrong on a joined clip asks which piece and hides none, a keep there counts on each piece it lays; unsure subjects are marked in a shot's "
+            "header; a passed-over render is called a keep only when it is one, with the owner's words after it")
+
+
+def a_fifth_readers_mutations() -> str:
+    """Three changes a fifth reader made that left every case green (2026-10-14): a joined clip matched on its first frame only,
+    the reason dropped from the provenance page's change table, and the day colours run oldest first."""
+    with tempfile.TemporaryDirectory() as tmp:
+        d = Path(tmp)
+        args = world(d)
+        rec = rp.Records(args[args.index("--table") + 1], args[args.index("--ledger") + 1], args[args.index("--verdicts") + 1],
+                         args[args.index("--items") + 1], [str(d / "tables")])
+        # a newer joined clip that begins on the shot's first frame and is of fewer frames is not this shot's
+        rec.items_in_order.insert(0, {"id": "v_0100_0120_joined_SHORT_stacked", "first": "100", "frames": "21", "state": "open"})
+        (d / "tables" / "t_v_0100_0120_joined_SHORT.json").write_text((d / "tables" / "t_v_0100_0149_joined_NEW.json").read_text())
+        it, why = rp.joined_item(rec, 100, 149, [str(d / "tables")])
+        assert it and it["id"] == "v_0100_0149_joined_NEW_stacked", (it, why)
+        # the newest day takes the first day colour
+        assert rec.day_token[max(rec.day_token)] == rp.DAY_TOKENS[0] and rec.day_token[min(rec.day_token)] != rp.DAY_TOKENS[0], rec.day_token
+    with tempfile.TemporaryDirectory() as tmp:
+        text = text_of(provenance(Path(tmp)))
+        part = text.split("What changes in the next clip")[1].split("Loads stopped")[0]
+        assert "a_older: no line in the reading" in part, part[:800]
+    return "a joined clip of fewer frames on the same first frame is not taken for the shot; the newest day is the first colour; the change table keeps each reason"
 
 def since_the_last_page() -> str:
     with tempfile.TemporaryDirectory() as tmp:
@@ -333,6 +407,8 @@ def nothing_of_a_video_in_code() -> str:
 case("both modes read", both_modes_read)
 case("to-review is the table's, and hides no live piece", to_review_is_the_tables)
 case("since the last page", since_the_last_page)
+case("a fifth reader's mutations, held", a_fifth_readers_mutations)
+case("a fifth reader's findings, and a joined click", the_fifth_readers_findings)
 case("the owner's words rule, and whose words are whose", the_owners_words_rule)
 case("provenance reads the records", provenance_reads_the_records)
 case("another ledger is refused", another_ledger_is_refused)
