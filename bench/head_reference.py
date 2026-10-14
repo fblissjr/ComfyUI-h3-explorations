@@ -108,7 +108,7 @@ def face_on_the_track(points: str, first: int, count: int) -> dict:
 
 def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, by: str, *, names: list[str] | None = None,
         mesh_first: int | None = None, points_first: int | None = None, width: float = FORM_WIDTH, room: float | None = None,
-        leave_out: frozenset = frozenset({FORM_LEAVES_OUT}), dots: bool = False, repo: Path = REPO, say=print) -> dict:
+        leave_out: frozenset = frozenset({FORM_LEAVES_OUT}), dots: bool = False, iris: str = faces.IRIS_FORMS[0], repo: Path = REPO, say=print) -> dict:
     """Cut, cut, draw, record. Returns the record; `passed` is True only when all three steps passed."""
     if out.suffix != ".mp4":
         raise SystemExit(f"--out {out} must end in .mp4: the other files are named from it")
@@ -134,7 +134,7 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     say(f"3 of 3: the face drawn on the cut body model, {width:g} px, {'a dot at every point' if dots else 'no dots'}"
         + (f", left out: {', '.join(sorted(leave_out))}" if leave_out else ""))
     drawn = faces.run(str(made["plain_cut"]), str(made["plain_cut_points"]), first, count, out, by, width=width, dots=dots, leave_out=leave_out,
-                      source=str(made["source_cut"]), source_first=first, say=quiet)
+                      source=str(made["source_cut"]), source_first=first, iris=iris, say=quiet)
     fit = drawn["read_back"]["white_from_the_lines_px_mean_by_frames_of_slip"]
     say(f"    white {fit['0']} px from its own frame's lines, {fit['1']} and {fit['-1']} from the neighbours'; "
         + ("PASSED" if drawn["passed"] else "FAILED"))
@@ -162,7 +162,7 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         "face_height_px": {"on_the_canvas": cut["face_height_px_median"], "in_this_video": cut["face_height_px_in_this_video"]},
         "drawn": {"line_width_px": drawn["line_width_px"], "width_set_by": "--width" if width != FORM_WIDTH else "FORM_WIDTH, the first references' own",
                   "a_dot_at_every_point": drawn["a_dot_at_every_point"], "points_drawn_alone": drawn["points_drawn_alone"],
-                  "parts_left_out": drawn["parts_left_out"], "eye_rings": drawn["eye_rings"], "frames_left_bare": drawn["frames_left_bare"]},
+                  "parts_left_out": drawn["parts_left_out"], "eye_rings": drawn["eye_rings"], "iris": iris, "frames_left_bare": drawn["frames_left_bare"]},
         "read_backs": {"the_cut_body_model": cut["read_back"], "the_cut_source": under["read_back"], "the_drawing": drawn["read_back"]},
         "body_model_against_the_source": drawn["body_model_against_the_source"],
         "face_on_the_track": on_track,
@@ -192,13 +192,15 @@ def main() -> int:
     a.add_argument("--room", type=float, help="room round the faces in face heights; the crop tool's own when left out")
     a.add_argument("--leave-out", default=FORM_LEAVES_OUT, help=f"parts not drawn, any of {', '.join(faces.PARTS)}; `{FORM_LEAVES_OUT}` when left out, \"\" for none")
     a.add_argument("--dots", action="store_true", help="a dot at every point, and the points that belong to no line; lines only when left out")
+    a.add_argument("--iris", default=faces.IRIS_FORMS[0], choices=faces.IRIS_FORMS,
+                   help="an eye ring drawn only between the lids (the default since 2026-10-14) or whole (the form before)")
     a.add_argument("--names", help="a json list of the points' names, for a points file made before they were kept")
     a.add_argument("--mesh-first", type=int, help="the source frame of the body-model video's frame 0; the span's first when left out")
     a.add_argument("--points-first", type=int, help="the source frame of the points file's row 0; the file's own when it says")
     v = a.parse_args()
     names = json.loads(Path(v.names).read_text()) if v.names else None
     rec = run(v.mesh, v.points, v.source, v.first, v.count, Path(v.out), v.by, names=names, mesh_first=v.mesh_first, points_first=v.points_first,
-              width=v.width, room=v.room, leave_out=faces.parts_arg(v.leave_out), dots=v.dots)
+              width=v.width, room=v.room, leave_out=faces.parts_arg(v.leave_out), dots=v.dots, iris=v.iris)
     return 0 if rec["passed"] else 1
 
 

@@ -418,6 +418,33 @@ def refusals() -> str:
             "are each refused; an old file reads with its names given")
 
 
+
+def the_iris_between_the_lids() -> str:
+    """2026-10-14: with the lids lowered, a whole iris ring stood above them and read as an open eye looking down."""
+    t = np.linspace(0, 2 * np.pi, 8, endpoint=False)
+    lids = np.stack([100 + 30 * np.cos(t), 100 + 4 * np.sin(t)], 1)            # a narrow opening, 8 px tall
+    iris = np.stack([100 + 10 * np.cos(t), 100 + 10 * np.sin(t)], 1)            # a ring 20 px across, larger than the opening
+    runs, closed, off = df.between_the_lids(iris, lids)
+    assert not closed and runs and 0.4 < off < 0.9, (closed, len(runs), off)
+    for run in runs:
+        assert df.inside(run, lids).all(), "a stretch drawn outside the lids"
+    small = np.stack([100 + 2 * np.cos(t), 100 + 2 * np.sin(t)], 1)
+    assert df.between_the_lids(small, lids)[1:] == (True, 0.0), "a ring wholly inside is not drawn whole"
+    far = iris + np.array([0, 60])
+    assert df.between_the_lids(far, lids) == ([], False, 1.0), "a ring wholly outside is drawn"
+    # through a frame's drawing: the default draws only open stretches inside; `whole` draws the closed ring, as before
+    p = face([(160.0, 100.0)], opening=1.0)[0]                                 # lids nearly shut: the iris (radius IRIS_R) is larger than the opening
+    s = np.full(len(NAMES), 0.9)
+    outside: dict = {}
+    between = [x for x in df.shapes(p, s, INDEX, 0.0, frozenset(), df.IRIS_FORMS[0], outside) if x[0].endswith("_iris_ring")]
+    whole = [x for x in df.shapes(p, s, INDEX, 0.0, frozenset(), df.IRIS_FORMS[1]) if x[0].endswith("_iris_ring")]
+    assert all(c for _, _, c in whole) and len(whole) == 2, whole
+    assert outside and all(0 < v <= 1 for v in outside.values()), outside
+    assert between and all(not c for _, _, c in between) and all(v > 0 for k, v in outside.items() if "iris" in k), (between, outside)
+    return (f"a ring larger than a narrow opening is drawn only where it lies between the lids ({off:.2f} of it outside), a ring wholly inside "
+            "is drawn closed and one wholly outside not at all; on nearly shut lids the default draws open stretches and `whole` both rings closed")
+
+case("the iris between the lids", the_iris_between_the_lids)
 case("the lines run through their points in order, and are as long as they say", in_order_and_as_long)
 case("the lines are where the points are", where_the_points_are)
 case("frames from the middle of both files", frames_from_the_middle)

@@ -55,6 +55,12 @@ none, so its points are laid along the same eye's upper lash line, inner end to 
 start to its end, the bridge's from the root to its tip, a lip's from one corner of the mouth to the other.
 An iris or a pupil ring runs by angle round its own centre point.
 
+AN IRIS OR A PUPIL RING IS DRAWN ONLY BETWEEN THE LIDS (`IRIS_FORMS`, since 2026-10-14): the ring is sampled densely
+(`RING_SAMPLES`) and only its stretches inside that eye's lash ring are drawn, each as an open line; a ring wholly
+inside is drawn closed, as before. `--iris whole` draws the whole ring, the form before. With the lids lowered the
+whole ring was larger than the opening and read as an open eye looking down. The record says which was drawn and,
+for each ring, the share of it that lay outside the lids, least, median and most over the frames.
+
 WHAT IS LEFT OUT, and said in the record: an iris or a pupil ring on a frame where the model's score, at the
 median over that ring's points, is under `h3_config.POSE_READING["eye_ring_score_at_least"]`. On a small face
 the pupil points score low and lie far off the face; that line is a starting value from one shot.
@@ -138,6 +144,16 @@ NEAR_WHITE = marks.NEAR_WHITE
 
 SIDES = fp.SIDES
 RINGS = ("iris", "pupil")
+#: How an iris or a pupil ring is drawn: only the stretches of it that lie between the lids (the default since
+#: 2026-10-14), or `whole` (as before, behind `--iris whole`). The fault it answers, found twice that day
+#: independently (the lead's investigation of the 10/12 references, internal/claude/2026-10-14_mrtwo_scripts/eyes/
+#: findings.md item 4; the card holder on second_hfp_0484's held reference): with her lids drawn lowered, the
+#: iris ring drawn whole is larger than the opening, about 42% of it outside the lids, and the drawing reads as
+#: an open eye looking down.
+IRIS_FORMS = ("between the lids", "whole")
+#: Points a ring is sampled at to find where it lies between the lids. Reasoned: a ring is eight points round a
+#: centre; 64 along it puts a sample about every 6 degrees, finer than a line is wide on any face drawn so far.
+RING_SAMPLES = 64
 #: What `--leave-out` can name: every shape drawn belongs to one.
 PARTS = ("eyes", "brows", "nose", "mouth", "dots")
 
@@ -176,8 +192,45 @@ def ring_scores(s: np.ndarray, index: dict) -> dict[str, float]:
             for side in SIDES for ring in RINGS}
 
 
-def shapes(p: np.ndarray, s: np.ndarray, index: dict, score_line: float, leave_out: frozenset = frozenset()) -> list[tuple[str, np.ndarray, bool]]:
-    """One frame's drawing as (name, points in order, whether it closes on itself). A dot alone is one point."""
+def inside(xy: np.ndarray, polygon: np.ndarray) -> np.ndarray:
+    """Which of the points `xy` [k, 2] lie inside the closed `polygon` [m, 2] (even-odd rule)."""
+    x, y = xy[:, 0][:, None], xy[:, 1][:, None]
+    a, b = polygon, np.roll(polygon, -1, axis=0)
+    crosses = ((a[:, 1] > y) != (b[:, 1] > y)) & (x < (b[:, 0] - a[:, 0]) * (y - a[:, 1]) / np.where(b[:, 1] == a[:, 1], 1e-12, b[:, 1] - a[:, 1]) + a[:, 0])
+    return (crosses.sum(1) % 2) == 1
+
+
+def between_the_lids(ring: np.ndarray, lids: np.ndarray) -> tuple[list[np.ndarray], bool, float]:
+    """A ring's stretches that lie inside the lid ring: (the stretches, whether the whole ring is inside, the share
+    of the ring outside). The ring is sampled at `RING_SAMPLES` points along it."""
+    k = len(ring)
+    t = np.linspace(0.0, k, RING_SAMPLES, endpoint=False)
+    i = np.floor(t).astype(int)
+    dense = ring[i % k] + (t - i)[:, None] * (ring[(i + 1) % k] - ring[i % k])
+    keep = inside(dense, lids)
+    if keep.all():
+        return [ring], True, 0.0
+    if not keep.any():
+        return [], False, 1.0
+    start = int(np.argmin(keep))                                   # begin on a sample outside, so no stretch is cut at the seam
+    order = np.r_[start:RING_SAMPLES, 0:start]
+    runs, run = [], []
+    for j in order:
+        if keep[j]:
+            run.append(dense[j])
+        elif run:
+            runs.append(np.array(run))
+            run = []
+    if run:
+        runs.append(np.array(run))
+    return [r for r in runs if len(r) > 1], False, float(1.0 - keep.mean())
+
+
+def shapes(p: np.ndarray, s: np.ndarray, index: dict, score_line: float, leave_out: frozenset = frozenset(),
+           iris: str = IRIS_FORMS[0], outside: dict | None = None) -> list[tuple[str, np.ndarray, bool]]:
+    """One frame's drawing as (name, points in order, whether it closes on itself). A dot alone is one point.
+    `iris`: a ring drawn between the lids or whole (`IRIS_FORMS`); `outside`, when given, gets each drawn ring's
+    share outside the lids, by its name."""
     out: list[tuple[str, np.ndarray, bool]] = []
     scores = ring_scores(s, index)
     for side, ring in zip(SIDES, fp.lid_rings(p, index)):
@@ -188,7 +241,14 @@ def shapes(p: np.ndarray, s: np.ndarray, index: dict, score_line: float, leave_o
                 out.append((f"{side}_{line}", _along(p, _ids(index, f"{side}_", f"_of_{line}"), a, b), False))
             for kind in RINGS:
                 if scores[f"{side}_{kind}"] >= score_line:
-                    out.append((f"{side}_{kind}_ring", _round(p, _ids(index, f"{side}_border_of_{kind}"), p[index[f"{side}_center_of_{kind}"]]), True))
+                    whole = _round(p, _ids(index, f"{side}_border_of_{kind}"), p[index[f"{side}_center_of_{kind}"]])
+                    runs, closed, off = between_the_lids(whole, ring)
+                    if outside is not None:
+                        outside[f"{side}_{kind}"] = off
+                    if iris == IRIS_FORMS[1] or closed:
+                        out.append((f"{side}_{kind}_ring", whole, True))
+                    else:
+                        out += [(f"{side}_{kind}_ring", run, False) for run in runs]
         if "brows" not in leave_out:
             end = p[index[f"end_of_{side}_eyebrow"]]
             upper = _along(p, _ids(index, "upper_", f"_of_{side}_eyebrow"), p[index[f"upper_startpoint_of_{side}_eyebrow"]], end)
@@ -408,7 +468,7 @@ def width_for(points: dict, width: float | None) -> tuple[float, float, str]:
 def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by: str, *, names: list[str] | None = None,
         mesh_first: int | None = None, points_first: int | None = None, width: float | None = None, dots: bool = True,
         leave_out: frozenset = frozenset(), bare: list[int] | None = None, bare_by: str = "", source: str = "", source_first: int = 0,
-        say=print) -> dict:
+        iris: str = IRIS_FORMS[0], say=print) -> dict:
     """Draw, write, read back, record. Returns the record; `passed` is False when the read-back or the look at the source fails."""
     if bare and not bare_by:
         raise SystemExit("--bare names frames a person looked at: say who with --bare-by")
@@ -422,7 +482,10 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
         raise SystemExit(f"the points were made on a picture of {points['size']} and the body-model video is {(w, h)}: they are not on one canvas")
     mesh = np.stack(list(stream(mesh_path, (w, h), skip, count, pix="rgb24")))
     line = h3_config.POSE_READING["eye_ring_score_at_least"]
-    drawings = [shapes(p, s, idx, line, leave_out) for p, s in zip(points["keypoints"], points["scores"])]
+    if iris not in IRIS_FORMS:
+        raise SystemExit(f"--iris is one of {IRIS_FORMS}; got {iris!r}")
+    offs = [{} for _ in range(count)]
+    drawings = [shapes(p, s, idx, line, leave_out, iris, offs[f]) for f, (p, s) in enumerate(zip(points["keypoints"], points["scores"]))]
     if not dots:
         drawings = [lines_only(d) for d in drawings]                # no dots is no dots: the points that belong to no line go too
     wide, face, wide_by = width_for(points, width)
@@ -451,10 +514,17 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
         "parts_left_out": sorted(leave_out),
         "lines_px_a_frame_median": round(float(np.median([length(d) for d in drawings])), 1),
         "eye_rings": {"score_at_least": line, "that_line_is": "a starting value from one shot: under it a ring's points lay far off the face",
-                      "frames_a_ring_is_left_out_on": rings, "score_a_frame_least_median_most": scores},
+                      "frames_a_ring_is_left_out_on": rings, "score_a_frame_least_median_most": scores,
+                      "drawn": iris, "drawn_is": ("only the stretches of each ring between the lids" if iris == IRIS_FORMS[0] else "each ring whole"),
+                      "share_of_the_ring_outside_the_lids_least_median_most": {
+                          k: ([round(float(v), 2) for v in np.percentile(vals, [0, 50, 100])] if vals else None)
+                          for k in rings for vals in [[o[k] for o in offs if k in o]]}},
         "frames_left_bare": sorted(first + f for f in left), "left_bare_by": bare_by,
         "not_known": ["whether a head is turned away on any frame: the model places and scores face points on the back of a head",
-                      "whether the lines sit on her face, and whether they can be told apart at this size: open the sheet"],
+                      "whether the lines sit on her face, and whether they can be told apart at this size: open the sheet",
+                      "whether the lids are drawn shut where hers are: on a laughing squint the pose model's lid points do not close, and the lid "
+                      "outline stays an open almond (the lead on 3247, 3261 and 3276, 2026-10-14, on the lead's look at the sheet)",
+                      "what the body model's own eyes do under the drawing: its sculpted eyes are open on every frame, whatever is drawn on them"],
         "read_back": {"white_px_a_frame": {"least": int(white.min()), "median": int(np.median(white)), "most": int(white.max())},
                       "white_px_expected_a_frame": {"least": int(expected[drawn].min()) if drawn.any() else 0,
                                                     "median": int(np.median(expected[drawn])) if drawn.any() else 0,
@@ -496,7 +566,7 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
 
 def verify(video: str, mesh_path: str, points_path: str, first: int, count: int, *, names: list[str] | None = None,
            mesh_first: int | None = None, points_first: int | None = None, video_first: int | None = None, width: float | None = None,
-           leave_out: frozenset = frozenset(), say=print) -> bool:
+           leave_out: frozenset = frozenset(), iris: str = IRIS_FORMS[0], say=print) -> bool:
     """A drawn video somebody made, read against a points file on the READER's account of each one's first frame."""
     points, _ = rows_of(points_path, names, first, count, points_first)
     w, h, _ = probe(mesh_path)
@@ -509,7 +579,7 @@ def verify(video: str, mesh_path: str, points_path: str, first: int, count: int,
         raise SystemExit(str(exc)) from None
     wide = width_for(points, width)[0]
     line = h3_config.POSE_READING["eye_ring_score_at_least"]
-    segs = [segments(shapes(p, s, points["index"], line, leave_out)) for p, s in zip(points["keypoints"], points["scores"])]
+    segs = [segments(shapes(p, s, points["index"], line, leave_out, iris)) for p, s in zip(points["keypoints"], points["scores"])]
     count_white = np.array([len(v) for v in white])
     drawn = count_white > 0
     lags = fit_by_lag(white, segs, drawn)
@@ -535,10 +605,11 @@ def main() -> int:
         a.add_argument("--names"); a.add_argument("--mesh-first", type=int); a.add_argument("--points-first", type=int); a.add_argument("--video-first", type=int)
         a.add_argument("--width", type=float, help="the width the lines were drawn at, from the video's record; the size rule's when not given")
         a.add_argument("--leave-out", default="", help="the parts the video's record says were left out")
+        a.add_argument("--iris", default=IRIS_FORMS[0], choices=IRIS_FORMS, help="how the video's record says its eye rings were drawn")
         v = a.parse_args(sys.argv[2:])
         names = json.loads(Path(v.names).read_text()) if v.names else None
         return 0 if verify(v.video, v.mesh, v.points, v.first, v.count, names=names, mesh_first=v.mesh_first, points_first=v.points_first,
-                           video_first=v.video_first, width=v.width, leave_out=parts_arg(v.leave_out)) else 1
+                           video_first=v.video_first, width=v.width, leave_out=parts_arg(v.leave_out), iris=v.iris) else 1
     a = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     a.add_argument("--mesh", required=True, help="the body-model video, at the canvas's size")
     a.add_argument("--points", required=True, help="the original's points along the shot (bench/pose_along_shot.py)")
@@ -554,13 +625,15 @@ def main() -> int:
     a.add_argument("--leave-out", default="", help=f"parts not to draw, as a person saw their points are off her face: any of {', '.join(PARTS)}")
     a.add_argument("--bare", default="", help="source frames to leave with nothing drawn, as a person saw them: 1045-1047,1060")
     a.add_argument("--bare-by", default="", help="who looked")
+    a.add_argument("--iris", default=IRIS_FORMS[0], choices=IRIS_FORMS,
+                   help="an iris or pupil ring drawn only where it lies between the lids (the default), or whole (the form before 2026-10-14)")
     a.add_argument("--source", default="", help="the original video: writes a sheet to look at")
     a.add_argument("--source-first", type=int, default=0, help="the source frame of that video's frame 0, for one cut from the original; 0 when left out")
     v = a.parse_args()
     names = json.loads(Path(v.names).read_text()) if v.names else None
     rec = run(v.mesh, v.points, v.first, v.count, Path(v.out), v.by, names=names, mesh_first=v.mesh_first, points_first=v.points_first,
               width=v.width, dots=not v.no_dots, leave_out=parts_arg(v.leave_out), bare=marks.frames_arg(v.bare), bare_by=v.bare_by, source=v.source,
-              source_first=v.source_first)
+              source_first=v.source_first, iris=v.iris)
     return 0 if rec["passed"] else 1
 
 
