@@ -65,7 +65,8 @@ SHOTS = {"subjects": ["a", "b"], "span": [0, 149], "shots": [
     {"first": 0, "last": 49, "who": {"a": {"present": "yes"}, "b": {"present": "no", "by": "a person, on a page # of 2026-01-01", "how": "words that are not carried"}}},
     {"first": 50, "last": 99, "who": {"a": {"present": "yes"}, "b": {"present": "yes"}}},
     {"first": 100, "last": 149, "who": {"a": {"present": "no"}, "b": {"present": "unsure"}}}]}
-PLAN = {"subjects": {"a": {"region": "face"}, "b": {"region": "face and hair"}}, "aliases": {"singer": "a", "_by": "a note"}}
+PLAN = {"subjects": {"a": {"region": "face", "parts": ["face_and_neck"]}, "b": {"region": "face and hair", "parts": ["hair", "face_and_neck"]}},
+        "aliases": {"singer": "a", "_by": "a note"}}
 FROZEN = {"cut_to_the_head": True, "face_points": True, "lid_marks": False}
 PLAIN = {"cut_to_the_head": True, "face_points": False, "lid_marks": False}
 LIDS = {"cut_to_the_head": True, "face_points": False, "lid_marks": True}
@@ -74,11 +75,11 @@ AGREES, DISAGREES, NO_FILE, NO_RECORD = dt.AGREES, "recorded, THE FILE DISAGREES
 
 
 def render(name: str, span: tuple[int, int], written: str, *, subject: str = "a", region: str | None = "face", has=FROZEN, making: str = AGREES,
-           owner: tuple = (), also: tuple = ()) -> dict:
+           owner: tuple = (), also: tuple = (), named: dict | None = None) -> dict:
     """A render as the ledger's JSON holds one, with the fields the rule reads. `owner` is (time, what, said[, on a joined clip])."""
     return {"file": f"Video/s/{name}/{name}_00001.mp4", "name": name, "written": f"2026-01-{written}T00:00:00Z", "span": list(span), "making": making,
             "subjects": [subject, *also], "records": [{"disagrees": ["the record's load is 9 frames from 1; the file holds 3"]}] if making == DISAGREES else [],
-            "form": {"region": region, "reference": {"has": has, "says": "what the ledger said of the reference"}},
+            "form": {"region": region, "part_named": named, "reference": {"has": has, "says": "what the ledger said of the reference"}},
             "owner": [{"at": f"2026-02-{o[0]}T00:00:00Z", "what": o[1], "said": o[2], "row": name, "from": f"verdicts (answers.jsonl:{10 + n})",
                        **({"on_the_joined_clip": o[3]} if len(o) > 3 else {})} for n, o in enumerate(owner)]}
 
@@ -148,6 +149,32 @@ def the_frozen_form() -> str:
     assert "the form's exception" in plain["why"] and "in no field read here" in plain["why"], plain["why"]
     return ("the newest agreeing render in the frozen form stands; an older one, one with lid marks, one of another region and one whose "
             "reference is not cut to the head are passed over, each with which; the plain cut stands by the exception and says its reason was not read")
+
+
+def a_part_the_job_named() -> str:
+    """The hair alone where no face shows (the owner's answer of 2026-10-13): its capture's part reads `a part`, and the
+    table laid the source there for want of the plan's region."""
+    by = {"parts": ["hair"], "by": "the lead, on the owner's answer"}
+    hair = render("b_hair", (60, 99), "09", subject="b", region="a part", named=by)
+    e = entry(decide(hair), 50, "b")
+    assert [s["render"] for s in e["stands"]] == ["b_hair"] and [tuple(f) for f in e["stands"][0]["frames"]] == [(60, 99)], e["stands"]
+    why = e["stands"][0]["why"]
+    assert why.startswith("step 2: a part of the plan's region (face and hair) named for this load by its job: hair alone, on the lead, on the owner's answer; the frozen form") , why
+    # a part nobody named, a named part the plan does not have, and every part of the plan named are held to the plan's region as before
+    for name, more in (("unnamed", {}), ("not_the_plans", {"named": {"parts": ["upper_clothing"], "by": "x"}}), ("all_of_them", {"named": {"parts": ["hair", "face_and_neck"], "by": "x"}})):
+        got = entry(decide(render(name, (60, 99), "09", subject="b", region="a part", **more)), 50, "b")
+        assert got["stands"] == [] and "it replaces a part, where the plan's region for this subject is face and hair" in got["passed_over"][0]["why"], (name, got)
+    # a's plan has one part: nothing is some of it
+    assert entry(decide(render("a_named", (0, 49), "09", region="a part", named={"parts": ["face_and_neck"], "by": "x"})), 0, "a")["stands"] == []
+    # the named part still needs the reference of the form, and a whole person never stands
+    assert entry(decide(render("b_hair_lids", (60, 99), "09", subject="b", region="a part", named=by, has=LIDS)), 50, "b")["stands"] == []
+    assert entry(decide(render("b_whole", (60, 99), "09", subject="b", region="whole", named=by)), 50, "b")["stands"] == []
+    # AFTER THE OWNER'S KEEP, not before it: the kept piece keeps the frame the two share, which a --prefer would have taken
+    kept = render("b_kept", (50, 80), "02", subject="b", region="face and hair", owner=(("01", "choice", "keep this one"),))
+    both = entry(decide(kept, render("b_hair", (80, 99), "09", subject="b", region="a part", named=by)), 50, "b")
+    laid = {s["render"]: [tuple(f) for f in s["frames"]] for s in both["stands"]}
+    assert laid == {"b_kept": [(50, 80)], "b_hair": [(81, 99)]}, laid
+    return "a render whose job named its part as some of the plan's stands at step 2 as the plan's region, after a keep, and its row says which part and on whose word"
 
 
 def what_never_stands() -> str:
@@ -488,6 +515,7 @@ def what_a_restore_has_to_go_on() -> str:
 
 case("the owner's keep", the_owners_keep)
 case("the frozen form", the_frozen_form)
+case("a part the job named stands as the plan's region", a_part_the_job_named)
 case("what never stands", what_never_stands)
 case("nothing left, and several renders on one shot", nothing_left_and_several_on_a_shot)
 case("restore: the other subjects of the shot", restores)

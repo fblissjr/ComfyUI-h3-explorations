@@ -35,6 +35,10 @@ assembles nothing.
    to the head with the face points drawn. The plain body model cut to the head (no points, no marks) is the
    form's stated exception for a face under the drawing line; no field this tool reads says why a load took
    it, so such a render stands here and its line says the reason was not read.
+   A render whose JOB named its part as some of the plan's parts for the subject (the hair alone where no face
+   shows: the owner's answer of 2026-10-13; the ledger's `part_named`) is taken as the plan's region, and its
+   line says which parts and on whose word. Its capture's part holds no face class and reads `a part`; held to
+   the region's word alone, the table laid the source exactly where the owner had asked for the new hair.
 3. Never: a render with no build record, one whose queue record names no file, one whose file disagrees with
    its record, a whole-person render of any subject, a render of two subjects in one pass (not laid by this
    tool). The owner's rule of 2026-10-13: a piece whose making cannot be said is rendered again.
@@ -173,18 +177,29 @@ def never_stands(render: dict) -> str | None:
     return None
 
 
-def form_of(render: dict, region_wanted: str) -> tuple[str | None, str]:
-    """(`frozen`, `frozen, by its exception`, or None, with the words): is a render in the frozen form for its subject."""
+def form_of(render: dict, region_wanted: str, plan_parts: list[str] | None = None) -> tuple[str | None, str]:
+    """(`frozen`, `frozen, by its exception`, or None, with the words): is a render in the frozen form for its subject.
+
+    A render whose job NAMED its part as some of the plan's parts for the subject (the ledger's `part_named`: the
+    hair alone where no face shows, the owner's answer of 2026-10-13) is taken as the plan's region, and its row
+    says which parts and on whose word. Its capture's part reads `a part`, since it holds no face class; without
+    this the table laid the source exactly where the owner asked for the new hair. The parts must be some of the
+    plan's for the subject and not all of them; a part nobody named, and a named part the plan does not have, are
+    held to the plan's region as before."""
     region, has = render["form"].get("region"), (render["form"].get("reference") or {}).get("has")
-    if region != region_wanted:
+    named = render["form"].get("part_named") or {}
+    subset = bool(named.get("parts")) and region != "whole" and plan_parts is not None and set(named["parts"]) < set(plan_parts)
+    said = "" if not subset else (f"a part of the plan's region ({region_wanted}) named for this load by its job: {' + '.join(named['parts'])} alone, "
+                                  f"on {named.get('by') or 'a word the job does not give'}; ")
+    if region != region_wanted and not subset:
         return None, f"it replaces {region or 'what no file says'}, where the plan's region for this subject is {region_wanted}"
     if not has or not has.get("cut_to_the_head"):
         return None, "its reference is not the body model cut to the head: " + (render["form"]["reference"].get("says") or "none")
     if has.get("lid_marks"):
         return None, "its reference has marks drawn on the lids, the form before the frozen one"
     if has.get("face_points"):
-        return "frozen", "the frozen form: the plan's region, the body model cut to the head with the face points drawn"
-    return "frozen, by its exception", ("the plain body model cut to the head, the form's exception for a face under the drawing line; WHY this load took "
+        return "frozen", said + "the frozen form: the plan's region, the body model cut to the head with the face points drawn"
+    return "frozen, by its exception", (said + "the plain body model cut to the head, the form's exception for a face under the drawing line; WHY this load took "
                                         "it is in no field read here (the load's note or its capture's looks)")
 
 
@@ -263,7 +278,7 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
                 kept = bool(choice and choice["said"] in KEEP)
                 barred = (f"the owner's last choice on it was \"{choice['said']}\" ({str(choice['at'])[:16]}, row {choice.get('row')}): not the one"
                           if choice and choice["said"] in NOT_THE_ONE else None)
-                frozen, form_words = form_of(r, wanted)
+                frozen, form_words = form_of(r, wanted, plan["subjects"][label].get("parts"))
                 named = next((p for p in preferred if p["load"] == r["name"]), None)
                 held = next((h for h in held_here if h["load"] == r["name"]), None)
                 held_words = "" if held is None else f"HELD BACK by the lead (--hold), a session's word and not the owner's: {held['reason']}"

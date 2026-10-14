@@ -84,7 +84,9 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 #: 2 (2026-10-13): a render's form also carries `region` and its reference `has`, as fields a tool can read
 #: without parsing a sentence; an owner's line says whether it is a choice (a button) or words; and the ledger
-#: says the share it walked (`bench/delivery_table.py` reads all of these).
+#: says the share it walked (`bench/delivery_table.py` reads all of these). Since 2026-10-13, late, a form also
+#: carries `part_named` (the parts a load's job named as its own, or null): a field added, the schema's number kept,
+#: since every reader of 2 reads a ledger with it.
 SCHEMA = "h3_render_ledger/2"
 #: A reference with none of these steps in its records, for a form's `has`.
 NO_STEPS = {"cut_to_the_head": False, "face_points": False, "lid_marks": False}
@@ -327,6 +329,27 @@ def part_classes(capture: Path | None, label: str | None) -> list[str] | None:
     return None
 
 
+def part_named(job_file: str | None, repo: Path, label: str | None) -> dict | None:
+    """The parts a load's JOB named as its own, some of its subject's plan parts (`shot_to_load.py job --parts`), with
+    whose word, read from the job file its build record names; None when the job names none or cannot be read.
+
+    Why the ledger carries it (2026-10-13): a render of the hair alone has a capture whose part is made of the hair
+    class only, so its region reads `a part` and not the plan's `face and hair`, and a table that holds a render to
+    the plan's region would pass it over and lay the source where the owner asked for the new hair. That the part
+    was NAMED for the load, and by whom, is in the job file and nowhere in the capture."""
+    if not job_file or not label:
+        return None
+    path = Path(job_file) if Path(job_file).is_absolute() else repo / job_file
+    try:
+        job = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return None
+    for s in (job.get("job") or {}).get("subjects") or []:
+        if s.get("label") == label and s.get("parts_of_this_load"):
+            return {"parts": list(s["parts_of_this_load"]), "by": s.get("parts_by"), "read_from": str(job_file)}
+    return None
+
+
 def region_of(carried: str | None, classes: list[str] | None) -> str | None:
     """What a render replaces as one of the plan's regions (`whole`, `face`, `face and hair`), `a part` when the
     part's classes are not a face's or were not read, or None when the files do not say what was carried."""
@@ -534,6 +557,7 @@ def ledger(shots: dict, plan: dict, share: Path, records: Path, repo: Path, sour
             "region": region_of(carried, classes),
             "replaces": region_form(carried, classes,
                                     "the build record and its capture" if rec0 else "the saved graph" + (" and the capture its mask file sits in" if capture else "")),
+            "part_named": part_named((rec0 or {}).get("job_file"), repo, load.get("subject") or label),
             "rendered": load.get("render_region") or (ask or {}).get("render_region") or "the whole frame",
             "reference": reference_form(load.get("motion_file") or files.get("motion_video")),
             "text_says_the_video_is": text_says(text),

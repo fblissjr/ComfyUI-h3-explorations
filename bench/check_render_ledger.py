@@ -109,7 +109,7 @@ class Made:
         return path
 
     def record(self, name: str, load: dict, files: list[str] | None, *, status: str | None = "success", folder: str | None = None,
-               text: str | None = None, queued_at: str = QUEUED_AT) -> None:
+               text: str | None = None, queued_at: str = QUEUED_AT, job_subjects: list | None = None) -> None:
         job = self.records / f"2026-01-02_{name}_job"
         job.mkdir(parents=True, exist_ok=True)
         built = {"load": {"name": name, "subject": "a", "carried": "held", **load}, "commit": "abc1234", "capture": str(self.capture),
@@ -118,6 +118,9 @@ class Made:
         if text is not None:
             (job / f"{name}.txt").write_text(text)
             built["text"] = {"file": str(job / f"{name}.txt")}
+        if job_subjects is not None:                               # the job file the build record names, as shot_to_load.py writes one
+            (self.records / f"{name}.json").write_text(json.dumps({"job": {"name": name, "subjects": job_subjects}}))
+            built["job_file"] = str(self.records / f"{name}.json")
         (job / f"{name}.render.built.json").write_text(json.dumps(built))
         queued = {"commit": "abc1234", "queued_at": queued_at, "gate": {"verdict": "clear", "overridden": []}, "look": {"by": "a reader"}}
         if files is not None:
@@ -222,6 +225,36 @@ def a_render_its_record_agrees_with() -> str:
             {"row": "spot_2", "why": "a stacked or joined viewing copy; which render it shows is in the item's title", "title": "a viewing copy of 70 to 75"}]
     return ("a render its record agrees with: its sections, what it replaces by the capture's classes, its reference by the records beside "
             "it, the text's own words, the table, and the owner's lines once each")
+
+
+def a_part_the_job_named() -> str:
+    """A load whose job names its part as some of its subject's plan parts (the hair alone): the ledger carries the
+    parts and whose word, read from the job file the build record names; the capture's part still reads `a part`."""
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        (made.capture / "manifest.json").write_text(json.dumps({"subjects": [{"label": "a", "sightings": [{"by": "p", "part_is_made_of": ["Hair"]}]}]}))
+        ref = _reference(made)
+        load = {"first": 30, "frames": 60, "motion": "mesh", "motion_file": ref, "still": "a.png", "seed": 7}
+        g = graph(30, 60, made.mask, parts=made.parts, motion=ref, text=TEXT)
+        why = "the lead, on the owner's answer: her hair stays the new hair"
+        for name, subjects in (("hair", [{"label": "b"}, {"label": "a", "parts": ["hair", "face_and_neck"], "parts_of_this_load": ["hair"], "parts_by": why, "parts_file": "/x/hair.mkv"}]),
+                               ("usual", [{"label": "a", "parts": ["hair", "face_and_neck"]}]), ("other", [{"label": "b", "parts_of_this_load": ["hair"], "parts_by": why}]),
+                               ("no_job", None)):
+            rel = f"Video/clip/s1/{name}/{name}_00001.mp4"
+            made.render(rel, 60, g)
+            made.record(name, load, [rel], text=TEXT, job_subjects=subjects)
+        out = made.ledger()
+        form = lambda name: out["renders"][f"Video/clip/s1/{name}/{name}_00001.mp4"]["form"]              # noqa: E731
+        assert form("hair")["region"] == "a part" and form("hair")["replaces"].startswith("a part made of Hair"), form("hair")
+        assert form("hair")["part_named"] == {"parts": ["hair"], "by": why, "read_from": str(made.records / "hair.json")}, form("hair")["part_named"]
+        # a job that names no part of its own, a part named for ANOTHER subject of the job, and a record with no job file: none
+        assert form("usual")["part_named"] is None and form("other")["part_named"] is None and form("no_job")["part_named"] is None, [form(n)["part_named"] for n in ("usual", "other", "no_job")]
+        # a job file that is gone or not JSON is not a crash and not a name
+        (made.records / "hair.json").write_text("{ not json")
+        assert made.ledger()["renders"]["Video/clip/s1/hair/hair_00001.mp4"]["form"]["part_named"] is None
+        (made.records / "hair.json").unlink()
+        assert made.ledger()["renders"]["Video/clip/s1/hair/hair_00001.mp4"]["form"]["part_named"] is None
+    return "a load whose job names its part as some of its subject's parts carries them in its form with whose word; no job, another subject's and an unreadable file carry none"
 
 
 def a_file_against_its_record() -> str:
@@ -333,6 +366,7 @@ def the_page_and_the_summary() -> str:
 
 
 case("a render its record agrees with", a_render_its_record_agrees_with)
+case("a part the job named is carried in the form", a_part_the_job_named)
 case("a file against its record: the frames, the outcome, the graph, the time", a_file_against_its_record)
 case("a record that names no file, and no record at all", an_older_record_and_no_record)
 case("what is not a render of this video", what_is_not_a_render_of_this_video)
