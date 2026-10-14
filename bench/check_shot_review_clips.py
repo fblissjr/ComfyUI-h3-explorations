@@ -385,10 +385,15 @@ def items_at_the_top() -> str:
 
 def by_the_day() -> str:
     t = made_table()
-    t["made"] = "Made at commit x from the ledger `data/l.json` (...)"
+    t["made"] = "Made at commit x from the ledger `LEDGER` (...)"
     t["reading"][0]["stands"].append(stand("lead_pref", [(141, 141)], "2026-10-13T16:00:00Z", None, step=0, led="the lead's own reason, whole"))
     t["reading"].append(entry(141, 160, "lead", stands=[stand("lead_b", [(141, 160)], "2026-10-12T15:00:00Z", step=0, led="the lead's word on its second shot")]))
-    t["not_in_the_shot"].append({"first": 141, "last": 160, "subject": "ghost", "why": "not in the shot"})
+    t["not_in_the_shot"].append({"first": 141, "last": 170, "subject": "ghost", "why": "not in the shot"})
+    # the owner kept a piece the lead's --prefer set aside on 141-160: said beside what stands, not hidden under the lead's word
+    t["reading"][-1]["passed_over"] = [{"render": "lead_owner", "why": "set aside by --prefer", "the_owners_last_choice": {"said": "keep this one", "at": "2026-10-13T01:00:00Z"}},
+                                       {"render": "elsewhere", "why": "a reason on this shot", "the_owners_last_choice": None}]
+    t["reading"][0].setdefault("passed_over", []).append({"render": "elsewhere", "why": "another reason on the first shot", "the_owners_last_choice": None})
+    t["reading"][-1]["stands"][0]["the_owners_last_choice"] = {"said": "not sure", "at": "2026-10-13T02:00:00Z"}
     ledger = {"renders": {
         "lead_a": {"name": "lead_a", "written": "2026-10-14T03:10:00Z", "graph": {"first": 100, "frames": 21}},
         "lead_pref": {"name": "lead_pref", "written": "2026-10-13T16:00:00Z", "graph": {"first": 141, "frames": 1}},
@@ -399,28 +404,40 @@ def by_the_day() -> str:
         "next_day": {"name": "next_day", "written": "2026-10-14T06:00:00Z", "graph": {"first": 5, "frames": 10}}}}
     text = src.by_day_text(t, ledger, "2026-10-13", "t.json", "l.json")
     rows = [x for x in text.splitlines() if x.startswith("| ") and not x.startswith("| frames")]
-    pieces = [r for r in rows if r.count("|") == 6]
+    pieces = [r for r in rows if r.count("|") == 7]
     assert [r.split(" | ")[2] for r in pieces] == ["lead_a", "second_a", "sixth_a", "lead_b", "lead_pref"], pieces
-    assert "| 121-140,141-160 | lead | lead_b | 10-12 10:00 | THE LEAD'S CHOICE (--prefer), a session's word: the lead's word on its second shot |" in text \
-        and "| 145-154 | ghost_r | 10-13 09:00 | its subject ghost is not in the shot 141-160 by the shots record |" in text and "| lead_pref | 10-13 11:00 | THE LEAD'S CHOICE (--prefer), a session's word: the lead's own reason, whole |" in text, text
+    # THE CASE THAT GOES RED when an owner's keep the lead's --prefer set aside is hidden under the lead's word
+    assert ("| 121-140,141-160 | lead | lead_b | 10-12 10:00 | 'not sure', 10-12 21:00 | THE LEAD'S CHOICE (--prefer), a session's word: the lead's word on its "
+            "second shot. THE OWNER'S OTHER KEEP(S) on these frames, not laid by this table: lead_owner ('keep this one', 10-12 20:00 Central) |") in text, text
+    assert "| 145-154 | ghost_r | 10-13 09:00 | its subject ghost is not in the shot 141-170 by the shots record |" in text \
+        and "| none | THE LEAD'S CHOICE (--prefer), a session's word: the lead's own reason, whole |" in text, text
     assert "5 pieces stand: 4 rendered on 2026-10-13, 1 on other days." in text, text
-    assert "## Renders of 2026-10-13 in the ledger that this table does not lay" in text and "This table covers 100-160" in text and "`l.json`" in text, text
-    assert "| not in its record | t_new | 10-13 07:00 | " + LONG + " |" in text and "| 900-909 | elsewhere | 10-13 08:00 | on no shot of this table |" in text, text
+    assert "## Renders of 2026-10-13 in the ledger that this table does not lay" in text and "This table covers 100-170" in text and "`l.json`" in text, text
+    assert "| not in its record | t_new | 10-13 07:00 | on 100-140: " + LONG + " |" in text, text
+    assert "| 900-909 | elsewhere | 10-13 08:00 | on 100-140: another reason on the first shot; on 141-160: a reason on this shot |" in text, text
     tail = text.split("## Renders of 2026-10-13")[1]
     assert all(n not in tail for n in ("lead_pref", "second_a", "next_day")) and "6 renders of 2026-10-13 in the ledger; 3 of them stand in this table." in text, tail
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "kept.md"
         out.write_text("kept")
+        (Path(tmp) / "a").mkdir()
+        t["made"] = t["made"].replace("LEDGER", str(Path(tmp) / "l.json"))
         (Path(tmp) / "t.json").write_text(json.dumps(t))
-        (Path(tmp) / "l.json").write_text(json.dumps(ledger))
-        (Path(tmp) / "other.json").write_text(json.dumps(ledger))
-        refused(lambda: src.main(["by-day", "--table", str(Path(tmp) / "t.json"), "--ledger", str(Path(tmp) / "other.json"), "--day", "2026-10-13",
-                                  "--out", str(Path(tmp) / "new.md")]), "made from another ledger")
+        for f in ("l.json", "other.json", "a/l.json"):
+            (Path(tmp) / f).write_text(json.dumps(ledger))
+        # another ledger, and one of the same name in another folder, are refused: the table's ledger is held by its path
+        for wrong in ("other.json", "a/l.json"):
+            refused(lambda w=wrong: src.main(["by-day", "--table", str(Path(tmp) / "t.json"), "--ledger", str(Path(tmp) / w), "--day", "2026-10-13",
+                                              "--out", str(Path(tmp) / "new.md")]), "made from another ledger")
+        assert src.main(["by-day", "--table", str(Path(tmp) / "t.json"), "--ledger", str(Path(tmp) / "l.json"), "--day", "2026-10-13",
+                         "--out", str(Path(tmp) / "new.md")]) == 0 and (Path(tmp) / "new.md").is_file()
+        (Path(tmp) / "new.md").unlink()
         refused(lambda: src.main(["by-day", "--table", str(Path(tmp) / "t.json"), "--ledger", str(Path(tmp) / "l.json"), "--day", "2026-10-13",
                                   "--out", str(out)]), "a kept output is not replaced")
         assert out.read_text() == "kept" and not (Path(tmp) / "new.md").exists()
-    return ("a row a piece, one render on two shots one row, the table's words and the lead's --prefer said as the lead's; the day's renders this table does not "
-            "lay and none that stands in it; another ledger and a kept file refused")
+    return ("a row a piece, one render on two shots one row, the table's words and the lead's --prefer said as the lead's, with the owner's last choice on it "
+            "and an owner's keep the lead set aside beside it; the span counts the shots a subject is not in; a render passed over on two shots says both "
+            "reasons; the day's renders this table does not lay and none that stands in it; another ledger, one of the same name elsewhere and a kept file refused")
 
 
 case("the words of an item", words_of_an_item)

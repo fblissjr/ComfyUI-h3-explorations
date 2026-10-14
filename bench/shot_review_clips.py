@@ -69,6 +69,7 @@ import argparse
 import datetime
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -376,29 +377,47 @@ def by_day_text(table: dict, ledger: dict, day: str, table_name: str, ledger_nam
     renders of `day` in the ledger that this table does not lay."""
     pieces: dict[tuple[str, str], dict] = {}
     for r in table["reading"]:
+        # an owner's keep of a piece that does not stand on this shot: said beside what stands over it, never hidden under the lead's word
+        set_aside = [f"{p['render']} ({p['the_owners_last_choice']['said']!r}, {owners_clock(p['the_owners_last_choice']['at']):%m-%d %H:%M} Central)"
+                     for p in r.get("passed_over") or [] if (p.get("the_owners_last_choice") or {}).get("said") in delivery_table.KEEP]
         for s in r.get("stands") or []:
-            one = pieces.setdefault((s["render"], r["subject"]), {"frames": [], "written": s["written"], "why": s["why"], "led": None})
+            one = pieces.setdefault((s["render"], r["subject"]), {"frames": [], "written": s["written"], "why": [], "led": None, "owner": None, "set_aside": []})
             one["frames"] += s["frames"]
+            if s["why"] not in one["why"]:
+                one["why"].append(s["why"])
             one["led"] = one["led"] or s.get("the_leads_prefer")            # the lead's word on any shot of it is said
+            one["owner"] = one["owner"] or s.get("the_owners_last_choice")
+            one["set_aside"] += [x for x in set_aside if x not in one["set_aside"]]
+
+    def why_of(p: dict) -> str:
+        words = f"THE LEAD'S CHOICE (--prefer), a session's word: {p['led']}" if p["led"] else "; ".join(p["why"])
+        if p["set_aside"]:
+            words += f". THE OWNER'S OTHER KEEP(S) on these frames, not laid by this table: {', '.join(p['set_aside'])}"
+        return words
+
+    def owner_of(p: dict) -> str:
+        o = p["owner"]
+        return f"{o['said']!r}, {owners_clock(o['at']):%m-%d %H:%M}" if o else "none"
     rows = sorted(((min(a for a, _ in p["frames"]), ",".join(f"{x}-{y}" for x, y in sorted(p["frames"])), sub, name, owners_clock(p["written"]),
-                    (f"THE LEAD'S CHOICE (--prefer), a session's word: {p['led']}" if p["led"] else p["why"]))
+                    owner_of(p), why_of(p))
                    for (name, sub), p in pieces.items()))
     stands = {x[3] for x in rows}
-    span = [min(e["first"] for e in table["reading"]), max(e["last"] for e in table["reading"])] if table["reading"] else None
+    shots = list(table["reading"]) + list(table.get("not_in_the_shot") or [])
+    span = [min(e["first"] for e in shots), max(e["last"] for e in shots)] if shots else None
     lines = [f"# What stands in {table_name}, by the day each piece was rendered", "",
              f"Read from the table's own reading and the ledger `{ledger_name}` by `bench/shot_review_clips.py by-day`; the day is the render file's "
              f"`written` time on the owner's clock (US Central). `{day}` is the day asked about. Why each piece stands is the table's own words.", "",
-             "| frames | subject | piece | rendered (Central) | why it stands |", "|---|---|---|---|---|"]
-    lines += [f"| {fr} | {sub} | {name} | {t:%m-%d %H:%M} | {w} |" for _, fr, sub, name, t, w in rows]
+             "| frames | subject | piece | rendered (Central) | the owner's last choice on it (Central) | why it stands |", "|---|---|---|---|---|---|"]
+    lines += [f"| {fr} | {sub} | {name} | {t:%m-%d %H:%M} | {o} | {w} |" for _, fr, sub, name, t, o, w in rows]
     on_day = sum(1 for x in rows if f"{x[4]:%Y-%m-%d}" == day)
     lines += ["", f"{len(rows)} pieces stand: {on_day} rendered on {day}, {len(rows) - on_day} on other days.", "",
               f"## Renders of {day} in the ledger that this table does not lay", "",
               f"This table covers {span[0]}-{span[1]}; a render on other frames is in no shot of it, and may stand in another table." if span else "This table has no shot.",
               "", "| frames | piece | rendered (Central) | why this table does not lay it |", "|---|---|---|---|"]
-    passed = {}
+    passed: dict[str, list[str]] = {}
     for r in table["reading"]:
         for s in r.get("passed_over") or []:
-            passed.setdefault(s["render"], s["why"])
+            passed.setdefault(s["render"], []).append(f"on {r['first']}-{r['last']}: {s['why']}")
     absent = table.get("not_in_the_shot") or []
     that_day = sorted((r for r in ledger["renders"].values() if f"{owners_clock(r['written']):%Y-%m-%d}" == day), key=lambda r: r["written"])
     for r in that_day:
@@ -408,7 +427,7 @@ def by_day_text(table: dict, ledger: dict, day: str, table_name: str, ledger_nam
         frames = f"{g['first']}-{g['first'] + g['frames'] - 1}" if g.get("first") is not None and g.get("frames") else "not in its record"
         span_r = [g["first"], g["first"] + g["frames"] - 1] if g.get("first") is not None and g.get("frames") else None
         out_of_shot = next((n for n in absent if span_r and n["subject"] in (r.get("subjects") or [r.get("subject")]) and n["first"] <= span_r[1] and n["last"] >= span_r[0]), None)
-        why = passed.get(r["name"]) or (f"its subject {out_of_shot['subject']} is not in the shot {out_of_shot['first']}-{out_of_shot['last']} by the shots record"
+        why = "; ".join(passed.get(r["name"]) or []) or (f"its subject {out_of_shot['subject']} is not in the shot {out_of_shot['first']}-{out_of_shot['last']} by the shots record"
                                        if out_of_shot else "on no shot of this table")
         lines.append(f"| {frames} | {r['name']} | {owners_clock(r['written']):%m-%d %H:%M} | {why} |")
     lines += ["", f"{len(that_day)} renders of {day} in the ledger; {sum(1 for r in that_day if r['name'] in stands)} of them stand in this table."]
@@ -424,8 +443,12 @@ def by_day(a: argparse.Namespace) -> int:
     if out.exists():
         raise SystemExit(f"refused: {out} is there already; a kept output is not replaced")
     table = json.loads(Path(a.table).read_text())
-    if Path(a.ledger).name not in str(table.get("made") or ""):
-        raise SystemExit(f"--ledger {a.ledger}: the table says it was made from another ledger ({str(table.get('made'))[:200]})")
+    named = re.search(r"from the ledger `([^`]+)`", str(table.get("made") or ""))
+    if not named:
+        raise SystemExit(f"--table {a.table}: the table names no ledger it was made from ({str(table.get('made'))[:200]})")
+    made_from = Path(named.group(1)) if Path(named.group(1)).is_absolute() else HERE.parent / named.group(1)
+    if made_from.resolve() != Path(a.ledger).resolve():
+        raise SystemExit(f"--ledger {a.ledger}: the table says it was made from another ledger, {named.group(1)}")
     text = by_day_text(table, json.loads(Path(a.ledger).read_text()), a.day, Path(a.table).name, Path(a.ledger).name)
     out.write_text(text)
     print(text, end="")
