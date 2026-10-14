@@ -72,7 +72,6 @@ import json
 import os
 import re
 import shlex
-import shutil
 import subprocess
 import sys
 import time
@@ -213,12 +212,20 @@ def cut(words: str) -> str:
 
 
 def words_after(choice: dict | None, entry: dict) -> list[str]:
-    """The owner's words on a render after their last choice (the table's `the_owners_words`), each with its day: their words
-    rule over the button (the owner's rule of 2026-10-12), so a keep they wrote after is said with them, never as a plain keep."""
-    if not choice:
-        return []
-    return [f"\"{' / '.join(w['said'].splitlines())}\" ({owners_clock(w['at']):%m/%d %H:%M})" for w in entry.get("the_owners_words") or []
-            if str(w.get("at")) > str(choice["at"])]
+    """The owner's words on a render after their last choice (the table's `the_owners_words`), each with its day and hour on
+    their clock; with no choice, all their words on it. Their words rule over the button (the owner's rule of 2026-10-12): a
+    click they wrote after is said with them, and words with no click are said (a sixth reader, 2026-10-14: third_fp_1419b's
+    "i dont like beard", with no click, read as "not judged by you yet")."""
+    return [f"\"{' / '.join(w['said'].splitlines())}\" ({owners_clock(w['at']):%m/%d %H:%M} Central)" for w in entry.get("the_owners_words") or []
+            if choice is None or str(w.get("at")) > str(choice["at"])]
+
+
+def passed_said(e: dict, keep: tuple) -> str:
+    """The renders passed over on a subject's shot, not held and not a keep of the owner's (each of those has its own
+    sentence): how many, and the newest few with their reasons cut."""
+    passed = [p for p in e["passed_over"] if not p.get("held") and (p.get("the_owners_last_choice") or {}).get("said") not in keep]
+    return (f" ({len(passed)} other render(s) passed over, the newest {min(len(passed), PASSED_OVER_NAMED)}: "
+            + "; ".join(p["render"] + ", " + cut(p["why"]) for p in passed[:PASSED_OVER_NAMED]) + ")") if passed else ""
 
 
 def item_words(table: dict, keep: tuple = delivery_table.KEEP) -> tuple[int, list[str]]:
@@ -244,23 +251,27 @@ def item_words(table: dict, keep: tuple = delivery_table.KEEP) -> tuple[int, lis
             say(e, f"{who}: not in this shot by the shots record ({e['why']})")
             continue
         if e["present"] == "unsure":
-            say(e, f"{who}: the shots record is unsure they are in this shot (yours to answer on the who page)" + ("" if e["stands"] else "; the original throughout"),
-                e["first"] - 0.5)
+            say(e, f"{who}: the shots record is unsure they are in this shot (yours to answer on the who page)"
+                + ("" if e["stands"] else "; the original throughout" + passed_said(e, keep)), e["first"] - 0.5)
         for s in e["stands"]:
-            if s["render"] not in seen:
+            left = s.get("leaves_as_the_original")
+            own = {x for x, y in s["frames"] for x in range(x, y + 1)}
+            nothing_shows = bool(left) and own <= {x for a, b in left for x in range(a, b + 1)}
+            if s["render"] not in seen and not nothing_shows:      # a piece that leaves the original on all its frames lays nothing
                 pieces += 1
                 seen.add(s["render"])
             c = s.get("the_owners_last_choice")
             day = owners_clock(s["written"])
             after = words_after(c, s)
-            choice = (f"your keep of {owners_clock(c['at']):%m/%d}" + (f", AND YOUR WORDS AFTER IT: {'; '.join(after)}" if after else "") if c and c["said"] in keep
+            choice = (f"your keep of {owners_clock(c['at']):%m/%d}" if c and c["said"] in keep
                       else f"your last choice on it: \"{c['said']}\"" if c else "not judged by you yet")
-            left = s.get("leaves_as_the_original")
+            choice += (f", AND YOUR WORDS AFTER IT: {'; '.join(after)}" if c else f", BUT YOUR WORDS ON IT: {'; '.join(after)}") if after else ""
             led = s.get("the_leads_prefer")
             say(e, f"{who}: {s['render']} on {', '.join(f'{x}-{y}' for x, y in s['frames'])}, rendered {day:%m/%d} ({day:%H:%M} Central); {choice}"
                 + (f"; IT STANDS BY THE LEAD'S CHOICE (--prefer), a session's word and not yours: {led}" if led else "")
                 + ("; what it leaves as the original inside it is NOT KNOWN (its ledger entry does not say)" if left is None
                    else f"; inside it the piece leaves the original on {', '.join(f'{x}-{y}' for x, y in left)} (its capture had no part of them there)"
+                   + ("; that is all its frames, so nothing of it shows and it is not counted as laid" if nothing_shows else "")
                    if left else ""), min(x for x, _ in s["frames"]))
         for p in e["passed_over"]:
             c = p.get("the_owners_last_choice")
@@ -271,10 +282,9 @@ def item_words(table: dict, keep: tuple = delivery_table.KEEP) -> tuple[int, lis
                 say(e, f"{who}: YOUR KEEP {p['render']} (of {owners_clock(c['at']):%m/%d}" + (f", and your words after it: {'; '.join(after)}" if after else "")
                     + f") is not laid here: {p['why']}", e["last"] + 1)
         if not e["stands"] and e["present"] != "unsure":
-            passed = [p for p in e["passed_over"] if not p.get("held")]
-            say(e, f"{who}: the original on the whole shot: no piece of theirs stands here"
-                + (f" ({len(passed)} other render(s) passed over, the newest {min(len(passed), PASSED_OVER_NAMED)}: "
-                   + "; ".join(p["render"] + ", " + cut(p["why"]) for p in passed[:PASSED_OVER_NAMED]) + ")" if passed else ""))
+            nothing = e.get("nothing_to_make")
+            say(e, f"{who}: the original on the whole shot: " + (f"present, nothing to make under this plan, by the table: {'; '.join(nothing)}" if nothing
+                                                                 else "no piece of theirs stands here") + passed_said(e, keep))
         elif e["stands"]:
             for g in e.get("left_as_the_source") or []:
                 say(e, f"{who}: the original on {g[0]}-{g[1]}, where no piece of theirs is laid", g[0])
@@ -304,6 +314,8 @@ def make_item(name: str, span: tuple[int, int], table: dict, record: dict, link:
 
 
 def items(a: argparse.Namespace) -> int:
+    if re.search(r"\bowner\b", a.by, re.I):           # the note is said as the --by session's words: never the owner's (a sixth reader)
+        raise SystemExit(f"--by {a.by!r}: the session that puts the items on the list; its note is said as its words, never the owner's")
     spans = [span_of(s) for s in a.spans]
     if len(set(spans)) != len(spans):
         raise SystemExit("a span is given twice")
@@ -355,13 +367,22 @@ def items(a: argparse.Namespace) -> int:
     retire = []
     for _, _, item in new:
         prefix = f"{a.stem}_{int(item['first']):04d}_{int(item['first']) + int(item['frames']) - 1:04d}_joined_"
+        a0, b0 = int(item["first"]), int(item["first"]) + int(item["frames"]) - 1
         for old in listed["items"]:
             if old["id"].startswith(prefix) and old["id"].endswith("_stacked"):
+                stamp = old["id"][len(prefix):-len("_stacked")]
+                if stamp > a.stamp:                 # an older build never retires a newer one (a sixth reader, 2026-10-14)
+                    raise SystemExit(f"{a0}-{b0}: the list holds a LATER build of the same frames, {old['id']} (its stamp {stamp}, this one's {a.stamp}): "
+                                     "nothing written")
                 if old.get("state") == "open":
                     retire.append((old, item["id"]))
                     print(f"retires {old['id']}: superseded by {item['id']}, a later build of the same frames")
                 else:
                     print(f"leaves {old['id']} as it is: its state is {old.get('state')!r}, not open")
+            elif ("_joined_" in old["id"] and old["id"].endswith("_stacked") and old.get("state") == "open" and old.get("first") and old.get("frames")
+                  and int(old["first"]) <= b0 and int(old["first"]) + int(old["frames"]) - 1 >= a0):
+                print(f"an open item of other frames overlaps it and stays open: {old['id']} ({old['first']}-{int(old['first']) + int(old['frames']) - 1}); "
+                      "on the frames they share it may lay other pieces, and the page shows both")
     if a.dry:
         print(f"dry: nothing written; {len(new)} item(s) would go to the top of {path}" + (f", and {len(retire)} retired" if retire else ""))
         return 0
@@ -373,7 +394,7 @@ def items(a: argparse.Namespace) -> int:
     while copy.exists():                          # two writes in one second: each keeps its own copy
         k += 1
         copy = tables / f"{base}_{k}.json"
-    shutil.copy(path, copy)
+    copy.write_text(raw)                          # the list as it was read: what this run changes is against that
     for target, link, _ in new:
         if not os.path.lexists(link):
             os.symlink(target, link)
@@ -386,6 +407,9 @@ def items(a: argparse.Namespace) -> int:
     out = json.dumps(listed, indent=1) + ("\n" if raw.endswith("\n") else "")
     tmp = path.with_name(path.name + f".tmp_{a.by}")
     tmp.write_text(out)
+    if path.read_text() != raw:                   # another session wrote the list since it was read: its change is not written over
+        tmp.unlink()
+        raise SystemExit(f"{path} changed since this run read it: nothing written to it (the copy {copy} holds the list as read); run it again")
     os.replace(tmp, path)
     back = json.loads(path.read_text())
     print(f"added: the list's first items are {[x['id'] for x in back['items'][:len(new)]]}; {len(back['items'])} items; the copy before: {copy}")
@@ -407,19 +431,27 @@ def by_day_text(table: dict, ledger: dict, day: str, table_name: str, ledger_nam
             if s["why"] not in one["why"]:
                 one["why"].append(s["why"])
             one["led"] = one["led"] or s.get("the_leads_prefer")            # the lead's word on any shot of it is said
-            if not one["owner"] and s.get("the_owners_last_choice"):
-                one["owner"], one["owner_after"] = s["the_owners_last_choice"], words_after(s["the_owners_last_choice"], s)
+            c = s.get("the_owners_last_choice")
+            # the owner's NEWEST click on any shot of it, with their words after it; with no click on any shot, their words
+            if c and (not one["owner"] or str(c["at"]) > str(one["owner"]["at"])):
+                one["owner"], one["owner_after"] = c, words_after(c, s)
+            elif not one["owner"]:
+                one["owner_after"] = (one.get("owner_after") or []) + [w for w in words_after(None, s) if w not in (one.get("owner_after") or [])]
             one["set_aside"] += [x for x in set_aside if x not in one["set_aside"]]
 
     def why_of(p: dict) -> str:
-        words = f"THE LEAD'S CHOICE (--prefer), a session's word: {p['led']}" if p["led"] else "; ".join(p["why"])
+        others = [w for w in p["why"] if not w.startswith("step 0")]       # the table's reasons on the shots the lead's word did not decide
+        words = (f"THE LEAD'S CHOICE (--prefer), a session's word: {p['led']}" + (f"; on its other shots, the table's: {'; '.join(others)}" if others else "")
+                 if p["led"] else "; ".join(p["why"]))
         if p["set_aside"]:
             words += f". THE OWNER'S OTHER KEEP(S) on these frames, not laid by this table: {', '.join(p['set_aside'])}"
         return words
 
     def owner_of(p: dict) -> str:
         o = p["owner"]
-        return (f"{o['said']!r}, {owners_clock(o['at']):%m-%d %H:%M}" + "".join(f"; your words after it: {w}" for w in p.get("owner_after") or [])) if o else "none"
+        if not o:
+            return "no click" + "".join(f"; your words on it: {w}" for w in p.get("owner_after") or []) if p.get("owner_after") else "none"
+        return f"{o['said']!r}, {owners_clock(o['at']):%m-%d %H:%M}" + "".join(f"; your words after it: {w}" for w in p.get("owner_after") or [])
     rows = sorted(((min(a for a, _ in p["frames"]), ",".join(f"{x}-{y}" for x, y in sorted(p["frames"])), sub, name, owners_clock(p["written"]),
                     owner_of(p), why_of(p))
                    for (name, sub), p in pieces.items()))

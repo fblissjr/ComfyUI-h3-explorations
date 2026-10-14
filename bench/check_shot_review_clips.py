@@ -22,6 +22,9 @@
   sentences_in_order                inside a shot, subject by subject and a subject's sentences by frame: unsure first, passed over last
   the_owners_words_after_a_keep     a keep the owner wrote after is said with their words in the item, a passed-over keep and by-day; a
                                     passed-over wrong is never called a keep
+  the_sixth_readers_findings        the owner's words with no click and after a not sure; the lead's word beside a click; a piece of no frame
+                                    not counted; nothing to make; unsure passed over; Central in November; by-day's newest click and words alone;
+                                    an older build, an overlapping item, a dangling link, the owner as --by and a peer's write refused or named
   by_the_day                        a row a piece (one render on two shots is one row) with the table's own words, the lead's --prefer said as
                                     the lead's; the day's renders this table does not lay, never one that stands in it; the ledger must be the one
                                     the table names; a kept output stays
@@ -35,6 +38,8 @@ are throwaways, read by someone who did not write them).
 from __future__ import annotations
 
 import builtins
+import contextlib
+import io
 import json
 import os
 import sys
@@ -48,7 +53,9 @@ import delivery_table as dt  # noqa: E402
 import shot_review_clips as src  # noqa: E402
 
 
-def stand(render, frames, written, choice=None, left=(), why="step 2: the plan's region; its file agrees with its build record", step=2, led=None):
+def stand(render, frames, written, choice=None, left=(), why=None, step=2, led=None):
+    # as bench/delivery_table.decide words it: a piece the lead put first stands by step 0, its reason the lead's
+    why = why or (f"step 0: named by --prefer: {led}" if led else "step 2: the plan's region; its file agrees with its build record")
     return {"render": render, "frames": [list(f) for f in frames], "written": written, "why": why, "step": step, "the_leads_prefer": led,
             "leaves_as_the_original": None if left is None else [list(x) for x in left], "the_owners_last_choice": choice}
 
@@ -420,8 +427,107 @@ def the_owners_words_after_a_keep() -> str:
     assert not any("YOUR KEEP lead_wrong" in x for x in said), said
     day = src.by_day_text(t, {"renders": {}}, "2026-10-13", "t.json", "l.json")
     assert "lead_old ('keep this one', 10-13 15:00 Central; your words after it: \"i dont know i cant choose\"" in day, day
-    assert "| 'keep this one', 10-13 15:00; your words after it: \"i dont know i cant choose\" (10/13 15:00) |" in day, day
+    assert "| 'keep this one', 10-13 15:00; your words after it: \"i dont know i cant choose\" (10/13 15:00 Central) |" in day, day
     return "a keep the owner wrote after is said with their words, in the item, in a passed-over keep and in by-day; a passed-over wrong is never called a keep"
+
+def the_sixth_readers_findings() -> str:
+    """A sixth reader (2026-10-14), its findings and the changes that left every case green, each held here."""
+    beard = [{"at": "2026-10-14T00:15:55Z", "said": "i dont like beard"}]
+    t = {"reading": [
+        entry(100, 120, "lead", stands=[dict(stand("lead_words", [(100, 120)], "2026-10-13T15:00:00Z"), the_owners_words=beard)]),
+        entry(100, 120, "second", stands=[dict(stand("second_ns", [(100, 120)], "2026-10-13T15:00:00Z", {"said": dt.NOT_SURE, "at": "2026-10-13T16:00:00Z"},
+                                                     led="THE LEAD'S REASON"), the_owners_words=[{"at": "2026-10-13T16:05:00Z", "said": "her eyes look right"}])]),
+        entry(100, 120, "third", stands=[stand("third_gone", [(100, 120)], "2026-10-13T15:00:00Z", left=[[100, 120]])]),
+        dict(entry(100, 120, "fourth", passed_over=[passed("f_kept", "2026-10-12T15:00:00Z", "set aside", {"said": dt.KEEP[1], "at": "2026-10-12T16:00:00Z"}),
+                                                     passed("f_other", "2026-10-12T15:00:00Z", "R" * src.REASON_CHARS)]),
+             nothing_to_make=["A LOOK: HER LEGS ONLY (mrx)"]),
+        entry(100, 120, "fifth", present="unsure", passed_over=[passed("u_old", "2026-10-12T15:00:00Z", "never stands")])], "not_in_the_shot": []}
+    pieces, said = src.item_words(t)
+    text = " ".join(said)
+    # THE CASES THAT GO RED: the owner's words with no click, or after a not sure, hidden; a piece of no frame counted; the table's reason cut
+    assert "lead_words" in text and "not judged by you yet, BUT YOUR WORDS ON IT: \"i dont like beard\" (10/13 19:15 Central)" in text, text
+    assert "your last choice on it: \"not sure\", AND YOUR WORDS AFTER IT: \"her eyes look right\" (10/13 11:05 Central)" in text, text
+    assert "IT STANDS BY THE LEAD'S CHOICE (--prefer), a session's word and not yours: THE LEAD'S REASON" in text, "the lead's word hidden under the owner's click"
+    assert pieces == 2 and "that is all its frames, so nothing of it shows and it is not counted as laid" in text, (pieces, text)
+    assert "present, nothing to make under this plan, by the table: A LOOK: HER LEGS ONLY (mrx)" in text, text
+    assert text.count("f_kept") == 1 and "(1 other render(s) passed over, the newest 1: f_other, " + "R" * src.REASON_CHARS + ")" in text, text
+    assert "the original throughout (1 other render(s) passed over, the newest 1: u_old, never stands)" in text, text
+    assert sum("the original on the whole shot" in x for x in said) == 1, "an unsure subject said twice to be the original"
+    # the owner's clock is Central with its daylight time, not a fixed offset: in November it is six hours behind UTC
+    assert f"{src.owners_clock('2026-11-05T15:00:00Z'):%H:%M}" == "09:00" and f"{src.owners_clock('2026-10-05T15:00:00Z'):%H:%M}" == "10:00"
+    # by-day: the newest click on any shot of a piece; words with no click; a set-aside "good to go"
+    t2 = {"made": "", "reading": [
+        entry(100, 120, "lead", stands=[stand("two_shots", [(100, 120)], "2026-10-13T15:00:00Z", {"said": dt.NOT_SURE, "at": "2026-10-13T20:00:00Z"})],
+              passed_over=[passed("gtg", "2026-10-12T15:00:00Z", "set aside", {"said": dt.KEEP[1], "at": "2026-10-12T16:00:00Z"})]),
+        entry(121, 140, "lead", stands=[stand("two_shots", [(121, 140)], "2026-10-13T15:00:00Z", {"said": dt.KEEP[0], "at": "2026-10-13T21:00:00Z"})]),
+        entry(141, 150, "lead", stands=[dict(stand("words_only", [(141, 150)], "2026-10-13T15:00:00Z"), the_owners_words=beard)])], "not_in_the_shot": []}
+    day = src.by_day_text(t2, {"renders": {}}, "2026-10-13", "t.json", "l.json")
+    assert "| two_shots | 10-13 10:00 | 'keep this one', 10-13 16:00 |" in day, day
+    assert "| words_only | 10-13 10:00 | no click; your words on it: \"i dont like beard\" (10/13 19:15 Central) |" in day, day
+    assert "gtg ('good to go'" in day, "a set-aside good-to-go keep is hidden"
+    with tempfile.TemporaryDirectory() as tmp:
+        d = Path(tmp)
+        page, clips, tables = d / "review" / "items.json", d / "clips", d / "tables"
+        (page.parent / "media").mkdir(parents=True)
+        clips.mkdir()
+        tables.mkdir()
+        f = src.files_of(src.clip_name("fun", 100, 140, "T2"), clips, tables)
+        f["stacked"].write_bytes(b"clip")
+        f["record"].write_text(json.dumps(RECORD))
+        f["json"].write_text(json.dumps(made_table()))
+        f["stack_reading"].write_text(json.dumps(reading(41)))
+        listed = {"updated": "x", "by": "y", "items": [
+            {"id": "keep_me", "state": "open"},
+            {"id": "fun_0100_0140_joined_T1_stacked", "first": "100", "frames": "41", "state": "open"},            # older, second on the list: retired
+            {"id": "fun_0100_0140_joined_T1_check", "state": "open"},                                               # not a stacked item: left
+            {"id": "fun_0090_0110_joined_T1_stacked", "first": "90", "frames": "21", "state": "open"}]}             # overlapping: named, left
+        page.write_text(json.dumps(listed, indent=1) + "\n")
+        base = ["items", "--items", str(page), "--clips", str(clips), "--tables", str(tables), "--stem", "fun", "--by", "tester"]
+        refused(lambda: src.main([*base, "--stamp", "T2", "--by", "the owner", "100-140"]), "never the owner's")
+        newer = json.loads(page.read_text())
+        newer["items"].append({"id": "fun_0100_0140_joined_T3_stacked", "first": "100", "frames": "41", "state": "open"})
+        page.write_text(json.dumps(newer, indent=1) + "\n")
+        refused(lambda: src.main([*base, "--stamp", "T2", "100-140"]), "a LATER build of the same frames", "T3", "nothing written")
+        page.write_text(json.dumps(listed, indent=1) + "\n")
+        # a dangling media link of the clip's name is not taken as this build's
+        os.symlink(d / "nowhere.mp4", page.parent / "media" / f["stacked"].name)
+        refused(lambda: src.main([*base, "--stamp", "T2", "100-140"]), "not to this build's")
+        (page.parent / "media" / f["stacked"].name).unlink()
+        # another session writes the list while this run works: refused, its change kept
+        real = src.make_item
+
+        def meanwhile(*a, **k):
+            page.write_text(json.dumps({**listed, "items": [{"id": "a_peers_item"}, *listed["items"]]}, indent=1) + "\n")
+            return real(*a, **k)
+        src.make_item = meanwhile
+        try:
+            refused(lambda: src.main([*base, "--stamp", "T2", "100-140"]), "changed since this run read it", "nothing written")
+        finally:
+            src.make_item = real
+        assert json.loads(page.read_text())["items"][0]["id"] == "a_peers_item", "a peer's write was lost"
+        page.write_text(json.dumps(listed, indent=1) + "\n")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            assert src.main([*base, "--stamp", "T2", "100-140"]) == 0
+        after = {x["id"]: x for x in json.loads(page.read_text())["items"]}
+        assert after["fun_0100_0140_joined_T1_stacked"]["state"] == "superseded" and after["fun_0100_0140_joined_T1_check"]["state"] == "open", after
+        assert after["fun_0090_0110_joined_T1_stacked"]["state"] == "open" and "overlaps it and stays open: fun_0090_0110_joined_T1_stacked (90-110)" in out.getvalue()
+        assert after["fun_0100_0140_joined_T2_stacked"]["seconds"] == "about 4.2 s to 5.9 s of the video", after["fun_0100_0140_joined_T2_stacked"]["seconds"]
+        # the seconds of a span's first frame are its own, not the next one's: on 200 the two round apart
+        assert src.make_item("x", (200, 210), table_of(200, 210), RECORD, "l", "T", "s", None)["seconds"] == "about 8.3 s to 8.8 s of the video"
+        # a table of more frames than the span is refused
+        f3 = src.files_of(src.clip_name("fun", 100, 140, "T4"), clips, tables)
+        for k in ("stacked", "record", "stack_reading"):
+            f3[k].write_bytes(f[k].read_bytes())
+        wide = made_table()
+        wide["reading"][0]["last"] = 150
+        f3["json"].write_text(json.dumps(wide))
+        refused(lambda: src.main([*base, "--stamp", "T4", "100-140"]), "not of this span")
+    return ("the owner's words said with no click and after a not sure; the lead's word beside the owner's click; a piece of no frame not counted; nothing to make "
+            "said; an unsure subject's passed-over renders; a passed-over keep named once; Central in November; by-day's newest click, words alone and a "
+            "good-to-go set aside; an older build refused, an overlapping item named, a non-stacked item left, an older item anywhere on the list retired, a "
+            "dangling link, the owner as --by and a peer's write in between refused; the seconds; a wider table refused")
+
 
 def by_the_day() -> str:
     t = made_table()
@@ -448,7 +554,8 @@ def by_the_day() -> str:
     assert [r.split(" | ")[2] for r in pieces] == ["lead_a", "second_a", "sixth_a", "lead_b", "lead_pref"], pieces
     # THE CASE THAT GOES RED when an owner's keep the lead's --prefer set aside is hidden under the lead's word
     assert ("| 121-140,141-160 | lead | lead_b | 10-12 10:00 | 'not sure', 10-12 21:00 | THE LEAD'S CHOICE (--prefer), a session's word: the lead's word on its "
-            "second shot. THE OWNER'S OTHER KEEP(S) on these frames, not laid by this table: lead_owner ('keep this one', 10-12 20:00 Central) |") in text, text
+            "second shot; on its other shots, the table's: step 2: the plan's region; its file agrees with its build record. THE OWNER'S OTHER KEEP(S) on these "
+            "frames, not laid by this table: lead_owner ('keep this one', 10-12 20:00 Central) |") in text, text
     assert "| 145-154 | ghost_r | 10-13 09:00 | its subject ghost is not in the shot 141-170 by the shots record |" in text \
         and "| none | THE LEAD'S CHOICE (--prefer), a session's word: the lead's own reason, whole |" in text, text
     assert "5 pieces stand: 4 rendered on 2026-10-13, 1 on other days." in text, text
@@ -490,6 +597,7 @@ case("items at the top, and a copy first", items_at_the_top)
 case("an item's sentences in order", sentences_in_order)
 case("the owner's words after a keep", the_owners_words_after_a_keep)
 case("by the day", by_the_day)
+case("a sixth reader's findings", the_sixth_readers_findings)
 
 if __name__ == "__main__":
     sys.exit(finish())
