@@ -902,6 +902,21 @@ def her_clothing_as_one_stay_keep_out() -> str:
         assert stays[-1][1] == "a_fp_0100b_a_clothing.made_again.mkv" and not list(Path(stay_k["track"]).parent.glob("*made_again*")), stays
         Path(stay_k["track"]).with_name("a_fp_0100b_a_clothing.mkv").rename(Path(stay_k["track"]).with_name("a_fp_0100c_a_clothing.mkv"))
         refused(lambda: stl.step_job(a, made.m, cut=cut, stay_cut=stay_cut, hashed=lambda path: path if "clothing" in path else "H"), "is NOT the stay keep-out its plan makes now")
+        # A STAY KEEP-OUT EMPTY ON EVERY FRAME (second_hfp_5461b: the hair band's box held all of her clothing) is dropped from the load, with why
+
+        def empty_cut(stay, to):
+            Path(to).parent.mkdir(parents=True, exist_ok=True)
+            Path(to).write_bytes(b"made")
+            return {"frames": 60, "size": [64, 48], "px_a_frame_median": 0, "px_most": 0, "px_the_hold_changed": 0, "px_the_band_took_out": 452335}
+        before = set(made.jobs.glob("*.json"))
+        stl.step_job(a, made.m, cut=cut, stay_cut=empty_cut, hashed=lambda path: "H")
+        new = [q for q in made.jobs.glob("*.json") if q not in before]
+        dropped = json.loads(new[0].read_text())
+        # THE CASE THAT GOES RED when an empty stay keep-out is handed to the capture (which reads it as a subject never found), or is dropped unsaid
+        assert "clothing" not in [k["name"] for k in dropped["job"]["keep_outs"]["made"]] and all("clothing" not in x_.get("others", []) for x_ in dropped["loads"]), dropped["loads"]
+        why = stl.STAY_EMPTY.format(px=452335)
+        assert dropped["job"]["keep_outs"]["dropped"][0]["why"] == why and why in dropped["job"]["note"] and "THE STAY KEEP-OUT `clothing` IS DROPPED" in dropped["job"]["note"], dropped["job"]["keep_outs"]
+        assert ["held", "hands"] == [k["name"] for k in dropped["job"]["keep_outs"]["made"]], "another keep-out went with it"
     # THE KEEP-OUT ITSELF against the definition, written out here apart from the tool (mrpre's arm K): 6 preview frames from 100, the load 101-104
     names = cap._pack("sapiens2_parts").CLASS_NAMES
     W_, H_, N_ = 64, 48, 6

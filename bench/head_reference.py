@@ -55,7 +55,8 @@ over the class map's painted-out lips and dark inside on each frame where they l
 word with `--mouth-why`. NO MOUTH on a frame whose lip lines lie on the class map's mouth under `MOUTH_CHECK["on_share"]`, whichever form it is
 drawn in, nor on the frames `--no-mouth-on` names (the job's frames whose part holds no lips, hair alone): the body model's own lips stay, and
 the record says on which frames and by which rule (`drawn.mouth.no_mouth_on`; the lead's ruling of 2026-10-14 on 630b's profile, 805b and
-1010d's chest).
+1010d's chest). Under it the class map's mouth is drawn only on frames whose lip lines lie on it: on 0294d, the load the class-map form was
+made for, that is none, and 0294d's piece stands as made (a better form does not remake a kept piece).
 Without `--mouth` the tool leaves the mouth out as before (`FORM_LEAVES_OUT`), unless `--leave-out` says otherwise.
 
 A passing run says each step's file holds what that step made, on the frames it was told, and that the face it

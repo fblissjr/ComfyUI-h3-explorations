@@ -1030,12 +1030,19 @@ def cut_stay(stay: dict, out: Path) -> dict:
             "px_the_hold_changed": int((held ^ on).sum()), "px_the_band_took_out": taken}
 
 
-def make_stay(kept: dict | None, world, cut=cut_stay, hashed=None) -> list[str]:
+#: Why a stay keep-out empty on every frame is dropped from its load (the lead's ruling of 2026-10-14 on second_hfp_5461b, a close
+#: shot whose hair band's box held all of her clothing): an empty mask keeps nothing out, and the capture reads it as a subject never found.
+STAY_EMPTY = "the hair band's box takes all {px} px of her clothing on this shot; her clothing inside the margin is regenerated"
+
+
+def make_stay(kept: dict | None, world, cut=cut_stay, hashed=None, job: dict | None = None) -> list[str]:
     """Make a load's stay keep-out: written, or, when a file of the name is there, made again beside it and held equal to it
-    frame by frame (`load_chain.frame_hash`), refused when not. Its hash goes into the job, as the strangers file's does."""
+    frame by frame (`load_chain.frame_hash`), refused when not. Its hash goes into the job, as the strangers file's does.
+    One that is EMPTY ON EVERY FRAME is dropped from the job (`job`: its keep-outs and every load's `others`), kept under
+    `keep_outs.dropped` with why (`STAY_EMPTY`), and said in the job's note."""
     hashed = hashed or load_chain.frame_hash
     lines = []
-    for k in (kept or {}).get("made", []):
+    for k in list((kept or {}).get("made", [])):
         if "stay" not in k:
             continue
         track = Path(k["track"])
@@ -1044,7 +1051,7 @@ def make_stay(kept: dict | None, world, cut=cut_stay, hashed=None) -> list[str]:
             continue
         if track.exists():
             again = track.with_name(track.stem + ".made_again.mkv")
-            cut(k["stay"], again)
+            got = cut(k["stay"], again)
             same = hashed(str(again)) == hashed(str(track))
             again.unlink()
             if not same:
@@ -1057,6 +1064,16 @@ def make_stay(kept: dict | None, world, cut=cut_stay, hashed=None) -> list[str]:
             lines.append(f"keep-out `{k['name']}`: made to {track}: {got['frames']} frames, {got['px_a_frame_median']} px a frame at the median and {got['px_most']} at "
                          f"most; the hold changed {got['px_the_hold_changed']} px, the band took out {got['px_the_band_took_out']} (figures of the mask, not of a render)")
         k["frame_hash"] = hashed(str(track))
+        if got["px_most"] == 0:
+            why = STAY_EMPTY.format(px=got["px_the_band_took_out"]) if got.get("px_the_band_took_out") else "it is empty on every frame of the load"
+            kept["made"] = [x for x in kept["made"] if x is not k]
+            kept.setdefault("dropped", []).append({"name": k["name"], "track": str(track), "replaces": k.get("replaces"), "why": why,
+                                                   "px_the_band_took_out": got.get("px_the_band_took_out", 0)})
+            for load in (job or {}).get("loads", []):
+                load["others"] = [o for o in load.get("others", []) if o != k["name"]]
+            if job is not None:
+                job["job"]["note"] = job["job"].get("note", "") + f" THE STAY KEEP-OUT `{k['name']}` IS DROPPED: {why}."
+            lines.append(f"keep-out `{k['name']}`: EMPTY ON EVERY FRAME, DROPPED from the load: {why}")
     return lines
 
 
@@ -1456,7 +1473,7 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
                  + make_keep_outs(job["job"].get("keep_outs"), world, cut, hashed)
                  + make_track_not(job["job"].get("track_not"), world, track_cut, hashed)
                  + make_part_on_track(job["job"].get("part_on_track"), world, hold, hashed)
-                 + make_stay(job["job"].get("keep_outs"), world, stay_cut, hashed)):
+                 + make_stay(job["job"].get("keep_outs"), world, stay_cut, hashed, job)):
         print(line)
     # where one subject's preview track lies on another's, as a figure, before anything is built on it
     for line in over(preview, ran.get("files") or [], world.output, a.subject, job["loads"][0]["first"], job["loads"][0]["first"] + job["loads"][0]["frames"] - 1):
