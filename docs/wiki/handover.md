@@ -50,7 +50,13 @@ and a record disagree, the record is right (`decisions.md`, 2026-10-14;
 ## What not to assume
 
 - That a look carries to a remade load whose reference changed: `look_carry.py`
-  compares masks, not the reference video (an open question for the reviewer).
+  compares masks, not the reference video (it says so in its docstring; the
+  outside reviewer confirmed it, `internal/gemini/2026-10-14_relay_gaze_hair_expressions.md`,
+  section 12). 630c, 805c and 1010e have new references by design: before
+  their looks carry, mrdrill adds the reference's digest to the compare, and a
+  changed reference carries only with a named check of the new reference at
+  the frames the earlier reader named (mrcircle checked the mouth there at
+  22:24-22:32Z).
 - That a flag on today's captures still reads as written: the specks floor,
   the held split, the voice mend and the zoom-held floor all landed after some
   captures were flagged. Flag again before ruling.
@@ -77,8 +83,15 @@ and a record disagree, the record is right (`decisions.md`, 2026-10-14;
    keeps ordered by the keep's time; the gaps print in `shot_parts` and the job
    step; the strip drawing a zoomed box; the queue past 2049 as a tracked tool
    re-cut from each newest table. The region seat (mrpre): the step-shared
-   hole, measured on 14d and 604d before any build. Read the reviewer's notes
-   on today's landings first (`internal/gemini/`).
+   hole, measured on 14d and 604d before any build. The outside reviewer's
+   section 12 (`internal/gemini/2026-10-14_relay_gaze_hair_expressions.md`)
+   is read first by both: it names the grid cells for that check, proposes
+   pooling the composite's changed mask over each four-frame step with small
+   interior holes filled (testable offline on the saved 0604d and 0014d
+   windows, no GPU), traces the bowl island on 604d to the margin cut off by
+   her forearms' keep-outs (keep only region parts that touch her own), and
+   offers a geometric gate for a class-map mouth on small faces (parked).
+   Each is a peer's data, verified before it is built on.
 4. **The owner, none blocking**: who is in the shot for the second subject on
    1156-1188, 1466-1729 and 1535-1574 (a who page); row z19.
 
