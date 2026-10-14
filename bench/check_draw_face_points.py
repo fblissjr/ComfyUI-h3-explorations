@@ -441,6 +441,21 @@ def the_iris_between_the_lids() -> str:
     assert all(c for _, _, c in whole) and len(whole) == 2, whole
     assert outside and all(0 < v <= 1 for v in outside.values()), outside
     assert between and all(not c for _, _, c in between) and all(v > 0 for k, v in outside.items() if "iris" in k), (between, outside)
+    # FILLED (2026-10-14, behind its flag): no iris or pupil ring is drawn; each iris is a disc, filled dark only inside its lash ring
+    filled = df.shapes(p, s, INDEX, 0.0, frozenset(), df.IRIS_FORMS[2])
+    assert not any(n.endswith("_ring") and ("iris" in n or "pupil" in n) for n, _, _ in filled), filled
+    disc = df.discs(p, s, INDEX, 0.0)
+    assert [n for n, _, _ in disc] == ["l_iris_disc", "r_iris_disc"] and all(len(d) == df.RING_SAMPLES for _, d, _ in disc), disc
+    assert df.discs(p, s, INDEX, 2.0) == [] and df.discs(p, s, INDEX, 0.0, frozenset({"eyes"})) == [], "an iris under the score line, or with the eyes left out, was filled"
+    W_, H_ = 320, 200
+    mesh = np.full((1, H_, W_, 3), 128, np.uint8)
+    lids = np.array([[100, 100], [140, 90], [180, 100], [140, 110]], float)
+    iris = np.stack([140 + 15 * np.cos(np.linspace(0, 2 * np.pi, df.RING_SAMPLES, endpoint=False)),
+                     100 + 15 * np.sin(np.linspace(0, 2 * np.pi, df.RING_SAMPLES, endpoint=False))], 1)
+    pic = df.draw(mesh, [[]], 1.0, set(), False, [[("l_iris_disc", iris, lids)]])[0]
+    dark = pic.max(-1) < 40
+    assert dark[100, 140] and dark[100, 130] and not dark[88, 140] and not dark[112, 140] and not dark[100, 160], "the disc is not dark inside the lids only"
+    assert (df.draw(mesh, [[]], 1.0, set(), False, None)[0] == 128).all(), "something was drawn with no fills"
     return (f"a ring larger than a narrow opening is drawn only where it lies between the lids ({off:.2f} of it outside), a ring wholly inside "
             "is drawn closed and one wholly outside not at all; on nearly shut lids the default draws open stretches and `whole` both rings closed")
 

@@ -57,7 +57,8 @@ An iris or a pupil ring runs by angle round its own centre point.
 
 AN IRIS OR A PUPIL RING IS DRAWN ONLY BETWEEN THE LIDS (`IRIS_FORMS`, since 2026-10-14): the ring is sampled densely
 (`RING_SAMPLES`) and only its stretches inside that eye's lash ring are drawn, each as an open line; a ring wholly
-inside is drawn closed, as before. `--iris whole` draws the whole ring, the form before. With the lids lowered the
+inside is drawn closed, as before. `--iris whole` draws the whole ring, the form before; `--iris filled` draws each iris as a dark disc inside the lash ring
+(the edge colour) and no ring, a form a render is to decide on. With the lids lowered the
 whole ring was larger than the opening and read as an open eye looking down. The record says which was drawn and,
 for each ring, the share of it that lay outside the lids, least, median and most over the frames.
 
@@ -150,7 +151,11 @@ RINGS = ("iris", "pupil")
 #: findings.md item 4; the card holder on second_hfp_0484's held reference): with her lids drawn lowered, the
 #: iris ring drawn whole is larger than the opening, about 42% of it outside the lids, and the drawing reads as
 #: an open eye looking down.
-IRIS_FORMS = ("between the lids", "whole")
+#: `filled` (2026-10-14, the lead's order, behind its flag until a render decides): the iris a dark disc clipped to the lid
+#: outline, no ring. On lead_fp_1097b the face points carried her gaze to screen right (the iris centre +0.25 to +0.31 eye
+#: widths on 1121-1133) and the reference drew the ring off-centre, and the render looked at the camera: a thin outline
+#: did not carry it (internal/claude/2026-10-14_mrtwo_scripts/gaze/).
+IRIS_FORMS = ("between the lids", "whole", "filled")
 #: Points a ring is sampled at to find where it lies between the lids. Reasoned: a ring is eight points round a
 #: centre; 64 along it puts a sample about every 6 degrees, finer than a line is wide on any face drawn so far.
 RING_SAMPLES = 64
@@ -245,6 +250,8 @@ def shapes(p: np.ndarray, s: np.ndarray, index: dict, score_line: float, leave_o
                     runs, closed, off = between_the_lids(whole, ring)
                     if outside is not None:
                         outside[f"{side}_{kind}"] = off
+                    if iris == IRIS_FORMS[2]:
+                        continue                                       # filled: the iris is a disc (`discs`), and no ring is drawn
                     if iris == IRIS_FORMS[1] or closed:
                         out.append((f"{side}_{kind}_ring", whole, True))
                     else:
@@ -272,6 +279,22 @@ def shapes(p: np.ndarray, s: np.ndarray, index: dict, score_line: float, leave_o
     if "dots" not in leave_out:
         alone += ["center_of_glabella", "center_of_labiomental_groove", "tip_of_chin"]
     out += [(n, p[index[n]][None], False) for n in alone]
+    return out
+
+
+def discs(p: np.ndarray, s: np.ndarray, index: dict, score_line: float, leave_out: frozenset = frozenset()) -> list[tuple[str, np.ndarray, np.ndarray]]:
+    """One frame's irises for `--iris filled`, as (name, the iris ring sampled at `RING_SAMPLES` points, that eye's lash ring):
+    `draw` fills each in the edge colour where it lies inside its lash ring. An iris under the score line is left out, as its ring is."""
+    if "eyes" in leave_out:
+        return []
+    scores, out = ring_scores(s, index), []
+    for side, ring in zip(SIDES, fp.lid_rings(p, index)):
+        if scores[f"{side}_iris"] >= score_line:
+            whole = _round(p, _ids(index, f"{side}_border_of_iris"), p[index[f"{side}_center_of_iris"]])
+            k = len(whole)
+            t = np.linspace(0.0, k, RING_SAMPLES, endpoint=False)
+            i = np.floor(t).astype(int)
+            out.append((f"{side}_iris_disc", whole[i % k] + (t - i)[:, None] * (whole[(i + 1) % k] - whole[i % k]), ring))
     return out
 
 
@@ -345,13 +368,20 @@ def white_expected(drawing: list[tuple[str, np.ndarray, bool]], width: float, do
     return float(inside.sum())
 
 
-def draw(mesh: np.ndarray, drawings: list[list], width: float, bare: set[int], dots: bool = True) -> np.ndarray:
-    """The mesh frames [n, h, w, 3] with every frame's drawing on it: black a little wider first, then white."""
+def draw(mesh: np.ndarray, drawings: list[list], width: float, bare: set[int], dots: bool = True, fills: list[list] | None = None) -> np.ndarray:
+    """The mesh frames [n, h, w, 3] with every frame's drawing on it: an iris disc of `fills` first, in the edge colour and
+    inside its lash ring only; then the lines, black a little wider first, then white."""
+    from PIL import ImageChops
     look = h3_config.FACE_POINTS
     h, w = mesh.shape[1:3]
     out = np.empty_like(mesh)
     for f in range(len(mesh)):
         im = Image.fromarray(mesh[f]).resize((w * SUPER, h * SUPER), Image.BICUBIC)
+        for _, disc, lids in ([] if f in bare or not fills else fills[f]):
+            a, b = Image.new("L", im.size, 0), Image.new("L", im.size, 0)
+            ImageDraw.Draw(a).polygon([tuple(v * SUPER) for v in disc], fill=255)
+            ImageDraw.Draw(b).polygon([tuple(v * SUPER) for v in lids], fill=255)
+            im.paste(tuple(look["edge"]), mask=ImageChops.multiply(a, b))
         d = ImageDraw.Draw(im)
         for colour, pad in ((tuple(look["edge"]), look["edge_px"]), (tuple(look["line"]), 0.0)):
             for _, pts, closed in ([] if f in bare else drawings[f]):
@@ -490,7 +520,8 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
         drawings = [lines_only(d) for d in drawings]                # no dots is no dots: the points that belong to no line go too
     wide, face, wide_by = width_for(points, width)
     left = {f - first for f in (bare or []) if first <= f < first + count}
-    pictures = draw(mesh, drawings, wide, left, dots)
+    fills = [discs(p, s, idx, line, leave_out) for p, s in zip(points["keypoints"], points["scores"])] if iris == IRIS_FORMS[2] else None
+    pictures = draw(mesh, drawings, wide, left, dots, fills)
     out.parent.mkdir(parents=True, exist_ok=True)
     marks.write_video(out, pictures)
     drawn = np.array([f not in left for f in range(count)])
@@ -500,8 +531,11 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     src = marks.source_frames(source, (w, h), first, count, source_first) if source else None
     clock = marks.against_the_source(src, mesh, first) if src is not None else None
     passed = bool(back["passed"])
-    rings = {f"{side}_{kind}": [first + f for f in range(count) if not any(n == f"{side}_{kind}_ring" for n, _, _ in drawings[f])]
-             for side in SIDES for kind in RINGS} if "eyes" not in leave_out else {}
+    named = [{n for n, _, _ in drawings[f]} | {n for n, _, _ in (fills[f] if fills else [])} for f in range(count)]
+    kinds = ("iris",) if fills else RINGS
+    shape = "disc" if fills else "ring"
+    rings = {f"{side}_{kind}": [first + f for f in range(count) if f"{side}_{kind}_{shape}" not in named[f]]
+             for side in SIDES for kind in kinds} if "eyes" not in leave_out else {}
     scores = {k: [round(float(v), 2) for v in np.percentile([ring_scores(s, idx)[k] for s in points["scores"]], [0, 50, 100])] for k in rings}
     fit = {str(k): (None if np.isnan(v) else round(v, 3)) for k, v in lags.items()}
     record = {
@@ -515,7 +549,8 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
         "lines_px_a_frame_median": round(float(np.median([length(d) for d in drawings])), 1),
         "eye_rings": {"score_at_least": line, "that_line_is": "a starting value from one shot: under it a ring's points lay far off the face",
                       "frames_a_ring_is_left_out_on": rings, "score_a_frame_least_median_most": scores,
-                      "drawn": iris, "drawn_is": ("only the stretches of each ring between the lids" if iris == IRIS_FORMS[0] else "each ring whole"),
+                      "drawn": iris, "drawn_is": {IRIS_FORMS[0]: "only the stretches of each ring between the lids", IRIS_FORMS[1]: "each ring whole",
+                                                  IRIS_FORMS[2]: "each iris a dark disc inside the lash ring, and no ring"}[iris],
                       "share_of_the_ring_outside_the_lids_least_median_most": {
                           k: ([round(float(v), 2) for v in np.percentile(vals, [0, 50, 100])] if vals else None)
                           for k in rings for vals in [[o[k] for o in offs if k in o]]}},
@@ -626,7 +661,7 @@ def main() -> int:
     a.add_argument("--bare", default="", help="source frames to leave with nothing drawn, as a person saw them: 1045-1047,1060")
     a.add_argument("--bare-by", default="", help="who looked")
     a.add_argument("--iris", default=IRIS_FORMS[0], choices=IRIS_FORMS,
-                   help="an iris or pupil ring drawn only where it lies between the lids (the default), or whole (the form before 2026-10-14)")
+                   help="an iris or pupil ring drawn only where it lies between the lids (the default), whole (the form before 2026-10-14), or the iris filled: a dark disc inside the lids and no ring (until a render decides)")
     a.add_argument("--source", default="", help="the original video: writes a sheet to look at")
     a.add_argument("--source-first", type=int, default=0, help="the source frame of that video's frame 0, for one cut from the original; 0 when left out")
     v = a.parse_args()
