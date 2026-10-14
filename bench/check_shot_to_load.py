@@ -135,6 +135,9 @@ class Machine:
         return "the card after it: free."
 
     def run(self, ctx, label, argv, stop=True):
+        # what load_chain.Machine.run reads of the context, read here the same way: a step that hands it less fails here as it
+        # failed on the card (the job step's strangers pass, 2026-10-14: no `name`)
+        _ = (Path(ctx["logs"]) if ctx.get("logs") else ctx["job_folder"] / "chain") / f"{ctx['name']}.{label.replace(' ', '_')}.out"
         self.ran.append((label, [str(x) for x in argv]))
         self.kept_in[label] = ctx.get("logs")          # where the step says its output is kept; None is the job folder
         if label in self.on:

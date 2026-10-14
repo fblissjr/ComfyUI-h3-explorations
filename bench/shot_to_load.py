@@ -1387,7 +1387,7 @@ def step_preview(a, world) -> None:
     print("THE TILES ARE TO BE LOOKED AT before a load is built on this preview: a pick by the largest person is a guess.")
 
 
-def run_strangers(kept: dict | None, a, world) -> None:
+def run_strangers(kept: dict | None, a, world, name: str) -> None:
     """The strangers pass (bench/strangers.py, the part model on the whole frame, on the card) where the job keeps the strangers
     out and its preview's file is not there: run by this step when the model store is known, on an empty queue (the lead's order
     of 2026-10-14: the chain runs it where someone else is in the shot); else left to `looked_for`, which refuses with the command."""
@@ -1397,8 +1397,11 @@ def run_strangers(kept: dict | None, a, world) -> None:
         return
     import h3_config
     load_chain.empty_queue(world, "no strangers pass beside a render")
-    world.run({"logs": Path(a.folder) / "chain"}, "strangers pass", [world.python, "bench/strangers.py", "run", "--preview", a.preview, "--model-folder",
-                                                                      str(Path(store) / h3_config.SAPIENS2["segmentation"]), "--by", a.by])
+    # the context the machine's run reads: where its output is kept and the name it is kept under (its `name`; a context without
+    # one failed with a traceback on second_hfp_0014d's job, 2026-10-14). The preview's folder whole: the command runs from the repo
+    world.run({"logs": Path(a.folder).resolve() / "chain", "name": name}, "strangers pass",
+              [world.python, "bench/strangers.py", "run", "--preview", str(Path(a.preview).resolve()), "--model-folder",
+               str(Path(store) / h3_config.SAPIENS2["segmentation"]), "--by", a.by])
 
 
 def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classes_of=part_classes, hold=hold_to_track, track_cut=cut_track,
@@ -1444,7 +1447,7 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
     # the keep-outs the plan names are made before the job file that points at them is written; a dry run says what would be
     # what is looked for is held first, and the track a part is held to, so a refusal writes nothing; the held part last: it is
     # made from the load's own part
-    run_strangers(job["job"].get("keep_outs"), a, world)
+    run_strangers(job["job"].get("keep_outs"), a, world, name)
     on_track = job["job"].get("part_on_track")
     why = track_refusals(Path(on_track["track"]), on_track["canvas"], on_track["frames"]) if on_track else []
     if why and not world.dry:
