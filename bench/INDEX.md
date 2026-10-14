@@ -69,7 +69,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_load_chain.py`](check_load_chain.py) | The load chain (`bench/load_chain.py`) on a made job: what each step reads, runs and refuses, with no server. |
 | [`check_load_text.py`](check_load_text.py) | The generated text of a load (`bench/load_text.py`) against the kept loads' own texts, and what it refuses. |
 | [`check_loader_fit.py`](check_loader_fit.py) | `bench/_lib/frames.py::FIT` against what the graphs' video loader does to a source that is not the canvas's shape. |
-| [`check_look_rooms.py`](check_look_rooms.py) | The look's rooms and the plan check (`bench/look_rooms.py`): what a room holds, and how the node's own plan is read. |
+| [`check_look_rooms.py`](check_look_rooms.py) | The look's rooms and the plan check (`bench/look_rooms.py`): what a room holds, when it is joined, and how the node's own plan is read. |
 | [`check_lora_alpha.py`](check_lora_alpha.py) | Check every LoRA this repo names is one ComfyUI can scale correctly. |
 | [`check_lora_branch.py`](check_lora_branch.py) | `MiniMaxH3LoRABranch` computes the merged LoRA exactly, on every module an H3 LoRA targets. |
 | [`check_lowvram_handoff.py`](check_lowvram_handoff.py) | Check that the sage forward survives KJNodes' low-VRAM block patch. |
