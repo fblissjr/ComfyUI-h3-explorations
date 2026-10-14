@@ -270,7 +270,9 @@ def a_masks_at_is_the_previews_first_frame() -> str:
         refused(lambda: lc.mask_specs(made.ctx(), files), "names a part of the load's own for 'a'", "is not there")
         own.write_bytes(b"")
         others_, mine = lc.mask_specs(made.ctx(), files)
-        assert f",parts={own}," in mine and others_ == usual[0] and mine == usual[1].replace(f"parts={files['a']['parts']}", f"parts={own}"), mine
+        # and it names the preview's saved part it was made from, which the capture's verify holds it to (2026-10-14)
+        assert f",parts={own},parts_from={files['a']['parts']}," in mine and others_ == usual[0] \
+            and mine == usual[1].replace(f"parts={files['a']['parts']}", f"parts={own},parts_from={files['a']['parts']}"), mine
         assert f"parts={files['a']['parts']}" in usual[1] and str(own) not in usual[1], usual[1]
         del made.job["subjects"][1]["parts_file"]
         made.write()

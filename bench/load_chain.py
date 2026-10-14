@@ -294,12 +294,14 @@ def mask_specs(ctx: dict, files: dict, band: Path | None = None, hashed=None) ->
         # A LOAD'S OWN PART (`parts_file` on its subject in the job file, written by `shot_to_load.py job --parts`): some of
         # the subject's parts, cut from the preview's class map on the preview's own frames. The capture is handed it in
         # place of the preview's saved part, so what the builder loads is what the capture read.
-        parts = f["parts"]
+        parts, made_from = f["parts"], ""
         if ctx["subject_keys"].get("parts_file"):
             parts = Path(ctx["subject_keys"]["parts_file"])
             if not parts.is_file():
                 raise Refused(f"the job names a part of the load's own for {label!r}, {parts}, and it is not there: `shot_to_load.py job --parts` makes it")
-        spec = f"{label}:track={f['track']},parts={parts},classes={f['classes']},shots={f['shots']},shots_at={at}"
+            # made today from the preview's own files: the capture's verify holds it to the preview's saved part it came from
+            made_from = f",parts_from={f['parts']}"
+        spec = f"{label}:track={f['track']},parts={parts}{made_from},classes={f['classes']},shots={f['shots']},shots_at={at}"
         if ctx["subject_keys"].get("pose", True) is not False:
             if f["pose"] is None:
                 raise Refused(f"the job does not say `pose: false` for {label!r} and the preview {by} wrote no pose table for them")

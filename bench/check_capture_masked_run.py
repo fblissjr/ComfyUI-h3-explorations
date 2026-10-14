@@ -882,6 +882,12 @@ def verifying() -> str:
     # a morning's mask beside an afternoon's: the folder that held two runs under one name
     mixed = by(cap.verify_checks(manifest({**good, "parts": video("r.mp4", "09:17:00")}, [run]), []))
     assert mixed["inputs_written_together"]["ok"] is False and "09:17:00" in mixed["inputs_written_together"]["why"], mixed
+    # A LOAD'S OWN PART (2026-10-14: the first load to carry a held part failed here): made a day later from the preview's saved part, it is
+    # held to that part; one made from a file of another run is not
+    derived = by(cap.verify_checks(manifest({**good, "parts": {**video("held.mkv", "23:59:00"), "made_from": video("r.mkv", "13:45:50")}}, [run]), []))
+    assert derived["inputs_written_together"]["ok"] is True and "held.mkv is the load's own, made from r.mkv" in derived["inputs_written_together"]["why"], derived
+    stray = by(cap.verify_checks(manifest({**good, "parts": {**video("held.mkv", "23:59:00"), "made_from": video("r.mkv", "09:17:00")}}, [run]), []))
+    assert stray["inputs_written_together"]["ok"] is False and "made from r.mkv at 09:17:00" in stray["inputs_written_together"]["why"], stray
     # a pose table from a pass of its own does not make the masks two runs
     posed = by(cap.verify_checks(manifest({**good, "pose": {"file": "p.json", "written": "2026-10-10T09:00:00"}}, [run]), []))
     assert posed["inputs_written_together"]["ok"] is True

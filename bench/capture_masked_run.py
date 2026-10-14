@@ -1464,7 +1464,8 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                    "frames_covered": int(covered.sum()), "pose": posed, "parts_pieces": m.get("pieces"),
                                    # what `pieces=largest` took away, a frame at a time (`pieces_taken`); None when it is not set
                                    "parts_pieces_taken": pieces_by_sighting.get((label, by)),
-                                   "inputs": {k: input_facts(m[k]) for k in ("track", "parts", "classes", "held", "shots", "pose") if m.get(k)},
+                                   "inputs": {k: {**input_facts(m[k]), **({"made_from": input_facts(m["parts_from"])} if k == "parts" and m.get("parts_from") else {})}
+                                              for k in ("track", "parts", "classes", "held", "shots", "pose") if m.get(k)},
                                    "classes": Path(m["classes"]).name if m.get("classes") else None,
                                    "part_is_made_of": made_of.get(label),
                                    "parts_held_on_source_frames": frame_spans([first + f for f in held_frames]),
@@ -1741,13 +1742,18 @@ def verify_checks(manifest: dict, track_flags: list[dict], statements: list[dict
                 add("inputs_written_together", about, None, "this capture was made before inputs were recorded: run `files` again")
                 continue
             videos = {k: v for k, v in given.items() if "size" in v}
-            # a pose table may come from a pass of its own; the masks and the shot table are one preview's
+            # a pose table may come from a pass of its own; the masks and the shot table are one preview's. A load's own part
+            # (`parts_from=` on its mask: a cut of some of the subject's parts, or the part held to its track, made by the job step
+            # from the preview's own files) is written when the job is, and is held to the preview file it was made from
+            # (2026-10-14: the first load to carry a held part failed here on a preview of the day before)
             given = {k: v for k, v in given.items() if k != "pose"}
-            times = sorted(datetime.datetime.fromisoformat(v["written"]) for v in given.values())
+            stamp = lambda v: (v.get("made_from") or v)["written"]                                     # noqa: E731
+            times = sorted(datetime.datetime.fromisoformat(stamp(v)) for v in given.values())
             spread = (times[-1] - times[0]).total_seconds()
             add("inputs_written_together", about, spread <= WRITTEN_TOGETHER_S,
-                f"written within {int(spread)} s of each other" if spread <= WRITTEN_TOGETHER_S else
-                f"written {int(spread)} s apart: {', '.join(v['file'] + ' at ' + v['written'][11:] for v in given.values())}. "
+                f"written within {int(spread)} s of each other" + "".join(f"; {v['file']} is the load's own, made from {v['made_from']['file']}"
+                                                                          for v in given.values() if v.get("made_from")) if spread <= WRITTEN_TOGETHER_S else
+                f"written {int(spread)} s apart: {', '.join(v['file'] + ' at ' + v['written'][11:] + (' (made from ' + v['made_from']['file'] + ' at ' + v['made_from']['written'][11:] + ')' if v.get('made_from') else '') for v in given.values())}. "
                 "They are not one run's", seconds=int(spread))
             wrong = [f"{v['file']} is {v['size'][0]}x{v['size'][1]}" for v in videos.values() if v["size"] != size]
             add("inputs_at_the_canvas", about, not wrong, "; ".join(wrong) + f"; the capture is {size[0]}x{size[1]} and a mask of "
