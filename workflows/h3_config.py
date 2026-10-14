@@ -1507,6 +1507,15 @@ MASKED_JOB_MOTION = dict(none="none", wired="a video I wire")
 #: (internal/claude/2026-10-14_mrtwo_scripts/hair_0604/findings.md); a band from the box's bottom never reaches
 #: there. What "top" did to that load's planned region is in the commit that set it.
 MASKED_JOB_HAIR_BAND = dict(cuts="clothes", wider=0.1, smooth_frames=4, most=2.0, starts="top")
+#: THE STRANGERS KEEP-OUT (`bench/strangers.py`): every person the part model (`SAPIENS2["segmentation"]`) finds on
+#: the whole frame, less each of the preview's subjects' tracks grown by `grow_px`; and a load whose plan names it
+#: has its part held to its own subject's track grown by the same (`bench/shot_to_load.py`). The grow is there
+#: because the part model reaches past the tracker's edge on the subject's own body. **Measured** 8 px as a
+#: starting value, 2026-10-14, on two close groups (the lead's 3167-3213 and 3240-3276; read in
+#: internal/claude/2026-10-14_mrdrill_stranger_read.md): no cell of her part inside her track lost on either at
+#: 0, 4, 8 or 16; at 8 fewer frames with an enclosed hole than at 0, and on 3240 every hole left there with no
+#: keep-out at all. Faces about 109 px tall on 3167; a face of another size may want another.
+MASKED_STRANGERS = dict(grow_px=8)
 #: What the text encoder is shown of a load's still: the video model's own copy, not a smaller one of its
 #: own. **Decided** by the owner, 2026-10-08, for the reference stills of this lane (the largest size, enlarged
 #: to it, one copy for both models); the 2026-10-08 final and every render of 2026-10-10 ran so. The shipped

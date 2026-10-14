@@ -32,8 +32,9 @@ files and runs the two tools, from the video's own records, and leaves to a pers
   subject whose plan lacks `still` or `parts` is refused with the keys to add. Optionally `pieces` (with
   `pieces_by`: who chose it, on what): how the capture reads the subject's part, copied by `job` onto the
   subject in the load's job file, where the chain passes it to the capture. This tool sets it for nobody.
-  Optionally `keep_outs` (with `keep_outs_by`): which of `held`, `hands` and `clothes` that subject's loads keep
-  as the source's (`KEEP_OUTS`). `job` makes each from the preview's own files, names it in the load's `others`
+  Optionally `keep_outs` (with `keep_outs_by`): which of `held`, `hands`, `clothes` and `strangers` that subject's
+  loads keep as the source's (`KEEP_OUTS`); `strangers` also holds the load's part to its subject's track
+  (`part_on_track`). `job` makes each from the preview's own files, names it in the load's `others`
   and writes where its file is into the job file (`job.keep_outs`), from which the chain hands it to the capture.
 - The cast file (`--cast`): where it holds an answer inside the shot for a subject, that tracker is seeded from
   it (`bench/cast_file.py::seeds`; a "none of the outlined people" answer leaves the shot unseeded). A seeded
@@ -146,7 +147,10 @@ KEEP_OUTS_AT = "Video/{video}/keep_outs/{preview}"
 #: shot of 457 frames, each is that day's own mask on every frame with no pixel differing; with `Torso` added to the
 #: clothing it is equal on 29 of the 457, so the torso was left out on purpose. Every load of the second subject
 #: through this tool carried none of them until that day, and the first render drew her apron as the still's top.
+#: `strangers` (2026-10-14, ruled by the lead): every person the part model finds on the whole frame who is not one
+#: of the preview's subjects, the file `bench/strangers.py run` writes for the preview; looked for, as `held` is.
 KEEP_OUTS = {"held": None,
+             "strangers": None,
              "hands": ("Left_Hand", "Right_Hand", "Left_Lower_Arm", "Left_Upper_Arm", "Right_Lower_Arm", "Right_Upper_Arm"),
              "clothes": ("Apparel", "Upper_Clothing")}
 #: What a plan may say of how the capture reads a subject's part (`bench/capture_masked_run.py`, `pieces=` on a `--mask`).
@@ -414,13 +418,16 @@ def keep_outs_of(p: dict, subject: str, preview: dict, people: list[str], video:
     folder = output / KEEP_OUTS_AT.format(video=video, preview=preview["name"])
     made = []
     for k in names:
-        if KEEP_OUTS[k] is None:
+        if k == "strangers":
+            made.append({"name": k, "track": str(folder / f"{preview['name']}_strangers.mkv"), "made_by": "bench/strangers.py run",
+                         "what": "every person the part model finds on the whole frame, less the preview's subjects' tracks grown (bench/strangers.py)"})
+        elif KEEP_OUTS[k] is None:
             made.append({"name": k, "track": str(saved("held_things")), "what": "the preview's own held-things file, as saved"})
         else:
             made.append({"name": k, "track": str(folder / f"{preview['name']}_{subject}_{k}.mkv"), "classes": list(KEEP_OUTS[k]),
                          "cut_from": str(saved("classes")), "what": "those classes of the preview's class map of the subject, not clipped to the track"})
     said = (f" KEPT AS THE SOURCE'S ON THIS LOAD, from the plan ({by}): " + "; ".join(
-        f"`{k['name']}` ({'the preview held-things file' if 'classes' not in k else ' + '.join(k['classes']) + ' of the class map'})" for k in made)
+        f"`{k['name']}` ({k['what'] if 'classes' not in k else ' + '.join(k['classes']) + ' of the class map'})" for k in made)
         + ". Each is one of the load's `others` and a subject of its capture, on the preview's frames.")
     return {"of": subject, "by": f"the plan ({by})", "preview": preview["name"], "first": preview["first"], "made": made}, said
 
@@ -544,6 +551,74 @@ def cut_keep_out(class_map: Path, classes: list[str], out: Path, classes_on: lis
     return {"frames": int(n), "size": [int(w), int(h)], "frames_with_the_mask": int((px > 0).sum()), "px_most": int(px.max()) if n else 0}
 
 
+def part_on_track(p: dict, subject: str, part: dict | None, preview: dict, video: str, output: Path, preview_files) -> tuple[dict | None, str]:
+    """Where the plan names the `strangers` keep-out for a subject, the load's part held to its subject's own preview
+    track grown by `h3_config.MASKED_STRANGERS["grow_px"]`, as the job file holds it, and the note's sentence; nothing
+    otherwise. The part held is the load's own (`part_of`) where it has one, else the preview's saved part.
+
+    Why (2026-10-14, ruled by the lead as V3): on the lead's 3167-3213 her part lay outside her own track on 45 of
+    47 frames, on another woman's face, and a cell holding her part is never given back to a keep-out, so the
+    strangers keep-out could not take it back. The part model's pixels outside her track are no part of her; held
+    to the track grown 8 px, no cell of her part inside her track was lost on 3167 or on 3240."""
+    import h3_config
+    if "strangers" not in (p.get("keep_outs") or []):
+        return None, ""
+
+    def saved(kind: str) -> Path:
+        found = [f for f in preview_files or [] if f"_{subject}_{kind}_" in Path(f).name and f.endswith(".mkv")]
+        if len(found) != 1:
+            raise Refused(f"the preview {preview['name']} saved {len(found)} `{kind}` video(s) of {subject!r} where one is meant: the strangers keep-out holds "
+                          "the load's part to its subject's track")
+        return output / found[0]
+    source = Path(part["made"][0]["track"]) if part else saved("parts")
+    px = int(h3_config.MASKED_STRANGERS["grow_px"])
+    stem = source.stem if part else f"{preview['name']}_{subject}_part_saved"
+    file = output / PARTS_AT.format(video=video, preview=preview["name"]) / f"{stem}_on_track_{px}px.mkv"
+    block = {"of": subject, "preview": preview["name"], "first": preview["first"], "part": str(source), "track": str(saved("track")), "grow_px": px,
+             "file": str(file), "why": "the plan names the strangers keep-out: the part model's pixels outside the subject's own track are no part of them"}
+    said = (f" THE PART IS HELD TO {subject}'s OWN TRACK grown {px} px (h3_config.MASKED_STRANGERS), since the plan keeps the strangers out: written to {file}, "
+            "and the chain hands the capture that file as the load's part.")
+    return block, said
+
+
+def hold_to_track(part: Path, track: Path, px: int, out: Path) -> dict:
+    """Write a part held to a track grown by `px`, a frame at a time, on the part's own frames; figures of what was written."""
+    import numpy as np
+    import capture_masked_run as cap
+    import strangers
+    w, h, n = cap.probe(str(part))
+    a = cap.read_mask(str(part), (w, h), 0, 0, n)[0]
+    held = a & strangers.grown(cap.read_mask(str(track), (w, h), 0, 0, n)[0], px)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    cap.write_mask_video(out, held)
+    off = (a & ~held).reshape(n, -1).sum(1)
+    return {"frames": int(n), "size": [int(w), int(h)], "px_taken_off_a_frame_median": int(np.median(off)) if n else 0, "px_taken_off_most": int(off.max()) if n else 0,
+            "frames_with_any_taken_off": int((off > 0).sum())}
+
+
+def make_part_on_track(block: dict | None, world, hold=hold_to_track, hashed=None) -> list[str]:
+    """Make the held part a job file names, and say what was done. A file that is there is held to a fresh making."""
+    if not block:
+        return []
+    hashed = hashed or load_chain.frame_hash
+    file = Path(block["file"])
+    if world.dry:
+        return [f"the part held to the track: WOULD BE WRITTEN from {block['part']} and {block['track']} grown {block['grow_px']} px to {file}"
+                + (" (a file is there: held to a fresh making)" if file.exists() else "")]
+    if file.exists():
+        again = file.with_name(file.stem + ".made_again.mkv")
+        hold(Path(block["part"]), Path(block["track"]), block["grow_px"], again)
+        same = hashed(str(again)) == hashed(str(file))
+        again.unlink()
+        if not same:
+            raise Refused(f"{file} is there and is NOT the part held to the track made again now: a file of another making. It is read and moved aside by a person")
+        return [f"the part held to the track: {file} was there, and made again now it decodes equal on every frame"]
+    got = hold(Path(block["part"]), Path(block["track"]), block["grow_px"], file)
+    file.with_suffix(".json").write_text(json.dumps({"what": "a load's part held to its subject's preview track grown, by bench/shot_to_load.py", **block,
+                                                     "made_at": load_chain.utc_now(), **got}, indent=1) + "\n")
+    return [f"the part held to the track: {file}: {got['frames']} frames; taken off the part {got['px_taken_off_a_frame_median']} px a frame at the median, "
+            f"{got['px_taken_off_most']} at most, on {got['frames_with_any_taken_off']} frames"]
+
 def make_part(part: dict | None, world, cut=cut_keep_out, hashed=None, inside=part_inside) -> list[str]:
     """Make the part a load's job file names as its own, a subset of its subject's parts, and say what was done.
 
@@ -597,7 +672,8 @@ def make_keep_outs(kept: dict | None, world, cut=cut_keep_out, hashed=None) -> l
         track = Path(k["track"])
         if "classes" not in k:
             if not track.is_file() and not world.dry:
-                raise Refused(f"the keep-out `{k['name']}` is the preview's held-things file {track}, which is not there")
+                raise Refused(f"the keep-out `{k['name']}` is {track}, which is not there" + (
+                    f": `{k['made_by']} --preview <the preview's job folder>` makes it, on the card" if k.get("made_by") else ""))
             lines.append(f"keep-out `{k['name']}`: {track} ({k['what']})")
             continue
         if world.dry:
@@ -687,6 +763,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             raise Refused(f"--parts-on {x}-{y} is not inside the load's frames {a}-{b}")
     part, part_said = part_of(p, subject, parts, parts_by, preview, video, output, preview_files, classes_of, parts_on)
     kept, kept_said = keep_outs_of(p, subject, preview, list(theirs), video, output, preview_files)
+    on_track, on_track_said = part_on_track(p, subject, part, preview, video, output, preview_files)
     load["others"] += [k["name"] for k in (kept or {}).get("made", [])]
     band = p.get("hair_band")
     if band is not None:
@@ -720,6 +797,9 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         mine["parts_file"], mine["parts_of_this_load"], mine["parts_by"] = part["made"][0]["track"], list(part["parts"]), part["by"]
         if part.get("parts_on"):
             mine["parts_on"] = part["parts_on"]
+    if on_track:
+        mine = next(s for s in subjects if s["label"] == subject)
+        mine["parts_file"], mine["parts_held_to_track_px"] = on_track["file"], on_track["grow_px"]
     # Two choices about this one load, each a person's with its words, neither with a default.
     chosen, zoom_block = "", None
     if zoomed is not None:
@@ -742,13 +822,13 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             f"{shot['first']}-{shot['last']}, its masks from the preview {preview['name']} (job.preview), in the frozen form: the body model cut to the head "
             f"with the face points drawn, made on these frames by this tool's `reference` step. Its settings are in `defaults`, from workflows/h3_config.py. "
             f"THE TEXT IS NOT WRITTEN: {name}.txt beside this file is a person's, and texts.{name}.by says who wrote it."
-            + pieces + part_said + kept_said + chosen + (f" CUT BY A LOOK: {cut_said}" if cut else ""))
+            + pieces + part_said + kept_said + on_track_said + chosen + (f" CUT BY A LOOK: {cut_said}" if cut else ""))
     return {"job": {"name": name, "note": note, "source": source or preview["source"], "first": a, "frames": n, "canvas": list(preview["canvas"]),
                     "output": OUTPUT_KEY.format(video=video, session=by), "subjects": subjects,
                     "left_out": [{"subject": subject, "first": x, "frames": y - x + 1, "why": said} for x, y, said in cut],
                     "capture": f"data/{day}_{name}", "preview": preview_folder,
                     "texts": {name: {"file": f"{name}.txt", "frames": [a, b], "by": ""}},
-                    **({"keep_outs": kept} if kept else {}), **({"part": part} if part else {}), **({"zoomed": zoom_block} if zoom_block else {}),
+                    **({"keep_outs": kept} if kept else {}), **({"part": part} if part else {}), **({"part_on_track": on_track} if on_track else {}), **({"zoomed": zoom_block} if zoom_block else {}),
                     "reference": {"form": "drawn", "why": "the form for a face, head or hair replacement (AGENTS.md, Settled)", "made": None}},
             "defaults": {**h3_config.MASKED_LOAD_DEFAULTS, "margin": h3_config.MASKED_LOAD_MARGIN[region], "seed": h3_config.SEED},
             "loads": [load]}
@@ -845,7 +925,7 @@ def step_preview(a, world) -> None:
     print("THE TILES ARE TO BE LOOKED AT before a load is built on this preview: a pick by the largest person is a guess.")
 
 
-def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classes_of=part_classes) -> None:
+def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classes_of=part_classes, hold=hold_to_track) -> None:
     shots, plan = _load(a.shots, a.plan)
     shot = shot_of(shots, a.shot)
     pfolder = Path(a.preview)
@@ -880,7 +960,9 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
     print(job["job"]["note"])                # the load in words, as the preview step prints its own: a dry run shows every choice made for it
     load_held_as_the_builder_holds(job, world)
     # the keep-outs the plan names are made before the job file that points at them is written; a dry run says what would be
-    for line in make_part(job["job"].get("part"), world, cut, hashed, inside) + make_keep_outs(job["job"].get("keep_outs"), world, cut, hashed):
+    # the held part last: it is made from the load's own part, and nothing is written for it while a keep-out is refused
+    for line in (make_part(job["job"].get("part"), world, cut, hashed, inside) + make_keep_outs(job["job"].get("keep_outs"), world, cut, hashed)
+                 + make_part_on_track(job["job"].get("part_on_track"), world, hold, hashed)):
         print(line)
     if world.dry:
         print("DRY: nothing written. The load was held to the builder's refusals that need neither its capture nor its text (the job block, the file's "
