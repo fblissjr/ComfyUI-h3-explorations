@@ -17,12 +17,11 @@ pointer goes; this list is stale the moment the roadmap disagrees with it.
 Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
-**The queue at the close of 2026-10-13 (the lead, mrtower). The card's order is
-[`handover.md`](handover.md), "Tomorrow, in order", and is not repeated here; the
-day's rulings are [`decisions.md`](decisions.md), 2026-10-13. The queue of
-2026-10-12 that stood here is in git: its looks, its two loads of the lead, the
-delivery of 0-1919 and the previews of 1920-6394 were done; what it left open is
-carried below.**
+**The queue at the close of 2026-10-14 (the lead, mrtwo). The card's order and the tooling order are
+[`handover.md`](handover.md), "Tomorrow, in order", and are not repeated here; the day's rulings are
+[`decisions.md`](decisions.md), 2026-10-14. Of the list below, items 1 and 2 and the floor of item 6 were done on
+2026-10-14 (`--parts-on`, the track hold, `--track-not`, the review tools as tracked tools, the zoom-held floor); the
+rest is carried.**
 
 Tooling, in order (each is a row further down this page unless it says otherwise).
 Before any tool for a new kind of load: one dry run of that load to its gate on

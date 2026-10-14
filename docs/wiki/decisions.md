@@ -28,6 +28,20 @@ Older history lives elsewhere and is not copied here:
   keeping them current; one input (the stopped loads) was a typed list and the review file's decisions were
   typed into the script. Where it lives now: `AGENTS.md`, "Operative rules" and "Where state lives". The
   pages becoming tracked tools that read only generated files is the tooling seat's job of the day.
+- **The evening's standing rules, so the card does not wait on the lead** (the lead, 2026-10-14, about 21:14-21:18Z).
+  A remade load's look rests on an earlier blind reading when `bench/look_carry.py` finds every frame's track, part
+  and region equal or a subset; otherwise a reader is owed. A gate that names a restore span of the subject's own hands
+  and arms on the load's frames gets that span in the plan and the override, without asking; spans stay on the load's
+  frames, never the whole video. It replaced the lead measuring and ruling each by hand.
+- **A frame whose lips do not lie on the mouth draws no mouth** (the lead, 2026-10-14, eed4acb9). Three references
+  drew the mouth off the face (in profile; on the second subject's chest on hair-alone frames), all from the class-map
+  fallback. Kept at the existing `MOUTH_CHECK["on_share"]` of 0.8 over a new 0.5 fitted to three loads. A kept piece
+  made in the older form (0294d) stands.
+- **Keep-out flags read their own size** (the lead, 2026-10-14). Strangers' specks under a floor are data (90d6a633),
+  for the strangers mask only: a small face of ours still counts. Held pixels that are thin slivers or the subject's
+  own clothing below the pose model's chin point are data (cadde74a); a chin scored under 0.3 counts as none. The
+  part floor is counted at the size the load renders at (8d1c86d2). A stay keep-out empty on every frame is dropped
+  and said (69cfe18e).
 - **Gaze is a known limit; no more card time on the eye's form for it** (the lead, 2026-10-14, on the measure the
   lead set in advance). The pose model's iris points do follow a sideways look (lead_fp_1097b, 1119-1133: +0.25 to +0.31
   eye widths, scores 0.96-1.0) and the reference draws it, but no render followed: median iris x +0.253 in the original
