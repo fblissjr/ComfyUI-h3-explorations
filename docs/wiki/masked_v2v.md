@@ -1667,6 +1667,15 @@ pass was a one-off script under the untracked `data/`.*
 
 ### The text: the fragment
 
+**SINCE 2026-10-14 THE ONE HOME OF A LOAD'S FIXED LINES IS `bench/load_text.py`** (the owner's word that day: the
+text says exactly what the reference video shows and the least else; every window's text consistent with the others).
+`bench/shot_to_load.py text --place-and-action "..."` makes the text from the reference's record (what was drawn: the
+parts, the eye's form, the mouth), the plan's words for the subject and the video, and the voice table, around the one
+sentence a person writes; a text written whole by a person is the exception (`--by-hand "why"`). Its examples are the
+kept loads it reproduces: lead_fp_1730 and lead_fp_1755 (10/13), second_hfp_0484c (10/14), in
+`bench/check_load_text.py`. What this section quotes below is the form of 10/11 ("shapes drawn on its face"), kept as
+what the lane wrote then; it describes no load the chain makes now.
+
 *The frame this text is written in stood at the head of this section for
 part of 2026-10-12 and is a section of its own since the page was
 reorganized that day: "The frame every masked text is written in", near

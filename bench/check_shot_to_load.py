@@ -122,6 +122,13 @@ class Machine:
     def queue(self):
         return self.busy
 
+    def voice(self, source_name: str) -> dict:
+        """The video's voice tables, as `load_chain`'s machine finds them; a check's own, written here."""
+        spans = self.data / "voice_spans.json"
+        spans.parent.mkdir(parents=True, exist_ok=True)
+        spans.write_text(json.dumps({"voiced_spans_inclusive": [[120, 130]]}))
+        return {"per_frame": str(self.data / "voice_per_frame.csv"), "spans": str(spans), "frames": [0, 999]}
+
     def free(self):
         self.ran.append(("free the card", []))
         return "the card after it: free."
@@ -232,6 +239,7 @@ class Made:
 def args(**more) -> argparse.Namespace:
     given = dict(by="the session", day="2026-01-03", cast=None, queue=False, first=None, frames=None, why=None, remake=False, plain=None, model_store="",
                  existing=False, writer=None, why_before=None, why_after=None, zoomed=None, least=None, least_why=None, ask=[], seed_cuts_of=None, parts=None, parts_by=None, parts_on=[], whole_frame=None, mouth=None, iris=None, form_why="",
+                 place_and_action=None, by_hand=None, plan=None,
                  track_not=[], track_not_by=None)
     given.update(more)
     return argparse.Namespace(**given)
@@ -1154,10 +1162,12 @@ def the_text_step() -> str:
         made = Made(Path(tmp))
         job_file = made.jobs / "a_fp_0100.json"
         job_file.write_text(json.dumps(made.load(), indent=1))
-        a = args(job_file=str(job_file), writer="a writer, from frames 100 to 159   looked at every fifth")
+        a = args(job_file=str(job_file), writer="a writer, from frames 100 to 159   looked at every fifth", by_hand="the owner's own words for this shot")
         refused(lambda: stl.step_text(a, made.m), "is not written, or is empty")
         (made.jobs / "a_fp_0100.txt").write_text("the words of the load\n")
-        refused(lambda: stl.step_text(args(job_file=str(job_file), writer="  "), made.m), "--writer takes a person's words")
+        refused(lambda: stl.step_text(args(job_file=str(job_file), writer="  ", by_hand="w"), made.m), "--writer takes a person's words")
+        refused(lambda: stl.step_text(args(job_file=str(job_file), writer="w"), made.m), "one of the two")
+        refused(lambda: stl.step_text(args(job_file=str(job_file), writer="w", by_hand=" "), made.m), "--by-hand takes the reason in words")
         refused(lambda: lc.read_job(job_file, made.root), "texts.a_fp_0100.by is empty", "bench/shot_to_load.py text")
         before = job_file.read_bytes()
         made.m.dry = True
@@ -1167,7 +1177,8 @@ def the_text_step() -> str:
         stl.step_text(a, made.m)
         d = json.loads(job_file.read_text())
         by = d["job"]["texts"]["a_fp_0100"]["by"]
-        assert by.startswith("a writer, from frames 100 to 159 looked at every fifth; entered 20") and by.endswith("by the session (bench/shot_to_load.py text)"), by
+        assert by.startswith("a writer, from frames 100 to 159 looked at every fifth, BY HAND: the owner's own words for this shot; entered 20") \
+            and by.endswith("by the session (bench/shot_to_load.py text)"), by
         was = json.loads(before)
         was["job"]["texts"]["a_fp_0100"]["by"] = by
         assert d == was, "the text step changed more of the job file than the writer"
@@ -1178,10 +1189,35 @@ def the_text_step() -> str:
         folder.mkdir()
         (folder / "job.plan.json").write_bytes(job_file.read_bytes())
         kept = job_file.read_bytes()
-        refused(lambda: stl.step_text(args(job_file=str(job_file), writer="another"), made.m), "the plan of a_fp_0100 is built", "not edited after")
+        refused(lambda: stl.step_text(args(job_file=str(job_file), writer="another", by_hand="w"), made.m), "the plan of a_fp_0100 is built", "not edited after")
         assert job_file.read_bytes() == kept
-    return ("the text's writer is said with a flag and goes into the job file with when and by which session, nothing else changed; the chain then reads the "
-            "load; refused with no text, with no words, and once the plan is built; a dry run writes nothing")
+    # GENERATED (2026-10-14): from the reference's record, the plan's words and the voice table, around the person's one sentence
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        made.plan["text"] = {"film": "THE FILM LINE."}
+        made.plan["subjects"]["a"]["text"] = {"who": "the girl", "looks": "brown eyes", "her": "her", "she": "she", "sings": True}
+        d = made.load()
+        job_file = made.jobs / "a_fp_0100.json"
+        job_file.write_text(json.dumps(d, indent=1))
+        a = args(job_file=str(job_file), writer="mrx, from every frame", place_and_action="is in a room", plan=str(made.plan_file))
+        refused(lambda: stl.step_text(a, made.m), "is made after it")
+        ref = Path(d["loads"][0]["motion_file"]).with_suffix(".json")
+        ref.parent.mkdir(parents=True, exist_ok=True)
+        ref.write_text(json.dumps({"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast", "mouth": {"drawn": True}}}))
+        refused(lambda: stl.step_text(args(job_file=str(job_file), writer="w", place_and_action="x"), made.m), "give --plan")
+        stl.step_text(a, made.m)
+        words = (made.jobs / "a_fp_0100.txt").read_text()
+        t = json.loads(job_file.read_text())["job"]["texts"]["a_fp_0100"]
+        # THE CASE THAT GOES RED when the text step does not write the generated text, or says it as a person's
+        assert "<Subject 1> is in a room, with the face of <Picture 1>" in words and "the white of the eye is white and the iris black" in words \
+            and "the mouth is outlined" in words and "(S1) sings" in words and "THE FILM LINE." in words, words
+        assert t["by"].startswith("GENERATED by bench/load_text.py") and "\"is in a room\" by mrx, from every frame" in t["by"] and t["generated_from"]["drawn"]["iris"] == "contrast", t
+        assert lc.read_job(job_file, made.root)["text"] == made.jobs / "a_fp_0100.txt"
+        (made.jobs / "a_fp_0100.txt").write_text("somebody's own words\n")
+        refused(lambda: stl.step_text(a, made.m), "holds another text", "written once")
+    return ("the text is made from the reference's record, the plan's words and the voice table around a person's one sentence, written beside the job "
+            "file and said as generated with the sentence's writer; a text written whole by a person only with its reason; refused with no text, with no "
+            "words, with neither or both ways, before the reference, over another text, and once the plan is built; a dry run writes nothing")
 
 
 def a_job_renders_from_the_present_copy() -> str:

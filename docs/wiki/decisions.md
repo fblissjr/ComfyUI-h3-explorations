@@ -70,6 +70,15 @@ Older history lives elsewhere and is not copied here:
   and the sessions talk", on their yes of about 17:05Z). What it replaces: "Two sessions during the day",
   one on the card and one on tooling, with the lead's work folded into whichever held the card.
 
+- **A load's text is generated from its records, around one sentence a person writes** (the owner, about 18:05Z: every
+  window's text consistent with the others, saying exactly what the reference shows and the least else; the lead's
+  rulings of about 18:10Z: the closer view "of the head and shoulders", nothing typed by sight; no expression sentences).
+  `bench/load_text.py`, called by `shot_to_load.py text --place-and-action`, makes the fixed lines from the reference's
+  record, the plan's `text` words for the subject and the video, and the voice table. What it replaces: each load's text
+  copied by hand from the last, whose `<Subject 2>` sentence could name what an earlier reference drew; and
+  `masked_v2v.md`'s "The text: the fragment", which quoted the 10/11 form ("shapes drawn on its face") as the form to
+  copy. That section now points at the generator. (Written by the tooling seat, mrdrill, at the lead's order.)
+
 ## 2026-10-13
 
 *The entries from here to the next note were written by the afternoon's lead
