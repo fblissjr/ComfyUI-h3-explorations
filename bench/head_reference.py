@@ -36,8 +36,16 @@ have it back with `--leave-out ""`. Look at the sheet.
 
 It refuses to write over any of them: a reference made again takes a new name.
 
-A passing run says each step's file holds what that step made, on the frames it was told. It does not say the
-lines are on her face or that the box is round the right person: open the sheet.
+**A reference drawn from another person's face is a failure.** The points file's own record
+(`bench/pose_along_shot.py`) says, a frame at a time, whether the face's middle lies on the subject's tracked
+mask. A reference whose span has a frame where it does not is written, so its sheet can be read, and marked
+FAILED with those frames (`face_on_the_track`). On the lead's 3167-3213 (2026-10-14) eleven frames drew the face
+of a woman above her and the run said PASSED. A points file whose record says nothing of a track (made before
+then, or read on the whole frame) is said as not known and does not fail.
+
+A passing run says each step's file holds what that step made, on the frames it was told, and that the face it
+drew lies on the subject's track on every frame. It does not say the track is the right person or that the lines
+are on her face: open the sheet.
 """
 from __future__ import annotations
 
@@ -87,6 +95,17 @@ def outputs(out: Path) -> dict[str, Path]:
     return made
 
 
+def face_on_the_track(points: str, first: int, count: int) -> dict:
+    """What the points file's own record says of the face on the subject's track, on the span's frames."""
+    rec = Path(points).with_suffix(".json")
+    said = json.loads(rec.read_text()).get("face_on_the_mask") if rec.is_file() else None
+    if not said:
+        return {"known": False, "why": f"{rec.name} " + ("says nothing of a track" if rec.is_file() else "is not there"),
+                "frames_whose_face_middle_is_off_the_track": []}
+    return {"known": True, "read_from": rec.name, "what": said["what"],
+            "frames_whose_face_middle_is_off_the_track": [f for f in said["frames_whose_face_middle_is_off_the_mask"] if first <= f < first + count]}
+
+
 def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, by: str, *, names: list[str] | None = None,
         mesh_first: int | None = None, points_first: int | None = None, width: float = FORM_WIDTH, room: float | None = None,
         leave_out: frozenset = frozenset({FORM_LEAVES_OUT}), dots: bool = False, repo: Path = REPO, say=print) -> dict:
@@ -120,7 +139,15 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     say(f"    white {fit['0']} px from its own frame's lines, {fit['1']} and {fit['-1']} from the neighbours'; "
         + ("PASSED" if drawn["passed"] else "FAILED"))
     say("    " + faces.marks.against_the_source_line(drawn["body_model_against_the_source"]))
-    passed = bool(cut["passed"] and under["passed"] and drawn["passed"])
+    on_track = face_on_the_track(points, first, count)
+    if on_track["frames_whose_face_middle_is_off_the_track"]:
+        say(f"    THE FACE IS OFF THE SUBJECT'S TRACK on {len(on_track['frames_whose_face_middle_is_off_the_track'])} of {count} frames "
+            f"({', '.join(map(str, on_track['frames_whose_face_middle_is_off_the_track']))}): another person's face is drawn there; FAILED")
+    elif on_track["known"]:
+        say(f"    the face's middle is on the subject's track on all {count} frames")
+    else:
+        say(f"    whether the face is on the subject's track is NOT KNOWN: {on_track['why']}")
+    passed = bool(cut["passed"] and under["passed"] and drawn["passed"] and not on_track["frames_whose_face_middle_is_off_the_track"])
     record = {
         "video": out.name, "what": "the reference of a head replacement: the body model cut to the head, with the face drawn on it",
         "made_by": by, "made_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -138,9 +165,10 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
                   "parts_left_out": drawn["parts_left_out"], "eye_rings": drawn["eye_rings"], "frames_left_bare": drawn["frames_left_bare"]},
         "read_backs": {"the_cut_body_model": cut["read_back"], "the_cut_source": under["read_back"], "the_drawing": drawn["read_back"]},
         "body_model_against_the_source": drawn["body_model_against_the_source"],
+        "face_on_the_track": on_track,
         "sheet": drawn.get("sheet"),
         "files": {key: path.name for key, path in made.items() if path.exists() or key == "record"},
-        "not_known": ["whether the box is round the right person and the lines are on her face: open the sheet",
+        "not_known": ["whether the track is the right person and the lines are on her face: open the sheet",
                       "what a model makes of a reference that no longer lies over the source pixel for pixel: the load's text has to say it is a closer view"],
         "passed": passed,
     }

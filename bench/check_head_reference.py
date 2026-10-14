@@ -206,7 +206,31 @@ def a_step_that_fails_fails_the_run() -> str:
     return "the drawing's read-back failing fails the run, in the record and in what is printed, with the other two steps still said to have passed"
 
 
+def a_face_off_the_track_fails() -> str:
+    """The points' own record says on which frames the face's middle is off the subject's track (2026-10-14: on the
+    lead's 3167 eleven frames drew another woman's face and the run said PASSED)."""
+    seen = {}
+    for name, said_of_track in (("off", {"what": "the check's", "frames_whose_face_middle_is_off_the_mask": [3, 4, 7, 40]}),
+                                ("on", {"what": "the check's", "frames_whose_face_middle_is_off_the_mask": []}), ("unsaid", None)):
+        folder, mesh, pts, source = rooms(f"track_{name}", [90] * N, [60] * N, CENTRES, 0)
+        pts.with_suffix(".json").write_text(json.dumps({"made_by": "the check", "face_on_the_mask": said_of_track}))
+        said: list[str] = []
+        rec = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head.mp4", "the check", room=ROOM, say=said.append)
+        seen[name] = (rec, said, json.loads((folder / "head.json").read_text()), folder)
+    rec, said, kept, folder = seen["off"]
+    assert rec["passed"] is False and kept["passed"] is False and rec["face_on_the_track"]["frames_whose_face_middle_is_off_the_track"] == [3, 4, 7], rec["face_on_the_track"]
+    assert all(r["passed"] for r in rec["read_backs"].values()) and (folder / "head_sheet.jpg").is_file(), "the sheet is not there to be read"
+    assert any("THE FACE IS OFF THE SUBJECT'S TRACK on 3 of" in line and "(3, 4, 7)" in line for line in said) and any(line.startswith("FAILED") for line in said), said
+    rec, said, _, _ = seen["on"]
+    assert rec["passed"] is True and rec["face_on_the_track"]["known"] and any(f"on all {N} frames" in line for line in said), said
+    rec, said, _, _ = seen["unsaid"]
+    assert rec["passed"] is True and rec["face_on_the_track"]["known"] is False and any("NOT KNOWN" in line and "says nothing of a track" in line for line in said), said
+    return ("three frames of the span whose face is off the track fail the run, with every read-back passing and the sheet written to be read, and a frame "
+            "outside the span is not counted; a record with none passes; one that says nothing of a track passes and says not known")
+
+
 case("one run makes the form", one_run_makes_the_form)
+case("a face off the subject's track fails the run", a_face_off_the_track_fails)
 case("frames from the middle of all three files", frames_from_the_middle)
 case("it writes over nothing, and nothing when it cannot finish", it_writes_over_nothing)
 case("the form's defaults can be set aside, and the record says so", the_defaults_can_be_set_aside)

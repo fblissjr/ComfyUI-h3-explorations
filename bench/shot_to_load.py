@@ -85,7 +85,9 @@ files and runs the two tools, from the video's own records, and leaves to a pers
   with the frames under the drawing line, and written into the job file. The plain cut is taken on a person's
   word only, `--plain "why"`, and the form, the why and who said it go into the job file. A load made again on
   the same frames reads the reference that is there: `--existing` runs nothing, holds the record beside it to
-  the job's subject and frames, and writes the same block from it.
+  the job's subject and frames, and writes the same block from it. A reference whose record does not say its face
+  was held to the subject's track is refused there (2026-10-14: the points of the lead's 3167 were read in her
+  track's box alone, drew another woman's face on eleven frames and passed; `bench/pose_along_shot.py`).
 
 **It stops for the text.** The job file's text entry names a file and no writer. `bench/load_chain.py` refuses the
 load until the file is there and `texts.<label>.by` says who wrote it.
@@ -855,6 +857,11 @@ def step_reference(a, world, figures=figures_of) -> None:
         made = json.loads(record.read_text())
         if made.get("frames") != [first, last] or made.get("passed") is not True:
             raise Refused(f"--existing: {record} is of frames {made.get('frames')} with passed={made.get('passed')!r}, and the load is {first}-{last}")
+        if not (made.get("face_on_the_track") or {}).get("known"):
+            # a reference made before 2026-10-14 read its points in the track's box alone, and on a close group drew
+            # another person's face and passed (the lead's 3167): whether its face is on the subject is not known
+            raise Refused(f"--existing: {record} does not say its face was held to {subject}'s track (made before the points were, or on the whole "
+                          "frame): the reference is made again, in a new folder")
         written(a, ctx, made, record, points, drawn, form, why, figures, taken=True)
         return
     if folder.exists():

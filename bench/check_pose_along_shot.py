@@ -219,13 +219,62 @@ def the_record() -> str:
     saved = json.loads((WORK / "rec_points.json").read_text())
     assert saved == rec and saved["made_by"] == "a session" and saved["made_at"].endswith("Z") and saved["model"] == h3_config.POSE_MODEL
     assert saved["made_from"]["its_frames"] == [2, 6] and saved["made_from"]["which_are_source_frames"] == [50, 54] and saved["frames"] == 5
-    assert len(saved["not_known"]) == 2 and saved["names_from"] == "a list of the check's"
+    assert len(saved["not_known"]) == 3 and saved["names_from"] == "a list of the check's"
     assert pa.run(LEVELS, 2, 5, (W, H), WORK / "rec2_points.npz", "a session", model, NAMES, say=quiet)["names_from"] == "given by the caller"
     return ("the record says who made it and when, where the points' names came from, the clip's frames and the source frames they are, and what the tool cannot know; "
             "points that name no face are written all the same and the tool says it has no summary of them")
 
 
+def held_to_the_track() -> str:
+    """A close group, as on the lead's 3167 (2026-10-14): another, brighter face inside the subject's box and off
+    their track. The stand-in model finds the brightest blob in its box and puts a face there."""
+    cw, ch, n = 320, 240, 6
+    frames = np.full((n, ch, cw), 60, np.uint8)
+    frames[:, 80:100, 55:75] = 200                          # the subject's face, on their track
+    frames[:, 80:100, 210:230] = 255                        # another's face: inside the box, off the track
+    src = clip(WORK / "group.mkv", frames)
+    mask = np.zeros((n, ch, cw), bool)
+    mask[:, 20:230, 20:110] = True                          # the subject: a column, and the floor they stand on, so the box holds the corner
+    mask[:, 180:230, 20:300] = True
+    mask[3] = False                                         # the tracker lost them on one frame
+    write_mask_video(WORK / "group_track.mkv", mask)
+    seen = []
+
+    def brightest(picture: np.ndarray, box: list[float]):
+        x0, y0, w, h = (int(v) for v in box)
+        part = picture[y0:y0 + h, x0:x0 + w].mean(2)
+        ys, xs = np.nonzero(part >= part.max() - 5)
+        centre = (x0 + xs.mean(), y0 + ys.mean() + 10)
+        seen.append(centre)
+        return fx.face([6.0], centre)[0].astype(np.float32), np.full(len(fx.NAMES), 0.9, np.float32)
+    said: list[str] = []
+    rec = pa.run(src, 0, n, (cw, ch), WORK / "group_points.npz", "the check", brightest, fx.NAMES, box_mask=str(WORK / "group_track.mkv"),
+                 box_mask_first=0, say=said.append)
+    assert all(abs(x - 65) < 2 for x, _ in seen), seen
+    on = rec["face_on_the_mask"]
+    assert on["frames_whose_face_middle_is_off_the_mask"] == [] and on["share_a_frame"] == [1.0] * n and all(on["middle_on_a_frame"]), on
+    assert rec["held_to_the_mask"]["frames_held_to_an_earlier_frames_mask"] == [3] and str(pa.HOLD_GROW_PX) in rec["held_to_the_mask"]["how"], rec["held_to_the_mask"]
+    assert any(f"on all {n} frames" in line for line in said), said
+    # the same with the hold taken out: the brighter face is read on every frame, and every frame is listed as off the track
+    real = pa.held_masks
+    pa.held_masks = lambda m, c: (np.ones_like(m), real(m, c)[1], real(m, c)[2])
+    try:
+        seen.clear()
+        said.clear()
+        rec = pa.run(src, 0, n, (cw, ch), WORK / "group_unheld_points.npz", "the check", brightest, fx.NAMES, box_mask=str(WORK / "group_track.mkv"),
+                     box_mask_first=0, say=said.append)
+    finally:
+        pa.held_masks = real
+    assert all(abs(x - 220) < 2 for x, _ in seen), seen
+    assert rec["face_on_the_mask"]["frames_whose_face_middle_is_off_the_mask"] == list(range(n)) and rec["face_on_the_mask"]["share_a_frame"] == [0.0] * n
+    assert any(line.startswith(f"THE FACE'S MIDDLE IS OFF THE TRACKED MASK on {n} of {n} frames: 0-{n - 1}") for line in said), said
+    assert any("0:0.00*" in line for line in said), said
+    return ("another, brighter face inside the box and off the track is greyed and the subject's face is read on every frame, the lost frame held to the mask "
+            "before it; with the hold taken out that face is read and every frame is listed and printed as off the track")
+
+
 case("the frames asked for are the frames read", frames_by_number)
+case("held to the track: another face in the box is not read", held_to_the_track)
 case("the box is the tracked person's on that frame", the_box_is_that_frames)
 case("a clip of another shape is fitted, one the canvas's size is not", fitted_or_not)
 case("where the names come from", names)

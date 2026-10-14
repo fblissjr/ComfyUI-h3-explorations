@@ -102,6 +102,33 @@ def ring_area(ring: np.ndarray) -> float:
     return float(0.5 * abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1))))
 
 
+def face_ids(index: dict) -> list[int]:
+    """The points that ARE the face for placing it: the lash lines, the glabella, the nose's tip and the chin's. The
+    head reference's one box is drawn round these on every frame (`bench/crop_reference_to_head.py::face_box`)."""
+    return [i for n, i in index.items() if n.endswith("_lash_line")] + [index[n] for n in ("center_of_glabella", "tip_of_nose", "tip_of_chin")]
+
+
+def face_on_mask(p: np.ndarray, index: dict, mask: np.ndarray) -> float:
+    """The share of one frame's face points (`face_ids`) that lie inside a mask [h, w] of bool; a point off the
+    picture is off the mask. 1.0 is a face wholly on the mask, 0.0 a face wholly off it."""
+    h, w = mask.shape
+    q = np.round(p[face_ids(index)]).astype(int)
+    on = (q[:, 0] >= 0) & (q[:, 0] < w) & (q[:, 1] >= 0) & (q[:, 1] < h)
+    inside = np.zeros(len(q), bool)
+    inside[on] = mask[q[on, 1], q[on, 0]]
+    return float(inside.mean())
+
+
+def face_middle_on_mask(p: np.ndarray, index: dict, mask: np.ndarray) -> bool:
+    """Whether one frame's face lies on a mask: its middle, the median of its face points (`face_ids`), is a pixel
+    of the mask. The median and not the mean, so one stray point does not move the face; a face drawn from another
+    person's points is off its subject's track by this, though one of its points may touch it (2026-10-14: the
+    chin of a woman above the lead touched the lead's hair on four of the eleven frames read off her track)."""
+    h, w = mask.shape
+    x, y = np.round(np.median(p[face_ids(index)], 0)).astype(int)
+    return bool(0 <= x < w and 0 <= y < h and mask[y, x])
+
+
 def head_place(p: np.ndarray, index: dict) -> dict:
     """Where the head sits, in pixels: three points that are not on the eyes, and the middle of the two eyes."""
     eyes = np.mean([r.mean(0) for r in lid_rings(p, index)], axis=0)

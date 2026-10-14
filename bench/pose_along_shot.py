@@ -12,6 +12,15 @@ one box a frame, the tracked person's from a named mask video or the whole frame
 scores, the picture's size, the points' NAMES and the source frame of row 0. A record goes beside it
 (`.json`). It derives no figure: those have one definition, `bench/_lib/face_points.py`.
 
+HELD TO THE TRACK. With a mask video, each frame is given to the model with every pixel outside that frame's mask
+(grown by `HOLD_GROW_PX`) set to `HOLD_GREY`, so the person the model reads is the tracked one and not another
+inside the same box. The box alone did not do that: on a close group of women (the lead on 3167-3213,
+2026-10-14) the box round the lead's track held a second woman's face above her head, and on 11 of 47 frames
+every face point went to that face; the reference step printed PASSED and drew her. The record then says, a frame
+at a time, how much of the face (`face_points.face_ids`) lies on the mask and whether its middle does
+(`face_points.face_middle_on_mask`), and lists the frames whose face's middle is off: a reference is not made from
+those (`bench/head_reference.py`). A frame with an empty mask is held to the last mask before it, as its box is.
+
 THE NAMES. Every tool finds a point by its name, so a points file carries them, and its record says where
 they came from. The checkpoint in the store does not name its points (its config calls them `LABEL_0` on).
 Meta's code does, and that list is kept in `vendor/meta_sapiens2/pose_keypoints308.json` with Meta's licence beside
@@ -33,7 +42,16 @@ not say lids were seen. It prints figures with what they were measured on and ag
 measure; it gives no verdict, and what a shot is good for is the reader's to say. `--table` writes one row a frame beside the points (`.csv`).
 
 WHAT IT CANNOT KNOW
-- Whether the box holds the right person. It takes the mask it is given.
+- Whether the mask is the right person. It takes the mask it is given and holds the points to it, so where the
+  track itself lies on another subject the hold reads that subject's face, confidently, and every frame reads
+  as on the track (a preview's track of the lead lay on the second subject on 1003-1009, 2026-10-13).
+- What the grey costs the points of the tracked face, and which reading is right. On the first run (the lead's
+  3167-3213, 2026-10-14; the 36 frames whose face both readings put on her track) the held points moved a median
+  of 2.2 px and at most 11 px from the unheld ones, and the face read about 12% taller (109 px against 96 at the
+  median), most of it from the chin's point. Measured and not explained; which chin is right is not known.
+- A render read held (the land step's pass, `bench/load_chain.py`) is held to the SOURCE's track of its subject:
+  where a rendered face has moved off that track the grey takes part of it. A render's points read before
+  2026-10-14 were read unheld, and its figures are not comparable with those read after.
 - Whether the points are right. The model places lid points on the back of a head and on a face a few pixels
   tall, and scores them well.
 - A frame with no mask keeps the box of the frame before it (the whole frame, if there is none before). The
@@ -73,6 +91,14 @@ import h3_config  # noqa: E402
 #: every count against them, in the same words as `bench/read_render_against_original.py`.
 LINES_NOTE = ("On the one close-up those two lines were read off, a person looking at every frame agreed with the figure outside them and could not tell narrowed eyes from open ones between them; they are a starting value and not this clip's")
 GAP_NOTE = "a starting value that lies between the median of the one shot whose marks carried and those of shots whose lash lines are under a pixel apart"
+
+
+#: The mask is grown by this many pixels of the canvas before the picture outside it is greyed. Reasoned: a tracker's
+#: mask edge lies a few pixels inside or outside the person's; the face's own edge needs its few pixels of
+#: background, and in a close group another person's face lies further off than this. A starting value.
+HOLD_GROW_PX = 8
+#: What the pixels outside the grown mask are set to: a flat mid-grey, which carries no face. Reasoned.
+HOLD_GREY = 128
 
 
 #: Meta's names for the pose model's points, kept with Meta's licence beside them: `vendor/meta_sapiens2/README.md`.
@@ -154,6 +180,41 @@ def boxes_from(mask: np.ndarray, covered: np.ndarray, size: tuple[int, int]) -> 
     return out, held
 
 
+def held_masks(mask: np.ndarray, covered: np.ndarray) -> tuple[np.ndarray, np.ndarray, list[int]]:
+    """(grown, as given, borrowed): the mask each frame is held to, its own or, where it is empty or not covered, the
+    last one before it that was not (the whole frame where there is none); that mask grown by `HOLD_GROW_PX`; and
+    the frames that took an earlier frame's."""
+    import cv2
+    k = 2 * HOLD_GROW_PX + 1
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
+    grown, given, borrowed, last = np.zeros_like(mask), np.zeros_like(mask), [], np.ones(mask.shape[1:], bool)
+    for f in range(len(mask)):
+        if covered[f] and mask[f].any():
+            last = mask[f]
+        else:
+            borrowed.append(f)
+        given[f] = last
+        grown[f] = cv2.dilate(last.astype(np.uint8), kernel).astype(bool)
+    return grown, given, borrowed
+
+
+def face_on_track(points: list[np.ndarray], names: list[str], mask: np.ndarray, source_first: int) -> dict | None:
+    """A frame at a time, the share of the face's points on the mask the frame was held to (not grown) and whether
+    the face's middle is on it; None when the points carry no face (a model that does not name them)."""
+    index = {n: i for i, n in enumerate(names)}
+    try:
+        fp.face_ids(index)
+    except KeyError:
+        return None
+    share = [round(fp.face_on_mask(p, index, m), 3) for p, m in zip(points, mask)]
+    middle = [fp.face_middle_on_mask(p, index, m) for p, m in zip(points, mask)]
+    return {"what": "a frame at a time: the share of the face's points (bench/_lib/face_points.py::face_ids) inside the tracked mask, and whether "
+                    "the face's middle (the median of those points) is a pixel of it; the mask the frame was held to (its own, or an earlier frame's where its own is "
+                    "empty), not grown",
+            "share_a_frame": share, "middle_on_a_frame": middle,
+            "frames_whose_face_middle_is_off_the_mask": [source_first + f for f, ok in enumerate(middle) if not ok]}
+
+
 def run(video: str, first: int, count: int, canvas: tuple[int, int], out: Path, by: str, predict, names: list[str], *,
         source_first: int | None = None, box_mask: str = "", box_mask_first: int | None = None, model: str = "", names_from: str = "", say=print) -> dict:
     """Read the frames, give each to `predict` in its box, write the points and the record. Returns the record."""
@@ -167,10 +228,13 @@ def run(video: str, first: int, count: int, canvas: tuple[int, int], out: Path, 
         at = source_first if box_mask_first is None else box_mask_first
         mask, covered = read_mask(box_mask, (w, h), at, source_first, count)
         boxes, held = boxes_from(mask, covered, (w, h))
+        hold, given, borrowed = held_masks(mask, covered)
     else:
-        boxes, held = [[0.0, 0.0, float(w), float(h)]] * count, []
+        boxes, held, hold, given, borrowed = [[0.0, 0.0, float(w), float(h)]] * count, [], None, None, []
     points, scores = [], []
     for f, picture in enumerate(stream(video, (w, h), first, count, vf=FIT.format(w=w, h=h) if fitted else "", pix="rgb24")):
+        if hold is not None:
+            picture = np.where(hold[f][..., None], picture, np.uint8(HOLD_GREY))
         p, s = predict(picture, boxes[f])
         points.append(np.asarray(p, np.float32)); scores.append(np.asarray(s, np.float32))
     if len(points) != count:
@@ -191,13 +255,31 @@ def run(video: str, first: int, count: int, canvas: tuple[int, int], out: Path, 
                               if box_mask else "the whole frame")},
         "size": [w, h], "frames": count,
         "frames_with_no_mask_that_kept_the_box_before": [source_first + f for f in held],
-        "not_known": ["whether the box holds the right person: the mask is taken as given",
+        "held_to_the_mask": ({"how": f"every pixel outside the frame's mask grown by {HOLD_GROW_PX} px set to grey {HOLD_GREY} before the model read it",
+                              "frames_held_to_an_earlier_frames_mask": [source_first + f for f in borrowed]} if hold is not None else None),
+        "face_on_the_mask": face_on_track(points, names, given, source_first) if box_mask else None,
+        "not_known": ["whether the mask is the right person: it is taken as given and the points are held to it, so a track that lies on another "
+                      "subject gives that subject's face, read as on the track",
+                      "what the grey costs the tracked face's own points: on the first run the face read about 12% taller held than unheld, most of it the "
+                      "chin's point; which is right is not known",
                       "whether the points are right: the model places and scores lid points on the back of a head and on a face a few pixels tall"],
     }
     out.with_suffix(".json").write_text(json.dumps(record, indent=1) + "\n")
     say(f"wrote {out} ({count} frames, {len(names)} points a frame, row 0 is source frame {source_first}) and {out.with_suffix('.json').name}")
     if held:
         say(f"{len(held)} of {count} frames had no mask and kept the box of the frame before")
+    on = record["face_on_the_mask"]
+    if on:
+        say("the face on the tracked mask, a frame at a time (share of its points; * where its middle is OFF the mask):")
+        line = []
+        for f, (v, ok) in enumerate(zip(on["share_a_frame"], on["middle_on_a_frame"])):
+            line.append(f"{source_first + f}:{v:.2f}{'' if ok else '*'}")
+            if len(line) == 10 or f == count - 1:
+                say("  " + " ".join(line))
+                line = []
+        off = on["frames_whose_face_middle_is_off_the_mask"]
+        say(f"THE FACE'S MIDDLE IS OFF THE TRACKED MASK on {len(off)} of {count} frames: " + ", ".join(f"{a}-{b}" if a != b else str(a) for a, b in spans(off))
+            if off else f"the face's middle is on the tracked mask on all {count} frames")
     try:
         read(out, say=say)
     except KeyError as exc:                              # the file is written; only the closing summary needs the face's points
@@ -244,6 +326,16 @@ def read(points_path: Path | str, *, names: list[str] | None = None, table: bool
         say(f"wrote {dst}")
         said["table"] = str(dst)
     return said
+
+
+def spans(frames: list[int]) -> list[tuple[int, int]]:
+    out: list[list[int]] = []
+    for f in frames:
+        if out and f == out[-1][1] + 1:
+            out[-1][1] = f
+        else:
+            out.append([f, f])
+    return [(a, b) for a, b in out]
 
 
 def size_arg(text: str) -> tuple[int, int]:

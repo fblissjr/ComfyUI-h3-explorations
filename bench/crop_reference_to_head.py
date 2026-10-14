@@ -87,8 +87,7 @@ SLIP_LEVELS = 0.25
 
 def face_box(p: np.ndarray, index: dict) -> np.ndarray:
     """One frame's face as [x0, y0, x1, y1]: round the lash lines, the glabella, the nose's tip and the chin's."""
-    ids = [i for n, i in index.items() if n.endswith("_lash_line")] + [index[n] for n in ("center_of_glabella", "tip_of_nose", "tip_of_chin")]
-    pts = p[ids]
+    pts = p[fp.face_ids(index)]
     return np.concatenate([pts.min(0), pts.max(0)])
 
 

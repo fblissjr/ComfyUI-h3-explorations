@@ -1011,7 +1011,8 @@ def the_reference_step() -> str:
                                          "at_the_canvas": {"face_height_px": {}, "lid_gap_px": {}, "frames_with_the_gap_under_the_line": 30},
                                          "in_the_reference": {"enlarged": scale, "face_height_px": {}, "lid_gap_px": {}, "frames_with_the_gap_under_the_line": 2}}
         record = {"scale": [2.5, 2.5], "files": {"plain_cut": "a_head_reference_0104_0143_plain_cut.mp4"}, "frames": [104, 143], "passed": True,
-                  "made_at": "2026-01-03T09:00:00Z", "made_by": "the first session"}
+                  "made_at": "2026-01-03T09:00:00Z", "made_by": "the first session",
+                  "face_on_the_track": {"known": True, "frames_whose_face_middle_is_off_the_track": []}}
         made.m.on["head reference"] = lambda: drawn.with_suffix(".json").write_text(json.dumps(record))
         made.m.on["pose pass"] = lambda: (folder / "a_0104_0143_points.npz").write_bytes(b"")
         kept = lc.REPO
@@ -1067,6 +1068,11 @@ def the_reference_step() -> str:
         refused(lambda: stl.step_reference(e, made.m, figures), "--existing", "frames [100, 143]", "the load is 104-143")
         drawn.with_suffix(".json").write_text(json.dumps({**record, "passed": False}))
         refused(lambda: stl.step_reference(e, made.m, figures), "--existing", "passed=False")
+        # one made before its points were held to the track says nothing of it, or not known: made again
+        for track in (None, {"known": False, "why": "says nothing of a track", "frames_whose_face_middle_is_off_the_track": []}):
+            drawn.with_suffix(".json").write_text(json.dumps({**{k: v for k, v in record.items() if k != "face_on_the_track"},
+                                                              **({"face_on_the_track": track} if track else {})}))
+            refused(lambda: stl.step_reference(e, made.m, figures), "--existing", "held to a's track", "made again")
         other = made.load(name="a_fp_0100")
         (made.jobs / "a_fp_0100.json").write_text(json.dumps(other))
         e.job_file = str(made.jobs / "a_fp_0100.json")
