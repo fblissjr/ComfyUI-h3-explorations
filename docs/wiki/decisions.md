@@ -28,6 +28,15 @@ Older history lives elsewhere and is not copied here:
   keeping them current; one input (the stopped loads) was a typed list and the review file's decisions were
   typed into the script. Where it lives now: `AGENTS.md`, "Operative rules" and "Where state lives". The
   pages becoming tracked tools that read only generated files is the tooling seat's job of the day.
+- **A shot may be split into runs where the split falls on frames with no face of the subject** (the lead,
+  2026-10-14, on the tooling seat's design read `internal/claude/2026-10-14_mrdrill_box_read.md`, untracked,
+  and the card's `lead_fp_1466b`/`lead_fp_1575b`). The rule of 2026-10-13 that one shot is not divided between
+  windows (b2cccac9) is about not cutting a shot where the face carries across the cut; a run of frames with no
+  face of hers (the back of her head, a spin) carries nothing across, so the runs on either side are made as
+  loads of their own and the frames between stay as the original. This is what lets a shot the node refuses
+  to zoom in one box (her path wider than the frame, as `lead_fp_0168`) be made as zoomed runs with no new
+  code. A box that moves inside one load is not built: its centre would jump inside a latent step, whose four
+  frames share one region in the node. Each split is said in the job's note with the frames and why.
 - **Every piece of 2026-10-12 is made again, each as its whole shot, through the present chain** (the
   owner, about 14:43Z: the 10/12 pieces are not trusted). Until the owner judges a remake, the lead lays it
   over the owner's 10/12 keep on the same frames with `delivery_table.py --prefer`, citing that word.
