@@ -329,6 +329,28 @@ def part_classes(capture: Path | None, label: str | None) -> list[str] | None:
     return None
 
 
+def left_by_the_load(capture: Path | None, label: str | None, span: list[int] | None) -> dict | None:
+    """The frames inside a render's own span that its load LEFT AS THE ORIGINAL: the capture emptied the subject's
+    part there (its manifest's `parts_emptied_on_source_frames`), so the node was given nothing to replace. None when
+    there is no capture, no such record or no span. In no ledger until 2026-10-13, late: they were known only from the
+    assembler's flags after a clip was built, and the owner saw one on playback as "he turns back"."""
+    if capture is None or not label or not span or not (capture / "manifest.json").is_file():
+        return None
+    try:
+        manifest = json.loads((capture / "manifest.json").read_text())
+    except ValueError:
+        return None
+    for s in manifest.get("subjects", []):
+        if s["label"] == label:
+            runs = next((seen.get("parts_emptied_on_source_frames") for seen in s.get("sightings", []) if seen.get("parts_emptied_on_source_frames") is not None), None)
+            if runs is None:
+                return None
+            inside = [[max(a, span[0]), min(b, span[1])] for a, b in runs if a <= span[1] and b >= span[0]]
+            return {"source_frames": inside, "frames": sum(b - a + 1 for a, b in inside),
+                    "read_from": "the capture's manifest: the frames on which it emptied this subject's part (parts_emptied_on_source_frames)"}
+    return None
+
+
 def part_named(job_file: str | None, repo: Path, label: str | None) -> dict | None:
     """The parts a load's JOB named as its own, some of its subject's plan parts (`shot_to_load.py job --parts`), with
     whose word, read from the job file its build record names; None when the job names none or cannot be read.
@@ -567,6 +589,7 @@ def ledger(shots: dict, plan: dict, share: Path, records: Path, repo: Path, sour
         count = load.get("frames") if load.get("frames") is not None else (ask or {}).get("frames")
         row["span"] = [first, first + count - 1] if first is not None and count else None
         row["span_read_from"] = "the record's load" if load.get("first") is not None else "the saved graph's loader"
+        row["leaves_as_the_original"] = left_by_the_load(capture, load.get("subject") or label, row["span"]) if carried in ("held", "the wired parts") else None
         row["laid_in_the_table"] = [[t["first"], t["last"]] for t in table_rows if str(t["piece"]).endswith(rel)]
         row["owner"] = sorted(owner_lines(rel, {row["name"], f"r__{row['session_folder']}__{row['name']}", f"r__{Path(rel).parts[1]}__{row['name']}"},
                                           verdicts, answers, item_of) + on_a_joined_clip(rel, spots or [], verdicts), key=lambda o: str(o["at"]))

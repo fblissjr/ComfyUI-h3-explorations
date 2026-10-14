@@ -246,6 +246,16 @@ def a_part_the_job_named() -> str:
         out = made.ledger()
         form = lambda name: out["renders"][f"Video/clip/s1/{name}/{name}_00001.mp4"]["form"]              # noqa: E731
         assert form("hair")["region"] == "a part" and form("hair")["replaces"].startswith("a part made of Hair"), form("hair")
+        # this capture says nothing of frames it emptied, so the ledger says nothing of frames the load left (None, not an empty list)
+        assert out["renders"]["Video/clip/s1/hair/hair_00001.mp4"]["leaves_as_the_original"] is None
+        # THE FRAMES A LOAD LEFT AS THE ORIGINAL: the capture's own record of where it emptied the part, inside the render's span (30-89)
+        (made.capture / "manifest.json").write_text(json.dumps({"subjects": [{"label": "a", "sightings": [
+            {"by": "p", "part_is_made_of": ["Hair"], "parts_emptied_on_source_frames": [[20, 34], [50, 52], [88, 95], [200, 210]]}]}]}))
+        left = made.ledger()["renders"]["Video/clip/s1/hair/hair_00001.mp4"]["leaves_as_the_original"]
+        assert left["source_frames"] == [[30, 34], [50, 52], [88, 89]] and left["frames"] == 10 and "parts_emptied_on_source_frames" in left["read_from"], left
+        (made.capture / "manifest.json").write_text(json.dumps({"subjects": [{"label": "a", "sightings": [{"by": "p", "part_is_made_of": ["Hair"], "parts_emptied_on_source_frames": []}]}]}))
+        assert made.ledger()["renders"]["Video/clip/s1/hair/hair_00001.mp4"]["leaves_as_the_original"] == {"source_frames": [], "frames": 0, "read_from": left["read_from"]}
+        (made.capture / "manifest.json").write_text(json.dumps({"subjects": [{"label": "a", "sightings": [{"by": "p", "part_is_made_of": ["Hair"]}]}]}))
         assert form("hair")["part_named"] == {"parts": ["hair"], "by": why, "read_from": str(made.records / "hair.json")}, form("hair")["part_named"]
         # a job that names no part of its own, a part named for ANOTHER subject of the job, and a record with no job file: none
         assert form("usual")["part_named"] is None and form("other")["part_named"] is None and form("no_job")["part_named"] is None, [form(n)["part_named"] for n in ("usual", "other", "no_job")]

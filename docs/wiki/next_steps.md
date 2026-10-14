@@ -537,6 +537,20 @@ fixed the same day, said inline below.**
   not a fix made beside running loads. The small way: the strip's label
   says "N of these frames" where a span holds more than the flag counts.
   Not started.
+- **The gaps between pieces are printed by the table and not yet by the two
+  lists or the job step** (2026-10-13, late; the owner's ask after
+  watching the joined clip: the frames no generated clip covers, sorted,
+  loud, by itself wherever a session finds out what to build next).
+  `bench/piece_gaps.py` lists them and `bench/delivery_table.py` prints
+  them at the end of every table. NOT YET: the same runs for a shot's
+  subjects in `bench/shot_parts.py` (the two lists a session reads for
+  what each shot needs), and in `bench/shot_to_load.py job` for the shot
+  being loaded ("after this load these frames of the shot are still the
+  original of this subject"), which is where a load's frames are
+  chosen. Also wanted: the tool's own `--ledger` read is of each load's
+  job file for the reason it left frames; the capture says only that it
+  emptied the part, not why (the grade, the floor, a keep-out), and the
+  manifest holds which. Not started.
 - **A load of the hair alone has not been through a reference or a gate**
   (2026-10-13, late). `bench/shot_to_load.py job --parts hair --parts-by
   "..."` now makes a load whose part is some of its subject's plan parts
