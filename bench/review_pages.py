@@ -132,6 +132,14 @@ def owners(utc: str, fmt: str = "%m/%d") -> str:
     return (t if t.tzinfo else t.replace(tzinfo=datetime.timezone.utc)).astimezone(OWNERS_CLOCK).strftime(fmt)
 
 
+def central(utc) -> str:
+    """A record's UTC stamp on the owner's clock, with the stamp itself beside it; the stamp as it is where it is not one."""
+    try:
+        return f"{owners(str(utc), '%Y-%m-%d %H:%M')} US Central ({utc})"
+    except (ValueError, TypeError):
+        return str(utc)
+
+
 def runs(frames) -> list[list[int]]:
     out: list[list[int]] = []
     for f in sorted(frames):
@@ -286,15 +294,19 @@ class Records:
         d = self.day(name)
         return f'<span class="d {self.day_token[d]}">{owners(self.by_name[name]["written"])}</span>'
 
-    def last_click(self, rows) -> str:
+    def last_click(self, rows, newest: str | None = None) -> str:
         """The owner's last button, on the piece or on any joined clip that lays it, and the words that went with it: the words
-        rule over the button."""
+        rule over the button. Each line says its frame where it names one, and, given the `newest` of several builds of a joined
+        clip, the earlier build a line was said on (an eighth reader, 2026-10-14: 1849Z's words read as said of 1855Z)."""
         c = self.last_choice(rows, every=True)
-        said = (f"your last click: {c['chosen']} ({owners(c['at'], '%m/%d %H:%M')})"
-                + (f", on the whole joined clip {c['through_the_joined_item']}, which counts on each piece it lays" if c.get("through_the_joined_item") else "")
+        on = lambda v: (f", at frame {v['frame']}" if v.get("frame") is not None else "") + (                                # noqa: E731
+            f", on the earlier build {v['row']}" if newest and v.get("row") and v["row"] != newest else "")
+        said = (f"your last click: {c['chosen']} ({owners(c['at'], '%m/%d %H:%M')}{on(c)})"
+                + ((f", on the whole joined clip {c['through_the_joined_item']}, which counts on each piece it lays" if c["chosen"] in delivery_table.KEEP
+                    else f", on the whole joined clip {c['through_the_joined_item']}, which names no piece") if c.get("through_the_joined_item") else "")
                 if c else "no click of yours")
         when = lambda v: "since" if c is None or v["at"] > c["at"] else "before it"        # noqa: E731
-        return said + "".join(f'; {how_said(v)} {when(v)} ({owners(v["at"], "%m/%d %H:%M")})'
+        return said + "".join(f'; {how_said(v)} {when(v)} ({owners(v["at"], "%m/%d %H:%M")}{on(v)})'
                               + (f" on the whole joined clip {v['through_the_joined_item']}" if v.get("through_the_joined_item") else "")
                               + f': "{v["words"]}"' for v in self.words_with(rows, every=True))
 
@@ -458,7 +470,8 @@ def to_review(a: argparse.Namespace) -> str:
             f"ledger. Each piece is marked with the day its file was written: "
             + ", ".join(f'<span class="d {t}">{datetime.date.fromisoformat(d):%m/%d}</span>' for d, t in rec.day_token.items())
             + ". Shown: what this table lays and waits on you, then, folded, what you answered: your lines of today, and a not sure or a click on "
-            "a joined clip that names no piece until you say more.</p>",
+            "a joined clip that names no piece until you say more. The joined clips' tables were read from: "
+            + (", ".join(E(str(t)) for t in a.tables) if a.tables else "no folder (no joined clip can be this table's)") + ".</p>",
             f'<p>Decisions waiting on you are on <a href="{E(a.open_list)}">the Open List</a>.'
             + (f' Beside this file: <a href="{E(a.provenance)}">{E(a.provenance)}</a>, every stretch and every gap.' if a.provenance else "") + "</p>"]
     if previous is not None:
@@ -487,6 +500,14 @@ def to_review(a: argparse.Namespace) -> str:
                 own = rec.owner_lines(kin)
                 c = rec.last_choice(kin)
                 kept = bool(c and c["chosen"] in delivery_table.KEEP)
+                # a joined clip nobody watched whose every piece the owner kept is not waiting on them (the lead's ruling of 2026-10-14):
+                # under Done on the day of their last line, as "every piece kept; the joined clip not watched", and gone after it
+                each = [rec.last_choice(rec.rows_of(r["name"]), every=True) for r in rows]
+                if not own and all(x and x["chosen"] in delivery_table.KEEP for x in each):
+                    if any(v != "gone" for v in state.values()):
+                        done["joined"].append(f'<div class="e"><h3>{link(it["id"], f"The shot {first}-{last}")} <span>{E(who)} &middot; {when} &middot; '
+                                              f'every piece kept; the joined clip not watched</span></h3><ul>{lines(rows)}</ul></div>')
+                    continue
                 # a keep, or words with no click, leave the page after the day of the last line; any other click stays (a seventh reader)
                 gone = own and (kept or c is None) and owners(own[-1]["at"], "%Y-%m-%d") != today and all(v == "gone" for v in state.values())
                 if not gone:
@@ -495,7 +516,7 @@ def to_review(a: argparse.Namespace) -> str:
                     older = sorted(kin - {it["id"]})
                     (done if own else waiting)["joined"].append(
                         f'<div class="e"><h3>{link(it["id"], f"The shot {first}-{last}")} <span>{E(who)} &middot; {when} &middot; the joined clip: '
-                        f'{E(rec.last_click(kin))}</span></h3>'
+                        f'{E(rec.last_click(kin, newest=it["id"]))}</span></h3>'
                         + (f'<p class="why">With your lines on the earlier build(s) of the same pieces on the same frames: {E(", ".join(older))}</p>' if older else "")
                         + f'{ask}<ul>{lines(rows)}</ul></div>')
                 continue
@@ -641,14 +662,22 @@ def provenance(a: argparse.Namespace) -> str:
     rec = Records(a.table, a.ledger, a.verdicts, a.items, a.tables)
     rate, up_to, day = rate_of(a.source), a.up_to, a.day_folder
     nothing: dict[str, set[int]] = {}
+    nothing = {n: rec.left_by_ledger(n) for n in rec.by_name if rec.left_by_ledger(n)}
+    left_from = "the ledger"
     if a.record:
-        for f in json.load(open(a.record))["flags"]:
-            if f["rule"] == "piece_changes_nothing":
+        # the record speaks only for the pieces it assembled: a piece of this table it never laid takes the ledger's word (an eighth
+        # reader, 2026-10-14: a 10/13 record taken with the 10/14 table said "nothing" of pieces it never saw)
+        record = json.load(open(a.record))
+        files = {str(r.get("piece", "")) for r in record.get("table") or []}
+        held = {n for n, g in rec.by_name.items() if any(f.endswith(str(g["file"])) for f in files)}
+        for n in held:
+            nothing.pop(n, None)
+        for f in record["flags"]:
+            if f["rule"] == "piece_changes_nothing" and f["run"] in held:
                 nothing.setdefault(f["run"], set()).update(x for p, q in f["source_frames"] for x in range(p, q + 1))
-        left_from = f"the assembler's record {os.path.basename(a.record)}"
-    else:
-        nothing = {n: rec.left_by_ledger(n) for n in rec.by_name if rec.left_by_ledger(n)}
-        left_from = "the ledger"
+        laid = {r["name"] for r in rec.T["rows"]}
+        left_from = (f"the assembler's record {os.path.basename(a.record)} for the {len(held & laid)} piece(s) of this table it assembled, and the ledger for "
+                     f"the {len(laid - held)} it did not")
     stopped = rec.L.get("stopped")
     subjects = rec.subjects()
     stretches = stretches_of(rec, nothing, up_to)
@@ -686,7 +715,7 @@ def provenance(a: argparse.Namespace) -> str:
                if fr and r["subject"] == x.get("subject") and r["first"] <= fr[1] and r["last"] >= fr[0]]
         body.append(f'<div class="card"><h3>{E(x["load"])} <span>{E(str(x.get("subject")))} &middot; {f"{fr[0]}-{fr[1]}" if fr else "frames not in its job file"}'
                     f'</span></h3><p class="why">What of {E(str(x.get("subject")))} stands on those frames now: {E(", ".join(now)) if now else "nothing"}. '
-                    f'The note, whole, a session\'s words ({E(x["note"])}, {E(x["note_written"])}):</p><pre>{E(x["note_says"])}</pre></div>')
+                    f'The note, whole, a session\'s words ({E(x["note"])}, written {E(central(x["note_written"]))}):</p><pre>{E(x["note_says"])}</pre></div>')
     lanes = len(subjects) + 1
     height = TOP + LANE * lanes + 8
     svg = [f'<svg viewBox="0 0 {up_to + 1} {height}" preserveAspectRatio="none" style="width:{max(1200, (up_to + 1) * 5 // 4)}px;height:{height}px;display:block" '
@@ -762,10 +791,11 @@ def provenance(a: argparse.Namespace) -> str:
                  ("the reference video", f"{os.path.basename(str((gr.get('files') or {}).get('motion_video')))}: " + ("; ".join(ref.get("steps") or []) or str(ref.get("says", "")))),
                  ("cut to the head / face points drawn", f"{(ref.get('has') or {}).get('cut_to_the_head')} / {(ref.get('has') or {}).get('face_points')}"),
                  ("the working copy it read", str(gr.get("of"))),
-                 ("built at the commit", f"{made.get('commit')} ({made.get('built_at')}); its record: {g.get('making')}"),
+                 ("built at the commit", f"{made.get('commit')} ({central(made.get('built_at'))}); its record: {g.get('making')}"),
                  ("why it stands", stand_why(next((s for rd in rec.T["reading"] for s in rd.get("stands") or [] if s["render"] == n), {}))),
                  ("on the review page", rec.last_click(rec.rows_of(n)))]
         said = "".join(f"<li>{owners(v['at'], '%m/%d %H:%M')}, {E(how_said(v))}"
+                       + (f", at frame {v['frame']}" if v.get("frame") is not None else "")
                        + (f", on the whole joined clip {E(v['through_the_joined_item'])}" if v.get("through_the_joined_item") else "")
                        + f": {E(v['words'])}</li>" for v in rec.owner_lines(rec.rows_of(n), every=True) if v.get("words"))
         links = []

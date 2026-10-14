@@ -23,6 +23,8 @@
                                 clip on other frames; section headings; where words came from; the stacked clip from any folder
   the_seventh_readers_findings  a not sure on a joined clip after a keep stays; words on a joined clip; a joined clip's last line, in
                                 Central; the counts; which piece; no source; a piece across a shot's edge; the newest look line
+  the_eighth_readers_findings   a line's frame; the folders read; every piece kept with the clip unwatched; the last line's day; a
+                                wrong on a clip; times in Central; a session's source quoting the answers file
   the_owners_words_rule         a keep followed by the owner's words is shown again; a line a session took down said so; a wrong
                                 on a joined clip keeps the shot; the lead's holds and the owner's keeps not laid on both pages
   the_fifth_readers_findings    words just before the last click go with it; an older line written later does not undo a keep; a
@@ -298,7 +300,8 @@ def the_sixth_readers_findings() -> str:
         # the newest joined clip lays the same pieces on the same frames as the older one: it inherits the older clip's lines and the
         # shot is under Done, the older build named (the lead's ruling, on a seventh reader's 1222-1305); each piece's line says them too
         assert "The shot 100-149" not in wait and "The shot 100-149" in done, "a newer build of the same pieces did not inherit the older one's lines"
-        assert "the joined clip: your last click: wrong, and I say where (10/14 12:03)" in done, done
+        # each line says the build it was said on (an eighth reader: an older build's words read as said of the newest)
+        assert "the joined clip: your last click: wrong, and I say where (10/14 12:03, on the earlier build v_0100_0149_joined_OLD_stacked)" in done, done
         assert "earlier build(s) of the same pieces on the same frames: v_0100_0149_joined_OLD_stacked" in done, done
         assert "your last click: wrong, and I say where (10/14 12:03), on the whole joined clip v_0100_0149_joined_OLD_stacked" in done, done
         assert "on the whole joined clip v_0100_0149_joined_OLD_stacked: \"HAIR CLIPS AT THE FOREHEAD\"" in done, done
@@ -417,6 +420,71 @@ def the_seventh_readers_findings() -> str:
     return ("a not sure on a joined clip after the piece's own keep stays under Done; words on a joined clip on their day and gone after; a joined clip on "
             "the day of its last line, in Central; the counts each their own; which piece on a not sure; a line with no source; a piece across a shot's edge; "
             "the newest item's look line; an unsure subject's stretch marked; links relative")
+
+
+def the_eighth_readers_findings() -> str:
+    """An eighth reader (2026-10-14), and the lead's ruling that a joined clip nobody watched whose every piece the owner kept is
+    not waiting on them."""
+    joined = "v_0100_0149_joined_NEW_stacked"
+    with tempfile.TemporaryDirectory() as tmp:
+        lines = [{"what": "words", "row": "a_x", "words": "THERE IS HAIR HERE", "at": "2026-10-14T15:00:00Z", "frame": 223},
+                 {"what": "choice", "row": "a_x", "chosen": "not sure", "at": "2026-10-14T15:00:05Z"}]
+        page = page_of(Path(tmp), ["--today", "2026-10-14"], verdicts=lines)
+        text = text_of(page)
+        # THE CASES THAT GO RED: a line's frame dropped; the folders the joined tables came from unsaid
+        assert "(10/14 10:00, at frame 223): \"THERE IS HAIR HERE\"" in text, text
+        assert "The joined clips' tables were read from: " + str(Path(tmp) / "tables") in text, text
+    with tempfile.TemporaryDirectory() as tmp:
+        # every piece of the shot kept on a day before, its joined clip never watched: not waiting on the owner, and off the page after the day
+        kept = [{"what": "choice", "row": "a_new", "chosen": "keep this one", "at": "2026-10-13T10:00:00Z"},
+                {"what": "choice", "row": "b_new", "chosen": "keep this one", "at": "2026-10-13T10:00:00Z"}]
+        wait = text_of(page_of(Path(tmp) / "x", ["--today", "2026-10-13"], verdicts=kept).split("<details><summary><b>Done:")[0]) if (Path(tmp) / "x").mkdir() is None else ""
+        assert "The shot 100-149" not in wait.split("Waiting on you")[1], "a shot whose every piece the owner kept waits on them"
+        page = page_of(Path(tmp) / "y", ["--today", "2026-10-13"], verdicts=kept) if (Path(tmp) / "y").mkdir() is None else ""
+        assert "every piece kept; the joined clip not watched" in text_of(page.split("<details><summary><b>Done:")[1]), "not under Done on the day"
+        later = page_of(Path(tmp) / "z", ["--today", "2026-10-20"], verdicts=kept) if (Path(tmp) / "z").mkdir() is None else ""
+        assert "The shot 100-149" not in text_of(later).split("Held back")[0], "kept pieces stayed past their day"
+        # a keep on the piece the day before, words the next day: under Done on the day of the LAST line (M64)
+        late = page_of(Path(tmp) / "w", ["--today", "2026-10-14"], verdicts=[{"what": "choice", "row": "a_kept", "chosen": "keep this one", "at": "2026-10-13T10:00:00Z"},
+                                                                       {"what": "words", "row": "a_kept", "words": "LATER WORDS", "at": "2026-10-14T15:00:00Z"}]) \
+            if (Path(tmp) / "w").mkdir() is None else ""
+        assert "LATER WORDS" in text_of(late.split("<details><summary><b>Done:")[1]), "filed by the first line's day"
+        # a wrong on a joined clip that lays a piece, the next day: still under Done, since it names no piece (M12)
+        wrong = page_of(Path(tmp) / "v", ["--today", "2026-10-15"], verdicts=[{"what": "choice", "row": joined, "chosen": "wrong, and I say where", "at": "2026-10-13T10:00:00Z"}]) \
+            if (Path(tmp) / "v").mkdir() is None else ""
+        assert "which names no piece" in text_of(wrong) and "a , 100-149: a_new" in text_of(wrong.split("<details><summary><b>Done:")[1]), "a wrong on the clip closed the piece"
+    with tempfile.TemporaryDirectory() as tmp:
+        # a wrong on a joined clip laying a piece shown on its own (the shot 220-239 has no joined clip): the next day still under Done (M12)
+        def over_a_x(d: Path) -> None:
+            items = json.loads((d / "items.json").read_text())
+            items["items"].insert(0, {"id": "v_0200_0239_joined_X_stacked", "first": "200", "frames": "40", "state": "open"})
+            (d / "items.json").write_text(json.dumps(items))
+            (d / "tables" / "t_v_0200_0239_joined_X.json").write_text(json.dumps({"rows": [{"first": 220, "last": 239, "name": "a_x", "subject": "a"}]}))
+        page = page_of(Path(tmp), ["--today", "2026-10-15"], over_a_x,
+                       verdicts=[{"what": "choice", "row": "v_0200_0239_joined_X_stacked", "chosen": "wrong, and I say where", "at": "2026-10-13T10:00:00Z"}])
+        assert "a_x" in text_of(page.split("<details><summary><b>Done:")[1]).split("Held back")[0], "a wrong on a joined clip closed the piece it lays"
+    with tempfile.TemporaryDirectory() as tmp:
+        text = text_of(provenance(Path(tmp)))
+        # times on the owner's clock (finding 4)
+        assert "written 2026-10-14 09:00 US Central (2026-10-14T14:00:00Z)" in text, "a stopped note's time in UTC"
+    with tempfile.TemporaryDirectory() as tmp:
+        # an assembler's record speaks only for the pieces it assembled: the rest of the table takes the ledger's word (finding 3)
+        d = Path(tmp)
+        args = world(d)
+        record = d / "clip.mp4.check.json"
+        record.write_text(json.dumps({"table": [{"piece": "/share/Video/v/s/a_new/a_new_00001.mp4", "frames": [100, 149]}],
+                                      "flags": [{"rule": "piece_changes_nothing", "run": "a_new", "source_frames": [[140, 141]]},
+                                                {"rule": "piece_changes_nothing", "run": "a_solo", "source_frames": [[190, 191]]}]}))
+        out = d / "day" / "P.html"
+        assert rp.main(["provenance", *args, "--day-folder", str(d / "day"), "--up-to", "259", "--record", str(record), "--out", str(out)]) == 0
+        text = text_of(out.read_text())
+        # THE CASE THAT GOES RED when a record of another table speaks for pieces it never assembled
+        assert "the assembler's record clip.mp4.check.json for the 1 piece(s) of this table it assembled, and the ledger for the 5 it did not" in text, text
+        assert "160-161" in text and "190-191" not in text, "a_solo's frames came from a record that never assembled it"
+    # where a line came from: a session's source that names the answers file mid-way is not typed in the box (M04)
+    assert rp.how_said({"source": "the lead's terminal, quoting answers.jsonl:4", "note": "taken down"}).startswith("your words as a session took them down")
+    return ("a line's frame; the folders read; every piece kept with the joined clip unwatched under Done on the day and gone after; the day of the last "
+            "line; a wrong on a clip names no piece and stays; times in Central; a session's source quoting the answers file")
 
 
 def the_owners_words_rule() -> str:
@@ -599,6 +667,7 @@ case("a fifth reader's findings, and a joined click", the_fifth_readers_findings
 case("waiting on you, and done", waiting_on_you_and_done)
 case("a sixth reader's findings, and the lead's rulings on them", the_sixth_readers_findings)
 case("a seventh reader's findings", the_seventh_readers_findings)
+case("an eighth reader's findings", the_eighth_readers_findings)
 case("the owner's words rule, and whose words are whose", the_owners_words_rule)
 case("provenance reads the records", provenance_reads_the_records)
 case("another ledger is refused", another_ledger_is_refused)
