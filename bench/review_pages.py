@@ -9,6 +9,11 @@
         --share <the server's output folder> --day-folder <share>/Video/<stem>/day_<date> --up-to N \\
         [--watched-table T_WATCHED.json] --out PROVENANCE.html
 
+**NOT MADE** (2026-10-14): four blind readers of the per-shot clip tool and two of the pages each found real faults; the
+lead ruled that neither tool takes a new feature until it passes one more read. What the last read found and is not
+mended is in docs/checks.md's row for its check ("NOT HELD") and in the lead's notes. Read its output against the
+table and the ledger it was made from.
+
 **What it buys.** The owner's rule (2026-10-14, `AGENTS.md`, "One ledger, made new on every landing"): their pages
 and the sessions read the same files, and nothing is typed or written twice. On 2026-10-13 the two pages were the
 lead's session scripts (`internal/claude/2026-10-13_mrtower_scripts/to_review_page.py`, `provenance_page.py`), with
