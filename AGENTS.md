@@ -25,8 +25,9 @@ once; `docs/evidence.md`, "Settled about H3", has the rest.
   is `bench/check_attention_defaults.py::SOL_EXEMPT_STEMS`.
 - The baseline is `workflows/bench/h3_text_to_video_dense_stamped_api.json`:
   stock attention, no sage, Sol or LoRA, the base step count.
-- 1344x768 is a trained canvas; probes run at 1152x768 or 1344x768 with 345
-  frames (`docs/h3_resolutions.md`).
+- 1344x768 is a trained canvas; probes run at 1152x768 or 1344x768. The
+  longest window is 362 frames, `h3_rules.MAX_LENGTH`, the owner's word of
+  2026-10-15; no cap of 345 anywhere (`docs/h3_resolutions.md`).
 - Two models live here and "attention" and "capture" each name something at
   the DiT and at the encoder: check what a node takes before carrying a
   claim across.
@@ -149,6 +150,10 @@ One home per kind of fact. Not two.
 - **The owner, when available, takes the cheap looks first** (who is in a
   shot, what is replaced), before anything is built on them: in batches
   where possible, one by one only when a decision is urgent.
+- **A render's prompt is read in FULL before it renders**, from the graph
+  as queued (`bench/what_h3_got.py`), never from a summary, a preview or a
+  paraphrase: by the session that queues it, and by the outside reviewer for
+  any shot the owner names. The owner's word, 2026-10-15.
 - **A render is handed over stacked** (the masked input with its segments
   and ids on top, the render below, frame numbers burned in), never bare;
   a thing seen on playback is reported with the file and the frame.
