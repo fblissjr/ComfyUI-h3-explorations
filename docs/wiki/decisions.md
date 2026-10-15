@@ -33,6 +33,19 @@ Older history lives elsewhere and is not copied here:
   The held mask left 115, 69 and 6 px on 1015, 1018 and 1023: her fingertips, her fist and forearm, and on 1015
   the rim of a white egg she holds at her chin. This is mrtwo's rule of 2026-10-14 after 21:18Z for held things
   she touches near her face, widened from 1010d's "fingers and hand" to name the egg.
+- **One shot is never split: each subject gets ONE load over the whole shot** (the owner, in the lead's terminal
+  after 19:25:31Z: "Stop breaking one shot into multiple windows"; and at 19:24:43Z on the kitchen: "This whole scene
+  really needs to be rethought, I feel like we're just smashing things together and dont know provenance"). This
+  REVERSES the lead's ruling of 2026-10-14, "A shot may be split into runs where the split falls on frames with no
+  face of the subject", which narrowed the owner's rule of 2026-10-13 (b2cccac9, "do not break one shot into two
+  windows"). That narrowing is what left the kitchen 604-1009 as four short pieces of the lead with the original
+  between them, and two independent renders of the second subject meeting at 948/949. From now: a subject's load runs
+  from the first to the last frame of the shot she is in; frames inside it where her face is hidden or her part is
+  empty stay inside the same load (`--hold-part`, `--least` with a reason, or the part simply empty there), never a
+  reason to split; a shot longer than one window is one load if the node can chain it (asked of the tooling seat).
+  Continuing one load from another is not the way to join a shot (the continuation build is paused). Pieces already
+  standing that split a shot are remade as whole-shot loads, each put to the owner first; the kitchen first, as one
+  plan on one page before anything renders.
 - **The second subject's hair is short, shoulder-length blonde, by the text** (the owner, in the lead's terminal
   between 19:14Z and 19:17Z: "for the mom: just put in the prompt as a partially preserved element that her hair is
   short shoulder length blonde hair. For the ref image <Picture x> part of the prompt i think all you need to put in
