@@ -33,6 +33,14 @@ Older history lives elsewhere and is not copied here:
   The held mask left 115, 69 and 6 px on 1015, 1018 and 1023: her fingertips, her fist and forearm, and on 1015
   the rim of a white egg she holds at her chin. This is mrtwo's rule of 2026-10-14 after 21:18Z for held things
   she touches near her face, widened from 1010d's "fingers and hand" to name the egg.
+- **Mouth v2: steadier over time, and the three turned mouths on 805 kept; a closed mouth drawn as an outline stays**
+  (mrtall, after 16:50Z, on mrlol's measures against the outside reviewer's watched table (G6),
+  `internal/claude/2026-10-15_mrlol_scripts/lip_gap.*`, `mouth_flicker.*`). Built: a one- or two-frame drop-out
+  between drawn frames is filled where on_body is at least 0.45; where the lip lines' share is at least 0.60 and near
+  at most 0.20, on_body's floor is 0.47 (805's 819, 822 and 823 back); and the lines, once drawn, are left only
+  under a share of 0.6 (2823 from 46 form switches to 8, none of one frame). All starting values. Not built: dropping
+  one-frame islands (it loses 805's open 824), and "no teeth or tongue, so draw no outline": the class map shows
+  neither, nor a lip gap, on 9 of 14 open frames, so it cannot tell a closed mouth from an open one on these faces.
 - **A hair-alone load says hair alone and draws no face; 5461 is the test of a hair-alone load with no reference**
   (mrtall, after 16:20Z, on mrlol's measures `internal/claude/2026-10-15_mrlol_scripts/hair_alone_faces.txt`). On
   5461 a quarter of a face or less shows on most frames (Face_Neck over face height squared, median 0.36 against
