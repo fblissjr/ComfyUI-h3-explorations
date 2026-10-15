@@ -516,7 +516,16 @@ session starting a job needs to know:
     movement video made from its own subject's body. Whether H3 puts
     each reference in the right hole is not known until a render shows it:
     a swap or a blend of the two faces is what the first render of such a
-    load is read for.
+    load is read for. *Read in core on 2026-10-15 (the lead, and the outside
+    reviewer's G15):* the text encoder is given each reference right after
+    its label, "<Picture 1>: " then that image, "<Video 1>: " then its frames
+    at 2 fps, before the text (`comfy/text_encoders/minimax.py`, the loop over
+    `minimax_ref_items`), so a label in the text is bound to its own image's
+    content, and a definition's words about a still's face are read against
+    that face. In the DiT each reference is its own segment with its own
+    centred grid, ahead of the target video in time
+    (`comfy/ldm/minimax/model.py`, `PackedLayout`); both holes carry the same
+    per-row timestep. Nothing binds a reference to a hole.
   - **One margin for both**, the load's `margin`: the node grows its
     region by one number. A subject whose own loads ran at a smaller margin
     carries the wider ring here (the lead's face at the second subject's
