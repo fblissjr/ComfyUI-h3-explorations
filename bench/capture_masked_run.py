@@ -4989,12 +4989,13 @@ def head_boxes(video: dict, size: tuple[int, int], frames: tuple[int, int]) -> l
     sx, sy = rec["scale"]
     face_h = (rec.get("face_height_px") or {}).get("in_this_video")
     chin = p["index"].get("tip_of_chin")
-    centres, sides = [], []
+    centres, sides, extents = [], [], []
     for f in range(frames[0], frames[1] + 1):
         row = f - first_row
         good = [i for i in ids if 0 <= row < len(p["keypoints"]) and p["scores"][row][i] >= 0.3]
         if not good:
             centres.append(None)
+            extents.append(None)
             continue
         xs = [(p["keypoints"][row][i][0] - x0) * sx for i in good]
         ys = [(p["keypoints"][row][i][1] - y0) * sy for i in good]
@@ -5002,10 +5003,14 @@ def head_boxes(video: dict, size: tuple[int, int], frames: tuple[int, int]) -> l
             ys.append(min(ys) + float(face_h))
         centres.append(((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2))
         sides.append(max(max(xs) - min(xs), max(ys) - min(ys)))
+        extents.append((min(xs), min(ys), max(xs), max(ys)))
     if not sides:
         return None
     w, h = size
-    side = min(max(sides) * 1.3, w, h)
+    # one size for the load, from the head's largest extent over it with room (C3, 2026-10-15: at 1.3 the chin of a head tipped
+    # back on a close-up fell outside it, 2848-2858 and 2948-2966)
+    side = min(max(sides) * 1.6, w, h)
+    room = 0.08 * side
     known = [c for c in centres if c is not None]
     filled, last = [], known[0]
     for c in centres:
@@ -5017,8 +5022,13 @@ def head_boxes(video: dict, size: tuple[int, int], frames: tuple[int, int]) -> l
     padded = np.pad(arr, ((6, 6), (0, 0)), mode="edge")
     smooth = np.stack([np.convolve(padded[:, i], k, mode="valid") for i in range(2)], 1)
     out = []
-    for cx, cy in smooth:
-        left, top = min(max(0.0, cx - side / 2), w - side), min(max(0.0, cy - side / 2), h - side)
+    for (cx, cy), ext in zip(smooth, extents):
+        left, top = cx - side / 2, cy - side / 2
+        if ext is not None:
+            # the smoothed centre lags a quick tilt: the box is moved, never grown, so this frame's face points lie inside it
+            left = min(max(left, ext[2] + room - side), ext[0] - room)
+            top = min(max(top, ext[3] + room - side), ext[1] - room)
+        left, top = min(max(0.0, left), w - side), min(max(0.0, top), h - side)
         out.append([int(left), int(top), int(left + side), int(top + side)])
     return out
 

@@ -1815,6 +1815,18 @@ def the_strips_marks_and_records() -> str:
         short = cap.head_boxes(video, (1024, 768), (500, 519))
         tall = cap.head_boxes({"record": {**video["record"], "face_height_px": {"in_this_video": 110.0}}}, (1024, 768), (500, 519))
         assert tall[0][3] - tall[0][1] > short[0][3] - short[0][1] and tall[0][3] >= 2 * 95 + 110, (short[0], tall[0])
+        # C3, 2026-10-15: a head tipped back on a close-up, quickly: the face drops 120 px in three frames and its chin reaches far
+        # down on them. Each frame's points lie inside its own box, and the box keeps one size
+        kp2 = kp.copy()
+        for f in range(10, 13):
+            kp2[f] += [0, 120]
+            kp2[f][names.index("tip_of_chin")] += [0, 40]
+        np.savez(pts, keypoints=kp2, scores=np.ones((20, len(names)), np.float32), names=np.array(names), first_frame=np.array(500), size=np.array([1024, 768]))
+        tipped = cap.head_boxes(video, (1024, 768), (500, 519))
+        assert len({b[2] - b[0] for b in tipped}) == 1, tipped
+        for f, b in enumerate(tipped):
+            xs, ys = kp2[f][:, 0] * 2.0, kp2[f][:, 1] * 2.0           # through the record's scale
+            assert b[0] <= xs.min() and xs.max() <= b[2] and b[1] <= ys.min() and ys.max() <= b[3], (f, b, ys.min(), ys.max())
     # a keep-out the capture tracks no mask of is still a legend line, never a fault
     words = cap.legend_words({"label": "strangers", "colour": (1, 2, 3), "kind": "keep-out"}, {"subjects": {}, "runs": {}, "keep_outs": {}})
     assert "no tracked mask of it in this capture" in words, words
