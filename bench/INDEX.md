@@ -397,7 +397,7 @@ this file is only a way to find a script by what it says it does.
 | [`latent_path_distance.py`](latent_path_distance.py) | How far saved latents sit from a reference latent, per latent frame. No decode. |
 | [`list_prose_measurements.py`](list_prose_measurements.py) | Inventory the measurements that live in prose, so they can be moved out. |
 | [`load_chain.py`](load_chain.py) | One load of a masked job, a step at a time, read from its job file: first, plan, on-plan, render, land, page. |
-| [`load_text.py`](load_text.py) | A load's text, generated from its reference's record, the plan and the voice table, around the one sentence a person writes. |
+| [`load_text.py`](load_text.py) | A load's text, generated from its reference's record, the plan and the voice table. No place-and-action sentence since 2026-10-15 (`NO_SCENE`: to H3 a masked load is not an edit, and a text never describes the frozen picture). |
 | [`look_carry.py`](look_carry.py) | Whether a load made again can rest on the look an earlier capture of it had: track, part, region and reference video. |
 | [`look_rooms.py`](look_rooms.py) | A subject's look, declared once in the plan, made into the region a load regenerates; and the plan-time check that reads the node's own plan back against it. |
 | [`make_attention_defaults_json.py`](make_attention_defaults_json.py) | Emit `2026-08-18_attention_defaults.json` from the raw arm results. |
