@@ -153,7 +153,11 @@ ComfyUI:
     kill <N>; sleep 1; ss -ltnp | grep ':<PORT> ' || echo "port free"
 
 `python3 data/<video>/poc/check_page.py` says whether the page and its clips
-load. Whoever starts it stops it at the day's end; a session that finds it up
+load. Since 2026-10-15 the owner's two generated pages are served by the same
+server: `data/<video>/poc/fun_share` links to the share's `Video/<video>/`, so
+`http://<the address it prints>:8765/fun_share/TO_REVIEW.html` and
+`.../fun_share/PROVENANCE.html` open with every clip link working (the server
+serves files only, so a link to a folder does not open). Whoever starts it stops it at the day's end; a session that finds it up
 asks before stopping it, since the owner may be reviewing. The script lives
 under the untracked `data/` folder and is a throwaway of 2026-10-11 that has
 been in daily use since: a tracked tool with a check is a row in
