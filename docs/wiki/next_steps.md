@@ -57,11 +57,21 @@ her head" below: the fault was found elsewhere on 2026-10-14.)
 - **The lead's face-only pieces change her hair too, so each piece's edge is a visible seam** (2026-10-15, the outside
   reviewer's watch of the 604-1009 cut with sound, `internal/gemini/2026-10-15_watch_0604_1009_and_5675b.md`, section
   1.2; not yet checked by a session's eye). At 750/751, 778/779, 851/852 and 965/966 her hair snaps between the
-  original's curly strawberry-blonde and the render's darker auburn, not only her face. Likely, NOT VERIFIED: the hair
-  band (a chain default, `h3_config.MASKED_JOB_HAIR_BAND`) regenerates hair round the face, so a piece edge inside a
-  shot shows. Wanted: the hair band's share of each lead piece's region, and the readers of 630d and 805d told to look
-  at her hair on each load's first and last frame. A row, not a job; the owner's eye on the cut decides whether it
-  matters.
+  original's curly strawberry-blonde and the render's darker auburn, not only her face. MEASURED (mrlol, 2026-10-15,
+  `internal/claude/2026-10-15_mrlol_scripts/lead_hair_seam.txt`; render against source, changed over 8/255, on her own
+  class map): no hair band on any of these loads (each job's defaults row reads "none, the plan names none"; 0852b
+  predates the rows and its load names none). The hair repainted is the load's 16 px margin round her Face_Neck part,
+  rounded out to whole cells. Medians over each load, as hair's share of the changed px / share of her hair changed /
+  colour change dE:
+  - 0630d: 36% / 6% / 6.4; its end, 678-680, dL +8 to +9 (brighter).
+  - 0751b: 30% / 30% / 5.6; dL -2.7 on 751 and -4.0 on 778 (darker).
+  - 0805d: 5% / 2% / 3.0.
+  - 0852b: 25% / 27% / 5.3; dL +2.6 on 852 (brighter) and -4.6 on 965 (darker).
+
+  The owner's word for her loads is "just the face", meaning face and neck for now (Open List row 2 of 2026-10-11,
+  accepted). Restoring her own Hair class at assembly (the plan's `restore`) would give her source hair back pixel by
+  pixel on every piece. It changes how kept pieces are laid, so it goes to the owner as an A/B of the 604-1009 cut, and
+  the standing plan does not change until they answer.
 - **The outside reviewer sees video at one frame a second** (its own report, 2026-10-15,
   `internal/gemini/2026-10-15_clips_review.md` section 1 and C1b; not checked independently). A frame-level question
   goes to it as frames or a 1 fps companion strip (mrvid's review-clip build), and its answers say which frames it saw.
