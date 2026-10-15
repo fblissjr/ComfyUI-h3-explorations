@@ -33,6 +33,17 @@ Older history lives elsewhere and is not copied here:
   The held mask left 115, 69 and 6 px on 1015, 1018 and 1023: her fingertips, her fist and forearm, and on 1015
   the rim of a white egg she holds at her chin. This is mrtwo's rule of 2026-10-14 after 21:18Z for held things
   she touches near her face, widened from 1010d's "fingers and hand" to name the egg.
+- **The mouth mend of 2026-10-14 (eed4acb9) drops correct mouths; the class-map mouth gets its own per-frame
+  gate** (mrtall, after 15:19Z, on mrarc's finding; `internal/claude/2026-10-15_mrarc_scripts/refcheck/`).
+  Under eed4acb9 a frame gets no mouth when the pose model's lip lines lie on the class map's mouth under
+  `MOUTH_CHECK["on_share"]` (0.8). On small or turned faces the lines miss even where her mouth is open, so the
+  references remade under it drop the mouth on most frames: lead_0630_0680 on 40 of 51 (share median 0.33),
+  lead_0805_0833 on 19 of 29, second_1010_1031 on 22 of 22, second_5114_5129 on 16 of 16. This includes 632-647,
+  where 630b's reader called the class-map mouth right. What it replaces: mrtwo's ruling of 2026-10-14 that one
+  constant decides both forms. The class-map form is now kept or dropped a frame at a time by where its lips
+  sit on her face (the outside reviewer's parked geometric gate, section 5A of its 10/14 consolidated file, as
+  the starting shape). It is tested on the 10/14 readers' frames before landing. 630c, 805c, 1010e and 5114c do
+  not render; each goes again as the next letter on a reference made under the gate.
 - **751b's flicker on 761: a short fill is accepted where the part model labelled nothing** (mrtall's go, after
   15:14Z, on mrlol's reading of `data/2026-10-14_lead_fp_0751b/subjects/lead/part_grades.json` and
   `doubted_frames.json`). The rule: a frame the grade empties, inside a "nothing labelled" run of one or two
