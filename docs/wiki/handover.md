@@ -18,7 +18,11 @@ table; the Open List).
 > **STOPPED FOR THE NIGHT, NOT LANDED** (the owner, about 23:50Z: stop it "unless you think its worth finishing"; the lead:
 > finish to a clean point in the worktree, land nothing). It is on branch `mrnight-gaze` (484d6302) in its worktree; where it stands
 > is `internal/claude/2026-10-15_mrnight_closeout.md`. Tomorrow: a cold read, land at the card's clear, then the two
-> tests. When it lands, the new cut is OPT-IN and OFF by default (`--face-fill` / `--follow` on the reference step; every job prints a
+> tests. Before it is wired, one question for its design (the lead, 2026-10-15 late, measured on 0604g's face points,
+> `second_0604_1009_points.npz`): her face grows about 3x across 604-1009 (about 33 px at 604 to 64 by 943, 100-133 in the
+> bow), so one box SIZE a load either clips the bow's head or leaves the start small. One box size a WINDOW (0604g's seam
+> at 898 falls where she comes close) is the candidate; untested whether a scale step at a seam shows. When it lands, the
+> new cut is OPT-IN and OFF by default (`--face-fill` / `--follow` on the reference step; every job prints a
 > "reference cut" row under THE DEFAULTS THIS LOAD CARRIES saying which is on). Making it the default is a decision: only
 > after both test renders read well on the owner's playback, written in `decisions.md`, with the defaults row, the check
 > that holds the default (`check_shot_to_load`), this handover and `masked_v2v.md`'s recipe changed in the same commit.
