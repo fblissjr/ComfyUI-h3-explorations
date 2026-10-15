@@ -8,6 +8,14 @@ closed with notes). Where this page and a record disagree, the record is right
 (`decisions.md`, 2026-10-15; `data/fun/poc/answers.jsonl`; the newest ledger and
 table; the Open List).
 
+> **IF EVERYTHING LOOKS WORSE TOMORROW, LOOK HERE FIRST.** On the owner's go of 2026-10-15 late ("No we're doing it
+> tonight"), a new session, mrnight, built a change to every new head reference: a much tighter cut (the face filling
+> the picture), the body model rendered at the cut's size, and the mesh's own eye sockets painted out with the iris in
+> its leading corner (spec: `internal/claude/2026-10-15_gaze_spec.md`). It was to be tested on two renders before
+> anything else used it: the lead's glance (1097-1133) and her phone call in the hall (1575-1729, the kept 1575b, where
+> the eyes already worked). Whether it landed, and on what reading, is in `decisions.md` and mrnight's note. If the
+> new references make things worse, the old cut is the default it was built beside: say so to the owner and use it.
+
 ## State when closed
 
 - **Two Claude sessions from now on** (the owner): a lead, and one that holds the card and builds its tools
