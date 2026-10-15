@@ -33,6 +33,12 @@ Older history lives elsewhere and is not copied here:
   The held mask left 115, 69 and 6 px on 1015, 1018 and 1023: her fingertips, her fist and forearm, and on 1015
   the rim of a white egg she holds at her chin. This is mrtwo's rule of 2026-10-14 after 21:18Z for held things
   she touches near her face, widened from 1010d's "fingers and hand" to name the egg.
+- **5461-5497 stays the original today: the hair-only load stopped at its plan, the second try** (mrtall, after
+  16:10Z, on mrarc's `data/2026-10-14_fun_batch_b_inputs/second_hp_5461b.STOPPED_AT_PLAN.md`). Its plan look reads
+  a face drawn onto her crown on 5466-5497. Two causes are named in the tools: a hair-only load's generated text
+  still says "her face is the face of <Picture 1>", and its reference still draws the face's lines (and holds the
+  head raised from 5481 while she stays bowed). With both mended, it may be tried once more as a new load, on the
+  lead's word: the stop rule is against blind retries, not against a retry whose fault was named and fixed.
 - **The second subject on 5461-5497 is made hair only** (mrtall, after 15:53Z, on mrarc's blind plan look of
   second_hfp_5461d, `data/2026-10-15_second_hfp_5461d/look_blind/reading.md`). She is bowed with both hands over her
   face on all 37 frames; no face shows. The owner's answer on row z24 (2026-10-13) covers it: where she bows her
