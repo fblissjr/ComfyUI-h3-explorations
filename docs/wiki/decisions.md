@@ -33,6 +33,13 @@ Older history lives elsewhere and is not copied here:
   The held mask left 115, 69 and 6 px on 1015, 1018 and 1023: her fingertips, her fist and forearm, and on 1015
   the rim of a white egg she holds at her chin. This is mrtwo's rule of 2026-10-14 after 21:18Z for held things
   she touches near her face, widened from 1010d's "fingers and hand" to name the egg.
+- **Earrings are given back at assembly where the part model's Apparel touches her head** (mrtall, after 18:21Z, on
+  mrlol's measure `internal/claude/2026-10-15_mrlol_scripts/earring_apparel.txt`). The part model has no earring
+  class; her pearl earring on lead_fp_0805d is labelled Apparel and the render repaints it (805d's render reader: gone
+  on 814-825). Apparel is also her collar and blouse, so the restore takes only Apparel pieces touching her Hair or
+  Face_Neck (grown 6 px, a starting value), for the lead and the second subject on all their rows, by the owner's
+  keep-accessories rule of 2026-10-14. It applies at assembly, so pieces already kept get their earrings back with no
+  re-render. The load's text does not name them (the one-form rule).
 - **The smoke's "node order" line had been unable to go green since 2026-09-27; it now reads the graph** (mrvid,
   c8501106, after mrarc's 18:12Z restart smoke). Its log needle ("chaining onto an existing attention override") was
   printed by the Sol node until e0b8cc55 deleted it, so every smoke since read MISSING there. The order is now read
