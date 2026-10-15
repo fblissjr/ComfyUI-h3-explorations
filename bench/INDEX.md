@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 140 |
+| [`check_*`](#check) | 141 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 177 |
+| [the rest](#the-rest) | 178 |
 
 ## check
 
@@ -159,6 +159,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_video_mask.py`](check_video_mask.py) | The masked-source reduction and composite, and the ways each could keep the old subject. |
 | [`check_voice_spans.py`](check_voice_spans.py) | `bench/voice_spans.py`'s frame arithmetic and span rule, on a signal made for the purpose. |
 | [`check_vsa_core_patch.py`](check_vsa_core_patch.py) | Report whether this ComfyUI builds H3's VSA gate, and whether consistently. |
+| [`check_what_h3_got.py`](check_what_h3_got.py) | What a load was handed (`bench/what_h3_got.py`), on a job folder whose every file is made here and known. |
 | [`check_who_page.py`](check_who_page.py) | `bench/who_page.py` lays the shots record beside each tracker's numbered picture; each case is a way a row could show the wrong band, the wrong words or nothing. |
 | [`check_widget_deviations.py`](check_widget_deviations.py) | Every shipped widget value that differs from its node's own default is declared. |
 
@@ -499,6 +500,7 @@ this file is only a way to find a script by what it says it does.
 | [`verify_vsa_render.py`](verify_vsa_render.py) | Verify a VSA render actually ran VSA, by its decoded pixels. |
 | [`visualize_token_routing.py`](visualize_token_routing.py) | Simulate, measure, and visually export Sol-Attn with Token Routing (ON vs OFF). |
 | [`voice_spans.py`](voice_spans.py) | Where a voice is on a clip's track, by video frame, on this machine only. |
+| [`what_h3_got.py`](what_h3_got.py) | What H3 was handed for one load, read from the graph that was queued: every file, its digest, what the graph does to it. |
 | [`who_is_who_across_shots.py`](who_is_who_across_shots.py) | Who is who across shots: one row a shot of what each tracker called, whose word it is, and the question where it is nobody's. |
 | [`who_page.py`](who_page.py) | One plain page, a row a shot: who is in it and on whose word, each tracker's numbered picture of the shot, and the owner's words on it. |
 | [`x0_step_frames.py`](x0_step_frames.py) | Where in time each sampling step's x0 prediction still moves. CPU only. |

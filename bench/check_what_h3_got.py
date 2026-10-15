@@ -1,0 +1,208 @@
+#!/usr/bin/env python3
+"""What a load was handed (`bench/what_h3_got.py`), on a job folder whose every file is made here and known.
+
+Small files are made with ffmpeg and Pillow in a temporary folder: a source, three masks, two reference videos and
+two stills, and a graph in ComfyUI's API form that wires them as the job builder does (masks through ImageToMask
+and a MaskComposite, two stills chained through `references`, the sound trimmed from the source).
+
+1. **Each input is read by its place in the graph**: the source, the mask, both keep-outs above the composite,
+   `<Video 1>` and `<Video 2>` by the Masked Source's input, `<Picture 1>` the START of the stills chain and
+   `<Picture 2>` its end, a still named relative to the input folder found there; each digest the file's own; a
+   loader's first frame from its start time set a fraction of a frame early; the text the song node's prompt; a
+   reference's own record read beside it; the node's words routed to the tag they name.
+2. **The loader's cut is VideoHelperSuite's own**: the filter string its ffmpeg path adds, run by ffmpeg on frames
+   whose every column says its x, cuts what `vhs_fit` says it cuts, for a 1424x1080 and a 1920x1080 file into
+   1024x768, and nothing from a 1024x768 one (the control: the loader's test passes there and the cut is empty).
+3. **The hard failures**: a file the graph names that is not there; a file written after `queued_at`; a digest
+   recorded at queue time that is not the file's. The control is the same folder with none of the three, which
+   reads clean.
+4. **A load not yet queued** reads as "built, not queued", with no file held to a time.
+5. **The zoom**: the node's `_zoomed.json` beside the render the queued record names, and each window's region
+   meta, read.
+
+Needs ffmpeg and ffprobe, Pillow and numpy. No model, no card, no server.
+
+    CUDA_VISIBLE_DEVICES= <comfy venv python> bench/check_what_h3_got.py
+"""
+from __future__ import annotations
+
+import datetime
+import hashlib
+import json
+import os
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _lib import case, finish  # noqa: E402
+
+import what_h3_got as w  # noqa: E402
+
+HOLD = tempfile.TemporaryDirectory(prefix="check_what_h3_got_")
+ROOT = Path(HOLD.name)
+QUEUED_AT = "2026-10-15T10:00:00-05:00"
+BEFORE = datetime.datetime.fromisoformat("2026-10-15T09:00:00-05:00").timestamp()
+AFTER = datetime.datetime.fromisoformat("2026-10-15T11:00:00-05:00").timestamp()
+
+
+def ffmpeg(*args: str) -> None:
+    subprocess.run(["ffmpeg", "-v", "error", "-y", *args], check=True)
+
+
+def clip(path: Path, size: str, frames: int = 6) -> Path:
+    ffmpeg("-f", "lavfi", "-i", f"testsrc2=size={size}:rate=24", "-frames:v", str(frames), "-pix_fmt", "yuv420p", str(path))
+    return path
+
+
+def vhs(video: str, at: float = 0.0) -> dict:
+    return {"class_type": w.VIDEO_LOADER, "inputs": {"video": video, "custom_width": 1024, "custom_height": 768, "frame_load_cap": 6,
+                                                     "start_time": at, "force_rate": 0.0, "format": "AnimateDiff"}}
+
+
+def made(name: str = "load_a", queued: bool = True) -> Path:
+    """One job folder with its graph; the files under ROOT/<name>. Every file written an hour before the queue."""
+    base = ROOT / name
+    inputs, out, job = base / "input", base / "output", base / f"{name}_job"
+    for d in (inputs / "sub", out / "Video" / name, job):
+        d.mkdir(parents=True, exist_ok=True)
+    src = clip(base / "source.mp4", "1424x1080", 30)
+    masks = [clip(base / f"m{k}.mp4", "1024x768") for k in range(3)]
+    refs = [clip(base / f"ref{k}.mp4", "1024x768") for k in (1, 2)]
+    (base / "ref1.json").write_text(json.dumps({"what": "the body model cut to the head", "its_first_frame_is_source_frame": 10}))
+    from PIL import Image
+    Image.new("RGB", (60, 90), (200, 10, 10)).save(inputs / "sub" / "one.png")
+    Image.new("RGB", (80, 80), (10, 200, 10)).save(base / "two.png")
+    g = {"28": vhs(str(src), (10 - 0.4) / 24), "146": {"class_type": "TrimAudioDuration", "inputs": {"audio": ["28", 2]}},
+         "150": vhs(str(masks[0])), "151": {"class_type": "ImageToMask", "inputs": {"image": ["150", 0]}},
+         "170": vhs(str(masks[1])), "171": {"class_type": "ImageToMask", "inputs": {"image": ["170", 0]}},
+         "180": vhs(str(masks[2])), "181": {"class_type": "ImageToMask", "inputs": {"image": ["180", 0]}},
+         "190": {"class_type": "MaskComposite", "inputs": {"destination": ["171", 0], "source": ["181", 0], "operation": "add"}},
+         "200": vhs(str(refs[0])), "210": vhs(str(refs[1])),
+         "15": {"class_type": "LoadImage", "inputs": {"image": "sub/one.png"}},
+         "16": {"class_type": "LoadImage", "inputs": {"image": str(base / "two.png")}},
+         "50": {"class_type": "MiniMaxH3AppendRefImage", "inputs": {"image": ["15", 0], "size_policy": "max", "size_policy.dit_short_edge": 2048}},
+         "51": {"class_type": "MiniMaxH3AppendRefImage", "inputs": {"image": ["16", 0], "references": ["50", 0], "size_policy": "max"}},
+         "104": {"class_type": w.SOURCE, "inputs": {"frames": ["28", 0], "mask": ["151", 0], "others": ["190", 0], "motion_video": ["200", 0],
+                                                    "motion_video_2": ["210", 0], "replace": "the wired parts", "part_phrases": "hair",
+                                                    "render_region": "zoomed in on what is replaced"}},
+         "74": {"class_type": w.SONG, "inputs": {"source": ["104", 0], "references": ["51", 0], "audio": ["146", 0], "prompt": "the text\n"}}}
+    (job / f"{name}.render.json").write_text(json.dumps(g))
+    for f in [src, *masks, *refs, inputs / "sub" / "one.png", base / "two.png"]:
+        os.utime(f, (BEFORE, BEFORE))
+    if queued:
+        (job / f"{name}.render.queued.json").write_text(json.dumps({
+            "queued_at": QUEUED_AT, "status": "success", "files": [f"Video/{name}/{name}_00001.mp4"],
+            "said": {"50": ["<Picture 1>: still, 60x90"], "75": ["[1] <Video 2> costs: shown 4 pictures\nnothing tagged here"]}}))
+        piece = out / "Video" / name / f"{name}_00001.mp4"
+        (piece.with_name(f"{name}_00001_zoomed.json")).write_text(json.dumps({"box": [8, 8, 520, 392], "zoom": 2.0, "source_size": [1024, 768], "set_by": "the box"}))
+        win = out / "Video" / name / f"{name}_windows"
+        win.mkdir(exist_ok=True)
+        np.savez(win / f"{name}_window_1_region.npz", meta=np.array(json.dumps({"first_frame": 0, "frames": 6, "zoom": {"box": [8, 8, 520, 392]}})))
+    return base
+
+
+def read(base: Path, **kw) -> dict:
+    name = base.name
+    return w.read(base / f"{name}_job", name, inputs=base / "input", output=base / "output", **kw)
+
+
+def each_input_by_its_place() -> str:
+    base = made()
+    got = read(base)
+    by = {(r["role"], r["node"]): r for r in got["inputs"]}
+    roles = [(r["role"], r["node"]) for r in got["inputs"]]
+    for want in (("the source", "28"), ("the subject's mask", "150"), ("the keep-outs", "170"), ("the keep-outs", "180"),
+                 ("<Video 1>", "200"), ("<Video 2>", "210"), ("the sound", "28"), ("<Picture 1>", "15"), ("<Picture 2>", "16")):
+        assert want in by, f"{want} not read; read {roles}"
+    assert [r["node"] for r in got["inputs"] if r["role"].startswith("<Picture")] == ["15", "16"], "the stills chain read out of order"
+    one = by[("<Picture 1>", "15")]
+    assert one["file"] == str(base / "input" / "sub" / "one.png") and one["size"] == [60, 90], one
+    for r in got["inputs"]:
+        assert r["sha256"] == hashlib.sha256(Path(r["file"]).read_bytes()).hexdigest(), f"{r['role']}: digest is not the file's"
+    assert by[("the source", "28")]["loader"]["first_frame"] == 10, by[("the source", "28")]["loader"]
+    assert got["text"]["text"] == "the text\n" and got["text"]["sha256"] == hashlib.sha256(b"the text\n").hexdigest()
+    assert by[("<Video 1>", "200")]["record"]["its_first_frame_is_source_frame"] == 10
+    assert "record" not in by[("<Video 2>", "210")], "a record read for a reference that has none"
+    assert by[("<Video 2>", "210")]["node_said"] == ["[1] <Video 2> costs: shown 4 pictures"], by[("<Video 2>", "210")].get("node_said")
+    assert one["node_said"] == ["<Picture 1>: still, 60x90"] and "node_said" not in by[("<Picture 2>", "16")]
+    assert got["replaces"]["part_phrases"] == "hair" and not got["failures"], got["failures"]
+    return f"{len(got['inputs'])} inputs, each by its place; stills in chain order; digests the files'; first frame 10; the clean control has no failure"
+
+
+def the_loaders_cut() -> str:
+    """The cut VideoHelperSuite's filter makes, by ffmpeg, against `vhs_fit`: frames whose columns and rows say x and y."""
+    said = []
+    for size in ((1424, 1080), (1920, 1080), (1024, 768)):
+        fit = w.vhs_fit(list(size), 1024, 768)
+        ar = 1024 / 768
+        flt = f"crop=if(gt({ar}\\,a)\\,iw\\,ih*{ar}):if(gt({ar}\\,a)\\,iw/{ar}\\,ih)"     # the loader's line, as it writes it
+        got = []
+        for axis in ("X", "Y"):
+            # a level a pixel, in 16-bit grey so a coordinate up to 1920 fits: the first and last of the cut say where it is
+            raw = subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", f"nullsrc=size={size[0]}x{size[1]},format=gray16le,geq=lum='{axis}'",
+                                  "-frames:v", "1", "-vf", flt, "-f", "rawvideo", "-pix_fmt", "gray16le", "-"], capture_output=True, check=True).stdout
+            got.append(np.frombuffer(raw, "<u2"))
+        xs, ys = got
+        n = len(xs)
+        # the cut's width: the run of the first row's x levels that rises by one
+        row0 = xs[: next((i for i in range(1, n) if xs[i] <= xs[i - 1]), n)]
+        cw, ch = len(row0), n // len(row0)
+        x0, y0 = int(row0[0]), int(ys[0])
+        want = None if (cw, ch) == size else [x0, y0, cw, ch]
+        assert fit["crop"] == want, f"{size}: vhs_fit says {fit['crop']}, ffmpeg cut {want}"
+        assert fit["to"] == [1024, 768]
+        said.append(f"{size[0]}x{size[1]}: {want or 'no cut'}")
+    return "; ".join(said)
+
+
+def the_hard_failures() -> str:
+    base = made("load_b")
+    name = base.name
+    os.utime(base / "m1.mp4", (AFTER, AFTER))
+    (base / "ref2.mp4").unlink()
+    q = base / f"{name}_job" / f"{name}.render.queued.json"
+    rec = json.loads(q.read_text())
+    rec["digests"] = {str(base / "m0.mp4"): "0" * 64, str(base / "source.mp4"): hashlib.sha256((base / "source.mp4").read_bytes()).hexdigest()}
+    q.write_text(json.dumps(rec))
+    got = read(base)
+    f = got["failures"]
+    assert any("m1.mp4" in x and "after the load was queued" in x for x in f), f
+    assert any("ref2.mp4" in x and "not there" in x for x in f), f
+    assert any("m0.mp4" in x and "recorded at queue time" in x for x in f), f
+    assert len(f) == 3, f"a failure beyond the three made: {f}"
+    return "a file written after the queue, a missing file and a wrong recorded digest each fail; the right recorded digest does not"
+
+
+def not_yet_queued() -> str:
+    base = made("load_c", queued=False)
+    os.utime(base / "m1.mp4", (AFTER, AFTER))
+    got = read(base)
+    assert got["state"] == "built, not queued" and got["queued"] is None
+    assert all(r["written_after_queue"] is None for r in got["inputs"]) and not got["failures"], got["failures"]
+    assert got["zoom"]["piece"] is None and got["zoom"]["render_region"] == "zoomed in on what is replaced"
+    return "built, not queued: no file is held to a time, the zoom is the graph's words alone"
+
+
+def the_zoom() -> str:
+    base = made("load_d")
+    got = read(base)
+    z = got["zoom"]
+    assert z["piece"]["box"] == [8, 8, 520, 392] and z["piece"]["zoom"] == 2.0, z
+    assert len(z["windows"]) == 1 and z["windows"][0]["zoom"]["box"] == [8, 8, 520, 392], z["windows"]
+    return "the node's zoomed record beside the render and the window's region meta read"
+
+
+case("each input read by its place in the graph", each_input_by_its_place)
+case("the loader's cut, against ffmpeg running the loader's filter", the_loaders_cut)
+case("the hard failures, and a clean control", the_hard_failures)
+case("a load not yet queued", not_yet_queued)
+case("the zoom read from the node's records", the_zoom)
+
+if __name__ == "__main__":
+    code = finish()
+    HOLD.cleanup()
+    sys.exit(code)
