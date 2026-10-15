@@ -36,7 +36,7 @@ Older history lives elsewhere and is not copied here:
 - **The second subject on 5461-5497 is made hair only** (mrtall, after 15:53Z, on mrarc's blind plan look of
   second_hfp_5461d, `data/2026-10-15_second_hfp_5461d/look_blind/reading.md`). She is bowed with both hands over her
   face on all 37 frames; no face shows. The owner's answer on row z24 (2026-10-13) covers it: where she bows her
-  head and no face shows, her hair stays the still's. So the load is hair only (5461e), not left as the original
+  head and no face shows, her hair stays the still's. So the load is hair only (second_hp_5461b: the job step names a hair-only load "hp", and its next free letter is b), not left as the original
   (mrarc's recommendation (b)). If its plan look reads a face pulled onto her crown, it stays the original with
   that reason.
 - **The lead's straw hat on 2625-2711 is kept through the load's text, not a restore span; 4310-4394 runs at the
