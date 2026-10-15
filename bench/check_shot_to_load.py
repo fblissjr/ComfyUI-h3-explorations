@@ -1636,6 +1636,11 @@ def the_defaults_this_load_carries() -> str:
         assert stl.drawn_form(job, args(mouth="drawn", form_why="her mouth reads on the stills"), files, 100) == \
             ["--iris", "contrast", "--mouth", "drawn", "--mouth-why", "her mouth reads on the stills"]
         refused(lambda: stl.drawn_form(job, args(iris="whole"), files, 100), "say why with --form-why")
+        # the hole option (one test, 5114e): passed on with the reason, and not without one
+        assert stl.drawn_form(job, args(class_mouth_needs_hole=True, form_why="ONE TEST"), files, 100)[-2:] == ["--class-mouth-needs-hole", "ONE TEST"]
+        refused(lambda: stl.drawn_form(job, args(class_mouth_needs_hole=True), files, 100), "say why with --form-why")
+        assert "--class-mouth-needs-hole" not in stl.drawn_form(job, args(), files, 100), "the hole option is on by default"
+        refused(lambda: stl.drawn_form(job, args(class_mouth_needs_hole=True, mouth="drawn", form_why="X"), files, 100), "acts on the mouth by the check")
         refused(lambda: stl.drawn_form(job, args(), {"classes": None}, 100), "the preview saved none")
         assert stl.drawn_form({}, args(), files, 100) == [], "a job written before the defaults is drawn as the tool's own"
         # a load whose part is hair alone on some frames (`--parts-on`, 1010d's 1025-1031): no mouth there, said with the job's own words

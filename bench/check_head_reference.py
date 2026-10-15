@@ -488,7 +488,7 @@ def the_class_map_mouth_by_its_gate() -> str:
     assert m["no_mouth_on"] == {hr.NO_MOUTH_CLASS_GATE: [[6, 11]]} and m["gate"]["frames_drawn"] == 6, m
     assert all(rows[f]["drawn"] and rows[f]["on_body"] == 1.0 and rows[f]["from_the_pose_mouth_in_face_heights"] < 0.05 for f in range(6)), rows
     assert all(not rows[f]["drawn"] and rows[f]["on_body"] == 0.0 for f in range(6, N)), rows
-    assert any("the class map's own mouth on 6 by its gate" in x for x in said) and any("NO MOUTH on 6 of 12 frames (6-11)" in x for x in said), said
+    assert any("the class map's own mouth on 6 (" in x for x in said) and any("NO MOUTH on 6 of 12 frames (6-11)" in x for x in said), said
     rw, rh = rec["size"]
     x0, y0, x1, y1 = rec["box"]
 
@@ -539,6 +539,73 @@ def no_clip_gate_and_the_box_first() -> str:
             "head's box is not taken for her mouth")
 
 
+def needs_hole_option() -> str:
+    """The lead's word of 2026-10-15 for one test (5114e): with --class-mouth-needs-hole, a frame given the class map's own mouth with no
+    teeth or tongue labelled draws no mouth; without it, every such frame is drawn as before."""
+    import cv2
+    import capture_masked_run as cap
+    from _lib import face_points as fp
+    names = cap._pack("sapiens2_parts").CLASS_NAMES
+    out = {}
+    for name, option in (("off", None), ("on", "A TEST")):
+        folder, mesh, pts, source = rooms(f"hole_{name}", [90] * N, [60] * N, CENTRES, 0)
+        P = fp.load(str(pts), None)
+        lips = [i for k, i in P["index"].items() if "outer_lip" in k or k in ("r_outer_corner_of_mouth", "l_outer_corner_of_mouth")]
+        cm = np.zeros((N, H, W), np.uint8)
+        for f in range(N):
+            xy = P["keypoints"][f][lips]
+            cx, cy = (int(round(v)) for v in xy.mean(0))
+            ax, ay = (max(int(0.35 * (xy[:, i].max() - xy[:, i].min()) / 2), 3) for i in (0, 1))
+            cv2.ellipse(cm[f], (cx, cy), (ax, ay), 0, 0, 360, names.index("Upper_Lip"), -1)
+            if f >= 6:                                                  # 6-11 open: a tongue inside; 0-5 closed: lips alone
+                cv2.ellipse(cm[f], (cx, cy), (max(ax // 2, 1), max(ay // 2, 1)), 0, 0, 360, names.index("Tongue"), -1)
+        classes = folder / "classes.mkv"
+        enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "gray", "-s", f"{W}x{H}", "-r", "24", "-i", "-", "-c:v", "ffv1",
+                                "-level", "3", str(classes)], stdin=subprocess.PIPE)
+        enc.stdin.write(cm.tobytes()); enc.stdin.close(); assert enc.wait() == 0
+        out[name] = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head.mp4", "the check", room=ROOM, mouth="auto", classes=str(classes),
+                           classes_first=0, class_mouth_needs_hole=option, say=lambda *_: None)["drawn"]["mouth"]
+    # THE CASE THAT GOES RED when the option is on by default, or when on it still draws a mouth with no teeth or tongue
+    assert out["off"]["frames_by_the_class_map"] == [[0, N - 1]] and "class_mouth_needs_hole" not in out["off"], out["off"]
+    assert out["on"]["frames_by_the_class_map"] == [[6, N - 1]] and out["on"]["class_mouth_needs_hole"]["no_mouth_on"] == [[0, 5]], out["on"]
+    assert any("--class-mouth-needs-hole asks for none drawn (A TEST)" in k for k in out["on"]["no_mouth_on"]), out["on"]["no_mouth_on"]
+    rows = out["on"]["gate"]["a_frame_at_a_time"]
+    # the record's rows say what was drawn after every rule, and why not
+    assert rows[0]["no_teeth_or_tongue"] and not rows[0]["drawn"] and rows[7]["drawn"] and out["on"]["gate"]["frames_drawn"] == 6, rows[:1] + rows[7:8]
+    return "off unless asked; on, a class-map frame with no teeth or tongue draws no mouth and the record says why, the open frames drawn"
+
+
+def the_mouth_over_time() -> str:
+    """Mouth v2 (the lead's ruling of 2026-10-15): the form held against its neighbours, and a short drop-out filled (`MOUTH_RUNS`)."""
+    lines, leave = hr.MOUTH_CHECK["on_share"], hr.MOUTH_RUNS["leave_lines"]
+    shares = [1.0, leave, leave - 0.01, 1.0, lines - 0.01, 1.0]
+    on, passes, held_on, filled, _ = hr.mouth_over_time(shares, [False] * 6, [None] * 6, [None] * 6, set(), 100)
+    # THE CASE THAT GOES RED when the lines are left at the share they entered by (2823's 46 switches), or entered under it
+    assert on == [True, True, False, True, True, True] and held_on == [101, 104], (on, held_on)
+    assert hr.mouth_over_time([0.7, 0.7, 1.0], [False] * 3, [None] * 3, [None] * 3, set(), 0)[0] == [False, False, True], "the lines entered under their share"
+    assert hr.mouth_over_time([1.0, 0.7, 1.0], [False] * 3, [None] * 3, [None] * 3, {0}, 0)[0] == [True, False, True], "held on the lines after a no-mouth frame"
+    body = hr.MOUTH_RUNS["fill_on_body"]
+    near_ok = hr.CLASS_MOUTH_GATE["near"]
+    def fill(passes, on_body, partless=frozenset(), near=None, inside=None):
+        return hr.mouth_over_time([0.0] * len(passes), passes, on_body, near or [near_ok] * len(passes), set(partless), 0, inside)[3]
+    # THE CASE THAT GOES RED when a drop-out inside one sung vowel is not filled (805's 822-823), or a longer one, one under the floor,
+    # one at the edge or one on a frame with no mouth whatever is
+    assert fill([True, False, False, True], [0.9, body, body, 0.9]) == [1, 2]
+    assert fill([True, False, False, False, True], [0.9, body, body, body, 0.9]) == [], "a run of three was filled"
+    assert fill([True, False, True], [0.9, body - 0.01, 0.9]) == [], "a frame under the fill's floor was filled"
+    assert fill([False, False, True], [body, body, 0.9]) == [], "a run at the edge was filled"
+    assert fill([True, False, True], [0.9, 0.9, 0.9], {1}) == [], "a frame with no mouth whatever places it was filled"
+    assert fill([True, False, True], [0.9, None, 0.9]) == [], "a frame with no lips was filled"
+    # THE CASE THAT GOES RED when the fill draws a mouth far from the pose mouth (1010d's chest), which the gate's near keeps out
+    assert fill([True, False, True], [0.9, 0.9, 0.9], near=[0.1, near_ok + 0.01, 0.1]) == [], "a far mouth was filled"
+    # the hole option first: a frame it drops is not filled back, and a frame on the lines keeps them whatever its teeth
+    on, passes, _, filled, holeless = hr.mouth_over_time([0.0, 0.0, 0.0, 1.0], [True, True, True, False], [0.9] * 4, [0.1] * 4, set(), 0, [5, 0, 5, 0])
+    # THE CASE THAT GOES RED when the option is undone by the fill, or drops a frame on the lines
+    assert holeless == [1] and filled == [] and passes == [True, False, True, False] and on[3], (holeless, filled, passes, on)
+    return ("the lip lines entered at their share and left only under leave_lines; a drop-out of one or two frames between mouths filled where "
+            "the class map's mouth is on the body model at fill_on_body, never a longer one, one at the edge, one under it or one with no mouth")
+
+
 def the_gate_at_its_bounds() -> str:
     """`class_mouth_gate` on either side of each value: a mouth of 100 px with 60 of them on the body model passes and 59 does not
     (`on_body` 0.6); a centre 0.399 face heights from the pose mouth passes and 0.401 does not (`near` 0.4)."""
@@ -564,6 +631,25 @@ def the_gate_at_its_bounds() -> str:
     rows = gate["a_frame_at_a_time"]
     # THE CASE THAT GOES RED when either value is read the wrong side of its bound
     assert passes == [True, False, True, False], (passes, rows)
+    # where the pose and the class map agree (share and near), on_body's floor is agreed_on_body: 47 of 100 px pass, 46 do not
+    g = hr.CLASS_MOUTH_GATE
+    agreed_body = np.zeros((4, ph, pw, 3), np.uint8)
+    agreed_body[:, 10:20, 10:15] = 90                                    # 50 px
+    agreed_body[0, 10:13, 14] = 0                                        # 47 on frame 0
+    agreed_body[1, 10:14, 14] = 0                                        # 46 on frame 1
+    agreed_plain = video(folder / "agreed.mkv", agreed_body)
+    near = []                                                           # 0.1 of a face height from the pose mouth: inside agreed_near
+    for f in range(4):
+        k = P["keypoints"][f]
+        c = k[lips].mean(axis=0)
+        near.append((float(c[0]) + 0.1 * fp.face_height(k, idx), float(c[1])))
+    agreed, _ = hr.class_mouth_gate([(whole, whole)] * 4, near, str(agreed_plain), str(pts), 0, 4,
+                                    [g["agreed_share"], g["agreed_share"], g["agreed_share"] - 0.01, g["agreed_share"]])
+    # THE CASE THAT GOES RED when 805's open three-quarter mouths are not kept where the pose agrees, or the floor drops for any frame
+    assert agreed == [True, False, False, True], agreed
+    far = [(x + (g["agreed_near"] + 0.02 - 0.1) * fp.face_height(P["keypoints"][f], idx), y) for f, (x, y) in enumerate(near)]
+    assert hr.class_mouth_gate([(whole, whole)] * 4, far, str(agreed_plain), str(pts), 0, 4, [g["agreed_share"]] * 4)[0] == [False] * 4, \
+        "the agreed floor taken past agreed_near"
     assert rows[0]["on_body"] == 0.6 and rows[1]["on_body"] == 0.59 and abs(rows[2]["from_the_pose_mouth_in_face_heights"] - 0.399) < 1e-3, rows
     return "60 of 100 px on the body model passes and 59 does not; 0.399 of a face height from the pose mouth passes and 0.401 does not"
 
@@ -639,7 +725,7 @@ def a_frame_at_a_time_in_the_lines_form() -> str:
         return n
     # THE CASE THAT GOES RED when a frame given the class map's own mouth keeps the points' lip rings as well (two mouths)
     assert on_the_ring(3) > len(lips) // 2 and on_the_ring(6) == 0, (on_the_ring(3), on_the_ring(6))
-    assert any("the lip lines on 6 of 12 frames" in x and "the class map's own mouth on 2 by its gate" in x for x in said), said
+    assert any("the lip lines on 6 of 12 frames" in x and "the class map's own mouth on 2 (" in x for x in said), said
     return ("in the lip lines' form, a frame at a time: the lines where they lie on the class map's mouth, the class map's own mouth where they "
             "miss and its gate passes (2823's open mouth), no mouth where it holds no lips, lies far from the pose mouth or over no body model; "
             "the class map read from its own first frame")
@@ -654,6 +740,8 @@ case("the mouth by the check", the_mouth_by_the_check)
 case("the class map's mouth by its own gate", the_class_map_mouth_by_its_gate)
 case("a frame at a time in the lip lines' form", a_frame_at_a_time_in_the_lines_form)
 case("the gate at its bounds", the_gate_at_its_bounds)
+case("the mouth over time", the_mouth_over_time)
+case("an option: no class-map mouth without teeth or tongue", needs_hole_option)
 case("no clip-level gate, and the head's box before the pieces", no_clip_gate_and_the_box_first)
 case("it writes over nothing, and nothing when it cannot finish", it_writes_over_nothing)
 case("the form's defaults can be set aside, and the record says so", the_defaults_can_be_set_aside)

@@ -1592,7 +1592,7 @@ def drawn_form(job: dict, a, files: dict, preview_first: int) -> list:
     said = job.get("reference") or {}
     mouth = a.mouth or (said.get("mouth") or {}).get("form")
     iris = a.iris or (said.get("iris") or {}).get("form")
-    if (a.mouth or a.iris) and not str(a.form_why or "").strip():
+    if (a.mouth or a.iris or getattr(a, "class_mouth_needs_hole", False)) and not str(a.form_why or "").strip():
         raise Refused("--mouth and --iris at the reference step are a person's word: say why with --form-why")
     out = []
     if iris:
@@ -1628,6 +1628,10 @@ def drawn_form(job: dict, a, files: dict, preview_first: int) -> list:
         if over:
             out += ["--over-the-eyes", f"{r['first']}-{r['last']}=the plan gives back her {'+'.join(over)} there "
                                        f"({' '.join(str(r.get('by') or 'who said so is not in the job').split())[:200]})"]
+    if getattr(a, "class_mouth_needs_hole", False):
+        if mouth != "auto":
+            raise Refused(f"--class-mouth-needs-hole acts on the mouth by the check (auto); this load's mouth is {mouth!r}")
+        out += ["--class-mouth-needs-hole", " ".join(a.form_why.split())]
     return out
 
 
@@ -1771,6 +1775,8 @@ def main() -> int:
     r.add_argument("--model-store", default="", help=f"the folder holding the pose model's folder; over the environment's {load_chain.MODEL_STORE}")
     r.add_argument("--mouth", choices=("auto", "drawn", "left out"), help="the mouth, over the job's (the plan's or the chain's default), with --form-why")
     r.add_argument("--iris", choices=("between the lids", "whole", "filled", "contrast"), help="the eye, over the job's, with --form-why")
+    r.add_argument("--class-mouth-needs-hole", action="store_true", help="an option for one test (5114e): no class-map mouth on a frame "
+                   "with no teeth or tongue labelled; with --form-why")
     r.add_argument("--form-why", default="", help="why this load's mouth or eye is drawn otherwise than its job says")
     t = sub.add_parser("text")
     t.add_argument("job_file")
