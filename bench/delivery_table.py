@@ -554,7 +554,7 @@ def assembly(out: dict, ledger: dict, plan: dict, repo: Path, table: str, span: 
         work = stack_work or "A_SCRATCH_FOLDER"
         # a clip of a span begins on the span's first frame, and the stack is told so: its original row, its panels and the number it burns are the source's
         begins = ["--first", str(span[0])] if span and span[0] else []
-        stack = {"build": line([python, "bench/stack_delivery.py", "build", "--source", source, "--table", table, "--joined", clip, "--out", stacked, "--work", work, *begins]),
+        stack = {"build": line([python, "bench/stack_delivery.py", "build", "--source", source, "--table", table, "--joined", clip, "--out", stacked, "--work", work, *begins, "--one-a-second"]),
                  "check": line([python, "bench/stack_delivery.py", "check", "--source", source, "--joined", clip, "--out", stacked, *begins]),
                  "whole": bool(stack_work), "out": stacked}
     return {"command": line(build), "whole": whole, "captures": captures, "captures_handed_in": [rel(c) for c in also],

@@ -112,6 +112,17 @@ def grey(path: Path, crop: str, w: int, h: int) -> np.ndarray:
     return np.frombuffer(raw, np.uint8).reshape(-1, h, w).astype(float)
 
 
+def tile_level(path: Path, rect: list[int]) -> np.ndarray:
+    """The mean grey level of the middle half of one tile of the middle row (`sd.layout`'s [x, y, w, h]), on every frame."""
+    x, y, w, h = rect
+    cw, ch = w // 4 * 2, h // 4 * 2                        # even: ffmpeg's crop on a yuv420p file rounds a size down to one
+    return grey(path, f"crop={cw}:{ch}:{(x + w // 4) // 2 * 2}:{(H + y + h // 4) // 2 * 2}", cw, ch).mean(axis=(1, 2))
+
+
+#: The middle row's ground where a subject's column has no piece on a frame (`stack_delivery.build`), as grey.
+SLATE = 24
+
+
 MADE: list[Made] = []
 HOLD = tempfile.TemporaryDirectory()
 
@@ -192,22 +203,27 @@ def what_each_frame_reads() -> str:
 def the_built_file() -> str:
     m = made()
     m.build()
-    line, bar = sd.sizes(H)
     w, total, n = sd.probe(str(m.out))
-    assert (w, total, n) == (W, H * 3 + bar, FRAMES), (w, total, n)
-    # two panels a frame here, tiled at half size across the middle row: the mask at the left, the reference at the right.
-    # Read at each tile's lower right quarter, clear of its label.
-    pw, ph = W // 2, H // 2
-    top = H + ph // 2
-    mask = grey(m.out, f"crop={pw // 2}:{ph // 2}:{pw // 2}:{top + ph // 2}", pw // 2, ph // 2).mean(axis=(1, 2))
-    ref = grey(m.out, f"crop={pw // 2}:{ph // 2}:{pw + pw // 2}:{top + ph // 2}", pw // 2, ph // 2).mean(axis=(1, 2))
-    for f, mask_frame, ref_frame, wrong_ref in ((2, 0, 3, None), (4, 2, 5, None), (7, 5, 8, None), (8, 0, 3, 0), (9, 1, 4, 1), (10, 2, 5, 2)):
+    got = sd.read_back(str(m.source), str(m.clip), str(m.out))
+    bar = got["size"][1] - 3 * H
+    assert (w, n) == (W, FRAMES) and got["canvas"] == [W, H] and bar > 0 and bar % 2 == 0, (w, total, n, got["canvas"])
+    # one column a subject for the whole clip, in the order each first lays a piece: a's (pa, 2-7), then b's (pb, 8-10). Each column's
+    # mask picture and its reference read where `sd.layout` lays them, and nowhere else (C1, 2026-10-15: tiles moved as pieces came and went)
+    assert sd.columns_of(sd.read_rows(str(m.table), 24.0, {})[0], 0, FRAMES - 1) == ["a", "b"]
+    cols = sd.layout(W, H, 2)
+    mask_a, mask_b = tile_level(m.out, cols[0]["mask"]), tile_level(m.out, cols[1]["mask"])
+    ref_a, ref_b = tile_level(m.out, cols[0]["whole"]), tile_level(m.out, cols[1]["whole"])
+    for f, mask_frame, ref_frame, wrong_ref, mask, ref, other in ((2, 0, 3, None, mask_a, ref_a, mask_b), (4, 2, 5, None, mask_a, ref_a, mask_b),
+                                                                  (7, 5, 8, None, mask_a, ref_a, mask_b), (8, 0, 3, 0, mask_b, ref_b, mask_a),
+                                                                  (9, 1, 4, 1, mask_b, ref_b, mask_a), (10, 2, 5, 2, mask_b, ref_b, mask_a)):
         assert abs(mask[f] - MASK(mask_frame)) < NEAR, f"frame {f}: the mask panel reads {mask[f]:.0f}, its frame {mask_frame} was made {MASK(mask_frame)}"
         assert abs(ref[f] - REF(ref_frame)) < NEAR, f"frame {f}: the reference panel reads {ref[f]:.0f}, its frame {ref_frame} was made {REF(ref_frame)}"
+        assert abs(other[f] - SLATE) < NEAR, f"frame {f}: the other subject's column, which has no piece here, reads {other[f]:.0f}"
         if wrong_ref is not None:      # the control: counted from the piece's first frame, the continued load would show this level
             assert abs(ref[f] - REF(wrong_ref)) > NEAR, f"frame {f}: the fixture cannot tell the graph's frame from the piece's"
     for f in (0, 1, 11):
-        assert mask[f] < NEAR and ref[f] < NEAR, f"frame {f}: no row covers it and the middle row is not black ({mask[f]:.0f}, {ref[f]:.0f})"
+        for name, lv in (("a's mask", mask_a), ("b's mask", mask_b), ("a's reference", ref_a)):
+            assert abs(lv[f] - SLATE) < NEAR, f"frame {f}: no row covers it and {name} tile reads {lv[f]:.0f}, not the bare ground"
     # the top row is the source and the bottom the clip, each its own frame: below the label, against the files themselves
     cut = H // 4
     for name, y, path in (("the original row", 0, m.source), ("the clip row", H * 2 + bar, m.clip)):
@@ -218,9 +234,9 @@ def the_built_file() -> str:
             assert here < beside, f"{name}, frame {f}: {here:.2f} from its own frame and {beside:.2f} from a neighbour"
     other = grey(m.out, f"crop={W}:{H - cut}:0:{cut}", W, H - cut)
     assert np.abs(other[5] - grey(m.clip, f"crop={W}:{H - cut}:0:{cut}", W, H - cut)[5]).mean() > 20, "the fixture's source and clip cannot be told apart"
-    assert line >= 10 and bar % 2 == 0
-    return ("read back, each panel shows the frame of the file it should, by its level, and the continued load's reference is the graph's frame "
-            "and not the piece's; a frame with no render is black in the middle; the top row is the source's frame and the bottom the clip's")
+    return ("read back, each subject's column shows the frame of the file it should, by its level, in its own place for the whole clip, and the "
+            "continued load's reference is the graph's frame and not the piece's; a column with no piece on a frame is bare; the top row is the "
+            "source's frame and the bottom the clip's")
 
 
 def the_read_back() -> str:
@@ -248,7 +264,6 @@ def a_clip_of_a_span() -> str:
     span, out = m.root / "span.mp4", m.root / "span_stacked.mp4"
     ffmpeg("-i", str(m.clip), "-vf", f"select='between(n\\,{k}\\,{k + n - 1})',setpts=N/24/TB", "-an", "-frames:v", str(n), "-pix_fmt", "yuv420p", str(span))
     m.build(joined=str(span), out=str(out), first=k)
-    line, bar = sd.sizes(H)
     assert sd.probe(str(out))[2] == n, sd.probe(str(out))
     cut = H // 4
     row = grey(out, f"crop={W}:{H - cut}:0:{cut}", W, H - cut)
@@ -257,9 +272,9 @@ def a_clip_of_a_span() -> str:
         here, from_zero = np.abs(row[i] - own[k + i]).mean(), np.abs(row[i] - own[i]).mean()
         assert here < from_zero and here < 6, f"stacked frame {i}: the original row is {here:.2f} from source frame {k + i} and {from_zero:.2f} from source frame {i}"
     # the middle row is the table's rows on the SOURCE frame: piece a's mask on 4-7, piece b's on 8-10 (as the_built_file reads them, at index f - k)
-    pw, ph = W // 2, H // 2
-    mask = grey(out, f"crop={pw // 2}:{ph // 2}:{pw // 2}:{H + ph // 2 + ph // 2}", pw // 2, ph // 2).mean(axis=(1, 2))
-    for f, mask_frame in ((4, 2), (7, 5), (8, 0), (10, 2)):
+    cols = sd.layout(W, H, 2)
+    mask_a, mask_b = tile_level(out, cols[0]["mask"]), tile_level(out, cols[1]["mask"])
+    for f, mask_frame, mask in ((4, 2, mask_a), (7, 5, mask_a), (8, 0, mask_b), (10, 2, mask_b)):
         assert abs(mask[f - k] - MASK(mask_frame)) < NEAR, f"source frame {f}: the mask panel reads {mask[f - k]:.0f}, its frame {mask_frame} was made {MASK(mask_frame)}"
     right = sd.read_back(str(m.source), str(span), str(out), k)
     assert right["the_clip_begins_on_source_frame"] == k and right["the_original_row"]["a_neighbour_fits_better"] == [] and right["the_original_row"]["own_frame_fits_best"] >= n - 2, right
@@ -277,6 +292,31 @@ def a_clip_of_a_span() -> str:
     bad = grey(untold, f"crop={W}:{H - cut}:0:{cut}", W, H - cut)
     assert np.abs(bad[2] - own[k + 2]).mean() > np.abs(bad[2] - own[2]).mean(), "the fixture cannot tell a clip of a span from a clip from 0"
     return "a clip of source frames 4 to 10, told so: the original row and the panels are the source's 4 to 10, and the read-back held from 0 does not fit"
+
+
+def the_clips_own_check_and_whole_words() -> str:
+    """The joined clip's check (`<clip>.check.json`) on its frames, in the piece's own column, and every word kept (C1, 2026-10-15:
+    a 1-frame flicker the check had flagged, d005, showed nothing on the stack, and the words under the middle row were cut)."""
+    m = made()
+    long_why = "pb_00001.mp4 is the original on 1 frame(s) a row gives it, " + "and this sentence runs on well past one line of the block " * 3
+    check = Path(str(m.clip) + ".check.json")
+    check.write_text(json.dumps({"flags": [{"id": "d005", "rule": "piece_changes_nothing", "level": "iffy", "piece": "pb_00001.mp4", "subject": "b",
+                                            "source_frames": [[9, 9]], "why": long_why}]}))
+    out = m.root / "checked.mp4"
+    try:
+        m.build(out=str(out))
+    finally:
+        check.unlink()
+    recs = [json.loads(x) for x in out.with_name(out.stem + ".frames.jsonl").read_text().splitlines()]
+    at = {r["source_frame"]: r for r in recs}
+    assert at[9]["columns"]["b"]["check_flags"] == ["d005"] and at[9]["check_flags"] == ["d005"], at[9]
+    assert at[8]["columns"]["b"]["check_flags"] == [] and at[9]["columns"]["a"] is None, (at[8], at[9])
+    joined = " ".join(at[9]["words"])
+    assert " ".join(long_why.split()) in joined, "the check's words are not whole in the record"
+    assert not any(line.endswith("...") for r in recs for line in r["words"]), "a line of words was cut"
+    head = json.loads(out.with_name(out.stem + ".json").read_text())
+    assert head["columns"] == ["a", "b"] and head["check_flags"][0]["id"] == "d005", head["columns"]
+    return "the clip's own check on its frame and in its piece's column, its words whole; no line cut; the columns and flags in the sidecar"
 
 
 def a_table_that_lays_nothing() -> str:
@@ -298,6 +338,7 @@ case("what the middle row reads on each frame", what_each_frame_reads)
 case("the built file shows those frames", the_built_file)
 case("check: the file read back", the_read_back)
 case("a clip of a span that does not begin on frame 0", a_clip_of_a_span)
+case("the clip's own check, and the words whole", the_clips_own_check_and_whole_words)
 case("a table that lays nothing", a_table_that_lays_nothing)
 
 if __name__ == "__main__":

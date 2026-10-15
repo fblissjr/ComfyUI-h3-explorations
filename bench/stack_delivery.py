@@ -14,15 +14,27 @@ as a tool: it reads the SAME table the assembler built the clip from, so the sta
 **One picture a source frame, the frame number on it, three rows and a block of words.**
 
     ORIGINAL          the source, fitted to the canvas as the lane's loader fits it (`_lib.frames.FIT`)
-    WHAT WAS GIVEN    for each row of the table on this frame: the node's own picture of what it masked (the
-                      lower half of the piece's `_with_mask.mp4`) and, where the graph saved in the piece's
-                      picture wires one, its reference video on the frame the graph gave it for this source
-                      frame. One panel fills the row; more are tiled at half size. No row: it says so.
+    WHAT WAS GIVEN    one column a subject, in the order each first lays a piece, the same column for the whole clip
+                      (C1, 2026-10-15: tiles jumped and swapped rows as pieces came and went): the piece's own mask
+                      picture (the lower half of its `_with_mask.mp4`), and under it the reference its graph wires, on
+                      the frame the graph gave it for this source frame, whole and as a head crop following the face
+                      (the strip's own rule, `capture_masked_run.head_boxes`, from the reference's points). Each piece's
+                      inputs are read through `bench/what_h3_got.py` from its job folder, found by its queued record
+                      under `--data`. A column with no piece on a frame says the subject is the original there.
     THE CLIP          the delivery clip, fitted the same way
 
-The words between the middle and bottom rows: the pieces on this frame in the table's order, each with whose it
-is and what its row gives back to the source (`less`); each reference video's file and frame; and the table's
-own `source` line wherever a subject is left as the source on purpose.
+The words between the middle and bottom rows, every word kept (a line too long goes on to the next; the block is as
+tall as the frame that needs the most): what the mask pictures' colours are; the pieces on this frame in the
+table's order, each with whose it is and what its row gives back to the source (`less`); each reference video's
+file and frame; the table's own `source` line wherever a subject is left as the source on purpose; and every flag
+of the joined clip's own check (`<clip>.check.json`) on this frame, whole. A piece the check says changes nothing
+on a frame (`piece_changes_nothing`) is badged in its column there.
+
+**Its records**: `<out>.json` beside the table (the columns, where each tile lies, what each piece was given, the
+check's flags) and `<out>.frames.jsonl`, a line a source frame with what each column showed and every word; the
+file names them in its metadata, with the canvas and the block's height that `check` reads back. `--one-a-second`
+also writes `<out>.1fps.mp4`, the same frames at one a second and no sound, for a video reader that takes one frame
+a second.
 
 **What is read from where.** The table through the assembler's own two readers, so the format has one home. A
 piece's reference video and the source frame its graph starts on from the graph ComfyUI saved in the picture
@@ -40,8 +52,9 @@ by no other protocol, and as the container its suffix names (`CONTAINER`): ffmpe
 does not decide from its content, so a playlist under a video's name is not followed. A reference that is not opened is said when the table is read and has no panel.
 
 **What it cannot show or see.** The parts in their own colours (not in a render's files); the still a render
-took a face from; a zoomed render's mask at its whole-frame place (its mask picture is of the zoomed box, as
-the node drew it). The read-back cannot see the middle row: whether a mask picture or a reference is on the
+took a face from (it is in the records); a zoomed render's mask at its whole-frame place (its mask picture is of
+the zoomed box, as the node drew it); the assembly's restored pixels as a picture (they are named in the words and
+in the check's flags, not drawn); two pieces of one subject on one frame (the first is shown, the second said). The read-back cannot see the middle row: whether a mask picture or a reference is on the
 right frame rests on the table's and the graphs' own figures (printed by `build`) and on a look. A held or
 still stretch of picture fits its neighbours as well as itself, so a tie there says nothing either way.
 
@@ -224,7 +237,71 @@ def sizes(h: int) -> tuple[int, int]:
     return line, 2 * ((line * LINES + 6 + 1) // 2)
 
 
+def columns_of(rows: list[dict], first: int, last: int) -> list[str]:
+    """The middle row's columns, one a subject, in the order each first lays a piece on the frames stacked: a subject keeps
+    its column for the whole clip (C1, 2026-10-15: the tiles jumped 192 px and swapped rows as pieces began and ended)."""
+    out = []
+    for r in sorted((r for r in rows if r["first"] <= last and r["last"] >= first), key=lambda r: (r["first"], rows.index(r))):
+        who = r["subject"] or r["name"]
+        if who not in out:
+            out.append(who)
+    return out
+
+
+def layout(w: int, h: int, n: int) -> list[dict]:
+    """Where each column's tiles lie in the middle row (w by h), as [x, y, w, h]: its label, the piece's mask picture
+    (4:3, at most a little over half the row's height), and under it the reference's head crop and the reference whole."""
+    k = h / 768.0
+    cw = w // max(1, n)
+    lab = round(26 * k)
+    mw = min(cw - 8, int(0.52 * h * 4 / 3))
+    mw -= mw % 2
+    mh = mw * 3 // 4
+    y = lab + mh + round(8 * k)
+    rh = h - y - round(40 * k)
+    hs = min(rh, (cw - 12) // 2)
+    rw = min(cw - hs - 12, rh * 4 // 3)
+    out = []
+    for i in range(n):
+        x0 = i * cw
+        out.append({"column": [x0, 0, cw, h], "label": [x0 + 4, 2, cw - 8, lab], "mask": [x0 + (cw - mw) // 2, lab, mw, mh],
+                    "head": [x0 + 4, y, hs, hs], "whole": [x0 + hs + 8, y, rw, rw * 3 // 4], "caption_y": y + max(hs, rw * 3 // 4) + 4})
+    return out
+
+
+def job_folders(data: Path) -> dict[str, Path]:
+    """Each render's file name to the job folder that queued it, from every `*_job/<load>.render.queued.json` under `data`."""
+    out = {}
+    for q in sorted(data.glob("*_job/*.render.queued.json")):
+        try:
+            files = json.loads(q.read_text()).get("files") or []
+        except ValueError:
+            continue
+        if files:
+            out[Path(files[0]).name] = q.parent
+    return out
+
+
+def given_of_pieces(rows: list[dict], data: Path) -> dict[str, dict]:
+    """What each piece's load was handed, read from its own graph (`bench/what_h3_got.py`), by piece name. A piece whose job
+    folder is not found is shown from its picture's graph as before, and said so."""
+    import what_h3_got
+    folders = job_folders(data)
+    out = {}
+    for r in rows:
+        folder = folders.get(Path(r["piece"]).name)
+        if folder is None or r["name"] in out:
+            continue
+        load = Path(r["piece"]).stem.rsplit("_", 1)[0]
+        try:
+            out[r["name"]] = what_h3_got.read(folder, load, "render")
+        except SystemExit as e:
+            print(f"what H3 was given for {r['name']} could not be read from {folder.name}: {e}", flush=True)
+    return out
+
+
 def build(a: argparse.Namespace) -> None:
+    import cv2
     from PIL import Image, ImageDraw, ImageFont
     aliases = dict(x.split("=", 1) for x in a.alias)
     rows, intents = read_rows(a.table, a.copy_rate, aliases)
@@ -232,7 +309,6 @@ def build(a: argparse.Namespace) -> None:
         raise SystemExit(f"{a.table} lays no piece: there is nothing to stack beside the original")
     mw, mh, _ = probe(rows[0]["mask"])
     w, h = mw, mh // 2
-    line_h, bar = sizes(h)
     k = h / 768.0
 
     def font(size: float, bold: bool = True):
@@ -244,19 +320,24 @@ def build(a: argparse.Namespace) -> None:
         return ImageFont.load_default()
 
     big, mid, small, plain = font(40), font(20), font(15), font(15, bold=False)
+    line_h = max(10, round(LINE_AT_768 * k))
 
-    def label(img, text, size, xy=(8, 6)):
+    def label(img, text, size, xy=(8, 6), colour=(255, 235, 60)):
         d = ImageDraw.Draw(img)
         box = d.textbbox(xy, text, font=size)
         d.rectangle((box[0] - 4, box[1] - 3, box[2] + 4, box[3] + 3), fill=(0, 0, 0))
-        d.text(xy, text, font=size, fill=(255, 235, 60))
+        d.text(xy, text, font=size, fill=colour)
 
-    def fitted(d, text, size, width):
-        if d.textlength(text, font=size) <= width:
-            return text
-        while text and d.textlength(text + " ...", font=size) > width:
-            text = text[:-1]
-        return text + " ..."
+    def wrapped(text: str, size, width: int) -> list[str]:
+        """Every word kept: a line too wide goes on to the next, never cut."""
+        out, line = [], ""
+        for word in text.split():
+            if line and size.getlength(line + " " + word) > width:
+                out.append(line)
+                line = word
+            else:
+                line = (line + " " + word).strip()
+        return out + ([line] if line else [])
 
     for r in rows:
         print(f"{r['first']:5d}-{r['last']:<5d} {r['name']:34s} file starts at {r['piece_first']}, its graph at {r['graph_first']}; reference: "
@@ -270,22 +351,66 @@ def build(a: argparse.Namespace) -> None:
     first_f, last_f = (int(v) for v in a.only.split("-")) if a.only else (base, base + total - 1)
     if first_f < base or last_f > base + total - 1:
         raise SystemExit(f"--only {a.only} is not inside the clip's frames, {base} to {base + total - 1} of the source")
+    cols = columns_of(rows, first_f, last_f)
+    tiles = layout(w, h, len(cols))
+    data = Path(getattr(a, "data", "") or HERE.parent / "data")
+    given = given_of_pieces(rows, data) if data.is_dir() else {}
+    # the joined clip's own check (`bench/assemble_delivery.py` writes it beside the clip): each flag on its frames, whole
+    check_file = Path(a.joined + ".check.json")
+    flags = json.loads(check_file.read_text()).get("flags") or [] if check_file.is_file() else []
+    capm = None
+    if any(g for g in given.values()):
+        import capture_masked_run as capm                      # the strip's own head crop, one rule for both clips
+    heads, sampled = {}, {}
+    for name, g in given.items():
+        v = next((x for x in g["inputs"] if x.get("tag") == "<Video 1>"), None)
+        row = next(r for r in rows if r["name"] == name)
+        if v and capm is not None:
+            cw_, ch_ = (v.get("loader") or {}).get("custom") or [w, h]
+            got = capm.head_boxes(v, (cw_ or w, ch_ or h), (row["graph_first"], row["graph_first"] + (v.get("reference_frames") or 1) - 1))
+            heads[name] = (got, row["graph_first"], (cw_ or w, ch_ or h))
+        for e in (v or {}).get("encoder_frames") or []:
+            for x in e["sampled"]:
+                if not x["held"] and x["source_frame"] is not None:
+                    sampled.setdefault(name, set()).add(x["source_frame"])
+    # the block of words under the middle row: every line of every frame, wrapped and never cut; as tall as the most any frame needs
+    # the mask pictures are the node's own review (`video_mask.py::window_layers`), whose legend is too small to read here
+    key = ("MASK PICTURES are the node's own: red the mask the node was given, cyan what else regenerates, white outline what the render kept "
+           "(video_mask.window_layers). "
+           "Each column is one subject for the whole clip.")
+
+    def notes_of(f: int, panels: list[dict]) -> list[tuple[str, tuple]]:
+        out = [(key, (170, 170, 170))] + [(t, (255, 235, 60)) for t in words_of(f, rows, intents, panels)]
+        for fl in flags:
+            if any(x <= f <= y for x, y in fl["source_frames"]):
+                out.append((f"{fl['id']} {fl['level'].upper()} (the joined clip's check): {fl['why']}", (255, 170, 60)))
+        return out
+    lines_at = {}
+    for f in range(first_f, last_f + 1):
+        lines_at[f] = [(one, c) for text, c in notes_of(f, panels_of(f, rows)) for one in wrapped(text, plain, w - 16)]
+    bar = 2 * ((max(len(v) for v in lines_at.values()) * line_h + 8 + 1) // 2)
     work = Path(a.work)
     work.mkdir(parents=True, exist_ok=True)
     silent = str(work / (Path(a.out).stem + ".video.mp4"))
     fit = FIT.format(w=w, h=h)
+    sidecar = Path(a.table).with_name(Path(a.out).stem + ".json")
+    tag = f"comment=stack_delivery canvas={w}x{h} block={bar} sidecar={sidecar}"
     src, joined = Reader(a.source, first_f, fit, w, h), Reader(a.joined, first_f - base, fit, w, h)
     enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{w}x{h * 3 + bar}", "-r", _rate(a.joined), "-i", "-",
                             "-c:v", "libx264", "-crf", "17", "-pix_fmt", "yuv420p", "-preset", "medium", silent], stdin=subprocess.PIPE)
+    slow_out = str(Path(a.out).with_name(Path(a.out).stem + ".1fps.mp4")) if getattr(a, "one_a_second", False) else None
+    slow = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{w}x{h * 3 + bar}", "-r", "1", "-i", "-",
+                             "-c:v", "libx264", "-crf", "17", "-pix_fmt", "yuv420p", "-preset", "medium", "-metadata", tag, slow_out],
+                            stdin=subprocess.PIPE) if slow_out else None
     readers: dict[tuple, Reader] = {}
     missing: dict[str, list[int]] = {}
-    most = 0
+    records = []
     for f in range(first_f, last_f + 1):
         panels = panels_of(f, rows)
         keep = {(id(p["row"]), p["kind"]) for p in panels}
         for key in [key for key in readers if key not in keep]:
             readers.pop(key).close()
-        shown = []
+        by_col: dict[str, dict] = {}
         for p in panels:
             key = (id(p["row"]), p["kind"])
             if key not in readers:
@@ -293,23 +418,63 @@ def build(a: argparse.Namespace) -> None:
             got = readers[key].frame(p["frame"])
             if got is None:
                 missing.setdefault(f"{p['row']['name']} {p['kind']}", []).append(f)
-            else:
-                shown.append((got, p["words"]))
-        most = max(most, len(shown))
+                continue
+            who = p["row"]["subject"] or p["row"]["name"]
+            slot = by_col.setdefault(who, {"row": p["row"]})
+            if slot["row"] is not p["row"]:
+                missing.setdefault(f"a second piece of {who} on one frame (the first is shown)", []).append(f)
+                continue
+            slot[p["kind"]] = (got, p["frame"])
         mid_img = Image.new("RGB", (w, h), (0, 0, 0))
-        if not shown:
-            d = ImageDraw.Draw(mid_img)
-            d.text((round(40 * k), round(300 * k)), "NO RENDER ON THIS FRAME", font=big, fill=(255, 235, 60))
-            d.text((round(40 * k), round(360 * k)), "the row below is the original", font=mid, fill=(230, 230, 230))
-        elif len(shown) == 1:
-            mid_img = Image.fromarray(shown[0][0])
-            label(mid_img, shown[0][1], mid)
-        else:
-            pw, ph = w // 2, h // 2
-            for i, (arr, said) in enumerate(shown[:4]):
-                tile = Image.fromarray(arr).resize((pw, ph), Image.BILINEAR)
-                label(tile, said, small)
-                mid_img.paste(tile, ((i % 2) * pw, (i // 2) * ph if len(shown) > 2 else ph // 2))
+        d = ImageDraw.Draw(mid_img)
+        rec = {"source_frame": f, "clip_frame": f - base, "columns": {}, "check_flags": [fl["id"] for fl in flags if any(x <= f <= y for x, y in fl["source_frames"])]}
+        for who, t in zip(cols, tiles):
+            x0, y0, cw, ch = t["column"]
+            d.rectangle((x0, y0, x0 + cw - 1, y0 + ch - 1), fill=(22, 24, 30))
+            slot = by_col.get(who)
+            if slot is None:
+                label(mid_img, f"{who}: the original on this frame (no piece)", small, (t["label"][0], t["label"][1]), (200, 200, 200))
+                rec["columns"][who] = None
+                continue
+            row = slot["row"]
+            name = row["name"]
+            live = [fl for fl in flags if any(x <= f <= y for x, y in fl["source_frames"]) and (fl.get("piece") or "").startswith(name)]
+            label(mid_img, f"{who}: {name}", small, (t["label"][0], t["label"][1]))
+            col = {"piece": name, "mask_frame": None, "reference_frame": None, "encoder_sample": f in sampled.get(name, set()),
+                   "check_flags": [fl["id"] for fl in live]}
+            if "mask" in slot:
+                x, y, tw, th = t["mask"]
+                mid_img.paste(Image.fromarray(cv2.resize(slot["mask"][0], (tw, th), interpolation=cv2.INTER_AREA)), (x, y))
+                col["mask_frame"] = slot["mask"][1]
+            if "reference" in slot:
+                ref, at = slot["reference"]
+                col["reference_frame"] = at
+                hb = heads.get(name)
+                boxes = hb[0] if hb else None
+                x, y, tw, th = t["whole"]
+                mid_img.paste(Image.fromarray(cv2.resize(ref, (tw, th), interpolation=cv2.INTER_AREA)), (x, y))
+                if boxes:
+                    i = min(max(f - hb[1], 0), len(boxes) - 1)
+                    sx, sy = w / hb[2][0], h / hb[2][1]
+                    bx0, by0, bx1, by1 = (round(boxes[i][0] * sx), round(boxes[i][1] * sy), round(boxes[i][2] * sx), round(boxes[i][3] * sy))
+                    x, y, hs, _ = t["head"]
+                    mid_img.paste(Image.fromarray(cv2.resize(ref[by0:by1, bx0:bx1], (hs, hs), interpolation=cv2.INTER_CUBIC)), (x, y))
+                    if col["encoder_sample"]:
+                        d.rectangle((x - 2, y - 2, x + hs + 1, y + hs + 1), outline=(90, 230, 110), width=3)
+                    cap = f"its reference, frame {at}: head, and whole"
+                else:
+                    cap = f"its reference, frame {at}, whole (no points beside it: no head crop)"
+                d.text((t["head"][0], t["caption_y"]), cap, font=small, fill=(230, 230, 230))
+            for fl in live:
+                if fl["rule"] == "piece_changes_nothing":
+                    # the original shows on this frame: the badge says what the piece's own tiles show here
+                    x, y, tw, th = t["mask"]
+                    said_ = wrapped(f"{fl['id']}: {name} CHANGES 0 PX HERE: THE ORIGINAL SHOWS", small, tw - 12)
+                    tall = len(said_) * round(20 * k) + round(8 * k)
+                    d.rectangle((x, y + th - tall, x + tw, y + th), fill=(120, 20, 20))
+                    for i_, one in enumerate(said_):
+                        d.text((x + 6, y + th - tall + round(4 * k) + i_ * round(20 * k)), one, font=small, fill=(255, 255, 255))
+            rec["columns"][who] = col
         s, j = src.frame(f), joined.frame(f - base)
         if s is None or j is None:
             raise SystemExit(f"frame {f}: the {'source' if s is None else 'clip'} could not be read; nothing written")
@@ -317,30 +482,38 @@ def build(a: argparse.Namespace) -> None:
         label(top, f"ORIGINAL   frame {f:05d}", big)
         label(bot, f"{a.tag or 'THE CLIP'}   frame {f:05d}", big)
         block = Image.new("RGB", (w, bar), (18, 18, 18))
-        d = ImageDraw.Draw(block)
-        notes = words_of(f, rows, intents, panels)
-        if len(notes) > LINES:
-            missing.setdefault("lines of words that did not fit the block", []).append(f)
-        pieces = max(1, sum(r["first"] <= f <= r["last"] for r in rows))
-        for i, text in enumerate(notes[:LINES]):
-            d.text((8, 4 + i * line_h), fitted(d, text, plain, w - 16), font=plain, fill=(255, 235, 60) if i < pieces else (220, 220, 220))
+        bd = ImageDraw.Draw(block)
+        for i, (text, colour) in enumerate(lines_at[f]):
+            bd.text((8, 4 + i * line_h), text, font=plain, fill=colour)
+        rec["words"] = [t for t, _ in lines_at[f]]
+        records.append(rec)
         frame = Image.new("RGB", (w, h * 3 + bar))
         frame.paste(top, (0, 0))
         frame.paste(mid_img, (0, h))
         frame.paste(block, (0, h * 2))
         frame.paste(bot, (0, h * 2 + bar))
-        enc.stdin.write(frame.tobytes())
+        data_ = frame.tobytes()
+        enc.stdin.write(data_)
+        if slow is not None:
+            slow.stdin.write(data_)
     enc.stdin.close()
-    if enc.wait():
+    if enc.wait() or (slow is not None and (slow.stdin.close() or slow.wait())):
         raise SystemExit("the encoder failed; nothing written")
     for r in readers.values():
         r.close()
     src.close()
     joined.close()
-    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", silent, "-i", a.joined, "-map", "0:v", "-map", "1:a?", "-c", "copy", a.out], check=True)
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", silent, "-i", a.joined, "-map", "0:v", "-map", "1:a?", "-c", "copy", "-metadata", tag, a.out], check=True)
     Path(silent).unlink()
-    print(f"written {a.out} ({last_f - first_f + 1} frames, {w} by {h * 3 + bar})")
-    print("most panels on one frame's middle row:", most, "(four are drawn)")
+    sidecar.write_text(json.dumps({"clip": a.out, "one_a_second": slow_out, "joined": a.joined, "table": a.table, "source": a.source,
+                                   "frames": [first_f, last_f], "canvas": [w, h], "block": bar, "columns": cols, "layout": tiles,
+                                   "given": given, "check_flags": flags, "records": Path(sidecar).with_suffix(".frames.jsonl").name}, indent=1, default=str) + "\n")
+    with open(sidecar.with_suffix(".frames.jsonl"), "w") as fh:
+        for rec in records:
+            fh.write(json.dumps(rec) + "\n")
+    print(f"written {a.out} ({last_f - first_f + 1} frames, {w} by {h * 3 + bar})" + (f" and {slow_out} (one a second, no sound)" if slow_out else ""))
+    print(f"its records: {sidecar} and {sidecar.with_suffix('.frames.jsonl').name}")
+    print("columns, one a subject for the whole clip:", ", ".join(cols))
     print("panels or words that could not be shown, as first frame, last frame, count:", {name: (v[0], v[-1], len(v)) for name, v in missing.items()} or "none")
 
 
@@ -376,14 +549,20 @@ def read_back(source: str, joined: str, out: str, first: int = 0) -> dict:
     """`first` is the source frame the clip begins on: the original row is held to the source from THAT frame."""
     w, total_h, n = probe(out)
     nj = probe(joined)[2]
-    h = None
-    for cand in range(total_h // 3, 0, -1):                       # the canvas's height: three rows and the block
-        if cand * 3 + sizes(cand)[1] == total_h:
-            h = cand
-            break
+    # the canvas and the block as the build wrote them into the file (since 2026-10-15 the block is as tall as the clip's words
+    # need); a file from before says nothing, and its canvas is found as that build laid it
+    said = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format_tags=comment", "-of", "csv=p=0", out], capture_output=True, text=True).stdout
+    import re
+    m = re.search(r"stack_delivery canvas=(\d+)x(\d+) block=(\d+)", said)
+    h, bar = (int(m.group(2)), int(m.group(3))) if m else (None, None)
     if h is None:
+        for cand in range(total_h // 3, 0, -1):                   # the canvas's height: three rows and the block
+            if cand * 3 + sizes(cand)[1] == total_h:
+                h, bar = cand, sizes(cand)[1]
+                break
+    if h is None or h * 3 + bar != total_h:
         raise SystemExit(f"{out} is {w} by {total_h}: not three rows and a block of words as this tool lays them")
-    bar, fit = sizes(h)[1], FIT.format(w=w, h=h)
+    fit = FIT.format(w=w, h=h)
     md5 = lambda p: subprocess.run(["ffmpeg", "-v", "error", "-i", p, "-map", "0:a", "-c", "copy", "-f", "md5", "-"], capture_output=True, text=True).stdout.strip()
     sound = (md5(out), md5(joined))
     return {"frames": n, "clip_frames": nj, "size": [w, total_h], "canvas": [w, h], "sound_packets": {"stacked": sound[0], "clip": sound[1], "the_same": bool(sound[0]) and sound[0] == sound[1]},
@@ -425,6 +604,9 @@ def main() -> int:
     b.add_argument("--copy-rate", type=float, default=24.0, help="the rate of the copy the pieces' graphs load: a loader's start is in its seconds")
     b.add_argument("--only", metavar="FIRST-LAST", help="a trial on these source frames alone (the sound is then the whole clip's)")
     b.add_argument("--first", type=int, default=0, metavar="SOURCE_FRAME", help="the source frame the clip's first frame is, for a clip of a span that does not begin on 0")
+    b.add_argument("--data", default="", help="the folder of the job folders (data/), where each piece's queued graph is found; the repo's own when not given")
+    b.add_argument("--one-a-second", action="store_true", help="also write <out>.1fps.mp4: the same frames at one a second, no sound, for an agent's "
+                   "video reader that takes one frame a second")
     c = sub.add_parser("check", help="read a stacked file back against the source and the clip")
     c.add_argument("--source", required=True)
     c.add_argument("--joined", required=True)

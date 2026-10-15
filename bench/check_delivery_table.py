@@ -532,7 +532,7 @@ def the_commands() -> str:
         with_record = dt.assembly(out, made, PLAN, repo, "data/t.txt", (0, 149), "--source '/in/a clip.mp4' --out /out/clip.mp4", (), python="py", shots_file="data/v/shots.json")
         assert " --out /out/clip.mp4 --shots data/v/shots.json --capture " in with_record["command"] and "--shots" not in built["command"], with_record["command"]
         assert built["stack"] == {"build": "py bench/stack_delivery.py build --source '/in/a clip.mp4' --table data/t.txt --joined /out/clip.mp4 "
-                                           "--out /out/clip_STACKED.mp4 --work /scratch/work",
+                                           "--out /out/clip_STACKED.mp4 --work /scratch/work --one-a-second",
                                   "check": "py bench/stack_delivery.py check --source '/in/a clip.mp4' --joined /out/clip.mp4 --out /out/clip_STACKED.mp4",
                                   "whole": True, "out": "/out/clip_STACKED.mp4"}, built["stack"]
         assert built["ledger_command"] == "py bench/render_ledger.py --share /share" and built["own_command"] == "py bench/delivery_table.py --ledger L"
@@ -548,7 +548,7 @@ def the_commands() -> str:
         # A CLIP OF A SPAN begins on the span's first frame, and the stack and its check are told so (2026-10-14: six one-shot clips were
         # stacked as if each began on frame 0); a clip from frame 0 carries no such word
         part = dt.assembly(out, made, PLAN, repo, "data/t.txt", (50, 149), "--source /in/clip.mp4 --out /out/clip.mp4", stack_work="/scratch/w")
-        assert part["stack"]["build"].endswith("--work /scratch/w --first 50") and part["stack"]["check"].endswith("--out /out/clip_STACKED.mp4 --first 50"), part["stack"]
+        assert part["stack"]["build"].endswith("--work /scratch/w --first 50 --one-a-second") and part["stack"]["check"].endswith("--out /out/clip_STACKED.mp4 --first 50"), part["stack"]
         assert "--first" not in built["stack"]["build"] + built["stack"]["check"], built["stack"]
         no_work = dt.assembly(out, made, PLAN, repo, "data/t.txt", (0, 149), "--source /in/clip.mp4 --out /out/clip.mp4")
         assert no_work["stack"]["whole"] is False and "NOT WHOLE: no `--stack-work`" in dt.reading_text(out, "m", "data/t.txt", no_work), no_work["stack"]
