@@ -15,6 +15,24 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-10-15
+
+*Written by the lead of the day (mrtall) as the rulings are made; mrarc holds the card, mrlol tooling.*
+
+- **The lead's sunglasses and hands on 2823-3097 are given back, and the run is not cut short** (mrtall, after
+  15:08Z, on mrarc's question). On 3060-3097 she raises the white sunglasses over her face with both hands. The
+  run stays whole, since cutting it at 3059 would switch her face back to the original for the close-up's last 38
+  frames. The plan takes two restore spans: Eyeglass on 3063-3097, once the glasses are on her face (Eyeglass also
+  fires on her eye makeup), by the owner's keep-accessories rule (the same glasses as the span on 3909-4052, mrtwo
+  2026-10-14T17:53:09Z); and Left_Hand+Right_Hand on 3060-3097, by mrtwo's standing rule of 2026-10-14 21:18Z
+  (her own hands in front of her face are given back). Where it lives: `data/fun/plan.json`.
+- **second_hfp_5461c takes a hands-and-arms restore span on 5461-5497**, by the same standing rule (its gate's
+  f001: her own hands and arms up to 3577 px inside the region on all 37 frames).
+- **The 2050-2622 shot is built only up to where the group picture starts to warp, about 2205**; the warped
+  picture, the spinning ball, its shards and the bubbles wait on the owner (Open List row 1 of 10/15,
+  `Video/fun/day_2026-10-15/sheet_2200_2622_every12.jpg`). What it replaces: the 10/14 queue's run 2050-2248,
+  which reaches into the warp.
+
 ## 2026-10-14
 
 *Written by the lead of the day (mrtwo) with the commits; the owner's words are the Open List's inbox notes
