@@ -78,6 +78,14 @@ her head" below: the fault was found elsewhere on 2026-10-14.)
   `data/2026-10-15_strangers_touching_0630d/`: every one is her own (fingertips on 654, her hair or scarf tail on
   669-673, her dress under her wrist on 678-680); the pieces touching nobody are the flower pitcher's handle and base
   and a speck by a dish, not a person. Figures: `internal/claude/2026-10-15_mrlol_scripts/strangers_on_her.txt`.
+- **Where the body model's own arm crosses its head, the face points are drawn on the arm** (2026-10-15, the outside
+  reviewer's C2, `internal/gemini/2026-10-15_clips_c2.md` section 1, on `lead_fp_1097c`'s stacked strip; seen at one
+  frame a second and not yet checked by a session's eye). In the 1097-1133 reference the body model's raised right
+  forearm passes across the right side of its head on 1097-1100. On 1104 its upper arm presses against the temple. The
+  drawn eye and brow lines lie over the arm: bench/head_reference.py draws the pose model's face points on top of
+  whatever the body model puts there. No count yet. The body model's picture has no class map kept, and the source's arm
+  inside the head box (the cheap proxy) would measure the source, not the fault (the lead, 2026-10-15). Wanted first:
+  a session's look at 1097-1104 of that reference, then a way to find the body model's arm over its head.
 
 **Masked video to video, 2026-10-14: rows of the day.**
 - **Gaze is a known limit: the render does not follow a horizontal gaze it is shown, and the pose model misses a
