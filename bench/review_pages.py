@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The owner's two local pages in a day's folder, made from the delivery table and the ledger: what is to review now (`to-review`), and what every stretch of the video is made of and from which day (`provenance`).
+"""The owner's two local pages in the video's folder on the share (`Video/<video>/`, one copy each), made from the delivery table and the ledger: what is to review now (`to-review`), and what every stretch of the video is made of and from which day (`provenance`).
 
     <python> bench/review_pages.py to-review --table T.json --ledger LEDGER.json [--previous-table T_BEFORE.json] \\
         --verdicts data/<stem>/verdicts/verdicts.jsonl --items data/<stem>/review/items.json --source SOURCE.mp4 \\

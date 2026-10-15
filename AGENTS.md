@@ -89,10 +89,12 @@ once; `docs/evidence.md`, "Settled about H3", has the rest.
   each piece came from and the gaps between pieces are the render ledger and
   the delivery table (`bench/render_ledger.py`, then `bench/delivery_table.py`,
   from the build records). After every landing or stopped load the lead makes
-  both new, then makes the owner's two local pages from those same two files:
-  `PROVENANCE.html` and `TO_REVIEW.html` in the day's folder on the share. A
-  session reads the files, the owner reads the pages, and nothing is typed or
-  written twice. A piece the table does not lay is not in the video.
+  both new, then makes the owner's two local pages from those same two files
+  (`bench/review_pages.py`): `PROVENANCE.html` and `TO_REVIEW.html` in the
+  video's folder on the share (`Video/<video>/`, one copy each, never a day's
+  folder). A session, and the outside reviewer, reads the files; the owner
+  reads the pages; nothing is typed or written twice. A piece the table does
+  not lay is not in the video.
 - **Checks**: `docs/checks.md` is the standard and the index; add one only
   when something escapes the existing ones, and every tool worth keeping is
   tracked with one, never parked in `internal/` or a scratchpad.
@@ -104,7 +106,7 @@ One home per kind of fact. Not two.
 | the fact | its one home |
 |---|---|
 | decisions waiting on the owner, their answers, and their passing thoughts | the H3 Open List (the owner's page with Claude): one card a decision; the "Tell Claude anything" box is the owner's inbox |
-| what stands in a video, where each piece came from, and the gaps | the newest ledger and delivery table under `data/<date>_<video>_delivery_tables/`, generated; the owner's `PROVENANCE.html` and `TO_REVIEW.html` are made from them |
+| what stands in a video, where each piece came from, and the gaps | the newest ledger and delivery table under `data/<date>_<video>_delivery_tables/`, generated, kept by the lead; the owner's `Video/<video>/PROVENANCE.html` and `TO_REVIEW.html` on the share are made from them |
 | what a video still needs | `bench/shot_coverage.py` on `data/<video>/shots.json`, `plan.json` and the delivery table; regenerated, never typed |
 | who is in each shot, and the owner's answers on the pictures | `data/<video>/shots.json` and `cast/cast.jsonl`; `bench/who_page.py` is the page the owner answers on |
 | the owner's verdicts on renders | `data/<video>/verdicts/verdicts.jsonl`, printed under each render by the coverage table |

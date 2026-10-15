@@ -33,6 +33,15 @@ Older history lives elsewhere and is not copied here:
   The held mask left 115, 69 and 6 px on 1015, 1018 and 1023: her fingertips, her fist and forearm, and on 1015
   the rim of a white egg she holds at her chin. This is mrtwo's rule of 2026-10-14 after 21:18Z for held things
   she touches near her face, widened from 1010d's "fingers and hand" to name the egg.
+- **The owner's two pages move to the video's folder and stay there** (the owner, about 15:24Z in the lead's
+  terminal). `PROVENANCE.html` and `TO_REVIEW.html` are written to `Video/fun/` on the share, one copy each,
+  made new by the lead after every landing or stopped load from the newest ledger and table
+  (`bench/review_pages.py`; the lead's session script is `internal/claude/2026-10-15_mrtall_scripts/pages.sh`).
+  What it used to say: `AGENTS.md`, "One ledger, made new on every landing", put them "in the day's folder on
+  the share", and on 10/13 and 10/14 they were written to `Video/fun/day_2026-10-13/`. That folder's two
+  pages are now forwarding stubs. The lead keeps the ledger: it is the source of truth that sessions and the
+  outside reviewer read for what stands, where each piece came from, and the gaps. `--day-folder` still points
+  at `day_2026-10-13`, where `bench/day_pieces.py`'s piece folders are read from.
 - **The mouth mend of 2026-10-14 (eed4acb9) drops correct mouths; the class-map mouth gets its own per-frame
   gate** (mrtall, after 15:19Z, on mrarc's finding; `internal/claude/2026-10-15_mrarc_scripts/refcheck/`).
   Under eed4acb9 a frame gets no mouth when the pose model's lip lines lie on the class map's mouth under
