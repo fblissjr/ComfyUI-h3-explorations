@@ -294,6 +294,75 @@ NO_MOUTH_CLASS_GATE = (f"the lip lines lie on the class map's mouth under {MOUTH
 NO_MOUTH_NO_HOLE = "the class map labels no teeth or tongue in her mouth there, and --class-mouth-needs-hole asks for none drawn ({why})"
 NO_FACE_PART = "no line of the face there (--no-face-on: {why})"
 NO_MOUTH_PART = "no mouth there on the job's word (--no-mouth-on: {why})"
+#: `--mouth-on` (the lead's ruling of 2026-10-15 on lead_fp_2823c, whose reference drew no mouth on 3098-3099 and 3101-3104 while she
+#: sings with it wide open, the part model labelling nothing there): on frames a person looked at and saw her mouth open, where the gate
+#: drops it, the pose model's outer and inner lip rings are drawn, the body model's own lips painted out under them and the inner ring's
+#: inside dark, the form the class map's inside gives under the lines. Refused on a frame with no lip ring over the score line, and on one
+#: the job leaves without a mouth or a face. A frame the gate already draws is left as it is, and the record says so.
+#: The score a lip ring's points must reach, on the mean, for a mouth drawn on a word. Inherited: the eye rings' own line
+#: (`h3_config.POSE_READING["eye_ring_score_at_least"]`), taken for the lips as the nearest measured line on the same model's face points;
+#: not measured on lips. A starting value.
+LIP_SCORE_AT_LEAST = faces.h3_config.POSE_READING["eye_ring_score_at_least"]
+MOUTH_ON = ("the pose model's lip rings on a person's word (--mouth-on), where the gate drops the mouth: the inner ring's inside dark, the body "
+            "model's lips painted out under it")
+
+
+def mouth_on_frames(first: int, count: int, spans: list[tuple[int, int, str]], bare: set[int], gated: set[int]) -> tuple[list[int], list[int]]:
+    """`--mouth-on` spans as (the frames the gate dropped, to draw by the points; the frames the gate already draws, left as they are).
+    A span outside the load, or on a frame the job leaves with no mouth or no face (`bare`), is refused."""
+    want = []
+    for a, b, why in spans:
+        if not (first <= a <= b <= first + count - 1):
+            raise SystemExit(f"--mouth-on {a}-{b}: the reference is {first}-{first + count - 1}")
+        if not str(why or "").strip():
+            raise SystemExit(f"--mouth-on {a}-{b} takes a person's word: who looked, and that her mouth is open there")
+        want += range(a, b + 1)
+    clash = sorted(set(want) & set(bare))
+    if clash:
+        raise SystemExit(f"--mouth-on names {clash[0]}-{clash[-1]}, where the job draws no mouth or no face (--no-mouth-on, --no-face-on, her part "
+                         "holding no lips): one says open, the other none")
+    return sorted(f for f in set(want) if f in gated), sorted(f for f in set(want) if f not in gated)
+
+
+def unscored_lips(rows: dict, first: int, frames: list[int]) -> list[int]:
+    """The frames of `frames` on which either lip ring's points score under `LIP_SCORE_AT_LEAST` on the mean: each ring's own points,
+    as `draw_face_points.shapes` builds it (the two corners and the upper and lower lip points of that ring). The lip rings are drawn
+    whatever their points score; a mouth on a word is drawn only where both score."""
+    import numpy as np
+    idx = rows["index"]
+    ring_ids = {where: [i for n, i in idx.items() if n in (f"r_{where}_corner_of_mouth", f"l_{where}_corner_of_mouth")
+                        or n.endswith(f"_of_upper_{where}_lip") or n.endswith(f"_of_lower_{where}_lip") or (where == "outer" and n == "center_of_cupid_bow")]
+                for where in ("outer", "inner")}
+    return [f for f in frames if any(not ids or float(np.mean(rows["scores"][f - first][ids])) < LIP_SCORE_AT_LEAST for ids in ring_ids.values())]
+
+
+def lip_rings(cut: str, cut_points: str, names: list[str] | None, first: int, count: int, frames: list[int]) -> dict[int, tuple]:
+    """For each of `frames` (source frames), the pose model's lip rings on the cut picture as a class-map mouth is held, (the outer
+    ring filled, the inner ring filled) as masks of the cut frame. Refused where either ring's points score under `LIP_SCORE_AT_LEAST`
+    on a frame named (the mean over the ring's own points)."""
+    import cv2
+    import numpy as np
+    rows, _ = faces.rows_of(cut_points, names, first, count, None)
+    idx = rows["index"]
+    w, h, _ = cap_probe(cut)
+    out, lacking = {}, []
+    # each ring's own points, as `draw_face_points.shapes` builds them: the two corners and the upper and lower lip points of that ring
+    lacking = unscored_lips(rows, first, frames)
+    for f in frames:
+        if f in lacking:
+            continue
+        sc = rows["scores"][f - first]
+        got = {n: pts for n, pts, _ in faces.shapes(rows["keypoints"][f - first], sc, idx, LIP_SCORE_AT_LEAST) if n.endswith("_lip_ring")}
+        masks = []
+        for n in ("outer_lip_ring", "inner_lip_ring"):
+            m = np.zeros((h, w), np.uint8)
+            cv2.fillPoly(m, [np.round(got[n]).astype(np.int32)], 1)
+            masks.append(m.astype(bool))
+        out[f] = tuple(masks)
+    if lacking:
+        raise SystemExit(f"--mouth-on: the pose model gives no lip ring over the score line on {len(lacking)} frame(s) ({lacking[0]}..{lacking[-1]}): "
+                         "nothing to draw a mouth from there")
+    return out
 
 
 def no_mouth_frames(first: int, count: int, spans: list[tuple[int, int, str]]) -> dict[str, list[int]]:
@@ -448,20 +517,31 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         mouth: str | None = None, mouth_why: str = "", classes: str | None = None, classes_first: int | None = None,
         no_mouth_on: list[tuple[int, int, str]] | None = None, over_the_eyes: list[tuple[int, int, str]] | None = None,
         no_face_on: list[tuple[int, int, str]] | None = None, class_mouth_needs_hole: str | None = None,
-        eyes_shut_on: list[tuple[int, int, str]] | None = None, eyes_shut_form: str | None = None, say=print) -> dict:
+        eyes_shut_on: list[tuple[int, int, str]] | None = None, eyes_shut_form: str | None = None,
+        mouth_on: list[tuple[int, int, str]] | None = None, say=print) -> dict:
     """Cut, cut, draw, record. Returns the record; `passed` is True only when all three steps passed.
 
     `no_face_on`: source frames on which no line of the face is drawn at all, the plain cut body model alone, each with its reason:
     the load's part is her hair alone there (the lead's ruling of 2026-10-15 on second_hp_5461b, whose reference drew eyes, brows and
     a nose as large as on a plain face while her face was hidden behind her hands), or a person's word that the face does not show
     there (a head turned away, hidden behind somebody: the hall shot's references of 2026-10-15). Those frames have no mouth either;
-    where they cover the whole span, the record lists every part as left out."""
+    where they cover the whole span, the record lists every part as left out.
+
+    `mouth_on`: source frames on which a person's look says her mouth is open where the gate drops it (`MOUTH_ON`): the pose model's lip
+    rings drawn there, their inside dark under them, as the class map's inside is under the lines on other frames."""
     faceless = sorted({f for a, b, _ in no_face_on or [] for f in range(max(a, first), min(b, first + count - 1) + 1)})
     # HER EYES SHUT ON A SPAN, on a person's word (`--eyes-shut-on` with `--eyes-shut-form`, the lead's ruling of 2026-10-15 on 2823b;
     # `draw_face_points.EYES_SHUT_FORMS` says why and what each form draws). The pose model's lids stop at a slit on a shut eye
     shut = sorted({f for a, b, _ in eyes_shut_on or [] for f in range(max(a, first), min(b, first + count - 1) + 1)} - set(faceless))
     if eyes_shut_on and eyes_shut_form not in faces.EYES_SHUT_FORMS:
         raise SystemExit(f"--eyes-shut-on takes --eyes-shut-form, one of {faces.EYES_SHUT_FORMS}; got {eyes_shut_form!r}")
+    # --mouth-on's refusals that need only the inputs, before anything is written (the cold reader of 2026-10-15: refused late, they left
+    # the cuts behind and the same --out was then refused): its spans, its words, its clashes, and a mouth gate to override
+    if mouth_on:
+        if mouth != "auto" or not classes or classes_first is None:
+            raise SystemExit("--mouth-on draws the lip rings where the frame-at-a-time gate drops them (--mouth auto, a class map that holds her lips "
+                             "on some frame); this reference has no such gate")
+        mouth_on_frames(first, count, mouth_on, set(faceless) | {f for fs in no_mouth_frames(first, count, no_mouth_on or []).values() for f in fs}, set())
     if out.suffix != ".mp4":
         raise SystemExit(f"--out {out} must end in .mp4: the other files are named from it")
     made = outputs(out)
@@ -483,6 +563,19 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         say(f"    {len(got)} frame(s) whose face's middle lies on her own glasses, off the track, are on it by the lower face (--over-the-eyes): "
             + ", ".join(f"{a}-{b}" if a != b else str(a) for a, b in spans_of(got)))
     filled, unfilled = fill_from_neighbours(on_track["frames_whose_face_middle_is_off_the_track"], first, count)
+    # --mouth-on's lip scores, before anything is written: as the cut will hold them (a crop does not change a score; a filled frame scores
+    # the lesser of its neighbours', `write_filled`), so this and `lip_rings` cannot disagree (the cold reader of 2026-10-15)
+    if mouth_on:
+        import numpy as np
+        rows_in = faces.rows_of(points, names, first, count, points_first)[0]
+        sc = np.array(rows_in["scores"], copy=True)
+        for f, (a_, b_) in filled.items():
+            sc[f - first] = np.minimum(sc[a_ - first], sc[b_ - first])
+        named = sorted({f for a_, b_, _ in mouth_on for f in range(a_, b_ + 1)})
+        lacking = unscored_lips({**rows_in, "scores": sc}, first, named)
+        if lacking:
+            raise SystemExit(f"--mouth-on: the pose model gives no lip ring over the score line on {len(lacking)} frame(s) ({lacking[0]}..{lacking[-1]}): "
+                             "nothing to draw a mouth from there")
     # A FRAME WITH NO LINE OF THE FACE (`no_face_on`) draws no face, whoever's the points are: off the track there is data, not a fault
     # (lead_fp_4310b, 2026-10-15: 4397 and 4398, at the span's edge inside --no-face-on 4395-4398, failed the reference)
     off_and_bare = [f for f in unfilled if f in set(faceless)]
@@ -567,12 +660,33 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         agreed = [r["frame"] for r in rows if r.get("on_body_floor") == CLASS_MOUTH_GATE["agreed_on_body"] and r["drawn"] and not r.get("filled")]
         gated = [first + f for f in range(count) if not on_lines[f] and not passes[f] and first + f not in holeless]
         mouths = [m if on_lines[f] or passes[f] else None for f, m in enumerate(mouths)]
+        # A MOUTH ON A PERSON'S WORD where the gate drops it (`--mouth-on`, `MOUTH_ON`): the lip rings, with their own inside
+        # dropped by the gate, or by --class-mouth-needs-hole (the outside reviewer's C7b: a holeless frame named was said to be drawn)
+        worded, already = mouth_on_frames(first, count, mouth_on or [], partless, set(gated) | set(holeless))
+        worded_drawn = []
+        if worded:
+            rings = lip_rings(str(made["plain_cut"]), str(made["plain_cut_points"]), names, first, count, worded)
+            for f, (whole, hole) in rings.items():
+                mouths[f - first] = (whole, hole)
+                on_lines[f - first] = True                 # the lines drawn there, with their inside: counted as the lines' frames are
+                rows[f - first].update(drawn_on_a_word=True)
+            gated = [f for f in gated if f not in rings]
+            holeless = [f for f in holeless if f not in rings]
+            worded_drawn = sorted(rings)
+        if mouth_on:
+            said_on = {"rule": MOUTH_ON, "drawn_on_the_word": spans_of(worded), "already_drawn_by_the_gate": spans_of(already),
+                       "on_whose_word": [{"first": a_, "last": b_, "why": why} for a_, b_, why in mouth_on]}
+            say(f"    THE MOUTH ON A PERSON'S WORD on {len(worded)} frame(s) the gate drops ("
+                + (", ".join(f"{a}-{b}" if a != b else str(a) for a, b in spans_of(worded)) or "none") + "): the pose model's lip rings, their "
+                "inside dark" + (f"; already drawn by the gate on {', '.join(f'{a}-{b}' if a != b else str(a) for a, b in spans_of(already))}"
+                                 if already else ""))
         mouth_said.update(inside="the class map", inside_on_frames=sum(m is not None for f, m in enumerate(mouths) if on_lines[f]), gate=gate,
                           frames_by_the_lip_lines=spans_of(by_lines), frames_by_the_class_map=spans_of(by_class),
                           over_time={"rule": dict(MOUTH_RUNS), "rule_is": "starting values (bench/results/2026-10-15_mouth_runs.md)",
                                      "held_on_the_lip_lines": spans_of(held_on), "filled_by_the_class_map": spans_of(refilled)},
+                          **({"mouth_on": said_on} if mouth_on else {}),
                           **({"class_mouth_needs_hole": {"why": class_mouth_needs_hole, "no_mouth_on": spans_of(holeless)}} if class_mouth_needs_hole else {}))
-        leave_out = (frozenset(leave_out) - {"mouth"}) if by_lines else (frozenset(leave_out) | {"mouth"})
+        leave_out = (frozenset(leave_out) - {"mouth"}) if by_lines or worded_drawn else (frozenset(leave_out) | {"mouth"})
         say(f"    a frame at a time: the lip lines on {len(by_lines)} of {count} frames ({len(held_on)} held on them under the share, over "
             f"{MOUTH_RUNS['leave_lines']:g}), the class map's own mouth on {len(by_class)} (on the body model at {CLASS_MOUTH_GATE['on_body']:g} or "
             f"more, {CLASS_MOUTH_GATE['agreed_on_body']:g} where the pose and the class map agree, on {len(agreed)}; {len(refilled)} drop-out frame(s) "
@@ -581,6 +695,9 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     elif mouths is not None:
         mouths = None
         say(f"    the mouth: LEFT OUT: the class map holds her lips on none of the {count} frames")
+    if mouth_on and not (mouth_said and (mouth_said.get("mouth_on") or {}).get("rule")):
+        raise SystemExit("--mouth-on draws the lip rings where the frame-at-a-time gate drops them (--mouth auto, a class map that holds her lips "
+                         "on some frame); this reference has no such gate")
     # NO MOUTH ON A FRAME where neither the lines nor the class map's gate place it, or where the load's part holds no lips (the lead's
     # rulings of 2026-10-14 on the blind readers of 630b, 805b and 1010d: the mouth drawn off her face in profile and on her chest)
     bare = no_mouth_frames(first, count, no_mouth_on or [])
@@ -714,6 +831,9 @@ def main() -> int:
     a.add_argument("--no-mouth-on", action="append", default=[], metavar="FIRST-LAST=WHY",
                    help="source frames on which no mouth is drawn, with why: the load's part holds no lips there (the job's parts_on, hair alone), "
                         "or a person's word on a look (the job's mouth.no_mouth_on); repeatable")
+    a.add_argument("--mouth-on", action="append", default=[], metavar="FIRST-LAST=WHY",
+                   help="source frames on which a person looked and saw her mouth open where the gate drops it: the pose model's lip rings "
+                        "drawn there, their inside dark (MOUTH_ON); refused where no lip ring is over the score line; repeatable")
     a.add_argument("--class-mouth-needs-hole", metavar="WHY", help="an option, off unless asked: on a frame given the class map's own mouth "
                    "with no teeth or tongue labelled, draw no mouth; the reason is kept in the record")
     a.add_argument("--no-face-on", action="append", default=[], metavar="FIRST-LAST=WHY",
@@ -737,7 +857,8 @@ def main() -> int:
               classes=v.classes, classes_first=v.classes_first, no_mouth_on=[no_mouth_arg(x) for x in v.no_mouth_on],
               over_the_eyes=[no_mouth_arg(x, "--over-the-eyes") for x in v.over_the_eyes],
               no_face_on=[no_mouth_arg(x, "--no-face-on") for x in v.no_face_on], class_mouth_needs_hole=v.class_mouth_needs_hole,
-              eyes_shut_on=[no_mouth_arg(x, "--eyes-shut-on") for x in v.eyes_shut_on], eyes_shut_form=v.eyes_shut_form)
+              eyes_shut_on=[no_mouth_arg(x, "--eyes-shut-on") for x in v.eyes_shut_on], eyes_shut_form=v.eyes_shut_form,
+              mouth_on=[no_mouth_arg(x, "--mouth-on") for x in v.mouth_on])
     return 0 if rec["passed"] else 1
 
 

@@ -756,6 +756,112 @@ def a_frame_at_a_time_in_the_lines_form() -> str:
             "the class map read from its own first frame")
 
 
+def _mouth_room(name: str, lip_score: dict[int, float] | None = None, holeless: tuple[int, ...] = ()):
+    """A case's folder for the mouth on a word: the lips on the lip ring on 0-5 (the lines draw there), and no lips in the class map on 6-11
+    (the gate drops the mouth there). `lip_score`: the lip points' score on the frames named (as on 2823c's 3098-3104, where the part model
+    labels nothing, the points can still be scored)."""
+    import cv2
+    import capture_masked_run as cap
+    from _lib import face_points as fp
+    names = cap._pack("sapiens2_parts").CLASS_NAMES
+    folder = WORK / name
+    folder.mkdir()
+    scores = np.full((N, len(fl.NAMES)), 0.9)
+    scores[:, [i for n, i in fl.INDEX.items() if "pupil" in n]] = 0.2
+    lip_ids = [i for n, i in fl.INDEX.items() if n.endswith("_lip") or n.endswith("_corner_of_mouth") or n == "center_of_cupid_bow"]
+    for f, v in (lip_score or {}).items():
+        scores[f, lip_ids] = v
+    pts = fl.save(folder / "shot_points.npz", fl.face(CENTRES), (W, H), first=0, scores=scores)
+    mesh, source = video(folder / "mesh.mkv", grey([90] * N)), video(folder / "source.mkv", grey([60] * N, size=(W * 2 + 64, H * 2)))
+    P = fp.load(str(pts), None)
+    lips = [i for k, i in P["index"].items() if "outer_lip" in k or k in ("r_outer_corner_of_mouth", "l_outer_corner_of_mouth")]
+    cm = np.zeros((N, H, W), np.uint8)
+    for f in range(6):
+        ring = np.round(P["keypoints"][f][lips]).astype(np.int32)
+        cv2.fillPoly(cm[f], [cv2.convexHull(ring)], names.index("Tongue"))
+        cv2.polylines(cm[f], [cv2.convexHull(ring)], True, names.index("Upper_Lip"), 3)
+    for f in holeless:                       # lips at the pose mouth, clear of the ring, with no teeth or tongue: the gate passes them
+        xy = P["keypoints"][f][lips]
+        cx, cy = (int(round(v)) for v in xy.mean(0))
+        ax, ay = (max(int(0.35 * (xy[:, i].max() - xy[:, i].min()) / 2), 3) for i in (0, 1))
+        cv2.ellipse(cm[f], (cx, cy), (ax, ay), 0, 0, 360, names.index("Upper_Lip"), -1)
+    classes = folder / "classes.mkv"
+    enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "gray", "-s", f"{W}x{H}", "-r", "24", "-i", "-", "-c:v", "ffv1",
+                            "-level", "3", str(classes)], stdin=subprocess.PIPE)
+    enc.stdin.write(cm.tobytes()); enc.stdin.close(); assert enc.wait() == 0
+    return folder, mesh, pts, source, classes, P, lips
+
+
+def the_mouth_on_a_word() -> str:
+    """`--mouth-on` (the lead's ruling of 2026-10-15 on lead_fp_2823c: no mouth drawn on 3098-3099 and 3101-3104 while she sings with it wide
+    open, the part model labelling nothing there): on the frames a person names, where the gate drops the mouth, the pose model's lip rings
+    are drawn, the inner ring's inside dark; a frame the gate already draws is left as it is; refused where the lip points do not score, on a
+    frame the job leaves with no mouth, outside the span, and on a reference with no frame-at-a-time gate."""
+    import draw_face_points as dfp
+    folder, mesh, pts, source, classes, P, lips = _mouth_room("mouth_on_word")
+    said: list[str] = []
+    rec = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head.mp4", "the check", room=ROOM, mouth="auto", classes=str(classes),
+                 classes_first=0, mouth_on=[(6, 8, "A LOOK at a sheet: her mouth open"), (2, 3, "A LOOK")], say=said.append)
+    m = rec["drawn"]["mouth"]
+    # THE CASE THAT GOES RED when the frames a person names stay without a mouth, or a frame the gate draws is drawn again
+    assert m["mouth_on"]["drawn_on_the_word"] == [[6, 8]] and m["mouth_on"]["already_drawn_by_the_gate"] == [[2, 3]], m.get("mouth_on")
+    assert m["no_mouth_on"] == {hr.NO_MOUTH_CLASS_GATE: [[9, 11]]} and m["frames_with_no_mouth"] == 3, m["no_mouth_on"]
+    assert rec["passed"] and any("THE MOUTH ON A PERSON'S WORD on 3 frame(s) the gate drops (6-8)" in x for x in said), said
+    rw, rh = rec["size"]
+    x0, y0, x1, y1 = rec["box"]
+    inner = [i for k, i in P["index"].items() if "inner_lip" in k or k in ("r_inner_corner_of_mouth", "l_inner_corner_of_mouth")]
+
+    def at(f: int, ids: list[int]) -> tuple[np.ndarray, list[tuple[int, int]]]:
+        pic = next(dfp.stream(str(folder / "head.mp4"), (rw, rh), f, 1, pix="rgb24")).max(-1)
+        return pic, [(int(round((x - x0) * rw / (x1 - x0))), int(round((y - y0) * rh / (y1 - y0)))) for x, y in P["keypoints"][f][ids]]
+
+    def ring_white(f: int) -> int:
+        pic, xy = at(f, lips)
+        return sum(bool((pic[max(y - 1, 0):y + 2, max(x - 1, 0):x + 2] > 200).any()) for x, y in xy)
+
+    def inside_dark(f: int) -> bool:
+        pic, xy = at(f, inner)
+        cx, cy = np.mean(xy, 0).round().astype(int)
+        return bool(pic[cy, cx] < 40)
+    # THE CASE THAT GOES RED when the lip rings are not drawn on a word's frame, or their inside is not dark (an outline over closed lips)
+    assert ring_white(7) > len(lips) // 2 and ring_white(10) == 0, (ring_white(7), ring_white(10))
+    assert inside_dark(7) and not inside_dark(10), (inside_dark(7), inside_dark(10))
+    # refused: lip points that do not score on a frame named; a frame the job leaves without a mouth; outside the span; no gate to override
+    f2, m2, p2, s2, c2, _, _ = _mouth_room("mouth_on_unscored", lip_score={7: 0.1})
+    for words, kw, where in (("no lip ring over the score line", {"mouth_on": [(6, 8, "A LOOK")]}, (f2, m2, p2, s2, c2)),
+                             ("one says open", {"mouth_on": [(9, 10, "A LOOK")], "no_mouth_on": [(10, 11, "HIDDEN")]}, None),
+                             ("the reference is 0-11", {"mouth_on": [(11, 12, "A LOOK")]}, None),
+                             ("takes a person's word", {"mouth_on": [(9, 10, " ")]}, None)):
+        fo, me, po, so, cl = where or _mouth_room(f"mouth_on_{len(list(WORK.iterdir()))}")[:5]
+        try:
+            hr.run(str(me), str(po), str(so), 0, N, fo / "head.mp4", "the check", room=ROOM, mouth="auto", classes=str(cl), classes_first=0,
+                   say=lambda *_: None, **kw)
+        except SystemExit as e:
+            assert words in str(e), (words, str(e))
+        else:
+            raise AssertionError(f"not refused: {words}")
+        # THE CASE THAT GOES RED when a refusal that needs only the inputs comes after the cuts are written (the cold reader of 2026-10-15)
+        assert not list(fo.glob("head*")), (words, sorted(x.name for x in fo.glob("head*")))
+    # a frame --class-mouth-needs-hole leaves with no mouth is a frame the word draws (the outside reviewer's C7b of 2026-10-15: it was said
+    # to be drawn by the gate and left bare), and the word's frames count among those with an inside
+    fo, me, po, so, cl = _mouth_room("mouth_on_holeless", holeless=(7,))[:5]
+    rec = hr.run(str(me), str(po), str(so), 0, N, fo / "head.mp4", "the check", room=ROOM, mouth="auto", classes=str(cl), classes_first=0,
+                 class_mouth_needs_hole="A TEST", mouth_on=[(7, 8, "A LOOK")], say=lambda *_: None)
+    m = rec["drawn"]["mouth"]
+    # THE CASE THAT GOES RED when a holeless frame named is counted as the gate's and left bare, or the word's insides are not counted
+    assert m["mouth_on"]["drawn_on_the_word"] == [[7, 8]] and m["mouth_on"]["already_drawn_by_the_gate"] == [], m["mouth_on"]
+    assert not any("no teeth or tongue" in k for k in m.get("no_mouth_on") or {}) and m["inside_on_frames"] >= 8, (m.get("no_mouth_on"), m["inside_on_frames"])
+    fo, me, po, so, _ = _mouth_room("mouth_on_no_gate")[:5]
+    try:
+        hr.run(str(me), str(po), str(so), 0, N, fo / "head.mp4", "the check", room=ROOM, mouth_on=[(6, 8, "A LOOK")], say=lambda *_: None)
+    except SystemExit as e:
+        assert "has no such gate" in str(e) and not list(fo.glob("head*")), (str(e), sorted(x.name for x in fo.glob("head*")))
+    else:
+        raise AssertionError("--mouth-on taken on a reference with no frame-at-a-time gate")
+    return ("the pose model's lip rings, their inside dark, on the frames a person names where the gate drops the mouth; left as they are where "
+            "it draws one; refused where the lips do not score, the job says no mouth, outside the span and with no gate")
+
+
 case("one run makes the form", one_run_makes_the_form)
 case("a face off the subject's track fails the run", a_face_off_the_track_fails)
 case("her own glasses over her eyes, off her track", her_glasses_over_her_eyes)
@@ -771,5 +877,6 @@ case("no clip-level gate, and the head's box before the pieces", no_clip_gate_an
 case("it writes over nothing, and nothing when it cannot finish", it_writes_over_nothing)
 case("the form's defaults can be set aside, and the record says so", the_defaults_can_be_set_aside)
 case("a step that fails fails the run", a_step_that_fails_fails_the_run)
+case("the mouth on a person's word where the gate drops it", the_mouth_on_a_word)
 shutil.rmtree(WORK, ignore_errors=True)
 sys.exit(finish())

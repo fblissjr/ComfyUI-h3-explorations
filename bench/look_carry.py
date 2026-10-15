@@ -280,7 +280,9 @@ def drawn_frames(job: Path | None, first: int, last: int) -> dict:
         if not mouth.get("drawn") or inside(bare, f):
             m = "no mouth"
         elif "frames_by_the_lip_lines" in mouth:
-            m = "the lip lines" if inside(mouth["frames_by_the_lip_lines"], f) else "the class map" if inside(mouth.get("frames_by_the_class_map"), f) else "no mouth"
+            m = ("the lip lines" if inside(mouth["frames_by_the_lip_lines"], f) else "the class map" if inside(mouth.get("frames_by_the_class_map"), f)
+                 # a mouth on a person's word (`head_reference --mouth-on`, 2026-10-15): the lip rings where the gate dropped it
+                 else "the lip rings on a person's word" if inside((mouth.get("mouth_on") or {}).get("drawn_on_the_word"), f) else "no mouth")
         else:
             m = mouth.get("drawn_as", "the lip lines")
         shut = said.get("eyes_shut") or {}

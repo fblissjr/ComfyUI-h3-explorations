@@ -466,7 +466,13 @@ def white_at(path: Path | str, mesh: np.ndarray, skip: int = 0, but: np.ndarray 
     got = np.stack(list(stream(str(path), (w, h), skip, n, pix="rgb24")))
     if len(got) != n:
         raise RuntimeError(f"{path} reads back {len(got)} frames, {n} were asked for")
-    found = (got.min(-1) > WHITE) & (mesh.min(-1) <= WHITE - NEAR_WHITE)
+    # A CODEC MOVES AN EDGE BY A PIXEL: the body model's own bright edge, shifted one pixel in the encode, read back as one pixel of white
+    # on a bare frame and failed lead_fp_2823c's remake (3109, 2026-10-15; mesh 227 beside 255, the written frame over WHITE). So white is a
+    # line's only where the mesh is not near white within a pixel either way
+    import cv2
+    near = (mesh.min(-1) > WHITE - NEAR_WHITE).astype(np.uint8)
+    near = np.stack([cv2.dilate(x, np.ones((3, 3), np.uint8)) for x in near]).astype(bool)
+    found = (got.min(-1) > WHITE) & ~near
     if but is not None:
         found &= ~but
     return [np.stack(np.nonzero(f)[::-1], 1).astype(float) for f in found]

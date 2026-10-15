@@ -1265,7 +1265,8 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
              motion_why: str | None = None, no_strangers: str | None = None, no_mouth_on: list[tuple[int, int, str]] | None = None,
              eyes_shut_on: list[tuple[int, int, str]] | None = None, eyes_shut_form: str | None = None,
              no_face_on: list[tuple[int, int, str]] | None = None, hold_part: list[tuple[int, int, str]] | None = None, seam: list[int] | None = None,
-             seam_why: str | None = None, context_noise: float | None = None, context_noise_why: str | None = None) -> dict:
+             seam_why: str | None = None, context_noise: float | None = None, context_noise_why: str | None = None,
+             mouth_on: list[tuple[int, int, str]] | None = None) -> dict:
     """The job file of one subject's load on a shot, from the shot's preview. `preview` is the preview's own job
     block; `source` is the file the load renders from, the video's present copy (the preview's own when left out).
     `parts` with `parts_by` makes the load's part some of its subject's plan parts (`part_of`)."""
@@ -1408,6 +1409,39 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         if sorted(parts or []) == ["hair"]:
             raise Refused("--no-face-on on a load of her hair alone: no line of the face is drawn on any of its frames already")
         ref_form["no_face_on"] = spans
+    # A MOUTH ON A SPAN, on a person's word (`--mouth-on FIRST-LAST=WHY`, the lead's ruling of 2026-10-15 on lead_fp_2823c, whose reference
+    # drew no mouth on 3098-3099 and 3101-3104 while she sings with it wide open): where the reference's gate drops the mouth, the pose model's
+    # lip rings are drawn with a dark inside (head_reference.MOUTH_ON). The same terms as --no-mouth-on: the look and its file named, each
+    # span inside the load; never on a frame the job leaves with no mouth or no face
+    if mouth_on:
+        if motion == "none":
+            raise Refused("--mouth-on acts on the drawn reference, and this load has none (--motion none)")
+        spans = []
+        for x, y, said in mouth_on:
+            said = " ".join(str(said).split())
+            if not (a <= x <= y <= b):
+                raise Refused(f"--mouth-on {x}-{y}: the load is {a}-{b}")
+            if not any(Path(w.strip(".,;:()\"'")).is_file() for w in said.split()):
+                raise Refused(f"--mouth-on {x}-{y} takes a person's word on a look: who looked, at which sheet of those frames (name its file: the "
+                              "tool checks only that a file of that name is there), and that her mouth is open there")
+            spans.append({"first": x, "last": y, "why": said, "said_by": by, "at": now})
+        # a mouth form other than the check's (`auto`) has no gate to override (the cold reader of 2026-10-15)
+        if ref_form["mouth"].get("form") != "auto":
+            raise Refused(f"--mouth-on overrides the reference's frame-at-a-time mouth gate, and this load's mouth is {ref_form['mouth'].get('form')!r} "
+                          f"({ref_form['mouth'].get('said_by')}): no gate to override")
+        # a load of her hair alone draws no face, and a --parts-on span of hair alone none there (as --no-face-on and --eyes-shut-on are held)
+        if sorted(parts or []) == ["hair"]:
+            raise Refused("--mouth-on on a load of her hair alone: no line of the face is drawn on any of its frames")
+        hair = [(x, y) for x, y, these in parts_on or [] if sorted(these) == ["hair"]]
+        on_hair = [f"{x}-{y} against the hair-alone span {c}-{d}" for x, y, _ in mouth_on for c, d in hair if x <= d and c <= y]
+        if on_hair:
+            raise Refused(f"--mouth-on {'; '.join(on_hair)} (--parts-on): no line of the face is drawn there")
+        closed = [(s_["first"], s_["last"], what) for what, ss in (("--no-mouth-on", ref_form["mouth"].get("no_mouth_on") or []),
+                                                                   ("--no-face-on", ref_form.get("no_face_on") or [])) for s_ in ss]
+        clash = [f"{x}-{y} against {what} {c}-{d}" for x, y, _ in mouth_on for c, d, what in closed if x <= d and c <= y]
+        if clash:
+            raise Refused(f"--mouth-on {'; '.join(clash)}: one says her mouth is open there, the other draws none")
+        ref_form["mouth"] = dict(ref_form["mouth"], mouth_on=spans)
     # HER EYES SHUT ON A SPAN, on a person's word (`--eyes-shut-on FIRST-LAST=WHY` with `--eyes-shut-form`, the lead's ruling of
     # 2026-10-15 on 2823b, whose eyes never closed in the render): the pose model's lid points stop at a slit on a shut eye, and nothing
     # else measured tells it (draw_face_points.EYES_SHUT_FORMS). The same terms as --no-mouth-on: the look and its file named, in the load
@@ -1722,8 +1756,10 @@ def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: di
                                                          for s in (iris.get("eyes_shut") or {}).get("spans") or [])),
         ("the mouth", {"auto": "drawn when the lip lines lie on the class map's mouth (head_reference.MOUTH_CHECK), else left out: decided and printed at "
                                "the reference step", "drawn": "drawn", "left out": "left out"}[mouth["form"]]
-         + "".join(f"; NONE on {s['first']}-{s['last']}, turned off on a person's word" for s in mouth.get("no_mouth_on") or []),
-         f"{mouth['said_by']}: {mouth['why']}" + "".join(f"; {s['first']}-{s['last']}: {s['said_by']}, {s['at']}: {s['why']}" for s in mouth.get("no_mouth_on") or [])),
+         + "".join(f"; NONE on {s['first']}-{s['last']}, turned off on a person's word" for s in mouth.get("no_mouth_on") or [])
+         + "".join(f"; DRAWN on {s['first']}-{s['last']} where the gate drops it, the pose model's lip rings, on a person's word" for s in mouth.get("mouth_on") or []),
+         f"{mouth['said_by']}: {mouth['why']}" + "".join(f"; {s['first']}-{s['last']}: {s['said_by']}, {s['at']}: {s['why']}"
+                                                       for s in (mouth.get("no_mouth_on") or []) + (mouth.get("mouth_on") or []))),
         *([("the part held on a person's word", "on " + mine["word"].replace("+", ", ") + ": frames the capture's grade leaves empty there take "
             "the nearest graded part, moved and cut to the track (capture_masked_run.word_shapes)", mine["word_by"])] if mine.get("word") else []),
         *([("the face lines", "NONE on " + ", ".join(f"{s['first']}-{s['last']}" for s in ref_form["no_face_on"]) + ", turned off on a person's word "
@@ -1870,6 +1906,7 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
                    cast=[json.loads(x) for x in open(a.cast) if x.strip()] if getattr(a, "cast", None) else None, cast_from=getattr(a, "cast", None) or "",
                    motion=getattr(a, "motion", None), motion_why=getattr(a, "motion_why", None), no_strangers=getattr(a, "no_strangers", None),
                    no_mouth_on=[no_mouth_on_arg(x) for x in getattr(a, "no_mouth_on", None) or []],
+                   mouth_on=[no_mouth_on_arg(x, "--mouth-on") for x in getattr(a, "mouth_on", None) or []],
                    eyes_shut_on=[no_mouth_on_arg(x, "--eyes-shut-on") for x in getattr(a, "eyes_shut_on", None) or []],
                    no_face_on=[no_mouth_on_arg(x, "--no-face-on") for x in getattr(a, "no_face_on", None) or []],
                    hold_part=[no_mouth_on_arg(x, "--hold-part") for x in getattr(a, "hold_part", None) or []],
@@ -1969,6 +2006,12 @@ def step_reference(a, world, figures=figures_of) -> None:
             if missed:
                 raise Refused(f"--existing: {record} draws a mouth on {len(missed)} frame(s) the job says have none on a person's word "
                               f"(first {missed[0]}, last {missed[-1]}): the reference is made again, in a new folder")
+        # the job's spans of a mouth on a person's word: a reference taken as it was must have been asked for them
+        wanted = sorted((s["first"], s["last"]) for s in ((job.get("reference") or {}).get("mouth") or {}).get("mouth_on") or [])
+        asked = sorted((w["first"], w["last"]) for w in (mouth.get("mouth_on") or {}).get("on_whose_word") or [])
+        if wanted != asked:
+            raise Refused(f"--existing: {record} was drawn with the mouth on a person's word on {asked or 'no frames'} and the job names "
+                          f"{wanted or 'none'}: the reference is made again, in a new folder")
         written(a, ctx, made, record, points, drawn, form, why, figures, taken=True)
         return
     if folder.exists():
@@ -2034,6 +2077,9 @@ def drawn_form(job: dict, a, files: dict, preview_first: int) -> list:
     # the job's spans of no mouth on a person's word (`job --no-mouth-on`, a look where her mouth is hidden)
     for s in (said.get("mouth") or {}).get("no_mouth_on") or []:
         out += ["--no-mouth-on", f"{s['first']}-{s['last']}=a person's word on a look ({s['said_by']}, {s['at']}): {s['why']}"]
+    # the job's spans of a mouth on a person's word (`job --mouth-on`, a look where her mouth is open and the gate drops it)
+    for s in (said.get("mouth") or {}).get("mouth_on") or []:
+        out += ["--mouth-on", f"{s['first']}-{s['last']}=a person's word on a look ({s['said_by']}, {s['at']}): {s['why']}"]
     # the load's frames whose part holds no face (`--parts hair`, or a `--parts-on` span of hair alone): no line of the face drawn there
     # (the lead's ruling of 2026-10-15 on second_hp_5461b: eyes, brows and a nose drawn as on a plain face while hers was hidden)
     made = next(iter(part.get("made") or []), {})
@@ -2351,6 +2397,10 @@ def main() -> int:
     j.add_argument("--no-mouth-on", action="append", default=[], metavar="FIRST-LAST=WHY",
                    help="no mouth drawn on those source frames of the reference, on a person's word: who looked, at which sheet of those "
                         "frames (its file named; only that a file of that name is there is checked), and that her mouth is hidden there; repeatable")
+    j.add_argument("--mouth-on", action="append", default=[], metavar="FIRST-LAST=WHY",
+                   help="a mouth drawn on those source frames of the reference where its gate drops it (the pose model's lip rings, their inside "
+                        "dark), on a person's word: who looked, at which sheet of those frames (its file named; only that a file of that name is "
+                        "there is checked), and that her mouth is open there; refused against --no-mouth-on and --no-face-on; repeatable")
     j.add_argument("--no-face-on", action="append", default=[], metavar="FIRST-LAST=WHY",
                    help="no line of the face drawn on those source frames of the reference (the plain cut body model alone), on a person's word: "
                         "who looked, at which sheet of those frames (its file named; only that a file of that name is there is checked), and that "

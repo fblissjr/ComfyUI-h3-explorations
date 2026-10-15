@@ -972,7 +972,7 @@ def who_else_is_in_the_shot() -> str:
     and keeps the strangers out by it: where someone else is there or the frames shown cannot say, and on no load where nobody
     is, whatever the plan's key; the plan's key only where it is not known."""
     def load_with(made, people, plan_keep=None, not_people=None, no_strangers=None, no_mouth_on=None, eyes_shut_on=None, eyes_shut_form=None,
-                  seam=None, seam_why=None, no_face_on=None, hold_part=None, context_noise=None, context_noise_why=None):
+                  seam=None, seam_why=None, no_face_on=None, hold_part=None, context_noise=None, context_noise_why=None, mouth_on=None, parts_on=None):
         if plan_keep is not None:
             made.plan["subjects"]["a"].update(keep_outs=plan_keep, keep_outs_by="a person: the plan's own")
         if not_people is not None:
@@ -989,7 +989,8 @@ def who_else_is_in_the_shot() -> str:
         return stl.load_job(shots, plan, stl.shot_of(shots, 100), "a", pjob["job"], str(folder), "v", made.m.output, "the session", "2026-01-03", "a_fp_0100",
                             now="now", preview_files=saved, cast=[], cast_from="cast.jsonl", no_strangers=no_strangers, no_mouth_on=no_mouth_on,
                             eyes_shut_on=eyes_shut_on, eyes_shut_form=eyes_shut_form, seam=seam, seam_why=seam_why, no_face_on=no_face_on, hold_part=hold_part,
-                            context_noise=context_noise, context_noise_why=context_noise_why)
+                            context_noise=context_noise, context_noise_why=context_noise_why, mouth_on=mouth_on,
+                            **({"parts_on": parts_on, "parts_by": "a person"} if parts_on else {}))
     ours = [(1, [0, 0, 10, 10], 0.1), (2, [20, 0, 10, 10], 0.1), (3, [40, 0, 10, 10], 0.1)]
     with tempfile.TemporaryDirectory() as tmp:
         d = load_with(Made(Path(tmp)), ours + [(4, [55, 30, 5, 5], 0.01)])
@@ -1048,6 +1049,25 @@ def who_else_is_in_the_shot() -> str:
                                   eyes_shut_on=[(110, 125, f"THE LEAD looked at {sheet}")], eyes_shut_form="none"), "both name 120-125")
         flags = stl.drawn_form(away["job"], args(), {"classes": Path("/c.mkv")}, 100)
         assert flags[flags.index("--no-face-on") + 1].startswith("120-130=a person's word on a look (the session, now): THE LEAD looked"), flags
+        # A MOUTH ON A SPAN on a person's word (--mouth-on, the lead's ruling of 2026-10-15 on lead_fp_2823c): the same terms, and never
+        # against a span the job leaves with no mouth or no face
+        refused(lambda: load_with(Made(Path(tmp) / "o1"), ours, mouth_on=[(110, 115, "THE LEAD looked: her mouth open")]), "name its file")
+        refused(lambda: load_with(Made(Path(tmp) / "o2"), ours, mouth_on=[(150, 170, f"THE LEAD looked at {sheet}")]), "--mouth-on 150-170", "the load is 100-159")
+        refused(lambda: load_with(Made(Path(tmp) / "o3"), ours, mouth_on=[(110, 115, f"THE LEAD looked at {sheet}")],
+                                  no_face_on=[(114, 120, f"THE LEAD looked at {sheet}")]), "110-115 against --no-face-on 114-120", "draws none")
+        refused(lambda: load_with(Made(Path(tmp) / "o4"), ours, mouth_on=[(110, 115, f"THE LEAD looked at {sheet}")],
+                                  no_mouth_on=[(100, 110, f"THE LEAD looked at {sheet}")]), "against --no-mouth-on 100-110")
+        # a mouth form other than the check's has no gate to override (the cold reader of 2026-10-15)
+        drawn_mouth = Made(Path(tmp) / "o7")
+        drawn_mouth.plan["subjects"]["a"]["reference"] = {"mouth": "drawn", "why": "a person's word"}
+        refused(lambda: load_with(drawn_mouth, ours, mouth_on=[(110, 115, f"THE LEAD looked at {sheet}")]), "this load's mouth is 'drawn'", "no gate to override")
+        sang = load_with(Made(Path(tmp) / "o5"), ours, mouth_on=[(110, 115, f"THE LEAD looked at {sheet}: her mouth open, singing")])
+        mouth_row = {x["what"]: x for x in sang["job"]["defaults"]}["the mouth"]
+        # THE CASE THAT GOES RED when a person's mouth span is not kept in the job, not said among the defaults, or not passed on
+        assert sang["job"]["reference"]["mouth"]["mouth_on"][0]["first"] == 110 and "DRAWN on 110-115" in mouth_row["carries"] \
+            and "her mouth open, singing" in mouth_row["from"], (sang["job"]["reference"]["mouth"], mouth_row)
+        flags = stl.drawn_form(sang["job"], args(), {"classes": Path("/c.mkv")}, 100)
+        assert flags[flags.index("--mouth-on") + 1].startswith("110-115=a person's word on a look (the session, now): THE LEAD looked"), flags
         assert "the face lines" not in {x["what"] for x in hid["job"]["defaults"]} and "--no-face-on" not in stl.drawn_form(hid["job"], args(), {"classes": Path("/c.mkv")}, 100)
         # THE PART HELD ON A PERSON'S WORD (--hold-part, the lead's ruling of 2026-10-15): the same terms; on the subject as the capture's word=
         refused(lambda: load_with(Made(Path(tmp) / "h1"), ours, hold_part=[(110, 115, "THE LEAD looked: her face is there")]), "name its file")
@@ -1351,6 +1371,12 @@ def a_load_of_some_of_its_parts() -> str:
                                   no_face_on=[(110, 115, f"looked at {made.plan_file}")]), "--no-face-on acts on the drawn reference")
         refused(lambda: made.load(subject="b", name="b_hp_0100", parts=["hair"], parts_by=why, no_face_on=[(110, 115, f"looked at {made.plan_file}")]),
                 "--no-face-on on a load of her hair alone")
+        # --mouth-on never where the load draws no face: a load of her hair alone, or a hair-alone span of --parts-on (the outside reviewer's
+        # C7b of 2026-10-15: it passed the job step and failed at the reference)
+        refused(lambda: made.load(subject="b", name="b_hp_0100", parts=["hair"], parts_by=why, mouth_on=[(110, 115, f"looked at {made.plan_file}")]),
+                "--mouth-on on a load of her hair alone")
+        refused(lambda: made.load(subject="b", name="b_hfp_0100", parts_by=why, parts_on=[(130, 139, ["hair"])],
+                                  mouth_on=[(128, 132, f"looked at {made.plan_file}")]), "--mouth-on 128-132 against the hair-alone span 130-139")
         refused(lambda: made.load(subject="b", name="b_hp_0100", parts=["hair"], parts_by=why, motion="none", motion_why=" "), "say why with --motion-why")
         # no reference video, so no mouth to leave out of it (--no-mouth-on)
         refused(lambda: made.load(subject="b", name="b_hp_0100", parts=["hair"], parts_by=why, motion="none", motion_why="X",
@@ -1782,6 +1808,18 @@ def the_reference_step() -> str:
         mouthed["drawn"]["mouth"]["no_mouth_on"]["no mouth there on the job's word"] = [[110, 115]]
         drawn.with_suffix(".json").write_text(json.dumps(mouthed))
         stl.step_reference(e, made.m, figures)
+        # a job with a person's mouth span takes a reference as it was only where that reference was asked for the same span
+        sang = made.load(first=104, frames=40, why="a look cut it", name="a_fp_0104m", mouth_on=[(130, 133, f"THE LEAD looked at {sheet}")])
+        sang_file = made.jobs / "a_fp_0104m.json"
+        sang_file.write_text(json.dumps(sang))
+        e.job_file = str(sang_file)
+        # THE CASE THAT GOES RED when --existing takes a drawing never asked for the mouth a person's word names
+        refused(lambda: stl.step_reference(e, made.m, figures), "--existing", "on no frames and the job names [(130, 133)]")
+        mouthed["drawn"]["mouth"]["mouth_on"] = {"on_whose_word": [{"first": 130, "last": 133, "why": "x"}]}
+        drawn.with_suffix(".json").write_text(json.dumps(mouthed))
+        stl.step_reference(e, made.m, figures)
+        del mouthed["drawn"]["mouth"]["mouth_on"]
+        e.job_file = str(hid_file)
         # a job with a person's no-face span takes a reference as it was only where that reference left those frames bare
         away = made.load(first=104, frames=40, why="a look cut it", name="a_fp_0104f", no_face_on=[(120, 125, f"THE LEAD looked at {sheet}")])
         away_file = made.jobs / "a_fp_0104f.json"

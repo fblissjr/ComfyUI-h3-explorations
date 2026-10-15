@@ -310,6 +310,13 @@ def the_read_back_can_fail() -> str:
     drawn2 = drawn.copy(); drawn2[9] = False                                        # frame 9 was to be bare and is not
     painted = df.read_back(WORK / "good.mp4", mesh, drawings, np.where(drawn2, expected, 0.0), drawn2, WIDE)
     assert not painted["passed"] and painted["on_bare"] > 0, painted["on_bare"]
+    # THE CASE THAT GOES RED when the body model's own bright edge, moved one pixel by the encode, reads back as a line's white on a bare
+    # frame (lead_fp_2823c's remake, 3109, 2026-10-15): a bright band on the mesh, written one pixel to the right, on a frame left bare
+    lit = mesh.copy(); lit[9, :, 100:110] = 252
+    moved = pictures.copy(); moved[9] = np.roll(lit[9], 1, axis=1)
+    df.marks.write_video(WORK / "edge.mp4", moved)
+    edge = df.read_back(WORK / "edge.mp4", lit, drawings, np.where(drawn2, expected, 0.0), drawn2, WIDE)
+    assert edge["on_bare"] == 0 and edge["passed"], edge["on_bare"]
     blank = pictures.copy(); blank[12] = mesh[12]                                   # a drawn frame written with nothing on it
     df.marks.write_video(WORK / "blank.mp4", blank)
     lost = df.read_back(WORK / "blank.mp4", mesh, drawings, expected, drawn, WIDE)
@@ -319,7 +326,7 @@ def the_read_back_can_fail() -> str:
     same = df.read_back(WORK / "still.mp4", mesh, still, np.full(N, expected[0]), drawn, WIDE)
     assert same["passed"] and same["cannot_tell"], same["lags"]
     return (f"as drawn it passes ({good['lags'][0]:.2f} px against {min(good['lags'][-1], good['lags'][1]):.2f} a frame off); every frame one late or one early fails; "
-            "a drawing on a bare frame fails; a drawn frame with none fails; a face that never moves passes and is said to be untellable")
+            "a drawing on a bare frame fails, the body model's bright edge moved a pixel by the encode does not; a drawn frame with none fails; a face that never moves passes and is said to be untellable")
 
 
 def verify_catches_the_wrong_clock() -> str:

@@ -421,6 +421,15 @@ def shut_eyes_are_a_form() -> str:
         got = lc.drawn_frames(job, 0, 9)
     # THE CASE THAT GOES RED when a shut frame reads as the same form as an open one
     assert got[3][1] == "shut, drawn 'lids'" and got[2][1] == "contrast" and got[3][0] == got[2][0], got
+    # a mouth on a person's word (`--mouth-on`, 2026-10-15) is its own form, never "no mouth" (the cold reader: the word's frames read as none)
+    with tempfile.TemporaryDirectory() as tmp:
+        job = Path(tmp) / "job.json"
+        job.write_text(json.dumps({"job": {"reference": {"drawn": {"mouth": {"drawn": True, "frames_by_the_lip_lines": [[0, 5]], "frames_by_the_class_map": [],
+                                                                            "mouth_on": {"drawn_on_the_word": [[6, 8]]}, "no_mouth_on": {"THE GATE": [[9, 9]]}},
+                                                                  "iris": "contrast"}}}}))
+        worded = lc.drawn_frames(job, 0, 9)
+    # THE CASE THAT GOES RED when a frame drawn on a person's word reads as no mouth
+    assert [worded[f][0] for f in (5, 6, 8, 9)] == ["the lip lines", "the lip rings on a person's word", "the lip rings on a person's word", "no mouth"], worded
     return "a frame drawn shut is its own eye form; its neighbours keep theirs"
 
 
