@@ -16,7 +16,7 @@ table; the Open List).
 > the eyes already worked). Whether it landed, and on what reading, is in `decisions.md` and mrnight's note. If the
 > new references make things worse, the old cut is the default it was built beside: say so to the owner and use it.
 > **STOPPED FOR THE NIGHT, NOT LANDED** (the owner, about 23:50Z: stop it "unless you think its worth finishing"; the lead:
-> finish to a clean point in the worktree, land nothing). It is on branch `mrnight-gaze` in its worktree; where it stands
+> finish to a clean point in the worktree, land nothing). It is on branch `mrnight-gaze` (484d6302) in its worktree; where it stands
 > is `internal/claude/2026-10-15_mrnight_closeout.md`. Tomorrow: a cold read, land at the card's clear, then the two
 > tests. When it lands, the new cut is OPT-IN and OFF by default (`--face-fill` / `--follow` on the reference step; every job prints a
 > "reference cut" row under THE DEFAULTS THIS LOAD CARRIES saying which is on). Making it the default is a decision: only
