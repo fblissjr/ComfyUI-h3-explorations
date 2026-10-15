@@ -443,7 +443,7 @@ this file is only a way to find a script by what it says it does.
 | [`renders_page.py`](renders_page.py) | One plain page, a row a render of a video in frame order, with the owner's verdict lines under each: what was rendered, from what, and what the owner said of it. |
 | [`repro_token_aug_nondeterminism.py`](repro_token_aug_nondeterminism.py) | Standalone repro: comfy_kitchen `sol_attn` is not deterministic with `token_aug`. |
 | [`restart_comfy.sh`](restart_comfy.sh) | DISABLED 2026-09-02, owner's call: this script hangs on every run and is |
-| [`review_pages.py`](review_pages.py) | The owner's two local pages in the video's folder on the share (`Video/<video>/`, one copy each), made from the delivery table and the ledger: what is to review now (`to-review`), and what every stretch of the video is made of and from which day (`provenance`). |
+| [`review_pages.py`](review_pages.py) | The owner's two local pages in the video's folder on the share (`Video/<video>/`, one copy each), made from the delivery table and the ledger: what is to review now (`to-review`), and what every stretch of the video is made of and from ... |
 | [`run_audio_carry_arms.py`](run_audio_carry_arms.py) | Render the audio-carry ablation and grade it on ENERGY, not on rel L2. |
 | [`run_capture.py`](run_capture.py) | Submit and track the production reference capture workflow. |
 | [`run_checks.py`](run_checks.py) | Run every `bench/check_*.py` with the card masked, and say what is red that should not be. |
