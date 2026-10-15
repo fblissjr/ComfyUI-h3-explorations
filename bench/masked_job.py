@@ -1292,6 +1292,12 @@ def queue(folder: Path, stage: str, *, host: str, load: str = "", override: str 
     graph, record = before_queue(folder, stage, call(host, "/object_info"), load=load, override=override)
     for line in look_lines(record.get("look")):
         print(line)
+    # the bytes of every file the graph names, kept beside it, taken before the post: a later reading of what the
+    # load was handed (`bench/what_h3_got.py`) is then held to these, not to a file's time
+    import what_h3_got
+    record["input_dir"] = str(input_dir())
+    record["digests"] = what_h3_got.digests_of(graph, input_dir())
+    print(f"kept the sha256 of the {len(record['digests'])} file(s) the graph names")
     answer = call(host, "/prompt", {"prompt": graph, "client_id": "masked_job"})
     record |= {"prompt_id": answer.get("prompt_id"), "host": host,
                "queued_at": datetime.datetime.now().astimezone().isoformat(timespec="seconds")}
