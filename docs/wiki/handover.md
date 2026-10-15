@@ -92,6 +92,13 @@ table; the Open List).
    5935-6104 (why its reference failed first), the 2050 shot to about 2247, `--continue-from` after a fresh cold read
    (the dad over 1397-1418 only if 1310c's window is on the grid), then the gaps and the shots after 3166.
 4. A clean-up job on the wiki: `internal/claude/2026-10-15_wiki_audit.md`.
+4b. The gate's two rules that read a load's part BEFORE the person's word (`part_empty` read before word=/drop=;
+   `region_on_a_frame_with_no_mask` not reading named-empty frames) are REPLACED by one rule (the owner, 2026-10-15
+   late: "lets kill this rule is there some other information we can give it thats useful in its place"): one table a
+   frame, read AFTER every word is applied (does the load generate her region; does the reference draw her face; who
+   decided, measurement or a person's word with its reason), and one rule: the two agree on every frame. Region yes and
+   face no is a hole with nothing to follow (tonight's `--no-face-on` fault); region no and face yes is a flip to the
+   original (the 761 kind). Agreement is no flag, whoever decided it.
 5. Tooling queued for the card seat, in order after the kitchen's lead (`--mouth-on` and `track_from` are tonight's,
    above, and landed or not by mrgo's note): the ledger
    counting every frame a piece leaves as the original, not only `drop=` frames; the assembler protecting an earlier
