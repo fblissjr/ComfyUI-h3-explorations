@@ -86,6 +86,13 @@ her head" below: the fault was found elsewhere on 2026-10-14.)
   whatever the body model puts there. No count yet. The body model's picture has no class map kept, and the source's arm
   inside the head box (the cheap proxy) would measure the source, not the fault (the lead, 2026-10-15). Wanted first:
   a session's look at 1097-1104 of that reference, then a way to find the body model's arm over its head.
+- **Her hair tips shimmer at the blend's outer edge** (2026-10-15, the outside reviewer's G2,
+  `internal/gemini/2026-10-15_watch_hair_item4.md`, fault 1C; the lead's ruling: a row, not a build). On second_hfp_0014d's
+  50-65 her lower blonde hair tips over her left collarbone feather and shimmer. `only what changed` drops them at the outer
+  boundary of the changed mask, where the new hair is close in colour to the skin and blouse under it. The region there has no
+  hole, and the pocket fill measured for it (item 4's (c)) finds no pocket on 50-65 or on any flash
+  (`bench/results/2026-10-15_hair_flashes.md`, "What was not built"). Wanted, if it matters on playback: what `changed_alpha`'s
+  threshold and feather do at a soft outer edge of hair.
 
 **Masked video to video, 2026-10-14: rows of the day.**
 - **Gaze is a known limit: the render does not follow a horizontal gaze it is shown, and the pose model misses a
