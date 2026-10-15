@@ -40,7 +40,9 @@ A record shot of the table with two or more of the subjects in it (the table's r
 as its joined clip, the newest item on the list of exactly that shot's frames, ONLY when the table that clip was
 built from (`--tables`) lays the same pieces on the shot as this one, until the owner KEEPS that clip (a "wrong" on
 it leaves the shot here with its pieces); otherwise, and where no joined clip is built, each unsettled piece of the
-shot is shown on its own, with why. A piece of a one-subject shot is shown on its own. A
+shot is shown on its own, with why. A shot of one subject with a joined clip of this table on the list is shown by
+it too, under its own heading (2026-10-15); with none, its piece is shown on its own, once, however many rows its restore
+spans cut it into. A
 piece's item is the one whose id or `name` is the render's. Each piece carries the day it was rendered on the
 owner's clock, its item's look line (said as the card's words), and what it replaces: the rows of its subject that
 `--previous-table` laid on its frames. With `--previous-table`, a part "since the last page", on the frames both
@@ -479,8 +481,8 @@ def to_review(a: argparse.Namespace) -> str:
     # WAITING ON YOU, AND DONE: each entry by the owner's last click on it (the lead's page of 2026-10-14, at the owner's ask of
     # which items were still theirs): no click is waiting on them; a click of theirs, or a piece they settled today, is done
     today = a.today or datetime.datetime.now(OWNERS_CLOCK).strftime("%Y-%m-%d")
-    waiting = {"joined": [], "apart": [], "single": []}
-    done = {"joined": [], "apart": [], "single": []}
+    waiting = {"joined": [], "apart": [], "single": [], "joined_one": []}
+    done = {"joined": [], "apart": [], "single": [], "joined_one": []}
     for sh in shots_of_table(rec.T):
         first, last = sh["first"], sh["last"]
         when = f"{clock(first, rate)} to {clock(last + 1, rate)} of the video"
@@ -489,12 +491,16 @@ def to_review(a: argparse.Namespace) -> str:
             continue
         lines = lambda rr: "".join(piece_line(rec, r, first, last, link, previous) for r in rr)
         # the heading IS the way in (the owner, 2026-10-14, could not find the links): each piece it shows, by its item, named
-        heads = lambda rr: ", ".join(link(rec.item_of(r["name"])["id"], r["name"]) if rec.item_of(r["name"]) else  # noqa: E731
-                                     f'{E(r["name"])} (no item of it on the review list yet)' for r in rr)
+        # a piece is named once, however many rows its restore spans cut it into (2026-10-15: 2823b's three rows read as three pieces)
+        heads = lambda rr: ", ".join(link(rec.item_of(n)["id"], n) if rec.item_of(n) else  # noqa: E731
+                                     f'{E(n)} (no item of it on the review list yet)' for n in dict.fromkeys(r["name"] for r in rr))
         who = ", ".join(x + (" (the record is unsure)" if x in sh["unsure"] else "") for x in sh["subjects"])
         state = {r["name"]: rec.answered(rec.rows_of(r["name"]), today) for r in rows}
-        if len(sh["subjects"]) >= 2:
-            it, why = joined_item(rec, first, last, a.tables or [])
+        # a shot with a joined clip of this table on the list is shown by it, whatever its count of subjects (2026-10-15: the joined
+        # clip of the one-subject 2823-3166 was on the list and the page showed its piece's rows, "no item of it on the review list yet")
+        it, why = joined_item(rec, first, last, a.tables or [])
+        if len(sh["subjects"]) >= 2 or it is not None:
+            sect = "joined" if len(sh["subjects"]) >= 2 else "joined_one"
             if it is not None:
                 # the joined clip is filed by the owner's lines on it: none, waiting; a keep (with words after or not) leaves the
                 # page after the day of their last line, and only when no piece of it has a later line of theirs; any other
@@ -508,7 +514,7 @@ def to_review(a: argparse.Namespace) -> str:
                 each = [rec.last_choice(rec.rows_of(r["name"]), every=True) for r in rows]
                 if not own and all(x and x["chosen"] in delivery_table.KEEP for x in each):
                     if any(v != "gone" for v in state.values()):
-                        done["joined"].append(f'<div class="e"><h3>{link(it["id"], f"The shot {first}-{last}")} <span>{E(who)} &middot; {when} &middot; '
+                        done[sect].append(f'<div class="e"><h3>{link(it["id"], f"The shot {first}-{last}")} <span>{E(who)} &middot; {when} &middot; '
                                               f'every piece kept; the joined clip not watched</span></h3><ul>{lines(rows)}</ul></div>')
                     continue
                 # a keep, or words with no click, leave the page after the day of the last line; any other click stays (a seventh reader)
@@ -517,7 +523,7 @@ def to_review(a: argparse.Namespace) -> str:
                     ask = ('<p class="why">Your click on the whole clip names no piece: which piece is it? Say it on that piece\'s own line below.</p>'
                            if c and not kept else "")
                     older = sorted(kin - {it["id"]})
-                    (done if own else waiting)["joined"].append(
+                    (done if own else waiting)[sect].append(
                         f'<div class="e"><h3>{link(it["id"], f"The shot {first}-{last}")} <span>{E(who)} &middot; {when} &middot; the joined clip: '
                         f'{E(rec.last_click(kin, newest=it["id"]))}</span></h3>'
                         + (f'<p class="why">With your lines on the earlier build(s) of the same pieces on the same frames: {E(", ".join(older))}</p>' if older else "")
@@ -529,16 +535,20 @@ def to_review(a: argparse.Namespace) -> str:
                     to["apart"].append(f'<div class="e"><h3>The shot {first}-{last}: {heads(rr)} <span>{E(who)} &middot; {when}</span></h3>'
                                        f'<p class="why">{E(why)}. Each piece meanwhile, on its own:</p><ul>{lines(rr)}</ul></div>')
         else:
-            for r in rows:
-                if state[r["name"]] != "gone":
-                    (waiting if state[r["name"]] == "waiting" else done)["single"].append(
-                        f'<div class="e"><h3>{E(r["subject"])}, {max(r["first"], first)}-{min(r["last"], last)}: {heads([r])} <span>{when}</span></h3>'
-                        f'<ul>{lines([r])}</ul></div>')
+            # one entry a piece, its rows (cut by restore spans) together under it
+            for name in dict.fromkeys(r["name"] for r in rows):
+                rr = [r for r in rows if r["name"] == name]
+                if state[name] != "gone":
+                    (waiting if state[name] == "waiting" else done)["single"].append(
+                        f'<div class="e"><h3>{E(rr[0]["subject"])}, {max(rr[0]["first"], first)}-{min(rr[-1]["last"], last)}: {heads(rr)} <span>{when}</span></h3>'
+                        f'<ul>{lines(rr)}</ul></div>')
 
     def sections(got: dict, tag: str) -> list[str]:
         out = [f"<{tag}>Shots with two or more of them, each as its joined clip</{tag}>", *(got["joined"] or ["<p class='mut'>None.</p>"])]
         if got["apart"]:
             out += [f"<{tag}>Shots with two or more of them with no joined clip of this table</{tag}>", *got["apart"]]
+        if got["joined_one"]:
+            out += [f"<{tag}>Shots of one of them, as its joined clip</{tag}>", *got["joined_one"]]
         return out + [f"<{tag}>Pieces in a shot of one of them</{tag}>", *(got["single"] or ["<p class='mut'>None.</p>"])]
     n_wait, n_done = (sum(map(len, g.values())) for g in (waiting, done))
     body += [f"<h2>Waiting on you: {n_wait} with no click or words of yours yet</h2>",

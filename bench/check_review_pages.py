@@ -671,6 +671,47 @@ def another_ledger_is_refused() -> str:
     return "a ledger the table was not made from is refused, one of the same name in another folder too"
 
 
+def a_one_subject_shot_and_a_cut_piece() -> str:
+    """2026-10-15: a one-subject shot whose joined clip is on the list is shown by it, not by its piece's rows; and one piece cut
+    into rows by its restore spans is one entry, named once (the page showed 2823b three times, "no item of it on the review list yet")."""
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        d = Path(tmp)
+        args = world(d)
+        T = json.loads((d / "t.json").read_text())
+        cut = [{"first": 300, "last": 319, "name": "c_one", "subject": "a", "file": "x"},
+               {"first": 320, "last": 322, "name": "c_one", "subject": "a", "file": "x", "restore": ["a.Left_Hand"]},
+               {"first": 323, "last": 339, "name": "c_one", "subject": "a", "file": "x", "restore": ["a.Eyeglass"]},
+               {"first": 340, "last": 349, "name": "d_one", "subject": "a", "file": "x"},
+               {"first": 350, "last": 359, "name": "d_one", "subject": "a", "file": "x", "restore": ["a.Left_Hand"]}]
+        T["rows"] += cut
+        stand = lambda n, f, l: {"render": n, "frames": [[f, l]], "written": "2026-10-15T15:00:00Z", "step": 2, "the_leads_prefer": None, "why": "step 2"}  # noqa: E731
+        T["reading"] += [{"first": 300, "last": 339, "subject": "a", "present": "yes", "stands": [stand("c_one", 300, 339)]},
+                         {"first": 300, "last": 339, "subject": "b", "present": "no", "stands": []},
+                         {"first": 340, "last": 359, "subject": "a", "present": "yes", "stands": [stand("d_one", 340, 359)]},
+                         {"first": 340, "last": 359, "subject": "b", "present": "no", "stands": []}]
+        (d / "t.json").write_text(json.dumps(T))
+        ledger = json.loads((d / "l.json").read_text())
+        for r in (render(d, "c_one", "a", 300, 339, "2026-10-15T15:00:00Z"), render(d, "d_one", "a", 340, 359, "2026-10-15T15:00:00Z")):
+            ledger["renders"][r["file"]] = r
+        (d / "l.json").write_text(json.dumps(ledger))
+        items = json.loads((d / "items.json").read_text())
+        items["items"].insert(0, {"id": "v_0300_0339_joined_ONE_stacked", "first": "300", "frames": "40", "state": "open"})
+        (d / "items.json").write_text(json.dumps(items))
+        (d / "tables" / "t_v_0300_0339_joined_ONE.json").write_text(json.dumps({"rows": cut[:3]}))
+        out = d / "day" / "TO_REVIEW.html"
+        assert rp.main(["to-review", *args, "--page-url", "p#", "--open-list", "x", "--tables", str(d / "tables"), "--out", str(out),
+                        "--today", "2026-10-20"]) == 0
+        text = text_of(out.read_text())
+        one = text.split("Shots of one of them, as its joined clip")[1].split("Pieces in a shot of one of them")[0]
+        assert "The shot 300-339" in one and "c_one" in one, one[:400]
+        singles = text.split("Pieces in a shot of one of them")[1].split("Done:")[0]
+        assert "c_one" not in singles, "a one-subject shot with its joined clip on the list is also shown by its piece"
+        assert singles.count("d_one (no item of it on the review list yet)") == 1, "a piece cut by its restore spans is named more than once"
+        assert "a, 340-359: d_one" in singles, singles[:600]
+    return "the one-subject shot with its joined clip shown by it, under its own heading; a piece cut into two rows by a restore span named once, over 340-359"
+
+
 def nothing_of_a_video_in_code() -> str:
     code = TOOL.read_text()
     for word in ("/mnt/", "/home/", "http://", "https://", ":8765", "100.87.", "fun_", '"fun"', "day_2026"):
@@ -691,6 +732,7 @@ case("every heading is its way in", every_heading_is_its_way_in)
 case("the owner's words rule, and whose words are whose", the_owners_words_rule)
 case("provenance reads the records", provenance_reads_the_records)
 case("another ledger is refused", another_ledger_is_refused)
+case("a one-subject shot by its joined clip, and a piece cut by restore spans", a_one_subject_shot_and_a_cut_piece)
 case("nothing of a video in the code", nothing_of_a_video_in_code)
 
 if __name__ == "__main__":
