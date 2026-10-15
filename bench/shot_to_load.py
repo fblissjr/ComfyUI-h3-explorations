@@ -133,6 +133,7 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(REPO / "workflows"))
 sys.path.insert(0, str(REPO))
 
+import h3_config  # noqa: E402
 import load_chain  # noqa: E402
 from load_chain import Refused  # noqa: E402
 
@@ -473,8 +474,7 @@ def seam_window(frames: int, context: int) -> dict[int, tuple[int, list[int]]]:
     with the window length that plans it and the windows' lengths (`loop_plan.plan_windows`, the song node's own planner). Empty when one
     window holds the load. Plans of three windows or more are left out: a whole shot (the owner's rule of 2026-10-15) takes one seam at
     most where two windows reach it."""
-    import masked_job
-    if frames <= max(masked_job.chain_lengths()):       # read from the source: no ComfyUI import for a load one window holds
+    if frames <= h3_config.MAX_LENGTH:                  # one window holds a load up to the ceiling (masked_job_graph.window_for)
         return {}
     import capture_masked_run as cap
     lp = cap._pack("loop_plan")
@@ -500,11 +500,11 @@ def seam_of(n: int, a: int, seam: int | None, seam_why: str | None, by: str, now
     context = int(h3_config.MASKED_JOB_CONTEXT)                   # the load's context: the job step sets none, so the chain's
     if (seam is None) != (not str(seam_why or "").strip()):
         raise Refused("--seam and --seam-why go together: the frame window 2 begins writing on, and a person's reason")
-    longest = max(masked_job.chain_lengths())
+    longest, one = max(masked_job.chain_lengths()), h3_config.MAX_LENGTH   # the seam plan's window; what one window holds
     reach = seam_window(n, context)
     window = None
     if seam is not None:
-        if n <= longest:
+        if n <= one:
             raise Refused(f"--seam {seam}: one window holds this load's {n} frames, so it has no seam")
         if not reach:
             raise Refused(f"--seam {seam}: no plan of two windows covers this load's {n} frames; it takes three or more, whose seams are the planner's")
@@ -512,7 +512,7 @@ def seam_of(n: int, a: int, seam: int | None, seam_why: str | None, by: str, now
             raise Refused(f"--seam {seam}: two windows can put the seam on " + ", ".join(str(a + k) for k in sorted(reach))
                           + " only (the second window writing from there, the first's last frames kept before it)")
         window = reach[seam - a][0]
-    if n <= longest:
+    if n <= one:
         return window, None
     w = window if window is not None else longest
     at = next((a + k for k, (ww, _) in reach.items() if ww == w), None)

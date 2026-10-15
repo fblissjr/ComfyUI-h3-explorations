@@ -1032,7 +1032,9 @@ def who_else_is_in_the_shot() -> str:
         reach = stl.seam_window(406, 90)
         # THE CASE THAT GOES RED when the seams offered are not the song node's planner's, or a one-window load is said to have one
         assert {k: v[0] for k, v in reach.items()} == {294: 294, 345: 345} and reach[345][1] == [345, 192], reach
-        assert stl.seam_window(345, 90) == {} and stl.seam_window(60, 90) == {}
+        # one window holds a load up to the ceiling (2026-10-15), so a load at the ceiling has no seam
+        assert stl.seam_window(stl.h3_config.MAX_LENGTH, 90) == {} and stl.seam_window(60, 90) == {}
+        assert stl.seam_of(stl.h3_config.MAX_LENGTH, 100, None, None, "s", "n") == (None, None)
         refused(lambda: load_with(Made(Path(tmp) / "s1"), ours, seam=110, seam_why="A CALM STRETCH"), "one window holds this load's 60 frames")
         refused(lambda: load_with(Made(Path(tmp) / "s2"), ours, seam=110), "go together")
         window, row = stl.seam_of(406, 604, 898, "A CALM STRETCH", "the session", "now")
