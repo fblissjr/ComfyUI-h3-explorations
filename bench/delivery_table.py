@@ -62,7 +62,9 @@ frames ONLY, a row cut at a span's edges, so the assembler gives those classes o
 source there (sunglasses inside a face region). Named frames, never every row: the class map calls the lead's eye
 makeup Eyeglass on shots without glasses (0294d at 394, 1802b at 1843) and a telephone receiver too (1575b at 1653),
 and a restore there would paste the original back into a laid piece. Generated here, never typed per row; the
-header says who asked. A class the part model has not is refused.
+header says who asked. A class the part model has not is refused. A span with `"touching": "head"` writes
+`restore=<subject>.<Class>@head`, whose pieces are given back only where they touch the subject's own head: her
+earrings, which the part model labels Apparel with her collar (the lead's ruling of 2026-10-15), on every row of hers.
 
 **`restore=`** follows the practice of the table of 2026-10-12, as its header states it: a subject's row gives
 back every OTHER subject the shots file has in that shot (`yes` or `unsure`): `restore=<other>:whole` on a face
@@ -295,7 +297,11 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
         bad = sorted({c for x in spans for c in x["classes"] if c not in names or c == "Background"})
         if bad:
             raise SystemExit(f"the plan's `restore` for {label!r} names {bad}, which are not classes of the part model: one of {', '.join(names[1:])}")
-        return [(int(x["first"]), int(x["last"]), f"{label}.{'+'.join(x['classes'])}") for x in spans]
+        where = sorted({str(x["touching"]) for x in spans if x.get("touching") not in (None, "head")})
+        if where:
+            raise SystemExit(f"the plan's `restore` for {label!r} says `touching` {where}: the one form is `head` (the class's pieces that touch "
+                             "the subject's own Hair or Face_Neck, the assembler's `@head`)")
+        return [(int(x["first"]), int(x["last"]), f"{label}.{'+'.join(x['classes'])}" + ("@head" if x.get("touching") == "head" else "")) for x in spans]
 
     def cut_at(a: int, b: int, spans: list[tuple[int, int, str]]) -> list[tuple[int, int, list[str]]]:
         """A run of a row cut at the edges of the restore spans, each piece with the tokens of the spans it lies in."""
@@ -598,7 +604,7 @@ def table_text(out: dict, share: str, made: str, plan: dict, name: str) -> str:
              *[f"# HELD BACK by the lead (--hold), a session's word and not the owner's: {h['load']} on {frames(h['first'], h['last'])}, {h['subject']}: "
                + " ".join(h["reason"].replace("#", " ").split()) for h in out.get("held", [])],
              "# restore= is the practice of the table of 2026-10-12: every other subject the shots file has in the shot is given back, `:whole` on a face row."]
-    lines += [f"# restore={label}.{'+'.join(x['classes'])} on {label}'s rows on {frames(x['first'], x['last'])} only: "
+    lines += [f"# restore={label}.{'+'.join(x['classes'])}{'@head' if x.get('touching') == 'head' else ''} on {label}'s rows on {frames(x['first'], x['last'])} only: "
               + (f"A TRIAL (--restore-extra), not the plan's: {' '.join(str(x['trial']).replace('#', ' ').split())}" if x.get("trial") else
                  f"from the plan, by {' '.join(str(p['restore_by']).replace('#', ' ').split())}")
               for label, p in plan["subjects"].items() for x in p.get("restore") or []]

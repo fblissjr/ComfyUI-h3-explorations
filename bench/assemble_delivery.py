@@ -82,6 +82,9 @@ person's, where the source is the right picture. It is for a thing that sits ins
 draws beside it (measured 2026-10-10 on one render, by another session: the redrawn face went back toward the
 original's). The table reports per frame how many changed pixels were given back, and a frame where the
 restored pixels sit beside a large change is flagged: that edge is a join between two pictures.
+`restore=<subject>.<Class>@head` gives back only the class's pieces that touch the subject's own Hair or Face_Neck
+(grown `RESTORE_ON_HEAD_PX`): for a thing worn on the head that the part model names with things worn elsewhere (her
+pearl earring is Apparel, as are her collar and a strap; the lead's ruling of 2026-10-15).
 `restore=<subject>` with no class gives back the whole of ANOTHER subject: wherever that subject's tracked mask
 is and the piece's own subject's is not (the piece's subject is its run's, from the capture), or, where an owner
 map covers the frame, wherever that subject owns the pixel. It is for a pass
@@ -340,6 +343,15 @@ TOKEN = 32        # pixels; inherited: a token is two latent cells of 16 a side 
 MARGIN = 64       # pixels, when a capture's run names no margin; inherited: the Masked Source's default grow
 RESTORE_GROW = 2  # pixels a restored class is grown by; reasoned: a class map's edge is a pixel or two inside the thing
 RESTORE_FEATHER = 1.0   # sigma of that edge's blur; reasoned: the thing is small, a wide feather would thin it
+#: `restore=<subject>.<Class>@head`: only the class's pieces (8-connected, on the frame) that touch the subject's own Hair or
+#: Face_Neck grown by this many px. **Reasoned** 6, a starting value (the lead's ruling of 2026-10-15 on her pearl earring,
+#: lead_fp_0805d 814-825, which the part model labels Apparel): an earring hangs at the ear's edge, and Apparel also names her
+#: collar, blouse and a strap off her head, which a plain restore would paste back.
+RESTORE_ON_HEAD_PX = 6
+
+
+class OnHead(list):
+    """A restore's classes, given back only where a piece of them touches the subject's head (`@head`)."""
 JOIN = 25.5       # levels of averaged difference that count as a large change beside restored pixels; inherited:
                   # twice the node's own line for a kept change (`video_mask.CHANGE_THRESHOLD` of full scale)
 JOIN_PX = 16      # pixels of such an edge under which nothing is flagged; reasoned: a few pixels is the codec
@@ -426,6 +438,9 @@ def read_table(path) -> list[dict]:
                 raise SystemExit(f"{path}: `{token}` is not `subject=<label>`, `run=<capture folder>:<run name>`, `restore=<subject>` or "
                                  "`restore=<subject>.<Class>[+<Class>...]`")
             label, dot, classes = value.partition(".")
+            classes, at, where = classes.partition("@")
+            if at and where != "head":
+                raise SystemExit(f"{path}: `{token}`: after the @ only `head` is known")
             if not dot:
                 label, colon, how = label.partition(":")
                 if colon and how != "whole":
@@ -439,7 +454,7 @@ def read_table(path) -> list[dict]:
                 if c not in names and not (c.isdigit() and int(c) < len(names)):
                     raise SystemExit(f"{path}: `{c}` is not a class of the part model ({', '.join(names)})")
                 wanted.append(int(c) if c.isdigit() else names.index(c))
-            row["restore"].append((label, wanted))
+            row["restore"].append((label, OnHead(wanted) if at else wanted))
         rows.append(row)
     return rows                      # in the file's order: where rows share frames, order is the last resort
 
@@ -512,7 +527,7 @@ def run_for(row, captures):
 def restore_text(label, wanted) -> str:
     if wanted is None or wanted == "whole":
         return label + (":whole" if wanted else "")
-    return f"{label}." + "+".join(class_names()[c] for c in wanted)
+    return f"{label}." + "+".join(class_names()[c] for c in wanted) + ("@head" if isinstance(wanted, OnHead) else "")
 
 
 def segments(rows, span):
@@ -923,6 +938,14 @@ def restore_weight(row, captures, run, frame, shape):
         if cmap is None:
             return np.zeros(shape, np.float32), None
         mask = np.isin(cmap, wanted)
+        if isinstance(wanted, OnHead) and mask.any():
+            # only the pieces that touch the subject's own head: the earring, not the collar or a strap off her head
+            names = class_names()
+            head = cv2.dilate(np.isin(cmap, [names.index("Hair"), names.index("Face_Neck")]).astype(np.uint8),
+                              disc(RESTORE_ON_HEAD_PX)).astype(bool)
+            n, lab = cv2.connectedComponents(mask.astype(np.uint8), connectivity=8)
+            touching = np.unique(lab[head & mask])
+            mask = np.isin(lab, touching[touching > 0])
         # a class map says what a thing is, not whose: it is cut to its subject's track and margin, and beside
         # another person it calls some of their things by the class too. When the class is ANOTHER subject's than the
         # row's own, what an owner map gives the row's own subject is not given back: that would put holes of the

@@ -554,7 +554,37 @@ with tempfile.TemporaryDirectory() as _tmp:
         proc, r, _ = tabled("restore_short", line, "--capture", str(short))
         blind = [f for f in r["flags"] if f["rule"] == "restore_has_no_mask"]
         assert blind and blind[0]["source_frames"] == [[25, 39]], [f["rule"] for f in r["flags"]]
-        return f"{area} to {grown} px given back a frame; the original inside the box at both sizes; nothing where the piece changed nothing"
+        # ON HER HEAD ONLY (`@head`, the lead's ruling of 2026-10-15: her pearl earring is Apparel, and so is her collar): the class's
+        # pieces that touch her own Hair or Face_Neck come back, the ones off her head do not
+        hair = names.index("Hair")
+        cmap = np.zeros((H, W), np.uint8)
+        cmap[60:80, 40:60] = hair                         # her hair
+        cmap[60:80, 62:70] = apparel                      # an earring 2 px off her hair: within RESTORE_ON_HEAD_PX
+        cmap[20:40, 180:196] = apparel                    # a collar or strap, off her head
+
+        class OneMap:
+            class_px_left: dict = {}
+
+            def classes(self, label, frame, prefer=None):
+                return cmap
+        the_run = (None, None, {"name": "run_a", "subject": "a"})
+        given = lambda wanted: tool.restore_weight({"piece": PIECE_A, "restore": [("a", wanted)]}, OneMap(), the_run, 20, (H, W))[1]  # noqa: E731
+        on_head, plain = given(tool.OnHead([apparel])), given([apparel])
+        # THE CASE THAT GOES RED when a piece off her head is given back by `@head`, or the one on it is not
+        assert on_head[60:80, 62:70].all() and not on_head[20:40, 180:196].any(), "@head gave back a piece off her head, or not the one on it"
+        assert plain[20:40, 180:196].all() and plain[60:80, 62:70].all(), "the control: the plain class restore gives back both pieces"
+        cmap[60:80, 40:60] = 0                            # no head on the frame: nothing comes back
+        assert not given(tool.OnHead([apparel])).any(), "@head gave back a piece on a frame with no head"
+        (TMP / "at_head.txt").write_text(f"10-39 {PIECE_A} 10 restore=a.Apparel@head\n")
+        read = tool.read_table(TMP / "at_head.txt")[0]["restore"]
+        assert read == [("a", [apparel])] and isinstance(read[0][1], tool.OnHead) and tool.restore_text(*read[0]) == "a.Apparel@head", read
+        (TMP / "at_neck.txt").write_text(f"10-39 {PIECE_A} 10 restore=a.Apparel@neck\n")
+        try:
+            tool.read_table(TMP / "at_neck.txt")
+            raise AssertionError("`@neck` was taken")
+        except SystemExit as e:
+            assert "only `head` is known" in str(e), e
+        return f"{area} to {grown} px given back a frame; the original inside the box at both sizes; nothing where the piece changed nothing; `@head` only on her head"
 
     def a_subject_given_back() -> str:
         # RECT_A is x 40-104, y 40-120. The piece's own subject holds its left part, another subject its right part,

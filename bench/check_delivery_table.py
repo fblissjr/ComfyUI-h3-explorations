@@ -514,6 +514,19 @@ def a_plan_that_keeps_an_accessory() -> str:
     eyeglass = cap._pack("sapiens2_parts").CLASS_NAMES.index("Eyeglass")
     assert [(r["first"], r["last"], r["restore"]) for r in rows if r.get("subject") == "a"] == [
         (50, 59, [("b", "whole")]), (60, 79, [("b", "whole"), ("a", [eyeglass])]), (80, 99, [("b", "whole")])], rows
+    # ON HER HEAD ONLY (the lead's ruling of 2026-10-15: her earrings, which the part model labels Apparel with her collar), on
+    # every row of hers: the token says `@head`, and the header says so
+    plan["subjects"]["a"]["restore"] = [{"classes": ["Apparel"], "touching": "head", "first": 0, "last": 99}]
+    out = dt.decide(ledger(render("a_face", (50, 99), "05")), SHOTS, plan)
+    # THE CASE THAT GOES RED when a restore on her head alone is written as the plain class restore
+    assert [r["restore"] for r in out["rows"] if r["subject"] == "a"] == [["b:whole", "a.Apparel@head"]], out["rows"]
+    assert "# restore=a.Apparel@head on a's rows on 0-99 only" in dt.table_text(out, "/share", "M", plan, "t")
+    plan["subjects"]["a"]["restore"][0]["touching"] = "neck"
+    try:
+        dt.decide(ledger(render("a_face", (50, 99), "05")), SHOTS, plan)
+        raise AssertionError("`touching: neck` was taken")
+    except SystemExit as e:
+        assert "the one form is `head`" in str(e), e
     plan["subjects"]["a"]["restore"] = [{"classes": ["Sunglasses"], "first": 60, "last": 79}]
     try:
         dt.decide(ledger(render("a_face", (50, 99), "05")), SHOTS, plan)
