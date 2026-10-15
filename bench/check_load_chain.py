@@ -446,8 +446,9 @@ def the_first_step() -> str:
         assert files[files.index("--loads") + 1] == str(made.job_file) and files[files.index("--made-by") + 1] == "the session" and files.count("--mask") == 2
         assert files[files.index("--voice") + 1].endswith("voice.csv") and m.said("gate first")[m.said("gate first").index("--voice-spans") + 1].endswith("spans.json")
         strip = m.said("strip first")
-        assert strip[strip.index("--strip-folder") + 1] == "2026-01-03_ld_first" and strip[strip.index("--motion") + 1] == "/out/ref.mp4" \
-            and strip[strip.index("--still") + 1] == f"a={m.inputs / 'a.png'}", strip
+        # the references and stills are read from the load's graph, never named from the job file (2026-10-15)
+        assert strip[strip.index("--strip-folder") + 1] == "2026-01-03_ld_first" and strip[strip.index("--given") + 1].endswith("2026-01-03_ld_job") \
+            and "--one-a-second" in strip and "--motion" not in strip and "--still" not in strip, strip
         gate = m.said("gate first")
         assert gate[gate.index("--who-is-who") + 1].endswith("2026-01-03_ld_job/ld.who_is_who.json") and gate[gate.index("--text") + 1].endswith("ld.txt")
         # a who-is-who file left in the job folder by an earlier run is NOT picked up: it is made again

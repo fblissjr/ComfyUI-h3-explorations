@@ -362,16 +362,6 @@ def others_of(ctx: dict) -> list[str]:
     return [label for label in ctx["preview"]["order"] if label != ctx["subject"]] + [name for name, _ in ctx.get("keep_outs") or []]
 
 
-def still_of(ctx: dict, inputs: Path) -> Path:
-    still = ctx["load"].get("still") or ctx["subject_keys"].get("still")
-    if not still:
-        raise Refused(f"neither the load nor its subject {ctx['subject']!r} names a `still`")
-    path = Path(still) if Path(still).is_absolute() else inputs / still
-    if not path.is_file():
-        raise Refused(f"the still {still!r} is not a file under {inputs}")
-    return path
-
-
 def video_of(ctx: dict, data: Path) -> str:
     """The analysis folder's name of the job's video: the name its review clips and its review list are filed under."""
     import clip_folder
@@ -921,10 +911,10 @@ def gate_and_strip(ctx: dict, world, by: str, who_is_who: Path, voice: dict, str
     verify = world.run(ctx, f"verify{strip_folder and ' first'}", tool(world, "capture_masked_run.py") + ["verify", cap, "--by", by], stop=False)
     gate = world.run(ctx, f"gate{strip_folder and ' first'}", tool(world, "capture_masked_run.py") + ["preflight", cap, "--text", ctx["text"], "--voice-spans", voice["spans"],
                                                                                                      "--who-is-who", who_is_who, "--gate", *told_to_the_gate(ctx)], stop=False)
-    strip = tool(world, "capture_masked_run.py") + ["video", cap, "--source", job["source"], "--job", ctx["job_file"], "--load", ctx["name"]]
-    if ctx["load"].get("motion_file"):
-        strip += ["--motion", ctx["load"]["motion_file"]]
-    strip += ["--still", f"{ctx['subject']}={still_of(ctx, world.inputs)}"]
+    # the references and stills the strip shows are read from the load's own graph (2026-10-15: they were the job file's, and a load of
+    # two subjects was shown one of each)
+    strip = tool(world, "capture_masked_run.py") + ["video", cap, "--source", job["source"], "--job", ctx["job_file"], "--load", ctx["name"],
+                                                    "--given", ctx["job_folder"], "--one-a-second"]
     if strip_folder:
         strip += ["--strip-folder", strip_folder]
     return ended_with(cap, verify, gate, world.run(ctx, f"strip{strip_folder and ' first'}", strip, stop=False))
@@ -1123,10 +1113,9 @@ def step_land(ctx: dict, world, a) -> tuple[int, str] | None:
         return failed
     # the render's frame 0 is the load's first frame, and it is SAID: the capture was made on the plan, before there was a
     # render, so no run of it names the file, and the stack then took the capture's first frame and printed NOT SAID
-    stack = tool(world, "capture_masked_run.py") + ["video", cap, "--source", job["source"], "--render", r / f"{name}_00001.mp4", "--render-first", first]
-    if load.get("motion_file"):
-        stack += ["--motion", load["motion_file"]]
-    world.run(ctx, "stack", stack + ["--still", f"{ctx['subject']}={still_of(ctx, world.inputs)}", "--out", clip])
+    stack = tool(world, "capture_masked_run.py") + ["video", cap, "--source", job["source"], "--render", r / f"{name}_00001.mp4", "--render-first", first,
+                                                    "--given", ctx["job_folder"], "--given-load", name, "--one-a-second"]
+    world.run(ctx, "stack", stack + ["--out", clip])
     return failed
 
 

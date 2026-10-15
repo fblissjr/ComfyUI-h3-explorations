@@ -371,8 +371,6 @@ COLOURS = ((60, 220, 90), (255, 70, 220), (255, 170, 40), (70, 150, 255), (240, 
 WHITE, DIM, AMBER, GREEN = (255, 255, 255), (150, 150, 150), (255, 170, 60), (90, 230, 110)
 SOLID, LIGHT = 0.55, 0.28      # the two fills' strengths; reasoned: both readable over a dimmed picture
 HEADER, ZOOM_MIN = 44, 192     # the strip above each row, and the smallest zoom box, in pixels; reasoned
-PANEL = 392                    # the band of numbers under the rows, in pixels; reasoned: fits a 4:3 tile and ten lines
-PANEL_TEXT = 1150              # where the panel's lines of text end and the motion tile begins; reasoned: the longest line
 LEVEL_COLOURS = {"likely fine": (150, 150, 150), "iffy": (255, 190, 60), "likely to fail": (255, 90, 90)}
 FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 MONO = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf"
@@ -4686,8 +4684,19 @@ def zoom_boxes(focus: np.ndarray, size: tuple[int, int]) -> np.ndarray:
     return np.stack([np.clip(smooth[:, 0] - side / 2, 0, w - side), np.clip(smooth[:, 1] - side / 2, 0, h - side), side], 1).round().astype(int)
 
 
+def hatch_cell(img: np.ndarray, x: int, y: int, colour: tuple) -> None:
+    """One margin cell given back to a keep-out: the cell's outline and two diagonal strokes, in the keep-out's colour."""
+    import cv2
+    x0, y0, x1, y1 = x * CELL, y * CELL, (x + 1) * CELL - 1, (y + 1) * CELL - 1
+    cv2.rectangle(img, (x0, y0), (x1, y1), colour, 1)
+    cv2.line(img, (x0, y1), (x1, y0), colour, 1)
+    cv2.line(img, (x0, y0 + CELL // 2), (x0 + CELL // 2, y0), colour, 1)
+
+
 def draw_masks(plate: np.ndarray, n: int, subjects: list, runs: list) -> np.ndarray:
-    """The middle row: the source dimmed, every subject in its colour. Fills first, outlines over them."""
+    """The middle row: the source dimmed, every subject in its colour. Fills first, outlines over them; a margin cell
+    given back to a keep-out is hatched in that keep-out's colour (until 2026-10-15 every such cell was a white
+    square whatever claimed it, and the legend called them all "another subject")."""
     import cv2
     img = (plate.astype(np.float32) * 0.45)
     colour = {s["label"]: np.array(s["colour"], np.float32) for s in subjects}
@@ -4708,27 +4717,73 @@ def draw_masks(plate: np.ndarray, n: int, subjects: list, runs: list) -> np.ndar
         contours, _ = cv2.findContours(s["track"][n].astype(np.uint8), cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
         cv2.drawContours(img, contours, -1, s["colour"], 2, cv2.LINE_AA)
     for r in runs:
-        for cells in r["back"].values():
+        for who, cells in r["back"].items():
+            c = tuple(int(v) for v in colour[who]) if who in colour else AMBER
             for y, x in zip(*np.nonzero(cells[n])):
-                cv2.rectangle(img, (int(x) * CELL, int(y) * CELL), (int(x + 1) * CELL - 1, int(y + 1) * CELL - 1), WHITE, 1)
+                hatch_cell(img, int(x), int(y), c)
     return img
 
 
-def legend_lines(subjects: list, runs: list) -> list[tuple[tuple, str, str]]:
-    lines = []
+#: What each keep-out is, in a strip's legend. **Inherited** from where each is made: `bench/shot_to_load.py::KEEP_OUTS`
+#: (held, hands, clothes) and `bench/strangers.py` (strangers); a keep-out that is another tracked subject is that person.
+KEEP_OUT_WORDS = {"held": "what the subject holds", "hands": "the subject's hands and arms", "clothes": "the subject's clothes",
+                  "clothing": "the subject's clothes", "strangers": "whatever the part model reads as people no subject is"}
+
+
+def pinned_legend(subjects: list, runs: list, rows: list, replaced: list[str]) -> list[dict]:
+    """One fixed line per mask the strip draws, for the whole clip: each subject it replaces, each keep-out of its
+    runs (named by the capture's columns or a run's given-back cells, so one with nothing given back on a frame
+    keeps its line, which until 2026-10-15 it lost when its share of the region was 0), and each other tracked
+    subject. The words of each frame are `legend_words`."""
+    keep = []
+    for r in runs:
+        for key in (rows[0] if rows else {}):
+            if key.startswith(f"region_on__{r['name']}__"):
+                keep.append(key.rsplit("__", 1)[1])
+        keep += list(r["back"])
+    keep = [k for k in dict.fromkeys(keep) if k not in replaced]
+    out = []
     for s in subjects:
-        lines.append((s["colour"], "outline", f"{s['label']}: the tracked mask"))
-        for r in runs:
-            both = r.get("subjects") or [r["subject"]]
-            will = "would be " if r.get("planned") else ""
-            if s["label"] in both:
-                lines.append((s["colour"], "solid", f"{s['label']}: {will}taken from the still ({'plan' if r.get('planned') else 'run'} {r['name']})"))
-            if r["subject"] == s["label"]:
-                lines.append((s["colour"], "light", f"{s['label']}: margin {will}regenerated round it" if len(both) == 1 else
-                              f"one margin {will}regenerated round {' and '.join(both)}"))
-    if any(r["back"] for r in runs):
-        lines.append((WHITE, "outline", "margin cells given back to another subject"))
-    return lines
+        kind = "replaced" if s["label"] in replaced else "keep-out" if s["label"] in keep else "other"
+        out.append({"label": s["label"], "colour": tuple(s["colour"]), "kind": kind})
+    known = {s["label"] for s in subjects}
+    out += [{"label": k, "colour": AMBER, "kind": "keep-out"} for k in keep if k not in known]
+    return out
+
+
+def legend_words(entry: dict, rec: dict) -> str:
+    """One pinned legend line for one frame, from the frame's record: what the mark is, and its figures on this frame."""
+    who = entry["label"]
+    s = rec["subjects"].get(who) or {}
+    mask = ("no mask on this frame" if not s.get("covered", True) else
+            f"{s['share_pct']:.2f}% of the frame" + (f" in {s['pieces']} pieces" if (s.get("pieces") or 1) > 1 else ""))
+    if entry["kind"] == "replaced":
+        r = next((x for x in rec["runs"].values() if who in x["subjects"]), None)
+        made = ("nothing regenerates on this frame" if not r or not r.get("region_pct") else
+                f"regenerated {r['region_pct']:.1f}% of the frame, {r['margin_share_pct']:.0f}% of it margin")
+        return f"{who} (replaced): outline the tracked mask, {mask}; solid taken from the still; light margin: {made}"
+    if entry["kind"] == "keep-out":
+        k = rec["keep_outs"].get(who) or {}
+        what = KEEP_OUT_WORDS.get(who, "another tracked subject")
+        return (f"{who} (keep-out: {what}): {mask}; hatched cells: {k.get('cells_given_back', 0)} margin cells kept as the "
+                f"original on this frame; {100 * (k.get('region_on') or 0):.0f}% of {who} inside the region")
+    return f"{who} (tracked, not in this load): {mask}"
+
+
+def flag_rows(flags: list, overridden: set, drawn: set, span: tuple[int, int]) -> list[dict]:
+    """Every flag of the drawn runs above the lowest level that touches the strip's frames, one fixed row each."""
+    out = []
+    for f in flags:
+        if f["level"] == LEVELS[0] or f.get("run") not in (None, *drawn):
+            continue
+        if not any(x <= span[1] and y >= span[0] for x, y in f["source_frames"]):
+            continue
+        frames = ", ".join(f"{x}-{y}" if x != y else str(x) for x, y in f["source_frames"])
+        who = (f.get("subject") or "") + (f" / {f['other']}" if f.get("other") else "")
+        out.append({"id": f["id"], "level": f["level"], "overridden": f["id"] in overridden, "spans": f["source_frames"],
+                    "words": f"{f['id']} {f['level'].upper()}{' OVERRIDDEN' if f['id'] in overridden else ''}: {f['rule']}"
+                             + (f" ({who})" if who else "") + f" on {frames}", "why": f.get("why", "")})
+    return out
 
 
 def render_said(run: dict, job_path: Path, name: str) -> list[str]:
@@ -4854,6 +4909,206 @@ def render_span(first: int, frames: int, render_first: int, render_frames: int) 
     return {"skip": skip, "lo": lo, "frames": shown, "left_out": left}
 
 
+def given_reading(a: argparse.Namespace, shown: dict | None) -> dict | None:
+    """What H3 was handed, read from the load's graph (`bench/what_h3_got.py`): the render's graph when it is built,
+    else the plan's. None without `--given`: the strip then shows the files named on the command line, and says so.
+    A failure on a file the strip SHOWS as given (the source, a reference, a still) stops it: a panel of a file that
+    is not what the graph was handed is the one hard failure. Others (a mask the chain rebuilt after a plan ran) are
+    printed and kept in the sidecar."""
+    if not a.given:
+        return None
+    if a.motion or a.still:
+        raise SystemExit("--given reads the references and stills from the load's graph: give no --motion or --still beside it")
+    import re
+    import what_h3_got
+    folder = Path(a.given)
+    load = a.given_load or a.load or re.sub(r"^\d{4}-\d{2}-\d{2}_", "", folder.name).removesuffix("_job")
+    stage = "render" if (folder / f"{load}.render.json").is_file() else "plan" if (folder / f"{load}.plan.json").is_file() else None
+    if stage is None:
+        # the first capture's strip is drawn before any graph of the load is built: there is nothing yet to read
+        return {"absent": f"no graph of {load} is built yet in {folder.name}: what H3 will be given is shown once the plan is built"}
+    got = what_h3_got.read(folder, load, stage)
+    shown_roles = [f for f in got["failures"] if f.startswith(("the source", "<Video", "<Picture"))]
+    for line in got["failures"]:
+        print(f"what_h3_got: {line}", flush=True)
+    if shown_roles:
+        raise SystemExit("a file this strip would show as what H3 was given is not the one its graph was handed:\n  " + "\n  ".join(shown_roles))
+    return got
+
+
+def given_columns(given: dict | None, a: argparse.Namespace, pair: list) -> list[dict]:
+    """The GIVEN panel's columns, one a subject, in the list's order: its reference video and its still, each with
+    what the reading says of it. From the command line when there is no reading, marked as such."""
+    if given is not None and given.get("absent"):
+        return []
+    if given is not None:
+        rows = {r["tag"]: r for r in given["inputs"] if r.get("tag")}
+        cols = []
+        for k in (1, 2):
+            v, p = rows.get(f"<Video {k}>"), rows.get(f"<Picture {k}>")
+            if v or p:
+                cols.append({"video": v, "picture": p, "who": pair[k - 1]["subject"] if len(pair) >= k else None, "from_graph": True})
+        return cols
+    cols = []
+    for k, path in enumerate(a.motion or []):
+        cols.append({"video": {"tag": f"motion {k + 1}", "file": path, "loader": {"first_frame": 0, "custom": [0, 0]}}, "picture": None,
+                     "who": None, "from_graph": False})
+    for k, item in enumerate(a.still):
+        label, _, path = item.partition("=")
+        if k < len(cols):
+            cols[k]["picture"], cols[k]["who"] = {"tag": label, "file": path}, label
+        else:
+            cols.append({"video": None, "picture": {"tag": label, "file": path}, "who": label, "from_graph": False})
+    return cols
+
+
+def head_boxes(video: dict, size: tuple[int, int], frames: tuple[int, int]) -> list[list[int]] | None:
+    """A box round the drawn head in a reference on each of the strip's source frames, for its head crop: the face
+    points of its record's points file carried onto the reference by the record's own box and scale. One size for
+    the whole strip (the largest face, with room: the points run from the lash lines to the chin, the brows and hair
+    line sit outside them), its centre following the face, smoothed over a few frames: the crop is there to read
+    the eyes and the mouth, which a box fixed over a moving head made too small to read (1097c, 2026-10-15: 0.4x).
+    None when the reference has no such record."""
+    rec = (video or {}).get("record") or {}
+    pts = rec.get("points") or {}
+    if not (pts.get("file") and rec.get("box") and rec.get("scale") and Path(pts["file"]).is_file()):
+        return None
+    from _lib import face_points
+    p = face_points.load(pts["file"])
+    ids = face_points.face_ids(p["index"])
+    first_row = int(pts.get("first_row_is_source_frame") or p["first"] or 0)
+    x0, y0 = rec["box"][0], rec["box"][1]
+    sx, sy = rec["scale"]
+    centres, sides = [], []
+    for f in range(frames[0], frames[1] + 1):
+        row = f - first_row
+        good = [i for i in ids if 0 <= row < len(p["keypoints"]) and p["scores"][row][i] >= 0.3]
+        if not good:
+            centres.append(None)
+            continue
+        xs = [(p["keypoints"][row][i][0] - x0) * sx for i in good]
+        ys = [(p["keypoints"][row][i][1] - y0) * sy for i in good]
+        centres.append(((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2))
+        sides.append(max(max(xs) - min(xs), max(ys) - min(ys)))
+    if not sides:
+        return None
+    w, h = size
+    side = min(max(sides) * 1.3, w, h)
+    known = [c for c in centres if c is not None]
+    filled, last = [], known[0]
+    for c in centres:
+        last = c if c is not None else last
+        filled.append(last)
+    arr = np.array(filled, np.float64)
+    k = np.exp(-0.5 * (np.arange(-6, 7) / 2.0) ** 2)
+    k /= k.sum()
+    padded = np.pad(arr, ((6, 6), (0, 0)), mode="edge")
+    smooth = np.stack([np.convolve(padded[:, i], k, mode="valid") for i in range(2)], 1)
+    out = []
+    for cx, cy in smooth:
+        left, top = min(max(0.0, cx - side / 2), w - side), min(max(0.0, cy - side / 2), h - side)
+        out.append([int(left), int(top), int(left + side), int(top + side)])
+    return out
+
+
+def detail_box(focus: np.ndarray, lo: int, frames: int, size: tuple[int, int]) -> list[int]:
+    """One fixed square round everything the drawn runs regenerate on the strip's frames, for an unzoomed load's
+    right column: the strip's own box, for reading, never the node's."""
+    w, h = size
+    any_ = focus[lo:lo + frames].any(0)
+    box = box_of(any_)
+    if not box:
+        return [0, 0, h, h] if w >= h else [0, 0, w, w]
+    x0, y0, x1, y1 = box[0] * CELL, box[1] * CELL, box[2] * CELL, box[3] * CELL
+    side = min(max(x1 - x0, y1 - y0, ZOOM_MIN) * 1.15, w, h)
+    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    left, top = min(max(0, cx - side / 2), w - side), min(max(0, cy - side / 2), h - side)
+    return [int(left), int(top), int(left + side), int(top + side)]
+
+
+def strip_records(m: dict, subjects: list, runs: list, rows: list, table: dict, run_table: dict, flags: list, given: dict | None,
+                  lo: int, frames: int, skip: int, render: bool, legend: list, keep_outs: list) -> list[dict]:
+    """One record per frame the strip draws, keyed by source frame: every figure and mark the strip shows. The strip
+    is drawn from these, and they are its sidecar (`<clip>.frames.jsonl`), so an agent reads the data, never the
+    burned-in words. `change_in_region` is filled in as the pictures are read."""
+    first = m["first_frame"]
+    sampled, windows = {}, []
+    for r in (given or {}).get("inputs", []):
+        for k, e in enumerate(r.get("encoder_frames") or [], 1):
+            if k > len(windows):
+                windows.append((e["window_first"], e["window_frames"]))
+            for x in e["sampled"]:
+                if not x["held"] and x["source_frame"] is not None:
+                    sampled.setdefault(x["source_frame"], []).append({"tag": r["tag"], "reference_frame": x["reference_frame"]})
+    load_first = next((r["loader"]["first_frame"] for r in (given or {}).get("inputs", []) if r["role"] == "the source"), None)
+    out = []
+    for n in range(lo, lo + frames):
+        sf = first + n
+        row = rows[n]
+        load_frame = (skip + n - lo) if render else (n - lo)
+        rec = {"source_frame": sf, "strip_frame": n - lo, ("render_frame" if render else "load_frame"): load_frame,
+               "time_s": round(sf / FPS, 4),
+               "voiced": None if row.get("voiced") in (None, "") else bool(int(float(row["voiced"]))),
+               "vocals_dbfs": None if row.get("vocals_stem_dbfs") in (None, "") else round(float(row["vocals_stem_dbfs"]), 1),
+               "subjects": {}, "runs": {}, "keep_outs": {}, "change_in_region": None}
+        for s in subjects:
+            t = table[s["label"]][n]
+            rec["subjects"][s["label"]] = {"covered": bool(t["covered"]), "share_pct": round(100 * (t.get("track_share") or 0), 3),
+                                           "pieces": t.get("track_pieces"),
+                                           "part_pct": None if t.get("parts_share") is None else round(100 * t["parts_share"], 3)}
+        for r in runs:
+            t = run_table[r["name"]][n]
+            reg = t.get("region_share") or 0
+            rec["runs"][r["name"]] = {"subjects": subjects_of(r), "planned": bool(r.get("planned")), "region_pct": round(100 * reg, 2),
+                                      "margin_share_pct": round(100 * (t.get("margin_share") or 0) / reg, 1) if reg else None}
+            for k in keep_outs:
+                on, back = row.get(f"region_on__{r['name']}__{k}"), row.get(f"cells_given_back__{r['name']}__{k}")
+                rec["keep_outs"][k] = {"region_on": None if on in (None, "") else float(on),
+                                       "cells_given_back": int(float(back)) if back not in (None, "") else int(r["back"][k][n].sum()) if k in r["back"] else 0}
+        rec["emptied"] = bool(runs) and not any(v["region_pct"] for v in rec["runs"].values())
+        rec["encoder_samples"] = sampled.get(sf, [])
+        rec["window"] = None
+        if load_first is not None:
+            at = sf - load_first
+            for k, (w0, wn) in enumerate(windows, 1):
+                if w0 <= at < w0 + wn:
+                    rec["window"] = {"number": k, "frame": at - w0}
+        rec["references"] = []
+        for r in (given or {}).get("inputs", []):
+            if str(r.get("tag", "")).startswith("<Video") and r.get("reference_frames") and load_first is not None:
+                at = sf - load_first + r["loader"]["first_frame"]
+                rings = ((r.get("record") or {}).get("drawn") or {}).get("eye_rings", {}).get("frames_a_ring_is_left_out_on", {})
+                rec["references"].append({"tag": r["tag"], "reference_frame": min(at, r["reference_frames"] - 1), "held": at >= r["reference_frames"],
+                                          "rings_left_out": sorted(k for k, v in rings.items() if sf in v)})
+        rec["flags_live"] = [f["id"] for f in flags if any(x <= sf <= y for x, y in f["spans"])]
+        rec["legend"] = [legend_words(e, rec) for e in legend]
+        out.append(rec)
+    for prev, rec in zip([None] + out[:-1], out):
+        ch = []
+        if prev is not None:
+            for f in sorted(set(rec["flags_live"]) - set(prev["flags_live"])):
+                ch.append(f"flag {f} starts")
+            for f in sorted(set(prev["flags_live"]) - set(rec["flags_live"])):
+                ch.append(f"flag {f} ends")
+            if rec["emptied"] != prev["emptied"]:
+                ch.append("nothing regenerates from this frame" if rec["emptied"] else "the region is back on this frame")
+            for k, v in rec["keep_outs"].items():
+                was = prev["keep_outs"].get(k, {}).get("cells_given_back", 0)
+                if bool(v["cells_given_back"]) != bool(was):
+                    ch.append(f"{k}: cells given back {'start' if v['cells_given_back'] else 'stop'} ({was} to {v['cells_given_back']})")
+            if rec["voiced"] != prev["voiced"] and rec["voiced"] is not None:
+                ch.append("voice starts" if rec["voiced"] else "voice stops")
+            for a_, b_ in zip(prev["references"], rec["references"]):
+                if b_["held"] and not a_["held"]:
+                    ch.append(f"{b_['tag']} runs out: its last frame from here")
+                if b_["rings_left_out"] != a_["rings_left_out"]:
+                    ch.append(f"{b_['tag']}: eye rings left out now {', '.join(b_['rings_left_out']) or 'none'}")
+        for e in rec["encoder_samples"]:
+            ch.append(f"the text encoder is shown {e['tag']} frame {e['reference_frame']} here")
+        rec["changes"] = ch
+    return out
+
+
 def video(a: argparse.Namespace) -> None:
     import cv2
     from PIL import Image, ImageDraw, ImageFont
@@ -4903,23 +5158,86 @@ def video(a: argparse.Namespace) -> None:
         # a render that is one of the capture's runs is shown with that run's region alone; any other with all
         own = [r for r in runs if r.get("render") == Path(render).name]
         runs = own if own and not a.all_runs else runs
+    given = given_reading(a, shown)
+    absent = given.pop("absent") if given and "absent" in given else None
+    given = None if absent else given
+    pair = (shown or {}).get("pair") or []
+    cols = given_columns(given, a, pair)
+    replaced = sorted({x for r in runs for x in subjects_of(r)})
     focus = np.zeros((m["frames"], h // CELL, w // CELL), bool)
     for r in runs:
         focus |= r["region"]
     if not focus.any():
-        # nothing regenerates in what is drawn: zoom on the subject the load replaces, or the first when no load is named
+        # nothing regenerates in what is drawn: the box is round the subject the load replaces, or the first when no load is named
         focus = cells_any(next((s_ for s_ in subjects if shown is not None and s_["label"] == shown["subject"]), subjects[0])["track"])
-        for p_ in (shown or {}).get("pair", [])[1:]:       # both subjects of a two-subject load are zoomed on
+        for p_ in pair[1:]:
             focus = focus | cells_any(next(s_ for s_ in subjects if s_["label"] == p_["subject"])["track"])
-    boxes = zoom_boxes(focus, (w, h))
-    z = h                                             # the zoom tile is the row's height, square
+    # THE RIGHT COLUMN, fixed for the whole strip: the box H3 rendered in on a zoomed load (the node's record after a render,
+    # the plan's before one), else one detail box of the strip's own (C1, 2026-10-15: the per-frame box panned with the
+    # subject, and was not the picture H3 worked in)
+    zoom = (given or {}).get("zoom", {}).get("piece") or next((r["zoom"] for r in runs if r.get("zoom")), None)
+    if zoom:
+        sx_, sy_ = w / zoom["source_size"][0], h / zoom["source_size"][1]
+        box = [round(zoom["box"][0] * sx_), round(zoom["box"][1] * sy_), round(zoom["box"][2] * sx_), round(zoom["box"][3] * sy_)]
+        box_words = f"the box H3 rendered in, {float(zoom.get('zoom', zoom.get('scale', 0))):.2f}x {list(zoom['box'])} (the node's)"
+    else:
+        box = detail_box(focus, lo, frames, (w, h))
+        box_words = "the detail box the right column shows (the strip's own, for reading; H3 rendered the whole frame)"
+    z = h
+    bw, bh = box[2] - box[0], box[3] - box[1]
+    tile_w, tile_h = (z, min(z, round(z * bh / bw))) if bw >= bh else (min(z, round(z * bw / bh)), z)
+    ox, oy = (z - tile_w) // 2, (z - tile_h) // 2
+    zoomed_render = None
+    if zoom and render and given and given.get("render"):
+        cand = Path(given["render"]).with_name(Path(given["render"]).stem + "_zoomed.mp4")
+        zoomed_render = str(cand) if cand.is_file() else None
     row_h, n_rows = h + HEADER, 3 if render else 2
     canvas_w = w + z
-    big, text, small = ImageFont.truetype(MONO, 30), ImageFont.truetype(FONT, 22), ImageFont.truetype(FONT, 17)
-    huge, line = ImageFont.truetype(MONO, 92), ImageFont.truetype(FONT, 19)
+    big, text, small = ImageFont.truetype(MONO, 30), ImageFont.truetype(FONT, 22), ImageFont.truetype(FONT, 16)
+    huge, line = ImageFont.truetype(MONO, 60), ImageFont.truetype(FONT, 19)
+    # the panel's numbers come from the same tables the folder holds, so the picture and the tables agree
+    table = {s["label"]: [r for r in json.loads((folder / "subjects" / s["label"] / "per_frame.json").read_text())["rows"]
+                          if r["seen_by"] == next(x for x in m["subjects"] if x["label"] == s["label"])["sightings"][0]["by"]]
+             for s in subjects}
+    run_table = {r["name"]: json.loads((folder / "runs" / r["name"] / "per_frame.json").read_text())["rows"] for r in runs}
+    flags_file = json.loads((folder / "flags.json").read_text()) if (folder / "flags.json").is_file() else None
+    overridden = set((flags_file or {}).get("overridden") or [])
+    drawn = {r_["name"] for r_ in runs}
+    flags = flag_rows((flags_file or {}).get("flags") or [], overridden, drawn, (first + lo, first + lo + frames - 1))
+    legend = pinned_legend(subjects, runs, rows, replaced)
+    keep_outs = [e["label"] for e in legend if e["kind"] == "keep-out"]
+    records = strip_records(m, subjects, runs, rows, table, run_table, flags, given, lo, frames, skip, bool(render), legend, keep_outs)
+    # ---- the bottom panel's lines, fixed for the whole clip: never cut, never moving
+    LW, GX = 940, 952
+    legend_lines_n = [max(len(wrap_text(rec["legend"][k], LW - 44, small.getlength)) for rec in records) for k in range(len(legend))]
+    flag_text = [wrap_text(f["words"], LW - 16, small.getlength) for f in flags]
+    box_line = wrap_text("grey box: " + box_words, LW - 44, small.getlength)
+    left_h = 84 + 26 + 20 * (len(box_line) + sum(legend_lines_n)) + 8 * len(legend) + 10 + 19 * sum(len(x) for x in flag_text) \
+        + (19 if not flags else 0) + 24
+    given_h = 34 + (320 if len(cols) < 2 else 210) + 64
+    panel = 2 * ((max(left_h, given_h, 300) + 1) // 2)
+    # ---- the GIVEN tiles: what each column shows, read once
+    tiles = []
+    for col in cols:
+        t = {"col": col, "video": None, "head": None, "still": None}
+        v = col["video"]
+        if v and v.get("file") and Path(v["file"]).is_file():
+            cw_, ch_ = (v.get("loader") or {}).get("custom") or [0, 0]
+            vw, vh = (cw_ or w, ch_ or h)
+            t["size"] = (vw, vh)
+            t["head"] = head_boxes(v, (vw, vh), (first + lo, first + lo + frames - 1)) if col["from_graph"] else None
+            start = (v.get("loader") or {}).get("first_frame") or 0
+            # the reference's frame for the strip's first frame: the load's frame there, counted from the loader's start
+            at = start + (records[0].get("render_frame", records[0].get("load_frame", 0)))
+            t["frames"] = stream(v["file"], (vw, vh), at, frames, vf=FIT.format(w=vw, h=vh), pix="rgb24")
+            t["last"] = None
+        p_ = col["picture"]
+        if p_ and p_.get("file") and Path(p_["file"]).is_file():
+            t["still"] = Image.open(p_["file"]).convert("RGB")
+        tiles.append(t)
+    one_col = len(cols) < 2
     text_lines = [] if shown is None else wrap_text(shown["text"] or "(no text was found for this load)", canvas_w - 32, line.getlength)
     notice = 26 if shown is not None and not runs else 0   # one more line when the capture holds no plan of the load
-    # where the text was written from, wrapped to the strip's width like every line under it (a generated text's "by" is long)
     covers = shown is not None and shown["recorded"] and shown["text_frames"][0] <= shown["frames"][0] and shown["frames"][1] <= shown["text_frames"][1]
     written = [] if shown is None else wrap_text(
         (f"written from source frames {shown['text_frames'][0]}-{shown['text_frames'][1]} by {shown['text_by']}"
@@ -4927,58 +5245,25 @@ def video(a: argparse.Namespace) -> None:
         else "NOT RECORDED: which frames this text was written from, and by whom. No look of it can be recorded", canvas_w - 32, line.getlength)
     more = 24 * max(0, len(written) - 1)
     notice += more
-    # a load of two subjects: which label is whose, in the list's order. Only the text tells the model, so the look says it
     whose = [] if shown is None or not shown.get("pair") else wrap_text("TWO SUBJECTS IN ONE PASS, IN THE LIST'S ORDER: " + "; ".join(
         f"{p_['subject']} ({p_['region']}) is {p_['is']}, its still {p_['picture']}" + (f" ({Path(p_['still']).name})" if p_.get("still") else " (none named)")
         + (f", its reference {p_['video']}" if p_["video"] else ", no reference video") for p_ in shown["pair"]), canvas_w - 32, line.getlength)
     notice += 24 * len(whose) + (6 if whose else 0)
-    # what the node will render of it, on the header of the strip: zoom or whole frame, windows, the defaults
     rendered = [] if shown is None or not runs else [x for one in render_said(next((r for r in runs if r["name"] == a.load), runs[0]), Path(a.job), a.load)
                                                     for x in wrap_text(one, canvas_w - 32, line.getlength)]
     notice += 24 * len(rendered) + (6 if rendered else 0)
-    band = 0 if shown is None else 2 * ((74 + notice + 24 * len(text_lines)) // 2 + 1)   # even: the encoder's pixel format needs it
-    canvas_h = row_h * n_rows + PANEL + band
-    # the panel's numbers come from the same tables the folder holds, so the picture and the tables agree
-    table = {s["label"]: [r for r in json.loads((folder / "subjects" / s["label"] / "per_frame.json").read_text())["rows"]
-                          if r["seen_by"] == next(x for x in m["subjects"] if x["label"] == s["label"])["sightings"][0]["by"]]
-             for s in subjects}
-    run_table = {r["name"]: json.loads((folder / "runs" / r["name"] / "per_frame.json").read_text())["rows"] for r in runs}
-    flags = json.loads((folder / "flags.json").read_text())["flags"] if (folder / "flags.json").is_file() else None
-    starts = sorted(int(x) for x in a.windows.split(",")) if a.windows else []
-    stills = []
-    for item in a.still:
-        label, _, path = item.partition("=")
-        pic = Image.open(path)
-        pic = pic.convert("RGB").resize((max(1, round(pic.width * 150 / pic.height)), 150))
-        stills.append((label, pic))
-    # the motion video's frame 0 is the run's first frame: on the render's clock with a render, on the load's without.
-    # A load that says which source frame its reference begins on (`motion_first`) is read from there. One video fills
-    # the tile; two (a load of two subjects) stand side by side at half its size, each under its own label.
-    given = a.motion or []
-    if len(given) > 2:
-        raise SystemExit("--motion: one reference video, or two for a load of two subjects")
-    motion_tile = (456, 342) if len(given) < 2 else (228, 171)
-    told, pair = (shown or {}).get("motion") or [], (shown or {}).get("pair") or []
-    motions, motion_names = [], []
-    for path in given:
-        j = next((j for j, m_ in enumerate(told) if Path(m_["file"]).name == Path(path).name), None)
-        begins = None if j is None else told[j]["first"]
-        start = skip if render else lo if begins is None else max(0, shown["frames"][0] - begins)
-        if begins is not None and begins > shown["frames"][0]:
-            print(f"--motion {Path(path).name} begins on source frame {begins}, after the load's first ({shown['frames'][0]}): shown from its frame 0", flush=True)
-        mw, mh = motion_tile
-        motions.append(stream(path, motion_tile, start, frames, pix="rgb24",
-                              vf=f"scale={mw}:{mh}:force_original_aspect_ratio=decrease,pad={mw}:{mh}:(ow-iw)/2:(oh-ih)/2"))
-        # the load's k-th reference is its k-th subject's (a second reference without a first is refused by the builder)
-        motion_names.append(f"{pair[j]['video']} {pair[j]['subject']}" if pair and j is not None else
-                            Path(path).name[:26] if len(given) > 1 else "")
-    region_px = [cells_up(r["region"]) for r in runs]
-    before = None
-    lines = legend_lines(subjects, runs)
+    # ---- where the clip and its sidecar go: the clip to the share, the sidecar under data/ (AGENTS.md: data under data/)
     out = a.out or str(folder / f"{m['name']}_diag.mp4")
     if shown is not None and not a.out:
         (folder / "looks").mkdir(exist_ok=True)       # the record of what was shown stays beside the capture
         out = str(strip_home(folder, getattr(a, "strip_folder", "") or "") / f"{a.load}.mp4")   # the strip itself goes to the share, never under data/
+    (folder / "strips").mkdir(exist_ok=True)
+    sidecar = folder / "strips" / f"{Path(out).stem}.json"
+    frames_file = sidecar.with_suffix(".frames.jsonl")
+    band = 0 if shown is None else 2 * ((74 + notice + 24 * len(text_lines)) // 2 + 1)
+    if shown is None:
+        band = 40                                      # one line: where the text, the windows and the defaults are
+    canvas_h = row_h * n_rows + panel + band
     # the sound: the render's own when it carries one; else the source's at the render's first frame (a render saved
     # without an audio stream, as the first window of a two-window run and a joined viewing copy were on 2026-10-12,
     # gave the owner a silent clip; the source has the sound on every frame)
@@ -4988,147 +5273,195 @@ def video(a: argparse.Namespace) -> None:
         audio = (["-ss", f"{skip / FPS:.6f}"] if skip else []) + ["-i", render]
     else:
         audio = ["-ss", f"{(first + lo) / FPS:.6f}", "-i", str(source)]
+    meta = ["-metadata", f"comment=sidecar {sidecar}"]
     enc = subprocess.Popen(
         ["nice", "-n", "19", "ffmpeg", "-v", "error", "-y", "-threads", "4", "-f", "rawvideo", "-pix_fmt", "rgb24",
          "-s", f"{canvas_w}x{canvas_h}", "-r", str(FPS), "-i", "-", *audio, "-map", "0:v:0", "-map", "1:a:0?",
          "-c:v", "libx264", "-crf", "18", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
-         "-t", f"{frames / FPS:.3f}", "-movflags", "+faststart", out], stdin=subprocess.PIPE)
+         "-t", f"{frames / FPS:.3f}", *meta, "-movflags", "+faststart", out], stdin=subprocess.PIPE)
+    # the companion for an agent's eye (C1b, 2026-10-15): the same frames at one a second, no sound, so a sampler that
+    # takes one frame a second sees every frame
+    slow_out = str(Path(out).with_name(Path(out).stem + ".1fps.mp4")) if a.one_a_second else None
+    slow = subprocess.Popen(
+        ["nice", "-n", "19", "ffmpeg", "-v", "error", "-y", "-threads", "2", "-f", "rawvideo", "-pix_fmt", "rgb24",
+         "-s", f"{canvas_w}x{canvas_h}", "-r", "1", "-i", "-", "-c:v", "libx264", "-crf", "18", "-preset", "veryfast",
+         "-pix_fmt", "yuv420p", *meta, "-movflags", "+faststart", slow_out], stdin=subprocess.PIPE) if slow_out else None
     plates = stream(str(source), (w, h), first + lo, frames, vf=FIT.format(w=w, h=h), pix="rgb24")
     renders = stream(render, (w, h), skip, frames, vf=f"scale={w}:{h}", pix="rgb24") if render else None
+    zoomeds = stream(zoomed_render, (w, h), skip, frames, vf=f"scale={w}:{h}", pix="rgb24") if zoomed_render else None
     names = ["SOURCE", "MASKS", "RENDER"]
     render_name = Path(render).name if render else ""
+    region_px = [cells_up(r["region"]) for r in runs]
+    before = None
     done = 0
     for n, plate in enumerate(plates, lo):
-        tiles = [plate, draw_masks(plate, n, subjects, runs)] + ([next(renders)] if render else [])
-        x, y, side = boxes[n]
+        rec = records[n - lo]
+        tiles_ = [plate, draw_masks(plate, n, subjects, runs)] + ([next(renders)] if render else [])
+        own_zoomed = next(zoomeds) if zoomeds is not None else None
         canvas = np.zeros((canvas_h, canvas_w, 3), np.uint8)
-        for k, tile in enumerate(tiles):
+        for k, tile in enumerate(tiles_):
             top = k * row_h + HEADER
             canvas[top:top + h, :w] = tile
-            canvas[top:top + h, w:] = cv2.resize(tile[y:y + side, x:x + side], (z, z),
-                                                 interpolation=cv2.INTER_AREA if side >= z else cv2.INTER_CUBIC)
-        cv2.rectangle(canvas, (int(x), HEADER + row_h + int(y)), (int(x + side) - 1, HEADER + row_h + int(y + side) - 1), DIM, 1)
+            right = own_zoomed if (k == 2 and own_zoomed is not None) else tile[box[1]:box[3], box[0]:box[2]]
+            interp = cv2.INTER_AREA if right.shape[1] >= tile_w else cv2.INTER_LINEAR
+            canvas[top + oy:top + oy + tile_h, w + ox:w + ox + tile_w] = cv2.resize(right, (tile_w, tile_h), interpolation=interp)
+            if k < 2:
+                cv2.rectangle(canvas, (box[0], top + box[1]), (box[2] - 1, top + box[3] - 1), DIM, 2)
         img = Image.fromarray(canvas)
         d = ImageDraw.Draw(img)
-        voiced = rows[n].get("voiced")
-        said = ("", DIM) if voiced in (None, "") else (("VOICE", GREEN) if int(float(voiced)) else ("no voice", DIM))
+        voiced = rec["voiced"]
+        said = ("", DIM) if voiced is None else (("VOICE", GREEN) if voiced else ("no voice", DIM))
         for k in range(n_rows):
             top = k * row_h
             d.text((10, top + 6), f"SOURCE FRAME {first + n:05d}  " + (f"RENDER FRAME {skip + n - lo:04d}" if shown is None else
                                                                    f"LOAD FRAME {n - lo:04d}"), font=big, fill=WHITE)
             d.text((w - 250, top + 10), f"{(first + n) / FPS:6.2f} s", font=text, fill=DIM)
             d.text((w - 140, top + 10), said[0], font=text, fill=said[1])
-            d.text((w + 12, top + 10), f"{names[k]}, zoomed on the region" + (f"   {render_name}" if k == 2 else ""),
-                   font=text, fill=AMBER)
-        ly = row_h + HEADER + h - 12 - 24 * len(lines)
-        for colour, kind, label in lines:
-            fill = None if kind == "outline" else tuple(int(c * (0.85 if kind == "solid" else 0.4)) for c in colour)
-            d.rectangle([12, ly + 3, 30, ly + 19], fill=fill, outline=colour, width=2)
-            for dx, dy in ((1, 1), (-1, 1), (1, -1), (-1, -1)):
-                d.text((38 + dx, ly + dy), label, font=small, fill=(0, 0, 0))
-            d.text((38, ly), label, font=small, fill=WHITE)
-            ly += 24
-        # ---- the panel: one frame of it should explain itself
+            if zoom:
+                title = f"{names[k]}: WHAT H3 RENDERED IN, {box_words.split(', ', 1)[1]}" + (
+                    "" if k == 2 and own_zoomed is not None else ", rebuilt from the whole frame" if k < 2 else ", cut from the render")
+            else:
+                title = f"{names[k]}, the fixed detail box (H3 rendered the whole frame)"
+            for j, one in enumerate(wrap_text(title + (f"   {render_name}" if k == 2 and not zoom else ""), z - 24, small.getlength)[:2]):
+                d.text((w + 12, top + 4 + 19 * j), one, font=small, fill=AMBER)
+            if k < 2:
+                d.text((box[0] + 4, top + HEADER + box[1] + 3), "H3's box" if zoom else "detail box", font=small, fill=DIM)
+        # ---- the panel: one frame of it should explain itself; every line in a place of its own for the whole clip
         py = n_rows * row_h
         d.line([(0, py), (canvas_w, py)], fill=DIM)
-        d.text((14, py + 6), f"{first + n:05d}", font=huge, fill=WHITE)
-        d.text((16, py + 104), f"source frame     {(first + n) / FPS:.2f} s", font=line, fill=DIM)
-        if shown is None:
-            d.text((16, py + 130), f"render frame {skip + n - lo:04d}" if render else "nothing rendered: a preview", font=text, fill=WHITE)
-        else:                                             # two lines: a load's name is as long as the column is wide
-            d.text((16, py + 126), f"load {a.load}", font=small, fill=WHITE)
-            d.text((16, py + 144), f"frame {n - lo + 1} of {frames}", font=small, fill=WHITE)
-        if starts:
-            window = sum(skip + n - lo >= x for x in starts)
-            d.text((16, py + 160), f"window {window} of {len(starts)}", font=line, fill=WHITE)
-            d.text((16, py + 184), "new frames from " + ", ".join(str(x) for x in starts), font=small, fill=DIM)
-        d.text((16, py + 214), said[0] or "no voice table", font=text, fill=said[1])
-        if left_out:
-            # a render that covers part of the span: every frame of the strip says which of the span's frames it does not show
-            d.text((16, py + 250), "span frames not in this strip:", font=small, fill=AMBER)
-            for k, one in enumerate(left_out):
-                d.text((16, py + 274 + 23 * k), f"{one['frames'][0]}-{one['frames'][1]}, {one['why']}", font=small, fill=AMBER)
+        d.text((14, py + 4), f"{first + n:05d}", font=huge, fill=WHITE)
+        head = [f"source frame, {(first + n) / FPS:.2f} s"]
+        head.append(f"render frame {rec['render_frame']:04d}" if "render_frame" in rec else f"load {a.load}: frame {n - lo + 1} of {frames}")
+        d.text((250, py + 8), "   ".join(head), font=line, fill=WHITE)
+        dbfs = "" if rec["vocals_dbfs"] is None else f" ({rec['vocals_dbfs']:.0f} dBFS)"
+        d.text((250, py + 34), (said[0] or "no voice table") + dbfs, font=line, fill=said[1])
+        if rec["window"]:
+            d.text((470, py + 34), f"window {rec['window']['number']}, its frame {rec['window']['frame']}", font=line, fill=WHITE)
+        badges = []
+        if rec["encoder_samples"]:
+            badges.append(("TEXT ENCODER SAMPLES " + ", ".join(e["tag"] for e in rec["encoder_samples"]), GREEN))
+        for r_ in rec["references"]:
+            if r_["held"]:
+                badges.append((f"{r_['tag']} RAN OUT: ITS LAST FRAME", AMBER))
+        if rec["emptied"]:
+            badges.append(("NOTHING REGENERATES ON THIS FRAME", AMBER))
+        bx = 250
+        for words, colour in badges:
+            d.rectangle([bx, py + 60, bx + d.textlength(words, font=small) + 10, py + 82], outline=colour, width=2)
+            d.text((bx + 5, py + 63), words, font=small, fill=colour)
+            bx += d.textlength(words, font=small) + 18
+        ly = py + 84 + 26
+        for one in box_line:
+            d.text((44, ly), one, font=small, fill=DIM)
+            ly += 20
+        d.rectangle([12, py + 84 + 26 + 3, 30, py + 84 + 26 + 17], outline=DIM, width=2)
+        for k, entry in enumerate(legend):
+            c = entry["colour"]
+            if entry["kind"] == "replaced":
+                d.rectangle([12, ly + 3, 30, ly + 17], fill=tuple(int(v * 0.85) for v in c), outline=c, width=2)
+            elif entry["kind"] == "keep-out":
+                d.rectangle([12, ly + 3, 30, ly + 17], outline=c, width=1)
+                d.line([(12, ly + 17), (30, ly + 3)], fill=c, width=1)
+                d.line([(12, ly + 10), (21, ly + 3)], fill=c, width=1)
+            else:
+                d.rectangle([12, ly + 3, 30, ly + 17], outline=c, width=2)
+            for one in wrap_text(rec["legend"][k], LW - 44, small.getlength):
+                d.text((44, ly), one, font=small, fill=WHITE)
+                ly += 20
+            ly += 20 * (legend_lines_n[k] - len(wrap_text(rec["legend"][k], LW - 44, small.getlength))) + 8
+        ly += 10
+        if flags_file is None:
+            d.text((14, ly), "no preflight was run on this capture", font=small, fill=DIM)
+        elif not flags:
+            d.text((14, ly), "no flag above the lowest level on these frames", font=small, fill=DIM)
+        for f, lines_ in zip(flags, flag_text):
+            live = f["id"] in rec["flags_live"]
+            colour = ((170, 170, 230) if f["overridden"] else LEVEL_COLOURS[f["level"]]) if live else (90, 90, 90)
+            for one in lines_:
+                d.text((14, ly), one, font=small, fill=colour)
+                ly += 19
+        # ---- GIVEN: what H3 was handed, from the graph that runs
+        d.line([(GX - 8, py + 6), (GX - 8, py + panel - 6)], fill=DIM)
+        title_ = ("WHAT H3 WAS GIVEN, read from " + Path(given["graph"]).name + (" (built, not queued)" if given["state"] != "queued" else "")
+                  if given else absent if absent else "NOT READ FROM A GRAPH: the files named on the command line")
+        for j, one in enumerate(wrap_text(title_, canvas_w - GX - 8, small.getlength)[:3]):
+            d.text((GX, py + 6 + 19 * j), one, font=small, fill=AMBER if given or absent else (255, 90, 90))
+        cw = (canvas_w - GX - 8) // max(1, len(tiles))
+        for c_, t in enumerate(tiles):
+            cx, ty = GX + c_ * cw, py + 30
+            col = t["col"]
+            ref_rec = next((r_ for r_ in rec["references"] if col["video"] and r_["tag"] == col["video"].get("tag")), None)
+            if t.get("frames") is not None:
+                got_ = next(t["frames"], None)
+                t["last"] = got_ if got_ is not None else t["last"]
+                frame_ = t["last"]
+                sampled_ = any(e["tag"] == col["video"].get("tag") for e in rec["encoder_samples"])
+                if frame_ is not None:
+                    if one_col:
+                        whole = cv2.resize(frame_, (256, 192), interpolation=cv2.INTER_AREA)
+                        img.paste(Image.fromarray(whole), (cx, ty))
+                        d.rectangle([cx - 2, ty - 2, cx + 257, ty + 193], outline=GREEN if sampled_ else DIM, width=3 if sampled_ else 1)
+                        hx, hs = cx + 268, 310
+                    else:
+                        hx, hs = cx, 200
+                    if t["head"]:
+                        x0, y0, x1, y1 = t["head"][n - lo]
+                        crop = cv2.resize(frame_[y0:y1, x0:x1], (hs, hs), interpolation=cv2.INTER_CUBIC)
+                        img.paste(Image.fromarray(crop), (hx, ty))
+                        d.rectangle([hx - 2, ty - 2, hx + hs + 1, ty + hs + 1], outline=GREEN if sampled_ else DIM, width=3 if sampled_ else 1)
+                        cap_ = f"{col['video'].get('tag')} head, {hs / (x1 - x0):.1f}x"
+                    elif not one_col:
+                        img.paste(Image.fromarray(cv2.resize(frame_, (hs, round(hs * 3 / 4)), interpolation=cv2.INTER_AREA)), (hx, ty))
+                        cap_ = f"{col['video'].get('tag')} whole"
+                    else:
+                        cap_ = "no points beside the reference: no head crop"
+                    d.text((hx, ty + hs + 4), cap_, font=small, fill=WHITE)
+                    d.text((cx, ty + (192 if one_col else hs) + 4 + (20 if not one_col else 0)),
+                           f"{col['video'].get('tag')} frame {ref_rec['reference_frame']}" + (" (its last, repeated)" if ref_rec["held"] else "")
+                           if ref_rec else Path(col["video"]["file"]).name[:40], font=small, fill=AMBER if ref_rec and ref_rec["held"] else WHITE)
+            if t["still"] is not None:
+                sw_ = (canvas_w - 8 - (cx + 268 + 322)) if one_col else cw - 206
+                sx0 = cx + 268 + 322 if one_col else cx + 206
+                sh_ = 310 if one_col else 200
+                pic = t["still"].copy()
+                pic.thumbnail((sw_, sh_))
+                img.paste(pic, (sx0, ty))
+                said_still = next((x for x in (col["picture"].get("node_said") or []) if "text encoder is shown" in x), "")
+                cap2 = f"{col['picture'].get('tag')} {pic.width}x{pic.height} here, " + (
+                    f"{col['picture']['size'][0]}x{col['picture']['size'][1]} in its file" if col["picture"].get("size") else "")
+                for k_, one in enumerate(wrap_text(cap2, sw_, small.getlength)[:3]):
+                    d.text((sx0, ty + sh_ + 4 + 18 * k_), one, font=small, fill=WHITE)
+                if said_still:
+                    shown_at = said_still.split("shown ", 1)[1].split(",")[0]
+                    d.text((sx0, ty + sh_ + 4 + 18 * 2), f"handed as {shown_at}", font=small, fill=DIM)
+            drawn_ = ((col["video"] or {}).get("record") or {}).get("drawn") or {}
+            left = list(drawn_.get("parts_left_out") or []) + (ref_rec["rings_left_out"] if ref_rec else [])
+            if left:
+                d.text((cx, py + panel - 24), f"THE REFERENCE LEAVES OUT: {', '.join(left)}", font=small, fill=AMBER)
+        # ---- the change in the region since the last frame: a figure of the pictures, kept in the record
         inside = np.zeros((h, w), bool)
         for px in region_px:
             inside |= px[n]
-        grey = [cv2.cvtColor(t, cv2.COLOR_RGB2GRAY).astype(np.int16) for t in (tiles[0], tiles[-1])]
+        grey = [cv2.cvtColor(t_, cv2.COLOR_RGB2GRAY).astype(np.int16) for t_ in (tiles_[0], tiles_[-1])]
         both = inside & before[2] if before is not None else inside
-        moved = None if before is None or not both.any() else (float(np.abs(grey[0] - before[0])[both].mean()),
-                                                               float(np.abs(grey[1] - before[1])[both].mean()))
+        if before is not None and both.any():
+            rec["change_in_region"] = {"source": round(float(np.abs(grey[0] - before[0])[both].mean()), 2),
+                                       "render": round(float(np.abs(grey[1] - before[1])[both].mean()), 2) if render else None,
+                                       "is": "the mean change in grey level (0-255) inside the region since the previous frame"}
         before = (grey[0], grey[1], inside)
-        tx, ty = 330, py + 10
-        for sub_ in subjects:
-            r = table[sub_["label"]][n]
-            note = "no mask video on this frame" if not r["covered"] else (
-                f"mask {100 * r['track_share']:.2f}% of the frame" + (f", in {r['track_pieces']} pieces" if r.get("track_pieces", 1) > 1 else "")
-                + (f"; part {100 * r['parts_share']:.2f}%, {100 * (r.get('parts_inside_track') or 0):.0f}% of it on the subject"
-                   if r.get("parts_share") is not None else ""))
-            d.rectangle([tx, ty + 4, tx + 14, ty + 18], outline=sub_["colour"], width=3)
-            d.text((tx + 24, ty), f"{sub_['label']}: {note}", font=line, fill=WHITE)
-            ty += 25
-        for r_ in runs:
-            r = run_table[r_["name"]][n]
-            if r.get("region_share"):
-                own = sum(table[who][n].get("track_share") or 0 for who in subjects_of(r_))
-                d.text((tx, ty), f"{'plan' if r_.get('planned') else 'run'} {r_['name']}: region {100 * r['region_share']:.1f}% of the frame"
-                       + (f", {r['region_share'] / own:.1f}x {' and '.join(subjects_of(r_))}'s mask" if own else "")
-                       + f"; {100 * r['margin_share'] / r['region_share']:.0f}% of it margin", font=line, fill=WHITE)
-            else:
-                d.text((tx, ty), f"{r_['name']}: nothing regenerates on this frame", font=line, fill=AMBER)
-            ty += 25
-            for key, value in rows[n].items():
-                if key.startswith(f"region_on__{r_['name']}__") and value not in ("", None) and float(value) > 0:
-                    other = key.rsplit("__", 1)[1]
-                    back = rows[n].get(f"cells_given_back__{r_['name']}__{other}") or 0
-                    d.text((tx + 24, ty), f"covers {100 * float(value):.0f}% of {other}'s mask; {int(float(back))} margin cells given back",
-                           font=line, fill=AMBER)
-                    ty += 25
-        if moved is not None:
-            d.text((tx, ty), f"change in the region since the last frame: source {moved[0]:.1f}"
-                   + (f", render {moved[1]:.1f}" if render else "") + " grey levels", font=line, fill=WHITE)
-            ty += 25
-        if flags is None:
-            d.text((tx, ty + 4), "no preflight was run on this capture", font=small, fill=DIM)
+        if left_out:
+            d.text((14, py + 66), "not in this strip: " + "; ".join(f"{x['frames'][0]}-{x['frames'][1]} {x['why']}" for x in left_out),
+                   font=small, fill=AMBER)
+        by_ = py + panel
+        d.line([(0, by_), (canvas_w, by_)], fill=DIM)
+        if shown is None:
+            parts = sidecar.parent.parts
+            where = Path(*parts[parts.index("data"):]) if "data" in parts else sidecar.parent     # data/<capture>/strips: the repo's own
+            for j, one in enumerate(wrap_text(f"THE TEXT H3 WAS GIVEN, ITS WINDOWS, THE DEFAULTS AND EVERY FIGURE ON THIS FRAME: {sidecar.name} and "
+                                              f"{frames_file.name} in {where}", canvas_w - 32, small.getlength)[:2]):
+                d.text((16, by_ + 4 + 18 * j), one, font=small, fill=AMBER)
         else:
-            drawn = {r_["name"] for r_ in runs}
-            live = [f for f in flags if any(x <= first + n <= y for x, y in f["source_frames"]) and f["level"] != LEVELS[0]
-                    and f.get("run") in (None, *drawn)]
-            if not live:
-                d.text((tx, ty + 4), "no flag on this frame", font=small, fill=DIM)
-            for f in live[:max(1, (py + PANEL - ty - 8) // 23)]:
-                words = f"{f['id']} {f['level'].upper()}: {f['why']}"
-                while d.textlength(words, font=small) > PANEL_TEXT - tx and len(words) > 20:
-                    words = words[:-8] + "..."
-                d.text((tx, ty + 4), words, font=small, fill=LEVEL_COLOURS[f["level"]])
-                ty += 23
-        mx = PANEL_TEXT + 12
-        d.text((mx, py + 8), "movement: the WHOLE reference frame, as shown" if motions else "movement, as the model was shown it",
-               font=small, fill=AMBER)
-        if motions:
-            for at, (one_motion, label) in enumerate(zip(motions, motion_names)):
-                moving = next(one_motion, None)
-                if moving is not None:
-                    img.paste(Image.fromarray(moving), (mx + at * motion_tile[0], py + 34))
-                # The tile's own edge, drawn: a reference on a black ground has no edge to see on a black panel, so a
-                # figure its own frame cuts (a head crop does, at the frame's side) read as the PANEL cropping it. Twice
-                # on 2026-10-13 a reader took it so; measured that day, the tile is the whole frame scaled, to the pixel.
-                d.rectangle([mx + at * motion_tile[0], py + 34, mx + (at + 1) * motion_tile[0] - 1, py + 34 + motion_tile[1] - 1], outline=DIM)
-                if label:
-                    d.text((mx + at * motion_tile[0] + 4, py + 36 + motion_tile[1]), label, font=small, fill=WHITE)
-        else:
-            d.text((mx, py + 150), "none: this run has no motion video" if not a.motion_note else a.motion_note, font=line, fill=DIM)
-        sx = mx + 456 + 14
-        d.text((sx, py + 8), "taken from" if stills else "", font=small, fill=AMBER)
-        sy = py + 34
-        for label, pic in stills:
-            img.paste(pic, (sx, sy))
-            d.rectangle([sx, sy + 150, sx + pic.width - 1, sy + 172], fill=(0, 0, 0))
-            d.text((sx + 2, sy + 151), label, font=small, fill=WHITE)
-            sy += 180
-        if shown is not None:
             # the text the load will be given, whole, on every frame: a look reads it against the frames beside it
-            by_ = py + PANEL
-            d.line([(0, by_), (canvas_w, by_)], fill=DIM)
             d.text((16, by_ + 8), f"THE TEXT OF LOAD {a.load} (source frames {shown['frames'][0]}-{shown['frames'][1]}), label "
                    f"{shown['text_label']!r}, from {shown['text_from'] or 'nowhere'}", font=text, fill=AMBER)
             if not runs:
@@ -5141,13 +5474,37 @@ def video(a: argparse.Namespace) -> None:
                 d.text((16, by_ + 38 + 24 * k), one_line, font=line, fill=WHITE if covers else AMBER)
             for k, one_line in enumerate(text_lines):
                 d.text((16, by_ + 68 + notice + 24 * k), one_line, font=line, fill=WHITE)
-        enc.stdin.write(np.asarray(img).tobytes())
+        data = np.asarray(img).tobytes()
+        enc.stdin.write(data)
+        if slow is not None:
+            slow.stdin.write(data)
         done = n - lo + 1
         if n % 100 == 0:
             print("frame", n, flush=True)
     enc.stdin.close()
     code = enc.wait()
+    if slow is not None:
+        slow.stdin.close()
+        code = code or slow.wait()
     print("wrote", out, "frames", done, "encoder exit", code)
+    if slow_out:
+        print("wrote", slow_out, "(the same frames at one a second, no sound)")
+    # ---- the sidecar: what the strip drew, as data, under data/
+    head = {"clip": out, "one_a_second": slow_out, "capture": str(folder), "source": str(source), "render": render, "load": a.load,
+            "made": datetime.datetime.now().astimezone().isoformat(timespec="seconds"), "frames": [first + lo, first + lo + frames - 1],
+            "given": given if given else absent, "given_from_the_command_line": None if given or absent else [c_["video"] for c_ in cols] + [c_["picture"] for c_ in cols],
+            "right_column": {"box": box, "is": box_words, "zoomed": bool(zoom), "render_tile": zoomed_render},
+            "legend": legend, "keep_out_words": {k: KEEP_OUT_WORDS.get(k, "another tracked subject") for k in keep_outs},
+            "marks": {"outline": "the tracked mask", "solid": "taken from the still", "light": "margin regenerated",
+                      "hatched cell in a keep-out's colour": "a margin cell kept as the original because it lies on that keep-out",
+                      "grey box": box_words, "white": "kept for what the render kept, once the node saves it (not saved for this render)"},
+            "flags": flags, "overridden": sorted(overridden), "text": shown["text"] if shown else (given or {}).get("text", {}).get("text"),
+            "render_said": rendered, "records": frames_file.name}
+    sidecar.write_text(json.dumps(head, indent=1, default=str) + "\n")
+    with open(frames_file, "w") as fh:
+        for rec in records:
+            fh.write(json.dumps(rec) + "\n")
+    print("wrote", sidecar, "and", frames_file)
     if done != frames or code:
         raise SystemExit(1)
     if shown is not None and shown["recorded"] and not a.out:
@@ -5157,6 +5514,13 @@ def video(a: argparse.Namespace) -> None:
                "made": datetime.datetime.now().isoformat(timespec="seconds")}
         if shown.get("pair"):
             row["pair"] = shown["pair"]               # which label the strip said is whose: a look of a two-subject load is of this too
+        if given is not None:
+            # the bytes of each reference and still the strip showed (mrlol, 2026-10-15: look_carry compares these, not a file's time)
+            row["motion"] = [{"file": r["file"], "first": r["loader"]["first_frame"], "sha256": r["sha256"]}
+                             for r in given["inputs"] if str(r.get("tag", "")).startswith("<Video") and r.get("sha256")]
+            row["stills"] = [{"subject": c_["who"], "file": c_["picture"]["file"], "sha256": c_["picture"]["sha256"]}
+                             for c_ in cols if c_["picture"] and c_["picture"].get("sha256")]
+            row["given_from"] = {"graph": given["graph"], "graph_sha256": given["graph_sha256"], "state": given["state"]}
         (folder / "looks" / f"{a.load}.shown.json").write_text(json.dumps(row, indent=1) + "\n")
         print("wrote", folder / "looks" / f"{a.load}.shown.json")
     elif shown is not None:
@@ -5198,12 +5562,15 @@ def main() -> None:
     v.add_argument("--render", help="the render shown in the bottom row; two rows without one")
     v.add_argument("--render-first", type=int, help="the source frame that is the render's frame 0, when the render "
                    "is not one of the capture's runs (a merged file, say); a run's own is in the manifest")
-    v.add_argument("--motion", action="append", help="the motion video the run was given, frame 0 its first frame, shown in the panel; "
-                   "twice for a load of two subjects, in the list's order")
-    v.add_argument("--motion-note", default="", help="words for the panel when there is no motion video file to show")
-    v.add_argument("--still", action="append", default=[], metavar="LABEL=IMAGE", help="a reference still and the subject "
-                   "it belongs to, shown small in the panel; repeatable")
-    v.add_argument("--windows", help="the render frames where each window's new frames start, e.g. 0,345")
+    v.add_argument("--given", metavar="JOB_FOLDER", help="the load's job folder (data/<day>_<load>_job): the references, stills and zoom "
+                   "the panel shows are read from its graph (bench/what_h3_got.py), the render's when built, else the plan's")
+    v.add_argument("--given-load", metavar="NAME", help="the load in --given's folder, when it is not --load or the folder's own name")
+    v.add_argument("--one-a-second", action="store_true", help="also write <clip>.1fps.mp4: the same frames at one a second, no sound, "
+                   "for an agent whose video reader takes one frame a second")
+    v.add_argument("--motion", action="append", help="without --given: a motion video named by hand, shown in the panel as NOT READ FROM "
+                   "A GRAPH; twice for a load of two subjects, in the list's order")
+    v.add_argument("--still", action="append", default=[], metavar="LABEL=IMAGE", help="without --given: a still named by hand and "
+                   "the subject it belongs to, shown as NOT READ FROM A GRAPH; repeatable")
     v.add_argument("--all-runs", action="store_true", help="draw every run's region, also when --render is one run's")
     v.add_argument("--load", metavar="NAME", help="the look: one load's own frames, every one, with the text it will be given under "
                    "the picture; written to <capture>/looks/NAME.mp4 with NAME.shown.json beside it. Needs --job")

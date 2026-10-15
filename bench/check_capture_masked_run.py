@@ -1740,12 +1740,74 @@ def a_strip_of_two_subjects() -> str:
     both = rect(32, 32, 48, 48, 1)                                          # a pixel both tracks claim stays the first's
     overlap = cap.draw_masks(plate, 0, [subjects[0], {**subjects[1], "track": b_track | both}], [{**run, "subjects": ["a", "b"]}]).astype(int)
     assert overlap[in_a][0] > overlap[in_a][2], overlap[in_a]
-    words = [text for _, _, text in cap.legend_lines(subjects, [{**run, "subjects": ["a", "b"]}])]
-    assert words == ["a: the tracked mask", "a: would be taken from the still (plan ab)", "one margin would be regenerated round a and b",
-                     "b: the tracked mask", "b: would be taken from the still (plan ab)"], words
-    alone = [text for _, _, text in cap.legend_lines(subjects, [run])]
-    assert alone == ["a: the tracked mask", "a: would be taken from the still (plan ab)", "a: margin would be regenerated round it", "b: the tracked mask"], alone
+    both_ = cap.pinned_legend(subjects, [{**run, "subjects": ["a", "b"]}], [{}], ["a", "b"])
+    assert [(e["label"], e["kind"]) for e in both_] == [("a", "replaced"), ("b", "replaced")], both_
+    alone = cap.pinned_legend(subjects, [run], [{}], ["a"])
+    assert [(e["label"], e["kind"]) for e in alone] == [("a", "replaced"), ("b", "other")], alone
     return "each subject's part is filled in its own colour and the margin in the first's; told one subject the picture is as before; a legend line each"
+
+
+def the_strips_marks_and_records() -> str:
+    """The review strip of 2026-10-15 (C1): a given-back cell hatched in its keep-out's colour, never white; a keep-out pinned in
+    the legend on a frame where its share of the region is 0 and it still has cells given back (that frame's line was dropped
+    before); an overridden flag said so; the frame records' events; the head crop's size fixed while its centre follows the face."""
+    import tempfile
+    red, blue = (255, 0, 0), (0, 0, 255)
+    subjects = [{"label": "a", "colour": red, "track": rect(16, 16, 64, 80, 2)}, {"label": "hands", "colour": blue, "track": rect(96, 16, 144, 80, 2)}]
+    region = np.zeros((2, H // CELL, W // CELL), bool)
+    region[:, 1:5, 1:5] = True
+    back = np.zeros((2, H // CELL, W // CELL), bool)
+    back[1, 3, 7] = True                                            # one cell given back to hands, on frame 1 only, inside its outline
+    run = {"name": "r", "subject": "a", "planned": True, "region": region, "carried": rect(32, 32, 48, 48, 2), "back": {"hands": back}}
+    plate = np.full((H, W, 3), 100, np.uint8)
+    img = cap.draw_masks(plate, 1, subjects, [run]).astype(int)
+    y0, x0 = 3 * CELL, 7 * CELL
+    diag = img[y0 + CELL - 1, x0]                                    # the long stroke starts at the cell's bottom left
+    # THE CASE THAT GOES RED when a given-back cell is drawn white, whatever claimed it
+    assert tuple(diag) == blue, f"a cell given back to hands is drawn {tuple(diag)}, not hands' colour"
+    assert tuple(cap.draw_masks(plate, 0, subjects, [run]).astype(int)[y0 + CELL - 1, x0]) != blue, "the control: no cell on frame 0"
+    rows = [{"region_on__r__hands": "0.0", "cells_given_back__r__hands": "0"}, {"region_on__r__hands": "0.0", "cells_given_back__r__hands": "1"}]
+    legend = cap.pinned_legend(subjects, [run], rows, ["a"])
+    assert [(e["label"], e["kind"]) for e in legend] == [("a", "replaced"), ("hands", "keep-out")], legend
+    flags_in = [{"id": "f001", "level": "likely to fail", "rule": "region_over_another_subject", "subject": "a", "other": "hands", "run": "r",
+                 "source_frames": [[10, 10]], "why": "w"},
+                {"id": "f002", "level": "iffy", "rule": "x", "subject": None, "run": None, "source_frames": [[11, 11]]},
+                {"id": "f003", "level": "likely fine", "rule": "y", "run": None, "source_frames": [[10, 11]]},
+                {"id": "f004", "level": "iffy", "rule": "z", "run": None, "source_frames": [[50, 60]]},
+                {"id": "f005", "level": "iffy", "rule": "z", "run": "another", "source_frames": [[10, 11]]}]
+    flags = cap.flag_rows(flags_in, {"f001"}, {"r"}, (10, 11))
+    assert [f["id"] for f in flags] == ["f001", "f002"] and flags[0]["overridden"] and "OVERRIDDEN" in flags[0]["words"], flags
+    m = {"first_frame": 10}
+    table = {"a": [{"covered": True, "track_share": 0.1}] * 2, "hands": [{"covered": True, "track_share": 0.02, "track_pieces": 3}] * 2}
+    run_table = {"r": [{"region_share": 0.05, "margin_share": 0.02}, {"region_share": 0.0, "margin_share": 0.0}]}
+    given = {"inputs": [{"role": "the source", "tag": None, "loader": {"first_frame": 10}},
+                        {"role": "<Video 1>", "tag": "<Video 1>", "loader": {"first_frame": 0}, "reference_frames": 1,
+                         "encoder_frames": [{"window_first": 0, "window_frames": 2, "sampled": [{"source_frame": 10, "reference_frame": 0, "held": False}]}]}]}
+    recs = cap.strip_records(m, subjects, [run], rows, table, run_table, flags, given, 0, 2, 0, True, legend, ["hands"])
+    assert recs[0]["encoder_samples"] == [{"tag": "<Video 1>", "reference_frame": 0}] and recs[1]["window"] == {"number": 1, "frame": 1}, recs
+    assert recs[1]["references"][0]["held"] and not recs[0]["references"][0]["held"], recs[1]["references"]
+    assert recs[1]["keep_outs"]["hands"]["cells_given_back"] == 1 and "1 margin cells kept as the original" in recs[1]["legend"][1], recs[1]["legend"]
+    ch = recs[1]["changes"]
+    for want in ("flag f001 ends", "flag f002 starts", "nothing regenerates from this frame", "hands: cells given back start (0 to 1)",
+                 "<Video 1> runs out: its last frame from here"):
+        assert want in ch, (want, ch)
+    assert recs[0]["changes"] == ["the text encoder is shown <Video 1> frame 0 here"], recs[0]["changes"]
+    # the head crop: a face moving right across a reference, read through the record's box and scale
+    with tempfile.TemporaryDirectory() as tmp:
+        names = ["l_upper_lash_line", "r_upper_lash_line", "center_of_glabella", "tip_of_nose", "tip_of_chin"]
+        kp = np.zeros((20, len(names), 2), np.float32)
+        for f in range(20):
+            kp[f] = [[100 + 5 * f, 100], [140 + 5 * f, 100], [120 + 5 * f, 95], [120 + 5 * f, 120], [120 + 5 * f, 150]]
+        pts = Path(tmp) / "p.npz"
+        np.savez(pts, keypoints=kp, scores=np.ones((20, len(names)), np.float32), names=np.array(names), first_frame=np.array(500), size=np.array([1024, 768]))
+        video = {"record": {"box": [0, 0, 1024, 768], "scale": [2.0, 2.0], "points": {"file": str(pts), "first_row_is_source_frame": 500}}}
+        boxes = cap.head_boxes(video, (1024, 768), (500, 519))
+        sides = {b[2] - b[0] for b in boxes} | {b[3] - b[1] for b in boxes}
+        assert len(boxes) == 20 and len(sides) == 1, boxes
+        assert boxes[-1][0] > boxes[0][0] and boxes[10][1] == boxes[0][1], (boxes[0], boxes[10], boxes[-1])
+        assert cap.head_boxes({"record": {}}, (1024, 768), (500, 519)) is None
+    return ("a given-back cell in its keep-out's colour; a keep-out at 0% of the region still pinned with its cell; an override said; "
+            "events and the encoder's frames in the records; the head crop one size, following the face")
 
 
 def neither_is_another() -> str:
@@ -2055,6 +2117,7 @@ case("preflight: a load that lays nothing where its subject is", a_load_that_lay
 case("preflight: what the job says is its own", what_the_job_says_is_its_own)
 case("preflight: specks of another are data", specks_of_another)
 case("a strip says what the node will render", what_the_node_will_render)
+case("the strip's marks and its frame records", the_strips_marks_and_records)
 case("the floor at the size the load renders at", the_floor_at_the_size_it_renders)
 case("preflight: held's slivers and her clothing are data", held_split)
 case("a fill of a doubted part, graded by the class map", graded_holds)
