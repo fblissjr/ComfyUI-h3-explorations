@@ -63,7 +63,8 @@ table; the Open List).
    order; the landing's page step posts the item; Start here on `TO_REVIEW.html` is
    `internal/claude/2026-10-15_mrtall_scripts/start_here.json`, then `pages.sh STAMP PREVIOUS_TABLE.json`) and give the
    owner the direct links, in this order: (a) the second subject's whole kitchen shot 604-1009, with what to watch (her
-   identity across the join at 898; her turn and bow, 945-1009); (b) lead_fp_2823c beside the kept 2823b as one clip
+   identity across the join at 898; her turn and bow, 945-1009; her eyes facing the camera on 950-970, where the
+   reference's contrast eye is drawn at its largest: the owner asked whether a solid black iris would look weird); (b) lead_fp_2823c beside the kept 2823b as one clip
    (`bench/stack_rows.py`, rows: the masked input, 2823c, 2823b), keep one; its note lists what differs from 2823b.
    Show the kitchen as a joined clip of 604-1009 with the new piece laid alone for her (a candidate, as the hall was:
    add a `604-1009:second=<the new load>` line to `prefers.txt` for the clip only, build with `joined_clip.sh`, then put
