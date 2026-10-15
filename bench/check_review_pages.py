@@ -725,7 +725,10 @@ def start_here() -> str:
         clip = d / "share" / "pair" / "hair_A.mp4"
         clip.parent.mkdir(parents=True)
         clip.write_bytes(b"x")
-        order = [{"item": str(clip), "why": "WHY THE PAIR"}, {"item": "150-199", "why": "WHY A_SOLO'S SHOT"}, {"item": "100-149", "why": "WHY THE JOINED SHOT"}]
+        other = clip.with_name("hair_B.mp4")
+        other.write_bytes(b"x")
+        order = [{"item": str(clip), "why": "WHY THE PAIR"}, {"item": "150-199", "why": "WHY A_SOLO'S SHOT"}, {"item": "100-149", "why": "WHY THE JOINED SHOT"},
+                 {"link": "https://the-open-list/#row-7", "label": "THE HAIR QUESTION", "why": "WHY THE LINK", "clips": [str(clip), str(other)]}]
         f = d / "start.json"
         f.write_text(json.dumps(order))
         page = to_review(d, more=("--start-here", str(f)))
@@ -735,8 +738,14 @@ def start_here() -> str:
         assert "hair_A.mp4" in top and "r__s__a_solo" in top and "v_0100_0149_joined_NEW_stacked" in top, top
         assert '<a href="../share/pair/hair_A.mp4">' in page, "the clip is not linked relative to the page"
         assert text.index("Start here, in this order") < text.index("Waiting on you"), "the list is not first"
+        # a question whose buttons are on the Open List: the entry goes there, its clips beneath it as plain links (the owner, 2026-10-15)
+        assert '<a href="https://the-open-list/#row-7">THE HAIR QUESTION</a>: WHY THE LINK' in page, "the link entry"
+        assert '<a href="../share/pair/hair_B.mp4">hair_B.mp4</a>' in page.split("THE HAIR QUESTION")[1].split("</li>")[0], "the clips beneath it"
         for bad, said in (([{"item": "a_not_here", "why": "w"}], "no item this page shows"), ([{"item": "500-599", "why": "w"}], "is not on this page"),
-                          ([{"item": str(d / "gone.mp4"), "why": "w"}], "is not there"), ([{"item": "150-199"}], "says in one line"), ([], "not empty")):
+                          ([{"item": str(d / "gone.mp4"), "why": "w"}], "is not there"), ([{"item": "150-199"}], "says in one line"), ([], "not empty"),
+                          ([{"link": "file:///x", "label": "l", "why": "w"}], "http(s) URL"), ([{"link": "https://x", "why": "w"}], "with a label"),
+                          ([{"link": "https://x", "label": "l", "why": "w", "item": "150-199"}], "names no item"),
+                          ([{"link": "https://x", "label": "l", "why": "w", "clips": [str(d / "gone.mp4")]}], "is not there")):
             f.write_text(json.dumps(bad))
             try:
                 to_review(d, more=("--start-here", str(f)))
@@ -746,7 +755,8 @@ def start_here() -> str:
                 raise AssertionError(f"a start-here list the page cannot hold was drawn: {bad}")
         f.write_text(json.dumps(order))
         assert "Start here" not in text_of(to_review(d)), "the list drawn with no --start-here"
-    return "the lead's list first and in its order, a shot, an item and a clip each linked with its why; five lists the page cannot hold refused"
+    return ("the lead's list first and in its order, a shot, an item and a clip each linked with its why, and a link to where a question's buttons "
+            "are with its clips beneath; nine lists the page cannot hold refused")
 
 
 def nothing_of_a_video_in_code() -> str:

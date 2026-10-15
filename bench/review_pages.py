@@ -470,10 +470,24 @@ def start_here(path: str, drawn: dict[str, str], shots: dict[str, list[str]], ou
     if not isinstance(got, list) or not got:
         raise SystemExit(f"--start-here {path}: a JSON list of {{\"item\", \"why\"}}, in order, and not empty")
     lines = []
+    def clip_link(k: int, clip: str) -> str:
+        if not Path(clip).is_file():
+            raise SystemExit(f"--start-here {path}, entry {k}: the clip {clip} is not there")
+        return f'<a href="{E(os.path.relpath(clip, out_dir))}">{E(Path(clip).name)}</a>'
     for k, e in enumerate(got, 1):
         what, why = str(e.get("item") or "").strip(), " ".join(str(e.get("why") or "").split())
-        if not what or not why:
-            raise SystemExit(f"--start-here {path}, entry {k}: each entry names an item and says in one line what deciding it changes")
+        url = str(e.get("link") or "").strip()
+        if (not what and not url) or not why:
+            raise SystemExit(f"--start-here {path}, entry {k}: each entry names an item or a link and says in one line what deciding it changes")
+        if url:
+            # a question whose buttons are elsewhere (the Open List): the entry goes there, its clips beneath it as plain links
+            # (the owner, 2026-10-15: a clip's own link "just gives me the rendered video", and the buttons were not on it)
+            if what or not re.match(r"https?://", url) or not str(e.get("label") or "").strip():
+                raise SystemExit(f"--start-here {path}, entry {k}: a link entry is an http(s) URL with a label, and names no item beside it")
+            clips = [clip_link(k, c) for c in e.get("clips") or []]
+            lines.append(f'<li><a href="{E(url)}">{E(" ".join(str(e["label"]).split()))}</a>: {E(why)}'
+                         + (f"<br><span class='mut'>the clips: {', '.join(clips)}</span>" if clips else "") + "</li>")
+            continue
         if re.fullmatch(r"\d+-\d+", what):
             if what not in shots:
                 raise SystemExit(f"--start-here {path}, entry {k}: the shot {what} is not on this page (its shots: {', '.join(shots) or 'none'})")
@@ -482,10 +496,7 @@ def start_here(path: str, drawn: dict[str, str], shots: dict[str, list[str]], ou
         elif what in drawn:
             shown = drawn[what]
         elif "/" in what:
-            if not Path(what).is_file():
-                raise SystemExit(f"--start-here {path}, entry {k}: the clip {what} is not there")
-            rel = os.path.relpath(what, out_dir)
-            shown = f'<a href="{E(rel)}">{E(Path(what).name)}</a> (a clip, not on the review list)'
+            shown = clip_link(k, what) + " (a clip, not on the review list)"
         else:
             raise SystemExit(f"--start-here {path}, entry {k}: {what!r} is no item this page shows, no shot of it and no clip")
         lines.append(f"<li>{shown}: {E(why)}</li>")
