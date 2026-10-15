@@ -19,15 +19,26 @@ table; the Open List).
   `http://100.87.141.65:8765/`.
 - **Kept today on playback:** the lead's 2823b, 0630d, 0805d, 2625, 751c; the second subject's 5461c, 5114d, 1010j;
   the hall shot 1419-1465 made whole (lead_fp_1419d, third_fp_1419d), which replaced the short pieces there.
-- **On the card tonight (mrgo), in order:** the 2823-3109 remake in one window (or to 3166); the context-noise change
-  landed, then the second subject's whole kitchen load 604-1009 (seam 898, context 90, noise 0.8, eyes shut drawn on
-  938-953 and 968-1009 only); then what time allows. Whatever landed is on the review page; its job note says what.
-- **Servers:** ComfyUI was restarted by the lead at 21:52:56Z (pid 3933887) and belongs to the lead's session; the
-  review server is the lead's (pid 22533). Both are stopped at the close unless the card is still sampling, in which case
+- **On the card tonight (mrgo), in order:** the second subject's whole kitchen load, `second_hfp_0604f` (604-1009,
+  seam 898, context 90, noise 0.8 per load, eyes shut drawn on 938-953 and 968-1009 only, `--track-not lead:1003-1009`;
+  job `data/2026-10-15_fun_kitchen_inputs/second_hfp_0604f.json`); then `--mouth-on` landed and `lead_fp_2823c`
+  (2823-3109, one window; job `data/2026-10-15_fun_past2049_inputs/lead_fp_2823c.json`; its tail 3098-3105 held with
+  the mouth drawn, 3106-3109 dropped). mrgo writes `internal/claude/2026-10-15_mrgo_closeout.md` at its end; its
+  scripts and sheets are `internal/claude/2026-10-15_mrgo_scripts/`. Whatever did not land, its note says why.
+- **Servers:** ComfyUI was restarted by the lead at 21:52:56Z (pid 3933887; mrgo's brief names the old 2104361, which
+  is gone) and belongs to the lead's session; the review server is the lead's (pid 22533), started from the repo root
+  with `python3 data/fun/poc/serve.py` (port 8765). Both are stopped at the close unless the card is still sampling, in which case
   the card seat stops ComfyUI when it finishes, and says so in its notes.
 - **The owner reviewed nothing after about 22:15Z.** Nothing rendered tonight is judged.
 
 ## What not to assume
+
+- **The day's close-out notes predate the evening's rulings; decisions.md wins.** The kitchen load runs at context 90
+  with noise 0.8 (not 141, not waiting on `--context`); 2823-3109 is remade in one window (not continued from 2823b);
+  the written label is parked (decisions.md's later entry over its earlier "still built and run").
+- **Continuing a piece is allowed only from one the owner KEPT** (their choice for 2823b, then impossible on its grid);
+  it is never a way to split a shot into fresh loads. The dad's 1397-1418 continues 1310c only if 1310c's stored window
+  is on the chained grid; otherwise the owner is asked.
 
 - **One load a subject over the whole shot.** Never fresh loads split inside a shot; chained windows inside one load
   only, on `h3_rules.chain_lengths()`. A load up to `h3_rules.MAX_LENGTH` (362) is one window.
@@ -48,9 +59,12 @@ table; the Open List).
 
 1. **THE OWNER REVIEWS FIRST THING; they asked for it at the close ("make sure its set for a new session for me to look
    at tomorrow").** Before anything else: check what landed overnight (the card seat's notes, the newest ledger), then
-   put each at the top of the review page (`http://100.87.141.65:8765/`, and Start here on `TO_REVIEW.html`) and give the
+   put each at the top of the review page (`http://100.87.141.65:8765/` reads `data/fun/review/items.json` in its
+   order; the landing's page step posts the item; Start here on `TO_REVIEW.html` is
+   `internal/claude/2026-10-15_mrtall_scripts/start_here.json`, then `pages.sh STAMP PREVIOUS_TABLE.json`) and give the
    owner the direct links, in this order: (a) the second subject's whole kitchen shot 604-1009, with what to watch (her
-   identity across the join at 898; her turn and bow, 945-1009); (b) lead_fp_2823c beside the kept 2823b, keep one.
+   identity across the join at 898; her turn and bow, 945-1009); (b) lead_fp_2823c beside the kept 2823b as one clip
+   (`bench/stack_rows.py`, rows: the masked input, 2823c, 2823b), keep one; its note lists what differs from 2823b.
    If either did not land, say why in one line. The Open List's "Right now" lines say the same to the owner.
 2. The kitchen's lead: `--no-face-on` emptying the part on face-only loads first; then one hole a pass (a load given the
    second subject's render as its video, the assembler judging it against that base); then the lead over 613-974, one
@@ -76,8 +90,9 @@ table; the Open List).
   `../research/postmortems/2026-10-15_span_fun-kitchen-and-whole-shot.md`.
 - The close-out notes of the day's seats: `internal/claude/2026-10-15_{mrarc,mrlol,mrvid}_closeout.md`; in-flight
   patches copied out of temp folders: `internal/claude/2026-10-15_handoff/`.
-- Unlanded worktrees: `mrlol-no-face-on` (`--continue-from`, 71ee3c8c, cold read owed), `mrlol-label` (parked),
-  `mrvid-hold` (the hold form, 97512bda, cold read owed), `mrgo-context-noise` (landed or not: its commit says).
+- Worktrees, in the worktrees folder beside ComfyUI's `custom_nodes` (its full path is in the close-out notes): `mrlol-no-face-on` (`--continue-from`, 71ee3c8c, cold read
+  owed), `mrlol-label` (parked), `mrvid-hold` (the hold form, 97512bda, cold read owed), `mrgo-mouth-on` (landed
+  tonight or not: mrgo's note says); `mrgo-context-noise` is landed (3e5ea8f1).
 - The kitchen's facts: `internal/claude/2026-10-15_mrarc_scripts/kitchen_plan_facts.md`; the reviewer's C4:
   `internal/gemini/2026-10-15_kitchen_approach_c4_mrgem.md`.
 - The Open List: `https://claude.ai/artifact/7Jcf7G7jeB9v9kdqRHs1Fm` (today's rows r15_01 to r15_08, all answered or
