@@ -329,6 +329,17 @@ them.
   0.5 and 0.8, and 0.8 is the lowest tried that works. It is a starting
   value from one stretch of one clip (`h3_config.MASKED_JOB_CONTEXT_NOISE`),
   not a default measured for another clip.
+- 2026-10-15, a ruling and no measurement: a load longer than one window
+  may take `context_noise` for its inner windows, per load, on a person's
+  word (`bench/shot_to_load.py job --context-noise X --context-noise-why
+  WHY`; the lead's ruling, A (a)). Until then only a continuation
+  (`continue_from`) could set it, though the song node shows an inner window
+  its kept frames the same way. Without it the inner windows see them
+  clean, the node's own. Not a default yet: 0.8 rests on the one stretch
+  above, and its cost is a seam that may show. The kitchen's second subject
+  over 604-1009 (seam 898, context 90, 0.8) is the second data point; if its
+  seam holds on the owner's playback, it becomes the default for every
+  window that keeps frames, with that render as the reason.
 - 2026-10-10, the lateness, two READINGS and no measurement. It is not the
   clean share of the context pulling the first frames back, because it is
   larger with none of that share (1.0) than with some (0.8). What the

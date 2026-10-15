@@ -1418,6 +1418,7 @@ def read_planned_regions(plan_path: Path, first: int, frames: int, size: tuple[i
                                    "composite": plan["source"].get("composite"), "left_as_the_source_across_a_cut": across,
                                    "left_as_the_source_with_no_mask": bare, "plan_version": plan.get("version"),
                                    "planned_windows": windows, "frames_written": end, "source_settings": plan["source"],
+                                   "planned_context_noise": plan.get("context_noise"),
                                    **({"kept_from_a_stored_window": stored} if stored else {}),
                                    **({"zoom": zoom, "zoomed_cells_are": ZOOMED_CELLS_ARE, "zoomed_cells_counted": zoomed_cells_counted(shares)} if zoom else {})}
 
@@ -3483,7 +3484,8 @@ def flag_kept(manifest: dict, folder: Path) -> list[dict]:
                                    f"there (by source frame {found['reached_on_source_frame']}; the chin moves {found['chin_change_degrees']:.0f} "
                                    f"degrees, a wrist comes {found['a_wrist_nearer_the_nose_by']} torso lengths nearer the nose). A render "
                                    "follows its kept frames over its motion video: start a load of its own at the turn, keep fewer "
-                                   "frames, or noise the kept ones (`context_noise`)",
+                                   + ("frames, or noise the kept ones (`context_noise`)" if not run.get("planned_context_noise") else
+                                      f"frames, or noise them more: the plan shows them at noise {run['planned_context_noise']:g} (`context_noise`)"),
                             "figures": {"window": win["window"], "kept_frames": win["kept_frames"], **found}, "threshold": {"KEPT_TURN": KEPT_TURN}})
     return out
 

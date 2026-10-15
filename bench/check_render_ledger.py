@@ -74,7 +74,7 @@ def graph(first: int, frames: int, mask: str, *, copy: str = COPY, parts: str | 
     g = {"1": load(f"/input/{copy}", (first - 0.4) / 24.0), "2": load(mask), "3": {"class_type": "ImageToMask", "inputs": {"image": ["2", 0]}},
          "9": {"class_type": "MiniMaxH3MaskedSource", "inputs": {"frames": ["1", 0], "mask": ["3", 0], "replace": replace, "grow_pixels": 16,
                                                                  "motion_reference": "a video I wire" if motion or motion_node else "none"}},
-         "10": {"class_type": "MiniMaxH3AudioFreezeSong", "inputs": {"source": ["9", 0], "window_frames": 141, "context_frames": 90, "seed": 7,
+         "10": {"class_type": "MiniMaxH3AudioFreezeSong", "inputs": {"source": ["9", 0], "window_frames": 141, "context_frames": 90, "seed": 7, "context_noise": 0.8,
                                                                      "prompt": text or "x" * 90, "continue_from": continue_from}},
          "11": {"class_type": "LoadImage", "inputs": {"image": "a.png"}}}
     if parts:
@@ -117,7 +117,7 @@ class Made:
         job.mkdir(parents=True, exist_ok=True)
         built = {"load": {"name": name, "subject": "a", "carried": "held", **load}, "commit": "abc1234", "capture": str(self.capture),
                  "files": {"track": [self.mask, 0], "parts": [self.parts, 0], "others": [[str(self.root / "gone.mkv"), 0]]},
-                 "settings": {"window": {"value": 141}, "context": {"value": 90}}, "output_folder": folder, "uncommitted_node_code": []}
+                 "settings": {"window": {"value": 141}, "context": {"value": 90}, "context_noise": {"value": 0.8}}, "output_folder": folder, "uncommitted_node_code": []}
         if text is not None:
             (job / f"{name}.txt").write_text(text)
             built["text"] = {"file": str(job / f"{name}.txt")}
@@ -175,6 +175,8 @@ def a_render_its_record_agrees_with() -> str:
         assert r["making"] == led.MAKING[0] and r["records"][0]["disagrees"] == [] and r["records"][0]["names_the_file"], r["records"]
         assert (r["span"], r["span_read_from"], r["file_frames"], r["subject"], r["session_folder"]) == ([30, 89], "the record's load", 60, "a", "s1"), r
         assert r["mask_picture"] == {"file": "Video/clip/s1/good/good_00001_with_mask.mp4", "frames": 60}, r["mask_picture"]
+        # THE CASE THAT GOES RED when the noise a later window is shown its kept frames at is not carried from the graph and the build record
+        assert r["graph"]["context_noise"] == 0.8 and r["records"][0]["context_noise"] == 0.8, (r["graph"].get("context_noise"), r["records"][0].get("context_noise"))
         # in both shots its load covers, for its subject; b has a section on the shot it is unsure on, with nothing in it
         assert [(s["first"], s["subject"], s["renders"]) for s in out["sections"]] == [(0, "a", [rel]), (50, "a", [rel]), (50, "b", [])], out["sections"]
         form = r["form"]

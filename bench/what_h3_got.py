@@ -383,6 +383,9 @@ def read(job_folder: Path, load: str, stage: str = "render", *, inputs: Path | N
             row["node_said"] = said[row["tag"]]
     out["text"] = {"node": songs[0], "text": song.get("prompt", ""), "sha256": hashlib.sha256(str(song.get("prompt", "")).encode()).hexdigest()}
     out["replaces"] = {k: src.get(k) for k in ("replace", "part_phrases", "paint_out") if k in src}
+    # the windows as the song node is asked for them: a window that keeps frames of the one before shows them at `context_noise`, the
+    # node's own default when the graph names none (2026-10-15: a load of chained windows may name one)
+    out["windows"] = {k: song.get(k) for k in ("window_frames", "context_frames", "context_noise") if not isinstance(song.get(k), list)}
     out["zoom"] = {"render_region": src.get("render_region"), "piece": None, "windows": []}
     files = (queued or {}).get("files") or []
     if files:
@@ -525,6 +528,10 @@ def said_lines(got: dict) -> list[str]:
                      + (", ".join(f"{x['role']} (node {x['node']}, {x['crop'][2]}x{x['crop'][3]} at ({x['crop'][0]}, {x['crop'][1]}) of its "
                                   f"{x['of'][0]}x{x['of'][1]})" for x in c["cut"]) or "none")
                      + f"; {len(c['uncut'])} loaded uncut (whether those were drawn on the frames as the loader cuts the source is not in the graph)")
+    w = got.get("windows") or {}
+    if w:
+        lines.append(f"  windows: {w.get('window_frames')} frames each, a later one keeping {w.get('context_frames')} of the one before"
+                     + (f", shown at noise {w['context_noise']:g}" if w.get("context_noise") is not None else ", shown at the song node's own noise (none named)"))
     lines.append(f"  text: {len(got['text']['text'])} characters, sha256 {got['text']['sha256'][:16]}, from node {got['text']['node']}")
     lines += [f"FAILED: {x}" for x in got["failures"]]
     return lines

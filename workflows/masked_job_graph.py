@@ -502,6 +502,14 @@ def window_for(frames: int, windows: tuple[int, ...], continues: bool = False) -
     return snapped(frames) if frames <= MAX_LENGTH else max(windows)
 
 
+def keeps_frames(one: dict, frames: int, window: int) -> bool:
+    """Whether a load has a window that is shown frames kept from a window before it, and so may take `context_noise`:
+    one that continues another run (`continue_from`), or one longer than its window, which the song node runs as
+    chained windows, each later one keeping the last frames of the one before (2026-10-15: until then only a
+    continuation could set it, though the node shows an inner window its kept frames the same way)."""
+    return bool(one.get("continue_from")) or frames > window
+
+
 def contexts_for(window: int, windows: tuple[int, ...]) -> tuple[int, ...]:
     """The contexts the planner takes in a window: the lengths on the windows' own grid that are shorter than it.
 
@@ -631,8 +639,9 @@ def check_load(job: dict, one: dict, windows: tuple[int, ...]) -> None:
     if feather > margin:
         raise ValueError(f"load {name!r}: a feather of {feather} px is wider than its margin of {margin} px, so "
                          f"the blend would reach past the region that was regenerated")
-    if one.get("context_noise") is not None and not one.get("continue_from"):
-        raise ValueError(f"load {name!r}: context_noise with no continue_from; a load of its own keeps no frames")
+    if one.get("context_noise") is not None and not keeps_frames(one, frames, window):
+        raise ValueError(f"load {name!r}: context_noise on a load of one window that continues nothing (no continue_from): "
+                         f"no window of it keeps frames")
     two = two_shots_of(job)
     if two is not None:
         # two neighbouring shots in one window, on the job's word: the load holds the one named cut, and is the
@@ -811,6 +820,11 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
     if one.get("continue_from"):
         run["continue_from"] = one["continue_from"]
         run["context_noise"] = one.get("context_noise", MASKED_JOB_CONTEXT_NOISE)
+    elif one.get("context_noise") is not None:
+        # a load of chained windows that names it: its inner windows are shown their kept frames at that noise. By
+        # default they are shown them clean, the node's own `CONTEXT_NOISE`: the lead's ruling of 2026-10-15, per
+        # load until a render of one says more (`h3_config.MASKED_JOB_CONTEXT_NOISE`)
+        run["context_noise"] = one["context_noise"]
     # what the composite kept, saved into each window's region file for the review clips (2026-10-15): only when the load asks
     if one.get("save_kept"):
         run["save_kept"] = True

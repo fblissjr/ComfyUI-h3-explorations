@@ -107,7 +107,8 @@ def made(name: str = "load_a", queued: bool = True) -> Path:
          "104": {"class_type": w.SOURCE, "inputs": {"frames": ["28", 0], "mask": ["151", 0], "others": ["190", 0], "motion_video": ["200", 0],
                                                     "motion_video_2": ["210", 0], "replace": "the wired parts", "part_phrases": "hair",
                                                     "render_region": "zoomed in on what is replaced"}},
-         "74": {"class_type": w.SONG, "inputs": {"source": ["104", 0], "references": ["51", 0], "audio": ["146", 0], "prompt": "the text\n<Picture 2> is a line of the text, echoed\n"}}}
+         "74": {"class_type": w.SONG, "inputs": {"source": ["104", 0], "references": ["51", 0], "audio": ["146", 0], "prompt": "the text\n<Picture 2> is a line of the text, echoed\n",
+                                                     "window_frames": 294, "context_frames": 90, "context_noise": 0.8}}}
     (job / f"{name}.render.json").write_text(json.dumps(g))
     for f in [src, *masks, *refs, inputs / "sub" / "one.png", base / "two.png"]:
         os.utime(f, (BEFORE, BEFORE))
@@ -149,6 +150,9 @@ def each_input_by_its_place() -> str:
     assert by[("<Video 2>", "210")]["node_said"] == ["[1] <Video 2> costs: shown 4 pictures"], by[("<Video 2>", "210")].get("node_said")
     assert one["node_said"] == ["<Picture 1>: still, 60x90"] and "node_said" not in by[("<Picture 2>", "16")]
     assert got["replaces"]["part_phrases"] == "hair" and not got["failures"], got["failures"]
+    # THE CASE THAT GOES RED when the noise a later window is shown its kept frames at is not read from the graph or not said (2026-10-15)
+    assert got["windows"] == {"window_frames": 294, "context_frames": 90, "context_noise": 0.8}, got.get("windows")
+    assert "  windows: 294 frames each, a later one keeping 90 of the one before, shown at noise 0.8" in w.said_lines(got), w.said_lines(got)
     return f"{len(got['inputs'])} inputs, each by its place; stills in chain order; digests the files'; first frame 10; the clean control has no failure"
 
 

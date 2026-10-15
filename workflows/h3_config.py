@@ -1486,7 +1486,9 @@ MASKED_JOB_BASE_GRAPH = "h3_video_to_video_masked_upper_song_ref2va_motion_api.j
 #: `docs/wiki/window_context.md`.
 MASKED_JOB_CONTEXT = 90
 #: How clean a load that continues another is shown the frames it keeps (the song node's `context_noise`),
-#: set only when a load has a `continue_from`. **Measured** on one stretch of one clip, one seed
+#: set by default only when a load has a `continue_from`. A load of several chained windows takes a value of its
+#: own for its inner windows on a person's word (`shot_to_load job --context-noise`), and this is not its default:
+#: the lead's ruling of 2026-10-15, until a render of such a load says more (`docs/wiki/window_context.md`). **Measured** on one stretch of one clip, one seed
 #: (`docs/wiki/window_context.md`, "Results, dated"; the records are `data/2026-10-10_fun_pose/kitchen_cn_*`):
 #: at this level a continuation followed its motion video through a head turn that the same continuation
 #: with clean kept frames did not make. A lower level was still to be read when this was written and may

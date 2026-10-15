@@ -558,6 +558,28 @@ def seam_of(n: int, a: int, seam: list[int] | None, seam_why: str | None, by: st
                     "from": f"{by}, {now}: {' '.join(str(seam_why).split())}" if seam is not None else "the planner (window_for: the longest window)"}
 
 
+def context_noise_of(n: int, noise: float | None, why: str | None, by: str, now: str) -> dict | None:
+    """THE NOISE A LOAD'S LATER WINDOWS ARE SHOWN THEIR KEPT FRAMES AT (the lead's ruling of 2026-10-15, per load): `--context-noise X
+    --context-noise-why WHY`, for a load longer than one window. By default its later windows see the frames they keep from the window
+    before clean (the song node's `audio_freeze.CONTEXT_NOISE`), and on one stretch of the kitchen a continuation shown them clean did not
+    follow its motion video through a turn where one at 0.8 did (`docs/wiki/window_context.md`, "Results, dated", 2026-10-10, the records
+    `data/2026-10-10_fun_pose/kitchen_cn_*`). Per load, not a default,
+    until a render of a load of several windows says more: its cost is a seam that may show. (the defaults row, or None when not given)."""
+    import h3_config
+    if (noise is None) != (not str(why or "").strip()):
+        raise Refused("--context-noise and --context-noise-why go together: the noise, and a person's reason")
+    if noise is None:
+        return None
+    if not 0.0 < float(noise) <= 1.0:
+        raise Refused(f"--context-noise {noise}: above 0 (the kept frames shown clean, the node's own) and at most 1 (redrawn whole)")
+    if n <= h3_config.MAX_LENGTH:
+        raise Refused(f"--context-noise {noise}: one window holds this load's {n} frames, so no window of it keeps frames")
+    return {"what": "the kept frames' noise", "carries": f"{float(noise):g}: each later window is shown the frames it keeps from the one before "
+            "at that noise and redraws them by that share, so it follows its own motion video more and the window before less; the "
+            "cost, a first new frame that may differ from the last frame written before it",
+            "from": f"{by}, {now}: {' '.join(str(why).split())}"}
+
+
 def seams_arg(text: str | int | None) -> list[int] | None:
     """`--seam A[,B...]` as source frames; None when not given."""
     if text is None:
@@ -1240,7 +1262,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
              motion_why: str | None = None, no_strangers: str | None = None, no_mouth_on: list[tuple[int, int, str]] | None = None,
              eyes_shut_on: list[tuple[int, int, str]] | None = None, eyes_shut_form: str | None = None,
              no_face_on: list[tuple[int, int, str]] | None = None, hold_part: list[tuple[int, int, str]] | None = None, seam: list[int] | None = None,
-             seam_why: str | None = None) -> dict:
+             seam_why: str | None = None, context_noise: float | None = None, context_noise_why: str | None = None) -> dict:
     """The job file of one subject's load on a shot, from the shot's preview. `preview` is the preview's own job
     block; `source` is the file the load renders from, the video's present copy (the preview's own when left out).
     `parts` with `parts_by` makes the load's part some of its subject's plan parts (`part_of`)."""
@@ -1520,6 +1542,10 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         load["window"] = window
     if seam_row is not None:
         carried.append(seam_row)
+    noise_row = context_noise_of(n, context_noise, context_noise_why, by, now)
+    if noise_row is not None:
+        load["context_noise"] = float(context_noise)
+        carried.append(noise_row)
     note = (f"Written by bench/shot_to_load.py for {by}, {now}. ONE LOAD: {subject}, {renders(region, parts)}, source frames {a} to {b} ({n} frames) of the shot "
             f"{shot['first']}-{shot['last']}, its masks from the preview {preview['name']} (job.preview), "
             + ("with no reference video (motion none, below). " if motion == "none" else
@@ -1844,7 +1870,8 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
                    eyes_shut_on=[no_mouth_on_arg(x, "--eyes-shut-on") for x in getattr(a, "eyes_shut_on", None) or []],
                    no_face_on=[no_mouth_on_arg(x, "--no-face-on") for x in getattr(a, "no_face_on", None) or []],
                    hold_part=[no_mouth_on_arg(x, "--hold-part") for x in getattr(a, "hold_part", None) or []],
-                   eyes_shut_form=getattr(a, "eyes_shut_form", None), seam=seams_arg(getattr(a, "seam", None)), seam_why=getattr(a, "seam_why", None))
+                   eyes_shut_form=getattr(a, "eyes_shut_form", None), seam=seams_arg(getattr(a, "seam", None)), seam_why=getattr(a, "seam_why", None),
+                   context_noise=getattr(a, "context_noise", None), context_noise_why=getattr(a, "context_noise_why", None))
     job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "ITS PREVIEW WAS MADE ON AN EARLIER COPY")
     out = folder / f"{name}.json"
     print(f"{name}: {a.subject}, {renders(region, a.parts)}, source frames {job['loads'][0]['first']}-{job['loads'][0]['first'] + job['loads'][0]['frames'] - 1}; "
@@ -2179,7 +2206,8 @@ def pair_job(one: dict, two: dict, regions: dict, name: str, day: str, output_ke
                      "the larger; rendered on the whole frame; neither subject kept out of the other; the text written whole, by a person, so no "
                      "voice table is read", "from": "bench/shot_to_load.py pair (PAIR_RANK, PAIR_WHOLE_FRAME_WHY, PAIR_NOT_CARRIED)"})
     load = {"name": name, "first": first, "frames": frames, "text": name, "subjects": entries,
-            **({"window": l1["window"]} if l1.get("window") is not None else {})}
+            **({"window": l1["window"]} if l1.get("window") is not None else {}),
+            **({"context_noise": l1["context_noise"]} if l1.get("context_noise") is not None else {})}
     if l1.get("save_kept") or l2.get("save_kept"):
         load["save_kept"] = True
     job = {"name": name, "note": note, "source": j1["source"], "first": first, "frames": frames, "canvas": list(j1["canvas"]), "output": output_key,
@@ -2218,8 +2246,10 @@ def step_pair(a, world) -> None:
                        ("frames", (one["load"]["first"], one["load"]["frames"]), (two["load"]["first"], two["load"]["frames"]))):
         if x != y:
             raise Refused(f"the two loads differ in their {what} ({x} and {y}): a pair is two subjects of one load's frames, from one preview")
-    # what one load carries once, and both jobs carry: the window (a person's --seam), whose track is not whose (`track_not`), who is who
+    # what one load carries once, and both jobs carry: the window (a person's --seam), the kept frames' noise (--context-noise), whose track
+    # is not whose (`track_not`), who is who
     for what, x, y in (("load's window (--seam)", one["load"].get("window"), two["load"].get("window")),
+                       ("load's context_noise (--context-noise)", one["load"].get("context_noise"), two["load"].get("context_noise")),
                        ("track_not", one["job"].get("track_not"), two["job"].get("track_not")),
                        ("who_is_who", one["job"].get("who_is_who"), two["job"].get("who_is_who"))):
         if x != y:
@@ -2329,6 +2359,12 @@ def main() -> int:
     j.add_argument("--seam", metavar="FRAME[,FRAME...]", help="for a load longer than one window: the source frames its later windows write "
                    "from, every seam of one plan of the chained window lengths (refused otherwise, naming the plans there are); with --seam-why")
     j.add_argument("--seam-why", metavar="WHY", help="a person's reason for --seam, kept in the job")
+    j.add_argument("--context-noise", type=float, metavar="X", help="for a load longer than one window: the noise its later windows are "
+                   "shown the frames they keep at (above 0, at most 1; without it they see them clean, the song node's own). Per load, on a "
+                   "person's word, not a default (the lead, 2026-10-15): 0.8 followed a turn on one stretch where clean did not "
+                   "(h3_config.MASKED_JOB_CONTEXT_NOISE), and its cost is a seam that may show; a default once a render of a load of several "
+                   "windows says it holds. With --context-noise-why")
+    j.add_argument("--context-noise-why", metavar="WHY", help="a person's reason for --context-noise, kept in the job")
     j.add_argument("--eyes-shut-on", action="append", default=[], metavar="FIRST-LAST=WHY",
                    help="her eyes shut on those source frames of the reference, on a person's word: who looked, at which table or sheet (its file "
                         "named), and that her eyes are shut there; with --eyes-shut-form; repeatable")

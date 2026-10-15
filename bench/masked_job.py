@@ -281,6 +281,9 @@ def shortest_load(repo: Path = REPO) -> tuple[float, int]:
 def loads_of(given: dict) -> list[dict]:
     """A job file's loads with its defaults under each, named as `bench/capture_masked_run.py` names them."""
     out, seen = [], set()
+    if "context_noise" in given.get("defaults", {}):
+        # the lead's ruling of 2026-10-15: the noise a load's kept frames are shown at is a load's own, on a person's word, never every load's
+        raise Refused("the job file's `defaults` name `context_noise`: it is set per load (`shot_to_load job --context-noise`), not for every load")
     for n, load in enumerate(given.get("loads", [])):
         try:
             # a load of two subjects is read as its first subject's, with the second beside it (`one_subject_view`)
@@ -930,7 +933,8 @@ def shown(job: dict, one: dict, files: dict, graph: dict, inputs: Path) -> list[
     lines.append(f"audio: {one['audio']} cut to the load" if one.get("audio") else "audio: the source's own, as the loader cuts it")
     lines.append(f"seed {run['seed']}"
                  + (f"; continues {run['continue_from']} with its kept frames at noise {run['context_noise']}"
-                    if "continue_from" in run else ""))
+                    if "continue_from" in run else
+                    f"; its later windows are shown the frames they keep at noise {run['context_noise']}" if "context_noise" in run else ""))
     return lines
 
 
@@ -941,7 +945,8 @@ def settings_of(one: dict, graph: dict) -> dict:
     run = graph[graphs._the(graph, graphs.SONG)]["inputs"]
     used = {"carried": src["replace"], "margin": src["grow_pixels"], "feather": src["feather_pixels"],
             "edge": src.get("edge", "the node's own"), "window": run["window_frames"], "context": run["context_frames"],
-            "context_noise": run.get("context_noise", "none: the load keeps no frames"),
+            "context_noise": run.get("context_noise", "none: the load keeps no frames" if not graphs.keeps_frames(one, one["frames"], run["window_frames"])
+                                     else "the song node's own (audio_freeze.CONTEXT_NOISE): its later windows are shown the frames they keep at that"),
             "motion": src["motion_reference"], "motion_edge": src["motion_short_edge"] if "motion_video" in src else "no motion video",
             "motion_edge_2": src["motion_short_edge_2"] if "motion_video_2" in src else "no second motion video",
             "hair_band": one.get("hair_band", "none: the keep-outs as the capture has them"),

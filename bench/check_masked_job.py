@@ -554,6 +554,43 @@ def the_nodes_schemas_accept_a_load():
         assert not errors, "\n      ".join(errors)
 
 
+def a_load_of_chained_windows_takes_context_noise():
+    """A load longer than its window runs as chained windows, each later one keeping the last frames of the one before, and may say
+    how noised they are shown (2026-10-15; until then only a continuation could). Named, the graph carries it; not named, the graph
+    carries none and the node shows them clean; and the build record says which, never "keeps no frames" of a load that keeps them."""
+    import masked_job as tool_
+    long = {**WHOLE, "name": "b_0650", "first": CAPTURE_FIRST, "frames": 400}
+    plain = _a_load(long)
+    run = plain[graphs._the(plain, graphs.SONG)]["inputs"]
+    assert run["window_frames"] < long["frames"], f"the fixture is one window of {run['window_frames']}, not chained windows"
+    assert "context_noise" not in run and "continue_from" not in run, "a load of chained windows that named no noise is given one"
+    said = tool_.settings_of(long, plain)["context_noise"]
+    assert "keeps no frames" not in str(said["value"]) and said["set_by"] == "the builder's default", f"the build record says {said}"
+    noised = _a_load({**long, "context_noise": 0.8})
+    run = noised[graphs._the(noised, graphs.SONG)]["inputs"]
+    assert run["context_noise"] == 0.8 and "continue_from" not in run, "a load of chained windows does not carry its own context_noise"
+    said = tool_.settings_of({**long, "context_noise": 0.8}, noised)["context_noise"]
+    assert said == {"value": 0.8, "set_by": "the job file"}, f"the build record says {said}"
+    assert {k for k in set(run) | set(plain[graphs._the(plain, graphs.SONG)]["inputs"])
+            if run.get(k) != plain[graphs._the(plain, graphs.SONG)]["inputs"].get(k)} == {"context_noise"}, "the noise changed more of the song node"
+    said = tool_.settings_of(WHOLE, _a_load())["context_noise"]
+    assert said["value"] == "none: the load keeps no frames", f"a one-window load's build record says {said}"
+    # one window that continues nothing keeps no frames: refused, in `a_load_the_graph_cannot_be_built_from`; and a load exactly as long as
+    # its window is one window (THE CASE THAT GOES RED when the test is `frames >= window`, the cold reader's mutant of 2026-10-15)
+    whole_window = {**WHOLE, "frames": SHORT_WINDOW}
+    assert graphs.window_for(whole_window["frames"], WINDOWS) == whole_window["frames"], "the fixture is not a load exactly one window long"
+    _unbuildable("context_noise|no window of it keeps frames", {**whole_window, "context_noise": 0.5})
+    # per load, never every load's: a job file's `defaults` naming it is refused (the lead's ruling of 2026-10-15)
+    try:
+        tool_.loads_of({"defaults": {"context_noise": 0.8}, "loads": [long]})
+    except tool_.Refused as e:
+        assert "defaults" in str(e) and "per load" in str(e), e
+    else:
+        raise AssertionError("a job file's defaults gave every load a context_noise")
+    assert tool_.loads_of({"loads": [{**long, "context_noise": 0.8}]})[0]["context_noise"] == 0.8, "a load's own context_noise was not read"
+    return "a load of 400 frames carries 0.8 when it names it and nothing when it does not; the build record says which"
+
+
 def _unbuildable(words: str, one: dict, files: dict = FILES_WHOLE, plan: bool = False, job: dict = LOAD_JOB) -> None:
     try:
         _a_load(one, files, plan=plan, job=job)
@@ -594,7 +631,7 @@ def a_load_the_graph_cannot_be_built_from():
     assert _a_load({**WHOLE, "window": graphs.MAX_LENGTH}), "a lone window at the ceiling was refused"
     _unbuildable("seam", {**WHOLE, "continue_from": "before.safetensors", "window": graphs.MAX_LENGTH})   # a seam off the chain
     assert _a_load({**WHOLE, "window": WINDOWS[0]}) and _a_load({**WHOLE, "window": SHORT_WINDOW + 17}), "a window that holds the load was refused"
-    _unbuildable("context_noise|continue_from", {**WHOLE, "context_noise": 0.5})
+    _unbuildable("context_noise|one window|no window of it keeps frames", {**WHOLE, "context_noise": 0.5})
     _unbuildable("name", {**WHOLE, "name": "b 0700"})
     _unbuildable("part", {**WHOLE, "carried": "held"})                      # a part pass with no part mask
     _unbuildable("motion", WHOLE, {**FILES_WHOLE, "motion": None})          # a mesh by default and none found
@@ -1537,7 +1574,7 @@ def main() -> int:
                build_refuses_what_it_must, queue_refuses_what_it_must, a_job_is_built_on_its_videos_analysis_folder,
                a_load_lands_on_the_inputs_it_names, a_plan_is_the_render_with_nothing_sampled,
                a_load_leaves_the_rows_model_alone, the_nodes_schemas_accept_a_load,
-               a_load_the_graph_cannot_be_built_from, loads_from_a_capture, a_load_of_two_subjects, a_hair_band_under_a_part,
+               a_load_the_graph_cannot_be_built_from, a_load_of_chained_windows_takes_context_noise, loads_from_a_capture, a_load_of_two_subjects, a_hair_band_under_a_part,
                a_text_is_of_its_frames, a_load_of_two_shots,
                the_gate_before_a_render):
         case(fn.__name__.replace("_", " "), fn)

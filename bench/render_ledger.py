@@ -229,6 +229,8 @@ def asked(graph: dict, sources: dict[str, float]) -> dict:
             "margin": m.get("grow_pixels"), "files": files,
             "stills": sorted({v for n in graph.values() for k, v in n["inputs"].items() if k == "image" and isinstance(v, str) and v}),
             "seed": song.get("seed"), "window": song.get("window_frames"), "context": song.get("context_frames"),
+            # the noise a later window is shown its kept frames at; None where the graph names none, the song node's own (2026-10-15)
+            "context_noise": song.get("context_noise") if isinstance(song.get("context_noise"), (int, float)) else None,
             "continue_from": song.get("continue_from") if isinstance(song.get("continue_from"), str) and song.get("continue_from") else None,
             "text": max(texts, key=len) if texts else None}
 
@@ -659,6 +661,7 @@ def ledger(shots: dict, plan: dict, share: Path, records: Path, repo: Path, sour
                                                                      "seed", "continue_from", "render_region") if k in load},
                                    "window": ((b.get("settings") or {}).get("window") or {}).get("value"),
                                    "context": ((b.get("settings") or {}).get("context") or {}).get("value"),
+                                   "context_noise": ((b.get("settings") or {}).get("context_noise") or {}).get("value"),
                                    "second_subject": [s.get("subject") for s in b.get("subjects") or []] or None,
                                    "job_file": b.get("job_file"), "capture": b.get("capture"), "text_file": (b.get("text") or {}).get("file") or b.get("text_file"),
                                    "names_the_file": named,

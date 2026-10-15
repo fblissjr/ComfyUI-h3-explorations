@@ -64,7 +64,6 @@ KEPT = {
     "bench/check_prompt_lists.py": (1, "a test's input: a window length in a fixture graph"),
     "bench/check_propose_runs.py": (2, "a pixel coordinate of a box, not a frame count"),
     "bench/check_retraction_consumers.py": (2, "a quoted sentence about a reference length, in a record it checks"),
-    "bench/check_shot_to_load.py": (4, "a test's expected output: the planner's two-window plans of a fixture load longer than one window"),
     "bench/check_sol_observe.py": (1, "a test's input: the length of a fixture render"),
     "bench/check_subject_tracks.py": (8, "a test's input: frame counts of fixture loads"),
     "bench/comfy_capture_nodes/h3_bench_prefix_reuse/__init__.py": (2, "a capture node's fixed input length, as its records were taken"),

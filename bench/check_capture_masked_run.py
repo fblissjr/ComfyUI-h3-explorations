@@ -1531,6 +1531,11 @@ def held_tails() -> str:
         (folder / "subjects" / "a" / "pose__p.json").write_text(json.dumps({"rows": list(table.values())}))
         far = cap.flag_kept(m, folder)
         assert [(f["rule"], f["level"], f["source_frames"]) for f in far] == [("kept_frames_far_from_the_pose_ahead", cap.LEVELS[1], [[110, 119]])], far
+        # a plan that already noises its kept frames is told so, not told to noise them (the cold reader of 2026-10-15)
+        assert far[0]["why"].endswith("or noise the kept ones (`context_noise`)"), far[0]["why"]
+        noised = cap.flag_kept({**m, "runs": [{**m["runs"][0], "planned_context_noise": 0.8}]}, folder)
+        # THE CASE THAT GOES RED when the plan's noise is not read into the advice
+        assert noised[0]["why"].endswith("or noise them more: the plan shows them at noise 0.8 (`context_noise`)"), noised[0]["why"]
         still = {**m, "runs": [{**m["runs"][0], "planned_windows": [{**win, "first_frame": 96, "writes_source_frames": [106, 109]}]}]}
         assert cap.flag_kept(still, folder) == [], "a continuation whose source holds its pose was flagged"
     # the figures a per-clip rule reads: a span's shots from its cuts, and the head across one shot

@@ -972,7 +972,7 @@ def who_else_is_in_the_shot() -> str:
     and keeps the strangers out by it: where someone else is there or the frames shown cannot say, and on no load where nobody
     is, whatever the plan's key; the plan's key only where it is not known."""
     def load_with(made, people, plan_keep=None, not_people=None, no_strangers=None, no_mouth_on=None, eyes_shut_on=None, eyes_shut_form=None,
-                  seam=None, seam_why=None, no_face_on=None, hold_part=None):
+                  seam=None, seam_why=None, no_face_on=None, hold_part=None, context_noise=None, context_noise_why=None):
         if plan_keep is not None:
             made.plan["subjects"]["a"].update(keep_outs=plan_keep, keep_outs_by="a person: the plan's own")
         if not_people is not None:
@@ -988,7 +988,8 @@ def who_else_is_in_the_shot() -> str:
         saved = json.loads((folder / "preview.queued.json").read_text())["files"]
         return stl.load_job(shots, plan, stl.shot_of(shots, 100), "a", pjob["job"], str(folder), "v", made.m.output, "the session", "2026-01-03", "a_fp_0100",
                             now="now", preview_files=saved, cast=[], cast_from="cast.jsonl", no_strangers=no_strangers, no_mouth_on=no_mouth_on,
-                            eyes_shut_on=eyes_shut_on, eyes_shut_form=eyes_shut_form, seam=seam, seam_why=seam_why, no_face_on=no_face_on, hold_part=hold_part)
+                            eyes_shut_on=eyes_shut_on, eyes_shut_form=eyes_shut_form, seam=seam, seam_why=seam_why, no_face_on=no_face_on, hold_part=hold_part,
+                            context_noise=context_noise, context_noise_why=context_noise_why)
     ours = [(1, [0, 0, 10, 10], 0.1), (2, [20, 0, 10, 10], 0.1), (3, [40, 0, 10, 10], 0.1)]
     with tempfile.TemporaryDirectory() as tmp:
         d = load_with(Made(Path(tmp)), ours + [(4, [55, 30, 5, 5], 0.01)])
@@ -1067,9 +1068,12 @@ def who_else_is_in_the_shot() -> str:
         # THE SEAMS (the owner's words of 2026-10-15: one load a shot, the seam at a frame chosen, and "you can do shorter windows too just
         # make sure the frame multiples we documented ... are right to avoid seams"): every plan of the planner's chained lengths
         reach = stl.seam_window(406, 90)
+        # the planner's longest chained window, derived from the seam rule and never typed (`check_length_ceiling`)
+        import masked_job
+        L = max(masked_job.chain_lengths())
         # THE CASE THAT GOES RED when the seams offered are not the song node's planner's, or a one-window load is said to have one
-        assert {k: v[0] for k, v in reach.items()} == {(141, 192, 243, 294, 345, 396): 141, (192, 294, 396): 192, (243, 396): 243, (294,): 294, (345,): 345} \
-            and reach[(345,)][1] == [345, 192] and reach[(243, 396)][1] == [243, 243, 141], reach
+        assert {k: v[0] for k, v in reach.items()} == {(141, 192, 243, 294, L, 396): 141, (192, 294, 396): 192, (243, 396): 243, (294,): 294, (L,): L} \
+            and reach[(L,)][1] == [L, 192] and reach[(243, 396)][1] == [243, 243, 141], reach
         # each later seam is the one before it plus the length of the window between them less the context it shares
         assert {k: v[0] for k, v in stl.seam_window(573, 90).items()}[(294, 498)] == 294
         # one window holds a load up to the ceiling (2026-10-15), so a load at the ceiling has no seam
@@ -1090,7 +1094,7 @@ def who_else_is_in_the_shot() -> str:
         window, row = stl.seam_of(406, 604, None, None, "the session", "now")
         assert window is None and "window 2 writes from 949" in row["carries"] and row["from"].startswith("the planner"), row
         # a seam no plan puts there, and some of one plan's seams but not all, are refused with the plans there are
-        refused(lambda: stl.seam_of(406, 604, [900], "X", "s", "n"), "seams on 949 (windows of 345); or 898 (windows of 294) only")
+        refused(lambda: stl.seam_of(406, 604, [900], "X", "s", "n"), f"seams on 949 (windows of {L}); or 898 (windows of 294) only")
         # a plan the last window's floor refuses is not offered (406's 243, 192 and 141 plans each write 10 new frames last)
         try:
             stl.seam_of(406, 604, [900], "X", "s", "n")
@@ -1107,7 +1111,7 @@ def who_else_is_in_the_shot() -> str:
         # THE CASE THAT GOES RED when a plan whose last window writes almost nothing is taken as a seam (at 397 frames, 243's last window
         # writes one new frame); and the defaults say how many the last window writes
         refused(lambda: stl.seam_of(397, 0, [243, 396], "X", "s", "n"), "last window writes 1 new frame(s)", "less than one latent step (17")
-        assert stl.seam_of(397, 0, [345], "X", "s", "n")[0] == 345, "a plan whose last window writes a step or more was refused"
+        assert stl.seam_of(397, 0, [L], "X", "s", "n")[0] == L, "a plan whose last window writes a step or more was refused"
         assert stl.seam_of(60, 100, None, None, "s", "n") == (None, None)
         # the job step puts the chosen window on the load and the seam among the defaults (the fixture's shot is short, so seam_of's answer
         # for a long load stands in for it here)
@@ -1122,6 +1126,33 @@ def who_else_is_in_the_shot() -> str:
         assert seamed["loads"][0]["window"] == 294 and {x["what"]: x for x in seamed["job"]["defaults"]}["the seam"]["carries"] == "SEAM ROW", seamed["loads"][0]
         # THE CASE THAT GOES RED when the job step hands seam_of another load length or first frame than the load's own
         assert asked[0][:2] == (seamed["loads"][0]["frames"], seamed["loads"][0]["first"]), (asked, seamed["loads"][0]["first"], seamed["loads"][0]["frames"])
+        # THE KEPT FRAMES' NOISE on a person's word (--context-noise with --context-noise-why, the lead's ruling of 2026-10-15: per load, not a
+        # default, for a load longer than one window)
+        row = stl.context_noise_of(406, 0.8, "THE TURN AT 945", "the session", "now")
+        # THE CASE THAT GOES RED when a load of chained windows is not given its row, with the value and whose word it is
+        assert row["what"] == "the kept frames' noise" and row["carries"].startswith("0.8: each later window") \
+            and row["from"] == "the session, now: THE TURN AT 945", row
+        assert stl.context_noise_of(406, None, None, "s", "n") is None
+        refused(lambda: stl.context_noise_of(stl.h3_config.MAX_LENGTH, 0.8, "X", "s", "n"), "one window holds this load's", "no window of it keeps frames")
+        refused(lambda: stl.context_noise_of(406, 0.8, None, "s", "n"), "go together")
+        refused(lambda: stl.context_noise_of(406, None, "X", "s", "n"), "go together")
+        refused(lambda: stl.context_noise_of(406, 0.0, "X", "s", "n"), "above 0")
+        refused(lambda: stl.context_noise_of(406, 1.5, "X", "s", "n"), "at most 1")
+        refused(lambda: load_with(Made(Path(tmp) / "cn1"), ours, context_noise=0.8, context_noise_why="X"), "one window holds this load's 60 frames")
+        assert "context_noise" not in seamed["loads"][0] and "the kept frames' noise" not in {x["what"] for x in seamed["job"]["defaults"]}, \
+            "a load that named no noise is given one"
+        real = stl.context_noise_of
+        asked = []
+        stl.context_noise_of = lambda *x, **k: asked.append(x) or {"what": "the kept frames' noise", "carries": "NOISE ROW", "from": "X"}
+        try:
+            noised = load_with(Made(Path(tmp) / "cn2"), ours, context_noise=0.8, context_noise_why="THE TURN")
+        finally:
+            stl.context_noise_of = real
+        # THE CASE THAT GOES RED when the job step does not put the noise on the load, its row among the defaults, or hands the check
+        # another length than the load's
+        assert noised["loads"][0]["context_noise"] == 0.8 and {x["what"]: x for x in noised["job"]["defaults"]}["the kept frames' noise"]["carries"] == "NOISE ROW", \
+            noised["loads"][0]
+        assert asked[0][:3] == (noised["loads"][0]["frames"], 0.8, "THE TURN"), asked
         # HER EYES SHUT ON A SPAN on a person's word (--eyes-shut-on with --eyes-shut-form, the lead's ruling of 2026-10-15 on 2823b)
         look = f"G3 LOOKED at every frame, {sheet}"
         refused(lambda: load_with(Made(Path(tmp) / "e1"), ours, eyes_shut_on=[(110, 115, look)]), "go together")
@@ -1995,6 +2026,7 @@ def a_load_of_two_subjects() -> str:
             refused(lambda: stl.step_pair(a_(ja, jb2), m), "its head reference is not made")
             # what one load carries once: a window (--seam) on one of them, a band or a held keep-out on the second
             for change, words in ((lambda d: d["loads"][0].update(window=294), "differ in their load's window"),
+                                  (lambda d: d["loads"][0].update(context_noise=0.8), "differ in their load's context_noise"),
                                   (lambda d: d["loads"][0].update(hair_band=0.2), "the second load has `hair_band`"),
                                   (lambda d: d["job"]["keep_outs"]["made"].append({"name": "held", "track": "/b_held.mkv"}) or d["loads"][0]["others"].append("held"),
                                    "a held keep-out of its own")):
@@ -2014,6 +2046,15 @@ def a_load_of_two_subjects() -> str:
             ja2.write_text(json.dumps(d))
             stl.step_pair(a_(ja2, jb2, name="twin"), m)
             twin = json.loads((inputs / "twin.json").read_text())
+            # the kept frames' noise both loads carry is the pair's (the cold reader of 2026-10-15: the pair dropped it and kept its row)
+            for src, dst in ((ja, inputs / "a3.json"), (jb, inputs / "b3.json")):
+                d = json.loads(src.read_text())
+                d["loads"][0]["context_noise"] = 0.8
+                dst.write_text(json.dumps(d))
+            stl.step_pair(a_(inputs / "a3.json", inputs / "b3.json", name="noised"), m)
+            noised = json.loads((inputs / "noised.json").read_text())
+            # THE CASE THAT GOES RED when the pair does not carry the noise both its loads name
+            assert noised["loads"][0].get("context_noise") == 0.8, noised["loads"][0]
             stl.step_pair(a_(ja, jb), m)
         finally:
             stl.load_chain.video_of = kept
