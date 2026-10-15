@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""A load's text, generated from its reference's record, the plan and the voice table, around the one sentence a person writes.
+"""A load's text, generated from its reference's record, the plan and the voice table. No place-and-action sentence since 2026-10-15
+(`NO_SCENE`: to H3 a masked load is not an edit, and a text never describes the frozen picture).
 
-    <python> bench/load_text.py show JOB.json --place-and-action "is in a room and holds a black telephone receiver to her ear"
+    <python> bench/load_text.py show JOB.json --plan PLAN.json --voice-spans SPANS.json
 
-(`bench/shot_to_load.py text JOB.json --place-and-action "..." --writer "..." --by SESSION` writes it beside the job file.)
+(`bench/shot_to_load.py text JOB.json --plan PLAN.json --by SESSION` writes it beside the job file.)
 
 **What it is for.** The owner's word of 2026-10-14: every window's text is consistent with the others, and says exactly
 what the reference video shows and the least else. Until then a load's text was copied by hand from load to load, and
 its `<Subject 2>` sentence named what an earlier reference drew: once the mouth is drawn by default or the eye is drawn
 in contrast, a copied sentence describes a reference that is not there. So the fixed lines are made here, from the
-records, and a person writes only the shot's place and action, once.
+records. Until 2026-10-15 a person wrote the shot's place and action, once; no longer (`NO_SCENE`).
 
 **Where each line comes from.**
 
@@ -22,16 +23,18 @@ records, and a person writes only the shot's place and action, once.
   and the mouth when drawn); the eyes' clause by the iris form (`drawn.iris`); the mouth's clause when it is drawn
   (`drawn.mouth.drawn`), dark inside where it is open when its inside is the class map's (`drawn.mouth.inside`). A plain cut
   (no drawing) has no outline clause.
-- The summary and `[Shot 1]`: the person's place-and-action sentence, as written, in both. With the face, or with the
-  face and the hair, of <Picture 1>, by the plan's region.
+- The summary and `[Shot 1]`: who the subject is and what of <Picture 1> it has (draft_7's form, 2026-10-15): "<Subject 1>,
+  with the face of <Picture 1>, performs <Subject 2>." and "<Subject 1>, <who> with <looks>, has the face of <Picture 1>.",
+  with the face and the hair, or the hair alone, by the plan's region and its `text.hair_change`. No place-and-action sentence.
 - The film line: the plan's `text.film`, the video's, written once.
-- The singing sentence: the subject's `sings`, on a load whose frames meet a voiced span of the video's voice table.
+- The singing sentence: the plan's `voice` where it names one on the load ("sings" alone writes a line), else the subject's
+  `sings`, on a load whose frames meet a voiced span of the video's voice table.
 - `<Subject 2>`'s retention line, the soundscape and the music: fixed, the kept loads' words.
 
 **The form is the kept loads'**, word for word but where a record or the plan says otherwise: lead_fp_1730 and
-lead_fp_1755 (10/13; the same text), second_hfp_0484c (10/14, face and hair). Two places differ from them, by ruling:
-the summary takes the place-and-action sentence as written (1730's put the place last), and the closer view is "of the
-head and shoulders" (theirs named arms or hands, typed by sight). `bench/check_load_text.py` holds the generator to
+lead_fp_1755 (10/13; the same text), second_hfp_0484c (10/14, face and hair). Places differ from them, by ruling: no
+place-and-action sentence, the summary and [Shot 1] in draft_7's form (2026-10-15), and the closer view is "of the head and
+shoulders" (theirs named arms or hands, typed by sight). `bench/check_load_text.py` holds the generator to
 those texts.
 
 **A load of the hair alone** (`--parts hair`, the job's `part.parts`): its words are the hair's, not the plan's region's. The
@@ -87,18 +90,30 @@ def joined(words: list[str]) -> str:
     return words[0] if len(words) == 1 else ", ".join(words[:-1]) + " and " + words[-1]
 
 
-def subject_2(drawn: dict | None, moves: str = MOVES["face"]) -> str:
-    """`<Subject 2>`'s sentence from the reference record's `drawn` block; None `drawn` is a plain cut."""
+def subject_2(drawn: dict | None, moves: str = MOVES["face"], frames: int | None = None) -> str:
+    """`<Subject 2>`'s sentence from the reference record's `drawn` block; None `drawn` is a plain cut. The mouth is said only where the
+    record's frames draw one (the 5114e and 1010j fault, 2026-10-15: the form was "auto" while no frame drew a mouth): none where it
+    draws none (`mouth.frames_with_no_mouth` of the `frames` it holds), and "on some frames" where it draws one on part of them."""
     head = (f"<Subject 2> is {moves} performed by the figure in <Video 1>: a closer view of the head "
             "and shoulders of a plain grey body model of a person on a black ground, posed as the person moves")
     if drawn is None:
         return head + "."
     left = set(drawn.get("parts_left_out") or [])
     mouth = (drawn.get("mouth") or {}).get("drawn")
+    bare_frames = (drawn.get("mouth") or {}).get("frames_with_no_mouth")
+    faceless = len(drawn.get("frames_left_bare") or [])           # frames with no line of the face (--no-face-on): no mouth there either
+    if isinstance(bare_frames, int) and frames:
+        bare_frames, frames = bare_frames - faceless, frames - faceless   # the mouth, counted on the frames that draw a face
+    some = False
+    if mouth and frames and isinstance(bare_frames, int):
+        if bare_frames >= frames:
+            mouth = False                                   # the form drew a mouth on no frame of the load
+        elif bare_frames > 0:
+            some = True
     if mouth is not None:
-        left = left - {"mouth"} if mouth else left | {"mouth"}
+        left = left - {"mouth"} if mouth and not some else left | {"mouth"}
     parts = [w for k, w in PART_WORDS if k not in left]
-    if not parts:
+    if not parts and not some:
         return head + "."
     clauses = []
     if "eyes" in parts:
@@ -108,19 +123,28 @@ def subject_2(drawn: dict | None, moves: str = MOVES["face"]) -> str:
         clauses.append(EYES[iris] + ", and they open, close and look where the person's eyes do"
                        + {"lids": "; where the person's eyes are shut, each eye is drawn as a single closed line",
                           "none": "; where the person's eyes are shut, no eye is drawn"}.get((drawn.get("eyes_shut") or {}).get("form"), ""))
+    inside = ", dark inside where it is open" if (drawn.get("mouth") or {}).get("inside") == "the class map" else ""
     if "mouth" in parts:
-        clauses.append("the mouth is outlined" + (", dark inside where it is open" if (drawn.get("mouth") or {}).get("inside") == "the class map" else "")
-                       + ", and it opens and closes where the person's mouth does")
-    return head + f", with its {joined(parts)} drawn on its face as thin white outlines" + "".join(f"; {c}" for c in clauses) + "."
+        clauses.append("the mouth is outlined" + inside + ", and it opens and closes where the person's mouth does")
+    elif some:
+        clauses.append("on some frames the mouth is outlined too" + inside + ", and there it opens and closes where the person's mouth does")
+    drawn_parts = f", with its {joined(parts)} drawn on its face as thin white outlines" if parts else ""
+    return head + drawn_parts + "".join(f"; {c}" for c in clauses) + "."
 
 
 #: A SUBJECT'S VOICE ON A SPAN OF FRAMES, from the plan (`subjects.<label>.voice`: [{"first", "last", "voice", "by"}]; the owner's word
 #: of 2026-10-15 on second_hfp_5675b, "Subject 2 shouldnt be singing ... she's mouthing like she's talking but its not audible", and on
 #: 1306, where the father does sing the lead singer's words). Where a span overlaps a load it stands in place of the voice table's
 #: guess: "sings" (the sung line, whatever the table hears), "talks, not heard" or "silent" (no sung line, and the words below).
-VOICES = {"sings": "", "talks, not heard": " <Subject 1> (S1) talks, {her} lips moving with words that are not heard; the song plays over "
-                                            "the shot, and the singing is not {her}s.",
-          "silent": " <Subject 1> (S1) neither sings nor speaks; the song plays over the shot, and the singing is not {her}s."}
+#: Only "sings" writes a line (the sung line); "talks, not heard" and "silent" write nothing of talking or singing (the owner, 2026-10-15:
+#: "just dont mention anything about the mom talking or singing"): the plan holds who sings as data, and the text says only that.
+VOICES = {"sings": "", "talks, not heard": "", "silent": ""}
+#: A text says who is generated in each hole and from which reference, never the frozen picture and never as an edit (AGENTS.md,
+#: "Settled about H3", made core 2026-10-15; docs/wiki/masked_v2v.md, "The frame every masked text is written in"): so no
+#: place-and-action sentence (where she stands or sits, what she does, the room) is written into a generated text.
+NO_SCENE = ("a generated text takes no place-and-action sentence: to H3 a masked load is not an edit, and a text says who is generated "
+            "in the hole and from which reference, never the frozen picture (where a person stands or sits, what she wears, the room); "
+            "AGENTS.md, \"Settled about H3\". Write the text --by-hand if a sentence is truly wanted")
 
 
 def voice_of(p: dict, first: int, last: int) -> dict | None:
@@ -161,9 +185,8 @@ def text(plan: dict, subject: str, record: dict | None, place_and_action: str, v
         region = RENDERS[frozenset(parts)]
     if region in ("face and hair", "hair") and not str(t.get("hair") or "").strip():
         raise Refused(f"{subject!r}'s load keeps her hair and the plan's `text.hair` is not written: the retention line names the hair kept")
-    sentence = " ".join(str(place_and_action or "").split()).rstrip(".")
-    if not sentence:
-        raise Refused("the place-and-action sentence is a person's, and it is empty")
+    if str(place_and_action or "").strip():
+        raise Refused(NO_SCENE)
     who, looks, her, she = (" ".join(str(t[k]).split()) for k in ("who", "looks", "her", "she"))
     noun = who.split(" ", 1)[1] if who.split(" ", 1)[0] in ("the", "a", "an") else who
     with_what = {"face and hair": "the face and the hair", "hair": "the hair"}.get(region, "the face")
@@ -200,10 +223,9 @@ def text(plan: dict, subject: str, record: dict | None, place_and_action: str, v
         if region != "hair":
             raise Refused("a load with no reference video (motion none) is for her hair alone, the lead's ruling of 2026-10-15")
         return (f"subject_definitions:\n<Subject 1> is {who} whose hair comes from <Picture 1>.\n\n"
-                f"summary:\n[reference generation] <Subject 1> {sentence}, with {bare if change is not None else 'the hair of <Picture 1>'}.\n\n"
+                f"summary:\n[reference generation] <Subject 1> has {bare if change is not None else 'the hair of <Picture 1>'}.\n\n"
                 f"retention_analysis:\n<Subject 1> (appears in [Shot 1]): partially_preserved - {kept}; {not_used} of <Picture 1> are not used.\n\n"
-                f"detailed_description:\n{film}\n[Shot 1] <Subject 1>, {who}, {sentence}. {her[0].upper() + her[1:]} hair is "
-                f"{bare if change is not None else 'the hair of <Picture 1>'}."
+                f"detailed_description:\n{film}\n[Shot 1] <Subject 1>, {who}, has {bare if change is not None else 'the hair of <Picture 1>'}."
                 f"\n\n{SOUND}")
     drawn = None if record.get("form") == "plain" else (record.get("drawn") or {})
     if region == "hair" and drawn is not None and not {"eyes", "brows", "nose"} <= set(drawn.get("parts_left_out") or []):
@@ -215,20 +237,21 @@ def text(plan: dict, subject: str, record: dict | None, place_and_action: str, v
         sings = said["voice"] == "sings"
     moves = MOVES[region]
     Her = her[0].upper() + her[1:]
-    same = (f"{Her} hair is {bare if change is not None else 'the hair of <Picture 1>'}." if region == "hair" else f"{Her} face is the face of <Picture 1>.")
+    has = f"has {bare if change is not None else 'the hair of <Picture 1>'}" if region == "hair" else "has the face of <Picture 1>"
     with_looks = "" if region == "hair" else f", with {looks},"
     return (f"subject_definitions:\n<Subject 1> is {who} whose appearance comes from <Picture 1>{with_looks} and who follows {moves} "
-            f"of the figure in <Video 1>.\n{subject_2(drawn, moves)}\n\n"
-            f"summary:\n[reference generation] <Subject 1> {sentence}, with {with_what}{'' if change is not None else ' of <Picture 1>'}, and performs <Subject 2>.\n\n"
+            f"of the figure in <Video 1>.\n{subject_2(drawn, moves, (record['frames'][1] - record['frames'][0] + 1) if record.get('frames') else last - first + 1)}\n\n"
+            f"summary:\n[reference generation] <Subject 1>, with {with_what}{'' if change is not None else ' of <Picture 1>'}, performs <Subject 2>.\n\n"
             f"retention_analysis:\n<Subject 1> (appears in [Shot 1]): partially_preserved - {kept}; {not_used} of <Picture 1> are not used.\n"
             f"{SUBJECT_2_KEPT.format(moves=moves)}\n\n"
-            f"detailed_description:\n{film}\n[Shot 1] <Subject 1>, {who}{'' if region == 'hair' else f' with {looks}'}, {sentence}. {same} "
+            f"detailed_description:\n{film}\n[Shot 1] <Subject 1>, {who}{'' if region == 'hair' else f' with {bare}' if change is not None else f' with {looks}'}, {has}. "
             f"<Subject 1> performs <Subject 2>: {she} follows {moves} of the figure."
             + (f" <Subject 1> (S1) sings, {her} mouth opening wide on the sung phrases." if sings else "")
             + (VOICES[said["voice"]].format(her=her) if said is not None else "") + f"\n\n{SOUND}")
 
 
 def for_job(job_file: Path, place_and_action: str, plan_file: Path, voice_spans: Path) -> tuple[str, dict]:
+    # `place_and_action`: none since 2026-10-15 (`NO_SCENE`); an empty one is taken, a sentence refused
     """The text of a job file's load, and what it was made from."""
     d = json.loads(Path(job_file).read_text())
     load = d["loads"][0]
@@ -252,9 +275,9 @@ def for_job(job_file: Path, place_and_action: str, plan_file: Path, voice_spans:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n")[0])
     sub = ap.add_subparsers(dest="step", required=True)
-    s = sub.add_parser("show", help="print a load's text, made from its records and the sentence given; writes nothing")
+    s = sub.add_parser("show", help="print a load's text, made from its records, the plan and the voice table; writes nothing")
     s.add_argument("job_file")
-    s.add_argument("--place-and-action", required=True)
+    s.add_argument("--place-and-action", default="", help="none: refused if given (NO_SCENE)")
     s.add_argument("--plan", required=True)
     s.add_argument("--voice-spans", required=True)
     v = ap.parse_args(argv)
