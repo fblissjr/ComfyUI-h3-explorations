@@ -23,8 +23,11 @@ and a MaskComposite, two stills chained through `references`, the sound trimmed 
    that is no known loader listed with no file; `parts` wired and not asked for under `replace` = whole subject;
    a graph that appends a reference video refused. The input folder: none known refuses; the queued record's
    `input_dir` is used. ffmpeg's crop on a yuv420p file starts on an even row or column, and `vhs_fit` says so.
-5. **A load not yet queued** reads as "built, not queued", with no file held to a time.
-6. **The zoom**: the node's `_zoomed.json` beside the render the queued record names, and each window's region
+5. **Which reference frames the text encoder is shown**: the window cut to 17k+5, every twelfth frame, the
+   reference's last frame repeated past its end; the windows read from the node's own lines with no rendered
+   window, and the node's own count kept beside.
+6. **A load not yet queued** reads as "built, not queued", with no file held to a time.
+7. **The zoom**: the node's `_zoomed.json` beside the render the queued record names, and each window's region
    meta, read.
 
 Needs ffmpeg and ffprobe, Pillow and numpy. No model, no card, no server.
@@ -298,6 +301,34 @@ def the_cut_on_a_yuv420p_file() -> str:
     return "; ".join(said)
 
 
+def the_encoder_frames() -> str:
+    """Which reference frames the text encoder is shown: the window cut to 17k+5, every twelfth, the reference's last
+    frame repeated past its end; read for each window of a rendered load and set beside the node's own count."""
+    e = w.encoder_frames(0, 141, 50, 949)
+    assert e["kept_frames"] == 141 and [x["reference_frame"] for x in e["sampled"]] == [0, 12, 24, 36, 48] + [49] * 7, e
+    assert sum(x["held"] for x in e["sampled"]) == 7 and e["sampled"][1]["source_frame"] == 961
+    assert w.encoder_frames(0, 40, 40, None)["kept_frames"] == 39, "40 frames are not cut to 39 (17*2+5)"
+    assert len(w.encoder_frames(0, 39, 37, None)["sampled"]) == 4 and len(w.encoder_frames(0, 158, 154, None)["sampled"]) == 14
+    later = w.encoder_frames(90, 39, 100, 0)
+    assert [x["reference_frame"] for x in later["sampled"]] == [90, 99, 99, 99] and [x["held"] for x in later["sampled"]] == [False, True, True, True]
+    base = made("load_h")
+    name = base.name
+    q = base / f"{name}_job" / f"{name}.render.queued.json"
+    rec = json.loads(q.read_text())
+    rec["said"]["75"] = ["[1] window from 0.000s: 39 frames\n[1] <Video 1> costs: the text encoder is shown 4 pictures of 1024x768"]
+    q.write_text(json.dumps(rec))
+    win = base / "output" / "Video" / name / f"{name}_windows"
+    for f in win.glob("*"):
+        f.unlink()                                                  # no rendered window: the node's own lines say it
+    got = read(base)
+    v1 = {r["role"]: r for r in got["inputs"]}["<Video 1>"]
+    e = v1["encoder_frames"]
+    assert len(e) == 1 and e[0]["window_frames"] == 39 and v1["reference_frames"] == 6, (e, v1.get("reference_frames"))
+    assert [x["reference_frame"] for x in e[0]["sampled"]] == [0, 5, 5, 5] and e[0]["node_says"] == 4, e
+    assert e[0]["sampled"][0]["source_frame"] == 10, "the window's first frame is not the source loader's"
+    return "141 frames of a 50-frame reference: 12 shown, 7 of them its last frame; 40 cut to 39; windows from the node's own lines, its count kept beside"
+
+
 def not_yet_queued() -> str:
     base = made("load_c", queued=False)
     os.utime(base / "m1.mp4", (AFTER, AFTER))
@@ -324,6 +355,7 @@ case("digests kept at queue time", digests_kept_at_queue)
 case("what a cold read found", what_the_cold_read_found)
 case("the input folder", the_input_folder)
 case("the cut on a yuv420p file, by ffmpeg", the_cut_on_a_yuv420p_file)
+case("which reference frames the text encoder is shown", the_encoder_frames)
 case("a load not yet queued", not_yet_queued)
 case("the zoom read from the node's records", the_zoom)
 

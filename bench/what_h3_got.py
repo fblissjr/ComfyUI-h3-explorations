@@ -39,9 +39,15 @@ written more than a second after `queued_at` (the record keeps whole seconds, ta
 version H3 read is not known from it; a digest recorded at queue time
 (`digests`, path to sha256) that is not the file's now. Everything else is printed as data.
 
-**What it cannot see.** The tensors inside the node: the masked plate the model sampled from (noise inside the
-region, the start blur), the frames of a reference the text encoder was shown (the node says how many, not
-which), anything the node computed. Whether a mask or keep-out the loader hands on uncut was drawn on the source
+- Which frames of a wired reference the text encoder is shown, per window: the node cuts the window's reference
+  (the wired video from the window's first frame, its last frame repeated past its end: `video_mask.wired_motion`)
+  to 17k+5 frames and samples every twelfth (`reference_conditioning.py::_prepare_reference_video` and the
+  `sample_indices` line, `FPS // 2`), restated here as `encoder_frames`. The windows are the rendered ones' region
+  meta, else the node's own "[k] window from S s: N frames" lines; before either there are none to say.
+
+**What it cannot see.** What the composite kept of the render (the node's `changed_alpha`), anything else the node
+computed. The masked plate is not saved either; with `paint_out` off and the start from noise it is the fitted
+frames the loader hands on, noised inside the region, and can be drawn from them. Whether a mask or keep-out the loader hands on uncut was drawn on the source
 as the loader cuts it: the graph names a file, not how it was made (the lane's tools fit the source with
 `_lib.frames.FIT`, which restates the loader's cut); the reading lists which loaders cut and which do not. A file written after the queue with the same bytes reads as
 changed, and one written between the queue and the run is what H3 read and still fails: the time is all a record
@@ -98,14 +104,15 @@ def frame_of(seconds: float, rate: float) -> int:
 
 def video_probe(path: Path) -> dict | None:
     """The file's first video stream: its size, pixel format and frame rate."""
-    got = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height,pix_fmt,r_frame_rate",
+    got = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height,pix_fmt,r_frame_rate,nb_frames",
                           "-of", "json", str(path)], capture_output=True, text=True).stdout
     streams = (json.loads(got or "{}").get("streams") or [])
     if not streams:
         return None
     s = streams[0]
     num, _, den = str(s.get("r_frame_rate", "0/1")).partition("/")
-    return {"size": [int(s["width"]), int(s["height"])], "pix_fmt": s.get("pix_fmt"), "rate": float(num) / float(den or 1)}
+    return {"size": [int(s["width"]), int(s["height"])], "pix_fmt": s.get("pix_fmt"), "rate": float(num) / float(den or 1),
+            "frames": int(s["nb_frames"]) if str(s.get("nb_frames", "")).isdigit() else None}
 
 
 def vhs_formats() -> dict:
@@ -232,7 +239,7 @@ def one_file(g: dict, nid: str, role: str, tag: str | None, inputs: Path, queued
         row["loader"] = {"start_time": start, "rate": rate, "first_frame": frame_of(start, rate) if rate else None,
                          "frame_load_cap": int(ins.get("frame_load_cap", 0)), "format": ins.get("format"),
                          "custom": [int(ins.get("custom_width", 0)), int(ins.get("custom_height", 0))]}
-        row["size"], row["pix_fmt"] = probe.get("size"), probe.get("pix_fmt")
+        row["size"], row["pix_fmt"], row["file_frames"] = probe.get("size"), probe.get("pix_fmt"), probe.get("frames")
         if isinstance(ins.get("vae"), list):
             row["fit_not_given"] = "a vae is wired to the loader: its rounding is the vae's, not restated here"
         elif fmt is None:
@@ -345,6 +352,21 @@ def read(job_folder: Path, load: str, stage: str = "render", *, inputs: Path | N
     out["canvases"] = {"sizes": sorted({tuple(r["fit"]["to"]) for r in fits}),
                        "cut": [{"role": r["role"], "node": r["node"], "crop": r["fit"]["crop"], "of": r["size"]} for r in fits if r["fit"]["crop"]],
                        "uncut": [r["node"] for r in fits if not r["fit"]["crop"]]}
+    windows = windows_of(out, queued)
+    source_first = next((r.get("loader", {}).get("first_frame") for r in out["inputs"] if r["role"] == "the source"), None)
+    for row in out["inputs"]:
+        if row.get("tag", "") and str(row["tag"]).startswith("<Video") and row.get("exists") and windows:
+            cap = row["loader"]["frame_load_cap"]
+            have = min(x for x in (cap or None, row.get("file_frames")) if x) if (cap or row.get("file_frames")) else None
+            if have:
+                row["reference_frames"] = have
+                row["encoder_frames"] = [encoder_frames(a, n, have, source_first) for a, n in windows]
+                # the node's own count of what it showed, an answer from the other side: "[k] <Video j> costs: ... shown N pictures"
+                for k, e in enumerate(row["encoder_frames"], 1):
+                    for line in row.get("node_said", []):
+                        m = re.match(rf"\[{k}\] {re.escape(row['tag'])} costs: the text encoder is shown (\d+) pictures", line.strip())
+                        if m:
+                            e["node_says"] = int(m.group(1))
     for row in out["inputs"]:
         where = f"{row['role']} (node {row['node']}, {row['named']})"
         if row["exists"] is False:
@@ -355,6 +377,38 @@ def read(job_folder: Path, load: str, stage: str = "render", *, inputs: Path | N
         if row.get("sha256_at_queue") and row.get("sha256") and row["sha256_at_queue"] != row["sha256"]:
             out["failures"].append(f"{where}: its sha256 is not the one recorded at queue time")
     return out
+
+
+#: The text encoder's sampling of a reference video. **Inherited** from `reference_conditioning.py`: the frame
+#: count cut down until it is 17k+5 (`_prepare_reference_video`), then every `FPS // 2`th frame at 24 fps.
+ENCODER_STEP, FRAMES_RULE = 12, (17, 5)
+
+
+def encoder_frames(window_first: int, window_frames: int, reference_frames: int, source_first: int | None) -> dict:
+    """Which frames of a wired reference the text encoder is shown in one window. `window_first` is the window's
+    first frame on the load's clock, `reference_frames` how many frames the loader hands on (the cap, or the file's
+    own count when shorter). A window frame past the reference's end is its last frame repeated (`held`)."""
+    n = window_frames
+    while n >= 5 and n % FRAMES_RULE[0] != FRAMES_RULE[1]:
+        n -= 1
+    out = []
+    for i in range(0, n, ENCODER_STEP):
+        at = window_first + i
+        out.append({"window_frame": i, "reference_frame": min(at, reference_frames - 1), "held": at >= reference_frames,
+                    "source_frame": None if source_first is None else source_first + at})
+    return {"window_first": window_first, "window_frames": window_frames, "kept_frames": n, "sampled": out}
+
+
+def windows_of(got: dict, queued: dict | None) -> list[tuple[int, int]]:
+    """Each window as (its first frame on the load's clock, its frame count): the rendered windows' region meta,
+    else the node's own lines; none before either."""
+    if got["zoom"]["windows"]:
+        return [(int(w["first_frame"]), int(w["frames"])) for w in got["zoom"]["windows"] if w.get("frames")]
+    found = []
+    for lines in ((queued or {}).get("said") or {}).values():
+        for m in re.finditer(r"\[(\d+)\] window from ([\d.]+)s: (\d+) frames", "\n".join(lines)):
+            found.append((round(float(m.group(2)) * 24), int(m.group(3))))
+    return sorted(set(found))
 
 
 def said_lines(got: dict) -> list[str]:
@@ -382,6 +436,12 @@ def said_lines(got: dict) -> list[str]:
             lines.append(f"      its record: {r['record']['what']}; its frame 0 is source frame {r['record'].get('its_first_frame_is_source_frame')}")
         for line in r.get("node_said", []):
             lines.append(f"      the node: {line.strip()}")
+        for k, e in enumerate(r.get("encoder_frames", []), 1):
+            held = [x for x in e["sampled"] if x["held"]]
+            lines.append(f"      window {k}: the text encoder is shown {len(e['sampled'])} of its frames: reference frames "
+                         + ", ".join(str(x["reference_frame"]) + ("*" if x["held"] else "") for x in e["sampled"])
+                         + (f"  (* past the reference's {r['reference_frames']} frames: its last frame repeated, {len(held)} of them)" if held else "")
+                         + (f"; the node says {e['node_says']}" if "node_says" in e else "; the node's count not found"))
     z = got["zoom"]
     if z.get("piece"):
         p = z["piece"]
