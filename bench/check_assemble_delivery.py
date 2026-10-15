@@ -488,26 +488,71 @@ with tempfile.TemporaryDirectory() as _tmp:
                 f"a kept piece scaled up {here:.2f} from the source in place, {beside:.2f} three pixels aside")
 
     def the_cut_rows_carry_the_edge() -> str:
-        """The lead's ruling of 2026-10-15 (the clips reviewer's C3): where a laid region reaches the loader's crop's top or bottom row, the
-        cut rows beyond it take the laid edge row, column by column as far as the piece reaches; elsewhere they stay the source's."""
+        """The lead's ruling of 2026-10-15 (the clips reviewer's C3): where a laid region reaches the edge of the loader's crop, the rows
+        or columns cut beyond it take the laid edge as far along it as the piece reaches, in full for CARRY_FULL_PX and fading to the
+        source over CARRY_FADE_PX; elsewhere, under a restore, and past that depth they stay the source's."""
+        def lay(sw, sh, box, reach_rows=None, reach_cols=None, held=None, reach_top=None, reach_right=None):
+            cw, ch, x0, y0 = box
+            base = [np.full((sh, sw), 80.0, np.float32), np.full((sh // 2, sw // 2), 120.0, np.float32), np.full((sh // 2, sw // 2), 120.0, np.float32)]
+            for k, sc in enumerate((1, 2, 2)):                 # inside the crop the source is 50 / 100; its own cut picture 80 / 120
+                base[k][y0 // sc:(y0 + ch) // sc, x0 // sc:(x0 + cw) // sc] = 50.0 if k == 0 else 100.0
+            piece = [np.full((H, W), 200.0, np.float32), np.full((H // 2, W // 2), 160.0, np.float32), np.full((H // 2, W // 2), 160.0, np.float32)]
+            owner = np.full((H, W), -1, np.int8)
+            if reach_rows is not None:
+                owner[H - 40:, reach_rows] = 0
+            if reach_cols is not None:
+                owner[reach_cols, :40] = 0
+            if reach_top is not None:
+                owner[:40, reach_top] = 0
+            if reach_right is not None:
+                owner[reach_right, W - 40:] = 0
+            raw = np.frombuffer(tool.laid_over(base, [piece], owner, box, [held] if held is not None else None), np.uint8)
+            y = raw[:sw * sh].reshape(sh, sw).astype(int)
+            u = raw[sw * sh:sw * sh + (sw // 2) * (sh // 2)].reshape(sh // 2, sw // 2).astype(int)
+            v = raw[sw * sh + (sw // 2) * (sh // 2):].reshape(sh // 2, sw // 2).astype(int)
+            return y, u, v
         cw, ch, x0, y0 = tool.crop_of(SW, SH, W, H)
-        assert y0 > 0 and y0 + ch < SH, (cw, ch, x0, y0)
-        base = [np.full((SH, SW), 50.0, np.float32), np.full((SH // 2, SW // 2), 100.0, np.float32), np.full((SH // 2, SW // 2), 100.0, np.float32)]
-        base[0][:y0], base[0][y0 + ch:] = 80.0, 80.0             # the source's own cut rows unlike its edge rows, so a carry shows
-        piece = [np.full((H, W), 200.0, np.float32), np.full((H // 2, W // 2), 160.0, np.float32), np.full((H // 2, W // 2), 160.0, np.float32)]
-        owner = np.full((H, W), -1, np.int8)
-        owner[H - 40:, : W // 2] = 0                       # the piece reaches the canvas's bottom on its left half, and not its top
-        raw = np.frombuffer(tool.laid_over(base, [piece], owner, (cw, ch, x0, y0)), np.uint8)
-        y = raw[:SW * SH].reshape(SH, SW).astype(int)
-        u = raw[SW * SH:SW * SH + (SW // 2) * (SH // 2)].reshape(SH // 2, SW // 2).astype(int)
-        left, right = slice(20, int(0.4 * SW)), slice(int(0.65 * SW), SW - 20)
-        below = slice(y0 + ch, SH)
+        assert y0 > 0 and y0 + ch < SH and x0 == 0, (cw, ch, x0, y0)
+        y, u, v = lay(SW, SH, (cw, ch, x0, y0), reach_rows=slice(0, W // 2))   # the piece reaches the bottom on the left half, not the top
+        left, right, below = slice(20, int(0.4 * SW)), slice(int(0.65 * SW), SW - 20), slice(y0 + ch, SH)
         # THE CASE THAT GOES RED when the cut rows under a region that reaches the edge keep the source (a band), or take the render where
-        # nothing reached it
-        assert (y[below, left] >= 195).all() and (y[below, right] == 80).all(), (y[below, left].min(), y[below, right].max())
-        assert (u[(y0 + ch) // 2:, left.start // 2:left.stop // 2] >= 155).all(), u[(y0 + ch) // 2:, 10:20]
-        assert (y[:y0] == 80).all(), "the top's cut rows changed where nothing reached the top"
-        return f"the {SH - y0 - ch} cut rows below take the laid edge row where the piece reaches it ({int(y[below, left].mean())}), the source elsewhere"
+        # nothing reached it, in luma or either chroma plane
+        assert (y[below, left] >= 195).all() and (y[below, right] == 80).all() and (y[:y0] == 80).all(), (y[below, left].min(), y[below, right].max())
+        for c in (u, v):
+            assert (c[(y0 + ch) // 2:, 10:int(0.2 * SW)] >= 155).all() and (c[(y0 + ch) // 2:, int(0.35 * SW):SW // 2 - 10] == 120).all(), c[-1, ::40]
+        # under a restore that takes the edge out of the piece, nothing is carried
+        held = np.zeros((H, W), np.float32)
+        held[H - 60:, :] = 1.0
+        yh, _u, _v = lay(SW, SH, (cw, ch, x0, y0), reach_rows=slice(0, W // 2), held=held)
+        assert (yh[below] == 80).all(), "a restore's edge was carried"
+        # a source cut at the sides: the columns take the laid edge where the piece reaches the left edge (its top half here)
+        sw2, sh2 = 440, 300
+        box2 = tool.crop_of(sw2, sh2, W, H)
+        assert box2[2] > 0 and box2[3] == 0, box2
+        ys, _u, _v = lay(sw2, sh2, box2, reach_cols=slice(0, H // 2))
+        near, far = slice(box2[2] - tool.CARRY_FULL_PX, box2[2]), slice(0, box2[2] - tool.CARRY_FULL_PX - tool.CARRY_FADE_PX)
+        assert (ys[20:int(0.4 * sh2), near] >= 195).all() and (ys[int(0.65 * sh2):sh2 - 20, :box2[2]] == 80).all(), ys[::40, :box2[2]]
+        assert box2[2] <= tool.CARRY_FULL_PX + tool.CARRY_FADE_PX or (ys[20:int(0.4 * sh2), far] == 80).all(), ys[60, :box2[2]]
+        # the top and the right sides, each where the piece reaches it alone
+        yt, _u, _v = lay(SW, SH, (cw, ch, x0, y0), reach_top=slice(0, W // 2))
+        assert (yt[:y0, 20:int(0.4 * SW)] >= 195).all() and (yt[:y0, int(0.65 * SW):SW - 20] == 80).all() and (yt[below] == 80).all(), yt[:y0, ::50]
+        yr, _u, _v = lay(sw2, sh2, box2, reach_right=slice(0, H // 2))
+        edge_r = box2[2] + box2[0]
+        assert (yr[20:int(0.4 * sh2), edge_r:edge_r + tool.CARRY_FULL_PX] >= 195).all() and (yr[int(0.65 * sh2):sh2 - 20, edge_r:] == 80).all(), yr[60, edge_r:]
+        # a deep cut is not one stretched row: in full for CARRY_FULL_PX, then back to the source past CARRY_FULL_PX + CARRY_FADE_PX
+        sh3 = H * 2 + 80
+        box3 = (W * 2, H * 2, 0, 40)
+        yd, _u, _v = lay(W * 2, sh3, box3, reach_rows=slice(0, W // 2))
+        last = 40 + H * 2 - 1
+        assert (yd[last + 1:last + 1 + tool.CARRY_FULL_PX, 20:W // 2] >= 195).all(), yd[last + 1:last + 12, 40]
+        assert (yd[last + 1 + tool.CARRY_FULL_PX + tool.CARRY_FADE_PX:, 20:W // 2] == 80).all(), yd[last + 14:last + 22, 40]
+        middle = yd[last + tool.CARRY_FULL_PX + tool.CARRY_FADE_PX // 2, 20:W // 2]
+        assert (middle > 100).all() and (middle < 180).all(), middle[:4]                 # half way through the fade, half way between
+        _y, ud, _v = lay(W * 2, sh3, box3, reach_rows=slice(0, W // 2))
+        clast = (40 + H * 2) // 2 - 1
+        assert (ud[clast + 1:clast + 1 + tool.CARRY_FULL_PX // 2, 10:W // 4] >= 155).all() and \
+            (ud[clast + 1 + (tool.CARRY_FULL_PX + tool.CARRY_FADE_PX) // 2 + 1:, 10:W // 4] == 120).all(), ud[clast + 1:clast + 12, 20]
+        return f"the {SH - y0 - ch} cut rows below take the laid edge where the piece reaches it ({int(y[below, left].mean())}), the source elsewhere"
 
     def a_class_given_back() -> str:
         names = tool.class_names()
