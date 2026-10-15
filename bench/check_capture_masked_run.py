@@ -807,6 +807,55 @@ def graded_holds() -> str:
             "off it or lost; a frame with no part under either is emptied; an undoubted frame is left alone")
 
 
+def a_short_fill_where_nothing_was_labelled() -> str:
+    """751b's 761 (2026-10-15): the class map labelled nothing on her face for one frame, a speck under the floor was left, and the
+    floor emptied the frame between two with her face. A run of at most SHORT_FILL such frames, a part either side, takes the fill;
+    nothing else changes."""
+    n = 10
+    face = rect(40, 20, 60, 40, n)                                      # 400 px a frame
+    classes = np.where(face, 2, 0).astype(np.uint8)
+    speck = rect(90, 60, 95, 65, n)                                     # 25 px, off her face
+    saved = face.copy()
+    for f in (3, 6, 7, 8, 0):                                           # frames where the part model labelled nothing
+        classes[f] = 0
+        classes[f][speck[f]] = 2                                        # the speck lies on the part's class
+        saved[f] = speck[f]
+    fill = face.copy()
+    lost = {3, 6, 7, 8, 0}
+    before, said_before = cap.grade_holds(saved, fill, classes, [2], least_px=100)
+    after, said = cap.grade_holds(saved, fill, classes, [2], least_px=100, lost=lost)
+    # THE CASE THAT GOES RED when 761 is left emptied, or a longer run or one at the load's edge is filled
+    assert not before[3].any() and said_before[3]["did"] == "emptied", said_before[3]
+    assert (after[3] == face[3]).all() and said[3]["did"] == "filled where nothing was labelled" and "least_px" not in said[3], said[3]
+    assert not after[6:9].any() and not after[0].any(), "a run of three, or one at the load's edge, was filled"
+    # a frame whose saved part stands (805b's 805, 821, 833) is untouched though nothing was labelled under the fill
+    part = rect(90, 60, 102, 72, n)                                     # 144 px, on the part's class: above the floor, and kept
+    own = np.where(face, 2, 0).astype(np.uint8)
+    own[3] = np.where(part[3], 2, 0)                                     # frame 3: nothing labelled where the fill would go, her part kept
+    stands = face.copy()
+    stands[3] = part[3]
+    kept, said_kept = cap.grade_holds(stands, fill, own, [2], least_px=100, lost={3})
+    # THE CASE THAT GOES RED when a saved part that stands is replaced (805b's 805, 821 and 833), its neighbours both with a part
+    assert kept[2].any() and kept[4].any() and (kept[3] == part[3]).all() and said_kept[3]["did"].startswith("saved part kept"), said_kept.get(3)
+    # a neighbour with no part: not filled; the last frame: not filled; a fill under the floor: not taken
+    alone, no_fill = saved.copy(), fill.copy()
+    alone[2], no_fill[2] = False, False                                  # frame 2: no part, and none offered
+    lone, said_lone = cap.grade_holds(alone, no_fill, classes, [2], least_px=100, lost={3})
+    assert not lone[2].any(), said_lone.get(2)
+    assert not lone[3].any(), "a frame was filled with no part on the frame before it"
+    end_saved, end_classes = face.copy(), np.where(face, 2, 0).astype(np.uint8)
+    end_saved[n - 1], end_classes[n - 1] = speck[n - 1], np.where(speck[n - 1], 2, 0)
+    end, _ = cap.grade_holds(end_saved, fill, end_classes, [2], least_px=100, lost={n - 1})
+    assert not end[n - 1].any(), "the load's last frame was filled"
+    tiny, _ = cap.grade_holds(saved, speck, classes, [2], least_px=100, lost={3}, lost_fill=speck)
+    assert not tiny[3].any(), "a fill under the floor was taken"
+    # the fill's shape is the unlimited one (`lost_fill`), not a hold's that put the speck back
+    wide, said_wide = cap.grade_holds(saved, saved, classes, [2], least_px=100, lost={3}, lost_fill=face)
+    assert (wide[3] == face[3]).all() and said_wide[3]["px"] == 400, said_wide[3]
+    return ("a frame emptied between two with a part, where nothing was labelled, takes the fill; a run of three, one at the load's edge and a "
+            "frame whose saved part stands are left as they were")
+
+
 def the_floor_at_the_size_it_renders() -> str:
     """The starting floor held at the size the load renders at (2026-10-14): a load the node zooms by Z gives the model its part
     Z squared larger, so the floor on the canvas is PART_LEAST_PX / Z^2, Z the node's own zoom_box on the part's boxes; least= is
@@ -2009,6 +2058,7 @@ case("a strip says what the node will render", what_the_node_will_render)
 case("the floor at the size the load renders at", the_floor_at_the_size_it_renders)
 case("preflight: held's slivers and her clothing are data", held_split)
 case("a fill of a doubted part, graded by the class map", graded_holds)
+case("a short fill where nothing was labelled", a_short_fill_where_nothing_was_labelled)
 case("the floor under a small part: a starting value, held against the clip's own sizes", the_floor_against_the_clip)
 case("verify: the capture reads what the nodes wrote", verifying)
 case("a pose table as an input", pose_tables)

@@ -657,8 +657,14 @@ def size_lines(where: str, sizes: dict) -> list[str]:
     return lines
 
 
+#: The longest run of frames a fill is taken on where the part model labelled nothing (`grade_holds`, `lost`). A STARTING VALUE,
+#: the lead's scope of 2026-10-15 ("one or two frames"): on the 10/14 and 10/15 captures it changes 751b's 761 (and its _first) and
+#: the superseded 0741b's 779, 821 and 844-845, and nothing of 10/15.
+SHORT_FILL = 2
+
+
 def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made: list[int],
-                least_px: int = 0) -> tuple[np.ndarray, dict[int, dict]]:
+                least_px: int = 0, lost: set[int] | frozenset = frozenset(), lost_fill: np.ndarray | None = None) -> tuple[np.ndarray, dict[int, dict]]:
     """The part to load, frame by frame, from the saved part and a proposed fill, graded by the class map.
 
     A fill takes a neighbour's shape to a frame the gate doubted. On a fast turn the doubted part was right
@@ -674,7 +680,17 @@ def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made
     figure the part's class scores the saved part high; `drop=` is still the caller's. One case of that it
     does catch, by size: a part left under `least_px` (`PART_LEAST_PX`) is emptied, whatever the class map
     says of it, and the decision says how many pixels it had. An emptied frame is then a frame with no part,
-    which the gate names at its top level."""
+    which the gate names at its top level.
+
+    A SHORT GAP WHERE THE PART MODEL LABELLED NOTHING (`lost`: the frames `under_doubted` reads as "nothing labelled" under the
+    fill's shape) is filled after all: a run of at most `SHORT_FILL` frames the grade left empty, with a part on the frame before
+    it and the frame after it inside the load, takes the fill (`lost_fill`, the neighbours' shape with no `hold=` limit, the shape
+    `under_doubted` read; else `filled`), when it is at least `least_px`. Its own classes score low or nothing there because the
+    class map lost the part (761: 0.0; the superseded 0741b's 779 and 821: 0.034 and 0.304), not because the fill lies on something else (751b's 761, 2026-10-15: the class map labelled nothing on her face for one
+    frame, a 142 px speck was left and the floor emptied it). A frame whose saved part was kept is not touched, though it is
+    "nothing labelled" (805b's 805, 821 and 833): a fill there would replace a part that stands. Nor is a run at the load's edge.
+    What it cannot restore: the reference drawn on such a frame, made from the same lost frame (751b's 761: its reference's frame
+    10 has no drawn mouth or irises either; the clips reviewer, 2026-10-15)."""
     own = np.isin(classes, made)
     out, decisions = parts.copy(), {}
 
@@ -699,6 +715,25 @@ def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made
             out[f] = False
             decisions[f] = {**decisions.get(f, {"saved_on_its_classes": inside(parts[f], f), "fill_on_its_classes": None}),
                             "did": "emptied", "why": "too small to be drawn as the part", "px": px, "least_px": least_px}
+    # a frame the grade left empty (a frame whose saved part stands is not empty, so it is never taken here)
+    shape = filled if lost_fill is None else lost_fill
+    gone = [f for f in range(len(parts)) if f in lost and not out[f].any() and int(shape[f].sum()) >= max(least_px, 1)]
+    runs: list[list[int]] = []
+    for f in gone:
+        if runs and f == runs[-1][-1] + 1:
+            runs[-1].append(f)
+        else:
+            runs.append([f])
+    for run in runs:
+        a, b = run[0], run[-1]
+        if len(run) <= SHORT_FILL and a > 0 and b < len(parts) - 1 and out[a - 1].any() and out[b + 1].any():
+            for f in run:
+                out[f] = shape[f]
+                was = decisions.get(f, {"did": "emptied"})
+                decisions[f] = {"did": "filled where nothing was labelled", "saved_on_its_classes": was.get("saved_on_its_classes"),
+                                "fill_on_its_classes": was.get("fill_on_its_classes"), "px": int(shape[f].sum()),
+                                "why": (f"the part model labelled nothing under the fill (a run of {len(run)}, a part either side): the class "
+                                        f"map lost the part; the grade had {was['did']} it" + (f" ({was['why']})" if was.get("why") else ""))}
     return out, decisions
 
 
@@ -1522,19 +1557,20 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                     names = _pack("sapiens2_parts").CLASS_NAMES
                     every, doubted, _ = held_parts(track, parts, mine)
                     made = [names.index(c) for c in made_of.get(label, [])]
+                    others_now = [t for other, seen in sightings.items() if other != label and other in class_maps
+                                  for t in [next(iter(seen.values()))[0]]]
+                    what = under_doubted(made, names.index("Hair"), every, doubted, class_maps[label], others_now)
                     if m.get("grade") != "off":
-                        held, graded = grade_holds(parts, held, class_maps[label], made, least)
+                        held, graded = grade_holds(parts, held, class_maps[label], made, least,
+                                                   lost={f for f, v in what.items() if v["mostly"] == "nothing labelled"}, lost_fill=every)
                         sizes = part_sizes(parts, first, least, least_by, emptied=[f for f, d in graded.items() if "least_px" in d])
-                        held_frames = [f for f, d in graded.items() if d["did"] == "filled"]
+                        held_frames = [f for f, d in graded.items() if d["did"].startswith("filled")]
                         refused = [first + f for f, d in graded.items() if d["did"].startswith("saved")]
                         emptied_by_grade = [first + f for f, d in graded.items() if d["did"] == "emptied"]
                         (folder / "part_grades.json").write_text(json.dumps(
                             {"subject": label, "seen_by": by, "bar": HOLD_INSIDE, "part_is_made_of": made_of.get(label),
                              "least_px": least, "least_px_set_by": least_by, "part_sizes": sizes,
                              "frames": [{"source_frame": first + f, **d} for f, d in sorted(graded.items())]}, indent=1) + "\n")
-                    others_now = [t for other, seen in sightings.items() if other != label and other in class_maps
-                                  for t in [next(iter(seen.values()))[0]]]
-                    what = under_doubted(made, names.index("Hair"), every, doubted, class_maps[label], others_now)
                     (folder / "doubted_frames.json").write_text(json.dumps(
                         {"subject": label, "seen_by": by, "what_each_means": UNDER,
                          "frames": [{"source_frame": first + f, "filled_in_parts_held": f in held_frames, **v} for f, v in sorted(what.items())]},
