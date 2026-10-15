@@ -483,6 +483,10 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         say(f"    {len(got)} frame(s) whose face's middle lies on her own glasses, off the track, are on it by the lower face (--over-the-eyes): "
             + ", ".join(f"{a}-{b}" if a != b else str(a) for a, b in spans_of(got)))
     filled, unfilled = fill_from_neighbours(on_track["frames_whose_face_middle_is_off_the_track"], first, count)
+    # A FRAME WITH NO LINE OF THE FACE (`no_face_on`) draws no face, whoever's the points are: off the track there is data, not a fault
+    # (lead_fp_4310b, 2026-10-15: 4397 and 4398, at the span's edge inside --no-face-on 4395-4398, failed the reference)
+    off_and_bare = [f for f in unfilled if f in set(faceless)]
+    unfilled = [f for f in unfilled if f not in set(faceless)]
     read_from = points
     if filled:
         write_filled(points, filled, made["filled_points"])
@@ -618,14 +622,20 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         + ("PASSED" if drawn["passed"] else "FAILED"))
     say("    " + faces.marks.against_the_source_line(drawn["body_model_against_the_source"]))
     on_track = {**on_track, "frames_filled_from_their_neighbours": {str(f): list(v) for f, v in sorted(filled.items())},
-                "frames_off_the_track_not_filled": unfilled, "fill_gap_frames": FILL_GAP,
+                "frames_off_the_track_not_filled": unfilled, "frames_off_the_track_with_no_face_drawn": off_and_bare, "fill_gap_frames": FILL_GAP,
                 "filled_are": ("filled, not read: their points are the straight line between their neighbours', and the read-back reads the drawing "
                                "from those points, so it says nothing of the person there") if filled else None}
+    if off_and_bare:
+        say(f"    the face's middle is off the subject's track on {len(off_and_bare)} frame(s) where no line of the face is drawn (--no-face-on): "
+            + ", ".join(f"{a}-{b}" if a != b else str(a) for a, b in spans_of(off_and_bare)) + "; nothing of a face is drawn there, so it fails "
+            "nothing. Those frames' points still widen the one head box, as every frame's do")
     if unfilled:
         say(f"    THE FACE IS OFF THE SUBJECT'S TRACK on {len(unfilled)} of {count} frames ({', '.join(map(str, unfilled))}), in runs longer than "
             f"{FILL_GAP} frames or at the span's edge: another person's face is drawn there; FAILED")
-    elif filled:
-        say(f"    the face's middle is on the subject's track on every frame but the {len(filled)} filled, not read")
+    elif filled or off_and_bare:
+        say(f"    the face's middle is on the subject's track on every frame but "
+            + " and ".join(x for x in (f"the {len(filled)} filled, not read" if filled else "",
+                                        f"the {len(off_and_bare)} with no face drawn" if off_and_bare else "") if x))
     elif on_track["known"]:
         say(f"    the face's middle is on the subject's track on all {count} frames")
     else:

@@ -215,12 +215,14 @@ def a_face_off_the_track_fails() -> str:
     gap = hr.FILL_GAP
     longer = list(range(6, 6 + gap + 1))                                             # one frame longer than the gap: not filled
     for name, said_of_track in (("off", {"what": "the check's", "frames_whose_face_middle_is_off_the_mask": [0, 3, 4, *longer, 40]}),
+                                ("bare", {"what": "the check's", "frames_whose_face_middle_is_off_the_mask": [0, 3, 4, *longer, 40]}),
                                 ("short", {"what": "the check's", "frames_whose_face_middle_is_off_the_mask": [3, 4]}),
                                 ("on", {"what": "the check's", "frames_whose_face_middle_is_off_the_mask": []}), ("unsaid", None)):
         folder, mesh, pts, source = rooms(f"track_{name}", [90] * N, [60] * N, CENTRES, 0)
         pts.with_suffix(".json").write_text(json.dumps({"made_by": "the check", "face_on_the_mask": said_of_track}))
         said: list[str] = []
-        rec = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head.mp4", "the check", room=ROOM, say=said.append)
+        bare = [(0, 0, "HIS BACK"), (longer[0], longer[-1], "HIS BACK")] if name == "bare" else None      # no face drawn where it is off
+        rec = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head.mp4", "the check", room=ROOM, say=said.append, no_face_on=bare)
         seen[name] = (rec, said, json.loads((folder / "head.json").read_text()), folder, pts)
     rec, said, kept, folder, _ = seen["off"]
     t = rec["face_on_the_track"]
@@ -229,6 +231,14 @@ def a_face_off_the_track_fails() -> str:
         and t["frames_filled_from_their_neighbours"] == {"3": [2, 5], "4": [2, 5]}, t
     assert all(r["passed"] for r in rec["read_backs"].values()) and (folder / "head_sheet.jpg").is_file(), "the sheet is not there to be read"
     assert any(f"THE FACE IS OFF THE SUBJECT'S TRACK on {1 + len(longer)} of" in line for line in said) and any(line.startswith("FAILED") for line in said), said
+    # THE CASE THAT GOES RED when a frame with no face drawn (--no-face-on) fails the run for being off the track (lead_fp_4310b's 4397-4398)
+    rec, said, kept, folder, _ = seen["bare"]
+    t = rec["face_on_the_track"]
+    assert rec["passed"] is True and t["frames_off_the_track_not_filled"] == [] and t["frames_off_the_track_with_no_face_drawn"] == [0, *longer], t
+    assert any("off the subject's track on" in line and "where no line of the face is drawn" in line for line in said) \
+        and not any("THE FACE IS OFF THE SUBJECT'S TRACK" in line for line in said), said
+    # and the line after it does not say the track holds on every frame but the filled ones
+    assert any("on every frame but the 2 filled, not read and the 6 with no face drawn" in line for line in said), said
     rec, said, kept, folder, pts = seen["short"]
     t = rec["face_on_the_track"]
     assert rec["passed"] is True and t["frames_filled_from_their_neighbours"] == {"3": [2, 5], "4": [2, 5]} and "filled, not read" in t["filled_are"], t
