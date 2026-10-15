@@ -79,11 +79,11 @@ AGREES, DISAGREES, NO_FILE, NO_RECORD = dt.AGREES, "recorded, THE FILE DISAGREES
 
 
 def render(name: str, span: tuple[int, int], written: str, *, subject: str = "a", region: str | None = "face", has=FROZEN, making: str = AGREES,
-           owner: tuple = (), also: tuple = (), named: dict | None = None) -> dict:
+           owner: tuple = (), also: tuple = (), named: dict | None = None, none: dict | None = None) -> dict:
     """A render as the ledger's JSON holds one, with the fields the rule reads. `owner` is (time, what, said[, on a joined clip])."""
     return {"file": f"Video/s/{name}/{name}_00001.mp4", "name": name, "written": f"2026-01-{written}T00:00:00Z", "span": list(span), "making": making,
             "subjects": [subject, *also], "records": [{"disagrees": ["the record's load is 9 frames from 1; the file holds 3"]}] if making == DISAGREES else [],
-            "form": {"region": region, "part_named": named, "reference": {"has": has, "says": "what the ledger said of the reference"}},
+            "form": {"region": region, "part_named": named, "reference": {"has": has, "says": "what the ledger said of the reference"}, "reference_none": none},
             "owner": [{"at": f"2026-02-{o[0]}T00:00:00Z", "what": o[1], "said": o[2], "row": name, "from": f"verdicts (answers.jsonl:{10 + n})",
                        **({"on_the_joined_clip": o[3]} if len(o) > 3 else {})} for n, o in enumerate(owner)]}
 
@@ -173,6 +173,14 @@ def a_part_the_job_named() -> str:
     # the named part still needs the reference of the form, and a whole person never stands
     assert entry(decide(render("b_hair_lids", (60, 99), "09", subject="b", region="a part", named=by, has=LIDS)), 50, "b")["stands"] == []
     assert entry(decide(render("b_whole", (60, 99), "09", subject="b", region="whole", named=by)), 50, "b")["stands"] == []
+    # HER HAIR ALONE WITH NO REFERENCE VIDEO on a person's word (--motion none, the lead's ruling of 2026-10-15): in form; without the
+    # job's word, or a load of more than her hair, not
+    word = {"why": "THE LEAD: her face is hidden, the source carries her bow", "read_from": "x.json"}
+    bare = entry(decide(render("b_bare", (60, 99), "09", subject="b", region="a part", named=by, has=None, none=word)), 50, "b")
+    # THE CASE THAT GOES RED when a hair-alone load made with --motion none is passed over as out of form
+    assert [s["render"] for s in bare["stands"]] == ["b_bare"] and "no reference video, on a person's word (THE LEAD" in bare["stands"][0]["why"], bare
+    assert entry(decide(render("b_bare", (60, 99), "09", subject="b", region="a part", named=by, has=None)), 50, "b")["stands"] == []
+    assert entry(decide(render("b_bare", (60, 99), "09", subject="b", region="face and hair", has=None, none=word)), 50, "b")["stands"] == []
     # AFTER THE OWNER'S KEEP, not before it: the kept piece keeps the frame the two share, which a --prefer would have taken
     kept = render("b_kept", (50, 80), "02", subject="b", region="face and hair", owner=(("01", "choice", "keep this one"),))
     both = entry(decide(kept, render("b_hair", (80, 99), "09", subject="b", region="a part", named=by)), 50, "b")

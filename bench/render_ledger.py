@@ -90,7 +90,8 @@ HERE = Path(__file__).resolve().parent
 #: says the share it walked (`bench/delivery_table.py` reads all of these). Since 2026-10-13, late, a form also
 #: carries `part_named` (the parts a load's job named as its own, or null): a field added, the schema's number kept,
 #: since every reader of 2 reads a ledger with it. Since 2026-10-14 a render also carries `defaults_carried` (its job's
-#: `job.defaults`, or null for a job written before them), the same way.
+#: `job.defaults`, or null for a job written before them), the same way. Since 2026-10-15 a form also carries `reference_none`
+#: (a job made with no reference video on a person's word, `shot_to_load.py job --motion none`, with its why; or null).
 SCHEMA = "h3_render_ledger/2"
 #: A reference with none of these steps in its records, for a form's `has`.
 NO_STEPS = {"cut_to_the_head": False, "face_points": False, "lid_marks": False}
@@ -402,6 +403,22 @@ def part_named(job_file: str | None, repo: Path, label: str | None) -> dict | No
     return None
 
 
+def reference_none(job_file: str | None, repo: Path) -> dict | None:
+    """A load made with no reference video on a person's word (`shot_to_load.py job --motion none`, the lead's ruling of 2026-10-15 on
+    second_hp_5461, her hair alone while her face is hidden): the job's `reference` says form `none` with its why. None when the job
+    says otherwise or cannot be read. The reference itself is read as always (`reference_form`): this says only why there is none."""
+    if not job_file:
+        return None
+    path = Path(job_file) if Path(job_file).is_absolute() else repo / job_file
+    try:
+        said = (json.loads(path.read_text()).get("job") or {}).get("reference") or {}
+    except (OSError, ValueError):
+        return None
+    if said.get("form") != "none":
+        return None
+    return {"why": said.get("why"), "read_from": str(job_file)}
+
+
 def defaults_of(job_file: str | None, repo: Path) -> list[dict] | None:
     """THE DEFAULTS THE LOAD CARRIED (`job.defaults`, written by `shot_to_load.py job` since 2026-10-14: a line each, with where it
     came from), read from the job file its build record names; None for a job written before then, or one that cannot be read."""
@@ -678,6 +695,7 @@ def ledger(shots: dict, plan: dict, share: Path, records: Path, repo: Path, sour
             "part_named": part_named((rec0 or {}).get("job_file"), repo, load.get("subject") or label),
             "rendered": load.get("render_region") or (ask or {}).get("render_region") or "the whole frame",
             "reference": reference_form(load.get("motion_file") or files.get("motion_video")),
+            "reference_none": reference_none((rec0 or {}).get("job_file"), repo),
             "text_says_the_video_is": text_says(text),
             "still": load.get("still") or ", ".join((ask or {}).get("stills") or []) or None,
             "seed": load.get("seed") if load.get("seed") is not None else (ask or {}).get("seed")}

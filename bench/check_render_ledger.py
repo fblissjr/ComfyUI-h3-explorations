@@ -260,6 +260,14 @@ def a_part_the_job_named() -> str:
         assert made.ledger()["renders"]["Video/clip/s1/hair/hair_00001.mp4"]["leaves_as_the_original"] == {"source_frames": [], "frames": 0, "read_from": left["read_from"]}
         (made.capture / "manifest.json").write_text(json.dumps({"subjects": [{"label": "a", "sightings": [{"by": "p", "part_is_made_of": ["Hair"]}]}]}))
         assert form("hair")["part_named"] == {"parts": ["hair"], "by": why, "read_from": str(made.records / "hair.json")}, form("hair")["part_named"]
+        # no reference video on a person's word (--motion none): the job's own why, read from its file; null for a job that says otherwise
+        assert form("hair")["reference_none"] is None and form("no_job")["reference_none"] is None
+        job = json.loads((made.records / "hair.json").read_text())
+        job["job"]["reference"] = {"form": "none", "why": "THE LEAD, the source carries her bow", "made": None}
+        (made.records / "hair.json").write_text(json.dumps(job))
+        # THE CASE THAT GOES RED when the ledger does not carry a job's word for no reference video
+        again = made.ledger()["renders"]["Video/clip/s1/hair/hair_00001.mp4"]["form"]
+        assert again["reference_none"] == {"why": "THE LEAD, the source carries her bow", "read_from": str(made.records / "hair.json")}, again
         # a job that names no part of its own, a part named for ANOTHER subject of the job, and a record with no job file: none
         assert form("usual")["part_named"] is None and form("other")["part_named"] is None and form("no_job")["part_named"] is None, [form(n)["part_named"] for n in ("usual", "other", "no_job")]
         # THE DEFAULTS THE LOAD CARRIED (2026-10-14: `job.defaults`), read from its job file per render, and said on the page; none for a job before them

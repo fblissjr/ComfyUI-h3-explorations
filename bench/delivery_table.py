@@ -207,6 +207,12 @@ def form_of(render: dict, region_wanted: str, plan_parts: list[str] | None = Non
                                   f"on {named.get('by') or 'a word the job does not give'}; ")
     if region != region_wanted and not subset:
         return None, f"it replaces {region or 'what no file says'}, where the plan's region for this subject is {region_wanted}"
+    # HER HAIR ALONE WITH NO REFERENCE VIDEO, on a person's word (`shot_to_load.py job --motion none`, the lead's ruling of 2026-10-15
+    # on second_hp_5461c): the source's own picture carries her movement, and only a load of the hair alone is ruled so
+    none = render["form"].get("reference_none")
+    if not has and none and subset and sorted(named["parts"]) == ["hair"]:
+        return "frozen, with no reference video", (said + f"no reference video, on a person's word ({' '.join(str(none.get('why') or '').split())}): "
+                                                  "a load of her hair alone made with shot_to_load's --motion none")
     if not has or not has.get("cut_to_the_head"):
         return None, "its reference is not the body model cut to the head: " + (render["form"]["reference"].get("says") or "none")
     if has.get("lid_marks"):
