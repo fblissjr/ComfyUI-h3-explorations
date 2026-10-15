@@ -1007,11 +1007,13 @@ def laid_over(base, pieces, owner, box, held=None, zoomed=None):
     once into the box's place, in place of the piece's own pixels enlarged."""
     cw, ch, x0, y0 = box
     out = [p.copy() for p in base]
+    reach = np.zeros((2, cw), np.float32)                # how much any piece is laid on the crop's top and bottom row, a column at a time
     for i, piece in enumerate(pieces):
         if not (owner == i).any():
             continue
         small = weight_of(owner, i) * (1.0 - (held[i] if held is not None and held[i] is not None else 0.0))
         weight = cv2.resize(small, (cw, ch), interpolation=cv2.INTER_LINEAR)
+        reach = np.maximum(reach, weight[[0, -1]])
         half = cv2.resize(weight, (cw // 2, ch // 2), interpolation=cv2.INTER_AREA)
         place = box_at_the_source(zoomed[i][1], box, small.shape[::-1])[0] if zoomed is not None and zoomed[i] is not None else None
         for k, (wgt, (pw, ph, px, py)) in enumerate(((weight, (cw, ch, x0, y0)), (half, (cw // 2, ch // 2, x0 // 2, y0 // 2)),
@@ -1024,7 +1026,32 @@ def laid_over(base, pieces, owner, box, held=None, zoomed=None):
                 up[b:d, a:c] = cv2.resize(src, (c - a, d - b), interpolation=cv2.INTER_AREA if smaller else cv2.INTER_CUBIC)
             view = out[k][py:py + ph, px:px + pw]
             view += (up - view) * wgt
+    carry_edge_rows(out, reach, box)
     return to_bytes(out)
+
+
+def carry_edge_rows(out, reach, box) -> None:
+    """THE ROWS THE LOADER'S CROP CUT (the lead's ruling of 2026-10-15, on the clips reviewer's C3 of fun_2823_3166): the model never sees
+    the source's rows above and below the crop (`crop_of`), so where a laid region reaches the crop's top or bottom row the render meets
+    the source's own cut rows with a step (2823b's bottom: 34.9 grey levels over the source's own at the median, 70.2 at most, on
+    every frame it lays; `internal/claude/2026-10-15_mrlol_scripts/edge_band.txt`). Each cut row takes the laid edge row, weighted a
+    column at a time by `reach` (the most any piece is laid on that edge row, its restore taken out): the source's own rows stay where
+    nothing reached the edge, and the frame's border is the only edge left where the render did. In place, on the planes at the source's
+    size."""
+    cw, ch, x0, y0 = box
+    for k, scale in enumerate((1, 2, 2)):
+        plane = out[k]
+        top, height, left, width = y0 // scale, ch // scale, x0 // scale, cw // scale
+        bottom = top + height - 1
+        if top <= 0 and bottom >= plane.shape[0] - 1:
+            continue
+        for side, edge, rows in ((0, top, range(0, top)), (1, bottom, range(bottom + 1, plane.shape[0]))):
+            wgt = cv2.resize(reach[side][None, :], (width, 1), interpolation=cv2.INTER_AREA)[0] if scale > 1 else reach[side]
+            if not wgt.any():
+                continue
+            line = plane[edge, left:left + width].copy()
+            for r in rows:
+                plane[r, left:left + width] += (line - plane[r, left:left + width]) * wgt
 
 
 def source_frames(source, first, last, sw, sh):
@@ -1370,7 +1397,8 @@ def flags_of(record, rows, captures) -> tuple[list[dict], list[str]]:
         if edge:
             out.append({"rule": "piece_changes_up_to_the_loader's_crop", "level": LEVELS[1], **names, "source_frames": frame_spans(edge),
                         "why": f"{names['piece']} changes pixels on the canvas's edge on {len(edge)} frame(s), where the loader's crop cut "
-                               f"the source: beyond it the file at the source's size holds only the source's picture",
+                               f"the source: a file at the source's size carries the laid edge row into the cut rows there, column by column as far as "
+                               f"the piece reaches it (carry_edge_rows), so its border is the picture's edge; a file at the canvas's size has none",
                         "figures": {"frames": len(edge)}, "threshold": {"CHANGE": CHANGE}})
         for left in (True, False):
             bare = {n: v["no_mask"]["px"] for n, v in area.items() if v.get("no_mask") and v["no_mask"]["left_as_the_source"] is left

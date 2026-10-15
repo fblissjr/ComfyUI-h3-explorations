@@ -487,6 +487,28 @@ with tempfile.TemporaryDirectory() as _tmp:
         return (f"the rectangle within {SLACK} px of where the crop and scale put it; {away:.2f} levels from the source elsewhere; "
                 f"a kept piece scaled up {here:.2f} from the source in place, {beside:.2f} three pixels aside")
 
+    def the_cut_rows_carry_the_edge() -> str:
+        """The lead's ruling of 2026-10-15 (the clips reviewer's C3): where a laid region reaches the loader's crop's top or bottom row, the
+        cut rows beyond it take the laid edge row, column by column as far as the piece reaches; elsewhere they stay the source's."""
+        cw, ch, x0, y0 = tool.crop_of(SW, SH, W, H)
+        assert y0 > 0 and y0 + ch < SH, (cw, ch, x0, y0)
+        base = [np.full((SH, SW), 50.0, np.float32), np.full((SH // 2, SW // 2), 100.0, np.float32), np.full((SH // 2, SW // 2), 100.0, np.float32)]
+        base[0][:y0], base[0][y0 + ch:] = 80.0, 80.0             # the source's own cut rows unlike its edge rows, so a carry shows
+        piece = [np.full((H, W), 200.0, np.float32), np.full((H // 2, W // 2), 160.0, np.float32), np.full((H // 2, W // 2), 160.0, np.float32)]
+        owner = np.full((H, W), -1, np.int8)
+        owner[H - 40:, : W // 2] = 0                       # the piece reaches the canvas's bottom on its left half, and not its top
+        raw = np.frombuffer(tool.laid_over(base, [piece], owner, (cw, ch, x0, y0)), np.uint8)
+        y = raw[:SW * SH].reshape(SH, SW).astype(int)
+        u = raw[SW * SH:SW * SH + (SW // 2) * (SH // 2)].reshape(SH // 2, SW // 2).astype(int)
+        left, right = slice(20, int(0.4 * SW)), slice(int(0.65 * SW), SW - 20)
+        below = slice(y0 + ch, SH)
+        # THE CASE THAT GOES RED when the cut rows under a region that reaches the edge keep the source (a band), or take the render where
+        # nothing reached it
+        assert (y[below, left] >= 195).all() and (y[below, right] == 80).all(), (y[below, left].min(), y[below, right].max())
+        assert (u[(y0 + ch) // 2:, left.start // 2:left.stop // 2] >= 155).all(), u[(y0 + ch) // 2:, 10:20]
+        assert (y[:y0] == 80).all(), "the top's cut rows changed where nothing reached the top"
+        return f"the {SH - y0 - ch} cut rows below take the laid edge row where the piece reaches it ({int(y[below, left].mean())}), the source elsewhere"
+
     def a_class_given_back() -> str:
         names = tool.class_names()
         apparel = names.index("Apparel")
@@ -1342,6 +1364,7 @@ with tempfile.TemporaryDirectory() as _tmp:
                 f"agree to {z['agreement_levels_worst_frame'][0]} levels; a box moved eight pixels fails; four malformed pairs are refused; "
                 "at the canvas's size the zoomed file is not used")
 
+    case("the cut rows carry the laid edge where a region reaches it", the_cut_rows_carry_the_edge)
     case("a piece that changed nothing is the original", nothing_changed)
     case("a painted rectangle is found where it is", rectangle_found)
     case("a delivery of pieces and original ranges passes its own check", delivery_passes)
