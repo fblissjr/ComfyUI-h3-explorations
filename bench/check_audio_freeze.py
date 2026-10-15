@@ -93,6 +93,7 @@ the script adds it to `sys.path` itself.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -364,9 +365,13 @@ def check_window_geometry(problems):
         _fail(problems, f"CONTEXT_NOISE is {af.CONTEXT_NOISE}: the default must stay the mask every render so far was made with")
     for name in ("audio_freeze.py", "audio_freeze_song.py"):
         text = (REPO / name).read_text(encoding="utf-8")
+        # appended to the end, optional, so a graph saved before it keeps its inputs where they were; an input appended after it
+        # (the song node's save_kept, 2026-10-15) is held to the same: optional, never in front of it
         at = text.find('io.Float.Input("context_noise", default=CONTEXT_NOISE, min=0.0, max=1.0, step=0.05, optional=True,')
-        if at < 0 or "io." in text[at + 20:text.find("outputs=[", at)].split("tooltip=")[1]:
-            _fail(problems, f"{name}: context_noise must be the node's last input, optional, at the shared default")
+        later = re.split(r"\bio\.\w+\.Input\(", text[at + 20:text.find("outputs=[", at)])[1:] if at >= 0 else []
+        if at < 0 or any("optional=True" not in one for one in later):
+            _fail(problems, f"{name}: context_noise must be optional at the shared default, after every older input, and every input "
+                            "appended after it optional too")
     if "context_noise=context_noise)" not in (REPO / "audio_freeze_song.py").read_text(encoding="utf-8"):
         _fail(problems, "the song node does not hand its context_noise to the window node")
     if "may not start where the last one ended" not in soft[5]:

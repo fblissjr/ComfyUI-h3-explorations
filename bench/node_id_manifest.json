@@ -89,7 +89,8 @@
       "source",
       "save_mask_review",
       "continue_from",
-      "context_noise"
+      "context_noise",
+      "save_kept"
     ],
     "node_id": "MiniMaxH3AudioFreezeSong",
     "outputs": [
