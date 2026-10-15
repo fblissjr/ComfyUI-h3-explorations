@@ -1373,6 +1373,22 @@ def loads_from_file(path: str) -> list[tuple[str, dict]]:
     return out
 
 
+def plans_with_the_files(runs: list[tuple[str, dict]], from_file: list[tuple[str, dict]]) -> list[tuple[str, dict]]:
+    """The plans a capture adds to its `--plan`s: the loads its `--loads` files hold, and each `--run` with a preview's plan and no render
+    (it has not rendered: its region is the node's own plan, not an estimate).
+
+    A LOAD THE FILE HOLDS AND A --run READS FROM THE NODE'S OWN PLAN (`bench/load_chain.py`'s capture on the plan of a pair) is one plan,
+    the --run's, which takes the file's `also`: a pair's second subject, which the words of a --run cannot hold. Nothing else of the
+    file's load is carried; the --run says the rest, as it does for a load of one subject."""
+    previewed = [(n, r) for n, r in runs if r.get("preview") and not r.get("render")]
+    names = {n for n, _ in previewed}
+    also = {n: r["also"] for n, r in from_file if n in names and r.get("also")}
+    for n in sorted(names & {n for n, _ in from_file}):
+        print(f"the --loads file's load {n!r} is the --run of that name: one plan, the run's, which takes "
+              + ("the file's second subject (`also`) and nothing else of it" if n in also else "nothing of the file's"), flush=True)
+    return [(n, r) for n, r in from_file if n not in names] + [(n, {**r, "also": also[n]} if n in also else r) for n, r in previewed]
+
+
 def subjects_of(run: dict) -> list[str]:
     """The subjects a run replaces: one, or both of a load of two subjects (`subjects`; its first is `subject`).
 
@@ -1460,9 +1476,7 @@ def files(a: argparse.Namespace) -> Path:
                          "or --overwrite when nothing queued reads it")
     out.mkdir(parents=True, exist_ok=True)
     masks, runs, plans = [spec(m) for m in a.mask], [spec(r) for r in a.run], [spec(r) for r in a.plan]
-    plans += [load for path in a.loads for load in loads_from_file(path)]
-    # a run with a preview's plan and no render has not rendered: its region is the node's own plan, not an estimate
-    plans += [(n, r) for n, r in runs if r.get("preview") and not r.get("render")]
+    plans += plans_with_the_files(runs, [load for path in a.loads for load in loads_from_file(path)])
     runs = [(n, r) for n, r in runs if r.get("render")]
     named = [m[k] for _, m in masks for k in ("track", "parts", "shots", "classes", "held", "pose") if m.get(k)] + [a.source]
     named += [x for _, r in runs for x in (r["render"], r["render"][:-len(".mp4")] + "_with_mask.mp4")]
@@ -4732,6 +4746,17 @@ KEEP_OUT_WORDS = {"held": "what the subject holds", "hands": "the subject's hand
                   "clothing": "the subject's clothes", "strangers": "whatever the part model reads as people no subject is"}
 
 
+def keep_out_words(name: str) -> str:
+    """What a keep-out is, for the strip's legend: `KEEP_OUT_WORDS` by its name, or by the name before a `_<subject>` suffix (a pair's
+    second subject's own things under a name the first's already holds, `bench/shot_to_load.py pair`), with whose they are."""
+    if name in KEEP_OUT_WORDS:
+        return KEEP_OUT_WORDS[name]
+    base, _, whose = name.rpartition("_")
+    if base in KEEP_OUT_WORDS and whose:
+        return KEEP_OUT_WORDS[base].replace("the subject's", f"{whose}'s") if "the subject's" in KEEP_OUT_WORDS[base] else f"{KEEP_OUT_WORDS[base]} ({whose})"
+    return "another tracked subject"
+
+
 def pinned_legend(subjects: list, runs: list, rows: list, replaced: list[str]) -> list[dict]:
     """One fixed line per mask the strip draws, for the whole clip: each subject it replaces, each keep-out of its
     runs (named by the capture's columns or a run's given-back cells, so one with nothing given back on a frame
@@ -4768,7 +4793,7 @@ def legend_words(entry: dict, rec: dict) -> str:
         return f"{who} (replaced): outline the tracked mask, {mask}; solid taken from the still; light margin: {made}"
     if entry["kind"] == "keep-out":
         k = rec["keep_outs"].get(who) or {}
-        what = KEEP_OUT_WORDS.get(who, "another tracked subject")
+        what = keep_out_words(who)
         return (f"{who} (keep-out: {what}): {mask}; hatched cells: {k.get('cells_given_back', 0)} margin cells kept as the "
                 f"original on this frame; {100 * (k.get('region_on') or 0):.0f}% of {who} inside the region")
     return f"{who} (tracked, not in this load): {mask}"
@@ -5568,7 +5593,7 @@ def video(a: argparse.Namespace) -> None:
             "made": datetime.datetime.now().astimezone().isoformat(timespec="seconds"), "frames": [first + lo, first + lo + frames - 1],
             "given": given if given else absent, "given_from_the_command_line": None if given or absent else [c_["video"] for c_ in cols] + [c_["picture"] for c_ in cols],
             "right_column": {"box": box, "is": box_words, "zoomed": bool(zoom), "render_tile": zoomed_render},
-            "legend": legend, "keep_out_words": {k: KEEP_OUT_WORDS.get(k, "another tracked subject") for k in keep_outs},
+            "legend": legend, "keep_out_words": {k: keep_out_words(k) for k in keep_outs},
             "marks": {"outline": "the tracked mask", "solid": "taken from the still", "light": "margin regenerated",
                       "hatched cell in a keep-out's colour": "a margin cell kept as the original because it lies on that keep-out",
                       "grey box": box_words,

@@ -1167,6 +1167,16 @@ def loads() -> str:
         (name, spec), = cap.loads_from_file(str(path))
         assert name == "ab" and spec["subject"] == "a" and spec["others"] == "c" and spec["carried"] == "held", spec
         assert json.loads(spec["also"]) == {"subject": "b", "region": "whole", "carried": "track"}, spec["also"]
+        # THE PLAN'S RUN OF A PAIR (`load_chain`'s capture on the plan): the --run read from the node's plan and the file's load of the
+        # same name are ONE plan, the --run's, carrying the file's `also` and nothing else of it; a run that rendered is not a plan; a load
+        # no --run names stays a plan of its own; a --run of one subject is as it was
+        run = ("ab", {"preview": "/w", "subject": "a", "at": "1"})
+        got = cap.plans_with_the_files([run, ("done", {"render": "/r.mp4", "subject": "a"})], [(name, spec), ("other", {"subject": "a", "at": "5"})])
+        assert got == [("other", {"subject": "a", "at": "5"}), ("ab", {**run[1], "also": spec["also"]})], got
+        assert cap.plans_with_the_files([run], [("other", {"subject": "a"})]) == [("other", {"subject": "a"}), run]
+    # a pair's second subject's own things under a name the first's holds (`hands_lead`): its own words, with whose, never another person
+    assert cap.keep_out_words("hands") == "the subject's hands and arms" and cap.keep_out_words("hands_lead") == "lead's hands and arms", cap.keep_out_words("hands_lead")
+    assert cap.keep_out_words("lead") == cap.keep_out_words("third_party") == "another tracked subject"
     # the second subject's share of what a two-subject load carries: its track when it is replaced whole, else its held part, else its part
     track, part, held = rect(96, 16, 144, 80), rect(104, 24, 120, 40), rect(104, 24, 124, 44)
     assert (cap.second_carried({"subject": "b", "carried": "track"}, track, part, held) == track).all()

@@ -172,6 +172,21 @@ def read_job(job_file: Path, repo: Path = REPO, need_text: bool = True) -> dict:
     if len(loads) != 1:
         raise Refused(f"{job_file} holds {len(loads)} loads: this tool takes one load a job file")
     load = loads[0]
+    # A LOAD OF TWO SUBJECTS (`subjects`, a pair made by `bench/shot_to_load.py pair`; the lead's ruling of 2026-10-15, so a pair runs
+    # through the chain like any load): read as the builder reads it (`masked_job_graph.one_subject_view`): the first subject is the
+    # load's, the second is `also`, `others` the keep-outs of both and neither subject. Both subjects are read for: their parts, class
+    # maps and pose tables to the capture; their keep-outs, drops and restores to the gate; the forcing rules and both references'
+    # records; a pose pass for each at the land. The held keep-out's split reads the first subject's chin (`--chin-points`), so
+    # `pair` makes no load whose second subject has a held keep-out of its own.
+    also = None
+    if "subjects" in load:
+        sys.path.insert(0, str(repo / "workflows"))
+        import masked_job_graph
+        try:
+            load = masked_job_graph.one_subject_view({**(d.get("defaults") or {}), **load})
+        except ValueError as e:
+            raise Refused(f"{job_file}: {e}") from None
+        also = load["also"]["subject"]
     if not job.get("capture"):
         raise Refused(f"{job_file}: the job names no `capture`, the folder its capture is made in")
     capture = Path(job["capture"]) if Path(job["capture"]).is_absolute() else repo / job["capture"]
@@ -193,9 +208,11 @@ def read_job(job_file: Path, repo: Path = REPO, need_text: bool = True) -> dict:
         raise Refused(f"the preview {pjob['name']} did not end in success (its record says {ran.get('status')!r})")
     order = [s["label"] for s in pjob["subjects"]]
     subject = load["subject"]
-    if subject not in order:
-        raise Refused(f"the load's subject {subject!r} is not a subject of the preview {pjob['name']} ({', '.join(order)})")
+    for who in (subject, also):
+        if who is not None and who not in order:
+            raise Refused(f"the load's subject {who!r} is not a subject of the preview {pjob['name']} ({', '.join(order)})")
     mine = next((s for s in job.get("subjects", []) if s["label"] == subject), {})
+    also_keys = next((s for s in job.get("subjects", []) if s["label"] == also), {}) if also else None
     span = (pjob["first"], pjob["first"] + pjob["frames"] - 1)
     if not (span[0] <= job["first"] and job["first"] + job["frames"] - 1 <= span[1]):
         raise Refused(f"the job's frames {job['first']}-{job['first'] + job['frames'] - 1} are not inside the preview {pjob['name']}'s, {span[0]}-{span[1]}")
@@ -224,13 +241,14 @@ def read_job(job_file: Path, repo: Path = REPO, need_text: bool = True) -> dict:
     # --track-not`): another subject's preview track, copied with those frames emptied, is the track every step reads
     # for that subject (`preview_files`). Never the load's own subject: a load is cut where its own person is not.
     for t in (job.get("track_not") or {}).get("made", []):
-        if t["subject"] not in order or t["subject"] == subject:
+        if t["subject"] not in order or t["subject"] in (subject, also):
             raise Refused(f"{job_file}: `track_not` names {t['subject']!r}, which is not another subject of the preview {pjob['name']} ({', '.join(order)})")
     stray = [o for o in load.get("others") or [] if o not in order and o not in [n for n, _ in kept]]
     if stray:
         raise Refused(f"{job_file}: the load keeps out {stray}, which is neither a subject of the preview {pjob['name']} ({', '.join(order)}) nor a keep-out "
                       "the job names with its file (`job.keep_outs`): the capture cannot be handed it")
     return {"job_file": Path(job_file), "raw": raw, "job": job, "load": load, "name": load["name"], "subject": subject, "subject_keys": mine,
+            "also": also, "also_keys": also_keys,
             "keep_outs": kept, "keep_out_hashes": kept_hash, "others_named": people_named,
             "capture": capture, "day": day, "job_folder": repo / "data" / f"{day}_{job['name']}_job", "repo": repo,
             "preview": {"folder": pfolder, "name": pjob["name"], "first": pjob["first"], "frames": pjob["frames"], "order": order,
@@ -285,9 +303,10 @@ def mask_specs(ctx: dict, files: dict, band: Path | None = None, hashed=None) ->
     out = []
     for label in ctx["preview"]["order"]:
         f = files[label]
-        if label != ctx["subject"]:
+        if label not in (ctx["subject"], ctx.get("also")):
             out.append(f"{label}:track={f['track']},shots={f['shots']},shots_at={at},by={by},at={at}")
             continue
+        keys = ctx["subject_keys"] if label == ctx["subject"] else (ctx.get("also_keys") or {})   # each subject of a pair, its own
         for kind in ("parts", "classes"):
             if f[kind] is None:
                 raise Refused(f"the preview {by} saved no {kind} video for the load's subject {label!r}")
@@ -295,21 +314,21 @@ def mask_specs(ctx: dict, files: dict, band: Path | None = None, hashed=None) ->
         # the subject's parts, cut from the preview's class map on the preview's own frames. The capture is handed it in
         # place of the preview's saved part, so what the builder loads is what the capture read.
         parts, made_from = f["parts"], ""
-        if ctx["subject_keys"].get("parts_file"):
-            parts = Path(ctx["subject_keys"]["parts_file"])
+        if keys.get("parts_file"):
+            parts = Path(keys["parts_file"])
             if not parts.is_file():
                 raise Refused(f"the job names a part of the load's own for {label!r}, {parts}, and it is not there: `shot_to_load.py job --parts` makes it")
             # made today from the preview's own files: the capture's verify holds it to the preview's saved part it came from
             made_from = f",parts_from={f['parts']}"
         spec = f"{label}:track={f['track']},parts={parts}{made_from},classes={f['classes']},shots={f['shots']},shots_at={at}"
-        if ctx["subject_keys"].get("pose", True) is not False:
+        if keys.get("pose", True) is not False:
             if f["pose"] is None:
                 raise Refused(f"the job does not say `pose: false` for {label!r} and the preview {by} wrote no pose table for them")
             spec += f",pose={f['pose']},pose_at={at}"
         spec += f",by={by},at={at}"
         for key in MASK_OPTIONS:              # only what the job says: no default of `pieces=largest`
-            if key in ctx["subject_keys"]:
-                spec += f",{key}={ctx['subject_keys'][key]}"
+            if key in keys:
+                spec += f",{key}={keys[key]}"
         if (ctx.get("job") or {}).get("whole_frame"):     # the capture's starting floor is held to the zoom; a whole-frame load is not zoomed
             spec += ",zoom=off"
         out.append(spec)
@@ -359,7 +378,7 @@ def plan_band_file(ctx: dict) -> Path | None:
 def others_of(ctx: dict) -> list[str]:
     """Everybody and everything the capture's run of the load is told is not the subject: the preview's other
     subjects, then the load's keep-outs."""
-    return [label for label in ctx["preview"]["order"] if label != ctx["subject"]] + [name for name, _ in ctx.get("keep_outs") or []]
+    return [label for label in ctx["preview"]["order"] if label not in (ctx["subject"], ctx.get("also"))] + [name for name, _ in ctx.get("keep_outs") or []]
 
 
 def video_of(ctx: dict, data: Path) -> str:
@@ -423,7 +442,7 @@ def forcing_flags(cap: Path, load: dict, job: dict) -> list[str]:
     none does. What the list names and no flag says is `FORCING_NOT_READ`."""
     import shot_to_load                 # the keep-outs' classes: what "clothing" and "hands" are, in their one place
     classes = set(shot_to_load.KEEP_OUTS["hands"]) | set(shot_to_load.KEEP_OUTS["clothes"])
-    mine = {load.get("subject"), load.get("second_subject")} - {None}
+    mine = {load.get("subject"), load.get("second_subject"), (load.get("also") or {}).get("subject")} - {None}    # a pair's second is `also`
     said = []
     for f in json.loads((cap / "flags.json").read_text())["flags"]:
         rule, figures = f.get("rule"), f.get("figures") or {}
@@ -439,11 +458,12 @@ def forcing_flags(cap: Path, load: dict, job: dict) -> list[str]:
             whose, cls = f["segment"].split(".", 1)
             if whose not in mine and cls in classes:
                 said.append(f"{f['id']} segment_inside_region ({f['segment']}: another subject's clothing or hands inside the region)")
-    ref = job.get("reference") or {}
-    if ref.get("record"):
-        record = Path(ref["record"])
-        if not record.is_file() or json.loads(record.read_text()).get("passed") is not True:
-            said.append(f"the head reference's record does not say its read-backs passed ({record})")
+    for key in ("reference", "reference_2"):          # a pair's second subject's reference is `reference_2` (`shot_to_load.py pair`)
+        ref = job.get(key) or {}
+        if ref.get("record"):
+            record = Path(ref["record"])
+            if not record.is_file() or json.loads(record.read_text()).get("passed") is not True:
+                said.append(f"the head reference's record does not say its read-backs passed ({record})")
     return said
 
 
@@ -883,20 +903,26 @@ def told_to_the_gate(ctx: dict) -> list[str]:
     job, out = ctx["job"], []
     kept = job.get("keep_outs") or {}
     own = {}
-    if kept.get("of") == ctx["subject"]:
+    of = kept.get("of")
+    if of == ctx["subject"] or (isinstance(of, list) and ctx["subject"] in of):    # a pair's keep-outs are of both its subjects
         own = {k["name"]: list(k.get("classes") or []) for k in kept.get("made") or [] if k["name"] != "strangers"}
+    # a pair's keep-out says whose own things it is, and a pair's restore span whose it is (`shot_to_load.py pair`): one gives back the other
+    # only when they are the same subject's
+    whose = {k["name"]: k.get("of") for k in kept.get("made") or []}
     out += [x for n, c in own.items() for x in ("--own-keep-out", f"{n}={'+'.join(c)}")]
     lo, hi = ctx["load"]["first"], ctx["load"]["first"] + ctx["load"]["frames"] - 1
     for r in job.get("restore") or []:
         for n, c in own.items():
+            if whose.get(n) and r.get("subject") and whose[n] != r["subject"]:
+                continue
             if c and set(c) <= set(r["classes"]) and r["first"] <= hi and r["last"] >= lo:
                 out += ["--given-back", f"{n}:{max(r['first'], lo)}-{min(r['last'], hi)}=the plan's restore of {'+'.join(r['classes'])} "
                                         f"on {r['first']}-{r['last']} gives it back at assembly ({' '.join(str(r.get('by') or 'who said so is not in the job').split())})"]
-    keys = ctx["subject_keys"]
-    if keys.get("drop") and str(keys.get("drop_by") or "").strip():
-        for span in str(keys["drop"]).split("+"):
-            a, b = (span.split("-") * 2)[:2]
-            out += ["--named-empty", f"{ctx['subject']}:{a}-{b}=the job's drop= ({' '.join(str(keys['drop_by']).split())})"]
+    for who, keys in ((ctx["subject"], ctx["subject_keys"]), (ctx.get("also"), ctx.get("also_keys") or {})):    # each subject of a pair
+        if keys.get("drop") and str(keys.get("drop_by") or "").strip():
+            for span in str(keys["drop"]).split("+"):
+                a, b = (span.split("-") * 2)[:2]
+                out += ["--named-empty", f"{who}:{a}-{b}=the job's drop= ({' '.join(str(keys['drop_by']).split())})"]
     for x in job.get("left_out") or []:
         if x.get("why"):
             out += ["--named-empty", f"{x['subject']}:{x['first']}-{x['first'] + x['frames'] - 1}=the job's left_out ({' '.join(str(x['why']).split())})"]
@@ -999,7 +1025,8 @@ def step_on_plan(ctx: dict, world, a, hashed=frame_hash) -> tuple[int, str]:
         print(f"--- copied {cap.name} to {first.name}; the copy holds the same files with the same bytes", flush=True)
     run = f"{ctx['name']}:preview={windows},subject={ctx['subject']}" + (f",others={'+'.join(others_of(ctx))}" if others_of(ctx) else "") + f",at={ctx['load']['first']}"
     world.run(ctx, "files on plan", tool(world, "capture_masked_run.py") + ["files"] + capture_args(ctx, world, files, band)
-              + ["--run", run, "--voice", voice["per_frame"], "--made-by", a.by, "--overwrite"])
+              + ["--run", run] + (["--loads", ctx["job_file"]] if ctx.get("also") else [])     # a pair's second subject is read off its job file
+              + ["--voice", voice["per_frame"], "--made-by", a.by, "--overwrite"])
     return gate_and_strip(ctx, world, a.by, who, voice)
 
 
@@ -1085,29 +1112,38 @@ def step_land(ctx: dict, world, a) -> tuple[int, str] | None:
     window = rendered_video(ctx, world, r)
     first, last = load["first"], load["first"] + load["frames"] - 1
     clip = world.output / REVIEW_CLIPS.format(video=video_of(ctx, world.data)) / f"{name}_{first:04d}_{last:04d}_stacked.mp4"
-    points = cap / f"{name}_render_points.npz"
-    # LANDED is the render's points written. A stacked clip with no points beside it is a land whose pose pass did not
-    # finish: the step is run again and does the pose pass alone (until 2026-10-13 it was refused as landed, and the
+    # each subject's points: the load's own beside the capture as ever, and a pair's second subject's under its label
+    subjects = [ctx["subject"]] + ([ctx["also"]] if ctx.get("also") else [])
+    points = {who: cap / (f"{name}_render_points.npz" if who == ctx["subject"] else f"{name}_{who}_render_points.npz") for who in subjects}
+    # LANDED is the render's points written, every subject's. A stacked clip with points missing is a land whose pose pass did not
+    # finish: the step is run again and does the missing passes alone (until 2026-10-13 it was refused as landed, and the
     # pass had to be run by hand).
-    if points.exists():
-        raise Refused(f"the render's points exist ({points.name}): this load is landed")
+    if all(path.exists() for path in points.values()):
+        raise Refused(f"the render's points exist ({', '.join(path.name for path in points.values())}): this load is landed")
     pose_alone = clip.exists()
     queued = ctx["job_folder"] / f"{name}.render.queued.json"
     if not queued.is_file():
         raise Refused(f"{queued} is not there: the render was not queued through the job tool")
     print("\n--- the render, by the server's history:\n" + "\n".join("    " + line for line in world.costs(json.loads(queued.read_text())["prompt_id"])), flush=True)
     manifest = json.loads((cap / "manifest.json").read_text())
-    seen = next(s for s in manifest["subjects"] if s["label"] == ctx["subject"])["sightings"][0]
-    box = cap / "subjects" / ctx["subject"] / f"track__{seen['by']}.mkv"      # the capture's own copy, whose frame 0 is the capture's first frame
     free_for_a_pose_pass(world)
     # the stack is made whether or not the pose pass finishes (a person needs the clip to see the render), and the step
     # then ENDS ON THE PASS: until 2026-10-13 a pass that died left the step's status 0 and its last line plain
-    pose = world.run(ctx, "pose pass", tool(world, "pose_along_shot.py") + ["run", "--video", window, "--first", 0, "--count", load["frames"],
-                                                                            "--canvas", f"{job['canvas'][0]}x{job['canvas'][1]}", "--source-first", first,
-                                                                            "--box-mask", box, "--box-mask-first", manifest["first_frame"],
-                                                                            "--model-folder", model, "--out", points, "--by", a.by], stop=False)
-    failed = (POSE_PASS_FAILED, f"THE POSE PASS DID NOT FINISH (exit {pose}): THE RENDER'S POINTS ARE NOT WRITTEN AND THIS LOAD IS NOT LANDED. "
-              f"Its output is kept in the job folder's chain/. Run `land` again: with the stacked clip there it runs the pose pass alone") if pose else None
+    failed = None
+    for who in subjects:
+        if points[who].exists():
+            continue
+        seen = next(s for s in manifest["subjects"] if s["label"] == who)["sightings"][0]
+        box = cap / "subjects" / who / f"track__{seen['by']}.mkv"      # the capture's own copy, whose frame 0 is the capture's first frame
+        pose = world.run(ctx, "pose pass" + (f" of {who}" if len(subjects) > 1 else ""),
+                         tool(world, "pose_along_shot.py") + ["run", "--video", window, "--first", 0, "--count", load["frames"],
+                                                              "--canvas", f"{job['canvas'][0]}x{job['canvas'][1]}", "--source-first", first,
+                                                              "--box-mask", box, "--box-mask-first", manifest["first_frame"],
+                                                              "--model-folder", model, "--out", points[who], "--by", a.by], stop=False)
+        if pose and failed is None:
+            of = f" OF {who}" if len(subjects) > 1 else ""
+            failed = (POSE_PASS_FAILED, f"THE POSE PASS{of} DID NOT FINISH (exit {pose}): THE RENDER'S POINTS ARE NOT WRITTEN AND THIS LOAD IS NOT LANDED. "
+                      f"Its output is kept in the job folder's chain/. Run `land` again: with the stacked clip there it runs the pose pass alone")
     if pose_alone:
         print(f"\n--- the stacked clip is there from a land whose pose pass did not finish ({clip.name}): only the pose pass was run", flush=True)
         return failed

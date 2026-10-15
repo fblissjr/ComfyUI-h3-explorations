@@ -998,10 +998,115 @@ def what_the_gate_is_told() -> str:
             "job's drop= with its reason and its left_out told as named; nothing of another subject's keep-outs; the reference's points as the chin")
 
 
+def a_load_of_two_subjects() -> str:
+    """A PAIR (the lead's ruling of 2026-10-15: a two-subject load runs through the chain like any load). Read as the builder reads it
+    (`one_subject_view`): both subjects' parts, class maps and pose tables to the capture, each with its own job keys; neither subject
+    among the others; the plan's run told the second subject through the job file; a pose pass for each subject at the land."""
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        m = made.m
+        pv = m.output / "Video/v/s/pv"
+        for kind in ("parts", "classes"):
+            (pv / f"pv_b_{kind}_00001.mkv").write_bytes(b"")
+            made.listed.append(f"Video/v/s/pv/pv_b_{kind}_00001.mkv")
+        (pv / "pv_b_pose_table.json").write_text("{}")
+        (made.pv / "preview.queued.json").write_text(json.dumps({"status": "success", "files": made.listed}))
+        made.job["subjects"][0].update(pieces="largest", drop="112", drop_by="B'S DROP")
+        pair = {"name": "ld", "first": 110, "frames": 20, "text": "ld",
+                "subjects": [{"subject": "a", "region": "face and hair", "still": "a.png", "motion_file": "/out/ref.mp4", "others": []},
+                             {"subject": "b", "region": "face", "motion_file": "/out/ref_b.mp4", "others": []}]}
+        made.write([pair])
+        ctx = made.ctx()
+        assert (ctx["subject"], ctx["also"], ctx["also_keys"].get("pieces")) == ("a", "b", "largest"), (ctx["subject"], ctx["also"], ctx["also_keys"])
+        files = lc.preview_files(ctx, m.output)
+        b, a = lc.mask_specs(ctx, files)
+        # THE CASE THAT GOES RED when the second subject is handed as a track alone, or takes the first's keys
+        for part in ("b:track=", "parts=", "classes=", "pose_at=100", ",at=100,pieces=largest"):
+            assert part in b, f"{part!r} is not in the second subject's mask: {b}"
+        assert a.startswith("a:track=") and "parts=" in a and "pieces=" not in a, a
+        assert lc.others_of(ctx) == [], f"a subject of the pair is kept out of the load: {lc.others_of(ctx)}"
+        assert ["--named-empty", "b:112-112=the job's drop= (B'S DROP)"] == lc.told_to_the_gate(ctx)[-2:], lc.told_to_the_gate(ctx)
+        # A PAIR'S KEEP-OUT IS GIVEN BACK BY ITS OWN SUBJECT'S RESTORE ONLY: a's hands span does not give back b's hands
+        hands = {"of": ["a", "b"], "made": [{"name": "hands", "classes": ["Left_Hand"], "of": "b"}, {"name": "strangers", "track": "s"}]}
+        spans = [{"classes": ["Left_Hand"], "first": 100, "last": 200, "by": "A'S", "subject": "a"},
+                 {"classes": ["Left_Hand"], "first": 115, "last": 120, "by": "B'S", "subject": "b"}]
+        told = lc.told_to_the_gate(dict(ctx, job=dict(ctx["job"], keep_outs=hands, restore=spans)))
+        assert [x for x in told if x.startswith("hands:")] == ["hands:115-120=the plan's restore of Left_Hand on 115-120 gives it back at assembly (B'S)"], told
+        refused(lambda: made.write([dict(pair, subjects=[pair["subjects"][0], dict(pair["subjects"][1], subject="c")])]) or made.ctx(),
+                "the load's subject 'c' is not a subject of the preview")
+        refused(lambda: made.write([dict(pair, subjects=[pair["subjects"][0], dict(pair["subjects"][1], others=["a"])])]) or made.ctx(),
+                "is one of its two subjects and is listed among `others`")
+        made.write([pair])
+        # THE FORCING RULES read both subjects: the second's own hands inside the region are the load's, another's are not; and both
+        # references' records are held to their read-backs
+        fl = Path(tmp) / "fl"
+        fl.mkdir()
+        (fl / "flags.json").write_text(json.dumps({"flags": [{"id": "f1", "rule": "segment_inside_region", "segment": "b.Left_Hand"},
+                                                             {"id": "f2", "rule": "segment_inside_region", "segment": "c.Left_Hand"}]}))
+        ctx = made.ctx()
+        assert [x.split()[0] for x in lc.forcing_flags(fl, ctx["load"], ctx["job"])] == ["f2"], lc.forcing_flags(fl, ctx["load"], ctx["job"])
+        bad = Path(tmp) / "ref_b.json"
+        bad.write_text(json.dumps({"passed": False}))
+        assert any(str(bad) in x for x in lc.forcing_flags(fl, ctx["load"], dict(ctx["job"], reference_2={"record": str(bad)}))), "the second reference's record was not read"
+        # a track that is not its person is never one of the pair's own
+        made.job["track_not"] = {"made": [{"subject": "b", "track": "/t.mkv", "frames": [[110, 112]]}]}
+        made.write([pair])
+        refused(lambda: made.ctx(), "`track_not` names 'b'")
+        del made.job["track_not"]
+        made.write([pair])
+        # the plan's run: its words name the first subject and none of the pair as another; the second comes from the job file
+        cap = made.capture(on_plan=False)
+        made.planned()
+        windows = m.output / "Video/v/s/ld/ld_plan/ld_windows"
+        windows.mkdir(parents=True)
+        (windows / "ld_plan.json").write_text("{}")
+        (made.root / "data" / "2026-01-03_ld_job" / "ld.who_is_who.json").write_text("{}")
+        lc.step_on_plan(made.ctx(), m, args(), hashed=lambda path: "h")
+        said = m.said("files on plan")
+        assert said[said.index("--run") + 1] == f"ld:preview={windows},subject=a,at=110" and said[said.index("--loads") + 1] == str(made.job_file), said
+        # the land: a pose pass for each subject, each on its own track, each to its own points; landed when both are written
+        (cap / "subjects" / "b").mkdir(parents=True)
+        (cap / "subjects" / "b" / "track__pv.mkv").write_bytes(b"track")
+        manifest = json.loads((cap / "manifest.json").read_text())
+        manifest["subjects"].append({"label": "b", "sightings": [{"by": "pv"}]})
+        (cap / "manifest.json").write_text(json.dumps(manifest))
+        (made.root / "data" / "2026-01-03_ld_job" / "ld.render.queued.json").write_text(json.dumps({"prompt_id": "r"}))
+        (m.output / "Video/v/s/ld/ld/ld_windows").mkdir(parents=True)
+        (m.output / "Video/v/s/ld/ld/ld_windows/ld_window_1.mp4").write_bytes(b"")
+        store = made.root / "store"
+        (store / "pose-model").mkdir(parents=True)
+        kept, lc.video_of = lc.video_of, lambda ctx, data: "v"
+        try:
+            m.ran.clear()
+            m.exits = {"pose pass of b": 1}
+            ended = lc.step_land(made.ctx(), m, args(model_store=str(store)))
+            assert m.labels() == ["free the card", "pose pass of a", "pose pass of b", "stack"], m.labels()
+            assert ended[0] == lc.POSE_PASS_FAILED and "THE POSE PASS OF b DID NOT FINISH" in ended[1], ended
+            pose_a, pose_b = m.said("pose pass of a"), m.said("pose pass of b")
+            assert pose_b[pose_b.index("--box-mask") + 1] == str(cap / "subjects/b/track__pv.mkv") and pose_b[pose_b.index("--out") + 1] == str(cap / "ld_b_render_points.npz"), pose_b
+            assert pose_a[pose_a.index("--out") + 1] == str(cap / "ld_render_points.npz"), pose_a
+            # a's points written, b's not, the clip made: the land is run again for b's pass alone, and is not refused as landed
+            (cap / "ld_render_points.npz").write_bytes(b"")
+            clip = m.output / "Video/v/review_clips/ld_0110_0129_stacked.mp4"
+            clip.parent.mkdir(parents=True)
+            clip.write_bytes(b"")
+            m.ran.clear()
+            m.exits = {}
+            assert lc.step_land(made.ctx(), m, args(model_store=str(store))) is None and m.labels() == ["free the card", "pose pass of b"], m.labels()
+            (cap / "ld_b_render_points.npz").write_bytes(b"")
+            refused(lambda: lc.step_land(made.ctx(), m, args(model_store=str(store))), "this load is landed")
+        finally:
+            lc.video_of = kept
+    return ("a pair is read as the builder reads it: both subjects' parts, class maps and pose tables to the capture, each with its own keys and drop; "
+            "neither subject kept out; a subject the preview did not track, or one of the pair kept out, refused; the plan's run told the second "
+            "subject through the job file; a pose pass for each subject, run again for the one not written, landed when both are")
+
+
 case("render: the go beside the job file, and what stops it", the_render_step)
 case("land: the pose pass and the stacked clip", the_land_step)
 case("page: the item, with the table's buttons", the_page_step)
 case("the gate is told what is the subject's own", what_the_gate_is_told)
+case("a load of two subjects", a_load_of_two_subjects)
 
 if __name__ == "__main__":
     sys.exit(finish())
