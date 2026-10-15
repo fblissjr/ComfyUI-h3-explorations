@@ -65,7 +65,10 @@ table; the Open List).
    owner the direct links, in this order: (a) the second subject's whole kitchen shot 604-1009, with what to watch (her
    identity across the join at 898; her turn and bow, 945-1009); (b) lead_fp_2823c beside the kept 2823b as one clip
    (`bench/stack_rows.py`, rows: the masked input, 2823c, 2823b), keep one; its note lists what differs from 2823b.
-   If either did not land, say why in one line. The Open List's "Right now" lines say the same to the owner.
+   Show the kitchen as a joined clip of 604-1009 with the new piece laid alone for her (a candidate, as the hall was:
+   add a `604-1009:second=<the new load>` line to `prefers.txt` for the clip only, build with `joined_clip.sh`, then put
+   `prefers.txt` back). `prefers.txt` still lays the old `second_hfp_0604d` there until the owner keeps the new one;
+   only then does its line change. If either did not land, say why in one line. The Open List's "Right now" lines say the same to the owner.
 2. The kitchen's lead: `--no-face-on` emptying the part on face-only loads first; then one hole a pass (a load given the
    second subject's render as its video, the assembler judging it against that base); then the lead over 613-974, one
    window.
