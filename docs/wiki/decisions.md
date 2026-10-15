@@ -33,6 +33,13 @@ Older history lives elsewhere and is not copied here:
   The held mask left 115, 69 and 6 px on 1015, 1018 and 1023: her fingertips, her fist and forearm, and on 1015
   the rim of a white egg she holds at her chin. This is mrtwo's rule of 2026-10-14 after 21:18Z for held things
   she touches near her face, widened from 1010d's "fingers and hand" to name the egg.
+- **Drawing no mouth where the class map shows no teeth stays an option, off by default** (mrtall, after 18:50Z, on
+  second_hfp_5114e, the test ruled after 17:01Z; `data/2026-10-15_second_hfp_5114e/look_render/reading.md`). With
+  `--class-mouth-needs-hole` its reference drew a mouth only on 5116, and the render's mouth was open on every frame,
+  as on 5114d with the mouth drawn: on 5119-5123 and 5127-5129 hers is closed or pursed. So on her 44 px face, nothing
+  drawn does not let the render follow her; 630d's 658-674 (open in step with hers, nothing drawn) is the one
+  counter-case and is not a default's evidence. Open: whether the still's own mouth sets the render's when the
+  reference gives none, and the text promising a drawn mouth where the reference leaves it out.
 - **2823 is made again once, over 2823-3109 in one window; 3110-3166 holds no lead** (mrtall, after 18:50Z, on the
   owner's note on the 2823-3166 joined clip, "good up until 3097; 3098 is when she turns back into the original", and
   mrarc's look, overlay `data/2026-10-15_fun_past2049_inputs/lead_3098_3131_part_and_track.jpg`). On 3098-3107 she is
