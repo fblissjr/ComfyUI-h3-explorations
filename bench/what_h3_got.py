@@ -71,12 +71,15 @@ from pathlib import Path
 BENCH = Path(__file__).resolve().parent
 REPO = BENCH.parent
 sys.path.insert(0, str(REPO / "workflows"))
+sys.path.insert(0, str(BENCH))
+from _lib import COMFY  # noqa: E402
 
 VIDEO_LOADER, IMAGE_LOADER, AUDIO_LOADER = "VHS_LoadVideoFFmpegPath", "LoadImage", "VHS_LoadAudio"
 #: Each loader this reads, and the input that names its file. **Inherited** from the loaders' own inputs.
 FILE_KEY = {VIDEO_LOADER: "video", IMAGE_LOADER: "image", AUDIO_LOADER: "audio_file"}
 #: VideoHelperSuite's loader, whose format table and crop line are read and restated here.
-VHS_LOADER_FILE = REPO.parent / "ComfyUI-VideoHelperSuite" / "videohelpersuite" / "load_video_nodes.py"
+#: Found under ComfyUI's own custom_nodes (`_lib.COMFY`), so a worktree of this pack outside it reads the same file.
+VHS_LOADER_FILE = COMFY / "custom_nodes" / "ComfyUI-VideoHelperSuite" / "videohelpersuite" / "load_video_nodes.py"
 SONG, SOURCE = "MiniMaxH3AudioFreezeSong", "MiniMaxH3MaskedSource"
 #: The Masked Source's linked inputs that carry a picture, and the name each is shown under. **Inherited** from the
 #: node's own inputs (`video_mask.py`, `MiniMaxH3MaskedSource.define_schema`); one not listed is shown by its own name.
