@@ -19,6 +19,13 @@ Older history lives elsewhere and is not copied here:
 
 *Written by the lead of the day (mrtall) as the rulings are made; mrarc holds the card, mrlol tooling.*
 
+- **A text says "sings" where a person sings, and nothing else about voice** (the owner, 2026-10-15, about 21:07Z:
+  "keep it simple - just say singing if theyre singing in a shot/window. if theyre not, dont mention anything about
+  talking or singing. the end. make that a rule."; earlier the same day, of the kitchen's second subject: "just dont
+  mention anything about the mom talking or singing"). What it replaced: a "talks, not heard" line ("<Subject 1> (S1)
+  talks, her lips moving with words that are not heard; ... the singing is not hers") and a draft "<Subject 1> neither
+  sings nor speaks". The plan's voice key stays as data; only "sings" writes a line. A line in `AGENTS.md`, "Settled
+  about H3".
 - **Shorter windows inside one load are allowed, on the seam grid** (the owner, 2026-10-15, about 20:15Z: "you can do
   shorter windows too just make sure the frame multiples we documented either yesterday or day before are right to
   avoid seams"). Read with the morning's rule (one load per subject over the whole shot, e95b41ee): a load may run as

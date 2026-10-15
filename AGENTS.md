@@ -36,6 +36,10 @@ once; `docs/evidence.md`, "Settled about H3", has the rest.
   in each hole and from which reference, never the frozen picture (where a
   person stands, what she wears, the room) and never as an edit (`docs/wiki/masked_v2v.md`, "The frame every masked
   text is written in"). The owner's word of 2026-10-10, made core 2026-10-15.
+- A text says a person sings only where they sing in that shot or window, and
+  otherwise says nothing about singing or talking: no "silent", no "does not
+  sing", no "talks" (the owner, 2026-10-15). Who sings is plan data,
+  `subjects.<s>.voice`; only "sings" writes a line (`bench/load_text.py`).
 - Two models live here and "attention" and "capture" each name something at
   the DiT and at the encoder: check what a node takes before carrying a
   claim across.
