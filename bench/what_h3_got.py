@@ -262,7 +262,7 @@ def one_file(g: dict, nid: str, role: str, tag: str | None, inputs: Path, queued
             except ValueError:
                 rec = {}
             row["record"] = {k: rec[k] for k in ("what", "its_first_frame_is_source_frame", "frames", "size", "made_by", "made_at", "box", "box_is",
-                                                 "scale", "a_point_of_the_canvas_lands_at", "drawn") if k in rec}
+                                                 "scale", "a_point_of_the_canvas_lands_at", "drawn", "face_height_px") if k in rec}
             ins_ = rec.get("inputs") or {}
             if ins_.get("points"):
                 row["record"]["points"] = {"file": ins_["points"], "first_row_is_source_frame": ins_.get("their_first_row_is_source_frame")}
