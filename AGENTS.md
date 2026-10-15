@@ -65,7 +65,11 @@ once; `docs/evidence.md`, "Settled about H3", has the rest.
   commit. The one exception is `git add -- <file>` for a new file you
   created. A file holding a peer's uncommitted hunk is theirs to commit.
   Subagents never run git. The owner pushes from their own terminal, so
-  every commit message is written as already public.
+  every commit message is written as already public. While the card runs,
+  any file its chain executes (the node pack's code and every `bench/` tool
+  a load step calls) is edited in a worktree outside `custom_nodes` and
+  landed on the lead's word between steps: an uncommitted edit in the shared
+  tree is run by the next load.
 - **The changelog is written once a day, from the commits**
   (`changelog.d/README.md`). A commit carries no changelog entry.
 - **Nothing an earlier run made is reused by a key.** A result is made
