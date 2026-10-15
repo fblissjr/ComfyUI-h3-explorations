@@ -197,11 +197,15 @@ def loaders_above(g: dict, link, seen: set | None = None) -> list[str]:
     return out
 
 
-def node_said(queued: dict | None) -> dict[str, list[str]]:
-    """The node's own lines that name a tag (`<Picture 1> costs: ...`), by tag, as it said them."""
+def node_said(queued: dict | None, text: str = "") -> dict[str, list[str]]:
+    """The node's own lines that name a tag (`<Picture 1> costs: ...`), by tag, as it said them. A preview that
+    echoes the prompt names the tags too: a line that is a line of the text is the text's, not the node's."""
     out: dict[str, list[str]] = {}
+    of_text = {x.strip() for x in str(text).splitlines() if x.strip()}
     for lines in ((queued or {}).get("said") or {}).values():
         for line in "\n".join(lines).splitlines():
+            if line.strip() in of_text:
+                continue
             for tag in re.findall(r"<(?:Picture|Video) \d+>", line):
                 out.setdefault(tag, [])
                 if line not in out[tag]:
@@ -254,7 +258,11 @@ def one_file(g: dict, nid: str, role: str, tag: str | None, inputs: Path, queued
                 rec = json.loads(own.read_text())
             except ValueError:
                 rec = {}
-            row["record"] = {k: rec[k] for k in ("what", "its_first_frame_is_source_frame", "frames", "size", "made_by", "made_at") if k in rec}
+            row["record"] = {k: rec[k] for k in ("what", "its_first_frame_is_source_frame", "frames", "size", "made_by", "made_at", "box", "box_is",
+                                                 "scale", "a_point_of_the_canvas_lands_at", "drawn") if k in rec}
+            ins_ = rec.get("inputs") or {}
+            if ins_.get("points"):
+                row["record"]["points"] = {"file": ins_["points"], "first_row_is_source_frame": ins_.get("their_first_row_is_source_frame")}
             row["record"]["file"] = str(own)
     elif node["class_type"] == AUDIO_LOADER:
         row["loader"] = {k: ins.get(k) for k in ("seek_seconds", "duration")}
@@ -293,7 +301,6 @@ def read(job_folder: Path, load: str, stage: str = "render", *, inputs: Path | N
     out = {"load": load, "stage": stage, "graph": str(graph_file), "graph_sha256": sha256(graph_file),
            "queued": None if queued is None else {k: queued.get(k) for k in ("prompt_id", "queued_at", "status", "commit", "files")},
            "state": "queued" if queued else "built, not queued", "inputs": [], "failures": []}
-    said = node_said(queued)
     sources = [nid for nid, n in g.items() if n["class_type"] == SOURCE]
     songs = [nid for nid, n in g.items() if n["class_type"] == SONG]
     if len(sources) != 1 or len(songs) != 1:
@@ -303,6 +310,7 @@ def read(job_folder: Path, load: str, stage: str = "render", *, inputs: Path | N
         raise SystemExit(f"{graph_file.name} appends a reference video (node {', '.join(appended)}): the node's <Video k> labels then "
                          "count it, and this reading labels by the Masked Source's inputs alone. Not read")
     src, song = g[sources[0]]["inputs"], g[songs[0]]["inputs"]
+    said = node_said(queued, song.get("prompt", ""))
     take = lambda nid, role, tag, named=None: out["inputs"].append(one_file(g, nid, role, tag, inputs, queued_at, recorded, digests, named))
     for key, link in src.items():
         for nid in loaders_above(g, link):

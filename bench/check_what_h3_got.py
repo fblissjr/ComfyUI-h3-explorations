@@ -99,14 +99,15 @@ def made(name: str = "load_a", queued: bool = True) -> Path:
          "104": {"class_type": w.SOURCE, "inputs": {"frames": ["28", 0], "mask": ["151", 0], "others": ["190", 0], "motion_video": ["200", 0],
                                                     "motion_video_2": ["210", 0], "replace": "the wired parts", "part_phrases": "hair",
                                                     "render_region": "zoomed in on what is replaced"}},
-         "74": {"class_type": w.SONG, "inputs": {"source": ["104", 0], "references": ["51", 0], "audio": ["146", 0], "prompt": "the text\n"}}}
+         "74": {"class_type": w.SONG, "inputs": {"source": ["104", 0], "references": ["51", 0], "audio": ["146", 0], "prompt": "the text\n<Picture 2> is a line of the text, echoed\n"}}}
     (job / f"{name}.render.json").write_text(json.dumps(g))
     for f in [src, *masks, *refs, inputs / "sub" / "one.png", base / "two.png"]:
         os.utime(f, (BEFORE, BEFORE))
     if queued:
         (job / f"{name}.render.queued.json").write_text(json.dumps({
             "queued_at": QUEUED_AT, "status": "success", "files": [f"Video/{name}/{name}_00001.mp4"],
-            "said": {"50": ["<Picture 1>: still, 60x90"], "75": ["[1] <Video 2> costs: shown 4 pictures\nnothing tagged here"]}}))
+            "said": {"50": ["<Picture 1>: still, 60x90"], "75": ["[1] <Video 2> costs: shown 4 pictures\nnothing tagged here"],
+                     "80": ["the text\n<Picture 2> is a line of the text, echoed"]}}))
         piece = out / "Video" / name / f"{name}_00001.mp4"
         (piece.with_name(f"{name}_00001_zoomed.json")).write_text(json.dumps({"box": [8, 8, 520, 392], "zoom": 2.0, "source_size": [1024, 768], "set_by": "the box"}))
         win = out / "Video" / name / f"{name}_windows"
@@ -134,7 +135,7 @@ def each_input_by_its_place() -> str:
     for r in got["inputs"]:
         assert r["sha256"] == hashlib.sha256(Path(r["file"]).read_bytes()).hexdigest(), f"{r['role']}: digest is not the file's"
     assert by[("the source", "28")]["loader"]["first_frame"] == 10, by[("the source", "28")]["loader"]
-    assert got["text"]["text"] == "the text\n" and got["text"]["sha256"] == hashlib.sha256(b"the text\n").hexdigest()
+    assert got["text"]["text"].startswith("the text\n") and got["text"]["sha256"] == hashlib.sha256(got["text"]["text"].encode()).hexdigest()
     assert by[("<Video 1>", "200")]["record"]["its_first_frame_is_source_frame"] == 10
     assert "record" not in by[("<Video 2>", "210")], "a record read for a reference that has none"
     assert by[("<Video 2>", "210")]["node_said"] == ["[1] <Video 2> costs: shown 4 pictures"], by[("<Video 2>", "210")].get("node_said")
