@@ -169,22 +169,24 @@ something that is not the part and there is nothing to fill it from). A plan wit
 region out from that mask. The manifest lists the frames filled, the doubted frames left and those emptied. Written only when the mask video covers
 the whole span.
 
-**video** stacks the source, the masks and a render, each with a zoom on the region beside it, and burns the
-source frame number and the render frame number above every row, with the render's audio, or the source's at the
-render's first frame when the render file carries none. A render need not begin or end where the capture's span
-does (a load whose first frames are left as the source, a run that continues a stored window): the strip is the
-frames both hold, `render_span` owns the arithmetic, and every frame of it names in the panel the span's frames
-it does not show. The render's frame 0 is the source frame `--render-first` gives, or the one the run that
-wrote the file recorded, or the span's first frame when neither says, and the command prints which. Every subject has
-one colour: an outline for the tracked mask, a solid fill for what was taken from the still, a light fill for
-the margin regenerated round it, and white boxes on margin cells that were given back to somebody else. Under
-the rows is a panel read from the same tables: the frame number large, each subject's mask and part, each
-run's region against its subject, what it covers of anybody else, the change inside the region since the
-last frame for source and render, the preflight's flags that are live on that frame, the motion video the
-model was shown (`--motion`) or the word none, and the reference stills (`--still`). One frame pulled as a
-still should explain itself. The form follows the two reviews the owner called the best they had had
-(2026-10-09, a numbered tracked review and a vertical how-it-was-made cut, both made by session scripts that
-are gone or tied to one clip); colour by part and contacts are not in it yet.
+**video** stacks the source, the masks and a render, and burns the source frame number and the render frame number
+above every row, with the render's audio, or the source's at the render's first frame when the render file carries
+none. A render need not begin or end where the capture's span does (a load whose first frames are left as the
+source, a run that continues a stored window): the strip is the frames both hold, `render_span` owns the
+arithmetic, and the panel names the span's frames it does not show. The render's frame 0 is the source frame
+`--render-first` gives, or the one the run that wrote the file recorded, or the span's first frame when neither
+says, and the command prints which. The right column is the box H3 rendered in on a zoomed load (the node's own
+zoomed picture in the render row), else one fixed detail box of the strip's own; the box is drawn and named on the
+whole frame. Every subject has one colour: an outline for the tracked mask, a solid fill for what was taken from
+the still, a light fill for the margin regenerated round it, and a hatched cell in a keep-out's colour for a
+margin cell kept as the original because it lies on that keep-out. Under the rows is a panel drawn from the
+strip's per-frame records (`strip_records`), which are its sidecar under `<capture>/strips/`: the frame number,
+the voice, the window and the text encoder's sampled frames; one pinned legend line a mask with this frame's
+figures; every flag of the drawn runs whole, in a row of its own, an overridden one said so; and, with `--given`,
+WHAT H3 WAS GIVEN, read from the load's graph (`bench/what_h3_got.py`): each reference whole and as a head crop,
+and the still. The change inside the region since the last frame is in the records, not drawn. One frame pulled
+as a still should explain itself (2026-10-09, the two reviews the owner called the best they had had; 2026-10-15,
+the owner: show what H3 sees).
 
 **What it does not hold.** Anything inside the tracker beyond its shot table (each call); the part model's
 own doubt; the matte. For a render made before the song node saved each window's region, the token mask
@@ -4754,9 +4756,11 @@ def pinned_legend(subjects: list, runs: list, rows: list, replaced: list[str]) -
 def legend_words(entry: dict, rec: dict) -> str:
     """One pinned legend line for one frame, from the frame's record: what the mark is, and its figures on this frame."""
     who = entry["label"]
-    s = rec["subjects"].get(who) or {}
-    mask = ("no mask on this frame" if not s.get("covered", True) else
+    s = rec["subjects"].get(who)
+    mask = ("no tracked mask of it in this capture" if s is None else "no mask on this frame" if not s.get("covered", True) else
             f"{s['share_pct']:.2f}% of the frame" + (f" in {s['pieces']} pieces" if (s.get("pieces") or 1) > 1 else ""))
+    if s is not None and entry["kind"] == "replaced" and s.get("part_pct") is not None:
+        mask += f"; part {s['part_pct']:.2f}%" + (f", {s['part_on_subject_pct']:.0f}% of it on the subject" if s.get("part_on_subject_pct") is not None else "")
     if entry["kind"] == "replaced":
         r = next((x for x in rec["runs"].values() if who in x["subjects"]), None)
         made = ("nothing regenerates on this frame" if not r or not r.get("region_pct") else
@@ -4963,8 +4967,11 @@ def given_columns(given: dict | None, a: argparse.Namespace, pair: list) -> list
 
 
 def head_boxes(video: dict, size: tuple[int, int], frames: tuple[int, int]) -> list[list[int]] | None:
-    """A box round the drawn head in a reference on each of the strip's source frames, for its head crop: the face
-    points of its record's points file carried onto the reference by the record's own box and scale. One size for
+    """A box round the drawn head in a reference on each source frame of `frames` (give the reference's own: its frame
+    k is source frame `frames[0] + k`, so the boxes are indexed by the reference frame shown), for its head crop: the
+    face points of its record's points file carried onto the reference by the record's own box and scale. Where the
+    chin's point is not read (a mouth left out lowers the scores round it), the face's height from the record
+    (`face_height_px`) below the lash lines stands for it, so the crop does not stop at the nose. One size for
     the whole strip (the largest face, with room: the points run from the lash lines to the chin, the brows and hair
     line sit outside them), its centre following the face, smoothed over a few frames: the crop is there to read
     the eyes and the mouth, which a box fixed over a moving head made too small to read (1097c, 2026-10-15: 0.4x).
@@ -4979,6 +4986,8 @@ def head_boxes(video: dict, size: tuple[int, int], frames: tuple[int, int]) -> l
     first_row = int(pts.get("first_row_is_source_frame") or p["first"] or 0)
     x0, y0 = rec["box"][0], rec["box"][1]
     sx, sy = rec["scale"]
+    face_h = (rec.get("face_height_px") or {}).get("in_this_video")
+    chin = p["index"].get("tip_of_chin")
     centres, sides = [], []
     for f in range(frames[0], frames[1] + 1):
         row = f - first_row
@@ -4988,6 +4997,8 @@ def head_boxes(video: dict, size: tuple[int, int], frames: tuple[int, int]) -> l
             continue
         xs = [(p["keypoints"][row][i][0] - x0) * sx for i in good]
         ys = [(p["keypoints"][row][i][1] - y0) * sy for i in good]
+        if chin not in good and face_h:
+            ys.append(min(ys) + float(face_h))
         centres.append(((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2))
         sides.append(max(max(xs) - min(xs), max(ys) - min(ys)))
     if not sides:
@@ -5055,16 +5066,20 @@ def strip_records(m: dict, subjects: list, runs: list, rows: list, table: dict, 
             t = table[s["label"]][n]
             rec["subjects"][s["label"]] = {"covered": bool(t["covered"]), "share_pct": round(100 * (t.get("track_share") or 0), 3),
                                            "pieces": t.get("track_pieces"),
-                                           "part_pct": None if t.get("parts_share") is None else round(100 * t["parts_share"], 3)}
+                                           "part_pct": None if t.get("parts_share") is None else round(100 * t["parts_share"], 3),
+                                           "part_on_subject_pct": None if t.get("parts_inside_track") is None else round(100 * t["parts_inside_track"], 1)}
         for r in runs:
             t = run_table[r["name"]][n]
             reg = t.get("region_share") or 0
             rec["runs"][r["name"]] = {"subjects": subjects_of(r), "planned": bool(r.get("planned")), "region_pct": round(100 * reg, 2),
                                       "margin_share_pct": round(100 * (t.get("margin_share") or 0) / reg, 1) if reg else None}
+            # with several runs drawn (--all-runs) a keep-out's cells given back are summed over them and its share is the largest
             for k in keep_outs:
                 on, back = row.get(f"region_on__{r['name']}__{k}"), row.get(f"cells_given_back__{r['name']}__{k}")
-                rec["keep_outs"][k] = {"region_on": None if on in (None, "") else float(on),
-                                       "cells_given_back": int(float(back)) if back not in (None, "") else int(r["back"][k][n].sum()) if k in r["back"] else 0}
+                got = rec["keep_outs"].setdefault(k, {"region_on": None, "cells_given_back": 0})
+                if on not in (None, ""):
+                    got["region_on"] = max(float(on), got["region_on"] or 0.0)
+                got["cells_given_back"] += int(float(back)) if back not in (None, "") else int(r["back"][k][n].sum()) if k in r["back"] else 0
         rec["emptied"] = bool(runs) and not any(v["region_pct"] for v in rec["runs"].values())
         rec["encoder_samples"] = sampled.get(sf, [])
         rec["window"] = None
@@ -5225,7 +5240,9 @@ def video(a: argparse.Namespace) -> None:
             cw_, ch_ = (v.get("loader") or {}).get("custom") or [0, 0]
             vw, vh = (cw_ or w, ch_ or h)
             t["size"] = (vw, vh)
-            t["head"] = head_boxes(v, (vw, vh), (first + lo, first + lo + frames - 1)) if col["from_graph"] else None
+            rf = ((v.get("record") or {}).get("its_first_frame_is_source_frame"))
+            rl = v.get("reference_frames") or frames
+            t["head"] = head_boxes(v, (vw, vh), (rf, rf + rl - 1)) if col["from_graph"] and rf is not None else None
             start = (v.get("loader") or {}).get("first_frame") or 0
             # the reference's frame for the strip's first frame: the load's frame there, counted from the loader's start
             at = start + (records[0].get("render_frame", records[0].get("load_frame", 0)))
@@ -5251,6 +5268,12 @@ def video(a: argparse.Namespace) -> None:
     notice += 24 * len(whose) + (6 if whose else 0)
     rendered = [] if shown is None or not runs else [x for one in render_said(next((r for r in runs if r["name"] == a.load), runs[0]), Path(a.job), a.load)
                                                     for x in wrap_text(one, canvas_w - 32, line.getlength)]
+    # a render strip has no job file of its own: what the node renders and the defaults the load carries are read from the job the
+    # chain kept in the load's folder (`job.render.json`), for the sidecar
+    said_render = []
+    if shown is None and given and runs:
+        kept_job = Path(given["graph"]).parent / "job.render.json"
+        said_render = render_said(runs[0], kept_job, Path(given["graph"]).name.split(".")[0])
     notice += 24 * len(rendered) + (6 if rendered else 0)
     # ---- where the clip and its sidecar go: the clip to the share, the sidecar under data/ (AGENTS.md: data under data/)
     out = a.out or str(folder / f"{m['name']}_diag.mp4")
@@ -5262,7 +5285,7 @@ def video(a: argparse.Namespace) -> None:
     frames_file = sidecar.with_suffix(".frames.jsonl")
     band = 0 if shown is None else 2 * ((74 + notice + 24 * len(text_lines)) // 2 + 1)
     if shown is None:
-        band = 40                                      # one line: where the text, the windows and the defaults are
+        band = 52                                      # two lines of 16 px at 20 apart, with room: where the rest is
     canvas_h = row_h * n_rows + panel + band
     # the sound: the render's own when it carries one; else the source's at the render's first frame (a render saved
     # without an audio stream, as the first window of a two-window run and a joined viewing copy were on 2026-10-12,
@@ -5402,7 +5425,7 @@ def video(a: argparse.Namespace) -> None:
                     else:
                         hx, hs = cx, 200
                     if t["head"]:
-                        x0, y0, x1, y1 = t["head"][n - lo]
+                        x0, y0, x1, y1 = t["head"][min(ref_rec["reference_frame"] if ref_rec else n - lo, len(t["head"]) - 1)]
                         crop = cv2.resize(frame_[y0:y1, x0:x1], (hs, hs), interpolation=cv2.INTER_CUBIC)
                         img.paste(Image.fromarray(crop), (hx, ty))
                         d.rectangle([hx - 2, ty - 2, hx + hs + 1, ty + hs + 1], outline=GREEN if sampled_ else DIM, width=3 if sampled_ else 1)
@@ -5426,7 +5449,7 @@ def video(a: argparse.Namespace) -> None:
                 said_still = next((x for x in (col["picture"].get("node_said") or []) if "text encoder is shown" in x), "")
                 cap2 = f"{col['picture'].get('tag')} {pic.width}x{pic.height} here, " + (
                     f"{col['picture']['size'][0]}x{col['picture']['size'][1]} in its file" if col["picture"].get("size") else "")
-                for k_, one in enumerate(wrap_text(cap2, sw_, small.getlength)[:3]):
+                for k_, one in enumerate(wrap_text(cap2, sw_, small.getlength)[:2]):
                     d.text((sx0, ty + sh_ + 4 + 18 * k_), one, font=small, fill=WHITE)
                 if said_still:
                     shown_at = said_still.split("shown ", 1)[1].split(",")[0]
@@ -5454,9 +5477,9 @@ def video(a: argparse.Namespace) -> None:
         if shown is None:
             parts = sidecar.parent.parts
             where = Path(*parts[parts.index("data"):]) if "data" in parts else sidecar.parent     # data/<capture>/strips: the repo's own
-            for j, one in enumerate(wrap_text(f"THE TEXT H3 WAS GIVEN, ITS WINDOWS, THE DEFAULTS AND EVERY FIGURE ON THIS FRAME: {sidecar.name} and "
+            for j, one in enumerate(wrap_text(f"THE TEXT H3 WAS GIVEN, WHAT THE NODE RENDERS, THE DEFAULTS THE LOAD CARRIES AND EVERY FIGURE ON THIS FRAME: {sidecar.name} and "
                                               f"{frames_file.name} in {where}", canvas_w - 32, small.getlength)[:2]):
-                d.text((16, by_ + 4 + 18 * j), one, font=small, fill=AMBER)
+                d.text((16, by_ + 6 + 20 * j), one, font=small, fill=AMBER)
         else:
             # the text the load will be given, whole, on every frame: a look reads it against the frames beside it
             d.text((16, by_ + 8), f"THE TEXT OF LOAD {a.load} (source frames {shown['frames'][0]}-{shown['frames'][1]}), label "
@@ -5495,9 +5518,9 @@ def video(a: argparse.Namespace) -> None:
             "legend": legend, "keep_out_words": {k: KEEP_OUT_WORDS.get(k, "another tracked subject") for k in keep_outs},
             "marks": {"outline": "the tracked mask", "solid": "taken from the still", "light": "margin regenerated",
                       "hatched cell in a keep-out's colour": "a margin cell kept as the original because it lies on that keep-out",
-                      "grey box": box_words, "white": "kept for what the render kept, once the node saves it (not saved for this render)"},
+                      "grey box": box_words, "not drawn": "what the render kept (the node's composite weight is not saved): no white mark is drawn"},
             "flags": flags, "overridden": sorted(overridden), "text": shown["text"] if shown else (given or {}).get("text", {}).get("text"),
-            "render_said": rendered, "records": frames_file.name}
+            "render_said": rendered or said_render, "records": frames_file.name}
     sidecar.write_text(json.dumps(head, indent=1, default=str) + "\n")
     with open(frames_file, "w") as fh:
         for rec in records:
@@ -5571,7 +5594,8 @@ def main() -> None:
                    "the subject it belongs to, shown as NOT READ FROM A GRAPH; repeatable")
     v.add_argument("--all-runs", action="store_true", help="draw every run's region, also when --render is one run's")
     v.add_argument("--load", metavar="NAME", help="the look: one load's own frames, every one, with the text it will be given under "
-                   "the picture; written to <capture>/looks/NAME.mp4 with NAME.shown.json beside it. Needs --job")
+                   "the picture; written to the share's looks folder (`strip_home`) with <capture>/looks/NAME.shown.json, the record of what "
+                   "was shown. Needs --job")
     v.add_argument("--job", metavar="JOB.json", help="the job file the load and its text are read from")
     v.add_argument("--strip-folder", default="", metavar="NAME", help="with --load: the folder under the video's looks/ the strip goes in, "
                    "in place of the capture's own name; the record of what was shown names the strip there")

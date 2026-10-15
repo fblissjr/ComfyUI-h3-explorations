@@ -1806,6 +1806,16 @@ def the_strips_marks_and_records() -> str:
         assert len(boxes) == 20 and len(sides) == 1, boxes
         assert boxes[-1][0] > boxes[0][0] and boxes[10][1] == boxes[0][1], (boxes[0], boxes[10], boxes[-1])
         assert cap.head_boxes({"record": {}}, (1024, 768), (500, 519)) is None
+        # a chin whose point is not read: the record's face height stands for it, so the crop reaches below the nose
+        sc = np.ones((20, len(names)), np.float32)
+        sc[:, names.index("tip_of_chin")] = 0.0
+        np.savez(pts, keypoints=kp, scores=sc, names=np.array(names), first_frame=np.array(500), size=np.array([1024, 768]))
+        short = cap.head_boxes(video, (1024, 768), (500, 519))
+        tall = cap.head_boxes({"record": {**video["record"], "face_height_px": {"in_this_video": 110.0}}}, (1024, 768), (500, 519))
+        assert tall[0][3] - tall[0][1] > short[0][3] - short[0][1] and tall[0][3] >= 2 * 95 + 110, (short[0], tall[0])
+    # a keep-out the capture tracks no mask of is still a legend line, never a fault
+    words = cap.legend_words({"label": "strangers", "colour": (1, 2, 3), "kind": "keep-out"}, {"subjects": {}, "runs": {}, "keep_outs": {}})
+    assert "no tracked mask of it in this capture" in words, words
     return ("a given-back cell in its keep-out's colour; a keep-out at 0% of the region still pinned with its cell; an override said; "
             "events and the encoder's frames in the records; the head crop one size, following the face")
 

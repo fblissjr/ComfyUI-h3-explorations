@@ -355,6 +355,10 @@ def build(a: argparse.Namespace) -> None:
     tiles = layout(w, h, len(cols))
     data = Path(getattr(a, "data", "") or HERE.parent / "data")
     given = given_of_pieces(rows, data) if data.is_dir() else {}
+    unread = [r["name"] for r in rows if r["name"] not in given]
+    if unread:
+        print(f"what H3 was given is not read for {', '.join(dict.fromkeys(unread))}: no queued record names their files under {data}"
+              + ("" if data.is_dir() else " (the folder is not there: give --data)") + "; their columns show the picture's graph alone", flush=True)
     # the joined clip's own check (`bench/assemble_delivery.py` writes it beside the clip): each flag on its frames, whole
     check_file = Path(a.joined + ".check.json")
     flags = json.loads(check_file.read_text()).get("flags") or [] if check_file.is_file() else []
@@ -365,10 +369,12 @@ def build(a: argparse.Namespace) -> None:
     for name, g in given.items():
         v = next((x for x in g["inputs"] if x.get("tag") == "<Video 1>"), None)
         row = next(r for r in rows if r["name"] == name)
-        if v and capm is not None:
+        rf = ((v or {}).get("record") or {}).get("its_first_frame_is_source_frame")
+        if v and capm is not None and rf is not None:
             cw_, ch_ = (v.get("loader") or {}).get("custom") or [w, h]
-            got = capm.head_boxes(v, (cw_ or w, ch_ or h), (row["graph_first"], row["graph_first"] + (v.get("reference_frames") or 1) - 1))
-            heads[name] = (got, row["graph_first"], (cw_ or w, ch_ or h))
+            # the boxes are the reference's own frames, indexed by the reference frame a panel shows
+            got = capm.head_boxes(v, (cw_ or w, ch_ or h), (rf, rf + (v.get("reference_frames") or 1) - 1))
+            heads[name] = (got, (cw_ or w, ch_ or h))
         for e in (v or {}).get("encoder_frames") or []:
             for x in e["sampled"]:
                 if not x["held"] and x["source_frame"] is not None:
@@ -376,11 +382,15 @@ def build(a: argparse.Namespace) -> None:
     # the block of words under the middle row: every line of every frame, wrapped and never cut; as tall as the most any frame needs
     # the mask pictures are the node's own review (`video_mask.py::window_layers`), whose legend is too small to read here
     key = ("MASK PICTURES are the node's own: red the mask the node was given, cyan what else regenerates, white outline what the render kept "
-           "(video_mask.window_layers). "
+           "(video_mask.window_layers). A green border on a head crop: the text encoder is shown that reference frame. "
            "Each column is one subject for the whole clip.")
 
     def notes_of(f: int, panels: list[dict]) -> list[tuple[str, tuple]]:
         out = [(key, (170, 170, 170))] + [(t, (255, 235, 60)) for t in words_of(f, rows, intents, panels)]
+        for r in rows:
+            if r["first"] <= f <= r["last"] and r["name"] in unread:
+                out.append((f"{r['name']}: what H3 was given is not read (no queued record of it found): its column shows its picture's graph",
+                            (255, 170, 60)))
         for fl in flags:
             if any(x <= f <= y for x, y in fl["source_frames"]):
                 out.append((f"{fl['id']} {fl['level'].upper()} (the joined clip's check): {fl['why']}", (255, 170, 60)))
@@ -452,8 +462,8 @@ def build(a: argparse.Namespace) -> None:
                 x, y, tw, th = t["whole"]
                 mid_img.paste(Image.fromarray(cv2.resize(ref, (tw, th), interpolation=cv2.INTER_AREA)), (x, y))
                 if boxes:
-                    i = min(max(f - hb[1], 0), len(boxes) - 1)
-                    sx, sy = w / hb[2][0], h / hb[2][1]
+                    i = min(max(at, 0), len(boxes) - 1)
+                    sx, sy = w / hb[1][0], h / hb[1][1]
                     bx0, by0, bx1, by1 = (round(boxes[i][0] * sx), round(boxes[i][1] * sy), round(boxes[i][2] * sx), round(boxes[i][3] * sy))
                     x, y, hs, _ = t["head"]
                     mid_img.paste(Image.fromarray(cv2.resize(ref[by0:by1, bx0:bx1], (hs, hs), interpolation=cv2.INTER_CUBIC)), (x, y))
@@ -506,7 +516,7 @@ def build(a: argparse.Namespace) -> None:
     Path(silent).unlink()
     sidecar.write_text(json.dumps({"clip": a.out, "one_a_second": slow_parts, "joined": a.joined, "table": a.table, "source": a.source,
                                    "frames": [first_f, last_f], "canvas": [w, h], "block": bar, "columns": cols, "layout": tiles,
-                                   "given": given, "check_flags": flags, "records": Path(sidecar).with_suffix(".frames.jsonl").name}, indent=1, default=str) + "\n")
+                                   "given": given, "given_not_read": sorted(set(unread)), "check_flags": flags, "records": Path(sidecar).with_suffix(".frames.jsonl").name}, indent=1, default=str) + "\n")
     with open(sidecar.with_suffix(".frames.jsonl"), "w") as fh:
         for rec in records:
             fh.write(json.dumps(rec) + "\n")
