@@ -33,6 +33,11 @@ Older history lives elsewhere and is not copied here:
   The held mask left 115, 69 and 6 px on 1015, 1018 and 1023: her fingertips, her fist and forearm, and on 1015
   the rim of a white egg she holds at her chin. This is mrtwo's rule of 2026-10-14 after 21:18Z for held things
   she touches near her face, widened from 1010d's "fingers and hand" to name the egg.
+- **The second subject's still: fun_mom.jpg and fun_mom_edit.jpg are the same edited image, on purpose** (the owner,
+  about 19:15Z in the lead's terminal). The owner removed a purse strap from the original photo and saved the result
+  under both names, in case a session reached for the older name later. Both files are byte-identical (mrvid,
+  `internal/claude/2026-10-15_mrvid_shorter_hair.md`); no copy of the photo as first given is kept on this machine.
+  Jobs name `fun_mom_edit.jpg`.
 - **Drawing no mouth where the class map shows no teeth stays an option, off by default** (mrtall, after 18:50Z, on
   second_hfp_5114e, the test ruled after 17:01Z; `data/2026-10-15_second_hfp_5114e/look_render/reading.md`). With
   `--class-mouth-needs-hole` its reference drew a mouth only on 5116, and the render's mouth was open on every frame,
