@@ -33,6 +33,15 @@ Older history lives elsewhere and is not copied here:
   The held mask left 115, 69 and 6 px on 1015, 1018 and 1023: her fingertips, her fist and forearm, and on 1015
   the rim of a white egg she holds at her chin. This is mrtwo's rule of 2026-10-14 after 21:18Z for held things
   she touches near her face, widened from 1010d's "fingers and hand" to name the egg.
+- **The hair coming and going: two node fixes go, one does not** (mrtall, after 17:52Z, on the outside reviewer's
+  frame-by-frame watch `internal/gemini/2026-10-15_watch_hair_item4.md` and mrlol's offline measures
+  `internal/claude/2026-10-15_mrlol_scripts/hair_item4_record.md`). Built in `video_mask.py`: (a) a keep-out piece
+  under 256 px (one cell; a starting value) that is on at most 2 frames of a four-frame step does not hole the step,
+  and a one-cell hole whose four neighbours are in the region and which is not her own part is closed; this mends
+  0014d's flashes at 57-60 and 159-166. (b) Region islands touching none of her own part are dropped (all 43 on the
+  two windows lie on her apron, chest or the bowl). Not built: (c) filling pockets in the composite's changed mask,
+  which finds none on the flashes. 0604d's bottom-left hair stopping at her blouse and apron strap is the owner's
+  ruled form (Open List row 10 of 2026-10-12, "clothes left alone, hair to the shoulder line"), not a fault.
 - **The strangers keep-out on a close-up of her alone is turned off per load, by a look; ruling (A) of 2026-10-14
   stands** (mrtall, after 17:12Z, on mrlol's reading of `bench/strangers.py` and its measures
   `internal/claude/2026-10-15_mrlol_scripts/strangers_on_her.txt`). On 2823b and 1097c the strangers mask is 99% the
