@@ -76,8 +76,8 @@ table; the Open List).
    5935-6104 (why its reference failed first), the 2050 shot to about 2247, `--continue-from` after a fresh cold read
    (the dad over 1397-1418 only if 1310c's window is on the grid), then the gaps and the shots after 3166.
 4. A clean-up job on the wiki: `internal/claude/2026-10-15_wiki_audit.md`.
-5. Tooling queued for the card seat, in order after the kitchen's lead: `--mouth-on FIRST-LAST=WHY` (draw the lip lines on
-   named frames where the gate dropped them; 2823c's 3098-3103 wait on it, with `--no-face-on 3104-3109`); the ledger
+5. Tooling queued for the card seat, in order after the kitchen's lead (`--mouth-on` and `track_from` are tonight's,
+   above, and landed or not by mrgo's note): the ledger
    counting every frame a piece leaves as the original, not only `drop=` frames; the assembler protecting an earlier
    row by what it changed (for one hole a pass); `--hold-part` carrying the restore classes (Eyeglass, hands, Apparel@head) across its span and printing what
    else the class map leaves empty there (`masked_v2v.md`, "A frame the part model misses"); `load_text` writing "sings" span-wise inside one load instead of refusing
