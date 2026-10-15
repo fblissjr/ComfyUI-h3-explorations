@@ -15,9 +15,16 @@ and a MaskComposite, two stills chained through `references`, the sound trimmed 
    1024x768, and nothing from a 1024x768 one (the control: the loader's test passes there and the cut is empty).
 3. **The hard failures**: a file the graph names that is not there; a file written after `queued_at`; a digest
    recorded at queue time that is not the file's. The control is the same folder with none of the three, which
-   reads clean.
-4. **A load not yet queued** reads as "built, not queued", with no file held to a time.
-5. **The zoom**: the node's `_zoomed.json` beside the render the queued record names, and each window's region
+   reads clean. The digests the queue step keeps (`digests_of`) read back clean, and a file given other bytes
+   under its old time fails on the digest alone.
+   A file written inside the second the record cuts away is not late; 1.5 s after is.
+4. **What a cold read found missing** (2026-10-15): a sound loaded from its own file (`VHS_LoadAudio`) with the
+   trim the graph puts on it; the latent a load continues from (`continue_from`), digested like a file; a node
+   that is no known loader listed with no file; `parts` wired and not asked for under `replace` = whole subject;
+   a graph that appends a reference video refused. The input folder: none known refuses; the queued record's
+   `input_dir` is used. ffmpeg's crop on a yuv420p file starts on an even row or column, and `vhs_fit` says so.
+5. **A load not yet queued** reads as "built, not queued", with no file held to a time.
+6. **The zoom**: the node's `_zoomed.json` beside the render the queued record names, and each window's region
    meta, read.
 
 Needs ffmpeg and ffprobe, Pillow and numpy. No model, no card, no server.
@@ -177,6 +184,120 @@ def the_hard_failures() -> str:
     return "a file written after the queue, a missing file and a wrong recorded digest each fail; the right recorded digest does not"
 
 
+def digests_kept_at_queue() -> str:
+    """The queue step's `digests` (`digests_of` on the graph) read back clean, and one file changed after fails by its bytes."""
+    base = made("load_e")
+    name = base.name
+    job = base / f"{name}_job"
+    q = job / f"{name}.render.queued.json"
+    rec = json.loads(q.read_text())
+    rec["digests"] = w.digests_of(json.loads((job / f"{name}.render.json").read_text()), base / "input")
+    q.write_text(json.dumps(rec))
+    assert str(base / "input" / "sub" / "one.png") in rec["digests"] and len(rec["digests"]) == 8, sorted(rec["digests"])
+    clean = read(base)
+    assert not clean["failures"] and all(r["sha256_at_queue"] == r["sha256"] for r in clean["inputs"]), clean["failures"]
+    clip(base / "ref1.mp4", "1024x768", 7)            # other bytes, written back to the time before the queue
+    os.utime(base / "ref1.mp4", (BEFORE, BEFORE))
+    f = read(base)["failures"]
+    assert len(f) == 1 and "ref1.mp4" in f[0] and "recorded at queue time" in f[0], f
+    return "the eight named files kept by path, the source once though two loaders read it; read back clean; a file with other bytes and the old time fails on its digest alone"
+
+
+def what_the_cold_read_found() -> str:
+    """A sound loaded from its own file, a latent continued from, a node that is no known loader, a lazy input the
+    node does not ask for, a file written within the queue's own second, and a reference video appended."""
+    base = made("load_f")
+    name = base.name
+    job = base / f"{name}_job"
+    gf = job / f"{name}.render.json"
+    g = json.loads(gf.read_text())
+    (base / "vocals.wav").write_bytes(b"RIFF....WAVE")
+    (base / "w1.safetensors").write_bytes(b"latent")
+    g["145"] = {"class_type": "VHS_LoadAudio", "inputs": {"audio_file": str(base / "vocals.wav"), "seek_seconds": 2.0, "duration": 1.0}}
+    g["146"]["inputs"] = {"audio": ["145", 0], "start_index": 0.0, "duration": 0.9}
+    g["74"]["inputs"]["continue_from"] = str(base / "w1.safetensors")
+    g["300"] = {"class_type": "SolidMask", "inputs": {"value": 1.0}}
+    g["104"]["inputs"]["parts"] = ["300", 0]                      # replace is "the wired parts": asked for
+    g["104"]["inputs"]["keep"] = ["181", 0]
+    gf.write_text(json.dumps(g))
+    for f in (base / "vocals.wav", base / "w1.safetensors"):
+        os.utime(f, (BEFORE, BEFORE))
+    queued_at = datetime.datetime.fromisoformat(QUEUED_AT).timestamp()
+    os.utime(base / "m2.mp4", (queued_at + 0.8, queued_at + 0.8))   # inside the second the record cuts away
+    got = read(base)
+    by = {r["role"]: r for r in got["inputs"]}
+    sound = [r for r in got["inputs"] if r["role"] == "the sound"]
+    assert len(sound) == 1 and sound[0]["file"] == str(base / "vocals.wav") and sound[0]["trim"]["duration"] == 0.9, sound
+    cont = by["continued from (an earlier window's latent)"]
+    assert cont["file"] == str(base / "w1.safetensors") and cont["sha256"] == hashlib.sha256(b"latent").hexdigest(), cont
+    assert str(base / "w1.safetensors") in w.digests_of(g, base / "input")
+    leaf = by["the parts kept"]
+    assert leaf["file"] is None and leaf["exists"] is None and "unread" not in leaf, leaf
+    assert by["what is kept the original (`keep`)"]["node"] == "180"
+    assert not got["failures"], got["failures"]
+    g["104"]["inputs"]["replace"] = "whole subject"                # now `parts` is wired and not asked for
+    gf.write_text(json.dumps(g))
+    assert "not read" in {r["role"]: r for r in read(base)["inputs"]}["the parts kept"]["unread"]
+    os.utime(base / "m2.mp4", (queued_at + 1.5, queued_at + 1.5))
+    assert any("m2.mp4" in x for x in read(base)["failures"]), "a file written 1.5 s after the queue did not fail"
+    g["400"] = {"class_type": "MiniMaxH3AppendRefVideo", "inputs": {}}
+    gf.write_text(json.dumps(g))
+    try:
+        read(base)
+    except SystemExit as e:
+        assert "appends a reference video" in str(e), e
+    else:
+        raise AssertionError("a graph with an appended reference video was read")
+    return ("the sound from its own file with its trim; the latent continued from, digested; a leaf no loader listed with no file; "
+            "`parts` unread under whole subject; 0.8 s past the queue clean, 1.5 s fails; an appended reference video refused")
+
+
+def the_input_folder() -> str:
+    base = made("load_g")
+    name = base.name
+    held = os.environ.pop("H3_INPUT_DIR", None)
+    try:
+        try:
+            w.read(base / f"{name}_job", name, output=base / "output")
+        except SystemExit as e:
+            assert "H3_INPUT_DIR" in str(e), e
+        else:
+            raise AssertionError("read with no input folder known and none refused")
+        q = base / f"{name}_job" / f"{name}.render.queued.json"
+        q.write_text(json.dumps({**json.loads(q.read_text()), "input_dir": str(base / "input")}))
+        got = w.read(base / f"{name}_job", name, output=base / "output")
+        assert {r["role"]: r for r in got["inputs"]}["<Picture 1>"]["exists"], "the recorded input_dir was not used"
+    finally:
+        if held is not None:
+            os.environ["H3_INPUT_DIR"] = held
+    return "no input folder known: refused by name; the queued record's input_dir used"
+
+
+def the_cut_on_a_yuv420p_file() -> str:
+    """ffmpeg's crop rounds an offset down to the colour's step on yuv420p: a file whose marked row or column says
+    where the cut starts, run through the loader's filter, against `vhs_fit`."""
+    said = []
+    ar = 1024 / 768
+    flt = f"crop=if(gt({ar}\\,a)\\,iw\\,ih*{ar}):if(gt({ar}\\,a)\\,iw/{ar}\\,ih)"
+    for (W, H), axis in (((1438, 1080), "Y"), ((1922, 1080), "X")):
+        fit = w.vhs_fit([W, H], 1024, 768, pix_fmt="yuv420p")
+        at = fit["crop"][1] if axis == "Y" else fit["crop"][0]
+        even, odd = at, at + 1                                      # the even start the tool says, and the odd one beside it
+        f = ROOT / f"marked_{W}.mp4"
+        ffmpeg("-f", "lavfi", "-i", f"color=black:size={W}x{H}:rate=24,format=yuv420p,geq=lum='if(eq({axis},{even}),250,if(eq({axis},{odd}),120,16))':cb=128:cr=128",
+               "-frames:v", "1", "-c:v", "libx264", "-qp", "0", "-pix_fmt", "yuv420p", str(f))
+        raw = subprocess.run(["ffmpeg", "-v", "error", "-i", str(f), "-vf", flt, "-f", "rawvideo", "-pix_fmt", "gray", "-"],
+                             capture_output=True, check=True).stdout
+        cw, ch = fit["crop"][2], fit["crop"][3]
+        pic = np.frombuffer(raw, np.uint8)
+        assert pic.size == cw * ch, f"{W}x{H}: ffmpeg cut {pic.size} pixels, vhs_fit says {cw}x{ch}"
+        pic = pic.reshape(ch, cw)
+        first = int(pic[0, 5]) if axis == "Y" else int(pic[5, 0])
+        assert first > 200, f"{W}x{H}: the cut does not start on {axis.lower()}={even}: its first {'row' if axis == 'Y' else 'column'} is {first}"
+        said.append(f"{W}x{H}: starts on {axis.lower()}={even}, {cw}x{ch}")
+    return "; ".join(said)
+
+
 def not_yet_queued() -> str:
     base = made("load_c", queued=False)
     os.utime(base / "m1.mp4", (AFTER, AFTER))
@@ -199,6 +320,10 @@ def the_zoom() -> str:
 case("each input read by its place in the graph", each_input_by_its_place)
 case("the loader's cut, against ffmpeg running the loader's filter", the_loaders_cut)
 case("the hard failures, and a clean control", the_hard_failures)
+case("digests kept at queue time", digests_kept_at_queue)
+case("what a cold read found", what_the_cold_read_found)
+case("the input folder", the_input_folder)
+case("the cut on a yuv420p file, by ffmpeg", the_cut_on_a_yuv420p_file)
 case("a load not yet queued", not_yet_queued)
 case("the zoom read from the node's records", the_zoom)
 
