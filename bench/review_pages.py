@@ -461,11 +461,51 @@ def held_and_set_aside(rec: "Records") -> list[str]:
     out += ([f"<ul>{''.join(kept)}</ul>"] if kept else []) + ([] if held or kept else ["<p class='mut'>None.</p>"])
     return out
 
+def start_here(path: str, drawn: dict[str, str], shots: dict[str, list[str]], out_dir: str) -> list[str]:
+    """START HERE, IN THIS ORDER: the lead's list (the owner, 2026-10-15: the most important first), each entry linking what the page
+    shows below, or a clip that is no item, with its one line of why. An entry the page does not hold, a clip that is not there, or
+    an entry with no why stops the page: the one kind of red."""
+    import re
+    got = json.load(open(path))
+    if not isinstance(got, list) or not got:
+        raise SystemExit(f"--start-here {path}: a JSON list of {{\"item\", \"why\"}}, in order, and not empty")
+    lines = []
+    for k, e in enumerate(got, 1):
+        what, why = str(e.get("item") or "").strip(), " ".join(str(e.get("why") or "").split())
+        if not what or not why:
+            raise SystemExit(f"--start-here {path}, entry {k}: each entry names an item and says in one line what deciding it changes")
+        if re.fullmatch(r"\d+-\d+", what):
+            if what not in shots:
+                raise SystemExit(f"--start-here {path}, entry {k}: the shot {what} is not on this page (its shots: {', '.join(shots) or 'none'})")
+            ins = shots[what]
+            shown = f"the shot {E(what)}: " + (", ".join(drawn[i] for i in ins) if ins else "its pieces, below")
+        elif what in drawn:
+            shown = drawn[what]
+        elif "/" in what:
+            if not Path(what).is_file():
+                raise SystemExit(f"--start-here {path}, entry {k}: the clip {what} is not there")
+            rel = os.path.relpath(what, out_dir)
+            shown = f'<a href="{E(rel)}">{E(Path(what).name)}</a> (a clip, not on the review list)'
+        else:
+            raise SystemExit(f"--start-here {path}, entry {k}: {what!r} is no item this page shows, no shot of it and no clip")
+        lines.append(f"<li>{shown}: {E(why)}</li>")
+    return ["<h2>Start here, in this order</h2>", "<p class='mut'>The lead's order: what deciding each changes most. Each is also "
+            "where it always is, below.</p>", f"<ol>{''.join(lines)}</ol>"]
+
+
 def to_review(a: argparse.Namespace) -> str:
     rec = Records(a.table, a.ledger, a.verdicts, a.items, a.tables)
     rate, out_dir = rate_of(a.source), os.path.dirname(os.path.abspath(a.out))
     previous = json.load(open(a.previous_table)) if a.previous_table else None
-    link = lambda i, label=None: f'<a href="{E(a.page_url + i)}">{E(label or i)}</a>'
+    drawn: dict[str, str] = {}                           # each item the page links, to its link: what --start-here may name
+
+    this_shot: list[str] = []                            # the items the shot being drawn links
+
+    def link(i, label=None):
+        drawn.setdefault(i, f'<a href="{E(a.page_url + i)}">{E(i)}</a>')
+        this_shot.append(i)
+        return f'<a href="{E(a.page_url + i)}">{E(label or i)}</a>'
+    shots_drawn: dict[str, list[str]] = {}               # each shot the page shows, FIRST-LAST, to the items its entry links
     stem = Path(a.source).stem
     body = [f"<h1>{E(stem)}: to review</h1>",
             f'<p class="mut">Made {datetime.datetime.now(OWNERS_CLOCK):%Y-%m-%d %H:%M} US Central from the table {E(os.path.basename(a.table))} and its '
@@ -483,6 +523,16 @@ def to_review(a: argparse.Namespace) -> str:
     today = a.today or datetime.datetime.now(OWNERS_CLOCK).strftime("%Y-%m-%d")
     waiting = {"joined": [], "apart": [], "single": [], "joined_one": []}
     done = {"joined": [], "apart": [], "single": [], "joined_one": []}
+    entries_before, last_shot = 0, None
+
+    def shot_drawn(sh=None):
+        """The shot just drawn, when its iteration added an entry, is kept with the items it links; then the next begins."""
+        nonlocal entries_before, last_shot
+        now = sum(map(len, waiting.values())) + sum(map(len, done.values()))
+        if last_shot is not None and now > entries_before:
+            shots_drawn[f"{last_shot['first']}-{last_shot['last']}"] = list(dict.fromkeys(this_shot))
+        entries_before, last_shot = now, sh
+        this_shot.clear()
     for sh in shots_of_table(rec.T):
         first, last = sh["first"], sh["last"]
         when = f"{clock(first, rate)} to {clock(last + 1, rate)} of the video"
@@ -496,6 +546,7 @@ def to_review(a: argparse.Namespace) -> str:
                                      f'{E(n)} (no item of it on the review list yet)' for n in dict.fromkeys(r["name"] for r in rr))
         who = ", ".join(x + (" (the record is unsure)" if x in sh["unsure"] else "") for x in sh["subjects"])
         state = {r["name"]: rec.answered(rec.rows_of(r["name"]), today) for r in rows}
+        shot_drawn(sh)
         # a shot with a joined clip of this table on the list is shown by it, whatever its count of subjects (2026-10-15: the joined
         # clip of the one-subject 2823-3166 was on the list and the page showed its piece's rows, "no item of it on the review list yet")
         it, why = joined_item(rec, first, last, a.tables or [])
@@ -543,6 +594,8 @@ def to_review(a: argparse.Namespace) -> str:
                         f'<div class="e"><h3>{E(rr[0]["subject"])}, {max(rr[0]["first"], first)}-{min(rr[-1]["last"], last)}: {heads(rr)} <span>{when}</span></h3>'
                         f'<ul>{lines(rr)}</ul></div>')
 
+    shot_drawn()
+
     def sections(got: dict, tag: str) -> list[str]:
         out = [f"<{tag}>Shots with two or more of them, each as its joined clip</{tag}>", *(got["joined"] or ["<p class='mut'>None.</p>"])]
         if got["apart"]:
@@ -551,6 +604,8 @@ def to_review(a: argparse.Namespace) -> str:
             out += [f"<{tag}>Shots of one of them, as its joined clip</{tag}>", *got["joined_one"]]
         return out + [f"<{tag}>Pieces in a shot of one of them</{tag}>", *(got["single"] or ["<p class='mut'>None.</p>"])]
     n_wait, n_done = (sum(map(len, g.values())) for g in (waiting, done))
+    if a.start_here:
+        body += start_here(a.start_here, drawn, shots_drawn, os.path.dirname(os.path.abspath(a.out)))
     body += [f"<h2>Waiting on you: {n_wait} with no click or words of yours yet</h2>",
              "<p class='mut'>Watch these on playback, top to bottom. Each is something this table lays that you have not answered: a shot with a "
              "joined clip by the joined clip, whatever its pieces' own lines say (each piece's line says them).</p>",
@@ -849,6 +904,8 @@ def main(argv=None) -> int:
             s.add_argument("--previous-table", help="the table the last page was made from: what changed since, and what each piece replaces")
             s.add_argument("--provenance", help="the provenance page's file name beside this one, linked from the top")
             s.add_argument("--today", help="the owner's day (YYYY-MM-DD, their clock) whose settled pieces are listed under Done; today when left out")
+            s.add_argument("--start-here", metavar="FILE", help="the lead's list, in order, drawn first: a JSON list of {\"item\": an item the "
+                           "page shows, a shot FIRST-LAST or a clip's path, \"why\": one line of what deciding it changes}")
         else:
             s.add_argument("--record", help="the assembler's record of the clip (.mp4.check.json); without it the ledger says what a piece leaves")
             s.add_argument("--day-folder", required=True, help="the day's folder: bench/day_pieces.py's piece folders are read from it")

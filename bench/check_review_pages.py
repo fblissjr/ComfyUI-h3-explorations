@@ -712,6 +712,40 @@ def a_one_subject_shot_and_a_cut_piece() -> str:
     return "the one-subject shot with its joined clip shown by it, under its own heading; a piece cut into two rows by a restore span named once, over 340-359"
 
 
+def start_here() -> str:
+    """The owner, 2026-10-15: the most important first. --start-here draws the lead's list before everything, in its order, each
+    entry linking what the page shows below (a shot, an item) or a clip that is no item, with its why; an entry the page does not
+    hold, a clip that is not there, or an entry with no why stops the page."""
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        d = Path(tmp)
+        clip = d / "share" / "pair" / "hair_A.mp4"
+        clip.parent.mkdir(parents=True)
+        clip.write_bytes(b"x")
+        order = [{"item": str(clip), "why": "WHY THE PAIR"}, {"item": "150-199", "why": "WHY A_SOLO'S SHOT"}, {"item": "100-149", "why": "WHY THE JOINED SHOT"}]
+        f = d / "start.json"
+        f.write_text(json.dumps(order))
+        page = to_review(d, more=("--start-here", str(f)))
+        text = text_of(page)
+        top = text.split("Start here, in this order")[1].split("Waiting on you")[0]
+        assert top.index("WHY THE PAIR") < top.index("WHY A_SOLO'S SHOT") < top.index("WHY THE JOINED SHOT"), top
+        assert "hair_A.mp4" in top and "r__s__a_solo" in top and "v_0100_0149_joined_NEW_stacked" in top, top
+        assert '<a href="../share/pair/hair_A.mp4">' in page, "the clip is not linked relative to the page"
+        assert text.index("Start here, in this order") < text.index("Waiting on you"), "the list is not first"
+        for bad, said in (([{"item": "a_not_here", "why": "w"}], "no item this page shows"), ([{"item": "500-599", "why": "w"}], "is not on this page"),
+                          ([{"item": str(d / "gone.mp4"), "why": "w"}], "is not there"), ([{"item": "150-199"}], "says in one line"), ([], "not empty")):
+            f.write_text(json.dumps(bad))
+            try:
+                to_review(d, more=("--start-here", str(f)))
+            except SystemExit as e:
+                assert said in str(e), (bad, str(e))
+            else:
+                raise AssertionError(f"a start-here list the page cannot hold was drawn: {bad}")
+        f.write_text(json.dumps(order))
+        assert "Start here" not in text_of(to_review(d)), "the list drawn with no --start-here"
+    return "the lead's list first and in its order, a shot, an item and a clip each linked with its why; five lists the page cannot hold refused"
+
+
 def nothing_of_a_video_in_code() -> str:
     code = TOOL.read_text()
     for word in ("/mnt/", "/home/", "http://", "https://", ":8765", "100.87.", "fun_", '"fun"', "day_2026"):
@@ -733,6 +767,7 @@ case("the owner's words rule, and whose words are whose", the_owners_words_rule)
 case("provenance reads the records", provenance_reads_the_records)
 case("another ledger is refused", another_ledger_is_refused)
 case("a one-subject shot by its joined clip, and a piece cut by restore spans", a_one_subject_shot_and_a_cut_piece)
+case("start here, in the lead's order", start_here)
 case("nothing of a video in the code", nothing_of_a_video_in_code)
 
 if __name__ == "__main__":
