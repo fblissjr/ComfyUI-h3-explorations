@@ -19,6 +19,32 @@ Older history lives elsewhere and is not copied here:
 
 *Written by the lead of the day (mrtall) as the rulings are made; mrarc holds the card, mrlol tooling.*
 
+- **The owner's evening answers, on the review page and in the lead's terminal (21:16Z to 22:15Z), recorded here
+  because they were relayed only to the Open List and the sessions until the postmortem's blind reader found them
+  missing:**
+  - **2823-3109 is REMADE as one load in one window, beside 2823b, and the owner keeps one** (terminal, about 21:55Z:
+    "Remake 2823-3109"). REVERSES the 18:52Z line above ("so it is not remade; 3098-3109 continues its window"): the
+    owner first chose "continue 2823b over 3098-3109" (answers.jsonl, 21:17:40Z, "Continue just make sure you have
+    enough of her face visible (pre-overlap?) to be able to track her"), then the cold reader of `--continue-from` found
+    2823b's stored window (277 frames, off the chained grid) cannot be continued. If her face shows on 3110-3166, the
+    load is the whole shot to 3166. Open List row 6.
+  - **The dad keeps 1310c; 1397-1418 to be made** (review page 21:20-21:22Z: "the singing is perfect here", "he still
+    turns into the source dad ... all the way to end"; 1306-1309 "nitpicking if this is too much work"). As a
+    continuation of 1310c only if its stored window is on the chained grid; otherwise back to the owner. Row 3.
+  - **The far-table mother in the hall gets a load of her own** (21:22Z: "swap her with a load of her own"; "Could we
+    make an attempt to at least try and put blonde hair?"). Row 8. And **1093-1133: her, tiny in the background, hair
+    alone** (terminal, about 22:00Z: "worst case if its easier to just make it blonde hair that works too").
+  - **The spinning ball: her face swapped from 2200 to about 2247** (21:24Z: "swap her face from 2200 to around frame
+    2247 or so"), the rest of the 2050 shot by the recipe. Row 1.
+  - **Who is in a shot:** no second subject in 1156-1188 ("1156-1188 = the lead singer") or 1466-1729 (the owner's
+    who-page answers, read by the lead from a screenshot because the page was opened from the share and did not save);
+    `data/fun/shots.json`, backups beside the lead's scripts.
+  - **The second subject's kitchen load:** context noise 0.8 per load, not a default (the lead's ruling on mrgo's
+    question; the default waits for this render's seam on the owner's playback); her shut eyes drawn only where the card
+    seat's sheet shows them shut (938-953, 968-1009), never on downcast frames.
+  - **Dropped:** the lead's hair restore ("i dont remember lead singers hair ever being an issue at all"); an
+    identity-drift reading ("you dont need to do that, just have me watch it"); the written label on references (parked,
+    unlanded, as the one-pass lane closed).
 - **The wiki corrected against today's rulings** (the owner, 2026-10-15 evening: "Maybe worth you reading through our
   llm wiki docs to make sure everything is solid and still accurate and flag things that look off"). Three cold readers
   read the wiki and AGENTS.md against the code; the lines that contradicted today's rulings were corrected in
