@@ -62,7 +62,8 @@ table; the Open List).
 5. Tooling queued for the card seat, in order after the kitchen's lead: `--mouth-on FIRST-LAST=WHY` (draw the lip lines on
    named frames where the gate dropped them; 2823c's 3098-3103 wait on it, with `--no-face-on 3104-3109`); the ledger
    counting every frame a piece leaves as the original, not only `drop=` frames; the assembler protecting an earlier
-   row by what it changed (for one hole a pass); `load_text` writing "sings" span-wise inside one load instead of refusing
+   row by what it changed (for one hole a pass); `--hold-part` carrying the restore classes (Eyeglass, hands, Apparel@head) across its span and printing what
+   else the class map leaves empty there (`masked_v2v.md`, "A frame the part model misses"); `load_text` writing "sings" span-wise inside one load instead of refusing
    a voice change; whether the Masked Prompt node's voice and frozen-picture wording still renders anywhere.
 6. The outside reviewer's C5 (provenance, `internal/gemini/2026-10-15_provenance_c5.md`): two faults fixed at the close
    (today's verdicts taken into `data/fun/verdicts/verdicts.jsonl`; the lead's rebuild now reads the newest table);

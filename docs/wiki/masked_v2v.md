@@ -479,6 +479,14 @@ original between them. The steps, each with its tool:
 6. **A joined clip of the shot with only the new pieces laid**, beside the cut as it stands, for the owner on
    playback; laid in the table (`--prefer`) only when they keep it.
 
+**A frame the part model misses is missed for everything read from it** (2026-10-15, 2823c's 3098-3104, found by
+the card seat and the outside reviewer): the face part, the classes given back at assembly (Eyeglass, hands, the
+earrings' Apparel@head), the class-map mouth the reference draws, all come from the same class map, so a frame that
+`--hold-part` fills for the face has the same hole in each of them. On 2823c the same six frames had no mouth drawn,
+no glasses to give back, and an empty part. Until the tool carries them itself (the card seat's queue: `--hold-part`
+holding the restore classes across its span by the same neighbour shift, and printing every other class reading still
+empty there), read a held span's restores and mouth on the plan look, not only its part.
+
 What it does not cover yet: continuing a piece the owner kept (a stored window off the chained grid cannot be continued,
 2823b), and two subjects who touch (one hole a pass, being built).
 
