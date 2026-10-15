@@ -33,8 +33,8 @@ on a frame (`piece_changes_nothing`) is badged in its column there.
 **Its records**: `<out>.json` beside the table (the columns, where each tile lies, what each piece was given, the
 check's flags) and `<out>.frames.jsonl`, a line a source frame with what each column showed and every word; the
 file names them in its metadata, with the canvas and the block's height that `check` reads back. `--one-a-second`
-also writes `<out>.1fps.mp4`, the same frames at one a second and no sound, for a video reader that takes one frame
-a second.
+also writes the same frames at one a second and no sound, in parts no larger than the outside reviewer's reader
+takes (`_lib.frames.OneASecond`), each named by its source frames and listed in the records.
 
 **What is read from where.** The table through the assembler's own two readers, so the format has one home. A
 piece's reference video and the source frame its graph starts on from the graph ComfyUI saved in the picture
@@ -398,10 +398,8 @@ def build(a: argparse.Namespace) -> None:
     src, joined = Reader(a.source, first_f, fit, w, h), Reader(a.joined, first_f - base, fit, w, h)
     enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{w}x{h * 3 + bar}", "-r", _rate(a.joined), "-i", "-",
                             "-c:v", "libx264", "-crf", "17", "-pix_fmt", "yuv420p", "-preset", "medium", silent], stdin=subprocess.PIPE)
-    slow_out = str(Path(a.out).with_name(Path(a.out).stem + ".1fps.mp4")) if getattr(a, "one_a_second", False) else None
-    slow = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{w}x{h * 3 + bar}", "-r", "1", "-i", "-",
-                             "-c:v", "libx264", "-crf", "17", "-pix_fmt", "yuv420p", "-preset", "medium", "-metadata", tag, slow_out],
-                            stdin=subprocess.PIPE) if slow_out else None
+    from _lib.frames import OneASecond
+    slow = OneASecond(Path(a.out).with_suffix(""), (w, h * 3 + bar), ["-metadata", tag]) if getattr(a, "one_a_second", False) else None
     readers: dict[tuple, Reader] = {}
     missing: dict[str, list[int]] = {}
     records = []
@@ -495,9 +493,10 @@ def build(a: argparse.Namespace) -> None:
         data_ = frame.tobytes()
         enc.stdin.write(data_)
         if slow is not None:
-            slow.stdin.write(data_)
+            slow.write(data_, f)
     enc.stdin.close()
-    if enc.wait() or (slow is not None and (slow.stdin.close() or slow.wait())):
+    slow_code, slow_parts = slow.close() if slow is not None else (0, [])
+    if enc.wait() or slow_code:
         raise SystemExit("the encoder failed; nothing written")
     for r in readers.values():
         r.close()
@@ -505,13 +504,15 @@ def build(a: argparse.Namespace) -> None:
     joined.close()
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", silent, "-i", a.joined, "-map", "0:v", "-map", "1:a?", "-c", "copy", "-metadata", tag, a.out], check=True)
     Path(silent).unlink()
-    sidecar.write_text(json.dumps({"clip": a.out, "one_a_second": slow_out, "joined": a.joined, "table": a.table, "source": a.source,
+    sidecar.write_text(json.dumps({"clip": a.out, "one_a_second": slow_parts, "joined": a.joined, "table": a.table, "source": a.source,
                                    "frames": [first_f, last_f], "canvas": [w, h], "block": bar, "columns": cols, "layout": tiles,
                                    "given": given, "check_flags": flags, "records": Path(sidecar).with_suffix(".frames.jsonl").name}, indent=1, default=str) + "\n")
     with open(sidecar.with_suffix(".frames.jsonl"), "w") as fh:
         for rec in records:
             fh.write(json.dumps(rec) + "\n")
-    print(f"written {a.out} ({last_f - first_f + 1} frames, {w} by {h * 3 + bar})" + (f" and {slow_out} (one a second, no sound)" if slow_out else ""))
+    print(f"written {a.out} ({last_f - first_f + 1} frames, {w} by {h * 3 + bar})")
+    for part in slow_parts:
+        print(f"written {part['file']} (source frames {part['frames'][0]}-{part['frames'][1]} at one a second, no sound; {part['bytes']} bytes)")
     print(f"its records: {sidecar} and {sidecar.with_suffix('.frames.jsonl').name}")
     print("columns, one a subject for the whole clip:", ", ".join(cols))
     print("panels or words that could not be shown, as first frame, last frame, count:", {name: (v[0], v[-1], len(v)) for name, v in missing.items()} or "none")
@@ -605,8 +606,8 @@ def main() -> int:
     b.add_argument("--only", metavar="FIRST-LAST", help="a trial on these source frames alone (the sound is then the whole clip's)")
     b.add_argument("--first", type=int, default=0, metavar="SOURCE_FRAME", help="the source frame the clip's first frame is, for a clip of a span that does not begin on 0")
     b.add_argument("--data", default="", help="the folder of the job folders (data/), where each piece's queued graph is found; the repo's own when not given")
-    b.add_argument("--one-a-second", action="store_true", help="also write <out>.1fps.mp4: the same frames at one a second, no sound, for an agent's "
-                   "video reader that takes one frame a second")
+    b.add_argument("--one-a-second", action="store_true", help="also write the same frames at one a second, no sound, in parts under the outside "
+                   "reviewer's file size, <out>.1fps.<first>-<last>.mp4: for an agent's video reader that takes one frame a second")
     c = sub.add_parser("check", help="read a stacked file back against the source and the clip")
     c.add_argument("--source", required=True)
     c.add_argument("--joined", required=True)

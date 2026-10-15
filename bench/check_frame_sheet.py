@@ -109,9 +109,37 @@ def the_sheet() -> str:
     return "a row starting at frame 4 shows source frame 6 as its own frame 2; a followed box stays in the canvas; a tile per frame and row"
 
 
+def one_a_second_in_parts() -> str:
+    """The one-a-second copy of a review clip (`frames.OneASecond`): every frame written once, in order, at one a second, in
+    parts no larger than the size it is given, each named by the source frames it holds; a frame's level says which it is."""
+    held = fr.ONE_A_SECOND_BYTES
+    w, h = 64, 48
+    try:
+        fr.ONE_A_SECOND_BYTES = int(fr.ONE_A_SECOND_COST * w * h * 4) + 1  # four frames a part
+        slow = fr.OneASecond(WORK / "clip", (w, h))
+        for f in range(100, 110):
+            slow.write(np.full((h, w, 3), 10 * (f - 100) + 20, np.uint8).tobytes(), f)
+        code, parts = slow.close()
+    finally:
+        fr.ONE_A_SECOND_BYTES = held
+    assert code == 0 and [p_["frames"] for p_ in parts] == [[100, 103], [104, 107], [108, 109]], parts
+    assert [Path(p_["file"]).name for p_ in parts] == ["clip.1fps.00100-00103.mp4", "clip.1fps.00104-00107.mp4", "clip.1fps.00108-00109.mp4"], parts
+    levels = []
+    for p_ in parts:
+        n_ = fr.probe(p_["file"])[2]
+        rate = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=r_frame_rate", "-of", "csv=p=0", p_["file"]],
+                              capture_output=True, text=True).stdout.strip().strip(",")
+        assert rate == "1/1", (p_["file"], rate)
+        levels += [float(fr_.mean()) for fr_ in fr.stream(p_["file"], (w, h), 0, n_)]
+    assert len(levels) == 10 and all(abs(lv - (10 * k + 20)) < 4 for k, lv in enumerate(levels)), levels
+    assert not list(WORK.glob("clip.1fps.part.mp4")), "a working part was left behind"
+    return "ten frames at one a second in parts of four, named by their source frames, every frame once and in order"
+
+
 case("frames by number", by_number)
 case("the loader's fit", the_fit)
 case("a mask on a span's clock", a_mask)
 case("the sheet", the_sheet)
+case("one a second, in parts", one_a_second_in_parts)
 shutil.rmtree(WORK, ignore_errors=True)
 sys.exit(finish())

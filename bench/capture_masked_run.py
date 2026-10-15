@@ -5280,12 +5280,9 @@ def video(a: argparse.Namespace) -> None:
          "-c:v", "libx264", "-crf", "18", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
          "-t", f"{frames / FPS:.3f}", *meta, "-movflags", "+faststart", out], stdin=subprocess.PIPE)
     # the companion for an agent's eye (C1b, 2026-10-15): the same frames at one a second, no sound, so a sampler that
-    # takes one frame a second sees every frame
-    slow_out = str(Path(out).with_name(Path(out).stem + ".1fps.mp4")) if a.one_a_second else None
-    slow = subprocess.Popen(
-        ["nice", "-n", "19", "ffmpeg", "-v", "error", "-y", "-threads", "2", "-f", "rawvideo", "-pix_fmt", "rgb24",
-         "-s", f"{canvas_w}x{canvas_h}", "-r", "1", "-i", "-", "-c:v", "libx264", "-crf", "18", "-preset", "veryfast",
-         "-pix_fmt", "yuv420p", *meta, "-movflags", "+faststart", slow_out], stdin=subprocess.PIPE) if slow_out else None
+    # takes one frame a second sees every frame; in parts under its reader's size, named by their source frames
+    from _lib.frames import OneASecond
+    slow = OneASecond(Path(out).with_suffix(""), (canvas_w, canvas_h), meta) if a.one_a_second else None
     plates = stream(str(source), (w, h), first + lo, frames, vf=FIT.format(w=w, h=h), pix="rgb24")
     renders = stream(render, (w, h), skip, frames, vf=f"scale={w}:{h}", pix="rgb24") if render else None
     zoomeds = stream(zoomed_render, (w, h), skip, frames, vf=f"scale={w}:{h}", pix="rgb24") if zoomed_render else None
@@ -5477,20 +5474,21 @@ def video(a: argparse.Namespace) -> None:
         data = np.asarray(img).tobytes()
         enc.stdin.write(data)
         if slow is not None:
-            slow.stdin.write(data)
+            slow.write(data, first + n)
         done = n - lo + 1
         if n % 100 == 0:
             print("frame", n, flush=True)
     enc.stdin.close()
     code = enc.wait()
+    slow_parts = []
     if slow is not None:
-        slow.stdin.close()
-        code = code or slow.wait()
+        slow_code, slow_parts = slow.close()
+        code = code or slow_code
     print("wrote", out, "frames", done, "encoder exit", code)
-    if slow_out:
-        print("wrote", slow_out, "(the same frames at one a second, no sound)")
+    for part in slow_parts:
+        print("wrote", part["file"], f"(source frames {part['frames'][0]}-{part['frames'][1]} at one a second, no sound; {part['bytes']} bytes)")
     # ---- the sidecar: what the strip drew, as data, under data/
-    head = {"clip": out, "one_a_second": slow_out, "capture": str(folder), "source": str(source), "render": render, "load": a.load,
+    head = {"clip": out, "one_a_second": slow_parts, "capture": str(folder), "source": str(source), "render": render, "load": a.load,
             "made": datetime.datetime.now().astimezone().isoformat(timespec="seconds"), "frames": [first + lo, first + lo + frames - 1],
             "given": given if given else absent, "given_from_the_command_line": None if given or absent else [c_["video"] for c_ in cols] + [c_["picture"] for c_ in cols],
             "right_column": {"box": box, "is": box_words, "zoomed": bool(zoom), "render_tile": zoomed_render},
@@ -5565,8 +5563,8 @@ def main() -> None:
     v.add_argument("--given", metavar="JOB_FOLDER", help="the load's job folder (data/<day>_<load>_job): the references, stills and zoom "
                    "the panel shows are read from its graph (bench/what_h3_got.py), the render's when built, else the plan's")
     v.add_argument("--given-load", metavar="NAME", help="the load in --given's folder, when it is not --load or the folder's own name")
-    v.add_argument("--one-a-second", action="store_true", help="also write <clip>.1fps.mp4: the same frames at one a second, no sound, "
-                   "for an agent whose video reader takes one frame a second")
+    v.add_argument("--one-a-second", action="store_true", help="also write the same frames at one a second, no sound, in parts under "
+                   "the outside reviewer's file size, <clip>.1fps.<first>-<last>.mp4: for an agent whose video reader takes one frame a second")
     v.add_argument("--motion", action="append", help="without --given: a motion video named by hand, shown in the panel as NOT READ FROM "
                    "A GRAPH; twice for a load of two subjects, in the list's order")
     v.add_argument("--still", action="append", default=[], metavar="LABEL=IMAGE", help="without --given: a still named by hand and "

@@ -100,3 +100,58 @@ def write_mask_video(path: Path | str, mask: np.ndarray) -> None:
     enc.stdin.close()
     if enc.wait():
         raise RuntimeError(f"ffmpeg could not write {path}")
+
+
+#: The most a part of a one-a-second copy may hold, in bytes. **Inherited** from the outside reviewer's video reader,
+#: which takes a file up to 100 MB (internal/gemini/2026-10-15_clips_review.md, section 5); a fifth under it as room.
+ONE_A_SECOND_BYTES = 80_000_000
+#: What a one-a-second frame costs, in bytes a pixel of the canvas, at the encoder settings below. **Measured** on the
+#: three review clips of 2026-10-15 (0.079, 0.085 and 0.088 a pixel at crf 17-18): the largest, with room.
+ONE_A_SECOND_COST = 0.1
+
+
+class OneASecond:
+    """The same frames as a review clip, at one a second and with no sound, for a video reader that takes one frame a
+    second (the outside reviewer's, C1b, 2026-10-15), in parts no larger than its reader takes: each part named
+    `<stem>.1fps.<first>-<last>.mp4` by the source frames it holds. `write(frame_bytes, source_frame)` a frame at a
+    time; `close()` gives each part as {file, frames, bytes}. How many frames a part holds is reckoned from the
+    canvas's size (`ONE_A_SECOND_COST`); a part that still comes out over `ONE_A_SECOND_BYTES` is said so."""
+
+    def __init__(self, stem: Path | str, size: tuple[int, int], meta: list[str] | None = None):
+        self.stem, self.size, self.meta = Path(stem), size, list(meta or [])
+        self.per_part = max(1, int(ONE_A_SECOND_BYTES / (ONE_A_SECOND_COST * size[0] * size[1])))
+        self.proc, self.first, self.last, self.count, self.parts, self.code = None, None, None, 0, [], 0
+
+    def _open(self, source_frame: int) -> None:
+        self.first, self.count = source_frame, 0
+        self.tmp = self.stem.with_name(f"{self.stem.name}.1fps.part.mp4")
+        self.proc = subprocess.Popen(["nice", "-n", "19", "ffmpeg", "-v", "error", "-y", "-threads", "2", "-f", "rawvideo", "-pix_fmt", "rgb24",
+                                      "-s", f"{self.size[0]}x{self.size[1]}", "-r", "1", "-i", "-", "-c:v", "libx264", "-crf", "18",
+                                      "-preset", "veryfast", "-pix_fmt", "yuv420p", *self.meta, "-movflags", "+faststart", str(self.tmp)],
+                                     stdin=subprocess.PIPE)
+
+    def _shut(self) -> int:
+        self.proc.stdin.close()
+        code = self.proc.wait()
+        name = self.stem.with_name(f"{self.stem.name}.1fps.{self.first:05d}-{self.last:05d}.mp4")
+        self.tmp.replace(name)
+        size = name.stat().st_size
+        self.parts.append({"file": str(name), "frames": [self.first, self.last], "bytes": size})
+        if size > ONE_A_SECOND_BYTES * 1.25:
+            print(f"{name.name} is {size} bytes, over the {int(ONE_A_SECOND_BYTES * 1.25)} a reader takes", flush=True)
+        self.proc = None
+        return code
+
+    def write(self, data: bytes, source_frame: int) -> None:
+        if self.proc is not None and self.count >= self.per_part:
+            self.code = self.code or self._shut()
+        if self.proc is None:
+            self._open(source_frame)
+        self.proc.stdin.write(data)
+        self.last, self.count = source_frame, self.count + 1
+
+    def close(self) -> tuple[int, list[dict]]:
+        """The first encoder's exit that was not 0, else 0; and the parts."""
+        if self.proc is not None:
+            self.code = self.code or self._shut()
+        return self.code, self.parts
