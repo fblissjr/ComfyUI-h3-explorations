@@ -233,6 +233,30 @@ def runs(frames: list[int]) -> list[tuple[int, int]]:
     return out
 
 
+def parse_restore_extra(text: str) -> dict:
+    """`SUBJECT.CLASS[+CLASS]:FIRST-LAST:the reason` (`--restore-extra`): a restore span for this table alone, a trial."""
+    try:
+        what, span, why = text.split(":", 2)
+        subject, classes = what.split(".", 1)
+        first, last = (int(v) for v in span.split("-"))
+    except ValueError:
+        raise SystemExit(f"--restore-extra {text!r} is not SUBJECT.CLASS[+CLASS]:FIRST-LAST:the reason") from None
+    if not why.strip() or first > last or not classes:
+        raise SystemExit(f"--restore-extra {text!r}: the classes, a span and the reason")
+    return {"subject": subject, "classes": classes.split("+"), "first": first, "last": last, "why": " ".join(why.split())}
+
+
+def with_trial_restores(plan: dict, extras: list[dict]) -> dict:
+    """The plan with `--restore-extra` spans added for this table alone: A TRIAL for the owner (the lead's ask of 2026-10-15, her own
+    hair given back on her face rows of 604-1009, an A/B of the cut). The plan file is never written; each span says it is a trial."""
+    out = json.loads(json.dumps(plan))
+    for x in extras:
+        if x["subject"] not in out["subjects"]:
+            raise SystemExit(f"--restore-extra names {x['subject']!r}, which is not a subject of the plan ({', '.join(out['subjects'])})")
+        out["subjects"][x["subject"]].setdefault("restore", []).append({"classes": x["classes"], "first": x["first"], "last": x["last"], "trial": x["why"]})
+    return out
+
+
 def parse_hold(text: str) -> dict:
     """`FIRST-LAST:SUBJECT=LOAD:the reason`: on that shot, for that subject, the load NOT to be laid, and why."""
     return parse_prefer(text, "--hold")
@@ -574,8 +598,10 @@ def table_text(out: dict, share: str, made: str, plan: dict, name: str) -> str:
              *[f"# HELD BACK by the lead (--hold), a session's word and not the owner's: {h['load']} on {frames(h['first'], h['last'])}, {h['subject']}: "
                + " ".join(h["reason"].replace("#", " ").split()) for h in out.get("held", [])],
              "# restore= is the practice of the table of 2026-10-12: every other subject the shots file has in the shot is given back, `:whole` on a face row."]
-    lines += [f"# restore={label}.{'+'.join(x['classes'])} on {label}'s rows on {frames(x['first'], x['last'])} only: from the plan, by "
-              f"{' '.join(str(p['restore_by']).replace('#', ' ').split())}" for label, p in plan["subjects"].items() for x in p.get("restore") or []]
+    lines += [f"# restore={label}.{'+'.join(x['classes'])} on {label}'s rows on {frames(x['first'], x['last'])} only: "
+              + (f"A TRIAL (--restore-extra), not the plan's: {' '.join(str(x['trial']).replace('#', ' ').split())}" if x.get("trial") else
+                 f"from the plan, by {' '.join(str(p['restore_by']).replace('#', ' ').split())}")
+              for label, p in plan["subjects"].items() for x in p.get("restore") or []]
     for r in out["rows"]:
         lines.append(f"{frames(r['first'], r['last'])} {Path(share) / r['file']} {r['piece_first']} subject={r['subject']}"
                      + (f" run={r['run']}" if r.get("run") else "") + "".join(f" restore={x}" for x in r["restore"]))
@@ -663,13 +689,15 @@ def main() -> int:
     p.add_argument("--also-capture", action="append", default=[], metavar="FOLDER",
                    help="a capture to hand the assembler beside the standing pieces' own (a preview's capture of the span); repeatable")
     p.add_argument("--stack-work", default="", metavar="FOLDER", help="the stacking tool's scratch folder (never the share), for its printed command")
+    p.add_argument("--restore-extra", action="append", default=[], metavar="SUBJECT.CLASS[+CLASS]:FIRST-LAST:reason",
+                   help="a restore span for this table alone, A TRIAL that the plan does not hold (the plan file is not written); repeatable")
     p.add_argument("--table", required=True, help="where the table is written")
     p.add_argument("--reading", required=True, help="where the reading is written")
     p.add_argument("--json", help="the same as data")
     a = p.parse_args()
     coverage = _shot_coverage()
     shots = coverage.load_shots(a.shots)
-    plan = coverage.load_plan(a.plan, shots["subjects"])
+    plan = with_trial_restores(coverage.load_plan(a.plan, shots["subjects"]), [parse_restore_extra(x) for x in a.restore_extra])
     ledger = json.load(open(a.ledger))
     span = tuple(int(v) for v in a.span.split("-")) if a.span else tuple(shots["span"])
     out = decide(ledger, shots, plan, [parse_prefer(x) for x in a.prefer], span if a.span else None, [parse_hold(x) for x in a.hold])
@@ -677,7 +705,8 @@ def main() -> int:
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     made = (f"Made {now} at commit {commit} from the ledger `{a.ledger}` ({str(ledger.get('made') or 'which does not say when it was made').split(' from')[0]}), "
             f"`{a.shots}`" + (f" (its shots inside {a.span})" if a.span else "") + f" and `{a.plan}`" + ("; with " + "; ".join(f"--prefer {x!r}" for x in a.prefer) if a.prefer else "; no --prefer")
-            + ("; and HELD BACK by the lead, a session's word and not the owner's: " + "; ".join(f"--hold {x!r}" for x in a.hold) if a.hold else "; no --hold") + ".")
+            + ("; and HELD BACK by the lead, a session's word and not the owner's: " + "; ".join(f"--hold {x!r}" for x in a.hold) if a.hold else "; no --hold")
+            + ("; and A TRIAL the plan does not hold: " + "; ".join(f"--restore-extra {x!r}" for x in a.restore_extra) if a.restore_extra else "") + ".")
     own = " ".join(shlex.quote(w) for w in [sys.executable, "bench/delivery_table.py", *sys.argv[1:]])
     built = assembly(out, ledger, plan, HERE.parent, a.table, span, a.assemble_args, tuple(a.also_capture), python=sys.executable, own=own,
                      stack_work=a.stack_work, shots_file=a.shots)

@@ -466,6 +466,29 @@ def _capture(repo: Path, name: str, first: int, frames: int, tracks: dict, runs=
 
 
 
+def a_trial_restore() -> str:
+    """`--restore-extra` (the lead's ask of 2026-10-15: her own hair given back on her face rows, an A/B for the owner): a restore span
+    for one table, said as a trial in its header, and the plan as read is not changed."""
+    import copy
+    before = copy.deepcopy(PLAN)
+    trial = dt.with_trial_restores(PLAN, [dt.parse_restore_extra("a.Hair:60-79:AN A/B FOR THE OWNER")])
+    out = dt.decide(ledger(render("a_face", (50, 99), "05")), SHOTS, trial)
+    a_rows = [(r["first"], r["last"], "a.Hair" in r["restore"]) for r in out["rows"] if r["subject"] == "a"]
+    # THE CASE THAT GOES RED when a trial span is not laid on its frames, changes the plan it was given, or is said as the plan's
+    assert a_rows == [(50, 59, False), (60, 79, True), (80, 99, False)], a_rows
+    assert PLAN == before, "the plan as read was changed by a trial"
+    text = dt.table_text(out, "/share", "Made for the check.", trial, "t_check")
+    assert "# restore=a.Hair on a's rows on 60-79 only: A TRIAL (--restore-extra), not the plan's: AN A/B FOR THE OWNER" in text, text
+    for bad, words in (("a.Hair:60-79", "is not SUBJECT.CLASS"), ("a.Hair:79-60:x", "the classes, a span and the reason"), ("z.Hair:60-79:x", "not a subject of the plan")):
+        try:
+            dt.with_trial_restores(PLAN, [dt.parse_restore_extra(bad)])
+        except SystemExit as e:
+            assert words in str(e), (bad, e)
+        else:
+            raise AssertionError(f"taken: {bad}")
+    return "a trial restore is laid on its own frames, said as a trial and not the plan's, and leaves the plan as read"
+
+
 def a_plan_that_keeps_an_accessory() -> str:
     """The owner's rule of 2026-10-14, keep accessories: the plan's `restore` for a subject, on named frames only, since the class
     map calls the lead's eye makeup Eyeglass on shots with no glasses (0294d at 394, 1802b at 1843)."""
@@ -640,6 +663,7 @@ case("a preference of the lead's", a_preference)
 case("a hold of the lead's: not this one, and why", a_hold_of_the_leads)
 case("the table reads back through the assembler", the_table_reads_back)
 case("a plan that keeps an accessory", a_plan_that_keeps_an_accessory)
+case("a trial restore, the plan untouched", a_trial_restore)
 case("the commands, each whole and one line", the_commands)
 case("a row is tied to its capture's run, from records", a_row_is_tied_to_its_run)
 case("what a restore has to go on, as three counts", what_a_restore_has_to_go_on)
