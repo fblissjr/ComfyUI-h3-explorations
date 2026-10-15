@@ -129,6 +129,17 @@ def face_middle_on_mask(p: np.ndarray, index: dict, mask: np.ndarray) -> bool:
     return bool(0 <= x < w and 0 <= y < h and mask[y, x])
 
 
+#: The points of the face below the eyes: what the subject's own glasses do not cover (`lower_face_middle_on_mask`).
+LOWER_FACE = ("tip_of_nose", "bottom_center_of_nose", "r_outer_corner_of_mouth", "l_outer_corner_of_mouth", "center_of_lower_outer_lip", "tip_of_chin")
+
+
+def lower_face_middle_on_mask(p: np.ndarray, index: dict, mask: np.ndarray) -> bool:
+    """Whether the median of one frame's lower-face points (`LOWER_FACE`) is a pixel of a mask [h, w] of bool."""
+    h, w = mask.shape
+    x, y = np.round(np.median(p[[index[n] for n in LOWER_FACE]], 0)).astype(int)
+    return bool(0 <= x < w and 0 <= y < h and mask[y, x])
+
+
 def head_place(p: np.ndarray, index: dict) -> dict:
     """Where the head sits, in pixels: three points that are not on the eyes, and the middle of the two eyes."""
     eyes = np.mean([r.mean(0) for r in lid_rings(p, index)], axis=0)

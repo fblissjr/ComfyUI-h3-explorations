@@ -152,15 +152,57 @@ def outputs(out: Path) -> dict[str, Path]:
     return made
 
 
-def face_on_the_track(points: str, first: int, count: int) -> dict:
-    """What the points file's own record says of the face on the subject's track, on the span's frames."""
+#: The classes that sit over the eyes. Where the plan gives one back (the subject's own glasses, a restore span: `--over-the-eyes`),
+#: the track may leave the glasses out, and the eyes and brows behind them with it; the face's middle, which the lash lines outvote,
+#: then lands off the track though the face is hers. On such a frame only, the face counts as on the track when the lower face's middle
+#: (`_lib.face_points.LOWER_FACE`: nose, mouth, chin) is on it. Measured 2026-10-15 on every points file under the references read
+#: held to a track (internal/claude/2026-10-15_mrlol_scripts/lower_face_on_track.txt): the lower face's middle is on the track on all
+#: 13 of the lead's 2823 frames the check failed (3075-3087, her white sunglasses over her eyes, off her track). Read on every frame it
+#: would also take on the second subject's 895 and 897 (the lead's face read from behind her shoulder, FILL_GAP's case), which lie in a
+#: span the plan gives her hands back on (data/fun/plan.json, second, 604-948), and 623, 1099, 1127 and 4698, which nobody has looked
+#: at; so only classes over the eyes, never the hands. The 3167-3213 frames of this docstring's top stay off, all eleven, either way.
+OVER_THE_EYES = ("Eyeglass",)
+
+
+def face_on_the_track(points: str, first: int, count: int, over_the_eyes: list[tuple[int, int, str]] | None = None) -> dict:
+    """What the points file's own record says of the face on the subject's track, on the span's frames; and, on a frame of an
+    `over_the_eyes` span that it calls off, whether the lower face's middle is on the mask that frame was held to (the pose pass's
+    own: `pose_along_shot.held_masks`), which then counts it on."""
     rec = Path(points).with_suffix(".json")
-    said = json.loads(rec.read_text()).get("face_on_the_mask") if rec.is_file() else None
+    record = json.loads(rec.read_text()) if rec.is_file() else {}
+    said = record.get("face_on_the_mask")
     if not said:
         return {"known": False, "why": f"{rec.name} " + ("says nothing of a track" if rec.is_file() else "is not there"),
                 "frames_whose_face_middle_is_off_the_track": []}
-    return {"known": True, "read_from": rec.name, "what": said["what"],
-            "frames_whose_face_middle_is_off_the_track": [f for f in said["frames_whose_face_middle_is_off_the_mask"] if first <= f < first + count]}
+    off = [f for f in said["frames_whose_face_middle_is_off_the_mask"] if first <= f < first + count]
+    out = {"known": True, "read_from": rec.name, "what": said["what"], "frames_whose_face_middle_is_off_the_track": off}
+    if over_the_eyes:
+        out["over_the_eyes"] = {"spans": [[a, b, why] for a, b, why in over_the_eyes], "frames": [], "read": False,
+                                "why": "no frame the record calls off lies in a span"}
+    under = [f for f in off if any(a <= f <= b for a, b, _ in over_the_eyes or [])]
+    if under:
+        import numpy as np
+        import pose_along_shot as pas
+        from _lib import face_points as fp
+        from _lib.frames import read_mask
+        box = (record.get("made_from") or {}).get("box")
+        span = (record.get("made_from") or {}).get("which_are_source_frames")
+        if not isinstance(box, dict) or not Path(str(box.get("mask_video"))).is_file() or box.get("its_first_frame_is_source_frame") is None \
+                or not span or not record.get("size"):
+            out["over_the_eyes"].update(frames=under, why="the record does not name the track the points were held to, where it starts, the "
+                                                         "points' frames and their size, or the track is not there")
+            return out
+        P = fp.load(points, None)
+        w, h = record["size"]
+        mask, covered = read_mask(box["mask_video"], (w, h), box["its_first_frame_is_source_frame"], span[0], span[1] - span[0] + 1)
+        _, given, _ = pas.held_masks(mask, covered)
+        # the points' rows and the masks both start on the record's first source frame (pose_along_shot writes them so)
+        on = [f for f in under if fp.lower_face_middle_on_mask(P["keypoints"][f - span[0]], P["index"], given[f - span[0]])]
+        out["frames_whose_face_middle_is_off_the_track"] = [f for f in off if f not in on]
+        out["over_the_eyes"].update(frames=under, read=True, on_the_track_by_the_lower_face=on,
+                                    why=("the plan gives back a class over her eyes there (OVER_THE_EYES): the face's middle lies on it, off the "
+                                        "track; the lower face's middle (nose, mouth, chin) is read on the track in its place"))
+    return out
 
 
 def fill_from_neighbours(off: list[int], first: int, count: int, gap: int = FILL_GAP) -> tuple[dict[int, tuple[int, int]], list[int]]:
@@ -341,7 +383,7 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         mesh_first: int | None = None, points_first: int | None = None, width: float = FORM_WIDTH, room: float | None = None,
         leave_out: frozenset = frozenset({FORM_LEAVES_OUT}), dots: bool = False, iris: str = faces.IRIS_FORMS[0], repo: Path = REPO,
         mouth: str | None = None, mouth_why: str = "", classes: str | None = None, classes_first: int | None = None,
-        no_mouth_on: list[tuple[int, int, str]] | None = None, say=print) -> dict:
+        no_mouth_on: list[tuple[int, int, str]] | None = None, over_the_eyes: list[tuple[int, int, str]] | None = None, say=print) -> dict:
     """Cut, cut, draw, record. Returns the record; `passed` is True only when all three steps passed."""
     if out.suffix != ".mp4":
         raise SystemExit(f"--out {out} must end in .mp4: the other files are named from it")
@@ -356,7 +398,13 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     quiet = lambda *_: None  # noqa: E731
     # A SHORT RUN OF FRAMES OFF THE TRACK takes its points from its neighbours, before anything is cut: another person's face
     # on a frame would move the box as well as draw them (the lead's ruling, 2026-10-14, for the second subject's 895 and 897)
-    on_track = face_on_the_track(points, first, count)
+    on_track = face_on_the_track(points, first, count, over_the_eyes)
+    if (on_track.get("over_the_eyes") or {}).get("frames") and not on_track["over_the_eyes"]["read"]:
+        say(f"    --over-the-eyes NOT READ on {len(on_track['over_the_eyes']['frames'])} frame(s) off the track: {on_track['over_the_eyes']['why']}")
+    if (on_track.get("over_the_eyes") or {}).get("on_the_track_by_the_lower_face"):
+        got = on_track["over_the_eyes"]["on_the_track_by_the_lower_face"]
+        say(f"    {len(got)} frame(s) whose face's middle lies on her own glasses, off the track, are on it by the lower face (--over-the-eyes): "
+            + ", ".join(f"{a}-{b}" if a != b else str(a) for a, b in spans_of(got)))
     filled, unfilled = fill_from_neighbours(on_track["frames_whose_face_middle_is_off_the_track"], first, count)
     read_from = points
     if filled:
@@ -498,14 +546,14 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     return record
 
 
-def no_mouth_arg(text: str) -> tuple[int, int, str]:
+def no_mouth_arg(text: str, flag: str = "--no-mouth-on") -> tuple[int, int, str]:
     rng, sep, why = text.partition("=")
     try:
         a, b = (int(x) for x in (rng.split("-") * 2)[:2])
     except ValueError:
-        raise SystemExit(f"--no-mouth-on {text!r} is not FIRST-LAST=WHY") from None
+        raise SystemExit(f"{flag} {text!r} is not FIRST-LAST=WHY") from None
     if not sep or not why.strip() or a > b:
-        raise SystemExit(f"--no-mouth-on {text!r} is not FIRST-LAST=WHY, with the why")
+        raise SystemExit(f"{flag} {text!r} is not FIRST-LAST=WHY, with the why")
     return a, b, " ".join(why.split())
 
 
@@ -531,6 +579,9 @@ def main() -> int:
     a.add_argument("--classes-first", type=int, help="the source frame of the class map's frame 0")
     a.add_argument("--no-mouth-on", action="append", default=[], metavar="FIRST-LAST=WHY",
                    help="source frames on which no mouth is drawn: the load's part holds no lips there (the job's parts_on, hair alone); repeatable")
+    a.add_argument("--over-the-eyes", action="append", default=[], metavar="FIRST-LAST=WHY",
+                   help="source frames on which the plan gives back a class over her eyes (OVER_THE_EYES, her own glasses): the face counts as on "
+                        "her track there when the lower face's middle is; repeatable")
     a.add_argument("--names", help="a json list of the points' names, for a points file made before they were kept")
     a.add_argument("--mesh-first", type=int, help="the source frame of the body-model video's frame 0; the span's first when left out")
     a.add_argument("--points-first", type=int, help="the source frame of the points file's row 0; the file's own when it says")
@@ -538,7 +589,8 @@ def main() -> int:
     names = json.loads(Path(v.names).read_text()) if v.names else None
     rec = run(v.mesh, v.points, v.source, v.first, v.count, Path(v.out), v.by, names=names, mesh_first=v.mesh_first, points_first=v.points_first,
               width=v.width, room=v.room, leave_out=faces.parts_arg(v.leave_out), dots=v.dots, iris=v.iris, mouth=v.mouth, mouth_why=v.mouth_why,
-              classes=v.classes, classes_first=v.classes_first, no_mouth_on=[no_mouth_arg(x) for x in v.no_mouth_on])
+              classes=v.classes, classes_first=v.classes_first, no_mouth_on=[no_mouth_arg(x) for x in v.no_mouth_on],
+              over_the_eyes=[no_mouth_arg(x, "--over-the-eyes") for x in v.over_the_eyes])
     return 0 if rec["passed"] else 1
 
 

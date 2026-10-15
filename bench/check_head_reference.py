@@ -246,6 +246,53 @@ def a_face_off_the_track_fails() -> str:
             "interpolated, and the record says so and calls them filled, not read; a frame at the span's edge and a longer run fail the run, with every "
             "read-back passing and the sheet written; a frame outside the span is not counted; a record with none passes; one that says nothing passes as not known")
 
+def her_glasses_over_her_eyes() -> str:
+    """2823 (2026-10-15): her white sunglasses over her eyes lie off her track, so the face's middle (the lash lines outvote the rest)
+    lands off it on 13 frames though only she is there. Where the plan gives back a class over her eyes (`--over-the-eyes`), the face
+    counts as on her track by the lower face's middle; nowhere else (895 and 897: another face behind her shoulder)."""
+    from _lib import face_points as fp
+    from _lib.frames import write_mask_video
+    out = {}
+    for name, spans in (("glasses", [(1, 8, "HER GLASSES")]), ("no_span", [])):
+        folder, mesh, pts, source = rooms(f"track_{name}", [90] * N, [60] * N, CENTRES, 0)
+        P = fp.load(str(pts), None)
+        lash = [i for n, i in P["index"].items() if n.endswith("_lash_line")]
+        track = np.ones((N, H, W), bool)
+        for f in range(2, 8):                                                       # the glasses: a band over her eyes left out of the track
+            ys = P["keypoints"][f][lash][:, 1]
+            track[f, int(ys.min()) - 6:int(ys.max()) + 7, :] = False
+        for f in (8, 9):                                                            # the whole face off the track
+            track[f] = False
+            track[f, :20, :20] = True
+        pad = np.zeros((3, H, W), bool)                                             # the track starts three frames before the points
+        pad[:, :20, :20] = True
+        write_mask_video(folder / "track.mkv", np.concatenate([pad, track]))
+        pts.with_suffix(".json").write_text(json.dumps({"made_by": "the check", "size": [W, H], "made_from": {"which_are_source_frames": [0, N - 1],
+                                                       "box": {"mask_video": str(folder / "track.mkv"), "its_first_frame_is_source_frame": -3}},
+                                                       "face_on_the_mask": {"what": "the check's", "frames_whose_face_middle_is_off_the_mask": [2, 3, 4, 5, 6, 7, 8, 9]}}))
+        said: list[str] = []
+        out[name] = (hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head.mp4", "the check", room=ROOM, over_the_eyes=spans, say=said.append), said)
+    rec, said = out["glasses"]
+    t = rec["face_on_the_track"]
+    # THE CASE THAT GOES RED when her own glasses off her track fail a span the plan gives them back on, or a face wholly off her track
+    # (8) is taken on inside it, or one outside it (9) is
+    assert t["over_the_eyes"]["on_the_track_by_the_lower_face"] == [2, 3, 4, 5, 6, 7] and t["frames_whose_face_middle_is_off_the_track"] == [8, 9], t
+    assert rec["passed"] is True and t["frames_filled_from_their_neighbours"] == {"8": [7, 10], "9": [7, 10]}, t
+    assert any("6 frame(s) whose face's middle lies on her own glasses" in x and "2-7" in x for x in said), said
+    assert t["over_the_eyes"]["spans"] == [[1, 8, "HER GLASSES"]] and t["over_the_eyes"]["read"] is True, t
+    # a record that does not say where its track starts: not read, and said
+    folder, mesh, pts, source = rooms("track_glasses_unsaid", [90] * N, [60] * N, CENTRES, 0)
+    pts.with_suffix(".json").write_text(json.dumps({"made_by": "the check", "face_on_the_mask": {"what": "the check's", "frames_whose_face_middle_is_off_the_mask": [3]}}))
+    said = []
+    t = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head.mp4", "the check", room=ROOM, over_the_eyes=[(1, 8, "HER GLASSES")], say=said.append)["face_on_the_track"]
+    assert t["over_the_eyes"]["read"] is False and t["over_the_eyes"]["frames"] == [3] and any("--over-the-eyes NOT READ on 1 frame" in x for x in said), (t, said)
+    rec, said = out["no_span"]
+    assert rec["passed"] is False and rec["face_on_the_track"]["frames_off_the_track_not_filled"] == [2, 3, 4, 5, 6, 7, 8, 9], rec["face_on_the_track"]
+    assert hr.no_mouth_arg("3063-3097=her glasses", "--over-the-eyes") == (3063, 3097, "her glasses")
+    return ("inside a span the plan gives back her glasses on, a face whose middle lies on them, off her track, is on it by the lower face; a face "
+            "wholly off her track stays off, inside the span or out; with no span, the same frames fail the run")
+
+
 def the_mouth_by_the_check() -> str:
     """The chain's default of 2026-10-14: the mouth drawn when the lip lines lie on the class map's mouth, left out when they do not
     (the lead's 0294d: the points bunched on her upper lip while the class map held her open mouth)."""
@@ -531,6 +578,7 @@ def a_frame_at_a_time_in_the_lines_form() -> str:
 
 case("one run makes the form", one_run_makes_the_form)
 case("a face off the subject's track fails the run", a_face_off_the_track_fails)
+case("her own glasses over her eyes, off her track", her_glasses_over_her_eyes)
 case("frames from the middle of all three files", frames_from_the_middle)
 case("the mouth by the check", the_mouth_by_the_check)
 case("the class map's mouth by its own gate", the_class_map_mouth_by_its_gate)

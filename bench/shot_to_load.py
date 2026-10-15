@@ -1546,7 +1546,8 @@ def step_reference(a, world, figures=figures_of) -> None:
 
 def drawn_form(job: dict, a, files: dict, preview_first: int) -> list:
     """The head reference tool's flags for the mouth and the eye: the job's (the plan's or the chain's default, `reference_form`),
-    and `--no-mouth-on` for the load's frames whose own part holds no lips (the job's `part.parts_on`),
+    and `--no-mouth-on` for the load's frames whose own part holds no lips (the job's `part.parts_on`), and `--over-the-eyes` for the
+    plan's restore spans of a class over her eyes on the load's frames (the job's `restore`, `head_reference.OVER_THE_EYES`),
     or the reference step's own `--mouth`/`--iris` with `--form-why`. A job written before 2026-10-14 says neither: its form is the
     tool's own as before (the mouth left out, the iris between the lids)."""
     said = job.get("reference") or {}
@@ -1569,6 +1570,14 @@ def drawn_form(job: dict, a, files: dict, preview_first: int) -> list:
         if not {"Upper_Lip", "Lower_Lip"} & set(on["classes"]):
             out += ["--no-mouth-on", f"{on['first']}-{on['last']}=the load's part is {'+'.join(next((x['parts'] for x in part.get('parts_on') or [] if x['first'] == on['first']), on['classes']))} "
                                      f"alone there ({' '.join(str(part.get('by') or 'who said so is not in the job').split())})"]
+    # the plan's restore spans of a class over her eyes (her own glasses, head_reference.OVER_THE_EYES): the face counts as on her track
+    # there by the lower face (the lead, 2026-10-15, on 2823's white sunglasses, off her track from 3073)
+    import head_reference
+    for r in job.get("restore") or []:
+        over = [c for c in r["classes"] if c in head_reference.OVER_THE_EYES]
+        if over:
+            out += ["--over-the-eyes", f"{r['first']}-{r['last']}=the plan gives back her {'+'.join(over)} there "
+                                       f"({' '.join(str(r.get('by') or 'who said so is not in the job').split())[:200]})"]
     return out
 
 

@@ -1615,6 +1615,12 @@ def the_defaults_this_load_carries() -> str:
         got = stl.drawn_form(hair, args(), files, 100)
         # THE CASE THAT GOES RED when the reference is not told the load's lipless frames, or is told a range that holds the lips
         assert got[-2:] == ["--no-mouth-on", "1025-1031=the load's part is hair alone there (THE OWNER'S ANSWER)"] and got.count("--no-mouth-on") == 1, got
+        # the plan's restore span of her own glasses (2823's 3063-3097): the reference told it, with the plan's words; her hands' span not
+        glasses = {**job, "restore": [{"classes": ["Eyeglass"], "first": 3063, "last": 3097, "by": "THE PLAN'S WORD"},
+                                      {"classes": ["Left_Hand", "Right_Hand"], "first": 3060, "last": 3097, "by": "THE PLAN'S WORD"}]}
+        got = stl.drawn_form(glasses, args(), files, 100)
+        # THE CASE THAT GOES RED when a span of her own glasses is not passed on, or a span of her hands is (895 and 897: another face)
+        assert got[-2:] == ["--over-the-eyes", "3063-3097=the plan gives back her Eyeglass there (THE PLAN'S WORD)"] and got.count("--over-the-eyes") == 1, got
     return ("the job prints and keeps the defaults it carries, each with where it comes from (the eye in contrast, the mouth by the lip check, zoomed where "
             "the node allows); the plan's reference form stands over them with its reason, and not without one; the reference step's word with its reason over both")
 
