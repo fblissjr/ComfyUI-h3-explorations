@@ -28,6 +28,11 @@ Older history lives elsewhere and is not copied here:
   (her own hands in front of her face are given back). Where it lives: `data/fun/plan.json`.
 - **second_hfp_5461c takes a hands-and-arms restore span on 5461-5497**, by the same standing rule (its gate's
   f001: her own hands and arms up to 3577 px inside the region on all 37 frames).
+- **second_hfp_1010e's held override covers the egg in her fist** (mrtall, after 15:10Z, on mrarc's overlays
+  `data/2026-10-14_fun_second_inputs/second_hfp_1010e.held_1015_1018_1023.jpg` and `..._held_1015_close.png`).
+  The held mask left 115, 69 and 6 px on 1015, 1018 and 1023: her fingertips, her fist and forearm, and on 1015
+  the rim of a white egg she holds at her chin. This is mrtwo's rule of 2026-10-14 after 21:18Z for held things
+  she touches near her face, widened from 1010d's "fingers and hand" to name the egg.
 - **The 2050-2622 shot is built only up to where the group picture starts to warp, about 2205**; the warped
   picture, the spinning ball, its shards and the bubbles wait on the owner (Open List row 1 of 10/15,
   `Video/fun/day_2026-10-15/sheet_2200_2622_every12.jpg`). What it replaces: the 10/14 queue's run 2050-2248,
