@@ -56,9 +56,15 @@ from dataclasses import dataclass
 from comfy.ldm.minimax.model import FRAME_PER_TOKEN
 from comfy_extras.nodes_minimax_h3 import FPS
 
+try:
+    from .h3_rules import MAX_LENGTH, chain_lengths
+except ImportError:                                           # imported as a top-level module by the checks
+    from h3_rules import MAX_LENGTH, chain_lengths  # type: ignore[no-redef]
+
 # Lengths on both clocks: video runs (17k + 5) whose frame count is a multiple
-# of 3, so the audio slice is whole latent steps. 39 + 51k.
-CHAIN_LENGTHS = (141, 192, 243, 294, 345)
+# of 3, so the audio slice is whole latent steps, up to the ceiling `h3_rules.MAX_LENGTH` (`h3_rules.chain_lengths`,
+# the rule's one home; the lengths are worked out, never typed).
+CHAIN_LENGTHS = chain_lengths()
 #: Frames between neighbouring lengths on both clocks, so what a window adds
 #: moves in these steps and a timeline entry lands within half of one.
 #: Inherited from the grid above.
@@ -90,9 +96,10 @@ def stands_alone(window_frames: int, total_frames: int | None) -> bool:
     (`temporal_shape`), and the lane cuts exactly that many audio steps (`audio_freeze.slice_window`), so nothing
     pads and nothing is refused. Until 2026-10-13 a track of two dozen frames was sampled as the shortest chained
     length, most of it a held last frame (the owner: a window's length is a choice, and it only has to be a
-    length valid for the model). No longer than the longest chained length: the long end is as it was."""
+    length valid for the model). No longer than the model's ceiling, `h3_rules.MAX_LENGTH` (the owner, 2026-10-15:
+    until then a lone window was held to the longest chained length, a seam rule it has no seam for)."""
     return (total_frames is not None and int(window_frames) % 17 == 5
-            and 0 < int(total_frames) <= int(window_frames) <= max(CHAIN_LENGTHS))
+            and 0 < int(total_frames) <= int(window_frames) <= MAX_LENGTH)
 
 
 def check_window_settings(window_frames: int, context_frames: int, total_frames: int | None = None) -> None:
@@ -104,7 +111,7 @@ def check_window_settings(window_frames: int, context_frames: int, total_frames:
         if stands_alone(window_frames, total_frames):
             return
         raise ValueError(f"window_frames {window_frames} is not on both clocks; use one of {CHAIN_LENGTHS}. A length off that "
-                         "list is taken only on the video grid (17n + 5: 22, 39, 56, ...), no longer than the longest of them, "
+                         f"list is taken only on the video grid (17n + 5: 22, 39, 56, ...), no longer than {MAX_LENGTH}, "
                          "and only for a track it holds whole as ONE window"
                          + ("" if total_frames is None else f"; this track is {total_frames} frames"))
     if context_frames % 17 != 5 or (context_frames * 5) % 3 != 0 or context_frames >= window_frames:

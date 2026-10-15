@@ -93,7 +93,7 @@ import prompts as _prompts  # noqa: E402
 from h3_config import (  # noqa: E402
     DAILY_DIR, DAILY_GRAPHS, SINGLE_FRAME_DIR,
     CORE_LOADED_ENCODERS, IMAGE_VAE, DRAFT_VAE, STEP_SWITCH_PASS1_SIGMAS, STEP_SWITCH_PASS2_SIGMAS,
-    STEP_SWITCH_REV, STEP_SWITCH_BASE, CANVAS, FPS, LENGTH, LONG_LENGTH, MODELS,
+    STEP_SWITCH_REV, STEP_SWITCH_BASE, CANVAS, FPS, LENGTH, LONG_LENGTH, LONG_WINDOW, MODELS,
     SAMPLING, SAGE_NODE, DENSE_BACKEND_NODE, DENSE_CHAINS, DEFAULT_DENSE_CHAIN, SEED, SIGMA_SHIFT, SOL_CORE_NODE, SOL_CORE_DEFAULTS,
     REF_VIDEO_LOADER, REF_QWEN_SHORT_EDGE, SEGMENTER, SUBJECT_TRACK, MASKED_SOURCE,
     MASKED_MOTION_STEPS, MASKED_MOTION_SOURCE, MASKED_PROMPT, MASKED_PROMPT_NODE,
@@ -363,8 +363,8 @@ VIDEO_FORMAT = "video/h264-mp4"
 # drifted; the owner heard it before any measure showed it, and
 # `data/results/2026-08-22_swap_prompt_verdict_362.json` has the per-third
 # numbers. The cut is at 14.375s, inside a 0.3s silence at -56 dB, so the
-# utterance ENDS rather than being interrupted -- and 14.375 * 24 is exactly
-# 345, the `17n+5` count `REF_VIDEO_LENGTH` renders at.
+# utterance ENDS rather than being interrupted -- and 14.375 * 24 is a whole
+# `17n+5` count, the one `REF_VIDEO_LENGTH` renders at (`h3_config.REF_CLIP_SECONDS`).
 #
 # **Still 25 fps on purpose.** Trimming to 24 would have made `force_rate=24` a
 # no-op and quietly retired the fps hazard this clip exists to exercise. The
@@ -3751,11 +3751,11 @@ def main():
          _bank_prompt("t2va_studio_dancer_close"),
          dict(freeze_song=True, freeze_song_seconds=30.0,
               freeze_context=39, out_prefix="Video/h3_t2v_audio_freeze_song",
-              length=LONG_LENGTH),
+              length=LONG_WINDOW),
          "a whole track from one node: windows planned from the song, one prompt throughout"),
         # The whole-track graph on the PDD8 baked chain, at the settings the
         # evidence supports for a full song (owner's ask, 2026-09-13 evening):
-        # 345-frame windows with a 39-frame context (the only context judged:
+        # the longest chained windows (LONG_WINDOW) with a 39-frame context (the only context judged:
         # the seam read better than either single window), the whole track,
         # the loose mask (read slightly better than frozen on the dancer at
         # two seeds; music, no speech), PDD8 at its own eight evaluations
@@ -3768,9 +3768,9 @@ def main():
               unet=MODELS["unet_fl2va_pdd8_baked"],
               lora=(PDD_FL2VA_STRIPPED_LORA, PDD_STRENGTH), steps=PDD_STEPS,
               freeze_song=True, freeze_song_seconds=None,
-              freeze_mask=0.25, freeze_context=39, length=LONG_LENGTH,
+              freeze_mask=0.25, freeze_context=39, length=LONG_WINDOW,
               out_prefix="Video/h3_t2v_audio_freeze_song_pdd8"),
-         "a whole song on PDD8: 345-frame windows, 39 context, loose mask"),
+         "a whole song on PDD8: the longest chained windows, 39 context, loose mask"),
         # The PDD8 song graph with the subject anchored by a reference still
         # (owner, 2026-09-14): fl2va takes references, and a fixed still is
         # the anchor a long song wants, not the previous window's last frame,
@@ -3784,7 +3784,7 @@ def main():
               lora=(PDD_FL2VA_STRIPPED_LORA, PDD_STRENGTH), steps=PDD_STEPS,
               freeze_song=True, freeze_song_seconds=None,
               freeze_song_refs=next(s for t, _p, s in REFVIEW2_SCENES if t == "dancer"),
-              freeze_mask=0.25, freeze_context=39, length=LONG_LENGTH,
+              freeze_mask=0.25, freeze_context=39, length=LONG_WINDOW,
               out_prefix="Video/h3_t2v_audio_freeze_song_ref_pdd8"),
          "a whole song on PDD8 with the subject anchored by a reference still"),
         # The PDD8 song graph with prompt lists, the shipped example of
@@ -3805,7 +3805,7 @@ def main():
               lora=(PDD_FL2VA_STRIPPED_LORA, PDD_STRENGTH), steps=PDD_STEPS,
               freeze_song=True, freeze_song_seconds=None, freeze_song_timeline=_SONG_FLICKER_TIMELINE,
               freeze_song_lists=_SONG_FLICKER_LISTS, freeze_track="just-a-flicker.mp3",
-              freeze_mask=0.25, freeze_context=39, length=LONG_LENGTH,
+              freeze_mask=0.25, freeze_context=39, length=LONG_WINDOW,
               out_prefix="Video/h3_t2v_audio_freeze_song_lists_pdd8"),
          "a whole song on PDD8 on the song's sections, two prompt lists moving on once per section"),
         # Masked video-to-video on the PDD8 song chain (owner, 2026-10-04):
@@ -3829,7 +3829,7 @@ def main():
               freeze_song=True, freeze_song_seconds=30.0,
               freeze_song_refs=(PLACEHOLDER_IMAGE_A,), freeze_song_source=True,
               masked_prompt=MASKED_PROMPT,
-              freeze_mask=0.0, freeze_context=39, length=LONG_LENGTH,
+              freeze_mask=0.0, freeze_context=39, length=LONG_WINDOW,
               out_prefix="Video/h3_v2v_masked_song_pdd8"),
          "masked video to video: a source video's subject replaced from a reference still, audio kept"),
         # A part of the subject through Sapiens2 (2026-10-06): the part node
@@ -3848,7 +3848,7 @@ def main():
               freeze_song=True, freeze_song_seconds=30.0,
               freeze_song_refs=(PLACEHOLDER_IMAGE_A,), freeze_song_source=True,
               masked_source=MASKED_PARTS_SOURCE, masked_parts=True, masked_prompt=MASKED_PARTS_PROMPT,
-              freeze_mask=0.0, freeze_context=39, length=LONG_LENGTH,
+              freeze_mask=0.0, freeze_context=39, length=LONG_WINDOW,
               out_prefix="Video/h3_v2v_masked_parts_song_pdd8"),
          "masked video to video, a part of the subject: head and hair found by Sapiens2 and replaced from a still"),
         # The look before a masked render (2026-10-06, the masking board's
@@ -3865,7 +3865,7 @@ def main():
               freeze_song=True, freeze_song_seconds=30.0,
               freeze_song_refs=(PLACEHOLDER_IMAGE_A,), freeze_song_source=True,
               masked_prompt=MASKED_PROMPT, masked_review=True,
-              freeze_mask=0.0, freeze_context=39, length=LONG_LENGTH,
+              freeze_mask=0.0, freeze_context=39, length=LONG_WINDOW,
               out_prefix="Video/h3_v2v_masked_review"),
          "masked video to video, the look before a render: who was tracked in each shot, the region and the prompt, nothing sampled"),
         # The same lane on the ref2va base for a shot that needs the original's
@@ -3887,7 +3887,7 @@ def main():
               freeze_song=True, freeze_song_seconds=30.0,
               freeze_song_refs=(PLACEHOLDER_IMAGE_A,), freeze_song_source=True,
               masked_source=MASKED_MOTION_SOURCE, masked_prompt=MASKED_PROMPT,
-              freeze_mask=0.0, freeze_context=39, length=LONG_LENGTH,
+              freeze_mask=0.0, freeze_context=39, length=LONG_WINDOW,
               out_prefix="Video/h3_v2v_masked_song_ref2va_motion"),
          "masked video to video on ref2va: the subject replaced from a still and moving as the source's subject moved"),
         # The graph above with the region cut to the head and upper body
@@ -3904,7 +3904,7 @@ def main():
               freeze_song_refs=(PLACEHOLDER_IMAGE_A,), freeze_song_source=True,
               masked_source=MASKED_UPPER_SOURCE, masked_parts=MASKED_UPPER_PARTS,
               masked_prompt=MASKED_UPPER_PROMPT,
-              freeze_mask=0.0, freeze_context=39, length=LONG_LENGTH,
+              freeze_mask=0.0, freeze_context=39, length=LONG_WINDOW,
               out_prefix="Video/h3_v2v_masked_upper_song_ref2va_motion"),
          "masked video to video on ref2va, the head and upper body: found by Sapiens2, replaced from a still, moving as the source's subject moved"),
         # The ref2va motion graph with the frozen video cache on the song
@@ -3921,7 +3921,7 @@ def main():
               freeze_song=True, freeze_song_seconds=30.0,
               freeze_song_refs=(PLACEHOLDER_IMAGE_A,), freeze_song_source=True,
               masked_source=MASKED_MOTION_SOURCE, masked_prompt=MASKED_PROMPT, masked_cache=True,
-              freeze_mask=0.0, freeze_context=39, length=LONG_LENGTH,
+              freeze_mask=0.0, freeze_context=39, length=LONG_WINDOW,
               out_prefix="Video/h3_probe_v2v_masked_song_ref2va_motion_cache"),
          "masked video to video on ref2va with the frozen video cache on the song node's model: kept rows computed once a window"),
         # The upper-body graph with the cache, the same one change: the
@@ -3934,7 +3934,7 @@ def main():
               freeze_song_refs=(PLACEHOLDER_IMAGE_A,), freeze_song_source=True,
               masked_source=MASKED_UPPER_SOURCE, masked_parts=MASKED_UPPER_PARTS,
               masked_prompt=MASKED_UPPER_PROMPT, masked_cache=True,
-              freeze_mask=0.0, freeze_context=39, length=LONG_LENGTH,
+              freeze_mask=0.0, freeze_context=39, length=LONG_WINDOW,
               out_prefix="Video/h3_probe_v2v_masked_upper_song_ref2va_motion_cache"),
          "masked video to video on ref2va, the head and upper body, with the frozen video cache on the song node's model"),
         # The PDD8 freeze with the audio attention gain node in front of the
@@ -3953,7 +3953,7 @@ def main():
         # track's span. The seam is the thing to look at.
         ("h3_text_to_video_audio_freeze_2windows.json", "t2v-audio-freeze-2windows", "t2v",
          LONG_T2V_PROMPT,
-         dict(freeze_windows=2, freeze_context=39, out_prefix="Video/h3_t2v_audio_freeze_2windows"),
+         dict(freeze_windows=2, freeze_context=39, length=LONG_WINDOW, out_prefix="Video/h3_t2v_audio_freeze_2windows"),
          "text + a frozen audio track -> two windows joined at a 39-frame frozen seam"),
         ("h3_image_ref_plus_text_to_video.json", "r2v", "r2v", _ref_prompt(images=True), {},
          "reference image(s) + text -> video + audio"),
@@ -4525,17 +4525,10 @@ def main():
         #
         # 362 frames, which is the longest length H3 was trained on and the
         # last shot needs it.
-        # **These three carried `length=362` as a literal until 2026-08-30**,
-        # so the owner's move of the long default to 345 did not reach them and
-        # they were the only graphs left off the audio clock. Now on
-        # LONG_LENGTH like everything else.
-        #
-        # Safe for their prompts, checked rather than assumed on 2026-08-30,
-        # when the shot headers carried times (00:06.000 and 00:11.000, inside
-        # 345 frames as they were inside 362); they carry none now
-        # (`docs/prompting.md` section 3.1). What changes is the final shot, from
-        # 4.08s to 3.38s, and its direction is "holds still until the final
-        # frame", which does not name a duration.
+        # On LONG_LENGTH like everything else (the owner, 2026-10-15: the
+        # ceiling is the max). Their shot headers carry no times
+        # (`docs/prompting.md` section 3.1), and the final shot's direction,
+        # "holds still until the final frame", names no duration.
         ("h3_text_to_video_dialogue.json", "t2v-dialogue", "t2v",
          DIALOGUE_T2V_PROMPT,
          dict(length=LONG_LENGTH, out_prefix="Video/h3_t2v_dialogue"),
@@ -4840,7 +4833,7 @@ def main():
          _ref_prompt(images=True),
          dict(pdd=True, dense_attn=True, sampler_name="euler", lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
               length=345, out_prefix="Video/h3_probe_r2v_pdd_345"),
-         "PDD ref2va at the long end of the trained frame range"),
+         "PDD ref2va at the fixed length its records were taken at (a probe's input, not the ceiling)"),
 
         ("h3_probe_ref2v_pdd_8s.json", "r2v-pdd-8s", "r2v",
          _ref_prompt(images=True),

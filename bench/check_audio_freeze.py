@@ -853,7 +853,7 @@ def check_song_plan(problems):
         if i and abs(covered - want) > half:
             _fail(problems, f"plan: {entries[i][1]} at {entries[i][0]}s starts at frame {covered}, not within "
                             f"{half} of {want}")
-        if any(n not in lp.CHAIN_LENGTHS or n > 345 for n in lengths) or lengths != sorted(lengths, reverse=True):
+        if any(n not in lp.CHAIN_LENGTHS for n in lengths) or lengths != sorted(lengths, reverse=True):
             _fail(problems, f"plan: {entries[i][1]} got windows {lengths}")
         covered += sum(n - (0 if covered == 0 and j == 0 else ctx) for j, n in enumerate(lengths))
     if not FLICKER_FRAMES <= covered < FLICKER_FRAMES + grid:
@@ -1066,9 +1066,13 @@ def check_step_grid(problems):
         _fail(problems, "window: check_window_settings took a length off the chained list with no track to hold it to")
     if not _raises(lp.plan_windows, 24, 39, 90, ((0.0, "a"), (0.5, "b"))):
         _fail(problems, "window: a window that stands alone was planned over two timeline entries")
-    if lp.CHAIN_LENGTHS != (141, 192, 243, 294, 345):
-        _fail(problems, f"window: the chained lengths changed: {lp.CHAIN_LENGTHS}")
-    for total, window, want in ((24, 141, [141]), (150, 345, [192]), (400, 345, None), (345, 345, [345])):
+    # the chained lengths are the seam rule's under the ceiling (h3_rules.chain_lengths), never a typed list (2026-10-15)
+    import h3_rules
+    on_both = [n for n in range(1, h3_rules.MAX_LENGTH + 1) if n % 17 == 5 and n % 3 == 0 and n >= h3_rules.SHORTEST_CHAINED]
+    if list(lp.CHAIN_LENGTHS) != on_both or max(lp.CHAIN_LENGTHS) > h3_rules.MAX_LENGTH:
+        _fail(problems, f"window: the chained lengths are not every length on both clocks up to the ceiling: {lp.CHAIN_LENGTHS}")
+    top = max(lp.CHAIN_LENGTHS)
+    for total, window, want in ((24, 141, [141]), (150, top, [192]), (400, top, None), (top, top, [top])):
         got = [n for _e, each in lp.plan_windows(total, window, 90) for n in each]
         if (want is not None and got != want) or any(n not in lp.CHAIN_LENGTHS for n in got):
             _fail(problems, f"window: a chained length's plan moved: {total} frames at {window} gives {got}")

@@ -13,7 +13,7 @@ the coverage tool's own words; each of those can be off by a frame, a preview or
   seeded_or_picked                  from the preview's own table; the frames the track is off are counted and named
   the_last_preview_listed_is_read   where two cover a shot and track the subject, the last listed is read, the other is named, and the row says how many of the shot's frames it covers
   no_preview_says_so                a row no preview covers, and a row whose preview does not track the subject, each say which and carry what stands there alone
-  one_window_or_more                the window the builder would take, and the frames over the planner's longest
+  one_window_or_more                the window the builder would take, and the frames over the model's ceiling
   what_stands_is_the_coverage_tools the row's state is `shot_coverage.coverage()`'s for the same files, with the piece laid and the owner's line on it
   the_owners_words_are_whole        every words line of the owner on the shot's frames, and no session's; the plan's dated note on a stretch of the shot is on that subject's row and no other
   no_frame_is_a_heading_and_the_rest_are_sorted   the row whose part is on no frame is under that heading; the others are in order of the frames the part is there, fewest first; no row is called anything
@@ -94,7 +94,7 @@ def main() -> int:
 
     names = cap._pack("sapiens2_parts").CLASS_NAMES
     hair, face = names.index("Hair"), names.index("Face_Neck")
-    longest = max(masked_job.chain_lengths())
+    longest = shot_parts.h3_config.MAX_LENGTH    # one window holds a load up to the ceiling (2026-10-15)
     with tempfile.TemporaryDirectory() as d:
         d = Path(d)
         last = 199 + longest + 20
@@ -193,7 +193,7 @@ def main() -> int:
              and far["stands"]["state"] and other is not None and other["no_preview"] == "a preview handed in covers this shot and does not track this subject"
              and "### No part read: 2 row(s)" in md and "NO PREVIEW READ: no preview handed in covers this shot" in md, (far.get("no_preview"), other and other.get("no_preview"), r2.stderr[-300:]))
         case("one_window_or_more", row[(100, "a")]["window"]["one_window"] is True and row[(100, "a")]["window"]["the_builder_would_take"] == 22 < min(masked_job.chain_lengths())
-             and far["window"]["one_window"] is False and far["window"]["frames_over_the_longest"] == 20 and f"MORE THAN ONE WINDOW: 20 frames over the longest ({longest})" in md, far["window"])
+             and far["window"]["one_window"] is False and far["window"]["frames_over_the_longest"] == 20 and f"MORE THAN ONE WINDOW: 20 frames over the ceiling ({longest})" in md, far["window"])
         read_table, read_intents = shot_coverage._delivery()
         theirs = shot_coverage.coverage(shot_coverage.load_shots(d / "shots.json"), shot_coverage.load_plan(d / "plan.json", ["a", "b"]), read_table(str(d / "t.txt")),
                                         read_intents(str(d / "t.txt")), json.loads((d / "renders.json").read_text())["renders"],

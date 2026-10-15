@@ -68,6 +68,12 @@ import torch
 from comfy_api.latest import io
 
 from .audio_resample import RESAMPLER, resample
+from .h3_rules import chain_lengths
+
+#: The chained window lengths as words, for the messages and tooltips below: worked out from the rule
+#: (`h3_rules.chain_lengths`), never typed.
+_CHAIN = chain_lengths()
+_CHAIN_WORDS = ", ".join(str(n) for n in _CHAIN[:-1]) + f" or {_CHAIN[-1]}"
 
 import comfy.nested_tensor
 from comfy.ldm.minimax.model import FRAME_PER_TOKEN
@@ -394,7 +400,8 @@ def window_geometry(latent_t: int, context_frames: int) -> dict:
         raise ValueError(
             f"a {frames}-frame window with a {c}-frame context strides {stride} frames, which is "
             "not on the audio grid. A chained window must itself land on both clocks: "
-            "39 + 51k frames, so 141, 192, 243, 294 or 345 (5.9 s to 14.4 s in 2.1 s steps)")
+            f"39 + 51k frames, so {_CHAIN_WORDS} ({_CHAIN[0] / FPS:.1f} s to {_CHAIN[-1] / FPS:.1f} s in "
+            f"{(_CHAIN[1] - _CHAIN[0]) / FPS:.1f} s steps)")
     return {"frames": frames, "context_frames": c, "context_steps": steps,
             "stride_frames": stride, "stride_seconds": stride / FPS}
 
@@ -455,7 +462,7 @@ class MiniMaxH3FreezeAudioWindow(io.ComfyNode):
                 io.Latent.Input("previous", optional=True,
                                 tooltip=("The previous window's SAMPLED latent (the sampler's output). Windows may "
                                          "differ in length, one shot each, but each must land on both clocks: "
-                                         "141, 192, 243, 294 or 345 frames. Same canvas.")),
+                                         f"{_CHAIN_WORDS} frames. Same canvas.")),
                 io.Float.Input("audio_mask", default=0.0, min=0.0, max=1.0, step=0.01),
                 io.Combo.Input("level", options=["clip_guard", "peak", "none"], default="clip_guard"),
                 io.Latent.Input("track_latent", optional=True,

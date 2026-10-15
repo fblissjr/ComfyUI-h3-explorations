@@ -416,13 +416,14 @@ def the_job_step() -> str:
         a_reference(Path(two["loads"][1]["reference"]), 300, 50)             # the second load's reference is made again, with other pictures
         refused(lambda: made.job(remake=True), "does NOT decode equal", "another making")
         assert not (made.jobs / "a_two_0106c.json").exists()
-        # two shots too long for one window are two loads
-        real = masked_job.chain_lengths
-        masked_job.chain_lengths = lambda *_a, **_k: (39, 56)
+        # two shots too long for one window are two loads: the ceiling made short for the case (one window holds a load
+        # up to `MAX_LENGTH`, 2026-10-15), the chain under it
+        real, real_max = masked_job.chain_lengths, graphs.MAX_LENGTH
+        masked_job.chain_lengths, graphs.MAX_LENGTH = (lambda *_a, **_k: (39, 56)), 56
         try:
             refused(lambda: made.job(name="too_long"), "84 frames together", "two loads")
         finally:
-            masked_job.chain_lengths = real
+            masked_job.chain_lengths, graphs.MAX_LENGTH = real, real_max
     return "the joined preview, the joined reference and the job file; read by the chain as any load"
 
 

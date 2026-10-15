@@ -47,7 +47,7 @@ who is `unsure` on a shot is under a heading of their own and in neither list.
   in the figures;
 - one window or more: the window the builder would render the shot in (`masked_job_graph.window_for`: for a shot
   one window holds, the shortest length of the model's video grid that holds it), and whether the shot is longer
-  than the planner's longest (`masked_job.chain_lengths`);
+  than the model's ceiling (`h3_config.MAX_LENGTH`);
 - what stands there: the coverage tool's own state for the row, the pieces the table lays and the other
   renders on those frames, each with the owner's lines on it;
 - the owner's typed words on the shot, every line, whole; the shot's own note; and the plan's dated notes on any
@@ -78,6 +78,7 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "workflows"))
 import capture_masked_run as cap  # noqa: E402
 import masked_job  # noqa: E402
+import h3_config  # noqa: E402
 import masked_job_graph  # noqa: E402
 import shot_coverage  # noqa: E402
 import who_page  # noqa: E402
@@ -191,7 +192,9 @@ def lists(shots: dict, plan: dict, covered: dict, made: list[dict], answers: lis
             row = {"first": s["first"], "last": s["last"], "frames": n, "subject": label, "present": s["who"][label]["present"],
                    "region": wanted["region"], "parts": list(wanted.get("parts") or []), "keep_outs": list(wanted.get("keep_outs") or []),
                    "window": {"the_builder_would_take": masked_job_graph.window_for(n, windows), "the_planners_lengths": list(windows),
-                              "one_window": n <= max(windows), "frames_over_the_longest": max(n - max(windows), 0)},
+                              # one window up to the model's ceiling (the owner, 2026-10-15), not the longest chained length
+                              "one_window": n <= h3_config.MAX_LENGTH, "the_ceiling": h3_config.MAX_LENGTH,
+                              "frames_over_the_longest": max(n - h3_config.MAX_LENGTH, 0)},
                    "nothing_to_make": there.get("nothing_to_make"),
                    "stands": {"state": there["state"], "laid": there["laid"], "left_as_the_source": there["left"],
                               "other_renders": [o for o in there["others"] if not o["in_table"]]},
@@ -254,7 +257,7 @@ def row_text(r: dict) -> list[str]:
     out = [f"### {r['first']}-{r['last']}, {r['subject']}" + (" (UNSURE in the shots record)" if r["present"] == "unsure" else ""),
            f"- {r['frames']} frames; the plan: {r['region']} ({', '.join(r['parts']) or 'no parts named'}); keep-outs: {', '.join(r['keep_outs']) or 'none'}",
            (f"- one window: the builder would take {w['the_builder_would_take']} frames" if w["one_window"] else
-            f"- MORE THAN ONE WINDOW: {w['frames_over_the_longest']} frames over the longest ({max(w['the_planners_lengths'])})")]
+            f"- MORE THAN ONE WINDOW: {w['frames_over_the_longest']} frames over the ceiling ({w['the_ceiling']})")]
     if r["preview"] is None:
         out.append(f"- NO PREVIEW READ: {r['no_preview']}")
     else:

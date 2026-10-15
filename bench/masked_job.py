@@ -250,11 +250,15 @@ def builder_not_committed(repo: Path = REPO) -> list[str]:
 
 
 def chain_lengths(repo: Path = REPO) -> tuple[int, ...]:
-    """`loop_plan.CHAIN_LENGTHS`, read from the source and not imported: the module needs ComfyUI."""
-    for line in ast.parse((repo / "loop_plan.py").read_text()).body:
-        if isinstance(line, ast.Assign) and any(getattr(t, "id", "") == "CHAIN_LENGTHS" for t in line.targets):
-            return tuple(ast.literal_eval(line.value))
-    raise Refused("loop_plan.py no longer sets CHAIN_LENGTHS; a load's window has nothing to be chosen from")
+    """`loop_plan.CHAIN_LENGTHS`, from the rule's one home (`h3_rules.chain_lengths`, loaded by its path: the planner
+    needs ComfyUI and `h3_rules` does not). Until 2026-10-15 this read a typed tuple out of loop_plan's source."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("_h3_rules_for_masked_job", repo / "h3_rules.py")
+    if spec is None or spec.loader is None:
+        raise Refused(f"{repo / 'h3_rules.py'} is not there; a load's window has nothing to be chosen from")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return tuple(mod.chain_lengths())
 
 
 def shortest_load(repo: Path = REPO) -> tuple[float, int]:

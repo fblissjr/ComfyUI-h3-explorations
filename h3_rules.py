@@ -21,9 +21,10 @@ ComfyUI enforces only the grid, and only by snapping. Its node accepts
 with no ceiling at all, and `adapt_canvas` resolves a canvas for any aspect.
 
 **The ceiling is 362 frames, and it is the model's, not the reference
-pipeline's. Owner decision, 2026-08-16.** Every "345 is the largest legal
-count" claim this repo used to carry is withdrawn -- 345 was the largest
-count *diffusers* will emit, which is a fact about diffusers.
+pipeline's. Owner decision, 2026-08-16, and again 2026-10-15** ("362 is the
+max"; AGENTS.md, "Settled about H3"): no shorter count is the largest legal one. The
+largest count *diffusers* will emit is a fact about diffusers
+(`reference_would_emit`), and no cap is taken from it.
 
 `MAX_LENGTH = 362` is the longest length H3 was trained on. Know what that
 rests on before quoting it: **one upstream statement recorded on 2026-08-14
@@ -103,6 +104,30 @@ FRAME_REMAINDER = 5
 
 CANVAS_MULTIPLE = 32
 
+#: H3's audio latent steps a second, against the video's `FPS`: a frame count is whole on the audio clock when
+#: `frames * AUDIO_LATENT_RATE / FPS` is whole, that is when it is a multiple of 3. **Inherited**: the arithmetic
+#: workflows/h3_config.py recorded on 2026-08-30 (`MAX_LENGTH` gives 603.33 audio steps, so it is not whole), and
+#: `loop_plan.check_window_settings`' own test on a context (`c * 5 % 3`) is the same rule.
+AUDIO_LATENT_RATE = 40
+#: The shortest window a run chains from. **Inherited** from `loop_plan.CHAIN_LENGTHS` as it stood on 2026-10-15,
+#: whose first length it was; the shorter lengths on both clocks (39, 90) are the contexts kept between windows.
+SHORTEST_CHAINED = 141
+
+
+def on_both_clocks(length: int) -> bool:
+    """A frame count on the video grid (17n+5) and whole on the audio clock: where two windows can meet at a seam."""
+    n = int(length)
+    return n % FRAME_FACTOR == FRAME_REMAINDER and (n * AUDIO_LATENT_RATE) % FPS == 0
+
+
+def chain_lengths(ceiling: int = MAX_LENGTH) -> tuple[int, ...]:
+    """The lengths a window that meets another may take: every count on both clocks from `SHORTEST_CHAINED` up to the
+    ceiling, `MAX_LENGTH`. The longest is whatever the rule gives under it, one grid step short of the ceiling
+    because the ceiling is not whole on the audio clock; it is never written down as a number of its own (the
+    owner's ruling of 2026-10-15, AGENTS.md, "Settled about H3"). A window that holds its whole track has no seam and
+    needs only the video grid, up to `MAX_LENGTH` (`loop_plan.stands_alone`)."""
+    return tuple(n for n in range(SHORTEST_CHAINED, int(ceiling) + 1) if on_both_clocks(n))
+
 # One frame is the single length that is not a video, and it is the only
 # exception to the 17n+5 grid. It exists because H3 is a capable single-image
 # edit model at exactly one frame. ComfyUI's own VAE already carries a `t == 1`
@@ -181,8 +206,8 @@ def max_legal_length():
     """Longest length H3 was trained on: 362 frames, 15.083s.
 
     Returns `MAX_LENGTH` rather than deriving it, because deriving a frame
-    count from a seconds ceiling is what produced the 345 answer this repo
-    shipped for a week.
+    count from a seconds ceiling is what once produced a shorter, wrong
+    answer this repo shipped for a week.
     """
     return MAX_LENGTH
 

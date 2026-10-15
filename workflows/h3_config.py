@@ -20,6 +20,20 @@ from dataclasses import dataclass as _dataclass
 from pathlib import Path
 
 
+def _h3_rules():
+    """`h3_rules.py`, loaded by its path once: the node pack's rules, which this file reads and never retypes. This file
+    cannot import the node package (`bench/check_graph_discovery.py` imports it with nothing else on `sys.path`)."""
+    import importlib.util
+    import sys as _sys
+    got = _sys.modules.get("_h3_rules_const")
+    if got is None:
+        spec = importlib.util.spec_from_file_location("_h3_rules_const", Path(__file__).resolve().parent.parent / "h3_rules.py")
+        got = importlib.util.module_from_spec(spec)
+        _sys.modules["_h3_rules_const"] = got
+        spec.loader.exec_module(got)
+    return got
+
+
 #: The ComfyUI-native INT8 ConvRot encoder (Comfy-Org's file), shipped on every
 #: graph since 2026-08-27 (late) by owner decision. On the 13-row holdout it
 #: sits an order of magnitude closer to the BF16 release at layer 50 than
@@ -1904,67 +1918,18 @@ CANVAS_TIERS = {
 CANVAS = dict(CANVAS_TIERS[CANVAS_TIER])
 FPS = 24.0
 
-# Frame counts snap to a 17k+5 grid. 362 is the ceiling -- the longest length
-# H3 was trained on -- and `h3_rules.MAX_LENGTH` is where that lives. Read its
-# docstring before quoting it: it is an owner decision on thin evidence, not a
-# measurement.
-#
-# **Restored 362 -> LONG_LENGTH on 2026-08-16, reverting the 2026-08-10 change
-# to 345.** 345 was never a model boundary; it is the largest count *diffusers*
-# will emit, and this repo spent a week presenting that as legality. The
-# portability argument it rested on is now a question you ask explicitly
-# (`h3_rules.reference_would_emit`) rather than a default that quietly caps the
-# render.
-#
-# **Comparability, both directions.** The measurements above -- the ~24%
-# attention ceiling, the 2.6% headroom ceiling, tau 1.3 against tau 2.0,
-# int8_qk/pv at 1.16x -- were taken at 362, then the default moved to 345 and
-# they were never re-taken. Moving back to 362 restores the length they were
-# measured at. Anything measured BETWEEN 2026-08-10 and 2026-08-16 was taken at
-# 345 and now sits one grid step below the default; the 5% length change should
-# not move a ratio, but it was not re-checked in either direction.
+# Frame counts snap to a 17k+5 grid. The ceiling, the longest length H3 was trained on, is `h3_rules.MAX_LENGTH`:
+# read here, never retyped. The owner, 2026-10-15: it is the max, and no shorter count stands in for it
+# (AGENTS.md, "Settled about H3").
 LENGTH = 124
-#: **345 since 2026-08-30, owner instruction, reversing the 2026-08-16
-#: restoration of 362 recorded above.** "345 the new long default yes", after
-#: "thats how we render - 1334x768 or 1152x768 and 345 frames".
-#:
-#: The 2026-08-16 note above is kept rather than rewritten, because its
-#: argument was sound and is not what changed. It reverted 345 -> 362 on the
-#: grounds that 345 was the largest count *diffusers* will emit -- a
-#: portability artifact presented as legality. That reasoning still holds:
-#: `reference_would_emit()` is where the portability question belongs, and 345
-#: is not a model boundary.
-#:
-#: What changed is that 345 has three justifications the 2026-08-16 decision
-#: never weighed, and 362 has none of them:
-#:   1. **It is what the owner renders.** That is the whole instruction and it
-#:      needs no support from the other two.
-#:   2. **It is exact on the audio clock.** H3's audio latent rate is 40 Hz
-#:      against 24 fps, so `frames * 40 / 24` must be an integer for the two
-#:      streams to land on the same grid. 345 gives 575 exactly; **362 gives
-#:      603.33 and does not**. The exact set is `39 + 51k`: 39, 90, 141, 192,
-#:      243, 294, 345. Raised by a peer session 2026-08-30 about a different
-#:      length and verified here by arithmetic.
-#:   3. **362 exceeds the vendor's own duration cap.** The reference pipeline
-#:      hard-codes `max_duration = 15.0` and 362 is 15.083s, which
-#:      `h3_rules.py` already records and calls a portability note.
-#:
-#: **What this does NOT establish.** That a non-integer audio latent count is
-#: off-distribution. The count rounds and 362 renders; nobody has sourced
-#: whether the release ever emits it. So this is "it works is not it was
-#: trained for" as a REASON TO PREFER 345, not a demonstrated defect in 362.
-#:
-#: `h3_rules.MAX_LENGTH` stays 362 deliberately. That constant is the claimed
-#: trained CEILING and answers "what is legal"; this one is the default and
-#: answers "what do we render". Collapsing them would lose the distinction the
-#: 2026-08-16 note spent a week earning.
-#:
-#: **Comparability, stated because the 2026-08-16 note stated it in the other
-#: direction.** Every figure taken at 362 -- and that is most of the Sol work,
-#: the attention ceiling, the tau arms -- now sits one grid step above the
-#: default. A 5% length change should not move a ratio, and it has not been
-#: re-checked in either direction.
-LONG_LENGTH = 345
+#: The model's ceiling on a length, `h3_rules.MAX_LENGTH`, read here for the tools that cannot import the node pack.
+MAX_LENGTH = _h3_rules().MAX_LENGTH
+#: What a long render is: the ceiling.
+LONG_LENGTH = MAX_LENGTH
+#: The longest window a run of several windows may take: the longest length on both clocks under the ceiling
+#: (`h3_rules.chain_lengths`, the seam rule; worked out, never typed). A graph whose `length` is the song node's
+#: `window_frames` takes this; a window that holds its whole track may go to `LONG_LENGTH`.
+LONG_WINDOW = max(_h3_rules().chain_lengths())
 
 # Fixed rather than randomised, and deliberately not 1. Every graph and
 # bench arm shares it, which is what makes any two of them comparable: the
@@ -2131,12 +2096,7 @@ def output_dir() -> Path:
 
 
 def _ref_qwen_short_edge() -> int:
-    import importlib.util
-    spec = importlib.util.spec_from_file_location(
-        "_h3_rules_const", Path(__file__).resolve().parent.parent / "h3_rules.py")
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return int(mod.REF_QWEN_SHORT_EDGE)
+    return int(_h3_rules().REF_QWEN_SHORT_EDGE)
 
 
 #: The encoder's own view of a still, as a short edge: the append node's
@@ -2154,21 +2114,19 @@ REF_QWEN_SHORT_EDGE = _ref_qwen_short_edge()
 
 REF_VIDEO_CANVAS = dict(width=1024, height=768)
 # Reference-video graphs render at the length of the reference CLIP, not at
-# `LONG_LENGTH`. Since 2026-08-22 the shared clip is trimmed to 14.375s ending
-# in a 0.3s silence, and 345 is the 17n+5 count that lands exactly there
-# (14.375 * 24). Matching them is the point: the untrimmed 19.56s source was
-# cut mid-delivery by a 15.083s render, the reference kept talking past the
-# end, and the last third of every render drifted --
+# `LONG_LENGTH`. Since 2026-08-22 the shared clip is trimmed to end in a 0.3s
+# silence, and its frame count is the length that lands exactly there.
+# Matching them is the point: the untrimmed 19.56s source was cut
+# mid-delivery by a 15.083s render, the reference kept talking past the end,
+# and the last third of every render drifted --
 # `data/results/2026-08-22_swap_prompt_verdict_362.json` has the per-third
-# numbers. 362 frames against this clip would fail the other way, ending 0.7s
-# after the reference runs out.
-#
-# **This is NOT the 2026-08-10 global move to 345 that was reverted on
-# 2026-08-16.** That one capped every render at diffusers' emit limit and broke
-# comparability with measurements taken at 362. `LONG_LENGTH` is untouched and
-# t2v and keyframe graphs still render 362; only the graphs wired to
-# this clip move, because only they have a clip to match.
-REF_VIDEO_LENGTH = 345
+# numbers. A `LONG_LENGTH` render against this clip would fail the other way,
+# ending 0.7s after the reference runs out. Only the graphs wired to this clip
+# take it, because only they have a clip to match; it is no ceiling.
+#: The shared reference clip's own length in seconds. **Measured** (2026-08-22, the trimmed clip).
+REF_CLIP_SECONDS = 14.375
+#: Its frame count at `FPS`, on the 17n+5 grid: the clip's, worked out from its measured length.
+REF_VIDEO_LENGTH = int(round(REF_CLIP_SECONDS * FPS))
 
 # The VHS loader every generated reference-video graph uses: the ffmpeg one,
 # not the cv2 `VHS_LoadVideo`. Owner's choice (2026-09-23), for decode

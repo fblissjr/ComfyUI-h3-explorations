@@ -80,7 +80,8 @@ off: 8.3 ms.
 
 What it touches here:
 - Chained windows and their contexts already keep to it (`audio_freeze.py`).
-- The planner's lengths do too (`loop_plan.CHAIN_LENGTHS`, 141 to 345).
+- The planner's lengths do too (`loop_plan.CHAIN_LENGTHS`, worked out by
+  `h3_rules.chain_lengths` up to the ceiling, never typed).
 - A one-window masked load does not: since 2026-10-13 it takes the shortest
   17k+5 length that holds it (`h3_rules.snap_length`), so it can be 22, 56
   or 73.
@@ -99,13 +100,16 @@ and it is a floor over sampler time at one geometry rather than a share of a
 step. Two percentages that used to sit in this sentence were withdrawn on
 2026-09-08 as having no findable origin.
 
-And late-clip identity softening at 362 is the ordinary long-clip DiT failure
-at the edge of the trained range; stepping down to 328 or 345 costs
-proportionally less attention *and* reduces it. **The shipped graphs render at
-`h3_config.LONG_LENGTH`, which is 345, not 362** — this said "362 is the
-shipped default" until 2026-09-08, which was wrong in the direction that
-matters, since it implied you inherit the most expensive legal length rather
-than choosing it.
+And late-clip identity softening at the top of the range is the ordinary
+long-clip DiT failure at the edge of the trained range; a shorter length
+costs proportionally less attention *and* reduces it. **The shipped graphs
+render at `h3_config.LONG_LENGTH`, which is `h3_rules.MAX_LENGTH`** (the
+owner, 2026-10-15: the ceiling is the max, and no shorter count stands in
+for it). Graphs whose windows meet another at a seam take
+`h3_config.LONG_WINDOW`, the longest chained length, because the ceiling is
+not whole on the audio clock. Until 2026-10-15 this paragraph said the
+shipped graphs rendered one grid step below the ceiling, which is what
+`LONG_LENGTH` then held.
 
 ## Three modality tags, not two
 

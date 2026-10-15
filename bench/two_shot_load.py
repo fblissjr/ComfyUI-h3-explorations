@@ -443,7 +443,7 @@ def step_job(a, world) -> None:
     last = cut + two["load"]["frames"] - 1
     frames, windows = last - first + 1, masked_job.chain_lengths()
     if not graphs.one_window(frames, graphs.window_for(frames, windows), windows):
-        raise Refused(f"the two loads are {frames} frames together and the planner's longest window is {max(windows)}: two shots too long for ONE window are two loads")
+        raise Refused(f"the two loads are {frames} frames together and the longest one window is {graphs.MAX_LENGTH}: two shots too long for ONE window are two loads")
     subject, folder = one["subject"], Path(a.folder)
     video = load_chain.video_of(one, world.data)
     taken = lambda n: (folder / f"{n}.json").exists() or any(world.data.glob(f"????-??-??_{n}")) or any(world.data.glob(f"????-??-??_{n}_job"))   # noqa: E731

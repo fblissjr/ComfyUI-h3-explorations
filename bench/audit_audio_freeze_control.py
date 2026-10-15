@@ -24,7 +24,7 @@ and installs nothing on this build (measured 2026-08-30).
 ## Running it
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/audit_audio_freeze_control.py \\
-        --audio <path to the track> [--start 0.0] [--length 345] [--out data/results/...json]
+        --audio <path to the track> [--start 0.0] [--length N] [--out data/results/...json]
 
 The track is a path argument on purpose: the server's input directory is
 outside this repo and is not written into it.

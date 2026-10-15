@@ -586,10 +586,13 @@ def a_load_the_graph_cannot_be_built_from():
     _unbuildable("context", {**WHOLE, "window": WINDOWS[0], "context": 40})
     _unbuildable("context", {**WHOLE, "window": WINDOWS[0], "context": WINDOWS[0]})     # a context as long as its window
     assert _a_load({**WHOLE, "context": 40}), "a load of one window off the planner's list was held to a context"
-    # THE WINDOW A LOAD MAY NAME: a length of the planner's, or one on the video grid that holds it whole and is no longer than the longest
+    # THE WINDOW A LOAD MAY NAME: a length of the planner's, or one on the video grid that holds it whole and is no longer than the
+    # model's ceiling (`MAX_LENGTH`, 2026-10-15); a load that continues another window takes one of the planner's
     _unbuildable("window", {**WHOLE, "window": SHORT_WINDOW + 1})                       # off the video grid
     _unbuildable("window", {**WHOLE, "window": SHORT_WINDOW - 17})                      # on the grid and does not hold the load
-    _unbuildable("window", {**WHOLE, "window": WINDOWS[-1] + 17})                       # on the grid, past the planner's longest
+    _unbuildable("window", {**WHOLE, "window": graphs.MAX_LENGTH + 17})                 # on the grid, past the ceiling
+    assert _a_load({**WHOLE, "window": graphs.MAX_LENGTH}), "a lone window at the ceiling was refused"
+    _unbuildable("seam", {**WHOLE, "continue_from": "before.safetensors", "window": graphs.MAX_LENGTH})   # a seam off the chain
     assert _a_load({**WHOLE, "window": WINDOWS[0]}) and _a_load({**WHOLE, "window": SHORT_WINDOW + 17}), "a window that holds the load was refused"
     _unbuildable("context_noise|continue_from", {**WHOLE, "context_noise": 0.5})
     _unbuildable("name", {**WHOLE, "name": "b 0700"})
@@ -599,13 +602,17 @@ def a_load_the_graph_cannot_be_built_from():
     _unbuildable("audio", {**WHOLE, "audio_first": 701})
     assert _a_load({k: v for k, v in WHOLE.items() if k != "still"}, plan=True), "a plan needs no still"
     # THE WINDOW THE BUILDER GIVES: the shortest length on the video grid that holds a load one window can hold (the rules
-    # module's own snap), never the shortest CHAINED length for a load far shorter than it; the planner's longest for a longer load
+    # module's own snap) up to the ceiling, never the shortest CHAINED length for a load far shorter than it; the planner's longest
+    # for a longer load; for a load that continues another window, the shortest chained length that holds it
     import h3_rules
     assert all(graphs.snapped(n) == h3_rules.snap_length(n) for n in range(2, WINDOWS[-1] + 40)), "the builder's snap is not h3_rules.snap_length"
     assert (graphs.FRAME_FACTOR, graphs.FRAME_REMAINDER) == (h3_rules.FRAME_FACTOR, h3_rules.FRAME_REMAINDER)
-    assert [graphs.window_for(n, WINDOWS) for n in (12, 22, 23, 24, 39, 40, 114, WINDOWS[0], WINDOWS[0] + 1, WINDOWS[-1], WINDOWS[-1] + 1, 2 * WINDOWS[-1])] == \
-        [22, 22, 39, 39, 39, 56, 124, WINDOWS[0], 158, WINDOWS[-1], WINDOWS[-1], WINDOWS[-1]], "the window is not the shortest valid length that holds the load"
-    assert all(graphs.window_for(n, WINDOWS) - n < graphs.FRAME_FACTOR for n in range(5, WINDOWS[-1] + 1)), "a load one window holds was given a video step or more of held frames"
+    top = graphs.MAX_LENGTH
+    assert [graphs.window_for(n, WINDOWS) for n in (12, 22, 23, 24, 39, 40, 114, WINDOWS[0], WINDOWS[0] + 1, WINDOWS[-1], WINDOWS[-1] + 1, top, top + 1, 2 * top)] == \
+        [22, 22, 39, 39, 39, 56, 124, WINDOWS[0], 158, WINDOWS[-1], top, top, WINDOWS[-1], WINDOWS[-1]], "the window is not the shortest valid length that holds the load"
+    assert all(graphs.window_for(n, WINDOWS) - n < graphs.FRAME_FACTOR for n in range(5, top + 1)), "a load one window holds was given a video step or more of held frames"
+    assert [graphs.window_for(n, WINDOWS, continues=True) for n in (24, WINDOWS[0] + 1, WINDOWS[-1], WINDOWS[-1] + 1)] == \
+        [WINDOWS[0], WINDOWS[1], WINDOWS[-1], WINDOWS[-1]], "a load that continues another window was given a length off the chain"
 
 
 def _a_capture(tmp: Path) -> Path:
@@ -888,7 +895,8 @@ def a_load_of_two_shots():
     _unbuildable("two subjects|`two_shots`", graphs.one_subject_view(pair), FILES_PAIR, job=TWO_JOB)
     long_job = {**TWO_JOB, "two_shots": {**TWO_SHOTS, "shots": [[604, 899], [900, 1050]]}}
     _unbuildable("ONE window|two loads", two(first=650, frames=400), files, job=long_job)
-    assert graphs.one_window(346, 362, WINDOWS) is False, "a window past the planner's longest was taken as one window"
+    assert graphs.one_window(graphs.MAX_LENGTH - 1, graphs.MAX_LENGTH, WINDOWS) is True, "a lone window at the ceiling was refused"
+    assert graphs.one_window(graphs.MAX_LENGTH + 1, graphs.MAX_LENGTH + 17, WINDOWS) is False, "a window past the ceiling was taken as one window"
     # through a whole build: the text across the named cut is taken, the record and the printed lines say what the load is
     with tempfile.TemporaryDirectory() as t:
         tmp = Path(t)

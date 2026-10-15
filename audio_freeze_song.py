@@ -139,6 +139,7 @@ from comfy_extras.nodes_minimax_h3 import FPS, _empty_av_latent
 from .audio_freeze import CONTEXT_NOISE, MiniMaxH3EncodeTrack, MiniMaxH3FreezeAudioWindow, _ffmpeg, _stereo
 from .conditioning import MiniMaxH3Conditioning
 from . import loop_plan, loop_resume, part_coverage, shot_table
+from .h3_rules import MAX_LENGTH
 from .prompt_lists import H3PromptLists, fill_windows
 from .loop_output import (BT709_TAGS, CLEAN_OUTPUT_ARGS, SAY_BT709, TO_BT709, join_and_mux, saved_outputs,
                           window_dir, write_metadata_png)
@@ -493,11 +494,14 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                                           "built for that, so a tracker wired live runs.")),
                 io.Int.Input("width", default=1344, min=32, max=16384, step=32),
                 io.Int.Input("height", default=768, min=32, max=16384, step=32),
-                io.Int.Input("window_frames", default=345, min=22, max=345, step=17,
-                             tooltip=("The longest window. For a run of several windows, a length on both clocks: 141, 192, "
-                                      "243, 294 or 345; windows that end a timeline entry or the track may be shorter. A track "
-                                      "that one window holds whole may take any length the model's video grid has (17n + 5: 22, "
-                                      "39, 56, ...) that holds it, and is then that one window.")),
+                # the ceiling is the model's (`h3_rules.MAX_LENGTH`, the owner, 2026-10-15); the default is the longest length a
+                # window that meets another may take under it (`loop_plan.CHAIN_LENGTHS`, worked out, never typed)
+                io.Int.Input("window_frames", default=max(loop_plan.CHAIN_LENGTHS), min=22, max=MAX_LENGTH, step=17,
+                             tooltip=("The longest window. For a run of several windows, a length on both clocks: "
+                                      + ", ".join(str(n) for n in loop_plan.CHAIN_LENGTHS) + "; windows that end a timeline "
+                                      "entry or the track may be shorter. A track that one window holds whole may take any "
+                                      f"length the model's video grid has (17n + 5: 22, 39, 56, ... up to {MAX_LENGTH}) that "
+                                      "holds it, and is then that one window.")),
                 io.Int.Input("context_frames", default=39, min=39, max=141, step=51,
                              tooltip="Frames of the previous window frozen at the head of the next: 39, 90 or 141."),
                 # A DynamicCombo, not a Float whose 0 meant "the whole track":

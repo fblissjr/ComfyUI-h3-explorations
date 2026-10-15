@@ -92,7 +92,7 @@ import copy
 import re
 
 from h3_config import (
-    FPS, SEGMENTER, SUBJECT_TRACK, SAPIENS2, MASKED_SOURCE, MASKED_PARTS_SOURCE,
+    FPS, MAX_LENGTH, SEGMENTER, SUBJECT_TRACK, SAPIENS2, MASKED_SOURCE, MASKED_PARTS_SOURCE,
     MASKED_JOB_CONTEXT, MASKED_JOB_CONTEXT_NOISE, MASKED_JOB_SOL_SINK, MASKED_JOB_MOTION, MASKED_JOB_HAIR_BAND,
     MASKED_JOB_CRF, MASKED_JOB_EDGE, MASKED_JOB_STILL_VIEW,
     MASKED_JOB_LOADER, MASKED_JOB_FORCE_RATE, MASKED_JOB_SEEK_BACK, MASKED_JOB_SAM_CORRECTIONS,
@@ -475,13 +475,16 @@ def snapped(frames: int) -> int:
 
 def one_window(frames: int, window: int, windows: tuple[int, ...]) -> bool:
     """Whether a load of `frames` in a window of `window` is ONE window that stands alone: the window holds it whole,
-    is on the video grid and is no longer than the planner's longest (`loop_plan.stands_alone`, the same rule)."""
-    return window % FRAME_FACTOR == FRAME_REMAINDER and 0 < frames <= window <= max(windows)
+    is on the video grid and is no longer than the model's ceiling, `MAX_LENGTH` (`loop_plan.stands_alone`, the same
+    rule; until 2026-10-15 it was held to the planner's longest chained length, a seam rule a lone window has no seam
+    for)."""
+    return window % FRAME_FACTOR == FRAME_REMAINDER and 0 < frames <= window <= MAX_LENGTH
 
 
-def window_for(frames: int, windows: tuple[int, ...]) -> int:
+def window_for(frames: int, windows: tuple[int, ...], continues: bool = False) -> int:
     """The window a load is rendered in: for a load one window can hold, the shortest length the model's video grid
-    has that holds it whole (`snapped`); for a longer one, the planner's longest, and it runs in several.
+    has that holds it whole (`snapped`), up to the ceiling `MAX_LENGTH` (the owner, 2026-10-15), every real frame kept
+    and the window's frames past them held; for a longer one, the planner's longest, and it runs in several.
 
     Until 2026-10-13 a load one window could hold took the shortest CHAINED length that held it, so a load of two
     dozen frames was sampled as the shortest of those, most of it a held last frame; the owner's word that day: a
@@ -489,8 +492,14 @@ def window_for(frames: int, windows: tuple[int, ...]) -> int:
     valid length holds it. A load shorter than its window still holds its last frame with the region open for the
     frames between (`video_mask.held_mask`): under one video step of them now. `windows` is
     `loop_plan.CHAIN_LENGTHS`, handed in because that module needs ComfyUI; a load may still name a `window` of its
-    own, a chained length or any that holds it as one window."""
-    return snapped(frames) if frames <= max(windows) else max(windows)
+    own, a chained length or any that holds it as one window.
+
+    A load that `continues` another window (`continue_from`) meets it at a seam, so its window is a chained length:
+    the shortest of `windows` that holds it, or the longest. The ceiling is not on the audio clock, and the window node
+    refuses a seam off it (`audio_freeze.window_geometry`)."""
+    if continues:
+        return next((w for w in sorted(windows) if w >= frames), max(windows))
+    return snapped(frames) if frames <= MAX_LENGTH else max(windows)
 
 
 def contexts_for(window: int, windows: tuple[int, ...]) -> tuple[int, ...]:
@@ -608,8 +617,11 @@ def check_load(job: dict, one: dict, windows: tuple[int, ...]) -> None:
                          f"region open over the held frames, and that is the node's only behaviour since 2026-10-10")
     if "window" in one and one["window"] not in windows and not one_window(frames, one["window"], windows):
         raise ValueError(f"load {name!r}: window {one['window']} is not a length the planner has, {windows}, nor one that holds "
-                         f"this load's {frames} frames as one window on the video grid (17n + 5, no longer than {max(windows)})")
-    window, context = one.get("window", window_for(frames, windows)), one.get("context", MASKED_JOB_CONTEXT)
+                         f"this load's {frames} frames as one window on the video grid (17n + 5, no longer than {MAX_LENGTH})")
+    window, context = one.get("window", window_for(frames, windows, bool(one.get("continue_from")))), one.get("context", MASKED_JOB_CONTEXT)
+    if one.get("continue_from") and window not in windows:
+        raise ValueError(f"load {name!r} continues another run (`continue_from`) in a window of {window}: a window that meets "
+                         f"another at a seam is one of the planner's chained lengths, {windows}")
     # a context is what a window keeps of the one before it: a load that is one window off the chained lengths has
     # none to keep and is held to none (the planner asks none of it either, `loop_plan.check_window_settings`)
     if window in windows and context not in contexts_for(window, windows):
@@ -642,7 +654,7 @@ def check_load(job: dict, one: dict, windows: tuple[int, ...]) -> None:
                              f"two-shot load is a run of its own")
         if not one_window(frames, window, windows):
             raise ValueError(f"load {name!r} is {frames} frames in a window of {window}: a two-shot load is ONE window that holds "
-                             f"both shots whole (on the video grid, no longer than {max(windows)}). Two shots too long for one "
+                             f"both shots whole (on the video grid, no longer than {MAX_LENGTH}). Two shots too long for one "
                              f"window are two loads")
 
 
@@ -745,7 +757,7 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
             # a second video beside the first, the next video reference; at the canvas's short edge unless the load says
             src.update(motion_video_2=from_file(*files["motion_2"], as_mask=False),
                        motion_short_edge_2=one.get("motion_edge_2", min(canvas)))
-    window = one.get("window", window_for(frames, windows))
+    window = one.get("window", window_for(frames, windows, bool(one.get("continue_from"))))
     for theirs in ("render_region", "largest_zoom"):
         src.pop(theirs, None)
     if RENDER_REGIONS[one.get("render_region", "frame")]:
