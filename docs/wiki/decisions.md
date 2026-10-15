@@ -33,6 +33,12 @@ Older history lives elsewhere and is not copied here:
   The held mask left 115, 69 and 6 px on 1015, 1018 and 1023: her fingertips, her fist and forearm, and on 1015
   the rim of a white egg she holds at her chin. This is mrtwo's rule of 2026-10-14 after 21:18Z for held things
   she touches near her face, widened from 1010d's "fingers and hand" to name the egg.
+- **The second subject on 5461-5497 is made hair only** (mrtall, after 15:53Z, on mrarc's blind plan look of
+  second_hfp_5461d, `data/2026-10-15_second_hfp_5461d/look_blind/reading.md`). She is bowed with both hands over her
+  face on all 37 frames; no face shows. The owner's answer on row z24 (2026-10-13) covers it: where she bows her
+  head and no face shows, her hair stays the still's. So the load is hair only (5461e), not left as the original
+  (mrarc's recommendation (b)). If its plan look reads a face pulled onto her crown, it stays the original with
+  that reason.
 - **The lead's straw hat on 2625-2711 is kept through the load's text, not a restore span; 4310-4394 runs at the
   480 floor** (mrtall, after 15:47Z, on mrarc's read `internal/claude/2026-10-15_mrarc_scripts/four_runs_read_2026-10-15.md`).
   The part model has no hat class, so by the owner's keep-accessories rule of 2026-10-14 the hat is named in the
