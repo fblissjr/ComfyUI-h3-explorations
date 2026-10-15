@@ -1147,6 +1147,34 @@ def a_load_of_some_of_its_parts() -> str:
         assert (part["of"], part["parts"], part["the_plans_parts"], part["by"], part["first"]) == ("b", ["hair"], ["hair", "face_and_neck"], why, 100), part
         # THE CASE THAT GOES RED when a load of some of the plan's parts says it renders the plan's whole region (second_hp_5461b's header)
         assert f"ONE LOAD: b, hair alone (of the plan's {made.plan['subjects']['b']['region']}, --parts)," in job["note"], job["note"][:300]
+        # NO REFERENCE VIDEO (--motion none, the lead's ruling of 2026-10-15 for 5461): a hair load only, with its reason; the load names
+        # no reference file, the note and the defaults say so, and the reference step makes nothing
+        bare = made.load(subject="b", name="b_hp_0100", parts=["hair"], parts_by=why, motion="none", motion_why="HER FACE IS HIDDEN")
+        lone = bare["loads"][0]
+        # THE CASE THAT GOES RED when a no-reference load still names a reference file, or says nothing of it
+        assert lone.get("motion") == "none" and "motion_file" not in lone and "motion_first" not in lone, lone
+        assert "NO REFERENCE VIDEO (motion none)" in bare["job"]["note"] and "HER FACE IS HIDDEN" in bare["job"]["note"], bare["job"]["note"][-400:]
+        rows_ = {x["what"]: x["carries"] for x in bare["job"]["defaults"]}
+        # THE CASE THAT GOES RED when the job still speaks of a drawn reference it does not have
+        assert rows_["the reference video"].startswith("none") and not {"the eye", "the mouth", "the reference held to the subject's track"} & set(rows_) \
+            and "reference's record" not in rows_["the text"] and "frozen form" not in bare["job"]["note"] \
+            and bare["job"]["reference"]["form"] == "none" and "mouth" not in bare["job"]["reference"], (rows_, bare["job"]["reference"])
+        refused(lambda: made.load(subject="b", name="b_hp_0100", parts=["hair"], parts_by=why, parts_on=[(130, 139, ["face_and_neck"])],
+                                  motion="none", motion_why="X"), "on every frame")
+        refused(lambda: made.load(subject="b", name="b_hfp_0100", motion="none", motion_why="X"), "for a load of her hair alone")
+        refused(lambda: made.load(subject="b", name="b_hp_0100", parts=["hair"], parts_by=why, motion="none", motion_why=" "), "say why with --motion-why")
+        jf = Path(tempfile.mkdtemp(prefix="motion_none_")) / "b_hp_0100.json"
+        jf.write_text(json.dumps(bare))
+        a_ = args()
+        a_.job_file = str(jf)
+        import contextlib
+        import io
+        out_ = io.StringIO()
+        with contextlib.redirect_stdout(out_):
+            stl.step_reference(a_, made.m)
+        assert "NO REFERENCE VIDEO (motion none), so nothing is made here" in out_.getvalue() and made.m.ran == [], (out_.getvalue(), made.m.ran)
+        a_.plain = "a word"
+        refused(lambda: stl.step_reference(a_, made.m), "no reference to cut")
         assert one["classes"] == ["Hair"] and one["track"] == str(out / "Video/v/parts/shot_c_0100/shot_c_0100_b_part_hair.mkv") \
             and one["cut_from"] == str(out / "Video/v/the session/shot_c_0100/shot_c_0100_b_classes_00001.mkv") \
             and one["inside"] == str(out / "Video/v/the session/shot_c_0100/shot_c_0100_b_parts_00001.mkv"), one

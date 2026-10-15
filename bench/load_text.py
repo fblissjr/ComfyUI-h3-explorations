@@ -42,6 +42,10 @@ crown). Nor does it carry the plan's `looks` ("blue-grey eyes"): eye words invit
 carries who she is (the lead's ruling of 2026-10-15); every face form keeps them, word for word. A part that changes inside one load (`--parts-on`, 1010's 1025-1031 hair alone) cannot be said: the window has one text
 and the model reads no frame numbers in it, so such a load's text is its own part's.
 
+**A load with no reference video** (`motion: none`, the lead's ruling of 2026-10-15, one test on second 5461-5497: her hair alone,
+her face hidden, the body model guessing her head upright while she is bowed): no `<Video 1>`, no `<Subject 2>`, nothing of
+following movements; only her hair from <Picture 1>, on the source's own picture. Refused on any load but one of the hair alone.
+
 **What it cannot see.** The picture: whether the sentence a person writes is what the shot shows; whether a drawn part
 reads on the reference (`bench/head_reference.py`'s sheet). It reads records and words.
 """
@@ -108,9 +112,10 @@ def subject_2(drawn: dict | None, moves: str = MOVES["face"]) -> str:
     return head + f", with its {joined(parts)} drawn on its face as thin white outlines" + "".join(f"; {c}" for c in clauses) + "."
 
 
-def text(plan: dict, subject: str, record: dict, place_and_action: str, voiced: list[list[int]], first: int, last: int,
+def text(plan: dict, subject: str, record: dict | None, place_and_action: str, voiced: list[list[int]], first: int, last: int,
          parts: list[str] | None = None) -> str:
-    """The whole text of one load; `parts`, the load's own part where it carries one (`job.part.parts`)."""
+    """The whole text of one load; `parts`, the load's own part where it carries one (`job.part.parts`); `record` None for a load with no
+    reference video (`motion: none`)."""
     p = plan["subjects"][subject]
     t = p.get("text") or {}
     lacking = [k for k in ("who", "looks", "her", "she") if not str(t.get(k) or "").strip()]
@@ -139,6 +144,14 @@ def text(plan: dict, subject: str, record: dict, place_and_action: str, voiced: 
             f"only the {noun}'s {hair.split(' ', 1)[1] if hair.split(' ', 1)[0] in ('her', 'his', 'their') else hair} is retained, wherever it shows"
             if region == "hair" else
             f"only the {noun}'s face is retained, wherever it shows: {her} eyes, eyebrows, nose, mouth and skin")
+    if record is None:
+        if region != "hair":
+            raise Refused("a load with no reference video (motion none) is for her hair alone, the lead's ruling of 2026-10-15")
+        return (f"subject_definitions:\n<Subject 1> is {who} whose hair comes from <Picture 1>.\n\n"
+                f"summary:\n[reference generation] <Subject 1> {sentence}, with the hair of <Picture 1>.\n\n"
+                f"retention_analysis:\n<Subject 1> (appears in [Shot 1]): partially_preserved - {kept}; {not_used} of <Picture 1> are not used.\n\n"
+                f"detailed_description:\n{film}\n[Shot 1] <Subject 1>, {who}, {sentence}. {her[0].upper() + her[1:]} hair is the hair of <Picture 1>."
+                f"\n\n{SOUND}")
     drawn = None if record.get("form") == "plain" else (record.get("drawn") or {})
     if region == "hair" and drawn is not None and not {"eyes", "brows", "nose"} <= set(drawn.get("parts_left_out") or []):
         raise Refused("the load is her hair alone and its reference draws a face: make the reference again with --no-face-on over its frames "
@@ -162,17 +175,21 @@ def for_job(job_file: Path, place_and_action: str, plan_file: Path, voice_spans:
     """The text of a job file's load, and what it was made from."""
     d = json.loads(Path(job_file).read_text())
     load = d["loads"][0]
-    record_path = Path(load["motion_file"]).with_suffix(".json")
-    if not record_path.is_file():
-        raise Refused(f"the reference's record {record_path} is not there: the text says what the reference shows, and is made after it")
-    record = json.loads(record_path.read_text())
+    if load.get("motion") == "none":
+        record_path, record = None, None                # no reference video wired (masked_job_graph.motion_of): the text names none
+    else:
+        record_path = Path(load["motion_file"]).with_suffix(".json")
+        if not record_path.is_file():
+            raise Refused(f"the reference's record {record_path} is not there: the text says what the reference shows, and is made after it")
+        record = json.loads(record_path.read_text())
     plan = json.loads(Path(plan_file).read_text())
     voiced = json.loads(Path(voice_spans).read_text())["voiced_spans_inclusive"]
     first, last = load["first"], load["first"] + load["frames"] - 1
     parts = ((d.get("job") or {}).get("part") or {}).get("parts")
     words = text(plan, load["subject"], record, place_and_action, voiced, first, last, parts)
-    return words, {"reference_record": str(record_path), "plan": str(plan_file), "voice_spans": str(voice_spans),
-                   "drawn": {k: (record.get("drawn") or {}).get(k) for k in ("parts_left_out", "iris", "mouth")}}
+    return words, {"reference_record": str(record_path) if record_path else "none: the load takes no reference video (motion none)",
+                   "plan": str(plan_file), "voice_spans": str(voice_spans),
+                   "drawn": {k: ((record or {}).get("drawn") or {}).get(k) for k in ("parts_left_out", "iris", "mouth")}}
 
 
 def main(argv=None) -> int:

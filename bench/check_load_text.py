@@ -102,6 +102,30 @@ def a_load_of_the_hair_alone() -> str:
         raise AssertionError("a hair load's text was written on a reference that draws a face")
     except lt.Refused as e:
         assert "draws a face" in str(e), str(e)
+    # NO REFERENCE VIDEO (motion none, 5461's test): no <Video 1>, no <Subject 2>, nothing of following movements; a hair load only
+    none = lt.text(PLAN, "second", None, "bows her head into her hands", VOICED, 484, 515, parts=["hair"])
+    # THE CASE THAT GOES RED when a no-reference text names a video, a second subject or movements to follow
+    for wrong in ("<Video", "<Subject 2>", "follows", "performs", "face is the face", "blue-grey eyes"):
+        assert wrong not in none, (wrong, none)
+    for right in ("<Subject 1> is the woman whose hair comes from <Picture 1>.", "with the hair of <Picture 1>.", "Her hair is the hair of <Picture 1>.",
+                  "only the woman's long, loose blonde hair is retained"):
+        assert right in none, (right, none)
+    try:
+        lt.text(PLAN, "second", None, "stands", VOICED, 484, 515)
+        raise AssertionError("a face-and-hair load's text was written with no reference video")
+    except lt.Refused as e:
+        assert "motion none" in str(e), str(e)
+    # for_job on a job file of such a load: no record is read (motion none), the text has no video
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        d = Path(tmp)
+        (d / "plan.json").write_text(json.dumps(PLAN))
+        (d / "voice.json").write_text(json.dumps({"voiced_spans_inclusive": VOICED}))
+        (d / "job.json").write_text(json.dumps({"job": {"part": {"parts": ["hair"]}}, "loads": [{"subject": "second", "first": 484, "frames": 32,
+                                                                                                 "motion": "none", "motion_file": "/nowhere/ref.mp4"}]}))
+        words, made = lt.for_job(d / "job.json", "bows her head into her hands", d / "plan.json", d / "voice.json")
+        # THE CASE THAT GOES RED when a motion-none load reads a reference record, or names a video
+        assert "<Video" not in words and made["reference_record"].startswith("none"), (words, made)
     # the face alone of a face-and-hair subject reads as a face load; a part with no text form is refused
     face = lt.text(PLAN, "second", RECORD_10_13, "stands", VOICED, 484, 515, parts=["face_and_neck"])
     assert "with the face of <Picture 1>" in face and "Her face is the face of <Picture 1>." in face, face
