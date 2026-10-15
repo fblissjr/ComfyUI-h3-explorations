@@ -33,6 +33,12 @@ Older history lives elsewhere and is not copied here:
   The held mask left 115, 69 and 6 px on 1015, 1018 and 1023: her fingertips, her fist and forearm, and on 1015
   the rim of a white egg she holds at her chin. This is mrtwo's rule of 2026-10-14 after 21:18Z for held things
   she touches near her face, widened from 1010d's "fingers and hand" to name the egg.
+- **The smoke's "node order" line had been unable to go green since 2026-09-27; it now reads the graph** (mrvid,
+  c8501106, after mrarc's 18:12Z restart smoke). Its log needle ("chaining onto an existing attention override") was
+  printed by the Sol node until e0b8cc55 deleted it, so every smoke since read MISSING there. The order is now read
+  from the graph the smoke submits. At the default 39 frames "sparse ran" says "not owed at this length" where Sol's
+  own decline line shows. `bench/check_smoke_h3.py` holds every needle to the code literal that prints it, so a stale
+  needle goes red in a check, not on the card.
 - **The hair coming and going: two node fixes go, one does not** (mrtall, after 17:52Z, on the outside reviewer's
   frame-by-frame watch `internal/gemini/2026-10-15_watch_hair_item4.md` and mrlol's offline measures
   `internal/claude/2026-10-15_mrlol_scripts/hair_item4_record.md`). Built in `video_mask.py`: (a) a keep-out piece
