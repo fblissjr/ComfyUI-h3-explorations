@@ -142,8 +142,10 @@ One home per kind of fact. Not two.
   and hears audio natively, where a session sees stills and measures, so
   the lead gives it the playback questions: motion, flicker, hair coming and
   going, a mouth with the singing, eyes closing. Hand it the stacked clips
-  with sound and the frames to watch. Its watching is a reader's, never the
-  owner's acceptance.
+  with sound and the frames to watch, and say in the request that it uses
+  its native video and audio understanding first, with code only to augment
+  it, never in its place. Its watching is a reader's, never the owner's
+  acceptance.
 - **The owner, when available, takes the cheap looks first** (who is in a
   shot, what is replaced), before anything is built on them: in batches
   where possible, one by one only when a decision is urgent.
