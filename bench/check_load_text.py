@@ -76,6 +76,44 @@ def what_a_reference_draws_the_text_says() -> str:
     return "the mouth drawn or not, the eye's form, a part left out and a plain cut change the <Subject 2> sentence and nothing else; singing follows the voice table"
 
 
+def a_load_of_the_hair_alone() -> str:
+    """second_hp_5461b (2026-10-15): a load whose part is her hair alone says so, and nothing of her face or its expressions."""
+    faceless = {"form": "drawn", "drawn": {"parts_left_out": ["eyes", "brows", "nose", "mouth"], "iris": "contrast", "mouth": {"drawn": False}}}
+    hair = lt.text(PLAN, "second", faceless, "bows her head into her hands", VOICED, 484, 515, parts=["hair"])
+    # THE CASE THAT GOES RED when a hair load's text says her face is the still's, keeps her face, or asks for facial expressions
+    for wrong in ("face is the face of <Picture 1>", "face and her long", "facial expressions", "with the face", "blue-grey eyes"):
+        assert wrong not in hair, (wrong, hair)
+    for right in ("with the hair of <Picture 1>, and performs <Subject 2>", "only the woman's long, loose blonde hair is retained, wherever it shows; "
+                  "the face, the clothing, the accessories and the background of <Picture 1> are not used", "Her hair is the hair of <Picture 1>.",
+                  "<Subject 1> is the woman whose appearance comes from <Picture 1> and who follows the movements of the head of the figure in <Video 1>",
+                  "[Shot 1] <Subject 1>, the woman, bows her head", "attribute_transfer - the movements of the head are transferred"):
+        assert right in hair, (right, hair)
+    singing = lt.text(PLAN, "lead", RECORD_10_13, "stands", VOICED, 1730, 1754)
+    assert "(S1) sings" in singing and "(S1) sings" not in lt.text({**PLAN, "subjects": {**PLAN["subjects"], "lead": {**PLAN["subjects"]["lead"],
+        "text": {**PLAN["subjects"]["lead"]["text"], "hair": "her hair"}}}}, "lead", faceless, "stands", VOICED, 1730, 1754, parts=["hair"])
+    assert hair.splitlines()[2].endswith("posed as the person moves."), hair.splitlines()[2]
+    # her face and hair (1010e's part list, the plan's two parts) read as the face-and-hair form, word for word
+    # THE CASE THAT GOES RED when a face-and-hair load is refused for naming both its parts
+    assert lt.text(PLAN, "second", RECORD_10_13, "stands", VOICED, 484, 515, parts=["hair", "face_and_neck"]) == \
+        lt.text(PLAN, "second", RECORD_10_13, "stands", VOICED, 484, 515)
+    # a hair load whose reference draws a face is refused: the text would speak of eyes the load must not draw
+    try:
+        lt.text(PLAN, "second", {"form": "drawn", "drawn": {"parts_left_out": ["mouth"], "iris": "contrast"}}, "stands", VOICED, 484, 515, parts=["hair"])
+        raise AssertionError("a hair load's text was written on a reference that draws a face")
+    except lt.Refused as e:
+        assert "draws a face" in str(e), str(e)
+    # the face alone of a face-and-hair subject reads as a face load; a part with no text form is refused
+    face = lt.text(PLAN, "second", RECORD_10_13, "stands", VOICED, 484, 515, parts=["face_and_neck"])
+    assert "with the face of <Picture 1>" in face and "Her face is the face of <Picture 1>." in face, face
+    try:
+        lt.text(PLAN, "second", RECORD_10_13, "stands", VOICED, 484, 515, parts=["hands"])
+        raise AssertionError("a part with no text form was written")
+    except lt.Refused as e:
+        assert "no text form" in str(e), str(e)
+    return ("a load of the hair alone names her hair alone and nothing of her face, its expressions or singing; the face alone reads as a face load; "
+            "a part with no text form is refused")
+
+
 def what_it_refuses() -> str:
     import copy
     for change, words in ((lambda p: p["subjects"]["lead"]["text"].pop("looks"), "lacks ['looks']"), (lambda p: p.pop("text"), "text.film"),
@@ -115,5 +153,6 @@ def what_it_refuses() -> str:
 
 case("the kept texts made again", the_kept_texts_made_again)
 case("what a reference draws, the text says", what_a_reference_draws_the_text_says)
+case("a load of the hair alone", a_load_of_the_hair_alone)
 case("what it refuses", what_it_refuses)
 sys.exit(finish())

@@ -293,6 +293,40 @@ def her_glasses_over_her_eyes() -> str:
             "wholly off her track stays off, inside the span or out; with no span, the same frames fail the run")
 
 
+def lt_says_plain(drawn: dict) -> bool:
+    import load_text as lt
+    return lt.subject_2(drawn).endswith("posed as the person moves.")
+
+
+def no_face_where_hair_alone() -> str:
+    """second_hp_5461b (2026-10-15): a hair-alone load's reference drew eyes, brows and a nose on her crown. `--no-face-on` draws no
+    line of the face on its frames, the plain body model alone; where it covers the whole span the record lists every part left out."""
+    import draw_face_points as dfp
+    seen = {}
+    for name, spans in (("some", [(3, 5, "HAIR ALONE")]), ("all", [(0, N - 1, "HAIR ALONE")])):
+        folder, mesh, pts, source = rooms(f"no_face_{name}", [90] * N, [60] * N, CENTRES, 0)
+        said: list[str] = []
+        rec = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head.mp4", "the check", room=ROOM, no_face_on=spans, say=said.append)
+        seen[name] = (rec, said, folder)
+    rec, said, folder = seen["some"]
+    rw, rh = rec["size"]
+    white = [int((next(dfp.stream(str(folder / "head.mp4"), (rw, rh), f, 1, pix="rgb24")).max(-1) > 200).sum()) for f in range(N)]
+    # THE CASE THAT GOES RED when a line of the face is drawn on a hair-alone frame, or the face is dropped where it is not
+    assert all(white[f] == 0 for f in (3, 4, 5)) and all(white[f] > 0 for f in (0, 1, 2, 6, 7)), white
+    assert rec["drawn"]["frames_left_bare"] == [3, 4, 5] and rec["passed"] and any("NO FACE LINES on 3 of 12 frames (3-5): HAIR ALONE" in x for x in said), said
+    rec, said, _ = seen["all"]
+    assert {"eyes", "brows", "nose", "mouth"} <= set(rec["drawn"]["parts_left_out"]) and rec["drawn"]["frames_left_bare"] == list(range(N)), rec["drawn"]
+    # a person's word that the mouth is drawn does not draw one where no face is: the record says no mouth, and the text none
+    folder, mesh, pts, source = rooms("no_face_word", [90] * N, [60] * N, CENTRES, 0)
+    worded = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head.mp4", "the check", room=ROOM, mouth="drawn", mouth_why="A WORD",
+                    no_face_on=[(0, N - 1, "HAIR ALONE")], say=lambda *_: None)
+    # THE CASE THAT GOES RED when a reference with no face on any frame records (and the text then says) a drawn mouth
+    assert worded["drawn"]["mouth"]["drawn"] is False and lt_says_plain(worded["drawn"]), worded["drawn"]["mouth"]
+    assert lt_says_plain(rec["drawn"]), "the text's <Subject 2> still speaks of drawn lines"
+    return ("no line of the face on the frames --no-face-on names, the others drawn; over the whole span every part is recorded left out, and "
+            "the text's <Subject 2> sentence then speaks of no drawing")
+
+
 def the_mouth_by_the_check() -> str:
     """The chain's default of 2026-10-14: the mouth drawn when the lip lines lie on the class map's mouth, left out when they do not
     (the lead's 0294d: the points bunched on her upper lip while the class map held her open mouth)."""
@@ -403,7 +437,7 @@ def the_mouth_by_the_check() -> str:
     # with no lips in the class map either, nothing is drawn of the mouth, and the record says why
     n = none["drawn"]["mouth"]
     assert not n["drawn"] and "drawn_as" not in n and n["class_map"]["frames_holding_the_lips"] == 0 and "mouth" in none["drawn"]["parts_left_out"], none["drawn"]
-    assert any("the mouth: LEFT OUT: the class map holds her lips on 0" in x for x in said_none), said_none
+    assert any("the mouth: LEFT OUT: the class map holds her lips on none of the 12 frames" in x for x in said_none), said_none
     folder, mesh, pts, source = rooms("mouth_word", [90] * N, [60] * N, CENTRES, 0)
     try:
         hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head.mp4", "the check", room=ROOM, mouth="drawn", say=lambda *_: None)
@@ -468,6 +502,41 @@ def the_class_map_mouth_by_its_gate() -> str:
         "the class map's white outline drawn on a frame its gate dropped"
     return ("where the lines miss on every frame and the class map's lips sit at the pose model's mouth, its mouth is drawn on each frame its "
             "own gate keeps (on the body model, near the pose mouth) and dropped where the body model is not under it; the figures in the record")
+
+
+def no_clip_gate_and_the_box_first() -> str:
+    """The outside reviewer's G4 of ca86c125: (A) a span whose class map holds her lips on few frames still draws them where each frame
+    passes; (B) a larger lip blob outside the head's box does not win over her mouth inside it."""
+    import cv2
+    import capture_masked_run as cap
+    from _lib import face_points as fp
+    names = cap._pack("sapiens2_parts").CLASS_NAMES
+    folder, mesh, pts, source = rooms("clip_and_box", [90] * N, [60] * N, CENTRES, 0)
+    P = fp.load(str(pts), None)
+    lips = [i for k, i in P["index"].items() if "outer_lip" in k or k in ("r_outer_corner_of_mouth", "l_outer_corner_of_mouth")]
+    cm = np.zeros((N, H, W), np.uint8)
+    for f in range(4):                                                  # her lips on 4 of 12 frames, clear of the lip ring
+        xy = P["keypoints"][f][lips]
+        cx, cy = (int(round(v)) for v in xy.mean(0))
+        ax, ay = (max(int(0.35 * (xy[:, i].max() - xy[:, i].min()) / 2), 3) for i in (0, 1))
+        cv2.ellipse(cm[f], (cx, cy), (ax, ay), 0, 0, 360, names.index("Upper_Lip"), -1)
+    cm[0, 2:60, 2:60] = names.index("Upper_Lip")                         # a larger lip blob, far outside the head's box
+    classes = folder / "classes.mkv"
+    enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "gray", "-s", f"{W}x{H}", "-r", "24", "-i", "-", "-c:v", "ffv1",
+                            "-level", "3", str(classes)], stdin=subprocess.PIPE)
+    enc.stdin.write(cm.tobytes()); enc.stdin.close(); assert enc.wait() == 0
+    rec = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head.mp4", "the check", room=ROOM, mouth="auto", classes=str(classes), classes_first=0,
+                 say=lambda *_: None)
+    m = rec["drawn"]["mouth"]
+    rows = {r["frame"]: r for r in m["gate"]["a_frame_at_a_time"]}
+    x0, y0, x1, y1 = rec["box"]
+    assert x0 > 60 or y0 > 60, ("the fixture's far blob is inside the box", rec["box"])
+    # THE CASE THAT GOES RED when a span with her lips on under half its frames loses the mouths each frame passes (A), or the far
+    # blob is taken for her mouth on frame 0 (B)
+    assert m["drawn"] and m["frames_by_the_class_map"] == [[0, 3]] and m["class_map"]["frames_holding_the_lips"] == 4, m
+    assert rows[0]["drawn"] and rows[0]["from_the_pose_mouth_in_face_heights"] < 0.05, rows[0]
+    return ("a span whose class map holds her lips on 4 of 12 frames draws them on those 4 (no clip-level gate); a larger lip blob outside the "
+            "head's box is not taken for her mouth")
 
 
 def the_gate_at_its_bounds() -> str:
@@ -579,11 +648,13 @@ def a_frame_at_a_time_in_the_lines_form() -> str:
 case("one run makes the form", one_run_makes_the_form)
 case("a face off the subject's track fails the run", a_face_off_the_track_fails)
 case("her own glasses over her eyes, off her track", her_glasses_over_her_eyes)
+case("no face lines where the part is her hair alone", no_face_where_hair_alone)
 case("frames from the middle of all three files", frames_from_the_middle)
 case("the mouth by the check", the_mouth_by_the_check)
 case("the class map's mouth by its own gate", the_class_map_mouth_by_its_gate)
 case("a frame at a time in the lip lines' form", a_frame_at_a_time_in_the_lines_form)
 case("the gate at its bounds", the_gate_at_its_bounds)
+case("no clip-level gate, and the head's box before the pieces", no_clip_gate_and_the_box_first)
 case("it writes over nothing, and nothing when it cannot finish", it_writes_over_nothing)
 case("the form's defaults can be set aside, and the record says so", the_defaults_can_be_set_aside)
 case("a step that fails fails the run", a_step_that_fails_fails_the_run)

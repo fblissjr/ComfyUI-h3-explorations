@@ -1616,7 +1616,17 @@ def the_defaults_this_load_carries() -> str:
                                                          {"first": 1040, "last": 1041, "classes": ["Face_Neck", "Upper_Lip", "Lower_Lip"]}]}]}}
         got = stl.drawn_form(hair, args(), files, 100)
         # THE CASE THAT GOES RED when the reference is not told the load's lipless frames, or is told a range that holds the lips
-        assert got[-2:] == ["--no-mouth-on", "1025-1031=the load's part is hair alone there (THE OWNER'S ANSWER)"] and got.count("--no-mouth-on") == 1, got
+        assert got[got.index("--no-mouth-on"):got.index("--no-mouth-on") + 2] == ["--no-mouth-on", "1025-1031=the load's part is hair alone there (THE OWNER'S ANSWER)"] \
+            and got.count("--no-mouth-on") == 1, got
+        # ... and no line of the face there (second_hp_5461b, 2026-10-15); the span that holds her face is drawn
+        assert got[got.index("--no-face-on"):got.index("--no-face-on") + 2] == ["--no-face-on", "1025-1031=the load's part is hair alone there (THE OWNER'S ANSWER)"] \
+            and got.count("--no-face-on") == 1, got
+        # a load of the hair alone on every frame (`--parts hair`): no line of the face on any of its frames
+        whole = {**job, "first": 5461, "frames": 37, "part": {"by": "THE LEAD'S RULING", "parts": ["hair"], "made": [{"classes": ["Hair"]}]}}
+        got = stl.drawn_form(whole, args(), files, 100)
+        # THE CASE THAT GOES RED when a hair load's reference draws a face (5461's eyes, brows and nose on her crown)
+        assert got[-2:] == ["--no-face-on", "5461-5497=the load's part is hair alone on every frame (THE LEAD'S RULING)"], got
+        assert "--no-face-on" not in stl.drawn_form({**whole, "part": {**whole["part"], "made": [{"classes": ["Hair", "Face_Neck"]}]}}, args(), files, 100)
         # the plan's restore span of her own glasses (2823's 3063-3097): the reference told it, with the plan's words; her hands' span not
         glasses = {**job, "restore": [{"classes": ["Eyeglass"], "first": 3063, "last": 3097, "by": "THE PLAN'S WORD"},
                                       {"classes": ["Left_Hand", "Right_Hand"], "first": 3060, "last": 3097, "by": "THE PLAN'S WORD"}]}

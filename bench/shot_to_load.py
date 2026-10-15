@@ -1576,6 +1576,17 @@ def drawn_form(job: dict, a, files: dict, preview_first: int) -> list:
         if not {"Upper_Lip", "Lower_Lip"} & set(on["classes"]):
             out += ["--no-mouth-on", f"{on['first']}-{on['last']}=the load's part is {'+'.join(next((x['parts'] for x in part.get('parts_on') or [] if x['first'] == on['first']), on['classes']))} "
                                      f"alone there ({' '.join(str(part.get('by') or 'who said so is not in the job').split())})"]
+    # the load's frames whose part holds no face (`--parts hair`, or a `--parts-on` span of hair alone): no line of the face drawn there
+    # (the lead's ruling of 2026-10-15 on second_hp_5461b: eyes, brows and a nose drawn as on a plain face while hers was hidden)
+    made = next(iter(part.get("made") or []), {})
+    by = " ".join(str(part.get("by") or "who said so is not in the job").split())
+    if made.get("classes") and "Face_Neck" not in made["classes"] and job.get("first") is not None:
+        out += ["--no-face-on", f"{job['first']}-{int(job['first']) + int(job['frames']) - 1}=the load's part is {'+'.join(part.get('parts') or made['classes'])} "
+                                f"alone on every frame ({by})"]
+    for on in made.get("classes_on") or []:
+        if "Face_Neck" not in on["classes"]:
+            named = next((x["parts"] for x in part.get("parts_on") or [] if x["first"] == on["first"]), on["classes"])
+            out += ["--no-face-on", f"{on['first']}-{on['last']}=the load's part is {'+'.join(named)} alone there ({by})"]
     # the plan's restore spans of a class over her eyes (her own glasses, head_reference.OVER_THE_EYES): the face counts as on her track
     # there by the lower face (the lead, 2026-10-15, on 2823's white sunglasses, off her track from 3073)
     import head_reference
