@@ -46,8 +46,12 @@ table; the Open List).
 
 ## Tomorrow, in order
 
-1. Show the owner what landed overnight: the 2823 remake beside 2823b, the second subject's kitchen shot (its inner
-   seam named, 898), and anything else, at the top of the review page.
+1. **THE OWNER REVIEWS FIRST THING; they asked for it at the close ("make sure its set for a new session for me to look
+   at tomorrow").** Before anything else: check what landed overnight (the card seat's notes, the newest ledger), then
+   put each at the top of the review page (`http://100.87.141.65:8765/`, and Start here on `TO_REVIEW.html`) and give the
+   owner the direct links, in this order: (a) the second subject's whole kitchen shot 604-1009, with what to watch (her
+   identity across the join at 898; her turn and bow, 945-1009); (b) lead_fp_2823c beside the kept 2823b, keep one.
+   If either did not land, say why in one line. The Open List's "Right now" lines say the same to the owner.
 2. The kitchen's lead: `--no-face-on` emptying the part on face-only loads first; then one hole a pass (a load given the
    second subject's render as its video, the assembler judging it against that base); then the lead over 613-974, one
    window.
