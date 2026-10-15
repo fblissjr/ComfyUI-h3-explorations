@@ -19,6 +19,10 @@ Older history lives elsewhere and is not copied here:
 
 *Written by the lead of the day (mrtall) as the rulings are made; mrarc holds the card, mrlol tooling.*
 
+- **Two or more subjects in one masked pass is closed** (the owner, 2026-10-15, about 21:35Z: "yeah lets kill multi
+  person for now (again) then", then "or rather multi in one pass"). A row in `docs/roadmap.md`, "Closed lanes". One
+  hole a pass (a load given another load's render as its video) stays open and is built after `--continue-from`; the
+  labelled-reference arm is parked in its worktree (mrlol-label), unlanded.
 - **Two holes in one pass blended the two faces; the next test fills one hole a pass** (the owner, 2026-10-15, about
   21:25Z, on the review page's `second_lead_0852`: "the middle one blended faces"). The test the owner asked for
   ("try it on a short window - like 100ish frames"): the kitchen, 852-958, both subjects in one load through
