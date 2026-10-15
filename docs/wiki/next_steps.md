@@ -44,9 +44,13 @@ are not remade for it; the owner's explicit calls are.
    516-603, 1189-1221, and 3167 to 6394.
 7. Tooling: one hole a pass (a load given another's render as its video), then the plan key for giving another subject
    back; the hold form (mrvid-hold, 97512bda) and the continuation's ledger span with step 1.
-8. Gaze (the owner, 2026-10-15 evening: "I dont buy that its too small to follow it. Maybe the ref video needs to be
-   scaled and resized in a different way"). One test render on the lead's 1097-1133 glance: the input zoomed AND the
-   reference cut to a tighter head box, together. Why: one token sees 32x32 px of the reference (the video VAE's 16x,
+8. Gaze, and a gap in the tool (the owner, 2026-10-15 evening: "I dont buy that its too small to follow it. Maybe the
+   ref video needs to be scaled and resized in a different way"; on the finding below: "it sounds like a bug /
+   oversight to me"). THE GAP: a zoomed load's reference is framed by `bench/head_reference.py`'s own head box, never
+   by the input's zoom box, so the hole and the drawn face are at two unrelated scales. THE FIX, a tool change: a
+   zoomed load's reference is cut to the input's zoom box (or at least the same face scale), so the drawn eyes grow
+   whenever the input zooms. Then one test render on the lead's 1097-1133 glance decides whether gaze carries at that
+   scale. Why: one token sees 32x32 px of the reference (the video VAE's 16x,
    `comfy/sd.py`, times the DiT's 2x2 patch), so the drawn eye spans about one token and the glance moves the iris
    inside it; and a zoomed load is handed its reference uncut (`workflows/masked_job_graph.py`, above RENDER_REGIONS),
    so 10/14's zoomed test enlarged the hole but not the drawn eyes. The outside reviewer's C9 weighs the options first

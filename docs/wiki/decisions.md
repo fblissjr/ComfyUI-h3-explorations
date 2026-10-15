@@ -45,6 +45,12 @@ Older history lives elsewhere and is not copied here:
   - **Dropped:** the lead's hair restore ("i dont remember lead singers hair ever being an issue at all"); an
     identity-drift reading ("you dont need to do that, just have me watch it"); the written label on references (parked,
     unlanded, as the one-pass lane closed).
+- **A zoomed load's reference and its input zoom are unlinked: an oversight, to be fixed in the tool** (the owner,
+  2026-10-15 late evening: "if we're generating an h3 canvas of this and we're making the input of this, then it sounds
+  like a bug / oversight to me"). Found by the lead in `workflows/masked_job_graph.py` (the comment above
+  RENDER_REGIONS: the node hands a zoomed load its motion video "as it is, not cut to the box"): the reference is framed
+  by its own head box, so 10/14's zoomed gaze test enlarged the hole but not the drawn eyes. The fix and the test that
+  follows it: `next_steps.md`, the queue of 2026-10-15, item 8.
 - **The wiki corrected against today's rulings** (the owner, 2026-10-15 evening: "Maybe worth you reading through our
   llm wiki docs to make sure everything is solid and still accurate and flag things that look off"). Three cold readers
   read the wiki and AGENTS.md against the code; the lines that contradicted today's rulings were corrected in
