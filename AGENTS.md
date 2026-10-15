@@ -131,6 +131,15 @@ One home per kind of fact. Not two.
   seat a brief file before it starts. A fourth only as a blind reader on a
   finished result, briefed with file paths and no conclusions; a subagent
   counts.
+- **The outside reviewer (a Gemini agent the owner runs) reviews, never
+  builds**, through files in `internal/gemini/`: the lead appends requests
+  to `<date>_requests.md`, and the reviewer answers in its own files plus a
+  line in `<date>_outbox.md`. The owner relays nothing. It watches video
+  and hears audio natively, where a session sees stills and measures, so
+  the lead gives it the playback questions: motion, flicker, hair coming and
+  going, a mouth with the singing, eyes closing. Hand it the stacked clips
+  with sound and the frames to watch. Its watching is a reader's, never the
+  owner's acceptance.
 - **The owner, when available, takes the cheap looks first** (who is in a
   shot, what is replaced), before anything is built on them: in batches
   where possible, one by one only when a decision is urgent.
