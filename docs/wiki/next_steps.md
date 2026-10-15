@@ -22,9 +22,17 @@ made by the recipe the owner kept on the hall shot: [`masked_v2v.md`](masked_v2v
 subject over the whole shot, every frame read first, `--no-face-on` and `--hold-part` on a person's word, "sings" only
 where they sing, the text read whole, others given back, a joined clip of the shot for the owner). Pieces the owner kept
 are not remade for it; the owner's explicit calls are.
-1. Land `--continue-from`/`--context` after a fresh cold read (worktree mrlol-no-face-on, 71ee3c8c; its reader's
-   finding: a stored window off the chained grid cannot be continued). Then the kitchen's second subject, 604-1009,
-   one load, context 141, seam 898.
+1. The kitchen's second subject, 604-1009, one load, seam 898, context 90 (the default; it does not wait on
+   `--context`), with `context_noise` 0.8 on the inner window. Why (the outside reviewer's C4, checked by the lead in
+   the code and the wiki): one load's inner windows get a CLEAN context today (`audio_freeze.CONTEXT_NOISE` 0.0;
+   `workflows/masked_job_graph.py` refuses `context_noise` without `continue_from`), and on this very stretch a clean
+   context did not make her turn to the camera and bow (945-1009) where 0.8 did, with almost no seam
+   (`window_context.md`, the 2026-10-10 rows; `h3_config.MASKED_JOB_CONTEXT_NOISE`). The change: let a load of more
+   than one window take `context_noise`, with a case. Also `--eyes-shut-on` on her closed-eye spans
+   (`kitchen_plan_facts.md`). Then the lead over 613-974 (362 frames, one window: her face is out of the picture
+   975-1009), on the second subject's render when one hole a pass is built.
+   Separately: land `--continue-from`/`--context` after a fresh cold read (worktree mrlol-no-face-on, 71ee3c8c; its
+   reader's finding: a stored window off the chained grid cannot be continued).
 2. 2823-3109 (or the whole shot to 3166 if her face shows there): one load, one window, 2823b's settings, for the
    owner beside 2823b (Open List row 6).
 3. The dad over 1397-1418: continuing 1310c only if its stored window is on the grid; else ask the owner.
