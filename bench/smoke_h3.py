@@ -1,20 +1,25 @@
 #!/usr/bin/env python3
 """Confirm the H3 chain composes and runs, after any node-pack update.
 
-Verification comes from the log lines, not the video.
+Verification comes from the log lines and the submitted graph, not the video.
 
     [h3] MiniMax H3 self-attention on sage (...)              graphs with a sage node
-    [h3-sol] chaining onto an existing attention override     Sol graphs only
+    node order: Sol's model input reaches the dense backend   Sol graphs, read from the graph
     [h3-sol] sparse (1, ..., 56, 128) tau=...                 Sol graphs only
 
 Line 1 says the sage node patched the model; the default chain since
 2026-09-15 has no sage node, so it is owed only by the sage arms. Line 3 says
-sparse engaged at the configured tau. **Line 2 is the order check** -- it
-prints only when Sol-Attn finds an override already installed (sage's, or the
-backend node's). Until 2026-09-17 the sage line and a "no sage" line came
-from `SageChainAssert`'s call-time probe; no generated graph carries that
-node now, so the sage line is the sage node's own. Missing on a Sol graph means the chain is reversed and you
-are silently paying full price, with no error anywhere.
+sparse engaged at the configured tau. **Line 2 is the order check**: Sol is
+installed over the dense backend's override, so a call Sol declines runs on that
+backend and not on core's default. Until 2026-10-15 it was the log line
+"[h3-sol] chaining onto an existing attention override", which the Sol node has
+not printed since its redesign (e0b8cc55, 2026-09-27): it read MISSING on every
+run after that, a red that could not go green. It is now read from the graph the
+smoke submits (`graph_order`), and the chaining itself is held by
+bench/check_sol_node_equivalence.py. Every log needle names the code literal that
+prints it, held by bench/check_smoke_h3.py, so a needle the code stops printing
+goes red there. At a length Sol declines (its own "dense (...): seq N < M" line),
+"sparse ran" is said not owed and the run exits 2.
 That seam is a protocol two third-party repos agree on and neither owns, so
 it is worth re-checking on every update rather than assuming.
 
@@ -82,6 +87,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import time
 import urllib.request
@@ -92,17 +98,48 @@ WF = Path(__file__).resolve().parent.parent / "workflows"
 sys.path.insert(0, str(WF.parent))
 from reference_order import VIDEO_SOURCE_CLASSES  # noqa: E402
 
-# (label, needle, gate). The needles are matched against the ComfyUI log
-# written during THIS run, so they must be the strings the code actually emits
-# -- `nodes.py` for the first. Anything here that no longer appears in the
-# source is a stale needle, not a finding; grep before believing a MISSING.
-# `gate` is what the submitted graph must carry for the line to be owed:
-# "sage" a sage node, "sol" a Sol node.
+# (label, needle, gate, source). The needles are matched against the ComfyUI log
+# written during THIS run, so they must be the strings the code actually emits.
+# `source` is (file, the literal in it that prints the line): bench/check_smoke_h3.py
+# holds every needle to its source, so a needle the code no longer prints goes red
+# there and not on the card. `gate` is what the submitted graph must carry for the
+# line to be owed: "sage" a sage node, "sol" a Sol node.
+#
+# "node order" was a needle until 2026-10-15: "chaining onto an existing attention
+# override", which the Sol node printed until its redesign (e0b8cc55, 2026-09-27)
+# and no code has printed since, so the line could not go green. What it stood for,
+# Sol installed over the dense backend's override, is a fact of the submitted graph
+# and is read from it (`graph_order`); the chaining itself is held by
+# bench/check_sol_node_equivalence.py (a call Sol declines runs on `previous`).
 WANT = [
-    ("sage engaged", "MiniMax H3 self-attention on sage", "sage"),
-    ("node order  ", "chaining onto an existing attention override", "sol"),
-    ("sparse ran  ", "] sparse (", "sol"),
+    ("sage engaged", "MiniMax H3 self-attention on sage", "sage", ("nodes.py", '"[h3] MiniMax H3 self-attention on sage')),
+    ("sparse ran  ", "] sparse (", "sol", ("sol_attn_h3.py", 'f"sparse {tuple(qs.shape)}')),
 ]
+# Sol's own line when it declines a call for its length, and the two literals that print it: at a length under its
+# `min_tokens` it declines every call and "sparse ran" is not owed (the default length, "The default length cannot
+# exercise Sol" above).
+DECLINED = re.compile(r"\[h3-sol\] dense \((?:\d+, )*\d+\): seq (\d+) < (\d+)")
+DECLINED_SOURCES = (("sol_attn_h3.py", 'f"dense {tuple(qs.shape)}: {reason}"'), ("sol_attn_h3.py", 'f"seq {q.shape[1]} < {min_tokens}"'))
+#: The dense chain's nodes a Sol node is installed over: core's backend node (`h3_config.DENSE_BACKEND_NODE`) or sage.
+BACKEND_NODE_IDS = ("ModelAttentionBackend", "MiniMaxH3SageAttention")
+
+
+def graph_order(wf: dict) -> list[tuple[str, str | None]]:
+    """For each Sol node of a graph, the dense node its model input reaches upstream, or None: (Sol's id, that class)."""
+    out = []
+    for nid, n in wf.items():
+        if n["class_type"] not in SOL_NODE_IDS:
+            continue
+        at, found, seen = n["inputs"].get("model"), None, set()
+        while isinstance(at, list) and str(at[0]) in wf and str(at[0]) not in seen:
+            seen.add(str(at[0]))
+            up = wf[str(at[0])]
+            if up["class_type"] in BACKEND_NODE_IDS:
+                found = f"{up['class_type']} {at[0]}"
+                break
+            at = up["inputs"].get("model")
+        out.append((nid, found))
+    return out
 SAGE_NODE_IDS = ("MiniMaxH3SageAttention",)
 
 # Every Sol node id a graph on this box can carry: the Triton pack's, the
@@ -245,7 +282,13 @@ def main() -> int:
         fh.seek(log_start if log_path.stat().st_size >= log_start else 0)
         text = fh.read().decode(errors="replace")
     missing, skipped = False, False
-    for label, needle, gate in WANT:
+    # node order: read from the graph that was submitted, not from a log line
+    if owed["sol"]:
+        for sol, found in graph_order(wf):
+            print(f"  node order    {'ok' if found else 'MISSING'}    Sol {sol} " + (f"over {found}" if found else "reads its model from no dense backend"))
+            missing |= found is None
+    declined = DECLINED.search(text)
+    for label, needle, gate, _source in WANT:
         if not owed[gate]:
             if gate == "sol":
                 print(f"  {label}  SKIP    no Sol node in the submitted graph")
@@ -254,6 +297,11 @@ def main() -> int:
                 print(f"  {label}  n/a     not owed by this graph's dense chain")
             continue
         ok = needle in text
+        if not ok and needle == "] sparse (" and declined:
+            print(f"  {label}  not owed at this length: Sol declined every call (seq {declined.group(1)} < {declined.group(2)}); "
+                  "--length 49 runs it")
+            skipped = True
+            continue
         print(f"  {label}  {'ok' if ok else 'MISSING'}")
         missing |= not ok
     if missing:
@@ -263,6 +311,10 @@ def main() -> int:
         print("in smoke_h3.py is a stale needle, which is how the sage line sat")
         print("unmatchable until 2026-08-14.")
         return 1
+    if skipped and owed["sol"]:
+        print("\nSol's sparse path was not exercised at this length. Exit 2, not 0: this run verified")
+        print("the chain's order and the render, not that Sol routes. --length 49 checks it.")
+        return 2
     if skipped:
         print("\nThe Sol lines were not checked, because the graph has no Sol")
         print("node, which every shipped video graph carries. Exit 2, not 0: this run")

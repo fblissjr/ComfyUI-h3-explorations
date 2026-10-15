@@ -8,7 +8,7 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 141 |
+| [`check_*`](#check) | 142 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
@@ -137,6 +137,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_shots_look.py`](check_shots_look.py) | A person's look written into the shots record (`bench/shots_look.py`): what it writes, and what it refuses. |
 | [`check_shots_record.py`](check_shots_record.py) | `bench/shots_record.py` joins two shots of a shots record or cuts one, keeping every answer whole; each case is a way an answer could be lost, moved to the wrong cut, or a record left that no longer covers its video. |
 | [`check_skill_routes.py`](check_skill_routes.py) | Fail when a skill routes an agent to a path that does not exist. |
+| [`check_smoke_h3.py`](check_smoke_h3.py) | The smoke's readings (`bench/smoke_h3.py`) held to the code they read and to the graphs it submits. |
 | [`check_sol_chunked.py`](check_sol_chunked.py) | Grade the chunked-producer forward before it is given a render. |
 | [`check_sol_kernel.py`](check_sol_kernel.py) | Check the installed `comfy_kitchen` still carries the Sol-Attn CUDA kernel. |
 | [`check_sol_node_equivalence.py`](check_sol_node_equivalence.py) | Grade our Sol node's DISPATCH against the algorithm's own eager reference. |
