@@ -723,7 +723,8 @@ def part_on_track(p: dict, subject: str, part: dict | None, preview: dict, video
     `hold_frames` (`strangers.held_track`), so a tracker's moment's loss does not empty her part; a track empty on
     every frame, or not of the preview's canvas and length, is refused before anything of the load is written."""
     import h3_config
-    if "strangers" not in (p.get("keep_outs") or []):
+    off = p.get("strangers_turned_off")
+    if "strangers" not in (p.get("keep_outs") or []) and not off:
         return None, ""
 
     def saved(kind: str) -> Path:
@@ -738,9 +739,12 @@ def part_on_track(p: dict, subject: str, part: dict | None, preview: dict, video
     file = output / PARTS_AT.format(video=video, preview=preview["name"]) / f"{stem}_on_track_{px}px.mkv"
     block = {"of": subject, "preview": preview["name"], "first": preview["first"], "frames": preview["frames"], "canvas": list(preview["canvas"]),
              "part": str(source), "track": str(saved("track")), "grow_px": px,
-             "file": str(file), "why": "the plan names the strangers keep-out: the part model's pixels outside the subject's own track are no part of them"}
-    said = (f" THE PART IS HELD TO {subject}'s OWN TRACK grown {px} px (h3_config.MASKED_STRANGERS), since the plan keeps the strangers out: written to {file}, "
-            "and the chain hands the capture that file as the load's part.")
+             "file": str(file), "why": ("the strangers keep-out is turned off on a person's word, and the part is held to the subject's own track all "
+                                        "the same (the lead, 2026-10-15)" if off else "the plan names the strangers keep-out") +
+             ": the part model's pixels outside the subject's own track are no part of them"}
+    said = (f" THE PART IS HELD TO {subject}'s OWN TRACK grown {px} px (h3_config.MASKED_STRANGERS), "
+            + ("though the strangers keep-out is turned off on a person's word" if off else "since the plan keeps the strangers out")
+            + f": written to {file}, and the chain hands the capture that file as the load's part.")
     return block, said
 
 
@@ -922,6 +926,16 @@ def others_of_load(preview: dict, output: Path, shot: dict, cast: list[dict] | N
     out = others_present.summary(row)
     out["said"] = others_present.said(row)
     out["owners_answers"] = f"read from {cast_from}" if cast is not None else "not handed in (--cast): each tracker's pick is taken as ours"
+    return out
+
+
+def frames_in_words(words: str) -> set[int]:
+    """The frame numbers a person's words name: a number standing alone (not inside a path or a name), or a range "A-B" or "A to B"."""
+    import re
+    out: set[int] = set()
+    for m in re.finditer(r"(?<![\w/.])(\d+)(?:\s*(?:-|\u2013|to)\s*(\d+))?(?![\w/])", words):
+        a = int(m.group(1)); b = int(m.group(2) or a)
+        out.update(range(a, b + 1) if b >= a and b - a < 10000 else [a])
     return out
 
 
@@ -1107,7 +1121,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
              preview_files: list[str] | None = None, parts: list[str] | None = None, parts_by: str | None = None, classes_of=part_classes,
              parts_on: list[tuple[int, int, list[str]]] | None = None, track_not: list[tuple[str, int, int, str]] | None = None,
              track_not_by: str | None = None, cast: list[dict] | None = None, cast_from: str = "", motion: str | None = None,
-             motion_why: str | None = None) -> dict:
+             motion_why: str | None = None, no_strangers: str | None = None) -> dict:
     """The job file of one subject's load on a shot, from the shot's preview. `preview` is the preview's own job
     block; `source` is the file the load renders from, the video's present copy (the preview's own when left out).
     `parts` with `parts_by` makes the load's part some of its subject's plan parts (`part_of`)."""
@@ -1125,7 +1139,29 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
     # WHO ELSE IS IN THE SHOT (the owner's word of 2026-10-14: it belongs in the job file), from the preview's own tables and the
     # owner's answers (bench/others_present.py); the strangers keep-out follows it and not the plan's key, where it can say
     others = others_of_load(preview, output, shot, cast, cast_from, plan.get("not_people"))
+    plans = p
     p = dict(strangers_by_the_data(p, others), others_present=others)
+    # NO STRANGERS KEEP-OUT ON THIS LOAD, on a person's word (`--no-strangers WHY`, the lead's ruling of 2026-10-15): the keep-out marks
+    # her own neck, dress and hair beyond a narrow track as strangers on a close-up (2823b: 263 pieces kept though touching her,
+    # 7,657,313 px), and ruling (A) of 2026-10-14 keeps another person's arm or face against her a stranger, so the tool cannot tell them
+    # apart; a look can. WHY names the look and the contact sheet it was made on; where the record has seen someone else, those frames too
+    if no_strangers is not None:
+        said_ns = " ".join(str(no_strangers).split())
+        sheets = [w.strip(".,;:()\"'") for w in said_ns.split() if Path(w.strip(".,;:()\"'")).is_file()]
+        if not sheets:
+            raise Refused("--no-strangers takes a person's word on a look: who looked, at the contact sheet of the load's frames (name its file: the "
+                          "tool checks only that a file of that name is there), and that nobody but our subjects is in the picture")
+        named = frames_in_words(said_ns)
+        seen = [int(f) for f in (others.get("frames_with_others") or [])] if others.get("others_present") == "yes" else []
+        if [f for f in seen if f not in named]:
+            raise Refused(f"--no-strangers on a shot where the record has seen someone else (frame(s) {', '.join(map(str, seen))}): name each of those "
+                          "frames in WHY and why it does not matter")
+        left = [k for k in p.get("keep_outs") or [] if k != "strangers"]
+        p = dict(p, keep_outs=left or None, strangers_turned_off={"why": said_ns, "file_named": sheets[0], "by": by, "at": now},
+                 strangers_from=f"TURNED OFF on a person's word ({by}, {now}): {said_ns}")
+        p.pop("keep_outs_by", None)
+        if left:                                        # the plan's own reason for the keep-outs left, without the data's strangers clause
+            p["keep_outs_by"] = " ".join(str(plans.get("keep_outs_by") or "").split())
     region = p["region"]
     if region not in h3_config.MASKED_LOAD_MARGIN:
         raise Refused(f"the plan's region for {subject!r} is {region!r}: this tool makes part loads ({', '.join(h3_config.MASKED_LOAD_MARGIN)})")
@@ -1353,7 +1389,9 @@ def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: di
         ("zoom", "zoomed in where the node's box allows (the node decides at plan)" if zoom_block else "the whole frame",
          f"{(zoom_block or whole_block)['said_by']}: {(zoom_block or whole_block)['why']}"),
         ("other people in the shot", (p.get("others_present") or {}).get("said", "not read"), "bench/others_present.py, from the preview's tables and the owner's answers"),
-        ("the strangers keep-out", "kept out" if "strangers" in names else "not kept out", p.get("strangers_from") or ("the plan" + (f": {p.get('keep_outs_by')}" if p.get("keep_outs") else ""))),
+        ("the strangers keep-out", "kept out" if "strangers" in names else
+         "not kept out, turned off on a person's word; the part still held to the subject's own track" if p.get("strangers_turned_off") else
+         "not kept out", p.get("strangers_from") or ("the plan" + (f": {p.get('keep_outs_by')}" if p.get("keep_outs") else ""))),
         ("the part's pieces", f"pieces={mine['pieces']}" if mine.get("pieces") else "every piece", "the plan" + (f": {p.get('pieces_by')}" if p.get("pieces") else "")),
         ("the hair band", f"{band:g} of the part's height under it, from the box's top, the margin's width each side"
          + f" (h3_config.MASKED_JOB_HAIR_BAND: starts {h3_config.MASKED_JOB_HAIR_BAND['starts']}, wider {h3_config.MASKED_JOB_HAIR_BAND['wider']})" if band is not None else "none",
@@ -1485,7 +1523,7 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
                    preview_files=ran.get("files") or [], parts=a.parts, parts_by=a.parts_by, classes_of=classes_of,
                    parts_on=[parts_on_arg(x) for x in a.parts_on], track_not=[track_not_arg(x) for x in a.track_not], track_not_by=a.track_not_by,
                    cast=[json.loads(x) for x in open(a.cast) if x.strip()] if getattr(a, "cast", None) else None, cast_from=getattr(a, "cast", None) or "",
-                   motion=getattr(a, "motion", None), motion_why=getattr(a, "motion_why", None))
+                   motion=getattr(a, "motion", None), motion_why=getattr(a, "motion_why", None), no_strangers=getattr(a, "no_strangers", None))
     job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "ITS PREVIEW WAS MADE ON AN EARLIER COPY")
     out = folder / f"{name}.json"
     print(f"{name}: {a.subject}, {renders(region, a.parts)}, source frames {job['loads'][0]['first']}-{job['loads'][0]['first'] + job['loads'][0]['frames'] - 1}; "
@@ -1758,6 +1796,9 @@ def main() -> int:
                         "inside one load); with --parts-by; repeatable")
     j.add_argument("--zoomed", metavar="WHY", help="render this load zoomed in on what is replaced, with a person's reason kept in the job file "
                    "(the chain's default since 2026-10-14 without it)")
+    j.add_argument("--no-strangers", metavar="WHY", help="no strangers keep-out on this load, on a person's word: who looked, at the contact "
+                   "sheet of the load's frames (its file named; only that a file of that name is there is checked), and that nobody but our "
+                   "subjects is in the picture. The part stays held to the subject's own track")
     j.add_argument("--motion", choices=("none",), help="no reference video for this load (a load of her hair alone only, the lead's ruling of "
                                                      "2026-10-15); with --motion-why")
     j.add_argument("--motion-why", help="why the load takes no reference video, a person's words")

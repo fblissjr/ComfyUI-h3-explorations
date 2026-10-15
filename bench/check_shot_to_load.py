@@ -961,7 +961,7 @@ def who_else_is_in_the_shot() -> str:
     reads it from the preview's own tables and the owner's answers (bench/others_present.py), prints it among the defaults,
     and keeps the strangers out by it: where someone else is there or the frames shown cannot say, and on no load where nobody
     is, whatever the plan's key; the plan's key only where it is not known."""
-    def load_with(made, people, plan_keep=None, not_people=None):
+    def load_with(made, people, plan_keep=None, not_people=None, no_strangers=None):
         if plan_keep is not None:
             made.plan["subjects"]["a"].update(keep_outs=plan_keep, keep_outs_by="a person: the plan's own")
         if not_people is not None:
@@ -976,7 +976,7 @@ def who_else_is_in_the_shot() -> str:
                  "people": [{"person": n, "box": box, "share_of_frame": share, "held_by_another_tracker": False} for n, box, share in people]}]}))
         saved = json.loads((folder / "preview.queued.json").read_text())["files"]
         return stl.load_job(shots, plan, stl.shot_of(shots, 100), "a", pjob["job"], str(folder), "v", made.m.output, "the session", "2026-01-03", "a_fp_0100",
-                            now="now", preview_files=saved, cast=[], cast_from="cast.jsonl")
+                            now="now", preview_files=saved, cast=[], cast_from="cast.jsonl", no_strangers=no_strangers)
     ours = [(1, [0, 0, 10, 10], 0.1), (2, [20, 0, 10, 10], 0.1), (3, [40, 0, 10, 10], 0.1)]
     with tempfile.TemporaryDirectory() as tmp:
         d = load_with(Made(Path(tmp)), ours + [(4, [55, 30, 5, 5], 0.01)])
@@ -988,6 +988,29 @@ def who_else_is_in_the_shot() -> str:
         assert lines["other people in the shot"]["carries"].startswith("yes: someone not ours on 1 of the 1 frame(s)") and \
             lines["the strangers keep-out"]["from"].startswith("the data: who else is in the shot, yes"), lines
         assert job["others_present"]["owners_answers"] == "read from cast.jsonl"
+        # NO STRANGERS KEEP-OUT on a person's word (--no-strangers, the lead's ruling of 2026-10-15): the word names its contact sheet,
+        # and here, where the record has seen someone else on 120, that frame and why it does not matter
+        sheet = Path(tmp) / "sheet.jpg"
+        sheet.write_bytes(b"a sheet")
+        refused(lambda: load_with(Made(Path(tmp) / "w1"), ours + [(4, [55, 30, 5, 5], 0.01)], no_strangers="the lead looked: nobody else"),
+                "name its file")
+        refused(lambda: load_with(Made(Path(tmp) / "w2"), ours + [(4, [55, 30, 5, 5], 0.01)], no_strangers=f"the lead looked at {sheet}: nobody else"),
+                "the record has seen someone else (frame(s) 120)")
+        off = load_with(Made(Path(tmp) / "w3"), ours + [(4, [55, 30, 5, 5], 0.01)],
+                        no_strangers=f"THE LEAD looked at every frame on {sheet}: nobody else; the box seen on 120. is a lamp")
+        rows_ = {x["what"]: x for x in off["job"]["defaults"]}
+        # THE CASE THAT GOES RED when the strangers stay kept out on a person's word, or the defaults do not say it was turned off and why
+        assert "keep_outs" not in off["job"] and "strangers" not in off["loads"][0]["others"], off["job"].get("keep_outs")
+        assert rows_["the strangers keep-out"]["carries"].startswith("not kept out, turned off on a person's word; the part still held") \
+            and rows_["the strangers keep-out"]["from"].startswith("TURNED OFF on a person's word") and "THE LEAD looked" in rows_["the strangers keep-out"]["from"], \
+            rows_["the strangers keep-out"]
+        # THE CASE THAT GOES RED when turning the strangers off also lets her part spill past her own track (the lead, 2026-10-15)
+        assert off["job"]["part_on_track"]["why"].startswith("the strangers keep-out is turned off on a person's word") \
+            and "though the strangers keep-out is turned off" in off["job"]["note"], off["job"].get("part_on_track")
+        # a plan with another keep-out beside the strangers: its reason is the plan's, without the data's strangers clause
+        both = load_with(Made(Path(tmp) / "w4"), ours + [(4, [55, 30, 5, 5], 0.01)], plan_keep=["held", "strangers"],
+                         no_strangers=f"THE LEAD looked at {sheet}; 120 is a lamp")
+        assert [k["name"] for k in both["job"]["keep_outs"]["made"]] == ["held"] and "strangers" not in both["job"]["keep_outs"]["by"], both["job"]["keep_outs"]["by"]
     with tempfile.TemporaryDirectory() as tmp:
         # nobody else: no strangers keep-out, though the plan names one; the plan's other keep-outs stand
         d = load_with(Made(Path(tmp)), ours, plan_keep=["held", "strangers"])
