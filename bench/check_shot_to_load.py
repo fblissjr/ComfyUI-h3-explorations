@@ -1916,6 +1916,10 @@ def a_load_of_two_subjects() -> str:
         out = json.loads((inputs / "a_b_0110.json").read_text())
         job_, load = out["job"], out["loads"][0]
         first, second = load["subjects"]
+        # THE CASE THAT GOES RED when the pair's name inside its file is not the one it is written under (2026-10-15: the last keep-out's)
+        assert job_["name"] == load["name"] == load["text"] == "a_b_0110" and list(job_["texts"]) == ["a_b_0110"] \
+            and job_["texts"]["a_b_0110"]["file"] == "a_b_0110.txt" and job_["capture"] == "data/2026-01-03_a_b_0110", (job_["name"], load["name"], job_["texts"])
+        assert twin["job"]["name"] == twin["loads"][0]["name"] == "twin", twin["job"]["name"]
         # THE CASE THAT GOES RED when a subject is given the other's reference video (a crossed pair) or the first's twice
         assert (first["motion_file"], second["motion_file"]) == (str(root / "ref_a.mkv"), str(root / "ref_b.mkv")) \
             and first["motion_first"] == second["motion_first"] == 110, (first, second)

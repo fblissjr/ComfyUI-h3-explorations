@@ -1965,15 +1965,15 @@ def pair_job(one: dict, two: dict, regions: dict, name: str, day: str, output_ke
     made, seen, renamed = [], {}, {}
     for ctx in (one, two):
         for k in (ctx["job"].get("keep_outs") or {}).get("made", []):
-            name = k["name"]
-            if name in seen and seen[name]["track"] == k["track"]:
+            kept = k["name"]                  # never `name`, the pair's own (on 2026-10-15 the last keep-out's name became the job's)
+            if kept in seen and seen[kept]["track"] == k["track"]:
                 continue
-            if name in seen:
-                if name == "strangers":
-                    raise Refused(f"both jobs name a strangers keep-out, in different files ({seen[name]['track']} and {k['track']}): one preview has one")
-                renamed[(ctx["subject"], name)] = name = f"{name}_{ctx['subject']}"
-            seen[name] = k
-            made.append({**copy.deepcopy(k), "name": name, **({"of": ctx["subject"]} if name != "strangers" else {})})
+            if kept in seen:
+                if kept == "strangers":
+                    raise Refused(f"both jobs name a strangers keep-out, in different files ({seen[kept]['track']} and {k['track']}): one preview has one")
+                renamed[(ctx["subject"], kept)] = kept = f"{kept}_{ctx['subject']}"
+            seen[kept] = k
+            made.append({**copy.deepcopy(k), "name": kept, **({"of": ctx["subject"]} if kept != "strangers" else {})})
     entries[1]["others"] = [renamed.get((s2, o), o) for o in entries[1]["others"]]
     margin = max(one["defaults"].get("margin", 0), two["defaults"].get("margin", 0))
     subjects = [copy.deepcopy(keys(one)), copy.deepcopy(keys(two))] + [copy.deepcopy(s) for s in j1["subjects"] if s["label"] not in (s1, s2)]
