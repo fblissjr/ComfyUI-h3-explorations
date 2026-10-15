@@ -961,7 +961,7 @@ def who_else_is_in_the_shot() -> str:
     reads it from the preview's own tables and the owner's answers (bench/others_present.py), prints it among the defaults,
     and keeps the strangers out by it: where someone else is there or the frames shown cannot say, and on no load where nobody
     is, whatever the plan's key; the plan's key only where it is not known."""
-    def load_with(made, people, plan_keep=None, not_people=None, no_strangers=None):
+    def load_with(made, people, plan_keep=None, not_people=None, no_strangers=None, no_mouth_on=None):
         if plan_keep is not None:
             made.plan["subjects"]["a"].update(keep_outs=plan_keep, keep_outs_by="a person: the plan's own")
         if not_people is not None:
@@ -976,7 +976,7 @@ def who_else_is_in_the_shot() -> str:
                  "people": [{"person": n, "box": box, "share_of_frame": share, "held_by_another_tracker": False} for n, box, share in people]}]}))
         saved = json.loads((folder / "preview.queued.json").read_text())["files"]
         return stl.load_job(shots, plan, stl.shot_of(shots, 100), "a", pjob["job"], str(folder), "v", made.m.output, "the session", "2026-01-03", "a_fp_0100",
-                            now="now", preview_files=saved, cast=[], cast_from="cast.jsonl", no_strangers=no_strangers)
+                            now="now", preview_files=saved, cast=[], cast_from="cast.jsonl", no_strangers=no_strangers, no_mouth_on=no_mouth_on)
     ours = [(1, [0, 0, 10, 10], 0.1), (2, [20, 0, 10, 10], 0.1), (3, [40, 0, 10, 10], 0.1)]
     with tempfile.TemporaryDirectory() as tmp:
         d = load_with(Made(Path(tmp)), ours + [(4, [55, 30, 5, 5], 0.01)])
@@ -1011,6 +1011,21 @@ def who_else_is_in_the_shot() -> str:
         both = load_with(Made(Path(tmp) / "w4"), ours + [(4, [55, 30, 5, 5], 0.01)], plan_keep=["held", "strangers"],
                          no_strangers=f"THE LEAD looked at {sheet}; 120 is a lamp")
         assert [k["name"] for k in both["job"]["keep_outs"]["made"]] == ["held"] and "strangers" not in both["job"]["keep_outs"]["by"], both["job"]["keep_outs"]["by"]
+        # NO MOUTH ON A SPAN on a person's word (--no-mouth-on, the lead's word of 2026-10-15 on 1010h): the word names its sheet, the span
+        # lies inside the load, and the reference step passes it to head_reference
+        refused(lambda: load_with(Made(Path(tmp) / "m1"), ours, no_mouth_on=[(110, 115, "THE LEAD looked: her hand over her mouth")]), "name its file")
+        refused(lambda: load_with(Made(Path(tmp) / "m2"), ours, no_mouth_on=[(90, 115, f"THE LEAD looked at {sheet}")]), "the load is 100-159")
+        refused(lambda: load_with(Made(Path(tmp) / "m4"), ours, no_mouth_on=[(150, 170, f"THE LEAD looked at {sheet}")]), "the load is 100-159")
+        hid = load_with(Made(Path(tmp) / "m3"), ours, no_mouth_on=[(110, 115, f"THE LEAD looked at {sheet}: her hand over her mouth")])
+        mouth_row = {x["what"]: x for x in hid["job"]["defaults"]}["the mouth"]
+        # THE CASE THAT GOES RED when a person's no-mouth span is not kept in the job, not said among the defaults, or not passed on
+        assert hid["job"]["reference"]["mouth"]["no_mouth_on"][0]["first"] == 110 and "NONE on 110-115" in mouth_row["carries"] \
+            and "her hand over her mouth" in mouth_row["from"], (hid["job"]["reference"]["mouth"], mouth_row)
+        flags = stl.drawn_form(hid["job"], args(), {"classes": Path("/c.mkv")}, 100)
+        assert flags[flags.index("--no-mouth-on") + 1].startswith("110-115=a person's word on a look (the session, now): THE LEAD looked"), flags
+        assert stl.no_mouth_on_arg("1011=X") == (1011, 1011, "X")
+        refused(lambda: stl.no_mouth_on_arg("1011-1018"), "with the why")
+        refused(lambda: stl.no_mouth_on_arg("1011-1017-1030=X"), "is not FIRST-LAST=WHY")
     with tempfile.TemporaryDirectory() as tmp:
         # nobody else: no strangers keep-out, though the plan names one; the plan's other keep-outs stand
         d = load_with(Made(Path(tmp)), ours, plan_keep=["held", "strangers"])
@@ -1186,6 +1201,9 @@ def a_load_of_some_of_its_parts() -> str:
                                   motion="none", motion_why="X"), "on every frame")
         refused(lambda: made.load(subject="b", name="b_hfp_0100", motion="none", motion_why="X"), "for a load of her hair alone")
         refused(lambda: made.load(subject="b", name="b_hp_0100", parts=["hair"], parts_by=why, motion="none", motion_why=" "), "say why with --motion-why")
+        # no reference video, so no mouth to leave out of it (--no-mouth-on)
+        refused(lambda: made.load(subject="b", name="b_hp_0100", parts=["hair"], parts_by=why, motion="none", motion_why="X",
+                                  no_mouth_on=[(110, 115, "X")]), "this load has none (--motion none)")
         jf = Path(tempfile.mkdtemp(prefix="motion_none_")) / "b_hp_0100.json"
         jf.write_text(json.dumps(bare))
         a_ = args()
@@ -1589,6 +1607,21 @@ def the_reference_step() -> str:
             drawn.with_suffix(".json").write_text(json.dumps({**{k: v for k, v in record.items() if k != "face_on_the_track"},
                                                               **({"face_on_the_track": track} if track else {})}))
             refused(lambda: stl.step_reference(e, made.m, figures), "--existing", "held to a's track", "made again")
+        # a job with a person's no-mouth span takes a reference as it was only where that reference drew no mouth there
+        sheet = Path(tmp) / "the_sheet.jpg"
+        sheet.write_bytes(b"a sheet")
+        hid = made.load(first=104, frames=40, why="a look cut it", name="a_fp_0104c", no_mouth_on=[(110, 115, f"THE LEAD looked at {sheet}")])
+        hid_file = made.jobs / "a_fp_0104c.json"
+        hid_file.write_text(json.dumps(hid))
+        e.job_file = str(hid_file)
+        mouthed = {**record, "drawn": {"mouth": {"form": "auto", "no_mouth_on": {"the gate": [[104, 109]]}}}}
+        drawn.with_suffix(".json").write_text(json.dumps(mouthed))
+        # THE CASE THAT GOES RED when --existing takes a drawing with a mouth on frames a person's word says have none
+        refused(lambda: stl.step_reference(e, made.m, figures), "--existing", "draws a mouth on 6 frame(s)", "first 110, last 115")
+        mouthed["drawn"]["mouth"]["no_mouth_on"]["no mouth there on the job's word"] = [[110, 115]]
+        drawn.with_suffix(".json").write_text(json.dumps(mouthed))
+        stl.step_reference(e, made.m, figures)
+        e.job_file = str(again_file)
         other = made.load(name="a_fp_0100")
         (made.jobs / "a_fp_0100.json").write_text(json.dumps(other))
         e.job_file = str(made.jobs / "a_fp_0100.json")

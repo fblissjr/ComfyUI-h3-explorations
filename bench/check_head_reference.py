@@ -428,7 +428,7 @@ def the_mouth_by_the_check() -> str:
     # (the window also holds the nose's and the chin's lines, so the frame with no mouth is held to a quarter of one with it)
     assert white_at_mouth(10) * 4 < white_at_mouth(4), (white_at_mouth(4), white_at_mouth(10))
     assert hr.no_mouth_arg("1025-1031=hair alone") == (1025, 1031, "hair alone")
-    for bad in ("1025-1031", "1031-1025=x", "x=y"):
+    for bad in ("1025-1031", "1031-1025=x", "x=y", "1011-1017-1030=x"):
         try:
             hr.no_mouth_arg(bad)
             raise AssertionError(f"taken: {bad}")

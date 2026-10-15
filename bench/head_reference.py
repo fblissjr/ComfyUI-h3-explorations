@@ -56,7 +56,8 @@ word with `--mouth-why`. In either form, A FRAME AT A TIME (the lead, 2026-10-15
 references had no mouth on 40 of 51, 19 of 29, 22 of 22, 16 of 16 and 61 of 275 frames, 2823's wide-open mouth among them): the lip
 lines where they lie on the class map's mouth at `MOUTH_CHECK["on_share"]` or over, with its inside under them; else the class map's
 own mouth where it lies on the body model's picture in the cut and near the pose model's mouth (`CLASS_MOUTH_GATE`,
-`class_mouth_gate`); else NO MOUTH; and no mouth on the frames `--no-mouth-on` names (the job's frames whose part holds no lips, hair alone). The body model's own lips stay, and the record says on
+`class_mouth_gate`); else NO MOUTH; and no mouth on the frames `--no-mouth-on` names (the job's frames whose part holds no lips, hair alone, or
+a person's word on a look where her mouth is hidden). The body model's own lips stay, and the record says on
 which frames and by which rule, with the gate's figures a frame at a time (`drawn.mouth.no_mouth_on`, `drawn.mouth.gate`; the lead's
 rulings of 2026-10-14 on 630b's profile, 805b and 1010d's chest). 0294d's piece stands as made (a better form does not remake a kept
 piece).
@@ -292,11 +293,12 @@ NO_MOUTH_CLASS_GATE = (f"the lip lines lie on the class map's mouth under {MOUTH
 #: Why a frame has no mouth (`no_mouth_frames`), as the record and the run say it.
 NO_MOUTH_NO_HOLE = "the class map labels no teeth or tongue in her mouth there, and --class-mouth-needs-hole asks for none drawn ({why})"
 NO_FACE_PART = "no line of the face: the load's part is her hair alone there (--no-face-on: {why})"
-NO_MOUTH_PART = "the load's part holds no lips there (--no-mouth-on, the job's parts_on: {why})"
+NO_MOUTH_PART = "no mouth there on the job's word (--no-mouth-on: {why})"
 
 
 def no_mouth_frames(first: int, count: int, spans: list[tuple[int, int, str]]) -> dict[str, list[int]]:
-    """The source frames of `spans` (`--no-mouth-on`), the load's frames whose part holds no lips (hair alone): no mouth at all there,
+    """The source frames of `spans` (`--no-mouth-on`: the load's frames whose part holds no lips, hair alone, or a person's word on a look
+    where her mouth is hidden; each span's why says which): no mouth at all there,
     the body model's own lips stay. The frames neither the lip lines nor the class map's gate place a mouth on are the gate's
     (`NO_MOUTH_CLASS_GATE`)."""
     out: dict[str, list[int]] = {}
@@ -653,6 +655,8 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
 def no_mouth_arg(text: str, flag: str = "--no-mouth-on") -> tuple[int, int, str]:
     rng, sep, why = text.partition("=")
     try:
+        if len(rng.split("-")) > 2:
+            raise ValueError
         a, b = (int(x) for x in (rng.split("-") * 2)[:2])
     except ValueError:
         raise SystemExit(f"{flag} {text!r} is not FIRST-LAST=WHY") from None
@@ -682,7 +686,8 @@ def main() -> int:
     a.add_argument("--classes", help="the subject's class map from the preview, for --mouth auto")
     a.add_argument("--classes-first", type=int, help="the source frame of the class map's frame 0")
     a.add_argument("--no-mouth-on", action="append", default=[], metavar="FIRST-LAST=WHY",
-                   help="source frames on which no mouth is drawn: the load's part holds no lips there (the job's parts_on, hair alone); repeatable")
+                   help="source frames on which no mouth is drawn, with why: the load's part holds no lips there (the job's parts_on, hair alone), "
+                        "or a person's word on a look (the job's mouth.no_mouth_on); repeatable")
     a.add_argument("--class-mouth-needs-hole", metavar="WHY", help="an option, off unless asked: on a frame given the class map's own mouth "
                    "with no teeth or tongue labelled, draw no mouth; the reason is kept in the record")
     a.add_argument("--no-face-on", action="append", default=[], metavar="FIRST-LAST=WHY",

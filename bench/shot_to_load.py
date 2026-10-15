@@ -466,6 +466,20 @@ def part_classes() -> dict:
     return cap._pack("sapiens2_parts").PARTS
 
 
+def no_mouth_on_arg(text: str) -> tuple[int, int, str]:
+    """`--no-mouth-on FIRST-LAST=WHY` (or `FRAME=WHY`) as (first, last, why)."""
+    rng, sep, why = text.partition("=")
+    try:
+        if len(rng.split("-")) > 2:
+            raise ValueError
+        x, y = (int(v) for v in (rng.split("-") * 2)[:2])
+    except ValueError:
+        raise Refused(f"--no-mouth-on {text!r} is not FIRST-LAST=WHY") from None
+    if not sep or not why.strip() or x > y:
+        raise Refused(f"--no-mouth-on {text!r} is not FIRST-LAST=WHY, with the why")
+    return x, y, " ".join(why.split())
+
+
 def parts_on_arg(text: str) -> tuple[int, int, list[str]]:
     """`FIRST-LAST=NAME[+NAME...]` of `--parts-on`: source frames, and the parts the load's part is on them."""
     span, sep, names = text.partition("=")
@@ -1121,7 +1135,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
              preview_files: list[str] | None = None, parts: list[str] | None = None, parts_by: str | None = None, classes_of=part_classes,
              parts_on: list[tuple[int, int, list[str]]] | None = None, track_not: list[tuple[str, int, int, str]] | None = None,
              track_not_by: str | None = None, cast: list[dict] | None = None, cast_from: str = "", motion: str | None = None,
-             motion_why: str | None = None, no_strangers: str | None = None) -> dict:
+             motion_why: str | None = None, no_strangers: str | None = None, no_mouth_on: list[tuple[int, int, str]] | None = None) -> dict:
     """The job file of one subject's load on a shot, from the shot's preview. `preview` is the preview's own job
     block; `source` is the file the load renders from, the video's present copy (the preview's own when left out).
     `parts` with `parts_by` makes the load's part some of its subject's plan parts (`part_of`)."""
@@ -1228,6 +1242,23 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
     kept, stay_said = stay_of(p, subject, kept, load, preview, on_track, part, video, output, preview_files, name, region)
     kept_said += stay_said
     ref_form = reference_form(p, subject)
+    # NO MOUTH ON A SPAN, on a person's word (`--no-mouth-on FIRST-LAST=WHY`, the lead's word of 2026-10-15 on 1010h): where her mouth
+    # is hidden behind her hand the class map still labels lips, and a few px of teeth or tongue, at her fingers' edge (1010h's
+    # 1011-1017: 1-15 px a frame on a face about 38 px tall), so neither its gate nor --class-mouth-needs-hole can drop them. WHY names
+    # the look and the sheet it was made on (a file of that name, which is all the tool checks); each span lies inside the load
+    if no_mouth_on:
+        if motion == "none":
+            raise Refused("--no-mouth-on acts on the drawn reference, and this load has none (--motion none)")
+        spans = []
+        for x, y, said in no_mouth_on:
+            said = " ".join(str(said).split())
+            if not (a <= x <= y <= b):
+                raise Refused(f"--no-mouth-on {x}-{y}: the load is {a}-{b}")
+            if not any(Path(w.strip(".,;:()\"'")).is_file() for w in said.split()):
+                raise Refused(f"--no-mouth-on {x}-{y} takes a person's word on a look: who looked, at which sheet of those frames (name its file: the "
+                              "tool checks only that a file of that name is there), and that her mouth is hidden there")
+            spans.append({"first": x, "last": y, "why": said, "said_by": by, "at": now})
+        ref_form["mouth"] = dict(ref_form["mouth"], no_mouth_on=spans)
     subjects = [{k: v for k, v in s.items() if k in ("label", "phrase", "pick", "parts", "still", "pose")} for s in preview["subjects"]]
     # The capture's `pieces` for the load's subject, when the plan says one: a key on the subject in the job file, where
     # the chain reads it. The tool sets it for nobody; every load before the chain ran with `pieces=largest` typed into
@@ -1385,7 +1416,9 @@ def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: di
         ("the eye", {"contrast": "white sclera and black iris inside the lids", "between the lids": "the iris ring between the lids",
                      "filled": "a dark iris disc inside the lids", "whole": "the whole iris ring"}[iris["form"]], f"{iris['said_by']}: {iris['why']}"),
         ("the mouth", {"auto": "drawn when the lip lines lie on the class map's mouth (head_reference.MOUTH_CHECK), else left out: decided and printed at "
-                               "the reference step", "drawn": "drawn", "left out": "left out"}[mouth["form"]], f"{mouth['said_by']}: {mouth['why']}"),
+                               "the reference step", "drawn": "drawn", "left out": "left out"}[mouth["form"]]
+         + "".join(f"; NONE on {s['first']}-{s['last']}, turned off on a person's word" for s in mouth.get("no_mouth_on") or []),
+         f"{mouth['said_by']}: {mouth['why']}" + "".join(f"; {s['first']}-{s['last']}: {s['said_by']}, {s['at']}: {s['why']}" for s in mouth.get("no_mouth_on") or [])),
         ("zoom", "zoomed in where the node's box allows (the node decides at plan)" if zoom_block else "the whole frame",
          f"{(zoom_block or whole_block)['said_by']}: {(zoom_block or whole_block)['why']}"),
         ("other people in the shot", (p.get("others_present") or {}).get("said", "not read"), "bench/others_present.py, from the preview's tables and the owner's answers"),
@@ -1523,7 +1556,8 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
                    preview_files=ran.get("files") or [], parts=a.parts, parts_by=a.parts_by, classes_of=classes_of,
                    parts_on=[parts_on_arg(x) for x in a.parts_on], track_not=[track_not_arg(x) for x in a.track_not], track_not_by=a.track_not_by,
                    cast=[json.loads(x) for x in open(a.cast) if x.strip()] if getattr(a, "cast", None) else None, cast_from=getattr(a, "cast", None) or "",
-                   motion=getattr(a, "motion", None), motion_why=getattr(a, "motion_why", None), no_strangers=getattr(a, "no_strangers", None))
+                   motion=getattr(a, "motion", None), motion_why=getattr(a, "motion_why", None), no_strangers=getattr(a, "no_strangers", None),
+                   no_mouth_on=[no_mouth_on_arg(x) for x in getattr(a, "no_mouth_on", None) or []])
     job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "ITS PREVIEW WAS MADE ON AN EARLIER COPY")
     out = folder / f"{name}.json"
     print(f"{name}: {a.subject}, {renders(region, a.parts)}, source frames {job['loads'][0]['first']}-{job['loads'][0]['first'] + job['loads'][0]['frames'] - 1}; "
@@ -1591,6 +1625,15 @@ def step_reference(a, world, figures=figures_of) -> None:
             # another person's face and passed (the lead's 3167): whether its face is on the subject is not known
             raise Refused(f"--existing: {record} does not say its face was held to {subject}'s track (made before the points were, or on the whole "
                           "frame): the reference is made again, in a new folder")
+        # the job's spans of no mouth on a person's word: a reference taken as it was must have drawn none there
+        said = ((job.get("reference") or {}).get("mouth") or {}).get("no_mouth_on") or []
+        mouth = (made.get("drawn") or {}).get("mouth") or {}
+        if said and mouth and mouth.get("form") != "left out":
+            bare = {f for spans in (mouth.get("no_mouth_on") or {}).values() for x, y in spans for f in range(x, y + 1)}
+            missed = [f for s in said for f in range(s["first"], s["last"] + 1) if f not in bare]
+            if missed:
+                raise Refused(f"--existing: {record} draws a mouth on {len(missed)} frame(s) the job says have none on a person's word "
+                              f"(first {missed[0]}, last {missed[-1]}): the reference is made again, in a new folder")
         written(a, ctx, made, record, points, drawn, form, why, figures, taken=True)
         return
     if folder.exists():
@@ -1647,6 +1690,9 @@ def drawn_form(job: dict, a, files: dict, preview_first: int) -> list:
         if not {"Upper_Lip", "Lower_Lip"} & set(on["classes"]):
             out += ["--no-mouth-on", f"{on['first']}-{on['last']}=the load's part is {'+'.join(next((x['parts'] for x in part.get('parts_on') or [] if x['first'] == on['first']), on['classes']))} "
                                      f"alone there ({' '.join(str(part.get('by') or 'who said so is not in the job').split())})"]
+    # the job's spans of no mouth on a person's word (`job --no-mouth-on`, a look where her mouth is hidden)
+    for s in (said.get("mouth") or {}).get("no_mouth_on") or []:
+        out += ["--no-mouth-on", f"{s['first']}-{s['last']}=a person's word on a look ({s['said_by']}, {s['at']}): {s['why']}"]
     # the load's frames whose part holds no face (`--parts hair`, or a `--parts-on` span of hair alone): no line of the face drawn there
     # (the lead's ruling of 2026-10-15 on second_hp_5461b: eyes, brows and a nose drawn as on a plain face while hers was hidden)
     made = next(iter(part.get("made") or []), {})
@@ -1796,6 +1842,9 @@ def main() -> int:
                         "inside one load); with --parts-by; repeatable")
     j.add_argument("--zoomed", metavar="WHY", help="render this load zoomed in on what is replaced, with a person's reason kept in the job file "
                    "(the chain's default since 2026-10-14 without it)")
+    j.add_argument("--no-mouth-on", action="append", default=[], metavar="FIRST-LAST=WHY",
+                   help="no mouth drawn on those source frames of the reference, on a person's word: who looked, at which sheet of those "
+                        "frames (its file named; only that a file of that name is there is checked), and that her mouth is hidden there; repeatable")
     j.add_argument("--no-strangers", metavar="WHY", help="no strangers keep-out on this load, on a person's word: who looked, at the contact "
                    "sheet of the load's frames (its file named; only that a file of that name is there is checked), and that nobody but our "
                    "subjects is in the picture. The part stays held to the subject's own track")
