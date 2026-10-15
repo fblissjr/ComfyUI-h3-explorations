@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 144 |
+| [`check_*`](#check) | 145 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 179 |
+| [the rest](#the-rest) | 180 |
 
 ## check
 
@@ -147,6 +147,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_solattn_correctness.py`](check_solattn_correctness.py) | Check Sol-Attn's CUDA kernel against the algorithm's own eager reference. |
 | [`check_speaker_id_control.py`](check_speaker_id_control.py) | Red control for `preflight_graph.py::speaker_id_rules`. |
 | [`check_stack_delivery.py`](check_stack_delivery.py) | The stacked delivery clip (`bench/stack_delivery.py`) on a clip and pieces whose every frame is known by construction. |
+| [`check_stack_rows.py`](check_stack_rows.py) | `bench/stack_rows.py` on made videos: every row on the source frame it says, laid where its picture came from. |
 | [`check_step_x0_observer.py`](check_step_x0_observer.py) | `step_x0_observer.py` saves each step's prediction and changes nothing. |
 | [`check_strangers.py`](check_strangers.py) | The strangers keep-out (`bench/strangers.py`) on a made preview: what it takes out, where it writes, what it refuses. |
 | [`check_subject_parts.py`](check_subject_parts.py) | The Sapiens2 part node's geometry and bookkeeping, on stand-ins for the two models. |
@@ -484,6 +485,7 @@ this file is only a way to find a script by what it says it does.
 | [`stack_delivery.py`](stack_delivery.py) | A delivery clip stacked for the owner's eye: the original, what each render on the frame was given, the clip. |
 | [`stack_eval_clips.py`](stack_eval_clips.py) | Side-by-side and top-to-bottom video stacking utility for paired evaluation. |
 | [`stack_labeled_clips.py`](stack_labeled_clips.py) | Stack N clips vertically with a caption on each, for side-by-side viewing. |
+| [`stack_rows.py`](stack_rows.py) | Clips of the same source frames, one row each, stacked for the owner to judge one against another, with sound. |
 | [`strangers.py`](strangers.py) | A keep-out of every person in a shot who is not one of the preview's subjects: the strangers. |
 | [`subject_alone_or_in_a_group.py`](subject_alone_or_in_a_group.py) | Is ONE subject in a crowd followed better alone, or seeded together with the people around them? |
 | [`subject_likeness_in_a_group.py`](subject_likeness_in_a_group.py) | Is a track that still has a plausible mask still on the SUBJECT? The likeness of each track to the subject's own seed. |
