@@ -923,7 +923,8 @@ def main(argv=None) -> int:
             s.add_argument("--provenance", help="the provenance page's file name beside this one, linked from the top")
             s.add_argument("--today", help="the owner's day (YYYY-MM-DD, their clock) whose settled pieces are listed under Done; today when left out")
             s.add_argument("--start-here", metavar="FILE", help="the lead's list, in order, drawn first: a JSON list of {\"item\": an item the "
-                           "page shows, a shot FIRST-LAST or a clip's path, \"why\": one line of what deciding it changes}")
+                           "page shows, a shot FIRST-LAST or a clip's path, \"why\": one line of what deciding it changes}, or of {\"link\": "
+                           "an http(s) URL where a question's buttons are, \"label\", \"why\", \"clips\": [paths, shown beneath it]}")
         else:
             s.add_argument("--record", help="the assembler's record of the clip (.mp4.check.json); without it the ledger says what a piece leaves")
             s.add_argument("--day-folder", required=True, help="the day's folder: bench/day_pieces.py's piece folders are read from it")
