@@ -59,11 +59,11 @@ are not remade for it; the owner's explicit calls are.
    The outside reviewer's C9 (`internal/gemini/2026-10-15_gaze_ideas_c9.md`, its figures checked by the lead): the 1097
    reference's face is 167.8 px tall against 2823b's 436 (`face_height_px` in each reference's `.json`), because
    `crop_reference_to_head.HEAD_ROOM` is 1.2 face heights a side round one box for the whole dance. Order to try, one
-   render each on 1097-1133, seed held: (1) `--room 0.3` or a head-following box, no code; (2) the mesh's own eye
-   sockets painted out as `draw_face_points.mouth` paints out its lips, the iris pushed into the leading corner; (3) a
-   glance clause in the text from measured iris offsets, as "sings" is from voice; (4) the still's weight lowered
-   (`masked_job_graph.MASKED_JOB_STILL_VIEW`, shared: 4,096 tokens against the reference's 1,536); (5) a seeded eye
-   stamp in the starting noise. Note: 0604g's reference draws her face 87.1 px tall; if (1) carries, a tighter room
+   render each on 1097-1133, seed held. The owner's ruling on its five (2026-10-15, about 23:25Z: "1,2 good. 3 <- no no
+   no ... 4. no not for an edge case like this 5. no"): (1) `--room 0.3` or a head-following box, no code; then (2) the
+   mesh's own eye sockets painted out as `draw_face_points.mouth` paints out its lips, the iris pushed into the leading
+   corner. NOT to do: a glance clause in the text (the movement video carries expression; a text says nothing about
+   action or expression); lowering the still's weight; a seeded eye stamp in the noise. Note: 0604g's reference draws her face 87.1 px tall; if (1) carries, a tighter room
    becomes the chain's default.
 Closed today: two or more subjects in one pass (`../roadmap.md`, "Closed lanes").
 
