@@ -33,6 +33,15 @@ Older history lives elsewhere and is not copied here:
   The held mask left 115, 69 and 6 px on 1015, 1018 and 1023: her fingertips, her fist and forearm, and on 1015
   the rim of a white egg she holds at her chin. This is mrtwo's rule of 2026-10-14 after 21:18Z for held things
   she touches near her face, widened from 1010d's "fingers and hand" to name the egg.
+- **The strangers keep-out on a close-up of her alone is turned off per load, by a look; ruling (A) of 2026-10-14
+  stands** (mrtall, after 17:12Z, on mrlol's reading of `bench/strangers.py` and its measures
+  `internal/claude/2026-10-15_mrlol_scripts/strangers_on_her.txt`). On 2823b and 1097c the strangers mask is 99% the
+  lead's own hair, hands, bracelets, glasses, neck and dress just beyond her narrow track, and each load needed an
+  override. Dropping every piece that touches her (the lead's first ruling, after 17:05Z) would reverse ruling (A),
+  "another person's arm across her stays a stranger", so it is withdrawn. Instead `shot_to_load job --no-strangers WHY`
+  turns the keep-out off for a load whose every frame a person has looked at and found nobody else in, with the
+  look named in the job's defaults. A geometric rule (a piece whose core classes join hers pixel by pixel is hers)
+  is a row, needing a part-model rerun to measure.
 - **Mouth v2: steadier over time, and the three turned mouths on 805 kept; a closed mouth drawn as an outline stays**
   (mrtall, after 16:50Z, on mrlol's measures against the outside reviewer's watched table (G6),
   `internal/claude/2026-10-15_mrlol_scripts/lip_gap.*`, `mouth_flicker.*`). Built: a one- or two-frame drop-out
