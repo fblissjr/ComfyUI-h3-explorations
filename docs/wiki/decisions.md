@@ -33,6 +33,16 @@ Older history lives elsewhere and is not copied here:
   The held mask left 115, 69 and 6 px on 1015, 1018 and 1023: her fingertips, her fist and forearm, and on 1015
   the rim of a white egg she holds at her chin. This is mrtwo's rule of 2026-10-14 after 21:18Z for held things
   she touches near her face, widened from 1010d's "fingers and hand" to name the egg.
+- **A hair-alone load says hair alone and draws no face; 5461 is the test of a hair-alone load with no reference**
+  (mrtall, after 16:20Z, on mrlol's measures `internal/claude/2026-10-15_mrlol_scripts/hair_alone_faces.txt`). On
+  5461 a quarter of a face or less shows on most frames (Face_Neck over face height squared, median 0.36 against
+  484's 1.53), yet the pose model places a whole frontal face, and the reference draws it as large as a plain face's.
+  The body model holds her head raised (nose pitch median 11.9 degrees against 484's 9.9) while she shows only her
+  crown. Ruled: (a) the generated text of a whole-load hair-alone load names her hair alone, and drops the plan's
+  `looks` (its eye words invite a face); (b) no face lines on hair-alone frames (`--no-face-on`, passed like
+  `--no-mouth-on`); (c) one test, not yet a default: 5461 made with no reference video (motion none), so the
+  source's own picture carries her bow. Its render decides the default. A `--parts-on` hair span inside a face load
+  keeps the window's reference, with no face lines on those frames.
 - **5461-5497 stays the original today: the hair-only load stopped at its plan, the second try** (mrtall, after
   16:10Z, on mrarc's `data/2026-10-14_fun_batch_b_inputs/second_hp_5461b.STOPPED_AT_PLAN.md`). Its plan look reads
   a face drawn onto her crown on 5466-5497. Two causes are named in the tools: a hair-only load's generated text
