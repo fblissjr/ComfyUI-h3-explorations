@@ -14,6 +14,9 @@
     <python> bench/shot_to_load.py text JOB.json --by SESSION --plan PLAN.json
         (or, the exception: --by-hand "why" for a text a person wrote whole beside the job file)
         (then `bench/load_chain.py first JOB.json`)
+    <python> bench/shot_to_load.py pair FIRST_JOB.json SECOND_JOB.json --plan PLAN.json --folder INPUTS --by SESSION [--name NAME] [--remake]
+        (two chain-made loads of the same frames as ONE load of two subjects, the larger region first; its text is written whole,
+        `text --by-hand`; then `bench/load_chain.py first`, and every step of the chain as for any load)
 
 **What it buys.** The step before a load's chain was hand-work for every shot: a preview job typed from the shots
 record, a pose pass and a head reference run with each other's outputs for arguments, and a job file copied from
@@ -121,6 +124,7 @@ are. Whether the plan's order suits a shot.
 from __future__ import annotations
 
 import argparse
+import copy
 import datetime
 import json
 import os
@@ -1873,7 +1877,7 @@ def written(a, ctx: dict, made: dict, record: Path, points: Path, drawn: Path, f
 
 
 def step_text(a, world) -> None:
-    ctx = load_chain.read_job(Path(a.job_file), need_text=False)
+    ctx = load_chain.read_job(Path(a.job_file), world.data.parent, need_text=False)
     label, text = ctx["load"]["text"], ctx["text"]
     if a.by_hand is not None and not str(a.writer or "").strip():
         raise Refused("--writer takes a person's words: who wrote the text, and from which frames")
@@ -1886,6 +1890,8 @@ def step_text(a, world) -> None:
     generated = None
     if a.place_and_action is not None:
         raise Refused(load_text.NO_SCENE)
+    if a.by_hand is None and ctx.get("also"):
+        raise Refused("a load of two subjects takes its text written whole (--by-hand): bench/load_text.py writes one subject's")
     if a.by_hand is None:
         if not a.plan:
             raise Refused("the generated text reads the plan's words for the subject and the video: give --plan")
@@ -1923,7 +1929,158 @@ def step_text(a, world) -> None:
     print(f"wrote {a.job_file}. NEXT: bench/load_chain.py first {a.job_file} --by {a.by}")
 
 
-STEP = {"preview": step_preview, "job": step_job, "reference": step_reference, "text": step_text}
+#: A pair's subjects in the order the builder takes them: the larger region first (`masked_job_graph.one_subject_view`: "put first the
+#: subject whose region is larger"). Reasoned from the builder's rule. A whole person is not here: the delivery table lays no whole-person
+#: render, so a pair of one is refused.
+PAIR_RANK = ("face and hair", "face")
+#: Why a pair is rendered on the whole frame (docs/wiki/masked_v2v.md: a two-subject load is not rendered zoomed in).
+PAIR_WHOLE_FRAME_WHY = "a load of two subjects is rendered on the whole frame: the zoom is to one subject's part, and a pair has two"
+#: What the two jobs' file defaults may differ in: the margin, where the pair takes the larger (one margin a load: the node grows its
+#: region by one number). Any other setting that differs is refused, since the pair would carry one of them silently.
+PAIR_DEFAULTS_MAY_DIFFER = ("margin",)
+#: A subject's rows of THE DEFAULTS its own load carried that a pair does not: it renders on the whole frame, and its text is written whole
+#: (the voice is read by a generated text only). The pair's own row says each.
+PAIR_NOT_CARRIED = ("zoom", "the text", "the voice")
+
+
+def pair_job(one: dict, two: dict, regions: dict, name: str, day: str, output_key: str, by: str, now: str) -> dict:
+    """The job file of a load of two subjects, from two chain-made one-subject loads' own (`step_pair`): nothing tracked or posed again."""
+    s1, s2, l1, l2, j1, j2 = one["subject"], two["subject"], one["load"], two["load"], one["job"], two["job"]
+    first, frames = l1["first"], l1["frames"]
+    keys = lambda ctx: next((s for s in ctx["job"]["subjects"] if s["label"] == ctx["subject"]), {})       # noqa: E731
+    entries = []
+    import masked_job_graph as graphs
+    for ctx, other in ((one, s2), (two, s1)):
+        # a subject's own: its load's, over its file's defaults (a key the builder reads off the list is never a default of a pair)
+        l, k = {**{x: v for x, v in ctx["defaults"].items() if x in graphs.PAIR_KEYS}, **ctx["load"]}, keys(ctx)
+        entry = {"subject": ctx["subject"], "region": regions[ctx["subject"]], **({"still": k["still"]} if k.get("still") else {})}
+        entry.update({key: l[key] for key in ("motion_file", "motion_first", "motion_edge") if key in l})
+        entry["others"] = [o for o in l.get("others") or [] if o != other]
+        if ctx is one:
+            entry.update({key: l[key] for key in ("hair_band", "hair_band_cuts") if key in l})
+        entries.append(entry)
+    # THE KEEP-OUTS, both subjects' as one list, each saying whose own things it is (for the gate's given-back: a restore of the same
+    # subject's). A file both jobs name is one keep-out (the strangers, made from the one preview). A name both jobs give to their own
+    # things in different files (each subject's `hands`) is the second's under `<name>_<subject>`, in its own `others` too.
+    made, seen, renamed = [], {}, {}
+    for ctx in (one, two):
+        for k in (ctx["job"].get("keep_outs") or {}).get("made", []):
+            name = k["name"]
+            if name in seen and seen[name]["track"] == k["track"]:
+                continue
+            if name in seen:
+                if name == "strangers":
+                    raise Refused(f"both jobs name a strangers keep-out, in different files ({seen[name]['track']} and {k['track']}): one preview has one")
+                renamed[(ctx["subject"], name)] = name = f"{name}_{ctx['subject']}"
+            seen[name] = k
+            made.append({**copy.deepcopy(k), "name": name, **({"of": ctx["subject"]} if name != "strangers" else {})})
+    entries[1]["others"] = [renamed.get((s2, o), o) for o in entries[1]["others"]]
+    margin = max(one["defaults"].get("margin", 0), two["defaults"].get("margin", 0))
+    subjects = [copy.deepcopy(keys(one)), copy.deepcopy(keys(two))] + [copy.deepcopy(s) for s in j1["subjects"] if s["label"] not in (s1, s2)]
+    note = (f"Written by bench/shot_to_load.py pair for {by}, {now}. A LOAD OF TWO SUBJECTS, made from two chain-made loads of the same frames: "
+            f"{one['name']} ({s1}, <Picture 1> and <Video 1>) and {two['name']} ({s2}, <Picture 2> and <Video 2>), {s1} first as its region is "
+            f"the larger ({regions[s1]} against {regions[s2]}). Their masks, parts, keep-outs, stills and head references are their own; nothing "
+            f"was tracked or posed again. Neither subject is kept out of the other. One margin, the larger: {margin} px. RENDERED ON THE WHOLE "
+            f"FRAME: {PAIR_WHOLE_FRAME_WHY}. THE TEXT IS NOT WRITTEN: {name}.txt beside this file is a person's, and texts.{name}.by says who wrote it. "
+            "The delivery table does not lay a render of two subjects in one pass (bench/delivery_table.py).")
+    defaults = [{**x, "what": f"{ctx['subject']}: {x['what']}"} for ctx in (one, two) for x in ctx["job"].get("defaults") or []
+                if x["what"] not in PAIR_NOT_CARRIED]
+    defaults.append({"what": "the pair", "carries": f"{s1} first (<Picture 1>, <Video 1>), {s2} second (<Picture 2>, <Video 2>); margin {margin} px, "
+                     "the larger; rendered on the whole frame; neither subject kept out of the other; the text written whole, by a person, so no "
+                     "voice table is read", "from": "bench/shot_to_load.py pair (PAIR_RANK, PAIR_WHOLE_FRAME_WHY, PAIR_NOT_CARRIED)"})
+    load = {"name": name, "first": first, "frames": frames, "text": name, "subjects": entries,
+            **({"window": l1["window"]} if l1.get("window") is not None else {})}
+    if l1.get("save_kept") or l2.get("save_kept"):
+        load["save_kept"] = True
+    job = {"name": name, "note": note, "source": j1["source"], "first": first, "frames": frames, "canvas": list(j1["canvas"]), "output": output_key,
+           "subjects": subjects, "left_out": list(j1.get("left_out") or []) + list(j2.get("left_out") or []),
+           "capture": f"data/{day}_{name}", "preview": j1["preview"],
+           "texts": {name: {"file": f"{name}.txt", "frames": [first, first + frames - 1], "by": ""}},
+           "keep_outs": {"of": [s1, s2], "made": made, "by": {ctx["subject"]: (ctx["job"].get("keep_outs") or {}).get("by") for ctx in (one, two)},
+                         **({"renamed": [{"subject": w, "was": n, "is": m} for (w, n), m in renamed.items()]} if renamed else {})},
+           **({"track_not": copy.deepcopy(j1["track_not"])} if j1.get("track_not") is not None else {}),
+           # read against the job file's folder (`load_chain.who_is_who_file`), and the pair's may be another: written whole
+           **({"who_is_who": str((Path(one["job_file"]).parent / j1["who_is_who"]).resolve())} if j1.get("who_is_who") else {}),
+           "restore": [{**r, "subject": ctx["subject"]} for ctx in (one, two) for r in ctx["job"].get("restore") or []],
+           "whole_frame": {"why": PAIR_WHOLE_FRAME_WHY, "said_by": "bench/shot_to_load.py pair", "at": now},
+           "reference": copy.deepcopy(j1.get("reference") or {}), "reference_2": copy.deepcopy(j2.get("reference") or {}),
+           "pair": {"said_by": by, "at": now, "loads": [{"subject": ctx["subject"], "name": ctx["name"], "job_file": str(ctx["job_file"])} for ctx in (one, two)]},
+           "defaults": defaults}
+    # `carried` and `motion` are worked out for each subject from its region and reference (`one_subject_view`), and a subject's own keys
+    # went into its entry: none is a default of the pair
+    return {"job": job, "defaults": {**{k: v for k, v in one["defaults"].items() if k not in graphs.PAIR_READS}, "margin": margin}, "loads": [load]}
+
+
+def step_pair(a, world) -> None:
+    """A LOAD OF TWO SUBJECTS (the lead's ruling of 2026-10-15): two chain-made one-subject loads of the same frames, as one load the chain
+    runs like any other (`bench/load_chain.py` reads it through the builder's `one_subject_view`)."""
+    one, two = (load_chain.read_job(Path(f), world.data.parent, need_text=False) for f in (a.first, a.second))
+    for ctx in (one, two):
+        ctx["defaults"] = json.loads(ctx["raw"]).get("defaults") or {}
+        if ctx.get("also"):
+            raise Refused(f"{ctx['job_file']} is a load of two subjects already")
+        if not ctx["load"].get("motion_file") or not Path(ctx["load"]["motion_file"]).is_file():
+            raise Refused(f"{ctx['job_file']}: its head reference is not made (the reference step): a pair takes each subject's own")
+    if one["subject"] == two["subject"]:
+        raise Refused(f"both loads are of {one['subject']!r}")
+    for what, x, y in (("source", one["job"]["source"], two["job"]["source"]), ("preview", one["preview"]["folder"], two["preview"]["folder"]),
+                       ("canvas", one["job"]["canvas"], two["job"]["canvas"]),
+                       ("frames", (one["load"]["first"], one["load"]["frames"]), (two["load"]["first"], two["load"]["frames"]))):
+        if x != y:
+            raise Refused(f"the two loads differ in their {what} ({x} and {y}): a pair is two subjects of one load's frames, from one preview")
+    # what one load carries once, and both jobs carry: the window (a person's --seam), whose track is not whose (`track_not`), who is who
+    for what, x, y in (("load's window (--seam)", one["load"].get("window"), two["load"].get("window")),
+                       ("track_not", one["job"].get("track_not"), two["job"].get("track_not")),
+                       ("who_is_who", one["job"].get("who_is_who"), two["job"].get("who_is_who"))):
+        if x != y:
+            raise Refused(f"the two loads differ in their {what} ({x} and {y}): a load carries one, so the two are made with the same")
+    differ = sorted(k for k in set(one["defaults"]) | set(two["defaults"]) if k not in PAIR_DEFAULTS_MAY_DIFFER and one["defaults"].get(k) != two["defaults"].get(k))
+    if differ:
+        raise Refused(f"the two loads' settings differ in {', '.join(differ)} ({', '.join(f'{k}: {one['defaults'].get(k)!r} and {two['defaults'].get(k)!r}' for k in differ)}): "
+                      "a load carries one of each")
+    plan = json.loads(Path(a.plan).read_text())
+    regions = {ctx["subject"]: (plan.get("subjects") or {}).get(ctx["subject"], {}).get("region") for ctx in (one, two)}
+    for who, region in regions.items():
+        if region not in PAIR_RANK:
+            raise Refused(f"the plan's region for {who} is {region!r}; a pair takes one of {PAIR_RANK} (a whole person is not laid by the "
+                          "delivery table)")
+    if PAIR_RANK.index(regions[one["subject"]]) > PAIR_RANK.index(regions[two["subject"]]):
+        raise Refused(f"{one['subject']} ({regions[one['subject']]}) is given first and {two['subject']} ({regions[two['subject']]}) has the larger region: "
+                      "the larger goes first (masked_job_graph.one_subject_view)")
+    for key in ("hair_band", "hair_band_cuts"):
+        if key in two["load"]:
+            raise Refused(f"the second load has `{key}`: a band is cut under the first subject's part (one_subject_view); make the pair without it")
+    held = [k["name"] for k in (two["job"].get("keep_outs") or {}).get("made", []) if k["name"] == "held"]
+    if held:
+        raise Refused("the second load has a held keep-out of its own: the capture's held split reads the first subject's chin (--chin-points), "
+                      "so it would be split on the wrong person")
+    import masked_job_graph as graphs
+    folder, video = Path(a.folder), load_chain.video_of(one, world.data)
+    taken = lambda n: (folder / f"{n}.json").exists() or any(world.data.glob(f"????-??-??_{n}")) or any(world.data.glob(f"????-??-??_{n}_job"))   # noqa: E731
+    name = free_name(a.name or f"{one['subject']}_{two['subject']}_{one['load']['first']:04d}", taken, a.remake)
+    if not graphs.NAME.match(name):
+        raise Refused(f"the name {name!r}: letters, digits and underscores only")
+    now = load_chain.utc_now()
+    d = pair_job(one, two, regions, name, a.day, OUTPUT_KEY.format(video=video, session=a.by), a.by, now)
+    try:
+        graphs.one_subject_view({**d["defaults"], **d["loads"][0]})
+    except ValueError as e:
+        raise Refused(f"the builder refuses the pair: {e}") from None
+    print(f"THE PAIR {name}: {one['subject']} first (<Picture 1>, <Video 1>), {two['subject']} second (<Picture 2>, <Video 2>), source frames "
+          f"{one['load']['first']}-{one['load']['first'] + one['load']['frames'] - 1}; keep-outs {', '.join(k['name'] for k in d['job']['keep_outs']['made']) or 'none'}")
+    print("THE DEFAULTS THIS LOAD CARRIES:")
+    for x in d["job"]["defaults"]:
+        print(f"  {x['what']}: {x['carries']} ({x['from']})")
+    out = folder / f"{name}.json"
+    if world.dry:
+        print(f"DRY: {out} not written.")
+        return
+    out.write_text(json.dumps(d, indent=1) + "\n")
+    print(f"wrote {out}. NEXT: the text, written whole beside it as {name}.txt (a pair's text is a person's until bench/load_text.py writes "
+          f"two-subject texts), then bench/shot_to_load.py text {out} --by-hand WHY --writer WHO --by {a.by}; then bench/load_chain.py first {out}")
+
+
+STEP = {"preview": step_preview, "job": step_job, "reference": step_reference, "text": step_text, "pair": step_pair}
 
 
 def main() -> int:
@@ -2011,6 +2168,14 @@ def main() -> int:
                    "frozen picture; without --by-hand the text is made from the reference's record, the plan and the voice table")
     t.add_argument("--plan", help="the video's plan file, for its words for the subject and the video")
     t.add_argument("--by-hand", metavar="WHY", help="take the text a person wrote whole beside the job file, with the reason")
+    pr = sub.add_parser("pair")
+    pr.add_argument("first", help="the job file of the subject with the larger region: <Picture 1> and <Video 1>")
+    pr.add_argument("second", help="the job file of the other subject, of the same frames and preview: <Picture 2> and <Video 2>")
+    pr.add_argument("--plan", required=True, help="the video's plan file, for each subject's region")
+    pr.add_argument("--folder", required=True, help="where the pair's job file is written")
+    pr.add_argument("--name", help="the pair's name; <first>_<second>_<first frame> when left out")
+    pr.add_argument("--day", default=today, help="the day in the names of the pair's folders; today when left out")
+    pr.add_argument("--remake", action="store_true", help="the next free letter after the name, for a pair made again")
     for s in sub.choices.values():
         s.add_argument("--by", required=True, help="the session")
         s.add_argument("--host", default=load_chain.HOST)

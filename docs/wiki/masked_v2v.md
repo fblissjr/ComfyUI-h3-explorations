@@ -553,6 +553,27 @@ session starting a job needs to know:
     text alone, so the look is where a crossed pair is caught.
   - A hair band is the first subject's. A two-subject load is not rendered
     zoomed in.
+  - **Made through the chain** (the lead's ruling of 2026-10-15):
+    `bench/shot_to_load.py pair FIRST.json SECOND.json --plan PLAN.json`
+    makes one from two chain-made one-subject loads of the same frames and
+    preview, each with its head reference made. The larger region goes
+    first. Each subject keeps its own still, reference, job keys (its part,
+    `pieces`, `least`) and keep-outs, and neither subject is kept out of
+    the other. A keep-out and a restore span each say whose they are, so a
+    span gives back only its own subject's things; a name both give their
+    own things in different files is the second's under `<name>_<subject>`.
+    The margin is the larger of the two, and the load renders on the whole
+    frame. A file default, the load's window (`--seam`), `track_not` or
+    `who_is_who` that differs between the two is refused, and so is a hair
+    band or a held keep-out on the second subject (the band and the held
+    split are the first's). The text is written whole
+    (`text --by-hand`): `bench/load_text.py` writes one subject's.
+    `bench/load_chain.py` reads the pair through `one_subject_view`: both
+    subjects' parts, class maps and pose tables go to the capture, the
+    plan's run takes the second subject from the job file
+    (`capture_masked_run.plans_with_the_files`), and the land runs a pose
+    pass for each subject. The delivery table does not lay a render of
+    two subjects in one pass.
   No render had been made of one when this was written.
 - **A hair band under a head-and-hair part** (2026-10-12; a load's
   `hair_band`, a share of the part's height, with no default: a load that

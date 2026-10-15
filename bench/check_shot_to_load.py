@@ -1834,6 +1834,116 @@ def the_figures() -> str:
     return "the face's height and the lash-line gap are the same rows at the canvas and at the reference's scale, each with its frames under the line, and no reading"
 
 
+def a_load_of_two_subjects() -> str:
+    """`pair` (the lead's ruling of 2026-10-15): two chain-made loads of the same frames as one load of two subjects, the larger region first,
+    each subject's own keys, keep-outs and reference carried, neither subject kept out of the other, the whole frame, one margin."""
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        m = Machine(root)
+        pv = root / "data" / "2026-01-02_pv_job"
+        pv.mkdir(parents=True)
+        (pv / "job.json").write_text(json.dumps({"job": {"name": "pv", "first": 100, "frames": 60, "output": "Video/v/s",
+                                                        "subjects": [{"label": "b"}, {"label": "a"}]}}))
+        (pv / "preview.queued.json").write_text(json.dumps({"status": "success", "files": []}))
+        inputs = root / "in"
+        inputs.mkdir()
+        plan = inputs / "plan.json"
+        plan.write_text(json.dumps({"subjects": {"a": {"region": "face and hair"}, "b": {"region": "face"}}}))
+
+        def job(subject: str, other: str, margin: int, keep: list, **load_more) -> Path:
+            ref = root / f"ref_{subject}.mkv"
+            ref.write_bytes(b"")
+            path = inputs / f"{subject}_ld.json"
+            subjects = [{"label": subject, "still": f"{subject}.png", "pieces": "largest"}, {"label": other}]
+            path.write_text(json.dumps({"job": {"name": f"{subject}_ld", "source": "/in/copy.mov", "first": 110, "frames": 20, "canvas": [64, 48],
+                                                "output": "Video/v/s", "capture": f"data/2026-01-03_{subject}_ld", "preview": "data/2026-01-02_pv_job",
+                                                "subjects": subjects, "texts": {f"{subject}_ld": {"file": "x.txt", "frames": [110, 129], "by": ""}},
+                                                "keep_outs": {"of": subject, "made": keep}, "reference": {"points": f"{subject}_points.npz"},
+                                                "restore": [{"classes": ["Left_Hand"], "first": 0, "last": 999, "by": f"{subject.upper()}'S"}],
+                                                "left_out": [{"subject": subject, "first": 100, "frames": 10, "why": "W"}],
+                                                "defaults": [{"what": "zoom", "carries": "z", "from": "f"}, {"what": "the eye", "carries": "e", "from": "f"}]},
+                                        "defaults": {"margin": margin, "seed": 7, "carried": "held", "motion": "mesh", "motion_edge": 768},
+                                        "loads": [{"name": f"{subject}_ld", "first": 110, "frames": 20, "subject": subject, "others": [other] + [k["name"] for k in keep],
+                                                   "text": f"{subject}_ld", "motion_file": str(ref), "motion_first": 110, "render_region": "part", **load_more}]}))
+            return path
+        strangers = {"name": "strangers", "track": "/s.mkv", "frame_hash": "h"}
+        ja = job("a", "b", 16, [{"name": "held", "track": "/held.mkv", "classes": []}, strangers])
+        jb = job("b", "a", 64, [strangers])        # the larger margin the second's: the pair takes the larger, not the first's
+        a_ = lambda first, second, **more: args(**{"first": str(first), "second": str(second), "plan": str(plan), "folder": str(inputs),  # noqa: E731
+                                                   "name": None, "day": "2026-01-03", "remake": False, "by": "the session", **more})
+        kept, stl.load_chain.video_of = stl.load_chain.video_of, lambda ctx, data: "v"
+        try:
+            # THE CASES THAT GO RED: the smaller region first, two loads of other frames, a setting that differs, a reference not made
+            refused(lambda: stl.step_pair(a_(jb, ja), m), "b (face) is given first", "the larger goes first")
+            d = json.loads(jb.read_text())
+            d["loads"][0]["first"] = 111
+            jb2 = inputs / "b2.json"
+            jb2.write_text(json.dumps(d))
+            refused(lambda: stl.step_pair(a_(ja, jb2), m), "differ in their frames")
+            d = json.loads(jb.read_text())
+            d["defaults"]["seed"] = 8
+            jb2.write_text(json.dumps(d))
+            refused(lambda: stl.step_pair(a_(ja, jb2), m), "settings differ in seed")
+            d = json.loads(jb.read_text())
+            d["loads"][0]["motion_file"] = str(root / "nowhere.mkv")
+            jb2.write_text(json.dumps(d))
+            refused(lambda: stl.step_pair(a_(ja, jb2), m), "its head reference is not made")
+            # what one load carries once: a window (--seam) on one of them, a band or a held keep-out on the second
+            for change, words in ((lambda d: d["loads"][0].update(window=294), "differ in their load's window"),
+                                  (lambda d: d["loads"][0].update(hair_band=0.2), "the second load has `hair_band`"),
+                                  (lambda d: d["job"]["keep_outs"]["made"].append({"name": "held", "track": "/b_held.mkv"}) or d["loads"][0]["others"].append("held"),
+                                   "a held keep-out of its own")):
+                d = json.loads(jb.read_text())
+                change(d)
+                jb2.write_text(json.dumps(d))
+                refused(lambda: stl.step_pair(a_(ja, jb2), m), words)
+            # each subject's own `hands`, in its own file: the second's is renamed, in its own others as well
+            d = json.loads(jb.read_text())
+            d["job"]["keep_outs"]["made"].append({"name": "hands", "track": "/b_hands.mkv", "classes": ["Left_Hand"]})
+            d["loads"][0]["others"].append("hands")
+            jb2.write_text(json.dumps(d))
+            d = json.loads(ja.read_text())
+            d["job"]["keep_outs"]["made"].append({"name": "hands", "track": "/a_hands.mkv", "classes": ["Left_Hand"]})
+            d["loads"][0]["others"].append("hands")
+            ja2 = inputs / "a2.json"
+            ja2.write_text(json.dumps(d))
+            stl.step_pair(a_(ja2, jb2, name="twin"), m)
+            twin = json.loads((inputs / "twin.json").read_text())
+            stl.step_pair(a_(ja, jb), m)
+        finally:
+            stl.load_chain.video_of = kept
+        out = json.loads((inputs / "a_b_0110.json").read_text())
+        job_, load = out["job"], out["loads"][0]
+        first, second = load["subjects"]
+        # THE CASE THAT GOES RED when a subject is given the other's reference video (a crossed pair) or the first's twice
+        assert (first["motion_file"], second["motion_file"]) == (str(root / "ref_a.mkv"), str(root / "ref_b.mkv")) \
+            and first["motion_first"] == second["motion_first"] == 110, (first, second)
+        assert job_["keep_outs"]["of"] == ["a", "b"] and set(job_["keep_outs"]["by"]) == {"a", "b"}, job_["keep_outs"]
+        tk = {k["name"]: k for k in twin["job"]["keep_outs"]["made"]}
+        assert (tk["hands"]["track"], tk["hands"]["of"], tk["hands_b"]["track"], tk["hands_b"]["of"]) == ("/a_hands.mkv", "a", "/b_hands.mkv", "b"), tk
+        assert twin["loads"][0]["subjects"][1]["others"] == ["strangers", "hands_b"] and "hands" in twin["loads"][0]["subjects"][0]["others"], twin["loads"][0]
+        assert (first["subject"], first["region"], first["still"], second["subject"], second["region"], second["still"]) == ("a", "face and hair", "a.png", "b", "face", "b.png"), load
+        assert first["others"] == ["held", "strangers"] and second["others"] == ["strangers"], "a subject of the pair is kept out of the other"
+        assert first["motion_edge"] == second["motion_edge"] == 768 and "render_region" not in load and "subject" not in load, load
+        assert out["defaults"] == {"margin": 64, "seed": 7}, f"one margin, the larger; nothing the builder reads off the list: {out['defaults']}"
+        assert [k["name"] for k in job_["keep_outs"]["made"]] == ["held", "strangers"] and job_["keep_outs"]["made"][0]["of"] == "a" \
+            and "of" not in job_["keep_outs"]["made"][1], job_["keep_outs"]
+        assert [r["subject"] for r in job_["restore"]] == ["a", "b"] and [x["subject"] for x in job_["left_out"]] == ["a", "b"], job_
+        assert job_["whole_frame"]["why"] == stl.PAIR_WHOLE_FRAME_WHY and job_["reference"]["points"] == "a_points.npz" and job_["reference_2"]["points"] == "b_points.npz"
+        assert [x["what"] for x in job_["defaults"]] == ["a: the eye", "b: the eye", "the pair"], "a subject's zoom row carried into a load on the whole frame"
+        assert [s["label"] for s in job_["subjects"]] == ["a", "b"] and job_["subjects"][1].get("pieces") == "largest", job_["subjects"]
+        # the chain reads it: the first subject's, with the second beside it
+        ctx = stl.load_chain.read_job(inputs / "a_b_0110.json", root, need_text=False)
+        assert (ctx["subject"], ctx["also"]) == ("a", "b"), (ctx["subject"], ctx["also"])
+        # and its text is a person's: the generated text is one subject's
+        refused(lambda: stl.step_text(args(job_file=str(inputs / "a_b_0110.json"), writer=None, place_and_action=None, plan=str(plan), by_hand=None, by="s"), m),
+                "a load of two subjects takes its text written whole")
+    return ("two loads of the same frames make one load of two subjects, the larger region first, each with its own still, reference, keys and "
+            "keep-outs, neither kept out of the other, one margin, the whole frame, no zoom row; the smaller region first, other frames, a setting "
+            "that differs and a reference not made are refused; the chain reads it; its text is written whole")
+
+
 case("the frame a tracker picks on is a field of the shots record", the_pick_frame_is_a_field)
 case("the trackers' order, and who is in the shot", the_order_and_who_is_in_the_shot)
 case("a preview made to ask who is on a shot the record is unsure of", a_preview_made_to_ask)
@@ -1856,6 +1966,7 @@ case("a job renders from the video's present copy", a_job_renders_from_the_prese
 case("reference: on the load's frames, drawn by default", the_reference_step)
 case("the defaults this load carries", the_defaults_this_load_carries)
 case("the figures, at the canvas and in the reference", the_figures)
+case("pair: two loads of the same frames as one of two subjects", a_load_of_two_subjects)
 
 if __name__ == "__main__":
     sys.exit(finish())
