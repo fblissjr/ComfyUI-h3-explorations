@@ -17,6 +17,27 @@ pointer goes; this list is stale the moment the roadmap disagrees with it.
 Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
+**The queue of 2026-10-15 (the lead, mrtall; written before the close and finished in `handover.md`).** Every shot is
+made by the recipe the owner kept on the hall shot: [`masked_v2v.md`](masked_v2v.md), "A shot, made whole" (one load a
+subject over the whole shot, every frame read first, `--no-face-on` and `--hold-part` on a person's word, "sings" only
+where they sing, the text read whole, others given back, a joined clip of the shot for the owner). Pieces the owner kept
+are not remade for it; the owner's explicit calls are.
+1. Land `--continue-from`/`--context` after a fresh cold read (worktree mrlol-no-face-on, 71ee3c8c; its reader's
+   finding: a stored window off the chained grid cannot be continued). Then the kitchen's second subject, 604-1009,
+   one load, context 141, seam 898.
+2. 2823-3109 (or the whole shot to 3166 if her face shows there): one load, one window, 2823b's settings, for the
+   owner beside 2823b (Open List row 6).
+3. The dad over 1397-1418: continuing 1310c only if its stored window is on the grid; else ask the owner.
+4. Second-subject loads: the hall's far table 1419-1465 (face and hair; `--no-face-on` 1419-1427, 1437-1452) and
+   1093-1133 hair alone (the owner: "worst case ... just make it blonde hair").
+5. The lead's 2050-2622 shot, her face to about 2247 (Open List row 1); 5935-6104 (5935b's reference failed its
+   read-back: find why first); 4310b (reference again with 37fea06b in).
+6. Short pieces with gaps, not kept: 438-483, 1061-1092, 1093-1133 (lead), 2013-2049. Shots with nothing: 168-185,
+   516-603, 1189-1221, and 3167 to 6394.
+7. Tooling: one hole a pass (a load given another's render as its video), then the plan key for giving another subject
+   back; the hold form (mrvid-hold, 97512bda) and the continuation's ledger span with step 1.
+Closed today: two or more subjects in one pass (`../roadmap.md`, "Closed lanes").
+
 **The queue at the close of 2026-10-14 (the lead, mrtwo). The card's order and the tooling order are
 [`handover.md`](handover.md), "Tomorrow, in order", and are not repeated here; the day's rulings are
 [`decisions.md`](decisions.md), 2026-10-14. Of the list below, items 1 and 2 and the floor of item 6 were done on
