@@ -5022,6 +5022,43 @@ def head_boxes(video: dict, size: tuple[int, int], frames: tuple[int, int]) -> l
     return out
 
 
+def kept_of(given: dict | None) -> dict[int, tuple[np.ndarray, list | None]]:
+    """What the composite kept of the render, by source frame, from each window's region file when the render saved it
+    (the song node's `save_kept`): the packed mask and the zoom box it is drawn in (None on the whole frame). Empty
+    when no window saved it, as every render before 2026-10-15. A window's frame k is source frame its own first frame
+    plus k, from the load's first (`video_mask.save_window_region`)."""
+    out = {}
+    load_first = next((r["loader"]["first_frame"] for r in (given or {}).get("inputs", []) if r["role"] == "the source"), None)
+    for w_ in ((given or {}).get("zoom") or {}).get("windows") or []:
+        if load_first is None or not w_.get("region") or not Path(w_["region"]).is_file():
+            continue
+        with np.load(w_["region"]) as z:
+            if "kept" not in z.files:
+                continue
+            meta = json.loads(str(z["meta"]))
+            packed, width = z["kept"], int(meta["width"])
+        box = (meta.get("zoom") or {}).get("box")
+        for k in range(packed.shape[0]):
+            out[load_first + int(meta["first_frame"]) + k] = (np.unpackbits(packed[k], axis=-1)[..., :width].astype(bool), box)
+    return out
+
+
+def draw_kept(img: np.ndarray, kept: np.ndarray, box: list | None) -> int:
+    """The white outline of what the composite kept, on a whole-frame tile: carried back through the zoom box when the
+    render was zoomed (the mask is then of the box scaled to the canvas). Returns the pixels kept on the whole frame."""
+    import cv2
+    h, w = img.shape[:2]
+    if box:
+        x0, y0, x1, y1 = (int(v) for v in box)
+        whole = np.zeros((h, w), np.uint8)
+        whole[y0:y1, x0:x1] = cv2.resize(kept.astype(np.uint8), (x1 - x0, y1 - y0), interpolation=cv2.INTER_NEAREST)
+    else:
+        whole = cv2.resize(kept.astype(np.uint8), (w, h), interpolation=cv2.INTER_NEAREST) if kept.shape != (h, w) else kept.astype(np.uint8)
+    contours, _ = cv2.findContours(whole, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+    cv2.drawContours(img, contours, -1, WHITE, 2, cv2.LINE_AA)
+    return int(whole.sum())
+
+
 def detail_box(focus: np.ndarray, lo: int, frames: int, size: tuple[int, int]) -> list[int]:
     """One fixed square round everything the drawn runs regenerate on the strip's frames, for an unzoomed load's
     right column: the strip's own box, for reading, never the node's."""
@@ -5222,11 +5259,14 @@ def video(a: argparse.Namespace) -> None:
     legend = pinned_legend(subjects, runs, rows, replaced)
     keep_outs = [e["label"] for e in legend if e["kind"] == "keep-out"]
     records = strip_records(m, subjects, runs, rows, table, run_table, flags, given, lo, frames, skip, bool(render), legend, keep_outs)
+    kept = kept_of(given)                              # what the composite kept, when the render saved it (`save_kept`)
     # ---- the bottom panel's lines, fixed for the whole clip: never cut, never moving
     LW, GX = 940, 952
     legend_lines_n = [max(len(wrap_text(rec["legend"][k], LW - 44, small.getlength)) for rec in records) for k in range(len(legend))]
     flag_text = [wrap_text(f["words"], LW - 16, small.getlength) for f in flags]
-    box_line = wrap_text("grey box: " + box_words, LW - 44, small.getlength)
+    box_line = wrap_text("grey box: " + box_words, LW - 44, small.getlength) + wrap_text(
+        "white outline: what the composite kept of the render, the node's own (its save_kept)" if kept else
+        "no white outline: this render did not save what its composite kept (the song node's save_kept)", LW - 44, small.getlength)
     left_h = 84 + 26 + 20 * (len(box_line) + sum(legend_lines_n)) + 8 * len(legend) + 10 + 19 * sum(len(x) for x in flag_text) \
         + (19 if not flags else 0) + 24
     given_h = 34 + (320 if len(cols) < 2 else 210) + 64
@@ -5317,6 +5357,8 @@ def video(a: argparse.Namespace) -> None:
     for n, plate in enumerate(plates, lo):
         rec = records[n - lo]
         tiles_ = [plate, draw_masks(plate, n, subjects, runs)] + ([next(renders)] if render else [])
+        if (first + n) in kept:
+            rec["kept_px"] = draw_kept(tiles_[1], *kept[first + n])
         own_zoomed = next(zoomeds) if zoomeds is not None else None
         canvas = np.zeros((canvas_h, canvas_w, 3), np.uint8)
         for k, tile in enumerate(tiles_):
@@ -5518,7 +5560,9 @@ def video(a: argparse.Namespace) -> None:
             "legend": legend, "keep_out_words": {k: KEEP_OUT_WORDS.get(k, "another tracked subject") for k in keep_outs},
             "marks": {"outline": "the tracked mask", "solid": "taken from the still", "light": "margin regenerated",
                       "hatched cell in a keep-out's colour": "a margin cell kept as the original because it lies on that keep-out",
-                      "grey box": box_words, "not drawn": "what the render kept (the node's composite weight is not saved): no white mark is drawn"},
+                      "grey box": box_words,
+                      "white outline": "what the composite kept of the render (the song node's save_kept)" if kept else
+                      "not drawn: this render did not save what its composite kept (the song node's save_kept)"},
             "flags": flags, "overridden": sorted(overridden), "text": shown["text"] if shown else (given or {}).get("text", {}).get("text"),
             "render_said": rendered or said_render, "records": frames_file.name}
     sidecar.write_text(json.dumps(head, indent=1, default=str) + "\n")

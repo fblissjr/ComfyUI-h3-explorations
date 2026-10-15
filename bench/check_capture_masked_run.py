@@ -1816,7 +1816,26 @@ def the_strips_marks_and_records() -> str:
     # a keep-out the capture tracks no mask of is still a legend line, never a fault
     words = cap.legend_words({"label": "strangers", "colour": (1, 2, 3), "kind": "keep-out"}, {"subjects": {}, "runs": {}, "keep_outs": {}})
     assert "no tracked mask of it in this capture" in words, words
+    # what the composite kept (the song node's save_kept): read from a window's region file by source frame, drawn white on the
+    # whole frame through the zoom box; a region file without it gives nothing, as every render before 2026-10-15
+    with tempfile.TemporaryDirectory() as tmp:
+        kept = np.zeros((3, 48, 64), bool)
+        kept[1, 12:36, 16:48] = True                                   # frame 1 of the window: a block in the zoomed picture
+        meta = {"first_frame": 2, "width": 64, "zoom": {"box": [32, 16, 96, 64]}}
+        reg = Path(tmp) / "w_region.npz"
+        np.savez(reg, kept=np.packbits(kept, axis=-1), meta=np.array(json.dumps(meta)))
+        plain = Path(tmp) / "p_region.npz"
+        np.savez(plain, meta=np.array(json.dumps(meta)))
+        given_k = {"inputs": [{"role": "the source", "tag": None, "loader": {"first_frame": 100}}], "zoom": {"windows": [{"region": str(reg)}]}}
+        got_k = cap.kept_of(given_k)
+        assert sorted(got_k) == [102, 103, 104] and not got_k[102][0].any() and got_k[103][0].sum() == 24 * 32, sorted(got_k)
+        assert cap.kept_of({**given_k, "zoom": {"windows": [{"region": str(plain)}]}}) == {}
+        canvas = np.zeros((96, 160, 3), np.uint8)
+        px = cap.draw_kept(canvas, *got_k[103])
+        # the box is 64x48 for a 64x48 picture: the block lands at x 48-80, y 28-52 of the whole frame, outlined white
+        assert px == 32 * 24 and tuple(canvas[28, 60]) == cap.WHITE and tuple(canvas[40, 60]) == (0, 0, 0), (px, canvas[28, 60], canvas[40, 60])
     return ("a given-back cell in its keep-out's colour; a keep-out at 0% of the region still pinned with its cell; an override said; "
+            "what the composite kept read by source frame and drawn white through the zoom box; "
             "events and the encoder's frames in the records; the head crop one size, following the face")
 
 
