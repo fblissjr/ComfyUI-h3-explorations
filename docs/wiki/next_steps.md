@@ -44,6 +44,13 @@ are not remade for it; the owner's explicit calls are.
    516-603, 1189-1221, and 3167 to 6394.
 7. Tooling: one hole a pass (a load given another's render as its video), then the plan key for giving another subject
    back; the hold form (mrvid-hold, 97512bda) and the continuation's ledger span with step 1.
+8. Gaze (the owner, 2026-10-15 evening: "I dont buy that its too small to follow it. Maybe the ref video needs to be
+   scaled and resized in a different way"). One test render on the lead's 1097-1133 glance: the input zoomed AND the
+   reference cut to a tighter head box, together. Why: one token sees 32x32 px of the reference (the video VAE's 16x,
+   `comfy/sd.py`, times the DiT's 2x2 patch), so the drawn eye spans about one token and the glance moves the iris
+   inside it; and a zoomed load is handed its reference uncut (`workflows/masked_job_graph.py`, above RENDER_REGIONS),
+   so 10/14's zoomed test enlarged the hole but not the drawn eyes. The outside reviewer's C9 weighs the options first
+   (`internal/gemini/2026-10-15_requests.md`, C9 and its addenda).
 Closed today: two or more subjects in one pass (`../roadmap.md`, "Closed lanes").
 
 **The queue at the close of 2026-10-14 (the lead, mrtwo). The card's order and the tooling order are
