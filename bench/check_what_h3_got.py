@@ -49,6 +49,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _lib import case, finish  # noqa: E402
+from _lib.frames import LOADER_CROP  # noqa: E402
 
 import what_h3_got as w  # noqa: E402
 
@@ -150,7 +151,7 @@ def the_loaders_cut() -> str:
     for size in ((1424, 1080), (1920, 1080), (1024, 768)):
         fit = w.vhs_fit(list(size), 1024, 768)
         ar = 1024 / 768
-        flt = f"crop=if(gt({ar}\\,a)\\,iw\\,ih*{ar}):if(gt({ar}\\,a)\\,iw/{ar}\\,ih)"     # the loader's line, as it writes it
+        flt = LOADER_CROP.format(ar=ar)                     # the loader's line (held to its file by bench/check_loader_fit.py)
         got = []
         for axis in ("X", "Y"):
             # a level a pixel, in 16-bit grey so a coordinate up to 1920 fits: the first and last of the cut say where it is
@@ -282,7 +283,7 @@ def the_cut_on_a_yuv420p_file() -> str:
     where the cut starts, run through the loader's filter, against `vhs_fit`."""
     said = []
     ar = 1024 / 768
-    flt = f"crop=if(gt({ar}\\,a)\\,iw\\,ih*{ar}):if(gt({ar}\\,a)\\,iw/{ar}\\,ih)"
+    flt = LOADER_CROP.format(ar=ar)
     for (W, H), axis in (((1438, 1080), "Y"), ((1922, 1080), "X")):
         fit = w.vhs_fit([W, H], 1024, 768, pix_fmt="yuv420p")
         at = fit["crop"][1] if axis == "Y" else fit["crop"][0]
