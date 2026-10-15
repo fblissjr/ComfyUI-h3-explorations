@@ -530,7 +530,7 @@ def step_job(a, world) -> None:
     (folder / f"{name}.json").write_text(json.dumps(job, indent=1))
     print(f"wrote {preview_folder} and {folder / (name + '.json')}")
     print(f"IT STOPS HERE FOR THE TEXT: write {folder / (name + '.txt')}, one text with a [Shot 1] and a [Shot 2], from the two loads' own texts "
-          f"({one['text']}, {two['text']}); then say who wrote it: bench/shot_to_load.py text {folder / (name + '.json')} --by {a.by} --writer \"who, and from which frames\". "
+          f"({one['text']}, {two['text']}); then say who wrote it: bench/shot_to_load.py text {folder / (name + '.json')} --by {a.by} --by-hand \"why\" --writer \"who, and from which frames\". "
           f"Then bench/load_chain.py first, plan, `bench/two_shot_load.py plan-cuts`, and on as for any load.")
 
 

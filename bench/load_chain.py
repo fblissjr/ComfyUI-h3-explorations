@@ -207,7 +207,7 @@ def read_job(job_file: Path, repo: Path = REPO, need_text: bool = True) -> dict:
         raise Refused(f"the load's text {Path(job_file).parent / told['file']} is not written: it is a person's to write, from the load's own frames")
     if need_text and not str(told.get("by") or "").strip():
         raise Refused(f"{job_file}: texts.{load.get('text')}.by is empty: say who wrote the text, and from which frames "
-                      f"(bench/shot_to_load.py text {job_file} --by SESSION --writer \"who, and from which frames\")")
+                      f"(bench/shot_to_load.py text {job_file} --by SESSION --plan PLAN.json, or --by-hand \"why\" --writer \"who, from which frames\")")
     # THE LOAD'S KEEP-OUTS (`job.keep_outs`, written by `bench/shot_to_load.py job` from the plan): mask videos on the
     # preview's frames, each a subject of the capture and one of the load's `others`. Held both ways: a keep-out the
     # job names and the load does not keep out is drawn again in silence; one the load keeps out with no file named
