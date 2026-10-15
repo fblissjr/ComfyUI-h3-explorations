@@ -19,6 +19,15 @@ Older history lives elsewhere and is not copied here:
 
 *Written by the lead of the day (mrtall) as the rulings are made; mrarc holds the card, mrlol tooling.*
 
+- **A reference still's definition is specific; the generation's description says less** (the owner, 2026-10-15,
+  about 19:50Z, on the kitchen's two-subject text: "specificity in the reference image definition is important. in the
+  actual generation and how its used... sometimes less is more"). The second subject's definition now names her face
+  from the still, "with blue-grey eyes, fair skin and blonde hair", where the owner had said earlier in the day that
+  "blonde hair" was all it needed; the detailed_description keeps only her short hair. Her hair's retention line is
+  "the woman's face and the blonde colour of her hair from <Picture 1> are retained; her hair's length is changed to
+  short, ending at her shoulders" (the owner's question of about 19:20Z; the outside reviewer's G13 found no better
+  wording): partially_preserved in `vendor_guides/ref_en.md` 4.1 means some defined characteristics are changed, so a
+  changed hair is said to be changed, never "retained".
 - **To H3 a masked load is not an edit, and a text never describes the frozen picture** (the owner, 2026-10-15,
   about 19:40Z, on the lead's draft of the kitchen's two-subject text: "it cant see a mom with a white apron", "thats
   all frozen", "to h3 this is not an edit - you have to internalize this and make sure its core to this project", "we
