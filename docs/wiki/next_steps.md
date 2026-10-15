@@ -96,6 +96,12 @@ her head" below: the fault was found elsewhere on 2026-10-14.)
   whatever the body model puts there. No count yet. The body model's picture has no class map kept, and the source's arm
   inside the head box (the cheap proxy) would measure the source, not the fault (the lead, 2026-10-15). Wanted first:
   a session's look at 1097-1104 of that reference, then a way to find the body model's arm over its head.
+- **The capture's `--plan` estimate of the region still models the node's old rule** (2026-10-15, mrlol's cold reader on
+  561f385a). `bench/capture_masked_run.py::planned_region` says it is "The Masked Source's rule (`video_mask.window`)", but it
+  has none of the three region rules that commit added (`drop_specks`, `close_lone_holes`, `drop_islands`). So its figures
+  differ from the node's saved region wherever a keep-out leaves specks, lone holes or cut-off pieces. No gate reads it; the
+  node's saved region file is the truth. Wanted: `planned_region` calling the node's own `window()` (or the three rules), at a
+  boundary, since the capture is a chain file.
 - **Her hair tips shimmer at the blend's outer edge** (2026-10-15, the outside reviewer's G2,
   `internal/gemini/2026-10-15_watch_hair_item4.md`, fault 1C; the lead's ruling: a row, not a build). On second_hfp_0014d's
   50-65 her lower blonde hair tips over her left collarbone feather and shimmer. `only what changed` drops them at the outer
