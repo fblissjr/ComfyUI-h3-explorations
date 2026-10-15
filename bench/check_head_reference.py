@@ -297,11 +297,11 @@ def the_mouth_by_the_check() -> str:
     inner = pic[int(round((cy - y0) * rh / (y1 - y0))), int(round((cx - x0) * rw / (x1 - x0)))]
     assert inner.max() < 60, ("the lip lines' inside is not dark where the class map's mouth is open", inner.tolist())
     assert any("the mouth: DRAWN by the check" in x for x in said_on), said_on
-    # where the lines miss on every frame, the class map's mouth would land where the lines do not: no mouth on any frame
-    # (the lead's ruling of 2026-10-14 on 1010d, whose check fails on all its frames)
+    # where the class map's lips sit 40 px off the pose model's mouth on every frame (far, as on 1010d's chest), its gate keeps no
+    # frame: no mouth on any frame, by the class map's own gate and not the lines' share
     m = off["drawn"]["mouth"]
     assert m["drawn"] and m["drawn_as"] == "the class map" and "mouth" in off["drawn"]["parts_left_out"] and m["check"]["frames_at_or_over_the_share"] == 0 \
-        and m["no_mouth_on"] == {hr.NO_MOUTH_UNDER_THE_SHARE: [[0, N - 1]]} and m["frames_with_no_mouth"] == N, off["drawn"]
+        and m["no_mouth_on"] == {hr.NO_MOUTH_CLASS_GATE: [[0, N - 1]]} and m["frames_with_no_mouth"] == N and m["gate"]["frames_drawn"] == 0, m
 
     def at(name: str, rec: dict, f: int, shift: float) -> np.ndarray:
         """The reference's pixel at the points' mouth centre (+ `shift` px), frame `f`."""
@@ -317,12 +317,14 @@ def the_mouth_by_the_check() -> str:
     pic, ux, uy, _ = at("off", off, N // 2, 40)
     assert pic[uy, ux].max() > 60, ("a class-map mouth was drawn where the lip lines miss it", pic[uy, ux].tolist())
     # 630b's 672 and 1010d's 1026, on one load: the lines miss on 0-7 (672: share 0, the class map's lips a quarter face off), lie on it on
-    # 8-11, and 10-11 are frames whose part holds no lips (1026: hair alone). The class map's mouth is drawn on 8 and 9 alone
+    # 8-11, and 10-11 are frames whose part holds no lips (1026: hair alone). A mouth on 8 and 9 alone, by the lip lines, with the
+    # class map's inside under them
     x = seen["mixed"][0]["drawn"]["mouth"]
     said_mixed = seen["mixed"][1]
     # THE CASE THAT GOES RED when a mouth is drawn on a frame whose lips miss (672), or on a frame whose part holds no lips (1026)
-    assert x["drawn_as"] == "the class map" and x["no_mouth_on"] == {hr.NO_MOUTH_UNDER_THE_SHARE: [[0, 7]],
+    assert x["drawn_as"] == "the class map" and x["no_mouth_on"] == {hr.NO_MOUTH_CLASS_GATE: [[0, 7]],
                                                                      hr.NO_MOUTH_PART.format(why="HAIR ALONE"): [[10, 11]]} and x["frames_with_no_mouth"] == 10, x
+    assert x["frames_by_the_lip_lines"] == [[8, 9]] and x["frames_by_the_class_map"] == [], x     # 10-11: no mouth, whatever places it
     assert any("NO MOUTH on 8 of 12 frames (0-7)" in y for y in said_mixed) and any("NO MOUTH on 2 of 12 frames (10-11)" in y for y in said_mixed), said_mixed
     pic, ux, uy, _ = at("mixed", seen["mixed"][0], 3, 40)
     assert pic[uy, ux].max() > 60, ("672: a mouth drawn where the lips miss", pic[uy, ux].tolist())
@@ -335,7 +337,7 @@ def the_mouth_by_the_check() -> str:
     assert (col[max(uy - int(30 * sy), 0):uy] > 200).any(), "no white outline above the class map's open mouth"
     # the lip lines drawn (they lie on the mouth on 9 of 12 frames) and none on the three they miss: no white ring at her mouth there
     y = seen["mostly"][0]["drawn"]["mouth"]
-    assert y["drawn_as"] == "the lip lines" and y["no_mouth_on"] == {hr.NO_MOUTH_UNDER_THE_SHARE: [[9, 11]]}, y
+    assert y["drawn_as"] == "the lip lines" and y["no_mouth_on"] == {hr.NO_MOUTH_CLASS_GATE: [[9, 11]]}, y
 
     def white_at_mouth(f: int) -> int:
         pic, ux, uy, sy = at("mostly", seen["mostly"][0], f, 0)
@@ -362,14 +364,178 @@ def the_mouth_by_the_check() -> str:
         assert "--mouth-why" in str(e), e
     else:
         raise AssertionError("the mouth drawn on a word with no reason")
-    return ("the mouth drawn where the lip lines lie on the class map's mouth; where they do not on most frames, the class map's own mouth, dark inside "
-            "and outlined, on the frames they do; no mouth on a frame whose lines miss (630b's 672) or whose part holds no lips (1010d's 1026); the "
-            "figures in the record; drawn on a word only with its reason")
+    return ("the mouth drawn where the lip lines lie on the class map's mouth, its inside under them; where they do not on most frames, the span "
+            "in the class map's form, the lines still drawn on the frames they lie on it; no mouth on a frame whose lines miss and whose class-map "
+            "lips lie far off (630b's 672) or whose part holds no lips (1010d's 1026); the figures in the record; drawn on a word only with its reason")
+
+def the_class_map_mouth_by_its_gate() -> str:
+    """The lead's fault of 2026-10-15: on a small or turned face the lip lines miss her mouth on most frames, so the class map's own mouth
+    is drawn, and the lines' share then dropped it on those same frames (630's 40 of 51). Here the class map's lips sit at the pose model's
+    mouth, clear of the lip ring, on every frame (the lines' share under `MOUTH_CHECK["on_share"]` on all 12), and on 6-11 the body
+    model is black round the mouth (630b's 658-680, drawn in the air)."""
+    import cv2
+    import capture_masked_run as cap
+    import draw_face_points as dfp
+    from _lib import face_points as fp
+    names = cap._pack("sapiens2_parts").CLASS_NAMES
+    folder, mesh, pts, source = rooms("mouth_gate", [90] * N, [60] * N, CENTRES, 0)
+    P = fp.load(str(pts), None)
+    lips = [i for k, i in P["index"].items() if "outer_lip" in k or k in ("r_outer_corner_of_mouth", "l_outer_corner_of_mouth")]
+    cm = np.zeros((N, H, W), np.uint8)
+    body = grey([90] * N)
+    for f in range(N):
+        xy = P["keypoints"][f][lips]
+        cx, cy = (int(round(v)) for v in xy.mean(0))
+        ax, ay = (max(int(0.35 * (xy[:, i].max() - xy[:, i].min()) / 2), 3) for i in (0, 1))
+        cv2.ellipse(cm[f], (cx, cy), (ax, ay), 0, 0, 360, names.index("Upper_Lip"), -1)
+        cv2.ellipse(cm[f], (cx, cy), (max(ax // 2, 1), max(ay // 2, 1)), 0, 0, 360, names.index("Tongue"), -1)
+        if f >= 6:
+            cv2.circle(body[f], (cx, cy), 40, (0, 0, 0), -1)
+    video(mesh, body)
+    classes = folder / "classes.mkv"
+    enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "gray", "-s", f"{W}x{H}", "-r", "24", "-i", "-", "-c:v", "ffv1",
+                            "-level", "3", str(classes)], stdin=subprocess.PIPE)
+    enc.stdin.write(cm.tobytes()); enc.stdin.close(); assert enc.wait() == 0
+    said: list[str] = []
+    rec = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head.mp4", "the check", room=ROOM, mouth="auto", classes=str(classes), classes_first=0,
+                 say=said.append)
+    m = rec["drawn"]["mouth"]
+    assert m["check"]["frames_at_or_over_the_share"] == 0 and m["drawn_as"] == "the class map", m
+    rows = {r["frame"]: r for r in m["gate"]["a_frame_at_a_time"]}
+    # THE CASE THAT GOES RED when the lines' share drops the class map's mouth on frames where it sits on her face (the 2026-10-15 fault),
+    # or when a mouth over no body model (in the air) is kept
+    assert m["no_mouth_on"] == {hr.NO_MOUTH_CLASS_GATE: [[6, 11]]} and m["gate"]["frames_drawn"] == 6, m
+    assert all(rows[f]["drawn"] and rows[f]["on_body"] == 1.0 and rows[f]["from_the_pose_mouth_in_face_heights"] < 0.05 for f in range(6)), rows
+    assert all(not rows[f]["drawn"] and rows[f]["on_body"] == 0.0 for f in range(6, N)), rows
+    assert any("the class map's own mouth on 6 by its gate" in x for x in said) and any("NO MOUTH on 6 of 12 frames (6-11)" in x for x in said), said
+    rw, rh = rec["size"]
+    x0, y0, x1, y1 = rec["box"]
+
+    def inside(f: int) -> int:
+        cx, cy = P["keypoints"][f][lips].mean(0)
+        pic = next(dfp.stream(str(folder / "head.mp4"), (rw, rh), f, 1, pix="rgb24"))
+        return int(pic[int(round((cy - y0) * rh / (y1 - y0))), int(round((cx - x0) * rw / (x1 - x0)))].max())
+    assert inside(2) < 60 and inside(8) < 60, (inside(2), inside(8))   # dark: the open mouth on 2, the black body model on 8
+    pic = next(dfp.stream(str(folder / "head.mp4"), (rw, rh), 8, 1, pix="rgb24"))
+    assert (pic.max(-1) > 200).sum() < (next(dfp.stream(str(folder / "head.mp4"), (rw, rh), 2, 1, pix="rgb24")).max(-1) > 200).sum(), \
+        "the class map's white outline drawn on a frame its gate dropped"
+    return ("where the lines miss on every frame and the class map's lips sit at the pose model's mouth, its mouth is drawn on each frame its "
+            "own gate keeps (on the body model, near the pose mouth) and dropped where the body model is not under it; the figures in the record")
+
+
+def the_gate_at_its_bounds() -> str:
+    """`class_mouth_gate` on either side of each value: a mouth of 100 px with 60 of them on the body model passes and 59 does not
+    (`on_body` 0.6); a centre 0.399 face heights from the pose mouth passes and 0.401 does not (`near` 0.4)."""
+    from _lib import face_points as fp
+    folder, _, pts, _ = rooms("gate_bounds", [90] * 4, [60] * 4, CENTRES[:4], 0)
+    P = fp.load(str(pts), None)
+    idx = P["index"]
+    lips = [i for k, i in idx.items() if k.endswith("_of_upper_outer_lip") or k.endswith("_of_lower_outer_lip") or k in ("r_outer_corner_of_mouth", "l_outer_corner_of_mouth")]
+    pw, ph = 64, 48
+    whole = np.zeros((ph, pw), bool)
+    whole[10:20, 10:20] = True                                          # 100 px
+    body = np.zeros((4, ph, pw, 3), np.uint8)
+    body[:, 10:20, 10:16] = 90                                          # 60 of them
+    body[1, 19, 15] = 0                                                 # 59 on frame 1
+    body[2:, 10:20, 10:20] = 90                                         # all of them on 2 and 3
+    plain = video(folder / "plain.mkv", body)
+    centres = []
+    for f, at in enumerate((0.0, 0.0, 0.399, 0.401)):
+        k = P["keypoints"][f]
+        c = k[lips].mean(axis=0)
+        centres.append((float(c[0]) + at * fp.face_height(k, idx), float(c[1])))
+    passes, gate = hr.class_mouth_gate([(whole, whole)] * 4, centres, str(plain), str(pts), 0, 4)
+    rows = gate["a_frame_at_a_time"]
+    # THE CASE THAT GOES RED when either value is read the wrong side of its bound
+    assert passes == [True, False, True, False], (passes, rows)
+    assert rows[0]["on_body"] == 0.6 and rows[1]["on_body"] == 0.59 and abs(rows[2]["from_the_pose_mouth_in_face_heights"] - 0.399) < 1e-3, rows
+    return "60 of 100 px on the body model passes and 59 does not; 0.399 of a face height from the pose mouth passes and 0.401 does not"
+
+
+def a_frame_at_a_time_in_the_lines_form() -> str:
+    """The lead's widening of 2026-10-15: 2823's close-up, drawn in the lip lines' form, had no mouth on 61 frames where her mouth was
+    wide open, because the lines' share alone dropped them. A frame at a time: the lines where they lie on the class map's mouth, the
+    class map's own mouth where they miss and its gate passes, no mouth otherwise. Here 0-5 lips on the lip ring (the lines); 6-7 lips
+    at the pose mouth clear of the ring (the class map's own); 8 no lips; 9 lips 40 px off over the body model (far); 10-11 lips at
+    the pose mouth over black (in the air). The class map starts two frames before the span (`classes_first`)."""
+    import cv2
+    import capture_masked_run as cap
+    import draw_face_points as dfp
+    from _lib import face_points as fp
+    names = cap._pack("sapiens2_parts").CLASS_NAMES
+    folder, mesh, pts, source = rooms("mouth_each_frame", [90] * N, [60] * N, CENTRES, 0)
+    P = fp.load(str(pts), None)
+    lips = [i for k, i in P["index"].items() if "outer_lip" in k or k in ("r_outer_corner_of_mouth", "l_outer_corner_of_mouth")]
+    pad = 2
+    cm = np.zeros((N + pad, H, W), np.uint8)
+    cm[:pad, 10:40, 10:40] = names.index("Upper_Lip")                  # read by an offset bug, these would be far lips on 0-1
+    body = grey([90] * N)
+    for f in range(N):
+        xy = P["keypoints"][f][lips]
+        cx, cy = (int(round(v)) for v in xy.mean(0))
+        ax, ay = (max(int(0.35 * (xy[:, i].max() - xy[:, i].min()) / 2), 3) for i in (0, 1))
+        if f < 6:
+            ring = np.round(xy).astype(np.int32)
+            cv2.fillPoly(cm[pad + f], [cv2.convexHull(ring)], names.index("Tongue"))
+            cv2.polylines(cm[pad + f], [cv2.convexHull(ring)], True, names.index("Upper_Lip"), 3)
+        elif f == 8:
+            continue
+        else:
+            dx = 40 if f == 9 else 0
+            cv2.ellipse(cm[pad + f], (cx + dx, cy + dx), (ax, ay), 0, 0, 360, names.index("Upper_Lip"), -1)
+            cv2.ellipse(cm[pad + f], (cx + dx, cy + dx), (max(ax // 2, 1), max(ay // 2, 1)), 0, 0, 360, names.index("Tongue"), -1)
+        if f >= 10:
+            cv2.circle(body[f], (cx, cy), 40, (0, 0, 0), -1)
+    video(mesh, body)
+    classes = folder / "classes.mkv"
+    enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "gray", "-s", f"{W}x{H}", "-r", "24", "-i", "-", "-c:v", "ffv1",
+                            "-level", "3", str(classes)], stdin=subprocess.PIPE)
+    enc.stdin.write(cm.tobytes()); enc.stdin.close(); assert enc.wait() == 0
+    said: list[str] = []
+    rec = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head.mp4", "the check", room=ROOM, mouth="auto", classes=str(classes),
+                 classes_first=-pad, say=said.append)
+    m = rec["drawn"]["mouth"]
+    rows = {r["frame"]: r for r in m["gate"]["a_frame_at_a_time"]}
+    # THE CASE THAT GOES RED when, in the lines' form, a frame whose lines miss loses a mouth the class map places on her face (2823's
+    # open mouth), or keeps one the gate drops: far with the body model under it (9), in the air (10-11), or with no lips (8)
+    assert m["drawn_as"] == "the lip lines" and m["frames_by_the_lip_lines"] == [[0, 5]] and m["frames_by_the_class_map"] == [[6, 7]], m
+    assert m["no_mouth_on"] == {hr.NO_MOUTH_CLASS_GATE: [[8, 11]]} and "mouth" not in rec["drawn"]["parts_left_out"], m
+    assert rows[8] == {"frame": 8, "lips": False, "drawn": False} and rows[9]["on_body"] == 1.0 and rows[9]["from_the_pose_mouth_in_face_heights"] > 0.4 \
+        and rows[10]["on_body"] == 0.0 and rows[10]["from_the_pose_mouth_in_face_heights"] < 0.05, rows
+    rw, rh = rec["size"]
+    x0, y0, x1, y1 = rec["box"]
+
+    def white_near(f: int, shift: float = 0.0) -> int:
+        cx, cy = P["keypoints"][f][lips].mean(0) + shift
+        pic = next(dfp.stream(str(folder / "head.mp4"), (rw, rh), f, 1, pix="rgb24"))
+        ux, uy, r = int(round((cx - x0) * rw / (x1 - x0))), int(round((cy - y0) * rh / (y1 - y0))), int(30 * rh / (y1 - y0))
+        return int((pic[max(uy - r, 0):uy + r, max(ux - r, 0):ux + r].max(-1) > 200).sum())
+    # white at the mouth where a mouth is drawn (the lines on 3, the class map's outline on 6), none at the far lips on 9
+    assert white_near(3) > 0 and white_near(6) > 0 and white_near(9, 40) == 0, (white_near(3), white_near(6), white_near(9, 40))
+
+    def on_the_ring(f: int) -> int:
+        """How many of the outer-lip ring's points carry white within a pixel: the lip lines drawn there."""
+        pic = next(dfp.stream(str(folder / "head.mp4"), (rw, rh), f, 1, pix="rgb24")).max(-1) > 200
+        n = 0
+        for x, y in P["keypoints"][f][lips]:
+            ux, uy = int(round((x - x0) * rw / (x1 - x0))), int(round((y - y0) * rh / (y1 - y0)))
+            n += bool(pic[max(uy - 1, 0):uy + 2, max(ux - 1, 0):ux + 2].any())
+        return n
+    # THE CASE THAT GOES RED when a frame given the class map's own mouth keeps the points' lip rings as well (two mouths)
+    assert on_the_ring(3) > len(lips) // 2 and on_the_ring(6) == 0, (on_the_ring(3), on_the_ring(6))
+    assert any("the lip lines on 6 of 12 frames" in x and "the class map's own mouth on 2 by its gate" in x for x in said), said
+    return ("in the lip lines' form, a frame at a time: the lines where they lie on the class map's mouth, the class map's own mouth where they "
+            "miss and its gate passes (2823's open mouth), no mouth where it holds no lips, lies far from the pose mouth or over no body model; "
+            "the class map read from its own first frame")
+
 
 case("one run makes the form", one_run_makes_the_form)
 case("a face off the subject's track fails the run", a_face_off_the_track_fails)
 case("frames from the middle of all three files", frames_from_the_middle)
 case("the mouth by the check", the_mouth_by_the_check)
+case("the class map's mouth by its own gate", the_class_map_mouth_by_its_gate)
+case("a frame at a time in the lip lines' form", a_frame_at_a_time_in_the_lines_form)
+case("the gate at its bounds", the_gate_at_its_bounds)
 case("it writes over nothing, and nothing when it cannot finish", it_writes_over_nothing)
 case("the form's defaults can be set aside, and the record says so", the_defaults_can_be_set_aside)
 case("a step that fails fails the run", a_step_that_fails_fails_the_run)
