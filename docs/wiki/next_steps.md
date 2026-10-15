@@ -85,7 +85,9 @@ hair band as the fix for 693-703 is now the row "Her hair comes and goes beside
 her head" below: the fault was found elsewhere on 2026-10-14.)
 
 **Masked video to video, 2026-10-15: rows of the day.**
-- **The lead's face-only pieces change her hair too, so each piece's edge is a visible seam** (2026-10-15, the outside
+- **DROPPED 2026-10-15 by the owner, about 22:12Z: "i dont remember lead singers hair ever being an issue at all"; not
+  parked, not queued, no restore of her hair.** The row is kept as the record of a reviewer's and a measurement's
+  claim that never reached the owner's playback. *The lead's face-only pieces change her hair too, so each piece's edge is a visible seam* (2026-10-15, the outside
   reviewer's watch of the 604-1009 cut with sound, `internal/gemini/2026-10-15_watch_0604_1009_and_5675b.md`, section
   1.2; not yet checked by a session's eye). At 750/751, 778/779, 851/852 and 965/966 her hair snaps between the
   original's curly strawberry-blonde and the render's darker auburn, not only her face. MEASURED (mrlol, 2026-10-15,
@@ -101,8 +103,8 @@ her head" below: the fault was found elsewhere on 2026-10-14.)
 
   The owner's word for her loads is "just the face", meaning face and neck for now (Open List row 2 of 2026-10-11,
   accepted). Restoring her own Hair class at assembly (the plan's `restore`) would give her source hair back pixel by
-  pixel on every piece. It changes how kept pieces are laid, so it goes to the owner as an A/B of the 604-1009 cut, and
-  the standing plan does not change until they answer.
+  pixel on every piece. (The A/B went to the owner on the 604-1009 cut; they answered that the clips showed the
+  switches to the original, not her hair, and that her hair was never an issue.)
 - **The outside reviewer sees video at one frame a second** (its own report, 2026-10-15,
   `internal/gemini/2026-10-15_clips_review.md` section 1 and C1b; not checked independently). A frame-level question
   goes to it as frames or a 1 fps companion strip (mrvid's review-clip build), and its answers say which frames it saw.
