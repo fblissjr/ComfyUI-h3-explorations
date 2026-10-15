@@ -39,6 +39,19 @@ written more than a second after `queued_at` (the record keeps whole seconds, ta
 version H3 read is not known from it; a digest recorded at queue time
 (`digests`, path to sha256) that is not the file's now. Everything else is printed as data.
 
+**A mask video the plan read, rebuilt in place** (`--stage plan`). `load_chain`'s on-plan step builds the capture again
+in place right after the plan has run: the same frames, new bytes and a new time, so by the two rules above every mask
+the plan read failed (from 631a9206, when the digests landed, until 2026-10-15). Before it builds, that step copies the
+capture whole to `<capture>_first`. So a file whose bytes are not the ones recorded at queue time is held to its frames
+when the copy beside its capture has exactly those bytes, which makes the copy what the plan was queued with: decoding
+equal to the copy frame by frame, it reads "rebuilt in place, frames as planned"; not equal, it fails and names the
+first frame that differs. The step's own record of the plan's frames (`<load>.plan.masks.json`, which the render step
+holds the masks to) is not read here: nothing ties it to the copy. With no copy, or a copy whose bytes are not the
+queue's, the two rules above stand. A file's time is not read on this path: the bytes recorded at the queue are the
+anchor. What it cannot see: a mask changed and changed back between the queue and the copy. It decodes every such mask
+and its copy, which takes seconds a mask on a long capture. A file outside a capture that was copied (stills, the
+source, a reference made elsewhere) keeps the whole-file rule.
+
 - Which frames of a wired reference the text encoder is shown, per window: the node cuts the window's reference
   (the wired video from the window's first frame, its last frame repeated past its end: `video_mask.wired_motion`)
   to 17k+5 frames and samples every twelfth (`reference_conditioning.py::_prepare_reference_video` and the
@@ -279,6 +292,38 @@ def one_file(g: dict, nid: str, role: str, tag: str | None, inputs: Path, queued
     return row
 
 
+def frame_md5s(path: str) -> list[str]:
+    """Each decoded frame's md5, in order (`ffmpeg -f framemd5`, the reading `load_chain.frame_hash` hashes whole)."""
+    out = subprocess.run(["ffmpeg", "-v", "error", "-i", path, "-f", "framemd5", "-"], capture_output=True, text=True, check=True).stdout
+    return [line.split()[-1] for line in out.splitlines() if line and not line.startswith("#")]
+
+
+def first_copy(path: Path) -> Path | None:
+    """The same file in the copy of its capture `load_chain`'s on-plan step kept before building it again
+    (`<capture>_first`, the nearest such folder above the file), when there is one."""
+    for folder in path.parents:
+        if not folder.name:
+            break
+        copy = folder.with_name(folder.name + "_first") / path.relative_to(folder)
+        if copy.is_file():
+            return copy
+    return None
+
+
+def frames_as_planned(path: str, copy: Path) -> dict:
+    """A mask video held to the frames of the copy the on-plan step kept, frame by frame: {"equal": bool, "how": words}.
+    The record's one hash of every frame (`<load>.plan.masks.json`) is not a shortcut here: nothing ties it to the copy,
+    and a record and a file that agree with each other and not with the copy would read clean (a cold reader's case,
+    2026-10-15)."""
+    a, b = frame_md5s(str(copy)), frame_md5s(path)
+    if a == b:
+        return {"equal": True, "how": f"every one of its {len(b)} frames decodes equal to the copy's"}
+    k = next((i for i, (x, y) in enumerate(zip(a, b)) if x != y), None)
+    if k is None:
+        return {"equal": False, "how": f"it holds {len(b)} frames and the copy {len(a)}, the first {min(len(a), len(b))} the same"}
+    return {"equal": False, "how": f"its frame {k} (counted from 0 in the file) is not the copy's"}
+
+
 def read(job_folder: Path, load: str, stage: str = "render", *, inputs: Path | None = None, output: Path | None = None,
          digests: bool = True) -> dict:
     """Everything a load was handed, as one dict; `failures` holds the hard failures, empty when there are none."""
@@ -380,6 +425,18 @@ def read(job_folder: Path, load: str, stage: str = "render", *, inputs: Path | N
                             e["node_says"] = int(m.group(1))
     for row in out["inputs"]:
         where = f"{row['role']} (node {row['node']}, {row['named']})"
+        copy = first_copy(Path(row["file"])) if stage == "plan" and row.get("exists") and row.get("sha256_at_queue") \
+            and row.get("sha256") and row["sha256"] != row["sha256_at_queue"] else None
+        if copy is not None and sha256(copy) == row["sha256_at_queue"]:
+            got = frames_as_planned(row["file"], copy)
+            row["frames_as_planned"] = {"copy": str(copy), **got}
+            if got["equal"]:
+                row["rebuilt"] = (f"rebuilt in place after the plan ran ({row['written']}), frames as planned: {got['how']}; the copy "
+                                  f"{copy} has the bytes recorded at queue time")
+            else:
+                out["failures"].append(f"{where}: rebuilt in place after the plan ran, and its frames are not what the plan read: "
+                                       f"{got['how']} ({copy}, the bytes recorded at queue time)")
+            continue
         if row["exists"] is False:
             out["failures"].append(f"{where}: the graph names it and it is not there")
         elif row.get("written_after_queue"):
@@ -441,6 +498,8 @@ def said_lines(got: dict) -> list[str]:
             lines.append("      trimmed: " + ", ".join(f"{k} {v}" for k, v in r["trim"].items()))
         if r.get("unread"):
             lines.append(f"      {r['unread']}")
+        if r.get("rebuilt"):
+            lines.append(f"      {r['rebuilt']}")
         if r.get("append"):
             lines.append(f"      appended as {r['tag']}: " + ", ".join(f"{k} {v}" for k, v in r["append"].items() if k != "node"))
         if r.get("record", {}).get("what"):

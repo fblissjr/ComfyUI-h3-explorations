@@ -29,6 +29,13 @@ and a MaskComposite, two stills chained through `references`, the sound trimmed 
 6. **A load not yet queued** reads as "built, not queued", with no file held to a time.
 7. **The zoom**: the node's `_zoomed.json` beside the render the queued record names, and each window's region
    meta, read.
+8. **A plan's masks rebuilt in place** (`load_chain`'s on-plan step, 2026-10-15): the plan queued with its digests,
+   the masks' frame hashes recorded after it (`<load>.plan.masks.json`, by `load_chain.frame_hash`), a copy of them
+   kept (`<capture>_first`), and the masks written again with new bytes and the same frames: the plan reads clean,
+   each mask "frames as planned", where until then each failed twice. A mask whose frame 3 alone was changed fails and
+   names frame 3, though the step's record were made to agree with it: the copy is the anchor, not the record. With no copy, and with a mask changed between the
+   queue and the copy (the copy is then not the queue's bytes), the two rules stand. The render stage is held as
+   before.
 
 Needs ffmpeg and ffprobe, Pillow and numpy. No model, no card, no server.
 
@@ -350,6 +357,75 @@ def the_zoom() -> str:
     return "the node's zoomed record beside the render and the window's region meta read"
 
 
+def a_plans_masks_rebuilt() -> str:
+    from load_chain import frame_hash
+
+    def drawn(m: Path) -> None:
+        """Frame 3 alone drawn on; every other frame kept exactly (a lossless encode of the decoded frames)."""
+        one = m.with_name("one.mp4")
+        ffmpeg("-i", str(m), "-vf", "drawbox=x=0:y=0:w=200:h=200:color=red:t=fill:enable='eq(n,3)'", "-c:v", "libx264",
+               "-qp", "0", "-pix_fmt", "yuv420p", str(one))
+        one.replace(m)
+        os.utime(m, (AFTER, AFTER))
+
+    def planned_world(name: str, change_before_copy: bool = False) -> tuple[Path, Path, list[Path]]:
+        """A plan queued with its digests; then, as the on-plan step does: the masks' frame hashes recorded, the capture
+        copied to `<capture>_first`, and the masks built again in place with new bytes and the same frames."""
+        base = made(name)
+        job = base / f"{name}_job"
+        g = json.loads((job / f"{name}.render.json").read_text())
+        (job / f"{name}.plan.json").write_text(json.dumps(g))
+        rec = json.loads((job / f"{name}.render.queued.json").read_text())
+        rec["digests"] = w.digests_of(g, base / "input")
+        (job / f"{name}.plan.queued.json").write_text(json.dumps(rec))
+        masks = [base / f"m{k}.mp4" for k in range(3)]
+        if change_before_copy:                              # m1's frame 3 changed after the queue, before the step ran
+            drawn(masks[1])
+        (job / f"{name}.plan.masks.json").write_text(json.dumps({"at": "2026-10-15T15:00:07Z",
+                                                                 "masks": {str(m): frame_hash(str(m)) for m in masks}}))
+        copy = base.with_name(base.name + "_first")
+        copy.mkdir()
+        for m in masks:
+            (copy / m.name).write_bytes(m.read_bytes())
+        for m in masks:
+            again = m.with_name("again.mp4")
+            ffmpeg("-i", str(m), "-c", "copy", "-metadata", "title=built again", str(again))
+            assert again.read_bytes() != m.read_bytes()
+            again.replace(m)
+            os.utime(m, (AFTER, AFTER))
+        return base, job, masks
+
+    plan = lambda base, job: w.read(job, base.name, "plan", inputs=base / "input", output=base / "output")  # noqa: E731
+    base, job, masks = planned_world("load_p")
+    got = plan(base, job)
+    # THE CASE THAT GOES RED when a mask rebuilt in place with the frames the plan read fails again
+    assert not got["failures"], got["failures"]
+    said = [r for r in got["inputs"] if r.get("rebuilt")]
+    assert len(said) == 3 and all("frames as planned" in r["rebuilt"] for r in said), [r.get("rebuilt") for r in got["inputs"]]
+    assert any("frames as planned" in x for x in w.said_lines(got))
+    # one frame changed after the rebuild: fails, naming it, though the step's record were made to agree with the
+    # changed file: the copy is the anchor, not the record (a cold reader's case)
+    drawn(masks[1])
+    rec = json.loads((job / "load_p.plan.masks.json").read_text())
+    (job / "load_p.plan.masks.json").write_text(json.dumps({**rec, "masks": {**rec["masks"], str(masks[1]): frame_hash(str(masks[1]))}}))
+    f = plan(base, job)["failures"]
+    assert len(f) == 1 and "m1.mp4" in f[0] and "not what the plan read" in f[0] and "frame 3 " in f[0], f
+    # no copy: the two rules stand, and nothing breaks
+    base.with_name("load_p_first").rename(base.with_name("load_p_kept_aside"))
+    f = plan(base, job)["failures"]
+    assert any("m0.mp4" in x and "after the load was queued" in x for x in f), f
+    # changed after the queue and before the step ran: the copy is not the queue's bytes, so the two rules stand
+    base2, job2, _m = planned_world("load_q", change_before_copy=True)
+    f = plan(base2, job2)["failures"]
+    assert any("m1.mp4" in x and "after the load was queued" in x for x in f) and not any("m0.mp4" in x for x in f), f
+    # the render stage of the same folder: held by bytes and time as before
+    f = w.read(job2, "load_q", "render", inputs=base2 / "input", output=base2 / "output")["failures"]
+    assert any("m0.mp4" in x and "after the load was queued" in x for x in f), f
+    return ("three masks rebuilt in place with the queue's frames read clean (\"frames as planned\"); frame 3 changed fails "
+            "naming frame 3, with the step's record agreeing with the changed file; with no copy, and with a mask changed between the queue and the copy, the "
+            "two rules stand; the render stage is held as before")
+
+
 case("each input read by its place in the graph", each_input_by_its_place)
 case("the loader's cut, against ffmpeg running the loader's filter", the_loaders_cut)
 case("the hard failures, and a clean control", the_hard_failures)
@@ -360,6 +436,7 @@ case("the cut on a yuv420p file, by ffmpeg", the_cut_on_a_yuv420p_file)
 case("which reference frames the text encoder is shown", the_encoder_frames)
 case("a load not yet queued", not_yet_queued)
 case("the zoom read from the node's records", the_zoom)
+case("a plan's masks rebuilt in place", a_plans_masks_rebuilt)
 
 if __name__ == "__main__":
     code = finish()
