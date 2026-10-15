@@ -15,6 +15,10 @@ table; the Open List).
 > anything else used it: the lead's glance (1097-1133) and her phone call in the hall (1575-1729, the kept 1575b, where
 > the eyes already worked). Whether it landed, and on what reading, is in `decisions.md` and mrnight's note. If the
 > new references make things worse, the old cut is the default it was built beside: say so to the owner and use it.
+> **The new cut is OPT-IN and OFF by default** (`--face-fill` / `--follow` on the reference step; every job prints a
+> "reference cut" row under THE DEFAULTS THIS LOAD CARRIES saying which is on). Making it the default is a decision: only
+> after both test renders read well on the owner's playback, written in `decisions.md`, with the defaults row, the check
+> that holds the default (`check_shot_to_load`), this handover and `masked_v2v.md`'s recipe changed in the same commit.
 
 ## State when closed
 
