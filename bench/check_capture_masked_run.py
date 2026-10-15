@@ -1777,6 +1777,8 @@ def the_strips_marks_and_records() -> str:
                 {"id": "f005", "level": "iffy", "rule": "z", "run": "another", "source_frames": [[10, 11]]}]
     flags = cap.flag_rows(flags_in, {"f001"}, {"r"}, (10, 11))
     assert [f["id"] for f in flags] == ["f001", "f002"] and flags[0]["overridden"] and "OVERRIDDEN" in flags[0]["words"], flags
+    seg = cap.flag_rows([{**flags_in[1], "id": "f006", "rule": "segment_inside_region", "segment": "a.Hair"}], set(), {"r"}, (10, 11))
+    assert "(a.Hair)" in seg[0]["words"], seg                     # a flag of one segment names it
     m = {"first_frame": 10}
     table = {"a": [{"covered": True, "track_share": 0.1}] * 2, "hands": [{"covered": True, "track_share": 0.02, "track_pieces": 3}] * 2}
     run_table = {"r": [{"region_share": 0.05, "margin_share": 0.02}, {"region_share": 0.0, "margin_share": 0.0}]}

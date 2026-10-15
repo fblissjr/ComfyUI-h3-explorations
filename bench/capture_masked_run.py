@@ -4783,7 +4783,8 @@ def flag_rows(flags: list, overridden: set, drawn: set, span: tuple[int, int]) -
         if not any(x <= span[1] and y >= span[0] for x, y in f["source_frames"]):
             continue
         frames = ", ".join(f"{x}-{y}" if x != y else str(x) for x, y in f["source_frames"])
-        who = (f.get("subject") or "") + (f" / {f['other']}" if f.get("other") else "")
+        # a flag of one segment names it (C2, 2026-10-15: three `segment_inside_region (lead)` rows read as one printed thrice)
+        who = f.get("segment") or ((f.get("subject") or "") + (f" / {f['other']}" if f.get("other") else ""))
         out.append({"id": f["id"], "level": f["level"], "overridden": f["id"] in overridden, "spans": f["source_frames"],
                     "words": f"{f['id']} {f['level'].upper()}{' OVERRIDDEN' if f['id'] in overridden else ''}: {f['rule']}"
                              + (f" ({who})" if who else "") + f" on {frames}", "why": f.get("why", "")})

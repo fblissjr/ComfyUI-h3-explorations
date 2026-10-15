@@ -381,24 +381,24 @@ def build(a: argparse.Namespace) -> None:
                     sampled.setdefault(name, set()).add(x["source_frame"])
     # the block of words under the middle row: every line of every frame, wrapped and never cut; as tall as the most any frame needs
     # the mask pictures are the node's own review (`video_mask.py::window_layers`), whose legend is too small to read here
-    key = ("MASK PICTURES are the node's own: red the mask the node was given, cyan what else regenerates, white outline what the render kept "
-           "(video_mask.window_layers). A green border on a head crop: the text encoder is shown that reference frame. "
-           "Each column is one subject for the whole clip.")
+    # one line on the marks (the rest is in the records); then every flag of the joined clip's check in a row of its own for the whole
+    # clip, bright on its frames and dim off them (C2, 2026-10-15: the live flags alone reflowed on every frame); then this frame's words
+    marks_line = "MASK PICTURES: red the mask given, cyan what else regenerates, white what the render kept. GREEN BORDER: the text encoder's frame."
+    spans = lambda fl: ", ".join(f"{x}-{y}" if x != y else str(x) for x, y in fl["source_frames"])
+    flag_lines = [[one for one in wrapped(f"{fl['id']} {fl['level'].upper()} on {spans(fl)}: {fl['why']}", plain, w - 16)] for fl in flags]
 
     def notes_of(f: int, panels: list[dict]) -> list[tuple[str, tuple]]:
-        out = [(key, (170, 170, 170))] + [(t, (255, 235, 60)) for t in words_of(f, rows, intents, panels)]
+        out = [(t, (255, 235, 60)) for t in words_of(f, rows, intents, panels)]
         for r in rows:
             if r["first"] <= f <= r["last"] and r["name"] in unread:
                 out.append((f"{r['name']}: what H3 was given is not read (no queued record of it found): its column shows its picture's graph",
                             (255, 170, 60)))
-        for fl in flags:
-            if any(x <= f <= y for x, y in fl["source_frames"]):
-                out.append((f"{fl['id']} {fl['level'].upper()} (the joined clip's check): {fl['why']}", (255, 170, 60)))
         return out
     lines_at = {}
     for f in range(first_f, last_f + 1):
         lines_at[f] = [(one, c) for text, c in notes_of(f, panels_of(f, rows)) for one in wrapped(text, plain, w - 16)]
-    bar = 2 * ((max(len(v) for v in lines_at.values()) * line_h + 8 + 1) // 2)
+    fixed = 1 + sum(len(x) for x in flag_lines)
+    bar = 2 * (((fixed + max(len(v) for v in lines_at.values())) * line_h + 12 + 1) // 2)
     work = Path(a.work)
     work.mkdir(parents=True, exist_ok=True)
     silent = str(work / (Path(a.out).stem + ".video.mp4"))
@@ -491,8 +491,17 @@ def build(a: argparse.Namespace) -> None:
         label(bot, f"{a.tag or 'THE CLIP'}   frame {f:05d}", big)
         block = Image.new("RGB", (w, bar), (18, 18, 18))
         bd = ImageDraw.Draw(block)
-        for i, (text, colour) in enumerate(lines_at[f]):
-            bd.text((8, 4 + i * line_h), text, font=plain, fill=colour)
+        bd.text((8, 4), marks_line, font=plain, fill=(170, 170, 170))
+        y_ = 4 + line_h
+        for fl, lines_ in zip(flags, flag_lines):
+            on = fl["id"] in rec["check_flags"]
+            for one in lines_:
+                bd.text((8, y_), one, font=plain, fill=(255, 150, 60) if on else (95, 95, 95))
+                y_ += line_h
+        y_ += 4
+        for text, colour in lines_at[f]:
+            bd.text((8, y_), text, font=plain, fill=colour)
+            y_ += line_h
         rec["words"] = [t for t, _ in lines_at[f]]
         records.append(rec)
         frame = Image.new("RGB", (w, h * 3 + bar))
@@ -514,9 +523,24 @@ def build(a: argparse.Namespace) -> None:
     joined.close()
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", silent, "-i", a.joined, "-map", "0:v", "-map", "1:a?", "-c", "copy", "-metadata", tag, a.out], check=True)
     Path(silent).unlink()
+    for prev, rec in zip([None] + records[:-1], records):
+        ch = []
+        if prev is not None:
+            ch += [f"flag {x} starts" for x in rec["check_flags"] if x not in prev["check_flags"]]
+            ch += [f"flag {x} ends" for x in prev["check_flags"] if x not in rec["check_flags"]]
+            for who in cols:
+                a_, b_ = (prev["columns"].get(who) or {}).get("piece"), (rec["columns"].get(who) or {}).get("piece")
+                if a_ != b_:
+                    ch.append(f"{who}: {b_ or 'the original'} from this frame" + (f" (was {a_})" if a_ else ""))
+        rec["changes"] = ch
     sidecar.write_text(json.dumps({"clip": a.out, "one_a_second": slow_parts, "joined": a.joined, "table": a.table, "source": a.source,
                                    "frames": [first_f, last_f], "canvas": [w, h], "block": bar, "columns": cols, "layout": tiles,
-                                   "given": given, "given_not_read": sorted(set(unread)), "check_flags": flags, "records": Path(sidecar).with_suffix(".frames.jsonl").name}, indent=1, default=str) + "\n")
+                                   "source_is": ("the original the stack's top row shows and the assembler laid the pieces on (--source); each piece's own "
+                                                 "graph names the file it was rendered from (given[piece].inputs, role 'the source'), which may be another "
+                                                 "copy of the same clip"),
+                                   "rendered_from": sorted({x["file"] for g in given.values() for x in g["inputs"] if x["role"] == "the source"}),
+                                   "given": given, "given_not_read": sorted(set(unread)), "check_flags": flags,
+                                   "flag_lines": dict(zip((fl["id"] for fl in flags), flag_lines)), "records": Path(sidecar).with_suffix(".frames.jsonl").name}, indent=1, default=str) + "\n")
     with open(sidecar.with_suffix(".frames.jsonl"), "w") as fh:
         for rec in records:
             fh.write(json.dumps(rec) + "\n")

@@ -311,10 +311,12 @@ def the_clips_own_check_and_whole_words() -> str:
     at = {r["source_frame"]: r for r in recs}
     assert at[9]["columns"]["b"]["check_flags"] == ["d005"] and at[9]["check_flags"] == ["d005"], at[9]
     assert at[8]["columns"]["b"]["check_flags"] == [] and at[9]["columns"]["a"] is None, (at[8], at[9])
-    joined = " ".join(at[9]["words"])
-    assert " ".join(long_why.split()) in joined, "the check's words are not whole in the record"
-    assert not any(line.endswith("...") for r in recs for line in r["words"]), "a line of words was cut"
     head = json.loads(out.with_name(out.stem + ".json").read_text())
+    # the check's flag is a row of its own for the whole clip (C2, 2026-10-15), drawn whole, bright on its frame only
+    assert " ".join(long_why.split()) in " ".join(head["flag_lines"]["d005"]), "the check's words are not whole in its row"
+    assert not any(line.endswith("...") for r in recs for line in r["words"]) and not any(x.endswith("...") for v in head["flag_lines"].values() for x in v), \
+        "a line of words was cut"
+    assert at[9]["changes"] == ["flag d005 starts"] and at[10]["changes"] == ["flag d005 ends"], (at[9]["changes"], at[10]["changes"])
     assert head["columns"] == ["a", "b"] and head["check_flags"][0]["id"] == "d005", head["columns"]
     return "the clip's own check on its frame and in its piece's column, its words whole; no line cut; the columns and flags in the sidecar"
 
