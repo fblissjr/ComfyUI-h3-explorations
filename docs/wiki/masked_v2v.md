@@ -425,6 +425,33 @@ session cannot work around; these are the lane's own habits, each earned on
   (`bench/contact_sheets.py find <video> <frame>`): open a sheet before
   sampling a video again.
 
+## A shot, made whole: the recipe the owner kept on 2026-10-15
+
+The hall shot 1419-1465 was made this way and the owner kept it on playback ("oh that scene looks good."), then asked
+for it to be applied wherever it is a reusable pattern. It replaced six short pieces with joins and stretches of the
+original between them. The steps, each with its tool:
+
+1. **One load a subject over the whole shot** (`docs/wiki/decisions.md`, 2026-10-15, one shot is never split). Up to
+   362 frames it is one window; longer, chained windows inside the one load, each on `h3_rules.chain_lengths()`, the
+   seam put on a quiet frame with `shot_to_load job --seam`, and the context as long as the planner allows when the
+   person must carry across it.
+2. **Read every frame of it for each subject first**, on a sheet: where the face shows, where it is hidden, turned away
+   or out of the picture. Hidden and turned-away frames stay inside the load, with no face drawn there
+   (`--no-face-on A-B=WHY`): a face drawn on the back of a head is the 5461 fault, and it came back in the hall until
+   this. A frame where the face shows and the part model labels nothing takes `--hold-part A-B=WHY`. The reference's
+   printed cues point at frames to look at; they decide nothing.
+3. **Voice by watching and listening, never by default**: the text says the person sings only where they sing in that
+   shot (`AGENTS.md`, "Settled about H3"). The hall's lead grimaced and did not sing, so her text had no voice line.
+4. **The text as the generator writes it today**, read whole from the queued graph (`bench/what_h3_got.py`) before it
+   renders.
+5. **Another of our subjects inside the margin is given back at assembly**, never drawn by this load (`restore=` on
+   the table; the far-table mother in the hall), and gets a load of her own if the owner wants her swapped.
+6. **A joined clip of the shot with only the new pieces laid**, beside the cut as it stands, for the owner on
+   playback; laid in the table (`--prefer`) only when they keep it.
+
+What it does not cover yet: continuing a piece the owner kept (a stored window off the chained grid cannot be continued,
+2823b), and two subjects who touch (one hole a pass, being built).
+
 ## Running a job: one tool, on the video's analysis folder
 
 A masked job is built and queued by `bench/masked_job.py`, from a job file,
