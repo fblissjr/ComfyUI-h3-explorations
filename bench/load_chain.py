@@ -281,6 +281,14 @@ def preview_files(ctx: dict, output: Path) -> dict:
             if not Path(t["track"]).is_file():
                 raise Refused(f"the job says {t['subject']}'s track is not them on {', '.join(f'{a}-{b}' for a, b in t['frames'])} and its copy "
                               f"{t['track']} is not there: `shot_to_load.py job` makes it")
+            # the copy is written by the job step, today; the capture holds it to the preview's own track it was made from
+            # (`track_from=`, as a load's own part is held by `parts_from=`): 2026-10-15, second_hfp_0604f's verify failed on its date
+            if t.get("cut_from") and Path(t["cut_from"]).resolve() != Path(out[t["subject"]]["track"]).resolve():
+                raise Refused(f"the job's copy of {t['subject']}'s track was cut from {t['cut_from']}, and the preview's track of {t['subject']} is "
+                              f"{out[t['subject']]['track']}: the job is made again")
+            out[t["subject"]].setdefault("track_from", out[t["subject"]]["track"])   # the preview's own, even were a subject named twice
+            out[t["subject"]]["track_hash"] = t.get("hash")
+            out[t["subject"]]["track_from_hash"] = t.get("cut_from_hash")
             out[t["subject"]]["track"] = Path(t["track"])
             out[t["subject"]]["track_is_not_them_on"] = t["frames"]
     return out
@@ -303,8 +311,19 @@ def mask_specs(ctx: dict, files: dict, band: Path | None = None, hashed=None) ->
     out = []
     for label in ctx["preview"]["order"]:
         f = files[label]
+        # a track copied on a person's word (`track_not`) carries a hash of its frames from the job step: the capture is handed those frames
+        # and no others, as a keep-out is (the cold reader of 2026-10-15: held only to its source's time, the copy itself went unchecked)
+        if f.get("track_from"):
+            if not f.get("track_hash"):
+                raise Refused(f"the job names a copy of {label}'s track with no hash of its frames (written before 2026-10-15's mend): the job is made again")
+            if (hashed or frame_hash)(str(f["track"])) != f["track_hash"]:
+                raise Refused(f"the copy of {label}'s track at {f['track']} is not the file the job step held to its record: its frames changed since")
+            if f.get("track_from_hash") and (hashed or frame_hash)(str(f["track_from"])) != f["track_from_hash"]:
+                raise Refused(f"the preview's track of {label} at {f['track_from']} is not the one the job step cut its copy from: its frames changed "
+                              "since (the preview made again): the job is made again")
         if label not in (ctx["subject"], ctx.get("also")):
-            out.append(f"{label}:track={f['track']},shots={f['shots']},shots_at={at},by={by},at={at}")
+            out.append(f"{label}:track={f['track']}" + (f",track_from={f['track_from']}" if f.get("track_from") else "")
+                       + f",shots={f['shots']},shots_at={at},by={by},at={at}")
             continue
         keys = ctx["subject_keys"] if label == ctx["subject"] else (ctx.get("also_keys") or {})   # each subject of a pair, its own
         for kind in ("parts", "classes"):
@@ -320,7 +339,7 @@ def mask_specs(ctx: dict, files: dict, band: Path | None = None, hashed=None) ->
                 raise Refused(f"the job names a part of the load's own for {label!r}, {parts}, and it is not there: `shot_to_load.py job --parts` makes it")
             # made today from the preview's own files: the capture's verify holds it to the preview's saved part it came from
             made_from = f",parts_from={f['parts']}"
-        spec = f"{label}:track={f['track']},parts={parts}{made_from},classes={f['classes']},shots={f['shots']},shots_at={at}"
+        spec = f"{label}:track={f['track']}" + (f",track_from={f['track_from']}" if f.get("track_from") else "") + f",parts={parts}{made_from},classes={f['classes']},shots={f['shots']},shots_at={at}"
         if keys.get("pose", True) is not False:
             if f["pose"] is None:
                 raise Refused(f"the job does not say `pose: false` for {label!r} and the preview {by} wrote no pose table for them")

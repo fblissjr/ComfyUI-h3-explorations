@@ -427,7 +427,31 @@ def a_track_that_is_not_its_person() -> str:
         files = lc.preview_files(made.ctx(), made.m.output)
         # THE CASE THAT GOES RED when the chain hands the capture the preview's own track of b
         assert files["b"]["track"] == copy and files["b"]["track_is_not_them_on"] == [[115, 120]] and files["a"]["track"] != copy, files
-        assert any(spec.startswith(f"b:track={copy},") for spec in lc.mask_specs(made.ctx(), files)), lc.mask_specs(made.ctx(), files)
+        # THE CASE THAT GOES RED when the copy is handed with nothing saying which preview track it was made from: the capture's verify then
+        # holds the copy, written today, to the preview's files of another day, and fails (second_hfp_0604f, 2026-10-15)
+        own = made.m.output / Path(files["a"]["track"]).relative_to(made.m.output).parent / Path(files["a"]["track"]).name.replace("_a_track_", "_b_track_")
+        assert files["b"]["track_from"] == own and "track_from" not in files["a"], (files["b"].get("track_from"), own)
+        # the copy's frames are held to the hash the job step kept (the cold reader of 2026-10-15): none kept, or another, is refused
+        refused(lambda: lc.mask_specs(made.ctx(), files, hashed=lambda _: "H"), "copy of b's track with no hash of its frames")
+        made.job["track_not"]["made"][0]["hash"] = "H"
+        made.write()
+        files = lc.preview_files(made.ctx(), made.m.output)
+        refused(lambda: lc.mask_specs(made.ctx(), files, hashed=lambda _: "OTHER"), "is not the file the job step held to its record")
+        # the track it was cut from, held too: a preview made again under the same name is refused
+        made.job["track_not"]["made"][0]["cut_from_hash"] = "SOURCE"
+        made.write()
+        files = lc.preview_files(made.ctx(), made.m.output)
+        refused(lambda: lc.mask_specs(made.ctx(), files, hashed=lambda p: "H" if p == str(copy) else "ANOTHER"), "the preview made again")
+        assert lc.mask_specs(made.ctx(), files, hashed=lambda p: "H" if p == str(copy) else "SOURCE")
+        both = lambda p: "H" if p == str(copy) else "SOURCE"                                                         # noqa: E731
+        assert any(spec.startswith(f"b:track={copy},track_from={own},") for spec in lc.mask_specs(made.ctx(), files, hashed=both)), \
+            lc.mask_specs(made.ctx(), files, hashed=both)
+        # a copy the job says it cut from another file than the preview's track of b is refused
+        made.job["track_not"]["made"][0]["cut_from"] = str(own) + ".older.mkv"
+        made.write()
+        refused(lambda: lc.preview_files(made.ctx(), made.m.output), "was cut from", "the job is made again")
+        made.job["track_not"]["made"][0]["cut_from"] = str(own)
+        made.write()
         for who in ("a", "z"):
             made.job["track_not"]["made"][0]["subject"] = who
             made.write()

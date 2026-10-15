@@ -784,9 +784,12 @@ def make_track_not(block: dict | None, world, cut=cut_track, hashed=None) -> lis
             again.unlink()
             if not same:
                 raise Refused(f"{out} is there and is NOT the copy of {t['cut_from']} with those frames emptied: of another making. It is read and moved aside by a person")
+            t["hash"] = hashed(str(out))           # held by the chain at every capture, as a keep-out's frames are (`load_chain.mask_specs`)
+            t["cut_from_hash"] = hashed(t["cut_from"])  # and the track it was cut from: a preview rewritten under the same name is caught
             lines.append(f"{t['subject']}'s track, not them on {', '.join(f'{a}-{b}' for a, b in t['frames'])}: {out} was there, and a copy made again decodes equal")
             continue
         got = cut(Path(t["cut_from"]), t["frames"], t["first"], out)
+        t["hash"], t["cut_from_hash"] = hashed(str(out)), hashed(t["cut_from"])
         lines.append(f"{t['subject']}'s track, not them on {', '.join(f'{a}-{b}' for a, b in t['frames'])}: copied to {out} with {got['px_emptied']} px emptied")
     return lines
 

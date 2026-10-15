@@ -1559,9 +1559,12 @@ def a_track_that_is_not_its_person() -> str:
         stl.step_job(a, made.m, track_cut=copy, over=over)
         assert not copies and not list(made.jobs.iterdir()) and said, "a dry run copied a track or wrote a job file"
         made.m.dry = False
-        stl.step_job(a, made.m, track_cut=copy, over=over)
+        stl.step_job(a, made.m, track_cut=copy, over=over, hashed=lambda path: f"HASH OF {Path(path).name}")
         assert copies == [("shot_c_0100_b_track_00001.mkv", [[110, 120]], 100, "shot_c_0100_b_track_not_110-120.mkv")], copies
-        assert json.loads((made.jobs / "a_fp_0100.json").read_text())["job"]["track_not"]["made"][0]["frames"] == [[110, 120]]
+        kept = json.loads((made.jobs / "a_fp_0100.json").read_text())["job"]["track_not"]["made"][0]
+        # THE CASE THAT GOES RED when the job keeps no hash of the copy's frames for the chain to hold it to (the cold reader of 2026-10-15)
+        assert kept["frames"] == [[110, 120]] and kept["hash"] == "HASH OF shot_c_0100_b_track_not_110-120.mkv" \
+            and kept["cut_from_hash"] == "HASH OF shot_c_0100_b_track_00001.mkv", kept
         a.remake = True
         refused(lambda: stl.step_job(a, made.m, track_cut=copy, over=over, hashed=lambda path: path), "is there and is NOT the copy", "moved aside by a person")
     return ("a person's word that another subject's track is not them on named frames goes into the job with who said it, why and the copy every step "

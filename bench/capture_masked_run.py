@@ -1449,6 +1449,20 @@ def source_settings(graph: dict | None) -> dict:
 
 # ------------------------------------------------------------------ files
 
+#: A mask's input made by the job step from a preview file, today: the key that names it and the key that names the file it came from.
+#: verify holds it to that file's time (`inputs_written_together`). `parts_from`: a load's own part (2026-10-14); `track_from`: another
+#: subject's track copied with frames emptied on a person's word, the job's `track_not` (2026-10-15, second_hfp_0604f).
+MADE_FROM = {"parts": "parts_from", "track": "track_from"}
+
+
+def sighting_inputs(m: dict, facts=None) -> dict:
+    """A --mask's input files as the manifest keeps them: each file's facts, and for one the job step made from a preview file
+    (`MADE_FROM`), that file's facts as `made_from`."""
+    facts = facts or input_facts
+    return {k: {**facts(m[k]), **({"made_from": facts(m[MADE_FROM[k]])} if k in MADE_FROM and m.get(MADE_FROM[k]) else {})}
+            for k in ("track", "parts", "classes", "held", "shots", "pose") if m.get(k)}
+
+
 def spec(text: str) -> tuple[str, dict]:
     label, _, rest = text.partition(":")
     return label, dict(item.split("=", 1) for item in rest.split(",") if item)
@@ -1592,7 +1606,7 @@ def files(a: argparse.Namespace) -> Path:
     masks, runs, plans = [spec(m) for m in a.mask], [spec(r) for r in a.run], [spec(r) for r in a.plan]
     plans += plans_with_the_files(runs, [load for path in a.loads for load in loads_from_file(path)])
     runs = [(n, r) for n, r in runs if r.get("render")]
-    named = [m[k] for _, m in masks for k in ("track", "parts", "shots", "classes", "held", "pose") if m.get(k)] + [a.source]
+    named = [m[k] for _, m in masks for k in ("track", "parts", "shots", "classes", "held", "pose", *MADE_FROM.values()) if m.get(k)] + [a.source]
     named += [x for _, r in runs for x in (r["render"], r["render"][:-len(".mp4")] + "_with_mask.mp4")]
     missing = [x for x in named if not Path(x).is_file()]
     who = {"made_by": a.made_by} if getattr(a, "made_by", "") else {}
@@ -1739,8 +1753,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                    "frames_covered": int(covered.sum()), "pose": posed, "parts_pieces": m.get("pieces"),
                                    # what `pieces=largest` took away, a frame at a time (`pieces_taken`); None when it is not set
                                    "parts_pieces_taken": pieces_by_sighting.get((label, by)),
-                                   "inputs": {k: {**input_facts(m[k]), **({"made_from": input_facts(m["parts_from"])} if k == "parts" and m.get("parts_from") else {})}
-                                              for k in ("track", "parts", "classes", "held", "shots", "pose") if m.get(k)},
+                                   "inputs": sighting_inputs(m),
                                    "classes": Path(m["classes"]).name if m.get("classes") else None,
                                    "part_is_made_of": made_of.get(label),
                                    "parts_held_on_source_frames": frame_spans([first + f for f in held_frames]),
@@ -2034,13 +2047,14 @@ def verify_checks(manifest: dict, track_flags: list[dict], statements: list[dict
             # a pose table may come from a pass of its own; the masks and the shot table are one preview's. A load's own part
             # (`parts_from=` on its mask: a cut of some of the subject's parts, or the part held to its track, made by the job step
             # from the preview's own files) is written when the job is, and is held to the preview file it was made from
-            # (2026-10-14: the first load to carry a held part failed here on a preview of the day before)
+            # (2026-10-14: the first load to carry a held part failed here on a preview of the day before). A track copied with frames
+            # emptied on a person's word (`track_from=`, the job's `track_not`) is held the same way (2026-10-15, second_hfp_0604f)
             given = {k: v for k, v in given.items() if k != "pose"}
             stamp = lambda v: (v.get("made_from") or v)["written"]                                     # noqa: E731
             times = sorted(datetime.datetime.fromisoformat(stamp(v)) for v in given.values())
             spread = (times[-1] - times[0]).total_seconds()
             add("inputs_written_together", about, spread <= WRITTEN_TOGETHER_S,
-                f"written within {int(spread)} s of each other" + "".join(f"; {v['file']} is the load's own, made from {v['made_from']['file']}"
+                f"written within {int(spread)} s of each other" + "".join(f"; {v['file']} was made by the job step from {v['made_from']['file']}"
                                                                           for v in given.values() if v.get("made_from")) if spread <= WRITTEN_TOGETHER_S else
                 f"written {int(spread)} s apart: {', '.join(v['file'] + ' at ' + v['written'][11:] + (' (made from ' + v['made_from']['file'] + ' at ' + v['made_from']['written'][11:] + ')' if v.get('made_from') else '') for v in given.values())}. "
                 "They are not one run's", seconds=int(spread))

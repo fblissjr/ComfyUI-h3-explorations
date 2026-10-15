@@ -1057,9 +1057,14 @@ def verifying() -> str:
     # A LOAD'S OWN PART (2026-10-14: the first load to carry a held part failed here): made a day later from the preview's saved part, it is
     # held to that part; one made from a file of another run is not
     derived = by(cap.verify_checks(manifest({**good, "parts": {**video("held.mkv", "23:59:00"), "made_from": video("r.mkv", "13:45:50")}}, [run]), []))
-    assert derived["inputs_written_together"]["ok"] is True and "held.mkv is the load's own, made from r.mkv" in derived["inputs_written_together"]["why"], derived
+    assert derived["inputs_written_together"]["ok"] is True and "held.mkv was made by the job step from r.mkv" in derived["inputs_written_together"]["why"], derived
     stray = by(cap.verify_checks(manifest({**good, "parts": {**video("held.mkv", "23:59:00"), "made_from": video("r.mkv", "09:17:00")}}, [run]), []))
     assert stray["inputs_written_together"]["ok"] is False and "made from r.mkv at 09:17:00" in stray["inputs_written_together"]["why"], stray
+    # A TRACK COPIED ON A PERSON'S WORD (`track_from=`, 2026-10-15: second_hfp_0604f failed here, its copy written a day after the preview):
+    # held to the preview track it was cut from, as a load's own part is
+    copied = by(cap.verify_checks(manifest({**good, "track": {**video("t_not.mkv", "23:59:00"), "made_from": video("t.mkv", "13:44:10")}}, [run]), []))
+    # THE CASE THAT GOES RED when a track copy is held to its own write time, not to the preview track it came from
+    assert copied["inputs_written_together"]["ok"] is True and "t_not.mkv was made by the job step from t.mkv" in copied["inputs_written_together"]["why"], copied
     # a pose table from a pass of its own does not make the masks two runs
     posed = by(cap.verify_checks(manifest({**good, "pose": {"file": "p.json", "written": "2026-10-10T09:00:00"}}, [run]), []))
     assert posed["inputs_written_together"]["ok"] is True
@@ -1094,6 +1099,13 @@ def verifying() -> str:
     assert late["inputs_reach_the_span"]["ok"] is False, "masks that start after the span's first frame were let through"
     old = by(cap.verify_checks(manifest(None, [run]), []))
     assert old["inputs_written_together"]["ok"] is None, "a capture with no recorded inputs was passed"
+    # the files a --mask names, as the manifest keeps them: a file the job step made today from a preview file carries that file as
+    # `made_from`, a load's own part (`parts_from=`) and another subject's track copied with frames emptied (`track_from=`, 2026-10-15)
+    fake = lambda path: {"file": Path(path).name}                                                              # noqa: E731
+    got = cap.sighting_inputs(cap.spec("b:track=/o/copy.mkv,track_from=/o/pv_b_track.mkv,shots=/o/s.json,parts=/o/own.mkv,parts_from=/o/p.mkv")[1], fake)
+    # THE CASE THAT GOES RED when a track copied on a person's word is kept with nothing of the preview track it came from
+    assert got["track"] == {"file": "copy.mkv", "made_from": {"file": "pv_b_track.mkv"}} and got["parts"]["made_from"] == {"file": "p.mkv"} \
+        and "made_from" not in got["shots"] and set(got) == {"track", "parts", "shots"}, got
     # the readers: a region that differs, a render with no saved files, files that were refused
     off = by(cap.verify_checks(manifest(good, [{**run, "readers": {**agree, "cells_differing": 30, "frames_differing": [[3, 4]]}}]), []))
     assert off["region_saved_against_region_read_back"]["ok"] is False
