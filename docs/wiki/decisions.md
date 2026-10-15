@@ -33,6 +33,18 @@ Older history lives elsewhere and is not copied here:
   The held mask left 115, 69 and 6 px on 1015, 1018 and 1023: her fingertips, her fist and forearm, and on 1015
   the rim of a white egg she holds at her chin. This is mrtwo's rule of 2026-10-14 after 21:18Z for held things
   she touches near her face, widened from 1010d's "fingers and hand" to name the egg.
+- **The owner kept lead_fp_2823b, so it is not remade; 3098-3109 continues its window; the eye test is cancelled**
+  (the owner on the review page, 18:52Z: "eyes and mouth and movements and all look fantastic"). What it replaces: the
+  lead's ruling after 18:50Z to remake 2823 once as 2823c over 2823-3109, and the eye A/B ruled after 18:36Z. The
+  readers' frame-by-frame finding that her eyes do not close where hers do stands as a row; the owner's eye on
+  playback accepts the piece. The snap at 3097/3098 is mended by a short load over 3098-3109 continuing 2823b's
+  stored window, once the job step takes `--continue-from` and `--hold-part`.
+- **Who sings is the plan's data, per shot and subject** (the owner, 19:05Z, on second_hfp_5675b: "Subject 2
+  shouldnt be singing ... She's mouthing like she's talking but its not audible ... frame 1306 scene is correct ...
+  We should have a way to handle these via data and the plan to say whether or not to include singing in the
+  prompt"). A plan key, for example `voice`: "sings", "talks, not heard" or "silent", read by `bench/load_text.py` in
+  place of the voice table's guess where the plan names one. Seeded: 5675-5715 the second subject "talks, not heard";
+  1306 the third subject "sings". 5675 is then made again.
 - **The second subject's still: fun_mom.jpg and fun_mom_edit.jpg are the same edited image, on purpose** (the owner,
   about 19:15Z in the lead's terminal). The owner removed a purse strap from the original photo and saved the result
   under both names, in case a session reached for the older name later. Both files are byte-identical (mrvid,
