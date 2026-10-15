@@ -1656,7 +1656,9 @@ def the_defaults_this_load_carries() -> str:
         d = made.load()
         lines = {x["what"]: x for x in d["job"]["defaults"]}
         assert list(lines) == ["the reference held to the subject's track", "the eye", "the mouth", "zoom", "other people in the shot", "the strangers keep-out", "the part's pieces",
-                               "the hair band", "restore spans", "the text"], list(lines)
+                               "the hair band", "restore spans", "the text", "what the composite kept"], list(lines)
+        assert all(x.get("save_kept") is True for x in d["loads"]) and lines["what the composite kept"]["carries"].startswith("saved"), \
+            "a load does not save what its composite kept, the chain's default"
         assert lines["the eye"]["carries"].startswith("white sclera and black iris") and lines["the eye"]["from"].startswith("the chain's default"), lines["the eye"]
         assert lines["the mouth"]["carries"].startswith("drawn when the lip lines lie") and lines["zoom"]["from"].startswith("the chain's default"), lines
         made.plan["subjects"]["a"]["reference"] = {"mouth": "left out", "iris": "between the lids", "why": "the owner, on this subject's stills"}
