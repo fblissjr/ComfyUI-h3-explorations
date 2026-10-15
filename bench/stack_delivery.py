@@ -13,7 +13,8 @@ as a tool: it reads the SAME table the assembler built the clip from, so the sta
 
 **One picture a source frame, the frame number on it, three rows and a block of words.**
 
-    ORIGINAL          the source, fitted to the canvas as the lane's loader fits it (`_lib.frames.FIT`)
+    ORIGINAL          the source, its whole frame, letterboxed into the row (`WHOLE`; until 2026-10-15 cut as the lane's
+                      loader cuts it, `_lib.frames.FIT`, which hid a band at the frame's edge: C3, the clips reviewer)
     WHAT WAS GIVEN    one column a subject, in the order each first lays a piece, the same column for the whole clip
                       (C1, 2026-10-15: tiles jumped and swapped rows as pieces came and went): the piece's own mask
                       picture (the lower half of its `_with_mask.mp4`), and under it the reference its graph wires, on
@@ -21,7 +22,7 @@ as a tool: it reads the SAME table the assembler built the clip from, so the sta
                       (the strip's own rule, `capture_masked_run.head_boxes`, from the reference's points). Each piece's
                       inputs are read through `bench/what_h3_got.py` from its job folder, found by its queued record
                       under `--data`. A column with no piece on a frame says the subject is the original there.
-    THE CLIP          the delivery clip, fitted the same way
+    THE CLIP          the delivery clip, its whole frame the same way: an edge the loader cuts is a fault the owner sees
 
 The words between the middle and bottom rows, every word kept (a line too long goes on to the next; the block is as
 tall as the frame that needs the most): what the mask pictures' colours are; the pieces on this frame in the
@@ -226,6 +227,11 @@ class Reader:
         self.p.wait()
 
 
+#: The original and the clip as whole frames in their rows: scaled to fit, the rest black. The loader's cut (`FIT`) took
+#: the rows a fault at the delivered frame's edge lies in (2026-10-15: a step of 33-41 grey levels along 2823b's bottom).
+WHOLE = "scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2"
+
+
 def _rate(path: str) -> str:
     return subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=r_frame_rate", "-of", "csv=p=0", path],
                           capture_output=True, text=True, check=True).stdout.strip().strip(",")
@@ -412,9 +418,9 @@ def build(a: argparse.Namespace) -> None:
     work = Path(a.work)
     work.mkdir(parents=True, exist_ok=True)
     silent = str(work / (Path(a.out).stem + ".video.mp4"))
-    fit = FIT.format(w=w, h=h)
+    fit = WHOLE.format(w=w, h=h)
     sidecar = Path(a.table).with_name(Path(a.out).stem + ".json")
-    tag = f"comment=stack_delivery canvas={w}x{h} block={bar} sidecar={sidecar}"
+    tag = f"comment=stack_delivery canvas={w}x{h} block={bar} rows=whole sidecar={sidecar}"
     src, joined = Reader(a.source, first_f, fit, w, h), Reader(a.joined, first_f - base, fit, w, h)
     enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{w}x{h * 3 + bar}", "-r", _rate(a.joined), "-i", "-",
                             "-c:v", "libx264", "-crf", "17", "-pix_fmt", "yuv420p", "-preset", "medium", silent], stdin=subprocess.PIPE)
@@ -609,7 +615,8 @@ def read_back(source: str, joined: str, out: str, first: int = 0) -> dict:
                 break
     if h is None or h * 3 + bar != total_h:
         raise SystemExit(f"{out} is {w} by {total_h}: not three rows and a block of words as this tool lays them")
-    fit = FIT.format(w=w, h=h)
+    # a stack that says its rows are whole frames is read back as such; one from before was cut as the loader cuts
+    fit = (WHOLE if m and "rows=whole" in said else FIT).format(w=w, h=h)
     md5 = lambda p: subprocess.run(["ffmpeg", "-v", "error", "-i", p, "-map", "0:a", "-c", "copy", "-f", "md5", "-"], capture_output=True, text=True).stdout.strip()
     sound = (md5(out), md5(joined))
     return {"frames": n, "clip_frames": nj, "size": [w, total_h], "canvas": [w, h], "sound_packets": {"stacked": sound[0], "clip": sound[1], "the_same": bool(sound[0]) and sound[0] == sound[1]},

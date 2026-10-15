@@ -348,6 +348,28 @@ def each_piece_read_through_its_job() -> str:
     return "pa read from its job folder with the output folder its own path gives; pb, queued by no record, left out; a refused read kept with its reason"
 
 
+def the_whole_frame_shown() -> str:
+    """C3, 2026-10-15: the stack cut the original and the clip as the loader cuts them, and hid a band at the delivered frame's
+    edge. A clip 264x200 (not the canvas's shape) with one bright row along its bottom: the loader's cut takes that row
+    (the control, read from the file through FIT), and the stack's clip row shows it, letterboxed; the read-back still fits."""
+    m = made()
+    banded = m.root / "banded.mp4"
+    ffmpeg("-f", "lavfi", "-i", "color=c=0x3c3c3c:s=264x200:r=24", "-f", "lavfi", "-i", "sine=frequency=330:sample_rate=44100",
+           "-frames:v", str(FRAMES), "-shortest", "-vf", "drawbox=x=0:y=199:w=264:h=1:color=white:t=fill", "-pix_fmt", "yuv444p",
+           "-c:v", "libx264", "-qp", "0", "-c:a", "aac", str(banded))
+    cut = grey(banded, sd.FIT.format(w=W, h=H), W, H)
+    assert cut[:, -2:, W // 4:3 * W // 4].max() < 120, "the control: the loader's cut keeps the band, so the fixture cannot show it hidden"
+    out = m.root / "banded_stacked.mp4"
+    m.build(joined=str(banded), out=str(out))
+    got = sd.read_back(str(m.source), str(banded), str(out))
+    bar = got["size"][1] - 3 * H
+    row = grey(out, f"crop={W}:{H}:0:{2 * H + bar}", W, H)
+    edge = row[:, -3:, W // 4:3 * W // 4].max(axis=(1, 2))
+    assert (edge > 150).all(), f"the band at the clip's bottom edge is not in the stack's clip row: {edge}"
+    assert got["the_clip_row"]["a_neighbour_fits_better"] == [], got["the_clip_row"]
+    return f"a one-row band at the delivered frame's bottom, cut by the loader's fit, shows in the stack's clip row (grey {int(edge.min())}+)"
+
+
 def a_table_that_lays_nothing() -> str:
     m = made()
     empty = m.root / "empty.txt"
@@ -369,6 +391,7 @@ case("check: the file read back", the_read_back)
 case("a clip of a span that does not begin on frame 0", a_clip_of_a_span)
 case("the clip's own check, and the words whole", the_clips_own_check_and_whole_words)
 case("each piece read through its job", each_piece_read_through_its_job)
+case("the whole delivered frame, its edge too", the_whole_frame_shown)
 case("a table that lays nothing", a_table_that_lays_nothing)
 
 if __name__ == "__main__":
