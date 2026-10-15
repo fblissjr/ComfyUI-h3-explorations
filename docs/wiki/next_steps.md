@@ -65,6 +65,19 @@ her head" below: the fault was found elsewhere on 2026-10-14.)
 - **The outside reviewer sees video at one frame a second** (its own report, 2026-10-15,
   `internal/gemini/2026-10-15_clips_review.md` section 1 and C1b; not checked independently). A frame-level question
   goes to it as frames or a 1 fps companion strip (mrvid's review-clip build), and its answers say which frames it saw.
+- **The strangers keep-out keeps the subject's own neck, dress and hair beyond her track as strangers, on a close-up with
+  nobody else** (2026-10-15, the lead's ruling; option 2 of mrlol's three). bench/strangers.py hands back a piece that
+  touches a subject and holds no body core, and keeps one that holds a core: ruling (A) of 2026-10-14, another person's
+  arm or face against her stays a stranger. On lead_fp_2823b's strangers record, 263 pieces were kept though touching
+  her, 7,657,313 px, by core: Face_Neck alone 90, Upper_Clothing 38, Hair not joined to hers 31, Hair with
+  Upper_Clothing 29, Face_Neck with Upper_Clothing 24, with an arm 11. Option 1, a person's word per load (`shot_to_load
+  job --no-strangers WHY`), is built today. THE ROW, for a day the card can spare a part-model rerun: extend the hair rule
+  to every core class (a piece whose Face_Neck, clothing or arm pixels join the same class inside her own, pixel by pixel
+  through her grown band, is hers) and measure it, since the whole-frame class map is not kept. FIRST LOOK: mrgem's G9
+  (`internal/gemini/2026-10-15_watch_strangers_0630d.md`) on lead_fp_0630d's pieces touching her, 654-680, sheet
+  `data/2026-10-15_strangers_touching_0630d/`: every one is her own (fingertips on 654, her hair or scarf tail on
+  669-673, her dress under her wrist on 678-680); the pieces touching nobody are the flower pitcher's handle and base
+  and a speck by a dish, not a person. Figures: `internal/claude/2026-10-15_mrlol_scripts/strangers_on_her.txt`.
 
 **Masked video to video, 2026-10-14: rows of the day.**
 - **Gaze is a known limit: the render does not follow a horizontal gaze it is shown, and the pose model misses a
