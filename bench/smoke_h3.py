@@ -78,6 +78,22 @@ Two deliberate choices, both from getting them wrong first:
 - **Its own filename prefix and a short clip.** The output is throwaway; it
   should not land in the middle of real renders wearing their naming.
 
+## A second run of the same length on one server, found 2026-10-15
+
+Sol prints each shape once (`sol_attn_h3._log_once`) until its node runs again,
+and with the node cache on a repeated graph does not run it again. So the
+second of two smokes at one length on one server printed neither its sparse
+line nor its decline, and read "sparse ran MISSING" on a server that was
+routing. When this run's part of the log lacks them, and the server served this run's
+Sol node from its cache (`/history`), the line is read from earlier in the
+log: after the last process start and the last time the Sol node ran
+(`SINCE`), under a resolution line equal to this run's (`GEOMETRY`). The
+smoke prints the line it read and its number. It is the line the cached node
+logged for that geometry, not one this render printed; the resolution line
+carries the canvas and length, not tau, which the printed line does. When the
+sampler itself was served from the cache (two identical smokes back to back),
+nothing was sampled and the run is not graded.
+
 Read the log in a terminal, or with `stdbuf -oL -eL` on the launcher.
 Redirecting ComfyUI's output block-buffers it, and these lines then fail to
 appear whether or not anything is wrong -- which makes an absent line
@@ -120,6 +136,67 @@ WANT = [
 # exercise Sol" above).
 DECLINED = re.compile(r"\[h3-sol\] dense \((?:\d+, )*\d+\): seq (\d+) < (\d+)")
 DECLINED_SOURCES = (("sol_attn_h3.py", 'f"dense {tuple(qs.shape)}: {reason}"'), ("sol_attn_h3.py", 'f"seq {q.shape[1]} < {min_tokens}"'))
+# A shape Sol has said once it does not say again: `sol_attn_h3._log_once` prints each key once, until the Sol node runs
+# again (`reset_sol_attn_stats`, called when the node executes and prints its "MiniMaxH3Sol on" line) or the process
+# starts again. With the node cache on, a second render of the same graph does not run the node again, so a smoke that
+# repeats a length reads neither "sparse (" nor the decline in its own part of the log: found 2026-10-15, the second of
+# two runs at 49 frames on one server read "sparse ran MISSING". The line that run would have printed is the one logged
+# earlier, since the last of those two marks, for the same geometry: our resolution node prints its summary on every
+# run, and it is how an earlier Sol line is tied to this run's length and canvas. (label, needle, (file, literal)).
+# An earlier line is read only when the server served this run's Sol node from its cache (`/history`'s
+# "execution_cached"): a node listed there was needed for this prompt's output and did not run, so it did not clear what
+# Sol had said, and it is the node with the inputs it had when it last ran. A Sol node off the path to the output is not
+# listed, and a node that ran prints its own "on" line. When the sampler itself is cached nothing was sampled, and the
+# run is not graded. The sage line has the same gap (printed when the sage node runs, so not on a cached repeat) and is
+# not read earlier: the default graph does not owe it.
+SINCE = (("the process", "Total VRAM ", ("comfy/model_management.py", '"Total VRAM {:0.0f} MB, total RAM')),
+         ("the Sol node", "] MiniMaxH3Sol on: ", ("sol_attn_h3.py", 'f"[h3-sol] MiniMaxH3Sol on: ')))
+GEOMETRY = ("] resolution ", ("resolution.py", 'logger.info("[h3] resolution %s"'))
+#: The nodes that sample: when the server served every one of them from its cache, this run sampled nothing.
+SAMPLER_IDS = ("SamplerCustomAdvanced", "SamplerCustom", "KSampler", "KSamplerAdvanced")
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _lines(text: str) -> list[str]:
+    """The log's lines as the file numbers them: split on newlines only. tqdm's progress bar writes carriage returns
+    inside a line, and `str.splitlines` would split on those too and count lines the file does not have."""
+    return text.split("\n")
+
+
+def _lines_with(text: str, needle: str) -> list[int]:
+    return [i for i, line in enumerate(_lines(text)) if needle in line]
+
+
+def _geometry(line: str) -> str:
+    """What a resolution line says, from the needle on: a launcher's prefix (a time, a colour) is not compared."""
+    return line[line.index(GEOMETRY[0]):].strip()
+
+
+def logged_earlier(before: str, this_run: str, needle: str | re.Pattern) -> tuple[int, str] | None:
+    """The line holding `needle` that Sol logged earlier for this run's geometry and has not been able to say since: in
+    `before` (the log up to this run), after the last process start and the last time the Sol node ran, under a
+    resolution line equal to this run's. (1-based line number in the file, the line), or None. None when this run ran
+    the Sol node itself (its set is new) or printed no resolution line (nothing ties an earlier line to it)."""
+    if any(_lines_with(this_run, n) for _l, n, _s in SINCE[1:]):
+        return None
+    geometry = next((_geometry(line) for line in _lines(this_run) if GEOMETRY[0] in line), None)
+    if geometry is None:
+        return None
+    lines = _lines(before)
+    # the geometry is read from the process's start; a line counts only after the Sol node last ran, which it does
+    # inside a render, after that render's resolution line
+    start = max([0] + _lines_with(before, SINCE[0][1]))
+    ran = max([start] + [i for i in _lines_with(before, SINCE[1][1]) if i >= start])
+    found, under = None, None
+    for i in range(start, len(lines)):
+        if GEOMETRY[0] in lines[i]:
+            under = _geometry(lines[i]) == geometry
+        elif under and i > ran and (needle.search(lines[i]) if isinstance(needle, re.Pattern) else needle in lines[i]):
+            plain = _ANSI.sub("", lines[i]).strip()
+            found = (i + 1, plain[plain.find("[h3-sol]"):] if "[h3-sol]" in plain else plain)
+    return found
+
+
 #: The dense chain's nodes a Sol node is installed over: core's backend node (`h3_config.DENSE_BACKEND_NODE`) or sage.
 BACKEND_NODE_IDS = ("ModelAttentionBackend", "MiniMaxH3SageAttention")
 
@@ -276,40 +353,25 @@ def main() -> int:
         print("The attention-chain lines were NOT checked from a file. Read "
               "the live server terminal, or pass a path the launcher writes.")
         return 2
-    with log_path.open("rb") as fh:
-        # A log rotated or truncated mid-run is shorter than the offset; read
-        # it whole rather than nothing.
-        fh.seek(log_start if log_path.stat().st_size >= log_start else 0)
-        text = fh.read().decode(errors="replace")
-    missing, skipped = False, False
-    # node order: read from the graph that was submitted, not from a log line
-    if owed["sol"]:
-        for sol, found in graph_order(wf):
-            print(f"  node order    {'ok' if found else 'MISSING'}    Sol {sol} " + (f"over {found}" if found else "reads its model from no dense backend"))
-            missing |= found is None
-    declined = DECLINED.search(text)
-    for label, needle, gate, _source in WANT:
-        if not owed[gate]:
-            if gate == "sol":
-                print(f"  {label}  SKIP    no Sol node in the submitted graph")
-                skipped = True
-            else:
-                print(f"  {label}  n/a     not owed by this graph's dense chain")
-            continue
-        ok = needle in text
-        if not ok and needle == "] sparse (" and declined:
-            print(f"  {label}  not owed at this length: Sol declined every call (seq {declined.group(1)} < {declined.group(2)}); "
-                  "--length 49 runs it")
-            skipped = True
-            continue
-        print(f"  {label}  {'ok' if ok else 'MISSING'}")
-        missing |= not ok
+    whole = log_path.read_bytes()
+    # A log rotated or truncated mid-run is shorter than the offset; read it whole rather than nothing.
+    cut = log_start if len(whole) >= log_start else 0
+    before, text = whole[:cut].decode(errors="replace"), whole[cut:].decode(errors="replace")
+    cached = {str(n) for m in h.get(pid, {}).get("status", {}).get("messages", []) if m[0] == "execution_cached"
+              for n in m[1].get("nodes", [])}
+    lines, missing, skipped = grade(wf, text, before, cached)
+    for line in lines:
+        print(line)
+    if any("NOT GRADED" in line for line in lines):
+        return 2
     if missing:
-        print("\nA missing line is not proof of breakage if the log is buffered.")
-        print("Confirm the log is live (byte count growing) before concluding.")
-        print("Then grep this repo for the needle: a string that appears only")
-        print("in smoke_h3.py is a stale needle, which is how the sage line sat")
-        print("unmatchable until 2026-08-14.")
+        print("\nA missing line is not proof of breakage if the log is buffered, nor if it was said before:")
+        print("Sol prints each shape once (sol_attn_h3._log_once) until the Sol node runs again or the server")
+        print("restarts, and an earlier line is read only when this run's Sol node was served from the cache and")
+        print("under a resolution line equal to this run's; the sage line prints only when the sage node runs, and")
+        print("is never read earlier. Confirm the log is live (byte count growing) before concluding. Then grep")
+        print("this repo for the needle: a string that appears only in smoke_h3.py is a stale needle, which is how")
+        print("the sage line sat unmatchable until 2026-08-14.")
         return 1
     if skipped and owed["sol"]:
         print("\nSol's sparse path was not exercised at this length. Exit 2, not 0: this run verified")
@@ -322,6 +384,52 @@ def main() -> int:
         print("Point --workflow at a Sol graph (h3_text_to_video_api.json) to check it.")
         return 2
     return 0
+
+
+def grade(wf: dict, text: str, before: str = "", cached: set[str] = frozenset()) -> tuple[list[str], bool, bool]:
+    """The lines the smoke prints for a submitted graph, the log this run wrote (`text`), the log before it (`before`)
+    and the node ids the server served from its cache (`cached`), and whether a line is missing or a check was not
+    graded."""
+    owed = {"sol": any(n["class_type"] in SOL_NODE_IDS for n in wf.values()),
+            "sage": any(n["class_type"] in SAGE_NODE_IDS for n in wf.values())}
+    out, missing, skipped = [], False, False
+    samplers = {nid for nid, n in wf.items() if n["class_type"] in SAMPLER_IDS}
+    if samplers and samplers <= set(cached):
+        return ([f"  sampled       NOT GRADED the server served the sampler ({', '.join(sorted(samplers))}) from its cache: "
+                 "this run sampled nothing, so no attention ran. Change --length or restart the server"], False, True)
+    sols = {nid for nid, n in wf.items() if n["class_type"] in SOL_NODE_IDS}
+    # an earlier line stands for this run only when this run's Sol node was served from the cache (see SINCE)
+    earlier = (lambda needle: logged_earlier(before, text, needle)) if sols and sols <= set(cached) else (lambda _n: None)  # noqa: E731
+    # node order: read from the graph that was submitted, not from a log line
+    if owed["sol"]:
+        for sol, found in graph_order(wf):
+            out.append(f"  node order    {'ok' if found else 'MISSING'}    Sol {sol} " + (f"over {found}" if found else "reads its model from no dense backend"))
+            missing |= found is None
+    declined, said = DECLINED.search(text), ""
+    if declined is None and (again := earlier(DECLINED)):
+        declined, said = DECLINED.search(again[1]), f", logged earlier by this server, line {again[0]}: {again[1]}"
+    for label, needle, gate, _source in WANT:
+        if not owed[gate]:
+            if gate == "sol":
+                out.append(f"  {label}  SKIP    no Sol node in the submitted graph")
+                skipped = True
+            else:
+                out.append(f"  {label}  n/a     not owed by this graph's dense chain")
+            continue
+        ok = needle in text
+        if not ok and needle == "] sparse (" and declined:
+            out.append(f"  {label}  not owed at this length: Sol declined every call (seq {declined.group(1)} < {declined.group(2)}); "
+                       f"--length 49 runs it{said}")
+            skipped = True
+            continue
+        if not ok and needle == "] sparse (" and (again := earlier(needle)):
+            out.append(f"  {label}  ok      logged earlier by this server for the same geometry, line {again[0]}: {again[1]} "
+                       "(Sol says a shape once until its node runs again, sol_attn_h3._log_once; the server served "
+                       "this run's Sol node from its cache)")
+            continue
+        out.append(f"  {label}  {'ok' if ok else 'MISSING'}")
+        missing |= not ok
+    return out, missing, skipped
 
 
 if __name__ == "__main__":

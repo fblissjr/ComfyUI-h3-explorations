@@ -9,6 +9,14 @@
    `DECLINED` with its two numbers.
 3. **The node order is read from the graph**: the shipped default graph's Sol reaches its dense backend; the same graph
    with Sol's model wired straight to the model loader reaches none (the control).
+4. **A repeated length still reads what Sol said** (2026-10-15): a made log of one server where a 49-frame and a
+   39-frame run each print their Sol line and a second run of each prints none (the Sol node served from the cache, so
+   its seen set kept) grades the second 49 "ok" from the first's line and the second 39 "not owed" from the first's
+   decline, each printing the line read and its number in the file (past tqdm's carriage returns); a launcher's prefix
+   on the resolution line still matches; a run whose sampler was served from the cache is not graded. Controls, each
+   red: the same repeat with the Sol node not cached, after it ran again, after a process start, under another
+   geometry, and with no resolution line. The marks it reads (`SINCE`, `GEOMETRY`) are held to their code, core's
+   process-start line in ComfyUI's own `comfy/model_management.py`.
 
 No card, no server.
 
@@ -22,7 +30,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _lib import REPO, case, finish  # noqa: E402
+from _lib import COMFY, REPO, case, finish  # noqa: E402
 
 import smoke_h3 as sm  # noqa: E402
 
@@ -69,9 +77,54 @@ def the_order_from_the_graph() -> str:
     return f"the shipped default graph's Sol is over {got[0][1]}; wired over the bare model it reaches none"
 
 
+def a_repeat_reads_the_earlier_line() -> str:
+    wf = json.loads((sm.WF / "h3_text_to_video_api.json").read_text())
+    for label, needle, (file, literal) in sm.SINCE + (("the geometry",) + sm.GEOMETRY,):
+        home = COMFY if file.startswith("comfy/") else REPO
+        assert literal in (home / file).read_text(encoding="utf-8"), f"{label}: {file} no longer holds {literal!r}"
+        assert needle in literal.replace("{:0.0f}", "1").replace('logger.info("', "").replace('f"', ""), (needle, literal)
+    sol = {nid for nid, n in wf.items() if n["class_type"] in sm.SOL_NODE_IDS}
+    sampler = {nid for nid, n in wf.items() if n["class_type"] in sm.SAMPLER_IDS}
+    assert sol and sampler, (sol, sampler)
+    cached = {nid for nid in wf if nid not in sampler and wf[nid]["class_type"] not in ("SaveVideo", "VHS_VideoCombine")}
+    i = "\x1b[32m[INFO]\x1b[0m "
+    start, on = i + "Total VRAM 24155 MB, total RAM 128563 MB", i + "[h3-sol] MiniMaxH3Sol on: sigma window [0, 0.9796], tau 1.0"
+    g39 = i + "[h3] resolution 1344x768  7/4 | 39 frames (1.62s)  12 latent frames"
+    g56 = i + "[h3] resolution 1344x768  7/4 | 56 frames (2.33s)  17 latent frames"
+    sparse, dense = i + "[h3-sol] sparse (1, 17360, 56, 128) tau=1.0 cuda-int8 rotate", i + "[h3-sol] dense (1, 12264, 56, 128): seq 12264 < 12288"
+    bar = "  0%|          | 0/8 [00:00<?, ?it/s]\r 12%|#         | 1/8 [00:03<00:21, 3.1s/it]"   # tqdm's carriage returns
+    done = i + "Prompt executed in 26.99 seconds"
+    before = "\n".join([start, "noise", g39, on, bar, dense, done, g56, bar, sparse, done]) + "\n"
+    repeat = lambda g: "\n".join([g, bar, done]) + "\n"                              # noqa: E731 -- the Sol node cached: no Sol line
+    lines, missing, skipped = sm.grade(wf, repeat(g56), before, cached)
+    # THE CASE THAT GOES RED when a second run of a length on one server reads "sparse ran MISSING" again, or names
+    # a line the file does not have there (the bar's carriage returns are not lines)
+    assert not missing and not skipped and any("sparse ran" in x and " ok " in x and "line 10: [h3-sol] sparse (1, 17360" in x for x in lines), lines
+    lines, missing, skipped = sm.grade(wf, repeat(g39), before, cached)
+    assert not missing and skipped and any("not owed" in x and "12264 < 12288" in x and "line 6:" in x for x in lines), lines
+    assert sm.grade(wf, "\n".join([g56, sparse, done]), before, cached)[1] is False, "this run's own line was not read"
+    stamped = lambda line: "2026-10-15 20:06:00 " + line                              # noqa: E731 -- a launcher that stamps its lines
+    assert not sm.grade(wf, repeat(stamped(g56)), before, cached)[1], "a prefix before the resolution line broke the match"
+    lines, missing, skipped = sm.grade(wf, repeat(g56), before, cached | sampler)
+    assert not missing and skipped and any("NOT GRADED" in x and "sampled nothing" in x for x in lines), lines
+    # the controls: what the earlier line cannot stand in for
+    for why, b, t, c in (("the Sol node was not served from the cache", before, repeat(g56), cached - sol),
+                         ("the Sol node ran again before this run", before + on + "\n", repeat(g56), cached),
+                         ("the Sol node ran in this run", before, "\n".join([g56, on, done]), cached - sol),
+                         ("the server started again", before + start + "\n", repeat(g56), cached),
+                         ("another geometry", before, repeat(i + "[h3] resolution 1344x768  7/4 | 73 frames (3.04s)  22 latent frames"), cached),
+                         ("no resolution line in this run", before, done + "\n", cached)):
+        lines, missing, _s = sm.grade(wf, t, b, c)
+        assert missing and any("sparse ran" in x and "MISSING" in x for x in lines), (why, lines)
+    return ("a second run at 49 reads the first's sparse line (file line 10, past a progress bar) and one at 39 the first's "
+            "decline, each with the line; a stamped prefix still matches; a cached sampler is not graded; with the Sol node "
+            "not cached, after it ran again, a restart, at another geometry or with no resolution line it reads MISSING")
+
+
 case("every needle names the code that prints it, and it is there", needles_in_their_code)
 case("each needle matches its line", needles_match_their_lines)
 case("the node order, from the submitted graph", the_order_from_the_graph)
+case("a repeated length reads what Sol said earlier", a_repeat_reads_the_earlier_line)
 
 if __name__ == "__main__":
     sys.exit(finish())
