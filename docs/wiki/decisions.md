@@ -19,6 +19,18 @@ Older history lives elsewhere and is not copied here:
 
 *Written by the lead of the day (mrtall) as the rulings are made; mrarc holds the card, mrlol tooling.*
 
+- **To H3 a masked load is not an edit, and a text never describes the frozen picture** (the owner, 2026-10-15,
+  about 19:40Z, on the lead's draft of the kitchen's two-subject text: "it cant see a mom with a white apron", "thats
+  all frozen", "to h3 this is not an edit - you have to internalize this and make sure its core to this project", "we
+  have created two empty holes of noise and h3 is generating new video in those holes", and "the video around it and
+  the audio guide it - it was jointly trained on video/audio, thats why the music / singing guides the singer to sing
+  and open her mouth by stating shes singing without having to say when"). The draft had told the two
+  women apart by "on the right" and "on the left"; mrlol's read of 0604d's tracks found the lead on the right of the
+  seated woman on 606-761, so the words were false for 156 frames as well. Reversed in `masked_v2v.md`: step 2 of
+  "The frame every masked text is written in" asked for "where the subject is, and what on them is the scene's own",
+  and the two-subject section asked for "where each of them is in the picture"; both now say the opposite. Made a
+  line of `AGENTS.md`, "Settled about H3". Open, and read on the first render: whether H3 puts each pair of
+  references in the right hole.
 - **The lead's sunglasses and hands on 2823-3097 are given back, and the run is not cut short** (mrtall, after
   15:08Z, on mrarc's question). On 3060-3097 she raises the white sunglasses over her face with both hands. The
   run stays whole, since cutting it at 3059 would switch her face back to the original for the close-up's last 38

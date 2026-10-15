@@ -175,8 +175,13 @@ order and stops:
    `fully_preserved` for a whole person; `partially_preserved` when only a
    part of the still is taken, with what is kept and what is not used said
    in the line; `attribute_transfer` for a motion video.
-2. **Where the subject is, and what on them is the scene's own** (the hair
-   or clothing the plate keeps), in a sentence.
+2. **Nothing about the frozen picture.** *Corrected 2026-10-15 (the owner):
+   until then this step asked for "where the subject is, and what on them is
+   the scene's own (the hair or clothing the plate keeps), in a sentence".*
+   The masked region is a hole of noise and H3 generates new video in it;
+   where a person stands, what she wears and the room round her are frozen
+   context it already has, and naming them does not tell it which face goes
+   in which hole. That is a sentence to an editor.
 3. **Nothing about action, expression or voice.**
 
 Then render, look, and add one sentence for what was missing: only what is
@@ -494,8 +499,9 @@ session starting a job needs to know:
   which subject, and the shown lines say which of the six labels the text
   names. **What its text must name:** `<Subject 1>` and `<Subject 2>`, one
   definition each, the first saying it is the person in `<Picture 1>` and
-  the second the person in `<Picture 2>`, and where each of them is in the
-  picture; and, for each subject that has a reference, `<Video 1>` or
+  the second the person in `<Picture 2>` (until 2026-10-15 this also asked
+  for where each of them is in the picture: that is the frozen picture, see
+  step 2 of "The frame every masked text is written in"); and, for each subject that has a reference, `<Video 1>` or
   `<Video 2>`, with the sentence that says what that video is and the line
   that says what is taken from it, in the vendor guide's form
   ([`../prompting.md`](../prompting.md), section 9). The numbers follow the
@@ -505,10 +511,12 @@ session starting a job needs to know:
   - **The text alone tells the model which still is whose.** A reference
     still is tokens and rows the model attends to from everywhere; nothing
     in H3 or in this pack ties one to a place in the picture, with one
-    region or with two. What there is: the text's two subject definitions
-    and where each person is, and each reference being that person's own
-    head. A swap or a blend of the two faces is what the first render of
-    such a load is read for.
+    region or with two. What there is: the text's two subject definitions,
+    each paired with its own still and its own movement video, and each
+    movement video made from its own subject's body. Whether H3 puts
+    each reference in the right hole is not known until a render shows it:
+    a swap or a blend of the two faces is what the first render of such a
+    load is read for.
   - **One margin for both**, the load's `margin`: the node grows its
     region by one number. A subject whose own loads ran at a smaller margin
     carries the wider ring here (the lead's face at the second subject's
