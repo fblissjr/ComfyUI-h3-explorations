@@ -33,6 +33,13 @@ Older history lives elsewhere and is not copied here:
   The held mask left 115, 69 and 6 px on 1015, 1018 and 1023: her fingertips, her fist and forearm, and on 1015
   the rim of a white egg she holds at her chin. This is mrtwo's rule of 2026-10-14 after 21:18Z for held things
   she touches near her face, widened from 1010d's "fingers and hand" to name the egg.
+- **The lead's straw hat on 2625-2711 is kept through the load's text, not a restore span; 4310-4394 runs at the
+  480 floor** (mrtall, after 15:47Z, on mrarc's read `internal/claude/2026-10-15_mrarc_scripts/four_runs_read_2026-10-15.md`).
+  The part model has no hat class, so by the owner's keep-accessories rule of 2026-10-14 the hat is named in the
+  place-and-action sentence, and the brim is a named look on the plan strip and for the reader. 4310-4394: her
+  face is small in a wide shot (px median 3873 against the capture's 4096), as on 604-851's far stretches; the
+  zoom default stands. The Eyeglass `bench/runs_left.py` reports on 5935-6020 and 4310-4394 is strangers'
+  sunglasses; she gets no Eyeglass span there.
 - **Every file the card's chain executes is edited in a worktree while the card runs** (mrtall, after 15:33Z, on
   mrarc's finding). lead_fp_2823's reference ran on uncommitted edits to `bench/head_reference.py` in the shared
   tree (its record: ran_on changed_since true), because the lead's tooling brief named five chain files for the
