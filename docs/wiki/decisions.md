@@ -33,6 +33,14 @@ Older history lives elsewhere and is not copied here:
   The held mask left 115, 69 and 6 px on 1015, 1018 and 1023: her fingertips, her fist and forearm, and on 1015
   the rim of a white egg she holds at her chin. This is mrtwo's rule of 2026-10-14 after 21:18Z for held things
   she touches near her face, widened from 1010d's "fingers and hand" to name the egg.
+- **The second subject's hair is short, shoulder-length blonde, by the text** (the owner, in the lead's terminal
+  between 19:14Z and 19:17Z: "for the mom: just put in the prompt as a partially preserved element that her hair is
+  short shoulder length blonde hair. For the ref image <Picture x> part of the prompt i think all you need to put in
+  is that she has blonde hair"). `data/fun/plan.json` subjects.second.text: `looks` "blonde hair" (was "long, loose
+  blonde hair parted in the middle, fair skin and blue-grey eyes"), `hair` "her short, shoulder-length blonde hair"
+  (was "her long, loose blonde hair"); backup `internal/claude/2026-10-15_mrtall_scripts/plan.before_mrtall_second_hair_*.json`.
+  Her still is not changed. Pieces of hers already kept were made long-haired; her loads from now on carry the new
+  words.
 - **The owner kept lead_fp_2823b, so it is not remade; 3098-3109 continues its window; the eye test is cancelled**
   (the owner on the review page, 18:52Z: "eyes and mouth and movements and all look fantastic"). What it replaces: the
   lead's ruling after 18:50Z to remake 2823 once as 2823c over 2823-3109, and the eye A/B ruled after 18:36Z. The
