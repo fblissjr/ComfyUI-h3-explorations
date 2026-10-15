@@ -55,7 +55,15 @@ table; the Open List).
    5935-6104 (why its reference failed first), the 2050 shot to about 2247, `--continue-from` after a fresh cold read
    (the dad over 1397-1418 only if 1310c's window is on the grid), then the gaps and the shots after 3166.
 4. A clean-up job on the wiki: `internal/claude/2026-10-15_wiki_audit.md`.
-5. The outside reviewer: C5 (provenance) answered or not, read it first if not yet folded in.
+5. Tooling queued for the card seat, in order after the kitchen's lead: `--mouth-on FIRST-LAST=WHY` (draw the lip lines on
+   named frames where the gate dropped them; 2823c's 3098-3103 wait on it, with `--no-face-on 3104-3109`); the ledger
+   counting every frame a piece leaves as the original, not only `drop=` frames; the assembler protecting an earlier
+   row by what it changed (for one hole a pass); `load_text` writing "sings" span-wise inside one load instead of refusing
+   a voice change; whether the Masked Prompt node's voice and frozen-picture wording still renders anywhere.
+6. The outside reviewer's C5 (provenance, `internal/gemini/2026-10-15_provenance_c5.md`): two faults fixed at the close
+   (today's verdicts taken into `data/fun/verdicts/verdicts.jsonl`; the lead's rebuild now reads the newest table);
+   the ledger's "left as the original" is item 5; the kitchen's old pieces stand as placeholders until her whole-shot
+   load replaces them.
 
 ## Where things are
 
