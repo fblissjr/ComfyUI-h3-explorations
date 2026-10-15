@@ -933,16 +933,16 @@
     {
       "id": "fl2va_interior_converge",
       "mode": "fl2va",
-      "frames": 345,
+      "frames": 362,
       "donor": null,
-      "brief": "The generator's fl2va default: one continuous shot that starts in the opening frame's exact state and converges on the closing one. Part One is base_en's unbracketed FL2VA sentence, resolved here at 345 frames -- `fl2v_prompt()` re-resolves it for any other length."
+      "brief": "The generator's fl2va default: one continuous shot that starts in the opening frame's exact state and converges on the closing one. Part One is base_en's unbracketed FL2VA sentence, resolved here at 362 frames -- `fl2v_prompt()` re-resolves it for any other length."
     },
     {
       "id": "l2va_interior_converge",
       "mode": "l2va",
-      "frames": 345,
+      "frames": 362,
       "donor": null,
-      "brief": "The generator's l2va default, and the mode's only shipped prompt: an unconstrained opening converging on <Picture 1>. Part One is base_en's L2VA sentence, which brackets both label and shot where FL2VA brackets neither, resolved here at 345 frames."
+      "brief": "The generator's l2va default, and the mode's only shipped prompt: an unconstrained opening converging on <Picture 1>. Part One is base_en's L2VA sentence, which brackets both label and shot where FL2VA brackets neither, resolved here at 362 frames."
     },
     {
       "id": "t2va_studio_dancer",
