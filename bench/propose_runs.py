@@ -49,6 +49,12 @@ def node_zoom():
     comfy_root = REPO.parent.parent
     if str(comfy_root) not in sys.path:
         sys.path.insert(0, str(comfy_root))
+    if "comfy.model_management" not in sys.modules:
+        # core's CPU path before core is first imported (`_lib.bootstrap`): zoom_box is arithmetic, and core's model management
+        # otherwise asks for the card at import, which fails where it is masked and opens a CUDA context beside a render where
+        # it is not. A process that has already imported core keeps the device it picked
+        from _lib import bootstrap
+        bootstrap(cpu=True)
     if "h3pack" not in sys.modules:
         pkg = types.ModuleType("h3pack")
         pkg.__path__ = [str(REPO)]
