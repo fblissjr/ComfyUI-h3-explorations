@@ -33,6 +33,18 @@ Older history lives elsewhere and is not copied here:
   The held mask left 115, 69 and 6 px on 1015, 1018 and 1023: her fingertips, her fist and forearm, and on 1015
   the rim of a white egg she holds at her chin. This is mrtwo's rule of 2026-10-14 after 21:18Z for held things
   she touches near her face, widened from 1010d's "fingers and hand" to name the egg.
+- **Every file the card's chain executes is edited in a worktree while the card runs** (mrtall, after 15:33Z, on
+  mrarc's finding). lead_fp_2823's reference ran on uncommitted edits to `bench/head_reference.py` in the shared
+  tree (its record: ran_on changed_since true), because the lead's tooling brief named five chain files for the
+  worktree rule and told the tooling seat that `head_reference.py` "lands in main with its check". The rule is
+  every file the chain runs, not a list. That reference is set aside.
+- **The mouth gate covers both forms, and lead_fp_2823 waits on it and on the sunglasses** (mrtall, after
+  15:33Z). 2823's reference, drawn in the lip-lines form, has no mouth on 61 of 275 frames by the lines' share,
+  wide-open frames among them (2862-2867, 2912-2922, 2957-2970). A frame under the share now falls back to the
+  class-map mouth where the geometric gate passes, else no mouth. The reference also failed its off-track check on
+  3075-3087: her white sunglasses lie outside her track, so the face points' middle lands off it. The check is to
+  count the subject's restore classes (Eyeglass) with her track. The run is not cut at 3073 (the switch ruled out
+  above).
 - **The outside reviewer talks to the lead through files, and gets the playback questions** (the owner, about
   15:20Z-15:30Z in the lead's terminal). From today the owner relays nothing between the Gemini reviewer and the
   sessions: requests go in `internal/gemini/<date>_requests.md` from the lead, and answers come back in the
