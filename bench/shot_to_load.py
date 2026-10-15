@@ -9,7 +9,9 @@
         --folder INPUTS --by SESSION [--first F --frames N --why "what a look cut" | --why-before ".." --why-after ".."] [--remake]
         [--zoomed "why this load is rendered zoomed in"] [--least PX --least-why "why the floor is set there"]
         [--parts NAME ... --parts-by "who chose these parts for this load, and on what"]
+        [--no-face-on FIRST-LAST="who looked, at which sheet (its file), and that the face does not show there"]
     <python> bench/shot_to_load.py reference JOB.json --by SESSION [--plain "why"] [--model-store FOLDER] [--existing]
+        (it prints, under the figures, where a face may not show by two cues of the pose model's points, as data for the sheet)
         (a person writes the shot's place and action, one sentence)
     <python> bench/shot_to_load.py text JOB.json --by SESSION --plan PLAN.json
         (or, the exception: --by-hand "why" for a text a person wrote whole beside the job file)
@@ -1196,7 +1198,8 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
              parts_on: list[tuple[int, int, list[str]]] | None = None, track_not: list[tuple[str, int, int, str]] | None = None,
              track_not_by: str | None = None, cast: list[dict] | None = None, cast_from: str = "", motion: str | None = None,
              motion_why: str | None = None, no_strangers: str | None = None, no_mouth_on: list[tuple[int, int, str]] | None = None,
-             eyes_shut_on: list[tuple[int, int, str]] | None = None, eyes_shut_form: str | None = None, seam: int | None = None,
+             eyes_shut_on: list[tuple[int, int, str]] | None = None, eyes_shut_form: str | None = None,
+             no_face_on: list[tuple[int, int, str]] | None = None, seam: int | None = None,
              seam_why: str | None = None) -> dict:
     """The job file of one subject's load on a shot, from the shot's preview. `preview` is the preview's own job
     block; `source` is the file the load renders from, the video's present copy (the preview's own when left out).
@@ -1321,6 +1324,25 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
                               "tool checks only that a file of that name is there), and that her mouth is hidden there")
             spans.append({"first": x, "last": y, "why": said, "said_by": by, "at": now})
         ref_form["mouth"] = dict(ref_form["mouth"], no_mouth_on=spans)
+    # NO LINE OF THE FACE ON A SPAN, on a person's word (`--no-face-on FIRST-LAST=WHY`, the lead's ruling of 2026-10-15 on the hall shot's
+    # references, which drew eyes and brows on the backs of two heads, and on 4310's 4395-4398): the plain cut body model alone there, as on
+    # a load of her hair alone. Nothing finds those frames on its own (`face_cues`, printed at the reference step, points at some and misses
+    # others). The same terms as --no-mouth-on: the look and its file named, each span inside the load
+    if no_face_on:
+        if motion == "none":
+            raise Refused("--no-face-on acts on the drawn reference, and this load has none (--motion none)")
+        spans = []
+        for x, y, said in no_face_on:
+            said = " ".join(str(said).split())
+            if not (a <= x <= y <= b):
+                raise Refused(f"--no-face-on {x}-{y}: the load is {a}-{b}")
+            if not any(Path(w.strip(".,;:()\"'")).is_file() for w in said.split()):
+                raise Refused(f"--no-face-on {x}-{y} takes a person's word on a look: who looked, at which sheet of those frames (name its file: the "
+                              "tool checks only that a file of that name is there), and that the face does not show there")
+            spans.append({"first": x, "last": y, "why": said, "said_by": by, "at": now})
+        if sorted(parts or []) == ["hair"]:
+            raise Refused("--no-face-on on a load of her hair alone: no line of the face is drawn on any of its frames already")
+        ref_form["no_face_on"] = spans
     # HER EYES SHUT ON A SPAN, on a person's word (`--eyes-shut-on FIRST-LAST=WHY` with `--eyes-shut-form`, the lead's ruling of
     # 2026-10-15 on 2823b, whose eyes never closed in the render): the pose model's lid points stop at a slit on a shut eye, and nothing
     # else measured tells it (draw_face_points.EYES_SHUT_FORMS). The same terms as --no-mouth-on: the look and its file named, in the load
@@ -1341,6 +1363,11 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
                 raise Refused(f"--eyes-shut-on {x}-{y} takes a person's word on a look: who looked, at which table or sheet of those frames (name its "
                               "file: the tool checks only that a file of that name is there), and that her eyes are shut there")
             spans.append({"first": x, "last": y, "why": said, "said_by": by, "at": now})
+        faceless = {f for x in ref_form.get("no_face_on") or [] for f in range(x["first"], x["last"] + 1)}
+        both = sorted(f for x in spans for f in range(x["first"], x["last"] + 1) if f in faceless)
+        if both:
+            raise Refused(f"--eyes-shut-on and --no-face-on both name {both[0]}-{both[-1]}: no line of the face is drawn there, so there are no eyes "
+                          "to shut; say one of them on those frames")
         ref_form["iris"] = dict(ref_form["iris"], eyes_shut={"form": eyes_shut_form, "spans": spans})
     subjects = [{k: v for k, v in s.items() if k in ("label", "phrase", "pick", "parts", "still", "pose")} for s in preview["subjects"]]
     # The capture's `pieces` for the load's subject, when the plan says one: a key on the subject in the job file, where
@@ -1456,13 +1483,92 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
                     **({"track_not": gone} if gone else {}),
                     "reference": ({"form": "none", "why": f"{by}, {now}: {' '.join(str(motion_why).split())}", "made": None} if motion == "none" else
                                   {"form": "drawn", "why": "the form for a face, head or hair replacement (AGENTS.md, Settled)", "made": None,
-                                   "mouth": ref_form["mouth"], "iris": ref_form["iris"]}),
+                                   "mouth": ref_form["mouth"], "iris": ref_form["iris"],
+                                   **({"no_face_on": ref_form["no_face_on"]} if ref_form.get("no_face_on") else {})}),
                     "others_present": others, "defaults": carried},
             "defaults": {**h3_config.MASKED_LOAD_DEFAULTS, "margin": h3_config.MASKED_LOAD_MARGIN[region], "seed": h3_config.SEED},
             "loads": [load]}
 
 
-def figures_of(points: Path, scale: float) -> dict:
+#: WHERE A FACE MAY NOT SHOW, two cues read off the pose model's points and printed under the reference's figures for whoever looks at its
+#: sheet (the lead's ruling of 2026-10-15, after the hall shot's references drew eyes on the backs of two heads). Data, never a default:
+#: on every head reference on the share that day the ears' cue also fires on faces that show (in profile, 690 and 698 on the sheet;
+#: three-quarter, 5118), the scores' cue also reads a hand over a face, and neither sees second_5461_5497's head (the pose model read it
+#: as facing the camera). Measured by `face_cues` itself:
+#: internal/claude/2026-10-15_mrlol_scripts/face_cues_all.txt (face_cues_all.py), the frames in turned_away_frames/sheet.jpg.
+#: EARS REVERSED: the right ear right of the left ear in the picture, as on a head turned away. Reasoned: the sign alone; its size is
+#: printed, never judged. Read only where both ears and both shoulders score at least `POINT_SCORE_FLOOR`.
+EARS_REVERSED_ABOVE = 0.0
+#: FACE POINTS' MEAN SCORE under this. A starting value, measured on lead_1419_1465: hidden behind the dad on 1419-1422 at 0.14-0.20, her
+#: face showing at 0.39 on 1423; with her back turned on 1443-1465 it reads 0.32-0.80, above it, so this cue misses a head turned away.
+#: It also reads a hand over the face (second_1025_1038, every frame).
+FACE_SCORE_FLOOR = 0.3
+#: The least score of an ear or shoulder point for the ears' cue to be read on a frame. Reasoned, the face's floor reused: points the
+#: pose model barely saw collapse together (lead_5935_6020's shoulders 1-12 px apart at scores 0.03-0.42 made the ratio 347 before it).
+POINT_SCORE_FLOOR = 0.3
+#: The shoulders' width under this is taken as this, so no frame divides by zero. Reasoned: such a frame's points are collapsed, and
+#: `POINT_SCORE_FLOOR` leaves nearly all of them unread.
+LEAST_SHOULDERS_PX = 1.0
+FACE_CUES_NEED = ("left_ear", "right_ear", "left_shoulder", "right_shoulder")
+
+
+def face_cues(points: Path) -> dict:
+    """Where a face may not show along a load, by `EARS_REVERSED_ABOVE` and `FACE_SCORE_FLOOR`, as runs of source frames with the figures;
+    and what each cannot see. Nothing is decided from them: a face's lines are left out on a person's word (`job --no-face-on`). A points
+    file without what the cues read says so in `not_read`, and the reference step goes on."""
+    import numpy as np
+    d = np.load(points, allow_pickle=True)
+    lacking = [k for k in ("names", "keypoints", "scores", "first_frame") if k not in d.files]
+    names = [str(n) for n in d["names"]] if "names" in d.files else []
+    lacking += [n for n in FACE_CUES_NEED if names and n not in names]
+    if lacking:
+        return {"not_read": f"the points file holds no {', '.join(lacking)}"}
+    kp, sc, first = d["keypoints"], d["scores"], int(d["first_frame"])
+    at = names.index
+    face = [i for i, n in enumerate(names) if any(w in n.lower() for w in ("eye", "brow", "lip"))]
+    if not face:
+        return {"not_read": "the points file names no eye, brow or lip point"}
+    shoulders = np.maximum(np.abs(kp[:, at("right_shoulder"), 0] - kp[:, at("left_shoulder"), 0]), LEAST_SHOULDERS_PX)
+    ears = (kp[:, at("right_ear"), 0] - kp[:, at("left_ear"), 0]) / shoulders
+    seen = (sc[:, [at(n) for n in FACE_CUES_NEED]] >= POINT_SCORE_FLOOR).all(1)
+    score = sc[:, face].mean(1)
+
+    def runs(on: np.ndarray, value: np.ndarray, k: float = 1.0) -> list[dict]:
+        out = []
+        for t in np.flatnonzero(on):
+            if out and out[-1]["last"] == first + t - 1:
+                out[-1]["last"] = first + int(t)
+            else:
+                out.append({"first": first + int(t), "last": first + int(t)})
+        for r in out:
+            v = value[r["first"] - first:r["last"] - first + 1] * k
+            r.update(least=round(float(v.min()), 2 if k == 1.0 else 1), most=round(float(v.max()), 2 if k == 1.0 else 1))
+        return out
+    return {"ears_reversed": runs(seen & (ears > EARS_REVERSED_ABOVE), ears, 100.0),
+            "ears_reversed_is": f"the right ear's x less the left ear's over the shoulders' width, x100 (EARS_REVERSED_ABOVE), read where the ears "
+                                f"and shoulders score at least {POINT_SCORE_FLOOR} (POINT_SCORE_FLOOR)",
+            "ears_not_read_on": runs(~seen, np.zeros(len(seen))),
+            "face_score_under_the_floor": runs(score < FACE_SCORE_FLOOR, score),
+            "face_score_is": f"the mean of the face points' scores, under {FACE_SCORE_FLOOR} (FACE_SCORE_FLOOR)",
+            "cannot_see": "a face in profile or three-quarter reads ears reversed as a head turned away does, and a hand over the face reads as a "
+                          "face not seen; a head turned away that the pose model reads as facing the camera (second_5461_5497's) reads neither; "
+                          "the ears are not read where the pose model barely saw them or the shoulders, which is every frame of a close-up "
+                          "whose shoulders are out of the picture (lead_2823_3097)"}
+
+
+def face_cue_lines(cues: dict) -> list[str]:
+    """`face_cues` as the lines the reference step prints under its figures."""
+    if "not_read" in cues:
+        return [f"  not read: {cues['not_read']}"]
+    spans = lambda rs, figures=True: ", ".join((f"{r['first']}-{r['last']}" if r["first"] != r["last"] else str(r["first"]))  # noqa: E731
+                                               + (f" ({r['least']}..{r['most']})" if figures else "") for r in rs) or "none"
+    return [f"  ears reversed, {cues['ears_reversed_is']}: {spans(cues['ears_reversed'])}",
+            f"  the ears not read on: {spans(cues['ears_not_read_on'], False)}",
+            f"  {cues['face_score_is']}: {spans(cues['face_score_under_the_floor'])}",
+            f"  cannot see: {cues['cannot_see']}"]
+
+
+def figures_of(points: Path, scale: float, cues=face_cues) -> dict:
     """The face's height and the lash-line gap along a load, at the canvas and as they come out in the reference at
     its scale, each with the frames under the drawing line. Figures; nothing is decided from them here."""
     import h3_config
@@ -1474,6 +1580,7 @@ def figures_of(points: Path, scale: float) -> dict:
     three = lambda v, digits: {"least": round(float(v.min()), digits), "median": round(float(np.median(v)), digits), "most": round(float(v.max()), digits)}
     at = lambda k: {"face_height_px": three(face * k, 1), "lid_gap_px": three(gap * k, 2), "frames_with_the_gap_under_the_line": int((gap * k < line).sum())}
     return {"frames": len(rows), "the_drawing_line_px": line, "measured_on": "the pose model's points on the original's frames, in the subject's tracked box",
+            "where_a_face_may_not_show": cues(points),
             "at_the_canvas": at(1.0), "in_the_reference": {"enlarged": round(float(scale), 3), **at(float(scale))},
             "cannot_see": "whether the points are on the face: the model places and scores lid points on the back of a head and on a face a few pixels tall"}
 
@@ -1527,6 +1634,9 @@ def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: di
                                "the reference step", "drawn": "drawn", "left out": "left out"}[mouth["form"]]
          + "".join(f"; NONE on {s['first']}-{s['last']}, turned off on a person's word" for s in mouth.get("no_mouth_on") or []),
          f"{mouth['said_by']}: {mouth['why']}" + "".join(f"; {s['first']}-{s['last']}: {s['said_by']}, {s['at']}: {s['why']}" for s in mouth.get("no_mouth_on") or [])),
+        *([("the face lines", "NONE on " + ", ".join(f"{s['first']}-{s['last']}" for s in ref_form["no_face_on"]) + ", turned off on a person's word "
+            "(the plain cut body model alone there)", "; ".join(f"{s['first']}-{s['last']}: {s['said_by']}, {s['at']}: {s['why']}" for s in ref_form["no_face_on"]))]
+          if ref_form.get("no_face_on") else []),
         ("zoom", "zoomed in where the node's box allows (the node decides at plan)" if zoom_block else "the whole frame",
          f"{(zoom_block or whole_block)['said_by']}: {(zoom_block or whole_block)['why']}"),
         ("other people in the shot", (p.get("others_present") or {}).get("said", "not read"), "bench/others_present.py, from the preview's tables and the owner's answers"),
@@ -1669,6 +1779,7 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
                    motion=getattr(a, "motion", None), motion_why=getattr(a, "motion_why", None), no_strangers=getattr(a, "no_strangers", None),
                    no_mouth_on=[no_mouth_on_arg(x) for x in getattr(a, "no_mouth_on", None) or []],
                    eyes_shut_on=[no_mouth_on_arg(x, "--eyes-shut-on") for x in getattr(a, "eyes_shut_on", None) or []],
+                   no_face_on=[no_mouth_on_arg(x, "--no-face-on") for x in getattr(a, "no_face_on", None) or []],
                    eyes_shut_form=getattr(a, "eyes_shut_form", None), seam=getattr(a, "seam", None), seam_why=getattr(a, "seam_why", None))
     job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "ITS PREVIEW WAS MADE ON AN EARLIER COPY")
     out = folder / f"{name}.json"
@@ -1748,6 +1859,13 @@ def step_reference(a, world, figures=figures_of) -> None:
             if drew.get("form") != eyes["form"] or asked != sorted((s["first"], s["last"]) for s in eyes["spans"]) or done != meant:
                 raise Refused(f"--existing: {record} does not draw her eyes shut ({eyes['form']!r}) on every frame the job names: the reference is "
                               "made again, in a new folder")
+        # the job's spans of no face on a person's word: a reference taken as it was must have left those frames bare
+        bare = set((made.get("drawn") or {}).get("frames_left_bare") or [])
+        missed = [f for s in (job.get("reference") or {}).get("no_face_on") or [] for f in range(s["first"], s["last"] + 1) if f not in bare] \
+            if form != "plain" else []          # the plain cut has no line of the face on any frame
+        if missed:
+            raise Refused(f"--existing: {record} draws face lines on {len(missed)} frame(s) the job says show no face on a person's word "
+                          f"(first {missed[0]}, last {missed[-1]}): the reference is made again, in a new folder")
         # the job's spans of no mouth on a person's word: a reference taken as it was must have drawn none there
         said = ((job.get("reference") or {}).get("mouth") or {}).get("no_mouth_on") or []
         mouth = (made.get("drawn") or {}).get("mouth") or {}
@@ -1833,6 +1951,9 @@ def drawn_form(job: dict, a, files: dict, preview_first: int) -> list:
         if "Face_Neck" not in on["classes"]:
             named = next((x["parts"] for x in part.get("parts_on") or [] if x["first"] == on["first"]), on["classes"])
             out += ["--no-face-on", f"{on['first']}-{on['last']}=the load's part is {'+'.join(named)} alone there ({by})"]
+    # the job's spans of no face on a person's word (`job --no-face-on`: a head turned away, hidden behind somebody)
+    for s in said.get("no_face_on") or []:
+        out += ["--no-face-on", f"{s['first']}-{s['last']}=a person's word on a look ({s['said_by']}, {s['at']}): {s['why']}"]
     # the plan's restore spans of a class over her eyes (her own glasses, head_reference.OVER_THE_EYES): the face counts as on her track
     # there by the lower face (the lead, 2026-10-15, on 2823's white sunglasses, off her track from 3073)
     import head_reference
@@ -1856,10 +1977,11 @@ def written(a, ctx: dict, made: dict, record: Path, points: Path, drawn: Path, f
     was = d["job"].get("reference") or {}
     d["job"]["reference"] = reference_block(form, why, a.by, made["made_at"] if taken else load_chain.utc_now(), record, points, got)
     # the mouth and the eye as asked, and as drawn (the record's own words: the check's figures, the iris form)
-    d["job"]["reference"].update({k: was[k] for k in ("mouth", "iris") if k in was},
+    d["job"]["reference"].update({k: was[k] for k in ("mouth", "iris", "no_face_on") if k in was},
                                  drawn={"mouth": (made.get("drawn") or {}).get("mouth"), "iris": (made.get("drawn") or {}).get("iris"),
                                         "eyes_shut": (made.get("drawn") or {}).get("eyes_shut"),
-                                        "parts_left_out": (made.get("drawn") or {}).get("parts_left_out")})
+                                        "parts_left_out": (made.get("drawn") or {}).get("parts_left_out"),
+                                        "frames_left_bare": (made.get("drawn") or {}).get("frames_left_bare")})
     if taken:
         d["job"]["reference"]["taken_as_it_was"] = f"made by {made.get('made_by')}; read into this job by {a.by} at {load_chain.utc_now()}, nothing run"
     # the plain cut's name is the reference tool's own, read from its record
@@ -1870,6 +1992,10 @@ def written(a, ctx: dict, made: dict, record: Path, points: Path, drawn: Path, f
     print(f"  at the canvas:    face {c['face_height_px']} px tall; lash lines {c['lid_gap_px']} px apart; under the line on {c['frames_with_the_gap_under_the_line']} frames")
     print(f"  in the reference (enlarged {r['enlarged']}): face {r['face_height_px']}; lash lines {r['lid_gap_px']}; under the line on {r['frames_with_the_gap_under_the_line']} frames")
     print(f"  cannot see: {got['cannot_see']}")
+    cues = got.get("where_a_face_may_not_show")
+    if cues is not None:
+        print("WHERE A FACE MAY NOT SHOW, for the sheet (data; nothing here decides, and a face's lines are left out only on a person's word, job --no-face-on):")
+        print("\n".join(face_cue_lines(cues)))
     print(f"THE FORM: {form}" + (f", on {a.by}'s word: {why}" if form == "plain" else " (the default; the plain cut is taken only with --plain \"why\")")
           + f". The job file reads {d['loads'][0]['motion_file']}. Open the sheet beside it.")
     print(f"NEXT, THE TEXT, generated from this record and the plan: bench/shot_to_load.py text {a.job_file} --by {a.by} --plan PLAN.json (or a text "
@@ -2128,6 +2254,10 @@ def main() -> int:
     j.add_argument("--no-mouth-on", action="append", default=[], metavar="FIRST-LAST=WHY",
                    help="no mouth drawn on those source frames of the reference, on a person's word: who looked, at which sheet of those "
                         "frames (its file named; only that a file of that name is there is checked), and that her mouth is hidden there; repeatable")
+    j.add_argument("--no-face-on", action="append", default=[], metavar="FIRST-LAST=WHY",
+                   help="no line of the face drawn on those source frames of the reference (the plain cut body model alone), on a person's word: "
+                        "who looked, at which sheet of those frames (its file named; only that a file of that name is there is checked), and that "
+                        "the face does not show there (a head turned away, hidden behind somebody); repeatable")
     j.add_argument("--seam", type=int, metavar="FRAME", help="for a load longer than one window: the source frame its second window "
                    "writes from, one a two-window plan can reach (refused otherwise, naming the ones it can); with --seam-why")
     j.add_argument("--seam-why", metavar="WHY", help="a person's reason for --seam, kept in the job")

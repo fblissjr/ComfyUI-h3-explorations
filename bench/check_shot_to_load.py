@@ -574,6 +574,14 @@ def a_loads_name_is_made() -> str:
         made = Made(Path(tmp))
         folder = made.preview_ran(made.preview())
         a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="a", preview=str(folder))
+        # THE CASE THAT GOES RED when the job step's flags do not reach the load's making (`--no-face-on` first went in by hand)
+        given, real = {}, stl.load_job
+        try:
+            stl.load_job = lambda *x, **k: given.update(k) or (_ for _ in ()).throw(stl.Refused("STOPPED HERE"))
+            refused(lambda: stl.step_job(args(**{**vars(a), "no_face_on": ["120-130=A WORD"], "no_mouth_on": ["121=B"]}), made.m), "STOPPED HERE")
+        finally:
+            stl.load_job = real
+        assert given["no_face_on"] == [(120, 130, "A WORD")] and given["no_mouth_on"] == [(121, 121, "B")], given
         stl.step_job(a, made.m)
         assert (made.jobs / "a_fp_0100.json").is_file(), sorted(p.name for p in made.jobs.iterdir())
         refused(lambda: stl.step_job(a, made.m), "a load named a_fp_0100 exists", "--remake")
@@ -962,7 +970,7 @@ def who_else_is_in_the_shot() -> str:
     and keeps the strangers out by it: where someone else is there or the frames shown cannot say, and on no load where nobody
     is, whatever the plan's key; the plan's key only where it is not known."""
     def load_with(made, people, plan_keep=None, not_people=None, no_strangers=None, no_mouth_on=None, eyes_shut_on=None, eyes_shut_form=None,
-                  seam=None, seam_why=None):
+                  seam=None, seam_why=None, no_face_on=None):
         if plan_keep is not None:
             made.plan["subjects"]["a"].update(keep_outs=plan_keep, keep_outs_by="a person: the plan's own")
         if not_people is not None:
@@ -978,7 +986,7 @@ def who_else_is_in_the_shot() -> str:
         saved = json.loads((folder / "preview.queued.json").read_text())["files"]
         return stl.load_job(shots, plan, stl.shot_of(shots, 100), "a", pjob["job"], str(folder), "v", made.m.output, "the session", "2026-01-03", "a_fp_0100",
                             now="now", preview_files=saved, cast=[], cast_from="cast.jsonl", no_strangers=no_strangers, no_mouth_on=no_mouth_on,
-                            eyes_shut_on=eyes_shut_on, eyes_shut_form=eyes_shut_form, seam=seam, seam_why=seam_why)
+                            eyes_shut_on=eyes_shut_on, eyes_shut_form=eyes_shut_form, seam=seam, seam_why=seam_why, no_face_on=no_face_on)
     ours = [(1, [0, 0, 10, 10], 0.1), (2, [20, 0, 10, 10], 0.1), (3, [40, 0, 10, 10], 0.1)]
     with tempfile.TemporaryDirectory() as tmp:
         d = load_with(Made(Path(tmp)), ours + [(4, [55, 30, 5, 5], 0.01)])
@@ -1025,6 +1033,19 @@ def who_else_is_in_the_shot() -> str:
             and "her hand over her mouth" in mouth_row["from"], (hid["job"]["reference"]["mouth"], mouth_row)
         flags = stl.drawn_form(hid["job"], args(), {"classes": Path("/c.mkv")}, 100)
         assert flags[flags.index("--no-mouth-on") + 1].startswith("110-115=a person's word on a look (the session, now): THE LEAD looked"), flags
+        # NO LINE OF THE FACE ON A SPAN on a person's word (--no-face-on, the lead's ruling of 2026-10-15 on the hall shot): the same terms
+        refused(lambda: load_with(Made(Path(tmp) / "n1"), ours, no_face_on=[(110, 115, "THE LEAD looked: his back to the camera")]), "name its file")
+        refused(lambda: load_with(Made(Path(tmp) / "n2"), ours, no_face_on=[(150, 170, f"THE LEAD looked at {sheet}")]), "--no-face-on 150-170", "the load is 100-159")
+        away = load_with(Made(Path(tmp) / "n3"), ours, no_face_on=[(120, 130, f"THE LEAD looked at {sheet}: his back to the camera")])
+        face_row = {x["what"]: x for x in away["job"]["defaults"]}["the face lines"]
+        # THE CASE THAT GOES RED when a person's no-face span is not kept in the job, not said among the defaults, or not passed on
+        assert away["job"]["reference"]["no_face_on"][0]["first"] == 120 and "NONE on 120-130" in face_row["carries"] \
+            and "his back to the camera" in face_row["from"], (away["job"]["reference"], face_row)
+        refused(lambda: load_with(Made(Path(tmp) / "n4"), ours, no_face_on=[(120, 130, f"THE LEAD looked at {sheet}")],
+                                  eyes_shut_on=[(110, 125, f"THE LEAD looked at {sheet}")], eyes_shut_form="none"), "both name 120-125")
+        flags = stl.drawn_form(away["job"], args(), {"classes": Path("/c.mkv")}, 100)
+        assert flags[flags.index("--no-face-on") + 1].startswith("120-130=a person's word on a look (the session, now): THE LEAD looked"), flags
+        assert "the face lines" not in {x["what"] for x in hid["job"]["defaults"]} and "--no-face-on" not in stl.drawn_form(hid["job"], args(), {"classes": Path("/c.mkv")}, 100)
         assert stl.no_mouth_on_arg("1011=X") == (1011, 1011, "X")
         refused(lambda: stl.no_mouth_on_arg("1011-1018"), "with the why")
         refused(lambda: stl.no_mouth_on_arg("1011-1017-1030=X"), "is not FIRST-LAST=WHY")
@@ -1249,6 +1270,11 @@ def a_load_of_some_of_its_parts() -> str:
         refused(lambda: made.load(subject="b", name="b_hp_0100", parts=["hair"], parts_by=why, parts_on=[(130, 139, ["face_and_neck"])],
                                   motion="none", motion_why="X"), "on every frame")
         refused(lambda: made.load(subject="b", name="b_hfp_0100", motion="none", motion_why="X"), "for a load of her hair alone")
+        # --no-face-on acts on a drawn reference, and a hair-alone load draws no face on any frame already
+        refused(lambda: made.load(subject="b", name="b_hp_0100", parts=["hair"], parts_by=why, motion="none", motion_why="X",
+                                  no_face_on=[(110, 115, f"looked at {made.plan_file}")]), "--no-face-on acts on the drawn reference")
+        refused(lambda: made.load(subject="b", name="b_hp_0100", parts=["hair"], parts_by=why, no_face_on=[(110, 115, f"looked at {made.plan_file}")]),
+                "--no-face-on on a load of her hair alone")
         refused(lambda: made.load(subject="b", name="b_hp_0100", parts=["hair"], parts_by=why, motion="none", motion_why=" "), "say why with --motion-why")
         # no reference video, so no mouth to leave out of it (--no-mouth-on)
         refused(lambda: made.load(subject="b", name="b_hp_0100", parts=["hair"], parts_by=why, motion="none", motion_why="X",
@@ -1677,6 +1703,38 @@ def the_reference_step() -> str:
         mouthed["drawn"]["mouth"]["no_mouth_on"]["no mouth there on the job's word"] = [[110, 115]]
         drawn.with_suffix(".json").write_text(json.dumps(mouthed))
         stl.step_reference(e, made.m, figures)
+        # a job with a person's no-face span takes a reference as it was only where that reference left those frames bare
+        away = made.load(first=104, frames=40, why="a look cut it", name="a_fp_0104f", no_face_on=[(120, 125, f"THE LEAD looked at {sheet}")])
+        away_file = made.jobs / "a_fp_0104f.json"
+        away_file.write_text(json.dumps(away))
+        e.job_file = str(away_file)
+        # THE CASE THAT GOES RED when --existing takes a drawing with face lines on frames a person's word says show no face
+        mouthed["drawn"]["frames_left_bare"] = [120, 121, 122]
+        drawn.with_suffix(".json").write_text(json.dumps(mouthed))
+        refused(lambda: stl.step_reference(e, made.m, figures), "--existing", "draws face lines on 3 frame(s)", "first 123, last 125")
+        # the plain cut has no line of the face on any frame: taken as it was, whatever its drawing left bare (on a copy of the job, as the
+        # step points the job at the plain cut)
+        plain_file = made.jobs / "a_fp_0104f_plain.json"
+        plain_file.write_text(away_file.read_text())
+        e.plain, e.job_file = "A PERSON'S WORD", str(plain_file)
+        stl.step_reference(e, made.m, figures)
+        e.plain, e.job_file = None, str(away_file)
+        mouthed["drawn"]["frames_left_bare"] = list(range(120, 126))
+        drawn.with_suffix(".json").write_text(json.dumps(mouthed))
+        # the cues are printed under the figures, as the step's own lines
+        import contextlib
+        import io
+        cues = {"ears_reversed": [{"first": 120, "last": 122, "least": 21.0, "most": 56.0}], "ears_reversed_is": "EARS",
+                "ears_not_read_on": [], "face_score_under_the_floor": [{"first": 130, "last": 130, "least": 0.1, "most": 0.1}],
+                "face_score_is": "SCORES", "cannot_see": "BLIND"}
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            stl.step_reference(e, made.m, lambda points, scale: {**figures(points, scale), "where_a_face_may_not_show": cues})
+        # THE CASE THAT GOES RED when the cues are kept and not printed, or printed in other words than the step's own
+        assert "WHERE A FACE MAY NOT SHOW" in out.getvalue() and "\n".join(stl.face_cue_lines(cues)) in out.getvalue(), out.getvalue()[-800:]
+        assert stl.face_cue_lines(cues)[0] == "  ears reversed, EARS: 120-122 (21.0..56.0)" and stl.face_cue_lines(cues)[2] == "  SCORES: 130 (0.1..0.1)"
+        assert stl.face_cue_lines({"not_read": "NO NAMES"}) == ["  not read: NO NAMES"]
+        assert json.loads(away_file.read_text())["job"]["reference"]["no_face_on"][0]["first"] == 120, "the job lost its no-face span when its reference was read in"
         # and with her eyes named shut: taken only where the reference drew them shut, in the job's form
         shut_job = made.load(first=104, frames=40, why="a look cut it", name="a_fp_0104d", eyes_shut_on=[(110, 115, f"G3 LOOKED at {sheet}")],
                              eyes_shut_form="none")
@@ -1822,7 +1880,7 @@ def the_figures() -> str:
     rows = [{"face_height_px": 40.0, "lid_gap_px": line * 0.25}, {"face_height_px": 50.0, "lid_gap_px": line * 0.5}, {"face_height_px": 60.0, "lid_gap_px": line * 2}]
     try:
         fp.load, fp.table = (lambda path: {}), (lambda points: rows)
-        got = stl.figures_of(Path("made.npz"), 3.0)
+        got = stl.figures_of(Path("made.npz"), 3.0, cues=lambda path: {"read from": str(path)})
     finally:
         fp.load, fp.table = kept
     c, r = got["at_the_canvas"], got["in_the_reference"]
@@ -1831,6 +1889,7 @@ def the_figures() -> str:
     # at three times the size the half-line gap clears the line and the quarter-line gap does not
     assert r["enlarged"] == 3.0 and r["face_height_px"] == {"least": 120.0, "median": 150.0, "most": 180.0} and r["frames_with_the_gap_under_the_line"] == 1, r
     assert "form" not in got and "verdict" not in json.dumps(got), "the figures carry a reading"
+    assert got["where_a_face_may_not_show"] == {"read from": "made.npz"}, got
     return "the face's height and the lash-line gap are the same rows at the canvas and at the reference's scale, each with its frames under the line, and no reading"
 
 
@@ -1946,6 +2005,47 @@ def a_load_of_two_subjects() -> str:
     return ("two loads of the same frames make one load of two subjects, the larger region first, each with its own still, reference, keys and "
             "keep-outs, neither kept out of the other, one margin, the whole frame, no zoom row; the smaller region first, other frames, a setting "
             "that differs and a reference not made are refused; the chain reads it; its text is written whole")
+def where_a_face_may_not_show() -> str:
+    """The two cues printed under a reference's figures (the lead's ruling of 2026-10-15): ears reversed, and the face points' scores under
+    the floor, as runs of source frames with their figures and what each cannot see; data, nothing decided."""
+    import tempfile
+    import numpy as np
+    names = ["nose", "left_eye", "right_eye", "left_ear", "right_ear", "left_shoulder", "right_shoulder", "left_eyebrow_0", "upper_lip_0"]
+    # frames 200-205: facing the camera (right ear left of the left), turned away on 202-203, hidden on 205
+    kp = np.zeros((6, len(names), 2), np.float32)
+    sc = np.full((6, len(names)), 0.9, np.float32)
+    for t in range(6):
+        kp[t, names.index("left_shoulder"), 0], kp[t, names.index("right_shoulder"), 0] = 200, 100
+        kp[t, names.index("right_ear"), 0], kp[t, names.index("left_ear"), 0] = (170, 130) if t in (2, 3) else (130, 170)
+    kp[3, names.index("right_ear"), 0] = 180
+    sc[5, [names.index(n) for n in ("left_eye", "right_eye", "left_eyebrow_0", "upper_lip_0")]] = 0.1
+    sc[4, [names.index(n) for n in ("left_eye", "right_eye", "left_eyebrow_0", "upper_lip_0")]] = stl.FACE_SCORE_FLOOR       # at the floor: not under it
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "p_points.npz"
+        np.savez(path, keypoints=kp, scores=sc, names=np.array(names), first_frame=np.int64(200), size=np.array([64, 64]))
+        got = stl.face_cues(path)
+    # THE CASE THAT GOES RED when the ears' sign is read the other way, a run is not of source frames, or the floor takes a frame at it
+    assert got["ears_reversed"] == [{"first": 202, "last": 203, "least": 40.0, "most": 50.0}], got["ears_reversed"]
+    assert got["face_score_under_the_floor"] == [{"first": 205, "last": 205, "least": 0.1, "most": 0.1}], got["face_score_under_the_floor"]
+    assert "profile" in got["cannot_see"] and "5461" in got["cannot_see"], got["cannot_see"]
+    # an ear the pose model barely saw: that frame's ears are not read, and it is said
+    sc[3, names.index("left_ear")] = stl.POINT_SCORE_FLOOR - 0.01
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "p_points.npz"
+        np.savez(path, keypoints=kp, scores=sc, names=np.array(names), first_frame=np.int64(200), size=np.array([64, 64]))
+        got = stl.face_cues(path)
+        assert [(r["first"], r["last"]) for r in got["ears_reversed"]] == [(202, 202)] and [(r["first"], r["last"]) for r in got["ears_not_read_on"]] == [(203, 203)], got
+        # a points file without what the cues read says so, and does not stop the step
+        np.savez(path, keypoints=kp, scores=sc, names=np.array(names))
+        assert stl.face_cues(path) == {"not_read": "the points file holds no first_frame"}, stl.face_cues(path)
+        np.savez(path, keypoints=kp, scores=sc, names=np.array(names[:3]), first_frame=np.int64(200))
+        assert "left_ear, right_ear, left_shoulder, right_shoulder" in stl.face_cues(path)["not_read"]
+        keep = [n for n in names if not any(w in n for w in ("eye", "brow", "lip"))]
+        np.savez(path, keypoints=kp[:, [names.index(n) for n in keep]], scores=sc[:, [names.index(n) for n in keep]], names=np.array(keep),
+                 first_frame=np.int64(200))
+        assert stl.face_cues(path) == {"not_read": "the points file names no eye, brow or lip point"}, stl.face_cues(path)
+    return ("ears reversed on a head turned away and not on one facing the camera, scaled by the shoulders; the face points' scores under the "
+            "floor and not at it; each as runs of source frames with their least and most, and what the cues cannot see")
 
 
 case("the frame a tracker picks on is a field of the shots record", the_pick_frame_is_a_field)
@@ -1971,6 +2071,7 @@ case("reference: on the load's frames, drawn by default", the_reference_step)
 case("the defaults this load carries", the_defaults_this_load_carries)
 case("the figures, at the canvas and in the reference", the_figures)
 case("pair: two loads of the same frames as one of two subjects", a_load_of_two_subjects)
+case("where a face may not show: two cues, printed as data", where_a_face_may_not_show)
 
 if __name__ == "__main__":
     sys.exit(finish())

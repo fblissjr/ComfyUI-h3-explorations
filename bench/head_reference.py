@@ -292,7 +292,7 @@ NO_MOUTH_CLASS_GATE = (f"the lip lines lie on the class map's mouth under {MOUTH
                        "drawn there it lands in the air or off her face (630b's 658-680, 1010d's chest)")
 #: Why a frame has no mouth (`no_mouth_frames`), as the record and the run say it.
 NO_MOUTH_NO_HOLE = "the class map labels no teeth or tongue in her mouth there, and --class-mouth-needs-hole asks for none drawn ({why})"
-NO_FACE_PART = "no line of the face: the load's part is her hair alone there (--no-face-on: {why})"
+NO_FACE_PART = "no line of the face there (--no-face-on: {why})"
 NO_MOUTH_PART = "no mouth there on the job's word (--no-mouth-on: {why})"
 
 
@@ -451,10 +451,11 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         eyes_shut_on: list[tuple[int, int, str]] | None = None, eyes_shut_form: str | None = None, say=print) -> dict:
     """Cut, cut, draw, record. Returns the record; `passed` is True only when all three steps passed.
 
-    `no_face_on`: source frames on which no line of the face is drawn at all, the plain cut body model alone (the load's part is
-    her hair alone there; the lead's ruling of 2026-10-15 on second_hp_5461b, whose reference drew eyes, brows and a nose as large
-    as on a plain face while her face was hidden behind her hands). Those frames have no mouth either; where they cover the whole
-    span, the record lists every part as left out."""
+    `no_face_on`: source frames on which no line of the face is drawn at all, the plain cut body model alone, each with its reason:
+    the load's part is her hair alone there (the lead's ruling of 2026-10-15 on second_hp_5461b, whose reference drew eyes, brows and
+    a nose as large as on a plain face while her face was hidden behind her hands), or a person's word that the face does not show
+    there (a head turned away, hidden behind somebody: the hall shot's references of 2026-10-15). Those frames have no mouth either;
+    where they cover the whole span, the record lists every part as left out."""
     faceless = sorted({f for a, b, _ in no_face_on or [] for f in range(max(a, first), min(b, first + count - 1) + 1)})
     # HER EYES SHUT ON A SPAN, on a person's word (`--eyes-shut-on` with `--eyes-shut-form`, the lead's ruling of 2026-10-15 on 2823b;
     # `draw_face_points.EYES_SHUT_FORMS` says why and what each form draws). The pose model's lids stop at a slit on a shut eye
@@ -706,8 +707,8 @@ def main() -> int:
     a.add_argument("--class-mouth-needs-hole", metavar="WHY", help="an option, off unless asked: on a frame given the class map's own mouth "
                    "with no teeth or tongue labelled, draw no mouth; the reason is kept in the record")
     a.add_argument("--no-face-on", action="append", default=[], metavar="FIRST-LAST=WHY",
-                   help="source frames on which no line of the face is drawn, the plain body model alone: the load's part is her hair "
-                        "alone there; repeatable")
+                   help="source frames on which no line of the face is drawn, the plain body model alone, with the reason: the load's part "
+                        "is her hair alone there, or a person's word that the face does not show there; repeatable")
     a.add_argument("--over-the-eyes", action="append", default=[], metavar="FIRST-LAST=WHY",
                    help="source frames on which the plan gives back a class over her eyes (OVER_THE_EYES, her own glasses): the face counts as on "
                         "her track there when the lower face's middle is; repeatable")
