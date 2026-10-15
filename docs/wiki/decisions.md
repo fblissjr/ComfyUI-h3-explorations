@@ -19,6 +19,11 @@ Older history lives elsewhere and is not copied here:
 
 *Written by the lead of the day (mrtall) as the rulings are made; mrarc holds the card, mrlol tooling.*
 
+- **Two Claude sessions, not three** (the owner, 2026-10-15 about 21:35Z, in the lead's terminal: "I'd like to just keep
+  it limited to 2 claude sessions - you and a new fresh one"). mrarc, mrlol and mrvid closed with notes
+  (`internal/claude/2026-10-15_*_closeout.md`); mrgo holds the card and the tooling from the evening, briefed by
+  `internal/claude/2026-10-15_brief_mrgo.md`. What it replaced: AGENTS.md "Three seats from the start of each day".
+  ComfyUI was restarted by the lead (pid 3933887) so the server belongs to a live session.
 - **Two or more subjects in one masked pass is closed** (the owner, 2026-10-15, about 21:35Z: "yeah lets kill multi
   person for now (again) then", then "or rather multi in one pass"). A row in `docs/roadmap.md`, "Closed lanes". One
   hole a pass (a load given another load's render as its video) stays open and is built after `--continue-from`; the

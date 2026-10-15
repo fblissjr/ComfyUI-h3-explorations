@@ -142,12 +142,12 @@ One home per kind of fact. Not two.
   the inbox and carries on. A go is a row on the Open List or a line in the
   lead's terminal; a session that is not the lead takes the lead's relay as
   the go and writes the relay's time in the job's note.
-- **Three seats from the start of each day**: a lead that reads, rules and
-  holds the Open List and the inbox; one session that holds the card and
-  builds loads; one that reads cold and builds tooling. The lead hands each
-  seat a brief file before it starts. A fourth only as a blind reader on a
-  finished result, briefed with file paths and no conclusions; a subagent
-  counts.
+- **Two Claude sessions** (the owner, 2026-10-15; three until then): a lead
+  that reads, rules, holds the Open List and the inbox, the ledger and the
+  owner's pages; and one session that holds the card and builds the tooling
+  it needs. The lead hands it a brief file before it starts. A blind reader
+  on a finished result is a subagent, briefed with file paths and no
+  conclusions.
 - **The outside reviewer (a Gemini agent the owner runs) reviews, never
   builds**, through files in `internal/gemini/`: the lead appends requests
   to `<date>_requests.md`, and the reviewer answers in its own files plus a
