@@ -466,6 +466,60 @@ def part_classes() -> dict:
     return cap._pack("sapiens2_parts").PARTS
 
 
+def seam_window(frames: int, context: int) -> dict[int, tuple[int, list[int]]]:
+    """For a load longer than one window: each load-relative frame where a TWO-window plan's second window writes its first new frame,
+    with the window length that plans it and the windows' lengths (`loop_plan.plan_windows`, the song node's own planner). Empty when one
+    window holds the load. Plans of three windows or more are left out: a whole shot (the owner's rule of 2026-10-15) takes one seam at
+    most where two windows reach it."""
+    import masked_job
+    if frames <= max(masked_job.chain_lengths()):       # read from the source: no ComfyUI import for a load one window holds
+        return {}
+    import capture_masked_run as cap
+    lp = cap._pack("loop_plan")
+    out = {}
+    for w in lp.CHAIN_LENGTHS:
+        try:
+            plan = lp.plan_windows(frames, w, context)
+        except ValueError:
+            continue
+        lengths = plan[0][1] if len(plan) == 1 else []
+        if len(lengths) == 2:
+            out[lengths[0]] = (w, lengths)
+    return out
+
+
+def seam_of(n: int, a: int, seam: int | None, seam_why: str | None, by: str, now: str) -> tuple[int | None, dict | None]:
+    """THE SEAM OF A LOAD LONGER THAN ONE WINDOW (the owner's word of 2026-10-15: one load over the whole shot, and "make sure the seam is
+    at a non-critical place"): the song node chains windows inside the load, the second sampled from the first's last frames, and its
+    first new frame is the seam. `--seam FRAME --seam-why WHY` picks the window length whose two-window plan puts it there (`seam_window`);
+    the planner's own otherwise. (the load's `window` to set, or None; the defaults row, or None for a load one window holds)."""
+    import h3_config
+    import masked_job
+    context = int(h3_config.MASKED_JOB_CONTEXT)                   # the load's context: the job step sets none, so the chain's
+    if (seam is None) != (not str(seam_why or "").strip()):
+        raise Refused("--seam and --seam-why go together: the frame window 2 begins writing on, and a person's reason")
+    longest = max(masked_job.chain_lengths())
+    reach = seam_window(n, context)
+    window = None
+    if seam is not None:
+        if n <= longest:
+            raise Refused(f"--seam {seam}: one window holds this load's {n} frames, so it has no seam")
+        if not reach:
+            raise Refused(f"--seam {seam}: no plan of two windows covers this load's {n} frames; it takes three or more, whose seams are the planner's")
+        if seam - a not in reach:
+            raise Refused(f"--seam {seam}: two windows can put the seam on " + ", ".join(str(a + k) for k in sorted(reach))
+                          + " only (the second window writing from there, the first's last frames kept before it)")
+        window = reach[seam - a][0]
+    if n <= longest:
+        return window, None
+    w = window if window is not None else longest
+    at = next((a + k for k, (ww, _) in reach.items() if ww == w), None)
+    lengths = next((ls for ww, ls in reach.values() if ww == w), None)
+    return window, {"what": "the seam", "carries": (f"windows of {lengths}: the second writes from {at}, sampled from the first's frames "
+                                                    f"{at - context}-{at - 1}" if at is not None else f"windows of {w} frames, more than two: the planner's"),
+                    "from": f"{by}, {now}: {' '.join(str(seam_why).split())}" if seam is not None else "the planner (window_for: the longest window)"}
+
+
 def no_mouth_on_arg(text: str, flag: str = "--no-mouth-on") -> tuple[int, int, str]:
     """`--no-mouth-on FIRST-LAST=WHY` (or `FRAME=WHY`) as (first, last, why); `flag` names it in a refusal."""
     rng, sep, why = text.partition("=")
@@ -1136,7 +1190,8 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
              parts_on: list[tuple[int, int, list[str]]] | None = None, track_not: list[tuple[str, int, int, str]] | None = None,
              track_not_by: str | None = None, cast: list[dict] | None = None, cast_from: str = "", motion: str | None = None,
              motion_why: str | None = None, no_strangers: str | None = None, no_mouth_on: list[tuple[int, int, str]] | None = None,
-             eyes_shut_on: list[tuple[int, int, str]] | None = None, eyes_shut_form: str | None = None) -> dict:
+             eyes_shut_on: list[tuple[int, int, str]] | None = None, eyes_shut_form: str | None = None, seam: int | None = None,
+             seam_why: str | None = None) -> dict:
     """The job file of one subject's load on a shot, from the shot's preview. `preview` is the preview's own job
     block; `source` is the file the load renders from, the video's present copy (the preview's own when left out).
     `parts` with `parts_by` makes the load's part some of its subject's plan parts (`part_of`)."""
@@ -1351,6 +1406,26 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
                                 "no <Subject 2>), around the card's one place-and-action sentence (`text --place-and-action`)")
         carried.append({"what": "the reference video", "carries": "none: the source's own picture carries her movement",
                         "from": f"{by}, {now}: {' '.join(str(motion_why).split())}"})
+    # THE VOICE (the owner's word of 2026-10-15 on 5675b: the plan says per span whether a subject sings, talks unheard or is silent; the
+    # text step reads it, `load_text.voice_of`, in place of the voice table's guess)
+    import load_text
+    hair_alone = sorted(parts or []) == ["hair"] or motion == "none"
+    try:
+        voice = None if hair_alone else load_text.voice_of(p, a, b)
+    except load_text.Refused as exc:
+        raise Refused(str(exc)) from None
+    carried.append({"what": "the voice", "carries": ("not read: a load of the hair alone, whose text says nothing of a voice" if hair_alone else
+                                                     f"{voice['voice']}, on {voice['first']}-{voice['last']} (the plan's, in place of the voice table)"
+                                                     if voice else "the voice table's: the sung line where it hears the song in the load and the "
+                                                                   "plan's text says the subject sings")
+                    + ("" if hair_alone else "; read by the generated text (bench/load_text.py), not by a text written by hand"),
+                    "from": "the chain" if hair_alone or not voice else voice["by"]})
+    # THE SEAM OF A LOAD LONGER THAN ONE WINDOW (`seam_of`)
+    window, seam_row = seam_of(n, a, seam, seam_why, by, now)
+    if window is not None:
+        load["window"] = window
+    if seam_row is not None:
+        carried.append(seam_row)
     note = (f"Written by bench/shot_to_load.py for {by}, {now}. ONE LOAD: {subject}, {renders(region, parts)}, source frames {a} to {b} ({n} frames) of the shot "
             f"{shot['first']}-{shot['last']}, its masks from the preview {preview['name']} (job.preview), "
             + ("with no reference video (motion none, below). " if motion == "none" else
@@ -1588,7 +1663,7 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
                    motion=getattr(a, "motion", None), motion_why=getattr(a, "motion_why", None), no_strangers=getattr(a, "no_strangers", None),
                    no_mouth_on=[no_mouth_on_arg(x) for x in getattr(a, "no_mouth_on", None) or []],
                    eyes_shut_on=[no_mouth_on_arg(x, "--eyes-shut-on") for x in getattr(a, "eyes_shut_on", None) or []],
-                   eyes_shut_form=getattr(a, "eyes_shut_form", None))
+                   eyes_shut_form=getattr(a, "eyes_shut_form", None), seam=getattr(a, "seam", None), seam_why=getattr(a, "seam_why", None))
     job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "ITS PREVIEW WAS MADE ON AN EARLIER COPY")
     out = folder / f"{name}.json"
     print(f"{name}: {a.subject}, {renders(region, a.parts)}, source frames {job['loads'][0]['first']}-{job['loads'][0]['first'] + job['loads'][0]['frames'] - 1}; "
@@ -1894,6 +1969,9 @@ def main() -> int:
     j.add_argument("--no-mouth-on", action="append", default=[], metavar="FIRST-LAST=WHY",
                    help="no mouth drawn on those source frames of the reference, on a person's word: who looked, at which sheet of those "
                         "frames (its file named; only that a file of that name is there is checked), and that her mouth is hidden there; repeatable")
+    j.add_argument("--seam", type=int, metavar="FRAME", help="for a load longer than one window: the source frame its second window "
+                   "writes from, one a two-window plan can reach (refused otherwise, naming the ones it can); with --seam-why")
+    j.add_argument("--seam-why", metavar="WHY", help="a person's reason for --seam, kept in the job")
     j.add_argument("--eyes-shut-on", action="append", default=[], metavar="FIRST-LAST=WHY",
                    help="her eyes shut on those source frames of the reference, on a person's word: who looked, at which table or sheet (its file "
                         "named), and that her eyes are shut there; with --eyes-shut-form; repeatable")

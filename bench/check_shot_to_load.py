@@ -961,7 +961,8 @@ def who_else_is_in_the_shot() -> str:
     reads it from the preview's own tables and the owner's answers (bench/others_present.py), prints it among the defaults,
     and keeps the strangers out by it: where someone else is there or the frames shown cannot say, and on no load where nobody
     is, whatever the plan's key; the plan's key only where it is not known."""
-    def load_with(made, people, plan_keep=None, not_people=None, no_strangers=None, no_mouth_on=None, eyes_shut_on=None, eyes_shut_form=None):
+    def load_with(made, people, plan_keep=None, not_people=None, no_strangers=None, no_mouth_on=None, eyes_shut_on=None, eyes_shut_form=None,
+                  seam=None, seam_why=None):
         if plan_keep is not None:
             made.plan["subjects"]["a"].update(keep_outs=plan_keep, keep_outs_by="a person: the plan's own")
         if not_people is not None:
@@ -977,7 +978,7 @@ def who_else_is_in_the_shot() -> str:
         saved = json.loads((folder / "preview.queued.json").read_text())["files"]
         return stl.load_job(shots, plan, stl.shot_of(shots, 100), "a", pjob["job"], str(folder), "v", made.m.output, "the session", "2026-01-03", "a_fp_0100",
                             now="now", preview_files=saved, cast=[], cast_from="cast.jsonl", no_strangers=no_strangers, no_mouth_on=no_mouth_on,
-                            eyes_shut_on=eyes_shut_on, eyes_shut_form=eyes_shut_form)
+                            eyes_shut_on=eyes_shut_on, eyes_shut_form=eyes_shut_form, seam=seam, seam_why=seam_why)
     ours = [(1, [0, 0, 10, 10], 0.1), (2, [20, 0, 10, 10], 0.1), (3, [40, 0, 10, 10], 0.1)]
     with tempfile.TemporaryDirectory() as tmp:
         d = load_with(Made(Path(tmp)), ours + [(4, [55, 30, 5, 5], 0.01)])
@@ -1027,6 +1028,32 @@ def who_else_is_in_the_shot() -> str:
         assert stl.no_mouth_on_arg("1011=X") == (1011, 1011, "X")
         refused(lambda: stl.no_mouth_on_arg("1011-1018"), "with the why")
         refused(lambda: stl.no_mouth_on_arg("1011-1017-1030=X"), "is not FIRST-LAST=WHY")
+        # THE SEAM (the owner's word of 2026-10-15, one load a shot, the seam at a frame chosen): the planner's own two-window plans only
+        reach = stl.seam_window(406, 90)
+        # THE CASE THAT GOES RED when the seams offered are not the song node's planner's, or a one-window load is said to have one
+        assert {k: v[0] for k, v in reach.items()} == {294: 294, 345: 345} and reach[345][1] == [345, 192], reach
+        assert stl.seam_window(345, 90) == {} and stl.seam_window(60, 90) == {}
+        refused(lambda: load_with(Made(Path(tmp) / "s1"), ours, seam=110, seam_why="A CALM STRETCH"), "one window holds this load's 60 frames")
+        refused(lambda: load_with(Made(Path(tmp) / "s2"), ours, seam=110), "go together")
+        window, row = stl.seam_of(406, 604, 898, "A CALM STRETCH", "the session", "now")
+        # THE CASE THAT GOES RED when a chosen seam does not set the window that puts it there, or the defaults do not say it and its kept frames
+        assert window == 294 and row["carries"] == "windows of [294, 243]: the second writes from 898, sampled from the first's frames 808-897" \
+            and row["from"] == "the session, now: A CALM STRETCH", (window, row)
+        window, row = stl.seam_of(406, 604, None, None, "the session", "now")
+        assert window is None and "the second writes from 949" in row["carries"] and row["from"].startswith("the planner"), row
+        refused(lambda: stl.seam_of(406, 604, 900, "X", "s", "n"), "898, 949 only")
+        refused(lambda: stl.seam_of(700, 0, 500, "X", "s", "n"), "no plan of two windows covers this load's 700 frames")
+        assert stl.seam_of(60, 100, None, None, "s", "n") == (None, None)
+        # the job step puts the chosen window on the load and the seam among the defaults (the fixture's shot is short, so seam_of's answer
+        # for a long load stands in for it here)
+        real = stl.seam_of
+        stl.seam_of = lambda *_a, **_k: (294, {"what": "the seam", "carries": "SEAM ROW", "from": "X"})
+        try:
+            seamed = load_with(Made(Path(tmp) / "s3"), ours)
+        finally:
+            stl.seam_of = real
+        # THE CASE THAT GOES RED when the window a seam needs is not put on the load, or its row is not among the defaults
+        assert seamed["loads"][0]["window"] == 294 and {x["what"]: x for x in seamed["job"]["defaults"]}["the seam"]["carries"] == "SEAM ROW", seamed["loads"][0]
         # HER EYES SHUT ON A SPAN on a person's word (--eyes-shut-on with --eyes-shut-form, the lead's ruling of 2026-10-15 on 2823b)
         look = f"G3 LOOKED at every frame, {sheet}"
         refused(lambda: load_with(Made(Path(tmp) / "e1"), ours, eyes_shut_on=[(110, 115, look)]), "go together")
@@ -1203,6 +1230,11 @@ def a_load_of_some_of_its_parts() -> str:
         # NO REFERENCE VIDEO (--motion none, the lead's ruling of 2026-10-15 for 5461): a hair load only, with its reason; the load names
         # no reference file, the note and the defaults say so, and the reference step makes nothing
         bare = made.load(subject="b", name="b_hp_0100", parts=["hair"], parts_by=why, motion="none", motion_why="HER FACE IS HIDDEN")
+        # THE CASE THAT GOES RED when a hair-alone load says it carries a voice its text never reads, or reads a bad voice entry
+        assert {x["what"]: x for x in bare["job"]["defaults"]}["the voice"]["carries"].startswith("not read: a load of the hair alone"), bare["job"]["defaults"]
+        made.plan["subjects"]["b"]["voice"] = [{"voice": "hums"}]           # a bad entry its text never reads does not stop a hair-alone load
+        made.load(subject="b", name="b_hp_0100v", parts=["hair"], parts_by=why, motion="none", motion_why="HER FACE IS HIDDEN")
+        made.plan["subjects"]["b"].pop("voice")
         lone = bare["loads"][0]
         # THE CASE THAT GOES RED when a no-reference load still names a reference file, or says nothing of it
         assert lone.get("motion") == "none" and "motion_file" not in lone and "motion_first" not in lone, lone
@@ -1698,7 +1730,16 @@ def the_defaults_this_load_carries() -> str:
         d = made.load()
         lines = {x["what"]: x for x in d["job"]["defaults"]}
         assert list(lines) == ["the reference held to the subject's track", "the eye", "the mouth", "zoom", "other people in the shot", "the strangers keep-out", "the part's pieces",
-                               "the hair band", "restore spans", "the text", "what the composite kept"], list(lines)
+                               "the hair band", "restore spans", "the text", "what the composite kept", "the voice"], list(lines)
+        assert lines["the voice"]["carries"].startswith("the voice table's") and lines["the voice"]["from"] == "the chain", lines["the voice"]
+        # THE PLAN'S VOICE (the owner's word of 2026-10-15 on 5675b): said among the defaults, with who said it; two voices in a load refused
+        made.plan["subjects"]["a"]["voice"] = [{"first": 100, "last": 159, "voice": "talks, not heard", "by": "THE OWNER, 2026-10-15"}]
+        heard = {x["what"]: x for x in made.load()["job"]["defaults"]}["the voice"]
+        # THE CASE THAT GOES RED when the plan's voice is not what the job says it carries
+        assert heard["carries"].startswith("talks, not heard, on 100-159 (the plan's") and heard["from"] == "THE OWNER, 2026-10-15", heard
+        made.plan["subjects"]["a"]["voice"].append({"first": 150, "last": 170, "voice": "sings", "by": "X"})
+        refused(lambda: made.load(), "One load is one voice")
+        made.plan["subjects"]["a"].pop("voice")
         assert all(x.get("save_kept") is True for x in d["loads"]) and lines["what the composite kept"]["carries"].startswith("saved"), \
             "a load does not save what its composite kept, the chain's default"
         assert lines["the eye"]["carries"].startswith("white sclera and black iris") and lines["the eye"]["from"].startswith("the chain's default"), lines["the eye"]
