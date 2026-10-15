@@ -635,7 +635,10 @@ def provenance_reads_the_records() -> str:
             assert f"THE LEAD'S CHOICE (--prefer), a session's word: {LONG}" in where, where
         # frames left as the original: a look's word where one covers them, else the ledger's reason
         assert "A LOOK'S WORD" in stretches and "its load emptied the part here, by the ledger" in stretches, stretches
-        assert 'href="../day/0150_a_solo/"' in page and "no folder of it in the day's folder" in text, "the folder link"
+        # a piece's folder is linked by the files it holds, never as a folder: the review server serves files (2026-10-15)
+        assert 'href="../day/0150_a_solo/text.txt"' in page and 'href="../day/0150_a_solo/"' not in page \
+            and "no folder of it in the day's folder" in text, "the folder's files are not linked, or the folder is"
+        assert not re.search(r'href="[^"]*/"', page), f"a link to a folder: {re.findall(r'href=\"[^\"]*/\"', page)}"
         assert "The verdicts record's words on it, whole" in text and "Your words on it" not in text and "SESSION: is this right? OWNER: yes" in text, text
         lanes = re.findall(r'<div style="height:\d+px;line-height:\d+px">([^<]+)</div>', page)
         assert lanes == ["a", "b", "inside no piece"], lanes

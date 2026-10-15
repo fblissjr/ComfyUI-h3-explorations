@@ -868,7 +868,14 @@ def provenance(a: argparse.Namespace) -> str:
                        + f": {E(v['words'])}</li>" for v in rec.owner_lines(rec.rows_of(n), every=True) if v.get("words"))
         links = []
         if folder:
-            links.append(f'<a href="{E(os.path.relpath(folder, out_dir))}/">its workflow folder</a> (the graph as queued, its text, its inputs, how to queue it again)')
+            # each file the folder holds, never the folder: the review server serves files, not folders (2026-10-15: 22 of the
+            # page's links did not load through it); the files bench/day_pieces.py writes, in the order a reader wants them
+            held = [f for f in ("how_to_queue.txt", "inputs.txt", "text.txt", "graph_as_queued.json", "queue_this.json", "NO_QUEUED_GRAPH.txt")
+                    if (Path(folder) / f).is_file()]
+            held += sorted(x.name for x in Path(folder).iterdir() if x.is_file() and x.name not in held) if Path(folder).is_dir() else []
+            where = os.path.relpath(folder, out_dir)
+            links.append(("its workflow folder, " + E(where) + "/: " + ", ".join(f'<a href="{E(where)}/{E(f)}">{E(f)}</a>' for f in held))
+                         if held else f"its workflow folder, {E(where)}/, holds no file")
         else:
             links.append("no folder of it in the day's folder (bench/day_pieces.py makes one for a piece that stands when it is run)")
         links.append(f'<a href="{E(rel(g["file"]))}">the render itself</a>')
