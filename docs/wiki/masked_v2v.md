@@ -30,6 +30,7 @@ One line a section, in the page's order, with the question it answers.
 | the rules | "The rule: data before a render, and the same data after" | what has to exist before a render and what is read first after one |
 | | "Reading one window whole: its text, its frames, its mask, its audio" | what to put side by side before building on a load or diagnosing a render |
 | | "Rules of the lane" | the lane's habits in one list, each with where its reasoning is |
+| | "A shot, made whole: the recipe the owner kept on 2026-10-15" | how one subject's shot is made as one load, step by step, each step with its tool |
 | a job | "Running a job: one tool, on the video's analysis folder" | how a job is built and queued, stage by stage, and what the builder refuses or shows |
 | | "Two neighbouring shots in one load: a tool, not a default" | when a load may hold a cut, what it is made from, what it costs, and what is not known |
 | | "Seeing what the tracker and the masks did" | which file or command holds what a run was given, what it wrote, and the file that gets watched |
@@ -182,12 +183,21 @@ order and stops:
    where a person stands, what she wears and the room round her are frozen
    context it already has, and naming them does not tell it which face goes
    in which hole. That is a sentence to an editor.
-3. **Nothing about action, expression or voice.**
+3. **Nothing about action or expression, and of voice only "sings", where
+   the person sings** (the owner, 2026-10-15: "just say singing if theyre
+   singing in a shot/window. if theyre not, dont mention anything about
+   talking or singing"; `AGENTS.md`, "Settled about H3"). Who sings is plan
+   data, `subjects.<s>.voice`; where the plan names no voice on a load,
+   `bench/load_text.py` falls back to the subject's `sings` flag and the
+   video's voice table. *Until 2026-10-15 this step said "Nothing about
+   action, expression or voice".*
 
 Then render, look, and add one sentence for what was missing: only what is
 plainly visible in the source at the frames the sentence is about, or
-measured. A voice is measured (a separation of the track says where one
-is); an open mouth in a still is not a voice. An added sentence is checked
+measured, and never the frozen picture (step 2). Whether a person sings is
+the plan's, checked by watching and listening; an open mouth in a still is
+not a voice. *Until 2026-10-15 this said "A voice is measured (a separation
+of the track says where one is)".* An added sentence is checked
 as a default is, against the source, and it is the first thing deleted when
 a render misbehaves.
 
@@ -310,10 +320,15 @@ session cannot work around; these are the lane's own habits, each earned on
   data is right; a capture records who made it and who looked.
 - **A scene's text is data, served by whatever plans the shots**, never
   stored verbatim in code or in a workflow. It is written from the frames of
-  one window and is true of that window only; it is a plain caption of the
-  finished shot (what is seen and heard), never a statement of what is kept,
-  and it says nothing about sound, action or expression not known from the
-  frames or the track. Know which text a load gets, read it whole against
+  one window and is true of that window only. To H3 a masked load is not an
+  edit: the text says who is generated in each hole and from which
+  reference, never the frozen picture (where a person stands or sits, what
+  she wears, the room; `bench/load_text.py::NO_SCENE`), and of voice it says
+  only that a person sings, where they sing, and nothing else (`AGENTS.md`,
+  "Settled about H3"). *Until 2026-10-15 this said the text "is a plain
+  caption of the finished shot (what is seen and heard), never a statement
+  of what is kept, and it says nothing about sound, action or expression not
+  known from the frames or the track".* Know which text a load gets, read it whole against
   that load's frames before it is used, and check after the render that it
   did what was expected.
 - **When a render is wrong, read four things together before anything is
@@ -362,15 +377,16 @@ session cannot work around; these are the lane's own habits, each earned on
   subject, rendered zoomed in", below): it buys size for the subject, not
   time. Asked and settled with the owner on 2026-10-13
   ([`decisions.md`](decisions.md)).
-- **A window's length is a choice, and one shot stays in one window where a
-  valid length holds it.** H3 takes every frame count on its own grid: what
+- **A window's length is a choice; one shot is ONE load a subject, and one
+  window wherever `h3_rules.MAX_LENGTH` holds it.** H3 takes every frame count on its own grid: what
   `h3_rules.snap_length` returns (the grid of `h3_rules.FRAME_FACTOR` and
   `h3_rules.FRAME_REMAINDER`), from core's floor up to
   `h3_rules.MAX_LENGTH`. The lengths the planner and the builder choose from
-  (`loop_plan.CHAIN_LENGTHS`, read by `bench/masked_job.py`) are a default
-  somebody set, not a limit of the model, and nothing about the model stops
-  a load from sampling fewer frames than the shortest of them or more than
-  the longest. Fewer: a short single-window load needs no frames past its
+  (`loop_plan.CHAIN_LENGTHS`, which is `h3_rules.chain_lengths()`, read by
+  `bench/masked_job.py`) are the lengths a window that meets another at a
+  seam may take, not a limit on a window that stands alone, and nothing about
+  the model stops a load from sampling fewer frames than the shortest of them
+  or more than the longest, up to `h3_rules.MAX_LENGTH`. Fewer: a short single-window load needs no frames past its
   own, and a window longer than its load is sampling that is thrown away
   (the plan's own line says how many frames the last one is held for).
   The only reason to sample more frames than a load's own is an overlap
@@ -386,25 +402,33 @@ session cannot work around; these are the lane's own habits, each earned on
   no join inside the shot to settle. A shot is a cut: "shot" is H3's own
   word for one (the owner, 2026-10-13), and it is the word a text uses when
   it has to describe more than one (`docs/prompting.md`, the `[Shot N]`
-  form). One cut is not divided between two windows: a shot in the kitchen
-  with both subjects in it is one window, however it is lit or however
-  long, up to what the model takes. A cut to another place is another shot,
-  and as the lane is built each shot is its own load with a text written
-  for that one shot. (Two short shots could share one window where the
+  form). One cut is not divided between loads: a shot in the kitchen
+  with both subjects in it is one load for each subject, each from the
+  shot's first frame to its last, however it is lit or however long. A cut
+  to another place is another shot, and each shot is its own load for each
+  subject, with a text written for that one shot. (Two short shots could share one window where the
   tracking across the cut is easy, and the text would then have to
   describe both, as `[Shot 1]` and `[Shot 2]`; no load is made that way
   today. *Later the same day: one can be made that way on purpose, by a
   job that names its two shots; "Two neighbouring shots in one load: a
   tool, not a default", below. It stays a tool: no builder or planner
-  makes one unasked.*) A shot is divided between windows only when it has to be: it is
-  longer than `h3_rules.MAX_LENGTH`; memory or time will not hold the
-  whole window; an edge case; a fix or polish pass on part of it. As built, a
-  load longer than the planner's longest length runs in chained windows
-  even where `h3_rules.MAX_LENGTH` would hold it whole
-  ([`next_steps.md`](next_steps.md)). Not every count on the grid is exact
-  on the audio clock as well (`workflows/h3_config.py`, the note on
-  `LONG_LENGTH`), and it does not have to be for a window that stands
-  alone: core rounds the audio latent's count (`temporal_shape` in core's
+  makes one unasked.*) A shot is never split into separate fresh loads
+  ([`decisions.md`](decisions.md), 2026-10-15, "One shot is never split"):
+  frames inside it where the subject's face is hidden or her part is empty
+  stay inside the same load. A load up to `h3_rules.MAX_LENGTH` is one
+  window (`masked_job_graph.window_for`, `loop_plan.stands_alone`). Inside
+  one load, chained windows are allowed, a longer load's or a shorter
+  choice's (the owner, 2026-10-15, "Shorter windows inside one load are
+  allowed, on the seam grid"): each window on `h3_rules.chain_lengths()`,
+  counted from the load's first frame, each continuing from the one before.
+  *Until 2026-10-15 this said a shot was divided between windows "only when
+  it has to be", a fix or polish pass on part of it among the reasons, and
+  that a load longer than the planner's longest length ran in chained
+  windows even where `h3_rules.MAX_LENGTH` would hold it whole.* Not every
+  count on the grid is exact on the audio clock as well
+  (`h3_rules.on_both_clocks`; `h3_rules.chain_lengths` and
+  `h3_config.LONG_WINDOW` are the lengths that are), and it does not have to
+  be for a window that stands alone: core rounds the audio latent's count (`temporal_shape` in core's
   H3 node) and the lane cuts exactly that many audio steps
   (`audio_freeze.slice_window`); the audio clock is a rule of the seam
   between two windows (`audio_freeze.window_geometry`). The owner's word
@@ -432,16 +456,22 @@ for it to be applied wherever it is a reusable pattern. It replaced six short pi
 original between them. The steps, each with its tool:
 
 1. **One load a subject over the whole shot** (`docs/wiki/decisions.md`, 2026-10-15, one shot is never split). Up to
-   362 frames it is one window; longer, chained windows inside the one load, each on `h3_rules.chain_lengths()`, the
-   seam put on a quiet frame with `shot_to_load job --seam`, and the context as long as the planner allows when the
-   person must carry across it.
+   `h3_rules.MAX_LENGTH` frames it is one window; longer, chained windows inside the one load, each on
+   `h3_rules.chain_lengths()`, the seam put on a quiet frame with `shot_to_load job --seam`. The job step's context is
+   `h3_config.MASKED_JOB_CONTEXT`; a longer context, and `context_noise` on a load of several windows, are being built
+   ([`next_steps.md`](next_steps.md), item 1). *Until 2026-10-15 evening this said "the context as long as the planner
+   allows when the person must carry across it".*
 2. **Read every frame of it for each subject first**, on a sheet: where the face shows, where it is hidden, turned away
    or out of the picture. Hidden and turned-away frames stay inside the load, with no face drawn there
    (`--no-face-on A-B=WHY`): a face drawn on the back of a head is the 5461 fault, and it came back in the hall until
    this. A frame where the face shows and the part model labels nothing takes `--hold-part A-B=WHY`. The reference's
    printed cues point at frames to look at; they decide nothing.
-3. **Voice by watching and listening, never by default**: the text says the person sings only where they sing in that
-   shot (`AGENTS.md`, "Settled about H3"). The hall's lead grimaced and did not sing, so her text had no voice line.
+3. **Voice from the plan, checked by watching and listening**: the text says the person sings only where they sing in
+   that shot (`AGENTS.md`, "Settled about H3"). The plan's voice key (`subjects.<s>.voice`) decides; where it names no
+   voice on the load, `bench/load_text.py` falls back to the subject's `sings` flag and the video's voice table, so a
+   session watches and listens to the shot and writes the plan's key where the fallback would be wrong. The hall's lead
+   grimaced and did not sing, so her text had no voice line. *Until 2026-10-15 evening this said "never by
+   default".*
 4. **The text as the generator writes it today**, read whole from the queued graph (`bench/what_h3_got.py`) before it
    renders.
 5. **Another of our subjects inside the margin is given back at assembly**, never drawn by this load (`restore=` on
@@ -511,7 +541,10 @@ session starting a job needs to know:
   load: a tool, not a default", below, has it.*
 - **A load of two subjects in one pass** (2026-10-12, the owner's "yes,
   build it next" on Open List row z09; a load's `subjects`, a list of two).
-  Each entry is one subject's own: its label, its `region` in the plan's
+  *Closed 2026-10-15 ([`../roadmap.md`](../roadmap.md), "Closed lanes"):
+  the first render, `second_lead_0852`, blended the two faces. One load a
+  subject; the pair tooling stays in the tree, unused, and this bullet is
+  kept as the record.* Each entry is one subject's own: its label, its `region` in the plan's
   words (`face`, `face and hair`, `whole`), its part where it takes one,
   its still, its reference video with the frame it begins on and its short
   edge, and the keep-outs it needs. The order of the list is the order the

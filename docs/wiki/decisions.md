@@ -19,6 +19,14 @@ Older history lives elsewhere and is not copied here:
 
 *Written by the lead of the day (mrtall) as the rulings are made; mrarc holds the card, mrlol tooling.*
 
+- **The wiki corrected against today's rulings** (the owner, 2026-10-15 evening: "Maybe worth you reading through our
+  llm wiki docs to make sure everything is solid and still accurate and flag things that look off"). Three cold readers
+  read the wiki and AGENTS.md against the code; the lines that contradicted today's rulings were corrected in
+  masked_v2v.md, h3_uses.md, next_steps.md, state_signals.md and index.md, each with a dated italic note of what it used to
+  say. Multi-person H3 GENERATION is open; only two subjects in one masked pass is closed (the owner: "h3_uses seems to
+  be a general guide for more than just masked generation - you can do multiple people in h3 generation"). What is left
+  (stale "not built" lines, retired-board pointers, dead paths, two docstrings, code against the voice ruling) is one
+  list for a clean-up job: internal/claude/2026-10-15_wiki_audit.md.
 - **Two Claude sessions, not three** (the owner, 2026-10-15 about 21:35Z, in the lead's terminal: "I'd like to just keep
   it limited to 2 claude sessions - you and a new fresh one"). mrarc, mrlol and mrvid closed with notes
   (`internal/claude/2026-10-15_*_closeout.md`); mrgo holds the card and the tooling from the evening, briefed by

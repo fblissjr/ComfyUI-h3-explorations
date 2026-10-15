@@ -250,6 +250,11 @@ runs them in is the masking board's `guide-order-of-operations-masked-job`.
   files are named in the note at the top of that section of
   [`masked_v2v.md`](masked_v2v.md). *The record, committed within the
   hour: `../../bench/results/2026-10-11_lead_closeup_lid_marks_did_not_carry.md`.*
+- *2026-10-15: ruled out. To H3 a masked load is not an edit, and a
+  generated text takes no place-and-action sentence (the owner;
+  `bench/load_text.py::NO_SCENE`; `AGENTS.md`, "Settled about H3"). The
+  head angle reaches the model through the reference video, never the
+  text. The two bullets below are kept as the record.*
 - **A sentence by rule:** the head angle at a load's first and last frame,
   each put in one of four bins (facing the camera, three-quarters away,
   profile, from behind), the start always written and the end only when the
@@ -520,13 +525,18 @@ column is mrfrog's, with trust as mrfrog gave it. An entry above is the
 ledger for its row; this table is the map. "Cost" is whether a guessed or
 missing instance is on record as costing a render.
 
+*2026-10-15: a generated text writes no place-and-action sentence
+(`bench/load_text.py::NO_SCENE`), so the "sentence by rule" column's yes
+on the head, the hand and what is held is ruled out; of these states only
+"sings" is written, on the mouth's row.*
+
 | state | what measures it today | trust | wordless channel | sentence by rule | cost on record |
 |---|---|---|---|---|---|
 | which way the head faces | `head_yaw`; the pose table's head points | points measured against Meta's code; the reading untested on a frame of known answer | the mesh to the video model, face side marked | yes, start and end states | yes, both ways: omitted and guessed |
 | head lowered or raised | `head_lift`, per shot only | untested | the same mesh | yes, as a state | timing only |
 | a hand to the face | nothing; wrists to nose from the pose table, with `decoder_used` for the fingers | not coded | the mesh, hands marked | possible, but it is an event | yes: drawn early and long |
 | which hand holds what | the part node's `held` mask: something is held, not which hand, not what | untested | the thing as its own tracked mask, drawn as a flat shape; the plate when it does not touch the subject | which hand, yes; what, no | yes: a second hand; a thing left where it was |
-| mouth open, speaking, singing | lip, teeth and tongue classes; voiced spans per clip | one stretch | the audio; never the mesh, which has no mouth | from voiced spans, for one voice | yes: a voice sentence for shots with none |
+| mouth open, speaking, singing | lip, teeth and tongue classes; voiced spans per clip | one stretch | the audio; never the mesh, which has no mouth | the plan's voice key (`subjects.<s>.voice`) first, else the subject's `sings` flag with the voice table's voiced spans; only "sings" writes a line, and nothing else about voice (`bench/load_text.py`; the owner, 2026-10-15). *Until 2026-10-15: "from voiced spans, for one voice"* | yes: a voice sentence for shots with none |
 | whose voice | nothing run. SAM Audio takes a person's mask over the frames with a text (`meta_perception_models.md`) | on disk, unwired; the mask's direction is contradicted in Meta's own code | n/a | n/a | n/a |
 | who is in front of whom | overlap only | not measured | the plate, where the other person is given back to the source | no | none traced to a text |
 | how large in the frame | `track_share`, the boxes | measured | the hole | not needed | none in this lane |

@@ -104,7 +104,7 @@ below with what would accept or reject it.
 | Keep the person, replace the world | the mask inverted, a still of the setting as the reference | an inverted `replace` and composite | proposed | the board |
 | Redub: a new vocal on an existing video | the mask on the mouth, the new track frozen | the parts node's mouth mask, the song node | proposed | the board |
 | Remove a person; the original's shadow gone | no route | VOID was tested on 2026-10-05 and removed | ruled out | `../../bench/results/2026-10-05_void_plate_turn.md` |
-| Two people replaced from two stills | two masks, two labelled stills | two Subject Track nodes and a union | proposed | the board |
+| Two people replaced from two stills | two masks, two labelled stills | two Subject Track nodes and a union | closed 2026-10-15 as two subjects in one masked pass: the first render blended the two faces; one masked load a subject instead (`../roadmap.md`, "Closed lanes"). *Until then: proposed* | the board; `../roadmap.md`, "Closed lanes" |
 | A thing that is not a person | the same mask | a mode on the Subject Track without the head comparison | proposed | the board |
 | Correct one shot by hand | none: it is the mask that is corrected | `MiniMaxH3SubjectTrack`'s `corrections`: `shot 3: person 2` or `shot 3: none`, with the numbers the preview shows | built | `../../subject_track.py`, "A correction"; `../../bench/check_subject_track.py`, item 7. Not yet run on a clip |
 | One review per clip before any render | none | a dry run that emits masks, parts, shots and captions | proposed | the board |
@@ -167,7 +167,7 @@ only where something more than promoting its graph is needed.
 | Keep the person, replace the world | the region and the composite inverted on the Masked Source; a still of the setting |
 | Redub | the mouth mask wired as the region with a new track frozen; one render to see whether a small hole holds |
 | Remove a person, and the shadow | no route: VOID was tested on 2026-10-05 and removed (`../../bench/results/2026-10-05_void_plate_turn.md`) |
-| Two people from two stills | two picks and a union of their masks |
+| Two people from two stills | two picks and a union of their masks. *Closed 2026-10-15 as two subjects in one masked pass (`../roadmap.md`, "Closed lanes"): each person is one masked load of their own* |
 | A thing that is not a person | a choice on the Subject Track that turns the head comparison off |
 | Correct one shot by hand | built on 2026-10-05 (section 4); a person the detector never found still needs points or boxes passed to it |
 | One review per clip before a render | a path that stops before sampling; the tracker's preview and the song node's `preview` are two parts of it |

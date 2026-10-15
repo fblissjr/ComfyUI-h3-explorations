@@ -78,7 +78,9 @@ the card, and build from what it stops on.
    boxes in one cut; how much of its box a person fills on a who picture.
 
 Carried from 2026-10-12: the third subject's other shots, face only, and
-1222-1305 as the first two-subject render on a day the owner can look. (The
+1222-1305 as the first two-subject render on a day the owner can look. *2026-10-15: two or more subjects in one
+pass is closed (`../roadmap.md`, "Closed lanes"; the first such render, `second_lead_0852`, blended the faces): 1222-1305
+is one load a subject.* (The
 hair band as the fix for 693-703 is now the row "Her hair comes and goes beside
 her head" below: the fault was found elsewhere on 2026-10-14.)
 
@@ -274,6 +276,9 @@ fixed the same day, said inline below.**
   capture, where the lane keeps one capture a load, so `--capture JOB=FOLDER` names the copy's own and a copy
   without one is told what a build there can write over; and a new reference that begins on another frame is
   given as `FILE@N`. A copy on other frames (`first`, `frames`, `left_out`) is another load and stays by hand.
+- *2026-10-15: two or more subjects in one masked pass is closed (`../roadmap.md`, "Closed lanes"; the first render,
+  `second_lead_0852`, blended the faces). The three rows below are kept as the record; nothing in them is to build
+  unless the owner reopens the lane.*
 - **The capture tool reads a two-subject load as one subject's** (2026-10-12, when the load was built). A
   load's `subjects` reaches `bench/capture_masked_run.py` as its FIRST subject's load
   (`workflows/masked_job_graph.py::one_subject_view`): the second subject's part is inside the region and is no
@@ -308,7 +313,8 @@ fixed the same day, said inline below.**
   entry in the list, which is node code and a restart, with one margin for three; or a two-subject pass and a
   single pass on the same frames, merged by the delivery, which is what the tools already do and costs a
   second render and a join inside one picture. Nothing is built before the previews of those frames say which
-  shots hold three and for how long.
+  shots hold three and for how long. *2026-10-15: both routes are closed with the one-pass lane; three people
+  are three loads, one a subject.*
 - **Her hair comes and goes beside her head on the long kitchen shot (604-948):
   a keep-out's mis-cut strip, and the band that did not reach it** (2026-10-14,
   the lead's diagnosis of the owner's annotated frames 689, 693 and 703:
@@ -1048,7 +1054,10 @@ fixed the same day, said inline below.**
   body models on the black ground, the text with `<Subject 1>` and
   `<Subject 2>`; first test on the kitchen shot 604-1009 beside the two
   single passes that exist for it. Queued for the owner's word on the row;
-  not started.
+  not started. *2026-10-15: built since (`bench/shot_to_load.py pair`),
+  rendered once on the kitchen, 852-958 (`second_lead_0852`, the faces
+  blended), and closed (`../roadmap.md`, "Closed lanes"); the tooling stays
+  in the tree, unused.*
 - **The builder's window choice reads the cuts** (the owner's rule of
   2026-10-12, [`decisions.md`](decisions.md)): shorter windows are fine,
   boundaries align with cuts where one is near, and no window begins within
