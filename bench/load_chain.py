@@ -125,7 +125,7 @@ HOST = "127.0.0.1:8188"
 #: the machine, so never a path in a tracked file. Named 2026-10-13 with the lead.
 MODEL_STORE = "H3_MODEL_STORE"
 #: A subject's keys in the job file that are options of its `--mask` in a capture; only what the job says is passed.
-MASK_OPTIONS = ("pieces", "least", "hold", "drop", "grade")
+MASK_OPTIONS = ("pieces", "least", "hold", "drop", "grade", "word")
 #: Where one video's review clips and review list live. Today's practice, in this one place (the Open List's row
 #: z21 may change the folders; then here). `{video}` is the analysis folder's name.
 REVIEW_CLIPS = "Video/{video}/review_clips"            # under the server's output folder

@@ -11,6 +11,7 @@
         [--parts NAME ... --parts-by "who chose these parts for this load, and on what"]
         [--no-face-on FIRST-LAST="who looked, at which sheet (its file), and that the face does not show there"]
         [--seam FRAME[,FRAME...] --seam-why "a person's reason": every seam of one plan of the chained window lengths]
+        [--hold-part FIRST-LAST="who looked, at which sheet (its file), and that her part belongs there"]
     <python> bench/shot_to_load.py reference JOB.json --by SESSION [--plain "why"] [--model-store FOLDER] [--existing]
         (it prints, under the figures, where a face may not show by two cues of the pose model's points, as data for the sheet)
         (a person writes the shot's place and action, one sentence)
@@ -1238,7 +1239,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
              track_not_by: str | None = None, cast: list[dict] | None = None, cast_from: str = "", motion: str | None = None,
              motion_why: str | None = None, no_strangers: str | None = None, no_mouth_on: list[tuple[int, int, str]] | None = None,
              eyes_shut_on: list[tuple[int, int, str]] | None = None, eyes_shut_form: str | None = None,
-             no_face_on: list[tuple[int, int, str]] | None = None, seam: list[int] | None = None,
+             no_face_on: list[tuple[int, int, str]] | None = None, hold_part: list[tuple[int, int, str]] | None = None, seam: list[int] | None = None,
              seam_why: str | None = None) -> dict:
     """The job file of one subject's load on a shot, from the shot's preview. `preview` is the preview's own job
     block; `source` is the file the load renders from, the video's present copy (the preview's own when left out).
@@ -1466,6 +1467,27 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         mine["least"], mine["least_by"] = int(least), f"{by}, {now}: {' '.join(least_why.split())}"
         chosen += (f" THE CAPTURE'S FLOOR FOR {subject}'s PART IS SET FOR THIS LOAD: least={int(least)} px of the whole frame, on {by}'s word: "
                    f"{' '.join(least_why.split())}.")
+    # THE PART HELD ON A PERSON'S WORD (`--hold-part FIRST-LAST=WHY`, the lead's ruling of 2026-10-15 on 2823b's 3098-3104 and 5935's
+    # 6008 and 6020): frames the capture's grade leaves empty there take the nearest graded part, moved and cut to the track
+    # (capture_masked_run.word_shapes), at any distance. The same terms as --no-mouth-on: the look and its file named, each span inside the load. The load is one
+    # shot, so a span inside it holds no cut of the record
+    if hold_part:
+        spans = []
+        for x, y, said in hold_part:
+            said = " ".join(str(said).split())
+            if not (a <= x <= y <= b):
+                raise Refused(f"--hold-part {x}-{y}: the load is {a}-{b}")
+            if not any(Path(w.strip(".,;:()\"'")).is_file() for w in said.split()):
+                raise Refused(f"--hold-part {x}-{y} takes a person's word on a look: who looked, at which sheet of those frames (name its file: the "
+                              "tool checks only that a file of that name is there), and that her part belongs there")
+            if any(x <= y_ and x_ <= y for x_, y_, _ in spans):
+                raise Refused(f"--hold-part {x}-{y} overlaps a span already named: name each frame once")
+            spans.append((x, y, said))
+        mine = next(s for s in subjects if s["label"] == subject)
+        mine["word"] = "+".join(f"{x}-{y}" for x, y, _ in spans)
+        mine["word_by"] = "; ".join(f"{x}-{y}: {by}, {now}: {said}" for x, y, said in spans)
+        chosen += (f" {subject}'s PART IS HELD ON A PERSON'S WORD on {mine['word'].replace('+', ', ')}: frames the capture's grade leaves empty there "
+                   f"take the nearest graded part, moved and cut to the track ({mine['word_by']}).")
     # what the composite kept, saved for the review clips (the song node's `save_kept`): a chain default, the job's switch (2026-10-15)
     load["save_kept"] = True
     carried = defaults_carried(p, load, subjects, subject, kept, ref_form, zoom_block, whole_block)
@@ -1673,6 +1695,8 @@ def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: di
                                "the reference step", "drawn": "drawn", "left out": "left out"}[mouth["form"]]
          + "".join(f"; NONE on {s['first']}-{s['last']}, turned off on a person's word" for s in mouth.get("no_mouth_on") or []),
          f"{mouth['said_by']}: {mouth['why']}" + "".join(f"; {s['first']}-{s['last']}: {s['said_by']}, {s['at']}: {s['why']}" for s in mouth.get("no_mouth_on") or [])),
+        *([("the part held on a person's word", "on " + mine["word"].replace("+", ", ") + ": frames the capture's grade leaves empty there take "
+            "the nearest graded part, moved and cut to the track (capture_masked_run.word_shapes)", mine["word_by"])] if mine.get("word") else []),
         *([("the face lines", "NONE on " + ", ".join(f"{s['first']}-{s['last']}" for s in ref_form["no_face_on"]) + ", turned off on a person's word "
             "(the plain cut body model alone there)", "; ".join(f"{s['first']}-{s['last']}: {s['said_by']}, {s['at']}: {s['why']}" for s in ref_form["no_face_on"]))]
           if ref_form.get("no_face_on") else []),
@@ -1819,6 +1843,7 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
                    no_mouth_on=[no_mouth_on_arg(x) for x in getattr(a, "no_mouth_on", None) or []],
                    eyes_shut_on=[no_mouth_on_arg(x, "--eyes-shut-on") for x in getattr(a, "eyes_shut_on", None) or []],
                    no_face_on=[no_mouth_on_arg(x, "--no-face-on") for x in getattr(a, "no_face_on", None) or []],
+                   hold_part=[no_mouth_on_arg(x, "--hold-part") for x in getattr(a, "hold_part", None) or []],
                    eyes_shut_form=getattr(a, "eyes_shut_form", None), seam=seams_arg(getattr(a, "seam", None)), seam_why=getattr(a, "seam_why", None))
     job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "ITS PREVIEW WAS MADE ON AN EARLIER COPY")
     out = folder / f"{name}.json"
@@ -2297,6 +2322,10 @@ def main() -> int:
                    help="no line of the face drawn on those source frames of the reference (the plain cut body model alone), on a person's word: "
                         "who looked, at which sheet of those frames (its file named; only that a file of that name is there is checked), and that "
                         "the face does not show there (a head turned away, hidden behind somebody); repeatable")
+    j.add_argument("--hold-part", action="append", default=[], metavar="FIRST-LAST=WHY",
+                   help="hold the subject's part on those source frames where the capture's grade leaves it empty, from the nearest graded part, "
+                        "on a person's word: who looked, at which sheet of those frames (its file named; only that a file of that name is there is "
+                        "checked), and that her part belongs there; repeatable")
     j.add_argument("--seam", metavar="FRAME[,FRAME...]", help="for a load longer than one window: the source frames its later windows write "
                    "from, every seam of one plan of the chained window lengths (refused otherwise, naming the plans there are); with --seam-why")
     j.add_argument("--seam-why", metavar="WHY", help="a person's reason for --seam, kept in the job")

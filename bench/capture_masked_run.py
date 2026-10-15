@@ -165,7 +165,10 @@ that would change). The capture prints the part's size on this clip's frames aga
 (`part_sizes`), and `least=PX` in the spec sets it for that subject in canvas px, not scaled (`least=0` empties
 nothing by size). `sizes CAPTURE...` prints the same figures for captures that exist.
 `drop=FIRST-LAST+FIRST-LAST` empties the part on source frames where it should take nothing (it lies on
-something that is not the part and there is nothing to fill it from). A plan with `carried=held` works its
+something that is not the part and there is nothing to fill it from). `word=FIRST-LAST+FIRST-LAST` holds the part on
+source frames a person looked at (`bench/shot_to_load.py job --hold-part`): a frame there the grade left empty takes the
+nearest graded part, moved and cut to the track (`word_shapes`), at any distance and whatever its size; never with `drop=`
+on the same frames, and only through the grade. A plan with `carried=held` works its
 region out from that mask. The manifest lists the frames filled, the doubted frames left and those emptied. Written only when the mask video covers
 the whole span.
 
@@ -663,8 +666,61 @@ def size_lines(where: str, sizes: dict) -> list[str]:
 SHORT_FILL = 2
 
 
+#: What a frame named by a person's word (`word=`) and left empty says when there is nothing to hold it from.
+WORD_NOT_HELD = ("a person's word asks the part held here, and there is nothing to hold it from: no frame of the load has a part, the "
+                 "subject has no track on this frame, or the nearest part, moved, lies wholly off the subject's track. It stays empty")
+
+
+def grade_given(m: dict, what: dict, every: np.ndarray, first: int, frames: int, track: np.ndarray) -> dict:
+    """What `grade_holds` is given beside the part, from a mask's options and `under_doubted`'s reading: the frames where nothing was
+    labelled (`lost`) with the neighbours' shape (`lost_fill`), and the frames a person's word names (`word`) with the subject's track."""
+    return {"lost": {f for f, v in what.items() if v["mostly"] == "nothing labelled"}, "lost_fill": every,
+            "word": word_frames(m.get("word"), first, frames), "track": track}
+
+
+def word_refused(label: str, m: dict, has_parts: bool, covered: bool = True) -> None:
+    """A mask's `word=` is taken through the grade: refused on a mask with no part, with grade=off, with no class map to grade by, or
+    whose videos do not cover the span (no part to load is written then); and where `drop=` names the same frames (one empties what the
+    other holds)."""
+    if not m.get("word"):
+        return
+    why = ("no part" if not has_parts else "grade=off" if m.get("grade") == "off" else "no class map to grade by" if not m.get("classes")
+           else "a mask that does not cover the whole span, so no part to load is written" if not covered else "")
+    if why:
+        raise SystemExit(f"--mask {label}: word={m['word']} holds the part on a person's word through the grade, and this mask has {why}")
+    dropped = {f for span in str(m.get("drop") or "").split("+") if span for a, b in [(span.split("-") * 2)[:2]] for f in range(int(a), int(b) + 1)}
+    both = sorted({f for lo, hi in word_spans(m["word"]) for f in range(lo, hi + 1)} & dropped)
+    if both:
+        raise SystemExit(f"--mask {label}: word= and drop= both name {both[0]}-{both[-1]}: one holds the part there and the other empties it")
+
+
+def word_spans(spans: str | None) -> list[tuple[int, int]]:
+    """A mask's `word=A-B+C-D` as (first, last) source frames, read strictly: a span is FRAME or FIRST-LAST, forwards."""
+    out = []
+    for span in (spans.split("+") if spans else []):
+        ends = span.split("-")
+        if not (1 <= len(ends) <= 2 and all(x.strip().isdecimal() for x in ends)):
+            raise SystemExit(f"word={spans}: {span!r} is not FRAME or FIRST-LAST in source frames")
+        lo, hi = int(ends[0]), int(ends[-1])
+        if lo > hi:
+            raise SystemExit(f"word={spans}: {span} runs backwards")
+        out.append((lo, hi))
+    return out
+
+
+def word_frames(spans: str | None, first: int, frames: int) -> set[int]:
+    """The capture's own frames (0 = `first`) of a mask's `word=A-B+C-D`, source frames; one outside the span is refused."""
+    out = set()
+    for lo, hi in word_spans(spans):
+        if not (first <= lo <= hi < first + frames):
+            raise SystemExit(f"word={spans}: {lo}-{hi} is not inside the capture's frames {first}-{first + frames - 1}")
+        out |= set(range(lo - first, hi - first + 1))
+    return out
+
+
 def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made: list[int],
-                least_px: int = 0, lost: set[int] | frozenset = frozenset(), lost_fill: np.ndarray | None = None) -> tuple[np.ndarray, dict[int, dict]]:
+                least_px: int = 0, lost: set[int] | frozenset = frozenset(), lost_fill: np.ndarray | None = None,
+                word: set[int] | frozenset = frozenset(), track: np.ndarray | None = None) -> tuple[np.ndarray, dict[int, dict]]:
     """The part to load, frame by frame, from the saved part and a proposed fill, graded by the class map.
 
     A fill takes a neighbour's shape to a frame the gate doubted. On a fast turn the doubted part was right
@@ -690,7 +746,14 @@ def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made
     frame, a 142 px speck was left and the floor emptied it). A frame whose saved part was kept is not touched, though it is
     "nothing labelled" (805b's 805, 821 and 833): a fill there would replace a part that stands. Nor is a run at the load's edge.
     What it cannot restore: the reference drawn on such a frame, made from the same lost frame (751b's 761: its reference's frame
-    10 has no drawn mouth or irises either; the clips reviewer, 2026-10-15)."""
+    10 has no drawn mouth or irises either; the clips reviewer, 2026-10-15).
+
+    FRAMES HELD ON A PERSON'S WORD (`word`, the frames of the load's `word=`, written by `bench/shot_to_load.py job --hold-part` from a
+    look at a sheet; the lead's ruling of 2026-10-15 on 2823b's 3098-3104 and 5935's 6008 and 6020): a frame there the grade left empty
+    takes the shape of the nearest frame with a graded part, before or after it at any distance, moved and cut to the
+    subject's `track` (`word_shapes`), whatever its size, since a person looked. Not `lost_fill`: that is the saved part itself on
+    every frame the hold rule did not doubt, and would give back the floor's own speck. A frame whose part stands is not touched. A
+    frame with nothing to hold it from stays empty and says so (`WORD_NOT_HELD`, `did` "left empty: the word not held")."""
     own = np.isin(classes, made)
     out, decisions = parts.copy(), {}
 
@@ -734,7 +797,57 @@ def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made
                                 "fill_on_its_classes": was.get("fill_on_its_classes"), "px": int(shape[f].sum()),
                                 "why": (f"the part model labelled nothing under the fill (a run of {len(run)}, a part either side): the class "
                                         f"map lost the part; the grade had {was['did']} it" + (f" ({was['why']})" if was.get("why") else ""))}
+    if word and track is None:
+        raise ValueError("a part held on a person's word is cut to the subject's track: give `track`")
+    for f, (moved, came_from) in sorted(word_shapes(out, track, word).items()):
+        was = decisions.get(f, {"did": "left empty", "saved_on_its_classes": None, "fill_on_its_classes": None})
+        if moved is not None and moved.any():
+            out[f] = moved
+            decisions[f] = {"did": "filled on a person's word", "saved_on_its_classes": was.get("saved_on_its_classes"),
+                            "fill_on_its_classes": was.get("fill_on_its_classes"), "px": int(moved.sum()), "from_frames": came_from,
+                            # data: how much of the fill lies on the subject's own track, not the margin band round it (a part whose
+                            # place jumps between frames is moved mostly beside her; nothing grades a word fill)
+                            "px_on_the_track": int((moved & track[f]).sum()),
+                            "why": f"the job's word= names this frame (a person looked); the grade had {was['did']} it"
+                                   + (f" ({was['why']})" if was.get("why") else "")}
+        else:
+            decisions[f] = {**was, "did": "left empty: the word not held", "word_not_held": WORD_NOT_HELD}
     return out, decisions
+
+
+def word_shapes(out: np.ndarray, track: np.ndarray, word: set[int] | frozenset) -> dict[int, tuple[np.ndarray | None, list[int]]]:
+    """For each frame a person's word names and the grade left empty: the shape of the nearest frame with a graded part, moved so its
+    centre lies where a line between the parts either side puts it (one side: that part's own place), cut to the subject's track grown
+    by `SUBJECT_MARGIN` as `held_parts` cuts (so nothing where the subject is not tracked, or where the moved shape lies off the track);
+    and the frames it came from. None where no frame of the load has a part. `held_parts` without its reach: a person looked at these
+    frames."""
+    import torch
+    vm, sp = _pack("video_mask"), _pack("sapiens2_parts")
+    good = np.array([f for f in range(len(out)) if out[f].any()])
+    shapes = {}
+
+    def centre(g):
+        ys, xs = np.nonzero(out[g])
+        return np.array([xs.mean(), ys.mean()])
+
+    for f in sorted(f for f in word if not out[f].any()):
+        before, after = good[good < f] if len(good) else good, good[good > f] if len(good) else good
+        g0, g1 = (int(before[-1]) if len(before) else None), (int(after[0]) if len(after) else None)
+        near = [g for g in (g0, g1) if g is not None]
+        if not near:
+            shapes[f] = (None, near)
+            continue
+        g = min(near, key=lambda x: abs(x - f))
+        at = centre(g0) + (centre(g1) - centre(g0)) * (f - g0) / (g1 - g0) if len(near) == 2 else centre(g)
+        dx, dy = (int(round(v)) for v in (at - centre(g)))
+        moved = np.zeros_like(out[g])
+        h, w = moved.shape
+        ys, xs = np.nonzero(out[g])
+        keep = (ys + dy >= 0) & (ys + dy < h) & (xs + dx >= 0) & (xs + dx < w)
+        moved[ys[keep] + dy, xs[keep] + dx] = True
+        on_subject = vm.grow(torch.from_numpy(track[f:f + 1]).to(torch.float32), sp.SUBJECT_MARGIN)[0].numpy() > 0.5
+        shapes[f] = (moved & on_subject, [g])
+    return shapes
 
 
 def part_classes(parts: np.ndarray, classes: np.ndarray, names: tuple[str, ...]) -> list[int]:
@@ -1557,13 +1670,17 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
         dropped: list[list[int]] = []
         refused: list[int] = []
         emptied_by_grade: list[int] = []
+        word_not_held: list[int] = []
         sizes = None
+        if parts is None:
+            word_refused(label, m, False)
         if parts is not None:
             sizes = part_sizes(parts, first, least, least_by, not_applied=(
                 "grade=off on this --mask" if m.get("grade") == "off" else "no class map was given for this subject, so its part is not graded"
                 if not m.get("classes") else "the mask video does not cover the whole span, so no part to load was written"))
             write_mask_video(folder / f"parts__{by}.mkv", parts)
             mine = [r for r in subject_rows(label, by, first, track, covered, parts)]
+            word_refused(label, m, True, all(r["covered"] for r in mine))
             if all(r["covered"] for r in mine):
                 only = [[int(x) for x in (span.split("-") * 2)[:2]] for span in m["hold"].split("+")] if m.get("hold") else None
                 held, held_frames, left_frames = held_parts(track, parts, mine, only, first)
@@ -1575,12 +1692,15 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                   for t in [next(iter(seen.values()))[0]]]
                     what = under_doubted(made, names.index("Hair"), every, doubted, class_maps[label], others_now)
                     if m.get("grade") != "off":
-                        held, graded = grade_holds(parts, held, class_maps[label], made, least,
-                                                   lost={f for f, v in what.items() if v["mostly"] == "nothing labelled"}, lost_fill=every)
+                        held, graded = grade_holds(parts, held, class_maps[label], made, least, **grade_given(m, what, every, first, frames, track))
                         sizes = part_sizes(parts, first, least, least_by, emptied=[f for f, d in graded.items() if "least_px" in d])
                         held_frames = [f for f, d in graded.items() if d["did"].startswith("filled")]
                         refused = [first + f for f, d in graded.items() if d["did"].startswith("saved")]
                         emptied_by_grade = [first + f for f, d in graded.items() if d["did"] == "emptied"]
+                        word_not_held = [first + f for f, d in graded.items() if d.get("word_not_held")]
+                        if word_not_held:
+                            print(f"  {label}: THE WORD IS NOT HELD on {', '.join(f'{x}-{y}' if x != y else str(x) for x, y in frame_spans(word_not_held))}: "
+                                  f"{WORD_NOT_HELD}", flush=True)
                         (folder / "part_grades.json").write_text(json.dumps(
                             {"subject": label, "seen_by": by, "bar": HOLD_INSIDE, "part_is_made_of": made_of.get(label),
                              "least_px": least, "least_px_set_by": least_by, "part_sizes": sizes,
@@ -1627,6 +1747,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                    "parts_emptied_on_source_frames": dropped,
                                    "parts_fill_refused_by_grade_on_source_frames": frame_spans(refused),
                                    "parts_emptied_by_grade_on_source_frames": frame_spans(emptied_by_grade),
+                                   "parts_word_not_held_on_source_frames": frame_spans(word_not_held),
                                    # the part's size on this clip's frames, and where the floor fell among them (`part_sizes`)
                                    "part_sizes": sizes,
                                    # the zoom the starting floor was held to (`floor_zoom`); None with least= or zoom=off
@@ -5639,7 +5760,7 @@ def main() -> None:
     f.add_argument("--source", required=True, help="the clip every run was loaded from")
     f.add_argument("--first", type=int, required=True, help="the source frame that is the span's frame 0")
     f.add_argument("--frames", type=int, required=True)
-    f.add_argument("--mask", action="append", default=[], metavar="LABEL:track=V[,parts=V][,classes=V][,held=V][,shots=J][,shots_at=N][,pose=J][,pose_at=N][,by=RUN][,at=N][,hold=A-B+C-D][,drop=A-B+C-D][,grade=off][,least=PX][,pieces=largest][,zoom=off]",
+    f.add_argument("--mask", action="append", default=[], metavar="LABEL:track=V[,parts=V][,classes=V][,held=V][,shots=J][,shots_at=N][,pose=J][,pose_at=N][,by=RUN][,at=N][,hold=A-B+C-D][,drop=A-B+C-D][,word=A-B+C-D][,grade=off][,least=PX][,pieces=largest][,zoom=off]",
                    help="one sighting of a subject: its saved mask videos; repeatable")
     f.add_argument("--run", action="append", default=[], metavar="RUN:render=V|preview=DIR,subject=LABEL[,others=L+L][,margin=PX][,at=N][,region=review]",
                    help="one pass that regenerated a subject; its region is the one each window saved beside its latent, or is "

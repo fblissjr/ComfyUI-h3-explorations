@@ -807,6 +807,84 @@ def graded_holds() -> str:
             "off it or lost; a frame with no part under either is emptied; an undoubted frame is left alone")
 
 
+def a_part_held_on_a_persons_word() -> str:
+    """`word=` (bench/shot_to_load.py job --hold-part; the lead's ruling of 2026-10-15 on 2823b's 3098-3104 and 5935's 6008 and 6020):
+    a frame the grade left empty takes the nearest graded part, moved along the line between the parts either side and
+    cut to the track, at any distance and at the load's edge, never the floor's own speck; a standing part is untouched; a frame with no
+    track stays empty and says so."""
+    n = 30
+    face = np.zeros((n, 96, 160), bool)
+    for f in range(n):
+        face[f, 20:40 + (f > 16), 30 + f:50 + f] = True                  # one px to the right a frame; a row taller from frame 17
+    track = rect(10, 5, 150, 90, n)
+    track[25] = False                                                   # frame 25: the subject is not tracked
+    classes = np.where(face, 2, 0).astype(np.uint8)
+    speck = rect(90, 60, 95, 65, n)                                     # 25 px, on the part's class: under the floor
+    saved = face.copy()
+    for f in (5, 6, 7):                                                 # the floor's specks, where the part model lost her face
+        classes[f] = np.where(speck[f], 2, 0)
+        saved[f] = speck[f]
+    for f in list(range(10, 23)) + [25, 29]:                            # a run of thirteen lost; the untracked frame; the last frame
+        classes[f] = 0
+        saved[f] = False
+    word = {5, 6, 7, 27, 29, 25} | set(range(10, 23))
+    without, _ = cap.grade_holds(saved, saved, classes, [2], least_px=100)
+    held, said = cap.grade_holds(saved, saved, classes, [2], least_px=100, word=word, track=track)
+    # THE CASE THAT GOES RED when the word gives back the floor's speck (5935's 5995 at 17 px), leaves the ends of a long run empty, or
+    # takes a shape that does not follow the part
+    assert not without[5:8].any() and not without[10:23].any(), "the fixture's frames were not emptied without the word"
+    # each takes its NEAREST part's shape: 10-16 the short one of frame 9, 17-22 the tall one of frame 23 (the shapes differ either side)
+    for f in [5, 6, 7] + list(range(10, 23)):
+        nearest = face[f] if f < 10 or f > 22 else np.roll(face[9 if f - 9 <= 23 - f else 23], f - (9 if f - 9 <= 23 - f else 23), axis=-1)
+        assert (held[f] == nearest).all() and said[f]["did"] == "filled on a person's word", (f, said.get(f), int(held[f].sum()))
+        assert said[f]["px_on_the_track"] == said[f]["px"], said[f]
+    # the load's last frame has a part on one side only: it takes that part where it is, as held_parts does (no line to follow)
+    assert (held[29] == face[28]).all() and said[29]["did"] == "filled on a person's word", said[29]
+    assert said[10]["from_frames"] == [9] and said[22]["from_frames"] == [23] and said[29]["from_frames"] == [28], (said[10], said[22], said[29])
+    assert not held[25].any() and said[25]["did"] == "left empty: the word not held" and said[25]["word_not_held"] == cap.WORD_NOT_HELD, said[25]
+    assert 27 not in said and (held[27] == face[27]).all(), "a frame whose part stands was graded for the word"
+    # a load with no part on any frame: nothing to hold from, said
+    none, said_none = cap.grade_holds(np.zeros_like(saved), np.zeros_like(saved), np.zeros_like(classes), [2], word={3, 4}, track=track)
+    assert not none.any() and said_none[3]["word_not_held"] == cap.WORD_NOT_HELD and said_none[4]["did"] == "left empty: the word not held", said_none
+    try:
+        cap.grade_holds(saved, saved, classes, [2], word={5})
+    except ValueError as e:
+        assert "give `track`" in str(e), e
+    else:
+        raise AssertionError("a word was held with no track to cut it to")
+    # the files step hands the mask's word and the track to the grade, with the lost frames as before
+    every = saved.copy()
+    given = cap.grade_given({"word": "3101-3102"}, {0: {"mostly": "nothing labelled"}, 1: {"mostly": "her own classes"}}, every, 3090, 20, track)
+    assert given["word"] == {11, 12} and given["lost"] == {0} and given["lost_fill"] is every and given["track"] is track, given
+    assert cap.word_frames("3101-3104+3098", 3090, 20) == {8, 11, 12, 13, 14}
+    for spans, words in (("3105-3112", "not inside the capture's frames 3090-3109"), ("3104-3098", "runs backwards"),
+                         ("3098-3100-3104", "is not FRAME or FIRST-LAST"), ("31x8", "is not FRAME or FIRST-LAST")):
+        try:
+            cap.word_frames(spans, 3090, 20)
+        except SystemExit as stop:
+            assert words in str(stop), stop
+        else:
+            raise AssertionError(f"word={spans} was read")
+    cap.word_refused("a", {"word": "1-2", "classes": "c.mkv"}, True)
+    cap.word_refused("a", {}, False)
+    for m, has, covers, words in (({"word": "1-2", "classes": "c.mkv"}, False, True, "no part"),
+                                  ({"word": "1-2", "classes": "c.mkv", "grade": "off"}, True, True, "grade=off"),
+                                  ({"word": "1-2"}, True, True, "no class map"),
+                                  ({"word": "1-2", "classes": "c.mkv"}, True, False, "does not cover the whole span"),
+                                  ({"word": "1-4", "classes": "c.mkv", "drop": "3-9"}, True, True, "both name 3-4"),
+                                  ({"word": "31x8", "classes": "c.mkv", "drop": "3-9"}, True, True, "is not FRAME or FIRST-LAST")):
+        try:
+            cap.word_refused("a", m, has, covers)
+        except SystemExit as stop:
+            assert words in str(stop), stop
+        else:
+            raise AssertionError(f"word= taken with {words}")
+    return ("a frame named by a person's word and left empty takes the nearest graded part, moved with the part and cut to "
+            "the track, on a run of any length and at the load's edge, never the floor's speck; a standing part is untouched; an untracked frame "
+            "stays empty with WORD_NOT_HELD; the word reaches the grade with the track; spans parsed strictly; refused with no grade, an "
+            "uncovered mask, or drop= on the same frames")
+
+
 def a_short_fill_where_nothing_was_labelled() -> str:
     """751b's 761 (2026-10-15): the class map labelled nothing on her face for one frame, a speck under the floor was left, and the
     floor emptied the frame between two with her face. A run of at most SHORT_FILL such frames, a part either side, takes the fill;
@@ -2175,6 +2253,7 @@ case("the floor at the size the load renders at", the_floor_at_the_size_it_rende
 case("preflight: held's slivers and her clothing are data", held_split)
 case("a fill of a doubted part, graded by the class map", graded_holds)
 case("a short fill where nothing was labelled", a_short_fill_where_nothing_was_labelled)
+case("a part held on a person's word", a_part_held_on_a_persons_word)
 case("the floor under a small part: a starting value, held against the clip's own sizes", the_floor_against_the_clip)
 case("verify: the capture reads what the nodes wrote", verifying)
 case("a pose table as an input", pose_tables)

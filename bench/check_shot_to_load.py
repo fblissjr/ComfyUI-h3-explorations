@@ -578,11 +578,12 @@ def a_loads_name_is_made() -> str:
         given, real = {}, stl.load_job
         try:
             stl.load_job = lambda *x, **k: given.update(k) or (_ for _ in ()).throw(stl.Refused("STOPPED HERE"))
-            refused(lambda: stl.step_job(args(**{**vars(a), "no_face_on": ["120-130=A WORD"], "no_mouth_on": ["121=B"], "seam": "2344,2548"}), made.m),
-                    "STOPPED HERE")
+            refused(lambda: stl.step_job(args(**{**vars(a), "no_face_on": ["120-130=A WORD"], "no_mouth_on": ["121=B"], "seam": "2344,2548",
+                                                 "hold_part": ["3098-3099=C"]}), made.m), "STOPPED HERE")
         finally:
             stl.load_job = real
-        assert given["no_face_on"] == [(120, 130, "A WORD")] and given["no_mouth_on"] == [(121, 121, "B")] and given["seam"] == [2344, 2548], given
+        assert given["no_face_on"] == [(120, 130, "A WORD")] and given["no_mouth_on"] == [(121, 121, "B")] and given["seam"] == [2344, 2548] \
+            and given["hold_part"] == [(3098, 3099, "C")], given
         stl.step_job(a, made.m)
         assert (made.jobs / "a_fp_0100.json").is_file(), sorted(p.name for p in made.jobs.iterdir())
         refused(lambda: stl.step_job(a, made.m), "a load named a_fp_0100 exists", "--remake")
@@ -971,7 +972,7 @@ def who_else_is_in_the_shot() -> str:
     and keeps the strangers out by it: where someone else is there or the frames shown cannot say, and on no load where nobody
     is, whatever the plan's key; the plan's key only where it is not known."""
     def load_with(made, people, plan_keep=None, not_people=None, no_strangers=None, no_mouth_on=None, eyes_shut_on=None, eyes_shut_form=None,
-                  seam=None, seam_why=None, no_face_on=None):
+                  seam=None, seam_why=None, no_face_on=None, hold_part=None):
         if plan_keep is not None:
             made.plan["subjects"]["a"].update(keep_outs=plan_keep, keep_outs_by="a person: the plan's own")
         if not_people is not None:
@@ -987,7 +988,7 @@ def who_else_is_in_the_shot() -> str:
         saved = json.loads((folder / "preview.queued.json").read_text())["files"]
         return stl.load_job(shots, plan, stl.shot_of(shots, 100), "a", pjob["job"], str(folder), "v", made.m.output, "the session", "2026-01-03", "a_fp_0100",
                             now="now", preview_files=saved, cast=[], cast_from="cast.jsonl", no_strangers=no_strangers, no_mouth_on=no_mouth_on,
-                            eyes_shut_on=eyes_shut_on, eyes_shut_form=eyes_shut_form, seam=seam, seam_why=seam_why, no_face_on=no_face_on)
+                            eyes_shut_on=eyes_shut_on, eyes_shut_form=eyes_shut_form, seam=seam, seam_why=seam_why, no_face_on=no_face_on, hold_part=hold_part)
     ours = [(1, [0, 0, 10, 10], 0.1), (2, [20, 0, 10, 10], 0.1), (3, [40, 0, 10, 10], 0.1)]
     with tempfile.TemporaryDirectory() as tmp:
         d = load_with(Made(Path(tmp)), ours + [(4, [55, 30, 5, 5], 0.01)])
@@ -1047,6 +1048,19 @@ def who_else_is_in_the_shot() -> str:
         flags = stl.drawn_form(away["job"], args(), {"classes": Path("/c.mkv")}, 100)
         assert flags[flags.index("--no-face-on") + 1].startswith("120-130=a person's word on a look (the session, now): THE LEAD looked"), flags
         assert "the face lines" not in {x["what"] for x in hid["job"]["defaults"]} and "--no-face-on" not in stl.drawn_form(hid["job"], args(), {"classes": Path("/c.mkv")}, 100)
+        # THE PART HELD ON A PERSON'S WORD (--hold-part, the lead's ruling of 2026-10-15): the same terms; on the subject as the capture's word=
+        refused(lambda: load_with(Made(Path(tmp) / "h1"), ours, hold_part=[(110, 115, "THE LEAD looked: her face is there")]), "name its file")
+        refused(lambda: load_with(Made(Path(tmp) / "h2"), ours, hold_part=[(150, 170, f"THE LEAD looked at {sheet}")]), "--hold-part 150-170", "the load is 100-159")
+        refused(lambda: load_with(Made(Path(tmp) / "h4"), ours, hold_part=[(110, 115, f"A looked at {sheet}"), (115, 118, f"B looked at {sheet}")]),
+                "--hold-part 115-118 overlaps")
+        kept_on = load_with(Made(Path(tmp) / "h3"), ours, hold_part=[(110, 111, f"THE LEAD looked at {sheet}"), (120, 120, f"G2 looked at {sheet}")])
+        mine = next(x for x in kept_on["job"]["subjects"] if x["label"] == "a")
+        held_row = {x["what"]: x for x in kept_on["job"]["defaults"]}["the part held on a person's word"]
+        # THE CASE THAT GOES RED when the word is not on the subject in the capture's form, not said among the defaults, or not handed on
+        assert mine["word"] == "110-111+120-120", mine
+        assert "110-111: the session, now: THE LEAD looked" in mine["word_by"] and "on 110-111, 120" in held_row["carries"], (mine, held_row)
+        assert "word" not in next(x for x in away["job"]["subjects"] if x["label"] == "a") \
+            and "the part held on a person's word" not in {x["what"] for x in away["job"]["defaults"]}
         assert stl.no_mouth_on_arg("1011=X") == (1011, 1011, "X")
         refused(lambda: stl.no_mouth_on_arg("1011-1018"), "with the why")
         refused(lambda: stl.no_mouth_on_arg("1011-1017-1030=X"), "is not FIRST-LAST=WHY")

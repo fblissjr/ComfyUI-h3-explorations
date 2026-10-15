@@ -257,7 +257,11 @@ def a_masks_at_is_the_previews_first_frame() -> str:
         # THE FAULT OF 2026-10-13: the load begins on 110, its preview on 100, and 110 is in no mask
         assert "110" not in others + mine, f"the load's own first frame is in a mask: {mine}"
         assert not any(f"{key}=" in mine for key in lc.MASK_OPTIONS), f"an option the job does not set was passed: {mine}"
-        made.job["subjects"][1].update(pieces="largest", least=1024)
+        made.job["subjects"][1].update(pieces="largest", least=1024, word="110-111+120")
+        made.write()
+        mine = lc.mask_specs(made.ctx(), files)[1]
+        assert mine.endswith(",by=pv,at=100,pieces=largest,least=1024,word=110-111+120"), mine
+        del made.job["subjects"][1]["word"]
         made.write()
         mine = lc.mask_specs(made.ctx(), files)[1]
         assert mine.endswith(",by=pv,at=100,pieces=largest,least=1024"), mine
