@@ -33,6 +33,14 @@ Older history lives elsewhere and is not copied here:
   The held mask left 115, 69 and 6 px on 1015, 1018 and 1023: her fingertips, her fist and forearm, and on 1015
   the rim of a white egg she holds at her chin. This is mrtwo's rule of 2026-10-14 after 21:18Z for held things
   she touches near her face, widened from 1010d's "fingers and hand" to name the egg.
+- **The outside reviewer talks to the lead through files, and gets the playback questions** (the owner, about
+  15:20Z-15:30Z in the lead's terminal). From today the owner relays nothing between the Gemini reviewer and the
+  sessions: requests go in `internal/gemini/<date>_requests.md` from the lead, and answers come back in the
+  reviewer's own files plus a line in `<date>_outbox.md`. The reviewer wrote its own way to wait for work. The
+  owner: it was trained on video and audio and sees motion and hears sound natively, so use that. The lead gives
+  it the watching (motion, flicker, a mouth with the singing, eyes) on the stacked clips with sound. What it used
+  to be: on 10/14 the owner pointed it at each piece of work and relayed its notes. Where it lives: `AGENTS.md`,
+  "How the owner and the sessions talk" (a264a5da).
 - **The owner's two pages move to the video's folder and stay there** (the owner, about 15:24Z in the lead's
   terminal). `PROVENANCE.html` and `TO_REVIEW.html` are written to `Video/fun/` on the share, one copy each,
   made new by the lead after every landing or stopped load from the newest ledger and table
