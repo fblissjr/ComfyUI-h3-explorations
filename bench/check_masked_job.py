@@ -434,6 +434,9 @@ def a_load_lands_on_the_inputs_it_names():
     assert run["extent"] == "first_seconds" and abs(run["extent.seconds"] * cfg.FPS - WHOLE["frames"]) < 1e-6, "the extent is not the load's frames"
     assert run["filename_prefix"] == graphs.run_prefix(LOAD_JOB, WHOLE, False) and run["timeline"] == "", "prefix or timeline"
     assert "continue_from" not in run and "context_noise" not in run, "a load of its own is given kept frames"
+    assert "save_kept" not in run, "a load that did not ask saves what the composite kept"
+    asked = _a_load({**WHOLE, "save_kept": True}, FILES_WHOLE)
+    assert asked[graphs._the(asked, graphs.SONG)]["inputs"].get("save_kept") is True, "a load that asked does not save what the composite kept"
     audio = g[run["audio"][0]]
     assert audio["class_type"] == "VHS_LoadAudio" and audio["inputs"]["audio_file"] == WHOLE["audio"], "the audio file"
     assert abs(audio["inputs"]["seek_seconds"] * cfg.FPS - (WHOLE["first"] - WHOLE["audio_first"])) < 1e-3, "the audio does not start on the load's first frame"

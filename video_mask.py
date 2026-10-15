@@ -854,7 +854,7 @@ REGION_VERSION = 2
 
 
 def save_window_region(path: str, mask: torch.Tensor, tokens: torch.Tensor, source: dict, margin,
-                       first_frame: int, trim: int) -> str:
+                       first_frame: int, trim: int, kept: torch.Tensor | None = None) -> str:
     """Write what a window's composite was run with, beside the window's latent, losslessly.
 
     The window's fitted mask (bits, packed along the width) and its token region, as `window` returned them,
@@ -862,6 +862,10 @@ def save_window_region(path: str, mask: torch.Tensor, tokens: torch.Tensor, sour
     `REGION_SETTINGS` of the source. With the window's stored latent and the source's own frames that is
     everything `lay_window` takes, so a render can be laid again without its tracker or its graph. A render
     whose tracker ran inside its own graph used to leave its mask nowhere. Written whole or not at all.
+
+    With `kept` (the song node's `save_kept`, 2026-10-15): what the composite kept of the render, its weight over
+    one half on each of the window's frames (the white outline of the mask review), packed like the mask. A
+    review clip draws it from here; until then it was only burned into the review's picture.
     """
     settings = {k: source.get(k) for k in REGION_SETTINGS}
     meta = {"version": REGION_VERSION, "first_frame": int(first_frame), "trim": int(trim), "frames": int(mask.shape[0]),
@@ -869,18 +873,23 @@ def save_window_region(path: str, mask: torch.Tensor, tokens: torch.Tensor, sour
             # None, or the box this window was rendered in (`zoomed_source`): the mask and the tokens are then
             # of the ZOOMED picture, and a reader that lays them or counts their cells maps through the box
             "zoom": source.get("zoom")}
+    extra = {}
+    if kept is not None:
+        meta["kept"] = "what the composite kept of the render: its weight over one half, the window's frames, packed like the mask"
+        extra["kept"] = np.packbits((kept > 0.5).cpu().numpy(), axis=-1)
     part = path + ".part"
     with open(part, "wb") as f:
         np.savez_compressed(
             f, mask=np.packbits((mask > 0.5).cpu().numpy(), axis=-1), tokens=(tokens > 0.5).cpu().numpy().astype(np.uint8),
             margin=(margin.cpu().numpy() if torch.is_tensor(margin) else np.asarray(int(margin))).astype(np.int64),
-            meta=np.asarray(json.dumps(meta)))
+            meta=np.asarray(json.dumps(meta)), **extra)
     os.replace(part, path)
     return path
 
 
 def load_window_region(path: str) -> dict:
-    """A window's saved region as `lay_window` takes it: `mask` [F, H, W] and `tokens` [latent_t, h, w] of 0 or 1,
+    """A window's saved region as `lay_window` takes it: `mask` [F, H, W] and `tokens` [latent_t, h, w] of 0 or 1
+    (and `kept` [F, H, W] of 0 or 1 when the render saved it, `save_kept`),
     `margin` (a number, or a [F] tensor when it was each frame's own), `first_frame`, `trim`, `source`, and
     `zoom`: None, or the box of the load's frames the window was rendered in, when the mask and the tokens are
     of that box scaled to the canvas and not of the whole frame (`zoomed_source`)."""
@@ -890,6 +899,8 @@ def load_window_region(path: str) -> dict:
         margin = z["margin"]
         out = {"mask": torch.from_numpy(mask).to(torch.float32), "tokens": torch.from_numpy(z["tokens"]).to(torch.float32),
                "margin": int(margin) if margin.ndim == 0 else torch.from_numpy(margin).long()}
+        if "kept" in z.files:
+            out["kept"] = torch.from_numpy(np.unpackbits(z["kept"], axis=-1)[..., :int(meta["width"])]).to(torch.float32)
     return {**out, "first_frame": int(meta["first_frame"]), "trim": int(meta["trim"]), "source": dict(meta["source"]),
             "zoom": meta.get("zoom")}
 

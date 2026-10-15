@@ -89,7 +89,10 @@ windows are joined, so the pair plays in step with one track. Each window render
 a source also leaves `..._region.npz` beside its latent (2026-10-10): the
 fitted mask, the token region and the settings its composite was run with
 (`video_mask.save_window_region`), which with the stored latent is what
-`bench/recomposite_window.py` needs to lay the window again.
+`bench/recomposite_window.py` needs to lay the window again. With
+`save_kept` on (2026-10-15) it also holds what the composite kept of the render
+(`kept`, the review's white outline as a mask), for a review clip to draw; with
+`keep_windows` off it goes with the window's other files.
 With `render_region` zoomed on the source (2026-10-10) the whole run is made
 on one box of the load scaled to the canvas (`video_mask.zoomed_source`, once,
 before anything reads the source): each window is sampled, decoded and laid
@@ -568,6 +571,12 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                                         "window's first new frame can differ from the last frame written before "
                                         "it. Those frames are not written either way. With a source video only "
                                         "the region's share of them is affected: the rest stays the source's.")),
+                # appended 2026-10-15 (the lead, for the review clips): what the composite kept, as data
+                io.Boolean.Input("save_kept", default=False, optional=True,
+                                 tooltip=("Also saves what the composite kept of the render, frame by frame, into "
+                                          "each window's region file beside its latent (the white outline of the "
+                                          "mask review, as a mask a tool can read). Off saves nothing more. Needs "
+                                          "a Masked Source on `source`.")),
             ],
             outputs=[
                 io.String.Output(display_name="path"),
@@ -591,7 +600,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 width, height, window_frames, context_frames, extent, seed, audio_mask, level,
                 filename_prefix, crf, save_metadata_png=True, keep_windows=True, references=None,
                 lists=None, source=None, save_mask_review=True,
-                continue_from="", context_noise=CONTEXT_NOISE) -> io.NodeOutput:
+                continue_from="", context_noise=CONTEXT_NOISE, save_kept=False) -> io.NodeOutput:
         import folder_paths
         # A DynamicCombo arrives as one nested dict (the selection under its own
         # id, the option's inputs beside it) or, from an API prompt that sets
@@ -803,7 +812,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
             lap.clear()
             clock[0] = time.perf_counter()
             latent, _count = _empty_av_latent(width, height, w.frames)
-            src_pixels = src_tokens = src_mask = kept = None
+            src_pixels = src_tokens = src_mask = kept = kept_weight = None
             if source is not None:
                 # this window starts from the source's own frames over its span
                 empty_video, empty_audio = latent["samples"].unbind()
@@ -919,6 +928,8 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 # through the window's write for that, and freed after the review, where it used to be
                 # freed here
                 kept = alpha if source.get("composite") == video_mask.COMPOSITE_CHANGED else None
+                # the composite's weight whatever the composite is, for the region file when `save_kept` asks for it
+                kept_weight = alpha if save_kept else None
                 del alpha
                 mark("composite")
             elif zoom is not None and src_pixels is not None:
@@ -963,7 +974,9 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 # again from its own files; a failure here costs that and not the render
                 try:
                     video_mask.save_window_region(region_path, src_mask, src_tokens, source, margin,
-                                                  int(round(w.start * FPS)), int(trim))
+                                                  int(round(w.start * FPS)), int(trim), kept=kept_weight)
+                    if kept_weight is not None:
+                        reports.append(f"[{w.number}] what the composite kept is saved in {os.path.basename(region_path)}")
                 except Exception as exc:  # noqa: BLE001 -- the window's video is already written
                     reports.append(f"[{w.number}] the window's region was NOT saved; the window's video is "
                                    f"unaffected: {type(exc).__name__}: {exc}")
@@ -985,7 +998,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 if why:
                     reports.append(f"[{w.number}] mask review FAILED; the window's video is unaffected: {why}")
                 mark("mask review")
-            del images, kept, zoomed_images
+            del images, kept, zoomed_images, kept_weight
             reports.append(f"[{w.number}] seconds: " + ", ".join(f"{name} {took:.1f}" for name, took in lap.items()))
 
         # join, and mux the whole track cut to the video

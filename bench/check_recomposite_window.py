@@ -157,6 +157,23 @@ def saved_region() -> str:
             f"both; the laying is {off['most']} levels from its own video at most")
 
 
+def what_was_kept() -> str:
+    """`save_kept` (2026-10-15): what the composite kept, saved into the window's region file with the mask's own frames and read
+    back the same; a region saved without it holds no such key and reads with none, as every render before it."""
+    mask, tokens = MADE["mask"], MADE["tokens"]
+    alpha = vm.lay_window(MADE["decode"], MADE["pixels"], tokens, mask, MADE["settings"], MARGIN, FIRST)[1]
+    path = WORK / "kept_region.npz"
+    vm.save_window_region(str(path), mask, tokens, MADE["settings"], MARGIN, FIRST, TRIM, kept=alpha)
+    got = vm.load_window_region(str(path))
+    assert "kept" in got and tuple(got["kept"].shape) == tuple(mask.shape), got.keys()
+    assert torch.equal(got["kept"], (alpha > 0.5).float()), "what was kept does not read back as the composite's weight over one half"
+    assert float(got["kept"].sum()) > 0 and float(got["kept"].sum()) < got["kept"].numel(), "the fixture keeps all or nothing"
+    plain = WORK / "plain_region.npz"
+    vm.save_window_region(str(plain), mask, tokens, MADE["settings"], MARGIN, FIRST, TRIM)
+    assert "kept" not in vm.load_window_region(str(plain)) and "kept" not in np.load(plain).files
+    return f"what the composite kept, {int(got['kept'].sum())} pixels over {mask.shape[0]} frames, read back as saved; none saved without the switch"
+
+
 def the_settings() -> str:
     calls = []
     want = [LEAD + FIRST + f for f in range(CUT)]
@@ -329,6 +346,7 @@ def zoomed() -> str:
 
 
 case("a window with its saved region", saved_region)
+case("what the composite kept, saved with the region", what_was_kept)
 case("the settings of each laying", the_settings)
 case("the decode is kept", the_decode)
 case("a box before and after the composite", a_box)

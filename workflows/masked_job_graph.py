@@ -799,6 +799,9 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
     if one.get("continue_from"):
         run["continue_from"] = one["continue_from"]
         run["context_noise"] = one.get("context_noise", MASKED_JOB_CONTEXT_NOISE)
+    # what the composite kept, saved into each window's region file for the review clips (2026-10-15): only when the load asks
+    if one.get("save_kept"):
+        run["save_kept"] = True
     if one.get("audio"):
         # a file in place of the source's track, cut the same way: left to run past the load's last frame it
         # makes the song node write frames to fill it
