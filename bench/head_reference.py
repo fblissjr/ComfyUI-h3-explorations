@@ -447,7 +447,8 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         leave_out: frozenset = frozenset({FORM_LEAVES_OUT}), dots: bool = False, iris: str = faces.IRIS_FORMS[0], repo: Path = REPO,
         mouth: str | None = None, mouth_why: str = "", classes: str | None = None, classes_first: int | None = None,
         no_mouth_on: list[tuple[int, int, str]] | None = None, over_the_eyes: list[tuple[int, int, str]] | None = None,
-        no_face_on: list[tuple[int, int, str]] | None = None, class_mouth_needs_hole: str | None = None, say=print) -> dict:
+        no_face_on: list[tuple[int, int, str]] | None = None, class_mouth_needs_hole: str | None = None,
+        eyes_shut_on: list[tuple[int, int, str]] | None = None, eyes_shut_form: str | None = None, say=print) -> dict:
     """Cut, cut, draw, record. Returns the record; `passed` is True only when all three steps passed.
 
     `no_face_on`: source frames on which no line of the face is drawn at all, the plain cut body model alone (the load's part is
@@ -455,6 +456,11 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     as on a plain face while her face was hidden behind her hands). Those frames have no mouth either; where they cover the whole
     span, the record lists every part as left out."""
     faceless = sorted({f for a, b, _ in no_face_on or [] for f in range(max(a, first), min(b, first + count - 1) + 1)})
+    # HER EYES SHUT ON A SPAN, on a person's word (`--eyes-shut-on` with `--eyes-shut-form`, the lead's ruling of 2026-10-15 on 2823b;
+    # `draw_face_points.EYES_SHUT_FORMS` says why and what each form draws). The pose model's lids stop at a slit on a shut eye
+    shut = sorted({f for a, b, _ in eyes_shut_on or [] for f in range(max(a, first), min(b, first + count - 1) + 1)} - set(faceless))
+    if eyes_shut_on and eyes_shut_form not in faces.EYES_SHUT_FORMS:
+        raise SystemExit(f"--eyes-shut-on takes --eyes-shut-form, one of {faces.EYES_SHUT_FORMS}; got {eyes_shut_form!r}")
     if out.suffix != ".mp4":
         raise SystemExit(f"--out {out} must end in .mp4: the other files are named from it")
     made = outputs(out)
@@ -594,12 +600,17 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     if faceless:
         say(f"    NO FACE LINES on {len(faceless)} of {count} frames ({', '.join(f'{a}-{b}' if a != b else str(a) for a, b in spans_of(faceless))}): "
             + "; ".join(why for _, _, why in no_face_on))
+    if shut:
+        say(f"    HER EYES SHUT on {len(shut)} of {count} frames ({', '.join(f'{a}-{b}' if a != b else str(a) for a, b in spans_of(shut))}), drawn "
+            f"{eyes_shut_form!r}: " + "; ".join(why for _, _, why in eyes_shut_on or []))
     say(f"3 of 3: the face drawn on the cut body model, {width:g} px, {'a dot at every point' if dots else 'no dots'}"
         + (f", left out: {', '.join(sorted(leave_out))}" if leave_out else "")
         + ((", the mouth from the class map" if lines else ", the class map's mouth a frame at a time") if mouths else ""))
     drawn = faces.run(str(made["plain_cut"]), str(made["plain_cut_points"]), first, count, out, by, width=width, dots=dots, leave_out=leave_out,
                       source=str(made["source_cut"]), source_first=first, iris=iris, mouths=mouths, mouth_lines=lines, no_mouth=no_mouth,
                       class_mouth_frames=by_class, bare=faceless,
+                      eyes_shut=shut, eyes_shut_form=eyes_shut_form if shut else None,
+                      eyes_shut_by="; ".join(f"{a_}-{b_}: {why}" for a_, b_, why in eyes_shut_on or []),
                       bare_by="; ".join(f"no face lines: {why}" for _, _, why in no_face_on or []), say=quiet)
     fit = drawn["read_back"]["white_from_the_lines_px_mean_by_frames_of_slip"]
     say(f"    white {fit['0']} px from its own frame's lines, {fit['1']} and {fit['-1']} from the neighbours'; "
@@ -635,7 +646,11 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         "drawn": {"line_width_px": drawn["line_width_px"], "width_set_by": "--width" if width != FORM_WIDTH else "FORM_WIDTH, the first references' own",
                   "a_dot_at_every_point": drawn["a_dot_at_every_point"], "points_drawn_alone": drawn["points_drawn_alone"],
                   "parts_left_out": drawn["parts_left_out"], "eye_rings": drawn["eye_rings"], "iris": iris, "frames_left_bare": drawn["frames_left_bare"],
-                  **({"mouth": mouth_said} if mouth_said else {})},
+                  **({"mouth": mouth_said} if mouth_said else {}),
+                  **({"eyes_shut": {"form": eyes_shut_form, "frames": spans_of(shut), "on_whose_word": [{"first": a_, "last": b_, "why": why}
+                                                                                                        for a_, b_, why in eyes_shut_on or []],
+                                    "drawn_shut_on": spans_of((drawn.get("frames_with_the_eyes_shut") or {}).get("frames") or [])}}
+                     if shut else {})},
         "read_backs": {"the_cut_body_model": cut["read_back"], "the_cut_source": under["read_back"], "the_drawing": drawn["read_back"]},
         "body_model_against_the_source": drawn["body_model_against_the_source"],
         "face_on_the_track": on_track,
@@ -696,6 +711,11 @@ def main() -> int:
     a.add_argument("--over-the-eyes", action="append", default=[], metavar="FIRST-LAST=WHY",
                    help="source frames on which the plan gives back a class over her eyes (OVER_THE_EYES, her own glasses): the face counts as on "
                         "her track there when the lower face's middle is; repeatable")
+    a.add_argument("--eyes-shut-on", action="append", default=[], metavar="FIRST-LAST=WHY",
+                   help="source frames on which her eyes are shut, on a person's word on a look (the pose model's lids stop at a slit): drawn "
+                        "by --eyes-shut-form; repeatable")
+    a.add_argument("--eyes-shut-form", choices=faces.EYES_SHUT_FORMS,
+                   help="what is drawn for her eyes on the --eyes-shut-on frames: none (no eye, the body model's own) or lids (each shut as one line)")
     a.add_argument("--names", help="a json list of the points' names, for a points file made before they were kept")
     a.add_argument("--mesh-first", type=int, help="the source frame of the body-model video's frame 0; the span's first when left out")
     a.add_argument("--points-first", type=int, help="the source frame of the points file's row 0; the file's own when it says")
@@ -705,7 +725,8 @@ def main() -> int:
               width=v.width, room=v.room, leave_out=faces.parts_arg(v.leave_out), dots=v.dots, iris=v.iris, mouth=v.mouth, mouth_why=v.mouth_why,
               classes=v.classes, classes_first=v.classes_first, no_mouth_on=[no_mouth_arg(x) for x in v.no_mouth_on],
               over_the_eyes=[no_mouth_arg(x, "--over-the-eyes") for x in v.over_the_eyes],
-              no_face_on=[no_mouth_arg(x, "--no-face-on") for x in v.no_face_on], class_mouth_needs_hole=v.class_mouth_needs_hole)
+              no_face_on=[no_mouth_arg(x, "--no-face-on") for x in v.no_face_on], class_mouth_needs_hole=v.class_mouth_needs_hole,
+              eyes_shut_on=[no_mouth_arg(x, "--eyes-shut-on") for x in v.eyes_shut_on], eyes_shut_form=v.eyes_shut_form)
     return 0 if rec["passed"] else 1
 
 

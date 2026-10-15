@@ -227,6 +227,54 @@ def frames_from_the_middle() -> str:
     return "frames 105 to 116 of a body-model video from 95 and points from 100: each written frame is its own mesh frame with its own face"
 
 
+def eyes_shut() -> str:
+    """The lead's ruling of 2026-10-15 on 2823b (`--eyes-shut-on`): the pose model's lids stop at a slit on a shut eye, so on frames a
+    person names the eye is drawn shut. "none": no lash ring, lid or crease line, iris or sclera; "lids": each eye one line, no iris."""
+    import cv2
+    from _lib import face_points as fp
+    kw = dict(width=WIDE, iris="contrast", say=quiet)
+    df.run(str(MESH), str(POINTS), 0, N, WORK / "open.mp4", "the check", **kw)
+    none = df.run(str(MESH), str(POINTS), 0, N, WORK / "shut_none.mp4", "the check", eyes_shut=[6, 7], eyes_shut_form="none", eyes_shut_by="A LOOK", **kw)
+    lids = df.run(str(MESH), str(POINTS), 0, N, WORK / "shut_lids.mp4", "the check", eyes_shut=[6, 7], eyes_shut_form="lids", eyes_shut_by="A LOOK", **kw)
+    pts = df.rows_of(str(POINTS), None, 0, N, None)[0]
+
+    def in_the_eyes(path, f):
+        got = white(path, N)[f]
+        m = np.zeros((H, W), np.uint8)
+        for ring in fp.lid_rings(pts["keypoints"][f], pts["index"]):
+            cv2.fillPoly(m, [np.round(ring).astype(np.int32)], 1)
+        m = cv2.dilate(m, np.ones((3, 3), np.uint8)).astype(bool)
+        return int((got & m).sum())
+    opened, shut_none, shut_lids = (in_the_eyes(WORK / x, 6) for x in ("open.mp4", "shut_none.mp4", "shut_lids.mp4"))
+    # THE CASE THAT GOES RED when an eye named shut is still drawn open (its ring, its sclera), or "lids" draws no line there
+    assert opened > 0 and shut_none == 0 and 0 < shut_lids < opened, (opened, shut_none, shut_lids)
+    # the other frames are drawn as before, and the record says which frames, in which form, on whose word
+    # (the codec carries a few edge pixels across frames, so a neighbour is held to the drawing's own, not to the bit)
+    before, after = white(WORK / "open.mp4", N), white(WORK / "shut_none.mp4", N)
+    moved = [int((before[f] ^ after[f]).sum()) for f in (4, 5, 8, 9)]
+    assert max(moved) <= 0.02 * min(int(before[f].sum()) for f in (4, 5, 8, 9)), ("a frame not named shut changed", moved)
+    assert none["frames_with_the_eyes_shut"] == {"frames": [6, 7], "form": "none", "by": "A LOOK"} and lids["frames_with_the_eyes_shut"]["form"] == "lids", none
+    assert none["passed"] and lids["passed"], (none["read_back"], lids["read_back"])
+    # the ring record does not call a shut frame's ring left out by its score, and the brows stay on a shut frame
+    assert not {6, 7} & {f for v in none["eye_rings"]["frames_a_ring_is_left_out_on"].values() for f in v}, none["eye_rings"]
+    brows = np.zeros((H, W), np.uint8)
+    for side in fp.SIDES:
+        cv2.fillPoly(brows, [np.round(pts["keypoints"][6][[i for k, i in pts["index"].items() if k.endswith(f"_of_{side}_eyebrow") or k == f"end_of_{side}_eyebrow"]]).astype(np.int32)], 1)
+    brows = cv2.dilate(brows, np.ones((5, 5), np.uint8)).astype(bool)
+    assert int((white(WORK / "shut_none.mp4", N)[6] & brows).sum()) > 0.8 * int((white(WORK / "open.mp4", N)[6] & brows).sum()) > 0, "the brows went with the eyes"
+    # in the default form too (the iris as rings between the lids), no ring of a shut eye is drawn
+    df.run(str(MESH), str(POINTS), 0, N, WORK / "shut_rings.mp4", "the check", width=WIDE, eyes_shut=[6], eyes_shut_form="none", eyes_shut_by="A LOOK", say=quiet)
+    assert in_the_eyes(WORK / "shut_rings.mp4", 6) == 0, in_the_eyes(WORK / "shut_rings.mp4", 6)
+    for bad in (dict(eyes_shut_form=None, eyes_shut_by="A LOOK"), dict(eyes_shut_form="wide", eyes_shut_by="A LOOK"), dict(eyes_shut_form="none", eyes_shut_by=" ")):
+        try:
+            df.run(str(MESH), str(POINTS), 0, N, WORK / "x.mp4", "the check", eyes_shut=[6], **bad, **kw)
+        except SystemExit as exc:
+            assert "--eyes-shut-on takes a form" in str(exc), exc
+        else:
+            raise AssertionError(f"taken: {bad}")
+    return f"white inside her eyes on a frame named shut: {opened} px open, {shut_none} with no eye, {shut_lids} with the lids shut; other frames as before"
+
+
 def bare_frames() -> str:
     rec = df.run(str(MESH), str(POINTS), 0, N, WORK / "bare.mp4", "the check", width=WIDE, bare=[6, 7, 30], bare_by="a person", say=quiet)
     got = white(WORK / "bare.mp4", N).sum((1, 2))
@@ -484,6 +532,7 @@ def the_iris_between_the_lids() -> str:
             "is drawn closed and one wholly outside not at all; on nearly shut lids the default draws open stretches and `whole` both rings closed")
 
 case("the iris between the lids", the_iris_between_the_lids)
+case("her eyes shut on a person's word, in either form", eyes_shut)
 case("the lines run through their points in order, and are as long as they say", in_order_and_as_long)
 case("the lines are where the points are", where_the_points_are)
 case("frames from the middle of both files", frames_from_the_middle)

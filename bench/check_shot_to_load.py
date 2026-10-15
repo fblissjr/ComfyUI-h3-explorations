@@ -961,7 +961,7 @@ def who_else_is_in_the_shot() -> str:
     reads it from the preview's own tables and the owner's answers (bench/others_present.py), prints it among the defaults,
     and keeps the strangers out by it: where someone else is there or the frames shown cannot say, and on no load where nobody
     is, whatever the plan's key; the plan's key only where it is not known."""
-    def load_with(made, people, plan_keep=None, not_people=None, no_strangers=None, no_mouth_on=None):
+    def load_with(made, people, plan_keep=None, not_people=None, no_strangers=None, no_mouth_on=None, eyes_shut_on=None, eyes_shut_form=None):
         if plan_keep is not None:
             made.plan["subjects"]["a"].update(keep_outs=plan_keep, keep_outs_by="a person: the plan's own")
         if not_people is not None:
@@ -976,7 +976,8 @@ def who_else_is_in_the_shot() -> str:
                  "people": [{"person": n, "box": box, "share_of_frame": share, "held_by_another_tracker": False} for n, box, share in people]}]}))
         saved = json.loads((folder / "preview.queued.json").read_text())["files"]
         return stl.load_job(shots, plan, stl.shot_of(shots, 100), "a", pjob["job"], str(folder), "v", made.m.output, "the session", "2026-01-03", "a_fp_0100",
-                            now="now", preview_files=saved, cast=[], cast_from="cast.jsonl", no_strangers=no_strangers, no_mouth_on=no_mouth_on)
+                            now="now", preview_files=saved, cast=[], cast_from="cast.jsonl", no_strangers=no_strangers, no_mouth_on=no_mouth_on,
+                            eyes_shut_on=eyes_shut_on, eyes_shut_form=eyes_shut_form)
     ours = [(1, [0, 0, 10, 10], 0.1), (2, [20, 0, 10, 10], 0.1), (3, [40, 0, 10, 10], 0.1)]
     with tempfile.TemporaryDirectory() as tmp:
         d = load_with(Made(Path(tmp)), ours + [(4, [55, 30, 5, 5], 0.01)])
@@ -1026,6 +1027,20 @@ def who_else_is_in_the_shot() -> str:
         assert stl.no_mouth_on_arg("1011=X") == (1011, 1011, "X")
         refused(lambda: stl.no_mouth_on_arg("1011-1018"), "with the why")
         refused(lambda: stl.no_mouth_on_arg("1011-1017-1030=X"), "is not FIRST-LAST=WHY")
+        # HER EYES SHUT ON A SPAN on a person's word (--eyes-shut-on with --eyes-shut-form, the lead's ruling of 2026-10-15 on 2823b)
+        look = f"G3 LOOKED at every frame, {sheet}"
+        refused(lambda: load_with(Made(Path(tmp) / "e1"), ours, eyes_shut_on=[(110, 115, look)]), "go together")
+        refused(lambda: load_with(Made(Path(tmp) / "e2"), ours, eyes_shut_on=[(110, 115, look)], eyes_shut_form="wide"), "go together")
+        refused(lambda: load_with(Made(Path(tmp) / "e3"), ours, eyes_shut_on=[(110, 115, "G3 looked")], eyes_shut_form="lids"), "name its")
+        refused(lambda: load_with(Made(Path(tmp) / "e4"), ours, eyes_shut_on=[(150, 170, look)], eyes_shut_form="lids"), "the load is 100-159")
+        eyes = load_with(Made(Path(tmp) / "e5"), ours, eyes_shut_on=[(110, 115, look)], eyes_shut_form="lids")
+        eye_row = {x["what"]: x for x in eyes["job"]["defaults"]}["the eye"]
+        # THE CASE THAT GOES RED when a person's shut-eye span is not kept in the job, said among the defaults, or passed on with its form
+        assert eyes["job"]["reference"]["iris"]["eyes_shut"]["form"] == "lids" and "SHUT on 110-115 (drawn 'lids')" in eye_row["carries"] \
+            and "G3 LOOKED" in eye_row["from"], (eyes["job"]["reference"]["iris"], eye_row)
+        flags = stl.drawn_form(eyes["job"], args(), {"classes": Path("/c.mkv")}, 100)
+        assert flags[flags.index("--eyes-shut-on") + 1].startswith("110-115=a person's word on a look (the session, now): G3 LOOKED") \
+            and flags[flags.index("--eyes-shut-form") + 1] == "lids", flags
     with tempfile.TemporaryDirectory() as tmp:
         # nobody else: no strangers keep-out, though the plan names one; the plan's other keep-outs stand
         d = load_with(Made(Path(tmp)), ours, plan_keep=["held", "strangers"])
@@ -1204,6 +1219,10 @@ def a_load_of_some_of_its_parts() -> str:
         # no reference video, so no mouth to leave out of it (--no-mouth-on)
         refused(lambda: made.load(subject="b", name="b_hp_0100", parts=["hair"], parts_by=why, motion="none", motion_why="X",
                                   no_mouth_on=[(110, 115, "X")]), "this load has none (--motion none)")
+        refused(lambda: made.load(subject="b", name="b_hp_0100", parts=["hair"], parts_by=why, motion="none", motion_why="X",
+                                  eyes_shut_on=[(110, 115, "X")], eyes_shut_form="none"), "this load has none (--motion none)")
+        refused(lambda: made.load(subject="b", name="b_hp_0100", parts=["hair"], parts_by=why, eyes_shut_on=[(110, 115, "X")], eyes_shut_form="none"),
+                "her hair alone")
         jf = Path(tempfile.mkdtemp(prefix="motion_none_")) / "b_hp_0100.json"
         jf.write_text(json.dumps(bare))
         a_ = args()
@@ -1619,6 +1638,29 @@ def the_reference_step() -> str:
         # THE CASE THAT GOES RED when --existing takes a drawing with a mouth on frames a person's word says have none
         refused(lambda: stl.step_reference(e, made.m, figures), "--existing", "draws a mouth on 6 frame(s)", "first 110, last 115")
         mouthed["drawn"]["mouth"]["no_mouth_on"]["no mouth there on the job's word"] = [[110, 115]]
+        drawn.with_suffix(".json").write_text(json.dumps(mouthed))
+        stl.step_reference(e, made.m, figures)
+        # and with her eyes named shut: taken only where the reference drew them shut, in the job's form
+        shut_job = made.load(first=104, frames=40, why="a look cut it", name="a_fp_0104d", eyes_shut_on=[(110, 115, f"G3 LOOKED at {sheet}")],
+                             eyes_shut_form="none")
+        shut_file = made.jobs / "a_fp_0104d.json"
+        shut_file.write_text(json.dumps(shut_job))
+        e.job_file = str(shut_file)
+        # THE CASE THAT GOES RED when --existing takes a drawing whose eyes are open on frames a person's word says are shut
+        refused(lambda: stl.step_reference(e, made.m, figures), "--existing", "does not draw her eyes shut")
+        mouthed["drawn"]["eyes_shut"] = {"form": "lids", "frames": [[110, 115]]}
+        drawn.with_suffix(".json").write_text(json.dumps(mouthed))
+        refused(lambda: stl.step_reference(e, made.m, figures), "--existing", "does not draw her eyes shut")
+        mouthed["drawn"]["eyes_shut"] = {"form": "none", "frames": [[110, 115]], "on_whose_word": [{"first": 110, "last": 115, "why": "x"}],
+                                         "drawn_shut_on": [[110, 113]]}
+        drawn.with_suffix(".json").write_text(json.dumps(mouthed))
+        # THE CASE THAT GOES RED when --existing takes a drawing that shut only some of the frames it meant to
+        refused(lambda: stl.step_reference(e, made.m, figures), "--existing", "does not draw her eyes shut")
+        mouthed["drawn"]["eyes_shut"]["drawn_shut_on"] = [[110, 115]]
+        drawn.with_suffix(".json").write_text(json.dumps(mouthed))
+        stl.step_reference(e, made.m, figures)
+        # a frame with no face is not shut by head_reference: its own frames are compared, not the spans'
+        mouthed["drawn"]["eyes_shut"].update(frames=[[110, 112]], drawn_shut_on=[[110, 112]])
         drawn.with_suffix(".json").write_text(json.dumps(mouthed))
         stl.step_reference(e, made.m, figures)
         e.job_file = str(again_file)

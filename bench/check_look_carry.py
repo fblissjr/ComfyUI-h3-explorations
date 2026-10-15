@@ -409,7 +409,23 @@ def the_reader_named_gaps() -> str:
             "record older than its file refuses; the builder's mesh-or-none rule compared; a blind reading's strip bounded by the capture's own time")
 
 
+def shut_eyes_are_a_form() -> str:
+    """Her eyes drawn shut on a person's word (2026-10-15) are a form of their own on those frames: a frame shut in one reference and open
+    in another owes a look."""
+    import json
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        job = Path(tmp) / "job.json"
+        job.write_text(json.dumps({"job": {"reference": {"drawn": {"mouth": {"drawn": True, "frames_by_the_lip_lines": [[0, 9]]}, "iris": "contrast",
+                                                                   "eyes_shut": {"form": "lids", "frames": [[3, 4]], "drawn_shut_on": [[3, 4]]}}}}}))
+        got = lc.drawn_frames(job, 0, 9)
+    # THE CASE THAT GOES RED when a shut frame reads as the same form as an open one
+    assert got[3][1] == "shut, drawn 'lids'" and got[2][1] == "contrast" and got[3][0] == got[2][0], got
+    return "a frame drawn shut is its own eye form; its neighbours keep theirs"
+
+
 case("equal and subset carry", equal_and_subset_carry)
+case("shut eyes are a form", shut_eyes_are_a_form)
 case("larger does not carry", larger_does_not_carry)
 case("a look only when it carries", a_look_only_when_it_carries)
 case("a changed reference needs its check", a_changed_reference_needs_its_check)

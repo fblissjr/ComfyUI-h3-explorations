@@ -105,7 +105,9 @@ def subject_2(drawn: dict | None, moves: str = MOVES["face"]) -> str:
         iris = drawn.get("iris") or "whole"
         if iris not in EYES:
             raise Refused(f"the reference's record says the iris was drawn {iris!r}: no words for it ({', '.join(EYES)})")
-        clauses.append(EYES[iris] + ", and they open, close and look where the person's eyes do")
+        clauses.append(EYES[iris] + ", and they open, close and look where the person's eyes do"
+                       + {"lids": "; where the person's eyes are shut, each eye is drawn as a single closed line",
+                          "none": "; where the person's eyes are shut, no eye is drawn"}.get((drawn.get("eyes_shut") or {}).get("form"), ""))
     if "mouth" in parts:
         clauses.append("the mouth is outlined" + (", dark inside where it is open" if (drawn.get("mouth") or {}).get("inside") == "the class map" else "")
                        + ", and it opens and closes where the person's mouth does")

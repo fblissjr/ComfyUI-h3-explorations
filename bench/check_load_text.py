@@ -63,6 +63,12 @@ def what_a_reference_draws_the_text_says() -> str:
     from_map = s2({"form": "drawn", "drawn": {"parts_left_out": ["mouth"], "iris": "contrast", "mouth": {"drawn": True, "drawn_as": "the class map", "inside": "the class map"}}})
     assert "nose and mouth drawn" in from_map and "the mouth is outlined, dark inside where it is open, and it opens and closes" in from_map, from_map
     assert "dark inside" not in drawn, drawn
+    # HER EYES SHUT on a person's word (2026-10-15): the sentence says how a shut eye is drawn, and says nothing where none is named
+    for form, words in (("lids", "where the person's eyes are shut, each eye is drawn as a single closed line"), ("none", "where the person's eyes are shut, no eye is drawn")):
+        shut = s2({"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast", "mouth": {"drawn": True}, "eyes_shut": {"form": form}}})
+        # THE CASE THAT GOES RED when the text says the eyes are outlined open on frames the reference draws them shut
+        assert words in shut, shut
+    assert "shut" not in drawn, drawn
     left = s2({"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast", "mouth": {"drawn": False}}})
     assert "eyes, eyebrows and nose drawn" in left and "mouth" not in left, left
     assert "a dark iris inside them" in s2({"form": "drawn", "drawn": {"parts_left_out": ["mouth"], "iris": "filled"}})

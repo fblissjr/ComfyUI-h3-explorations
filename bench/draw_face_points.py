@@ -160,6 +160,15 @@ RINGS = ("iris", "pupil")
 #: lash ring filled solid white and the iris solid black, both clipped to the lids, drawn before the lid lines so their
 #: black edge stays round both (drawn after them until an outside reviewer's sheet showed the edge lost).
 IRIS_FORMS = ("between the lids", "whole", "filled", "contrast")
+#: HER EYES SHUT ON A SPAN, on a person's word (`--eyes-shut-on`, the lead's ruling of 2026-10-15 on 2823b, whose eyes never closed in
+#: the render): the pose model's lid points stop at a slit on a closed eye (2823's reference, G3's six closed runs: the drawn opening's
+#: median 0.0105-0.0170 of a face height against 0.0200 open), and nothing else measured tells closed on her (the part model has no eye
+#: class; the dark inside the lids is her makeup; the model's own scores are high either way). On those frames the eye's lash ring,
+#: lid and crease lines, iris and pupil and their fill are not drawn; the brows stay. "none": nothing more, the body model's own eyes
+#: show (whose sculpted eyes are open on every frame); "lids": each eye drawn shut as one line along its upper lash line. Both for one
+#: test (2945-2981), neither a default.
+EYES_SHUT_FORMS = ("none", "lids")
+EYE_PARTS = ("_lash_ring", "_upper_eyelid_line", "_lower_eyelid_line", "_upper_crease_line", "_iris_ring", "_pupil_ring")
 #: Points a ring is sampled at to find where it lies between the lids. Reasoned: a ring is eight points round a
 #: centre; 64 along it puts a sample about every 6 degrees, finer than a line is wide on any face drawn so far.
 RING_SAMPLES = 64
@@ -558,7 +567,8 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
         mesh_first: int | None = None, points_first: int | None = None, width: float | None = None, dots: bool = True,
         leave_out: frozenset = frozenset(), bare: list[int] | None = None, bare_by: str = "", source: str = "", source_first: int = 0,
         iris: str = IRIS_FORMS[0], mouths: list | None = None, mouth_lines: bool = True, no_mouth: list[int] | None = None,
-        class_mouth_frames: list[int] | None = None, say=print) -> dict:
+        class_mouth_frames: list[int] | None = None, eyes_shut: list[int] | None = None, eyes_shut_form: str | None = None,
+        eyes_shut_by: str = "", say=print) -> dict:
     """Draw, write, read back, record. `mouths`: a class-map mouth a frame ((whole, hole) masks of the frame, or None), drawn in
     place of the points' mouth (`head_reference`, `--mouth auto` where the lip check fails and the class map holds the mouth);
     with `mouth_lines` False its lips are painted out and its inside filled under the points' own mouth lines, and no
@@ -588,6 +598,15 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     wide, face, wide_by = width_for(points, width)
     left = {f - first for f in (bare or []) if first <= f < first + count}
     fills = [discs(p, s, idx, line, leave_out) for p, s in zip(points["keypoints"], points["scores"])] if iris in IRIS_FORMS[2:] else None
+    shut = sorted({f - first for f in (eyes_shut or []) if first <= f < first + count})
+    if shut and (eyes_shut_form not in EYES_SHUT_FORMS or not str(eyes_shut_by).strip()):
+        raise SystemExit(f"--eyes-shut-on takes a form, one of {EYES_SHUT_FORMS} (--eyes-shut-form), and whose word it is; got {eyes_shut_form!r}")
+    for f in shut:
+        drawings[f] = [d for d in drawings[f] if not any(d[0] == f"{side}{part}" for side in SIDES for part in EYE_PARTS)]
+        if eyes_shut_form == "lids" and "eyes" not in leave_out:
+            drawings[f] += [(f"{side}_shut_lid", fp._line(points["keypoints"][f], idx, side, "upper"), False) for side in SIDES]
+        if fills:
+            fills[f] = []
     bare_mouth = sorted({f - first for f in (no_mouth or []) if first <= f < first + count})
     for f in bare_mouth:
         drawings[f] = [d for d in drawings[f] if not d[0].endswith("_lip_ring")]
@@ -614,7 +633,7 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     named = [{n for n, _, _ in drawings[f]} | {n for n, _, _ in (fills[f] if fills else [])} for f in range(count)]
     kinds = ("iris",) if fills else RINGS
     shape = "disc" if fills else "ring"
-    rings = {f"{side}_{kind}": [first + f for f in range(count) if f"{side}_{kind}_{shape}" not in named[f]]
+    rings = {f"{side}_{kind}": [first + f for f in range(count) if f"{side}_{kind}_{shape}" not in named[f] and f not in shut]
              for side in SIDES for kind in kinds} if "eyes" not in leave_out else {}
     scores = {k: [round(float(v), 2) for v in np.percentile([ring_scores(s, idx)[k] for s in points["scores"]], [0, 50, 100])] for k in rings}
     fit = {str(k): (None if np.isnan(v) else round(v, 3)) for k, v in lags.items()}
@@ -629,6 +648,7 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
         "lines_px_a_frame_median": round(float(np.median([length(d) for d in drawings])), 1),
         "eye_rings": {"score_at_least": line, "that_line_is": "a starting value from one shot: under it a ring's points lay far off the face",
                       "frames_a_ring_is_left_out_on": rings, "score_a_frame_least_median_most": scores,
+                      "not_counted": "the frames her eyes are drawn shut on a person's word (frames_with_the_eyes_shut): no ring there by that word",
                       "drawn": iris, "drawn_is": {IRIS_FORMS[0]: "only the stretches of each ring between the lids", IRIS_FORMS[1]: "each ring whole",
                                                   IRIS_FORMS[2]: "each iris a dark disc inside the lash ring, and no ring",
                                                   IRIS_FORMS[3]: "inside each lash ring the sclera solid white and the iris solid black, drawn before "
@@ -638,6 +658,7 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
                           for k in rings for vals in [[o[k] for o in offs if k in o]]}},
         "frames_left_bare": sorted(first + f for f in left), "left_bare_by": bare_by,
         "frames_with_no_mouth": [first + f for f in bare_mouth],
+        "frames_with_the_eyes_shut": ({"frames": [first + f for f in shut], "form": eyes_shut_form, "by": eyes_shut_by} if shut else None),
         "frames_with_the_class_maps_own_mouth": sorted(first + f for f in ({f - first for f in (class_mouth_frames or []) if first <= f < first + count}
                                                                           - set(bare_mouth))),
         "not_known": ["whether a head is turned away on any frame: the model places and scores face points on the back of a head",
@@ -671,6 +692,8 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
         say(f"{key} ring: left out on {len(gone)} of {count} frames (score a frame {lo:.2f} to {hi:.2f}, median {mid:.2f}, against {line:g})")
     if back["too_thin"]:
         say(f"on {len(back['too_thin'])} of {count} frames the lines should leave under {THIN_PX:g} pixels of white")
+    if shut:
+        say(f"her eyes drawn shut ({eyes_shut_form!r}) on {len(shut)} of {count} frames, on a person's word: {eyes_shut_by}")
     say(f"frames left bare: {len(left)}" + (f", by {bare_by}" if left else " (none named; a head turned away is not found by this tool)"))
     say("read back: white a frame %d to %d (expected %d to %d); mean distance of the white from its own frame's lines %s px, from the frame before's %s, from the frame after's %s; white on a bare frame %d" % (
         white.min(), white.max(), record["read_back"]["white_px_expected_a_frame"]["least"], record["read_back"]["white_px_expected_a_frame"]["most"],

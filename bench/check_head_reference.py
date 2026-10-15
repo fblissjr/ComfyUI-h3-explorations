@@ -323,6 +323,21 @@ def no_face_where_hair_alone() -> str:
     # THE CASE THAT GOES RED when a reference with no face on any frame records (and the text then says) a drawn mouth
     assert worded["drawn"]["mouth"]["drawn"] is False and lt_says_plain(worded["drawn"]), worded["drawn"]["mouth"]
     assert lt_says_plain(rec["drawn"]), "the text's <Subject 2> still speaks of drawn lines"
+    # HER EYES SHUT on a person's word (--eyes-shut-on, the lead's ruling of 2026-10-15 on 2823b): passed to the drawing, said, recorded,
+    # and not on a frame that has no face at all
+    folder, mesh, pts, source = rooms("eyes_shut", [90] * N, [60] * N, CENTRES, 0)
+    said = []
+    shut = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head.mp4", "the check", room=ROOM, eyes_shut_on=[(2, 4, "G3 LOOKED")],
+                  eyes_shut_form="lids", no_face_on=[(4, 4, "HAIR ALONE")], say=said.append)
+    # THE CASE THAT GOES RED when the shut frames do not reach the drawing, or the record does not say them with their form and word
+    assert shut["drawn"]["eyes_shut"] == {"form": "lids", "frames": [[2, 3]], "on_whose_word": [{"first": 2, "last": 4, "why": "G3 LOOKED"}],
+                                          "drawn_shut_on": [[2, 3]]}, shut["drawn"]
+    assert any("HER EYES SHUT on 2 of 12 frames (2-3), drawn 'lids': G3 LOOKED" in x for x in said), said
+    try:
+        hr.run(str(mesh), str(pts), str(source), 0, N, folder / "x.mp4", "the check", room=ROOM, eyes_shut_on=[(2, 4, "X")], say=lambda *_: None)
+        raise AssertionError("--eyes-shut-on with no form was taken")
+    except SystemExit as e:
+        assert "takes --eyes-shut-form" in str(e), e
     return ("no line of the face on the frames --no-face-on names, the others drawn; over the whole span every part is recorded left out, and "
             "the text's <Subject 2> sentence then speaks of no drawing")
 
