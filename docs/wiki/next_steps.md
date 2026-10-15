@@ -53,6 +53,19 @@ Carried from 2026-10-12: the third subject's other shots, face only, and
 hair band as the fix for 693-703 is now the row "Her hair comes and goes beside
 her head" below: the fault was found elsewhere on 2026-10-14.)
 
+**Masked video to video, 2026-10-15: rows of the day.**
+- **The lead's face-only pieces change her hair too, so each piece's edge is a visible seam** (2026-10-15, the outside
+  reviewer's watch of the 604-1009 cut with sound, `internal/gemini/2026-10-15_watch_0604_1009_and_5675b.md`, section
+  1.2; not yet checked by a session's eye). At 750/751, 778/779, 851/852 and 965/966 her hair snaps between the
+  original's curly strawberry-blonde and the render's darker auburn, not only her face. Likely, NOT VERIFIED: the hair
+  band (a chain default, `h3_config.MASKED_JOB_HAIR_BAND`) regenerates hair round the face, so a piece edge inside a
+  shot shows. Wanted: the hair band's share of each lead piece's region, and the readers of 630d and 805d told to look
+  at her hair on each load's first and last frame. A row, not a job; the owner's eye on the cut decides whether it
+  matters.
+- **The outside reviewer sees video at one frame a second** (its own report, 2026-10-15,
+  `internal/gemini/2026-10-15_clips_review.md` section 1 and C1b; not checked independently). A frame-level question
+  goes to it as frames or a 1 fps companion strip (mrvid's review-clip build), and its answers say which frames it saw.
+
 **Masked video to video, 2026-10-14: rows of the day.**
 - **Gaze is a known limit: the render does not follow a horizontal gaze it is shown, and the pose model misses a
   vertical eye roll** (2026-10-14). On lead_fp_1097b at 1119-1133 her iris sits at +0.25 eye widths to screen right
