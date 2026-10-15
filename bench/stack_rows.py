@@ -2,6 +2,7 @@
 """Clips of the same source frames, one row each, stacked for the owner to judge one against another, with sound.
 
     <python> bench/stack_rows.py build --name LOAD --source SOURCE --first F --last L --out STACKED.mp4 --work FOLDER \\
+        --records data/<video>/review/rows \\
         [--mask ID=MASK.mkv@FRAME]... [--input-label WORDS] \\
         --row "WORDS=CLIP.mp4@FRAME[:canvas|:whole|:top|:bottom]"... [--sound FILE@FRAME] [--one-a-second]
     <python> bench/stack_rows.py check --out STACKED.mp4
@@ -32,8 +33,10 @@ the span. A row whose clip does not hold every frame from `--first` to `--last` 
 are matched by frame number; a row at another rate than the source is said, not refused (a joined clip of `fun.mp4`
 beside the `.mov`'s render is the same frames).
 
-**Its records**: `<out>.json` beside the file (the rows, files and the frames each was read from, the filter each was
-laid with, the masks, the size of each band), which `check` reads, and which the file's metadata names. `--one-a-second` writes the same frames at one a second and no
+**Its records**: `<stem>.json` under `--records` (the rows, files and the frames each was read from, the filter each was
+laid with, the masks, the size of each band), never beside the clip: the clip goes on the share and data does not
+(until 2026-10-15 it was written beside the clip). The clip's metadata names the record's whole path, and `check`
+reads it from there. `--one-a-second` writes the same frames at one a second and no
 sound in parts for the outside reviewer's reader (`_lib.frames.OneASecond`).
 
 **`check`** reads the stacked file back: its frame count against the span (red if not equal), whether it carries
@@ -284,6 +287,11 @@ def build(a: argparse.Namespace) -> None:
     work.mkdir(parents=True, exist_ok=True)
     out = Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)
+    records = Path(a.records).resolve()
+    if records == out.parent.resolve():
+        raise SystemExit("--records is the clip's own folder: the record is data and goes under data/, not beside a clip")
+    records.mkdir(parents=True, exist_ok=True)
+    kept = records / (out.stem + ".json")
     silent = work / (out.stem + ".silent.mp4")
     record = {"made": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"), "name": a.name,
               "source": str(Path(a.source).resolve()), "first": first, "last": last, "row": [w, h], "strip": STRIP,
@@ -292,7 +300,7 @@ def build(a: argparse.Namespace) -> None:
               "masks": [{"id": m["label"], "file": m["file"], "first": m["first"]} for m in masks],
               "rate": rate, "sound": {"file": str(Path(sound_file).resolve()), "first": sound_first, "rate": sv["rate"],
                                       "from_seconds": start, "seconds": length}, "argv": sys.argv[1:]}
-    tag = f"comment=stack_rows first={first} last={last} rows={len(rows_in)} row={w}x{h} strip={STRIP} records={out.with_suffix('.json').name}"
+    tag = f"comment=stack_rows first={first} last={last} rows={len(rows_in)} row={w}x{h} strip={STRIP} records={kept}"
     print(f"{a.name}: source frames {first}-{last} ({n}), {len(rows_in)} row(s) of {w}x{h} under a {STRIP}-pixel strip")
     for r in rows_in:
         print(f"  {r['label']}: {r['file']} ({r['kind']}, from its frame {first - r['first'] if r['kind'] != 'input' else first})")
@@ -345,13 +353,23 @@ def build(a: argparse.Namespace) -> None:
     record["frames_written"], record["one_a_second"] = made, parts
     shutil.move(str(joined), out)
     silent.unlink(missing_ok=True)
-    out.with_suffix(".json").write_text(json.dumps(record, indent=1) + "\n")
-    print(f"wrote {out} ({made} frames) and {out.with_suffix('.json').name}" + (f", {len(parts)} one-a-second part(s)" if parts else ""))
+    kept.write_text(json.dumps(record, indent=1) + "\n")
+    print(f"wrote {out} ({made} frames) and its record {kept}" + (f", {len(parts)} one-a-second part(s)" if parts else ""))
+
+
+def record_of(out: Path) -> Path:
+    """The record's path, from the clip's own metadata (`records=` in its comment)."""
+    tags = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format_tags=comment", "-of", "csv=p=0", str(out)],
+                          capture_output=True, text=True).stdout
+    m = re.search(r"records=(\S+\.json)", tags)
+    if not m:
+        raise SystemExit(f"{out} names no record in its metadata: not a clip this tool made")
+    return Path(m.group(1))
 
 
 def check(a: argparse.Namespace) -> int:
     out = Path(a.out)
-    rec = json.loads(out.with_suffix(".json").read_text())
+    rec = json.loads(record_of(out).read_text())
     w, h = rec["row"]
     n = rec["last"] - rec["first"] + 1
     _w, tall, frames = probe(str(out))
@@ -411,6 +429,7 @@ def main() -> int:
     b.add_argument("--sound", help="FILE@FRAME: the sound's file and the source frame it begins on (default: the source)")
     b.add_argument("--out", required=True)
     b.add_argument("--work", required=True)
+    b.add_argument("--records", required=True, help="the folder under data/ the record goes in (never the clip's own)")
     b.add_argument("--one-a-second", action="store_true")
     c = sub.add_parser("check")
     c.add_argument("--out", required=True)

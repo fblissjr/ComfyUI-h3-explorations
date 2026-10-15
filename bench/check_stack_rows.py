@@ -86,7 +86,8 @@ def world(t: Path) -> dict:
 
 def build(t: Path, w: dict, first: int, last: int, rows: list[str], out: str = "o.mp4") -> subprocess.CompletedProcess:
     cmd = [sys.executable, str(TOOL), "build", "--name", "made", "--source", str(w["src"]), "--first", str(first),
-           "--last", str(last), "--mask", f"a={w['mask']}@2", "--out", str(t / "out" / out), "--work", str(t / "work")]
+           "--last", str(last), "--mask", f"a={w['mask']}@2", "--out", str(t / "out" / out), "--work", str(t / "work"),
+           "--records", str(t / "records")]
     for r in rows:
         cmd += ["--row", r]
     return subprocess.run(cmd, capture_output=True, text=True)
@@ -101,7 +102,8 @@ def rows_on_their_frames() -> str:
                                         f"wide={w['wide']}@6:canvas"])
         assert got.returncode == 0, got.stderr[-2000:]
         out = t / "out" / "o.mp4"
-        rec = json.loads(out.with_suffix(".json").read_text())
+        rec = json.loads((t / "records" / "o.json").read_text())
+        assert not out.with_suffix(".json").exists(), "a record was written beside the clip"
         rw, rh = rec["row"]
         band = rec["strip"] + rh
         n = last - first + 1
@@ -129,21 +131,21 @@ def rows_on_their_frames() -> str:
         # the sound refused where it cannot be cut right: begun after the span's first frame, and a file with no video
         late = subprocess.run([sys.executable, str(TOOL), "build", "--name", "made", "--source", str(w["src"]), "--first", "10",
                                "--last", "20", "--row", f"whole={w['whole']}@3:whole", "--sound", f"{w['src']}@12",
-                               "--out", str(t / "out" / "late.mp4"), "--work", str(t / "work")], capture_output=True, text=True)
+                               "--out", str(t / "out" / "late.mp4"), "--work", str(t / "work"), "--records", str(t / "records")], capture_output=True, text=True)
         assert late.returncode != 0 and "does not hold source frames" in late.stderr, late.stderr[-400:]
         wav = t / "sound.wav"
         ff("-i", str(w["src"]), "-vn", str(wav))
         bare = subprocess.run([sys.executable, str(TOOL), "build", "--name", "made", "--source", str(w["src"]), "--first", "10",
                                "--last", "20", "--row", f"whole={w['whole']}@3:whole", "--sound", f"{wav}@0",
-                               "--out", str(t / "out" / "bare.mp4"), "--work", str(t / "work")], capture_output=True, text=True)
+                               "--out", str(t / "out" / "bare.mp4"), "--work", str(t / "work"), "--records", str(t / "records")], capture_output=True, text=True)
         assert bare.returncode != 0 and "has no video" in bare.stderr, bare.stderr[-400:]
         # refused: a row that does not hold the span
         short = build(t, w, 3, first, [f"canvas={w['canvas']}@5:canvas"], "short.mp4")     # the clip begins on 5
         assert short.returncode != 0 and "not every frame" in short.stderr, short.stderr[-500:]
         # red: a file cut short
         cut = t / "out" / "cut.mp4"
-        ff("-i", str(out), "-frames:v", str(n - 3), "-c:v", "libx264", "-crf", "18", "-c:a", "copy", str(cut))
-        cut.with_suffix(".json").write_text(out.with_suffix(".json").read_text())
+        ff("-i", str(out), "-frames:v", str(n - 3), "-c:v", "libx264", "-crf", "18", "-c:a", "copy", "-map_metadata", "0", str(cut))
+        # the cut file carries the metadata naming the record
         assert subprocess.run([sys.executable, str(TOOL), "check", "--out", str(cut)], capture_output=True).returncode == 1
     return (f"a whole, a canvas, a top-half and a wider canvas row, each beginning on its own source frame, read each "
             f"stacked frame's source frame on all {n}, the wider canvas laid in its own box; the sound is the span's; a "
@@ -202,7 +204,7 @@ def the_sound_at_its_rate() -> str:
         ff("-i", str(t / "ntsc.mov"), "-c:v", "copy", "-c:a", "aac", "-b:a", "256k", str(src))
         got = subprocess.run([sys.executable, str(TOOL), "build", "--name", "made", "--source", str(src), "--first", str(at),
                               "--last", str(at + 10), "--row", f"it={src}@0:whole", "--out", str(t / "o.mp4"), "--work",
-                              str(t / "w")], capture_output=True, text=True)
+                              str(t / "w"), "--records", str(t / "r")], capture_output=True, text=True)
         assert got.returncode == 0, got.stderr[-1500:]
         pcm = subprocess.run(["ffmpeg", "-v", "error", "-i", str(t / "o.mp4"), "-ac", "1", "-ar", "48000", "-f", "s16le", "-"],
                              capture_output=True).stdout
