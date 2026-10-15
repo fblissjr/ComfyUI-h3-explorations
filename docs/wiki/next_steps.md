@@ -96,6 +96,13 @@ her head" below: the fault was found elsewhere on 2026-10-14.)
   whatever the body model puts there. No count yet. The body model's picture has no class map kept, and the source's arm
   inside the head box (the cheap proxy) would measure the source, not the fault (the lead, 2026-10-15). Wanted first:
   a session's look at 1097-1104 of that reference, then a way to find the body model's arm over its head.
+- **A last latent step part held does not damp the render's motion, as far as motion shows** (2026-10-15, the outside
+  reviewer's G3 on lead_fp_2823b, where the render's jaw jumps and freezes on 3096-3097 and the last step holds 3096-3097
+  and two copies; mrlol's measure, `internal/claude/2026-10-15_mrlol_scripts/last_step_motion.txt`). NOT FOUND BY MOTION:
+  the render's mean frame-to-frame change over her face, against the source's, on the last three real frames is
+  1.03-1.07 on 2823b (median over the load 0.97), 1.14-1.25 on 0630d (1.12), 1.20-1.46 on 0751b (1.11) and 1.15-1.40
+  on 0852b (1.00). Each of these has one to three held copies in its last step. G3's freeze may be the jaw's shape on
+  3096-3097, not its motion. No planner change; a look at the jaw's shape would say more.
 - **The capture's `--plan` estimate of the region still models the node's old rule** (2026-10-15, mrlol's cold reader on
   561f385a). `bench/capture_masked_run.py::planned_region` says it is "The Masked Source's rule (`video_mask.window`)", but it
   has none of the three region rules that commit added (`drop_specks`, `close_lone_holes`, `drop_islands`). So its figures
