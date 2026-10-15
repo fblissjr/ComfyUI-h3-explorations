@@ -33,6 +33,13 @@ Older history lives elsewhere and is not copied here:
   The held mask left 115, 69 and 6 px on 1015, 1018 and 1023: her fingertips, her fist and forearm, and on 1015
   the rim of a white egg she holds at her chin. This is mrtwo's rule of 2026-10-14 after 21:18Z for held things
   she touches near her face, widened from 1010d's "fingers and hand" to name the egg.
+- **751b's flicker on 761: a short fill is accepted where the part model labelled nothing** (mrtall's go, after
+  15:14Z, on mrlol's reading of `data/2026-10-14_lead_fp_0751b/subjects/lead/part_grades.json` and
+  `doubted_frames.json`). The rule: a frame the grade empties, inside a "nothing labelled" run of one or two
+  frames, with a part on both neighbours inside the load. Across the 10/14 and 10/15 captures it would change
+  six frames. Corrected: the handover of 10/14 (item 3 (d)) said the hold's first loop emptied 761. It kept the
+  142 px saved speck, and the floor loop emptied it. 761 is empty in either order, so the order is still not the
+  cause. Built in a worktree, landing on the lead's word.
 - **The 2050-2622 shot is built only up to where the group picture starts to warp, about 2205**; the warped
   picture, the spinning ball, its shards and the bubbles wait on the owner (Open List row 1 of 10/15,
   `Video/fun/day_2026-10-15/sheet_2200_2622_every12.jpg`). What it replaces: the 10/14 queue's run 2050-2248,
