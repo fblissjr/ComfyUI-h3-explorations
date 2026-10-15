@@ -578,10 +578,11 @@ def a_loads_name_is_made() -> str:
         given, real = {}, stl.load_job
         try:
             stl.load_job = lambda *x, **k: given.update(k) or (_ for _ in ()).throw(stl.Refused("STOPPED HERE"))
-            refused(lambda: stl.step_job(args(**{**vars(a), "no_face_on": ["120-130=A WORD"], "no_mouth_on": ["121=B"]}), made.m), "STOPPED HERE")
+            refused(lambda: stl.step_job(args(**{**vars(a), "no_face_on": ["120-130=A WORD"], "no_mouth_on": ["121=B"], "seam": "2344,2548"}), made.m),
+                    "STOPPED HERE")
         finally:
             stl.load_job = real
-        assert given["no_face_on"] == [(120, 130, "A WORD")] and given["no_mouth_on"] == [(121, 121, "B")], given
+        assert given["no_face_on"] == [(120, 130, "A WORD")] and given["no_mouth_on"] == [(121, 121, "B")] and given["seam"] == [2344, 2548], given
         stl.step_job(a, made.m)
         assert (made.jobs / "a_fp_0100.json").is_file(), sorted(p.name for p in made.jobs.iterdir())
         refused(lambda: stl.step_job(a, made.m), "a load named a_fp_0100 exists", "--remake")
@@ -1049,34 +1050,64 @@ def who_else_is_in_the_shot() -> str:
         assert stl.no_mouth_on_arg("1011=X") == (1011, 1011, "X")
         refused(lambda: stl.no_mouth_on_arg("1011-1018"), "with the why")
         refused(lambda: stl.no_mouth_on_arg("1011-1017-1030=X"), "is not FIRST-LAST=WHY")
-        # THE SEAM (the owner's word of 2026-10-15, one load a shot, the seam at a frame chosen): the planner's own two-window plans only
+        # THE SEAMS (the owner's words of 2026-10-15: one load a shot, the seam at a frame chosen, and "you can do shorter windows too just
+        # make sure the frame multiples we documented ... are right to avoid seams"): every plan of the planner's chained lengths
         reach = stl.seam_window(406, 90)
         # THE CASE THAT GOES RED when the seams offered are not the song node's planner's, or a one-window load is said to have one
-        assert {k: v[0] for k, v in reach.items()} == {294: 294, 345: 345} and reach[345][1] == [345, 192], reach
+        assert {k: v[0] for k, v in reach.items()} == {(141, 192, 243, 294, 345, 396): 141, (192, 294, 396): 192, (243, 396): 243, (294,): 294, (345,): 345} \
+            and reach[(345,)][1] == [345, 192] and reach[(243, 396)][1] == [243, 243, 141], reach
+        # each later seam is the one before it plus the length of the window between them less the context it shares
+        assert {k: v[0] for k, v in stl.seam_window(573, 90).items()}[(294, 498)] == 294
         # one window holds a load up to the ceiling (2026-10-15), so a load at the ceiling has no seam
         assert stl.seam_window(stl.h3_config.MAX_LENGTH, 90) == {} and stl.seam_window(60, 90) == {}
         assert stl.seam_of(stl.h3_config.MAX_LENGTH, 100, None, None, "s", "n") == (None, None)
-        refused(lambda: load_with(Made(Path(tmp) / "s1"), ours, seam=110, seam_why="A CALM STRETCH"), "one window holds this load's 60 frames")
-        refused(lambda: load_with(Made(Path(tmp) / "s2"), ours, seam=110), "go together")
-        window, row = stl.seam_of(406, 604, 898, "A CALM STRETCH", "the session", "now")
+        refused(lambda: load_with(Made(Path(tmp) / "s1"), ours, seam=[110], seam_why="A CALM STRETCH"), "one window holds this load's 60 frames")
+        refused(lambda: load_with(Made(Path(tmp) / "s2"), ours, seam=[110]), "go together")
+        window, row = stl.seam_of(406, 604, [898], "A CALM STRETCH", "the session", "now")
         # THE CASE THAT GOES RED when a chosen seam does not set the window that puts it there, or the defaults do not say it and its kept frames
-        assert window == 294 and row["carries"] == "windows of [294, 243]: the second writes from 898, sampled from the first's frames 808-897" \
+        assert window == 294 and row["carries"] == ("windows of [294, 243]: window 2 writes from 898, sampled from the frames 808-897 before it; "
+                                                    "the last window writes 112 new frame(s) of the load") \
             and row["from"] == "the session, now: A CALM STRETCH", (window, row)
+        # three windows: every seam named, in any order, each with the frames it is sampled from
+        window, row = stl.seam_of(573, 2050, [2548, 2344], "TWO CALM STRETCHES", "the session", "now")
+        assert window == 294 and row["what"] == "the seam" and row["carries"] == ("windows of [294, 294, 192]: window 2 writes from 2344, sampled from the "
+                                                                                  "frames 2254-2343 before it; window 3 writes from 2548, sampled from the frames "
+                                                                                  "2458-2547 before it; the last window writes 75 new frame(s) of the load"), (window, row)
         window, row = stl.seam_of(406, 604, None, None, "the session", "now")
-        assert window is None and "the second writes from 949" in row["carries"] and row["from"].startswith("the planner"), row
-        refused(lambda: stl.seam_of(406, 604, 900, "X", "s", "n"), "898, 949 only")
-        refused(lambda: stl.seam_of(700, 0, 500, "X", "s", "n"), "no plan of two windows covers this load's 700 frames")
+        assert window is None and "window 2 writes from 949" in row["carries"] and row["from"].startswith("the planner"), row
+        # a seam no plan puts there, and some of one plan's seams but not all, are refused with the plans there are
+        refused(lambda: stl.seam_of(406, 604, [900], "X", "s", "n"), "seams on 949 (windows of 345); or 898 (windows of 294) only")
+        # a plan the last window's floor refuses is not offered (406's 243, 192 and 141 plans each write 10 new frames last)
+        try:
+            stl.seam_of(406, 604, [900], "X", "s", "n")
+        except stl.Refused as e:
+            assert "1000" not in str(e), e
+        refused(lambda: stl.seams_arg("\u00b2"), "comma-separated")
+        refused(lambda: stl.seam_of(573, 2050, [2344], "X", "s", "n"), "2344, 2548 (windows of 294)", "name every seam of one plan")
+        assert stl.seams_arg("2344,2548") == [2344, 2548] and stl.seams_arg(None) is None and stl.seams_arg("898") == [898]
+        refused(lambda: stl.seams_arg("898-900"), "comma-separated")
+        refused(lambda: stl.seams_arg("898,,949"), "comma-separated")
+        refused(lambda: stl.seams_arg(""), "comma-separated")
+        refused(lambda: stl.seam_of(406, 604, [898, 898], "X", "s", "n"), "named twice")
+        refused(lambda: stl.seam_of(406, 604, [604], "X", "s", "n"), "604 is not inside the load 604-1009 after its first frame")
+        # THE CASE THAT GOES RED when a plan whose last window writes almost nothing is taken as a seam (at 397 frames, 243's last window
+        # writes one new frame); and the defaults say how many the last window writes
+        refused(lambda: stl.seam_of(397, 0, [243, 396], "X", "s", "n"), "last window writes 1 new frame(s)", "less than one latent step (17")
+        assert stl.seam_of(397, 0, [345], "X", "s", "n")[0] == 345, "a plan whose last window writes a step or more was refused"
         assert stl.seam_of(60, 100, None, None, "s", "n") == (None, None)
         # the job step puts the chosen window on the load and the seam among the defaults (the fixture's shot is short, so seam_of's answer
         # for a long load stands in for it here)
         real = stl.seam_of
-        stl.seam_of = lambda *_a, **_k: (294, {"what": "the seam", "carries": "SEAM ROW", "from": "X"})
+        asked = []
+        stl.seam_of = lambda *x, **k: asked.append(x) or (294, {"what": "the seam", "carries": "SEAM ROW", "from": "X"})
         try:
             seamed = load_with(Made(Path(tmp) / "s3"), ours)
         finally:
             stl.seam_of = real
         # THE CASE THAT GOES RED when the window a seam needs is not put on the load, or its row is not among the defaults
         assert seamed["loads"][0]["window"] == 294 and {x["what"]: x for x in seamed["job"]["defaults"]}["the seam"]["carries"] == "SEAM ROW", seamed["loads"][0]
+        # THE CASE THAT GOES RED when the job step hands seam_of another load length or first frame than the load's own
+        assert asked[0][:2] == (seamed["loads"][0]["frames"], seamed["loads"][0]["first"]), (asked, seamed["loads"][0]["first"], seamed["loads"][0]["frames"])
         # HER EYES SHUT ON A SPAN on a person's word (--eyes-shut-on with --eyes-shut-form, the lead's ruling of 2026-10-15 on 2823b)
         look = f"G3 LOOKED at every frame, {sheet}"
         refused(lambda: load_with(Made(Path(tmp) / "e1"), ours, eyes_shut_on=[(110, 115, look)]), "go together")
