@@ -269,8 +269,9 @@ def layout(w: int, h: int, n: int) -> list[dict]:
     return out
 
 
-def job_folders(data: Path) -> dict[str, Path]:
-    """Each render's file name to the job folder that queued it, from every `*_job/<load>.render.queued.json` under `data`."""
+def job_folders(data: Path) -> dict[str, tuple[Path, str]]:
+    """Each render's file name to the job folder that queued it and the render's path under the output folder, from every
+    `*_job/<load>.render.queued.json` under `data`."""
     out = {}
     for q in sorted(data.glob("*_job/*.render.queued.json")):
         try:
@@ -278,7 +279,7 @@ def job_folders(data: Path) -> dict[str, Path]:
         except ValueError:
             continue
         if files:
-            out[Path(files[0]).name] = q.parent
+            out[Path(files[0]).name] = (q.parent, files[0])
     return out
 
 
@@ -287,17 +288,23 @@ def given_of_pieces(rows: list[dict], data: Path) -> dict[str, dict]:
     folder is not found is shown from its picture's graph as before, and said so."""
     import what_h3_got
     folders = job_folders(data)
-    out = {}
+    out, refused = {}, {}
     for r in rows:
-        folder = folders.get(Path(r["piece"]).name)
-        if folder is None or r["name"] in out:
+        found = folders.get(Path(r["piece"]).name)
+        if found is None or r["name"] in out:
             continue
+        folder, under = found
         load = Path(r["piece"]).stem.rsplit("_", 1)[0]
+        # the output folder is the piece's own path less the part the queued record names under it (2026-10-15: a run with no
+        # H3_OUTPUT_DIR in its environment had the reader refuse every piece, for the zoom record alone)
+        piece = str(r["piece"])
+        output = Path(piece[:-len(under)]) if piece.endswith(under) else None
         try:
-            out[r["name"]] = what_h3_got.read(folder, load, "render")
+            out[r["name"]] = what_h3_got.read(folder, load, "render", output=output)
         except SystemExit as e:
+            refused[r["name"]] = str(e)
             print(f"what H3 was given for {r['name']} could not be read from {folder.name}: {e}", flush=True)
-    return out
+    return out, refused
 
 
 def build(a: argparse.Namespace) -> None:
@@ -354,11 +361,13 @@ def build(a: argparse.Namespace) -> None:
     cols = columns_of(rows, first_f, last_f)
     tiles = layout(w, h, len(cols))
     data = Path(getattr(a, "data", "") or HERE.parent / "data")
-    given = given_of_pieces(rows, data) if data.is_dir() else {}
+    given, refused = given_of_pieces(rows, data) if data.is_dir() else ({}, {})
     unread = [r["name"] for r in rows if r["name"] not in given]
-    if unread:
-        print(f"what H3 was given is not read for {', '.join(dict.fromkeys(unread))}: no queued record names their files under {data}"
-              + ("" if data.is_dir() else " (the folder is not there: give --data)") + "; their columns show the picture's graph alone", flush=True)
+    why_unread = {n: (f"its record could not be read: {refused[n].splitlines()[0][:160]}" if n in refused else
+                      f"no queued record names its file under {data}" + ("" if data.is_dir() else " (the folder is not there: give --data)"))
+                  for n in dict.fromkeys(unread)}
+    for n, why in why_unread.items():
+        print(f"what H3 was given is not read for {n}: {why}; its column shows its picture's graph alone", flush=True)
     # the joined clip's own check (`bench/assemble_delivery.py` writes it beside the clip): each flag on its frames, whole
     check_file = Path(a.joined + ".check.json")
     flags = json.loads(check_file.read_text()).get("flags") or [] if check_file.is_file() else []
@@ -391,7 +400,7 @@ def build(a: argparse.Namespace) -> None:
         out = [(t, (255, 235, 60)) for t in words_of(f, rows, intents, panels)]
         for r in rows:
             if r["first"] <= f <= r["last"] and r["name"] in unread:
-                out.append((f"{r['name']}: what H3 was given is not read (no queued record of it found): its column shows its picture's graph",
+                out.append((f"{r['name']}: what H3 was given is not read ({why_unread[r['name']]}): its column shows its picture's graph",
                             (255, 170, 60)))
         return out
     lines_at = {}

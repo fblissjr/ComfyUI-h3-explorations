@@ -321,6 +321,33 @@ def the_clips_own_check_and_whole_words() -> str:
     return "the clip's own check on its frame and in its piece's column, its words whole; no line cut; the columns and flags in the sidecar"
 
 
+def each_piece_read_through_its_job() -> str:
+    """A piece's inputs are read from its job folder, found by its queued record, with the output folder taken from the
+    piece's own path (2026-10-15: run with no H3_OUTPUT_DIR the reader refused every piece and the stack called it "no queued
+    record"); a refused read is said as refused, with its reason."""
+    import what_h3_got
+    m = made()
+    data = m.root / "data"
+    job = data / "2026-01-01_pa_job"
+    job.mkdir(parents=True, exist_ok=True)
+    under = "Video/v/pa/pa_00001.mp4"
+    (job / "pa.render.queued.json").write_text(json.dumps({"files": [under]}))
+    rows = [{"name": "pa", "piece": f"/share/out/{under}"}, {"name": "pb", "piece": "/share/out/Video/v/pb/pb_00001.mp4"}]
+    seen, held = [], what_h3_got.read
+    try:
+        what_h3_got.read = lambda folder, load, stage, output=None: seen.append((folder.name, load, stage, output)) or {"inputs": []}
+        given, refused = sd.given_of_pieces(rows, data)
+        assert seen == [("2026-01-01_pa_job", "pa", "render", Path("/share/out/"))] and list(given) == ["pa"] and refused == {}, (seen, given)
+        def refuse(*_a, **_k):
+            raise SystemExit("output directory is not where this server writes")
+        what_h3_got.read = refuse
+        given, refused = sd.given_of_pieces(rows, data)
+        assert given == {} and refused == {"pa": "output directory is not where this server writes"}, refused
+    finally:
+        what_h3_got.read = held
+    return "pa read from its job folder with the output folder its own path gives; pb, queued by no record, left out; a refused read kept with its reason"
+
+
 def a_table_that_lays_nothing() -> str:
     m = made()
     empty = m.root / "empty.txt"
@@ -341,6 +368,7 @@ case("the built file shows those frames", the_built_file)
 case("check: the file read back", the_read_back)
 case("a clip of a span that does not begin on frame 0", a_clip_of_a_span)
 case("the clip's own check, and the words whole", the_clips_own_check_and_whole_words)
+case("each piece read through its job", each_piece_read_through_its_job)
 case("a table that lays nothing", a_table_that_lays_nothing)
 
 if __name__ == "__main__":
