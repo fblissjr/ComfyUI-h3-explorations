@@ -33,6 +33,14 @@ Older history lives elsewhere and is not copied here:
   The held mask left 115, 69 and 6 px on 1015, 1018 and 1023: her fingertips, her fist and forearm, and on 1015
   the rim of a white egg she holds at her chin. This is mrtwo's rule of 2026-10-14 after 21:18Z for held things
   she touches near her face, widened from 1010d's "fingers and hand" to name the egg.
+- **2823 is made again once, over 2823-3109 in one window; 3110-3166 holds no lead** (mrtall, after 18:50Z, on the
+  owner's note on the 2823-3166 joined clip, "good up until 3097; 3098 is when she turns back into the original", and
+  mrarc's look, overlay `data/2026-10-15_fun_past2049_inputs/lead_3098_3131_part_and_track.jpg`). On 3098-3107 she is
+  in full view as the camera pans and she slides out at the left; the part model labels nothing on 3098-3099 and
+  3101-3104. From about 3110 the lead has left, and the woman with short dark hair and cat-eye glasses on 3122-3166 is
+  not the lead, though the preview's lead track follows her; the queue's run 3131-3164 is dropped. The remake (2823c)
+  waits for the eye test, the lip lines' on-the-head check and a person's word to hold her part across 3101-3104, so
+  one render carries them all; until then the seam at 3097/3098 stands.
 - **Earrings are given back at assembly where the part model's Apparel touches her head** (mrtall, after 18:21Z, on
   mrlol's measure `internal/claude/2026-10-15_mrlol_scripts/earring_apparel.txt`). The part model has no earring
   class; her pearl earring on lead_fp_0805d is labelled Apparel and the render repaints it (805d's render reader: gone
