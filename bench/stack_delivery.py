@@ -397,7 +397,8 @@ def build(a: argparse.Namespace) -> None:
     lines_at = {}
     for f in range(first_f, last_f + 1):
         lines_at[f] = [(one, c) for text, c in notes_of(f, panels_of(f, rows)) for one in wrapped(text, plain, w - 16)]
-    fixed = 1 + sum(len(x) for x in flag_lines)
+    marks_lines = wrapped(marks_line, plain, w - 16)
+    fixed = len(marks_lines) + sum(len(x) for x in flag_lines)
     bar = 2 * (((fixed + max(len(v) for v in lines_at.values())) * line_h + 12 + 1) // 2)
     work = Path(a.work)
     work.mkdir(parents=True, exist_ok=True)
@@ -491,8 +492,10 @@ def build(a: argparse.Namespace) -> None:
         label(bot, f"{a.tag or 'THE CLIP'}   frame {f:05d}", big)
         block = Image.new("RGB", (w, bar), (18, 18, 18))
         bd = ImageDraw.Draw(block)
-        bd.text((8, 4), marks_line, font=plain, fill=(170, 170, 170))
-        y_ = 4 + line_h
+        y_ = 4
+        for one in marks_lines:
+            bd.text((8, y_), one, font=plain, fill=(170, 170, 170))
+            y_ += line_h
         for fl, lines_ in zip(flags, flag_lines):
             on = fl["id"] in rec["check_flags"]
             for one in lines_:
