@@ -50,7 +50,9 @@ are not remade for it; the owner's explicit calls are.
    already about the same scale, both loose (one box round her whole dance), and the eye about one token wide; the
    glance did not carry (decisions.md, 2026-10-15, the corrected zoom entry). The test: one render on the lead's
    1097-1133 glance with a much tighter crop of BOTH the input and the reference (a box that follows her head, or a
-   smaller room), so the eye spans several tokens. If it still does not carry, size is not the cause, and an eyes-only
+   smaller room), so the eye spans several tokens; the body model RENDERED at the cut's size, not a canvas-size render
+   enlarged (the owner: "maybe the zoom went too far in and it got blurry": at 3-4x an enlarged mesh goes soft; the face
+   lines are drawn after the cut either way). If it still does not carry, size is not the cause, and an eyes-only
    second reference is next. The outside reviewer's C9 weighs it first.
 Closed today: two or more subjects in one pass (`../roadmap.md`, "Closed lanes").
 
