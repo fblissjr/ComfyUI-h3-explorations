@@ -1145,6 +1145,8 @@ def a_load_of_some_of_its_parts() -> str:
         job = d["job"]
         part, one = job["part"], job["part"]["made"][0]
         assert (part["of"], part["parts"], part["the_plans_parts"], part["by"], part["first"]) == ("b", ["hair"], ["hair", "face_and_neck"], why, 100), part
+        # THE CASE THAT GOES RED when a load of some of the plan's parts says it renders the plan's whole region (second_hp_5461b's header)
+        assert f"ONE LOAD: b, hair alone (of the plan's {made.plan['subjects']['b']['region']}, --parts)," in job["note"], job["note"][:300]
         assert one["classes"] == ["Hair"] and one["track"] == str(out / "Video/v/parts/shot_c_0100/shot_c_0100_b_part_hair.mkv") \
             and one["cut_from"] == str(out / "Video/v/the session/shot_c_0100/shot_c_0100_b_classes_00001.mkv") \
             and one["inside"] == str(out / "Video/v/the session/shot_c_0100/shot_c_0100_b_parts_00001.mkv"), one

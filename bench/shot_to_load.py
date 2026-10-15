@@ -141,6 +141,12 @@ OUTPUT_KEY = "Video/{video}/{session}"
 REFERENCES = "Video/{video}/references/{subject}_{first:04d}_{last:04d}"
 #: A load's form in its name, by the plan's region: the part, then `p` for the face points of the frozen form.
 FORM = {"face": "fp", "face and hair": "hfp"}
+def renders(region: str, parts: list[str] | None) -> str:
+    """What a load renders, in words: the plan's region, or with `--parts` those parts of it (mrarc's dry run of second_hp_5461b,
+    2026-10-15: a hair load's header said "face and hair")."""
+    return f"{' and '.join(parts)} alone (of the plan's {region}, --parts)" if parts else region
+
+
 #: What a preview's tracker picks with. A guess, which is why the preview step stops for the tiles.
 PICK = "largest"
 #: Where a load's own part goes when it is a subset of its subject's parts: by the video, the preview it was cut from,
@@ -1232,7 +1238,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         chosen += (f" THE CAPTURE'S FLOOR FOR {subject}'s PART IS SET FOR THIS LOAD: least={int(least)} px of the whole frame, on {by}'s word: "
                    f"{' '.join(least_why.split())}.")
     carried = defaults_carried(p, load, subjects, subject, kept, ref_form, zoom_block, whole_block)
-    note = (f"Written by bench/shot_to_load.py for {by}, {now}. ONE LOAD: {subject}, {region}, source frames {a} to {b} ({n} frames) of the shot "
+    note = (f"Written by bench/shot_to_load.py for {by}, {now}. ONE LOAD: {subject}, {renders(region, parts)}, source frames {a} to {b} ({n} frames) of the shot "
             f"{shot['first']}-{shot['last']}, its masks from the preview {preview['name']} (job.preview), in the frozen form: the body model cut to the head "
             f"with the face points drawn, made on these frames by this tool's `reference` step. Its settings are in `defaults`, from workflows/h3_config.py. "
             f"THE TEXT IS NOT WRITTEN: {name}.txt beside this file is a person's, and texts.{name}.by says who wrote it."
@@ -1454,7 +1460,7 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
                    cast=[json.loads(x) for x in open(a.cast) if x.strip()] if getattr(a, "cast", None) else None, cast_from=getattr(a, "cast", None) or "")
     job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "ITS PREVIEW WAS MADE ON AN EARLIER COPY")
     out = folder / f"{name}.json"
-    print(f"{name}: {a.subject}, {region}, source frames {job['loads'][0]['first']}-{job['loads'][0]['first'] + job['loads'][0]['frames'] - 1}; "
+    print(f"{name}: {a.subject}, {renders(region, a.parts)}, source frames {job['loads'][0]['first']}-{job['loads'][0]['first'] + job['loads'][0]['frames'] - 1}; "
           f"its reference will be {job['loads'][0]['motion_file']}")
     print(job["job"]["note"])                # the load in words, as the preview step prints its own: a dry run shows every choice made for it
     print("THE DEFAULTS THIS LOAD CARRIES:")
