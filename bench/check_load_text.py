@@ -69,6 +69,31 @@ def what_a_reference_draws_the_text_says() -> str:
         # THE CASE THAT GOES RED when the text says the eyes are outlined open on frames the reference draws them shut
         assert words in shut, shut
     assert "shut" not in drawn, drawn
+    # THE PLAN'S VOICE (the owner's word of 2026-10-15 on second_hfp_5675b): in place of the voice table's guess where it names one
+    import copy
+    rec = {"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast", "mouth": {"drawn": True}}}
+    def detail(voice, first=1730, last=1754):
+        plan = copy.deepcopy(PLAN)
+        if voice:
+            plan["subjects"]["lead"]["voice"] = voice
+        return next(line for line in lt.text(plan, "lead", rec, "stands", VOICED, first, last).splitlines() if line.startswith("[Shot 1]"))
+    table = detail(None)
+    talks = detail([{"first": 1700, "last": 1760, "voice": "talks, not heard", "by": "THE OWNER"}])
+    quiet = detail([{"first": 1700, "last": 1760, "voice": "silent", "by": "THE OWNER"}])
+    sings = detail([{"first": 1, "last": 20, "voice": "sings", "by": "THE OWNER"}], 1, 20)      # where the table hears no song
+    # THE CASE THAT GOES RED when the plan's voice does not stand in place of the voice table's, or its words are not said
+    assert "sings" in table and "sings" not in talks and "talks, her lips moving with words that are not heard" in talks and "the singing is not hers" in talks, talks
+    assert "neither sings nor speaks" in quiet and "sings," not in quiet, quiet
+    assert "(S1) sings" in sings and "sings" not in detail(None, 1, 20), sings
+    assert detail([{"first": 1, "last": 20, "voice": "silent", "by": "X"}]) == table, "a voice on frames outside the load changed it"
+    for bad, words in (([{"first": 1700, "last": 1760, "voice": "hums", "by": "X"}], "one of"), ([{"first": 1700, "last": 1760, "voice": "silent", "by": " "}], "no `by`"),
+                       ([{"first": 1700, "last": 1740, "voice": "silent", "by": "X"}, {"first": 1741, "last": 1760, "voice": "sings", "by": "X"}], "One load is one voice"),
+                       ([{"last": 1760, "voice": "silent", "by": "X"}], "is not {")):
+        try:
+            detail(bad)
+            raise AssertionError(f"taken: {bad}")
+        except lt.Refused as e:
+            assert words in str(e), e
     left = s2({"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast", "mouth": {"drawn": False}}})
     assert "eyes, eyebrows and nose drawn" in left and "mouth" not in left, left
     assert "a dark iris inside them" in s2({"form": "drawn", "drawn": {"parts_left_out": ["mouth"], "iris": "filled"}})
@@ -94,6 +119,11 @@ def a_load_of_the_hair_alone() -> str:
                   "<Subject 1> is the woman whose appearance comes from <Picture 1> and who follows the movements of the head of the figure in <Video 1>",
                   "[Shot 1] <Subject 1>, the woman, bows her head", "attribute_transfer - the movements of the head are transferred"):
         assert right in hair, (right, hair)
+    # the plan's voice is not read on a load of the hair alone: no face, no voice (the voice key's cold reader, 2026-10-15)
+    import copy
+    voiced_plan = copy.deepcopy(PLAN)
+    voiced_plan["subjects"]["second"]["voice"] = [{"first": 400, "last": 600, "voice": "talks, not heard", "by": "X"}]
+    assert lt.text(voiced_plan, "second", faceless, "bows her head into her hands", VOICED, 484, 515, parts=["hair"]) == hair, "a hair load read the voice"
     singing = lt.text(PLAN, "lead", RECORD_10_13, "stands", VOICED, 1730, 1754)
     assert "(S1) sings" in singing and "(S1) sings" not in lt.text({**PLAN, "subjects": {**PLAN["subjects"], "lead": {**PLAN["subjects"]["lead"],
         "text": {**PLAN["subjects"]["lead"]["text"], "hair": "her hair"}}}}, "lead", faceless, "stands", VOICED, 1730, 1754, parts=["hair"])
@@ -181,6 +211,48 @@ def what_it_refuses() -> str:
     return "no words for the subject or no film line, no hair words for a face-and-hair subject, an empty sentence, an unknown iris form and a reference not yet made are refused"
 
 
+def her_hair_changed() -> str:
+    """The owner's word of 2026-10-15 on the second subject (her still's hair is long; keep its colour, change its length): the plan's
+    `text.hair_change` parts, in the guide's `partially_preserved` (vendor_guides/ref_en.md, 4.1). Without it the form is as it was."""
+    import copy
+    rec = {"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast", "mouth": {"drawn": True}}}
+    plan = copy.deepcopy(PLAN)
+    t = plan["subjects"]["second"]["text"]
+    t["hair"] = "her SHORT HAIR"
+    t["hair_change"] = {"kept": "THE COLOUR", "what": "LENGTH", "to": "SHORT", "by": "the owner"}
+    got = lt.text(plan, "second", rec, "sits", VOICED, 484, 515)
+    # THE CASE THAT GOES RED when the text says the still's hair is retained where the plan changes it, or the parts are not the plan's
+    assert "with the face of <Picture 1> and SHORT HAIR, and performs" in got, got
+    assert "partially_preserved - the woman's face and THE COLOUR of her hair from <Picture 1> are retained; her hair's LENGTH is changed to SHORT; " \
+           "the clothing, the accessories and the background of <Picture 1> are not used." in got, got
+    t["hair_change"].pop("kept")
+    assert "the woman's face from <Picture 1> is retained; her hair's LENGTH is changed to SHORT;" in lt.text(plan, "second", rec, "sits", VOICED, 484, 515)
+    t["hair_change"].pop("to")
+    try:
+        lt.text(plan, "second", rec, "sits", VOICED, 484, 515)
+        raise AssertionError("a hair change with no `to` was taken")
+    except lt.Refused as e:
+        assert "names `what` is changed, `to` what" in str(e), e
+    t["hair_change"]["to"] = "SHORT"
+    # her hair alone (a hair load): the still's hair is not said to be retained where the plan changes it
+    faceless = {"form": "drawn", "drawn": {"parts_left_out": ["eyes", "brows", "nose", "mouth"], "iris": "contrast", "mouth": {"drawn": False}}}
+    for record in (faceless, None):
+        hair_only = lt.text(plan, "second", record, "bows", VOICED, 484, 515, parts=["hair"])
+        assert "hair of <Picture 1>" not in hair_only and "Her hair is SHORT HAIR." in hair_only and "her hair's LENGTH is changed to SHORT" in hair_only, hair_only
+    t["hair_change"] = "SHORT"
+    try:
+        lt.text(plan, "second", rec, "sits", VOICED, 484, 515)
+        raise AssertionError("a hair change that is not the plan's parts was taken")
+    except lt.Refused:
+        pass
+    t.pop("hair_change")
+    # a load of the face alone carries no hair, changed or not
+    plan["subjects"]["lead"]["text"]["hair_change"] = {"what": "x", "to": "y", "by": "z"}
+    assert "changed" not in lt.text(plan, "lead", rec, "stands", VOICED, 1730, 1754)
+    return "the plan's kept part and its change are said; without the key the form is the kept texts'"
+
+
+case("her hair changed, in the plan's parts", her_hair_changed)
 case("the kept texts made again", the_kept_texts_made_again)
 case("what a reference draws, the text says", what_a_reference_draws_the_text_says)
 case("a load of the hair alone", a_load_of_the_hair_alone)

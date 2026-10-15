@@ -114,6 +114,33 @@ def subject_2(drawn: dict | None, moves: str = MOVES["face"]) -> str:
     return head + f", with its {joined(parts)} drawn on its face as thin white outlines" + "".join(f"; {c}" for c in clauses) + "."
 
 
+#: A SUBJECT'S VOICE ON A SPAN OF FRAMES, from the plan (`subjects.<label>.voice`: [{"first", "last", "voice", "by"}]; the owner's word
+#: of 2026-10-15 on second_hfp_5675b, "Subject 2 shouldnt be singing ... she's mouthing like she's talking but its not audible", and on
+#: 1306, where the father does sing the lead singer's words). Where a span overlaps a load it stands in place of the voice table's
+#: guess: "sings" (the sung line, whatever the table hears), "talks, not heard" or "silent" (no sung line, and the words below).
+VOICES = {"sings": "", "talks, not heard": " <Subject 1> (S1) talks, {her} lips moving with words that are not heard; the song plays over "
+                                            "the shot, and the singing is not {her}s.",
+          "silent": " <Subject 1> (S1) neither sings nor speaks; the song plays over the shot, and the singing is not {her}s."}
+
+
+def voice_of(p: dict, first: int, last: int) -> dict | None:
+    """The plan's voice for a subject over a load's frames (`VOICES`), or None where the plan names none there. Refused where two voices
+    overlap the load (one load is one voice: cut it where the voice changes), or a span says a voice there are no words for, or no who."""
+    for v in p.get("voice") or []:
+        if not isinstance(v, dict) or not all(isinstance(v.get(k), int) for k in ("first", "last")) or v["first"] > v["last"]:
+            raise Refused(f"the plan's voice entry {v!r} is not {{\"first\": F, \"last\": L, \"voice\": ..., \"by\": ...}} with F <= L")
+    spans = [v for v in p.get("voice") or [] if int(v["first"]) <= last and first <= int(v["last"])]
+    for v in spans:
+        if v.get("voice") not in VOICES:
+            raise Refused(f"the plan's voice on {v['first']}-{v['last']} is {v.get('voice')!r}: one of {', '.join(VOICES)}")
+        if not str(v.get("by") or "").strip():
+            raise Refused(f"the plan's voice on {v['first']}-{v['last']} says no `by`: who said so, and when")
+    if len({v["voice"] for v in spans}) > 1:
+        raise Refused(f"the plan names {len({v['voice'] for v in spans})} voices over {first}-{last}: "
+                      + "; ".join(f"{v['voice']} on {v['first']}-{v['last']}" for v in spans) + ". One load is one voice: cut it where it changes")
+    return spans[0] if spans else None
+
+
 def text(plan: dict, subject: str, record: dict | None, place_and_action: str, voiced: list[list[int]], first: int, last: int,
          parts: list[str] | None = None) -> str:
     """The whole text of one load; `parts`, the load's own part where it carries one (`job.part.parts`); `record` None for a load with no
@@ -142,7 +169,30 @@ def text(plan: dict, subject: str, record: dict | None, place_and_action: str, v
     with_what = {"face and hair": "the face and the hair", "hair": "the hair"}.get(region, "the face")
     hair = " ".join(str(t.get("hair") or "").split())
     not_used = " ".join(str((t.get("not_used") if region != "hair" else None) or NOT_USED[region]).split())
-    kept = (f"only the {noun}'s face and {hair} are retained, wherever they show" if region == "face and hair" else
+    # HER HAIR CHANGED FROM THE STILL'S (the plan's `text.hair_change`, the owner's word of 2026-10-15 on the second subject: her still has
+    # long blonde hair; keep its colour, change only its length): the release's guide (vendor_guides/ref_en.md, section 4.1) has
+    # `partially_preserved` as "some defined characteristics are changed or only partially retained", so the retention line says which
+    # of the still's hair is kept and what is changed, and the summary takes the face from <Picture 1> and the plan's hair; "retained"
+    # alone would tell H3 the still's hair is the plan's. The parts are the plan's words, never parsed out of a sentence: `kept` (what of
+    # the still's hair stays, or none), `what` (the characteristic changed) and `to` (what it becomes), with `by`. Every other line of the
+    # form is as it was
+    change = t.get("hair_change") if region in ("face and hair", "hair") else None
+    if change is not None and (not isinstance(change, dict) or not str(change.get("what") or "").strip() or not str(change.get("to") or "").strip()
+                               or not str(change.get("by") or "").strip()):
+        raise Refused(f"the plan's `text.hair_change` for {subject!r} names `what` is changed, `to` what, and `by` whom; got {change!r}")
+    bare = hair.split(" ", 1)[1] if hair.split(" ", 1)[0] in ("her", "his", "their") else hair
+    if change is not None:
+        kept_of = " ".join(str(change.get("kept") or "").split())
+        changed_to = f"{her} hair's {' '.join(str(change['what']).split())} is changed to " + " ".join(str(change["to"]).split())
+        if region == "hair":                            # her hair alone: what of the still's hair is kept, and what is changed
+            with_what = bare
+            kept_now = (f"{kept_of} of the {noun}'s hair from <Picture 1> is retained; " if kept_of else "") + changed_to
+        else:
+            with_what = f"the face of <Picture 1> and {bare}"
+            kept_now = (f"the {noun}'s face" + (f" and {kept_of} of {her} hair" if kept_of else "") + f" from <Picture 1> "
+                        + ("are" if kept_of else "is") + f" retained; " + changed_to)
+    kept = (kept_now if change is not None else
+            f"only the {noun}'s face and {hair} are retained, wherever they show" if region == "face and hair" else
             f"only the {noun}'s {hair.split(' ', 1)[1] if hair.split(' ', 1)[0] in ('her', 'his', 'their') else hair} is retained, wherever it shows"
             if region == "hair" else
             f"only the {noun}'s face is retained, wherever it shows: {her} eyes, eyebrows, nose, mouth and skin")
@@ -150,27 +200,32 @@ def text(plan: dict, subject: str, record: dict | None, place_and_action: str, v
         if region != "hair":
             raise Refused("a load with no reference video (motion none) is for her hair alone, the lead's ruling of 2026-10-15")
         return (f"subject_definitions:\n<Subject 1> is {who} whose hair comes from <Picture 1>.\n\n"
-                f"summary:\n[reference generation] <Subject 1> {sentence}, with the hair of <Picture 1>.\n\n"
+                f"summary:\n[reference generation] <Subject 1> {sentence}, with {bare if change is not None else 'the hair of <Picture 1>'}.\n\n"
                 f"retention_analysis:\n<Subject 1> (appears in [Shot 1]): partially_preserved - {kept}; {not_used} of <Picture 1> are not used.\n\n"
-                f"detailed_description:\n{film}\n[Shot 1] <Subject 1>, {who}, {sentence}. {her[0].upper() + her[1:]} hair is the hair of <Picture 1>."
+                f"detailed_description:\n{film}\n[Shot 1] <Subject 1>, {who}, {sentence}. {her[0].upper() + her[1:]} hair is "
+                f"{bare if change is not None else 'the hair of <Picture 1>'}."
                 f"\n\n{SOUND}")
     drawn = None if record.get("form") == "plain" else (record.get("drawn") or {})
     if region == "hair" and drawn is not None and not {"eyes", "brows", "nose"} <= set(drawn.get("parts_left_out") or []):
         raise Refused("the load is her hair alone and its reference draws a face: make the reference again with --no-face-on over its frames "
                       "(bench/shot_to_load.py reference does), then the text")
     sings = bool(t.get("sings")) and region != "hair" and any(a <= last and first <= b for a, b in voiced)
+    said = voice_of(p, first, last) if region != "hair" else None
+    if said is not None:
+        sings = said["voice"] == "sings"
     moves = MOVES[region]
     Her = her[0].upper() + her[1:]
-    same = f"{Her} hair is the hair of <Picture 1>." if region == "hair" else f"{Her} face is the face of <Picture 1>."
+    same = (f"{Her} hair is {bare if change is not None else 'the hair of <Picture 1>'}." if region == "hair" else f"{Her} face is the face of <Picture 1>.")
     with_looks = "" if region == "hair" else f", with {looks},"
     return (f"subject_definitions:\n<Subject 1> is {who} whose appearance comes from <Picture 1>{with_looks} and who follows {moves} "
             f"of the figure in <Video 1>.\n{subject_2(drawn, moves)}\n\n"
-            f"summary:\n[reference generation] <Subject 1> {sentence}, with {with_what} of <Picture 1>, and performs <Subject 2>.\n\n"
+            f"summary:\n[reference generation] <Subject 1> {sentence}, with {with_what}{'' if change is not None else ' of <Picture 1>'}, and performs <Subject 2>.\n\n"
             f"retention_analysis:\n<Subject 1> (appears in [Shot 1]): partially_preserved - {kept}; {not_used} of <Picture 1> are not used.\n"
             f"{SUBJECT_2_KEPT.format(moves=moves)}\n\n"
             f"detailed_description:\n{film}\n[Shot 1] <Subject 1>, {who}{'' if region == 'hair' else f' with {looks}'}, {sentence}. {same} "
             f"<Subject 1> performs <Subject 2>: {she} follows {moves} of the figure."
-            + (f" <Subject 1> (S1) sings, {her} mouth opening wide on the sung phrases." if sings else "") + f"\n\n{SOUND}")
+            + (f" <Subject 1> (S1) sings, {her} mouth opening wide on the sung phrases." if sings else "")
+            + (VOICES[said["voice"]].format(her=her) if said is not None else "") + f"\n\n{SOUND}")
 
 
 def for_job(job_file: Path, place_and_action: str, plan_file: Path, voice_spans: Path) -> tuple[str, dict]:
