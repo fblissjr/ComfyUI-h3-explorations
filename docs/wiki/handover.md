@@ -98,7 +98,12 @@ table; the Open List).
    frame, read AFTER every word is applied (does the load generate her region; does the reference draw her face; who
    decided, measurement or a person's word with its reason), and one rule: the two agree on every frame. Region yes and
    face no is a hole with nothing to follow (tonight's `--no-face-on` fault); region no and face yes is a flip to the
-   original (the 761 kind). Agreement is no flag, whoever decided it.
+   original (the 761 kind). Agreement is no flag, whoever decided it. HOW IT IS BUILT (the owner): the two old rules are
+   REMOVED and this one takes their place; no third rule beside them, and no new rules added in its comments. The
+   rule's comment carries why it exists: the owner's words above; the two old rules crying wolf on 2823d (3099-3101
+   held, 3106-3107 dropped on purpose), so overrides were becoming routine; and the two faults it is there to catch,
+   the hole with nothing to follow (the hall lead, 2026-10-15) and the flip to the original (761, 2026-10-15). The
+   owner and the lead decided the replacement together; changing it again is the same kind of decision.
 5. Tooling queued for the card seat, in order after the kitchen's lead (`--mouth-on` and `track_from` are tonight's,
    above, and landed or not by mrgo's note): the ledger
    counting every frame a piece leaves as the original, not only `drop=` frames; the assembler protecting an earlier
