@@ -65,7 +65,14 @@ left out of it. Whether the rule should read the tracked subject as their own
 is open. Why it exists: with two
 people inside the region the model drew the new subject on the other one
 (`bench/results/2026-10-07_masked_switch_keep_prompt_verdicts.md`, section 5).
-Not rendered.
+Not rendered. Three rules since 2026-10-15 (the outside reviewer's G2, ruled by
+the lead; `bench/results/2026-10-15_hair_flashes.md`), since a keep-out holes a
+cell for the whole of its latent step: a piece of the others under one cell's
+area on at most half of its step's frames is dropped before the cut
+(`drop_specks`); a one-cell hole they punch with the region all round it, that
+they hold briefly and do not fill, is closed (`close_lone_holes`); and a piece
+of the region the keep-outs or `keep` cut off from the subject is given back
+(`drop_islands`).
 
 **What gets replaced** (`replace`, owner 2026-10-04: "it should be a choice on
 a node"). `whole subject` regenerates the tracked person. `head and hair`
@@ -641,6 +648,100 @@ def token_mask(mask: torch.Tensor, latent_t: int, lat_h: int, lat_w: int, whole_
     m = F.pad(m.unsqueeze(1), (0, lat_w % 2, 0, lat_h % 2), mode="replicate")[:, 0]
     tokens = m.reshape(latent_t, m.shape[-2] // 2, 2, m.shape[-1] // 2, 2).amax(dim=(2, 4))
     return tokens.repeat_interleave(2, dim=-2).repeat_interleave(2, dim=-1)[:, :lat_h, :lat_w].contiguous()
+
+
+#: A KEEP-OUT SPECK DOES NOT HOLE A STEP (the outside reviewer's G2 of 2026-10-15, ruled by the lead that day): the others' mask takes
+#: a cell out of the region for the whole of its latent step (`token_mask` pools a step's frames), so a speck on one or two frames
+#: holes four, and the subject's hair is drawn on some steps and not the next (second_hfp_0014d: 57-60 by a strangers speck of 89 px,
+#: 159-162 at both collars by held specks of 9-183 px). A piece of the others' mask (4-connected, on one frame) under `SPECK_CELLS`
+#: cells' area, present at its place on at most `SPECK_STEP_SHARE` of its step's frames, is dropped from the others before the region
+#: is cut. A step of one frame (a window's first) has no speck dropped: half of one frame is none, and one frame holes only itself.
+#: **Measured** one cell, a starting value, on that window's saved region: the flash on 159-162 needs 256 px at a 16 px cell
+#: (its piece on 161 is 183 px), and one cell mends the three flashes the reviewer placed there (the record,
+#: `bench/results/2026-10-15_hair_flashes.md`). **Reasoned** the half: a real face can be one cell on a small shot (the caveat of
+#: 2026-10-14), and a face is on most frames of its step; a speck that is is kept.
+SPECK_CELLS = 1.0
+SPECK_STEP_SHARE = 0.5
+
+
+def drop_specks(away: torch.Tensor, latent_t: int, lat_h: int, lat_w: int) -> torch.Tensor:
+    """The others' mask [F, H, W] less its specks (`SPECK_CELLS`, `SPECK_STEP_SHARE`), a frame and a step at a time."""
+    import cv2
+    h, w = int(away.shape[-2]), int(away.shape[-1])
+    floor = SPECK_CELLS * (h / lat_h) * (w / lat_w)
+    on = (away > 0.5).cpu().numpy()
+    gone = np.zeros_like(on)
+    at = 0
+    for n in run_lengths(latent_t):
+        step = on[at:at + n]
+        for i in range(n):
+            k, lab, stats, _ = cv2.connectedComponentsWithStats(step[i].astype(np.uint8), connectivity=4)
+            for j in range(1, k):
+                if stats[j, cv2.CC_STAT_AREA] >= floor:
+                    continue
+                x, y, bw, bh = (int(v) for v in stats[j, :4])
+                piece = lab[y:y + bh, x:x + bw] == j
+                frames_on = sum(bool((step[g, y:y + bh, x:x + bw] & piece).any()) for g in range(n))
+                if frames_on <= SPECK_STEP_SHARE * n:
+                    gone[at + i, y:y + bh, x:x + bw] |= piece
+        at += n
+    return away * torch.from_numpy(~gone).to(device=away.device, dtype=away.dtype)
+
+
+#: A ONE-CELL HOLE IS CLOSED (G2's 2C, ruled with the specks): a cell the others took out of the grown region, not the subject's own,
+#: with all four of its neighbours in the region, is given back to the region where the others' px in it are under the specks' floor
+#: on every frame of its step and the others are on it on at most `SPECK_STEP_SHARE` of those frames (the specks' guard, the lead's
+#: ruling of 2026-10-15). On second_hfp_0014d's 163-166 a strangers piece of 286-418 px, over one cell, holed one cell in the middle
+#: of her hair with 40 and 105 px in it on two of the four frames. A cell a keep-out fills, or holds on most of its step, stays
+#: open, whoever it is: a small face held all through its step, which the specks rule keeps out, is not closed back in either. In
+#: whole tokens the cell is a token, and the floor is still the specks' (one cell's area).
+def close_lone_holes(tokens: torch.Tensor, grown: torch.Tensor, own: torch.Tensor, whole: bool, away: torch.Tensor) -> torch.Tensor:
+    """`tokens` with each enclosed one-cell (or one-token) hole of the others (`away`, [F, H, W]) given back where the others' px in
+    it are under the specks' floor on every frame of its step and on it on at most `SPECK_STEP_SHARE` of those frames."""
+    latent_t, lat_h, lat_w = (int(v) for v in tokens.shape)
+    h, w = int(away.shape[-2]), int(away.shape[-1])
+    floor = SPECK_CELLS * (h / lat_h) * (w / lat_w)
+    px = torch.cat([F.adaptive_avg_pool2d((away[i:i + CHUNK] > 0.5).float().unsqueeze(1), (lat_h, lat_w))[:, 0]
+                    for i in range(0, int(away.shape[0]), CHUNK)], dim=0) * (h * w / (lat_h * lat_w))
+    if whole:
+        px = F.pad(px.unsqueeze(1), (0, lat_w % 2, 0, lat_h % 2))[:, 0]
+        px = px.reshape(px.shape[0], px.shape[-2] // 2, 2, px.shape[-1] // 2, 2).sum(dim=(2, 4))
+    brief, at = [], 0
+    for n in run_lengths(latent_t):
+        step = px[at:at + n]
+        brief.append(((step > 0.5).sum(dim=0) <= SPECK_STEP_SHARE * n) & (step.amax(dim=0) < floor))
+        at += n
+    brief = torch.stack(brief, dim=0).to(tokens.device)
+    grid = (lambda t: t[:, ::2, ::2]) if whole else (lambda t: t)
+    t, g, o = grid(tokens) > 0.5, grid(grown) > 0.5, grid(own) > 0.5
+    p = F.pad(t.float(), (1, 1, 1, 1)) > 0.5
+    ring = p[:, :-2, 1:-1] & p[:, 2:, 1:-1] & p[:, 1:-1, :-2] & p[:, 1:-1, 2:]
+    closed = (t | (~t & g & ~o & ring & brief)).float()
+    if whole:
+        closed = closed.repeat_interleave(2, dim=-2).repeat_interleave(2, dim=-1)[:, :lat_h, :lat_w]
+    return closed.to(tokens.dtype).contiguous()
+
+
+#: AN ISLAND OF THE REGION WITH NONE OF THE SUBJECT IS DROPPED (G2's (b), ruled with the specks): where the keep-outs cut the margin,
+#: a piece of it can lie cut off from the subject (an apron, a chest, a bowl below her arms), regenerated with nothing of hers in it.
+#: A 4-connected piece of the region on a step that shares no cell with the subject's own mask is given back to the source.
+#: **Measured** on second_hfp_0604d and 0014d's saved windows: 43 such pieces, none holding a pixel of her hair or face in her class
+#: map, and the reviewer saw none holding rendered hair. The others never take a cell of the subject's own mask, so her own hair is
+#: never an island; what it can drop is margin room where new hair would fall outside her carried mask (0604d's 799: a cell the
+#: specks rule gave back, cut off, so dropped again), and a piece `keep` cuts off. Not measured on a window where either holds hair.
+def drop_islands(tokens: torch.Tensor, own: torch.Tensor) -> torch.Tensor:
+    """`tokens` less each piece of a step that shares no cell with `own`."""
+    import cv2
+    out = tokens.clone()
+    for k in range(int(tokens.shape[0])):
+        n, lab = cv2.connectedComponents((tokens[k] > 0.5).cpu().numpy().astype(np.uint8), connectivity=4)
+        if n <= 1:
+            continue
+        lab = torch.from_numpy(lab)
+        mine = torch.unique(lab[(own[k].cpu() > 0.5) & (lab > 0)])
+        off = (lab > 0) & ~torch.isin(lab, mine)
+        out[k][off.to(out.device)] = 0
+    return out
 
 
 def pixel_alpha(tokens: torch.Tensor, height: int, width: int, feather_pixels: int) -> torch.Tensor:
@@ -1833,8 +1934,11 @@ def window(source: dict, first_frame: int, frames: int, width: int, height: int,
 
     With an `others` mask it is the grown region less every token that holds
     a pixel of the others and none of the subject's own mask: the margin does
-    not grow over them, and no token of the subject is given up. Taken out
-    before `keep`, which still wins over everything.
+    not grow over them, and no token of the subject is given up. Their specks
+    are dropped first (`drop_specks`) and a one-cell hole they leave is closed
+    after (`close_lone_holes`). Taken out before `keep`, which still wins over
+    everything. With either wired, a piece of the region cut off from the
+    subject is given back last (`drop_islands`).
 
     The frames to encode are the fitted frames themselves, or with `paint_out`
     a copy with the subject filled in: the mask widened by half of
@@ -1858,10 +1962,16 @@ def window(source: dict, first_frame: int, frames: int, width: int, height: int,
         away = fit_mask(source["others"][int(first_frame):int(first_frame) + int(frames)], width, height)
         if short > 0:
             away = held_mask(away, short)
+        # a speck of the others on a frame or two of a step does not hole the whole step (`drop_specks`)
+        away = drop_specks(away, latent_t, lat_h, lat_w)
         # In whole tokens, as the region is: a token the others touch is the source's unless the subject's own
         # mask, before any margin, has a pixel in it on one of its frames.
         theirs = token_mask(away, latent_t, lat_h, lat_w, whole)
-        tokens = tokens * (1.0 - theirs * (1.0 - token_mask(mask, latent_t, lat_h, lat_w, whole)))
+        own = token_mask(mask, latent_t, lat_h, lat_w, whole)
+        grown = tokens
+        tokens = tokens * (1.0 - theirs * (1.0 - own))
+        # a one-cell hole the others punched with the region all round it is given back (`close_lone_holes`)
+        tokens = close_lone_holes(tokens, grown, own, whole, away)
     if source.get("keep") is not None:
         # After the grow, so the margin cannot run back over what is kept, and in whole tokens: a token
         # that holds any kept pixel on any of its frames is kept. The composite and the review read
@@ -1870,6 +1980,9 @@ def window(source: dict, first_frame: int, frames: int, width: int, height: int,
         if short > 0:
             held = held_mask(held, short)
         tokens = tokens * (1.0 - token_mask(held, latent_t, lat_h, lat_w, whole))
+    if source.get("others") is not None or source.get("keep") is not None:
+        # a piece of the region the keep-outs cut off from the subject is given back to the source (`drop_islands`)
+        tokens = drop_islands(tokens, token_mask(mask, latent_t, lat_h, lat_w, whole))
     encode = pixels
     if source.get("paint_out"):
         encode = fill_subject(pixels, grow(mask, margin // 2))

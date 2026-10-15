@@ -541,6 +541,77 @@ def check_edge(problems):
                         "defaulting to whole tokens")
 
 
+def check_region_rules(problems):
+    """The outside reviewer's G2 of 2026-10-15, ruled by the lead: a keep-out speck under one cell on at most half its step's frames
+    does not hole the step (`drop_specks`); a one-cell hole of the keep-outs with the region all round it is closed
+    (`close_lone_holes`); a piece of the region the keep-outs cut off from the subject is given back (`drop_islands`). Each at its
+    bound, with its control."""
+    n, h, w = FRAMES, 128, 192
+    frames = torch.rand(n, h, w, 3)
+    mask = torch.zeros(n, h, w)
+    mask[:, 40:88, 72:104] = 1.0                       # the subject: cells rows 2-5, cols 4-6 of 16 px
+    shape = (LATENT_T, h // 16, w // 16)
+    args = (0, n, w, h) + shape
+    cells = {"frames": frames, "mask": mask, "grow_pixels": 32, "feather_pixels": 0, "edge": vm.EDGE_CELLS}
+    plain = vm.window(cells, *args)[2]
+    step2 = list(range(sum(vm.run_lengths(LATENT_T)[:2]), sum(vm.run_lengths(LATENT_T)[:3])))   # latent step 2's four frames
+    def speck(on, deep=10):
+        o = torch.zeros(n, h, w)
+        for f in on:
+            o[f, 98:98 + deep, 88:104] = 1.0           # in the margin under the subject, across cells (6, 5) and (6, 6): two cells,
+        return vm.window(dict(cells, others=o), *args)[2]   # so the one-cell close cannot give them back
+    # THE CASE THAT GOES RED when a speck on one frame of a step holes the step, or a speck on most of its frames does not
+    if not torch.equal(speck(step2[:1]), plain) or not torch.equal(speck(step2[:2]), plain):
+        problems.append("region rules: a speck under one cell on one or two frames of a four-frame step took cells out of the region")
+    if float(speck(step2[:3])[2, 6, 5]) != 0.0 or float(speck(step2[:3])[2, 6, 6]) != 0.0:
+        problems.append("region rules: a speck on three of its step's four frames was dropped (a small face stays out)")
+    if float(speck(step2[:1], deep=17)[2, 6, 5]) != 0.0:
+        problems.append("region rules: a piece over one cell's area was dropped as a speck")
+    if float(speck(step2[:3])[1, 6, 5]) != 1.0:
+        problems.append("region rules: a speck of step 2 took a cell out of step 1")
+    # a speck across a step boundary (the last two frames of step 2, the first two of step 3) is on half of each step: dropped from
+    # both. Grouped by any other steps than the node's (`run_lengths`), three of its frames fall in one step and it holes it
+    step3 = list(range(sum(vm.run_lengths(LATENT_T)[:3]), sum(vm.run_lengths(LATENT_T)[:4])))
+    if not torch.equal(speck(step2[2:] + step3[:2]), plain):
+        problems.append("region rules: a speck on two frames each side of a step boundary took cells out (its steps are not the node's)")
+    # THE CASE THAT GOES RED when a one-cell hole with the region all round it stays open, a wider one, one the keep-out fills or one
+    # held all through its step is closed (a small face), or the close is not in whole tokens where the region is. The piece reaches
+    # from the subject's own cell (5, 6), which no keep-out takes, into cell (6, 6): 264 px, over the floor, so not a speck
+    def holed(on, rows=(84, 106), cols=(98, 110), base=cells, a=args, size=(h, w)):
+        o = torch.zeros(n, *size)
+        for f in on:
+            o[f, rows[0]:rows[1], cols[0]:cols[1]] = 1.0
+        return vm.window(dict(base, others=o), *a)[2]
+    if float(plain[2, 6, 6]) != 1.0 or float(holed(step2[:2])[2, 6, 6]) != 1.0:
+        problems.append("region rules: a one-cell hole on two of its step's frames with the region all round it was not closed")
+    if float(holed(step2)[2, 6, 6]) != 0.0:
+        problems.append("region rules: a one-cell hole held all through its step was closed (a small face stays out)")
+    if float(holed(step2[:2], rows=(84, 112), cols=(96, 112))[2, 6, 6]) != 0.0:
+        problems.append("region rules: a cell the keep-out fills was closed")
+    if float(holed(step2[:2], cols=(98, 126))[2, 6, 6]) != 0.0:
+        problems.append("region rules: a hole two cells wide was closed")
+    # in whole tokens (the default edge) the hole is a token: a 256 px square frame, the subject a token block in its middle
+    big = torch.zeros(n, 256, 256)
+    big[:, 96:160, 96:160] = 1.0                       # tokens rows 3-4, cols 3-4 of 32 px; grown by 64, tokens 1-6
+    tok = {"frames": torch.rand(n, 256, 256, 3), "mask": big, "grow_pixels": 64, "feather_pixels": 0}
+    targs = (0, n, 256, 256, LATENT_T, 16, 16)
+    whole_plain = vm.window(tok, *targs)[2]
+    got = holed(step2[:2], rows=(140, 170), cols=(100, 112), base=tok, a=targs, size=(256, 256))   # 120 px in token (5, 3)
+    if float(whole_plain[2, 10:12, 6:8].min()) != 1.0 or not torch.equal(got, whole_plain):
+        problems.append("region rules: in whole tokens a one-token hole with the region all round it was not closed")
+    # THE CASE THAT GOES RED when a piece of the region the keep-outs cut off from the subject is kept
+    band = torch.zeros(n, h, w)
+    band[:, 96:112, :] = 1.0                           # a held thing across the frame under her: row 7 is cut off from her
+    cut = vm.window(dict(cells, others=band), *args)[2]
+    if float(plain[:, 7].max()) != 1.0 or float(cut[:, 7].max()) != 0.0 or float(cut[:, 6].max()) != 0.0:
+        problems.append("region rules: the margin cut off from the subject by a keep-out stayed in the region")
+    if not torch.equal(cut[:, :6], plain[:, :6]):
+        problems.append("region rules: the region joined to the subject changed where a keep-out cut off a piece below it")
+    kept = vm.window(dict(cells, keep=band), *args)[2]
+    if float(kept[:, 7].max()) != 0.0:
+        problems.append("region rules: a piece cut off by `keep` stayed in the region")
+
+
 def check_queue_time_refusals(problems):
     node = vm.MiniMaxH3MaskedSource
     if vm.settings_refusal(vm.GROW_PIXELS, 8) is not None:
@@ -2716,7 +2787,7 @@ def check_graphs(problems):
 
 def main() -> int:
     problems: list[str] = []
-    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_edge, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_queue_time_refusals, check_wired_motion, check_subject_boxes, check_cut_gate, check_lay_window, check_song_loop, check_motion_look, check_held_tail, check_render_zoom, check_mask_review, check_graphs):
+    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_edge, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_region_rules, check_queue_time_refusals, check_wired_motion, check_subject_boxes, check_cut_gate, check_lay_window, check_song_loop, check_motion_look, check_held_tail, check_render_zoom, check_mask_review, check_graphs):
         check(problems)
     for p in problems:
         print(f"FAIL  {p}")
@@ -2725,7 +2796,7 @@ def main() -> int:
               "after the grow in whole tokens and only then, feathers off the "
               "subject, composites exactly, holds a short source, crops the mask as the frames, paints out only "
               "inside the regenerated tokens, takes a part only from the subject, restores the margin under "
-              "`only what changed`, builds a motion reference on grey or whole at the short edge asked, softens only the subject and empties only its body's tokens for a late start, is wired whole in every graph, its loader loads the frames the plan reads, the mask review shows what regenerates, and a margin taken from the subject's size holds the region under its bound where a fixed one does not, and the margin stays off the people round the subject without costing the subject a token, and a setting it will refuse is refused at queue time in the same words, and a wired motion video is cut where the window is cut, and a tracked mask becomes one box a frame with none where the subject is not, and nothing is laid across a cut from the subject")
+              "`only what changed`, builds a motion reference on grey or whole at the short edge asked, softens only the subject and empties only its body's tokens for a late start, is wired whole in every graph, its loader loads the frames the plan reads, the mask review shows what regenerates, and a margin taken from the subject's size holds the region under its bound where a fixed one does not, and the margin stays off the people round the subject without costing the subject a token, and a keep-out's speck does not hole a step, a one-cell hole is closed and a piece cut off from the subject is given back, and a setting it will refuse is refused at queue time in the same words, and a wired motion video is cut where the window is cut, and a tracked mask becomes one box a frame with none where the subject is not, and nothing is laid across a cut from the subject")
     return 1 if problems else 0
 
 
