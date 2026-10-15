@@ -52,7 +52,10 @@ are not remade for it; the owner's explicit calls are.
    1097-1133 glance with a much tighter crop of BOTH the input and the reference (a box that follows her head, or a
    smaller room), so the eye spans several tokens; the body model RENDERED at the cut's size, not a canvas-size render
    enlarged (the owner: "maybe the zoom went too far in and it got blurry": at 3-4x an enlarged mesh goes soft; the face
-   lines are drawn after the cut either way). If it still does not carry, size is not the cause.
+   lines are drawn after the cut either way). EVERY LAYER scaled with it (the owner: "make sure those are also rescaled
+   with everything else!!!"): the face lines, the eyes and the shut-eye lines are drawn from the points after the cut
+   (crisp at any zoom); the class-map mouth is cut by the same box but enlarged nearest-neighbour from the canvas
+   (`head_reference.class_mouths`), so at a hard zoom it is upscaled smoothly or drawn from the lip points instead. If it still does not carry, size is not the cause.
    The outside reviewer's C9 (`internal/gemini/2026-10-15_gaze_ideas_c9.md`, its figures checked by the lead): the 1097
    reference's face is 167.8 px tall against 2823b's 436 (`face_height_px` in each reference's `.json`), because
    `crop_reference_to_head.HEAD_ROOM` is 1.2 face heights a side round one box for the whole dance. Order to try, one
