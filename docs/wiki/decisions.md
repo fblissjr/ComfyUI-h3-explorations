@@ -19,6 +19,14 @@ Older history lives elsewhere and is not copied here:
 
 *Written by the lead of the day (mrtall) as the rulings are made; mrarc holds the card, mrlol tooling.*
 
+- **Shorter windows inside one load are allowed, on the seam grid** (the owner, 2026-10-15, about 20:15Z: "you can do
+  shorter windows too just make sure the frame multiples we documented either yesterday or day before are right to
+  avoid seams"). Read with the morning's rule (one load per subject over the whole shot, e95b41ee): a load may run as
+  several chained windows, each on `h3_rules.chain_lengths()` (17n+5 and a multiple of 3), so every window cuts its
+  latent steps on the same grid counted from the load's first frame (`masked_v2v.md`, "A latent step is several
+  frames, and its grid is fixed for a whole load") and each later window continues from the one before. What stays
+  ruled out is a shot split into separate fresh loads (the kitchen's 948/949 jump). `shot_to_load job --seam` refused
+  a plan of three windows or more; that refusal goes.
 - **The longest window is 362 frames, `h3_rules.MAX_LENGTH`; no cap of 345 anywhere** (the owner, 2026-10-15: "362 is
   the max I have no idea why 345 was set - that was ages ago. remove that reference to 345 please. i dont want it
   coming back"; AGENTS a071659e). What it used to claim: `h3_config.LONG_LENGTH` was 345, and
