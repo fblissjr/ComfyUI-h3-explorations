@@ -52,8 +52,16 @@ are not remade for it; the owner's explicit calls are.
    1097-1133 glance with a much tighter crop of BOTH the input and the reference (a box that follows her head, or a
    smaller room), so the eye spans several tokens; the body model RENDERED at the cut's size, not a canvas-size render
    enlarged (the owner: "maybe the zoom went too far in and it got blurry": at 3-4x an enlarged mesh goes soft; the face
-   lines are drawn after the cut either way). If it still does not carry, size is not the cause, and an eyes-only
-   second reference is next. The outside reviewer's C9 weighs it first.
+   lines are drawn after the cut either way). If it still does not carry, size is not the cause.
+   The outside reviewer's C9 (`internal/gemini/2026-10-15_gaze_ideas_c9.md`, its figures checked by the lead): the 1097
+   reference's face is 167.8 px tall against 2823b's 436 (`face_height_px` in each reference's `.json`), because
+   `crop_reference_to_head.HEAD_ROOM` is 1.2 face heights a side round one box for the whole dance. Order to try, one
+   render each on 1097-1133, seed held: (1) `--room 0.3` or a head-following box, no code; (2) the mesh's own eye
+   sockets painted out as `draw_face_points.mouth` paints out its lips, the iris pushed into the leading corner; (3) a
+   glance clause in the text from measured iris offsets, as "sings" is from voice; (4) the still's weight lowered
+   (`masked_job_graph.MASKED_JOB_STILL_VIEW`, shared: 4,096 tokens against the reference's 1,536); (5) a seeded eye
+   stamp in the starting noise. Note: 0604g's reference draws her face 87.1 px tall; if (1) carries, a tighter room
+   becomes the chain's default.
 Closed today: two or more subjects in one pass (`../roadmap.md`, "Closed lanes").
 
 **The queue at the close of 2026-10-14 (the lead, mrtwo). The card's order and the tooling order are
