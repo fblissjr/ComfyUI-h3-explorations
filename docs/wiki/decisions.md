@@ -19,6 +19,14 @@ Older history lives elsewhere and is not copied here:
 
 *Written by the lead of the day (mrtall) as the rulings are made; mrarc holds the card, mrlol tooling.*
 
+- **The longest window is 362 frames, `h3_rules.MAX_LENGTH`; no cap of 345 anywhere** (the owner, 2026-10-15: "362 is
+  the max I have no idea why 345 was set - that was ages ago. remove that reference to 345 please. i dont want it
+  coming back"; AGENTS a071659e). What it used to claim: `h3_config.LONG_LENGTH` was 345, and
+  `docs/h3_geometry_and_nodes.md` said "The shipped graphs render at h3_config.LONG_LENGTH, which is 345, not 362".
+  Built by mrvid (branch mrvid-length): every long graph takes 362, the stamped baseline among them, so a figure
+  measured on the baseline before the change is one grid step shorter. A window chained on another stays on the seam
+  grid (17n+5 and a multiple of 3), whose longest under 362 is 345, derived and never typed (`LONG_WINDOW`);
+  `bench/check_length_ceiling.py` goes red on any 345 not named in its list of measured figures.
 - **A reference still's definition is specific; the generation's description says less** (the owner, 2026-10-15,
   about 19:50Z, on the kitchen's two-subject text: "specificity in the reference image definition is important. in the
   actual generation and how its used... sometimes less is more"). The second subject's definition now names her face
