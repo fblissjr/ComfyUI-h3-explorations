@@ -574,7 +574,16 @@ session starting a job needs to know:
     (`capture_masked_run.plans_with_the_files`), and the land runs a pose
     pass for each subject. The delivery table does not lay a render of
     two subjects in one pass.
-  No render had been made of one when this was written.
+  No render had been made of one when this was written. *The first,
+  2026-10-15: `second_lead_0852` (the kitchen, 852-958, the second subject
+  as `<Picture 1>`/`<Video 1>` and the lead as `<Picture 2>`/`<Video 2>`,
+  the text paired label by label, hand-written as draft 8) BLENDED the two
+  faces: the owner on playback, "the middle one blended faces"; mrarc read
+  the standing woman as the adult of `<Picture 1>` and the seated woman as
+  the girl of `<Picture 2>`. One render, one seed, one shot. The pair's one
+  margin also took the lead's hair. The next test is one hole a pass: the
+  second subject's load, then the lead's load given that render as its
+  video.*
 - **A hair band under a head-and-hair part** (2026-10-12; a load's
   `hair_band`, a share of the part's height, with no default: a load that
   does not ask has none). A still whose hair falls past the original's jaw

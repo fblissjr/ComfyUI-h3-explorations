@@ -19,6 +19,13 @@ Older history lives elsewhere and is not copied here:
 
 *Written by the lead of the day (mrtall) as the rulings are made; mrarc holds the card, mrlol tooling.*
 
+- **Two holes in one pass blended the two faces; the next test fills one hole a pass** (the owner, 2026-10-15, about
+  21:25Z, on the review page's `second_lead_0852`: "the middle one blended faces"). The test the owner asked for
+  ("try it on a short window - like 100ish frames"): the kitchen, 852-958, both subjects in one load through
+  `shot_to_load pair` and `load_chain`, the text paired label by label (draft 8), read whole from the queued graph by
+  the lead and by the outside reviewer. One render, one seed, one shot, so a direction and not a result. Next, on the
+  same frames: the second subject's load, then the lead's load given that render as its video, so each pass has one
+  hole and one pair of references. The labelled-reference arm (the owner's hint) is still built and run, as cheap.
 - **A text says "sings" where a person sings, and nothing else about voice** (the owner, 2026-10-15, about 21:07Z:
   "keep it simple - just say singing if theyre singing in a shot/window. if theyre not, dont mention anything about
   talking or singing. the end. make that a rule."; earlier the same day, of the kitchen's second subject: "just dont
