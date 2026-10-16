@@ -80,7 +80,9 @@ tomorrow's lead. Where this page and a record disagree, the record is right (`de
    (`bench/stack_rows.py`: masked input, 2823d, 2823b). Say on the page that 3098-3104 lose her glasses in the render
    and get them back only at assembly (item 9). Pages: `rebuild.sh`, then `pages.sh STAMP
    data/2026-10-15_fun_delivery_tables/t_fun_0000_6394_2026-10-16T0043Z.json`.
-6. **The card renders 2823d first**, by the commands in mrgo's note, after its plan reader is finished and checked.
+6. **The card renders 2823d first**, by the commands in mrgo's note. Its gate overrides f001 and f002 were made on
+   mrgo's own look and NO reader has confirmed them yet (0604g's was confirmed by its reader): a plan reader by someone
+   other than mrgo reads the frames first, and its reading is checked against both overrides before it renders.
 7. **First tooling (the owner's yes): one per-frame coverage tool and one source of truth.** Per shot, subject and
    frame: tracked or not (SAM 3.1), which piece lays it, whether the original shows, and where one tracker lost her
    while the others had her (the flip survey's method, `internal/claude/2026-10-15_flip_survey/`). Three lists: visible
