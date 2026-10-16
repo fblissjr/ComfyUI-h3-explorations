@@ -66,8 +66,11 @@ notes: `internal/claude/2026-10-16_mrtony/HANDOFF.md`; the card's: `internal/cla
    4653-4677, 5114-5129, 5461-5497, 5533-5564. NOT a re-lay: the owner's flags at 287, 422 and 483-489 (the mom's 0278c,
    0415d, 0484c). Re-laid under "whole region" they come out the same (the trial agent, about 23:55Z, clips in
    `Video/fun/day_2026-10-16/recomposite_trials/`): the cut is the edge of the regenerated token region, which a
-   keep-out cut away from her neck and hair (most likely the clothing stay keep-out, retired 26f208c0; the trial's
-   final report names which). They need new loads under today's rules, planned to strips.
+   keep-out cut away from her neck and hair: most likely the `clothes` keep-out (Apparel, Upper_Clothing of the class
+   map) that every load of hers carries, 1010c too. On 10-14 it cut into her own outline; since the carve (c3b53645,
+   77ea523a) a keep-out loses everything inside her track, so a new load gives those back (NOT the retired `stay`,
+   which was a second, separate keep-out; the trial's final report names which). New loads under today's rules,
+   planned to strips that show her outline on the flagged frames (the carve is only as good as her track).
 4. Land Gemini's D19 (pages read the gap check) and D20 (`--carry-words-from`) after a Claude read each.
 5. Open with the owner: a new kitchen load for the mom (604-1009) under today's rules (the Open List's r16_01, the lead's
    pick: see the re-laid 0604d first); the
