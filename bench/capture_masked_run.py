@@ -910,11 +910,11 @@ def carve_keep_out(keep: np.ndarray, mine: np.ndarray, share: float = OWN_TRACK_
     15213 `clothing` pixels outside her track. Taking her own pixels as well costs none outside her track.
 
     NAMED GAPS, not built:
-    - The canvas grid and frame by frame: the node pools a keep-out over each latent step and cuts on its own token grid,
-      the zoomed picture's for a zoomed load. A token mostly hers that a keep-out touches on another frame of its step is
-      still pinned to the source: on second_hfp_0014f (zoomed) 0, 503, 232 token-frames (held, hands, clothing) over 154
-      frames after the carve (1416, 1002, 1343 with the cells alone); on second_hfp_0604g (not zoomed) 34 cell-frames of
-      hands (docs/wiki/decisions.md, 2026-10-16). The grid-exact carve at the on-plan rebuild answers it.
+    - The canvas grid and frame by frame, ANSWERED at the on-plan rebuild by `grid_carve` (the node's own steps and grid) and
+      counted by `node_taken_inside` (the node's own `window`): on the saved masks of second_hfp_0014f (zoomed) the node gave
+      back 168 unit-frames of hands and 4 of strangers inside her track after this carve alone, and on second_hfp_0604g 100 of
+      hands; after the grid carve, none (docs/wiki/decisions.md, 2026-10-16). Before a plan exists the first files step has
+      only this carve.
     - One capture, first sighting: every replaced subject of the capture is carved against, where the rule is per load (the
       same in the chain, one load a job), and a subject's first sighting whatever `by` the load names.
     - Other readers do not say which a capture is: the assembler's subjects table and `delivery_table.tracked_in` mix carved
@@ -922,6 +922,119 @@ def carve_keep_out(keep: np.ndarray, mine: np.ndarray, share: float = OWN_TRACK_
     hers = cells_mostly(mine, share)
     lost = keep & (cells_up(hers) | mine)
     return keep & ~lost, lost.reshape(len(lost), -1).sum(axis=1), (cells_any(keep) & hers).reshape(len(keep), -1).sum(axis=1)
+
+
+def node_windows(plan_path: Path, size: tuple[int, int]) -> tuple[dict, list]:
+    """A song node plan and its windows that have region files: [(row, the region as `video_mask.load_window_region` reads
+    it)]. Refused (SystemExit) where a zoom is not of the capture's own canvas, since the carve maps through it."""
+    vm = _pack("video_mask")
+    plan = json.loads(Path(plan_path).read_text())
+    zoom = plan.get("zoom")
+    if zoom and not ([int(v) for v in zoom.get("canvas", [])] == [int(v) for v in zoom.get("source_size", [])] == list(size)):
+        raise SystemExit(f"{Path(plan_path).name}: the zoom is of {zoom.get('source_size')} frames on a {zoom.get('canvas')} canvas and the capture "
+                         f"is {list(size)}: the carve on the node's grid maps through the zoom and does not restate a fit")
+    return plan, [(row, vm.load_window_region(str(Path(plan_path).parent / row["region_file"]))) for row in plan.get("windows", [])
+                  if row.get("region_file") and (Path(plan_path).parent / row["region_file"]).is_file()]
+
+
+def _units(vm, picture, lat_h: int, lat_w: int, whole: bool):
+    """The share of each of the node's units (a latent cell, or a whole token of 2x2 cells) a picture mask [F, H, W] covers, at
+    the cells' shape [F, lat_h, lat_w], each cell holding its unit's share."""
+    import torch
+    f, h, w = picture.shape
+    share = picture.to(torch.float32).reshape(f, lat_h, h // lat_h, lat_w, w // lat_w).mean((2, 4))
+    if whole:
+        padded = torch.nn.functional.pad(share[:, None], (0, lat_w % 2, 0, lat_h % 2), mode="replicate")[:, 0]
+        tok = padded.reshape(f, padded.shape[1] // 2, 2, padded.shape[2] // 2, 2).mean((2, 4))
+        share = tok.repeat_interleave(2, dim=-2).repeat_interleave(2, dim=-1)[:, :lat_h, :lat_w]
+    return share
+
+
+def _window_frames(mask: np.ndarray, row: dict, at: int, first: int, length: int) -> np.ndarray:
+    """A capture's [n, h, w] mask on a window's frames (load frame `row.first_frame` on, `length` of them), empty outside it."""
+    out = np.zeros((length,) + mask.shape[1:], bool)
+    for i in range(length):
+        k = at + row["first_frame"] + i - first
+        if 0 <= k < len(mask):
+            out[i] = mask[k]
+    return out
+
+
+def _picture(vm, mask: np.ndarray, zoom: dict | None, size: tuple[int, int]):
+    """A canvas mask [F, h, w] as the node has it: the zoomed picture (`video_mask.crop_mask` through the plan's box), or the canvas."""
+    import torch
+    t = torch.from_numpy(mask.astype(np.float32))
+    return vm.crop_mask(t, zoom["box"], *size) if zoom else t
+
+
+def grid_carve(keep: np.ndarray, mine: np.ndarray, plan_path: Path, at: int, first: int, share: float = OWN_TRACK_CELL_SHARE) -> tuple[np.ndarray, np.ndarray]:
+    """THE CARVE ON THE NODE'S OWN GRID (the lead's ruling of 2026-10-16, docs/wiki/decisions.md): per window of the node's plan,
+    per latent step (`video_mask.run_lengths`) and per unit of its token grid (a latent cell, or a whole token; of the zoomed
+    picture for a zoomed load), a unit more than `share` the subject's own track on ANY frame of the step loses every keep-out
+    pixel under it on EVERY frame of that step, mapped back to the canvas (`video_mask.lay_back`) and a pixel wider. The node
+    pins a unit to the source when a keep-out touches it on any frame of its step and her part on none
+    (`video_mask.window`), so the canvas carve frame by frame leaves such units. Returns the keep-out and the pixels it lost
+    a frame. Run at the on-plan rebuild, when the plan is there; the render's own tokens are made from these files."""
+    import cv2
+    import torch
+    vm = _pack("video_mask")
+    n, h, w = keep.shape
+    plan, windows = node_windows(plan_path, (w, h))
+    zoom = plan.get("zoom")
+    whole = (plan.get("source") or {}).get("edge", vm.EDGE_TOKENS) == vm.EDGE_TOKENS
+    out = keep.copy()
+    for row, got in windows:
+        lt, lh, lw = (int(v) for v in got["tokens"].shape)
+        length = int(got["mask"].shape[0])
+        hers = _units(vm, _picture(vm, _window_frames(mine, row, at, first, length), zoom, (w, h)) > 0.5, lh, lw, whole) > share
+        start = 0
+        for steps in vm.run_lengths(lt):
+            on = hers[start:start + steps].any(0)
+            if bool(on.any()):
+                px = on.to(torch.float32).repeat_interleave(h // lh, dim=0).repeat_interleave(w // lw, dim=1)[None]
+                if zoom:
+                    px = vm.lay_back(torch.ones(1, h, w, 3), px, torch.zeros(1, h, w, 3), zoom)[..., 0]
+                foot = cv2.dilate((px[0] > 0).numpy().astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
+                for i in range(start, start + steps):
+                    k = at + row["first_frame"] + i - first
+                    if 0 <= k < n:
+                        out[k] &= ~foot
+            start += steps
+    return out, (keep & ~out).reshape(n, -1).sum(axis=1)
+
+
+def node_taken_inside(keeps: np.ndarray, mine: np.ndarray, plan_path: Path, at: int, first: int, share: float = OWN_TRACK_CELL_SHARE) -> np.ndarray:
+    """THE FAULT COUNT FROM THE NODE'S OWN TOKENS: per capture frame, the units the node gives back to the source because of the
+    keep-outs (`keeps`, their union at the canvas) that are more than `share` the subject's own track on a frame of their
+    step. The node's own `video_mask.window` is run on each window with the plan's part mask and the keep-outs and without
+    them, on the plan's settings; the units the keep-outs take are the difference. Zero after the grid carve; nonzero is a
+    capture fault."""
+    import torch
+    vm = _pack("video_mask")
+    n, h, w = keeps.shape
+    plan, windows = node_windows(plan_path, (w, h))
+    zoom, settings = plan.get("zoom"), dict(plan.get("source") or {})
+    whole = settings.get("edge", vm.EDGE_TOKENS) == vm.EDGE_TOKENS
+    count = np.zeros(n, np.int64)
+    for row, got in windows:
+        lt, lh, lw = (int(v) for v in got["tokens"].shape)
+        length = int(got["mask"].shape[0])
+        others = _picture(vm, _window_frames(keeps, row, at, first, length), zoom, (w, h))
+        src = {"frames": torch.zeros(length, h, w, 3), "mask": got["mask"], "grow_pixels": int(settings.get("grow_pixels", 0)),
+               "grow_by": settings.get("grow_by", vm.GROW_FIXED), "feather_pixels": int(settings.get("feather_pixels", 0) or 0),
+               "edge": settings.get("edge", vm.EDGE_TOKENS), "subject_area": vm.area_share(got["mask"])}
+        kept = vm.window({**src, "others": others}, 0, length, w, h, lt, lh, lw)[2]
+        grown = vm.window(src, 0, length, w, h, lt, lh, lw)[2]
+        hers = _units(vm, _picture(vm, _window_frames(mine, row, at, first, length), zoom, (w, h)) > 0.5, lh, lw, whole) > share
+        start = 0
+        for s, steps in enumerate(vm.run_lengths(lt)):
+            taken = int(((grown[s] > 0.5) & (kept[s] < 0.5) & hers[start:start + steps].any(0)).sum())
+            for i in range(start, start + steps):
+                k = at + row["first_frame"] + i - first
+                if 0 <= k < n:
+                    count[k] = max(count[k], taken)
+            start += steps
+    return count
 
 
 def cells_up(cells: np.ndarray, cell: int = CELL) -> np.ndarray:
@@ -1712,6 +1825,8 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
     # cells that are mostly the run subjects' own tracks, read first: our people's masks are read before the keep-outs
     replaced = {x["subject"] for _, x in runs + plans} | {json.loads(x["also"])["subject"] for _, x in runs + plans if x.get("also")}
     kept_out = {o for _, x in runs + plans for o in x.get("others", "").split("+") if o}
+    # the node's plans this capture is rebuilt on (the on-plan rebuild): the carve on the node's own grid follows the canvas one
+    on_plan = [(plan_file(x["preview"]), int(x["at"]) if x.get("at") is not None else first) for _, x in plans if x.get("preview")]
     carved: dict = {}
     masks = sorted(masks, key=lambda lm: not (lm[0] in replaced or lm[1].get("shots")))
     for label, m in masks:
@@ -1731,6 +1846,12 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             if mine:
                 track, px, cells = carve_keep_out(track, np.logical_or.reduce(mine))
                 carved[label] = {"px": px, "cells": cells, "against": sorted(s for s in replaced if s in sightings)}
+                grid = np.zeros(frames, np.int64)
+                for path, plan_at in on_plan:
+                    track, lost = grid_carve(track, np.logical_or.reduce(mine), path, plan_at, first)
+                    grid += lost
+                carved[label]["grid_px"] = grid
+                carved[label]["grid_from"] = [str(p_) for p_, _ in on_plan]
                 print(f"keep-out {label}: carved out of {' and '.join(carved[label]['against'])}'s own track: {int(px.sum())} px, "
                       f"{int(cells.sum())} cells, on {int((cells > 0).sum())} of {frames} frames (OWN_TRACK_CELL_SHARE {OWN_TRACK_CELL_SHARE})", flush=True)
         parts = read_mask(m["parts"], size, at, first, frames)[0] if m.get("parts") else None
@@ -1835,7 +1956,10 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                    "shots": bool(m.get("shots")), "first_source_frame": at,
                                    **({"carved_out_of_own_track": {"against": carved[label]["against"], "px": int(carved[label]["px"].sum()),
                                                                    "cells": int(carved[label]["cells"].sum()), "frames": int((carved[label]["cells"] > 0).sum()),
-                                                                   "share": OWN_TRACK_CELL_SHARE}} if label in carved else {}),
+                                                                   "share": OWN_TRACK_CELL_SHARE,
+                                                                   "on_the_node_grid_px": int(carved[label]["grid_px"].sum()),
+                                                                   "on_the_node_grid_from": carved[label]["grid_from"] or "no plan yet: the canvas carve alone"}}
+                                      if label in carved else {}),
                                    # a shot table counts from its own load's first frame, which need not be the mask video's
                                    "shots_first_source_frame": int(m.get("shots_at", at)),
                                    "frames_covered": int(covered.sum()), "pose": posed, "parts_pieces": m.get("pieces"),
@@ -1998,6 +2122,20 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
     for label, c in carved.items():                    # what the carve took from each keep-out, a frame at a time: data, never a flag
         for n, row in enumerate(cross):
             row[f"keep_out_carved_px__{label}"], row[f"keep_out_carved_cells__{label}"] = int(c["px"][n]), int(c["cells"][n])
+            row[f"keep_out_carved_on_the_node_grid_px__{label}"] = int(c["grid_px"][n])
+    # THE FAULT COUNT FROM THE NODE'S OWN TOKENS (`node_taken_inside`): for each planned run on a plan, the units the node would give back
+    # inside the subject's own track because of the carved keep-outs; zero by the carve, a capture fault (a hard flag) otherwise
+    for name, x in plans:
+        if not x.get("preview"):
+            continue
+        keeps = [next(iter(sightings[o].values()))[0] for o in x.get("others", "").split("+") if o in carved]
+        if not keeps:
+            continue
+        subjects = [x["subject"]] + ([json.loads(x["also"])["subject"]] if x.get("also") else [])
+        own = np.logical_or.reduce([next(iter(sightings[s_].values()))[0] for s_ in subjects])
+        got = node_taken_inside(np.logical_or.reduce(keeps), own, plan_file(x["preview"]), int(x["at"]) if x.get("at") is not None else first, first)
+        for n, row in enumerate(cross):
+            row[f"node_cells_given_back_inside_own_track__{name}"] = int(got[n])
     for row, (step, sharp) in zip(cross, picture_rows(a.source, first, frames, size)):
         row.update(source_step=step, source_sharpness=sharp)
     # Who owns each pixel. A subject is a "who" when it has a class map, or when no subject has one: a kept-out
@@ -3210,6 +3348,16 @@ def flag_runs(manifest: dict, folder: Path, own: dict | None = None, given: dict
         # NO KEEP-OUT CARVES HER OWN TRACK (the owner, 2026-10-16, "The simplification wins. Make sure this never happens again",
         # docs/wiki/decisions.md): a keep-out's cells given back that are mostly the subject's own track put the source back
         # inside her picture (a strangers track at the mom's ear, a held track at her neckline, second_hfp_0014d). Hard: no override
+        hit = [(r["source_frame"], int(r[f"node_cells_given_back_inside_own_track__{name}"])) for r in cross
+               if r.get(f"node_cells_given_back_inside_own_track__{name}")]
+        if hit:
+            out.append({"rule": "keep_out_inside_own_track", "level": LEVELS[2], "hard": True, "subject": run["subject"], "run": name,
+                        "other": "the keep-outs, by the node's own tokens", "source_frames": frame_spans([f for f, _ in hit]),
+                        "why": f"the node's own tokens (`node_taken_inside`, its `window` run on the plan's part and the carved keep-outs) give back "
+                               f"up to {max(c for _, c in hit)} units more than {OWN_TRACK_CELL_SHARE:.0%} {whom}'s own track on {len(hit)} frame(s) "
+                               f"({', '.join(f'{f}: {c}' for f, c in hit[:12])}): the carve on the node's grid did not take them, a CAPTURE FAULT, "
+                               "no override takes it",
+                        "figures": {"frames": len(hit), "units_most": max(c for _, c in hit)}, "threshold": {"OWN_TRACK_CELL_SHARE": OWN_TRACK_CELL_SHARE}})
         for other in labels:
             col = f"cells_given_back_inside_own_track__{name}__{other}"
             if other in subjects_of(run) or other in people:

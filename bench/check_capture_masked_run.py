@@ -102,6 +102,14 @@ overlaps and margins can be counted by hand and reads the rows back.
    written for the builder is the carved one and the fault column reads 0 on it, another person's track untouched.
    Seen red with the carve skipped in the files step (the fault column nonzero).
 
+22. **The carve on the node's own grid** (`grid_carve`, `node_taken_inside`, the lead's ruling of 2026-10-16). On a plan and
+   a region file written by the node's own `save_window_region`, and counted by the node's own `window`: a keep-out over
+   cells that are hers on one frame of a latent step and on others of it is given units by the node after the canvas
+   carve and none after the grid carve; and on a zoomed load (a box off the canvas grid, 1.333) a band just outside her
+   track inside a zoomed unit mostly hers, the same. Through the files step on a plan, the keep-out written for the
+   builder is the grid-carved one; `flag_runs` reads the node's count as the hard fault. Seen red with the step pooling
+   taken out (frame by frame), with the zoom not laid back (the canvas grid), and with the files step not carving on the plan.
+
 20. **No largest piece of a face or hair** (`refuse_pieces_on_a_head`, `h3_config.NO_PIECES_ON`, the owner, 2026-10-16).
    Run through the files step with its readers stood in: `pieces=largest` on a part the class map says is a face,
    or hair, stops before a piece is dropped; on a part of clothing it reaches the drop; with no class map it stops.
@@ -1765,6 +1773,27 @@ def the_carve_in_the_files_step() -> str:
                 pass
             except SystemExit as e:
                 raise AssertionError(f"the keep-out was read before the replaced subject with no shot table: {e}") from None
+            # ON A PLAN (the on-plan rebuild): the keep-out written for the builder is carved on the node's grid as well
+            # zoomed 1.333 in a box whose units start at x 4: the unit 88-100 is two thirds hers (her edge at 96), and a band 96-100
+            # outside her lies in it, which the canvas carve leaves (its cell 96-112 is not hers)
+            zoom = {"box": [4, 0, 124, 72], "source_size": [W, H], "canvas": [W, H], "scale": 160 / 120, "render_region": "part", "set_by": "the box"}
+            plan = _a_node_plan(Path(tmp), A & ~hands, zoom, 2)            # the plan's own frames: 5, from the capture's first frame
+            band = rect(96, 30, 100, 90)
+            masks_given["band.mkv"] = band
+            given = given + [("band", {"track": "band.mkv"})]
+            on_plan = {}
+            cap.write_mask_video = lambda path, m: on_plan.__setitem__(Path(path).parent.name, m)
+            try:
+                cap._files(args_, Path(tmp) / "planned", given, [], [("r", {"subject": "a", "others": "b+hands+band", "preview": str(plan), "at": "100"})])
+            except Reached:
+                pass
+            cap.write_mask_video = lambda path, m: written.__setitem__(Path(path).parent.name, m)
+            canvas_only = cap.carve_keep_out(band, body)[0]
+            want = cap.grid_carve(canvas_only, body, plan, 100, 100)[0]
+            assert want.sum() < canvas_only.sum(), "the fixture: the grid carve takes nothing the canvas carve leaves"
+            # THE CASE THAT GOES RED when the files step does not carve on the plan's grid
+            assert (on_plan["band"] == want).all(), "the files step did not carve the keep-out on the node's grid"
+            given = given[:-1]
             # THE CASE THAT GOES RED when a keep-out is written uncarved because the subject it is carved out of was never read
             gone = dict(written)
             try:
@@ -1783,6 +1812,58 @@ def the_carve_in_the_files_step() -> str:
     assert row["cells_given_back_inside_own_track__pass_a__b"] == 0 and not written["hands"].any(), row
     assert (written["b"] == other).all() and (written["a"] == body).all(), "a person's track was carved"
     return "the keep-out's track written for the builder is carved out of her track; a person's is untouched"
+
+
+def _a_node_plan(folder: Path, part: np.ndarray, zoom: dict | None, latent_t: int) -> Path:
+    """A song node plan with one window and its region file, written by the node's own `save_window_region`: her part as the
+    node has it (the zoomed picture under a zoom), a fixed margin of 40, latent cells of 16 px."""
+    import torch
+    vm = cap._pack("video_mask")
+    frames = sum(vm.run_lengths(latent_t))
+    src = {"zoom": zoom, "grow_pixels": 40, "grow_by": vm.GROW_FIXED, "edge": vm.EDGE_CELLS, "feather_pixels": 0}
+    vm.save_window_region(str(folder / "w1.npz"), cap._picture(vm, part, zoom, (W, H)), torch.zeros(latent_t, H // 16, W // 16), src, 40, 0, 0)
+    (folder / "p_plan.json").write_text(json.dumps({"plan": "h3 song plan", "zoom": zoom, "source": {k: v for k, v in src.items() if k != "zoom"},
+                                                    "windows": [{"number": 1, "first_frame": 0, "frames": frames, "first_written_frame": 0,
+                                                                 "last_written_frame": frames - 1, "region_file": "w1.npz"}]}))
+    return folder / "p_plan.json"
+
+
+def the_carve_on_the_nodes_grid() -> str:
+    """The lead's ruling of 2026-10-16: the node pins a unit of its grid to the source over a whole latent step, on the zoomed
+    picture's grid for a zoomed load, so the carve is made there: per window, per step, per unit. Counted by the node's own
+    `window` on the carved keep-outs."""
+    import tempfile
+    vm = cap._pack("video_mask")
+    lt = 2
+    f = sum(vm.run_lengths(lt))                                       # 1 + 4 frames: the second step is frames 1-4
+
+    def box(x0, y0, x1, y1, on=None):
+        m = np.zeros((f, H, W), bool)
+        m[on if on is not None else slice(None), y0:y1, x0:x1] = True
+        return m
+    said = []
+    with tempfile.TemporaryDirectory() as tmp:
+        for tag, zoom, part, mine, keep in (
+                # her part one cell; her track also two cells on frame 1 only; a keep-out over those two cells on frames 2-4
+                ("a latent step", None, box(80, 32, 96, 48), box(80, 32, 96, 48) | box(48, 32, 64, 64, [1]), box(50, 34, 62, 62, [2, 3, 4])),
+                # a zoomed load, a box off the canvas grid at 1.333: a band just outside her track, in a zoomed unit mostly hers
+                # (the box at x 40: the zoomed units start at canvas x 40 + 12k, so the unit 76-88 is two thirds hers up to her edge at 84,
+                # the band 84-88 lies in it and in the canvas cell 80-96, which is not hers; her units read as canvas pixels without the
+                # zoom would fall on 32-64, far from the band)
+                ("a zoomed unit", {"box": [40, 24, 160, 96], "source_size": [W, H], "canvas": [W, H], "scale": 160 / 120, "render_region": "part",
+                                   "set_by": "the box"}, box(60, 40, 72, 60), box(60, 30, 84, 80), box(84, 30, 88, 80))):
+            folder = Path(tmp) / tag.replace(" ", "_")
+            folder.mkdir()
+            plan = _a_node_plan(folder, part, zoom, lt)
+            canvas = cap.carve_keep_out(keep, mine)[0]
+            before = cap.node_taken_inside(canvas, mine, plan, 0, 0)
+            carved, lost = cap.grid_carve(canvas, mine, plan, 0, 0)
+            after = cap.node_taken_inside(carved, mine, plan, 0, 0)
+            # THE CASES THAT GO RED when the carve is made frame by frame, or on the canvas's grid for a zoomed load
+            assert before.sum() > 0, f"{tag}: the fixture: the node takes nothing after the canvas carve ({before.tolist()})"
+            assert after.sum() == 0 and lost.sum() > 0, f"{tag}: the node still takes {after.tolist()} after the grid carve"
+            said.append(f"{tag}: the node took {before.tolist()} units a frame after the canvas carve, none after")
+    return "; ".join(said)
 
 
 def who_is_who() -> str:
@@ -2450,4 +2531,5 @@ case("a load of two subjects: neither is another subject to it", neither_is_anot
 case("no largest piece of a face or hair, at the files step", no_pieces_on_a_head)
 case("no keep-out carves the subject's own track", no_keep_out_inside_her_track)
 case("the carve, in the files step", the_carve_in_the_files_step)
+case("the carve on the node's own grid", the_carve_on_the_nodes_grid)
 sys.exit(finish())
