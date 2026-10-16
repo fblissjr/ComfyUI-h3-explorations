@@ -37,6 +37,25 @@ Older history lives elsewhere and is not copied here:
   its own worktree off the unlanded gaze branch, no git, the reference only (the input's zoom stays one box a load,
   `video_mask.py:1795-1796`), off by default, landed only after the lead's review, a cold read and the owner's
   playback of a test render. What it replaces: nothing yet; the per-load reference box stays the default.
+  CANCELLED the same night (about 00:05Z): the owner, "not sure i like it at all yet"; the lead then found the one case
+  where her eyes carried (2823b) had a 439 px face on the canvas itself, so a reference-only box rests on an untested
+  premise. The reviewer built nothing; it answered C14 only.
+- **The gaze work: the touch-nothing test first, every other piece set aside** (the owner, 2026-10-16: "this i agree
+  with"). One render, 1097-1133 with only a tight reference made outside the chain, plus regression renders on kept
+  pieces where her eyes already work (1575b, 0805d, 0630d, 2625); nothing lands unless the glance carries and nothing
+  kept gets worse on the owner's playback (`internal/claude/2026-10-15_gaze_pieces.md`).
+- **The gate's two rules that read a part before the word are replaced by one** (the owner, 2026-10-15 late: "lets kill
+  this rule is there some other information we can give it thats useful in its place"): region and reference agree on
+  every frame after every word is applied; no third rule, none in comments; its comment says why. Built, not landed
+  (branch `mrnight-fixes`); `handover.md`, item 4b, has its state.
+- **A reference is never renamed or moved once a render has read it** (the owner, 2026-10-16: "this needs to be fixed");
+  a remake takes the next free name, and verify fails where a recorded sha256 no longer matches. 0751b, 1097b, 1156 and
+  5114d point at files they never read (their originals sit in `*_SUPERSEDED_*` folders; 5114d's proven by sha256).
+- **Every run records the nodes the server served from its cache** (the owner, 2026-10-16: "that needs to be solved
+  tonight"). Built and read cold (branch `mrtall-cached-nodes`), landing at the card's clear after 0604g.
+- **A tracking count on every load** (the owner, 2026-10-16), and **one hold rule from the flip survey in place of the
+  hand-written --hold-part spans** (the lead's proposal, under review by the reviewer's C16 and a dry run): both queued,
+  `handover.md` items 4e and 4f.
 
 *Written by the lead of the day (mrtall) as the rulings are made; mrarc holds the card, mrlol tooling.*
 
