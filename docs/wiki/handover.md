@@ -62,8 +62,12 @@ notes: `internal/claude/2026-10-16_mrtony/HANDOFF.md`; the card's: `internal/cla
    was rebuilt from the laid list at the close (`rebuild.sh --clip`, the stamp in the pages' table) with 0014f and 0294d.
 3. The owner's looks, on Start here in this order: the plan strips (`lead_fp_1010g` with the hat square gone,
    `lead_fp_0613g` with its zoom figures and 626-629 / 803-805 checked, 516-603, the whole-shot loads 1061-1092,
-   1093-1133, 1306-1418 and the dad's 1310-1418); the re-composite before/afters (0604d, 0278c, 0415d, 0484c); the four
-   late pieces 4653-4677, 5114-5129, 5461-5497, 5533-5564.
+   1093-1133, 1306-1418 and the dad's 1310-1418); the 0604d re-composite before/after (r16_01); the four late pieces
+   4653-4677, 5114-5129, 5461-5497, 5533-5564. NOT a re-lay: the owner's flags at 287, 422 and 483-489 (the mom's 0278c,
+   0415d, 0484c). Re-laid under "whole region" they come out the same (the trial agent, about 23:55Z, clips in
+   `Video/fun/day_2026-10-16/recomposite_trials/`): the cut is the edge of the regenerated token region, which a
+   keep-out cut away from her neck and hair (most likely the clothing stay keep-out, retired 26f208c0; the trial's
+   final report names which). They need new loads under today's rules, planned to strips.
 4. Land Gemini's D19 (pages read the gap check) and D20 (`--carry-words-from`) after a Claude read each.
 5. Open with the owner: a new kitchen load for the mom (604-1009) under today's rules (the Open List's r16_01, the lead's
    pick: see the re-laid 0604d first); the
