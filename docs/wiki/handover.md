@@ -87,9 +87,14 @@ newest ledger and table; the Open List).
    was a `--no-face-on` frame on a capture made before the branch's trim, so the blocker may come from the test);
    only then the chin cut, if still needed. State and commands: `internal/claude/2026-10-15_mrnight_fixes_note.md`,
    "STATE FOR TOMORROW"; the comparison `internal/claude/2026-10-15_gate_compare/`. Rerun it after every change below.
-4. **The hold rule from the flip survey, after 3** (it changes what 3's rule reads): widen main's `SHORT_FILL` only
-   where SAM has her, never where a part stands, never inside a `no_face_on` span (the dry run: 0 wrong fills, 73-77 of
-   the survey's 126 filled; `internal/claude/2026-10-16_fill_dry_run/README.md`); the outside reviewer's C16 first.
+4. **The hold rule: NOT the widened one** (the outside reviewer's C16, `internal/gemini/2026-10-16_c16_fill_rule.md`,
+   on the dry run): the face points cannot gate it (true on 28 of 29 turned-away frames and all 74 hands frames), and
+   they do not exist yet when the capture runs (the pose pass is the reference step, `shot_to_load.py:2033`). What
+   already tells a real part-model dropout from a turned head or hands is main's own `under_doubted` read of the class
+   map: every real dropout on file (751b 761; 2823d 3098-3104; 5935b 6008, 6012) reads "nothing labelled", a turned
+   head "their own hair", hands "their other classes". Main's `SHORT_FILL = 2` broke nothing in the dry run. If wanted:
+   raise it to 4 keeping "nothing labelled" and standing neighbours inside the load, with 2823d 3101-3104 as its case,
+   after 3, rerunning the comparison. The tracking count (item 2) is what shows how often a longer run happens.
 5. **A reference is never renamed once a render has read it:** a remake takes the next free name unless `--existing`;
    verify fails where a recorded sha256 no longer matches the file.
 6. The cached-node record, if it did not land overnight; and the restore carried across a hold (branch
