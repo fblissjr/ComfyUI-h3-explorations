@@ -48,12 +48,16 @@ file the owner, the sessions and the outside reviewer all watch). Top to bottom 
                        render's own region files (`<render stem>_windows/*_region.npz`, read by the node's own
                        `video_mask.load_window_region`), the units of the grown region the node did not regenerate,
                        `token_mask(grow(mask, margin)) & ~tokens` with the node's own helpers, in the window that lays the
-                       frame (`KeptSquares`). Split by the subject's own track as the load was handed it: a unit more than
-                       `capture_masked_run.OWN_TRACK_CELL_SHARE` hers is filled bright yellow and counted in a chip ("N squares
-                       kept as the original inside <subject>'s outline"); one outside her track gets a quiet wash and no chip
-                       (`KEPT_INSIDE`, `KEPT_OUTSIDE`: fills, never a line). Where two windows lay one frame both counts are
-                       said; a render with no region files, a file that does not read, or a track not read is said in the
-                       label strip, never left blank.
+                       frame, the windows read as the capture reads them (each following on from the last, stopped at the
+                       render's end, a later run's files left unread and named: `KeptSquares`). Nothing on a frame the piece
+                       does not lay (its mask empty, or the cut gate shut). Split by the subject's own track as the load was
+                       handed it, every track of a load of two subjects together: a unit more than
+                       `capture_masked_run.OWN_TRACK_CELL_SHARE` hers on any frame of its latent step (as the capture's
+                       `grid_carve` and `node_taken_inside` count it, through its own `_units`) is filled bright yellow and
+                       counted in a chip ("N squares kept as the original inside <subject>'s outline"); one outside her track
+                       gets a quiet wash and no chip (`KEPT_INSIDE`, `KEPT_OUTSIDE`: fills, never a line). A render with no
+                       region files, windows that do not follow on, a file that does not read, or a track not read is said in
+                       the label strip, never left blank.
 
 **Within H.264 level 5.1** (`LEVEL`, `LEVEL_MACROBLOCKS`, `LEVEL_SIDE`, `most_height`: 3840 rows at 2448 wide), which every
 browser plays (the owner's review page crashed Chrome on 2448x4172 views, level 6.0, 2026-10-16). The picture rows stay at the
@@ -346,7 +350,9 @@ def right_tiles(w: int, h: int, n: int, total_h: int, label_px: int = 34) -> tup
     The pictures are scaled by one factor, printed in the label, only when `n` blocks do not fit `total_h`."""
     body = h + h // 2 + 12
     sc = min(1.0, max(0.05, (total_h / max(1, n) - label_px) / body))
-    bh, mw, mh, hs = label_px + round(body * sc), round(w * sc), round(h * sc), round(h // 2 * sc)
+    # a block's height rounded DOWN: n blocks each rounded up by a fraction of a row came to one row over the column (the whole
+    # video of 2026-10-16, three blocks: 3273 rows where 3272 were left under the chips legend 2 could not hold)
+    bh, mw, mh, hs = label_px + int(body * sc), round(w * sc), round(h * sc), round(h // 2 * sc)
     ww = min(w - hs - 24, round(hs * w / h))
     out = []
     for i in range(n):
@@ -367,102 +373,146 @@ KEPT_OUTSIDE = ((30, 40, 70), 0.55)
 class KeptSquares:
     """The squares a render's node kept as the original, frame by frame, read from the render's own region files.
 
-    Each window's file (`video_mask.save_window_region`, found by `capture_masked_run.window_region_files`) is read by the node's
-    own `video_mask.load_window_region`. Its taken squares are the grown region's units less the region it regenerated:
+    THE WINDOWS, as the capture reads them (`capture_masked_run.read_saved_regions`): each window's file
+    (`video_mask.save_window_region`, found by `capture_masked_run.window_region_files`, in window order) is read by the node's
+    own `video_mask.load_window_region`; each lays its frames from its `first_frame + trim` to its end, and must start where the
+    one before ended. Files after the one that reaches the render's last frame are an earlier, longer run's, left unread and
+    named (`left_unread`). A gap, or files that stop short of the render's end, and nothing is shown, with the reason.
+
+    THE TAKEN SQUARES of a window's latent step are the grown region's units less the region it regenerated:
     `token_mask(grow(mask, margin)) & ~tokens`, with the node's own `grow` and `token_mask`, in whole tokens or latent cells as its
-    `edge` setting says. They are of the window's picture: the zoomed one for a zoomed window (the panel shows that picture
-    too). A frame of the load is the window's whose video lays it (from its `first_frame` plus `trim` to its end); where two
-    windows lay one frame, both counts are given.
+    `edge` setting says, of the window's picture (the zoomed one for a zoomed window; the panel shows that picture too). On a frame
+    the piece does not lay (its mask empty there, or `video_mask.cut_gate` shut across a cut) the composite shows the source, and
+    nothing is drawn or counted (`not_laid`).
 
-    The split is by the subject's own TRACK, as the load was handed it ("the subject's mask" in what the load was given): read at
-    the loader's size and brought into the window's picture as the node brings a mask (`crop_mask` for a zoomed window,
-    `fit_mask` otherwise). A unit is inside her track when more than `capture_masked_run.OWN_TRACK_CELL_SHARE` of it is hers.
-    `why` is set, and nothing is drawn, when the files are not there or do not read."""
+    THE SPLIT is by the subject's own TRACK, as the load was handed it: every "the subject's mask" input of what it was given (a
+    load of two subjects is handed both, and the union is hers), each read at its loader's size (the file's own where the loader
+    leaves it 0 by 0) and brought into the window's picture as the node brings a mask (`crop_mask` for a zoomed window, `fit_mask`
+    otherwise). A unit is inside when it is more than `capture_masked_run.OWN_TRACK_CELL_SHARE` hers on ANY frame of its latent
+    step, as `capture_masked_run.grid_carve` and `node_taken_inside` count it, through their own `_units`. Each window's frames of
+    the track are read once, in order, and kept as one bool a unit and step."""
 
-    def __init__(self, row: dict, given: dict | None, given_why: str | None, capm, vm, load_first: int):
-        import torch
+    def __init__(self, row: dict, given: dict | None, given_why: str | None, capm, vm, load_first: int, render_frames: int | None = None):
         self.row, self.vm, self.capm, self.load_first = row, vm, capm, int(load_first)
-        self.windows, self.why, self.track, self.track_why, self.reader = [], None, None, None, None
+        self.windows, self.why, self.tracks, self.track_why, self.left_unread, self._hers = [], None, [], None, [], {}
         files = capm.window_region_files(row["piece"])
         name = Path(row["piece"]).stem.rsplit("_", 1)[0]
         if not files:
             self.why = f"no window region files beside the render ({name}_windows/{name}_window_*_region.npz)"
             return
+        end = 0
         try:
             for f in files:
+                if render_frames is not None and end >= render_frames:
+                    self.left_unread.append(f.name)             # an earlier, longer run's file: not this render's
+                    continue
                 got = vm.load_window_region(str(f))
                 mask, tokens = got["mask"], got["tokens"]
+                start, trim, count = int(got["first_frame"]), int(got["trim"]), int(mask.shape[0])
+                if start + trim != end:
+                    self.windows, self.why = [], (f"{f.name} lays from load frame {start + trim} and the window before it ended on {end}: "
+                                                  "the windows do not follow on")
+                    return
                 lt, lh, lw = (int(v) for v in tokens.shape)
                 whole = (got["source"].get("edge") or vm.EDGE_TOKENS) == vm.EDGE_TOKENS
                 grown = vm.token_mask(vm.grow(mask, got["margin"]), lt, lh, lw, whole) > 0.5
                 taken = (grown & ~(tokens > 0.5)).numpy()
-                runs = np.cumsum([0] + vm.run_lengths(lt))
-                self.windows.append({"file": f.name, "start": got["first_frame"], "trim": got["trim"], "count": int(mask.shape[0]),
-                                     "zoom": got.get("zoom"), "picture": (int(mask.shape[1]), int(mask.shape[2])), "cells": (lh, lw),
-                                     "whole": whole, "taken": taken[:, ::2, ::2] if whole else taken, "runs": runs})
+                gate = (vm.cut_gate(mask, lt, got["source"].get("cuts"), start) > 0.5).numpy()
+                has_mask = (mask > 0.5).flatten(1).any(dim=1).numpy()
+                self.windows.append({"file": f.name, "start": start, "trim": trim, "count": count, "zoom": got.get("zoom"),
+                                     "picture": (int(mask.shape[1]), int(mask.shape[2])), "cells": (lh, lw), "whole": whole,
+                                     "taken": taken[:, ::2, ::2] if whole else taken, "runs": np.cumsum([0] + vm.run_lengths(lt)),
+                                     "gate": gate, "has_mask": has_mask})
+                end = start + count
         except Exception as e:                      # a file the node's own reader refuses
             self.windows, self.why = [], f"a window region file does not read ({type(e).__name__}: {e})"
+            return
+        if render_frames is not None and end < render_frames:
+            self.windows, self.why = [], f"the window region files lay {end} load frames and the render has {render_frames}"
             return
         if given is None:
             self.track_why = f"what the load was given is not read ({given_why})"
             return
-        track = next((x for x in given.get("inputs") or [] if x.get("role") == "the subject's mask"), None)
-        if track is None or not track.get("file"):
+        tracks = [x for x in given.get("inputs") or [] if x.get("role") == "the subject's mask" and x.get("file")]
+        if not tracks:
             self.track_why = "what the load was given names no \"the subject's mask\""
             return
-        refused = not_a_plain_video(track["file"])
-        if refused:
-            self.track_why = f"{Path(track['file']).name}: {refused}"
-            return
-        loader = track.get("loader") or {}
-        self.track = (track["file"], int(loader.get("first_frame") or 0), tuple(loader.get("custom") or row["canvas"]))
-        self.torch = torch
+        for t in tracks:
+            refused = not_a_plain_video(t["file"])
+            if refused:
+                self.tracks, self.track_why = [], f"{Path(t['file']).name}: {refused}"
+                return
+            loader = t.get("loader") or {}
+            size = tuple(int(v or 0) for v in (loader.get("custom") or ())[:2])
+            if len(size) != 2 or not all(size):
+                # a loader that leaves its size to the file hands the track at the file's own size (never 0 by 0)
+                try:
+                    size = tuple(probe(t["file"])[:2])
+                except (ValueError, IndexError, OSError) as e:
+                    size = (0, 0)
+                    why = str(e)
+                else:
+                    why = "its own size reads as 0"
+                if not all(size):
+                    self.tracks, self.track_why = [], f"{Path(t['file']).name}: its loader leaves the size to the file and {why}"
+                    return
+            self.tracks.append((t["file"], int(loader.get("first_frame") or 0), size))
 
-    def _share(self, wd: dict, n: int):
-        """Each unit's share of the subject's track on load frame `n`, in window `wd`'s picture, or None where the track does not read."""
-        file, first, (cw, ch) = self.track
-        at = first + n
-        if self.reader is None:
-            self.reader = Reader(file, at, FIT.format(w=cw, h=ch), cw, ch, "gray")
-        got = self.reader.frame(at)
-        if got is None:
-            return None
-        F_ = self.torch.nn.functional
-        t = self.torch.from_numpy((got > 127).astype(np.float32))[None]
+    def _hers_of(self, wd: dict):
+        """[latent steps, units] of bool: more than the capture's share hers on any frame of the step, the union of her tracks,
+        in window `wd`'s picture. Read once a window; None where a track has no frame at all here."""
+        import torch
+        if wd["file"] in self._hers:
+            return self._hers[wd["file"]]
+        lh, lw = wd["cells"]
         h, w = wd["picture"]
-        if wd["zoom"]:
-            t = self.vm.crop_mask(t, wd["zoom"]["box"], int(wd["zoom"]["canvas"][0]), int(wd["zoom"]["canvas"][1]))
-        elif tuple(t.shape[1:]) != (h, w):
-            t = self.vm.fit_mask(t, w, h)
-        share = F_.adaptive_avg_pool2d(t[None], wd["cells"])[0]
-        if wd["whole"]:
-            share = F_.avg_pool2d(F_.pad(share[None], (0, wd["cells"][1] % 2, 0, wd["cells"][0] % 2), mode="replicate")[0], 2)
-        return share[0].numpy()
+        union = None
+        for file, first, (cw, ch) in self.tracks:
+            reader = Reader(file, first + wd["start"], FIT.format(w=cw, h=ch), cw, ch, "gray")
+            frames, last = [], None
+            for i in range(wd["count"]):
+                got = reader.frame(first + wd["start"] + i)
+                last = got if got is not None else last     # a frame past the track's end holds its last, as the node holds a window's
+                frames.append(last)
+            reader.close()
+            if last is None:
+                self._hers[wd["file"]] = None
+                return None
+            frames = [x if x is not None else np.zeros_like(last) for x in frames]
+            t = torch.from_numpy(np.stack(frames) > 127).to(torch.float32)
+            if wd["zoom"]:
+                t = self.vm.crop_mask(t, wd["zoom"]["box"], int(wd["zoom"]["canvas"][0]), int(wd["zoom"]["canvas"][1]))
+            elif tuple(t.shape[1:]) != (h, w):
+                t = self.vm.fit_mask(t, w, h)
+            union = t if union is None else torch.maximum(union, t)
+        hers = (self.capm._units(self.vm, union > 0.5, lh, lw, wd["whole"]) > _own_share(self.capm)).numpy()
+        runs = wd["runs"]
+        steps = np.stack([hers[runs[s]:runs[s + 1]].any(axis=0) for s in range(len(runs) - 1)])
+        self._hers[wd["file"]] = steps[:, ::2, ::2] if wd["whole"] else steps
+        return self._hers[wd["file"]]
 
     def on(self, f: int) -> dict:
-        """What frame `f` shows: {"windows": {file: {"inside", "outside"}}, "draw": (window, inside units, outside units) or None,
-        "not_split": why or None} or {"not_read": why}."""
+        """What frame `f` shows: {"windows": {file: {"inside", "outside", "taken"}}, "draw": (window, inside units, outside units)
+        or None, "not_split": why or None, "not_laid": why or None} or {"not_read": why}."""
         if self.why:
             return {"not_read": self.why}
         n = f - self.load_first
-        laid = [wd for wd in self.windows if wd["start"] + wd["trim"] <= n < wd["start"] + wd["count"]]
-        if not laid:
+        wd = next((x for x in self.windows if x["start"] + x["trim"] <= n < x["start"] + x["count"]), None)
+        if wd is None:
             return {"not_read": f"no window region file lays load frame {n} (source frame {f})"}
-        out, draw = {"windows": {}, "not_split": self.track_why}, None
-        for wd in laid:
-            k = n - wd["start"]
-            step = int(np.searchsorted(wd["runs"], k, side="right")) - 1
-            taken = wd["taken"][step]
-            share = self._share(wd, n) if self.track else None
-            if self.track and share is None:
-                out["not_split"] = f"its track {Path(self.track[0]).name} has no frame {self.track[1] + n}"
-            inside = taken & (share > _own_share(self.capm)) if share is not None else np.zeros_like(taken)
-            outside = taken & ~inside
-            out["windows"][wd["file"]] = {"inside": int(inside.sum()), "outside": int(outside.sum()), "taken": int(taken.sum())}
-            if draw is None:
-                draw = (wd, inside, outside)
-        out["draw"] = draw
-        return out
+        k = n - wd["start"]
+        if not (wd["gate"][k] and wd["has_mask"][k]):
+            why = "its mask is empty on this frame" if not wd["has_mask"][k] else "the cut gate leaves this frame as the source"
+            return {"windows": {wd["file"]: {"inside": 0, "outside": 0, "taken": 0}}, "draw": None, "not_split": None,
+                    "not_laid": f"the piece lays nothing here ({why}): the composite shows the source"}
+        step = int(np.searchsorted(wd["runs"], k, side="right")) - 1
+        taken = wd["taken"][step]
+        hers = self._hers_of(wd) if self.tracks else None
+        not_split = self.track_why if not self.tracks else (None if hers is not None else "her track has no frame in this window")
+        inside = taken & hers[step] if hers is not None else np.zeros_like(taken)
+        outside = taken & ~inside
+        return {"windows": {wd["file"]: {"inside": int(inside.sum()), "outside": int(outside.sum()), "taken": int(taken.sum())}},
+                "draw": (wd, inside, outside), "not_split": not_split, "not_laid": None}
 
     def paint(self, img: np.ndarray, draw) -> np.ndarray:
         """The picture with the squares filled (no line anywhere): inside the track `KEPT_INSIDE`, outside it `KEPT_OUTSIDE`. The
@@ -480,8 +530,7 @@ class KeptSquares:
         return out.clip(0, 255).astype(np.uint8)
 
     def close(self) -> None:
-        if self.reader is not None:
-            self.reader.close()
+        """Nothing is held open: each window's track frames are read once and closed (kept for the callers that close it)."""
 
 
 def _own_share(capm) -> float:
@@ -904,7 +953,7 @@ def build(a: argparse.Namespace) -> None:
         worst = [squares_words(who, {"not_read": kept.why or "no window region file lays load frame 99999 (source frame 99999)"}),
                  squares_words(who, {"windows": {name_: {"inside": 99999, "outside": 99999, "taken": 99999}}, "not_split": None}),
                  squares_words(who, {"windows": {name_: {"inside": 99999, "outside": 99999, "taken": 99999}},
-                                     "not_split": kept.track_why or f"its track {Path(kept.track[0]).name if kept.track else ''} has no frame 99999"}),
+                                     "not_split": kept.track_why or "her track has no frame in this window"}),
                  squares_words(who, {"windows": {w_["file"]: {"inside": 99999, "outside": 99999, "taken": 99999} for w_ in kept.windows[:2]} or {"": {}},
                                      "not_split": None}) if len(kept.windows) > 1 else []]
         sq = max(worst, key=lambda x: len(x[0][0]) if x else 0)
@@ -920,10 +969,13 @@ def build(a: argparse.Namespace) -> None:
         g = given.get(file)
         src_in = next((x for x in (g or {}).get("inputs") or [] if x.get("role") == "the source"), None)
         load_first = ((src_in or {}).get("loader") or {}).get("first_frame")
-        kept_of[file] = KeptSquares(r, g, why_unread.get(file), capm, vm, r["graph_first"] if load_first is None else load_first)
+        origin = r["graph_first"] if load_first is None else load_first
+        rendered = (r["piece_first"] - origin) + probe(r["piece"])[2] if Path(r["piece"]).is_file() else None   # the load frames the render holds
+        kept_of[file] = KeptSquares(r, g, why_unread.get(file), capm, vm, origin, rendered)
         k_ = kept_of[file]
         print(f"{file}: squares kept as the original " + (f"not shown: {k_.why}" if k_.why else f"from {len(k_.windows)} window file(s)"
-              + (f", not split: {k_.track_why}" if k_.track_why else f", split by its track {Path(k_.track[0]).name}")), flush=True)
+              + (f", not split: {k_.track_why}" if k_.track_why else f", split by her track{'s' if len(k_.tracks) > 1 else ''} " + ", ".join(Path(t[0]).name for t in k_.tracks))
+              + (f"; left unread, another run's: {', '.join(k_.left_unread)}" if k_.left_unread else "")), flush=True)
     # THE LABEL STRIP, one height for the whole clip: as many lines as the longest a block's label can be, in a font scaled with
     # the blocks (`sc`); a larger strip scales the blocks down, which shrinks the font, until the strip holds the label
     chip_f = font(20 * sh / 1080 * 768 / h)
@@ -1096,8 +1148,8 @@ def build(a: argparse.Namespace) -> None:
                    "kept_squares": ({"not_read": kept["not_read"]} if "not_read" in kept else
                                     {**(next(iter(kept["windows"].values())) if len(kept["windows"]) == 1 else {"windows": kept["windows"]}),
                                      "window": next(iter(kept["windows"])) if len(kept["windows"]) == 1 else None,
-                                     "unit": "a token (two latent cells a side)" if kept["draw"][0]["whole"] else "a latent cell",
-                                     "not_split": kept.get("not_split"), "own_track_share": _own_share(capm)}),
+                                     "unit": ("a token (two latent cells a side)" if kept["draw"][0]["whole"] else "a latent cell") if kept["draw"] else None,
+                                     "not_split": kept.get("not_split"), "not_laid": kept.get("not_laid"), "own_track_share": _own_share(capm)}),
                    "mask_frame": None, "mask_not_read": slot.get("mask_not_read"), "reference_frame": None,
                    "reference_not_read": slot.get("reference_not_read"), "reference_refused": row.get("ref_refused"),
                    "encoder_sample": f in sampled.get(file, set()), "zoom_box_at_source": (zooms.get(file) or {}).get("box"),
@@ -1193,7 +1245,8 @@ def build(a: argparse.Namespace) -> None:
                                    "loader_crops": {f"{c[0]}x{c[1]}": list(crop) for c, crop in crop_for.items()}, "zooms": zooms, "zoom_not_read": zoom_not_read,
                                    "gaps_checked": gaps_checked, "check_flags_not_read": flags_not_read,
                                    "kept_squares_read": {file: (k_.why or {"windows": [w_["file"] for w_ in k_.windows],
-                                                                          "split_by": k_.track[0] if k_.track else None, "not_split": k_.track_why})
+                                                                          "split_by": [t[0] for t in k_.tracks], "not_split": k_.track_why,
+                                                                          "left_unread": k_.left_unread})
                                                          for file, k_ in kept_of.items()},
                                    "days": {name: {"day": d, "from": src_} for name, (d, src_) in days.items()},
                                    "colours": colour_of, "coverage": getattr(a, "coverage", "") or None,

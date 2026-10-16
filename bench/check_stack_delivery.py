@@ -79,6 +79,20 @@ for the fixture:
     tagged level 5.1.
 23. **A layout over the level is refused** before anything is encoded, naming the sizes.
 
+From the outside reviewer's read of the squares (`internal/gemini/2026-10-16_review_view_tokens_D13.md`), each on a variant
+of the squares fixture:
+
+24. **B1, her track over the whole latent step**: a token hers only on the later frames of its step is inside on the first.
+25. **B2, a pair load takes both tracks**: a token in the second of two tracks is inside.
+26. **B3, a window of another run is left unread**: a leftover window file over the same frames is named, not counted.
+27. **B4, an unlaid frame draws no squares**: the frame whose mask is empty shows none and says why; the frame before has its own.
+28. **B5, a track loaded at its own size**: a loader left at 0 by 0 reads the track at the file's size.
+
+From the whole video of 2026-10-16, refused by one row:
+
+29. **Three subjects and a busy frame within the level**: three blocks and the overflow fit the right column at a limit where
+    rounding each block up came to one row over.
+
 What these cases cannot see: the legends and labels are read from the drawing code's own records (`legend_1`,
 `legend_2`, `chips_drawn`, `label_lines`, `label_boxes`), not from their pixels; a mark over 60 levels on under 0.4% of
 a row, or within the 5x5 band round the changed edge, passes "nothing drawn on the picture"; the first fixture scans
@@ -906,15 +920,17 @@ INSIDE_UNIT, OUTSIDE_UNIT = (2, 3), (0, 1)    # token (row, column) the fixture 
 UNIT = 32                           # a whole token's side on the 256x192 canvas: two 16-px cells
 
 
-def the_squares_build() -> tuple[Big, Path]:
-    """The big fixture with a region file for pa, written by the node's own `video_mask.save_window_region`: her mask is TRACK_BOX,
-    grown by MARGIN, and two of the grown region's tokens are kept as the original (taken out of `tokens`), one inside her track
-    and one outside it; and her track (`track__x.mkv`, TRACK_BOX on every frame), handed as the load's "the subject's mask". pb
-    has no region files."""
+def squares_variant(name: str, empty_frames=(), tracks=None, more_windows=(), custom=(W, H)) -> tuple[Big, Path]:
+    """The big fixture with a region file for pa, written by the node's own `video_mask.save_window_region`: her mask is TRACK_BOX
+    (left empty on `empty_frames` of the window), grown by MARGIN, and two of the grown region's tokens are kept as the original
+    (taken out of `tokens`), one inside her track and one outside it. `more_windows` are more region files beside it, as
+    (file name, first_frame, trim). Her track or tracks are handed as the load's "the subject's mask", each a list of
+    (box, ffmpeg `enable` expression or None) drawn white on black, loaded at `custom`. pb has no region files."""
     import capture_masked_run as capm
+    import shutil
     import torch
     b = built_big()
-    out = b.root / "squares.mp4"
+    out = b.root / f"{name}.mp4"
     if out.is_file():
         return b, out
     vm = capm._pack("video_mask")
@@ -923,23 +939,111 @@ def the_squares_build() -> tuple[Big, Path]:
     mask = torch.zeros(frames, H, W)
     x0, y0, x1, y1 = TRACK_BOX
     mask[:, y0:y1, x0:x1] = 1.0
+    for k in empty_frames:
+        mask[k] = 0.0
     tokens = vm.token_mask(vm.grow(mask, MARGIN), lt, H // 16, W // 16, True)
     for r, c in (INSIDE_UNIT, OUTSIDE_UNIT):
         tokens[:, 2 * r:2 * r + 2, 2 * c:2 * c + 2] = 0.0
     windows = b.root / "pa_windows"
-    windows.mkdir(exist_ok=True)
-    vm.save_window_region(str(windows / "pa_window_1_region.npz"), mask, tokens, {"edge": vm.EDGE_TOKENS, "composite": "whole region"},
-                          MARGIN, 0, 0)
-    track = b.root / "capture" / "subjects" / "a" / "track__x.mkv"
-    track.parent.mkdir(parents=True, exist_ok=True)
-    ffmpeg("-f", "lavfi", "-i", f"color=c=black:s={W}x{H}:r=24", "-frames:v", str(FRAMES),
-           "-vf", f"drawbox=x={x0}:y={y0}:w={x1 - x0}:h={y1 - y0}:color=white:t=fill", "-c:v", "libx264", "-qp", "0", "-pix_fmt", "yuv420p", str(track))
+    shutil.rmtree(windows, ignore_errors=True)
+    windows.mkdir()
+    for file, first, trim in (("pa_window_1_region.npz", 0, 0),) + tuple(more_windows):
+        vm.save_window_region(str(windows / file), mask, tokens, {"edge": vm.EDGE_TOKENS, "composite": "whole region"}, MARGIN, first, trim)
+    inputs = []
+    for i, boxes in enumerate(tracks or [[(TRACK_BOX, None)]]):
+        track = b.root / "capture" / "subjects" / "a" / f"track__{name}_{i}.mkv"
+        track.parent.mkdir(parents=True, exist_ok=True)
+        draw = ",".join(f"drawbox=x={bx[0]}:y={bx[1]}:w={bx[2] - bx[0]}:h={bx[3] - bx[1]}:color=white:t=fill" + (f":enable='{on}'" if on else "")
+                        for bx, on in boxes)
+        ffmpeg("-f", "lavfi", "-i", f"color=c=black:s={W}x{H}:r=24", "-frames:v", str(FRAMES), "-vf", draw, "-c:v", "libx264", "-qp", "0",
+               "-pix_fmt", "yuv420p", str(track))
+        inputs.append({"role": "the subject's mask", "file": str(track), "loader": {"first_frame": 0, "custom": list(custom)}})
     try:
-        b.build(out=str(out), coverage="", more_inputs=[{"role": "the subject's mask", "file": str(track), "loader": {"first_frame": 0, "custom": [W, H]}}])
+        b.build(out=str(out), coverage="", more_inputs=inputs)
     finally:
-        import shutil
         shutil.rmtree(windows, ignore_errors=True)
     return b, out
+
+
+def the_squares_build() -> tuple[Big, Path]:
+    """The squares fixture as `squares_variant` makes it by default: one window, her track TRACK_BOX on every frame."""
+    return squares_variant("squares")
+
+
+def stack_rgb(out: Path, index: int) -> np.ndarray:
+    """One frame of a built big stack as [h, w, 3] float."""
+    l1, l2 = legends_of(head_of(out))
+    total_w = sd.probe(str(out))[0]
+    return np.frombuffer(raw(out, "rgb24", total_w, 3 * BH + l1 + l2)[index], np.uint8).reshape(3 * BH + l1 + l2, total_w, 3).astype(float)
+
+
+def unit_colour(out: Path, index: int, rc) -> np.ndarray:
+    """The mean colour of the middle half of one canvas token in pa's tile (column a) on stacked frame `index`."""
+    head = head_of(out)
+    x, y, w, h = head["right_tiles"][head["columns"].index("a")]["mask"]
+    k, (r, c) = w / W, rc
+    frame = stack_rgb(out, index)
+    return frame[round(y + (r + 0.25) * UNIT * k):round(y + (r + 0.75) * UNIT * k),
+                 round(BW + x + (c + 0.25) * UNIT * k):round(BW + x + (c + 0.75) * UNIT * k)].reshape(-1, 3).mean(axis=0)
+
+
+def yellow(colour: np.ndarray) -> bool:
+    return bool(colour[0] > 180 and colour[1] > 160 and colour[2] < 110)
+
+
+def her_track_over_the_whole_step() -> str:
+    """B1 of the outside review (2026-10-16): a unit is inside her track when it is more than `OWN_TRACK_CELL_SHARE` hers on ANY
+    frame of its latent step, as `capture_masked_run.grid_carve` and `node_taken_inside` count it; the panel tested the one
+    frame shown. Here her track covers the inside token only from load frame 3 on: on source frame 3 (load frame 1, in the step of
+    load frames 1-4) the token is inside her track, yellow and counted."""
+    b, out = squares_variant("step", tracks=[[((64, 100, 160, 144), "lt(n,3)"), (TRACK_BOX, "gte(n,3)")]])
+    col = frames_of(out)[3]["columns"]["a"]
+    colour = unit_colour(out, 3, INSIDE_UNIT)
+    assert col["kept_squares"].get("inside") == 1 and yellow(colour), (col["kept_squares"], colour.round().tolist())
+    return f"source frame 3: {col['kept_squares']['inside']} inside, drawn {colour.round().tolist()}"
+
+
+def a_pair_load_takes_both_tracks() -> str:
+    """B2: a load of two subjects is handed both tracks ("the subject's mask" twice); a unit is inside when it is inside their union.
+    The inside token lies in the second track only."""
+    b, out = squares_variant("pair", tracks=[[((64, 48, 96, 144), None)], [((96, 48, 160, 144), None)]])
+    col = frames_of(out)[4]["columns"]["a"]
+    colour = unit_colour(out, 4, INSIDE_UNIT)
+    assert col["kept_squares"].get("inside") == 1 and yellow(colour), (col["kept_squares"], colour.round().tolist())
+    return f"frame 4: {col['kept_squares']['inside']} inside the union of two tracks, drawn {colour.round().tolist()}"
+
+
+def a_window_of_another_run_left_unread() -> str:
+    """B3: the windows are read as the capture reads them (`read_saved_regions`): each starts laying where the one before ended
+    (`first_frame + trim`), and files after the one that reaches the render's end are another run's, left unread and named. A
+    leftover window file over the same frames does not make two counts, nor a second read of one track frame."""
+    b, out = squares_variant("leftover", more_windows=(("pa_window_2_region.npz", 0, 0),))
+    col = frames_of(out)[4]["columns"]["a"]
+    read = head_of(out)["kept_squares_read"]["pa_00001.mp4"]
+    assert col["kept_squares"].get("inside") == 1 and col["kept_squares"].get("window") == "pa_window_1_region.npz", col["kept_squares"]
+    assert read.get("left_unread") == ["pa_window_2_region.npz"], read
+    return f"frame 4 from pa_window_1 alone ({col['kept_squares']['inside']} inside); pa_window_2 left unread and named"
+
+
+def an_unlaid_frame_draws_no_squares() -> str:
+    """B4: on a frame the piece does not lay (its mask empty there, or the cut gate shut), the composite shows the source, so no
+    square is drawn or counted as kept. Here the mask is empty on window frame 3 (source frame 5), inside a step whose other frames
+    carry it."""
+    b, out = squares_variant("unlaid", empty_frames=(3,))
+    col = frames_of(out)[5]["columns"]["a"]
+    colour = unit_colour(out, 5, INSIDE_UNIT)
+    assert not yellow(colour) and not col["kept_squares"].get("inside") and col["kept_squares"].get("not_laid"), (col["kept_squares"], colour.round().tolist())
+    assert frames_of(out)[4]["columns"]["a"]["kept_squares"].get("inside") == 1, "the control: the frame before, laid, has its square"
+    return f"source frame 5: {col['kept_squares']['not_laid']!r}; nothing drawn ({colour.round().tolist()})"
+
+
+def a_track_loaded_at_its_own_size() -> str:
+    """B5: a loader that leaves its size to the file (custom 0 by 0) hands the track at the file's own size; the panel reads it there
+    and never at 0 by 0."""
+    b, out = squares_variant("native", custom=(0, 0))
+    col = frames_of(out)[4]["columns"]["a"]
+    assert col["kept_squares"].get("inside") == 1 and not col["kept_squares"].get("not_split"), col["kept_squares"]
+    return f"frame 4: {col['kept_squares']['inside']} inside, the track read at its own {W} by {H}"
 
 
 def squares_on_frame_4() -> tuple[dict, dict]:
@@ -1036,6 +1140,33 @@ def every_chip_said_within_the_level() -> str:
     return f"{w_} by {h_} within {52 * 16}; frame 10: {len(recs[10]['chips_drawn'])} chips in legend 2, {len(over)} in the right column; level {level}"
 
 
+def three_subjects_and_a_busy_frame_within_the_level() -> str:
+    """The whole video of 2026-10-16 (three subjects, a busy frame) was refused by one row: "the right column (1024 by 3828)
+    cannot hold its 3 block(s) (3273 rows) and the chips legend 2 cannot hold (556 rows)". The blocks are scaled to the rows the
+    overflow leaves, and three blocks each rounded up by a fraction of a row came to one over. Here a table of three subjects
+    (pa, pb and pc) with frame 10's LONG chips, the limit lowered to 55 macroblock rows (880 at 608 wide, where the probe of the
+    fix found the same one-row refusal): the view builds within it, its three blocks and the overflow both in the right column,
+    every chip said."""
+    b, _ = the_mixed_build()
+    out = b.root / "three.mp4"
+    width = BW + 320
+    try:
+        with_level_limit(-(-width // 16) * 55, lambda: b.build(table=str(b.root / "t_mixed.txt"), out=str(out)))
+    except SystemExit as e:
+        raise AssertionError(f"refused: {e}") from None
+    w_, h_, _ = sd.probe(str(out))
+    assert h_ <= 55 * 16, f"the view is {w_} by {h_}, over {55 * 16}"
+    recs, head = frames_of(out), head_of(out)
+    assert head["columns"] == ["a", "c", "b"], head["columns"]
+    blocks_end = max(t["block"][1] + t["block"][3] for t in head["right_tiles"])
+    over = recs[10].get("chips_overflow") or []
+    assert over and all(blocks_end <= c["box"][1] and c["box"][3] <= h_ for c in over), (blocks_end, over)
+    for f, r in recs.items():
+        said = [c["words"] for c in r["chips_drawn"]] + [c["words"] for c in r.get("chips_overflow") or []]
+        assert sorted(said) == sorted(r["chips"]), (f, said, r["chips"])
+    return f"{w_} by {h_} within {55 * 16}: three blocks to row {blocks_end}, frame 10's {len(over)} overflow chips under them; scale {head['right_scale']:.2f}"
+
+
 def a_layout_over_the_level_refused() -> str:
     """A layout that cannot fit level 5.1 (here the limit lowered below the three picture rows) is refused before anything is
     encoded, naming the sizes; never an unplayable file."""
@@ -1085,8 +1216,14 @@ case("no stack without its sidecar", no_stack_without_its_sidecar)
 case("a square kept inside her track: yellow, with its chip", a_square_kept_inside_her_track)
 case("a square kept outside her track: quiet, no chip", a_square_kept_outside_her_track)
 case("a render with no region files is said", a_render_with_no_region_files_said)
+case("B1: her track over the whole latent step", her_track_over_the_whole_step)
+case("B2: a pair load takes both tracks", a_pair_load_takes_both_tracks)
+case("B3: a window of another run is left unread", a_window_of_another_run_left_unread)
+case("B4: an unlaid frame draws no squares", an_unlaid_frame_draws_no_squares)
+case("B5: a track loaded at its own size", a_track_loaded_at_its_own_size)
 case("every chip said, within H.264 level 5.1", every_chip_said_within_the_level)
 case("a layout over level 5.1 is refused", a_layout_over_the_level_refused)
+case("three subjects and a busy frame, within the level", three_subjects_and_a_busy_frame_within_the_level)
 
 if __name__ == "__main__":
     code = finish()
