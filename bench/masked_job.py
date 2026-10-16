@@ -1131,7 +1131,8 @@ def run_verify(capture: Path) -> int:
 
 def gate(built: dict, folder: Path, verify=run_verify) -> dict:
     """The last thing before a render is queued: the capture still reads what the nodes wrote, its gate is
-    clear, and what the gate read for this load is the node's own plan. Returns what it found, for the record."""
+    clear, what the gate read for this load is the node's own plan, and the load's frame table is present and
+    fresh. Returns what it found, for the record."""
     capture, name = Path(built["capture"]), built["load"]["name"]
     status = verify(capture)
     if status != 0:
@@ -1151,6 +1152,15 @@ def gate(built: dict, folder: Path, verify=run_verify) -> dict:
         raise Refused(f"the capture {capture.name} "
                       + (f"worked the region of {name!r} out from the masks" if name in runs else f"holds no run named {name!r}")
                       + f": the gate has not read the node's own plan for this load (--run {name}:preview=...)")
+    import frame_table
+    try:
+        frame_table.verify_table_fresh(
+            capture,
+            built["load"],
+            job_file=Path(built["job_file"]) if built.get("job_file") else None,
+        )
+    except frame_table.Refused as e:
+        raise Refused(str(e)) from e
     return {"verify": status, "verdict": flags["verdict"], "overridden": flags.get("overridden") or [],
             "plan_read": runs[name][READ_FROM_THE_NODE]}
 

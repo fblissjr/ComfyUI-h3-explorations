@@ -1352,8 +1352,31 @@ def the_gate_before_a_render():
         _refused(lambda: tool.gate(built, folder, ok), "worked", "node's own plan")
         manifest["runs"] = [{"name": "b_0700", "read_from": "the region the node's preview planned for each window", "plan": "b_0700_plan.json"}]
         (capture / "manifest.json").write_text(json.dumps(manifest))
+        # D12-1 & D12-5: masked_job.gate refuses when frame_table.jsonl is missing or its input_sha256 is stale (and checks frame_table__<also>.jsonl for a pair)
+        _refused(lambda: tool.gate(built, folder, ok), "frame_table.jsonl", "table")
+        def _sha(p: Path) -> str:
+            return hashlib.sha256(p.read_bytes()).hexdigest()
+        def _hdr(subj: str, manifest_sha: str | None = None) -> str:
+            return json.dumps({
+                "frame_table_schema": 1,
+                "subject": subj,
+                "input_sha256": {
+                    "manifest": {"file": str(capture / "manifest.json"), "sha256": manifest_sha or _sha(capture / "manifest.json")},
+                    "flags": {"file": str(capture / "flags.json"), "sha256": _sha(capture / "flags.json")},
+                    "part_grades": None,
+                    "job": None,
+                    "shots": None,
+                },
+            }) + "\n"
+        (capture / "frame_table.jsonl").write_text(_hdr("b", manifest_sha="0" * 64))
+        _refused(lambda: tool.gate(built, folder, ok), "frame_table.jsonl", "manifest", "table")
+        (capture / "frame_table.jsonl").write_text(_hdr("b"))
         found = tool.gate(built, folder, ok)
         assert found == {"verify": 0, "verdict": "clear", "overridden": ["f003"], "plan_read": "b_0700_plan.json"}, found
+        built_pair = {"capture": str(capture), "load": {"name": "b_0700", "also": {"subject": "a"}}}
+        _refused(lambda: tool.gate(built_pair, folder, ok), "frame_table__a.jsonl", "table")
+        (capture / "frame_table__a.jsonl").write_text(_hdr("a"))
+        assert tool.gate(built_pair, folder, ok)["plan_read"] == "b_0700_plan.json"
         _refused(lambda: tool.stem_of("render"), "--load")
         line = tool.plan_line({"load": {"name": "b_0700", "first": 700, "subject": "b", "others": ["a", "c"]}, "windows_folder": "/out/b_0700_windows"})
         assert line == "--run b_0700:preview=/out/b_0700_windows,subject=b,others=a+c,at=700", line

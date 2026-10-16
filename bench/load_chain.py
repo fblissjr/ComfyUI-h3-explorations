@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""One load of a masked job, a step at a time, read from its job file: first, plan, on-plan, render, land, page.
+"""One load of a masked job, a step at a time, read from its job file: first, plan, on-plan, table, render, land, page.
 
     <python> bench/load_chain.py first   JOB.json --by SESSION
     <python> bench/load_chain.py plan    JOB.json --by SESSION
     <python> bench/load_chain.py on-plan JOB.json --by SESSION
+    <python> bench/load_chain.py table   JOB.json --by SESSION
         (a reader who did not make the capture looks at the plan's strip: `capture_masked_run.py looked`;
          or, on a clear gate with no forcing flag, the maker records that no look is owed:)
     <python> bench/load_chain.py no-look JOB.json --by SESSION --not-first WORDS.txt
@@ -62,7 +63,12 @@ fact of the machine is an environment key; nothing is found by a name left over 
 - `on-plan`: the capture again, on the node's plan. With the queue empty: the frame-by-frame hash of every mask
   video the plan graph reads is recorded; the first capture is COPIED to `<capture>_first` and the copy checked
   file for file before anything is overwritten; then the capture is built in place on the plan, verified, gated,
-  and its strip drawn. Nothing is renamed or moved and no record is rewritten.
+  its strip drawn, and its per-frame table written (`bench/frame_table.py`, for both subjects on a two-subject
+  load). Nothing is renamed or moved; when the frame table succeeds, its path is recorded in `<load>.plan.built.json`.
+- `table`: builds or rebuilds the capture's per-frame table (`bench/frame_table.py`, and for the second subject on
+  a two-subject load) in place on `<capture>`, and records its path and sha256 in `<load>.plan.built.json`. Holds the
+  job file to `job.plan.json` (`job_as_planned`), and refuses when the capture is not there, when a render graph or
+  render go already exists, or when `frame_table.py` fails.
 - `no-look`: the load's MAKER records that no look is owed, where the owner's go-fast word allows a render on the
   gate alone (`FORCING_WORD`): the capture on the node's plan, its gate clear, and NONE of the forcing rules
   standing on its flags or its head reference (`FORCING_FLAGS`, `FORCING_FIGURES`, another subject's clothing or
@@ -75,7 +81,9 @@ fact of the machine is an environment key; nothing is found by a name left over 
   capture (compared as times; refused when the two cannot be set in one zone) and not by the capture's maker,
   OR, where there is no such look, the maker's record that none is owed, later than the capture and held again
   to the forcing rules as the capture stands (the go file and the render's record then say NO LOOK, RENDERED ON
-  THE GATE ALONE); the gate clear; the job file byte-equal to the one the plan was built from (`job.plan.json`); the go written
+  THE GATE ALONE); the gate clear; the per-frame table (`frame_table.jsonl`, and `frame_table__<also>.jsonl` on a
+  pair) present and its recorded `input_sha256` matching the files on disk; the job file byte-equal to the one
+  the plan was built from (`job.plan.json`); the go written
   to `<load>.render.go.md` BESIDE the job file (the job file is not edited after its plan is built); the render
   graph built, differing from the plan graph in the song node's `preview` and `filename_prefix` only (and, for
   a hair-band load, in the band's own keep-out file when the two decode equal), with no uncommitted node code;
@@ -119,7 +127,7 @@ REPO = HERE.parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(REPO / "workflows"))
 
-STEPS = ("first", "plan", "on-plan", "no-look", "render", "land", "page")
+STEPS = ("first", "plan", "on-plan", "table", "no-look", "render", "land", "page")
 HOST = "127.0.0.1:8188"
 #: The environment key for the folder that holds the pose model's own folder (`h3_config.POSE_MODEL`): a fact of
 #: the machine, so never a path in a tracked file. Named 2026-10-13 with the lead.
@@ -1097,7 +1105,80 @@ def step_on_plan(ctx: dict, world, a, hashed=frame_hash) -> tuple[int, str]:
             {"what": "the frame-by-frame hash of every mask video the render graph reads, taken AFTER the capture was built again on its plan "
                      "(the keep-outs carved on the node's own grid, the plan's region remade on these files for the look); the render step refuses a "
                      "mask that no longer decodes equal", "hashed": HASHED_AFTER_THE_REBUILD, "at": utc_now(), "by": a.by, "masks": masks}, indent=1) + "\n")
-    return gate_and_strip(ctx, world, a.by, who, voice)
+    ended = gate_and_strip(ctx, world, a.by, who, voice)
+    run_frame_table(ctx, world, stop=False)
+    return ended
+
+
+def run_frame_table(ctx: dict, world, *, stop: bool) -> None:
+    """Run `bench/frame_table.py` on the capture (and for the second subject on a two-subject load), recording its
+    path and sha256 in `<load>.plan.built.json` only when the command succeeds."""
+    cap = ctx["capture"]
+    table_code = world.run(ctx, "frame table", tool(world, "frame_table.py") + [cap, "--job", ctx["job_file"]], stop=stop)
+    also_code = 0
+    if ctx.get("also"):
+        also_code = world.run(
+            ctx,
+            f"frame table of {ctx['also']}",
+            tool(world, "frame_table.py") + [cap, "--job", ctx["job_file"], "--subject", ctx["also"]],
+            stop=stop,
+        )
+    if table_code or also_code:
+        print(f"--- WARNING: frame_table.py exited non-zero (primary={table_code}, also={also_code}); "
+              f"fix the cause and run `bench/load_chain.py table {ctx['job_file']} --by <session>` before `render`", flush=True)
+        return
+    plan_built = ctx["job_folder"] / f"{ctx['name']}.plan.built.json"
+    if not world.dry and plan_built.is_file():
+        built = json.loads(plan_built.read_text())
+        ft_primary = cap / "frame_table.jsonl"
+        built["frame_table"] = str(ft_primary)
+        if ft_primary.is_file():
+            built["frame_table_sha256"] = hashlib.sha256(ft_primary.read_bytes()).hexdigest()
+        if ctx.get("also"):
+            ft_also = cap / f"frame_table__{ctx['also']}.jsonl"
+            built["frame_table_also"] = str(ft_also)
+            if ft_also.is_file():
+                built["frame_table_also_sha256"] = hashlib.sha256(ft_also.read_bytes()).hexdigest()
+        plan_built.write_text(json.dumps(built, indent=1) + "\n")
+
+
+def step_table(ctx: dict, world, a) -> None:
+    cap, name, folder = ctx["capture"], ctx["name"], ctx["job_folder"]
+    if not (cap / "manifest.json").is_file():
+        raise Refused(f"{cap} is not there: there is no capture to build a frame table on")
+    go = ctx["job_file"].parent / f"{name}.render.go.md"
+    if (folder / f"{name}.render.json").exists() or go.exists():
+        raise Refused(f"a render of {name} is already built or already has a go ({go.name}): the frame table is not rebuilt after a render begins")
+    job_as_planned(ctx)
+    run_frame_table(ctx, world, stop=True)
+
+
+def check_frame_table_fresh(ctx: dict, by: str) -> dict[str, str]:
+    """Require `frame_table.jsonl` (and `frame_table__<also>.jsonl` for a pair whose second subject is in the capture)
+    to exist and have fresh `input_sha256` against the files on disk before `render` proceeds."""
+    import frame_table
+    cap = ctx["capture"]
+    load_for_verify = dict(ctx["load"])
+    if ctx.get("also") and "also" not in load_for_verify:
+        load_for_verify["also"] = {"subject": ctx["also"]}
+    try:
+        shas = frame_table.verify_table_fresh(cap, load_for_verify, job_file=ctx["job_file"], by=by)
+    except frame_table.Refused as e:
+        raise Refused(str(e)) from e
+    plan_built = ctx["job_folder"] / f"{ctx['name']}.plan.built.json"
+    if plan_built.is_file():
+        built = json.loads(plan_built.read_text())
+        if built.get("frame_table_sha256") and shas.get(ctx["subject"]) != built["frame_table_sha256"]:
+            raise Refused(
+                f"{cap.name}/frame_table.jsonl does not match frame_table_sha256 in {plan_built.name}: "
+                f"run `bench/load_chain.py table {ctx['job_file']} --by {by}`"
+            )
+        if ctx.get("also") and built.get("frame_table_also_sha256") and shas.get(ctx["also"]) != built["frame_table_also_sha256"]:
+            raise Refused(
+                f"{cap.name}/frame_table__{ctx['also']}.jsonl does not match frame_table_also_sha256 in {plan_built.name}: "
+                f"run `bench/load_chain.py table {ctx['job_file']} --by {by}`"
+            )
+    return shas
 
 
 def step_render(ctx: dict, world, a, hashed=frame_hash) -> None:
@@ -1109,8 +1190,9 @@ def step_render(ctx: dict, world, a, hashed=frame_hash) -> None:
     if (folder / f"{name}.render.json").exists() or go.exists():
         raise Refused(f"a render of {name} is already built or already has a go ({go.name}): never a second one under a name")
     empty_queue(world, "a render is queued on an empty queue")
-    look = the_look(ctx)
     job_as_planned(ctx)
+    look = the_look(ctx)
+    table_shas = check_frame_table_fresh(ctx, a.by)
     planned = folder / f"{name}.plan.queued.json"
     if not planned.is_file():
         raise Refused(f"{planned} is not there: the plan was not queued through the job tool")
@@ -1126,10 +1208,15 @@ def step_render(ctx: dict, world, a, hashed=frame_hash) -> None:
         return
     shutil.copyfile(folder / "chain" / f"{name}.build_render.out", folder / f"{name}.render.build_printed.txt")
     render = graph_of(folder / f"{name}.render.json")
-    said = render_against_plan(graph_of(folder / f"{name}.plan.json"), render, json.loads((folder / f"{name}.render.built.json").read_text()), hashed)
+    table_path = str(ctx["capture"] / "frame_table.jsonl")
+    render_built_file = folder / f"{name}.render.built.json"
+    render_built = json.loads(render_built_file.read_text())
+    said = render_against_plan(graph_of(folder / f"{name}.plan.json"), render, render_built, hashed)
     notes, problems = [s[len("note: "):] for s in said if s.startswith("note: ")], [s for s in said if not s.startswith("note: ")]
     problems += masks_as_planned(ctx, render, hashed)
     record = {"what": "what the render step of bench/load_chain.py held before it queued", "at": now, "by": a.by, "go_file": str(go), "look": look,
+              "frame_table": table_path, "frame_table_sha256": table_shas.get(ctx["subject"]),
+              **({"frame_table_also": str(ctx["capture"] / f"frame_table__{ctx['also']}.jsonl"), "frame_table_also_sha256": table_shas.get(ctx["also"])} if ctx.get("also") else {}),
               "job_file_is_the_plans": True, "render_against_plan": problems or "differs in the song node's preview and filename_prefix only", "band": notes}
     (folder / f"{name}.render.chain.json").write_text(json.dumps(record, indent=1) + "\n")
     if notes:
@@ -1290,7 +1377,7 @@ def step_help(step: str) -> str:
                                                   "refuses on the files alone. `load_chain.py --help` has every flag."])
 
 
-STEP = {"first": step_first, "plan": step_plan, "on-plan": step_on_plan, "no-look": step_no_look, "render": step_render, "land": step_land, "page": step_page}
+STEP = {"first": step_first, "plan": step_plan, "on-plan": step_on_plan, "table": step_table, "no-look": step_no_look, "render": step_render, "land": step_land, "page": step_page}
 
 
 def main() -> int:

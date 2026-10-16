@@ -170,10 +170,33 @@ class Made:
                                                        "subjects": [{"label": "a", "sightings": [{"by": "pv"}]}]}))
         (cap / "status.json").write_text(json.dumps({"written": written, "made_by": "the maker"}))
         (cap / "flags.json").write_text(json.dumps({"verdict": verdict, "blocking": list(blocking), "flags": [{}, {}] if flags is None else flags}))
+        if on_plan:
+            self.write_frame_table(cap)
         if look_at is not None:
             (cap / "looks.json").write_text(json.dumps({"looks": [{"by": "an earlier reader", "at": "2026-01-03T09:00:00", "loads": ["ld"]},
                                                                   {"by": look_by, "at": look_at, "loads": list(loads)}]}))
         return cap
+
+    def write_frame_table(self, cap: Path, subject: str = "a", *, manifest_sha: str | None = None, flags_sha: str | None = None) -> Path:
+        import hashlib
+        def _sha(p: Path) -> str:
+            return hashlib.sha256(p.read_bytes()).hexdigest()
+        stem = "frame_table" if subject == "a" else f"frame_table__{subject}"
+        tpath = cap / f"{stem}.jsonl"
+        grades = cap / "subjects" / subject / "part_grades.json"
+        hdr = {
+            "frame_table_schema": 1,
+            "subject": subject,
+            "input_sha256": {
+                "manifest": {"file": str(cap / "manifest.json"), "sha256": manifest_sha or _sha(cap / "manifest.json")},
+                "flags": {"file": str(cap / "flags.json"), "sha256": flags_sha or _sha(cap / "flags.json")},
+                "part_grades": {"file": str(grades), "sha256": _sha(grades)} if grades.is_file() else None,
+                "job": {"file": str(self.job_file), "sha256": _sha(self.job_file)} if self.job_file.is_file() else None,
+                "shots": None,
+            },
+        }
+        tpath.write_text(json.dumps(hdr) + "\n")
+        return tpath
 
     def planned(self, extra_video: str = "") -> Path:
         """A job folder after the plan: the job file as it was planned from, the plan graph and its queue record."""
@@ -556,6 +579,9 @@ def a_kept_output_is_not_replaced_and_a_step_has_its_own_help() -> str:
         said = lc.step_help(step)
         assert f"bench/load_chain.py {step} " in said and f"- `{step}`:" in said, f"{step}: {said[:200]}"
         assert not any(f"- `{other}`:" in said for other in lc.STEPS if other != step), f"{step}'s help holds another step's words"
+    assert "table" in lc.STEPS, f"'table' step missing from STEPS={lc.STEPS}"
+    assert "no record is rewritten" not in (lc.__doc__ or ""), "module docstring still claims 'no record is rewritten'"
+    assert "fixing a job key" not in lc.step_help("table") and "drop_by" not in lc.step_help("table"), "table help still advises editing the job after plan"
     assert "Refused when the queue is not empty" in lc.step_help("plan") and "pose pass" in lc.step_help("land") and "pose pass" not in lc.step_help("plan")
     return ("a command run again under one name keeps the earlier output beside the new one, each whole; a step's own help is its own paragraph and "
             "usage line and no other step's")
@@ -609,6 +635,7 @@ def the_on_plan_step() -> str:
         m.busy = (0, 2)
         refused(lambda: lc.step_on_plan(made.ctx(), m, args()), "the queue is not empty", "may be reading its masks")
         m.busy = (0, 0)
+        (folder / "ld.plan.built.json").write_text("{}")
         # ROUTE C (the lead's ruling of 2026-10-16): the rebuild carves the keep-outs on the node's grid, so it CHANGES a mask file the plan
         # read; the hash is taken after it, of the files the render will read
         track = cap / "subjects/a/track__pv.mkv"
@@ -620,9 +647,13 @@ def the_on_plan_step() -> str:
                 track.write_bytes(before + b" carved on the node's grid")
             return real(ctx, label, argv, stop)
         m.run = rebuild
+        # A failed frame table does NOT fail on-plan and is NOT recorded in ld.plan.built.json; running `table` then records it
+        m.exits = {"frame table": 1}
         digest = lambda path: hashlib.sha256(Path(path).read_bytes()).hexdigest()   # noqa: E731
-        lc.step_on_plan(made.ctx(), m, args(), hashed=digest)
+        ended_fail_table = lc.step_on_plan(made.ctx(), m, args(), hashed=digest)
         m.run = real
+        assert ended_fail_table == (0, ""), f"failed frame table should not fail on-plan, got {ended_fail_table}"
+        assert "frame_table" not in json.loads((folder / "ld.plan.built.json").read_text()), "failed frame table was recorded in ld.plan.built.json"
         held = json.loads((folder / "ld.plan.masks.json").read_text())
         masks = held["masks"]
         assert list(masks) == [str(track)], f"what the plan read, and not the source copy outside the capture: {masks}"
@@ -633,10 +664,21 @@ def the_on_plan_step() -> str:
         # the copy is the first capture as it was: only the file the rebuild carved differs from it
         assert lc.same_tree(cap, first) == ["subjects/a/track__pv.mkv differs"] and (first / "looks.json").is_file(), lc.same_tree(cap, first)
         (first / "subjects/a/track__pv.mkv").write_bytes(track.read_bytes())
+        m.exits = {}
+        # D12-3: step_table refuses when the job file was edited after the plan was built
+        made.job["note"] = "edited after plan"
+        made.write()
+        refused(lambda: lc.step_table(made.ctx(), m, args()), "is not the file its plan was built from")
+        del made.job["note"]
+        made.write()
+        m.on["frame table"] = lambda: made.write_frame_table(cap)
+        lc.step_table(made.ctx(), m, args())
+        assert json.loads((folder / "ld.plan.built.json").read_text())["frame_table"] == str(cap / "frame_table.jsonl")
+        (cap / "frame_table.jsonl").unlink()
         files = m.said("files on plan")
         assert "--overwrite" in files and "--loads" not in files, files
         assert files[files.index("--run") + 1] == f"ld:preview={windows},subject=a,others=b,at=110", files[files.index("--run") + 1]
-        assert "--strip-folder" not in m.said("strip") and m.labels() == ["files on plan", "verify", "gate", "strip"], m.labels()
+        assert "--strip-folder" not in m.said("strip") and m.labels() == ["files on plan", "verify", "gate", "strip", "frame table", "frame table"], m.labels()
         refused(lambda: lc.step_on_plan(made.ctx(), m, args()), "exists", "already copied")
         # the control for the comparison of the copy: a file that differs and a file that is missing are each said
         (first / "status.json").write_text("{}")
@@ -645,6 +687,30 @@ def the_on_plan_step() -> str:
         assert "different files" in lc.same_tree(cap, first)[0]
     return ("the masks the plan read are hashed and recorded, the first capture is copied whole and the copy held to it, and the capture is built "
             "in place on the node's plan; a queue that is not empty, a missing plan and a second run are refused")
+
+
+def the_table_step() -> str:
+    import hashlib
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        m = made.m
+        cap = made.capture(on_plan=True)
+        folder = made.planned()
+        (folder / "ld.plan.built.json").write_text("{}")
+        m.on["frame table"] = lambda: made.write_frame_table(cap)
+        lc.step_table(made.ctx(), m, args())
+        plan_built_rec = json.loads((folder / "ld.plan.built.json").read_text())
+        assert plan_built_rec.get("frame_table_sha256") == hashlib.sha256((cap / "frame_table.jsonl").read_bytes()).hexdigest(), (
+            f"plan.built.json lacks frame_table_sha256: {plan_built_rec}"
+        )
+        # D12-4: step_table is refused once a render go or render graph exists
+        (made.inputs / "ld.render.go.md").write_text("a go\n")
+        refused(lambda: lc.step_table(made.ctx(), m, args()), "render", "already")
+        (made.inputs / "ld.render.go.md").unlink()
+        (folder / "ld.render.json").write_text("{}")
+        refused(lambda: lc.step_table(made.ctx(), m, args()), "render", "already")
+        (folder / "ld.render.json").unlink()
+    return "table records frame_table_sha256 in plan.built.json and is refused once a render go or render graph exists"
 
 
 def the_look_and_the_gate() -> str:
@@ -828,8 +894,6 @@ def the_render_step() -> str:
         m.busy = (1, 1)
         refused(lambda: lc.step_render(made.ctx(), m, a), "the queue is not empty")
         m.busy = (0, 0)
-        before = made.job_file.read_bytes()
-
         def built(extra: dict | None = None, node_code=()):
             """What `build render` leaves: the graph, its build record and the tool's printed output."""
             def write():
@@ -842,6 +906,19 @@ def the_render_step() -> str:
             return write
 
         m.on["build render"] = built()
+        # D12-5: Missing or sha256-stale frame_table.jsonl is refused before anything is written, naming `load_chain.py table`;
+        # an older mtime with matching input_sha256 is NOT refused.
+        table_file = cap / "frame_table.jsonl"
+        table_file.unlink()
+        refused(lambda: lc.step_render(made.ctx(), m, a, hashed=lambda p: "h"), "frame_table.jsonl", "table")
+        made.write_frame_table(cap, manifest_sha="0" * 64)
+        flags_mtime = (cap / "flags.json").stat().st_mtime
+        os.utime(table_file, (flags_mtime + 10, flags_mtime + 10))
+        refused(lambda: lc.step_render(made.ctx(), m, a, hashed=lambda p: "h"), "frame_table.jsonl", "manifest", "table")
+        made.write_frame_table(cap)
+        os.utime(table_file, (flags_mtime - 10, flags_mtime - 10))
+        before = made.job_file.read_bytes()
+        m.ran.clear()
         lc.step_render(made.ctx(), m, a, hashed=lambda p: "h")
         assert m.labels() == ["build render", "queue render"], m.labels()
         go = (made.inputs / "ld.render.go.md").read_text()
@@ -852,6 +929,10 @@ def the_render_step() -> str:
         assert made.job_file.read_bytes() == before, "the job file was edited by the render step"
         record = json.loads((folder / "ld.render.chain.json").read_text())
         assert record["go_file"].endswith("ld.render.go.md") and record["look"]["by"] == "a reader" and (folder / "ld.render.build_printed.txt").read_text() == "what build printed\n"
+        import hashlib
+        assert record["frame_table"] == str(cap / "frame_table.jsonl") and record.get("frame_table_sha256") == hashlib.sha256(table_file.read_bytes()).hexdigest(), record
+        # D12-6: render.built.json is NOT rewritten by step_render
+        assert json.loads((folder / "ld.render.built.json").read_text()) == {"uncommitted_node_code": []}, "step_render rewrote ld.render.built.json"
         refused(lambda: lc.step_render(made.ctx(), m, a), "already built or already has a go")
         # each of these stops it AFTER the build and BEFORE anything is queued
         for change, hashed, words in ((dict(extra={"seed": 5}), "h", "differs from the plan graph in"), (dict(node_code=("video_mask.py",)), "h", "node code is not committed"),
@@ -1043,6 +1124,7 @@ case("first: who is who, the first capture, its strip under _first", the_first_s
 case("a kept output is not replaced, and a step has its own help", a_kept_output_is_not_replaced_and_a_step_has_its_own_help)
 case("plan: built and queued on an empty queue, once", the_plan_step)
 case("on-plan: the masks hashed, the capture copied, then built in place", the_on_plan_step)
+case("table: holds the job file to its plan, records its sha256, and stops once a render exists", the_table_step)
 case("the look and the gate a render rests on", the_look_and_the_gate)
 case("a render on the gate alone", a_render_on_the_gate_alone)
 case("a render graph against its plan graph, its masks and its job file", a_render_against_its_plan)
@@ -1141,6 +1223,7 @@ def a_load_of_two_subjects() -> str:
         lc.step_on_plan(made.ctx(), m, args(), hashed=lambda path: "h")
         said = m.said("files on plan")
         assert said[said.index("--run") + 1] == f"ld:preview={windows},subject=a,at=110" and said[said.index("--loads") + 1] == str(made.job_file), said
+        assert "frame table of b" in m.labels() and "--subject" in m.said("frame table of b"), m.labels()
         # the land: a pose pass for each subject, each on its own track, each to its own points; landed when both are written
         (cap / "subjects" / "b").mkdir(parents=True)
         (cap / "subjects" / "b" / "track__pv.mkv").write_bytes(b"track")
