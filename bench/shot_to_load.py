@@ -101,7 +101,8 @@ CARRIES, a line each with where it comes from, and keeps the same in the job fil
 - `reference`: on the LOAD's own frames, so the box is round the head on those frames: the pose pass in the
   subject's tracked box, then `bench/head_reference.py`, which writes the drawn form and the plain cut both. It
   goes to `Video/<video>/references/<subject>_<first>_<last>/`: a reference belongs to a shot, a subject and a
-  span, never to a load's name. THE DRAWN FORM IS THE DEFAULT and nothing here decides otherwise: the face's
+  span, never to a load's name. A folder of that name a render read, or one not of today's form, is never moved or
+  written into: the job names the next of `_b`, `_c` and says why (`reference_folder`, the lead's ruling of 2026-10-16). THE DRAWN FORM IS THE DEFAULT and nothing here decides otherwise: the face's
   height and the lash-line gap are printed at the canvas and as they come out in the reference at its scale,
   with the frames under the drawing line, and written into the job file. The plain cut is taken on a person's
   word only, `--plain "why"`, and the form, the why and who said it go into the job file. A load made again on
@@ -150,6 +151,52 @@ from load_chain import Refused  # noqa: E402
 OUTPUT_KEY = "Video/{video}/{session}"
 #: Where a head reference goes: by the video, the subject and the span it was made on.
 REFERENCES = "Video/{video}/references/{subject}_{first:04d}_{last:04d}"
+#: The letters a span's reference folder takes after its plain name, when that one was read by a render or is not of today's form
+#: (`reference_folder`; the lead's ruling of 2026-10-16: never move or write into a reference folder any render read).
+REFERENCE_SUFFIXES = tuple(f"_{c}" for c in "bcdefghijklmnopqrstuvwxyz")
+
+
+def reference_misfits(record: Path, first: int, last: int) -> str | None:
+    """Why a reference's record is not of today's form for these frames, or None: the checks `--existing` holds first (its frames
+    and its pass, and its face held to the subject's track)."""
+    if not record.is_file():
+        return f"{record.name} is not there"
+    made = json.loads(record.read_text())
+    if made.get("frames") != [first, last] or made.get("passed") is not True:
+        return f"{record.name} is of frames {made.get('frames')} with passed={made.get('passed')!r}"
+    if not (made.get("face_on_the_track") or {}).get("known"):
+        return f"{record.name} does not say its face was held to the subject's track"
+    return None
+
+
+def loads_that_read(folder: Path, data: Path | None) -> list[str]:
+    """The loads whose queue record (`<data>/*_job/*.queued.json`) names a file in a folder: the renders and plans that read it."""
+    if data is None:
+        return []
+    key = str(folder).rstrip("/") + "/"
+    return sorted({q.name.split(".")[0] for q in Path(data).glob("*_job/*.queued.json") if key in q.read_text(errors="replace")})
+
+
+def reference_folder(output: Path, video: str, subject: str, first: int, last: int, data: Path | None) -> tuple[Path, str]:
+    """The folder a load's reference goes to, and why it is not the span's plain one ("" when it is): `<subject>_<first>_<last>`
+    while it is not there, or is there of today's form and read by no render (the reference step takes it with `--existing`);
+    else the next of `REFERENCE_SUFFIXES` by the same rule. A folder a render read is never moved or written into: the ledger, the
+    sidecars and the review pages find it by path (the lead's ruling of 2026-10-16)."""
+    base = output / REFERENCES.format(video=video, subject=subject, first=first, last=last)
+    said = []
+    for suffix in ("",) + REFERENCE_SUFFIXES:
+        folder = base.with_name(base.name + suffix)
+        if not folder.exists():
+            return folder, "; ".join(said)
+        readers = loads_that_read(folder, data)
+        misfit = reference_misfits(folder / f"{subject}_head_reference_{first:04d}_{last:04d}.json", first, last)
+        if not readers and not misfit:
+            return folder, "; ".join(said)
+        said.append(f"the span's folder {folder.name} was read by {', '.join(readers)}" + (f" and {misfit}" if misfit else "") if readers
+                    else f"the span's folder {folder.name} is not of today's form ({misfit})")
+    raise Refused(f"every reference folder of {subject} on {first}-{last} up to {base.name}{REFERENCE_SUFFIXES[-1]} is taken: " + "; ".join(said))
+
+
 #: A load's form in its name, by the plan's region: the part, then `p` for the face points of the frozen form.
 FORM = {"face": "fp", "face and hair": "hfp"}
 def renders(region: str, parts: list[str] | None) -> str:
@@ -1271,7 +1318,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
              eyes_shut_on: list[tuple[int, int, str]] | None = None, eyes_shut_form: str | None = None,
              no_face_on: list[tuple[int, int, str]] | None = None, hold_part: list[tuple[int, int, str]] | None = None, seam: list[int] | None = None,
              seam_why: str | None = None, context_noise: float | None = None, context_noise_why: str | None = None,
-             mouth_on: list[tuple[int, int, str]] | None = None) -> dict:
+             mouth_on: list[tuple[int, int, str]] | None = None, data: Path | None = None) -> dict:
     """The job file of one subject's load on a shot, from the shot's preview. `preview` is the preview's own job
     block; `source` is the file the load renders from, the video's present copy (the preview's own when left out).
     `parts` with `parts_by` makes the load's part some of its subject's plan parts (`part_of`)."""
@@ -1334,7 +1381,8 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             cut.append((*frames_cut, said))
     # one sentence when both ends were cut for one reason, else each end's frames with its own
     cut_said = cut[0][2] if len({said for _x, _y, said in cut}) == 1 else " ".join(f"{x}-{y}: {said}" for x, y, said in cut)
-    reference = output / REFERENCES.format(video=video, subject=subject, first=a, last=b) / f"{subject}_head_reference_{a:04d}_{b:04d}.mp4"
+    ref_folder, ref_why = reference_folder(output, video, subject, a, b, data)
+    reference = ref_folder / f"{subject}_head_reference_{a:04d}_{b:04d}.mp4"
     load = {"name": name, "first": a, "frames": n, "subject": subject, "others": [k for k in theirs if k != subject], "text": name,
             "motion_file": str(reference), "motion_first": a}
     # NO REFERENCE VIDEO (`--motion none`): the lead's ruling of 2026-10-15, one test on second 5461-5497, a load of her hair alone whose
@@ -1604,12 +1652,14 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             + f"Its settings are in `defaults`, from workflows/h3_config.py. "
             f"THE TEXT IS NOT WRITTEN: {name}.txt beside this file is a person's, and texts.{name}.by says who wrote it."
             + pieces + part_said + kept_said + on_track_said + gone_said + chosen + (f" CUT BY A LOOK: {cut_said}" if cut else "")
+            + (f" ITS REFERENCE GOES TO {ref_folder.name}, A NEW FOLDER: {ref_why}; a new one." if ref_why else "")
             + (f" NO REFERENCE VIDEO (motion none): the reference step makes nothing for this load and the text names no video: "
                f"{' '.join(str(motion_why).split())} ({by}, {now})." if motion == "none" else ""))
     return {"job": {"name": name, "note": note, "source": source or preview["source"], "first": a, "frames": n, "canvas": list(preview["canvas"]),
                     "output": OUTPUT_KEY.format(video=video, session=by), "subjects": subjects,
                     "left_out": [{"subject": subject, "first": x, "frames": y - x + 1, "why": said} for x, y, said in cut],
                     "capture": f"data/{day}_{name}", "preview": preview_folder,
+                    **({"reference_folder": {"folder": ref_folder.name, "why": f"{ref_why}; a new one"}} if ref_why else {}),
                     "texts": {name: {"file": f"{name}.txt", "frames": [a, b], "by": ""}},
                     **({"keep_outs": kept} if kept else {}),
                     # the plan's restore spans on the load's frames, for the gate (`load_chain.told_to_the_gate`): what is given back at
@@ -1920,7 +1970,7 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
                    cast=[json.loads(x) for x in open(a.cast) if x.strip()] if getattr(a, "cast", None) else None, cast_from=getattr(a, "cast", None) or "",
                    motion=getattr(a, "motion", None), motion_why=getattr(a, "motion_why", None), no_strangers=getattr(a, "no_strangers", None),
                    no_mouth_on=[no_mouth_on_arg(x) for x in getattr(a, "no_mouth_on", None) or []],
-                   mouth_on=[no_mouth_on_arg(x, "--mouth-on") for x in getattr(a, "mouth_on", None) or []],
+                   mouth_on=[no_mouth_on_arg(x, "--mouth-on") for x in getattr(a, "mouth_on", None) or []], data=world.data,
                    eyes_shut_on=[no_mouth_on_arg(x, "--eyes-shut-on") for x in getattr(a, "eyes_shut_on", None) or []],
                    no_face_on=[no_mouth_on_arg(x, "--no-face-on") for x in getattr(a, "no_face_on", None) or []],
                    hold_part=[no_mouth_on_arg(x, "--hold-part") for x in getattr(a, "hold_part", None) or []],
@@ -1981,17 +2031,21 @@ def step_reference(a, world, figures=figures_of) -> None:
     folder = drawn.parent
     points = folder / f"{subject}_{first:04d}_{last:04d}_points.npz"
     form, why = ("plain", a.plain.strip()) if a.plain is not None else ("drawn", "the form for a face, head or hair replacement (AGENTS.md, Settled)")
+    def again(words: str) -> Refused:
+        # `--existing` keeps its refusal words, and names the folder a load made again on these frames takes (`reference_folder`)
+        nxt, _why = reference_folder(world.output, load_chain.video_of(ctx, world.data), subject, first, last, world.data)
+        return Refused(f"{words} (a load made again takes the folder {nxt.name}: `shot_to_load.py job --remake`)")
     if a.existing:
         record = drawn.with_suffix(".json")
         if not record.is_file() or not points.is_file():
-            raise Refused(f"--existing: {record} and {points.name} beside it are not both there; without --existing the reference is made")
+            raise again(f"--existing: {record} and {points.name} beside it are not both there; without --existing the reference is made")
         made = json.loads(record.read_text())
         if made.get("frames") != [first, last] or made.get("passed") is not True:
-            raise Refused(f"--existing: {record} is of frames {made.get('frames')} with passed={made.get('passed')!r}, and the load is {first}-{last}")
+            raise again(f"--existing: {record} is of frames {made.get('frames')} with passed={made.get('passed')!r}, and the load is {first}-{last}")
         if not (made.get("face_on_the_track") or {}).get("known"):
             # a reference made before 2026-10-14 read its points in the track's box alone, and on a close group drew
             # another person's face and passed (the lead's 3167): whether its face is on the subject is not known
-            raise Refused(f"--existing: {record} does not say its face was held to {subject}'s track (made before the points were, or on the whole "
+            raise again(f"--existing: {record} does not say its face was held to {subject}'s track (made before the points were, or on the whole "
                           "frame): the reference is made again, in a new folder")
         # the job's spans of her eyes shut on a person's word: a reference taken as it was must have drawn them shut, in that form
         eyes = ((job.get("reference") or {}).get("iris") or {}).get("eyes_shut") or {}
@@ -2002,14 +2056,14 @@ def step_reference(a, world, figures=figures_of) -> None:
             meant = sorted({f for x, y in drew.get("frames") or [] for f in range(x, y + 1)})
             done = sorted({f for x, y in drew.get("drawn_shut_on") or [] for f in range(x, y + 1)})
             if drew.get("form") != eyes["form"] or asked != sorted((s["first"], s["last"]) for s in eyes["spans"]) or done != meant:
-                raise Refused(f"--existing: {record} does not draw her eyes shut ({eyes['form']!r}) on every frame the job names: the reference is "
+                raise again(f"--existing: {record} does not draw her eyes shut ({eyes['form']!r}) on every frame the job names: the reference is "
                               "made again, in a new folder")
         # the job's spans of no face on a person's word: a reference taken as it was must have left those frames bare
         bare = set((made.get("drawn") or {}).get("frames_left_bare") or [])
         missed = [f for s in (job.get("reference") or {}).get("no_face_on") or [] for f in range(s["first"], s["last"] + 1) if f not in bare] \
             if form != "plain" else []          # the plain cut has no line of the face on any frame
         if missed:
-            raise Refused(f"--existing: {record} draws face lines on {len(missed)} frame(s) the job says show no face on a person's word "
+            raise again(f"--existing: {record} draws face lines on {len(missed)} frame(s) the job says show no face on a person's word "
                           f"(first {missed[0]}, last {missed[-1]}): the reference is made again, in a new folder")
         # the job's spans of no mouth on a person's word: a reference taken as it was must have drawn none there
         said = ((job.get("reference") or {}).get("mouth") or {}).get("no_mouth_on") or []
@@ -2018,13 +2072,13 @@ def step_reference(a, world, figures=figures_of) -> None:
             bare = {f for spans in (mouth.get("no_mouth_on") or {}).values() for x, y in spans for f in range(x, y + 1)}
             missed = [f for s in said for f in range(s["first"], s["last"] + 1) if f not in bare]
             if missed:
-                raise Refused(f"--existing: {record} draws a mouth on {len(missed)} frame(s) the job says have none on a person's word "
+                raise again(f"--existing: {record} draws a mouth on {len(missed)} frame(s) the job says have none on a person's word "
                               f"(first {missed[0]}, last {missed[-1]}): the reference is made again, in a new folder")
         # the job's spans of a mouth on a person's word: a reference taken as it was must have been asked for them
         wanted = sorted((s["first"], s["last"]) for s in ((job.get("reference") or {}).get("mouth") or {}).get("mouth_on") or [])
         asked = sorted((w["first"], w["last"]) for w in (mouth.get("mouth_on") or {}).get("on_whose_word") or [])
         if wanted != asked:
-            raise Refused(f"--existing: {record} was drawn with the mouth on a person's word on {asked or 'no frames'} and the job names "
+            raise again(f"--existing: {record} was drawn with the mouth on a person's word on {asked or 'no frames'} and the job names "
                           f"{wanted or 'none'}: the reference is made again, in a new folder")
         written(a, ctx, made, record, points, drawn, form, why, figures, taken=True)
         return

@@ -1757,6 +1757,7 @@ def the_reference_step() -> str:
                                                               **({"face_on_the_track": track} if track else {})}))
             refused(lambda: stl.step_reference(e, made.m, figures), "--existing", "held to a's track", "made again")
         # a job with a person's no-mouth span takes a reference as it was only where that reference drew no mouth there
+        drawn.with_suffix(".json").write_text(json.dumps(record))    # the folder's record of today's form again: the job takes the folder (`reference_folder`)
         sheet = Path(tmp) / "the_sheet.jpg"
         sheet.write_bytes(b"a sheet")
         hid = made.load(first=104, frames=40, why="a look cut it", name="a_fp_0104c", no_mouth_on=[(110, 115, f"THE LEAD looked at {sheet}")])
@@ -2137,6 +2138,49 @@ def where_a_face_may_not_show() -> str:
             "floor and not at it; each as runs of source frames with their least and most, and what the cues cannot see")
 
 
+def a_span_folder_a_render_read() -> str:
+    """The lead's ruling of 2026-10-16: never move or write into a reference folder any render read. A load's reference goes to
+    `<subject>_<first>_<last>` while it is not there, or is there of today's form and read by no render; else to `_b`, `_c`, and the
+    job says why; `--existing` keeps its refusal words and names the folder a load made again takes."""
+    import hashlib
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        data = made.root / "data"
+        plain = made.load()
+        base = Path(plain["loads"][0]["motion_file"]).parent
+        # NO FOLDER YET: the plain name, as ever, and the job says nothing of a new folder
+        assert base.name == "a_0100_0159" and "reference_folder" not in plain["job"], (base, plain["job"].get("reference_folder"))
+        # A FOLDER A RENDER READ: a queue record names a file in it (its record of today's form, so only the reading moves it on)
+        base.mkdir(parents=True)
+        (base / "a_head_reference_0100_0159.json").write_text(json.dumps({"frames": [100, 159], "passed": True, "face_on_the_track": {"known": True}}))
+        (base / "a_head_reference_0100_0159.mp4").write_bytes(b"the frames a laid piece read")
+        before = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in base.iterdir()}
+        assert Path(made.load(data=data)["loads"][0]["motion_file"]).parent == base, "a folder of today's form read by no render was not taken as it is"
+        (data / "2026-01-02_old_job").mkdir(parents=True)
+        (data / "2026-01-02_old_job" / "old.render.queued.json").write_text(json.dumps({"digests": {str(base / "a_head_reference_0100_0159.mp4"): "x"}}))
+        b = made.load(data=data)
+        # THE CASE THAT GOES RED when a load is pointed at a folder a render read
+        assert Path(b["loads"][0]["motion_file"]).parent.name == "a_0100_0159_b", b["loads"][0]["motion_file"]
+        assert b["job"]["reference_folder"] == {"folder": "a_0100_0159_b", "why": "the span's folder a_0100_0159 was read by old; a new one"}, b["job"]["reference_folder"]
+        assert "ITS REFERENCE GOES TO a_0100_0159_b, A NEW FOLDER: the span's folder a_0100_0159 was read by old" in b["job"]["note"], b["job"]["note"]
+        assert {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in base.iterdir()} == before, "the folder a render read was touched"
+        # _b THERE TOO, NOT OF TODAY'S FORM: _c, each folder's why said
+        (base.with_name("a_0100_0159_b")).mkdir()
+        c = made.load(data=data)
+        assert Path(c["loads"][0]["motion_file"]).parent.name == "a_0100_0159_c" and "the span's folder a_0100_0159_b is not of today's form" in c["job"]["reference_folder"]["why"], c["job"]["reference_folder"]
+        # --existing on the folder a render read, its record no longer of today's form: its words, and the folder a load made again takes
+        job_file = made.jobs / "a_fp_0100.json"
+        job_file.write_text(json.dumps(plain))
+        (base / "a_0100_0159_points.npz").write_bytes(b"")
+        (base / "a_head_reference_0100_0159.json").write_text(json.dumps({"frames": [100, 159], "passed": True}))
+        e = args(existing=True)
+        e.job_file = str(job_file)
+        made.m.data = data
+        refused(lambda: stl.step_reference(e, made.m, lambda *a_, **k_: {}), "does not say its face was held to a's track",
+                "(a load made again takes the folder a_0100_0159_c: `shot_to_load.py job --remake`)")
+    return "no folder: the plain name; a folder a render read: _b, untouched, the job saying why; _b there too and not of today's form: _c; --existing names the next"
+
+
 case("the frame a tracker picks on is a field of the shots record", the_pick_frame_is_a_field)
 case("the trackers' order, and who is in the shot", the_order_and_who_is_in_the_shot)
 case("a preview made to ask who is on a shot the record is unsure of", a_preview_made_to_ask)
@@ -2153,6 +2197,7 @@ case("a load of some of its subject's parts", a_load_of_some_of_its_parts)
 case("a plan that keeps the strangers out", a_plan_that_keeps_the_strangers_out)
 case("who else is in the shot", who_else_is_in_the_shot)
 case("her clothing as one stay keep-out, retired", her_clothing_as_one_stay_keep_out)
+case("a span folder a render read", a_span_folder_a_render_read)
 case("a track that is not its person on named frames", a_track_that_is_not_its_person)
 case("text: who wrote it, said with a flag", the_text_step)
 case("a job renders from the video's present copy", a_job_renders_from_the_present_copy)
