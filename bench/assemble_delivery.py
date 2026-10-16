@@ -674,6 +674,43 @@ def node_words(*names) -> dict:
     return found
 
 
+class Matte:
+    """THE NODE'S OWN MATTE of a piece (the lead's ruling of 2026-10-16, "the exact matte"): the weight each window's video was blended
+    with, which the song node saves beside the window's region (`video_mask.save_window_region`, `matte`, at the whole canvas whatever
+    the zoom: `lay_window`'s weight, or `lay_back`'s on a zoomed window). A piece frame is read from the window that wrote it: the last
+    whose written frames (from its `first_frame` plus `trim` to its end) hold it. One window's matte is held at a time."""
+
+    def __init__(self, piece):
+        stem = Path(piece).stem.rsplit("_", 1)[0]
+        self.windows = []
+        for path in (Path(piece).parent / f"{stem}_windows").glob("*_region.npz"):
+            try:
+                with np.load(path) as z:
+                    meta = json.loads(str(z["meta"]))
+                    has = "matte" in z.files
+            except (OSError, KeyError, ValueError):
+                meta, has = {}, False
+            self.windows.append({"path": path, "first": int(meta.get("first_frame", 0)), "trim": int(meta.get("trim", 0)),
+                                 "frames": int(meta.get("frames", 0)), "matte": has})
+        self.windows.sort(key=lambda w: (w["first"], str(w["path"])))
+        self.held = (None, None)
+
+    def complete(self) -> bool:
+        """Whether every window beside the piece saved its matte (and there is a window)."""
+        return bool(self.windows) and all(w["matte"] for w in self.windows)
+
+    def at(self, k: int):
+        """The matte on piece frame `k` (0 is the piece's first frame), [H, W] uint8 0 to 255, or None where no window wrote it."""
+        hit = [w for w in self.windows if w["matte"] and w["first"] + w["trim"] <= k < w["first"] + w["frames"]]
+        if not hit:
+            return None
+        w = hit[-1]
+        if self.held[0] != w["path"]:
+            with np.load(w["path"]) as z:
+                self.held = (w["path"], z["matte"])
+        return self.held[1][k - w["first"]]
+
+
 def laid_by_of(piece, run=None) -> dict:
     """How a piece is laid: by its run's regenerated region (`rule` "region") where the render's composite is the node's
     `COMPOSITE_REGION` ("whole region": H3's picture kept whole inside the region; the owner's decision of 2026-10-16 and the
@@ -685,7 +722,14 @@ def laid_by_of(piece, run=None) -> dict:
     node's `composite`, never a default), and must be one of the node's two words. A region is laid only where the run is the
     node's own (its entry lists the window files, `files`: not a masks-alone plan or a review's reading), where the capture's
     run and its graph record the same composite (`composite`, `masked_source.composite`), and where every window's region
-    file beside the render (`<name>_windows/*_region.npz`) says it too."""
+    file beside the render (`<name>_windows/*_region.npz`) says it too.
+
+    BY THE NODE'S OWN MATTE (`rule` "matte", the lead's ruling of 2026-10-16) wherever every window file beside the render saved one
+    (`Matte`), whatever the composite: the piece is laid wherever the node blended any of its render in, and nothing is rebuilt (not
+    `changed`, not the region grown again). A render from before the matte was saved keeps the rules above."""
+    if Matte(piece).complete():
+        return {"composite": None, "rule": "matte", "from": str(Path(piece).parent),
+                "windows": len(Matte(piece).windows), "why": "laid by the node's own matte, saved with each window's region"}
     words = node_words("COMPOSITE_REGION", "COMPOSITE_CHANGED")
     region_word = words["COMPOSITE_REGION"]
     png = Path(piece).with_suffix(".png")
@@ -1226,6 +1270,7 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
         orig = original_frames(source, first, last, w, h)
         whole = source_frames(source, first, last, *full) if full else iter(lambda: None, 0)
         runs = [run_for(r, captures) for r in rows]
+        mattes = [Matte(r["piece"]) if (r.get("laid_by") or {}).get("rule") == "matte" else None for r in rows]
         got = 0
         # a zoomed piece's own picture, frame for frame beside it (a file at the source's size lays from it; the
         # agreement proof reads it at either size)
@@ -1243,9 +1288,14 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
             # composite, where it is not read, and where no region of the run covers the frame
             regions = [captures.region(run, n) if captures and run and (r.get("laid_by") or {}).get("rule") == "region" else None
                        for r, run in zip(rows, runs)]
-            laid_rule = ["region" if g is not None else "changed" for g in regions]
+            # BY THE NODE'S OWN MATTE where the piece has one (`Matte`): wherever the node blended any of its render in, and nothing rebuilt
+            mats = [m_.at(n - r["piece_first"]) if m_ is not None else None for m_, r in zip(mattes, rows)]
+            for t, r in zip(mats, rows):
+                if t is not None and tuple(t.shape) != (h, w):
+                    raise SystemExit(f"{r['piece']}: its matte on frame {n} is {tuple(t.shape)}, not the canvas's {(h, w)}")
+            laid_rule = ["matte" if t is not None else "region" if g is not None else "changed" for t, g in zip(mats, regions)]
             # the region and what the piece changed past it (the node's feather reaches past the token edge)
-            hard = [g | m if g is not None else m for m, g in zip(hard, regions)]
+            hard = [t > 0 if t is not None else g | m if g is not None else m for m, g, t in zip(hard, regions, mats)]
             # a frame its run carried no mask on is the source's for that row, when the carried mask is the node's own
             bare = [captures.carried_nothing(run, n) if captures and run else None for run in runs]
             # the node's own when the run's entry lists the window files it was read from. Keyed on that list and not
@@ -1261,7 +1311,7 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
             # what another subject's row holds and its own subject does not, before the owners are settled
             who = [run[2]["subject"] if run else None for run in runs]
             for i in range(len(rows)):
-                if laid_rule[i] == "region":
+                if laid_rule[i] in ("region", "matte"):
                     for j in range(len(rows)):
                         if j != i and holds[j] is not None and who[j] != who[i]:
                             hard[i] = hard[i] & ~(holds[j] & ~holds[i]) if holds[i] is not None else hard[i] & ~holds[j]
@@ -2239,6 +2289,7 @@ def check(args, segs, canvas, span, src, rows, captures):
             "changed_px_per_frame": [v["px"] for v in area.values()],
             "laid_by": {**(next((r.get("laid_by") for r in rows if r["piece"] == piece), None) or {}),
                         "frames_by_region": sum(1 for v in area.values() if v.get("laid_by") == "region"),
+                        "frames_by_matte": sum(1 for v in area.values() if v.get("laid_by") == "matte"),
                         "frames_by_changed": sum(1 for v in area.values() if v.get("laid_by") == "changed")},
             **({"restored_px_per_frame": [v.get("restored_px") for v in area.values()],
                 "restored_beside_a_large_change_px_per_frame": [v.get("join_px") for v in area.values()]}

@@ -816,7 +816,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
             lap.clear()
             clock[0] = time.perf_counter()
             latent, _count = _empty_av_latent(width, height, w.frames)
-            src_pixels = src_tokens = src_mask = kept = kept_weight = None
+            src_pixels = src_tokens = src_mask = kept = kept_weight = matte = None
             if source is not None:
                 # this window starts from the source's own frames over its span
                 empty_video, empty_audio = latent["samples"].unbind()
@@ -908,6 +908,8 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
             zoomed_images = None
             if untouched and src_pixels is not None:
                 images = src_pixels.clone()
+                # nothing regenerated: the matte is nothing laid, on the whole canvas
+                matte = torch.zeros((int(w.frames), int(height), int(width)), dtype=torch.uint8)
             else:
                 # the video VAE takes the video stream; core's VAEDecode unbinds the pair the same way
                 video_stream = samples.unbind()[0] if getattr(samples, "is_nested", False) else samples
@@ -925,8 +927,12 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 if zoom is not None:
                     # laid in the zoomed space above, where the difference was taken; now into the whole frame
                     zoomed_images = images
-                    images = video_mask.lay_back(decoded, alpha, video_mask.window_frames(
-                        source["whole"], int(round(w.start * FPS)), w.frames, width, height)[0], zoom)
+                    images, matte = video_mask.lay_back(decoded, alpha, video_mask.window_frames(
+                        source["whole"], int(round(w.start * FPS)), w.frames, width, height)[0], zoom, weight=True)
+                else:
+                    # THE EXACT MATTE (the lead's ruling of 2026-10-16): the weight the window's video was blended with, saved
+                    # beside its region, so the assembler lays the piece by it and rebuilds nothing
+                    matte = video_mask.matte_of(alpha)
                 del decoded
                 # under `only what changed` the weight is also what the mask review outlines: it is held
                 # through the window's write for that, and freed after the review, where it used to be
@@ -978,7 +984,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 # again from its own files; a failure here costs that and not the render
                 try:
                     video_mask.save_window_region(region_path, src_mask, src_tokens, source, margin,
-                                                  int(round(w.start * FPS)), int(trim), kept=kept_weight)
+                                                  int(round(w.start * FPS)), int(trim), kept=kept_weight, matte=matte)
                     if kept_weight is not None:
                         reports.append(f"[{w.number}] what the composite kept is saved in {os.path.basename(region_path)}")
                 except Exception as exc:  # noqa: BLE001 -- the window's video is already written
@@ -1002,7 +1008,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 if why:
                     reports.append(f"[{w.number}] mask review FAILED; the window's video is unaffected: {why}")
                 mark("mask review")
-            del images, kept, zoomed_images, kept_weight
+            del images, kept, zoomed_images, kept_weight, matte
             reports.append(f"[{w.number}] seconds: " + ", ".join(f"{name} {took:.1f}" for name, took in lap.items()))
 
         # join, and mux the whole track cut to the video

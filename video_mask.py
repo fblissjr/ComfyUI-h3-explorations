@@ -955,7 +955,7 @@ REGION_VERSION = 2
 
 
 def save_window_region(path: str, mask: torch.Tensor, tokens: torch.Tensor, source: dict, margin,
-                       first_frame: int, trim: int, kept: torch.Tensor | None = None) -> str:
+                       first_frame: int, trim: int, kept: torch.Tensor | None = None, matte: torch.Tensor | None = None) -> str:
     """Write what a window's composite was run with, beside the window's latent, losslessly.
 
     The window's fitted mask (bits, packed along the width) and its token region, as `window` returned them,
@@ -967,6 +967,11 @@ def save_window_region(path: str, mask: torch.Tensor, tokens: torch.Tensor, sour
     With `kept` (the song node's `save_kept`, 2026-10-15): what the composite kept of the render, its weight over
     one half on each of the window's frames (the white outline of the mask review), packed like the mask. A
     review clip draws it from here; until then it was only burned into the review's picture.
+
+    With `matte` (the lead's ruling of 2026-10-16, "the exact matte"): the weight the window's written video was blended
+    with, on every one of the window's frames (the trimmed ones too), at the WHOLE canvas whatever the zoom ([F, height,
+    width] uint8, 0 to 255: `lay_window`'s weight, or `lay_back`'s on a zoomed window). The assembler lays a piece by it
+    and by nothing it would rebuild. It changes nothing H3 is given: the mask and the tokens are written as before.
     """
     settings = {k: source.get(k) for k in REGION_SETTINGS}
     meta = {"version": REGION_VERSION, "first_frame": int(first_frame), "trim": int(trim), "frames": int(mask.shape[0]),
@@ -975,6 +980,12 @@ def save_window_region(path: str, mask: torch.Tensor, tokens: torch.Tensor, sour
             # of the ZOOMED picture, and a reader that lays them or counts their cells maps through the box
             "zoom": source.get("zoom")}
     extra = {}
+    if matte is not None:
+        if tuple(matte.shape[:1]) != tuple(mask.shape[:1]) or matte.dtype != torch.uint8:
+            raise ValueError(f"the matte {tuple(matte.shape)} {matte.dtype} is not the window's {int(mask.shape[0])} frames of uint8")
+        meta["matte"] = {"what": "the weight the window's video was blended with, 0 to 255, every frame of the window (its trimmed frames too)",
+                         "space": "the whole canvas", "height": int(matte.shape[1]), "width": int(matte.shape[2])}
+        extra["matte"] = matte.cpu().numpy()
     if kept is not None:
         meta["kept"] = "what the composite kept of the render: its weight over one half, the window's frames, packed like the mask"
         extra["kept"] = np.packbits((kept > 0.5).cpu().numpy(), axis=-1)
@@ -990,7 +1001,8 @@ def save_window_region(path: str, mask: torch.Tensor, tokens: torch.Tensor, sour
 
 def load_window_region(path: str) -> dict:
     """A window's saved region as `lay_window` takes it: `mask` [F, H, W] and `tokens` [latent_t, h, w] of 0 or 1
-    (and `kept` [F, H, W] of 0 or 1 when the render saved it, `save_kept`),
+    (and `kept` [F, H, W] of 0 or 1 when the render saved it, `save_kept`; and `matte` [F, H, W] of 0 to 1 at the whole
+    canvas, the weight the window's video was blended with, when the render saved it),
     `margin` (a number, or a [F] tensor when it was each frame's own), `first_frame`, `trim`, `source`, and
     `zoom`: None, or the box of the load's frames the window was rendered in, when the mask and the tokens are
     of that box scaled to the canvas and not of the whole frame (`zoomed_source`)."""
@@ -1002,6 +1014,8 @@ def load_window_region(path: str) -> dict:
                "margin": int(margin) if margin.ndim == 0 else torch.from_numpy(margin).long()}
         if "kept" in z.files:
             out["kept"] = torch.from_numpy(np.unpackbits(z["kept"], axis=-1)[..., :int(meta["width"])]).to(torch.float32)
+        if "matte" in z.files:
+            out["matte"] = torch.from_numpy(z["matte"]).to(torch.float32) / 255.0
     return {**out, "first_frame": int(meta["first_frame"]), "trim": int(meta["trim"]), "source": dict(meta["source"]),
             "zoom": meta.get("zoom")}
 
@@ -1883,7 +1897,7 @@ def zoomed_source(source: dict, width: int, height: int, continued=NOT_CONTINUED
     return out, lines
 
 
-def lay_back(decode: torch.Tensor, alpha: torch.Tensor, whole: torch.Tensor, zoom: dict) -> torch.Tensor:
+def lay_back(decode: torch.Tensor, alpha: torch.Tensor, whole: torch.Tensor, zoom: dict, weight: bool = False):
     """A zoomed window's render laid into the whole frame: [F, height, width, 3].
 
     `decode` is the window's decode in the zoomed space and `alpha` the weight `lay_window` blended it with
@@ -1894,6 +1908,9 @@ def lay_back(decode: torch.Tensor, alpha: torch.Tensor, whole: torch.Tensor, zoo
     on whole canvas pixels (`_canvas_box`); the result is `whole * (1 - weight) + decode * weight`. Weighted
     before it is scaled, so the enlarged plate is in no pixel and a soft edge is not weighted twice; where
     the scaled weight is 0 the pixel is `whole`'s own, bit for bit, inside the box as well as outside it.
+
+    With `weight`, also the weight each canvas pixel was blended with ([F, height, width] uint8, 0 to 255; 0 outside
+    the box): the matte the window's video was laid by, saved beside its region (`save_window_region`, `matte`).
     """
     if tuple(decode.shape[:3]) != tuple(alpha.shape) or int(decode.shape[0]) != int(whole.shape[0]):
         raise ValueError(f"the zoomed decode {tuple(decode.shape)}, its weight {tuple(alpha.shape)} and the whole "
@@ -1910,6 +1927,7 @@ def lay_back(decode: torch.Tensor, alpha: torch.Tensor, whole: torch.Tensor, zoo
     grid = torch.stack([xs[None, :].expand(iy1 - iy0, -1), ys[:, None].expand(-1, ix1 - ix0)], dim=-1)
     exact = (small_w, small_h) == (ix1 - ix0, iy1 - iy0) and fx0 == ix0 and fy0 == iy0
     out = whole.clone()
+    matte = torch.zeros(tuple(whole.shape[:3]), dtype=torch.uint8) if weight else None
     for i in range(0, int(decode.shape[0]), CHUNK):
         a = alpha[i:i + CHUNK].unsqueeze(1).to(torch.float32)
         both = torch.cat([decode[i:i + CHUNK].movedim(-1, 1).to(torch.float32) * a, a], dim=1)
@@ -1921,7 +1939,14 @@ def lay_back(decode: torch.Tensor, alpha: torch.Tensor, whole: torch.Tensor, zoo
         laid = small[:, :3].movedim(1, -1).to(out.device, out.dtype)
         patch = out[i:i + CHUNK, iy0:iy1, ix0:ix1]
         out[i:i + CHUNK, iy0:iy1, ix0:ix1] = torch.where(w > 0.0, patch * (1.0 - w) + laid, patch)
-    return out
+        if matte is not None:
+            matte[i:i + CHUNK, iy0:iy1, ix0:ix1] = (w[..., 0].cpu() * 255.0).round().to(torch.uint8)
+    return (out, matte) if weight else out
+
+
+def matte_of(alpha: torch.Tensor) -> torch.Tensor:
+    """A composite's weight as the matte a window's region file keeps (`save_window_region`): [F, H, W] uint8, 0 to 255."""
+    return (alpha.detach().to(torch.float32).clamp(0.0, 1.0).cpu() * 255.0).round().to(torch.uint8)
 
 
 def window(source: dict, first_frame: int, frames: int, width: int, height: int,

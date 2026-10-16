@@ -1727,6 +1727,32 @@ def check_render_zoom(problems):
         _fail(problems, "render zoom: a weight that covers other frames than the decode was laid")
     except ValueError:
         pass
+    # THE EXACT MATTE (the lead's ruling of 2026-10-16): the weight lay_back returns is the weight it blended with, at the whole canvas.
+    # A white decode over a black frame lays the weight itself, so the laid picture and the matte agree to a level
+    soft = vm.pixel_alpha(torch.ones(1, height // 16, width // 16) * (torch.rand(1, height // 16, width // 16) > 0.5), height, width, 6)[:1].expand(3, -1, -1)
+    laid_w, matte = vm.lay_back(torch.ones_like(zoomed), soft.contiguous(), torch.zeros_like(whole), zoom, weight=True)
+    if matte.dtype != torch.uint8 or tuple(matte.shape) != tuple(whole.shape[:3]):
+        _fail(problems, f"render zoom: the matte is {matte.dtype} {tuple(matte.shape)}, not uint8 over the whole frames {tuple(whole.shape[:3])}")
+    elif float((laid_w[..., 0] * 255.0 - matte.float()).abs().max()) > 1.0 or not bool((matte > 0).any()):
+        # THE CASE THAT GOES RED when the saved matte is not the weight the window's video was blended with
+        _fail(problems, f"render zoom: the matte is {float((laid_w[..., 0] * 255.0 - matte.float()).abs().max()):.2f} levels from the weight the frame was laid with")
+    if not torch.equal(vm.lay_back(torch.ones_like(zoomed), soft.contiguous(), torch.zeros_like(whole), zoom), laid_w):
+        _fail(problems, "render zoom: asking for the matte changed the frame lay_back lays")
+    with tempfile.TemporaryDirectory() as tmp:
+        back = vm.load_window_region(vm.save_window_region(str(Path(tmp) / "m.npz"), alpha, torch.ones(1, height // 16, width // 16), {}, 8, 0, 0,
+                                                           matte=matte))
+        if "matte" not in back or float((back["matte"] * 255.0 - matte.float()).abs().max()) > 0.0:
+            _fail(problems, "render zoom: the matte saved with the window's region does not come back as it was saved")
+        try:
+            vm.save_window_region(str(Path(tmp) / "bad.npz"), alpha, torch.ones(1, height // 16, width // 16), {}, 8, 0, 0, matte=matte[:2])
+            _fail(problems, "render zoom: a matte that covers other frames than the window's was saved")
+        except ValueError:
+            pass
+    song_text = (REPO / "audio_freeze_song.py").read_text()
+    for words in ("images, matte = video_mask.lay_back(decoded, alpha, video_mask.window_frames(", "zoom, weight=True)",
+                  "matte = video_mask.matte_of(alpha)", "kept=kept_weight, matte=matte)"):
+        if words not in song_text:
+            _fail(problems, f"render zoom: the song node does not save the weight its window's video was blended with ({words!r} not in it)")
 
     # 4. the region file says the box, and a file with none says None
     with tempfile.TemporaryDirectory() as tmp:

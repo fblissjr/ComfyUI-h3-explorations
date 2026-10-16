@@ -1549,6 +1549,74 @@ with tempfile.TemporaryDirectory() as _tmp:
                 f"agree to {z['agreement_levels_worst_frame'][0]} levels; a box moved eight pixels fails; four malformed pairs are refused; "
                 "at the canvas's size the zoomed file is not used")
 
+    def laid_by_the_matte() -> str:
+        """The lead's ruling of 2026-10-16, "the exact matte": a piece whose windows saved the node's own matte is laid wherever the node
+        blended any of its render in, and by nothing rebuilt. Each piece here is made by the node's own functions (`lay_window`, and
+        `lay_back` on a zoomed load whose box is off the 16-px grid at 1.333x), its render four levels off the source inside the region
+        (806's signature: under `CHANGE`), and delivered at the source's size and at the canvas's as a later row: inside the matte the
+        delivery is the node's composite to within encode noise, and outside it the source's."""
+        vm = sys.modules["_h3pack.video_mask"]
+        import cv2 as cv
+        base = WHOLE[10:36]                                               # 26 frames: eight latent steps (`run_lengths`)
+        cells = torch.zeros(8, H // 16, W // 16)
+        cells[:, 3:8, 4:11] = 1.0                                         # x 64-176, y 48-128 of the picture the node regenerates in
+        mask = torch.zeros(26, H, W)
+        mask[:, 60:116, 76:164] = 1.0
+        src = {"composite": vm.COMPOSITE_REGION, "feather_pixels": 6, "cuts": None, "change_threshold": vm.CHANGE_THRESHOLD}
+        made = {}
+        for tag, box in (("plain", None), ("zoomed", (38, 30, 230, 174))):
+            if box is None:
+                pixels = base
+            else:
+                zoom = {"box": list(box), "source_size": [W, H], "canvas": [W, H], "scale": W / (box[2] - box[0]),
+                        "render_region": vm.RENDER_ZOOM_REPLACED, "set_by": vm.SET_BY_LARGEST}
+                pixels = vm.crop_frames(base, box, W, H)
+            render = faint(pixels, (64, 48, 176, 128))
+            composite, alpha, _lines = vm.lay_window(render, pixels, cells, mask, src, 8, 0)
+            if box is None:
+                piece_frames, matte = composite, vm.matte_of(alpha)
+            else:
+                piece_frames, matte = vm.lay_back(render, alpha, base, zoom, weight=True)
+            stem = f"mt_{tag}_00001"
+            path = write(stem, piece_frames)
+            if box is not None:
+                write(stem + "_zoomed", composite)
+                (TMP / f"{stem}_zoomed.json").write_text(json.dumps({"file": tool.ZOOM_FILE, "version": 2, "run": stem, "piece": f"{stem}.mp4",
+                    "zoomed": f"{stem}_zoomed.mp4", "frames": 26, "canvas": [W, H], "source_size": [W, H], "box": list(box), "fixed": True,
+                    "zoom": zoom["scale"], "region_cut_at_box_sides": []}))
+            folder = TMP / f"mt_{tag}_windows"
+            shutil.rmtree(folder, ignore_errors=True)
+            folder.mkdir()
+            vm.save_window_region(str(folder / f"mt_{tag}_window_1_region.npz"), mask, cells, src, 8, 0, 0, matte=matte)
+            made[tag] = (path, matte.numpy(), piece_frames)
+        plain = write("mt_base_00001", base)
+        k = 24 - 10
+        said = []
+        for tag, (path, matte, piece_frames) in made.items():
+            m = matte[k]
+            laid = cv.erode((m == 255).astype(np.uint8), np.ones((2 * SLACK + 1,) * 2, np.uint8)).astype(bool)
+            off = ~cv.dilate((m > 0).astype(np.uint8), np.ones((2 * SLACK + 1,) * 2, np.uint8)).astype(bool)
+            assert laid.sum() > 500 and off.sum() > 500, (tag, int(laid.sum()), int(off.sum()))
+            f, o = planes_of(path, 24), original(24)
+            assert 2.0 < float(np.abs(f[0] - o[0])[laid].mean()) < tool.CHANGE, f"the fixture: {tag}'s render is not under CHANGE from the source"
+            for size in ("source", "canvas"):
+                name = f"mt_{tag}_{size}"
+                rows = [(10, 35, plain, 10), (10, 35, path, 10)]
+                code, r, out = deliver(TMP, name, rows, "10-35", *(("--size", "source") if size == "source" else ()))
+                got = list(tool.luma_at_canvas(str(out), W, H))[k] if size == "source" else planes_of(str(out), 24)[0]
+                row = r["regions"]["pieces"][path]["laid_by"]
+                near_piece, near_source = float(np.abs(got - f[0])[laid].mean()), float(np.abs(got - o[0])[laid].mean())
+                outside = float(np.abs(got - o[0])[off].mean())
+                # THE CASE THAT GOES RED when a piece under CHANGE where its matte is 1 is not laid wholly (806), or is laid by anything but its matte
+                assert code == 0 and row["rule"] == "matte" and row["frames_by_matte"] == 26, (tag, size, code, r["failures"], row)
+                assert near_piece < 1.5 and near_piece + 1.0 < near_source, f"{tag} at the {size}'s size: {near_piece:.2f} from the node's composite, {near_source:.2f} from the source"
+                assert outside < 1.5, f"{tag} at the {size}'s size: {outside:.2f} from the source outside the matte"
+                said.append(f"{tag}/{size} {near_piece:.2f}")
+        shutil.rmtree(TMP / "mt_plain_windows", ignore_errors=True)
+        shutil.rmtree(TMP / "mt_zoomed_windows", ignore_errors=True)
+        return ("laid by the node's own matte, unzoomed and zoomed 1.333x off the grid, at the source's size and the canvas's: inside the matte "
+                "within " + ", ".join(said) + " levels of the node's composite (four levels off the source), the source outside it")
+
     case("the cut rows carry the laid edge where a region reaches it", the_cut_rows_carry_the_edge)
     case("a piece that changed nothing is the original", nothing_changed)
     case("a painted rectangle is found where it is", rectangle_found)
@@ -1573,4 +1641,5 @@ with tempfile.TemporaryDirectory() as _tmp:
     case("a row that ends or begins on the source's own picture", ends_on_the_source)
     case("a piece rendered zoomed in", a_zoomed_piece)
     case("a whole-region piece laid by its region", laid_by_its_region)
+    case("a piece laid by the node's own matte", laid_by_the_matte)
 sys.exit(finish())
