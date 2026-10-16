@@ -2,11 +2,28 @@
 
 **Rewritten at the end of each working day by the session that led it; the day before is in git.** This one was written
 at the close of 2026-10-15 (the owner's evening; past midnight UTC) by `mrtall`, the lead, with `mrgo` on the card, and
-reconciled with four reviews of the owner's question "what is broken, and what should the handover drop, add and
-change": `internal/claude/2026-10-16_{mrgo,mrnight,coldreader}_whats_broken.md` and the outside reviewer's
-`internal/gemini/2026-10-16_c17_whats_broken.md` (if it is not there, it was still being written; read it first).
-Where this page and a record disagree, the record is right (`decisions.md`; `data/fun/verdicts/verdicts.jsonl`; the
-newest ledger and table; the Open List).
+reconciled with three reviews of the owner's question "what is broken, and what should the handover drop, add and
+change": `internal/claude/2026-10-16_{mrgo,mrnight,coldreader}_whats_broken.md` (the outside reviewer's C17 was not
+written; re-post it). Where this page and a record disagree, the record is right (`decisions.md`;
+`data/fun/verdicts/verdicts.jsonl`; the newest ledger and table; the Open List).
+
+## FIRST, before anything else, in this order (the owner: "make sure the session that runs tomorrow knows this stuff
+## first thing and the ordering is right and that it reads everything it needs to")
+
+1. **Read, whole, before acting:** this page; `AGENTS.md` (it changed on 2026-10-15: two sessions, the text rules);
+   `decisions.md`'s entries at its top (2026-10-15 late and 2026-10-16: what lands and what is undone, a check's colour
+   read in context, a text never says what is not drawn, the gaze ruling, the gate's one rule, references never
+   renamed, cached nodes, the hold rule dropped, the outside reviewer's one exception cancelled); the three reviews
+   above and the outside reviewer's `internal/gemini/2026-10-16_c16_fill_rule.md`;
+   `internal/claude/2026-10-15_gaze_pieces.md`; `internal/claude/2026-10-15_mrgo_closeout.md` (what the card did
+   overnight); `internal/claude/2026-10-15_mrnight_fixes_note.md`, "STATE FOR TOMORROW".
+2. **The servers:** ComfyUI was to be stopped by mrgo after 2823d (its note says); start it by the recipe in
+   `docs/comfy_notes.md` and read `/proc/<pid>/environ` first if one is running. The review server is stopped: start it
+   from the repo root, `python3 data/fun/poc/serve.py` (port 8765); the owner's links need it.
+3. **The outside reviewer:** re-post C17 (what is broken) and C18 (the restore carry's diff) to
+   `internal/gemini/<date>_requests.md`, and a watch of 2823d if it landed. Its C19 watch of 0604g is summarised below.
+4. **The card seat's brief** (two sessions): write it from items 2-7 below before it starts, with the landing bar.
+5. Then **Tomorrow, in order**, item 1: the owner's review.
 
 > **Gaze: the touch-nothing test first; every other gaze piece is set aside until it answers** (the owner, 2026-10-16).
 > Nothing of the gaze build landed. The pieces, why each, and the test set: `internal/claude/2026-10-15_gaze_pieces.md`.

@@ -17,6 +17,9 @@ pointer goes; this list is stale the moment the roadmap disagrees with it.
 Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
+**The order of 2026-10-16 is `handover.md`'s "FIRST" and "Tomorrow, in order"; where the queue below disagrees, the
+handover is right.**
+
 **The queue of 2026-10-15 (the lead, mrtall; written before the close and finished in `handover.md`).** Every shot is
 made by the recipe the owner kept on the hall shot: [`masked_v2v.md`](masked_v2v.md), "A shot, made whole" (one load a
 subject over the whole shot, every frame read first, `--no-face-on` and `--hold-part` on a person's word, "sings" only
