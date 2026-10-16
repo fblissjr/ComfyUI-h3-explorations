@@ -136,7 +136,12 @@ table; the Open List).
    built in a worktree, a case seen red, a second reader, not landed while a load runs. With it: the ledger counts
    frames the floor empties as left as the original (`render_ledger.left_by_the_load` reads only `drop=`; it misses 15
    frames of the kept hall cut, 1419d and third 1419d). Not seen by the survey: a face regenerated to look like the
-   original under a present mask (a per-frame face likeness would be needed).
+   original under a present mask (a per-frame face likeness would be needed). THE DRY RUN (2026-10-16,
+   `internal/claude/2026-10-16_fill_dry_run/README.md`): the face points do NOT tell a turned-away head or hands from a
+   face (both definitions say "face shows" on 28 of 29 turned-head frames and all 74 hands frames); unguarded, the rule
+   fills 83-87 of the 126 and wrongly fills 9 frames of the current cut, every one inside a job's own no_face_on span.
+   With the rule honouring no_face_on (and never filling where a part stands): 0 wrong fills, 73-77 of the 126 filled.
+   So the rule is only ever as good as the no_face_on words; no picture was looked at.
 4f. A TRACKING COUNT ON EVERY LOAD (the owner, 2026-10-16: "the regional tracking losing tracks needs to have tooling to
    identify if that ever happens ... or at least given a tracking count back"). Each capture prints, and keeps beside its
    record, one line a tracker over the load's frames: SAM 3.1 (frames with her track), the part model (frames with a
@@ -148,6 +153,17 @@ table; the Open List).
    senses of good"): every item the four reviews of 2026-10-16 name in that class (a flag that cries wolf, a check that
    passes while the thing is wrong, a page that reads as complete while it is not, e.g. the ledger's left_by_the_load)
    is fixed or removed, in the order the lead sets from those reviews.
+4h. ONE SOURCE OF TRUTH FOR WHAT IS KEPT AND LAID (the owner, 2026-10-16: "we need a single source of truth with where
+   thats kept which is what i thought provenance was but now who knows what json from what day"). Today what the cut lays
+   is decided by FOUR places: the owner's keeps (`data/fun/verdicts/verdicts.jsonl`), a session's `prefers.txt` and
+   `holds.txt` under `internal/claude/<date>_<lead>_scripts/` (five dated copies on disk), two --prefer/--hold lines typed
+   into that session's `rebuild.sh`, and whichever table `ls -t` finds newest in a dated folder. The fix: ONE data file,
+   `data/fun/laid.jsonl`, one line a laid piece: the span, the subject, the load, the sha256 of the piece as laid, and
+   why (the owner's keep, by its verdicts line, or the lead's written hold with its reason). The rebuild reads only it;
+   no prefers or holds in a session folder or a script. PROVENANCE.html and TO_REVIEW.html say at the top the file and
+   line count they were made from. AND (the owner's yes, same night): an assembly change that alters a kept piece's laid
+   bytes (an earring restore, the glasses carried across a hold) puts that piece back on TO_REVIEW as "changed since you
+   kept it", and it is not counted kept until the owner keeps it again; the sha256 in laid.jsonl is what says it changed.
 4d. The chain records ComfyUI's list of cached nodes for every run (the owner's yes, 2026-10-16), beside the run's record.
 5. Tooling queued for the card seat, in order after the kitchen's lead (`--mouth-on` and `track_from` are tonight's,
    above, and landed or not by mrgo's note): the ledger
