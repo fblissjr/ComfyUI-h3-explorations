@@ -17,6 +17,21 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-16
 
+- **The keep-out carve is done on the node's own grid, and the region the owner looks at is the one the render
+  uses** (the lead, mrtony, ruling route C at about 20:20Z on mrtaco's options; landed 77ea523a and ac6b7a10, recorded
+  20:47Z). The canvas carve of gate 3 left squares inside her outline the node still gave back, because the node
+  pools a keep-out over each latent step and cuts on its own grid (the zoomed picture's for a zoomed load). Now, at the
+  on-plan rebuild of every planned run, each keep-out loses every pixel under a node unit that is more than half hers on
+  any frame of its step; the region is remade with the node's own `video_mask.window` on the carved files, the masks are
+  hashed after that rebuild, and the land step refuses a render whose own region differs from that prediction unit by
+  unit. The node's own count of units given back inside her own track, canvas carve alone then grid carve
+  (`internal/claude/2026-10-16_mrtaco/probe_grid.out`): second_hfp_0014f (zoomed 1.333) hands 168 to 0, strangers 4 to 0,
+  held and clothing 0; second_hfp_0604g (not zoomed) hands 100 to 0, the rest 0. Its extra cost in keep-out pixels:
+  0014f hands 30680, clothing 5562, strangers 1514; 0604g hands 91134, clothing 1758, strangers 701. The control
+  (`route_c_control.out`): the prediction made from each load's own files equals its render's region unit for unit on
+  lead_fp_0438c and second_hfp_0014f. Earlier approximations (0/503/232 and 34) are replaced by these. A load planned
+  before the carve is refused with "make the load again under a new name" (second_hfp_1010k).
+
 - **The mom's clothing next to her new face and hair is redrawn with her; the stay keep-out is retired** (the owner,
   in the lead's terminal at 19:25Z, choosing "Redraw it" when mrtony asked whether H3 should redraw her apron strap, bib
   and blouse or keep them as the original). The plan's `look.stay` (mrtwo's ruling of 2026-10-14, arm K, on mrpre's
