@@ -56,9 +56,9 @@ builder's own `check_job`, and a load's to `masked_job.loads_of`, so a file the 
    no writer, which the chain refuses; a cut with no words refused and with them written into `left_out`; a
    plan's `hair_band` refused (7c); the plan's `pieces` copied onto the load's subject with who chose it, where the
    chain reads it, and onto no other subject, refused when it is not a value the capture takes or names nobody, and
-   refused on a load whose part holds hair or face_and_neck on any frame, by the plan's parts, `--parts` or a
-   `--parts-on` range (`NO_PIECES_ON`, the owner, 2026-10-16; seen red with hair taken out of it and with the ranges
-   not read); `--zoomed`
+   refused on a load whose part holds a class of hair or face_and_neck on any frame (a part of the mouth alone too), by
+   the plan's parts, `--parts` or a `--parts-on` range (`h3_config.NO_PIECES_ON`, the owner, 2026-10-16; seen red with
+   hair taken out of it and with the ranges not read); `--zoomed`
    with its words makes the load `render_region: part` and keeps who said it, and `--least` with `--least-why` sets the
    subject's floor with its reason, each refused without its words, neither set when not asked, and the load the builder's
    `check_load` takes; and the refusals (a subject not in the shot, a preview of other frames, no pose
@@ -670,6 +670,8 @@ def a_loads_job_file_stands_alone() -> str:
         made.plan["subjects"]["a"]["parts"] = ["upper_clothing", "face_and_neck"]
         refused(lambda: made.load(name="a_up_0100", parts=["upper_clothing"], parts_by="a person", parts_on=[(110, 115, ["face_and_neck"])]),
                 "on a load whose part holds face_and_neck + upper_clothing:")
+        made.plan["subjects"]["a"]["parts"] = ["mouth"]          # a face by its classes, though not named face_and_neck
+        refused(made.load, "on a load whose part holds mouth:")
         made.plan["subjects"]["a"]["parts"] = ["upper_clothing"]
         pieced = made.load()
         made.plan["subjects"]["a"]["parts"] = a_parts

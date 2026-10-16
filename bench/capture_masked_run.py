@@ -598,6 +598,26 @@ def pieces_taken(stray: np.ndarray, first: int) -> dict:
             "px_by_source_frame": [[int(first + f), int(stray[f])] for f in hit], "cannot_see": PIECES_CANNOT_SEE}
 
 
+def refuse_pieces_on_a_head(label: str, parts: np.ndarray, cmap: np.ndarray | None) -> None:
+    """`pieces=largest` refused on a part made of a face or hair (`h3_config.NO_PIECES_ON`, the owner's word of 2026-10-16,
+    docs/wiki/decisions.md e6993b5e): a face or hair is rightly in more than one piece, and dropping the others leaves the
+    original inside the new face. Read here, where every load passes whoever wrote its job file or command: the part's
+    classes read back from the class map (`part_classes`) before a piece is dropped. Without a class map the part cannot
+    be read, so the option is refused there too."""
+    import h3_config
+    if cmap is None:
+        raise SystemExit(f"subject {label!r}: pieces=largest with no classes= video: whether the part is a face or hair, on which "
+                         f"the option is refused ({', '.join(h3_config.NO_PIECES_ON)}), is read from the class map; give its classes=")
+    sp = _pack("sapiens2_parts")
+    head = {c for k in h3_config.NO_PIECES_ON for c in sp.PARTS[k]}
+    held = [sp.CLASS_NAMES[k] for k in part_classes(parts, cmap, sp.CLASS_NAMES)]
+    if head & set(held):
+        raise SystemExit(f"subject {label!r}: pieces=largest on a part made of {' + '.join(held)}: a face or hair is rightly in more than "
+                         "one piece (split by hair, a hand or an arm), and the largest-piece rule drops the others, which leaves the original "
+                         "showing inside the new face (the owner, 2026-10-16, docs/wiki/decisions.md, commit e6993b5e). Take pieces= off "
+                         f"this subject (and `pieces` off the job file's subject): no part holding {', '.join(h3_config.NO_PIECES_ON)} is read with it")
+
+
 def pieces_lines(label: str, taken: dict) -> list[str]:
     """What the files step prints of `pieces_taken`, every frame named with its pixels."""
     if not taken["frames"]:
@@ -1651,7 +1671,9 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
         track, covered = read_mask(m["track"], size, at, first, frames)
         parts = read_mask(m["parts"], size, at, first, frames)[0] if m.get("parts") else None
         took = None
+        cmap = read_classes(m["classes"], size, at, first, frames) if m.get("classes") else None
         if parts is not None and m.get("pieces") == "largest":
+            refuse_pieces_on_a_head(label, parts, cmap)
             # the caller looked and the part's other pieces are not the part (`flag_pieces`); what that took away is
             # counted, printed and kept in the manifest, since the flag is then silent
             parts, stray = largest_piece(parts)
@@ -1662,7 +1684,6 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             floors[label] = {"scale": zoomed_floor["scale"] if zoomed_floor else 1.0, "px": parts.reshape(len(parts), -1).sum(axis=1)}
         if m.get("classes"):
             names = _pack("sapiens2_parts").CLASS_NAMES
-            cmap = read_classes(m["classes"], size, at, first, frames)
             class_maps[label] = cmap
             (out / "subjects" / label).mkdir(parents=True, exist_ok=True)
             np.savez_compressed(out / "subjects" / label / f"classes__{by}.npz", classes=cmap)

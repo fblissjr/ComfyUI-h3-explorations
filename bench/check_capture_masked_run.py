@@ -92,6 +92,11 @@ overlaps and margins can be counted by hand and reads the rows back.
    frames it is off; the right frame passes; a preview whose job folder is not found, or is one of two of the
    name, is not checked and is neither.
 
+20. **No largest piece of a face or hair** (`refuse_pieces_on_a_head`, `h3_config.NO_PIECES_ON`, the owner, 2026-10-16).
+   Run through the files step with its readers stood in: `pieces=largest` on a part the class map says is a face,
+   or hair, stops before a piece is dropped; on a part of clothing it reaches the drop; with no class map it stops.
+   Seen red with the call taken out of the files step.
+
 No video, no model, no card, no server.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/check_capture_masked_run.py
@@ -1618,6 +1623,46 @@ def face_sizes() -> str:
             "dropping them took away is said a frame at a time")
 
 
+def no_pieces_on_a_head() -> str:
+    """`pieces=largest` refused at the files step on a part made of a face or hair, whoever wrote the job file or command."""
+    import tempfile
+    names = cap._pack("sapiens2_parts").CLASS_NAMES
+    part = rect(40, 8, 80, 56)
+
+    def run(cls: str | None) -> str:
+        cmap = np.zeros((N, H, W), np.uint8)
+        if cls:
+            cmap[part] = names.index(cls)
+        stood_in = {k: getattr(cap, k) for k in ("probe", "read_mask", "read_classes", "largest_piece")}
+
+        class Reached(Exception):
+            pass
+
+        def reached(_parts):
+            raise Reached
+        cap.probe, cap.read_mask, cap.read_classes = (lambda _p: (W, H, N)), (lambda *_a: (part, np.ones(N, bool))), (lambda *_a: cmap)
+        cap.largest_piece = reached
+        spec = {"track": "t.mkv", "parts": "p.mkv", "pieces": "largest", **({"classes": "c.mkv"} if cls else {})}
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                cap._files(argparse.Namespace(first=100, frames=N, name="x", date="2026-01-01", source="s.mp4"), Path(tmp), [("a", spec)], [], [])
+        except Reached:
+            return "the drop"
+        except SystemExit as e:
+            return str(e)
+        finally:
+            for k, v in stood_in.items():
+                setattr(cap, k, v)
+        raise AssertionError("the files step neither stopped nor reached the drop")
+    # THE CASES THAT GO RED when the files step reads a face or hair with the largest piece
+    for cls in ("Face_Neck", "Hair"):
+        said = run(cls)
+        assert said.startswith(f"subject 'a': pieces=largest on a part made of {cls}") and "e6993b5e" in said, said
+    assert run("Upper_Clothing") == "the drop", "a part of clothing was refused the largest piece"
+    assert "pieces=largest with no classes= video" in run(None), run(None)
+    return "the largest piece refused on a face and on hair at the files step, before a piece is dropped; a part of clothing reaches it; no class map stops"
+
+
 def who_is_who() -> str:
     """A shot on which some tracker's call is nobody's word blocks, one flag a shot, and shows the question to ask."""
     def cell(ask="", word="") -> dict:
@@ -2280,4 +2325,5 @@ case("preflight: the text against the voice", text_rules)
 case("the strip: the frames a render's strip shows, and the span's frames it leaves out", a_strip_of_a_render)
 case("the strip: a load of two subjects, each in its own colour", a_strip_of_two_subjects)
 case("a load of two subjects: neither is another subject to it", neither_is_another)
+case("no largest piece of a face or hair, at the files step", no_pieces_on_a_head)
 sys.exit(finish())

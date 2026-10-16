@@ -1581,6 +1581,15 @@ MASKED_LOAD_MARGIN = {"face": 16, "face and hair": 64}
 #: 19% of the mom's regenerated pixels to the source on second_hfp_0014d, as holes stepping every 4 frames, and the
 #: one-knob trial second_hfp_0014f. A load may still name another, and its build record says so.
 MASKED_LOAD_COMPOSITE = "whole region"
+#: The part model's parts (`sapiens2_parts.PARTS`) no part is read with the largest-piece rule on: a load whose part holds
+#: any of their classes on any frame is refused, at the job (`bench/shot_to_load.py`) and at the capture
+#: (`bench/capture_masked_run.py refuse_pieces_on_a_head`, on the class map). **The owner's decision, 2026-10-16**
+#: (docs/wiki/decisions.md, e6993b5e: "make sure this never happens again"). **Measured**: the rule dropped pieces of the
+#: mom's face and hair on 146 of 154 frames of second_hfp_0014d (`internal/gemini/2026-10-16_holes_trace.md`) and of the
+#: lead's face on 180 of 362 frames of lead_fp_0613c, up to 9333 px on 772 (the lead, mrtony). OPEN: the case the rule was
+#: set for, enclosed holes where scraps of her part on an arm, grown by the margin, wrap a cell of her own shoulder
+#: (3262-3265, mrtwo, 2026-10-14), is to be met by closing a hole the region encloses, never by dropping a piece; not built.
+NO_PIECES_ON = ("hair", "face_and_neck")
 #: The canvas a job is made on when a tool writes its file. **Inherited**: every job file of this lane since
 #: 2026-10-10 names it; `docs/h3_resolutions.md` lists it (its 4:3 row).
 MASKED_JOB_CANVAS = (1024, 768)
