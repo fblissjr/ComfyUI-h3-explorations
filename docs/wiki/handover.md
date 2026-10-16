@@ -109,6 +109,12 @@ table; the Open List).
    held, 3106-3107 dropped on purpose), so overrides were becoming routine; and the two faults it is there to catch,
    the hole with nothing to follow (the hall lead, 2026-10-15) and the flip to the original (761, 2026-10-15). The
    owner and the lead decided the replacement together; changing it again is the same kind of decision.
+   BUILT, NOT LANDED (mrnight, 2026-10-16 00:23Z): branch `mrnight-fixes`, e72e85af + 6ffd21ac, with --no-face-on
+   emptying her face (item 4 above, done the same way). On copies of 10 real captures it caught 0751b's 761 and the hall
+   lead's turned cheek, and stayed quiet on 2823d's deliberate frames; it does not land until the face region stops
+   counting a NECK seen from behind (third_fp_1419d 1431-1447; lead 1420, 1422). State, the proposed chin cut (untested)
+   and the next commands: `internal/claude/2026-10-15_mrnight_fixes_note.md`, "STATE FOR TOMORROW"; the comparison:
+   the lead's scratch `gate_compare/README.md` (copied to `internal/claude/2026-10-15_gate_compare/`).
 4c. A REFERENCE IS NEVER MOVED OR RENAMED ONCE A RENDER HAS READ IT (the owner, 2026-10-16: "this needs to be fixed";
    the cache check, `internal/claude/2026-10-15_cache_check/README.md`). `head_reference` already refuses to write over
    files; the hole is the hand set-aside (`<span>_SUPERSEDED_<why>`) that frees the span's name for a remake, so a job
