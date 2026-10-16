@@ -891,9 +891,17 @@ def her_clothing_as_one_stay_keep_out() -> str:
         made.plan["subjects"]["a"]["look"] = {"stay_removed_by": "the owner chose to redraw her clothing"}
         # THE CASE THAT GOES RED when such a job is written
         refused(made.load, "her clothing is redrawn with her and named in the text; give the plan's `clothing`")
-        made.plan["subjects"]["a"].update(clothing="AN APRON", clothing_by="a person, from frame 100")
-        assert made.load()["loads"][0]["subject"] == "a", "a subject whose clothing the plan names was refused"
-        del made.plan["subjects"]["a"]["clothing"], made.plan["subjects"]["a"]["clothing_by"]
+        made.plan["subjects"]["a"]["clothing"] = [{"first": 0, "last": 99, "words": "AN APRON", "by": "a person, from frame 50"}]
+        # THE CASE THAT GOES RED when the job takes another shot's words for this load's frames
+        refused(made.load, "names no words for frames", "never another shot's")
+        made.plan["subjects"]["a"]["clothing"] = [{"first": 0, "last": 10000, "words": "AN APRON", "by": "a person, from frame 100"}]
+        assert made.load()["loads"][0]["subject"] == "a", "a subject whose clothing the plan names for these frames was refused"
+        # A LOAD CUT INSIDE ITS SHOT (the clothing read): the shot 100-159 straddles entries split at 130, the load 130-149 lies in one
+        made.plan["subjects"]["a"]["clothing"] = [{"first": 100, "last": 129, "words": "AN APRON", "by": "a person, from frame 110"},
+                                                  {"first": 130, "last": 159, "words": "A DARK TOP", "by": "a person, from frame 140"}]
+        # THE CASE THAT GOES RED when the job step reads the shot's frames in place of the load's
+        assert made.load(first=130, frames=20, why="a look cut it")["loads"][0]["first"] == 130, "a load whose own frames one entry holds was refused"
+        del made.plan["subjects"]["a"]["clothing"]
         made.plan["subjects"]["a"]["look"] = kept_look
         folder = made.preview_ran(made.preview())
         a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="a", preview=str(folder))

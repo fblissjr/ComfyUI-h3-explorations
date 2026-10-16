@@ -280,39 +280,73 @@ def her_hair_changed() -> str:
 
 
 def her_clothing_named() -> str:
-    """The owner's decision of 2026-10-16 (26f208c0): her clothing is redrawn with her and named in the text. The plan's `clothing` (with
-    `clothing_by`) is one sentence of the detailed line; a subject whose stay was removed and whose clothing is not named is refused."""
+    """The owner's decision of 2026-10-16 (26f208c0): her clothing is redrawn with her and named in the text; per shot (the lead's ruling,
+    1f143f59: one apron line made H3 draw straps on 1010-1038, where she wears a dark top). The plan's entry that holds the load's frames is
+    one sentence of the detailed line; a load no entry holds, the old single set of words, an entry with no `by`, and a subject whose clothing
+    is redrawn and not named are refused."""
     import copy
     plan = copy.deepcopy(PLAN)
     second = plan["subjects"]["second"]
-    second.update(clothing="A WHITE APRON OVER A FLORAL BLOUSE", clothing_by="a person, from frames 1 and 2")
+    second["clothing"] = [{"first": 400, "last": 600, "words": "A WHITE APRON OVER A FLORAL BLOUSE", "by": "a person, from frames 450 and 500"},
+                          {"first": 601, "last": 700, "words": "A DARK SLEEVELESS TOP", "by": "a person, from frame 650"}]
     got = lt.text(plan, "second", RECORD_10_13, "", VOICED, 484, 515)
     shot = next(line for line in got.splitlines() if line.startswith("[Shot 1]"))
-    # THE CASE THAT GOES RED when the plan's clothing is not written into the text
+    # THE CASE THAT GOES RED when the plan's clothing for these frames is not written into the text
     assert "has the face of <Picture 1>. <Subject 1> wears A WHITE APRON OVER A FLORAL BLOUSE." in shot, shot
     assert got.replace(" <Subject 1> wears A WHITE APRON OVER A FLORAL BLOUSE.", "") == lt.text(PLAN, "second", RECORD_10_13, "", VOICED, 484, 515), \
         "naming the clothing changed another line"
     hair = lt.text(plan, "second", None, "", VOICED, 484, 515, parts=["hair"])
     assert "<Subject 1> wears A WHITE APRON OVER A FLORAL BLOUSE." in hair, hair
-    second.pop("clothing_by")
-    try:
-        lt.text(plan, "second", RECORD_10_13, "", VOICED, 484, 515)
-    except lt.Refused as e:
-        assert "names no `clothing_by`" in str(e), e
-    else:
-        raise AssertionError("clothing with no clothing_by was written")
+    # another shot takes its own words, never the first entry's
+    other = lt.text(plan, "second", RECORD_10_13, "", VOICED, 620, 650)
+    assert "<Subject 1> wears A DARK SLEEVELESS TOP." in other and "APRON" not in other, other
+    for frames, words in (((710, 740), "names no words for frames 710-740"), ((590, 610), "names no words for frames 590-610")):
+        try:
+            lt.text(plan, "second", RECORD_10_13, "", VOICED, *frames)
+        except lt.Refused as e:
+            # THE CASE THAT GOES RED when a load no entry holds falls back to another shot's words, or to none
+            assert words in str(e) and "never another shot's" in str(e), e
+        else:
+            raise AssertionError(f"frames {frames} took words no entry of theirs gives")
+    entry = {"first": 400, "last": 600, "words": "A WHITE APRON", "by": "a person, from frame 450"}
+    # THE WHOLE LIST, checked whenever it is read (the clothing read): each refusal by its own words, never by an error on the way
+    for bad, words in (({**second, "clothing": "A WHITE APRON"}, "one set of words for every shot"),
+                       ({**second, "clothing_by": "a person"}, "the old form"),
+                       ({**second, "clothing": [{"first": 400, "last": 600, "words": "A WHITE APRON"}]}, "lacks by"),
+                       ({**second, "clothing": [{**entry, "by": "  "}]}, "lacks by"),
+                       ({**second, "clothing": ["A WHITE APRON"]}, "is not a {first, last, words, by}"),
+                       ({**second, "clothing": [{**entry, "first": "400"}]}, "not a whole frame number"),
+                       ({**second, "clothing": [{**entry, "last": True}]}, "not a whole frame number"),
+                       ({**second, "clothing": [{**entry, "first": 600, "last": 400}]}, "runs backwards"),
+                       ({**second, "clothing": [{**entry, "words": ""}]}, "empty words"),
+                       ({**second, "clothing": [entry, {**entry, "first": 650, "last": 640}]}, "runs backwards"),
+                       # an overlap anywhere, the load's frames in it or not
+                       ({**second, "clothing": [entry, {**entry, "first": 1000, "last": 1100}, {**entry, "first": 1050, "last": 1200}]}, "overlap on 1050-1100"),
+                       # two entries that both hold the load
+                       ({**second, "clothing": [entry, {**entry, "first": 450, "last": 520, "words": "A DARK TOP"}]}, "overlap on 450-520")):
+        try:
+            lt.text({**plan, "subjects": {**plan["subjects"], "second": bad}}, "second", RECORD_10_13, "", VOICED, 484, 515)
+        except Exception as e:  # noqa: BLE001 -- the refusal is the tool's, by its own words, or the case fails
+            # THE CASE THAT GOES RED when a malformed list is read, or refused only by the error it happens to raise
+            assert isinstance(e, lt.Refused) and words in str(e), (words, type(e).__name__, e)
+        else:
+            raise AssertionError(f"refused nothing: {bad.get('clothing')} {bad.get('clothing_by', '')}")
+    # nothing to name, said by a look: `words: null` with its `by` names no clothing on those frames
+    bare = lt.text({**plan, "subjects": {**plan["subjects"], "second": {**second, "clothing": [{**entry, "words": None, "by": "a person, from 450: her clothes are out of the frame"}]}}},
+                   "second", RECORD_10_13, "", VOICED, 484, 515)
+    assert "wears" not in bare, bare
     second.pop("clothing")
     second["look"] = {"stay_removed_by": "the owner chose to redraw it"}
     try:
         lt.text(plan, "second", RECORD_10_13, "", VOICED, 484, 515)
     except lt.Refused as e:
         # THE CASE THAT GOES RED when a subject whose clothing is redrawn is given a text that does not name it
-        assert lt.NO_CLOTHING in str(e), e
+        assert lt.NO_CLOTHING in str(e) and "frames 484-515" in str(e), e
     else:
         raise AssertionError("a subject whose clothing is redrawn got a text with no clothing")
     assert "wears" not in lt.text(PLAN, "lead", RECORD_10_13, "", VOICED, 1730, 1754), "a subject with no clothing named got a clothing sentence"
-    return "the plan's clothing one sentence of the detailed line; no clothing_by refused; clothing redrawn and not named refused; none named, no sentence"
-
+    return ("each shot's own words, one sentence of the detailed line; a load no entry holds refused, never another shot's words; the single "
+            "set of words and an entry with no by refused; clothing redrawn and not named refused; none named, no sentence")
 
 case("her hair changed, in the plan's parts", her_hair_changed)
 case("the kept texts made again", the_kept_texts_made_again)

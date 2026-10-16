@@ -1339,13 +1339,6 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
     if (preview["first"], preview["first"] + preview["frames"] - 1) != (shot["first"], shot["last"]):
         raise Refused(f"the preview {preview['name']} is of {preview['first']}-{preview['first'] + preview['frames'] - 1}, not of the shot {shot['first']}-{shot['last']}")
     p = planned(plan, subject)
-    # HER CLOTHING NAMED WHERE IT IS REDRAWN WITH HER (`load_text.clothing_of`, the owner's decision of 2026-10-16, 26f208c0): refused here,
-    # before a reference or a capture is made for a text that would not name it
-    import load_text
-    try:
-        load_text.clothing_of(p, subject)
-    except load_text.Refused as e:
-        raise Refused(str(e)) from None
     # WHO ELSE IS IN THE SHOT (the owner's word of 2026-10-14: it belongs in the job file), from the preview's own tables and the
     # owner's answers (bench/others_present.py); the strangers keep-out follows it and not the plan's key, where it can say
     others = others_of_load(preview, output, shot, cast, cast_from, plan.get("not_people"))
@@ -1380,6 +1373,13 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
     b = a + n - 1
     if not (shot["first"] <= a <= b <= shot["last"]):
         raise Refused(f"frames {a}-{b} are not inside the shot {shot['first']}-{shot['last']}")
+    # HER CLOTHING NAMED FOR THESE FRAMES WHERE IT IS REDRAWN WITH HER (`load_text.clothing_of`, per shot, 1f143f59; 26f208c0): refused
+    # here, before a reference or a capture is made for a text that would not name it, or would name another shot's
+    import load_text
+    try:
+        load_text.clothing_of(p, subject, a, b)
+    except load_text.Refused as e:
+        raise Refused(str(e)) from None
     # each side of a cut with its own words, or the one sentence given for both
     sides = (("before", "--why-before", why_before, (shot["first"], a - 1), a > shot["first"]), ("after", "--why-after", why_after, (b + 1, shot["last"]), b < shot["last"]))
     cut = []

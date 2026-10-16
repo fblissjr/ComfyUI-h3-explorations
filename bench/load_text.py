@@ -29,7 +29,8 @@ records. Until 2026-10-15 a person wrote the shot's place and action, once; no l
 - The film line: the plan's `text.film`, the video's, written once.
 - The singing sentence: the plan's `voice` where it names one on the load ("sings" alone writes a line), else the subject's
   `sings`, on a load whose frames meet a voiced span of the video's voice table.
-- Her clothing: the plan's `clothing` (with `clothing_by`), one sentence in the detailed line, "<Subject 1> wears ...". A subject
+- Her clothing: the plan's `clothing` entry that holds the load's frames (per shot, 1f143f59), one sentence in the detailed line,
+  "<Subject 1> wears ...". A subject
   whose clothing is redrawn with her (the plan's `look.stay_removed_by`, the owner's decision of 2026-10-16, 26f208c0) and not
   named is refused (`clothing_of`, `NO_CLOTHING`); the job step refuses the same, before anything is made.
 - `<Subject 2>`'s retention line, the soundscape and the music: fixed, the kept loads' words.
@@ -94,20 +95,54 @@ NO_CLOTHING = ("the owner's decision of 2026-10-16 (26f208c0): her clothing is r
                "`clothing`")
 
 
-def clothing_of(p: dict, subject: str) -> str | None:
-    """The plan's words for a subject's clothing (`clothing`, with `clothing_by`: whose words, from which frames), or None where the plan
-    names none. Refused: words with no `clothing_by`, and a subject whose clothing is redrawn with her (the plan's look says her stay
-    keep-out was removed, `look.stay_removed_by`: the owner chose to redraw it, 26f208c0) and not named: H3 then draws whatever clothes it
-    likes. The words are the plan's, never the tool's.
+def clothing_of(p: dict, subject: str, first: int, last: int) -> str | None:
+    """The plan's words for a subject's clothing ON THESE FRAMES, or None where the plan names none for the subject. Clothing is per shot
+    (the lead's ruling of 2026-10-16, decisions.md 1f143f59: one apron line for the mom made H3 draw straps and a bib on 1010-1038, where she
+    wears a dark sleeveless top): the plan's `clothing` is a list of {first, last, words, by}, each from a look at that shot's own frames, and
+    a load takes the one entry that holds all of its frames (`words: null`, with a `by` that says why, names nothing there). Refused, the
+    whole list checked whenever it is read: the old single set of words and a leftover `clothing_by`; an entry that is not a dict, lacks
+    any of the four, has a first or last that is not a whole number, runs backwards or has empty words; two entries that overlap anywhere;
+    a subject that names clothing for some shots and none for these frames (never another shot's words);
+    and a subject whose clothing is redrawn with her (the plan's look says her stay keep-out was removed, `look.stay_removed_by`, 26f208c0)
+    and named for none of these frames. The words are the plan's, never the tool's.
 
     THE KEY IS `look.stay_removed_by`, the one record of the owner's choice (the lead's ruling of 2026-10-16). It stands in for the test
     the rule means, "a region over her clothing", which no record says before a capture is made."""
-    words = " ".join(str(p.get("clothing") or "").split())
-    if words and not str(p.get("clothing_by") or "").strip():
-        raise Refused(f"the plan's `clothing` for {subject!r} names no `clothing_by`: whose words, from which frames")
-    if not words and (p.get("look") or {}).get("stay_removed_by"):
-        raise Refused(f"{subject!r}: " + NO_CLOTHING)
-    return words or None
+    if "clothing_by" in p:
+        raise Refused(f"the plan's `clothing_by` for {subject!r} is the old form, one `by` for every shot: each entry of `clothing` carries its own `by`")
+    given = p.get("clothing")
+    if given is not None and not isinstance(given, list):
+        raise Refused(f"the plan's `clothing` for {subject!r} is one set of words for every shot; clothing is per shot (1f143f59): give a list "
+                      "of {first, last, words, by}, each from a look at that shot's own frames")
+    rows = given or []
+    # THE WHOLE LIST, whenever it is read (the clothing read, the lead's ruling of 2026-10-16), not only the entry for the load in hand
+    for r in rows:
+        if not isinstance(r, dict):
+            raise Refused(f"an entry of the plan's `clothing` for {subject!r} is not a {{first, last, words, by}}: {r!r}")
+        lacking = [k for k in ("first", "last", "words", "by") if k not in r] + [k for k in ("by",) if k in r and not str(r[k] or "").strip()]
+        if lacking:
+            raise Refused(f"an entry of the plan's `clothing` for {subject!r} lacks {', '.join(lacking)}: {r}")
+        if any(isinstance(r[k], bool) or not isinstance(r[k], int) for k in ("first", "last")):
+            raise Refused(f"an entry of the plan's `clothing` for {subject!r} has a first or last that is not a whole frame number: {r}")
+        if r["first"] > r["last"]:
+            raise Refused(f"an entry of the plan's `clothing` for {subject!r} runs backwards, {r['first']} after {r['last']}: {r}")
+        # nothing to name is said as `words: null`, with a `by` that says why from a look at those frames; never an empty string
+        if r["words"] is not None and (not isinstance(r["words"], str) or not r["words"].strip()):
+            raise Refused(f"an entry of the plan's `clothing` for {subject!r} has empty words: say `words: null` with a `by` that says why: {r}")
+    ordered = sorted(rows, key=lambda r: r["first"])
+    for x, y in zip(ordered, ordered[1:]):
+        if y["first"] <= x["last"]:
+            raise Refused(f"two entries of the plan's `clothing` for {subject!r} overlap on {y['first']}-{min(x['last'], y['last'])}: {x} and {y}")
+    hit = [r for r in rows if r["first"] <= int(first) and int(last) <= r["last"]]
+    if hit:
+        return None if hit[0]["words"] is None else " ".join(str(hit[0]["words"]).split())
+    if rows:
+        raise Refused(f"the plan's `clothing` for {subject!r} names no words for frames {first}-{last} (it names "
+                      + ", ".join(f"{r['first']}-{r['last']}" for r in rows) + "): words for this shot come only from a look at its own frames, "
+                      "never another shot's")
+    if (p.get("look") or {}).get("stay_removed_by"):
+        raise Refused(f"{subject!r}, frames {first}-{last}: " + NO_CLOTHING)
+    return None
 
 
 def joined(words: list[str]) -> str:
@@ -214,7 +249,7 @@ def text(plan: dict, subject: str, record: dict | None, place_and_action: str, v
     who, looks, her, she = (" ".join(str(t[k]).split()) for k in ("who", "looks", "her", "she"))
     # HER CLOTHING, NAMED IN THE TEXT where the plan names it (the owner's decision of 2026-10-16, 26f208c0: redrawn with her, named so
     # H3 draws the same clothes): one sentence in the detailed line, the plan's words
-    clothing = clothing_of(p, subject)
+    clothing = clothing_of(p, subject, first, last)
     wears = f" <Subject 1> wears {clothing}." if clothing else ""
     noun = who.split(" ", 1)[1] if who.split(" ", 1)[0] in ("the", "a", "an") else who
     with_what = {"face and hair": "the face and the hair", "hair": "the hair"}.get(region, "the face")
