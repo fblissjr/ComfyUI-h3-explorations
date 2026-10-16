@@ -17,6 +17,11 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-15
 
+- **What lands, and what is undone** (the owner, 2026-10-16 ~00:30Z: "if we are breaking shit undo breaking shit" ...
+  "Yes unless its obvious to you another claude session and gemini as a no brainer"). A change that breaks something
+  is reverted (a revert commit, never a rewrite). A change lands only when it is an obvious win to the lead, another
+  Claude session and the outside reviewer. Tonight's check: every `bench/check_*.py` on main, CPU, beside the render.
+
 - **A text never tells H3 what is NOT in the movement video** (the owner, 2026-10-15 late, on a clause the lead built
   for lead_fp_2823d, "on some frames nothing is drawn on its face": "actually dont say it at all ... its inferred ...
   you cant say some face may not be there cuz next its something else and its like... yo dont look at this thing that
