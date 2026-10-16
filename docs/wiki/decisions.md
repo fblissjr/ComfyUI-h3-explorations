@@ -18,7 +18,7 @@ Older history lives elsewhere and is not copied here:
 ## 2026-10-16
 
 - **The assembler lays a "whole region" render's region whole, every piece, at both sizes; a render made with "only
-  what changed" keeps the node's own choice** (the lead, mrtony, at about 19:05Z, ruling gate 4's scope on mrtaco's
+  what changed" keeps the node's own choice** (the lead, mrtony, at 18:59Z, ruling gate 4's scope on mrtaco's
   probe, `internal/claude/2026-10-16_mrtaco/probe_gate4.py` and its `.out` files). The open item of the simplification
   entry below said "where pieces share frames"; the probe found the cause is wider: at `--size source`, which every
   rebuild uses, `assemble_delivery.laid_over` weights every piece by its own per-frame `changed()` test, the first piece
