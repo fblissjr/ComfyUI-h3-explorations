@@ -170,11 +170,17 @@ def reference_misfits(record: Path, first: int, last: int) -> str | None:
 
 
 def loads_that_read(folder: Path, data: Path | None) -> list[str]:
-    """The loads whose queue record (`<data>/*_job/*.queued.json`) names a file in a folder: the renders and plans that read it."""
+    """The loads that read a folder: a queued graph (`<data>/*_job/<stem>.queued.json` with its `<stem>.json`) of which the queue
+    record or the graph itself names a file in it. The graph is read too: a queue record before 2026-10-15 named no input."""
     if data is None:
         return []
     key = str(folder).rstrip("/") + "/"
-    return sorted({q.name.split(".")[0] for q in Path(data).glob("*_job/*.queued.json") if key in q.read_text(errors="replace")})
+    out = set()
+    for q in Path(data).glob("*_job/*.queued.json"):
+        graph = q.with_name(q.name[:-len(".queued.json")] + ".json")
+        if key in q.read_text(errors="replace") or (graph.is_file() and key in graph.read_text(errors="replace")):
+            out.add(q.name.split(".")[0])
+    return sorted(out)
 
 
 def reference_folder(output: Path, video: str, subject: str, first: int, last: int, data: Path | None) -> tuple[Path, str]:

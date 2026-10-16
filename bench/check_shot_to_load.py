@@ -2164,6 +2164,11 @@ def a_span_folder_a_render_read() -> str:
         assert b["job"]["reference_folder"] == {"folder": "a_0100_0159_b", "why": "the span's folder a_0100_0159 was read by old; a new one"}, b["job"]["reference_folder"]
         assert "ITS REFERENCE GOES TO a_0100_0159_b, A NEW FOLDER: the span's folder a_0100_0159 was read by old" in b["job"]["note"], b["job"]["note"]
         assert {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in base.iterdir()} == before, "the folder a render read was touched"
+        # A RENDER WHOSE QUEUE RECORD NAMES NO INPUT (before 2026-10-15) and whose queued graph does: read all the same
+        (data / "2026-01-02_old_job" / "old.render.queued.json").write_text(json.dumps({"prompt_id": "p"}))
+        (data / "2026-01-02_old_job" / "old.render.json").write_text(json.dumps({"7": {"inputs": {"video": str(base / "a_head_reference_0100_0159.mp4")}}}))
+        # THE CASE THAT GOES RED when only the queue record is read
+        assert Path(made.load(data=data)["loads"][0]["motion_file"]).parent.name == "a_0100_0159_b", "a folder named only by a queued graph was taken"
         # _b THERE TOO, NOT OF TODAY'S FORM: _c, each folder's why said
         (base.with_name("a_0100_0159_b")).mkdir()
         c = made.load(data=data)
