@@ -47,7 +47,9 @@ Older history lives elsewhere and is not copied here:
   names, on mrtaco's probe). Built first as a refusal, gate 3 would have stopped nearly every load of the mom's: her
   plan's keep-outs `held`, `hands` and `clothes` are her own things, so they lie inside her own track by construction
   (on the saved regions: 0604e/f/g, `held` on 317 frames up to 57 cells, `hands` on 279 up to 87; 0014f, `hands` on
-  100 frames up to 55; `internal/claude/2026-10-16_mrtaco/probe_gate3.out`); the lead's `strangers` keep-out touched her
+  100 frames up to 55; `internal/claude/2026-10-16_mrtaco/probe_gate3.out`, empty when this was first written and filled
+  by mrtaco's rerun at shares 0.5 and 0.75 the same evening; at 0.75 a few of these frames drop and the lead's 1-cell
+  `strangers` hits on 3240b-d go to none); the lead's `strangers` keep-out touched her
   track by 1 to 5 cells on a few frames of 2823b, 3759, 5935 and 3240b-d. Now: the capture's files step, after every mask is
   read and before it writes the `track__` files a load's `others` are built from (`masked_job.capture_files`, about
   `bench/masked_job.py:607-640`), takes out of each keep-out that is not one of our people the cells that are more
