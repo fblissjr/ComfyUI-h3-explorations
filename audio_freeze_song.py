@@ -984,7 +984,8 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 # again from its own files; a failure here costs that and not the render
                 try:
                     video_mask.save_window_region(region_path, src_mask, src_tokens, source, margin,
-                                                  int(round(w.start * FPS)), int(trim), kept=kept_weight, matte=matte)
+                                                  int(round(w.start * FPS)), int(trim), kept=kept_weight, matte=matte,
+                                                  piece={"stem": stem, "first": int(round(w.start * FPS)) + int(trim) - head, "written": written})
                     if kept_weight is not None:
                         reports.append(f"[{w.number}] what the composite kept is saved in {os.path.basename(region_path)}")
                 except Exception as exc:  # noqa: BLE001 -- the window's video is already written

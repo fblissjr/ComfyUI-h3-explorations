@@ -1750,7 +1750,8 @@ def check_render_zoom(problems):
             pass
     song_text = (REPO / "audio_freeze_song.py").read_text()
     for words in ("images, matte = video_mask.lay_back(decoded, alpha, video_mask.window_frames(", "zoom, weight=True)",
-                  "matte = video_mask.matte_of(alpha)", "kept=kept_weight, matte=matte)"):
+                  "matte = video_mask.matte_of(alpha)", "kept=kept_weight, matte=matte,",
+                  'piece={"stem": stem, "first": int(round(w.start * FPS)) + int(trim) - head, "written": written})'):
         if words not in song_text:
             _fail(problems, f"render zoom: the song node does not save the weight its window's video was blended with ({words!r} not in it)")
 

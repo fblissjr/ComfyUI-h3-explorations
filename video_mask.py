@@ -955,7 +955,8 @@ REGION_VERSION = 2
 
 
 def save_window_region(path: str, mask: torch.Tensor, tokens: torch.Tensor, source: dict, margin,
-                       first_frame: int, trim: int, kept: torch.Tensor | None = None, matte: torch.Tensor | None = None) -> str:
+                       first_frame: int, trim: int, kept: torch.Tensor | None = None, matte: torch.Tensor | None = None,
+                       piece: dict | None = None) -> str:
     """Write what a window's composite was run with, beside the window's latent, losslessly.
 
     The window's fitted mask (bits, packed along the width) and its token region, as `window` returned them,
@@ -972,6 +973,11 @@ def save_window_region(path: str, mask: torch.Tensor, tokens: torch.Tensor, sour
     with, on every one of the window's frames (the trimmed ones too), at the WHOLE canvas whatever the zoom ([F, height,
     width] uint8, 0 to 255: `lay_window`'s weight, or `lay_back`'s on a zoomed window). The assembler lays a piece by it
     and by nothing it would rebuild. It changes nothing H3 is given: the mask and the tokens are written as before.
+
+    With `piece` (the matte's blind read, 2026-10-16): which finished file the window's frames went into and where, {"stem": the output's
+    stem (`<prefix>_NNNNN`), "first": the piece frame its first written frame is, "written": how many it wrote}. The window folder is
+    shared by every run of a prefix, and a continued run's first window writes from its context's end; the assembler reads the matte by
+    these and refuses another stem's file.
     """
     settings = {k: source.get(k) for k in REGION_SETTINGS}
     meta = {"version": REGION_VERSION, "first_frame": int(first_frame), "trim": int(trim), "frames": int(mask.shape[0]),
@@ -986,6 +992,8 @@ def save_window_region(path: str, mask: torch.Tensor, tokens: torch.Tensor, sour
         meta["matte"] = {"what": "the weight the window's video was blended with, 0 to 255, every frame of the window (its trimmed frames too)",
                          "space": "the whole canvas", "height": int(matte.shape[1]), "width": int(matte.shape[2])}
         extra["matte"] = matte.cpu().numpy()
+    if piece is not None:
+        meta["piece"] = {"stem": str(piece["stem"]), "first": int(piece["first"]), "written": int(piece["written"])}
     if kept is not None:
         meta["kept"] = "what the composite kept of the render: its weight over one half, the window's frames, packed like the mask"
         extra["kept"] = np.packbits((kept > 0.5).cpu().numpy(), axis=-1)

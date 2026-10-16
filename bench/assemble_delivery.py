@@ -677,38 +677,56 @@ def node_words(*names) -> dict:
 class Matte:
     """THE NODE'S OWN MATTE of a piece (the lead's ruling of 2026-10-16, "the exact matte"): the weight each window's video was blended
     with, which the song node saves beside the window's region (`video_mask.save_window_region`, `matte`, at the whole canvas whatever
-    the zoom: `lay_window`'s weight, or `lay_back`'s on a zoomed window). A piece frame is read from the window that wrote it: the last
-    whose written frames (from its `first_frame` plus `trim` to its end) hold it. One window's matte is held at a time."""
+    the zoom), with which piece the window's frames went into and where (`piece`: the output's stem, the piece frame its first written
+    frame is, and how many it wrote). Only files of the piece's own stem are read (the folder is shared by every run of a prefix); a
+    window of the piece is each `<prefix>_window_N.mp4` beside them, and one with no file of this stem, or a file with no matte, is a gap:
+    its frames are laid by the old rules and said (`gaps`; the flag piece_laid_by_two_rules names its frames). One window's matte is held
+    at a time."""
 
     def __init__(self, piece):
-        stem = Path(piece).stem.rsplit("_", 1)[0]
-        self.windows = []
-        for path in (Path(piece).parent / f"{stem}_windows").glob("*_region.npz"):
+        stem = Path(piece).stem
+        prefix = stem.rsplit("_", 1)[0]
+        folder = Path(piece).parent / f"{prefix}_windows"
+        numbers = sorted(int(m.group(1)) for v in folder.glob(f"{prefix}_window_*.mp4")
+                         for m in [re.fullmatch(rf"{re.escape(prefix)}_window_(\d+)\.mp4", v.name)] if m)
+        self.windows, self.other_stems, found = [], [], set()
+        for n in numbers:
+            path = folder / f"{prefix}_window_{n}_region.npz"
+            if not path.is_file():
+                continue
             try:
                 with np.load(path) as z:
-                    meta = json.loads(str(z["meta"]))
-                    has = "matte" in z.files
+                    meta, has = json.loads(str(z["meta"])), "matte" in z.files
             except (OSError, KeyError, ValueError):
-                meta, has = {}, False
-            self.windows.append({"path": path, "first": int(meta.get("first_frame", 0)), "trim": int(meta.get("trim", 0)),
-                                 "frames": int(meta.get("frames", 0)), "matte": has})
-        self.windows.sort(key=lambda w: (w["first"], str(w["path"])))
+                continue
+            said = meta.get("piece") or {}
+            if said.get("stem") != stem:
+                if said.get("stem"):
+                    self.other_stems.append(f"{path.name} ({said['stem']})")
+                continue
+            found.add(n)
+            if has:
+                self.windows.append({"path": path, "number": n, "first": int(said["first"]), "written": int(said["written"]), "trim": int(meta.get("trim", 0))})
+        self.gaps = [n for n in numbers if n not in {w["number"] for w in self.windows}]
         self.held = (None, None)
 
-    def complete(self) -> bool:
-        """Whether every window beside the piece saved its matte (and there is a window)."""
-        return bool(self.windows) and all(w["matte"] for w in self.windows)
+    def any(self) -> bool:
+        """Whether any window of the piece saved its matte."""
+        return bool(self.windows)
 
     def at(self, k: int):
-        """The matte on piece frame `k` (0 is the piece's first frame), [H, W] uint8 0 to 255, or None where no window wrote it."""
-        hit = [w for w in self.windows if w["matte"] and w["first"] + w["trim"] <= k < w["first"] + w["frames"]]
+        """The matte on piece frame `k` (0 is the piece's first frame), [H, W] uint8 0 to 255, or None on a frame of a gap. A frame no
+        window holds while the piece has no gap is a contradiction in its files, and refused."""
+        hit = [w for w in self.windows if w["first"] <= k < w["first"] + w["written"]]
         if not hit:
-            return None
+            if self.gaps:
+                return None
+            raise SystemExit(f"piece frame {k}: no window of the piece wrote it, though every window saved its matte ({len(self.windows)} windows)")
         w = hit[-1]
         if self.held[0] != w["path"]:
             with np.load(w["path"]) as z:
                 self.held = (w["path"], z["matte"])
-        return self.held[1][k - w["first"]]
+        return self.held[1][w["trim"] + k - w["first"]]
 
 
 def laid_by_of(piece, run=None) -> dict:
@@ -727,9 +745,14 @@ def laid_by_of(piece, run=None) -> dict:
     BY THE NODE'S OWN MATTE (`rule` "matte", the lead's ruling of 2026-10-16) wherever every window file beside the render saved one
     (`Matte`), whatever the composite: the piece is laid wherever the node blended any of its render in, and nothing is rebuilt (not
     `changed`, not the region grown again). A render from before the matte was saved keeps the rules above."""
-    if Matte(piece).complete():
-        return {"composite": None, "rule": "matte", "from": str(Path(piece).parent),
-                "windows": len(Matte(piece).windows), "why": "laid by the node's own matte, saved with each window's region"}
+    matte = Matte(piece)
+    if matte.any():
+        return {"composite": None, "rule": "matte", "from": str(Path(piece).parent), "windows": len(matte.windows) + len(matte.gaps),
+                "why": "laid by the node's own matte, saved with each window's region" + (
+                    f"; window(s) {', '.join(map(str, matte.gaps))} saved no matte for this piece and keep `changed` on their frames (flagged: "
+                    "piece_laid_by_two_rules)" if matte.gaps else ""),
+                **({"windows_without_a_matte": matte.gaps} if matte.gaps else {}),
+                **({"region_files_of_another_run_not_read": matte.other_stems} if matte.other_stems else {})}
     words = node_words("COMPOSITE_REGION", "COMPOSITE_CHANGED")
     region_word = words["COMPOSITE_REGION"]
     png = Path(piece).with_suffix(".png")
@@ -1038,8 +1061,12 @@ def owners(hard, subject_masks):
     return owner, {"px": int(shared.sum()), "box": box_of(shared), "by_mask": by_mask, "by_order": int(shared.sum()) - by_mask}
 
 
-def weight_of(owner, i):
-    """Piece i's weight over the canvas: one where it owns the pixel, feathered into pixels nobody changed."""
+def weight_of(owner, i, exact=False):
+    """Piece i's weight over the canvas: one where it owns the pixel, feathered into pixels nobody changed. A row laid by the node's
+    own matte (`exact`) is its own pixels and nothing more, never grown or blurred: its pixels already carry the node's soft edge, and
+    a feather here would soften that edge again where two pieces touch (a Gemini reader's finding on the exact matte, 2026-10-16)."""
+    if exact:
+        return (owner == i).astype(np.float32)
     mine = cv2.dilate((owner == i).astype(np.uint8), disc(GROW)).astype(bool) & ((owner == i) | (owner == -1))
     return cv2.GaussianBlur(mine.astype(np.float32), (0, 0), FEATHER)
 
@@ -1116,7 +1143,7 @@ def restore_weight(row, captures, run, frame, shape):
     return cv2.GaussianBlur(grown.astype(np.float32), (0, 0), RESTORE_FEATHER), hard
 
 
-def merged(pieces, owner, held, orig):
+def merged(pieces, owner, held, orig, exact=None):
     """At the canvas's size: the first piece whole, each later piece's changed region over it. `held[i]` is the
     weight where piece i is not to be laid (a restore), or None."""
     h, w = owner.shape
@@ -1126,7 +1153,7 @@ def merged(pieces, owner, held, orig):
             continue
         # the first piece is the base, whole; what it must not show is the original's. A later piece is its own
         # region, less what it must not show, and under that is whatever was laid before it
-        weight = held[0] if i == 0 else weight_of(owner, i) * (1.0 - (held[i] if held[i] is not None else 0.0))
+        weight = held[0] if i == 0 else weight_of(owner, i, bool(exact and exact[i])) * (1.0 - (held[i] if held[i] is not None else 0.0))
         half = cv2.resize(weight, (w // 2, h // 2), interpolation=cv2.INTER_AREA)
         over = orig if i == 0 else pieces[i]
         for k, wgt in enumerate((weight, half, half)):
@@ -1153,7 +1180,7 @@ def box_at_the_source(zbox, box, canvas):
     return whole, tuple(round(a - b, 3) for a, b in zip(whole, exact))
 
 
-def laid_over(base, pieces, owner, box, held=None, zoomed=None):
+def laid_over(base, pieces, owner, box, held=None, zoomed=None, exact=None, orig=None):
     """At the source's size: the source's own planes with every piece's changed region scaled up and laid over,
     less what `held[i]` says piece i is not to be laid on. `zoomed[i]`, when a piece was rendered zoomed in, is
     (its zoomed picture's planes, its box at the canvas): inside the box the picture is taken from those, scaled
@@ -1164,7 +1191,7 @@ def laid_over(base, pieces, owner, box, held=None, zoomed=None):
     for i, piece in enumerate(pieces):
         if not (owner == i).any():
             continue
-        small = weight_of(owner, i) * (1.0 - (held[i] if held is not None and held[i] is not None else 0.0))
+        small = weight_of(owner, i, bool(exact and exact[i])) * (1.0 - (held[i] if held is not None and held[i] is not None else 0.0))
         weight = cv2.resize(small, (cw, ch), interpolation=cv2.INTER_LINEAR)
         # how much the pieces are laid on each edge of the crop, as their union (where two feathers overlap, both count)
         for side, line in (("top", weight[0]), ("bottom", weight[-1]), ("left", weight[:, 0]), ("right", weight[:, -1])):
@@ -1180,6 +1207,20 @@ def laid_over(base, pieces, owner, box, held=None, zoomed=None):
                 smaller = (c - a) < src.shape[1]
                 up[b:d, a:c] = cv2.resize(src, (c - a, d - b), interpolation=cv2.INTER_AREA if smaller else cv2.INTER_CUBIC)
             view = out[k][py:py + ph, px:px + pw]
+            if exact and exact[i] and orig is not None:
+                # A ROW LAID BY THE NODE'S OWN MATTE (the matte's blind read, 2026-10-16): the piece is already the node's blend of its render
+                # and the canvas's source, so what it adds is the piece less that source, scaled up and put on the sharp source: in the soft
+                # band the source stays the source's own, and the render comes in by the node's own weight (inside a zoomed box, the zoomed
+                # picture less the canvas's source cut to the box)
+                was = cv2.resize(orig[k], (pw, ph), interpolation=cv2.INTER_CUBIC)
+                if place is not None:
+                    hb, wb = orig[k].shape
+                    zb = zoomed[i][1]
+                    sx0, sy0, sx1, sy1 = (zb[0] * wb // small.shape[1], zb[1] * hb // small.shape[0], zb[2] * wb // small.shape[1], zb[3] * hb // small.shape[0])
+                    cut = orig[k][sy0:sy1, sx0:sx1]
+                    was[b:d, a:c] = cv2.resize(cut, (c - a, d - b), interpolation=cv2.INTER_CUBIC)
+                view += (up - was) * wgt
+                continue
             view += (up - view) * wgt
     carry_edge_rows(out, reach, box)
     return to_bytes(out)
@@ -1389,10 +1430,10 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
                     record["rows"][r["piece"]][n]["laid"] = shows      # what of this row is in the file on this frame
             got += 1
             if full:
-                yield laid_over(planes(sbuf, *full), pieces, owner, box, held, zoomed)
+                yield laid_over(planes(sbuf, *full), pieces, owner, box, held, zoomed, exact=[x == "matte" for x in laid_rule], orig=o)
                 continue
             untouched = len(rows) == 1 and held[0] is None
-            frame = pbufs[0] if untouched else merged(pieces, owner, held, o)
+            frame = pbufs[0] if untouched else merged(pieces, owner, held, o, exact=[x == "matte" for x in laid_rule])
             yield softened(frame, hard, soften, w, h, held) if soften else frame
         if got != last - first + 1:
             raise SystemExit(f"{got} of {last - first + 1} frames for {first}-{last}")
@@ -1597,12 +1638,17 @@ def flags_of(record, rows, captures) -> tuple[list[dict], list[str]]:
         rules = {}
         for n, v in area.items():
             rules.setdefault(v.get("laid_by"), []).append(n)
-        if "region" in rules and "changed" in rules:
-            out.append({"rule": "piece_laid_by_two_rules", "level": LEVELS[0], **names, "source_frames": frame_spans(sorted(rules["changed"])),
-                        "why": f"{names['piece']} is laid by its region on {len(rules['region'])} frame(s) and by what it changed on {len(rules['changed'])} "
-                               "(these frames: its run holds no region read there): at the switch the margin's background goes from the render's "
-                               "copy to the source's own",
-                        "figures": {"frames_by_region": len(rules["region"]), "frames_by_changed": len(rules["changed"])}})
+        laid_by = {k: v for k, v in rules.items() if k in ("matte", "region", "changed")}
+        if len(laid_by) > 1:
+            # the rule most of its frames are laid by, and the frames laid by any other (a window that saved no matte, a run with no region read)
+            main = max(laid_by, key=lambda k: (len(laid_by[k]), k == "matte", k == "region"))
+            rest = sorted(n for k, v in laid_by.items() if k != main for n in v)
+            words = {"matte": "the node's own matte", "region": "its region", "changed": "what it changed"}
+            out.append({"rule": "piece_laid_by_two_rules", "level": LEVELS[0], **names, "source_frames": frame_spans(rest),
+                        "why": f"{names['piece']} is laid by " + " and by ".join(f"{words[k]} on {len(v)} frame(s)" for k, v in sorted(laid_by.items()))
+                               + f" (these frames: not by {words[main]}: a window that saved no matte, or a run with no region read there): at the switch "
+                               "the edge of what is laid changes",
+                        "figures": {f"frames_by_{k}": len(v) for k, v in laid_by.items()}})
         edge = [n for n, v in area.items() if v.get("at_the_crop")]
         if edge:
             out.append({"rule": "piece_changes_up_to_the_loader's_crop", "level": LEVELS[1], **names, "source_frames": frame_spans(edge),
