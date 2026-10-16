@@ -92,6 +92,16 @@ overlaps and margins can be counted by hand and reads the rows back.
    frames it is off; the right frame passes; a preview whose job folder is not found, or is one of two of the
    name, is not checked and is neither.
 
+21. **No keep-out carves the subject's own track** (`keep_out_inside_own_track`, the owner, 2026-10-16). A keep-out that
+   is not one of our people (a mask with no shot table: strangers, held, her hands or clothes) given back cells that lie
+   mostly inside the load subject's own track is counted a frame at a time with the cells named, and the gate takes it
+   as a hard flag that no override clears; another person given back cells, and a keep-out beside her track, are not.
+   Seen red with the column not written, with people taken as keep-outs, and with an override clearing it.
+   THE CARVE (`carve_keep_out`): a hands keep-out over her face gives back cells inside her track uncarved and none
+   carved, with the pixels and cells it lost; through the files step (its readers stood in), the keep-out's track
+   written for the builder is the carved one and the fault column reads 0 on it, another person's track untouched.
+   Seen red with the carve skipped in the files step (the fault column nonzero).
+
 20. **No largest piece of a face or hair** (`refuse_pieces_on_a_head`, `h3_config.NO_PIECES_ON`, the owner, 2026-10-16).
    Run through the files step with its readers stood in: `pieces=largest` on a part the class map says is a face,
    or hair, stops before a piece is dropped; on a part of clothing it reaches the drop; with no class map it stops.
@@ -178,18 +188,18 @@ def _grow():
     return cap._pack("video_mask").grow
 
 
-def _run(other: np.ndarray, keep_them_out: bool) -> dict:
+def _run(other: np.ndarray, keep_them_out: bool, carried: np.ndarray = A) -> dict:
     """A run on subject a with a fixed margin: its region is the grown mask's cells, less b's own cells when
-    `keep_them_out`, which is what the Masked Source does with a wired `others`."""
+    `keep_them_out`, which is what the Masked Source does with a wired `others`. `carried` is a's part (A by default)."""
     import torch
-    grown = _grow()(torch.from_numpy(A).to(torch.float32), MARGIN).numpy() > 0.5
+    grown = _grow()(torch.from_numpy(carried).to(torch.float32), MARGIN).numpy() > 0.5
     region = cap.cells_any(grown)
-    theirs = cap.cells_any(other & ~A)
+    theirs = cap.cells_any(other & ~carried)
     if keep_them_out:
         region = region & ~theirs
-    reached, back = cap.taken_back(A, other, region, MARGIN, _grow())
-    return {"subject": "a", "others": ["b"], "region": region, "carried": A, "read": ALL,
-            "reached": {"b": reached}, "back": {"b": back}, "expect": int((cap.cells_any(grown & other & ~A)).sum(axis=(1, 2))[0])}
+    reached, back = cap.taken_back(carried, other, region, MARGIN, _grow())
+    return {"subject": "a", "others": ["b"], "region": region, "carried": carried, "read": ALL,
+            "reached": {"b": reached}, "back": {"b": back}, "expect": int((cap.cells_any(grown & other & ~carried)).sum(axis=(1, 2))[0])}
 
 
 def given_back() -> str:
@@ -1663,6 +1673,106 @@ def no_pieces_on_a_head() -> str:
     return "the largest piece refused on a face and on hair at the files step, before a piece is dropped; a part of clothing reaches it; no class map stops"
 
 
+def no_keep_out_inside_her_track() -> str:
+    """The owner, 2026-10-16: nothing puts the original back inside a person's region. A keep-out's cells given back that lie
+    inside her own track are counted and named, and block the gate with no override; another person's do not."""
+    import argparse
+    import contextlib
+    import io
+    import tempfile
+    body = rect(16, 16, 96, 96)                          # her track: her head (A, the carried part) and the body round it
+    keep = rect(64, 32, 80, 64)                          # a keep-out beside her head, inside her track and the margin's reach
+    run = _run(keep, True)
+    row = cap.cross_rows(0, N, sightings(a=body, b=keep), {"pass_a": run})[0]
+    # THE CASE THAT GOES RED when the cells given back inside her own track are not counted
+    assert row["cells_given_back__pass_a__b"] == 2 and row.get("cells_given_back_inside_own_track__pass_a__b") == 2, row
+    assert row["cells_given_back_inside_own_track_at__pass_a__b"] == "2,4;3,4", row
+    beside = cap.cross_rows(0, N, sightings(a=A, b=keep), {"pass_a": run})[0]        # her track her head alone: the cells are not hers
+    assert beside["cells_given_back__pass_a__b"] == 2 and beside["cells_given_back_inside_own_track__pass_a__b"] == 0, beside
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp)
+        (folder / "runs" / "r").mkdir(parents=True)
+        rows = [{"source_frame": 100 + n, **{f"cells_given_back_inside_own_track__r__{k}": (2 if n in (1, 2) else 0) for k in ("held", "b")},
+                 **{f"cells_given_back_inside_own_track_at__r__{k}": ("2,4;3,4" if n in (1, 2) else "") for k in ("held", "b")}} for n in range(4)]
+        (folder / "frames.json").write_text(json.dumps({"rows": rows}))
+        (folder / "runs" / "r" / "per_frame.json").write_text(json.dumps({"rows": []}))
+        m = {"subjects": [{"label": "a", "sightings": [{"by": "p", "shots": True}]}, {"label": "b", "sightings": [{"by": "p", "shots": True}]},
+                          {"label": "held", "sightings": [{"by": "p", "shots": False}]}], "runs": [{"name": "r", "subject": "a", "planned": True}]}
+        hits = [f for f in cap.flag_runs(m, folder) if f["rule"] == "keep_out_inside_own_track"]
+        # THE CASE THAT GOES RED when a person is taken for a keep-out, or the keep-out is not flagged
+        assert [(f["other"], f["level"], f["hard"], f["source_frames"]) for f in hits] == [("held", cap.LEVELS[2], True, [[101, 102]])], hits
+        assert "101: 2,4;3,4" in hits[0]["why"] and "a's own track" in hits[0]["why"] and "2026-10-16" in hits[0]["why"], hits[0]["why"]
+        flag = {**hits[0], "id": "f001"}
+        over = {"flag": "f001", "key": cap.flag_key(flag), "overridden": True}
+        # THE CASE THAT GOES RED when an override clears it
+        assert cap.gate_verdict([flag], [over]) == {"verdict": "blocked", "blocking": ["f001"], "overridden": []}, cap.gate_verdict([flag], [over])
+        (folder / "flags.json").write_text(json.dumps({"verdict": "blocked", "blocking": ["f001"], "flags": [flag]}))
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                cap.outcome(argparse.Namespace(capture=str(folder), flag="f001", happened="overridden", render=None, note="a reason", by="someone"))
+        except SystemExit as e:
+            assert "no override" in str(e), e
+        else:
+            raise AssertionError("an override of a hard flag was recorded")
+        assert not (folder / "outcomes.json").exists(), "a refused override was written"
+    # THE CARVE, on a hands keep-out over her face: given back inside her track uncarved, none carved
+    hands = rect(32, 48, 64, 64)                         # her hands over the lower half of her face: her part is the face less them
+    face = A & ~hands
+    before = cap.cross_rows(0, N, sightings(a=body, b=hands), {"pass_a": _run(hands, True, face)})[0]
+    carved, px, cells = cap.carve_keep_out(hands, body)
+    after = cap.cross_rows(0, N, sightings(a=body, b=carved), {"pass_a": _run(carved, True, face)})[0]
+    assert before["cells_given_back_inside_own_track__pass_a__b"] > 0, before
+    assert after["cells_given_back_inside_own_track__pass_a__b"] == 0 and not carved.any(), after
+    assert px.tolist() == [int(hands[0].sum())] * N and cells.tolist() == [int(cap.cells_any(hands)[0].sum())] * N, (px, cells)
+    # her own pixels go too, in a cell that is mostly not hers; the keep-out's pixels outside her track stay
+    wide = rect(16, 16, 100, 96)                         # her edge at x 100, a quarter into the cell 96-112: that cell is not hers
+    edge = rect(96, 40, 110, 56)                         # a keep-out across it
+    cut, px_edge, _ = cap.carve_keep_out(edge, wide)
+    assert (cut == (edge & ~wide)).all() and px_edge.tolist() == [int((edge & wide)[0].sum())] * N, px_edge
+    return "a keep-out's cells given back inside her own track counted and named; a hard flag no override clears; another person's and one beside her track not; " \
+           f"a hands keep-out over her face carved: {before['cells_given_back_inside_own_track__pass_a__b']} cells given back inside her track uncarved, none carved"
+
+
+def the_carve_in_the_files_step() -> str:
+    """Through the files step, its readers stood in: the keep-out's track the builder will hand the node is written carved; a
+    person's is not. Stops at the first table written after the masks are read."""
+    import tempfile
+    body, hands, other = rect(16, 16, 96, 96), rect(32, 48, 64, 64), rect(80, 16, 130, 90)    # the other person stands over her edge
+    masks_given = {"a.mkv": body, "hands.mkv": hands, "b.mkv": other}
+    written: dict = {}
+    stood_in = {k: getattr(cap, k) for k in ("probe", "read_mask", "write_mask_video", "write_table", "input_facts")}
+
+    class Reached(Exception):
+        pass
+
+    def table(*_a, **_k):
+        raise Reached
+    cap.probe = lambda _p: (W, H, N)
+    cap.read_mask = lambda path, *_a: (masks_given[Path(path).name].copy(), np.ones(N, bool))
+    cap.write_mask_video = lambda path, m: written.__setitem__(Path(path).parent.name, m)
+    cap.write_table = table
+    cap.input_facts = lambda _p: {}
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            shots = Path(tmp) / "s.json"
+            shots.write_text("{}")
+            # the keep-out first on the command line: our people are read first all the same
+            given = [("hands", {"track": "hands.mkv"}), ("a", {"track": "a.mkv", "shots": str(shots)}), ("b", {"track": "b.mkv", "shots": str(shots)})]
+            try:
+                cap._files(argparse.Namespace(first=100, frames=N, name="x", date="2026-01-01", source="s.mp4"), Path(tmp), given,
+                           [], [("r", {"subject": "a", "others": "b+hands"})])
+            except Reached:
+                pass
+    finally:
+        for k, v in stood_in.items():
+            setattr(cap, k, v)
+    # THE CASE THAT GOES RED when the files step does not carve: the copy the builder hands the node gives back cells inside her track
+    row = cap.cross_rows(0, N, sightings(a=body, b=written["hands"]), {"pass_a": _run(written["hands"], True, A & ~hands)})[0]
+    assert row["cells_given_back_inside_own_track__pass_a__b"] == 0 and not written["hands"].any(), row
+    assert (written["b"] == other).all() and (written["a"] == body).all(), "a person's track was carved"
+    return "the keep-out's track written for the builder is carved out of her track; a person's is untouched"
+
+
 def who_is_who() -> str:
     """A shot on which some tracker's call is nobody's word blocks, one flag a shot, and shows the question to ask."""
     def cell(ask="", word="") -> dict:
@@ -2326,4 +2436,6 @@ case("the strip: the frames a render's strip shows, and the span's frames it lea
 case("the strip: a load of two subjects, each in its own colour", a_strip_of_two_subjects)
 case("a load of two subjects: neither is another subject to it", neither_is_another)
 case("no largest piece of a face or hair, at the files step", no_pieces_on_a_head)
+case("no keep-out carves the subject's own track", no_keep_out_inside_her_track)
+case("the carve, in the files step", the_carve_in_the_files_step)
 sys.exit(finish())

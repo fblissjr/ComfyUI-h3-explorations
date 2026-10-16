@@ -265,6 +265,12 @@ from _lib.frames import FIT, FPS, probe, read_mask, stream, write_mask_video  # 
 #: A latent cell's side in pixels. Inherited: the video VAE's spatial factor; a token is two cells a side, and
 #: the Masked Source's `edge` says which of the two the region's edge follows. Read at the finer one.
 CELL = 16
+#: A cell given back to a keep-out counts as inside the load subject's own track when her track covers more than this share of
+#: its pixels (`keep_out_inside_own_track`). Reasoned: a cell mostly hers is a cell of her picture put back as the source; a
+#: cell on her outline, mostly the keep-out's or the background's, is the margin doing its work. Not measured; the probe of
+#: 2026-10-16 (internal/claude/2026-10-16_mrtaco/probe_gate3.out) found the real hits were whole cells of hers, so 0.5
+#: against 0.75 changes nothing measured. The keep-outs are carved by it in the files step (`carve_keep_out`).
+OWN_TRACK_CELL_SHARE = 0.5
 #: The share of a cell's readable pixels that must be tinted for the cell to count as regenerated. Reasoned:
 #: the region is constant over a cell, so anything but a majority is the codec.
 CELL_MAJORITY = 0.5
@@ -884,6 +890,29 @@ def cells_any(mask: np.ndarray, cell: int = CELL) -> np.ndarray:
     return mask.reshape(n, h // cell, cell, w // cell, cell).any(axis=(2, 4))
 
 
+def cells_mostly(mask: np.ndarray, share: float, cell: int = CELL) -> np.ndarray:
+    """[n, h, w] of bool to [n, h / cell, w / cell]: true where more than `share` of the cell's pixels are."""
+    n, h, w = mask.shape
+    return mask.reshape(n, h // cell, cell, w // cell, cell).mean(axis=(2, 4)) > share
+
+
+def carve_keep_out(keep: np.ndarray, mine: np.ndarray, share: float = OWN_TRACK_CELL_SHARE) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """A keep-out less every cell that is more than `share` the load subject's own track (`mine`, [n, h, w]) and less every
+    pixel of that track, and per frame the pixels and the cells it lost. THE CARVE (the owner, 2026-10-16, "The simplification wins. Make sure this never happens
+    again", docs/wiki/decisions.md): nothing puts the original back inside a person's region, and a keep-out's cells are
+    given back as the source. Done in the files step before the keep-out's track is written, so the copy the builder
+    hands the node (`masked_job.capture_files`, the capture's `track__<by>.mkv`) is the carved one.
+
+    What it cannot see: the cells are the canvas's. A load rendered zoomed in cuts its tokens on the zoomed picture's grid,
+    so a zoomed token on her outline that is mostly hers can still hold keep-out pixels just outside her track. MEASURED
+    on the zoomed second_hfp_0014f (internal/claude/2026-10-16_mrtaco/probe_carve_forms.out): such tokens, not touched by
+    her part, were 1416 (held), 1002 (hands), 1343 (clothing) token-frames over 154 frames with the cells alone, and 0,
+    503, 232 with her pixels taken too, which costs no keep-out pixel outside her track."""
+    hers = cells_mostly(mine, share)
+    lost = keep & (cells_up(hers) | mine)
+    return keep & ~lost, lost.reshape(len(lost), -1).sum(axis=1), (cells_any(keep) & hers).reshape(len(keep), -1).sum(axis=1)
+
+
 def cells_up(cells: np.ndarray, cell: int = CELL) -> np.ndarray:
     return np.repeat(np.repeat(cells, cell, axis=-2), cell, axis=-1)
 
@@ -1046,6 +1075,13 @@ def cross_rows(first: int, frames: int, sightings: dict, runs: dict, voice: dict
                 if b in r.get("back", {}):
                     row[f"margin_reached__{name}__{b}"] = round(float(r["reached"][b][n].mean()), 5)
                     row[f"cells_given_back__{name}__{b}"] = int(r["back"][b][n].sum())
+                    # the cells given back that are mostly the load subject's own track (`keep_out_inside_own_track`), named by
+                    # row,column of the cell grid
+                    mine = [lead[s][0][n] for s in subjects_of(r) if s in lead and lead[s][1][n]]
+                    inside = r["back"][b][n] & cells_mostly(np.logical_or.reduce(mine)[None], OWN_TRACK_CELL_SHARE)[0] if mine else \
+                        np.zeros_like(r["back"][b][n])
+                    row[f"cells_given_back_inside_own_track__{name}__{b}"] = int(inside.sum())
+                    row[f"cells_given_back_inside_own_track_at__{name}__{b}"] = ";".join(f"{y},{x}" for y, x in zip(*np.nonzero(inside)))
             for other in names[i + 1:]:
                 o = runs[other]
                 if o["read"][n]:
@@ -1661,6 +1697,12 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                 "size": [width, height], "fps": FPS, "cell_px": CELL, "subjects": [], "runs": [],
                 "commit": subprocess.run(["git", "-C", str(REPO), "rev-parse", "--short", "HEAD"],
                                          capture_output=True, text=True).stdout.strip()}
+    # THE CARVE (`carve_keep_out`): a mask some run keeps out (`others`) that is not one of our people (no shot table) loses the
+    # cells that are mostly the run subjects' own tracks, read first: our people's masks are read before the keep-outs
+    replaced = {x["subject"] for _, x in runs + plans} | {json.loads(x["also"])["subject"] for _, x in runs + plans if x.get("also")}
+    kept_out = {o for _, x in runs + plans for o in x.get("others", "").split("+") if o}
+    carved: dict = {}
+    masks = sorted(masks, key=lambda lm: not lm[1].get("shots"))
     for label, m in masks:
         by, at = m.get("by", "preview"), int(m.get("at", first))
         least, least_by = (int(m["least"]), LEAST_GIVEN) if m.get("least") is not None else (PART_LEAST_PX, LEAST_STARTING)
@@ -1669,6 +1711,13 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
         if least < 0:
             raise SystemExit(f"subject {label!r}: least={m['least']}; a part's least size is 0 (nothing emptied by size) or more, in px")
         track, covered = read_mask(m["track"], size, at, first, frames)
+        if label in kept_out and not m.get("shots") and label not in replaced:
+            mine = [next(iter(sightings[s].values()))[0] for s in replaced if s in sightings]
+            if mine:
+                track, px, cells = carve_keep_out(track, np.logical_or.reduce(mine))
+                carved[label] = {"px": px, "cells": cells, "against": sorted(s for s in replaced if s in sightings)}
+                print(f"keep-out {label}: carved out of {' and '.join(carved[label]['against'])}'s own track: {int(px.sum())} px, "
+                      f"{int(cells.sum())} cells, on {int((cells > 0).sum())} of {frames} frames (OWN_TRACK_CELL_SHARE {OWN_TRACK_CELL_SHARE})", flush=True)
         parts = read_mask(m["parts"], size, at, first, frames)[0] if m.get("parts") else None
         took = None
         cmap = read_classes(m["classes"], size, at, first, frames) if m.get("classes") else None
@@ -1769,6 +1818,9 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             manifest["subjects"].append(entry)
         entry["sightings"].append({"by": by, "track": Path(m["track"]).name, "parts": Path(m["parts"]).name if m.get("parts") else None,
                                    "shots": bool(m.get("shots")), "first_source_frame": at,
+                                   **({"carved_out_of_own_track": {"against": carved[label]["against"], "px": int(carved[label]["px"].sum()),
+                                                                   "cells": int(carved[label]["cells"].sum()), "frames": int((carved[label]["cells"] > 0).sum()),
+                                                                   "share": OWN_TRACK_CELL_SHARE}} if label in carved else {}),
                                    # a shot table counts from its own load's first frame, which need not be the mask video's
                                    "shots_first_source_frame": int(m.get("shots_at", at)),
                                    "frames_covered": int(covered.sum()), "pose": posed, "parts_pieces": m.get("pieces"),
@@ -1928,6 +1980,9 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
     voice = read_voice(a.voice) if a.voice else None
     manifest["voice_table"] = Path(a.voice).name if a.voice else None
     cross = cross_rows(first, frames, sightings, captured, voice)
+    for label, c in carved.items():                    # what the carve took from each keep-out, a frame at a time: data, never a flag
+        for n, row in enumerate(cross):
+            row[f"keep_out_carved_px__{label}"], row[f"keep_out_carved_cells__{label}"] = int(c["px"][n]), int(c["cells"][n])
     for row, (step, sharp) in zip(cross, picture_rows(a.source, first, frames, size)):
         row.update(source_step=step, source_sharpness=sharp)
     # Who owns each pixel. A subject is a "who" when it has a class map, or when no subject has one: a kept-out
@@ -2592,12 +2647,13 @@ def flag_key(flag: dict) -> str:
 
 
 def gate_verdict(flags: list[dict], outcomes: list[dict]) -> dict:
-    """`clear` or `blocked`: a flag at the top level blocks until an outcome overrides the flag as it now is."""
+    """`clear` or `blocked`: a flag at the top level blocks until an outcome overrides the flag as it now is. A flag marked
+    `hard` (an owner's rule, not a degree: `keep_out_inside_own_track`) blocks whatever the outcomes say."""
     passed = {o.get("key") for o in outcomes if o.get("overridden")}
     top = [f for f in flags if f["level"] == LEVELS[2]]
-    blocking = [f["id"] for f in top if flag_key(f) not in passed]
+    blocking = [f["id"] for f in top if f.get("hard") or flag_key(f) not in passed]
     return {"verdict": "blocked" if blocking else "clear", "blocking": blocking,
-            "overridden": [f["id"] for f in top if flag_key(f) in passed]}
+            "overridden": [f["id"] for f in top if not f.get("hard") and flag_key(f) in passed]}
 
 
 def read_outcomes(folder: Path) -> list[dict]:
@@ -3130,10 +3186,30 @@ def flag_runs(manifest: dict, folder: Path, own: dict | None = None, given: dict
     w_h = int(manifest["size"][0]) * int(manifest["size"][1]) if manifest.get("size") else 0
     cross = json.loads((folder / "frames.json").read_text())["rows"]
     labels = [s["label"] for s in manifest["subjects"]]
+    # our people: a mask the capture was handed with a shot table (a tracked person); every other mask is a keep-out
+    people = {s["label"] for s in manifest["subjects"] if any(x.get("shots") for x in s.get("sightings") or [])}
     out = []
     for run in manifest["runs"]:
         name, kind = run["name"], "plan" if run.get("planned") else "run"
         whom = " and ".join(subjects_of(run))
+        # NO KEEP-OUT CARVES HER OWN TRACK (the owner, 2026-10-16, "The simplification wins. Make sure this never happens again",
+        # docs/wiki/decisions.md): a keep-out's cells given back that are mostly the subject's own track put the source back
+        # inside her picture (a strangers track at the mom's ear, a held track at her neckline, second_hfp_0014d). Hard: no override
+        for other in labels:
+            col = f"cells_given_back_inside_own_track__{name}__{other}"
+            if other in subjects_of(run) or other in people:
+                continue
+            hit = [(r["source_frame"], int(r[col]), r.get(f"cells_given_back_inside_own_track_at__{name}__{other}") or "") for r in cross if r.get(col)]
+            if hit:
+                out.append({"rule": "keep_out_inside_own_track", "level": LEVELS[2], "hard": True, "subject": run["subject"], "run": name,
+                            "other": other, "source_frames": frame_spans([f for f, _, _ in hit]),
+                            "why": f"the keep-out {other!r} takes back cells of {whom}'s own track in {kind} {name}'s region on {len(hit)} frame(s), up to "
+                                   f"{max(c for _, c, _ in hit)} cells (more than {OWN_TRACK_CELL_SHARE:.0%} hers; row,column of the {CELL}-px grid): "
+                                   + "; ".join(f"{f}: {at}" for f, _, at in hit[:12]) + (f"; and {len(hit) - 12} frame(s) more" if len(hit) > 12 else "")
+                                   + ". Nothing puts the original back inside a person's region (the owner, 2026-10-16, docs/wiki/decisions.md), and "
+                                   "the files step carves every keep-out out of her track (`carve_keep_out`), so this is a CAPTURE FAULT: no override takes it",
+                            "figures": {"frames": len(hit), "cells_most": max(c for _, c, _ in hit), "cells_a_frame": {f: at for f, _, at in hit}},
+                            "threshold": {"OWN_TRACK_CELL_SHARE": OWN_TRACK_CELL_SHARE}})
         for other in labels:
             if other in subjects_of(run):
                 continue                               # a subject of the load is not another subject to it
@@ -4183,6 +4259,8 @@ def outcome(a: argparse.Namespace) -> None:
     if a.flag not in known:
         raise SystemExit(f"no flag {a.flag} in {folder / 'flags.json'}; it has {sorted(known)}")
     override = a.happened == "overridden"
+    if override and known[a.flag].get("hard"):
+        raise SystemExit(f"{a.flag} ({known[a.flag]['rule']}) takes no override: it is an owner's rule, not a degree. {known[a.flag]['why']}")
     if override and not (a.by.strip() and a.note.strip()):
         raise SystemExit("an override needs --by (who) and --note (why): it is the record of a decision to render past a flag")
     if not override and not a.render:
