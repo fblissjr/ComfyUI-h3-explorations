@@ -120,6 +120,16 @@ table; the Open List).
    `..._SUPERSEDED_unheld`) are dated minutes before each render, likely but unproven. Of the four only 5114d is laid
    (table t_fun_0000_6394_2026-10-15T2218Z). Any reading that paired 1097b's render with the reference now at the span's
    path (the gaze readings of 10/14) used the wrong file and is re-read against the set-aside copy.
+4e. ONE RULE IN PLACE OF THE HAND-WRITTEN `--hold-part` SPANS (the lead's proposal from the flip survey of 2026-10-16,
+   `internal/claude/2026-10-15_flip_survey/README.md`, 394 captures, 306 candidate flips): every flip on record is the
+   part model's output being empty, collapsed or under the floor, and then our floor or grade emptying her part, while
+   SAM 3.1 and the face points still had her (SAM lost her on 13 of 306, the body model on 10, none in the cut). The
+   rule: where SAM's track and the face points both have her, the floor never empties the frame; her part is held from
+   the neighbours, as `--hold-part` does by hand. Its test set is the survey's 126 part-model frames (`flip_table.csv`);
+   built in a worktree, a case seen red, a second reader, not landed while a load runs. With it: the ledger counts
+   frames the floor empties as left as the original (`render_ledger.left_by_the_load` reads only `drop=`; it misses 15
+   frames of the kept hall cut, 1419d and third 1419d). Not seen by the survey: a face regenerated to look like the
+   original under a present mask (a per-frame face likeness would be needed).
 4d. The chain records ComfyUI's list of cached nodes for every run (the owner's yes, 2026-10-16), beside the run's record.
 5. Tooling queued for the card seat, in order after the kitchen's lead (`--mouth-on` and `track_from` are tonight's,
    above, and landed or not by mrgo's note): the ledger
