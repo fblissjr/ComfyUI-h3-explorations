@@ -68,7 +68,7 @@ review2_sidecar.md):
   `first_written_frame` are not carried, so one delivered frame can map to two windows.
 - (14) One text per load is assumed and not checked: a graph that sets a `timeline` or wires `lists` (the node then
   fills the prompt per window) is not refused or flagged, and the node's `said` lines are not kept.
-- (15) Digests are cached by (path, size, mtime_ns) for the run, and `read` uses that cache: a file rewritten at the
+- (15) Digests are cached by (path, size, mtime_ns) for the run (`what_h3_got.sha256`, one cache with the reader's), and `read` uses that cache: a file rewritten at the
   same size inside one timestamp tick, by the same process, is trusted at its old digest.
 """
 from __future__ import annotations
@@ -91,20 +91,12 @@ sys.path.insert(0, str(REPO / "workflows"))
 SCHEMA = "h3_sidecar/1"
 #: the environment key a session's name is read from when the caller does not say it
 SESSION_KEY = "H3_SESSION"
-_DIGESTS: dict = {}  # (path, size, mtime_ns) -> sha256, as data/fun/poc/serve.py: a file is read once a run
 
 
 def sha256_of(path) -> str:
-    path = Path(path)
-    st = path.stat()
-    key = (str(path), st.st_size, st.st_mtime_ns)
-    if key not in _DIGESTS:
-        h = hashlib.sha256()
-        with open(path, "rb") as fh:
-            for block in iter(lambda: fh.read(1 << 22), b""):
-                h.update(block)
-        _DIGESTS[key] = h.hexdigest()
-    return _DIGESTS[key]
+    """A file's sha256, by the reader's own digest (`bench/what_h3_got.py::sha256`), read once a run: one cache for both."""
+    import what_h3_got
+    return what_h3_got.sha256(Path(path))
 
 
 def sidecar_path(video) -> Path:

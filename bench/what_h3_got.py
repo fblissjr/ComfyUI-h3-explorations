@@ -104,12 +104,24 @@ LAZY = {"mask": None, "shot_table": None, "segmenter": ("head and hair",), "segm
         "parts": ("the wired parts",)}
 
 
+#: (resolved path, size, mtime_ns) -> sha256: a file is read once a run for its digest (the lead, 2026-10-16: a sidecar of the
+#: whole video read the source once a piece, 229 s and 382 s on two runs of 45 pieces). Cannot see: a file written again by
+#: this same process at the same size inside one timestamp tick keeps its old digest (sidecar.py's named gap 15).
+_DIGESTS: dict = {}
+
+
 def sha256(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as fh:
-        for block in iter(lambda: fh.read(1 << 22), b""):
-            h.update(block)
-    return h.hexdigest()
+    """A file's sha256, read once a run (`_DIGESTS`); `bench/sidecar.py`'s digest is this one."""
+    path = Path(path).resolve()
+    st = path.stat()
+    key = (str(path), st.st_size, st.st_mtime_ns)
+    if key not in _DIGESTS:
+        h = hashlib.sha256()
+        with open(path, "rb") as fh:
+            for block in iter(lambda: fh.read(1 << 22), b""):
+                h.update(block)
+        _DIGESTS[key] = h.hexdigest()
+    return _DIGESTS[key]
 
 
 def frame_of(seconds: float, rate: float) -> int:

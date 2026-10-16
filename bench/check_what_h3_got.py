@@ -37,6 +37,9 @@ and a MaskComposite, two stills chained through `references`, the sound trimmed 
    queue and the copy (the copy is then not the queue's bytes), the two rules stand. The render stage is held as
    before.
 
+9. **A file's digest made once a run** (`sha256`), and again when the file is written again; `bench/sidecar.py`'s digest
+   is the same one.
+
 Needs ffmpeg and ffprobe, Pillow and numpy. No model, no card, no server.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/check_what_h3_got.py
@@ -430,6 +433,37 @@ def a_plans_masks_rebuilt() -> str:
             "two rules stand; the render stage is held as before")
 
 
+def a_digest_once() -> str:
+    """A file's sha256 is read from disk once a run (the lead, 2026-10-16: a sidecar of the whole video hashed the source once a
+    piece, 229 s and 382 s on two runs of 45 pieces), and read again when the file is written again; `bench/sidecar.py`'s digest
+    is this one."""
+    import builtins
+    import tempfile
+    import sidecar
+    with tempfile.TemporaryDirectory() as tmp:
+        f = Path(tmp) / "f.bin"
+        f.write_bytes(b"one")
+        opened = []
+        real_open = builtins.open
+
+        def counting(path, *a, **k):
+            if Path(str(path)) == f:
+                opened.append(1)
+            return real_open(path, *a, **k)
+        builtins.open = counting
+        try:
+            first = w.sha256(f)
+            # THE CASE THAT GOES RED when the file is read again for the same digest, by this reader or the sidecar's
+            assert w.sha256(f) == first == sidecar.sha256_of(f) and len(opened) == 1, len(opened)
+            import os
+            f.write_bytes(b"three")                          # written again: another size
+            os.utime(f, ns=(1, 1))
+            assert w.sha256(f) != first and len(opened) == 2, len(opened)
+        finally:
+            builtins.open = real_open
+    return "a file read once a run for its digest, again when written again; the sidecar's digest is the reader's"
+
+
 case("each input read by its place in the graph", each_input_by_its_place)
 case("the loader's cut, against ffmpeg running the loader's filter", the_loaders_cut)
 case("the hard failures, and a clean control", the_hard_failures)
@@ -441,6 +475,7 @@ case("which reference frames the text encoder is shown", the_encoder_frames)
 case("a load not yet queued", not_yet_queued)
 case("the zoom read from the node's records", the_zoom)
 case("a plan's masks rebuilt in place", a_plans_masks_rebuilt)
+case("a file's digest made once a run", a_digest_once)
 
 if __name__ == "__main__":
     code = finish()
