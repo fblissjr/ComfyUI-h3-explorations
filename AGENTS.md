@@ -155,10 +155,16 @@ One home per kind of fact. Not two.
   it needs. The lead hands it a brief file before it starts. A blind reader
   on a finished result is a subagent, briefed with file paths and no
   conclusions.
-- **The outside reviewer (a Gemini agent the owner runs) reviews, never
-  builds**, through files in `internal/gemini/`: the lead appends requests
-  to `<date>_requests.md`, and the reviewer answers in its own files plus a
-  line in `<date>_outbox.md`. The owner relays nothing. It watches video
+- **The outside reviewer (a Gemini agent the owner runs) reviews**, and
+  builds when the owner asks. Its mailbox is `internal/gemini/`: the lead
+  appends requests to `<date>_requests.md`, and the reviewer answers in its
+  own files plus a line in `<date>_outbox.md`. The owner relays nothing.
+  A build goes on its own branch in a git worktree outside `custom_nodes`
+  (`h3_worktrees/gemini-<item>`), cut from current main and committed
+  there, never in the shared tree and never pushed; the lead lands it after
+  a blind read from the merge base (`git diff main...<branch>`), by
+  pathspec, so a stale copy cannot delete newer lines (the owner,
+  2026-10-16). It watches video
   and hears audio natively, where a session sees stills and measures, so
   the lead gives it the playback questions: motion, flicker, hair coming and
   going, a mouth with the singing, eyes closing. Hand it the stacked clips

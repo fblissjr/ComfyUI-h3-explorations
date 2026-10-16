@@ -17,6 +17,14 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-16
 
+- **A Gemini build goes on its own git branch, not a diff file in `internal/gemini/`** (the owner, at 23:32Z: "lets
+  have them stop being forced to only use internal/gemini"). Two diffs tonight (Gemini's D19 and mrtaco's matte D18) were
+  cut from a copy older than main and would have deleted lines later commits added (decisions.md 1f143f59, handover
+  lines). Now: a build is a branch in a worktree under `h3_worktrees/gemini-<item>`, cut from current main and committed
+  there; the lead lands it after a blind read from the merge base (`git diff main...<branch>`) by pathspec. Never the
+  shared tree, never a push. `internal/gemini/` stays the mailbox (requests, outbox, reviews). What it replaces:
+  AGENTS.md's "reviews, never builds, through files in `internal/gemini/`".
+
 - **The second subject's clothing words are per shot; on 1010-1038 she wears a dark sleeveless top, not the apron**
   (mrtony, the lead, at 23:00Z, correcting its own words of 20:59Z). The plan's one `clothing` line ("a white apron
   with a bib ... over a sleeveless floral blouse") cited source frames 1011 and 1020; on 1015 (cropped from the source)
