@@ -261,6 +261,18 @@ def barely_changed_and_too_small() -> str:
         (x,) = out["laid_but_barely_changed"]
         # THE CASE THAT GOES RED when a laid piece that changed almost nothing of its region is called carried
         assert x["frames"] == [21, 22] and x["piece"] == "rb" and x["changed_share"]["least"] == 0.125, x
+        # BOTH COUNTS AT THE CANVAS (Gemini's D17): the loader's crop of the source is not a scale of either; a check built at the source's
+        # size says a crop twice the canvas, and one built at the canvas's says none
+        held = json.loads((Path(tmp) / "clip.mp4.check.json").read_text())
+        for crop in ({"width": 2 * W, "height": 2 * H, "x": 0, "y": 0}, None):
+            if crop is None:
+                held.pop("the_loader's_crop_of_the_source", None)
+            else:
+                held["the_loader's_crop_of_the_source"] = crop
+            (Path(tmp) / "clip.mp4.check.json").write_text(json.dumps(held))
+            (y_,) = fc.coverage(table, data=Path(tmp))["laid_but_barely_changed"]
+            # THE CASE THAT GOES RED when the carried region is scaled by the crop, or a check with no crop is not read
+            assert y_["changed_share"]["least"] == 0.125, (crop, y_["changed_share"])
         run = next(r for r in out["runs"] if r["kind"] == "laid_but_barely_changed")
         assert run["cause"] == "0.125 to 0.125 of its carried region changed (under 0.3)", run
         assert [r["first"] for r in out["runs"] if r["kind"] == "emptied_inside"] == [14, 15, 16, 17], "an emptied frame changed kind"

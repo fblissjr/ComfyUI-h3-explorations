@@ -46,8 +46,7 @@ The ledger and the shots record are the ones the table's `made` names, or `--led
 the 2003Z cut, where lead_fp_0805d, "only what changed", barely changed its own region and the view said no gap). The
 assembler records what each piece changed on each frame (the clip's `<clip>.mp4.check.json`, `regions.pieces.<piece>.
 changed_px_per_frame`, by its own `changed`); nothing is recomputed here. Each frame a piece carried a mask on, its changed
-px are set against the px of the region its run carried (`runs/<run>/region.npz`), scaled from the capture's size to the
-loader's crop the check records. A share under `BARELY_CHANGED` is a run of `laid_but_barely_changed`, with the shares
+px are set against the px of the region its run carried (`runs/<run>/region.npz`), both counted at the canvas. A share under `BARELY_CHANGED` is a run of `laid_but_barely_changed`, with the shares
 printed. The check is the one the table's own assembly command writes (`--check` names another); the gap check is
 refused when it is missing or its pieces and frames are not the table's rows, never run without it. A frame the piece's
 job dropped or emptied carried no mask and is its own kind, never this one.
@@ -99,10 +98,11 @@ CANNOT = ("the picture: a frame whose mask was carried can still come out as the
 
 
 #: The share of the carried region a laid piece must change on a frame, under which the frame is `laid_but_barely_changed`.
-#: **Measured** starting value, on the 2003Z cut (`fun_0000_6394_joined_2026-10-16T2003Z_from_laid.mp4.check.json`, 2642 carried
-#: frames of 45 rows, 2026-10-16): every piece's least share but one is 0.406 or more (lead_fp_2823b); lead_fp_0805d's 806 is
-#: 0.117 and 807 0.209 (the owner saw the original on 806), its 828-832 0.264 to 0.293. A starting value from one cut; the
-#: shares are printed so a reader sees how far under.
+#: **Measured** starting value, set between the owner's 806 and 807 on the 2003Z cut at the corrected scale
+#: (`fun_0000_6394_joined_2026-10-16T2003Z_from_laid.mp4.check.json`; both counts at the canvas, Gemini's D17, 2026-10-16):
+#: lead_fp_0805d's 806 is 0.226 (1810 of 8008 px; the owner: it "doesn't swap") and 807 0.404 (3735 of 9235; "seems to swap"),
+#: its 828-832 0.511 to 0.566 (no complaint). It was first set on shares understated by the loader crop's area over the canvas's
+#: (1.93 on this video). The shares are printed so a reader sees how far under.
 BARELY_CHANGED = 0.3
 
 #: The share of a piece's own median carried px under which a frame's carried region is `region_far_below_its_own_size`: the
@@ -371,7 +371,6 @@ def changed_of(check: dict, row: dict) -> dict[int, int]:
 def coverage(table: dict, span: list[int] | None = None, data: Path = REPO / "data", ledger: Path | None = None, shots: Path | None = None,
              check: Path | None = None) -> dict:
     check_path, clip_check = check_of(table, check)
-    crop = clip_check["the_loader's_crop_of_the_source"]
     caps: dict[str, Capture] = {}
     failures = []
     tied, failed = [], []
@@ -441,11 +440,9 @@ def coverage(table: dict, span: list[int] | None = None, data: Path = REPO / "da
                     if carried == 0:
                         state = "original: emptied inside the piece (" + empt[id(r)]["frames"].get(f, "not in the record") + ")"
                     else:
-                        # what the assembler's `changed` called changed, against the region carried, at the loader's crop
-                        size = c.m.get("size")
-                        if not size:
-                            raise Refused(f"{c.folder.name}: its manifest names no size, so its carried region cannot be set against the clip's px")
-                        share = changed_px[id(r)].get(f, 0) / (carried * crop["width"] * crop["height"] / (int(size[0]) * int(size[1])))
+                        # what the assembler's `changed` called changed, against the region carried: both counted at the canvas (the
+                        # assembler lays at the canvas whatever --size, and refuses a capture of another size; Gemini's D17, 2026-10-16)
+                        share = changed_px[id(r)].get(f, 0) / carried
                         if own_size[id(r)] and carried < FAR_BELOW_ITS_OWN_SIZE * own_size[id(r)]:
                             state = f"region far below its own size (its median {int(own_size[id(r)])} px)"
                         elif share < BARELY_CHANGED:
