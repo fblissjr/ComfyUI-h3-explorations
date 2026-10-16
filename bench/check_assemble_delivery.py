@@ -209,6 +209,25 @@ def painted(frames: torch.Tensor, rect, frames_from: int = 0) -> torch.Tensor:
     return out
 
 
+def faint(frames: torch.Tensor, rect, by: float = 4 / 255) -> torch.Tensor:
+    """The frames with a rectangle raised `by` in every channel: under `CHANGE`, as a whole-region render's barely-changed pixels are."""
+    out = frames.clone()
+    x0, y0, x1, y1 = rect
+    out[:, y0:y1, x0:x1] = (out[:, y0:y1, x0:x1] + by).clamp(0.0, 1.0)
+    return out
+
+
+def graph_beside(piece: str, composite: str | None) -> None:
+    """The PNG VHS saves beside a render, holding the graph's `prompt` with the Masked Source's composite; None writes none."""
+    png = Path(piece).with_suffix(".png")
+    png.unlink(missing_ok=True)
+    if composite is not None:
+        from PIL import Image, PngImagePlugin
+        info = PngImagePlugin.PngInfo()
+        info.add_text("prompt", json.dumps({"104": {"class_type": "MiniMaxH3MaskedSource", "inputs": {"composite": composite}}}))
+        Image.new("RGB", (4, 4)).save(png, pnginfo=info)
+
+
 def table(path: Path, rows) -> Path:
     path.write_text("".join(f"{a}-{b} {piece} {first}\n" for a, b, piece, first in rows))
     return path
@@ -264,7 +283,7 @@ def recheck(tmp: Path, name: str, rows, span: str, out: Path) -> tuple[int, dict
 
 
 def capture(folder: Path, first: int, frames: int, subjects: dict, runs: list, classes: dict | None = None,
-            flags: list | None = None, shots: dict | None = None, carried: dict | None = None) -> Path:
+            flags: list | None = None, shots: dict | None = None, carried: dict | None = None, region: dict | None = None) -> Path:
     """A capture folder as `bench/capture_masked_run.py` lays one out, holding only what the assembler reads.
     `classes[label]` is a class map [frames, H, W] of class indices; `flags` is its flags.json; `shots[label]` is
     that subject's shot table as [(first frame, last frame, people detected, the tracker's word)]; `carried[run]`
@@ -286,9 +305,11 @@ def capture(folder: Path, first: int, frames: int, subjects: dict, runs: list, c
             (folder / "subjects" / label / "shots__made.json").write_text(json.dumps(table))
     if flags is not None:
         (folder / "flags.json").write_text(json.dumps({"flags": flags}))
-    for name, mask in (carried or {}).items():
+    for name in set(carried or {}) | set(region or {}):
         (folder / "runs" / name).mkdir(parents=True)
-        np.savez_compressed(folder / "runs" / name / "region.npz", carried=np.packbits(mask, axis=-1), read=np.ones(frames, bool))
+        np.savez_compressed(folder / "runs" / name / "region.npz", read=np.ones(frames, bool),
+                            **({"carried": np.packbits(carried[name], axis=-1)} if name in (carried or {}) else {}),
+                            **({"region": region[name]} if name in (region or {}) else {}))
     return folder
 
 
@@ -1373,6 +1394,45 @@ with tempfile.TemporaryDirectory() as _tmp:
                 f"{held_to:.2f} of its middle on its last frame and passes; cut short of the thinned frames it passes; the capture's own reading "
                 "of the render fails a row that lays the frames it names")
 
+    def laid_by_its_region() -> str:
+        """The lead's ruling of 2026-10-16: a piece whose graph says composite "whole region" is laid by its run's region, its
+        barely-changed pixels included, at both sizes; one that says "only what changed", or whose graph is not beside it, keeps
+        `changed` and the report says which and why."""
+        piece = write("faint_a", faint(WHOLE[10:40], RECT_A))
+        cells = np.zeros((30, H // 16, W // 16), bool)
+        x0, y0, x1, y1 = RECT_A
+        cells[:, y0 // 16:-(-y1 // 16), x0 // 16:-(-x1 // 16)] = True
+        run = {"name": "run_f", "render": "faint_a.mp4", "subject": "a", "margin_px": 16}
+        folder = capture(TMP / "cap_faint", 10, 30, {"a": mask_of(RECT_A, 30)}, [run], region={"run_f": cells})
+        o, f = original(24), planes_of(piece, 24)
+        assert 2.0 < inside(f, o, RECT_A) < tool.CHANGE, f"the fixture: the faint piece is {inside(f, o, RECT_A):.2f} levels off the original, not under CHANGE"
+        said = {}
+        for composite in ("whole region", "only what changed", None):
+            graph_beside(piece, composite)
+            tag = str(composite).replace(" ", "_")
+            code, r, out = deliver(TMP, f"faint_{tag}", [(10, 39, piece, 10)], "10-39", "--capture", str(folder), "--size", "source")
+            luma = list(tool.luma_at_canvas(str(out), W, H))[24 - 10]
+            row = r["regions"]["pieces"][piece]["laid_by"]
+            near = lambda want: float(np.abs(luma - want[0])[y0 + SLACK:y1 - SLACK, x0 + SLACK:x1 - SLACK].mean())   # noqa: E731
+            said[composite] = (code, near(f), near(o), row)
+            # at the canvas's size, as a later row over a kept piece, which is the base there
+            code_c, _r, out_c = deliver(TMP, f"faint_canvas_{tag}", [(10, 39, KEPT, 10), (10, 39, piece, 10)], "10-39", "--capture", str(folder))
+            said[composite] += (code_c, inside(planes_of(str(out_c), 24), f, RECT_A), inside(planes_of(str(out_c), 24), o, RECT_A))
+        code, to_piece, to_orig, row, code_c, c_piece, c_orig = said["whole region"]
+        # THE CASE THAT GOES RED when a whole-region piece's barely-changed pixels are laid back as the source
+        assert code == 0 and to_piece + 1.0 < to_orig, f"at the source's size: {to_piece:.2f} from the piece, {to_orig:.2f} from the original"
+        assert code_c == 0 and c_piece + 1.0 < c_orig, f"at the canvas's size, a later row: {c_piece:.2f} from the piece, {c_orig:.2f} from the original"
+        assert row["composite"] == "whole region" and row["rule"] == "region" and row["frames_by_region"] == 30 and row["frames_by_changed"] == 0, row
+        for composite in ("only what changed", None):
+            code, to_piece, to_orig, row, code_c, c_piece, c_orig = said[composite]
+            # laid by `changed`, a piece all under CHANGE is "a piece that changes nothing", which the assembler's own verdict fails: the exit is not read
+            assert to_orig + 1.0 < to_piece and c_orig + 1.0 < c_piece, (composite, to_piece, to_orig, c_piece, c_orig)
+            assert row["rule"] == "changed" and row["frames_by_region"] == 0, row
+        assert "no faint_a.png beside the piece" in said[None][3]["why"], said[None][3]
+        graph_beside(piece, None)
+        return (f"a whole-region piece laid by its region, its pixels {said['whole region'][1]:.1f} from the piece against {said['whole region'][2]:.1f} "
+                "from the original at the source's size, and as a later row at the canvas's; 'only what changed' and no graph keep `changed`, said")
+
     def a_zoomed_piece() -> str:
         import torch.nn.functional as F
         base = WHOLE[10:40]
@@ -1464,4 +1524,5 @@ with tempfile.TemporaryDirectory() as _tmp:
     case("a row that names its capture's run", a_run_named_on_the_row)
     case("a row that ends or begins on the source's own picture", ends_on_the_source)
     case("a piece rendered zoomed in", a_zoomed_piece)
+    case("a whole-region piece laid by its region", laid_by_its_region)
 sys.exit(finish())
