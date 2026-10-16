@@ -39,6 +39,8 @@ notes: `internal/claude/2026-10-16_mrtony/HANDOFF.md`; the card's: `internal/cla
 ## Tomorrow, in order
 
 1. Read the night's outbox (`internal/gemini/2026-10-16_outbox.md`) and mrtaco's HANDOFF; land what passed its read.
+   Then write the 2026-10-16 changelog entry from all of that day's commits, the night's included
+   (`changelog.d/README.md`; `bump: minor`: the day added tools).
 2. The mom's 1010 render: rebuild the whole video with it and the day's keeps (`internal/claude/2026-10-16_mrtoon/rebuild.sh
    --clip`), stopping the review clip at the last laid frame; put it on Start here.
 3. The owner's looks, on Start here in this order: the plan strips (`lead_fp_1010g` with the hat square gone,
