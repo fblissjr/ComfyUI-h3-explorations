@@ -362,13 +362,39 @@ def part_classes(capture: Path | None, label: str | None) -> list[str] | None:
     return None
 
 
-def left_by_the_load(capture: Path | None, label: str | None, span: list[int] | None) -> dict | None:
-    """The frames inside a render's own span that its load LEFT AS THE ORIGINAL: the capture emptied the subject's
-    part there (its manifest's `parts_emptied_on_source_frames`), so the node was given nothing to replace. None when
-    there is no capture, no such record or no span. In no ledger until 2026-10-13, late: they were known only from the
-    assembler's flags after a clip was built, and the owner saw one on playback as "he turns back"."""
+def left_by_the_load(capture: Path | None, label: str | None, span: list[int] | None, run: str | None = None) -> dict | None:
+    """The frames inside a render's own span that its load LEFT AS THE ORIGINAL: the node was given no mask for the
+    subject there, so it had nothing to replace. None when there is no capture, no such record or no span. In no
+    ledger until 2026-10-13, late: they were known only from the assembler's flags after a clip was built, and the
+    owner saw one on playback as "he turns back".
+
+    Where the capture holds the run's own mask (`runs/<run>/region.npz`), the frames and their causes are
+    `frame_coverage.emptied`'s, the one home of the rule: every frame the node carried nothing on, whether a person's
+    `drop=`, the floor, the grade or an empty saved part emptied it (`by_cause`). Until 2026-10-16 this read only the
+    manifest's `parts_emptied_on_source_frames`, which is `drop=` alone, and missed the floor's and the grade's frames
+    (the kitchen, and 1419d's 1421 and 1449-1459, `internal/claude/2026-10-15_flip_survey/README.md`, "Gaps"). A
+    capture with no run mask falls back to that list, said in `read_from`."""
     if capture is None or not label or not span or not (capture / "manifest.json").is_file():
         return None
+    fell_back = None
+    if run and not (capture / "runs" / run / "region.npz").is_file():
+        fell_back = f"the capture holds no runs/{run}/region.npz"
+    if run and fell_back is None:
+        fc = _module("frame_coverage")
+        try:
+            e = fc.emptied(fc.Capture(capture), run, label, span)
+        except (fc.Failure, ValueError, KeyError) as x:
+            e, fell_back = None, f"the run's mask could not be read ({x})"
+        if e is not None:
+            inside = fc.runs(e["frames"])
+            by_cause: dict[str, list[int]] = {}
+            for f, cause in e["frames"].items():
+                by_cause.setdefault(cause, []).append(f)
+            return {"source_frames": inside, "frames": len(e["frames"]),
+                    "by_cause": {c: fc.runs(fs) for c, fs in sorted(by_cause.items())},
+                    "not_read": fc.runs(e["not_read"]),
+                    "read_from": f"the run's carried mask ({e['read_from']}): the frames on which the node was given no mask for this subject, "
+                                 "with the cause from the capture's manifest and part_grades.json (bench/frame_coverage.py::emptied)"}
     try:
         manifest = json.loads((capture / "manifest.json").read_text())
     except ValueError:
@@ -380,7 +406,8 @@ def left_by_the_load(capture: Path | None, label: str | None, span: list[int] | 
                 return None
             inside = [[max(a, span[0]), min(b, span[1])] for a, b in runs if a <= span[1] and b >= span[0]]
             return {"source_frames": inside, "frames": sum(b - a + 1 for a, b in inside),
-                    "read_from": "the capture's manifest: the frames on which it emptied this subject's part (parts_emptied_on_source_frames)"}
+                    "read_from": "the capture's manifest: the frames on which it emptied this subject's part (parts_emptied_on_source_frames)"
+                                 + (f"; a person's drop= alone, not the floor's or the grade's, since {fell_back}" if fell_back else "")}
     return None
 
 
@@ -707,7 +734,8 @@ def ledger(shots: dict, plan: dict, share: Path, records: Path, repo: Path, sour
         count = load.get("frames") if load.get("frames") is not None else (ask or {}).get("frames")
         row["span"] = [first, first + count - 1] if first is not None and count else None
         row["span_read_from"] = "the record's load" if load.get("first") is not None else "the saved graph's loader"
-        row["leaves_as_the_original"] = left_by_the_load(capture, load.get("subject") or label, row["span"]) if carried in ("held", "the wired parts") else None
+        row["leaves_as_the_original"] = left_by_the_load(capture, load.get("subject") or label, row["span"], load.get("name") or row["name"]) \
+            if carried in ("held", "the wired parts") else None
         row["laid_in_the_table"] = [[t["first"], t["last"]] for t in table_rows if str(t["piece"]).endswith(rel)]
         row["owner"] = sorted(owner_lines(rel, {row["name"], f"r__{row['session_folder']}__{row['name']}", f"r__{Path(rel).parts[1]}__{row['name']}"},
                                           verdicts, answers, item_of) + on_a_joined_clip(rel, spots or [], verdicts)
