@@ -9,8 +9,8 @@ around is friction, not a rule, and goes.
 
 **The repo is broader than the current project.** This pack is for all things H3: many custom nodes (reference
 conditioning, attention, keyframes, prompts, capture and more; every module and the nodes it defines are in
-`INDEX.md`, every use in `docs/wiki/h3_uses.md`), the masked lane among them. **The project in hand** (since
-2026-10-10, the owner) is masked video generation: replacing people in an existing music video, `fun`, a region at a
+`INDEX.md`, every use in `docs/wiki/h3_uses.md`), the masked lane among them. **The project in hand** is masked
+video generation: replacing people in an existing music video, `fun`, a region at a
 time; its process end to end is `docs/wiki/masked_v2v_pipeline.md`, its lane `docs/wiki/masked_v2v.md`. A change made
 for the project does not narrow the pack: a node it touches keeps serving its other uses.
 
