@@ -111,7 +111,7 @@ def files_of(name: str, clips: Path, tables: Path) -> dict[str, Path]:
     return {"clip": clips / f"{name}.mp4", "stacked": clips / f"{name}_STACKED.mp4", "record": clips / f"{name}.mp4.check.json",
             "table": tables / f"t_{name}.txt", "json": tables / f"t_{name}.json", "reading": tables / f"reading_{name}.md",
             "stack_reading": tables / f"check_stack_{name}.json",
-            **{f"{step}_out": tables / f"{step}_{name}.out" for step in ("table", "build", "stack", "check_stack")}}
+            **{f"{step}_out": tables / f"{step}_{name}.out" for step in ("table", "build", "coverage", "stack", "check_stack")}}
 
 
 def table_command(a: argparse.Namespace, span: tuple[int, int], f: dict[str, Path], work: Path) -> list[str]:
@@ -195,9 +195,10 @@ def build(a: argparse.Namespace) -> int:
             print(f"{span[0]}-{span[1]}: REFUSED after the table: a capture holds an earlier build's record of this name ({', '.join(sorted(set(earlier)))}); "
                   "take another --stamp")
             return 1
-        steps = [("build", made["command"]), ("stack", made["stack"]["build"])]
+        # the clip, then the table's per-frame gap check, then the stack with the gaps drawn (it is handed the check's JSON)
+        steps = [("build", made["command"]), ("coverage", made["stack"]["coverage"]), ("stack", made["stack"]["build"])]
         if a.dry:
-            print(f"{span[0]}-{span[1]}: {name}: the table is written ({f['table']}); dry, so neither was run, nor the stack's reading:")
+            print(f"{span[0]}-{span[1]}: {name}: the table is written ({f['table']}); dry, so none of these was run, nor the stack's reading:")
             for step, line in steps:
                 print(f"  {step}: {line}")
             continue

@@ -648,9 +648,16 @@ def assembly(out: dict, ledger: dict, plan: dict, repo: Path, table: str, span: 
         work = stack_work or "A_SCRATCH_FOLDER"
         # a clip of a span begins on the span's first frame, and the stack is told so: its original row, its panels and the number it burns are the source's
         begins = ["--first", str(span[0])] if span and span[0] else []
-        stack = {"build": line([python, "bench/stack_delivery.py", "build", "--source", source, "--table", table, "--joined", clip, "--out", stacked, "--work", work, *begins, "--one-a-second"]),
+        # the per-frame gap check runs on the table first and the stack is handed its JSON (the stack view's reader, 2026-10-16: a view built
+        # without it has no gap chips and no red bands); its files beside the table, named as bench/frame_coverage.py names them
+        table_json = str(Path(table).with_suffix(".json"))
+        coverage = Path(table).with_name("frame_coverage_" + Path(table).stem.removeprefix("t_"))
+        cov_json, cov_md = str(coverage) + ".json", str(coverage) + ".md"
+        stack = {"coverage": line([python, "bench/frame_coverage.py", "--table", table_json, "--json", cov_json, "--md", cov_md]),
+                 "build": line([python, "bench/stack_delivery.py", "build", "--source", source, "--table", table, "--joined", clip, "--coverage", cov_json,
+                                "--out", stacked, "--work", work, *begins, "--one-a-second"]),
                  "check": line([python, "bench/stack_delivery.py", "check", "--source", source, "--joined", clip, "--out", stacked, *begins]),
-                 "whole": bool(stack_work), "out": stacked}
+                 "whole": bool(stack_work), "out": stacked, "coverage_json": cov_json}
     return {"command": line(build), "whole": whole, "captures": captures, "captures_handed_in": [rel(c) for c in also],
             "aliases_used_by_a_capture": sorted(used), "runs": ties, "restores": restores, "stack": stack,
             "ledger_command": (ledger.get("command") or {}).get("line"), "own_command": own or None}
@@ -702,7 +709,8 @@ def reading_text(out: dict, made: str, table: str, built: dict | None = None) ->
         if not built["whole"]:
             lines += ["NOT WHOLE: no `--source` and `--out` were handed to this tool (`--assemble-args`), so the clip's command lacks them and there is no stack command.", ""]
         if stack:
-            lines += ["4. The clip stacked for the eye, and the stack read back:", "", "```", stack["build"], stack["check"], "```", ""]
+            lines += ["4. The per-frame gap check on this table, then the clip stacked for the eye with its gaps drawn, and the stack read back:", "",
+                      "```", stack["coverage"], stack["build"], stack["check"], "```", ""]
             if not stack["whole"]:
                 lines += ["NOT WHOLE: no `--stack-work` was handed to this tool, so the stack's scratch folder is a word to replace.", ""]
         lines += ["The captures are the standing pieces' own, from each piece's build record"

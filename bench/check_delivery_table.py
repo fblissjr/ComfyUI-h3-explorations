@@ -662,13 +662,16 @@ def the_commands() -> str:
                                     "--capture data/cap_b --capture data/cap_a --capture data/preview --alias singer=a"), built["command"]
         with_record = dt.assembly(out, made, PLAN, repo, "data/t.txt", (0, 149), "--source '/in/a clip.mp4' --out /out/clip.mp4", (), python="py", shots_file="data/v/shots.json")
         assert " --out /out/clip.mp4 --shots data/v/shots.json --capture " in with_record["command"] and "--shots" not in built["command"], with_record["command"]
-        assert built["stack"] == {"build": "py bench/stack_delivery.py build --source '/in/a clip.mp4' --table data/t.txt --joined /out/clip.mp4 "
-                                           "--out /out/clip_STACKED.mp4 --work /scratch/work --one-a-second",
+        # THE CASE THAT GOES RED when the stack is built with no gap check (the stack view's reader, 2026-10-16: no gap chips, no red bands):
+        # the per-frame gap check runs on the table first and the stack is handed its JSON
+        assert built["stack"] == {"coverage": "py bench/frame_coverage.py --table data/t.json --json data/frame_coverage_t.json --md data/frame_coverage_t.md",
+                                  "build": "py bench/stack_delivery.py build --source '/in/a clip.mp4' --table data/t.txt --joined /out/clip.mp4 "
+                                           "--coverage data/frame_coverage_t.json --out /out/clip_STACKED.mp4 --work /scratch/work --one-a-second",
                                   "check": "py bench/stack_delivery.py check --source '/in/a clip.mp4' --joined /out/clip.mp4 --out /out/clip_STACKED.mp4",
-                                  "whole": True, "out": "/out/clip_STACKED.mp4"}, built["stack"]
+                                  "whole": True, "out": "/out/clip_STACKED.mp4", "coverage_json": "data/frame_coverage_t.json"}, built["stack"]
         assert built["ledger_command"] == "py bench/render_ledger.py --share /share" and built["own_command"] == "py bench/delivery_table.py --ledger L"
         text = dt.reading_text(out, "Made for the check.", "data/t.txt", built)
-        for line in (built["ledger_command"], built["own_command"], built["command"], built["stack"]["build"], built["stack"]["check"]):
+        for line in (built["ledger_command"], built["own_command"], built["command"], built["stack"]["coverage"], built["stack"]["build"], built["stack"]["check"]):
             assert f"\n{line}\n" in text, f"the reading does not hold this command as one line: {line}"
         assert "NOT WHOLE" not in text, text
         # with nothing of the caller's: not whole, no stack; a ledger that does not keep its command is said; no scratch folder is said

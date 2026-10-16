@@ -220,7 +220,8 @@ class Steps:
         if any(x.endswith("delivery_table.py") for x in argv):
             self.table_argv = argv
             j = Path(argv[argv.index("--json") + 1])
-            j.write_text(json.dumps({"assembly": {"command": "STEP build", "stack": {"build": "STEP stack"}, "captures": [str(self.capture)]}}))
+            j.write_text(json.dumps({"assembly": {"command": "STEP build", "stack": {"coverage": "STEP coverage", "build": "STEP stack"},
+                                                  "captures": [str(self.capture)]}}))
             Path(argv[argv.index("--table") + 1]).write_text("t")
         elif argv[:2] == ["STEP", "build"]:
             self.clip.write_bytes(b"clip")
@@ -299,6 +300,8 @@ def build_writes_over_nothing() -> str:
                 assert code == 1 and want in text, (stamp, code, text)
             else:
                 assert code == 0 and "frames: the stacked file 11, the clip 11" in text and "ORIGINAL row" in text, (stamp, text)
+                # THE CASE THAT GOES RED when the stack is built with no gap check: the table's per-frame gap check runs after the clip and before the stack
+                assert [x for x in steps.ran if x in ("build", "coverage", "stack")] == ["build", "coverage", "stack"], steps.ran
                 assert json.loads(src.files_of(f"fun_0200_0210_joined_{stamp}", d / "clips", d / "tables")["stack_reading"].read_text())["frames"] == 11
             if earlier:
                 assert "build" not in steps.ran and (capture / "delivery__fun_0200_0210_joined_A.json").read_text() == "{}", steps.ran
