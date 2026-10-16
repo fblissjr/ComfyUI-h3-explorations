@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 146 |
+| [`check_*`](#check) | 147 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 182 |
+| [the rest](#the-rest) | 183 |
 
 ## check
 
@@ -139,6 +139,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_shot_to_load.py`](check_shot_to_load.py) | From a shot to a load's job file (`bench/shot_to_load.py`) on a made video: what each step reads, writes and refuses. |
 | [`check_shots_look.py`](check_shots_look.py) | A person's look written into the shots record (`bench/shots_look.py`): what it writes, and what it refuses. |
 | [`check_shots_record.py`](check_shots_record.py) | `bench/shots_record.py` joins two shots of a shots record or cuts one, keeping every answer whole; each case is a way an answer could be lost, moved to the wrong cut, or a record left that no longer covers its video. |
+| [`check_sidecar.py`](check_sidecar.py) | `bench/sidecar.py` on made files: each case is a way a video's sidecar could say less than is known, or be trusted for a video it was not written for. |
 | [`check_skill_routes.py`](check_skill_routes.py) | Fail when a skill routes an agent to a path that does not exist. |
 | [`check_smoke_h3.py`](check_smoke_h3.py) | The smoke's readings (`bench/smoke_h3.py`) held to the code they read and to the graphs it submits. |
 | [`check_sol_chunked.py`](check_sol_chunked.py) | Grade the chunked-producer forward before it is given a render. |
@@ -481,6 +482,7 @@ this file is only a way to find a script by what it says it does.
 | [`shot_to_load.py`](shot_to_load.py) | From a shot to a load's job file: the preview of the shot, the load's job, its head reference. Then it stops for the text. |
 | [`shots_look.py`](shots_look.py) | A person's look at which parts of a subject are seen on frames of a shot, written into the shots record. |
 | [`shots_record.py`](shots_record.py) | Join two shots of a video's shots record that are one shot, or cut one that is two, keeping every answer whole. |
+| [`sidecar.py`](sidecar.py) | A sidecar beside every video we make: `<video file name>.json`, holding as much as is known of how the video was made. |
 | [`simulate_track_b_lite.py`](simulate_track_b_lite.py) | Priority 3d: Track B-Lite Eager FP16-PV Simulation. |
 | [`smoke_h3.py`](smoke_h3.py) | Confirm the H3 chain composes and runs, after any node-pack update. |
 | [`sol_duckdb_analyzer.py`](sol_duckdb_analyzer.py) | DuckDB ingest and static dashboard for Sol probe and observer captures. |
