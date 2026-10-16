@@ -26,8 +26,12 @@ newest ledger and table; the Open List).
   copy held to its preview track (cf3ab288); `--mouth-on` and the read-back's edge fix (1e4207c4); every run's record
   keeps the nodes the server served from its cache (1ff12a36, from 2823d on). Every check on main read at the close:
   131 green, 13 not graded, 1 red (a stale INDEX row, rebuilt in 3647a1b2).
-- **The outside reviewer was stopped by the owner before answering C17 (what is broken), C18 (the restore carry's
-  diff) and C19 (its watch of 0604g)**; it had read their sources. Re-post them first tomorrow
+- **The outside reviewer was stopped by the owner before answering C17 (what is broken) and C18 (the restore carry's
+  diff)**; it had read their sources. Its C19 watch of 0604g came as a summary to the owner, not a file: one blonde
+  woman across 898 and through the turn (948-955) and bow (969-1009); hair short at her shoulders throughout (a slight
+  narrowing on the left at 759-765 where the lead passes behind her); her eyes do NOT close where the reference draws
+  them shut on 938-953 and 968-972 (she opens them wide turning to the camera on 947-953) and only lower once she bows
+  over the bowl on 973-1009. The shut-eye lines at 87 px did not carry where she faces the camera. Re-post them first tomorrow
   (`internal/gemini/2026-10-15_requests.md`, at the end); its C13, C14 and C16 answers are in.
 - **Kept on playback on 2026-10-15:** the lead's 2823b, 0630d, 0805d, 2625, 751c; the second subject's 5461c, 5114d,
   1010j; the hall shot 1419-1465 made whole (lead_fp_1419d, third_fp_1419d).
