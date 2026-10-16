@@ -17,6 +17,15 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-16
 
+- **`face_kitchen` is not laid; the lead's own whole-shot kitchen load fills her gaps** (the owner, in the lead's
+  terminal: "agree do it"). The per-frame gap check (`bench/frame_coverage.py`, mrgan) found that none of the 242
+  frames where a tracked person shows as the original inside a shot with a piece of hers is covered by any render the
+  rule lets stand; the only ones covering them are 10-10 renders with no build record (the owner's rule of 10-13: a
+  piece whose making cannot be said is rendered again). The owner had kept `face_kitchen` (604-1050) on 10-11; it
+  stays unlaid. The lead's load over the kitchen is made next, by the recipe of "A shot, made whole", on the source
+  (one hole a pass is not built; every kept kitchen piece of hers was made this way). What it replaces: the
+  handover's item 11, which waited on the gate branch and one hole a pass.
+
 - **Trust before renders: one list of what is laid, then one joined clip of the whole video from it** (the owner, in
   the lead's terminal at the day's start: "I want trust that what Im reviewing is being recorded and what im watching
   is the same thing you are" ... "And then just produce a joined clip end to end of what we have as far as we have it,
