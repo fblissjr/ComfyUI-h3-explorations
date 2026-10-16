@@ -1325,6 +1325,11 @@ def read_history(entry: dict) -> dict:
     server says it took, every file it saved under the output folder, and what each text preview said."""
     status = entry.get("status", {})
     out = {"status": status.get("status_str"), "files": [], "said": {}}
+    # WHICH NODES THE SERVER SERVED FROM ITS CACHE (the owner, 2026-10-16: "that needs to be solved tonight"): the
+    # server's own `execution_cached` message, kept as it said it; None where the history holds no such message, so
+    # "none cached" is never read off a run that did not say
+    cached = [detail.get("nodes") for kind, detail in status.get("messages", []) if kind == "execution_cached"]
+    out["cached_nodes"] = sorted({str(n) for nodes in cached for n in (nodes or [])}, key=lambda n: (len(n), n)) if cached else None
     times = [detail.get("timestamp") for kind, detail in status.get("messages", [])
              if kind in ("execution_start", "execution_success", "execution_error", "execution_interrupted")]
     if len(times) > 1 and all(isinstance(t, (int, float)) for t in times):
@@ -1377,6 +1382,13 @@ def collect(folder: Path, stage: str, *, host: str, load: str = "") -> int:
         raise Refused(f"the server's history does not hold {record['prompt_id']}: the run has not finished, or the "
                       f"server was restarted since and no longer remembers it")
     record |= read_history(history[record["prompt_id"]])
+    graph_file = folder / f"{stem_of(stage, load)}.json"
+    if record["cached_nodes"] and graph_file.is_file():
+        graph = json.loads(graph_file.read_text())
+        record["cached_classes"] = {n: graph.get(n, {}).get("class_type", "?") for n in record["cached_nodes"]}
+    print("served from the server's cache: " + ("not reported by the server" if record["cached_nodes"] is None else
+          f"{len(record['cached_nodes'])} node(s)" + (": " + ", ".join(f"{n} {c}" for n, c in record.get("cached_classes", {}).items())
+                                                     if record.get("cached_classes") else "")))
     built = json.loads((folder / f"{stem_of(stage, load)}.built.json").read_text())
     if stage == "preview" and not built.get("expects") and (folder / "job.json").is_file():
         # a preview built before its record listed what must be on disk: the job file says the same thing,

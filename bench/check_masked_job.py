@@ -1353,7 +1353,13 @@ def the_gate_before_a_render():
                               "text": ["said by seven"]},
                         "3": {"images": [{"filename": "a.png", "subfolder": "", "type": "output"}]}}})
         assert read == {"status": "success", "seconds": 62, "files": ["Video/check/check/b_mesh_00001.mp4", "a.png"],
-                        "said": {"7": ["said by seven"]}}, read
+                        "said": {"7": ["said by seven"]}, "cached_nodes": None}, read
+        # THE CASE THAT GOES RED when the record drops the server's list of nodes served from its cache (2026-10-16)
+        hit = tool.read_history({"status": {"status_str": "success", "messages": [
+            ["execution_start", {"timestamp": 1000}], ["execution_cached", {"nodes": ["12", "3", "40"], "timestamp": 1001}]]}, "outputs": {}})
+        assert hit["cached_nodes"] == ["3", "12", "40"], hit
+        none = tool.read_history({"status": {"status_str": "success", "messages": [["execution_cached", {"nodes": []}]]}, "outputs": {}})
+        assert none["cached_nodes"] == [], none
         failed = tool.read_history({"status": {"status_str": "error", "messages": [
             ["execution_error", {"node_type": "X", "exception_type": "E", "exception_message": "why"}]]}, "outputs": {}})
         assert failed["status"] == "error" and failed["error"]["exception_message"] == "why" and failed["files"] == [], failed
