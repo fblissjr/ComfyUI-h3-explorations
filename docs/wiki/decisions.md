@@ -15,6 +15,23 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-10-16
+
+- **Trust before renders: one list of what is laid, then one joined clip of the whole video from it** (the owner, in
+  the lead's terminal at the day's start: "I want trust that what Im reviewing is being recorded and what im watching
+  is the same thing you are" ... "And then just produce a joined clip end to end of what we have as far as we have it,
+  from the provenance ledger. And I review that."). No render until it is done. In order: `data/fun/laid.jsonl` the
+  only thing the table reads for what is laid (span, subject, load, the file's sha256, who chose it and why), seeded
+  from the table of 2026-10-16T0043Z and every line not backed by the owner's keep marked unconfirmed; the review
+  page records the sha256 of the clip each answer was given on; a per-frame gap check (where a tracked person shows as
+  the original, where two renders of one person meet) feeding the ledger; a check of every laid piece's reference as
+  rendered against the file now; then the end-to-end joined clip, and the owner's review of it is the baseline, on one
+  review page (the owner: "one review page not 10 different versions"). Two sessions: the lead builds 1, 2, 4 and 5; a
+  second session builds the gap check (its brief: `internal/claude/2026-10-16_brief_frame_coverage.md`). What
+  it replaces: the handover's "Tomorrow, in order" items 5-12 (the gate, gaze, restore carry, hold form and the rest
+  wait), and the four places the cut was decided (the owner's keeps, `prefers.txt`, two lines typed into
+  `rebuild.sh`, the newest table by file time).
+
 ## 2026-10-15
 
 - **What lands, and what is undone** (the owner, 2026-10-16 ~00:30Z: "if we are breaking shit undo breaking shit" ...
