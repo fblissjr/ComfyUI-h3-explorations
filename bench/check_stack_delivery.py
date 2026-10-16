@@ -63,6 +63,22 @@ From the second blind read of 2026-10-16 (`review2_stack_view.md`):
 18. **No stack without its sidecar**: a sidecar that fails to write is a hard failure naming the stack, and nothing says
     "written" first. The stack's own sidecar is read back (`sidecar.read`): the roles it names and the stack's bytes.
 
+From the owner's go of 2026-10-16 (the squares kept as the original), on a region file written by the node's own
+`video_mask.save_window_region` and a track handed as the load's "the subject's mask":
+
+19. **A square kept inside her track** is bright yellow in the WHAT H3 SAW panel, with its chip; a square the node
+    regenerated is bare.
+20. **A square kept outside her track** is a quiet shade, with no chip.
+21. **A render with no region files** says so in its label strip.
+
+From the owner's review page of 2026-10-16 (Chrome failed on level 6.0 views), with the level's macroblock limit lowered
+for the fixture:
+
+22. **Every chip said, within level 5.1**: the view stays within the limit, the busiest frame's chips that legend 2 cannot
+    hold are in the right column below the blocks, every chip of every frame is in one or the other, and the file is
+    tagged level 5.1.
+23. **A layout over the level is refused** before anything is encoded, naming the sizes.
+
 What these cases cannot see: the legends and labels are read from the drawing code's own records (`legend_1`,
 `legend_2`, `chips_drawn`, `label_lines`, `label_boxes`), not from their pixels; a mark over 60 levels on under 0.4% of
 a row, or within the 5x5 band round the changed edge, passes "nothing drawn on the picture"; the first fixture scans
@@ -514,16 +530,16 @@ class Big:
         self.coverage.write_text(json.dumps({"runs": runs}))
         self.out = self.root / "stacked.mp4"
 
-    def build(self, **more) -> None:
+    def build(self, more_inputs: list | None = None, **more) -> None:
         import what_h3_got
         given = dict(source=str(self.source), table=str(self.table), joined=str(self.clip), out=str(self.out), work=str(self.root / "work"),
                      tag="", alias=[], copy_rate=24.0, only=None, first=0, data=str(self.data), coverage=str(self.coverage))
         given.update(more)
-        # what pa's load was given: a reference with no points record, so it has no head crop
+        # what pa's load was given: a reference with no points record, so it has no head crop (and, where a case hands them, more inputs)
         held = what_h3_got.read
         what_h3_got.read = lambda folder, load, stage, output=None: {"inputs": [
             {"tag": "<Video 1>", "role": "the reference", "file": str(self.a), "record": {"its_first_frame_is_source_frame": 0},
-             "loader": {"custom": [W, H]}, "reference_frames": 11}]}
+             "loader": {"custom": [W, H]}, "reference_frames": 11}] + list(more_inputs or [])}
         try:
             sd.build(argparse.Namespace(**given))
         finally:
@@ -882,6 +898,154 @@ def no_stack_without_its_sidecar() -> str:
     return f"refused: {words[:120]}..."
 
 
+# ---------------------------------------------------------------- the squares kept as the original (the owner's go, 2026-10-16)
+
+TRACK_BOX = (64, 48, 160, 144)      # x0, y0, x1, y1 of pa's subject's mask and of her track, on the 256x192 canvas
+MARGIN = 32                         # the margin the region file says the node grew her mask by
+INSIDE_UNIT, OUTSIDE_UNIT = (2, 3), (0, 1)    # token (row, column) the fixture takes out of the grown region: in her track, and outside it
+UNIT = 32                           # a whole token's side on the 256x192 canvas: two 16-px cells
+
+
+def the_squares_build() -> tuple[Big, Path]:
+    """The big fixture with a region file for pa, written by the node's own `video_mask.save_window_region`: her mask is TRACK_BOX,
+    grown by MARGIN, and two of the grown region's tokens are kept as the original (taken out of `tokens`), one inside her track
+    and one outside it; and her track (`track__x.mkv`, TRACK_BOX on every frame), handed as the load's "the subject's mask". pb
+    has no region files."""
+    import capture_masked_run as capm
+    import torch
+    b = built_big()
+    out = b.root / "squares.mp4"
+    if out.is_file():
+        return b, out
+    vm = capm._pack("video_mask")
+    lt = 3
+    frames = sum(vm.run_lengths(lt))
+    mask = torch.zeros(frames, H, W)
+    x0, y0, x1, y1 = TRACK_BOX
+    mask[:, y0:y1, x0:x1] = 1.0
+    tokens = vm.token_mask(vm.grow(mask, MARGIN), lt, H // 16, W // 16, True)
+    for r, c in (INSIDE_UNIT, OUTSIDE_UNIT):
+        tokens[:, 2 * r:2 * r + 2, 2 * c:2 * c + 2] = 0.0
+    windows = b.root / "pa_windows"
+    windows.mkdir(exist_ok=True)
+    vm.save_window_region(str(windows / "pa_window_1_region.npz"), mask, tokens, {"edge": vm.EDGE_TOKENS, "composite": "whole region"},
+                          MARGIN, 0, 0)
+    track = b.root / "capture" / "subjects" / "a" / "track__x.mkv"
+    track.parent.mkdir(parents=True, exist_ok=True)
+    ffmpeg("-f", "lavfi", "-i", f"color=c=black:s={W}x{H}:r=24", "-frames:v", str(FRAMES),
+           "-vf", f"drawbox=x={x0}:y={y0}:w={x1 - x0}:h={y1 - y0}:color=white:t=fill", "-c:v", "libx264", "-qp", "0", "-pix_fmt", "yuv420p", str(track))
+    try:
+        b.build(out=str(out), coverage="", more_inputs=[{"role": "the subject's mask", "file": str(track), "loader": {"first_frame": 0, "custom": [W, H]}}])
+    finally:
+        import shutil
+        shutil.rmtree(windows, ignore_errors=True)
+    return b, out
+
+
+def squares_on_frame_4() -> tuple[dict, dict]:
+    """pa's column on source frame 4 of the squares build: its record, and the mean colour of three tokens of its tile (the one kept
+    inside her track, the one kept outside it, and one the node regenerated)."""
+    b, out = the_squares_build()
+    recs, head = frames_of(out), head_of(out)
+    l1, l2 = legends_of(head)
+    total_w = sd.probe(str(out))[0]
+    frame = np.frombuffer(raw(out, "rgb24", total_w, 3 * BH + l1 + l2)[4], np.uint8).reshape(3 * BH + l1 + l2, total_w, 3).astype(float)
+    x, y, w, h = head["right_tiles"][head["columns"].index("a")]["mask"]
+    k = w / W
+
+    def unit(rc):                                                  # the middle half of one token of the canvas, in the tile
+        r, c = rc
+        return frame[round(y + (r + 0.25) * UNIT * k):round(y + (r + 0.75) * UNIT * k),
+                     round(BW + x + (c + 0.25) * UNIT * k):round(BW + x + (c + 0.75) * UNIT * k)].reshape(-1, 3).mean(axis=0)
+    return recs[4]["columns"]["a"], {"inside": unit(INSIDE_UNIT), "outside": unit(OUTSIDE_UNIT), "bare": unit((4, 6))}
+
+
+def a_square_kept_inside_her_track() -> str:
+    """The owner's go of 2026-10-16: each WHAT H3 SAW panel shows the squares the node kept as the original, from the render's own
+    region files: the grown region's tokens (`token_mask(grow(mask, margin))`) less the region it regenerated (`tokens`). One
+    inside the subject's own track (more than `OWN_TRACK_CELL_SHARE` hers) is bright yellow, with a chip in the label strip."""
+    col, at = squares_on_frame_4()
+    inside, bare = at["inside"], at["bare"]
+    assert inside[0] > 180 and inside[1] > 160 and inside[2] < 110, f"the square kept inside her track is not bright yellow: {inside.round()}"
+    assert abs(bare - MASK(2)).max() < NEAR, f"a square the node regenerated is drawn over: {bare.round()} (made {MASK(2)})"
+    assert "1 square kept as the original inside a's outline" in col["label_lines"], col["label_lines"]
+    assert col["kept_squares"]["inside"] == 1, col["kept_squares"]
+    return f"inside {inside.round().tolist()}, yellow, chip {col['label_lines'][-1]!r}; a regenerated square bare {bare.round().tolist()}"
+
+
+def a_square_kept_outside_her_track() -> str:
+    """A square kept as the original outside her track (a fair trim on a neighbour or a prop) is a quiet shade, with no chip."""
+    col, at = squares_on_frame_4()
+    outside, bare = at["outside"], at["bare"]
+    assert outside[2] - outside[0] > 8 and abs(outside - bare).max() > 15 and outside[0] < 150, \
+        f"the square kept outside is not the quiet shade: {outside.round()} beside the bare {bare.round()}"
+    assert not any("outside" in line for line in col["label_lines"]), col["label_lines"]
+    assert col["kept_squares"]["outside"] == 1, col["kept_squares"]
+    return f"outside {outside.round().tolist()}, quiet, no chip"
+
+
+def a_render_with_no_region_files_said() -> str:
+    """pb has no region files: its label strip says so, never a silent blank."""
+    b, out = the_squares_build()
+    said = " ".join(frames_of(out)[9]["columns"]["b"]["label_lines"])          # the strip's lines, as wrapped
+    assert "squares kept as the original not shown: no window region files beside the render" in said, said
+    return f"pb: {said[said.index('squares kept'):]!r}"
+
+
+# ---------------------------------------------------------------- a view every player plays: H.264 level 5.1 (the owner's review page, 2026-10-16)
+
+STACK_W = BW + W                    # the big fixture's view is the source's width and the canvas's column: 544, 34 macroblocks across
+
+
+def with_level_limit(macroblocks: int, fn):
+    """`fn()` with the level's macroblock limit lowered to `macroblocks` (the fixture is far smaller than 3840 rows), then put back."""
+    held = getattr(sd, "LEVEL_MACROBLOCKS", None)
+    sd.LEVEL_MACROBLOCKS = macroblocks
+    try:
+        return fn()
+    finally:
+        if held is None:
+            del sd.LEVEL_MACROBLOCKS
+        else:
+            sd.LEVEL_MACROBLOCKS = held
+
+
+def every_chip_said_within_the_level() -> str:
+    """The owner's review page crashed Chrome on 2448x4172 views (level 6.0): legend 2 grew to the busiest of 6395 frames. Every
+    view stays within level 5.1's macroblocks, and the chips that do not fit legend 2 go to the right column below what H3 saw,
+    each said on its own frame. Here the limit is lowered to 52 macroblock rows (832 px at 544 wide): the busiest frame (LONG
+    chips on 10) overflows, every chip of every frame is said in legend 2 or the right column, and the file is tagged level 5.1."""
+    b = built_big()
+    out = b.root / "level.mp4"
+    with_level_limit(34 * 52, lambda: b.build(out=str(out)))
+    w_, h_, _ = sd.probe(str(out))
+    assert w_ == STACK_W and h_ <= 52 * 16, f"the view is {w_} by {h_}: over the {52 * 16} rows the lowered level allows"
+    recs, head = frames_of(out), head_of(out)
+    for f, r in recs.items():
+        said = [c["words"] for c in r["chips_drawn"]] + [c["words"] for c in r.get("chips_overflow") or []]
+        assert sorted(said) == sorted(r["chips"]), (f, said, r["chips"])
+    over = recs[10].get("chips_overflow") or []
+    assert over, "frame 10's chips all fit legend 2: the fixture does not overflow"
+    blocks_end = max(t["block"][1] + t["block"][3] for t in head["right_tiles"])
+    for c in over:
+        x0, y0, x1, y1 = c["box"]
+        assert 0 <= x0 and x1 <= head["right_column"] and blocks_end <= y0 and y1 <= h_, (c, blocks_end, head["right_column"], h_)
+    level = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=level", "-of", "csv=p=0", str(out)],
+                           capture_output=True, text=True).stdout.strip()
+    assert level == "51", f"the view is tagged level {level}, not 5.1"
+    return f"{w_} by {h_} within {52 * 16}; frame 10: {len(recs[10]['chips_drawn'])} chips in legend 2, {len(over)} in the right column; level {level}"
+
+
+def a_layout_over_the_level_refused() -> str:
+    """A layout that cannot fit level 5.1 (here the limit lowered below the three picture rows) is refused before anything is
+    encoded, naming the sizes; never an unplayable file."""
+    b = built_big()
+    out = b.root / "never_level.mp4"
+    said = refused(lambda: with_level_limit(34 * 40, lambda: b.build(out=str(out))), "level 5.1", str(STACK_W))
+    assert not out.exists() and not (b.root / "work" / "never_level.video.mp4").exists()
+    return f"refused: {said[:150]}..."
+
+
 def a_table_that_lays_nothing() -> str:
     m = made()
     empty = m.root / "empty.txt"
@@ -918,6 +1082,11 @@ case("each piece at its own canvas", each_piece_at_its_own_canvas)
 case("a refused reference is said", a_refused_reference_said)
 case("the one-a-second parts beside the stack only when it is whole", one_a_second_beside_the_stack_only_when_whole)
 case("no stack without its sidecar", no_stack_without_its_sidecar)
+case("a square kept inside her track: yellow, with its chip", a_square_kept_inside_her_track)
+case("a square kept outside her track: quiet, no chip", a_square_kept_outside_her_track)
+case("a render with no region files is said", a_render_with_no_region_files_said)
+case("every chip said, within H.264 level 5.1", every_chip_said_within_the_level)
+case("a layout over level 5.1 is refused", a_layout_over_the_level_refused)
 
 if __name__ == "__main__":
     code = finish()

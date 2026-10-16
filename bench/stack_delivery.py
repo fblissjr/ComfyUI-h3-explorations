@@ -25,8 +25,8 @@ file the owner, the sessions and the outside reviewer all watch). Top to bottom 
     WHAT WAS CHANGED   the source dimmed, and the clip at full strength wherever the assembler's own test calls it changed
                        (`assemble_delivery.changed` on both frames read as yuv420p: one test, one copy), its edge white; each
                        zoomed piece's box (`assemble_delivery.box_at_the_source`) as a 1 px outline in its subject's colour
-    legend 2           the chips, wrapped to as many lines as the clip's busiest frame needs (the height is one for the whole
-                       clip): the per-frame gap check's runs (`bench/frame_coverage.py`, `--coverage`), every kind it writes in
+    legend 2           the chips, wrapped to as many lines as the clip's busiest frame needs, up to what H.264 level 5.1
+                       leaves (the height is one for the whole clip; a frame's chips past it go to the right column, below): the per-frame gap check's runs (`bench/frame_coverage.py`, `--coverage`), every kind it writes in
                        `CHIP_WORDS`, and the joined clip's own check flags (`<clip>.check.json`) each with its level ("iffy"):
                        readings of degree, by that check's thresholds, not verdicts. What was not read is said on every
                        frame: "gaps not checked: no --coverage", "check flags not read: <why>"; "no gap or flag on this frame"
@@ -44,6 +44,25 @@ file the owner, the sessions and the outside reviewer all watch). Top to bottom 
                        is one height for the clip, as tall as the longest label can be. The pictures are scaled by one
                        printed factor only when the blocks do not fit (`right_tiles`). A green border on the head crop: the
                        text encoder's frame.
+                       THE SQUARES KEPT AS THE ORIGINAL (the owner's go, 2026-10-16), on the mask picture only: from the
+                       render's own region files (`<render stem>_windows/*_region.npz`, read by the node's own
+                       `video_mask.load_window_region`), the units of the grown region the node did not regenerate,
+                       `token_mask(grow(mask, margin)) & ~tokens` with the node's own helpers, in the window that lays the
+                       frame (`KeptSquares`). Split by the subject's own track as the load was handed it: a unit more than
+                       `capture_masked_run.OWN_TRACK_CELL_SHARE` hers is filled bright yellow and counted in a chip ("N squares
+                       kept as the original inside <subject>'s outline"); one outside her track gets a quiet wash and no chip
+                       (`KEPT_INSIDE`, `KEPT_OUTSIDE`: fills, never a line). Where two windows lay one frame both counts are
+                       said; a render with no region files, a file that does not read, or a track not read is said in the
+                       label strip, never left blank.
+
+**Within H.264 level 5.1** (`LEVEL`, `LEVEL_MACROBLOCKS`, `LEVEL_SIDE`, `most_height`: 3840 rows at 2448 wide), which every
+browser plays (the owner's review page crashed Chrome on 2448x4172 views, level 6.0, 2026-10-16). The picture rows stay at the
+source's size and legend 1 is whole, its words as short as they allow and its lines tight; legend 2 takes the rows left. A
+frame whose chips legend 2 cannot hold keeps what fits, says "N more on this frame: in the right column, below what H3 saw",
+and lays the rest there, under the blocks, headed by its frame number (`chips_overflow` in its record): never cropped or
+dropped. The blocks are scaled down to make that room when they must. A layout that cannot fit (the rows and legend 1 alone
+over the level, or the blocks and the overflow over the right column) is refused before anything is encoded, naming the
+sizes. The file is encoded with `-level 5.1`.
 
 **What is drawn where.** On the three left rows nothing but, on the middle row, the white edge of the changed region
 and the zoom outlines: 1 px, in the subject's colour, and never over the picture's outer 10 rows or columns (`EDGE_CLEAR`, where the loader's crop cuts and the assembler
@@ -55,7 +74,8 @@ records whole, with each chip's drawn box.
 **Its records**: `<stem>.stack.json` beside the video (the columns, where each tile lies, what each piece was given,
 each piece's canvas, the zooms by piece file and the zoom records that did not read with why, the days and where each
 came from, the check's flags or why they were not read, whether the gaps were checked, the frames stacked and the
-source frame the clip begins on, both legends' heights; everything keyed by a piece is keyed by its FILE) and `<stem>.stack.frames.jsonl`, a line a source frame: what each column
+source frame the clip begins on, both legends' heights, which region files and which track each piece's kept squares
+were read from or why not; everything keyed by a piece is keyed by its FILE) and `<stem>.stack.frames.jsonl`, a line a source frame: what each column
 showed and its label, the legend's words, the chips as drawn, the changed pixels, every word. `<out>.json` is the
 video's own sidecar (`bench/sidecar.py`). The file's metadata names the stack's record with the source's size, the
 canvas, both legends' heights and the right column's width, which `check` reads back. The sidecar is written before
@@ -125,6 +145,21 @@ COLOURS = ((255, 120, 90), (90, 200, 255), (150, 230, 110), (240, 200, 70))
 CHIP_WORDS = {"original_while_tracked": "ORIGINAL WHILE TRACKED", "emptied_inside": "EMPTIED", "seam": "SEAM",
               "original_her_track_empty": "TRACK EMPTY", "carried_not_known": "MASK NOT KNOWN",
               "original_tracking_not_known": "TRACKING NOT KNOWN", "left_out_by_a_look": "LEFT OUT BY A LOOK"}
+#: THE MOST A VIEW'S FRAME MAY BE: H.264 level 5.1, which every browser's decoder plays (the owner's review page crashed Chrome,
+#: "Aw Snap", error code 5, on the whole-video views of 2026-10-16: 2448x4172, level 6.0, because legend 2 grew to the busiest of
+#: 6395 frames; every view at or under 3724 tall, level 5.1, played). Inherited from the standard's level table: 36864 macroblocks a
+#: frame, and no side over 4096 px (the decoders' own limit, which the lead set with it). A layout over it is refused before encoding.
+LEVEL = "5.1"
+LEVEL_MACROBLOCKS = 36864
+LEVEL_SIDE = 4096
+
+
+def most_height(width: int) -> int:
+    """The tallest even frame within `LEVEL_MACROBLOCKS` and `LEVEL_SIDE` at `width` (3840 at 2448). Read at call time, so a
+    check can lower the limit."""
+    return min(LEVEL_SIDE, LEVEL_MACROBLOCKS // -(-int(width) // 16) * 16) // 2 * 2
+
+
 #: Source pixels at each side of the picture no outline is drawn over. Reasoned: the loader's crop cut 6 rows top and bottom
 #: of this video (1424x1080 at 1024x768) and the assembler carries the laid edge 8 rows past it (`assemble_delivery.CARRY_FULL_PX`);
 #: a fault in those rows (2823b's bottom, 2026-10-15) must be seen bare.
@@ -319,6 +354,155 @@ def right_tiles(w: int, h: int, n: int, total_h: int, label_px: int = 34) -> tup
         out.append({"block": [0, y, w, bh], "label": [8, y + 4, w - 16, label_px - 8], "mask": [(w - mw) // 2, y + label_px, mw, mh],
                     "head": [8, ry, hs, hs], "whole": [hs + 16, ry, ww, round(ww * h / w)]})
     return sc, out
+
+
+#: The colours of the squares kept as the original in a WHAT H3 SAW panel: (colour, its weight over the picture). Inside the
+#: subject's own track bright yellow, over most of the square; outside it a quiet blue-grey wash. Reasoned: the first must not
+#: be missed and the second must not be read as a fault. Fills only, never a line.
+KEPT_INSIDE = ((255, 230, 0), 0.65)
+KEPT_OUTSIDE = ((30, 40, 70), 0.55)
+
+
+class KeptSquares:
+    """The squares a render's node kept as the original, frame by frame, read from the render's own region files.
+
+    Each window's file (`video_mask.save_window_region`, found by `capture_masked_run.window_region_files`) is read by the node's
+    own `video_mask.load_window_region`. Its taken squares are the grown region's units less the region it regenerated:
+    `token_mask(grow(mask, margin)) & ~tokens`, with the node's own `grow` and `token_mask`, in whole tokens or latent cells as its
+    `edge` setting says. They are of the window's picture: the zoomed one for a zoomed window (the panel shows that picture
+    too). A frame of the load is the window's whose video lays it (from its `first_frame` plus `trim` to its end); where two
+    windows lay one frame, both counts are given.
+
+    The split is by the subject's own TRACK, as the load was handed it ("the subject's mask" in what the load was given): read at
+    the loader's size and brought into the window's picture as the node brings a mask (`crop_mask` for a zoomed window,
+    `fit_mask` otherwise). A unit is inside her track when more than `capture_masked_run.OWN_TRACK_CELL_SHARE` of it is hers.
+    `why` is set, and nothing is drawn, when the files are not there or do not read."""
+
+    def __init__(self, row: dict, given: dict | None, given_why: str | None, capm, vm, load_first: int):
+        import torch
+        self.row, self.vm, self.capm, self.load_first = row, vm, capm, int(load_first)
+        self.windows, self.why, self.track, self.track_why, self.reader = [], None, None, None, None
+        files = capm.window_region_files(row["piece"])
+        name = Path(row["piece"]).stem.rsplit("_", 1)[0]
+        if not files:
+            self.why = f"no window region files beside the render ({name}_windows/{name}_window_*_region.npz)"
+            return
+        try:
+            for f in files:
+                got = vm.load_window_region(str(f))
+                mask, tokens = got["mask"], got["tokens"]
+                lt, lh, lw = (int(v) for v in tokens.shape)
+                whole = (got["source"].get("edge") or vm.EDGE_TOKENS) == vm.EDGE_TOKENS
+                grown = vm.token_mask(vm.grow(mask, got["margin"]), lt, lh, lw, whole) > 0.5
+                taken = (grown & ~(tokens > 0.5)).numpy()
+                runs = np.cumsum([0] + vm.run_lengths(lt))
+                self.windows.append({"file": f.name, "start": got["first_frame"], "trim": got["trim"], "count": int(mask.shape[0]),
+                                     "zoom": got.get("zoom"), "picture": (int(mask.shape[1]), int(mask.shape[2])), "cells": (lh, lw),
+                                     "whole": whole, "taken": taken[:, ::2, ::2] if whole else taken, "runs": runs})
+        except Exception as e:                      # a file the node's own reader refuses
+            self.windows, self.why = [], f"a window region file does not read ({type(e).__name__}: {e})"
+            return
+        if given is None:
+            self.track_why = f"what the load was given is not read ({given_why})"
+            return
+        track = next((x for x in given.get("inputs") or [] if x.get("role") == "the subject's mask"), None)
+        if track is None or not track.get("file"):
+            self.track_why = "what the load was given names no \"the subject's mask\""
+            return
+        refused = not_a_plain_video(track["file"])
+        if refused:
+            self.track_why = f"{Path(track['file']).name}: {refused}"
+            return
+        loader = track.get("loader") or {}
+        self.track = (track["file"], int(loader.get("first_frame") or 0), tuple(loader.get("custom") or row["canvas"]))
+        self.torch = torch
+
+    def _share(self, wd: dict, n: int):
+        """Each unit's share of the subject's track on load frame `n`, in window `wd`'s picture, or None where the track does not read."""
+        file, first, (cw, ch) = self.track
+        at = first + n
+        if self.reader is None:
+            self.reader = Reader(file, at, FIT.format(w=cw, h=ch), cw, ch, "gray")
+        got = self.reader.frame(at)
+        if got is None:
+            return None
+        F_ = self.torch.nn.functional
+        t = self.torch.from_numpy((got > 127).astype(np.float32))[None]
+        h, w = wd["picture"]
+        if wd["zoom"]:
+            t = self.vm.crop_mask(t, wd["zoom"]["box"], int(wd["zoom"]["canvas"][0]), int(wd["zoom"]["canvas"][1]))
+        elif tuple(t.shape[1:]) != (h, w):
+            t = self.vm.fit_mask(t, w, h)
+        share = F_.adaptive_avg_pool2d(t[None], wd["cells"])[0]
+        if wd["whole"]:
+            share = F_.avg_pool2d(F_.pad(share[None], (0, wd["cells"][1] % 2, 0, wd["cells"][0] % 2), mode="replicate")[0], 2)
+        return share[0].numpy()
+
+    def on(self, f: int) -> dict:
+        """What frame `f` shows: {"windows": {file: {"inside", "outside"}}, "draw": (window, inside units, outside units) or None,
+        "not_split": why or None} or {"not_read": why}."""
+        if self.why:
+            return {"not_read": self.why}
+        n = f - self.load_first
+        laid = [wd for wd in self.windows if wd["start"] + wd["trim"] <= n < wd["start"] + wd["count"]]
+        if not laid:
+            return {"not_read": f"no window region file lays load frame {n} (source frame {f})"}
+        out, draw = {"windows": {}, "not_split": self.track_why}, None
+        for wd in laid:
+            k = n - wd["start"]
+            step = int(np.searchsorted(wd["runs"], k, side="right")) - 1
+            taken = wd["taken"][step]
+            share = self._share(wd, n) if self.track else None
+            if self.track and share is None:
+                out["not_split"] = f"its track {Path(self.track[0]).name} has no frame {self.track[1] + n}"
+            inside = taken & (share > _own_share(self.capm)) if share is not None else np.zeros_like(taken)
+            outside = taken & ~inside
+            out["windows"][wd["file"]] = {"inside": int(inside.sum()), "outside": int(outside.sum()), "taken": int(taken.sum())}
+            if draw is None:
+                draw = (wd, inside, outside)
+        out["draw"] = draw
+        return out
+
+    def paint(self, img: np.ndarray, draw) -> np.ndarray:
+        """The picture with the squares filled (no line anywhere): inside the track `KEPT_INSIDE`, outside it `KEPT_OUTSIDE`. The
+        units are the window's grid laid over the panel's picture, which shows the window's picture at its own size."""
+        wd, inside, outside = draw
+        out = img.astype(np.float32)
+        ph, pw = out.shape[:2]
+        lh, lw = wd["cells"]
+        span = 2 if wd["whole"] else 1
+        for units, (colour, weight) in ((outside, KEPT_OUTSIDE), (inside, KEPT_INSIDE)):
+            for r, c in zip(*np.nonzero(units)):
+                y0, y1 = round(r * span * ph / lh), round(min((r + 1) * span, lh) * ph / lh)
+                x0, x1 = round(c * span * pw / lw), round(min((c + 1) * span, lw) * pw / lw)
+                out[y0:y1, x0:x1] = out[y0:y1, x0:x1] * (1 - weight) + np.array(colour, np.float32) * weight
+        return out.clip(0, 255).astype(np.uint8)
+
+    def close(self) -> None:
+        if self.reader is not None:
+            self.reader.close()
+
+
+def _own_share(capm) -> float:
+    """The capture's own threshold for a unit counted as the subject's (`capture_masked_run.OWN_TRACK_CELL_SHARE`), imported."""
+    return float(capm.OWN_TRACK_CELL_SHARE)
+
+
+def squares_words(who: str, kept: dict) -> list[tuple[str, tuple]]:
+    """The label strip's lines for the squares kept as the original on a frame: the count inside her outline (a chip, yellow) where
+    there are any; both counts where two windows lay the frame; the count unsplit where her track is not read; and why nothing is
+    shown where the region files are not there or do not read. Nothing for squares kept outside her track alone."""
+    if "not_read" in kept:
+        return [(f"squares kept as the original not shown: {kept['not_read']}", (200, 200, 200))]
+    counts = kept["windows"]
+    if kept.get("not_split"):
+        n = sum(v["taken"] for v in counts.values())
+        return [(f"{n} square{'s' if n != 1 else ''} kept as the original, not split: {kept['not_split']}", (230, 180, 60))] if n else []
+    if len(counts) > 1:
+        return [(f"{len(counts)} windows lay this frame: " + "; ".join(f"{name}: {v['inside']} kept inside {who}'s outline, {v['outside']} outside"
+                                                                     for name, v in counts.items()), KEPT_INSIDE[0])]
+    n = next(iter(counts.values()))["inside"]
+    return [(f"{n} square{'s' if n != 1 else ''} kept as the original inside {who}'s outline", KEPT_INSIDE[0])] if n else []
 
 
 def job_folders(data: Path) -> dict[str, tuple[Path, str, str | None]]:
@@ -520,9 +704,7 @@ def build(a: argparse.Namespace) -> None:
     gaps_checked = bool(getattr(a, "coverage", ""))
     if not gaps_checked:
         print("gaps not checked: no --coverage; the legend says so on every frame", flush=True)
-    capm = None
-    if any(g for g in given.values()):
-        import capture_masked_run as capm                      # the strip's own head crop, one rule for both clips
+    import capture_masked_run as capm                          # the strip's own head crop and the node's region files, one rule each
     heads, sampled = {}, {}
     for file, g in given.items():
         v = next((x for x in g["inputs"] if x.get("tag") == "<Video 1>"), None)
@@ -611,21 +793,21 @@ def build(a: argparse.Namespace) -> None:
         one = [{"text": "ABOVE: ORIGINAL", "colour": WHITE, "boxed": False}, {"text": f"frame {f:05d}", "colour": WHITE, "boxed": False}]
         one += [{"text": who_words[who], "colour": colour_of[who] if who in laid else GREY, "boxed": False} for who in cols]
         one += [{"text": t, "colour": GREY, "boxed": False} for t in purpose]
-        one.append({"text": "BELOW: WHAT WAS CHANGED, the cut where the assembler's test calls it changed from the source, edged white",
-                    "colour": (230, 230, 230), "boxed": False, "break": True})
+        # legend 1's words as short as they allow: the view's height is held to level 5.1 (`most_height`)
+        one.append({"text": "BELOW: WHAT WAS CHANGED (the assembler's test), edged white", "colour": (230, 230, 230), "boxed": False, "break": True})
         for c, crop in crop_for.items():
             if (crop[0], crop[1]) != (sw, sh):
-                one.append({"text": "the loader's crop" + (f" for {c[0]} by {c[1]}" if len(crop_for) > 1 else "")
-                            + f": x {crop[2]}-{crop[2] + crop[0] - 1}, y {crop[3]}-{crop[3] + crop[1] - 1} of {sw} by {sh}", "colour": GREY, "boxed": False})
+                one.append({"text": "loader's crop" + (f" for {c[0]}x{c[1]}" if len(crop_for) > 1 else "")
+                            + f": x {crop[2]}-{crop[2] + crop[0] - 1}, y {crop[3]}-{crop[3] + crop[1] - 1}", "colour": GREY, "boxed": False})
         for who, r in laid.items():
             z = zooms.get(Path(r["piece"]).name)
             if z:
                 b = z["box"]
-                one.append({"text": f"{r['name']}" + (f" zoomed {z['zoom']:.2f}x" if z["zoom"] else " zoomed") + f", outlined at x {b[0]}-{b[2] - 1}, "
+                one.append({"text": f"{r['name']}" + (f" {z['zoom']:.2f}x zoom" if z["zoom"] else " zoom") + f": x {b[0]}-{b[2] - 1}, "
                             f"y {b[1]}-{b[3] - 1}", "colour": colour_of.get(who, WHITE), "boxed": False})
         lost = lost_on(f)
         if lost:
-            one.append({"text": f"RED BANDS: {', '.join(lost)} shown as the original while tracked", "colour": RED, "boxed": False})
+            one.append({"text": f"RED BANDS: {', '.join(lost)} original while tracked", "colour": RED, "boxed": False})
         live = [fl for fl in flags if any(x <= f <= y for x, y in fl["source_frames"])]
         two = [{"text": f"{who}: {t}", "colour": colour_of.get(who, WHITE), "boxed": True, "chip": True} for who, t in chips_at.get(f, [])]
         two += [{"text": f"{fl['id']} {fl['rule']} ({fl.get('level') or 'level not recorded'})", "colour": (255, 150, 60), "boxed": True, "chip": True}
@@ -653,12 +835,48 @@ def build(a: argparse.Namespace) -> None:
         laid_out[f] = (one, two, p1, p2, who_words, live)
         lines1, lines2 = max(lines1, p1[-1]["line"] + 1), max(lines2, p2[-1]["line"] + 1)
     lh = line_height(leg_f)
-    L1 = 2 * ((pad + lines1 * lh + pad + band + 1) // 2)
+    lh1 = round(leg_f.size * 1.35)                                   # legend 1 has no boxes: its lines are as tight as the words
+    L1 = 2 * ((pad + lines1 * lh1 + pad + band + 1) // 2)
+    # WITHIN H.264 LEVEL 5.1 (`most_height`): the picture rows stay at the source's size and legend 1 is whole; legend 2 takes what is
+    # left, and the chips of a frame that do not fit it go to the right column, below what H3 saw, said on their own frame
+    W = sw + w
+    W -= W % 2
+    most = most_height(W)
+    cap = (most - 3 * sh - L1 - band - 2 * pad) // lh                 # legend 2's lines within the level, its last "BELOW: THE CUT"
+    if W > LEVEL_SIDE or cap < 3:
+        raise SystemExit(f"the view would be {W} by at least {3 * sh + L1 + 2 * ((band + 2 * pad + 3 * lh + 1) // 2)} (three rows of {sh}, "
+                         f"legend 1 of {L1}, legend 2 of three lines), over H.264 level {LEVEL}'s {W} by {most} ({LEVEL_MACROBLOCKS} macroblocks, "
+                         f"no side over {LEVEL_SIDE}): a view a browser cannot play is never written; nothing written")
+    overflow_at: dict[int, tuple[list[dict], list[dict]]] = {}
+    over_lines = 0
+    if lines2 > cap:
+        keep = cap - 2                                                # chip lines kept, then the note, then "BELOW: THE CUT"
+        rw_room = w - 16
+        for f, (one, two, p1, p2, who_words, live) in laid_out.items():
+            if p2[-1]["line"] + 1 <= cap:
+                continue
+            chips_ = two[:-1]
+            parts_ = flow(chips_, leg_f, room, max(4, gap // 2))
+            last_line = {}
+            for part in parts_:
+                last_line[part["item"]] = max(last_line.get(part["item"], 0), part["line"])
+            stay = [it for i, it in enumerate(chips_) if last_line[i] < keep]
+            moved = [it for i, it in enumerate(chips_) if last_line[i] >= keep]
+            two_ = stay + [{"text": f"{len(moved)} more on this frame: in the right column, below what H3 saw", "colour": (200, 200, 200),
+                            "boxed": False, "break": True}, two[-1]]
+            items_o = [{"text": f"frame {f:05d}, legend 2 continued:", "colour": WHITE, "boxed": False}] + [{**it, "break": i == 0} for i, it in enumerate(moved)]
+            parts_o = flow(items_o, leg_f, rw_room, max(4, gap // 2))
+            overflow_at[f] = (items_o, parts_o)
+            over_lines = max(over_lines, parts_o[-1]["line"] + 1)
+            laid_out[f] = (one, two_, p1, flow(two_, leg_f, room, max(4, gap // 2)), who_words, live)
+        lines2 = cap
     L2 = 2 * ((band + pad + lines2 * lh + pad + 1) // 2)
     total_h = 3 * sh + L1 + L2
+    overflow_px = 16 + over_lines * lh if over_lines else 0           # the right column's rows under the blocks, for the overflow
+    blocks_h = total_h - overflow_px
 
     def block_items(who: str, row: dict | None, mask_why: str | None, at_: int | None, has_crop: bool, ref_why: str | None,
-                    bars: list[str], sc: float, colour: tuple) -> list[dict]:
+                    bars: list[str], sc: float, colour: tuple, squares: list[tuple[str, tuple]] = ()) -> list[dict]:
         """A block's label as items for `flow`: whose it is, what H3 saw and the reference under it; then each bar of the clip's
         check on its piece (`piece_changes_nothing`), each on a line of its own, in the label strip and never over a picture."""
         if row is None:
@@ -669,7 +887,8 @@ def build(a: argparse.Namespace) -> None:
                  + (f"; under it its reference, frame {at_}" + ("" if has_crop else " (no points: no head crop)") if at_ is not None else
                     f"; its reference: {ref_why}" if ref_why else
                     f"; its reference is NOT OPENED ({row['ref_refused']})" if row.get("ref_refused") else "; no reference wired"))
-        return [{"text": words, "colour": colour, "boxed": False}] + [{"text": t, "colour": WHITE, "boxed": True, "break": True, "bar": True} for t in bars]
+        return ([{"text": words, "colour": colour, "boxed": False}] + [{"text": t, "colour": WHITE, "boxed": True, "break": True, "bar": True} for t in bars]
+                + [{"text": t, "colour": c, "boxed": True, "break": True} for t, c in squares])
 
     def bars_of(row: dict, live: list[dict]) -> list[str]:
         return [f"{fl['id']}: {row['name']} CHANGES 0 PX HERE: THE ORIGINAL SHOWS" for fl in live
@@ -679,16 +898,37 @@ def build(a: argparse.Namespace) -> None:
         """The most lines a block of this row's can need, for the strip's height: the mask picture not read, the longest of its
         reference words, every bar of its piece at once, and the scale shown."""
         bars = bars_of(row, flags)
-        forms = [block_items(who, row, "not read", 99999, False, None, bars, 0.5, WHITE)]
+        kept = kept_of[Path(row["piece"]).name]
+        name_ = kept.windows[0]["file"] if kept.windows else ""
+        worst = [squares_words(who, {"not_read": kept.why or "no window region file lays load frame 99999 (source frame 99999)"}),
+                 squares_words(who, {"windows": {name_: {"inside": 99999, "outside": 99999, "taken": 99999}}, "not_split": None}),
+                 squares_words(who, {"windows": {name_: {"inside": 99999, "outside": 99999, "taken": 99999}},
+                                     "not_split": kept.track_why or f"its track {Path(kept.track[0]).name if kept.track else ''} has no frame 99999"}),
+                 squares_words(who, {"windows": {w_["file"]: {"inside": 99999, "outside": 99999, "taken": 99999} for w_ in kept.windows[:2]} or {"": {}},
+                                     "not_split": None}) if len(kept.windows) > 1 else []]
+        sq = max(worst, key=lambda x: len(x[0][0]) if x else 0)
+        forms = [block_items(who, row, "not read", 99999, False, None, bars, 0.5, WHITE, sq)]
         if row["ref"]:
-            forms.append(block_items(who, row, "not read", None, False, f"not read, {Path(row['ref'][0]).name} has no frame 99999", bars, 0.5, WHITE))
+            forms.append(block_items(who, row, "not read", None, False, f"not read, {Path(row['ref'][0]).name} has no frame 99999", bars, 0.5, WHITE, sq))
         return max(flow(items, lab_f, w - 16, 4)[-1]["line"] + 1 for items in forms)
+    # THE SQUARES KEPT AS THE ORIGINAL, from each render's own region files and its subject's own track (the owner's go, 2026-10-16)
+    vm = capm._pack("video_mask")
+    kept_of = {}
+    for r in rows:
+        file = Path(r["piece"]).name
+        g = given.get(file)
+        src_in = next((x for x in (g or {}).get("inputs") or [] if x.get("role") == "the source"), None)
+        load_first = ((src_in or {}).get("loader") or {}).get("first_frame")
+        kept_of[file] = KeptSquares(r, g, why_unread.get(file), capm, vm, r["graph_first"] if load_first is None else load_first)
+        k_ = kept_of[file]
+        print(f"{file}: squares kept as the original " + (f"not shown: {k_.why}" if k_.why else f"from {len(k_.windows)} window file(s)"
+              + (f", not split: {k_.track_why}" if k_.track_why else f", split by its track {Path(k_.track[0]).name}")), flush=True)
     # THE LABEL STRIP, one height for the whole clip: as many lines as the longest a block's label can be, in a font scaled with
     # the blocks (`sc`); a larger strip scales the blocks down, which shrinks the font, until the strip holds the label
     chip_f = font(20 * sh / 1080 * 768 / h)
     label_px = 34
     for _ in range(8):
-        sc_factor, blocks = right_tiles(w, h, len(cols), total_h, label_px)
+        sc_factor, blocks = right_tiles(w, h, len(cols), blocks_h, label_px)
         lab_f = font_px(round(chip_f.size * sc_factor))
         lines_ = max([worst_items(r["subject"] or r["name"], r, lab_f) for r in rows] + [1])
         need = 8 + lines_ * line_height(lab_f)
@@ -697,27 +937,37 @@ def build(a: argparse.Namespace) -> None:
         label_px = need
     sc = sc_factor
     rw = w                                                           # the right column is the largest canvas's own width
-    W = sw + rw
-    W -= W % 2
+    blocks_end = max((t["block"][1] + t["block"][3] for t in blocks), default=0)
+    if overflow_px and blocks_end > blocks_h:
+        raise SystemExit(f"the right column ({rw} by {total_h}) cannot hold its {len(cols)} block(s) ({blocks_end} rows) and the chips legend 2 "
+                         f"cannot hold ({overflow_px} rows) within H.264 level {LEVEL}; nothing written")
+    if W * total_h > LEVEL_MACROBLOCKS * 256 or max(W, total_h) > LEVEL_SIDE:
+        raise SystemExit(f"the view would be {W} by {total_h}, over H.264 level {LEVEL}; nothing written")
 
-    def legend(items: list[dict], parts: list[dict], height: int, top: int, red: bool, red_at: str) -> tuple[Image.Image, list[dict]]:
+    def lay(d, items: list[dict], parts: list[dict], x0: int, y0: int, step: int) -> list[dict]:
+        """Parts of a legend drawn from (x0, y0), a line every `step` rows; the chips as drawn, each with its box."""
+        bp = box_pad(leg_f)
+        boxes: dict[int, list[int]] = {}
+        bottom = max(2, leg_f.size // 4)
+        for part in parts:
+            it = items[part["item"]]
+            x, y = x0 + part["x"], y0 + part["line"] * step
+            if it["boxed"]:
+                d.rectangle((x, y, x + part["w"], y + step - bottom), fill=(40, 40, 40), outline=it["colour"], width=max(1, bp // 2))
+            d.text((x + (bp if it["boxed"] else 0), y + (bp if it["boxed"] else 0)), part["text"], font=leg_f, fill=it["colour"])
+            if it.get("chip"):
+                b = boxes.setdefault(part["item"], [x, y, x + part["w"], y + step - bottom])
+                b[0], b[1], b[2], b[3] = min(b[0], x), min(b[1], y), max(b[2], x + part["w"]), max(b[3], y + step - bottom)
+        return [{"words": items[i]["text"], "box": b} for i, b in sorted(boxes.items())]
+
+    def legend(items: list[dict], parts: list[dict], height: int, top: int, red: bool, red_at: str, step: int) -> tuple[Image.Image, list[dict]]:
         """A legend strip the left column wide, its parts drawn from `top`, and the chips as drawn (their boxes in the strip)."""
         img = Image.new("RGB", (sw, height), (14, 14, 14))
         d = ImageDraw.Draw(img)
-        bp = box_pad(leg_f)
-        boxes: dict[int, list[int]] = {}
-        for part in parts:
-            it = items[part["item"]]
-            x, y = margin + part["x"], top + part["line"] * lh
-            if it["boxed"]:
-                d.rectangle((x, y, x + part["w"], y + lh - max(2, leg_f.size // 4)), fill=(40, 40, 40), outline=it["colour"], width=max(1, bp // 2))
-            d.text((x + (bp if it["boxed"] else 0), y + bp), part["text"], font=leg_f, fill=it["colour"])
-            if it.get("chip"):
-                b = boxes.setdefault(part["item"], [x, y, x + part["w"], y + lh - max(2, leg_f.size // 4)])
-                b[0], b[1], b[2], b[3] = min(b[0], x), min(b[1], y), max(b[2], x + part["w"]), max(b[3], y + lh - max(2, leg_f.size // 4))
+        drawn = lay(d, items, parts, margin, top, step)
         if red:
             d.rectangle((0, height - band, sw - 1, height - 1) if red_at == "bottom" else (0, 0, sw - 1, band - 1), fill=RED)
-        return img, [{"words": items[i]["text"], "box": b} for i, b in sorted(boxes.items())]
+        return img, drawn
 
     def outline(img: np.ndarray, box: list[int], colour: tuple) -> None:
         """A 1 px outline of a box (x0, y0 inclusive, x1, y1 exclusive), drawn only clear of the picture's outer EDGE_CLEAR rows and columns."""
@@ -740,10 +990,10 @@ def build(a: argparse.Namespace) -> None:
     src, joined = Reader(a.source, first_f, "", sw, sh), Reader(a.joined, first_f - base, "", sw, sh)
     src_yuv, joined_yuv = Reader(a.source, first_f, "", sw, sh, "yuv420p"), Reader(a.joined, first_f - base, "", sw, sh, "yuv420p")
     enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{total_h}", "-r", _rate(a.joined), "-i", "-",
-                            "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", "-preset", "faster", silent], stdin=subprocess.PIPE)
+                            "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", "-level", LEVEL, "-preset", "faster", silent], stdin=subprocess.PIPE)
     from _lib.frames import OneASecond
     # the one-a-second parts are encoded under --work and moved beside --out only once both encoders have finished whole
-    slow = OneASecond(work / Path(a.out).stem, (W, total_h), ["-metadata", tag]) if getattr(a, "one_a_second", False) else None
+    slow = OneASecond(work / Path(a.out).stem, (W, total_h), ["-metadata", tag, "-level", LEVEL]) if getattr(a, "one_a_second", False) else None
     stopped = None
     readers: dict[tuple, Reader] = {}
     missing: dict[str, list[int]] = {}
@@ -793,8 +1043,8 @@ def build(a: argparse.Namespace) -> None:
             z = zooms.get(Path(r["piece"]).name)
             if z:
                 outline(middle, z["box"], colour_of.get(who, WHITE))
-        leg1, _ = legend(one, p1, L1, pad, bool(lost), "bottom")
-        leg2, drawn = legend(two, p2, L2, band + pad, bool(lost), "top")
+        leg1, _ = legend(one, p1, L1, pad, bool(lost), "bottom", lh1)
+        leg2, drawn = legend(two, p2, L2, band + pad, bool(lost), "top", lh)
         rec["chips_drawn"] = drawn
         # the right column: what H3 saw, a block a subject, at the canvas's own size (scaled only when the blocks do not fit)
         right = Image.new("RGB", (rw, total_h), (22, 24, 30))
@@ -837,16 +1087,26 @@ def build(a: argparse.Namespace) -> None:
             hb = heads.get(file)
             has_crop = bool(hb and hb[0])                       # head_boxes gives None where the reference has no points
             at_ = slot["reference"][1] if "reference" in slot else None
-            items = block_items(who, row, slot.get("mask_not_read"), at_, has_crop, slot.get("reference_not_read"), bars_of(row, live_flags), sc, colour_of[who])
+            kept = kept_of[file].on(f)
+            items = block_items(who, row, slot.get("mask_not_read"), at_, has_crop, slot.get("reference_not_read"), bars_of(row, live_flags), sc,
+                                colour_of[who], squares_words(row["subject"] or who, kept))
             label_lines, label_boxes = draw_label(items, t)
             col = {"piece": name, "file": file, "canvas": [rcw, rch], "label": items[0]["text"], "label_lines": label_lines, "label_boxes": label_boxes,
+                   "kept_squares": ({"not_read": kept["not_read"]} if "not_read" in kept else
+                                    {**(next(iter(kept["windows"].values())) if len(kept["windows"]) == 1 else {"windows": kept["windows"]}),
+                                     "window": next(iter(kept["windows"])) if len(kept["windows"]) == 1 else None,
+                                     "unit": "a token (two latent cells a side)" if kept["draw"][0]["whole"] else "a latent cell",
+                                     "not_split": kept.get("not_split"), "own_track_share": _own_share(capm)}),
                    "mask_frame": None, "mask_not_read": slot.get("mask_not_read"), "reference_frame": None,
                    "reference_not_read": slot.get("reference_not_read"), "reference_refused": row.get("ref_refused"),
                    "encoder_sample": f in sampled.get(file, set()), "zoom_box_at_source": (zooms.get(file) or {}).get("box"),
                    "check_flags": [fl["id"] for fl in live_flags if (fl.get("piece") or "").startswith(name)]}
             x0_, y0_, mw_, mh_ = t["mask"]
             if "mask" in slot:
-                put(slot["mask"][0], t["mask"], cv2.INTER_AREA)
+                shown = slot["mask"][0]
+                if "not_read" not in kept and kept["draw"] is not None:
+                    shown = kept_of[file].paint(shown, kept["draw"])      # the squares kept as the original, filled, no line
+                put(shown, t["mask"], cv2.INTER_AREA)
                 col["mask_frame"] = slot["mask"][1]
             else:
                 # in the mask picture's place: what H3 saw is not read, and why, wrapped inside the tile and never cut
@@ -868,6 +1128,10 @@ def build(a: argparse.Namespace) -> None:
                         dr.rectangle((6, ry - 2, 8 + hs + 1, ry + hs + 1), outline=(90, 230, 110), width=3)
                 put(ref, t["whole"], cv2.INTER_AREA)
             rec["columns"][who] = col
+        if f in overflow_at:
+            # the chips legend 2 cannot hold on this frame, in the right column below what H3 saw (level 5.1 holds the view's height)
+            items_o, parts_o = overflow_at[f]
+            rec["chips_overflow"] = lay(dr, items_o, parts_o, 8, blocks_end + 8, lh)
         rec["words"] = [t for t, _ in notes_of(f, panels)]
         records.append(rec)
         frame = Image.new("RGB", (W, total_h))
@@ -895,6 +1159,8 @@ def build(a: argparse.Namespace) -> None:
         r.close()
     for r in (src, joined, src_yuv, joined_yuv):
         r.close()
+    for k_ in kept_of.values():
+        k_.close()
     if stopped or code or slow_code:
         for part in work.glob(Path(a.out).stem + ".1fps.*"):
             part.unlink()
@@ -921,9 +1187,13 @@ def build(a: argparse.Namespace) -> None:
     sidecar.write_text(json.dumps({"clip": a.out, "one_a_second": slow_parts, "joined": a.joined, "table": a.table, "source": a.source,
                                    "frames": [first_f, last_f], "clip_begins_on_source_frame": base, "canvas": [w, h],
                                    "canvases": {file: list(c) for file, c in canvas_of.items()}, "source_size": [sw, sh], "legends": [L1, L2],
-                                   "right_column": rw, "right_scale": sc, "label_strip": label_px,
+                                   "right_column": rw, "right_scale": sc, "label_strip": label_px, "level": LEVEL, "most_height": most,
+                                   "legend_2_lines": lines2, "overflow_rows": overflow_px, "frames_overflowing": sorted(overflow_at),
                                    "loader_crops": {f"{c[0]}x{c[1]}": list(crop) for c, crop in crop_for.items()}, "zooms": zooms, "zoom_not_read": zoom_not_read,
                                    "gaps_checked": gaps_checked, "check_flags_not_read": flags_not_read,
+                                   "kept_squares_read": {file: (k_.why or {"windows": [w_["file"] for w_ in k_.windows],
+                                                                          "split_by": k_.track[0] if k_.track else None, "not_split": k_.track_why})
+                                                         for file, k_ in kept_of.items()},
                                    "days": {name: {"day": d, "from": src_} for name, (d, src_) in days.items()},
                                    "colours": colour_of, "coverage": getattr(a, "coverage", "") or None,
                                    "columns": cols, "right_tiles": blocks,
