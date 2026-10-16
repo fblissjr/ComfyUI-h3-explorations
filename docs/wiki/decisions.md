@@ -17,6 +17,15 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-16
 
+- **The dad's 1306-1309 and 1397-1418 stay the original; the frame check is to say why** (the lead, mrtoon, on mrgan's
+  correction of its own sheet look). The kept `third_fp_1310c` left them out on a blind reader's look at every frame
+  (its job's `left_out`: his face behind a blurred hand and arm; from about 1403 he crosses the lead, which "A shot,
+  made whole" does not cover). A whole-shot candidate (ruled at first, then withdrawn before any job) would add little
+  and remake a kept piece. `bench/frame_coverage.py` lists such frames as the original while tracked because it reads
+  no look; it is to read a laid piece's `left_out` and the shots file's looks and print them as "left out by a look",
+  with who and why. Also recorded: 1533-1631 nothing to make (his back to the camera; a session's look, mrgan's sheets,
+  `data/fun/shots.json`).
+
 - **`face_kitchen` is not laid; the lead's own whole-shot kitchen load fills her gaps** (the owner, in the lead's
   terminal: "agree do it"). The per-frame gap check (`bench/frame_coverage.py`, mrgan) found that none of the 242
   frames where a tracked person shows as the original inside a shot with a piece of hers is covered by any render the
