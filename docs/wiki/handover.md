@@ -45,7 +45,11 @@ notes: `internal/claude/2026-10-16_mrtony/HANDOFF.md`; the card's: `internal/cla
    and which is laid: put its stacked view on Start here beside 1010j's; it is laid only on their keep. Its blind read
    (`internal/claude/2026-10-16_mrtony/review_render_1010c.md`): she sits upright facing the camera where the source
    bows her over the table, her look jumps between 1036 and 1037, and the apron the text named is not what she wears in
-   this shot (the clothing words were a session's mistake, decisions.md 1f143f59; made per shot next). The whole video
+   this shot (the clothing words were a session's mistake, decisions.md 1f143f59; made per shot next). Beside it, the
+   owner's call left open since this morning: 1010j covers 1010-1031 only, so on 1032-1038 the mom is the original
+   (dark hair behind the lead); a short load for those frames, or the owner's blonde fill at assembly. The cause of
+   1010c's lost pose is NOT known (candidates: the clothing words, the zoom, the margin, the composite); one change
+   at a time, and only if the owner wants 1010c pursued. The whole video
    was rebuilt from the laid list at the close (`rebuild.sh --clip`, the stamp in the pages' table) with 0014f and 0294d.
 3. The owner's looks, on Start here in this order: the plan strips (`lead_fp_1010g` with the hat square gone,
    `lead_fp_0613g` with its zoom figures and 626-629 / 803-805 checked, 516-603, the whole-shot loads 1061-1092,
