@@ -17,6 +17,12 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-16
 
+- **The dad's 1397-1418 is made, not left as the original; the look that left it out is overruled** (the owner, at 22:35Z,
+  showing 1397 and 1398 in the whole-video view: "see the big beard? that's the original's, for both people"). The 10-13 look
+  (third_fp_1310c's left_out, kept by the lead's ruling this morning) said his raised arm covers his face from 1398; on 1398 his
+  face is visible. Both he and the lead get a whole-shot load over 1306/1310-1418, planned only, so neither turns back to the
+  original at 1397. What it replaces: the entry below, "The dad's 1306-1309 and 1397-1418 stay the original", for 1397-1418.
+
 - **A Gemini builder builds `shot_to_load.py job --carry-words-from`** (the owner at 2026-10-16T22:18Z, offering the idle reader
   "to take stuff off" mrtaco's plate; this job only): a remade job carries every person's word of the old job by the tool,
   tagged, and refuses a word it cannot carry, after two hand copies today lost one (the kitchen's floor 480; 21 spans for
