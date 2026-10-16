@@ -56,8 +56,10 @@ one is laid only on frames no earlier one took. Frames of a shot that no render 
 they are the whole shot (the assembler takes a `source` line only over a whole shot) and a comment in the table
 otherwise.
 
-**A plan's `restore`** (a subject's `restore: [{"classes": [...], "first": F, "last": L}]` with `restore_by`; the
-owner's rule of 2026-10-14, keep accessories): `restore=<subject>.<Class>+...` on that subject's rows on those source
+**A plan's `restore`** (a subject's `restore: [{"classes": [...], "first": F, "last": L, "exception": WHY}]` with
+`restore_by`; the owner's rule of 2026-10-14, keep accessories, made an EXCEPTION ONLY on 2026-10-16: a span with no
+`exception` in words is refused, since nothing puts the original back inside a person's region, and each span's reason
+is in the header): `restore=<subject>.<Class>+...` on that subject's rows on those source
 frames ONLY, a row cut at a span's edges, so the assembler gives those classes of their own class map back to the
 source there (sunglasses inside a face region). Named frames, never every row: the class map calls the lead's eye
 makeup Eyeglass on shots without glasses (0294d at 394, 1802b at 1843) and a telephone receiver too (1575b at 1653),
@@ -295,12 +297,25 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
     looks_say = _shot_coverage().nothing_to_make          # the rule has one home: the coverage tool's
 
     def own_restores(label: str) -> list[tuple[int, int, str]]:
-        """The plan's `restore` spans for a subject (the owner's rule of 2026-10-14, keep accessories), as (first, last,
-        the row's `restore=` token): those classes of the subject's own class map given back to the source on the pieces
-        of theirs on those source frames only, at assembly; generated here, never typed."""
+        """The plan's `restore` spans for a subject, as (first, last, the row's `restore=` token): those classes of the
+        subject's own class map given back to the source on the pieces of theirs on those source frames only, at assembly;
+        generated here, never typed. ONLY AS A MARKED EXCEPTION (the owner, 2026-10-16, "The simplification wins. Make sure
+        this never happens again", docs/wiki/decisions.md): H3's picture is kept whole inside a person's region, so a span
+        that gives back her own classes is refused unless it carries `exception` with its reason in words. A trial
+        (`--restore-extra`) carries its reason as `trial` and is said as one. What it replaces: the owner's keep-accessories
+        rule of 2026-10-14, under which every such span was laid. NAMED GAP: a `restore=<subject>.<Class>` typed straight into
+        a table's .txt reaches the assembler with no exception (it reads the token alone); the sidecar's tie of the table
+        JSON's rows to the .txt makes such an edit visible."""
         spans = list(plan["subjects"][label].get("restore") or [])
         if not spans:
             return []
+        bare = [x for x in spans if not x.get("trial") and not str(x.get("exception") or "").strip()]
+        if bare:
+            x = bare[0]
+            raise SystemExit(f"the plan's `restore` for {label!r} gives back {label!r}'s own {'+'.join(x['classes'])} on {x['first']}-{x['last']} with no "
+                             "`exception`: nothing puts the original back inside a person's region (the owner, 2026-10-16, docs/wiki/decisions.md), "
+                             "so a span of her own classes stands only as an exception, with its reason in words (`exception`) and gone when its "
+                             "shot is made again. Mark it, or take it out of the plan")
         import capture_masked_run as cap
         names = cap._pack("sapiens2_parts").CLASS_NAMES
         bad = sorted({c for x in spans for c in x["classes"] if c not in names or c == "Background"})
@@ -655,7 +670,8 @@ def table_text(out: dict, share: str, made: str, plan: dict, name: str) -> str:
              "# restore= is the practice of the table of 2026-10-12: every other subject the shots file has in the shot is given back, `:whole` on a face row."]
     lines += [f"# restore={label}.{'+'.join(x['classes'])}{'@head' if x.get('touching') == 'head' else ''} on {label}'s rows on {frames(x['first'], x['last'])} only: "
               + (f"A TRIAL (--restore-extra), not the plan's: {' '.join(str(x['trial']).replace('#', ' ').split())}" if x.get("trial") else
-                 f"from the plan, by {' '.join(str(p['restore_by']).replace('#', ' ').split())}")
+                 f"from the plan, by {' '.join(str(p['restore_by']).replace('#', ' ').split())}; "
+                 f"AN EXCEPTION: {' '.join(str(x.get('exception')).replace('#', ' ').split())}")
               for label, p in plan["subjects"].items() for x in p.get("restore") or []]
     for r in out["rows"]:
         lines.append(f"{frames(r['first'], r['last'])} {Path(share) / r['file']} {r['piece_first']} subject={r['subject']}"

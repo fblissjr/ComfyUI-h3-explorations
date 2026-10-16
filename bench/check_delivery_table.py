@@ -571,7 +571,8 @@ def a_trial_restore() -> str:
 
 def a_plan_that_keeps_an_accessory() -> str:
     """The owner's rule of 2026-10-14, keep accessories: the plan's `restore` for a subject, on named frames only, since the class
-    map calls the lead's eye makeup Eyeglass on shots with no glasses (0294d at 394, 1802b at 1843)."""
+    map calls the lead's eye makeup Eyeglass on shots with no glasses (0294d at 394, 1802b at 1843). Since 2026-10-16 (the owner:
+    nothing puts the original back inside a person's region) only as a marked exception, its reason in words in the header."""
     import copy
     import importlib.util
     import capture_masked_run as cap
@@ -579,14 +580,28 @@ def a_plan_that_keeps_an_accessory() -> str:
     assembler = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(assembler)
     plan = copy.deepcopy(PLAN)
+    # A GIVE-BACK OF HER OWN PARTS ONLY AS A MARKED EXCEPTION (the owner, 2026-10-16: nothing puts the original back inside a person's region)
     plan["subjects"]["a"].update(restore=[{"classes": ["Eyeglass"], "first": 60, "last": 79}], restore_by="the owner, 2026-10-14: keep her # white sunglasses")
+    for said in (None, " "):
+        plan["subjects"]["a"]["restore"][0].pop("exception", None)
+        if said is not None:
+            plan["subjects"]["a"]["restore"][0]["exception"] = said
+        try:
+            dt.decide(ledger(render("a_face", (50, 99), "05")), SHOTS, plan)
+        except SystemExit as e:
+            assert "gives back 'a''s own Eyeglass on 60-79 with no `exception`" in str(e) and "2026-10-16" in str(e), e
+        else:
+            # THE CASE THAT GOES RED when a span of her own classes is laid with no exception and its reason
+            raise AssertionError(f"a restore of her own classes with exception {said!r} was laid")
+    plan["subjects"]["a"]["restore"][0]["exception"] = "kept only for the kept piece # that lost her glasses"
     out = dt.decide(ledger(render("a_face", (50, 99), "05"), render("b_hair", (55, 99), "05", subject="b", region="face and hair")), SHOTS, plan)
     a_rows = [(r["first"], r["last"], "a.Eyeglass" in r["restore"]) for r in out["rows"] if r["subject"] == "a"]
     # THE CASE THAT GOES RED when the accessory is restored off its named frames, or not on them
     assert a_rows == [(50, 59, False), (60, 79, True), (80, 99, False)], a_rows
     assert not any("a.Eyeglass" in r["restore"] for r in out["rows"] if r["subject"] != "a"), out["rows"]
     text = dt.table_text(out, "/share", "Made for the check.", plan, "t_check")
-    assert "# restore=a.Eyeglass on a's rows on 60-79 only: from the plan, by the owner, 2026-10-14: keep her white sunglasses" in text, text
+    assert ("# restore=a.Eyeglass on a's rows on 60-79 only: from the plan, by the owner, 2026-10-14: keep her white sunglasses; "
+            "AN EXCEPTION: kept only for the kept piece that lost her glasses") in text, text
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "t.txt"
         path.write_text(text)
@@ -596,7 +611,7 @@ def a_plan_that_keeps_an_accessory() -> str:
         (50, 59, [("b", "whole")]), (60, 79, [("b", "whole"), ("a", [eyeglass])]), (80, 99, [("b", "whole")])], rows
     # ON HER HEAD ONLY (the lead's ruling of 2026-10-15: her earrings, which the part model labels Apparel with her collar), on
     # every row of hers: the token says `@head`, and the header says so
-    plan["subjects"]["a"]["restore"] = [{"classes": ["Apparel"], "touching": "head", "first": 0, "last": 99}]
+    plan["subjects"]["a"]["restore"] = [{"classes": ["Apparel"], "touching": "head", "first": 0, "last": 99, "exception": "x"}]
     out = dt.decide(ledger(render("a_face", (50, 99), "05")), SHOTS, plan)
     # THE CASE THAT GOES RED when a restore on her head alone is written as the plain class restore
     assert [r["restore"] for r in out["rows"] if r["subject"] == "a"] == [["b:whole", "a.Apparel@head"]], out["rows"]
@@ -607,7 +622,7 @@ def a_plan_that_keeps_an_accessory() -> str:
         raise AssertionError("`touching: neck` was taken")
     except SystemExit as e:
         assert "the one form is `head`" in str(e), e
-    plan["subjects"]["a"]["restore"] = [{"classes": ["Sunglasses"], "first": 60, "last": 79}]
+    plan["subjects"]["a"]["restore"] = [{"classes": ["Sunglasses"], "first": 60, "last": 79, "exception": "x"}]
     try:
         dt.decide(ledger(render("a_face", (50, 99), "05")), SHOTS, plan)
     except SystemExit as e:
