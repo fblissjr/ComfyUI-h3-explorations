@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 147 |
+| [`check_*`](#check) | 148 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 183 |
+| [the rest](#the-rest) | 184 |
 
 ## check
 
@@ -60,6 +60,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_exact_blocks.py`](check_exact_blocks.py) | `MiniMaxH3ExactBlocks` rests on a name, so assert the thing the name stands for. |
 | [`check_frame_coverage.py`](check_frame_coverage.py) | `bench/frame_coverage.py` on a made table and two made captures: each case is a way a frame where a tracked person shows as the original could be missed, given the wrong cause, or called "not tracked" when nothing could tell. |
 | [`check_frame_sheet.py`](check_frame_sheet.py) | The frame reader in `bench/_lib/frames.py` and the sheet tool built on it, against a clip made for the purpose. |
+| [`check_frame_table.py`](check_frame_table.py) | Verify bench/frame_table.py on a synthetic capture folder. |
 | [`check_frozen_video_cache.py`](check_frozen_video_cache.py) | `MiniMaxH3FrozenVideoCache` on a tiny H3 model: which path each call takes, and what it computes. |
 | [`check_generator_constants.py`](check_generator_constants.py) | Check the generator reads upstream constants rather than repeating them. |
 | [`check_graph_discovery.py`](check_graph_discovery.py) | No check may find graphs by globbing. Discovery goes through `graph_paths()`. |
@@ -389,6 +390,7 @@ this file is only a way to find a script by what it says it does.
 | [`exercise_pdd_stripped_path.py`](exercise_pdd_stripped_path.py) | Exercise `MiniMaxH3PDDLoRA.execute` on a LOADED model with the baked pair. |
 | [`frame_coverage.py`](frame_coverage.py) | Per frame, per shot and subject: is the person tracked, which laid piece covers the frame, and did that piece's run carry a mask for her there; otherwise the original shows. Three lists out. |
 | [`frame_sheet.py`](frame_sheet.py) | A sheet of numbered frames from several videos on one clock, for reading a render beside its source by eye. |
+| [`frame_table.py`](frame_table.py) | Build one per-frame table (`frame_table.jsonl` and `frame_table.md`) for a load's capture folder. |
 | [`frontier_table.py`](frontier_table.py) | Speed beside what the owner noticed, per scene, per arm. Never pass/fail. |
 | [`gen_figures.py`](gen_figures.py) | Inline-SVG figure primitives, plus the figures for the 2026-08-20 postmortem. |
 | [`gen_phaseb_grid.py`](gen_phaseb_grid.py) | CLOSED RECORD since 2026-09-18. This grid pairs full-length bank prompts with fixed lengths of 243, 311 and 362 frames (all on the grid; 362 is the trained ceiling), which bench/run_graph_arms.py now refuses for a 345-frame prompt. Kept ... |
@@ -402,7 +404,7 @@ this file is only a way to find a script by what it says it does.
 | [`laid.py`](laid.py) | The list of what is laid: one JSON line a piece, the ONLY thing the delivery table reads for what stands. |
 | [`latent_path_distance.py`](latent_path_distance.py) | How far saved latents sit from a reference latent, per latent frame. No decode. |
 | [`list_prose_measurements.py`](list_prose_measurements.py) | Inventory the measurements that live in prose, so they can be moved out. |
-| [`load_chain.py`](load_chain.py) | One load of a masked job, a step at a time, read from its job file: first, plan, on-plan, render, land, page. |
+| [`load_chain.py`](load_chain.py) | One load of a masked job, a step at a time, read from its job file: first, plan, on-plan, table, render, land, page. |
 | [`load_text.py`](load_text.py) | A load's text, generated from its reference's record, the plan and the voice table. No place-and-action sentence since 2026-10-15 (`NO_SCENE`: to H3 a masked load is not an edit, and a text never describes the frozen picture). |
 | [`look_carry.py`](look_carry.py) | Whether a load made again can rest on the look an earlier capture of it had: track, part, region and reference video. |
 | [`look_rooms.py`](look_rooms.py) | A subject's look, declared once in the plan, made into the region a load regenerates; and the plan-time check that reads the node's own plan back against it. |
