@@ -191,6 +191,14 @@ KEEP_OUTS = {"held": None,
              "clothes": ("Apparel", "Upper_Clothing")}
 #: What a plan may say of how the capture reads a subject's part (`bench/capture_masked_run.py`, `pieces=` on a `--mask`).
 PIECES = ("largest",)
+#: The parts no load is made with `pieces` on: a load whose part holds one of them on any frame (the plan's parts, `--parts`
+#: or a `--parts-on` range) is refused. The owner's word of 2026-10-16 (docs/wiki/decisions.md, e6993b5e: "make sure this
+#: never happens again"). MEASURED: the rule dropped pieces of the mom's face and hair on 146 of 154 frames of
+#: second_hfp_0014d (internal/gemini/2026-10-16_holes_trace.md) and of the lead's face on 180 of 362 frames of
+#: lead_fp_0613c, up to 9333 px on 772 (the lead, mrtony). OPEN: the case the rule was set for, enclosed holes where scraps
+#: of her part on an arm, grown by the margin, wrap a cell of her own shoulder (3262-3265, mrtwo, 2026-10-14), is to be met
+#: by closing a hole the region encloses, never by dropping a piece; not built.
+NO_PIECES_ON = ("hair", "face_and_neck")
 PLAN_KEYS = "`still` (the picture its face is taken from, under the server's input folder) and `parts` (the part model's ticks for it)"
 
 
@@ -1477,6 +1485,12 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         if p["pieces"] not in PIECES or not str(p.get("pieces_by") or "").strip():
             raise Refused(f"the plan's `pieces` for {subject!r} is {p['pieces']!r} with `pieces_by` {p.get('pieces_by')!r}: `pieces` is one of {PIECES}, "
                           "and `pieces_by` says who chose it and on what")
+        held = sorted(set(part["parts"] if part else p["parts"]) | {k for x in (part or {}).get("parts_on") or [] for k in x["parts"]})
+        if any(k in NO_PIECES_ON for k in held):
+            raise Refused(f"the plan's `pieces={p['pieces']}` for {subject!r} on a load whose part holds {' + '.join(held)}: a face or hair is rightly "
+                          "in more than one piece (split by hair, a hand or an arm), and the largest-piece rule drops the others, which leaves the original "
+                          "showing inside the new face (the owner, 2026-10-16, docs/wiki/decisions.md, commit e6993b5e). Take `pieces` and `pieces_by` off "
+                          f"the plan's {subject!r}: no load of a face or of hair is made with it")
         mine = next(s for s in subjects if s["label"] == subject)
         mine["pieces"], mine["pieces_by"] = p["pieces"], f"the plan ({p['pieces_by']})"
         pieces = (f" THE CAPTURE READS {subject}'s PART WITH pieces={p['pieces']}, from the plan ({' '.join(str(p['pieces_by']).split())}): each frame's largest "

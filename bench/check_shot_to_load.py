@@ -55,7 +55,10 @@ builder's own `check_job`, and a load's to `masked_job.loads_of`, so a file the 
    copied and no `pick_at`; the reference named by subject and span, not by the load's name; a text entry with
    no writer, which the chain refuses; a cut with no words refused and with them written into `left_out`; a
    plan's `hair_band` refused (7c); the plan's `pieces` copied onto the load's subject with who chose it, where the
-   chain reads it, and onto no other subject, refused when it is not a value the capture takes or names nobody; `--zoomed`
+   chain reads it, and onto no other subject, refused when it is not a value the capture takes or names nobody, and
+   refused on a load whose part holds hair or face_and_neck on any frame, by the plan's parts, `--parts` or a
+   `--parts-on` range (`NO_PIECES_ON`, the owner, 2026-10-16; seen red with hair taken out of it and with the ranges
+   not read); `--zoomed`
    with its words makes the load `render_region: part` and keeps who said it, and `--least` with `--least-why` sets the
    subject's floor with its reason, each refused without its words, neither set when not asked, and the load the builder's
    `check_load` takes; and the refusals (a subject not in the shot, a preview of other frames, no pose
@@ -656,7 +659,20 @@ def a_loads_job_file_stands_alone() -> str:
         # the plan's `pieces` goes onto the load's subject, with who chose it, and onto nobody else; with none in the plan the job has none
         assert all("pieces" not in s for s in d["job"]["subjects"]) and "pieces=" not in job["note"], d["job"]["subjects"]
         made.plan["subjects"]["a"].update(pieces="largest", pieces_by="a person, 2026-01-01: her arm carried specks of the part")
+        # NO PIECES ON A FACE OR HAIR (the owner, 2026-10-16): a load whose part holds either, on any frame, is refused, whoever wrote the key
+        refused(made.load, "`pieces=largest` for 'a' on a load whose part holds face_and_neck", "Take `pieces` and `pieces_by` off")
+        band = made.plan["subjects"]["b"].pop("hair_band")
+        made.plan["subjects"]["b"].update(pieces="largest", pieces_by="a person")
+        refused(lambda: made.load(subject="b", name="b_hp_0100", parts=["hair"], parts_by="a person: her hair alone"), "on a load whose part holds hair:")
+        del made.plan["subjects"]["b"]["pieces"], made.plan["subjects"]["b"]["pieces_by"]
+        made.plan["subjects"]["b"]["hair_band"] = band
+        a_parts = made.plan["subjects"]["a"]["parts"]
+        made.plan["subjects"]["a"]["parts"] = ["upper_clothing", "face_and_neck"]
+        refused(lambda: made.load(name="a_up_0100", parts=["upper_clothing"], parts_by="a person", parts_on=[(110, 115, ["face_and_neck"])]),
+                "on a load whose part holds face_and_neck + upper_clothing:")
+        made.plan["subjects"]["a"]["parts"] = ["upper_clothing"]
         pieced = made.load()
+        made.plan["subjects"]["a"]["parts"] = a_parts
         mine, others = next(s for s in pieced["job"]["subjects"] if s["label"] == "a"), [s for s in pieced["job"]["subjects"] if s["label"] != "a"]
         assert (mine["pieces"], mine["pieces_by"]) == ("largest", "the plan (a person, 2026-01-01: her arm carried specks of the part)"), mine
         assert all("pieces" not in s for s in others) and "THE CAPTURE READS a's PART WITH pieces=largest, from the plan" in pieced["job"]["note"], pieced["job"]["note"]
