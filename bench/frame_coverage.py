@@ -42,9 +42,32 @@ on the kitchen's 604-845, the very frames the owner saw turn back), so it is sai
 (`a_jobs_left_out_says`) and the frames stay in list 1. A look that rules frames the original goes into the shots record.
 The ledger and the shots record are the ones the table's `made` names, or `--ledger` and `--shots`.
 
+**Laid but barely changed** (the lead's order of 2026-10-16, on the owner's "I thought we built a gap checker!?": 806 in
+the 2003Z cut, where lead_fp_0805d, "only what changed", barely changed its own region and the view said no gap). The
+assembler records what each piece changed on each frame (the clip's `<clip>.mp4.check.json`, `regions.pieces.<piece>.
+changed_px_per_frame`, by its own `changed`); nothing is recomputed here. Each frame a piece carried a mask on, its changed
+px are set against the px of the region its run carried (`runs/<run>/region.npz`), scaled from the capture's size to the
+loader's crop the check records. A share under `BARELY_CHANGED` is a run of `laid_but_barely_changed`, with the shares
+printed. The check is the one the table's own assembly command writes (`--check` names another); the gap check is
+refused when it is missing or its pieces and frames are not the table's rows, never run without it. A frame the piece's
+job dropped or emptied carried no mask and is its own kind, never this one.
+
+**Region far below its own size** (the lead's order of 2026-10-16, on the owner's "finds her... ear... at 805"): a frame
+whose carried region is under `FAR_BELOW_ITS_OWN_SIZE` of the piece's own median carried px (over the row's frames that
+carried one): the piece changed what it carried, and what it carried was a scrap of her, so her face shows round it. Said
+with the frame's px and the median. A frame that is both is said as this kind.
+
+**By shot**, worst first in each of two lists (`by_shot`, the lead's ruling of 2026-10-16): (a) `remake`, the frames a laid
+piece fails on or no piece is laid where she is tracked (the original while tracked, by no piece and emptied inside one;
+laid but barely changed; a region far below its own size), which a remake answers; (b) `capture`, the original where
+nobody's track is tied (tracking not known), which a capture answers, not a remake. A look's frames and an empty track are
+in neither.
+
 **What it cannot see.** The picture. A frame whose mask was carried can still come out looking like the original (H3
 may regenerate a face like the source's); deciding that wants a per-frame likeness of the delivered video, which no
-record holds. Track px > 0 says SAM 3.1 put some pixels on her, not that her face is visible: a run's px are printed
+record holds. The changed share is an upper bound on what changed inside the region: the assembler's changed px reach
+past it (the node's feather, a spill), and a piece laid by its region counts the region whole, so a region-laid piece that
+drew the original comes out over the line. Track px > 0 says SAM 3.1 put some pixels on her, not that her face is visible: a run's px are printed
 so a reader sees "barely in". A two-subject run's `carried` is both subjects' union. A frame the capture did not read
 is said as that. Nothing here is a threshold of degree; green or red only for a row whose `run=` does not resolve or
 a file it names that is missing.
@@ -53,6 +76,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import hashlib
 import json
 import shlex
 import subprocess
@@ -72,6 +96,26 @@ POP = np.array([bin(i).count("1") for i in range(256)], np.uint8)
 CANNOT = ("the picture: a frame whose mask was carried can still come out as the original (no per-frame likeness of the delivered "
           "video is read); whether a tracked person's face is visible (track px > 0 is SAM 3.1's pixels on her, printed so 'barely in' "
           "shows; whether her face shows on such frames is a playback question); a two-subject run's carried mask is both subjects' union; a face-and-hair run whose face emptied while its hair was carried counts as carried (the px are the union); a restore= that gives the source back at assembly inside a carried mask is not read; a subject the shots file says is not in a shot is not walked (the table's not_in_the_shot); an older capture's subject named by an alias is not matched as untied; a frame the tied captures cannot tell is 'tracking not known' with why, and an untied capture holding her track is named, never read")
+
+
+#: The share of the carried region a laid piece must change on a frame, under which the frame is `laid_but_barely_changed`.
+#: **Measured** starting value, on the 2003Z cut (`fun_0000_6394_joined_2026-10-16T2003Z_from_laid.mp4.check.json`, 2642 carried
+#: frames of 45 rows, 2026-10-16): every piece's least share but one is 0.406 or more (lead_fp_2823b); lead_fp_0805d's 806 is
+#: 0.117 and 807 0.209 (the owner saw the original on 806), its 828-832 0.264 to 0.293. A starting value from one cut; the
+#: shares are printed so a reader sees how far under.
+BARELY_CHANGED = 0.3
+
+#: The share of a piece's own median carried px under which a frame's carried region is `region_far_below_its_own_size`: the
+#: piece changed what it carried, and what it carried was a scrap of her (her face hidden), so the original shows round it.
+#: **Measured** starting value, on the same cut (2642 carried frames, 2026-10-16): lead_fp_0805d's 805 is 0.041 (486 px against
+#: its median 11853; the owner: "finds her... ear... at 805") and lead_fp_1419d's 1448 0.077; lead_fp_0751c's 751 is 0.100, and
+#: thirteen frames fall under 0.15, eleven of them lead_fp_1419d's and third_fp_1419d's. No break in the shares: a line, not a
+#: gap, and the px and the median are printed beside it.
+FAR_BELOW_ITS_OWN_SIZE = 0.1
+
+
+class Refused(Exception):
+    """The gap check is not run: the clip's check it reads is missing or is not of this table."""
 
 
 def px(packed: np.ndarray) -> np.ndarray:
@@ -284,7 +328,50 @@ def written_by_render(table: dict) -> dict[str, str]:
     return out
 
 
-def coverage(table: dict, span: list[int] | None = None, data: Path = REPO / "data", ledger: Path | None = None, shots: Path | None = None) -> dict:
+def check_of(table: dict, path: Path | None = None) -> tuple[Path, dict]:
+    """The clip's check (`<clip>.mp4.check.json`, the assembler's): the one the table's own assembly command writes (its
+    `--out`), or `path`. Refused when it is missing, or when its pieces and frames are not the table's rows."""
+    if path is None:
+        cmd = shlex.split(str((table.get("assembly") or {}).get("command") or ""))
+        if "--out" not in cmd[:-1]:
+            raise Refused("the table names no assembled clip (its assembly command has no --out): give the clip's check with --check")
+        path = Path(cmd[cmd.index("--out") + 1] + ".check.json")
+    path = Path(path)
+    if not path.is_file():
+        raise Refused(f"{path}: missing. The gap check reads what each piece changed from the clip's check, so it is not run without "
+                      "it: assemble the table first (its assembly command), or name the check with --check")
+    check = json.loads(path.read_text())
+    left = [(str(r["file"]), int(r["first"]), int(r["last"])) for r in table["rows"]]
+    strays = []
+    for x in check.get("table") or []:
+        p, a, b = str(x["piece"]), int(x["frames"][0]), int(x["frames"][1])
+        i = next((i for i, (f, fa, fb) in enumerate(left) if (fa, fb) == (a, b) and (p == f or p.endswith("/" + f.lstrip("/")))), None)
+        if i is None:
+            strays.append(f"{Path(p).name} {a}-{b}")
+        else:
+            left.pop(i)
+    if strays or left:
+        raise Refused(f"{path} is not of this table: pieces in the check and not the table: {strays or 'none'}; rows of the table not in "
+                      f"the check: {[f'{Path(f).name} {a}-{b}' for f, a, b in left] or 'none'}")
+    return path, check
+
+
+def changed_of(check: dict, row: dict) -> dict[int, int]:
+    """The px the assembler's `changed` called changed on each frame of a row's piece, from the clip's check."""
+    piece = next((p for p in check["regions"]["pieces"] if p == row["file"] or p.endswith("/" + row["file"].lstrip("/"))), None)
+    if piece is None:
+        raise Refused(f"the clip's check holds no changed px for {row['name']} ({row['file']})")
+    v = check["regions"]["pieces"][piece]
+    a, b = (int(x) for x in v["frames"])
+    if len(v["changed_px_per_frame"]) != b - a + 1:
+        raise Refused(f"the clip's check holds {len(v['changed_px_per_frame'])} changed counts for {row['name']} over {a}-{b}: not one a frame")
+    return {a + k: int(x) for k, x in enumerate(v["changed_px_per_frame"])}
+
+
+def coverage(table: dict, span: list[int] | None = None, data: Path = REPO / "data", ledger: Path | None = None, shots: Path | None = None,
+             check: Path | None = None) -> dict:
+    check_path, clip_check = check_of(table, check)
+    crop = clip_check["the_loader's_crop_of_the_source"]
     caps: dict[str, Capture] = {}
     failures = []
     tied, failed = [], []
@@ -300,7 +387,7 @@ def coverage(table: dict, span: list[int] | None = None, data: Path = REPO / "da
     ledger = ledger or named_in(table, r"from the ledger `([^`]+)`")
     shots_file = shots or named_in(table, r"`([^`]*shots\.json)`")
     looked, job_left = left_out_by_looks(table, json.loads(ledger.read_text()) if ledger else None, json.loads(shots_file.read_text()) if shots_file else None)
-    shots, list1, list2, unknown, empty, carried_unknown, looked_out = [], [], [], [], [], [], []
+    shots, list1, list2, unknown, empty, carried_unknown, looked_out, barely, small = [], [], [], [], [], [], [], [], []
     for rd in table.get("reading", []):
         a, b, label = int(rd["first"]), int(rd["last"]), rd["subject"]
         if span and (b < span[0] or a > span[1]):
@@ -310,11 +397,16 @@ def coverage(table: dict, span: list[int] | None = None, data: Path = REPO / "da
         in_shot = [(r, c, n) for r, c, n in tied if r["last"] >= a and r["first"] <= b]
         mine = [(r, c, n) for r, c, n in in_shot if r["subject"] == label]
         failed_mine = [r for r in failed if r.get("subject") == label and r["last"] >= a and r["first"] <= b]
-        empt = {}
+        empt, changed_px, own_size = {}, {}, {}
         for r, c, n in mine:
             e = emptied(c, n, label, [max(r["first"], lo), min(r["last"], hi)])
             empt[id(r)] = e
-        cols = {"frames": [], "track_px": [], "track_from": [], "piece": [], "carried_px": [], "state": []}
+            changed_px[id(r)] = changed_of(clip_check, r)
+            own = c.run(n)
+            sizes = [int(own["carried_px"][f - c.first]) for f in range(r["first"], r["last"] + 1)
+                     if 0 <= f - c.first < c.n and own["read"][f - c.first] and own["carried_px"][f - c.first] > 0]
+            own_size[id(r)] = float(median(sizes)) if sizes else None
+        cols = {"frames": [], "track_px": [], "track_from": [], "piece": [], "carried_px": [], "changed_share": [], "state": []}
         for f in range(lo, hi + 1):
             piece = next(((r, c, n) for r, c, n in mine if r["first"] <= f <= r["last"]), None)
             # the piece's capture, then the shot's, then any capture a row of another shot ties to that reaches this frame
@@ -328,7 +420,7 @@ def coverage(table: dict, span: list[int] | None = None, data: Path = REPO / "da
             if tpx is None:
                 tfrom = ("no tied capture covers this frame" if not any(c.first <= f < c.first + c.n for _, c, _ in order)
                          else "a tied capture covers this frame and holds no track of her on it")
-            carried = None
+            carried, share = None, None
             bad = next((r for r in failed_mine if r["first"] <= f <= r["last"]), None)
             if piece is None and bad is not None:
                 state = f"not known: the laid piece {bad.get('name')} has a run= that does not resolve"
@@ -348,12 +440,22 @@ def coverage(table: dict, span: list[int] | None = None, data: Path = REPO / "da
                     carried = int(run["carried_px"][k])
                     if carried == 0:
                         state = "original: emptied inside the piece (" + empt[id(r)]["frames"].get(f, "not in the record") + ")"
-                    elif f in frames_of((c.sighting(label) or {}).get("parts_held_on_source_frames")):
-                        state = "carried (held from a neighbouring frame)"
                     else:
-                        state = "carried"
+                        # what the assembler's `changed` called changed, against the region carried, at the loader's crop
+                        size = c.m.get("size")
+                        if not size:
+                            raise Refused(f"{c.folder.name}: its manifest names no size, so its carried region cannot be set against the clip's px")
+                        share = changed_px[id(r)].get(f, 0) / (carried * crop["width"] * crop["height"] / (int(size[0]) * int(size[1])))
+                        if own_size[id(r)] and carried < FAR_BELOW_ITS_OWN_SIZE * own_size[id(r)]:
+                            state = f"region far below its own size (its median {int(own_size[id(r)])} px)"
+                        elif share < BARELY_CHANGED:
+                            state = "laid but barely changed"
+                        elif f in frames_of((c.sighting(label) or {}).get("parts_held_on_source_frames")):
+                            state = "carried (held from a neighbouring frame)"
+                        else:
+                            state = "carried"
             for key, v in (("frames", f), ("track_px", tpx), ("track_from", tfrom), ("piece", piece[0]["name"] if piece else None),
-                           ("carried_px", carried), ("state", state)):
+                           ("carried_px", carried), ("changed_share", None if share is None else round(share, 4)), ("state", state)):
                 cols[key].append(v)
         shots.append({"shot": [a, b], "subject": label, "present": present, **cols})
         # list 1 and its side lists: runs of equal (piece, state) where the original shows
@@ -386,10 +488,23 @@ def coverage(table: dict, span: list[int] | None = None, data: Path = REPO / "da
             elif cur["kind"] == "carried_not_known":
                 item["track_px"] = {"least": min(pxs), "median": int(median(pxs)), "most": max(pxs)}
                 carried_unknown.append(item)
+            elif cur["kind"] == "barely":
+                sh = cur["share"]
+                item["changed_share"] = {"least": min(sh), "median": round(median(sh), 4), "most": max(sh), "under": BARELY_CHANGED}
+                barely.append(item)
+            elif cur["kind"] == "small":
+                item["carried_px"] = cur["carried"]
+                item["its_median_px"] = int(cur["state"].rsplit("median ", 1)[1].split(" ")[0])
+                item["changed_share"] = cur["share"]
+                small.append(item)
 
         for i, f in enumerate(cols["frames"]):
             st, tpx = cols["state"][i], cols["track_px"][i]
-            if st.startswith("left out by a look"):
+            if st == "laid but barely changed":
+                kind = "barely"
+            elif st.startswith("region far below its own size"):
+                kind = "small"
+            elif st.startswith("left out by a look"):
                 kind = "looked_out"
             elif st.startswith("not known"):
                 kind = "unknown" if tpx is None else "carried_not_known"   # her track known; the piece's mask is not
@@ -406,12 +521,15 @@ def coverage(table: dict, span: list[int] | None = None, data: Path = REPO / "da
             if cur is not None and cur["key"] == key and f == cur["f1"] + 1:
                 cur["f1"] = f
                 cur["px"].append(tpx)
+                cur["share"].append(cols["changed_share"][i])
+                cur["carried"].append(cols["carried_px"][i])
                 if cols["track_from"][i] and tpx is not None:
                     cur["from"].add(cols["track_from"][i])
             else:
                 close()
                 cur = None if kind is None else {"key": key, "kind": kind, "f0": f, "f1": f, "piece": cols["piece"][i], "state": st, "why": why,
-                                                 "px": [tpx], "from": set() if tpx is None else {cols["track_from"][i]} - {None}}
+                                                 "px": [tpx], "share": [cols["changed_share"][i]], "carried": [cols["carried_px"][i]],
+                                                 "from": set() if tpx is None else {cols["track_from"][i]} - {None}}
         close()
         # list 2: two different laid renders of her meeting inside this shot
         laid = sorted((r for r, _, _ in mine), key=lambda r: r["first"])
@@ -421,22 +539,52 @@ def coverage(table: dict, span: list[int] | None = None, data: Path = REPO / "da
                               "before": {"piece": x["name"], "written": written.get(x["name"]), "day": day(written.get(x["name"]))},
                               "after": {"piece": y["name"], "written": written.get(y["name"]), "day": day(written.get(y["name"]))}})
     list3 = [x for x in list1 if x["piece"] is not None]
+    runs = flat(list1, list2, unknown, empty, written, carried_unknown, looked_out, barely, small)
     return {"failures": failures, "shots": shots, "original_while_tracked": list1, "seams": list2,
             "emptied_inside_a_piece": list3, "original_tracking_not_known": unknown, "original_her_track_empty": empty,
-            "carried_not_known": carried_unknown, "left_out_by_a_look": looked_out,
+            "carried_not_known": carried_unknown, "left_out_by_a_look": looked_out, "laid_but_barely_changed": barely,
+            "region_far_below_its_own_size": small,
             "read_for_looks": {"ledger": str(ledger) if ledger else None, "shots": str(shots_file) if shots_file else None},
-            "runs": flat(list1, list2, unknown, empty, written, carried_unknown, looked_out)}
+            "clip_check": {"file": str(check_path), "sha256": hashlib.sha256(check_path.read_bytes()).hexdigest()},
+            "runs": runs, "by_shot": by_shot(runs)}
+
+
+#: The kinds of run counted per shot (`by_shot`), in two lists the lead ruled apart (2026-10-16): what a remake answers (a laid
+#: piece failing, or no piece where she is tracked), and what a capture answers (nobody's track tied).
+ORIGINAL_SHOWING = {"remake": ("original_while_tracked", "emptied_inside", "laid_but_barely_changed", "region_far_below_its_own_size"),
+                    "capture": ("original_tracking_not_known",)}
+
+
+def by_shot(runs: list[dict]) -> dict[str, list[dict]]:
+    """Per shot, the frames of each kind where the original shows (`ORIGINAL_SHOWING`), worst first, in its two lists: which shots
+    to remake first, and which want a capture tied. A frame two subjects show the original on is counted for each."""
+    return {which: ranked(runs, kinds) for which, kinds in ORIGINAL_SHOWING.items()}
+
+
+def ranked(runs: list[dict], kinds: tuple) -> list[dict]:
+    shots: dict[tuple, dict] = {}
+    for r in runs:
+        if r["kind"] in kinds:
+            x = shots.setdefault(tuple(r["shot"]), {"shot": list(r["shot"]), "frames": 0, "by_kind": {}, "subjects": set()})
+            n = r["last"] - r["first"] + 1
+            x["frames"] += n
+            x["by_kind"][r["kind"]] = x["by_kind"].get(r["kind"], 0) + n
+            x["subjects"].add(r["subject"])
+    return [{**x, "subjects": sorted(x["subjects"])} for x in sorted(shots.values(), key=lambda x: (-x["frames"], x["shot"]))]
 
 
 def flat(list1: list[dict], list2: list[dict], unknown: list[dict], empty: list[dict], written: dict[str, str],
-         carried_unknown: list[dict] | None = None, looked_out: list[dict] | None = None) -> list[dict]:
+         carried_unknown: list[dict] | None = None, looked_out: list[dict] | None = None, barely: list[dict] | None = None,
+         small: list[dict] | None = None) -> list[dict]:
     """One list of runs for a page, by frame (the lead's shape, 2026-10-16). The kinds are disjoint: a run of list 1
     inside a piece is `emptied_inside`, one with no piece `original_while_tracked` (`shot_has_a_piece_of_her` tells a
     turn-back inside a shot she has a piece in from a shot with no piece of her at all); a seam's first and last are
     the two frames that meet; `original_tracking_not_known` is a run the tied captures cannot tell, said so it is not
     read as none, with any untied capture that holds her track; `original_her_track_empty` is the original on frames
     her tied track is 0 px; `carried_not_known` is a run her track is known on and whether the laid piece carried a
-    mask is not (its run= does not resolve, its capture does not cover the frame, or did not read it)."""
+    mask is not (its run= does not resolve, its capture does not cover the frame, or did not read it); `laid_but_barely_changed`
+    is a run a piece carried a mask on and changed less than `BARELY_CHANGED` of the region, the shares said;
+    `region_far_below_its_own_size` a run whose carried region is under `FAR_BELOW_ITS_OWN_SIZE` of the piece's median, the px said."""
     out = []
     for x in list1:
         inside = x["piece"] is not None
@@ -466,6 +614,18 @@ def flat(list1: list[dict], list2: list[dict], unknown: list[dict], empty: list[
         out.append({"first": x["frames"][0], "last": x["frames"][1], "shot": x["shot"], "subject": x["subject"],
                     "kind": "carried_not_known", "pieces": [x["piece"]] if x["piece"] else [], "render_days": [],
                     "cause": x["state"], "track_px_median": x["track_px"]["median"], "present": x["present"]})
+    for x in barely or []:
+        sh = x["changed_share"]
+        out.append({"first": x["frames"][0], "last": x["frames"][1], "shot": x["shot"], "subject": x["subject"], "kind": "laid_but_barely_changed",
+                    "pieces": [x["piece"]], "render_days": [day(written.get(x["piece"]))],
+                    "cause": f"{sh['least']:.3f} to {sh['most']:.3f} of its carried region changed (under {BARELY_CHANGED})",
+                    "changed_share": sh, "track_px_median": None, "present": x["present"]})
+    for x in small or []:
+        out.append({"first": x["frames"][0], "last": x["frames"][1], "shot": x["shot"], "subject": x["subject"],
+                    "kind": "region_far_below_its_own_size", "pieces": [x["piece"]], "render_days": [day(written.get(x["piece"]))],
+                    "cause": f"carried {', '.join(str(p) for p in x['carried_px'])} px against its median {x['its_median_px']} "
+                             f"(under {FAR_BELOW_ITS_OWN_SIZE} of it)",
+                    "carried_px": x["carried_px"], "its_median_px": x["its_median_px"], "track_px_median": None, "present": x["present"]})
     return sorted(out, key=lambda r: (r["first"], r["subject"], r["kind"]))
 
 
@@ -484,7 +644,10 @@ def counts(out: dict) -> dict:
                                        "frames_by_cause": by_cause},
             "original_tracking_not_known_frames": sum(x["count"] for x in out["original_tracking_not_known"]),
             "original_and_her_track_empty_frames": untracked,
-            "left_out_by_a_look_frames": sum(x["count"] for x in out.get("left_out_by_a_look", []))}
+            "left_out_by_a_look_frames": sum(x["count"] for x in out.get("left_out_by_a_look", [])),
+            "laid_but_barely_changed": {"runs": len(out["laid_but_barely_changed"]), "frames": sum(x["count"] for x in out["laid_but_barely_changed"])},
+            "region_far_below_its_own_size": {"runs": len(out["region_far_below_its_own_size"]),
+                                              "frames": sum(x["count"] for x in out["region_far_below_its_own_size"])}}
 
 
 def fr(x) -> str:
@@ -497,6 +660,14 @@ def markdown(out: dict) -> str:
              f"Measured on: {out['measured_on']}", "", f"Cannot see: {out['cannot_see']}", ""]
     if out["failures"]:
         lines += ["## FAILED: rows whose run= does not resolve, or a file missing", ""] + [f"- {x}" for x in out["failures"]] + [""]
+    for which, title in (("remake", "the shots to remake: a laid piece fails, or no piece where she is tracked"),
+                         ("capture", "the shots that want a capture tied: the original, nobody's track tied")):
+        kinds = ORIGINAL_SHOWING[which]
+        lines += [f"## By shot, worst first: {title}", "",
+                  "| shot | frames | " + " | ".join(kinds) + " | subjects |", "|---|---|" + "---|" * len(kinds) + "---|"]
+        for x in out["by_shot"][which]:
+            lines.append(f"| {fr(x['shot'])} | {x['frames']} | " + " | ".join(str(x["by_kind"].get(k, 0)) for k in kinds) + f" | {', '.join(x['subjects'])} |")
+        lines += [""]
     lines += ["## Counts", "", "```", json.dumps(c, indent=1), "```", "",
               "## 1. The original shows while she is tracked", "",
               "| shot | subject | frames | count | piece | a piece of her in the shot | state | track px least / median / most | track read from |",
@@ -528,6 +699,18 @@ def markdown(out: dict) -> str:
               "| shot | subject | frames | count | piece | why | track px median |", "|---|---|---|---|---|---|---|"]
     for x in out["carried_not_known"]:
         lines.append(f"| {fr(x['shot'])} | {x['subject']} | {fr(x['frames'])} | {x['count']} | {x['piece'] or '-'} | {x['state']} | {x['track_px']['median']} |")
+    lines += ["", f"## Laid but barely changed: a piece carried a mask and changed under {BARELY_CHANGED} of its region", "",
+              f"Read from the clip's check `{out['clip_check']['file']}` (regions.pieces.<piece>.changed_px_per_frame, the assembler's `changed`), "
+              "against each run's carried region.", "",
+              "| shot | subject | frames | count | piece | changed share least / median / most |", "|---|---|---|---|---|---|"]
+    for x in out["laid_but_barely_changed"]:
+        sh = x["changed_share"]
+        lines.append(f"| {fr(x['shot'])} | {x['subject']} | {fr(x['frames'])} | {x['count']} | {x['piece']} | {sh['least']} / {sh['median']} / {sh['most']} |")
+    lines += ["", f"## Region far below its own size: a carried region under {FAR_BELOW_ITS_OWN_SIZE} of the piece's own median", "",
+              "| shot | subject | frames | count | piece | carried px | its median px |", "|---|---|---|---|---|---|---|"]
+    for x in out["region_far_below_its_own_size"]:
+        lines.append(f"| {fr(x['shot'])} | {x['subject']} | {fr(x['frames'])} | {x['count']} | {x['piece']} | "
+                     f"{', '.join(str(p) for p in x['carried_px'])} | {x['its_median_px']} |")
     lines += ["", "## The original shows on frames her tied track is 0 px", "", "| shot | subject | frames | count | piece | state |", "|---|---|---|---|---|---|"]
     for x in out["original_her_track_empty"]:
         lines.append(f"| {fr(x['shot'])} | {x['subject']} | {fr(x['frames'])} | {x['count']} | {x['piece'] or '(none laid)'} | {x['state']} |")
@@ -540,21 +723,27 @@ def main() -> int:
     ap.add_argument("--span", help="A-B: only the shots that meet these frames, cut to them")
     ap.add_argument("--ledger", help="the render ledger whose records name each laid piece's job file; the one the table names when left out")
     ap.add_argument("--shots", help="the shots record whose looks are read; the one the table names when left out")
+    ap.add_argument("--check", help="the assembled clip's <clip>.mp4.check.json; the one the table's assembly command writes when left out")
     ap.add_argument("--json", help="where the JSON goes; beside the table when left out")
     ap.add_argument("--md", help="where the .md goes; beside the table when left out")
     a = ap.parse_args()
     table_path = Path(a.table)
     table = json.loads(table_path.read_text())
     span = [int(x) for x in a.span.split("-")] if a.span else None
-    out = coverage(table, span, ledger=Path(a.ledger) if a.ledger else None, shots=Path(a.shots) if a.shots else None)
+    try:
+        out = coverage(table, span, ledger=Path(a.ledger) if a.ledger else None, shots=Path(a.shots) if a.shots else None,
+                       check=Path(a.check) if a.check else None)
+    except Refused as e:
+        print(f"REFUSED: {e}")
+        return 2
     commit = subprocess.run(["git", "-C", str(REPO), "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
     stem = "frame_coverage_" + table_path.stem.removeprefix("t_") + (f"_{span[0]:04d}_{span[1]:04d}" if span else "")
-    out = {"table": str(table_path), "span": span,
+    out = {"table": str(table_path), "table_sha256": hashlib.sha256(table_path.read_bytes()).hexdigest(), "span": span,
            "made": f"Made {datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')} at commit {commit}",
            "command": " ".join(shlex.quote(x) for x in [sys.executable, *sys.argv]),
            "measured_on": "the table's reading (shots and subjects) and rows (laid pieces, run=); each tied capture's SAM 3.1 track "
                           "(subjects/<label>/masks__<by>.npz), its run's carried mask (runs/<run>/region.npz), its manifest's held, drop=, "
-                          "grade and no-mask lists and part_grades.json",
+                          "grade and no-mask lists and part_grades.json; the clip's check (each piece's changed px a frame, the assembler's)",
            "cannot_see": CANNOT, **out}
     out["counts"] = counts(out)
     jp = Path(a.json) if a.json else table_path.parent / f"{stem}.json"
@@ -562,6 +751,11 @@ def main() -> int:
     jp.write_text(json.dumps(out, indent=None, separators=(",", ":")) + "\n")
     mp.write_text(markdown(out))
     print(json.dumps(out["counts"], indent=1))
+    for which, title in (("remake", "TO REMAKE (a laid piece fails, or no piece where she is tracked)"),
+                         ("capture", "TO CAPTURE (the original, nobody's track tied)")):
+        print(f"BY SHOT, worst first, {title}:")
+        for x in out["by_shot"][which][:15]:
+            print(f"  {fr(x['shot'])}: {x['frames']} frame(s): " + ", ".join(f"{k} {v}" for k, v in x["by_kind"].items()) + f" ({', '.join(x['subjects'])})")
     print(f"wrote {jp}\nwrote {mp}")
     for x in out["failures"]:
         print("FAIL", x)

@@ -67,9 +67,27 @@ def capture(root: Path, name: str, first: int, n: int, track: list[bool], covere
         (d / "runs" / run).mkdir(parents=True)
         np.savez(d / "runs" / run / "region.npz", carried=packed(carried, n), read=np.ones(n, bool), region=np.zeros((n, 1, 1), bool))
         runs.append({"name": run, "subject": "a", "left_as_the_source_with_no_mask": [], "left_as_the_source_across_a_cut": []})
-    (d / "manifest.json").write_text(json.dumps({"clip": "c.mov", "first_frame": first, "frames": n, "runs": runs,
+    (d / "manifest.json").write_text(json.dumps({"clip": "c.mov", "first_frame": first, "frames": n, "runs": runs, "size": [W, H],
                                                  "subjects": [{"label": "a", "sightings": [{"by": "p", **sighting}]}]}))
     return d
+
+
+def clip_check(root: Path, table: dict, changed: dict | None = None) -> dict:
+    """The assembled clip's check beside the table, as the assembler writes it (`<clip>.mp4.check.json`), its table the
+    table's rows; each piece changed 32 px a frame (its whole carried region, at a crop the capture's size) but where
+    `changed` says ({name: {frame: px}}). The table's assembly command names the clip."""
+    clip = root / "clip.mp4"
+    table["assembly"] = {"command": f"py bench/assemble_delivery.py --table t.txt --out {clip}"}
+    pieces = {}
+    for r in table["rows"]:
+        piece = f"/out/{r['file']}"
+        a, b = (min(r["first"], pieces[piece]["frames"][0]), max(r["last"], pieces[piece]["frames"][1])) if piece in pieces else (r["first"], r["last"])
+        pieces[piece] = {"frames": [a, b], "changed_px_per_frame": [(changed or {}).get(r["name"], {}).get(f, 32) for f in range(a, b + 1)]}
+    (root / "clip.mp4.check.json").write_text(json.dumps({"table": [{"piece": f"/out/{r['file']}", "frames": [r["first"], r["last"]]} for r in table["rows"]],
+                                                         "the_loader's_crop_of_the_source": {"width": W, "height": H, "x": 0, "y": 0},
+                                                         "regions": {"pieces": pieces}}))
+    (root / "t.json").write_text(json.dumps(table))
+    return table
 
 
 def made(root: Path) -> Path:
@@ -90,7 +108,7 @@ def made(root: Path) -> Path:
     table = {"rows": [row("ra", 12, 19, one), row("rb", 20, 24, two)],
              "reading": [{"first": 10, "last": 31, "subject": "a", "present": "unsure",
                           "stands": [{"render": "ra", "written": "2026-01-01T18:00:00Z"}, {"render": "rb", "written": "2026-01-02T18:00:00Z"}]}]}
-    (root / "t.json").write_text(json.dumps(table))
+    clip_check(root, table)
     return root / "t.json"
 
 
@@ -168,7 +186,7 @@ def unresolved_is_red() -> str:
         table["rows"].append({"first": 25, "last": 26, "name": "gone", "file": "Video/v/gone.mp4", "subject": "a", "run": f"{Path(tmp) / 'nope'}:gone"})
         table["rows"].append({"first": 27, "last": 27, "name": "norun", "file": "Video/v/norun.mp4", "subject": "a",
                               "run": f"{Path(tmp) / '2026-01-01_ra'}:norun"})
-        t.write_text(json.dumps(table))
+        clip_check(Path(tmp), table)
         r = subprocess.run([sys.executable, str(TOOL), "--table", str(t)], capture_output=True, text=True)
         assert r.returncode == 1 and "FAIL row gone: run=" in r.stdout and "no run 'norun'" in r.stdout, r.stdout + r.stderr
         out = fc.coverage(json.loads(t.read_text()), data=Path(tmp))
@@ -191,7 +209,7 @@ def a_capture_of_another_shot() -> str:
                 run="rw", sighting={}, grades=[])
         table["rows"].append({"first": 20, "last": 24, "name": "rw", "file": "Video/v/rw_00001.mp4", "subject": "b",
                               "run": f"{Path(tmp) / '2026-01-04_wide'}:rw"})
-        out = fc.coverage(table, data=Path(tmp))
+        out = fc.coverage(clip_check(Path(tmp), table), data=Path(tmp))
         x = [r for r in out["original_while_tracked"] if r["shot"] == [32, 33]]
         assert [(r["frames"], r["track_from"]) for r in x] == [([32, 33], ["2026-01-04_wide"])], (x, out["original_tracking_not_known"])
     return "32-33 read from the capture a row of shot 10-31 ties to"
@@ -224,6 +242,76 @@ def looks_and_jobs() -> str:
     return "a look's frames are their own kind with who and why, a later seen takes them back; a job's left_out is said and leaves its frames in list 1"
 
 
+def barely_changed_and_too_small() -> str:
+    """The lead's orders of 2026-10-16 (806 and 805 in the 2003Z cut): a laid piece that changed under `BARELY_CHANGED` of the
+    region its run carried is `laid_but_barely_changed`, read from the clip's check; a carried region under
+    `FAR_BELOW_ITS_OWN_SIZE` of the piece's own median is `region_far_below_its_own_size`; a frame the job emptied stays
+    emptied; a fully changed piece gives neither."""
+    with tempfile.TemporaryDirectory() as tmp:
+        t = made(Path(tmp))
+        table = json.loads(t.read_text())
+        base = fc.coverage(table, data=Path(tmp))
+        assert not base["laid_but_barely_changed"] and not base["region_far_below_its_own_size"], "a fully changed piece gave a kind"
+        # THE CASE THAT GOES RED when the ranking mixes what a capture answers with what a remake answers (the lead, 2026-10-16)
+        assert base["by_shot"] == {"remake": [{"shot": [10, 31], "frames": 8, "subjects": ["a"], "by_kind": {"original_while_tracked": 4, "emptied_inside": 4}}],
+                                   "capture": [{"shot": [10, 31], "frames": 4, "subjects": ["a"], "by_kind": {"original_tracking_not_known": 4}}]}, base["by_shot"]
+        # rb changed 4 of its 32 carried px on 21 and 22; ra changed nothing on 14-18, where its job emptied her part
+        clip_check(Path(tmp), table, {"rb": {21: 4, 22: 4}, "ra": {f: 0 for f in range(14, 19)}})
+        out = fc.coverage(table, data=Path(tmp))
+        (x,) = out["laid_but_barely_changed"]
+        # THE CASE THAT GOES RED when a laid piece that changed almost nothing of its region is called carried
+        assert x["frames"] == [21, 22] and x["piece"] == "rb" and x["changed_share"]["least"] == 0.125, x
+        run = next(r for r in out["runs"] if r["kind"] == "laid_but_barely_changed")
+        assert run["cause"] == "0.125 to 0.125 of its carried region changed (under 0.3)", run
+        assert [r["first"] for r in out["runs"] if r["kind"] == "emptied_inside"] == [14, 15, 16, 17], "an emptied frame changed kind"
+        assert {"shot": [10, 31], "frames": 10, "subjects": ["a"], "by_kind": {"original_while_tracked": 4, "emptied_inside": 4,
+                "laid_but_barely_changed": 2}} == out["by_shot"]["remake"][0], out["by_shot"]
+        # rb's carried region is one px on 23, against its median of 32
+        z = Path(tmp) / "2026-01-02_rb" / "runs" / "rb" / "region.npz"
+        m = np.zeros((5, H, W), bool)
+        m[:, 2:6, 3:11] = True
+        m[3] = False
+        m[3, 0, 0] = True
+        np.savez(z, carried=np.packbits(m, axis=-1), read=np.ones(5, bool), region=np.zeros((5, 1, 1), bool))
+        clip_check(Path(tmp), table)
+        out = fc.coverage(table, data=Path(tmp))
+        (y,) = out["region_far_below_its_own_size"]
+        # THE CASE THAT GOES RED when a scrap of a region, the original round it, is called carried
+        assert y["frames"] == [23, 23] and y["carried_px"] == [1] and y["its_median_px"] == 32, y
+        assert not out["laid_but_barely_changed"], out["laid_but_barely_changed"]
+    return "rb's 21-22 at 0.125 barely changed; ra's emptied 14-17 stay emptied; rb's 23 at 1 px of its median 32 too small; a fully changed piece neither; by shot counts them"
+
+
+def no_check_refused() -> str:
+    """The gap check reads what each piece changed from the clip's check, so it is refused without it, and on a check of
+    another table; never run and silently skipped."""
+    with tempfile.TemporaryDirectory() as tmp:
+        t = made(Path(tmp))
+        table = json.loads(t.read_text())
+        (Path(tmp) / "clip.mp4.check.json").rename(Path(tmp) / "kept.json")
+        try:
+            fc.coverage(table, data=Path(tmp))
+        except fc.Refused as e:
+            # THE CASE THAT GOES RED when the gap check runs with no clip check
+            assert "clip.mp4.check.json: missing" in str(e), e
+        else:
+            raise AssertionError("ran with no clip check")
+        r = subprocess.run([sys.executable, str(TOOL), "--table", str(t)], capture_output=True, text=True)
+        assert r.returncode == 2 and "REFUSED" in r.stdout and not (Path(tmp) / "frame_coverage_t.json").exists(), r.stdout + r.stderr
+        (Path(tmp) / "kept.json").rename(Path(tmp) / "clip.mp4.check.json")
+        table["rows"][1]["last"] = 23
+        try:
+            fc.coverage(table, data=Path(tmp))
+        except fc.Refused as e:
+            assert "is not of this table" in str(e) and "rb_00001.mp4 20-24" in str(e), e
+        else:
+            raise AssertionError("ran on a check of another table")
+        table["rows"][1]["last"] = 24
+        r = subprocess.run([sys.executable, str(TOOL), "--table", str(t), "--check", str(Path(tmp) / "clip.mp4.check.json")], capture_output=True, text=True)
+        assert r.returncode == 0 and json.loads((Path(tmp) / "frame_coverage_t.json").read_text())["table_sha256"], r.stdout + r.stderr
+    return "no check: refused, exit 2, nothing written; a check of another table refused naming the rows; --check read, the table's sha256 recorded"
+
+
 def ledger_reads_the_same_rule() -> str:
     with tempfile.TemporaryDirectory() as tmp:
         made(Path(tmp))
@@ -248,6 +336,8 @@ case("a row whose run= does not resolve is red", unresolved_is_red)
 case("a capture tied in another shot is read", a_capture_of_another_shot)
 case("a look is its own kind; a job's left_out is context", looks_and_jobs)
 case("the ledger reads the same rule", ledger_reads_the_same_rule)
+case("laid but barely changed; a region far below its own size", barely_changed_and_too_small)
+case("no clip check, or another table's, is refused", no_check_refused)
 
 if __name__ == "__main__":
     sys.exit(finish())
