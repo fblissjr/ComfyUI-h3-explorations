@@ -22,7 +22,10 @@ lays 20-24. Inside `ra` the node carried nothing on 14 (`drop=`, its saved part 
 6. **A capture tied to a row of another shot** that reaches this shot's frames is read for her track there, and a
    frame whose piece's mask is not known while her track is known is `carried_not_known`, not "tracking not known"
    (the outside reviewer's D3, bugs A and B).
-7. **The ledger reads the same rule**: `render_ledger.left_by_the_load` given the run gives 14-18 by cause; with no
+7. **A look and a job's left_out** (the lead's ruling of 2026-10-16, as built): frames the shots record says are not
+   seen are "left out by a look", with who and why, and out of list 1; a later `seen` takes them back; a laid
+   piece's job left_out is said beside its frames and leaves them in list 1, since it may say "left for a later load".
+8. **The ledger reads the same rule**: `render_ledger.left_by_the_load` given the run gives 14-18 by cause; with no
    run it falls back to the manifest's `drop=` list and says so.
 """
 from __future__ import annotations
@@ -194,6 +197,33 @@ def a_capture_of_another_shot() -> str:
     return "32-33 read from the capture a row of shot 10-31 ties to"
 
 
+def looks_and_jobs() -> str:
+    """A look in the shots record makes its frames their own kind, out of list 1; a later `seen` takes it back; a laid
+    piece's job left_out is said beside its frames and leaves them in list 1 (it may be "left for a later load")."""
+    with tempfile.TemporaryDirectory() as tmp:
+        t = made(Path(tmp))
+        table = json.loads(t.read_text())
+        jobf = Path(tmp) / "ra.json"
+        jobf.write_text(json.dumps({"job": {"note": "ra, written by mrjob at 2026-01-01T00:00:00Z: ...",
+                                            "left_out": [{"subject": "a", "first": 10, "frames": 2, "why": "left for a later load, not ruled out"}]}}))
+        ledger = Path(tmp) / "ledger.json"
+        ledger.write_text(json.dumps({"renders": {"Video/v/ra_00001.mp4": {"records": [{"job_file": str(jobf)}]}}}))
+        shots = Path(tmp) / "shots.json"
+        looks = [{"part": "face_and_neck", "first": 25, "last": 26, "is": "not seen", "why": "his back", "by": "mrlook"},
+                 {"part": "face_and_neck", "first": 26, "last": 26, "is": "seen", "why": "he turns", "by": "mrlook"}]
+        shots.write_text(json.dumps({"shots": [{"first": 10, "last": 31, "who": {"a": {"present": "yes", "seen_looks": looks}}}]}))
+        out = fc.coverage(table, data=Path(tmp), ledger=ledger, shots=shots)
+        (lo,) = out["left_out_by_a_look"]
+        assert lo["frames"] == [25, 25] and lo["who"] == "mrlook" and lo["why"] == "his back", lo
+        l1 = {tuple(x["frames"]): x for x in out["original_while_tracked"]}
+        assert (26, 26) in l1 and (25, 25) not in l1 and (25, 26) not in l1, sorted(l1)        # 26 taken back by the later `seen`
+        said = l1[(10, 11)]["a_jobs_left_out_says"]
+        assert said["who"] == "the job of ra, written by mrjob at 2026-01-01T00:00:00Z" and said["frames"] == 2 \
+            and said["why"].startswith("left for a later load"), said
+        assert any(r["kind"] == "left_out_by_a_look" and r["who"] == "mrlook" for r in out["runs"]), out["runs"]
+    return "a look's frames are their own kind with who and why, a later seen takes them back; a job's left_out is said and leaves its frames in list 1"
+
+
 def ledger_reads_the_same_rule() -> str:
     with tempfile.TemporaryDirectory() as tmp:
         made(Path(tmp))
@@ -216,6 +246,7 @@ case("emptied inside a piece, by cause", emptied_inside)
 case("no capture is not known, not untracked", not_known)
 case("a row whose run= does not resolve is red", unresolved_is_red)
 case("a capture tied in another shot is read", a_capture_of_another_shot)
+case("a look is its own kind; a job's left_out is context", looks_and_jobs)
 case("the ledger reads the same rule", ledger_reads_the_same_rule)
 
 if __name__ == "__main__":

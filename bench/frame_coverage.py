@@ -34,6 +34,14 @@ pieces, each tied to its capture's run by `run=<capture>:<run>`). For each frame
    own no-mask list (`left_as_the_source_with_no_mask`, an effect the run recorded, not a cause), a cut; "not in the
    record" where none of those says. Every cause that holds is said, joined by `+`.
 
+**Left out by a look** (the lead's ruling of 2026-10-16, as built). Frames the shots record says the subject's part is
+NOT SEEN on (`who[label].seen_looks`, entered by `bench/shots_look.py`; a later `seen` takes them back) are their own
+kind, with who looked and why, and never in list 1. A laid piece's own job `left_out` is NOT taken as a look: it says
+"his face is behind his blurred hand" on one load and "left for a later load ... not ruled out" on another (lead_fp_0852b
+on the kitchen's 604-845, the very frames the owner saw turn back), so it is said beside the list-1 run it covers
+(`a_jobs_left_out_says`) and the frames stay in list 1. A look that rules frames the original goes into the shots record.
+The ledger and the shots record are the ones the table's `made` names, or `--ledger` and `--shots`.
+
 **What it cannot see.** The picture. A frame whose mask was carried can still come out looking like the original (H3
 may regenerate a face like the source's); deciding that wants a per-frame likeness of the delivered video, which no
 record holds. Track px > 0 says SAM 3.1 put some pixels on her, not that her face is visible: a run's px are printed
@@ -224,6 +232,49 @@ def untied_index(clips: set[str], tied: set[str], data: Path) -> list[tuple[str,
     return out
 
 
+def left_out_by_looks(table: dict, ledger: dict | None, shots: dict | None) -> tuple[dict[tuple[str, int], dict], dict[tuple[str, int], dict]]:
+    """Two maps of (subject, frame) -> {who, why, from}.
+
+    `looks`: the frames the shots record says the subject's part is NOT SEEN on (`who[label].seen_looks`,
+    `bench/shots_look.py`; a later `seen` takes an earlier `not seen` back). These are their own kind, "left out by a
+    look", never a gap (the lead's ruling of 2026-10-16).
+
+    `jobs`: the frames a laid piece's own job left out (`job.left_out`, from the job file the ledger's record of the
+    render names), carried beside those frames as context and NOT taken out of list 1: a job's left_out is sometimes a
+    look ("his face is behind his blurred hand") and sometimes "left for a later load ... not ruled out" (lead_fp_0852b
+    on 604-845, the kitchen's own gaps), and only free text tells them apart. A look that rules frames the original
+    is entered into the shots record."""
+    import re
+    looks: dict[tuple[str, int], dict] = {}
+    jobs: dict[tuple[str, int], dict] = {}
+    for row in table.get("rows", []):
+        r = ((ledger or {}).get("renders") or {}).get(row.get("file")) or {}
+        rec = next((c for c in reversed(r.get("records") or []) if c.get("job_file")), None)
+        if rec is None or not (REPO / rec["job_file"]).is_file():
+            continue
+        job = json.loads((REPO / rec["job_file"]).read_text()).get("job") or {}
+        m = re.search(r"written by (\S+) at (\d{4}-\d\d-\d\dT[\d:]+Z?)", str(job.get("note") or ""))
+        who = f"the job of {row.get('name')}" + (f", written by {m.group(1)} at {m.group(2)}" if m else "")
+        for x in job.get("left_out") or []:
+            for f in range(int(x["first"]), int(x["first"]) + int(x["frames"])):
+                jobs[(x["subject"], f)] = {"who": who, "why": x.get("why"), "from": rec["job_file"]}
+    for shot in (shots or {}).get("shots", []):
+        for label, w in (shot.get("who") or {}).items():
+            for look in w.get("seen_looks") or []:
+                for f in range(int(look["first"]), int(look["last"]) + 1):
+                    if look.get("is") == "not seen":
+                        looks[(label, f)] = {"who": look.get("by"), "why": look.get("why"), "from": "the shots record's seen_looks"}
+                    elif look.get("is") == "seen":
+                        looks.pop((label, f), None)
+    return looks, jobs
+
+
+def named_in(table: dict, pattern: str) -> Path | None:
+    import re
+    m = re.search(pattern, str(table.get("made") or ""))
+    return REPO / m.group(1) if m and (REPO / m.group(1)).is_file() else None
+
+
 def written_by_render(table: dict) -> dict[str, str]:
     out = {}
     for r in table.get("reading", []):
@@ -233,7 +284,7 @@ def written_by_render(table: dict) -> dict[str, str]:
     return out
 
 
-def coverage(table: dict, span: list[int] | None = None, data: Path = REPO / "data") -> dict:
+def coverage(table: dict, span: list[int] | None = None, data: Path = REPO / "data", ledger: Path | None = None, shots: Path | None = None) -> dict:
     caps: dict[str, Capture] = {}
     failures = []
     tied, failed = [], []
@@ -246,7 +297,10 @@ def coverage(table: dict, span: list[int] | None = None, data: Path = REPO / "da
             failed.append(row)
     written = written_by_render(table)
     untied = untied_index({c.m.get("clip") for c in caps.values()}, {c.folder.name for c in caps.values()}, data)
-    shots, list1, list2, unknown, empty, carried_unknown = [], [], [], [], [], []
+    ledger = ledger or named_in(table, r"from the ledger `([^`]+)`")
+    shots_file = shots or named_in(table, r"`([^`]*shots\.json)`")
+    looked, job_left = left_out_by_looks(table, json.loads(ledger.read_text()) if ledger else None, json.loads(shots_file.read_text()) if shots_file else None)
+    shots, list1, list2, unknown, empty, carried_unknown, looked_out = [], [], [], [], [], [], []
     for rd in table.get("reading", []):
         a, b, label = int(rd["first"]), int(rd["last"]), rd["subject"]
         if span and (b < span[0] or a > span[1]):
@@ -278,6 +332,8 @@ def coverage(table: dict, span: list[int] | None = None, data: Path = REPO / "da
             bad = next((r for r in failed_mine if r["first"] <= f <= r["last"]), None)
             if piece is None and bad is not None:
                 state = f"not known: the laid piece {bad.get('name')} has a run= that does not resolve"
+            elif piece is None and (label, f) in looked:
+                state = "left out by a look: " + str(looked[(label, f)]["why"])
             elif piece is None:
                 state = "original: no piece laid"
             else:
@@ -311,6 +367,10 @@ def coverage(table: dict, span: list[int] | None = None, data: Path = REPO / "da
                     "piece": cur["piece"], "shot_has_a_piece_of_her": bool(mine), "state": cur["state"], "track_from": sorted(cur["from"])}
             if cur["kind"] == "tracked":
                 item["track_px"] = {"least": min(pxs), "median": int(median(pxs)), "most": max(pxs)}
+                said = [job_left[(label, f)] for f in range(cur["f0"], cur["f1"] + 1) if (label, f) in job_left]
+                if said:
+                    # context, not a verdict: what a laid piece's job said of these frames (see left_out_by_looks)
+                    item["a_jobs_left_out_says"] = {k: said[0][k] for k in ("who", "why", "from")} | {"frames": len(said)}
                 list1.append(item)
             elif cur["kind"] == "unknown":
                 item["tracking"] = ("not known: " + cur["state"].removeprefix("not known: ")) if cur["state"].startswith("not known") \
@@ -320,13 +380,18 @@ def coverage(table: dict, span: list[int] | None = None, data: Path = REPO / "da
                 unknown.append(item)
             elif cur["kind"] == "untracked":
                 empty.append(item)
+            elif cur["kind"] == "looked_out":
+                item.update({k: looked[(label, cur["f0"])][k] for k in ("who", "why", "from")})
+                looked_out.append(item)
             elif cur["kind"] == "carried_not_known":
                 item["track_px"] = {"least": min(pxs), "median": int(median(pxs)), "most": max(pxs)}
                 carried_unknown.append(item)
 
         for i, f in enumerate(cols["frames"]):
             st, tpx = cols["state"][i], cols["track_px"][i]
-            if st.startswith("not known"):
+            if st.startswith("left out by a look"):
+                kind = "looked_out"
+            elif st.startswith("not known"):
                 kind = "unknown" if tpx is None else "carried_not_known"   # her track known; the piece's mask is not
             elif not st.startswith("original"):
                 kind = None
@@ -358,11 +423,13 @@ def coverage(table: dict, span: list[int] | None = None, data: Path = REPO / "da
     list3 = [x for x in list1 if x["piece"] is not None]
     return {"failures": failures, "shots": shots, "original_while_tracked": list1, "seams": list2,
             "emptied_inside_a_piece": list3, "original_tracking_not_known": unknown, "original_her_track_empty": empty,
-            "carried_not_known": carried_unknown, "runs": flat(list1, list2, unknown, empty, written, carried_unknown)}
+            "carried_not_known": carried_unknown, "left_out_by_a_look": looked_out,
+            "read_for_looks": {"ledger": str(ledger) if ledger else None, "shots": str(shots_file) if shots_file else None},
+            "runs": flat(list1, list2, unknown, empty, written, carried_unknown, looked_out)}
 
 
 def flat(list1: list[dict], list2: list[dict], unknown: list[dict], empty: list[dict], written: dict[str, str],
-         carried_unknown: list[dict] | None = None) -> list[dict]:
+         carried_unknown: list[dict] | None = None, looked_out: list[dict] | None = None) -> list[dict]:
     """One list of runs for a page, by frame (the lead's shape, 2026-10-16). The kinds are disjoint: a run of list 1
     inside a piece is `emptied_inside`, one with no piece `original_while_tracked` (`shot_has_a_piece_of_her` tells a
     turn-back inside a shot she has a piece in from a shot with no piece of her at all); a seam's first and last are
@@ -391,6 +458,10 @@ def flat(list1: list[dict], list2: list[dict], unknown: list[dict], empty: list[
         out.append({"first": x["frames"][0], "last": x["frames"][1], "shot": x["shot"], "subject": x["subject"],
                     "kind": "original_her_track_empty", "pieces": [x["piece"]] if x["piece"] else [], "render_days": [],
                     "cause": x["state"], "track_px_median": 0, "present": x["present"]})
+    for x in looked_out or []:
+        out.append({"first": x["frames"][0], "last": x["frames"][1], "shot": x["shot"], "subject": x["subject"], "kind": "left_out_by_a_look",
+                    "pieces": [], "render_days": [], "cause": x["why"], "who": x["who"], "from": x["from"], "track_px_median": None,
+                    "present": x["present"]})
     for x in carried_unknown or []:
         out.append({"first": x["frames"][0], "last": x["frames"][1], "shot": x["shot"], "subject": x["subject"],
                     "kind": "carried_not_known", "pieces": [x["piece"]] if x["piece"] else [], "render_days": [],
@@ -412,7 +483,8 @@ def counts(out: dict) -> dict:
             "emptied_inside_a_piece": {"runs": len(out["emptied_inside_a_piece"]), "frames": sum(x["count"] for x in out["emptied_inside_a_piece"]),
                                        "frames_by_cause": by_cause},
             "original_tracking_not_known_frames": sum(x["count"] for x in out["original_tracking_not_known"]),
-            "original_and_her_track_empty_frames": untracked}
+            "original_and_her_track_empty_frames": untracked,
+            "left_out_by_a_look_frames": sum(x["count"] for x in out.get("left_out_by_a_look", []))}
 
 
 def fr(x) -> str:
@@ -448,6 +520,10 @@ def markdown(out: dict) -> str:
     for x in out["original_tracking_not_known"]:
         lines.append(f"| {fr(x['shot'])} | {x['subject']} | {fr(x['frames'])} | {x['count']} | {x['tracking']} | "
                      f"{', '.join(x['untied_captures_with_her_track']) or '-'} |")
+    lines += ["", "## Left out by a look (a laid piece's job, or the shots record): the original, on a person's word", "",
+              "| shot | subject | frames | count | who | why |", "|---|---|---|---|---|---|"]
+    for x in out.get("left_out_by_a_look", []):
+        lines.append(f"| {fr(x['shot'])} | {x['subject']} | {fr(x['frames'])} | {x['count']} | {x['who']} | {str(x['why'])[:300]} |")
     lines += ["", "## She is tracked and whether the laid piece carried a mask is not known", "",
               "| shot | subject | frames | count | piece | why | track px median |", "|---|---|---|---|---|---|---|"]
     for x in out["carried_not_known"]:
@@ -462,13 +538,15 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=str(__doc__).splitlines()[0])
     ap.add_argument("--table", required=True, help="a delivery table's .json (bench/delivery_table.py)")
     ap.add_argument("--span", help="A-B: only the shots that meet these frames, cut to them")
+    ap.add_argument("--ledger", help="the render ledger whose records name each laid piece's job file; the one the table names when left out")
+    ap.add_argument("--shots", help="the shots record whose looks are read; the one the table names when left out")
     ap.add_argument("--json", help="where the JSON goes; beside the table when left out")
     ap.add_argument("--md", help="where the .md goes; beside the table when left out")
     a = ap.parse_args()
     table_path = Path(a.table)
     table = json.loads(table_path.read_text())
     span = [int(x) for x in a.span.split("-")] if a.span else None
-    out = coverage(table, span)
+    out = coverage(table, span, ledger=Path(a.ledger) if a.ledger else None, shots=Path(a.shots) if a.shots else None)
     commit = subprocess.run(["git", "-C", str(REPO), "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
     stem = "frame_coverage_" + table_path.stem.removeprefix("t_") + (f"_{span[0]:04d}_{span[1]:04d}" if span else "")
     out = {"table": str(table_path), "span": span,
