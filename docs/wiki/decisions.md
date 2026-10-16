@@ -54,8 +54,9 @@ Older history lives elsewhere and is not copied here:
 - **Every run records the nodes the server served from its cache** (the owner, 2026-10-16: "that needs to be solved
   tonight"). Built and read cold (branch `mrtall-cached-nodes`), landing at the card's clear after 0604g.
 - **A tracking count on every load** (the owner, 2026-10-16), and **one hold rule from the flip survey in place of the
-  hand-written --hold-part spans** (the lead's proposal, under review by the reviewer's C16 and a dry run): both queued,
-  `handover.md` items 4e and 4f.
+  hand-written --hold-part spans** (the lead's proposal): the tracking count is queued; the hold rule is DROPPED as
+  proposed, on the dry run and the reviewer's C16 (the face points read "face" on backs of heads and hands, and do not
+  exist when the capture runs); main's `SHORT_FILL` on "nothing labelled" stays, perhaps raised to 4 (`handover.md`, 4).
 
 *Written by the lead of the day (mrtall) as the rulings are made; mrarc holds the card, mrlol tooling.*
 
