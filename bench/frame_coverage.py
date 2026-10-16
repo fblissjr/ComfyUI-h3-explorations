@@ -63,7 +63,7 @@ from piece_gaps import day, runs  # noqa: E402
 POP = np.array([bin(i).count("1") for i in range(256)], np.uint8)
 CANNOT = ("the picture: a frame whose mask was carried can still come out as the original (no per-frame likeness of the delivered "
           "video is read); whether a tracked person's face is visible (track px > 0 is SAM 3.1's pixels on her, printed so 'barely in' "
-          "shows; whether her face shows on such frames is a playback question); a two-subject run's carried mask is both subjects' union; a frame the tied captures cannot tell is 'tracking not known' with why, and an untied capture holding her track is named, never read")
+          "shows; whether her face shows on such frames is a playback question); a two-subject run's carried mask is both subjects' union; a face-and-hair run whose face emptied while its hair was carried counts as carried (the px are the union); a restore= that gives the source back at assembly inside a carried mask is not read; a subject the shots file says is not in a shot is not walked (the table's not_in_the_shot); an older capture's subject named by an alias is not matched as untied; a frame the tied captures cannot tell is 'tracking not known' with why, and an untied capture holding her track is named, never read")
 
 
 def px(packed: np.ndarray) -> np.ndarray:
@@ -246,7 +246,7 @@ def coverage(table: dict, span: list[int] | None = None, data: Path = REPO / "da
             failed.append(row)
     written = written_by_render(table)
     untied = untied_index({c.m.get("clip") for c in caps.values()}, {c.folder.name for c in caps.values()}, data)
-    shots, list1, list2, unknown, empty = [], [], [], [], []
+    shots, list1, list2, unknown, empty, carried_unknown = [], [], [], [], [], []
     for rd in table.get("reading", []):
         a, b, label = int(rd["first"]), int(rd["last"]), rd["subject"]
         if span and (b < span[0] or a > span[1]):
@@ -263,7 +263,8 @@ def coverage(table: dict, span: list[int] | None = None, data: Path = REPO / "da
         cols = {"frames": [], "track_px": [], "track_from": [], "piece": [], "carried_px": [], "state": []}
         for f in range(lo, hi + 1):
             piece = next(((r, c, n) for r, c, n in mine if r["first"] <= f <= r["last"]), None)
-            order = ([piece] if piece else []) + [x for x in in_shot if x is not piece]
+            # the piece's capture, then the shot's, then any capture a row of another shot ties to that reaches this frame
+            order = ([piece] if piece else []) + [x for x in in_shot if x is not piece] + [x for x in tied if x not in in_shot]
             tpx, tfrom = None, None
             for r, c, n in order:
                 v = c.track_at(label, f)
@@ -319,11 +320,14 @@ def coverage(table: dict, span: list[int] | None = None, data: Path = REPO / "da
                 unknown.append(item)
             elif cur["kind"] == "untracked":
                 empty.append(item)
+            elif cur["kind"] == "carried_not_known":
+                item["track_px"] = {"least": min(pxs), "median": int(median(pxs)), "most": max(pxs)}
+                carried_unknown.append(item)
 
         for i, f in enumerate(cols["frames"]):
             st, tpx = cols["state"][i], cols["track_px"][i]
             if st.startswith("not known"):
-                kind = "unknown"
+                kind = "unknown" if tpx is None else "carried_not_known"   # her track known; the piece's mask is not
             elif not st.startswith("original"):
                 kind = None
             elif tpx is None:
@@ -354,16 +358,18 @@ def coverage(table: dict, span: list[int] | None = None, data: Path = REPO / "da
     list3 = [x for x in list1 if x["piece"] is not None]
     return {"failures": failures, "shots": shots, "original_while_tracked": list1, "seams": list2,
             "emptied_inside_a_piece": list3, "original_tracking_not_known": unknown, "original_her_track_empty": empty,
-            "runs": flat(list1, list2, unknown, empty, written)}
+            "carried_not_known": carried_unknown, "runs": flat(list1, list2, unknown, empty, written, carried_unknown)}
 
 
-def flat(list1: list[dict], list2: list[dict], unknown: list[dict], empty: list[dict], written: dict[str, str]) -> list[dict]:
+def flat(list1: list[dict], list2: list[dict], unknown: list[dict], empty: list[dict], written: dict[str, str],
+         carried_unknown: list[dict] | None = None) -> list[dict]:
     """One list of runs for a page, by frame (the lead's shape, 2026-10-16). The kinds are disjoint: a run of list 1
     inside a piece is `emptied_inside`, one with no piece `original_while_tracked` (`shot_has_a_piece_of_her` tells a
     turn-back inside a shot she has a piece in from a shot with no piece of her at all); a seam's first and last are
     the two frames that meet; `original_tracking_not_known` is a run the tied captures cannot tell, said so it is not
     read as none, with any untied capture that holds her track; `original_her_track_empty` is the original on frames
-    her tied track is 0 px."""
+    her tied track is 0 px; `carried_not_known` is a run her track is known on and whether the laid piece carried a
+    mask is not (its run= does not resolve, its capture does not cover the frame, or did not read it)."""
     out = []
     for x in list1:
         inside = x["piece"] is not None
@@ -385,6 +391,10 @@ def flat(list1: list[dict], list2: list[dict], unknown: list[dict], empty: list[
         out.append({"first": x["frames"][0], "last": x["frames"][1], "shot": x["shot"], "subject": x["subject"],
                     "kind": "original_her_track_empty", "pieces": [x["piece"]] if x["piece"] else [], "render_days": [],
                     "cause": x["state"], "track_px_median": 0, "present": x["present"]})
+    for x in carried_unknown or []:
+        out.append({"first": x["frames"][0], "last": x["frames"][1], "shot": x["shot"], "subject": x["subject"],
+                    "kind": "carried_not_known", "pieces": [x["piece"]] if x["piece"] else [], "render_days": [],
+                    "cause": x["state"], "track_px_median": x["track_px"]["median"], "present": x["present"]})
     return sorted(out, key=lambda r: (r["first"], r["subject"], r["kind"]))
 
 
@@ -438,6 +448,10 @@ def markdown(out: dict) -> str:
     for x in out["original_tracking_not_known"]:
         lines.append(f"| {fr(x['shot'])} | {x['subject']} | {fr(x['frames'])} | {x['count']} | {x['tracking']} | "
                      f"{', '.join(x['untied_captures_with_her_track']) or '-'} |")
+    lines += ["", "## She is tracked and whether the laid piece carried a mask is not known", "",
+              "| shot | subject | frames | count | piece | why | track px median |", "|---|---|---|---|---|---|---|"]
+    for x in out["carried_not_known"]:
+        lines.append(f"| {fr(x['shot'])} | {x['subject']} | {fr(x['frames'])} | {x['count']} | {x['piece'] or '-'} | {x['state']} | {x['track_px']['median']} |")
     lines += ["", "## The original shows on frames her tied track is 0 px", "", "| shot | subject | frames | count | piece | state |", "|---|---|---|---|---|---|"]
     for x in out["original_her_track_empty"]:
         lines.append(f"| {fr(x['shot'])} | {x['subject']} | {fr(x['frames'])} | {x['count']} | {x['piece'] or '(none laid)'} | {x['state']} |")

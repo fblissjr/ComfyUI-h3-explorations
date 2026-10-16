@@ -19,7 +19,10 @@ lays 20-24. Inside `ra` the node carried nothing on 14 (`drop=`, its saved part 
    name the untied capture; 18 and 27 (her track 0 px) are their own list; the unsure shot is read and said.
 5. **A row whose run= does not resolve** is a hard failure and the tool exits 1, and its frames are not known, not
    "no piece laid".
-6. **The ledger reads the same rule**: `render_ledger.left_by_the_load` given the run gives 14-18 by cause; with no
+6. **A capture tied to a row of another shot** that reaches this shot's frames is read for her track there, and a
+   frame whose piece's mask is not known while her track is known is `carried_not_known`, not "tracking not known"
+   (the outside reviewer's D3, bugs A and B).
+7. **The ledger reads the same rule**: `render_ledger.left_by_the_load` given the run gives 14-18 by cause; with no
    run it falls back to the manifest's `drop=` list and says so.
 """
 from __future__ import annotations
@@ -168,8 +171,27 @@ def unresolved_is_red() -> str:
         out = fc.coverage(json.loads(t.read_text()), data=Path(tmp))
         st = dict(zip(out["shots"][0]["frames"], out["shots"][0]["state"]))
         assert st[25] == "not known: the laid piece gone has a run= that does not resolve" and st[27].startswith("not known: the laid piece norun"), st
+        # her track is known on 25-26 (32 px) and 27 (0 px): the piece's mask is what is not known there, not her tracking
+        assert [(x["frames"], x["track_px"]["median"]) for x in out["carried_not_known"]] == [([25, 26], 32), ([27, 27], 0)], out["carried_not_known"]
+        assert not any(x["frames"][0] <= 26 and x["frames"][1] >= 25 for x in out["original_tracking_not_known"]), out["original_tracking_not_known"]
         assert (Path(tmp) / "frame_coverage_t.json").is_file() and (Path(tmp) / "frame_coverage_t.md").read_text().count("## FAILED") == 1
     return "a folder that does not exist and a run its manifest lacks: exit 1, both named, files still written"
+
+
+def a_capture_of_another_shot() -> str:
+    """A capture tied to a row of another shot that reaches into this one is read for her track, not called absent."""
+    with tempfile.TemporaryDirectory() as tmp:
+        t = made(Path(tmp))
+        table = json.loads(t.read_text())
+        table["reading"].append({"first": 32, "last": 33, "subject": "a", "present": "yes", "stands": []})
+        capture(Path(tmp), "2026-01-04_wide", 20, 14, track=[True] * 14, covered=[True] * 14, parts=[True] * 14, carried=[True] * 14,
+                run="rw", sighting={}, grades=[])
+        table["rows"].append({"first": 20, "last": 24, "name": "rw", "file": "Video/v/rw_00001.mp4", "subject": "b",
+                              "run": f"{Path(tmp) / '2026-01-04_wide'}:rw"})
+        out = fc.coverage(table, data=Path(tmp))
+        x = [r for r in out["original_while_tracked"] if r["shot"] == [32, 33]]
+        assert [(r["frames"], r["track_from"]) for r in x] == [([32, 33], ["2026-01-04_wide"])], (x, out["original_tracking_not_known"])
+    return "32-33 read from the capture a row of shot 10-31 ties to"
 
 
 def ledger_reads_the_same_rule() -> str:
@@ -193,6 +215,7 @@ case("seams with both render days", seams)
 case("emptied inside a piece, by cause", emptied_inside)
 case("no capture is not known, not untracked", not_known)
 case("a row whose run= does not resolve is red", unresolved_is_red)
+case("a capture tied in another shot is read", a_capture_of_another_shot)
 case("the ledger reads the same rule", ledger_reads_the_same_rule)
 
 if __name__ == "__main__":
