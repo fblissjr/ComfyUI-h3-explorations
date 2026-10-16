@@ -17,6 +17,20 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-16
 
+- **No keep-out gives back a cell inside the person's own track: the capture takes those cells out of the keep-out,
+  rather than refusing the load** (the lead, mrtony, ruling the form of the third gate the simplification entry below
+  names, on mrtaco's probe). Built first as a refusal, gate 3 would have stopped nearly every load of the mom's: her
+  plan's keep-outs `held`, `hands` and `clothes` are her own things, so they lie inside her own track by construction
+  (on the saved regions: 0604e/f/g, `held` on 317 frames up to 57 cells, `hands` on 279 up to 87; 0014f, `hands` on
+  100 frames up to 55; `internal/claude/2026-10-16_mrtaco/probe_gate3.out`); the lead's `strangers` keep-out touched her
+  track by 1 to 5 cells on a few frames of 2823b, 3759, 5935 and 3240b-d. Now: the capture removes from every keep-out
+  that is not one of our people the cells that are more than half the subject's own track, and records per frame how
+  many it took out (data); a cell given back inside her own track after that is a hard failure, since it can only be a
+  fault in the capture. Another person's track over hers is unchanged (that is who stands in front, not a keep-out).
+  So her own hands, held things and clothes inside her region are regenerated with the rest of her; outside her track
+  the keep-outs still act. The plan's keep-outs are not edited. What it replaces: keep-outs taking cells inside a
+  person's own track, a source of the holes in `internal/gemini/2026-10-16_holes_trace.md`.
+
 - **A video's sidecar is its full file name plus `.json`: `<name>.mp4.json`** (the owner left the name to the lead,
   mrtony, at about 17:57Z: "consistent and not collide with other names and be easily understood that it goes with
   it"). `bench/sidecar.py` as built named it `<stem>.json`, which about 15 tools already write as their own record
