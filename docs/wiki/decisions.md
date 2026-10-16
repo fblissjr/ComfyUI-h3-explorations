@@ -17,6 +17,21 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-16
 
+- **Before the next renders: the node's exact matte is saved and laid; the floor holds rather than empties; the
+  per-frame matte and re-compositing kept pieces are tried first** (the lead, mrtony, at 21:29Z, the owner having
+  asked "should we re-design anything before we go load it again" on a Gemini reader's redesign, and given no
+  preference among the four). The diagnosis taken: three stages each decide which pixels to keep, two of them from
+  colour differences. In order: (1) the node saves the per-pixel matte it composited with beside each window's region
+  file, and the assembler lays exactly that, never a threshold; landed before second_hfp_1010c, lead_fp_1010f and the
+  kitchen render. (2) A tracked person's part is never emptied by the size floor: it is held from the nearest kept
+  frame unless a look says no face there (`--no-face-on`, drop); landed before any new plan uses it. (3) A matte that
+  follows the person frame by frame (the old and new person's masks, inside the regenerated tokens) in place of the
+  token staircase is TRIED on two existing renders by re-compositing, no sampling; the owner judges the rim on
+  playback. (4) Re-compositing a kept piece rendered "only what changed" as "whole region" from its saved latent
+  (`bench/recomposite_window.py`) is TRIED on second_hfp_0604d as a before-and-after; no kept piece is re-laid without
+  the owner's word on that piece. Deferred: keep-outs composited after decoding instead of pinned before sampling (it
+  changes what H3 is given, so it needs new renders to test).
+
 - **The keep-out carve is done on the node's own grid, and the region the owner looks at is the one the render
   uses** (the lead, mrtony, ruling route C at about 20:20Z on mrtaco's options; landed 77ea523a and ac6b7a10, recorded
   20:47Z). The canvas carve of gate 3 left squares inside her outline the node still gave back, because the node
