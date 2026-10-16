@@ -15,7 +15,8 @@ table; the Open List).
 > anything else used it: the lead's glance (1097-1133) and her phone call in the hall (1575-1729, the kept 1575b, where
 > the eyes already worked). Whether it landed, and on what reading, is in `decisions.md` and mrnight's note. If the
 > new references make things worse, the old cut is the default it was built beside: say so to the owner and use it.
-> **STOPPED FOR THE NIGHT, NOT LANDED** (the owner, about 23:50Z: stop it "unless you think its worth finishing"; the lead:
+> **THE OWNER'S RULING (2026-10-16): the touch-nothing test first; every other gaze piece is set aside until it
+> answers** (`internal/claude/2026-10-15_gaze_pieces.md`). **STOPPED FOR THE NIGHT, NOT LANDED** (the owner, about 23:50Z: stop it "unless you think its worth finishing"; the lead:
 > finish to a clean point in the worktree, land nothing). It is on branch `mrnight-gaze` (484d6302) in its worktree; where it stands
 > is `internal/claude/2026-10-15_mrnight_closeout.md`. Tomorrow: a cold read, land at the card's clear, then the two
 > tests. THE PIECES, SEPARATELY (take any alone; why each, harm, the lead's pick of one render): `internal/claude/2026-10-15_gaze_pieces.md`.
@@ -136,6 +137,17 @@ table; the Open List).
    frames the floor empties as left as the original (`render_ledger.left_by_the_load` reads only `drop=`; it misses 15
    frames of the kept hall cut, 1419d and third 1419d). Not seen by the survey: a face regenerated to look like the
    original under a present mask (a per-frame face likeness would be needed).
+4f. A TRACKING COUNT ON EVERY LOAD (the owner, 2026-10-16: "the regional tracking losing tracks needs to have tooling to
+   identify if that ever happens ... or at least given a tracking count back"). Each capture prints, and keeps beside its
+   record, one line a tracker over the load's frames: SAM 3.1 (frames with her track), the part model (frames with a
+   part, under the floor, emptied by the grade, held, dropped by a word), the face points (frames her face shows), the
+   body model (frames with a body); and the frames where one lost her while the others had her, by source frame. Data
+   with what it was measured on, never a verdict. Built from the flip survey's own method and scripts
+   (`internal/claude/2026-10-15_flip_survey/`), as a tracked bench tool with its index row, run by the chain.
+4g. WARNINGS AND GREENS THAT MISLEAD (the owner, same message: "whatever causes misleading or harmful warning or false
+   senses of good"): every item the four reviews of 2026-10-16 name in that class (a flag that cries wolf, a check that
+   passes while the thing is wrong, a page that reads as complete while it is not, e.g. the ledger's left_by_the_load)
+   is fixed or removed, in the order the lead sets from those reviews.
 4d. The chain records ComfyUI's list of cached nodes for every run (the owner's yes, 2026-10-16), beside the run's record.
 5. Tooling queued for the card seat, in order after the kitchen's lead (`--mouth-on` and `track_from` are tonight's,
    above, and landed or not by mrgo's note): the ledger
