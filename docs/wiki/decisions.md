@@ -17,6 +17,11 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-16
 
+- **A Gemini builder builds the pages and shot_coverage reading the gap check** (the owner, "Yes", in the lead's terminal at
+  2026-10-16T22:17Z; this job only, as for the frame table): `review_pages.py` and `shot_coverage.py` read the gap check of the same
+  table and refuse without it, so no page calls a frame done that the gap check shows as the original. The brief is D19 in
+  `internal/gemini/2026-10-16_requests.md`; a Claude reader reads the diff and the lead commits.
+
 - **Before the next renders: the node's exact matte is saved and laid; the floor holds rather than empties; the
   per-frame matte and re-compositing kept pieces are tried first** (the lead, mrtony, at 21:29Z, the owner having
   asked "should we re-design anything before we go load it again" on a Gemini reader's redesign, and given no
