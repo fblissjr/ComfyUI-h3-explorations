@@ -17,6 +17,18 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-16
 
+- **No largest-piece rule on any load whose part holds a face or hair, the lead's included** (the lead, mrtony, at
+  about 17:55Z, ruling the scope of the gate the entry below names, on mrtaco's question). The entry below removed the
+  rule from the mom's face-and-hair loads; the lead's plan still carried `pieces: largest` on her `face_and_neck`
+  loads (mrtwo, 2026-10-14, against enclosed holes on 3262-3265 under the old composite). It put the original back
+  inside her region the same way: on the kitchen candidate `lead_fp_0613c` it dropped pieces on 180 of 362 frames, up
+  to 9333 px on 772 and 6312 on 850; on the street `lead_fp_0438c`, 5 of 46 frames, up to 114 px (each load's
+  `files_on_plan` output under `data/2026-10-16_<load>_job/chain/`). Removed from `data/fun/plan.json` (the plan
+  before: `data/fun/plan.before_lead_pieces_2026-10-16T175022Z.json`); the gate in `bench/shot_to_load.py` refuses
+  `pieces` on a load whose part holds hair or `face_and_neck` on any frame. Both candidates stay on the owner's page
+  as rendered; their look decides them. The holes the rule was set against are open again: closing a hole the region
+  encloses, not dropping a piece, is the way that does not give the original back.
+
 - **The simplification wins: H3's picture is kept whole inside a person's region, and nothing puts the original back
   inside it** (the owner: "The simplification wins. Make sure this never happens again"), after a code trace
   (`internal/gemini/2026-10-16_holes_trace.md`) found four live sources of the original showing through the mom's new
