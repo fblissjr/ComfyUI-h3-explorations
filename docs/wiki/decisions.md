@@ -51,7 +51,8 @@ Older history lives elsewhere and is not copied here:
   track by 1 to 5 cells on a few frames of 2823b, 3759, 5935 and 3240b-d. Now: the capture's files step, after every mask is
   read and before it writes the `track__` files a load's `others` are built from (`masked_job.capture_files`, about
   `bench/masked_job.py:607-640`), takes out of each keep-out that is not one of our people the cells that are more
-  than half the union of the run subjects' own tracks; it records per frame the pixels and cells each keep-out lost
+  than half the union of the run subjects' own tracks (whole cells: on 0014f that takes 34989 of 144813 `hands` px and
+  4930 of 15213 clothing px lying just outside her track, `internal/claude/2026-10-16_mrtony/review_gate3.md`); it records per frame the pixels and cells each keep-out lost
   (data); a cell given back inside her own track after that is a hard failure, since it can only be a fault. What it
   cannot see: a zoomed load's tokens are on the zoomed grid, the carve on the canvas's. (The lead's wording was
   corrected twice the same hour: mrtaco objected that a carve in the capture alone would not reach the node, then
