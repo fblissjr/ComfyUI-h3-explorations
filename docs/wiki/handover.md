@@ -71,7 +71,11 @@ notes: `internal/claude/2026-10-16_mrtony/HANDOFF.md`; the card's: `internal/cla
    77ea523a) a keep-out loses everything inside her track, so a new load gives those back (NOT the retired `stay`,
    which was a second, separate keep-out; the trial's final report names which). New loads under today's rules,
    planned to strips that show her outline on the flagged frames (the carve is only as good as her track).
-4. Land Gemini's D19 (pages read the gap check) and D20 (`--carry-words-from`) after a Claude read each.
+4. Gemini's builds, each a branch (AGENTS.md, e318f6eb), landed from the merge base after a blind read: D19 (pages read
+   the gap check) is on `gemini-d19b` (28c3c7e1), NOT landed: its second read
+   (`internal/claude/2026-10-16_mrtony/review_D19b_pages_gap.md`) passed the refusals and the real 2250Z table but
+   found eight green reverts and page wording that misleads; D19c in the requests file is the last round. D20b
+   (`--carry-words-from`) and D22 (floor holds and off-head) were building at the close.
 5. Open with the owner: a new kitchen load for the mom (604-1009) under today's rules (the Open List's r16_01, the lead's
    pick: see the re-laid 0604d first); the
    per-frame matte trial's result; re-compositing kept pieces one by one on their word.
