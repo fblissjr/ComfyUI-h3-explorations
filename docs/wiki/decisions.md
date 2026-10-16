@@ -17,6 +17,16 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-16
 
+- **The mom's clothing next to her new face and hair is redrawn with her; the stay keep-out is retired** (the owner,
+  in the lead's terminal at 19:25Z, choosing "Redraw it" when mrtony asked whether H3 should redraw her apron strap, bib
+  and blouse or keep them as the original). The plan's `look.stay` (mrtwo's ruling of 2026-10-14, arm K, on mrpre's
+  apron figures) kept her own clothing as one keep-out drawn from her own track; the gate 3 carve would have emptied it
+  (a blind read, `internal/claude/2026-10-16_mrtony/review_gate3.md`: on 0014f the carve takes 1416632 px of it, all but
+  15213 inside her track), while her job file still announced it. Removed from `data/fun/plan.json` (the plan before:
+  `data/fun/plan.before_no_stay_2026-10-16T192527Z.json`; the old block under `look.stay_removed_by`). Her clothing is
+  named in the load's text, as accessories are. Risk the owner accepted: the strap or collar may shift near her neck.
+  Takes effect on her next load; nothing made changes.
+
 - **The assembler lays a "whole region" render's region whole, every piece, at both sizes; a render made with "only
   what changed" keeps the node's own choice** (the lead, mrtony, at 18:59Z, ruling gate 4's scope on mrtaco's
   probe, `internal/claude/2026-10-16_mrtaco/probe_gate4.py` and its `.out` files). The open item of the simplification
