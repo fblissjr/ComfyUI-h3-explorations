@@ -47,12 +47,12 @@ Older history lives elsewhere and is not copied here:
 - **The gate's two rules that read a part before the word are replaced by one** (the owner, 2026-10-15 late: "lets kill
   this rule is there some other information we can give it thats useful in its place"): region and reference agree on
   every frame after every word is applied; no third rule, none in comments; its comment says why. Built, not landed
-  (branch `mrnight-fixes`); `handover.md`, item 4b, has its state.
+  (branch `mrnight-fixes`); `handover.md`, "Tomorrow, in order", has its state.
 - **A reference is never renamed or moved once a render has read it** (the owner, 2026-10-16: "this needs to be fixed");
   a remake takes the next free name, and verify fails where a recorded sha256 no longer matches. 0751b, 1097b, 1156 and
   5114d point at files they never read (their originals sit in `*_SUPERSEDED_*` folders; 5114d's proven by sha256).
 - **Every run records the nodes the server served from its cache** (the owner, 2026-10-16: "that needs to be solved
-  tonight"). Built and read cold (branch `mrtall-cached-nodes`), landing at the card's clear after 0604g.
+  tonight"). Landed after 0604g (1ff12a36).
 - **A tracking count on every load** (the owner, 2026-10-16), and **one hold rule from the flip survey in place of the
   hand-written --hold-part spans** (the lead's proposal): the tracking count is queued; the hold rule is DROPPED as
   proposed, on the dry run and the reviewer's C16 (the face points read "face" on backs of heads and hands, and do not
