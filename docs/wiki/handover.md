@@ -31,7 +31,10 @@ tomorrow's lead. Where this page and a record disagree, the record is right (`de
 - **The owner's pages** were rebuilt at the close from table `2026-10-16T0043Z`; Start here lists 0604g's candidate
   clip (516-1038, the mom's new piece laid alone; `prefers.txt` still lays the old pieces) and its stacked render.
 - **The outside reviewer was stopped by the owner** before answering C17 (what is broken) and C18 (the restore
-  carry's diff). Its C13, C14 and C16 answers are in `internal/gemini/`.
+  carry's diff). Its answers that stand: C16 (the widened fill dropped; the class map's "nothing labelled" already tells a
+  dropout from a turned head or hands; item 10); C14 (no box a window; size alone did not carry a glance at about 180
+  px; most of our tools are not small-face band-aids; folded into `2026-10-15_gaze_pieces.md`); C13 (her face grows
+  about 2.0-2.3x across 0604g). All in `internal/gemini/`.
 
 ## What not to assume
 
