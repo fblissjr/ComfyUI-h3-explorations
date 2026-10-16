@@ -622,6 +622,14 @@ def capture_files(job: dict, one: dict, capture: Path, mesh_of) -> dict:
         raise Refused(f"load {one['name']!r} is on frames {one['first']}..{one['first'] + one['frames'] - 1} and the "
                       f"capture {capture.name} holds {at}..{held - 1}")
     sightings = {s["label"]: [x["by"] for x in s["sightings"]] for s in manifest["subjects"]}
+    # NO UNCARVED KEEP-OUT REACHES THE NODE (the lead's ruling of 2026-10-16, docs/wiki/decisions.md): a mask the load keeps out
+    # that is not one of our people (no sighting with a shot table) is handed on only from a capture that carved it out of the
+    # subject's own track (`capture_masked_run.carve_keep_out`, its sighting's `carved_out_of_own_track`)
+    for label in one.get("others") or ():
+        seen = next((s["sightings"] for s in manifest["subjects"] if s["label"] == label), [])
+        if seen and not any(x.get("shots") for x in seen) and not any("carved_out_of_own_track" in x for x in seen):
+            raise Refused(f"load {one['name']!r}: the keep-out {label!r} in the capture {capture.name} was made before the carve; re-capture "
+                          "(bench/capture_masked_run.py files carves a keep-out out of the subject's own track before the node is handed it)")
 
     def of(label: str, kinds: tuple[str, ...]) -> tuple[str, int]:
         if label not in sightings:

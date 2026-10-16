@@ -1756,13 +1756,25 @@ def the_carve_in_the_files_step() -> str:
         with tempfile.TemporaryDirectory() as tmp:
             shots = Path(tmp) / "s.json"
             shots.write_text("{}")
-            # the keep-out first on the command line: our people are read first all the same
-            given = [("hands", {"track": "hands.mkv"}), ("a", {"track": "a.mkv", "shots": str(shots)}), ("b", {"track": "b.mkv", "shots": str(shots)})]
+            # the keep-out first on the command line, and the replaced subject with no shot table: she is read first all the same
+            given = [("hands", {"track": "hands.mkv"}), ("a", {"track": "a.mkv"}), ("b", {"track": "b.mkv", "shots": str(shots)})]
+            args_ = argparse.Namespace(first=100, frames=N, name="x", date="2026-01-01", source="s.mp4")
             try:
-                cap._files(argparse.Namespace(first=100, frames=N, name="x", date="2026-01-01", source="s.mp4"), Path(tmp), given,
-                           [], [("r", {"subject": "a", "others": "b+hands"})])
+                cap._files(args_, Path(tmp), given, [], [("r", {"subject": "a", "others": "b+hands"})])
             except Reached:
                 pass
+            except SystemExit as e:
+                raise AssertionError(f"the keep-out was read before the replaced subject with no shot table: {e}") from None
+            # THE CASE THAT GOES RED when a keep-out is written uncarved because the subject it is carved out of was never read
+            gone = dict(written)
+            try:
+                cap._files(args_, Path(tmp) / "two", [("hands", {"track": "hands.mkv"}), ("b", {"track": "b.mkv", "shots": str(shots)})], [],
+                           [("r", {"subject": "a", "others": "b+hands"})])
+            except Reached:
+                raise AssertionError("a keep-out was read with the subject it is carved out of never given") from None
+            except SystemExit as e:
+                assert "keep-out 'hands': a, whose track it is carved out of, has no --mask read before it" in str(e), e
+            assert written["hands"] is gone["hands"], "the keep-out was written before the stop"
     finally:
         for k, v in stood_in.items():
             setattr(cap, k, v)

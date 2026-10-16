@@ -1113,6 +1113,11 @@ def stay_of(p: dict, subject: str, kept: dict | None, load: dict, preview: dict,
     items = [x for x in ((p.get("look") or {}).get("stay") or []) if x.get("as") == "one keep-out"]
     if not items:
         return kept, ""
+    # RETIRED (the owner chose to redraw her clothing with her: docs/wiki/decisions.md, 26f208c0): a stay keep-out is drawn from her
+    # own track's classes, so it puts the original back inside her region, which nothing may (the owner, 2026-10-16)
+    raise Refused(f"the plan's look for {subject!r} has a stay item made as one keep-out ({', '.join(items[0].get('classes_on_her_track') or [])} on her own "
+                  "track): it is drawn on the subject's own track, and nothing puts the original back inside her region. The owner chose to redraw her "
+                  "clothing with her and the stay is retired (docs/wiki/decisions.md, 26f208c0): take `look.stay` out of the plan")
     import h3_config
     import capture_masked_run as cap
     if len(items) > 1:

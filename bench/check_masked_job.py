@@ -673,7 +673,7 @@ def _a_capture(tmp: Path) -> Path:
             (capture / "subjects" / label / name).write_bytes(b"")
     (capture / "manifest.json").write_text(json.dumps({
         "name": "check", "first_frame": CAPTURE_FIRST, "frames": 300, "runs": [],
-        "subjects": [{"label": label, "sightings": [{"by": "p"}]} for label in "abc"]}))
+        "subjects": [{"label": label, "sightings": [{"by": "p", "shots": True}]} for label in "abc"]}))
     # what the capture measured of `b`: a shot table with a cut before the two loads and one after them (source
     # frames 690 and 900: the loads are inside one shot, as a load has to be for a text to cover it), and a row a frame
     # whose share of the frame is its own frame number, so a middle, a least and a most are known
@@ -1396,6 +1396,26 @@ def _job_file(tmp: Path, job: dict) -> Path:
     return path
 
 
+def an_uncarved_keep_out_refused():
+    """The lead's ruling of 2026-10-16: a keep-out that is not one of our people is handed to the node only from a capture that
+    carved it out of the subject's own track (its sighting's `carved_out_of_own_track`); another person is handed on as before."""
+    with tempfile.TemporaryDirectory() as t:
+        capture = _a_capture(Path(t))
+        (capture / "subjects" / "k").mkdir()
+        (capture / "subjects" / "k" / "track__p.mkv").write_bytes(b"")
+        m = json.loads((capture / "manifest.json").read_text())
+        m["subjects"].append({"label": "k", "sightings": [{"by": "p", "shots": False}]})
+        (capture / "manifest.json").write_text(json.dumps(m))
+        one = {"name": "a_0700", "subject": "a", "first": CAPTURE_FIRST + 10, "frames": 50, "others": ["c", "k"], "motion": "none"}
+        # THE CASE THAT GOES RED when a keep-out made before the carve is handed to the node
+        _refused(lambda: tool.capture_files({}, one, capture, lambda label: None), "the keep-out 'k'", "made before the carve; re-capture")
+        m["subjects"][-1]["sightings"][0]["carved_out_of_own_track"] = {"px": 0, "cells": 0}
+        (capture / "manifest.json").write_text(json.dumps(m))
+        got = tool.capture_files({}, one, capture, lambda label: None)
+        assert [Path(x).parent.name for x, _ in got["others"]] == ["c", "k"], got["others"]
+    return "a keep-out from a capture made before the carve refused; carved, and another person, handed on"
+
+
 def _refused(fn, *words: str) -> None:
     try:
         fn()
@@ -1594,7 +1614,7 @@ def main() -> int:
                a_load_leaves_the_rows_model_alone, the_nodes_schemas_accept_a_load,
                a_load_the_graph_cannot_be_built_from, a_load_of_chained_windows_takes_context_noise, loads_from_a_capture, a_load_of_two_subjects, a_hair_band_under_a_part,
                a_text_is_of_its_frames, a_load_of_two_shots,
-               the_gate_before_a_render):
+               the_gate_before_a_render, an_uncarved_keep_out_refused):
         case(fn.__name__.replace("_", " "), fn)
     return finish()
 

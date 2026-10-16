@@ -267,9 +267,10 @@ from _lib.frames import FIT, FPS, probe, read_mask, stream, write_mask_video  # 
 CELL = 16
 #: A cell given back to a keep-out counts as inside the load subject's own track when her track covers more than this share of
 #: its pixels (`keep_out_inside_own_track`). Reasoned: a cell mostly hers is a cell of her picture put back as the source; a
-#: cell on her outline, mostly the keep-out's or the background's, is the margin doing its work. Not measured; the probe of
-#: 2026-10-16 (internal/claude/2026-10-16_mrtaco/probe_gate3.out) found the real hits were whole cells of hers, so 0.5
-#: against 0.75 changes nothing measured. The keep-outs are carved by it in the files step (`carve_keep_out`).
+#: cell on her outline, mostly the keep-out's or the background's, is the margin doing its work. No other value was chosen on
+#: a measure: at 0.75 the cells the old captures gave back inside her track lose the lead's one-cell strangers hits (3240b-d)
+#: and a few frames of the mom's held and hands (docs/wiki/decisions.md, 2026-10-16). It also sets how much the carve takes
+#: outside her track (`carve_keep_out`), in the files step.
 OWN_TRACK_CELL_SHARE = 0.5
 #: The share of a cell's readable pixels that must be tinted for the cell to count as regenerated. Reasoned:
 #: the region is constant over a cell, so anything but a majority is the codec.
@@ -898,16 +899,26 @@ def cells_mostly(mask: np.ndarray, share: float, cell: int = CELL) -> np.ndarray
 
 def carve_keep_out(keep: np.ndarray, mine: np.ndarray, share: float = OWN_TRACK_CELL_SHARE) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """A keep-out less every cell that is more than `share` the load subject's own track (`mine`, [n, h, w]) and less every
-    pixel of that track, and per frame the pixels and the cells it lost. THE CARVE (the owner, 2026-10-16, "The simplification wins. Make sure this never happens
-    again", docs/wiki/decisions.md): nothing puts the original back inside a person's region, and a keep-out's cells are
-    given back as the source. Done in the files step before the keep-out's track is written, so the copy the builder
-    hands the node (`masked_job.capture_files`, the capture's `track__<by>.mkv`) is the carved one.
+    pixel of that track, and per frame the pixels and the cells it lost. THE CARVE (the lead's ruling of 2026-10-16 on the
+    owner's decision of that day, "The simplification wins. Make sure this never happens again", docs/wiki/decisions.md):
+    nothing puts the original back inside a person's region, and a keep-out's cells are given back as the source. Done in
+    the files step before the keep-out's track is written, so the copy the builder hands the node (`masked_job.capture_files`,
+    the capture's `track__<by>.mkv`) is the carved one.
 
-    What it cannot see: the cells are the canvas's. A load rendered zoomed in cuts its tokens on the zoomed picture's grid,
-    so a zoomed token on her outline that is mostly hers can still hold keep-out pixels just outside her track. MEASURED
-    on the zoomed second_hfp_0014f (internal/claude/2026-10-16_mrtaco/probe_carve_forms.out): such tokens, not touched by
-    her part, were 1416 (held), 1002 (hands), 1343 (clothing) token-frames over 154 frames with the cells alone, and 0,
-    503, 232 with her pixels taken too, which costs no keep-out pixel outside her track."""
+    ITS COST: it takes whole cells more than `share` hers, so it takes keep-out pixels OUTSIDE her track too, in those cells.
+    MEASURED on second_hfp_0014f (docs/wiki/decisions.md, 2026-10-16): 34989 of the 144813 `hands` pixels and 4930 of the
+    15213 `clothing` pixels outside her track. Taking her own pixels as well costs none outside her track.
+
+    NAMED GAPS, not built:
+    - The canvas grid and frame by frame: the node pools a keep-out over each latent step and cuts on its own token grid,
+      the zoomed picture's for a zoomed load. A token mostly hers that a keep-out touches on another frame of its step is
+      still pinned to the source: on second_hfp_0014f (zoomed) 0, 503, 232 token-frames (held, hands, clothing) over 154
+      frames after the carve (1416, 1002, 1343 with the cells alone); on second_hfp_0604g (not zoomed) 34 cell-frames of
+      hands (docs/wiki/decisions.md, 2026-10-16). The grid-exact carve at the on-plan rebuild answers it.
+    - One capture, first sighting: every replaced subject of the capture is carved against, where the rule is per load (the
+      same in the chain, one load a job), and a subject's first sighting whatever `by` the load names.
+    - Other readers do not say which a capture is: the assembler's subjects table and `delivery_table.tracked_in` mix carved
+      (from 2026-10-16) and uncarved captures without printing `carved_out_of_own_track`."""
     hers = cells_mostly(mine, share)
     lost = keep & (cells_up(hers) | mine)
     return keep & ~lost, lost.reshape(len(lost), -1).sum(axis=1), (cells_any(keep) & hers).reshape(len(keep), -1).sum(axis=1)
@@ -1702,7 +1713,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
     replaced = {x["subject"] for _, x in runs + plans} | {json.loads(x["also"])["subject"] for _, x in runs + plans if x.get("also")}
     kept_out = {o for _, x in runs + plans for o in x.get("others", "").split("+") if o}
     carved: dict = {}
-    masks = sorted(masks, key=lambda lm: not lm[1].get("shots"))
+    masks = sorted(masks, key=lambda lm: not (lm[0] in replaced or lm[1].get("shots")))
     for label, m in masks:
         by, at = m.get("by", "preview"), int(m.get("at", first))
         least, least_by = (int(m["least"]), LEAST_GIVEN) if m.get("least") is not None else (PART_LEAST_PX, LEAST_STARTING)
@@ -1712,7 +1723,11 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             raise SystemExit(f"subject {label!r}: least={m['least']}; a part's least size is 0 (nothing emptied by size) or more, in px")
         track, covered = read_mask(m["track"], size, at, first, frames)
         if label in kept_out and not m.get("shots") and label not in replaced:
-            mine = [next(iter(sightings[s].values()))[0] for s in replaced if s in sightings]
+            unread = sorted(s for s in replaced if s not in sightings)
+            if unread:
+                raise SystemExit(f"keep-out {label!r}: {', '.join(unread)}, whose track it is carved out of, has no --mask read before it, so it "
+                                 "would be written uncarved: give every replaced subject a --mask")
+            mine = [next(iter(sightings[s].values()))[0] for s in replaced]
             if mine:
                 track, px, cells = carve_keep_out(track, np.logical_or.reduce(mine))
                 carved[label] = {"px": px, "cells": cells, "against": sorted(s for s in replaced if s in sightings)}

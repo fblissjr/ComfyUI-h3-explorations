@@ -883,68 +883,12 @@ def her_clothing_as_one_stay_keep_out() -> str:
         made = Made(Path(tmp))
         made.plan["subjects"]["a"].update(keep_outs=["held", "hands", "clothes"], keep_outs_by="a person: her apron", hair_band={"value": 0.6, "by": "a person"},
                                           look={"stay": [STAY]}, look_by="THE LEAD'S RULING K")
-        d = made.load()
-        job, load = d["job"], d["loads"][0]
-        kept = {k["name"]: k for k in job["keep_outs"]["made"]}
-        # THE CASE THAT GOES RED when the look's stay item is not made in place of the keep-out it replaces, or the band cuts it again
-        assert list(kept) == ["held", "hands", "clothing"] and load["others"][-3:] == ["held", "hands", "clothing"] and "clothes" not in load["others"], (list(kept), load["others"])
-        st = kept["clothing"]["stay"]
-        assert "hair_band" not in load and st["less_the_hair_band"]["share"] == 0.6 and st["hold_frames"] == 4 and st["first"] == 100, (load, st)
-        assert st["less_the_hair_band"]["side_px"] == float(cfg.MASKED_LOAD_MARGIN[made.plan["subjects"]["a"]["region"]]), st
-        assert "HER CLOTHING IS ONE STAY KEEP-OUT, `clothing`, in place of `clothes`, from the plan's look (THE LEAD'S RULING K)" in job["note"], job["note"]
-        assert "so the load asks the builder for no band" in job["note"]
-        graphs.check_job(job)
-        for one in masked_job.loads_of(d):
-            graphs.check_load(job, one, masked_job.chain_lengths())
-        for wrong, words in (({"look_by": " "}, "names no `look_by`"), ({"look": {"stay": [dict(STAY, replaces_keep_out="apron")]}}, "replaces the keep-out 'apron'"),
-                             ({"look": {"stay": [dict(STAY, classes_on_her_track=["Apron"])]}}, "the part model's classes"),
-                             ({"look": {"stay": [STAY, STAY]}}, "one a subject")):
-            was = json.loads(json.dumps(made.plan["subjects"]["a"]))
-            made.plan["subjects"]["a"].update(wrong)
-            refused(made.load, words)
-            made.plan["subjects"]["a"] = was
-        # the job step makes it after the held part, writes its hash into the job, makes nothing dry, and holds a file that is there
+        # RETIRED (26f208c0): THE CASE THAT GOES RED when a stay keep-out drawn on her own track is still made
+        refused(made.load, "drawn on the subject's own track", "26f208c0")
         folder = made.preview_ran(made.preview())
         a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="a", preview=str(folder))
-        stays = []
-
-        def stay_cut(stay, to):
-            stays.append((stay["first"], Path(to).name))
-            Path(to).parent.mkdir(parents=True, exist_ok=True)
-            Path(to).write_bytes(b"made")
-            return {"frames": 60, "size": [64, 48], "px_a_frame_median": 5, "px_most": 9, "px_the_hold_changed": 1, "px_the_band_took_out": 2}
-        cut = lambda class_map, classes, to: (Path(to).parent.mkdir(parents=True, exist_ok=True), Path(to).write_bytes(b"cut"),   # noqa: E731
-                                              {"frames": 60, "size": [64, 48], "frames_with_the_mask": 60, "px_most": 9})[-1]
-        made.m.dry = True
-        stl.step_job(a, made.m, cut=cut, stay_cut=stay_cut, hashed=lambda path: "H")
-        assert stays == [] and not list(made.jobs.glob("*.json")), "a dry run made the stay keep-out or wrote a job"
-        made.m.dry = False
-        stl.step_job(a, made.m, cut=cut, stay_cut=stay_cut, hashed=lambda path: "H")
-        written = json.loads((made.jobs / "a_fp_0100.json").read_text())
-        stay_k = next(k for k in written["job"]["keep_outs"]["made"] if k["name"] == "clothing")
-        assert stays == [(100, "a_fp_0100_a_clothing.mkv")] and stay_k["frame_hash"] == "H" and Path(stay_k["track"]).with_suffix(".json").is_file(), (stays, stay_k)
-        # a file of the name that is there: made again and held equal, or refused
-        Path(stay_k["track"]).rename(Path(stay_k["track"]).with_name("a_fp_0100b_a_clothing.mkv"))
-        a.remake = True
-        stl.step_job(a, made.m, cut=cut, stay_cut=stay_cut, hashed=lambda path: "H")
-        assert stays[-1][1] == "a_fp_0100b_a_clothing.made_again.mkv" and not list(Path(stay_k["track"]).parent.glob("*made_again*")), stays
-        Path(stay_k["track"]).with_name("a_fp_0100b_a_clothing.mkv").rename(Path(stay_k["track"]).with_name("a_fp_0100c_a_clothing.mkv"))
-        refused(lambda: stl.step_job(a, made.m, cut=cut, stay_cut=stay_cut, hashed=lambda path: path if "clothing" in path else "H"), "is NOT the stay keep-out its plan makes now")
-        # A STAY KEEP-OUT EMPTY ON EVERY FRAME (second_hfp_5461b: the hair band's box held all of her clothing) is dropped from the load, with why
-
-        def empty_cut(stay, to):
-            Path(to).parent.mkdir(parents=True, exist_ok=True)
-            Path(to).write_bytes(b"made")
-            return {"frames": 60, "size": [64, 48], "px_a_frame_median": 0, "px_most": 0, "px_the_hold_changed": 0, "px_the_band_took_out": 452335}
-        before = set(made.jobs.glob("*.json"))
-        stl.step_job(a, made.m, cut=cut, stay_cut=empty_cut, hashed=lambda path: "H")
-        new = [q for q in made.jobs.glob("*.json") if q not in before]
-        dropped = json.loads(new[0].read_text())
-        # THE CASE THAT GOES RED when an empty stay keep-out is handed to the capture (which reads it as a subject never found), or is dropped unsaid
-        assert "clothing" not in [k["name"] for k in dropped["job"]["keep_outs"]["made"]] and all("clothing" not in x_.get("others", []) for x_ in dropped["loads"]), dropped["loads"]
-        why = stl.STAY_EMPTY.format(px=452335)
-        assert dropped["job"]["keep_outs"]["dropped"][0]["why"] == why and why in dropped["job"]["note"] and "THE STAY KEEP-OUT `clothing` IS DROPPED" in dropped["job"]["note"], dropped["job"]["keep_outs"]
-        assert ["held", "hands"] == [k["name"] for k in dropped["job"]["keep_outs"]["made"]], "another keep-out went with it"
+        refused(lambda: stl.step_job(a, made.m, cut=lambda *_a: {}, stay_cut=lambda *_a: {}, hashed=lambda path: "H"), "26f208c0")
+        assert not list(made.jobs.glob("*.json")), "a job was written with a stay keep-out"
     # THE KEEP-OUT ITSELF against the definition, written out here apart from the tool (mrpre's arm K): 6 preview frames from 100, the load 101-104
     names = cap._pack("sapiens2_parts").CLASS_NAMES
     W_, H_, N_ = 64, 48, 6
@@ -980,8 +924,8 @@ def her_clothing_as_one_stay_keep_out() -> str:
         assert back[2, 20:30, 10:40].any() and not back[:, 30:40].any() and not back[0].any() and not back[5].any(), "the apron, the torso or the frames outside"
         assert bands[0, 0] >= 0 and not back[1, bands[0, 1]:bands[0, 3], bands[0, 0]:bands[0, 2]].any() and got["px_the_band_took_out"] > 0, got
         assert got["px_the_hold_changed"] > 0, got
-    return ("a plan look's stay item is made as one keep-out in place of the one it replaces, the band's box taken out of it and no band asked of the builder; "
-            "what the plan may say; the keep-out is her track's clothing classes, Background included, less the band, held over frames, on the load's frames only")
+    return ("a plan look's stay item is refused, retired (26f208c0: it is drawn on her own track); the cut itself, kept for the record, is her track's "
+            "clothing classes, Background included, less the band, held over frames, on the load's frames only")
 
 
 def who_else_is_in_the_shot() -> str:
@@ -2208,7 +2152,7 @@ case("a subject's keep-outs: named by the plan, made and named by the job step",
 case("a load of some of its subject's parts", a_load_of_some_of_its_parts)
 case("a plan that keeps the strangers out", a_plan_that_keeps_the_strangers_out)
 case("who else is in the shot", who_else_is_in_the_shot)
-case("her clothing as one stay keep-out", her_clothing_as_one_stay_keep_out)
+case("her clothing as one stay keep-out, retired", her_clothing_as_one_stay_keep_out)
 case("a track that is not its person on named frames", a_track_that_is_not_its_person)
 case("text: who wrote it, said with a flag", the_text_step)
 case("a job renders from the video's present copy", a_job_renders_from_the_present_copy)
