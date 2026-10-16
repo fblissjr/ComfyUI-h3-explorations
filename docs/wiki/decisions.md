@@ -17,6 +17,15 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-16
 
+- **The second subject's clothing words are per shot; on 1010-1038 she wears a dark sleeveless top, not the apron**
+  (mrtony, the lead, at 23:00Z, correcting its own words of 20:59Z). The plan's one `clothing` line ("a white apron
+  with a bib ... over a sleeveless floral blouse") cited source frames 1011 and 1020; on 1015 (cropped from the source)
+  she wears a dark sleeveless top at the table, and no apron shows on 1010-1038. `second_hfp_1010c` was rendered with
+  the apron line and draws apron straps on 1011-1036 and a full bib on 1037-1038 (the blind render read,
+  `internal/claude/2026-10-16_mrtony/review_render_1010c.md`). The owner's ruling stands (her clothing is redrawn
+  with her and named); only the session's words were wrong. What it replaces: one `clothing` line for every shot.
+  1010c is a candidate beside the kept 1010j and is not laid; it goes to the owner with this reading.
+
 - **The dad's 1397-1418 is made, not left as the original; the look that left it out is overruled** (the owner, at 22:35Z,
   showing 1397 and 1398 in the whole-video view: "see the big beard? that's the original's, for both people"). The 10-13 look
   (third_fp_1310c's left_out, kept by the lead's ruling this morning) said his raised arm covers his face from 1398; on 1398 his
