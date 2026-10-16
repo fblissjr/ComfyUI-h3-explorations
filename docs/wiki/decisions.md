@@ -17,6 +17,13 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-15
 
+- **The outside reviewer builds one job: a reference box a window** (the owner, 2026-10-15 late, in the lead's
+  terminal: "tell gemini to build this as you have it in mind and you make sure its good after"). An exception to
+  AGENTS.md's "reviews, never builds", for this job only: request C15 in `internal/gemini/2026-10-15_requests.md`, in
+  its own worktree off the unlanded gaze branch, no git, the reference only (the input's zoom stays one box a load,
+  `video_mask.py:1795-1796`), off by default, landed only after the lead's review, a cold read and the owner's
+  playback of a test render. What it replaces: nothing yet; the per-load reference box stays the default.
+
 *Written by the lead of the day (mrtall) as the rulings are made; mrarc holds the card, mrlol tooling.*
 
 - **The owner's evening answers, on the review page and in the lead's terminal (21:16Z to 22:15Z), recorded here
