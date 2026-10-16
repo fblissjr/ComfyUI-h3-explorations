@@ -17,6 +17,12 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-15
 
+- **A text never tells H3 what is NOT in the movement video** (the owner, 2026-10-15 late, on a clause the lead built
+  for lead_fp_2823d, "on some frames nothing is drawn on its face": "actually dont say it at all ... its inferred ...
+  you cant say some face may not be there cuz next its something else and its like... yo dont look at this thing that
+  isnt there"). The text says what is drawn; frames where nothing is drawn are left for H3 to see. The clause was never
+  landed (branch deleted; it had passed its case and a cold read). What it replaces: the lead's fix of the same evening.
+
 - **The outside reviewer builds one job: a reference box a window** (the owner, 2026-10-15 late, in the lead's
   terminal: "tell gemini to build this as you have it in mind and you make sure its good after"). An exception to
   AGENTS.md's "reviews, never builds", for this job only: request C15 in `internal/gemini/2026-10-15_requests.md`, in
