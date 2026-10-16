@@ -18,7 +18,7 @@ Older history lives elsewhere and is not copied here:
 ## 2026-10-16
 
 - **A video's sidecar is its full file name plus `.json`: `<name>.mp4.json`** (the owner left the name to the lead,
-  mrtony, at about 18:30Z: "consistent and not collide with other names and be easily understood that it goes with
+  mrtony, at about 17:57Z: "consistent and not collide with other names and be easily understood that it goes with
   it"). `bench/sidecar.py` as built named it `<stem>.json`, which about 15 tools already write as their own record
   beside the videos they make (`head_reference.py`, `draw_face_points.py`, `shot_to_load.py` and others), so the two
   would collide. No file under `data/` or the share's `Video/fun/` was named `*.mp4.json` when this was decided; the
@@ -26,7 +26,7 @@ Older history lives elsewhere and is not copied here:
   it.
 
 - **No largest-piece rule on any load whose part holds a face or hair, the lead's included** (the lead, mrtony, at
-  about 17:55Z, ruling the scope of the gate the entry below names, on mrtaco's question). The entry below removed the
+  about 17:50Z, ruling the scope of the gate the entry below names, on mrtaco's question). The entry below removed the
   rule from the mom's face-and-hair loads; the lead's plan still carried `pieces: largest` on her `face_and_neck`
   loads (mrtwo, 2026-10-14, against enclosed holes on 3262-3265 under the old composite). It put the original back
   inside her region the same way: on the kitchen candidate `lead_fp_0613c` it dropped pieces on 180 of 362 frames, up
