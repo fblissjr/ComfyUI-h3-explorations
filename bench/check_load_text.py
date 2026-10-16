@@ -279,9 +279,45 @@ def her_hair_changed() -> str:
     return "the plan's kept part and its change are said; without the key the form is the kept texts'"
 
 
+def her_clothing_named() -> str:
+    """The owner's decision of 2026-10-16 (26f208c0): her clothing is redrawn with her and named in the text. The plan's `clothing` (with
+    `clothing_by`) is one sentence of the detailed line; a subject whose stay was removed and whose clothing is not named is refused."""
+    import copy
+    plan = copy.deepcopy(PLAN)
+    second = plan["subjects"]["second"]
+    second.update(clothing="A WHITE APRON OVER A FLORAL BLOUSE", clothing_by="a person, from frames 1 and 2")
+    got = lt.text(plan, "second", RECORD_10_13, "", VOICED, 484, 515)
+    shot = next(line for line in got.splitlines() if line.startswith("[Shot 1]"))
+    # THE CASE THAT GOES RED when the plan's clothing is not written into the text
+    assert "has the face of <Picture 1>. <Subject 1> wears A WHITE APRON OVER A FLORAL BLOUSE." in shot, shot
+    assert got.replace(" <Subject 1> wears A WHITE APRON OVER A FLORAL BLOUSE.", "") == lt.text(PLAN, "second", RECORD_10_13, "", VOICED, 484, 515), \
+        "naming the clothing changed another line"
+    hair = lt.text(plan, "second", None, "", VOICED, 484, 515, parts=["hair"])
+    assert "<Subject 1> wears A WHITE APRON OVER A FLORAL BLOUSE." in hair, hair
+    second.pop("clothing_by")
+    try:
+        lt.text(plan, "second", RECORD_10_13, "", VOICED, 484, 515)
+    except lt.Refused as e:
+        assert "names no `clothing_by`" in str(e), e
+    else:
+        raise AssertionError("clothing with no clothing_by was written")
+    second.pop("clothing")
+    second["look"] = {"stay_removed_by": "the owner chose to redraw it"}
+    try:
+        lt.text(plan, "second", RECORD_10_13, "", VOICED, 484, 515)
+    except lt.Refused as e:
+        # THE CASE THAT GOES RED when a subject whose clothing is redrawn is given a text that does not name it
+        assert lt.NO_CLOTHING in str(e), e
+    else:
+        raise AssertionError("a subject whose clothing is redrawn got a text with no clothing")
+    assert "wears" not in lt.text(PLAN, "lead", RECORD_10_13, "", VOICED, 1730, 1754), "a subject with no clothing named got a clothing sentence"
+    return "the plan's clothing one sentence of the detailed line; no clothing_by refused; clothing redrawn and not named refused; none named, no sentence"
+
+
 case("her hair changed, in the plan's parts", her_hair_changed)
 case("the kept texts made again", the_kept_texts_made_again)
 case("what a reference draws, the text says", what_a_reference_draws_the_text_says)
 case("a load of the hair alone", a_load_of_the_hair_alone)
 case("what it refuses", what_it_refuses)
+case("her clothing named", her_clothing_named)
 sys.exit(finish())

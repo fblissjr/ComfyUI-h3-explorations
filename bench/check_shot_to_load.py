@@ -885,6 +885,16 @@ def her_clothing_as_one_stay_keep_out() -> str:
                                           look={"stay": [STAY]}, look_by="THE LEAD'S RULING K")
         # RETIRED (26f208c0): THE CASE THAT GOES RED when a stay keep-out drawn on her own track is still made
         refused(made.load, "drawn on the subject's own track", "26f208c0")
+        # HER CLOTHING REDRAWN WITH HER IS NAMED (load_text.clothing_of): a subject whose stay was removed and whose clothing the plan does
+        # not name is refused at the job step, before anything is made
+        kept_look = made.plan["subjects"]["a"].pop("look")
+        made.plan["subjects"]["a"]["look"] = {"stay_removed_by": "the owner chose to redraw her clothing"}
+        # THE CASE THAT GOES RED when such a job is written
+        refused(made.load, "her clothing is redrawn with her and named in the text; give the plan's `clothing`")
+        made.plan["subjects"]["a"].update(clothing="AN APRON", clothing_by="a person, from frame 100")
+        assert made.load()["loads"][0]["subject"] == "a", "a subject whose clothing the plan names was refused"
+        del made.plan["subjects"]["a"]["clothing"], made.plan["subjects"]["a"]["clothing_by"]
+        made.plan["subjects"]["a"]["look"] = kept_look
         folder = made.preview_ran(made.preview())
         a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="a", preview=str(folder))
         refused(lambda: stl.step_job(a, made.m, cut=lambda *_a: {}, stay_cut=lambda *_a: {}, hashed=lambda path: "H"), "26f208c0")

@@ -336,6 +336,17 @@ def frames_as_planned(path: str, copy: Path) -> dict:
     return {"equal": False, "how": f"its frame {k} (counted from 0 in the file) is not the copy's"}
 
 
+def carved_on_plan(job_folder: Path, load: str, path: str) -> bool:
+    """Whether the on-plan step's record (`<load>.plan.masks.json`) was hashed after its rebuild (`load_chain.HASHED_AFTER_THE_REBUILD`,
+    route C) and names this mask: then a plan's mask that differs from what the plan read is the grid carve, not a fault."""
+    import load_chain
+    record = Path(job_folder) / f"{load}.plan.masks.json"
+    if not record.is_file():
+        return False
+    held = json.loads(record.read_text())
+    return held.get("hashed") == load_chain.HASHED_AFTER_THE_REBUILD and str(path) in (held.get("masks") or {})
+
+
 def read(job_folder: Path, load: str, stage: str = "render", *, inputs: Path | None = None, output: Path | None = None,
          digests: bool = True) -> dict:
     """Everything a load was handed, as one dict; `failures` holds the hard failures, empty when there are none."""
@@ -448,6 +459,11 @@ def read(job_folder: Path, load: str, stage: str = "render", *, inputs: Path | N
             if got["equal"]:
                 row["rebuilt"] = (f"rebuilt in place after the plan ran ({row['written']}), frames as planned: {got['how']}; the copy "
                                   f"{copy} has the bytes recorded at queue time")
+            elif carved_on_plan(job_folder, load, row["file"]):
+                # ROUTE C (the lead's ruling of 2026-10-16): the on-plan rebuild carves the keep-outs on the node's own grid, after the plan
+                # ran, and remakes the plan's region on the carved files; its record was hashed after the rebuild
+                row["rebuilt"] = (f"grid-carved after the plan, route C; the look was made on the predicted region: {got['how']} ({copy}, the "
+                                  f"bytes recorded at queue time; the on-plan record {load}.plan.masks.json hashed it after the rebuild)")
             else:
                 out["failures"].append(f"{where}: rebuilt in place after the plan ran, and its frames are not what the plan read: "
                                        f"{got['how']} ({copy}, the bytes recorded at queue time)")

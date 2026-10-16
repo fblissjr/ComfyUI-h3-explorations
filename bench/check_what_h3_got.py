@@ -417,6 +417,17 @@ def a_plans_masks_rebuilt() -> str:
     (job / "load_p.plan.masks.json").write_text(json.dumps({**rec, "masks": {**rec["masks"], str(masks[1]): frame_hash(str(masks[1]))}}))
     f = plan(base, job)["failures"]
     assert len(f) == 1 and "m1.mp4" in f[0] and "not what the plan read" in f[0] and "frame 3 " in f[0], f
+    # ROUTE C (the lead's ruling of 2026-10-16): the on-plan record hashed after its rebuild names the changed mask, so the change is the
+    # grid carve after the plan, said as that and not failed
+    import load_chain
+    held = json.loads((job / "load_p.plan.masks.json").read_text())
+    (job / "load_p.plan.masks.json").write_text(json.dumps({**held, "hashed": load_chain.HASHED_AFTER_THE_REBUILD}))
+    carved = plan(base, job)
+    # THE CASE THAT GOES RED when route C's carve is read as a fault
+    assert not carved["failures"], carved["failures"]
+    m1 = next(r for r in carved["inputs"] if str(r.get("file", "")).endswith("m1.mp4"))
+    assert m1["rebuilt"].startswith("grid-carved after the plan, route C; the look was made on the predicted region"), m1.get("rebuilt")
+    (job / "load_p.plan.masks.json").write_text(json.dumps(held))
     # no copy: the two rules stand, and nothing breaks
     base.with_name("load_p_first").rename(base.with_name("load_p_kept_aside"))
     f = plan(base, job)["failures"]

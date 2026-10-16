@@ -29,6 +29,9 @@ records. Until 2026-10-15 a person wrote the shot's place and action, once; no l
 - The film line: the plan's `text.film`, the video's, written once.
 - The singing sentence: the plan's `voice` where it names one on the load ("sings" alone writes a line), else the subject's
   `sings`, on a load whose frames meet a voiced span of the video's voice table.
+- Her clothing: the plan's `clothing` (with `clothing_by`), one sentence in the detailed line, "<Subject 1> wears ...". A subject
+  whose clothing is redrawn with her (the plan's `look.stay_removed_by`, the owner's decision of 2026-10-16, 26f208c0) and not
+  named is refused (`clothing_of`, `NO_CLOTHING`); the job step refuses the same, before anything is made.
 - `<Subject 2>`'s retention line, the soundscape and the music: fixed, the kept loads' words.
 
 **The form is the kept loads'**, word for word but where a record or the plan says otherwise: lead_fp_1730 and
@@ -84,6 +87,27 @@ SOUND = "overall_soundscape: Natural ambient atmosphere continues throughout the
 
 class Refused(Exception):
     pass
+
+
+#: The refusal of a subject whose clothing is redrawn with her and not named (`clothing_of`).
+NO_CLOTHING = ("the owner's decision of 2026-10-16 (26f208c0): her clothing is redrawn with her and named in the text; give the plan's "
+               "`clothing`")
+
+
+def clothing_of(p: dict, subject: str) -> str | None:
+    """The plan's words for a subject's clothing (`clothing`, with `clothing_by`: whose words, from which frames), or None where the plan
+    names none. Refused: words with no `clothing_by`, and a subject whose clothing is redrawn with her (the plan's look says her stay
+    keep-out was removed, `look.stay_removed_by`: the owner chose to redraw it, 26f208c0) and not named: H3 then draws whatever clothes it
+    likes. The words are the plan's, never the tool's.
+
+    THE KEY IS `look.stay_removed_by`, the one record of the owner's choice (the lead's ruling of 2026-10-16). It stands in for the test
+    the rule means, "a region over her clothing", which no record says before a capture is made."""
+    words = " ".join(str(p.get("clothing") or "").split())
+    if words and not str(p.get("clothing_by") or "").strip():
+        raise Refused(f"the plan's `clothing` for {subject!r} names no `clothing_by`: whose words, from which frames")
+    if not words and (p.get("look") or {}).get("stay_removed_by"):
+        raise Refused(f"{subject!r}: " + NO_CLOTHING)
+    return words or None
 
 
 def joined(words: list[str]) -> str:
@@ -188,6 +212,10 @@ def text(plan: dict, subject: str, record: dict | None, place_and_action: str, v
     if str(place_and_action or "").strip():
         raise Refused(NO_SCENE)
     who, looks, her, she = (" ".join(str(t[k]).split()) for k in ("who", "looks", "her", "she"))
+    # HER CLOTHING, NAMED IN THE TEXT where the plan names it (the owner's decision of 2026-10-16, 26f208c0: redrawn with her, named so
+    # H3 draws the same clothes): one sentence in the detailed line, the plan's words
+    clothing = clothing_of(p, subject)
+    wears = f" <Subject 1> wears {clothing}." if clothing else ""
     noun = who.split(" ", 1)[1] if who.split(" ", 1)[0] in ("the", "a", "an") else who
     with_what = {"face and hair": "the face and the hair", "hair": "the hair"}.get(region, "the face")
     hair = " ".join(str(t.get("hair") or "").split())
@@ -225,7 +253,7 @@ def text(plan: dict, subject: str, record: dict | None, place_and_action: str, v
         return (f"subject_definitions:\n<Subject 1> is {who} whose hair comes from <Picture 1>.\n\n"
                 f"summary:\n[reference generation] <Subject 1> has {bare if change is not None else 'the hair of <Picture 1>'}.\n\n"
                 f"retention_analysis:\n<Subject 1> (appears in [Shot 1]): partially_preserved - {kept}; {not_used} of <Picture 1> are not used.\n\n"
-                f"detailed_description:\n{film}\n[Shot 1] <Subject 1>, {who}, has {bare if change is not None else 'the hair of <Picture 1>'}."
+                f"detailed_description:\n{film}\n[Shot 1] <Subject 1>, {who}, has {bare if change is not None else 'the hair of <Picture 1>'}.{wears}"
                 f"\n\n{SOUND}")
     drawn = None if record.get("form") == "plain" else (record.get("drawn") or {})
     if region == "hair" and drawn is not None and not {"eyes", "brows", "nose"} <= set(drawn.get("parts_left_out") or []):
@@ -244,7 +272,7 @@ def text(plan: dict, subject: str, record: dict | None, place_and_action: str, v
             f"summary:\n[reference generation] <Subject 1>, with {with_what}{'' if change is not None else ' of <Picture 1>'}, performs <Subject 2>.\n\n"
             f"retention_analysis:\n<Subject 1> (appears in [Shot 1]): partially_preserved - {kept}; {not_used} of <Picture 1> are not used.\n"
             f"{SUBJECT_2_KEPT.format(moves=moves)}\n\n"
-            f"detailed_description:\n{film}\n[Shot 1] <Subject 1>, {who}{'' if region == 'hair' else f' with {bare}' if change is not None else f' with {looks}'}, {has}. "
+            f"detailed_description:\n{film}\n[Shot 1] <Subject 1>, {who}{'' if region == 'hair' else f' with {bare}' if change is not None else f' with {looks}'}, {has}.{wears} "
             f"<Subject 1> performs <Subject 2>: {she} follows {moves} of the figure."
             + (f" <Subject 1> (S1) sings, {her} mouth opening wide on the sung phrases." if sings else "")
             + (VOICES[said["voice"]].format(her=her) if said is not None else "") + f"\n\n{SOUND}")
