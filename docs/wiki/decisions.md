@@ -20,7 +20,10 @@ Older history lives elsewhere and is not copied here:
 - **What lands, and what is undone** (the owner, 2026-10-16 ~00:30Z: "if we are breaking shit undo breaking shit" ...
   "Yes unless its obvious to you another claude session and gemini as a no brainer"). A change that breaks something
   is reverted (a revert commit, never a rewrite). A change lands only when it is an obvious win to the lead, another
-  Claude session and the outside reviewer. Tonight's check: every `bench/check_*.py` on main, CPU, beside the render.
+  Claude session and the outside reviewer. A check's colour is not the verdict (the owner: "if something is red it
+  doesnt mean good or bad without context ... or green for that matter"): a red is read for what it checks and why it
+  went red (a real break, a stale case, the environment) before anything is reverted, and a green says only that its
+  cases held, not that the picture is right.
 
 - **A text never tells H3 what is NOT in the movement video** (the owner, 2026-10-15 late, on a clause the lead built
   for lead_fp_2823d, "on some frames nothing is drawn on its face": "actually dont say it at all ... its inferred ...
