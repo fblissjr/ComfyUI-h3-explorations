@@ -766,7 +766,16 @@ def nothing_of_a_video_in_code() -> str:
     return "no address, share, machine folder, day or video in the tool's source"
 
 
+def the_page_says_what_is_laid() -> str:
+    """A table made with --laid says on both pages which list, by its sha256; one made by the older rule says so."""
+    made = "Made x from the ledger `l.json`; and ONLY the list of what is laid, `data/v/laid.jsonl` (sha256 abcdef0123456789, 43 lines, every file's bytes checked)."
+    assert "data/v/laid.jsonl (sha256 abcdef0123456789, 43 lines)" in rp.laid_from({"made": made}), rp.laid_from({"made": made})
+    assert "older rule" in rp.laid_from({"made": "Made x from the ledger `l.json`; no --prefer"})
+    return "the list and its sha256 are named; a table by the older rule says so"
+
+
 case("both modes read", both_modes_read)
+case("the page says what is laid", the_page_says_what_is_laid)
 case("to-review is the table's, and hides no live piece", to_review_is_the_tables)
 case("since the last page", since_the_last_page)
 case("a fifth reader's mutations, held", a_fifth_readers_mutations)

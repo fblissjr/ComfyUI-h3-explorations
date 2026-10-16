@@ -504,6 +504,15 @@ def start_here(path: str, drawn: dict[str, str], shots: dict[str, list[str]], ou
             "where it always is, below.</p>", f"<ol>{''.join(lines)}</ol>"]
 
 
+def laid_from(T: dict) -> str:
+    """What the table says it laid from (the owner's order of 2026-10-16): the list of what is laid and its sha256, read
+    from the table's own `made` line, or that the table was made by the older rule."""
+    m = re.search(r"ONLY the list of what is laid, `([^`]+)` \(sha256 ([0-9a-f]+), (\d+) lines", str(T.get("made") or ""))
+    if m:
+        return f" What is laid is the list {E(m.group(1))} (sha256 {E(m.group(2))}, {E(m.group(3))} lines), and nothing else."
+    return " What is laid was decided by the table's older rule (keeps, a session's preferences, the newest render), not by one list."
+
+
 def to_review(a: argparse.Namespace) -> str:
     rec = Records(a.table, a.ledger, a.verdicts, a.items, a.tables)
     rate, out_dir = rate_of(a.source), os.path.dirname(os.path.abspath(a.out))
@@ -520,7 +529,7 @@ def to_review(a: argparse.Namespace) -> str:
     stem = Path(a.source).stem
     body = [f"<h1>{E(stem)}: to review</h1>",
             f'<p class="mut">Made {datetime.datetime.now(OWNERS_CLOCK):%Y-%m-%d %H:%M} US Central from the table {E(os.path.basename(a.table))} and its '
-            f"ledger. Each piece is marked with the day its file was written: "
+            f"ledger.{laid_from(rec.T)} Each piece is marked with the day its file was written: "
             + ", ".join(f'<span class="d {t}">{datetime.date.fromisoformat(d):%m/%d}</span>' for d, t in rec.day_token.items())
             + ". Shown: what this table lays and waits on you, then, folded, what you answered: your lines of today, and a not sure or a click on "
             "a joined clip that names no piece until you say more. The joined clips' tables were read from: "
@@ -768,7 +777,7 @@ def provenance(a: argparse.Namespace) -> str:
     stem = Path(a.source).stem
     body = [f"<h1>{E(stem)}: what every stretch is made of, from which day, and where nothing is made</h1>",
             f'<p class="mut">Written {datetime.datetime.now(OWNERS_CLOCK):%Y-%m-%d %H:%M} US Central from the table <b>{E(os.path.basename(a.table))}</b> '
-            f"and its ledger; your clicks as they stood when this was written; the frames a piece leaves as the original from {E(left_from)}. "
+            f"and its ledger;{laid_from(rec.T)[:-1].replace(' What', ' what', 1)}; your clicks as they stood when this was written; the frames a piece leaves as the original from {E(left_from)}. "
             "A local file: nothing here is hosted or tracked. It cannot see the picture: a reason is what a record says.</p>",
             f"<p><b>{len(rec.T['rows'])} pieces: " + ", ".join(
                 f'<span class="d {t}">{sum(1 for r in rec.T["rows"] if rec.day(r["name"]) == d)} rendered {datetime.date.fromisoformat(d):%m/%d}</span>'
