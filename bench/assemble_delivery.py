@@ -41,12 +41,16 @@ pixel it changed. Either way the frames are flagged.
 
 **A piece rendered "whole region" is laid by its region, not by `changed`** (the owner's decision of 2026-10-16 and the
 lead's ruling of that day, docs/wiki/decisions.md). Its graph, the PNG VHS saved beside the render, says the Masked
-Source's `composite` (`laid_by_of`); where it is `WHOLE_REGION`, the piece's pixels are its run's regenerated region on
+Source's `composite` (`laid_by_of`); where it is the node's `COMPOSITE_REGION`, the piece's pixels are its run's regenerated region on
 each frame (`Captures.region`, the capture's `region.npz`), at both sizes and on every row, so H3's barely-changed pixels
 are not laid back as the source. MEASURED before the rule on the saved files (internal/claude/2026-10-16_mrtaco/
 probe_gate4_before_after.out): 45.1% of second_hfp_0014f's region and 54.6% of lead_fp_0438c's came back as the source at
-the source's size; after it, none. A piece rendered "only what changed", whose graph is not beside it, or whose run holds
-no region on a frame keeps `changed` there, and the report says which (`regions.pieces.<piece>.laid_by`).
+the source's size; after it, none, which holds by construction (the region is what is laid; check_assemble_delivery's
+"a whole-region piece laid by its region" holds the picture). The region is laid with what the piece changed past it,
+and gives up what another subject's row holds and its own does not: another person over her is never laid from her
+render. A piece rendered "only what changed", whose records do not all say "whole region" (`laid_by_of`), or whose run
+holds no region on a frame keeps `changed` there, the report says which (`regions.pieces.<piece>.laid_by`), and a piece
+laid by both rules is flagged by its frames (`piece_laid_by_two_rules`).
 
 **`--alias LABEL=NAME`** when captures of one job label one person differently (two loads tracked as `lead` and as
 `singer`): every rule here knows a subject by its label, so without it they are two subjects and each has
@@ -657,18 +661,33 @@ def changed(piece, orig, diff=None):
     return cv2.morphologyEx(hard, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8)).astype(bool)    # a lone speck is noise
 
 
-#: The composite a piece is laid by its run's regenerated region under (`laid_by_of`): the Masked Source's own word for
-#: "H3's picture is kept whole inside the region" (`h3_config.MASKED_LOAD_COMPOSITE`). The owner's decision of 2026-10-16
-#: and the lead's ruling A of that day (docs/wiki/decisions.md): a piece rendered so is laid by its region, every row and both
-#: sizes; one rendered "only what changed" keeps `changed`, since the node already put the source back there at the canvas's
-#: resolution and its region would swap the sharp original for the render's upscaled copy of it.
-WHOLE_REGION = "whole region"
+def node_words(*names) -> dict:
+    """Constants of the node's own module (`video_mask.py`), read from its source without importing it (it imports core):
+    one copy of each word, the node's."""
+    import ast
+    tree = ast.parse((Path(__file__).resolve().parents[1] / "video_mask.py").read_text())
+    found = {t.id: n.value.value for n in tree.body if isinstance(n, ast.Assign) and isinstance(n.value, ast.Constant)
+             for t in n.targets if isinstance(t, ast.Name) and t.id in names}
+    missing = [x for x in names if x not in found]
+    if missing:
+        raise SystemExit(f"video_mask.py defines no {', '.join(missing)}: the assembler reads the node's composite words from it")
+    return found
 
 
-def laid_by_of(piece) -> dict:
-    """How a piece is laid: `composite`, read from the graph VHS saved beside the render (`<stem>.png`, its `prompt`: the
-    MiniMaxH3MaskedSource node's `composite`, never a default), and `from`; `rule` is "region" for WHOLE_REGION and
-    "changed" otherwise, with `why` where the graph does not say."""
+def laid_by_of(piece, run=None) -> dict:
+    """How a piece is laid: by its run's regenerated region (`rule` "region") where the render's composite is the node's
+    `COMPOSITE_REGION` ("whole region": H3's picture kept whole inside the region; the owner's decision of 2026-10-16 and the
+    lead's ruling of that day, docs/wiki/decisions.md), else by `changed`, with `why` wherever the records do not all say so.
+    "only what changed" keeps `changed`: the node already put the source back there at the canvas's resolution, and its
+    region would swap the sharp original for the render's upscaled copy of it.
+
+    The composite is read from the graph VHS saved beside the render (`<stem>.png`, its `prompt`: the MiniMaxH3MaskedSource
+    node's `composite`, never a default), and must be one of the node's two words. A region is laid only where the run is the
+    node's own (its entry lists the window files, `files`: not a masks-alone plan or a review's reading), where the capture's
+    run and its graph record the same composite (`composite`, `masked_source.composite`), and where every window's region
+    file beside the render (`<name>_windows/*_region.npz`) says it too."""
+    words = node_words("COMPOSITE_REGION", "COMPOSITE_CHANGED")
+    region_word = words["COMPOSITE_REGION"]
     png = Path(piece).with_suffix(".png")
     if not png.is_file():
         return {"composite": None, "rule": "changed", "from": None, "why": f"no {png.name} beside the piece: its graph is not read, so it keeps `changed`"}
@@ -681,7 +700,38 @@ def laid_by_of(piece) -> dict:
         return {"composite": None, "rule": "changed", "from": str(png), "why": f"its graph does not read ({type(e).__name__}: {e}), so it keeps `changed`"}
     if len(found) != 1:
         return {"composite": None, "rule": "changed", "from": str(png), "why": f"its graph holds {len(found)} Masked Source composites ({found}), so it keeps `changed`"}
-    return {"composite": found[0], "rule": "region" if found[0] == WHOLE_REGION else "changed", "from": str(png)}
+    out = {"composite": found[0], "rule": "region" if found[0] == region_word else "changed", "from": str(png)}
+    if found[0] not in words.values():
+        return {**out, "why": f"its composite {found[0]!r} is not one of the node's ({', '.join(words.values())}), so it keeps `changed`"}
+    if out["rule"] != "region":
+        return out
+    whys = []
+    if not run or run[0] is None:
+        whys.append("no capture's run of the piece, so no region of it is known")
+    elif not run[2].get("files"):
+        whys.append("its run's region is not the node's own (the run lists no window files: a masks-alone plan or a review's reading)")
+    else:
+        for said, value in (("the capture's run", run[2].get("composite")), ("the capture's graph", (run[2].get("masked_source") or {}).get("composite"))):
+            if value != found[0]:
+                whys.append(f"{said} records the composite {value!r}, not the graph's {found[0]!r}")
+        stem = Path(piece).stem.rsplit("_", 1)[0]
+        windows = sorted((Path(piece).parent / f"{stem}_windows").glob("*_region.npz"))
+        if not windows:
+            whys.append(f"no {stem}_windows/*_region.npz beside the render: the composite each window was made with is not read")
+        said = {}
+        for w in windows:
+            try:
+                with np.load(w) as z:
+                    said[w.name] = str((json.loads(str(z["meta"])).get("source") or {}).get("composite"))
+            except (OSError, KeyError, ValueError) as e:
+                said[w.name] = f"unreadable ({type(e).__name__})"
+        other = {k: v for k, v in said.items() if v != found[0]}
+        if other:
+            whys.append(f"its windows do not all say {found[0]!r}: " + ", ".join(f"{k} {v!r}" for k, v in sorted(other.items())))
+        out["windows"] = said
+    if whys:
+        out.update(rule="changed", why="; ".join(whys) + ", so it keeps `changed`")
+    return out
 
 
 def box_of(mask) -> list[int] | None:
@@ -1193,8 +1243,9 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
             # composite, where it is not read, and where no region of the run covers the frame
             regions = [captures.region(run, n) if captures and run and (r.get("laid_by") or {}).get("rule") == "region" else None
                        for r, run in zip(rows, runs)]
-            by = ["region" if g is not None else "changed" for g in regions]
-            hard = [g if g is not None else m for m, g in zip(hard, regions)]
+            laid_rule = ["region" if g is not None else "changed" for g in regions]
+            # the region and what the piece changed past it (the node's feather reaches past the token edge)
+            hard = [g | m if g is not None else m for m, g in zip(hard, regions)]
             # a frame its run carried no mask on is the source's for that row, when the carried mask is the node's own
             bare = [captures.carried_nothing(run, n) if captures and run else None for run in runs]
             # the node's own when the run's entry lists the window files it was read from. Keyed on that list and not
@@ -1206,6 +1257,14 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
             masks = [captures.mask(run[2]["subject"], n, prefer=run[0]) if captures and run else None for run in runs]
             whose = [captures.owned(run[2]["subject"], n, prefer=run[0]) if captures and run else None for run in runs]
             holds = [w_ if w_ is not None else m_ for w_, m_ in zip(whose, masks)]
+            # ANOTHER PERSON OVER HER IS NEVER LAID FROM HER RENDER (the lead's ruling of 2026-10-16): a region-laid row gives up
+            # what another subject's row holds and its own subject does not, before the owners are settled
+            who = [run[2]["subject"] if run else None for run in runs]
+            for i in range(len(rows)):
+                if laid_rule[i] == "region":
+                    for j in range(len(rows)):
+                        if j != i and holds[j] is not None and who[j] != who[i]:
+                            hard[i] = hard[i] & ~(holds[j] & ~holds[i]) if holds[i] is not None else hard[i] & ~holds[j]
             owner, shared = owners(hard, holds)
             backs = [restore_weight(r, captures, run, n, (h, w)) for r, run in zip(rows, runs)]
             held = [b[0] for b in backs]
@@ -1219,7 +1278,7 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
                 record["fitted"][n] = (o[0], np.any(hard, axis=0))       # taken out again by the check, a frame later
             if record is not None:
                 for r, m, run, s, d, (back, classes), u in zip(rows, hard, runs, masks, diffs, backs, unmasked):
-                    row = {"px": int(m.sum()), "box": box_of(m), "away": None, "away_box": None, "subject_px": None, "laid_by": by[rows.index(r)],
+                    row = {"px": int(m.sum()), "box": box_of(m), "away": None, "away_box": None, "subject_px": None, "laid_by": laid_rule[rows.index(r)],
                            "no_mask": None if u is None else {"px": u[0], "left_as_the_source": u[1], "carried_is": u[2]},
                            "at_the_crop": bool(box and ((box[3] and (m[0].any() or m[-1].any())) or (box[2] and (m[:, 0].any() or m[:, -1].any()))))}
                     if r.get("restore"):
@@ -1233,12 +1292,12 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
                     # frame is not read at all: the part was emptied there); the subject's track only when it holds none
                     bare_here = captures.carried_nothing(run, n) if captures and run else None
                     worn = captures.carried(run, n) if bare_here is False else None
-                    under, by = (worn, "the mask its run carried") if bare_here is not None else (s, "its subject's tracked mask")
+                    under, under_by = (worn, "the mask its run carried") if bare_here is not None else (s, "its subject's tracked mask")
                     if under is not None and back is not None:
                         under = under & ~(back > 0.5)
                     if under is not None and under.any():
                         row["under"] = {"off": float(d[under].mean()), "share": float((m & under).sum()) / int(under.sum()),
-                                        "luma": float(o[0][under].mean()), "by": by}
+                                        "luma": float(o[0][under].mean()), "by": under_by}
                     if s is not None and run is not None:
                         reach = int(run[2].get("margin_px") or MARGIN) + TOKEN
                         laid = m & ~(back > 0.5) if back is not None else m          # what a restore gave back is not laid
@@ -1485,6 +1544,15 @@ def flags_of(record, rows, captures) -> tuple[list[dict], list[str]]:
                         "why": f"{names['piece']} was to give pixels back to the source and no capture given holds the subject's "
                                f"mask or class map on {len(blind)} frame(s): nothing was restored there",
                         "figures": {"frames": len(blind)}, "threshold": {}})
+        rules = {}
+        for n, v in area.items():
+            rules.setdefault(v.get("laid_by"), []).append(n)
+        if "region" in rules and "changed" in rules:
+            out.append({"rule": "piece_laid_by_two_rules", "level": LEVELS[0], **names, "source_frames": frame_spans(sorted(rules["changed"])),
+                        "why": f"{names['piece']} is laid by its region on {len(rules['region'])} frame(s) and by what it changed on {len(rules['changed'])} "
+                               "(these frames: its run holds no region read there): at the switch the margin's background goes from the render's "
+                               "copy to the source's own",
+                        "figures": {"frames_by_region": len(rules["region"]), "frames_by_changed": len(rules["changed"])}})
         edge = [n for n, v in area.items() if v.get("at_the_crop")]
         if edge:
             out.append({"rule": "piece_changes_up_to_the_loader's_crop", "level": LEVELS[1], **names, "source_frames": frame_spans(edge),
@@ -2378,7 +2446,6 @@ def main():
             raise SystemExit(f"{r['piece']} is tagged {info['matrix']}; this knows bt709, and untagged or BT.601 values")
         r["matrix"] = info["matrix"]
         r["zoomed"] = zoomed_of(r["piece"], info)
-        r["laid_by"] = laid_by_of(r["piece"])
         if r["first"] < r["piece_first"] or r["last"] - r["piece_first"] >= info["frames"]:
             raise SystemExit(f"{r['piece']} holds source frames {r['piece_first']}-{r['piece_first'] + info['frames'] - 1}, "
                              f"the row asks for {r['first']}-{r['last']}")
@@ -2406,6 +2473,8 @@ def main():
         raise SystemExit("a row names its run (`run=`) and no --capture was given: the run is read from its capture folder")
     for r in named:
         run_for(r, captures)                             # each tie is held to its capture before anything is built
+    for r in rows:
+        r["laid_by"] = laid_by_of(r["piece"], run_for(r, captures))
     segs = segments(rows, span)
     for first, last, covering in segs:
         print(f"{first:5d}-{last:<5d} {last - first + 1:5d} frames  " + (" + ".join(

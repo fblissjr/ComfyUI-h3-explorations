@@ -134,6 +134,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -1395,43 +1396,90 @@ with tempfile.TemporaryDirectory() as _tmp:
                 "of the render fails a row that lays the frames it names")
 
     def laid_by_its_region() -> str:
-        """The lead's ruling of 2026-10-16: a piece whose graph says composite "whole region" is laid by its run's region, its
-        barely-changed pixels included, at both sizes; one that says "only what changed", or whose graph is not beside it, keeps
-        `changed` and the report says which and why."""
-        piece = write("faint_a", faint(WHOLE[10:40], RECT_A))
+        """The lead's rulings of 2026-10-16: a piece whose records all say composite "whole region" is laid by its run's region
+        and what it changed past it, at both sizes; another subject's row keeps what it holds and she does not; "only what
+        changed", no graph, a run not the node's own, a run or a window that says another composite, and a composite the node
+        has not each keep `changed`, with why; a piece laid by both rules is flagged by its frames."""
+        BOX = (32, 32, 144, 128)                                         # the region H3 regenerated, cell-aligned: 16-px cells 2..8, 2..7
+        PAST = (60, 132, 90, 150)                                        # a change past the region's edge, as the node's feather lays one
+        piece = write("fw_00001", painted(faint(WHOLE[10:40], BOX), PAST))
         cells = np.zeros((30, H // 16, W // 16), bool)
-        x0, y0, x1, y1 = RECT_A
-        cells[:, y0 // 16:-(-y1 // 16), x0 // 16:-(-x1 // 16)] = True
-        run = {"name": "run_f", "render": "faint_a.mp4", "subject": "a", "margin_px": 16}
-        folder = capture(TMP / "cap_faint", 10, 30, {"a": mask_of(RECT_A, 30)}, [run], region={"run_f": cells})
+        cells[:, BOX[1] // 16:BOX[3] // 16, BOX[0] // 16:BOX[2] // 16] = True
+        OTHER = (104, 40, 170, 128)                                      # another subject, over her region beyond her own mask
+
+        def windows(*composites):
+            folder = TMP / "fw_windows"
+            shutil.rmtree(folder, ignore_errors=True)
+            folder.mkdir()
+            for k, c in enumerate(composites, 1):
+                np.savez(folder / f"fw_window_{k}_region.npz", meta=json.dumps({"source": {"composite": c}}))
+
+        def run_of(**more):
+            return {"name": "run_f", "render": "fw_00001.mp4", "subject": "a", "margin_px": 16, "files": ["fw_window_1_region.npz"],
+                    "composite": "whole region", "masked_source": {"composite": "whole region"}, **more}
+
+        def capture_of(tag, run, read=None):
+            folder = capture(TMP / f"cap_fw_{tag}", 10, 30, {"a": mask_of(RECT_A, 30), "b": mask_of(OTHER, 30)}, [run], region={"run_f": cells})
+            if read is not None:
+                z = dict(np.load(folder / "runs" / "run_f" / "region.npz"))
+                np.savez_compressed(folder / "runs" / "run_f" / "region.npz", **{**z, "read": read})
+            return folder
+
+        def near(luma, want, rect):
+            x0, y0, x1, y1 = rect
+            return float(np.abs(luma - want[0])[y0 + SLACK:y1 - SLACK, x0 + SLACK:x1 - SLACK].mean())
         o, f = original(24), planes_of(piece, 24)
         assert 2.0 < inside(f, o, RECT_A) < tool.CHANGE, f"the fixture: the faint piece is {inside(f, o, RECT_A):.2f} levels off the original, not under CHANGE"
-        said = {}
-        for composite in ("whole region", "only what changed", None):
+        graph_beside(piece, "whole region")
+        windows("whole region")
+        tail = np.ones(30, bool)
+        tail[25:] = False                                                # source frames 35-39: no region read
+        folder = capture_of("main", run_of(), tail)
+        code, r, out = deliver(TMP, "fw_source", [(10, 39, piece, 10)], "10-39", "--capture", str(folder), "--size", "source")
+        luma = list(tool.luma_at_canvas(str(out), W, H))[24 - 10]
+        row = r["regions"]["pieces"][piece]["laid_by"]
+        # THE CASE THAT GOES RED when a whole-region piece's barely-changed pixels are laid back as the source
+        assert code == 0 and near(luma, f, RECT_A) + 1.0 < near(luma, o, RECT_A), f"at the source's size: {near(luma, f, RECT_A):.2f} from the piece, {near(luma, o, RECT_A):.2f} from the original"
+        # THE CASE THAT GOES RED when the region alone is laid and a change past its edge is dropped (fix 6)
+        assert near(luma, f, PAST) + 5.0 < near(luma, o, PAST), f"past the region's edge: {near(luma, f, PAST):.2f} from the piece, {near(luma, o, PAST):.2f} from the original"
+        # THE CASE THAT GOES RED when the counts or the switch of rule are not said (fixes 4 and 5)
+        assert row["rule"] == "region" and row["frames_by_region"] == 25 and row["frames_by_changed"] == 5, row
+        flag = [x for x in r["flags"] if x["rule"] == "piece_laid_by_two_rules"]
+        assert flag and flag[0]["source_frames"] == [[35, 39]], flag
+        # at the canvas's size, as a later row over another subject's piece that changed him only past her region: her region is laid,
+        # and his pixels inside it are his row's (the original there)
+        his_piece = write("his_00001", painted(WHOLE[10:40], (150, 50, 168, 120)))     # his row changes him past her region, not inside it
+        code_c, r_c, out_c = deliver(TMP, "fw_canvas", [(10, 39, his_piece, "10 subject=b"), (10, 39, piece, 10)], "10-39", "--capture", str(folder))
+        got = planes_of(str(out_c), 24)
+        row_c = r_c["regions"]["pieces"][piece]["laid_by"]
+        assert code_c == 0 and inside(got, f, RECT_A) + 1.0 < inside(got, o, RECT_A), (code_c, r_c["failures"], inside(got, f, RECT_A), inside(got, o, RECT_A))
+        assert row_c["frames_by_region"] == 25 and row_c["frames_by_changed"] == 5, row_c
+        # THE CASE THAT GOES RED when another person inside her region is laid from her render (fix 1)
+        his = (110, 48, 140, 120)
+        assert inside(got, o, his) + 1.0 < inside(got, f, his), f"another subject inside her region: {inside(got, f, his):.2f} from her piece, {inside(got, o, his):.2f} from the original"
+        # each record that does not say "whole region" keeps `changed`, with why (fixes 2, 3, 7)
+        cases = {"only what changed": ("only what changed", run_of(), ("whole region",), "rule"),
+                 "no graph": (None, run_of(), ("whole region",), "no fw_00001.png beside the piece"),
+                 "not the node's own": ("whole region", run_of(files=None), ("whole region",), "is not the node's own"),
+                 "the run says another": ("whole region", run_of(composite="only what changed"), ("whole region",), "the capture's run records the composite 'only what changed'"),
+                 "the graph's record says another": ("whole region", run_of(masked_source={"composite": "only what changed"}), ("whole region",), "the capture's graph records"),
+                 "a window says another": ("whole region", run_of(), ("whole region", "only what changed"), "its windows do not all say"),
+                 "no windows": ("whole region", run_of(), (), "no fw_windows/*_region.npz"),
+                 "not the node's word": ("half a region", run_of(), ("whole region",), "is not one of the node's")}
+        for tag, (composite, run, wins, words) in cases.items():
             graph_beside(piece, composite)
-            tag = str(composite).replace(" ", "_")
-            code, r, out = deliver(TMP, f"faint_{tag}", [(10, 39, piece, 10)], "10-39", "--capture", str(folder), "--size", "source")
+            windows(*wins)
+            folder = capture_of(tag.replace(" ", "_").replace("'", ""), run)
+            _code, r, out = deliver(TMP, f"fw_{tag.replace(' ', '_').replace(chr(39), '')}", [(10, 39, piece, 10)], "10-39", "--capture", str(folder), "--size", "source")
             luma = list(tool.luma_at_canvas(str(out), W, H))[24 - 10]
             row = r["regions"]["pieces"][piece]["laid_by"]
-            near = lambda want: float(np.abs(luma - want[0])[y0 + SLACK:y1 - SLACK, x0 + SLACK:x1 - SLACK].mean())   # noqa: E731
-            said[composite] = (code, near(f), near(o), row)
-            # at the canvas's size, as a later row over a kept piece, which is the base there
-            code_c, _r, out_c = deliver(TMP, f"faint_canvas_{tag}", [(10, 39, KEPT, 10), (10, 39, piece, 10)], "10-39", "--capture", str(folder))
-            said[composite] += (code_c, inside(planes_of(str(out_c), 24), f, RECT_A), inside(planes_of(str(out_c), 24), o, RECT_A))
-        code, to_piece, to_orig, row, code_c, c_piece, c_orig = said["whole region"]
-        # THE CASE THAT GOES RED when a whole-region piece's barely-changed pixels are laid back as the source
-        assert code == 0 and to_piece + 1.0 < to_orig, f"at the source's size: {to_piece:.2f} from the piece, {to_orig:.2f} from the original"
-        assert code_c == 0 and c_piece + 1.0 < c_orig, f"at the canvas's size, a later row: {c_piece:.2f} from the piece, {c_orig:.2f} from the original"
-        assert row["composite"] == "whole region" and row["rule"] == "region" and row["frames_by_region"] == 30 and row["frames_by_changed"] == 0, row
-        for composite in ("only what changed", None):
-            code, to_piece, to_orig, row, code_c, c_piece, c_orig = said[composite]
-            # laid by `changed`, a piece all under CHANGE is "a piece that changes nothing", which the assembler's own verdict fails: the exit is not read
-            assert to_orig + 1.0 < to_piece and c_orig + 1.0 < c_piece, (composite, to_piece, to_orig, c_piece, c_orig)
-            assert row["rule"] == "changed" and row["frames_by_region"] == 0, row
-        assert "no faint_a.png beside the piece" in said[None][3]["why"], said[None][3]
+            # laid by `changed`, a piece under CHANGE is not laid: its pixels are the original's
+            assert row["rule"] == "changed" and row["frames_by_region"] == 0 and near(luma, o, RECT_A) + 1.0 < near(luma, f, RECT_A), (tag, row)
+            assert tag == "only what changed" or words in row["why"], (tag, row)
         graph_beside(piece, None)
-        return (f"a whole-region piece laid by its region, its pixels {said['whole region'][1]:.1f} from the piece against {said['whole region'][2]:.1f} "
-                "from the original at the source's size, and as a later row at the canvas's; 'only what changed' and no graph keep `changed`, said")
+        shutil.rmtree(TMP / "fw_windows", ignore_errors=True)
+        return ("a whole-region piece laid by its region and what it changed past it, at the source's size and as a later row at the canvas's; another "
+                "subject inside her region keeps his own; the counts and a switch of rule said; each record that does not say whole region keeps `changed`, said")
 
     def a_zoomed_piece() -> str:
         import torch.nn.functional as F
