@@ -17,6 +17,21 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-16
 
+- **The assembler lays a "whole region" render's region whole, every piece, at both sizes; a render made with "only
+  what changed" keeps the node's own choice** (the lead, mrtony, at about 19:05Z, ruling gate 4's scope on mrtaco's
+  probe, `internal/claude/2026-10-16_mrtaco/probe_gate4.py` and its `.out` files). The open item of the simplification
+  entry below said "where pieces share frames"; the probe found the cause is wider: at `--size source`, which every
+  rebuild uses, `assemble_delivery.laid_over` weights every piece by its own per-frame `changed()` test, the first piece
+  and a piece alone on its frames included (the holes trace's item 5). On the two "whole region" renders it laid back as
+  the source 45.1% of 0014f's regenerated region (worst frame 117) and 54.6% of the kept street lead_fp_0438c's (worst
+  443), pixels a median 2.4 levels off the source but the sharp original's texture inside the upscaled new face. Now: a
+  piece whose render's composite is "whole region" (read from its render graph) is laid by its run's `region` (the
+  node's regenerated cells: what H3 replaced, margin included), at both sizes; where pieces share frames the overlap is
+  split by the subjects' masks as before. A piece rendered with "only what changed" keeps `changed()`: its render is
+  already the source where the node kept it, and laying its region would swap the original for the render's softer
+  copy of it. A piece with no region record keeps `changed()` and says so. Every kitchen piece of today's cut was
+  rendered with "only what changed", so the kitchen does not change; the street and any later "whole region" piece do.
+
 - **No keep-out gives back a cell inside the person's own track: the capture takes her track out of each keep-out
   before it writes the files the node reads, rather than refusing the load** (the lead, mrtony, ruling the form of the third gate the simplification entry below
   names, on mrtaco's probe). Built first as a refusal, gate 3 would have stopped nearly every load of the mom's: her
