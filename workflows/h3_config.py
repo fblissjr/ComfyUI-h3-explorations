@@ -1575,6 +1575,12 @@ MASKED_LOAD_DEFAULTS = dict(carried="held", motion="mesh", feather=8, edge="cell
 #: way: the value on every face load and on every face-and-hair load of those two days. There is none for
 #: `whole`: that tool makes no whole-person load.
 MASKED_LOAD_MARGIN = {"face": 16, "face and hair": 64}
+#: The composite every load is built with (`workflows/masked_job_graph.py`), in place of the Masked Source's own
+#: default ("only what changed"). **The owner's decision, 2026-10-16** ("The simplification wins. Make sure this never
+#: happens again"), after a code trace (`internal/gemini/2026-10-16_holes_trace.md`) found "only what changed" restored
+#: 19% of the mom's regenerated pixels to the source on second_hfp_0014d, as holes stepping every 4 frames, and the
+#: one-knob trial second_hfp_0014f. A load may still name another, and its build record says so.
+MASKED_LOAD_COMPOSITE = "whole region"
 #: The canvas a job is made on when a tool writes its file. **Inherited**: every job file of this lane since
 #: 2026-10-10 names it; `docs/h3_resolutions.md` lists it (its 4:3 row).
 MASKED_JOB_CANVAS = (1024, 768)

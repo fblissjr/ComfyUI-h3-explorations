@@ -17,6 +17,20 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-16
 
+- **The simplification wins: H3's picture is kept whole inside a person's region, and nothing puts the original back
+  inside it** (the owner: "The simplification wins. Make sure this never happens again"), after a code trace
+  (`internal/gemini/2026-10-16_holes_trace.md`) found four live sources of the original showing through the mom's new
+  face on second_hfp_0014d: the composite "only what changed" (19% of the regenerated pixels restored, the render's own
+  record), keep-outs carving cells out of her own track (a strangers track at her ear, a held track at her neckline),
+  the capture's largest-piece rule (smaller pieces of her face and hair dropped on 146 of 154 frames), and the hands
+  give-back at assembly. Now: every load's composite is `h3_config.MASKED_LOAD_COMPOSITE` ("whole region"); the mom's
+  plan has no `pieces` and no `restore` (the plan before: `data/fun/plan.before_simplification_2026-10-16T172912Z.json`);
+  the lead's Eyeglass and hands give-backs on 3060-3109 stay only for the kept 2823b, marked `exception`, and go when
+  that shot is made again. To make it hold: gates that refuse the old ways (a face-and-hair load with the largest-piece
+  rule, a give-back of a person's own parts not marked as an exception, a keep-out that is not one of our people taking
+  cells inside the person's own track), built next. STILL OPEN (mrgan's read): where two pieces share frames (the kitchen, 604-948), the assembler lays each later piece only where its own per-frame test says it changed the picture (`assemble_delivery.changed`, over `CHANGE` levels), so a whole-region render's barely-changed pixels can still come back as the source there; the fix is the assembler laying a piece's carried region (its run's `region.npz`) in place of its changed pixels, queued with the gates. What it replaces: the 2026-10-04 choice of "only what changed" for
+  the band clip (one clip, one seed), the largest-piece rule of 2026-10-13/14, and the hands give-back of 2026-10-14.
+
 - **No accessory give-backs at assembly; an accessory that matters is named in the load's text** (the owner, "I
   agree", after finding the mom's original earring and necklace leaking through her new face in the one view, frames
   47, 55 and 125 of 14-167). The `Apparel@head` restore (mrtall's extension of 2026-10-15, below, of the owner's

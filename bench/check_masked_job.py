@@ -426,7 +426,10 @@ def a_load_lands_on_the_inputs_it_names():
     assert src["replace"] == cfg.MASKED_SOURCE["replace"] and "parts" not in src, "a whole-subject load takes a part"
     assert (src["grow_pixels"], src["feather_pixels"], src["edge"]) == (48, 4, cfg.MASKED_JOB_EDGE["cells"]), "margin, feather or edge"
     # the composite (2026-10-16): the node's default unless the load names one; a name the node has not is refused
-    assert "composite" not in src or src["composite"] == cfg.MASKED_SOURCE["composite"], f"a load naming no composite got {src.get('composite')!r}"
+    # every load is built with h3_config.MASKED_LOAD_COMPOSITE unless it names another (the owner, 2026-10-16)
+    assert src["composite"] == cfg.MASKED_LOAD_COMPOSITE == "whole region", f"a load naming no composite got {src.get('composite')!r}"
+    old_way = graphs._the(_a_load(one={**WHOLE, "composite": "only what changed"}), graphs.SOURCE)
+    assert _a_load(one={**WHOLE, "composite": "only what changed"})[old_way]["inputs"]["composite"] == "only what changed", "a load's own composite is not kept"
     named = graphs._the(_a_load(one={**WHOLE, "composite": "whole region"}), graphs.SOURCE)
     assert _a_load(one={**WHOLE, "composite": "whole region"})[named]["inputs"]["composite"] == "whole region", "a load's composite does not reach the node"
     _unbuildable("is not one of 'whole region', 'only what changed'", {**WHOLE, "composite": "everything"})

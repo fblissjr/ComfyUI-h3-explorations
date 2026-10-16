@@ -92,7 +92,7 @@ import copy
 import re
 
 from h3_config import (
-    FPS, MAX_LENGTH, SEGMENTER, SUBJECT_TRACK, SAPIENS2, MASKED_SOURCE, MASKED_PARTS_SOURCE,
+    FPS, MAX_LENGTH, SEGMENTER, SUBJECT_TRACK, SAPIENS2, MASKED_SOURCE, MASKED_PARTS_SOURCE, MASKED_LOAD_COMPOSITE,
     MASKED_JOB_CONTEXT, MASKED_JOB_CONTEXT_NOISE, MASKED_JOB_SOL_SINK, MASKED_JOB_MOTION, MASKED_JOB_HAIR_BAND,
     MASKED_JOB_CRF, MASKED_JOB_EDGE, MASKED_JOB_STILL_VIEW,
     MASKED_JOB_LOADER, MASKED_JOB_FORCE_RATE, MASKED_JOB_SEEK_BACK, MASKED_JOB_SAM_CORRECTIONS,
@@ -720,12 +720,12 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
                replace=(MASKED_PARTS_SOURCE if part else MASKED_SOURCE)["replace"],
                grow_pixels=one.get("margin", MASKED_SOURCE["grow_pixels"]),
                feather_pixels=one.get("feather", MASKED_SOURCE["feather_pixels"]))
-    # a load may name the composite (2026-10-16, the owner on the mom's holes: "only what changed" restores the source
-    # wherever the render did not change the picture enough, inside the region too); the node's default when it does not
-    if one.get("composite") is not None:
-        if one["composite"] not in COMPOSITES:
-            raise ValueError(f"load {one['name']!r}: composite {one['composite']!r} is not one of 'whole region', 'only what changed'")
-        src["composite"] = one["composite"]
+    # the composite (2026-10-16, the owner on the mom's holes: "only what changed" restores the source wherever the render
+    # did not change the picture enough, inside the region too): h3_config.MASKED_LOAD_COMPOSITE unless the load names one
+    composite = one.get("composite", MASKED_LOAD_COMPOSITE)       # every load: the owner's decision of 2026-10-16
+    if composite not in COMPOSITES:
+        raise ValueError(f"load {one['name']!r}: composite {composite!r} is not one of 'whole region', 'only what changed'")
+    src["composite"] = composite
     if part:
         src["parts"] = from_file(*files["parts"])
     also, theirs = one.get("also"), files.get("also")
