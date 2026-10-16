@@ -444,12 +444,33 @@ def a_banded_keep_out_on_the_plan() -> str:
         # THE CASE THAT GOES RED when the plan's band file is not made again: a banded load's render is refused after on-plan
         assert [x for x in said if "BAND FILE" in x and not x.startswith("note:")] == [], said
         refused(lambda: lc.band_again(made.ctx(), made.m, band, plan_graph, digest), "already kept")
+        refused(lambda: lc.step_band_again(made.ctx(), made.m, args(), hashed=digest), "already made again")
+        # `band-again` on a load whose on-plan ran before the remake was part of it (second_hfp_1010c): its record has no band, its band is
+        # the plan's own cut, and its first copy holds no band file
+        kept_band.unlink()
+        band.write_bytes(b"cut before the carve")
+        held.pop("band_made_again")
+        held["masks"].pop(str(band))
+        (made.root / "data/2026-01-03_ld_job/ld.plan.masks.json").write_text(json.dumps(held))
+        assert lc.render_against_plan(g, render, {}, hashed=digest)[-1].endswith("NOT the same."), "control failed: the stale band file matched"
+        lc.step_band_again(made.ctx(), made.m, args(), hashed=digest)
+        held = json.loads((made.root / "data/2026-01-03_ld_job/ld.plan.masks.json").read_text())
+        # THE CASE THAT GOES RED when `band-again` does not repair a load planned before the fix
+        assert not [x for x in lc.render_against_plan(g, render, {}, hashed=digest) if "BAND FILE" in x and not x.startswith("note:")] \
+            and held["masks"][str(band)] == digest(band) and kept_band.read_bytes() == b"cut before the carve", held
+        go = made.job_file.parent / "ld.render.go.md"
+        go.write_text("go")
+        held.pop("band_made_again")
+        (made.root / "data/2026-01-03_ld_job/ld.plan.masks.json").write_text(json.dumps(held))
+        refused(lambda: lc.step_band_again(made.ctx(), made.m, args(), hashed=digest), "already has a go")
+        go.unlink()
         on_plan = made.m.said("files on plan")
         assert f"clothes:track={band},by=pv,at=110" in on_plan and kept[0]["track"] not in " ".join(map(str, on_plan)), on_plan
         # a load with no band is handed its keep-out whole on the plan as well
         del made.load["hair_band"]
         made.write()
         assert lc.plan_band_file(made.ctx()) is None
+        refused(lambda: lc.step_band_again(made.ctx(), made.m, args()), "has no hair band")
         assert lc.mask_specs(made.ctx(), lc.preview_files(made.ctx(), made.m.output), None)[-1] == f"clothes:track={kept[0]['track']},by=pv,at=100"
         # the band file holds the load's frames only: a load shorter than its capture is refused
         made.load["hair_band"] = 0.6

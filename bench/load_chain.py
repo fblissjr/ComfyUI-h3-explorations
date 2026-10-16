@@ -4,6 +4,7 @@
     <python> bench/load_chain.py first   JOB.json --by SESSION
     <python> bench/load_chain.py plan    JOB.json --by SESSION
     <python> bench/load_chain.py on-plan JOB.json --by SESSION
+    <python> bench/load_chain.py band-again JOB.json --by SESSION
     <python> bench/load_chain.py table   JOB.json --by SESSION
         (a reader who did not make the capture looks at the plan's strip: `capture_masked_run.py looked`;
          or, on a clear gate with no forcing flag, the maker records that no look is owed:)
@@ -65,6 +66,11 @@ fact of the machine is an environment key; nothing is found by a name left over 
   file for file before anything is overwritten; then the capture is built in place on the plan, verified, gated,
   its strip drawn, and its per-frame table written (`bench/frame_table.py`, for both subjects on a two-subject
   load). Nothing is renamed or moved; when the frame table succeeds, its path is recorded in `<load>.plan.built.json`.
+  On a load with a hair band, after verify and the gate, the plan's band file is written again from the carved track
+  (`band_again`; its own bytes kept under `<job folder>_first/`), so the render's decodes equal.
+- `band-again`: the same, for a banded load whose on-plan ran before that (Gemini's D13 A1, the lead's ruling of
+  2026-10-16). Refused on a load with no band, one whose on-plan has not run (no record hashed after the rebuild),
+  one whose band was already made again, and once a render graph or render go exists.
 - `table`: builds or rebuilds the capture's per-frame table (`bench/frame_table.py`, and for the second subject on
   a two-subject load) in place on `<capture>`, and records its path and sha256 in `<load>.plan.built.json`. Holds the
   job file to `job.plan.json` (`job_as_planned`), and refuses when the capture is not there, when a render graph or
@@ -127,7 +133,7 @@ REPO = HERE.parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(REPO / "workflows"))
 
-STEPS = ("first", "plan", "on-plan", "table", "no-look", "render", "land", "page")
+STEPS = ("first", "plan", "on-plan", "band-again", "table", "no-look", "render", "land", "page")
 HOST = "127.0.0.1:8188"
 #: The environment key for the folder that holds the pose model's own folder (`h3_config.POSE_MODEL`): a fact of
 #: the machine, so never a path in a tracked file. Named 2026-10-13 with the lead.
@@ -1171,6 +1177,25 @@ def run_frame_table(ctx: dict, world, *, stop: bool) -> None:
         plan_built.write_text(json.dumps(built, indent=1) + "\n")
 
 
+def step_band_again(ctx: dict, world, a, hashed=frame_hash) -> None:
+    """The plan's band file made again from the carved track, for a banded load whose on-plan ran before `band_again` was part of it."""
+    name, folder = ctx["name"], ctx["job_folder"]
+    band = plan_band_file(ctx)
+    if band is None:
+        raise Refused(f"{name} has no hair band: there is no band file to make again")
+    go = ctx["job_file"].parent / f"{name}.render.go.md"
+    if (folder / f"{name}.render.json").exists() or go.exists():
+        raise Refused(f"a render of {name} is already built or already has a go ({go.name}): the band file is not made again after a render begins")
+    record = folder / f"{name}.plan.masks.json"
+    held = json.loads(record.read_text()) if record.is_file() else {}
+    if held.get("hashed") != HASHED_AFTER_THE_REBUILD:
+        raise Refused(f"{record.name} {'is not there' if not held else 'was not hashed after the on-plan rebuild'}: the band is made again only on a "
+                      "capture rebuilt on its plan (`on-plan`)")
+    if held.get("band_made_again"):
+        raise Refused(f"the band file of {name} was already made again ({held['band_made_again'].get('at')}): {record.name}")
+    band_again(ctx, world, band, folder / f"{name}.plan.json", hashed)
+
+
 def step_table(ctx: dict, world, a) -> None:
     cap, name, folder = ctx["capture"], ctx["name"], ctx["job_folder"]
     if not (cap / "manifest.json").is_file():
@@ -1406,7 +1431,7 @@ def step_help(step: str) -> str:
                                                   "refuses on the files alone. `load_chain.py --help` has every flag."])
 
 
-STEP = {"first": step_first, "plan": step_plan, "on-plan": step_on_plan, "table": step_table, "no-look": step_no_look, "render": step_render, "land": step_land, "page": step_page}
+STEP = {"first": step_first, "plan": step_plan, "on-plan": step_on_plan, "band-again": step_band_again, "table": step_table, "no-look": step_no_look, "render": step_render, "land": step_land, "page": step_page}
 
 
 def main() -> int:

@@ -607,7 +607,10 @@ def text_and_look(built: dict, graph: dict) -> dict:
 
 def capture_files(job: dict, one: dict, capture: Path, mesh_of, stage: str = "plan") -> dict:
     """The files a load is built from, each with the source frame its frame 0 is on; refuses a capture that
-    was not finished or checked, and a file that is not there. `mesh_of(label)` finds a subject's saved mesh."""
+    was not finished or checked, and a file that is not there. `mesh_of(label)` finds a subject's saved mesh.
+
+    A named gap (Gemini's D13 A2, the lead's ruling of 2026-10-16, not built): the render's refusal of a keep-out not carved on the node's
+    grid takes `any` across ONE keep-out's several sightings; today's chain makes one sighting a keep-out."""
     if not (capture / "manifest.json").is_file():
         raise Refused(f"{capture} is not a capture folder (no manifest.json); the job block's `capture` names it")
     manifest = json.loads((capture / "manifest.json").read_text())
