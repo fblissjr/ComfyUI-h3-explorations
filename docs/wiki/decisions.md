@@ -17,6 +17,21 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-16
 
+- **No accessory give-backs at assembly; an accessory that matters is named in the load's text** (the owner, "I
+  agree", after finding the mom's original earring and necklace leaking through her new face in the one view, frames
+  47, 55 and 125 of 14-167). The `Apparel@head` restore (mrtall's extension of 2026-10-15, below, of the owner's
+  keep-accessories rule of 2026-10-14) gave back any part-model Apparel touching the head, grown 6 px, on every row of
+  the lead and the mom; Apparel is also collar and blouse, and the label moves frame to frame, so it pasted moving
+  patches of the original round both heads (the assembler's own check flagged it on nearly every piece of hers:
+  d014, 332 of 0604d's 345 frames). Removed from `data/fun/plan.json` for both (the plan before:
+  `data/fun/plan.before_no_apparel_2026-10-16T164222Z.json`); the cut is rebuilt from the same renders. Kept for now:
+  the lead's `Eyeglass` give-backs on 3063-3109 and 3909-4052 (removing the first would take her glasses off the kept
+  2823b where its render lost them); they go when those shots are made again with the glasses in the text. Giving
+  OTHER people back inside a region stays (it is not an accessory). Also to test (one render): the composite `whole
+  region` in place of `only what changed`, which restores the source inside the region wherever the render did not
+  change the picture enough (`workflows/masked_job_graph.py` takes a per-load `composite`). What it replaces: the
+  2026-10-15 earrings entry and the accessory half of 2026-10-14's rule.
+
 - **The dad's 1306-1309 and 1397-1418 stay the original; the frame check is to say why** (the lead, mrtoon, on mrgan's
   correction of its own sheet look). The kept `third_fp_1310c` left them out on a blind reader's look at every frame
   (its job's `left_out`: his face behind a blurred hand and arm; from about 1403 he crosses the lead, which "A shot,
