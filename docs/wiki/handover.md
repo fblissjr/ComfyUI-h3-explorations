@@ -21,8 +21,9 @@ notes: `internal/claude/2026-10-16_mrtony/HANDOFF.md`; the card's: `internal/cla
 - **The cut** (`data/fun/laid.jsonl`, 43 lines): the owner kept today the street `lead_fp_0438c`, the mom's
   `second_hfp_0014f` (whole region; it settles her margin and composite), `lead_fp_0294d`, and by look every piece on
   1419-2049, `lead_fp_2625` and `lead_fp_2823b`. Four lines have no keep, all in the kitchen being remade.
-- **The newest whole video** is `fun_0000_6394_joined_2026-10-16T2003Z_from_laid` (gate 4 in; before 0014f's and
-  0294d's keeps were laid). The app plays `..._VIEW3_web.mp4`. Rebuild after the mom's render.
+- **The newest whole video** is `fun_0000_6394_joined_2026-10-16T2250Z_from_laid` (with 0014f and 0294d laid; ledger
+  and table 2250Z); the app plays its `_STACKED.mp4`, Start here 1. The pages were made from it at about 23:45Z;
+  Start here 2 is 1010c beside 1010j.
 
 ## What not to assume
 
