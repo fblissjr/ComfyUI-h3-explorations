@@ -7,6 +7,49 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.288.0
+<!-- changelog.d/day-2026-10-15.md -->
+
+### Added
+
+- `bench/what_h3_got.py`: what a load was handed, read from the graph as queued: every file with its sha256, what the
+  graph does to it, which reference frames the text encoder is shown, the reference's own record and face height, and
+  the text whole. `masked_job queue` keeps the bytes of every file a graph names, so a later reading is held to them,
+  and every run's record now keeps the nodes the server served from its cache.
+- A load's text is generated from the plan alone (`shot_to_load text`), in the form the owner set: who is generated
+  in each hole and from which reference, never the frozen picture; "sings" only where the person sings, from the
+  plan's voice per subject; a specific definition of each still; her hair "changed to", never "retained"; the mouth
+  said only where its frames draw one.
+- Options on a person's word, each printed among the defaults a load carries: `--no-face-on` (no face lines where her
+  face does not show), `--hold-part` (the part held where the part model misses her), `--mouth-on` and
+  `--no-mouth-on`, `--eyes-shut-on` (her eyes drawn shut in two forms), `--no-strangers`, `--track-not` (a track
+  copied, held to the preview track it came from), and `--context-noise` per load for chained windows.
+- `shot_to_load --seam`: one or more seams on the chained window lengths, worked out from the 362-frame ceiling
+  (`h3_rules.MAX_LENGTH`), never typed; one window holds a load up to the ceiling.
+- `shot_to_load pair`: two loads of the same frames as one load of two subjects, and `--motion none` for a hair-alone
+  load with no reference video.
+- Review tools: `bench/stack_rows.py` (clips of the same frames, a row each, with sound); joined stacks with one column
+  a subject and each piece's own inputs; review strips showing what H3 was given and what the composite kept;
+  `review_pages --start-here`; `covered_items`; one-a-second copies for a reader that samples slowly.
+- The head reference draws the mouth a frame at a time by a gate of the class map, holds it over time, keeps her own
+  glasses off her track, and sizes the head crop from the head's extent over the load.
+- The capture fills a run of at most two frames where the part model labelled nothing, between two standing parts.
+
+### Changed
+
+- The window ceiling is 362 frames; no cap of 345 remains anywhere.
+- Every load saves what its composite kept (the song node's `save_kept`), a chain default.
+- The owner's two pages live in the video's folder on the share, kept by the lead.
+
+### Fixed
+
+- `assemble_delivery`: the cut edge carried on every side as a union to a bounded depth, the rows the loader's crop
+  cut carry the laid edge row, and `restore=<subject>.<Class>@head` gives her earrings back.
+- `video_mask`: a keep-out speck no longer holes a step; lone holes are closed and cut-off islands dropped.
+- A frame with no face drawn is not failed for being off the track; the read-back no longer reads a codec-moved body
+  edge on a bare frame as a line.
+- `smoke_h3` reads the node order from the graph and a repeated length from what Sol said earlier.
+
 ## 0.287.0
 <!-- changelog.d/day-2026-10-14.md -->
 
