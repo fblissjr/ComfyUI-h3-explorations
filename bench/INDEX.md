@@ -15,7 +15,7 @@ this file is only a way to find a script by what it says it does.
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 180 |
+| [the rest](#the-rest) | 181 |
 
 ## check
 
@@ -396,6 +396,7 @@ this file is only a way to find a script by what it says it does.
 | [`instrument_render_occupancy.py`](instrument_render_occupancy.py) | Phase-resolved GPU occupancy of one render, bracketed per node. |
 | [`join_panel_verdicts.py`](join_panel_verdicts.py) | Join a scored blind PANEL with its sealed key, and apply the panel's stop rules. |
 | [`join_stretches.py`](join_stretches.py) | Join the windows of several song-node runs over consecutive stretches of one clip into one file. |
+| [`laid.py`](laid.py) | The list of what is laid: one JSON line a piece, the ONLY thing the delivery table reads for what stands. |
 | [`latent_path_distance.py`](latent_path_distance.py) | How far saved latents sit from a reference latent, per latent frame. No decode. |
 | [`list_prose_measurements.py`](list_prose_measurements.py) | Inventory the measurements that live in prose, so they can be moved out. |
 | [`load_chain.py`](load_chain.py) | One load of a masked job, a step at a time, read from its job file: first, plan, on-plan, render, land, page. |

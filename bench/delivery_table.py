@@ -138,6 +138,8 @@ NOTHING_TO_MAKE = "present, nothing to make under this plan, by a person's look"
 #: A shot whose only renders that may stand are held back by the lead (`--hold`): a render exists, and is not laid.
 HELD_BACK = "a render that may stand is HELD BACK by the lead (--hold), a session's word and not the owner's, and nothing else may stand"
 NOT_IN_THE_SHOT = "the shots file says this subject is not in the shot"
+#: With `--laid` (the owner's order of 2026-10-16): a shot and subject the list of what is laid names nothing for.
+NOT_LAID = "nothing is laid here in the list of what is laid"
 
 
 def _shot_coverage():
@@ -280,9 +282,16 @@ def parse_prefer(text: str, flag: str = "--prefer") -> dict:
 
 
 def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = None, span: tuple[int, int] | None = None,
-           holds: list[dict] | None = None) -> dict:
+           holds: list[dict] | None = None, laid: list[dict] | None = None) -> dict:
     """The table as data: `rows` (pieces laid), `sources` (whole shots left as the source), `gaps` (frames inside a
-    shot that has a piece and that no piece takes) and `reading` (one entry a shot and a subject)."""
+    shot that has a piece and that no piece takes) and `reading` (one entry a shot and a subject).
+
+    `laid` (the lines of `bench/laid.py`'s list as `laid.read` returns them, bytes checked; this function trusts its
+    caller on that, each line with its `line` number) is the ONLY rule when given (the owner's
+    order of 2026-10-16): a render stands on a shot for a subject only where a line names it, in the list's order, and
+    nothing else may stand (no `--prefer`, no `--hold`, no keep or newest-render fallback). The refusals still hold:
+    a line naming a render that never stands, one the owner's last choice says is not the one, or a file that is not
+    the ledger's file of that render stops the table."""
     looks_say = _shot_coverage().nothing_to_make          # the rule has one home: the coverage tool's
 
     def own_restores(label: str) -> list[tuple[int, int, str]]:
@@ -310,6 +319,8 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
     if ledger.get("schema") != LEDGER_SCHEMA:
         raise SystemExit(f"the ledger's schema is {ledger.get('schema')!r}, not {LEDGER_SCHEMA!r}: make it again with bench/render_ledger.py")
     prefers, holds = list(prefers or []), list(holds or [])
+    if laid is not None and (prefers or holds):
+        raise SystemExit("--laid is the only rule for what is laid: it takes no --prefer and no --hold (the owner's order of 2026-10-16)")
     if span is not None:
         # a table of part of the video: the shots inside the span, whole. A `source` line covers a whole shot, so a
         # span that cuts a shot is refused and the shot named
@@ -325,6 +336,21 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
                 raise SystemExit(f"{flag} names frames {p['first']}-{p['last']}, which is not a shot of the shots file")
             if not any(r["name"] == p["load"] for r in renders):
                 raise SystemExit(f"{flag} names the load {p['load']!r}, which the ledger has no render of")
+    if laid is not None and span is not None:
+        laid = [x for x in laid if span[0] <= x["first"] and x["last"] <= span[1]]   # a table of part of the video reads its own lines
+    for x in laid or []:
+        if not any(s["first"] == x["first"] and s["last"] == x["last"] for s in shots["shots"]):
+            raise SystemExit(f"the list of what is laid, line {x['line']}, names frames {x['first']}-{x['last']}, which is not a shot of the shots file")
+        shot = next(s for s in shots["shots"] if s["first"] == x["first"] and s["last"] == x["last"])
+        if x["subject"] not in shots["subjects"] or shot["who"][x["subject"]]["present"] == "no":
+            raise SystemExit(f"the list of what is laid, line {x['line']}, names {x['subject']!r} on {x['first']}-{x['last']}, and the shots file "
+                             "has no such subject there (or says they are not in the shot): the line would be skipped, so it stops the table")
+        named = [v for v in renders if v["name"] == x["load"]]
+        if not named:
+            raise SystemExit(f"the list of what is laid, line {x['line']}, names the load {x['load']!r}, which the ledger has no render of")
+        r = next((v for v in named if v.get("file") == x["file"]), named[0])   # a line names one render: its load AND its file
+        if r.get("file") != x["file"]:
+            raise SystemExit(f"the list of what is laid, line {x['line']}, names the file {x['file']} for {x['load']}; the ledger's file of it is {r.get('file')}")
     for h in holds:
         if any((p["first"], p["last"], p["subject"], p["load"]) == (h["first"], h["last"], h["subject"], h["load"]) for p in prefers):
             raise SystemExit(f"--hold and --prefer both name {h['load']} for {h['first']}-{h['last']}, {h['subject']}: a render is put first or held back, not both")
@@ -341,6 +367,7 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
             on = [r for r in renders if label in (r.get("subjects") or []) and r.get("span") and r["span"][0] <= s["last"] and r["span"][1] >= s["first"]]
             preferred = [p for p in prefers if (p["first"], p["last"], p["subject"]) == (s["first"], s["last"], label)]
             held_here = [h for h in holds if (h["first"], h["last"], h["subject"]) == (s["first"], s["last"], label)]
+            laid_here = [x for x in laid or [] if (x["first"], x["last"], x["subject"]) == (s["first"], s["last"], label)]
             may, passed, held_from_standing = [], [], []
             for r in on:
                 never = never_stands(r)
@@ -348,6 +375,18 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
                 kept = bool(choice and choice["said"] in KEEP)
                 barred = (f"the owner's last choice on it was \"{choice['said']}\" ({str(choice['at'])[:16]}, row {choice.get('row')}): not the one"
                           if choice and choice["said"] in NOT_THE_ONE else None)
+                if laid is not None:
+                    line = next((x for x in laid_here if (x["load"], x["file"]) == (r["name"], r["file"])), None)
+                    if line is None:
+                        passed.append({"render": r["name"], "file": r["file"], "written": r["written"], "why": "not in the list of what is laid"
+                                       + (f"; the owner's last choice on it: \"{choice['said']}\" ({str(choice['at'])[:16]})" if choice else "")})
+                    elif never:
+                        raise SystemExit(f"the list of what is laid, line {line['line']}, names {r['name']} for {s['first']}-{s['last']}, {label}, and it never stands: {never}")
+                    elif barred:
+                        raise SystemExit(f"the list of what is laid, line {line['line']}, names {r['name']} for {s['first']}-{s['last']}, {label}, and {barred}")
+                    else:
+                        may.append((0, line["line"], r, f"laid, line {line['line']} ({line['owner']}): {line['by']}", choice))
+                    continue
                 frozen, form_words = form_of(r, wanted, plan["subjects"][label].get("parts"))
                 named = next((p for p in preferred if p["load"] == r["name"]), None)
                 held = next((h for h in held_here if h["load"] == r["name"]), None)
@@ -390,8 +429,14 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
             for h in held_here:
                 if not any(r["name"] == h["load"] for r in on):
                     raise SystemExit(f"--hold names {h['load']} for {s['first']}-{s['last']}, {label}, and no render of that load covers those frames for that subject")
-            may.sort(key=lambda m: str(m[1]), reverse=True)                    # the newest first,
-            may.sort(key=lambda m: m[0])                                       # within the rule's steps in their order
+            for x in laid_here:
+                if not any((m[2]["name"], m[2]["file"]) == (x["load"], x["file"]) for m in may):
+                    raise SystemExit(f"the list of what is laid, line {x['line']}, names {x['load']} for {s['first']}-{s['last']}, {label}, and no render of that load covers those frames for that subject")
+            if laid is not None:
+                may.sort(key=lambda m: m[1])                                   # the list's own order
+            else:
+                may.sort(key=lambda m: str(m[1]), reverse=True)                # the newest first,
+                may.sort(key=lambda m: m[0])                                   # within the rule's steps in their order
             free = set(range(s["first"], s["last"] + 1))
             stands = []
             for step, _when, r, why, choice in may:
@@ -413,7 +458,8 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
                 took = set(take)
                 stands.append({"render": r["name"], "file": r["file"], "written": r["written"], "frames": runs(take), "why": why, "step": step,
                                # step 0 is the lead's word, not the owner's: its reason whole, for every page that shows the piece
-                               "the_leads_prefer": next((p["reason"] for p in preferred if p["load"] == r["name"]), None) if step == 0 else None,
+                               "the_leads_prefer": next((p["reason"] for p in preferred if p["load"] == r["name"]), None) if step == 0 and laid is None else None,
+                               "laid_line": next(({k: x[k] for k in ("line", "owner", "by", "sha256")} for x in laid_here if (x["load"], x["file"]) == (r["name"], r["file"])), None),
                                # the frames of these that the piece's own load left as the original (the ledger's read of its capture)
                                # None where the ledger does not say (no capture record of it): not known is not none
                                "leaves_as_the_original": None if r.get("leaves_as_the_original") is None else runs(sorted(
@@ -445,6 +491,9 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
                 if held_from_standing:
                     why = ("" if present[label] == "yes" else "the shots file is unsure this subject is in the shot; ") \
                         + f"{HELD_BACK} ({', '.join(held_from_standing)})"
+                elif laid is not None:
+                    why = ("" if present[label] == "yes" else "the shots file is unsure this subject is in the shot; ") + NOT_LAID \
+                        + (f" (the newest render passed over: {newest})" if newest else " (no render of this subject covers these frames)")
                 else:
                     why = (NO_SOURCE_YET if present[label] == "yes" else f"the shots file is unsure this subject is in the shot; {NO_SOURCE_YET}") \
                         + (f" (the newest render passed over: {newest})" if newest else " (no render of this subject covers these frames)")
@@ -689,6 +738,9 @@ def main() -> int:
     p.add_argument("--hold", action="append", default=[], metavar="FIRST-LAST:SUBJECT=LOAD:reason",
                    help="a render NOT to be laid on that shot for that subject, on the lead's word, with a reason that is printed; a session's word, "
                         "refused against an owner's keep; repeatable")
+    p.add_argument("--laid", metavar="LAID.jsonl",
+                   help="the list of what is laid (bench/laid.py): the ONLY rule when given; every file's sha256 is checked against it first; "
+                        "takes no --prefer or --hold")
     p.add_argument("--span", metavar="FIRST-LAST", help="the table of these source frames alone, ending on shots' edges; default: the whole shots file")
     p.add_argument("--assemble-args", default="", metavar='"--source S --out O --size source"',
                    help="what only the caller knows of the build, printed into the assembler's command as given")
@@ -706,12 +758,17 @@ def main() -> int:
     plan = with_trial_restores(coverage.load_plan(a.plan, shots["subjects"]), [parse_restore_extra(x) for x in a.restore_extra])
     ledger = json.load(open(a.ledger))
     span = tuple(int(v) for v in a.span.split("-")) if a.span else tuple(shots["span"])
-    out = decide(ledger, shots, plan, [parse_prefer(x) for x in a.prefer], span if a.span else None, [parse_hold(x) for x in a.hold])
+    laid_lines = None
+    if a.laid:
+        import laid as laid_list
+        laid_lines = laid_list.read(a.laid, ledger["share"])            # a file whose bytes are not the line's sha256 stops here
+    out = decide(ledger, shots, plan, [parse_prefer(x) for x in a.prefer], span if a.span else None, [parse_hold(x) for x in a.hold], laid_lines)
     commit = subprocess.run(["git", "-C", str(HERE.parent), "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     made = (f"Made {now} at commit {commit} from the ledger `{a.ledger}` ({str(ledger.get('made') or 'which does not say when it was made').split(' from')[0]}), "
             f"`{a.shots}`" + (f" (its shots inside {a.span})" if a.span else "") + f" and `{a.plan}`" + ("; with " + "; ".join(f"--prefer {x!r}" for x in a.prefer) if a.prefer else "; no --prefer")
             + ("; and HELD BACK by the lead, a session's word and not the owner's: " + "; ".join(f"--hold {x!r}" for x in a.hold) if a.hold else "; no --hold")
+            + (f"; and ONLY the list of what is laid, `{a.laid}` (sha256 {laid_list.digest(a.laid)[:16]}, {len(laid_lines)} lines, every file's bytes checked)" if a.laid else "")
             + ("; and A TRIAL the plan does not hold: " + "; ".join(f"--restore-extra {x!r}" for x in a.restore_extra) if a.restore_extra else "") + ".")
     own = " ".join(shlex.quote(w) for w in [sys.executable, "bench/delivery_table.py", *sys.argv[1:]])
     built = assembly(out, ledger, plan, HERE.parent, a.table, span, a.assemble_args, tuple(a.also_capture), python=sys.executable, own=own,

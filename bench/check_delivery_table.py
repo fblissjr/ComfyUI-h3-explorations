@@ -49,6 +49,11 @@ with only the fields the rule reads, a shots file of three shots and a plan of t
    not seen on every frame of a shot makes its source line say so and its reading carry the look; a later `seen`, a
    look on part of the shot, a look on one of two parts, and a piece that stands each leave the shot as it was.
 
+14. **`--laid`** (the owner's order of 2026-10-16) is the only rule when given: listed renders stand in the list's
+   order, a kept render it does not list is not laid, a shot it names nothing for is a `source` line saying so; a
+   listed render that never stands, one the owner called not the one, a file the ledger does not have, frames that
+   are no shot, and `--laid` with `--prefer` are refused.
+
 No video, no model, no card, no server.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/check_delivery_table.py
@@ -355,6 +360,81 @@ def a_preference() -> str:
     else:
         raise AssertionError("--prefer made a render the owner called wrong stand")
     return "a preferred load goes first with its reason printed; one that never stands, a load the ledger lacks and frames that are no shot are refused"
+
+
+def the_list_of_what_is_laid() -> str:
+    """14. `--laid` (the owner's order of 2026-10-16) is the only rule: a listed render stands in the list's order, a
+    kept or newer render it does not list is not laid, a shot it names nothing for is a `source` line saying so, and
+    a listed render that never stands, one the owner called not the one, or a file the ledger does not have, stops."""
+    kept = render("kept", (0, 49), "01", owner=(("02", "choice", "keep this one"),))
+    newer = render("newer", (0, 49), "05")
+    part = render("part", (10, 29), "03")
+    def line(load, n, first=0, last=49, subject="a", file=None):
+        return {"first": first, "last": last, "subject": subject, "load": load, "file": file or f"Video/s/{load}/{load}_00001.mp4",
+                "sha256": "x", "owner": "unconfirmed", "by": "a session's reason", "line": n}
+    def laid(*renders, lines):
+        return dt.decide(ledger(*renders), SHOTS, PLAN, laid=list(lines))
+    out = laid(kept, newer, part, lines=[line("part", 1), line("newer", 2)])
+    stands = entry(out, 0, "a")["stands"]
+    assert [s["render"] for s in stands] == ["part", "newer"] and stands[0]["frames"] == [(10, 29)], stands
+    assert stands[0]["laid_line"]["line"] == 1 and stands[0]["the_leads_prefer"] is None, stands[0]
+    gone = {p["render"]: p for p in entry(out, 0, "a")["passed_over"]}
+    assert gone["kept"]["why"].startswith("not in the list of what is laid") and "keep this one" in gone["kept"]["why"], gone
+    # nothing listed for a shot: a source line that says so, even with a kept render there
+    none = laid(kept, lines=[])
+    assert any(x["first"] == 0 and dt.NOT_LAID in x["why"] for x in none["sources"]), none["sources"]
+    assert not none["rows"], none["rows"]
+    for renders, lines, words in (
+            ((render("no_record", (0, 49), "09", making=NO_RECORD),), [line("no_record", 1)], "it never stands: no build record"),
+            ((render("called_wrong", (0, 49), "09", owner=(("04", "choice", "wrong"),)),), [line("called_wrong", 1)], "not the one"),
+            ((kept,), [line("kept", 1, file="Video/s/other.mp4")], "the ledger's file of it is"),
+            ((kept,), [line("gone", 1)], "the ledger has no render of"),
+            ((kept,), [line("kept", 1, first=3, last=9)], "not a shot of the shots file"),
+            ((kept,), [line("kept", 1, first=50, last=99)], "no render of that load covers those frames"),
+            ((kept,), [line("kept", 1, first=100, last=149)], "says they are not in the shot")):
+        try:
+            laid(*renders, lines=lines)
+        except SystemExit as e:
+            assert words in str(e), (lines, str(e))
+        else:
+            raise AssertionError(f"--laid {lines} was taken")
+    try:
+        dt.decide(ledger(kept), SHOTS, PLAN, [dt.parse_prefer("0-49:a=kept:why")], laid=[line("kept", 1)])
+    except SystemExit as e:
+        assert "takes no --prefer and no --hold" in str(e), str(e)
+    else:
+        raise AssertionError("--laid was taken with --prefer")
+    # one load name, two files (mrgan's cold read): only the file the line names is laid
+    twin = {**render("newer", (0, 49), "06"), "file": "Video/s/newer/newer_00002.mp4"}
+    both = laid(newer, twin, lines=[line("newer", 1, file=twin["file"])])
+    assert [s["file"] for s in entry(both, 0, "a")["stands"]] == [twin["file"]], entry(both, 0, "a")["stands"]
+    # a table of part of the video reads only the lines inside its span
+    part_table = dt.decide(ledger(kept, render("b_one", (50, 99), "05", subject="b", region="face and hair")), SHOTS, PLAN, span=(50, 99),
+                           laid=[line("kept", 1), line("b_one", 2, first=50, last=99, subject="b")])
+    assert [r["name"] for r in part_table["rows"]] == ["b_one"], part_table["rows"]
+    # the list's reader: a file whose bytes are not the line's sha256, a missing file and a load named twice stop it
+    import laid as laid_list
+    with tempfile.TemporaryDirectory() as d:
+        share = Path(d)
+        (share / "Video").mkdir()
+        (share / "Video/p.mp4").write_bytes(b"the piece as laid")
+        good = {"schema": laid_list.SCHEMA, "first": 0, "last": 49, "subject": "a", "load": "p", "file": "Video/p.mp4",
+                "sha256": laid_list.sha256(share / "Video/p.mp4"), "owner": "kept", "by": "the owner's keep"}
+        f = share / "laid.jsonl"
+        f.write_text(json.dumps(good) + "\n")
+        assert laid_list.read(str(f), str(share))[0]["line"] == 1
+        for lines, words in (([good], "the laid piece changed"), ([{**good, "file": "Video/q.mp4"}], "is missing"), ([good, good], "is named twice")):
+            f.write_text("".join(json.dumps(x) + "\n" for x in lines))
+            if words == "the laid piece changed":
+                (share / "Video/p.mp4").write_bytes(b"the piece remade under the same name")
+            try:
+                laid_list.read(str(f), str(share))
+            except SystemExit as e:
+                assert words in str(e), (words, str(e))
+            else:
+                raise AssertionError(f"the list's reader took a line that should stop it: {words}")
+            (share / "Video/p.mp4").write_bytes(b"the piece as laid")
+    return "only listed renders are laid, in the list's order; a kept render not listed is not laid; refusals stop the table; changed bytes stop the list's reader"
 
 
 def a_hold_of_the_leads() -> str:
@@ -673,6 +753,7 @@ case("a click on a joined item", a_click_on_a_joined_item)
 case("restore: the other subjects of the shot", restores)
 case("the owner's words, under the render they are on", the_owners_words_are_in_the_reading)
 case("a preference of the lead's", a_preference)
+case("the list of what is laid", the_list_of_what_is_laid)
 case("a hold of the lead's: not this one, and why", a_hold_of_the_leads)
 case("the table reads back through the assembler", the_table_reads_back)
 case("a plan that keeps an accessory", a_plan_that_keeps_an_accessory)
