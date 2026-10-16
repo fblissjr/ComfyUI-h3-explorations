@@ -17,6 +17,11 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-16
 
+- **A Gemini builder builds `shot_to_load.py job --carry-words-from`** (the owner at 2026-10-16T22:18Z, offering the idle reader
+  "to take stuff off" mrtaco's plate; this job only): a remade job carries every person's word of the old job by the tool,
+  tagged, and refuses a word it cannot carry, after two hand copies today lost one (the kitchen's floor 480; 21 spans for
+  17). Brief D20 in `internal/gemini/2026-10-16_requests.md`; a Claude reader reads the diff and the lead commits.
+
 - **A Gemini builder builds the pages and shot_coverage reading the gap check** (the owner, "Yes", in the lead's terminal at
   2026-10-16T22:17Z; this job only, as for the frame table): `review_pages.py` and `shot_coverage.py` read the gap check of the same
   table and refuse without it, so no page calls a frame done that the gap check shows as the original. The brief is D19 in
