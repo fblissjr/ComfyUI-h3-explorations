@@ -139,6 +139,7 @@ import ast
 import datetime
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import time
@@ -1456,6 +1457,29 @@ def collect(folder: Path, stage: str, *, host: str, load: str = "") -> int:
     return 0 if record["status"] == "success" and not record.get("missing") and not record.get("subjects_not_found") else 1
 
 
+def band_again(job_file: Path, name: str, target: Path, *, output: Path, repo: Path = REPO) -> dict:
+    """A load's cut keep-out written again at `target` from its capture as the RENDER reads it (`capture_files` at "render"), by
+    `hair_band`: the on-plan step makes the plan's band file again after the capture is rebuilt on the plan (Gemini's D13 A1, the
+    lead's ruling of 2026-10-16). The rebuild carves the keep-outs on the node's grid, so the plan's band file, cut from the canvas-carved
+    track, and the render's, cut from the grid-carved one, differed, and the render step refused a banded load. Written to a file beside
+    `target` and moved over it whole. Returns the band's figures."""
+    given = json.loads(Path(job_file).read_text())
+    job = given["job"]
+    one = next((o for o in loads_of(given) if o["name"] == name), None)
+    if one is None:
+        raise Refused(f"{job_file} has no load named {name!r}")
+    if "hair_band" not in one:
+        raise Refused(f"load {name!r} has no hair band: there is no band file to make again")
+    capture = Path(job["capture"]) if Path(job["capture"]).is_absolute() else repo / job["capture"]
+    files = capture_files(job, one, capture, preview_mesh(Path(target).parent, job, output), "render")
+    part = Path(target).with_name(Path(target).stem + ".again.mkv")
+    _files, band = hair_band(one, files, part)
+    assert band is not None
+    taken = band["write"]()
+    os.replace(part, target)
+    return {**band["figures"], "file": str(target), "written": taken}
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="command", required=True)
@@ -1473,6 +1497,10 @@ def main() -> int:
     q.add_argument("--wait", action="store_true", help="stay until the server is done and record what it saved")
     q.add_argument("--override", default="", metavar='"WHO: WHY"',
                    help="queue beside uncommitted node code; written into the record")
+    bd = sub.add_parser("band", help="write a load's cut keep-out again from its capture as the render reads it (the on-plan step runs it)")
+    bd.add_argument("job_file", type=Path)
+    bd.add_argument("--load", required=True, metavar="NAME")
+    bd.add_argument("--to", required=True, type=Path, metavar="FILE", help="the band file to write over (the plan's)")
     c = sub.add_parser("collect", help="record what a queued run saved, from the server's history; posts nothing")
     c.add_argument("folder", type=Path)
     c.add_argument("stage", choices=STAGES)
@@ -1523,6 +1551,10 @@ def main() -> int:
                     print(f"  {s['label']}: corrections typed, read at the tracker's mask version {s['corrections_at']}:\n      "
                           + str(s["corrections"]).strip().replace("\n", "\n      "))
             print("when it has run, the capture:\n" + capture_command(json.loads(a.job_file.read_text())["job"], a.date))
+            return 0
+        if a.command == "band":
+            made = band_again(a.job_file, a.load, a.to, output=h3_config.output_dir())
+            print(f"wrote {made['file']} again from the capture as the render reads it: {json.dumps(made['written'])[:400]}")
             return 0
         if a.command == "collect":
             return collect(a.folder, a.stage, host=a.host, load=a.load)

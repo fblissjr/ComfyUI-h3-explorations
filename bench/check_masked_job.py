@@ -868,6 +868,19 @@ def a_hair_band_under_a_part():
         again = Path(json.loads(rendered[0].with_suffix(".built.json").read_text())["files"]["others"][0][0])
         assert again.name == "a_band.render.b_less_hair_band.mkv" and np.array_equal(read_mask(str(again), (w, h), 700, 700, banded["frames"])[0], got), \
             "the render's cut keep-out is not the plan's"
+        # GEMINI'S D13 A1 (the lead's ruling of 2026-10-16): the on-plan rebuild carves the keep-out on the node's grid AFTER the plan cut its band,
+        # and the render cuts its band from the carved track. Here the piece nowhere near the band is carved away, as the grid carve would
+        carved = keep.copy()
+        carved[:, 5:10, 100:120] = False
+        write_mask_video(capture / "subjects/b/track__p.mkv", carved)
+        later = tool.build_loads(_loads_file(tmp, capture, loads=({**banded, "name": "a_later"},)), "render", ["a_later"], **where)
+        theirs = read_mask(str(Path(json.loads(later[0].with_suffix(".built.json").read_text())["files"]["others"][0][0])), (w, h), 700, 700, banded["frames"])[0]
+        assert not np.array_equal(theirs, read_mask(str(made), (w, h), 700, 700, banded["frames"])[0]), "control failed: the carve changed no band file"
+        tool.band_again(_loads_file(tmp, capture, loads=(banded, plain)), "a_band", made, output=tmp / "output", repo=tmp)
+        # THE CASE THAT GOES RED when the plan's band file is not made again from the carved track: the render's then does not decode equal
+        assert np.array_equal(read_mask(str(made), (w, h), 700, 700, banded["frames"])[0], theirs), "the plan's band file made again is not the render's"
+        assert not list(made.parent.glob("*.again.mkv")), "the band made again left its working file"
+        write_mask_video(capture / "subjects/b/track__p.mkv", keep)
         # from the box's BOTTOM, as built on 2026-10-12: the strip beside the head stays, and only the rows under the part are cut
         old = dict(rule)
         cfg.MASKED_JOB_HAIR_BAND["starts"] = "bottom"

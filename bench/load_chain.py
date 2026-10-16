@@ -1106,8 +1106,37 @@ def step_on_plan(ctx: dict, world, a, hashed=frame_hash) -> tuple[int, str]:
                      "(the keep-outs carved on the node's own grid, the plan's region remade on these files for the look); the render step refuses a "
                      "mask that no longer decodes equal", "hashed": HASHED_AFTER_THE_REBUILD, "at": utc_now(), "by": a.by, "masks": masks}, indent=1) + "\n")
     ended = gate_and_strip(ctx, world, a.by, who, voice)
+    if band is not None:
+        band_again(ctx, world, band, plan_graph, hashed)
     run_frame_table(ctx, world, stop=False)
     return ended
+
+
+def band_again(ctx: dict, world, band: Path, plan_graph: Path, hashed=frame_hash) -> None:
+    """THE PLAN'S BAND FILE MADE AGAIN FROM THE CARVED TRACK (Gemini's D13 A1, the lead's ruling of 2026-10-16). The rebuild hands the
+    capture the plan's cut keep-out and carves it on the node's grid; the render cuts its band from that carved track, so the plan's file,
+    cut before the carve, would not decode equal to the render's and the render step refused (`render_against_plan`). After verify and
+    the gate, the builder writes the plan's band file again from the capture as the render reads it (`masked_job.py band`), and the record
+    of what the render will read holds its hash. The plan's own bytes are kept first under `<job folder>_first/`, where the reader of the
+    plan finds them (`what_h3_got.first_copy`)."""
+    kept = ctx["job_folder"].with_name(ctx["job_folder"].name + "_first") / band.name
+    if kept.exists():
+        raise Refused(f"{kept} exists: the plan's band file was already kept, so this step has run")
+    if not world.dry:
+        kept.parent.mkdir(exist_ok=True)
+        shutil.copy2(band, kept)
+    world.run(ctx, "band again", tool(world, "masked_job.py") + ["band", ctx["job_file"], "--load", ctx["name"], "--to", band])
+    if world.dry:
+        return
+    named = next((v for n in graph_of(plan_graph).values() for v in [n.get("inputs", {}).get("video")]
+                  if isinstance(v, str) and v.endswith(BAND_SUFFIXES[0])), str(band))
+    record = ctx["job_folder"] / f"{ctx['name']}.plan.masks.json"
+    held = json.loads(record.read_text())
+    held["masks"][named] = hashed(named)
+    held["band_made_again"] = {"file": named, "kept": str(kept), "at": utc_now(),
+                               "why": "made again from the capture's carved track as the render reads it (masked_job.py band), so the render's band file decodes equal"}
+    record.write_text(json.dumps(held, indent=1) + "\n")
+    print(f"--- the plan's band file {band.name} made again from the carved track; the plan's own bytes kept at {kept}", flush=True)
 
 
 def run_frame_table(ctx: dict, world, *, stop: bool) -> None:

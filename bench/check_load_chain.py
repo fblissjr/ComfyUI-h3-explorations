@@ -419,8 +419,31 @@ def a_banded_keep_out_on_the_plan() -> str:
         made.m.ran.clear()
         refused(lambda: lc.step_on_plan(made.ctx(), made.m, args(), hashed=lambda path: "h"), "has a hair band", "the plan step writes it")
         band = made.root / "data/2026-01-03_ld_job/ld.plan.clothes_less_hair_band.mkv"
-        band.write_bytes(b"")
-        lc.step_on_plan(made.ctx(), made.m, args(), hashed=lambda path: "h")
+        band.write_bytes(b"cut before the carve")
+        # the plan graph reads the band file, as the builder wires it
+        plan_graph = made.root / "data/2026-01-03_ld_job/ld.plan.json"
+        g = json.loads(plan_graph.read_text())
+        g["3"] = {"class_type": "L", "inputs": {"video": str(band)}}
+        plan_graph.write_text(json.dumps(g))
+        # GEMINI'S D13 A1: the builder writes the plan's band file again from the carved track after the rebuild, as the render cuts its own
+        made.m.on["band again"] = lambda: band.write_bytes(b"cut from the carved track")
+        digest = lambda path: hashlib.sha256(Path(path).read_bytes()).hexdigest()   # noqa: E731
+        lc.step_on_plan(made.ctx(), made.m, args(), hashed=digest)
+        ran = made.m.said("band again")
+        assert ran[-6:] == ["band", str(made.job_file), "--load", "ld", "--to", str(band)] and made.m.labels().index("band again") > made.m.labels().index("gate"), \
+            (ran, made.m.labels())
+        kept_band = made.root / "data/2026-01-03_ld_job_first" / band.name
+        assert kept_band.read_bytes() == b"cut before the carve", "the plan's own band file was not kept where the reader of the plan finds it"
+        held = json.loads((made.root / "data/2026-01-03_ld_job/ld.plan.masks.json").read_text())
+        assert held["masks"][str(band)] == digest(band) and held["band_made_again"]["kept"] == str(kept_band), held
+        render_band = band.with_name("ld.render.clothes_less_hair_band.mkv")
+        render_band.write_bytes(b"cut from the carved track")
+        render = {**g, "3": {"class_type": "L", "inputs": {"video": str(render_band)}}, "9": {**g["9"], "inputs": {**g["9"]["inputs"], "preview": False,
+                                                                                                                     "filename_prefix": "ld"}}}
+        said = lc.render_against_plan(g, render, {}, hashed=digest)
+        # THE CASE THAT GOES RED when the plan's band file is not made again: a banded load's render is refused after on-plan
+        assert [x for x in said if "BAND FILE" in x and not x.startswith("note:")] == [], said
+        refused(lambda: lc.band_again(made.ctx(), made.m, band, plan_graph, digest), "already kept")
         on_plan = made.m.said("files on plan")
         assert f"clothes:track={band},by=pv,at=110" in on_plan and kept[0]["track"] not in " ".join(map(str, on_plan)), on_plan
         # a load with no band is handed its keep-out whole on the plan as well
