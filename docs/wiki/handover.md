@@ -55,8 +55,10 @@ notes: `internal/claude/2026-10-16_mrtony/HANDOFF.md`; the card's: `internal/cla
    1010j ran 22 frames to 1031 (its reference tracker followed another body on 1032-1038), hair alone on 1025-1031
    (`--parts-on`), the clothing stay keep-out and largest piece; 1010c ran 29 frames on today's rules (no clothing
    keep-out, grid-carved keep-outs, exact matte, the apron words, the zoom). And a word LOST in the remake: 1010j's
-   `--no-mouth-on 1010-1018` was not carried into 1010c, which mouths at the camera on 1010-1020 (Gemini's watch,
-   `internal/gemini/2026-10-16_watch_D21_1010c.md`); the case D20 (`--carry-words-from`) exists for. The whole video
+   `--no-mouth-on 1010-1018` was not carried into 1010c, which mouths at the camera on 1010-1020 (seen in the two job
+   files: 1010j's `job.reference.mouth.no_mouth_on` holds 1010-1018 on mrarc's look of 2026-10-15, 1010c's holds none;
+   Gemini's first watch said it at 23:18Z, its outbox line; a second, duplicate watch overwrote that file at 23:46Z);
+   the case D20 (`--carry-words-from`) exists for. The whole video
    was rebuilt from the laid list at the close (`rebuild.sh --clip`, the stamp in the pages' table) with 0014f and 0294d.
 3. The owner's looks, on Start here in this order: the plan strips (`lead_fp_1010g` with the hat square gone,
    `lead_fp_0613g` with its zoom figures and 626-629 / 803-805 checked, 516-603, the whole-shot loads 1061-1092,
