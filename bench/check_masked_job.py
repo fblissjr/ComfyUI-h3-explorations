@@ -425,6 +425,15 @@ def a_load_lands_on_the_inputs_it_names():
     assert g[src["motion_video"][0]]["class_type"] == cfg.MASKED_JOB_LOADER, "the motion video is read as a mask"
     assert src["replace"] == cfg.MASKED_SOURCE["replace"] and "parts" not in src, "a whole-subject load takes a part"
     assert (src["grow_pixels"], src["feather_pixels"], src["edge"]) == (48, 4, cfg.MASKED_JOB_EDGE["cells"]), "margin, feather or edge"
+    # the composite (2026-10-16): the node's default unless the load names one; a name the node has not is refused
+    assert "composite" not in src or src["composite"] == cfg.MASKED_SOURCE["composite"], f"a load naming no composite got {src.get('composite')!r}"
+    named = graphs._the(_a_load(one={**WHOLE, "composite": "whole region"}), graphs.SOURCE)
+    assert _a_load(one={**WHOLE, "composite": "whole region"})[named]["inputs"]["composite"] == "whole region", "a load's composite does not reach the node"
+    _unbuildable("is not one of 'whole region', 'only what changed'", {**WHOLE, "composite": "everything"})
+    # the builder's names are the node's own: a rename on either side goes red here (mrgan's read, 2026-10-16)
+    vm = (REPO / "video_mask.py").read_text()
+    assert all(f'= "{x}"' in vm for x in graphs.COMPOSITES) and "COMPOSITE_REGION = \"whole region\"" in vm, "the composite names are not the node's"
+    assert "composite" in graphs.SETTINGS, "a build record would not say a job set the composite"
     assert src["motion_reference"] == cfg.MASKED_JOB_MOTION["wired"] and src["motion_vae"] is True, "the mesh is not wired to the video model"
     assert src["motion_short_edge"] == min(LOAD_JOB["canvas"]), f"the motion video goes in at {src['motion_short_edge']}"
     assert run["window_frames"] == SHORT_WINDOW >= WHOLE["frames"] and SHORT_WINDOW < WINDOWS[0] and "held_tail" not in src, \

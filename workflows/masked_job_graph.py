@@ -318,7 +318,10 @@ MOTIONS = {"none": MASKED_JOB_MOTION["none"], "mesh": MASKED_JOB_MOTION["wired"]
 #: The settings of a load a job file may set in place of the builder's default; a build record says, for
 #: each, the value used and whether the job set it.
 SETTINGS = ("carried", "margin", "feather", "edge", "window", "context", "context_noise", "motion", "motion_edge",
-            "motion_edge_2", "hair_band", "render_region", "seed")
+            "motion_edge_2", "hair_band", "render_region", "seed", "composite")
+#: What a load's `composite` may say: the Masked Source's own two (`video_mask.COMPOSITE_REGION`, `COMPOSITE_CHANGED`;
+#: `bench/check_masked_job.py` holds the two names together). Absent, the node's default.
+COMPOSITES = ("whole region", "only what changed")
 #: What a load's `render_region` may say, and the Masked Source's choice for each (`video_mask.RENDER_REGIONS`).
 #: `frame` is the node's own default and sets nothing; `part` renders the load zoomed in on what is replaced.
 #: A zoomed load must be one shot (the node refuses a cut inside the loaded frames, and the tool refuses it
@@ -717,6 +720,12 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
                replace=(MASKED_PARTS_SOURCE if part else MASKED_SOURCE)["replace"],
                grow_pixels=one.get("margin", MASKED_SOURCE["grow_pixels"]),
                feather_pixels=one.get("feather", MASKED_SOURCE["feather_pixels"]))
+    # a load may name the composite (2026-10-16, the owner on the mom's holes: "only what changed" restores the source
+    # wherever the render did not change the picture enough, inside the region too); the node's default when it does not
+    if one.get("composite") is not None:
+        if one["composite"] not in COMPOSITES:
+            raise ValueError(f"load {one['name']!r}: composite {one['composite']!r} is not one of 'whole region', 'only what changed'")
+        src["composite"] = one["composite"]
     if part:
         src["parts"] = from_file(*files["parts"])
     also, theirs = one.get("also"), files.get("also")

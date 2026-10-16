@@ -951,7 +951,7 @@ def settings_of(one: dict, graph: dict) -> dict:
             "motion_edge_2": src["motion_short_edge_2"] if "motion_video_2" in src else "no second motion video",
             "hair_band": one.get("hair_band", "none: the keep-outs as the capture has them"),
             "render_region": src.get("render_region", "the node's own: the whole frame"),
-            "seed": run["seed"]}
+            "seed": run["seed"], "composite": src.get("composite", "the node's own: only what changed")}
     return {key: {"value": used[key], "set_by": "the job file" if key in one else "the builder's default"}
             for key in graphs.SETTINGS}
 
