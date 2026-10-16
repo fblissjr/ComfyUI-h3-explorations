@@ -41,14 +41,16 @@ notes: `internal/claude/2026-10-16_mrtony/HANDOFF.md`; the card's: `internal/cla
 1. Read the night's outbox (`internal/gemini/2026-10-16_outbox.md`) and mrtaco's HANDOFF; land what passed its read.
    Then write the 2026-10-16 changelog entry from all of that day's commits, the night's included
    (`changelog.d/README.md`; `bump: minor`: the day added tools).
-2. The mom's 1010 render: rebuild the whole video with it and the day's keeps (`internal/claude/2026-10-16_mrtoon/rebuild.sh
-   --clip`), stopping the review clip at the last laid frame; put it on Start here.
+2. The mom's 1010 render (`second_hfp_1010c`) is a CANDIDATE beside `second_hfp_1010j`, which the owner kept on 10-15
+   and which is laid: put its stacked view on Start here beside 1010j's; it is laid only on their keep. The whole video
+   was rebuilt from the laid list at the close (`rebuild.sh --clip`, the stamp in the pages' table) with 0014f and 0294d.
 3. The owner's looks, on Start here in this order: the plan strips (`lead_fp_1010g` with the hat square gone,
    `lead_fp_0613g` with its zoom figures and 626-629 / 803-805 checked, 516-603, the whole-shot loads 1061-1092,
    1093-1133, 1306-1418 and the dad's 1310-1418); the re-composite before/afters (0604d, 0278c, 0415d, 0484c); the four
    late pieces 4653-4677, 5114-5129, 5461-5497, 5533-5564.
 4. Land Gemini's D19 (pages read the gap check) and D20 (`--carry-words-from`) after a Claude read each.
-5. Open with the owner: a new kitchen load for the mom (604-1009) under today's rules (asked, not answered); the
+5. Open with the owner: a new kitchen load for the mom (604-1009) under today's rules (the Open List's r16_01, the lead's
+   pick: see the re-laid 0604d first); the
    per-frame matte trial's result; re-compositing kept pieces one by one on their word.
 
 ## Where things are
