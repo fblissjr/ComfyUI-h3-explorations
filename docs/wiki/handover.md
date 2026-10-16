@@ -1,192 +1,128 @@
 # Handover: read this before anything else
 
-**Rewritten at the end of each working day by the session that led it; the
-day before is in git.** This one was written at the close of 2026-10-15 (the
-evening, the owner's time) by `mrtall`, the lead, with `mrgo` on the card and
-its tooling from the evening (`mrarc`, `mrlol` and `mrvid` held the day and
-closed with notes). Where this page and a record disagree, the record is right
-(`decisions.md`, 2026-10-15; `data/fun/poc/answers.jsonl`; the newest ledger and
-table; the Open List).
+**Rewritten at the end of each working day by the session that led it; the day before is in git.** This one was written
+at the close of 2026-10-15 (the owner's evening; past midnight UTC) by `mrtall`, the lead, with `mrgo` on the card, and
+reconciled with four reviews of the owner's question "what is broken, and what should the handover drop, add and
+change": `internal/claude/2026-10-16_{mrgo,mrnight,coldreader}_whats_broken.md` and the outside reviewer's
+`internal/gemini/2026-10-16_c17_whats_broken.md` (if it is not there, it was still being written; read it first).
+Where this page and a record disagree, the record is right (`decisions.md`; `data/fun/verdicts/verdicts.jsonl`; the
+newest ledger and table; the Open List).
 
-> **IF EVERYTHING LOOKS WORSE TOMORROW, LOOK HERE FIRST.** On the owner's go of 2026-10-15 late ("No we're doing it
-> tonight"), a new session, mrnight, built a change to every new head reference: a much tighter cut (the face filling
-> the picture), the body model rendered at the cut's size, and the mesh's own eye sockets painted out with the iris in
-> its leading corner (spec: `internal/claude/2026-10-15_gaze_spec.md`). It was to be tested on two renders before
-> anything else used it: the lead's glance (1097-1133) and her phone call in the hall (1575-1729, the kept 1575b, where
-> the eyes already worked). Whether it landed, and on what reading, is in `decisions.md` and mrnight's note. If the
-> new references make things worse, the old cut is the default it was built beside: say so to the owner and use it.
-> **THE OWNER'S RULING (2026-10-16): the touch-nothing test first; every other gaze piece is set aside until it
-> answers** (`internal/claude/2026-10-15_gaze_pieces.md`). **STOPPED FOR THE NIGHT, NOT LANDED** (the owner, about 23:50Z: stop it "unless you think its worth finishing"; the lead:
-> finish to a clean point in the worktree, land nothing). It is on branch `mrnight-gaze` (484d6302) in its worktree; where it stands
-> is `internal/claude/2026-10-15_mrnight_closeout.md`. Tomorrow: a cold read, land at the card's clear, then the two
-> tests. THE PIECES, SEPARATELY (take any alone; why each, harm, the lead's pick of one render): `internal/claude/2026-10-15_gaze_pieces.md`.
-> Before it is wired, one question for its design (the lead, 2026-10-15 late, measured on 0604g's face points,
-> `second_0604_1009_points.npz`): her face grows about 3x across 604-1009 (about 33 px at 604 to 64 by 943, 100-133 in the
-> bow), so one box SIZE a load either clips the bow's head or leaves the start small. One box size a WINDOW (0604g's seam
-> at 898 falls where she comes close) is the candidate; untested whether a scale step at a seam shows. When it lands, the
-> new cut is OPT-IN and OFF by default (`--face-fill` / `--follow` on the reference step; every job prints a
-> "reference cut" row under THE DEFAULTS THIS LOAD CARRIES saying which is on). Making it the default is a decision: only
-> after both test renders read well on the owner's playback, written in `decisions.md`, with the defaults row, the check
-> that holds the default (`check_shot_to_load`), this handover and `masked_v2v.md`'s recipe changed in the same commit.
+> **Gaze: the touch-nothing test first; every other gaze piece is set aside until it answers** (the owner, 2026-10-16).
+> Nothing of the gaze build landed. The pieces, why each, and the test set: `internal/claude/2026-10-15_gaze_pieces.md`.
 
 ## State when closed
 
-- **Two Claude sessions from now on** (the owner): a lead, and one that holds the card and builds its tools
-  (`AGENTS.md`, "How the owner and the sessions talk"). The evening's card seat's brief:
-  `internal/claude/2026-10-15_brief_mrgo.md`.
-- **What stands:** the newest ledger and table under `data/2026-10-15_fun_delivery_tables/` (2145Z at writing, newer if
-  the card landed after), and the coverage reading beside it. The owner's pages: `Video/fun/PROVENANCE.html` and
-  `TO_REVIEW.html` on the share, served at `http://100.87.141.65:8765/fun_share/`; the interactive review page is
-  `http://100.87.141.65:8765/`.
-- **Kept today on playback:** the lead's 2823b, 0630d, 0805d, 2625, 751c; the second subject's 5461c, 5114d, 1010j;
-  the hall shot 1419-1465 made whole (lead_fp_1419d, third_fp_1419d), which replaced the short pieces there.
-- **On the card tonight (mrgo), in order:** the second subject's whole kitchen load, `second_hfp_0604f` (604-1009,
-  seam 898, context 90, noise 0.8 per load, eyes shut drawn on 938-953 and 968-1009 only, `--track-not lead:1003-1009`;
-  job `data/2026-10-15_fun_kitchen_inputs/second_hfp_0604f.json`); then `--mouth-on` landed and `lead_fp_2823c`
-  (2823-3109, one window; job `data/2026-10-15_fun_past2049_inputs/lead_fp_2823c.json`; its tail 3098-3105 held with
-  the mouth drawn, 3106-3109 dropped). mrgo writes `internal/claude/2026-10-15_mrgo_closeout.md` at its end; its
-  scripts and sheets are `internal/claude/2026-10-15_mrgo_scripts/`. Whatever did not land, its note says why.
-- **Servers:** ComfyUI was restarted by the lead at 21:52:56Z (pid 3933887; mrgo's brief names the old 2104361, which
-  is gone) and belongs to the lead's session; the review server is the lead's (pid 22533), started from the repo root
-  with `python3 data/fun/poc/serve.py` (port 8765). Both are stopped at the close unless the card is still sampling, in which case
-  the card seat stops ComfyUI when it finishes, and says so in its notes.
-- **The owner reviewed nothing after about 22:15Z.** Nothing rendered tonight is judged.
+- **Two Claude sessions** (the owner): a lead, and one on the card and its tools (`AGENTS.md`). The evening's card seat:
+  `mrgo`, brief `internal/claude/2026-10-15_brief_mrgo.md`, notes `internal/claude/2026-10-15_mrgo_closeout.md`.
+- **On the card overnight, in order:** `second_hfp_0604g` (the second subject's whole kitchen load, 604-1009, seam 898,
+  context 90, noise 0.8 on the inner window, eyes shut drawn on 938-953 and 968-1009, `--track-not lead:1003-1009`),
+  rendering at writing; then `lead_fp_2823d` (2823-3109 in one window; 3098-3103 mouth drawn on a word, 3104-3105 held
+  with no face lines, 3106-3109 dropped) on its existing text (sha256 b91721257e72b4a1, read in full), after its blind
+  reader. Both texts read in full from the queued plan graphs. Whether each landed: mrgo's note and the newest ledger.
+- **Landed today in code** (each read cold, its cases seen red): context_noise per load (3e5ea8f1); a `--track-not`
+  copy held to its preview track (cf3ab288); `--mouth-on` and the read-back's edge fix (1e4207c4). The cached-node
+  record (branch `mrtall-cached-nodes`, 1e3f95c8) lands after 0604g's land step on mrgo's clear; if it did not, it is
+  item 6 below.
+- **Kept on playback on 2026-10-15:** the lead's 2823b, 0630d, 0805d, 2625, 751c; the second subject's 5461c, 5114d,
+  1010j; the hall shot 1419-1465 made whole (lead_fp_1419d, third_fp_1419d).
+- **The owner's pages:** `Video/fun/PROVENANCE.html` and `TO_REVIEW.html` on the share, served at
+  `http://100.87.141.65:8765/fun_share/`; the interactive review page `http://100.87.141.65:8765/`. Both servers are
+  stopped at the close (ComfyUI is the lead's, started 21:52:56Z; the review server is `python3 data/fun/poc/serve.py`
+  from the repo root); if the card was still sampling, mrgo stops ComfyUI and says so.
+- **The owner reviewed nothing rendered after about 22:15Z.**
 
 ## What not to assume
 
-- **The day's close-out notes predate the evening's rulings; decisions.md wins.** The kitchen load runs at context 90
-  with noise 0.8 (not 141, not waiting on `--context`); 2823-3109 is remade in one window (not continued from 2823b);
-  the written label is parked (decisions.md's later entry over its earlier "still built and run").
-- **Continuing a piece is allowed only from one the owner KEPT** (their choice for 2823b, then impossible on its grid);
-  it is never a way to split a shot into fresh loads. The dad's 1397-1418 continues 1310c only if 1310c's stored window
-  is on the chained grid; otherwise the owner is asked.
-
-- **One load a subject over the whole shot.** Never fresh loads split inside a shot; chained windows inside one load
-  only, on `h3_rules.chain_lengths()`. A load up to `h3_rules.MAX_LENGTH` (362) is one window.
-- **The recipe is "A shot, made whole"** (`masked_v2v.md`). Pieces the owner kept are not remade for a better form;
-  their explicit calls are (the kitchen, 2823-3109).
-- **A text never describes the frozen picture, and says "sings" only where the person sings.** The generator
-  (`bench/load_text.py`) writes today's form; a two-subject text is hand-written and the lane is closed.
-- **Two subjects in one masked pass is closed** (`../roadmap.md`, "Closed lanes"); multi-person H3 generation is not.
-- **A stored window off the chained grid cannot be continued** (2823b's is 277 frames). Check a parent's window before
-  offering a continuation.
-- **`--no-face-on` blanks the reference only; it does not empty the part** (mrgo's queue).
-- **A reviewer's frame list or citation is a pointer, never data.** Today the reviewer's eye spans and four of its
-  quoted rules were wrong; read the frames and grep the quote.
-- **The owner's eye on playback is the only acceptance**, and a problem the owner has not seen is not theirs to decide
-  (the lead's hair, dropped).
+- **PROVENANCE understates where the original shows.** `render_ledger.left_by_the_load` (`render_ledger.py:365-380`)
+  reads only `drop=` frames, not frames the part floor emptied (`parts_emptied_by_grade_on_source_frames`): the kept hall
+  cut has 15 such frames (1419d 1421, 1449-1459, 1464-1465; third 1419d). Its docstring claims more than it reads.
+- **What the cut lays is decided in four places**, not one: the owner's keeps, a session's `prefers.txt`/`holds.txt`
+  (five dated copies under `internal/claude/`), two lines typed into the lead's `rebuild.sh`, and the newest table by
+  file time. Until item 2 lands, read all four before trusting a page.
+- **Four job records point at a reference they never read:** 0751b, 1097b, 1156, 5114d (each remade under the same
+  name after its render; originals in `references/*_SUPERSEDED_*`; 5114d's proven by sha256). Any reading that paired
+  1097b's render with today's file at that path used the wrong file.
+- **A gap in the table is counted against the whole shot, not the frames she is tracked in**, and the table lays two
+  renders of one person side by side without flagging the seam between them (the kitchen's 949).
+- **`--no-face-on` blanks the reference only; it does not empty the part.** Until item 3 lands, every `--no-face-on`
+  span on a face-only load also takes `drop=` by hand (and a hand-written `drop=` bypasses the job step's checks and is
+  not printed among the defaults; say it in the job's note).
+- **Two job-step lines mislead** (mrgo's review): the track-over-track advice repeats after `--track-not` is given, and
+  "hair band: none" prints on loads that carry one in the clothing keep-out.
+- **"Read what_h3_got before it samples" cannot be met as written** (the render step builds and queues in one step):
+  the full read is of the QUEUED PLAN graph; the render step holds the render graph to it.
+- **A check's colour is read in context, never as the verdict** (the owner, 2026-10-16). What breaks is reverted; what
+  lands is an obvious win to the lead, another Claude session and the outside reviewer.
+- **The face points do not tell a face from a turned-away head or hands** (the fill dry run: "face shows" on 28 of 29
+  turned-head frames and all 74 hands frames). Never gate anything on their presence alone.
+- **A text says what is drawn, never what is not** (the owner, 2026-10-16), and never the frozen picture; "sings" only
+  where the person sings.
+- **One load a subject over the whole shot**, chained windows inside it on `h3_rules.chain_lengths()`, ceiling 362; two
+  subjects in one masked pass is closed; continuing a piece only from one the owner kept and on the grid.
+- **A reviewer's frame list, figure or quote is a pointer, never data** (the outside reviewer misquoted code three times
+  on 2026-10-15). Copy quotes from the file by line.
+- **Running `git add -A` in a worktree sweeps in `INDEX.md`**, which a check rewrites there. Pathspec commits only.
 
 ## Tomorrow, in order
 
-1. **THE OWNER REVIEWS FIRST THING; they asked for it at the close ("make sure its set for a new session for me to look
-   at tomorrow").** Before anything else: check what landed overnight (the card seat's notes, the newest ledger), then
-   put each at the top of the review page (`http://100.87.141.65:8765/` reads `data/fun/review/items.json` in its
-   order; the landing's page step posts the item; Start here on `TO_REVIEW.html` is
-   `internal/claude/2026-10-15_mrtall_scripts/start_here.json`, then `pages.sh STAMP PREVIOUS_TABLE.json`) and give the
-   owner the direct links, in this order: (a) the second subject's whole kitchen shot 604-1009, with what to watch (her
-   identity across the join at 898; her turn and bow, 945-1009; her eyes facing the camera on 950-970, where the
-   reference's contrast eye is drawn at its largest: the owner asked whether a solid black iris would look weird); (b) lead_fp_2823c beside the kept 2823b as one clip
-   (`bench/stack_rows.py`, rows: the masked input, 2823c, 2823b), keep one; its note lists what differs from 2823b.
-   Show the kitchen as a joined clip of 604-1009 with the new piece laid alone for her (a candidate, as the hall was:
-   add a `604-1009:second=<the new load>` line to `prefers.txt` for the clip only, build with `joined_clip.sh`, then put
-   `prefers.txt` back). `prefers.txt` still lays the old `second_hfp_0604d` there until the owner keeps the new one;
-   only then does its line change. If either did not land, say why in one line. The Open List's "Right now" lines say the same to the owner.
-2. The kitchen's lead: `--no-face-on` emptying the part on face-only loads first; then one hole a pass (a load given the
-   second subject's render as its video, the assembler judging it against that base); then the lead over 613-974, one
-   window.
-3. The rest of `next_steps.md`, "The queue of 2026-10-15": the hall's far-table mother, 1093-1133 hair alone, 4310b,
-   5935-6104 (why its reference failed first), the 2050 shot to about 2247, `--continue-from` after a fresh cold read
-   (the dad over 1397-1418 only if 1310c's window is on the grid), then the gaps and the shots after 3166.
-4. A clean-up job on the wiki: `internal/claude/2026-10-15_wiki_audit.md`.
-4b. The gate's two rules that read a load's part BEFORE the person's word (`part_empty` read before word=/drop=;
-   `region_on_a_frame_with_no_mask` not reading named-empty frames) are REPLACED by one rule (the owner, 2026-10-15
-   late: "lets kill this rule is there some other information we can give it thats useful in its place"): one table a
-   frame, read AFTER every word is applied (does the load generate her region; does the reference draw her face; who
-   decided, measurement or a person's word with its reason), and one rule: the two agree on every frame. Region yes and
-   face no is a hole with nothing to follow (tonight's `--no-face-on` fault); region no and face yes is a flip to the
-   original (the 761 kind). Agreement is no flag, whoever decided it. HOW IT IS BUILT (the owner): the two old rules are
-   REMOVED and this one takes their place; no third rule beside them, and no new rules added in its comments. The
-   rule's comment carries why it exists: the owner's words above; the two old rules crying wolf on 2823d (3099-3101
-   held, 3106-3107 dropped on purpose), so overrides were becoming routine; and the two faults it is there to catch,
-   the hole with nothing to follow (the hall lead, 2026-10-15) and the flip to the original (761, 2026-10-15). The
-   owner and the lead decided the replacement together; changing it again is the same kind of decision.
-   BUILT, NOT LANDED (mrnight, 2026-10-16 00:23Z): branch `mrnight-fixes`, e72e85af + 6ffd21ac, with --no-face-on
-   emptying her face (item 4 above, done the same way). On copies of 10 real captures it caught 0751b's 761 and the hall
-   lead's turned cheek, and stayed quiet on 2823d's deliberate frames; it does not land until the face region stops
-   counting a NECK seen from behind (third_fp_1419d 1431-1447; lead 1420, 1422). State, the proposed chin cut (untested)
-   and the next commands: `internal/claude/2026-10-15_mrnight_fixes_note.md`, "STATE FOR TOMORROW"; the comparison:
-   the lead's scratch `gate_compare/README.md` (copied to `internal/claude/2026-10-15_gate_compare/`).
-4c. A REFERENCE IS NEVER MOVED OR RENAMED ONCE A RENDER HAS READ IT (the owner, 2026-10-16: "this needs to be fixed";
-   the cache check, `internal/claude/2026-10-15_cache_check/README.md`). `head_reference` already refuses to write over
-   files; the hole is the hand set-aside (`<span>_SUPERSEDED_<why>`) that frees the span's name for a remake, so a job
-   record then points at a file it never read: 0751b, 1097b, 1156, 5114d. The fix: a remake takes the NEXT free name
-   (`<subject>_<first>_<last>_b`, ...) unless `--existing`; the job keeps the reference's sha256 (it does since 631a9206)
-   and verify fails where the file at that path no longer has it. Where the four went: 5114d's recorded sha256
-   (f71c9fc07d25a020) matches `second_5114_5129_SUPERSEDED_5114d_open_on_closed/` byte for byte; 0751b, 1097b and 1156
-   predate the digests, and their set-aside copies (`..._SUPERSEDED_751b_flicker_761`, `..._SUPERSEDED_before_defaults`,
-   `..._SUPERSEDED_unheld`) are dated minutes before each render, likely but unproven. Of the four only 5114d is laid
-   (table t_fun_0000_6394_2026-10-15T2218Z). Any reading that paired 1097b's render with the reference now at the span's
-   path (the gaze readings of 10/14) used the wrong file and is re-read against the set-aside copy.
-4e. ONE RULE IN PLACE OF THE HAND-WRITTEN `--hold-part` SPANS (the lead's proposal from the flip survey of 2026-10-16,
-   `internal/claude/2026-10-15_flip_survey/README.md`, 394 captures, 306 candidate flips): every flip on record is the
-   part model's output being empty, collapsed or under the floor, and then our floor or grade emptying her part, while
-   SAM 3.1 and the face points still had her (SAM lost her on 13 of 306, the body model on 10, none in the cut). The
-   rule: where SAM's track and the face points both have her, the floor never empties the frame; her part is held from
-   the neighbours, as `--hold-part` does by hand. Its test set is the survey's 126 part-model frames (`flip_table.csv`);
-   built in a worktree, a case seen red, a second reader, not landed while a load runs. With it: the ledger counts
-   frames the floor empties as left as the original (`render_ledger.left_by_the_load` reads only `drop=`; it misses 15
-   frames of the kept hall cut, 1419d and third 1419d). Not seen by the survey: a face regenerated to look like the
-   original under a present mask (a per-frame face likeness would be needed). THE DRY RUN (2026-10-16,
-   `internal/claude/2026-10-16_fill_dry_run/README.md`): the face points do NOT tell a turned-away head or hands from a
-   face (both definitions say "face shows" on 28 of 29 turned-head frames and all 74 hands frames); unguarded, the rule
-   fills 83-87 of the 126 and wrongly fills 9 frames of the current cut, every one inside a job's own no_face_on span.
-   With the rule honouring no_face_on (and never filling where a part stands): 0 wrong fills, 73-77 of the 126 filled.
-   So the rule is only ever as good as the no_face_on words; no picture was looked at.
-4f. A TRACKING COUNT ON EVERY LOAD (the owner, 2026-10-16: "the regional tracking losing tracks needs to have tooling to
-   identify if that ever happens ... or at least given a tracking count back"). Each capture prints, and keeps beside its
-   record, one line a tracker over the load's frames: SAM 3.1 (frames with her track), the part model (frames with a
-   part, under the floor, emptied by the grade, held, dropped by a word), the face points (frames her face shows), the
-   body model (frames with a body); and the frames where one lost her while the others had her, by source frame. Data
-   with what it was measured on, never a verdict. Built from the flip survey's own method and scripts
-   (`internal/claude/2026-10-15_flip_survey/`), as a tracked bench tool with its index row, run by the chain.
-4g. WARNINGS AND GREENS THAT MISLEAD (the owner, same message: "whatever causes misleading or harmful warning or false
-   senses of good"): every item the four reviews of 2026-10-16 name in that class (a flag that cries wolf, a check that
-   passes while the thing is wrong, a page that reads as complete while it is not, e.g. the ledger's left_by_the_load)
-   is fixed or removed, in the order the lead sets from those reviews.
-4h. ONE SOURCE OF TRUTH FOR WHAT IS KEPT AND LAID (the owner, 2026-10-16: "we need a single source of truth with where
-   thats kept which is what i thought provenance was but now who knows what json from what day"). Today what the cut lays
-   is decided by FOUR places: the owner's keeps (`data/fun/verdicts/verdicts.jsonl`), a session's `prefers.txt` and
-   `holds.txt` under `internal/claude/<date>_<lead>_scripts/` (five dated copies on disk), two --prefer/--hold lines typed
-   into that session's `rebuild.sh`, and whichever table `ls -t` finds newest in a dated folder. The fix: ONE data file,
-   `data/fun/laid.jsonl`, one line a laid piece: the span, the subject, the load, the sha256 of the piece as laid, and
-   why (the owner's keep, by its verdicts line, or the lead's written hold with its reason). The rebuild reads only it;
-   no prefers or holds in a session folder or a script. PROVENANCE.html and TO_REVIEW.html say at the top the file and
-   line count they were made from. AND (the owner's yes, same night): an assembly change that alters a kept piece's laid
-   bytes (an earring restore, the glasses carried across a hold) puts that piece back on TO_REVIEW as "changed since you
-   kept it", and it is not counted kept until the owner keeps it again; the sha256 in laid.jsonl is what says it changed.
-4d. The chain records ComfyUI's list of cached nodes for every run (the owner's yes, 2026-10-16), beside the run's record.
-5. Tooling queued for the card seat, in order after the kitchen's lead (`--mouth-on` and `track_from` are tonight's,
-   above, and landed or not by mrgo's note): the ledger
-   counting every frame a piece leaves as the original, not only `drop=` frames; the assembler protecting an earlier
-   row by what it changed (for one hole a pass); `--hold-part` carrying the restore classes (Eyeglass, hands, Apparel@head) across its span and printing what
-   else the class map leaves empty there (`masked_v2v.md`, "A frame the part model misses"); `load_text` writing "sings" span-wise inside one load instead of refusing
-   a voice change; whether the Masked Prompt node's voice and frozen-picture wording still renders anywhere.
-6. The outside reviewer's C5 (provenance, `internal/gemini/2026-10-15_provenance_c5.md`): two faults fixed at the close
-   (today's verdicts taken into `data/fun/verdicts/verdicts.jsonl`; the lead's rebuild now reads the newest table);
-   the ledger's "left as the original" is item 5; the kitchen's old pieces stand as placeholders until her whole-shot
-   load replaces them.
+1. **The owner reviews first.** Check what landed overnight (mrgo's note, the newest ledger), rebuild (`internal/claude/
+   2026-10-15_mrtall_scripts/rebuild.sh`, then `pages.sh`), and put at the top of the review page and Start here:
+   (a) the second subject's kitchen 604-1009 as a joined clip with the new piece laid alone for her (a candidate; the
+   table changes only on the owner's keep), with what to watch: her identity across 898, her turn and bow 945-1009, her
+   eyes on 950-970 (her face is about 87 px in the reference, so shut eyes may not carry); (b) `lead_fp_2823d` beside
+   the kept 2823b (`bench/stack_rows.py`: masked input, 2823d, 2823b), keep one. Give the owner the direct links.
+2. **First tooling, the owner's yes of 2026-10-16: one per-frame coverage tool, and one source of truth.** For every
+   shot and subject, per frame: tracked or not (SAM 3.1), which piece lays it, whether the original shows, and the
+   frames where one tracker lost her while the others had her (the part model: present, under the floor, emptied,
+   held, dropped by a word; the face points; the body model), from the flip survey's method
+   (`internal/claude/2026-10-15_flip_survey/`). From it three lists: real gaps (tracked and the original shows), seams
+   (two renders of her meeting, with both render days), frames emptied inside a piece. The ledger's
+   `left_by_the_load` is fixed by it. With it, `data/fun/laid.jsonl` as the ONLY thing the rebuild reads for what is
+   laid (one line a piece: span, subject, load, sha256 as laid, and why), and both pages saying at the top what they
+   were made from. An assembly change that alters a kept piece's bytes puts it back on TO_REVIEW as "changed since you
+   kept it" (the owner's yes).
+3. **The gate's one rule** (branch `mrnight-fixes`, e72e85af + 6ffd21ac; with `--no-face-on` emptying her face).
+   FIRST rerun the old/new comparison with the branch's OWN job step (the cold reader: every "neck from behind" frame
+   was a `--no-face-on` frame on a capture made before the branch's trim, so the blocker may come from the test);
+   only then the chin cut, if still needed. State and commands: `internal/claude/2026-10-15_mrnight_fixes_note.md`,
+   "STATE FOR TOMORROW"; the comparison `internal/claude/2026-10-15_gate_compare/`. Rerun it after every change below.
+4. **The hold rule from the flip survey, after 3** (it changes what 3's rule reads): widen main's `SHORT_FILL` only
+   where SAM has her, never where a part stands, never inside a `no_face_on` span (the dry run: 0 wrong fills, 73-77 of
+   the survey's 126 filled; `internal/claude/2026-10-16_fill_dry_run/README.md`); the outside reviewer's C16 first.
+5. **A reference is never renamed once a render has read it:** a remake takes the next free name unless `--existing`;
+   verify fails where a recorded sha256 no longer matches the file.
+6. The cached-node record, if it did not land overnight; and the restore carried across a hold (branch
+   `mrgo-restore-hold`, read cold three times, assembly only), after the outside reviewer's C18. Its first rebuild
+   prints which laid pieces change; each goes back to the owner.
+7. The kitchen's lead (613-974, one window) once 3 lands, then one hole a pass.
+8. The rest of `next_steps.md`, "The queue of 2026-10-15", and the gaze test set (`2026-10-15_gaze_pieces.md`).
+9. The two misleading job-step lines above; `load_text` writing "sings" span-wise; the Masked Prompt node's old wording;
+   the wiki clean-up (`internal/claude/2026-10-15_wiki_audit.md`).
 
 ## Where things are
 
-- Today's rulings: `decisions.md`, 2026-10-15. The postmortem:
+- Rulings: `decisions.md`, 2026-10-15 (the late entries are at its top). The postmortem:
   `../research/postmortems/2026-10-15_span_fun-kitchen-and-whole-shot.md`.
-- The close-out notes of the day's seats: `internal/claude/2026-10-15_{mrarc,mrlol,mrvid}_closeout.md`; in-flight
-  patches copied out of temp folders: `internal/claude/2026-10-15_handoff/`.
-- Worktrees, in the worktrees folder beside ComfyUI's `custom_nodes` (its full path is in the close-out notes): `mrlol-no-face-on` (`--continue-from`, 71ee3c8c, cold read
-  owed), `mrlol-label` (parked), `mrvid-hold` (the hold form, 97512bda, cold read owed), `mrgo-mouth-on` (landed
-  tonight or not: mrgo's note says); `mrgo-context-noise` is landed (3e5ea8f1).
-- The kitchen's facts: `internal/claude/2026-10-15_mrarc_scripts/kitchen_plan_facts.md`; the reviewer's C4:
-  `internal/gemini/2026-10-15_kitchen_approach_c4_mrgem.md`.
-- The Open List: `https://claude.ai/artifact/7Jcf7G7jeB9v9kdqRHs1Fm` (today's rows r15_01 to r15_08, all answered or
-  closed).
-- The lead's scripts (rebuild, pages, joined clips, prefers): `internal/claude/2026-10-15_mrtall_scripts/`.
+- Tonight's investigations: the cache check `internal/claude/2026-10-15_cache_check/README.md` (no stale cache found;
+  `server_history_cached_2026-10-16T0013Z.json` holds the server's own list for the runs it remembered); the flip
+  survey `internal/claude/2026-10-15_flip_survey/README.md` (every flip is the part model plus our floor; not SAM, not
+  reused masks, not the other person); the fill dry run `internal/claude/2026-10-16_fill_dry_run/`; the gate comparison
+  `internal/claude/2026-10-15_gate_compare/`.
+- Worktrees, in the worktrees folder beside ComfyUI's `custom_nodes` (a branch "ahead" of main may have landed by
+  cherry-pick; its note says):
+
+  | branch | what | state |
+  |---|---|---|
+  | `mrnight-fixes` | the gate's one rule, `--no-face-on` empties her face | built, not landed (item 3) |
+  | `mrnight-gaze` | the gaze pieces | built in part, not landed; touch-nothing test first |
+  | `mrgo-restore-hold` | the restore carried across a hold | read cold three times; waits on C18 (item 6) |
+  | `mrtall-cached-nodes` | cached nodes in every run's record | read cold; lands after 0604g (item 6 if not) |
+  | `no-face-on` (mrlol) | `--continue-from` | cold read owed |
+  | `mrvid-hold` | the hold form | cold read owed |
+  | `ref-label` (mrlol) | the written label | parked |
+  | `mrgo-context-noise`, `mrgo-mouth-on`, `mrgo-track-from` | | landed |
+
+- The Open List: `https://claude.ai/artifact/7Jcf7G7jeB9v9kdqRHs1Fm`. The lead's scripts (rebuild, pages, joined clips,
+  prefers): `internal/claude/2026-10-15_mrtall_scripts/` (date-pinned; item 2 retires their prefers and holds).
+- The outside reviewer's files: `internal/gemini/` (requests and outbox by date).
