@@ -119,7 +119,9 @@ cannot see the middle row, the legends or the right column: whether a mask pictu
 frame rests on the table's and the graphs' own figures (printed by `build`), on the records and on a look. A held
 or still stretch of picture fits its neighbours as well as itself, so a tie there says nothing either way.
 
-The working file is written under `--work` and only the finished file goes to `--out`: the share is not scratch.
+The working file is written under `--work` and only the finished file goes to `--out`: the share is not scratch. The view and
+its one-a-second parts are written with their index at the front (`-movflags +faststart`), so a browser starts them without
+reading to the end, and the sidecar is written after, of the final bytes.
 """
 from __future__ import annotations
 
@@ -1220,7 +1222,11 @@ def build(a: argparse.Namespace) -> None:
         if Path(silent).is_file():
             Path(silent).unlink()
         raise SystemExit(f"the encoder failed ({stopped or f'exit {code or slow_code}'}); nothing written beside {a.out}")
-    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", silent, "-i", a.joined, "-map", "0:v", "-map", "1:a?", "-c", "copy", "-metadata", tag, a.out], check=True)
+    # the index (`moov`) at the FRONT (`+faststart`): a browser starts the view without reading to its end (the 716 MB whole-video view
+    # of 2026-10-16 did not start in the owner's browser with it at the end). The one-a-second parts are written so by `OneASecond`.
+    # The sidecar below is written after this, so it is of the final bytes
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", silent, "-i", a.joined, "-map", "0:v", "-map", "1:a?", "-c", "copy", "-metadata", tag,
+                    "-movflags", "+faststart", a.out], check=True)
     Path(silent).unlink()
     import shutil
     for part in slow_parts:

@@ -88,10 +88,12 @@ of the squares fixture:
 27. **B4, an unlaid frame draws no squares**: the frame whose mask is empty shows none and says why; the frame before has its own.
 28. **B5, a track loaded at its own size**: a loader left at 0 by 0 reads the track at the file's size.
 
-From the whole video of 2026-10-16, refused by one row:
+From the whole video of 2026-10-16, refused by one row, and then not starting in the browser:
 
 29. **Three subjects and a busy frame within the level**: three blocks and the overflow fit the right column at a limit where
     rounding each block up came to one row over.
+30. **The view starts without its end**: the view and each one-a-second part have their index (`moov`) before their media
+    and within their first 4 MB; the view's sidecar is of its final bytes.
 
 What these cases cannot see: the legends and labels are read from the drawing code's own records (`legend_1`,
 `legend_2`, `chips_drawn`, `label_lines`, `label_boxes`), not from their pixels; a mark over 60 levels on under 0.4% of
@@ -1177,6 +1179,50 @@ def a_layout_over_the_level_refused() -> str:
     return f"refused: {said[:150]}..."
 
 
+def top_atoms(path: Path) -> list[tuple[str, int, int]]:
+    """The top-level boxes of an mp4 as (type, offset, size), read from its header bytes alone."""
+    import struct
+    out, at, end = [], 0, path.stat().st_size
+    with open(path, "rb") as fh:
+        while at < end:
+            fh.seek(at)
+            head = fh.read(16)
+            if len(head) < 8:
+                break
+            size, kind = struct.unpack(">I4s", head[:8])
+            if size == 1:
+                size = struct.unpack(">Q", head[8:16])[0]
+            elif size == 0:
+                size = end - at
+            out.append((kind.decode("latin-1"), at, size))
+            at += size
+    return out
+
+
+#: How far into a view its index (the `moov` box) may begin for a browser to start it without reading to the end. Reasoned: a
+#: player's first range request; the 716 MB whole-video view of 2026-10-16 had it at its end and did not start.
+FIRST_BYTES = 4 * 1024 * 1024
+
+
+def the_view_starts_without_its_end() -> str:
+    """The whole-video view (716 MB) would not start in the owner's browser: its index (`moov`) was written at the END of the file.
+    A built view, and each one-a-second part, has its `moov` before its media (`mdat`) and within its first FIRST_BYTES; and the
+    view's sidecar is of its final bytes (written after the faststart pass)."""
+    import sidecar as sidecar_tool
+    m = made()
+    out = m.root / "fast" / "fast.mp4"
+    out.parent.mkdir(exist_ok=True)
+    m.build(out=str(out), one_a_second=True)
+    for file in [out] + sorted(out.parent.glob("fast.1fps.*.mp4")):
+        atoms = top_atoms(file)
+        kinds = [k for k, _, _ in atoms]
+        moov = next((at for k, at, _ in atoms if k == "moov"), None)
+        assert "moov" in kinds and "mdat" in kinds and kinds.index("moov") < kinds.index("mdat") and moov < FIRST_BYTES, \
+            f"{file.name}: its boxes are {kinds}: the index is not at the front"
+    sidecar_tool.read(out)                                         # refuses unless the sidecar is of the bytes on disk
+    return f"moov before mdat in the view and its {len(list(out.parent.glob('fast.1fps.*.mp4')))} one-a-second part(s); the sidecar is of the final bytes"
+
+
 def a_table_that_lays_nothing() -> str:
     m = made()
     empty = m.root / "empty.txt"
@@ -1224,6 +1270,7 @@ case("B5: a track loaded at its own size", a_track_loaded_at_its_own_size)
 case("every chip said, within H.264 level 5.1", every_chip_said_within_the_level)
 case("a layout over level 5.1 is refused", a_layout_over_the_level_refused)
 case("three subjects and a busy frame, within the level", three_subjects_and_a_busy_frame_within_the_level)
+case("the view starts without its end: moov at the front", the_view_starts_without_its_end)
 
 if __name__ == "__main__":
     code = finish()
