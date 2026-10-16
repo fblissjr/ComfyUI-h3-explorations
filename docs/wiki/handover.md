@@ -109,6 +109,18 @@ table; the Open List).
    held, 3106-3107 dropped on purpose), so overrides were becoming routine; and the two faults it is there to catch,
    the hole with nothing to follow (the hall lead, 2026-10-15) and the flip to the original (761, 2026-10-15). The
    owner and the lead decided the replacement together; changing it again is the same kind of decision.
+4c. A REFERENCE IS NEVER MOVED OR RENAMED ONCE A RENDER HAS READ IT (the owner, 2026-10-16: "this needs to be fixed";
+   the cache check, `internal/claude/2026-10-15_cache_check/README.md`). `head_reference` already refuses to write over
+   files; the hole is the hand set-aside (`<span>_SUPERSEDED_<why>`) that frees the span's name for a remake, so a job
+   record then points at a file it never read: 0751b, 1097b, 1156, 5114d. The fix: a remake takes the NEXT free name
+   (`<subject>_<first>_<last>_b`, ...) unless `--existing`; the job keeps the reference's sha256 (it does since 631a9206)
+   and verify fails where the file at that path no longer has it. Where the four went: 5114d's recorded sha256
+   (f71c9fc07d25a020) matches `second_5114_5129_SUPERSEDED_5114d_open_on_closed/` byte for byte; 0751b, 1097b and 1156
+   predate the digests, and their set-aside copies (`..._SUPERSEDED_751b_flicker_761`, `..._SUPERSEDED_before_defaults`,
+   `..._SUPERSEDED_unheld`) are dated minutes before each render, likely but unproven. Of the four only 5114d is laid
+   (table t_fun_0000_6394_2026-10-15T2218Z). Any reading that paired 1097b's render with the reference now at the span's
+   path (the gaze readings of 10/14) used the wrong file and is re-read against the set-aside copy.
+4d. The chain records ComfyUI's list of cached nodes for every run (the owner's yes, 2026-10-16), beside the run's record.
 5. Tooling queued for the card seat, in order after the kitchen's lead (`--mouth-on` and `track_from` are tonight's,
    above, and landed or not by mrgo's note): the ledger
    counting every frame a piece leaves as the original, not only `drop=` frames; the assembler protecting an earlier
