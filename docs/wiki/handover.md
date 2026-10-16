@@ -18,7 +18,8 @@ table; the Open List).
 > **STOPPED FOR THE NIGHT, NOT LANDED** (the owner, about 23:50Z: stop it "unless you think its worth finishing"; the lead:
 > finish to a clean point in the worktree, land nothing). It is on branch `mrnight-gaze` (484d6302) in its worktree; where it stands
 > is `internal/claude/2026-10-15_mrnight_closeout.md`. Tomorrow: a cold read, land at the card's clear, then the two
-> tests. Before it is wired, one question for its design (the lead, 2026-10-15 late, measured on 0604g's face points,
+> tests. THE PIECES, SEPARATELY (take any alone; why each, harm, the lead's pick of one render): `internal/claude/2026-10-15_gaze_pieces.md`.
+> Before it is wired, one question for its design (the lead, 2026-10-15 late, measured on 0604g's face points,
 > `second_0604_1009_points.npz`): her face grows about 3x across 604-1009 (about 33 px at 604 to 64 by 943, 100-133 in the
 > bow), so one box SIZE a load either clips the bow's head or leaves the start small. One box size a WINDOW (0604g's seam
 > at 898 falls where she comes close) is the candidate; untested whether a scale step at a seam shows. When it lands, the
