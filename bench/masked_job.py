@@ -604,7 +604,7 @@ def text_and_look(built: dict, graph: dict) -> dict:
     return look_or_shown(Path(built["capture"]), built["load"], told)
 
 
-def capture_files(job: dict, one: dict, capture: Path, mesh_of) -> dict:
+def capture_files(job: dict, one: dict, capture: Path, mesh_of, stage: str = "plan") -> dict:
     """The files a load is built from, each with the source frame its frame 0 is on; refuses a capture that
     was not finished or checked, and a file that is not there. `mesh_of(label)` finds a subject's saved mesh."""
     if not (capture / "manifest.json").is_file():
@@ -625,11 +625,23 @@ def capture_files(job: dict, one: dict, capture: Path, mesh_of) -> dict:
     # NO UNCARVED KEEP-OUT REACHES THE NODE (the lead's ruling of 2026-10-16, docs/wiki/decisions.md): a mask the load keeps out
     # that is not one of our people (no sighting with a shot table) is handed on only from a capture that carved it out of the
     # subject's own track (`capture_masked_run.carve_keep_out`, its sighting's `carved_out_of_own_track`)
+    # A render is built only on a capture rebuilt on its plan that carved each keep-out on the node's own grid too (`grid_carve`), and
+    # whose region the look was made on was remade on those files (route C, the lead's ruling of 2026-10-16). A load planned before
+    # either cannot be rebuilt in place (its plan and its first capture are frozen): it is made again under a new name
     for label in one.get("others") or ():
         seen = next((s["sightings"] for s in manifest["subjects"] if s["label"] == label), [])
-        if seen and not any(x.get("shots") for x in seen) and not any("carved_out_of_own_track" in x for x in seen):
-            raise Refused(f"load {one['name']!r}: the keep-out {label!r} in the capture {capture.name} was made before the carve; re-capture "
-                          "(bench/capture_masked_run.py files carves a keep-out out of the subject's own track before the node is handed it)")
+        if not seen or any(x.get("shots") for x in seen):
+            continue
+        carved = [x["carved_out_of_own_track"] for x in seen if "carved_out_of_own_track" in x]
+        if not carved:
+            raise Refused(f"load {one['name']!r}: the keep-out {label!r} in the capture {capture.name} was not carved out of the subject's own track: "
+                          + ("planned before the keep-out carve: make the load again under a new name" if stage == "render" else
+                             "made before the carve; re-capture (bench/capture_masked_run.py files carves a keep-out out of the subject's own "
+                             "track before the node is handed it)"))
+        if stage == "render" and not any(isinstance(c.get("on_the_node_grid_from"), list) and c["on_the_node_grid_from"] for c in carved):
+            raise Refused(f"load {one['name']!r}: the keep-out {label!r} in the capture {capture.name} was not carved on the node's own grid "
+                          f"({carved[0].get('on_the_node_grid_from', 'no record of it')}): planned before the keep-out carve: make the load again "
+                          "under a new name")
 
     def of(label: str, kinds: tuple[str, ...]) -> tuple[str, int]:
         if label not in sightings:
@@ -1060,7 +1072,7 @@ def build_loads(job_file: Path, stage: str, names: list[str], *, date: str, data
             graphs.check_load(job, one, windows)
             told = texts[one["name"]]
             text = told["text"]
-            files = capture_files(job, one, capture, preview_mesh(folder, job, output))
+            files = capture_files(job, one, capture, preview_mesh(folder, job, output), stage)
             files, band = hair_band(one, files, folder / f"{one['name']}.{stage}.{one.get('hair_band_cuts', h3_config.MASKED_JOB_HAIR_BAND['cuts'])}_less_hair_band.mkv")
             graph = graphs.load(base, job, one, files, text, windows=windows, plan=stage == "plan")
             says, text_lines = shown(job, one, files, graph, inputs) + band_lines(band), text_shown(one, told)

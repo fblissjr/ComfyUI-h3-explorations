@@ -59,6 +59,7 @@ No server, no card, no video decoded.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -608,11 +609,30 @@ def the_on_plan_step() -> str:
         m.busy = (0, 2)
         refused(lambda: lc.step_on_plan(made.ctx(), m, args()), "the queue is not empty", "may be reading its masks")
         m.busy = (0, 0)
-        lc.step_on_plan(made.ctx(), m, args(), hashed=lambda path: "hash of " + Path(path).name)
-        masks = json.loads((folder / "ld.plan.masks.json").read_text())["masks"]
-        assert masks == {str(cap / "subjects/a/track__pv.mkv"): "hash of track__pv.mkv"}, f"what the plan read, and not the source copy outside the capture: {masks}"
+        # ROUTE C (the lead's ruling of 2026-10-16): the rebuild carves the keep-outs on the node's grid, so it CHANGES a mask file the plan
+        # read; the hash is taken after it, of the files the render will read
+        track = cap / "subjects/a/track__pv.mkv"
+        before = track.read_bytes()
+        real = m.run
+
+        def rebuild(ctx, label, argv, stop=True):
+            if label == "files on plan":
+                track.write_bytes(before + b" carved on the node's grid")
+            return real(ctx, label, argv, stop)
+        m.run = rebuild
+        digest = lambda path: hashlib.sha256(Path(path).read_bytes()).hexdigest()   # noqa: E731
+        lc.step_on_plan(made.ctx(), m, args(), hashed=digest)
+        m.run = real
+        held = json.loads((folder / "ld.plan.masks.json").read_text())
+        masks = held["masks"]
+        assert list(masks) == [str(track)], f"what the plan read, and not the source copy outside the capture: {masks}"
+        # THE CASE THAT GOES RED when the hash is taken before the rebuild: the render then refuses the carved file
+        assert masks[str(track)] == digest(track) and held["hashed"] == lc.HASHED_AFTER_THE_REBUILD, (masks, held.get("hashed"))
+        assert lc.masks_as_planned(made.ctx(), lc.graph_of(folder / "ld.plan.json"), hashed=digest) == [], "the render refuses the files it will read"
         first = cap.with_name("2026-01-03_ld_first")
-        assert lc.same_tree(cap, first) == [] and (first / "looks.json").is_file(), "the first capture was not copied whole"
+        # the copy is the first capture as it was: only the file the rebuild carved differs from it
+        assert lc.same_tree(cap, first) == ["subjects/a/track__pv.mkv differs"] and (first / "looks.json").is_file(), lc.same_tree(cap, first)
+        (first / "subjects/a/track__pv.mkv").write_bytes(track.read_bytes())
         files = m.said("files on plan")
         assert "--overwrite" in files and "--loads" not in files, files
         assert files[files.index("--run") + 1] == f"ld:preview={windows},subject=a,others=b,at=110", files[files.index("--run") + 1]
@@ -777,6 +797,11 @@ def a_render_against_its_plan() -> str:
         (folder / "ld.plan.masks.json").write_text(json.dumps({"masks": {track: "h"}}))
         assert lc.masks_as_planned(ctx, graph, hashed=lambda p: "h") == []
         assert "no longer decodes equal to what the plan read" in lc.masks_as_planned(ctx, graph, hashed=lambda p: "another")[0]
+        # a record hashed before the on-plan rebuild (a load planned before route C): its mismatch says to make the load again
+        assert lc.PLANNED_BEFORE_THE_CARVE in lc.masks_as_planned(ctx, graph, hashed=lambda p: "another")[0]
+        (folder / "ld.plan.masks.json").write_text(json.dumps({"masks": {track: "h"}, "hashed": lc.HASHED_AFTER_THE_REBUILD}))
+        assert lc.PLANNED_BEFORE_THE_CARVE not in lc.masks_as_planned(ctx, graph, hashed=lambda p: "another")[0]
+        (folder / "ld.plan.masks.json").write_text(json.dumps({"masks": {track: "h"}}))
         more = {**graph, "3": {"class_type": "L", "inputs": {"video": str(cap / "subjects/a/parts.mkv")}}}
         assert "which the plan graph did not" in lc.masks_as_planned(ctx, more, hashed=lambda p: "h")[0]
         # the job file is the one the plan was built from, byte for byte
@@ -849,6 +874,20 @@ def the_render_step() -> str:
             "code not committed and a mask that changed each stop it after the build and before the queue; a job file edited since its plan before anything")
 
 
+def predicted(cap: Path, windows: Path, render_tokens=None) -> None:
+    """What the on-plan step leaves for the land guard (route C): the plan's copy and its window's region remade on the carved files
+    (`<capture>/runs/ld/predicted/`), and the render's own window region beside its windows, the same tokens unless given."""
+    import numpy as np
+    folder = cap / "runs" / "ld" / "predicted"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "ld_plan.json").write_text(json.dumps({"plan": "h3 song plan", "windows": [{"number": 1, "first_frame": 0, "region_file": "ld_window_1_planned_region.npz"}]}))
+    tokens = np.zeros((3, 4, 6), np.uint8)
+    tokens[:, 1:3, 1:4] = 1
+    np.savez(folder / "ld_window_1_planned_region.npz", tokens=tokens)
+    windows.mkdir(parents=True, exist_ok=True)
+    np.savez(windows / "ld_window_1_region.npz", tokens=tokens if render_tokens is None else render_tokens)
+
+
 def the_land_step() -> str:
     with tempfile.TemporaryDirectory() as tmp:
         made = Made(Path(tmp))
@@ -893,6 +932,16 @@ def the_land_step() -> str:
             # one window: its own video, as ever, and the joined file's frames are not asked for
             m.frames = {}
             assert lc.rendered_video(made.ctx(), m, joined.parent) == windows / "ld_window_1.mp4"
+            # THE CASE THAT GOES RED when a render whose region is not the one its look was made on is landed (route C's guard)
+            import numpy as np
+            other = np.zeros((3, 4, 6), np.uint8)
+            other[:, 1:3, 1:4] = 1                                     # the predicted region (`predicted`)
+            other[1:, 1, 4] = 1                                        # and one more unit on each step after the first
+            predicted(cap, windows, other)
+            refused(lambda: lc.step_land(made.ctx(), m, a), "the render's region is not the region its look was made on",
+                    "window 1: the render's region differs from the prediction by 2 unit(s) on 2 latent step(s), source frames 111-118")
+            assert "pose pass" not in m.labels(), "a render whose region is not the predicted one went on to its pose pass"
+            predicted(cap, windows)
             m.ran.clear()
             assert lc.step_land(made.ctx(), m, a) is None, "a land whose pose pass and stack ran did not end clean"
             # THE CARD IS FREED BEFORE THE POSE PASS, which runs beside the server in its own process
@@ -1101,6 +1150,7 @@ def a_load_of_two_subjects() -> str:
         (made.root / "data" / "2026-01-03_ld_job" / "ld.render.queued.json").write_text(json.dumps({"prompt_id": "r"}))
         (m.output / "Video/v/s/ld/ld/ld_windows").mkdir(parents=True)
         (m.output / "Video/v/s/ld/ld/ld_windows/ld_window_1.mp4").write_bytes(b"")
+        predicted(cap, m.output / "Video/v/s/ld/ld/ld_windows")
         store = made.root / "store"
         (store / "pose-model").mkdir(parents=True)
         kept, lc.video_of = lc.video_of, lambda ctx, data: "v"

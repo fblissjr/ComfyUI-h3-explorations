@@ -1814,15 +1814,18 @@ def the_carve_in_the_files_step() -> str:
     return "the keep-out's track written for the builder is carved out of her track; a person's is untouched"
 
 
-def _a_node_plan(folder: Path, part: np.ndarray, zoom: dict | None, latent_t: int) -> Path:
+def _a_node_plan(folder: Path, part: np.ndarray, zoom: dict | None, latent_t: int, edge: str | None = None) -> Path:
     """A song node plan with one window and its region file, written by the node's own `save_window_region`: her part as the
     node has it (the zoomed picture under a zoom), a fixed margin of 40, latent cells of 16 px."""
     import torch
     vm = cap._pack("video_mask")
     frames = sum(vm.run_lengths(latent_t))
-    src = {"zoom": zoom, "grow_pixels": 40, "grow_by": vm.GROW_FIXED, "edge": vm.EDGE_CELLS, "feather_pixels": 0}
-    vm.save_window_region(str(folder / "w1.npz"), cap._picture(vm, part, zoom, (W, H)), torch.zeros(latent_t, H // 16, W // 16), src, 40, 0, 0)
-    (folder / "p_plan.json").write_text(json.dumps({"plan": "h3 song plan", "zoom": zoom, "source": {k: v for k, v in src.items() if k != "zoom"},
+    if len(part) < frames:                                            # the window's frames past the given ones hold the last, as the node does
+        part = np.concatenate([part, np.repeat(part[-1:], frames - len(part), axis=0)])
+    src = {"zoom": zoom, "grow_pixels": 40, "grow_by": vm.GROW_FIXED, "edge": edge or vm.EDGE_CELLS, "feather_pixels": 0}
+    vm.save_window_region(str(folder / "w1.npz"), cap._picture(vm, part[:frames], zoom, (W, H)), torch.zeros(latent_t, H // 16, W // 16), src, 40, 0, 0)
+    (folder / "p_plan.json").write_text(json.dumps({"plan": "h3 song plan", "zoom": zoom, "width": W, "height": H,
+                                                    "source": {k: v for k, v in src.items() if k != "zoom"},
                                                     "windows": [{"number": 1, "first_frame": 0, "frames": frames, "first_written_frame": 0,
                                                                  "last_written_frame": frames - 1, "region_file": "w1.npz"}]}))
     return folder / "p_plan.json"
@@ -1843,26 +1846,81 @@ def the_carve_on_the_nodes_grid() -> str:
         return m
     said = []
     with tempfile.TemporaryDirectory() as tmp:
-        for tag, zoom, part, mine, keep in (
-                # her part one cell; her track also two cells on frame 1 only; a keep-out over those two cells on frames 2-4
-                ("a latent step", None, box(80, 32, 96, 48), box(80, 32, 96, 48) | box(48, 32, 64, 64, [1]), box(50, 34, 62, 62, [2, 3, 4])),
-                # a zoomed load, a box off the canvas grid at 1.333: a band just outside her track, in a zoomed unit mostly hers
+        for tag, zoom, edge, part, mine, keep in (
+                # her part one cell; her track also two cells on frame 2 only (not the step's first); a keep-out over them on frames 1, 3, 4
+                ("a latent step", None, vm.EDGE_CELLS, box(80, 32, 96, 48), box(80, 32, 96, 48) | box(48, 32, 64, 64, [2]), box(50, 34, 62, 62, [1, 3, 4])),
+                # the same in whole tokens of 2x2 cells: counted in tokens, not cells (Gemini's note, 2026-10-16)
+                ("whole tokens", None, vm.EDGE_TOKENS, box(80, 32, 96, 48), box(80, 32, 96, 48) | box(32, 32, 64, 64, [2]), box(34, 34, 62, 62, [1, 3, 4])),
                 # (the box at x 40: the zoomed units start at canvas x 40 + 12k, so the unit 76-88 is two thirds hers up to her edge at 84,
                 # the band 84-88 lies in it and in the canvas cell 80-96, which is not hers; her units read as canvas pixels without the
                 # zoom would fall on 32-64, far from the band)
                 ("a zoomed unit", {"box": [40, 24, 160, 96], "source_size": [W, H], "canvas": [W, H], "scale": 160 / 120, "render_region": "part",
-                                   "set_by": "the box"}, box(60, 40, 72, 60), box(60, 30, 84, 80), box(84, 30, 88, 80))):
+                                   "set_by": "the box"}, vm.EDGE_CELLS, box(60, 40, 72, 60), box(60, 30, 84, 80), box(84, 30, 88, 80))):
             folder = Path(tmp) / tag.replace(" ", "_")
             folder.mkdir()
-            plan = _a_node_plan(folder, part, zoom, lt)
+            plan = _a_node_plan(folder, part, zoom, lt, edge)
+
+            def taken(keep_, where):
+                # the region remade on these keep-outs by the node's own `window`, and the units they take from it
+                return cap.node_taken_inside(None, cap.predict_regions(plan, 0, 0, keep_, None, (W, H), folder / where), mine, 0, 0)
             canvas = cap.carve_keep_out(keep, mine)[0]
-            before = cap.node_taken_inside(canvas, mine, plan, 0, 0)
+            before = taken(canvas, "before")
             carved, lost = cap.grid_carve(canvas, mine, plan, 0, 0)
-            after = cap.node_taken_inside(carved, mine, plan, 0, 0)
+            after = taken(carved, "after")
             # THE CASES THAT GO RED when the carve is made frame by frame, or on the canvas's grid for a zoomed load
             assert before.sum() > 0, f"{tag}: the fixture: the node takes nothing after the canvas carve ({before.tolist()})"
             assert after.sum() == 0 and lost.sum() > 0, f"{tag}: the node still takes {after.tolist()} after the grid carve"
+            if edge == vm.EDGE_TOKENS:
+                # THE CASE THAT GOES RED when whole tokens are counted as cells: the two columns of cells under her are one token
+                assert set(before.tolist()) <= {0, 1}, f"whole tokens counted as cells: {before.tolist()}"
             said.append(f"{tag}: the node took {before.tolist()} units a frame after the canvas carve, none after")
+        # A WINDOW'S FRAMES PAST THE CAPTURE HOLD ITS LAST, as the node holds them (`video_mask.held_mask`; Gemini's note on 0604g window 2)
+        tail = cap._window_frames(box(0, 0, 16, 16)[:3], {"first_frame": 1}, 0, 0, 4)
+        assert tail[0].any() and tail[1].any() and tail[2].any() and tail[3].any(), "the frames past the capture are not its last held"
+        # NO PIXEL WIDER WITHOUT A ZOOM: the cells are the node's exactly; a keep-out beside a carved unit keeps its pixels
+        folder = Path(tmp) / "exact"
+        folder.mkdir()
+        part, mine = box(80, 32, 96, 48), box(80, 32, 96, 48) | box(48, 32, 64, 64, [1])
+        beside = box(50, 34, 66, 62, [2, 3, 4])                       # 64-66 lies in the cell 64-80, not hers
+        carved, _ = cap.grid_carve(beside, mine, _a_node_plan(folder, part, None, lt), 0, 0)
+        assert carved[2:, 34:62, 64:66].all() and not carved[2:, 34:62, 50:64].any(), "a pixel wider was carved with no zoom"
+        # A PLAN THAT IS NOT THE CAPTURE'S, OR A WINDOW WHOSE STEPS DO NOT HOLD ITS FRAMES, IS REFUSED (the read's finding 4)
+        bad = json.loads((folder / "p_plan.json").read_text())
+        (folder / "p_plan.json").write_text(json.dumps({**bad, "width": W * 2}))
+        try:
+            cap.node_windows(folder / "p_plan.json", (W, H))
+        except SystemExit as e:
+            assert "the plan is 320x96 and the capture 160x96" in str(e), e
+        else:
+            raise AssertionError("a plan of another size was read")
+        (folder / "p_plan.json").write_text(json.dumps({**bad, "source": {**bad["source"], "grow_by": "the subject's size"}}))
+        try:
+            cap.node_windows(folder / "p_plan.json", (W, H))
+        except SystemExit as e:
+            assert "a fixed margin only" in str(e), e
+        else:
+            raise AssertionError("a grow by the subject's size was read")
+        (folder / "p_plan.json").write_text(json.dumps(bad))
+        import torch
+        vm.save_window_region(str(folder / "w1.npz"), torch.zeros(9, H, W), torch.zeros(lt, H // 16, W // 16),
+                              {"grow_pixels": 40, "grow_by": vm.GROW_FIXED, "edge": vm.EDGE_CELLS}, 40, 0, 0)   # 2 steps (5 frames), a mask of 9
+        try:
+            cap.node_windows(folder / "p_plan.json", (W, H))
+        except SystemExit as e:
+            assert "2 latent steps hold 5 frames and its mask has 9" in str(e), e
+        else:
+            raise AssertionError("a window whose steps do not hold its frames was read")
+        said.append("frames past the capture held; no pixel wider without a zoom; a plan of another size, a grow by her size and steps that do not hold "
+                    "the frames refused")
+        # ANOTHER PERSON among the render's others is in both arms of the count: what the keep-outs take is counted, never what a person keeps
+        folder = Path(tmp) / "a_person"
+        folder.mkdir()
+        part, mine = box(80, 32, 96, 48), box(80, 32, 96, 48) | box(48, 32, 64, 64, [1])
+        person = box(50, 34, 62, 62, [2, 3, 4])                       # a person where the keep-out stood: he keeps those units out, and that is no fault
+        plan = _a_node_plan(folder, part, None, lt)
+        alone = cap.node_taken_inside(person, cap.predict_regions(plan, 0, 0, person, None, (W, H), folder / "p"), mine, 0, 0)
+        assert alone.sum() == 0, f"a person's units counted as the keep-outs': {alone.tolist()}"
+        said.append("a person's own units are not counted")
     return "; ".join(said)
 
 

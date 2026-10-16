@@ -1407,13 +1407,21 @@ def an_uncarved_keep_out_refused():
         m["subjects"].append({"label": "k", "sightings": [{"by": "p", "shots": False}]})
         (capture / "manifest.json").write_text(json.dumps(m))
         one = {"name": "a_0700", "subject": "a", "first": CAPTURE_FIRST + 10, "frames": 50, "others": ["c", "k"], "motion": "none"}
-        # THE CASE THAT GOES RED when a keep-out made before the carve is handed to the node
+        # THE CASES THAT GO RED when a keep-out made before the carve is handed to the node, or the words lead to a re-capture in place
         _refused(lambda: tool.capture_files({}, one, capture, lambda label: None), "the keep-out 'k'", "made before the carve; re-capture")
-        m["subjects"][-1]["sightings"][0]["carved_out_of_own_track"] = {"px": 0, "cells": 0}
+        _refused(lambda: tool.capture_files({}, one, capture, lambda label: None, "render"), "the keep-out 'k'",
+                 "planned before the keep-out carve: make the load again under a new name")
+        m["subjects"][-1]["sightings"][0]["carved_out_of_own_track"] = {"px": 0, "cells": 0, "on_the_node_grid_from": "no plan yet: the canvas carve alone"}
         (capture / "manifest.json").write_text(json.dumps(m))
         got = tool.capture_files({}, one, capture, lambda label: None)
         assert [Path(x).parent.name for x, _ in got["others"]] == ["c", "k"], got["others"]
-    return "a keep-out from a capture made before the carve refused; carved, and another person, handed on"
+        # a render on a capture whose keep-out was not carved on the node's grid (no plan when it was made) is refused (the read's finding 2)
+        _refused(lambda: tool.capture_files({}, one, capture, lambda label: None, "render"), "not carved on the node's own grid", "make the load again")
+        m["subjects"][-1]["sightings"][0]["carved_out_of_own_track"]["on_the_node_grid_from"] = ["/plans/p_plan.json"]
+        (capture / "manifest.json").write_text(json.dumps(m))
+        assert [Path(x).parent.name for x, _ in tool.capture_files({}, one, capture, lambda label: None, "render")["others"]] == ["c", "k"]
+    return ("a keep-out from a capture made before the carve refused: re-capture before a plan, make the load again after; a render on a keep-out "
+            "not carved on the node's grid refused; carved on it, and another person, handed on")
 
 
 def _refused(fn, *words: str) -> None:

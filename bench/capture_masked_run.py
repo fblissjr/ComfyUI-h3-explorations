@@ -926,37 +926,65 @@ def carve_keep_out(keep: np.ndarray, mine: np.ndarray, share: float = OWN_TRACK_
 
 def node_windows(plan_path: Path, size: tuple[int, int]) -> tuple[dict, list]:
     """A song node plan and its windows that have region files: [(row, the region as `video_mask.load_window_region` reads
-    it)]. Refused (SystemExit) where a zoom is not of the capture's own canvas, since the carve maps through it."""
+    it)]. Refused (SystemExit): a zoom not of the capture's own canvas, a plan of another size than the capture, a grow by
+    the subject's size (`node_source` takes a fixed margin), and a window whose latent steps do not hold its frames."""
     vm = _pack("video_mask")
     plan = json.loads(Path(plan_path).read_text())
     zoom = plan.get("zoom")
     if zoom and not ([int(v) for v in zoom.get("canvas", [])] == [int(v) for v in zoom.get("source_size", [])] == list(size)):
         raise SystemExit(f"{Path(plan_path).name}: the zoom is of {zoom.get('source_size')} frames on a {zoom.get('canvas')} canvas and the capture "
                          f"is {list(size)}: the carve on the node's grid maps through the zoom and does not restate a fit")
-    return plan, [(row, vm.load_window_region(str(Path(plan_path).parent / row["region_file"]))) for row in plan.get("windows", [])
-                  if row.get("region_file") and (Path(plan_path).parent / row["region_file"]).is_file()]
+    if [plan.get("width"), plan.get("height")] != list(size):
+        raise SystemExit(f"{Path(plan_path).name}: the plan is {plan.get('width')}x{plan.get('height')} and the capture {size[0]}x{size[1]}")
+    if (plan.get("source") or {}).get("grow_by", vm.GROW_FIXED) != vm.GROW_FIXED:
+        raise SystemExit(f"{Path(plan_path).name}: the plan grows by {plan['source']['grow_by']!r}: the region is remade here on a fixed margin only")
+    out = []
+    for row in plan.get("windows", []):
+        path = Path(plan_path).parent / str(row.get("region_file") or "")
+        if not row.get("region_file") or not path.is_file():
+            continue
+        got = vm.load_window_region(str(path))
+        lt, frames = int(got["tokens"].shape[0]), int(got["mask"].shape[0])
+        if sum(vm.run_lengths(lt)) != frames:
+            raise SystemExit(f"{path.name}: {lt} latent steps hold {sum(vm.run_lengths(lt))} frames and its mask has {frames}")
+        out.append((row, got))
+    return plan, out
 
 
 def _units(vm, picture, lat_h: int, lat_w: int, whole: bool):
     """The share of each of the node's units (a latent cell, or a whole token of 2x2 cells) a picture mask [F, H, W] covers, at
-    the cells' shape [F, lat_h, lat_w], each cell holding its unit's share."""
+    the cells' shape [F, lat_h, lat_w], each cell holding its unit's share: the cells cut as the node cuts them
+    (`token_mask`'s adaptive pooling, here of the mean), the tokens as its 2x2 with the edge replicated."""
     import torch
-    f, h, w = picture.shape
-    share = picture.to(torch.float32).reshape(f, lat_h, h // lat_h, lat_w, w // lat_w).mean((2, 4))
+    share = torch.nn.functional.adaptive_avg_pool2d(picture.to(torch.float32)[:, None], (int(lat_h), int(lat_w)))[:, 0]
     if whole:
         padded = torch.nn.functional.pad(share[:, None], (0, lat_w % 2, 0, lat_h % 2), mode="replicate")[:, 0]
-        tok = padded.reshape(f, padded.shape[1] // 2, 2, padded.shape[2] // 2, 2).mean((2, 4))
+        tok = padded.reshape(share.shape[0], padded.shape[1] // 2, 2, padded.shape[2] // 2, 2).mean((2, 4))
         share = tok.repeat_interleave(2, dim=-2).repeat_interleave(2, dim=-1)[:, :lat_h, :lat_w]
     return share
 
 
+def _unit_count(cells, whole: bool) -> int:
+    """How many of the node's units a [lat_h, lat_w] cell mask holds: cells, or whole tokens of 2x2 (an edge token cut short
+    counted once)."""
+    import torch
+    if not whole:
+        return int(cells.sum())
+    c = torch.as_tensor(cells, dtype=torch.float32)[None, None]
+    c = torch.nn.functional.pad(c, (0, int(c.shape[-1]) % 2, 0, int(c.shape[-2]) % 2))
+    return int(torch.nn.functional.max_pool2d(c, 2).sum())
+
+
 def _window_frames(mask: np.ndarray, row: dict, at: int, first: int, length: int) -> np.ndarray:
-    """A capture's [n, h, w] mask on a window's frames (load frame `row.first_frame` on, `length` of them), empty outside it."""
+    """A capture's [n, h, w] mask on a window's frames (load frame `row.first_frame` on, `length` of them): a frame past the
+    capture's last holds its last, as the node holds a window's frames past the source's end (`video_mask.held_mask`)."""
     out = np.zeros((length,) + mask.shape[1:], bool)
     for i in range(length):
         k = at + row["first_frame"] + i - first
         if 0 <= k < len(mask):
             out[i] = mask[k]
+        elif k >= len(mask) and len(mask):
+            out[i] = mask[-1]
     return out
 
 
@@ -967,14 +995,27 @@ def _picture(vm, mask: np.ndarray, zoom: dict | None, size: tuple[int, int]):
     return vm.crop_mask(t, zoom["box"], *size) if zoom else t
 
 
+def node_source(vm, plan: dict, got: dict, others, keep=None) -> dict:
+    """A window's source as the node's `window` takes it, from the plan's settings and its part mask: the frames are not read by
+    the region, so they are empty."""
+    import torch
+    settings = dict(plan.get("source") or {})
+    length, h, w = (int(v) for v in got["mask"].shape)
+    return {"frames": torch.zeros(length, h, w, 3), "mask": got["mask"], "others": others, "keep": keep,
+            "grow_pixels": int(settings.get("grow_pixels", 0)), "grow_by": settings.get("grow_by", vm.GROW_FIXED),
+            "feather_pixels": int(settings.get("feather_pixels", 0) or 0), "edge": settings.get("edge", vm.EDGE_TOKENS)}
+
+
 def grid_carve(keep: np.ndarray, mine: np.ndarray, plan_path: Path, at: int, first: int, share: float = OWN_TRACK_CELL_SHARE) -> tuple[np.ndarray, np.ndarray]:
     """THE CARVE ON THE NODE'S OWN GRID (the lead's ruling of 2026-10-16, docs/wiki/decisions.md): per window of the node's plan,
     per latent step (`video_mask.run_lengths`) and per unit of its token grid (a latent cell, or a whole token; of the zoomed
     picture for a zoomed load), a unit more than `share` the subject's own track on ANY frame of the step loses every keep-out
-    pixel under it on EVERY frame of that step, mapped back to the canvas (`video_mask.lay_back`) and a pixel wider. The node
-    pins a unit to the source when a keep-out touches it on any frame of its step and her part on none
-    (`video_mask.window`), so the canvas carve frame by frame leaves such units. Returns the keep-out and the pixels it lost
-    a frame. Run at the on-plan rebuild, when the plan is there; the render's own tokens are made from these files."""
+    pixel under it on EVERY frame of that step, mapped back to the canvas: nearest, as the node lays cells; under a zoom
+    through `video_mask.lay_back`, a pixel wider for the box's fractional edges and `crop_mask`'s reach. The node pins a unit to
+    the source when a keep-out touches it on any frame of its step and her part on none (`video_mask.window`). The windows and
+    the zoom box do not depend on the keep-outs (the box is from her part's boxes, `video_mask.zoomed_source`; the windows from
+    the audio's length and the settings, `loop_plan.plan_song`), so the first plan's grid is the render's. Returns the keep-out
+    and the pixels it lost a frame."""
     import cv2
     import torch
     vm = _pack("video_mask")
@@ -991,10 +1032,12 @@ def grid_carve(keep: np.ndarray, mine: np.ndarray, plan_path: Path, at: int, fir
         for steps in vm.run_lengths(lt):
             on = hers[start:start + steps].any(0)
             if bool(on.any()):
-                px = on.to(torch.float32).repeat_interleave(h // lh, dim=0).repeat_interleave(w // lw, dim=1)[None]
+                px = torch.nn.functional.interpolate(on.to(torch.float32)[None, None], size=(h, w), mode="nearest")[0]
                 if zoom:
                     px = vm.lay_back(torch.ones(1, h, w, 3), px, torch.zeros(1, h, w, 3), zoom)[..., 0]
-                foot = cv2.dilate((px[0] > 0).numpy().astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
+                    foot = cv2.dilate((px[0] > 0).numpy().astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
+                else:
+                    foot = (px[0] > 0.5).numpy()
                 for i in range(start, start + steps):
                     k = at + row["first_frame"] + i - first
                     if 0 <= k < n:
@@ -1003,32 +1046,53 @@ def grid_carve(keep: np.ndarray, mine: np.ndarray, plan_path: Path, at: int, fir
     return out, (keep & ~out).reshape(n, -1).sum(axis=1)
 
 
-def node_taken_inside(keeps: np.ndarray, mine: np.ndarray, plan_path: Path, at: int, first: int, share: float = OWN_TRACK_CELL_SHARE) -> np.ndarray:
-    """THE FAULT COUNT FROM THE NODE'S OWN TOKENS: per capture frame, the units the node gives back to the source because of the
-    keep-outs (`keeps`, their union at the canvas) that are more than `share` the subject's own track on a frame of their
-    step. The node's own `video_mask.window` is run on each window with the plan's part mask and the keep-outs and without
-    them, on the plan's settings; the units the keep-outs take are the difference. Zero after the grid carve; nonzero is a
-    capture fault."""
+def predict_regions(plan_path: Path, at: int, first: int, others: np.ndarray, keep: np.ndarray | None, size: tuple[int, int], into: Path) -> Path:
+    """THE REGION REMADE ON THE CARVED FILES (route C, the lead's ruling of 2026-10-16): each window of the node's plan, its token
+    region made again by the node's own `video_mask.window` on the plan's part mask and the capture's others as the render will
+    read them (people and the carved keep-outs, `others`; `keep`), on the plan's settings, written beside the capture by the
+    node's own `video_mask.save_window_region` under the plan's file names, with the plan's file copied there. The look, the
+    gate and the fault count read these; the land step holds the render's own window files to them. Returns the plan copy."""
     import torch
     vm = _pack("video_mask")
-    n, h, w = keeps.shape
-    plan, windows = node_windows(plan_path, (w, h))
-    zoom, settings = plan.get("zoom"), dict(plan.get("source") or {})
-    whole = settings.get("edge", vm.EDGE_TOKENS) == vm.EDGE_TOKENS
+    w, h = size
+    plan, windows = node_windows(plan_path, size)
+    zoom = plan.get("zoom")
+    into.mkdir(parents=True, exist_ok=True)
+    for row, got in windows:
+        lt, lh, lw = (int(v) for v in got["tokens"].shape)
+        length = int(got["mask"].shape[0])
+        other = _picture(vm, _window_frames(others, row, at, first, length), zoom, size)
+        held = _picture(vm, _window_frames(keep, row, at, first, length), zoom, size) if keep is not None else None
+        tokens = vm.window(node_source(vm, plan, got, other, held), 0, length, w, h, lt, lh, lw)[2]
+        vm.save_window_region(str(into / row["region_file"]), got["mask"], tokens, {**dict(plan.get("source") or {}), "zoom": zoom},
+                              got["margin"], int(row["first_frame"]), int(row.get("trim", 0)))
+    copy = into / Path(plan_path).name
+    copy.write_text(Path(plan_path).read_text())
+    return copy
+
+
+def node_taken_inside(people: np.ndarray | None, predicted: Path, mine: np.ndarray, at: int, first: int, keep: np.ndarray | None = None,
+                      share: float = OWN_TRACK_CELL_SHARE) -> np.ndarray:
+    """THE FAULT COUNT FROM THE NODE'S OWN TOKENS: per capture frame, the units the keep-outs take from the region (the predicted
+    region, `predict_regions`, against the node's own `window` with the people alone as its others and the same `keep`) that are
+    more than `share` the subject's own track on a frame of their step; units, not cells, under whole tokens. Zero after the
+    grid carve; nonzero is a capture fault."""
+    vm = _pack("video_mask")
+    n, h, w = mine.shape
+    plan, windows = node_windows(predicted, (w, h))
+    zoom = plan.get("zoom")
+    whole = (plan.get("source") or {}).get("edge", vm.EDGE_TOKENS) == vm.EDGE_TOKENS
     count = np.zeros(n, np.int64)
     for row, got in windows:
         lt, lh, lw = (int(v) for v in got["tokens"].shape)
         length = int(got["mask"].shape[0])
-        others = _picture(vm, _window_frames(keeps, row, at, first, length), zoom, (w, h))
-        src = {"frames": torch.zeros(length, h, w, 3), "mask": got["mask"], "grow_pixels": int(settings.get("grow_pixels", 0)),
-               "grow_by": settings.get("grow_by", vm.GROW_FIXED), "feather_pixels": int(settings.get("feather_pixels", 0) or 0),
-               "edge": settings.get("edge", vm.EDGE_TOKENS), "subject_area": vm.area_share(got["mask"])}
-        kept = vm.window({**src, "others": others}, 0, length, w, h, lt, lh, lw)[2]
-        grown = vm.window(src, 0, length, w, h, lt, lh, lw)[2]
+        base = _picture(vm, _window_frames(people, row, at, first, length), zoom, (w, h)) if people is not None else None
+        held = _picture(vm, _window_frames(keep, row, at, first, length), zoom, (w, h)) if keep is not None else None
+        alone = vm.window(node_source(vm, plan, got, base, held), 0, length, w, h, lt, lh, lw)[2]
         hers = _units(vm, _picture(vm, _window_frames(mine, row, at, first, length), zoom, (w, h)) > 0.5, lh, lw, whole) > share
         start = 0
         for s, steps in enumerate(vm.run_lengths(lt)):
-            taken = int(((grown[s] > 0.5) & (kept[s] < 0.5) & hers[start:start + steps].any(0)).sum())
+            taken = _unit_count(((alone[s] > 0.5) & (got["tokens"][s] < 0.5) & hers[start:start + steps].any(0)).numpy(), whole)
             for i in range(start, start + steps):
                 k = at + row["first_frame"] + i - first
                 if 0 <= k < n:
@@ -1826,7 +1890,8 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
     replaced = {x["subject"] for _, x in runs + plans} | {json.loads(x["also"])["subject"] for _, x in runs + plans if x.get("also")}
     kept_out = {o for _, x in runs + plans for o in x.get("others", "").split("+") if o}
     # the node's plans this capture is rebuilt on (the on-plan rebuild): the carve on the node's own grid follows the canvas one
-    on_plan = [(plan_file(x["preview"]), int(x["at"]) if x.get("at") is not None else first) for _, x in plans if x.get("preview")]
+    on_plan = [(plan_file(x["preview"]), int(x["at"]) if x.get("at") is not None else first, {o for o in x.get("others", "").split("+") if o})
+               for _, x in plans if x.get("preview")]
     carved: dict = {}
     masks = sorted(masks, key=lambda lm: not (lm[0] in replaced or lm[1].get("shots")))
     for label, m in masks:
@@ -1847,11 +1912,12 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                 track, px, cells = carve_keep_out(track, np.logical_or.reduce(mine))
                 carved[label] = {"px": px, "cells": cells, "against": sorted(s for s in replaced if s in sightings)}
                 grid = np.zeros(frames, np.int64)
-                for path, plan_at in on_plan:
-                    track, lost = grid_carve(track, np.logical_or.reduce(mine), path, plan_at, first)
-                    grid += lost
+                for path, plan_at, names in on_plan:
+                    if label in names:                         # only a plan whose run keeps this mask out
+                        track, lost = grid_carve(track, np.logical_or.reduce(mine), path, plan_at, first)
+                        grid += lost
                 carved[label]["grid_px"] = grid
-                carved[label]["grid_from"] = [str(p_) for p_, _ in on_plan]
+                carved[label]["grid_from"] = [str(p_) for p_, _, names in on_plan if label in names]
                 print(f"keep-out {label}: carved out of {' and '.join(carved[label]['against'])}'s own track: {int(px.sum())} px, "
                       f"{int(cells.sum())} cells, on {int((cells > 0).sum())} of {frames} frames (OWN_TRACK_CELL_SHARE {OWN_TRACK_CELL_SHARE})", flush=True)
         parts = read_mask(m["parts"], size, at, first, frames)[0] if m.get("parts") else None
@@ -1994,6 +2060,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                         whose_rows(label, first, class_maps[label], next(iter(seen.values()))[0], theirs,
                                    _pack("sapiens2_parts").CLASS_NAMES))
     captured: dict = {}
+    node_fault: dict = {}
     for name, r in [(n, {**x, "planned": False}) for n, x in runs] + [(n, {**x, "planned": True}) for n, x in plans]:
         label, others = r["subject"], [o for o in r.get("others", "").split("+") if o]
         kept_labels = [o for o in r.get("keep", "").split("+") if o] if r["planned"] else []
@@ -2006,6 +2073,16 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
         lead = {who: next(iter(sightings[who].values())) for who in both + others + kept_labels}
         if r["planned"] and r.get("preview"):
             where = plan_file(r["preview"])
+            # ROUTE C (the lead's ruling of 2026-10-16): the region remade on the files the render will read, by the node's own `window`
+            # on the plan's grid; the look, the gate and the fault count read it, and the land step holds the render's to it
+            plan_at = int(r["at"]) if r.get("at") is not None else first
+            people = [lead[o][0] for o in others if o not in carved]
+            keeps = [lead[o][0] for o in others if o in carved]
+            union = np.logical_or.reduce(people + keeps) if people + keeps else np.zeros((frames, size[1], size[0]), bool)
+            kept_mask = np.logical_or.reduce([lead[o][0] for o in kept_labels]) if kept_labels else None
+            where = predict_regions(where, plan_at, first, union, kept_mask, size, out / "runs" / name / "predicted")
+            own = np.logical_or.reduce([lead[who][0] for who in both])
+            node_fault[name] = node_taken_inside(np.logical_or.reduce(people) if people else None, where, own, plan_at, first, kept_mask)
             region, carried, read, how = read_planned_regions(where, first, frames, size, r.get("at"))
             if region is None:
                 raise SystemExit(f"run {name!r}: {how['refused']} ({where})")
@@ -2123,19 +2200,10 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
         for n, row in enumerate(cross):
             row[f"keep_out_carved_px__{label}"], row[f"keep_out_carved_cells__{label}"] = int(c["px"][n]), int(c["cells"][n])
             row[f"keep_out_carved_on_the_node_grid_px__{label}"] = int(c["grid_px"][n])
-    # THE FAULT COUNT FROM THE NODE'S OWN TOKENS (`node_taken_inside`): for each planned run on a plan, the units the node would give back
-    # inside the subject's own track because of the carved keep-outs; zero by the carve, a capture fault (a hard flag) otherwise
-    for name, x in plans:
-        if not x.get("preview"):
-            continue
-        keeps = [next(iter(sightings[o].values()))[0] for o in x.get("others", "").split("+") if o in carved]
-        if not keeps:
-            continue
-        subjects = [x["subject"]] + ([json.loads(x["also"])["subject"]] if x.get("also") else [])
-        own = np.logical_or.reduce([next(iter(sightings[s_].values()))[0] for s_ in subjects])
-        got = node_taken_inside(np.logical_or.reduce(keeps), own, plan_file(x["preview"]), int(x["at"]) if x.get("at") is not None else first, first)
+    # THE FAULT COUNT FROM THE NODE'S OWN TOKENS (`node_taken_inside`, made with the predicted region): units, zero by the carve
+    for name, got in node_fault.items():
         for n, row in enumerate(cross):
-            row[f"node_cells_given_back_inside_own_track__{name}"] = int(got[n])
+            row[f"node_units_given_back_inside_own_track__{name}"] = int(got[n])
     for row, (step, sharp) in zip(cross, picture_rows(a.source, first, frames, size)):
         row.update(source_step=step, source_sharpness=sharp)
     # Who owns each pixel. A subject is a "who" when it has a class map, or when no subject has one: a kept-out
@@ -3348,12 +3416,12 @@ def flag_runs(manifest: dict, folder: Path, own: dict | None = None, given: dict
         # NO KEEP-OUT CARVES HER OWN TRACK (the owner, 2026-10-16, "The simplification wins. Make sure this never happens again",
         # docs/wiki/decisions.md): a keep-out's cells given back that are mostly the subject's own track put the source back
         # inside her picture (a strangers track at the mom's ear, a held track at her neckline, second_hfp_0014d). Hard: no override
-        hit = [(r["source_frame"], int(r[f"node_cells_given_back_inside_own_track__{name}"])) for r in cross
-               if r.get(f"node_cells_given_back_inside_own_track__{name}")]
+        hit = [(r["source_frame"], int(r[f"node_units_given_back_inside_own_track__{name}"])) for r in cross
+               if r.get(f"node_units_given_back_inside_own_track__{name}")]
         if hit:
             out.append({"rule": "keep_out_inside_own_track", "level": LEVELS[2], "hard": True, "subject": run["subject"], "run": name,
                         "other": "the keep-outs, by the node's own tokens", "source_frames": frame_spans([f for f, _ in hit]),
-                        "why": f"the node's own tokens (`node_taken_inside`, its `window` run on the plan's part and the carved keep-outs) give back "
+                        "why": f"the node's own tokens (`node_taken_inside`, its `window` on the plan's part with the people and the carved keep-outs against the people alone) give back "
                                f"up to {max(c for _, c in hit)} units more than {OWN_TRACK_CELL_SHARE:.0%} {whom}'s own track on {len(hit)} frame(s) "
                                f"({', '.join(f'{f}: {c}' for f, c in hit[:12])}): the carve on the node's grid did not take them, a CAPTURE FAULT, "
                                "no override takes it",

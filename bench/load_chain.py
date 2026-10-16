@@ -644,19 +644,65 @@ def render_against_plan(plan: dict, render: dict, built: dict, hashed=frame_hash
     return said
 
 
+#: The mark of an on-plan record hashed after its rebuild (route C, 2026-10-16); a record without it was hashed before the rebuild carved
+#: the keep-outs, so a mask that no longer decodes equal there is a load planned before the keep-out carve.
+HASHED_AFTER_THE_REBUILD = "after the on-plan rebuild"
+PLANNED_BEFORE_THE_CARVE = "planned before the keep-out carve: make the load again under a new name"
+
+
 def masks_as_planned(ctx: dict, render: dict, hashed=frame_hash) -> list[str]:
     """Why a mask video the render graph reads is not what the plan read; an empty list when every one decodes equal
     to the hash the on-plan step recorded before it built the capture again in place."""
     record = ctx["job_folder"] / f"{ctx['name']}.plan.masks.json"
     if not record.is_file():
         return [f"{record.name} is not there: the on-plan step, which records what the plan read, has not run"]
-    planned = json.loads(record.read_text())["masks"]
+    held = json.loads(record.read_text())
+    planned, after = held["masks"], held.get("hashed") == HASHED_AFTER_THE_REBUILD
     said = []
     for path in mask_videos(render, ctx["capture"]):
         if path not in planned:
             said.append(f"the render graph reads {path}, which the plan graph did not")
         elif hashed(path) != planned[path]:
-            said.append(f"{path} no longer decodes equal to what the plan read")
+            said.append(f"{path} no longer decodes equal to what the plan read" if after else
+                        f"{path} no longer decodes equal to what the plan read, which was hashed before the on-plan rebuild carved its keep-outs: "
+                        + PLANNED_BEFORE_THE_CARVE)
+    return said
+
+
+def region_as_predicted(ctx: dict, render_folder: Path) -> list[str]:
+    """Why the render's own window regions (`<name>_windows/<name>_window_N_region.npz`, written by the node) are not the region the
+    on-plan step predicted on the carved files (`<capture>/runs/<name>/predicted/`, route C), unit by unit; an empty list when every
+    window's tokens are the same. A difference names the window and its source frames."""
+    import numpy as np
+    name, cap = ctx["name"], ctx["capture"]
+    folder = cap / "runs" / name / "predicted"
+    plans = sorted(folder.glob("*_plan.json"))
+    if len(plans) != 1:
+        return [f"{folder} holds {len(plans)} plan file(s): the on-plan step made no prediction of the region for this load. {PLANNED_BEFORE_THE_CARVE}"]
+    plan = json.loads(plans[0].read_text())
+    import capture_masked_run
+    run_lengths = capture_masked_run._pack("video_mask").run_lengths
+    said = []
+    for row in plan.get("windows", []):
+        if not row.get("region_file"):
+            continue
+        mine, theirs = folder / row["region_file"], render_folder / f"{name}_windows" / f"{name}_window_{row['number']}_region.npz"
+        if not theirs.is_file():
+            said.append(f"window {row['number']}: the render wrote no {theirs.name}")
+            continue
+        with np.load(mine) as a, np.load(theirs) as b:
+            p, r = a["tokens"], b["tokens"]
+        if p.shape != r.shape:
+            said.append(f"window {row['number']}: the render's region is {list(r.shape)} and the prediction's {list(p.shape)}")
+            continue
+        steps = [k for k in range(p.shape[0]) if not (p[k] == r[k]).all()]
+        if steps:
+            lengths = run_lengths(p.shape[0])
+            first = ctx["load"]["first"] + int(row["first_frame"])
+            frames = sorted({first + sum(lengths[:k]) + i for k in steps for i in range(lengths[k])})
+            units = int(sum(int((p[k] != r[k]).sum()) for k in steps))
+            said.append(f"window {row['number']}: the render's region differs from the prediction by {units} unit(s) on {len(steps)} latent step(s), "
+                        f"source frames {frames[0]}-{frames[-1]}")
     return said
 
 
@@ -1031,12 +1077,7 @@ def step_on_plan(ctx: dict, world, a, hashed=frame_hash) -> tuple[int, str]:
     who = who_is_who_file(ctx, world, files) if ctx["job"].get("who_is_who") else ctx["job_folder"] / f"{ctx['name']}.who_is_who.json"
     if not who.is_file() and not world.dry:
         raise Refused(f"{who} is not there: the first step, which makes it, has not run for this job folder")
-    masks = {path: hashed(path) for path in mask_videos(graph_of(plan_graph), cap)}
-    print(f"\n--- what the plan read: {len(masks)} mask video(s) under {cap.name}, each frame hashed", flush=True)
     if not world.dry:
-        (ctx["job_folder"] / f"{ctx['name']}.plan.masks.json").write_text(json.dumps(
-            {"what": "the frame-by-frame hash of every mask video the plan graph reads, taken before the capture was built again in place; "
-                     "the render step refuses a mask that no longer decodes equal", "at": utc_now(), "by": a.by, "masks": masks}, indent=1) + "\n")
         shutil.copytree(cap, first, symlinks=True)
         differs = same_tree(cap, first)
         if differs:
@@ -1046,6 +1087,16 @@ def step_on_plan(ctx: dict, world, a, hashed=frame_hash) -> tuple[int, str]:
     world.run(ctx, "files on plan", tool(world, "capture_masked_run.py") + ["files"] + capture_args(ctx, world, files, band)
               + ["--run", run] + (["--loads", ctx["job_file"]] if ctx.get("also") else [])     # a pair's second subject is read off its job file
               + ["--voice", voice["per_frame"], "--made-by", a.by, "--overwrite"])
+    # WHAT THE RENDER WILL READ, hashed AFTER the rebuild (route C, the lead's ruling of 2026-10-16): the rebuild carves the keep-outs on
+    # the node's own grid and remakes the plan's region on those files (`capture_masked_run.predict_regions`), so the look, this hash and
+    # the render's masks are one set of files
+    masks = {path: hashed(path) for path in mask_videos(graph_of(plan_graph), cap)}
+    print(f"\n--- what the render will read: {len(masks)} mask video(s) under {cap.name}, each frame hashed after the rebuild", flush=True)
+    if not world.dry:
+        (ctx["job_folder"] / f"{ctx['name']}.plan.masks.json").write_text(json.dumps(
+            {"what": "the frame-by-frame hash of every mask video the render graph reads, taken AFTER the capture was built again on its plan "
+                     "(the keep-outs carved on the node's own grid, the plan's region remade on these files for the look); the render step refuses a "
+                     "mask that no longer decodes equal", "hashed": HASHED_AFTER_THE_REBUILD, "at": utc_now(), "by": a.by, "masks": masks}, indent=1) + "\n")
     return gate_and_strip(ctx, world, a.by, who, voice)
 
 
@@ -1144,6 +1195,11 @@ def step_land(ctx: dict, world, a) -> tuple[int, str] | None:
     if not queued.is_file():
         raise Refused(f"{queued} is not there: the render was not queued through the job tool")
     print("\n--- the render, by the server's history:\n" + "\n".join("    " + line for line in world.costs(json.loads(queued.read_text())["prompt_id"])), flush=True)
+    # THE REGION AS PREDICTED (route C, the lead's ruling of 2026-10-16): the render's own window regions are the region the on-plan step
+    # made on the carved files, unit by unit; a difference is a hard fault and the load is not landed
+    differs = region_as_predicted(ctx, r)
+    if differs:
+        raise Refused("the render's region is not the region its look was made on: " + "; ".join(differs))
     manifest = json.loads((cap / "manifest.json").read_text())
     free_for_a_pose_pass(world)
     # the stack is made whether or not the pose pass finishes (a person needs the clip to see the render), and the step
