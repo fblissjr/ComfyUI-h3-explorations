@@ -211,6 +211,8 @@ class Steps:
 
     def __init__(self, capture: Path, got: dict):
         self.capture, self.got, self.ran, self.clip, self.table_argv = capture, got, [], Path(), []
+        self.sidecar = True                               # the assembler writes the clip's sidecar (bench/sidecar.py); False: it did not;
+                                                          # "stale": it was written, and the clip written again after it
 
     def run(self, argv, **_):
         argv = [str(x) for x in argv]
@@ -223,6 +225,10 @@ class Steps:
         elif argv[:2] == ["STEP", "build"]:
             self.clip.write_bytes(b"clip")
             Path(str(self.clip) + ".check.json").write_text(json.dumps({**RECORD, "failures": [], "frames_expected": 11}))
+            if self.sidecar:
+                src.sidecar.write(self.clip, ["STEP", "build"], {})
+            if self.sidecar == "stale":
+                self.clip.write_bytes(b"clip, written again")
         elif argv[:2] == ["STEP", "stack"]:
             self.clip.with_name(self.clip.stem + "_STACKED.mp4").write_bytes(b"stack")
         return type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
@@ -254,8 +260,10 @@ def build_writes_over_nothing() -> str:
         real_run, real_read = src.subprocess.run, src.stack_delivery.read_back
         for stamp, earlier, got, want in (("A", True, reading(11), "REFUSED after the table"), ("B", False, reading(11, clip_frames=10), "HARD FAULT"),
                                           ("C", False, reading(11), None), ("D", False, reading(11), "dry"), ("E", "relative", reading(11), "REFUSED after the table"),
-                                          ("F", "csv", reading(11), "REFUSED after the table")):
+                                          ("F", "csv", reading(11), "REFUSED after the table"), ("G", False, reading(11), "SIDECAR DOES NOT HOLD"),
+                                          ("H", False, reading(11), "the video changed after its sidecar")):
             steps = Steps(capture, got)
+            steps.sidecar = "stale" if stamp == "H" else want != "SIDECAR DOES NOT HOLD"
             steps.clip = d / "clips" / f"fun_0200_0210_joined_{stamp}.mp4"
             (d / "clips").mkdir(exist_ok=True)
             real_here = src.HERE

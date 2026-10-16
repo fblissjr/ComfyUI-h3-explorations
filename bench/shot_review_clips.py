@@ -80,6 +80,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import delivery_table  # noqa: E402
+import sidecar  # noqa: E402
 import stack_delivery  # noqa: E402
 from piece_gaps import OWNERS_CLOCK  # noqa: E402
 
@@ -206,6 +207,14 @@ def build(a: argparse.Namespace) -> int:
             if s.returncode:
                 print(f"{span[0]}-{span[1]}: {step} exit {s.returncode}: {last_line(s.stdout + s.stderr)} (all of it: {f[f'{step}_out']})")
                 return 1
+        # the clip's sidecar, written by the assembler (bench/sidecar.py): a clip whose sidecar is missing or not of its bytes is a hard fault
+        try:
+            side = sidecar.read(f["clip"])
+        except SystemExit as e:
+            print(f"{span[0]}-{span[1]}: THE CLIP'S SIDECAR DOES NOT HOLD: {e}")
+            return 1
+        print(f"{span[0]}-{span[1]}: {name}: its sidecar holds, {len(side.get('pieces') or [])} piece(s), "
+              f"{sum(len(p.get('windows') or []) for p in side.get('pieces') or [])} window(s) ({sidecar.sidecar_path(f['clip'])})")
         got = stack_delivery.read_back(a.source, str(f["clip"]), str(f["stacked"]), span[0])
         f["stack_reading"].write_text(json.dumps(got, indent=1) + "\n")
         lines = stack_delivery.check_lines(got, span[0])

@@ -2227,6 +2227,46 @@ def free_name(out: str) -> str:
     return f"{stem}_<name>{ext}"
 
 
+def write_sidecar(args, rows, result, segs) -> str:
+    """The clip's sidecar (`bench/sidecar.py`, the owner's word of 2026-10-16): its table, the table's JSON and the list of
+    what is laid where the table names them, the source, every piece the clip lays (`segs`: a `--span` leaves the
+    table's other rows out, and they are listed as such) with its zoomed file, its check record; and each laid piece
+    with its windows, read through the table's JSON, each JSON row tied to the .txt row it lays, and the JSON's ledger.
+    A table with no JSON beside it, a JSON that is not the .txt, and a reading that fails are each said, and the
+    sidecar is still written. On `--check-only` the check is appended instead (`add_check_to_sidecar`)."""
+    import sidecar
+    laid = [r for r in rows if any(r is c for _a, _b, covering in segs for c in covering)]
+    key = lambda r: [r["first"], r["last"], r["piece"]]  # noqa: E731
+    inputs = {"the table": args.table, "the source": args.source, "the check record": args.out + ".check.json"}
+    for i, r in enumerate(laid, 1):
+        inputs[f"piece {i}: {r['first']}-{r['last']}"] = r["piece"]
+        if r.get("zoomed"):
+            inputs[f"piece {i}: its zoomed picture"] = r["zoomed"]["path"]
+    table_json = os.path.splitext(args.table)[0] + ".json"
+    extra = {"span": result.get("span") if isinstance(result, dict) else None, "verdict": result.get("verdict"),
+             "verdict_line": result.get("verdict_line"), "note": args.note, "table_rows_not_laid": [key(r) for r in rows if not any(r is x for x in laid)]}
+    pieces = None
+    if os.path.isfile(table_json):
+        inputs["the table's JSON"] = table_json
+        try:
+            pieces, named = sidecar.pieces_of_table(table_json, table_rows=[tuple(key(r)) for r in rows], laid=[tuple(key(r)) for r in laid])
+            inputs.update({k: str(v) for k, v in named.items()})
+        except SystemExit as e:
+            extra["pieces_why"] = f"REFUSED as the pieces' source: {e}"
+        except Exception as e:  # noqa: BLE001 - the clip is written; its sidecar says what could not be read
+            extra["pieces_why"] = f"reading the pieces failed: {type(e).__name__}: {e}"
+    else:
+        extra["pieces_why"] = f"no {os.path.basename(table_json)} beside the table: the pieces are not tied to their records, so no window is read"
+    return str(sidecar.write(args.out, [sys.executable, *sys.argv], inputs, extra, pieces=pieces))
+
+
+def add_check_to_sidecar(args, result) -> str:
+    """`--check-only`: the check appended to the clip's sidecar (`bench/sidecar.py::add_check`), the build's record kept whole."""
+    import sidecar
+    return str(sidecar.add_check(args.out, [sys.executable, *sys.argv], result.get("verdict"), result.get("verdict_line"),
+                                 args.out + ".check.json", args.table))
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     p.add_argument("--source", help="the original file: untouched frames and the audio come from it")
@@ -2317,6 +2357,7 @@ def main():
                 if result["verdict_line"].startswith("passes") else result["verdict_line"] + "; not the locked file"
     with open(args.out + ".check.json", "w") as fh:
         fh.write(json.dumps(result, indent=1) + "\n")
+    print("sidecar", add_check_to_sidecar(args, result) if args.check_only else write_sidecar(args, rows, result, segs), flush=True)
     shown = {k: result[k] for k in ("video", "order", "audio", "rows_shown", "locked", "failures", "verdict", "verdict_line") if k in result}
     shown["shots"] = result["shots"]["where_a_named_subject_is_the_source's_own"]
     shown["regions"] = {os.path.basename(k): {a: b for a, b in v.items() if not a.endswith("_per_frame")}

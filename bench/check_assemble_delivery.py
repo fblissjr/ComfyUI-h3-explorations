@@ -221,14 +221,46 @@ def deliver(tmp: Path, name: str, rows, span: str, *more) -> tuple[int, dict, Pa
                           capture_output=True, text=True)
     report = Path(str(out) + ".check.json")
     assert report.is_file(), f"no check json: {proc.stderr[-300:] or proc.stdout[-300:]}"
+    if "--check-only" not in more and out.is_file():
+        # every built clip has its sidecar (bench/sidecar.py), of its bytes, naming the table, the source, the check record and each piece
+        import sidecar
+        try:
+            side = sidecar.read(out)
+        except SystemExit as e:
+            raise AssertionError(f"a built clip's sidecar does not hold: {e}") from None
+        roles = {x["role"]: x["path"] for x in side["inputs"]}
+        assert roles["the table"] == str(tmp / f"{name}.txt") and roles["the source"] == str(tmp / "source.mp4") \
+            and roles["the check record"] == str(report), roles
+        lo, hi = (int(v) for v in span.split("-"))
+        laid = [r for r in rows if r[0] <= hi and r[1] >= lo]          # the rows the span lays; the others are listed as not laid
+        assert [v for k, v in roles.items() if k.startswith("piece ") and "zoomed" not in k] == [str(Path(r[2]).resolve()) for r in laid], roles
+        assert side["extra"]["table_rows_not_laid"] == [[r[0], r[1], str(r[2])] for r in rows if r not in laid], side["extra"]
+        assert "no " in side["extra"]["pieces_why"] and side.get("pieces") is None, side["extra"]   # no table JSON here: said, not guessed
     return proc.returncode, json.loads(report.read_text()), out
 
 
 def recheck(tmp: Path, name: str, rows, span: str, out: Path) -> tuple[int, dict]:
+    import sidecar
+    try:
+        before = sidecar.read(out)
+    except SystemExit:
+        before = None
     proc = subprocess.run([sys.executable, str(Path(tool.__file__)), "--source", str(tmp / "source.mp4"),
                            "--table", str(table(tmp / f"{name}.txt", rows)), "--span", span, "--out", str(out), "--check-only"],
                           capture_output=True, text=True)
-    return proc.returncode, json.loads(Path(str(out) + ".check.json").read_text())
+    report = json.loads(Path(str(out) + ".check.json").read_text())
+    if out.is_file():
+        # --check-only writes the sidecar again: its verdict is this check's, and a build's sidecar of the same bytes is kept as `earlier`
+        try:
+            side = sidecar.read(out)
+        except SystemExit as e:
+            raise AssertionError(f"--check-only left the clip with no sidecar of its bytes: {e}") from None
+        # --check-only appends the check; the build's record (its command, inputs, pieces) stays whole
+        assert side["checks"][-1]["verdict"] == report["verdict"] and "--check-only" in side["checks"][-1]["command"], side.get("checks")
+        if before is not None:
+            assert {k: side.get(k) for k in ("command", "inputs", "extra", "pieces")} == {k: before.get(k) for k in ("command", "inputs", "extra", "pieces")}, \
+                "a check replaced the build's record"
+    return proc.returncode, report
 
 
 def capture(folder: Path, first: int, frames: int, subjects: dict, runs: list, classes: dict | None = None,
