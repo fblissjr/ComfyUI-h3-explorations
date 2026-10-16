@@ -89,7 +89,12 @@ tomorrow's lead. Where this page and a record disagree, the record is right (`de
    branch's OWN job step, since every "neck from behind" frame was a `--no-face-on` frame on a capture made before the
    branch's trim: the harness is `internal/claude/2026-10-15_gate_compare/` (`run_gate.py`, `compare.py`, README);
    remake each compared job with the worktree's `bench/shot_to_load.py job` into a scratch data folder, then run it.
-   Only then the chin cut (mrnight's note, "Next commands"). Rerun the comparison after every change.
+   Only then the chin cut (mrnight's note, "Next commands"). Rerun the comparison after every change. Two more from
+   mrnight's review, before it lands: (a) reasoned, not run: the capture's own hold may refill her face at the edge
+   of the trimmed hair-only span, undoing the trim; (b) a DECISION for the owner and the lead: a frame held by a
+   person's word with no face drawn (2823d 3104-3105, the lead's ruling B) is flagged a hole by the rule's letter, so
+   every remake of such a load needs an override, the routine the rule replaced. Agreement by word, or a standing
+   override?
 9. **The restore carried across a hold** (branch `mrgo-restore-hold`, read cold three times, assembly only), after the
    reviewer's C18; its first rebuild prints which laid pieces change, and each goes back to the owner.
 10. **References never renamed once read** (unbuilt): in `shot_to_load`'s reference step a remake takes the next free
@@ -98,7 +103,9 @@ tomorrow's lead. Where this page and a record disagree, the record is right (`de
 11. **The kitchen's lead (613-974, one window)** only after: the gate branch (8), one hole a pass (her load made on the
     mom's render; `next_steps.md`), and the owner keeping 0604g in 5(a).
 12. Then the rest of `next_steps.md`, "The queue of 2026-10-15"; the gaze test set (`2026-10-15_gaze_pieces.md`, the
-    touch-nothing test first, every other gaze piece set aside); the two misleading job-step lines; the wiki clean-up
+    touch-nothing test first, every other gaze piece set aside; the gaze branch's red `check_body_pose` is the check's
+    to fix, not the code, and its `mesh_file=True` preview default is dropped from any landing until a cut is ruled the
+    default: mrnight's review); the two misleading job-step lines; the wiki clean-up
     (`internal/claude/2026-10-15_wiki_audit.md`).
 
 ## Where things are
