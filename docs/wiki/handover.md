@@ -15,15 +15,20 @@ newest ledger and table; the Open List).
 
 - **Two Claude sessions** (the owner): a lead, and one on the card and its tools (`AGENTS.md`). The evening's card seat:
   `mrgo`, brief `internal/claude/2026-10-15_brief_mrgo.md`, notes `internal/claude/2026-10-15_mrgo_closeout.md`.
-- **On the card overnight, in order:** `second_hfp_0604g` (the second subject's whole kitchen load, 604-1009, seam 898,
-  context 90, noise 0.8 on the inner window, eyes shut drawn on 938-953 and 968-1009, `--track-not lead:1003-1009`),
-  rendering at writing; then `lead_fp_2823d` (2823-3109 in one window; 3098-3103 mouth drawn on a word, 3104-3105 held
-  with no face lines, 3106-3109 dropped) on its existing text (sha256 b91721257e72b4a1, read in full), after its blind
-  reader. Both texts read in full from the queued plan graphs. Whether each landed: mrgo's note and the newest ledger.
+- **The card overnight:** `second_hfp_0604g` (the second subject's whole kitchen load, 604-1009, two windows meeting at
+  898, context 90, noise 0.8 on the inner window) LANDED at 00:38:10Z (2197 s). Its blind render reader
+  (`data/2026-10-15_second_hfp_0604g/look_render/reading.md`, stills, not the owner's acceptance): one person, no jump at
+  the windows; her likeness drifts between the halves (fuller and older on 604-771, younger on 952-1009); 752-771 eyes
+  open where the source is bowed (eyes not drawn shut there); 955-967 and 676-747 do not follow the source's turn.
+  Then `lead_fp_2823d` (2823-3109 in one window) on its existing text (sha256 b91721257e72b4a1, read in full), after
+  its plan reader; whether it landed: mrgo's note and the newest ledger. mrgo stops ComfyUI when it ends.
 - **Landed today in code** (each read cold, its cases seen red): context_noise per load (3e5ea8f1); a `--track-not`
-  copy held to its preview track (cf3ab288); `--mouth-on` and the read-back's edge fix (1e4207c4). The cached-node
-  record (branch `mrtall-cached-nodes`, 1e3f95c8) lands after 0604g's land step on mrgo's clear; if it did not, it is
-  item 6 below.
+  copy held to its preview track (cf3ab288); `--mouth-on` and the read-back's edge fix (1e4207c4); every run's record
+  keeps the nodes the server served from its cache (1ff12a36, from 2823d on). Every check on main read at the close:
+  131 green, 13 not graded, 1 red (a stale INDEX row, rebuilt in 3647a1b2).
+- **The outside reviewer was stopped by the owner before answering C17 (what is broken), C18 (the restore carry's
+  diff) and C19 (its watch of 0604g)**; it had read their sources. Re-post them first tomorrow
+  (`internal/gemini/2026-10-15_requests.md`, at the end); its C13, C14 and C16 answers are in.
 - **Kept on playback on 2026-10-15:** the lead's 2823b, 0630d, 0805d, 2625, 751c; the second subject's 5461c, 5114d,
   1010j; the hall shot 1419-1465 made whole (lead_fp_1419d, third_fp_1419d).
 - **The owner's pages:** `Video/fun/PROVENANCE.html` and `TO_REVIEW.html` on the share, served at
@@ -68,10 +73,12 @@ newest ledger and table; the Open List).
 
 1. **The owner reviews first.** Check what landed overnight (mrgo's note, the newest ledger), rebuild (`internal/claude/
    2026-10-15_mrtall_scripts/rebuild.sh`, then `pages.sh`), and put at the top of the review page and Start here:
-   (a) the second subject's kitchen 604-1009 as a joined clip with the new piece laid alone for her (a candidate; the
-   table changes only on the owner's keep), with what to watch: her identity across 898, her turn and bow 945-1009, her
-   eyes on 950-970 (her face is about 87 px in the reference, so shut eyes may not carry); (b) `lead_fp_2823d` beside
-   the kept 2823b (`bench/stack_rows.py`: masked input, 2823d, 2823b), keep one. Give the owner the direct links.
+   (a) ALREADY POSTED at the close as Start here 1 and 1b: the joined clip 516-1038 with 0604g laid alone for the mom
+   (`Video/fun/day_2026-10-15/shots/fun_0516_1038_joined_2026-10-16T0043Z_0604g_candidate_STACKED.mp4`; the cut lays it
+   only on the owner's keep; `prefers.txt` was put back) and 0604g's own stacked clip, with the reader's places to look;
+   (b) `lead_fp_2823d` beside the kept 2823b (`bench/stack_rows.py`: masked input, 2823d, 2823b), keep one. The lead in
+   that kitchen clip flips to the original on 681-750 and 834-851 (visible; the owner saw it) and on 779-804; 604-629
+   and 966-1009 are table gaps where she is barely in frame. Her whole-shot load (item 7) is the fix.
 2. **First tooling, the owner's yes of 2026-10-16: one per-frame coverage tool, and one source of truth.** For every
    shot and subject, per frame: tracked or not (SAM 3.1), which piece lays it, whether the original shows, and the
    frames where one tracker lost her while the others had her (the part model: present, under the floor, emptied,
