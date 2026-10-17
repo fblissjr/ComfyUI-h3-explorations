@@ -39,6 +39,25 @@ notes: `internal/claude/2026-10-16_mrtony/HANDOFF.md`; the card's: `internal/cla
 
 ## Tomorrow, in order
 
+0. **The night's proposals, decide these first** (the Open List's top section `r16n`, written 01:24Z at the owner's word;
+   the full reasoning is `internal/claude/2026-10-16_mrtony/rethink.md`, the owner's question put to the lead and three
+   Gemini sessions; the D19 builder is the frame-table Gemini, one voice). Nothing below is built; each is a direction.
+   - **r16n_01, one compositing law in one function** (proposed: the lead; supported: the D23, D19 and D20 Gemini; opposed:
+     none). The law is `m * H3's picture + (1 - m) * beneath`, laid without dividing by m:
+     `view += keep * ((piece - (1 - m) * was) - m * view)`. NOT `under + (up - was)`, which the landed matte (6f3eafd6) and
+     1e072b55 use at the source's size: it adds the old person's fine detail to the new face, measured by the D23 Gemini at
+     8.2 levels at the 99th percentile and 48 at the worst pixel on the street piece's sharpest edges. Decide before any
+     matte-laid piece enters the cut.
+   - **r16n_02, keep-outs only where a look names the thing; head, hair and neck tracked with SAM 3.1** (proposed: the
+     owner's SAM remark and the lead; supported: the D23 and D20 Gemini; narrowed: the D19 and D20 Gemini would also keep
+     patching the per-frame rules). Test SAM on the kitchen's hard frames first; r16_02 (held only where a look says so) is
+     its first step; if chosen, D22b pauses.
+   - **r16n_03, capture the 48 untouched shots** (3449 of 6395 frames, nothing laid after 5564) in the card's free time
+     (proposed: the D20 Gemini; supported: the lead, who had missed it).
+   - **r16n_04, four process rules**: generated build notes, refusal tests that forbid a crash, a remake carries its
+     words, at most two builds open (proposed: the lead, the D19 and D20 Gemini; supported: the D19 and D23 Gemini).
+   - **r16n_05, land D19c** (the pages read the gap check): its third read passed; proposed by the lead, supported by the
+     D19 Gemini; held at the owner's "not yet" until they answer.
 1. Read the night's outbox (`internal/gemini/2026-10-16_outbox.md`), mrtaco's HANDOFF
    (`internal/claude/2026-10-16_mrtaco/HANDOFF.md`) and the lead's (`internal/claude/2026-10-16_mrtony/HANDOFF.md`).
    Then write the 2026-10-16 changelog entry from all that day's commits (`changelog.d/README.md`; `bump: minor`).
@@ -55,12 +74,12 @@ notes: `internal/claude/2026-10-16_mrtony/HANDOFF.md`; the card's: `internal/cla
      (1010c, a re-laid piece, any new render) goes into the cut; the third read is first. Gemini's D23
      (`internal/gemini/2026-10-16_review_D23.md`, on 55c6783a) found the same ring independently; its third read must also
      check D23's two further claims. The lead ran D23's own synthetic test (kept in the Gemini's scratch outside the repo,
-     named in its review file) against 1e072b55 at about 01:20Z: the source-size ring is GONE (inner ring mean -0.4 to
+     named in its review file) against 1e072b55 at about 01:05Z (before a13d4297, 01:06Z): the source-size ring is GONE (inner ring mean -0.4 to
      -1.8 levels, max 3, against -24 before) and the canvas's 2- and 3-piece overlaps read 0.000. STILL THERE: at the
      CANVAS size, chroma where a full edge lands on an odd pixel (U -14.7, V +14.7 levels mean on 84 straddle cells, max
      18): the same two-pass double update in `merged`'s half-resolution chroma (D23's case 1B is the red). The fix is
      the same one-pass law in `merged`'s chroma; mrtaco, tomorrow.
-     ALSO, before any matte-laid piece enters the cut (the D23 Gemini's critique, about 02:00Z, unmeasured but plain
+     ALSO, before any matte-laid piece enters the cut (the D23 Gemini's critique, about 01:16Z, unmeasured but plain
      algebra): at the source's size both the landed matte (6f3eafd6) and 1e072b55 lay `under + (up - was)`; at full weight
      that is H3's picture plus the original's high-pass `(under - was)`, the OLD person's fine edges on the new face. The
      law is `m * H3's picture + (1 - m) * beneath`, H3's picture unmixed from the saved piece. Measure the ghost on one
