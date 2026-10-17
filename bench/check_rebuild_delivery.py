@@ -805,6 +805,80 @@ def stops_at_first_refusal_and_names_the_step() -> str:
             and "now lay it by 'matte'" in out_matte_added
         ), f"expected gap_check CLI refusal when a matte is added to a piece's region file, got {out_matte_added!r}"
 
+        # 6) When data/<video>/poc/ exists, pages checks ON DISK that poc/index.html, poc/who/index.html and every local file/folder they fetch exist (C61 item 2c)
+        poc = fx["vdir"] / "poc"
+        (poc / "who" / "tiles").mkdir(parents=True, exist_ok=True)
+        (poc / "tiles").mkdir(parents=True, exist_ok=True)
+        (poc / "plain").mkdir(parents=True, exist_ok=True)
+        (poc / "tiles" / "t0.jpg").write_bytes(b"jpg")
+        (poc / "plain" / "p0.jpg").write_bytes(b"jpg")
+        (poc / "who" / "tiles" / "wt0.jpg").write_bytes(b"jpg")
+        (poc / "shot_rows.json").write_text(json.dumps({"rows": [{"pictures": [{"tile": "tiles/t0.jpg", "plain": "plain/p0.jpg"}]}]}))
+        (poc / "index.html").write_text("<script>get('shot_rows.json'); fetch('/api/answers');</script>")
+        (poc / "who" / "index.html").write_text('<img src="tiles/wt0.jpg"><script>fetch("/api/answer");</script>')
+        rd.verify_poc_on_disk(fx["vdir"])
+
+        # Missing tile file referenced by shot_rows.json refuses at pages
+        (poc / "tiles" / "t0.jpg").unlink()
+        try:
+            rd.verify_poc_on_disk(fx["vdir"])
+        except rd.Refused as e:
+            assert e.step == "pages" and "poc/tiles/t0.jpg" in str(e), f"expected pages refusal naming poc/tiles/t0.jpg, got {e}"
+        else:
+            raise AssertionError("expected verify_poc_on_disk to refuse when poc/tiles/t0.jpg is missing")
+
+        # Missing folder poc/tiles refuses at pages naming the folder
+        (poc / "tiles").rmdir()
+        try:
+            rd.verify_poc_on_disk(fx["vdir"])
+        except rd.Refused as e:
+            assert e.step == "pages" and "folder poc/tiles" in str(e), f"expected pages refusal naming folder poc/tiles, got {e}"
+        else:
+            raise AssertionError("expected verify_poc_on_disk to refuse when folder poc/tiles is missing")
+        (poc / "tiles").mkdir(parents=True, exist_ok=True)
+        (poc / "tiles" / "t0.jpg").write_bytes(b"jpg")
+
+        # Missing who/tiles/wt0.jpg referenced in poc/who/index.html refuses at pages
+        (poc / "who" / "tiles" / "wt0.jpg").unlink()
+        try:
+            rd.verify_poc_on_disk(fx["vdir"])
+        except rd.Refused as e:
+            assert e.step == "pages" and "poc/who/tiles/wt0.jpg" in str(e), f"expected pages refusal naming poc/who/tiles/wt0.jpg, got {e}"
+        else:
+            raise AssertionError("expected verify_poc_on_disk to refuse when poc/who/tiles/wt0.jpg is missing")
+
+        # Missing poc/who/index.html refuses at pages (both directly and through rebuild_delivery's pages step)
+        (poc / "who" / "index.html").unlink()
+        try:
+            rd.verify_poc_on_disk(fx["vdir"])
+        except rd.Refused as e:
+            assert e.step == "pages" and "poc/who/index.html" in str(e), f"expected pages refusal naming poc/who/index.html, got {e}"
+        else:
+            raise AssertionError("expected verify_poc_on_disk to refuse when poc/who/index.html is missing")
+
+        def ok_runner(step_name: str, cmd: list[str], log_path: Path, cwd: Path, env: dict[str, str]) -> tuple[int, str]:
+            make_dummy_outputs(step_name, cmd)
+            return 0, f"{step_name} ok\n"
+
+        ns_poc = rd.build_parser().parse_args([
+            "--video", video,
+            "--clip",
+            "--share", str(fx["share"]),
+            "--inputs", str(fx["inputs"]),
+            "--data", str(fx["data"]),
+            "--out-dir", str(fx["root"] / "out_fail_poc"),
+            "--day", day,
+            "--stamp", stamp,
+        ])
+        try:
+            rd.rebuild(ns_poc, repo=REPO, runner=ok_runner)
+        except rd.Refused as e:
+            assert e.step == "pages" and "poc/who/index.html" in str(e), (
+                f"expected rebuild_delivery pages step to refuse naming poc/who/index.html, got {e}"
+            )
+        else:
+            raise AssertionError("expected rebuild_delivery pages step to call verify_poc_on_disk and refuse missing poc/who/index.html")
+
     return "every step refusal stops the chain immediately, names the step, leaves later steps unrun, and prints no traceback"
 
 

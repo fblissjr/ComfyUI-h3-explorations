@@ -426,6 +426,60 @@ def verify_reused_clip(clip_out: Path, check_json: Path, T: dict, t_json: Path, 
         )
 
 
+def verify_poc_on_disk(vdir: Path) -> None:
+    """When `data/<video>/poc/` exists, verify on disk that `poc/index.html`, `poc/who/index.html`, and every local
+    file and folder they fetch or reference exist (`C61` item 2c). No live HTTP is used."""
+    poc = vdir / "poc"
+    if not poc.is_dir():
+        return
+    for rel in ("index.html", "who/index.html"):
+        p = poc / rel
+        if not p.is_file():
+            raise Refused("pages", f"poc page is not there on disk: poc/{rel}")
+    for rel in ("index.html", "who/index.html"):
+        page = poc / rel
+        base = page.parent
+        txt = page.read_text(errors="replace")
+        fetches = re.findall(r"\b(?:fetch|get)\(\s*[\"\x27]([^\"\x27]+)[\"\x27]", txt)
+        media_srcs = re.findall(r"<(?:img|video|source|script)\b[^>]*?\bsrc=\"([^\"]+)\"", txt)
+        if any(u.startswith("/api/answer") for u in fetches):
+            if not (poc / "answers.jsonl").is_file() and not (vdir / "owner_answers.jsonl").is_file():
+                raise Refused("pages", f"poc/{rel} fetches /api/answers, but neither poc/answers.jsonl nor owner_answers.jsonl is on disk")
+        for u in sorted(set(fetches + media_srcs)):
+            u_clean = u.split("?", 1)[0].split("#", 1)[0].strip()
+            if not u_clean or "://" in u_clean or u_clean.startswith(("/api/", "data:", "blob:")):
+                continue
+            target = base / u_clean
+            rel_parent = target.parent.relative_to(poc) if target.parent.is_relative_to(poc) else target.parent
+            rel_target = target.relative_to(poc) if target.is_relative_to(poc) else target
+            if not target.parent.is_dir():
+                raise Refused("pages", f"poc/{rel} references folder poc/{rel_parent}, which is not on disk")
+            if not target.is_file():
+                raise Refused("pages", f"poc/{rel} fetches or loads poc/{rel_target}, which is not on disk")
+            if target.suffix == ".json":
+                try:
+                    doc = json.loads(target.read_text())
+                except ValueError as e:
+                    raise Refused("pages", f"poc/{rel_target} is not valid JSON: {e}") from None
+                if isinstance(doc, dict):
+                    pics = list(doc.get("pictures") or [])
+                    for r in (doc.get("rows") or []):
+                        if isinstance(r, dict):
+                            pics.extend(r.get("pictures") or [])
+                    for pic in pics:
+                        if isinstance(pic, dict):
+                            for k in ("tile", "plain"):
+                                val = pic.get(k)
+                                if isinstance(val, str) and val:
+                                    pt = base / val
+                                    rel_pt_dir = pt.parent.relative_to(poc) if pt.parent.is_relative_to(poc) else pt.parent
+                                    rel_pt = pt.relative_to(poc) if pt.is_relative_to(poc) else pt
+                                    if not pt.parent.is_dir():
+                                        raise Refused("pages", f"poc/{rel_target} references folder poc/{rel_pt_dir}, which is not on disk")
+                                    if not pt.is_file():
+                                        raise Refused("pages", f"poc/{rel_target} references poc/{rel_pt}, which is not on disk")
+
+
 def snapshot_owner_answers(data_dir: Path, video: str, stamp: str) -> dict:
     """Copy `data/<video>/owner_answers.jsonl` to `data/<video>/owner_answers_snapshots/owner_answers_<stamp>.jsonl` with mode `0444`."""
     src = data_dir / video / "owner_answers.jsonl"
@@ -778,6 +832,7 @@ def rebuild(
 
         if not to_review_html.is_file() or not provenance_html.is_file():
             raise Refused("pages", f"review_pages.py did not write {to_review_html.name} and {provenance_html.name}")
+        verify_poc_on_disk(vdir)
         steps_run.append("pages")
         logs["covered_items"] = rel_or_name(cov_items_log, repo, share)
         logs["to_review"] = rel_or_name(to_review_log, repo, share)

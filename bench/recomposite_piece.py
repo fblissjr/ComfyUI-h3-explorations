@@ -387,6 +387,16 @@ def save_own_matte(a: argparse.Namespace, decode=None) -> dict:
                           "outside_matte_mean_levels": round(outside_mean, 3), "outside_matte_p99_levels": round(outside_p99, 3),
                           "outside_matte_worst_levels": round(outside_worst, 3), "outside_matte_max_levels": round(outside_worst, 3),
                           "overall_mean_levels": round(whole_mean, 3)}))
+    sys.path.insert(0, str(HERE))
+    import assemble_delivery as ad
+    before_lb = ad.laid_by_of(str(render))
+    rule_before = str(before_lb.get("rule") or "changed")
+    gaps_before = list(before_lb.get("windows_without_a_matte") or [])
+    rule_after = "matte"
+    print(f"{render.name}: laid_by {rule_before} -> {rule_after}")
+    if (rule_before != rule_after or gaps_before) and not getattr(a, "allow_rule_change", False):
+        raise SystemExit(f"{render.name}: --save-own-matte changes laid_by from {rule_before!r} to {rule_after!r}; "
+                         "pass --allow-rule-change to write the region file(s)")
     for (n, latent, region_path, before_sha, region, tokens, own_settings, zoom, first, trim, written, piece_first,
          alpha, matte, outside_levels, held, decoded, lines, control) in to_write:
         vm.save_window_region(str(region_path), region["mask"], tokens,
@@ -398,10 +408,12 @@ def save_own_matte(a: argparse.Namespace, decode=None) -> dict:
                      "piece_first": piece_first, "written": int(written), "decode": decoded, "source_frames_held": int(held),
                      "outside_the_region_before_encoding_levels_most": None if outside_levels is None else round(outside_levels, 3),
                      "composite": own_settings.get("composite"), "keep_outs": bool(source.get("keep_outs")), "lines": lines, "control": control})
+    after_lb = ad.laid_by_of(str(render))
+    rule_after = str(after_lb.get("rule") or "matte")
     command = [sys.executable, *sys.argv] if a.command is None else a.command
     record = {"what": "a render's own matte and kept mask reconstructed from its stored window latents and regions, verified against the render itself",
               "render": str(render), "render_sha256": sha256(render), "composite": source.get("composite"),
-              "keep_outs": bool(source.get("keep_outs")), "crf": crf,
+              "keep_outs": bool(source.get("keep_outs")), "laid_by_before": rule_before, "laid_by_after": rule_after, "crf": crf,
               "windows": rows, "source": source, "source_offset_fit": fit,
               "vae": {"file": vae, "path": str(vae_path) if vae_path else None,
                       "sha256": sha256(Path(vae_path)) if vae_path and Path(vae_path).is_file() else None},
@@ -566,6 +578,8 @@ def main(argv=None) -> int:
     p.add_argument("--set", action="append", default=[], metavar="KEY=VALUE", help="a composite setting changed, as recomposite_window takes it")
     p.add_argument("--save-own-matte", action="store_true",
                    help="reconstruct and save each window's matte and kept mask into its _region.npz under the render's own composite, verified against the render")
+    p.add_argument("--allow-rule-change", action="store_true",
+                   help="allow --save-own-matte to change the piece's laid_by rule (e.g. changed or region -> matte)")
     p.add_argument("--name", help="the new piece's name (its folder, and <name>_00001.mp4)")
     p.add_argument("--out-dir", help="the folder the new piece's folder is made in")
     p.add_argument("--by", required=True, help="who made it")
@@ -579,7 +593,7 @@ def main(argv=None) -> int:
     except ValueError as exc:
         raise SystemExit(str(exc)) from None
     if a.save_own_matte:
-        out = {k: record[k] for k in ("render", "render_sha256", "composite", "crf", "frames")}
+        out = {k: record[k] for k in ("render", "render_sha256", "composite", "laid_by_before", "laid_by_after", "crf", "frames")}
         out["windows"] = [{"window": w["window"], "control": w["control"]} for w in record["windows"]]
     else:
         out = {k: record[k] for k in ("render", "render_sha256", "set", "crf", "frames")}

@@ -209,8 +209,8 @@ def make_zoomed(name: str, gap: int = 0) -> dict:
 
 def args(made: dict, name: str, **more) -> argparse.Namespace:
     base = dict(render=str(made["render"]), source=None, source_first=None, set=["composite=" + vm.COMPOSITE_REGION],
-                save_own_matte=False, name=name, out_dir=str(WORK / "out"), by="a check", vae=None, device="cpu", crf=None,
-                command=["recomposite_piece.py", "--check"])
+                save_own_matte=False, allow_rule_change=False, name=name, out_dir=str(WORK / "out"), by="a check",
+                vae=None, device="cpu", crf=None, command=["recomposite_piece.py", "--check"])
     return argparse.Namespace(**{**base, **more})
 
 
@@ -456,14 +456,29 @@ def two_windows_zoomed() -> str:
 
 
 def own_matte_reconstructed() -> str:
+    import contextlib
+    import io
     own = make_plain("own_plain")
     zown = make_zoomed("own_zoomed")
     # Before reconstruction, neither render's windows hold a saved matte
     assert ad.laid_by_of(str(own["render"]))["rule"] != "matte" and ad.laid_by_of(str(zown["render"]))["rule"] != "matte", (
         "fixture renders must not hold a saved matte before --save-own-matte"
     )
-    must_run(args(own, "", save_own_matte=True, set=[]), decode=handed(own))
-    zrec = must_run(args(zown, "", save_own_matte=True, set=[]), decode=handed(zown))
+    own_reg_path = own["render"].parent / "r_windows" / "r_window_1_region.npz"
+    own_reg_before = own_reg_path.read_bytes()
+    # THE CASE THAT GOES RED when --save-own-matte changes a piece's laid_by rule without --allow-rule-change (C61 item 2b)
+    refused(lambda: rp.run(args(own, "", save_own_matte=True, allow_rule_change=False, set=[]), decode=handed(own)),
+            "changes laid_by from 'changed' to 'matte'", "--allow-rule-change")
+    assert own_reg_path.read_bytes() == own_reg_before and not (own["render"].parent / "r_00001.matte_reconstructed.json").exists(), (
+        "refused rule change must leave _region.npz untouched and write no .matte_reconstructed.json"
+    )
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        must_run(args(own, "", save_own_matte=True, allow_rule_change=True, set=[]), decode=handed(own))
+    assert "r_00001.mp4: laid_by changed -> matte" in buf.getvalue(), (
+        f"--save-own-matte must print laid_by before -> after: {buf.getvalue()!r}"
+    )
+    zrec = must_run(args(zown, "", save_own_matte=True, allow_rule_change=True, set=[]), decode=handed(zown))
     # THE CASE THAT GOES RED when --save-own-matte does not write matte, kept and piece so assemble_delivery.Matte lays the render by them
     for m, n_frames in ((own, FRAMES), (zown, zown["frames"])):
         said = ad.laid_by_of(str(m["render"]))
@@ -471,7 +486,7 @@ def own_matte_reconstructed() -> str:
         assert said["rule"] == "matte" and not matte.gaps and all(matte.at(k) is not None for k in range(n_frames)), (
             f"after --save-own-matte, render must be laid by matte with no gaps: {(said, matte.gaps)}"
         )
-    reg1 = vm.load_window_region(str(own["render"].parent / "r_windows" / "r_window_1_region.npz"))
+    reg1 = vm.load_window_region(str(own_reg_path))
     assert reg1.get("kept") is not None and reg1.get("matte") is not None, (
         f"after --save-own-matte, region file must hold kept and matte: {list(reg1)}"
     )
@@ -481,12 +496,20 @@ def own_matte_reconstructed() -> str:
     w0 = saved["windows"][0]
     c0 = w0["control"]
     assert (saved["render_sha256"] == sha(own["render"]) and saved["vae"]["sha256"] == sha(WORK / "the_render_vae.safetensors")
+            and saved.get("laid_by_before") == "changed" and saved.get("laid_by_after") == "matte"
             and saved["crf"] == 12 and w0["region_sha256_before"] != w0["region_sha256_after"]
             and 0.0 < c0["inside_matte_mean_levels"] <= rp.OWN_MATTE_TOLERANCE
             and 0.0 < c0["outside_matte_mean_levels"] <= rp.OWN_MATTE_TOLERANCE
             and c0["inside_matte_mean_levels"] < c0["inside_matte_p99_levels"] <= c0["inside_matte_worst_levels"]
             and c0["outside_matte_mean_levels"] < c0["outside_matte_p99_levels"] <= c0["outside_matte_worst_levels"]), (
-        f"reconstructed record must hold sha256s, crf=12, and 0 < mean < p99 <= worst inside/outside: {c0}"
+        f"reconstructed record must hold sha256s, laid_by_before/after, crf=12, and 0 < mean < p99 <= worst inside/outside: {saved}"
+    )
+    # Re-running --save-own-matte when laid_by is already 'matte' -> 'matte' succeeds without --allow-rule-change
+    buf_same = io.StringIO()
+    with contextlib.redirect_stdout(buf_same):
+        same_rec = must_run(args(own, "", save_own_matte=True, allow_rule_change=False, set=[]), decode=handed(own))
+    assert "r_00001.mp4: laid_by matte -> matte" in buf_same.getvalue() and same_rec["laid_by_before"] == "matte" and same_rec["laid_by_after"] == "matte", (
+        f"re-running --save-own-matte when already matte must succeed without --allow-rule-change: {buf_same.getvalue()!r}"
     )
     assert len(zrec["windows"]) == 2 and all(
         0.0 < w["control"]["inside_matte_mean_levels"] <= rp.OWN_MATTE_TOLERANCE
@@ -510,13 +533,13 @@ def own_matte_reconstructed() -> str:
     vm.save_window_region(str(no_ko_reg), no_ko_mask, carved_tokens, {**settings(), "composite": vm.COMPOSITE_REGION}, MARGIN, 0, 0)
     graph_png(no_ko["render"], LEAD, 0, composite=vm.COMPOSITE_CHANGED, keep_outs=True)
     carved_bytes = no_ko_reg.read_bytes()
-    refused(lambda: rp.run(args(no_ko, "", save_own_matte=True, set=[]), decode=handed(no_ko)),
+    refused(lambda: rp.run(args(no_ko, "", save_own_matte=True, allow_rule_change=True, set=[]), decode=handed(no_ko)),
             "own-composite control disagrees", "not modified")
     assert no_ko_reg.read_bytes() == carved_bytes and not (no_ko["render"].parent / "r_00001.matte_reconstructed.json").exists(), (
         "refused carve must leave _region.npz untouched and write no .matte_reconstructed.json"
     )
     graph_png(no_ko["render"], LEAD, 0, composite=vm.COMPOSITE_CHANGED, keep_outs=False)
-    no_ko_rec = must_run(args(no_ko, "", save_own_matte=True, set=[]), decode=handed(no_ko))
+    no_ko_rec = must_run(args(no_ko, "", save_own_matte=True, allow_rule_change=True, set=[]), decode=handed(no_ko))
     reloaded = vm.load_window_region(str(no_ko_reg))
     assert (no_ko_rec["keep_outs"] is False
             and 0.0 < no_ko_rec["windows"][0]["control"]["inside_matte_mean_levels"] <= rp.OWN_MATTE_TOLERANCE
@@ -529,14 +552,14 @@ def own_matte_reconstructed() -> str:
     bad_reg = bad["render"].parent / "r_windows" / "r_window_1_region.npz"
     before_bytes = bad_reg.read_bytes()
     wrong_decode = {"r_window_1": bad["pixels"].clone()}            # differs inside the matte from the 0.95 subject in bad["render"]
-    refused(lambda: rp.run(args(bad, "", save_own_matte=True, set=[]), decode=lambda _p, _v, _d: wrong_decode["r_window_1"]),
+    refused(lambda: rp.run(args(bad, "", save_own_matte=True, allow_rule_change=True, set=[]), decode=lambda _p, _v, _d: wrong_decode["r_window_1"]),
             "own-composite control disagrees", "not modified")
     assert bad_reg.read_bytes() == before_bytes and not (bad["render"].parent / "r_00001.matte_reconstructed.json").exists(), (
         "disagreeing control must leave _region.npz untouched and write no .matte_reconstructed.json"
     )
-    return ("plain and zoomed renders gain matte, kept and piece with mean, p99 and worst levels inside and outside; "
-            "a graph with no keep-outs reproduces its piece and the same render with today's carve is refused; "
-            "a disagreeing control refuses without touching _region.npz")
+    return ("plain and zoomed renders gain matte, kept and piece with laid_by before -> after printed and recorded, "
+            "a rule change without --allow-rule-change is refused, a graph with no keep-outs reproduces its piece and "
+            "the same render with today's carve is refused, and a disagreeing control refuses without touching _region.npz")
 
 
 def what_it_refuses() -> str:

@@ -8,7 +8,7 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 150 |
+| [`check_*`](#check) | 152 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
@@ -40,6 +40,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_clip_folder.py`](check_clip_folder.py) | Check the analysis folder's shared rules: which folder is a video's, and whether it still is. |
 | [`check_clip_signals.py`](check_clip_signals.py) | `bench/clip_signals.py` on made sound: each case is a way a phrase edge, a beat or an offset could be a frame out, or a poor fit could read as a good one. |
 | [`check_clone_v_wiring.py`](check_clone_v_wiring.py) | Check that `clone_v` reaches the forward, and only on modes that earn it. |
+| [`check_commit_ready.py`](check_commit_ready.py) | Pre-commit readiness check for explicit commit pathspecs (`C61` item 2d). |
 | [`check_conditioning_behaviour.py`](check_conditioning_behaviour.py) | Does `MiniMaxH3Conditioning` still do the things it exists to do? |
 | [`check_contact_sheets.py`](check_contact_sheets.py) | `bench/contact_sheets.py` against a clip made for the purpose: the folder, the names, the tiles, and no second set. |
 | [`check_copy_sound.py`](check_copy_sound.py) | A copy's sound against its source's (`bench/copy_sound.py`) on made sound whose answer is known. |
@@ -67,6 +68,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_graph_values.py`](check_graph_values.py) | A static reader must follow a linked widget, or it goes red on a good graph. |
 | [`check_h3_encoder_loader.py`](check_h3_encoder_loader.py) | Prove the guarded H3 encoder loader guards what it claims to. |
 | [`check_head_reference.py`](check_head_reference.py) | `bench/head_reference.py` against a face whose every line is known by construction, read from the files it wrote. |
+| [`check_imports.py`](check_imports.py) | Static AST check over tracked root `*.py` and `bench/*.py` (`C61` item 2a). |
 | [`check_keyframe_canvas.py`](check_keyframe_canvas.py) | Keyframe geometry: does the canvas we hand H3 avoid distorting the keyframe? |
 | [`check_length_ceiling.py`](check_length_ceiling.py) | The longest length anything renders or plans is `h3_rules.MAX_LENGTH`, and no shorter count comes back as a cap. |
 | [`check_literal_widgets.py`](check_literal_widgets.py) | A numeric widget must mean the quantity it names, not a mode. |
