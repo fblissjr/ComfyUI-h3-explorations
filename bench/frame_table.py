@@ -68,20 +68,30 @@ CLOSED_DID_VOCAB = frozenset({
     "filled",
     "filled where nothing was labelled",
     "filled on a person's word",
+    "held by the floor rule",
     "saved part kept, fill refused",
     "emptied",
     "left empty: the word not held",
+    "left empty: hold missed her track: the nearest standing part, moved, lies mostly off her track, so nothing is placed (data, which the gap check shows)",
+    "emptied: hold missed her track: the nearest standing part, moved, lies mostly off her track, so nothing is placed (data, which the gap check shows)",
+    "emptied: no standing part in the load to hold it from",
 })
 #: Subset of `CLOSED_DID_VOCAB` that produces `outcome == "held"`.
 HELD_DIDS = frozenset({
     "filled",
     "filled where nothing was labelled",
     "filled on a person's word",
+    # the floor holds (build (B), bench/capture_masked_run.py grade_holds, 2026-10-16)
+    "held by the floor rule",
 })
 #: Subset of `CLOSED_DID_VOCAB` that produces `outcome == "emptied"`.
 EMPTIED_DIDS = frozenset({
     "emptied",
     "left empty: the word not held",
+    # a hold whose shape lies mostly off her track, and a fragment with nothing standing to hold it from (build (B), 2026-10-16)
+    "left empty: hold missed her track: the nearest standing part, moved, lies mostly off her track, so nothing is placed (data, which the gap check shows)",
+    "emptied: hold missed her track: the nearest standing part, moved, lies mostly off her track, so nothing is placed (data, which the gap check shows)",
+    "emptied: no standing part in the load to hold it from",
 })
 #: Set-bit lookup table per byte (0..255), used to count packed bool mask pixels in `masks__<by>.npz` without unpacking.
 #: Inherited from `bench/frame_coverage.py::POP`.
@@ -902,6 +912,10 @@ def build_frame_table(
                     part_px_measures = f"not in the record (did={did!r} in part_grades.json writes no held fill px)"
                 if g.get("px_on_the_track") is not None:
                     outcome_extra["px_on_the_track"] = int(g["px_on_the_track"])
+                if g.get("source_px") is not None:
+                    outcome_extra["source_px"] = int(g["source_px"])
+                if g.get("face_points_inside") is not None:
+                    outcome_extra["face_points_inside"] = g["face_points_inside"]
                 outcome_extra["did"] = did
             elif did == "saved part kept, fill refused":
                 outcome = "replaced"
@@ -912,8 +926,8 @@ def build_frame_table(
             elif did in EMPTIED_DIDS:
                 outcome = "emptied"
                 loaded_part_px = 0
-                # Only "least_px" in the per-frame entry marks the post-grade floor pass (never bridged part_sizes)
-                is_floor = "least_px" in g
+                # Only "least_px" or "collapsed_against_px" in the per-frame entry marks the post-grade floor pass (never bridged part_sizes)
+                is_floor = "least_px" in g or "collapsed_against_px" in g
                 if is_floor:
                     outcome_extra["cause"] = "floor"
                 elif g.get("saved_on_its_classes") is None and (saved_part_px or 0) == 0:

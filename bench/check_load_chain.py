@@ -296,6 +296,32 @@ def a_masks_at_is_the_previews_first_frame() -> str:
         del made.job["whole_frame"]
         made.write()
         assert "zoom=" not in lc.mask_specs(made.ctx(), files)[1]
+        # THE FLOOR HOLDS, NEVER WHERE NO FACE SHOWS (build (B)): the job's --no-face-on spans reach the load's own subject's capture, and
+        # no other subject's
+        made.job["reference"] = {"no_face_on": [{"first": 112, "last": 114, "why": "w"}, {"first": 120, "last": 120, "why": "w"}]}
+        made.write()
+        others_, mine_ = lc.mask_specs(made.ctx(), files)[:2]
+        # THE CASE THAT GOES RED when the capture is not told where no face shows, and would hold her part there
+        assert mine_.endswith(",noface=112-114+120-120") and "noface" not in others_, (others_, mine_)
+        # WHAT LIES OFF HER HEAD (D22 item 5.3 & 6.2): the reference's face points reach the load's subject with OFF_HEAD_MARGIN (16),
+        # independent of the load's region margin, and a missing points file is refused
+        pts_file = Path(tmp) / "ref_points.npz"
+        made.job["reference"] = {"points": str(pts_file)}
+        made.write()
+        refused(lambda: lc.mask_specs(made.ctx(), files), "names its face points", "not a file")
+        pts_file.write_bytes(b"")
+        others_, mine_ = lc.mask_specs(made.ctx(), files)[:2]
+        assert mine_.endswith(f",points={pts_file},points_margin=16") and "points=" not in others_, (others_, mine_)
+        made.load["margin"] = 48
+        made.write()
+        assert lc.mask_specs(made.ctx(), files)[1].endswith(f",points={pts_file},points_margin=16"), "changing the load's region margin changed off_head's points_margin"
+        made.job["subjects"][1]["off_head_margin"] = 24
+        made.write()
+        assert lc.mask_specs(made.ctx(), files)[1].endswith(f",points={pts_file},points_margin=24"), lc.mask_specs(made.ctx(), files)[1]
+        del made.job["subjects"][1]["off_head_margin"]
+        del made.load["margin"]
+        del made.job["reference"]
+        made.write()
         # A LOAD'S OWN PART (`parts_file` on its subject): the capture is handed that file as the part, and no other subject's mask changes;
         # a file that is not there is refused; a job that names none is handed the preview's saved part, as ever
         usual = lc.mask_specs(made.ctx(), files)
@@ -754,7 +780,28 @@ def the_table_step() -> str:
         (folder / "ld.render.json").write_text("{}")
         refused(lambda: lc.step_table(made.ctx(), m, args()), "render", "already")
         (folder / "ld.render.json").unlink()
-    return "table records frame_table_sha256 in plan.built.json and is refused once a render go or render graph exists"
+        # D22 item 1: step_table running real frame_table.build_frame_table on a floor-held capture ("held by the floor rule")
+        import check_frame_table
+        import frame_table
+        with tempfile.TemporaryDirectory() as ft_tmp:
+            ft_root = Path(ft_tmp)
+            ft_cap, ft_subj, ft_job = check_frame_table._make_synthetic_tree(ft_root)
+            pg = json.loads((ft_subj / "part_grades.json").read_text())
+            pg["frames"][1] = {
+                "source_frame": 102,
+                "did": "held by the floor rule",
+                "why": "too small to be drawn as the part",
+                "least_px": 480,
+                "from_frames": [0],
+                "from_source_frames": [101],
+                "source_px": 2400,
+                "px": 2350,
+                "px_on_the_track": 2100,
+            }
+            (ft_subj / "part_grades.json").write_text(json.dumps(pg))
+            m.on["frame table"] = lambda: (frame_table.build_frame_table(ft_cap), shutil.copy2(ft_cap / "frame_table.jsonl", cap / "frame_table.jsonl"), made.write_frame_table(cap))
+            lc.step_table(made.ctx(), m, args())
+    return "table records frame_table_sha256 in plan.built.json, runs frame_table on a floor-held capture, and is refused once a render go or render graph exists"
 
 
 def the_look_and_the_gate() -> str:

@@ -140,6 +140,10 @@ HOST = "127.0.0.1:8188"
 MODEL_STORE = "H3_MODEL_STORE"
 #: A subject's keys in the job file that are options of its `--mask` in a capture; only what the job says is passed.
 MASK_OPTIONS = ("pieces", "least", "hold", "drop", "grade", "word")
+#: Default canvas-pixel margin for `capture_masked_run.off_head` (`points_margin=`). **Inherited**: one H3 latent cell on the
+#: canvas (16 px, matching `capture_masked_run.CELL`), named apart from the load's region `margin` so widening a load's region does
+#: not widen the off-head head box or chain reach (D22 item 6.2).
+OFF_HEAD_MARGIN = 16
 #: Where one video's review clips and review list live. Today's practice, in this one place (the Open List's row
 #: z21 may change the folders; then here). `{video}` is the analysis folder's name.
 REVIEW_CLIPS = "Video/{video}/review_clips"            # under the server's output folder
@@ -362,6 +366,19 @@ def mask_specs(ctx: dict, files: dict, band: Path | None = None, hashed=None) ->
         for key in MASK_OPTIONS:              # only what the job says: no default of `pieces=largest`
             if key in keys:
                 spec += f",{key}={keys[key]}"
+        # THE FLOOR HOLDS, NEVER WHERE NO FACE SHOWS (build (B), the lead's ruling of 2026-10-16): the job's --no-face-on spans, a person's look,
+        # so the capture holds no part there (`capture_masked_run.grade_holds`, `noface`)
+        faceless = [f"{s['first']}-{s['last']}" for s in ((ctx.get("job") or {}).get("reference") or {}).get("no_face_on") or []] if label == ctx["subject"] else []
+        if faceless:
+            spec += ",noface=" + "+".join(faceless)
+        # WHAT LIES OFF HER HEAD (`capture_masked_run.off_head`): the reference step's face points, and `off_head_margin` (default `OFF_HEAD_MARGIN`)
+        ref_cfg = (ctx.get("job") or {}).get("reference") or {}
+        points = ref_cfg.get("points") if label == ctx["subject"] else None
+        if points:
+            if not Path(points).is_file():
+                raise Refused(f"the job's reference names its face points at {points}, which is not a file: run the reference step")
+            pts_margin = int(keys.get("off_head_margin", ref_cfg.get("off_head_margin", OFF_HEAD_MARGIN)))
+            spec += f",points={points},points_margin={pts_margin}"
         if (ctx.get("job") or {}).get("whole_frame"):     # the capture's starting floor is held to the zoom; a whole-frame load is not zoomed
             spec += ",zoom=off"
         out.append(spec)

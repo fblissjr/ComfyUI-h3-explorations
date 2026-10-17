@@ -636,10 +636,10 @@ def pieces_lines(label: str, taken: dict) -> list[str]:
 
 
 def part_sizes(parts: np.ndarray, first: int, least_px: int, set_by: str, emptied: list[int] | None = None,
-               not_applied: str = "") -> dict:
+               not_applied: str = "", after_off_head: bool = False) -> dict:
     """The size of a subject's part on each frame of the span, and where the floor falls among them.
 
-    Measured on the saved part (`parts__<by>.mkv`, before any fill), in pixels of the capture's own canvas, over
+    Measured on the saved part (`parts__<by>.mkv`, before any fill; after `off_head` when `points=` is given), in pixels of the capture's own canvas, over
     the frames that have a part: the least, the most and five percentiles; how many of those frames are under
     the floor and which source frames; and how many are under a quarter, a half and twice the STARTING value,
     so a reader can see whether the small frames sit apart from the rest or run into them. `emptied` is the
@@ -650,7 +650,10 @@ def part_sizes(parts: np.ndarray, first: int, least_px: int, set_by: str, emptie
     has = px > 0
     under = np.nonzero(has & (px < least_px))[0]
     levels = sorted({PART_LEAST_PX // 4, PART_LEAST_PX // 2, PART_LEAST_PX, PART_LEAST_PX * 2} | ({int(least_px)} if least_px else set()))
-    return {"measured_on": "the saved part, before any fill, in pixels of the capture's canvas, on the frames that have a part",
+    measured = ("the saved part after off_head pruning, before any fill, in pixels of the capture's canvas, on the frames that have a part"
+                if after_off_head else
+                "the saved part, before any fill, in pixels of the capture's canvas, on the frames that have a part")
+    return {"measured_on": measured,
             "frames": int(len(px)), "frames_with_a_part": int(has.sum()),
             "px": {name: int(np.percentile(px[has], q)) for name, q in (("least", 0), ("p10", 10), ("p25", 25), ("median", 50),
                                                                         ("p75", 75), ("p90", 90), ("most", 100))} if has.any() else None,
@@ -696,13 +699,29 @@ SHORT_FILL = 2
 #: What a frame named by a person's word (`word=`) and left empty says when there is nothing to hold it from.
 WORD_NOT_HELD = ("a person's word asks the part held here, and there is nothing to hold it from: no frame of the load has a part, the "
                  "subject has no track on this frame, or the nearest part, moved, lies wholly off the subject's track. It stays empty")
+#: THE FLOOR HOLDS (build (B), the lead's ruling of 2026-10-16): a tracked person's part under the floor, or collapsed against its
+#: neighbours, is held from the nearest frame whose part stands, not emptied. A held shape must lie on her track itself by at least this
+#: share of its pixels, else nothing is placed and the frame says "hold missed her track". **Measured** starting value on lead_fp_0613c's
+#: word holds (2026-10-16): 629's held shape lay wholly in the margin band round her track (0.0 on the track itself) and was placed as a
+#: patch on the cabinet; every other hold there lay 0.348 (625) to 1.0 on it.
+HOLD_ON_TRACK_LEAST = 0.25
+#: A part this share or less of the largest part within two frames either side is a fragment, held like one under the floor, and is
+#: never the frame a hold comes from. **Measured** starting value on lead_fp_0613f's saved part (2026-10-16): the median frame is 0.949
+#: of that neighbour, p5 0.131; 805's 928 px beside 806's 8008 (0.116) was a passing frame held from as her face (Gemini's read, the lead's
+#: guardrail B).
+COLLAPSE_SHARE = 0.15
+COLLAPSE_REACH = 2
+HOLD_MISSED = "hold missed her track: the nearest standing part, moved, lies mostly off her track, so nothing is placed (data, which the gap check shows)"
 
 
 def grade_given(m: dict, what: dict, every: np.ndarray, first: int, frames: int, track: np.ndarray) -> dict:
     """What `grade_holds` is given beside the part, from a mask's options and `under_doubted`'s reading: the frames where nothing was
     labelled (`lost`) with the neighbours' shape (`lost_fill`), and the frames a person's word names (`word`) with the subject's track."""
     return {"lost": {f for f, v in what.items() if v["mostly"] == "nothing labelled"}, "lost_fill": every,
-            "word": word_frames(m.get("word"), first, frames), "track": track}
+            "word": word_frames(m.get("word"), first, frames), "track": track, "noface": word_frames(m.get("noface"), first, frames),
+            # drop= as the files step has always read it, clipped to the capture's frames
+            "drop": {f - first for span in str(m.get("drop") or "").split("+") if span for lo, hi in [[int(x) for x in (span.split("-") * 2)[:2]]]
+                     for f in range(max(lo, first), min(hi, first + frames - 1) + 1)}}
 
 
 def word_refused(label: str, m: dict, has_parts: bool, covered: bool = True) -> None:
@@ -745,9 +764,40 @@ def word_frames(spans: str | None, first: int, frames: int) -> set[int]:
     return out
 
 
+def held_face_points(mask: np.ndarray, points: str, first: int) -> dict[int, dict[str, int] | None]:
+    """For each frame k of `mask` [n, h, w], how many of the reference's scored face points (`face_points.face_ids`
+    over `FACE_POINT_LINE_FROM`) lie inside `mask[k]`: `{"inside": in_p, "of": total_scored}` (or `None` when the
+    frame is outside the points file). Data for the gate and the frame table (D22 item 3)."""
+    sys.path.insert(0, str(REPO / "workflows"))
+    import h3_config  # noqa: E402
+    from _lib import face_points as fp
+    line_score = getattr(h3_config, FACE_POINT_LINE_FROM[0])[FACE_POINT_LINE_FROM[1]]
+    z = np.load(points)
+    names = [str(x) for x in z["names"]]
+    idx = {n: i for i, n in enumerate(names)}
+    fids, at = fp.face_ids(idx), int(z["first_frame"])
+    h, w = mask.shape[1], mask.shape[2]
+    out: dict[int, dict[str, int] | None] = {}
+    for k in range(len(mask)):
+        j = first + k - at
+        if not 0 <= j < len(z["keypoints"]):
+            out[k] = None
+            continue
+        pts, sc = z["keypoints"][j], z["scores"][j]
+        face = pts[fids][sc[fids] > line_score]
+        q = np.round(face).astype(int)
+        q = q[(q[:, 0] >= 0) & (q[:, 0] < w) & (q[:, 1] >= 0) & (q[:, 1] < h)]
+        in_p = int(mask[k][q[:, 1], q[:, 0]].sum()) if len(q) else 0
+        out[k] = {"inside": in_p, "of": int(len(q))}
+    return out
+
+
 def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made: list[int],
                 least_px: int = 0, lost: set[int] | frozenset = frozenset(), lost_fill: np.ndarray | None = None,
-                word: set[int] | frozenset = frozenset(), track: np.ndarray | None = None) -> tuple[np.ndarray, dict[int, dict]]:
+                word: set[int] | frozenset = frozenset(), track: np.ndarray | None = None,
+                noface: set[int] | frozenset = frozenset(), off_head_fragments: set[int] | frozenset = frozenset(),
+                drop: set[int] | frozenset = frozenset(), points: str | None = None,
+                first_frame: int | None = None) -> tuple[np.ndarray, dict[int, dict]]:
     """The part to load, frame by frame, from the saved part and a proposed fill, graded by the class map.
 
     A fill takes a neighbour's shape to a frame the gate doubted. On a fast turn the doubted part was right
@@ -780,9 +830,18 @@ def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made
     takes the shape of the nearest frame with a graded part, before or after it at any distance, moved and cut to the
     subject's `track` (`word_shapes`), whatever its size, since a person looked. Not `lost_fill`: that is the saved part itself on
     every frame the hold rule did not doubt, and would give back the floor's own speck. A frame whose part stands is not touched. A
-    frame with nothing to hold it from stays empty and says so (`WORD_NOT_HELD`, `did` "left empty: the word not held")."""
+    frame with nothing to hold it from stays empty and says so (`WORD_NOT_HELD`, `did` "left empty: the word not held").
+
+    THE FLOOR HOLDS (build (B), the lead's ruling of 2026-10-16): a part under `least_px`, or one that collapsed to `COLLAPSE_SHARE` or
+    less of the largest part within `COLLAPSE_REACH` frames either side (a fragment: her face hidden, a scrap of it left), is not emptied
+    when she is tracked there: it is held from the nearest frame whose part stands (never from a fragment), moved and cut as a word's
+    hold is (`word_shapes`), and unioned with its own small part where that lies on her track. Not on a frame of `noface` (the job's
+    --no-face-on: a person looked and no face shows) or where she is not tracked: those are emptied as before. A held shape, word or
+    floor, that lies under `HOLD_ON_TRACK_LEAST` of its pixels on her track itself places nothing (`HOLD_MISSED`). `drop=` is the
+    caller's, after this, and empties whatever it names."""
     own = np.isin(classes, made)
     out, decisions = parts.copy(), {}
+    excluded = (set(drop) | set(noface)) & set(range(len(parts)))
 
     def inside(mask: np.ndarray, f: int) -> float | None:
         return round(float((mask & own[f]).sum() / mask.sum()), 3) if mask.any() else None
@@ -799,15 +858,38 @@ def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made
         else:
             out[f], did = False, "emptied"
         decisions[f] = {"did": did, "saved_on_its_classes": saved, "fill_on_its_classes": fill}
+    # EVERY EMPTYING BEFORE ANY HOLD (the floor read, the lead's ruling of 2026-10-16): `drop` and `noface` frames are excluded from `near`
+    # before `COLLAPSE_SHARE` is computed (D22 item 2), so a false-positive blob on a dropped or no-face frame never collapses a standing neighbour
+    sizes = np.array([int(out[f].sum()) for f in range(len(parts))])
+    fragments = {}
     for f in range(len(parts)):
-        px = int(out[f].sum())
-        if 0 < px < least_px:
+        px = int(sizes[f])
+        near = [int(sizes[g]) for g in range(max(0, f - COLLAPSE_REACH), min(len(parts), f + COLLAPSE_REACH + 1))
+                if g != f and g not in excluded]
+        if f in off_head_fragments and not px:
+            fragments[f] = {"why": "nothing left at her head once what lay off it was dropped (`off_head`), where the face points see her", "px": 0}
+        elif 0 < px < least_px:
+            fragments[f] = {"why": "too small to be drawn as the part", "px": px, "least_px": least_px}
+        elif px and near and px <= COLLAPSE_SHARE * max(near):
+            fragments[f] = {"why": f"collapsed against its neighbours: {px} px, {round(px / max(near), 3)} of the largest within {COLLAPSE_REACH} "
+                                   f"frames ({max(near)} px; COLLAPSE_SHARE {COLLAPSE_SHARE})", "px": px, "collapsed_against_px": max(near)}
+    own_small = {f: out[f].copy() for f in fragments}
+    for f, why in fragments.items():
+        out[f] = False
+        decisions[f] = {**decisions.get(f, {"saved_on_its_classes": inside(parts[f], f), "fill_on_its_classes": None}), "did": "emptied", **why}
+    for f in sorted(excluded):
+        if out[f].any() or f in fragments:
             out[f] = False
-            decisions[f] = {**decisions.get(f, {"saved_on_its_classes": inside(parts[f], f), "fill_on_its_classes": None}),
-                            "did": "emptied", "why": "too small to be drawn as the part", "px": px, "least_px": least_px}
-    # a frame the grade left empty (a frame whose saved part stands is not empty, so it is never taken here)
+            decisions[f] = {**decisions.get(f, {"saved_on_its_classes": inside(parts[f], f), "fill_on_its_classes": None}), "did": "emptied",
+                            "why": "dropped by the job (drop=)" if f in drop else "no face on a person's word (--no-face-on)"}
+            if f in noface and track is not None:
+                decisions[f]["not_held"] = "no face on a person's word (--no-face-on)"
+    # what a hold may take its shape from: each frame's own part, standing now; never a frame the grade filled from a neighbour
+    sources = np.where(np.array([decisions.get(f, {}).get("did", "").startswith("filled") for f in range(len(parts))])[:, None, None], False, out)
+    held_by_floor = {f for f in fragments if f not in noface and f not in drop and track is not None and track[f].any()}
+    # a frame the grade left empty (a frame whose saved part stands is not empty, and a drop/noface frame is never re-filled here)
     shape = filled if lost_fill is None else lost_fill
-    gone = [f for f in range(len(parts)) if f in lost and not out[f].any() and int(shape[f].sum()) >= max(least_px, 1)]
+    gone = [f for f in range(len(parts)) if f in lost and f not in excluded and not out[f].any() and int(shape[f].sum()) >= max(least_px, 1)]
     runs: list[list[int]] = []
     for f in gone:
         if runs and f == runs[-1][-1] + 1:
@@ -826,12 +908,17 @@ def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made
                                         f"map lost the part; the grade had {was['did']} it" + (f" ({was['why']})" if was.get("why") else ""))}
     if word and track is None:
         raise ValueError("a part held on a person's word is cut to the subject's track: give `track`")
-    for f, (moved, came_from) in sorted(word_shapes(out, track, word).items()):
+    for f, (moved, came_from) in sorted(word_shapes(out, track, set(word) - excluded, sources).items()):
         was = decisions.get(f, {"did": "left empty", "saved_on_its_classes": None, "fill_on_its_classes": None})
-        if moved is not None and moved.any():
+        src_px = int(sources[came_from[0]].sum()) if came_from else None
+        if moved is not None and moved.any() and (moved & track[f]).sum() < HOLD_ON_TRACK_LEAST * moved.sum():
+            decisions[f] = {**was, "did": "left empty: " + HOLD_MISSED, "px": int(moved.sum()), "px_on_the_track": int((moved & track[f]).sum()),
+                            "from_frames": came_from, "source_px": src_px, "hold_missed": True}
+        elif moved is not None and moved.any():
             out[f] = moved
             decisions[f] = {"did": "filled on a person's word", "saved_on_its_classes": was.get("saved_on_its_classes"),
                             "fill_on_its_classes": was.get("fill_on_its_classes"), "px": int(moved.sum()), "from_frames": came_from,
+                            "source_px": src_px,
                             # data: how much of the fill lies on the subject's own track, not the margin band round it (a part whose
                             # place jumps between frames is moved mostly beside her; nothing grades a word fill)
                             "px_on_the_track": int((moved & track[f]).sum()),
@@ -839,22 +926,58 @@ def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made
                                    + (f" ({was['why']})" if was.get("why") else "")}
         else:
             decisions[f] = {**was, "did": "left empty: the word not held", "word_not_held": WORD_NOT_HELD}
+    # THE FLOOR HOLDS: each fragment she is tracked on, from the nearest standing part (the fragments are empty now, so never one of them)
+    floor = sorted(f for f in held_by_floor if not out[f].any())
+    if floor and track is None:
+        raise ValueError("a part held by the floor rule is cut to the subject's track: give `track`")
+    for f, (moved, came_from) in sorted(word_shapes(out, track, set(floor), sources).items()):
+        was = decisions[f]
+        own = own_small[f] & track[f]
+        src_px = int(sources[came_from[0]].sum()) if came_from else None
+        if moved is None or not moved.any():
+            decisions[f] = {**was, "did": "emptied: no standing part in the load to hold it from"}
+        elif (moved & track[f]).sum() < HOLD_ON_TRACK_LEAST * moved.sum():
+            decisions[f] = {**was, "did": "emptied: " + HOLD_MISSED, "held_px": int(moved.sum()), "px_on_the_track": int((moved & track[f]).sum()),
+                            "from_frames": came_from, "source_px": src_px, "hold_missed": True}
+        else:
+            out[f] = moved | own
+            decisions[f] = {**was, "did": "held by the floor rule", "px": int(out[f].sum()), "from_frames": came_from,
+                            "source_px": src_px,
+                            "px_on_the_track": int((moved & track[f]).sum()), "own_part_kept_on_the_track_px": int(own.sum()),
+                            "why": f"{was['why']}; held from the nearest standing part, moved and cut to her track, with its own part on her track"}
+    for f in sorted(set(fragments) - held_by_floor):
+        if track is not None and not out[f].any() and decisions[f].get("did") == "emptied":
+            decisions[f]["not_held"] = "no face on a person's word (--no-face-on)" if f in noface else "she is not tracked on this frame"
+    if first_frame is not None or points is not None:
+        fp_by_frame = held_face_points(out, points, int(first_frame or 0)) if points else {}
+        for f, d in decisions.items():
+            if d.get("did", "").startswith("filled") or d.get("did") == "held by the floor rule":
+                came = d.get("from_frames")
+                if first_frame is not None and came is not None:
+                    d["from_source_frames"] = [int(first_frame) + int(g) for g in came]
+                if "px" not in d:
+                    d["px"] = int(out[f].sum())
+                if points:
+                    d["face_points_inside"] = fp_by_frame.get(f)
     return out, decisions
 
 
-def word_shapes(out: np.ndarray, track: np.ndarray, word: set[int] | frozenset) -> dict[int, tuple[np.ndarray | None, list[int]]]:
+def word_shapes(out: np.ndarray, track: np.ndarray, word: set[int] | frozenset,
+                sources: np.ndarray | None = None) -> dict[int, tuple[np.ndarray | None, list[int]]]:
     """For each frame a person's word names and the grade left empty: the shape of the nearest frame with a graded part, moved so its
     centre lies where a line between the parts either side puts it (one side: that part's own place), cut to the subject's track grown
     by `SUBJECT_MARGIN` as `held_parts` cuts (so nothing where the subject is not tracked, or where the moved shape lies off the track);
     and the frames it came from. None where no frame of the load has a part. `held_parts` without its reach: a person looked at these
-    frames."""
+    frames. `sources` (the floor read, the lead's ruling of 2026-10-16): the parts a hold may take its shape from, every frame that is not
+    its own part standing emptied, so no hold comes from a held, filled, dropped or emptied frame; `out` itself when not given."""
     import torch
     vm, sp = _pack("video_mask"), _pack("sapiens2_parts")
-    good = np.array([f for f in range(len(out)) if out[f].any()])
+    src = out if sources is None else sources
+    good = np.array([f for f in range(len(src)) if src[f].any()])
     shapes = {}
 
     def centre(g):
-        ys, xs = np.nonzero(out[g])
+        ys, xs = np.nonzero(src[g])
         return np.array([xs.mean(), ys.mean()])
 
     for f in sorted(f for f in word if not out[f].any()):
@@ -867,9 +990,9 @@ def word_shapes(out: np.ndarray, track: np.ndarray, word: set[int] | frozenset) 
         g = min(near, key=lambda x: abs(x - f))
         at = centre(g0) + (centre(g1) - centre(g0)) * (f - g0) / (g1 - g0) if len(near) == 2 else centre(g)
         dx, dy = (int(round(v)) for v in (at - centre(g)))
-        moved = np.zeros_like(out[g])
+        moved = np.zeros_like(src[g])
         h, w = moved.shape
-        ys, xs = np.nonzero(out[g])
+        ys, xs = np.nonzero(src[g])
         keep = (ys + dy >= 0) & (ys + dy < h) & (xs + dx >= 0) & (xs + dx < w)
         moved[ys[keep] + dy, xs[keep] + dx] = True
         on_subject = vm.grow(torch.from_numpy(track[f:f + 1]).to(torch.float32), sp.SUBJECT_MARGIN)[0].numpy() > 0.5
@@ -1923,6 +2046,13 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
         parts = read_mask(m["parts"], size, at, first, frames)[0] if m.get("parts") else None
         took = None
         cmap = read_classes(m["classes"], size, at, first, frames) if m.get("classes") else None
+        off_said, off_frags, off_blind = {}, set(), []
+        if parts is not None and m.get("points"):
+            # WHAT LIES OFF HER HEAD (`off_head`, the lead's rulings of 2026-10-16): from the reference step's face points
+            parts, off_said, off_frags, off_blind = off_head(parts, m["points"], first, int(m.get("points_margin", OFF_HEAD_MARGIN)))
+            if off_said:
+                print(f"  {label}: off her head, dropped from the saved part on {len(off_said)} frame(s); nothing left at her head on "
+                      f"{len(off_frags)} (held by the floor rule)", flush=True)
         if parts is not None and m.get("pieces") == "largest":
             refuse_pieces_on_a_head(label, parts, cmap)
             # the caller looked and the part's other pieces are not the part (`flag_pieces`); what that took away is
@@ -1958,13 +2088,16 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
         refused: list[int] = []
         emptied_by_grade: list[int] = []
         word_not_held: list[int] = []
+        held_by_floor: list[int] = []
+        hold_missed: list[int] = []
         sizes = None
         if parts is None:
             word_refused(label, m, False)
         if parts is not None:
             sizes = part_sizes(parts, first, least, least_by, not_applied=(
                 "grade=off on this --mask" if m.get("grade") == "off" else "no class map was given for this subject, so its part is not graded"
-                if not m.get("classes") else "the mask video does not cover the whole span, so no part to load was written"))
+                if not m.get("classes") else "the mask video does not cover the whole span, so no part to load was written"),
+                after_off_head=bool(m.get("points")))
             write_mask_video(folder / f"parts__{by}.mkv", parts)
             mine = [r for r in subject_rows(label, by, first, track, covered, parts)]
             word_refused(label, m, True, all(r["covered"] for r in mine))
@@ -1979,18 +2112,33 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                   for t in [next(iter(seen.values()))[0]]]
                     what = under_doubted(made, names.index("Hair"), every, doubted, class_maps[label], others_now)
                     if m.get("grade") != "off":
-                        held, graded = grade_holds(parts, held, class_maps[label], made, least, **grade_given(m, what, every, first, frames, track))
-                        sizes = part_sizes(parts, first, least, least_by, emptied=[f for f, d in graded.items() if "least_px" in d])
-                        held_frames = [f for f, d in graded.items() if d["did"].startswith("filled")]
+                        held, graded = grade_holds(parts, held, class_maps[label], made, least, off_head_fragments=off_frags,
+                                                   points=m.get("points"), first_frame=first,
+                                                   **grade_given(m, what, every, first, frames, track))
+                        sizes = part_sizes(parts, first, least, least_by,
+                                           emptied=[f for f, d in graded.items() if "least_px" in d and d["did"].startswith("emptied")],
+                                           after_off_head=bool(m.get("points")))
+                        held_frames = [f for f, d in graded.items() if d["did"].startswith("filled") or d["did"] == "held by the floor rule"]
+                        held_by_floor = [first + f for f, d in graded.items() if d["did"] == "held by the floor rule"]
+                        hold_missed = [first + f for f, d in graded.items() if d.get("hold_missed")]
                         refused = [first + f for f, d in graded.items() if d["did"].startswith("saved")]
-                        emptied_by_grade = [first + f for f, d in graded.items() if d["did"] == "emptied"]
+                        emptied_by_grade = [first + f for f, d in graded.items() if d["did"].startswith("emptied")]
                         word_not_held = [first + f for f, d in graded.items() if d.get("word_not_held")]
                         if word_not_held:
                             print(f"  {label}: THE WORD IS NOT HELD on {', '.join(f'{x}-{y}' if x != y else str(x) for x, y in frame_spans(word_not_held))}: "
                                   f"{WORD_NOT_HELD}", flush=True)
+                        held_details = [
+                            {"source_frame": first + f, "did": d["did"], "from_frames": d.get("from_frames"),
+                             "from_source_frames": d.get("from_source_frames"), "source_px": d.get("source_px"),
+                             "px": d.get("px"), "px_on_the_track": d.get("px_on_the_track"),
+                             "face_points_inside": d.get("face_points_inside")}
+                            for f, d in sorted(graded.items())
+                            if d["did"].startswith("filled") or d["did"] == "held by the floor rule"
+                        ]
                         (folder / "part_grades.json").write_text(json.dumps(
                             {"subject": label, "seen_by": by, "bar": HOLD_INSIDE, "part_is_made_of": made_of.get(label),
-                             "least_px": least, "least_px_set_by": least_by, "part_sizes": sizes,
+                             "least_px": least, "least_px_set_by": least_by, "measured_on": sizes["measured_on"],
+                             "part_sizes": sizes, "held_frames": held_details,
                              "frames": [{"source_frame": first + f, **d} for f, d in sorted(graded.items())]}, indent=1) + "\n")
                     (folder / "doubted_frames.json").write_text(json.dumps(
                         {"subject": label, "seen_by": by, "what_each_means": UNDER,
@@ -2040,6 +2188,16 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                    "parts_fill_refused_by_grade_on_source_frames": frame_spans(refused),
                                    "parts_emptied_by_grade_on_source_frames": frame_spans(emptied_by_grade),
                                    "parts_word_not_held_on_source_frames": frame_spans(word_not_held),
+                                   # THE FLOOR HOLDS (build (B)): frames held by the floor rule, and holds that missed her track (`grade_holds`)
+                                   "parts_held_by_the_floor_rule_on_source_frames": frame_spans(held_by_floor),
+                                   "parts_hold_missed_her_track_on_source_frames": frame_spans(hold_missed),
+                                   # WHAT LAY OFF HER HEAD (`off_head`): each frame's dropped pieces, with px, box, why and the bound used
+                                   "parts_dropped_off_her_head": ({"points": m.get("points"), "margin": int(m.get("points_margin", OFF_HEAD_MARGIN)),
+                                                                   "frames_dropped": len(off_said),
+                                                                   "frames": [{"source_frame": first + k, "dropped": v} for k, v in sorted(off_said.items())],
+                                                                   "nothing_left_at_her_head_on_source_frames": frame_spans([first + k for k in sorted(off_frags)]),
+                                                                   "no_face_points_on_source_frames": frame_spans([first + k for k in off_blind])}
+                                                                  if m.get("points") else None),
                                    # the part's size on this clip's frames, and where the floor fell among them (`part_sizes`)
                                    "part_sizes": sizes,
                                    # the zoom the starting floor was held to (`floor_zoom`); None with least= or zoom=off
@@ -3882,6 +4040,130 @@ def largest_piece(mask: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return out, stray
 
 
+#: The off-head rule (the lead's rulings of 2026-10-16, on 1010f's hat square and 0613f's skirt): a face point is read where its score is
+#: over the line the eye rings are drawn from. **Inherited**, borrowed: h3_config.POSE_READING's "eye_ring_score_at_least", its one copy,
+#: read where it is used (`off_head`).
+FACE_POINT_LINE_FROM = ("POSE_READING", "eye_ring_score_at_least")
+#: A piece of the saved part under this share of the frame's largest piece, not connected to it, and with no face point within the
+#: margin, is a speck and is dropped. **Measured** starting value on lead_fp_1010f (2026-10-16): 1036's Face_Neck specks on her raised arm
+#: by the hat were 0.002-0.003 of the largest piece; the pieces of her own neck below the face on 1019 and 1022-1023 were 0.053-0.21.
+SPECK_SHARE = 0.02
+#: The points of her head: the nose, eyes and ears, the chin, the labiomental groove and the neck point (the pose model's 308 names have no
+#: jawline), with the face's own points (`face_points.face_ids`).
+HEAD_POINT_NAMES = ("nose", "left_eye", "right_eye", "left_ear", "right_ear", "tip_of_chin", "center_of_labiomental_groove", "neck")
+#: Default canvas-pixel margin for `off_head` (`points_margin=`). **Inherited**: one H3 latent cell on the canvas (`CELL` = 16 px),
+#: matching `load_chain.OFF_HEAD_MARGIN` (D22 item 6.2).
+OFF_HEAD_MARGIN = CELL
+#: How many head heights (`hy1 - hy0`) the shoulder-line bound moves down when her face points reach or pass her shoulder line (`off_head`).
+#: **Reasoned**: one head height matches the no-shoulders fallback bound on the line below, allowing her chin and neck directly beneath a
+#: bent head to chain within margin while cutting off the torso below (D22 item 4, on 0613f's 684-707).
+BENT_LINE_HEAD_HEIGHTS = 1.0
+
+
+def off_head(parts: np.ndarray, points: str, first: int, margin: int) -> tuple[np.ndarray, dict[int, dict], set[int], list[int]]:
+    """The saved part with what lies off her head taken out, a frame at a time, from the reference step's face points (`points`, the npz
+    `bench/pose_along_shot.py` writes; its frames from its own `first_frame`). Returns the part, what was dropped on each frame, the frames
+    left with nothing at her head while the face points see her (fragments, which the floor rule holds), and the frames with no face point
+    over the line (today's behaviour, said).
+
+    A piece is DROPPED when it is a speck (not the largest, under `SPECK_SHARE` of it, no face point within `margin` px), or when it lies off
+    her head: no face point within `margin` px and its box outside her head box (`HEAD_POINT_NAMES` and the face's points over
+    the face-point line (`FACE_POINT_LINE_FROM`), grown by `margin`), unless it is within `margin` px of a kept piece AND above her shoulder line (the lower of the two
+    shoulders' y plus `margin`, both shoulders over the line, extended by `BENT_LINE_HEAD_HEIGHTS` head heights when her face points reach or
+    pass the shoulder line, where a piece directly under her head box with a face point inside it or on its edge also stays; else within one
+    head height of the head box), applied until nothing changes:
+    her neck split from her face by a choker or an earring stays, her arm, waist and skirt go (0613f's 628, 772, 850). What it cannot see:
+    a frame whose face points are wrong."""
+    import cv2
+    sys.path.insert(0, str(REPO / "workflows"))
+    import h3_config  # noqa: E402
+    from _lib import face_points as fp
+    line_score = getattr(h3_config, FACE_POINT_LINE_FROM[0])[FACE_POINT_LINE_FROM[1]]
+    z = np.load(points)
+    h_mask, w_mask = int(parts.shape[1]), int(parts.shape[2])
+    if "size" not in z.files or [int(z["size"][0]), int(z["size"][1])] != [w_mask, h_mask]:
+        got_sz = [int(v) for v in z["size"]] if "size" in z.files else None
+        raise ValueError(f"off_head: points file {points} has size {got_sz}, which is not the mask's size {[w_mask, h_mask]}")
+    names = [str(x) for x in z["names"]]
+    idx = {n: i for i, n in enumerate(names)}
+    fids, at = fp.face_ids(idx), int(z["first_frame"])
+    head_ids = [idx[n] for n in HEAD_POINT_NAMES if n in idx] + list(fids)
+    shoulders = [idx["left_shoulder"], idx["right_shoulder"]]
+    grow = np.ones((2 * margin + 1, 2 * margin + 1), np.uint8)
+    edge_grow = np.ones((3, 3), np.uint8)
+    out, dropped, fragments, blind = parts.copy(), {}, set(), []
+    for k in range(len(parts)):
+        j = first + k - at
+        if not parts[k].any():
+            continue
+        if not 0 <= j < len(z["keypoints"]):
+            blind.append(k)
+            continue
+        pts, sc = z["keypoints"][j], z["scores"][j]
+        face = pts[fids][sc[fids] > line_score]
+        head = pts[head_ids][sc[head_ids] > line_score]
+        if not len(face):
+            blind.append(k)
+            continue
+        hx0, hy0, hx1, hy1 = head[:, 0].min() - margin, head[:, 1].min() - margin, head[:, 0].max() + margin, head[:, 1].max() + margin
+        hh = hy1 - hy0
+        seen = [i for i in shoulders if sc[i] > line_score]
+        sh_line = (max(pts[i][1] for i in seen) + margin) if len(seen) == 2 else None
+        bent = sh_line is not None and float(face[:, 1].max()) >= sh_line
+        line = (sh_line + (BENT_LINE_HEAD_HEIGHTS * hh if bent else 0.0)) if sh_line is not None else None
+        q = np.round(face).astype(int)
+        qf = np.round(pts[fids]).astype(int)
+        h, w = parts[k].shape
+        q = q[(q[:, 0] >= 0) & (q[:, 0] < w) & (q[:, 1] >= 0) & (q[:, 1] < h)]
+        qf = qf[(qf[:, 0] >= 0) & (qf[:, 0] < w) & (qf[:, 1] >= 0) & (qf[:, 1] < h)]
+        n, lab, st, _ = cv2.connectedComponentsWithStats(parts[k].astype(np.uint8), 8)
+        big = 1 + int(np.argmax(st[1:, cv2.CC_STAT_AREA]))
+        kept = np.zeros_like(parts[k])
+        said, pending = [], []
+        for i in range(1, n):
+            piece = lab == i
+            near = cv2.dilate(piece.astype(np.uint8), grow).astype(bool)
+            face_near = bool(near[q[:, 1], q[:, 0]].any()) if len(q) else False
+            edge = cv2.dilate(piece.astype(np.uint8), edge_grow).astype(bool)
+            face_on_edge = bool(edge[qf[:, 1], qf[:, 0]].any()) if len(qf) else False
+            x, y, bw, bh, a = (int(v) for v in st[i])
+            box = [x, y, x + bw, y + bh]
+            iy0, iy1 = max(0, int(np.floor(hy0))), min(h, int(np.ceil(hy1)) + 1)
+            ix0, ix1 = max(0, int(np.floor(hx0))), min(w, int(np.ceil(hx1)) + 1)
+            in_head = bool(piece[iy0:iy1, ix0:ix1].any()) if (iy0 < iy1 and ix0 < ix1) else False
+            if i != big and a < SPECK_SHARE * st[big, cv2.CC_STAT_AREA] and not face_near:
+                said.append({"px": a, "box": box, "why": f"a speck: {round(a / st[big, cv2.CC_STAT_AREA], 4)} of the largest piece, no face point near"})
+            elif bent and x >= hx0 and x + bw <= hx1 and y + bh <= line and face_on_edge:
+                kept |= piece
+            elif not face_near and not in_head:
+                within = (y + bh <= line) if line is not None else not (x + bw < hx0 - hh or x > hx1 + hh or y + bh < hy0 - hh or y > hy1 + hh)
+                bound_str = (
+                    f"the shoulder line (bent head), y {line:.0f}"
+                    if (line is not None and bent)
+                    else (f"the shoulder line, y {line:.0f}" if line is not None else "one head height (the shoulders not both seen)")
+                )
+                pending.append([near, piece, {"px": a, "box": box, "why": "off her head: no face point near, outside her head box",
+                                              "bound": bound_str},
+                                within])
+            else:
+                kept |= piece
+        changed = True
+        while changed and kept.any():
+            changed = False
+            for t in range(len(pending) - 1, -1, -1):
+                if pending[t][3] and (pending[t][0] & kept).any():
+                    kept |= pending[t][1]
+                    pending.pop(t)
+                    changed = True
+        said += [t[2] for t in pending]
+        if said:
+            dropped[k] = said
+            out[k] = kept
+            if not kept.any():
+                fragments.add(k)
+    return out, dropped, fragments, blind
+
+
 def flag_pieces(manifest: dict, folder: Path) -> list[dict]:
     """A part with pieces away from its largest piece: the part model labelled something else as the part.
 
@@ -4366,7 +4648,14 @@ def preflight(a: argparse.Namespace) -> None:
     # decisions the capture made itself, each with its record: seen in the summary, not asked as a question
     by_design = {s["label"]: n for s in m["subjects"] for n in
                  [sum(b - a + 1 for x in s["sightings"] for a, b in x.get("parts_emptied_by_grade_on_source_frames") or [])] if n}
-    record = {**gate, "emptied_by_the_grade": by_design, "capture": m["name"], "clip": m["clip"], "span": [m["first_frame"], m["first_frame"] + m["frames"] - 1],
+    held_by_subject: dict[str, list[dict]] = {}
+    for s in m["subjects"]:
+        pg_path = folder / "subjects" / s["label"] / "part_grades.json"
+        if pg_path.is_file():
+            pg = json.loads(pg_path.read_text())
+            if pg.get("held_frames"):
+                held_by_subject[s["label"]] = pg["held_frames"]
+    record = {**gate, "emptied_by_the_grade": by_design, "held_frames": held_by_subject, "capture": m["name"], "clip": m["clip"], "span": [m["first_frame"], m["first_frame"] + m["frames"] - 1],
               "written": datetime.datetime.now().isoformat(timespec="seconds"), "levels": list(LEVELS),
               # a tracker's own object id can sit beside the label when a tracker hands one back; none does today
               "subjects": [{"label": s["label"], "tracker_object_id": None, "seen_by": [x["by"] for x in s["sightings"]]}
@@ -4389,6 +4678,15 @@ def preflight(a: argparse.Namespace) -> None:
     print(f"{len(flags)} flag(s): " + ", ".join(f"{n} {level}" for level, n in counts.items()) + f"; wrote {folder / 'flags.json'}")
     for label, n in by_design.items():
         print(f"{n} frame(s) of {label}'s part emptied by the grade, by design: subjects/{label}/part_grades.json")
+    for label, rows in held_by_subject.items():
+        parts_txt = []
+        for r in rows:
+            src_f = (r.get("from_source_frames") or [None])[0]
+            fp_in = r.get("face_points_inside")
+            fp_txt = f", face points {fp_in['inside']}/{fp_in['of']}" if isinstance(fp_in, dict) else ""
+            from_txt = f"from {src_f}, {r.get('source_px')}->{r.get('px')} px" if src_f is not None else f"{r.get('px')} px"
+            parts_txt.append(f"{r['source_frame']} ({from_txt}{fp_txt})")
+        print(f"{len(rows)} frame(s) of {label}'s part held: " + "; ".join(parts_txt))
     # the figures a per-clip rule reads, in one file, never older than the flags
     (folder / "rules_input.json").write_text(json.dumps(rules_input(folder, not_in), indent=1) + "\n")
     print(f"gate: {gate['verdict']}" + (f", on {', '.join(gate['blocking'])}" if gate["blocking"] else "")

@@ -1924,6 +1924,281 @@ def the_carve_on_the_nodes_grid() -> str:
     return "; ".join(said)
 
 
+def the_floor_holds() -> str:
+    """Build (B), the lead's ruling of 2026-10-16: a tracked person's part under the floor, or collapsed against its neighbours, is held
+    from the nearest frame whose part stands (never from a fragment), with its own small part on her track kept; not where no face shows
+    (`noface`); and a hold whose shape lies mostly off her track places nothing ("hold missed her track"), floor or word."""
+    face = rect(40, 20, 60, 40, 9)                                   # 400 px on every frame, then thinned below
+    parts = face.copy()
+    parts[3] = False
+    parts[3, 22:25, 54:64] = True                                    # 3: a 30 px sliver, under the floor of 50, reaching past the face's place on her track
+    parts[4] = False
+    parts[4, 30:35, 44:55] = True                                    # 4: a 55 px stub, over the floor and 0.1375 of its neighbours: collapsed
+    parts[5] = False
+    parts[5, 22:24, 42:52] = True                                    # 5: 20 px, where a person said no face shows
+    parts[8] = False
+    parts[8, 22:24, 64:69] = True                                    # 8: 10 px on a track that lies beside her face's place
+    classes = np.where(parts, 2, 0).astype(np.uint8)
+    track = rect(36, 16, 64, 44, 9)
+    track[8] = False
+    track[8, 16:44, 62:70] = True
+    held, did = cap.grade_holds(parts, parts, classes, [2], least_px=50, track=track, noface={5})
+    # THE CASE THAT GOES RED when a small part on a tracked frame is emptied, and the original shows round her
+    assert did[3]["did"] == "held by the floor rule" and held[3].sum() >= 300 and did[3]["own_part_kept_on_the_track_px"] == 30, did[3]
+    # THE CASE THAT GOES RED when her own small part is thrown away and only the moved shape is laid
+    assert held[3][parts[3]].all() and not face[3][parts[3]].all(), "the frame's own part on her track was not kept (or the fixture's part lies inside the moved shape)"
+    # THE CASE THAT GOES RED when a stub beside a full face is called a good frame, or a hold comes from a fragment
+    assert did[4]["did"] == "held by the floor rule" and "collapsed" in did[4]["why"] and did[4]["from_frames"][0] in (2, 6), did[4]
+    assert did[3]["from_frames"][0] == 2, did[3]
+    # THE CASE THAT GOES RED when a part is held where a person said no face shows
+    assert not held[5].any() and did[5]["did"] == "emptied" and "no-face-on" in did[5].get("not_held", ""), did[5]
+    # THE CASE THAT GOES RED when a hold that lands off her track is placed as a patch beside her
+    assert not held[8].any() and did[8]["did"].startswith("emptied: hold missed her track") and did[8]["px_on_the_track"] == 0, did[8]
+    # the same on a person's word: a word hold that lands off her track places nothing, and says so
+    bare = np.where(np.arange(9)[:, None, None] == 8, False, face)
+    worded, said = cap.grade_holds(bare, bare, np.where(face, 2, 0).astype(np.uint8), [2], word={8}, track=track)
+    assert not worded[8].any() and said[8]["did"].startswith("left empty: hold missed her track"), said[8]
+    # with no track given, the floor empties as it did
+    old, said_old = cap.grade_holds(parts, parts, classes, [2], least_px=50)
+    assert not old[3].any() and said_old[3]["did"] == "emptied" and "not_held" not in said_old[3], said_old[3]
+    # A HOLD NEVER COMES FROM A HELD FRAME (Gemini's D16 on 0613f's 626-629, the lead's ruling): 1 and 3 are slivers, 2 was emptied by the
+    # off-head rule; each takes its shape from 0 or 4, whose parts stand at her head, and none from another held frame
+    chain = rect(40, 20, 60, 40, 5)
+    chain[1] = False
+    chain[1, 22:24, 42:52] = True
+    chain[2] = False
+    chain[3] = False
+    chain[3, 22:24, 42:52] = True
+    held_c, did_c = cap.grade_holds(chain, chain, np.where(rect(40, 20, 60, 40, 5), 2, 0).astype(np.uint8), [2], least_px=50,
+                                    track=rect(36, 16, 64, 44, 5), off_head_fragments={2})
+    # THE CASE THAT GOES RED when a hold is taken from a frame that was itself held (a held-from-held chain)
+    assert [did_c[f]["from_frames"][0] for f in (1, 2, 3)] in ([0, 0, 4], [0, 4, 4]) and all(did_c[f]["did"] == "held by the floor rule" for f in (1, 2, 3)), \
+        {f: did_c[f] for f in (1, 2, 3)}
+    # THE FLOOR READ (the lead's ruling): every emptying before any hold, and every hold, word and floor, from frames standing as their own
+    # part: 1 and 6 are held on a person's word, 2 and 4 are slivers, 3 is the job's drop= with a full part saved
+    mixed = rect(40, 20, 60, 40, 8)
+    for f in (1, 6):
+        mixed[f] = False
+    for f in (2, 4):
+        mixed[f] = False
+        mixed[f, 22:24, 42:52] = True
+    held_m, did_m = cap.grade_holds(mixed, mixed, np.where(rect(40, 20, 60, 40, 8), 2, 0).astype(np.uint8), [2], least_px=50,
+                                    track=rect(36, 16, 64, 44, 8), word={1, 6}, drop={3})
+    # THE CASE THAT GOES RED when a floor hold takes a frame held on a person's word, or a dropped frame, as its source
+    assert did_m[2]["from_frames"] == [0] and did_m[4]["from_frames"] == [5] and did_m[1]["from_frames"] == [0] and did_m[6]["from_frames"] in ([5], [7]), \
+        {f: (did_m[f]["did"], did_m[f].get("from_frames")) for f in (1, 2, 4, 6)}
+    assert not held_m[3].any() and did_m[3]["why"] == "dropped by the job (drop=)", did_m[3]
+    # D22 ITEM 2 (order): a drop or noface frame with a huge false-positive blob (3000 px) beside a real 400 px standing part must be
+    # emptied BEFORE sizes/COLLAPSE_SHARE are computed, so it never collapses its standing neighbour; and a drop/noface frame in `lost`
+    # or `word` must never be re-filled by SHORT_FILL or word_shapes
+    order_parts = rect(40, 20, 60, 40, 6)                             # 400 px standing part on frames 0, 1, 3, 5
+    order_parts[2] = rect(10, 10, 70, 60, 1)[0]                       # frame 2 (drop): 3000 px false-positive blob (400 <= 0.15 * 3000 = 450!)
+    order_parts[4] = rect(10, 10, 70, 60, 1)[0]                       # frame 4 (noface): 3000 px false-positive blob
+    order_cls = np.where(order_parts, 2, 0).astype(np.uint8)
+    order_track = rect(5, 5, 80, 60, 6)
+    held_o, did_o = cap.grade_holds(order_parts, order_parts, order_cls, [2], least_px=50, track=order_track,
+                                    drop={2}, noface={4}, lost={2, 4}, lost_fill=rect(40, 20, 60, 40, 6), word={4})
+    assert 1 not in did_o and 3 not in did_o and (held_o[1] == order_parts[1]).all() and (held_o[3] == order_parts[3]).all(), (
+        f"drop/noface blob collapsed standing neighbour or was not emptied first: {did_o}"
+    )
+    assert not held_o[2].any() and did_o[2]["did"] == "emptied" and "drop=" in did_o[2]["why"], did_o[2]
+    assert not held_o[4].any() and did_o[4]["did"] == "emptied" and "no-face-on" in did_o[4].get("not_held", ""), did_o[4]
+    # D22 ITEM 3 (report, not a threshold): every held frame records from_frames, source_px, and (when points given) face_points_inside,
+    # so a hip hold (0/4 face points inside) and a head hold (4/4 face points inside) are distinguished in part_grades.json, manifest.json,
+    # flags.json, and preflight stdout
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        pts_p = Path(tmp) / "pts.npz"
+        names_p = ["l_centerpoint_of_upper_lash_line", "center_of_glabella", "tip_of_nose", "tip_of_chin"]
+        kp_p = np.zeros((9, len(names_p), 2), np.float32)
+        kp_p[:] = [[50, 30], [45, 25], [55, 25], [50, 32]]           # all 4 face points inside rect(40, 20, 60, 40)
+        kp_p[4] = [[15, 75], [12, 70], [18, 70], [15, 78]]           # frame 4: her real face is at (15, 75), outside the hip hold at (40..60, 20..40)!
+        sc_p = np.ones((9, len(names_p)), np.float32)
+        np.savez(pts_p, keypoints=kp_p, scores=sc_p, size=np.array([W, H]), names=np.array(names_p), first_frame=np.array(100))
+        held_r, did_r = cap.grade_holds(parts, parts, classes, [2], least_px=50, track=track, noface={5}, points=str(pts_p), first_frame=100)
+        assert did_r[3]["from_frames"] == [2] and did_r[3]["source_px"] == 400 and did_r[3].get("face_points_inside") == {"inside": 4, "of": 4}, did_r[3]
+        assert did_r[4]["from_frames"] in ([2], [6]) and did_r[4]["source_px"] == 400 and did_r[4].get("face_points_inside") == {"inside": 0, "of": 4}, did_r[4]
+    return ("a sliver held with its own part kept; a collapsed stub held from a full frame; no hold where no face shows; a hold off her track "
+            "placed nowhere, floor or word; a hold never from a held, word-held or dropped frame; drop/noface emptied before collapse/fill; "
+            "each held frame reports its source, source_px and face_points_inside")
+
+
+def off_her_head() -> str:
+    """The off-head rule (the lead's rulings of 2026-10-16, on 1010f's hat square and 0613f's skirt): a speck far from her face is dropped
+    (1036: no part, so no region unit, stands there); her neck beside her face and above her shoulders, and a face split in two, are kept;
+    a large piece below her shoulders goes (850's skirt); a frame left with nothing at her head is a fragment; a frame with no face points
+    is left as it was, and said."""
+    import tempfile
+    assert all(p in cap.HEAD_POINT_NAMES for p in ("tip_of_chin", "center_of_labiomental_groove", "neck")), cap.HEAD_POINT_NAMES
+    names = ["left_shoulder", "right_shoulder", "nose", "left_eye", "right_eye", "left_ear", "right_ear", "tip_of_chin",
+             "center_of_labiomental_groove", "neck", "center_of_glabella", "tip_of_nose", "l_centerpoint_of_upper_lash_line",
+             "r_centerpoint_of_upper_lash_line"]
+    n = 10
+    kp = np.zeros((n, len(names), 2), np.float32)
+    sc = np.ones((n, len(names)), np.float32)
+    face_at = {"nose": (50, 30), "left_eye": (45, 25), "right_eye": (55, 25), "left_ear": (43, 28), "right_ear": (57, 28), "tip_of_chin": (50, 39),
+               "center_of_labiomental_groove": (50, 37), "neck": (50, 42), "center_of_glabella": (50, 23), "tip_of_nose": (50, 31),
+               "l_centerpoint_of_upper_lash_line": (45, 25), "r_centerpoint_of_upper_lash_line": (55, 25), "left_shoulder": (35, 55), "right_shoulder": (65, 55)}
+    for i, name in enumerate(names):
+        kp[:, i] = face_at[name]
+    sc[4] = 0.0                                                      # frame 4: no point over the line
+    # Frame 5 (D22 item 4 & D22b item 1): bent over the table (0613f's 684-707) — her face points reach past her shoulder line
+    # (shoulders at y=35 -> sh_line=39; tip_of_nose at y=40 >= 39 -> bent=True, line = 39 + hh(25) = 64), while tip_of_chin at (55, 49)
+    # has low score (0.1 <= line_score). Hanging hair splits her Face_Neck into:
+    # - upper face (40..48, 20..42),
+    # - a neck piece (40..44, 45..51) outside head_box [39..61, 19..44] with no face point near, chained to upper face below sh_line=39,
+    # - a split chin piece (52..58, 47..53) >margin from upper face and neck, with low-score tip_of_chin (55, 49) inside it,
+    # - a disconnected hand under her chin (42..54, 58..63) inside [hx0..hx1] and <= line, with 0 face points on its edge (dropped!),
+    # - a body patch outside [hx0..hx1] at (70..82, 44..62) (dropped!).
+    kp[5, names.index("left_shoulder")] = (35, 35)
+    kp[5, names.index("right_shoulder")] = (65, 35)
+    kp[5, names.index("tip_of_nose")] = (50, 40)
+    kp[5, names.index("neck")] = (50, 40)
+    kp[5, names.index("tip_of_chin")] = (55, 49)
+    sc[5, names.index("tip_of_chin")] = 0.1
+    # Frames 6, 7, 8 (D22 item 5.1): each of tip_of_chin (frame 6), center_of_labiomental_groove (frame 7), and neck (frame 8) is the ONLY
+    # lower head point scored on that frame (at x=55, y=46), and a jaw/neck piece at x=39..43, y=47..50 (near left_ear x=43, far from x=55
+    # so face_near is False, and 7 px below the upper face piece at y=20..40 so chain-walk with margin=4 is False) lies inside head_box
+    # ONLY when that point is in HEAD_POINT_NAMES!
+    for f, active_pt in ((6, "tip_of_chin"), (7, "center_of_labiomental_groove"), (8, "neck")):
+        for nm in ("tip_of_chin", "center_of_labiomental_groove", "neck"):
+            sc[f, names.index(nm)] = 1.0 if nm == active_pt else 0.0
+            kp[f, names.index(nm)] = (55, 46)
+    parts = rect(40, 20, 60, 40, n)                                  # her face, 400 px
+    parts[:5, 6:8, 131:133] = True                                   # 0-4: a 4 px speck far off, by a raised hat (1036): 0.01 of her face
+    parts[1, 30:44, 62:70] = True                                    # 1: her neck beside the face, outside her head box (x to 61), 2 px from the face
+    parts[1, 45:75, 64:68] = True                                    # 1: her arm, chained to the neck 1 px below it, reaching past the shoulder line
+    parts[2, 70:95, 30:70] = True                                    # 2: a 1000 px piece below her shoulders (850's skirt)
+    parts[3] = False
+    parts[3, 20:40, 40:49] = True                                    # 3: her face split in two by a hand
+    parts[3, 20:40, 51:60] = True
+    parts[5] = False
+    parts[5, 20:42, 40:48] = True                                    # 5: upper face sliver (176 px)
+    parts[5, 45:51, 40:44] = True                                    # 5: chained neck piece outside head_box, below sh_line=39, <= line=64 (24 px)
+    parts[5, 47:53, 52:58] = True                                    # 5: split chin piece >margin from face/neck, with tip_of_chin inside (36 px)
+    parts[5, 58:63, 42:54] = True                                    # 5: disconnected hand under chin inside hx0..hx1, 0 face points on edge (dropped!)
+    parts[5, 44:62, 70:82] = True                                    # 5: body patch outside head box [39..61] (dropped!)
+    for f in (6, 7, 8):
+        parts[f, 47:50, 39:43] = True                                # 6, 7, 8: side-jaw/neck piece at x=39..43, y=47..50 (inside head_box only via active_pt)
+    # Frame 9 (D22 item 6.4): connected L-shaped piece whose single bounding box [50..70, 35..65] overlaps head_box [39..61, 19..46]
+    # while all its actual pixels lie outside head_box (vertical arm x=65..70, y=35..65; bottom arm x=50..70, y=60..65, below sh_line=59)
+    parts[9, 35:65, 65:70] = True
+    parts[9, 60:65, 50:70] = True
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "points.npz"
+        np.savez(path, keypoints=kp, scores=sc, size=np.array([W, H]), names=np.array(names), first_frame=np.array(100))
+        kept, said, fragments, blind = cap.off_head(parts, str(path), 100, 4)
+        # Upright subject with slightly tilted shoulders (46, 52) and neck at 47: a disconnected hand under her chin must be dropped
+        kp_hand = kp[:1].copy()
+        kp_hand[0, names.index("left_shoulder")] = (30, 46)
+        kp_hand[0, names.index("right_shoulder")] = (70, 52)
+        kp_hand[0, names.index("neck")] = (50, 47)
+        hand_p = Path(tmp) / "hand_pts.npz"
+        np.savez(hand_p, keypoints=kp_hand, scores=sc[:1], size=np.array([W, H]), names=np.array(names), first_frame=np.array(100))
+        hand_parts = np.zeros((1, H, W), bool)
+        hand_parts[0, 20:40, 40:60] = True
+        hand_parts[0, 42:51, 48:52] = True
+        hand_parts[0, 53:60, 48:52] = True
+        hand_parts[0, 62:80, 44:58] = True
+        kept_hand, said_hand, _, _ = cap.off_head(hand_parts, str(hand_p), 100, 4)
+        assert not kept_hand[0, 62:80, 44:58].any() and not kept_hand[0, 53:60, 48:52].any(), (
+            f"hand or chest under chin on upright tilted-shoulder frame was kept: {said_hand}"
+        )
+        skirt_only = parts.copy()
+        skirt_only[0] = False
+        skirt_only[0, 70:95, 30:70] = True
+        _k, _s, frags_only, _b = cap.off_head(skirt_only, str(path), 100, 4)
+        # D22 item 6.1: points file of another size (or no size) is refused
+        bad_size = Path(tmp) / "bad_size.npz"
+        np.savez(bad_size, keypoints=kp, scores=sc, size=np.array([W * 2, H * 2]), names=np.array(names), first_frame=np.array(100))
+        try:
+            cap.off_head(parts, str(bad_size), 100, 4)
+            raise AssertionError("off_head accepted a points file of another size")
+        except (ValueError, SystemExit) as exc:
+            assert "size" in str(exc), exc
+        # D22 item 5.2, item 3, item 6.3: run cap._files and cap.preflight with points= on --mask, verifying off_head runs in files,
+        # records parts_dropped_off_her_head and part_sizes measured after off_head, and preflight writes held_frames to flags.json and stdout
+        f_dir = Path(tmp) / "cap_files"
+        stood_in = {k: getattr(cap, k) for k in ("probe", "read_mask", "read_classes", "write_mask_video", "input_facts", "picture_rows")}
+        written_vids: dict[str, np.ndarray] = {}
+        cls_names = list(cap._pack("sapiens2_parts").CLASS_NAMES)
+        face_cls = cls_names.index("Face_Neck")
+        f_parts = parts[:6].copy()
+        f_parts[0] = False
+        f_parts[0, 70:80, 30:50] = True                              # frame 0: only skirt below shoulders -> off_head empties it -> floor holds from frame 1!
+        f_track = rect(30, 15, 75, 95, 6)
+        f_cmap = np.where(f_parts, face_cls, 0).astype(np.uint8)
+        f_shots = Path(tmp) / "shots.json"
+        f_shots.write_text(json.dumps({"shots": [{"shot": 1, "first_frame": 0, "last_frame": 5, "frames": 6,
+                                                  "subject": {"person": 1, "state": "taken"}, "frames_with_subject": 6,
+                                                  "frames_without_subject": [], "frames_on_others": [], "track_score": [5.0] * 6}]}))
+        f_src = Path(tmp) / "src.mp4"
+        f_src.write_bytes(b"")
+        try:
+            cap.probe = lambda _p: (W, H, 6)
+            cap.read_mask = lambda p, *_a: ((f_track.copy() if "track" in str(p) else f_parts.copy()), np.ones(6, bool))
+            cap.read_classes = lambda *_a: f_cmap.copy()
+            cap.write_mask_video = lambda p, m: written_vids.__setitem__(Path(p).name, m.copy())
+            cap.input_facts = lambda p: {"file": str(p), "written": "2026-10-16T12:00:00", "size": [W, H], "frames": 6}
+            cap.picture_rows = lambda *_a: [(0.0, 0.0)] * 6
+            args_f = argparse.Namespace(first=100, frames=6, name="x", date="2026-01-01", source=str(f_src), loads=None, voice=None)
+            spec_a = {"track": "track.mkv", "parts": "parts.mkv", "classes": "classes.mkv",
+                      "by": "pv", "at": "100", "least": "50", "points": str(path), "points_margin": "4"}
+            cap._files(args_f, f_dir, [("a", spec_a)], [], [])
+        finally:
+            for k, v in stood_in.items():
+                setattr(cap, k, v)
+        f_manifest = json.loads((f_dir / "manifest.json").read_text())
+        f_sighting = f_manifest["subjects"][0]["sightings"][0]
+        assert "parts_dropped_off_her_head" in f_sighting and f_sighting["parts_dropped_off_her_head"].get("frames_dropped", 0) >= 1, f_sighting
+        assert not written_vids["parts__pv.mkv"][2, 70:95, 30:70].any(), "files step did not prune off-head piece from parts__pv.mkv"
+        assert "after off_head" in f_sighting["part_sizes"].get("measured_on", ""), f_sighting["part_sizes"]
+        f_pg = json.loads((f_dir / "subjects" / "a" / "part_grades.json").read_text())
+        assert "after off_head" in f_pg.get("measured_on", ""), f_pg
+        assert f_pg.get("held_frames") and f_pg["held_frames"][0]["source_frame"] == 100 and f_pg["held_frames"][0]["from_source_frames"] == [101] \
+            and f_pg["held_frames"][0]["source_px"] == 512 and (f_pg["held_frames"][0].get("face_points_inside") or {}).get("inside") == 5, f_pg.get("held_frames")
+        import io
+        import contextlib
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            cap.preflight(argparse.Namespace(capture=str(f_dir), not_in=[], own_keep_out=[], given_back=[], named_empty=[],
+                                             chin_points=None, who_is_who=None, text=None, voice_spans=None, gate=False))
+        pf_out = buf.getvalue()
+        f_flags = json.loads((f_dir / "flags.json").read_text())
+        assert "held_frames" in f_flags and f_flags["held_frames"]["a"][0]["source_frame"] == 100, f_flags.get("held_frames")
+        assert "100" in pf_out and "from 101" in pf_out and "5/5" in pf_out, pf_out
+    # THE CASE THAT GOES RED when a speck far from her face stays in the part (1036's square on the hat)
+    assert not kept[:4, 6:8, 131:133].any() and all("speck" in d["why"] for f in range(4) for d in said.get(f, []) if d["box"][0] == 131), said
+    # THE CASE THAT GOES RED when her own neck, split from her face, is dropped
+    assert kept[1, 30:44, 62:70].all(), said.get(1)
+    # THE CASE THAT GOES RED when the chain walks from her neck down her arm past the shoulder line
+    assert not kept[1, 45:75, 64:68].any() and any(d["box"] == [64, 45, 68, 75] and "shoulder" in d["bound"] for d in said[1]), said[1]
+    # THE CASE THAT GOES RED when a large piece below her shoulders is kept (850's skirt, 5592 px)
+    assert not kept[2, 70:95, 30:70].any() and any("off her head" in d["why"] and "shoulder" in d["bound"] for d in said[2]), said[2]
+    # a face split in two is kept whole: both halves lie at her face points
+    assert kept[3].sum() == parts[3, :, :128].sum(), said.get(3)
+    # THE CASE THAT GOES RED when her real chin and neck under her bent head are dropped (0613f's 684-707), or a hand/body patch stays
+    assert (kept[5, 20:42, 40:48].all() and kept[5, 45:51, 40:44].all() and kept[5, 47:53, 52:58].all()
+            and not kept[5, 58:63, 42:54].any() and not kept[5, 44:62, 70:82].any()), said.get(5)
+    # THE CASE THAT GOES RED when tip_of_chin, center_of_labiomental_groove, or neck is removed from HEAD_POINT_NAMES
+    for f, nm in ((6, "tip_of_chin"), (7, "center_of_labiomental_groove"), (8, "neck")):
+        assert kept[f, 47:50, 39:43].all(), f"frame {f} ({nm}): side-jaw/neck piece inside head_box was dropped: {said.get(f)}"
+    # THE CASE THAT GOES RED when in_head tests bounding-box overlap instead of pixels inside head_box
+    assert not kept[9, 35:65, 65:70].any() and not kept[9, 60:65, 50:70].any(), f"frame 9 L-shaped piece outside head_box was kept: {said.get(9)}"
+    # THE CASE THAT GOES RED when a frame left with nothing at her head is not a fragment for the floor rule
+    assert frags_only == {0} and fragments == set(), (frags_only, fragments)
+    # no face points: the part as it was, and said
+    assert blind == [4] and np.array_equal(kept[4], parts[4]), blind
+    # the floor rule holds a frame the off-head rule left with nothing at her head, from the nearest frame whose part stands
+    emptied = rect(40, 20, 60, 40, n)
+    emptied[0] = False
+    held, did = cap.grade_holds(emptied, emptied, np.where(rect(40, 20, 60, 40, n), 2, 0).astype(np.uint8), [2], least_px=50,
+                                track=rect(36, 16, 64, 44, n), off_head_fragments={0})
+    # THE CASE THAT GOES RED when a frame left with nothing at her head is left as the original
+    assert did[0]["did"] == "held by the floor rule" and held[0].sum() == 400, did[0]
+    return "a far speck dropped; her neck and bent-head chin/neck kept; a hand under chin, piece below shoulders and L-box outside head_box dropped; HEAD_POINT_NAMES and files step verified"
+
+
 def who_is_who() -> str:
     """A shot on which some tracker's call is nobody's word blocks, one flag a shot, and shows the question to ask."""
     def cell(ask="", word="") -> dict:
@@ -2588,6 +2863,8 @@ case("the strip: a load of two subjects, each in its own colour", a_strip_of_two
 case("a load of two subjects: neither is another subject to it", neither_is_another)
 case("no largest piece of a face or hair, at the files step", no_pieces_on_a_head)
 case("no keep-out carves the subject's own track", no_keep_out_inside_her_track)
+case("the floor holds", the_floor_holds)
+case("off her head", off_her_head)
 case("the carve, in the files step", the_carve_in_the_files_step)
 case("the carve on the node's own grid", the_carve_on_the_nodes_grid)
 sys.exit(finish())

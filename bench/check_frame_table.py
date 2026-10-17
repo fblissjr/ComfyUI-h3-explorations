@@ -978,6 +978,67 @@ def main() -> int:
             c_d12_10_offscreen_shot_not_in_view,
         )
 
+        def c_d22_1_floor_hold_and_emptied_dids() -> str:
+            pg_path = subj_dir / "part_grades.json"
+            orig_pg = json.loads(pg_path.read_text(encoding="utf-8"))
+            try:
+                pg_floor = copy.deepcopy(orig_pg)
+                # Test "held by the floor rule" on 102 (with from_frames, source_px, face_points_inside)
+                # and each of the 3 new EMPTIED_DIDS on 103..105 (including collapsed_against_px without least_px)
+                pg_floor["frames"] = [
+                    orig_pg["frames"][0],
+                    {
+                        "source_frame": 102,
+                        "did": "held by the floor rule",
+                        "why": "too small to be drawn as the part",
+                        "least_px": 480,
+                        "from_frames": [0],
+                        "from_source_frames": [101],
+                        "source_px": 2400,
+                        "px": 2350,
+                        "px_on_the_track": 2100,
+                        "face_points_inside": {"inside": 38, "of": 38},
+                    },
+                    {
+                        "source_frame": 103,
+                        "did": "emptied: hold missed her track: the nearest standing part, moved, lies mostly off her track, so nothing is placed (data, which the gap check shows)",
+                        "why": "too small to be drawn as the part",
+                        "least_px": 480,
+                        "px": 180,
+                        "px_on_the_track": 0,
+                    },
+                    {
+                        "source_frame": 104,
+                        "did": "left empty: hold missed her track: the nearest standing part, moved, lies mostly off her track, so nothing is placed (data, which the gap check shows)",
+                        "px": 0,
+                        "px_on_the_track": 0,
+                    },
+                    {
+                        "source_frame": 105,
+                        "did": "emptied: no standing part in the load to hold it from",
+                        "why": "collapsed against its neighbours",
+                        "collapsed_against_px": 2400,
+                        "px": 120,
+                    },
+                ]
+                pg_path.write_text(json.dumps(pg_floor, indent=2) + "\n", encoding="utf-8")
+                w = frame_table.build_frame_table(cap)
+                _, r_fl = _read_table(w["jsonl"])
+                by_f = {r["source_frame"]: r for r in r_fl}
+                assert by_f[102]["outcome"] == "held" and by_f[102]["from_frame"] == 101 and by_f[102]["loaded_part_px"] == 2350, by_f[102]
+                assert by_f[102].get("source_px") == 2400 and by_f[102].get("face_points_inside") == {"inside": 38, "of": 38}, by_f[102]
+                assert by_f[103]["outcome"] == "emptied" and by_f[103]["cause"] == "floor", by_f[103]
+                assert by_f[104]["outcome"] == "emptied" and by_f[104]["cause"] == "grade", by_f[104]
+                assert by_f[105]["outcome"] == "emptied" and by_f[105]["cause"] == "floor", by_f[105]
+                return f"102(held by the floor rule, from=101, face=38/38); 103..105(emptied causes={[by_f[f]['cause'] for f in (103, 104, 105)]})"
+            finally:
+                pg_path.write_text(json.dumps(orig_pg, indent=2) + "\n", encoding="utf-8")
+
+        case(
+            "D22-1: floor hold ('held by the floor rule') and floor/word missed-track emptied dids accepted in CLOSED_DID_VOCAB",
+            c_d22_1_floor_hold_and_emptied_dids,
+        )
+
     return finish()
 
 
