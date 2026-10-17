@@ -226,17 +226,25 @@ def index_answers(answers: list[dict]) -> list[dict]:
     return out
 
 
-def owner_words(answers: list[dict], first: int, last: int) -> list[dict]:
+def owner_words(answers: list[dict], first: int, last: int, shots_list: list[dict] | None = None) -> list[dict]:
+    import page_answers_to_cast as patc
     out = []
     for d in index_answers(answers):
         if d.get("who") != "owner" or d.get("row") not in ("b20", "who"):
+            continue
+        if not str(d.get("words", "")).strip():
             continue
         try:
             f = int(str(d.get("source_frame", "")))
         except ValueError:
             continue
-        if first <= f <= last and str(d.get("words", "")).strip():
-            out.append({"line": d["_line"], "frame": f, "at": str(d.get("at", ""))[:16], "words": str(d["words"]).strip()})
+        if shots_list is not None:
+            f, target = patc.word_target(shots_list, d)
+            if target is None or (int(target["first"]), int(target["last"])) != (first, last):
+                continue
+        elif not (first <= f <= last):
+            continue
+        out.append({"line": d["_line"], "frame": f, "at": str(d.get("at", ""))[:16], "words": str(d["words"]).strip()})
     return out
 
 
@@ -595,6 +603,58 @@ def render_numbered_tiles(shots: dict, s: dict, found: list[dict], every: list[d
     return tiles, plain_cuts
 
 
+def shots_from_view(view: dict) -> dict:
+    """Reconstruct a shots-compatible dict from an `h3_who_view/1` view when `--shots` is not given separately."""
+    if view.get("schema") != "h3_who_view/1":
+        raise SystemExit(f"--view: expected schema 'h3_who_view/1', got {view.get('schema')!r}")
+    out_shots = []
+    for s in view.get("shots", []):
+        who_map = {}
+        sub_dict = s.get("subjects") or s.get("who") or {}
+        for label, w in sub_dict.items():
+            raw_w = w.get("raw") or {}
+            ans_w = w.get("answer") if isinstance(w.get("answer"), dict) else {}
+            who_map[label] = {
+                "present": w["present"],
+                "how": w.get("how") or raw_w.get("how", ""),
+                "by": w.get("by") or ans_w.get("raw") or raw_w.get("by", ""),
+                "seen_looks": w.get("seen") if "seen" in w else w.get("seen_looks", []),
+                "seen_standing": w.get("seen_standing"),
+            }
+        entry: dict = {"first": int(s["first"]), "last": int(s["last"]), "who": who_map}
+        note_field = s.get("note")
+        if isinstance(note_field, dict):
+            if note_field.get("raw"):
+                entry["note"] = note_field["raw"]
+            if note_field.get("owner_hedged"):
+                entry["owner_hedged"] = True
+        elif note_field:
+            entry["note"] = str(note_field)
+        for k in ("order", "not_people", "owner_hedged"):
+            if s.get(k):
+                entry[k] = s[k]
+        out_shots.append(entry)
+    vid = view.get("video")
+    if isinstance(vid, dict):
+        video_file = vid.get("file", "")
+        source_frames = vid.get("frames")
+        span_val = list(vid.get("span") or [0, 0])
+    else:
+        video_file = str(vid or "")
+        source_frames = view.get("source_frames")
+        span_val = list(view.get("span") or [0, 0])
+    subs = [x["label"] if isinstance(x, dict) else str(x) for x in view.get("subjects", [])]
+    return {
+        "schema": "h3_shots/1",
+        "video": video_file,
+        "source_frames": source_frames,
+        "span": span_val,
+        "subjects": subs,
+        "written_by": f"h3_who_view/1 ({view.get('made_from', {}).get('shots', {}).get('path', 'view')})",
+        "shots": out_shots,
+    }
+
+
 def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, plan: dict | None = None, source: str | None = None,
           long_frames: int = LONG_SHOT_FRAMES, span: list[int] | None = None, notes: dict | None = None,
           every_cut: list[list[int]] | None = None, least_cut: int = 1, standing: dict | None = None, only: list[int] | None = None,
@@ -604,6 +664,7 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
     When `three_passes` is True (or automatically when `standing` and `answers` are given and `previews_` contains both
     Pass A early previews and Pass C `shot_c_*` previews), each shot row shows Pass A, Pass B, and Pass C side by side
     with the owner's recorded answers on each picture."""
+    import who_view
     rows = []
     span = span or [int(shots["span"][0]), int(shots["span"][1])]
     indexed_answers = index_answers(answers)
@@ -618,12 +679,22 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
         for label in shots["subjects"]:
             w = s["who"][label]
             cls = {"yes": "", "no": "no", "unsure": "un"}[w["present"]]
+            raw_looks = w.get("seen_looks", [])
             looks_items = [
                 (f"{lk.get('first')}-{lk.get('last')} {lk.get('part', '')}: {lk.get('is', '')} ({lk.get('why', '')})"
                  if isinstance(lk, dict) else str(lk))
-                for lk in w.get("seen_looks", [])
+                for lk in raw_looks
             ]
-            looks = (f'<div class="how">seen_looks: <code>{html.escape("; ".join(looks_items))}</code></div>'
+            standing_looks = w.get("seen_standing") or who_view.seen_standing_for(w, s["first"], s["last"])
+            has_seen_overrule = bool(standing_looks.get("overruled_looks")) or any(isinstance(lk, dict) and lk.get("is") == "seen" for lk in raw_looks)
+            standing_note = ""
+            if raw_looks and has_seen_overrule:
+                by_part = [
+                    f"{part}: " + (", ".join(f"{iv[0]}-{iv[1]}" for iv in spans) if spans else "none (overruled)")
+                    for part, spans in standing_looks.get("not_seen_spans", {}).items()
+                ]
+                standing_note = f' <span class="how">(seen_standing not_seen: <code>{html.escape("; ".join(by_part) or "none")}</code>)</span>'
+            looks = (f'<div class="how">seen_looks: <code>{html.escape("; ".join(looks_items))}</code>{standing_note}</div>'
                      if looks_items else "")
             who.append(f'<div class="{cls}"><b>{html.escape(label)}</b>: {PRESENT_WORD[w["present"]]}'
                        f'<div class="how">{html.escape(w.get("how", ""))} <i>({html.escape(w.get("by", ""))})</i></div>{looks}</div>')
@@ -717,13 +788,21 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
                     if f:
                         tiles.append(plain_tile(shots, s, q, f, f"the {which} quarter of a shot of {s['last'] - s['first'] + 1} frames, shown because one frame can miss an entrance"))
             mid_cell = f'<div class="tiles">{"".join(tiles) or ("<span class=no>the trackers found nobody on this shot</span>" if covered else "<span class=no>no preview covers this shot</span>")}</div>'
-        words = owner_words(indexed_answers, s["first"], s["last"])
+        words = owner_words(indexed_answers, s["first"], s["last"], shots["shots"])
         wtxt = "".join(f'<div class="w">frame {w["frame"]} ({w["at"]}, line {w["line"]}): {html.escape(w["words"])}</div>' for w in words)
         note = f'<div class="how">{html.escape(s["note"])}</div>' if s.get("note") else ""
+        extras = []
+        if s.get("order"):
+            extras.append(f"order: {s['order']}")
+        if s.get("not_people"):
+            extras.append(f"not_people: {', '.join(str(x) for x in s['not_people'])}")
+        if s.get("owner_hedged"):
+            extras.append("owner_hedged: yes")
+        extra_html = f'<div class="how"><code>{html.escape("; ".join(extras))}</code></div>' if extras else ""
         box = (f'<div class="say" data-lo="{s["first"]}" data-hi="{s["last"]}"><textarea placeholder="your words on {s["first"]}-{s["last"]}"></textarea>'
                f'<button class="send">save</button><span class="st"></span></div>')
         rows.append(f'<tr><td class="f">{s["first"]}-{s["last"]}<br><span class="how">{s["last"] - s["first"] + 1} f</span></td>'
-                    f'<td>{"".join(who)}{note}</td><td>{mid_cell}</td>'
+                    f'<td>{"".join(who)}{note}{extra_html}</td><td>{mid_cell}</td>'
                     f'<td>{wtxt or "<span class=no>none yet</span>"}{box}</td></tr>')
     head = (f'<p>{html.escape(shots["video"])}: '
             + (f'the {len(only)} shot(s) named for this page, beginning on {", ".join(map(str, only))}; every other shot of the record is left off'
@@ -757,7 +836,8 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n")[0])
-    ap.add_argument("--shots", required=True)
+    ap.add_argument("--shots", help="the video's shots.json record (required unless --view is given)")
+    ap.add_argument("--view", metavar="WHO_V2.json", help="a structured who view (h3_who_view/1, built by bench/who_view.py); verified against --shots/--cast/--answers when given")
     ap.add_argument("--preview", action="append", default=[], metavar="JOB.json=TABLES_DIR")
     ap.add_argument("--answers")
     ap.add_argument("--plan", help="the video's plan file; its per-subject region is printed in the header so the outline is not read as the region")
@@ -779,7 +859,17 @@ def main() -> int:
                     "with the owner's recorded answers from --answers printed on each picture")
     ap.add_argument("--out", required=True, help="the page's own folder; its name is the page's address on the page server, and a page of another span there is refused")
     a = ap.parse_args()
-    shots = json.load(open(a.shots))
+    if not a.shots and not a.view:
+        raise SystemExit("who_page.py: give --shots or --view")
+    view = None
+    if a.view:
+        import who_view
+        view = json.loads(Path(a.view).read_text())
+        try:
+            who_view.verify_view_fresh(view, a.shots, a.cast, a.answers, a.plan)
+        except who_view.Refused as e:
+            raise SystemExit(f"who_page.py: {e}") from None
+    shots = json.load(open(a.shots)) if a.shots else shots_from_view(view)
     only = sorted(set(a.shot)) or None
     if only:
         by_first = {s["first"]: s for s in shots["shots"]}
@@ -812,6 +902,12 @@ def main() -> int:
         import cast_file
         standing = cast_file.current(cast_file.read(a.cast))
     made_from = made_from_record(a.shots, a.cast, a.answers)
+    if view is not None:
+        for k, v in view.get("made_from", {}).items():
+            made_from.setdefault(k, v)
+        view_digest = sha256_of(a.view)
+        if view_digest:
+            made_from["who_view"] = {"path": str(a.view), "sha256": view_digest}
     three_passes = True if a.three_passes else None
     text = page(shots, made, answers, out, plan, a.source, a.long_shot_frames, span, notes, every_cut, least_cut, standing, only,
                 made_from=made_from, three_passes=three_passes)
@@ -821,7 +917,7 @@ def main() -> int:
     (out / "index.html").write_text(text)
     (out / "page.json").write_text(json.dumps({
         "what": "what bench/who_page.py built this page from; a page of another span is not written over it", "span": span, "only_shots": only,
-        "built": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "shots": str(a.shots),
+        "built": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "shots": str(a.shots or a.view),
         "made_from": made_from,
         "notes": a.notes, "previews": [{"job": p["name"], "frames": [p["first"], p["last"]], "tables": str(p["folder"])} for p in made]}, indent=1) + "\n")
     tiles = sorted((out / "tiles").glob("*.jpg")) if (out / "tiles").is_dir() else []

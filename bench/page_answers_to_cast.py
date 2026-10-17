@@ -124,6 +124,7 @@ import argparse
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 from collections import defaultdict
@@ -353,29 +354,78 @@ def frame_fields(records: list[dict], standing: dict, answers: list[tuple[int, d
     return done
 
 
+def word_target(shots: list[dict], d: dict) -> tuple[int, dict | None]:
+    """The frame and shot of `shots` a `words` line belongs to.
+
+    The shot-level text box on the who page records `source_frame == frames[0]` (the shot's first frame when the page
+    was built). When that shot was later split into sub-shots inside `frames`, a note whose words name a frame inside
+    one sub-shot belongs to that sub-shot, not to the first half's start frame."""
+    frame = int(d["source_frame"])
+    fr = d.get("frames")
+    if isinstance(fr, list) and len(fr) == 2 and str(fr[0]).isdigit() and str(fr[1]).isdigit() and frame == int(fr[0]):
+        lo, hi = int(fr[0]), int(fr[1])
+        in_span = [s for s in shots if lo <= s["first"] and s["last"] <= hi]
+        if len(in_span) > 1:
+            named = [int(x) for x in re.findall(r"\b\d+\b", str(d.get("words", ""))) if lo <= int(x) <= hi]
+            targets = [s for s in in_span if any(s["first"] <= m <= s["last"] for m in named)]
+            if len(targets) == 1:
+                t = targets[0]
+                return next(m for m in named if t["first"] <= m <= t["last"]), t
+    return frame, next((s for s in shots if s["first"] <= frame <= s["last"]), None)
+
+
 def words_to_notes(records: list[dict], answers: list[tuple[int, dict]], span, answers_name: str) -> dict:
-    """Append the owner's typed words on a who row to the note of the shot that holds their frame. Returns the
-    notes changed per record, the lines carried, those a note already cites, and those no shot of a record holds."""
-    done = {"changed": {}, "carried": [], "cited": 0, "in_no_shot": []}
+    """Append the owner's typed words on a who row to the note of the shot that holds their frame (or move them from the
+    other half of a split shot if an earlier run filed them by the unsplit shot's first frame). Returns the notes
+    changed per record, the lines carried, those a note already cites, and those no shot of a record holds."""
+    done: dict = {"changed": {}, "carried": [], "moved": [], "cited": 0, "in_no_shot": []}
     for n, d in answers:
         if not (d.get("who") == "owner" and d.get("row") in WHO_ROWS and d.get("what") == "words" and str(d.get("words", "")).strip()
                 and str(d.get("source_frame", "")).isdigit()):
             continue
-        frame = int(d["source_frame"])
-        if span and not span[0] <= frame <= span[1]:
-            continue
+        raw_frame = int(d["source_frame"])
+        cites = tuple(dict.fromkeys((f"{answers_name} line {n},", f"answers.jsonl line {n},")))
+        target = None
+        for k, f in enumerate(records):
+            if d.get("video") in (None, f["record"].get("video")):
+                tf, ts = word_target(f["record"]["shots"], d)
+                if ts is not None:
+                    target = (k, f, ts, tf)
+                    break
+        eff_frame = target[3] if target is not None else raw_frame
         # cited in ANY shot's note of a record is cited: a line a hand carried may name its video another way than the
         # record does (the first who page's lines say `fun` where the record says `fun.mp4`), and it is not carried again
-        cite = f"{answers_name} line {n},"
-        if any(cite in str(s.get("note") or "") for f in records for s in f["record"]["shots"]):
+        # unless it was filed on the wrong half of a split shot.
+        cited_in = [(k, f, s) for k, f in enumerate(records) for s in f["record"]["shots"]
+                    if any(c in str(s.get("note") or "") for c in cites)]
+        if cited_in:
+            fr = d.get("frames")
+            if (target is not None and cited_in[0][0] == target[0] and cited_in[0][2] is not target[2]
+                    and isinstance(fr, list) and len(fr) == 2 and str(fr[0]).isdigit() and str(fr[1]).isdigit()
+                    and int(fr[0]) <= cited_in[0][2]["first"] and cited_in[0][2]["last"] <= int(fr[1])):
+                if span and not (span[0] <= eff_frame <= span[1] or span[0] <= raw_frame <= span[1]):
+                    continue
+                k, f, shot, frame = target
+                s_old = cited_in[0][2]
+                cite_used = next((c for c in cites if c in str(s_old.get("note") or "")), f"{answers_name} line {n},")
+                s_old["note"] = " | ".join(p for p in str(s_old.get("note") or "").split(" | ") if not any(c in p for c in cites))
+                said = f"the owner on the who page (frame {frame}, {cite_used} {str(d.get('at', ''))[:16]}): {str(d['words']).strip()}"
+                shot["note"] = f"{shot['note']} | {said}" if str(shot.get("note") or "").strip() else said
+                done["changed"][k] = done["changed"].get(k, 0) + 1
+                done["carried"].append((n, f["path"], shot["first"], shot["last"], frame))
+                done["moved"].append((n, f["path"], s_old["first"], s_old["last"], shot["first"], shot["last"], frame))
+                continue
+            if span and not (span[0] <= eff_frame <= span[1] or span[0] <= raw_frame <= span[1]):
+                continue
             done["cited"] += 1
             continue
-        held = next(((k, f, s) for k, f in enumerate(records) for s in f["record"]["shots"]
-                     if d.get("video") in (None, f["record"].get("video")) and s["first"] <= frame <= s["last"]), None)
-        if held is None:
+        if span and not span[0] <= eff_frame <= span[1]:
+            continue
+        if target is None:
             done["in_no_shot"].append((n, d.get("video")))
             continue
-        k, f, shot = held
+        k, f, shot, frame = target
+        cite = f"{answers_name} line {n},"
         said = f"the owner on the who page (frame {frame}, {cite} {str(d.get('at', ''))[:16]}): {str(d['words']).strip()}"
         shot["note"] = f"{shot['note']} | {said}" if str(shot.get("note") or "").strip() else said
         done["changed"][k] = done["changed"].get(k, 0) + 1

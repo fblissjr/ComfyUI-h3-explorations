@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 149 |
+| [`check_*`](#check) | 150 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 17 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 185 |
+| [the rest](#the-rest) | 186 |
 
 ## check
 
@@ -169,6 +169,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_vsa_core_patch.py`](check_vsa_core_patch.py) | Report whether this ComfyUI builds H3's VSA gate, and whether consistently. |
 | [`check_what_h3_got.py`](check_what_h3_got.py) | What a load was handed (`bench/what_h3_got.py`), on a job folder whose every file is made here and known. |
 | [`check_who_page.py`](check_who_page.py) | `bench/who_page.py` lays the shots record beside each tracker's numbered picture; each case is a way a row could show the wrong band, the wrong words or nothing. |
+| [`check_who_view.py`](check_who_view.py) | Check `bench/who_view.py`: the read-only structured view generated from `shots.json`, `cast.jsonl`, and `owner_answers.jsonl`. |
 | [`check_widget_deviations.py`](check_widget_deviations.py) | Every shipped widget value that differs from its node's own default is declared. |
 
 ## measure
@@ -517,6 +518,7 @@ this file is only a way to find a script by what it says it does.
 | [`what_h3_got.py`](what_h3_got.py) | What H3 was handed for one load, read from the graph that was queued: every file, its digest, what the graph does to it. |
 | [`who_is_who_across_shots.py`](who_is_who_across_shots.py) | Who is who across shots: one row a shot of what each tracker called, whose word it is, and the question where it is nobody's. |
 | [`who_page.py`](who_page.py) | One plain page, a row a shot: who is in it and on whose word, each tracker's numbered picture of the shot, and the owner's words on it. |
+| [`who_view.py`](who_view.py) | Read-only structured view of who is in each shot, generated from `shots.json`, `cast.jsonl`, and `owner_answers.jsonl`. |
 | [`x0_step_frames.py`](x0_step_frames.py) | Where in time each sampling step's x0 prediction still moves. CPU only. |
 
 ## Other files

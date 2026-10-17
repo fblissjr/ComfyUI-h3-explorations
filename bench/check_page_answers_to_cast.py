@@ -320,6 +320,31 @@ def main() -> int:
              and not cast_lines(p16) and "--words-to-notes at 20" in all16["written_by"],
              r_dry.stdout + r_span.stdout + r_span.stderr + r_rest.stdout + r_again.stdout + json.dumps(all16["shots"])[:600])
 
+        f16b = Path(tempfile.mkdtemp(dir=d))
+        p16b = setup_plain(f16b, [
+            said16(1, 2000, "lead arm raised in frame 2164", frames=[2000, 2299]),
+            said16(2, 2000, "2280 = lead in red dress", frames=[2000, 2299]),
+            said16(3, 2000, "i THINK its #2", frames=[2000, 2299]),
+        ])
+        rec16b = json.loads(Path(p16b["shots"]).read_text())
+        rec16b["shots"][0]["note"] = (
+            "SPLIT earlier | the owner on the who page (frame 2000, answers.jsonl line 1, 2026-10-13T18:27): lead arm raised in frame 2164"
+            " | the owner on the who page (frame 2000, answers.jsonl line 3, 2026-10-13T18:27): i THINK its #2"
+        )
+        Path(p16b["shots"]).write_text(json.dumps(rec16b, indent=1))
+        cmd16b = [sys.executable, str(TOOL), "--answers", str(p16b["answers"]), "--cast", str(p16b["cast"]), "--shots", str(p16b["shots"]), "--words-to-notes"]
+        r_move = subprocess.run(cmd16b, capture_output=True, text=True)
+        got16b = json.loads(Path(p16b["shots"]).read_text())
+        r_move_again = subprocess.run(cmd16b, capture_output=True, text=True)
+        case("split_shot_words_go_to_the_sub_shot_their_frame_names_and_move_if_misfiled",
+             r_move.returncode == 0
+             and "line 1" not in got16b["shots"][0]["note"] and "line 2" not in got16b["shots"][0]["note"]
+             and "line 3" in got16b["shots"][0]["note"]
+             and "frame 2164, answers.jsonl line 1," in got16b["shots"][1].get("note", "")
+             and "frame 2280, answers.jsonl line 2," in got16b["shots"][1].get("note", "")
+             and "carried 0 line(s); already cited in a note 3" in r_move_again.stdout,
+             r_move.stdout + r_move.stderr + r_move_again.stdout + json.dumps(got16b["shots"]))
+
         f14 = Path(tempfile.mkdtemp(dir=d))
         older = "older_lead_shots_00001_shots.json"                      # a table of a preview this run does not name
         p14 = setup(f14, [line(1, source_frame=500, subject="lead", chosen="1", table=older),

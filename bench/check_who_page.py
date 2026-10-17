@@ -249,8 +249,10 @@ def main() -> int:
         # tested both by automatic activation (Pass A + Pass C + --cast + --answers) and by explicit --three-passes
         shots_3p = Path(d) / "shots_3p.json"
         shots_3p_data = json.loads(p["shots"].read_text())
+        shots_3p_data.setdefault("written_by", "check_who_page")
         shots_3p_data["shots"][1]["who"]["a"]["seen_looks"] = [
-            {"part": "face_and_neck", "first": 102, "last": 105, "is": "not seen", "why": "hand over face"}
+            {"part": "face_and_neck", "first": 102, "last": 105, "is": "not seen", "why": "hand over face",
+             "by": "stills", "at": "2026-10-13T00:00:00Z"}
         ]
         shots_3p.write_text(json.dumps(shots_3p_data))
         c_shots = [{"shot": 1, "first_frame": 0, "last_frame": 27, "shown_frame": 14, "people": [{"person": 1, "box": [2, 2, 6, 6]}]}]
@@ -301,6 +303,43 @@ def main() -> int:
         case("three_passes_show_beside_each_other_with_the_owners_answers",
              r_3p.returncode == 0 and r_3p_flag.returncode == 0 and ordered_3p and looks_ok and on_ok,
              why_3p)
+        import who_view
+        shots_3p_data["shots"][1]["who"]["a"]["seen_looks"].append(
+            {"part": "face_and_neck", "first": 102, "last": 105, "is": "seen", "why": "playback overrules stills",
+             "by": "owner, on playback", "at": "2026-10-16T00:00:00Z"}
+        )
+        shots_3p.write_text(json.dumps(shots_3p_data))
+        ans_3p.write_text(ans_3p.read_text() + json.dumps({
+            "who": "owner", "row": "who", "what": "words", "words": "frame 140 = b in red dress",
+            "source_frame": 102, "frames": [102, 159], "at": "2026-10-13T14:00:00Z"
+        }) + "\n")
+        view_path = Path(d) / "who_v2.json"
+        view_obj = who_view.build_view(shots_3p, cast, ans_3p)
+        view_path.write_text(json.dumps(view_obj))
+        out_view = Path(d) / "from_view"
+        r_view = subprocess.run([sys.executable, str(Path(__file__).with_name("who_page.py")),
+                                 "--view", str(view_path), "--preview", p["pv"],
+                                 "--answers", str(ans_3p), "--cast", str(cast), "--out", str(out_view)],
+                                capture_output=True, text=True)
+        text_view = (out_view / "index.html").read_text() if r_view.returncode == 0 else ""
+        row2_v = (text_view.split("<tr>") + ["", "", "", "", ""])[3]
+        row3_v = (text_view.split("<tr>") + ["", "", "", "", ""])[4]
+        stale_view = Path(d) / "stale_view.json"
+        stale_obj = json.loads(view_path.read_text())
+        stale_obj["made_from"]["shots"]["sha256"] = "0" * 64
+        stale_view.write_text(json.dumps(stale_obj))
+        r_stale = subprocess.run([sys.executable, str(Path(__file__).with_name("who_page.py")),
+                                  "--view", str(stale_view), "--shots", str(shots_3p),
+                                  "--out", str(Path(d) / "from_stale")],
+                                 capture_output=True, text=True)
+        case("view_flag_reads_who_view_and_refuses_stale_and_routes_split_words",
+             r_view.returncode == 0
+             and "seen_standing not_seen: <code>face_and_neck: none (overruled)</code>" in row2_v
+             and "frame 140 = b in red dress" in row3_v
+             and "frame 140 = b in red dress" not in row2_v
+             and r_stale.returncode != 0 and "view is stale for shots" in (r_stale.stdout + r_stale.stderr)
+             and "Traceback" not in (r_stale.stdout + r_stale.stderr),
+             f"r_view={r_view.returncode} r_view_err={r_view.stderr} r_stale={r_stale.returncode} err={r_stale.stderr}")
         case("quarter_frames_are_the_shots_own",
              quarter_frames({"first": 102, "last": 129}, 20) == [109, 123] and quarter_frames({"first": 102, "last": 129}, 28) == []
              and quarter_frames({"first": 604, "last": 1009}) == [705, 908], str(quarter_frames({"first": 102, "last": 129}, 20)))
