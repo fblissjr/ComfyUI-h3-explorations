@@ -54,9 +54,12 @@ notes: `internal/claude/2026-10-16_mrtony/HANDOFF.md`; the card's: `internal/cla
      by its matte at the source's size"), plus `reach` and the plain-row blur. MUST land before any matte-laid piece
      (1010c, a re-laid piece, any new render) goes into the cut; the third read is first. Gemini's D23
      (`internal/gemini/2026-10-16_review_D23.md`, on 55c6783a) found the same ring independently; its third read must also
-     check D23's two further claims against 1e072b55: the double update at the canvas size in chroma at odd pixel
-     positions (`merged`, old :1182, :1190), and 12.5% of the source leaking where a later full edge crosses an earlier
-     full interior.
+     check D23's two further claims. The lead ran D23's own synthetic test (kept in the Gemini's scratch outside the repo,
+     named in its review file) against 1e072b55 at about 01:20Z: the source-size ring is GONE (inner ring mean -0.4 to
+     -1.8 levels, max 3, against -24 before) and the canvas's 2- and 3-piece overlaps read 0.000. STILL THERE: at the
+     CANVAS size, chroma where a full edge lands on an odd pixel (U -14.7, V +14.7 levels mean on 84 straddle cells, max
+     18): the same two-pass double update in `merged`'s half-resolution chroma (D23's case 1B is the red). The fix is
+     the same one-pass law in `merged`'s chroma; mrtaco, tomorrow.
    - **The re-composite tool (mrtaco, `mrtaco-recomposite`).** Control passes: own composite reproduces the original,
      last step included, plate offset gone (`review2_recomposite_piece.md`). Left: a stale decode reused by file name
      (key on the latent's and VAE's sha256), a typed `--vae` overriding the graph's, six green mutations, 24/1 assumed,
