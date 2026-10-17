@@ -821,9 +821,11 @@ def start_here() -> str:
 
 def nothing_of_a_video_in_code() -> str:
     code = TOOL.read_text()
-    for word in ("/mnt/", "/home/", "http://", "https://", ":8765", "100.87.", "fun_", '"fun"', "day_2026"):
+    for word in ("/mnt/", "/home/", "http://", "https://", ":8765", "fun_", '"fun"', "day_2026"):
         assert word not in code, f"the tool's source holds {word!r}"
-    return "no address, share, machine folder, day or video in the tool's source"
+    ip = re.search(r"\b\d{1,3}(?:\.\d{1,3}){3}\b", code)
+    assert ip is None, f"the tool's source holds a machine's address, {ip.group(0) if ip else ''!r}"
+    return "no address (of any machine), share, machine folder, day or video in the tool's source"
 
 
 def the_page_says_what_is_laid() -> str:
