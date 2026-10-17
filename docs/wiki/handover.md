@@ -43,10 +43,11 @@ notes: `internal/claude/2026-10-16_mrtony/HANDOFF.md`; the card's: `internal/cla
    (`internal/claude/2026-10-16_mrtaco/HANDOFF.md`) and the lead's (`internal/claude/2026-10-16_mrtony/HANDOFF.md`).
    Then write the 2026-10-16 changelog entry from all that day's commits (`changelog.d/README.md`; `bump: minor`).
 2. **Builds waiting, each on its own branch; none lands before its blind read passes, landed from the merge base.**
-   As of 00:19Z (the lead updates this on each landing; `git branch --list 'mrtaco-*' 'gemini-*'` and each
-   branch's newest commit is the truth): no branch had a commit after its last read; mrtaco was asked whether the
-   matte ring and the re-composite fixes were being built; D19c was building on `gemini-d19b` (main merged at
-   00:09Z); D20b and D22 had no branch yet (building in their copies).
+   As of 00:24Z (the lead updates this on each landing; each branch's newest commit is the truth): the matte ring
+   (one pass) and `reach` are BUILT AND TESTED on `mrtaco-matte4` at 1e072b55, read not yet done; the plain-row blur
+   and the thin 2.0 margins are NOT started. The re-composite round-2 fixes and the `held` measurement are NOT
+   started (`mrtaco-recomposite` stands at 6c2437b4). D19c was building on `gemini-d19b`; D20b and D22 in their
+   copies; D23 (a Gemini read of mrtaco's two branches and the brightness) running. mrtaco stopped for the night.
    - **The matte at the source's size (mrtaco, `mrtaco-matte4`).** Two passes leave a ring of the original inside
      every matte piece's feather (up to 34 of 130 levels; `internal/claude/2026-10-16_mrtony/review2_matte_d18.md`).
      The fix is one weight scaled once and laid in one pass (written down: `docs/wiki/masked_v2v.md`, "Laying a piece
