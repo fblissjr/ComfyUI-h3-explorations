@@ -52,13 +52,20 @@ notes: `internal/claude/2026-10-16_mrtony/HANDOFF.md`; the card's: `internal/cla
      every matte piece's feather (up to 34 of 130 levels; `internal/claude/2026-10-16_mrtony/review2_matte_d18.md`).
      The fix is one weight scaled once and laid in one pass (written down: `docs/wiki/masked_v2v.md`, "Laying a piece
      by its matte at the source's size"), plus `reach` and the plain-row blur. MUST land before any matte-laid piece
-     (1010c, a re-laid piece, any new render) goes into the cut; the third read is first.
+     (1010c, a re-laid piece, any new render) goes into the cut; the third read is first. Gemini's D23
+     (`internal/gemini/2026-10-16_review_D23.md`, on 55c6783a) found the same ring independently; its third read must also
+     check D23's two further claims against 1e072b55: the double update at the canvas size in chroma at odd pixel
+     positions (`merged`, old :1182, :1190), and 12.5% of the source leaking where a later full edge crosses an earlier
+     full interior.
    - **The re-composite tool (mrtaco, `mrtaco-recomposite`).** Control passes: own composite reproduces the original,
      last step included, plate offset gone (`review2_recomposite_piece.md`). Left: a stale decode reused by file name
      (key on the latent's and VAE's sha256), a typed `--vae` overriding the graph's, six green mutations, 24/1 assumed,
      and the encoder quality: `--crf` defaults to 12 (`recomposite_piece.py:321`) instead of the render graph's own
      `crf` (checked by the lead: all 121 render graphs on disk used 12, so no piece today changes; read it from the graph
      and refuse a typed value that disagrees, as for the source and the VAE).
+     Also from D23: the default `--device cpu` cannot decode with the render's int8 VAE (CUDA only; the trial agent saw
+     the same), so default to cuda or refuse with why; and a re-laid piece lacks `<stem>.png`, `_with_mask.mp4` and
+     `kept` in its region file, which `stack_delivery`, `render_ledger` and `capture_masked_run` read.
    - **D19c, the pages read the gap check (Gemini, `gemini-d19b`):** the last round; then its read.
    - **D20b, `--carry-words-from` (Gemini, its branch):** keep each word's author; tonight's 1010c lost 1010j's
      `no_mouth_on 1010-1018` (both job files show it), which is what it is for. Until it lands, a remake's words are
@@ -67,7 +74,7 @@ notes: `internal/claude/2026-10-16_mrtony/HANDOFF.md`; the card's: `internal/cla
      NOT landed: its second read (`internal/claude/2026-10-16_mrtony/review2_floor_off_head.md`) found its note describing
      code the commit does not hold, a bent-head guard that can keep a hand, four vacuous cases; D22b in the requests file.
      Good: the frame table accepts floor holds; every held frame reports its source and face points. Then 0613g's plan.
-   - Settled tonight, no build: the brightness. `assemble_delivery` lays onto a 16-bit read at the canvas and the
+   - Settled tonight, no build: the brightness (and D23 watched the street and 0014f at 24 fps: no box). `assemble_delivery` lays onto a 16-bit read at the canvas and the
      source's own yuv at full size; no step in the cut (`review2_recomposite_piece.md` item 3). Other tools still read
      8 bits (`recomposite_window`, `patch_render_window`, `masked_render_against_source`, `strangers`): a list, no rush.
 3. **The owner's two questions (the Open List):** r16_02, what the `held` keep-out keeps. It, not `clothes`, cut the
