@@ -3,7 +3,7 @@
 
     <python> bench/who_page.py --shots data/<stem>/shots.json --preview JOB.json=TABLES_DIR [--preview ...] \\
         [--answers data/<stem>/owner_answers.jsonl] [--span FIRST-LAST | --shot FIRST ...] [--notes PREVIEWS_RUN.jsonl] \\
-        [--source COPY --every-cut-of FIRST-LAST] [--cast data/<stem>/cast/cast.jsonl] --out <folder>
+        [--source COPY --every-cut-of FIRST-LAST] [--cast data/<stem>/cast/cast.jsonl] [--three-passes] --out <folder>
 
 **What it buys.** The owner asked (2026-10-12) to see, in a super simple page, who is labelled in each shot, with
 the masks and identifiers over the input video, so a subject who changes clothes or a shot where nobody was
@@ -14,10 +14,19 @@ detection outlined and numbered (`shot_table.py`; one band a shot, top to bottom
 side, writes nothing else, and is static HTML with no script, so it opens from the share as a file.
 
 **What a row holds.** The shot's frames; for each subject a line `yes` / `no` / `unsure`, then how and by whom
-(the record's own words); for each preview whose job spans the shot, the band of each subject's table that is
-that shot, cut from the table's picture and labelled with the tracker it belongs to and the frame shown; and
-the owner's typed words on any numbered picture of those frames (the page's `answers.jsonl`, rows `b20` and
-`who`, unreworded). A shot no preview covers says so.
+(the record's own words, and `seen_looks` when the record carries them); for each preview whose job spans the shot,
+the band of each subject's table that is that shot, cut from the table's picture and labelled with the tracker it
+belongs to and the frame shown; and the owner's typed words on any numbered picture of those frames (the page's
+`answers.jsonl`, rows `b20` and `who`, unreworded). A shot no preview covers says so.
+
+**One page, all three passes side by side, and the exact files' sha256s.** Every page built from files prints
+`made_from` in its header and saves it in `page.json`: the paths and `sha256` digests of `shots.json`, `cast.jsonl`,
+and `owner_answers.jsonl` (when given), so a stale page or a hand-edited copy is caught at a glance. With
+`--three-passes` (or automatically when `--cast` and `--answers` are given and the previews span both Pass A's
+early preview jobs and Pass C's `shot_c_*` preview jobs), each shot row lays all three passes side by side
+(`Pass A: early preview tables`, `Pass B: plain frames`, `Pass C: shot_c_* preview tables`), with each picture
+printing the owner's own answer lines on it (`line`, `time`, `choice`, and any typed `words` on that picture)
+beside the record's resulting `present` and `how` (2026-10-17).
 
 **Who a numbered picture asks about.** The subjects of the job that made it, and no other: a preview tracks the
 subjects its job names, and a number clicked for anybody else has no tracker to seed and no table of theirs to
@@ -77,6 +86,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import hashlib
 import html
 import json
 import subprocess
@@ -104,6 +114,27 @@ BOXES_SAY = ("A box is a box: the smallest upright rectangle round the tracker's
 
 def colour_of(person: int) -> tuple[int, int, int]:
     return BOX_COLOURS[(int(person) - 1) % len(BOX_COLOURS)]
+
+
+def sha256_of(path: str | Path | None) -> str | None:
+    if not path:
+        return None
+    p = Path(path)
+    return hashlib.sha256(p.read_bytes()).hexdigest() if p.is_file() else None
+
+
+def made_from_record(shots_path: str | Path | None = None, cast_path: str | Path | None = None,
+                     answers_path: str | Path | None = None) -> dict[str, dict[str, str]]:
+    out: dict[str, dict[str, str]] = {}
+    for key, p in (("shots", shots_path), ("cast", cast_path), ("owner_answers", answers_path)):
+        digest = sha256_of(p)
+        if p and digest:
+            out[key] = {"path": str(p), "sha256": digest}
+    return out
+
+
+def is_pass_c_preview(pv: dict) -> bool:
+    return str(pv.get("name", "")).startswith("shot_c_")
 
 
 def stood(standing: dict | None, subject: str, shot: dict, t: dict) -> str:
@@ -187,9 +218,17 @@ def tiles_for(shot: dict, pv: dict, out: Path, nobody_too: bool = False) -> list
     return found
 
 
+def index_answers(answers: list[dict]) -> list[dict]:
+    """Preserve 1-based line numbers from the answers file when not already attached."""
+    out = []
+    for idx, d in enumerate(answers, 1):
+        out.append(d if "_line" in d else {**d, "_line": idx})
+    return out
+
+
 def owner_words(answers: list[dict], first: int, last: int) -> list[dict]:
     out = []
-    for d in answers:
+    for d in index_answers(answers):
         if d.get("who") != "owner" or d.get("row") not in ("b20", "who"):
             continue
         try:
@@ -197,8 +236,49 @@ def owner_words(answers: list[dict], first: int, last: int) -> list[dict]:
         except ValueError:
             continue
         if first <= f <= last and str(d.get("words", "")).strip():
-            out.append({"frame": f, "at": str(d.get("at", ""))[:16], "words": str(d["words"]).strip()})
+            out.append({"line": d["_line"], "frame": f, "at": str(d.get("at", ""))[:16], "words": str(d["words"]).strip()})
     return out
+
+
+def owner_answers_on_tile(answers: list[dict], table: str, frame: int, first: int, last: int) -> list[dict]:
+    """Every owner answer recorded on `table` and `frame` within `first..last`, in file order."""
+    out = []
+    for d in index_answers(answers):
+        if d.get("who") != "owner" or d.get("row") not in ("b20", "who"):
+            continue
+        if d.get("table") != table:
+            continue
+        try:
+            f = int(str(d.get("source_frame", "")))
+        except ValueError:
+            continue
+        if f != frame or not (first <= f <= last):
+            continue
+        at = str(d.get("at", ""))[:19]
+        if d.get("what") == "words" or (d.get("words") and not d.get("chosen")):
+            out.append({"line": d["_line"], "at": at, "kind": "words", "summary": f'words: "{str(d.get("words", "")).strip()}"'})
+        elif d.get("subject") is not None:
+            out.append({"line": d["_line"], "at": at, "kind": "choice", "subject": str(d["subject"]),
+                        "chosen": str(d.get("chosen", "")),
+                        "summary": f'{d["subject"]} -> {d.get("chosen", "")}'})
+        else:
+            person = d.get("person")
+            who_tag = f"person {person}" if person is not None else "tile"
+            out.append({"line": d["_line"], "at": at, "kind": "choice", "person": person,
+                        "chosen": str(d.get("chosen", "")),
+                        "summary": f'{who_tag} -> {d.get("chosen", "")}'})
+    return out
+
+
+def render_tile_answers(tile_answers: list[dict]) -> str:
+    """Render the owner's own recorded answer lines on a picture."""
+    if not tile_answers:
+        return '<div class="ans none">owner_answers.jsonl: no click recorded on this picture</div>'
+    items = "".join(
+        f'<div class="ans-line"><code>line {a["line"]}</code> ({html.escape(a["at"])}): <b>{html.escape(a["summary"])}</b></div>'
+        for a in tile_answers
+    )
+    return f'<div class="ans"><div class="ans-head">Owner\'s answer(s) on this picture (<code>owner_answers.jsonl</code>):</div>{items}</div>'
 
 
 def fitted_frame(source: str, frame: int, size: list[int], out: Path) -> str | None:
@@ -266,8 +346,10 @@ def boxes_picture(fitted: str, t: dict, out: Path) -> str:
     return f"tiles/{name}"
 
 
-def plain_frame(source: str, frame: int, out: Path) -> str | None:
+def plain_frame(source: str | None, frame: int, out: Path) -> str | None:
     """The source's own frame, cut with ffmpeg at the page's width, for a shot with no numbered picture."""
+    if not source:
+        return None
     (out / "tiles").mkdir(parents=True, exist_ok=True)
     name = f"{frame:04d}_plain.jpg"
     r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", source, "-vf", f"select=eq(n\\,{frame}),scale=768:-2",
@@ -286,6 +368,12 @@ button.on{background:#3b6cf0;border-color:#3b6cf0}.st{font-size:13px;color:#9c9}
 .guess{margin-top:8px;font-size:14px;color:#aab}.guess summary{cursor:pointer;color:#c9a227}
 .three{display:flex;flex-wrap:wrap;gap:8px}.three img{width:640px}.chip{display:inline-block;padding:0 7px;border:2px solid;border-radius:3px;background:#101010;font-weight:700}
 .stood{margin-top:6px;font-size:14px;color:#9ccc65}.stood.none{color:#9aa3b2}
+.ans{margin-top:6px;padding:6px 8px;background:#1b222c;border-left:3px solid #64b5f6;font-size:13px;color:#d6e4ff}
+.ans.none{border-left-color:#444;color:#8a8f99;background:#181a1f}.ans-head{font-weight:600;margin-bottom:2px}
+.passes{display:grid;grid-template-columns:repeat(3,minmax(320px,1fr));gap:12px;align-items:start}
+.pass-col{background:#181b20;border:1px solid #2b3038;border-radius:4px;padding:8px}
+.pass-head{font-weight:700;font-size:14px;color:#cfd8dc;margin-bottom:6px;border-bottom:1px solid #2b3038;padding-bottom:4px}
+.made-from{font-size:14px;background:#181b20;border:1px solid #2b3038;padding:8px 10px;border-radius:4px}
 .say{margin-top:8px}#me{background:#1b1e24;color:#eee;border:1px solid #555;padding:4px}.w{font-size:16px;color:#ddd;white-space:pre-line;margin-bottom:8px}.how{font-size:14px;color:#9aa3b2}"""
 
 SCRIPT = """<script>
@@ -322,16 +410,25 @@ SCRIPT = """<script>
 </script>"""
 
 
-def plain_tile(shots: dict, s: dict, frame: int, file: str, why: str) -> str:
+def plain_tile(shots: dict, s: dict, frame: int, file: str | None, why: str, answers: list[dict] = (),
+               show_answers: bool = False) -> str:
     """A source frame with the two frame buttons a subject: nothing outlined, so no numbers to choose from."""
+    tile_ans = owner_answers_on_tile(answers, "plain", frame, s["first"], s["last"]) if show_answers else []
+    chosen_by_sub = {a["subject"]: a["chosen"] for a in tile_ans if a.get("kind") == "choice" and a.get("subject")}
     ask = "".join(
         f'<div class="ask"><span class="lab">{html.escape(sub)} is</span>'
-        + f'<button data-sub="{html.escape(sub)}" data-chosen="not outlined">on this frame, not outlined</button>'
-        + f'<button data-sub="{html.escape(sub)}" data-chosen="not on frame">not on this frame</button></div>'
+        + f'<button data-sub="{html.escape(sub)}" data-chosen="not outlined"'
+        + (' class="on"' if chosen_by_sub.get(sub) == "not outlined" else "")
+        + '>on this frame, not outlined</button>'
+        + f'<button data-sub="{html.escape(sub)}" data-chosen="not on frame"'
+        + (' class="on"' if chosen_by_sub.get(sub) == "not on frame" else "")
+        + '>not on this frame</button></div>'
         for sub in shots["subjects"])
+    img_html = f'<img src="{file}" alt="">' if file else '<div class="how">(plain frame image not on disk)</div>'
+    ans_html = render_tile_answers(tile_ans) if show_answers else ""
     return (f'<div class="tile" data-table="plain" data-frame="{frame}" data-tf="0" data-shot="0" '
-            f'data-lo="{s["first"]}" data-hi="{s["last"]}"><img src="{file}" alt="">'
-            f'<div>frame {frame}, the source itself: {why}, so nothing is outlined</div>{ask}<div class="st"></div></div>')
+            f'data-lo="{s["first"]}" data-hi="{s["last"]}">{img_html}'
+            f'<div>frame {frame}, the source itself: {why}, so nothing is outlined</div>{ans_html}{ask}<div class="st"></div></div>')
 
 
 def notes_of(path: str | None) -> dict[tuple[str, int], dict] | None:
@@ -410,13 +507,110 @@ def not_over_another(out: Path, span: list[int], only: list[int] | None = None) 
                          "an --out of its own")
 
 
+def render_numbered_tiles(shots: dict, s: dict, found: list[dict], every: list[dict], out: Path,
+                          source: str | None, by_cut: bool, least_cut: int, standing: dict | None,
+                          notes: dict | None, answers: list[dict] = (), show_answers: bool = False) -> tuple[list[str], list[dict]]:
+    """Render numbered tiles for a shot (or pass within a shot). Returns `(html_tiles, plain_cuts_needed)`.
+    When `show_answers` is True and the owner answered specific tiles among `found`, every answered tile is shown
+    (so no owner click is hidden behind another tracker's tile), falling back to the single best tile when none was answered."""
+    if not found:
+        return [], []
+    mid = (s["first"] + s["last"]) // 2
+    t = max(found, key=lambda x: (len(x["people"]), -abs(x["shown"] - mid)))   # most people; then nearest the middle
+    shown, said = [t], ""
+    plain_cuts: list[dict] = []
+    if by_cut:
+        # that tracker's cuts of the shot, each as long as a load can be: a shorter cut cannot be a load of its
+        # own, so who is on it decides nothing by itself. A long cut with nobody outlined is asked about plain.
+        length = lambda x: x["frames"][1] - x["frames"][0] + 1                                               # noqa: E731
+        cuts = sorted((x for x in every if (x["preview"], x["label"]) == (t["preview"], t["label"])), key=lambda x: x["frames"][0])
+        long = [x for x in cuts if length(x) >= least_cut]
+        short = [x for x in cuts if length(x) < least_cut]
+        shown = [x for x in long if x["people"]] or [t]
+        if show_answers:
+            answered_cuts = [x for x in found if owner_answers_on_tile(answers, x["table"], x["shown"], s["first"], s["last"])]
+            for ac in answered_cuts:
+                if ac not in shown:
+                    shown.append(ac)
+        said = (f'<div class="how"><b>This shot is shown cut by cut.</b> {html.escape(t["label"])}\'s tracker ({html.escape(t["preview"])}) cut it into '
+                f'{len(cuts)}; the {len(long)} of {least_cut} frames or more (the shortest a load can be) are shown, each on the frame the tracker '
+                f'numbered, holding {sum(length(x) for x in long)} of the shot\'s {s["last"] - s["first"] + 1} frames. '
+                f'{len(short)} shorter cut(s) are not shown: ' + (", ".join(f"{x['frames'][0]}-{x['frames'][1]}" for x in short) or "none") + '.</div>')
+        plain_cuts = [x for x in long if not x["people"]]
+    elif show_answers:
+        answered_tiles = [x for x in found if owner_answers_on_tile(answers, x["table"], x["shown"], s["first"], s["last"])]
+        if answered_tiles:
+            shown = answered_tiles
+    others = [x for x in found if x not in shown and not (by_cut and (x["preview"], x["label"]) == (t["preview"], t["label"]))]
+    tiles: list[str] = []
+    for tk in shown:
+        part = " (the table's shot runs %d-%d)" % tuple(tk["frames"]) if tk["partial"] else ""
+        # only the subjects this tile's job tracks, in the record's order (then any the record does not name)
+        asked = [sub for sub in shots["subjects"] if sub in tk["subjects"]] + [sub for sub in tk["subjects"] if sub not in shots["subjects"]]
+        # a picture of boxes for a shot shown cut by cut: the frame as the tracker saw it, plain, and again with each person's box
+        fitted = fitted_frame(source, tk["shown"], tk["size"], out) if by_cut and source and tk.get("size") else None
+        boxed = boxes_picture(fitted, tk, out) if fitted else None
+        inked = lambda n: (' style="color:rgb(%d,%d,%d);border-color:rgb(%d,%d,%d)"' % (colour_of(n) * 2)) if boxed else ""       # noqa: E731
+        cut = f', its cut {tk["frames"][0]}-{tk["frames"][1]}' if by_cut else ""
+        pictures = f'<img src="{tk["file"]}" alt="">'
+        if boxed:
+            legend = " ".join(f'<span class="chip" style="color:rgb(%d,%d,%d);border-color:rgb(%d,%d,%d)">{p["person"]}</span>' % (colour_of(p["person"]) * 2)
+                              for p in sorted(tk["boxes"], key=lambda p: p["person"]) if p["box"])
+            pictures = (f'<div class="three"><div><img src="{fitted}" alt=""><div>frame {tk["shown"]}, the source itself</div></div>'
+                        f'<div><img src="{boxed}" alt=""><div>the same frame, each person\'s box in a color of their own: {legend}</div></div>'
+                        f'<div><img src="{tk["file"]}" alt=""><div>the tracker\'s own picture of it, with its outlines</div></div></div>'
+                        f'<div class="how">{BOXES_SAY}</div>')
+        elif by_cut:
+            pictures += '<div class="how">no picture of boxes: ' + ("no --source was given" if not source else "the frame could not be cut from the source") + '</div>'
+        tile_ans = owner_answers_on_tile(answers, tk["table"], tk["shown"], s["first"], s["last"]) if show_answers else []
+        chosen_by_sub = {a["subject"]: a["chosen"] for a in tile_ans if a.get("kind") == "choice" and a.get("subject")}
+        ans_html = render_tile_answers(tile_ans) if show_answers else ""
+        ask = "".join(
+            stood(standing, sub, s, tk) + f'<div class="ask"><span class="lab">{html.escape(sub)} is</span>'
+            + "".join(
+                f'<button data-sub="{html.escape(sub)}" data-chosen="{n}"'
+                + (' class="on"' if chosen_by_sub.get(sub) == str(n) else "")
+                + f'{inked(n)}>{n}</button>'
+                for n in tk["people"]
+            )
+            + f'<button data-sub="{html.escape(sub)}" data-chosen="not outlined"'
+            + (' class="on"' if chosen_by_sub.get(sub) == "not outlined" else "")
+            + '>on this frame, not outlined</button>'
+            + f'<button data-sub="{html.escape(sub)}" data-chosen="not on frame"'
+            + (' class="on"' if chosen_by_sub.get(sub) == "not on frame" else "")
+            + '>not on this frame</button></div>'
+            for sub in asked)
+        unasked = [sub for sub in shots["subjects"] if sub not in tk["subjects"]]
+        if unasked:
+            ask += (f'<div class="how">not asked here: {html.escape(", ".join(unasked))}. This preview\'s job ({html.escape(tk["preview"])}) '
+                    f'tracks {html.escape(", ".join(tk["subjects"]))} and nobody else, so a number for another subject has no tracker to go to.</div>')
+        also = (f'<div class="how">{len(others)} other picture(s) of this shot exist (' + "; ".join(
+            f"{html.escape(x['label'])}'s tracker, frame {x['shown']}, people {x['people'] or 'none'}" for x in others)
+            + '); not shown, one question a shot</div>') if others and tk is shown[0] else ""
+        also = (said if tk is shown[0] else "") + also
+        tiles.append(f'<div class="tile" data-table="{html.escape(tk["table"])}" data-frame="{tk["shown"]}" data-tf="{tk["table_frame"]}" '
+                     f'data-shot="{tk["shot"]}" data-lo="{s["first"]}" data-hi="{s["last"]}">{pictures}'
+                     f'<div>frame {tk["shown"]} as {html.escape(tk["label"])}\'s tracker numbered it ({html.escape(tk["preview"])} shot {tk["shot"]}{cut}), '
+                     f'people {tk["people"] or "none"}{part}</div>{ans_html}{ask}<div class="st"></div>{also}{guess(notes, tk, found)}</div>')
+    return tiles, plain_cuts
+
+
 def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, plan: dict | None = None, source: str | None = None,
-         long_frames: int = LONG_SHOT_FRAMES, span: list[int] | None = None, notes: dict | None = None,
-         every_cut: list[list[int]] | None = None, least_cut: int = 1, standing: dict | None = None, only: list[int] | None = None) -> str:
+          long_frames: int = LONG_SHOT_FRAMES, span: list[int] | None = None, notes: dict | None = None,
+          every_cut: list[list[int]] | None = None, least_cut: int = 1, standing: dict | None = None, only: list[int] | None = None,
+          made_from: dict[str, dict[str, str]] | None = None, three_passes: bool | None = None) -> str:
     """`every_cut` names record shots (first, last) shown cut by cut: one picture for each of the tracker's own cuts
-    of the shot that is `least_cut` frames or longer, where every other shot has one picture."""
+    of the shot that is `least_cut` frames or longer, where every other shot has one picture.
+    When `three_passes` is True (or automatically when `standing` and `answers` are given and `previews_` contains both
+    Pass A early previews and Pass C `shot_c_*` previews), each shot row shows Pass A, Pass B, and Pass C side by side
+    with the owner's recorded answers on each picture."""
     rows = []
     span = span or [int(shots["span"][0]), int(shots["span"][1])]
+    indexed_answers = index_answers(answers)
+    if three_passes is None:
+        has_a = any(not is_pass_c_preview(p) for p in previews_)
+        has_c = any(is_pass_c_preview(p) for p in previews_)
+        three_passes = bool(standing is not None and indexed_answers and has_a and has_c)
     for s in shots["shots"]:
         if s["last"] < span[0] or s["first"] > span[1] or (only and s["first"] not in only):
             continue
@@ -424,96 +618,112 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
         for label in shots["subjects"]:
             w = s["who"][label]
             cls = {"yes": "", "no": "no", "unsure": "un"}[w["present"]]
+            looks_items = [
+                (f"{lk.get('first')}-{lk.get('last')} {lk.get('part', '')}: {lk.get('is', '')} ({lk.get('why', '')})"
+                 if isinstance(lk, dict) else str(lk))
+                for lk in w.get("seen_looks", [])
+            ]
+            looks = (f'<div class="how">seen_looks: <code>{html.escape("; ".join(looks_items))}</code></div>'
+                     if looks_items else "")
             who.append(f'<div class="{cls}"><b>{html.escape(label)}</b>: {PRESENT_WORD[w["present"]]}'
-                       f'<div class="how">{html.escape(w.get("how", ""))} <i>({html.escape(w.get("by", ""))})</i></div></div>')
-        found, covered = [], False
+                       f'<div class="how">{html.escape(w.get("how", ""))} <i>({html.escape(w.get("by", ""))})</i></div>{looks}</div>')
         by_cut = [s["first"], s["last"]] in (every_cut or [])
-        for pv in previews_:
-            if pv["last"] < s["first"] or pv["first"] > s["last"]:
-                continue
-            covered = True
-            found.extend(tiles_for(s, pv, out, nobody_too=by_cut))
-        every, found = found, [x for x in found if x["people"]]
-        # ONE picture a shot: every tracker of a preview drew its own picture of the same shot with its own numbering,
-        # and asking the same question under each confused the owner (2026-10-12). The picture with the most people
-        # outlined is shown; ties go to the first preview and the first tracker listed.
-        tiles = []
-        if not found and source:          # nobody outlined, or no preview at all: the frame itself
+        if three_passes:
+            pass_a_pvs = [pv for pv in previews_ if not is_pass_c_preview(pv) and not (pv["last"] < s["first"] or pv["first"] > s["last"])]
+            pass_c_pvs = [pv for pv in previews_ if is_pass_c_preview(pv) and not (pv["last"] < s["first"] or pv["first"] > s["last"])]
+            every_a = [tk for pv in pass_a_pvs for tk in tiles_for(s, pv, out, nobody_too=by_cut)]
+            found_a = [tk for tk in every_a if tk["people"]]
+            every_c = [tk for pv in pass_c_pvs for tk in tiles_for(s, pv, out, nobody_too=by_cut)]
+            found_c = [tk for tk in every_c if tk["people"]]
+            tiles_a, plain_cuts_a = render_numbered_tiles(
+                shots, s, found_a, every_a, out, source, by_cut and not found_c, least_cut, standing, notes, indexed_answers, show_answers=True
+            )
+            tiles_c, plain_cuts_c = render_numbered_tiles(
+                shots, s, found_c, every_c, out, source, by_cut, least_cut, standing, notes, indexed_answers, show_answers=True
+            )
+            # Pass B: plain frames (middle frame when answered or when no numbered picture exists, plus cut-by-cut empty cuts, plus quarter frames, plus any other plain frame answered in this shot)
+            tiles_b: list[str] = []
+            seen_b_frames: set[int] = set()
             mid = (s["first"] + s["last"]) // 2
-            f = plain_frame(source, mid, out)
-            if f:
-                tiles.append(plain_tile(shots, s, mid, f, "the trackers found nobody on this shot" if covered else "no preview covers this shot"))
-        if found:
-            mid = (s["first"] + s["last"]) // 2
-            t = max(found, key=lambda x: (len(x["people"]), -abs(x["shown"] - mid)))   # most people; then nearest the middle
-            shown, said = [t], ""
-            if by_cut:
-                # that tracker's cuts of the shot, each as long as a load can be: a shorter cut cannot be a load of its
-                # own, so who is on it decides nothing by itself. A long cut with nobody outlined is asked about plain.
-                length = lambda x: x["frames"][1] - x["frames"][0] + 1                                               # noqa: E731
-                cuts = sorted((x for x in every if (x["preview"], x["label"]) == (t["preview"], t["label"])), key=lambda x: x["frames"][0])
-                long = [x for x in cuts if length(x) >= least_cut]
-                short = [x for x in cuts if length(x) < least_cut]
-                shown = [x for x in long if x["people"]] or [t]
-                said = (f'<div class="how"><b>This shot is shown cut by cut.</b> {html.escape(t["label"])}\'s tracker ({html.escape(t["preview"])}) cut it into '
-                        f'{len(cuts)}; the {len(long)} of {least_cut} frames or more (the shortest a load can be) are shown, each on the frame the tracker '
-                        f'numbered, holding {sum(length(x) for x in long)} of the shot\'s {s["last"] - s["first"] + 1} frames. '
-                        f'{len(short)} shorter cut(s) are not shown: ' + (", ".join(f"{x['frames'][0]}-{x['frames'][1]}" for x in short) or "none") + '.</div>')
-                if source:
-                    for x in (x for x in long if not x["people"]):
-                        f = plain_frame(source, x["shown"], out)
-                        if f:
-                            tiles.append(plain_tile(shots, s, x["shown"], f, f"the tracker outlined nobody on its cut {x['frames'][0]}-{x['frames'][1]}"))
-            others = [x for x in found if x not in shown and not (by_cut and (x["preview"], x["label"]) == (t["preview"], t["label"]))]
-        for t in (shown if found else []):
-            part = " (the table's shot runs %d-%d)" % tuple(t["frames"]) if t["partial"] else ""
-            # only the subjects this tile's job tracks, in the record's order (then any the record does not name)
-            asked = [sub for sub in shots["subjects"] if sub in t["subjects"]] + [sub for sub in t["subjects"] if sub not in shots["subjects"]]
-            # a picture of boxes for a shot shown cut by cut: the frame as the tracker saw it, plain, and again with each person's box
-            fitted = fitted_frame(source, t["shown"], t["size"], out) if by_cut and source and t.get("size") else None
-            boxed = boxes_picture(fitted, t, out) if fitted else None
-            inked = lambda n: (' style="color:rgb(%d,%d,%d);border-color:rgb(%d,%d,%d)"' % (colour_of(n) * 2)) if boxed else ""       # noqa: E731
-            cut = f', its cut {t["frames"][0]}-{t["frames"][1]}' if by_cut else ""
-            pictures = f'<img src="{t["file"]}" alt="">'
-            if boxed:
-                legend = " ".join(f'<span class="chip" style="color:rgb(%d,%d,%d);border-color:rgb(%d,%d,%d)">{p["person"]}</span>' % (colour_of(p["person"]) * 2)
-                                  for p in sorted(t["boxes"], key=lambda p: p["person"]) if p["box"])
-                pictures = (f'<div class="three"><div><img src="{fitted}" alt=""><div>frame {t["shown"]}, the source itself</div></div>'
-                            f'<div><img src="{boxed}" alt=""><div>the same frame, each person\'s box in a color of their own: {legend}</div></div>'
-                            f'<div><img src="{t["file"]}" alt=""><div>the tracker\'s own picture of it, with its outlines</div></div></div>'
-                            f'<div class="how">{BOXES_SAY}</div>')
-            elif by_cut:
-                pictures += '<div class="how">no picture of boxes: ' + ("no --source was given" if not source else "the frame could not be cut from the source") + '</div>'
-            ask = "".join(
-                stood(standing, sub, s, t) + f'<div class="ask"><span class="lab">{html.escape(sub)} is</span>'
-                + "".join(f'<button data-sub="{html.escape(sub)}" data-chosen="{n}"{inked(n)}>{n}</button>' for n in t["people"])
-                + f'<button data-sub="{html.escape(sub)}" data-chosen="not outlined">on this frame, not outlined</button>'
-                + f'<button data-sub="{html.escape(sub)}" data-chosen="not on frame">not on this frame</button></div>'
-                for sub in asked)
-            unasked = [sub for sub in shots["subjects"] if sub not in t["subjects"]]
-            if unasked:
-                ask += (f'<div class="how">not asked here: {html.escape(", ".join(unasked))}. This preview\'s job ({html.escape(t["preview"])}) '
-                        f'tracks {html.escape(", ".join(t["subjects"]))} and nobody else, so a number for another subject has no tracker to go to.</div>')
-            also = (f'<div class="how">{len(others)} other picture(s) of this shot exist (' + "; ".join(
-                f"{html.escape(x['label'])}'s tracker, frame {x['shown']}, people {x['people'] or 'none'}" for x in others)
-                + '); not shown, one question a shot</div>') if others and t is shown[0] else ""
-            also = (said if t is shown[0] else "") + also
-            tiles.append(f'<div class="tile" data-table="{html.escape(t["table"])}" data-frame="{t["shown"]}" data-tf="{t["table_frame"]}" '
-                         f'data-shot="{t["shot"]}" data-lo="{s["first"]}" data-hi="{s["last"]}">{pictures}'
-                         f'<div>frame {t["shown"]} as {html.escape(t["label"])}\'s tracker numbered it ({html.escape(t["preview"])} shot {t["shot"]}{cut}), '
-                         f'people {t["people"] or "none"}{part}</div>{ask}<div class="st"></div>{also}{guess(notes, t, found)}</div>')
-        if source:      # a long shot: its first and last quarter as well, so an entrance after the shown frame has a frame to be said on
+            mid_ans = owner_answers_on_tile(indexed_answers, "plain", mid, s["first"], s["last"])
+            if (not found_a and not found_c) or mid_ans:
+                f = plain_frame(source, mid, out)
+                if f or mid_ans:
+                    why = ("the trackers found nobody on this shot" if (pass_a_pvs or pass_c_pvs) else "no preview covers this shot") if not (found_a or found_c) else "middle frame asked plain in Pass B"
+                    tiles_b.append(plain_tile(shots, s, mid, f, why, indexed_answers, show_answers=True))
+                    seen_b_frames.add(mid)
+            for x in plain_cuts_a + plain_cuts_c:
+                if x["shown"] not in seen_b_frames:
+                    f = plain_frame(source, x["shown"], out)
+                    ans_x = owner_answers_on_tile(indexed_answers, "plain", x["shown"], s["first"], s["last"])
+                    if f or ans_x:
+                        tiles_b.append(plain_tile(shots, s, x["shown"], f, f"the tracker outlined nobody on its cut {x['frames'][0]}-{x['frames'][1]}", indexed_answers, show_answers=True))
+                        seen_b_frames.add(x["shown"])
             for q, which in zip(quarter_frames(s, long_frames), ("first", "last")):
-                f = plain_frame(source, q, out)
+                if q not in seen_b_frames:
+                    f = plain_frame(source, q, out)
+                    ans_q = owner_answers_on_tile(indexed_answers, "plain", q, s["first"], s["last"])
+                    if f or ans_q:
+                        tiles_b.append(plain_tile(shots, s, q, f, f"the {which} quarter of a shot of {s['last'] - s['first'] + 1} frames, shown because one frame can miss an entrance", indexed_answers, show_answers=True))
+                        seen_b_frames.add(q)
+            extra_b_frames = sorted({
+                int(d["source_frame"]) for d in indexed_answers
+                if d.get("who") == "owner" and d.get("row") in ("b20", "who") and d.get("table") == "plain"
+                and str(d.get("source_frame", "")).isdigit() and s["first"] <= int(d["source_frame"]) <= s["last"]
+            } - seen_b_frames)
+            for ef in extra_b_frames:
+                f = plain_frame(source, ef, out)
+                tiles_b.append(plain_tile(shots, s, ef, f, "plain source frame answered by the owner", indexed_answers, show_answers=True))
+                seen_b_frames.add(ef)
+            empty_a = "<span class=no>the Pass A trackers found nobody on this shot</span>" if pass_a_pvs else "<span class=no>no Pass A preview covers this shot</span>"
+            empty_b = "<span class=no>no Pass B plain frame on this shot</span>"
+            empty_c = "<span class=no>the Pass C trackers found nobody on this shot</span>" if pass_c_pvs else "<span class=no>no Pass C (shot_c_*) preview covers this shot</span>"
+            mid_cell = (
+                f'<div class="passes">'
+                f'<div class="pass-col"><div class="pass-head">Pass A: early preview tables</div><div class="tiles">{"".join(tiles_a) or empty_a}</div></div>'
+                f'<div class="pass-col"><div class="pass-head">Pass B: plain source frames</div><div class="tiles">{"".join(tiles_b) or empty_b}</div></div>'
+                f'<div class="pass-col"><div class="pass-head">Pass C: shot_c_* preview tables</div><div class="tiles">{"".join(tiles_c) or empty_c}</div></div>'
+                f'</div>'
+            )
+        else:
+            found, covered = [], False
+            for pv in previews_:
+                if pv["last"] < s["first"] or pv["first"] > s["last"]:
+                    continue
+                covered = True
+                found.extend(tiles_for(s, pv, out, nobody_too=by_cut))
+            every, found = found, [x for x in found if x["people"]]
+            # ONE picture a shot: every tracker of a preview drew its own picture of the same shot with its own numbering,
+            # and asking the same question under each confused the owner (2026-10-12). The picture with the most people
+            # outlined is shown; ties go to the first preview and the first tracker listed.
+            tiles = []
+            if not found and source:          # nobody outlined, or no preview at all: the frame itself
+                mid = (s["first"] + s["last"]) // 2
+                f = plain_frame(source, mid, out)
                 if f:
-                    tiles.append(plain_tile(shots, s, q, f, f"the {which} quarter of a shot of {s['last'] - s['first'] + 1} frames, shown because one frame can miss an entrance"))
-        words = owner_words(answers, s["first"], s["last"])
-        wtxt = "".join(f'<div class="w">frame {w["frame"]} ({w["at"]}): {html.escape(w["words"])}</div>' for w in words)
+                    tiles.append(plain_tile(shots, s, mid, f, "the trackers found nobody on this shot" if covered else "no preview covers this shot"))
+            numbered_tiles, plain_cuts = render_numbered_tiles(
+                shots, s, found, every, out, source, by_cut, least_cut, standing, notes, indexed_answers, show_answers=False
+            )
+            if source and by_cut:
+                for x in plain_cuts:
+                    f = plain_frame(source, x["shown"], out)
+                    if f:
+                        tiles.append(plain_tile(shots, s, x["shown"], f, f"the tracker outlined nobody on its cut {x['frames'][0]}-{x['frames'][1]}"))
+            tiles.extend(numbered_tiles)
+            if source:      # a long shot: its first and last quarter as well, so an entrance after the shown frame has a frame to be said on
+                for q, which in zip(quarter_frames(s, long_frames), ("first", "last")):
+                    f = plain_frame(source, q, out)
+                    if f:
+                        tiles.append(plain_tile(shots, s, q, f, f"the {which} quarter of a shot of {s['last'] - s['first'] + 1} frames, shown because one frame can miss an entrance"))
+            mid_cell = f'<div class="tiles">{"".join(tiles) or ("<span class=no>the trackers found nobody on this shot</span>" if covered else "<span class=no>no preview covers this shot</span>")}</div>'
+        words = owner_words(indexed_answers, s["first"], s["last"])
+        wtxt = "".join(f'<div class="w">frame {w["frame"]} ({w["at"]}, line {w["line"]}): {html.escape(w["words"])}</div>' for w in words)
         note = f'<div class="how">{html.escape(s["note"])}</div>' if s.get("note") else ""
         box = (f'<div class="say" data-lo="{s["first"]}" data-hi="{s["last"]}"><textarea placeholder="your words on {s["first"]}-{s["last"]}"></textarea>'
                f'<button class="send">save</button><span class="st"></span></div>')
         rows.append(f'<tr><td class="f">{s["first"]}-{s["last"]}<br><span class="how">{s["last"] - s["first"] + 1} f</span></td>'
-                    f'<td>{"".join(who)}{note}</td><td><div class="tiles">{"".join(tiles) or ("<span class=no>the trackers found nobody on this shot</span>" if covered else "<span class=no>no preview covers this shot</span>")}</div></td>'
+                    f'<td>{"".join(who)}{note}</td><td>{mid_cell}</td>'
                     f'<td>{wtxt or "<span class=no>none yet</span>"}{box}</td></tr>')
     head = (f'<p>{html.escape(shots["video"])}: '
             + (f'the {len(only)} shot(s) named for this page, beginning on {", ".join(map(str, only))}; every other shot of the record is left off'
@@ -523,6 +733,11 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
             + f'. Record: {html.escape(shots.get("written_by", ""))}</p>'
             f'<p>A numbered picture is the tracker\'s own at the time of its preview: outlines and numbers as it drew them, '
             f'one frame a shot; a shot longer than {long_frames} frames also shows its first- and last-quarter frames plain. Previews: {", ".join(html.escape(p["name"]) + " (" + str(p["first"]) + "-" + str(p["last"]) + ")" for p in previews_)}.</p>')
+    made_html = ""
+    if made_from:
+        parts = [f'<b>{html.escape(k)}</b>: <code>{html.escape(v["path"])}</code> (sha256 <code>{html.escape(v["sha256"])}</code>)'
+                 for k, v in made_from.items()]
+        made_html = f'<p class="made-from"><b>Made from (exact files and sha256s):</b> ' + "; ".join(parts) + '.</p>'
     replaced = ""
     if plan:
         replaced = ('<p><b>What is replaced, per subject (the plan, not the outline):</b> '
@@ -534,9 +749,10 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
           'file name is needed); opened from the share as a file it only shows. An answer is about THAT FRAME, never about the whole shot: for each '
           'subject, which number they are, <b>on this frame, not outlined</b>, or <b>not on this frame</b>. Whether they are in the shot at '
           'all is a word in the box, and the tracker is left to judge the other frames.</p>')
+    col_head = "the three passes (Pass A: early previews, Pass B: plain frames, Pass C: shot_c_* previews) and the owner's answers on each picture" if three_passes else "the trackers' numbered pictures"
     return (f'<!doctype html><meta charset="utf-8"><title>{html.escape(shots["video"])}</title><style>{CSS}</style>'
-            f'<h1>Who is in each shot</h1>{head}{replaced}{me}<table><tr><th>frames</th><th>who, and on whose word</th>'
-            f'<th>the trackers\' numbered pictures</th><th>the owner\'s words on these frames</th></tr>{"".join(rows)}</table>{SCRIPT}')
+            f'<h1>Who is in each shot</h1>{head}{made_html}{replaced}{me}<table><tr><th>frames</th><th>who, and on whose word</th>'
+            f'<th>{col_head}</th><th>the owner\'s words on these frames</th></tr>{"".join(rows)}</table>{SCRIPT}')
 
 
 def main() -> int:
@@ -558,6 +774,9 @@ def main() -> int:
                     "(bench/masked_job.py::shortest_load), and with --source each frame plain and again with every person's box in a color of their own; repeatable")
     ap.add_argument("--cast", metavar="CAST.jsonl", help="the video's cast file; with it, what already stands for a subject on a frame of a shot is printed above "
                     "that subject's buttons, so nothing answered is asked again as if it were not")
+    ap.add_argument("--three-passes", action="store_true",
+                    help="lay Pass A (early preview tables), Pass B (plain source frames), and Pass C (shot_c_* preview tables) side by side on every shot row, "
+                    "with the owner's recorded answers from --answers printed on each picture")
     ap.add_argument("--out", required=True, help="the page's own folder; its name is the page's address on the page server, and a page of another span there is refused")
     a = ap.parse_args()
     shots = json.load(open(a.shots))
@@ -592,7 +811,10 @@ def main() -> int:
     if a.cast:
         import cast_file
         standing = cast_file.current(cast_file.read(a.cast))
-    text = page(shots, made, answers, out, plan, a.source, a.long_shot_frames, span, notes, every_cut, least_cut, standing, only)
+    made_from = made_from_record(a.shots, a.cast, a.answers)
+    three_passes = True if a.three_passes else None
+    text = page(shots, made, answers, out, plan, a.source, a.long_shot_frames, span, notes, every_cut, least_cut, standing, only,
+                made_from=made_from, three_passes=three_passes)
     for name, first in sorted(set(notes or {}) - {(p["name"], p["first"]) for p in made}):
         print(f"a note names a preview this page was not given, and is shown nowhere: {name} (first frame {first}), {notes[(name, first)]['from']} "
               f"line {notes[(name, first)]['line']}")
@@ -600,6 +822,7 @@ def main() -> int:
     (out / "page.json").write_text(json.dumps({
         "what": "what bench/who_page.py built this page from; a page of another span is not written over it", "span": span, "only_shots": only,
         "built": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "shots": str(a.shots),
+        "made_from": made_from,
         "notes": a.notes, "previews": [{"job": p["name"], "frames": [p["first"], p["last"]], "tables": str(p["folder"])} for p in made]}, indent=1) + "\n")
     tiles = sorted((out / "tiles").glob("*.jpg")) if (out / "tiles").is_dir() else []
     rows = text.count("<tr>") - 1

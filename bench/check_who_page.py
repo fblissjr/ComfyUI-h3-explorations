@@ -40,6 +40,12 @@ own words beside it, and each of those can be off by one.
                                         colour where the table puts it, the number buttons carry the same colours, and the page
                                         says a box is a box; a number is on its own person's ground (the smallest box over a
                                         point owns it), so a box that is the whole frame does not put its number on somebody else
+  made_from_prints_the_exact_files_sha256s   the header and page.json record the exact paths and sha256 digests of shots.json,
+                                        cast.jsonl and owner_answers.jsonl
+  three_passes_show_beside_each_other_with_the_owners_answers   with --three-passes (or Pass A + Pass C + --cast + --answers), a shot row
+                                        lays Pass A (early preview tables), Pass B (plain frames) and Pass C (shot_c_* preview tables)
+                                        side by side, each picture showing the owner's answer line, timestamp and choice beside the
+                                        record's resulting present, how and seen_looks
 
     <python> bench/check_who_page.py
 
@@ -47,6 +53,7 @@ No model, no card; PIL, and ffmpeg for the one case that cuts a frame from a sou
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 import subprocess
@@ -228,6 +235,72 @@ def main() -> int:
              and row2.index("ALREADY ANSWERED for a") < row2.index('data-sub="a"') and "ALREADY ANSWERED for b" not in row2
              and "frame 140: <b>none of the outlined people</b> (owner, on the page at T3)" in row3 and "nothing stands in the cast file for a on a frame of this shot" in row3
              and 'class="on"' not in text and "ALREADY ANSWERED" not in page and "nothing stands in the cast file" not in page, r.stdout + r.stderr + row2[:1500])
+        pj_cast = json.loads((with_cast / "page.json").read_text()) if (with_cast / "page.json").is_file() else {}
+        mf = pj_cast.get("made_from", {})
+        want_shots_sha = hashlib.sha256(p["shots"].read_bytes()).hexdigest()
+        want_cast_sha = hashlib.sha256(cast.read_bytes()).hexdigest()
+        want_ans_sha = hashlib.sha256(p["answers"].read_bytes()).hexdigest()
+        case("made_from_prints_the_exact_files_sha256s",
+             mf.get("shots", {}).get("sha256") == want_shots_sha and mf.get("cast", {}).get("sha256") == want_cast_sha
+             and mf.get("owner_answers", {}).get("sha256") == want_ans_sha
+             and "Made from (exact files and sha256s):" in text and want_shots_sha in text and want_cast_sha in text and want_ans_sha in text,
+             f"made_from sha256 missing or mismatched in page.json or header: {json.dumps(mf)}")
+        # three passes side by side (Pass A: pv with both b20 person-keyed and who subject-keyed answers, Pass B: plain frame 114, Pass C: shot_c_102)
+        # tested both by automatic activation (Pass A + Pass C + --cast + --answers) and by explicit --three-passes
+        shots_3p = Path(d) / "shots_3p.json"
+        shots_3p_data = json.loads(p["shots"].read_text())
+        shots_3p_data["shots"][1]["who"]["a"]["seen_looks"] = [
+            {"part": "face_and_neck", "first": 102, "last": 105, "is": "not seen", "why": "hand over face"}
+        ]
+        shots_3p.write_text(json.dumps(shots_3p_data))
+        c_shots = [{"shot": 1, "first_frame": 0, "last_frame": 27, "shown_frame": 14, "people": [{"person": 1, "box": [2, 2, 6, 6]}]}]
+        (Path(d) / "t" / "shot_c_102_a_shots_00001_shots.json").write_text(json.dumps(table(c_shots)))
+        picture(Path(d) / "t" / "shot_c_102_a_shots_00001_shots.png", 1)
+        job_c = Path(d) / "shot_c_102.json"
+        job_c.write_text(json.dumps({"job": {"name": "shot_c_102", "first": 102, "frames": 28, "subjects": [{"label": "a"}]}}))
+        ans_3p = Path(d) / "answers_3p.jsonl"
+        ans_3p.write_text(p["answers"].read_text() + "".join(json.dumps(x) + "\n" for x in [
+            {"who": "owner", "row": "b20", "what": "choice", "person": 1, "chosen": "the lead",
+             "source_frame": 110, "table": "pv_a_shots_00001_shots.json", "at": "2026-10-12T10:30:00Z"},
+            {"who": "owner", "row": "who", "what": "choice", "subject": "a", "chosen": "not outlined",
+             "source_frame": 110, "table": "pv_a_shots_00001_shots.json", "at": "2026-10-12T11:00:00Z"},
+            {"who": "owner", "row": "who", "what": "choice", "subject": "a", "chosen": "not on frame",
+             "source_frame": 114, "table": "plain", "at": "2026-10-12T12:00:00Z"},
+            {"who": "owner", "row": "who", "what": "choice", "subject": "a", "chosen": "1", "person": 1,
+             "source_frame": 116, "table": "shot_c_102_a_shots_00001_shots.json", "at": "2026-10-13T13:00:00Z"},
+        ]))
+        out_3p = Path(d) / "three_passes"
+        r_3p = run({**p, "shots": shots_3p, "answers": ans_3p, "out": out_3p},
+                   "--preview", p["pv"], "--preview", f"{job_c}={Path(d) / 't'}", "--cast", str(cast))
+        out_3p_flag = Path(d) / "three_passes_flag"
+        r_3p_flag = run({**p, "shots": shots_3p, "answers": ans_3p, "out": out_3p_flag},
+                        "--preview", p["pv"], "--three-passes")
+        text_3p = (out_3p / "index.html").read_text() if r_3p.returncode == 0 else ""
+        text_3p_flag = (out_3p_flag / "index.html").read_text() if r_3p_flag.returncode == 0 else ""
+        row2_3p = (text_3p.split("<tr>") + ["", "", "", ""])[3]
+        need_3p = (
+            '<div class="passes">',
+            "Pass A: early preview tables",
+            "<code>line 4</code> (2026-10-12T10:30:00): <b>person 1 -&gt; the lead</b>",
+            "<code>line 5</code> (2026-10-12T11:00:00): <b>a -&gt; not outlined</b>",
+            "Pass B: plain source frames",
+            "<code>line 6</code> (2026-10-12T12:00:00): <b>a -&gt; not on frame</b>",
+            "Pass C: shot_c_* preview tables",
+            "<code>line 7</code> (2026-10-13T13:00:00): <b>a -&gt; 1</b>",
+        )
+        missing_3p = [s for s in need_3p if s not in row2_3p]
+        ordered_3p = not missing_3p and [row2_3p.index(s) for s in need_3p] == sorted(row2_3p.index(s) for s in need_3p)
+        looks_ok = "seen_looks: <code>102-105 face_and_neck: not seen (hand over face)</code>" in row2_3p
+        on_ok = 'data-sub="a" data-chosen="1" class="on"' in row2_3p and '<div class="passes">' in text_3p_flag
+        why_3p = (
+            f"missing in three-pass row: {missing_3p[0]}" if missing_3p else
+            "Pass A / Pass B / Pass C columns or their answer lines are out of order" if not ordered_3p else
+            "seen_looks missing from who cell" if not looks_ok else
+            "chosen button class=on or explicit --three-passes layout missing"
+        )
+        case("three_passes_show_beside_each_other_with_the_owners_answers",
+             r_3p.returncode == 0 and r_3p_flag.returncode == 0 and ordered_3p and looks_ok and on_ok,
+             why_3p)
         case("quarter_frames_are_the_shots_own",
              quarter_frames({"first": 102, "last": 129}, 20) == [109, 123] and quarter_frames({"first": 102, "last": 129}, 28) == []
              and quarter_frames({"first": 604, "last": 1009}) == [705, 908], str(quarter_frames({"first": 102, "last": 129}, 20)))
