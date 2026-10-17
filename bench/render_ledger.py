@@ -164,6 +164,30 @@ def saved_graph(mp4: Path) -> dict | None:
         return None
 
 
+def saved_relaid(mp4: Path) -> dict | None:
+    """The `relaid` block in the picture beside a re-laid piece (`recomposite_piece.py`), or in `<stem>.recomposite.json` beside it; None for a render."""
+    png = mp4.with_suffix(".png")
+    if png.is_file():
+        from PIL import Image
+        try:
+            raw = Image.open(png).info.get("relaid")
+            if raw:
+                got = json.loads(raw) if isinstance(raw, str) else raw
+                if isinstance(got, dict) and got.get("from"):
+                    return got
+        except (ValueError, OSError):
+            pass
+    rec = mp4.with_name(f"{mp4.stem}.recomposite.json")
+    if rec.is_file():
+        try:
+            d = json.loads(rec.read_text())
+            if isinstance(d.get("relaid"), dict) and d["relaid"].get("from"):
+                return d["relaid"]
+        except (ValueError, OSError):
+            pass
+    return None
+
+
 def _upstream_video(graph: dict, ref, depth: int = 0, through=None) -> dict | None:
     """The video loader a link leads back to. With `through`, only through those node classes (a mask conversion,
     a composite): a link that comes from any other node was made in the run and is no file. Without it, through
@@ -660,7 +684,14 @@ def ledger(shots: dict, plan: dict, share: Path, records: Path, repo: Path, sour
     for path in walk(share, since):
         rel = str(path.relative_to(share))
         graph = saved_graph(path)
+        relaid = saved_relaid(path)
+        if relaid is not None:
+            from_p = Path(str(relaid.get("from") or ""))
+            from_rel = str(from_p.relative_to(share)) if from_p.is_absolute() and from_p.is_relative_to(share) else str(relaid.get("from") or "")
+            relaid = {**relaid, "from": from_rel}
         recs, named = records_of(rel, share, by_file, every)
+        if not recs and relaid is not None and relaid.get("from"):
+            recs, named = records_of(str(relaid["from"]), share, by_file, every)
         tied.update(id(rec) for rec in recs)
         if graph is None and not recs:
             no_graph.append(rel)
@@ -675,7 +706,7 @@ def ledger(shots: dict, plan: dict, share: Path, records: Path, repo: Path, sour
         row = {"file": rel, "name": re.sub(r"_\d{5}_?$", "", path.stem), "session_folder": parts[0] if parts else None,
                "written": utc(stat.st_mtime), "file_frames": n,
                "graph": {k: v for k, v in (ask or {}).items() if k != "text"} or None,
-               "mask_picture": None, "records": []}
+               "relaid": relaid, "mask_picture": None, "records": []}
         beside = path.with_name(path.stem + "_with_mask.mp4")
         if beside.is_file():
             row["mask_picture"] = {"file": str(beside.relative_to(share)), "frames": frames_of(beside)}
@@ -786,15 +817,18 @@ def frames(a, b) -> str:
 
 def render_lines(r: dict) -> list[str]:
     """One render as lines of a page."""
-    g, rec = r["graph"] or {}, (r["records"][-1] if r["records"] else None)
+    g, rec, relaid = r["graph"] or {}, (r["records"][-1] if r["records"] else None), r.get("relaid")
     lines = [f"- **`{r['name']}`**  `{r['file']}`"]
     span = f"source frames {frames(*r['span'])} ({r['span_read_from']})" if r["span"] else "its source frames are not known"
     lines.append(f"  - frames: {span}; the file holds {r['file_frames']} by ffprobe"
                  + (f"; the saved graph asks for {g.get('frames')} from {g.get('first')} of {g.get('of')}, window {g.get('window')}, context {g.get('context')}" if g.get("of") else "; no saved graph beside it")
                  + (f"; continues {Path(g['continue_from']).name}" if g.get("continue_from") else ""))
+    if relaid:
+        changed = ", ".join(f"{k}={v}" for k, v in (relaid.get("changed") or {}).items()) or "none"
+        lines.append(f"  - RE-LAID from `{relaid.get('from')}` (sha256 `{str(relaid.get('sha256') or '')[:12]}`, changed: {changed}, by {relaid.get('by')} at {relaid.get('at')}): not a new render")
     if rec:
         on = rec["inputs_on_disk"]
-        lines.append(f"  - ITS MAKING: {r['making']}" + ("" if rec["names_the_file"] else " (tied by the build record's output folder and the load's name)")
+        lines.append(f"  - ITS MAKING: {r['making']}" + (f" (re-laid from `{relaid.get('from')}`)" if relaid else "" if rec["names_the_file"] else " (tied by the build record's output folder and the load's name)")
                      + f". Record `{rec['built_file'] or rec['queued_file']}`: commit {rec['commit']}, queued {rec['queued_at']}, "
                      f"status {rec['status']}, window {rec['window']}, context {rec['context']}"
                      + (f", gate {rec['gate'].get('verdict')}" + (f" (overridden: {rec['gate'].get('overridden')})" if rec["gate"].get("overridden") else "") if rec.get("gate") else "")
@@ -811,7 +845,9 @@ def render_lines(r: dict) -> list[str]:
                      + (f"; the analysis folder's fingerprint at the build {str(rec['analysis'].get('fingerprint'))[:12]}" if (rec.get("analysis") or {}).get("fingerprint") else "")
                      + (f"; {len(r['records'])} records name this file, the last is shown" if len(r["records"]) > 1 else ""))
     else:
-        lines.append(f"  - ITS MAKING: {r['making']}. What is known of it is the graph saved beside it: what was asked for, not what ran or from which commit")
+        lines.append(f"  - ITS MAKING: {r['making']}"
+                     + (f" (re-laid from `{relaid.get('from')}`). What is known of it is the PNG beside it, which carries the render's graph with its composite settings changed and `relaid`"
+                        if relaid else ". What is known of it is the graph saved beside it: what was asked for, not what ran or from which commit"))
     mask = r["mask_picture"]
     lines.append("  - mask picture: " + (f"`{Path(mask['file']).name}`, {mask['frames']} frames" if mask else "none beside it"))
     f = r["form"]

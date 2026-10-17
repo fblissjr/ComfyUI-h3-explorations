@@ -19,18 +19,21 @@ differences in each), and atomically writes `matte` and `kept` (and `piece` when
 `*_window_*_region.npz` with `<stem>.matte_reconstructed.json` beside the render.
 
 **What it writes**, a folder shaped as a render's: `<out-dir>/<name>/<name>_00001.mp4` (the render's own sound copied
-over), `<name>_00001_zoomed.mp4` and `_zoomed.json` when the load was zoomed, and `<name>_windows/` with each window's
-video and region file, the region holding the node's matte and which piece its frames went into (`piece`), so the
-assembler lays the new piece by its matte (`assemble_delivery.Matte`). Beside the piece, `<name>_00001.recomposite.json`:
-the render it came from by path and sha256, the setting changed and the settings before, the command, who and when; and
-the piece's sidecar says it is a re-composite of that render. The render's PNG graph is NOT copied: it says the old
-composite, and the piece is laid by its matte.
+over), `<name>_00001.png` (the new piece's first frame carrying its graph with the changed composite settings, for
+`render_ledger`, `stack_delivery`, `capture_masked_run` and `assemble_delivery`), `<name>_00001_with_mask.mp4` (the new
+piece over what was regenerated, joined from `<name>_windows/<name>_window_N_with_mask.mp4`, with the render's sound
+copied over), `<name>_00001_zoomed.mp4` and `_zoomed.json` when the load was zoomed, and `<name>_windows/` with each
+window's video, review and region file, the region holding the node's matte and which piece its frames went into
+(`piece`), so the assembler lays the new piece by its matte (`assemble_delivery.Matte`). Beside the piece,
+`<name>_00001.recomposite.json`: the render it came from by path and sha256, the setting changed and the settings
+before, the command, who and when; and the piece's sidecar says it is a re-composite of that render.
 
 **Read from the render, never typed** (the re-composite read, the lead's ruling of 2026-10-16): the source clip, its first
 frame and the loader's frame cap from the render's own graph (the PNG beside it: the Masked Source's `frames` loader), past
 which the node held the last loaded frame and so does this; the Masked Source's own composite inputs and whether keep-outs
 (`others` or `keep`) were wired; and the VAE and encoder `crf` the render ran with (the song
-node's `vae` and `crf`). `--source`, `--source-first`, `--vae` and `--crf`, when given, must agree with the graph. Before
+node's `vae` and `crf`, resolved through `h3_config` when wired from a constant node). `--source`, `--source-first`, `--vae`
+and `--crf`, when given, must agree with the graph. Before
 anything is decoded, the render's own frames outside its region are set against the source read at its first frame and one
 frame either side: a neighbour that fits better is refused, with the figures.
 
@@ -49,6 +52,8 @@ leaves no folder that blocks its rerun.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import copy
 import datetime
 import hashlib
 import json
@@ -65,6 +70,8 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(HERE.parent / "workflows"))
+import h3_config  # noqa: E402
 import recomposite_window as rw  # noqa: E402
 from _lib import bootstrap  # noqa: E402
 from _lib.frames import FIT, FPS  # noqa: E402
@@ -143,14 +150,25 @@ def loader_frames(clip: str, first: int, frames: int, size, have: int | None = N
     return torch.from_numpy((got / 65535.0).astype(np.float32)), held
 
 
-def graph_of(render: Path) -> dict:
-    """The graph VHS saved beside the render (`<stem>.png`, its `prompt`); refused when there is none."""
+def graph_and_extra_of(render: Path) -> tuple[dict, dict]:
+    """The graph VHS saved beside the render (`<stem>.png`, its `prompt`) and any extra JSON chunks; refused when there is none."""
     png = render.with_suffix(".png")
     if not png.is_file():
         raise SystemExit(f"{png.name} is not beside the render: its source, first frame, loader cap and VAE are read from its graph, never typed")
     from PIL import Image
     with Image.open(png) as im:
-        return json.loads(im.info.get("prompt") or "{}")
+        info = dict(im.info or {})
+    extra = {}
+    for k, v in info.items():
+        if k not in ("prompt", "CreationTime") and isinstance(v, str):
+            with contextlib.suppress(ValueError):
+                extra[k] = json.loads(v)
+    return json.loads(info.get("prompt") or "{}"), extra
+
+
+def graph_of(render: Path) -> dict:
+    """The graph VHS saved beside the render (`<stem>.png`, its `prompt`); refused when there is none."""
+    return graph_and_extra_of(render)[0]
 
 
 def source_of(graph: dict) -> dict:
@@ -166,11 +184,12 @@ def source_of(graph: dict) -> dict:
     settings: dict = {}
     for k, cast in (("composite", str), ("feather_pixels", int), ("change_threshold", float),
                     ("grow_pixels", int), ("grow_by", str), ("replace", str), ("edge", str)):
-        if inp.get(k) is not None and not isinstance(inp.get(k), list):
-            settings[k] = cast(inp[k])
+        got = h3_config.resolve_widget(graph, ms, k)
+        if got.ok and got.value is not None:
+            settings[k] = cast(got.value)
     return {"video": video, "first": int(round(float(loader.get("start_time") or 0.0) * rate)),
             "cap": int(loader.get("frame_load_cap") or 0) or None, "size": [int(loader.get("custom_width") or 0), int(loader.get("custom_height") or 0)],
-            "composite": str(inp.get("composite") or ""),
+            "composite": str(settings.get("composite") or ""),
             "keep_outs": bool(inp.get("others") or inp.get("keep_outs") or inp.get("keep")),
             "settings": settings}
 
@@ -184,12 +203,17 @@ def vae_of(graph: dict) -> str:
 
 
 def crf_of(graph: dict) -> int:
-    """The encoder `crf` the render wrote its video with: the song node's `crf` input."""
+    """The encoder `crf` the render wrote its video with: the song node's `crf` input, literal or resolved through `h3_config`."""
     song_node = next((n for n in graph.values() if isinstance(n, dict) and n.get("class_type") == "MiniMaxH3AudioFreezeSong"), None)
-    raw = None if song_node is None else song_node.get("inputs", {}).get("crf")
-    if raw is None or isinstance(raw, list):
+    if song_node is None:
         raise SystemExit("the render's graph holds no song node with a literal crf: the encoder quality it wrote with is not known")
-    return int(raw)
+    got = h3_config.resolve_widget(graph, song_node, "crf")
+    if not got.ok or got.value is None or isinstance(got.value, bool):
+        raise SystemExit("the render's graph holds no song node with a literal crf: the encoder quality it wrote with is not known")
+    try:
+        return int(got.value)
+    except (TypeError, ValueError) as exc:
+        raise SystemExit(f"the song node's crf {got.value!r} in the render's graph is not an integer: the encoder quality it wrote with is not known") from exc
 
 
 def offset_fit(vm, render: Path, source: dict, region: dict, said: dict | None, size, frames: int, trim: int) -> dict:
@@ -405,9 +429,11 @@ def run(a: argparse.Namespace, decode=None) -> dict:
         raise SystemExit(f"{folder} exists: a re-composite is written into a new folder, never over one")
     # EVERYTHING CHECKED BEFORE ANYTHING IS WRITTEN (the re-composite read)
     source, vae, vae_path, crf, checked, fit = _check_render(vm, render, a, decode)
+    loop_out = rw._pack("loop_output")
+    graph, extra_pnginfo = graph_and_extra_of(render)
     new_stem = f"{a.name}_00001"
     head = None
-    pieces, zoomed_pieces, rows, zoom_note = [], [], [], None
+    pieces, review_pieces, zoomed_pieces, rows, zoom_note, last_changed = [], [], [], [], None, {}
     part = folder.with_name(folder.name + ".part")
     if part.exists():
         shutil.rmtree(part)
@@ -421,6 +447,7 @@ def run(a: argparse.Namespace, decode=None) -> dict:
         size = (shape[4] * CELL, shape[3] * CELL)
         region = vm.load_window_region(str(region_path))
         changed = rw.change(region["source"], a.set or [])
+        last_changed = changed
         first, trim, zoom = int(region["first_frame"]), int(region["trim"]), region.get("zoom")
         have = None if source["cap"] is None else source["cap"] - first          # past the loader's cap the node held the last frame
         written = int(said["written"]) if said else stored["written"]
@@ -460,6 +487,17 @@ def run(a: argparse.Namespace, decode=None) -> dict:
         vm.save_window_region(str(new_windows / f"{a.name}_window_{n}_region.npz"), region["mask"], region["tokens"],
                               {**changed, "zoom": zoom}, region["margin"], first, trim, kept=alpha, matte=matte,
                               piece={"stem": new_stem, "first": piece_first, "written": int(mine.shape[0])})
+        kept_outline = alpha if changed.get("composite") == vm.COMPOSITE_CHANGED else None
+        replace_mode = changed.get("replace") or (source.get("settings") or {}).get("replace") or vm.REPLACE_WHOLE
+        layers = vm.window_layers(region["mask"], region["tokens"], size[1], size[0], replace_mode, kept_outline)
+        rows_over = vm.overlay_pieces(
+            pixels, layers, int(region["tokens"].shape[0]), trim,
+            f"{100.0 * float(region['tokens'].mean()):.0f}% of this window regenerates"
+            + ("" if zoom is None else f"; ZOOMED {float(zoom['scale']):.2f}x, not the whole frame"),
+        )
+        review_mine = torch.cat(list(vm.render_over(laid[trim:trim + written], rows_over)))
+        review_pieces.append((piece_first, review_mine))
+        song._write_review_mp4(str(new_windows / f"{a.name}_window_{n}_with_mask.mp4"), [review_mine], size[0], 2 * size[1], crf)
         rows.append({"window": n, "latent": latent.name, "latent_sha256": sha256(latent), "region": region_path.name, "region_sha256": sha256(region_path),
                      "piece_first": piece_first, "written": int(mine.shape[0]), "decode": decoded, "source_frames_held": int(held),
                      "outside_the_region_before_encoding_levels_most": None if outside_levels is None else round(outside_levels, 3),
@@ -477,6 +515,26 @@ def run(a: argparse.Namespace, decode=None) -> dict:
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(silent), "-i", str(render), "-map", "0:v", "-map", "1:a?", "-c", "copy", str(piece)],
                    check=True)
     silent.unlink()
+    joined_review = torch.cat([m for _f, m in sorted(review_pieces, key=lambda p: p[0])])
+    silent_review = part / f"{new_stem}_with_mask.silent.mp4"
+    song._write_frames_mp4(str(silent_review), joined_review, crf)
+    review_out = part / f"{new_stem}_with_mask.mp4"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(silent_review), "-i", str(render), "-map", "0:v", "-map", "1:a?", "-c", "copy", str(review_out)],
+                   check=True)
+    silent_review.unlink()
+    render_sha = sha256(render)
+    made_at = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    relaid = {"from": str(render), "sha256": render_sha, "by": a.by, "at": made_at, "changed": rw.change({}, a.set or [])}
+    new_graph = copy.deepcopy(graph)
+    ms_node = next((n for n in new_graph.values() if isinstance(n, dict) and n.get("class_type") == "MiniMaxH3MaskedSource"), None)
+    if ms_node is not None and isinstance(ms_node.get("inputs"), dict):
+        for k in ("composite", "feather_pixels", "change_threshold"):
+            if k in last_changed and last_changed[k] is not None:
+                ms_node["inputs"][k] = last_changed[k]
+    song_node = next((n for n in new_graph.values() if isinstance(n, dict) and n.get("class_type") == "MiniMaxH3AudioFreezeSong"), None)
+    if song_node is not None and isinstance(song_node.get("inputs"), dict) and "filename_prefix" in song_node["inputs"]:
+        song_node["inputs"]["filename_prefix"] = a.name
+    loop_out.write_metadata_png(str(part / f"{new_stem}.png"), str(piece), new_graph, {**extra_pnginfo, "relaid": relaid})
     if zoom_note is not None:
         song._write_frames_mp4(str(part / f"{new_stem}_zoomed.mp4"), torch.cat([m for _f, m in sorted(zoomed_pieces, key=lambda p: p[0])]), crf)
         beside = render.with_name(render.stem + "_zoomed.json")
@@ -485,12 +543,11 @@ def run(a: argparse.Namespace, decode=None) -> dict:
         (part / f"{new_stem}_zoomed.json").write_text(json.dumps(note, indent=1) + "\n")
     command = [sys.executable, *sys.argv] if a.command is None else a.command
     record = {"what": "a re-composite: the render's saved windows laid again by the node's own lay_window, one setting changed; no sampling",
-              "render": str(render), "render_sha256": sha256(render), "set": list(a.set or []), "crf": crf, "windows": rows,
+              "render": str(render), "render_sha256": render_sha, "set": list(a.set or []), "relaid": relaid, "crf": crf, "windows": rows,
               "source": source, "source_offset_fit": fit, "vae": {"file": vae, "path": str(vae_path) if vae_path else None,
                                                                      "sha256": sha256(Path(vae_path)) if vae_path and Path(vae_path).is_file() else None},
-              "frames": int(joined.shape[0]),
-              "command": " ".join(shlex.quote(str(x)) for x in command), "by": a.by,
-              "at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+              "frames": int(joined.shape[0]), "png": f"{new_stem}.png", "with_mask": f"{new_stem}_with_mask.mp4",
+              "command": " ".join(shlex.quote(str(x)) for x in command), "by": a.by, "at": made_at}
     (part / f"{new_stem}.recomposite.json").write_text(json.dumps(record, indent=1) + "\n")
     import sidecar
     sidecar.write(piece, command=[str(x) for x in command], inputs={"render": str(render), "source": source["video"]},

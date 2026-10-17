@@ -59,11 +59,13 @@ PLAN = {"aliases": {"singer": "a", "_by": "a note"}, "load_prefixes": {"b": ["be
 QUEUED_AT, WRITTEN = "2026-01-02T10:00:00+00:00", 1767348600.0      # the file half an hour after the queue
 
 
-def picture(path: Path, graph: dict) -> None:
+def picture(path: Path, graph: dict, relaid: dict | None = None) -> None:
     from PIL import Image
     from PIL.PngImagePlugin import PngInfo
     info = PngInfo()
     info.add_text("prompt", json.dumps(graph))
+    if relaid is not None:
+        info.add_text("relaid", json.dumps(relaid))
     Image.new("RGB", (2, 2)).save(path, pnginfo=info)
 
 
@@ -101,14 +103,14 @@ class Made:
             (self.capture / "subjects" / "a" / name).write_bytes(b"")
         self.mask, self.parts = (str(self.capture / "subjects" / "a" / n) for n in ("track.mkv", "parts_held.mkv"))
 
-    def render(self, rel: str, frames: int | None, g: dict | None, written: float = WRITTEN) -> Path:
+    def render(self, rel: str, frames: int | None, g: dict | None, written: float = WRITTEN, relaid: dict | None = None) -> Path:
         path = self.share / rel
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"")
         os.utime(path, (written, written))
         self.counts[path] = frames
         if g is not None:
-            picture(path.with_suffix(".png"), g)
+            picture(path.with_suffix(".png"), g, relaid=relaid)
         return path
 
     def record(self, name: str, load: dict, files: list[str] | None, *, status: str | None = "success", folder: str | None = None,
@@ -456,7 +458,53 @@ def a_joined_items_lines() -> str:
     return ("a joined item's KEEP is under each render its own table laid, marked the whole clip; its wrong, not sure and words are the shot's, kept whole "
             "under the clip and given to no piece; an item whose table is not handed in is not read")
 
+def a_relaid_piece_named_from_its_render() -> str:
+    """A piece laid again by `bench/recomposite_piece.py` carries `relaid` in its PNG and is named in the ledger as re-laid from its render (`C56`)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        ref = _reference(made)
+        rel = "Video/clip/s1/good/good_00001.mp4"
+        rc_rel = "Video/clip/s1/good_rc/good_rc_00001.mp4"
+        bare = "Video/clip/s1/bare/bare_00001.mp4"
+        bare_rc = "Video/clip/s1/bare_rc/bare_rc_00001.mp4"
+        g = graph(30, 60, made.mask, parts=made.parts, motion=ref, text=TEXT)
+        made.render(rel, 60, g)
+        made.record("good", {"first": 30, "frames": 60, "motion": "mesh", "motion_file": ref, "still": "a.png", "seed": 7}, [rel], text=TEXT)
+        relaid_info = {"from": str(made.share / rel), "sha256": "deadbeef12345678", "by": "s1", "at": "2026-01-02T11:00:00Z",
+                       "changed": {"composite": "whole region"}}
+        made.render(rc_rel, 60, g, relaid=relaid_info)
+        made.render(bare, 60, g)
+        made.render(bare_rc, 60, g, relaid={"from": str(made.share / bare), "sha256": "cafebabe87654321", "by": "s1", "at": "2026-01-02T11:05:00Z",
+                                            "changed": {"composite": "whole region"}})
+        out = made.ledger()
+        orig_r = out["renders"][rel]
+        rc_r = out["renders"][rc_rel]
+        bare_rc_r = out["renders"][bare_rc]
+        assert orig_r.get("relaid") is None and "RE-LAID" not in "\n".join(led.render_lines(orig_r)), (
+            f"an ordinary render must not carry relaid: {orig_r}"
+        )
+        assert rc_r.get("relaid") == {"from": rel, "sha256": "deadbeef12345678", "by": "s1", "at": "2026-01-02T11:00:00Z",
+                                      "changed": {"composite": "whole region"}}, (
+            f"re-laid piece must carry relaid with relative share path in ledger: {rc_r.get('relaid')}"
+        )
+        assert rc_r["making"] == led.MAKING[0] and len(rc_r["records"]) == 1, (
+            f"re-laid piece must tie to its render's build record and agree: {(rc_r['making'], rc_r['records'])}"
+        )
+        rc_lines = "\n".join(led.render_lines(rc_r))
+        assert ("RE-LAID from `Video/clip/s1/good/good_00001.mp4` (sha256 `deadbeef1234`, changed: composite=whole region, by s1 at 2026-01-02T11:00:00Z): not a new render" in rc_lines
+                and "ITS MAKING: recorded, the file agrees (re-laid from `Video/clip/s1/good/good_00001.mp4`)" in rc_lines), (
+            f"render_lines must name re-laid piece as re-laid from its render: {rc_lines}"
+        )
+        bare_lines = "\n".join(led.render_lines(bare_rc_r))
+        assert ("RE-LAID from `Video/clip/s1/bare/bare_00001.mp4`" in bare_lines
+                and "ITS MAKING: NO BUILD RECORD (re-laid from `Video/clip/s1/bare/bare_00001.mp4`)" in bare_lines), (
+            f"render_lines on a re-laid piece with no build record must still say re-laid from its render: {bare_lines}"
+        )
+    return "a re-laid piece carries relaid from its PNG, ties to its render's build record, and is named in the ledger as re-laid from its render"
+
+
 case("a render its record agrees with", a_render_its_record_agrees_with)
+case("a re-laid piece is named as re-laid from its render", a_relaid_piece_named_from_its_render)
 case("a joined item's lines, under each render it lays", a_joined_items_lines)
 case("the loads stopped before a render, from the card's notes", the_loads_stopped_before_a_render)
 case("a part the job named is carried in the form", a_part_the_job_named)

@@ -4,22 +4,24 @@
 Two renders made for the purpose, each with its decode handed in so no model runs: a plain one window, and a zoomed one of
 two windows (the second with its context trimmed), continuing an earlier run, with its windows' piece records, its loader
 capped short of its last two frames, and its sound. Cases (each seen red with its code taken out):
-  laid by its matte        the new piece's windows hold the node's matte and its stem, and the assembler lays it by them
-  the render it came from  the record names the render, its latents, its regions and its VAE by sha256, its crf, the setting changed
-                           and the settings before, and source_of reads start_time at the clip's own rate; the sidecar says it
+  laid by its matte        the new piece's windows hold the node's matte and its stem, the assembler lays it by them, and its
+                           companion .png and _with_mask.mp4 are read back by render_ledger, stack_delivery and capture_masked_run
+  the render it came from  the record names the render, its latents, its regions and its VAE by sha256, its crf (including a crf
+                           wired from a PrimitiveInt node), the setting changed and the settings before, and source_of reads
+                           start_time at the clip's own rate; the sidecar says it
   outside the region       before any encode the laid frames outside the region are the source itself (as data in the record,
                            0 unzoomed and sub-half-level zoomed), the encoded plate matches the render's 16-bit source read,
                            and inside it H3's picture whole ("whole region")
   two windows, zoomed      the windows join by their piece records (a continued run's), the trimmed context is not written, the
                            frames past the loader's cap hold its last frame as the node did, the matte is the canvas weight lay_back
-                           laid with, the zoomed picture and note are written, and the render's sound is copied
+                           laid with, the zoomed picture, note, .png and _with_mask.mp4 are written, and the render's sound is copied
   own matte reconstructed  --save-own-matte reconstructs matte, kept and piece into _region.npz under the render's own inputs read
                            from its graph (a graph with no keep-outs reproduces its piece, and the same render reconstructed with
                            today's carve is refused) when the rendered .mp4 agrees within OWN_MATTE_TOLERANCE (recording mean, p99
                            and worst pixel differences inside the matte and outside the region), and refuses without touching
                            _region.npz when they disagree
   what it refuses          an output folder that exists; a render with no graph; a window with no region file; a window of another
-                           run; a --source, --source-first, --vae or --crf that is not the render's; a non-literal crf link;
+                           run; a --source, --source-first, --vae or --crf that is not the render's; an unresolvable crf link;
                            --device cpu with an int8 VAE; a continued run with no piece record; a render whose frames fit the source
                            better one frame off; gapped windows; a CLI refusal exits non-zero with no Python traceback; and a failed
                            run or stale .part decode never blocks or leaks into the rerun
@@ -53,8 +55,11 @@ from PIL import Image, PngImagePlugin  # noqa: E402
 from safetensors.torch import save_file  # noqa: E402
 
 import assemble_delivery as ad  # noqa: E402
+import capture_masked_run as cmr  # noqa: E402
 import recomposite_piece as rp  # noqa: E402
 import recomposite_window as rw  # noqa: E402
+import render_ledger as rl  # noqa: E402
+import stack_delivery as sd  # noqa: E402
 
 vm = rw._pack("video_mask")
 song = rw._pack("audio_freeze_song")
@@ -75,7 +80,7 @@ ZOOM = {"box": BOX, "source_size": [W, H], "canvas": [W, H], "scale": W / (BOX[2
 def lossless(path: Path, frames: np.ndarray, pix: str = "gbrp", rate: str = "24") -> None:
     enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", rate,
                             "-i", "-", "-c:v", "ffv1", "-level", "3", "-pix_fmt", pix, str(path)], stdin=subprocess.PIPE)
-    assert enc.stdin is not None
+    assert enc.stdin is not None, "ffmpeg stdin pipe missing"
     enc.stdin.write(frames.tobytes())
     enc.stdin.close()
     assert enc.wait() == 0, f"ffmpeg could not write {path}"
@@ -147,10 +152,10 @@ def make_plain(name: str, region: bool = True, start: int = LEAD, continued: str
     folder.mkdir(parents=True)
     pixels = LOADED[LEAD:LEAD + FRAMES].clone()
     mask = torch.zeros(FRAMES, H, W)
-    mask[:, 16:32, 16:40] = 1.0
+    mask[:, 48:64, 16:40] = 1.0
     tokens = vm.token_mask(vm.grow(mask, MARGIN), *LATENT[2:])
     decode = (pixels + 4.0 / 255.0).clamp(0, 1)     # H3's picture: a few levels off the source everywhere, under the change line,
-    decode[:, 18:30, 20:36] = 0.95                  # and the new subject inside the region
+    decode[:, 50:62, 20:36] = 0.95                  # and the new subject inside the region
     laid, _a, _ = vm.lay_window(decode, pixels, tokens, mask, settings(), MARGIN, 0)
     song._write_frames_mp4(str(root / "r_00001.mp4"), laid, 12)
     graph_png(root / "r_00001.mp4", start, 0, continued=continued, composite=vm.COMPOSITE_CHANGED, vae=vae)
@@ -259,28 +264,89 @@ def laid_by_its_matte() -> str:
     said = ad.laid_by_of(str(NEW))
     matte = ad.Matte(str(NEW))
     # THE CASE THAT GOES RED when the new piece's windows hold no matte of its own stem, and the assembler rebuilds what it lays
-    assert said["rule"] == "matte" and not matte.gaps and all(matte.at(k) is not None for k in range(FRAMES)), (said, matte.gaps)
+    assert said["rule"] == "matte" and not matte.gaps and all(matte.at(k) is not None for k in range(FRAMES)), (
+        f"expected matte rule with no gaps on all {FRAMES} frames: {(said, matte.gaps)}"
+    )
     reg = vm.load_window_region(str(WORK / "out" / "r_rc" / "r_rc_windows" / "r_rc_window_1_region.npz"))
-    assert reg.get("kept") is not None and reg.get("matte") is not None, list(reg)
+    assert reg.get("kept") is not None and reg.get("matte") is not None, f"saved window region must hold kept and matte: {list(reg)}"
     with np.load(WORK / "out" / "r_rc" / "r_rc_windows" / "r_rc_window_1_region.npz") as z:
         meta = json.loads(str(z["meta"]))
-    assert meta["piece"] == {"stem": "r_rc_00001", "first": 0, "written": FRAMES} and meta["source"]["composite"] == vm.COMPOSITE_REGION, meta
-    return f"laid by its matte on all {FRAMES} frames; the window's region holds kept, matte, the new stem and the composite now"
+    assert meta["piece"] == {"stem": "r_rc_00001", "first": 0, "written": FRAMES} and meta["source"]["composite"] == vm.COMPOSITE_REGION, (
+        f"saved window region meta must record new stem r_rc_00001 and composite now: {meta}"
+    )
+    # THE CASE THAT GOES RED when the re-laid piece does not write its companion .png and _with_mask.mp4 for render_ledger, stack_delivery and capture_masked_run
+    assert NEW.with_suffix(".png").is_file() and NEW.with_name("r_rc_00001_with_mask.mp4").is_file(), (
+        "re-laid piece must write r_rc_00001.png and r_rc_00001_with_mask.mp4 beside r_rc_00001.mp4"
+    )
+    assert (WORK / "out" / "r_rc" / "r_rc_windows" / "r_rc_window_1_with_mask.mp4").is_file(), (
+        "re-laid piece must write r_rc_window_1_with_mask.mp4 in r_rc_windows/"
+    )
+    ledger_asked = rl.asked(rl.saved_graph(NEW), {"clip.mkv": 24.0})
+    assert (ledger_asked is not None and ledger_asked["of"] == "clip.mkv"
+            and ledger_asked["first"] == LEAD and ledger_asked["masked"] is True and ledger_asked["margin"] == MARGIN), (
+        f"render_ledger.asked on re-laid .png must see source clip.mkv, first={LEAD}, masked=True: {ledger_asked}"
+    )
+    # THE CASE THAT GOES RED when the re-laid piece's .png carries no relaid block in its extra info
+    with Image.open(NEW.with_suffix(".png")) as im:
+        png_relaid_raw = im.info.get("relaid")
+    assert png_relaid_raw is not None, "re-laid .png must carry relaid block in its PNG info"
+    png_relaid = json.loads(png_relaid_raw)
+    assert (png_relaid.get("from") == str(MADE["render"]) and png_relaid.get("sha256") == sha(MADE["render"])
+            and png_relaid.get("by") == "a check" and png_relaid.get("changed") == {"composite": vm.COMPOSITE_REGION}
+            and rl.saved_relaid(NEW) == png_relaid), (
+        f"re-laid .png and render_ledger.saved_relaid must carry from, sha256, by, at and changed: {png_relaid}"
+    )
+    assert sd.graph_reads(NEW, 24.0) == sd.graph_reads(MADE["render"], 24.0), (
+        f"stack_delivery.graph_reads on re-laid piece must match render's source and frame: {sd.graph_reads(NEW, 24.0)}"
+    )
+    assert cmr.source_settings(cmr.graph_of(str(NEW)))["composite"] == vm.COMPOSITE_REGION, (
+        "capture_masked_run.source_settings on re-laid piece must see updated composite"
+    )
+    saved_reg = cmr.read_saved_regions(cmr.window_region_files(str(NEW)), LEAD, FRAMES, (W, H), None, FRAMES)
+    rev_reg = cmr.read_region(str(NEW), str(WORK / "clip.mkv"), LEAD, FRAMES, (W, H), None)
+    agree = cmr.readers_agreement(saved_reg[:3], rev_reg[:3])
+    assert agree["frames_compared"] == FRAMES and agree["cells_differing"] == 0 and bool(rev_reg[1].any()), (
+        f"capture_masked_run.read_region on re-laid _with_mask.mp4 must agree with saved region on all {FRAMES} frames: {agree}"
+    )
+    assert rp.source_of(rp.graph_of(NEW))["composite"] == vm.COMPOSITE_REGION and rp.crf_of(rp.graph_of(NEW)) == 12, (
+        "recomposite_piece.source_of and crf_of on re-laid .png must read updated composite and crf=12"
+    )
+    return f"laid by its matte on all {FRAMES} frames; region holds kept, matte and new stem; .png (with relaid) and _with_mask.mp4 read back by ledger, stack and capture"
 
 
 def the_render_it_came_from() -> str:
     rec = plain_rec()
-    # THE CASE THAT GOES RED when the record does not name the render, its latents, its regions, its crf or its VAE file on disk by sha256
-    assert rec["render_sha256"] == sha(MADE["render"]) and rec["set"] == ["composite=" + vm.COMPOSITE_REGION] and rec["crf"] == 12, rec
+    # THE CASE THAT GOES RED when the record does not name the render, its latents, its regions, its crf, its relaid block or its VAE file on disk by sha256
+    assert (rec["render_sha256"] == sha(MADE["render"]) and rec["set"] == ["composite=" + vm.COMPOSITE_REGION] and rec["crf"] == 12
+            and rec["png"] == "r_rc_00001.png" and rec["with_mask"] == "r_rc_00001_with_mask.mp4"
+            and rec.get("relaid") == {"from": str(MADE["render"]), "sha256": sha(MADE["render"]),
+                                      "by": "a check", "at": rec["at"], "changed": {"composite": vm.COMPOSITE_REGION}}), (
+        f"record must name render_sha256, set, relaid, crf=12, png and with_mask: {rec}"
+    )
     w = rec["windows"][0]
     folder = MADE["render"].parent / "r_windows"
-    assert w["latent_sha256"] == sha(folder / "r_window_1.safetensors") and w["region_sha256"] == sha(folder / "r_window_1_region.npz"), w
-    assert rec["vae"]["file"] == "the_render_vae.safetensors" and rec["vae"]["sha256"] == sha(WORK / "the_render_vae.safetensors"), rec["vae"]
-    assert w["composite_before"] == vm.COMPOSITE_CHANGED and w["composite_now"] == vm.COMPOSITE_REGION, w
+    assert w["latent_sha256"] == sha(folder / "r_window_1.safetensors") and w["region_sha256"] == sha(folder / "r_window_1_region.npz"), (
+        f"window row must hold latent_sha256 and region_sha256: {w}"
+    )
+    assert rec["vae"]["file"] == "the_render_vae.safetensors" and rec["vae"]["sha256"] == sha(WORK / "the_render_vae.safetensors"), (
+        f"record vae must hold file and sha256: {rec['vae']}"
+    )
+    assert w["composite_before"] == vm.COMPOSITE_CHANGED and w["composite_now"] == vm.COMPOSITE_REGION, (
+        f"window row must hold composite_before and composite_now: {w}"
+    )
     side_path = NEW.parent / (NEW.name + ".json")
-    assert side_path.is_file(), side_path
+    assert side_path.is_file(), f"sidecar {side_path} not written"
     side = json.loads(side_path.read_text())
-    assert side.get("extra", {}).get("recomposite_of", {}).get("render_sha256") == rec["render_sha256"], list(side)
+    assert side.get("extra", {}).get("recomposite_of", {}).get("render_sha256") == rec["render_sha256"], (
+        f"sidecar extra.recomposite_of must hold render_sha256: {list(side)}"
+    )
+    # THE CASE THAT GOES RED when crf_of does not resolve a crf wired from a constant node via h3_config.resolve_widget
+    try:
+        prim_crf = rp.crf_of({"9": {"class_type": "MiniMaxH3AudioFreezeSong", "inputs": {"crf": ["99", 0]}},
+                              "99": {"class_type": "PrimitiveInt", "inputs": {"value": 14}}})
+    except SystemExit as exc:
+        raise AssertionError(f"crf_of must resolve a crf wired from PrimitiveInt via h3_config.resolve_widget: {exc}") from exc
+    assert prim_crf == 14, f"crf_of must resolve a crf wired from PrimitiveInt to 14: {prim_crf}"
     # THE CASE THAT GOES RED when source_of multiplies start_time by a hardcoded 24 instead of the clip's own frame rate
     ntsc = WORK / "ntsc.mkv"
     lossless(ntsc, np.zeros((2, H, W, 3), np.uint8), rate="24000/1001")
@@ -288,8 +354,8 @@ def the_render_it_came_from() -> str:
         "28": {"class_type": "VHS_LoadVideoFFmpegPath", "inputs": {"video": str(ntsc), "start_time": 1000 * 1001 / 24000,
                                                                     "frame_load_cap": 0, "custom_width": W, "custom_height": H}},
         "104": {"class_type": "MiniMaxH3MaskedSource", "inputs": {"frames": ["28", 0]}}})
-    assert ntsc_src["first"] == 1000, ntsc_src
-    return "the record names the render, its latent, its region, its crf and the render's VAE by sha256; source_of uses the clip's rate; the sidecar names the render"
+    assert ntsc_src["first"] == 1000, f"source_of must compute first frame from clip's own frame rate: {ntsc_src}"
+    return "the record names the render, its latent, its region, its crf (literal or PrimitiveInt) and the render's VAE by sha256; source_of uses the clip's rate; the sidecar names the render"
 
 
 def outside_the_region() -> str:
@@ -297,7 +363,9 @@ def outside_the_region() -> str:
     # THE CASE THAT GOES RED when the laid frames outside the region are not the source before any encode, or zoomed outside_levels is hardcoded 0.0
     unzoomed = rec["windows"][0]["outside_the_region_before_encoding_levels_most"]
     zoomed = [w["outside_the_region_before_encoding_levels_most"] for w in zrec["windows"]]
-    assert unzoomed == 0.0 and all(z is not None and 0.0 < z <= 0.5 for z in zoomed), (unzoomed, zoomed)
+    assert unzoomed == 0.0 and all(z is not None and 0.0 < z <= 0.5 for z in zoomed), (
+        f"outside_the_region_before_encoding_levels_most must be 0.0 unzoomed and (0, 0.5] zoomed: {(unzoomed, zoomed)}"
+    )
     got = frames_of(NEW)
     song._write_frames_mp4(str(WORK / "src_ref.mp4"), MADE["pixels"], 12)
     song._write_frames_mp4(str(WORK / "dec_ref.mp4"), MADE["decode"]["r_window_1"], 12)
@@ -312,7 +380,7 @@ def outside_the_region() -> str:
     band = region & ~np.isin(np.arange(W), range(20, 36))[None, None, :]
     near_dec, near_src = float(np.abs(got - dec)[band].mean()), float(np.abs(got - src)[band].mean())
     # "whole region": H3's picture inside the region, its barely-changed pixels too, where "only what changed" put the source back
-    assert near_dec + 1.0 < near_src, (near_dec, near_src)
+    assert near_dec + 1.0 < near_src, f"whole region composite must follow H3 decode inside region: near_dec={near_dec}, near_src={near_src}"
     return (f"before encoding, {unzoomed} levels outside the region unzoomed and {max(zoomed)} at most zoomed; plate {plate_signed:+.2f} "
             f"from render; after encoding {encoded:.2f} (data); inside it {near_dec:.2f} from H3's picture against {near_src:.2f} from the source")
 
@@ -320,13 +388,19 @@ def outside_the_region() -> str:
 def two_windows_zoomed() -> str:
     zrec = zoomed_rec()
     # THE CASE THAT GOES RED when offset_fit drops + trim on a window with trimmed context
-    assert zrec["source_offset_fit"]["levels_by_frame_offset"][0] < 5.0, zrec["source_offset_fit"]
+    assert zrec["source_offset_fit"]["levels_by_frame_offset"][0] < 5.0, (
+        f"offset_fit at offset 0 must be < 5.0 levels on trimmed window: {zrec['source_offset_fit']}"
+    )
     got = frames_of(ZNEW)
     # THE CASE THAT GOES RED when the windows do not join by their piece records, or the trimmed context is written
-    assert int(got.shape[0]) == ZMADE["frames"] == 2 * FRAMES - HEAD - CONTEXT, (got.shape, ZMADE["frames"])
+    assert int(got.shape[0]) == ZMADE["frames"] == 2 * FRAMES - HEAD - CONTEXT, (
+        f"zoomed piece frame count must equal 2*FRAMES - HEAD - CONTEXT: {(got.shape, ZMADE['frames'])}"
+    )
     regions = [vm.load_window_region(str(WORK / "out" / "z_rc" / "z_rc_windows" / f"z_rc_window_{n}_region.npz")) for n in (1, 2)]
     with np.load(WORK / "out" / "z_rc" / "z_rc_windows" / "z_rc_window_2_region.npz") as z:
-        assert json.loads(str(z["meta"]))["piece"] == {"stem": "z_rc_00001", "first": FRAMES - HEAD, "written": FRAMES - CONTEXT}
+        assert json.loads(str(z["meta"]))["piece"] == {"stem": "z_rc_00001", "first": FRAMES - HEAD, "written": FRAMES - CONTEXT}, (
+            "window 2 region meta must record stem z_rc_00001, first FRAMES-HEAD, written FRAMES-CONTEXT"
+        )
     # a corner outside the box: the source's own frame there (the context trimmed, the windows joined where their records say)
     corner = (slice(None), slice(0, 10), slice(0, 14))
     want = [min(LEAD + HEAD + q, LEAD + CAP - 1) for q in range(ZMADE["frames"])]   # past the loader's cap, its last frame held
@@ -339,43 +413,70 @@ def two_windows_zoomed() -> str:
     assert abs(signed) < 0.6, f"the new piece's plate is {signed:+.2f} levels from the render's own outside the box"
     per = np.abs(got - ref)[corner].mean(axis=(1, 2, 3))
     # THE CASE THAT GOES RED when the frames past the loader's cap are the clip's next frames, not its last held, or a window lands off its frames
-    assert float(per.max()) < 3.0, [round(float(x), 2) for x in per]
+    assert float(per.max()) < 3.0, f"corner frames past loader cap must hold last frame within 3.0 levels: {[round(float(x), 2) for x in per]}"
     m1 = regions[0].get("matte")
-    assert m1 is not None, list(regions[0])
+    assert m1 is not None, f"zoomed window 1 region must hold matte: {list(regions[0])}"
     inside = np.zeros((H, W), bool)
     inside[BOX[1]:BOX[3], BOX[0]:BOX[2]] = True
     # THE CASE THAT GOES RED when a zoomed window's matte is its weight in the zoomed space, not the canvas weight lay_back laid with
-    assert float(m1[:, ~inside].max()) == 0.0 and float(m1[:, inside].max()) > 0.5, (float(m1[:, ~inside].max()), float(m1[:, inside].max()))
+    assert float(m1[:, ~inside].max()) == 0.0 and float(m1[:, inside].max()) > 0.5, (
+        f"zoomed window matte must be 0 outside box and >0.5 inside box: {(float(m1[:, ~inside].max()), float(m1[:, inside].max()))}"
+    )
     z_note = WORK / "out" / "z_rc" / "z_rc_00001_zoomed.json"
-    assert (WORK / "out" / "z_rc" / "z_rc_00001_zoomed.mp4").is_file() and z_note.is_file(), z_note
+    assert (WORK / "out" / "z_rc" / "z_rc_00001_zoomed.mp4").is_file() and z_note.is_file(), f"zoomed video and {z_note} must be written"
     note = json.loads(z_note.read_text())
-    assert note["run"] == "z_rc_00001" and note["box"] == BOX, note
+    assert note["run"] == "z_rc_00001" and note["box"] == BOX, f"zoomed note must hold run z_rc_00001 and box {BOX}: {note}"
 
     def audio(path: Path) -> str:
         return subprocess.run(["ffmpeg", "-v", "error", "-i", str(path), "-map", "0:a", "-c", "copy", "-f", "md5", "-"], capture_output=True, text=True).stdout
     # THE CASE THAT GOES RED when the render's sound is not copied
-    assert audio(ZNEW) and audio(ZNEW) == audio(ZMADE["render"]), (audio(ZNEW), audio(ZMADE["render"]))
+    assert audio(ZNEW) and audio(ZNEW) == audio(ZMADE["render"]), (
+        f"zoomed piece audio must match render audio: {(audio(ZNEW), audio(ZMADE['render']))}"
+    )
+    # THE CASE THAT GOES RED when zoomed companions (.png and _with_mask.mp4) are not written with sound and readable by ledger, stack and capture
+    z_mask_mp4 = ZNEW.with_name("z_rc_00001_with_mask.mp4")
+    assert (ZNEW.with_suffix(".png").is_file() and z_mask_mp4.is_file()
+            and all((WORK / "out" / "z_rc" / "z_rc_windows" / f"z_rc_window_{n}_with_mask.mp4").is_file() for n in (1, 2))), (
+        "zoomed re-laid piece must write z_rc_00001.png, z_rc_00001_with_mask.mp4 and window _with_mask.mp4 files"
+    )
+    assert audio(z_mask_mp4) == audio(ZMADE["render"]), "zoomed _with_mask.mp4 must carry the render's audio"
+    assert cmr.probe(str(z_mask_mp4)) == (W, 2 * H, ZMADE["frames"]), (
+        f"zoomed _with_mask.mp4 must be {W}x{2 * H} across {ZMADE['frames']} frames: {cmr.probe(str(z_mask_mp4))}"
+    )
+    assert len(cmr.window_region_files(str(ZNEW))) == 2, "capture_masked_run.window_region_files must find both zoomed re-laid region files"
+    assert (rl.asked(rl.saved_graph(ZNEW), {"clip.mkv": 24.0})["of"] == "clip.mkv"
+            and cmr.source_settings(cmr.graph_of(str(ZNEW)))["composite"] == vm.COMPOSITE_REGION
+            and sd.graph_reads(ZNEW, 24.0) == sd.graph_reads(ZMADE["render"], 24.0)), (
+        "render_ledger, capture_masked_run and stack_delivery must read zoomed re-laid .png"
+    )
     held = zrec["windows"][1]["source_frames_held"]
-    assert held == FRAMES - (CAP - (FRAMES - CONTEXT)), zrec["windows"][1]
-    return f"{ZMADE['frames']} frames joined by the records, the context trimmed, {held} frames held past the cap, the matte the canvas weight, the zoomed files and the sound"
+    assert held == FRAMES - (CAP - (FRAMES - CONTEXT)), f"window 2 source_frames_held must equal frames past loader cap: {zrec['windows'][1]}"
+    return (f"{ZMADE['frames']} frames joined by the records, the context trimmed, {held} frames held past the cap, the matte the canvas weight, "
+            "the zoomed files, .png, _with_mask.mp4 and the sound")
 
 
 def own_matte_reconstructed() -> str:
     own = make_plain("own_plain")
     zown = make_zoomed("own_zoomed")
     # Before reconstruction, neither render's windows hold a saved matte
-    assert ad.laid_by_of(str(own["render"]))["rule"] != "matte" and ad.laid_by_of(str(zown["render"]))["rule"] != "matte"
+    assert ad.laid_by_of(str(own["render"]))["rule"] != "matte" and ad.laid_by_of(str(zown["render"]))["rule"] != "matte", (
+        "fixture renders must not hold a saved matte before --save-own-matte"
+    )
     must_run(args(own, "", save_own_matte=True, set=[]), decode=handed(own))
     zrec = must_run(args(zown, "", save_own_matte=True, set=[]), decode=handed(zown))
     # THE CASE THAT GOES RED when --save-own-matte does not write matte, kept and piece so assemble_delivery.Matte lays the render by them
     for m, n_frames in ((own, FRAMES), (zown, zown["frames"])):
         said = ad.laid_by_of(str(m["render"]))
         matte = ad.Matte(str(m["render"]))
-        assert said["rule"] == "matte" and not matte.gaps and all(matte.at(k) is not None for k in range(n_frames)), (said, matte.gaps)
+        assert said["rule"] == "matte" and not matte.gaps and all(matte.at(k) is not None for k in range(n_frames)), (
+            f"after --save-own-matte, render must be laid by matte with no gaps: {(said, matte.gaps)}"
+        )
     reg1 = vm.load_window_region(str(own["render"].parent / "r_windows" / "r_window_1_region.npz"))
-    assert reg1.get("kept") is not None and reg1.get("matte") is not None, list(reg1)
+    assert reg1.get("kept") is not None and reg1.get("matte") is not None, (
+        f"after --save-own-matte, region file must hold kept and matte: {list(reg1)}"
+    )
     rec_file = own["render"].parent / "r_00001.matte_reconstructed.json"
-    assert rec_file.is_file(), rec_file
+    assert rec_file.is_file(), f"reconstructed matte record {rec_file} not written"
     saved = json.loads(rec_file.read_text())
     w0 = saved["windows"][0]
     c0 = w0["control"]
@@ -397,9 +498,9 @@ def own_matte_reconstructed() -> str:
     # a render made without keep-outs reproduces its piece when its graph has no keep-outs input, and is refused when reconstructed with today's carve
     no_ko = make_plain("own_no_keep_outs")
     no_ko_mask = torch.zeros(FRAMES, H, W)
-    no_ko_mask[:, 16:32, 16:40] = 1.0
+    no_ko_mask[:, 48:64, 16:40] = 1.0
     no_ko_decode = (no_ko["pixels"] + 4.0 / 255.0).clamp(0, 1)
-    no_ko_decode[:, 16:32, 16:48] = 0.95                            # subject reaches into the grown margin (x=32..48)
+    no_ko_decode[:, 48:64, 16:48] = 0.95                            # subject reaches into the grown margin (x=32..48)
     no_ko["decode"]["r_window_1"] = no_ko_decode
     no_ko_laid, _a, _ = vm.lay_window(no_ko_decode, no_ko["pixels"], no_ko["tokens"], no_ko_mask, settings(), MARGIN, 0)
     song._write_frames_mp4(str(no_ko["render"]), no_ko_laid, 12)
@@ -451,7 +552,7 @@ def what_it_refuses() -> str:
     def _raise(exc: BaseException) -> None:
         raise exc
 
-    assert refused(lambda: _raise(ValueError("bad value")), "bad value") == "bad value"
+    assert refused(lambda: _raise(ValueError("bad value")), "bad value") == "bad value", "refused() must return matching refusal words"
     for bad_fn in (
         lambda: refused(lambda: None, "x"),
         lambda: refused(lambda: _raise(SystemExit()), "None"),
@@ -519,7 +620,9 @@ def what_it_refuses() -> str:
     np.save(stale_work / "decoded_r_window_1.npy", np.zeros((FRAMES, H, W, 3), np.float16))
     again_rec = must_run(args(MADE, "again_rc"), decode=handed(MADE))
     assert "decoded on " in again_rec["windows"][0]["decode"], f"stale .part decode was reused: {again_rec['windows'][0]}"
-    assert (WORK / "out" / "again_rc" / "again_rc_00001.mp4").is_file() and not (WORK / "out" / "again_rc.part").exists()
+    assert (WORK / "out" / "again_rc" / "again_rc_00001.mp4").is_file() and not (WORK / "out" / "again_rc.part").exists(), (
+        "rerun must write again_rc_00001.mp4 and remove again_rc.part"
+    )
     return ("an existing folder, no graph, no region, another run's window, disagreed --source/--source-first/--vae/--crf, int8 VAE on cpu, "
             "a continued run with no piece record, a source one frame off, gapped windows, and a CLI refusal without traceback, each refused; stale .part never reused")
 
