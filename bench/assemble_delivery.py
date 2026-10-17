@@ -689,7 +689,7 @@ class Matte:
         folder = Path(piece).parent / f"{prefix}_windows"
         numbers = sorted(int(m.group(1)) for v in folder.glob(f"{prefix}_window_*.mp4")
                          for m in [re.fullmatch(rf"{re.escape(prefix)}_window_(\d+)\.mp4", v.name)] if m)
-        self.windows, self.other_stems, found = [], [], set()
+        self.windows, self.bare, self.other_stems, found, theirs = [], [], [], set(), set()
         for n in numbers:
             path = folder / f"{prefix}_window_{n}_region.npz"
             if not path.is_file():
@@ -703,11 +703,15 @@ class Matte:
             if said.get("stem") != stem:
                 if said.get("stem"):
                     self.other_stems.append(f"{path.name} ({said['stem']})")
+                    theirs.add(n)
                 continue
             found.add(n)
-            if has:
-                self.windows.append({"path": path, "number": n, "first": int(said["first"]), "written": int(said["written"]), "trim": int(meta.get("trim", 0))})
+            entry = {"path": path, "number": n, "first": int(said["first"]), "written": int(said["written"]), "trim": int(meta.get("trim", 0))}
+            (self.windows if has else self.bare).append(entry)
+        numbers = [n for n in numbers if n not in theirs]
+        self.found = sorted(found)
         self.gaps = [n for n in numbers if n not in {w["number"] for w in self.windows}]
+        self.unknown = [n for n in numbers if n not in found]
         self.held = (None, None)
 
     def any(self) -> bool:
@@ -719,7 +723,7 @@ class Matte:
         window holds while the piece has no gap is a contradiction in its files, and refused."""
         hit = [w for w in self.windows if w["first"] <= k < w["first"] + w["written"]]
         if not hit:
-            if self.gaps:
+            if any(w["first"] <= k < w["first"] + w["written"] for w in self.bare) or self.unknown:
                 return None
             raise SystemExit(f"piece frame {k}: no window of the piece wrote it, though every window saved its matte ({len(self.windows)} windows)")
         w = hit[-1]
@@ -753,6 +757,15 @@ def laid_by_of(piece, run=None) -> dict:
                     "piece_laid_by_two_rules)" if matte.gaps else ""),
                 **({"windows_without_a_matte": matte.gaps} if matte.gaps else {}),
                 **({"region_files_of_another_run_not_read": matte.other_stems} if matte.other_stems else {})}
+    out = _laid_by_of(piece, run)
+    if matte.found:
+        out["windows_without_a_matte"] = matte.found
+        out["matte_missing"] = (f"the render saved region files for {Path(piece).stem} (window(s) {', '.join(map(str, matte.found))}) "
+                                "and no matte in any: laid by the rules below (Gemini's D18)")
+    return out
+
+
+def _laid_by_of(piece, run=None) -> dict:
     words = node_words("COMPOSITE_REGION", "COMPOSITE_CHANGED")
     region_word = words["COMPOSITE_REGION"]
     png = Path(piece).with_suffix(".png")
@@ -1061,14 +1074,30 @@ def owners(hard, subject_masks):
     return owner, {"px": int(shared.sum()), "box": box_of(shared), "by_mask": by_mask, "by_order": int(shared.sum()) - by_mask}
 
 
-def weight_of(owner, i, exact=False):
-    """Piece i's weight over the canvas: one where it owns the pixel, feathered into pixels nobody changed. A row laid by the node's
-    own matte (`exact`) is its own pixels and nothing more, never grown or blurred: its pixels already carry the node's soft edge, and
-    a feather here would soften that edge again where two pieces touch (a Gemini reader's finding on the exact matte, 2026-10-16)."""
+def weight_of(owner, i, exact=False, taken=None):
+    """Piece i's weight over the canvas: one where it owns the pixel, feathered into pixels nobody changed (and not into a matte row's
+    pixels, `taken`). A row laid by the node's own matte (`exact`) is its own pixels and nothing more, never grown or blurred: its
+    pixels already carry the node's soft edge, and a feather here would soften that edge again where two pieces touch (a Gemini
+    reader's finding on the exact matte, 2026-10-16)."""
     if exact:
         return (owner == i).astype(np.float32)
-    mine = cv2.dilate((owner == i).astype(np.uint8), disc(GROW)).astype(bool) & ((owner == i) | (owner == -1))
-    return cv2.GaussianBlur(mine.astype(np.float32), (0, 0), FEATHER)
+    free = (owner == -1) & ~taken if taken is not None else (owner == -1)
+    mine = cv2.dilate((owner == i).astype(np.uint8), disc(GROW)).astype(bool) & ((owner == i) | free)
+    out = cv2.GaussianBlur(mine.astype(np.float32), (0, 0), FEATHER)
+    return np.where(taken & (owner != i), 0.0, out) if taken is not None else out
+
+
+def lay_plane(view, piece, was, keep, m=None) -> None:
+    """One compositing law for every plane (`Y`, `U`, `V`) at either size (`canvas` or `source`):
+    `view += keep * ((piece - (1 - m) * was) - m * view)` for a matte row (`m` in 0..1), and `view += keep * (piece - view)`
+    for a plain row (`m is None`, i.e. `m = 1`). Because the node wrote `piece = m * render + (1 - m) * was`, the term
+    `piece - (1 - m) * was` is already `m * render` with no division by `m`: at `m = 1` it lays `render` whole with none of
+    `under - was` embossed onto it; in the soft band `0 < m < 1` it keeps `(1 - m) * view` of the sharp source or earlier
+    piece beneath and adds `m * render`; at `m = 0` it touches nothing."""
+    if m is None:
+        view += keep * (piece - view)
+        return
+    view += keep * ((piece - (1.0 - m) * was) - m * view)
 
 
 def to_bytes(planes_):
@@ -1143,21 +1172,39 @@ def restore_weight(row, captures, run, frame, shape):
     return cv2.GaussianBlur(grown.astype(np.float32), (0, 0), RESTORE_FEATHER), hard
 
 
-def merged(pieces, owner, held, orig, exact=None):
-    """At the canvas's size: the first piece whole, each later piece's changed region over it. `held[i]` is the
-    weight where piece i is not to be laid (a restore), or None."""
+def merged(pieces, owner, held, orig, exact=None, mats=None):
+    """At the canvas's size: each piece laid in table order by `lay_plane`. A plain first row starts as the base whole (its
+    restore `held[0]` giving back `orig`); a matte row (`exact[i]`) is laid in one pass with its matte `mats[i]` in 0..1."""
     h, w = owner.shape
-    out = [p.copy() for p in pieces[0]]
+    first_matte = bool(exact and exact[0])
+    out = [p.copy() for p in (orig if first_matte else pieces[0])]
+    taken = np.zeros((h, w), bool)
+    for j, exact_j in enumerate(exact or ()):
+        if exact_j:
+            taken |= (mats[j] > 0) if mats is not None and mats[j] is not None else (owner == j)
     for i in range(len(pieces)):
-        if i == 0 and held[0] is None:
+        if i == 0 and not first_matte:
+            if held and held[0] is not None:
+                weight = held[0]
+                half = cv2.resize(weight, (w // 2, h // 2), interpolation=cv2.INTER_AREA)
+                for k, wgt in enumerate((weight, half, half)):
+                    lay_plane(out[k], orig[k], None, wgt)
             continue
-        # the first piece is the base, whole; what it must not show is the original's. A later piece is its own
-        # region, less what it must not show, and under that is whatever was laid before it
-        weight = held[0] if i == 0 else weight_of(owner, i, bool(exact and exact[i])) * (1.0 - (held[i] if held[i] is not None else 0.0))
+        allow = 1.0 - held[i] if held is not None and held[i] is not None else None
+        if exact and exact[i]:
+            m = mats[i] if mats is not None and mats[i] is not None else (owner == i).astype(np.float32)
+            if not (m > 0).any():
+                continue
+            m_half = cv2.resize(m, (w // 2, h // 2), interpolation=cv2.INTER_AREA)
+            allow_half = cv2.resize(allow, (w // 2, h // 2), interpolation=cv2.INTER_AREA) if allow is not None else None
+            for k, (m_p, allow_p) in enumerate(((m, allow), (m_half, allow_half), (m_half, allow_half))):
+                keep_p = np.where(m_p > 0, 1.0 if allow_p is None else allow_p, 0.0)
+                lay_plane(out[k], pieces[i][k], orig[k], keep_p, m_p)
+            continue
+        weight = weight_of(owner, i, False, taken) * (1.0 if allow is None else allow)
         half = cv2.resize(weight, (w // 2, h // 2), interpolation=cv2.INTER_AREA)
-        over = orig if i == 0 else pieces[i]
         for k, wgt in enumerate((weight, half, half)):
-            out[k] += (over[k] - out[k]) * wgt
+            lay_plane(out[k], pieces[i][k], None, wgt)
     return to_bytes(out)
 
 
@@ -1180,48 +1227,75 @@ def box_at_the_source(zbox, box, canvas):
     return whole, tuple(round(a - b, 3) for a, b in zip(whole, exact))
 
 
-def laid_over(base, pieces, owner, box, held=None, zoomed=None, exact=None, orig=None):
+def laid_over(base, pieces, owner, box, held=None, zoomed=None, exact=None, orig=None, mats=None):
     """At the source's size: the source's own planes with every piece's changed region scaled up and laid over,
     less what `held[i]` says piece i is not to be laid on. `zoomed[i]`, when a piece was rendered zoomed in, is
     (its zoomed picture's planes, its box at the canvas): inside the box the picture is taken from those, scaled
-    once into the box's place, in place of the piece's own pixels enlarged."""
+    once into the box's place, in place of the piece's own pixels enlarged. A matte row (`exact[i]`) is laid in
+    one pass by `lay_plane` with its matte `mats[i]` in 0..1 (`view += keep * ((up - (1 - m) * was) - m * view)`)."""
     cw, ch, x0, y0 = box
+    h, w = owner.shape
     out = [p.copy() for p in base]
     reach = {"top": np.zeros(cw, np.float32), "bottom": np.zeros(cw, np.float32), "left": np.zeros(ch, np.float32), "right": np.zeros(ch, np.float32)}
+    taken = np.zeros((h, w), bool)
+    for j, exact_j in enumerate(exact or ()):
+        if exact_j:
+            taken |= (mats[j] > 0) if mats is not None and mats[j] is not None else (owner == j)
     for i, piece in enumerate(pieces):
-        if not (owner == i).any():
+        is_matte = bool(exact and exact[i])
+        m = (mats[i] if mats is not None and mats[i] is not None else (owner == i).astype(np.float32)) if is_matte else None
+        if not ((m > 0).any() if is_matte else (owner == i).any()):
             continue
-        small = weight_of(owner, i, bool(exact and exact[i])) * (1.0 - (held[i] if held is not None and held[i] is not None else 0.0))
-        weight = cv2.resize(small, (cw, ch), interpolation=cv2.INTER_LINEAR)
+        allow = 1.0 - held[i] if held is not None and held[i] is not None else None
+        if is_matte:
+            m_can_c = cv2.resize(m, (w // 2, h // 2), interpolation=cv2.INTER_AREA)
+            lin_y = cv2.resize(m, (cw, ch), interpolation=cv2.INTER_LINEAR)
+            lin_c = cv2.resize(m_can_c, (cw // 2, ch // 2), interpolation=cv2.INTER_LINEAR)
+            m_y = np.where(lin_y > 0, np.clip(cv2.resize(m, (cw, ch), interpolation=cv2.INTER_CUBIC), 0.0, 1.0), 0.0)
+            m_c = np.where(lin_c > 0, np.clip(cv2.resize(m_can_c, (cw // 2, ch // 2), interpolation=cv2.INTER_CUBIC), 0.0, 1.0), 0.0)
+            allow_can_c = cv2.resize(allow, (w // 2, h // 2), interpolation=cv2.INTER_AREA) if allow is not None else None
+            allow_y = cv2.resize(allow, (cw, ch), interpolation=cv2.INTER_LINEAR) if allow is not None else None
+            allow_c = cv2.resize(allow_can_c, (cw // 2, ch // 2), interpolation=cv2.INTER_LINEAR) if allow_can_c is not None else None
+            keep_y = np.where(m_y > 0, 1.0 if allow_y is None else allow_y, 0.0)
+            keep_c = np.where(m_c > 0, 1.0 if allow_c is None else allow_c, 0.0)
+            edge_w = cv2.resize((m > 0).astype(np.float32) * (1.0 if allow is None else allow), (cw, ch), interpolation=cv2.INTER_LINEAR)
+            planes_m = (m_y, m_c, m_c)
+            planes_keep = (keep_y, keep_c, keep_c)
+        else:
+            small = weight_of(owner, i, False, taken) * (1.0 if allow is None else allow)
+            keep_y = cv2.resize(small, (cw, ch), interpolation=cv2.INTER_LINEAR)
+            keep_c = cv2.resize(keep_y, (cw // 2, ch // 2), interpolation=cv2.INTER_AREA)
+            edge_w = keep_y
+            planes_m = (None, None, None)
+            planes_keep = (keep_y, keep_c, keep_c)
         # how much the pieces are laid on each edge of the crop, as their union (where two feathers overlap, both count)
-        for side, line in (("top", weight[0]), ("bottom", weight[-1]), ("left", weight[:, 0]), ("right", weight[:, -1])):
+        for side, line in (("top", edge_w[0]), ("bottom", edge_w[-1]), ("left", edge_w[:, 0]), ("right", edge_w[:, -1])):
             reach[side] = 1.0 - (1.0 - reach[side]) * (1.0 - line)
-        half = cv2.resize(weight, (cw // 2, ch // 2), interpolation=cv2.INTER_AREA)
-        place = box_at_the_source(zoomed[i][1], box, small.shape[::-1])[0] if zoomed is not None and zoomed[i] is not None else None
-        for k, (wgt, (pw, ph, px, py)) in enumerate(((weight, (cw, ch, x0, y0)), (half, (cw // 2, ch // 2, x0 // 2, y0 // 2)),
-                                                     (half, (cw // 2, ch // 2, x0 // 2, y0 // 2)))):
-            up = cv2.resize(piece[k], (pw, ph), interpolation=cv2.INTER_CUBIC)
+        place = box_at_the_source(zoomed[i][1], box, (w, h))[0] if zoomed is not None and zoomed[i] is not None else None
+        for k, (keep_p, m_p, (pw, ph, px, py)) in enumerate(zip(
+            planes_keep, planes_m, ((cw, ch, x0, y0), (cw // 2, ch // 2, x0 // 2, y0 // 2), (cw // 2, ch // 2, x0 // 2, y0 // 2))
+        )):
+            src_p = piece[k]
+            if is_matte and orig is not None:
+                src_p = np.where((m if k == 0 else m_can_c) > 0, src_p, orig[k])
+            up = cv2.resize(src_p, (pw, ph), interpolation=cv2.INTER_CUBIC)
             if place is not None:
                 a, b, c, d = (v // (1 if k == 0 else 2) for v in place)
-                src = zoomed[i][0][k]
-                smaller = (c - a) < src.shape[1]
-                up[b:d, a:c] = cv2.resize(src, (c - a, d - b), interpolation=cv2.INTER_AREA if smaller else cv2.INTER_CUBIC)
+                zsrc = zoomed[i][0][k]
+                smaller = (c - a) < zsrc.shape[1]
+                up[b:d, a:c] = cv2.resize(zsrc, (c - a, d - b), interpolation=cv2.INTER_AREA if smaller else cv2.INTER_CUBIC)
             view = out[k][py:py + ph, px:px + pw]
-            if exact and exact[i] and orig is not None:
-                # A ROW LAID BY THE NODE'S OWN MATTE (the matte's blind read, 2026-10-16): the piece is already the node's blend of its render
-                # and the canvas's source, so what it adds is the piece less that source, scaled up and put on the sharp source: in the soft
-                # band the source stays the source's own, and the render comes in by the node's own weight (inside a zoomed box, the zoomed
-                # picture less the canvas's source cut to the box)
+            if is_matte and orig is not None:
                 was = cv2.resize(orig[k], (pw, ph), interpolation=cv2.INTER_CUBIC)
                 if place is not None:
                     hb, wb = orig[k].shape
                     zb = zoomed[i][1]
-                    sx0, sy0, sx1, sy1 = (zb[0] * wb // small.shape[1], zb[1] * hb // small.shape[0], zb[2] * wb // small.shape[1], zb[3] * hb // small.shape[0])
+                    sx0, sy0, sx1, sy1 = (zb[0] * wb // w, zb[1] * hb // h, zb[2] * wb // w, zb[3] * hb // h)
                     cut = orig[k][sy0:sy1, sx0:sx1]
                     was[b:d, a:c] = cv2.resize(cut, (c - a, d - b), interpolation=cv2.INTER_CUBIC)
-                view += (up - was) * wgt
+                lay_plane(view, up, was, keep_p, m_p)
                 continue
-            view += (up - view) * wgt
+            lay_plane(view, up, None, keep_p)
     carry_edge_rows(out, reach, box)
     return to_bytes(out)
 
@@ -1356,12 +1430,17 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
                     for j in range(len(rows)):
                         if j != i and holds[j] is not None and who[j] != who[i]:
                             hard[i] = hard[i] & ~(holds[j] & ~holds[i]) if holds[i] is not None else hard[i] & ~holds[j]
-            owner, shared = owners(hard, holds)
+            # A matte row claims only its opaque core in `owner`; in its soft band (0 < t < 255) whatever lies beneath stays underneath
+            # and the matte row blends over it by `mat_weights` in `lay_plane`
+            claims = [m & (t == 255) if t is not None else m for m, t in zip(hard, mats)]
+            owner, shared = owners(claims, holds)
             backs = [restore_weight(r, captures, run, n, (h, w)) for r, run in zip(rows, runs)]
             held = [b[0] for b in backs]
             # at the canvas's size the first row's piece is the base, whole: there "lays nothing" has to be said as
             # the whole frame held back, or its piece would still be the picture
             held = [np.ones((h, w), np.float32) if u and u[1] else x for x, u in zip(held, unmasked)]
+            mat_weights = [np.where(m, t.astype(np.float32) / 255.0, 0.0) if t is not None else None
+                           for m, t in zip(hard, mats)]
             if record is not None and before is not None:
                 record.setdefault("source_moved", {})[n] = float(np.abs(o[0] - before).mean())
             before = o[0]
@@ -1423,17 +1502,18 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
                                 other |= hard[j] & holds[j] & ~holds[i]
                     meant = hard[i] & ~back & ~later & ~other
                     tally = record.setdefault("shown", {}).setdefault((r["piece"], r.get("first"), r.get("last")), [0, 0, 0])
-                    shows = int((meant & (owner == i)).sum())
+                    on = hard[i] if laid_rule[i] == "matte" else (owner == i)
+                    shows = int((meant & on).sum())
                     tally[0] += int(meant.sum())
                     tally[1] += shows
                     tally[2] += 1
                     record["rows"][r["piece"]][n]["laid"] = shows      # what of this row is in the file on this frame
             got += 1
             if full:
-                yield laid_over(planes(sbuf, *full), pieces, owner, box, held, zoomed, exact=[x == "matte" for x in laid_rule], orig=o)
+                yield laid_over(planes(sbuf, *full), pieces, owner, box, held, zoomed, exact=[x == "matte" for x in laid_rule], orig=o, mats=mat_weights)
                 continue
             untouched = len(rows) == 1 and held[0] is None
-            frame = pbufs[0] if untouched else merged(pieces, owner, held, o, exact=[x == "matte" for x in laid_rule])
+            frame = pbufs[0] if untouched else merged(pieces, owner, held, o, exact=[x == "matte" for x in laid_rule], mats=mat_weights)
             yield softened(frame, hard, soften, w, h, held) if soften else frame
         if got != last - first + 1:
             raise SystemExit(f"{got} of {last - first + 1} frames for {first}-{last}")

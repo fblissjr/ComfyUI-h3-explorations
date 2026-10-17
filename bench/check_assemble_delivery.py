@@ -574,6 +574,50 @@ with tempfile.TemporaryDirectory() as _tmp:
         assert (y[below, left] >= 195).all() and (y[below, right] == 80).all() and (y[:y0] == 80).all(), (y[below, left].min(), y[below, right].max())
         for c in (u, v):
             assert (c[(y0 + ch) // 2:, 10:int(0.2 * SW)] >= 155).all() and (c[(y0 + ch) // 2:, int(0.35 * SW):SW // 2 - 10] == 120).all(), c[-1, ::40]
+        import cv2
+        # A MATTE ROW'S SOFT BAND REACHES THE EDGE (the D18 read): it owns no pixel there, and what it lays there is carried all the same.
+        # The band is the bottom 40 rows of the left half at half weight; the piece there is the node's blend, half render (200) and half
+        # the canvas's source (50): 125, laid on the sharp source as (1 - 0.5) * 50 + 0.5 * 200 = 125
+        base_m = [np.full((SH, SW), 80.0, np.float32), np.full((SH // 2, SW // 2), 120.0, np.float32), np.full((SH // 2, SW // 2), 120.0, np.float32)]
+        for k_, sc in enumerate((1, 2, 2)):
+            base_m[k_][y0 // sc:(y0 + ch) // sc, x0 // sc:(x0 + cw) // sc] = 50.0 if k_ == 0 else 100.0
+        orig_m = [np.full((H, W), 50.0, np.float32), np.full((H // 2, W // 2), 100.0, np.float32), np.full((H // 2, W // 2), 100.0, np.float32)]
+        mt = np.zeros((H, W), np.float32)
+        mt[H - 40:, :W // 2] = 0.5
+        piece_m = [o_ + (r_ - o_) * (mt if o_.shape == mt.shape else cv2.resize(mt, (o_.shape[1], o_.shape[0]), interpolation=cv2.INTER_AREA))
+                   for o_, r_ in zip(orig_m, (np.full((H, W), 200.0, np.float32), np.full((H // 2, W // 2), 160.0, np.float32),
+                                              np.full((H // 2, W // 2), 160.0, np.float32)))]
+        raw_m = np.frombuffer(tool.laid_over(base_m, [piece_m], np.full((H, W), -1, np.int8), (cw, ch, x0, y0), None, None, exact=[True],
+                                             orig=orig_m, mats=[mt]), np.uint8)
+        ym = raw_m[:SW * SH].reshape(SH, SW).astype(int)
+        edge_row = ym[y0 + ch - 1, left]
+        # THE CASE THAT GOES RED when a matte row's soft band is not counted in what reaches the edge, and the cut rows keep the source
+        assert (abs(edge_row - 125) <= 2).all() and (abs(ym[y0 + ch:y0 + ch + tool.CARRY_FULL_PX, left] - 125) <= 2).all() \
+            and (ym[below, right] == 80).all(), (
+                f"a matte row's soft band at the crop edge was not carried into the cut rows: edge {int(edge_row.min())}..{int(edge_row.max())}, "
+                f"cut rows {int(ym[y0 + ch:y0 + ch + 3, left].min())}, unreached {int(ym[below, right].max())}")
+        # THE FEATHER'S INNER EDGE AT THE SOURCE'S SIZE (the second D18 read): a matte row's full region and its soft band are one layer, laid in
+        # one pass; laid in two, where the upscale blends their weights a quarter of the change fell back toward what lies beneath, on a ring
+        sw3, sh3 = 2 * W, 2 * H
+        orig3 = [np.full((H, W), 50.0, np.float32), np.full((H // 2, W // 2), 100.0, np.float32), np.full((H // 2, W // 2), 100.0, np.float32)]
+        base3 = [cv2.resize(x, (2 * x.shape[1], 2 * x.shape[0]), interpolation=cv2.INTER_NEAREST) for x in orig3]
+        m3 = np.zeros((H, W), np.float32)
+        m3[40:120, 40:160] = 1.0
+        for d in range(1, 7):                                                # a ramp of six pixels round it, the node's soft band
+            ring = np.zeros((H, W), bool)
+            ring[40 - d:120 + d, 40 - d:160 + d] = True
+            ring[40 - d + 1:120 + d - 1, 40 - d + 1:160 + d - 1] = False
+            m3[ring] = 1.0 - d / 7.0
+        owner3 = np.where(m3 >= 1.0, 0, -1).astype(np.int8)
+        piece3 = [o_ + 150.0 * (m3 if o_.shape == m3.shape else cv2.resize(m3, (o_.shape[1], o_.shape[0]), interpolation=cv2.INTER_AREA)) for o_ in orig3]
+        raw3 = np.frombuffer(tool.laid_over([b.copy() for b in base3], [piece3], owner3, (sw3, sh3, 0, 0), None, None, exact=[True], orig=orig3,
+                                            mats=[m3]), np.uint8)
+        y3 = raw3[:sw3 * sh3].reshape(sh3, sw3).astype(np.float32)
+        want3 = 50.0 + cv2.resize(150.0 * m3, (sw3, sh3), interpolation=cv2.INTER_CUBIC)
+        cover3 = cv2.resize((m3 >= 0.25).astype(np.float32), (sw3, sh3), interpolation=cv2.INTER_NEAREST) > 0
+        worst3 = float(np.abs(y3 - want3)[cover3].max())
+        # THE CASE THAT GOES RED when the full region and its band are laid in two passes, and a ring of the change falls back
+        assert worst3 < 4.0, f"at the feather's inner edge the laid frame is {worst3:.1f} levels from the change scaled up (one row alone, 2x)"
         # under a restore that takes the edge out of the piece, nothing is carried
         held = np.zeros((H, W), np.float32)
         held[H - 60:, :] = 1.0
@@ -1631,17 +1675,113 @@ with tempfile.TemporaryDirectory() as _tmp:
             vm.save_window_region(str(folder / f"mt_{tag}_window_1_region.npz"), m2, c2, src, 8, 0, 0, matte=vm.matte_of(alpha),
                                   piece={"stem": f"mt_{tag}_00001", "first": 0, "written": 26})
             (folder / f"mt_{tag}_window_1.mp4").write_bytes(b"")
-            touching[tag] = path
-        a_, b_ = planes_of(touching["left"], 24)[0], planes_of(touching["right"], 24)[0]
+            touching[tag] = (path, vm.matte_of(alpha).numpy()[k].astype(np.float32) / 255.0, render)
+        a_ = planes_of(touching["left"][0], 24)[0]
+        m_r, r_r = touching["right"][1], planes_of(write("mt_right_render_00001", touching["right"][2]), 24)[0]
+        # where the two soft bands overlap, the later render over the earlier piece by the later matte (as the overlap case below holds);
+        # elsewhere each is its own composite
+        want_t = m_r * r_r + (1.0 - m_r) * a_
         band = (slice(64, 112), slice(110, 146))
         for size in ("canvas", "source"):
-            code, r, out = deliver(TMP, f"mt_touch_{size}", [(10, 35, plain, 10), (10, 35, touching["left"], 10), (10, 35, touching["right"], 10)], "10-35",
+            code, r, out = deliver(TMP, f"mt_touch_{size}", [(10, 35, plain, 10), (10, 35, touching["left"][0], 10), (10, 35, touching["right"][0], 10)], "10-35",
                                    *(("--size", "source") if size == "source" else ()))
             got = list(tool.luma_at_canvas(str(out), W, H))[k] if size == "source" else planes_of(str(out), 24)[0]
-            apart = float(np.minimum(np.abs(got - a_), np.abs(got - b_))[band].mean())
+            apart = float(np.abs(got - want_t)[band].mean())
             # THE CASE THAT GOES RED when a matte-laid row is grown and blurred where two pieces touch
-            assert code == 0 and apart < 2.0, f"two touching pieces at the {size}'s size: {apart:.2f} levels from the nearer node composite across the shared edge"
+            assert code == 0 and apart < 2.0, f"two touching pieces at the {size}'s size: {apart:.2f} levels from the later render over the earlier piece across the shared edge"
             said.append(f"touching/{size} {apart:.2f}")
+        # TWO PIECES THAT OVERLAP (Gemini's D18, finding 2): the later row's soft band lies inside the earlier row's region, where the node
+        # blended its render against the source; laid there, the earlier row is what lies beneath, so the band is the later render blended
+        # over the earlier piece by the node's own weight, not over the source
+        over = {}
+        for tag, cols, xs in (("under", (4, 10), (76, 156)), ("over", (8, 12), (132, 180)), ("third", (7, 11), (118, 166))):
+            c2 = torch.zeros(8, H // 16, W // 16)
+            c2[:, 3:8, cols[0]:cols[1]] = 1.0
+            m2 = torch.zeros(26, H, W)
+            m2[:, 60:116, xs[0]:xs[1]] = 1.0
+            render = (painted(base, (cols[0] * 16, 48, cols[1] * 16, 128)) if tag == "under" else
+                      faint(base, (cols[0] * 16, 48, cols[1] * 16, 128), by=60 / 255 if tag == "over" else -50 / 255))
+            comp, alpha, _ = vm.lay_window(render, base, c2, m2, src, 8, 0)
+            path = write(f"mt_{tag}_00001", comp)
+            folder = TMP / f"mt_{tag}_windows"
+            shutil.rmtree(folder, ignore_errors=True)
+            folder.mkdir()
+            vm.save_window_region(str(folder / f"mt_{tag}_window_1_region.npz"), m2, c2, src, 8, 0, 0, matte=vm.matte_of(alpha),
+                                  piece={"stem": f"mt_{tag}_00001", "first": 0, "written": 26})
+            (folder / f"mt_{tag}_window_1.mp4").write_bytes(b"")
+            over[tag] = (path, vm.matte_of(alpha).numpy()[k].astype(np.float32) / 255.0, render)
+        u_ = planes_of(over["under"][0], 24)[0]
+        m_, m3 = over["over"][1], over["third"][1]
+        r_y = planes_of(write("mt_over_render_00001", over["over"][2]), 24)[0]
+        r3 = planes_of(write("mt_third_render_00001", over["third"][2]), 24)[0]
+        rows_band = np.zeros_like(m_, dtype=bool)
+        rows_band[64:112] = True
+        # THE WHOLE OVERLAP (the D18 read): wherever the later row's matte is above zero over the earlier row's region, its soft band and its
+        # full region alike; the law is the later render over what lies beneath, by its own matte
+        whole_over = rows_band & (m_ > 0.02) & (over["under"][1] > 0.02)
+        want = m_ * r_y + (1.0 - m_) * u_
+        assert whole_over.sum() > 300 and float(np.abs(u_ - original(24)[0])[whole_over].mean()) > 20, "the fixture: the earlier row does not change the overlap"
+        assert (m_[whole_over] > 0.99).any() and ((m_[whole_over] > 0.05) & (m_[whole_over] < 0.95)).any(), "the fixture: the overlap holds no full or no soft band"
+        three_over = rows_band & (m3 > 0.02) & ((m_ > 0.02) | (over["under"][1] > 0.02))
+        want3 = m3 * r3 + (1.0 - m3) * want
+        for size in ("canvas", "source"):
+            code, r, out = deliver(TMP, f"mt_overlap_{size}", [(10, 35, plain, 10), (10, 35, over["under"][0], 10), (10, 35, over["over"][0], 10)], "10-35",
+                                   *(("--size", "source") if size == "source" else ()))
+            got = list(tool.luma_at_canvas(str(out), W, H))[k] if size == "source" else planes_of(str(out), 24)[0]
+            apart = float(np.abs(got - want)[whole_over].mean())
+            # THE CASE THAT GOES RED when a matte row is laid against the source over the row beneath it, in its soft band or its full region
+            assert code == 0 and apart < 3.0, f"two overlapping pieces at the {size}'s size: the whole overlap is {apart:.2f} levels from the later render over the earlier piece"
+            said.append(f"overlap/{size} {apart:.2f}")
+            code, r, out = deliver(TMP, f"mt_three_{size}", [(10, 35, plain, 10), (10, 35, over["under"][0], 10), (10, 35, over["over"][0], 10),
+                                                            (10, 35, over["third"][0], 10)], "10-35", *(("--size", "source") if size == "source" else ()))
+            got = list(tool.luma_at_canvas(str(out), W, H))[k] if size == "source" else planes_of(str(out), 24)[0]
+            apart3 = float(np.abs(got - want3)[three_over].mean())
+            # THE CASE THAT GOES RED when three overlapping matte rows are not each laid over what lies beneath
+            assert code == 0 and apart3 < 3.0, f"three overlapping pieces at the {size}'s size: {apart3:.2f} levels from each render laid over the ones beneath"
+            said.append(f"three/{size} {apart3:.2f}")
+        # A MATTE ROW BESIDE A PLAIN ONE (the D18 read, finding 2): a later row laid by what it changed feathers only into pixels nobody laid;
+        # the matte row's soft band is laid by it, so the plain row's grown feather never pulls that band toward its own picture
+        plain_beside = painted(base, (192, 64, 230, 112))                 # a change right beside the over row's soft band (x 132-180, its band to ~190)
+        beside_path = write("mt_beside_00001", plain_beside)
+        m_o = over["over"][1]
+        band_beside = rows_band & (m_o > 0.02) & (m_o < 0.98)
+        band_beside[:, :176] = False
+        band_beside[:, 190:] = False                                      # off the pixels the plain row's own change claims (its `changed` spreads past it)
+        want_b = m_o * r_y + (1.0 - m_o) * original(24)[0]
+        assert band_beside.sum() > 50, "the fixture: no soft band of the matte row lies within reach of the plain row's feather"
+        for size in ("canvas", "source"):
+            code, r, out = deliver(TMP, f"mt_beside_{size}", [(10, 35, plain, 10), (10, 35, over["over"][0], 10), (10, 35, beside_path, 10)], "10-35",
+                                   *(("--size", "source") if size == "source" else ()))
+            got = list(tool.luma_at_canvas(str(out), W, H))[k] if size == "source" else planes_of(str(out), 24)[0]
+            apart_b = float(np.abs(got - want_b)[band_beside].mean())
+            # THE CASE THAT GOES RED when a plain row's grown feather pulls a matte row's soft band toward its own picture
+            assert code == 0 and apart_b < 2.0, f"a matte row beside a plain one at the {size}'s size: its soft band is {apart_b:.2f} levels from its own law"
+            said.append(f"beside/{size} {apart_b:.2f}")
+        # A MATTE ROW THAT IS ALL SOFT BAND (the D18 read): its weight never reaches full, so it owns no pixel outright; it is laid all the same
+        c4 = torch.zeros(8, H // 16, W // 16)
+        c4[:, 3:8, 4:11] = 1.0
+        render4 = painted(base, (64, 48, 176, 128))
+        _comp4, alpha4, _ = vm.lay_window(render4, base, c4, mask, src, 8, 0)
+        alpha4 = alpha4 * 0.8
+        comp4 = vm.composite(render4, base, alpha4)
+        soft_path = write("mt_soft_00001", comp4)
+        folder4 = TMP / "mt_soft_windows"
+        shutil.rmtree(folder4, ignore_errors=True)
+        folder4.mkdir()
+        vm.save_window_region(str(folder4 / "mt_soft_window_1_region.npz"), mask, c4, src, 8, 0, 0, matte=vm.matte_of(alpha4),
+                              piece={"stem": "mt_soft_00001", "first": 0, "written": 26})
+        (folder4 / "mt_soft_window_1.mp4").write_bytes(b"")
+        m4 = vm.matte_of(alpha4).numpy()[k]
+        assert m4.max() < 255 and (m4 > 150).sum() > 300, "the fixture: the matte reaches full, or holds no strong band"
+        code, r, out = deliver(TMP, "mt_soft_source", [(10, 35, plain, 10), (10, 35, soft_path, 10)], "10-35", "--size", "source")
+        got4 = list(tool.luma_at_canvas(str(out), W, H))[k]
+        p4, o4 = planes_of(soft_path, 24)[0], original(24)[0]
+        strong = m4 > 150
+        # THE CASE THAT GOES RED when a matte row with no full pixel is skipped at the source's size
+        assert code == 0 and float(np.abs(got4 - p4)[strong].mean()) + 5.0 < float(np.abs(got4 - o4)[strong].mean()), (
+            f"an all-soft matte row with no full pixel was skipped at the source's size: {float(np.abs(got4 - p4)[strong].mean()):.2f} from piece vs "
+            f"{float(np.abs(got4 - o4)[strong].mean()):.2f} from source")
+        shutil.rmtree(folder4, ignore_errors=True)
         # A PIECE LAID BY TWO RULES: its second window saved no matte, so its frames keep `changed`, and the flag names them
         path, matte, piece_frames = made["plain"]
         folder = TMP / "mt_plain_windows"
@@ -1657,7 +1797,8 @@ with tempfile.TemporaryDirectory() as _tmp:
         row = r["regions"]["pieces"][path]["laid_by"]
         flag = [x for x in r["flags"] if x["rule"] == "piece_laid_by_two_rules"]
         # THE CASE THAT GOES RED when a piece laid by its matte on some frames and by `changed` on others is not flagged
-        assert row["frames_by_matte"] == 13 and row["frames_by_changed"] == 13 and flag and flag[0]["source_frames"] == [[23, 35]], (row, flag)
+        assert row["frames_by_matte"] == 13 and row["frames_by_changed"] == 13 and flag and flag[0]["source_frames"] == [[23, 35]], (
+            f"a piece laid by two rules was not flagged on its frames: {row}, {flag}")
         # A CONTINUED RUN (the matte's blind read, finding 1): its first window holds the context's frames before the piece begins, so the
         # piece's frame k is the window's frame trim + k; read at k, the matte is `trim` frames early. Here the window holds 3 frames of context
         # whose matte is the next frames' reversed; and A SECOND RUN OF THE PREFIX in the same folder (finding 3) is not read
@@ -1673,40 +1814,170 @@ with tempfile.TemporaryDirectory() as _tmp:
         (folder / "mt_plain_window_2.mp4").write_bytes(b"")
         reader = tool.Matte(path)
         # THE CASE THAT GOES RED when a continued run's matte is read `trim` frames early, or another run's file is read as this piece's
-        assert matte[0].any() and all(np.array_equal(reader.at(q), matte[q]) for q in (0, 1, 2, 14, 25)) and reader.gaps == [2] \
-            and reader.other_stems == ["mt_plain_window_2_region.npz (mt_plain_00002)"], (reader.gaps, reader.other_stems)
+        assert matte[0].any() and all(np.array_equal(reader.at(q), matte[q]) for q in (0, 1, 2, 14, 25)) and reader.gaps == [] \
+            and reader.other_stems == ["mt_plain_window_2_region.npz (mt_plain_00002)"], (
+                f"continued run matte or other stem misread: gaps={reader.gaps}, other_stems={reader.other_stems}")
+        # another run's window of the prefix silences nothing (the D18 read): a frame no window of this piece wrote is refused beside it
+        try:
+            reader.at(30)
+        except SystemExit as e:
+            # THE CASE THAT GOES RED when another run's region file silences the refusal on every frame
+            assert "no window of the piece wrote it" in str(e), f"unexpected refusal message: {e}"
+        else:
+            raise AssertionError("a frame no window wrote was read beside another run's window")
         # every window saved its matte and still no window wrote a frame: refused, never laid by another rule
         (folder / "mt_plain_window_2.mp4").unlink()
         try:
             tool.Matte(path).at(30)
         except SystemExit as e:
-            assert "no window of the piece wrote it" in str(e), e
+            assert "no window of the piece wrote it" in str(e), f"unexpected refusal message: {e}"
         else:
             raise AssertionError("a frame no window wrote was read")
-        # THE SOFT BAND AT THE SOURCE'S SIZE (finding 4): on a textured source, a matte-laid row adds the piece less the canvas's source to the
-        # sharp source, so where the weight is a quarter the source keeps its own detail and the render comes in by a quarter
+        # Gemini's D18, finding 4: a window that saved no matte silences the refusal only on its own frames
+        shutil.rmtree(folder, ignore_errors=True)
+        folder.mkdir()
+        vm.save_window_region(str(folder / "mt_plain_window_1_region.npz"), mask[:13], cells, src, 8, 0, 0, matte=torch.from_numpy(matte[:13]),
+                              piece={"stem": "mt_plain_00001", "first": 0, "written": 13})
+        vm.save_window_region(str(folder / "mt_plain_window_2_region.npz"), mask[13:], cells, src, 8, 13, 0, piece={"stem": "mt_plain_00001", "first": 13, "written": 13})
+        for n_ in (1, 2):
+            (folder / f"mt_plain_window_{n_}.mp4").write_bytes(b"")
+        bare_reader = tool.Matte(path)
+        assert bare_reader.at(15) is None, "a frame of the window with no matte was not returned as None"
+        try:
+            bare_reader.at(30)
+        except SystemExit as e:
+            # THE CASE THAT GOES RED when a window with no matte silences the refusal on every frame
+            assert "no window of the piece wrote it" in str(e), f"unexpected refusal message: {e}"
+        else:
+            raise AssertionError("a frame no window wrote was read beside a window with no matte")
+        # Gemini's D18, finding 3: a render that saved its windows' regions for this piece and no matte in any is said, not silent
+        shutil.rmtree(folder, ignore_errors=True)
+        folder.mkdir()
+        vm.save_window_region(str(folder / "mt_plain_window_1_region.npz"), mask, cells, src, 8, 0, 0, piece={"stem": "mt_plain_00001", "first": 0, "written": 26})
+        (folder / "mt_plain_window_1.mp4").write_bytes(b"")
+        said_lb = tool.laid_by_of(path)
+        # THE CASE THAT GOES RED when such a piece falls back to the old rules with nothing said
+        assert said_lb["rule"] != "matte" and said_lb.get("windows_without_a_matte") == [1] and "no matte in any" in said_lb.get("matte_missing", ""), (
+            f"a piece whose region files saved no matte in any fell back without reporting matte_missing: {said_lb.get('matte_missing')!r}")
+        # THE SOFT BAND AND THE OPAQUE CORE AT THE SOURCE'S SIZE (r16n_01 / rethink.md A1): on a textured source `sharp`, a matte-laid row
+        # follows `view += keep * ((up - (1 - m) * was) - m * view)`: where m = 0.25 it keeps three-quarters of the sharp source and adds a
+        # quarter of the render, and where m = 1.0 it is the render alone with none of `sharp - was` embossed onto it
         sw_, sh_, cw_, ch_ = 64, 48, 32, 24
         rng = np.random.default_rng(3)
         sharp = [rng.uniform(40, 200, (sh_, sw_)).astype(np.float32), np.full((sh_ // 2, sw_ // 2), 128.0, np.float32), np.full((sh_ // 2, sw_ // 2), 128.0, np.float32)]
         canvas_src = [cv.resize(x, (x.shape[1] // 2, x.shape[0] // 2), interpolation=cv.INTER_AREA) for x in sharp]
         wgt = np.zeros((ch_, cw_), np.float32)
-        wgt[:, 8:24] = 0.25
-        render = [x + 60.0 * (q == 0) for q, x in enumerate(canvas_src)]
+        wgt[:, 6:15] = 1.0
+        wgt[:, 17:26] = 0.25
+        render = [np.full_like(x, 180.0 if q == 0 else 128.0) for q, x in enumerate(canvas_src)]
         piece_p = [c + (r - c) * (wgt if c.shape == wgt.shape else cv.resize(wgt, (c.shape[1], c.shape[0]), interpolation=cv.INTER_AREA))
                    for c, r in zip(canvas_src, render)]
-        owner_ = np.where(wgt > 0, 0, -1).astype(np.int8)
-        got_ = np.frombuffer(tool.laid_over(sharp, [piece_p], owner_, (sw_, sh_, 0, 0), [None], None, exact=[True], orig=canvas_src), np.uint8)
+        owner_ = np.where(wgt >= 1.0, 0, -1).astype(np.int8)
+        got_ = np.frombuffer(tool.laid_over(sharp, [piece_p], owner_, (sw_, sh_, 0, 0), [None], None, exact=[True], orig=canvas_src, mats=[wgt]), np.uint8)
         got_y = got_[:sw_ * sh_].reshape(sh_, sw_).astype(np.float32)
-        band = (slice(4, 44), slice(20, 44))
-        want_y = sharp[0] + 15.0
-        # THE CASE THAT GOES RED when the soft band takes the scaled-up canvas picture over the sharp source
-        assert float(np.abs(got_y - want_y)[band].mean()) < 2.0, f"the soft band at the source's size: {float(np.abs(got_y - want_y)[band].mean()):.2f} from the sharp source plus a quarter of the render"
-        for tag in ("plain", "zoomed", "left", "right"):
+        core_band = (slice(4, 44), slice(16, 26))
+        soft_band = (slice(4, 44), slice(38, 48))
+        want_soft = 0.75 * sharp[0] + 0.25 * 180.0
+        # THE CASE THAT GOES RED when `sharp - was` is embossed onto `m == 1` (`view += (up - was) * wgt`), or the soft band loses `sharp`
+        assert float(np.abs(got_y - 180.0)[core_band].max()) <= 1.0, f"opaque core embossed with sharp - was: max {float(np.abs(got_y - 180.0)[core_band].max()):.2f}"
+        assert float(np.abs(got_y - want_soft)[soft_band].mean()) < 1.5, f"the soft band at the source's size: {float(np.abs(got_y - want_soft)[soft_band].mean()):.2f}"
+        # ONE COMPOSITING LAW PROPERTY TEST (r16n_01 / C38): 12 random 1-, 2-, and 3-piece matte stacks (odd pixel coordinates, soft feathers)
+        # across both sizes (`canvas` and `source`) and all three planes (`Y`, `U`, `V`), graded at the WORST PIXEL (`max`) in each weight regime
+        # (`0`, `between`, `1`), plus a piece with no matte laid by its fallback (`changed`) alone and in the stack
+        prng = np.random.default_rng(17)
+        pw_, ph_, psw, psh = 64, 48, 128, 96
+        pyy, pxx = np.mgrid[0:psh, 0:psw].astype(np.float32)
+        psharp = [
+            (110.0 + 30.0 * np.sin(pxx / 7.0) * np.cos(pyy / 5.0) + 18.0 * ((-1.0) ** (pxx + pyy))).astype(np.float32),
+            (128.0 + 25.0 * np.cos(pxx[::2, ::2] / 6.0) + 10.0 * ((-1.0) ** (pxx[::2, ::2] + pyy[::2, ::2]))).astype(np.float32),
+            (128.0 - 25.0 * np.sin(pyy[::2, ::2] / 6.0) + 10.0 * ((-1.0) ** (pxx[::2, ::2] + pyy[::2, ::2]))).astype(np.float32),
+        ]
+        porig = [cv.resize(p, (p.shape[1] // 2, p.shape[0] // 2), interpolation=cv.INTER_AREA) for p in psharp]
+        worst_law = {sz: {pl: {"0": 0.0, "between": 0.0, "1": 0.0} for pl in ("Y", "U", "V")} for sz in ("canvas", "source")}
+        for trial in range(12):
+            n_p = (trial % 3) + 1
+            t_mats, t_pieces, t_renders = [], [], []
+            for _i in range(n_p):
+                rx0, ry0 = int(prng.integers(6, 20)), int(prng.integers(6, 14))
+                rx1, ry1 = int(prng.integers(rx0 + 22, 58)), int(prng.integers(ry0 + 18, 42))
+                raw_m = np.zeros((ph_, pw_), np.float32)
+                raw_m[ry0:ry1, rx0:rx1] = 1.0
+                tm = np.round(np.clip((cv.GaussianBlur(raw_m, (0, 0), 3.0) - 0.15) / 0.70, 0.0, 1.0) * 255.0) / 255.0
+                vals = (float(prng.uniform(45.0, 215.0)), float(prng.uniform(75.0, 185.0)), float(prng.uniform(75.0, 185.0)))
+                tm_c = cv.resize(tm, (pw_ // 2, ph_ // 2), interpolation=cv.INTER_AREA)
+                t_pieces.append([tm * vals[0] + (1.0 - tm) * porig[0], tm_c * vals[1] + (1.0 - tm_c) * porig[1], tm_c * vals[2] + (1.0 - tm_c) * porig[2]])
+                t_mats.append(tm)
+                t_renders.append(vals)
+            t_owner, _ = tool.owners([tm == 1.0 for tm in t_mats], [None] * n_p)
+            got_c = tool.planes(tool.merged(t_pieces, t_owner, [None] * n_p, porig, exact=[True] * n_p, mats=t_mats), pw_, ph_)
+            want_c, z_c, o_c = [p.copy() for p in porig], [np.ones(p.shape, bool) for p in porig], [np.zeros(p.shape, bool) for p in porig]
+            for tm, vals in zip(t_mats, t_renders):
+                tm_c = cv.resize(tm, (pw_ // 2, ph_ // 2), interpolation=cv.INTER_AREA)
+                for k_, (mp, vk) in enumerate(((tm, vals[0]), (tm_c, vals[1]), (tm_c, vals[2]))):
+                    want_c[k_] = (1.0 - mp) * want_c[k_] + mp * vk
+                    z_c[k_] &= (mp == 0)
+                    o_c[k_] = np.where(mp > 0, mp == 1, o_c[k_])
+            for k_, pl in enumerate(("Y", "U", "V")):
+                err = np.abs(got_c[k_] - np.clip(np.round(want_c[k_]), 0, 255))
+                worst_law["canvas"][pl]["0"] = max(worst_law["canvas"][pl]["0"], float(err[z_c[k_]].max()))
+                worst_law["canvas"][pl]["between"] = max(worst_law["canvas"][pl]["between"], float(err[~z_c[k_] & ~o_c[k_]].max()))
+                worst_law["canvas"][pl]["1"] = max(worst_law["canvas"][pl]["1"], float(err[o_c[k_]].max()))
+            got_s = tool.planes(tool.laid_over(psharp, t_pieces, t_owner, (psw, psh, 0, 0), [None] * n_p, None, exact=[True] * n_p, orig=porig, mats=t_mats), psw, psh)
+            want_s, z_s, o_s = [p.copy() for p in psharp], [np.ones(p.shape, bool) for p in psharp], [np.zeros(p.shape, bool) for p in psharp]
+            for tm, vals in zip(t_mats, t_renders):
+                tm_c = cv.resize(tm, (pw_ // 2, ph_ // 2), interpolation=cv.INTER_AREA)
+                lin_y = cv.resize(tm, (psw, psh), interpolation=cv.INTER_LINEAR)
+                lin_c = cv.resize(tm_c, (psw // 2, psh // 2), interpolation=cv.INTER_LINEAR)
+                my = np.where(lin_y > 0, np.clip(cv.resize(tm, (psw, psh), interpolation=cv.INTER_CUBIC), 0.0, 1.0), 0.0)
+                mc = np.where(lin_c > 0, np.clip(cv.resize(tm_c, (psw // 2, psh // 2), interpolation=cv.INTER_CUBIC), 0.0, 1.0), 0.0)
+                cy = cv.resize(cv.erode((tm == 1).astype(np.uint8), np.ones((5, 5), np.uint8)), (psw, psh), interpolation=cv.INTER_NEAREST) > 0
+                cc = cv.resize(cv.erode((tm_c == 1).astype(np.uint8), np.ones((5, 5), np.uint8)), (psw // 2, psh // 2), interpolation=cv.INTER_NEAREST) > 0
+                for k_, (mp, vk, ck) in enumerate(((my, vals[0], cy), (mc, vals[1], cc), (mc, vals[2], cc))):
+                    want_s[k_] = (1.0 - mp) * want_s[k_] + mp * vk
+                    z_s[k_] &= (mp == 0)
+                    o_s[k_] = np.where(mp > 0, ck, o_s[k_])
+            for k_, pl in enumerate(("Y", "U", "V")):
+                err = np.abs(got_s[k_] - np.clip(np.round(want_s[k_]), 0, 255))
+                worst_law["source"][pl]["0"] = max(worst_law["source"][pl]["0"], float(err[z_s[k_]].max()))
+                worst_law["source"][pl]["between"] = max(worst_law["source"][pl]["between"], float(err[~z_s[k_] & ~o_s[k_]].max()))
+                if o_s[k_].any():
+                    worst_law["source"][pl]["1"] = max(worst_law["source"][pl]["1"], float(err[o_s[k_]].max()))
+        for pl in ("Y", "U", "V"):
+            assert worst_law["canvas"][pl] == {"0": 0.0, "between": 0.0, "1": 0.0}, (
+                f"property test failed on canvas plane {pl}: {worst_law['canvas'][pl]}")
+            assert worst_law["source"][pl]["0"] == 0.0 and worst_law["source"][pl]["1"] == 0.0 and worst_law["source"][pl]["between"] <= 2.0, (
+                f"property test failed on source plane {pl}: {worst_law['source'][pl]}")
+        # A piece with no matte (`exact=False`, `mats[i]=None`, e.g. 1039_g before its matte is written) is laid by its fallback (`changed`)
+        # both as an earlier row and as a later row in a stack with a matte piece, at both sizes across all planes
+        fb_piece = [p.copy() for p in porig]
+        fb_piece[0][4:40, 2:28], fb_piece[1][2:20, 1:14], fb_piece[2][2:20, 1:14] = 210.0, 170.0, 90.0
+        fb_hard = tool.changed(fb_piece, porig, tool.difference(fb_piece, porig))
+        m_right_raw = np.zeros((ph_, pw_), np.float32)
+        m_right_raw[8:40, 36:58] = 1.0
+        m_right = np.round(np.clip((cv.GaussianBlur(m_right_raw, (0, 0), 3.0) - 0.15) / 0.70, 0.0, 1.0) * 255.0) / 255.0
+        m_right_c = cv.resize(m_right, (pw_ // 2, ph_ // 2), interpolation=cv.INTER_AREA)
+        p_right = [m_right * 60.0 + (1.0 - m_right) * porig[0], m_right_c * 100.0 + (1.0 - m_right_c) * porig[1], m_right_c * 150.0 + (1.0 - m_right_c) * porig[2]]
+        for pcs, exs, mts, hards in (([fb_piece, p_right], [False, True], [None, m_right], [fb_hard, m_right == 1.0]),
+                                     ([p_right, fb_piece], [True, False], [m_right, None], [m_right == 1.0, fb_hard])):
+            fb_owner, _ = tool.owners(hards, [None, None])
+            fb_c = tool.planes(tool.merged(pcs, fb_owner, [None, None], porig, exact=exs, mats=mts), pw_, ph_)
+            fb_s = tool.planes(tool.laid_over(psharp, pcs, fb_owner, (psw, psh, 0, 0), [None, None], None, exact=exs, orig=porig, mats=mts), psw, psh)
+            fb_err_c = [float(np.abs(fb_c[0][8:36, 6:24] - 210.0).max()), float(np.abs(fb_c[1][4:18, 3:12] - 170.0).max()), float(np.abs(fb_c[2][4:18, 3:12] - 90.0).max())]
+            fb_err_s = [float(np.abs(fb_s[0][16:72, 12:48] - 210.0).max()), float(np.abs(fb_s[1][8:36, 6:24] - 170.0).max()), float(np.abs(fb_s[2][8:36, 6:24] - 90.0).max())]
+            assert fb_err_c == [0.0, 0.0, 0.0] and fb_err_s == [0.0, 0.0, 0.0], (
+                f"fallback piece with no matte not laid across Y/U/V: canvas {fb_err_c}, source {fb_err_s}")
+        law_fig = (f"canvas Y/U/V 0={worst_law['canvas']['Y']['0']:.1f}/{worst_law['canvas']['U']['0']:.1f}/{worst_law['canvas']['V']['0']:.1f} "
+                   f"between={worst_law['canvas']['Y']['between']:.1f}/{worst_law['canvas']['U']['between']:.1f}/{worst_law['canvas']['V']['between']:.1f} "
+                   f"1={worst_law['canvas']['Y']['1']:.1f}/{worst_law['canvas']['U']['1']:.1f}/{worst_law['canvas']['V']['1']:.1f}; "
+                   f"source Y/U/V 0={worst_law['source']['Y']['0']:.1f}/{worst_law['source']['U']['0']:.1f}/{worst_law['source']['V']['0']:.1f} "
+                   f"between={worst_law['source']['Y']['between']:.1f}/{worst_law['source']['U']['between']:.1f}/{worst_law['source']['V']['between']:.1f} "
+                   f"1={worst_law['source']['Y']['1']:.1f}/{worst_law['source']['U']['1']:.1f}/{worst_law['source']['V']['1']:.1f}")
+        for tag in ("plain", "zoomed", "left", "right", "under", "over", "third"):
             shutil.rmtree(TMP / f"mt_{tag}_windows", ignore_errors=True)
         return ("laid by the node's own matte, unzoomed and zoomed 1.333x off the grid, at the source's size and the canvas's: inside the matte "
                 "within " + ", ".join(said) + " levels of the node's composite (four levels off the source), the source outside it; two touching "
-                "pieces are each their own composite across the shared edge; a window with no matte is flagged by its frames; a continued run's matte read from its written frames, another run's file not read; "
-                "the soft band at the source's size keeps the sharp source and takes the render by the node's weight")
+                "pieces and two or three overlapping ones laid as the later render over the earlier piece by its own matte; a window with no matte is flagged by its frames; a continued run's matte read from its written frames, another run's file not read; "
+                f"the soft band and opaque core at the source's size keep the sharp source in the band and emboss none of it on the core; property test worst pixel ({law_fig}), and a piece with no matte laid by its fallback (canvas/source Y/U/V 0.0/0.0/0.0)")
 
     case("the cut rows carry the laid edge where a region reaches it", the_cut_rows_carry_the_edge)
     case("a piece that changed nothing is the original", nothing_changed)
