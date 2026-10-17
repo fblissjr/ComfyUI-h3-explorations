@@ -17,6 +17,11 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-17
 
+- **The same folder files for docs/, prompt_bank/, archive/, vendor/, vendor_config/, vendor_guides/ and
+  standalone/** (the owner, about 15:30Z, "yes, write the nested instruction"). Each says only what holds in that
+  folder (verbatim vendor files, retired code, generated catalogues, separate packages) and points at its source.
+  `meta_sam3/` gets none: its README and its copy check (`bench/check_meta_sam3_copy.py`) already govern it.
+
 - **A folder whose files need their own rules gets an `AGENTS.md`, and a one-line `CLAUDE.md` beside it that imports
   it (`@AGENTS.md`), as the root does** (the owner, about 15:25Z: no two copies). Neither harness reads an `INDEX.md`
   on its own: Antigravity loads `AGENTS.md`, `GEMINI.md` and `.agents/rules/` when it opens a file in a folder (the

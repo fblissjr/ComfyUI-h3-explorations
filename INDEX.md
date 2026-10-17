@@ -145,19 +145,19 @@ with none is a helper the others import.
 | directory | tracked files | where its index is |
 |---|---|---|
 | `.claude/` | 1 | [below](#claude) |
-| `archive/` | 26 | [below](#archive) |
+| `archive/` | 28 | [below](#archive) |
 | `assets/` | 1 | [below](#assets) |
 | `bench/` | 783 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
-| `docs/` | 133 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
+| `docs/` | 135 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `meta_sam3/` | 65 | [`meta_sam3/README.md`](meta_sam3/README.md), Meta's SAM 3.1 inference code, under its own licence; `meta_sam3/FILES.txt` lists the copied files |
-| `prompt_bank/` | 168 | [`docs/prompt_bank.md`](docs/prompt_bank.md), the prompt catalogue |
+| `prompt_bank/` | 170 | [`docs/prompt_bank.md`](docs/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
-| `standalone/` | 25 | [below](#standalone) |
-| `vendor/` | 6 | [below](#vendor) |
-| `vendor_config/` | 8 | [below](#vendor_config) |
-| `vendor_guides/` | 4 | [below](#vendor_guides) |
+| `standalone/` | 27 | [below](#standalone) |
+| `vendor/` | 8 | [below](#vendor) |
+| `vendor_config/` | 10 | [below](#vendor_config) |
+| `vendor_guides/` | 6 | [below](#vendor_guides) |
 | `workflows/` | 180 | [`workflows/INDEX.md`](workflows/INDEX.md) |
 
 ## .claude/
@@ -170,6 +170,8 @@ with none is a helper the others import.
 
 | file | what it says |
 |---|---|
+| [`AGENTS.md`](archive/AGENTS.md) | archive/: retired code, kept for the record |
+| [`CLAUDE.md`](archive/CLAUDE.md) | @AGENTS.md |
 | [`bench/bench_image_edit_refs.py`](archive/bench/bench_image_edit_refs.py) | What a single-frame edit can hold: reference count, sizing, and canvas. |
 | [`bench/check_single_frame.py`](archive/bench/check_single_frame.py) | Check the single-frame shim changes `length=1` and provably nothing else. |
 | [`frozen_cache_masked/README.md`](archive/frozen_cache_masked/README.md) | The frozen-row cache's masked-window use, retired 2026-10-06, restored 2026-10-07 |
@@ -220,6 +222,8 @@ with none is a helper the others import.
 
 | file | what it says |
 |---|---|
+| [`AGENTS.md`](standalone/AGENTS.md) | standalone/: packages released on their own |
+| [`CLAUDE.md`](standalone/CLAUDE.md) | @AGENTS.md |
 | [`h3_mutant_distill/.gitignore`](standalone/h3_mutant_distill/.gitignore) | (git ignore rules) |
 | [`h3_mutant_distill/CHANGELOG.md`](standalone/h3_mutant_distill/CHANGELOG.md) | Changelog |
 | [`h3_mutant_distill/LICENSE`](standalone/h3_mutant_distill/LICENSE) | MIT License |
@@ -250,6 +254,8 @@ with none is a helper the others import.
 
 | file | what it says |
 |---|---|
+| [`AGENTS.md`](vendor/AGENTS.md) | vendor/: third-party files the pack carries |
+| [`CLAUDE.md`](vendor/CLAUDE.md) | @AGENTS.md |
 | [`README.md`](vendor/README.md) | (empty) |
 | [`meta_sapiens2/LICENSE.md`](vendor/meta_sapiens2/LICENSE.md) | Sapiens2 License |
 | [`meta_sapiens2/README.md`](vendor/meta_sapiens2/README.md) | vendor/meta_sapiens2: Meta's names for the Sapiens2 models' points and classes |
@@ -261,6 +267,8 @@ with none is a helper the others import.
 
 | file | what it says |
 |---|---|
+| [`AGENTS.md`](vendor_config/AGENTS.md) | vendor_config/: the release's own config files, verbatim |
+| [`CLAUDE.md`](vendor_config/CLAUDE.md) | @AGENTS.md |
 | [`fl2va_model_index.json`](vendor_config/fl2va_model_index.json) | (JSON, an object; it carries no description) |
 | [`fl2va_transformer_config.json`](vendor_config/fl2va_transformer_config.json) | (JSON, an object; it carries no description) |
 | [`preprocessor_config.json`](vendor_config/preprocessor_config.json) | (JSON, an object; it carries no description) |
@@ -274,6 +282,8 @@ with none is a helper the others import.
 
 | file | what it says |
 |---|---|
+| [`AGENTS.md`](vendor_guides/AGENTS.md) | vendor_guides/: MiniMax's prompt-writing guides, verbatim |
+| [`CLAUDE.md`](vendor_guides/CLAUDE.md) | @AGENTS.md |
 | [`README.md`](vendor_guides/README.md) | The vendor's two prompt-writing guides, verbatim |
 | [`base_en.md`](vendor_guides/base_en.md) | Video Prompt Writing Guide (T2VA / I2VA / FL2VA / L2VA) |
 | [`ref_en.md`](vendor_guides/ref_en.md) | Full-Reference Mode Rewrite Output Format Guide |
