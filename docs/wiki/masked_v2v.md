@@ -1513,7 +1513,12 @@ back to what lies beneath: a ring of the original inside every piece's feather
 map at the canvas that is 1 where the piece owns the pixel and the matte's
 value on its band, scaled up once; then `new = beneath + weight * (H3's picture
 - beneath)`, where beneath is the source or an earlier piece, which is what
-makes overlaps right. The reader's one-pass form put the ring at 0. The case
+makes overlaps right. The reader's one-pass form put the ring at 0. Use H3's
+own picture there, unmixed from the saved piece, not "the sharp source plus
+the piece's change" (`under + (up - was)`, how the matte is laid at the
+source's size as of 6f3eafd6): at full weight that adds the original's
+high-pass between the canvas and the source, the old person's fine edges on
+the new face (the D23 Gemini's critique, 2026-10-16; not yet measured). The case
 that guards it measures the feather's inner edge, where no case looked until
 2026-10-16. Not in latent space: the VAE works at the canvas, a latent cell's
 edge is a staircase, and a decoded frame would carry the untouched picture
