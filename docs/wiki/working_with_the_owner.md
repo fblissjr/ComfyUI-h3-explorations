@@ -29,7 +29,8 @@ this page is corrected. Each line carries the date it was asked for; the reasons
   Claude lead only); a look at a clip is an item on the local review page. Make the row before mentioning it.
   (2026-10-12)
 - **Review links go in one place:** `Video/<video>/TO_REVIEW.html` on the share, beside `PROVENANCE.html`, given as
-  the review server's address (`http://<tailnet address>:8765/fun_share/...`), never a file path. Its "Start here"
+  the review server's address (`http://<ip address>:<port>/fun_share/...`; run `data/<video>/poc/serve.py` to serve),
+  never a file path. Its "Start here"
   list is kept most important first. No review link goes on a hosted page or in a tracked file. (2026-10-13,
   2026-10-15)
 - **Name things as they hear them.** Every clip heading, page item and mention leads with the load name the sessions
