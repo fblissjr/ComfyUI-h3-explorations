@@ -3,16 +3,24 @@
 Loaded when a session opens a file here; the root `AGENTS.md` still governs. Masked video-to-video is one use of the
 pack, not the pack (root `AGENTS.md`, "The repo is broader than the current project"): a rule here is the lane's.
 
-## The project in motion
+## Start here
 
-- **`fun`**: replacing people in an existing music video (`fun.mp4`, frames 0-6394 of the working copy), a region at
-  a time. Where it stands: `docs/wiki/handover.md` first; then the newest ledger, delivery table and gap check under
-  `data/<date>_fun_delivery_tables/`; the owner's decisions on the H3 Open List. What it still needs:
-  `bench/shot_coverage.py` on `data/fun/shots.json`, `plan.json` and the newest table.
-- **Who is in each shot of `fun` is answered by the owner for the whole video.** Read it, never ask it again unless a
-  reading leaves you uncertain (`docs/wiki/working_with_the_owner.md`): `data/fun/shots.json` (the record, written
-  only by its tools), `data/fun/cast/cast.jsonl`, the raw `data/fun/owner_answers.jsonl`, the generated view
-  `data/fun/who_v2.json` (`bench/who_view.py`), and the page `/who/` on the review server.
+| you need | it is |
+|---|---|
+| where a project stands today | `docs/wiki/handover.md`, then the project's own `data/<video>/AGENTS.md` |
+| what is in the cut and what gaps remain | `data/<video>/laid.jsonl`; the newest `data/<date>_<video>_delivery_tables/frame_coverage_*.md`; `bench/shot_coverage.py` |
+| the day-to-day commands (ComfyUI, one load, the review server, the rebuild, the close) | `docs/wiki/runbook.md` |
+| the pipeline end to end, and the lane's rules | `docs/wiki/masked_v2v_pipeline.md`, `docs/wiki/masked_v2v.md` |
+| after any landing or stopped load | `bench/rebuild_delivery.py --video <video>` |
+
+## The projects in motion
+
+| video | its state |
+|---|---|
+| `fun` | `data/fun/AGENTS.md` |
+
+A new video gets its own `data/<video>/AGENTS.md` (and the one-line `CLAUDE.md`), so nothing one project settled is
+read as true of the next.
 
 ## How the lane works, end to end
 

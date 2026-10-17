@@ -17,6 +17,12 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-17
 
+- **A project's own state goes in `data/<video>/AGENTS.md`; `data/AGENTS.md` holds only the lane's rules, for any
+  video** (an independent Gemini reader's point, about 20:10Z: a new video would otherwise inherit `fun`'s settled
+  facts, such as who's-who being answered). `data/AGENTS.md` opens with a start-here table and a table of the
+  projects in motion; `data/fun/AGENTS.md` is `fun`'s. The root's lane paragraph is shorter, the two-leads and build
+  rules point at `internal/gemini/PROTOCOL.md` for the mechanics, and "never run uv in this repo" is now a root rule.
+
 - **The masked lane and the project `fun` get their own instruction file, `data/AGENTS.md`; the root AGENTS.md
   keeps only what holds for the whole pack** (the owner, about 20:00Z). Moved, unchanged in substance: the lane's
   settled rules, the one-ledger rule (now naming `bench/rebuild_delivery.py`), the video rows of "Where state lives",

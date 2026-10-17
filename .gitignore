@@ -8,6 +8,10 @@ internal/
 /data/*
 !/data/AGENTS.md
 !/data/CLAUDE.md
+!/data/fun/
+/data/fun/*
+!/data/fun/AGENTS.md
+!/data/fun/CLAUDE.md
 # Claude Code's per-user settings stay out; the project skills under
 # .claude/skills/ are routing docs for this repo and ship with it.
 .claude/*

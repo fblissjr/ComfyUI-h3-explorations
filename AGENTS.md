@@ -7,23 +7,12 @@ This file is the operative form: short, and every rule here is one a
 session cannot work around without noticing. A rule that is easily worked
 around is friction, not a rule, and goes.
 
-**The repo is broader than the current project.** This is the owner's whole MiniMax H3 research repo: many custom
-nodes (reference conditioning, attention, keyframes, prompts, capture and more; every module and the nodes it defines
-are in `INDEX.md`, every use in `docs/wiki/h3_uses.md`), benchmarks, kernels and experiments. Masked video-to-video is
-one use of it, a very important one and the focus of the past days. **The project in hand** is that use:
-replacing people in an existing music video, `fun`, a region at a time; its process end to end is
-`docs/wiki/masked_v2v_pipeline.md`, and **everything a session needs for the lane and `fun` is `data/AGENTS.md`**
-(read it before lane work; it loads on its own when you open a file under `data/`). Three ways to get this wrong:
-
-- **Reading too much into a lane rule.** A rule of the masked lane (keep-outs, the masked text's frame, a reference
-  drawn on the body model, one load a shot) is a rule of that lane, not of H3 or of the pack. Before carrying a claim
-  to another use, check which use it was measured on.
-- **Reading too little into common code.** Reference conditioning and the nodes the lane shares with other uses are
-  in their common place on purpose: a finding about them applies to every use that loads them, the lane included.
-- **Overwriting what is right elsewhere.** A change made for the project does not narrow the pack. A node or default
-  the lane touches keeps serving its other uses; behavior only masking wants goes behind the lane's own input, tool
-  or plan data (`bench/` lane tools, `data/<video>/plan.json`), and a shared default changes only when it is right
-  for every use.
+**The repo is broader than the current project.** This is the owner's whole MiniMax H3 research repo (every module
+and node in `INDEX.md`, every use in `docs/wiki/h3_uses.md`). Masked video-to-video, and the projects in it such as
+`fun`, is one use: its rules and state are `data/AGENTS.md`. So a lane rule is never read as a rule of H3 or the pack;
+common code (reference conditioning, the shared nodes) serves every use, the lane included, so a finding about it
+applies everywhere; and a shared node or default changes only when it is right for every use, masking-only behavior
+going behind the lane's own tool, input or plan data.
 
 ## Do not trust prose, including this file's
 
@@ -62,6 +51,8 @@ once; `docs/evidence.md`, "Settled about H3", has the rest.
 - **Never hand-edit `workflows/*.json`.** `workflows/build_workflows.py`
   generates them, and nothing is true of a graph until it is rebuilt.
   Every walker goes through `workflows/h3_config.py::graph_paths`.
+- **Never run `uv` in this repo** (`uv run`, `uv sync`, `uv add`): with the ComfyUI venv active it has emptied
+  that venv and dirtied `uv.lock`. Run every script with the ComfyUI venv's python directly (`docs/comfy_notes.md`).
 - **Nothing in this pack patches ComfyUI core**; `bench/check_vsa_core_patch.py`
   is the observable.
 - **The server process is the resource, not the GPU.** An idle server can
@@ -130,38 +121,13 @@ One home per kind of fact. Not two.
   the inbox and carries on. A go is a row on the Open List or a line in the
   lead's terminal; a session that is not the lead takes the lead's relay as
   the go and writes the relay's time in the job's note.
-- **Two leads, one each side** (the owner, 2026-10-17; until then two Claude
-  sessions and a Gemini reviewer). "The lead" elsewhere in this file means
-  whichever of the two holds the thing named.
-  - **The Gemini lead** (a named Gemini session) co-leads the day and leads
-    every other Gemini session: it holds the card (ComfyUI, captures, plan
-    strips, renders), builds or has its workers build, keeps the ledger, the
-    delivery table and the owner's pages current, edits the plan file, and
-    is the only one that runs git on `main` (the owner, 2026-10-17): it
-    commits every session's work by pathspec, the Claude lead's included,
-    and lands branches.
-  - **The Claude lead** (one Claude session) is oversight and the method's
-    expert: it rules on method when the leads disagree, holds the Open List
-    and the inbox (Gemini cannot write there), clears each landing before
-    it is made, and writes the changelog, the handover and `decisions.md`,
-    handing each to the Gemini lead to commit with its paths and message.
-  - **They talk only to each other**, by `internal/gemini/PROTOCOL.md`: two
-    append-only files a day, one writer each
-    (`<date>_claude_to_gemini.md`, `<date>_gemini_to_claude.md`); every ask
-    carries a deadline and a default that is never "wait"; only an Open List
-    row blocks anything. Words the owner gives the Gemini lead come to the
-    Claude lead as `OWNER SAID` and go on the Open List. Gemini workers talk
-    to the Gemini lead only, by its own files.
-- **A build goes on its own branch** in a git worktree outside
-  `custom_nodes` (`h3_worktrees/<builder>-<item>`), cut from current main and
-  committed there, never in the shared tree and never pushed. It comes to the
-  Claude lead `READY` with its checks' output, `bench/break_checks.py`'s
-  output and a blind read by a session that did not build it. The Claude
-  lead clears it, after re-running one of its checks itself; the Gemini lead
-  then lands it from the merge base (`git diff main...<branch>`), by
-  pathspec, so a stale copy cannot delete newer lines (the owner,
-  2026-10-16). A refusal test
-  passes only on the tool's own refusal words with no Python traceback.
+- **Two leads, one each side** (the owner, 2026-10-17). The Gemini lead holds the card, git on `main`, the ledger,
+  the owner's pages and the plan file, and leads the other Gemini sessions; the Claude lead holds the Open List and
+  the inbox, clears each landing, and writes the changelog, the handover and `decisions.md`. They talk only to each
+  other; the mailbox, the landing steps and what each holds are `internal/gemini/PROTOCOL.md`.
+- **A build goes on its own branch** in a worktree outside `custom_nodes` (`h3_worktrees/<builder>-<item>`), cut from
+  current main, never pushed, and lands by pathspec from the merge base (`git diff main...<branch>`) after its own
+  blind read and the Claude lead's clearance. A refusal test passes only on the tool's own words with no traceback.
 - **A render's prompt is read in FULL before it renders**, from the graph
   as queued (`bench/what_h3_got.py`), never from a summary, a preview or a
   paraphrase: by the session that queues it, and by a second reader for
