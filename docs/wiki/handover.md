@@ -56,7 +56,9 @@ notes: `internal/claude/2026-10-16_mrtony/HANDOFF.md`; the card's: `internal/cla
    - **The re-composite tool (mrtaco, `mrtaco-recomposite`).** Control passes: own composite reproduces the original,
      last step included, plate offset gone (`review2_recomposite_piece.md`). Left: a stale decode reused by file name
      (key on the latent's and VAE's sha256), a typed `--vae` overriding the graph's, six green mutations, 24/1 assumed,
-     and (D23, unconfirmed) the encoder quality hardcoded instead of the render graph's own `crf`.
+     and the encoder quality: `--crf` defaults to 12 (`recomposite_piece.py:321`) instead of the render graph's own
+     `crf` (checked by the lead: all 121 render graphs on disk used 12, so no piece today changes; read it from the graph
+     and refuse a typed value that disagrees, as for the source and the VAE).
    - **D19c, the pages read the gap check (Gemini, `gemini-d19b`):** the last round; then its read.
    - **D20b, `--carry-words-from` (Gemini, its branch):** keep each word's author; tonight's 1010c lost 1010j's
      `no_mouth_on 1010-1018` (both job files show it), which is what it is for. Until it lands, a remake's words are
