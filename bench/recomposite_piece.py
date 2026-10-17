@@ -10,9 +10,10 @@
 node's own `video_mask.lay_window` (and `lay_back` for a zoomed load) and a setting changed, it is a new piece with no
 sampling. `bench/recomposite_window.py` does this for one window to read; this writes the piece.
 
-**`--save-own-matte`** (`C2` item 3, 2026-10-17): for a laid piece from before the matte was saved, decodes each
+**`--save-own-matte`** (`C2` item 3 and `C37`, 2026-10-17): for a laid piece from before the matte was saved, decodes each
 window's stored latent with the render's own VAE and runs `lay_window` (and `lay_back` when zoomed) under the render's
-own `composite` from its graph, checks the control that the reconstructed composite reproduces the rendered `.mp4`
+own inputs read from its graph (never today's defaults: a graph with no keep-outs input is reconstructed with none),
+checks the control that the reconstructed composite reproduces the rendered `.mp4`
 within `OWN_MATTE_TOLERANCE` levels (both inside the matte and outside the region, recording mean, p99 and worst pixel
 differences in each), and atomically writes `matte` and `kept` (and `piece` when absent) into each window's
 `*_window_*_region.npz` with `<stem>.matte_reconstructed.json` beside the render.
@@ -27,7 +28,8 @@ composite, and the piece is laid by its matte.
 
 **Read from the render, never typed** (the re-composite read, the lead's ruling of 2026-10-16): the source clip, its first
 frame and the loader's frame cap from the render's own graph (the PNG beside it: the Masked Source's `frames` loader), past
-which the node held the last loaded frame and so does this; and the VAE and encoder `crf` the render ran with (the song
+which the node held the last loaded frame and so does this; the Masked Source's own composite inputs and whether keep-outs
+(`others` or `keep`) were wired; and the VAE and encoder `crf` the render ran with (the song
 node's `vae` and `crf`). `--source`, `--source-first`, `--vae` and `--crf`, when given, must agree with the graph. Before
 anything is decoded, the render's own frames outside its region are set against the source read at its first frame and one
 frame either side: a neighbour that fits better is refused, with the figures.
@@ -152,16 +154,25 @@ def graph_of(render: Path) -> dict:
 
 
 def source_of(graph: dict) -> dict:
-    """The render's source as its graph loaded it: the clip, the source frame its frame 0 is on, the loader's frame cap, the size."""
+    """The render's source as its graph loaded it: the clip, the source frame its frame 0 is on, the loader's frame cap, the size,
+    whether keep-outs (`others` or `keep`) were wired on the Masked Source, and the Masked Source's own composite settings."""
     ms = next((n for n in graph.values() if isinstance(n, dict) and n.get("class_type") == "MiniMaxH3MaskedSource"), None)
     if ms is None or not isinstance(ms["inputs"].get("frames"), list):
         raise SystemExit("the render's graph holds no Masked Source with a frames loader: the source is not known")
-    loader = graph[str(ms["inputs"]["frames"][0])]["inputs"]
+    inp = ms["inputs"]
+    loader = graph[str(inp["frames"][0])]["inputs"]
     video = str(loader["video"])
     rate = clip_rate(video)
+    settings: dict = {}
+    for k, cast in (("composite", str), ("feather_pixels", int), ("change_threshold", float),
+                    ("grow_pixels", int), ("grow_by", str), ("replace", str), ("edge", str)):
+        if inp.get(k) is not None and not isinstance(inp.get(k), list):
+            settings[k] = cast(inp[k])
     return {"video": video, "first": int(round(float(loader.get("start_time") or 0.0) * rate)),
             "cap": int(loader.get("frame_load_cap") or 0) or None, "size": [int(loader.get("custom_width") or 0), int(loader.get("custom_height") or 0)],
-            "composite": str(ms["inputs"].get("composite") or "")}
+            "composite": str(inp.get("composite") or ""),
+            "keep_outs": bool(inp.get("others") or inp.get("keep_outs") or inp.get("keep")),
+            "settings": settings}
 
 
 def vae_of(graph: dict) -> str:
@@ -175,9 +186,10 @@ def vae_of(graph: dict) -> str:
 def crf_of(graph: dict) -> int:
     """The encoder `crf` the render wrote its video with: the song node's `crf` input."""
     song_node = next((n for n in graph.values() if isinstance(n, dict) and n.get("class_type") == "MiniMaxH3AudioFreezeSong"), None)
-    if song_node is None or song_node.get("inputs", {}).get("crf") is None:
-        raise SystemExit("the render's graph holds no song node with a crf: the encoder quality it wrote with is not known")
-    return int(song_node["inputs"]["crf"])
+    raw = None if song_node is None else song_node.get("inputs", {}).get("crf")
+    if raw is None or isinstance(raw, list):
+        raise SystemExit("the render's graph holds no song node with a literal crf: the encoder quality it wrote with is not known")
+    return int(raw)
 
 
 def offset_fit(vm, render: Path, source: dict, region: dict, said: dict | None, size, frames: int, trim: int) -> dict:
@@ -251,7 +263,7 @@ def _check_render(vm, render: Path, a: argparse.Namespace, decode):
 
 def save_own_matte(a: argparse.Namespace, decode=None) -> dict:
     """Reconstruct and save each window's matte (`matte`, `kept`, and `piece`) from its stored latent and region file,
-    verified against the rendered `.mp4` under the render's own composite (`C2` item 3)."""
+    verified against the rendered `.mp4` under the render's own inputs read from its graph (`C2` item 3, `C37`)."""
     bootstrap(cpu=True if a.device == "cpu" else None)
     import torch
     vm = rw._pack("video_mask")
@@ -291,10 +303,11 @@ def save_own_matte(a: argparse.Namespace, decode=None) -> dict:
             images, decoded = rw.kept_decode(latent, work, vae, a.device, decode or rw.decode_window)
             if tuple(images.shape[:3]) != tuple(pixels.shape[:3]):
                 raise SystemExit(f"{latent.name}: the decode is {tuple(images.shape)} and the source's frames are {tuple(pixels.shape)}")
-            own_settings = dict(region["source"])
-            if source.get("composite"):
-                own_settings["composite"] = source["composite"]
-            laid, alpha, lines = vm.lay_window(images, pixels, region["tokens"], region["mask"], own_settings, region["margin"], first)
+            own_settings = {**region["source"], **(source.get("settings") or {})}
+            whole_edge = own_settings.get("edge", vm.EDGE_TOKENS) == vm.EDGE_TOKENS
+            tokens = region["tokens"] if source.get("keep_outs") else vm.token_mask(
+                vm.grow(region["mask"], region["margin"]), shape[2], shape[3], shape[4], whole_edge)
+            laid, alpha, lines = vm.lay_window(images, pixels, tokens, region["mask"], own_settings, region["margin"], first)
             if zoom is not None:
                 whole, _ = loader_frames(source["video"], source["first"] + first, frames, size, have)
                 piece_frames, matte = vm.lay_back(images, alpha, whole, zoom, weight=True)
@@ -304,14 +317,14 @@ def save_own_matte(a: argparse.Namespace, decode=None) -> dict:
             mine = piece_frames[trim:trim + written]
             off_region = (matte[trim:trim + written] == 0)
             outside_levels = float(((mine - whole[trim:trim + written]).abs().amax(-1) * 255.0)[off_region].max()) if bool(off_region.any()) else None
-            planned.append((piece_first, n, latent, region_path, region, own_settings, zoom, first, trim, written, alpha, matte, mine,
+            planned.append((piece_first, n, latent, region_path, region, tokens, own_settings, zoom, first, trim, written, alpha, matte, mine,
                             outside_levels, held, decoded, lines))
         at = 0
-        for piece_first, _n, _l, _rp, _reg, _os, _z, _f, _t, written, _a, _m, _mine, _ol, _h, _d, _ln in sorted(planned, key=lambda p: p[0]):
+        for piece_first, _n, _l, _rp, _reg, _tok, _os, _z, _f, _t, written, _a, _m, _mine, _ol, _h, _d, _ln in sorted(planned, key=lambda p: p[0]):
             if piece_first != at:
                 raise SystemExit(f"the windows' written frames do not join: one starts at piece frame {piece_first}, the frames before end at {at}")
             at += int(written)
-        joined = torch.cat([p[12] for p in sorted(planned, key=lambda p: p[0])])
+        joined = torch.cat([p[13] for p in sorted(planned, key=lambda p: p[0])])
         control_mp4 = work / "control.mp4"
         song._write_frames_mp4(str(control_mp4), joined, crf)
         size0 = (int(joined.shape[2]), int(joined.shape[1]))
@@ -320,7 +333,7 @@ def save_own_matte(a: argparse.Namespace, decode=None) -> dict:
     if rendered is None or int(rendered.shape[0]) != at or reconstructed is None or int(reconstructed.shape[0]) != at:
         raise SystemExit(f"{render.name} does not hold the {at} frames its windows wrote")
     to_write = []
-    for (piece_first, n, latent, region_path, region, own_settings, zoom, first, trim, written, alpha, matte, _mine,
+    for (piece_first, n, latent, region_path, region, tokens, own_settings, zoom, first, trim, written, alpha, matte, _mine,
          outside_levels, held, decoded, lines) in sorted(planned, key=lambda p: p[0]):
         got_w = reconstructed[piece_first:piece_first + written]
         ref = rendered[piece_first:piece_first + written]
@@ -343,16 +356,16 @@ def save_own_matte(a: argparse.Namespace, decode=None) -> dict:
                              f"outside mean {outside_mean:.3f}, p99 {outside_p99:.3f}, worst {outside_worst:.3f}; "
                              f"overall {whole_mean:.3f}; limit {OWN_MATTE_TOLERANCE}): the region file is not modified")
         before_sha = sha256(region_path)
-        to_write.append((n, latent, region_path, before_sha, region, own_settings, zoom, first, trim, written, piece_first,
+        to_write.append((n, latent, region_path, before_sha, region, tokens, own_settings, zoom, first, trim, written, piece_first,
                          alpha, matte, outside_levels, held, decoded, lines,
                          {"inside_matte_mean_levels": round(inside_mean, 3), "inside_matte_p99_levels": round(inside_p99, 3),
                           "inside_matte_worst_levels": round(inside_worst, 3), "inside_matte_max_levels": round(inside_worst, 3),
                           "outside_matte_mean_levels": round(outside_mean, 3), "outside_matte_p99_levels": round(outside_p99, 3),
                           "outside_matte_worst_levels": round(outside_worst, 3), "outside_matte_max_levels": round(outside_worst, 3),
                           "overall_mean_levels": round(whole_mean, 3)}))
-    for (n, latent, region_path, before_sha, region, own_settings, zoom, first, trim, written, piece_first,
+    for (n, latent, region_path, before_sha, region, tokens, own_settings, zoom, first, trim, written, piece_first,
          alpha, matte, outside_levels, held, decoded, lines, control) in to_write:
-        vm.save_window_region(str(region_path), region["mask"], region["tokens"],
+        vm.save_window_region(str(region_path), region["mask"], tokens,
                               {**own_settings, "zoom": zoom}, region["margin"], first, trim,
                               kept=alpha, matte=matte,
                               piece={"stem": render.stem, "first": piece_first, "written": int(written)})
@@ -360,10 +373,11 @@ def save_own_matte(a: argparse.Namespace, decode=None) -> dict:
                      "region": region_path.name, "region_sha256_before": before_sha, "region_sha256_after": sha256(region_path),
                      "piece_first": piece_first, "written": int(written), "decode": decoded, "source_frames_held": int(held),
                      "outside_the_region_before_encoding_levels_most": None if outside_levels is None else round(outside_levels, 3),
-                     "composite": own_settings.get("composite"), "lines": lines, "control": control})
+                     "composite": own_settings.get("composite"), "keep_outs": bool(source.get("keep_outs")), "lines": lines, "control": control})
     command = [sys.executable, *sys.argv] if a.command is None else a.command
     record = {"what": "a render's own matte and kept mask reconstructed from its stored window latents and regions, verified against the render itself",
-              "render": str(render), "render_sha256": sha256(render), "composite": source.get("composite"), "crf": crf,
+              "render": str(render), "render_sha256": sha256(render), "composite": source.get("composite"),
+              "keep_outs": bool(source.get("keep_outs")), "crf": crf,
               "windows": rows, "source": source, "source_offset_fit": fit,
               "vae": {"file": vae, "path": str(vae_path) if vae_path else None,
                       "sha256": sha256(Path(vae_path)) if vae_path and Path(vae_path).is_file() else None},

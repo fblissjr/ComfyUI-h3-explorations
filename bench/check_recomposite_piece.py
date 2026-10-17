@@ -13,14 +13,16 @@ capped short of its last two frames, and its sound. Cases (each seen red with it
   two windows, zoomed      the windows join by their piece records (a continued run's), the trimmed context is not written, the
                            frames past the loader's cap hold its last frame as the node did, the matte is the canvas weight lay_back
                            laid with, the zoomed picture and note are written, and the render's sound is copied
-  own matte reconstructed  --save-own-matte reconstructs matte, kept and piece into _region.npz under the render's own composite
-                           when the rendered .mp4 agrees within OWN_MATTE_TOLERANCE (recording mean, p99 and worst pixel differences
-                           inside the matte and outside the region), and refuses without touching _region.npz when they disagree
+  own matte reconstructed  --save-own-matte reconstructs matte, kept and piece into _region.npz under the render's own inputs read
+                           from its graph (a graph with no keep-outs reproduces its piece, and the same render reconstructed with
+                           today's carve is refused) when the rendered .mp4 agrees within OWN_MATTE_TOLERANCE (recording mean, p99
+                           and worst pixel differences inside the matte and outside the region), and refuses without touching
+                           _region.npz when they disagree
   what it refuses          an output folder that exists; a render with no graph; a window with no region file; a window of another
-                           run; a --source, --source-first, --vae or --crf that is not the render's; --device cpu with an int8 VAE;
-                           a continued run with no piece record; a render whose frames fit the source better one frame off; gapped
-                           windows; a CLI refusal exits non-zero with no Python traceback; and a failed run or stale .part decode
-                           never blocks or leaks into the rerun
+                           run; a --source, --source-first, --vae or --crf that is not the render's; a non-literal crf link;
+                           --device cpu with an int8 VAE; a continued run with no piece record; a render whose frames fit the source
+                           better one frame off; gapped windows; a CLI refusal exits non-zero with no Python traceback; and a failed
+                           run or stale .part decode never blocks or leaks into the rerun
 
     <comfy venv python> bench/check_recomposite_piece.py
 """
@@ -109,10 +111,13 @@ CLIP = (LOADED.numpy() * 255.0)
 
 
 def graph_png(render: Path, start: int, cap: int, continued: str = "", composite: str = "", vae: str = "the_render_vae.safetensors",
-              crf: int = 12) -> None:
-    ms_inputs: dict = {"frames": ["28", 0]}
+              crf: int | list = 12, keep_outs: bool = False, feather_pixels: int = FEATHER) -> None:
+    ms_inputs: dict = {"frames": ["28", 0], "feather_pixels": feather_pixels, "change_threshold": vm.CHANGE_THRESHOLD,
+                       "grow_pixels": MARGIN, "grow_by": vm.GROW_FIXED, "replace": vm.REPLACE_WHOLE, "edge": vm.EDGE_TOKENS}
     if composite:
         ms_inputs["composite"] = composite
+    if keep_outs:
+        ms_inputs["others"] = ["210", 0]
     info = PngImagePlugin.PngInfo()
     info.add_text("prompt", json.dumps({
         "28": {"class_type": "VHS_LoadVideoFFmpegPath", "inputs": {"video": str(WORK / "clip.mkv"), "start_time": start / rw.FPS, "frame_load_cap": cap,
@@ -193,7 +198,7 @@ def make_zoomed(name: str, gap: int = 0) -> dict:
     (root / "z_00001_zoomed.json").write_text(json.dumps({"file": "h3 zoomed piece", "version": 2, "run": "z_00001", "piece": "z_00001.mp4",
                                                           "zoomed": "z_00001_zoomed.mp4", "frames": int(joined.shape[0]), "canvas": [W, H],
                                                           "source_size": [W, H], "box": BOX, "fixed": True, "zoom": ZOOM["scale"]}))
-    graph_png(root / "z_00001.mp4", LEAD, CAP, continued="an_earlier_run_window_3.safetensors", composite=vm.COMPOSITE_CHANGED)
+    graph_png(root / "z_00001.mp4", LEAD, CAP, continued="an_earlier_run_window_3.safetensors", composite=vm.COMPOSITE_CHANGED, feather_pixels=8)
     return {"render": root / "z_00001.mp4", "decode": decodes, "frames": int(joined.shape[0])}
 
 
@@ -379,13 +384,45 @@ def own_matte_reconstructed() -> str:
             and 0.0 < c0["inside_matte_mean_levels"] <= rp.OWN_MATTE_TOLERANCE
             and 0.0 < c0["outside_matte_mean_levels"] <= rp.OWN_MATTE_TOLERANCE
             and c0["inside_matte_mean_levels"] < c0["inside_matte_p99_levels"] <= c0["inside_matte_worst_levels"]
-            and c0["outside_matte_mean_levels"] < c0["outside_matte_p99_levels"] <= c0["outside_matte_worst_levels"]), saved
+            and c0["outside_matte_mean_levels"] < c0["outside_matte_p99_levels"] <= c0["outside_matte_worst_levels"]), (
+        f"reconstructed record must hold sha256s, crf=12, and 0 < mean < p99 <= worst inside/outside: {c0}"
+    )
     assert len(zrec["windows"]) == 2 and all(
         0.0 < w["control"]["inside_matte_mean_levels"] <= rp.OWN_MATTE_TOLERANCE
         and w["control"]["inside_matte_mean_levels"] < w["control"]["inside_matte_p99_levels"] <= w["control"]["inside_matte_worst_levels"]
         and w["control"]["outside_matte_mean_levels"] < w["control"]["outside_matte_p99_levels"] <= w["control"]["outside_matte_worst_levels"]
         for w in zrec["windows"]
-    ), zrec
+    ), "zoomed reconstructed record must hold 2 windows with 0 < mean < p99 <= worst inside/outside"
+    # THE CASE THAT GOES RED when --save-own-matte uses today's keep-outs carve instead of the render's own graph inputs (C37):
+    # a render made without keep-outs reproduces its piece when its graph has no keep-outs input, and is refused when reconstructed with today's carve
+    no_ko = make_plain("own_no_keep_outs")
+    no_ko_mask = torch.zeros(FRAMES, H, W)
+    no_ko_mask[:, 16:32, 16:40] = 1.0
+    no_ko_decode = (no_ko["pixels"] + 4.0 / 255.0).clamp(0, 1)
+    no_ko_decode[:, 16:32, 16:48] = 0.95                            # subject reaches into the grown margin (x=32..48)
+    no_ko["decode"]["r_window_1"] = no_ko_decode
+    no_ko_laid, _a, _ = vm.lay_window(no_ko_decode, no_ko["pixels"], no_ko["tokens"], no_ko_mask, settings(), MARGIN, 0)
+    song._write_frames_mp4(str(no_ko["render"]), no_ko_laid, 12)
+    carved_tokens = no_ko["tokens"].clone()
+    carved_tokens[:, :, 2:4] = 0.0                                  # today's keep-outs carve out columns 2:4 (x=32..64)
+    no_ko_reg = no_ko["render"].parent / "r_windows" / "r_window_1_region.npz"
+    vm.save_window_region(str(no_ko_reg), no_ko_mask, carved_tokens, {**settings(), "composite": vm.COMPOSITE_REGION}, MARGIN, 0, 0)
+    graph_png(no_ko["render"], LEAD, 0, composite=vm.COMPOSITE_CHANGED, keep_outs=True)
+    carved_bytes = no_ko_reg.read_bytes()
+    refused(lambda: rp.run(args(no_ko, "", save_own_matte=True, set=[]), decode=handed(no_ko)),
+            "own-composite control disagrees", "not modified")
+    assert no_ko_reg.read_bytes() == carved_bytes and not (no_ko["render"].parent / "r_00001.matte_reconstructed.json").exists(), (
+        "refused carve must leave _region.npz untouched and write no .matte_reconstructed.json"
+    )
+    graph_png(no_ko["render"], LEAD, 0, composite=vm.COMPOSITE_CHANGED, keep_outs=False)
+    no_ko_rec = must_run(args(no_ko, "", save_own_matte=True, set=[]), decode=handed(no_ko))
+    reloaded = vm.load_window_region(str(no_ko_reg))
+    assert (no_ko_rec["keep_outs"] is False
+            and 0.0 < no_ko_rec["windows"][0]["control"]["inside_matte_mean_levels"] <= rp.OWN_MATTE_TOLERANCE
+            and torch.equal(reloaded["tokens"], no_ko["tokens"])
+            and reloaded["source"]["composite"] == vm.COMPOSITE_CHANGED), (
+        "saved region tokens must be uncarved and record must match graph composite and keep_outs=False"
+    )
     # THE CASE THAT GOES RED when --save-own-matte writes a matte whose own-composite control disagrees with the rendered .mp4
     bad = make_plain("own_bad")
     bad_reg = bad["render"].parent / "r_windows" / "r_window_1_region.npz"
@@ -393,8 +430,12 @@ def own_matte_reconstructed() -> str:
     wrong_decode = {"r_window_1": bad["pixels"].clone()}            # differs inside the matte from the 0.95 subject in bad["render"]
     refused(lambda: rp.run(args(bad, "", save_own_matte=True, set=[]), decode=lambda _p, _v, _d: wrong_decode["r_window_1"]),
             "own-composite control disagrees", "not modified")
-    assert bad_reg.read_bytes() == before_bytes and not (bad["render"].parent / "r_00001.matte_reconstructed.json").exists()
-    return "plain and zoomed renders gain matte, kept and piece with mean, p99 and worst levels inside and outside; a disagreeing control refuses without touching _region.npz"
+    assert bad_reg.read_bytes() == before_bytes and not (bad["render"].parent / "r_00001.matte_reconstructed.json").exists(), (
+        "disagreeing control must leave _region.npz untouched and write no .matte_reconstructed.json"
+    )
+    return ("plain and zoomed renders gain matte, kept and piece with mean, p99 and worst levels inside and outside; "
+            "a graph with no keep-outs reproduces its piece and the same render with today's carve is refused; "
+            "a disagreeing control refuses without touching _region.npz")
 
 
 def what_it_refuses() -> str:
@@ -438,11 +479,14 @@ def what_it_refuses() -> str:
                           piece={"stem": "r_00002", "first": 0, "written": FRAMES})
     # THE CASE THAT GOES RED when another run's window, of the same prefix, is laid under this render's sha
     refused(lambda: rp.run(args(other, "other_rc"), decode=handed(other)), "is r_00002's window, not r_00001's")
-    # THE CASES THAT GO RED when --source, --source-first, --vae or --crf disagrees with the render's graph
+    # THE CASES THAT GO RED when --source, --source-first, --vae or --crf disagrees with the render's graph, or crf is a link
     refused(lambda: rp.run(args(MADE, "src_rc", source=str(WORK / "other.mkv")), decode=handed(MADE)), "--source", "is not the render's own")
     refused(lambda: rp.run(args(MADE, "typed_rc", source_first=LEAD + 1), decode=handed(MADE)), "--source-first", "is not the render's own")
     refused(lambda: rp.run(args(MADE, "vae_rc", vae="wrong_vae.safetensors"), decode=handed(MADE)), "--vae", "is not the render's own")
     refused(lambda: rp.run(args(MADE, "crf_rc", crf=18), decode=handed(MADE)), "--crf", "is not the render's own")
+    linked_crf = make_plain("linked_crf")
+    graph_png(linked_crf["render"], LEAD, 0, composite=vm.COMPOSITE_CHANGED, crf=["99", 0])
+    refused(lambda: rp.run(args(linked_crf, "linked_crf_rc"), decode=handed(linked_crf)), "literal crf")
     # THE CASE THAT GOES RED when --device cpu is used with an int8 VAE (which decodes on CUDA only), or --device does not default to cuda
     int8_render = make_plain("int8_vae", vae="h3_video_vae_bf16_int8.safetensors")
     refused(lambda: rp.run(args(int8_render, "int8_rc", device="cpu"), decode=handed(int8_render)), "int8", "CUDA only")
