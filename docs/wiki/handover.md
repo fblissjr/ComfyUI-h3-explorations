@@ -55,7 +55,8 @@ notes: `internal/claude/2026-10-16_mrtony/HANDOFF.md`; the card's: `internal/cla
      (1010c, a re-laid piece, any new render) goes into the cut; the third read is first.
    - **The re-composite tool (mrtaco, `mrtaco-recomposite`).** Control passes: own composite reproduces the original,
      last step included, plate offset gone (`review2_recomposite_piece.md`). Left: a stale decode reused by file name
-     (key on the latent's and VAE's sha256), a typed `--vae` overriding the graph's, six green mutations, 24/1 assumed.
+     (key on the latent's and VAE's sha256), a typed `--vae` overriding the graph's, six green mutations, 24/1 assumed,
+     and (D23, unconfirmed) the encoder quality hardcoded instead of the render graph's own `crf`.
    - **D19c, the pages read the gap check (Gemini, `gemini-d19b`):** the last round; then its read.
    - **D20b, `--carry-words-from` (Gemini, its branch):** keep each word's author; tonight's 1010c lost 1010j's
      `no_mouth_on 1010-1018` (both job files show it), which is what it is for. Until it lands, a remake's words are
