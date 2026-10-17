@@ -1313,6 +1313,448 @@ def free_name(base: str, taken, remake: bool) -> str:
     raise Refused(f"every letter after {base} is taken")
 
 
+def _parse_word_by(word: str, word_by: str, old_name: str, subject: str) -> list[tuple[int, int, str]]:
+    """Parse `subjects.<subject>.word` ('A-B+C-D') and `word_by` ('A-B: reason; C-D: reason') without splitting on `;` inside reasons."""
+    spans = [s.strip() for s in str(word).split("+") if s.strip()]
+    if not spans:
+        raise Refused(f"--carry-words-from {old_name}: subjects.{subject}.word is empty")
+    text = " ".join(str(word_by or "").split())
+    starts: list[tuple[int, int, str]] = []
+    pos = 0
+    for i, sp in enumerate(spans):
+        prefix = f"{sp}: " if i == 0 else f"; {sp}: "
+        idx = (0 if text.startswith(prefix) else -1) if i == 0 else text.find(prefix, pos)
+        if idx < 0:
+            raise Refused(f"--carry-words-from {old_name}: subjects.{subject}.word_by has no reason for span {sp}")
+        val_start = idx + len(prefix)
+        starts.append((idx, val_start, sp))
+        pos = val_start
+    out: list[tuple[int, int, str]] = []
+    for i, (_idx, val_start, sp) in enumerate(starts):
+        val_end = starts[i + 1][0] if i + 1 < len(starts) else len(text)
+        why = text[val_start:val_end].strip()
+        if not why:
+            raise Refused(f"--carry-words-from {old_name}: subjects.{subject}.word_by has an empty reason for span {sp}")
+        try:
+            x, y = (int(v) for v in (sp.split("-") * 2)[:2])
+        except ValueError:
+            raise Refused(f"--carry-words-from {old_name}: subjects.{subject}.word span {sp!r} is not FIRST-LAST") from None
+        out.append((x, y, why))
+    return out
+
+
+def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str, plan_parts: list[str],
+                   first: int | None, frames: int | None, why: str = "", why_before: str = "", why_after: str = "",
+                   by: str = "", now: str = "", leave_word: list[str] | None = None, leave_by: str | None = None) -> dict:
+    """Read every person's word from an earlier load's job file for the frames the new load covers, tag each `(carried from <old load>)`,
+    keep each word's original author and time with a `carried` record, refuse any word-bearing key the tool does not know how to carry
+    or any carried span outside the new frames (unless dropped via `--leave-word` + `--leave-by`), and report retired/rebuilt keys."""
+    import hashlib
+    import h3_config
+    import re
+    if isinstance(carry_words_from, dict):
+        old = carry_words_from
+        old_file = "<dict>"
+        old_sha256 = hashlib.sha256(json.dumps(old, sort_keys=True).encode()).hexdigest()
+    else:
+        p = Path(carry_words_from)
+        if not p.is_file():
+            raise Refused(f"--carry-words-from {carry_words_from}: no such file")
+        raw_bytes = p.read_bytes()
+        old_file = str(p)
+        old_sha256 = hashlib.sha256(raw_bytes).hexdigest()
+        old = json.loads(raw_bytes.decode())
+    if not isinstance(old, dict):
+        raise Refused("--carry-words-from: old job is not a JSON object")
+    old_job = old.get("job") or {}
+    old_loads = old.get("loads") or []
+    old_name = str((old_loads[0].get("name") if old_loads and isinstance(old_loads[0], dict) else None) or old_job.get("name") or "old_job").strip()
+    leave_word = list(leave_word or [])
+    leave_by_str = " ".join(str(leave_by or "").split())
+    if bool(leave_word) != bool(leave_by_str):
+        raise Refused("--leave-word and --leave-by go together: the carried span to leave out, and who said so and why")
+    leave_alias = {"word": "hold_part", "eyes_shut": "eyes_shut_on"}
+    leave_kinds = {"left_out", "drop", "hold_part", "parts_on", "track_not", "no_face_on", "no_mouth_on", "mouth_on", "eyes_shut_on", "seam"}
+    leave_map: dict[tuple[str, int, int], bool] = {}
+    for raw_lw in leave_word:
+        kind_part, sep, span_part = str(raw_lw).partition(":")
+        if ":" in span_part:
+            _, _, span_part = span_part.partition(":")
+        k_norm = leave_alias.get(kind_part.strip(), kind_part.strip())
+        if not sep or k_norm not in leave_kinds:
+            raise Refused(f"--leave-word {raw_lw!r}: expected KIND:FIRST-LAST with KIND in {sorted(leave_kinds)}")
+        try:
+            lx_, ly_ = (int(v) for v in (span_part.strip().split("-") * 2)[:2])
+        except ValueError:
+            raise Refused(f"--leave-word {raw_lw!r}: span {span_part!r} is not FIRST-LAST") from None
+        if lx_ > ly_:
+            raise Refused(f"--leave-word {raw_lw!r}: {lx_}-{ly_} has first > last")
+        leave_map[(k_norm, lx_, ly_)] = False
+    for k in old:
+        if k not in ("job", "defaults", "loads"):
+            raise Refused(f"--carry-words-from {old_name}: word-bearing key {k!r} at top of old job cannot be carried")
+    base_defaults = set(h3_config.MASKED_LOAD_DEFAULTS) | {"margin", "seed"}
+    for k in (old.get("defaults") or {}):
+        if k not in base_defaults:
+            raise Refused(f"--carry-words-from {old_name}: word-bearing key 'defaults.{k}' in old job cannot be carried")
+    if len(old_loads) != 1 or not isinstance(old_loads[0], dict):
+        raise Refused(f"--carry-words-from {old_name}: expected 1 load in old job, found {len(old_loads)}")
+    old_load = old_loads[0]
+    if old_load.get("subject") != subject:
+        raise Refused(f"--carry-words-from {old_name}: old load's subject is {old_load.get('subject')!r}, not {subject!r}")
+    load_known = {"name", "first", "frames", "subject", "others", "text", "motion_file", "motion_first", "render_region", "save_kept",
+                  "hair_band", "motion", "window", "context_noise"}
+    for k in old_load:
+        if k not in load_known:
+            raise Refused(f"--carry-words-from {old_name}: word-bearing key 'loads[0].{k}' in old job cannot be carried")
+    job_known = {"name", "note", "source", "first", "frames", "canvas", "output", "subjects", "capture", "preview", "reference_folder",
+                 "texts", "keep_outs", "part_on_track", "others_present", "defaults", "restore",
+                 "left_out", "zoomed", "whole_frame", "part", "track_not", "reference", "carried_words_from"}
+    for k in old_job:
+        if k not in job_known:
+            raise Refused(f"--carry-words-from {old_name}: word-bearing key 'job.{k}' in old job cannot be carried")
+    if first is None and frames is None and old_job.get("left_out"):
+        kept_lo = [e for e in (old_job.get("left_out") or [])
+                   if isinstance(e, dict) and ("left_out", int(e.get("first", 0)), int(e.get("first", 0)) + int(e.get("frames", 0)) - 1) not in leave_map]
+        if kept_lo:
+            first = int(old_job["first"]) if any(int(e["first"]) == shot["first"] for e in kept_lo) else shot["first"]
+            last_f = (int(old_job["first"]) + int(old_job["frames"]) - 1) if any(int(e["first"]) + int(e["frames"]) - 1 == shot["last"] for e in kept_lo) else shot["last"]
+            frames = last_f - first + 1
+    a = shot["first"] if first is None else first
+    n = (shot["last"] - a + 1) if frames is None else frames
+    b = a + n - 1
+    tag = f"(carried from {old_name})"
+    carried_rec = {"from": old_name, "file": old_file, "sha256": old_sha256, "by": by, "at": now}
+    outside_spans: list[str] = []
+    left_words: list[dict] = []
+    left_said: list[str] = []
+    overridden_said: list[str] = []
+
+    def tagged(text: str) -> str:
+        t = " ".join(str(text).split())
+        return t if t.endswith(tag) else f"{t} {tag}"
+
+    def is_left(kind_key: str, x: int, y: int, was_str: str) -> bool:
+        if (kind_key, x, y) in leave_map:
+            leave_map[(kind_key, x, y)] = True
+            left_words.append({"kind": kind_key, "first": x, "last": y, "was": was_str, "by": leave_by_str, "at": now})
+            left_said.append(f"{kind_key} {x}-{y}: {was_str} -> LEFT OUT ({leave_by_str})")
+            return True
+        return False
+
+    def check_span(kind: str, x: int, y: int) -> None:
+        if not (a <= x <= y <= b):
+            outside_spans.append(f"{kind} {x}-{y}")
+
+    carried_said: list[str] = []
+    retired_said: list[str] = []
+    out: dict = {
+        "first": first, "frames": frames, "why_before": "", "why_after": "", "zoomed": None, "whole_frame": None,
+        "zoomed_meta": None, "whole_frame_meta": None,
+        "least": None, "least_why": None, "hold_part": [], "drop": None, "drop_by": None,
+        "parts": None, "parts_by": None, "parts_on": [], "track_not": [], "track_not_by": None,
+        "motion": None, "motion_why": None, "no_strangers": None, "no_strangers_meta": None,
+        "no_face_on": [], "no_face_on_meta": [], "no_mouth_on": [], "no_mouth_on_meta": [],
+        "mouth_on": [], "mouth_on_meta": [], "eyes_shut_on": [], "eyes_shut_on_meta": [], "eyes_shut_form": None,
+        "seam": None, "seam_why": None, "context_noise": None, "context_noise_why": None,
+        "old_name": old_name, "old_file": old_file, "old_sha256": old_sha256, "carried_rec": carried_rec,
+        "carried_said": carried_said, "retired_said": retired_said,
+        "left_words": left_words, "left_said": left_said, "overridden_said": overridden_said,
+    }
+
+    if old_job.get("restore"):
+        retired_said.append("job.restore: retired (2026-10-16: plan restore gone from the plan; not carried)")
+    if "hair_band" in old_load:
+        retired_said.append(f"loads[0].hair_band: not carried (was {old_load.get('hair_band')!r}; rebuilt from the plan's hair_band)")
+    if "render_region" in old_load:
+        retired_said.append(f"loads[0].render_region: not carried (was {old_load.get('render_region')!r}; rebuilt from zoom/whole_frame)")
+    if "others" in old_load:
+        retired_said.append(f"loads[0].others: not carried (was {old_load.get('others')!r}; rebuilt from the preview's subjects and the plan's keep_outs)")
+    ko = old_job.get("keep_outs")
+    if isinstance(ko, dict):
+        for k in ko:
+            if k not in ("of", "by", "preview", "first", "made"):
+                raise Refused(f"--carry-words-from {old_name}: word-bearing key 'job.keep_outs.{k}' in old job cannot be carried")
+        if ko.get("by"):
+            retired_said.append(f"job.keep_outs.by: not carried (was {ko.get('by')!r}; rebuilt from the plan's keep_outs_by and others_present)")
+        if any("stay" in item for item in ko.get("made") or [] if isinstance(item, dict)):
+            retired_said.append("job.keep_outs.stay: retired (26f208c0, 2026-10-16: stay keep-out retired; not carried)")
+    for tk, tv in (old_job.get("texts") or {}).items():
+        if isinstance(tv, dict):
+            for k in tv:
+                if k not in ("file", "frames", "by", "generated_from"):
+                    raise Refused(f"--carry-words-from {old_name}: word-bearing key 'job.texts.{tk}.{k}' in old job cannot be carried")
+            if "BY HAND:" in str(tv.get("by") or ""):
+                raise Refused(f"--carry-words-from {old_name}: word-bearing key 'job.texts.{tk}.by' (written by hand) cannot be carried by job")
+
+    old_mine = None
+    for s in old_job.get("subjects") or []:
+        lbl = s.get("label")
+        if lbl == subject:
+            old_mine = s
+        else:
+            for k in s:
+                if k not in ("label", "phrase", "pick", "parts", "still", "pose"):
+                    raise Refused(f"--carry-words-from {old_name}: word-bearing key 'subjects.{lbl}.{k}' on another subject cannot be carried")
+    if old_mine is None:
+        raise Refused(f"--carry-words-from {old_name}: subject {subject!r} is not in old job's subjects")
+    subj_known = {"label", "phrase", "pick", "parts", "still", "pose", "parts_file", "parts_held_to_track_px",
+                  "pieces", "pieces_by", "least", "least_by", "least_carried", "word", "word_by", "word_carried",
+                  "drop", "drop_by", "drop_carried", "parts_of_this_load", "parts_by", "parts_on"}
+    for k in old_mine:
+        if k not in subj_known:
+            raise Refused(f"--carry-words-from {old_name}: word-bearing key 'subjects.{subject}.{k}' in old job cannot be carried")
+    if "pieces" in old_mine or "pieces_by" in old_mine:
+        retired_said.append(
+            f"subjects.{subject}.pieces/pieces_by: retired (e6993b5e, 2026-10-16: refused on a face or hair; not carried: was {old_mine.get('pieces')!r})"
+        )
+    if ("least" in old_mine) != ("least_by" in old_mine):
+        raise Refused(f"--carry-words-from {old_name}: subjects.{subject}.least and least_by must both be present")
+    if "least" in old_mine:
+        out["least"] = int(old_mine["least"])
+        out["least_why"] = tagged(old_mine["least_by"])
+        carried_said.append(f"least={out['least']}: {out['least_why']}")
+    if ("word" in old_mine) != ("word_by" in old_mine):
+        raise Refused(f"--carry-words-from {old_name}: subjects.{subject}.word and word_by must both be present")
+    if "word" in old_mine:
+        for x, y, w in _parse_word_by(old_mine["word"], old_mine["word_by"], old_name, subject):
+            if is_left("hold_part", x, y, w):
+                continue
+            check_span("hold_part (word)", x, y)
+            tw = tagged(w)
+            out["hold_part"].append((x, y, tw))
+            carried_said.append(f"hold_part {x}-{y}: {tw}")
+    if ("drop" in old_mine) != ("drop_by" in old_mine):
+        raise Refused(f"--carry-words-from {old_name}: subjects.{subject}.drop and drop_by must both be present")
+    if "drop" in old_mine:
+        dspans = [s.strip() for s in str(old_mine["drop"]).split("+") if s.strip()]
+        if not dspans or not str(old_mine.get("drop_by") or "").strip():
+            raise Refused(f"--carry-words-from {old_name}: subjects.{subject}.drop or drop_by is empty")
+        kept_dspans = []
+        for sp in dspans:
+            try:
+                dx, dy = (int(v) for v in (sp.split("-") * 2)[:2])
+            except ValueError:
+                raise Refused(f"--carry-words-from {old_name}: subjects.{subject}.drop span {sp!r} is not FIRST-LAST") from None
+            if is_left("drop", dx, dy, str(old_mine["drop_by"])):
+                continue
+            check_span("drop", dx, dy)
+            kept_dspans.append(f"{dx}-{dy}")
+        if kept_dspans:
+            out["drop"] = "+".join(kept_dspans)
+            out["drop_by"] = tagged(old_mine["drop_by"])
+            carried_said.append(f"drop={out['drop']}: {out['drop_by']}")
+    pblock = old_job.get("part")
+    if pblock is not None or any(k in old_mine for k in ("parts_of_this_load", "parts_by", "parts_on")):
+        pblock = pblock or {}
+        for k in pblock:
+            if k not in ("of", "by", "preview", "first", "parts", "the_plans_parts", "parts_on", "made", "carried"):
+                raise Refused(f"--carry-words-from {old_name}: word-bearing key 'job.part.{k}' in old job cannot be carried")
+        raw_pby = str(old_mine.get("parts_by") or pblock.get("by") or "").strip()
+        if not raw_pby:
+            raise Refused(f"--carry-words-from {old_name}: subject's part in old job has no parts_by")
+        sub_parts = old_mine.get("parts_of_this_load") or pblock.get("parts")
+        if sub_parts and list(sub_parts) != list(plan_parts):
+            out["parts"] = list(sub_parts)
+        for item in (old_mine.get("parts_on") or pblock.get("parts_on") or []):
+            if not isinstance(item, dict) or set(item) - {"first", "last", "parts"}:
+                raise Refused(f"--carry-words-from {old_name}: invalid parts_on entry {item!r} in old job")
+            px, py, pnames = int(item["first"]), int(item["last"]), list(item["parts"])
+            if is_left("parts_on", px, py, f"{pnames} ({raw_pby})"):
+                continue
+            check_span("parts_on", px, py)
+            out["parts_on"].append((px, py, pnames))
+        if out["parts"] or out["parts_on"]:
+            out["parts_by"] = tagged(raw_pby)
+            carried_said.append(f"parts={out['parts'] or plan_parts} parts_on={out['parts_on']}: {out['parts_by']}")
+
+    for entry in old_job.get("left_out") or []:
+        if not isinstance(entry, dict) or set(entry) - {"subject", "first", "frames", "why", "carried"}:
+            raise Refused(f"--carry-words-from {old_name}: word-bearing key in left_out {entry!r} cannot be carried")
+        if entry.get("subject") != subject or not str(entry.get("why") or "").strip():
+            raise Refused(f"--carry-words-from {old_name}: left_out entry {entry!r} is not for {subject!r} or has no why")
+        lx = int(entry["first"])
+        ly = lx + int(entry["frames"]) - 1
+        lw = tagged(entry["why"])
+        if is_left("left_out", lx, ly, str(entry["why"])):
+            continue
+        if a > shot["first"] and (lx, ly) == (shot["first"], a - 1):
+            if (why_before or why).strip():
+                overridden_said.append(f"left_out {lx}-{ly}: OVERRIDDEN: new {(why_before or why).strip()!r} replaces carried {lw!r}")
+            else:
+                out["why_before"] = lw
+                carried_said.append(f"left_out {lx}-{ly}: {lw}")
+        elif b < shot["last"] and (lx, ly) == (b + 1, shot["last"]):
+            if (why_after or why).strip():
+                overridden_said.append(f"left_out {lx}-{ly}: OVERRIDDEN: new {(why_after or why).strip()!r} replaces carried {lw!r}")
+            else:
+                out["why_after"] = lw
+                carried_said.append(f"left_out {lx}-{ly}: {lw}")
+        elif (a > shot["first"] and (why_before or why).strip()) if lx < int(old_job.get("first", a)) else (b < shot["last"] and (why_after or why).strip()):
+            new_cut_w = (why_before or why).strip() if lx < int(old_job.get("first", a)) else (why_after or why).strip()
+            overridden_said.append(f"left_out {lx}-{ly}: OVERRIDDEN: new {new_cut_w!r} replaces carried {lw!r}")
+        else:
+            outside_spans.append(f"left_out {lx}-{ly}")
+
+    if old_job.get("zoomed") is not None:
+        oz = old_job["zoomed"]
+        if not isinstance(oz, dict) or set(oz) - {"why", "said_by", "at", "carried"}:
+            raise Refused(f"--carry-words-from {old_name}: word-bearing key in job.zoomed {oz!r} cannot be carried")
+        if oz.get("said_by") != "the chain's default":
+            z_str = str(oz.get("why") or "")
+            out["zoomed"] = tagged(z_str)
+            out["zoomed_meta"] = {"said_by": oz.get("said_by"), "at": oz.get("at"), "carried": dict(carried_rec)}
+            carried_said.append(f"zoomed ({oz.get('said_by')}, {oz.get('at')}): {out['zoomed']}")
+
+    if old_job.get("whole_frame") is not None:
+        ow = old_job["whole_frame"]
+        if not isinstance(ow, dict) or set(ow) - {"why", "said_by", "at", "carried"}:
+            raise Refused(f"--carry-words-from {old_name}: word-bearing key in job.whole_frame {ow!r} cannot be carried")
+        if ow.get("said_by") != "the plan":
+            w_str = str(ow.get("why") or "")
+            out["whole_frame"] = tagged(w_str)
+            out["whole_frame_meta"] = {"said_by": ow.get("said_by"), "at": ow.get("at"), "carried": dict(carried_rec)}
+            carried_said.append(f"whole_frame ({ow.get('said_by')}, {ow.get('at')}): {out['whole_frame']}")
+
+    if old_job.get("track_not") is not None:
+        otn = old_job["track_not"]
+        if not isinstance(otn, dict) or set(otn) - {"by", "preview", "made", "carried"}:
+            raise Refused(f"--carry-words-from {old_name}: word-bearing key in job.track_not {otn!r} cannot be carried")
+        out["track_not_by"] = tagged(otn.get("by") or "")
+        for item in otn.get("made") or []:
+            lbl = item.get("subject")
+            for sp_pair, wline in zip(item.get("frames") or [], item.get("why") or []):
+                tx, ty = int(sp_pair[0]), int(sp_pair[1])
+                w = wline.split(": ", 1)[1] if ": " in wline else str(wline)
+                if is_left("track_not", tx, ty, f"{lbl}:{w}"):
+                    continue
+                check_span(f"track_not {lbl}", tx, ty)
+                tw = tagged(w)
+                out["track_not"].append((lbl, tx, ty, tw))
+                carried_said.append(f"track_not {lbl}:{tx}-{ty}: {tw}")
+
+    old_ref = old_job.get("reference") or {}
+    ref_known = {"form", "why", "made", "points", "record", "said_by", "taken_as_it_was", "figures", "drawn", "mouth", "iris", "no_face_on", "carried"}
+    for k in old_ref:
+        if k not in ref_known:
+            raise Refused(f"--carry-words-from {old_name}: word-bearing key 'job.reference.{k}' in old job cannot be carried")
+    if old_ref.get("form") == "none" or old_load.get("motion") == "none":
+        out["motion"] = "none"
+        out["motion_why"] = tagged(old_ref.get("why") or "")
+        carried_said.append(f"motion=none: {out['motion_why']}")
+    elif old_ref.get("form") not in (None, "drawn"):
+        raise Refused(f"--carry-words-from {old_name}: word-bearing key 'job.reference.form' ({old_ref.get('form')!r}) in old job cannot be carried by job")
+
+    for s in old_ref.get("no_face_on") or []:
+        if not isinstance(s, dict) or set(s) - {"first", "last", "why", "said_by", "at", "carried"}:
+            raise Refused(f"--carry-words-from {old_name}: word-bearing key in reference.no_face_on {s!r} cannot be carried")
+        fx, fy = int(s["first"]), int(s["last"])
+        f_str = str(s.get("why") or "")
+        if is_left("no_face_on", fx, fy, f"{s.get('said_by')}, {s.get('at')}: {f_str}"):
+            continue
+        check_span("no_face_on", fx, fy)
+        tf = tagged(f_str)
+        out["no_face_on"].append((fx, fy, tf))
+        out["no_face_on_meta"].append({"said_by": s.get("said_by"), "at": s.get("at"), "carried": dict(carried_rec)})
+        carried_said.append(f"no_face_on {fx}-{fy} ({s.get('said_by')}, {s.get('at')}): {tf}")
+
+    old_mouth = old_ref.get("mouth") or {}
+    for k in old_mouth:
+        if k not in ("form", "said_by", "why", "no_mouth_on", "mouth_on"):
+            raise Refused(f"--carry-words-from {old_name}: word-bearing key 'job.reference.mouth.{k}' in old job cannot be carried")
+    if old_mouth.get("said_by") not in (None, "the chain's default", "the plan"):
+        raise Refused(f"--carry-words-from {old_name}: word-bearing setting 'reference.mouth' (said_by {old_mouth.get('said_by')!r}) cannot be carried by job")
+    for field, label in (("no_mouth_on", "no_mouth_on"), ("mouth_on", "mouth_on")):
+        for s in old_mouth.get(field) or []:
+            if not isinstance(s, dict) or set(s) - {"first", "last", "why", "said_by", "at", "carried"}:
+                raise Refused(f"--carry-words-from {old_name}: word-bearing key in reference.mouth.{field} {s!r} cannot be carried")
+            mx, my = int(s["first"]), int(s["last"])
+            m_str = str(s.get("why") or "")
+            if is_left(label, mx, my, f"{s.get('said_by')}, {s.get('at')}: {m_str}"):
+                continue
+            check_span(label, mx, my)
+            tm = tagged(m_str)
+            out[field].append((mx, my, tm))
+            out[f"{field}_meta"].append({"said_by": s.get("said_by"), "at": s.get("at"), "carried": dict(carried_rec)})
+            carried_said.append(f"{label} {mx}-{my} ({s.get('said_by')}, {s.get('at')}): {tm}")
+
+    old_iris = old_ref.get("iris") or {}
+    for k in old_iris:
+        if k not in ("form", "said_by", "why", "eyes_shut"):
+            raise Refused(f"--carry-words-from {old_name}: word-bearing key 'job.reference.iris.{k}' in old job cannot be carried")
+    if old_iris.get("said_by") not in (None, "the chain's default", "the plan"):
+        raise Refused(f"--carry-words-from {old_name}: word-bearing setting 'reference.iris' (said_by {old_iris.get('said_by')!r}) cannot be carried by job")
+    if old_iris.get("eyes_shut"):
+        es = old_iris["eyes_shut"]
+        if not isinstance(es, dict) or set(es) - {"form", "spans"}:
+            raise Refused(f"--carry-words-from {old_name}: word-bearing key in reference.iris.eyes_shut {es!r} cannot be carried")
+        for s in es.get("spans") or []:
+            if not isinstance(s, dict) or set(s) - {"first", "last", "why", "said_by", "at", "carried"}:
+                raise Refused(f"--carry-words-from {old_name}: word-bearing key in reference.iris.eyes_shut.spans {s!r} cannot be carried")
+            ex, ey = int(s["first"]), int(s["last"])
+            e_str = str(s.get("why") or "")
+            if is_left("eyes_shut_on", ex, ey, f"{s.get('said_by')}, {s.get('at')}: {e_str}"):
+                continue
+            check_span("eyes_shut_on", ex, ey)
+            te = tagged(e_str)
+            out["eyes_shut_on"].append((ex, ey, te))
+            out["eyes_shut_on_meta"].append({"said_by": s.get("said_by"), "at": s.get("at"), "carried": dict(carried_rec)})
+            carried_said.append(f"eyes_shut_on ({es.get('form')}) {ex}-{ey} ({s.get('said_by')}, {s.get('at')}): {te}")
+        if out["eyes_shut_on"]:
+            out["eyes_shut_form"] = es.get("form")
+
+    defs_known = {"the reference video", "the reference held to the subject's track", "the eye", "the mouth",
+                  "the part held on a person's word", "the face lines", "zoom", "other people in the shot",
+                  "the strangers keep-out", "the part's pieces", "the hair band", "restore spans", "the text",
+                  "what the composite kept", "the voice", "the seam", "the kept frames' noise"}
+    defs = {}
+    for row in old_job.get("defaults") or []:
+        if not isinstance(row, dict) or row.get("what") not in defs_known:
+            raise Refused(f"--carry-words-from {old_name}: word-bearing default {row!r} in old job cannot be carried")
+        defs[row["what"]] = row
+    st_row = defs.get("the strangers keep-out")
+    if st_row and str(st_row.get("from") or "").startswith("TURNED OFF on a person's word"):
+        fr = str(st_row["from"])
+        if fr.startswith("TURNED OFF on a person's word (") and "): " in fr:
+            who_at, _, w = fr[len("TURNED OFF on a person's word ("):].partition("): ")
+            orig_by, _, orig_at = who_at.partition(", ")
+            ns_val = tagged(w)
+            out["no_strangers_meta"] = {"by": orig_by.strip() or who_at, "at": orig_at.strip(), "who_at": who_at, "carried": dict(carried_rec)}
+        else:
+            ns_val = tagged(fr)
+            out["no_strangers_meta"] = {"by": "", "at": "", "who_at": "", "carried": dict(carried_rec)}
+        out["no_strangers"] = ns_val
+        carried_said.append(f"no_strangers: {tagged(fr)}")
+    sm_row = defs.get("the seam")
+    if "window" in old_load or (sm_row and not str(sm_row.get("from") or "").startswith("the planner")):
+        seams = [int(x) for x in re.findall(r"writes from (\d+)", (sm_row or {}).get("carries", ""))]
+        if not seams or not sm_row or str(sm_row.get("from") or "").startswith("the planner"):
+            raise Refused(f"--carry-words-from {old_name}: loads[0].window={old_load.get('window')!r} has no person's seam words in job.defaults")
+        seams = [sf for sf in seams if not is_left("seam", sf, sf, str(sm_row["from"]))]
+        for sf in seams:
+            if not (a < sf <= b):
+                outside_spans.append(f"seam {sf}-{sf}")
+        out["seam"] = seams
+        if out["seam"]:
+            out["seam_why"] = tagged(sm_row["from"])
+            carried_said.append(f"seam={','.join(map(str, out['seam']))}: {out['seam_why']}")
+        else:
+            out["seam"] = None
+    cn_row = defs.get("the kept frames' noise")
+    if "context_noise" in old_load or cn_row:
+        if "context_noise" not in old_load or not cn_row or not str(cn_row.get("from") or "").strip():
+            raise Refused(f"--carry-words-from {old_name}: context_noise in old job is missing its defaults reason")
+        out["context_noise"] = float(old_load["context_noise"])
+        out["context_noise_why"] = tagged(cn_row["from"])
+        carried_said.append(f"context_noise={out['context_noise']:g}: {out['context_noise_why']}")
+    unmatched = [f"{k}:{x}-{y}" for (k, x, y), matched in leave_map.items() if not matched]
+    if unmatched:
+        raise Refused(f"--carry-words-from {old_name}: --leave-word {', '.join(unmatched)} has no such span in {old_name}")
+    if outside_spans:
+        raise Refused(f"--carry-words-from {old_name}: carried span(s) {', '.join(outside_spans)} lie outside the new job's frames {a}-{b}")
+    return out
+
+
 def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, preview_folder: str, video: str, output: Path, by: str, day: str,
              name: str, first: int | None = None, frames: int | None = None, why: str = "", now: str = "", source: str | None = None,
              why_before: str = "", why_after: str = "", zoomed: str | None = None, least: int | None = None, least_why: str | None = None,
@@ -1324,7 +1766,9 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
              eyes_shut_on: list[tuple[int, int, str]] | None = None, eyes_shut_form: str | None = None,
              no_face_on: list[tuple[int, int, str]] | None = None, hold_part: list[tuple[int, int, str]] | None = None, seam: list[int] | None = None,
              seam_why: str | None = None, context_noise: float | None = None, context_noise_why: str | None = None,
-             mouth_on: list[tuple[int, int, str]] | None = None, data: Path | None = None) -> dict:
+             mouth_on: list[tuple[int, int, str]] | None = None, data: Path | None = None,
+             drop: str | None = None, drop_by: str | None = None, carry_words_from: dict | Path | str | None = None,
+             leave_word: list[str] | None = None, leave_by: str | None = None) -> dict:
     """The job file of one subject's load on a shot, from the shot's preview. `preview` is the preview's own job
     block; `source` is the file the load renders from, the video's present copy (the preview's own when left out).
     `parts` with `parts_by` makes the load's part some of its subject's plan parts (`part_of`)."""
@@ -1339,6 +1783,74 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
     if (preview["first"], preview["first"] + preview["frames"] - 1) != (shot["first"], shot["last"]):
         raise Refused(f"the preview {preview['name']} is of {preview['first']}-{preview['first'] + preview['frames'] - 1}, not of the shot {shot['first']}-{shot['last']}")
     p = planned(plan, subject)
+    cw = None
+    wb_from_cw = wa_from_cw = zoomed_from_cw = whole_from_cw = least_from_cw = False
+    parts_from_cw = track_not_from_cw = motion_from_cw = ns_from_cw = es_from_cw = False
+    seam_from_cw = cn_from_cw = drop_from_cw = False
+    n_cw_hp = 0
+    if carry_words_from is None and (leave_word or str(leave_by or "").strip()):
+        raise Refused("--leave-word goes with --carry-words-from: there is no carried job to leave a word out of")
+    if carry_words_from is not None:
+        cw = carry_words_of(carry_words_from, shot, subject, list(p.get("parts") or []), first, frames, why, why_before, why_after,
+                            by=by, now=now, leave_word=leave_word, leave_by=leave_by)
+        def _ov(prefix: str, new_desc: str, old_desc: str) -> None:
+            cw["carried_said"][:] = [x for x in cw["carried_said"] if not x.startswith(prefix)]
+            cw["overridden_said"].append(f"{prefix.rstrip(': =')}: OVERRIDDEN: new {new_desc} replaces carried {old_desc}")
+        first = cw["first"] if first is None else first
+        frames = cw["frames"] if frames is None else frames
+        wb_from_cw = not bool((why_before or why).strip()) and bool(cw["why_before"])
+        wa_from_cw = not bool((why_after or why).strip()) and bool(cw["why_after"])
+        why_before = why_before or cw["why_before"]
+        why_after = why_after or cw["why_after"]
+        if zoomed is None and whole_frame is None and cw["zoomed"] is not None:
+            zoomed, zoomed_from_cw = cw["zoomed"], True
+        elif cw["zoomed"] is not None:
+            _ov("zoomed ", f"zoomed={zoomed!r} whole_frame={whole_frame!r}", repr(cw["zoomed"]))
+        if whole_frame is None and zoomed is None and cw["whole_frame"] is not None:
+            whole_frame, whole_from_cw = cw["whole_frame"], True
+        elif cw["whole_frame"] is not None:
+            _ov("whole_frame ", f"whole_frame={whole_frame!r} zoomed={zoomed!r}", repr(cw["whole_frame"]))
+        if least is None and cw["least"] is not None:
+            least, least_why, least_from_cw = cw["least"], cw["least_why"], True
+        elif cw["least"] is not None:
+            _ov("least=", f"least={least} ({least_why})", f"least={cw['least']} ({cw['least_why']})")
+        if parts is None and not parts_on and cw["parts_by"] is not None:
+            parts, parts_on, parts_by, parts_from_cw = cw["parts"], list(cw["parts_on"]), cw["parts_by"], True
+        elif cw["parts_by"] is not None:
+            _ov("parts=", f"parts={parts} parts_on={parts_on} ({parts_by})", f"parts={cw['parts']} parts_on={cw['parts_on']} ({cw['parts_by']})")
+        if not track_not and cw["track_not"]:
+            track_not, track_not_by, track_not_from_cw = list(cw["track_not"]), cw["track_not_by"], True
+        elif cw["track_not"]:
+            _ov("track_not ", f"{track_not} ({track_not_by})", f"{cw['track_not']} ({cw['track_not_by']})")
+        if motion is None and cw["motion"] is not None:
+            motion, motion_why, motion_from_cw = cw["motion"], cw["motion_why"], True
+        elif cw["motion"] is not None:
+            _ov("motion=", f"motion={motion} ({motion_why})", f"motion={cw['motion']} ({cw['motion_why']})")
+        if no_strangers is None and cw["no_strangers"] is not None:
+            no_strangers, ns_from_cw = cw["no_strangers"], True
+        elif cw["no_strangers"] is not None:
+            _ov("no_strangers:", repr(no_strangers), repr(cw["no_strangers"]))
+        no_face_on = list(cw["no_face_on"]) + list(no_face_on or [])
+        no_mouth_on = list(cw["no_mouth_on"]) + list(no_mouth_on or [])
+        mouth_on = list(cw["mouth_on"]) + list(mouth_on or [])
+        if not eyes_shut_on and cw["eyes_shut_on"]:
+            eyes_shut_on, eyes_shut_form, es_from_cw = list(cw["eyes_shut_on"]), cw["eyes_shut_form"], True
+        elif cw["eyes_shut_on"]:
+            _ov("eyes_shut_on ", f"{eyes_shut_on} (form={eyes_shut_form})", f"{cw['eyes_shut_on']} (form={cw['eyes_shut_form']})")
+        n_cw_hp = len(cw["hold_part"])
+        hold_part = list(cw["hold_part"]) + list(hold_part or [])
+        if seam is None and cw["seam"] is not None:
+            seam, seam_why, seam_from_cw = cw["seam"], cw["seam_why"], True
+        elif cw["seam"] is not None:
+            _ov("seam=", f"seam={seam} ({seam_why})", f"seam={cw['seam']} ({cw['seam_why']})")
+        if context_noise is None and cw["context_noise"] is not None:
+            context_noise, context_noise_why, cn_from_cw = cw["context_noise"], cw["context_noise_why"], True
+        elif cw["context_noise"] is not None:
+            _ov("context_noise=", f"context_noise={context_noise} ({context_noise_why})", f"context_noise={cw['context_noise']} ({cw['context_noise_why']})")
+        if drop is None and cw["drop"] is not None:
+            drop, drop_by, drop_from_cw = cw["drop"], cw["drop_by"], True
+        elif cw["drop"] is not None:
+            _ov("drop=", f"drop={drop} ({drop_by})", f"drop={cw['drop']} ({cw['drop_by']})")
     # WHO ELSE IS IN THE SHOT (the owner's word of 2026-10-14: it belongs in the job file), from the preview's own tables and the
     # owner's answers (bench/others_present.py); the strangers keep-out follows it and not the plan's key, where it can say
     others = others_of_load(preview, output, shot, cast, cast_from, plan.get("not_people"))
@@ -1360,8 +1872,14 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             raise Refused(f"--no-strangers on a shot where the record has seen someone else (frame(s) {', '.join(map(str, seen))}): name each of those "
                           "frames in WHY and why it does not matter")
         left = [k for k in p.get("keep_outs") or [] if k != "strangers"]
-        p = dict(p, keep_outs=left or None, strangers_turned_off={"why": said_ns, "file_named": sheets[0], "by": by, "at": now},
-                 strangers_from=f"TURNED OFF on a person's word ({by}, {now}): {said_ns}")
+        ns_meta = cw["no_strangers_meta"] if (cw and ns_from_cw) else None
+        ns_who = ns_meta["who_at"] if (ns_meta and ns_meta.get("who_at")) else f"{by}, {now}"
+        p = dict(p, keep_outs=left or None,
+                 strangers_turned_off={"why": said_ns, "file_named": sheets[0],
+                                       "by": (ns_meta["by"] or by) if ns_meta else by,
+                                       "at": (ns_meta["at"] or now) if ns_meta else now,
+                                       **({"carried": dict(ns_meta["carried"])} if ns_meta else {})},
+                 strangers_from=f"TURNED OFF on a person's word ({ns_who}): {said_ns}")
         p.pop("keep_outs_by", None)
         if left:                                        # the plan's own reason for the keep-outs left, without the data's strangers clause
             p["keep_outs_by"] = " ".join(str(plans.get("keep_outs_by") or "").split())
@@ -1414,9 +1932,13 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         if not (a <= x <= y <= b):
             raise Refused(f"--parts-on {x}-{y} is not inside the load's frames {a}-{b}")
     part, part_said = part_of(p, subject, parts, parts_by, preview, video, output, preview_files, classes_of, parts_on)
+    if part and cw and parts_from_cw:
+        part["carried"] = dict(cw["carried_rec"])
     kept, kept_said = keep_outs_of(p, subject, preview, list(theirs), video, output, preview_files)
     on_track, on_track_said = part_on_track(p, subject, part, preview, video, output, preview_files)
     gone, gone_said = track_not_of(subject, preview, track_not or [], track_not_by, (a, b), video, output, preview_files)
+    if gone and cw and track_not_from_cw:
+        gone["carried"] = dict(cw["carried_rec"])
     if on_track and gone:
         gone_said += (" WITH THE STRANGERS KEPT OUT AS WELL: the strangers file takes out each subject's PREVIEW track, so on the frames named above "
                       "the pixels under that track are neither a stranger nor an other of this load, and are regenerable where the region reaches them.")
@@ -1447,14 +1969,17 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         if motion == "none":
             raise Refused("--no-mouth-on acts on the drawn reference, and this load has none (--motion none)")
         spans = []
-        for x, y, said in no_mouth_on:
+        for idx, (x, y, said) in enumerate(no_mouth_on):
             said = " ".join(str(said).split())
             if not (a <= x <= y <= b):
                 raise Refused(f"--no-mouth-on {x}-{y}: the load is {a}-{b}")
             if not any(Path(w.strip(".,;:()\"'")).is_file() for w in said.split()):
                 raise Refused(f"--no-mouth-on {x}-{y} takes a person's word on a look: who looked, at which sheet of those frames (name its file: the "
                               "tool checks only that a file of that name is there), and that her mouth is hidden there")
-            spans.append({"first": x, "last": y, "why": said, "said_by": by, "at": now})
+            meta = cw["no_mouth_on_meta"][idx] if (cw and idx < len(cw["no_mouth_on_meta"])) else None
+            spans.append({"first": x, "last": y, "why": said,
+                          "said_by": meta["said_by"] if meta else by, "at": meta["at"] if meta else now,
+                          **({"carried": dict(meta["carried"])} if meta else {})})
         ref_form["mouth"] = dict(ref_form["mouth"], no_mouth_on=spans)
     # NO LINE OF THE FACE ON A SPAN, on a person's word (`--no-face-on FIRST-LAST=WHY`, the lead's ruling of 2026-10-15 on the hall shot's
     # references, which drew eyes and brows on the backs of two heads, and on 4310's 4395-4398): the plain cut body model alone there, as on
@@ -1464,14 +1989,17 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         if motion == "none":
             raise Refused("--no-face-on acts on the drawn reference, and this load has none (--motion none)")
         spans = []
-        for x, y, said in no_face_on:
+        for idx, (x, y, said) in enumerate(no_face_on):
             said = " ".join(str(said).split())
             if not (a <= x <= y <= b):
                 raise Refused(f"--no-face-on {x}-{y}: the load is {a}-{b}")
             if not any(Path(w.strip(".,;:()\"'")).is_file() for w in said.split()):
                 raise Refused(f"--no-face-on {x}-{y} takes a person's word on a look: who looked, at which sheet of those frames (name its file: the "
                               "tool checks only that a file of that name is there), and that the face does not show there")
-            spans.append({"first": x, "last": y, "why": said, "said_by": by, "at": now})
+            meta = cw["no_face_on_meta"][idx] if (cw and idx < len(cw["no_face_on_meta"])) else None
+            spans.append({"first": x, "last": y, "why": said,
+                          "said_by": meta["said_by"] if meta else by, "at": meta["at"] if meta else now,
+                          **({"carried": dict(meta["carried"])} if meta else {})})
         if sorted(parts or []) == ["hair"]:
             raise Refused("--no-face-on on a load of her hair alone: no line of the face is drawn on any of its frames already")
         ref_form["no_face_on"] = spans
@@ -1483,14 +2011,17 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         if motion == "none":
             raise Refused("--mouth-on acts on the drawn reference, and this load has none (--motion none)")
         spans = []
-        for x, y, said in mouth_on:
+        for idx, (x, y, said) in enumerate(mouth_on):
             said = " ".join(str(said).split())
             if not (a <= x <= y <= b):
                 raise Refused(f"--mouth-on {x}-{y}: the load is {a}-{b}")
             if not any(Path(w.strip(".,;:()\"'")).is_file() for w in said.split()):
                 raise Refused(f"--mouth-on {x}-{y} takes a person's word on a look: who looked, at which sheet of those frames (name its file: the "
                               "tool checks only that a file of that name is there), and that her mouth is open there")
-            spans.append({"first": x, "last": y, "why": said, "said_by": by, "at": now})
+            meta = cw["mouth_on_meta"][idx] if (cw and idx < len(cw["mouth_on_meta"])) else None
+            spans.append({"first": x, "last": y, "why": said,
+                          "said_by": meta["said_by"] if meta else by, "at": meta["at"] if meta else now,
+                          **({"carried": dict(meta["carried"])} if meta else {})})
         # a mouth form other than the check's (`auto`) has no gate to override (the cold reader of 2026-10-15)
         if ref_form["mouth"].get("form") != "auto":
             raise Refused(f"--mouth-on overrides the reference's frame-at-a-time mouth gate, and this load's mouth is {ref_form['mouth'].get('form')!r} "
@@ -1520,14 +2051,17 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         if sorted(parts or []) == ["hair"]:
             raise Refused("--eyes-shut-on on a load of her hair alone: no line of the face is drawn on it (--no-face-on), so there are no eyes to shut")
         spans = []
-        for x, y, said in eyes_shut_on:
+        for idx, (x, y, said) in enumerate(eyes_shut_on):
             said = " ".join(str(said).split())
             if not (a <= x <= y <= b):
                 raise Refused(f"--eyes-shut-on {x}-{y}: the load is {a}-{b}")
             if not any(Path(w.strip(".,;:()\"'")).is_file() for w in said.split()):
                 raise Refused(f"--eyes-shut-on {x}-{y} takes a person's word on a look: who looked, at which table or sheet of those frames (name its "
                               "file: the tool checks only that a file of that name is there), and that her eyes are shut there")
-            spans.append({"first": x, "last": y, "why": said, "said_by": by, "at": now})
+            meta = cw["eyes_shut_on_meta"][idx] if (cw and es_from_cw and idx < len(cw["eyes_shut_on_meta"])) else None
+            spans.append({"first": x, "last": y, "why": said,
+                          "said_by": meta["said_by"] if meta else by, "at": meta["at"] if meta else now,
+                          **({"carried": dict(meta["carried"])} if meta else {})})
         faceless = {f for x in ref_form.get("no_face_on") or [] for f in range(x["first"], x["last"] + 1)}
         both = sorted(f for x in spans for f in range(x["first"], x["last"] + 1) if f in faceless)
         if both:
@@ -1581,12 +2115,16 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
     if p.get("zoom") is False and not str(p.get("zoom_by") or "").strip():
         raise Refused(f"the plan says `zoom: false` for {subject!r} with no `zoom_by`: who said so, and why")
     if whole_frame is not None or (p.get("zoom") is False and zoomed is None):
-        whole_block = ({"why": " ".join(whole_frame.split()), "said_by": by, "at": now} if whole_frame is not None
+        whole_block = ({"why": " ".join(whole_frame.split()), "said_by": cw["whole_frame_meta"]["said_by"], "at": cw["whole_frame_meta"]["at"],
+                        "carried": dict(cw["whole_frame_meta"]["carried"])} if (cw and whole_from_cw and cw.get("whole_frame_meta")) else
+                       {"why": " ".join(whole_frame.split()), "said_by": by, "at": now} if whole_frame is not None
                        else {"why": " ".join(str(p["zoom_by"]).split()), "said_by": "the plan", "at": now})
         chosen += (f" RENDERED ON THE WHOLE FRAME, not zoomed in as the chain's default, on {whole_block['said_by']}'s word: {whole_block['why']}.")
     else:
         load["render_region"] = "part"
-        zoom_block = ({"why": " ".join(zoomed.split()), "said_by": by, "at": now} if zoomed is not None
+        zoom_block = ({"why": " ".join(zoomed.split()), "said_by": cw["zoomed_meta"]["said_by"], "at": cw["zoomed_meta"]["at"],
+                       "carried": dict(cw["zoomed_meta"]["carried"])} if (cw and zoomed_from_cw and cw.get("zoomed_meta")) else
+                      {"why": " ".join(zoomed.split()), "said_by": by, "at": now} if zoomed is not None
                       else {"why": "the chain's default (2026-10-14): rendered zoomed in whenever the node's own box allows; the node decides at plan and "
                                    "renders on the whole frame under its smallest zoom", "said_by": "the chain's default", "at": now})
         chosen += (f" RENDERED ZOOMED IN on what is replaced (`render_region: part`) where the node's box allows, on {zoom_block['said_by']}'s word: "
@@ -1598,9 +2136,12 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         if int(least) < 0:
             raise Refused(f"--least {least}: a part's least size is 0 (nothing emptied by size) or more, in px of the whole frame")
         mine = next(s for s in subjects if s["label"] == subject)
-        mine["least"], mine["least_by"] = int(least), f"{by}, {now}: {' '.join(least_why.split())}"
+        l_said = " ".join(least_why.split())
+        mine["least"], mine["least_by"] = int(least), (l_said if (cw and least_from_cw) else f"{by}, {now}: {l_said}")
+        if cw and least_from_cw:
+            mine["least_carried"] = dict(cw["carried_rec"])
         chosen += (f" THE CAPTURE'S FLOOR FOR {subject}'s PART IS SET FOR THIS LOAD: least={int(least)} px of the whole frame, on {by}'s word: "
-                   f"{' '.join(least_why.split())}.")
+                   f"{l_said}.")
     # THE PART HELD ON A PERSON'S WORD (`--hold-part FIRST-LAST=WHY`, the lead's ruling of 2026-10-15 on 2823b's 3098-3104 and 5935's
     # 6008 and 6020): frames the capture's grade leaves empty there take the nearest graded part, moved and cut to the track
     # (capture_masked_run.word_shapes), at any distance. The same terms as --no-mouth-on: the look and its file named, each span inside the load. The load is one
@@ -1619,9 +2160,35 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             spans.append((x, y, said))
         mine = next(s for s in subjects if s["label"] == subject)
         mine["word"] = "+".join(f"{x}-{y}" for x, y, _ in spans)
-        mine["word_by"] = "; ".join(f"{x}-{y}: {by}, {now}: {said}" for x, y, said in spans)
+        mine["word_by"] = "; ".join(f"{x}-{y}: {said if idx < n_cw_hp else f'{by}, {now}: {said}'}" for idx, (x, y, said) in enumerate(spans))
+        if cw and n_cw_hp:
+            mine["word_carried"] = dict(cw["carried_rec"])
         chosen += (f" {subject}'s PART IS HELD ON A PERSON'S WORD on {mine['word'].replace('+', ', ')}: frames the capture's grade leaves empty there "
                    f"take the nearest graded part, moved and cut to the track ({mine['word_by']}).")
+    if (drop is None) != (not str(drop_by or "").strip()):
+        raise Refused("drop and drop_by go together: the frames where the capture empties the part, and a person's reason")
+    if drop is not None:
+        dspans = []
+        for raw_s in str(drop).split("+"):
+            raw_s = raw_s.strip()
+            if not raw_s:
+                continue
+            try:
+                dx, dy = (int(v) for v in (raw_s.split("-") * 2)[:2])
+            except ValueError:
+                raise Refused(f"drop {raw_s!r} is not FIRST-LAST") from None
+            if dx > dy or not (a <= dx <= dy <= b):
+                raise Refused(f"drop {dx}-{dy} is not inside the load's frames {a}-{b}")
+            dspans.append(f"{dx}-{dy}")
+        if not dspans:
+            raise Refused("drop names no frames")
+        mine = next(s for s in subjects if s["label"] == subject)
+        d_said = " ".join(str(drop_by).split())
+        mine["drop"] = "+".join(dspans)
+        mine["drop_by"] = d_said if (cw and drop_from_cw) else f"{by}, {now}: {d_said}"
+        if cw and drop_from_cw:
+            mine["drop_carried"] = dict(cw["carried_rec"])
+        chosen += f" DROP ON THIS LOAD ({mine['drop']}), on {mine['drop_by']}: the capture empties the part there."
     # what the composite kept, saved for the review clips (the song node's `save_kept`): a chain default, the job's switch (2026-10-15)
     load["save_kept"] = True
     carried = defaults_carried(p, load, subjects, subject, kept, ref_form, zoom_block, whole_block)
@@ -1632,8 +2199,9 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             if x["what"] == "the text":
                 x["carries"] = ("generated by bench/load_text.py from the plan's words and the voice table, with no reference video (no <Video 1>, "
                                 "no <Subject 2>), with no place-and-action sentence (load_text.NO_SCENE)")
+        m_from = " ".join(str(motion_why).split()) if (cw and motion_from_cw) else f"{by}, {now}: {' '.join(str(motion_why).split())}"
         carried.append({"what": "the reference video", "carries": "none: the source's own picture carries her movement",
-                        "from": f"{by}, {now}: {' '.join(str(motion_why).split())}"})
+                        "from": m_from})
     # THE VOICE (the owner's word of 2026-10-15 on 5675b: the plan says per span whether a subject sings, talks unheard or is silent; the
     # text step reads it, `load_text.voice_of`, in place of the voice table's guess)
     import load_text
@@ -1653,10 +2221,14 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
     if window is not None:
         load["window"] = window
     if seam_row is not None:
+        if cw and seam_from_cw:
+            seam_row["from"] = " ".join(str(seam_why).split())
         carried.append(seam_row)
     noise_row = context_noise_of(n, context_noise, context_noise_why, by, now)
     if noise_row is not None:
         load["context_noise"] = float(context_noise)
+        if cw and cn_from_cw:
+            noise_row["from"] = " ".join(str(context_noise_why).split())
         carried.append(noise_row)
     note = (f"Written by bench/shot_to_load.py for {by}, {now}. ONE LOAD: {subject}, {renders(region, parts)}, source frames {a} to {b} ({n} frames) of the shot "
             f"{shot['first']}-{shot['last']}, its masks from the preview {preview['name']} (job.preview), "
@@ -1668,9 +2240,28 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             + (f" ITS REFERENCE GOES TO {ref_folder.name}, A NEW FOLDER: {ref_why}; a new one." if ref_why else "")
             + (f" NO REFERENCE VIDEO (motion none): the reference step makes nothing for this load and the text names no video: "
                f"{' '.join(str(motion_why).split())} ({by}, {now})." if motion == "none" else ""))
+    if cw is not None:
+        print(f"WORDS CARRIED FROM {cw['old_name']}:")
+        print(f"  source: {cw['old_file']} (sha256 {cw['old_sha256']})")
+        for line in cw["carried_said"] or ["none"]:
+            print(f"  {line}")
+        if cw["overridden_said"]:
+            print(f"WORDS OVERRIDDEN FROM {cw['old_name']}:")
+            for line in cw["overridden_said"]:
+                print(f"  {line}")
+        if cw["left_said"]:
+            print(f"WORDS LEFT OUT FROM {cw['old_name']}:")
+            for line in cw["left_said"]:
+                print(f"  {line}")
+        if cw["retired_said"]:
+            print(f"RETIRED KEYS NOT CARRIED FROM {cw['old_name']}:")
+            for line in cw["retired_said"]:
+                print(f"  {line}")
     return {"job": {"name": name, "note": note, "source": source or preview["source"], "first": a, "frames": n, "canvas": list(preview["canvas"]),
                     "output": OUTPUT_KEY.format(video=video, session=by), "subjects": subjects,
-                    "left_out": [{"subject": subject, "first": x, "frames": y - x + 1, "why": said} for x, y, said in cut],
+                    "left_out": [{"subject": subject, "first": x, "frames": y - x + 1, "why": said,
+                                  **({"carried": dict(cw["carried_rec"])} if cw and ((x == shot["first"] and wb_from_cw) or (y == shot["last"] and wa_from_cw)) else {})}
+                                 for x, y, said in cut],
                     "capture": f"data/{day}_{name}", "preview": preview_folder,
                     **({"reference_folder": {"folder": ref_folder.name, "why": f"{ref_why}; a new one"}} if ref_why else {}),
                     "texts": {name: {"file": f"{name}.txt", "frames": [a, b], "by": ""}},
@@ -1682,7 +2273,9 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
                     **({"part": part} if part else {}), **({"part_on_track": on_track} if on_track else {}), **({"zoomed": zoom_block} if zoom_block else {}),
                     **({"whole_frame": whole_block} if whole_block else {}),
                     **({"track_not": gone} if gone else {}),
-                    "reference": ({"form": "none", "why": f"{by}, {now}: {' '.join(str(motion_why).split())}", "made": None} if motion == "none" else
+                    **({"carried_words_from": {**cw["carried_rec"], **({"left_words": cw["left_words"]} if cw["left_words"] else {})}} if cw else {}),
+                    "reference": ({"form": "none", "why": (" ".join(str(motion_why).split()) if (cw and motion_from_cw) else f"{by}, {now}: {' '.join(str(motion_why).split())}"),
+                                   "made": None, **({"carried": dict(cw["carried_rec"])} if (cw and motion_from_cw) else {})} if motion == "none" else
                                   {"form": "drawn", "why": "the form for a face, head or hair replacement (AGENTS.md, Settled)", "made": None,
                                    "mouth": ref_form["mouth"], "iris": ref_form["iris"],
                                    **({"no_face_on": ref_form["no_face_on"]} if ref_form.get("no_face_on") else {})}),
@@ -1966,13 +2559,24 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
     region = plan["subjects"][a.subject]["region"]
     if region not in FORM:
         raise Refused(f"the plan's region for {a.subject!r} is {region!r}: this tool names and makes part loads ({', '.join(FORM)})")
-    first = shot["first"] if a.first is None else a.first
+    theirs = plan["subjects"][a.subject].get("parts") or []
+    cwf = getattr(a, "carry_words_from", None)
+    lw = getattr(a, "leave_word", None) or []
+    lby = getattr(a, "leave_by", None)
+    eff_first, eff_parts = a.first, a.parts
+    if cwf is not None and (eff_first is None or eff_parts is None):
+        cw_peek = carry_words_of(cwf, shot, a.subject, list(theirs), a.first, a.frames, a.why or "", a.why_before or "", a.why_after or "",
+                                 by=a.by, now=load_chain.utc_now(), leave_word=lw, leave_by=lby)
+        if eff_first is None:
+            eff_first = cw_peek["first"]
+        if eff_parts is None:
+            eff_parts = cw_peek["parts"]
+    first = shot["first"] if eff_first is None else eff_first
     folder = Path(a.folder)
     # a name is taken by a job file of any day in this folder, and by a capture or a job folder of any day
     taken = lambda n: (folder / f"{n}.json").exists() or any(world.data.glob(f"????-??-??_{n}")) or any(world.data.glob(f"????-??-??_{n}_job"))
     # a load of some of the plan's parts is named by them, a letter a part: the hair alone is `hp`, neither `hfp` nor `fp`
-    theirs = plan["subjects"][a.subject].get("parts") or []
-    form = FORM[region] if not a.parts else "".join(PART_LETTER.get(k, "x") for k in theirs if k in a.parts) + "p"
+    form = FORM[region] if not eff_parts else "".join(PART_LETTER.get(k, "x") for k in theirs if k in eff_parts) + "p"
     name = free_name(f"{a.subject}_{form}_{first:04d}", taken, a.remake)
     rel = str(pfolder.resolve().relative_to(REPO.resolve())) if pfolder.resolve().is_relative_to(REPO.resolve()) else str(pfolder)
     job = load_job(shots, plan, shot, a.subject, preview, rel, video, world.output, a.by, a.day, name, a.first, a.frames, a.why or "", load_chain.utc_now(),
@@ -1988,10 +2592,12 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
                    no_face_on=[no_mouth_on_arg(x, "--no-face-on") for x in getattr(a, "no_face_on", None) or []],
                    hold_part=[no_mouth_on_arg(x, "--hold-part") for x in getattr(a, "hold_part", None) or []],
                    eyes_shut_form=getattr(a, "eyes_shut_form", None), seam=seams_arg(getattr(a, "seam", None)), seam_why=getattr(a, "seam_why", None),
-                   context_noise=getattr(a, "context_noise", None), context_noise_why=getattr(a, "context_noise_why", None))
+                   context_noise=getattr(a, "context_noise", None), context_noise_why=getattr(a, "context_noise_why", None),
+                   drop=getattr(a, "drop", None), drop_by=getattr(a, "drop_by", None), carry_words_from=cwf,
+                   leave_word=lw, leave_by=lby)
     job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "ITS PREVIEW WAS MADE ON AN EARLIER COPY")
     out = folder / f"{name}.json"
-    print(f"{name}: {a.subject}, {renders(region, a.parts)}, source frames {job['loads'][0]['first']}-{job['loads'][0]['first'] + job['loads'][0]['frames'] - 1}; "
+    print(f"{name}: {a.subject}, {renders(region, eff_parts)}, source frames {job['loads'][0]['first']}-{job['loads'][0]['first'] + job['loads'][0]['frames'] - 1}; "
           + (f"its reference will be {job['loads'][0]['motion_file']}" if job["loads"][0].get("motion_file") else "NO REFERENCE VIDEO (motion none)"))
     print(job["job"]["note"])                # the load in words, as the preview step prints its own: a dry run shows every choice made for it
     print("THE DEFAULTS THIS LOAD CARRIES:")
@@ -2519,6 +3125,14 @@ def main() -> int:
                                   "else is in the shot (bench/others_present.py); each tracker's pick is taken without it, and the job says so")
     j.add_argument("--least", type=int, metavar="PX", help="the capture's floor for the subject's part on this load, in px of the whole frame; with --least-why")
     j.add_argument("--least-why", metavar="WHY", help="why the floor is set there; kept beside it in the job file")
+    j.add_argument("--drop", metavar="FIRST-LAST[+FIRST-LAST...]", help="source frame spans where the capture empties the subject's part on this load; with --drop-by")
+    j.add_argument("--drop-by", metavar="WHY", help="who says the part is dropped on those frames and why; kept in the job file")
+    j.add_argument("--carry-words-from", metavar="OLD_JOB.json", help="carry every person's word from an earlier load's job file for the frames this load covers, "
+                   "tagged (carried from <old load>); refuses any word-bearing key it does not know how to carry or any carried span outside this load's frames")
+    j.add_argument("--leave-word", action="append", default=[], metavar="KIND:FIRST-LAST",
+                   help="with --carry-words-from and --leave-by: leave out a carried span (left_out, drop, hold_part, parts_on, track_not, no_face_on, "
+                        "no_mouth_on, mouth_on, eyes_shut_on, seam) on purpose, recording the drop in job.carried_words_from.left_words; repeatable")
+    j.add_argument("--leave-by", metavar="WHO_WHY", help="who says the --leave-word span(s) are left out and why; kept in job.carried_words_from.left_words")
     r = sub.add_parser("reference")
     r.add_argument("job_file")
     r.add_argument("--plain", metavar="WHY", help="take the plain cut, on a person's word; the reason is kept in the job file")
