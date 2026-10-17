@@ -33,8 +33,8 @@ Subcommands (every path is an argument; bulk arrays go to --work-dir, small json
     render   stacked video + chart of the arms            render --work-dir W --stretch calm --out-dir O --arms H16_a=Label ...
 
 `arm` and `floor` need ComfyUI core importable (this file sits in bench/ of the pack, two levels under the ComfyUI root) and a
-card; `--cpu` runs them on the CPU for a plumbing check. `meta_sam3/` and `coderef/` are references this work reads: nothing
-shipped imports them or this tool.
+card; `--cpu` runs them on the CPU for a plumbing check. `coderef/sam3` is the reference this work reads (`meta_sam3/` was
+removed on 2026-10-17, r17_05, and is in git history at `a05b676d`): nothing shipped imports it or this tool.
 
 Frames are the clip's own frames, no resize here; core's nodes resize to 1008 x 1008 themselves (bilinear in `SAM3_Detect`,
 bicubic in the tracker's `_prep_frame`).

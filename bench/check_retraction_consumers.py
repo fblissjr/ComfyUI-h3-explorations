@@ -96,7 +96,7 @@ SUFFIXES = (".md", ".py")
 # internal/ is gitignored research and session logs; it records what was
 # believed at the time on purpose, and holding it to the current retraction
 # state would make every postmortem fail the moment it was superseded.
-SKIP_DIRS = {".git", "internal", "__pycache__", "coderef", "vendor", "meta_sam3", "archive"}
+SKIP_DIRS = {".git", "internal", "__pycache__", "coderef", "vendor", "archive"}
 
 # Spelled out rather than an empty `ALLOW:`, so a truncated or mistyped line
 # still fails the parse instead of silently becoming a must-appear-nowhere row.

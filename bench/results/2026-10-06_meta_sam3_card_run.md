@@ -29,7 +29,7 @@ not as ground truth.
 ## What was asked
 
 Whether Meta's own inference code, copied and edited as
-[`meta_sam3/README.md`](../../meta_sam3/README.md) describes, runs a session
+`meta_sam3/README.md` describes, runs a session
 on this machine's Python and numpy; what a session costs in seconds and in
 memory; what it returns across the cuts of a multi-shot clip; and whether
 the model leaves the card and comes back. During the day the lane's lead

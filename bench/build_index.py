@@ -103,7 +103,6 @@ GROWS_WITH_EVERY_COMMIT = {
 #: Top-level directories whose index already exists and is not written here.
 INDEXED_ELSEWHERE = {
     "docs": ("docs/wiki/index.md", "the hand-written router"),
-    "meta_sam3": ("meta_sam3/README.md", "Meta's SAM 3.1 inference code, under its own licence; `meta_sam3/FILES.txt` lists the copied files"),
     "prompt_bank": ("docs/prompt_bank.md", "the prompt catalogue"),
 }
 

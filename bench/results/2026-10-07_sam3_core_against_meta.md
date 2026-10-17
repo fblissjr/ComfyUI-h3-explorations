@@ -9,9 +9,9 @@ is correct, "down to the tokenizer", traced end to end. ComfyUI's port
 `comfy/text_encoders/sam3_clip.py`) is a re-implementation, so "correct" here
 means "computes what Meta's released code computes from the same weights".
 
-**How.** [`bench/sam3_parity_ladder.py`](../sam3_parity_ladder.py) runs
+**How.** [`bench/sam3_parity_ladder.py`](../../archive/bench/sam3_parity_ladder.py) runs
 ComfyUI's port beside the copy of Meta's inference code under
-[`meta_sam3/`](../../meta_sam3/README.md), one stage at a time, each stage
+`meta_sam3/`, one stage at a time, each stage
 given an equal input so a difference found lower down does not leak upward.
 Both sides load the one weights file `workflows/h3_config.py::SEGMENTER`
 names. ComfyUI computes in float32 with TF32 off for the text, trunk and

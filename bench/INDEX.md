@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 150 |
+| [`check_*`](#check) | 149 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
-| [`build_*`](#build) | 18 |
+| [`build_*`](#build) | 17 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 186 |
+| [the rest](#the-rest) | 185 |
 
 ## check
 
@@ -81,7 +81,6 @@ this file is only a way to find a script by what it says it does.
 | [`check_marker_arms.py`](check_marker_arms.py) | A marker-corpus arm that was declared and not applied must go red. |
 | [`check_masked_job.py`](check_masked_job.py) | Check the masked job builder: the graphs it writes and what it refuses. |
 | [`check_masked_prompt.py`](check_masked_prompt.py) | The masked lane's prompt node: what it writes, and that the graders read the same text. |
-| [`check_meta_sam3_copy.py`](check_meta_sam3_copy.py) | `meta_sam3/` differs from Meta's code by the rule and the declared edits, and by nothing else. |
 | [`check_meta_sapiens2.py`](check_meta_sapiens2.py) | `vendor/meta_sapiens2/` is Meta's text as Meta wrote it: its licence, and its names for the Sapiens2 models' points and classes. |
 | [`check_model_contents.py`](check_model_contents.py) | What is INSIDE each shipped model file, asserted against a committed baseline. |
 | [`check_model_files.py`](check_model_files.py) | No graph or constant may name a model file its real loader cannot use. |
@@ -303,7 +302,6 @@ this file is only a way to find a script by what it says it does.
 | [`build_gate_transplant.py`](build_gate_transplant.py) | Add FastH3's VSA gates to a checkpoint, or take them out. CPU only. |
 | [`build_hybrid.py`](build_hybrid.py) | Build an fl2va/ref2va hybrid checkpoint by copying tensors, and prove the builder first. |
 | [`build_index.py`](build_index.py) | Write the generated indexes: one way in for every tracked area of the repo. |
-| [`build_meta_sam3.py`](build_meta_sam3.py) | Make `meta_sam3/sam3` from `coderef/sam3`: Meta's files, one rule, the declared edits. |
 | [`build_meta_sapiens2.py`](build_meta_sapiens2.py) | Make `vendor/meta_sapiens2/` from `coderef/sapiens2`: Meta's names for its models' points and classes, and its licence. |
 | [`build_mutant_examples.py`](build_mutant_examples.py) | Generate h3-mutant-distill's example workflows, in the frontend's own UI format. |
 | [`build_outputs_record.py`](build_outputs_record.py) | Join a run JSONL to the clips the server wrote for it, before the server goes down. |
@@ -474,7 +472,6 @@ this file is only a way to find a script by what it says it does.
 | [`sam31_corrections_queue_test.py`](sam31_corrections_queue_test.py) | The SAM 3.1 Corrections node's last acceptance: on a server's queue, with an H3 render between two reads. |
 | [`sam31_probe_node.py`](sam31_probe_node.py) | TEST CODE, in no node list of this pack: a node that calls ComfyUI's SAM 3 detect node and says what reached the model. |
 | [`sam3_dataset_phrases.py`](sam3_dataset_phrases.py) | What Meta's four SAM 3 datasets say about what a valid prompt is and how specific to be: counts from the annotation files. |
-| [`sam3_parity_ladder.py`](sam3_parity_ladder.py) | Is core's SAM 3.1 the model Meta released? The same weights and the same input through both, stage by stage. |
 | [`sam3_precision_arms.py`](sam3_precision_arms.py) | Compare SAM 3.1 at float16, bfloat16 and float32 through core's own nodes, on the same frames, with controls. |
 | [`scan_original_block49.py`](scan_original_block49.py) | Is block 49's oddity in the original MiniMax weights, before any conversion? |
 | [`score_clip_shots_loudness.py`](score_clip_shots_loudness.py) | Two things a finished clip can be checked for without anyone watching it: |
@@ -605,6 +602,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 | [`face_points.py`](_lib/face_points.py) | What is read off the pose model's face points: one definition of each figure, for every tool that uses them. |
 | [`face_points_fixture.py`](_lib/face_points_fixture.py) | A face made of points whose every figure is known by construction, for the checks of the tools that read them. |
 | [`frames.py`](_lib/frames.py) | Frames and masks in and out of video files, by frame number, for the tools that read renders. |
+| [`sam3_core.py`](_lib/sam3_core.py) | Shared ComfyUI SAM 3.1 helpers moved from `bench/sam3_parity_ladder.py` (2026-10-17, r17_05). |
 
 ### briefs
 

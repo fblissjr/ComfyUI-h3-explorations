@@ -430,7 +430,6 @@ ComfyUI's CPU path when no device is visible, and so does a check that calls
 | `check_sam3d_body_conversion.py` | that `bench/convert_sam3d_body_checkpoint.py`'s mapping from Meta's SAM 3D Body files to core's model is complete and exact, without weights: the original's 1127 key patterns (the 32-layer DINOv3 backbone by pattern, the heads, the rig's state-dict names and its two attributes) map onto core's `SAM3DBody` state dict instantiated on the CPU with no key missing or extra, after the loader's own rename and pop; no non-backbone key is renamed by mistake; the rig map covers every `mhr.*` buffer; a non-zero k bias is refused by name (dropping it would change the model; in the real file it is zero); the `vith` layout is refused by name. The bit comparison with the published repack and the readback are the converter's own `--compare-repack` and are not repeated here. Earned on first use: the converter's dtype check compared against a model instantiated in fp32 and was wrong for the bf16 backbone, which core builds at the file's dtype; the check pins shapes to core and leaves dtypes to the published file | ComfyUI importable; no CUDA, no weights, no server | no |
 | `check_sam3d_body_vith.py` | that `sam3d_body_vith.py` is Meta's ViT-H SAM 3D Body behind core's heads: the backbone's keys are Meta's with none renamed and every other key and shape is core's `SAM3DBody`; a DINOv3 layout is refused by the converter and by the loader; and the six places Meta's model cuts a 512 by 384 view out of the square crop hold, each against the expression Meta wrote, with a control where the uncut value would pass unnoticed (the dense position encodings, the keypoint feature sampling). **With the converted file on disk**, the file loads through the loader on the CPU and the backbone's forward on one seeded input matches Meta's own `backbones/vit.py`, run in a child process from `coderef/sam-3d-body`, inside `FORWARD_TOLERANCE`. The geometry expressions are transcriptions of Meta's file and say so | CPU; the converted file and `coderef/sam-3d-body` for the last two cases, exit 2 without them | yes |
 | `check_body_pose.py` | that `body_pose.py` gives SAM 3D Body the pixels Meta's own code would, and that the table it writes is true: our body crop of every box of two public samples hashes to the crop Meta's code made (`bench/fixtures/sam3d_body_meta_reference.json`, written by `bench/compare_sam3d_body_core_against_meta.py fixture`), with ComfyUI's own crop as the control that must not; the boxes input in each form, the two cameras, the table's fields, the hand constant against ComfyUI's and Meta's source, and that the module names no `SAM3DBody_` node; and (2026-10-12) that a wired mask of the person reaches the model with each crop, its own frame's, with a score of one, where ComfyUI's own warp of the same mask puts it, taken from a frame whose picture away from the mask is the model's mean colour, and an empty mask with a score of zero and the frame as it came when none is wired. With the DINOv3 file on disk (exit 2 without): our keypoints inside Meta's own precision floor on every box, each hand's decoder used exactly where Meta's code used it, a frame with no box drawn black, and the drawn silhouette where a direct projection of the mesh puts it. Seen red on 2026-10-10 by six breaks made in memory: the body padding, nearest-pixel sampling, a closed-form matrix in place of Meta's three points, the hand padding, the left hand not mirrored, and ComfyUI's own hand crops; and on 2026-10-12 by the mask left out of the batch | CPU and OpenCV; the public samples under `coderef/` for the crop case; `models/detection/sam_3d_body_dinov3.safetensors` for the last four cases, exit 2 without it | yes |
-| `check_meta_sam3_copy.py` | that `meta_sam3/sam3` differs from Meta's code at the commit in `build_meta_sam3.COMMIT` by the import rule and the edits declared in `meta_sam3/EDITS.diff`, and by nothing else: the declaration regenerated and compared byte for byte, the file list, the licence file's bytes, a header on every Python file, no import that leaves the copy, no `huggingface_hub`. It reads text and imports nothing, so it does not show that the copy runs | `coderef/sam3` at that commit; exits 2 without it | no |
 | `build_prompt_bank.py` | **a generator; `--check` is the gate.** That every prompt in `prompt_bank/` grades 0 FAIL and 0 WARN through `grade_prompt_text.grade_text` -- the one function the CLI also runs -- at the frame count and donor `prompt_bank/bank.json` names; that the manifest and the directory agree, every count is on the grid and every mode is present; and that `docs/prompt_bank.md`, whose coverage tables are DERIVED from the text against the guides' closed sets, is current. Earned under the no-new-check rule by the first bank: a gitignored file whose hand-typed coverage table was wrong the day it was written, and whose prompts no gate re-graded while the grader changed twice that day. Red-proved 2026-09-01 on a marker moved inside `<d>` and on a stray file, mutation confirmed by `cmp` first. What it cannot see is what the grader cannot: shown-not-stated rules, the speech budget, and whether a prompt is in-distribution |
 | `preflight_graph.py` | **not a gate -- a report, run by hand before you queue.** Grades a prompt against the guide's mechanical rules (ordinals derived from sockets, every defined label cited in `detailed_description`, one retention line per label, markers never crossing the visual/audio sets, no `(Sx)` in `retention_analysis`, `<d>` placement and language tag, NO timestamp on any shot header (owner rule 2026-09-18; every spelling, and a malformed header, since 2026-10-01), mid-shot times inside the clip) and prices the packed sequence statically. Takes paths, never globs, so hand-built graphs are gradeable -- which is why it exists: the two prompt checks only ever saw `workflows/*_api.json`. **Reports, never refuses**, because a tool that blocks you in your own repo gets disabled. Names what it cannot count: a video reference is a floor, not a budget. Imports `wired_labels`, `_audio_sections_optional` and `_STRUCTURE_PROBES` rather than restating them -- the first run without the last two reported FAIL on 7 of 8 image graphs for sections that structurally cannot apply. **Graded one guide and one node name until 2026-08-21**, and so answered `nothing to grade` over every base-format graph -- a line indistinguishable from a pass. It now selects ref-en's six sections or base-en's three from the graph's own sockets, reads the shot and dialogue rules against whichever guide's main field applies (`coderef/MiniMax-H3/skills/h3-prompt-writing/references/ref-en.txt:229` names the pair), applies the 350-500 word budget only on the ref side where `coderef/MiniMax-H3/skills/h3-prompt-writing/references/ref-en.txt:242` puts it, and grades base-en's Part One in both directions: a keyframe task must carry the alignment instruction, and T2VA must not. **Gained the reference-audio grader 2026-08-22**, and it is the named control for two "musts" that had none: that every ref-audio socket reaches the node through a `TrimAudioDuration`, and that the baked trim still agrees with `length` -- which it does not the moment a bench patches the length alone, as `run_graph_arms --set` routinely does. It also ffprobes the media each socket resolves to and warns on a mono track (gap 7, which raises rather than degrading) -- reporting it, never fixing it, and reporting "unreadable" as its own state so a missing ffprobe cannot read as a pass **Since 2026-10-01 it reads every prompt carrier from `workflows/prompts.py::carriers`**, so a song graph is graded as the texts its Prompt Lists expand to (a placeholder with no list, or a list nothing uses, is a FAIL, as the node refuses both) and no longer answers "nothing to grade"; pricing is not modelled for the song node and the output says so. | reference images on disk; no CUDA, no model, no server | no |
 | `smoke_h3.py` | the H3 chain composes and runs, after any node-pack update. **The only thing here that actually POSTs a prompt**, and on 2026-08-13 it was the only reason anyone discovered every API graph was unsubmittable -- `validate_api` was asserting the wrong shape, so no static check could have found it | live ComfyUI, GPU, model | no |
@@ -500,6 +499,96 @@ An entry asserts that someone looked and the target is *deliberately* gone. It
 is not a way to silence a broken link.
 
 ```doc-link-absent
+PATH: meta_sam3/EDITS.diff
+WHY: the declared edits on the local copy of Meta's SAM 3.1 inference code; removed by the owner on 2026-10-17
+     (r17_05, nothing imports or runs it; upstream is in coderef/sam3), last present at commit a05b676d.
+     The 2026-10-07 research notes under docs/research/masking/ keep citing it by line.
+
+PATH: meta_sam3/sam3/model_builder.py
+WHY: part of the local copy of Meta's SAM 3.1 inference code; removed by the owner on 2026-10-17
+     (r17_05, nothing imports or runs it; upstream is in coderef/sam3), last present at commit a05b676d.
+     The 2026-10-07 research notes under docs/research/masking/ keep citing it by line.
+
+PATH: meta_sam3/sam3/model/decoder.py
+WHY: part of the local copy of Meta's SAM 3.1 inference code; removed by the owner on 2026-10-17
+     (r17_05, nothing imports or runs it; upstream is in coderef/sam3), last present at commit a05b676d.
+     The 2026-10-07 research notes under docs/research/masking/ keep citing it by line.
+
+PATH: meta_sam3/sam3/model/io_utils.py
+WHY: part of the local copy of Meta's SAM 3.1 inference code; removed by the owner on 2026-10-17
+     (r17_05, nothing imports or runs it; upstream is in coderef/sam3), last present at commit a05b676d.
+     The 2026-10-07 research notes under docs/research/masking/ keep citing it by line.
+
+PATH: meta_sam3/sam3/model/maskformer_segmentation.py
+WHY: part of the local copy of Meta's SAM 3.1 inference code; removed by the owner on 2026-10-17
+     (r17_05, nothing imports or runs it; upstream is in coderef/sam3), last present at commit a05b676d.
+     The 2026-10-07 research notes under docs/research/masking/ keep citing it by line.
+
+PATH: meta_sam3/sam3/model/model_misc.py
+WHY: part of the local copy of Meta's SAM 3.1 inference code; removed by the owner on 2026-10-17
+     (r17_05, nothing imports or runs it; upstream is in coderef/sam3), last present at commit a05b676d.
+     The 2026-10-07 research notes under docs/research/masking/ keep citing it by line.
+
+PATH: meta_sam3/sam3/model/multiplex_mask_decoder.py
+WHY: part of the local copy of Meta's SAM 3.1 inference code; removed by the owner on 2026-10-17
+     (r17_05, nothing imports or runs it; upstream is in coderef/sam3), last present at commit a05b676d.
+     The 2026-10-07 research notes under docs/research/masking/ keep citing it by line.
+
+PATH: meta_sam3/sam3/model/sam3_image.py
+WHY: part of the local copy of Meta's SAM 3.1 inference code; removed by the owner on 2026-10-17
+     (r17_05, nothing imports or runs it; upstream is in coderef/sam3), last present at commit a05b676d.
+     The 2026-10-07 research notes under docs/research/masking/ keep citing it by line.
+
+PATH: meta_sam3/sam3/model/sam3_multiplex_base.py
+WHY: part of the local copy of Meta's SAM 3.1 inference code; removed by the owner on 2026-10-17
+     (r17_05, nothing imports or runs it; upstream is in coderef/sam3), last present at commit a05b676d.
+     The 2026-10-07 research notes under docs/research/masking/ keep citing it by line.
+
+PATH: meta_sam3/sam3/model/sam3_multiplex_detector_utils.py
+WHY: part of the local copy of Meta's SAM 3.1 inference code; removed by the owner on 2026-10-17
+     (r17_05, nothing imports or runs it; upstream is in coderef/sam3), last present at commit a05b676d.
+     The 2026-10-07 research notes under docs/research/masking/ keep citing it by line.
+
+PATH: meta_sam3/sam3/model/sam3_multiplex_tracking.py
+WHY: part of the local copy of Meta's SAM 3.1 inference code; removed by the owner on 2026-10-17
+     (r17_05, nothing imports or runs it; upstream is in coderef/sam3), last present at commit a05b676d.
+     The 2026-10-07 research notes under docs/research/masking/ keep citing it by line.
+
+PATH: meta_sam3/sam3/model/sam3_tracker_utils.py
+WHY: part of the local copy of Meta's SAM 3.1 inference code; removed by the owner on 2026-10-17
+     (r17_05, nothing imports or runs it; upstream is in coderef/sam3), last present at commit a05b676d.
+     The 2026-10-07 research notes under docs/research/masking/ keep citing it by line.
+
+PATH: meta_sam3/sam3/model/sam3_video_base.py
+WHY: part of the local copy of Meta's SAM 3.1 inference code; removed by the owner on 2026-10-17
+     (r17_05, nothing imports or runs it; upstream is in coderef/sam3), last present at commit a05b676d.
+     The 2026-10-07 research notes under docs/research/masking/ keep citing it by line.
+
+PATH: meta_sam3/sam3/model/text_encoder_ve.py
+WHY: part of the local copy of Meta's SAM 3.1 inference code; removed by the owner on 2026-10-17
+     (r17_05, nothing imports or runs it; upstream is in coderef/sam3), last present at commit a05b676d.
+     The 2026-10-07 research notes under docs/research/masking/ keep citing it by line.
+
+PATH: meta_sam3/sam3/model/tokenizer_ve.py
+WHY: part of the local copy of Meta's SAM 3.1 inference code; removed by the owner on 2026-10-17
+     (r17_05, nothing imports or runs it; upstream is in coderef/sam3), last present at commit a05b676d.
+     The 2026-10-07 research notes under docs/research/masking/ keep citing it by line.
+
+PATH: meta_sam3/sam3/model/video_tracking_multiplex_demo.py
+WHY: part of the local copy of Meta's SAM 3.1 inference code; removed by the owner on 2026-10-17
+     (r17_05, nothing imports or runs it; upstream is in coderef/sam3), last present at commit a05b676d.
+     The 2026-10-07 research notes under docs/research/masking/ keep citing it by line.
+
+PATH: meta_sam3/sam3/model/video_tracking_multiplex.py
+WHY: part of the local copy of Meta's SAM 3.1 inference code; removed by the owner on 2026-10-17
+     (r17_05, nothing imports or runs it; upstream is in coderef/sam3), last present at commit a05b676d.
+     The 2026-10-07 research notes under docs/research/masking/ keep citing it by line.
+
+PATH: meta_sam3/sam3/model/vl_combiner.py
+WHY: part of the local copy of Meta's SAM 3.1 inference code; removed by the owner on 2026-10-17
+     (r17_05, nothing imports or runs it; upstream is in coderef/sam3), last present at commit a05b676d.
+     The 2026-10-07 research notes under docs/research/masking/ keep citing it by line.
+
 PATH: docs/research/qwen3-vl-special-tokens-post-training/canonical/owner_authored_marker_corpus.md
 WHY: the brief the marker corpus was compiled to, in the research folder of the encoder calibration work; that work is not
      carried on and the owner had the folder removed on 2026-10-12, last present at commit

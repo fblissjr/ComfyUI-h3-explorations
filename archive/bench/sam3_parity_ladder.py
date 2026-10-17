@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Is core's SAM 3.1 the model Meta released? The same weights and the same input through both, stage by stage.
+"""Its question (is core's SAM 3.1 the model Meta released) was answered on 2026-10-07 (`bench/results/2026-10-07_sam3_core_against_meta.md`); the copy it compared against was removed 2026-10-17 (r17_05); upstream is in `coderef/sam3`.
+
+Is core's SAM 3.1 the model Meta released? The same weights and the same input through both, stage by stage.
 
 Core's SAM 3.1 (`comfy/ldm/sam3`, `comfy_extras/nodes_sam3.py`, `comfy/text_encoders/sam3_clip.py`) is a re-implementation.
 This tool runs it beside Meta's own inference code, the copy under `meta_sam3/`, one stage at a time, so "differs" is a number

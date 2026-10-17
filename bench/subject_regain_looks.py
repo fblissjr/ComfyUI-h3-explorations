@@ -47,7 +47,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from sam3_parity_ladder import COMFY, REPO, boot, environment, load_core, nudged   # noqa: E402  (this folder's own tool)
+from _lib.sam3_core import COMFY, REPO, boot, environment, load_core, nudged   # noqa: E402  (this folder's own tool)
 
 sys.path.insert(0, str(REPO))
 
