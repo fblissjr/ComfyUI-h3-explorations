@@ -66,11 +66,13 @@ notes: `internal/claude/2026-10-16_mrtony/HANDOFF.md`; the card's: `internal/cla
    4653-4677, 5114-5129, 5461-5497, 5533-5564. NOT a re-lay: the owner's flags at 287, 422 and 483-489 (the mom's 0278c,
    0415d, 0484c). Re-laid under "whole region" they come out the same (the trial agent, about 23:55Z, clips in
    `Video/fun/day_2026-10-16/recomposite_trials/`): the cut is the edge of the regenerated token region, which a
-   keep-out cut away from her neck and hair: most likely the `clothes` keep-out (Apparel, Upper_Clothing of the class
-   map) that every load of hers carries, 1010c too. On 10-14 it cut into her own outline; since the carve (c3b53645,
-   77ea523a) a keep-out loses everything inside her track, so a new load gives those back (NOT the retired `stay`,
-   which was a second, separate keep-out; the trial's final report names which). New loads under today's rules,
-   planned to strips that show her outline on the flagged frames (the carve is only as good as her track).
+   keep-out cut away from her neck and hair: MEASURED (the trial's final report, about 00:30Z, cells cut per keep-out in
+   `data/2026-10-16_recomposite_trials/*_keepout_cause.txt`) as the `held` keep-out, not `clothes` (0 cells). `held` is
+   every pixel inside her track the part model labels Background within 64 px of her lips or hands; her white apron is
+   Background to it, so straps and bib become "held", swinging frame to frame (0484c: 109 px on 484, 20,467 on 485).
+   The carve does NOT touch `held` (1010c's what_h3_got: rebuilt in place, frames as planned), and plan.json still lists
+   it for her, so today's rules do NOT fix these. The owner's decision is r16_02 on the Open List (the lead's pick:
+   held only where a look says she holds something). An earlier draft of this page blamed `clothes`; it was wrong.
 4. Gemini's builds, each a branch (AGENTS.md, e318f6eb), landed from the merge base after a blind read: D19 (pages read
    the gap check) is on `gemini-d19b` (28c3c7e1), NOT landed: its second read
    (`internal/claude/2026-10-16_mrtony/review_D19b_pages_gap.md`) passed the refusals and the real 2250Z table but
