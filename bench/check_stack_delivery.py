@@ -95,6 +95,21 @@ From the whole video of 2026-10-16, refused by one row, and then not starting in
 30. **The view starts without its end**: the view and each one-a-second part have their index (`moov`) before their media
     and within their first 4 MB; the view's sidecar is of its final bytes.
 
+From the candidate-vs-current comparison mode (`compare`, mode (c), 2026-10-17 `C71` / `C66`):
+
+31. **Compare a candidate cut against the current cut**: three 100%-size left-column picture rows (`ORIGINAL`, `CURRENT CUT`,
+    `CANDIDATE CUT`, nothing drawn over any of them), burned-in `frame {f:05d}` in legend 1, two right-column blocks per
+    compared subject (`CURRENT (a)` and `CANDIDATE (a)`, each showing its own `_with_mask.mp4` and reference frame), audio
+    trimmed and muxed for the span from `--source` even when `--joined` is silent, `<out>.mp4.json` sidecar and
+    `<stem>.alignment.txt` written with `ALIGNMENT_NOTE`, offsets `-2..+2` MAE (`best_offset == 0`) and `vs_own < vs_other`,
+    and shifted/swapped controls caught by `compare_alignment` and `read_back`.
+32. **Candidate-piece shorthand and unchanged subjects**: `--candidate-piece` synthesises the candidate table over the
+    current table, unchanged subjects stay in `legend_1` as `(both)` without right-column blocks unless `--subject` names
+    them, and `check` reads back a `layout=compare` stack.
+33. **Compare refusals**: missing or conflicting candidate table/piece flags, malformed `--candidate-piece`, a candidate cut
+    of another size than the source, mismatched spans without `--only`, `--only` outside the candidate cut, a candidate table
+    laying no piece on the span, and an unknown `--subject` are each refused in the tool's own words with no file written.
+
 What these cases cannot see: the legends and labels are read from the drawing code's own records (`legend_1`,
 `legend_2`, `chips_drawn`, `label_lines`, `label_boxes`), not from their pixels; a mark over 60 levels on under 0.4% of
 a row, or within the 5x5 band round the changed edge, passes "nothing drawn on the picture"; the first fixture scans
@@ -1237,6 +1252,204 @@ def a_table_that_lays_nothing() -> str:
     return "a table with no piece is refused and nothing is written"
 
 
+# ---------------------------------------------------------------- candidate-vs-current comparison mode (`compare`, mode (c), 2026-10-17 C71 / C66)
+
+CAND_MASK = lambda n: 60 + 20 * n      # pcand's mask picture grey level on its frame n, distinct from pa's MASK(n) = 40 + 30 * n   # noqa: E731
+
+
+class CompareFixture:
+    """A candidate piece `pcand_00001.mp4` on frames 2-7 for subject a (its mask picture `60+20*N`, wired to `ref_b` from frame 1),
+    a candidate cut `cand_span.mp4` of 6 frames (source frames 2-7, `--candidate-first 2`) and `cand_full.mp4` of 12 frames (with a
+    distinct visual look so `|candidate - current| >= 4`), and a silent current cut `silent_clip.mp4` to verify audio is muxed from
+    `--source` trimmed to the span when `--joined` has no audio stream."""
+    def __init__(self, m: Made):
+        self.m = m
+        self.root = m.root / "cmp"
+        self.root.mkdir(exist_ok=True)
+        self.pcand = self.root / "pcand_00001.mp4"
+        flat(self.pcand, f"{W}x{H}", 6, "160")
+        flat(self.pcand.with_name("pcand_00001_with_mask.mp4"), f"{W}x{H * 2}", 6, "60+20*N")
+        picture(self.pcand.with_suffix(".png"), 2, m.ref_b, 1)
+        self.cand_table = self.root / "t_cand.txt"
+        self.cand_table.write_text(f"2-7 {self.pcand} 2 subject=a restore=b:whole\n8-10 {m.b} 8 subject=b\n"
+                                   "source 0-1 subject=a not in the shot\nsource 11-11 subject=b turned away\n")
+        self.silent_clip = self.root / "silent_clip.mp4"
+        ffmpeg("-i", str(m.clip), "-an", "-c:v", "copy", str(self.silent_clip))
+        self.cand_full = self.root / "cand_full.mp4"
+        ffmpeg("-f", "lavfi", "-i", f"testsrc2=size={W}x{H}:rate=24", "-frames:v", str(FRAMES),
+               "-vf", "hue=h=180,vflip", "-pix_fmt", "yuv420p", "-c:v", "libx264", "-qp", "0", str(self.cand_full))
+        self.cand_span = self.root / "cand_span.mp4"
+        ffmpeg("-i", str(self.cand_full), "-vf", "trim=start_frame=2:end_frame=8,setpts=PTS-STARTPTS",
+               "-an", "-pix_fmt", "yuv420p", "-c:v", "libx264", "-qp", "0", str(self.cand_span))
+        self.out = self.root / "cmp_span.mp4"
+
+    def compare(self, **more) -> None:
+        given = dict(
+            source=str(self.m.source), table=str(self.m.table), joined=str(self.silent_clip),
+            candidate_joined=str(self.cand_span), candidate_table=str(self.cand_table), candidate_piece="",
+            candidate_piece_first=None, out=str(self.out), work=str(self.root / "work"), current_tag="", tag="",
+            alias=[], subject="", copy_rate=24.0, only="2-7", first=0, candidate_first=2,
+            data=str(self.root / "data"), coverage="", one_a_second=False,
+        )
+        given.update(more)
+        sd.compare(argparse.Namespace(**given))
+
+
+CMP_FIX: list[CompareFixture] = []
+
+
+def cmp_fix() -> CompareFixture:
+    if not CMP_FIX:
+        CMP_FIX.append(CompareFixture(made()))
+    return CMP_FIX[0]
+
+
+def compare_candidate_against_current() -> str:
+    """Mode (c) (`C71` / `C66`): compares a candidate cut (`cand_span.mp4`, frames 2-7) against the current cut (`silent_clip.mp4`)
+    and `ORIGINAL` (`source.mp4`). Verifies:
+    - Left column: three 100%-size rows (`ORIGINAL`, `CURRENT CUT`, `CANDIDATE CUT`), nothing drawn over any of the three rows,
+      and `frame 00002`..`frame 00007` plus `"ABOVE: ORIGINAL"` / `"BELOW: CURRENT CUT"` / `"BELOW: CANDIDATE CUT"` in the legends.
+    - Right column: two blocks (`current:a` and `candidate:a`), each reading its own `_with_mask.mp4` (`MASK` vs `CAND_MASK`) and
+      its own reference frame (`ref_a` from 3 vs `ref_b` from 1), with `"CURRENT (a): WHAT H3 SAW, pa"` and `"CANDIDATE (a): WHAT H3 SAW, pcand"` labels.
+    - Audio: trimmed and muxed for frames 2-7 from `--source` even when `--joined` (`silent_clip.mp4`) has no audio stream.
+    - Level 5.1, faststart (`moov` before `mdat`), `.mp4.json` sidecar (`sidecar.read`), `<stem>.alignment.txt` with `ALIGNMENT_NOTE`,
+      offsets `-2..+2` MAE (`best_offset == 0` for all three rows) and `vs_own < vs_other`, plus shifted/swapped controls."""
+    import sidecar as sidecar_tool
+    cf = cmp_fix()
+    if not cf.out.is_file():
+        cf.compare()
+    head, recs = head_of(cf.out), frames_of(cf.out)
+    assert head["layout"] == "compare" and head["columns"] == ["current:a", "candidate:a"], head
+    assert head["frames"] == [2, 7] and head["candidate_begins_on_source_frame"] == 2, head
+    l1, l2 = legends_of(head)
+    w_, h_, n_ = sd.probe(str(cf.out))
+    assert (w_, h_, n_) == (W + head["right_column"], 3 * H + l1 + l2, 6), (w_, h_, n_)
+    # Burned-in frame numbers and row headers in legends
+    for f in range(2, 8):
+        r1, r2 = recs[f]["legend_1"], recs[f]["legend_2"]
+        assert r1[0] == "ABOVE: ORIGINAL" and r1[1] == f"frame {f:05d}" and any("BELOW: CURRENT CUT" in s for s in r1), (f, r1)
+        assert any("a: current pa" in s and "-> candidate pcand" in s for s in r1), (f, r1)
+        assert any("BELOW: CANDIDATE CUT" in s for s in r2), (f, r2)
+        assert recs[f]["columns"]["current:a"]["label"].startswith("CURRENT (a): WHAT H3 SAW, pa"), recs[f]["columns"]["current:a"]["label"]
+        assert recs[f]["columns"]["candidate:a"]["label"].startswith("CANDIDATE (a): WHAT H3 SAW, pcand"), recs[f]["columns"]["candidate:a"]["label"]
+    # Right-column tiles read their own mask and reference grey levels on every frame
+    t_cur, t_cand = head["right_tiles"][0], head["right_tiles"][1]
+    cur_mask = tile_level(cf.out, t_cur["mask"])
+    cand_mask = tile_level(cf.out, t_cand["mask"])
+    cur_ref = tile_level(cf.out, t_cur["whole"])
+    cand_ref = tile_level(cf.out, t_cand["whole"])
+    for idx, f in enumerate(range(2, 8)):
+        assert abs(cur_mask[idx] - MASK(f - 2)) < NEAR, f"frame {f} current mask: got {cur_mask[idx]:.1f}, want {MASK(f - 2)}"
+        assert abs(cand_mask[idx] - CAND_MASK(f - 2)) < NEAR, f"frame {f} candidate mask: got {cand_mask[idx]:.1f}, want {CAND_MASK(f - 2)}"
+        assert abs(cur_ref[idx] - REF(3 + f - 2)) < NEAR, f"frame {f} current ref: got {cur_ref[idx]:.1f}, want {REF(3 + f - 2)}"
+        assert abs(cand_ref[idx] - REF(1 + f - 2)) < NEAR, f"frame {f} candidate ref: got {cand_ref[idx]:.1f}, want {REF(1 + f - 2)}"
+        # Control: current mask is far from candidate mask on frame 2 (40 vs 60)
+        if idx == 0:
+            assert abs(cur_mask[idx] - CAND_MASK(0)) > NEAR, (cur_mask[idx], CAND_MASK(0))
+    # Nothing drawn over the three picture rows (ORIGINAL, CURRENT CUT, CANDIDATE CUT)
+    stack = raw(cf.out, "rgb24", w_, h_)
+    srgb = raw(cf.m.source, "rgb24", W, H)[2:8]
+    jrgb = raw(cf.silent_clip, "rgb24", W, H)[2:8]
+    crgb = raw(cf.cand_span, "rgb24", W, H)
+    for idx in range(6):
+        frame = np.frombuffer(stack[idx], np.uint8).reshape(h_, w_, 3).astype(np.int16)
+        for name, y, want_bytes in (("ORIGINAL", 0, srgb[idx]), ("CURRENT CUT", H + l1, jrgb[idx]), ("CANDIDATE CUT", 2 * H + l1 + l2, crgb[idx])):
+            want = np.frombuffer(want_bytes, np.uint8).reshape(H, W, 3).astype(np.int16)
+            off = np.abs(frame[y:y + H, :W] - want).max(axis=2)
+            edge_rows = np.concatenate([off[2:10], off[-10:-2]]).mean(axis=1).max()
+            corner = off[:40, :120].mean()
+            assert edge_rows < 12 and corner < 12, f"frame {idx + 2} {name}: edge_rows={edge_rows:.1f}, corner={corner:.1f}"
+    # Audio muxed from source even though silent_clip has no audio
+    assert not sd._has_audio(str(cf.silent_clip)) and sd._has_audio(str(cf.out)), "audio was not muxed from --source when --joined was silent"
+    # Level 5.1 & faststart & sidecar
+    level = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=level", "-of", "csv=p=0", str(cf.out)],
+                           capture_output=True, text=True).stdout.strip()
+    assert level == "51", f"compare view is tagged level {level}, not 5.1"
+    atoms = top_atoms(cf.out)
+    kinds = [k for k, _, _ in atoms]
+    assert "moov" in kinds and "mdat" in kinds and kinds.index("moov") < kinds.index("mdat")
+    side = sidecar_tool.read(cf.out)
+    roles = {i["role"] for i in side["inputs"]}
+    for must in ("the source", "the joined clip", "the table", "the candidate clip", "the candidate table",
+                 "the stack's records", "the stack's per-frame records", "the stack's alignment check"):
+        assert must in roles, (must, roles)
+    # Alignment file and read_back check
+    align_path = cf.out.with_name("cmp_span.alignment.txt")
+    assert align_path.is_file() and sd.ALIGNMENT_NOTE in align_path.read_text(), align_path
+    got = sd.read_back(str(cf.m.source), str(cf.silent_clip), str(cf.out))
+    assert got["sound_packets"]["stacked"] and got["sound_packets"]["the_same"], got["sound_packets"]
+    for row_key in ("the_original_row", "the_current_row", "the_candidate_row"):
+        assert got[row_key]["a_neighbour_fits_better"] == [], (row_key, got[row_key])
+    al = got["alignment"]
+    assert al["note"] == sd.ALIGNMENT_NOTE, al
+    for row_key in ("original", "current", "candidate"):
+        assert al[row_key]["best_offset"] == 0, (row_key, al[row_key])
+    assert al["current"]["vs_own"] < al["current"]["vs_other"] and al["candidate"]["vs_own"] < al["candidate"]["vs_other"], al
+    # Control: shifting the candidate row by +1 frame or swapping current and candidate is caught by compare_alignment
+    s_g = grey(cf.m.source, f"crop={W}:{H}:0:0", W, H)
+    j_g = grey(cf.silent_clip, f"crop={W}:{H}:0:0", W, H)
+    c_g = grey(cf.cand_span, f"crop={W}:{H}:0:0", W, H)
+    shifted = sd.compare_alignment(s_g[2:8], j_g[2:8], np.concatenate([c_g[1:], c_g[-1:]]), s_g[2:8], j_g[2:8], c_g, 2)
+    assert shifted["candidate"]["best_offset"] == 1, shifted["candidate"]
+    swapped = sd.compare_alignment(s_g[2:8], c_g, j_g[2:8], s_g[2:8], j_g[2:8], c_g, 2)
+    assert swapped["current"]["vs_own"] > swapped["current"]["vs_other"] and swapped["candidate"]["vs_own"] > swapped["candidate"]["vs_other"], swapped
+    return (f"{w_}x{h_} compare stack on 2-7: current:a ({cur_mask[0]:.0f}/{cur_ref[0]:.0f}) vs candidate:a ({cand_mask[0]:.0f}/{cand_ref[0]:.0f}), "
+            f"audio={got['sound_packets']['stacked'][:16]}, offsets=0, own={al['candidate']['vs_own']}<other={al['candidate']['vs_other']}")
+
+
+def compare_candidate_piece_and_unchanged_subject() -> str:
+    """`--candidate-piece` synthesises the candidate table by replacing overlapping rows for that subject in `--table`: on the full
+    0-11 clip where subject `a` changes (`pa` -> `pcand` on 2-7) and subject `b` is unchanged (`pb` on 8-10 in both), only `a` gets
+    `current:a` and `candidate:a` right-column blocks while `b` is recorded in `unchanged_subjects` and named as `(both)` in
+    `legend_1`; naming `--subject a,b` includes both subjects in the right column; and `sd.check` passes on the built
+    compare stack."""
+    import contextlib
+    import io
+    cf = cmp_fix()
+    out = cf.root / "cmp_full.mp4"
+    cf.compare(joined=str(cf.m.clip), candidate_joined=str(cf.cand_full), candidate_table="",
+               candidate_piece=str(cf.pcand), candidate_piece_first=2, only=None, candidate_first=0, out=str(out))
+    head, recs = head_of(out), frames_of(out)
+    assert head["columns"] == ["current:a", "candidate:a"] and head["unchanged_subjects"] == ["b"], head
+    assert "b: pb (day not recorded) (both)" in recs[9]["legend_1"], recs[9]["legend_1"]
+    said = io.StringIO()
+    with contextlib.redirect_stdout(said):
+        sd.check(argparse.Namespace(source=str(cf.m.source), joined=str(cf.m.clip), out=str(out), first=0, candidate_joined=None, candidate_first=None))
+    assert sd.ALIGNMENT_NOTE in said.getvalue() and "(best +0)" in said.getvalue(), said.getvalue()
+    # Naming both subjects explicitly with --subject puts both in the right column
+    out_both = cf.root / "cmp_both.mp4"
+    cf.compare(joined=str(cf.m.clip), candidate_joined=str(cf.cand_full), candidate_table="",
+               candidate_piece=str(cf.pcand), candidate_piece_first=2, subject="a,b", only="6-8", candidate_first=0, out=str(out_both))
+    assert head_of(out_both)["columns"] == ["current:a", "candidate:a", "current:b", "candidate:b"], head_of(out_both)["columns"]
+    return f"unchanged b in legend_1, right column {head['columns']}; --subject a,b -> 4 blocks; check passed"
+
+
+def compare_refusals() -> str:
+    """Every compare-mode guard refuses in the tool's own words with no traceback and leaves no output file."""
+    cf = cmp_fix()
+    never = cf.root / "never_cmp.mp4"
+    refused(lambda: cf.compare(candidate_table="", candidate_piece="", out=str(never)), "compare requires --candidate-table or --candidate-piece")
+    refused(lambda: cf.compare(candidate_piece=str(cf.pcand), out=str(never)), "pass either --candidate-table or --candidate-piece, not both")
+    refused(lambda: cf.compare(candidate_table="", candidate_piece=str(cf.root / "no_such_piece.mp4"), out=str(never)), "candidate piece is not a file")
+    refused(lambda: cf.compare(only=None, out=str(never)), "give --only FIRST-LAST for the span to compare")
+    refused(lambda: cf.compare(only="0-7", out=str(never)), "is not inside the candidate clip's frames, 2 to 7 of the source")
+    refused(lambda: cf.compare(subject="nobody", out=str(never)), "--subject 'nobody' has no piece on frames 2-7 in either table")
+    empty = cf.root / "empty_cand.txt"
+    empty.write_text("source 0-11 subject=a nothing rendered\n")
+    refused(lambda: cf.compare(candidate_table=str(empty), out=str(never)), "lays no piece on frames 2-7: there is nothing to compare")
+    wrong_sz = cf.root / "wrong_cand.mp4"
+    ffmpeg("-f", "lavfi", "-i", "color=c=gray:s=264x200:r=24", "-frames:v", "6", "-pix_fmt", "yuv420p", "-c:v", "libx264", "-qp", "0", str(wrong_sz))
+    refused(lambda: cf.compare(candidate_joined=str(wrong_sz), out=str(never)), "264 by 200", "256 by 192")
+    assert not never.exists()
+    # CLI refusal has no Python traceback
+    proc = subprocess.run([sys.executable, str(Path(__file__).resolve().parent / "stack_delivery.py"), "compare",
+                           "--source", str(cf.m.source), "--table", str(cf.m.table), "--joined", str(cf.silent_clip),
+                           "--candidate-joined", str(cf.cand_span), "--work", str(cf.root / "work"), "--out", str(never)],
+                          capture_output=True, text=True)
+    assert proc.returncode != 0 and "Traceback" not in proc.stderr and "compare requires --candidate-table or --candidate-piece" in proc.stderr, proc.stderr
+    return "8 compare-mode refusals + CLI refusal with no traceback verified"
+
+
 case("the table as read, through the assembler's readers", the_table_as_read)
 case("what the right column reads on each frame", what_each_frame_reads)
 case("the built file shows those frames", the_built_file)
@@ -1271,8 +1484,12 @@ case("every chip said, within H.264 level 5.1", every_chip_said_within_the_level
 case("a layout over level 5.1 is refused", a_layout_over_the_level_refused)
 case("three subjects and a busy frame, within the level", three_subjects_and_a_busy_frame_within_the_level)
 case("the view starts without its end: moov at the front", the_view_starts_without_its_end)
+case("compare: candidate cut against current cut, panels, audio, sidecar, alignment", compare_candidate_against_current)
+case("compare: --candidate-piece shorthand, unchanged subjects, and check subcommand", compare_candidate_piece_and_unchanged_subject)
+case("compare: refusals in the tool's own words", compare_refusals)
 
 if __name__ == "__main__":
     code = finish()
     HOLD.cleanup()
     sys.exit(code)
+

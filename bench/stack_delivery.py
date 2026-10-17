@@ -4,7 +4,12 @@
     <python> bench/stack_delivery.py build --source SOURCE --table TABLE.txt --joined CLIP.mp4 --out STACKED.mp4 \\
         --work SCRATCH_FOLDER [--tag WORDS] [--alias OLD=NEW]... [--copy-rate 24] [--only FIRST-LAST] [--first SOURCE_FRAME] \\
         [--data DATA_FOLDER] [--coverage FRAME_COVERAGE.json] [--one-a-second]
-    <python> bench/stack_delivery.py check --source SOURCE --joined CLIP.mp4 --out STACKED.mp4 [--first SOURCE_FRAME]
+    <python> bench/stack_delivery.py compare --source SOURCE --table CURRENT_TABLE.txt --joined CURRENT_CLIP.mp4 \\
+        [--candidate-table CAND_TABLE.txt] [--candidate-joined CAND_CLIP.mp4] [--candidate-piece PIECE.mp4] \\
+        [--candidate-piece-first FRAME] [--subject WHO] --out STACKED.mp4 --work SCRATCH_FOLDER \\
+        [--current-tag WORDS] [--tag WORDS] [--alias OLD=NEW]... [--copy-rate 24] [--only FIRST-LAST] \\
+        [--first SOURCE_FRAME] [--candidate-first SOURCE_FRAME] [--data DATA_FOLDER] [--coverage FRAME_COVERAGE.json] [--one-a-second]
+    <python> bench/stack_delivery.py check --source SOURCE --joined CLIP.mp4 [--candidate-joined CAND_CLIP.mp4] --out STACKED.mp4 [--first SOURCE_FRAME]
 
 **What it buys.** A render is handed over stacked, never bare: the masked input on top, the render below, frame
 numbers burned in, so a thing seen on playback is reported with the file and the frame. `capture_masked_run.py
@@ -670,6 +675,9 @@ def line_height(font) -> int:
 
 
 def build(a: argparse.Namespace) -> None:
+    if getattr(a, "candidate_table", "") or getattr(a, "candidate_joined", "") or getattr(a, "candidate_piece", ""):
+        compare(a)
+        return
     import cv2
     from PIL import Image, ImageDraw, ImageFont
     asm = _assembler()
@@ -1324,24 +1332,843 @@ def fits(row: np.ndarray, ref: np.ndarray, cut: int = 0) -> dict:
             "greatest_to_its_own_frame": round(float(here.max()), 2), "mean_to_the_nearer_neighbour": round(float(other.mean()), 2), "cut": cut}
 
 
-def read_back(source: str, joined: str, out: str, first: int = 0) -> dict:
+def _has_audio(path: str) -> bool:
+    return bool(subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a:0", "-show_entries", "stream=codec_type",
+                                "-of", "csv=p=0", path], capture_output=True, text=True).stdout.strip())
+
+
+def _fps_float(path: str) -> float:
+    r = _rate(path)
+    if "/" in r:
+        num, den = r.split("/", 1)
+        return float(num) / max(float(den), 1e-9)
+    return float(r or 24.0)
+
+
+def _parse_only(text: str) -> tuple[int, int]:
+    try:
+        a, b = (int(v) for v in text.split("-"))
+    except ValueError:
+        raise SystemExit(f"--only {text!r} is not FIRST-LAST; nothing written") from None
+    if a > b:
+        raise SystemExit(f"--only {text}: the first frame is after the last; nothing written")
+    return a, b
+
+
+#: C71 note printed in `<stem>.alignment.txt` and carried in the alignment record so nobody reads a pass as more than it is.
+ALIGNMENT_NOTE = ("Note: when two cuts differ by under a level on most pixels, own-vs-other margins are small "
+                  "even where offset-0 frame alignment is sharp; read both figures as data, not as a binary verdict.")
+
+
+def offsets_mae(row: np.ndarray, ref: np.ndarray, cut: int = 0) -> dict:
+    """Mean grey difference between `row` and `ref` at frame offsets -2, -1, 0, +1, +2, and the offset that fits best."""
+    n = min(len(row), len(ref))
+    by_step = {}
+    for step in (-2, -1, 0, 1, 2):
+        key = f"{step:+d}" if step else "0"
+        vals = [np.abs(row[f, cut:] - ref[min(max(f + step, 0), n - 1), cut:]).mean() for f in range(n)]
+        by_step[key] = round(float(np.mean(vals)), 2) if vals else 0.0
+    best = min((-2, -1, 0, 1, 2), key=lambda s: (by_step[f"{s:+d}" if s else "0"], abs(s)))
+    return {"offsets": by_step, "best_offset": int(best)}
+
+
+def compare_alignment(orig_row: np.ndarray, cur_row: np.ndarray, cand_row: np.ndarray,
+                      src_ref: np.ndarray, cur_ref: np.ndarray, cand_ref: np.ndarray, first_frame: int = 0) -> dict:
+    """Each row of a compare stack held against its named source at offsets -2..+2, and the current and candidate rows held
+    against their own source and the other source on pixels where the two sources differ (`|candidate - current| >= 4`)."""
+    n = min(len(orig_row), len(cur_row), len(cand_row), len(src_ref), len(cur_ref), len(cand_ref))
+    orig_row, cur_row, cand_row = orig_row[:n], cur_row[:n], cand_row[:n]
+    src_ref, cur_ref, cand_ref = src_ref[:n], cur_ref[:n], cand_ref[:n]
+    diff = np.abs(cand_ref - cur_ref)
+    mask = diff >= 4.0
+    per_frame_px = mask.reshape(n, -1).sum(axis=1) if n else np.zeros(0, dtype=int)
+    peak_i = int(np.argmax(per_frame_px)) if n else 0
+    if not mask.any():
+        mask = diff > 0
+    if not mask.any():
+        mask = np.ones_like(diff, dtype=bool)
+    cur_own = round(float(np.abs(cur_row[mask] - cur_ref[mask]).mean()), 2) if n else 0.0
+    cur_other = round(float(np.abs(cur_row[mask] - cand_ref[mask]).mean()), 2) if n else 0.0
+    cand_own = round(float(np.abs(cand_row[mask] - cand_ref[mask]).mean()), 2) if n else 0.0
+    cand_other = round(float(np.abs(cand_row[mask] - cur_ref[mask]).mean()), 2) if n else 0.0
+    return {
+        "note": ALIGNMENT_NOTE,
+        "frames": n,
+        "first_source_frame": int(first_frame),
+        "peak_source_frame": int(first_frame + peak_i),
+        "peak_clip_frame": int(peak_i),
+        "peak_diff_pixels_ge_4": int(per_frame_px[peak_i]) if n else 0,
+        "total_diff_pixels_ge_4": int(per_frame_px.sum()) if n else 0,
+        "original": offsets_mae(orig_row, src_ref),
+        "current": {**offsets_mae(cur_row, cur_ref), "vs_own": cur_own, "vs_other": cur_other},
+        "candidate": {**offsets_mae(cand_row, cand_ref), "vs_own": cand_own, "vs_other": cand_other},
+    }
+
+
+def compare(a: argparse.Namespace) -> None:
+    """Mode (c): compare a candidate cut/render against what is currently laid on the span, within H.264 level 5.1.
+    Left column (3 rows at the source's own size + 2 legends): ORIGINAL, CURRENT CUT, CANDIDATE CUT.
+    Right column: for each compared subject, CURRENT WHAT H3 SAW + REF and CANDIDATE WHAT H3 SAW + REF."""
+    import cv2
+    from PIL import Image, ImageDraw, ImageFont
+    asm = _assembler()
+    sw, sh, src_total = probe(a.source)
+    if sw % 2 or sh % 2:
+        raise SystemExit(f"{a.source} is {sw} by {sh}: an odd width or height does not encode as yuv420p, and the stack's rows are the "
+                         "source's own size; nothing written")
+    jw, jh, total = probe(a.joined)
+    if (jw, jh) != (sw, sh):
+        raise SystemExit(f"{a.joined} is {jw} by {jh} and the source {a.source} is {sw} by {sh}: the stack's middle row is the current cut at the "
+                         "source's own size and is never stretched to it. Build the clip at the source's size (`assemble_delivery.py --size "
+                         "source`); nothing written")
+    cand_table_arg = getattr(a, "candidate_table", "") or ""
+    cand_joined_arg = getattr(a, "candidate_joined", "") or ""
+    cand_piece_arg = getattr(a, "candidate_piece", "") or ""
+    if not cand_table_arg and not cand_piece_arg:
+        raise SystemExit("compare requires --candidate-table or --candidate-piece; nothing written")
+    if cand_table_arg and cand_piece_arg:
+        raise SystemExit("pass either --candidate-table or --candidate-piece, not both; nothing written")
+    if cand_piece_arg and not Path(cand_piece_arg).is_file():
+        raise SystemExit(f"{cand_piece_arg}: candidate piece is not a file; nothing written")
+    if cand_joined_arg:
+        cand_joined = cand_joined_arg
+    elif cand_piece_arg:
+        pw, ph, _ = probe(cand_piece_arg)
+        if (pw, ph) != (sw, sh):
+            raise SystemExit(f"{cand_piece_arg} is {pw} by {ph} and the source {a.source} is {sw} by {sh}: give --candidate-joined built at the "
+                             "source's size (`assemble_delivery.py --size source`); nothing written")
+        cand_joined = cand_piece_arg
+    else:
+        raise SystemExit(f"compare requires --candidate-joined at the source's size ({sw} by {sh}); nothing written")
+    cjw, cjh, ctotal = probe(cand_joined)
+    if (cjw, cjh) != (sw, sh):
+        raise SystemExit(f"{cand_joined} is {cjw} by {cjh} and the source {a.source} is {sw} by {sh}: the stack's bottom row is the candidate cut "
+                         "at the source's own size and is never stretched to it. Build the candidate clip at the source's size "
+                         "(`assemble_delivery.py --size source`); nothing written")
+    base = int(getattr(a, "first", 0) or 0)
+    cand_first_raw = getattr(a, "candidate_first", None)
+    if cand_first_raw is not None:
+        cand_base = int(cand_first_raw)
+    elif getattr(a, "candidate_piece_first", None) is not None and not cand_joined_arg:
+        cand_base = int(a.candidate_piece_first)
+    else:
+        cand_base = base
+    if getattr(a, "only", None):
+        first_f, last_f = _parse_only(a.only)
+    elif (base, base + total - 1) == (cand_base, cand_base + ctotal - 1):
+        first_f, last_f = base, base + total - 1
+    else:
+        raise SystemExit(f"--joined covers {base} to {base + total - 1} and --candidate-joined covers {cand_base} to {cand_base + ctotal - 1}: "
+                         "give --only FIRST-LAST for the span to compare; nothing written")
+    if first_f < base or last_f > base + total - 1:
+        raise SystemExit(f"--only {first_f}-{last_f} is not inside the current clip's frames, {base} to {base + total - 1} of the source")
+    if first_f < cand_base or last_f > cand_base + ctotal - 1:
+        raise SystemExit(f"--only {first_f}-{last_f} is not inside the candidate clip's frames, {cand_base} to {cand_base + ctotal - 1} of the source")
+    if first_f < 0 or last_f >= src_total:
+        raise SystemExit(f"frames {first_f}-{last_f} are not inside the source {a.source} (0 to {src_total - 1}); nothing written")
+    aliases = dict(x.split("=", 1) for x in a.alias)
+    rows, intents = read_rows(a.table, a.copy_rate, aliases)
+    work = Path(a.work)
+    work.mkdir(parents=True, exist_ok=True)
+    raw_subj = getattr(a, "subject", "") or ""
+    subj_list = [aliases.get(s.strip(), s.strip()) for s in (raw_subj if isinstance(raw_subj, (list, tuple)) else str(raw_subj).split(",")) if s.strip()]
+    if cand_table_arg:
+        cand_table_path = cand_table_arg
+        cand_rows, cand_intents = read_rows(cand_table_path, a.copy_rate, aliases)
+    else:
+        subj = subj_list[0] if subj_list else (rows[0]["subject"] if rows and rows[0].get("subject") else "a")
+        subj_rows = [r for r in rows if (r["subject"] or r["name"]) == subj and r["first"] <= last_f and r["last"] >= first_f]
+        cp_first = (int(a.candidate_piece_first) if getattr(a, "candidate_piece_first", None) is not None
+                    else (subj_rows[0]["first"] if subj_rows and not getattr(a, "only", None) else first_f))
+        p_frames = probe(cand_piece_arg)[2]
+        cp_span_first = max(first_f, cp_first)
+        cp_span_last = min(last_f, cp_first + p_frames - 1)
+        if cp_span_first > cp_span_last:
+            raise SystemExit(f"{cand_piece_arg} ({p_frames} frames from {cp_first}) does not overlap frames {first_f}-{last_f}; nothing written")
+        synth_lines = [f"# synthesized candidate table for {Path(cand_piece_arg).name}"]
+        for r in rows:
+            r_who = r["subject"] or r["name"]
+            if r_who != subj or r["last"] < cp_span_first or r["first"] > cp_span_last:
+                restore_s = "".join(f" restore={x}" for x in r.get("less") or [])
+                synth_lines.append(f"{r['first']}-{r['last']} {r['piece']} {r['piece_first']}"
+                                   + (f" subject={r['subject']}" if r.get("subject") else "") + restore_s)
+        synth_lines.append(f"{cp_span_first}-{cp_span_last} {Path(cand_piece_arg).resolve()} {cp_first} subject={subj}")
+        for i in intents:
+            synth_lines.append(f"source {i['first']}-{i['last']} subject={i['subject']} {i['why']}")
+        synth_file = work / (Path(a.out).stem + ".candidate.table.txt")
+        synth_file.write_text("\n".join(synth_lines) + "\n")
+        cand_table_path = str(synth_file)
+        cand_rows, cand_intents = read_rows(cand_table_path, a.copy_rate, aliases)
+    if not rows and not cand_rows:
+        raise SystemExit(f"{a.table} and {cand_table_path} lay no piece: there is nothing to compare")
+    if not [r for r in cand_rows if r["first"] <= last_f and r["last"] >= first_f]:
+        raise SystemExit(f"{cand_table_path} lays no piece on frames {first_f}-{last_f}: there is nothing to compare; nothing written")
+    all_rows = rows + cand_rows
+    canvas_of: dict[str, tuple[int, int]] = {}
+    for r in all_rows:
+        p_key = str(Path(r["piece"]).resolve())
+        if Path(r["mask"]).is_file():
+            mw_, mh_, _ = probe(r["mask"])
+            canvas_of[p_key] = (mw_, mh_ // 2)
+        elif Path(r["piece"]).is_file():
+            canvas_of[p_key] = probe(r["piece"])[:2]
+        else:
+            raise SystemExit(f"{r['piece']}: neither it nor {Path(r['mask']).name} is there, so its canvas is not known; nothing written")
+        r["canvas"] = canvas_of[p_key]
+        r["key"] = p_key
+    w, h = max(c[0] for c in canvas_of.values()), max(c[1] for c in canvas_of.values())
+    k = h / 768.0
+
+    def font_px(px: int, bold: bool = True):
+        for path in (["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"] if bold else []) + ["/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"]:
+            try:
+                return ImageFont.truetype(path, max(8, px))
+            except OSError:
+                pass
+        return ImageFont.load_default()
+
+    font = lambda size, bold=True: font_px(round(size * k), bold)  # noqa: E731
+    for tag_label, r_list in (("current", rows), ("candidate", cand_rows)):
+        for r in r_list:
+            print(f"[{tag_label:9s}] {r['first']:5d}-{r['last']:<5d} {r['name']:34s} file starts at {r['piece_first']}, its graph at {r['graph_first']}; reference: "
+                  + (f"{Path(r['ref'][0]).name} from its frame {r['ref'][1]}" if r["ref"] else "none wired"), flush=True)
+    cur_cols = columns_of(rows, first_f, last_f)
+    cand_cols = columns_of(cand_rows, first_f, last_f)
+    all_cols = list(dict.fromkeys(cur_cols + cand_cols))
+
+    def active_sig(r_list: list[dict], who: str) -> list[tuple]:
+        return [(max(r["first"], first_f), min(r["last"], last_f), r["key"], r["piece_first"], tuple(r["less"]))
+                for r in r_list if (r["subject"] or r["name"]) == who and r["first"] <= last_f and r["last"] >= first_f]
+
+    if subj_list:
+        missing_subj = [s for s in subj_list if s not in all_cols]
+        if missing_subj:
+            raise SystemExit(f"--subject {missing_subj[0]!r} has no piece on frames {first_f}-{last_f} in either table; nothing written")
+        compared_cols = list(dict.fromkeys(subj_list))
+    else:
+        compared_cols = [who for who in all_cols if active_sig(rows, who) != active_sig(cand_rows, who)] or list(all_cols)
+    slots = [{"col_key": f"{side}:{who}", "side": side, "who": who,
+              "title": f"{'CURRENT' if side == 'current' else 'CANDIDATE'} ({who})"}
+             for who in compared_cols for side in ("current", "candidate")]
+    data = Path(getattr(a, "data", "") or HERE.parent / "data")
+    given, refused = given_of_pieces(all_rows, data) if data.is_dir() else ({}, {})
+    days = render_days(all_rows, job_folders(data) if data.is_dir() else {})
+    unread = [Path(r["piece"]).name for r in all_rows if Path(r["piece"]).name not in given]
+    why_unread = {n: (f"its record could not be read: {refused[n].splitlines()[0][:160]}" if n in refused else
+                      f"no queued record names its file under {data}" + ("" if data.is_dir() else " (the folder is not there: give --data)"))
+                  for n in dict.fromkeys(unread)}
+    for n, why in why_unread.items():
+        print(f"what H3 was given is not read for {n}: {why}; its column shows its picture's graph alone", flush=True)
+    check_file = Path(a.joined + ".check.json")
+    cand_check_file = Path(cand_joined + ".check.json")
+    flags, flags_not_read = [], None
+    if not check_file.is_file() and not cand_check_file.is_file():
+        flags_not_read = f"no {check_file.name} or {cand_check_file.name} beside the clips"
+    else:
+        for cf in (check_file, cand_check_file):
+            if cf.is_file():
+                try:
+                    for fl in json.loads(cf.read_text()).get("flags") or []:
+                        if fl not in flags:
+                            flags.append(fl)
+                except ValueError as e:
+                    flags_not_read = f"{cf.name} does not read ({e})"
+    if flags_not_read:
+        print(f"check flags not read: {flags_not_read}", flush=True)
+    gaps_checked = bool(getattr(a, "coverage", ""))
+    if not gaps_checked:
+        print("gaps not checked: no --coverage; the legend says so on every frame", flush=True)
+    import capture_masked_run as capm
+    heads, sampled = {}, {}
+    for r in all_rows:
+        file = Path(r["piece"]).name
+        p_key = r["key"]
+        g = given.get(file)
+        if not g or p_key in heads:
+            continue
+        v = next((x for x in g["inputs"] if x.get("tag") == "<Video 1>"), None)
+        rf = ((v or {}).get("record") or {}).get("its_first_frame_is_source_frame")
+        if v and capm is not None and rf is not None:
+            cw_, ch_ = (v.get("loader") or {}).get("custom") or canvas_of[p_key]
+            got = capm.head_boxes(v, (cw_ or canvas_of[p_key][0], ch_ or canvas_of[p_key][1]), (rf, rf + (v.get("reference_frames") or 1) - 1))
+            heads[p_key] = (got, (cw_ or canvas_of[p_key][0], ch_ or canvas_of[p_key][1]))
+        for e in (v or {}).get("encoder_frames") or []:
+            for x in e["sampled"]:
+                if not x["held"] and x["source_frame"] is not None:
+                    sampled.setdefault(p_key, set()).add(x["source_frame"])
+    crop_for = {c: asm.crop_of(sw, sh, *c) for c in sorted(set(canvas_of.values()))}
+    zooms, zoom_not_read = {}, {}
+    for r in all_rows:
+        file = Path(r["piece"]).name
+        p_key = r["key"]
+        try:
+            z = asm.zoomed_of(r["piece"], asm.probe(r["piece"]))
+        except SystemExit as e:
+            z = None
+            zoom_not_read[file] = str(e)
+            print(f"{file}: its zoom record is not read ({e}); no zoom box is drawn for it", flush=True)
+        if z:
+            crop = crop_for[canvas_of[p_key]]
+            inside, _moved = asm.box_at_the_source(z["box"], crop, canvas_of[p_key])
+            zooms[file] = {"box": [inside[0] + crop[2], inside[1] + crop[3], inside[2] + crop[2], inside[3] + crop[3]], "zoom": z.get("zoom")}
+    day_of = lambda r: days[Path(r["piece"]).name][0]  # noqa: E731
+    colour_of = {who: COLOURS[i % len(COLOURS)] for i, who in enumerate(all_cols)}
+    chips_at: dict[int, list[tuple[str, str]]] = {}
+    if getattr(a, "coverage", ""):
+        runs = json.loads(Path(a.coverage).read_text()).get("runs") or []
+        unknown = sorted({run["kind"] for run in runs} - set(CHIP_WORDS))
+        if unknown:
+            raise SystemExit(f"{a.coverage} has runs of kind {', '.join(unknown)}, which this tool has no words for (`CHIP_WORDS`): a chip "
+                             "is not dropped without a word; nothing written")
+        for run in runs:
+            who = aliases.get(run["subject"], run["subject"])
+            words_ = CHIP_WORDS[run["kind"]] + (f" ({run['cause']})" if run.get("cause") else "")
+            for f in range(max(run["first"], first_f), min(run["last"], last_f) + 1):
+                chips_at.setdefault(f, []).append((who, words_))
+
+    def laid_on_list(r_list: list[dict], f: int) -> tuple[dict[str, dict], list[tuple[str, dict]]]:
+        by, extra = {}, []
+        for r in r_list:
+            if r["first"] <= f <= r["last"]:
+                who = r["subject"] or r["name"]
+                if who in by:
+                    extra.append((who, r))
+                else:
+                    by[who] = r
+        return by, extra
+
+    WHITE, GREY, RED = (255, 255, 255), (170, 170, 170), (235, 50, 50)
+
+    def lost_on(f: int) -> list[str]:
+        return sorted({who for who, t in chips_at.get(f, []) if t.startswith(CHIP_WORDS["original_while_tracked"])})
+
+    cur_title = getattr(a, "current_tag", "") or "CURRENT CUT"
+    cand_title = getattr(a, "tag", "") or "CANDIDATE CUT"
+
+    def legends_of(f: int) -> tuple[list[dict], list[dict], dict[str, str], list[dict]]:
+        cur_laid, _ = laid_on_list(rows, f)
+        cand_laid, _ = laid_on_list(cand_rows, f)
+        who_words = {}
+        for who in all_cols:
+            c_part = f"{cur_laid[who]['name']} ({day_of(cur_laid[who])})" if who in cur_laid else "ORIGINAL"
+            n_part = f"{cand_laid[who]['name']} ({day_of(cand_laid[who])})" if who in cand_laid else "ORIGINAL"
+            if who in compared_cols:
+                who_words[who] = f"{who}: current {c_part} -> candidate {n_part}"
+            else:
+                who_words[who] = f"{who}: {c_part} (both)" if c_part == n_part else f"{who}: current {c_part} -> candidate {n_part}"
+        purpose = []
+        for i in intents + [x for x in cand_intents if x not in intents]:
+            if i["first"] <= f <= i["last"]:
+                words_ = f"{i['subject']}: ORIGINAL on purpose ({i['why']})"
+                if words_ not in purpose:
+                    purpose.append(words_)
+        one = [{"text": "ABOVE: ORIGINAL", "colour": WHITE, "boxed": False}, {"text": f"frame {f:05d}", "colour": WHITE, "boxed": False}]
+        one += [{"text": who_words[who], "colour": colour_of[who] if (who in cur_laid or who in cand_laid) else GREY, "boxed": False} for who in all_cols]
+        one += [{"text": t, "colour": GREY, "boxed": False} for t in purpose]
+        one.append({"text": "BELOW: " + cur_title, "colour": (230, 230, 230), "boxed": False, "break": True})
+        for c, crop in crop_for.items():
+            if (crop[0], crop[1]) != (sw, sh):
+                one.append({"text": "loader's crop" + (f" for {c[0]}x{c[1]}" if len(crop_for) > 1 else "")
+                            + f": x {crop[2]}-{crop[2] + crop[0] - 1}, y {crop[3]}-{crop[3] + crop[1] - 1}", "colour": GREY, "boxed": False})
+        for who, r in cur_laid.items():
+            z = zooms.get(Path(r["piece"]).name)
+            if z:
+                b = z["box"]
+                one.append({"text": f"{r['name']}" + (f" {z['zoom']:.2f}x zoom" if z["zoom"] else " zoom") + f": x {b[0]}-{b[2] - 1}, "
+                            f"y {b[1]}-{b[3] - 1}", "colour": colour_of.get(who, WHITE), "boxed": False})
+        lost = lost_on(f)
+        if lost:
+            one.append({"text": f"RED BANDS: {', '.join(lost)} original while tracked", "colour": RED, "boxed": False})
+        live = [fl for fl in flags if any(x <= f <= y for x, y in fl["source_frames"])]
+        two = [{"text": f"{who}: {t}", "colour": colour_of.get(who, WHITE), "boxed": True, "chip": True} for who, t in chips_at.get(f, [])]
+        two += [{"text": f"{fl['id']} {fl['rule']} ({fl.get('level') or 'level not recorded'})", "colour": (255, 150, 60), "boxed": True, "chip": True}
+                for fl in live]
+        if not gaps_checked:
+            two.append({"text": "gaps not checked: no --coverage", "colour": (200, 160, 60), "boxed": True})
+        if flags_not_read:
+            two.append({"text": f"check flags not read: {flags_not_read}", "colour": (200, 160, 60), "boxed": True})
+        two = two or [{"text": "no gap or flag on this frame", "colour": (110, 110, 110), "boxed": True}]
+        two.append({"text": "BELOW: " + cand_title, "colour": WHITE, "boxed": False, "break": True})
+        for who, r in cand_laid.items():
+            z = zooms.get(Path(r["piece"]).name)
+            if z:
+                b = z["box"]
+                two.append({"text": f"{r['name']}" + (f" {z['zoom']:.2f}x zoom" if z["zoom"] else " zoom") + f": x {b[0]}-{b[2] - 1}, "
+                            f"y {b[1]}-{b[3] - 1}", "colour": colour_of.get(who, WHITE), "boxed": False})
+        return one, two, who_words, live
+
+    leg_f = font(22 * sh / 1080 * 768 / h)
+    margin = max(4, round(10 * sh / 1080))
+    gap = max(6, round(24 * sh / 1080))
+    band = max(3, round(8 * sh / 1080))
+    pad = max(2, round(4 * sh / 1080))
+    room = sw - 2 * margin
+    laid_out = {}
+    lines1 = lines2 = 1
+    for f in range(first_f, last_f + 1):
+        one, two, who_words, live = legends_of(f)
+        p1, p2 = flow(one, leg_f, room, gap), flow(two, leg_f, room, max(4, gap // 2))
+        laid_out[f] = (one, two, p1, p2, who_words, live)
+        lines1, lines2 = max(lines1, p1[-1]["line"] + 1), max(lines2, p2[-1]["line"] + 1)
+    lh = line_height(leg_f)
+    lh1 = round(leg_f.size * 1.35)
+    L1 = 2 * ((pad + lines1 * lh1 + pad + band + 1) // 2)
+    W = sw + w
+    W -= W % 2
+    most = most_height(W)
+    cap = (most - 3 * sh - L1 - band - 2 * pad) // lh
+    if W > LEVEL_SIDE or cap < 3:
+        raise SystemExit(f"the view would be {W} by at least {3 * sh + L1 + 2 * ((band + 2 * pad + 3 * lh + 1) // 2)} (three rows of {sh}, "
+                         f"legend 1 of {L1}, legend 2 of three lines), over H.264 level {LEVEL}'s {W} by {most} ({LEVEL_MACROBLOCKS} macroblocks, "
+                         f"no side over {LEVEL_SIDE}): a view a browser cannot play is never written; nothing written")
+    overflow_at: dict[int, tuple[list[dict], list[dict]]] = {}
+    over_lines = 0
+    if lines2 > cap:
+        keep = cap - 2
+        rw_room = w - 16
+        for f, (one, two, p1, p2, who_words, live) in laid_out.items():
+            if p2[-1]["line"] + 1 <= cap:
+                continue
+            tail_idx = next((i for i, it in enumerate(two) if it.get("text", "").startswith("BELOW: ")), len(two) - 1)
+            chips_ = two[:tail_idx]
+            tail_items = two[tail_idx:]
+            parts_ = flow(chips_, leg_f, room, max(4, gap // 2))
+            last_line = {}
+            for part in parts_:
+                last_line[part["item"]] = max(last_line.get(part["item"], 0), part["line"])
+            stay = [it for i, it in enumerate(chips_) if last_line[i] < keep]
+            moved = [it for i, it in enumerate(chips_) if last_line[i] >= keep]
+            two_ = stay + [{"text": f"{len(moved)} more on this frame: in the right column, below what H3 saw", "colour": (200, 200, 200),
+                            "boxed": False, "break": True}] + tail_items
+            items_o = [{"text": f"frame {f:05d}, legend 2 continued:", "colour": WHITE, "boxed": False}] + [{**it, "break": i == 0} for i, it in enumerate(moved)]
+            parts_o = flow(items_o, leg_f, rw_room, max(4, gap // 2))
+            overflow_at[f] = (items_o, parts_o)
+            over_lines = max(over_lines, parts_o[-1]["line"] + 1)
+            laid_out[f] = (one, two_, p1, flow(two_, leg_f, room, max(4, gap // 2)), who_words, live)
+        lines2 = cap
+    L2 = 2 * ((band + pad + lines2 * lh + pad + 1) // 2)
+    total_h = 3 * sh + L1 + L2
+    overflow_px = 16 + over_lines * lh if over_lines else 0
+    blocks_h = total_h - overflow_px
+
+    def block_items(title: str, row: dict | None, mask_why: str | None, at_: int | None, has_crop: bool, ref_why: str | None,
+                    bars: list[str], sc: float, colour: tuple, squares: list[tuple[str, tuple]] = ()) -> list[dict]:
+        if row is None:
+            return [{"text": f"{title}: the original on this frame (no piece)", "colour": (200, 200, 200), "boxed": False}]
+        name = row["name"]
+        words = (f"{title}: " + (f"WHAT H3 SAW, {name}" if mask_why is None else f"{name}, what H3 saw: not read (why, below)")
+                 + (f" (scaled {sc:.2f})" if sc < 1 else "")
+                 + (f"; under it its reference, frame {at_}" + ("" if has_crop else " (no points: no head crop)") if at_ is not None else
+                    f"; its reference: {ref_why}" if ref_why else
+                    f"; its reference is NOT OPENED ({row['ref_refused']})" if row.get("ref_refused") else "; no reference wired"))
+        return ([{"text": words, "colour": colour, "boxed": False}] + [{"text": t, "colour": WHITE, "boxed": True, "break": True, "bar": True} for t in bars]
+                + [{"text": t, "colour": c, "boxed": True, "break": True} for t, c in squares])
+
+    def bars_of(row: dict, live: list[dict]) -> list[str]:
+        return [f"{fl['id']}: {row['name']} CHANGES 0 PX HERE: THE ORIGINAL SHOWS" for fl in live
+                if fl["rule"] == "piece_changes_nothing" and (fl.get("piece") or "").startswith(row["name"])]
+
+    vm = capm._pack("video_mask")
+    kept_of = {}
+    for r in all_rows:
+        file = Path(r["piece"]).name
+        p_key = r["key"]
+        if p_key in kept_of:
+            continue
+        g = given.get(file)
+        src_in = next((x for x in (g or {}).get("inputs") or [] if x.get("role") == "the source"), None)
+        load_first = ((src_in or {}).get("loader") or {}).get("first_frame")
+        origin = r["graph_first"] if load_first is None else load_first
+        rendered = (r["piece_first"] - origin) + probe(r["piece"])[2] if Path(r["piece"]).is_file() else None
+        kept_of[p_key] = KeptSquares(r, g, why_unread.get(file), capm, vm, origin, rendered)
+        k_ = kept_of[p_key]
+        print(f"{file}: squares kept as the original " + (f"not shown: {k_.why}" if k_.why else f"from {len(k_.windows)} window file(s)"
+              + (f", not split: {k_.track_why}" if k_.track_why else f", split by her track{'s' if len(k_.tracks) > 1 else ''} " + ", ".join(Path(t[0]).name for t in k_.tracks))
+              + (f"; left unread, another run's: {', '.join(k_.left_unread)}" if k_.left_unread else "")), flush=True)
+
+    def worst_items(title: str, who: str, row: dict, lab_f) -> int:
+        bars = bars_of(row, flags)
+        kept = kept_of[row["key"]]
+        name_ = kept.windows[0]["file"] if kept.windows else ""
+        worst = [squares_words(who, {"not_read": kept.why or "no window region file lays load frame 99999 (source frame 99999)"}),
+                 squares_words(who, {"windows": {name_: {"inside": 99999, "outside": 99999, "taken": 99999}}, "not_split": None}),
+                 squares_words(who, {"windows": {name_: {"inside": 99999, "outside": 99999, "taken": 99999}},
+                                     "not_split": kept.track_why or "her track has no frame in this window"}),
+                 squares_words(who, {"windows": {w_["file"]: {"inside": 99999, "outside": 99999, "taken": 99999} for w_ in kept.windows[:2]} or {"": {}},
+                                     "not_split": None}) if len(kept.windows) > 1 else []]
+        sq = max(worst, key=lambda x: len(x[0][0]) if x else 0)
+        forms = [block_items(title, row, "not read", 99999, False, None, bars, 0.5, WHITE, sq)]
+        if row["ref"]:
+            forms.append(block_items(title, row, "not read", None, False, f"not read, {Path(row['ref'][0]).name} has no frame 99999", bars, 0.5, WHITE, sq))
+        return max(flow(items, lab_f, w - 16, 4)[-1]["line"] + 1 for items in forms)
+
+    chip_f = font(20 * sh / 1080 * 768 / h)
+    label_px = 34
+    for _ in range(8):
+        sc_factor, blocks = right_tiles(w, h, len(slots), blocks_h, label_px)
+        lab_f = font_px(round(chip_f.size * sc_factor))
+        lines_ = max([worst_items(f"CANDIDATE ({r['subject'] or r['name']})", r["subject"] or r["name"], r, lab_f) for r in all_rows] + [1])
+        need = 8 + lines_ * line_height(lab_f)
+        if need <= label_px:
+            break
+        label_px = need
+    sc = sc_factor
+    rw = w
+    blocks_end = max((t["block"][1] + t["block"][3] for t in blocks), default=0)
+    if overflow_px and blocks_end > blocks_h:
+        raise SystemExit(f"the right column ({rw} by {total_h}) cannot hold its {len(slots)} block(s) ({blocks_end} rows) and the chips legend 2 "
+                         f"cannot hold ({overflow_px} rows) within H.264 level {LEVEL}; nothing written")
+    if W * total_h > LEVEL_MACROBLOCKS * 256 or max(W, total_h) > LEVEL_SIDE:
+        raise SystemExit(f"the view would be {W} by {total_h}, over H.264 level {LEVEL}; nothing written")
+
+    def lay(d, items: list[dict], parts: list[dict], x0: int, y0: int, step: int) -> list[dict]:
+        bp = box_pad(leg_f)
+        boxes: dict[int, list[int]] = {}
+        bottom = max(2, leg_f.size // 4)
+        for part in parts:
+            it = items[part["item"]]
+            x, y = x0 + part["x"], y0 + part["line"] * step
+            if it["boxed"]:
+                d.rectangle((x, y, x + part["w"], y + step - bottom), fill=(40, 40, 40), outline=it["colour"], width=max(1, bp // 2))
+            d.text((x + (bp if it["boxed"] else 0), y + (bp if it["boxed"] else 0)), part["text"], font=leg_f, fill=it["colour"])
+            if it.get("chip"):
+                b = boxes.setdefault(part["item"], [x, y, x + part["w"], y + step - bottom])
+                b[0], b[1], b[2], b[3] = min(b[0], x), min(b[1], y), max(b[2], x + part["w"]), max(b[3], y + step - bottom)
+        return [{"words": items[i]["text"], "box": b} for i, b in sorted(boxes.items())]
+
+    def legend(items: list[dict], parts: list[dict], height: int, top: int, red: bool, red_at: str, step: int) -> tuple[Image.Image, list[dict]]:
+        img = Image.new("RGB", (sw, height), (14, 14, 14))
+        d = ImageDraw.Draw(img)
+        drawn = lay(d, items, parts, margin, top, step)
+        if red:
+            d.rectangle((0, height - band, sw - 1, height - 1) if red_at == "bottom" else (0, 0, sw - 1, band - 1), fill=RED)
+        return img, drawn
+
+    silent = str(work / (Path(a.out).stem + ".video.mp4"))
+    sidecar = Path(a.out).with_name(Path(a.out).stem + ".stack.json")
+    alignment_file = Path(a.out).with_name(Path(a.out).stem + ".alignment.txt")
+    tag = f"comment=stack_delivery layout=compare source={sw}x{sh} canvas={w}x{h} legends={L1}+{L2} right={rw} sidecar={sidecar.name}"
+    src = Reader(a.source, first_f, "", sw, sh)
+    joined = Reader(a.joined, first_f - base, "", sw, sh)
+    cand_reader = Reader(cand_joined, first_f - cand_base, "", sw, sh)
+    joined_yuv = Reader(a.joined, first_f - base, "", sw, sh, "yuv420p")
+    cand_yuv = Reader(cand_joined, first_f - cand_base, "", sw, sh, "yuv420p")
+    enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{total_h}", "-r", _rate(a.joined), "-i", "-",
+                            "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", "-level", LEVEL, "-preset", "faster", silent], stdin=subprocess.PIPE)
+    from _lib.frames import OneASecond
+    slow = OneASecond(work / Path(a.out).stem, (W, total_h), ["-metadata", tag, "-level", LEVEL]) if getattr(a, "one_a_second", False) else None
+    stopped = None
+    readers: dict[tuple, Reader] = {}
+    missing: dict[str, list[int]] = {}
+    records = []
+    for f in range(first_f, last_f + 1):
+        cur_panels = panels_of(f, rows)
+        cand_panels = panels_of(f, cand_rows)
+        all_panels = cur_panels + cand_panels
+        keep = {(id(p["row"]), p["kind"]) for p in all_panels}
+        for key in [key for key in readers if key not in keep]:
+            readers.pop(key).close()
+        cur_laid, cur_extra = laid_on_list(rows, f)
+        cand_laid, cand_extra = laid_on_list(cand_rows, f)
+        for side_name, extra in (("current", cur_extra), ("candidate", cand_extra)):
+            for who, _r in extra:
+                missing.setdefault(f"a second piece of {who} on one frame in {side_name} (the first is shown)", []).append(f)
+        by_slot: dict[str, dict] = {}
+        for slot in slots:
+            who = slot["who"]
+            laid_map = cur_laid if slot["side"] == "current" else cand_laid
+            if who in laid_map:
+                by_slot[slot["col_key"]] = {"row": laid_map[who]}
+        for side_name, p_list in (("current", cur_panels), ("candidate", cand_panels)):
+            for p in p_list:
+                who = p["row"]["subject"] or p["row"]["name"]
+                col_key = f"{side_name}:{who}"
+                if by_slot.get(col_key, {}).get("row") is not p["row"]:
+                    continue
+                key = (id(p["row"]), p["kind"])
+                if key not in readers:
+                    cw_, ch_ = p["row"]["canvas"]
+                    readers[key] = Reader(p["file"], p["frame"], f"crop={cw_}:{ch_}:0:{ch_}" if p["kind"] == "mask" else f"scale={cw_}:{ch_}", cw_, ch_)
+                got = readers[key].frame(p["frame"])
+                if got is None:
+                    missing.setdefault(f"{p['row']['name']} {p['kind']}", []).append(f)
+                    by_slot[col_key][p["kind"] + "_not_read"] = ("not read, " + (f"{Path(p['file']).name} is not there" if not Path(p["file"]).is_file()
+                                                                                 else f"{Path(p['file']).name} has no frame {p['frame']}"))
+                    continue
+                by_slot[col_key][p["kind"]] = (got, p["frame"])
+        s, j, c = src.frame(f), joined.frame(f - base), cand_reader.frame(f - cand_base)
+        jy, cy = joined_yuv.frame(f - base), cand_yuv.frame(f - cand_base)
+        if s is None or j is None or c is None or jy is None or cy is None:
+            which = "source" if s is None else ("current clip" if j is None or jy is None else "candidate clip")
+            raise SystemExit(f"frame {f}: the {which} could not be read; nothing written")
+        one, two, p1, p2, who_words, live_flags = laid_out[f]
+        lost = lost_on(f)
+        hard_diff = asm.changed(asm.planes(cy, sw, sh), asm.planes(jy, sw, sh)).astype(np.uint8)
+        abs_diff = np.abs(c.astype(np.int16) - j.astype(np.int16))
+        rec = {"source_frame": f, "clip_frame": f - base, "candidate_clip_frame": f - cand_base, "columns": {},
+               "check_flags": [fl["id"] for fl in live_flags], "chips": [f"{who}: {t}" for who, t in chips_at.get(f, [])],
+               "legend": who_words, "red_bands": lost, "legend_1": [it["text"] for it in one], "legend_2": [it["text"] for it in two],
+               "changed_px": int(hard_diff.sum()),
+               "diff_vs_current": {"changed_px": int(hard_diff.sum()), "mean": round(float(abs_diff.mean()), 3), "max": int(abs_diff.max())}}
+        leg1, _ = legend(one, p1, L1, pad, bool(lost), "bottom", lh1)
+        leg2, drawn = legend(two, p2, L2, band + pad, bool(lost), "top", lh)
+        rec["chips_drawn"] = drawn
+        right = Image.new("RGB", (rw, total_h), (22, 24, 30))
+        dr = ImageDraw.Draw(right)
+        lh_ = line_height(lab_f)
+
+        def put(img: np.ndarray, rect: list[int], interpolation) -> None:
+            x0, y0, tw, th = rect
+            ih, iw = img.shape[:2]
+            f_ = min(tw / iw, th / ih)
+            nw, nh = max(1, round(iw * f_)), max(1, round(ih * f_))
+            right.paste(Image.fromarray(cv2.resize(img, (nw, nh), interpolation=interpolation)), (x0 + (tw - nw) // 2, y0 + (th - nh) // 2))
+
+        def draw_label(items: list[dict], t: dict) -> tuple[list[str], list[list[int]]]:
+            lx, ly, lw, _lh = t["label"]
+            lines, boxes = {}, []
+            for part in flow(items, lab_f, lw, 4):
+                it = items[part["item"]]
+                x, y = lx + part["x"], ly + part["line"] * lh_
+                box = [x, y, x + part["w"], y + lh_ - max(2, lab_f.size // 4)]
+                if it.get("bar"):
+                    dr.rectangle(tuple(box), fill=(120, 20, 20))
+                dr.text((x + (box_pad(lab_f) if it["boxed"] else 0), y + box_pad(lab_f)), part["text"], font=lab_f, fill=it["colour"])
+                lines.setdefault(part["line"], []).append(part["text"])
+                boxes.append(box)
+            return [" ".join(v) for _, v in sorted(lines.items())], boxes
+
+        for slot_meta, t in zip(slots, blocks):
+            col_key, who, title = slot_meta["col_key"], slot_meta["who"], slot_meta["title"]
+            slot = by_slot.get(col_key)
+            bx, by, bw, bh = t["block"]
+            dr.rectangle((bx, by, bx + bw - 1, by + bh - 1), outline=colour_of[who], width=2)
+            if slot is None:
+                draw_label(block_items(title, None, None, None, False, None, [], sc, WHITE), t)
+                rec["columns"][col_key] = None
+                continue
+            row = slot["row"]
+            name, file, p_key = row["name"], Path(row["piece"]).name, row["key"]
+            rcw, rch = row["canvas"]
+            hb = heads.get(p_key)
+            has_crop = bool(hb and hb[0])
+            at_ = slot["reference"][1] if "reference" in slot else None
+            kept = kept_of[p_key].on(f)
+            items = block_items(title, row, slot.get("mask_not_read"), at_, has_crop, slot.get("reference_not_read"), bars_of(row, live_flags), sc,
+                                colour_of[who], squares_words(row["subject"] or who, kept))
+            label_lines, label_boxes = draw_label(items, t)
+            col = {"side": slot_meta["side"], "subject": who, "piece": name, "file": file, "canvas": [rcw, rch],
+                   "label": items[0]["text"], "label_lines": label_lines, "label_boxes": label_boxes,
+                   "kept_squares": ({"not_read": kept["not_read"]} if "not_read" in kept else
+                                    {**(next(iter(kept["windows"].values())) if len(kept["windows"]) == 1 else {"windows": kept["windows"]}),
+                                     "window": next(iter(kept["windows"])) if len(kept["windows"]) == 1 else None,
+                                     "unit": ("a token (two latent cells a side)" if kept["draw"][0]["whole"] else "a latent cell") if kept["draw"] else None,
+                                     "not_split": kept.get("not_split"), "not_laid": kept.get("not_laid"), "own_track_share": _own_share(capm)}),
+                   "mask_frame": None, "mask_not_read": slot.get("mask_not_read"), "reference_frame": None,
+                   "reference_not_read": slot.get("reference_not_read"), "reference_refused": row.get("ref_refused"),
+                   "encoder_sample": f in sampled.get(p_key, set()), "zoom_box_at_source": (zooms.get(file) or {}).get("box"),
+                   "check_flags": [fl["id"] for fl in live_flags if (fl.get("piece") or "").startswith(name)]}
+            x0_, y0_, mw_, mh_ = t["mask"]
+            if "mask" in slot:
+                shown = slot["mask"][0]
+                if "not_read" not in kept and kept["draw"] is not None:
+                    shown = kept_of[p_key].paint(shown, kept["draw"])
+                put(shown, t["mask"], cv2.INTER_AREA)
+                col["mask_frame"] = slot["mask"][1]
+            else:
+                dr.rectangle((x0_, y0_, x0_ + mw_ - 1, y0_ + mh_ - 1), outline=(120, 120, 120), width=1)
+                why_items = [{"text": f"what H3 saw: {slot['mask_not_read']}", "colour": (200, 200, 200), "boxed": False}]
+                for part in flow(why_items, lab_f, mw_ - 16, 0):
+                    dr.text((x0_ + 8, y0_ + 8 + part["line"] * lh_), part["text"], font=lab_f, fill=(200, 200, 200))
+            if "reference" in slot:
+                ref, at = slot["reference"]
+                col["reference_frame"] = at
+                _hx, ry, hs, _ = t["head"]
+                if has_crop:
+                    boxes = hb[0]
+                    i = min(max(at, 0), len(boxes) - 1)
+                    sx_, sy_ = rcw / hb[1][0], rch / hb[1][1]
+                    bx0, by0, bx1, by1 = (round(boxes[i][0] * sx_), round(boxes[i][1] * sy_), round(boxes[i][2] * sx_), round(boxes[i][3] * sy_))
+                    right.paste(Image.fromarray(cv2.resize(ref[by0:by1, bx0:bx1], (hs, hs), interpolation=cv2.INTER_CUBIC)), (8, ry))
+                    if col["encoder_sample"]:
+                        dr.rectangle((6, ry - 2, 8 + hs + 1, ry + hs + 1), outline=(90, 230, 110), width=3)
+                put(ref, t["whole"], cv2.INTER_AREA)
+            rec["columns"][col_key] = col
+        if f in overflow_at:
+            items_o, parts_o = overflow_at[f]
+            rec["chips_overflow"] = lay(dr, items_o, parts_o, 8, blocks_end + 8, lh)
+        rec["words"] = (["CURRENT: " + w_ for w_ in words_of(f, rows, intents, cur_panels)]
+                        + ["CANDIDATE: " + w_ for w_ in words_of(f, cand_rows, cand_intents, cand_panels)])
+        records.append(rec)
+        frame = Image.new("RGB", (W, total_h))
+        frame.paste(Image.fromarray(s), (0, 0))
+        frame.paste(leg1, (0, sh))
+        frame.paste(Image.fromarray(j), (0, sh + L1))
+        frame.paste(leg2, (0, 2 * sh + L1))
+        frame.paste(Image.fromarray(c), (0, 2 * sh + L1 + L2))
+        frame.paste(right, (sw, 0))
+        data_ = frame.tobytes()
+        try:
+            enc.stdin.write(data_)
+        except BrokenPipeError:
+            stopped = f"the encoder stopped taking frames at source frame {f}"
+            break
+        if slow is not None:
+            slow.write(data_, f)
+    try:
+        enc.stdin.close()
+    except BrokenPipeError:
+        stopped = stopped or "the encoder stopped taking frames"
+    slow_code, slow_parts = slow.close() if slow is not None else (0, [])
+    code = enc.wait()
+    for r in readers.values():
+        r.close()
+    for r in (src, joined, cand_reader, joined_yuv, cand_yuv):
+        r.close()
+    for k_ in kept_of.values():
+        k_.close()
+    if stopped or code or slow_code:
+        for part in work.glob(Path(a.out).stem + ".1fps.*"):
+            part.unlink()
+        if Path(silent).is_file():
+            Path(silent).unlink()
+        raise SystemExit(f"the encoder failed ({stopped or f'exit {code or slow_code}'}); nothing written beside {a.out}")
+    if (first_f, last_f) == (base, base + total - 1) and _has_audio(a.joined):
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", silent, "-i", a.joined, "-map", "0:v", "-map", "1:a?", "-c", "copy",
+                        "-metadata", tag, "-movflags", "+faststart", a.out], check=True)
+    else:
+        audio_pick = next(((p, f0_) for p, f0_ in ((a.source, first_f), (a.joined, first_f - base), (cand_joined, first_f - cand_base)) if _has_audio(p)), None)
+        if audio_pick is not None:
+            audio_src, audio_f0 = audio_pick
+            fps = _fps_float(audio_src)
+            start_s = max(0.0, audio_f0 / fps)
+            dur_s = (last_f - first_f + 1) / fps
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", silent, "-ss", f"{start_s:.6f}", "-t", f"{dur_s:.6f}", "-i", audio_src,
+                            "-map", "0:v", "-map", "1:a?", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
+                            "-metadata", tag, "-movflags", "+faststart", a.out], check=True)
+        else:
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", silent, "-c", "copy", "-metadata", tag, "-movflags", "+faststart", a.out], check=True)
+    Path(silent).unlink()
+    import shutil
+    for part in slow_parts:
+        moved = Path(a.out).with_name(Path(part["file"]).name)
+        shutil.move(part["file"], moved)
+        part["file"] = str(moved)
+    col_keys = [s["col_key"] for s in slots]
+    for prev, rec in zip([None] + records[:-1], records):
+        ch = []
+        if prev is not None:
+            ch += [f"flag {x} starts" for x in rec["check_flags"] if x not in prev["check_flags"]]
+            ch += [f"flag {x} ends" for x in prev["check_flags"] if x not in rec["check_flags"]]
+            for ck in col_keys:
+                a_, b_ = (prev["columns"].get(ck) or {}).get("piece"), (rec["columns"].get(ck) or {}).get("piece")
+                if a_ != b_:
+                    ch.append(f"{ck}: {b_ or 'the original'} from this frame" + (f" (was {a_})" if a_ else ""))
+        rec["changes"] = ch
+    stack_payload = {"layout": "compare", "clip": a.out, "one_a_second": slow_parts,
+                     "joined": a.joined, "table": a.table, "candidate_joined": cand_joined, "candidate_table": cand_table_path,
+                     "source": a.source, "frames": [first_f, last_f], "clip_begins_on_source_frame": base,
+                     "candidate_begins_on_source_frame": cand_base, "canvas": [w, h],
+                     "canvases": {Path(r["piece"]).name: list(r["canvas"]) for r in all_rows},
+                     "source_size": [sw, sh], "legends": [L1, L2], "right_column": rw, "right_scale": sc, "label_strip": label_px,
+                     "level": LEVEL, "most_height": most, "legend_2_lines": lines2, "overflow_rows": overflow_px,
+                     "frames_overflowing": sorted(overflow_at), "loader_crops": {f"{c[0]}x{c[1]}": list(crop) for c, crop in crop_for.items()},
+                     "zooms": zooms, "zoom_not_read": zoom_not_read, "gaps_checked": gaps_checked, "check_flags_not_read": flags_not_read,
+                     "kept_squares_read": {Path(r["piece"]).name: (kept_of[r["key"]].why or {"windows": [w_["file"] for w_ in kept_of[r["key"]].windows],
+                                                                                             "split_by": [t[0] for t in kept_of[r["key"]].tracks],
+                                                                                             "not_split": kept_of[r["key"]].track_why,
+                                                                                             "left_unread": kept_of[r["key"]].left_unread})
+                                           for r in all_rows},
+                     "days": {name: {"day": d, "from": src_} for name, (d, src_) in days.items()},
+                     "colours": colour_of, "coverage": getattr(a, "coverage", "") or None,
+                     "compared_subjects": compared_cols, "unchanged_subjects": [who for who in all_cols if who not in compared_cols],
+                     "columns": col_keys, "right_tiles": blocks,
+                     "source_is": ("the original the stack's top row shows and the assembler laid the pieces on (--source); the middle row is "
+                                   "--joined (current cut) and the bottom row is --candidate-joined (candidate cut)"),
+                     "rendered_from": sorted({x["file"] for g in given.values() for x in g["inputs"] if x["role"] == "the source"}),
+                     "given": given, "given_not_read": sorted(set(unread)), "check_flags": flags,
+                     "records": Path(sidecar).with_suffix(".frames.jsonl").name}
+    sidecar.write_text(json.dumps(stack_payload, indent=1, default=str) + "\n")
+    with open(sidecar.with_suffix(".frames.jsonl"), "w") as fh:
+        for rec in records:
+            fh.write(json.dumps(rec) + "\n")
+    got = read_back(a.source, a.joined, a.out, base, cand_joined, cand_base)
+    stack_payload["alignment"] = got["alignment"]
+    stack_payload["alignment_file"] = alignment_file.name
+    sidecar.write_text(json.dumps(stack_payload, indent=1, default=str) + "\n")
+    alignment_file.write_text("\n".join(check_lines(got, base)) + "\n")
+    import sidecar as sidecar_tool
+    pieces_all = []
+    carried_parts = []
+    for label_s, clip_p in (("current", a.joined), ("candidate", cand_joined)):
+        try:
+            ps = sidecar_tool.read(clip_p).get("pieces")
+            if ps:
+                pieces_all.extend(ps)
+            carried_parts.append(f"{label_s}: from {Path(clip_p).name}'s sidecar")
+        except (SystemExit, Exception) as e:
+            carried_parts.append(f"{label_s}: sidecar not read ({type(e).__name__}: {e})")
+    try:
+        side = sidecar_tool.write(
+            a.out,
+            inputs={
+                "the source": a.source,
+                "the table": a.table,
+                "the joined clip": a.joined,
+                "the candidate table": cand_table_path,
+                "the candidate clip": cand_joined,
+                **({"the candidate piece": cand_piece_arg} if cand_piece_arg else {}),
+                **({"the per-frame gap check": a.coverage} if getattr(a, "coverage", "") else {}),
+                "the stack's records": str(sidecar),
+                "the stack's per-frame records": str(sidecar.with_suffix(".frames.jsonl")),
+                "the stack's alignment check": str(alignment_file),
+            },
+            extra={
+                "layout": "compare (mode c, 2026-10-17)",
+                "frames": [first_f, last_f],
+                "source_size": [sw, sh],
+                "canvas": [w, h],
+                "legends": [L1, L2],
+                "right_scale": sc_factor,
+                "compared_subjects": compared_cols,
+                "columns": col_keys,
+                "alignment": got["alignment"],
+                "one_a_second": slow_parts,
+                "pieces_are": "; ".join(carried_parts),
+            },
+            pieces=pieces_all or None,
+        )
+    except (SystemExit, Exception) as e:
+        raise SystemExit(f"THE STACK {a.out} IS WRITTEN BUT HAS NO SIDECAR: the sidecar tool refused or failed ({type(e).__name__}: {e}). It is not "
+                         "to be handed over until its sidecar is written") from None
+    print(f"written {a.out} ({last_f - first_f + 1} frames, {W} by {total_h}: the source's {sw} by {sh} rows, legends of {L1} and {L2}, "
+          f"the canvas's {w} column)")
+    for part in slow_parts:
+        print(f"written {part['file']} (source frames {part['frames'][0]}-{part['frames'][1]} at one a second, no sound; {part['bytes']} bytes)")
+    print(f"its records: {sidecar}, {sidecar.with_suffix('.frames.jsonl').name} and {alignment_file.name}")
+    print(f"its sidecar: {side}")
+    print("columns:", ", ".join(col_keys))
+    if zoom_not_read:
+        print("zoom records not read, so no box is drawn for these pieces:", ", ".join(sorted(zoom_not_read)))
+    print("panels or words that could not be shown, as first frame, last frame, count:", {name: (v[0], v[-1], len(v)) for name, v in missing.items()} or "none")
+
+
+def read_back(source: str, joined: str, out: str, first: int = 0, candidate_joined: str | None = None, candidate_first: int | None = None) -> dict:
     """`first` is the source frame the clip begins on: the original row is held to the source from THAT frame. For a stack of
-    the layout of 2026-10-16 the frames stacked and the clip's first frame are taken from the stack's own record (the
-    `.stack.json` its metadata names; `--first` only where there is none), so a build of some frames (`--only`) reads back
-    right; the reading holds `source_size` (the rows) and `canvas` (the right column's) apart, and the file's width and
-    height to what its metadata says; a file of another size is refused."""
+    the layout of 2026-10-16 (`real` or `compare`) the frames stacked and the clip's first frame are taken from the stack's own
+    record (the `.stack.json` its metadata names; `--first` only where there is none), so a build of some frames (`--only`)
+    reads back right; the reading holds `source_size` (the rows) and `canvas` (the right column's) apart, and the file's width
+    and height to what its metadata says; a file of another size is refused."""
     w, total_h, n = probe(out)
     nj = probe(joined)[2]
-    # the canvas and the block as the build wrote them into the file (since 2026-10-15 the block is as tall as the clip's words
-    # need); a file from before says nothing, and its canvas is found as that build laid it
     said = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format_tags=comment", "-of", "csv=p=0", out], capture_output=True, text=True).stdout
     import re
-    real = re.search(r"stack_delivery layout=real source=(\d+)x(\d+) canvas=(\d+)x(\d+) (?:legends=(\d+)\+(\d+)|legend=(\d+)) right=(\d+)", said)
+    real = re.search(r"stack_delivery layout=(real|compare) source=(\d+)x(\d+) canvas=(\d+)x(\d+) (?:legends=(\d+)\+(\d+)|legend=(\d+)) right=(\d+)", said)
     if real:
-        sw, sh, cw, ch = (int(real.group(i)) for i in (1, 2, 3, 4))
-        # two legends of their own heights (from the blind read's fixes of 2026-10-16), or one height for both (the stacks made before)
-        l1, l2 = (int(real.group(5)), int(real.group(6))) if real.group(5) else (int(real.group(7)),) * 2
-        rw = int(real.group(8))
+        layout_kind = real.group(1)
+        sw, sh, cw, ch = (int(real.group(i)) for i in (2, 3, 4, 5))
+        l1, l2 = (int(real.group(6)), int(real.group(7))) if real.group(6) else (int(real.group(8)),) * 2
+        rw = int(real.group(9))
         if 3 * sh + l1 + l2 != total_h:
             raise SystemExit(f"{out} is {w} by {total_h}: not three rows of {sh} and legends of {l1} and {l2} as its own metadata says")
         if w != sw + rw - (sw + rw) % 2:
@@ -1354,6 +2181,32 @@ def read_back(source: str, joined: str, out: str, first: int = 0) -> dict:
         base = int(held.get("clip_begins_on_source_frame", first))
         md5 = lambda p: subprocess.run(["ffmpeg", "-v", "error", "-i", p, "-map", "0:a", "-c", "copy", "-f", "md5", "-"], capture_output=True, text=True).stdout.strip()
         sound = (md5(out), md5(joined))
+        if layout_kind == "compare":
+            cand_path = candidate_joined or held.get("candidate_joined")
+            if not cand_path or not Path(cand_path).is_file():
+                raise SystemExit(f"{out} is a compare stack and its candidate clip is not found (give --candidate-joined)")
+            cand_base = int(candidate_first if candidate_first is not None else held.get("candidate_begins_on_source_frame", base))
+            nc = probe(cand_path)[2]
+            orig_s = _small(out, f"crop={sw}:{sh}:0:0", n)
+            cur_s = _small(out, f"crop={sw}:{sh}:0:{sh + l1}", n)
+            cand_s = _small(out, f"crop={sw}:{sh}:0:{2 * sh + l1 + l2}", n)
+            src_ref = _small(source, native, n, f0)
+            cur_ref = _small(joined, native, n, f0 - base)
+            cand_ref = _small(cand_path, native, n, f0 - cand_base)
+            orig_fit = fits(orig_s, src_ref)
+            cur_fit = fits(cur_s, cur_ref)
+            cand_fit = fits(cand_s, cand_ref)
+            align = compare_alignment(orig_s, cur_s, cand_s, src_ref, cur_ref, cand_ref, f0)
+            same_span = (f0, f0 + n - 1) == (base, base + nj - 1)
+            sound_same = (bool(sound[0]) and sound[0] == sound[1]) if (same_span and sound[1]) else bool(sound[0])
+            return {"layout": "compare", "frames": n, "clip_frames": nj, "candidate_clip_frames": nc,
+                    "size": [w, total_h], "canvas": [cw, ch], "source_size": [sw, sh], "legends": [l1, l2],
+                    "sound_packets": {"stacked": sound[0], "clip": sound[1], "the_same": sound_same},
+                    "the_clip_begins_on_source_frame": base, "the_candidate_begins_on_source_frame": cand_base,
+                    "frames_stacked": held.get("frames"),
+                    "frames_from": f"the stack's record {record.name}" if held else "--first (no stack record beside the file)",
+                    "the_original_row": orig_fit, "the_current_row": cur_fit, "the_clip_row": cur_fit,
+                    "the_candidate_row": cand_fit, "alignment": align}
         return {"frames": n, "clip_frames": nj, "size": [w, total_h], "canvas": [cw, ch], "source_size": [sw, sh], "legends": [l1, l2],
                 "sound_packets": {"stacked": sound[0], "clip": sound[1], "the_same": bool(sound[0]) and sound[0] == sound[1]},
                 "the_clip_begins_on_source_frame": base, "frames_stacked": held.get("frames"),
@@ -1380,7 +2233,8 @@ def read_back(source: str, joined: str, out: str, first: int = 0) -> dict:
 
 
 def check_lines(got: dict, first: int) -> list[str]:
-    """What `check` prints of a reading (`read_back`), a line each: the frames, the sound, the two rows."""
+    """What `check` prints of a reading (`read_back`), a line each: the frames, the sound, the rows, and (for a compare stack)
+    the offset -2..+2 and own-vs-other alignment figures."""
     s = got["sound_packets"]
     rows = f", rows at the source's {got['source_size'][0]} by {got['source_size'][1]}" if got.get("source_size") else ""
     begins = got.get("the_clip_begins_on_source_frame", first)
@@ -1389,7 +2243,11 @@ def check_lines(got: dict, first: int) -> list[str]:
            + (f" (from {got['frames_from']})" if got.get("frames_from") else "") + f"; picture {got['size'][0]} by {got['size'][1]}"
            f"{rows}, canvas {got['canvas'][0]} by {got['canvas'][1]}",
            f"sound packets: stacked {s['stacked'] or 'none'}, the clip {s['clip'] or 'none'}: {'the same' if s['the_same'] else 'NOT the same'}"]
-    for name, key in (("ORIGINAL row against the source", "the_original_row"), ("CLIP row against the clip", "the_clip_row")):
+    row_pairs = (("ORIGINAL row against the source", "the_original_row"),
+                 ("CURRENT row against the current clip", "the_current_row"),
+                 ("CANDIDATE row against the candidate clip", "the_candidate_row")) if got.get("layout") == "compare" else (
+                 ("ORIGINAL row against the source", "the_original_row"), ("CLIP row against the clip", "the_clip_row"))
+    for name, key in row_pairs:
         r = got[key]
         worse = r["a_neighbour_fits_better"]
         cut = f", less its top {r['cut']} rows (the label of the layout before 2026-10-16)" if r.get("cut") else ""
@@ -1397,40 +2255,69 @@ def check_lines(got: dict, first: int) -> list[str]:
                    f"{r['ties_a_neighbour']}, a neighbour fits better on {len(worse)}" + (f" (frames {', '.join(map(str, worse[:20]))})" if worse else "")
                    + f"; mean difference to its own frame {r['mean_to_its_own_frame']} of 255, greatest {r['greatest_to_its_own_frame']}; to the nearer neighbour "
                    f"{r['mean_to_the_nearer_neighbour']}")
+    if got.get("alignment"):
+        al = got["alignment"]
+        out.append(al["note"])
+        out.append(f"diff pixels (|candidate - current| >= 4 at 256x192): peak source frame {al['peak_source_frame']} "
+                   f"(clip frame {al['peak_clip_frame']}, {al['peak_diff_pixels_ge_4']} px), total {al['total_diff_pixels_ge_4']} px")
+        for label, key in (("original", "original"), ("current", "current"), ("candidate", "candidate")):
+            offs = al[key]["offsets"]
+            seq = " / ".join(f"{k}:{offs[k]}" for k in ("-2", "-1", "0", "+1", "+2"))
+            own_other = f"; on diff pixels vs own {al[key]['vs_own']}, vs other {al[key]['vs_other']}" if "vs_own" in al[key] else ""
+            out.append(f"alignment {label}: offsets {seq} (best {al[key]['best_offset']:+d}){own_other}")
     return out
 
 
 def check(a: argparse.Namespace) -> None:
-    print("\n".join(check_lines(read_back(a.source, a.joined, a.out, a.first), a.first)))
+    print("\n".join(check_lines(read_back(a.source, a.joined, a.out, a.first, getattr(a, "candidate_joined", None),
+                                          getattr(a, "candidate_first", None)), a.first)))
+
+
+def _add_candidate_args(parser: argparse.ArgumentParser, required_mode: bool = False) -> None:
+    parser.add_argument("--candidate-table", default="", help="the delivery table of the candidate cut (mode c)")
+    parser.add_argument("--candidate-joined", default="", help="the candidate delivery clip at the source's size (mode c)")
+    parser.add_argument("--candidate-piece", default="", help="a single candidate render piece to compare when --candidate-table is not given")
+    parser.add_argument("--candidate-piece-first", type=int, default=None, metavar="SOURCE_FRAME",
+                        help="the source frame --candidate-piece's frame 0 is (defaults to the span's first frame)")
+    parser.add_argument("--subject", default="", help="the subject whose current and candidate renders are compared in the right column")
+    parser.add_argument("--current-tag", default="", help="words for the middle row's title in legend 1 in place of CURRENT CUT")
+    parser.add_argument("--candidate-first", type=int, default=None, metavar="SOURCE_FRAME",
+                        help="the source frame --candidate-joined's first frame is (defaults to --first)")
 
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = p.add_subparsers(dest="mode", required=True)
-    b = sub.add_parser("build", help="write the stacked file")
-    b.add_argument("--source", required=True, help="the original the clip was built against")
-    b.add_argument("--table", required=True, help="the delivery table the clip was built from")
-    b.add_argument("--joined", required=True, help="the delivery clip")
-    b.add_argument("--out", required=True)
-    b.add_argument("--work", required=True, help="a scratch folder for the working file; never the share")
-    b.add_argument("--tag", default="", help="words for the bottom row's title in legend 2 in place of THE CUT")
-    b.add_argument("--alias", action="append", default=[], metavar="OLD=NEW", help="a subject's name in the table shown as another on the picture; repeatable")
-    b.add_argument("--copy-rate", type=float, default=24.0, help="the rate of the copy the pieces' graphs load: a loader's start is in its seconds")
-    b.add_argument("--only", metavar="FIRST-LAST", help="a trial on these source frames alone (the sound is then the whole clip's)")
-    b.add_argument("--first", type=int, default=0, metavar="SOURCE_FRAME", help="the source frame the clip's first frame is, for a clip of a span that does not begin on 0")
-    b.add_argument("--data", default="", help="the folder of the job folders (data/), where each piece's queued graph is found; the repo's own when not given")
-    b.add_argument("--coverage", default="", help="the per-frame gap check's JSON (bench/frame_coverage.py): its runs are drawn as chips on their frames")
-    b.add_argument("--one-a-second", action="store_true", help="also write the same frames at one a second, no sound, in parts under the outside "
-                   "reviewer's file size, <out>.1fps.<first>-<last>.mp4: for an agent's video reader that takes one frame a second")
-    c = sub.add_parser("check", help="read a stacked file back against the source and the clip")
+    for mode_name, help_text in (("build", "write the stacked file"),
+                                 ("compare", "write a mode (c) comparison stack: original, current cut, candidate cut, and both working columns")):
+        b = sub.add_parser(mode_name, help=help_text)
+        b.add_argument("--source", required=True, help="the original the clip was built against")
+        b.add_argument("--table", required=True, help="the delivery table the current clip was built from")
+        b.add_argument("--joined", required=True, help="the current delivery clip")
+        b.add_argument("--out", required=True)
+        b.add_argument("--work", required=True, help="a scratch folder for the working file; never the share")
+        b.add_argument("--tag", default="", help="words for the bottom row's title in legend 2 in place of THE CUT / CANDIDATE CUT")
+        b.add_argument("--alias", action="append", default=[], metavar="OLD=NEW", help="a subject's name in the table shown as another on the picture; repeatable")
+        b.add_argument("--copy-rate", type=float, default=24.0, help="the rate of the copy the pieces' graphs load: a loader's start is in its seconds")
+        b.add_argument("--only", metavar="FIRST-LAST", help="a trial on these source frames alone")
+        b.add_argument("--first", type=int, default=0, metavar="SOURCE_FRAME", help="the source frame the clip's first frame is, for a clip of a span that does not begin on 0")
+        b.add_argument("--data", default="", help="the folder of the job folders (data/), where each piece's queued graph is found; the repo's own when not given")
+        b.add_argument("--coverage", default="", help="the per-frame gap check's JSON (bench/frame_coverage.py): its runs are drawn as chips on their frames")
+        b.add_argument("--one-a-second", action="store_true", help="also write the same frames at one a second, no sound, in parts under the outside "
+                       "reviewer's file size, <out>.1fps.<first>-<last>.mp4: for an agent's video reader that takes one frame a second")
+        _add_candidate_args(b, required_mode=(mode_name == "compare"))
+    c = sub.add_parser("check", help="read a stacked file back against the source and the clip(s)")
     c.add_argument("--source", required=True)
     c.add_argument("--joined", required=True)
+    c.add_argument("--candidate-joined", default=None, help="the candidate clip, when reading back a compare stack with no record beside it")
     c.add_argument("--out", required=True)
     c.add_argument("--first", type=int, default=0, metavar="SOURCE_FRAME", help="the source frame the clip's first frame is: the original row is held to the source from there")
+    c.add_argument("--candidate-first", type=int, default=None, metavar="SOURCE_FRAME", help="the source frame the candidate clip's first frame is")
     a = p.parse_args()
-    {"build": build, "check": check}[a.mode](a)
+    {"build": build, "compare": compare, "check": check}[a.mode](a)
     return 0
 
 
 if __name__ == "__main__":
     sys.exit(main())
+
