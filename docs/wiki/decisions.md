@@ -17,6 +17,11 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-17
 
+- **No cap on parallel builds by subagents** (the owner, about 16:30Z, on the Claude lead's note that three were open):
+  r16n_04's fourth rule, "at most two builds open", came from 10-16, when four builders queued behind one reader. A lead
+  orchestrating its own subagents in parallel is not that case. What stays: each branch has its own blind read before
+  it is sent, and the Claude lead clears in the order sent (`internal/gemini/PROTOCOL.md`, rule 4).
+
 - **The same folder files for docs/, prompt_bank/, archive/, vendor/, vendor_config/, vendor_guides/ and
   standalone/** (the owner, about 15:30Z, "yes, write the nested instruction"). Each says only what holds in that
   folder (verbatim vendor files, retired code, generated catalogues, separate packages) and points at its source.
