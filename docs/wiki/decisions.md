@@ -17,6 +17,14 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-17
 
+- **Tonight: the hole label and the head tube, both** (the owner, about 23:55Z, "we should do both of them before the
+  end of the night if u and mrgemsol agree"). (1) The gap check, stacked view and pages say "the original: no piece made
+  for these frames" where they said "tracking not known" (the kind key kept), since a hole read as a lost track at 1402.
+  (2) gem-matte's head tube (gemmatte-masks), bounded by the person tracker's mask and wired into the capture behind its
+  own switch, off by default, run on the kitchen 613-974 and the hall 1306-1418. The gate is the masks before and after
+  on the same frames, no render: only where the face holds through the turns are the holes rendered (1397-1418 for the
+  lead and the dad, the kitchen's), as candidates. This replaces "we don't use any of this tonight" for this build only.
+
 - **A build that changes data, an input or an output names every writer and reader of it** (the owner, about 23:15Z:
   "make sure if we're changing data or inputs or outputs whatever feeds that or receives that or both know"). Written
   into AGENTS.md beside the build rule and into the protocol's pre-flight: the READY lists each, with file:line and
