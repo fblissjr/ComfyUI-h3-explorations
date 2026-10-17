@@ -12,7 +12,8 @@ nodes (reference conditioning, attention, keyframes, prompts, capture and more; 
 are in `INDEX.md`, every use in `docs/wiki/h3_uses.md`), benchmarks, kernels and experiments. Masked video-to-video is
 one use of it, a very important one and the focus of the past days. **The project in hand** is that use:
 replacing people in an existing music video, `fun`, a region at a time; its process end to end is
-`docs/wiki/masked_v2v_pipeline.md`, its lane `docs/wiki/masked_v2v.md`. Three ways to get this wrong:
+`docs/wiki/masked_v2v_pipeline.md`, and **everything a session needs for the lane and `fun` is `data/AGENTS.md`**
+(read it before lane work; it loads on its own when you open a file under `data/`). Three ways to get this wrong:
 
 - **Reading too much into a lane rule.** A rule of the masked lane (keep-outs, the masked text's frame, a reference
   drawn on the body model, one load a shot) is a rule of that lane, not of H3 or of the pack. Before carrying a claim
@@ -50,34 +51,6 @@ once; `docs/evidence.md`, "Settled about H3", has the rest.
 - Two models live here and "attention" and "capture" each name something at
   the DiT and at the encoder: check what a node takes before carrying a
   claim across.
-
-## Settled for the masked lane
-
-Rules of the masked video-to-video lane, not of H3 or of the pack's other uses.
-
-- To H3 a masked load is not an edit. The region is a hole of noise and H3
-  generates new video in it; everything outside is frozen context it already
-  has, and the frozen video and the audio round the hole steer what it makes
-  (it was trained on video and audio jointly: told she sings, it opens her
-  mouth with the song, with no word of when). A text says who is generated
-  in each hole and from which reference, never the frozen picture (where a
-  person stands, what she wears, the room) and never as an edit (`docs/wiki/masked_v2v.md`, "The frame every masked
-  text is written in"). The owner's word of 2026-10-10, made core 2026-10-15.
-- A text says a person sings only where they sing in that shot or window, and
-  otherwise says nothing about singing or talking: no "silent", no "does not
-  sing", no "talks" (the owner, 2026-10-15). Who sings is plan data,
-  `subjects.<s>.voice`; only "sings" writes a line (`bench/load_text.py`).
-- A face, head or hair replacement takes its reference as the body model cut
-  to one box round the head with the pose model's face points drawn on it
-  (`bench/head_reference.py`), and a text that says exactly what that video
-  is. What every load carries beyond that is the chain's defaults, never a
-  session's pick: each job step prints them as "THE DEFAULTS THIS LOAD
-  CARRIES" and keeps them in the job file
-  (`bench/shot_to_load.py::defaults_carried`; the drawing's form is
-  `REFERENCE_DEFAULT`). Turning one off takes a written reason. The owner's
-  standard of 2026-10-12, made the chain's defaults on 2026-10-14 so the
-  tools are not forgotten (`docs/wiki/decisions.md`, both days). A better
-  form does not remake a piece the owner kept.
 
 ## Operative rules
 
@@ -127,16 +100,6 @@ Rules of the masked video-to-video lane, not of H3 or of the pack's other uses.
   activations (`bench/grade_sage_on_capture.py`).
 - **No render that does not decide something.** One clip, one seed, one
   shot is not a result; a repeat and a different shot are two tests.
-- **One ledger, made new on every landing.** What stands in a video, where
-  each piece came from and the gaps between pieces are the render ledger and
-  the delivery table (`bench/render_ledger.py`, then `bench/delivery_table.py`,
-  from the build records). After every landing or stopped load the Gemini
-  lead makes both new, then makes the owner's two local pages from those same two files
-  (`bench/review_pages.py`): `PROVENANCE.html` and `TO_REVIEW.html` in the
-  video's folder on the share (`Video/<video>/`, one copy each, never a day's
-  folder). A session, and the outside reviewer, reads the files; the owner
-  reads the pages; nothing is typed or written twice. A piece the table does
-  not lay is not in the video.
 - **Checks**: `docs/checks.md` is the standard and the index; add one only
   when something escapes the existing ones, and every tool worth keeping is
   tracked with one, never parked in `internal/` or a scratchpad.
@@ -148,11 +111,7 @@ One home per kind of fact. Not two.
 | the fact | its one home |
 |---|---|
 | decisions waiting on the owner, their answers, and their passing thoughts | the H3 Open List (the owner's page with Claude): one card a decision; the "Tell Claude anything" box is the owner's inbox |
-| what stands in a video, where each piece came from, and the gaps | the newest ledger and delivery table under `data/<date>_<video>_delivery_tables/`, generated, kept by the Gemini lead; the owner's `Video/<video>/PROVENANCE.html` and `TO_REVIEW.html` on the share are made from them |
-| what a video still needs | `bench/shot_coverage.py` on `data/<video>/shots.json`, `plan.json` and the delivery table; regenerated, never typed |
-| who is in each shot, and the owner's answers on the pictures | `data/<video>/shots.json` and `cast/cast.jsonl`; `bench/who_page.py` is the page the owner answers on |
-| every answer the owner has given on the local pages, raw (who is in each shot answered for the whole video, every pick and note on a clip) | `data/<video>/owner_answers.jsonl`: append-only, one line a click, never edited or reused as scratch; records cite it by line. `serve.py` writes it; `poc/answers.jsonl` is a link to it. A read-only copy is taken into `owner_answers_snapshots/` at each day's close. Before asking the owner anything about a picture, read it and the records made from it (`bench/page_answers_ledger.py` lists any line no record cites) |
-| the owner's verdicts on renders | `data/<video>/verdicts/verdicts.jsonl`, printed under each render by the coverage table |
+| everything about a video in the masked lane (what stands, what it needs, who is in each shot, the owner's answers and verdicts) | `data/AGENTS.md`, "Where the lane's state lives" |
 | the day boundary | `docs/wiki/handover.md` (about 80 lines, four headings: state when closed; what not to assume; tomorrow, in order; where things are) and the top block of `docs/wiki/next_steps.md` |
 | what was decided or reversed, and when | `docs/wiki/decisions.md` |
 | everything else | `docs/wiki/index.md`, the router |
@@ -203,32 +162,17 @@ One home per kind of fact. Not two.
   pathspec, so a stale copy cannot delete newer lines (the owner,
   2026-10-16). A refusal test
   passes only on the tool's own refusal words with no Python traceback.
-- **Gemini watches video and hears audio natively**, where a Claude session
-  sees stills and measures, so the playback questions go to it: motion,
-  flicker, hair coming and going, a mouth with the singing, eyes closing.
-  Hand it the stacked clips with sound and the frames to watch, and say in
-  the request that it uses its native video and audio understanding first,
-  with code only to augment it, never in its place. Its watching is a
-  reader's, never the owner's acceptance.
-- **The owner, when available, takes the cheap looks first** (who is in a
-  shot, what is replaced), before anything is built on them: in batches
-  where possible, one by one only when a decision is urgent.
 - **A render's prompt is read in FULL before it renders**, from the graph
   as queued (`bench/what_h3_got.py`), never from a summary, a preview or a
   paraphrase: by the session that queues it, and by a second reader for
   any shot the owner names. The owner's word, 2026-10-15.
-- **A render is handed over stacked** (the masked input with its segments
-  and ids on top, the render below, frame numbers burned in), never bare;
-  a thing seen on playback is reported with the file and the frame.
 - **Handoff over compaction**: a session near its limit writes its notes,
   the rows it owes and the job's note, and the next session starts from
   files. Sessions hand off staggered, never both at once.
 
 ## The lanes
 
-- Masked video to video: `docs/wiki/masked_v2v.md` ("The rule: data before
-  a render, and the same data after"; "Reading one window whole"; "Rules
-  of the lane").
+- Masked video to video and the project `fun`: `data/AGENTS.md`.
 - Prompts: `docs/prompting.md`; a scene's text is data served beside its
   frames, never stored in code or a graph.
 - Reference implementations: `coderef/` (gitignored) is read, never

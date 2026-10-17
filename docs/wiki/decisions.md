@@ -17,6 +17,13 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-17
 
+- **The masked lane and the project `fun` get their own instruction file, `data/AGENTS.md`; the root AGENTS.md
+  keeps only what holds for the whole pack** (the owner, about 20:00Z). Moved, unchanged in substance: the lane's
+  settled rules, the one-ledger rule (now naming `bench/rebuild_delivery.py`), the video rows of "Where state lives",
+  handing a render over stacked, and Gemini's playback questions. Removed as superseded: "the owner takes the cheap
+  looks first" (who is in each shot is answered; batching is `working_with_the_owner.md`). `data/` stays untracked
+  except `data/AGENTS.md` and its one-line `CLAUDE.md` (`.gitignore`: `/data/*` with two exceptions).
+
 - **No cap on parallel builds by subagents** (the owner, about 16:30Z, on the Claude lead's note that three were open):
   r16n_04's fourth rule, "at most two builds open", came from 10-16, when four builders queued behind one reader. A lead
   orchestrating its own subagents in parallel is not that case. What stays: each branch has its own blind read before
