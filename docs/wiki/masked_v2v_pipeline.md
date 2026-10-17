@@ -82,7 +82,7 @@ Inputs and outputs are as the code had them on 2026-10-16. "Last run" is for `fu
 | 22 | gap check | `bench/frame_coverage.py` | the table's JSON, each piece's capture | `frame_coverage_fun_0000_6394_<stamp>.json/.md`: where a tracked person shows as the original, seams, frames emptied inside a piece | its `made` | per rebuild |
 | 23 | the one view | `bench/stack_delivery.py build` (uncommitted on 2026-10-16) | the source, the table, the cut, the gap check | `..._VIEW.mp4` (+ 1 fps parts), `..._VIEW.stack.json` | `stack_delivery.py check`, the sidecar | per rebuild |
 | 24 | owner's pages | `bench/review_pages.py` | the table, the ledger, the items, the verdicts | `Video/fun/TO_REVIEW.html`, `Video/fun/PROVENANCE.html` (both name the laid list's sha256) | their top line | per rebuild |
-| 25 | the owner's answers | `data/fun/poc/serve.py`, `bench/page_answers_to_verdicts.py` | the page's clicks | `data/fun/poc/answers.jsonl` (with the clip's sha256), `data/fun/verdicts/verdicts.jsonl` | each line's time | as clicked |
+| 25 | the owner's answers | `data/fun/poc/serve.py`, `bench/page_answers_to_verdicts.py` | the page's clicks | `data/fun/owner_answers.jsonl` (with the clip's sha256), `data/fun/verdicts/verdicts.jsonl` | each line's time | as clicked |
 
 The lead's day scripts that run 18-24: `internal/claude/2026-10-16_mrtoon/rebuild.sh` and `pages.sh` (not tracked).
 

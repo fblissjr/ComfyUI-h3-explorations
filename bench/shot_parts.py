@@ -3,7 +3,7 @@
 
     <python> bench/shot_parts.py --shots data/<stem>/shots.json --plan data/<stem>/plan.json --table TABLE.txt \\
         --preview JOB.json=TABLES_DIR [--preview ...] [--ledger LEDGER.json] [--verdicts VERDICTS.jsonl] \\
-        [--answers data/<stem>/poc/answers.jsonl] --json OUT.json --md OUT.md
+        [--answers data/<stem>/owner_answers.jsonl] --json OUT.json --md OUT.md
 
 **What it buys.** The owner asked (2026-10-13) for two lists of the whole video, regenerated and never typed: the
 shots where none of the subjects is, where nothing is ever rendered; and the shots where a subject is present and

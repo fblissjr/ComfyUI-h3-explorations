@@ -17,6 +17,13 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-17
 
+- **The owner's page answers are a primary record: `data/fun/owner_answers.jsonl`, out of `poc/`** (the owner, about
+  14:20Z: "like its a super important artifact now no?"; they answered who is in each shot for the whole video, 0-6394,
+  and were about to be asked again). Moved whole (sha256 unchanged); `poc/answers.jsonl` is now a link to it so the
+  running server and every citation by line still resolve; `serve.py` writes the new path; a read-only snapshot is
+  taken at each close into `data/fun/owner_answers_snapshots/`. AGENTS.md "Where state lives" has its row. Before, it
+  lived only in the review page's proof-of-concept folder, untracked, with no copy.
+
 - **The Gemini lead runs git on `main`; the Claude lead runs none** (the owner, about 14:30Z: so the Gemini side learns
   the motions). The Claude lead still clears every landing (re-runs one check, reads the diff from the merge base) and
   hands its own files to the Gemini lead to commit by pathspec. Replaces this morning's "the Claude lead is the only one

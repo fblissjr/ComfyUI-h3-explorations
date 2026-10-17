@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """What the models thought against what the owner said, kept a batch at a time: one line a subject of a preview, with what each got right.
 
-    <python> bench/picks_against_answers.py --shots data/<stem>/shots.json --answers data/<stem>/poc/answers.jsonl \\
+    <python> bench/picks_against_answers.py --shots data/<stem>/shots.json --answers data/<stem>/owner_answers.jsonl \\
         --preview JOB.json=TABLES_DIR [--preview ...] [--notes PREVIEWS_RUN.jsonl ...] \\
         [--owner-unsure "FIRST-LAST=LINE[,LINE]:who read it so"] ... \\
         --batch NAME [--follows BATCH] --by SESSION --out data/<stem>/picks_against_answers.jsonl [--dry-run]

@@ -9,7 +9,7 @@
     <python> bench/shots_record.py move --shots data/<stem>/shots.json --first FIRST_OF_A --second FIRST_OF_B --to FRAME \\
         --why "..." --by SESSION [--dry-run]
     <python> bench/shots_record.py note --shots data/<stem>/shots.json --shot FIRST --add "words" --by SESSION [--dry-run]
-    <python> bench/shots_record.py answer --shots data/<stem>/shots.json --shot FIRST --answers data/<stem>/poc/answers.jsonl \\
+    <python> bench/shots_record.py answer --shots data/<stem>/shots.json --shot FIRST --answers data/<stem>/owner_answers.jsonl \\
         --lines N[,N...] --why "..." --by SESSION [--dry-run]
 
 **What it buys.** The record's cuts are where every later tool takes its shots from (a preview is of a shot, a load

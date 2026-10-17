@@ -1804,7 +1804,7 @@ pass was a one-off script under the untracked `data/`.*
   whose text was laid out the vendor guide's way, and not the true-size
   load in this pack's form: the same pair the measure separates ("Why we
   think it worked" below). Their saved lines are in the local page's
-  untracked `data/fun/poc/answers.jsonl`.
+  untracked `data/fun/owner_answers.jsonl`.
 
 ### The text: the fragment
 

@@ -2,7 +2,7 @@
 """One plain page, a row a shot: who is in it and on whose word, each tracker's numbered picture of the shot, and the owner's words on it.
 
     <python> bench/who_page.py --shots data/<stem>/shots.json --preview JOB.json=TABLES_DIR [--preview ...] \\
-        [--answers data/<stem>/poc/answers.jsonl] [--span FIRST-LAST | --shot FIRST ...] [--notes PREVIEWS_RUN.jsonl] \\
+        [--answers data/<stem>/owner_answers.jsonl] [--span FIRST-LAST | --shot FIRST ...] [--notes PREVIEWS_RUN.jsonl] \\
         [--source COPY --every-cut-of FIRST-LAST] [--cast data/<stem>/cast/cast.jsonl] --out <folder>
 
 **What it buys.** The owner asked (2026-10-12) to see, in a super simple page, who is labelled in each shot, with

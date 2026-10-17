@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The owner's verdicts and notes on the review page's clips, copied from the page's raw file into the video's record, one line each, with the render they are about.
 
-    <python> bench/page_answers_to_verdicts.py take --answers data/<stem>/poc/answers.jsonl --items data/<stem>/review/items.json \\
+    <python> bench/page_answers_to_verdicts.py take --answers data/<stem>/owner_answers.jsonl --items data/<stem>/review/items.json \\
         [--items data/<stem>/review/items_removed_<date>.json ...] --out data/<stem>/verdicts/verdicts.jsonl [--dry-run]
     <python> bench/page_answers_to_verdicts.py show --verdicts data/<stem>/verdicts/verdicts.jsonl [--render NAME]
 

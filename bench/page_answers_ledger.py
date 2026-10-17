@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Every line the owner saved on the local page, beside the record that carries it, and the lines no record cites yet.
 
-    <python> bench/page_answers_ledger.py --answers data/<stem>/poc/answers.jsonl --cast data/<stem>/cast/cast.jsonl \\
+    <python> bench/page_answers_ledger.py --answers data/<stem>/owner_answers.jsonl --cast data/<stem>/cast/cast.jsonl \\
         --verdicts data/<stem>/verdicts/verdicts.jsonl --shots data/<stem>/shots.json --plan data/<stem>/plan.json \\
         [--who owner] [--out data/<stem>/verdicts/answers_ledger.md]
 

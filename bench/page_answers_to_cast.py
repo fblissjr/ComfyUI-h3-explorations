@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The owner's answers on the review page's numbered pictures, taken into the video's cast file through `bench/cast_file.py`.
 
-    <python> bench/page_answers_to_cast.py --answers data/<stem>/poc/answers.jsonl --cast data/<stem>/cast/cast.jsonl \\
+    <python> bench/page_answers_to_cast.py --answers data/<stem>/owner_answers.jsonl --cast data/<stem>/cast/cast.jsonl \\
         [--preview JOB.json=TABLES_DIR ...] [--shots data/<stem>/shots.json ...] [--span FIRST-LAST] [--dry-run] \\
         [--picks data/<stem>/picks_against_answers.jsonl --picks-shots data/<stem>/shots.json --by SESSION [--notes PREVIEWS_RUN.jsonl ...]]
     <python> bench/page_answers_to_cast.py --answers ... --cast ... --shots data/<stem>/shots.json --frame-fields [--span FIRST-LAST] [--dry-run]
