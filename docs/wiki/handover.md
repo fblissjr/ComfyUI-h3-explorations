@@ -126,5 +126,5 @@ notes: `internal/claude/2026-10-16_mrtony/HANDOFF.md`; the card's: `internal/cla
   `..._outbox.md`; reads by the lead's blind readers: `internal/claude/2026-10-16_mrtony/review*.md`.
 - Pages: `Video/fun/TO_REVIEW.html` and `PROVENANCE.html` on the share, made by
   `internal/claude/2026-10-16_mrtoon/pages.sh` from `start_here.json`; the app at the review server
-  (`data/fun/poc/serve.py`, restarted by the lead at about 18:20Z).
+  (`data/fun/poc/serve.py`, STOPPED at the owner's word at the close; start it again from the repo root with `python3 data/fun/poc/serve.py`, in the background, before pointing the owner at a page).
 - Re-composite trials: `data/2026-10-16_recomposite_trials/` and `Video/fun/day_2026-10-16/recomposite_trials/`.
