@@ -60,6 +60,11 @@ notes: `internal/claude/2026-10-16_mrtony/HANDOFF.md`; the card's: `internal/cla
      CANVAS size, chroma where a full edge lands on an odd pixel (U -14.7, V +14.7 levels mean on 84 straddle cells, max
      18): the same two-pass double update in `merged`'s half-resolution chroma (D23's case 1B is the red). The fix is
      the same one-pass law in `merged`'s chroma; mrtaco, tomorrow.
+     ALSO, before any matte-laid piece enters the cut (the D23 Gemini's critique, about 02:00Z, unmeasured but plain
+     algebra): at the source's size both the landed matte (6f3eafd6) and 1e072b55 lay `under + (up - was)`; at full weight
+     that is H3's picture plus the original's high-pass `(under - was)`, the OLD person's fine edges on the new face. The
+     law is `m * H3's picture + (1 - m) * beneath`, H3's picture unmixed from the saved piece. Measure the ghost on one
+     piece first. The lead's proposal: `internal/claude/2026-10-16_mrtony/rethink.md` A1.
    - **The re-composite tool (mrtaco, `mrtaco-recomposite`).** Control passes: own composite reproduces the original,
      last step included, plate offset gone (`review2_recomposite_piece.md`). Left: a stale decode reused by file name
      (key on the latent's and VAE's sha256), a typed `--vae` overriding the graph's, six green mutations, 24/1 assumed,
