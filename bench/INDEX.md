@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 149 |
+| [`check_*`](#check) | 150 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 185 |
+| [the rest](#the-rest) | 186 |
 
 ## check
 
@@ -114,6 +114,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_provenance_stamp.py`](check_provenance_stamp.py) | Check that `provenance.py` records the knobs that actually ran. |
 | [`check_read_hair_band.py`](check_read_hair_band.py) | `bench/read_hair_band.py` prints a hair band as figures; each case is a way a figure could say something the frames do not. |
 | [`check_read_render_against_original.py`](check_read_render_against_original.py) | `bench/read_render_against_original.py` against faces whose every figure is chosen here. |
+| [`check_rebuild_delivery.py`](check_rebuild_delivery.py) | `bench/rebuild_delivery.py` on a synthetic fixture and refusal mutations: each case is a way the provenance, delivery, gap-check, stack, review-pages, and answers-snapshot chain could skip a step, continue past a failure, hardcode a ... |
 | [`check_recomposite_piece.py`](check_recomposite_piece.py) | Check bench/recomposite_piece.py: a render's saved windows laid again as a new piece, one setting changed, or its own matte saved. |
 | [`check_recomposite_window.py`](check_recomposite_window.py) | `bench/recomposite_window.py` on a window made for the purpose: the frames it says a change moves are the frames it moves. |
 | [`check_ref_prompt_labels.py`](check_ref_prompt_labels.py) | Check every ref graph's prompt declares exactly the labels it wires. |
@@ -445,6 +446,7 @@ this file is only a way to find a script by what it says it does.
 | [`read_hair_band.py`](read_hair_band.py) | A hair band read as figures, frame by frame, on the band's own pixels: for the load that has it and a load of the same frames that does not. |
 | [`read_render_against_original.py`](read_render_against_original.py) | Set a render's face beside its original's, frame by frame, from the pose model's points of each. |
 | [`read_sol_probe.py`](read_sol_probe.py) | Controls for the Sol-versus-fallback probe (`sol_block_probe.py`), and the reader that turns its record into a per-block table. |
+| [`rebuild_delivery.py`](rebuild_delivery.py) | Rebuild the delivery ledger, table, per-frame gap check, optional joined clip and stack, review pages, and close-of-day answers snapshot. |
 | [`recomposite_piece.py`](recomposite_piece.py) | Lay a whole masked render again from its saved windows with one composite setting changed, as a NEW piece. |
 | [`recomposite_window.py`](recomposite_window.py) | Lay a saved window of a masked render again, with the song node's own composite, and say what a change moves. |
 | [`record_capture_inventory.py`](record_capture_inventory.py) | Write down what a capture CONTAINED, so the capture can be deleted. |
