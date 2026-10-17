@@ -17,6 +17,10 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-17
 
+- **Corrected: `coderef/metadepth` is checked out** (found by an independent Gemini reader, about 21:50Z).
+  `docs/wiki/meta_perception_models.md` said Meta's metadepth code was not under `coderef/` and unread; it is there, and
+  both HyDen checkpoints load with torch and torchvision alone. No node loads them yet.
+
 - **Standing go: scenes that are bad or have gaps render without waiting for the owner's look at a plan strip**
   (the owner, about 21:05Z: "its better to just go and render scenes that are bad or have gaps"). Each still has its
   prompt read in full from the graph as queued, and THE DEFAULTS THIS LOAD CARRIES, by the session that queues it

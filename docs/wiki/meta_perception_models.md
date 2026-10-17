@@ -118,8 +118,9 @@ question best.
 | `facebook/hyden-mogev2-surface-normal`, and the Sapiens2 normal models | not on disk | which way each surface faces | no use in this lane that anybody has named |
 
 What fetching does not settle: the code that loads these checkpoints is
-Meta's `facebookresearch/metadepth`, which is not under `coderef/` and which
-nobody here has read, and no node exists for either. So the first run is a
+Meta's `facebookresearch/metadepth`, now under `coderef/metadepth` (read on 2026-10-17:
+both checkpoints load with torch and torchvision alone; `internal/gemini/2026-10-17_review_sapiens2_matting.md`,
+section 5), and no node exists for either. So the first run is a
 one-off against that reference, on a handful of frames where the order is
 plain by eye, before anything reads its output.
 
