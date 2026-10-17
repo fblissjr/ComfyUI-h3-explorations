@@ -1,6 +1,6 @@
-"""The three things a `bench/` check kept writing for itself.
+"""The things a `bench/` check kept writing for itself.
 
-    from _lib import bootstrap, needs, case, finish
+    from _lib import bootstrap, needs, case, refused, finish
 
 A check runs as `python bench/check_x.py`, so `bench/` is `sys.path[0]` and
 `_lib` imports with no setup. `docs/checks.md` "Running them" says what each
@@ -30,11 +30,13 @@ exit code means; this file is where two of them are produced.
     dynamic VRAM layer the server sets up at start. Its docstring says why
     that is not optional there.
 
-`case(name, fn)` and `finish()`
-    One `ok` / `FAIL` line per case and one exit code: 1 when any case failed,
-    2 when none failed but one could not run (`skip(reason)` from inside it),
-    0 otherwise. For a new check, or an old one whose own loop was this
-    already; nobody is asked to port a check that has a harness.
+`case(name, fn)`, `refused(target, *words)` and `finish()`
+    One `ok` / `FAIL` line per case, one refusal assertion helper that rejects
+    exit 0, bare exit codes, uncaught crashes and Python tracebacks, and one
+    exit code: 1 when any case failed, 2 when none failed but one could not run
+    (`skip(reason)` from inside it), 0 otherwise. For a new check, or an old
+    one whose own loop was this already; nobody is asked to port a check that
+    has a harness.
 
 Nothing here imports torch or ComfyUI at module level, so a check that only
 wants `needs` pays for nothing else.
@@ -228,6 +230,39 @@ def case(name: str, fn, *, indent: str = "") -> bool:
         return False
     print(f"{indent}ok    {name}" + (f": {detail}" if isinstance(detail, str) else ""))
     return True
+
+
+def refused(target, *words: str) -> str:
+    """Assert `target` refuses cleanly with every word in `words` and no Python traceback.
+
+    `target` is either a callable (which must raise `SystemExit` or a `Refused` /
+    `ValueError` refusal with a message, never an uncaught crash or a bare exit
+    code) or a command list / `subprocess.CompletedProcess` (which must exit
+    non-zero with `"Traceback"` absent from stdout + stderr). Returns the refusal
+    text.
+    """
+    import subprocess
+    if isinstance(target, (list, tuple)):
+        target = subprocess.run([str(x) for x in target], capture_output=True, text=True)
+    if isinstance(target, subprocess.CompletedProcess):
+        out = ((target.stdout or "") + (target.stderr or "")).strip()
+        assert target.returncode != 0, f"refused nothing (exit 0); expected {words}: {out!r}"
+        assert out and "Traceback" not in out, f"crashed with a Python traceback or empty refusal: {out!r}"
+        assert all(w in out for w in words), f"refused without {words}: {out!r}"
+        return out
+    try:
+        target()
+    except SystemExit as exc:
+        text = "" if isinstance(exc.code, int) else str(exc.code or "").strip()
+    except Exception as exc:  # noqa: BLE001
+        if type(exc).__name__ not in ("Refused", "ValueError"):
+            raise AssertionError(f"crashed with {type(exc).__name__}: {exc}") from exc
+        text = str(exc).strip()
+    else:
+        raise AssertionError(f"refused nothing; expected {words}")
+    assert text and "Traceback" not in text, f"refusal text empty or holds a traceback: {text!r}"
+    assert all(w in text for w in words), f"refused without {words}: {text!r}"
+    return text
 
 
 def finish() -> int:
