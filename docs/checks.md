@@ -48,6 +48,19 @@ any case. `bench/break_checks.py` is the tool that came out of it: it makes
 the copy where a check can import what it imports in the tree, runs the
 control first, and calls a red with an import error the wrong reason.
 
+Added 2026-10-16, after a night of mutation runs by Claude readers and Gemini
+builders, none of which used `break_checks.py`: the same trap came back (a
+loop that ran each break with only `PATH` set and the system python, whose
+unbroken copy was never run that way), and two more things were learnt. A
+copy outside `custom_nodes` cannot import the package, so a hand-made copy
+sits under a folder of that name. And a break caught only by one broad case
+(every one of eight removed refusals failing the same "a key left uncarried
+is refused") shows that something changed, not that each guard has its own
+case; a guard counts as covered when the case that fails names it. Why such a
+run is slow: each break reruns the whole check, every case building its small
+job on disk, one after another, because two breaks in one copy would
+overwrite each other's file; running them side by side needs a copy each.
+
 ### A metric that ranks two arms is a claim about the metric
 
 **Adopted 2026-08-31, after two wrong conclusions were published in
