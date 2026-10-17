@@ -1498,6 +1498,27 @@ window shares with the one before are frozen latent steps copied whole
 (`audio_freeze_song.py`), which is why the context is a length that ends
 on a step's edge.
 
+**Laying a piece by its matte at the source's size: one weight, one pass.**
+The node saves its own blend weight (the matte: 255 where H3 regenerated, the
+feather between, 0 outside), and `bench/assemble_delivery.py` lays the piece
+by it (6f3eafd6). At the canvas's size that is exact. At the source's size the
+piece's change (H3's picture less the canvas copy of the source) is scaled up
+onto the sharp source, and so is the weight. Laid as two passes, the full
+region and then its soft band, each scaled on its own, the two scaled weights
+do not add back to one where they meet, and up to a quarter of the change falls
+back to what lies beneath: a ring of the original inside every piece's feather
+(up to 34 of 130 levels at this video's crop scale; the second read of
+2026-10-16, `internal/claude/2026-10-16_mrtony/review2_matte_d18.md`, probes
+`t/seam.py`, `t/seam13.py`). The law is one weight scaled once: per piece, a
+map at the canvas that is 1 where the piece owns the pixel and the matte's
+value on its band, scaled up once; then `new = beneath + weight * (H3's picture
+- beneath)`, where beneath is the source or an earlier piece, which is what
+makes overlaps right. The reader's one-pass form put the ring at 0. The case
+that guards it measures the feather's inner edge, where no case looked until
+2026-10-16. Not in latent space: the VAE works at the canvas, a latent cell's
+edge is a staircase, and a decoded frame would carry the untouched picture
+through the VAE's round trip.
+
 **Everything else that is held over a step.** An audit of the lane's code
 on 2026-10-10 for every place that holds a thing over a latent step's frames
 or reads per frame what is per step. Read from the code; the one measured
