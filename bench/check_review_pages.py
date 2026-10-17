@@ -777,8 +777,9 @@ def a_one_subject_shot_and_a_cut_piece() -> str:
 
 def start_here() -> str:
     """The owner, 2026-10-15: the most important first. --start-here draws the lead's list before everything, in its order, each
-    entry linking what the page shows below (a shot, an item) or a clip that is no item, with its why; an entry the page does not
-    hold, a clip that is not there, or an entry with no why stops the page."""
+    entry linking what the page shows below (a shot, an item) or a clip that is no item, with its why and optional reader_notes in a
+    closed fold headed as a reader's and not the owner's; an entry the page does not hold, a clip that is not there, an entry with no
+    why, or empty reader_notes stops the page."""
     import tempfile
     with tempfile.TemporaryDirectory() as tmp:
         d = Path(tmp)
@@ -787,8 +788,13 @@ def start_here() -> str:
         clip.write_bytes(b"x")
         other = clip.with_name("hair_B.mp4")
         other.write_bytes(b"x")
-        order = [{"item": str(clip), "why": "WHY THE PAIR"}, {"item": "150-199", "why": "WHY A_SOLO'S SHOT"}, {"item": "100-149", "why": "WHY THE JOINED SHOT"},
-                 {"link": "https://the-open-list/#row-7", "label": "THE HAIR QUESTION", "why": "WHY THE LINK", "clips": [str(clip), str(other)]}]
+        order = [
+            {"item": str(clip), "why": "WHY THE PAIR", "reader_notes": ["frame 106 <diff>: softer collar", "frame 367: necklace highlight"]},
+            {"item": "150-199", "why": "WHY A_SOLO'S SHOT", "reader_notes": "frame 160: eyes open"},
+            {"item": "100-149", "why": "WHY THE JOINED SHOT"},
+            {"link": "https://the-open-list/#row-7", "label": "THE HAIR QUESTION", "why": "WHY THE LINK", "clips": [str(clip), str(other)],
+             "reader_notes": {"by": "fresh-eyes reader", "notes": ["cmp_01 frame 106: 2 px feather"]}},
+        ]
         f = d / "start.json"
         f.write_text(json.dumps(order))
         page = to_review(d, more=("--start-here", str(f)))
@@ -800,12 +806,23 @@ def start_here() -> str:
         assert text.index("Start here, in this order") < text.index("Where the original still shows: the gap check") < text.index("Waiting on you"), "Start here is not above the gap check and Waiting on you"
         # a question whose buttons are on the Open List: the entry goes there, its clips beneath it as plain links (the owner, 2026-10-15)
         assert '<a href="https://the-open-list/#row-7">THE HAIR QUESTION</a>: WHY THE LINK' in page, "the link entry"
-        assert '<a href="../share/pair/hair_B.mp4">hair_B.mp4</a>' in page.split("THE HAIR QUESTION")[1].split("</li>")[0], "the clips beneath it"
+        link_li = page.split("THE HAIR QUESTION")[1].split("</li></ol>")[0]
+        assert '<a href="../share/pair/hair_B.mp4">hair_B.mp4</a>' in link_li, "the clips beneath it"
+        # reader_notes: closed <details> (no open attribute), headed as a reader's and not the owner's, escaped
+        pair_li = page.split("WHY THE PAIR")[1].split("WHY A_SOLO&#x27;S SHOT")[0]
+        assert '<details class="why"><summary>A reader\'s notes — a session\'s reading, not the owner\'s (not yours)</summary>' in pair_li, pair_li
+        assert "<li>frame 106 &lt;diff&gt;: softer collar</li><li>frame 367: necklace highlight</li>" in pair_li, pair_li
+        assert '<details class="why"><summary>A reader\'s notes (fresh-eyes reader) — a session\'s reading, not the owner\'s (not yours)</summary>' in link_li, link_li
+        assert "<li>cmp_01 frame 106: 2 px feather</li>" in link_li, link_li
         for bad, said in (([{"item": "a_not_here", "why": "w"}], "no item this page shows"), ([{"item": "500-599", "why": "w"}], "is not on this page"),
                           ([{"item": str(d / "gone.mp4"), "why": "w"}], "is not there"), ([{"item": "150-199"}], "says in one line"), ([], "not empty"),
                           ([{"link": "file:///x", "label": "l", "why": "w"}], "http(s) URL"), ([{"link": "https://x", "why": "w"}], "with a label"),
                           ([{"link": "https://x", "label": "l", "why": "w", "item": "150-199"}], "names no item"),
-                          ([{"link": "https://x", "label": "l", "why": "w", "clips": [str(d / "gone.mp4")]}], "is not there")):
+                          ([{"link": "https://x", "label": "l", "why": "w", "clips": [str(d / "gone.mp4")]}], "is not there"),
+                          ([{"item": "150-199", "why": "w", "reader_notes": ""}], "reader_notes is a non-empty"),
+                          ([{"item": "150-199", "why": "w", "reader_notes": []}], "reader_notes is a non-empty"),
+                          ([{"item": "150-199", "why": "w", "reader_notes": ["ok", "  "]}], "reader_notes is a non-empty"),
+                          ([{"item": "150-199", "why": "w", "reader_notes": {}}], "reader_notes is a non-empty")):
             f.write_text(json.dumps(bad))
             try:
                 to_review(d, more=("--start-here", str(f)))
@@ -815,8 +832,8 @@ def start_here() -> str:
                 raise AssertionError(f"a start-here list the page cannot hold was drawn: {bad}")
         f.write_text(json.dumps(order))
         assert "Start here" not in text_of(to_review(d)), "the list drawn with no --start-here"
-    return ("the lead's list first and in its order, a shot, an item and a clip each linked with its why, and a link to where a question's buttons "
-            "are with its clips beneath; nine lists the page cannot hold refused")
+    return ("the lead's list first and in its order, a shot, an item and a clip each linked with its why, a link to where a question's buttons "
+            "are with its clips beneath, and reader_notes in a closed fold headed as a reader's and not the owner's; thirteen bad lists refused")
 
 
 def nothing_of_a_video_in_code() -> str:

@@ -608,8 +608,9 @@ def held_and_set_aside(rec: "Records") -> list[str]:
 
 def start_here(path: str, drawn: dict[str, str], shots: dict[str, list[str]], out_dir: str) -> list[str]:
     """START HERE, IN THIS ORDER: the lead's list (the owner, 2026-10-15: the most important first), each entry linking what the page
-    shows below, or a clip that is no item, with its one line of why. An entry the page does not hold, a clip that is not there, or
-    an entry with no why stops the page: the one kind of red."""
+    shows below, or a clip that is no item, with its one line of why and optional `reader_notes` in a closed fold headed as a reader's,
+    not the owner's. An entry the page does not hold, a clip that is not there, an entry with no why, or empty `reader_notes` stops the
+    page: the one kind of red."""
     import re
     got = json.load(open(path))
     if not isinstance(got, list) or not got:
@@ -619,11 +620,41 @@ def start_here(path: str, drawn: dict[str, str], shots: dict[str, list[str]], ou
         if not Path(clip).is_file():
             raise SystemExit(f"--start-here {path}, entry {k}: the clip {clip} is not there")
         return f'<a href="{E(os.path.relpath(clip, out_dir))}">{E(Path(clip).name)}</a>'
+    def reader_notes_fold(k: int, e: dict) -> str:
+        if "reader_notes" not in e:
+            return ""
+        rn = e["reader_notes"]
+        by_str = " ".join(str(e.get("reader_by") or "").split())
+        if isinstance(rn, str):
+            s = " ".join(rn.split())
+            if not s:
+                raise SystemExit(f"--start-here {path}, entry {k}: reader_notes is a non-empty string or list of non-empty strings")
+            note_lines = [s]
+        elif isinstance(rn, list):
+            if not rn or any(not isinstance(x, str) or not " ".join(x.split()) for x in rn):
+                raise SystemExit(f"--start-here {path}, entry {k}: reader_notes is a non-empty string or list of non-empty strings")
+            note_lines = [" ".join(x.split()) for x in rn]
+        elif isinstance(rn, dict):
+            by_str = " ".join(str(rn.get("by") or by_str).split())
+            raw_list = rn.get("notes") if "notes" in rn else rn.get("lines")
+            if isinstance(raw_list, str) and " ".join(raw_list.split()):
+                note_lines = [" ".join(raw_list.split())]
+            elif isinstance(raw_list, list) and raw_list and all(isinstance(x, str) and " ".join(x.split()) for x in raw_list):
+                note_lines = [" ".join(x.split()) for x in raw_list]
+            else:
+                raise SystemExit(f"--start-here {path}, entry {k}: reader_notes is a non-empty string or list of non-empty strings")
+        else:
+            raise SystemExit(f"--start-here {path}, entry {k}: reader_notes is a non-empty string or list of non-empty strings")
+        who_said = f" ({E(by_str)})" if by_str else ""
+        items_html = "".join(f"<li>{E(ln)}</li>" for ln in note_lines)
+        return (f'<details class="why"><summary>A reader\'s notes{who_said} — a session\'s reading, not the owner\'s (not yours)</summary>'
+                f'<ul>{items_html}</ul></details>')
     for k, e in enumerate(got, 1):
         what, why = str(e.get("item") or "").strip(), " ".join(str(e.get("why") or "").split())
         url = str(e.get("link") or "").strip()
         if (not what and not url) or not why:
             raise SystemExit(f"--start-here {path}, entry {k}: each entry names an item or a link and says in one line what deciding it changes")
+        fold = reader_notes_fold(k, e)
         if url:
             # a question whose buttons are elsewhere (the Open List): the entry goes there, its clips beneath it as plain links
             # (the owner, 2026-10-15: a clip's own link "just gives me the rendered video", and the buttons were not on it)
@@ -631,7 +662,7 @@ def start_here(path: str, drawn: dict[str, str], shots: dict[str, list[str]], ou
                 raise SystemExit(f"--start-here {path}, entry {k}: a link entry is an http(s) URL with a label, and names no item beside it")
             clips = [clip_link(k, c) for c in e.get("clips") or []]
             lines.append(f'<li><a href="{E(url)}">{E(" ".join(str(e["label"]).split()))}</a>: {E(why)}'
-                         + (f"<br><span class='mut'>the clips: {', '.join(clips)}</span>" if clips else "") + "</li>")
+                         + (f"<br><span class='mut'>the clips: {', '.join(clips)}</span>" if clips else "") + f"{fold}</li>")
             continue
         if re.fullmatch(r"\d+-\d+", what):
             if what not in shots:
@@ -644,7 +675,7 @@ def start_here(path: str, drawn: dict[str, str], shots: dict[str, list[str]], ou
             shown = clip_link(k, what) + " (a clip, not on the review list)"
         else:
             raise SystemExit(f"--start-here {path}, entry {k}: {what!r} is no item this page shows, no shot of it and no clip")
-        lines.append(f"<li>{shown}: {E(why)}</li>")
+        lines.append(f"<li>{shown}: {E(why)}{fold}</li>")
     return ["<h2>Start here, in this order</h2>", "<p class='mut'>The lead's order: what deciding each changes most. Each is also "
             "where it always is, below.</p>", f"<ol>{''.join(lines)}</ol>"]
 
@@ -1081,7 +1112,7 @@ def main(argv=None) -> int:
             s.add_argument("--today", help="the owner's day (YYYY-MM-DD, their clock) whose settled pieces are listed under Done; today when left out")
             s.add_argument("--start-here", metavar="FILE", help="the lead's list, in order, drawn first: a JSON list of {\"item\": an item the "
                            "page shows, a shot FIRST-LAST or a clip's path, \"why\": one line of what deciding it changes}, or of {\"link\": "
-                           "an http(s) URL where a question's buttons are, \"label\", \"why\", \"clips\": [paths, shown beneath it]}")
+                           "an http(s) URL where a question's buttons are, \"label\", \"why\", \"clips\": [paths, shown beneath it]}, each with optional \"reader_notes\"")
         else:
             s.add_argument("--record", help="the assembler's record of the clip (.mp4.check.json); without it the ledger says what a piece leaves")
             s.add_argument("--day-folder", required=True, help="the day's folder: bench/day_pieces.py's piece folders are read from it")
