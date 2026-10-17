@@ -35,6 +35,12 @@
                                 first colour; the change table keeps each reason
   another_ledger_is_refused     a ledger the table does not name, by its path
   nothing_of_a_video_in_code    the tool's source names no address, share, machine folder or video
+  the_gap_check_is_on_both_pages both pages read `assembly.stack.coverage_json` (below Start here on to-review, at the top
+                                of provenance) and show `remake` and `capture` lists apart, worst shots first, with all
+                                nine kinds, per-subject gap spans, seam counts, and string `failures` read and never recomputed
+  missing_or_stale_gap_check_is_refused both pages refuse when `coverage_json` is omitted or missing, when `table_sha256`,
+                                `by_shot`, or `span` mismatches, when `assembly.command` lacks `--out`, or when `clip_check`
+                                is missing, missing on disk, or mismatches `--out` or its file's sha256, writing nothing
 
     <comfy venv python> bench/check_review_pages.py
 
@@ -46,6 +52,7 @@ import html
 import json
 import os
 import re
+import hashlib
 import shutil
 import subprocess
 import sys
@@ -64,6 +71,54 @@ LONG = ("the lead's --prefer of a remake over the owner's keep of 10/12, a reaso
         "the owner's word of 2026-10-14, about 14:43Z, inbox note owner_terminal, the 10/12 pieces are not trusted and each is made again, "
         "so it stands over the owner's keep until the owner says otherwise, which they have not done yet, said whole to the end")
 NAMED = ["white", "black", "red", "blue", "green", "gray", "grey", "yellow", "orange", "purple", "silver"]
+
+
+def sync_gap_check(d: Path, by_shot: dict | None = None, runs: list | None = None, failures: list | None = None, span=None) -> Path:
+    """Write or refresh `d / 'frame_coverage_t.json'` so its `table_sha256` and `clip_check.sha256` match `d / 't.json'` and `d / 'joined.mp4.check.json'`."""
+    cc_file = d / "joined.mp4.check.json"
+    if not cc_file.is_file():
+        cc_file.write_text(json.dumps({"table": []}))
+    cov_path = d / "frame_coverage_t.json"
+    prev = json.loads(cov_path.read_text()) if cov_path.is_file() else {}
+    default_by_shot = {
+        "remake": [
+            {"shot": [220, 239], "frames": 14, "subjects": ["a", "b"],
+             "by_kind": {"original_while_tracked": 5, "emptied_inside": 4, "laid_but_barely_changed": 3, "region_far_below_its_own_size": 2}},
+            {"shot": [150, 199], "frames": 4, "subjects": ["a"],
+             "by_kind": {"original_while_tracked": 2, "emptied_inside": 2, "laid_but_barely_changed": 0, "region_far_below_its_own_size": 0}},
+        ],
+        "capture": [
+            {"shot": [240, 259], "frames": 20, "subjects": ["a", "b"], "by_kind": {"original_tracking_not_known": 20}},
+            {"shot": [220, 239], "frames": 10, "subjects": ["b"], "by_kind": {"original_tracking_not_known": 10}},
+        ],
+    }
+    default_runs = [
+        {"first": 225, "last": 229, "shot": [220, 239], "subject": "b", "kind": "original_while_tracked", "pieces": [], "cause": "no piece laid"},
+        {"first": 230, "last": 233, "shot": [220, 239], "subject": "a", "kind": "emptied_inside", "pieces": ["a_x"], "cause": "floor"},
+        {"first": 234, "last": 236, "shot": [220, 239], "subject": "a", "kind": "laid_but_barely_changed", "pieces": ["a_x"], "cause": "0.150 to 0.210"},
+        {"first": 237, "last": 238, "shot": [220, 239], "subject": "a", "kind": "region_far_below_its_own_size", "pieces": ["a_x"], "cause": "carried 300 px"},
+        {"first": 160, "last": 161, "shot": [150, 199], "subject": "a", "kind": "original_while_tracked", "pieces": [], "cause": "no piece laid"},
+        {"first": 170, "last": 170, "shot": [150, 199], "subject": "a", "kind": "emptied_inside", "pieces": ["a_solo"], "cause": "drop="},
+        {"first": 172, "last": 172, "shot": [150, 199], "subject": "a", "kind": "emptied_inside", "pieces": ["a_solo"], "cause": "floor"},
+        {"first": 240, "last": 249, "shot": [240, 259], "subject": "a", "kind": "original_tracking_not_known", "pieces": [], "cause": "no tied capture"},
+        {"first": 240, "last": 249, "shot": [240, 259], "subject": "b", "kind": "original_tracking_not_known", "pieces": [], "cause": "no tied capture"},
+        {"first": 220, "last": 229, "shot": [220, 239], "subject": "b", "kind": "original_tracking_not_known", "pieces": [], "cause": "no tied capture"},
+        {"first": 180, "last": 181, "shot": [150, 199], "subject": "a", "kind": "carried_not_known", "pieces": ["a_solo"], "cause": "not known: capture did not read"},
+        {"first": 182, "last": 183, "shot": [150, 199], "subject": "a", "kind": "original_her_track_empty", "pieces": [], "cause": "original: no piece laid"},
+        {"first": 184, "last": 185, "shot": [150, 199], "subject": "a", "kind": "left_out_by_a_look", "pieces": [], "cause": "back turned", "who": "reader"},
+        {"first": 124, "last": 125, "shot": [100, 149], "subject": "a", "kind": "seam", "pieces": ["a_part1", "a_part2"], "cause": None},
+    ]
+    cov = {
+        "table": str(d / "t.json"),
+        "table_sha256": hashlib.sha256((d / "t.json").read_bytes()).hexdigest(),
+        "span": span if span is not None else prev.get("span"),
+        "failures": failures if failures is not None else prev.get("failures", []),
+        "clip_check": {"file": str(cc_file), "sha256": hashlib.sha256(cc_file.read_bytes()).hexdigest()},
+        "by_shot": by_shot if by_shot is not None else prev.get("by_shot", default_by_shot),
+        "runs": runs if runs is not None else prev.get("runs", default_runs),
+    }
+    cov_path.write_text(json.dumps(cov))
+    return cov_path
 
 
 def render(d: Path, name, subject, first, last, written, file=None, left=None, left_out=None):
@@ -95,7 +150,9 @@ def world(d: Path, stopped=True, joined_table="same", verdicts=None, ledger_name
                {"first": 240, "last": 259, "subject": "a", "present": "yes", "stands": [stand("a_y", 240, 259)]},
                {"first": 240, "last": 259, "subject": "b", "present": "yes", "stands": []}]
     table = {"made": f"from the ledger `{d / ledger_name}` (...)", "rows": rows, "sources": [], "gaps": [], "not_in_the_shot": [], "reading": reading,
-             "held": [{"first": 220, "last": 239, "subject": "b", "load": "b_held_load", "reason": "THE LEAD'S HOLD, whole"}]}
+             "held": [{"first": 220, "last": 239, "subject": "b", "load": "b_held_load", "reason": "THE LEAD'S HOLD, whole"}],
+             "assembly": {"command": f"python bench/assemble_delivery.py --out {d / 'joined.mp4'}",
+                          "stack": {"coverage_json": str(d / "frame_coverage_t.json")}}}
     renders = [render(d, "a_new", "a", 100, 149, "2026-10-14T15:00:00Z", left=[[120, 122]]), render(d, "b_new", "b", 100, 149, "2026-10-13T15:00:00Z"),
                render(d, "a_solo", "a", 150, 199, "2026-10-12T15:00:00Z", left=[[160, 161]], left_out=[{"subject": "a", "first": 161, "frames": 1, "why": "A LOOK'S WORD"}]),
                render(d, "a_kept", "a", 200, 219, "2026-10-12T15:00:00Z"), render(d, "a_x", "a", 220, 239, "2026-10-14T15:00:00Z"),
@@ -128,6 +185,7 @@ def world(d: Path, stopped=True, joined_table="same", verdicts=None, ledger_name
     (tables / "t_v_0100_0149_joined_NEW.json").write_text(json.dumps({"rows": lays if joined_table == "same" else lays[:1]}))
     (tables / "t_v_0240_0259_joined_STALE.json").write_text(json.dumps({"rows": [{"first": 240, "last": 259, "name": "a_older_y", "subject": "a"}]}))
     (d / "t.json").write_text(json.dumps(table))
+    sync_gap_check(d)
     (d / ledger_name).write_text(json.dumps(ledger))
     (d / "items.json").write_text(json.dumps({"items": items}))
     # each line as the page's server writes it, with the answers file's line as its source, unless a case gives its own
@@ -560,6 +618,7 @@ def the_fifth_readers_findings() -> str:
         t["reading"][6]["passed_over"].append({"render": "b_wrong", "why": "WHY", "the_owners_last_choice": {"said": "wrong", "at": "2026-10-12T20:00:00Z"}})
         t["reading"][6]["passed_over"][0]["the_owners_words"] = [{"at": "2026-10-12T21:00:00Z", "said": "WORDS AFTER THE KEEP"}]
         (d / "t.json").write_text(json.dumps(t))
+        sync_gap_check(d)
         out = d / "day" / "again.html"
         args = ["--table", str(d / "t.json"), "--ledger", str(d / "l.json"), "--verdicts", str(d / "verdicts.jsonl"), "--items", str(d / "items.json"),
                 "--source", str(d / "v.mp4"), "--share", str(d / "share"), "--page-url", "p#", "--open-list", "o", "--tables", str(d / "tables"), "--out", str(out)]
@@ -694,6 +753,7 @@ def a_one_subject_shot_and_a_cut_piece() -> str:
                          {"first": 340, "last": 359, "subject": "a", "present": "yes", "stands": [stand("d_one", 340, 359)]},
                          {"first": 340, "last": 359, "subject": "b", "present": "no", "stands": []}]
         (d / "t.json").write_text(json.dumps(T))
+        sync_gap_check(d)
         ledger = json.loads((d / "l.json").read_text())
         for r in (render(d, "c_one", "a", 300, 339, "2026-10-15T15:00:00Z"), render(d, "d_one", "a", 340, 359, "2026-10-15T15:00:00Z")):
             ledger["renders"][r["file"]] = r
@@ -733,11 +793,11 @@ def start_here() -> str:
         f.write_text(json.dumps(order))
         page = to_review(d, more=("--start-here", str(f)))
         text = text_of(page)
-        top = text.split("Start here, in this order")[1].split("Waiting on you")[0]
+        top = text.split("Start here, in this order")[1].split("Where the original still shows: the gap check")[0]
         assert top.index("WHY THE PAIR") < top.index("WHY A_SOLO'S SHOT") < top.index("WHY THE JOINED SHOT"), top
         assert "hair_A.mp4" in top and "r__s__a_solo" in top and "v_0100_0149_joined_NEW_stacked" in top, top
         assert '<a href="../share/pair/hair_A.mp4">' in page, "the clip is not linked relative to the page"
-        assert text.index("Start here, in this order") < text.index("Waiting on you"), "the list is not first"
+        assert text.index("Start here, in this order") < text.index("Where the original still shows: the gap check") < text.index("Waiting on you"), "Start here is not above the gap check and Waiting on you"
         # a question whose buttons are on the Open List: the entry goes there, its clips beneath it as plain links (the owner, 2026-10-15)
         assert '<a href="https://the-open-list/#row-7">THE HAIR QUESTION</a>: WHY THE LINK' in page, "the link entry"
         assert '<a href="../share/pair/hair_B.mp4">hair_B.mp4</a>' in page.split("THE HAIR QUESTION")[1].split("</li>")[0], "the clips beneath it"
@@ -774,6 +834,207 @@ def the_page_says_what_is_laid() -> str:
     return "the list and its sha256 are named; a table by the older rule says so"
 
 
+def the_gap_check_is_on_both_pages() -> str:
+    """2026-10-16: both pages (TO_REVIEW and PROVENANCE) read the gap check's JSON named by `assembly.stack.coverage_json`
+    and show per shot, worst first, the count of frame-subjects where the original shows by kind (`original_while_tracked`,
+    `emptied_inside`, `laid_but_barely_changed`, `region_far_below_its_own_size`; and, apart, `original_tracking_not_known`),
+    in two lists (`remake` and `capture`) with each subject's gap spans and clocks (1-frame gaps as one frame, never zero-length,
+    and no repeated spans), plus the four other run kinds (`carried_not_known`, `original_her_track_empty`, `left_out_by_a_look`,
+    and `seam` counted as seams) and any string `failures`, read and never recomputed."""
+    with tempfile.TemporaryDirectory() as t1, tempfile.TemporaryDirectory() as t2:
+        rev = text_of(to_review(Path(t1)))
+        prov = text_of(provenance(Path(t2)))
+        for which_page, text, before in (("to-review", rev, "Waiting on you"), ("provenance", prov, "What changes in the next clip")):
+            assert "Where the original still shows: the gap check" in text, f"{which_page} lacks the gap check heading"
+            block = text.split("Where the original still shows: the gap check")[1].split(before)[0]
+            assert "frame(s)" not in block and "frame-subject(s)" in block, (which_page, block)
+            remake_part, capture_part = block.split("Capture (2 shot(s), 30 frame-subject(s)):")
+            assert "Remake (2 shot(s), 18 frame-subject(s)):" in remake_part, (which_page, remake_part)
+            assert remake_part.index("220-239") < remake_part.index("150-199"), (which_page, remake_part)
+            assert ("original_while_tracked: 5, emptied_inside: 4, laid_but_barely_changed: 3, region_far_below_its_own_size: 2"
+                    in remake_part), (which_page, remake_part)
+            assert "original_while_tracked: 2, emptied_inside: 2" in remake_part, (which_page, remake_part)
+            # per-subject gap spans, 1-frame gap clock as one frame (170 (0:07.1), not 170-170 (0:07.1–0:07.1)), and not the whole shot's clock
+            assert "a: 230-233 (" in remake_part and "b: 225-229 (" in remake_part, (which_page, remake_part)
+            assert "a: 160-161 (" in remake_part and "170 (0:07.1)" in remake_part and "172 (0:07.2)" in remake_part, (which_page, remake_part)
+            assert "170-170" not in remake_part and "0:07.1–0:07.1" not in remake_part, (which_page, remake_part)
+            assert "0:06.3–0:08.3" not in remake_part, (which_page, remake_part)
+            assert capture_part.index("240-259") < capture_part.index("220-239"), (which_page, capture_part)
+            assert "original_tracking_not_known: 20" in capture_part and "original_tracking_not_known: 10" in capture_part, (which_page, capture_part)
+            # capture gap spans: each span says whose it is, once, with no repeated spans, and not the whole shot's span (N9)
+            capture_list_only = capture_part.split("Other runs from the gap check")[0]
+            assert "a, b: 240-249 (" in capture_list_only and capture_list_only.count("240-249") == 1, (which_page, capture_list_only)
+            assert "b: 220-229 (" in capture_list_only and "0:09.2–0:10.0" not in capture_list_only, (which_page, capture_list_only)
+            # all 4 other run kinds and the words for all 9 kinds; seam counted as seam(s), not frame-subject(s)
+            assert "Other runs from the gap check" in capture_part, (which_page, capture_part)
+            for kind_word in (
+                "original_while_tracked (original while tracked, no piece laid)",
+                "emptied_inside (emptied inside a laid piece)",
+                "laid_but_barely_changed (laid piece barely changed its region)",
+                "region_far_below_its_own_size (carried region far below its own size)",
+                "original_tracking_not_known (original, tracking not known)",
+                "carried_not_known (tracked, whether the laid piece carried a mask is not known): 2 frame-subject(s) on 180-181 (a)",
+                "original_her_track_empty (original, her tied track is empty (0 px)): 2 frame-subject(s) on 182-183 (a)",
+                "left_out_by_a_look (original, left out by a person's look): 2 frame-subject(s) on 184-185 (a)",
+                "seam (seam where two laid pieces of the same person meet): 1 seam(s) on 124-125 (a)",
+            ):
+                assert kind_word in block, (which_page, kind_word, block)
+        # read, never recomputed: reversing `by_shot["remake"]` in the JSON reverses the page's order
+        d = Path(t1)
+        cov = json.loads((d / "frame_coverage_t.json").read_text())
+        cov["by_shot"]["remake"] = list(reversed(cov["by_shot"]["remake"]))
+        cov["runs"] = []
+        (d / "frame_coverage_t.json").write_text(json.dumps(cov))
+        out = d / "day" / "rev2.html"
+        assert rp.main(["to-review", "--table", str(d / "t.json"), "--ledger", str(d / "l.json"), "--verdicts", str(d / "verdicts.jsonl"),
+                        "--items", str(d / "items.json"), "--source", str(d / "v.mp4"), "--share", str(d / "share"), "--page-url", "p#",
+                        "--open-list", "o", "--tables", str(d / "tables"), "--out", str(out), "--today", "2026-10-20"]) == 0
+        rev2_txt = text_of(out.read_text()).split("Where the original still shows: the gap check")[1].split("Waiting on you")[0]
+        remake2 = rev2_txt.split("Capture (2 shot(s)")[0]
+        assert remake2.index("150-199") < remake2.index("220-239"), "the page re-sorted or recomputed by_shot instead of reading it"
+        assert "a, b: 220-239 (0:09.2–0:10.0)" in remake2 and "a, b: 240-259 (0:10.0–0:10.8)" in rev2_txt, rev2_txt
+        # a gap check with non-empty string `failures` (as frame_coverage.py writes) never renders as clean "None."
+        cov_fail = json.loads((d / "frame_coverage_t.json").read_text())
+        cov_fail["by_shot"] = {"remake": [], "capture": []}
+        cov_fail["runs"] = []
+        cov_fail["failures"] = ["150-199 a (a_solo): run='bad' does not resolve"]
+        (d / "frame_coverage_t.json").write_text(json.dumps(cov_fail))
+        out_fail_rev = d / "day" / "rev_fail.html"
+        out_fail_prov = d / "day" / "prov_fail.html"
+        assert rp.main(["to-review", "--table", str(d / "t.json"), "--ledger", str(d / "l.json"), "--verdicts", str(d / "verdicts.jsonl"),
+                        "--items", str(d / "items.json"), "--source", str(d / "v.mp4"), "--share", str(d / "share"), "--page-url", "p#",
+                        "--open-list", "o", "--tables", str(d / "tables"), "--out", str(out_fail_rev), "--today", "2026-10-20"]) == 0
+        assert rp.main(["provenance", "--table", str(d / "t.json"), "--ledger", str(d / "l.json"), "--verdicts", str(d / "verdicts.jsonl"),
+                        "--items", str(d / "items.json"), "--source", str(d / "v.mp4"), "--share", str(d / "share"),
+                        "--day-folder", str(d / "day"), "--up-to", "259", "--out", str(out_fail_prov)]) == 0
+        for wf_page, wf_html, wf_before in (("to-review", out_fail_rev, "Waiting on you"), ("provenance", out_fail_prov, "What changes in the next clip")):
+            fblock = text_of(wf_html.read_text()).split("Where the original still shows: the gap check")[1].split(wf_before)[0]
+            assert "FAILED GAP CHECK" in fblock and "150-199 a (a_solo): run='bad' does not resolve" in fblock and "None." not in fblock, (wf_page, fblock)
+    return "both pages show remake, capture, and the 4 other run kinds with their words, per-subject gap spans/clocks, seam counts, and string failures"
+
+
+def missing_or_stale_gap_check_is_refused() -> str:
+    """2026-10-16: both page builds refuse when `assembly.stack.coverage_json` is missing from the table, when the file it
+    names is missing on disk, when its `table_sha256` is not the table's, when `by_shot` is missing, when `span` does not
+    cover the table's span, when `assembly.command` lacks `--out`, or when `clip_check` is missing, missing on disk, or
+    mismatches `--out` or its file's sha256 on disk."""
+    for mode in ("to-review", "provenance"):
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp)
+            args = world(d)
+            tail = (["--page-url", "p#", "--open-list", "o", "--tables", str(d / "tables")] if mode == "to-review"
+                    else ["--day-folder", str(d / "day"), "--up-to", "259"])
+            good_cov = json.loads((d / "frame_coverage_t.json").read_text())
+            # 1. by_shot missing or malformed
+            bad_cov = dict(good_cov, by_shot={"remake": "not-a-list"})
+            (d / "frame_coverage_t.json").write_text(json.dumps(bad_cov))
+            out_shape = d / "day" / f"{mode}_shape.html"
+            try:
+                rp.main([mode, *args, *tail, "--out", str(out_shape)])
+            except SystemExit as stop:
+                assert "by_shot" in str(stop) and not out_shape.exists(), (mode, stop)
+            else:
+                raise AssertionError(f"{mode} built with malformed by_shot")
+            # 2. partial --span gap check that does not match the table's span
+            (d / "frame_coverage_t.json").write_text(json.dumps(dict(good_cov, span=[100, 199])))
+            out_span = d / "day" / f"{mode}_span.html"
+            try:
+                rp.main([mode, *args, *tail, "--out", str(out_span)])
+            except SystemExit as stop:
+                assert "span" in str(stop) and not out_span.exists(), (mode, stop)
+            else:
+                raise AssertionError(f"{mode} built with a partial --span gap check")
+            # 3a. clip_check missing in JSON
+            (d / "frame_coverage_t.json").write_text(json.dumps(dict(good_cov, clip_check=None)))
+            out_noclip = d / "day" / f"{mode}_noclip.html"
+            try:
+                rp.main([mode, *args, *tail, "--out", str(out_noclip)])
+            except SystemExit as stop:
+                assert "clip_check" in str(stop) and not out_noclip.exists(), (mode, stop)
+            else:
+                raise AssertionError(f"{mode} built with no clip_check in the gap check")
+            # 3b. clip_check file missing on disk (N3)
+            (d / "frame_coverage_t.json").write_text(json.dumps(good_cov))
+            (d / "joined.mp4.check.json").unlink()
+            out_missing_cc = d / "day" / f"{mode}_missing_cc.html"
+            try:
+                rp.main([mode, *args, *tail, "--out", str(out_missing_cc)])
+            except SystemExit as stop:
+                assert "clip_check" in str(stop) and "missing" in str(stop) and not out_missing_cc.exists(), (mode, stop)
+            else:
+                raise AssertionError(f"{mode} built when clip_check file was missing on disk")
+            # 3c. clip_check sha256 stale (clip re-assembled after gap check ran)
+            (d / "joined.mp4.check.json").write_text(json.dumps({"ok": True, "reassembled": True}))
+            out_stale_clip = d / "day" / f"{mode}_stale_clip.html"
+            try:
+                rp.main([mode, *args, *tail, "--out", str(out_stale_clip)])
+            except SystemExit as stop:
+                assert "clip_check" in str(stop) and not out_stale_clip.exists(), (mode, stop)
+            else:
+                raise AssertionError(f"{mode} built when the clip check on disk changed after the gap check")
+            sync_gap_check(d)
+            # 3d. clip_check points to another clip's valid check file, not the one assembly.command --out names (N5)
+            other_cc = d / "other.mp4.check.json"
+            other_cc.write_text(json.dumps({"table": ["other"]}))
+            cov_other_cc = json.loads((d / "frame_coverage_t.json").read_text())
+            cov_other_cc["clip_check"] = {"file": str(other_cc), "sha256": hashlib.sha256(other_cc.read_bytes()).hexdigest()}
+            (d / "frame_coverage_t.json").write_text(json.dumps(cov_other_cc))
+            out_wrong_cc = d / "day" / f"{mode}_wrong_cc.html"
+            try:
+                rp.main([mode, *args, *tail, "--out", str(out_wrong_cc)])
+            except SystemExit as stop:
+                assert "clip_check" in str(stop) and not out_wrong_cc.exists(), (mode, stop)
+            else:
+                raise AssertionError(f"{mode} built when clip_check pointed to another clip's check file")
+            # 3e. assembly.command lacks --out (Item 6)
+            t_no_out = json.loads((d / "t.json").read_text())
+            t_no_out["assembly"]["command"] = "python bench/assemble_delivery.py"
+            (d / "t.json").write_text(json.dumps(t_no_out))
+            sync_gap_check(d)
+            out_no_out = d / "day" / f"{mode}_no_out.html"
+            try:
+                rp.main([mode, *args, *tail, "--out", str(out_no_out)])
+            except SystemExit as stop:
+                assert "--out" in str(stop) and not out_no_out.exists(), (mode, stop)
+            else:
+                raise AssertionError(f"{mode} built when assembly.command lacked --out")
+            t_restore = json.loads((d / "t.json").read_text())
+            t_restore["assembly"]["command"] = f"python bench/assemble_delivery.py --out {d / 'joined.mp4'}"
+            (d / "t.json").write_text(json.dumps(t_restore))
+            sync_gap_check(d)
+            # 4. table_sha256 mismatch (table edited after gap check was written)
+            t = json.loads((d / "t.json").read_text())
+            t["held"].append({"first": 100, "last": 149, "subject": "a", "load": "x", "reason": "r"})
+            (d / "t.json").write_text(json.dumps(t))
+            out = d / "day" / f"{mode}_stale.html"
+            try:
+                rp.main([mode, *args, *tail, "--out", str(out)])
+            except SystemExit as stop:
+                assert "table_sha256" in str(stop) and not out.exists(), (mode, stop)
+            else:
+                raise AssertionError(f"{mode} built with a stale gap check (table_sha256 mismatch)")
+            # 5. missing gap check file on disk
+            (d / "frame_coverage_t.json").unlink()
+            out2 = d / "day" / f"{mode}_missing.html"
+            try:
+                rp.main([mode, *args, *tail, "--out", str(out2)])
+            except SystemExit as stop:
+                assert "missing" in str(stop) and not out2.exists(), (mode, stop)
+            else:
+                raise AssertionError(f"{mode} built when the gap check file was missing")
+            # 6. table JSON omits assembly.stack.coverage_json
+            t["assembly"] = {}
+            (d / "t.json").write_text(json.dumps(t))
+            out3 = d / "day" / f"{mode}_no_key.html"
+            try:
+                rp.main([mode, *args, *tail, "--out", str(out3)])
+            except SystemExit as stop:
+                assert "coverage_json" in str(stop) and not out3.exists(), (mode, stop)
+            else:
+                raise AssertionError(f"{mode} built when the table named no coverage_json")
+    return "both to-review and provenance refuse missing/malformed coverage_json, by_shot, span, table_sha256, --out, or clip_check, writing nothing"
+
+
 case("both modes read", both_modes_read)
 case("the page says what is laid", the_page_says_what_is_laid)
 case("to-review is the table's, and hides no live piece", to_review_is_the_tables)
@@ -791,6 +1052,8 @@ case("another ledger is refused", another_ledger_is_refused)
 case("a one-subject shot by its joined clip, and a piece cut by restore spans", a_one_subject_shot_and_a_cut_piece)
 case("start here, in the lead's order", start_here)
 case("nothing of a video in the code", nothing_of_a_video_in_code)
+case("the gap check is on both pages, worst first", the_gap_check_is_on_both_pages)
+case("a missing or stale gap check is refused", missing_or_stale_gap_check_is_refused)
 
 if __name__ == "__main__":
     sys.exit(finish())

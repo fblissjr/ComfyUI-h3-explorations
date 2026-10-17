@@ -3,7 +3,7 @@
 table lays there, and what else has been rendered on those frames.
 
     <python> bench/shot_coverage.py --shots SHOTS.json --plan PLAN.json --table TABLE.txt [--ledger LEDGER.json] \\
-        [--verdicts VERDICTS.jsonl] [--json OUT.json]
+        [--verdicts VERDICTS.jsonl] [--gap-check GAP_CHECK.json] [--json OUT.json]
 
 **What it buys.** On 2026-10-11 nobody could say, per shot and per subject, what the owner had ruled, what
 render existed and what was missing: the delivery table was the nearest thing and it is typed by hand, and
@@ -41,6 +41,12 @@ three files that already hold those facts and prints them side by side, so "fini
 - `--verdicts` (optional): the owner's lines on renders, as `bench/page_answers_to_verdicts.py` copies them
   from the review page into `data/<stem>/verdicts/verdicts.jsonl`; each is printed under the render it is
   about, oldest first, unreworded, so the table carries the owner's eye beside the files' facts.
+- `--gap-check` (optional; or `assembly.stack.coverage_json` in `<table_stem>.json`): the per-frame gap check
+  (`bench/frame_coverage.py`), held by `table_sha256`, `span`, and `clip_check` to `--table`; at the top the JSON's
+  `by_shot` `remake` and `capture` lists (worst shots first, in frame-subjects with gap spans), the four other run kinds
+  (`carried_not_known`, `original_her_track_empty`, `left_out_by_a_look`, `seam`), any `failures`, and per row the
+  frames where the original shows by kind (`original_while_tracked`, `emptied_inside`, `laid_but_barely_changed`,
+  `region_far_below_its_own_size`; and, apart, `original_tracking_not_known`).
 
 **What it prints, a row a shot and a subject present or unsure:** the frames, the subject, what the plan
 wants, what the table lays there (a piece and its region, or the `source` line's own words, or nothing), and
@@ -50,7 +56,9 @@ written by `bench/shots_look.py`) say are seen on no frame of it (`nothing_to_ma
 frames by state for each subject, and the pieces the table lays that no plan row claims. A render in the
 table is "as planned" when its graph's region is the kind the plan names (parts for `face` and `face and
 hair`; the graph does not say which parts, so with `--renders` face against face and hair is NOT read and the
-row says so; with `--ledger` a render whose region the ledger names is held to it); "not as planned" when they differ. A piece covering part of a shot says which frames.
+row says so; with `--ledger` a render whose region the ledger names is held to it) and no frame of the shot shows the
+original in the gap check (`original shows on some frames`, `partly, original shows`, or `original shows` when gap
+frames exist); "not as planned" when they differ. A piece covering part of a shot says which frames.
 
 **What it cannot see.** Whether a render is any good (the owner's eye on playback; the records under
 `bench/results/`). Whether the parts a render replaced are the face or the face and hair (not in the saved
@@ -62,8 +70,10 @@ The frame numbers are the copy's, as the whole folder's are (`clip_folder.py`, "
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
+import shlex
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -75,10 +85,13 @@ REGIONS = ("face", "face and hair", "whole")
 #: What a saved graph's `replace` says, and which plan regions it is the kind of.
 GRAPH_KIND = {"whole subject": ("whole",), "the wired parts": ("face", "face and hair")}
 STATES = (
-    "as planned",            # a table piece of this subject covers the shot and its graph's region is the plan's kind
+    "as planned",            # a table piece of this subject covers the shot, its region is the plan's kind, and 0 gap frames show the original
+    "original shows on some frames",  # a piece covers the shot with the plan's kind, and some frames show the original in the gap check
+    "original shows",        # a piece is laid with the plan's kind, and every frame of the shot shows the original in the gap check
     "not as planned",        # a piece covers it and its graph's region is the other kind
     "region not readable",   # a piece covers it and no renders inventory names it, so its region is not read
-    "partly, as planned",    # a piece of this subject covers some frames of the shot and not the rest; its kind as above
+    "partly, as planned",    # a piece of this subject covers some frames of the shot and not the rest, with 0 gap frames; its kind as above
+    "partly, original shows",  # a piece covers some frames of the shot with the plan's kind, and gap frames show the original
     "partly, not as planned",
     "partly, region not readable",
     "source, said why",      # a `source` line leaves the subject as the original here, with words
@@ -88,6 +101,21 @@ STATES = (
 )
 #: What a look may say of a part on frames of a shot (`who[label].seen_looks`, written by `bench/shots_look.py`).
 SEEN_IS = ("not seen", "seen")
+REMAKE_GAP_KINDS = ("original_while_tracked", "emptied_inside", "laid_but_barely_changed", "region_far_below_its_own_size")
+CAPTURE_GAP_KINDS = ("original_tracking_not_known",)
+GAP_KINDS = REMAKE_GAP_KINDS + CAPTURE_GAP_KINDS
+OTHER_RUN_KINDS = ("carried_not_known", "original_her_track_empty", "left_out_by_a_look", "seam")
+KIND_WORDS = {
+    "original_while_tracked": "original while tracked, no piece laid",
+    "emptied_inside": "emptied inside a laid piece",
+    "laid_but_barely_changed": "laid piece barely changed its region",
+    "region_far_below_its_own_size": "carried region far below its own size",
+    "original_tracking_not_known": "original, tracking not known",
+    "carried_not_known": "tracked, whether the laid piece carried a mask is not known",
+    "original_her_track_empty": "original, her tied track is empty (0 px)",
+    "left_out_by_a_look": "original, left out by a person's look",
+    "seam": "seam where two laid pieces of the same person meet",
+}
 
 
 def _delivery():
@@ -245,7 +273,118 @@ def owner_said(render_file: str | None, verdicts: list[dict]) -> list[str]:
     return out
 
 
-def coverage(shots: dict, plan: dict, rows: list[dict], intents: list[dict], renders: list[dict], verdicts: list[dict] | None = None) -> dict:
+def _in_repo(path: str, near: Path) -> Path:
+    if Path(path).is_absolute():
+        return Path(path)
+    for anc in [*near.resolve().parents, HERE.parent]:
+        if (anc / path).exists():
+            return anc / path
+    return HERE.parent / path
+
+
+def table_span(TT: dict) -> tuple[int, int] | None:
+    shots = list(TT.get("reading") or []) + list(TT.get("not_in_the_shot") or [])
+    rr = shots or list(TT.get("rows") or [])
+    return (min(int(r["first"]) for r in rr), max(int(r["last"]) for r in rr)) if rr else None
+
+
+def read_gap_check(table_path: str | Path, gap_check_path: str | Path | None = None, rows: list[dict] | None = None) -> dict:
+    """The gap check (`bench/frame_coverage.py --json`) named by the table's companion `.json` (`assembly.stack.coverage_json`),
+    or by `--gap-check`, verified against the table `.json`'s rows, `table_sha256`, `span`, and `clip_check`."""
+    t_json = Path(table_path) if str(table_path).endswith(".json") else Path(table_path).with_suffix(".json")
+    if not t_json.is_file():
+        raise SystemExit(f"--table {table_path}: companion table JSON {t_json} is missing (cannot verify table_sha256)")
+    T = json.loads(t_json.read_text())
+    if gap_check_path is not None:
+        cov_rel = str(gap_check_path)
+        cov_path = _in_repo(cov_rel, Path(table_path))
+    else:
+        cov_rel = ((T.get("assembly") or {}).get("stack") or {}).get("coverage_json")
+        if not cov_rel:
+            raise SystemExit(f"--table {table_path}: {t_json} names no gap check (assembly.stack.coverage_json is missing)")
+        cov_path = _in_repo(str(cov_rel), t_json)
+    if not cov_path.is_file():
+        raise SystemExit(f"--table {table_path}: the gap check {cov_rel} is missing (looked at {cov_path})")
+    cov = json.loads(cov_path.read_text())
+    want_sha = hashlib.sha256(t_json.read_bytes()).hexdigest()
+    got_sha = cov.get("table_sha256")
+    if got_sha != want_sha:
+        raise SystemExit(f"--table {table_path}: the gap check {cov_rel} has table_sha256 {got_sha!r}, not {t_json}'s {want_sha}")
+    t_rows = T.get("rows")
+    if rows is not None:
+        if not isinstance(t_rows, list) or len(rows) != len(t_rows) or not all(
+            int(x["first"]) == int(y.get("first", -1)) and int(x["last"]) == int(y.get("last", -2))
+            and bool(y.get("file")) and (str(x["piece"]).endswith(str(y["file"])) or str(y["file"]).endswith(str(x["piece"])))
+            for x, y in zip(rows, t_rows)
+        ):
+            raise SystemExit(f"--table {table_path}: table rows do not match companion JSON {t_json}")
+    by_shot = cov.get("by_shot")
+    if not isinstance(by_shot, dict) or not isinstance(by_shot.get("remake"), list) or not isinstance(by_shot.get("capture"), list):
+        raise SystemExit(f"--table {table_path}: the gap check {cov_rel} has no by_shot remake and capture lists")
+    t_span = table_span(T)
+    c_span = cov.get("span")
+    if c_span is not None and t_span is not None:
+        if not isinstance(c_span, list) or len(c_span) != 2 or (int(c_span[0]), int(c_span[1])) != t_span:
+            raise SystemExit(f"--table {table_path}: the gap check {cov_rel} is for span {c_span!r}, not this table's span {list(t_span)}")
+    cc = cov.get("clip_check")
+    if not isinstance(cc, dict) or not cc.get("file") or not cc.get("sha256"):
+        raise SystemExit(f"--table {table_path}: the gap check {cov_rel} names no clip_check (file and sha256 required)")
+    cc_path = _in_repo(str(cc["file"]), t_json)
+    if not cc_path.is_file():
+        raise SystemExit(f"--table {table_path}: the gap check {cov_rel}'s clip_check {cc['file']} is missing on disk")
+    cc_sha = hashlib.sha256(cc_path.read_bytes()).hexdigest()
+    if cc.get("sha256") != cc_sha:
+        raise SystemExit(f"--table {table_path}: the gap check {cov_rel} has clip_check sha256 {cc.get('sha256')!r}, not {cc_path}'s {cc_sha}")
+    cmd_parts = shlex.split(str(((T.get("assembly") or {}).get("command")) or ""))
+    if "--out" not in cmd_parts[:-1]:
+        raise SystemExit(f"--table {table_path}: assembly.command names no --out clip to tie clip_check to")
+    out_arg = cmd_parts[cmd_parts.index("--out") + 1]
+    want_cc = _in_repo(out_arg if out_arg.endswith(".check.json") else out_arg + ".check.json", t_json)
+    if cc_path.resolve() != want_cc.resolve():
+        raise SystemExit(f"--table {table_path}: the gap check {cov_rel} read clip_check {cc_path}, not the table's {want_cc}")
+    return cov
+
+
+def row_gap_check(gap_check: dict | None, first: int, last: int, label: str, plan: dict) -> dict | None:
+    """For one shot and subject, the frames and runs where the original shows from `gap_check`, plus other runs (`OTHER_RUN_KINDS`)."""
+    if gap_check is None:
+        return None
+    runs_here = []
+    other_here = []
+    by_kind: dict[str, int] = {}
+    for r in gap_check.get("runs") or []:
+        kind = r.get("kind")
+        if alias(str(r.get("subject") or ""), plan) != label:
+            continue
+        r_shot = r.get("shot")
+        if r_shot and [int(r_shot[0]), int(r_shot[1])] != [first, last]:
+            continue
+        both = overlap(first, last, int(r["first"]), int(r["last"]))
+        if not both:
+            continue
+        lo, hi = both
+        n = hi - lo + 1
+        entry = {"frames": [lo, hi], "kind": kind, "cause": r.get("cause"), "pieces": list(r.get("pieces") or [])}
+        if kind in GAP_KINDS:
+            by_kind[kind] = by_kind.get(kind, 0) + n
+            runs_here.append(entry)
+        elif kind in OTHER_RUN_KINDS:
+            other_here.append(entry)
+    if not by_kind:
+        for which, kinds in (("remake", REMAKE_GAP_KINDS), ("capture", CAPTURE_GAP_KINDS)):
+            for x in (gap_check.get("by_shot") or {}).get(which) or []:
+                subs = [alias(str(s), plan) for s in (x.get("subjects") or [])]
+                if len(subs) == 1 and [int(x["shot"][0]), int(x["shot"][1])] == [first, last] and label in subs:
+                    for k in kinds:
+                        v = int((x.get("by_kind") or {}).get(k, 0))
+                        if v:
+                            by_kind[k] = by_kind.get(k, 0) + v
+    ordered = {k: by_kind[k] for k in GAP_KINDS if by_kind.get(k)}
+    return {"frames": sum(ordered.values()), "by_kind": ordered, "runs": runs_here, "other_runs": other_here}
+
+
+def coverage(shots: dict, plan: dict, rows: list[dict], intents: list[dict], renders: list[dict],
+             verdicts: list[dict] | None = None, gap_check: dict | None = None) -> dict:
     verdicts = verdicts or []
     span = shots["span"]
     for row in rows:
@@ -260,6 +399,10 @@ def coverage(shots: dict, plan: dict, rows: list[dict], intents: list[dict], ren
     out = {"video": shots["video"], "span": span, "source_frames": shots.get("source_frames"), "rows": [],
            "unclaimed_pieces": [dict(first=p["first"], last=p["last"], piece=p["piece"], why=p["label_how"])
                                 for p in pieces if p["label"] is None]}
+    if gap_check is not None:
+        out["gap_check"] = {"table": gap_check.get("table"), "table_sha256": gap_check.get("table_sha256"),
+                            "by_shot": gap_check["by_shot"], "counts": gap_check.get("counts"),
+                            "failures": list(gap_check.get("failures") or []), "runs": list(gap_check.get("runs") or [])}
     for s in shots["shots"]:
         for label in shots["subjects"]:
             who = s["who"][label]
@@ -274,6 +417,9 @@ def coverage(shots: dict, plan: dict, rows: list[dict], intents: list[dict], ren
                    "notes": [f"{d['first']}-{d['last']}: {d['note']} ({d.get('by', '')})" for d in notes],
                    "shot_note": s.get("note", ""), "laid": [], "left": [], "others": [],
                    "nothing_to_make": nothing_to_make(who, wanted, s["first"], s["last"])}
+            gc = row_gap_check(gap_check, s["first"], s["last"], label, plan)
+            if gc is not None:
+                row["gap_check"] = gc
             mine = [p for p in pieces if p["label"] == label and overlap(s["first"], s["last"], p["first"], p["last"])]
             for p in mine:
                 lo, hi = overlap(s["first"], s["last"], p["first"], p["last"]) or (0, -1)
@@ -315,6 +461,11 @@ def state_of(row: dict) -> str:
         held = [p["region_exact"] == row["wanted"] if p.get("region_exact") else None if p["region"] is None
                 else row["wanted"] in GRAPH_KIND.get(p["region"], ()) for p in row["laid"]]
         kind = "region not readable" if None in held else "as planned" if all(held) else "not as planned"
+        gap_n = int((row.get("gap_check") or {}).get("frames") or 0)
+        if kind == "as planned" and gap_n > 0:
+            if gap_n >= row["frames"]:
+                return "original shows"
+            return "partly, original shows" if covered != whole else "original shows on some frames"
         return f"partly, {kind}" if covered != whole else kind
     if row.get("nothing_to_make"):
         return "present, nothing to make under this plan"
@@ -324,12 +475,36 @@ def state_of(row: dict) -> str:
 def totals(rows: list[dict]) -> dict:
     t = defaultdict(lambda: defaultdict(int))
     for r in rows:
-        t[r["subject"]][r["state"]] += r["frames"]
+        gap_n = min(int((r.get("gap_check") or {}).get("frames") or 0), int(r["frames"])) if r.get("laid") else 0
+        if gap_n > 0:
+            t[r["subject"]]["original shows"] += gap_n
+            if r["frames"] - gap_n > 0:
+                base_state = ("as planned" if r["state"] == "original shows on some frames"
+                              else "partly, as planned" if r["state"] == "partly, original shows" else r["state"])
+                t[r["subject"]][base_state] += r["frames"] - gap_n
+        else:
+            t[r["subject"]][r["state"]] += r["frames"]
     return {s: dict(v) for s, v in t.items()}
 
 
 def frames(a, b) -> str:
     return f"{a}-{b}"
+
+
+def span_frames(a: int, b: int) -> str:
+    return f"{int(a)}" if int(a) == int(b) else f"{int(a)}-{int(b)}"
+
+
+def fmt_shot_spans_plain(x: dict, shot_runs: list[dict]) -> str:
+    subs_order = list(dict.fromkeys(str(s) for s in (x.get("subjects") or [r.get("subject") for r in shot_runs if r.get("subject")])))
+    groups: dict[tuple[tuple[int, int], ...], list[str]] = {}
+    for sub in subs_order:
+        sp = tuple(dict.fromkeys(sorted((int(r["first"]), int(r["last"])) for r in shot_runs if str(r.get("subject") or "") == sub)))
+        if sp:
+            groups.setdefault(sp, []).append(sub)
+    if not groups:
+        return ""
+    return " on " + "; ".join(f"{', '.join(g_subs)}: {', '.join(span_frames(lo, hi) for lo, hi in sp)}" for sp, g_subs in groups.items())
 
 
 def print_report(out: dict) -> None:
@@ -341,6 +516,39 @@ def print_report(out: dict) -> None:
           + ("holds a piece to the plan's region itself where the ledger names it (face, face and hair, whole) and to the graph's kind (parts or whole) where it does not."
              if exact else "reads the graph's kind only (parts or whole), never face against face and hair."))
     print()
+    if out.get("gap_check"):
+        gc = out["gap_check"]
+        by_shot = gc.get("by_shot") or {}
+        all_runs = gc.get("runs") or []
+        failures = gc.get("failures") or []
+        print(f"Where the original still shows (from the gap check, table_sha256 {str(gc.get('table_sha256') or '')[:12]}, worst shots first):")
+        if failures:
+            print(f"  FAILED GAP CHECK ({len(failures)} failure(s)):")
+            for fl in failures:
+                print(f"    {fl}")
+        for which, title, kinds in (
+            ("remake", "remake (a laid piece fails, or no piece where tracked)", REMAKE_GAP_KINDS),
+            ("capture", "capture (original, tracking not known)", CAPTURE_GAP_KINDS),
+        ):
+            entries = by_shot.get(which) or []
+            words = "; ".join(f"{k} = {KIND_WORDS[k]}" for k in kinds)
+            print(f"  {title}: {len(entries)} shot(s), {sum(int(x.get('frames', 0)) for x in entries)} frame-subject(s) [{words}]")
+            for x in entries:
+                s0, s1 = int(x["shot"][0]), int(x["shot"][1])
+                bk = x.get("by_kind") or {}
+                k_str = ", ".join(f"{k}: {int(bk.get(k, 0))}" for k in kinds if int(bk.get(k, 0)))
+                subs = ", ".join(str(s) for s in (x.get("subjects") or []))
+                s_runs = [r for r in all_runs if r.get("kind") in kinds and r.get("shot") and [int(r["shot"][0]), int(r["shot"][1])] == [s0, s1]]
+                span_str = fmt_shot_spans_plain(x, s_runs)
+                print(f"    {frames(s0, s1)} ({subs}): {int(x['frames'])} frame-subject(s) ({k_str}){span_str}")
+        print("  Other runs from the gap check:")
+        for k in OTHER_RUN_KINDS:
+            k_runs = [r for r in all_runs if r.get("kind") == k]
+            n_fs = sum(int(r["last"]) - int(r["first"]) + 1 for r in k_runs)
+            count_str = f"{len(k_runs)} seam(s)" if k == "seam" else f"{n_fs} frame-subject(s)"
+            where = (" on " + ", ".join(f"{span_frames(int(r['first']), int(r['last']))} ({r.get('subject')})" for r in k_runs)) if k_runs else ""
+            print(f"    {k} ({KIND_WORDS[k]}): {count_str}{where}")
+        print()
     for r in out["rows"]:
         print(f"{frames(r['first'], r['last'])}  {r['frames']:4d} f  {r['subject']:<7} wanted: {r['wanted']:<14} STATE: {r['state']}")
         if r["present"] == "unsure" or r["present_how"]:
@@ -355,6 +563,15 @@ def print_report(out: dict) -> None:
                 print(f"        the owner, {said}")
         for it in r["left"]:
             print(f"    source {frames(*it['frames'])}: {it['why']}")
+        gc_row = r.get("gap_check")
+        if gc_row and gc_row.get("frames"):
+            bk = gc_row.get("by_kind") or {}
+            k_str = ", ".join(f"{k} {v}" for k, v in bk.items() if v)
+            spans_str = "; ".join(f"{span_frames(*x['frames'])} {x['kind']}" + (f" ({x['cause']})" if x.get("cause") else "") for x in gc_row.get("runs") or [])
+            print(f"    original shows ({gc_row['frames']} f: {k_str})" + (f": {spans_str}" if spans_str else ""))
+        if gc_row and gc_row.get("other_runs"):
+            other_str = "; ".join(f"{span_frames(*x['frames'])} {x['kind']}" + (f" ({x['cause']})" if x.get("cause") else "") for x in gc_row["other_runs"])
+            print(f"    other gap-check runs: {other_str}")
         for n in r["notes"]:
             print(f"    note {n}")
         if r["shot_note"]:
@@ -385,6 +602,7 @@ def main() -> int:
     ap.add_argument("--ledger", help="the render ledger (bench/render_ledger.py --json): the one inventory, made new with every table; without it or --renders no region is read")
     ap.add_argument("--renders", help="the older inventory read from saved graphs by the review page's builder; not with --ledger")
     ap.add_argument("--verdicts", help="the owner's lines on renders (bench/page_answers_to_verdicts.py's record); printed under each render")
+    ap.add_argument("--gap-check", help="the gap check's JSON (bench/frame_coverage.py --json); read from the table's companion .json when left out")
     ap.add_argument("--json", help="write the same rows as JSON here")
     a = ap.parse_args()
     read_table, read_intents = _delivery()
@@ -392,8 +610,12 @@ def main() -> int:
     plan = load_plan(a.plan, shots["subjects"])
     renders = read_renders(a.ledger, a.renders)
     verdicts = [json.loads(t) for t in Path(a.verdicts).read_text().splitlines() if t.strip()] if a.verdicts else []
-    out = coverage(shots, plan, read_table(a.table), read_intents(a.table), renders, verdicts)
-    out["read_from"] = {"shots": a.shots, "plan": a.plan, "table": a.table, "ledger": a.ledger, "renders": a.renders, "verdicts": a.verdicts}
+    table_txt = str(Path(a.table).with_suffix(".txt")) if str(a.table).endswith(".json") and Path(a.table).with_suffix(".txt").is_file() else a.table
+    rows = read_table(table_txt)
+    gap_check = read_gap_check(a.table, a.gap_check, rows)
+    out = coverage(shots, plan, rows, read_intents(table_txt), renders, verdicts, gap_check)
+    out["read_from"] = {"shots": a.shots, "plan": a.plan, "table": a.table, "ledger": a.ledger, "renders": a.renders, "verdicts": a.verdicts,
+                        "gap_check": (gap_check or {}).get("table") and str(a.gap_check or ((json.loads((Path(a.table) if str(a.table).endswith(".json") else Path(a.table).with_suffix(".json")).read_text()).get("assembly") or {}).get("stack") or {}).get("coverage_json"))}
     print_report(out)
     if a.json:
         Path(a.json).write_text(json.dumps(out, indent=1))

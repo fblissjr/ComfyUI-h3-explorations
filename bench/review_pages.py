@@ -52,7 +52,11 @@ the owner's, and under DONE, a closed fold, when it has one, with a piece they s
 there too (the lead's page of 2026-10-14, at the owner's ask of which items were still theirs). The lead's rulings the
 same day, on a sixth reader's findings: a keep with words after it, and words with no click, are answers, under Done on the
 day of the last line and off the page after it; the clicks and words on any joined clip that lays a piece count as
-answers on it (a keep also settles it). Both pages end, or begin, with the lead's holds (the table's
+answers on it (a keep also settles it). Both pages include a short block from the table's per-frame gap check
+(`assembly.stack.coverage_json`, from `bench/delivery_table.py`, held by `table_sha256` and never recomputed; a build
+refuses when it is missing or not this table's), worst shots first in the `remake` and `capture` lists apart, by kind
+(`original_while_tracked`, `emptied_inside`, `laid_but_barely_changed`, `region_far_below_its_own_size`; and, apart,
+`original_tracking_not_known`), and end, or begin, with the lead's holds (the table's
 `held`, a session's word, its reason whole) and the owner's keeps this table does not lay, with the table's reason.
 Links are `--page-url` + an item's id.
 
@@ -77,6 +81,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import glob
+import hashlib
 import html
 import json
 import os
@@ -105,6 +110,20 @@ TOKENS = {
     "day0": ("#17705a", "#35b596"), "day1": ("#8a5a00", "#e0a83c"), "day2": ("#6a4fb3", "#a990f0"), "day3": ("#5f6b7a", "#9aa7b8"),
 }
 DAY_TOKENS = ("day0", "day1", "day2", "day3")
+REMAKE_GAP_KINDS = ("original_while_tracked", "emptied_inside", "laid_but_barely_changed", "region_far_below_its_own_size")
+CAPTURE_GAP_KINDS = ("original_tracking_not_known",)
+OTHER_RUN_KINDS = ("carried_not_known", "original_her_track_empty", "left_out_by_a_look", "seam")
+KIND_WORDS = {
+    "original_while_tracked": "original while tracked, no piece laid",
+    "emptied_inside": "emptied inside a laid piece",
+    "laid_but_barely_changed": "laid piece barely changed its region",
+    "region_far_below_its_own_size": "carried region far below its own size",
+    "original_tracking_not_known": "original, tracking not known",
+    "carried_not_known": "tracked, whether the laid piece carried a mask is not known",
+    "original_her_track_empty": "original, her tied track is empty (0 px)",
+    "left_out_by_a_look": "original, left out by a person's look",
+    "seam": "seam where two laid pieces of the same person meet",
+}
 
 
 def theme_css() -> str:
@@ -189,6 +208,131 @@ def in_repo(path: str, near: str) -> Path:
     return HERE.parent / path
 
 
+def table_span(TT: dict) -> tuple[int, int] | None:
+    shots = list(TT.get("reading") or []) + list(TT.get("not_in_the_shot") or [])
+    rr = shots or list(TT.get("rows") or [])
+    return (min(int(r["first"]) for r in rr), max(int(r["last"]) for r in rr)) if rr else None
+
+
+def read_gap_check(T: dict, table: str) -> tuple[dict, Path]:
+    """The gap check (`bench/frame_coverage.py --json`) named by `assembly.stack.coverage_json`, verified by `table_sha256`,
+    `span`, and `clip_check`."""
+    import shlex
+    cov_rel = ((T.get("assembly") or {}).get("stack") or {}).get("coverage_json")
+    if not cov_rel:
+        raise SystemExit(f"--table {table}: the table names no gap check (assembly.stack.coverage_json is missing)")
+    cov_path = in_repo(str(cov_rel), table)
+    if not cov_path.is_file():
+        raise SystemExit(f"--table {table}: the gap check {cov_rel} is missing (looked at {cov_path})")
+    cov = json.load(open(cov_path))
+    want_sha = hashlib.sha256(Path(table).read_bytes()).hexdigest()
+    got_sha = cov.get("table_sha256")
+    if got_sha != want_sha:
+        raise SystemExit(f"--table {table}: the gap check {cov_rel} has table_sha256 {got_sha!r}, not this table's {want_sha}")
+    by_shot = cov.get("by_shot")
+    if not isinstance(by_shot, dict) or not isinstance(by_shot.get("remake"), list) or not isinstance(by_shot.get("capture"), list):
+        raise SystemExit(f"--table {table}: the gap check {cov_rel} has no by_shot remake and capture lists")
+    t_span = table_span(T)
+    c_span = cov.get("span")
+    if c_span is not None and t_span is not None:
+        if not isinstance(c_span, list) or len(c_span) != 2 or (int(c_span[0]), int(c_span[1])) != t_span:
+            raise SystemExit(f"--table {table}: the gap check {cov_rel} is for span {c_span!r}, not this table's span {list(t_span)}")
+    cc = cov.get("clip_check")
+    if not isinstance(cc, dict) or not cc.get("file") or not cc.get("sha256"):
+        raise SystemExit(f"--table {table}: the gap check {cov_rel} names no clip_check (file and sha256 required)")
+    cc_path = in_repo(str(cc["file"]), table)
+    if not cc_path.is_file():
+        raise SystemExit(f"--table {table}: the gap check {cov_rel}'s clip_check {cc['file']} is missing on disk")
+    cc_sha = hashlib.sha256(cc_path.read_bytes()).hexdigest()
+    if cc.get("sha256") != cc_sha:
+        raise SystemExit(f"--table {table}: the gap check {cov_rel} has clip_check sha256 {cc.get('sha256')!r}, not {cc_path}'s {cc_sha}")
+    cmd_parts = shlex.split(str(((T.get("assembly") or {}).get("command")) or ""))
+    if "--out" not in cmd_parts[:-1]:
+        raise SystemExit(f"--table {table}: assembly.command names no --out clip to tie clip_check to")
+    out_arg = cmd_parts[cmd_parts.index("--out") + 1]
+    want_cc = in_repo(out_arg if out_arg.endswith(".check.json") else out_arg + ".check.json", table)
+    if cc_path.resolve() != want_cc.resolve():
+        raise SystemExit(f"--table {table}: the gap check {cov_rel} read clip_check {cc_path}, not the table's {want_cc}")
+    return cov, cov_path
+
+
+def fmt_clock_span(lo: int, hi: int, rate: Fraction) -> str:
+    return f"{lo} ({clock(lo, rate)})" if lo == hi else f"{lo}-{hi} ({clock(lo, rate)}&ndash;{clock(hi + 1, rate)})"
+
+
+def fmt_shot_spans(x: dict, shot_runs: list[dict], s0: int, s1: int, rate: Fraction) -> str:
+    subs_order = list(dict.fromkeys(str(s) for s in (x.get("subjects") or [r.get("subject") for r in shot_runs if r.get("subject")])))
+    groups: dict[tuple[tuple[int, int], ...], list[str]] = {}
+    for sub in subs_order:
+        sp = tuple(dict.fromkeys(sorted((int(r["first"]), int(r["last"])) for r in shot_runs if str(r.get("subject") or "") == sub)))
+        if sp:
+            groups.setdefault(sp, []).append(sub)
+    if groups:
+        return "; ".join(f"{E(', '.join(g_subs))}: {', '.join(fmt_clock_span(lo, hi, rate) for lo, hi in sp)}" for sp, g_subs in groups.items())
+    return f"{E(', '.join(subs_order))}: {fmt_clock_span(s0, s1, rate)}"
+
+
+def gap_check_block(rec: Records, rate: Fraction) -> list[str]:
+    """Per shot, the count of frame-subjects where the original still shows, by kind, worst first, in two lists (`remake` and `capture`),
+    plus the four other run kinds (`carried_not_known`, `original_her_track_empty`, `left_out_by_a_look`, `seam`) and any `failures`,
+    read from the table's gap check (`assembly.stack.coverage_json`), never recomputed."""
+    cov = rec.gap_check or {}
+    by_shot = cov.get("by_shot") or {}
+    remake, capture = list(by_shot.get("remake") or []), list(by_shot.get("capture") or [])
+    all_runs = list(cov.get("runs") or [])
+    failures = list(cov.get("failures") or [])
+    cov_rel = ((rec.T.get("assembly") or {}).get("stack") or {}).get("coverage_json") or ""
+    sha = str(cov.get("table_sha256") or "")[:12]
+    out = ["<h2>Where the original still shows: the gap check</h2>",
+           f'<p class="mut">Read from <code>{E(os.path.basename(str(cov_rel)))}</code> (<code>table_sha256</code> <code>{E(sha)}</code>), worst shots first, never recomputed.</p>',
+           '<div class="card">']
+    if failures:
+        out.append(f'<p class="d"><b>FAILED GAP CHECK ({len(failures)} failure(s)):</b></p><ul>')
+        for fl in failures:
+            out.append(f"<li><code>{E(str(fl))}</code></li>")
+        out.append("</ul>")
+    remake_words = ", ".join(f"<code>{E(k)}</code> ({E(KIND_WORDS[k])})" for k in REMAKE_GAP_KINDS)
+    out.append(f"<h3>Remake ({len(remake)} shot(s), {sum(int(x.get('frames', 0)) for x in remake)} frame-subject(s)): a laid piece fails, or no piece where tracked</h3>")
+    out.append(f'<p class="mut">Kinds: {remake_words}.</p>')
+    if remake:
+        out.append("<ul>")
+        for x in remake:
+            s0, s1 = int(x["shot"][0]), int(x["shot"][1])
+            bk = x.get("by_kind") or {}
+            kinds = ", ".join(f"{k}: {int(bk.get(k, 0))}" for k in REMAKE_GAP_KINDS if int(bk.get(k, 0)))
+            subs = ", ".join(str(s) for s in (x.get("subjects") or []))
+            r_runs = [r for r in all_runs if r.get("kind") in REMAKE_GAP_KINDS and r.get("shot") and [int(r["shot"][0]), int(r["shot"][1])] == [s0, s1]]
+            spans = fmt_shot_spans(x, r_runs, s0, s1, rate)
+            out.append(f"<li><b>{s0}-{s1}</b> ({E(subs)}; gap(s): {spans}): <b>{int(x['frames'])} frame-subject(s)</b> &mdash; {E(kinds)}</li>")
+        out.append("</ul>")
+    else:
+        out.append('<p class="mut">None counted (gap check FAILED above).</p>' if failures else '<p class="mut">None.</p>')
+    out.append(f"<h3>Capture ({len(capture)} shot(s), {sum(int(x.get('frames', 0)) for x in capture)} frame-subject(s)): original, tracking not known</h3>")
+    out.append(f'<p class="mut">Kind: <code>original_tracking_not_known</code> ({E(KIND_WORDS["original_tracking_not_known"])}).</p>')
+    if capture:
+        out.append("<ul>")
+        for x in capture:
+            s0, s1 = int(x["shot"][0]), int(x["shot"][1])
+            bk = x.get("by_kind") or {}
+            kinds = ", ".join(f"{k}: {int(bk.get(k, 0))}" for k in CAPTURE_GAP_KINDS if int(bk.get(k, 0)))
+            subs = ", ".join(str(s) for s in (x.get("subjects") or []))
+            c_runs = [r for r in all_runs if r.get("kind") in CAPTURE_GAP_KINDS and r.get("shot") and [int(r["shot"][0]), int(r["shot"][1])] == [s0, s1]]
+            spans = fmt_shot_spans(x, c_runs, s0, s1, rate)
+            out.append(f"<li><b>{s0}-{s1}</b> ({E(subs)}; gap(s): {spans}): <b>{int(x['frames'])} frame-subject(s)</b> &mdash; {E(kinds)}</li>")
+        out.append("</ul>")
+    else:
+        out.append('<p class="mut">None counted (gap check FAILED above).</p>' if failures else '<p class="mut">None.</p>')
+    out.append("<h3>Other runs from the gap check</h3><ul>")
+    for k in OTHER_RUN_KINDS:
+        k_runs = [r for r in all_runs if r.get("kind") == k]
+        n_fs = sum(int(r["last"]) - int(r["first"]) + 1 for r in k_runs)
+        count_str = f"{len(k_runs)} seam(s)" if k == "seam" else f"{n_fs} frame-subject(s)"
+        where = (" on " + ", ".join(f"{int(r['first']) if int(r['first']) == int(r['last']) else str(int(r['first'])) + '-' + str(int(r['last']))} ({E(str(r.get('subject') or ''))})" for r in k_runs)) if k_runs else ""
+        out.append(f"<li><code>{E(k)}</code> ({E(KIND_WORDS[k])}): <b>{count_str}</b>{where}</li>")
+    out.append("</ul></div>")
+    return out
+
+
 #: The buttons that settle a piece for the owner: a keep, or that it is not the one (the table's own words). Any
 #: other button ("not sure") leaves it to review.
 SETTLED = tuple(delivery_table.KEEP) + tuple(delivery_table.NOT_THE_ONE)
@@ -212,6 +356,7 @@ class Records:
         made_from = in_repo(named.group(1), table)
         if made_from.resolve() != Path(ledger).resolve():               # by its path: a ledger of the same name elsewhere is another ledger
             raise SystemExit(f"--ledger {ledger}: the table says it was made from another ledger, {named.group(1)}")
+        self.gap_check, self.gap_check_path = read_gap_check(self.T, table)
         self.by_name = {r["name"]: r for r in self.L["renders"].values()}
         self.lines = read_verdicts(verdicts)
         self.items_in_order = json.load(open(items))["items"]
@@ -536,8 +681,6 @@ def to_review(a: argparse.Namespace) -> str:
             + (", ".join(E(str(t)) for t in a.tables) if a.tables else "no folder (no joined clip can be this table's)") + ".</p>",
             f'<p>Decisions waiting on you are on <a href="{E(a.open_list)}">the Open List</a>.'
             + (f' Beside this file: <a href="{E(a.provenance)}">{E(a.provenance)}</a>, every stretch and every gap.' if a.provenance else "") + "</p>"]
-    if previous is not None:
-        body += ["<h2>Since the last page</h2>", *since(rec, a.previous_table)]
     # WAITING ON YOU, AND DONE: each entry by the owner's last click on it (the lead's page of 2026-10-14, at the owner's ask of
     # which items were still theirs): no click is waiting on them; a click of theirs, or a piece they settled today, is done
     today = a.today or datetime.datetime.now(OWNERS_CLOCK).strftime("%Y-%m-%d")
@@ -626,6 +769,10 @@ def to_review(a: argparse.Namespace) -> str:
     n_wait, n_done = (sum(map(len, g.values())) for g in (waiting, done))
     if a.start_here:
         body += start_here(a.start_here, drawn, shots_drawn, os.path.dirname(os.path.abspath(a.out)))
+    body += [
+            *gap_check_block(rec, rate)]
+    if previous is not None:
+        body += ["<h2>Since the last page</h2>", *since(rec, a.previous_table)]
     body += [f"<h2>Waiting on you: {n_wait} with no click or words of yours yet</h2>",
              "<p class='mut'>Watch these on playback, top to bottom. Each is something this table lays that you have not answered: a shot with a "
              "joined clip by the joined clip, whatever its pieces' own lines say (each piece's line says them).</p>",
@@ -781,7 +928,8 @@ def provenance(a: argparse.Namespace) -> str:
             "A local file: nothing here is hosted or tracked. It cannot see the picture: a reason is what a record says.</p>",
             f"<p><b>{len(rec.T['rows'])} pieces: " + ", ".join(
                 f'<span class="d {t}">{sum(1 for r in rec.T["rows"] if rec.day(r["name"]) == d)} rendered {datetime.date.fromisoformat(d):%m/%d}</span>'
-                for d, t in rec.day_token.items()) + f".</b> Frames 0-{up_to} are shown.</p>"]
+                for d, t in rec.day_token.items()) + f".</b> Frames 0-{up_to} are shown.</p>",
+            *gap_check_block(rec, rate)]
     if a.watched_table:
         ch = changes(rec, a.watched_table, up_to, rate)
         body += ["<h2>What changes in the next clip, against the one you watched, and why</h2>",
