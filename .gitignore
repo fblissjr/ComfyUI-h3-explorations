@@ -4,14 +4,11 @@ __pycache__/
 .agents/
 *.egg-info/
 internal/
-# data/ is untracked (the owner backs it up daily), except the lane's instruction files (2026-10-17).
+# data/ is untracked (the owner backs it up daily), each project's data/<video>/AGENTS.md included; only the lane's
+# rules for any video, data/AGENTS.md and its one-line CLAUDE.md, are tracked, so builders' worktrees have them (2026-10-17).
 /data/*
 !/data/AGENTS.md
 !/data/CLAUDE.md
-!/data/fun/
-/data/fun/*
-!/data/fun/AGENTS.md
-!/data/fun/CLAUDE.md
 # Claude Code's per-user settings stay out; the project skills under
 # .claude/skills/ are routing docs for this repo and ship with it.
 .claude/*

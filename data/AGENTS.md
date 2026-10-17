@@ -20,7 +20,8 @@ pack, not the pack (root `AGENTS.md`, "The repo is broader than the current proj
 | `fun` | `data/fun/AGENTS.md` |
 
 A new video gets its own `data/<video>/AGENTS.md` (and the one-line `CLAUDE.md`), so nothing one project settled is
-read as true of the next.
+read as true of the next. A project's file is local, untracked like the rest of `data/` (the owner backs `data/` up
+daily); this file, the lane's rules for any video, is the one tracked file here, so a builder's worktree has it.
 
 ## How the lane works, end to end
 

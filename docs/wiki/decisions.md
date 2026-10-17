@@ -17,6 +17,12 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-17
 
+- **Corrected: the Gemini CLI does not load a folder's `AGENTS.md` when it opens a file there** (an independent Gemini
+  reader, about 20:25Z, from the rules actually in its context after opening files under `data/`; the harness's own
+  docs say it walks up from an opened file, which held for the IDE's active editor, not for the CLI's file reads).
+  The 15:16Z entry above took the docs' word. Claude Code does load a folder's `CLAUDE.md` (seen today). So the root
+  AGENTS.md now names every folder with its own file, to be read before working there.
+
 - **A project's own state goes in `data/<video>/AGENTS.md`; `data/AGENTS.md` holds only the lane's rules, for any
   video** (an independent Gemini reader's point, about 20:10Z: a new video would otherwise inherit `fun`'s settled
   facts, such as who's-who being answered). `data/AGENTS.md` opens with a start-here table and a table of the
