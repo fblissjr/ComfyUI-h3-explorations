@@ -261,6 +261,35 @@ here and will not run unmodified there. Ask `h3_rules.reference_would_emit()`
 when you care. There is no on-grid count at exactly 15.0 seconds, which is
 how the gap appears.
 
+### Whole on the audio clock: a best practice, not a rule
+
+H3 lays its audio at `h3_rules.AUDIO_LATENT_RATE` latents a second against
+`h3_rules.FPS` frames, and ComfyUI's node gives a clip
+`round(frames / FPS * AUDIO_LATENT_RATE)` audio latents
+(`comfy_extras/nodes_minimax_h3.py`, `temporal_shape`). The two clocks agree
+exactly only when `frames * AUDIO_LATENT_RATE` is a multiple of `FPS`; on the
+video grid that is every third length, 39 the first
+(`h3_rules.on_both_clocks`). Any other grid length, 22 and 362 among them,
+ends with the sound off its last frame by a third of one audio latent, the
+rounding adding it (22) or dropping it (362).
+
+**It is a best practice, not a rule.** Every length on the 17n+5 grid up to
+`MAX_LENGTH` is valid, and a window that holds its whole shot takes any of
+them (`loop_plan.stands_alone`; the owner's word that 362 is the ceiling
+stands). The mismatch sits at the window's last frame and is smaller than
+one audio latent. Where it is enforced is a seam: two chained windows meet
+only on a length whole on both clocks (`h3_rules.chain_lengths`, from
+`SHORTEST_CHAINED`), because there the next window's sound starts where the
+last one's ended, and an off-clock seam would start it off its picture by
+that remainder (reasoned, not measured). So: prefer a length on both clocks
+when the shot leaves the choice free; do not pad or cut a shot to reach one.
+
+Where it came from: a community report on H3 (attributed to seitanism,
+relayed by the owner on 2026-10-17: 39 frames is the smallest length with
+the video and audio timing aligned, 22 a valid video length but off the
+audio grid), checked that day against `temporal_shape`. Whether the
+remainder can be heard or seen in a mouth has not been measured here.
+
 The frame count is not the sequence-length ceiling. The
 chaining packs pin context from a previous clip, which adds conditioning
 tokens, so a chained shot runs longer in sequence length than the same clip

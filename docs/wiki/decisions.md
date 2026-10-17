@@ -17,6 +17,11 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-17
 
+- **A length whole on both the video and the audio clock is a best practice, not a rule** (the owner, about 14:15Z, on
+  a community report relayed that morning). A one-window load takes any 17n+5 length up to `MAX_LENGTH`; only a seam
+  between chained windows is held to both clocks, as before (`h3_rules.chain_lengths`). Written with the why in
+  `docs/h3_resolutions.md`, "Whole on the audio clock".
+
 - **Two leads, one each side: a Gemini lead co-leads and leads the Gemini sessions; the Claude lead is oversight and
   the method's expert** (the owner, in the Claude lead's terminal, about 13:45Z; the Claude usage cap is near). It
   replaces "two Claude sessions" (AGENTS.md, 2026-10-15) and the Gemini reviewer's request/outbox mailbox (2026-10-15).
