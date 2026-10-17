@@ -17,6 +17,12 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-17
 
+- **AGENTS.md says the repo is the owner's whole H3 research repo and masked video-to-video one use of it** (the
+  owner, about 15:15Z: so sessions neither read too much into lane rules, nor too little into common code, nor
+  overwrite what is right for another use). The scope paragraph names the three ways to get it wrong; the lane's three
+  settled rules (a masked load is not an edit, the singing line, the head reference) moved from "Settled about H3" to
+  a section of their own, "Settled for the masked lane", unchanged.
+
 - **The owner's working preferences are a tracked page both models read: `docs/wiki/working_with_the_owner.md`**
   (the owner, about 15:20Z, yes to the Claude lead's and the Gemini lead's same proposal). Until then they lived only
   in the Claude sessions' private memory, which Gemini sessions never see; the Gemini lead's audit of that memory

@@ -7,12 +7,22 @@ This file is the operative form: short, and every rule here is one a
 session cannot work around without noticing. A rule that is easily worked
 around is friction, not a rule, and goes.
 
-**The repo is broader than the current project.** This pack is for all things H3: many custom nodes (reference
-conditioning, attention, keyframes, prompts, capture and more; every module and the nodes it defines are in
-`INDEX.md`, every use in `docs/wiki/h3_uses.md`), the masked lane among them. **The project in hand** is masked
-video generation: replacing people in an existing music video, `fun`, a region at a
-time; its process end to end is `docs/wiki/masked_v2v_pipeline.md`, its lane `docs/wiki/masked_v2v.md`. A change made
-for the project does not narrow the pack: a node it touches keeps serving its other uses.
+**The repo is broader than the current project.** This is the owner's whole MiniMax H3 research repo: many custom
+nodes (reference conditioning, attention, keyframes, prompts, capture and more; every module and the nodes it defines
+are in `INDEX.md`, every use in `docs/wiki/h3_uses.md`), benchmarks, kernels and experiments. Masked video-to-video is
+one use of it, a very important one and the focus of the past days. **The project in hand** is that use:
+replacing people in an existing music video, `fun`, a region at a time; its process end to end is
+`docs/wiki/masked_v2v_pipeline.md`, its lane `docs/wiki/masked_v2v.md`. Three ways to get this wrong:
+
+- **Reading too much into a lane rule.** A rule of the masked lane (keep-outs, the masked text's frame, a reference
+  drawn on the body model, one load a shot) is a rule of that lane, not of H3 or of the pack. Before carrying a claim
+  to another use, check which use it was measured on.
+- **Reading too little into common code.** Reference conditioning and the nodes the lane shares with other uses are
+  in their common place on purpose: a finding about them applies to every use that loads them, the lane included.
+- **Overwriting what is right elsewhere.** A change made for the project does not narrow the pack. A node or default
+  the lane touches keeps serving its other uses; behavior only masking wants goes behind the lane's own input, tool
+  or plan data (`bench/` lane tools, `data/<video>/plan.json`), and a shared default changes only when it is right
+  for every use.
 
 ## Do not trust prose, including this file's
 
@@ -37,6 +47,14 @@ once; `docs/evidence.md`, "Settled about H3", has the rest.
   2026-10-15, and there is no other cap. Longest is not best: attention grows
   with the square of the sequence, so a window is as long as its shot needs
   and no longer (`docs/h3_resolutions.md`, "The length axis").
+- Two models live here and "attention" and "capture" each name something at
+  the DiT and at the encoder: check what a node takes before carrying a
+  claim across.
+
+## Settled for the masked lane
+
+Rules of the masked video-to-video lane, not of H3 or of the pack's other uses.
+
 - To H3 a masked load is not an edit. The region is a hole of noise and H3
   generates new video in it; everything outside is frozen context it already
   has, and the frozen video and the audio round the hole steer what it makes
@@ -49,9 +67,6 @@ once; `docs/evidence.md`, "Settled about H3", has the rest.
   otherwise says nothing about singing or talking: no "silent", no "does not
   sing", no "talks" (the owner, 2026-10-15). Who sings is plan data,
   `subjects.<s>.voice`; only "sings" writes a line (`bench/load_text.py`).
-- Two models live here and "attention" and "capture" each name something at
-  the DiT and at the encoder: check what a node takes before carrying a
-  claim across.
 - A face, head or hair replacement takes its reference as the body model cut
   to one box round the head with the pose model's face points drawn on it
   (`bench/head_reference.py`), and a text that says exactly what that video
