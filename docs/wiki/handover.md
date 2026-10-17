@@ -74,7 +74,10 @@ notes: `internal/claude/2026-10-16_mrtony/HANDOFF.md`; the card's: `internal/cla
 4. Gemini's builds, each a branch (AGENTS.md, e318f6eb), landed from the merge base after a blind read: D19 (pages read
    the gap check) is on `gemini-d19b` (28c3c7e1), NOT landed: its second read
    (`internal/claude/2026-10-16_mrtony/review_D19b_pages_gap.md`) passed the refusals and the real 2250Z table but
-   found eight green reverts and page wording that misleads; D19c in the requests file is the last round. D20b
+   found eight green reverts and page wording that misleads; D19c in the requests file is the last round (started
+   00:09Z). mrtaco's matte overlap fix (`mrtaco-matte4`) is NOT landed: its second read
+   (`internal/claude/2026-10-16_mrtony/review2_matte_d18.md`) found a ring of the original inside every matte piece's
+   feather at the source's size, and `reach` untested; nothing in the cut has a matte, so the cut is unaffected. D20b
    (`--carry-words-from`) and D22 (floor holds and off-head) were building at the close.
 5. Open with the owner: a new kitchen load for the mom (604-1009) under today's rules (the Open List's r16_01, the lead's
    pick: see the re-laid 0604d first); the
