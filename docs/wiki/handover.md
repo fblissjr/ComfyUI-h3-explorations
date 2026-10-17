@@ -39,51 +39,43 @@ notes: `internal/claude/2026-10-16_mrtony/HANDOFF.md`; the card's: `internal/cla
 
 ## Tomorrow, in order
 
-1. Read the night's outbox (`internal/gemini/2026-10-16_outbox.md`) and mrtaco's HANDOFF; land what passed its read.
-   Then write the 2026-10-16 changelog entry from all of that day's commits, the night's included
-   (`changelog.d/README.md`; `bump: minor`: the day added tools).
-2. The mom's 1010 render (`second_hfp_1010c`) is a CANDIDATE beside `second_hfp_1010j`, which the owner kept on 10-15
-   and which is laid: put its stacked view on Start here beside 1010j's; it is laid only on their keep. Its blind read
-   (`internal/claude/2026-10-16_mrtony/review_render_1010c.md`): she sits upright facing the camera where the source
-   bows her over the table, her look jumps between 1036 and 1037, and the apron the text named is not what she wears in
-   this shot (the clothing words were a session's mistake, decisions.md 1f143f59; made per shot next). Beside it, the
-   owner's call left open since this morning: 1010j covers 1010-1031 only, so on 1032-1038 the mom is the original
-   (dark hair behind the lead); a short load for those frames, or the owner's blonde fill at assembly. The cause of
-   1010c's lost pose is NOT known; one change at a time, and only if the owner wants 1010c pursued. What differs
-   between the two job files (Gemini's comparison, relayed by the owner at about 23:20Z; the files are
-   `data/2026-10-14_fun_second_inputs/second_hfp_1010j.json` and `data/2026-10-16_fun_1010_inputs/second_hfp_1010c.json`):
-   1010j ran 22 frames to 1031 (its reference tracker followed another body on 1032-1038), hair alone on 1025-1031
-   (`--parts-on`), the clothing stay keep-out and largest piece; 1010c ran 29 frames on today's rules (no clothing
-   keep-out, grid-carved keep-outs, exact matte, the apron words, the zoom). And a word LOST in the remake: 1010j's
-   `--no-mouth-on 1010-1018` was not carried into 1010c, which mouths at the camera on 1010-1020 (seen in the two job
-   files: 1010j's `job.reference.mouth.no_mouth_on` holds 1010-1018 on mrarc's look of 2026-10-15, 1010c's holds none;
-   Gemini's first watch said it at 23:18Z, its outbox line; a second, duplicate watch overwrote that file at 23:46Z);
-   the case D20 (`--carry-words-from`) exists for. The whole video
-   was rebuilt from the laid list at the close (`rebuild.sh --clip`, the stamp in the pages' table) with 0014f and 0294d.
-3. The owner's looks, on Start here in this order: the plan strips (`lead_fp_1010g` with the hat square gone,
-   `lead_fp_0613g` with its zoom figures and 626-629 / 803-805 checked, 516-603, the whole-shot loads 1061-1092,
-   1093-1133, 1306-1418 and the dad's 1310-1418); the 0604d re-composite before/after (r16_01); the four late pieces
-   4653-4677, 5114-5129, 5461-5497, 5533-5564. NOT a re-lay: the owner's flags at 287, 422 and 483-489 (the mom's 0278c,
-   0415d, 0484c). Re-laid under "whole region" they come out the same (the trial agent, about 23:55Z, clips in
-   `Video/fun/day_2026-10-16/recomposite_trials/`): the cut is the edge of the regenerated token region, which a
-   keep-out cut away from her neck and hair: MEASURED (the trial's final report, about 00:30Z, cells cut per keep-out in
-   `data/2026-10-16_recomposite_trials/*_keepout_cause.txt`) as the `held` keep-out, not `clothes` (0 cells). `held` is
-   every pixel inside her track the part model labels Background within 64 px of her lips or hands; her white apron is
-   Background to it, so straps and bib become "held", swinging frame to frame (0484c: 109 px on 484, 20,467 on 485).
-   The carve does NOT touch `held` (1010c's what_h3_got: rebuilt in place, frames as planned), and plan.json still lists
-   it for her, so today's rules do NOT fix these. The owner's decision is r16_02 on the Open List (the lead's pick:
-   held only where a look says she holds something). An earlier draft of this page blamed `clothes`; it was wrong.
-4. Gemini's builds, each a branch (AGENTS.md, e318f6eb), landed from the merge base after a blind read: D19 (pages read
-   the gap check) is on `gemini-d19b` (28c3c7e1), NOT landed: its second read
-   (`internal/claude/2026-10-16_mrtony/review_D19b_pages_gap.md`) passed the refusals and the real 2250Z table but
-   found eight green reverts and page wording that misleads; D19c in the requests file is the last round (started
-   00:09Z). mrtaco's matte overlap fix (`mrtaco-matte4`) is NOT landed: its second read
-   (`internal/claude/2026-10-16_mrtony/review2_matte_d18.md`) found a ring of the original inside every matte piece's
-   feather at the source's size, and `reach` untested; nothing in the cut has a matte, so the cut is unaffected. D20b
-   (`--carry-words-from`) and D22 (floor holds and off-head) were building at the close.
-5. Open with the owner: a new kitchen load for the mom (604-1009) under today's rules (the Open List's r16_01, the lead's
-   pick: see the re-laid 0604d first); the
-   per-frame matte trial's result; re-compositing kept pieces one by one on their word.
+1. Read the night's outbox (`internal/gemini/2026-10-16_outbox.md`), mrtaco's HANDOFF
+   (`internal/claude/2026-10-16_mrtaco/HANDOFF.md`) and the lead's (`internal/claude/2026-10-16_mrtony/HANDOFF.md`).
+   Then write the 2026-10-16 changelog entry from all that day's commits (`changelog.d/README.md`; `bump: minor`).
+2. **Builds waiting, each on its own branch; none lands before its blind read passes, landed from the merge base.**
+   As of 00:19Z (the lead updates this on each landing; `git branch --list 'mrtaco-*' 'gemini-*'` and each
+   branch's newest commit is the truth): no branch had a commit after its last read; mrtaco was asked whether the
+   matte ring and the re-composite fixes were being built; D19c was building on `gemini-d19b` (main merged at
+   00:09Z); D20b and D22 had no branch yet (building in their copies).
+   - **The matte at the source's size (mrtaco, `mrtaco-matte4`).** Two passes leave a ring of the original inside
+     every matte piece's feather (up to 34 of 130 levels; `internal/claude/2026-10-16_mrtony/review2_matte_d18.md`).
+     The fix is one weight scaled once and laid in one pass (written down: `docs/wiki/masked_v2v.md`, "Laying a piece
+     by its matte at the source's size"), plus `reach` and the plain-row blur. MUST land before any matte-laid piece
+     (1010c, a re-laid piece, any new render) goes into the cut; the third read is first.
+   - **The re-composite tool (mrtaco, `mrtaco-recomposite`).** Control passes: own composite reproduces the original,
+     last step included, plate offset gone (`review2_recomposite_piece.md`). Left: a stale decode reused by file name
+     (key on the latent's and VAE's sha256), a typed `--vae` overriding the graph's, six green mutations, 24/1 assumed.
+   - **D19c, the pages read the gap check (Gemini, `gemini-d19b`):** the last round; then its read.
+   - **D20b, `--carry-words-from` (Gemini, its branch):** keep each word's author; tonight's 1010c lost 1010j's
+     `no_mouth_on 1010-1018` (both job files show it), which is what it is for. Until it lands, a remake's words are
+     copied by hand and listed in the job's note.
+   - **D22, floor holds and off-head (Gemini, from `mrtaco-floor` 70976d50):** then 0613g's plan.
+   - Settled tonight, no build: the brightness. `assemble_delivery` lays onto a 16-bit read at the canvas and the
+     source's own yuv at full size; no step in the cut (`review2_recomposite_piece.md` item 3). Other tools still read
+     8 bits (`recomposite_window`, `patch_render_window`, `masked_render_against_source`, `strangers`): a list, no rush.
+3. **The owner's two questions (the Open List):** r16_02, what the `held` keep-out keeps. It, not `clothes`, cut the
+   mom's neck and hair at 287, 422, 483-489 (measured, `data/2026-10-16_recomposite_trials/*_keepout_cause.txt`): her
+   white apron is Background to the part model, so near her lips and hands it becomes "held". The carve does not touch
+   `held`, so today's rules do not fix it; the lead's pick is held only where a look says she holds something. Those
+   three shots (278-293, 415-437, 484-515; one window each) are remade after that answer. And r16_01, the mom's
+   kitchen: see 0604d re-laid first (clips in `Video/fun/day_2026-10-16/recomposite_trials/`).
+4. **The owner's looks, Start here:** 1, the whole video (2250Z): the four late pieces 4653-4677, 5114-5129,
+   5461-5497, 5533-5564. 2, 1010c beside the kept 1010j (readers: she sits upright facing the camera, a pop at
+   1036-1037, the wrong clothing words, the lost mouth word; cause of the pose NOT known), with the call on 1032-1038
+   (1010j stops at 1031: a short load, or the owner's blonde fill). Plan strips come as made: 0613g, 1010g, 516-603,
+   the whole-shot loads 1061-1092, 1093-1133, 1306-1418 and the dad's 1310-1418.
+5. Owed: delete `data/2026-10-16_recomposite_trials/**/decoded_*.npy` (about 3.2 GB; the owner's yes) once the
+   trial agent is done; list what went.
 
 ## Where things are
 
