@@ -17,6 +17,11 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-17
 
+- **A build that changes data, an input or an output names every writer and reader of it** (the owner, about 23:15Z:
+  "make sure if we're changing data or inputs or outputs whatever feeds that or receives that or both know"). Written
+  into AGENTS.md beside the build rule and into the protocol's pre-flight: the READY lists each, with file:line and
+  what each does with the change. The day's three side effects one step away are the reason.
+
 - **The night's proposals of 2026-10-16, answered** (the owner, about 14:07Z, in the Claude lead's terminal; the
   Open List's rows r16n_01-08, r16_01 and r16_02). Recorded here late, at about 22:05Z: an independent design read this
   evening missed the keep-out change because only the Open List and `plan.json` held it.

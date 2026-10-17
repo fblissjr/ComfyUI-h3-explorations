@@ -128,6 +128,11 @@ One home per kind of fact. Not two.
 - **A build goes on its own branch** in a worktree outside `custom_nodes` (`h3_worktrees/<builder>-<item>`), cut from
   current main, never pushed, and lands by pathspec from the merge base (`git diff main...<branch>`) after its own
   blind read and the Claude lead's clearance. A refusal test passes only on the tool's own words with no traceback.
+- **A change to data, an input or an output names both ends.** A build that adds or changes a file, a key, a field or
+  a format lists every tool that writes it and every tool that reads it (by grep, with file:line), and says what each
+  does with the change: updated, unaffected and why, or refusing on purpose. Its READY carries that list; the Claude lead
+  clears nothing without it. Today's misses were each one step away: a matte key the assembler read, a re-laid graph
+  the ledger trusted, a page the review server served (2026-10-17).
 - **A render's prompt is read in FULL before it renders**, from the graph
   as queued (`bench/what_h3_got.py`), never from a summary, a preview or a
   paraphrase: by the session that queues it, and by a second reader for
