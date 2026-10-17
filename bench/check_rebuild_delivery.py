@@ -18,8 +18,10 @@ session path or date, or leave a writable snapshot.
    `discover_day_folder` picks the newest `day_*` holding `[0-9][0-9][0-9][0-9]_*` piece folders; `discover_existing_clip`
    picks the newest joined clip that has a `.mp4.check.json` and skips `_STACKED.mp4` and `.1fps.` files.
 3. **`stops_at_first_refusal_and_names_the_step`**: a failure at `init`, `laid_verify`, `ledger`, `delivery_table`,
-   `assemble`, `gap_check`, `stack`, `pages`, or `snapshot` stops the chain immediately, names the step that failed,
-   leaves every later step unrun, and exits with `REFUSED:` and no Python traceback.
+   `assemble`, `gap_check` (including reusing a clip without `--clip` after `assembler_blob_sha`, `laid.jsonl`, the
+   table rows, a piece's `laid_by` rule when a matte is added to its region file, or `.check.json` changed), `stack`,
+   `pages`, or `snapshot` stops the chain immediately, names the step that failed, leaves every later step unrun, and
+   exits with `REFUSED:` and no Python traceback.
 4. **`nothing_of_a_video_in_code`**: `bench/rebuild_delivery.py` contains no machine mount, home path, server port,
    Tailscale IP, video stem, or hardcoded session day.
 
@@ -668,6 +670,140 @@ def stops_at_first_refusal_and_names_the_step() -> str:
             assert e.step == "snapshot" and "differs from" in str(e), f"expected snapshot sha256 mismatch refusal, got {e}"
         else:
             raise AssertionError("expected snapshot refusal on mismatched existing snapshot")
+
+        # Reusing an existing clip without --clip refuses when assembler_blob_sha, table rows, laid_by rule, check record sha256, or laid.jsonl sha256 differ
+        reused_clip = fx["share"] / "Video" / video / f"day_{day}" / f"{video}_0000_0007_joined_2026-10-17T1905Z_from_laid.mp4"
+        reused_clip_dir = reused_clip.parent
+        reused_clip_dir.mkdir(parents=True, exist_ok=True)
+        reused_clip.write_bytes(b"mp4")
+        reused_check = Path(str(reused_clip) + ".check.json")
+        reused_sidecar = reused_clip.with_name(reused_clip.name + ".json")
+        piece_rel = f"Video/{video}/day_2026-10-16/0000_pa_0000/pa_0000_00001.mp4"
+        blob_sha = rd.assembler_blob_sha(REPO)
+        valid_check_obj = {
+            "assembler_blob_sha": blob_sha,
+            "table": [{"frames": [0, FRAMES - 1], "piece": str(fx["piece"]), "piece_first": 0, "restore": []}],
+            "regions": {
+                "pieces": {
+                    str(fx["piece"]): {"laid_by": {"rule": "changed"}},
+                },
+            },
+        }
+        reused_check.write_text(json.dumps(valid_check_obj) + "\n")
+        valid_table_obj = {
+            "rows": [{"first": 0, "last": FRAMES - 1, "file": piece_rel, "piece_first": 0, "restore": []}],
+        }
+        t_json_dummy = fx["root"] / "t_dummy.json"
+        t_json_dummy.write_text(json.dumps(valid_table_obj) + "\n")
+        reused_sidecar.write_text(json.dumps({
+            "inputs": [
+                {"role": "the check record", "sha256": rd.sha256_file(reused_check)},
+                {"role": "the list of what is laid", "sha256": rd.sha256_file(fx["laid"])},
+            ],
+        }) + "\n")
+        # Baseline: matching assembler_blob_sha + table rows + laid_by rule + check sha256 + laid.jsonl sha256 passes
+        rd.verify_reused_clip(reused_clip, reused_check, valid_table_obj, t_json_dummy, fx["laid"], fx["share"], repo=REPO)
+
+        # 1) Missing or mismatched assembler_blob_sha refuses at gap_check
+        reused_check.write_text(json.dumps({k: v for k, v in valid_check_obj.items() if k != "assembler_blob_sha"}) + "\n")
+        try:
+            rd.verify_reused_clip(reused_clip, reused_check, valid_table_obj, t_json_dummy, fx["laid"], fx["share"], repo=REPO)
+        except rd.Refused as e:
+            assert e.step == "gap_check" and "does not record assembler_blob_sha" in str(e), (
+                f"expected gap_check refusal on missing assembler_blob_sha, got {e}"
+            )
+        else:
+            raise AssertionError("expected verify_reused_clip to refuse when assembler_blob_sha is missing")
+
+        reused_check.write_text(json.dumps({**valid_check_obj, "assembler_blob_sha": "a" * 40}) + "\n")
+        try:
+            rd.verify_reused_clip(reused_clip, reused_check, valid_table_obj, t_json_dummy, fx["laid"], fx["share"], repo=REPO)
+        except rd.Refused as e:
+            assert e.step == "gap_check" and "was built with assemble_delivery.py blob" in str(e), (
+                f"expected gap_check refusal on mismatched assembler_blob_sha, got {e}"
+            )
+        else:
+            raise AssertionError("expected verify_reused_clip to refuse when assembler_blob_sha differs")
+        reused_check.write_text(json.dumps(valid_check_obj) + "\n")
+
+        # 2) Table row mismatch refuses at gap_check
+        mismatched_table = {
+            "rows": [{"first": 0, "last": FRAMES - 2, "file": piece_rel, "piece_first": 0, "restore": []}],
+        }
+        try:
+            rd.verify_reused_clip(reused_clip, reused_check, mismatched_table, t_json_dummy, fx["laid"], fx["share"], repo=REPO)
+        except rd.Refused as e:
+            assert e.step == "gap_check" and "table rows do not match" in str(e), (
+                f"expected gap_check refusal on table row mismatch, got {e}"
+            )
+        else:
+            raise AssertionError("expected verify_reused_clip to refuse when table rows do not match check.json")
+
+        # 3) Check record sha256 mismatch against sidecar refuses at gap_check
+        reused_sidecar.write_text(json.dumps({
+            "inputs": [
+                {"role": "the check record", "sha256": "0" * 64},
+                {"role": "the list of what is laid", "sha256": rd.sha256_file(fx["laid"])},
+            ],
+        }) + "\n")
+        try:
+            rd.verify_reused_clip(reused_clip, reused_check, valid_table_obj, t_json_dummy, fx["laid"], fx["share"], repo=REPO)
+        except rd.Refused as e:
+            assert e.step == "gap_check" and "check record sha256" in str(e), (
+                f"expected gap_check refusal on check record sha256 mismatch, got {e}"
+            )
+        else:
+            raise AssertionError("expected verify_reused_clip to refuse when check record sha256 differs from sidecar")
+
+        # 4) laid.jsonl sha256 mismatch refuses at gap_check with no traceback when running without --clip
+        reused_sidecar.write_text(json.dumps({
+            "inputs": [
+                {"role": "the check record", "sha256": rd.sha256_file(reused_check)},
+                {"role": "the list of what is laid", "sha256": "f" * 64},
+            ],
+        }) + "\n")
+        out_stale_laid = refused([
+            sys.executable, str(TOOL),
+            "--video", video,
+            "--share", str(fx["share"]),
+            "--inputs", str(fx["inputs"]),
+            "--data", str(fx["data"]),
+            "--day", day,
+            "--stamp", "2026-10-17T1910Z",
+        ])
+        assert "REFUSED: step gap_check failed" in out_stale_laid and "was built from laid.jsonl sha256" in out_stale_laid, (
+            f"expected gap_check CLI refusal when reused clip laid.jsonl sha256 differs, got {out_stale_laid!r}"
+        )
+
+        # 5) Same rows and same laid.jsonl, but a matte is added to the piece's region file -> refuses at gap_check with no traceback
+        reused_sidecar.write_text(json.dumps({
+            "inputs": [
+                {"role": "the check record", "sha256": rd.sha256_file(reused_check)},
+                {"role": "the list of what is laid", "sha256": rd.sha256_file(fx["laid"])},
+            ],
+        }) + "\n")
+        win_dir = fx["piece"].parent / "pa_0000_windows"
+        win_dir.mkdir(parents=True, exist_ok=True)
+        (win_dir / "pa_0000_window_1.mp4").write_bytes(b"mp4")
+        np.savez_compressed(
+            win_dir / "pa_0000_window_1_region.npz",
+            matte=np.full((FRAMES, H, W), 255, dtype=np.uint8),
+            meta=json.dumps({"piece": {"stem": fx["piece"].stem, "first": 0, "written": FRAMES}, "trim": 0}),
+        )
+        out_matte_added = refused([
+            sys.executable, str(TOOL),
+            "--video", video,
+            "--share", str(fx["share"]),
+            "--inputs", str(fx["inputs"]),
+            "--data", str(fx["data"]),
+            "--day", day,
+            "--stamp", "2026-10-17T1915Z",
+        ])
+        assert (
+            "REFUSED: step gap_check failed" in out_matte_added
+            and "by rule 'changed'" in out_matte_added
+            and "now lay it by 'matte'" in out_matte_added
+        ), f"expected gap_check CLI refusal when a matte is added to a piece's region file, got {out_matte_added!r}"
 
     return "every step refusal stops the chain immediately, names the step, leaves later steps unrun, and prints no traceback"
 

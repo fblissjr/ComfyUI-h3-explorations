@@ -10,8 +10,8 @@ step that failed and keeping each step's `.out` log under `data/<day>_<video>_de
 1. `laid_verify`: `bench/laid.py verify` checks that every entry in `data/<video>/laid.jsonl` exists on the share and matches its `sha256`.
 2. `ledger`: `bench/render_ledger.py` walks the share and `data/` build records to write `ledger_<video>_<stamp>.json`, `.md`, and `_summary.md`.
 3. `delivery_table`: `bench/delivery_table.py` builds `t_<video>_<first>_<last>_<stamp>.txt`, `.json`, and `reading_<video>_<first>_<last>_<stamp>.md` from `--laid`.
-4. `assemble` (when `--clip` is given): `bench/laid.py verify`, then `bench/assemble_delivery.py` from the table's own `assembly.command`, then `bench/laid.py verify`.
-5. `gap_check`: `bench/frame_coverage.py` writes `frame_coverage_<video>_<first>_<last>_<stamp>.json` and `.md` against the table and the assembled clip's `.check.json`.
+4. `assemble` (when `--clip` is given): `bench/laid.py verify`, then `bench/assemble_delivery.py` from the table's own `assembly.command`, then `bench/laid.py verify`, recording `assembler_blob_sha` in `.check.json`.
+5. `gap_check`: when running without `--clip`, `verify_reused_clip` refuses the reused clip unless its `.check.json` records the current `assembler_blob_sha`, its table rows and each piece's `laid_by` rule match what the assembler would lay now, and its sidecar `.json` records the same `laid.jsonl` and `.check.json` `sha256`; then `bench/frame_coverage.py` writes `frame_coverage_<video>_<first>_<last>_<stamp>.json` and `.md` against the table and `.check.json`.
 6. `stack` (when `--clip` is given and not `--no-stack`): `bench/stack_delivery.py build` with `--coverage` from step 5, then `bench/stack_delivery.py check`.
 7. `pages` (unless `--no-pages`): `bench/covered_items.py` updates `data/<video>/review/covered.json`, then `bench/review_pages.py to-review` and `provenance` write `TO_REVIEW.html` and `PROVENANCE.html` in `Video/<video>/` on the share.
 8. `snapshot` (unless `--no-snapshot`): copies `data/<video>/owner_answers.jsonl` to `data/<video>/owner_answers_snapshots/owner_answers_<stamp>.jsonl` with mode `0444` (read-only) and verifies `sha256` equality.
@@ -262,6 +262,170 @@ def discover_existing_clip(share_dir: Path, video: str, s0: int, s1: int) -> Pat
     return found[-1][2]
 
 
+def assembler_blob_sha(repo: Path = REPO) -> str:
+    """Return the git blob SHA-1 of `bench/assemble_delivery.py`."""
+    raw = (repo / "bench" / "assemble_delivery.py").read_bytes()
+    return hashlib.sha1(f"blob {len(raw)}\0".encode() + raw).hexdigest()
+
+
+def stamp_assembler_blob_sha(clip_out: Path, check_json: Path, repo: Path = REPO) -> None:
+    """Record `assembler_blob_sha` in `check_json` and update its digest in `<clip_out>.json` if needed."""
+    if not check_json.is_file():
+        return
+    try:
+        chk_doc = json.loads(check_json.read_text())
+    except ValueError:
+        return
+    if not isinstance(chk_doc, dict) or not chk_doc:
+        return
+    blob_sha = assembler_blob_sha(repo)
+    if chk_doc.get("assembler_blob_sha") != blob_sha:
+        chk_doc["assembler_blob_sha"] = blob_sha
+        check_json.write_text(json.dumps(chk_doc, indent=1) + "\n")
+        sidecar_json = clip_out.with_name(clip_out.name + ".json")
+        if sidecar_json.is_file():
+            try:
+                sc_doc = json.loads(sidecar_json.read_text())
+                for item in sc_doc.get("inputs") or []:
+                    if isinstance(item, dict) and item.get("role") == "the check record":
+                        item["sha256"] = sha256_file(check_json)
+                        item["size"] = check_json.stat().st_size
+                sidecar_json.write_text(json.dumps(sc_doc, indent=2) + "\n")
+            except ValueError:
+                pass
+
+
+def _now_laid_by(piece_path: str, tr: dict, check_data: dict, repo: Path) -> dict:
+    """Return `assemble_delivery.laid_by_of(piece_path, run)` as the current assembler would lay `piece_path`."""
+    import assemble_delivery as ad
+
+    run_tuple = None
+    run_spec = tr.get("run")
+    if isinstance(run_spec, str) and ":" in run_spec:
+        where, _, rname = run_spec.partition(":")
+        cands = [Path(where), repo / where]
+        cands.extend(Path(c) for c in (check_data.get("captures") or []) if Path(c).name == Path(where).name)
+        for cand in cands:
+            if (cand / "manifest.json").is_file():
+                try:
+                    m = json.loads((cand / "manifest.json").read_text())
+                    rentry = next((x for x in (m.get("runs") or []) if x.get("name") == rname), None)
+                    if rentry is not None:
+                        run_tuple = (cand, m, rentry)
+                        break
+                except ValueError:
+                    pass
+    if run_tuple is None:
+        for cap_str in check_data.get("captures") or []:
+            cand = Path(cap_str)
+            if (cand / "manifest.json").is_file():
+                try:
+                    m = json.loads((cand / "manifest.json").read_text())
+                    rentry = next(
+                        (x for x in (m.get("runs") or []) if x.get("render") and Path(str(x["render"])).name == Path(piece_path).name),
+                        None,
+                    )
+                    if rentry is not None:
+                        run_tuple = (cand, m, rentry)
+                        break
+                except ValueError:
+                    pass
+    return ad.laid_by_of(piece_path, run_tuple)
+
+
+def verify_reused_clip(clip_out: Path, check_json: Path, T: dict, t_json: Path, laid_path: Path, share: Path, repo: Path = REPO) -> None:
+    """Refuse reusing an existing clip unless its `.check.json` and sidecar match the current assembler, `laid.jsonl`, table rows, and `laid_by` rules."""
+    if not check_json.is_file():
+        raise Refused("gap_check", f"clip check is not there: {check_json}; pass --clip to assemble first")
+    try:
+        check_data = json.loads(check_json.read_text())
+    except ValueError as e:
+        raise Refused("gap_check", f"clip check {check_json.name} is not valid JSON: {e}") from None
+
+    want_blob = assembler_blob_sha(repo)
+    got_blob = check_data.get("assembler_blob_sha")
+    if not got_blob:
+        raise Refused(
+            "gap_check",
+            f"reused clip {clip_out.name} check record {check_json.name} does not record assembler_blob_sha; pass --clip to reassemble",
+        )
+    if got_blob != want_blob:
+        raise Refused(
+            "gap_check",
+            f"reused clip {clip_out.name} was built with assemble_delivery.py blob {str(got_blob)[:12]}, "
+            f"not current {want_blob[:12]}; pass --clip to reassemble",
+        )
+
+    def _norm_row(r: dict, is_check: bool) -> tuple:
+        if is_check:
+            fr = r.get("frames") or [r.get("first"), r.get("last")]
+            raw_p = str(r.get("piece") or r.get("file") or "")
+        else:
+            fr = [r.get("first"), r.get("last")]
+            raw_p = str(r.get("file") or r.get("piece") or "")
+        p_obj = Path(raw_p)
+        resolved = str((p_obj if p_obj.is_absolute() else (share / p_obj)).resolve())
+        return (int(fr[0]), int(fr[1]), resolved, int(r.get("piece_first", fr[0])), list(r.get("restore") or []))
+
+    raw_check_rows = check_data.get("table")
+    if not isinstance(raw_check_rows, list):
+        raise Refused("gap_check", f"reused clip {clip_out.name} check record {check_json.name} has no table row list; pass --clip to reassemble")
+    check_rows = [_norm_row(r, is_check=True) for r in raw_check_rows]
+    table_rows = [_norm_row(r, is_check=False) for r in (T.get("rows") or [])]
+    if check_rows != table_rows:
+        raise Refused(
+            "gap_check",
+            f"reused clip {clip_out.name} check record {check_json.name} table rows do not match {t_json.name}; pass --clip to reassemble",
+        )
+
+    pieces_reg = (check_data.get("regions") or {}).get("pieces") or {}
+    for tr, (_, _, resolved_piece, _, _) in zip(T.get("rows") or [], table_rows):
+        rec_piece = pieces_reg.get(resolved_piece)
+        if rec_piece is None:
+            rec_piece = next(
+                (v for k, v in pieces_reg.items() if Path(str(k)).resolve() == Path(resolved_piece).resolve()),
+                None,
+            )
+        rec_lb = (rec_piece or {}).get("laid_by") if isinstance(rec_piece, dict) else None
+        if not isinstance(rec_lb, dict) or not rec_lb.get("rule"):
+            raise Refused(
+                "gap_check",
+                f"reused clip {clip_out.name} check record {check_json.name} has no laid_by rule for {Path(resolved_piece).name}; pass --clip to reassemble",
+            )
+        now_lb = _now_laid_by(resolved_piece, tr, check_data, repo)
+        if rec_lb.get("rule") != now_lb.get("rule") or rec_lb.get("windows_without_a_matte") != now_lb.get("windows_without_a_matte"):
+            raise Refused(
+                "gap_check",
+                f"reused clip {clip_out.name} laid {Path(resolved_piece).name} by rule {rec_lb.get('rule')!r}, "
+                f"but assembler would now lay it by {now_lb.get('rule')!r}; pass --clip to reassemble",
+            )
+
+    sidecar_json = clip_out.with_name(clip_out.name + ".json")
+    if not sidecar_json.is_file():
+        raise Refused("gap_check", f"reused clip {clip_out.name} has no sidecar {sidecar_json.name}; pass --clip to reassemble")
+    try:
+        sc = json.loads(sidecar_json.read_text())
+    except ValueError as e:
+        raise Refused("gap_check", f"reused clip sidecar {sidecar_json.name} is not valid JSON: {e}") from None
+    inputs = sc.get("inputs") if isinstance(sc.get("inputs"), list) else []
+    chk_in = next((x for x in inputs if isinstance(x, dict) and x.get("role") == "the check record"), None)
+    now_chk_sha = sha256_file(check_json)
+    if not chk_in or chk_in.get("sha256") != now_chk_sha:
+        raise Refused(
+            "gap_check",
+            f"reused clip {clip_out.name} sidecar {sidecar_json.name} check record sha256 {str((chk_in or {}).get('sha256'))[:12]} "
+            f"does not match {check_json.name} ({now_chk_sha[:12]}); pass --clip to reassemble",
+        )
+    laid_in = next((x for x in inputs if isinstance(x, dict) and x.get("role") == "the list of what is laid"), None)
+    now_laid_sha = sha256_file(laid_path)
+    if not laid_in or laid_in.get("sha256") != now_laid_sha:
+        raise Refused(
+            "gap_check",
+            f"reused clip {clip_out.name} was built from {laid_path.name} sha256 {str((laid_in or {}).get('sha256'))[:12]}, "
+            f"not current {laid_path.name} ({now_laid_sha[:12]}); pass --clip to reassemble",
+        )
+
+
 def snapshot_owner_answers(data_dir: Path, video: str, stamp: str) -> dict:
     """Copy `data/<video>/owner_answers.jsonl` to `data/<video>/owner_answers_snapshots/owner_answers_<stamp>.jsonl` with mode `0444`."""
     src = data_dir / video / "owner_answers.jsonl"
@@ -497,11 +661,11 @@ def rebuild(
         run_step("assemble", laid_cmd, laid_after_log, repo, env, runner=runner)
         if not clip_out.is_file() or not check_json.is_file():
             raise Refused("assemble", f"assemble_delivery.py did not write {clip_out.name} and {check_json.name}")
+        stamp_assembler_blob_sha(clip_out, check_json, repo=repo)
         steps_run.append("assemble")
         logs["assemble"] = rel_or_name(asm_log, repo, share)
     else:
-        if not check_json.is_file():
-            raise Refused("gap_check", f"clip check is not there: {check_json}; pass --clip to assemble first")
+        verify_reused_clip(clip_out, check_json, T, t_json, laid_path, share, repo=repo)
 
     # 5. gap_check (frame_coverage.py)
     cov_json = Path(stack_block["coverage_json"]).resolve() if stack_block.get("coverage_json") else (out_dir / f"frame_coverage_{video}_{span_tag}_{stamp}.json")
