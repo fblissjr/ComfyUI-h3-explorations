@@ -15,6 +15,17 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-10-17
+
+- **Two leads, one each side: a Gemini lead co-leads and leads the Gemini sessions; the Claude lead is oversight and
+  the method's expert** (the owner, in the Claude lead's terminal, about 13:45Z; the Claude usage cap is near). It
+  replaces "two Claude sessions" (AGENTS.md, 2026-10-15) and the Gemini reviewer's request/outbox mailbox (2026-10-15).
+  The Gemini lead (mrgemsol today) holds the card, the ledger, the delivery table, the owner's pages and the plan file,
+  and briefs its own workers; the Claude lead (mrtabby today) holds the Open List and the inbox, `main`, the changelog,
+  the handover and this file. They talk only to each other by `internal/gemini/PROTOCOL.md` (two one-writer files a day;
+  every ask with a deadline and a default that is never "wait"). Before, AGENTS.md said the lead kept the ledger and
+  pages and a Claude session held the card.
+
 ## 2026-10-16
 
 - **A Gemini build goes on its own git branch, not a diff file in `internal/gemini/`** (the owner, at 23:32Z: "lets

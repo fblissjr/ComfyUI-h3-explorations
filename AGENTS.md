@@ -84,11 +84,12 @@ once; `docs/evidence.md`, "Settled about H3", has the rest.
   `git commit` or `--amend`: each has swept a peer's work into another
   commit. The one exception is `git add -- <file>` for a new file you
   created. A file holding a peer's uncommitted hunk is theirs to commit.
-  Subagents never run git. The owner pushes from their own terminal, so
+  Subagents never run git in the shared tree (a worker commits only on its
+  own branch in its own worktree). The owner pushes from their own terminal, so
   every commit message is written as already public. While the card runs,
   any file its chain executes (the node pack's code and every `bench/` tool
   a load step calls) is edited in a worktree outside `custom_nodes` and
-  landed on the lead's word between steps: an uncommitted edit in the shared
+  landed by the Claude lead, between steps, on the Gemini lead's word: an uncommitted edit in the shared
   tree is run by the next load.
 - **The changelog is written once a day, from the commits**
   (`changelog.d/README.md`). A commit carries no changelog entry.
@@ -112,8 +113,8 @@ once; `docs/evidence.md`, "Settled about H3", has the rest.
 - **One ledger, made new on every landing.** What stands in a video, where
   each piece came from and the gaps between pieces are the render ledger and
   the delivery table (`bench/render_ledger.py`, then `bench/delivery_table.py`,
-  from the build records). After every landing or stopped load the lead makes
-  both new, then makes the owner's two local pages from those same two files
+  from the build records). After every landing or stopped load the Gemini
+  lead makes both new, then makes the owner's two local pages from those same two files
   (`bench/review_pages.py`): `PROVENANCE.html` and `TO_REVIEW.html` in the
   video's folder on the share (`Video/<video>/`, one copy each, never a day's
   folder). A session, and the outside reviewer, reads the files; the owner
@@ -130,7 +131,7 @@ One home per kind of fact. Not two.
 | the fact | its one home |
 |---|---|
 | decisions waiting on the owner, their answers, and their passing thoughts | the H3 Open List (the owner's page with Claude): one card a decision; the "Tell Claude anything" box is the owner's inbox |
-| what stands in a video, where each piece came from, and the gaps | the newest ledger and delivery table under `data/<date>_<video>_delivery_tables/`, generated, kept by the lead; the owner's `Video/<video>/PROVENANCE.html` and `TO_REVIEW.html` on the share are made from them |
+| what stands in a video, where each piece came from, and the gaps | the newest ledger and delivery table under `data/<date>_<video>_delivery_tables/`, generated, kept by the Gemini lead; the owner's `Video/<video>/PROVENANCE.html` and `TO_REVIEW.html` on the share are made from them |
 | what a video still needs | `bench/shot_coverage.py` on `data/<video>/shots.json`, `plan.json` and the delivery table; regenerated, never typed |
 | who is in each shot, and the owner's answers on the pictures | `data/<video>/shots.json` and `cast/cast.jsonl`; `bench/who_page.py` is the page the owner answers on |
 | the owner's verdicts on renders | `data/<video>/verdicts/verdicts.jsonl`, printed under each render by the coverage table |
@@ -149,35 +150,46 @@ One home per kind of fact. Not two.
   the inbox and carries on. A go is a row on the Open List or a line in the
   lead's terminal; a session that is not the lead takes the lead's relay as
   the go and writes the relay's time in the job's note.
-- **Two Claude sessions** (the owner, 2026-10-15; three until then): a lead
-  that reads, rules, holds the Open List and the inbox, the ledger and the
-  owner's pages; and one session that holds the card and builds the tooling
-  it needs. The lead hands it a brief file before it starts. A blind reader
-  on a finished result is a subagent, briefed with file paths and no
-  conclusions.
-- **The outside reviewer (a Gemini agent the owner runs) reviews**, and
-  builds when the owner asks. Its mailbox is `internal/gemini/`: the lead
-  appends requests to `<date>_requests.md`, and the reviewer answers in its
-  own files plus a line in `<date>_outbox.md`. The owner relays nothing.
-  A build goes on its own branch in a git worktree outside `custom_nodes`
-  (`h3_worktrees/gemini-<item>`), cut from current main and committed
-  there, never in the shared tree and never pushed; the lead lands it after
-  a blind read from the merge base (`git diff main...<branch>`), by
+- **Two leads, one each side** (the owner, 2026-10-17; until then two Claude
+  sessions and a Gemini reviewer). "The lead" elsewhere in this file means
+  whichever of the two holds the thing named.
+  - **The Gemini lead** (a named Gemini session) co-leads the day and leads
+    every other Gemini session: it holds the card (ComfyUI, captures, plan
+    strips, renders), builds or has its workers build, keeps the ledger, the
+    delivery table and the owner's pages current, and edits the plan file.
+  - **The Claude lead** (one Claude session) is oversight and the method's
+    expert: it rules on method when the leads disagree, holds the Open List
+    and the inbox (Gemini cannot write there), is the only one that commits
+    to `main`, and writes the changelog, the handover and `decisions.md`.
+  - **They talk only to each other**, by `internal/gemini/PROTOCOL.md`: two
+    append-only files a day, one writer each
+    (`<date>_claude_to_gemini.md`, `<date>_gemini_to_claude.md`); every ask
+    carries a deadline and a default that is never "wait"; only an Open List
+    row blocks anything. Words the owner gives the Gemini lead come to the
+    Claude lead as `OWNER SAID` and go on the Open List. Gemini workers talk
+    to the Gemini lead only, by its own files.
+- **A build goes on its own branch** in a git worktree outside
+  `custom_nodes` (`h3_worktrees/<builder>-<item>`), cut from current main and
+  committed there, never in the shared tree and never pushed. It comes to the
+  Claude lead `READY` with its checks' output, `bench/break_checks.py`'s
+  output and a blind read by a session that did not build it; the Claude
+  lead lands it from the merge base (`git diff main...<branch>`), by
   pathspec, so a stale copy cannot delete newer lines (the owner,
-  2026-10-16). It watches video
-  and hears audio natively, where a session sees stills and measures, so
-  the lead gives it the playback questions: motion, flicker, hair coming and
-  going, a mouth with the singing, eyes closing. Hand it the stacked clips
-  with sound and the frames to watch, and say in the request that it uses
-  its native video and audio understanding first, with code only to augment
-  it, never in its place. Its watching is a reader's, never the owner's
-  acceptance.
+  2026-10-16), after re-running one of its checks itself. A refusal test
+  passes only on the tool's own refusal words with no Python traceback.
+- **Gemini watches video and hears audio natively**, where a Claude session
+  sees stills and measures, so the playback questions go to it: motion,
+  flicker, hair coming and going, a mouth with the singing, eyes closing.
+  Hand it the stacked clips with sound and the frames to watch, and say in
+  the request that it uses its native video and audio understanding first,
+  with code only to augment it, never in its place. Its watching is a
+  reader's, never the owner's acceptance.
 - **The owner, when available, takes the cheap looks first** (who is in a
   shot, what is replaced), before anything is built on them: in batches
   where possible, one by one only when a decision is urgent.
 - **A render's prompt is read in FULL before it renders**, from the graph
   as queued (`bench/what_h3_got.py`), never from a summary, a preview or a
-  paraphrase: by the session that queues it, and by the outside reviewer for
+  paraphrase: by the session that queues it, and by a second reader for
   any shot the owner names. The owner's word, 2026-10-15.
 - **A render is handed over stacked** (the masked input with its segments
   and ids on top, the render below, frame numbers burned in), never bare;
