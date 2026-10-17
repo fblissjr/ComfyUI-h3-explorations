@@ -247,7 +247,7 @@ def args(**more) -> argparse.Namespace:
     given = dict(by="the session", day="2026-01-03", cast=None, queue=False, first=None, frames=None, why=None, remake=False, plain=None, model_store="",
                  existing=False, writer=None, why_before=None, why_after=None, zoomed=None, least=None, least_why=None, ask=[], seed_cuts_of=None, parts=None, parts_by=None, parts_on=[], whole_frame=None, mouth=None, iris=None, form_why="",
                  place_and_action=None, by_hand=None, plan=None,
-                 track_not=[], track_not_by=None, drop=None, drop_by=None, leave_word=[], leave_by=None, carry_words_from=None)
+                 track_not=[], track_not_by=None, drop=None, drop_by=None, leave_word=[], leave_by=None, carry_words_from=None, no_carry_words=None)
     given.update(more)
     return argparse.Namespace(**given)
 
@@ -591,6 +591,8 @@ def a_loads_name_is_made() -> str:
         assert (made.jobs / "a_fp_0100.json").is_file(), sorted(p.name for p in made.jobs.iterdir())
         refused(lambda: stl.step_job(a, made.m), "a load named a_fp_0100 exists", "--remake")
         a.remake = True
+        refused(lambda: stl.step_job(a, made.m), "a_fp_0100", "--carry-words-from", "--no-carry-words")
+        a.no_carry_words = "fresh remake for name test"
         stl.step_job(a, made.m)
         assert (made.jobs / "a_fp_0100b.json").is_file()
         # a capture of another day holds the next letter: the name after it is taken
@@ -837,6 +839,7 @@ def a_subjects_keep_outs() -> str:
         assert json.loads((made.jobs / "a_fp_0100.json").read_text())["loads"][0]["others"][-3:] == ["held", "hands", "clothes"]
         # a second load of the same subject on the same preview: the files are there, cut again and held equal; not equal is refused
         a.remake = True
+        a.no_carry_words = "remake on same preview"
         stl.step_job(a, made.m, cut=cut, hashed=lambda path: "the same")
         assert len(cuts) == 4 and all(c[2].endswith(".cut_again.mkv") for c in cuts[2:]) and not list((out / "Video/v/keep_outs/shot_c_0100").glob("*cut_again*")), cuts
         assert (made.jobs / "a_fp_0100b.json").is_file()
@@ -1284,6 +1287,7 @@ def a_plan_that_keeps_the_strangers_out() -> str:
         assert json.loads(held.with_suffix(".json").read_text())["grow_px"] == px
         # a held part that is there is held to a fresh making; one of another making is refused
         a.remake = True
+        a.no_carry_words = "remake held part check"
         stl.step_job(a, made.m, hold=hold, cut=cut, hashed=lambda path: "the same")
         refused(lambda: stl.step_job(a, made.m, hold=hold, cut=cut, hashed=lambda path: path if "_on_track_" in path else "same"), "is NOT the part held to the track",
                 "moved aside by a person")
@@ -1440,6 +1444,7 @@ def a_load_of_some_of_its_parts() -> str:
         assert not (made.jobs / "b_hfp_0100.json").exists(), "a load of the hair alone was named as face and hair"
         # a second load on the same preview with the same parts: the file is there, cut again and held equal; not equal is refused
         a.remake = True
+        a.no_carry_words = "remake part cut check"
         stl.step_job(a, made.m, cut=cut, inside=inside(0), hashed=lambda path: "the same")
         assert cuts[-1][2].endswith(".cut_again.mkv") and (made.jobs / "b_hp_0100b.json").is_file() and not list((out / "Video/v/parts/shot_c_0100").glob("*cut_again*")), cuts
         refused(lambda: stl.step_job(a, made.m, cut=cut, inside=inside(0), hashed=lambda path: path), "is there and is NOT what its classes cut", "a part of another making")
@@ -1462,7 +1467,7 @@ def a_load_of_some_of_its_parts() -> str:
         (made.jobs / "b_hfp_0100.json").unlink()
         refused(lambda: stl.step_job(args(**{**vars(b2), "parts_on": ["110=hair"]}), made.m, cut=cut_on, inside=inside(0)), "not FIRST-LAST=NAME")
         # a load of the same subject with no --parts is as it ever was, on the same preview
-        a.parts, a.parts_by, a.remake = None, None, False
+        a.parts, a.parts_by, a.remake, a.no_carry_words = None, None, False, None
         stl.step_job(a, made.m, cut=cut, inside=inside(0))
         usual = json.loads((made.jobs / "b_hfp_0100.json").read_text())
         assert "part" not in usual["job"] and not any("parts_file" in x for x in usual["job"]["subjects"]), "a load with no --parts carries a part of its own"
@@ -1572,6 +1577,7 @@ def a_track_that_is_not_its_person() -> str:
         assert kept["frames"] == [[110, 120]] and kept["hash"] == "HASH OF shot_c_0100_b_track_not_110-120.mkv" \
             and kept["cut_from_hash"] == "HASH OF shot_c_0100_b_track_00001.mkv", kept
         a.remake = True
+        a.no_carry_words = "remake track_not check"
         refused(lambda: stl.step_job(a, made.m, track_cut=copy, over=over, hashed=lambda path: path), "is there and is NOT the copy", "moved aside by a person")
     return ("a person's word that another subject's track is not them on named frames goes into the job with who said it, why and the copy every step "
             "reads, that subject staying an other; the copy empties those frames and no other; the load's own subject, a stranger to the preview, frames "
@@ -1663,6 +1669,7 @@ def a_job_renders_from_the_present_copy() -> str:
         now["job"]["source"] = present
         made.preview_ran(now)
         a.remake = True
+        a.no_carry_words = "remake on present copy"
         stl.step_job(a, made.m)
         assert "EARLIER COPY" not in json.loads((made.jobs / "a_fp_0100b.json").read_text())["job"]["note"]
         # a preview made on a copy that begins on a later frame: its frame numbers are another clock, and nothing is written
@@ -2212,7 +2219,7 @@ def carry_words_from_refuses_uncarried_word_key() -> str:
         for where, mut, key_named in (
             ("top", lambda d: d.update(extra_top="x"), "extra_top"),
             ("defaults", lambda d: d["defaults"].update(extra_def=1), "defaults.extra_def"),
-            ("loads_len", lambda d: d.update(loads=[]), "expected 1 load"),
+            ("loads_len", lambda d: d["loads"].append(dict(d["loads"][0])), "expected 1 load"),
             ("load_subject", lambda d: d["loads"][0].update(subject="b"), "old load's subject is 'b', not 'a'"),
             ("subject", lambda d: d["job"]["subjects"][1].update(mystery_word="a person's unknown setting"), "subjects.a.mystery_word"),
             ("least_pair", lambda d: d["job"]["subjects"][1].update(least=300), "least and least_by must both be present"),
@@ -2224,6 +2231,7 @@ def carry_words_from_refuses_uncarried_word_key() -> str:
              "job.keep_outs.extra_ko"),
             ("by_hand_text", lambda d: d["job"]["texts"]["a_fp_0100"].update(by="mrgan, BY HAND: custom"), "job.texts.a_fp_0100.by"),
             ("reference", lambda d: d["job"]["reference"].update(custom_line="on 110-120"), "job.reference.custom_line"),
+            ("reference_form", lambda d: d["job"]["reference"].update(form="plain"), "job.reference.form"),
             ("mouth", lambda d: d["job"]["reference"]["mouth"].update(said_by="mrgan"), "reference.mouth"),
             ("iris", lambda d: d["job"]["reference"]["iris"].update(said_by="mrgan"), "reference.iris"),
             ("job_defaults_row", lambda d: d["job"]["defaults"].append({"what": "mystery_default", "carries": "x", "from": "y"}), "mystery_default"),
@@ -2296,42 +2304,50 @@ def carry_words_from_equals_old_on_every_word() -> str:
         # Fix 2: job["carried_words_from"] records old job name, file, sha256, by, at
         cwf_rec = carried["job"].get("carried_words_from") or {}
         assert cwf_rec.get("from") == "a_hfp_0105" and cwf_rec.get("file") == str(old_file) and cwf_rec.get("sha256") == old_sha \
-            and cwf_rec.get("by") == "mrtaco" and cwf_rec.get("at") == "2026-10-16T22:00:00Z", cwf_rec
+            and cwf_rec.get("by") == "mrtaco" and cwf_rec.get("at") == "2026-10-16T22:00:00Z", f"carried_words_from mismatch: {cwf_rec}"
         assert old_sha[:16] in printed and str(old_file) in printed, printed
         # Fix 1: original author ("mrgan") and time ("2026-10-16T00:10:00Z") preserved, never restamped with "mrtaco, 2026-10-16T22:00:00Z"
         assert new_s.get("least") == old_s["least"] == 480, f"carried job did not carry least=480: {new_s.get('least')}"
-        assert new_s["least_by"].startswith("mrgan, 2026-10-16T00:10:00Z:") and "mrtaco" not in new_s["least_by"] \
-            and new_s["least_by"].endswith("(carried from a_hfp_0105)") and new_s.get("least_carried", {}).get("sha256") == old_sha, new_s
-        assert new_s.get("word") == old_s["word"] == "110-112+125-125", new_s.get("word")
-        assert new_s["word_by"].startswith("110-112: mrgan, 2026-10-16T00:10:00Z:") and "mrtaco" not in new_s["word_by"] \
+        assert new_s.get("least_by", "").startswith("mrgan, 2026-10-16T00:10:00Z:") and "mrtaco" not in new_s.get("least_by", "") \
+            and new_s.get("least_by", "").endswith("(carried from a_hfp_0105)") and new_s.get("least_carried", {}).get("sha256") == old_sha, new_s
+        assert new_s.get("word") == old_s["word"] == "110-112+125-125", f"carried job did not carry word: {new_s.get('word')}"
+        assert new_s.get("word_by", "").startswith("110-112: mrgan, 2026-10-16T00:10:00Z:") and "mrtaco" not in new_s.get("word_by", "") \
             and new_s.get("word_by", "").count("(carried from a_hfp_0105)") == 2 and new_s.get("word_carried", {}).get("sha256") == old_sha, new_s
-        assert new_s.get("drop") == old_s["drop"] == "115-118+140-142", new_s.get("drop")
-        assert new_s["drop_by"].startswith("mrgan, 2026-10-16T00:10:00Z:") and "mrtaco" not in new_s["drop_by"] \
-            and new_s["drop_by"].endswith("(carried from a_hfp_0105)") and new_s.get("drop_carried", {}).get("sha256") == old_sha, new_s
-        assert [(x["first"], x["last"]) for x in carried["job"]["reference"]["no_face_on"]] == [(115, 118), (140, 142)]
-        for x in carried["job"]["reference"]["no_face_on"]:
+        assert new_s.get("drop") == old_s["drop"] == "115-118+140-142", f"carried job did not carry drop: {new_s.get('drop')}"
+        assert new_s.get("drop_by", "").startswith("mrgan, 2026-10-16T00:10:00Z:") and "mrtaco" not in new_s.get("drop_by", "") \
+            and new_s.get("drop_by", "").endswith("(carried from a_hfp_0105)") and new_s.get("drop_carried", {}).get("sha256") == old_sha, new_s
+        nf_spans = carried["job"]["reference"].get("no_face_on") or []
+        assert [(x["first"], x["last"]) for x in nf_spans] == [(115, 118), (140, 142)], f"carried no_face_on mismatch: {nf_spans}"
+        for x in nf_spans:
             assert x["said_by"] == "mrgan" and x["at"] == "2026-10-16T00:10:00Z" and "mrgan, 2026-10-16T00:10:00Z" not in x["why"] \
                 and x["why"].endswith("(carried from a_hfp_0105)") and x.get("carried", {}).get("sha256") == old_sha, x
-        assert [(x["first"], x["last"]) for x in carried["job"]["reference"]["mouth"]["no_mouth_on"]] == [(130, 132)]
-        assert [(x["first"], x["last"]) for x in carried["job"]["reference"]["mouth"]["mouth_on"]] == [(135, 136)]
-        for x in carried["job"]["reference"]["mouth"]["no_mouth_on"] + carried["job"]["reference"]["mouth"]["mouth_on"]:
+        nm_spans = carried["job"]["reference"]["mouth"].get("no_mouth_on") or []
+        m_spans = carried["job"]["reference"]["mouth"].get("mouth_on") or []
+        assert [(x["first"], x["last"]) for x in nm_spans] == [(130, 132)], f"carried no_mouth_on mismatch: {nm_spans}"
+        assert [(x["first"], x["last"]) for x in m_spans] == [(135, 136)], f"carried mouth_on mismatch: {m_spans}"
+        for x in nm_spans + m_spans:
             assert x["said_by"] == "mrgan" and x["at"] == "2026-10-16T00:10:00Z" and "mrgan, 2026-10-16T00:10:00Z" not in x["why"] \
                 and x["why"].endswith("(carried from a_hfp_0105)") and x.get("carried", {}).get("sha256") == old_sha, x
-        assert carried["job"]["reference"]["iris"]["eyes_shut"]["form"] == "lids"
-        assert [(x["first"], x["last"]) for x in carried["job"]["reference"]["iris"]["eyes_shut"]["spans"]] == [(120, 122)]
-        for x in carried["job"]["reference"]["iris"]["eyes_shut"]["spans"]:
+        es_block = carried["job"]["reference"]["iris"].get("eyes_shut") or {}
+        assert es_block.get("form") == "lids", f"carried eyes_shut form mismatch: {es_block}"
+        assert [(x["first"], x["last"]) for x in (es_block.get("spans") or [])] == [(120, 122)], f"carried eyes_shut spans mismatch: {es_block}"
+        for x in es_block.get("spans") or []:
             assert x["said_by"] == "mrgan" and x["at"] == "2026-10-16T00:10:00Z" and "mrgan, 2026-10-16T00:10:00Z" not in x["why"] \
                 and x["why"].endswith("(carried from a_hfp_0105)") and x.get("carried", {}).get("sha256") == old_sha, x
-        assert [(x["first"], x["frames"]) for x in carried["job"]["left_out"]] == [(100, 5), (150, 10)]
-        assert all(x["why"].endswith("(carried from a_hfp_0105)") and x.get("carried", {}).get("sha256") == old_sha for x in carried["job"]["left_out"])
-        assert carried["job"]["part"]["parts_on"] == [{"first": 115, "last": 118, "parts": ["hair"]}]
-        assert carried["job"]["part"]["by"].endswith("(carried from a_hfp_0105)") and carried["job"]["part"].get("carried", {}).get("sha256") == old_sha
-        assert carried["job"]["zoomed"]["said_by"] == "mrgan" and carried["job"]["zoomed"]["at"] == "2026-10-16T00:10:00Z" \
-            and "mrgan, 2026-10-16T00:10:00Z" not in carried["job"]["zoomed"]["why"] and carried["job"]["zoomed"]["why"].endswith("(carried from a_hfp_0105)") \
-            and carried["job"]["zoomed"].get("carried", {}).get("sha256") == old_sha, carried["job"]["zoomed"]
-        assert carried["job"]["track_not"]["made"][0]["frames"] == [[128, 129]]
-        assert carried["job"]["track_not"]["made"][0]["why"][0].endswith("(carried from a_hfp_0105)") \
-            and carried["job"]["track_not"].get("carried", {}).get("sha256") == old_sha, carried["job"]["track_not"]
+        assert [(x["first"], x["frames"]) for x in carried["job"]["left_out"]] == [(100, 5), (150, 10)], f"carried left_out mismatch: {carried['job']['left_out']}"
+        assert all(x["why"].endswith("(carried from a_hfp_0105)") and x.get("carried", {}).get("sha256") == old_sha for x in carried["job"]["left_out"]), carried["job"]["left_out"]
+        part_block = carried["job"].get("part") or {}
+        assert part_block.get("parts_on") == [{"first": 115, "last": 118, "parts": ["hair"]}], f"carried parts_on mismatch: {part_block}"
+        assert part_block.get("by", "").endswith("(carried from a_hfp_0105)") and part_block.get("carried", {}).get("sha256") == old_sha, part_block
+        zoom_block = carried["job"].get("zoomed") or {}
+        assert zoom_block.get("said_by") == "mrgan" and zoom_block.get("at") == "2026-10-16T00:10:00Z" \
+            and "mrgan, 2026-10-16T00:10:00Z" not in zoom_block.get("why", "") and zoom_block.get("why", "").endswith("(carried from a_hfp_0105)") \
+            and zoom_block.get("carried", {}).get("sha256") == old_sha, f"carried zoomed mismatch: {zoom_block}"
+        tn_block = carried["job"].get("track_not") or {}
+        tn_made = tn_block.get("made") or [{}]
+        assert tn_made[0].get("frames") == [[128, 129]], f"carried track_not frames mismatch: {tn_block}"
+        assert (tn_made[0].get("why") or [""])[0].endswith("(carried from a_hfp_0105)") \
+            and tn_block.get("carried", {}).get("sha256") == old_sha, f"carried track_not why/carried mismatch: {tn_block}"
         st_row = {x["what"]: x for x in carried["job"]["defaults"]}["the strangers keep-out"]
         assert st_row["from"].startswith("TURNED OFF on a person's word (mrgan, 2026-10-16T00:10:00Z):") \
             and "mrtaco" not in st_row["from"] and st_row["from"].endswith("(carried from a_hfp_0105)"), st_row
@@ -2370,17 +2386,21 @@ def carry_words_from_equals_old_on_every_word() -> str:
             )
         finally:
             stl.seam_of, stl.context_noise_of = real_seam, real_cn
-        assert carried_wf["job"]["whole_frame"]["said_by"] == "mrgan" and carried_wf["job"]["whole_frame"]["at"] == "2026-10-16T00:10:00Z" \
-            and carried_wf["job"]["whole_frame"]["why"].endswith("(carried from a_hp_0100)"), carried_wf["job"].get("whole_frame")
+        wf_block = carried_wf["job"].get("whole_frame") or {}
+        assert wf_block.get("said_by") == "mrgan" and wf_block.get("at") == "2026-10-16T00:10:00Z" \
+            and wf_block.get("why", "").endswith("(carried from a_hp_0100)"), f"carried whole_frame did not preserve original said_by/at/tag: {wf_block}"
         assert carried_wf["loads"][0].get("motion") == "none" and carried_wf["job"]["reference"]["why"].startswith("mrgan, 2026-10-16T00:10:00Z:") \
             and "mrtaco" not in carried_wf["job"]["reference"]["why"] and carried_wf["job"]["reference"]["why"].endswith("(carried from a_hp_0100)"), carried_wf["job"]["reference"]
         wf_defs = {x["what"]: x for x in carried_wf["job"]["defaults"]}
-        assert wf_defs["the reference video"]["from"].startswith("mrgan, 2026-10-16T00:10:00Z:") \
-            and "mrtaco" not in wf_defs["the reference video"]["from"] and wf_defs["the reference video"]["from"].endswith("(carried from a_hp_0100)"), wf_defs.get("the reference video")
-        assert carried_wf["loads"][0].get("window") == 294 and wf_defs["the seam"]["from"].startswith("mrgan, 2026-10-16T00:10:00Z:") \
-            and "mrtaco" not in wf_defs["the seam"]["from"] and wf_defs["the seam"]["from"].endswith("(carried from a_hp_0100)"), wf_defs.get("the seam")
-        assert carried_wf["loads"][0].get("context_noise") == 0.8 and wf_defs["the kept frames' noise"]["from"].startswith("mrgan, 2026-10-16T00:10:00Z:") \
-            and "mrtaco" not in wf_defs["the kept frames' noise"]["from"] and wf_defs["the kept frames' noise"]["from"].endswith("(carried from a_hp_0100)"), wf_defs.get("the kept frames' noise")
+        ref_def = wf_defs.get("the reference video") or {}
+        assert ref_def.get("from", "").startswith("mrgan, 2026-10-16T00:10:00Z:") \
+            and "mrtaco" not in ref_def.get("from", "") and ref_def.get("from", "").endswith("(carried from a_hp_0100)"), f"reference video default not carried: {ref_def}"
+        seam_def = wf_defs.get("the seam") or {}
+        assert carried_wf["loads"][0].get("window") == 294 and seam_def.get("from", "").startswith("mrgan, 2026-10-16T00:10:00Z:") \
+            and "mrtaco" not in seam_def.get("from", "") and seam_def.get("from", "").endswith("(carried from a_hp_0100)"), f"seam not carried: {seam_def}"
+        cn_def = wf_defs.get("the kept frames' noise") or {}
+        assert carried_wf["loads"][0].get("context_noise") == 0.8 and cn_def.get("from", "").startswith("mrgan, 2026-10-16T00:10:00Z:") \
+            and "mrtaco" not in cn_def.get("from", "") and cn_def.get("from", "").endswith("(carried from a_hp_0100)"), f"context_noise not carried: {cn_def}"
         # Fix 3: Overriding a carried word prints OVERRIDDEN with both values, and does not list the old value under WORDS CARRIED
         buf_ov = io.StringIO()
         with contextlib.redirect_stdout(buf_ov):
@@ -2551,6 +2571,72 @@ def carry_words_from_retired_keys_not_carried() -> str:
     return "retired keys and plan/preview-rebuilt keys (hair_band, render_region, others, keep_outs.by) are not carried from the old job and are said on stdout"
 
 
+def remake_requires_carry_words_or_no_carry_words() -> str:
+    """D20c (C15 follow-up): `shot_to_load.py job --remake` when an earlier job exists for the same shot and subject is refused unless
+    `--carry-words-from <old>` or `--no-carry-words "<why>"` is given; `--no-carry-words` records the reason in `job.no_carry_words` and
+    prints `NO WORDS CARRIED: ...`, and the two flags cannot both be given."""
+    import contextlib
+    import io
+    import os
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        folder = made.preview_ran(made.preview(100))
+        a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="a", preview=str(folder))
+        stl.step_job(a, made.m)
+        first_job = made.jobs / "a_fp_0100.json"
+        assert first_job.is_file(), f"initial job not written: {first_job}"
+        # 1. --remake without --carry-words-from or --no-carry-words is refused, naming the existing job and both flags
+        a_remake = args(**{**vars(a), "remake": True})
+        refused(lambda: stl.step_job(a_remake, made.m), "--remake on a in 100-159", "a_fp_0100", "--carry-words-from", "--no-carry-words")
+        assert not (made.jobs / "a_fp_0100b.json").exists(), "refused remake wrote a job file"
+        # CLI subprocess refusal check (no Python traceback, exit code != 0)
+        bench_dir = str(Path(__file__).resolve().parent)
+        cli_res = subprocess.run(
+            [sys.executable, "-c",
+             f"import sys; sys.path.insert(0, {bench_dir!r}); from pathlib import Path; "
+             f"import load_chain as lc, shot_to_load as stl; lc.REPO = stl.REPO = Path({str(made.root)!r}); sys.exit(stl.main())",
+             "job", "--shots", str(made.shots_file), "--plan", str(made.plan_file), "--shot", "100",
+             "--subject", "a", "--preview", str(folder), "--folder", str(made.jobs),
+             "--by", "the session", "--day", "2026-01-03", "--remake"],
+            capture_output=True, text=True,
+            env={**os.environ, "H3_OUTPUT_DIR": str(made.m.output), "H3_INPUT_DIR": str(made.root / "input")},
+        )
+        cli_out = cli_res.stdout + cli_res.stderr
+        assert cli_res.returncode != 0 and "Traceback" not in cli_out and "a_fp_0100" in cli_out \
+            and "--carry-words-from" in cli_out and "--no-carry-words" in cli_out, f"CLI refusal failed: {cli_out!r}"
+        # 2. Empty/whitespace --no-carry-words is refused in step_job and load_job
+        refused(lambda: stl.step_job(args(**{**vars(a_remake), "no_carry_words": "   "}), made.m),
+                "--no-carry-words takes a person's words")
+        refused(lambda: made.load(name="a_fp_ncw_empty", no_carry_words="  "),
+                "--no-carry-words takes a person's words")
+        # 3. Giving both --carry-words-from and --no-carry-words is refused in step_job and load_job
+        refused(lambda: stl.step_job(args(**{**vars(a_remake), "carry_words_from": str(first_job), "no_carry_words": "both given"}), made.m),
+                "--carry-words-from and --no-carry-words cannot both be given")
+        refused(lambda: made.load(name="a_fp_both", carry_words_from=first_job, no_carry_words="both given"),
+                "--carry-words-from and --no-carry-words cannot both be given")
+        # 4. --remake with --no-carry-words succeeds, prints NO WORDS CARRIED, and records job.no_carry_words
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            stl.step_job(args(**{**vars(a_remake), "no_carry_words": "fresh look on re-seeded preview"}), made.m)
+        printed = buf.getvalue()
+        second_job = made.jobs / "a_fp_0100b.json"
+        assert second_job.is_file(), f"remake with --no-carry-words did not write {second_job}"
+        d_b = json.loads(second_job.read_text())
+        ncw_rec = d_b["job"].get("no_carry_words") or {}
+        assert ncw_rec.get("why") == "fresh look on re-seeded preview" and ncw_rec.get("by") == "the session" and ncw_rec.get("at"), f"no_carry_words record mismatch: {ncw_rec}"
+        assert "NO WORDS CARRIED: fresh look on re-seeded preview (the session," in printed, f"NO WORDS CARRIED not printed: {printed!r}"
+        graphs.check_job(d_b["job"])
+        # 5. --remake with --carry-words-from on a job that itself had no_carry_words succeeds and writes a_fp_0100c.json
+        stl.step_job(args(**{**vars(a_remake), "carry_words_from": str(second_job)}), made.m)
+        third_job = made.jobs / "a_fp_0100c.json"
+        assert third_job.is_file(), f"remake with --carry-words-from did not write {third_job}"
+        d_c = json.loads(third_job.read_text())
+        cwf_c = d_c["job"].get("carried_words_from") or {}
+        assert cwf_c.get("from") == "a_fp_0100b" and "no_carry_words" not in d_c["job"], f"carried job c mismatch: {d_c['job']}"
+    return ("--remake when an earlier job exists on the same shot and subject is refused unless --carry-words-from or --no-carry-words is given; "
+            "--no-carry-words records job.no_carry_words and prints NO WORDS CARRIED, and the two flags are mutually exclusive")
+
+
 case("the frame a tracker picks on is a field of the shots record", the_pick_frame_is_a_field)
 case("the trackers' order, and who is in the shot", the_order_and_who_is_in_the_shot)
 case("a preview made to ask who is on a shot the record is unsure of", a_preview_made_to_ask)
@@ -2580,6 +2666,7 @@ case("carry-words-from: a word-bearing key left uncarried is refused", carry_wor
 case("carry-words-from: a carried job equals the old one on every word for the same frames", carry_words_from_equals_old_on_every_word)
 case("carry-words-from: a span outside the new frames is said and refused", carry_words_from_refuses_span_outside_new_frames)
 case("carry-words-from: a retired key is not carried and is said", carry_words_from_retired_keys_not_carried)
+case("carry-words-from: a remake on an existing shot and subject requires --carry-words-from or --no-carry-words", remake_requires_carry_words_or_no_carry_words)
 
 if __name__ == "__main__":
     sys.exit(finish())

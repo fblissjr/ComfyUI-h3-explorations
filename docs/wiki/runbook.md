@@ -153,7 +153,7 @@ Rule: [`AGENTS.md`](../../AGENTS.md) ("One ledger, made new on every landing" an
 
 ### Written procedure: when a render fails, what changes and where each setting lives
 
-Before changing any knob or queuing a test render, read the capture and the four timelines on the failing frames first ([`docs/wiki/masked_v2v.md`](masked_v2v.md), "The rule: data before a render, and the same data after"). Every remake gets a new load letter (`shot_to_load.py job --remake`), and carries the earlier load's span words when `--carry-words-from` is given; a remake without it is not yet refused (`D20c`).
+Before changing any knob or queuing a test render, read the capture and the four timelines on the failing frames first ([`docs/wiki/masked_v2v.md`](masked_v2v.md), "The rule: data before a render, and the same data after"). Every remake gets a new load letter (`shot_to_load.py job --remake`), and when an earlier job exists on that shot and subject, `shot_to_load.py job --remake` refuses unless `--carry-words-from <old_job.json>` or `--no-carry-words "<why>"` is given (`D20c`; `--no-carry-words` records `job.no_carry_words` and prints `NO WORDS CARRIED`).
 
 | Lever changed on a remake | Where it lives | What written docs say it governs |
 |---|---|---|
