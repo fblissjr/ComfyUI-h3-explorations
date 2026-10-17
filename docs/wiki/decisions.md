@@ -17,6 +17,12 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-17
 
+- **Standing go: scenes that are bad or have gaps render without waiting for the owner's look at a plan strip**
+  (the owner, about 21:05Z: "its better to just go and render scenes that are bad or have gaps"). Each still has its
+  prompt read in full from the graph as queued, and THE DEFAULTS THIS LOAD CARRIES, by the session that queues it
+  (AGENTS.md); each lands as a candidate, not laid, with its stacked view and a reader's playback notes; the owner
+  judges them later, in batches. A kept piece is still not remade for a better form.
+
 - **The Antigravity CLI evaluates folder rule files only during prompt expansion, not when a tool reads a file**
   (2026-10-17, about 20:40Z, settled by an independent Gemini reader). Its rules page's general section says rules load
   "whenever Antigravity reads or edits a file"; its CLI tab says "The Antigravity CLI evaluates workspace,
