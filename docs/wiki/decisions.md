@@ -17,6 +17,12 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-17
 
+- **The owner's working preferences are a tracked page both models read: `docs/wiki/working_with_the_owner.md`**
+  (the owner, about 15:20Z, yes to the Claude lead's and the Gemini lead's same proposal). Until then they lived only
+  in the Claude sessions' private memory, which Gemini sessions never see; the Gemini lead's audit of that memory
+  (`internal/gemini/2026-10-17_memory_review.md`) found most of it stale against today's roles. Written without the
+  owner's words; AGENTS.md points at it. The memory keeps the why behind each and points here.
+
 - **The owner's page answers are a primary record: `data/fun/owner_answers.jsonl`, out of `poc/`** (the owner, about
   14:20Z: "like its a super important artifact now no?"; they answered who is in each shot for the whole video, 0-6394,
   and were about to be asked again). Moved whole (sha256 unchanged); `poc/answers.jsonl` is now a link to it so the

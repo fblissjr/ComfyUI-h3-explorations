@@ -144,6 +144,9 @@ One home per kind of fact. Not two.
 
 ## How the owner and the sessions talk
 
+- **The owner's working preferences** (their clock, batching, never re-asking, where links go, how a clip is
+  shown, how a question names its page, writing) are `docs/wiki/working_with_the_owner.md`, read by every session
+  of either model before it speaks to the owner.
 - **One inbox.** The owner's thoughts go in the Open List's box as they come,
   with a time. Nothing there is a go. The lead reads it at its next natural
   stop and writes one of three words under each: done (with where), queued
