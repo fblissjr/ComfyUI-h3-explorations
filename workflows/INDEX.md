@@ -14,6 +14,8 @@ checkpoint and LoRAs, and which of this pack's nodes it wires (the
 
 | file | what it says |
 |---|---|
+| [`AGENTS.md`](AGENTS.md) | workflows/: the shipped graphs and the shared constants |
+| [`CLAUDE.md`](CLAUDE.md) | @AGENTS.md |
 | [`build_workflows.py`](build_workflows.py) | Generate the MiniMax H3 test workflows, in API format. |
 | [`distill_experiments/README.md`](distill_experiments/README.md) | distill_experiments: the distill research graphs |
 | [`h3_config.py`](h3_config.py) | Single source of truth for the H3 node chain and its settings. |

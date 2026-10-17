@@ -524,6 +524,8 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 | file | what it says |
 |---|---|
+| [`AGENTS.md`](AGENTS.md) | bench/: the tools, the checks and the records |
+| [`CLAUDE.md`](CLAUDE.md) | @AGENTS.md |
 | [`_shot_ablation_base.json`](_shot_ablation_base.json) | 20 nodes; checkpoint `minimax_h3_fl2va_pruned_int8_convrot.safetensors`; LoRA `h3/minimax_h3_fl2va_pdd_8step_comfy.safetensors`; pack nodes Conditioning, PDDLoRA, Preflight, Resolution, SageAttention, SigmaShift |
 | [`adherence_checklists.json`](adherence_checklists.json) | Per-scene adherence beats for bench/results/2026-09-26 big run; drafted from each prompt's text; a viewer marks each yes/no/partly. |
 | [`audio_freeze_gain_arms.json`](audio_freeze_gain_arms.json) | docs/h3_audio_freeze.md, the owner's 'give audio more influence' ask (2026-09-12 evening): the audio attention gain knob on the PDD8 freeze chain, on the no-transcript rooftop line and the reframed dancer, same seeds as before. value_gain ... |

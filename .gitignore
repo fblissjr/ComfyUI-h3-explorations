@@ -41,3 +41,5 @@ bench/results/**/*.npz
 # lands there knows what it is looking at.
 contact_sheets/*
 !contact_sheets/AGENTS.md
+# 2026-10-17: and the one-line CLAUDE.md that imports it, so Claude sessions load it too.
+!contact_sheets/CLAUDE.md

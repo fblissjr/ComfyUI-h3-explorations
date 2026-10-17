@@ -17,6 +17,13 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-17
 
+- **A folder whose files need their own rules gets an `AGENTS.md`, and a one-line `CLAUDE.md` beside it that imports
+  it (`@AGENTS.md`), as the root does** (the owner, about 15:25Z: no two copies). Neither harness reads an `INDEX.md`
+  on its own: Antigravity loads `AGENTS.md`, `GEMINI.md` and `.agents/rules/` when it opens a file in a folder (the
+  Gemini lead, from its docs); Claude Code loads `CLAUDE.md` the same way. First: `bench/` and `workflows/` (each
+  points at its `INDEX.md` and holds only that folder's rules), and the import beside `contact_sheets/AGENTS.md`,
+  which Claude sessions had not been loading.
+
 - **AGENTS.md says the repo is the owner's whole H3 research repo and masked video-to-video one use of it** (the
   owner, about 15:15Z: so sessions neither read too much into lane rules, nor too little into common code, nor
   overwrite what is right for another use). The scope paragraph names the three ways to get it wrong; the lane's three

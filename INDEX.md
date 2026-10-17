@@ -147,9 +147,9 @@ with none is a helper the others import.
 | `.claude/` | 1 | [below](#claude) |
 | `archive/` | 26 | [below](#archive) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 781 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 783 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
-| `contact_sheets/` | 1 | [below](#contact_sheets) |
+| `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `docs/` | 133 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `meta_sam3/` | 65 | [`meta_sam3/README.md`](meta_sam3/README.md), Meta's SAM 3.1 inference code, under its own licence; `meta_sam3/FILES.txt` lists the copied files |
 | `prompt_bank/` | 168 | [`docs/prompt_bank.md`](docs/prompt_bank.md), the prompt catalogue |
@@ -158,7 +158,7 @@ with none is a helper the others import.
 | `vendor/` | 6 | [below](#vendor) |
 | `vendor_config/` | 8 | [below](#vendor_config) |
 | `vendor_guides/` | 4 | [below](#vendor_guides) |
-| `workflows/` | 178 | [`workflows/INDEX.md`](workflows/INDEX.md) |
+| `workflows/` | 180 | [`workflows/INDEX.md`](workflows/INDEX.md) |
 
 ## .claude/
 
@@ -208,6 +208,7 @@ with none is a helper the others import.
 | file | what it says |
 |---|---|
 | [`AGENTS.md`](contact_sheets/AGENTS.md) | contact_sheets: what is on a frame of an input video, already made |
+| [`CLAUDE.md`](contact_sheets/CLAUDE.md) | @AGENTS.md |
 
 ## sparse_tables/
 
