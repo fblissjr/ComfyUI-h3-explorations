@@ -16,10 +16,11 @@ this page is corrected. Each line carries the date it was asked for; the reasons
 - **Batch what goes to them.** Finished pieces and questions go in batches on one page, with direct links in order
   and a line each on what to look for, not one at a time. Nothing waits on their judging between batches; interrupt
   only for something obviously wrong that later work would build on. (2026-10-13)
-- **Never ask again what they answered.** Before any page that asks them something, read what they already said:
+- **Read what they already answered before asking.** Before any page or question, read what they said:
   `data/<video>/owner_answers.jsonl` (`bench/page_answers_ledger.py` lists what no record cites), the cast file and
-  the shots record. Ask only for the missing fact, and say why the earlier answer does not cover it. Who is in each
-  shot of `fun` is answered for the whole video. (2026-10-13, 2026-10-17)
+  the shots record. Where it answers the question, use it. Where it leaves you uncertain, ask again, and say what the
+  earlier answer said and why it does not settle this. Who is in each shot of `fun` is answered for the whole video.
+  (2026-10-13, 2026-10-17)
 - **Updates at issues and milestones**, not a running commentary.
 
 ## Where things go, and what they are called
