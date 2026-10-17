@@ -91,7 +91,7 @@ once; `docs/evidence.md`, "Settled about H3", has the rest.
   every commit message is written as already public. While the card runs,
   any file its chain executes (the node pack's code and every `bench/` tool
   a load step calls) is edited in a worktree outside `custom_nodes` and
-  landed by the Claude lead, between steps, on the Gemini lead's word: an uncommitted edit in the shared
+  landed by the Gemini lead between steps, once the Claude lead clears it: an uncommitted edit in the shared
   tree is run by the next load.
 - **The changelog is written once a day, from the commits**
   (`changelog.d/README.md`). A commit carries no changelog entry.
@@ -158,11 +158,15 @@ One home per kind of fact. Not two.
   - **The Gemini lead** (a named Gemini session) co-leads the day and leads
     every other Gemini session: it holds the card (ComfyUI, captures, plan
     strips, renders), builds or has its workers build, keeps the ledger, the
-    delivery table and the owner's pages current, and edits the plan file.
+    delivery table and the owner's pages current, edits the plan file, and
+    is the only one that runs git on `main` (the owner, 2026-10-17): it
+    commits every session's work by pathspec, the Claude lead's included,
+    and lands branches.
   - **The Claude lead** (one Claude session) is oversight and the method's
     expert: it rules on method when the leads disagree, holds the Open List
-    and the inbox (Gemini cannot write there), is the only one that commits
-    to `main`, and writes the changelog, the handover and `decisions.md`.
+    and the inbox (Gemini cannot write there), clears each landing before
+    it is made, and writes the changelog, the handover and `decisions.md`,
+    handing each to the Gemini lead to commit with its paths and message.
   - **They talk only to each other**, by `internal/gemini/PROTOCOL.md`: two
     append-only files a day, one writer each
     (`<date>_claude_to_gemini.md`, `<date>_gemini_to_claude.md`); every ask
@@ -174,10 +178,11 @@ One home per kind of fact. Not two.
   `custom_nodes` (`h3_worktrees/<builder>-<item>`), cut from current main and
   committed there, never in the shared tree and never pushed. It comes to the
   Claude lead `READY` with its checks' output, `bench/break_checks.py`'s
-  output and a blind read by a session that did not build it; the Claude
-  lead lands it from the merge base (`git diff main...<branch>`), by
+  output and a blind read by a session that did not build it. The Claude
+  lead clears it, after re-running one of its checks itself; the Gemini lead
+  then lands it from the merge base (`git diff main...<branch>`), by
   pathspec, so a stale copy cannot delete newer lines (the owner,
-  2026-10-16), after re-running one of its checks itself. A refusal test
+  2026-10-16). A refusal test
   passes only on the tool's own refusal words with no Python traceback.
 - **Gemini watches video and hears audio natively**, where a Claude session
   sees stills and measures, so the playback questions go to it: motion,

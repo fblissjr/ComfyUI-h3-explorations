@@ -17,6 +17,11 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-17
 
+- **The Gemini lead runs git on `main`; the Claude lead runs none** (the owner, about 14:30Z: so the Gemini side learns
+  the motions). The Claude lead still clears every landing (re-runs one check, reads the diff from the merge base) and
+  hands its own files to the Gemini lead to commit by pathspec. Replaces this morning's "the Claude lead is the only one
+  that commits to `main`". AGENTS.md and `internal/gemini/PROTOCOL.md`, "Git today".
+
 - **No guidance names a frame count under 362 as a cap or a default; short windows are encouraged** (the owner,
   about 14:20Z: "Remove all references to that 345"; "always make sure there's guidance that the frames can be low too.
   More frames = quadratic attention"). Removed from AGENTS.md, `docs/evidence.md`, `docs/comfy_notes.md`,
