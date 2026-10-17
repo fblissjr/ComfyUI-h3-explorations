@@ -17,6 +17,25 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-17
 
+- **The night's proposals of 2026-10-16, answered** (the owner, about 14:07Z, in the Claude lead's terminal; the
+  Open List's rows r16n_01-08, r16_01 and r16_02). Recorded here late, at about 22:05Z: an independent design read this
+  evening missed the keep-out change because only the Open List and `plan.json` held it.
+  - **No default keep-outs for the second subject** (r16n_06, r16_02): `held`, `hands` and `clothes`, and with them her
+    hair band, are retired from her loads (`data/fun/plan.json`, `subjects.second.keep_outs_removed_by`,
+    `hair_band_removed_by`). They cut her neck and hair at 287, 422 and 483-489 (`held` reading her white apron as
+    background near her lips and hands; `hands` taking her bare upper arms under her hair). A thing is kept as the
+    original only where a look names it. The lead's `strangers` keep-out stays. Each shot of hers names her clothing
+    from a look at its own frames.
+  - **One compositing law** (r16n_01): built and landed as cecd8db1, after the re-composite tool saved a matte for
+    every laid piece.
+  - **Re-lay, not re-render, where the render is fine** (r16n_07, r16_01): her three unconfirmed kitchen pieces re-laid
+    whole as candidates; the owner's other kept pieces are not re-laid; 278, 415 and 484 are rendered again under the
+    keep-out change, since a re-lay cannot undo what the keep-outs cut.
+  - **Captures of the untouched shots in song order** (r16n_03); **all four process rules** (r16n_04); **D19c landed**
+    (r16n_05); **SAM 3.1 tested on the kitchen first** (r16n_02: it tracks the whole head, so it suits head-and-hair
+    loads, and a face-only load still needs the parts split inside it); **1010j kept, 1010c dropped, a hair fill on
+    1032-1038** (r16n_08).
+
 - **Corrected: `coderef/metadepth` is checked out** (found by an independent Gemini reader, about 21:50Z).
   `docs/wiki/meta_perception_models.md` said Meta's metadepth code was not under `coderef/` and unread; it is there, and
   both HyDen checkpoints load with torch and torchvision alone. No node loads them yet.

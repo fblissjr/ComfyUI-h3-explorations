@@ -46,6 +46,9 @@ daily); this file, the lane's rules for any video, is the one tracked file here,
   DEFAULTS THIS LOAD CARRIES" and keeps them in the job file (`bench/shot_to_load.py::defaults_carried`; the drawing's
   form is `REFERENCE_DEFAULT`). Turning one off takes a written reason. A better form does not remake a piece the
   owner kept.
+- No default keep-outs on a subject's own body: a thing is kept as the original only where a look names it ("she
+  holds an egg on 1010-1017"); the second subject's `held`, `hands`, `clothes` and hair band were retired on
+  2026-10-17 (`decisions.md`). Keep-outs for other people stay: another subject's track and strangers.
 - Every laid piece is laid by its own matte under one compositing law (`bench/assemble_delivery.py::lay_plane`,
   2026-10-17). A matte is reconstructed from the render's own inputs, never today's defaults
   (`bench/recomposite_piece.py --save-own-matte`).
