@@ -60,7 +60,9 @@ notes: `internal/claude/2026-10-16_mrtony/HANDOFF.md`; the card's: `internal/cla
    - **D20b, `--carry-words-from` (Gemini, its branch):** keep each word's author; tonight's 1010c lost 1010j's
      `no_mouth_on 1010-1018` (both job files show it), which is what it is for. Until it lands, a remake's words are
      copied by hand and listed in the job's note.
-   - **D22, floor holds and off-head (Gemini, from `mrtaco-floor` 70976d50):** then 0613g's plan.
+   - **D22, floor holds and off-head (Gemini):** on branch `gemini-d22` at fc2aba16 (from `mrtaco-floor` 70976d50),
+     its second read running at the close (`internal/claude/2026-10-16_mrtony/review2_floor_off_head.md` when done);
+     then 0613g's plan.
    - Settled tonight, no build: the brightness. `assemble_delivery` lays onto a 16-bit read at the canvas and the
      source's own yuv at full size; no step in the cut (`review2_recomposite_piece.md` item 3). Other tools still read
      8 bits (`recomposite_window`, `patch_render_window`, `masked_render_against_source`, `strangers`): a list, no rush.
