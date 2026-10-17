@@ -15,8 +15,7 @@ live render; everything else is read from source and says so.
 **"The reference pipeline" meant diffusers here until 2026-08-21, and that was
 the wrong authority.** We do not run diffusers. Its H3 modular pipeline is a
 portability target — the thing `h3_rules.reference_would_emit()` answers about,
-and the reason 345 rather than 362 keeps appearing in this repo — not a
-description of how the release is served. Every vendor-side comparison below
+— not a description of how the release is served. Every vendor-side comparison below
 that has been re-derived against sglang says **sglang** and carries a citation.
 Anything still saying *the reference pipeline* is a claim about diffusers alone,
 not yet checked against sglang, and should be read that way until it is.
@@ -468,8 +467,8 @@ soundtrack:
 | 124 frames | 78,019 | **success**, 740s, peak 21,938 MiB |
 | 345 frames | 182,092 | **OOM** at step 4 of 16, 21.05 GiB allocated |
 
-**The video-reference arms ship 362 frames as of 2026-08-16**, not the 345
-these rows were measured at. `REF_VIDEO_LENGTH` was deleted rather than raised
+**The video-reference arms ship 362 frames as of 2026-08-16**, not the
+length these rows were measured at. `REF_VIDEO_LENGTH` was deleted rather than raised
 -- a safe length here depends on reference count, kind, duration, canvas and
 upscale, so no constant is right twice. Treat the table as the shape of the
 cliff, not as clearance, and read preflight before any reference render.

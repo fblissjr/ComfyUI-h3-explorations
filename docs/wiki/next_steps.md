@@ -2418,7 +2418,7 @@ move and is sage `auto`); on the true chain pairs every measured audio differenc
 (`bench/results/2026-09-19_audio_sage_vs_kitchen.md`), while Sol's token reorder moves the audio MORE than the chain does.
 (2) For the same reason the reorder panel has five valid pairs, not six: plain order better on two, `3d` on one, two ties.
 `bench/diff_clip_graphs.py` now shows what actually differs between two clips before a stack is built. Also since then: the
-sage node's `auto` is the rotated mode and the sage chain names it (0.129.0); 362 frames is legal, 345 is the default length.
+sage node's `auto` is the rotated mode and the sage chain names it (0.129.0); 362 frames is the ceiling and the default (`h3_config.LONG_LENGTH`).
 
 *End of 2026-09-18, where things stand.* The reorder works under core's memory compiler and stays OFF by default: six
 full-length pairs scored blind showed no benefit (`bench/results/2026-09-18_sol_reorder_panel.md`), while the noodle bar at
@@ -2431,7 +2431,7 @@ same prompt: no visual difference, and the owner found sage's audio more natural
 (`bench/results/2026-09-18_sage_chain_panel.md`), which is the live lead on which chain should be the default. Sol `rotate`
 and the sage set's rotated mode are HELD: no visible benefit shown, and a default flip costs every reference clip its
 bit-identity. Next: score the short-clip panel, the sage diner pair and the six 2026-09-15 pairs by ear; take the two
-approved captures; rewrite the 345-frame prompts that script only a few seconds.
+approved captures; rewrite the full-length prompts that script only a few seconds.
 
 *2026-09-18, corrected: the noodle bar result below came from an over-length render* (a 107-frame prompt at 345; the owner), so it shows how Sol behaves while the model improvises past a script, not a defect of normal use (`bench/results/2026-09-18_off_length_prompts.md`). The panel and an on-length rerun decide what is left of it.
 

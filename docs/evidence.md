@@ -88,33 +88,18 @@ attached to the number.
 | **"the encoder pathway carries identity on its own" or "reference rows are just a label"**, read from the 2026-09-04 reference pathway verdict ([`data/results/2026-09-04_ref_pathway_2026-09-03_verdict.json`](../data/results/2026-09-04_ref_pathway_2026-09-03_verdict.json)) | **Not withdrawn; bounded from the day it was written.** One seed, pairs only, no single heard. The owner could not tell the both-pathway arm from the encoder-only arm on either conditioner and named no identity item as differing; that is a "can't tell" at one seed, which bounds the effect as not large on this scene and says nothing about its sign. The one thing named, static background people on every encoder-only arm, is a signature at one seed and not a mechanism. The two encoder-only arms read as the same and are different renders ([`data/results/2026-09-04_ref_pathway_encoder_arms_pixels.json`](../data/results/2026-09-04_ref_pathway_encoder_arms_pixels.json)) | a second seed on the same five arms (the manifest's `run` line), the singles scored, and the static-people signature either recurring or not |
 | **Sol and the shipped sage fallback were compared "on one footing"** via [`2026-09-03_sage_on_base16_capture.json`](../data/results/2026-09-03_sage_on_base16_capture.json) | **Withdrawn 2026-09-03.** That record scored 512 sampled rows against float64; the Sol records scored every row against fp32. Same statistic name, different sample and reference. The Sol records were regenerated with `sage_<mode>` arms on the same q/k/v, every row, the same reference, and the sage arms agree across both kernel builds; the direction they give is in `docs/research/2026-09-03_sol_exact_pquant_and_base_capture.md`'s addendum. The separate sage record stays as what it was | nothing further: the matched arms are the comparison to cite |
 
-**362 is the max length, and every "345 is legal / 362 is illegal" claim is
-withdrawn. Owner decision, 2026-08-16.** 345 is the largest count the
-*reference pipeline* will emit — its `max_duration` is a hard-coded 15.0 s and
-362 is 15.083 s — which is a fact about diffusers. This repo turned that into
-"362 is illegal / out of distribution" for most of 2026-08-14 and withdrew a
-bench run over it; that was an inference from a validator, not a fact about the
-checkpoint, and the framing survived the first correction because 345 stayed
-the default.
-
-`LONG_LENGTH` is now 362 and all shipped graphs carry it. `duration_in_range()`
-is the model's window; `reference_would_emit()` is the separate portability
-question.
-
-**Corrected 2026-09-03: two constants, not one.** The paragraph above said
-`LONG_LENGTH` "is now 362". The window and the default are separate
-constants and answer different questions. `h3_rules.MAX_LENGTH` is the
-trained ceiling and answers "what is legal"; it is 362, the sglang cookbook
-renders 362 (`coderef/sglang/docs/cookbook/diffusion/MiniMax/MiniMax-H3.mdx`),
-and everything above about 362 being the model's window rather than illegal
-stands. `workflows/h3_config.py::LONG_LENGTH` is what shipped graphs render
-and answers "what do we render"; it is 345 by the owner's preference (it
-works better at that length, stated 2026-09-03), which the constant's own
-comment records as a reason to prefer 345 and not a defect in 362. Neither
-number is a fact about the checkpoint beyond what the paragraph above
-already says. "All 34 API graphs carry `LONG_LENGTH`" below is a count from
-2026-08-14; `graph_paths` walks a different population now, and the count is
-whatever it returns.
+**362 is the max length, and no shorter count is a limit. Owner decision,
+2026-08-16; made the only cap on 2026-10-15.** The reference pipeline
+(diffusers) stops one grid step earlier, because its `max_duration` is a
+hard-coded 15.0 s and 362 is 15.083 s: a fact about diffusers, answered by
+`h3_rules.reference_would_emit()`, never a fact about the checkpoint. This
+repo once turned it into "362 is illegal" and withdrew a bench run over it.
+`h3_rules.MAX_LENGTH` is the ceiling and `workflows/h3_config.py::LONG_LENGTH`
+is what shipped graphs render; today they are equal. A chained window's
+default is the longest length whole on both clocks (`h3_rules.chain_lengths`;
+`docs/h3_resolutions.md`, "Whole on the audio clock"), derived, never typed.
+Longest is not best: attention is quadratic in the sequence, so a window
+takes the frames its shot needs.
 
 **What 362 rests on, stated because this table exists for exactly this.** One
 upstream statement recorded 2026-08-14 (`6e85e48`) with no artifact attached,

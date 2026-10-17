@@ -220,12 +220,17 @@ reason.
 Frame counts round up to `17n + 5`, which comes from the video VAE's
 temporal chunking, not from the DiT.
 
+**Short is allowed, and cheaper.** Any grid length from the shortest up to
+`MAX_LENGTH` is valid. Attention grows with the square of the sequence (the
+"Attention vs 362" column below), so a window takes the frames its shot or
+its text needs and no more; reaching for the ceiling without a reason only
+buys time on the card.
+
 | Ask for | You get | Duration | Latent frames |
 |---|---|---|---|
 | 200 | 209 | 8.708s | 62 |
 | 300 | 311 | 12.958s | 92 |
-| 345 | 345 | 14.375s | 102 |
-| 346 | 362 | 15.083s | 107 |
+| 350 | 362 | 15.083s | 107 |
 
 Latent frames are `5n + 2` for a frame count of `17n + 5`, so they do not
 track duration linearly and are the number that prices the sequence. Every
@@ -254,7 +259,7 @@ the shipped `LONG_LENGTH`. Ask for 363 and you get 379, which is over, and
 that is why the check runs on the rounded number rather than the requested
 one.
 
-The reference pipeline stops one grid step earlier at 345, because its
+The reference pipeline stops one grid step earlier, because its
 `max_duration` is a hard-coded 15.0s applied after the rounding. That is a
 fact about diffusers, not a limit on the model: a 362-frame graph renders
 here and will not run unmodified there. Ask `h3_rules.reference_would_emit()`

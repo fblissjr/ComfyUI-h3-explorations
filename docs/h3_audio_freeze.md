@@ -376,14 +376,15 @@ why it is ref2va: `bench/results/2026-10-05_masked_v2v_motion_arms.md`.
    (`docs/wiki/decisions.md`).
 6. **The loop**: one shot per window (owner, 2026-09-12 evening), windows
    of different lengths allowed, each on both clocks (39 plus multiples of
-   51 frames: 141, 192, 243, 294, 345), the context on the same grid, the
+   51 frames, `h3_rules.chain_lengths()`), the context on the same grid, the
    previous window's video latent tail copied in as a frozen prefix, the
    next song slice frozen at the previous window's `next_start_seconds`,
    hard masks on both streams, iterations through the installed TensorLoop
    pack. Shorter windows are the lane's cost lever: attention is quadratic
    in the packed sequence (`bench/preflight_graph.py` prices it), a seam
    re-pays its context, and short windows sit inside the trained range.
-   The two-window seam render at 345 frames is the first join to look at.
+   The two-window seam render at the longest chained length is the first
+   join to look at.
    Expect identity drift across windows first; the lever is a fixed
    reference still presented with every window's prompt, which fl2va takes
    (owner, 2026-09-14): the song node's `references` input and

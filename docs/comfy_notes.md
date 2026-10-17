@@ -286,8 +286,8 @@ int8's 1.39x. Two separate readers have quoted the tooltip as an e2e figure and
 built arguments on it. See `docs/evidence.md`.
 
 **362 frames is the ceiling** (`h3_rules.MAX_LENGTH`), and `MAX_DURATION`
-derives from it. 345 was never a model limit — it is the largest count
-*diffusers* emits, and presenting that as legality cost a withdrawn bench run.
+derives from it. Nothing shorter is a model limit: diffusers' own cap is a
+fact about diffusers, and presenting it as legality cost a withdrawn bench run.
 `reference_would_emit()` answers the portability question separately. Know what
 362 rests on before quoting it: one upstream statement with no artifact, plus a
 third-party config that ships it.

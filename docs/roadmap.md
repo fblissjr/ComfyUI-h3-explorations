@@ -392,8 +392,8 @@ constraint on every quality question, and which regime you are in decides
 what a day can hold.
 
 **Length: 362 is the ceiling** (`h3_rules.MAX_LENGTH`, the longest H3 was
-trained on). Frame counts snap to a 17n+5 grid. The old "345 is the maximum"
-claim was invented and is withdrawn -- do not reintroduce it. There is **no
+trained on). Frame counts snap to a 17n+5 grid. No shorter maximum exists; do not
+introduce one. A window is as long as its shot needs: attention is quadratic. There is **no
 fixed reference-video length**: OOM risk depends on reference count, size,
 resolution and canvas, and no single frame count describes it.
 

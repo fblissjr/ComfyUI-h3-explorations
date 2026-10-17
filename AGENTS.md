@@ -34,7 +34,9 @@ once; `docs/evidence.md`, "Settled about H3", has the rest.
   stock attention, no sage, Sol or LoRA, the base step count.
 - 1344x768 is a trained canvas; probes run at 1152x768 or 1344x768. The
   longest window is 362 frames, `h3_rules.MAX_LENGTH`, the owner's word of
-  2026-10-15; no cap of 345 anywhere (`docs/h3_resolutions.md`).
+  2026-10-15, and there is no other cap. Longest is not best: attention grows
+  with the square of the sequence, so a window is as long as its shot needs
+  and no longer (`docs/h3_resolutions.md`, "The length axis").
 - To H3 a masked load is not an edit. The region is a hole of noise and H3
   generates new video in it; everything outside is frozen context it already
   has, and the frozen video and the audio round the hole steer what it makes

@@ -309,8 +309,8 @@ above:
 **311 is the value point.** 26% less attention than 362 for 2.1 seconds less
 clip, aligned for `3d`, and still far above the Sol-Attn floor below.
 
-**345 only for diffusers portability**, whose hard-coded 15.0s `max_duration`
-refuses 362. Ask `h3_rules.reference_would_emit()` rather than assuming.
+**One grid step under 362 only for diffusers portability**, whose hard-coded
+15.0s `max_duration` refuses 362. Ask `h3_rules.reference_would_emit()` rather than assuming.
 
 **362 for maximum length, or for comparability**: every bench figure in this
 repo was taken at 362, and `workflows/h3_config.py` warns that moving the

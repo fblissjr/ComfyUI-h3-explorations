@@ -17,6 +17,15 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-17
 
+- **No guidance names a frame count under 362 as a cap or a default; short windows are encouraged** (the owner,
+  about 14:20Z: "Remove all references to that 345"; "always make sure there's guidance that the frames can be low too.
+  More frames = quadratic attention"). Removed from AGENTS.md, `docs/evidence.md`, `docs/comfy_notes.md`,
+  `docs/h3_resolutions.md`, `docs/h3_references.md`, `docs/roadmap.md`, `docs/h3_input_impacts.md`,
+  `docs/h3_audio_freeze.md` and one stale line of `next_steps.md` (it said the default length was one grid step under
+  362; `h3_config.LONG_LENGTH` is `MAX_LENGTH`). Kept: the measured records, the changelog, this file's history and
+  the tables that list every grid length, since each says what was run or what exists. The chained window's default
+  stays the longest length on both clocks, derived by `h3_rules.chain_lengths`, never typed (the owner's 3a).
+
 - **A length whole on both the video and the audio clock is a best practice, not a rule** (the owner, about 14:15Z, on
   a community report relayed that morning). A one-window load takes any 17n+5 length up to `MAX_LENGTH`; only a seam
   between chained windows is held to both clocks, as before (`h3_rules.chain_lengths`). Written with the why in
