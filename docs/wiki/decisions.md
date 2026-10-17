@@ -17,13 +17,13 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-17
 
-- **Not settled: whether the Antigravity CLI loads a folder's `AGENTS.md` when it opens a file there** (2026-10-17,
-  about 20:30Z). Antigravity's rules page says "Whenever Antigravity reads or edits a file, it walks up the directory
-  tree from that file's folder to the workspace root, loading rules at each level", in its section for every surface;
-  its CLI section says only "at the repository root or in subdirectories". An independent Gemini reader, after opening
-  files under `data/`, found only the root AGENTS.md among the rules in its context. Claude Code does load a folder's
-  `CLAUDE.md` (seen today). So the root AGENTS.md names every folder with its own file, to be read before working there,
-  whichever holds. The Gemini lead's 15:16Z report took the docs' word.
+- **The Antigravity CLI evaluates folder rule files only during prompt expansion, not when a tool reads a file**
+  (2026-10-17, about 20:40Z, settled by an independent Gemini reader). Its rules page's general section says rules load
+  "whenever Antigravity reads or edits a file"; its CLI tab says "The Antigravity CLI evaluates workspace,
+  directory-scoped, global, and plugin rules during prompt expansion". The reader read a file under `bench/` mid-turn
+  and its rules still held only the root AGENTS.md. Claude Code does load a folder's `CLAUDE.md` on reading a file there
+  (seen today). So the root AGENTS.md names every folder with its own file, to be read before working there. The
+  Gemini lead's 15:16Z report took the general section's word.
 
 - **A project's own state goes in `data/<video>/AGENTS.md`; `data/AGENTS.md` holds only the lane's rules, for any
   video** (an independent Gemini reader's point, about 20:10Z: a new video would otherwise inherit `fun`'s settled
