@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 154 |
+| [`check_*`](#check) | 155 |
 | [`measure_*`](#measure) | 38 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 17 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 187 |
+| [the rest](#the-rest) | 188 |
 
 ## check
 
@@ -137,6 +137,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_sam31_corrections_on_card.py`](check_sam31_corrections_on_card.py) | The SAM 3.1 Corrections node on the real model, on the patcher class the server uses, with a stock pair in the same process. |
 | [`check_sam3d_body_conversion.py`](check_sam3d_body_conversion.py) | Hold `bench/convert_sam3d_body_checkpoint.py`'s mapping to core's SAM 3D Body model, without weights. |
 | [`check_sam3d_body_vith.py`](check_sam3d_body_vith.py) | Hold `sam3d_body_vith.py` to Meta's ViT-H SAM 3D Body: the key set, the six geometry rules, and the backbone's forward. |
+| [`check_sam_memory_selection.py`](check_sam_memory_selection.py) | CPU self-test for `bench/sam_memory_selection.py`. No SAM weights, no card. |
 | [`check_schema_defaults.py`](check_schema_defaults.py) | Check every node's schema defaults match its `execute` signature defaults. |
 | [`check_shot_coverage.py`](check_shot_coverage.py) | `bench/shot_coverage.py` lays a plan, a delivery table and a renders inventory side by side, a shot and a subject at a time; each case is a way a row could say the wrong thing. |
 | [`check_shot_parts.py`](check_shot_parts.py) | `bench/shot_parts.py` lists the shots with nobody and, for each shot and subject present, the frames their part is on; each case is a way a row could count the wrong frames, read the wrong preview or call something it should only show. |
@@ -480,6 +481,7 @@ this file is only a way to find a script by what it says it does.
 | [`sam31_probe_node.py`](sam31_probe_node.py) | TEST CODE, in no node list of this pack: a node that calls ComfyUI's SAM 3 detect node and says what reached the model. |
 | [`sam3_dataset_phrases.py`](sam3_dataset_phrases.py) | What Meta's four SAM 3 datasets say about what a valid prompt is and how specific to be: counts from the annotation files. |
 | [`sam3_precision_arms.py`](sam3_precision_arms.py) | Compare SAM 3.1 at float16, bfloat16 and float32 through core's own nodes, on the same frames, with controls. |
+| [`sam_memory_selection.py`](sam_memory_selection.py) | Runtime Meta memory-selection patch and 4-arm scene measurement tool for SAM 3 / SAM 3.1. |
 | [`scan_original_block49.py`](scan_original_block49.py) | Is block 49's oddity in the original MiniMax weights, before any conversion? |
 | [`score_clip_shots_loudness.py`](score_clip_shots_loudness.py) | Two things a finished clip can be checked for without anyone watching it: |
 | [`score_output_distance.py`](score_output_distance.py) | Score renders by their saved latents' distance from a reference render at the same seed. |
