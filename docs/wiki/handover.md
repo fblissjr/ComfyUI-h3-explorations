@@ -158,27 +158,28 @@ gate. The two that are next, from the same check and tonight's `lead_fp_0613g`:
 
 ## Tomorrow, in order
 
-1. Start ComfyUI and the review server (`data/fun/poc/serve.py`, `docs/wiki/runbook.md`). Read the night's mailbox
-   (`G62`, "End of day", and `C118-C144`). First builds before filling gaps:
-   - the 4-step gap ladder (`C129`) + player gap-count banner (`C131`), so candidate clips with gaps can go on Start here
-     with their per-person, per-kind counts above the player;
-   - the `C136`/`C137`/`C140` drop + `--no-face-on` + three-state face-visibility build before `lead_fp_0613h` (`drop` and
-     `--no-face-on` on `687-708, 747-750, 974` only, face lines ON on `709-746`, plus the one-shot steady-box Sapiens
-     card test on `680-760` from `gem-matte`'s handoff).
-2. The owner's looks, Start here (once the player gap-count banner lands, C131): 0613g's compare clip at 680-760 first,
-   then 0604h, 0278d and the 0438d control. Then r17_06 and r17_07.
-3. Finish `gem-memsel`'s remaining 3 `fun` scene measurements (`kitchen_604_1009`, `hall_1306_1418`, `regain_1419_1465`
-   after pointing `build_default_scenes()` in `bench/sam_memory_selection.py` at `subjects/<subj>/masks__*.npz`;
-   `lotsofpeople` already ran and held `most_central` across `95-116` and `130-140` in the 16-dancer `sam31` `group` call).
-   If memory selection holds her better on `fun` too, wire it as a switch in `sam31_corrections.py`'s form. Then the
-   tracker review's item 10 changes, `frames_on_others` first (`internal/gemini/2026-10-17_review_subject_track_regain.md`).
-4. Fill the gaps in song order (`data/2026-10-18_fun_delivery_tables/frame_coverage_fun_0000_6394_2026-10-18T0141Z.md`),
-   and capture the 48 untouched shots in song order in the card's free time.
-5. Run the end-to-end tests (`internal/gemini/2026-10-17_test_scenes_agreed.md`, `2026-10-17_e2e_tests_gem-matte.md`)
-   through the whole chain before any perception switch goes on.
-6. DONE after the close: the 2026-10-17 changelog entry (`a0ae7025`, 0.290.0), from the Gemini lead's draft and the
-   evening's commits.
-   Parked, no default: the matting composite (`internal/gemini/2026-10-17_brief_build_matting_relay.md`, on hold).
+Everything built tonight is on main (rewritten by the Claude lead at 04:15Z, after every late landing). In order:
+
+1. Start the review server (`data/fun/poc/serve.py`, `docs/wiki/runbook.md`); start ComfyUI by the recipe when a load
+   needs it. Read the mailbox from `G62` and `C145` on. The pages are already rebuilt (04:05Z) with the gap counts above
+   each player, so nothing needs building before the owner looks.
+2. The owner's looks, Start here: put tonight's four candidates on it with their gap counts (C131): 0613g's 680-760
+   compare first, then 0604h, 0278d and the 0438d control. Then r17_06 and r17_07 on the Open List.
+3. The next two loads, as candidates:
+   - `lead_fp_0613h`, the lead's kitchen 613-974 in one window of 362, with `--head-tube` on, drop and `--no-face-on`
+     only on 687-708, 747-750 and 974, face lines on 709-746 (the owner's looks). Memory selection is on by default.
+     Before it renders, a Gemini reader checks the reference's drawn lines on 705-715 and 730-752, and gem-matte's
+     one-shot steady-box Sapiens test on 680-760 runs if the card is free.
+   - The lead and the dad on 1397-1418 (22 frames each), the hall's hole.
+4. Fill the remaining gaps in song order from the newest gap check
+   (`data/2026-10-18_fun_delivery_tables/frame_coverage_fun_0000_6394_2026-10-18T0405Z.md`), which now says for each
+   whether it needs a capture, a render or the owner's keep; capture the uncaptured shots in song order in the card's
+   free time.
+5. The tracker review's item 10 changes, `frames_on_others` first
+   (`internal/gemini/2026-10-17_brief_review_subject_track_regain.md`, `2026-10-17_review_subject_track_regain.md`).
+6. The end-to-end tests (`internal/gemini/2026-10-17_test_scenes_agreed.md`, `2026-10-17_e2e_tests_gem-matte.md`)
+   through the whole chain, for the switches still off by default (the head tube, the closed-lip line).
+   Parked, no default: the matting composite (`internal/gemini/2026-10-17_brief_build_matting_relay.md`); SAM 3 base.
 
 ## Where things are
 
