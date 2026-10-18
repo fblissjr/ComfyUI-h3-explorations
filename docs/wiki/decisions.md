@@ -17,6 +17,13 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-18
 
+- **Corrected: `docs/wiki/sam3_prompting.md` still said "No shipped graph wires it yet" for `MiniMaxH3SAM31Corrections`.**
+  Written on 2026-10-07 before `workflows/masked_job_graph.py` landed; every masked job preview graph wires
+  `MiniMaxH3SAM31Corrections` with all three corrections on (`workflows/masked_job_graph.py:280-287`,
+  `workflows/h3_config.py::MASKED_JOB_SAM_CORRECTIONS` at `workflows/h3_config.py:1441`), while the single-pass shipped
+  templates in `workflows/build_workflows.py:2259-2276` wire `CheckpointLoaderSimple` directly. Updated in
+  `docs/wiki/sam3_prompting.md` alongside the full map of our SAM 3.1 nodes, runtime patches, and shared helpers against
+  ComfyUI core.
 - **A reader's verdict on review clips, and both leads' takes on open decisions** (the owner, in the Claude lead's
   terminal, about 14:25Z). Each clip on the review page gets a short card from a Gemini reader: what it sees, what it
   cannot see, its verdict and why, folded closed, so the owner can compare their read with Gemini's and see where each
