@@ -6,6 +6,45 @@ adds what landed after this. Where this page and a record disagree, the record i
 `data/fun/laid.jsonl`; the newest table and gap check; `git log`). The mailbox is `internal/gemini/` (`PROTOCOL.md`;
 `2026-10-17_claude_to_gemini.md` C1-C119, `2026-10-17_gemini_to_claude.md` G1-G61).
 
+## FIRST TOMORROW: the gaps, why they are there, and filling them in song order
+
+The owner wants every gap filled, in song order, as soon as tomorrow starts, so nobody has to remember them again. The
+one list is generated, never typed: `bench/frame_coverage.py` (made by `bench/rebuild_delivery.py --video fun`; today's
+is `data/2026-10-17_fun_delivery_tables/frame_coverage_fun_0000_6394_2026-10-17T1747Z.md`), then
+`bench/shot_coverage.py` for what each shot needs. Two kinds, and why each exists:
+
+1. **Shots with a piece where the original still shows while she is tracked** (the check's first table; 12 shots,
+   438 frames). In song order: 294-414, 438-483, 604-1009, 1010-1038, 1093-1133, 1134-1155, 1419-1465, 1466-1729,
+   4647-4725, 5114-5129, 5461-5497, 5533-5564. WHY, three causes the check separates: (a) the pieces were cut short
+   round frames where her face mask (Sapiens, frame by frame, no memory) collapsed, so stretches between kept pieces were
+   never rendered (the kitchen; the hall's 1306s stopping at 1396); (b) frames emptied INSIDE a kept piece by the holds,
+   floors and drops (68 frames; the check's section 3 gives each cause: 294-414, 438-483, 1134-1155, 1419-1465);
+   (c) no piece made or kept for one subject of a shot (4647-4725, 5114-5129, 5461-5497, 5533-5564, 1093-1133).
+2. **Shots nobody has captured** (the check's second table; 49 shots, 3471 subject-frames, 2050-2622 the largest at 573
+   frames; nothing is laid after 5564). WHY: no capture was ever made of them; the work went shot by shot in song order
+   and stopped, and today's planned captures did not run (the Claude lead's miss). Each needs a capture before a load.
+
+Tonight renders none of the gaps (the owner's word at the close, C126): the kitchen and hall wait for the head tube's
+gate. The two that are next, from the same check and tonight's `lead_fp_0613g`:
+
+| shot | who | the original in the cut | the window to load | note |
+|---|---|---|---|---|
+| kitchen 604-1009 | the lead | 606-629, 681-750, 779-804, 834-851, 966-974 | 613-974, one window of 362 (`lead_fp_0613h`, head tube on) | 0613g (candidate) covers it today but leaves 687-710, 733-738, 747-750 and 974 as the original; her face shows on 708-712 and 736-746 |
+| kitchen 604-1009 | the lead | 604-612 | not planned: inside no window | 9 frames; decide whether 0613h starts at 604 (604-965 is 362 frames and ends where the kept 0852b ends) |
+| kitchen 604-1009 | the lead | 975-1009 | none | her face is out of the picture 975-1009 (`next_steps.md`, the 10-15 queue); check on the frames before loading |
+| hall 1306-1418 | the lead | 1397-1418 | 1397-1418, 22 frames, context from the kept 1306s | 1306s's own render ends at 1396 |
+| hall 1306-1418 | the dad | 1397-1418 | 1397-1418, 22 frames, context from the kept 1310c | the 10-13 look that left it out was overruled 10-16 |
+
+**To run one gap end to end** (`docs/wiki/runbook.md`, "(b) One load, from preview to land", is the full recipe):
+1. Only once the head tube is landed and its gate passed: `bench/shot_to_load.py preview`, then `job` with the head
+   tube's switch on (its name is in gem-matte's READY) and read THE DEFAULTS THIS LOAD CARRIES; `reference`; `text`.
+2. `bench/load_chain.py first`, `plan`, `on-plan`; a second session's look at the plan strip (`capture_masked_run.py
+   looked`); the face masks on the window's hard frames read against the gate's numbers.
+3. The prompt read in FULL from the queued graph: `bench/what_h3_got.py --stage plan`.
+4. `bench/load_chain.py render`, then `land` (read back, checked against the plan, pose pass, record, stacked clip).
+5. `bench/stack_delivery.py compare` against the current cut; `bench/rebuild_delivery.py --video fun`; Start here.
+6. Laid only on the owner's keep: a line in `data/fun/laid.jsonl` (`bench/laid.py`), then `rebuild_delivery` again.
+
 ## State when closed
 
 - **Two leads** since the morning (`AGENTS.md`): mrgemsol (Gemini) holds the card, git on main, the ledger and the
@@ -23,6 +62,9 @@ adds what landed after this. Where this page and a record disagree, the record i
   `gemmatte-masks` (the head tube, being bound by the person track and wired into the capture behind a switch, C108);
   `gemmatte-moge` (MoGe-2 measuring tool; its loader moves to `vendor/meta_moge2/` with Meta's licence, the owner's
   call, C112); gem-memsel's tool (`h3_worktrees/gem-memsel-tool`).
+- **The night, by the owner's answer (C126)**: the queue runs (0278d, 0438d, the head-tube gate if cleared, gem-memsel's
+  measurement), no hole renders and nothing laid; then the ledger and pages are rebuilt, ComfyUI is stopped and the review
+  server is stopped. Start it again (`docs/wiki/runbook.md`) before pointing the owner at a page.
 - **Open List**: r17_06 (the mom's kitchen re-lays) and r17_07 (the perception order) wait on the owner; r17_08 is
   tonight's state; r17_09 records the licence answer. The inbox is clear.
 
@@ -48,8 +90,9 @@ adds what landed after this. Where this page and a record disagree, the record i
 
 ## Tomorrow, in order
 
-1. Read the night's mailbox from G61 and C118 on. Close what the night left: the hole label (re-worded, then cleared and
-   landed); the head tube's READY, its blind read, then THE GATE: the face masks with it on and off on 680-760 and
+1. Read the night's mailbox from G61 and C118 on. Close what the night left: the hole label (one headline, the cause in
+   brackets saying "no capture" or "the capture holds no track of her", with a test; the owner's go, C123; then cleared
+   and landed); the head tube's READY, its blind read, then THE GATE: the face masks with it on and off on 680-760 and
    1397-1418, no render. Render the holes with it only if her face holds there (the lead 613-974; the lead and the dad
    1397-1418), as candidates.
 2. The owner's looks, Start here: 0613g's compare clip at 680-760 first, then 0604h, 0278d and the 0438d control.

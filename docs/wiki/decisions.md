@@ -17,6 +17,23 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-17
 
+- **SAM's memory selection is measured before anything is built** (the owner, about 00:28Z on 2026-10-18, "lets do
+  that then"). Core keeps the seed frame and the last 6 frames as a tracker's memory with no choice of which
+  (`comfy/ldm/sam3/tracker.py` 221-256); Meta's tracker can keep only frames where the object was visible, on for SAM 3
+  base and off for 3.1 with no stated reason. A fresh Gemini session (gem-memsel) builds a bench tool that puts it in at
+  run time, scored per object, on 3.1 and SAM 3 base, on captures only
+  (`internal/gemini/2026-10-17_brief_build_memory_selection.md`). A switch in `sam31_corrections.py`'s form comes only
+  after the numbers. "Patch it" here means a run-time patch like sage, Sol and `sam31_corrections.py`, never core's files;
+  its constraints are ComfyUI's dynamic memory and clone rules.
+- **The hole label is plugged now, both causes worded** (the owner, about 00:40Z on 2026-10-18: "plug it now and if
+  anyone disagrees undo it"). "No piece made for these frames" with "(no capture here)" or "and the capture there holds
+  no track of her", with a case each, though today's gap check holds 0 of the second.
+- **Corrected: the kitchen's original stretches were blamed on tracking; they are gaps between pieces, made where the
+  face mask collapses.** The person tracker held the lead on 399 of 406 frames of 604-1009
+  (`data/2026-10-17_lead_fp_0613g_first/subjects/lead/shots__shot_c_0604b.json`); the face part falls under a fifth of
+  its median on 680-712, 733-751, 779-793, 800-803 and 834-845 (0613g's `masks__shot_c_0604b.npz`), where the laid
+  pieces stop. The fix in hand is the head tube (C108).
+
 - **MoGe-2's loader is vendored with Meta's licence** (the owner, about 00:05Z on 2026-10-18, choosing on the Claude lead's question).
   The gemmatte-moge loader follows `coderef/metadepth` closely (108 of 440 substantial lines identical, whole functions
   such as the focal recovery among them), and that code is under Meta's own licence, not the pack's MIT. So it lives

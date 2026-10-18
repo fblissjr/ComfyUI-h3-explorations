@@ -18,8 +18,9 @@ Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
 **The order of 2026-10-18 is `handover.md`'s "Tomorrow, in order" (written 2026-10-18 00:35Z, before the close);
-where the queue below disagrees, the handover is right.** First: the head tube's gate on 680-760 and 1397-1418, then the
-holes rendered with it if it holds; SAM memory selection measured (gem-memsel); the 48 untouched shots captured.
+where the queue below disagrees, the handover is right.** First: every gap in the video filled in song order (the handover's
+"FIRST TOMORROW": what they are and why), starting with the head tube's gate on 680-760 and 1397-1418 and the holes
+rendered with it if it holds; SAM memory selection measured (gem-memsel); the 48 untouched shots captured.
 
 **The queue of 2026-10-15 (the lead, mrtall; written before the close and finished in `handover.md`).** Every shot is
 made by the recipe the owner kept on the hall shot: [`masked_v2v.md`](masked_v2v.md), "A shot, made whole" (one load a
