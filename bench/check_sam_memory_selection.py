@@ -24,13 +24,24 @@ ComfyUI's real `ModelPatcher`:
      object 0 is occluded across 18 frames while companion object 1 stays visible with
      high score, object 0's filtered history drops the occluded frames and keeps only
      its own pre-occlusion valid frames plus `must_include`.
+  6. `default_scenes_name_exact_unblocked_captures`: `build_default_scenes` names the
+     exact expected capture folders (`2026-10-17_lead_fp_0613g`, `2026-10-13_lead_fp_1306s`
+     + `2026-10-13_third_fp_1310c`, `2026-10-15_lead_fp_1419d`) and `subjects/<subj>/masks__*.npz`
+     paths; `validate_scene_capture` refuses any `blocked` or `superseded` folder or
+     manifest, any different capture folder/date/load, and any mask path missing
+     `subjects/<subj>/`; `unpack_capture_mask_npz` unpacks bit-packed `uint8` masks and
+     computes `sha256`; and `_compile_scene_summary` records `masks_sha256`,
+     `subject_masks_sha256`, `capture_date`, `load`, and `capture_folder`.
 
     CUDA_VISIBLE_DEVICES="" <comfy venv python> bench/check_sam_memory_selection.py
 """
 from __future__ import annotations
 
+import copy
+import json
 import math
 import sys
+import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -53,15 +64,21 @@ import comfy.ops  # noqa: E402
 from comfy.ldm.sam3.tracker import MultiplexState, SAM31Tracker, SAM3Tracker  # noqa: E402
 
 from bench.sam_memory_selection import (  # noqa: E402
+    EXPECTED_SCENE_CAPTURES,
     MF_THRESHOLD,
     MemorySelectionStep,
+    _align_capture_track_to_window,
+    _compile_scene_summary,
     apply_memory_selection,
+    build_default_scenes,
     cal_mem_score_per_object,
     compute_mask_centroid,
     compute_mask_iou,
     frame_filter_per_object,
     get_memory_selection_state,
     summarize_track_series,
+    unpack_capture_mask_npz,
+    validate_scene_capture,
 )
 
 
@@ -531,6 +548,239 @@ def sam31_tracker_group_isolation() -> str:
     return "SAM31Tracker group: occluded target selects [1, 2, 20], companion selects [6..20], and combined_ptr feeds memory"
 
 
+def default_scenes_name_exact_unblocked_captures() -> str:
+    scenes = build_default_scenes()
+    assert set(scenes) == {"kitchen_604_1009", "hall_1306_1418", "regain_1419_1465", "lotsofpeople"}, (
+        f"Unexpected scene keys: {sorted(scenes)}"
+    )
+
+    for sname, scfg in scenes.items():
+        validate_scene_capture(sname, scfg)
+
+    # 1. Verify exact capture folders, dates, loads, and subjects/<subj>/ paths on the 3 fun scenes
+    k_cfg = scenes["kitchen_604_1009"]
+    assert Path(k_cfg["capture_folder"]).name == "2026-10-17_lead_fp_0613g"
+    assert k_cfg["capture_date"] == "2026-10-17" and k_cfg["load"] == "lead_fp_0613g"
+    assert Path(k_cfg["seed_npz"]).parts[-3:] == ("subjects", "lead", "masks__shot_c_0604b.npz")
+    assert k_cfg["seed_frame_in_npz"] == 193
+    assert Path(k_cfg["companion_npzs"]["second"]["npz"]).parts[-3:] == (
+        "subjects",
+        "second",
+        "masks__shot_c_0604b.npz",
+    )
+    assert Path(k_cfg["companion_npzs"]["strangers"]["npz"]).parts[-3:] == (
+        "subjects",
+        "strangers",
+        "masks__shot_c_0604b.npz",
+    )
+    assert Path(k_cfg["face_subprobe"]["seed_npz"]).parts[-3:] == (
+        "subjects",
+        "lead",
+        "masks__shot_c_0604b.npz",
+    )
+
+    h_cfg = scenes["hall_1306_1418"]
+    assert Path(h_cfg["capture_folder"]).name == "2026-10-13_lead_fp_1306s"
+    assert Path(h_cfg["companion_capture_folder"]).name == "2026-10-13_third_fp_1310c"
+    assert h_cfg["capture_date"] == "2026-10-13" and h_cfg["load"] == "lead_fp_1306s, third_fp_1310c"
+    assert Path(h_cfg["seed_npz"]).parts[-3:] == ("subjects", "lead", "masks__lead_c_1306.npz")
+    assert h_cfg["seed_frame_in_npz"] == 4
+    assert Path(h_cfg["companion_npzs"]["third"]["npz"]).parts[-3:] == (
+        "subjects",
+        "third",
+        "masks__third_c_1306.npz",
+    )
+    assert h_cfg["companion_npzs"]["third"]["seed_frame_in_npz"] == 0
+
+    r_cfg = scenes["regain_1419_1465"]
+    assert Path(r_cfg["capture_folder"]).name == "2026-10-15_lead_fp_1419d"
+    assert r_cfg["capture_date"] == "2026-10-15" and r_cfg["load"] == "lead_fp_1419d"
+    assert Path(r_cfg["seed_npz"]).parts[-3:] == ("subjects", "lead", "masks__shot_c_1419.npz")
+    assert r_cfg["seed_frame_in_npz"] == 12
+    assert Path(r_cfg["companion_npzs"]["second"]["npz"]).parts[-3:] == (
+        "subjects",
+        "second",
+        "masks__shot_c_1419.npz",
+    )
+    assert Path(r_cfg["companion_npzs"]["third"]["npz"]).parts[-3:] == (
+        "subjects",
+        "third",
+        "masks__shot_c_1419.npz",
+    )
+
+    # 2. Verify validate_scene_capture refuses blocked / superseded folders
+    bad_blocked = copy.deepcopy(h_cfg)
+    bad_blocked["capture_folder"] = Path("data/2026-10-12_lead_fp_1306_span_1306_1418_blocked")
+    bad_blocked["seed_npz"] = (
+        bad_blocked["capture_folder"] / "subjects" / "lead" / "masks__lead_c_1306.npz"
+    )
+    try:
+        validate_scene_capture("hall_1306_1418", bad_blocked)
+        raise AssertionError("validate_scene_capture failed to reject blocked folder")
+    except ValueError as exc:
+        assert "blocked" in str(exc).lower()
+
+    bad_superseded = copy.deepcopy(k_cfg)
+    bad_superseded["capture_folder"] = Path("data/2026-10-15_lead_fp_0613_superseded")
+    try:
+        validate_scene_capture("kitchen_604_1009", bad_superseded)
+        raise AssertionError("validate_scene_capture failed to reject superseded folder")
+    except ValueError as exc:
+        assert "superseded" in str(exc).lower()
+
+    # 3. Verify validate_scene_capture refuses a different capture folder, companion folder, date, or load
+    bad_wrong_cap = copy.deepcopy(k_cfg)
+    bad_wrong_cap["capture_folder"] = Path("data/2026-10-15_second_hfp_0604e")
+    try:
+        validate_scene_capture("kitchen_604_1009", bad_wrong_cap)
+        raise AssertionError("validate_scene_capture failed to reject wrong capture_folder")
+    except ValueError as exc:
+        assert "must use capture folder" in str(exc)
+
+    bad_wrong_comp = copy.deepcopy(h_cfg)
+    bad_wrong_comp["companion_capture_folder"] = Path("data/2026-10-13_third_fp_1310b")
+    try:
+        validate_scene_capture("hall_1306_1418", bad_wrong_comp)
+        raise AssertionError("validate_scene_capture failed to reject wrong companion_capture_folder")
+    except ValueError as exc:
+        assert "companion capture folder" in str(exc)
+
+    bad_wrong_load = copy.deepcopy(r_cfg)
+    bad_wrong_load["load"] = "lead_fp_1419c"
+    try:
+        validate_scene_capture("regain_1419_1465", bad_wrong_load)
+        raise AssertionError("validate_scene_capture failed to reject wrong load")
+    except ValueError as exc:
+        assert "load mismatch" in str(exc)
+
+    bad_wrong_date = copy.deepcopy(r_cfg)
+    bad_wrong_date["capture_date"] = "2026-10-14"
+    try:
+        validate_scene_capture("regain_1419_1465", bad_wrong_date)
+        raise AssertionError("validate_scene_capture failed to reject wrong capture_date")
+    except ValueError as exc:
+        assert "capture_date mismatch" in str(exc)
+
+    # 4. Verify validate_scene_capture refuses mask paths missing subjects/<subj>/ or outside capture_folder
+    bad_no_subjects = copy.deepcopy(k_cfg)
+    bad_no_subjects["seed_npz"] = Path(k_cfg["capture_folder"]) / "masks__shot_c_0604b.npz"
+    try:
+        validate_scene_capture("kitchen_604_1009", bad_no_subjects)
+        raise AssertionError("validate_scene_capture failed to reject seed_npz without subjects/<subj>/")
+    except ValueError as exc:
+        assert "subjects/<subj>/" in str(exc)
+
+    bad_outside_cap = copy.deepcopy(k_cfg)
+    bad_outside_cap["seed_npz"] = (
+        Path("data/2026-10-15_second_hfp_0604e") / "subjects" / "lead" / "masks__shot_c_0604b.npz"
+    )
+    try:
+        validate_scene_capture("kitchen_604_1009", bad_outside_cap)
+        raise AssertionError("validate_scene_capture failed to reject seed_npz outside capture_folder")
+    except ValueError as exc:
+        assert "not in the scene's explicit capture folders" in str(exc)
+
+    # 5. Verify unpack_capture_mask_npz, manifest blocked check, and _compile_scene_summary provenance fields
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        cap_dir = tmp_path / "2026-10-17_lead_fp_0613g"
+        subj_dir = cap_dir / "subjects" / "lead"
+        subj_dir.mkdir(parents=True)
+        npz_file = subj_dir / "masks__shot_c_0604b.npz"
+
+        expected_bool = np.zeros((4, 6, 16), dtype=bool)
+        expected_bool[1, 2:5, 3:11] = True
+        packed = np.packbits(expected_bool.astype(np.uint8), axis=-1)
+        assert packed.shape == (4, 6, 2)
+        np.savez_compressed(npz_file, track=packed)
+
+        unpacked, sha = unpack_capture_mask_npz(npz_file, width=16, key="track")
+        assert unpacked.dtype == bool and unpacked.shape == (4, 6, 16)
+        assert np.array_equal(unpacked, expected_bool), "Bit-unpacked mask array did not match original"
+        assert len(sha) == 64
+
+        aligned = _align_capture_track_to_window(
+            unpacked, capture_first_frame=613, window_first_frame=611, window_num_frames=8
+        )
+        assert aligned.shape == (8, 6, 16)
+        assert not aligned[0].any() and not aligned[1].any()
+        assert np.array_equal(aligned[3], expected_bool[1])
+
+        # Verify manifest blocked flag triggers refusal
+        (cap_dir / "manifest.json").write_text(json.dumps({"blocked": True}))
+        manifest_cfg = copy.deepcopy(k_cfg)
+        manifest_cfg["capture_folder"] = cap_dir
+        manifest_cfg["seed_npz"] = npz_file
+        manifest_cfg["companion_npzs"] = {}
+        manifest_cfg.pop("face_subprobe", None)
+        try:
+            validate_scene_capture("kitchen_604_1009", manifest_cfg)
+            raise AssertionError("validate_scene_capture failed to reject manifest with blocked=True")
+        except ValueError as exc:
+            assert "manifest" in str(exc).lower() and "blocked" in str(exc).lower()
+
+        # Verify _compile_scene_summary records masks_sha256, subject_masks_sha256, capture_date, load, capture_folder
+        dummy_masks = np.zeros((4, 1, 6, 16), dtype=bool)
+        dummy_masks[1, 0, 2:5, 3:11] = True
+        scene_report = {
+            "scene": "kitchen_604_1009",
+            "description": "test",
+            "capture_folder": "data/2026-10-17_lead_fp_0613g",
+            "companion_capture_folder": None,
+            "capture_date": "2026-10-17",
+            "load": "lead_fp_0613g",
+            "masks_sha256": sha,
+            "subject_masks_sha256": {"lead": sha},
+            "first_source_frame": 613,
+            "num_frames": 4,
+            "pick_frame": 1,
+            "pick_source_frame": 614,
+            "mf_threshold": MF_THRESHOLD,
+            "focus_windows": [[613, 616]],
+            "arms": {
+                "sam31": {
+                    "mem_off": {
+                        "alone": {
+                            "lead": {
+                                "masks": dummy_masks,
+                                "frame_scores": {},
+                                "selected_history": {},
+                                "elapsed_s": 0.1,
+                            }
+                        },
+                        "group": {},
+                    },
+                    "mem_on": {
+                        "alone": {
+                            "lead": {
+                                "masks": dummy_masks,
+                                "frame_scores": {1: [0.8]},
+                                "selected_history": {2: [[1]]},
+                                "elapsed_s": 0.1,
+                            }
+                        },
+                        "group": {},
+                    },
+                }
+            },
+        }
+        compiled = _compile_scene_summary(
+            scene_report,
+            targets=[{"name": "lead", "group_obj_idx": 0}],
+            ref_companions={"saved_lead": unpacked},
+        )
+        assert compiled["masks_sha256"] == sha
+        assert compiled["subject_masks_sha256"] == {"lead": sha}
+        assert compiled["capture_date"] == "2026-10-17"
+        assert compiled["load"] == "lead_fp_0613g"
+        assert compiled["capture_folder"] == "data/2026-10-17_lead_fp_0613g"
+
+    return (
+        f"verified {len(EXPECTED_SCENE_CAPTURES)} explicit fun scene captures, "
+        "subjects/<subj>/ paths, blocked/superseded refusal, bit-unpack + sha256 provenance"
+    )
+
+
 def main() -> int:
     for fn in (
         the_paths_are_cores,
@@ -538,6 +788,7 @@ def main() -> int:
         frame_filter_drops_bad_and_keeps_tail,
         sam3_tracker_runtime_patch_and_clone,
         sam31_tracker_group_isolation,
+        default_scenes_name_exact_unblocked_captures,
     ):
         case(fn.__name__, fn)
     return finish()

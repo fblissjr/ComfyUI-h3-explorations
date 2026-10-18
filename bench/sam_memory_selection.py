@@ -14,6 +14,7 @@ visible companions' scores.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -839,7 +840,7 @@ def _resolve_input_dir() -> Path:
 
 def _resolve_data_dir() -> Path:
     local_data = REPO_ROOT / "data"
-    if local_data.is_dir():
+    if (local_data / "2026-10-17_lead_fp_0613g").is_dir():
         return local_data
     shared_data = COMFY_ROOT / "custom_nodes" / "ComfyUI-h3-explorations" / "data"
     if shared_data.is_dir():
@@ -847,70 +848,255 @@ def _resolve_data_dir() -> Path:
     return local_data
 
 
+FORBIDDEN_CAPTURE_MARKERS: tuple[str, ...] = ("blocked", "superseded")
+
+EXPECTED_SCENE_CAPTURES: dict[str, dict[str, Any]] = {
+    "kitchen_604_1009": {
+        "capture_folder": "data/2026-10-17_lead_fp_0613g",
+        "capture_date": "2026-10-17",
+        "load": "lead_fp_0613g",
+    },
+    "hall_1306_1418": {
+        "capture_folder": "data/2026-10-13_lead_fp_1306s",
+        "companion_capture_folder": "data/2026-10-13_third_fp_1310c",
+        "capture_date": "2026-10-13",
+        "load": "lead_fp_1306s, third_fp_1310c",
+    },
+    "regain_1419_1465": {
+        "capture_folder": "data/2026-10-15_lead_fp_1419d",
+        "capture_date": "2026-10-15",
+        "load": "lead_fp_1419d",
+    },
+}
+
+
+def unpack_capture_mask_npz(
+    npz_path: Path,
+    width: int,
+    key: str = "track",
+) -> tuple[np.ndarray, str]:
+    """Load and unpack a bit-packed `(N, H, W // 8)` mask array from `npz_path` and return `(bool_masks, sha256)`."""
+    raw_bytes = npz_path.read_bytes()
+    digest = hashlib.sha256(raw_bytes).hexdigest()
+    with np.load(npz_path) as z:
+        if key not in z:
+            raise KeyError(
+                f"Expected key {key!r} in {npz_path.name}; available keys: {sorted(z.keys())}"
+            )
+        raw = z[key]
+    if raw.dtype == np.uint8 and raw.ndim == 3 and raw.shape[-1] * 8 >= width and raw.shape[-1] != width:
+        unpacked = np.unpackbits(raw, axis=-1)[..., :width].astype(bool)
+    else:
+        unpacked = (raw > 0.5).astype(bool)
+    return unpacked, digest
+
+
+def validate_scene_capture(scene_name: str, cfg: dict[str, Any]) -> None:
+    """Refuse blocked/superseded folders, unexpected captures, or mask paths missing `subjects/<subj>/`."""
+    paths_to_check: list[Path] = []
+    if "capture_folder" in cfg:
+        paths_to_check.append(Path(cfg["capture_folder"]))
+    if "companion_capture_folder" in cfg:
+        paths_to_check.append(Path(cfg["companion_capture_folder"]))
+    if "seed_npz" in cfg:
+        paths_to_check.append(Path(cfg["seed_npz"]))
+    for comp_entry in cfg.get("companion_npzs", {}).values():
+        comp_path = comp_entry["npz"] if isinstance(comp_entry, dict) else comp_entry
+        paths_to_check.append(Path(comp_path))
+    if "face_subprobe" in cfg and "seed_npz" in cfg["face_subprobe"]:
+        paths_to_check.append(Path(cfg["face_subprobe"]["seed_npz"]))
+
+    for p in paths_to_check:
+        parts_lower = [part.lower() for part in p.parts]
+        for marker in FORBIDDEN_CAPTURE_MARKERS:
+            if any(marker in part for part in parts_lower):
+                raise ValueError(
+                    f"Scene {scene_name!r} references a {marker} capture path ({p.name}); "
+                    f"blocked or superseded captures must never be used."
+                )
+
+    for folder_key in ("capture_folder", "companion_capture_folder"):
+        if folder_key in cfg:
+            manifest_path = Path(cfg[folder_key]) / "manifest.json"
+            if manifest_path.is_file():
+                manifest_data = json.loads(manifest_path.read_text())
+                status_str = str(manifest_data.get("status", "")).lower()
+                for marker in FORBIDDEN_CAPTURE_MARKERS:
+                    if manifest_data.get(marker) is True or marker in status_str:
+                        raise ValueError(
+                            f"Scene {scene_name!r} capture manifest {manifest_path.parent.name}/manifest.json "
+                            f"is marked {marker}; blocked or superseded captures must never be used."
+                        )
+
+    if scene_name not in EXPECTED_SCENE_CAPTURES:
+        return
+
+    expected = EXPECTED_SCENE_CAPTURES[scene_name]
+    exp_folder_name = Path(expected["capture_folder"]).name
+    got_folder = Path(cfg.get("capture_folder", ""))
+    if got_folder.name != exp_folder_name:
+        raise ValueError(
+            f"Scene {scene_name!r} must use capture folder {expected['capture_folder']!r}, "
+            f"got {got_folder.name!r}."
+        )
+    if "companion_capture_folder" in expected:
+        exp_comp_name = Path(expected["companion_capture_folder"]).name
+        got_comp = Path(cfg.get("companion_capture_folder", ""))
+        if got_comp.name != exp_comp_name:
+            raise ValueError(
+                f"Scene {scene_name!r} must use companion capture folder "
+                f"{expected['companion_capture_folder']!r}, got {got_comp.name!r}."
+            )
+
+    if cfg.get("capture_date") != expected["capture_date"]:
+        raise ValueError(
+            f"Scene {scene_name!r} capture_date mismatch: expected {expected['capture_date']!r}, "
+            f"got {cfg.get('capture_date')!r}."
+        )
+    if cfg.get("load") != expected["load"]:
+        raise ValueError(
+            f"Scene {scene_name!r} load mismatch: expected {expected['load']!r}, "
+            f"got {cfg.get('load')!r}."
+        )
+
+    allowed_folders = {got_folder.resolve()}
+    if "companion_capture_folder" in cfg:
+        allowed_folders.add(Path(cfg["companion_capture_folder"]).resolve())
+
+    npz_paths: list[Path] = [Path(cfg["seed_npz"])]
+    for comp_entry in cfg.get("companion_npzs", {}).values():
+        comp_path = comp_entry["npz"] if isinstance(comp_entry, dict) else comp_entry
+        npz_paths.append(Path(comp_path))
+    if "face_subprobe" in cfg and "seed_npz" in cfg["face_subprobe"]:
+        npz_paths.append(Path(cfg["face_subprobe"]["seed_npz"]))
+
+    for npz_p in npz_paths:
+        # Must live under `<capture_folder>/subjects/<subj>/masks__*.npz`
+        if npz_p.parent.parent.name != "subjects":
+            raise ValueError(
+                f"Scene {scene_name!r} mask path {npz_p} is missing 'subjects/<subj>/' directory structure."
+            )
+        cap_root = npz_p.parent.parent.parent.resolve()
+        if cap_root not in allowed_folders:
+            raise ValueError(
+                f"Scene {scene_name!r} mask path {npz_p} belongs to capture {cap_root.name!r}, "
+                f"which is not in the scene's explicit capture folders {[f.name for f in allowed_folders]}."
+            )
+
+
 def build_default_scenes() -> dict[str, dict[str, Any]]:
-    """Define the 4 benchmark scenes (kitchen 604-1009, hall 1306-1418, hall regain 1419-1465, lotsofpeopledance)."""
+    """Define the 4 benchmark scenes with explicit, unblocked capture folders and `subjects/<subj>/` mask paths."""
     input_dir = _resolve_input_dir()
     data_dir = _resolve_data_dir()
     fun_video = input_dir / "mrpop" / "fun_0000_6394_24p_sound_in_step.mov"
     dance_video = input_dir / "lotsofpeopledance_0414_0720.mkv"
 
+    kitchen_cap = data_dir / "2026-10-17_lead_fp_0613g"
+    hall_lead_cap = data_dir / "2026-10-13_lead_fp_1306s"
+    hall_third_cap = data_dir / "2026-10-13_third_fp_1310c"
+    regain_cap = data_dir / "2026-10-15_lead_fp_1419d"
+
     return {
         "kitchen_604_1009": {
             "description": (
-                "Kitchen 604-1009 (`lead` and companions `second`, `third`): "
+                "Kitchen 604-1009 (`lead` and companions `second`, `strangers` from `lead_fp_0613g`): "
                 "focus windows 684-760 (head-bend occlusion) and 998-1009 (`lead` occluded "
                 "behind `second` at 999-1002 and raw track jumps onto `second` at 1003-1009)."
             ),
             "video_path": fun_video,
+            "capture_folder": kitchen_cap,
+            "capture_date": "2026-10-17",
+            "load": "lead_fp_0613g",
+            "capture_first_frame": 613,
             "first_source_frame": 604,
             "num_frames": 406,
             "width": 1024,
             "height": 768,
             "pick_frame": 202,  # source frame 806
-            "seed_npz": data_dir / "2026-10-15_second_hfp_0604e" / "masks__shot_c_0604b.npz",
-            "seed_frame_in_npz": 202,
+            "seed_npz": kitchen_cap / "subjects" / "lead" / "masks__shot_c_0604b.npz",
+            "seed_frame_in_npz": 193,  # 613 + 193 = 806
+            "companion_npzs": {
+                "second": {
+                    "npz": kitchen_cap / "subjects" / "second" / "masks__shot_c_0604b.npz",
+                    "seed_frame_in_npz": 193,
+                    "capture_first_frame": 613,
+                },
+                "strangers": {
+                    "npz": kitchen_cap / "subjects" / "strangers" / "masks__shot_c_0604b.npz",
+                    "seed_frame_in_npz": 193,
+                    "capture_first_frame": 613,
+                },
+            },
             "focus_windows": [[684, 760], [998, 1009]],
-            # Secondary sub-probe on 680-760 seeded on lead's face (`parts[0]`) at source frame 680
+            # Secondary sub-probe on 680-760 seeded on lead's face (`parts`) at source frame 680
             # where `lead`'s face is occluded on 687-707 (21 frames) and recovers at 708..760.
             "face_subprobe": {
                 "first_source_frame": 680,
                 "num_frames": 81,
                 "pick_frame": 0,  # source frame 680
-                "seed_npz": data_dir / "2026-10-17_lead_fp_0613g" / "masks__shot_c_0604b.npz",
+                "seed_npz": kitchen_cap / "subjects" / "lead" / "masks__shot_c_0604b.npz",
                 "seed_frame_in_npz": 67,  # 613 + 67 = 680
                 "focus_windows": [[684, 760]],
             },
         },
         "hall_1306_1418": {
             "description": (
-                "Hall 1306-1418 (`lead` and `third`/dad, plus `second`): "
+                "Hall 1306-1418 (`lead` from `lead_fp_1306s` and `third`/dad from `third_fp_1310c`): "
                 "seeded at pick_frame=4 (source 1310); `third` is occluded behind `lead` "
                 "and `second` in the middle of the shot and steps out on 1392-1418."
             ),
             "video_path": fun_video,
+            "capture_folder": hall_lead_cap,
+            "companion_capture_folder": hall_third_cap,
+            "capture_date": "2026-10-13",
+            "load": "lead_fp_1306s, third_fp_1310c",
+            "capture_first_frame": 1306,
             "first_source_frame": 1306,
             "num_frames": 113,
             "width": 1024,
             "height": 768,
             "pick_frame": 4,  # source frame 1310
-            "seed_npz": data_dir / "2026-10-12_lead_fp_1306_span_1306_1418_blocked" / "masks__lead_c_1306.npz",
-            "seed_frame_in_npz": 4,
+            "seed_npz": hall_lead_cap / "subjects" / "lead" / "masks__lead_c_1306.npz",
+            "seed_frame_in_npz": 4,  # 1306 + 4 = 1310
+            "companion_npzs": {
+                "third": {
+                    "npz": hall_third_cap / "subjects" / "third" / "masks__third_c_1306.npz",
+                    "seed_frame_in_npz": 0,  # 1310 + 0 = 1310
+                    "capture_first_frame": 1310,
+                },
+            },
             "focus_windows": [[1392, 1418]],
         },
         "regain_1419_1465": {
             "description": (
-                "Hall regain 1419-1465 (`second`, companion 0): "
-                "seeded at pick_frame=12 (source 1431), occluded behind `lead` and `third` "
+                "Hall regain 1419-1465 (`lead`, `second`, `third` from `lead_fp_1419d`): "
+                "seeded at pick_frame=12 (source 1431), `second` is occluded behind `lead` and `third` "
                 "on 1437-1452 (16 frames), and re-latched on 1453-1465."
             ),
             "video_path": fun_video,
+            "capture_folder": regain_cap,
+            "capture_date": "2026-10-15",
+            "load": "lead_fp_1419d",
+            "capture_first_frame": 1419,
             "first_source_frame": 1419,
             "num_frames": 47,
             "width": 1024,
             "height": 768,
             "pick_frame": 12,  # source frame 1431
-            "seed_npz": data_dir / "2026-10-15_lead_fp_1419d" / "masks__shot_c_1419.npz",
-            "seed_frame_in_npz": 12,
+            "seed_npz": regain_cap / "subjects" / "lead" / "masks__shot_c_1419.npz",
+            "seed_frame_in_npz": 12,  # 1419 + 12 = 1431
+            "companion_npzs": {
+                "second": {
+                    "npz": regain_cap / "subjects" / "second" / "masks__shot_c_1419.npz",
+                    "seed_frame_in_npz": 12,
+                    "capture_first_frame": 1419,
+                },
+                "third": {
+                    "npz": regain_cap / "subjects" / "third" / "masks__shot_c_1419.npz",
+                    "seed_frame_in_npz": 12,
+                    "capture_first_frame": 1419,
+                },
+            },
             "focus_windows": [[1435, 1465]],
         },
         "lotsofpeople": {
@@ -921,6 +1107,8 @@ def build_default_scenes() -> dict[str, dict[str, Any]]:
                 "dancer on frame 20 when tracked alone)."
             ),
             "video_path": dance_video,
+            "capture_date": "2026-10-17",
+            "load": "lotsofpeopledance_0414_0720_live_sam3_detect",
             "start_sec": 138.0,
             "num_frames": 144,
             "fps": 24.0,
@@ -951,6 +1139,23 @@ def load_sam_model(checkpoint_name: str) -> Any:
     return model
 
 
+def _align_capture_track_to_window(
+    track_bool: np.ndarray,
+    capture_first_frame: int,
+    window_first_frame: int,
+    window_num_frames: int,
+) -> np.ndarray:
+    """Place a `(N_cap, H, W)` capture track into the `(window_num_frames, H, W)` scene window."""
+    h, w = int(track_bool.shape[1]), int(track_bool.shape[2])
+    aligned = np.zeros((window_num_frames, h, w), dtype=bool)
+    for i in range(window_num_frames):
+        src_f = window_first_frame + i
+        cap_idx = src_f - capture_first_frame
+        if 0 <= cap_idx < track_bool.shape[0]:
+            aligned[i] = track_bool[cap_idx]
+    return aligned
+
+
 def run_scene_four_arms(
     scene_name: str,
     models: dict[str, Any],
@@ -962,42 +1167,87 @@ def run_scene_four_arms(
     if scene_name not in scenes:
         raise KeyError(f"Unknown scene {scene_name!r}; expected one of {sorted(scenes)}")
     cfg = scenes[scene_name]
+    validate_scene_capture(scene_name, cfg)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if scene_name == "lotsofpeople":
         return _run_lotsofpeople_scene(cfg, models, out_dir, mf_threshold=mf_threshold)
 
+    width = int(cfg["width"])
+    height = int(cfg["height"])
+    first_src = int(cfg["first_source_frame"])
+    num_frames = int(cfg["num_frames"])
+    pick_frame = int(cfg["pick_frame"])
+    pf_npz = int(cfg["seed_frame_in_npz"])
+    cap_first = int(cfg.get("capture_first_frame", first_src))
+
     images = _load_video_window(
         cfg["video_path"],
-        first_frame=cfg["first_source_frame"],
-        num_frames=cfg["num_frames"],
-        width=cfg["width"],
-        height=cfg["height"],
+        first_frame=first_src,
+        num_frames=num_frames,
+        width=width,
+        height=height,
     )
-    npz = np.load(cfg["seed_npz"])
-    pf_npz = int(cfg["seed_frame_in_npz"])
-    pick_frame = int(cfg["pick_frame"])
-    first_src = int(cfg["first_source_frame"])
 
-    # Build seed masks at pick_frame:
-    # Object 0: `lead` (`raw[pf_npz] > 0.5`)
-    # Companions: `companions[pf_npz, c] > 0.5` for each non-empty companion c
-    lead_seed = torch.from_numpy((npz["raw"][pf_npz] > 0.5).astype(np.float32))
+    lead_npz_path = Path(cfg["seed_npz"])
+    lead_masks_bool, lead_sha256 = unpack_capture_mask_npz(lead_npz_path, width=width, key="track")
+    lead_seed = torch.from_numpy(lead_masks_bool[pf_npz].astype(np.float32))
+
+    subject_masks_sha256: dict[str, str] = {"lead": lead_sha256}
+    ref_companions: dict[str, np.ndarray] = {
+        "saved_lead": _align_capture_track_to_window(
+            lead_masks_bool,
+            capture_first_frame=cap_first,
+            window_first_frame=first_src,
+            window_num_frames=num_frames,
+        )
+    }
+
     comp_seeds: list[torch.Tensor] = []
-    if "companions" in npz and npz["companions"].ndim == 4:
-        for c_idx in range(npz["companions"].shape[1]):
-            cm = (npz["companions"][pf_npz, c_idx] > 0.5).astype(np.float32)
-            if cm.sum() > 0:
-                comp_seeds.append(torch.from_numpy(cm))
+    comp_seed_by_name: dict[str, dict[str, Any]] = {}
+    for comp_name, comp_info in cfg.get("companion_npzs", {}).items():
+        comp_path = Path(comp_info["npz"])
+        comp_pf = int(comp_info.get("seed_frame_in_npz", pf_npz))
+        comp_first = int(comp_info.get("capture_first_frame", cap_first))
+        comp_masks_bool, comp_sha = unpack_capture_mask_npz(comp_path, width=width, key="track")
+        subject_masks_sha256[comp_name] = comp_sha
+        ref_companions[f"saved_{comp_name}"] = _align_capture_track_to_window(
+            comp_masks_bool,
+            capture_first_frame=comp_first,
+            window_first_frame=first_src,
+            window_num_frames=num_frames,
+        )
+        cm = comp_masks_bool[comp_pf].astype(np.float32)
+        if cm.sum() > 0:
+            comp_tensor = torch.from_numpy(cm)
+            comp_idx = 1 + len(comp_seeds)
+            comp_seeds.append(comp_tensor)
+            comp_seed_by_name[comp_name] = {
+                "tensor": comp_tensor,
+                "group_obj_idx": comp_idx,
+            }
 
     group_seeds = torch.stack([lead_seed] + comp_seeds, dim=0)  # [1 + C, H, W]
     alone_lead_seed = lead_seed.unsqueeze(0)  # [1, H, W]
 
+    cap_folder_rel = f"data/{Path(cfg['capture_folder']).name}"
+    comp_cap_rel = (
+        f"data/{Path(cfg['companion_capture_folder']).name}"
+        if "companion_capture_folder" in cfg
+        else None
+    )
+
     scene_report: dict[str, Any] = {
         "scene": scene_name,
         "description": cfg["description"],
+        "capture_folder": cap_folder_rel,
+        "companion_capture_folder": comp_cap_rel,
+        "capture_date": cfg["capture_date"],
+        "load": cfg["load"],
+        "masks_sha256": lead_sha256,
+        "subject_masks_sha256": subject_masks_sha256,
         "first_source_frame": first_src,
-        "num_frames": int(cfg["num_frames"]),
+        "num_frames": num_frames,
         "pick_frame": pick_frame,
         "pick_source_frame": first_src + pick_frame,
         "mf_threshold": mf_threshold,
@@ -1008,8 +1258,8 @@ def run_scene_four_arms(
 
     # Determine which subjects to track:
     # - In kitchen_604_1009: target is `lead` (obj 0 in group, and alone), plus face_subprobe
-    # - In hall_1306_1418: target is `lead` (obj 0) AND `third`/dad (companion 1 -> obj 2 in group, and alone)
-    # - In regain_1419_1465: target is `second` (companion 0 -> obj 1 in group, and alone)
+    # - In hall_1306_1418: target is `lead` (obj 0) AND `third`/dad (`third` in companion_npzs)
+    # - In regain_1419_1465: target is `lead` (obj 0) AND `second` (`second` in companion_npzs)
     targets: list[dict[str, Any]] = [
         {
             "name": "lead",
@@ -1017,27 +1267,26 @@ def run_scene_four_arms(
             "group_obj_idx": 0,
         }
     ]
-    if scene_name == "hall_1306_1418" and len(comp_seeds) >= 2:
+    if scene_name == "hall_1306_1418" and "third" in comp_seed_by_name:
         targets.append(
             {
                 "name": "third_dad",
-                "alone_seed": comp_seeds[1].unsqueeze(0),
-                "group_obj_idx": 2,
+                "alone_seed": comp_seed_by_name["third"]["tensor"].unsqueeze(0),
+                "group_obj_idx": comp_seed_by_name["third"]["group_obj_idx"],
             }
         )
-    elif scene_name == "regain_1419_1465" and len(comp_seeds) >= 1:
+    elif scene_name == "regain_1419_1465" and "second" in comp_seed_by_name:
         targets.append(
             {
                 "name": "second",
-                "alone_seed": comp_seeds[0].unsqueeze(0),
-                "group_obj_idx": 1,
+                "alone_seed": comp_seed_by_name["second"]["tensor"].unsqueeze(0),
+                "group_obj_idx": comp_seed_by_name["second"]["group_obj_idx"],
             }
         )
 
     for model_key, base_model in models.items():
         model_arms: dict[str, Any] = {}
         for mem_on in (False, True):
-            arm_label = f"{model_key}__mem_{'on' if mem_on else 'off'}"
             # 1) Alone calls for each target subject
             alone_results: dict[str, Any] = {}
             for tgt in targets:
@@ -1053,9 +1302,6 @@ def run_scene_four_arms(
                 alone_results[tname] = res
 
             # 2) Group call (all subjects together)
-            # Note: For SAM31Tracker, group multiplexes all objects together.
-            # When mem_on is True, we set focus_obj_idx to the primary target of the scene
-            # (or run per-target focus_obj_idx if multiple targets are evaluated).
             group_results: dict[str, Any] = {}
             is_sam31 = "sam31" in model_key
             if len(comp_seeds) > 0:
@@ -1077,12 +1323,10 @@ def run_scene_four_arms(
                 else:
                     # SAM3Tracker.track_video loops _track_single_object per mask independently,
                     # so group object `g_idx` is identical to `alone` for that object; we still
-                    # run or record it explicitly so the 4-arm x (alone, group) table is complete.
+                    # record it explicitly so the 4-arm x (alone, group) table is complete.
                     for tgt in targets:
                         tname = tgt["name"]
                         alone_res = alone_results[tname]
-                        # Synthesize the group-indexed view around the single-object run
-                        # (and verify with a group call on SAM3Tracker if needed).
                         group_results[tname] = {
                             "masks": alone_res["masks"],
                             "frame_scores": alone_res["frame_scores"],
@@ -1103,10 +1347,13 @@ def run_scene_four_arms(
         sub_imgs = images[
             sub["first_source_frame"] - first_src : sub["first_source_frame"] - first_src + sub["num_frames"]
         ]
-        sub_npz = np.load(sub["seed_npz"])
-        face_seed = torch.from_numpy(
-            (sub_npz["parts"][sub["seed_frame_in_npz"], 0] > 0.5).astype(np.float32)
-        ).unsqueeze(0)
+        parts_bool, sub_sha256 = unpack_capture_mask_npz(
+            Path(sub["seed_npz"]), width=width, key="parts"
+        )
+        face_arr = parts_bool[int(sub["seed_frame_in_npz"])]
+        if face_arr.ndim == 3:
+            face_arr = face_arr[0]
+        face_seed = torch.from_numpy(face_arr.astype(np.float32)).unsqueeze(0)
         sub_arms: dict[str, Any] = {}
         for model_key, base_model in models.items():
             sub_arms[model_key] = {}
@@ -1122,10 +1369,13 @@ def run_scene_four_arms(
         scene_report["face_subprobe"] = {
             "first_source_frame": sub["first_source_frame"],
             "num_frames": sub["num_frames"],
+            "masks_sha256": sub_sha256,
+            "capture_date": cfg["capture_date"],
+            "load": cfg["load"],
             "arms": _format_subprobe_summary(sub_arms, first_src=sub["first_source_frame"]),
         }
 
-    summary = _compile_scene_summary(scene_report, targets, npz)
+    summary = _compile_scene_summary(scene_report, targets, ref_companions)
     out_json = out_dir / f"summary__{scene_name}.json"
     out_json.write_text(json.dumps(summary, indent=2))
     return summary
@@ -1169,19 +1419,11 @@ def _format_subprobe_summary(sub_arms: dict[str, Any], first_src: int) -> dict[s
 def _compile_scene_summary(
     scene_report: dict[str, Any],
     targets: list[dict[str, Any]],
-    npz: Any,
+    ref_companions: dict[str, np.ndarray],
 ) -> dict[str, Any]:
     first_src = int(scene_report["first_source_frame"])
     n_frames = int(scene_report["num_frames"])
     focus_windows = scene_report["focus_windows"]
-
-    # Build reference companion masks across the window from the saved capture npz if shapes match
-    ref_companions: dict[str, np.ndarray] = {}
-    if "raw" in npz and npz["raw"].shape[0] == n_frames:
-        ref_companions["saved_lead"] = npz["raw"] > 0.5
-    if "companions" in npz and npz["companions"].shape[0] == n_frames:
-        for c_i in range(npz["companions"].shape[1]):
-            ref_companions[f"saved_comp_{c_i}"] = npz["companions"][:, c_i] > 0.5
 
     compiled_arms: dict[str, Any] = {}
     for model_key, mdict in scene_report["arms"].items():
@@ -1287,9 +1529,14 @@ def _compile_scene_summary(
                     "focus_window_frames": focus_rows,
                 }
 
-    out = {
+    out: dict[str, Any] = {
         "scene": scene_report["scene"],
         "description": scene_report["description"],
+        "capture_folder": scene_report["capture_folder"],
+        "capture_date": scene_report["capture_date"],
+        "load": scene_report["load"],
+        "masks_sha256": scene_report["masks_sha256"],
+        "subject_masks_sha256": scene_report["subject_masks_sha256"],
         "first_source_frame": first_src,
         "num_frames": n_frames,
         "pick_frame": scene_report["pick_frame"],
@@ -1298,6 +1545,8 @@ def _compile_scene_summary(
         "focus_windows": focus_windows,
         "arms": compiled_arms,
     }
+    if scene_report.get("companion_capture_folder") is not None:
+        out["companion_capture_folder"] = scene_report["companion_capture_folder"]
     if "face_subprobe" in scene_report:
         out["face_subprobe"] = scene_report["face_subprobe"]
     return out
@@ -1341,6 +1590,10 @@ def _run_lotsofpeople_scene(
             individual_masks=True,
         )
         all_seed_masks = getattr(det_out, "args", det_out)[0].float().cpu()
+
+    seed_masks_sha256 = hashlib.sha256(
+        np.ascontiguousarray((all_seed_masks.numpy() > 0.5).astype(np.uint8)).tobytes()
+    ).hexdigest()
 
     flat = (all_seed_masks > 0.5).flatten(1).float()
     area = all_seed_masks.flatten(1).sum(1)
@@ -1458,6 +1711,9 @@ def _run_lotsofpeople_scene(
     summary = {
         "scene": "lotsofpeople",
         "description": cfg["description"],
+        "capture_date": cfg.get("capture_date", "2026-10-17"),
+        "load": cfg.get("load", "lotsofpeopledance_0414_0720_live_sam3_detect"),
+        "masks_sha256": seed_masks_sha256,
         "start_sec": cfg["start_sec"],
         "num_frames": cfg["num_frames"],
         "seed_frame": seed_frame,
@@ -1510,6 +1766,17 @@ def main(argv: list[str] | None = None) -> int:
         loaded_models[mkey] = load_sam_model(ckpt)
 
     all_summaries: dict[str, Any] = {}
+    if args.out_dir.is_dir():
+        for existing_json in sorted(args.out_dir.glob("summary__*.json")):
+            if existing_json.name == "summary__all_scenes.json":
+                continue
+            try:
+                existing_data = json.loads(existing_json.read_text())
+                if isinstance(existing_data, dict) and "scene" in existing_data:
+                    all_summaries[str(existing_data["scene"])] = existing_data
+            except Exception:
+                pass
+
     for sname in args.scenes:
         print(f"[sam_memory_selection] running scene {sname} ...", flush=True)
         summary = run_scene_four_arms(
