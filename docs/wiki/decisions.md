@@ -24,6 +24,18 @@ Older history lives elsewhere and is not copied here:
   why side by side (the row's `takes` field, shown by the page since this day). Neither lead decides for the owner
   unless it is plainly obvious to both. What it used to say: `working_with_the_owner.md`, "Judging", said a reading
   gives no verdict on the piece; that now holds for stills and holds, not for the review card.
+- **The mom's whole kitchen, second_hfp_0604h, is kept and laid** (the owner, in the Claude lead's terminal, about
+  15:31Z, after watching its compare clip; their verdict is the last line of `data/fun/verdicts/verdicts.jsonl` that
+  day). It replaces her three kitchen pieces of 10-14 (0604d, 0949d, 0604g), so r17_06 closed as no longer needed.
+  The owner calls it far better than anything before on her flicker, and wants it made again on demand: its code
+  (the render's commit 8d007f54), graphs, job, plan and inputs are frozen (`bench/results/2026-10-18_second_hfp_0604h_recipe.md`),
+  and what made the difference is a postmortem (`docs/research/postmortems/2026-10-18_mom_kitchen_flicker.md`).
+- **The third subject is clean shaven: no beard and no stubble** (the owner, in the Claude lead's terminal, about
+  15:20Z). Their 10-13 word was NO BEARD (Open List z23), but that evening's session wrote the look as "stubble, his
+  beard gone", so his text in `data/fun/plan.json` kept "short stubble" and H3 kept drawing it. What it used to say:
+  the plan's text for him, "brown eyes, dark eyebrows, fair skin and short stubble". Every dad load from now carries
+  the changed text; kept pieces are not remade for it. In the hall the owner sees the original dad only where his
+  tracking was lost, not inside the swapped face.
 - **Matting stays parked** (the owner, about 13:53Z): Meta's Sapiens matting model is hair-edge polish; the gaps and
   the face masks come first (`r17_07`). The pack's own per-piece mattes and the one compositing law are on.
 - **The Gemini lead lands on its own when the Claude lead is out of credits** (the owner, about 13:45Z): its
