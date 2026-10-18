@@ -8,8 +8,8 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 153 |
-| [`measure_*`](#measure) | 37 |
+| [`check_*`](#check) | 154 |
+| [`measure_*`](#measure) | 38 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
@@ -84,6 +84,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_marker_arms.py`](check_marker_arms.py) | A marker-corpus arm that was declared and not applied must go red. |
 | [`check_masked_job.py`](check_masked_job.py) | Check the masked job builder: the graphs it writes and what it refuses. |
 | [`check_masked_prompt.py`](check_masked_prompt.py) | The masked lane's prompt node: what it writes, and that the graders read the same text. |
+| [`check_measure_moge2_depth.py`](check_measure_moge2_depth.py) | Check `vendor/meta_moge2/hyden_moge2.py` (`vendor/meta_moge2/LICENSE`) and `bench/measure_moge2_depth.py` on CPU. |
 | [`check_meta_sapiens2.py`](check_meta_sapiens2.py) | `vendor/meta_sapiens2/` is Meta's text as Meta wrote it: its licence, and its names for the Sapiens2 models' points and classes. |
 | [`check_model_contents.py`](check_model_contents.py) | What is INSIDE each shipped model file, asserted against a committed baseline. |
 | [`check_model_files.py`](check_model_files.py) | No graph or constant may name a model file its real loader cannot use. |
@@ -202,6 +203,7 @@ this file is only a way to find a script by what it says it does.
 | [`measure_merge_noise.py`](measure_merge_noise.py) | How much of a merged LoRA survives, and how much noise rides along with it. |
 | [`measure_merge_realisation.py`](measure_merge_realisation.py) | How much of a LoRA delta actually lands when it is merged into int8. |
 | [`measure_merge_rounding_regimes.py`](measure_merge_rounding_regimes.py) | Does the rounding regime change the merge penalty, and by how much. |
+| [`measure_moge2_depth.py`](measure_moge2_depth.py) | Measure per-frame metric depth and camera intrinsics on video frames with HyDen MoGe-2. |
 | [`measure_pair_alignment.py`](measure_pair_alignment.py) | Is a pair of clips the same take or two takes? Per-frame picture distance and audio envelope correlation. |
 | [`measure_pdd_audio_carry.py`](measure_pdd_audio_carry.py) | Does ComfyUI's audio change-of-variable degrade with PDD's block width? |
 | [`measure_pdd_quant_interaction.py`](measure_pdd_quant_interaction.py) | Does the PDD LoRA's strength change how much QUANTISATION costs? |

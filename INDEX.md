@@ -147,7 +147,7 @@ with none is a helper the others import.
 | `.claude/` | 1 | [below](#claude) |
 | `archive/` | 29 | [below](#archive) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 791 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 793 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
@@ -155,7 +155,7 @@ with none is a helper the others import.
 | `prompt_bank/` | 170 | [`docs/prompt_bank.md`](docs/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
 | `standalone/` | 27 | [below](#standalone) |
-| `vendor/` | 8 | [below](#vendor) |
+| `vendor/` | 11 | [below](#vendor) |
 | `vendor_config/` | 10 | [below](#vendor_config) |
 | `vendor_guides/` | 6 | [below](#vendor_guides) |
 | `workflows/` | 180 | [`workflows/INDEX.md`](workflows/INDEX.md) |
@@ -264,7 +264,10 @@ with none is a helper the others import.
 |---|---|
 | [`AGENTS.md`](vendor/AGENTS.md) | vendor/: third-party files the pack carries |
 | [`CLAUDE.md`](vendor/CLAUDE.md) | @AGENTS.md |
-| [`README.md`](vendor/README.md) | (empty) |
+| [`README.md`](vendor/README.md) | vendor/: third-party code and text under their own licences |
+| [`meta_moge2/LICENSE`](vendor/meta_moge2/LICENSE) | FAIR Noncommercial Research License |
+| [`meta_moge2/README.md`](vendor/meta_moge2/README.md) | vendor/meta_moge2: HyDen MoGe-2 metric-point loader and geometry |
+| [`meta_moge2/hyden_moge2.py`](vendor/meta_moge2/hyden_moge2.py) | HyDen MoGe-2 (DINOv2 ViT-L/14 + MobileNetV2 CNN_Large) metric 3D point and depth model. |
 | [`meta_sapiens2/LICENSE.md`](vendor/meta_sapiens2/LICENSE.md) | Sapiens2 License |
 | [`meta_sapiens2/README.md`](vendor/meta_sapiens2/README.md) | vendor/meta_sapiens2: Meta's names for the Sapiens2 models' points and classes |
 | [`meta_sapiens2/pose_keypoints308.json`](vendor/meta_sapiens2/pose_keypoints308.json) | Meta's names for the Sapiens2 pose model's points, in the checkpoint's order, with each name's left-right partner |

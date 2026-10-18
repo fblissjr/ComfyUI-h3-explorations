@@ -9,5 +9,6 @@ See [LLM wiki index](docs/wiki/index.md)
 ## Licence
 
 This pack is under the MIT licence in `LICENSE`, except the
-`vendor/meta_sapiens2/` directory: that holds Meta's code and text, under
-Meta's licence in `vendor/meta_sapiens2/LICENSE.md`.
+`vendor/meta_sapiens2/` and `vendor/meta_moge2/` directories: those hold
+Meta's code and text, under Meta's licences in
+`vendor/meta_sapiens2/LICENSE.md` and `vendor/meta_moge2/LICENSE`.
