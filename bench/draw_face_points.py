@@ -174,6 +174,12 @@ EYE_PARTS = ("_lash_ring", "_upper_eyelid_line", "_lower_eyelid_line", "_upper_c
 RING_SAMPLES = 64
 #: What `--leave-out` can name: every shape drawn belongs to one.
 PARTS = ("eyes", "brows", "nose", "mouth", "dots")
+#: Under `--closed-lip-line`, a lip-line mouth whose upper and lower inner-lip arcs lie at or under this median
+#: distance (pixels on the reference canvas), or whose class-map mouth has no hole (`not hole.any()`), is drawn as
+#: one closed parting line (`inner_lip_line`) rather than an open ring. Measured: on `second_hfp_0278d` (`278-293`),
+#: the pose model places the inner lip arcs 0.64 to 2.79 px apart on a closed mouth, leaving a 10-19 px dark slit
+#: (`luma < 40`) between the two 1.0 px black edge strokes on `278-281` when drawn as a ring (2026-10-18).
+INNER_GAP_CLOSED_PX = 3.0
 
 
 def _ids(index: dict, head: str = "", tail: str = "") -> list[int]:
@@ -381,12 +387,74 @@ def white_expected(drawing: list[tuple[str, np.ndarray, bool]], width: float, do
     return float(inside.sum())
 
 
-def mouth_shapes(whole: np.ndarray, hole: np.ndarray, *, closed_as_line: bool = False) -> list[tuple[str, np.ndarray, bool]]:
-    """A class-map mouth's outlines as the drawing's shapes: the lips' outer outline and, where the mouth is open, its inner
-    edge, each a closed line (`mouth_outer`, `mouth_inner`); with `closed_as_line` True and `not hole.any()` (no teeth or tongue),
-    one open parting line from corner to corner (`mouth_closed`, `closed=False`), never a hollow 'O' ring."""
+def inner_lip_centerline(p: np.ndarray, index: dict) -> tuple[np.ndarray, float]:
+    """The centerline between the upper and lower inner-lip arcs from corner to corner, and their median separation in pixels."""
+    a, b = p[index["r_inner_corner_of_mouth"]], p[index["l_inner_corner_of_mouth"]]
+    upper = _along(p, _ids(index, tail="_of_upper_inner_lip"), a, b)
+    lower = _along(p, _ids(index, tail="_of_lower_inner_lip"), a, b)
+    ab = b - a
+    denom = float(ab @ ab)
+    if denom < 1e-12:
+        return np.vstack([a, b]), 0.0
+    u_pts = np.vstack([a[None], upper, b[None]])
+    l_pts = np.vstack([a[None], lower, b[None]])
+    tu = np.clip(((u_pts - a) @ ab) / denom, 0.0, 1.0)
+    tl = np.clip(((l_pts - a) @ ab) / denom, 0.0, 1.0)
+    iu, il = np.argsort(tu, kind="stable"), np.argsort(tl, kind="stable")
+    tu, u_pts = tu[iu], u_pts[iu]
+    tl, l_pts = tl[il], l_pts[il]
+    t = np.linspace(0.0, 1.0, max(len(u_pts), len(l_pts)))
+    up = np.column_stack([np.interp(t, tu, u_pts[:, 0]), np.interp(t, tu, u_pts[:, 1])])
+    lo = np.column_stack([np.interp(t, tl, l_pts[:, 0]), np.interp(t, tl, l_pts[:, 1])])
+    gaps = np.linalg.norm(lo - up, axis=1)
+    gap = float(np.median(gaps[1:-1])) if len(gaps) > 2 else float(np.median(gaps))
+    return 0.5 * (up + lo), gap
+
+
+def lip_shape(p: np.ndarray, index: dict, size: tuple[int, int],
+              got: tuple[np.ndarray, np.ndarray] | None = None) -> tuple[tuple[str, np.ndarray, bool], tuple[np.ndarray, np.ndarray]]:
+    """A lip-line frame's single mouth shape and its `(whole, hole)` masks under `--closed-lip-line`:
+    when there is no class-map hole (`not hole.any()`) or the inner lip gap is at or under `INNER_GAP_CLOSED_PX`,
+    one white centerline (`inner_lip_line`, `closed=False`) over flat skin grey with an empty hole; when open,
+    one white outline (`inner_lip_ring`, `closed=True`) around a solid black interior (`inner_lip_ring` filled)."""
     import cv2
-    if closed_as_line and not hole.any():
+    w, h = size
+    rings = {}
+    for where, extra in (("outer", [index["center_of_cupid_bow"]]), ("inner", [])):
+        a, b = p[index[f"r_{where}_corner_of_mouth"]], p[index[f"l_{where}_corner_of_mouth"]]
+        upper = _along(p, _ids(index, tail=f"_of_upper_{where}_lip") + extra, a, b)
+        lower = _along(p, _ids(index, tail=f"_of_lower_{where}_lip"), a, b)
+        rings[where] = np.concatenate([a[None], upper, b[None], lower[::-1]])
+    outer_m, inner_m = np.zeros((h, w), np.uint8), np.zeros((h, w), np.uint8)
+    cv2.fillPoly(outer_m, [np.round(rings["outer"]).astype(np.int32)], 1)
+    cv2.fillPoly(inner_m, [np.round(rings["inner"]).astype(np.int32)], 1)
+    whole = (got[0] | outer_m.astype(bool)) if got is not None else outer_m.astype(bool)
+    has_hole = True if got is None else bool(got[1].any())
+    mid, gap = inner_lip_centerline(p, index)
+    if (not has_hole) or (gap <= INNER_GAP_CLOSED_PX):
+        return ("inner_lip_line", mid, False), (whole, np.zeros((h, w), bool))
+    return ("inner_lip_ring", rings["inner"], True), (whole, inner_m.astype(bool))
+
+
+def mouth_shapes(whole: np.ndarray, hole: np.ndarray, *, closed_as_line: bool = False) -> list[tuple[str, np.ndarray, bool]]:
+    """A class-map mouth's outlines as the drawing's shapes: by default, the lips' outer outline and, where the mouth is open, its
+    inner edge, each a closed line (`mouth_outer`, `mouth_inner`). With `closed_as_line` True, the mouth is one unambiguous shape:
+    where `not hole.any()` (or a 1-2 px speck has no 3-point contour), one open parting line from corner to corner (`mouth_closed`,
+    `closed=False`), never a hollow 'O' ring; where `hole.any()`, one closed white outline around the dark interior (`mouth_inner`,
+    `closed=True`), dropping `mouth_outer`."""
+    import cv2
+    if closed_as_line:
+        if hole.any():
+            bridged = cv2.morphologyEx(hole.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
+            cs, _ = cv2.findContours(bridged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+            valid = []
+            for c in cs:
+                poly = cv2.approxPolyDP(c, 1.0, True)[:, 0, :].astype(float)
+                if len(poly) >= 3:
+                    valid.append((float(cv2.contourArea(c)), poly))
+            if valid:
+                valid.sort(key=lambda x: x[0], reverse=True)
+                return [("mouth_inner", valid[0][1], True)]
         xs = np.nonzero(whole.any(0))[0]
         if len(xs) < 2:
             return []
@@ -424,15 +492,18 @@ def draw(mesh: np.ndarray, drawings: list[list], width: float, bare: set[int], d
                 im.paste(tuple(look["line"]), mask=b)
             im.paste(tuple(look["edge"]), mask=ImageChops.multiply(a, b))
     def mouth(im, f: int) -> None:
-        """A class-map mouth (`mouths[f]`: the mouth's whole outline filled, and its open inside, as masks of the frame): the body
-        model's own lips painted out to the grey round them, and the open inside in the edge colour; its outlines are lines."""
+        """A mouth's paint-out and dark interior (`mouths[f]`: the mouth's whole outline filled, and its open inside, as masks of the frame):
+        the body model's own lips painted out to the grey round them (sampling only the body model, never the black ground beside a profile
+        face), and the open inside in the edge colour; its outlines are lines."""
         import cv2
         got = None if f in bare or not mouths else mouths[f]
         if got is None or not got[0].any():
             return
         whole, hole = got
         ring = cv2.dilate(whole.astype(np.uint8), np.ones((15, 15), np.uint8)).astype(bool) & ~cv2.dilate(whole.astype(np.uint8), np.ones((7, 7), np.uint8)).astype(bool)
-        grey = tuple(int(v) for v in np.median(mesh[f][ring], axis=0)) if ring.any() else (128, 128, 128)
+        on_body = ring & (mesh[f].max(-1) > 16)
+        sample = on_body if on_body.any() else ring
+        grey = tuple(int(v) for v in np.median(mesh[f][sample], axis=0)) if sample.any() else (128, 128, 128)
         big = lambda m: Image.fromarray((m.astype(np.uint8) * 255)).resize(im.size, Image.NEAREST)        # noqa: E731
         im.paste(grey, mask=big(cv2.dilate(whole.astype(np.uint8), np.ones((5, 5), np.uint8)).astype(bool)))
         im.paste(tuple(look["edge"]), mask=big(hole))
@@ -632,7 +703,25 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
         for f in own:
             drawings[f] = [d for d in drawings[f] if not d[0].endswith("_lip_ring")]
         if mouth_lines or own:
-            drawings = [d + (mouth_shapes(*mouths[f], closed_as_line=closed_lip_line) if mouths[f] is not None and (mouth_lines or f in own) else []) for f, d in enumerate(drawings)]
+            import cv2
+            for f in range(count):
+                if mouths[f] is not None and (mouth_lines or f in own):
+                    sh = mouth_shapes(*mouths[f], closed_as_line=closed_lip_line)
+                    drawings[f] = drawings[f] + sh
+                    if closed_lip_line:
+                        if any(n == "mouth_closed" for n, _, _ in sh) and mouths[f][1].any():
+                            mouths[f] = (mouths[f][0], np.zeros_like(mouths[f][1]))
+                        elif any(n == "mouth_inner" for n, _, _ in sh):
+                            bridged = cv2.morphologyEx(mouths[f][1].astype(np.uint8), cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8)).astype(bool)
+                            mouths[f] = (mouths[f][0] | bridged, bridged)
+    if closed_lip_line:
+        if mouths is None:
+            mouths = [None] * count
+        for f in range(count):
+            if any(d[0].endswith("_lip_ring") for d in drawings[f]):
+                sh_f, m_f = lip_shape(points["keypoints"][f], idx, (w, h), mouths[f])
+                drawings[f] = [d for d in drawings[f] if not d[0].endswith("_lip_ring")] + [sh_f]
+                mouths[f] = m_f
     pictures = draw(mesh, drawings, wide, left, dots, fills, contrast=iris == IRIS_FORMS[3], mouths=mouths)
     but = filled_px(fills, (w, h)) if iris == IRIS_FORMS[3] else None
     out.parent.mkdir(parents=True, exist_ok=True)

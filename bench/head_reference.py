@@ -546,6 +546,11 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
             raise SystemExit("--mouth-on draws the lip rings where the frame-at-a-time gate drops them (--mouth auto, a class map that holds her lips "
                              "on some frame); this reference has no such gate")
         mouth_on_frames(first, count, mouth_on, set(faceless) | {f for fs in no_mouth_frames(first, count, no_mouth_on or []).values() for f in fs}, set())
+    if closed_lip_line is not None:
+        if not str(closed_lip_line).strip():
+            raise SystemExit("--closed-lip-line takes a reason (WHY): say who asked for it and why")
+        if mouth != "auto" or not classes or classes_first is None:
+            raise SystemExit(f"--closed-lip-line acts on --mouth auto with a class map; got {mouth!r}")
     if out.suffix != ".mp4":
         raise SystemExit(f"--out {out} must end in .mp4: the other files are named from it")
     made = outputs(out)
@@ -684,7 +689,20 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
                 + (", ".join(f"{a}-{b}" if a != b else str(a) for a, b in spans_of(worded)) or "none") + "): the pose model's lip rings, their "
                 "inside dark" + (f"; already drawn by the gate on {', '.join(f'{a}-{b}' if a != b else str(a) for a, b in spans_of(already))}"
                                  if already else ""))
-        closed_line_on = [f for f in by_class if mouths[f - first] is not None and not mouths[f - first][1].any()] if closed_lip_line else []
+        closed_line_on = []
+        if closed_lip_line:
+            cut_pts = faces.rows_of(str(made["plain_cut_points"]), names, first, count, first)[0]
+            closed_by_lines = [
+                f for f in sorted(set(by_lines) | set(worded_drawn))
+                if mouths[f - first] is None or not mouths[f - first][1].any()
+                or faces.inner_lip_centerline(cut_pts["keypoints"][f - first], cut_pts["index"])[1] <= faces.INNER_GAP_CLOSED_PX
+            ]
+            closed_by_class = [
+                f for f in by_class
+                if mouths[f - first] is not None
+                and any(n == "mouth_closed" for n, _, _ in faces.mouth_shapes(*mouths[f - first], closed_as_line=True))
+            ]
+            closed_line_on = sorted(closed_by_lines + closed_by_class)
         mouth_said.update(inside="the class map", inside_on_frames=sum(m is not None for f, m in enumerate(mouths) if on_lines[f]), gate=gate,
                           frames_by_the_lip_lines=spans_of(by_lines), frames_by_the_class_map=spans_of(by_class),
                           over_time={"rule": dict(MOUTH_RUNS), "rule_is": "starting values (bench/results/2026-10-15_mouth_runs.md)",

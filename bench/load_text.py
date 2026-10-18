@@ -182,11 +182,18 @@ def subject_2(drawn: dict | None, moves: str = MOVES["face"], frames: int | None
         clauses.append(EYES[iris] + ", and they open, close and look where the person's eyes do"
                        + {"lids": "; where the person's eyes are shut, each eye is drawn as a single closed line",
                           "none": "; where the person's eyes are shut, no eye is drawn"}.get((drawn.get("eyes_shut") or {}).get("form"), ""))
+    closed_line = bool((drawn.get("mouth") or {}).get("closed_lip_line"))
     inside = ", dark inside where it is open" if (drawn.get("mouth") or {}).get("inside") == "the class map" else ""
     if "mouth" in parts:
-        clauses.append("the mouth is outlined" + inside + ", and it opens and closes where the person's mouth does")
+        if closed_line:
+            clauses.append("the mouth is a single line when closed, and an outline filled dark inside when open, opening and closing where the person's mouth does")
+        else:
+            clauses.append("the mouth is outlined" + inside + ", and it opens and closes where the person's mouth does")
     elif some:
-        clauses.append("on some frames the mouth is outlined too" + inside + ", and there it opens and closes where the person's mouth does")
+        if closed_line:
+            clauses.append("on some frames the mouth is drawn too, a single line when closed and an outline filled dark inside when open, and there it opens and closes where the person's mouth does")
+        else:
+            clauses.append("on some frames the mouth is outlined too" + inside + ", and there it opens and closes where the person's mouth does")
     drawn_parts = f", with its {joined(parts)} drawn on its face as thin white outlines" if parts else ""
     return head + drawn_parts + "".join(f"; {c}" for c in clauses) + "."
 

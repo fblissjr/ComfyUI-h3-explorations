@@ -69,6 +69,14 @@ def what_a_reference_draws_the_text_says() -> str:
     from_map = s2({"form": "drawn", "drawn": {"parts_left_out": ["mouth"], "iris": "contrast", "mouth": {"drawn": True, "drawn_as": "the class map", "inside": "the class map"}}})
     assert "nose and mouth drawn" in from_map and "the mouth is outlined, dark inside where it is open, and it opens and closes" in from_map, from_map
     assert "dark inside" not in drawn, drawn
+    closed_line_all = s2({"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast",
+                                                     "mouth": {"drawn": True, "inside": "the class map", "closed_lip_line": {"why": "test", "closed_frames": [[1730, 1754]]}}}})
+    assert "the mouth is a single line when closed, and an outline filled dark inside when open, opening and closing where the person's mouth does" in closed_line_all, closed_line_all
+    assert "the mouth is outlined" not in closed_line_all, closed_line_all
+    closed_line_some = s2({"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast",
+                                                      "mouth": {"drawn": True, "inside": "the class map", "frames_with_no_mouth": 10,
+                                                                "closed_lip_line": {"why": "test", "closed_frames": [[1730, 1740]]}}}})
+    assert "on some frames the mouth is drawn too, a single line when closed and an outline filled dark inside when open, and there it opens and closes where the person's mouth does" in closed_line_some, closed_line_some
     # THE MOUTH WHERE THE RECORD'S FRAMES DRAW ONE (1010j and 5114e, 2026-10-15: the form "auto" with no frame drawing a mouth): none on
     # a load whose every frame has none, "on some frames" where some do, as before where all do (1730-1754 is 25 frames)
     def mouthed(bare):

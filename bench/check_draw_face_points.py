@@ -458,8 +458,9 @@ def left_out_and_highlights() -> str:
     assert all(len(v) and not ((v[:, 0] < 70) & (v[:, 1] < 50)).any() for v in found), [len(v) for v in found]
     back = df.read_back(written, mesh, drawings, np.array([df.white_expected(d, WIDE, True) for d in drawings]), np.ones(4, bool), WIDE)
     assert back["passed"] and not back["off_the_lines"], back["lags"]
-    # with closed_as_line=True (--closed-lip-line), a closed class-map mouth (no hole) is one open parting line (`mouth_closed`, closed=False),
-    # never a hollow 'O' ring (`mouth_outer`, closed=True); off by default (`closed_as_line=False`)
+    # with closed_as_line=True (--closed-lip-line), the mouth is one unambiguous shape on both paths:
+    # closed = one open white line (mouth_closed or inner_lip_line, 0 dark interior pixels);
+    # open = one closed white outline around a solid black interior (mouth_inner or inner_lip_ring, dropping the outer lip ring)
     whole = np.zeros((H, W), bool); whole[130:151, 160:221] = True
     hole = np.zeros((H, W), bool)
     assert [n for n, _, c in df.mouth_shapes(whole, hole)] == ["mouth_outer"], "closed_as_line should be off by default"
@@ -468,14 +469,38 @@ def left_out_and_highlights() -> str:
     closed_pic = df.draw(grey([90]), [closed_shapes], WIDE, set(), False, mouths=[(whole, hole)])[0]
     assert closed_pic[140, 190].min() > df.WHITE and closed_pic[131, 190].max() < 120 and closed_pic[149, 190].max() < 120, \
         "a closed mouth with no teeth or tongue was drawn as a hollow 'O' ring instead of one parting line"
+    # profile mouth next to black ground (frame 755 fault): sampling ignores black ground so closed mouth is never painted black
+    prof_mesh = grey([90]); prof_mesh[0, :, :198] = 0
+    prof_pic = df.draw(prof_mesh, [closed_shapes], WIDE, set(), False, mouths=[(whole, hole)])[0]
+    assert int((prof_pic[132:149, 200:218].max(-1) < 40).sum()) == 0, "profile mouth sampled black ground under closed line"
     hole[136:145, 172:209] = True
+    assert [n for n, _, _ in df.mouth_shapes(whole, hole, closed_as_line=False)] == ["mouth_outer", "mouth_inner"]
     open_shapes = df.mouth_shapes(whole, hole, closed_as_line=True)
-    assert [n for n, _, c in open_shapes] == ["mouth_outer", "mouth_inner"] and all(c for _, _, c in open_shapes), open_shapes
+    assert [n for n, _, c in open_shapes] == ["mouth_inner"] and all(c for _, _, c in open_shapes), open_shapes
     open_pic = df.draw(grey([90]), [open_shapes], WIDE, set(), False, mouths=[(whole, hole)])[0]
-    assert open_pic[140, 190].max() < 40 and (open_pic[128:138, 190].min(-1) > df.WHITE).any(), "an open mouth is not dark inside a white ring"
+    assert open_pic[140, 190].max() < 40 and (open_pic[134:138, 190].min(-1) > df.WHITE).any() and open_pic[130, 190].max() < 120, \
+        "an open class-map mouth under closed_as_line is not one white outline around a dark interior"
+    # lip-line path under closed_lip_line: closed when no hole or inner_gap <= 3 px (0 dark px inside), open single ring + black fill when hole and gap > 3 px
+    p0 = face(CENTRES[:1])[0]
+    sh_cl, m_cl = df.lip_shape(p0, INDEX, (W, H), (whole, np.zeros((H, W), bool)))
+    assert sh_cl[0] == "inner_lip_line" and sh_cl[2] is False and not m_cl[1].any(), sh_cl
+    p_tight = p0.copy()
+    for k, i in INDEX.items():
+        if k.endswith("_of_lower_inner_lip"):
+            p_tight[i, 1] -= 4.0  # gap = 2.0 px <= 3.0 px even with a hole present
+    sh_tight, m_tight = df.lip_shape(p_tight, INDEX, (W, H), (whole, hole))
+    assert sh_tight[0] == "inner_lip_line" and sh_tight[2] is False and not m_tight[1].any(), sh_tight
+    slit_mesh = grey([115]); slit_mesh[:, 145:150, 175:205] = 10
+    pic_tight = df.draw(slit_mesh, [[sh_tight]], 1.5, set(), False, mouths=[m_tight])[0]
+    assert int((pic_tight[m_tight[0]].max(-1) < 40).sum()) == 0, "dark slit left inside closed lip-line mouth"
+    sh_op, m_op = df.lip_shape(p0, INDEX, (W, H), (whole, hole))
+    assert sh_op[0] == "inner_lip_ring" and sh_op[2] is True and m_op[1].any(), sh_op
+    pic_op = df.draw(grey([90]), [[sh_op]], 1.5, set(), False, mouths=[m_op])[0]
+    cx_m, cy_m = p0[[INDEX["r_inner_corner_of_mouth"], INDEX["l_inner_corner_of_mouth"]]].mean(0).round().astype(int)
+    assert pic_op[cy_m, cx_m].max() < 40, "open lip-line mouth interior not filled black"
     return ("with the mouth left out there is no white on the lips' points, her eyes are as before, the record says so and a second reader told the same passes; "
             "a name that is not a part is refused; a highlight the encode lifts over white is not counted and the read-back passes; "
-            "with closed_as_line on, a closed class-map mouth draws one parting line, never a hollow 'O'")
+            "with closed_as_line on, both paths draw one parting line when closed (0 dark px) and one white outline around a black interior when open")
 
 
 def refusals() -> str:
