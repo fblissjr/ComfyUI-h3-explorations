@@ -1,7 +1,8 @@
 # Handover: read this before anything else
 
 **Rewritten at the end of each working day by the Claude lead; the day before is in git.** Written for 2026-10-17 by
-`mrtabby` (the Claude lead) at 00:35Z on 2026-10-18, and completed at the close (01:45Z) by `mrgemsol` (the Gemini lead).
+`mrtabby` (the Claude lead) at 00:35Z on 2026-10-18, and completed at the close (01:45Z) by `mrgemsol` (the Gemini lead), who does not return on 2026-10-18: tomorrow's
+Gemini lead is a new session, starting from this page and the mailbox.
 Where this page and a record disagree, the record is right (`decisions.md`, newest first; `data/fun/laid.jsonl`; the
 newest table and gap check; `git log`). The mailbox is `internal/gemini/` (`PROTOCOL.md`;
 `2026-10-17_claude_to_gemini.md` C1-C146, `2026-10-17_gemini_to_claude.md` G1-G62). Updated by the Claude lead at 01:55Z
@@ -85,15 +86,15 @@ gate. The two that are next, from the same check and tonight's `lead_fp_0613g`:
   `604-1009`), `lead_fp_0613g` (the lead's `613-974` in one window), `second_hfp_0278d` (`278-293`), and `lead_fp_0438d`
   (`438-483`, control). Per C131, candidate clips whose ranges contain a gap for a person who shows wait for tomorrow's
   player gap-count banner before going on Start here (listed with their exact gap spans in `G62`).
-- **On branches, not landed** (started after the close, at the owner's word; each needs its READY, the Claude lead's
-  clearance, then a pathspec landing):
-  - `gem-memsel-fix` (`h3_worktrees/gem-memsel-fix`): `bench/sam_memory_selection.py`'s three `fun` scenes read each
-    capture's `subjects/<subj>/` masks (bit-packed), from captures NAMED explicitly, never a blocked or older one
-    (C146: kitchen `data/2026-10-17_lead_fp_0613g/`, 1419 `data/2026-10-15_lead_fp_1419d/`, the hall the capture
-    `lead_fp_1306s` and `third_fp_1310c` were made from; never `data/2026-10-12_lead_fp_1306_span_1306_1418_blocked`),
-    each masks file's sha256 recorded. Then the three scenes run on the card.
-  - `gemmatte-faces` (`h3_worktrees/gemmatte-faces`): the three-state face label and drops and face lines as a person's
-    word, CPU only (`internal/gemini/2026-10-18_brief_build_faces.md`). Lands before `lead_fp_0613h` is made.
+- **After the close** (the owner's word: mrgemsol does not return tomorrow, so the Claude lead landed what was cleared):
+  - LANDED `13d9639f`: `bench/sam_memory_selection.py`'s three `fun` scenes read each capture's `subjects/<subj>/` masks
+    (bit-packed), from captures NAMED explicitly, never a blocked or older one (C146, C147: kitchen
+    `data/2026-10-17_lead_fp_0613g/`; the hall `data/2026-10-13_lead_fp_1306s/` and `data/2026-10-13_third_fp_1310c/`;
+    1419 `data/2026-10-15_lead_fp_1419d/`; `data/2026-10-12_lead_fp_1306_span_1306_1418_blocked` refused), each masks
+    file's sha256 recorded. NOT RUN: the three scenes need the card (the command is in C147).
+  - ON A BRANCH: `gemmatte-faces` (`h3_worktrees/gemmatte-faces`): the three-state face label and drops and face lines
+    as a person's word, CPU only (`internal/gemini/2026-10-18_brief_build_faces.md`). The Claude lead lands it if it is
+    cleared tonight; otherwise tomorrow's Gemini lead lands it after clearance, before `lead_fp_0613h` is made.
   The four branches of the evening (`gemini-hole-label`, `gemmatte-masks`, `gemmatte-moge`, `gem-memsel-tool`) are
   landed and removed.
 - **The close (C126, C143)**: `bench/rebuild_delivery.py --video fun` ran at `2026-10-18T0141Z`
