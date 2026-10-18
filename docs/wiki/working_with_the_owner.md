@@ -1,6 +1,6 @@
 # Working with the owner
 
-last updated: 2026-10-17 (moved here from the Claude sessions' private memory at the owner's word, so the Gemini and
+last updated: 2026-10-18 (moved here on 2026-10-17 from the Claude sessions' private memory at the owner's word, so the Gemini and
 Claude sessions read the same preferences)
 
 **How the owner likes to work, for every session of either model.** AGENTS.md holds the rules of the repo; this page
@@ -54,9 +54,17 @@ this page is corrected. Each line carries the date it was asked for; the reasons
 ## Judging
 
 - **Their eye on playback accepts a piece.** A reading of stills lists what to look at, with frames, in neutral words,
-  and stops: no verdict on the piece, no hold on a reading of likeness, eyes or mouth. A total gap, or something
+  and stops: no hold on a reading of likeness, eyes or mouth (a reader's verdict on a review clip goes only in its
+  card, below). A total gap, or something
   obviously wrong that can be fixed, is flagged; something minor for a frame or two is not. When they say a
   deviation is not worth time, stop. (2026-10-13)
+- **A reader's take sits beside each review clip, verdict included** (2026-10-18). For every clip on the review page,
+  a Gemini reader writes a short card: what it sees (frames), what it cannot see, its verdict and a one-line why,
+  generated from its reading file and folded closed, so the owner watches first and then compares. The owner's eye
+  still accepts a piece; the point is to see where the two reads agree and where each misses something.
+- **Every open decision carries both leads' takes** (2026-10-18): the Claude lead's and the Gemini lead's
+  recommendation and a one-line why, side by side on the Open List row. Neither lead decides for the owner unless the
+  answer is plainly obvious to both.
 - **Judging is comparative and in free text** (stacked pairs at a matched seed), never a score. A still is reported
   as seen, without a quality word. (2026-08-20)
 - **A render must decide something**; check the share for one already made first, and the cheap no-card check before

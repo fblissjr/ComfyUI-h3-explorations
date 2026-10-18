@@ -15,6 +15,20 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-10-18
+
+- **A reader's verdict on review clips, and both leads' takes on open decisions** (the owner, in the Claude lead's
+  terminal, about 14:25Z). Each clip on the review page gets a short card from a Gemini reader: what it sees, what it
+  cannot see, its verdict and why, folded closed, so the owner can compare their read with Gemini's and see where each
+  misses something. Each open Open List row gets the Claude lead's and the Gemini lead's recommendation and a one-line
+  why side by side (the row's `takes` field, shown by the page since this day). Neither lead decides for the owner
+  unless it is plainly obvious to both. What it used to say: `working_with_the_owner.md`, "Judging", said a reading
+  gives no verdict on the piece; that now holds for stills and holds, not for the review card.
+- **Matting stays parked** (the owner, about 13:53Z): Meta's Sapiens matting model is hair-edge polish; the gaps and
+  the face masks come first (`r17_07`). The pack's own per-piece mattes and the one compositing law are on.
+- **The Gemini lead lands on its own when the Claude lead is out of credits** (the owner, about 13:45Z): its
+  pre-flight and a blind read by a session that did not build it, each landing written in its mailbox file.
+
 ## 2026-10-17
 
 - **SAM 3.1's memory selection goes ON in the chain** (the owner, 2026-10-18T02:26Z: "If its clearly obvious just turn it on"). On
