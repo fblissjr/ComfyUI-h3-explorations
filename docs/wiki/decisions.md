@@ -31,6 +31,19 @@ Older history lives elsewhere and is not copied here:
   why side by side (the row's `takes` field, shown by the page since this day). Neither lead decides for the owner
   unless it is plainly obvious to both. What it used to say: `working_with_the_owner.md`, "Judging", said a reading
   gives no verdict on the piece; that now holds for stills and holds, not for the review card.
+- **Not again: a reference driven by ComfyUI core's SAM 3D Body face expression** (`SAM3DBody_FaceExpression`, MediaPipe
+  blendshapes into the mesh's expression), the owner, 2026-10-18 about 21:15Z: it was tried before and broke the mouth
+  movements, the eye movements and the iris. No record of that trial was in the repo, which is why a fresh session
+  (gem-h3ref, internal/gemini/2026-10-18_open_reference_view.md) proposed it as its first choice; this line is that record.
+  The direction stays the repaired drawing: the mouth drawn only when it moves, nothing drawn off the head model, and the
+  window rule for the original face.
+- **The mouth is drawn on the reference only where it actually opens** (the owner, in the Claude lead's terminal, about
+  20:45Z, after second_hfp_0278f). On 278-293 the drawn closed mouth (a line on a grey patch over the body model's lips)
+  parted her lips on every frame in 0278d, 0278e and 0278h; with no mouth drawn (0278f) they stayed closed on all 16.
+  Refined by the owner minutes later: "the mouth gets drawn when the mouth moves" (talking or singing); a still, closed
+  mouth draws nothing. Also from the tests: the dad's glasses and
+  beard in third_fp_1306d came from his original face elsewhere in the render window (third_fp_1340b, the same setup from
+  1340, has neither on 21 frames), so a window must not hold frames where the original face shows outside the region.
 - **The mom's whole kitchen, second_hfp_0604h, is kept and laid** (the owner, in the Claude lead's terminal, about
   15:31Z, after watching its compare clip; their verdict is the last line of `data/fun/verdicts/verdicts.jsonl` that
   day). It replaces her three kitchen pieces of 10-14 (0604d, 0949d, 0604g), so r17_06 closed as no longer needed.
