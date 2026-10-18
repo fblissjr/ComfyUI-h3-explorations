@@ -800,6 +800,8 @@ def rebuild(
             "--provenance", "PROVENANCE.html",
             "--out", str(to_review_html),
         ]
+        if answers_path.is_file():
+            to_review_cmd += ["--answers", str(answers_path)]
         if prev_table_json is not None and prev_table_json.is_file():
             to_review_cmd += ["--previous-table", str(prev_table_json)]
         if start_here_path is not None:

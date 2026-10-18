@@ -2,8 +2,10 @@
 """The owner's two local pages in the video's folder on the share (`Video/<video>/`, one copy each), made from the delivery table and the ledger: what is to review now (`to-review`), and what every stretch of the video is made of and from which day (`provenance`).
 
     <python> bench/review_pages.py to-review --table T.json --ledger LEDGER.json [--previous-table T_BEFORE.json] \\
-        --verdicts data/<stem>/verdicts/verdicts.jsonl --items data/<stem>/review/items.json --source SOURCE.mp4 \\
-        --share <the server's output folder> --page-url URL --open-list URL [--tables FOLDER] [--provenance PROVENANCE.html] --out TO_REVIEW.html
+        --verdicts data/<stem>/verdicts/verdicts.jsonl [--answers data/<stem>/owner_answers.jsonl] \\
+        --items data/<stem>/review/items.json --source SOURCE.mp4 \\
+        --share <the server's output folder> --page-url URL --open-list URL [--tables FOLDER] [--provenance PROVENANCE.html] \\
+        [--start-here data/<stem>/review/start_here.json] --out TO_REVIEW.html
     <python> bench/review_pages.py provenance --table T.json --ledger LEDGER.json [--record CLIP.mp4.check.json] \\
         --verdicts data/<stem>/verdicts/verdicts.jsonl --items data/<stem>/review/items.json --source SOURCE.mp4 \\
         --share <the server's output folder> --day-folder <share>/Video/<stem>/day_<date> --up-to N \\
@@ -55,7 +57,14 @@ day of the last line and off the page after it; the clicks and words on any join
 answers on it (a keep also settles it). Right above each player on `to-review` (in `Start here`, `Waiting on you`, and
 `Done`), the page prints `frame_coverage.clip_gap_line()` for that clip's own frames (per person, each kind with frame
 counts and spans, in the gap check's own words; no line when whole), and refuses any clip on `Start here` with gaps and
-no such line. Both pages include a short block from the table's per-frame gap check
+no such line. On `Start here`, each clip's entry may name `reader_file` (or `reader_files`), pointing at the playback
+reader session's `.md` file (`data/<day>_<load>/playback_reading_<reader>.md`, written by the reader session on live
+playback and read here, never typed into `start_here.json`). Its top block carries a fixed four-field card (`Sees` as
+`frames: what`, `Cannot see`, `Verdict` as `keep` | `remake` | `unsure`, and a one-line `Why`), rendered folded closed
+(`<details class="why reader-card">`) with a one-line `<summary>` that never shows the verdict so the owner watches
+first; where the owner has answered that clip (`--answers data/<stem>/owner_answers.jsonl` or `--verdicts`), the card
+shows the owner's verdict and `agree` or `differ` beside the two verdicts. Both pages include a short block from the
+table's per-frame gap check
 (`assembly.stack.coverage_json`, from `bench/delivery_table.py`, held by `table_sha256` and never recomputed; a build
 refuses when it is missing or not this table's), worst shots first in the `remake` and `capture` lists apart, by kind
 (`captured_not_rendered`, `rendered_not_kept`, `emptied_inside`, `laid_but_barely_changed`,
@@ -481,6 +490,9 @@ a{color:var(--link)} h2{margin-top:1.6em;border-bottom:1px solid var(--line);pad
 .e,.card{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:12px 0}
 .e h3,.card h3{margin:.2em 0;font-size:1.05em} .e h3 span,.card h3 span{font-weight:normal;font-size:.9em;color:var(--mut)}
 ul{margin:.2em 0 .4em 1.2em;padding:0} .d{font-weight:700} ol li{margin:.35em 0}
+.reader-card{margin:.35em 0} .reader-card summary{cursor:pointer}
+dl.rcard{display:grid;grid-template-columns:max-content 1fr;gap:2px 10px;margin:.35em 0 .1em;padding:6px 10px;background:var(--card);border:1px solid var(--line);border-radius:6px;color:var(--fg)}
+dl.rcard dt{font-weight:700;color:var(--mut)} dl.rcard dd{margin:0}
 """
 
 
@@ -613,6 +625,325 @@ def held_and_set_aside(rec: "Records") -> list[str]:
     out += ([f"<ul>{''.join(kept)}</ul>"] if kept else []) + ([] if held or kept else ["<p class='mut'>None.</p>"])
     return out
 
+READER_CARD_VERDICTS = ("keep", "remake", "unsure")
+INLINE_CARD_KEYS = ("reader_notes", "reader_card", "sees", "cannot_see", "cannot see", "verdict", "reader_verdict", "reader_why")
+
+
+def normalize_owner_clip_verdict(chosen: str | None) -> str | None:
+    """Map an owner choice string to keep / remake / unsure / taken_back, or None when it is not a clip verdict."""
+    c = " ".join(str(chosen or "").strip().lower().split())
+    if not c:
+        return None
+    if c == "taken back":
+        return "taken_back"
+    if c in {"keep", "keep this one", "good to go"}:
+        return "keep"
+    if c in {"remake", "wrong", "wrong, and i say where", "not needed", "worse, and i say where", "not acceptable", "bothers me"}:
+        return "remake"
+    if c in {"unsure", "not sure"}:
+        return "unsure"
+    return None
+
+
+def read_owner_clip_answers(answers_path: str | Path | None) -> dict[str, dict]:
+    """Read the owner's clip verdicts from owner_answers.jsonl (when present), keyed by item id, row name, clip, or shot span."""
+    if not answers_path:
+        return {}
+    p = Path(answers_path)
+    if not p.is_file():
+        raise SystemExit(f"--answers {answers_path}: file not found")
+    out: dict[str, dict] = {}
+    for raw in p.read_text().splitlines():
+        if not raw.strip():
+            continue
+        row = json.loads(raw)
+        if row.get("who") not in ("owner", None, ""):
+            continue
+        norm = normalize_owner_clip_verdict(row.get("chosen"))
+        if norm is None:
+            continue
+        targets: list[str] = []
+        for k in ("item", "row", "clip"):
+            v = str(row.get(k) or "").strip()
+            if v:
+                targets.append(v)
+                if "#" in v:
+                    frag = v.partition("#")[2].strip()
+                    if frag:
+                        targets.append(frag)
+                elif "/" in v:
+                    stem = Path(v).stem
+                    targets.extend([
+                        Path(v).name,
+                        stem,
+                        stem.removesuffix("_stacked"),
+                        stem.removesuffix("_compare"),
+                    ])
+                for suf in ("_stacked", "_compare"):
+                    if v.endswith(suf):
+                        targets.append(v.removesuffix(suf))
+        sh = row.get("shot")
+        if isinstance(sh, str) and re.fullmatch(r"\d+-\d+", sh.strip()):
+            targets.append(sh.strip())
+        elif isinstance(sh, (list, tuple)) and len(sh) == 2 and all(isinstance(x, int) for x in sh):
+            targets.append(f"{sh[0]}-{sh[1]}")
+        rec_entry = {
+            "verdict": norm,
+            "chosen": " ".join(str(row.get("chosen") or "").split()),
+            "at": str(row.get("at") or ""),
+            "words": " ".join(str(row.get("words") or "").split()),
+        }
+        for tk in dict.fromkeys(targets):
+            if norm == "taken_back":
+                out.pop(tk, None)
+            else:
+                prev = out.get(tk)
+                if prev is None or not prev.get("at") or rec_entry["at"] >= prev["at"]:
+                    out[tk] = rec_entry
+    return out
+
+
+def _clean_reader_name(val: str) -> str:
+    v = " ".join(val.split()).strip()
+    v = re.sub(r"\s*\([^)]*\)\s*$", "", v).strip()
+    return v.strip("`*'\" ").strip()
+
+
+def _join_card_items(items: list[str]) -> str:
+    out: list[str] = []
+    for x in items:
+        s = x.strip()
+        if not s:
+            continue
+        if out and out[-1].endswith(":"):
+            out[-1] = f"{out[-1]} {s}"
+        else:
+            out.append(s)
+    return "; ".join(out)
+
+
+def _section_matches(h: str, query: str, allow_span: bool = False) -> bool:
+    h_clean = h.replace("`", "").strip()
+    q_clean = query.replace("`", "").strip()
+    if not q_clean or not h_clean:
+        return False
+    hl, ql = h_clean.lower(), q_clean.lower()
+    if ql == hl or ql in hl:
+        return True
+    q_name = Path(q_clean).name.lower()
+    q_stem_raw = Path(q_clean).stem.lower()
+    q_stem = re.sub(r"_(?:stacked|compare)$", "", q_stem_raw)
+    for cand_q in (q_name, q_stem_raw, q_stem):
+        if cand_q and (cand_q == hl or cand_q in hl):
+            return True
+    h_slug = re.sub(r"[^a-z0-9]+", "-", hl).strip("-")
+    q_slug = re.sub(r"[^a-z0-9]+", "-", ql).strip("-")
+    if q_slug and q_slug in h_slug:
+        return True
+    if allow_span:
+        for m_sp in re.finditer(r"(?<!\d)(\d{3,5})[-_](\d{3,5})(?!\d)", q_clean):
+            span_dash = f"{int(m_sp.group(1))}-{int(m_sp.group(2))}"
+            if re.search(rf"(?<!\d){re.escape(span_dash)}(?!\d)", h_clean):
+                return True
+    return False
+
+
+def parse_reader_card_md(md_spec: str, start_here_path: str, entry_k: int, target_hint: str = "") -> dict:
+    """Read the four-field card (`Sees`, `Cannot see`, `Verdict`, `Why`) from the top of `data/<day>_<load>/playback_reading_<reader>.md`."""
+    if not isinstance(md_spec, str) or not md_spec.strip():
+        raise SystemExit(
+            f"--start-here {start_here_path}, entry {entry_k}: reader_file must be a path to a playback_reading_<reader>.md file"
+        )
+    raw_path, _, anchor = md_spec.strip().partition("#")
+    raw_path, anchor = raw_path.strip(), anchor.strip()
+    if not raw_path or not raw_path.lower().endswith(".md"):
+        raise SystemExit(
+            f"--start-here {start_here_path}, entry {entry_k}: reader_file {md_spec!r} must be a .md file"
+        )
+    cand = Path(raw_path)
+    md_path = cand.resolve() if cand.is_file() else in_repo(raw_path, start_here_path)
+    if not md_path.is_file():
+        raise SystemExit(
+            f"--start-here {start_here_path}, entry {entry_k}: reader file {raw_path} is not there"
+        )
+    m_reader = re.match(r"^playback_reading_(.+)\.md$", md_path.name)
+    default_reader = m_reader.group(1) if m_reader else md_path.stem
+
+    card_field_re = re.compile(
+        r"^(?:[-*]\s*)?(?:\*\*(?:Sees|Cannot\s+see|Verdict|Why)\*\*\s*:|\*\*(?:Sees|Cannot\s+see|Verdict|Why):\*\*|(?:Sees|Cannot\s+see|Verdict|Why)\s*:)",
+        re.I,
+    )
+    preamble_lines: list[str] = []
+    sections: list[tuple[str, list[str]]] = []
+    cur_head: str | None = None
+    cur_buf: list[str] = []
+    after_hr = False
+
+    for ln in md_path.read_text().splitlines():
+        m_h2 = re.match(r"^##\s+(.+?)\s*$", ln)
+        if m_h2:
+            h2_title = m_h2.group(1).strip()
+            if re.match(r"^(?:Reader\s+)?Card\b", h2_title, re.I):
+                if cur_head is not None and any(x.strip() for x in cur_buf):
+                    sections.append((cur_head, cur_buf))
+                cur_head = h2_title
+                cur_buf = []
+                after_hr = False
+                continue
+            break
+        m_h3 = re.match(r"^###\s+(.+?)\s*$", ln)
+        if m_h3:
+            if cur_head is not None and any(x.strip() for x in cur_buf):
+                sections.append((cur_head, cur_buf))
+            cur_head = m_h3.group(1).strip()
+            cur_buf = []
+            after_hr = False
+            continue
+        if re.match(r"^\s*---+\s*$", ln):
+            active_buf = cur_buf if cur_head is not None else preamble_lines
+            if any(card_field_re.match(x) for x in active_buf):
+                after_hr = True
+            continue
+        if after_hr:
+            continue
+        if cur_head is not None:
+            cur_buf.append(ln)
+        else:
+            preamble_lines.append(ln)
+    if cur_head is not None and any(x.strip() for x in cur_buf):
+        sections.append((cur_head, cur_buf))
+
+    header_re = re.compile(
+        r"^(?P<indent>\s*)(?:[-*]\s*)?(?:\*\*(?P<b1>[^*:]+?)\*\*\s*:\s*|\*\*(?P<b2>[^*:]+?):\*\*\s*|(?P<plain>[A-Za-z][A-Za-z _-]{0,20})\s*:\s*)(?P<val>.*)$"
+    )
+    preamble_reader = ""
+    for pln in preamble_lines:
+        pm = header_re.match(pln)
+        if pm and len(pm.group("indent") or "") == 0:
+            pk = " ".join((pm.group("b1") or pm.group("b2") or pm.group("plain") or "").lower().split())
+            if pk == "reader":
+                preamble_reader = _clean_reader_name(pm.group("val") or "")
+
+    if sections:
+        chosen_lines: list[str] | None = None
+        if anchor:
+            for allow_sp in (False, True):
+                for h, b in sections:
+                    if _section_matches(h, anchor, allow_span=allow_sp):
+                        chosen_lines = b
+                        break
+                if chosen_lines is not None:
+                    break
+            if chosen_lines is None:
+                raise SystemExit(
+                    f"--start-here {start_here_path}, entry {entry_k}: {raw_path} has no card section matching #{anchor}"
+                )
+        elif target_hint:
+            for allow_sp in (False, True):
+                for h, b in sections:
+                    if _section_matches(h, target_hint, allow_span=allow_sp):
+                        chosen_lines = b
+                        break
+                if chosen_lines is not None:
+                    break
+            if chosen_lines is None and len(sections) == 1:
+                chosen_lines = sections[0][1]
+            if chosen_lines is None:
+                raise SystemExit(
+                    f"--start-here {start_here_path}, entry {entry_k}: {raw_path} has multiple card sections; "
+                    f"none matched {target_hint!r}"
+                )
+        elif len(sections) == 1:
+            chosen_lines = sections[0][1]
+        else:
+            raise SystemExit(
+                f"--start-here {start_here_path}, entry {entry_k}: {raw_path} has multiple card sections; "
+                f"disambiguate with #<clip> in reader_file"
+            )
+    else:
+        chosen_lines = preamble_lines
+
+    fields: dict[str, list[str]] = {}
+    cur_key: str | None = None
+    known_keys = {"reader", "sees", "cannot see", "verdict", "why"}
+    preamble_meta_keys = {"date", "clip", "clips", "load", "shot", "subject", "subjects", "window"}
+    for ln in chosen_lines:
+        s = ln.strip()
+        if not s or s.startswith("#") or (s.startswith("<!--") and s.endswith("-->")):
+            continue
+        m = header_re.match(ln)
+        if m:
+            raw_k = m.group("b1") or m.group("b2") or m.group("plain") or ""
+            k_norm = " ".join(raw_k.lower().split())
+            is_top = len(m.group("indent") or "") == 0
+            if k_norm in known_keys and (is_top or cur_key is None):
+                if k_norm in fields:
+                    raise SystemExit(
+                        f"--start-here {start_here_path}, entry {entry_k}: duplicate card field {raw_k!r} in {raw_path}"
+                    )
+                cur_key = k_norm
+                val = " ".join((m.group("val") or "").split())
+                fields[cur_key] = [val] if val else []
+                continue
+            if is_top:
+                has_card_fields = any(ck in fields for ck in ("sees", "cannot see", "verdict", "why"))
+                if not has_card_fields and (k_norm in preamble_meta_keys or k_norm.startswith("watched")):
+                    cur_key = None
+                    continue
+                raise SystemExit(
+                    f"--start-here {start_here_path}, entry {entry_k}: unknown card field {raw_k!r} in {raw_path} "
+                    f"(expected Sees, Cannot see, Verdict, Why)"
+                )
+        if cur_key is None:
+            continue
+        if cur_key in ("why", "verdict", "reader") and fields.get(cur_key):
+            raise SystemExit(
+                f"--start-here {start_here_path}, entry {entry_k}: {cur_key.capitalize()} in {raw_path} must be one line"
+            )
+        sub_val = re.sub(r"^\s*[-*]\s+", "", ln).strip()
+        sub_val = " ".join(sub_val.split())
+        if sub_val:
+            fields[cur_key].append(sub_val)
+
+    required = ("sees", "cannot see", "verdict", "why")
+    missing = [rk for rk in required if not fields.get(rk) or not " ".join(fields[rk]).strip()]
+    if missing:
+        raise SystemExit(
+            f"--start-here {start_here_path}, entry {entry_k}: {raw_path} is missing required card field(s): "
+            f"{', '.join(missing)} (need Sees, Cannot see, Verdict, Why)"
+        )
+    sees_str = _join_card_items(fields["sees"])
+    if not re.search(r"\d", sees_str) or ":" not in sees_str:
+        raise SystemExit(
+            f"--start-here {start_here_path}, entry {entry_k}: Sees in {raw_path} must name frame(s) and what is seen "
+            f"('frames: what'), got {sees_str!r}"
+        )
+    cannot_see_str = _join_card_items(fields["cannot see"])
+    verdict_raw = " ".join(fields["verdict"]).strip()
+    verdict_norm = verdict_raw.strip("`*'\"").strip().lower()
+    if verdict_norm not in READER_CARD_VERDICTS:
+        raise SystemExit(
+            f"--start-here {start_here_path}, entry {entry_k}: Verdict in {raw_path} must be keep, remake, or unsure "
+            f"(got {verdict_raw!r})"
+        )
+    if len(fields["why"]) != 1:
+        raise SystemExit(
+            f"--start-here {start_here_path}, entry {entry_k}: Why in {raw_path} must be one line"
+        )
+    why_str = fields["why"][0].strip()
+    sec_reader = _clean_reader_name(" ".join(fields.get("reader", [])))
+    reader_name = sec_reader or preamble_reader or default_reader
+    return {
+        "reader": reader_name,
+        "file": raw_path,
+        "path": str(md_path),
+        "sees": sees_str,
+        "cannot_see": cannot_see_str,
+        "verdict": verdict_norm,
+        "why": why_str,
+    }
+
+
 def start_here(
     path: str,
     drawn: dict[str, str],
@@ -622,17 +953,20 @@ def start_here(
     item_spans: dict[str, tuple[int, int, list[str] | None]] | None = None,
     shot_subjects: dict[str, list[str]] | None = None,
     tables: list[str] | None = None,
+    owner_answers: dict[str, dict] | None = None,
 ) -> list[str]:
     """START HERE, IN THIS ORDER: the lead's list (the owner, 2026-10-15: the most important first), each entry linking what the page
     shows below, or a clip that is no item, with its one line of why, the gap check's counts for that clip's own frames right above it,
-    and optional `reader_notes` in a closed fold headed as a reader's, not the owner's. An entry the page does not hold, a clip that is
-    not there, a clip with gaps and no gap-check line, an entry with no why, or empty `reader_notes` stops the page: the one kind of red."""
-    import re
+    and optional `reader_file` / `reader_files` rendered as a folded-closed four-field reader card (`Sees`, `Cannot see`, `Verdict`, `Why`)
+    whose `<summary>` never shows the verdict so the owner watches first. An entry the page does not hold, a clip that is not there, a
+    clip with gaps and no gap-check line, an entry with no why, inline `reader_notes`/card fields in JSON, or a malformed reader `.md`
+    card stops the page: the one kind of red."""
     got = json.load(open(path))
     if not isinstance(got, list) or not got:
         raise SystemExit(f"--start-here {path}: a JSON list of {{\"item\", \"why\"}}, in order, and not empty")
     cov = (rec.gap_check if rec is not None else None) or {}
     cov_span = cov.get("span")
+    ans_map = owner_answers or {}
     lines = []
 
     def _resolve_clip_span(k: int, clip: str, e: dict) -> tuple[int, int, list[str] | None] | None:
@@ -721,35 +1055,137 @@ def start_here(
             raise SystemExit(f"--start-here {path}, entry {k}: the clip {clip} is not there")
         return f'<a href="{E(os.path.relpath(clip, out_dir))}">{E(Path(clip).name)}</a>'
 
-    def reader_notes_fold(k: int, e: dict) -> str:
-        if "reader_notes" not in e:
-            return ""
-        rn = e["reader_notes"]
-        by_str = " ".join(str(e.get("reader_by") or "").split())
-        if isinstance(rn, str):
-            s = " ".join(rn.split())
-            if not s:
-                raise SystemExit(f"--start-here {path}, entry {k}: reader_notes is a non-empty string or list of non-empty strings")
-            note_lines = [s]
-        elif isinstance(rn, list):
-            if not rn or any(not isinstance(x, str) or not " ".join(x.split()) for x in rn):
-                raise SystemExit(f"--start-here {path}, entry {k}: reader_notes is a non-empty string or list of non-empty strings")
-            note_lines = [" ".join(x.split()) for x in rn]
-        elif isinstance(rn, dict):
-            by_str = " ".join(str(rn.get("by") or by_str).split())
-            raw_list = rn.get("notes") if "notes" in rn else rn.get("lines")
-            if isinstance(raw_list, str) and " ".join(raw_list.split()):
-                note_lines = [" ".join(raw_list.split())]
-            elif isinstance(raw_list, list) and raw_list and all(isinstance(x, str) and " ".join(x.split()) for x in raw_list):
-                note_lines = [" ".join(x.split()) for x in raw_list]
-            else:
-                raise SystemExit(f"--start-here {path}, entry {k}: reader_notes is a non-empty string or list of non-empty strings")
+    def _expand_clip_candidates(s: str) -> list[str]:
+        out_c: list[str] = [s]
+        for suf in ("_stacked", "_compare"):
+            if s.endswith(suf):
+                out_c.append(s.removesuffix(suf))
+        if "/" in s or s.endswith((".mp4", ".mov", ".webm", ".mkv")):
+            p = Path(s)
+            stem = p.stem
+            out_c.extend([p.name, stem, stem.removesuffix("_stacked"), stem.removesuffix("_compare")])
+            stripped = re.sub(r"_\d{3,5}_\d{3,5}(?:_(?:compare|stacked))?$", "", stem)
+            if stripped and stripped != stem:
+                out_c.append(stripped)
         else:
-            raise SystemExit(f"--start-here {path}, entry {k}: reader_notes is a non-empty string or list of non-empty strings")
-        who_said = f" ({E(by_str)})" if by_str else ""
-        items_html = "".join(f"<li>{E(ln)}</li>" for ln in note_lines)
-        return (f'<details class="why"><summary>A reader\'s notes{who_said} — a session\'s reading, not the owner\'s (not yours)</summary>'
-                f'<ul>{items_html}</ul></details>')
+            stripped = re.sub(r"_\d{3,5}_\d{3,5}(?:_(?:compare|stacked))?$", "", s)
+            if stripped and stripped != s:
+                out_c.append(stripped)
+        return out_c
+
+    def _owner_verdict_for_entry(what: str, e: dict, card_anchor: str = "", reader_file_path: str = "") -> dict | None:
+        candidates: list[str] = []
+        if what:
+            candidates.extend(_expand_clip_candidates(what))
+            if re.fullmatch(r"\d+-\d+", what):
+                for item_id in shots.get(what) or []:
+                    candidates.extend(_expand_clip_candidates(item_id))
+        else:
+            link_url = str(e.get("link") or "").strip()
+            if link_url:
+                candidates.append(link_url)
+                if "#" in link_url:
+                    candidates.append(link_url.partition("#")[2].strip())
+            clips_list = e.get("clips") or []
+            if len(clips_list) == 1:
+                candidates.extend(_expand_clip_candidates(str(clips_list[0])))
+        if card_anchor and (not what or re.fullmatch(r"\d+-\d+", what) or not re.fullmatch(r"\d+-\d+", card_anchor)):
+            candidates.extend(_expand_clip_candidates(card_anchor))
+        if reader_file_path and (what or len(e.get("clips") or []) == 1):
+            parent_name = Path(reader_file_path.partition("#")[0].strip()).parent.name
+            m_load = re.match(r"^\d{4}-\d{2}-\d{2}_(.+)$", parent_name)
+            if m_load and m_load.group(1):
+                candidates.append(m_load.group(1))
+
+        best: dict | None = None
+        for cand_key in dict.fromkeys(candidates):
+            hit = ans_map.get(cand_key)
+            if hit and hit.get("verdict") in READER_CARD_VERDICTS:
+                if best is None or not best.get("at") or str(hit.get("at") or "") >= str(best.get("at") or ""):
+                    best = dict(hit)
+        if rec is not None:
+            row_keys: list[str] = []
+            for cand_key in dict.fromkeys(candidates):
+                if cand_key in rec.by_name:
+                    row_keys.extend(rec.rows_of(cand_key))
+                elif cand_key in rec.lines:
+                    row_keys.append(cand_key)
+            if row_keys:
+                c = rec.last_choice(Rows(row_keys), every=True)
+                if c:
+                    norm = normalize_owner_clip_verdict(c.get("chosen"))
+                    if norm in READER_CARD_VERDICTS:
+                        v_hit = {
+                            "verdict": norm,
+                            "chosen": " ".join(str(c.get("chosen") or "").split()),
+                            "at": str(c.get("at") or ""),
+                        }
+                        if best is None or (v_hit["at"] and v_hit["at"] > str(best.get("at") or "")):
+                            best = v_hit
+        return best
+
+    def reader_card_fold(k: int, e: dict, what: str) -> str:
+        bad = [key for key in INLINE_CARD_KEYS if key in e]
+        if bad:
+            raise SystemExit(
+                f"--start-here {path}, entry {k}: reader card must be read from playback_reading_<reader>.md via "
+                f"\"reader_file\", never typed into start_here.json (found {', '.join(bad)})"
+            )
+        has_single = "reader_file" in e
+        has_multi = "reader_files" in e
+        if not has_single and not has_multi:
+            return ""
+        raw_specs: list[str] = []
+        if has_single:
+            rf = e["reader_file"]
+            if isinstance(rf, str) and rf.strip():
+                raw_specs.append(rf.strip())
+            elif isinstance(rf, list) and rf and all(isinstance(x, str) and x.strip() for x in rf):
+                raw_specs.extend(x.strip() for x in rf)
+            else:
+                raise SystemExit(
+                    f"--start-here {path}, entry {k}: reader_file must be a non-empty path (or list of paths) to playback_reading_<reader>.md"
+                )
+        if has_multi:
+            rfs = e["reader_files"]
+            if isinstance(rfs, list) and rfs and all(isinstance(x, str) and x.strip() for x in rfs):
+                raw_specs.extend(x.strip() for x in rfs)
+            else:
+                raise SystemExit(
+                    f"--start-here {path}, entry {k}: reader_files must be a non-empty list of paths to playback_reading_<reader>.md"
+                )
+        target_hint = what or (str((e.get("clips") or [""])[0]) if e.get("clips") else "")
+        folds: list[str] = []
+        for spec in raw_specs:
+            _, _, spec_anchor = spec.strip().partition("#")
+            card = parse_reader_card_md(spec, path, k, target_hint=target_hint)
+            owner_hit = _owner_verdict_for_entry(what, e, card_anchor=spec_anchor.strip(), reader_file_path=card["path"])
+            summary_label = f"Reader card ({card['reader']}) — a session's reading, not yours"
+            if re.search(r"\b(?:keep|remake|unsure)\b", summary_label, re.I):
+                raise SystemExit(
+                    f"--start-here {path}, entry {k}: reader summary {summary_label!r} must not name a verdict (keep, remake, unsure)"
+                )
+            if owner_hit and owner_hit.get("verdict") in READER_CARD_VERDICTS:
+                ov = owner_hit["verdict"]
+                match_word = "agree" if ov == card["verdict"] else "differ"
+                raw_chosen = owner_hit.get("chosen") or ""
+                chosen_note = f' ("{E(raw_chosen)}")' if raw_chosen and raw_chosen.lower() != ov else ""
+                verdict_dd = (
+                    f'reader: <b>{E(card["verdict"])}</b> &middot; '
+                    f'owner: <b>{E(ov)}</b>{chosen_note} &mdash; <b class="d">{match_word}</b>'
+                )
+            else:
+                verdict_dd = f'reader: <b>{E(card["verdict"])}</b>'
+            folds.append(
+                f'<details class="why reader-card"><summary>{E(summary_label)}</summary>'
+                f'<dl class="rcard">'
+                f'<dt>Sees</dt><dd>{E(card["sees"])}</dd>'
+                f'<dt>Cannot see</dt><dd>{E(card["cannot_see"])}</dd>'
+                f'<dt>Verdict</dt><dd>{verdict_dd}</dd>'
+                f'<dt>Why</dt><dd>{E(card["why"])}</dd>'
+                f'</dl></details>'
+            )
+        return "".join(folds)
 
     for k, e in enumerate(got, 1):
         if "gap_line" in e or e.get("no_gap_line"):
@@ -758,7 +1194,7 @@ def start_here(
         url = str(e.get("link") or "").strip()
         if (not what and not url) or not why:
             raise SystemExit(f"--start-here {path}, entry {k}: each entry names an item or a link and says in one line what deciding it changes")
-        fold = reader_notes_fold(k, e)
+        fold = reader_card_fold(k, e, what)
         if url:
             # a question whose buttons are elsewhere (the Open List): the entry goes there, its clips beneath it as plain links
             # (the owner, 2026-10-15: a clip's own link "just gives me the rendered video", and the buttons were not on it)
@@ -963,6 +1399,15 @@ def to_review(a: argparse.Namespace) -> str:
         return out + [f"<{tag}>Pieces in a shot of one of them</{tag}>", *(got["single"] or ["<p class='mut'>None.</p>"])]
     n_wait, n_done = (sum(map(len, g.values())) for g in (waiting, done))
     if a.start_here:
+        ans_path = getattr(a, "answers", None)
+        if not ans_path:
+            sh_parent = Path(a.start_here).resolve().parent
+            for cand_dir in (sh_parent, sh_parent.parent):
+                cand_ans = cand_dir / "owner_answers.jsonl"
+                if cand_ans.is_file() and (cand_dir == sh_parent or (cand_dir / "review").is_dir() or (cand_dir / "verdicts").is_dir()):
+                    ans_path = str(cand_ans)
+                    break
+        owner_ans = read_owner_clip_answers(ans_path)
         body += start_here(
             a.start_here,
             drawn,
@@ -972,6 +1417,7 @@ def to_review(a: argparse.Namespace) -> str:
             item_spans=item_spans,
             shot_subjects=shot_subjects,
             tables=a.tables or [],
+            owner_answers=owner_ans,
         )
     body += [
             *gap_check_block(rec, rate)]
@@ -1283,9 +1729,11 @@ def main(argv=None) -> int:
             s.add_argument("--previous-table", help="the table the last page was made from: what changed since, and what each piece replaces")
             s.add_argument("--provenance", help="the provenance page's file name beside this one, linked from the top")
             s.add_argument("--today", help="the owner's day (YYYY-MM-DD, their clock) whose settled pieces are listed under Done; today when left out")
+            s.add_argument("--answers", metavar="FILE", help="the owner's answers record (data/<stem>/owner_answers.jsonl), for reader card agree/differ")
             s.add_argument("--start-here", metavar="FILE", help="the lead's list, in order, drawn first: a JSON list of {\"item\": an item the "
                            "page shows, a shot FIRST-LAST or a clip's path, \"why\": one line of what deciding it changes}, or of {\"link\": "
-                           "an http(s) URL where a question's buttons are, \"label\", \"why\", \"clips\": [paths, shown beneath it]}, each with optional \"reader_notes\"")
+                           "an http(s) URL where a question's buttons are, \"label\", \"why\", \"clips\": [paths, shown beneath it]}, each with optional "
+                           "\"reader_file\" (or \"reader_files\") pointing to data/<day>_<load>/playback_reading_<reader>.md")
         else:
             s.add_argument("--record", help="the assembler's record of the clip (.mp4.check.json); without it the ledger says what a piece leaves")
             s.add_argument("--day-folder", required=True, help="the day's folder: bench/day_pieces.py's piece folders are read from it")

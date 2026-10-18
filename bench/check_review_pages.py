@@ -775,10 +775,10 @@ def a_one_subject_shot_and_a_cut_piece() -> str:
 
 
 def start_here() -> str:
-    """The owner, 2026-10-15: the most important first. --start-here draws the lead's list before everything, in its order, each
-    entry linking what the page shows below (a shot, an item) or a clip that is no item, with its why and optional reader_notes in a
-    closed fold headed as a reader's and not the owner's; an entry the page does not hold, a clip that is not there, an entry with no
-    why, or empty reader_notes stops the page."""
+    """The owner, 2026-10-15 & 2026-10-18: the most important first. --start-here draws the lead's list before everything, in its order,
+    each entry linking what the page shows below (a shot, an item) or a clip that is no item, with its why and optional reader_file /
+    reader_files read from playback_reading_<reader>.md (4 fields: Sees, Cannot see, Verdict, Why) in a closed fold whose <summary>
+    never shows the verdict, plus the owner's verdict and agree/differ when answered; inline reader_notes or bad cards are refused."""
     import tempfile
     with tempfile.TemporaryDirectory() as tmp:
         d = Path(tmp)
@@ -789,19 +789,93 @@ def start_here() -> str:
         other = clip.with_name("hair_B.mp4")
         other.write_bytes(b"x")
         (other.with_suffix(".json")).write_text(json.dumps({"span": [150, 199], "subjects": ["a"]}))
+
+        cmp_clip = clip.with_name("load_b_0100_0149_compare.mp4")
+        cmp_clip.write_bytes(b"x")
+        (cmp_clip.with_suffix(".json")).write_text(json.dumps({"span": [100, 149], "subjects": ["a"]}))
+
+        load_dir = d / "2026-10-18_load_a"
+        load_dir.mkdir(parents=True)
+        md_mrgemsol = load_dir / "playback_reading_mrgemsol.md"
+        md_mrgemsol.write_text(
+            "# Playback Reading\n\n"
+            "- **Sees**:\n"
+            "  - 100-125: <diff> collar sits cleanly against neck\n"
+            "  - 126-149: hair edge holds through turn\n"
+            "- **Cannot see**: source audio sync on silent comparison\n"
+            "- **Verdict**: keep\n"
+            "- **Why**: Clean boundary and stable identity across the full span.\n\n"
+            "---\n\n"
+            "## Detailed notes\n"
+            "Long prose below the card block that is not copied into the compact card.\n"
+        )
+        load_b_dir = d / "2026-10-18_load_b"
+        load_b_dir.mkdir(parents=True)
+        md_gemread1 = load_b_dir / "playback_reading_gemread1.md"
+        md_gemread1.write_text(
+            "# Native Playback Reading: `load_b` (`100-149`)\n\n"
+            "- **Reader**: `gemread1` (independent Gemini reader)\n"
+            "- **Date**: `2026-10-18`\n"
+            "- **Watched and listened natively (`view_file`)**:\n"
+            "  - `share/pair/load_b_0100_0149_compare.mp4` (realtime 24 fps with audio)\n\n"
+            "---\n\n"
+            "## Reader Card — Clip 1: `load_b_0100_0149_compare.mp4` (`100-149`)\n\n"
+            "- **Sees**:\n"
+            "  - **Gap-line frames (`0` gaps across `100-149`)**: Continuous replacement across 100-149.\n"
+            "  - **What the gap line does not count**:\n"
+            "    - **`110-120` (rising hand)**: Unbroken blonde bob dome on 110-120.\n"
+            "- **Cannot see**:\n"
+            "  - Cut transition into 150.\n"
+            "- **Verdict**: `keep`\n"
+            "- **Why**: Retiring keep-outs removes the lower-left notch across 100-149.\n\n"
+            "---\n\n"
+            "## Detailed Frame-by-Frame & Audio Reading\n\n"
+            "1. Body details ignored by card parser.\n\n"
+            "---\n\n"
+            "## Notes for Start here (reader_notes)\n\n"
+            "### Clip 1 (`load_b_0100_0149_compare.mp4`)\n"
+            "- Legacy notes after card.\n"
+        )
+        md_mrpro = load_dir / "playback_reading_mrpro.md"
+        md_mrpro.write_text(
+            "### 150-199\n"
+            "- **Sees**: 150-175: face holds; 176-199:chin flicker at 182\n"
+            "- **Cannot see**: full-cut transition into 200\n"
+            "- **Verdict**: `remake`\n"
+            "- **Why**: Chin flicker at frame 182 breaks the solo close-up.\n\n"
+            "### row-7\n"
+            "- **Reader**: fresh-eyes reader\n"
+            "- **Sees**: 106: 2 px feather on hair_A; 160: softer edge on hair_B\n"
+            "- **Cannot see**: whether the owner prefers the tighter crop\n"
+            "- **Verdict**: unsure\n"
+            "- **Why**: Both arms hold identity; choice is aesthetic.\n"
+        )
+        ans_file = d / "owner_answers.jsonl"
+        ans_file.write_text(
+            "\n".join([
+                json.dumps({"who": "owner", "item": "hair_A.mp4", "chosen": "Keep this one", "at": "2026-10-18T12:00:00Z"}),
+                json.dumps({"who": "owner", "shot": "100-149", "chosen": "wrong, and I say where", "at": "2026-10-18T12:01:00Z"}),
+                json.dumps({"who": "owner", "row": "load_b", "chosen": "keep this one", "at": "2026-10-18T12:02:00Z"}),
+                json.dumps({"who": "owner", "shot": "150-199", "chosen": "Good to go", "at": "2026-10-18T12:05:00Z"}),
+                json.dumps({"who": "owner", "item": "https://the-open-list/#row-7", "chosen": "Keep", "at": "2026-10-18T12:06:00Z"}),
+                json.dumps({"who": "owner", "item": "https://the-open-list/#row-7", "chosen": "taken back", "at": "2026-10-18T12:07:00Z"}),
+                json.dumps({"who": "owner", "item": "open-list-policy", "chosen": "Change the default everywhere", "at": "2026-10-18T12:08:00Z"}),
+            ]) + "\n"
+        )
         order = [
-            {"item": str(clip), "why": "WHY THE PAIR", "reader_notes": ["frame 106 <diff>: softer collar", "frame 367: necklace highlight"]},
-            {"item": "150-199", "why": "WHY A_SOLO'S SHOT", "reader_notes": "frame 160: eyes open"},
+            {"item": str(clip), "frames": [100, 149], "why": "WHY THE PAIR", "reader_file": str(md_mrgemsol)},
+            {"item": str(cmp_clip), "frames": [100, 149], "why": "WHY LOAD_B COMPARE", "reader_file": str(md_gemread1)},
+            {"item": "150-199", "why": "WHY A_SOLO'S SHOT", "reader_file": f"{md_mrpro}#150-199"},
             {"item": "100-149", "why": "WHY THE JOINED SHOT"},
             {"link": "https://the-open-list/#row-7", "label": "THE HAIR QUESTION", "why": "WHY THE LINK", "clips": [str(clip), str(other)],
-             "reader_notes": {"by": "fresh-eyes reader", "notes": ["cmp_01 frame 106: 2 px feather"]}},
+             "reader_files": [f"{md_mrpro}#row-7"]},
         ]
         f = d / "start.json"
         f.write_text(json.dumps(order))
-        page = to_review(d, more=("--start-here", str(f)))
+        page = to_review(d, more=("--start-here", str(f), "--answers", str(ans_file)))
         text = text_of(page)
         top = text.split("Start here, in this order")[1].split("Where the original still shows: the gap check")[0]
-        assert top.index("WHY THE PAIR") < top.index("WHY A_SOLO'S SHOT") < top.index("WHY THE JOINED SHOT"), top
+        assert top.index("WHY THE PAIR") < top.index("WHY LOAD_B COMPARE") < top.index("WHY A_SOLO'S SHOT") < top.index("WHY THE JOINED SHOT"), top
         assert "hair_A.mp4" in top and "r__s__a_solo" in top and "v_0100_0149_joined_NEW_stacked" in top, top
         assert '<a href="../share/pair/hair_A.mp4">' in page, "the clip is not linked relative to the page"
         assert text.index("Start here, in this order") < text.index("Where the original still shows: the gap check") < text.index("Waiting on you"), "Start here is not above the gap check and Waiting on you"
@@ -809,21 +883,63 @@ def start_here() -> str:
         assert '<a href="https://the-open-list/#row-7">THE HAIR QUESTION</a>: WHY THE LINK' in page, "the link entry"
         link_li = page.split("THE HAIR QUESTION")[1].split("</li></ol>")[0]
         assert '<a href="../share/pair/hair_B.mp4">hair_B.mp4</a>' in link_li, "the clips beneath it"
-        # reader_notes: closed <details> (no open attribute), headed as a reader's and not the owner's, escaped
-        pair_li = page.split("WHY THE PAIR")[1].split("WHY A_SOLO&#x27;S SHOT")[0]
-        assert '<details class="why"><summary>A reader\'s notes — a session\'s reading, not the owner\'s (not yours)</summary>' in pair_li, pair_li
-        assert "<li>frame 106 &lt;diff&gt;: softer collar</li><li>frame 367: necklace highlight</li>" in pair_li, pair_li
-        assert '<details class="why"><summary>A reader\'s notes (fresh-eyes reader) — a session\'s reading, not the owner\'s (not yours)</summary>' in link_li, link_li
-        assert "<li>cmp_01 frame 106: 2 px feather</li>" in link_li, link_li
-        for bad, said in (([{"item": "a_not_here", "why": "w"}], "no item this page shows"), ([{"item": "500-599", "why": "w"}], "is not on this page"),
-                          ([{"item": str(d / "gone.mp4"), "why": "w"}], "is not there"), ([{"item": "150-199"}], "says in one line"), ([], "not empty"),
-                          ([{"link": "file:///x", "label": "l", "why": "w"}], "http(s) URL"), ([{"link": "https://x", "why": "w"}], "with a label"),
-                          ([{"link": "https://x", "label": "l", "why": "w", "item": "150-199"}], "names no item"),
-                          ([{"link": "https://x", "label": "l", "why": "w", "clips": [str(d / "gone.mp4")]}], "is not there"),
-                          ([{"item": "150-199", "why": "w", "reader_notes": ""}], "reader_notes is a non-empty"),
-                          ([{"item": "150-199", "why": "w", "reader_notes": []}], "reader_notes is a non-empty"),
-                          ([{"item": "150-199", "why": "w", "reader_notes": ["ok", "  "]}], "reader_notes is a non-empty"),
-                          ([{"item": "150-199", "why": "w", "reader_notes": {}}], "reader_notes is a non-empty")):
+        # reader card: folded closed (<details class="why reader-card"> with no open attribute), <summary> never shows the verdict
+        pair_li = page.split("WHY THE PAIR")[1].split("WHY LOAD_B COMPARE")[0]
+        loadb_li = page.split("WHY LOAD_B COMPARE")[1].split("WHY A_SOLO&#x27;S SHOT")[0]
+        solo_li = page.split("WHY A_SOLO&#x27;S SHOT")[1].split("WHY THE JOINED SHOT")[0]
+        for seg in (pair_li, loadb_li, solo_li, link_li):
+            assert '<details class="why reader-card"><summary>' in seg and "<details open" not in seg, seg
+            sum_txt = seg.split("<summary>")[1].split("</summary>")[0].lower()
+            for v_word in ("keep", "remake", "unsure", "agree", "differ"):
+                assert v_word not in sum_txt, f"summary leaked {v_word!r}: {sum_txt}"
+        assert "Reader card (mrgemsol) — a session&#x27;s reading, not yours" in pair_li, pair_li
+        assert "<dt>Sees</dt><dd>100-125: &lt;diff&gt; collar sits cleanly against neck; 126-149: hair edge holds through turn</dd>" in pair_li, pair_li
+        assert "<dt>Cannot see</dt><dd>source audio sync on silent comparison</dd>" in pair_li, pair_li
+        # pair_li has frames=[100,149] and a later shot="100-149" remake answer in owner_answers.jsonl, which must NOT override hair_A.mp4's own keep answer
+        assert '<dt>Verdict</dt><dd>reader: <b>keep</b> &middot; owner: <b>keep</b> ("Keep this one") &mdash; <b class="d">agree</b></dd>' in pair_li, pair_li
+        assert "<dt>Why</dt><dd>Clean boundary and stable identity across the full span.</dd>" in pair_li, pair_li
+        assert "Long prose below the card block" not in pair_li, "body prose below --- leaked into card"
+        # loadb_li: parsed from ## Reader Card — Clip 1 after preamble --- and metadata bullets, reader cleaned to gemread1, matched row="load_b"
+        assert "Reader card (gemread1) — a session&#x27;s reading, not yours" in loadb_li, loadb_li
+        assert '<dt>Verdict</dt><dd>reader: <b>keep</b> &middot; owner: <b>keep</b> ("keep this one") &mdash; <b class="d">agree</b></dd>' in loadb_li, loadb_li
+        # solo_li: reader says remake, owner says keep ("Good to go") -> differ
+        assert '<dt>Verdict</dt><dd>reader: <b>remake</b> &middot; owner: <b>keep</b> ("Good to go") &mdash; <b class="d">differ</b></dd>' in solo_li, solo_li
+        # link_li: owner's prior click was taken back, so only reader's verdict shows (no owner, no agree/differ)
+        assert "Reader card (fresh-eyes reader) — a session&#x27;s reading, not yours" in link_li, link_li
+        assert "<dt>Verdict</dt><dd>reader: <b>unsure</b></dd>" in link_li, link_li
+
+        # Bad card files and inline JSON fields are refused
+        bad_md_missing = load_dir / "bad_missing.md"
+        bad_md_missing.write_text("- **Sees**: 100-110: ok\n- **Cannot see**: audio\n- **Verdict**: keep\n")
+        bad_md_no_frames = load_dir / "bad_no_frames.md"
+        bad_md_no_frames.write_text("- **Sees**: looks good overall: no numbers\n- **Cannot see**: audio\n- **Verdict**: keep\n- **Why**: one line\n")
+        bad_md_verdict = load_dir / "bad_verdict.md"
+        bad_md_verdict.write_text("- **Sees**: 100: ok\n- **Cannot see**: audio\n- **Verdict**: pass\n- **Why**: one line\n")
+        bad_md_why = load_dir / "bad_why.md"
+        bad_md_why.write_text("- **Sees**: 100: ok\n- **Cannot see**: audio\n- **Verdict**: keep\n- **Why**: line one\n  line two\n")
+        bad_md_unknown = load_dir / "bad_unknown.md"
+        bad_md_unknown.write_text("- **Sees**: 100: ok\n- **Cannot see**: audio\n- **Verdict**: keep\n- **Why**: one line\n- **Extra**: no\n")
+
+        for bad, said in (
+            ([{"item": "a_not_here", "why": "w"}], "no item this page shows"),
+            ([{"item": "500-599", "why": "w"}], "is not on this page"),
+            ([{"item": str(d / "gone.mp4"), "why": "w"}], "is not there"),
+            ([{"item": "150-199"}], "says in one line"),
+            ([], "not empty"),
+            ([{"link": "file:///x", "label": "l", "why": "w"}], "http(s) URL"),
+            ([{"link": "https://x", "why": "w"}], "with a label"),
+            ([{"link": "https://x", "label": "l", "why": "w", "item": "150-199"}], "names no item"),
+            ([{"link": "https://x", "label": "l", "why": "w", "clips": [str(d / "gone.mp4")]}], "is not there"),
+            ([{"item": "150-199", "why": "w", "reader_notes": "inline note"}], "never typed into start_here.json"),
+            ([{"item": "150-199", "why": "w", "verdict": "keep"}], "never typed into start_here.json"),
+            ([{"item": "150-199", "why": "w", "reader_file": ""}], "reader_file must be a non-empty"),
+            ([{"item": "150-199", "why": "w", "reader_file": str(d / "missing_reading.md")}], "is not there"),
+            ([{"item": "150-199", "why": "w", "reader_file": str(bad_md_missing)}], "missing required card field"),
+            ([{"item": "150-199", "why": "w", "reader_file": str(bad_md_no_frames)}], "Sees in"),
+            ([{"item": "150-199", "why": "w", "reader_file": str(bad_md_verdict)}], "Verdict in"),
+            ([{"item": "150-199", "why": "w", "reader_file": str(bad_md_why)}], "Why in"),
+            ([{"item": "150-199", "why": "w", "reader_file": str(bad_md_unknown)}], "unknown card field"),
+        ):
             f.write_text(json.dumps(bad))
             try:
                 to_review(d, more=("--start-here", str(f)))
@@ -834,7 +950,8 @@ def start_here() -> str:
         f.write_text(json.dumps(order))
         assert "Start here" not in text_of(to_review(d)), "the list drawn with no --start-here"
     return ("the lead's list first and in its order, a shot, an item and a clip each linked with its why, a link to where a question's buttons "
-            "are with its clips beneath, and reader_notes in a closed fold headed as a reader's and not the owner's; thirteen bad lists refused")
+            "are with its clips beneath, and each reader card read from playback_reading_<reader>.md in a closed fold whose summary hides the verdict "
+            "and whose Verdict row shows owner agree/differ; eighteen bad lists or cards refused")
 
 
 def nothing_of_a_video_in_code() -> str:

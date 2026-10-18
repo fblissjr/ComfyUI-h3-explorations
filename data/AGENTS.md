@@ -71,6 +71,7 @@ twice. A piece the table does not lay is not in the video. The Gemini lead keeps
 | who is in each shot | `data/<video>/shots.json` and `cast/cast.jsonl`, written by their tools |
 | every answer the owner gave on the local pages, raw | `data/<video>/owner_answers.jsonl`: append-only, cited by line, never edited |
 | the owner's verdicts on renders | `data/<video>/verdicts/verdicts.jsonl` |
+| a reader's playback reading of a load or clip | `data/<day>_<load>/playback_reading_<reader>.md`, written by the playback reader session and read by `bench/review_pages.py` (via `reader_file` / `reader_files` in `data/<video>/review/start_here.json`) |
 | videos | the share's `Video/<video>/`, never under `data/` |
 
 ## Handing a render over
@@ -83,3 +84,15 @@ twice. A piece the table does not lay is not in the video. The Gemini lead keeps
   (`docs/wiki/working_with_the_owner.md`, the owner of 2026-10-17).
 - Playback questions go to Gemini, which watches video and hears audio natively: say in the request that it watches
   and listens first, code only to augment. Its watching is a reader's, never the owner's acceptance.
+- Each playback reader writes its reading to `data/<day>_<load>/playback_reading_<reader>.md`, starting at the top
+  (before the first `---` or `##` body heading; or per clip under `### <clip>`) with a four-field card:
+  - `Sees`: `frames: what` (frame numbers and what is seen on playback)
+  - `Cannot see`: what the clip or view cannot show
+  - `Verdict`: `keep`, `remake`, or `unsure` (the reader's)
+  - `Why`: one line
+  `bench/review_pages.py` reads that `.md` file from `reader_file` (or `reader_files`) in `data/<video>/review/start_here.json`
+  (never typed inline into `start_here.json`), renders the card folded closed (`<details class="why reader-card">`) with
+  a one-line `<summary>` that never shows the verdict so the owner watches first, and where the owner has answered that
+  clip (`data/<video>/owner_answers.jsonl` or `verdicts.jsonl`), shows the owner's verdict and `agree` or `differ` beside
+  the two verdicts.
+
