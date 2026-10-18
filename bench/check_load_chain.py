@@ -1354,11 +1354,64 @@ def a_load_of_two_subjects() -> str:
             "subject through the job file; a pose pass for each subject, run again for the one not written, landed when both are")
 
 
+def depth_in_the_chain() -> str:
+    """When `job.depth.on` is true and overlap frames were measured into `<capture>/depth.npz` by the `job` step, `first` accepts the
+    capture folder holding `measure_moge2_depth.py`'s output (`depth.npz`, `record.json`, `sheet.jpg`), still refuses a capture folder
+    holding anything else (such as `manifest.json`), and both `first` and `on-plan` pass `--depth <capture>/depth.npz` to `files`;
+    when `overlap_frames` is empty or `depth` is off, `--depth` is not passed."""
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        m = made.m
+        cap_dir = made.root / "data/2026-01-03_ld"
+        cap_dir.mkdir(parents=True)
+        for fname in ("depth.npz", "record.json", "sheet.jpg"):
+            (cap_dir / fname).write_bytes(b"depth")
+        (m.output / "Video/v/s/pv/pv_b_classes_00001.mkv").write_bytes(b"")
+        made.listed.append("Video/v/s/pv/pv_b_classes_00001.mkv")
+        (made.pv / "preview.queued.json").write_text(json.dumps({"status": "success", "files": made.listed}))
+        # Without job.depth.on, pre-existing capture folder is still refused, and non-replaced subject b has no classes=
+        refused(lambda: lc.step_first(made.ctx(), m, args()), "exists", "once")
+        assert "classes=" not in lc.mask_specs(made.ctx(), lc.preview_files(made.ctx(), m.output))[0]
+        # With job.depth.on and overlap_frames, step_first accepts the depth-only folder, passes classes= on b, and passes --depth to files first
+        made.job["depth"] = {"on": True, "why": "dad crosses", "overlap_frames": [110, 111], "file": "data/2026-01-03_ld/depth.npz"}
+        made.write()
+        assert "classes=" in lc.mask_specs(made.ctx(), lc.preview_files(made.ctx(), m.output))[0]
+        ended = lc.step_first(made.ctx(), m, args())
+        assert ended == (0, ""), ended
+        files_first = m.said("files first")
+        assert files_first[files_first.index("--depth") + 1] == str(cap_dir / "depth.npz"), files_first
+        # If manifest.json is also present in cap_dir, step_first refuses it even with job.depth.on
+        (cap_dir / "manifest.json").write_text("{}")
+        refused(lambda: lc.step_first(made.ctx(), m, args()), "exists", "once")
+        # step_on_plan also passes --depth to files on plan
+        shutil.rmtree(cap_dir)
+        made.capture(on_plan=False)
+        made.planned()
+        windows = m.output / "Video/v/s/ld/ld_plan/ld_windows"
+        windows.mkdir(parents=True)
+        (windows / "ld_plan.json").write_text("{}")
+        (made.root / "data" / "2026-01-03_ld_job" / "ld.who_is_who.json").write_text("{}")
+        m.ran.clear()
+        lc.step_on_plan(made.ctx(), m, args(), hashed=lambda path: "h")
+        files_plan = m.said("files on plan")
+        assert files_plan[files_plan.index("--depth") + 1] == str(cap_dir / "depth.npz"), files_plan
+        # When overlap_frames is empty, --depth is not passed
+        shutil.rmtree(cap_dir)
+        shutil.rmtree(made.root / "data/2026-01-03_ld_first")
+        made.job["depth"]["overlap_frames"] = []
+        made.write()
+        m.ran.clear()
+        lc.step_first(made.ctx(), m, args())
+        assert "--depth" not in m.said("files first"), m.said("files first")
+    return "first accepts a capture folder holding measure_moge2_depth.py's depth.npz when job.depth.on is true, refuses any other file, and passes --depth to files in first and on-plan"
+
+
 case("render: the go beside the job file, and what stops it", the_render_step)
 case("land: the pose pass and the stacked clip", the_land_step)
 case("page: the item, with the table's buttons", the_page_step)
 case("the gate is told what is the subject's own", what_the_gate_is_told)
 case("a load of two subjects", a_load_of_two_subjects)
+case("depth: capture folder pre-populated by job --depth and --depth passed to files", depth_in_the_chain)
 
 if __name__ == "__main__":
     sys.exit(finish())

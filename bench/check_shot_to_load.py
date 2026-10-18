@@ -247,7 +247,8 @@ def args(**more) -> argparse.Namespace:
     given = dict(by="the session", day="2026-01-03", cast=None, queue=False, first=None, frames=None, why=None, remake=False, plain=None, model_store="",
                  existing=False, writer=None, why_before=None, why_after=None, zoomed=None, least=None, least_why=None, ask=[], seed_cuts_of=None, parts=None, parts_by=None, parts_on=[], whole_frame=None, mouth=None, iris=None, form_why="",
                  place_and_action=None, by_hand=None, plan=None,
-                 track_not=[], track_not_by=None, drop=None, drop_by=None, leave_word=[], leave_by=None, carry_words_from=None, no_carry_words=None)
+                 track_not=[], track_not_by=None, drop=None, drop_by=None, leave_word=[], leave_by=None, carry_words_from=None, no_carry_words=None,
+                 head_tube=None, depth=None)
     given.update(more)
     return argparse.Namespace(**given)
 
@@ -1897,8 +1898,9 @@ def the_defaults_this_load_carries() -> str:
         made = Made(Path(tmp))
         d = made.load()
         lines = {x["what"]: x for x in d["job"]["defaults"]}
-        assert list(lines) == ["the reference held to the subject's track", "the eye", "the mouth", "zoom", "other people in the shot", "SAM 3.1 memory selection",
+        assert list(lines) == ["the reference held to the subject's track", "the eye", "the mouth", "depth", "zoom", "other people in the shot", "SAM 3.1 memory selection",
                                "the strangers keep-out", "the part's pieces", "the hair band", "restore spans", "the text", "what the composite kept", "the voice"], list(lines)
+        assert lines["depth"]["carries"].startswith("off:") and lines["depth"]["from"].startswith("the chain's default"), lines["depth"]
         # SAM 3.1'S MEMORY SELECTION (the owner's word of 2026-10-17): on in every preview by default, said among a load's defaults from
         # the preview its masks come from; off only with a person's reason, which the preview's graph and the load's defaults both carry
         memory = lines["SAM 3.1 memory selection"]
@@ -2744,6 +2746,117 @@ def carry_words_from_refuses_drop_over_face_frame() -> str:
     return "carried drop and no_face_on print who said them and when, refuse frames where the capture sees her face, and pass on back_of_head frames"
 
 
+def depth_in_the_job_step() -> str:
+    """`shot_to_load.py job --depth`: finds the frames where two tracks (after `track_not`) or a keep-out overlap, runs
+    `bench/measure_moge2_depth.py` on just those frames into the capture folder, records `overlap_frames` and `file` in
+    `job.depth`, and names the default in `THE DEFAULTS THIS LOAD CARRIES`; off by default."""
+    import capture_masked_run as cap
+    import numpy as np
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        refused(lambda: made.load(depth="  "), "--depth takes the reason")
+        folder = made.preview_ran(made.preview())
+        n_frames, h, w = 60, 48, 64
+        t_a = np.zeros((n_frames, h, w), dtype=bool)
+        t_a[:, 8:40, 8:40] = True
+        t_b = np.zeros((n_frames, h, w), dtype=bool)
+        t_b[5:8, 16:32, 16:32] = True       # overlaps a on source frames 105-107
+        t_b[10:12, 16:32, 16:32] = True     # overlaps a on source frames 110-111 (emptied by track_not below)
+        t_c = np.zeros((n_frames, h, w), dtype=bool)
+        t_held = np.zeros((n_frames, h, w), dtype=bool)
+        t_held[20, 16:24, 16:24] = True     # keep-out held overlaps a on source frame 120
+        made.plan["subjects"]["a"]["keep_outs"] = ["held"]
+        made.plan["subjects"]["a"]["keep_outs_by"] = "the session, on sheet.jpg"
+        made.write()
+        kept_read = cap.read_mask
+
+        def fake_read_mask(path, *_a):
+            name = Path(path).name
+            if "_a_track_" in name:
+                return t_a.copy(), np.ones(n_frames, dtype=bool)
+            if "_b_track_" in name:
+                return t_b.copy(), np.ones(n_frames, dtype=bool)
+            if "_c_track_" in name:
+                return t_c.copy(), np.ones(n_frames, dtype=bool)
+            if "_a_held_things_" in name:
+                return t_held.copy(), np.ones(n_frames, dtype=bool)
+            return np.zeros((n_frames, h, w), dtype=bool), np.ones(n_frames, dtype=bool)
+
+        cap.read_mask = fake_read_mask
+        try:
+            cap_dir = made.root / "data" / "2026-01-03_a_fp_0100"
+
+            def write_depth():
+                cap_dir.mkdir(parents=True, exist_ok=True)
+                (cap_dir / "depth.npz").write_bytes(b"npz")
+
+            def copy_track(track, frames, first, to):
+                Path(to).parent.mkdir(parents=True, exist_ok=True)
+                Path(to).write_bytes(b"copy")
+                return {"frames": n_frames, "px_emptied": 5}
+
+            made.m.on["moge2 depth"] = write_depth
+            stl.step_job(
+                args(
+                    shots=str(made.shots_file),
+                    plan=str(made.plan_file),
+                    shot=100,
+                    folder=str(made.jobs),
+                    subject="a",
+                    preview=str(folder),
+                    track_not=["b:110-111=b is a on 110-111"],
+                    track_not_by="the session",
+                    depth="dad crosses in front on 105-107",
+                ),
+                made.m,
+                track_cut=copy_track,
+                over=lambda *_x: ["track over track: a figure"],
+                hashed=lambda path: f"HASH OF {Path(path).name}",
+            )
+            assert "moge2 depth" in made.m.labels(), made.m.labels()
+            argv = made.m.said("moge2 depth")
+            assert argv[1].endswith("bench/measure_moge2_depth.py"), argv
+            assert argv[argv.index("--frames") + 1] == "105,106,107,120", argv
+            assert Path(argv[argv.index("--out-dir") + 1]) == cap_dir, argv
+            written = json.loads((made.jobs / "a_fp_0100.json").read_text())
+            dp = written["job"]["depth"]
+            assert dp["on"] is True and dp["overlap_frames"] == [105, 106, 107, 120] and dp["file"] == "data/2026-01-03_a_fp_0100/depth.npz", dp
+            d_row = next(x for x in written["job"]["defaults"] if x["what"] == "depth")
+            assert "4 overlap frame(s) (105-107, 120)" in d_row["carries"] and "dad crosses in front" in d_row["from"], d_row
+
+            # Carry words from a job with depth carries depth_meta
+            carried = made.load(name="a_fp_0100b", carry_words_from=made.jobs / "a_fp_0100.json")
+            assert carried["job"]["depth"]["on"] is True and "(carried from a_fp_0100)" in carried["job"]["depth"]["why"], carried["job"]["depth"]
+
+            # With no overlap frames in the load, measure_moge2_depth.py is not called
+            t_b[:] = False
+            t_held[:] = False
+            made.m.ran.clear()
+            stl.step_job(
+                args(
+                    shots=str(made.shots_file),
+                    plan=str(made.plan_file),
+                    shot=100,
+                    folder=str(made.jobs),
+                    subject="a",
+                    preview=str(folder),
+                    remake=True,
+                    no_carry_words="testing empty overlap",
+                    depth="no crossing on this span",
+                ),
+                made.m,
+                over=lambda *_x: ["track over track: a figure"],
+            )
+            assert "moge2 depth" not in made.m.labels(), made.m.labels()
+            written_b = json.loads((made.jobs / "a_fp_0100b.json").read_text())
+            assert written_b["job"]["depth"]["overlap_frames"] == [] and written_b["job"]["depth"]["file"] is None, written_b["job"]["depth"]
+            d_row_b = next(x for x in written_b["job"]["defaults"] if x["what"] == "depth")
+            assert "0 overlap frames in the load" in d_row_b["carries"], d_row_b
+        finally:
+            cap.read_mask = kept_read
+    return "job --depth finds track and keep-out overlap frames (after track_not), runs measure_moge2_depth.py into the capture folder, records job.depth and defaults, and skips the model when 0 frames overlap"
+
+
 case("the frame a tracker picks on is a field of the shots record", the_pick_frame_is_a_field)
 case("the trackers' order, and who is in the shot", the_order_and_who_is_in_the_shot)
 case("a preview made to ask who is on a shot the record is unsure of", a_preview_made_to_ask)
@@ -2775,6 +2888,7 @@ case("carry-words-from: a span outside the new frames is said and refused", carr
 case("carry-words-from: a retired key is not carried and is said", carry_words_from_retired_keys_not_carried)
 case("carry-words-from: a remake on an existing shot and subject requires --carry-words-from or --no-carry-words", remake_requires_carry_words_or_no_carry_words)
 case("carry-words-from: a carried drop or no_face_on over a face frame is refused", carry_words_from_refuses_drop_over_face_frame)
+case("depth: overlap frames found, measured into the capture folder, and recorded in defaults", depth_in_the_job_step)
 
 if __name__ == "__main__":
     sys.exit(finish())

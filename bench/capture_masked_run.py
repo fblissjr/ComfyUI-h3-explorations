@@ -597,11 +597,14 @@ def owner_map(tracks: dict[str, np.ndarray], classes: dict[str, np.ndarray],
     for i in range(len(labels)):
         owner[stack[i] & (claims == 1)] = i
     shared = claims > 1
-    named = np.stack([stack[i] & shared & (classes[label] > 0 if label in classes else False) for i, label in enumerate(labels)])
-    votes = named.sum(axis=0)
-    for i in range(len(labels)):
-        owner[named[i] & (votes == 1)] = i
-    owner[shared & (votes != 1)] = CONTESTED
+    if classes and all(label in classes and classes[label] is not None for label in labels):
+        named = np.stack([stack[i] & shared & (classes[label] > 0) for i, label in enumerate(labels)])
+        votes = named.sum(axis=0)
+        for i in range(len(labels)):
+            owner[named[i] & (votes == 1)] = i
+        owner[shared & (votes != 1)] = CONTESTED
+    else:
+        owner[shared] = CONTESTED
     if depth is not None and valid is not None:
         _depth_medians_and_owner(stack, shared, owner, depth, valid)
     return owner, labels, shared.sum(axis=(1, 2)), (owner == CONTESTED).sum(axis=(1, 2))
@@ -2218,7 +2221,9 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                 first_tracks[label] = tr
             if cm is not None and label not in pre_cmaps:
                 pre_cmaps[label] = cm
-        whos_pre = [lbl for lbl in first_tracks if lbl in pre_cmaps] or list(first_tracks)
+        whos_pre = [lbl for lbl in first_tracks if lbl in pre_cmaps]
+        if len(whos_pre) < 2:
+            whos_pre = list(first_tracks)
         req_frames: set[int] = set()
         if len(whos_pre) > 1:
             sh_pre = np.sum([first_tracks[lbl] for lbl in whos_pre], axis=0) > 1
@@ -2693,7 +2698,9 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
         row.update(source_step=step, source_sharpness=sharp)
     # Who owns each pixel. A subject is a "who" when it has a class map, or when no subject has one: a kept-out
     # or keep mask given as a --mask is a union of things and owns nothing.
-    whos = [label for label in sightings if label in class_maps] or list(sightings)
+    whos = [label for label in sightings if label in class_maps]
+    if len(whos) < 2:
+        whos = [label for label in sightings if label not in carved]
     if len(whos) > 1:
         if pre_owner_data is not None:
             owner, labels, shared, contested, z_by_frame, settled_by_depth = pre_owner_data

@@ -340,8 +340,9 @@ def mask_specs(ctx: dict, files: dict, band: Path | None = None, hashed=None) ->
                 raise Refused(f"the preview's track of {label} at {f['track_from']} is not the one the job step cut its copy from: its frames changed "
                               "since (the preview made again): the job is made again")
         if label not in (ctx["subject"], ctx.get("also")):
+            other_cls = f",classes={f['classes']}" if (ctx["job"].get("depth") or {}).get("on") and f.get("classes") is not None else ""
             out.append(f"{label}:track={f['track']}" + (f",track_from={f['track_from']}" if f.get("track_from") else "")
-                       + f",shots={f['shots']},shots_at={at},by={by},at={at}")
+                       + other_cls + f",shots={f['shots']},shots_at={at},by={by},at={at}")
             continue
         keys = ctx["subject_keys"] if label == ctx["subject"] else (ctx.get("also_keys") or {})   # each subject of a pair, its own
         for kind in ("parts", "classes"):
@@ -947,6 +948,9 @@ def capture_args(ctx: dict, world, files: dict, band: Path | None = None) -> lis
     out = ["--folder", ctx["capture"], "--source", job["source"], "--first", job["first"], "--frames", job["frames"]]
     if (job.get("head_tube") or {}).get("on") or (ctx.get("subject_keys") or {}).get("head_tube"):
         out.append("--head-tube")
+    depth_cfg = job.get("depth") or {}
+    if depth_cfg.get("on") and depth_cfg.get("overlap_frames") != []:
+        out += ["--depth", ctx["capture"] / "depth.npz"]
     for spec in mask_specs(ctx, files, band):
         out += ["--mask", spec]
     return out
@@ -1066,7 +1070,13 @@ def who_is_who_file(ctx: dict, world, files: dict) -> Path:
 
 def step_first(ctx: dict, world, a) -> tuple[int, str]:
     cap = ctx["capture"]
-    for path in (cap, cap.with_name(cap.name + "_first")):
+    depth_only = (
+        bool((ctx["job"].get("depth") or {}).get("on"))
+        and cap.is_dir()
+        and (cap / "depth.npz").is_file()
+        and {p.name for p in cap.iterdir()} <= {"depth.npz", "record.json", "sheet.jpg"}
+    )
+    for path in (() if depth_only else (cap,)) + (cap.with_name(cap.name + "_first"),):
         if path.exists():
             raise Refused(f"{path} exists: the first step makes the first capture, once")
     files, voice = preview_files(ctx, world.output), voice_for(ctx, world)

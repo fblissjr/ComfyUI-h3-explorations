@@ -3062,10 +3062,24 @@ def depth_in_owner_map_and_the_files_step() -> str:
             s_one = next(s for s in man["subjects"] if s["label"] == "one")["sightings"][0]
             assert s_one["parts_clipped_by_depth"]["px"] == N * 12 * 24, s_one.get("parts_clipped_by_depth")
             assert man["owners"]["depth"]["settled_by_depth_px"] == N * 16 * 40, man["owners"]
+
+            # One-subject load shape (load_chain.py::mask_specs passes classes= only for the load's subject, and track= only for others):
+            # one-sided class map does not pre-settle shared pixels, and owners.npz still includes `two` so `--depth` settles the overlap.
+            out_one_subj = tmp / "cap_depth_one_subj"
+            given_one_subj = [
+                ("one", {"track": "one.mkv", "parts": "p1.mkv", "classes": "c1.mkv", "least": "0"}),
+                ("two", {"track": "two.mkv"}),
+            ]
+            cap._files(args_, out_one_subj, given_one_subj, [], [])
+            ow_one_subj = np.load(out_one_subj / "owners.npz")
+            assert list(ow_one_subj["labels"]) == ["one", "two"] and bool(ow_one_subj["depth_settled"]) is True
+            m_one_s = np.load(out_one_subj / "subjects" / "one" / "masks__preview.npz")
+            p1_out_s = np.unpackbits(m_one_s["parts"], axis=-1)[:, :, :W].astype(bool)
+            assert int(p1_out_s[0].sum()) == 24 * 24 and not p1_out_s[:, :, 48:60].any()
         finally:
             for k, v in stood_in.items():
                 setattr(cap, k, v)
-    return "owner_map settles overlap by core depth and leaves background slits and co-planar overlaps contested; files --depth clips back-subject part spills and preserves foreground keep-outs; canvas and frame mismatches refused"
+    return "owner_map settles overlap by core depth and leaves background slits and co-planar overlaps contested; files --depth clips back-subject part spills and preserves foreground keep-outs (including on one-subject loads); canvas and frame mismatches refused"
 
 
 case("one subject's row", one_subject)
