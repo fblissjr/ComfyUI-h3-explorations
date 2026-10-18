@@ -153,7 +153,8 @@ gate. The two that are next, from the same check and tonight's `lead_fp_0613g`:
    and capture the 48 untouched shots in song order in the card's free time.
 5. Run the end-to-end tests (`internal/gemini/2026-10-17_test_scenes_agreed.md`, `2026-10-17_e2e_tests_gem-matte.md`)
    through the whole chain before any perception switch goes on.
-6. The 2026-10-17 changelog entry, from the commits: the Claude lead reviews `internal/gemini/2026-10-17_changelog_draft.md`.
+6. DONE after the close: the 2026-10-17 changelog entry (`a0ae7025`, 0.290.0), from the Gemini lead's draft and the
+   evening's commits.
    Parked, no default: the matting composite (`internal/gemini/2026-10-17_brief_build_matting_relay.md`, on hold).
 
 ## Where things are
