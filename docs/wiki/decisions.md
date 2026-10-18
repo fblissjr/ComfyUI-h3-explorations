@@ -58,6 +58,9 @@ Older history lives elsewhere and is not copied here:
   tracking was lost, not inside the swapped face.
 - **Matting stays parked** (the owner, about 13:53Z): Meta's Sapiens matting model is hair-edge polish; the gaps and
   the face masks come first (`r17_07`). The pack's own per-piece mattes and the one compositing law are on.
+  **Closed at about 21:42Z**, with SAM 3 base: the owner took both off the list ("remove sam 3 base out and matting
+  out"); both are rows under `docs/roadmap.md`, "Closed lanes". What they used to say: matting parked for later, and
+  SAM 3 base parked with its converted checkpoint kept for a comparison (`docs/wiki/handover.md` of 2026-10-17).
 - **The Gemini lead lands on its own when the Claude lead is out of credits** (the owner, about 13:45Z): its
   pre-flight and a blind read by a session that did not build it, each landing written in its mailbox file.
 
