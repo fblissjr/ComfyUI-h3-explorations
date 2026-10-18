@@ -20,6 +20,11 @@ convolution with a hook on that layer, and which activation the text encoder run
                                   pack's Subject Track signs a person.
   text_in_turn                    the text encoder runs exact GELU when the corrected clip encodes and the shipped
                                   activation when the stock one does, in turn.
+  memory_in_turn                  `SAM3_VideoTrack` on each pair in turn: the corrected pair's memory selection is
+                                  called by ComfyUI's own track node and is what its loader left on the tracker; the
+                                  stock pair's run calls it not at all and leaves the stock method there; after every
+                                  track the patch holds no tensor on the card and no earlier track's record, and each
+                                  corrected track scores its frames with no reset between tracks (2026-10-17).
   survives_an_offload             each pair read, everything unloaded (`unload_all_models`), the stock forward seen
                                   back on the model, then each pair read again: still its own range. A full unload
                                   in one process; not the partial eviction a long H3 render provokes on the server.
@@ -162,6 +167,29 @@ def text_in_turn():
     return "; ".join(got)
 
 
+def memory_in_turn():
+    """The memory patch rides the same patcher as the range: ComfyUI's loader puts it on for the corrected pair only."""
+    step = L.get_memory_selection_state(FIXED)
+    assert isinstance(step, L.MemorySelectionStep) and L.get_memory_selection_state(STOCK) is None, "the pairs do not carry what the node attached"
+    tracker = STOCK.model.diffusion_model.tracker
+    got = []
+    for name in ORDER:
+        model, _ = PAIRS[name]
+        before = step.selected_history       # no reset between tracks: a pass that runs starts a record of its own
+        with torch.inference_mode():
+            SAM3_VideoTrack.execute(FRAMES, model, initial_mask=SEED, conditioning=None, detection_threshold=0.5, max_objects=0, detect_interval=1)
+        called = step.selected_history is not before and bool(step.selected_history)
+        assert not called or step.frame_scores, f"the {name} pair's track ran the patch and scored no frame: its memory was gutted"
+        live = isinstance(vars(tracker).get("_prepare_memory_conditioned_features"), L.MemorySelectionStep)
+        assert called == live == (name == "corrected"), f"the {name} pair's track: memory selection called {called}, on the tracker after it {live}"
+        held = [k for k, v in (("memory tensors", step.retained_bank), ("the decoder's output", step.iou_tap.last_iou_pred),
+                               ("earlier tracks' records", step._completed_runs)) if v is not None and len(v)]
+        assert not held, f"after the {name} pair's track the patch still holds {held}"
+        assert all(t.device.type == "cpu" for t in step.frame_scores.values()), "a kept score is on the card"
+        got.append(f"{name} {'selected' if called else 'stock'}")
+    return "; ".join(got)
+
+
 def survives_an_offload():
     """Each pair read, everything unloaded from the card, each pair read again: the patch is on the patcher, not the model."""
     def run(model, clip):
@@ -184,7 +212,8 @@ def survives_an_offload():
 
 def main() -> int:
     print(f"ComfyUI at {COMFY.name}, dynamic VRAM {'on' if DYNAMIC else 'OFF'}, patcher {type(STOCK).__name__}")
-    for fn in (the_patcher_is_the_servers, detect_in_turn, track_in_turn, trunk_call_in_turn, text_in_turn, survives_an_offload):
+    for fn in (the_patcher_is_the_servers, detect_in_turn, track_in_turn, trunk_call_in_turn, text_in_turn, memory_in_turn,
+               survives_an_offload):
         case(fn.__name__, fn)
     return finish()
 

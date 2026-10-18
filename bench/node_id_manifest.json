@@ -531,7 +531,8 @@
       "segmenter",
       "segmenter_clip",
       "correct_image_range",
-      "correct_text_activation"
+      "correct_text_activation",
+      "memory_selection"
     ],
     "node_id": "MiniMaxH3SAM31Corrections",
     "outputs": [

@@ -44,7 +44,12 @@ import urllib.request
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-COMFY = REPO.parent.parent
+#: the pack's main checkout, which a worktree of it is not: the git common dir's parent. Run from a worktree, the main
+#: checkout is the pack ComfyUI has installed, so it must not be linked into the scratch base beside the copy (two copies
+#: register one node id twice), and the copy takes the main checkout's folder name.
+MAIN = Path(subprocess.run(["git", "-C", str(REPO), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+                           capture_output=True, text=True, check=True).stdout.strip()).parent
+COMFY = MAIN.parent.parent
 sys.path.insert(0, str(REPO / "workflows"))
 
 #: reasoned: the probes of one chain, in the order they run. Both orders of the pair, the corrected one twice running, and
@@ -69,10 +74,10 @@ def cmd_build(a):
     for name in ("user", "input"):          # the server writes here; give it its own
         (base / name).mkdir()
     for entry in sorted((COMFY / "custom_nodes").iterdir()):
-        if entry.name in (REPO.name, "__pycache__") or entry.name.startswith("."):
+        if entry.name in (MAIN.name, "__pycache__") or entry.name.startswith(".") or entry.resolve() == MAIN:
             continue
         (base / "custom_nodes" / entry.name).symlink_to(entry)
-    copy = base / "custom_nodes" / REPO.name
+    copy = base / "custom_nodes" / MAIN.name
     copy.mkdir()
     archive = subprocess.run(["git", "-C", str(REPO), "archive", "HEAD"], capture_output=True, check=True).stdout
     subprocess.run(["tar", "-x", "-C", str(copy)], input=archive, check=True)
@@ -80,12 +85,12 @@ def cmd_build(a):
     (copy / "sam31_probe_node.py").write_text((REPO / "bench" / "sam31_probe_node.py").read_text())   # the working tree's: it may not be committed yet
     nodes = (copy / "nodes.py").read_text()
     imports = "from .sam31_corrections import MiniMaxH3SAM31Corrections\n"
-    listed = "                MiniMaxH3SAM31Corrections]\n"
+    listed = "                MiniMaxH3SAM31Corrections,\n"   # an entry in the node list, wherever it now sits
     if nodes.count(imports) != 1 or nodes.count(listed) != 1:
         raise SystemExit("nodes.py no longer has the two lines this edit hangs on (the Corrections node's import, and its "
-                         "entry as the last of the node list); read it and update `cmd_build`")
+                         "entry in the node list); read it and update `cmd_build`")
     nodes = nodes.replace(imports, imports + "from .sam31_probe_node import H3TestSAM31FirstLayer             # SCRATCH COPY ONLY\n")
-    nodes = nodes.replace(listed, "                MiniMaxH3SAM31Corrections,\n                H3TestSAM31FirstLayer]   # SCRATCH COPY ONLY\n")
+    nodes = nodes.replace(listed, listed + "                H3TestSAM31FirstLayer,   # SCRATCH COPY ONLY\n")
     (copy / "nodes.py").write_text(nodes)
     print(f"built {base}\n  this pack copied at {head}, with the probe registered in the copy only\n"
           f"  start it:  {COMFY / 'start.sh'} --port <port> --base-directory {base}")

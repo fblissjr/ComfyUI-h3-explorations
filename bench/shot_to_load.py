@@ -3,6 +3,7 @@
 
     <python> bench/shot_to_load.py preview --shots SHOTS.json --plan PLAN.json --shot FIRST --folder INPUTS --by SESSION [--cast CAST.jsonl] [--queue] [--remake]
         [--seed-cuts-of EARLIER_PREVIEW_JOB.json=ITS_SHOTS_TABLE.json] [--ask "SUBJECT:why the owner is asked about them"]
+        [--no-memory-selection "a person's reason for tracking with ComfyUI's last-six-frames memory"]
         (somebody looks at the trackers' tiles; a wrong pick is a person's line in the shots record or a box in the cast
         file, and the preview is made again with --remake, under the next letter)
     <python> bench/shot_to_load.py job --shots SHOTS.json --plan PLAN.json --shot FIRST --subject LABEL --preview PREVIEW_JOB_FOLDER \\
@@ -31,7 +32,9 @@ files and runs the two tools, from the video's own records, and leaves to a pers
 built): zoomed in where the node's box allows (`--whole-frame "why"`, or the plan's `zoom: false` with `zoom_by`, for the
 whole frame); the reference's eye in the contrast form and its mouth by the lip check (`REFERENCE_DEFAULT`; the plan's
 `reference: {mouth, iris, why}`, or the reference step's `--mouth`/`--iris` with `--form-why`); and from the plan, the
-strangers keep-out, `pieces`, the hair band and the restore spans. The job step prints them as THE DEFAULTS THIS LOAD
+strangers keep-out, `pieces`, the hair band and the restore spans; and from the preview its masks come from, SAM 3.1's
+memory selection in the trackers (on since 2026-10-17; the preview step's `--no-memory-selection "why"` turns it off,
+kept in the preview's job file as `sam_memory_selection`). The job step prints them as THE DEFAULTS THIS LOAD
 CARRIES, a line each with where it comes from, and keeps the same in the job file (`job.defaults`).
 
 **What is read, and from where.**
@@ -409,7 +412,7 @@ def seed_of(cast_lines: list[dict] | None, label: str, shot: dict, canvas, cuts=
 
 
 def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by: str, cast_lines=None, now: str = "", name: str = "",
-                ask: dict | None = None, seed_cuts: dict | None = None) -> dict:
+                ask: dict | None = None, seed_cuts: dict | None = None, no_memory_selection: str | None = None) -> dict:
     """The job file of one shot's preview: every subject the record says is in it, a pose pass for each. `name` is
     the preview's, `shot_c_<first>` when left out; a preview made again is handed its lettered name.
 
@@ -419,9 +422,18 @@ def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by
     for having nobody to track). An unsure subject is planned by nothing, and it is asked about: the tracker picks
     as it does with no seed, the job says the preview is made to ask, and no load is built on it
     (`load_job` refuses a subject the record does not say is in the shot). A subject who is `yes` needs no asking
-    and one who is `no` is the owner's answer: both are refused here."""
+    and one who is `no` is the owner's answer: both are refused here.
+
+    `no_memory_selection` is a person's reason for tracking with ComfyUI's last-six-frames memory in place of SAM 3.1's
+    memory selection, the chain's default (`h3_config.MASKED_JOB_SAM_CORRECTIONS`): kept in the job block as
+    `sam_memory_selection`, which the graph reads (`masked_job_graph.memory_selection_of`) and a load's defaults name."""
     import h3_config
     ask = ask or {}
+    if no_memory_selection is not None and not " ".join(str(no_memory_selection).split()):
+        raise Refused("--no-memory-selection takes the reason in words: memory selection is the chain's default, and the word is kept")
+    memory = ({"on": False, "why": " ".join(str(no_memory_selection).split()), "said_by": by, "at": now} if no_memory_selection is not None else
+              {"on": bool(h3_config.MASKED_JOB_SAM_CORRECTIONS["memory_selection"]), "said_by": "the chain's default",
+               "why": "h3_config.MASKED_JOB_SAM_CORRECTIONS (the owner's word, 2026-10-17)"})
     for label, why in ask.items():
         said_ = (shot["who"].get(label) or {}).get("present")
         if said_ != "unsure" or not str(why).strip():
@@ -472,9 +484,11 @@ def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by
                                     f"{seed_cuts['the_preview']} saved of these frames, and each seed was chosen in one of them. " if seed_cuts else "")
             + f"THE PICKS: {'; '.join(said)}. A pick by the largest person is a guess: the tiles are looked at before anything is built on this "
             f"preview, and a wrong pick is corrected in the shots record (the shot's `order`, or a frame for the subject) and the preview made again."
-            + (f" THIS IS A PREVIEW MADE AGAIN: {name}, after {base} or a letter before it, which stand as they were made and are not read here." if name != base else ""))
+            + (f" THIS IS A PREVIEW MADE AGAIN: {name}, after {base} or a letter before it, which stand as they were made and are not read here." if name != base else "")
+            + (f" SAM 3.1'S MEMORY SELECTION IS OFF in this preview's trackers, on {by}'s word: {memory['why']}." if not memory["on"] else ""))
     return {"job": {"name": name, "note": note, "source": source, "first": shot["first"], "frames": frames, "canvas": canvas,
-                    "output": OUTPUT_KEY.format(video=video, session=by), "subjects": subjects, "left_out": [], "texts": {}}, "defaults": {}, "loads": []}
+                    "output": OUTPUT_KEY.format(video=video, session=by), "subjects": subjects, "left_out": [], "texts": {},
+                    "sam_memory_selection": memory}, "defaults": {}, "loads": []}
 
 
 def keep_outs_of(p: dict, subject: str, preview: dict, people: list[str], video: str, output: Path, preview_files) -> tuple[dict | None, str]:
@@ -1893,7 +1907,8 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
     defs_known = {"the reference video", "the reference held to the subject's track", "the eye", "the mouth",
                   "the part held on a person's word", "the face lines", "the head tube", "zoom", "other people in the shot",
                   "the strangers keep-out", "the part's pieces", "the hair band", "restore spans", "the text",
-                  "what the composite kept", "the voice", "the seam", "the kept frames' noise"}
+                  "what the composite kept", "the voice", "the seam", "the kept frames' noise",
+                  "SAM 3.1 memory selection"}     # read again from the new job's own preview, never carried
     defs = {}
     for row in old_job.get("defaults") or []:
         if not isinstance(row, dict) or row.get("what") not in defs_known:
@@ -2481,7 +2496,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
                    f"{head_tube_block['why']}.")
     # what the composite kept, saved for the review clips (the song node's `save_kept`): a chain default, the job's switch (2026-10-15)
     load["save_kept"] = True
-    carried = defaults_carried(p, load, subjects, subject, kept, ref_form, zoom_block, whole_block, head_tube_block=head_tube_block)
+    carried = defaults_carried(p, load, subjects, subject, kept, ref_form, zoom_block, whole_block, head_tube_block=head_tube_block, preview=preview)
     if motion == "none":
         # no reference: the rows of the drawn reference say nothing of this load, and the text is made from no record
         carried = [x for x in carried if x["what"] not in ("the reference held to the subject's track", "the eye", "the mouth")]
@@ -2708,10 +2723,25 @@ def reference_form(p: dict, subject: str) -> dict:
     return out
 
 
+def memory_selection_carried(preview: dict | None) -> tuple[str, str]:
+    """What the trackers of the preview a load's masks come from ran with, and whose word: the line of THE DEFAULTS."""
+    said = (preview or {}).get("sam_memory_selection")
+    if preview is None:
+        return "not read (no preview handed in)", "shot_to_load.py::defaults_carried"
+    if said is None:
+        return ("not recorded: the preview was made before its job file recorded it (2026-10-17), so its trackers ran with ComfyUI's "
+                "last-six-frames memory unless its graph says otherwise", f"the preview {preview.get('name')}'s job file")
+    if said.get("on"):
+        return ("on: the preview's trackers kept as memory only past frames where the person was seen (sam31_corrections.py, "
+                "Meta's rule)", f"{said.get('said_by')}: {said.get('why')}")
+    return ("OFF in the preview this load's masks come from, turned off on a person's word: ComfyUI's last-six-frames memory",
+            f"{said.get('said_by')}, {said.get('at')}: {said.get('why')}")
+
+
 def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: dict | None, ref_form: dict, zoom_block, whole_block,
-                     head_tube_block: dict | None = None) -> list[dict]:
+                     head_tube_block: dict | None = None, preview: dict | None = None) -> list[dict]:
     """THE DEFAULTS THIS LOAD CARRIES (the owner's word of 2026-10-14), one line each, with where each comes from: printed by the
-    job step and kept in the job file (`job.defaults`)."""
+    job step and kept in the job file (`job.defaults`). `preview` is the job block of the preview the load's masks come from."""
     import h3_config
     mine = next(s for s in subjects if s["label"] == subject)
     names = [k["name"] for k in (kept or {}).get("made", [])]
@@ -2744,6 +2774,7 @@ def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: di
         ("zoom", "zoomed in where the node's box allows (the node decides at plan)" if zoom_block else "the whole frame",
          f"{(zoom_block or whole_block)['said_by']}: {(zoom_block or whole_block)['why']}"),
         ("other people in the shot", (p.get("others_present") or {}).get("said", "not read"), "bench/others_present.py, from the preview's tables and the owner's answers"),
+        ("SAM 3.1 memory selection", *memory_selection_carried(preview)),
         ("the strangers keep-out", "kept out" if "strangers" in names else
          "not kept out, turned off on a person's word; the part still held to the subject's own track" if p.get("strangers_turned_off") else
          "not kept out", p.get("strangers_from") or ("the plan" + (f": {p.get('keep_outs_by')}" if p.get("keep_outs") else ""))),
@@ -2785,7 +2816,8 @@ def step_preview(a, world) -> None:
     seed_cuts = cuts_of_table(a.seed_cuts_of, shot) if a.seed_cuts_of else None
     if seed_cuts and not cast:
         raise Refused("--seed-cuts-of goes with --cast: the cuts say where a seed from the cast file may go")
-    job = preview_job(shots, plan, shot, video, str(source), a.by, cast, load_chain.utc_now(), name=name, ask=ask, seed_cuts=seed_cuts)
+    job = preview_job(shots, plan, shot, video, str(source), a.by, cast, load_chain.utc_now(), name=name, ask=ask, seed_cuts=seed_cuts,
+                      no_memory_selection=getattr(a, "no_memory_selection", None))
     if seed_cuts:
         job["job"]["seed_cuts"] = seed_cuts
     if ask:
@@ -3388,6 +3420,9 @@ def main() -> int:
                                         help="the tracker's own cuts of this shot, read from the shots table an earlier preview of the same frames saved (with "
                                              "that preview's job file): each cut that holds an answer in the cast file gets its own seed. Without it a shot "
                                              "gets one seed")
+    sub.choices["preview"].add_argument("--no-memory-selection", metavar="WHY",
+                                        help="track with ComfyUI's last-six-frames memory, not SAM 3.1's memory selection (the chain's default); the "
+                                             "reason is kept in the preview's job file and named in each load's defaults")
     sub.choices["preview"].add_argument("--queue", action="store_true", help="build and queue the preview, on an empty queue")
     sub.choices["preview"].add_argument("--remake", action="store_true", help="the next free letter after the name, for a preview made again; the earlier one stands")
     j = sub.choices["job"]

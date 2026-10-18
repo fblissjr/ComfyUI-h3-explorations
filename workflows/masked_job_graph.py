@@ -46,7 +46,10 @@ each tracker after the first is given every earlier tracker's mask on
 most likely to be confused with another first.
 
 **Keys of the job block and of a subject that the graphs do not read and `bench/load_chain.py` does** (2026-10-13):
-`preview`, the job folder of the preview a load's masks come from (`data/<day>_<preview>_job`), from whose own job
+`sam_memory_selection` (2026-10-17), read by `preview` alone: absent, or `{"on": true, ...}`, the trackers run with SAM
+3.1's memory selection (`MASKED_JOB_SAM_CORRECTIONS`); `{"on": false, "why": a person's words, "said_by": who}` turns
+it off for this preview, and an off with no reason is refused (`check_job`). The graph always sets the input, so the
+job's graph records which ran. `preview`, the job folder of the preview a load's masks come from (`data/<day>_<preview>_job`), from whose own job
 the source frame the masks begin on and the subjects' order are read; `who_is_who`, a who-is-who file beside the
 job file to read in place of making one; and on a subject, the options of its mask in a capture, passed only
 when set: `pieces`, `least`, `hold`, `drop`, `grade` (`bench/capture_masked_run.py` has what each does).
@@ -175,6 +178,7 @@ def check_job(job: dict) -> None:
         raise ValueError(f"the span starts at {job['first']} and holds {job['frames']} frames")
     if not job["subjects"]:
         raise ValueError("the job names no subject")
+    memory_selection_of(job)
     seen = set()
     for subject in job["subjects"]:
         label = str(subject.get("label", ""))
@@ -196,6 +200,19 @@ def check_job(job: dict) -> None:
         unknown = set(subject.get("parts") or ()) - set(PART_TICKS)
         if unknown:
             raise ValueError(f"subject {label!r}: unknown parts {sorted(unknown)}; the part node ticks {PART_TICKS}")
+
+
+def memory_selection_of(job: dict) -> bool:
+    """Whether a job's trackers run with SAM 3.1's memory selection: the chain's default, or off with a person's reason."""
+    said = job.get("sam_memory_selection")
+    if said is None:
+        return bool(MASKED_JOB_SAM_CORRECTIONS["memory_selection"])
+    if not isinstance(said, dict) or not isinstance(said.get("on"), bool):
+        raise ValueError(f"sam_memory_selection {said!r}: {{\"on\": true}}, or {{\"on\": false, \"why\": ..., \"said_by\": ...}}")
+    if not said["on"] and not (str(said.get("why") or "").strip() and str(said.get("said_by") or "").strip()):
+        raise ValueError("sam_memory_selection is off with no `why` or no `said_by`: SAM 3.1's memory selection is the "
+                         "chain's default, and it is turned off only on a person's word, with the reason")
+    return said["on"]
 
 
 def prefixes(job: dict, label: str) -> dict[str, str]:
@@ -262,7 +279,8 @@ def preview(job: dict) -> dict:
     g = {LOADER: loader(job["source"], job["first"], job["frames"], canvas),
          SAM: {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": SEGMENTER}},
          SAM_CORRECTED: {"class_type": "MiniMaxH3SAM31Corrections",
-                         "inputs": {"segmenter": [SAM, 0], "segmenter_clip": [SAM, 1], **MASKED_JOB_SAM_CORRECTIONS}},
+                         "inputs": {"segmenter": [SAM, 0], "segmenter_clip": [SAM, 1], **MASKED_JOB_SAM_CORRECTIONS,
+                                    "memory_selection": memory_selection_of(job)}},
          SAPIENS: {"class_type": "MiniMaxH3Sapiens2Loader", "inputs": dict(SAPIENS2)},
          BODY_MODEL: {"class_type": "MiniMaxH3BodyModelLoader", "inputs": {"model_file": MASKED_JOB_BODY_MODEL}}}
     sam = {"segmenter": _out(g, SAM_CORRECTED, "segmenter"), "segmenter_clip": _out(g, SAM_CORRECTED, "segmenter_clip")}

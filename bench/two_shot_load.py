@@ -439,6 +439,14 @@ def step_job(a, world) -> None:
     shots = shot_coverage.load_shots(a.shots)
     one["shot"], two["shot"] = shots_of(shots, one, two)
     held_to_each_other(one, two)
+    # before anything is written: the trackers' memory, as each preview recorded it (`sam_memory_selection`, shot_to_load.preview_job): the joined masks
+    # are both previews' frames, so the joined preview says what both ran with, and two that differ are refused
+    ran = [json.loads((ctx["preview"]["folder"] / "job.json").read_text())["job"] for ctx in (one, two)]
+    memory = [r.get("sam_memory_selection") for r in ran]
+    if [(m or {}).get("on") for m in memory] != [(memory[0] or {}).get("on")] * 2:
+        raise Refused(f"the previews {one['preview']['name']} and {two['preview']['name']} tracked with different memory (SAM 3.1 memory selection "
+                      f"{[(m or {}).get('on', 'not recorded') for m in memory]}): their masks laid end to end would not be one tracker's. "
+                      "Make the two previews alike, or the two-shot load is a person's word on the cut")
     first, cut = one["load"]["first"], two["load"]["first"]
     last = cut + two["load"]["frames"] - 1
     frames, windows = last - first + 1, masked_job.chain_lengths()
@@ -520,8 +528,9 @@ def step_job(a, world) -> None:
                     f"bench/two_shot_load.py for {a.by}, {now}, for the two-shot load {name}. Source frames {spans[0][0]} to {spans[1][0] + spans[1][1] - 1}; every "
                     "joined mask frame was held equal to its source's.", "source": one["job"]["source"], "first": spans[0][0], "frames": spans[0][1] + spans[1][1],
                     "canvas": list(one["job"]["canvas"]), "output": output_key,
-                    "subjects": json.loads((one["preview"]["folder"] / "job.json").read_text())["job"]["subjects"], "left_out": [], "texts": {},
-                    "joined_from": said}, "defaults": {}, "loads": []}
+                    "subjects": ran[0]["subjects"], "left_out": [], "texts": {}, "joined_from": said,
+                    **({"sam_memory_selection": dict(memory[0], joined_from=[one["preview"]["name"], two["preview"]["name"]])} if memory[0] else {})},
+            "defaults": {}, "loads": []}
     (preview_folder / "job.json").write_text(json.dumps(pjob, indent=1))
     (preview_folder / "preview.queued.json").write_text(json.dumps({
         "stage": "preview", "status": "success", "prompt_id": None, "files": listed,

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """The SAM 3.1 Corrections node on stand-in modules, through ComfyUI's real ModelPatcher. No SAM weights, no card.
 
-`sam31_corrections.py` attaches two corrections to a loaded SAM 3.1 pair as object patches: the image
-range at the trunk's patch embedding, and the text encoder's activation. This check builds a stand-in with the same
+`sam31_corrections.py` attaches three corrections to a loaded SAM 3.1 pair as object patches: the image
+range at the trunk's patch embedding, the text encoder's activation, and memory selection on the video tracker. This check builds a stand-in with the same
 attribute path and a stand-in text encoder made of ComfyUI's own `CLIPMLP`, wraps each in ComfyUI's `ModelPatcher`,
 and asks whether a frame reaches the first layer as the node says it does. Each case is a way a graph could run on a
 range nobody meant:
@@ -36,9 +36,44 @@ range nobody meant:
                                   stock pair still reads stock, and a clone of a patch that has seen mapped frames knows it.
   switches_and_report             each correction alone, neither, and both: `corrections` reads exactly what was
                                   attached, and the report says so in words, naming what is never corrected.
+  memory_paths_are_cores          the tracker path and the two attributes memory selection hangs on are spelled the way
+                                  ComfyUI's SAM 3 classes spell them today, and SAM 3.1's tracker keeps the
+                                  `num_maskmem = 7` (six past frames) the report and the tooltip name.
+  memory_on_and_off               on a stand-in SAM 3.1 tracker: switched on, both memory patches are attached, installed
+                                  by `patch_model` and gone after `unpatch_model`, and the report says on; switched off,
+                                  neither is there and the report says ComfyUI's six frames. THE CONTROL: a stock model
+                                  reads off.
+  memory_never_twice              attached twice, and wired twice through the node's entry point, one memory patch and one
+                                  clone callback; a second attach asking another threshold is refused, not swallowed.
+  memory_clone_binds_its_own      a clone handed a second instance of the model has a memory patch bound to THAT
+                                  instance's tracker and decoder, with a state of its own. THE CONTROL: with the clone
+                                  callback removed the clone's patch is the first instance's.
+  memory_scored_per_object        three objects in one SAM 3.1 call (the bench tool's attach; the node keeps core's memory
+                                  there), the first hidden on frames 3-12, the others seen throughout: through the patch
+                                  ComfyUI applied, the hidden one keeps only the frames it was seen on while the two seen
+                                  ones keep every frame.
+  memory_left_off_on_sam3         a SAM 3 (`SAM3Tracker`) stand-in with the switch on carries no memory patch, and the
+                                  report says it is not applied there and why.
+  memory_survives_an_object_added two objects, a third added after frame 4 as core's `_add_detected_objects` adds a
+                                  detection (the state grows, that frame's stored scores keep the old count): no error,
+                                  frame 4 scored for two and frame 5 for three, the added object keeping the earlier
+                                  frames unfiltered; sixteen objects grown to seventeen scored for sixteen.
+  memory_holds_nothing_after_a_run  four tracks in a row: after each, no memory tensor and no decoder output is held,
+                                  every kept score is on the CPU, and what is kept is the same size every time.
+  memory_pointers_as_meta         what core's method is handed: pointers from every kept frame but the oldest (Meta's
+                                  rule), and none when only the frame before is kept.
+  memory_one_object_only          the node selects on a call tracking one object only: three objects in one call are
+                                  handed core's own memory every frame, THE CONTROL being the multi-object remap handing
+                                  objects 1 and 2 the hidden object 0's frames; one object joined by a detection after
+                                  frame 4 is selected on 1-4 and handed core's memory from 5; the report says so.
+  memory_a_later_track_scores     two tracks with no reset between, the second on the same output_dict object from a
+                                  later frame: it scores and keeps its own frames.
 
 What it cannot check: the server's dynamic patcher class (this builds the plain `ModelPatcher`), the real model, and
-that ComfyUI's own SAM nodes reach the patched layer. That is a real-model run as a graph on the server's queue.
+that ComfyUI's own SAM nodes reach the patched layer. That is a real-model run as a graph on the server's queue. For
+memory selection the trackers are core's own classes built small with random weights, and the decoder's scores are
+set by hand: it shows which frames are kept, not that the kept frames track better (that is
+`bench/sam_memory_selection.py`, on the real model).
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/check_sam31_corrections.py
 """
@@ -66,6 +101,7 @@ comfy.cli_args.args.cpu = True
 import comfy.clip_model  # noqa: E402
 import comfy.model_patcher  # noqa: E402
 import comfy.ops  # noqa: E402
+from comfy.ldm.sam3.tracker import MultiplexState, SAM31Tracker, SAM3Tracker  # noqa: E402
 from comfy.patcher_extension import CallbacksMP  # noqa: E402
 
 import sam31_corrections as L  # noqa: E402
@@ -351,10 +387,369 @@ def a_loaded_sibling_changes_nothing():
     return "a second run of the node while the first pair is loaded still corrects; what the patch has seen is shared by its clones"
 
 
+def _tracked(kind=SAM31Tracker, seed: int = 0) -> torch.nn.Module:
+    """`_model()` with one of core's own trackers at `diffusion_model.tracker`, built small with random weights."""
+    torch.manual_seed(seed)
+    if kind is SAM31Tracker:
+        tracker = SAM31Tracker(d_model=32, mem_dim=32, num_maskmem=4, num_multiplex=16, device=CPU, dtype=torch.float32,
+                               operations=comfy.ops.disable_weight_init)
+    else:
+        tracker = SAM3Tracker(d_model=32, mem_dim=8, num_maskmem=4, device=CPU, dtype=torch.float32, operations=comfy.ops.disable_weight_init)
+    tracker.image_size, tracker.backbone_stride = 112, 14
+    with torch.no_grad():
+        for k, t in enumerate(tracker.parameters()):
+            t.copy_(torch.randn(t.shape, generator=torch.Generator().manual_seed(200 + seed + k)) * 0.05)
+    tracker.eval()
+    model = _model(seed)
+    model.diffusion_model.tracker = tracker
+    return model
+
+
+def _memory(p):
+    return p.object_patches.get(L.MEMORY_PATCH), p.object_patches.get(L.DECODER_PATCH)
+
+
+def memory_paths_are_cores():
+    import comfy.ldm.sam3.detector as detector
+    import comfy.ldm.sam3.tracker as tracker
+    assert L.TRACKER.split(".") == ["diffusion_model", "tracker"], f"TRACKER is {L.TRACKER}"
+    assert "self.tracker =" in inspect.getsource(detector), "core's SAM 3 model no longer builds `self.tracker`"
+    for cls in (tracker.SAM3Tracker, tracker.SAM31Tracker):
+        assert "_prepare_memory_conditioned_features" in vars(cls), f"{cls.__name__} has no `_prepare_memory_conditioned_features`"
+        assert "self.sam_mask_decoder =" in inspect.getsource(cls), f"{cls.__name__} no longer builds `self.sam_mask_decoder`"
+    assert L.MEMORY_PATCH == L.TRACKER + "._prepare_memory_conditioned_features"
+    assert L.DECODER_PATCH == L.TRACKER + ".sam_mask_decoder.forward"
+    assert L.MEMORY_SELECTION_TRACKERS == (tracker.SAM31Tracker.__name__,)
+    kept = inspect.signature(tracker.SAM31Tracker.__init__).parameters["num_maskmem"].default
+    assert kept == 7, f"SAM 3.1's tracker remembers num_maskmem={kept}: the report and the tooltip say six past frames"
+    return "tracker, decoder and memory method read from core's source; SAM31Tracker num_maskmem=7 (six past frames)"
+
+
+def memory_on_and_off():
+    stock = _patcher(_tracked())
+    assert _memory(stock) == (None, None) and not any(L.corrections(stock, _clip()).values()), "the control: a stock model reads corrected"
+    assert "memory selection: off" in L.report(stock, None), L.report(stock, None)
+    model = _tracked()
+    tracker = model.diffusion_model.tracker
+    on = _patcher(model)
+    L.attach(on, None, image_range=False, text_activation=False)            # the switch's default is on
+    step, tap = _memory(on)
+    assert isinstance(step, L.MemorySelectionStep) and isinstance(tap, L.IoUTap), f"switched on, the patches are {step!r}, {tap!r}"
+    assert step.tracker is tracker and step.iou_tap is tap and step.mf_threshold == L.MF_THRESHOLD
+    got = L.corrections(on, None)
+    assert got["memory_selection"] and L.tracker_kind(on) == "SAM31Tracker", got
+    assert "memory selection: on" in L.report(on, None), L.report(on, None)
+    assert "_prepare_memory_conditioned_features" not in vars(tracker), "attached before ComfyUI applied it"
+    on.patch_model(load_weights=False)
+    try:
+        assert vars(tracker).get("_prepare_memory_conditioned_features") is step, "patch_model did not install the memory patch"
+        assert vars(tracker.sam_mask_decoder).get("forward") is tap, "patch_model did not install the decoder tap"
+    finally:
+        on.unpatch_model(unpatch_weights=False)
+    assert not isinstance(tracker._prepare_memory_conditioned_features, L.MemorySelectionStep), "unpatch_model left the memory patch on"
+    assert not isinstance(tracker.sam_mask_decoder.forward, L.IoUTap), "unpatch_model left the decoder tap on"
+    off = _patcher(_tracked())
+    L.attach(off, None, image_range=False, text_activation=False, memory_selection=False)
+    assert _memory(off) == (None, None), "switched off, a memory patch is attached"
+    assert not L.corrections(off, None)["memory_selection"]
+    text = L.report(off, None)
+    assert "memory selection: off" in text and "last six frames" in text, text
+    return "on: both patches attached, applied and undone by ComfyUI, reported on; off: none, reported as ComfyUI's six frames"
+
+
+def memory_never_twice():
+    p = _patcher(_tracked())
+    L.attach(p, None, image_range=False, text_activation=False)
+    first = _memory(p)
+    L.attach(p, None, image_range=False, text_activation=False)
+    assert _memory(p) == first, "a second attach replaced the memory patch"
+    assert len(p.callbacks.get(CallbacksMP.ON_CLONE, {}).get(L.MEMORY_CALLBACK, [])) == 1, "a second attach added a second clone callback"
+    try:
+        L.attach_memory_selection(p, mf_threshold=0.5)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("an attach asking another threshold of a model that carries one was not refused")
+    assert _memory(p) == first
+    clip = _clip()
+    stand_in = types.SimpleNamespace(patcher=clip.patcher, cond_stage_model=clip.cond_stage_model,
+                                     clone=lambda: types.SimpleNamespace(patcher=clip.patcher.clone(), cond_stage_model=clip.cond_stage_model))
+    m2, c2 = L.corrected(p, stand_in)
+    c2.clone = lambda: types.SimpleNamespace(patcher=c2.patcher.clone(), cond_stage_model=c2.cond_stage_model)
+    m3, _ = L.corrected(m2, c2)                               # wired twice in a row
+    assert len(m3.callbacks.get(CallbacksMP.ON_CLONE, {}).get(L.MEMORY_CALLBACK, [])) == 1, "wired twice, the memory callback is there twice"
+    step, tap = _memory(m3)
+    assert isinstance(step, L.MemorySelectionStep) and step.iou_tap is tap
+    assert step.tracker is p.model.diffusion_model.tracker and isinstance(step.orig_fn.__self__, SAM31Tracker)
+    assert not isinstance(step.orig_fn, L.MemorySelectionStep) and not isinstance(tap.orig_forward, L.IoUTap), "a patch wraps a patch"
+    return "one memory patch and one callback, attached twice or wired twice; another threshold refused"
+
+
+def memory_clone_binds_its_own():
+    def run(with_callback: bool):
+        first, second = _tracked(seed=1), _tracked(seed=2)
+        p = _patcher(first)
+        L.attach(p, None, image_range=False, text_activation=False)
+        if not with_callback:
+            p.remove_callbacks_with_key(CallbacksMP.ON_CLONE, L.MEMORY_CALLBACK)
+        clone = p.clone(model_override=(second, ({}, {}, {}, set())))
+        return p, clone, first.diffusion_model.tracker, second.diffusion_model.tracker
+
+    p, clone, first, second = run(True)
+    step, tap = _memory(clone)
+    assert step.tracker is second and step.orig_fn.__self__ is second, "the clone's memory patch is not bound to its own tracker"
+    assert tap.orig_forward.__self__ is second.sam_mask_decoder and step.iou_tap is tap, "the clone's decoder tap is not its own"
+    assert _memory(p)[0] is not step and _memory(p)[0].tracker is first, "the parent's patch was changed by the clone"
+    step.frame_scores[5] = torch.ones(1)
+    assert not _memory(p)[0].frame_scores, "a clone's state is shared with its parent"
+    _, clone, first, second = run(False)
+    assert _memory(clone)[0].tracker is first, "the control did not show the fault: without the callback the clone keeps the first tracker"
+    return "bound to the clone's own tracker and decoder, state of its own; without the callback, the first instance's"
+
+
+def _group(tracker, n_frames: int, hidden: set[int], n_obj: int = 3, add_at: int | None = None, add_n: int = 0,
+           out: dict | None = None, start: int = 1) -> dict:
+    """`n_obj` objects in one SAM 3.1 call; object 0 has a negative object score on `hidden`, the others are seen throughout.
+
+    The frames' outputs are written as core's video loop writes them (`track_video_with_detection`); the IoU the decoder
+    would give is set on the tap the patch records it on. `add_at`: after that frame's output is written, `add_n` objects
+    are added as core's `_add_detected_objects` adds a detection: the multiplex state grows and the frame's stored object
+    scores stay at the old count. `out` and `start`: run on an output_dict handed in (the same object), from that frame.
+    Returns the output_dict."""
+    H = W = 8
+    C, M = tracker.d_model, tracker.num_multiplex
+    mux = MultiplexState(n_obj, M, CPU, torch.float32)
+    torch.manual_seed(99)
+    feats, pos = [torch.randn(1, H * W, C)], [torch.zeros(1, H * W, C)]
+    out = out if out is not None else {"cond_frame_outputs": {0: {"maskmem_features": torch.randn(1, C, H, W), "maskmem_pos_enc": [torch.zeros(1, C, H, W)],
+                                      "image_features": torch.randn(1, H * W, C), "image_pos_enc": torch.zeros(1, H * W, C),
+                                      "obj_ptr": torch.zeros(1, M, C), "object_score_logits": torch.full((n_obj, 1), 5.0)}},
+           "non_cond_frame_outputs": {}}
+    for f in range(start, n_frames):
+        tracker._prepare_memory_conditioned_features(frame_idx=f, is_init_cond_frame=False, current_vision_feats=feats,
+                                                     current_vision_pos_embeds=pos, feat_sizes=[(H * 4, W * 4), (H * 2, W * 2), (H, W)],
+                                                     output_dict=out, num_frames=n_frames, multiplex_state=mux)
+        tap = tracker._prepare_memory_conditioned_features.iou_tap
+        n = mux.total_valid_entries
+        logits = torch.full((mux.num_buckets, M, 1), -4.0)
+        logits.view(-1)[:n] = 6.0
+        logits[0, 0, 0] = -4.0 if f in hidden else 5.0
+        tap.record(torch.full((mux.num_buckets, M, 3), 0.9), logits)      # what the decoder's call records, as `IoUTap.__call__`
+        ptr = torch.zeros(1, M, C)
+        ptr[0, :n, :] = float(f)
+        out["non_cond_frame_outputs"][f] = {"maskmem_features": torch.randn(1, C, H, W), "maskmem_pos_enc": [torch.zeros(1, C, H, W)],
+                                            "image_features": torch.randn(1, H * W, C), "image_pos_enc": torch.zeros(1, H * W, C),
+                                            "obj_ptr": ptr, "object_score_logits": mux.demux(logits)}
+        if f == add_at:
+            mux.add_objects(add_n)
+    return out
+
+
+def memory_scored_per_object():
+    # several objects in one call: the bench tool's attach (an explicit focus), since the node keeps core's memory there
+    model = _tracked()
+    p = _patcher(model)
+    L.attach_memory_selection(p)
+    p.patch_model(load_weights=False)
+    try:
+        _group(model.diffusion_model.tracker, n_frames=16, hidden=set(range(3, 13)))
+        step = L.get_memory_selection_state(p)
+        kept = step.selected_history[15]
+        scores = step.frame_scores[8]
+    finally:
+        p.unpatch_model(unpatch_weights=False)
+    assert scores.shape == (3,) and float(scores[0]) <= L.MF_THRESHOLD < float(scores[1]), f"frame 8's scores are {scores.tolist()}"
+    assert kept[0] == [1, 2, 13, 14], f"the hidden object kept {kept[0]}: frames 3-12 should be filtered for it alone"
+    assert kept[1] == kept[2] == list(range(1, 15)), f"the objects seen throughout kept {kept[1]} and {kept[2]}"
+    return f"hidden object keeps {kept[0]}; the two seen keep frames 1-14; frame 8 scores {[round(float(x), 3) for x in scores]}"
+
+
+def memory_survives_an_object_added():
+    """A detection adds an object mid-video (core's `_add_detected_objects`): the frame before it keeps the old count.
+
+    Several objects in one call, so through the bench tool's attach; the node keeps core's memory there."""
+    model = _tracked()
+    p = _patcher(model)
+    L.attach_memory_selection(p)
+    p.patch_model(load_weights=False)
+    try:
+        _group(model.diffusion_model.tracker, n_frames=10, hidden=set(), n_obj=2, add_at=4, add_n=1)
+        step = L.get_memory_selection_state(p)
+        kept = step.selected_history[9]
+        scored = {f: step.frame_scores[f].numel() for f in (4, 5)}
+    finally:
+        p.unpatch_model(unpatch_weights=False)
+    assert scored == {4: 2, 5: 3}, f"frame 4 was scored for {scored[4]} objects and frame 5 for {scored[5]}"
+    assert kept[0] == kept[1] == list(range(1, 9)), f"the two first objects kept {kept[0]} and {kept[1]}"
+    assert kept[2] == list(range(1, 9)), f"the added object kept {kept[2]}: frames scored before it existed are kept for it, unfiltered"
+    # past one bucket of sixteen: the tap's IoU is in the old bucket count, the multiplex state in the new one
+    tap = L.IoUTap(lambda *a, **k: None)
+    step = L.MemorySelectionStep(tracker=model.diffusion_model.tracker, orig_fn=None, iou_tap=tap)
+    tap.last_iou_pred = torch.full((1, 16, 3), 0.9)
+    grown = MultiplexState(17, 16, CPU, torch.float32)
+    score = step._score_previous_frame(3, {"object_score_logits": torch.full((16, 1), 5.0)}, grown)
+    assert score is not None and score.numel() == 16, f"sixteen objects grown to seventeen scored as {score}"
+    return f"2 objects, one added after frame 4: scored {scored}; every object keeps frames 1-8; 16 grown to 17 scores 16"
+
+
+def memory_holds_nothing_after_a_run():
+    """After each track returns, nothing on the card is held by the patch and nothing grows from one track to the next."""
+    model = _tracked()
+    p = _patcher(model)
+    L.attach(p, None, image_range=False, text_activation=False)
+    step = L.get_memory_selection_state(p)
+    p.patch_model(load_weights=False)
+    try:
+        sizes = []
+        for _ in range(4):
+            _group(model.diffusion_model.tracker, n_frames=12, hidden=set(range(3, 8)), n_obj=1)
+            assert not step.retained_bank, f"{len(step.retained_bank)} frames of memory tensors held after the track returned"
+            assert step.iou_tap.last_iou_pred is None and step.iou_tap.last_obj_score_logits is None, "the tap holds the decoder's last output"
+            assert all(t.device.type == "cpu" for t in step.frame_scores.values()), "a kept score is not on the CPU"
+            sizes.append((len(step._completed_runs), len(step.frame_scores), len(step.selected_history)))
+    finally:
+        p.unpatch_model(unpatch_weights=False)
+    assert len(set(sizes)) == 1 and sizes[0][0] == 0, f"what the patch keeps grew from track to track: {sizes}"
+    return f"four tracks: no memory tensors or decoder output held after each, kept (runs, scores, history) {sizes[0]} every time"
+
+
+def memory_pointers_as_meta():
+    """Meta reads an object's pointers from every kept frame but its oldest (video_tracking_multiplex.py:1517)."""
+    def handed(hidden: set[int]) -> dict[int, dict[int, bool]]:
+        model = _tracked()
+        p = _patcher(model)
+        L.attach(p, None, image_range=False, text_activation=False)
+        step = L.get_memory_selection_state(p)
+        seen, stock = {}, step.orig_fn
+
+        def recording(frame_idx, is_init, feats, pos, sizes, output_dict, num_frames, *a, **k):
+            seen[frame_idx] = {t: "obj_ptr" in out for t, out in output_dict["non_cond_frame_outputs"].items()}
+            return stock(frame_idx, is_init, feats, pos, sizes, output_dict, num_frames, *a, **k)
+
+        step.orig_fn = recording
+        p.patch_model(load_weights=False)
+        try:
+            _group(model.diffusion_model.tracker, n_frames=16, hidden=hidden, n_obj=1)
+        finally:
+            p.unpatch_model(unpatch_weights=False)
+        return seen
+
+    seen = handed(set(range(3, 13)))           # at frame 15 the object keeps 1, 2, 13, 14
+    assert seen[15] == {14: True, 13: True, 12: True, 11: False}, f"frame 15 was handed {seen[15]}: the oldest kept frame's pointer is read"
+    alone = handed(set(range(1, 16)))          # hidden throughout: only the frame before is kept, every frame
+    assert all(v == {f - 1: False} for f, v in alone.items() if f >= 2), f"with only the frame before kept, a pointer was handed: {alone}"
+    return "kept 1, 2, 13, 14: pointers from 14, 13, 2 and none from 1; only the frame before kept: no pointer"
+
+
+def _handed(p, model, **group) -> tuple[dict, dict, L.MemorySelectionStep]:
+    """Run `_group` through the patch ComfyUI applied, recording the output_dict core's own method is handed each frame."""
+    step = L.get_memory_selection_state(p)
+    seen, stock = {}, step.orig_fn
+
+    def recording(frame_idx, is_init, feats, pos, sizes, output_dict, num_frames, *a, **k):
+        seen[frame_idx] = output_dict
+        return stock(frame_idx, is_init, feats, pos, sizes, output_dict, num_frames, *a, **k)
+
+    step.orig_fn = recording
+    p.patch_model(load_weights=False)
+    try:
+        out = _group(model.diffusion_model.tracker, **group)
+    finally:
+        p.unpatch_model(unpatch_weights=False)
+    return seen, out, step
+
+
+def memory_one_object_only():
+    """The node selects memory on a call tracking ONE object; a call tracking several keeps core's memory, unfiltered."""
+    hidden = set(range(3, 13))
+    # THE CONTROL: the multi-object remap takes every object's spatial memory from the focus object, object 0, hidden on
+    # 3-12: at frame 12 objects 1 and 2 are handed frame 2's memory two places back, where core hands them frame 10's
+    model = _tracked()
+    p = _patcher(model)
+    L.attach_memory_selection(p)
+    seen, out, _ = _handed(p, model, n_frames=16, hidden=hidden, n_obj=3)
+    two_back = seen[12]["non_cond_frame_outputs"][10]["maskmem_features"]
+    assert two_back is out["non_cond_frame_outputs"][2]["maskmem_features"], "the control did not show the fault: no focus-object memory at frame 12"
+    # the node: three objects, so core's own output_dict on every frame
+    model = _tracked()
+    p = _patcher(model)
+    L.attach(p, None, image_range=False, text_activation=False)
+    seen, out, step = _handed(p, model, n_frames=16, hidden=hidden, n_obj=3)
+    assert all(d is out for d in seen.values()), f"a three-object call was handed a remapped memory on {[f for f, d in seen.items() if d is not out]}"
+    assert step.several_from == 1 and not step.selected_history, (step.several_from, step.selected_history)
+    # the next track on the same patcher, of one object, with no reset between: selected again
+    p.patch_model(load_weights=False)
+    try:
+        _group(model.diffusion_model.tracker, n_frames=10, hidden={3}, n_obj=1)
+    finally:
+        p.unpatch_model(unpatch_weights=False)
+    assert step.several_from is None and 3 not in step.selected_history[9][0], ("a one-object track after a three-object one was not selected",
+                                                                               step.several_from, step.selected_history.get(9))
+    # one object, and a detection adds a second after frame 4: selected up to 4, core's memory from frame 5 to the end
+    model = _tracked()
+    p = _patcher(model)
+    L.attach(p, None, image_range=False, text_activation=False)
+    seen, out, step = _handed(p, model, n_frames=12, hidden={3}, n_obj=1, add_at=4, add_n=1)
+    assert step.several_from == 5 and sorted(step.selected_history) == [1, 2, 3, 4], (step.several_from, sorted(step.selected_history))
+    assert all((d is out) == (f >= 5) for f, d in seen.items()), {f: d is out for f, d in seen.items()}
+    text = L.report(p, None)
+    assert "on for one-object tracks" in text and "several objects keeps ComfyUI's memory" in text, text
+    return "three objects: core's memory on every frame (the control's focus remap shown); one object then a detection: selected on 1-4, core's from 5"
+
+
+def memory_a_later_track_scores():
+    """Two tracks with no reset between, the second on an output_dict at the same address starting on a later frame."""
+    model = _tracked()
+    p = _patcher(model)
+    L.attach(p, None, image_range=False, text_activation=False)
+    step = L.get_memory_selection_state(p)
+    p.patch_model(load_weights=False)
+    try:
+        out = _group(model.diffusion_model.tracker, n_frames=16, hidden=set(), n_obj=1)
+        out["non_cond_frame_outputs"].clear()                  # the same dict object, as a freed dict's address reused
+        _group(model.diffusion_model.tracker, n_frames=30, hidden=set(), n_obj=1, out=out, start=20)
+        kept = step.selected_history[29]
+    finally:
+        p.unpatch_model(unpatch_weights=False)
+    assert kept == [list(range(20, 29))], f"the second track kept {kept} at frame 29: it ran with its memory gutted"
+    return f"the second track keeps frames {kept[0][0]}-{kept[0][-1]} at frame 29"
+
+
+def memory_left_off_on_sam3():
+    p = _patcher(_tracked(SAM3Tracker))
+    L.attach(p, None, image_range=False, text_activation=False, memory_selection=True)
+    assert _memory(p) == (None, None), "memory selection was attached to SAM 3's tracker"
+    got = L.corrections(p, None)
+    assert not got["memory_selection"] and L.tracker_kind(p) == "SAM3Tracker", got
+    text = L.report(p, None)
+    assert "memory selection: NOT applied to SAM3Tracker" in text and "SAM 3.1 only" in text, text
+    assert "memory selection: NOT applied (the model has no video tracker)" in L.report(_patcher(_model()), None)
+    return "SAM 3 carries no memory patch with the switch on, and the report says it is not applied there and why"
+
+
+def memory_optional_for_old_graphs():
+    # the server refused every graph without the input while it was required (the queue test, 2026-10-18)
+    inputs = {i.id: i for i in L.MiniMaxH3SAM31Corrections.define_schema().inputs}
+    mem = inputs["memory_selection"]
+    assert mem.optional and mem.default is True, f"memory_selection: optional={mem.optional}, default={mem.default}"
+    def clip():      # the node clones the pair it is handed; the stand-in CLIP gets a clone like core's
+        c = _clip()
+        c.clone = lambda: types.SimpleNamespace(patcher=c.patcher.clone(), cond_stage_model=c.cond_stage_model)
+        return c
+    absent = L.MiniMaxH3SAM31Corrections.execute(_patcher(_tracked()), clip())
+    assert isinstance(_memory(absent.result[0])[0], L.MemorySelectionStep), "a graph without the input did not get the default, on"
+    given = L.MiniMaxH3SAM31Corrections.execute(_patcher(_tracked()), clip(), memory_selection=True)
+    assert isinstance(_memory(given.result[0])[0], L.MemorySelectionStep), "a graph that sets it on did not get it"
+    return "optional, on by default in the UI and the API alike; a graph without it validates and gets it on"
+
+
 def main() -> int:
     for fn in (the_path_is_cores, a_frame_arrives_in_range, applied_and_undone_by_comfyui, never_twice,
                a_clone_gets_its_own_layer, never_corrects_what_is_right, the_activation_is_swapped, switches_and_report,
-               the_input_pair_stays_stock, a_loaded_sibling_changes_nothing):
+               the_input_pair_stays_stock, a_loaded_sibling_changes_nothing, memory_paths_are_cores, memory_on_and_off,
+               memory_never_twice, memory_clone_binds_its_own, memory_scored_per_object, memory_left_off_on_sam3,
+               memory_survives_an_object_added, memory_holds_nothing_after_a_run, memory_pointers_as_meta,
+               memory_optional_for_old_graphs, memory_one_object_only, memory_a_later_track_scores):
         case(fn.__name__, fn)
     return finish()
 

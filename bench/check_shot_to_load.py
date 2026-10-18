@@ -1897,8 +1897,27 @@ def the_defaults_this_load_carries() -> str:
         made = Made(Path(tmp))
         d = made.load()
         lines = {x["what"]: x for x in d["job"]["defaults"]}
-        assert list(lines) == ["the reference held to the subject's track", "the eye", "the mouth", "zoom", "other people in the shot", "the strangers keep-out", "the part's pieces",
-                               "the hair band", "restore spans", "the text", "what the composite kept", "the voice"], list(lines)
+        assert list(lines) == ["the reference held to the subject's track", "the eye", "the mouth", "zoom", "other people in the shot", "SAM 3.1 memory selection",
+                               "the strangers keep-out", "the part's pieces", "the hair band", "restore spans", "the text", "what the composite kept", "the voice"], list(lines)
+        # SAM 3.1'S MEMORY SELECTION (the owner's word of 2026-10-17): on in every preview by default, said among a load's defaults from
+        # the preview its masks come from; off only with a person's reason, which the preview's graph and the load's defaults both carry
+        memory = lines["SAM 3.1 memory selection"]
+        assert memory["carries"].startswith("on:") and memory["from"].startswith("the chain's default"), memory
+        assert graphs.preview(made.preview()["job"])[graphs.SAM_CORRECTED]["inputs"]["memory_selection"] is True, "a preview's graph does not set memory selection on"
+        off = made.preview(no_memory_selection="the owner asked for ComfyUI's own memory on this shot")["job"]
+        assert off["sam_memory_selection"]["on"] is False and "MEMORY SELECTION IS OFF" in off["note"], off["sam_memory_selection"]
+        # THE CASE THAT GOES RED when a preview turned off still tracks with memory selection
+        assert graphs.preview(off)[graphs.SAM_CORRECTED]["inputs"]["memory_selection"] is False, "a preview turned off still runs memory selection"
+        carries, said = stl.memory_selection_carried(off)
+        assert carries.startswith("OFF") and "the owner asked for ComfyUI's own memory" in said, (carries, said)
+        refused(lambda: made.preview(no_memory_selection="  "), "--no-memory-selection takes the reason")
+        try:
+            graphs.check_job(dict(off, sam_memory_selection={"on": False}))
+        except ValueError as e:
+            assert "only on a person's word" in str(e), e
+        else:
+            raise AssertionError("a preview turned off with no reason was not refused by the builder")
+        assert stl.memory_selection_carried({k: v for k, v in off.items() if k != "sam_memory_selection"})[0].startswith("not recorded")
         assert lines["the voice"]["carries"].startswith("the voice table's") and lines["the voice"]["from"] == "the chain", lines["the voice"]
         # THE PLAN'S VOICE (the owner's word of 2026-10-15 on 5675b): said among the defaults, with who said it; two voices in a load refused
         made.plan["subjects"]["a"]["voice"] = [{"first": 100, "last": 159, "voice": "talks, not heard", "by": "THE OWNER, 2026-10-15"}]

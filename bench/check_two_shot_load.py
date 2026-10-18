@@ -333,6 +333,11 @@ def the_two_loads_are_held_to_each_other() -> str:
         pjob, folder = made.previews[SHOT_B[0]]
         (folder / "job.json").write_text(json.dumps({"job": {**pjob, "first": 139, "frames": 51}}))
         refused(lambda: made.job(), "of its whole shot", "no hole")
+        # the two previews' trackers ran with different memory: their masks laid end to end are not one tracker's
+        off = {**pjob, "sam_memory_selection": {"on": False, "why": "W", "said_by": "a person", "at": "t"}}
+        (folder / "job.json").write_text(json.dumps({"job": off}))
+        refused(lambda: made.job(), "different memory", "SAM 3.1 memory selection")
+        assert not list((made.root / "data").glob("*a_two*")), "a refused two-shot load wrote its joined preview"
     return "another seed, margin, still, form, subject; zoomed, kept out, banded; not meeting at the cut; out of order"
 
 
@@ -368,7 +373,12 @@ def the_job_step() -> str:
         assert job["preview"] == str(pfolder), job["preview"]
         record = json.loads((pfolder / "preview.queued.json").read_text())
         assert record["status"] == "success" and "NOTHING WAS QUEUED" in record["status_is"] and [p["name"] for p in record["joined_from"]["previews"]] == ["shot_c_0100", "shot_c_0140"]
-        assert "NOT A PREVIEW THAT RAN" in json.loads((pfolder / "job.json").read_text())["job"]["note"]
+        joined = json.loads((pfolder / "job.json").read_text())["job"]
+        assert "NOT A PREVIEW THAT RAN" in joined["note"]
+        # THE CASE THAT GOES RED when the joined preview drops what its trackers ran with: a load on it would read "not recorded"
+        memory = joined.get("sam_memory_selection") or {}
+        assert memory.get("on") is True and memory.get("joined_from") == ["shot_c_0100", "shot_c_0140"], joined.get("sam_memory_selection")
+        assert stl.memory_selection_carried(joined)[0].startswith("on:"), stl.memory_selection_carried(joined)
         out = made.m.output / "Video/v/the session/a_two_0106_joined"
         for label in "ab":
             for salt, kind in enumerate(tsl.KINDS):

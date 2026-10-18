@@ -102,6 +102,7 @@ def _make_synthetic_tree(root: Path) -> tuple[Path, Path, Path]:
                     "segmenter_clip": ["1", 1],
                     "correct_image_range": True,
                     "correct_text_activation": True,
+                    "memory_selection": True,
                 },
             },
             "1005": {
@@ -608,7 +609,8 @@ def main() -> int:
             sam_in = header["sam_inputs"]
             # Graph has decoy CheckpointLoaderSimple at node "0" ("unwired_ decoy_model.safetensors") and wired node "1" (h3_config.SEGMENTER)
             assert sam_in["model_file"] == h3_config.SEGMENTER, f"picked unwired CheckpointLoaderSimple: {sam_in['model_file']!r}"
-            assert sam_in.get("sam31_corrections") == {"node_id": "101", "correct_image_range": True, "correct_text_activation": True}, sam_in.get("sam31_corrections")
+            assert sam_in.get("sam31_corrections") == {"node_id": "101", "correct_image_range": True, "correct_text_activation": True,
+                                                       "memory_selection": True}, sam_in.get("sam31_corrections")
             assert sam_in.get("others_wired") == {"node_id": "1005", "output_slot": 0}, sam_in.get("others_wired")
 
             # Unanswered owner presence in shots.json -> "not answered" (never "no")

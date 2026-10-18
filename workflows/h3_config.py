@@ -1429,11 +1429,16 @@ MASKED_JOB_FORCE_RATE = 0.0
 #: time between two frames cannot land one off) and measured once on
 #: 2026-10-08. `masked_job_graph.seek` is the one place it is used.
 MASKED_JOB_SEEK_BACK = 0.4
-#: `MiniMaxH3SAM31Corrections`, both on, equal to the node's defaults, between
-#: the SAM loader and everything that takes the segmenter. **Measured** on one
-#: stretch of one clip, a first read
-#: (`bench/results/2026-10-10_sam31_corrections_on_one_stretch.md`).
-MASKED_JOB_SAM_CORRECTIONS = dict(correct_image_range=True, correct_text_activation=True)
+#: `MiniMaxH3SAM31Corrections`, every correction on, equal to the node's
+#: defaults, between the SAM loader and everything that takes the segmenter.
+#: The image range and the text activation: **measured** on one stretch of one
+#: clip, a first read (`bench/results/2026-10-10_sam31_corrections_on_one_stretch.md`).
+#: `memory_selection`: **measured** on three `fun` scenes and a group dance with
+#: SAM 3.1, 2026-10-17, no arm worse with it on
+#: (`data/2026-10-17_sam_memory_selection/`), and on at the owner's word that day
+#: (`docs/wiki/decisions.md`). A preview job turns it off only with a person's
+#: reason (`sam_memory_selection` in the job block, `masked_job_graph.check_job`).
+MASKED_JOB_SAM_CORRECTIONS = dict(correct_image_range=True, correct_text_activation=True, memory_selection=True)
 #: The part node in a job's preview: `SUBJECT_PARTS` with the node's own fill
 #: of a doubted frame off. **Reasoned**: the capture offers that fill itself
 #: and grades it against the class map (`bench/capture_masked_run.py`,

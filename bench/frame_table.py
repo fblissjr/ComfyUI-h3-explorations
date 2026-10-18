@@ -260,6 +260,8 @@ def _resolve_wired_segmenter(graph: dict, track_node: dict) -> tuple[str, dict |
                 "node_id": nid,
                 "correct_image_range": up_inp.get("correct_image_range"),
                 "correct_text_activation": up_inp.get("correct_text_activation"),
+                # None on a graph made before the node had the input (2026-10-17): the tracker then kept ComfyUI's memory
+                "memory_selection": up_inp.get("memory_selection"),
             }
             seg_link = up_inp.get("segmenter")
             continue

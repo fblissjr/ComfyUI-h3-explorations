@@ -184,8 +184,11 @@ def frame_filter_drops_bad_and_keeps_tail() -> str:
     assert valid_per_obj[1] == list(range(11, 26)), (
         f"Unexpected valid_indices for visible object 1: {valid_per_obj[1]}"
     )
-    assert valid_per_obj[2] == [], (
-        f"Newly spawned object 2 should not inherit must_include=25 when absent at 25: {valid_per_obj[2]}"
+    # An object with no score on a frame (added by a detection after it, core's `_add_detected_objects`) keeps that
+    # frame, unfiltered, as ComfyUI's memory would (2026-10-17, after a blind read found the old reading raised when an
+    # object was added mid-video); until then it kept no frame at all.
+    assert valid_per_obj[2] == list(range(11, 26)), (
+        f"Object 2, scored on no frame, should keep the frames unfiltered: {valid_per_obj[2]}"
     )
 
     # Also verify mask IoU, centroid, and summarize_track_series diagnostics
@@ -344,12 +347,15 @@ def sam3_tracker_runtime_patch_and_clone() -> str:
     assert get_memory_selection_state(patched_memsel) is not get_memory_selection_state(patched_parent), (
         "clone() must give the cloned ModelPatcher its own MemorySelectionStep state via ON_CLONE"
     )
-    assert not patched_memsel.clone_has_same_weights(patched_parent), (
-        "Cloned patched ModelPatcher must have a distinct patches_uuid so load_model_gpu never skips patch_model()"
+    # The clone's step is bound to the clone's own tracker (`CallbacksMP.ON_CLONE`). Until 2026-10-17 each patcher also
+    # got an attachment under a random key so `clone_has_same_weights` would differ between a clone and its parent;
+    # ComfyUI's loading does not call it (`load_models_gpu` matches a loaded model by the patcher itself), so the
+    # attachment went when the patch moved into the node, which follows the range patch there: `clone_has_same_weights`
+    # does not compare object patches (`sam31_corrections.py`, "A stock model and its corrected clone").
+    assert get_memory_selection_state(patched_memsel).tracker is patched_memsel.model.diffusion_model.tracker, (
+        "the clone's MemorySelectionStep is not bound to the clone's own tracker"
     )
-    assert not patched_memsel.clone_has_same_weights(base_patcher), (
-        "Patched ModelPatcher must not report clone_has_same_weights(base_patcher) == True"
-    )
+    assert get_memory_selection_state(base_patcher) is None, "the patcher handed to apply_memory_selection was patched"
     patched_memsel.patch_model(load_weights=False)
     try:
         memsel_outs, _ = _run_synthetic_sam3_sequence(

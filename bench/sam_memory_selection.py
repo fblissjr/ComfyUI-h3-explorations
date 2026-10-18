@@ -4,7 +4,10 @@
 Applies Meta's `cal_mem_score` + `frame_filter` memory selection (`mf_threshold = 0.01`)
 at runtime to ComfyUI core's `SAM3Tracker` (`sam3_fp32.safetensors`) and `SAM31Tracker`
 (`sam3.1_multiplex_fp32.safetensors`) via `ModelPatcher.add_object_patch` and
-`CallbacksMP.ON_CLONE`, without editing any ComfyUI file.
+`CallbacksMP.ON_CLONE`, without editing any ComfyUI file. The patch is the node's
+(`sam31_corrections.py`, imported here), so what this measures is what the chain runs.
+`--face-probe` runs only the kitchen face probe (680-760 of `lead_fp_0613g`) on SAM 3.1,
+through the node's own `attach` (`face_probe_through_node`).
 
 Memory scores (`eff_iou_score`) are computed and stored per object (shape `[N_obj]`),
 never averaged with `.mean()` across objects or multiplex slots, so a hidden target
@@ -19,7 +22,6 @@ import json
 import os
 import sys
 import time
-import uuid
 from pathlib import Path
 from typing import Any
 
@@ -38,523 +40,21 @@ import comfy.cli_args
 if not torch.cuda.is_available():
     comfy.cli_args.args.cpu = True
 
-from comfy.patcher_extension import CallbacksMP
-
-# Marked starting value: inherited from Meta's SAM 3 / SAM 3.1 tracker default
-# (`mf_threshold: float = 0.01` in `sam3_tracker_base.py` and `video_tracking_multiplex.py`).
-MF_THRESHOLD: float = 0.01
-
-CALLBACK_KEY = "h3_sam_memory_selection"
-CONFIG_ATTR = "_h3_sam_memory_selection_cfg"
-STATE_ATTR = "_h3_sam_memory_selection_state"
+# The patch itself is the node's (`sam31_corrections.py`, "memory selection"): one implementation, which the chain's
+# `MiniMaxH3SAM31Corrections` attaches to SAM 3.1 and this tool attaches to SAM 3 and SAM 3.1 alike, to measure both.
+from sam31_corrections import (  # noqa: E402,F401
+    MF_THRESHOLD,
+    IoUTap,
+    MemorySelectionStep,
+    apply_memory_selection,
+    attach_memory_selection,
+    cal_mem_score_per_object,
+    frame_filter_per_object,
+    get_memory_selection_state,
+)
 
 SAM31_CHECKPOINT = "sam3.1_multiplex_fp32.safetensors"
 SAM3_BASE_CHECKPOINT = "sam3_fp32.safetensors"
-
-
-def cal_mem_score_per_object(
-    object_score_logits: torch.Tensor,
-    iou_scores: torch.Tensor,
-) -> torch.Tensor:
-    """Compute per-object effective memory score (`shape [N_obj]`, CPU float32).
-
-    For each object `o`:
-      - If `object_score_logits[o] > 0`, `obj_score_norm[o] = 2 * sigmoid(logit[o]) - 1`
-        (maps `(0, +inf)` to `(0, 1)`), else `0.0`.
-      - `max_iou[o] = max_t(iou_scores[o, t])`.
-      - `eff_iou_score[o] = obj_score_norm[o] * max_iou[o]`.
-
-    Unlike Meta's reference `cal_mem_score`, this never calls `.mean()` across the batch
-    or multiplex slots, preserving each object's independent visibility gate in both
-    single-object (`alone`) and multi-object (`group`) tracking calls.
-    """
-    logits = object_score_logits.detach().float().reshape(-1)
-    ious = iou_scores.detach().float()
-    if ious.dim() == 1:
-        ious = ious.unsqueeze(-1)
-    elif ious.dim() > 2:
-        ious = ious.reshape(logits.shape[0], -1)
-    if ious.shape[0] != logits.shape[0]:
-        raise ValueError(
-            f"Object count mismatch between object_score_logits ({logits.shape}) "
-            f"and iou_scores ({ious.shape})"
-        )
-    zeros = torch.zeros_like(logits)
-    obj_score_norm = torch.where(logits > 0.0, 2.0 * torch.sigmoid(logits) - 1.0, zeros)
-    max_iou = ious.max(dim=-1).values
-    return (obj_score_norm * max_iou).cpu()
-
-
-def frame_filter_per_object(
-    frame_scores: dict[int, torch.Tensor],
-    frame_idx: int,
-    max_num: int,
-    mf_threshold: float = MF_THRESHOLD,
-    n_obj: int = 1,
-    present_frames: set[int] | None = None,
-) -> list[list[int]]:
-    """Filter past non-conditioning frame indices per object by `eff_iou_score > mf_threshold`.
-
-    Walks backward from `frame_idx - 1` down to `1`, collecting up to `max_num - 1`
-    past frames per object whose per-object `eff_iou_score[o] > mf_threshold` in
-    chronological order. Always appends `must_include = frame_idx - 1` at the end if
-    it exists in `non_cond_frame_outputs` and was not already selected.
-    """
-    cap = max(max_num - 1, 0)
-    valid_per_obj: list[list[int]] = []
-    must_include = frame_idx - 1
-    has_must = (
-        (must_include in frame_scores)
-        if present_frames is None
-        else (must_include in present_frames or must_include in frame_scores)
-    )
-
-    must_scores = frame_scores.get(must_include)
-
-    for obj_idx in range(n_obj):
-        valid: list[int] = []
-        if cap > 0:
-            for i in range(frame_idx - 1, 0, -1):
-                if present_frames is not None and i not in present_frames:
-                    continue
-                scores_i = frame_scores.get(i)
-                if scores_i is None or obj_idx >= scores_i.numel():
-                    continue
-                if float(scores_i[obj_idx].item()) > mf_threshold:
-                    valid.insert(0, i)
-                if len(valid) >= cap:
-                    break
-        obj_has_must = has_must and (must_scores is None or obj_idx < must_scores.numel())
-        if must_include >= 1 and must_include not in valid and obj_has_must:
-            valid.append(must_include)
-        valid_per_obj.append(valid)
-    return valid_per_obj
-
-
-class IoUTap:
-    """Wraps `sam_mask_decoder.forward` to record the latest `iou_pred` and `object_score_logits`."""
-
-    def __init__(self, orig_forward: Any) -> None:
-        self.orig_forward = orig_forward
-        self.last_iou_pred: torch.Tensor | None = None
-        self.last_obj_score_logits: torch.Tensor | None = None
-
-    def reset(self) -> None:
-        self.last_iou_pred = None
-        self.last_obj_score_logits = None
-
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        out = self.orig_forward(*args, **kwargs)
-        if isinstance(out, tuple) and len(out) >= 2:
-            self.last_iou_pred = out[1].detach()
-            if len(out) >= 4 and out[3] is not None:
-                self.last_obj_score_logits = out[3].detach()
-        return out
-
-
-class MemorySelectionStep:
-    """Wraps `tracker._prepare_memory_conditioned_features` with per-object memory selection."""
-
-    def __init__(
-        self,
-        tracker: Any,
-        orig_fn: Any,
-        iou_tap: IoUTap,
-        mf_threshold: float = MF_THRESHOLD,
-        focus_obj_idx: int = 0,
-    ) -> None:
-        self.tracker = tracker
-        self.orig_fn = orig_fn
-        self.iou_tap = iou_tap
-        self.mf_threshold = float(mf_threshold)
-        self.focus_obj_idx = int(focus_obj_idx)
-        self._completed_runs: list[tuple[dict[int, torch.Tensor], dict[int, list[list[int]]]]] = []
-        self.reset_state(clear_runs=True)
-
-    def reset_state(self, clear_runs: bool = True) -> None:
-        if clear_runs:
-            self._completed_runs = []
-        elif self.frame_scores or self.selected_history:
-            self._completed_runs.append(
-                (dict(self.frame_scores), {k: [list(x) for x in v] for k, v in self.selected_history.items()})
-            )
-        self._output_dict_id: int | None = None
-        self._last_frame_idx: int = -1
-        # Maps frame_idx -> 1D CPU float32 tensor [N_obj] of eff_iou_score
-        self.frame_scores: dict[int, torch.Tensor] = {}
-        # Maps frame_idx -> shallow dict of memory tensors retained past core's 16-frame prune
-        self.retained_bank: dict[int, dict[str, Any]] = {}
-        # Maps frame_idx -> list[list[int]] of valid_indices per object
-        self.selected_history: dict[int, list[list[int]]] = {}
-        self.iou_tap.reset()
-
-    def merged_frame_scores(self) -> dict[int, torch.Tensor]:
-        """Return per-frame `eff_iou_score` across single- or multi-object `SAM3Tracker` passes."""
-        if not self._completed_runs:
-            return dict(self.frame_scores)
-        runs = list(self._completed_runs)
-        if self.frame_scores or self.selected_history:
-            runs.append((self.frame_scores, self.selected_history))
-        all_keys = sorted({k for r_scores, _ in runs for k in r_scores})
-        return {
-            k: torch.cat([r_scores[k] for r_scores, _ in runs if k in r_scores], dim=0)
-            for k in all_keys
-        }
-
-    def merged_selected_history(self) -> dict[int, list[list[int]]]:
-        """Return per-frame `valid_indices` across single- or multi-object `SAM3Tracker` passes."""
-        if not self._completed_runs:
-            return dict(self.selected_history)
-        runs = list(self._completed_runs)
-        if self.frame_scores or self.selected_history:
-            runs.append((self.frame_scores, self.selected_history))
-        all_keys = sorted({k for _, r_sel in runs for k in r_sel})
-        return {
-            k: [list(obj_list) for _, r_sel in runs if k in r_sel for obj_list in r_sel[k]]
-            for k in all_keys
-        }
-
-    @staticmethod
-    def _snapshot_entry(entry: dict[str, Any]) -> dict[str, Any]:
-        keys = (
-            "maskmem_features",
-            "maskmem_pos_enc",
-            "image_features",
-            "image_pos_enc",
-            "obj_ptr",
-            "object_score_logits",
-            "eff_iou_score",
-        )
-        return {k: entry[k] for k in keys if k in entry}
-
-    def _score_previous_frame(
-        self,
-        prev_idx: int,
-        prev_out: dict[str, Any],
-        multiplex_state: Any,
-    ) -> torch.Tensor | None:
-        if "eff_iou_score" in prev_out and isinstance(prev_out["eff_iou_score"], torch.Tensor):
-            score = prev_out["eff_iou_score"].detach().float().cpu().reshape(-1)
-            self.frame_scores[prev_idx] = score
-            return score
-
-        raw_iou = prev_out.get("ious", self.iou_tap.last_iou_pred)
-        raw_logits = prev_out.get("object_score_logits", self.iou_tap.last_obj_score_logits)
-        if raw_iou is None or raw_logits is None:
-            return None
-
-        iou_t = raw_iou.detach()
-        logits_t = raw_logits.detach()
-        if multiplex_state is not None:
-            if iou_t.dim() == 3:
-                iou_t = multiplex_state.demux(iou_t)
-            if logits_t.dim() == 3:
-                logits_t = multiplex_state.demux(logits_t)
-        elif logits_t.dim() == 3 and iou_t.dim() == 3:
-            # Fallback demux if multiplex_state was not passed
-            n_obj = logits_t.shape[0] * logits_t.shape[1]
-            iou_t = iou_t.reshape(n_obj, -1)
-            logits_t = logits_t.reshape(n_obj, -1)
-
-        score = cal_mem_score_per_object(logits_t, iou_t)
-        prev_out["eff_iou_score"] = score
-        self.frame_scores[prev_idx] = score
-        return score
-
-    def _lookup_frame(
-        self,
-        f_idx: int,
-        non_cond_outputs: dict[int, dict[str, Any]],
-    ) -> dict[str, Any] | None:
-        out = non_cond_outputs.get(f_idx)
-        if out is not None:
-            return out
-        return self.retained_bank.get(f_idx)
-
-    def _build_remapped_non_cond(
-        self,
-        frame_idx: int,
-        max_obj_ptrs: int,
-        valid_per_obj: list[list[int]],
-        non_cond_outputs: dict[int, dict[str, Any]],
-        multiplex_state: Any,
-    ) -> dict[int, dict[str, Any]]:
-        n_obj = len(valid_per_obj)
-        if n_obj == 0:
-            return {}
-
-        focus_obj = min(max(self.focus_obj_idx, 0), n_obj - 1)
-        focus_valid = valid_per_obj[focus_obj]
-        max_k = max((len(v) for v in valid_per_obj), default=0)
-        max_k = min(max_k, max(max_obj_ptrs - 1, 0))
-
-        remapped: dict[int, dict[str, Any]] = {}
-        num_mux = getattr(self.tracker, "num_multiplex", 16)
-
-        for k in range(1, max_k + 1):
-            target_key = frame_idx - k
-            if target_key < 0:
-                break
-
-            # Single-object or all objects selected the exact same frame at rank -k
-            per_obj_src = [
-                valid_per_obj[o][-k] if k <= len(valid_per_obj[o]) else None
-                for o in range(n_obj)
-            ]
-            spatial_src = focus_valid[-k] if k <= len(focus_valid) else None
-
-            if n_obj == 1 or multiplex_state is None or (
-                all(s == spatial_src for s in per_obj_src) and spatial_src is not None
-            ):
-                if spatial_src is None:
-                    continue
-                src_out = self._lookup_frame(spatial_src, non_cond_outputs)
-                if src_out is not None:
-                    remapped[target_key] = src_out
-                continue
-
-            # Multi-object multiplex where objects diverged in valid_indices at rank -k:
-            # Spatial memory comes from `focus_obj` (if available at rank -k), while
-            # each object slot (b = o // M, m = o % M) in `obj_ptr` comes from its own
-            # `valid_per_obj[o][-k]`.
-            entry: dict[str, Any] = {}
-            if spatial_src is not None:
-                spatial_out = self._lookup_frame(spatial_src, non_cond_outputs)
-                if spatial_out is not None:
-                    for key in (
-                        "maskmem_features",
-                        "maskmem_pos_enc",
-                        "image_features",
-                        "image_pos_enc",
-                    ):
-                        if key in spatial_out:
-                            entry[key] = spatial_out[key]
-            else:
-                entry["maskmem_features"] = None
-
-            template_ptr: torch.Tensor | None = None
-            for s in per_obj_src:
-                if s is not None:
-                    cand = self._lookup_frame(s, non_cond_outputs)
-                    if cand is not None and "obj_ptr" in cand:
-                        template_ptr = cand["obj_ptr"]
-                        break
-
-            if template_ptr is not None:
-                combined_ptr = torch.zeros_like(template_ptr)
-                for obj_idx, src_f in enumerate(per_obj_src):
-                    if src_f is None:
-                        continue
-                    src_out = self._lookup_frame(src_f, non_cond_outputs)
-                    if src_out is None or "obj_ptr" not in src_out:
-                        continue
-                    ptr = src_out["obj_ptr"]
-                    if ptr.dim() == 3:
-                        b_idx = obj_idx // num_mux
-                        m_idx = obj_idx % num_mux
-                        if b_idx < ptr.shape[0] and b_idx < combined_ptr.shape[0]:
-                            combined_ptr[b_idx, m_idx] = ptr[b_idx, m_idx]
-                    elif ptr.dim() == 2 and obj_idx < ptr.shape[0]:
-                        combined_ptr[obj_idx] = ptr[obj_idx]
-                entry["obj_ptr"] = combined_ptr
-
-            if entry:
-                remapped[target_key] = entry
-
-        return remapped
-
-    def __call__(
-        self,
-        frame_idx: int,
-        is_init_cond_frame: bool,
-        current_vision_feats: Any,
-        current_vision_pos_embeds: Any,
-        feat_sizes: Any,
-        output_dict: dict[str, Any],
-        num_frames: int,
-        *args: Any,
-        **kwargs: Any,
-    ) -> Any:
-        multiplex_state = kwargs.get("multiplex_state", args[0] if args else None)
-
-        if is_init_cond_frame or frame_idx <= 0 or id(output_dict) != self._output_dict_id or frame_idx <= self._last_frame_idx:
-            if is_init_cond_frame or frame_idx <= 1 or id(output_dict) != self._output_dict_id or frame_idx < self._last_frame_idx:
-                is_new_output_dict_in_run = self._output_dict_id is not None and (
-                    id(output_dict) != self._output_dict_id or frame_idx < self._last_frame_idx
-                )
-                self.reset_state(clear_runs=not is_new_output_dict_in_run)
-                self._output_dict_id = id(output_dict)
-
-        self._last_frame_idx = frame_idx
-
-        if is_init_cond_frame or self.tracker.num_maskmem == 0:
-            return self.orig_fn(
-                frame_idx,
-                is_init_cond_frame,
-                current_vision_feats,
-                current_vision_pos_embeds,
-                feat_sizes,
-                output_dict,
-                num_frames,
-                *args,
-                **kwargs,
-            )
-
-        non_cond_outputs: dict[int, dict[str, Any]] = output_dict["non_cond_frame_outputs"]
-        prev_idx = frame_idx - 1
-        if prev_idx >= 1 and prev_idx in non_cond_outputs:
-            prev_out = non_cond_outputs[prev_idx]
-            score = self._score_previous_frame(prev_idx, prev_out, multiplex_state)
-            if score is not None and bool((score > self.mf_threshold).any().item()):
-                self.retained_bank[prev_idx] = self._snapshot_entry(prev_out)
-
-        # Also score any other unscored entries present in non_cond_outputs
-        for f_idx, f_out in non_cond_outputs.items():
-            if f_idx not in self.frame_scores and "eff_iou_score" in f_out:
-                s = f_out["eff_iou_score"].detach().float().cpu().reshape(-1)
-                self.frame_scores[f_idx] = s
-                if bool((s > self.mf_threshold).any().item()):
-                    self.retained_bank[f_idx] = self._snapshot_entry(f_out)
-
-        if multiplex_state is not None and hasattr(multiplex_state, "total_valid_entries"):
-            n_obj = int(multiplex_state.total_valid_entries)
-        elif self.frame_scores:
-            first_score = next(iter(self.frame_scores.values()))
-            n_obj = int(first_score.numel())
-        else:
-            n_obj = 1
-
-        max_obj_ptrs = min(num_frames, int(self.tracker.max_obj_ptrs_in_encoder))
-        present_frames = set(non_cond_outputs.keys()) | set(self.retained_bank.keys())
-        valid_per_obj = frame_filter_per_object(
-            frame_scores=self.frame_scores,
-            frame_idx=frame_idx,
-            max_num=max_obj_ptrs,
-            mf_threshold=self.mf_threshold,
-            n_obj=n_obj,
-            present_frames=present_frames,
-        )
-        self.selected_history[frame_idx] = valid_per_obj
-
-        # Keep retained_bank bounded to frames currently in valid_per_obj for at least one object
-        keep_frames: set[int] = set()
-        for v in valid_per_obj:
-            keep_frames.update(v)
-        for old_f in list(self.retained_bank.keys()):
-            if old_f not in keep_frames:
-                del self.retained_bank[old_f]
-
-        remapped_non_cond = self._build_remapped_non_cond(
-            frame_idx=frame_idx,
-            max_obj_ptrs=max_obj_ptrs,
-            valid_per_obj=valid_per_obj,
-            non_cond_outputs=non_cond_outputs,
-            multiplex_state=multiplex_state,
-        )
-        remapped_output_dict = {
-            "cond_frame_outputs": output_dict["cond_frame_outputs"],
-            "non_cond_frame_outputs": remapped_non_cond,
-        }
-        return self.orig_fn(
-            frame_idx,
-            is_init_cond_frame,
-            current_vision_feats,
-            current_vision_pos_embeds,
-            feat_sizes,
-            remapped_output_dict,
-            num_frames,
-            *args,
-            **kwargs,
-        )
-
-
-def _install_patches(
-    patcher: Any,
-    mf_threshold: float,
-    focus_obj_idx: int,
-) -> MemorySelectionStep:
-    tracker = patcher.model.diffusion_model.tracker
-    # Always resolve the unpatched bound methods from tracker.__class__ so re-applying
-    # or cloning never double-wraps a wrapper.
-    orig_decoder_fwd = tracker.sam_mask_decoder.__class__.forward.__get__(
-        tracker.sam_mask_decoder, tracker.sam_mask_decoder.__class__
-    )
-    orig_prep_mem = tracker.__class__._prepare_memory_conditioned_features.__get__(
-        tracker, tracker.__class__
-    )
-    iou_tap = IoUTap(orig_decoder_fwd)
-    step = MemorySelectionStep(
-        tracker=tracker,
-        orig_fn=orig_prep_mem,
-        iou_tap=iou_tap,
-        mf_threshold=mf_threshold,
-        focus_obj_idx=focus_obj_idx,
-    )
-    patcher.add_object_patch(
-        "diffusion_model.tracker.sam_mask_decoder.forward",
-        iou_tap,
-    )
-    patcher.add_object_patch(
-        "diffusion_model.tracker._prepare_memory_conditioned_features",
-        step,
-    )
-    # Give every patched or cloned ModelPatcher a distinct attachment key so
-    # ComfyUI's ModelPatcher.clone_has_same_weights (which checks attachments.keys()
-    # before short-circuiting on empty weight patches) never skips patch_model().
-    for k in [k for k in patcher.attachments if isinstance(k, str) and k.startswith(CALLBACK_KEY)]:
-        del patcher.attachments[k]
-    patcher.attachments[f"{CALLBACK_KEY}_{uuid.uuid4().hex}"] = step
-    setattr(patcher, STATE_ATTR, step)
-    return step
-
-
-def _on_clone_reinstall(src: Any, dst: Any) -> None:
-    cfg = getattr(src, CONFIG_ATTR, None)
-    if cfg is None:
-        return
-    setattr(dst, CONFIG_ATTR, dict(cfg))
-    _install_patches(
-        dst,
-        mf_threshold=cfg["mf_threshold"],
-        focus_obj_idx=cfg["focus_obj_idx"],
-    )
-
-
-def apply_memory_selection(
-    model: Any,
-    mf_threshold: float = MF_THRESHOLD,
-    focus_obj_idx: int = 0,
-) -> Any:
-    """Return a cloned `ModelPatcher` with runtime memory selection installed.
-
-    Works on both `SAM31Model` (`SAM31Tracker`) and `SAM3Model` (`SAM3Tracker`).
-    Never mutates `model` in place or edits ComfyUI core files.
-    """
-    m = model.clone()
-    cfg = {
-        "mf_threshold": float(mf_threshold),
-        "focus_obj_idx": int(focus_obj_idx),
-    }
-    setattr(m, CONFIG_ATTR, cfg)
-    _install_patches(m, mf_threshold=cfg["mf_threshold"], focus_obj_idx=cfg["focus_obj_idx"])
-    existing = m.callbacks.get(CallbacksMP.ON_CLONE, {}).get(CALLBACK_KEY, [])
-    if not existing:
-        m.add_callback_with_key(CallbacksMP.ON_CLONE, CALLBACK_KEY, _on_clone_reinstall)
-    return m
-
-
-def get_memory_selection_state(model: Any) -> MemorySelectionStep | None:
-    """Return the active `MemorySelectionStep` attached to `model` (or its live tracker)."""
-    step = getattr(model, STATE_ATTR, None)
-    if isinstance(step, MemorySelectionStep):
-        return step
-    try:
-        fn = model.model.diffusion_model.tracker._prepare_memory_conditioned_features
-        if isinstance(fn, MemorySelectionStep):
-            return fn
-    except AttributeError:
-        pass
-    return None
 
 
 def track_masks_with_sam(
@@ -1726,6 +1226,47 @@ def _run_lotsofpeople_scene(
     return summary
 
 
+def face_probe_through_node(model: Any, out_dir: Path) -> dict[str, Any]:
+    """The kitchen face probe (680-760 of `lead_fp_0613g`, seeded on the lead's face at 680) through the NODE's `attach`.
+
+    The same frames, seed and tracker call as `run_scene_four_arms`'s `face_subprobe`, on SAM 3.1, with the model
+    corrected the way `MiniMaxH3SAM31Corrections` corrects it (`sam31_corrections.attach`). Four arms: memory selection
+    off and on, each with the image range as the scene measurement ran it (not corrected) and as the chain runs it
+    (corrected). Prints and writes, per arm, the first frame from 708 on where the face mask is not empty. Reads only
+    the capture `build_default_scenes` names for the kitchen."""
+    import sam31_corrections as node
+
+    cfg = build_default_scenes()["kitchen_604_1009"]
+    validate_scene_capture("kitchen_604_1009", cfg)
+    sub = cfg["face_subprobe"]
+    first, count = int(sub["first_source_frame"]), int(sub["num_frames"])
+    width, height = int(cfg["width"]), int(cfg["height"])
+    images = _load_video_window(cfg["video_path"], first_frame=first, num_frames=count, width=width, height=height)
+    parts, parts_sha = unpack_capture_mask_npz(Path(sub["seed_npz"]), width=width, key="parts")
+    face = parts[int(sub["seed_frame_in_npz"])]
+    face = face[0] if face.ndim == 3 else face
+    seed = torch.from_numpy(face.astype(np.float32)).unsqueeze(0)
+    arms: dict[str, Any] = {}
+    for image_range in (False, True):
+        for memory in (False, True):
+            m = model.clone()
+            node.attach(m, None, image_range=image_range, text_activation=False, memory_selection=memory)
+            got = track_masks_with_sam(m, images, seed)
+            area = [int(x) for x in got["masks"][:, 0].reshape(count, -1).sum(axis=1)]
+            back = next((first + i for i in range(708 - first, count) if area[i] > 0), None)
+            key = f"range_{'corrected' if image_range else 'as_comfyui'}__memory_{'on' if memory else 'off'}"
+            arms[key] = {"report": node.report(m, None), "first_frame_back_from_708": back, "face_area_px": area,
+                         "elapsed_s": got["elapsed_s"]}
+            print(f"[sam_memory_selection] face probe {key}: back at {back}", flush=True)
+    out = {"what": "the kitchen face probe through sam31_corrections.attach", "frames": [first, first + count - 1],
+           "capture_folder": f"data/{Path(cfg['capture_folder']).name}", "seed_npz": str(Path(sub["seed_npz"]).relative_to(Path(cfg["capture_folder"]).parent.parent)),
+           "seed_frame_in_npz": int(sub["seed_frame_in_npz"]), "parts_sha256": parts_sha, "arms": arms}
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "face_probe_through_node.json").write_text(json.dumps(out, indent=1))
+    print(f"[sam_memory_selection] wrote {out_dir / 'face_probe_through_node.json'}", flush=True)
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -1753,7 +1294,15 @@ def main(argv: list[str] | None = None) -> int:
         default=_resolve_data_dir() / "2026-10-17_sam_memory_selection",
         help="Untracked data directory for JSON measurement outputs.",
     )
+    parser.add_argument(
+        "--face-probe",
+        action="store_true",
+        help="Run only the kitchen face probe on SAM 3.1, through the node's own attach (face_probe_through_node).",
+    )
     args = parser.parse_args(argv)
+    if args.face_probe:
+        face_probe_through_node(load_sam_model(SAM31_CHECKPOINT), args.out_dir)
+        return 0
 
     ckpt_map = {
         "sam31": SAM31_CHECKPOINT,
