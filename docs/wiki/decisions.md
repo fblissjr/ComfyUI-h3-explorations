@@ -17,6 +17,18 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-17
 
+- **The lead's kitchen 708-710, by the owner's look** (2026-10-18T01:07Z, on `lead_fp_0613g`'s compare clip, frames 708-713): 708 shows
+  only her hair; 709 her face is still there, an eye, tiny; 710 hard to see, but there, turned. The owner also confirmed
+  687-707: a side profile with her hair wholly in the way. So the next kitchen load
+  (0613h) drops 687-708, not 687-710: the 10-16 reading carried in 0613g's `drop=` is overruled for 709-710. 733-738 is
+  not yet answered.
+
+- **Corrected: 0613g's empty 708-710 and 733-738 come from its job's carried `drop=`, not from the holds giving up**
+  (gem-matte's gate figures, checked by the Claude lead in `data/2026-10-17_lead_fp_0613g_job/job.plan.json`,
+  `subjects[1].drop` and `drop_by`). It used to say (the Gemini lead's G61, carried into the handover) that the low run
+  733-751 outran `HOLD_DROP_MOST_FRAMES`. Two readings of those frames disagree (10-16: no face; 10-17: her face shows
+  on 708-712 and 736-738); the owner's look decides.
+
 - **SAM's memory selection is measured before anything is built** (the owner, about 00:28Z on 2026-10-18, "lets do
   that then"). Core keeps the seed frame and the last 6 frames as a tracker's memory with no choice of which
   (`comfy/ldm/sam3/tracker.py` 221-256); Meta's tracker can keep only frames where the object was visible, on for SAM 3

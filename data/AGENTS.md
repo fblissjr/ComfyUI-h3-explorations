@@ -78,5 +78,8 @@ twice. A piece the table does not lay is not in the video. The Gemini lead keeps
 - A render is handed over stacked (`bench/stack_delivery.py`: source, what changed, the cut, per person what H3 saw),
   frame numbers burned in, never bare; a thing seen on playback is reported with the file and the frame. A clip shown
   to be judged shows every subject of the shot replaced, as the cut would.
+- A clip on the review page is whole, or has its gaps counted right above the player from the gap check on its own
+  frames (per person, per kind, frames and spans); a clip with gaps and no such line is not shown
+  (`docs/wiki/working_with_the_owner.md`, the owner of 2026-10-17).
 - Playback questions go to Gemini, which watches video and hears audio natively: say in the request that it watches
   and listens first, code only to augment. Its watching is a reader's, never the owner's acceptance.

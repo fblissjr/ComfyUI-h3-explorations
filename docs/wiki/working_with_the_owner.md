@@ -39,6 +39,12 @@ this page is corrected. Each line carries the date it was asked for; the reasons
   piece was rendered, what to look at and what to compare it with. Everyone (the owner, the sessions, Gemini) watches
   the same stacked view, `bench/stack_delivery.py`: source, what changed, the cut, and per person what H3 saw.
   (2026-10-13, 2026-10-16)
+- **A clip is whole, or its gaps are counted above the player** (2026-10-17). Before a clip goes on the review page,
+  the gap check is run on its frames. If any person in it is the original on a frame where they show, the page says so
+  right above the player, generated from the gap check, never typed: per person, each kind of gap with its frame count
+  and spans (no capture; captured, not rendered; rendered, not kept; emptied inside a piece; left out by a look). A
+  clip with no such line is whole. Otherwise it is not shown: the owner should never have to guess whether a person
+  flickering back to the original is tracking or a hole.
 - **A render is handed over stacked** with frame numbers burned in, never bare; something seen on playback is
   reported with the file and the frame.
 - **Pages to answer on** are simple: one static page a question, one picture a shot at full size, a row of plain

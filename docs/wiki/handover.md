@@ -24,6 +24,13 @@ is `data/2026-10-17_fun_delivery_tables/frame_coverage_fun_0000_6394_2026-10-17T
    frames; nothing is laid after 5564). WHY: no capture was ever made of them; the work went shot by shot in song order
    and stopped, and today's planned captures did not run (the Claude lead's miss). Each needs a capture before a load.
 
+Before filling them, one build (C129 and C131, the owner's points): a clip on the review page is whole, or the gap
+check's counts for its own frames are printed right above the player (per person, per kind, frames and spans), else it is
+not shown; and the gap check says, per frame and person, how far each gap
+has got, naming the files: nothing captured; captured, not rendered; rendered, not kept; kept and laid. Today it calls
+3471 frames "no tied capture", yet 1025 of them have an older capture holding her track, and unkept renders are not
+looked at. The stacked view and the pages print the check's own words, so every view agrees.
+
 Tonight renders none of the gaps (the owner's word at the close, C126): the kitchen and hall wait for the head tube's
 gate. The two that are next, from the same check and tonight's `lead_fp_0613g`:
 
@@ -75,8 +82,9 @@ gate. The two that are next, from the same check and tonight's `lead_fp_0613g`:
   label lands, read the gap check's cause column.
 - **The kitchen's holes are a face-mask failure, not a tracker failure.** The person tracker held the lead on 399 of 406
   frames of 604-1009; the face mask (Sapiens, frame by frame) collapses on 680-712, 733-751, 779-793, 800-803 and
-  834-845, and the old kitchen loads were cut round those frames. The floor holds give up on a run over 12 frames
-  (`HOLD_DROP_MOST_FRAMES`); 0613g therefore leaves 733-738 and 747-750 as the original (her face shows on 736-738).
+  834-845, and the old kitchen loads were cut round those frames. 0613g leaves 687-710, 733-738, 747-750 and 974 as the original
+  because its job CARRIES `drop=` on them, a 10-16 reading ("only her hair shows") carried since 0613b; tonight's read
+  says her face shows on 708-712 and 736-738. The owner's eye on 700-760 decides before 0613h (C130).
 - **The head tube is not a fill.** Its 3-frame average bridges 1-2 frames; its frame labels change nothing; its
   turned-away lines were measured on 684-707 of the same shot (`internal/gemini/2026-10-17_head_tube_how_it_works.md`).
 - **Nothing gem-matte built is a default.** Each switch is off until its tests pass and the owner says yes.
