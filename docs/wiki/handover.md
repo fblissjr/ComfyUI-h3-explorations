@@ -37,11 +37,14 @@ Today's mailbox: `internal/gemini/2026-10-18_claude_to_gemini.md` (C1-C127) and 
 - **In flight at writing:** the lead's kitchen chin 751-785 rendered against the cut that has 0604h laid (C106; the
   smear was 0606 rendered beside the original mom's dark hair); gem-mouth's drawing build (the owner sees the reference
   sheet before any of its renders); `gem-review-kept-today` (C111, Kept today on the review page, old sections out);
-  gem-track's Sapiens2 Pointmap 1B/5B and MoGe-2 check on 1306-1309, CPU only
-  (`internal/gemini/2026-10-18_pointmap_finding.md` when done). `third_fp_1306e` rendered before the owner's skip
-  reached the card: not to be laid.
+  `third_fp_1306e` (1306-1327, the region grown over
+  the beard under his fist) rendered before the owner's skip reached the card: a reader saw 0/22 glasses and 0/22 beard
+  against 22/22 in 1306d (`data/2026-10-18_third_fp_1306e/playback_reading_gemread-0278h.md`); not laid, the owner's
+  look not asked for.
 - **Closed** (`docs/roadmap.md`, "Closed lanes"): Sapiens matting, SAM 3 base. Not again: a reference driven by core's
   SAM 3D Body face expression (broke the mouth, eyes and iris before).
+- **The kitchen 604-1009 is locked** after `lead_fp_0751` (751-785 against the cut, the one try, C131): kept and laid,
+  or the kitchen stays as laid; no more work on it either way.
 - **Dropped by the owner today:** the dad's beard work (the region grown over his beard, the full hall remake, the
   2050-2622 window test); wider lines; colour per part. The dad's hall stays as laid (`third_fp_1310c`, with its gaps).
 - **Open List:** r18_05 (which kept pieces to remake with the old mouth) waits on the drawing test; r18_02 and r18_03
@@ -51,8 +54,12 @@ Today's mailbox: `internal/gemini/2026-10-18_claude_to_gemini.md` (C1-C127) and 
 
 - **A drawn mouth is not neutral.** Drawing a closed mouth opened hers in 0278d, 0278e and 0278h; taking the mouth out
   of the text alone (0278h) did not close it. The 24 older kept pieces drew no mouth and never had this.
-- **A leak check that counts face labels only is blind.** Sapiens labels a beard under a fist as hand and a turned
-  beard as hair (1306-1309, 1408-1411); gem-track's shrinking-face measure (`pinched_head_face`) catches it.
+- **A leak check that counts face labels only is blind.** A wrist in front of a chin hides the beard behind it (on
+  1306-1309 most of the "hand" in the chin box is his wrist; only a 10-25 px blurred fringe of beard is mislabelled hand),
+  and a turned beard is labelled hair (1408-1411); gem-track's shrinking-face measure (`pinched_head_face`) catches both.
+- **Sapiens2 Pointmap is not worth adopting** (`internal/gemini/2026-10-18_pointmap_finding.md`, CPU, 1306-1310): 1B
+  gives a flat sheet, 5B a soft edge at 18 times MoGe-2's time; MoGe-2 separates the fist from the face well, and no
+  single depth map sees the beard behind a wrist.
 - **A dropped stretch is not the back of the head because a label says so**: 1412-1413 show the dad's bearded profile.
 - **Old tracks predate today's tracker fixes.** A shot captured before today gets a fresh first preview, never a
   re-run on its saved .mkv (10a and regain run only in the preview).
@@ -78,7 +85,6 @@ Today's mailbox: `internal/gemini/2026-10-18_claude_to_gemini.md` (C1-C127) and 
 5. The second-half push, worst first (`internal/gemini/2026-10-18_next_shots_track_check.md`): fresh first previews
    for every shot from an old capture; the lost tracks (the dad 1632-1729, the mom 1437-1452); the shots that need depth
    (1466-1729, 4647-4725, 1419-1465); 2050-2622; then the uncaptured shots in song order (the newest gap check).
-6. Read gem-track's Pointmap finding; it decides nothing tomorrow, but hand-over-face shots recur across the second half.
 
 ## Where things are
 
