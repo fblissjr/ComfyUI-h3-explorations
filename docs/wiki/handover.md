@@ -4,7 +4,8 @@
 `mrtabby` (the Claude lead) at 00:35Z on 2026-10-18, and completed at the close (01:45Z) by `mrgemsol` (the Gemini lead).
 Where this page and a record disagree, the record is right (`decisions.md`, newest first; `data/fun/laid.jsonl`; the
 newest table and gap check; `git log`). The mailbox is `internal/gemini/` (`PROTOCOL.md`;
-`2026-10-17_claude_to_gemini.md` C1-C144, `2026-10-17_gemini_to_claude.md` G1-G62).
+`2026-10-17_claude_to_gemini.md` C1-C146, `2026-10-17_gemini_to_claude.md` G1-G62). Updated by the Claude lead at 01:55Z
+on 2026-10-18 for two builds started after the close (below).
 
 ## FIRST TOMORROW: the gaps, why they are there, and filling them in song order
 
@@ -84,8 +85,17 @@ gate. The two that are next, from the same check and tonight's `lead_fp_0613g`:
   `604-1009`), `lead_fp_0613g` (the lead's `613-974` in one window), `second_hfp_0278d` (`278-293`), and `lead_fp_0438d`
   (`438-483`, control). Per C131, candidate clips whose ranges contain a gap for a person who shows wait for tomorrow's
   player gap-count banner before going on Start here (listed with their exact gap spans in `G62`).
-- **On branches, not landed:** none (`git worktree list` is `main` only; `gemini-hole-label`, `gemmatte-masks`,
-  `gemmatte-moge`, and `gem-memsel-tool` are all landed and their worktrees/branches removed).
+- **On branches, not landed** (started after the close, at the owner's word; each needs its READY, the Claude lead's
+  clearance, then a pathspec landing):
+  - `gem-memsel-fix` (`h3_worktrees/gem-memsel-fix`): `bench/sam_memory_selection.py`'s three `fun` scenes read each
+    capture's `subjects/<subj>/` masks (bit-packed), from captures NAMED explicitly, never a blocked or older one
+    (C146: kitchen `data/2026-10-17_lead_fp_0613g/`, 1419 `data/2026-10-15_lead_fp_1419d/`, the hall the capture
+    `lead_fp_1306s` and `third_fp_1310c` were made from; never `data/2026-10-12_lead_fp_1306_span_1306_1418_blocked`),
+    each masks file's sha256 recorded. Then the three scenes run on the card.
+  - `gemmatte-faces` (`h3_worktrees/gemmatte-faces`): the three-state face label and drops and face lines as a person's
+    word, CPU only (`internal/gemini/2026-10-18_brief_build_faces.md`). Lands before `lead_fp_0613h` is made.
+  The four branches of the evening (`gemini-hole-label`, `gemmatte-masks`, `gemmatte-moge`, `gem-memsel-tool`) are
+  landed and removed.
 - **The close (C126, C143)**: `bench/rebuild_delivery.py --video fun` ran at `2026-10-18T0141Z`
   (`data/2026-10-18_fun_delivery_tables/rebuild_fun_2026-10-18T0141Z.json` and
   `frame_coverage_fun_0000_6394_2026-10-18T0141Z.md`; identical gap counts to `1747Z`, with the `b1be216b` hole label
@@ -95,8 +105,9 @@ gate. The two that are next, from the same check and tonight's `lead_fp_0613g`:
   `0 px`; the three `fun` scenes need the `subjects/<subj>/` subpath in `build_default_scenes()` first thing tomorrow).
   ComfyUI (port 8188) and the review server (`data/fun/poc/serve.py`, port 8765) are both stopped (`ss -ltnp` verified
   free). Start the review server again (`docs/wiki/runbook.md`) before pointing the owner at a page.
-- **Open List**: r17_06 (the mom's kitchen re-lays) and r17_07 (the perception order) wait on the owner; r17_08 is
-  tonight's state; r17_09 records the licence answer. The inbox is clear.
+- **Open List**: r17_00 is FIRST TOMORROW (the gaps, why, and the next loads); r17_06 (the mom's kitchen re-lays) and
+  r17_07 (the perception order) wait on the owner; r17_08 is tonight's state; r17_09 records the licence answer. The
+  inbox is clear.
 
 ## What not to assume
 
@@ -155,6 +166,13 @@ gate. The two that are next, from the same check and tonight's `lead_fp_0613g`:
   - gem-memsel: "End-of-Day Handoff" at the end of `internal/gemini/2026-10-17_worker_gem-memsel.md` (and
     `data/2026-10-17_sam_memory_selection/summary__lotsofpeople.json`);
   - the readers' reviews: `internal/gemini/2026-10-17_review_*.md`.
+- **Made tonight, to read with the candidates**: the Gemini lead's playback readings,
+  `data/2026-10-17_<load>/playback_reading_mrgemsol.md` for `second_hfp_0604h`, `lead_fp_0613g`, `second_hfp_0278d` and
+  `lead_fp_0438d` (a reader's watch, not the owner's keep); the clips under `Video/fun/review_clips/`
+  (`<load>_<first>_<last>_stacked.mp4` and `_compare.mp4`, and `lead_fp_0613g_0680_0760_compare.mp4`, the clip the
+  owner's looks on 708-738 were made on); the memory measurement `data/2026-10-17_sam_memory_selection/` and its review
+  `internal/gemini/2026-10-17_review_gem_memsel.md`; the head tube's write-up
+  `internal/gemini/2026-10-17_head_tube_how_it_works.md` (corrected by C137: it smooths the preview's saved class map).
 - Decisions: `docs/wiki/decisions.md`, 2026-10-17. The owner's preferences: `docs/wiki/working_with_the_owner.md`.
   Day-to-day commands: `docs/wiki/runbook.md`. The lane: `data/AGENTS.md`, then `data/fun/AGENTS.md` (local).
 - The owner's raw answers: `data/fun/owner_answers.jsonl`. Who is who: `data/fun/shots.json` and `cast/cast.jsonl`.
