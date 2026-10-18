@@ -76,9 +76,11 @@ so our Sol settings (`rotate`, `qk_balance`, `tau_map`, `blk_cnt`) refuse to
 run, while an older fork wheel lacks modules new core imports (`2026-10-18`).
 Sync the owner's `comfy-kitchen` fork (`h3-frontier`) with the new upstream tag
 and rebuild with `bash vendor/rebuild_kernel.sh` (never hand-copy files into
-`.venv`). With `nanobind` 2.10+, every `std::optional` parameter in
-`comfy_kitchen/backends/cuda/dlpack_bindings.cpp` needs `.none()` or
-`= nb::none()` on its `nb::arg` (fork commit `997dd79`). Before restarting, run
+`.venv`). Built with `nanobind` 2.10.x (the venv's 2.10.2), a `std::optional`
+parameter bound with a bare `nb::arg` rejects `None`; 2.11.0 applies `.none()`
+implicitly (wjakob/nanobind#1262). The fork marks them `.none()` (`997dd79`),
+correct under every version; at the next planned rebuild, update the venv's
+nanobind to the latest. Before restarting, run
 `bash vendor/rebuild_kernel.sh --check`, `bench/check_sol_kernel.py`, and
 `bench/check_solattn_correctness.py`.
 

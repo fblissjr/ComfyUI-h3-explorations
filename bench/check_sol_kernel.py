@@ -626,7 +626,7 @@ else:
         f"sage_sdpa.attn_mask, sol_attn.* included)"
         if not _bad_opt and _total_opt > 0
         else f"C++ binding(s) in comfy_kitchen.backends.cuda._C reject None "
-        f"(nanobind 2.10+ requires .none() or = nb::none() on std::optional "
+        f"(nanobind 2.10.x requires .none() or = nb::none() on std::optional "
         f"nb::arg bindings in dlpack_bindings.cpp): {'; '.join(_bad_opt)}",
     )
     # Refusal control: strip `| None` from sage_sdpa_prequantized.attn_mask (the
