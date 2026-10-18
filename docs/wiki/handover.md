@@ -1,16 +1,16 @@
 # Handover: read this before anything else
 
 **Rewritten at the end of each working day by the Claude lead; the day before is in git.** Written for 2026-10-17 by
-`mrtabby` (the Claude lead) at 00:35Z on 2026-10-18, BEFORE the close: the card is still running, and whoever closes
-adds what landed after this. Where this page and a record disagree, the record is right (`decisions.md`, newest first;
-`data/fun/laid.jsonl`; the newest table and gap check; `git log`). The mailbox is `internal/gemini/` (`PROTOCOL.md`;
-`2026-10-17_claude_to_gemini.md` C1-C119, `2026-10-17_gemini_to_claude.md` G1-G61).
+`mrtabby` (the Claude lead) at 00:35Z on 2026-10-18, and completed at the close (01:45Z) by `mrgemsol` (the Gemini lead).
+Where this page and a record disagree, the record is right (`decisions.md`, newest first; `data/fun/laid.jsonl`; the
+newest table and gap check; `git log`). The mailbox is `internal/gemini/` (`PROTOCOL.md`;
+`2026-10-17_claude_to_gemini.md` C1-C144, `2026-10-17_gemini_to_claude.md` G1-G62).
 
 ## FIRST TOMORROW: the gaps, why they are there, and filling them in song order
 
 The owner wants every gap filled, in song order, as soon as tomorrow starts, so nobody has to remember them again. The
-one list is generated, never typed: `bench/frame_coverage.py` (made by `bench/rebuild_delivery.py --video fun`; today's
-is `data/2026-10-17_fun_delivery_tables/frame_coverage_fun_0000_6394_2026-10-17T1747Z.md`), then
+one list is generated, never typed: `bench/frame_coverage.py` (made by `bench/rebuild_delivery.py --video fun`; the
+close's is `data/2026-10-18_fun_delivery_tables/frame_coverage_fun_0000_6394_2026-10-18T0141Z.md`), then
 `bench/shot_coverage.py` for what each shot needs. Two kinds, and why each exists:
 
 1. **Shots with a piece where the original still shows while she is tracked** (the check's first table; 12 shots,
@@ -48,7 +48,7 @@ gate. The two that are next, from the same check and tonight's `lead_fp_0613g`:
 
 | shot | who | the original in the cut | the window to load | note |
 |---|---|---|---|---|
-| kitchen 604-1009 | the lead | 606-629, 681-750, 779-804, 834-851, 966-974 | 613-974, one window of 362 (`lead_fp_0613h`, head tube on) | 0613g (candidate) covers it today but leaves 687-710, 733-738, 747-750 and 974 as the original; her face shows on 708-712 and 736-746 |
+| kitchen 604-1009 | the lead | 606-629, 681-750, 779-804, 834-851, 966-974 | 613-974, one window of 362 (`lead_fp_0613h`, head tube on) | 0613g (candidate) covers it today but leaves 687-710, 733-738, 747-750 and 974 as the original; her face shows on 709-712 and 733-746 (owner's looks, C132-C135) |
 | kitchen 604-1009 | the lead | 604-612 | not planned: inside no window | 9 frames; decide whether 0613h starts at 604 (604-965 is 362 frames and ends where the kept 0852b ends) |
 | kitchen 604-1009 | the lead | 975-1009 | none | her face is out of the picture 975-1009 (`next_steps.md`, the 10-15 queue); check on the frames before loading |
 | hall 1306-1418 | the lead | 1397-1418 | 1397-1418, 22 frames, context from the kept 1306s | 1306s's own render ends at 1396 |
@@ -71,27 +71,32 @@ gate. The two that are next, from the same check and tonight's `lead_fp_0613g`:
   builds) and gem-memsel (started 00:29Z; SAM memory selection, a measurement only).
 - **Landed today** (`git log 483d5b38..HEAD`): one compositing law (`assemble_delivery.lay_plane`) and mattes for all 43
   laid pieces; `bench/recomposite_piece.py`; `bench/rebuild_delivery.py`, one command for the ledger, table, gap check
-  and pages; the who view; the floor holds and off-head pruning (D22b, 9f139d0c); the mouth fixes behind
-  `--closed-lip-line`, off by default (c796c025); the rule that a change names everything that writes and reads it
-  (`AGENTS.md`); the folder AGENTS.md files; meta_sam3 removed; `data/` untracked but for its two instruction files.
-- **The cut** is unchanged since 1747Z: 43 laid pieces. Tonight's renders are candidates only, none laid:
-  `second_hfp_0604h` (the mom's kitchen, done, compared), `lead_fp_0613g` (the lead's 613-974 in one window, landing at
-  this writing), `second_hfp_0278d` and `lead_fp_0438d` (the control) queued after it.
-- **On branches, not landed:** `gemini-hole-label` (sent back, C118: the two causes need two wordings);
-  `gemmatte-masks` (the head tube, being bound by the person track and wired into the capture behind a switch, C108);
-  `gemmatte-moge` (MoGe-2 measuring tool; its loader moves to `vendor/meta_moge2/` with Meta's licence, the owner's
-  call, C112); gem-memsel's tool (`h3_worktrees/gem-memsel-tool`).
-- **The night, by the owner's answer (C126)**: the queue runs (0278d, 0438d, the head-tube gate if cleared, gem-memsel's
-  measurement), no hole renders and nothing laid; then the ledger and pages are rebuilt, ComfyUI is stopped and the review
-  server is stopped. Start it again (`docs/wiki/runbook.md`) before pointing the owner at a page.
+  and pages; the who view; the floor holds and off-head pruning (D22b, `9f139d0c`); the mouth fixes behind
+  `--closed-lip-line`, off by default (`c796c025`); the hole label wording for `original_tracking_not_known` by cause
+  (`b1be216b`); the `person_track`-bounded SAM 3.1 head tube behind `--head-tube`, off by default (`c4b395bf`); the
+  vendored HyDen MoGe-2 depth/intrinsics loader under `vendor/meta_moge2/` and `bench/measure_moge2_depth.py`
+  (`4725ff5c`); the runtime SAM 3 / 3.1 memory-selection tool `bench/sam_memory_selection.py` (`f390a25a`); the rule that
+  a change names everything that writes and reads it (`AGENTS.md`); the folder `AGENTS.md` files; `meta_sam3` removed;
+  `data/` untracked but for its two instruction files.
+- **The cut** is unchanged since 1747Z: 43 laid pieces (`data/fun/laid.jsonl` verified 43/43 at `0141Z`). All four of
+  tonight's candidate renders completed, landed, were compared against the `1747Z` cut with `stack_delivery.py compare`,
+  and were read natively on playback (`G56`, `G58`, `G59`, `G60`), none laid: `second_hfp_0604h` (the mom's kitchen
+  `604-1009`), `lead_fp_0613g` (the lead's `613-974` in one window), `second_hfp_0278d` (`278-293`), and `lead_fp_0438d`
+  (`438-483`, control). Per C131, candidate clips whose ranges contain a gap for a person who shows wait for tomorrow's
+  player gap-count banner before going on Start here (listed with their exact gap spans in `G62`).
+- **On branches, not landed:** none (`git worktree list` is `main` only; `gemini-hole-label`, `gemmatte-masks`,
+  `gemmatte-moge`, and `gem-memsel-tool` are all landed and their worktrees/branches removed).
+- **The close (C126, C143)**: `bench/rebuild_delivery.py --video fun` ran at `2026-10-18T0141Z`
+  (`data/2026-10-18_fun_delivery_tables/rebuild_fun_2026-10-18T0141Z.json` and
+  `frame_coverage_fun_0000_6394_2026-10-18T0141Z.md`; identical gap counts to `1747Z`, with the `b1be216b` hole label
+  applied). `bench/sam_memory_selection.py` converted `sam3_fp32.safetensors` on CPU and ran all 4 arms on `lotsofpeople`
+  (`data/2026-10-17_sam_memory_selection/summary__lotsofpeople.json`: in the 16-dancer `sam31` `group` call, `mem_on`
+  holds the `most_central` dancer across frames `95-116` and `130-140` at `7,006-11,914 px` where `mem_off` drops to
+  `0 px`; the three `fun` scenes need the `subjects/<subj>/` subpath in `build_default_scenes()` first thing tomorrow).
+  ComfyUI (port 8188) and the review server (`data/fun/poc/serve.py`, port 8765) are both stopped (`ss -ltnp` verified
+  free). Start the review server again (`docs/wiki/runbook.md`) before pointing the owner at a page.
 - **Open List**: r17_06 (the mom's kitchen re-lays) and r17_07 (the perception order) wait on the owner; r17_08 is
   tonight's state; r17_09 records the licence answer. The inbox is clear.
-
-- **If the close did not finish** (the owner chose that the Claude lead only watches, C144): check, in this order, that
-  `gemmatte-moge` and `gem-memsel-tool` are landed (`git log`; both cleared, C130 and C143), that gem-memsel's measurement
-  ran (`data/2026-10-17_sam_memory_selection/`; the command is in its handoff), that `bench/rebuild_delivery.py --video
-  fun` made a new gap check after 1747Z, and that ComfyUI and the review server were stopped. Whatever did not happen is
-  the first thing tomorrow, before the gaps.
 
 ## What not to assume
 
@@ -110,28 +115,32 @@ gate. The two that are next, from the same check and tonight's `lead_fp_0613g`:
 - **SAM**: core has no memory selection under any name; Meta has it on for SAM 3 base and off for 3.1 with no stated
   reason; its score is a mean over a whole group, so off is plausible for 3.1's 16-object use, and our chain tracks one
   person a call. "Patch it" means a run-time patch like sage, Sol and `sam31_corrections.py`: respect dynamic memory,
-  no odd clones. SAM 3 base is downloaded to the owner's model store (`facebook_sam3`), not yet converted.
+  no odd clones. SAM 3 base is converted (`models/checkpoints/sam3_fp32.safetensors`, exact readback parity) and tested
+  beside 3.1 by `bench/sam_memory_selection.py` (`f390a25a`).
 - **MoGe-2's camera is unreliable on tight close-ups** (field of view spread 46 degrees on 3060-3109, 1.5 on 755-780).
 - **The 48 untouched shots were not captured today**; that was the Claude lead's miss (r16n_03).
 - **Times**: write them from `date -u`; three of the Claude lead's estimates tonight ran ahead and were corrected.
 
 ## Tomorrow, in order
 
-1. Read the night's mailbox from G61 and C118 on. Close what the night left: the hole label (one headline, the cause in
-   brackets saying "no capture" or "the capture holds no track of her", with a test; the owner's go, C123; then cleared
-   and landed); the head tube's READY, its blind read, then THE GATE: the face masks with it on and off on 680-760 and
-   1397-1418, no render. Render the holes with it only if her face holds there (the lead 613-974; the lead and the dad
-   1397-1418), as candidates.
-2. The owner's looks, Start here: 0613g's compare clip at 680-760 first, then 0604h, 0278d and the 0438d control.
-   Then r17_06 and r17_07.
-3. gem-memsel's measurement (four arms, four scenes,
-   `internal/gemini/2026-10-17_brief_build_memory_selection.md`): if memory selection holds her better, it becomes a
-   switch in `sam31_corrections.py`'s form. Then the tracker review's item 10 changes, `frames_on_others` first
-   (`internal/gemini/2026-10-17_brief_review_subject_track_regain.md`; the review of items 1-4 is
-   `internal/gemini/2026-10-17_review_subject_track_regain.md`).
-4. Captures of the 48 untouched shots, in song order, in the card's free time.
-5. MoGe-2 vendored and landed; the end-to-end tests (`internal/gemini/2026-10-17_test_scenes_agreed.md`,
-   `2026-10-17_e2e_tests_gem-matte.md`) run each build through the whole chain before any switch goes on.
+1. Start ComfyUI and the review server (`data/fun/poc/serve.py`, `docs/wiki/runbook.md`). Read the night's mailbox
+   (`G62`, "End of day", and `C118-C144`). First builds before filling gaps:
+   - the 4-step gap ladder (`C129`) + player gap-count banner (`C131`), so candidate clips with gaps can go on Start here
+     with their per-person, per-kind counts above the player;
+   - the `C136`/`C137`/`C140` drop + `--no-face-on` + three-state face-visibility build before `lead_fp_0613h` (`drop` and
+     `--no-face-on` on `687-708, 747-750, 974` only, face lines ON on `709-746`, plus the one-shot steady-box Sapiens
+     card test on `680-760` from `gem-matte`'s handoff).
+2. The owner's looks, Start here (once the player gap-count banner lands, C131): 0613g's compare clip at 680-760 first,
+   then 0604h, 0278d and the 0438d control. Then r17_06 and r17_07.
+3. Finish `gem-memsel`'s remaining 3 `fun` scene measurements (`kitchen_604_1009`, `hall_1306_1418`, `regain_1419_1465`
+   after pointing `build_default_scenes()` in `bench/sam_memory_selection.py` at `subjects/<subj>/masks__*.npz`;
+   `lotsofpeople` already ran and held `most_central` across `95-116` and `130-140` in the 16-dancer `sam31` `group` call).
+   If memory selection holds her better on `fun` too, wire it as a switch in `sam31_corrections.py`'s form. Then the
+   tracker review's item 10 changes, `frames_on_others` first (`internal/gemini/2026-10-17_review_subject_track_regain.md`).
+4. Fill the gaps in song order (`data/2026-10-18_fun_delivery_tables/frame_coverage_fun_0000_6394_2026-10-18T0141Z.md`),
+   and capture the 48 untouched shots in song order in the card's free time.
+5. Run the end-to-end tests (`internal/gemini/2026-10-17_test_scenes_agreed.md`, `2026-10-17_e2e_tests_gem-matte.md`)
+   through the whole chain before any perception switch goes on.
 6. The 2026-10-17 changelog entry, from the commits: the Claude lead reviews `internal/gemini/2026-10-17_changelog_draft.md`.
    Parked, no default: the matting composite (`internal/gemini/2026-10-17_brief_build_matting_relay.md`, on hold).
 
@@ -140,16 +149,16 @@ gate. The two that are next, from the same check and tonight's `lead_fp_0613g`:
 - **Each session's end-of-day notes**, read before starting:
   - the Claude lead (mrtabby): this page; working notes in `internal/claude/2026-10-17_mrtabby/` (`mentor_notes.md`,
     `test_scenes_claude.md`, `who_record_v2.md`);
-  - the Gemini lead (mrgemsol): its closing entry, the last G entry of `internal/gemini/2026-10-17_gemini_to_claude.md`,
-    headed "End of day" (owed at the close, C126, C141);
+  - the Gemini lead (mrgemsol): its closing entry `G62`, the last G entry of `internal/gemini/2026-10-17_gemini_to_claude.md`,
+    headed "End of day";
   - gem-matte: "End-of-Day Handoff" at the end of `internal/gemini/2026-10-17_worker_gem-matte.md`;
-  - gem-memsel: `internal/gemini/2026-10-17_worker_gem-memsel.md` (still running at this writing; its READY or a handoff
-    owed);
+  - gem-memsel: "End-of-Day Handoff" at the end of `internal/gemini/2026-10-17_worker_gem-memsel.md` (and
+    `data/2026-10-17_sam_memory_selection/summary__lotsofpeople.json`);
   - the readers' reviews: `internal/gemini/2026-10-17_review_*.md`.
 - Decisions: `docs/wiki/decisions.md`, 2026-10-17. The owner's preferences: `docs/wiki/working_with_the_owner.md`.
   Day-to-day commands: `docs/wiki/runbook.md`. The lane: `data/AGENTS.md`, then `data/fun/AGENTS.md` (local).
 - The owner's raw answers: `data/fun/owner_answers.jsonl`. Who is who: `data/fun/shots.json` and `cast/cast.jsonl`.
-- Pages: `Video/fun/TO_REVIEW.html` and `PROVENANCE.html` on the share, from `bench/rebuild_delivery.py`; the review
-  server `data/fun/poc/serve.py` (running at this writing).
+- Pages: `Video/fun/TO_REVIEW.html` and `PROVENANCE.html` on the share, from `bench/rebuild_delivery.py` (`0141Z`); the
+  review server `data/fun/poc/serve.py` and ComfyUI are stopped at the close (`docs/wiki/runbook.md` to start).
 - The Claude lead's notes: `internal/claude/2026-10-17_mrtabby/` (mentor notes, test scenes, who record).
 - Briefs and reviews of the night: `internal/gemini/2026-10-17_brief_*.md` and `2026-10-17_review_*.md`.
