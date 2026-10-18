@@ -1757,6 +1757,85 @@ def laid_from(T: dict) -> str:
     return " What is laid was decided by the table's older rule (keeps, a session's preferences, the newest render), not by one list."
 
 
+def _find_laid_path(T: dict, a: argparse.Namespace) -> Path | None:
+    laid_arg = getattr(a, "laid", None)
+    if laid_arg:
+        p = Path(laid_arg)
+        if not p.is_file():
+            raise SystemExit(f"--laid {laid_arg}: file not found")
+        return p
+    m = re.search(r"ONLY the list of what is laid, `([^`]+)` \(sha256 ([0-9a-f]+), (\d+) lines", str(T.get("made") or ""))
+    if m:
+        p = Path(m.group(1))
+        if p.is_file():
+            return p
+        rp = in_repo(m.group(1), a.table)
+        if rp.is_file():
+            return rp
+    for base in filter(None, [getattr(a, "table", None), getattr(a, "verdicts", None), getattr(a, "items", None)]):
+        bp = Path(base).resolve().parent
+        for cand in (bp / "laid.jsonl", bp.parent / "laid.jsonl"):
+            if cand.is_file():
+                return cand
+    return None
+
+
+def laid_stamp_line(T: dict, a: argparse.Namespace) -> str:
+    """One line at the top of TO_REVIEW.html and PROVENANCE.html:
+    'built from laid.jsonl as of <laid.jsonl's last line time>, <short sha256>, page built <stamp>',
+    with the sha256 recorded in the page (`data-laid-sha256`)."""
+    laid_path = _find_laid_path(T, a)
+    m = re.search(r"ONLY the list of what is laid, `([^`]+)` \(sha256 ([0-9a-f]+), (\d+) lines", str(T.get("made") or ""))
+    if laid_path and laid_path.is_file():
+        raw = laid_path.read_bytes()
+        full_sha = hashlib.sha256(raw).hexdigest()
+        short_sha = full_sha[:16]
+        non_empty = [ln for ln in raw.decode("utf-8", errors="replace").splitlines() if ln.strip()]
+        last_time = ""
+        if non_empty:
+            try:
+                last_time = str(json.loads(non_empty[-1]).get("added") or "")
+            except ValueError:
+                last_time = ""
+        if not last_time:
+            last_time = max((str(s.get("written") or "") for rd in T.get("reading") or [] for s in rd.get("stands") or []), default="unknown")
+    elif m:
+        full_sha = short_sha = m.group(2)
+        last_time = max((str(s.get("written") or "") for rd in T.get("reading") or [] for s in rd.get("stands") or []), default="unknown")
+    else:
+        full_sha = hashlib.sha256(Path(a.table).read_bytes()).hexdigest()
+        short_sha = full_sha[:16]
+        last_time = max((str(s.get("written") or "") for rd in T.get("reading") or [] for s in rd.get("stands") or []), default="unknown")
+    stamp = getattr(a, "stamp", None)
+    if not stamp:
+        m_st = re.search(r"_(\d{4}-?\d{2}-?\d{2}T\d{4,6}Z)\.json$", os.path.basename(str(a.table)))
+        stamp = m_st.group(1) if m_st else datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return f'<p class="mut" data-laid-sha256="{E(full_sha)}">built from laid.jsonl as of {E(last_time)}, {E(short_sha)}, page built {E(str(stamp))}</p>'
+
+
+def serve_page_html(html_text: str, laid_path: str | Path, video: str) -> str:
+    """When serving TO_REVIEW.html or PROVENANCE.html, compare the page's recorded sha256 with laid.jsonl's current one,
+    and if they differ, put a plain banner at the top."""
+    lp = Path(laid_path)
+    if not lp.is_file():
+        return html_text
+    cur_sha = hashlib.sha256(lp.read_bytes()).hexdigest()
+    m_attr = re.search(r'data-laid-sha256="([0-9a-f]+)"', html_text)
+    m_txt = re.search(r"built from laid\.jsonl as of [^,<]+,\s*([0-9a-f]+),\s*page built", html_text)
+    attr_sha = m_attr.group(1) if m_attr else ""
+    txt_sha = m_txt.group(1) if m_txt else ""
+    attr_ok = bool(attr_sha) and (cur_sha == attr_sha or cur_sha.startswith(attr_sha))
+    txt_ok = bool(txt_sha) and (cur_sha == txt_sha or cur_sha.startswith(txt_sha))
+    if attr_ok and (not txt_sha or txt_ok):
+        return html_text
+    banner = f'<p class="d">This page is older than the cut: rebuild (bench/rebuild_delivery.py --video {E(video)})</p>\n'
+    if "<body>\n" in html_text:
+        return html_text.replace("<body>\n", "<body>\n" + banner, 1)
+    if "<body>" in html_text:
+        return html_text.replace("<body>", "<body>\n" + banner, 1)
+    return banner + html_text
+
+
 def to_review(a: argparse.Namespace) -> str:
     rec = Records(a.table, a.ledger, a.verdicts, a.items, a.tables)
     rate, out_dir = rate_of(a.source), os.path.dirname(os.path.abspath(a.out))
@@ -1778,7 +1857,8 @@ def to_review(a: argparse.Namespace) -> str:
         return f'<a href="{E(a.page_url + i)}">{E(label or i)}</a>'
     shots_drawn: dict[str, list[str]] = {}               # each shot the page shows, FIRST-LAST, to the items its entry links
     stem = Path(a.source).stem
-    body = [f"<h1>{E(stem)}: to review</h1>",
+    body = [laid_stamp_line(rec.T, a),
+            f"<h1>{E(stem)}: to review</h1>",
             f'<p class="mut">Made {datetime.datetime.now(OWNERS_CLOCK):%Y-%m-%d %H:%M} US Central from the table {E(os.path.basename(a.table))} and its '
             f"ledger.{laid_from(rec.T)} Each piece is marked with the day its file was written: "
             + ", ".join(f'<span class="d {t}">{datetime.date.fromisoformat(d):%m/%d}</span>' for d, t in rec.day_token.items())
@@ -2096,7 +2176,8 @@ def provenance(a: argparse.Namespace) -> str:
     out_dir = os.path.dirname(os.path.abspath(a.out))           # every link is relative to where the page is written
     rel = lambda path: os.path.relpath(path if os.path.isabs(path) else os.path.join(a.share, path), out_dir)
     stem = Path(a.source).stem
-    body = [f"<h1>{E(stem)}: what every stretch is made of, from which day, and where nothing is made</h1>",
+    body = [laid_stamp_line(rec.T, a),
+            f"<h1>{E(stem)}: what every stretch is made of, from which day, and where nothing is made</h1>",
             f'<p class="mut">Written {datetime.datetime.now(OWNERS_CLOCK):%Y-%m-%d %H:%M} US Central from the table <b>{E(os.path.basename(a.table))}</b> '
             f"and its ledger;{laid_from(rec.T)[:-1].replace(' What', ' what', 1)}; your clicks as they stood when this was written; the frames a piece leaves as the original from {E(left_from)}. "
             "A local file: nothing here is hosted or tracked. It cannot see the picture: a reason is what a record says.</p>",
@@ -2244,6 +2325,8 @@ def main(argv=None) -> int:
         s.add_argument("--source", required=True, help="the source video: its frame rate gives the times, its stem the title")
         s.add_argument("--out", required=True, help="the page to write")
         s.add_argument("--share", required=True, help="the server's output folder, which the ledger's render paths are relative to")
+        s.add_argument("--laid", help="optional path to laid.jsonl (otherwise read from the table's made line or beside the data files)")
+        s.add_argument("--stamp", help="optional build stamp (otherwise read from the table's file name or current UTC)")
         s.add_argument("--tables", action="append", default=[], help="a folder bench/shot_review_clips.py wrote joined clips' tables into: a "
                        "joined clip is shown as this table's only when its own table lays the same pieces on its shot, and a keep on it counts on each "
                        "piece it lays; repeatable")

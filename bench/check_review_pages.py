@@ -44,6 +44,18 @@
   compare_clips_say_who_is_new_and_who_is_the_old_cut above each compare clip's player, one generated line per person in the
                                 shot (`new here: <load>`, `the current cut: <load>, laid <day>`, or `the original: no piece`),
                                 read from `.stack.json`/`.stack.frames.jsonl` or sidecars and the table/ledger, never typed
+  a_lay_triggers_a_rebuild      `bench/laid.py` (`lay`, `replace`, `remove`) writes `data/<video>/laid.jsonl`, runs
+                                `bench/rebuild_delivery.py --video <video>` without `--clip`, and prints its stamp
+  a_failing_rebuild_is_said_and_exits_nonzero when `rebuild_delivery.py` fails after a `laid.py` write, the `laid.jsonl`
+                                change still stands on disk and `laid.py` says so loudly with the rebuild's error and exits non-zero
+  no_rebuild_needs_its_reason   `--no-rebuild` without a reason refuses non-zero without touching `laid.jsonl`;
+                                `--no-rebuild WHY` records `no_rebuild` in the line and skips the rebuild
+  the_page_line_matches_laid_jsonl at the top of `TO_REVIEW.html` and `PROVENANCE.html`, one line:
+                                `built from laid.jsonl as of <laid.jsonl's last line time>, <short sha256>, page built <stamp>`,
+                                with that `sha256` recorded in `data-laid-sha256`
+  the_banner_shows_on_a_stale_page_and_not_on_a_fresh_one when serving either page, if its recorded `sha256` differs from
+                                `laid.jsonl`'s current one, a plain banner is placed at the top:
+                                `This page is older than the cut: rebuild (bench/rebuild_delivery.py --video <video>)`
 
     <comfy venv python> bench/check_review_pages.py
 
@@ -975,12 +987,13 @@ def start_here() -> str:
 
 
 def nothing_of_a_video_in_code() -> str:
-    code = TOOL.read_text()
-    for word in ("/mnt/", "/home/", "http://", "https://", ":8765", "fun_", '"fun"', "day_2026"):
-        assert word not in code, f"the tool's source holds {word!r}"
-    ip = re.search(r"\b\d{1,3}(?:\.\d{1,3}){3}\b", code)
-    assert ip is None, f"the tool's source holds a machine's address, {ip.group(0) if ip else ''!r}"
-    return "no address (of any machine), share, machine folder, day or video in the tool's source"
+    for src_path in (TOOL, TOOL.parent / "laid.py"):
+        code = src_path.read_text()
+        for word in ("/mnt/", "/home/", "http://", "https://", ":8765", "fun_", '"fun"', "day_2026"):
+            assert word not in code, f"{src_path.name}'s source holds {word!r}"
+        ip = re.search(r"\b\d{1,3}(?:\.\d{1,3}){3}\b", code)
+        assert ip is None, f"{src_path.name}'s source holds a machine's address, {ip.group(0) if ip else ''!r}"
+    return "no address (of any machine), share, machine folder, day or video in review_pages.py or laid.py"
 
 
 def the_page_says_what_is_laid() -> str:
@@ -1385,6 +1398,368 @@ def compare_clips_say_who_is_new_and_who_is_the_old_cut() -> str:
     return "every compare clip prints one generated line per person in the shot and labels each person in the gap line with '(new here)' / '(the current cut)' / '(the original)', refusing inline or unresolvable compare clips"
 
 
+def _prepare_laid_rebuild_fixture(root: Path) -> dict[str, Path]:
+    import check_rebuild_delivery as crd
+    import laid as laid_mod
+    import rebuild_delivery as rd
+
+    fx = crd._build_fixture(root)
+    video = "clip"
+    day = "2026-10-17"
+    joined_mp4 = fx["share"] / "Video" / video / f"day_{day}" / f"{video}_0000_0007_joined_2026-10-17T1800Z_from_laid.mp4"
+    joined_mp4.parent.mkdir(parents=True, exist_ok=True)
+    joined_mp4.write_bytes(b"mp4")
+    check_json = Path(str(joined_mp4) + ".check.json")
+    sidecar_json = joined_mp4.with_name(joined_mp4.name + ".json")
+    blob_sha = rd.assembler_blob_sha(crd.REPO)
+
+    def sync_reused(has_piece: bool, expected_laid_sha: str) -> None:
+        table_rows = (
+            [{"frames": [0, crd.FRAMES - 1], "piece": str(fx["piece"]), "piece_first": 0, "restore": []}]
+            if has_piece
+            else []
+        )
+        pieces_reg = (
+            {str(fx["piece"]): {"frames": [0, crd.FRAMES - 1], "laid_by": {"rule": "changed"}, "changed_px_per_frame": [4000] * crd.FRAMES}}
+            if has_piece
+            else {}
+        )
+        check_json.write_text(json.dumps({
+            "assembler_blob_sha": blob_sha,
+            "table": table_rows,
+            "regions": {"pieces": pieces_reg},
+            "flags": [],
+        }) + "\n")
+        sidecar_json.write_text(json.dumps({
+            "inputs": [
+                {"role": "the check record", "sha256": rd.sha256_file(check_json)},
+                {"role": "the list of what is laid", "sha256": expected_laid_sha},
+            ],
+        }) + "\n")
+
+    fx["joined_mp4"] = joined_mp4
+    fx["check_json"] = check_json
+    fx["sidecar_json"] = sidecar_json
+    fx["sync_reused"] = sync_reused  # type: ignore[assignment]
+    fx["laid_mod"] = laid_mod  # type: ignore[assignment]
+    return fx
+
+
+def a_lay_triggers_a_rebuild() -> str:
+    """2026-10-18: after every successful write to data/<video>/laid.jsonl (lay, replace, remove), bench/laid.py runs
+    bench/rebuild_delivery.py --video <video> without --clip and prints its stamp."""
+    with tempfile.TemporaryDirectory() as tmp:
+        fx = _prepare_laid_rebuild_fixture(Path(tmp))
+        laid_mod = fx["laid_mod"]
+        sync_reused = fx["sync_reused"]
+        video = "clip"
+        piece_rel = "Video/clip/day_2026-10-16/0000_pa_0000/pa_0000_00001.mp4"
+        laid_script = Path(laid_mod.__file__).resolve()
+
+        # 1. `lay`: start from an empty laid.jsonl, run `laid.py lay`, verify rebuild_delivery runs without --clip and prints stamp
+        fx["laid"].write_text("")
+        expected_lay_entry = {
+            "schema": laid_mod.SCHEMA,
+            "first": 0,
+            "last": 7,
+            "subject": "a",
+            "load": "pa_0000",
+            "file": piece_rel,
+            "sha256": laid_mod.sha256(fx["piece"]),
+            "owner": "kept",
+            "by": "owner kept pa_0000 on 0-7",
+            "frames": [[0, 7]],
+            "added": "2026-10-18T12:00:00Z",
+            "added_by": "gem-pages",
+        }
+        expected_lay_sha = hashlib.sha256((json.dumps(expected_lay_entry) + "\n").encode()).hexdigest()
+        sync_reused(True, expected_lay_sha)
+
+        stamp_lay = "2026-10-18T1201Z"
+        res_lay = subprocess.run(
+            [
+                sys.executable, str(laid_script), "lay",
+                "--video", video,
+                "--laid", str(fx["laid"]),
+                "--share", str(fx["share"]),
+                "--data", str(fx["data"]),
+                "--inputs", str(fx["inputs"]),
+                "--first", "0", "--last", "7",
+                "--subject", "a",
+                "--load", "pa_0000",
+                "--file", piece_rel,
+                "--owner", "kept",
+                "--by", "owner kept pa_0000 on 0-7",
+                "--added", "2026-10-18T12:00:00Z",
+                "--added-by", "gem-pages",
+                "--day", "2026-10-18",
+                "--stamp", stamp_lay,
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert res_lay.returncode == 0, f"laid.py lay failed: {res_lay.stdout}\n{res_lay.stderr}"
+        assert f"rebuild {video} {stamp_lay}" in res_lay.stdout and f"rebuild stamp: {stamp_lay}" in res_lay.stdout, res_lay.stdout
+        reb_lay = json.loads((fx["data"] / f"2026-10-18_{video}_delivery_tables" / f"rebuild_{video}_{stamp_lay}.json").read_text())
+        assert reb_lay["clip_built"] is False and "assemble" not in reb_lay["steps"], reb_lay
+        to_rev_html = (fx["share"] / "Video" / video / "TO_REVIEW.html").read_text()
+        assert f"built from laid.jsonl as of 2026-10-18T12:00:00Z, {expected_lay_sha[:16]}, page built {stamp_lay}" in to_rev_html, to_rev_html[:500]
+
+        # 2. `replace`: replace pa_0000 on 0-7, verify rebuild_delivery runs without --clip and prints the new stamp
+        expected_rep_entry = {
+            **expected_lay_entry,
+            "by": "owner replaced pa_0000 on 0-7",
+            "added": "2026-10-18T12:05:00Z",
+            "replaces": "pa_0000",
+        }
+        expected_rep_sha = hashlib.sha256((json.dumps(expected_rep_entry) + "\n").encode()).hexdigest()
+        sync_reused(True, expected_rep_sha)
+
+        stamp_rep = "2026-10-18T1206Z"
+        res_rep = subprocess.run(
+            [
+                sys.executable, str(laid_script), "replace",
+                "--video", video,
+                "--laid", str(fx["laid"]),
+                "--share", str(fx["share"]),
+                "--data", str(fx["data"]),
+                "--inputs", str(fx["inputs"]),
+                "--shot", "0-7",
+                "--subject", "a",
+                "--load", "pa_0000",
+                "--replaces", "pa_0000",
+                "--file", piece_rel,
+                "--owner", "kept",
+                "--by", "owner replaced pa_0000 on 0-7",
+                "--added", "2026-10-18T12:05:00Z",
+                "--added-by", "gem-pages",
+                "--day", "2026-10-18",
+                "--stamp", stamp_rep,
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert res_rep.returncode == 0, f"laid.py replace failed: {res_rep.stdout}\n{res_rep.stderr}"
+        assert f"rebuild stamp: {stamp_rep}" in res_rep.stdout, res_rep.stdout
+        to_rev_rep = (fx["share"] / "Video" / video / "TO_REVIEW.html").read_text()
+        assert f"built from laid.jsonl as of 2026-10-18T12:05:00Z, {expected_rep_sha[:16]}, page built {stamp_rep}" in to_rev_rep, to_rev_rep[:500]
+
+        # 3. `remove`: remove pa_0000 on 0-7, verify rebuild_delivery runs without --clip and prints the new stamp
+        expected_rem_sha = hashlib.sha256(b"").hexdigest()
+        sync_reused(False, expected_rem_sha)
+
+        stamp_rem = "2026-10-18T1210Z"
+        res_rem = subprocess.run(
+            [
+                sys.executable, str(laid_script), "remove",
+                "--video", video,
+                "--laid", str(fx["laid"]),
+                "--share", str(fx["share"]),
+                "--data", str(fx["data"]),
+                "--inputs", str(fx["inputs"]),
+                "--shot", "0-7",
+                "--subject", "a",
+                "--load", "pa_0000",
+                "--day", "2026-10-18",
+                "--stamp", stamp_rem,
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert res_rem.returncode == 0, f"laid.py remove failed: {res_rem.stdout}\n{res_rem.stderr}"
+        assert f"rebuild stamp: {stamp_rem}" in res_rem.stdout, res_rem.stdout
+        assert fx["laid"].read_text() == "", f"expected empty laid.jsonl after remove, got {fx['laid'].read_text()!r}"
+    return "lay, replace, and remove each write laid.jsonl, run bench/rebuild_delivery.py --video <video> without --clip, and print its stamp"
+
+
+def a_failing_rebuild_is_said_and_exits_nonzero() -> str:
+    """2026-10-18: if the rebuild after a laid.py write fails, the laid.jsonl change still stands on disk, and laid.py says
+    so loudly in its own words, with the rebuild's error, and exits non-zero."""
+    with tempfile.TemporaryDirectory() as tmp:
+        fx = _prepare_laid_rebuild_fixture(Path(tmp))
+        laid_mod = fx["laid_mod"]
+        laid_script = Path(laid_mod.__file__).resolve()
+        video = "clip"
+        piece_rel = "Video/clip/day_2026-10-16/0000_pa_0000/pa_0000_00001.mp4"
+
+        # Leave sidecar_json with a stale laid.jsonl sha256 so rebuild_delivery.py without --clip refuses at gap_check
+        fx["sync_reused"](True, "0" * 64)
+        fx["laid"].write_text("")
+
+        res = subprocess.run(
+            [
+                sys.executable, str(laid_script), "lay",
+                "--video", video,
+                "--laid", str(fx["laid"]),
+                "--share", str(fx["share"]),
+                "--data", str(fx["data"]),
+                "--inputs", str(fx["inputs"]),
+                "--shot", "0-7",
+                "--subject", "a",
+                "--load", "pa_0000",
+                "--file", piece_rel,
+                "--by", "lay when rebuild fails",
+                "--added", "2026-10-18T13:00:00Z",
+                "--day", "2026-10-18",
+                "--stamp", "2026-10-18T1301Z",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert res.returncode != 0, f"expected non-zero exit when rebuild fails, got 0: {res.stdout}\n{res.stderr}"
+        combined = (res.stdout or "") + "\n" + (res.stderr or "")
+        assert "LAID STANDS, REBUILD FAILED:" in combined and "the laid.jsonl change still stands" in combined, combined
+        assert "REFUSED: step gap_check failed" in combined, combined
+        assert "Traceback" not in combined, combined
+
+        # Verify the laid.jsonl change still stands on disk and passes laid.read
+        rows = laid_mod.read(str(fx["laid"]), str(fx["share"]), check_bytes=True)
+        assert len(rows) == 1 and rows[0]["load"] == "pa_0000" and rows[0]["by"] == "lay when rebuild fails", rows
+    return "when rebuild_delivery.py fails, the laid.jsonl write still stands on disk and laid.py reports LAID STANDS, REBUILD FAILED with the rebuild's error and exits non-zero"
+
+
+def no_rebuild_needs_its_reason() -> str:
+    """2026-10-18: --no-rebuild WHY requires a non-empty reason (refusing without touching laid.jsonl when omitted or blank),
+    records WHY in the line (`no_rebuild`), and skips the rebuild."""
+    with tempfile.TemporaryDirectory() as tmp:
+        fx = _prepare_laid_rebuild_fixture(Path(tmp))
+        laid_mod = fx["laid_mod"]
+        laid_script = Path(laid_mod.__file__).resolve()
+        video = "clip"
+        piece_rel = "Video/clip/day_2026-10-16/0000_pa_0000/pa_0000_00001.mp4"
+        fx["laid"].write_text("")
+
+        base_cmd = [
+            sys.executable, str(laid_script), "lay",
+            "--video", video,
+            "--laid", str(fx["laid"]),
+            "--share", str(fx["share"]),
+            "--shot", "0-7",
+            "--subject", "a",
+            "--load", "pa_0000",
+            "--file", piece_rel,
+            "--by", "batch lay reason",
+        ]
+        for bad_tail in (["--no-rebuild"], ["--no-rebuild", ""], ["--no-rebuild", "   "]):
+            res_bad = subprocess.run([*base_cmd, *bad_tail], capture_output=True, text=True)
+            assert res_bad.returncode != 0, f"expected --no-rebuild without reason to fail: {bad_tail}"
+            err_txt = (res_bad.stdout or "") + (res_bad.stderr or "")
+            assert "--no-rebuild requires a non-empty reason" in err_txt, err_txt
+            assert fx["laid"].read_text() == "", f"refused --no-rebuild must not touch laid.jsonl: {fx['laid'].read_text()!r}"
+
+        # With a valid reason, --no-rebuild writes the line with "no_rebuild": WHY and skips rebuild_delivery.py
+        res_ok = subprocess.run([*base_cmd, "--no-rebuild", "batch lay 1 of 2"], capture_output=True, text=True)
+        assert res_ok.returncode == 0, f"expected --no-rebuild WHY to succeed: {res_ok.stdout}\n{res_ok.stderr}"
+        assert "no rebuild (--no-rebuild: batch lay 1 of 2)" in res_ok.stdout, res_ok.stdout
+        rows = laid_mod.read(str(fx["laid"]), str(fx["share"]), check_bytes=True)
+        assert len(rows) == 1 and rows[0].get("no_rebuild") == "batch lay 1 of 2", rows
+    return "--no-rebuild without a reason refuses non-zero without touching laid.jsonl; --no-rebuild WHY records no_rebuild in the line and skips rebuild"
+
+
+def the_page_line_matches_laid_jsonl() -> str:
+    """2026-10-18: at the top of TO_REVIEW.html and PROVENANCE.html, one line:
+    'built from laid.jsonl as of <laid.jsonl's last line time>, <short sha256>, page built <stamp>',
+    with that sha256 recorded in the page (`data-laid-sha256`)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        d = Path(tmp)
+        args = world(d)
+        laid_file = d / "laid.jsonl"
+        lines = [
+            {"schema": "h3_laid/1", "first": 100, "last": 149, "subject": "a", "load": "a_new", "file": "x",
+             "sha256": "a" * 64, "owner": "kept", "by": "first line", "added": "2026-10-17T09:00:00Z"},
+            {"schema": "h3_laid/1", "first": 150, "last": 199, "subject": "a", "load": "a_solo", "file": "x",
+             "sha256": "b" * 64, "owner": "kept", "by": "second line", "added": "2026-10-18T14:22:33Z"},
+        ]
+        laid_file.write_text("".join(json.dumps(x) + "\n" for x in lines))
+        full_sha = hashlib.sha256(laid_file.read_bytes()).hexdigest()
+        short_sha = full_sha[:16]
+        stamp = "2026-10-18T1425Z"
+
+        # Also record the laid path in t.json's made string so automatic discovery without --laid works too
+        t_obj = json.loads((d / "t.json").read_text())
+        t_obj["made"] = (
+            f"Made 2026-10-18T14:25:00Z at commit abcdef0 from the ledger `{d / 'l.json'}`; "
+            f"and ONLY the list of what is laid, `{laid_file}` (sha256 {short_sha}, 2 lines, every file's bytes checked)."
+        )
+        (d / "t.json").write_text(json.dumps(t_obj))
+        sync_gap_check(d)
+
+        out_rev = d / "day" / "TO_REVIEW.html"
+        out_prov = d / "day" / "PROVENANCE.html"
+        assert rp.main(["to-review", *args, "--stamp", stamp, "--page-url", "p#", "--open-list", "o",
+                        "--tables", str(d / "tables"), "--out", str(out_rev), "--today", "2026-10-20"]) == 0
+        assert rp.main(["provenance", *args, "--stamp", stamp, "--day-folder", str(d / "day"), "--up-to", "259",
+                        "--watched-table", str(d / "t_before.json"), "--out", str(out_prov)]) == 0
+
+        expected_line = f'<p class="mut" data-laid-sha256="{full_sha}">built from laid.jsonl as of 2026-10-18T14:22:33Z, {short_sha}, page built {stamp}</p>'
+        for which, html_doc in (("to-review", out_rev.read_text()), ("provenance", out_prov.read_text())):
+            assert expected_line in html_doc, f"{which} missing expected laid stamp line: {html_doc[:500]}"
+            body_inner = html_doc.split("<body>\n", 1)[1]
+            assert body_inner.startswith(expected_line), f"{which} laid stamp line is not at the very top of <body>: {body_inner[:300]}"
+
+        # Missing explicit --laid is refused cleanly
+        try:
+            rp.main(["to-review", *args, "--laid", str(d / "missing_laid.jsonl"), "--page-url", "p#", "--open-list", "o",
+                     "--tables", str(d / "tables"), "--out", str(d / "day" / "bad.html")])
+        except SystemExit as stop:
+            assert "file not found" in str(stop), stop
+        else:
+            raise AssertionError("expected review_pages.py to refuse missing --laid file")
+    return "TO_REVIEW.html and PROVENANCE.html both start with 'built from laid.jsonl as of <last line time>, <short sha256>, page built <stamp>' and record data-laid-sha256"
+
+
+def the_banner_shows_on_a_stale_page_and_not_on_a_fresh_one() -> str:
+    """2026-10-18: when serving TO_REVIEW.html or PROVENANCE.html, compare the page's recorded sha256 with laid.jsonl's
+    current one, and if they differ, put a plain banner at the top:
+    'This page is older than the cut: rebuild (bench/rebuild_delivery.py --video <video>)'."""
+    with tempfile.TemporaryDirectory() as tmp:
+        d = Path(tmp)
+        args = world(d)
+        video = "clip"
+        laid_file = d / "laid.jsonl"
+        line1 = {"schema": "h3_laid/1", "first": 100, "last": 149, "subject": "a", "load": "a_new", "file": "x",
+                 "sha256": "a" * 64, "owner": "kept", "by": "initial cut", "added": "2026-10-18T10:00:00Z"}
+        laid_file.write_text(json.dumps(line1) + "\n")
+
+        out_rev = d / "day" / "TO_REVIEW.html"
+        out_prov = d / "day" / "PROVENANCE.html"
+        assert rp.main(["to-review", *args, "--laid", str(laid_file), "--stamp", "2026-10-18T1005Z", "--page-url", "p#",
+                        "--open-list", "o", "--tables", str(d / "tables"), "--out", str(out_rev), "--today", "2026-10-20"]) == 0
+        assert rp.main(["provenance", *args, "--laid", str(laid_file), "--stamp", "2026-10-18T1005Z", "--day-folder", str(d / "day"),
+                        "--up-to", "259", "--watched-table", str(d / "t_before.json"), "--out", str(out_prov)]) == 0
+
+        banner_txt = f"This page is older than the cut: rebuild (bench/rebuild_delivery.py --video {video})"
+        rev_html = out_rev.read_text()
+        prov_html = out_prov.read_text()
+
+        # 1. Fresh page: recorded sha256 matches laid.jsonl -> no banner
+        for which, html_doc in (("to-review", rev_html), ("provenance", prov_html)):
+            served_fresh = rp.serve_page_html(html_doc, laid_file, video)
+            assert banner_txt not in served_fresh, f"fresh {which} should not have stale banner"
+            assert served_fresh == html_doc, f"fresh {which} was modified when sha256 matched"
+
+        # 2. Stale page: laid.jsonl has a new line so its sha256 differs -> plain banner at the top of <body>
+        line2 = {"schema": "h3_laid/1", "first": 150, "last": 199, "subject": "a", "load": "a_solo", "file": "x",
+                 "sha256": "b" * 64, "owner": "kept", "by": "new lay", "added": "2026-10-18T11:00:00Z"}
+        laid_file.write_text(json.dumps(line1) + "\n" + json.dumps(line2) + "\n")
+        for which, html_doc in (("to-review", rev_html), ("provenance", prov_html)):
+            served_stale = rp.serve_page_html(html_doc, laid_file, video)
+            assert banner_txt in served_stale, f"stale {which} missing banner"
+            body_inner = served_stale.split("<body>\n", 1)[1]
+            assert body_inner.startswith(f'<p class="d">{banner_txt}</p>\n'), f"banner not at top of {which}: {body_inner[:250]}"
+
+        # 3. Also verify against data/<video>/poc/serve.py's Page.do_GET when present on disk
+        serve_candidates = list(TOOL.resolve().parent.parent.glob("data/*/poc/serve.py"))
+        for git_common in subprocess.run(["git", "-C", str(TOOL.parent), "rev-parse", "--git-common-dir"], capture_output=True, text=True).stdout.splitlines():
+            gp = Path(git_common).resolve().parent
+            serve_candidates.extend(gp.glob("data/*/poc/serve.py"))
+        if serve_candidates:
+            serve_src = serve_candidates[0].read_text()
+            assert "This page is older than the cut: rebuild (bench/rebuild_delivery.py --video " in serve_src, "serve.py lacks stale-cut banner"
+            assert 'data-laid-sha256="' in serve_src and "TO_REVIEW.html" in serve_src and "PROVENANCE.html" in serve_src, "serve.py lacks sha256 check"
+    return "fresh pages serve without a banner; when laid.jsonl's sha256 differs from the page's recorded sha256, the stale-cut banner is placed at the top of TO_REVIEW.html and PROVENANCE.html"
+
+
 case("both modes read", both_modes_read)
 case("the page says what is laid", the_page_says_what_is_laid)
 case("to-review is the table's, and hides no live piece", to_review_is_the_tables)
@@ -1406,6 +1781,12 @@ case("the gap check is on both pages, worst first", the_gap_check_is_on_both_pag
 case("a missing or stale gap check is refused", missing_or_stale_gap_check_is_refused)
 case("per-clip gap lines right above each player, and Start here refusal", per_clip_gap_lines_and_start_here_refusal)
 case("every compare clip says who is new and who is the old cut", compare_clips_say_who_is_new_and_who_is_the_old_cut)
+case("a lay triggers a rebuild", a_lay_triggers_a_rebuild)
+case("a failing rebuild is said and exits non-zero", a_failing_rebuild_is_said_and_exits_nonzero)
+case("--no-rebuild needs its reason", no_rebuild_needs_its_reason)
+case("the page line matches laid.jsonl", the_page_line_matches_laid_jsonl)
+case("the banner shows on a stale page and not on a fresh one", the_banner_shows_on_a_stale_page_and_not_on_a_fresh_one)
 
 if __name__ == "__main__":
     sys.exit(finish())
+
