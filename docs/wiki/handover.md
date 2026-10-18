@@ -103,8 +103,10 @@ gate. The two that are next, from the same check and tonight's `lead_fp_0613g`:
     22 cases, the on-card check on ModelPatcherDynamic, the server queue test with an H3 render (on a scratch copy at
     port 8191, stopped after), the face over 680-760 of 0613g through the node (710 on, 715 off; 709 and 714 with the
     range corrected), three blind reads (two Claude, one Gemini: `internal/gemini/2026-10-18_review_memsel_node.md`).
-    NOT TESTED: several objects or a mid-video detection on the real model (CPU stand-in only), SAM 3 base on real
-    weights, a real load through the chain. Captures made from now carry it; kept pieces are not remade for it.
+    NOT TESTED: several objects or a mid-video detection on the real model (CPU stand-in only), a real load through
+    the chain. SAM 3 base is PARKED, not owed (the owner, 2026-10-18): the chain runs 3.1, the node leaves base alone,
+    and on the face test base was worse off (61 frames lost) and early on (back at 702, on her hair); its converted
+    checkpoint stays on disk for a comparison only. Captures made from now carry it; kept pieces are not remade for it.
   - LANDED `a15463e9`: the three-state face label (facing; side with an eye; back of the head, which only proposes) and
     drops and face lines as a person's word: a carried `drop` or `--no-face-on` is refused on frames where the capture
     sees her face; the holds never fill a back-of-head frame unless a person's word holds it (C136-C140,
