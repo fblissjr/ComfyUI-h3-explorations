@@ -823,6 +823,21 @@ the same still, which is what the first pair is made to show. Whether a
 real preview's tables, joined, read through the capture without fault: the
 check holds the join on made tables, and no real load has run.
 
+## Depth: who is in front
+
+Off by default (`bench/shot_to_load.py::defaults_carried`). A load turns it on with
+`bench/shot_to_load.py job --depth [WHY]`, which finds the frames in the load where two subject
+tracks or a keep-out overlap, runs `bench/measure_moge2_depth.py` on just those frames into
+`<capture>/depth.npz`, and makes `bench/load_chain.py` pass `--depth` (with every preview
+subject's `classes=`) to `bench/capture_masked_run.py files`.
+- **What it fixes**: settles shared pixels `owner_map` leaves `OWNER_CONTESTED` by foreground
+  depth (`capture_masked_run.DEPTH_WIN_M`), clips a back person's region so it is not punched
+  into a front person, and gates `restore=<other>:whole` in `bench/assemble_delivery.py::restore_weight`.
+- **What it cannot do**: faces side by side at the same distance (within `DEPTH_WIN_M`);
+  hand-on-face contact; or a steady single-frame camera FOV reading on close-ups.
+- **Cost and measurements**: paid only on the load's overlap frames; the measured figures,
+  camera FOV ranges and commands are in [`2026-10-18_moge2_depth_on_crossings.md`](../../bench/results/2026-10-18_moge2_depth_on_crossings.md).
+
 ## Seeing what the tracker and the masks did
 
 Written 2026-10-10, after a session had to be told this tooling existed. It
