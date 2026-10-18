@@ -120,6 +120,15 @@ Claims, i.e. what breaks if a case is deleted:
                      types: ..., NoneType`. `optional_bindings_refusal` proves
                      the grader goes red on a signature missing `| None`.
 
+  clean_build_gate   `vendor/rebuild_kernel.sh` wipes `$SRC/build` before
+                     `uv build --wheel` whenever `nanobind`, `python` or
+                     `cuda_arch` differs from `comfy_kitchen_build.json` (or
+                     when the record or any of those keys is missing), prints
+                     what changed and why it cleaned, and writes all three keys
+                     to `comfy_kitchen_build.json`. `clean_build_gate_refusal`
+                     proves the grader goes red if a toolchain key stops
+                     triggering a clean.
+
 Shown red: 2026-08-14, against the stock PyPI `comfy-kitchen==0.2.31` still
 installed at the time, with `--require`. `present` failed, and `cuda_backend`
 and `signature` reported skipped-for-cause rather than passing vacuously.
@@ -141,12 +150,15 @@ from __future__ import annotations
 
 import argparse
 import ast
+import contextlib
 import importlib
 import importlib.metadata
 import inspect
+import io
 import json
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parent.parent
@@ -632,6 +644,140 @@ else:
         f"stripped '| None' caught as {_refusal_bad[0]}"
         if _refusal_bad == ["sage_sdpa_prequantized.attn_mask: ndarray[device='cuda']"]
         else f"expected ['sage_sdpa_prequantized.attn_mask: ndarray[device=\\'cuda\\']'], got {_refusal_bad}",
+    )
+
+
+def _grade_rebuild_clean_gate(script_text):
+    """Verify `vendor/rebuild_kernel.sh` cleans `$SRC/build` on toolchain/arch changes and records all three keys."""
+    errors = []
+    clean_tag = "<<'PYEOF_CLEAN'\n"
+    clean_end = "\nPYEOF_CLEAN"
+    build_cmd = "uv build --wheel"
+    c_start = script_text.find(clean_tag)
+    c_end = script_text.find(clean_end, c_start + len(clean_tag)) if c_start != -1 else -1
+    b_pos = script_text.find(build_cmd)
+    if c_start == -1 or c_end == -1:
+        return ["missing <<'PYEOF_CLEAN' block in vendor/rebuild_kernel.sh"]
+    if b_pos == -1 or c_end > b_pos:
+        errors.append("PYEOF_CLEAN block does not run before `uv build --wheel`")
+
+    rec_tag = "<<'PYEOF'\n"
+    rec_end = "\nPYEOF"
+    r_start = script_text.find(rec_tag)
+    r_end = script_text.find(rec_end, r_start + len(rec_tag)) if r_start != -1 else -1
+    if r_start == -1 or r_end == -1:
+        errors.append("missing <<'PYEOF' record writer block in vendor/rebuild_kernel.sh")
+    else:
+        rec_code = script_text[r_start + len(rec_tag):r_end]
+        for key in ("cuda_arch", "python", "nanobind"):
+            if f'"{key}":' not in rec_code:
+                errors.append(f"comfy_kitchen_build.json writer omits {key!r}")
+
+    clean_code = script_text[c_start + len(clean_tag):c_end]
+    try:
+        compiled = compile(clean_code, "vendor/rebuild_kernel.sh::PYEOF_CLEAN", "exec")
+    except SyntaxError as exc:
+        return errors + [f"PYEOF_CLEAN syntax error: {exc}"]
+
+    scenarios = (
+        (
+            "unchanged",
+            {"cuda_arch": "89", "python": "3.14.2", "nanobind": "2.10.2"},
+            ("89", "3.14.2", "2.10.2"),
+            False,
+            ("unchanged", "keeping"),
+        ),
+        (
+            "missing_keys",
+            {"cuda_arch": "89"},
+            ("89", "3.14.2", "2.10.2"),
+            True,
+            ("cleaned", "python: <missing> -> 3.14.2", "nanobind: <missing> -> 2.10.2", "stale CMake/ninja"),
+        ),
+        (
+            "nanobind_diff",
+            {"cuda_arch": "89", "python": "3.14.2", "nanobind": "2.9.2"},
+            ("89", "3.14.2", "2.10.2"),
+            True,
+            ("cleaned", "nanobind: 2.9.2 -> 2.10.2", "stale CMake/ninja"),
+        ),
+        (
+            "python_diff",
+            {"cuda_arch": "89", "python": "3.13.9", "nanobind": "2.10.2"},
+            ("89", "3.14.2", "2.10.2"),
+            True,
+            ("cleaned", "python: 3.13.9 -> 3.14.2", "stale CMake/ninja"),
+        ),
+        (
+            "cuda_arch_diff",
+            {"cuda_arch": "80", "python": "3.14.2", "nanobind": "2.10.2"},
+            ("89", "3.14.2", "2.10.2"),
+            True,
+            ("cleaned", "cuda_arch: 80 -> 89", "stale CMake/ninja"),
+        ),
+    )
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        for label, prev_rec, cur_tuple, expect_cleaned, expected_substrings in scenarios:
+            case_dir = tmp_path / label
+            src_dir = case_dir / "fork"
+            build_dir = src_dir / "build"
+            build_dir.mkdir(parents=True)
+            (build_dir / "stale.o").write_text("stale")
+            rec_path = case_dir / "comfy_kitchen_build.json"
+            if prev_rec is not None:
+                rec_path.write_text(json.dumps(prev_rec))
+            buf = io.StringIO()
+            saved_argv = sys.argv
+            try:
+                sys.argv = ["PYEOF_CLEAN", str(rec_path), str(src_dir), *cur_tuple]
+                with contextlib.redirect_stdout(buf):
+                    exec(compiled, {"__name__": "__main__"})
+            except Exception as exc:
+                errors.append(f"{label}: raised {type(exc).__name__}: {exc}")
+                continue
+            finally:
+                sys.argv = saved_argv
+            out = buf.getvalue().strip()
+            was_cleaned = not build_dir.exists()
+            if was_cleaned != expect_cleaned:
+                errors.append(
+                    f"{label}: {'did not remove' if expect_cleaned else 'unexpectedly removed'} build/ (output: {out!r})"
+                )
+            for sub in expected_substrings:
+                if sub not in out:
+                    errors.append(f"{label}: output missing {sub!r} (got {out!r})")
+    return errors
+
+
+print("\nvendor/rebuild_kernel.sh cleans build/ on nanobind, python or cuda_arch change:")
+_rebuild_sh = _REPO / "vendor" / "rebuild_kernel.sh"
+if not _rebuild_sh.is_file():
+    check("clean_build_gate", False, "vendor/rebuild_kernel.sh not found")
+else:
+    _sh_text = _rebuild_sh.read_text()
+    _clean_errs = _grade_rebuild_clean_gate(_sh_text)
+    check(
+        "clean_build_gate",
+        not _clean_errs,
+        "keeps build/ when cuda_arch, python and nanobind match comfy_kitchen_build.json; "
+        "wipes build/ and prints what changed and why on missing keys or any mismatch"
+        if not _clean_errs
+        else f"vendor/rebuild_kernel.sh clean-build gate failed: {'; '.join(_clean_errs)}",
+    )
+    # Refusal control: skip nanobind in the comparison predicate and prove the
+    # grader catches that a nanobind upgrade no longer cleans build/.
+    _mut_sh = _sh_text.replace("if prev.get(k) != v", 'if k != "nanobind" and prev.get(k) != v')
+    _mut_errs = _grade_rebuild_clean_gate(_mut_sh)
+    _want_prefix = "nanobind_diff: did not remove build/"
+    _caught = [e for e in _mut_errs if e.startswith(_want_prefix)]
+    check(
+        "clean_build_gate_refusal",
+        bool(_caught),
+        f"omitted nanobind check caught as {_caught[0].split(' (output:')[0]}"
+        if _caught
+        else f"expected error starting with {_want_prefix!r}, got {_mut_errs}",
     )
 
 print("\nno shipped graph wires the Triton node:")

@@ -308,7 +308,64 @@ echo "== version: $VER"
 # setuptools and failed with the same misleading "No module named
 # 'setuptools'" described above. An explicit interpreter beats both.
 export VIRTUAL_ENV="$(cd "$(dirname "$PY")/.." && pwd)"
-echo "== building against $VIRTUAL_ENV"
+RECORD="$VIRTUAL_ENV/comfy_kitchen_build.json"
+PY_VER="$("$PY" -I -c 'import platform; print(platform.python_version())')"
+NB_VER="$("$PY" -I -c 'import importlib.metadata as m; print(m.version("nanobind"))')"
+echo "== building against $VIRTUAL_ENV (python $PY_VER, nanobind $NB_VER, cuda_arch $ARCH)"
+# setup.py reuses $SRC/build across incremental CMake/ninja invocations. Because
+# nanobind headers and Python live in the venv outside $SRC, a nanobind, Python
+# or CUDA arch change does not invalidate already-compiled objects (such as
+# dlpack_bindings.cpp.o) and leaves prior cpython-* build trees alongside the
+# current one. Wipe $SRC/build whenever nanobind, python or cuda_arch differs
+# from the last build's record (or when the record or a key is missing).
+"$PY" -I - "$RECORD" "$SRC" "$ARCH" "$PY_VER" "$NB_VER" <<'PYEOF_CLEAN'
+import json, shutil, sys
+from pathlib import Path
+
+record_path = Path(sys.argv[1])
+src_dir = Path(sys.argv[2])
+cur = {"cuda_arch": sys.argv[3], "python": sys.argv[4], "nanobind": sys.argv[5]}
+build_dir = src_dir / "build"
+
+prev = None
+if record_path.is_file():
+    try:
+        prev = json.loads(record_path.read_text())
+    except (OSError, ValueError):
+        prev = None
+
+if not isinstance(prev, dict):
+    reasons = [
+        f"no prior build record at {record_path.name} "
+        f"(current: cuda_arch={cur['cuda_arch']}, python={cur['python']}, nanobind={cur['nanobind']})"
+    ]
+else:
+    reasons = [
+        f"{k}: {prev.get(k, '<missing>')} -> {v}"
+        for k, v in cur.items()
+        if prev.get(k) != v
+    ]
+
+if reasons:
+    why = "; ".join(reasons)
+    if build_dir.is_dir():
+        shutil.rmtree(build_dir)
+        print(
+            f"== cleaned {build_dir}: {why} "
+            f"(stale CMake/ninja build state does not recompile across toolchain or header changes)"
+        )
+    else:
+        print(
+            f"== build toolchain changed ({why}); no {build_dir} to clean "
+            f"(fresh CMake/ninja build will run)"
+        )
+else:
+    print(
+        f"== build toolchain unchanged "
+        f"(cuda_arch={cur['cuda_arch']}, python={cur['python']}, nanobind={cur['nanobind']}); "
+        f"keeping {build_dir}"
+    )
+PYEOF_CLEAN
 COMFY_CUDA_ARCHS="$ARCH" uv build --wheel --no-build-isolation --python "$PY" .
 # By exact version, not a glob: dist/ keeps every wheel ever built here, so
 # `comfy_kitchen-*.whl` grew to match more than one the first time this script
@@ -327,10 +384,9 @@ uv pip install --python "$PY" --force-reinstall --no-deps "${WHL[0]}"
 # installed version and says to run this script when that is the stock wheel,
 # because the node refuses an armed route observer on a wheel without blk_cnt
 # (sol_attn_h3.py::_require_kernel) and --check covers the pin.
-RECORD="$VIRTUAL_ENV/comfy_kitchen_build.json"
-"$PY" - "$RECORD" "$VER" "$SRC" "${WHL[0]}" "$ARCH" "$BASE" "$PIN" <<'PYEOF'
+"$PY" -I - "$RECORD" "$VER" "$SRC" "${WHL[0]}" "$ARCH" "$PY_VER" "$NB_VER" "$BASE" "$PIN" <<'PYEOF'
 import json, subprocess, sys, time
-record, ver, src, whl, arch, base, pin = sys.argv[1:8]
+record, ver, src, whl, arch, py_ver, nb_ver, base, pin = sys.argv[1:10]
 def git(*a):
     return subprocess.run(["git", "-C", src, *a], capture_output=True, text=True).stdout.strip()
 json.dump({
@@ -341,6 +397,8 @@ json.dump({
     "origin": git("remote", "get-url", "origin"),
     "wheel": whl,
     "cuda_arch": arch,
+    "python": py_ver,
+    "nanobind": nb_ver,
     # What exists where: the upstream main commit the build sits on, how far
     # past ComfyUI's pinned tag that is, and every commit we carry on top.
     "upstream_base": base,
