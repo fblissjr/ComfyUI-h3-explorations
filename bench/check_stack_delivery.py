@@ -38,7 +38,7 @@ day, and a per-frame gap check's runs:
 7. **Nothing drawn on the picture**: each of the three rows held pixel for pixel to the picture it should be (the
    middle one recomputed with the assembler's test), its edge rows and label corner included; only a 1 px zoom
    outline and the encode's own smear by a legend or the changed edge are not read.
-8. **Every chip said**: `original_tracking_not_known` drawn; many chips on one frame wrap inside the source's width
+8. **Every chip said**: `original_tracking_not_known` drawn as the original: no piece made for these frames; many chips on one frame wrap inside the source's width
    and the legend grows to hold them; an unknown kind stops the build; a check flag carries its level.
 9. **Who is laid comes from the table**: a piece whose mask picture runs out is still named in the legend and its
    column, its panel said as not read with why.
@@ -556,7 +556,10 @@ class Big:
         (job / "pa.render.queued.json").write_text(json.dumps({"files": ["big/pa_00001.mp4"], "queued_at": "2026-10-14T09:00:00-05:00"}))
         self.coverage = self.root / "coverage.json"
         runs = [{"first": 3, "last": 4, "subject": "a", "kind": "original_while_tracked", "cause": "track 900 px"},
-                {"first": 9, "last": 9, "subject": "b", "kind": "original_tracking_not_known", "cause": "no tied capture covers this frame"}]
+                {"first": 8, "last": 8, "subject": "b", "kind": "original_tracking_not_known",
+                 "cause": "a tied capture covers this frame and holds no track of her on it: the original: no piece made for these frames, and the capture there holds no track of her"},
+                {"first": 9, "last": 9, "subject": "b", "kind": "original_tracking_not_known",
+                 "cause": "no tied capture covers this frame: the original: no piece made for these frames (no capture here, so tracking is not shown)"}]
         runs += [{"first": 10, "last": 10, "subject": "b", "kind": "seam", "cause": f"seam number {i} between two pieces"} for i in range(LONG)]
         self.coverage.write_text(json.dumps({"runs": runs}))
         self.out = self.root / "stacked.mp4"
@@ -678,11 +681,12 @@ def nothing_drawn_on_the_picture() -> str:
 
 def every_chip_said() -> str:
     """Chips are facts read from records, none dropped or cut without a word: a kind of the gap check's with no words stops the build
-    naming it; `original_tracking_not_known` (the most common kind on 2026-10-16, and dropped until then) is drawn; LONG chips on
+    naming it; `original_tracking_not_known` (the most common kind on 2026-10-16, and dropped until then) is drawn as the original: no piece made for these frames; LONG chips on
     one frame wrap to more lines, each drawn whole inside the source's width; a check flag is shown with its level."""
     b = built_big()
     recs = frames_of(b.out)
-    assert "b: TRACKING NOT KNOWN (no tied capture covers this frame)" in recs[9]["chips"], recs[9]["chips"]
+    assert "b: THE ORIGINAL: NO PIECE MADE FOR THESE FRAMES, AND THE CAPTURE THERE HOLDS NO TRACK OF HER (a tied capture covers this frame and holds no track of her on it)" in recs[8]["chips"] and all("no capture" not in c.lower() for c in recs[8]["chips"]), recs[8]["chips"]
+    assert "b: THE ORIGINAL: NO PIECE MADE FOR THESE FRAMES (no capture here, so tracking is not shown) (no tied capture covers this frame)" in recs[9]["chips"], recs[9]["chips"]
     drawn = recs[10]["chips_drawn"]
     assert [c["words"] for c in drawn] == recs[10]["chips"] and len(drawn) == LONG, (drawn, recs[10]["chips"])
     assert all(0 <= c["box"][0] and c["box"][2] <= BW for c in drawn), [c["box"] for c in drawn]
@@ -704,7 +708,7 @@ def every_chip_said() -> str:
     finally:
         check.unlink()
     assert "d009 jump (iffy)" in [c["words"] for c in frames_of(flagged)[5]["chips_drawn"]], frames_of(flagged)[5]["chips_drawn"]
-    return f"tracking not known drawn; {LONG} chips on frame 10 on {len(lines)} lines inside {BW} px; an unknown kind refused ({said[:70]}...); a flag with its level"
+    return f"the original: no piece made for these frames drawn; {LONG} chips on frame 10 on {len(lines)} lines inside {BW} px; an unknown kind refused ({said[:70]}...); a flag with its level"
 
 
 def who_is_laid_from_the_table() -> str:
@@ -1408,10 +1412,13 @@ def compare_candidate_piece_and_unchanged_subject() -> str:
     cf = cmp_fix()
     out = cf.root / "cmp_full.mp4"
     cf.compare(joined=str(cf.m.clip), candidate_joined=str(cf.cand_full), candidate_table="",
-               candidate_piece=str(cf.pcand), candidate_piece_first=2, only=None, candidate_first=0, out=str(out))
+               candidate_piece=str(cf.pcand), candidate_piece_first=2, only=None, candidate_first=0,
+               coverage=str(built_big().coverage), out=str(out))
     head, recs = head_of(out), frames_of(out)
     assert head["columns"] == ["current:a", "candidate:a"] and head["unchanged_subjects"] == ["b"], head
     assert "b: pb (day not recorded) (both)" in recs[9]["legend_1"], recs[9]["legend_1"]
+    assert "b: THE ORIGINAL: NO PIECE MADE FOR THESE FRAMES, AND THE CAPTURE THERE HOLDS NO TRACK OF HER (a tied capture covers this frame and holds no track of her on it)" in recs[8]["chips"], recs[8]["chips"]
+    assert "b: THE ORIGINAL: NO PIECE MADE FOR THESE FRAMES (no capture here, so tracking is not shown) (no tied capture covers this frame)" in recs[9]["chips"], recs[9]["chips"]
     said = io.StringIO()
     with contextlib.redirect_stdout(said):
         sd.check(argparse.Namespace(source=str(cf.m.source), joined=str(cf.m.clip), out=str(out), first=0, candidate_joined=None, candidate_first=None))

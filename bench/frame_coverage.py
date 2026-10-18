@@ -15,8 +15,10 @@ pieces, each tied to its capture's run by `run=<capture>:<run>`). For each frame
 
 - tracked: the SAM 3.1 track's px for her on that frame, from `subjects/<label>/masks__<by>.npz` of a capture a row of
   that shot is tied to (the piece's own capture first, then any other of the shot's, since a capture carries every
-  subject's track over its own frames). Where the tied captures cannot tell, the run says why ("no tied capture
-  covers this frame", or one covers it and holds no track of her there) and "tracking not known", never "not
+  subject's track over its own frames). Where the tied captures cannot tell, the run says why and either
+  "the original: no piece made for these frames (no capture here, so tracking is not shown)" ("no tied capture
+  covers this frame") or "the original: no piece made for these frames, and the capture there holds no track of her"
+  (one covers it and holds no track of her on it), never "not
   tracked", and names any capture of the same clip under `data/` that no row ties to and that holds a track of her
   over those frames: a capture that could tell, not read (the brief reads the captures the rows tie to);
 - a shot the table's reading calls `unsure` is read like a `yes` one, and its runs say `present`;
@@ -59,7 +61,7 @@ with the frame's px and the median. A frame that is both is said as this kind.
 **By shot**, worst first in each of two lists (`by_shot`, the lead's ruling of 2026-10-16): (a) `remake`, the frames a laid
 piece fails on or no piece is laid where she is tracked (the original while tracked, by no piece and emptied inside one;
 laid but barely changed; a region far below its own size), which a remake answers; (b) `capture`, the original where
-nobody's track is tied (tracking not known), which a capture answers, not a remake. A look's frames and an empty track are
+nobody's track is tied (the original: no piece made for these frames (no capture here, so tracking is not shown)), which a capture answers, not a remake. A look's frames and an empty track are
 in neither.
 
 **What it cannot see.** The picture. A frame whose mask was carried can still come out looking like the original (H3
@@ -94,7 +96,7 @@ from piece_gaps import day, runs  # noqa: E402
 POP = np.array([bin(i).count("1") for i in range(256)], np.uint8)
 CANNOT = ("the picture: a frame whose mask was carried can still come out as the original (no per-frame likeness of the delivered "
           "video is read); whether a tracked person's face is visible (track px > 0 is SAM 3.1's pixels on her, printed so 'barely in' "
-          "shows; whether her face shows on such frames is a playback question); a two-subject run's carried mask is both subjects' union; a face-and-hair run whose face emptied while its hair was carried counts as carried (the px are the union); a restore= that gives the source back at assembly inside a carried mask is not read; a subject the shots file says is not in a shot is not walked (the table's not_in_the_shot); an older capture's subject named by an alias is not matched as untied; a frame the tied captures cannot tell is 'tracking not known' with why, and an untied capture holding her track is named, never read")
+          "shows; whether her face shows on such frames is a playback question); a two-subject run's carried mask is both subjects' union; a face-and-hair run whose face emptied while its hair was carried counts as carried (the px are the union); a restore= that gives the source back at assembly inside a carried mask is not read; a subject the shots file says is not in a shot is not walked (the table's not_in_the_shot); an older capture's subject named by an alias is not matched as untied; a frame the tied captures cannot tell is 'the original: no piece made for these frames (no capture here, so tracking is not shown)' with why, and an untied capture holding her track is named, never read")
 
 
 #: The share of the carried region a laid piece must change on a frame, under which the frame is `laid_but_barely_changed`.
@@ -472,8 +474,11 @@ def coverage(table: dict, span: list[int] | None = None, data: Path = REPO / "da
                     item["a_jobs_left_out_says"] = {k: said[0][k] for k in ("who", "why", "from")} | {"frames": len(said)}
                 list1.append(item)
             elif cur["kind"] == "unknown":
+                words = ("the original: no piece made for these frames, and the capture there holds no track of her"
+                         if "holds no track of her" in str(cur["why"] or "")
+                         else "the original: no piece made for these frames (no capture here, so tracking is not shown)")
                 item["tracking"] = ("not known: " + cur["state"].removeprefix("not known: ")) if cur["state"].startswith("not known") \
-                    else f"{cur['why']}: tracking not known"
+                    else f"{cur['why']}: {words}"
                 item["untied_captures_with_her_track"] = [n for n, a_, b_, labels in untied
                                                           if label in labels and a_ <= cur["f1"] and b_ >= cur["f0"]]
                 unknown.append(item)
@@ -682,7 +687,7 @@ def markdown(out: dict) -> str:
               "| shot | subject | frames | count | piece | cause |", "|---|---|---|---|---|---|"]
     for x in out["emptied_inside_a_piece"]:
         lines.append(f"| {fr(x['shot'])} | {x['subject']} | {fr(x['frames'])} | {x['count']} | {x['piece']} | {x['state'].split('(', 1)[1].rstrip(')')} |")
-    lines += ["", "## The original shows, and the tied captures cannot tell whether she is tracked", "",
+    lines += ["", "## The original shows, and the tied captures cannot tell whether she is tracked (the original: no piece made for these frames (no capture here, so tracking is not shown))", "",
               "A capture named in the last column holds her track on some of these frames and is tied to no row; it is not read.", "",
               "| shot | subject | frames | count | why not known | untied captures with her track |", "|---|---|---|---|---|---|"]
     for x in out["original_tracking_not_known"]:

@@ -15,12 +15,12 @@ lays 20-24. Inside `ra` the node carried nothing on 14 (`drop=`, its saved part 
    in it (her track is empty) and 13 is not (held, carried).
 2. **Seams**: 19/20, `ra` meeting `rb`, each with its render day.
 3. **Emptied inside a piece**: the four with their causes, and nothing else.
-4. **Not known is not "not tracked"**: 28-29 and 30-31 come back as "tracking not known", each with why, and 30-31
+4. **Not known is not "not tracked"**: 28-29 and 30-31 come back as "the original: no piece made for these frames (no capture here, so tracking is not shown)", each with why, and 30-31
    name the untied capture; 18 and 27 (her track 0 px) are their own list; the unsure shot is read and said.
 5. **A row whose run= does not resolve** is a hard failure and the tool exits 1, and its frames are not known, not
    "no piece laid".
 6. **A capture tied to a row of another shot** that reaches this shot's frames is read for her track there, and a
-   frame whose piece's mask is not known while her track is known is `carried_not_known`, not "tracking not known"
+   frame whose piece's mask is not known while her track is known is `carried_not_known`, not "the original: no piece made for these frames (no capture here, so tracking is not shown)"
    (the outside reviewer's D3, bugs A and B).
 7. **A look and a job's left_out** (the lead's ruling of 2026-10-16, as built): frames the shots record says are not
    seen are "left out by a look", with who and why, and out of list 1; a later `seen` takes them back; a laid
@@ -146,8 +146,8 @@ def seams() -> str:
                          (19, 20, "seam", ["ra", "rb"], None),
                          (25, 26, "original_while_tracked", [], "no piece laid"),
                          (27, 27, "original_her_track_empty", [], "original: no piece laid"),
-                         (28, 29, "original_tracking_not_known", [], "a tied capture covers this frame and holds no track of her on it: tracking not known"),
-                         (30, 31, "original_tracking_not_known", [], "no tied capture covers this frame: tracking not known")], kinds
+                         (28, 29, "original_tracking_not_known", [], "a tied capture covers this frame and holds no track of her on it: the original: no piece made for these frames, and the capture there holds no track of her"),
+                         (30, 31, "original_tracking_not_known", [], "no tied capture covers this frame: the original: no piece made for these frames (no capture here, so tracking is not shown)")], kinds
         assert out["runs"][6]["render_days"] == ["01/01", "01/02"] and out["runs"][1]["render_days"] == ["01/01"], out["runs"]
     return "19/20 with both render days; the page's one list of runs, by frame, kinds disjoint"
 
@@ -167,9 +167,9 @@ def not_known() -> str:
     with tempfile.TemporaryDirectory() as tmp:
         out = fc.coverage(json.loads(made(Path(tmp)).read_text()), data=Path(tmp))
         u, v = out["original_tracking_not_known"]
-        assert u["frames"] == [28, 29] and u["tracking"].endswith("holds no track of her on it: tracking not known") \
-            and u["untied_captures_with_her_track"] == [], u
-        assert v["frames"] == [30, 31] and v["tracking"] == "no tied capture covers this frame: tracking not known" \
+        assert u["frames"] == [28, 29] and u["tracking"] == "a tied capture covers this frame and holds no track of her on it: the original: no piece made for these frames, and the capture there holds no track of her" \
+            and "no capture" not in u["tracking"] and u["untied_captures_with_her_track"] == [], u
+        assert v["frames"] == [30, 31] and v["tracking"] == "no tied capture covers this frame: the original: no piece made for these frames (no capture here, so tracking is not shown)" \
             and v["untied_captures_with_her_track"] == ["2026-01-03_untied"], v
         i = out["shots"][0]["frames"].index(28)
         assert out["shots"][0]["track_px"][i] is None, out["shots"][0]["track_px"]
@@ -195,7 +195,11 @@ def unresolved_is_red() -> str:
         # her track is known on 25-26 (32 px) and 27 (0 px): the piece's mask is what is not known there, not her tracking
         assert [(x["frames"], x["track_px"]["median"]) for x in out["carried_not_known"]] == [([25, 26], 32), ([27, 27], 0)], out["carried_not_known"]
         assert not any(x["frames"][0] <= 26 and x["frames"][1] >= 25 for x in out["original_tracking_not_known"]), out["original_tracking_not_known"]
-        assert (Path(tmp) / "frame_coverage_t.json").is_file() and (Path(tmp) / "frame_coverage_t.md").read_text().count("## FAILED") == 1
+        md = (Path(tmp) / "frame_coverage_t.md").read_text()
+        cov_json = json.loads((Path(tmp) / "frame_coverage_t.json").read_text())
+        assert "the original: no piece made for these frames (no capture here, so tracking is not shown)" in cov_json["cannot_see"], cov_json["cannot_see"]
+        assert (Path(tmp) / "frame_coverage_t.json").is_file() and md.count("## FAILED") == 1 \
+            and "## The original shows, and the tied captures cannot tell whether she is tracked (the original: no piece made for these frames (no capture here, so tracking is not shown))" in md, md
     return "a folder that does not exist and a run its manifest lacks: exit 1, both named, files still written"
 
 

@@ -867,7 +867,9 @@ def the_gap_check_is_on_both_pages() -> str:
             assert "Where the original still shows: the gap check" in text, f"{which_page} lacks the gap check heading"
             block = text.split("Where the original still shows: the gap check")[1].split(before)[0]
             assert "frame(s)" not in block and "frame-subject(s)" in block, (which_page, block)
-            remake_part, capture_part = block.split("Capture (2 shot(s), 30 frame-subject(s)):")
+            cap_heading = "Capture (2 shot(s), 30 frame-subject(s)): the original: no piece made for these frames (no capture here, or a capture that holds no track of her)"
+            assert cap_heading in block, (which_page, block)
+            remake_part, capture_part = block.split(cap_heading)
             assert "Remake (2 shot(s), 18 frame-subject(s)):" in remake_part, (which_page, remake_part)
             assert remake_part.index("220-239") < remake_part.index("150-199"), (which_page, remake_part)
             assert ("original_while_tracked: 5, emptied_inside: 4, laid_but_barely_changed: 3, region_far_below_its_own_size: 2"
@@ -891,7 +893,7 @@ def the_gap_check_is_on_both_pages() -> str:
                 "emptied_inside (emptied inside a laid piece)",
                 "laid_but_barely_changed (laid piece barely changed its region)",
                 "region_far_below_its_own_size (carried region far below its own size)",
-                "original_tracking_not_known (original, tracking not known)",
+                "original_tracking_not_known (the original: no piece made for these frames (no capture here, or a capture that holds no track of her))",
                 "carried_not_known (tracked, whether the laid piece carried a mask is not known): 2 frame-subject(s) on 180-181 (a)",
                 "original_her_track_empty (original, her tied track is empty (0 px)): 2 frame-subject(s) on 182-183 (a)",
                 "left_out_by_a_look (original, left out by a person's look): 2 frame-subject(s) on 184-185 (a)",

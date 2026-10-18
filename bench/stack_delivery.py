@@ -155,8 +155,21 @@ COLOURS = ((255, 120, 90), (90, 200, 255), (150, 230, 110), (240, 200, 70))
 #: common gap of 2026-10-16 (`original_tracking_not_known`, 67 of 128 runs) shown on no frame.
 CHIP_WORDS = {"original_while_tracked": "ORIGINAL WHILE TRACKED", "emptied_inside": "EMPTIED", "seam": "SEAM",
               "original_her_track_empty": "TRACK EMPTY", "carried_not_known": "MASK NOT KNOWN",
-              "original_tracking_not_known": "TRACKING NOT KNOWN", "left_out_by_a_look": "LEFT OUT BY A LOOK",
+              "original_tracking_not_known": "THE ORIGINAL: NO PIECE MADE FOR THESE FRAMES (no capture here, so tracking is not shown)",
+              "left_out_by_a_look": "LEFT OUT BY A LOOK",
               "laid_but_barely_changed": "BARELY CHANGED", "region_far_below_its_own_size": "REGION TOO SMALL"}
+CHIP_NO_TRACK_WORDS = "THE ORIGINAL: NO PIECE MADE FOR THESE FRAMES, AND THE CAPTURE THERE HOLDS NO TRACK OF HER"
+
+
+def chip_words_of(run: dict) -> str:
+    raw_cause = run.get("cause") or ""
+    cause = raw_cause.removesuffix(
+        ": the original: no piece made for these frames (no capture here, so tracking is not shown)"
+    ).removesuffix(
+        ": the original: no piece made for these frames, and the capture there holds no track of her"
+    ).removesuffix(": tracking not known")
+    head = CHIP_NO_TRACK_WORDS if (run["kind"] == "original_tracking_not_known" and "holds no track of her" in raw_cause) else CHIP_WORDS[run["kind"]]
+    return head + (f" ({cause})" if cause else "")
 #: THE MOST A VIEW'S FRAME MAY BE: H.264 level 5.1, which every browser's decoder plays (the owner's review page crashed Chrome,
 #: "Aw Snap", error code 5, on the whole-video views of 2026-10-16: 2448x4172, level 6.0, because legend 2 grew to the busiest of
 #: 6395 frames; every view at or under 3724 tall, level 5.1, played). Inherited from the standard's level table: 36864 macroblocks a
@@ -816,7 +829,7 @@ def build(a: argparse.Namespace) -> None:
                              "is not dropped without a word; nothing written")
         for run in runs:
             who = aliases.get(run["subject"], run["subject"])
-            words_ = CHIP_WORDS[run["kind"]] + (f" ({run['cause']})" if run.get("cause") else "")
+            words_ = chip_words_of(run)
             for f in range(max(run["first"], first_f), min(run["last"], last_f) + 1):
                 chips_at.setdefault(f, []).append((who, words_))
 
@@ -1622,7 +1635,7 @@ def compare(a: argparse.Namespace) -> None:
                              "is not dropped without a word; nothing written")
         for run in runs:
             who = aliases.get(run["subject"], run["subject"])
-            words_ = CHIP_WORDS[run["kind"]] + (f" ({run['cause']})" if run.get("cause") else "")
+            words_ = chip_words_of(run)
             for f in range(max(run["first"], first_f), min(run["last"], last_f) + 1):
                 chips_at.setdefault(f, []).append((who, words_))
 

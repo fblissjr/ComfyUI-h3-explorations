@@ -118,7 +118,7 @@ KIND_WORDS = {
     "emptied_inside": "emptied inside a laid piece",
     "laid_but_barely_changed": "laid piece barely changed its region",
     "region_far_below_its_own_size": "carried region far below its own size",
-    "original_tracking_not_known": "original, tracking not known",
+    "original_tracking_not_known": "the original: no piece made for these frames (no capture here, or a capture that holds no track of her)",
     "carried_not_known": "tracked, whether the laid piece carried a mask is not known",
     "original_her_track_empty": "original, her tied track is empty (0 px)",
     "left_out_by_a_look": "original, left out by a person's look",
@@ -307,7 +307,7 @@ def gap_check_block(rec: Records, rate: Fraction) -> list[str]:
         out.append("</ul>")
     else:
         out.append('<p class="mut">None counted (gap check FAILED above).</p>' if failures else '<p class="mut">None.</p>')
-    out.append(f"<h3>Capture ({len(capture)} shot(s), {sum(int(x.get('frames', 0)) for x in capture)} frame-subject(s)): original, tracking not known</h3>")
+    out.append(f"<h3>Capture ({len(capture)} shot(s), {sum(int(x.get('frames', 0)) for x in capture)} frame-subject(s)): the original: no piece made for these frames (no capture here, or a capture that holds no track of her)</h3>")
     out.append(f'<p class="mut">Kind: <code>original_tracking_not_known</code> ({E(KIND_WORDS["original_tracking_not_known"])}).</p>')
     if capture:
         out.append("<ul>")
