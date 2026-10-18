@@ -975,6 +975,17 @@ class Captures:
                     mapped.append(s["label"])
         return mapped or labels
 
+    def _load_owners(self, folder):
+        key = (folder, "owners")
+        if key not in self.masks:
+            z = np.load(folder / "owners.npz")
+            self.masks[key] = (z["owner"], [self.alias.get(str(x), str(x)) for x in z["labels"]], int(z["nobody"]))
+            self.masks[(folder, "owners_depth")] = (
+                bool(z["depth_settled"]) if "depth_settled" in z.files else False,
+                z["z_by_frame"] if "z_by_frame" in z.files else None,
+            )
+        return self.masks[key], self.masks[(folder, "owners_depth")]
+
     def owned(self, label, frame, prefer=None):
         """The pixels a subject OWNS on a source frame by a capture's `owners.npz`, or None where no capture given
         holds an owner map that lists the subject and covers the frame.
@@ -988,11 +999,7 @@ class Captures:
             k = frame - m["first_frame"]
             if not 0 <= k < m["frames"] or not (folder / "owners.npz").is_file():
                 continue
-            key = (folder, "owners")
-            if key not in self.masks:
-                z = np.load(folder / "owners.npz")
-                self.masks[key] = (z["owner"], [self.alias.get(str(x), str(x)) for x in z["labels"]], int(z["nobody"]))
-            owner, labels, _nobody = self.masks[key]
+            (owner, labels, _nobody), _depth = self._load_owners(folder)
             if label in labels:
                 got = owner[k] == labels.index(label)
                 if folder == prefer or got.any():
@@ -1003,6 +1010,40 @@ class Captures:
             self.used_owner_map.add(fallback[0])
             return fallback[1]
         return None
+
+    def depth_settled(self, label, frame, prefer=None) -> bool:
+        """Whether the capture whose `owners.npz` covers `(label, frame)` settled its contested overlaps by `--depth`."""
+        fallback = None
+        for folder, m in sorted(self.folders, key=lambda fm: fm[0] != prefer):
+            k = frame - m["first_frame"]
+            if not 0 <= k < m["frames"] or not (folder / "owners.npz").is_file():
+                continue
+            (owner, labels, _nobody), (settled, _z_bf) = self._load_owners(folder)
+            if label in labels:
+                got = owner[k] == labels.index(label)
+                if folder == prefer or got.any():
+                    return settled
+                fallback = fallback if fallback is not None else settled
+        return bool(fallback)
+
+    def in_front(self, front_label, back_label, frame, prefer=None) -> bool:
+        """Whether `front_label` is strictly in front of `back_label` (`z_back - z_front > tau_z`) in a depth-settled
+        `owners.npz` covering `frame` (using `frame` or the nearest frame in the capture where both have finite depth)."""
+        for folder, m in sorted(self.folders, key=lambda fm: fm[0] != prefer):
+            k = frame - m["first_frame"]
+            if not 0 <= k < m["frames"] or not (folder / "owners.npz").is_file():
+                continue
+            (_owner, labels, _nobody), (settled, z_bf) = self._load_owners(folder)
+            if not settled or z_bf is None or front_label not in labels or back_label not in labels:
+                continue
+            i_f, i_b = labels.index(front_label), labels.index(back_label)
+            both_finite = np.nonzero(np.isfinite(z_bf[i_f]) & np.isfinite(z_bf[i_b]))[0]
+            if not len(both_finite):
+                continue
+            k_use = int(k if k in both_finite else both_finite[np.argmin(np.abs(both_finite - k))])
+            z_f, z_b = float(z_bf[i_f, k_use]), float(z_bf[i_b, k_use])
+            return (z_b - z_f) > max(0.03, 0.03 * min(z_f, z_b))
+        return False
 
     def classes(self, label, frame, prefer=None):
         """The part model's class map of a subject on a source frame (class indices, 0 off the subject), or None."""
@@ -1125,16 +1166,26 @@ def restore_weight(row, captures, run, frame, shape):
     for label, wanted in row["restore"]:
         if wanted is None or wanted == "whole":
             # another subject's tracked mask; less the piece's own unless the row says whole, so that where both
-            # masks claim a pixel the piece keeps it
+            # masks claim a pixel the piece keeps it (unless `--depth` settled `owners.npz`, in which case `whole`
+            # uses `owns` and, when the row's own subject is in front of `label`, stays off the row's carried part)
             mask = captures.mask(label, frame, prefer=prefer) if captures else None
             if mask is None:
                 return np.zeros(shape, np.float32), None
-            owns = captures.owned(label, frame, prefer=prefer) if wanted is None else None
+            owns = (captures.owned(label, frame, prefer=prefer)
+                    if (wanted is None or (captures and captures.depth_settled(label, frame, prefer=prefer)))
+                    else None)
             if owns is not None:
                 # an owner map covers this frame: what the subject owns, which already leaves out what the piece's
                 # own subject owns and what is contested
+                mine = (run[2]["subject"] if run else None) or row.get("subject")
+                carried = (captures.carried(run, frame)
+                           if wanted == "whole" and run and mine and mine != label and captures.in_front(mine, label, frame, prefer=prefer)
+                           else None)
+                if carried is not None:
+                    owns = owns & ~carried
                 hard |= owns
-                grown |= cv2.dilate(owns.astype(np.uint8), disc(RESTORE_GROW)).astype(bool) & (owns | ~mask_of_anyone(captures, frame, prefer, shape))
+                wide = cv2.dilate(owns.astype(np.uint8), disc(RESTORE_GROW)).astype(bool) & (owns | ~mask_of_anyone(captures, frame, prefer, shape))
+                grown |= wide & ~carried if carried is not None else wide
                 continue
             own = (captures.mask(run[2]["subject"], frame, prefer=prefer)
                    if wanted is None and run and run[2]["subject"] != label else None)

@@ -948,7 +948,46 @@ with tempfile.TemporaryDirectory() as _tmp:
         assert box_mean(got, s_, b_half) < 1.0, "a pixel both pieces changed and the first row's subject owns went to the later row"
         assert box_mean(got, a, disputed) < 1.0, "a contested pixel both pieces changed did not fall to the later row"
         assert record["shared"][20]["by_mask"] > 0 and record["shared"][20]["by_order"] > 0, record["shared"][20]
-        return f"a restore gives back what the map says the other owns and not what it calls contested; of the pixels two pieces changed, {record['shared'][20]['by_mask']} went by the map and {record['shared'][20]['by_order']} by order; another subject's class restore leaves the {left} px the map gives the row's own subject, and the row's own class is given back wherever its map has it"
+        # depth-settled `owners.npz` with `restore=b:whole`:
+        # 1) `a` in front of `b` (z_a=1.20m, z_b=1.95m): `a` owns the overlap `b_half` (0), and `a`'s carried part
+        #    reaches `disputed` (even if `b` owned `disputed`): `restore=b:whole` gives back `only_other` and never
+        #    punches into `a`'s owned `b_half` or `a`'s carried `disputed`.
+        owner_a_front = owner.copy()
+        owner_a_front[:, 40:80, 64:80] = 0              # `a` owns top half of overlap by depth
+        owner_a_front[:, 80:120, 64:80] = 1             # even if `b` owned bottom half, `a`'s carried mask protects it when `a` is in front
+        carried_a = np.zeros((30, H, W), bool)
+        carried_a[:, 40:120, 40:80] = True
+        folder_af = capture(TMP / "cap_owners_af", 10, 30, {"a": mask_of(own, 30), "b": mask_of(other, 30)},
+                            [{"name": "run_a", "render": "piece_a.mp4", "subject": "a", "margin_px": 16}],
+                            carried={"run_a": carried_a})
+        z_af = np.tile(np.array([[1.20], [1.95]], np.float32), (1, 30))
+        np.savez_compressed(folder_af / "owners.npz", owner=owner_a_front, labels=np.array(["a", "b"]),
+                            nobody=255, contested=254, depth_settled=np.bool_(True), z_by_frame=z_af)
+        caps_af = tool.Captures([folder_af], (W, H))
+        got_af, _ = frame_planes(SOURCE, [{"piece": PIECE_A, "piece_first": 10, "restore": [("b", "whole")]}], 20, caps_af)
+        assert box_mean(got_af, o, only_other) < 1.0, "depth-settled restore=b:whole did not give back b's uncontested pixels"
+        assert box_mean(got_af, a, b_half) < 1.0 and box_mean(got_af, a, disputed) < 1.0, (
+            "depth-settled restore=b:whole punched a hole in front subject a's owned or carried pixels"
+        )
+        _, hard_af = tool.restore_weight({"piece": PIECE_A, "restore": [("b", "whole")]}, caps_af, caps_af.run_of(PIECE_A), 20, (H, W))
+        assert not hard_af[80:120, 64:80].any() and hard_af[40:120, 80:104].all(), (
+            "depth-settled restore=b:whole hard mask did not exclude front subject a's carried mask"
+        )
+        # 2) `b` in front of `a` (z_a=1.95m, z_b=1.20m): `b` owns `b_half` (1), so `restore=b:whole` gives back `b_half`
+        #    and `only_other` while leaving `only_own` as `a`.
+        folder_bf = capture(TMP / "cap_owners_bf", 10, 30, {"a": mask_of(own, 30), "b": mask_of(other, 30)},
+                            [{"name": "run_a", "render": "piece_a.mp4", "subject": "a", "margin_px": 16}],
+                            carried={"run_a": carried_a})
+        z_bf = np.tile(np.array([[1.95], [1.20]], np.float32), (1, 30))
+        np.savez_compressed(folder_bf / "owners.npz", owner=owner, labels=np.array(["a", "b"]),
+                            nobody=255, contested=254, depth_settled=np.bool_(True), z_by_frame=z_bf)
+        caps_bf = tool.Captures([folder_bf], (W, H))
+        got_bf, _ = frame_planes(SOURCE, [{"piece": PIECE_A, "piece_first": 10, "restore": [("b", "whole")]}], 20, caps_bf)
+        assert box_mean(got_bf, o, only_other) < 1.0 and box_mean(got_bf, o, b_half) < 1.0, (
+            "depth-settled restore=b:whole with b in front did not give back b's owned overlap"
+        )
+        assert box_mean(got_bf, a, only_own) < 1.0, "depth-settled restore=b:whole gave back a's own pixels"
+        return f"a restore gives back what the map says the other owns and not what it calls contested (and gates `:whole` by depth when `depth_settled`); of the pixels two pieces changed, {record['shared'][20]['by_mask']} went by the map and {record['shared'][20]['by_order']} by order; another subject's class restore leaves the {left} px the map gives the row's own subject, and the row's own class is given back wherever its map has it"
 
     def the_subjects_table() -> str:
         # subject b: x 80-128, y 50-110. RECT_A covers x 40-104, so its left half (x 80-104) is painted, the right is not.

@@ -452,9 +452,133 @@ def whose_rows(label: str, first: int, classes: np.ndarray, own: np.ndarray, oth
 
 
 NOBODY, CONTESTED = 255, 254
+#: Radius in pixels of the disc eroded off each subject's uncontested interior (`track[S] & ~shared`) before taking
+#: its per-frame median depth (`owner_map` with `--depth`). Reasoned from `sapiens2_parts.SUBJECT_MARGIN` / SAM3 boundary
+#: softness and measured on `shot_c_1306b` (1409-1417) and `shot_c_0604c` (755-780), 2026-10-18: removes boundary halo
+#: pixels where MoGe-2 depth bleeds across an occluding edge.
+DEPTH_CORE_ERODE_PX = 5
+#: Minimum valid depth pixels in an eroded uncontested interior (`I_t(S)`) before falling back to the uneroded uncontested
+#: interior (`track[S] & ~shared & valid`). Reasoned: one 8x8 patch (a quarter of a 16 px latent cell).
+DEPTH_CORE_LEAST_PX = 64
+#: Minimum separation in metres (`DEPTH_ORDER_MIN_M`) and relative to the nearer subject's depth (`DEPTH_ORDER_REL`)
+#: required to call one subject in front of another on a frame: `tau_z = max(DEPTH_ORDER_MIN_M, DEPTH_ORDER_REL * min(z_a, z_b))`.
+#: Measured on `shot_c_1306b` (1409-1417, separation +0.105 m to +0.476 m at 0.13-0.97 m) and `shot_c_0604c` (755-780,
+#: separation +0.063 m to +0.913 m at 0.99-2.51 m), 2026-10-18: sits above MoGe-2's within-torso spread while separating
+#: every crossing frame on both shots.
+DEPTH_ORDER_MIN_M = 0.03
+DEPTH_ORDER_REL = 0.03
+#: Edge tolerance in metres (`sigma_edge`) added to the back claimant's 90th-percentile interior depth (`p90(I_t(K))`)
+#: when assigning a contested overlap pixel to the front claimant `F`: a front person's raised arm or hand can reach from
+#: `z_t(F)` back toward `K`, so any valid overlap pixel at or in front of `p90(I_t(K)) + DEPTH_EDGE_TOL_M` belongs to `F`,
+#: while background halo pixels deeper than `K` stay off `F`. Measured on `shot_c_1306b` frames 1412-1415 (2026-10-18),
+#: where `third`'s raised right arm is at 0.50-0.62 m in front of `lead` at 0.60-0.66 m.
+DEPTH_EDGE_TOL_M = 0.02
 
 
-def owner_map(tracks: dict[str, np.ndarray], classes: dict[str, np.ndarray]) -> tuple[np.ndarray, list[str], np.ndarray, np.ndarray]:
+def read_depth_npz(path: str | Path, size: tuple[int, int], first: int, frames: int,
+                   required_frames: set[int] | None = None) -> tuple[np.ndarray, np.ndarray, list[int]]:
+    """Load and validate a `measure_moge2_depth.py` `.npz` file against the capture's canvas `(w, h)` and span
+    `[first, first + frames - 1]`. Refuses (`SystemExit`, no traceback) on missing arrays, canvas size mismatch, or
+    missing required overlap frames. Returns `(depth [frames, h, w] float32, valid [frames, h, w] bool, source_frames_loaded)`."""
+    p = Path(path)
+    if not p.is_file():
+        raise SystemExit(f"--depth {p.name}: file not found ({p})")
+    try:
+        z = np.load(p)
+    except Exception as exc:
+        raise SystemExit(f"--depth {p.name}: could not read .npz ({exc})") from None
+    lacking = [k for k in ("depth", "frames") if k not in z.files]
+    if "mask" not in z.files and "valid" not in z.files:
+        lacking.append("mask")
+    if lacking:
+        raise SystemExit(f"--depth {p.name}: missing {', '.join(lacking)} (expected depth, mask, frames from measure_moge2_depth.py)")
+    v_key = "mask" if "mask" in z.files else "valid"
+    d_arr, v_arr = z["depth"], z[v_key].astype(bool)
+    f_arr = [int(x) for x in z["frames"].tolist()]
+    if d_arr.ndim != 3 or v_arr.shape != d_arr.shape or len(f_arr) != len(d_arr):
+        raise SystemExit(f"--depth {p.name}: depth shape {d_arr.shape}, {v_key} shape {v_arr.shape} and frames ({len(f_arr)}) do not match")
+    w, h = int(size[0]), int(size[1])
+    h_d, w_d = int(d_arr.shape[1]), int(d_arr.shape[2])
+    size_meta = [int(x) for x in z["size"].tolist()] if "size" in z.files else [w_d, h_d]
+    if (w_d, h_d) != (w, h) or size_meta != [w, h]:
+        raise SystemExit(f"--depth {p.name}: depth canvas is {w_d}x{h_d} (size {size_meta[0]}x{size_meta[1]}) and the capture is {w}x{h}")
+    in_span = {sf: idx for idx, sf in enumerate(f_arr) if first <= sf < first + frames}
+    if not in_span:
+        span_said = f"{f_arr[0]}-{f_arr[-1]}" if f_arr else "empty"
+        raise SystemExit(f"--depth {p.name}: depth frames ({span_said}) have no frame inside the capture's span {first}-{first + frames - 1}")
+    if required_frames:
+        missing_sf = sorted(sf for sf in required_frames if sf not in in_span)
+        if missing_sf:
+            spans = ", ".join(f"{a}-{b}" if a != b else str(a) for a, b in frame_spans(missing_sf))
+            raise SystemExit(f"--depth {p.name}: depth file lacks overlap source frame(s) {spans} in capture span {first}-{first + frames - 1}")
+    depth_out = np.full((frames, h, w), np.nan, np.float32)
+    valid_out = np.zeros((frames, h, w), bool)
+    for sf, idx in in_span.items():
+        k = sf - first
+        d_k = d_arr[idx].astype(np.float32)
+        v_k = v_arr[idx] & np.isfinite(d_k) & (d_k > 0)
+        depth_out[k] = d_k
+        valid_out[k] = v_k
+    return depth_out, valid_out, sorted(in_span)
+
+
+def _depth_medians_and_owner(stack: np.ndarray, shared: np.ndarray, owner: np.ndarray,
+                             depth: np.ndarray, valid: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Per-subject, per-frame uncontested core median depth `z_by_frame [s, n]` (metres, `nan` where unmeasured), and
+    in-place tie-breaking of `owner == CONTESTED` on frames with valid depth. Returns `(z_by_frame, settled_by_depth_px [n])`."""
+    import cv2
+    s, n, _h, _w = stack.shape
+    z_by_frame = np.full((s, n), np.nan, np.float32)
+    p90_by_frame = np.full((s, n), np.nan, np.float32)
+    settled = np.zeros(n, np.int64)
+    diam = 2 * DEPTH_CORE_ERODE_PX + 1
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (diam, diam))
+    for f in range(n):
+        if not valid[f].any():
+            continue
+        for i in range(s):
+            if not stack[i, f].any():
+                continue
+            uncontested = stack[i, f] & ~shared[f]
+            core = cv2.erode(uncontested.astype(np.uint8), kernel).astype(bool) & valid[f]
+            if int(core.sum()) < DEPTH_CORE_LEAST_PX:
+                core = uncontested & valid[f]
+            if int(core.sum()) < DEPTH_CORE_LEAST_PX:
+                core = stack[i, f] & valid[f]
+            if core.any():
+                vals = depth[f][core]
+                z_by_frame[i, f] = float(np.median(vals))
+                p90_by_frame[i, f] = float(np.percentile(vals, 90))
+        cont = (owner[f] == CONTESTED) & valid[f]
+        if not cont.any():
+            continue
+        active = [i for i in range(s) if (stack[i, f] & cont).any()]
+        if len(active) < 2:
+            continue
+        bits = np.zeros(cont.shape, np.int32)
+        for bit_idx, i in enumerate(active):
+            bits |= (stack[i, f] & cont).astype(np.int32) << bit_idx
+        for mask_val in np.unique(bits[cont]):
+            if int(mask_val).bit_count() < 2:
+                continue
+            claimants = [active[bit_idx] for bit_idx in range(len(active)) if mask_val & (1 << bit_idx)]
+            if any(not np.isfinite(z_by_frame[i, f]) for i in claimants):
+                continue
+            ordered = sorted(claimants, key=lambda i: float(z_by_frame[i, f]))
+            i_front, i_next, i_back = ordered[0], ordered[1], ordered[-1]
+            z_front, z_next = float(z_by_frame[i_front, f]), float(z_by_frame[i_next, f])
+            tau = max(DEPTH_ORDER_MIN_M, DEPTH_ORDER_REL * min(z_front, z_next))
+            if z_next - z_front <= tau:
+                continue
+            px = cont & (bits == mask_val)
+            front_px = px & (depth[f] <= float(p90_by_frame[i_back, f]) + DEPTH_EDGE_TOL_M)
+            owner[f][front_px] = i_front
+        settled[f] = int(cont.sum()) - int(((owner[f] == CONTESTED) & valid[f]).sum())
+    return z_by_frame, settled
+
+
+def owner_map(tracks: dict[str, np.ndarray], classes: dict[str, np.ndarray],
+              depth: np.ndarray | None = None, valid: np.ndarray | None = None) -> tuple[np.ndarray, list[str], np.ndarray, np.ndarray]:
     """Whose each pixel is, [n, h, w] of uint8: an index into the labels returned, `NOBODY` where no track claims
     it, `CONTESTED` where the tracks and the class maps together do not decide. Also the pixels more than one
     track claims per frame, and the contested ones.
@@ -463,7 +587,9 @@ def owner_map(tracks: dict[str, np.ndarray], classes: dict[str, np.ndarray]) -> 
     something (not Background), when exactly one of the claimants' does; when none does, or more than one, it is
     contested and not guessed. The class is asked only of pixels several tracks claim: within its margin of the
     outline a class map labels a neighbour's things as the subject's (`whose_rows`). Measured where the rule
-    came from (2026-10-10, two subjects, 447 frames): it settled 93% of the pixels both tracks claimed."""
+    came from (2026-10-10, two subjects, 447 frames): it settled 93% of the pixels both tracks claimed.
+    When `depth` and `valid` (`measure_moge2_depth.py`) are given, remaining `CONTESTED` pixels on frames where
+    one claimant's eroded uncontested interior is in front of the other's by more than `tau_z` are settled by depth."""
     labels = list(tracks)
     stack = np.stack([tracks[label] for label in labels])                    # [s, n, h, w]
     claims = stack.sum(axis=0)
@@ -476,6 +602,8 @@ def owner_map(tracks: dict[str, np.ndarray], classes: dict[str, np.ndarray]) -> 
     for i in range(len(labels)):
         owner[named[i] & (votes == 1)] = i
     owner[shared & (votes != 1)] = CONTESTED
+    if depth is not None and valid is not None:
+        _depth_medians_and_owner(stack, shared, owner, depth, valid)
     return owner, labels, shared.sum(axis=(1, 2)), (owner == CONTESTED).sum(axis=(1, 2))
 
 
@@ -1033,13 +1161,41 @@ def cells_mostly(mask: np.ndarray, share: float, cell: int = CELL) -> np.ndarray
     return mask.reshape(n, h // cell, cell, w // cell, cell).mean(axis=(2, 4)) > share
 
 
-def carve_keep_out(keep: np.ndarray, mine: np.ndarray, share: float = OWN_TRACK_CELL_SHARE) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def _keep_in_front(keep: np.ndarray, mine: np.ndarray,
+                   depth: np.ndarray | None = None, valid: np.ndarray | None = None) -> np.ndarray:
+    """Keep-out pixels `[n, h, w]` whose valid depth is strictly in front of `mine`'s uncontested interior median by `> tau_z`."""
+    out = np.zeros_like(keep)
+    if depth is None or valid is None:
+        return out
+    import cv2
+    diam = 2 * DEPTH_CORE_ERODE_PX + 1
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (diam, diam))
+    for n in range(len(keep)):
+        if not (keep[n].any() and mine[n].any() and valid[n].any()):
+            continue
+        uncontested = mine[n] & ~keep[n]
+        core = cv2.erode(uncontested.astype(np.uint8), kernel).astype(bool) & valid[n]
+        if int(core.sum()) < DEPTH_CORE_LEAST_PX:
+            core = uncontested & valid[n]
+        if int(core.sum()) < DEPTH_CORE_LEAST_PX:
+            core = mine[n] & valid[n]
+        if not core.any():
+            continue
+        z_mine = float(np.median(depth[n][core]))
+        tau = max(DEPTH_ORDER_MIN_M, DEPTH_ORDER_REL * z_mine)
+        out[n] = keep[n] & valid[n] & (depth[n] < z_mine - tau)
+    return out
+
+
+def carve_keep_out(keep: np.ndarray, mine: np.ndarray, share: float = OWN_TRACK_CELL_SHARE,
+                   depth: np.ndarray | None = None, valid: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """A keep-out less every cell that is more than `share` the load subject's own track (`mine`, [n, h, w]) and less every
     pixel of that track, and per frame the pixels and the cells it lost. THE CARVE (the lead's ruling of 2026-10-16 on the
     owner's decision of that day, "The simplification wins. Make sure this never happens again", docs/wiki/decisions.md):
     nothing puts the original back inside a person's region, and a keep-out's cells are given back as the source. Done in
     the files step before the keep-out's track is written, so the copy the builder hands the node (`masked_job.capture_files`,
-    the capture's `track__<by>.mkv`) is the carved one.
+    the capture's `track__<by>.mkv`) is the carved one. When `depth` and `valid` (`--depth`) are given, keep-out pixels with
+    valid depth strictly in front of `mine`'s core median by `> tau_z` are preserved as foreground.
 
     ITS COST: it takes whole cells more than `share` hers, so it takes keep-out pixels OUTSIDE her track too, in those cells.
     MEASURED on second_hfp_0014f (docs/wiki/decisions.md, 2026-10-16): 34989 of the 144813 `hands` pixels and 4930 of the
@@ -1055,9 +1211,11 @@ def carve_keep_out(keep: np.ndarray, mine: np.ndarray, share: float = OWN_TRACK_
       same in the chain, one load a job), and a subject's first sighting whatever `by` the load names.
     - Other readers do not say which a capture is: the assembler's subjects table and `delivery_table.tracked_in` mix carved
       (from 2026-10-16) and uncarved captures without printing `carved_out_of_own_track`."""
-    hers = cells_mostly(mine, share)
-    lost = keep & (cells_up(hers) | mine)
-    return keep & ~lost, lost.reshape(len(lost), -1).sum(axis=1), (cells_any(keep) & hers).reshape(len(keep), -1).sum(axis=1)
+    front = _keep_in_front(keep, mine, depth, valid)
+    mine_back = mine & ~front
+    hers = cells_mostly(mine_back, share)
+    lost = (keep & ~front) & (cells_up(hers) | mine_back)
+    return keep & ~lost, lost.reshape(len(lost), -1).sum(axis=1), (cells_any(keep & ~front) & hers).reshape(len(keep), -1).sum(axis=1)
 
 
 def node_windows(plan_path: Path, size: tuple[int, int]) -> tuple[dict, list]:
@@ -1142,7 +1300,8 @@ def node_source(vm, plan: dict, got: dict, others, keep=None) -> dict:
             "feather_pixels": int(settings.get("feather_pixels", 0) or 0), "edge": settings.get("edge", vm.EDGE_TOKENS)}
 
 
-def grid_carve(keep: np.ndarray, mine: np.ndarray, plan_path: Path, at: int, first: int, share: float = OWN_TRACK_CELL_SHARE) -> tuple[np.ndarray, np.ndarray]:
+def grid_carve(keep: np.ndarray, mine: np.ndarray, plan_path: Path, at: int, first: int, share: float = OWN_TRACK_CELL_SHARE,
+               depth: np.ndarray | None = None, valid: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
     """THE CARVE ON THE NODE'S OWN GRID (the lead's ruling of 2026-10-16, docs/wiki/decisions.md): per window of the node's plan,
     per latent step (`video_mask.run_lengths`) and per unit of its token grid (a latent cell, or a whole token; of the zoomed
     picture for a zoomed load), a unit more than `share` the subject's own track on ANY frame of the step loses every keep-out
@@ -1159,11 +1318,13 @@ def grid_carve(keep: np.ndarray, mine: np.ndarray, plan_path: Path, at: int, fir
     plan, windows = node_windows(plan_path, (w, h))
     zoom = plan.get("zoom")
     whole = (plan.get("source") or {}).get("edge", vm.EDGE_TOKENS) == vm.EDGE_TOKENS
+    front = _keep_in_front(keep, mine, depth, valid)
+    mine_back = mine & ~front
     out = keep.copy()
     for row, got in windows:
         lt, lh, lw = (int(v) for v in got["tokens"].shape)
         length = int(got["mask"].shape[0])
-        hers = _units(vm, _picture(vm, _window_frames(mine, row, at, first, length), zoom, (w, h)) > 0.5, lh, lw, whole) > share
+        hers = _units(vm, _picture(vm, _window_frames(mine_back, row, at, first, length), zoom, (w, h)) > 0.5, lh, lw, whole) > share
         start = 0
         for steps in vm.run_lengths(lt):
             on = hers[start:start + steps].any(0)
@@ -1177,7 +1338,7 @@ def grid_carve(keep: np.ndarray, mine: np.ndarray, plan_path: Path, at: int, fir
                 for i in range(start, start + steps):
                     k = at + row["first_frame"] + i - first
                     if 0 <= k < n:
-                        out[k] &= ~foot
+                        out[k] &= ~(foot & ~front[k])
             start += steps
     return out, (keep & ~out).reshape(n, -1).sum(axis=1)
 
@@ -1988,6 +2149,8 @@ def files(a: argparse.Namespace) -> Path:
     runs = [(n, r) for n, r in runs if r.get("render")]
     named = [m[k] for _, m in masks for k in ("track", "parts", "shots", "classes", "held", "pose", *MADE_FROM.values()) if m.get(k)] + [a.source]
     named += [x for _, r in runs for x in (r["render"], r["render"][:-len(".mp4")] + "_with_mask.mp4")]
+    if getattr(a, "depth", None):
+        named.append(a.depth)
     missing = [x for x in named if not Path(x).is_file()]
     who = {"made_by": a.made_by} if getattr(a, "made_by", "") else {}
     write_status(out, "running", inputs=[Path(x).name for x in named], **who)
@@ -2029,7 +2192,50 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
     on_plan = [(plan_file(x["preview"]), int(x["at"]) if x.get("at") is not None else first, {o for o in x.get("others", "").split("+") if o})
                for _, x in plans if x.get("preview")]
     carved: dict = {}
-    masks = sorted(masks, key=lambda lm: not (lm[0] in replaced or lm[1].get("shots")))
+    masks = sorted(masks, key=lambda lm: not (lm[0] in replaced or lm[1].get("shots") or lm[1].get("classes")))
+    depth_path = getattr(a, "depth", None)
+    _pre_masks: dict = {}
+    depth_arr = valid_arr = None
+    depth_frames_loaded: list[int] = []
+    pre_owner_data = None
+    if depth_path:
+        for label, m in masks:
+            by, at = m.get("by", "preview"), int(m.get("at", first))
+            _pre_masks[(label, by)] = (
+                read_mask(m["track"], size, at, first, frames),
+                read_classes(m["classes"], size, at, first, frames) if m.get("classes") else None,
+            )
+        first_tracks: dict[str, np.ndarray] = {}
+        pre_cmaps: dict[str, np.ndarray] = {}
+        keep_tracks: list[np.ndarray] = []
+        for label, m in masks:
+            by = m.get("by", "preview")
+            (tr, _cov), cm = _pre_masks[(label, by)]
+            if label in kept_out and not m.get("shots") and label not in replaced and not m.get("classes"):
+                keep_tracks.append(tr)
+                continue
+            if label not in first_tracks:
+                first_tracks[label] = tr
+            if cm is not None and label not in pre_cmaps:
+                pre_cmaps[label] = cm
+        whos_pre = [lbl for lbl in first_tracks if lbl in pre_cmaps] or list(first_tracks)
+        req_frames: set[int] = set()
+        if len(whos_pre) > 1:
+            sh_pre = np.sum([first_tracks[lbl] for lbl in whos_pre], axis=0) > 1
+            req_frames |= {first + int(k) for k in np.nonzero(sh_pre.any(axis=(1, 2)))[0]}
+        if keep_tracks and replaced:
+            mine_pre = [first_tracks[s] for s in replaced if s in first_tracks]
+            if mine_pre:
+                m_union = np.logical_or.reduce(mine_pre)
+                for kt in keep_tracks:
+                    req_frames |= {first + int(k) for k in np.nonzero((kt & m_union).any(axis=(1, 2)))[0]}
+        depth_arr, valid_arr, depth_frames_loaded = read_depth_npz(depth_path, size, first, frames, req_frames)
+        if len(whos_pre) > 1:
+            tr_dict = {lbl: first_tracks[lbl] for lbl in whos_pre}
+            ow, lbls, sh_px, _ = owner_map(tr_dict, pre_cmaps)
+            st = np.stack([tr_dict[lbl] for lbl in lbls])
+            z_bf, settled_bf = _depth_medians_and_owner(st, st.sum(axis=0) > 1, ow, depth_arr, valid_arr)
+            pre_owner_data = (ow, lbls, sh_px, (ow == CONTESTED).sum(axis=(1, 2)), z_bf, settled_bf)
     for label, m in masks:
         by, at = m.get("by", "preview"), int(m.get("at", first))
         least, least_by = (int(m["least"]), LEAST_GIVEN) if m.get("least") is not None else (PART_LEAST_PX, LEAST_STARTING)
@@ -2037,7 +2243,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             raise SystemExit(f"subject {label!r}: zoom={m['zoom']}; the one value is zoom=off (the load renders on the whole frame)")
         if least < 0:
             raise SystemExit(f"subject {label!r}: least={m['least']}; a part's least size is 0 (nothing emptied by size) or more, in px")
-        track, covered = read_mask(m["track"], size, at, first, frames)
+        track, covered = _pre_masks[(label, by)][0] if (label, by) in _pre_masks else read_mask(m["track"], size, at, first, frames)
         if label in kept_out and not m.get("shots") and label not in replaced:
             unread = sorted(s for s in replaced if s not in sightings)
             if unread:
@@ -2045,12 +2251,12 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                  "would be written uncarved: give every replaced subject a --mask")
             mine = [next(iter(sightings[s].values()))[0] for s in replaced]
             if mine:
-                track, px, cells = carve_keep_out(track, np.logical_or.reduce(mine))
+                track, px, cells = carve_keep_out(track, np.logical_or.reduce(mine), depth=depth_arr, valid=valid_arr)
                 carved[label] = {"px": px, "cells": cells, "against": sorted(s for s in replaced if s in sightings)}
                 grid = np.zeros(frames, np.int64)
                 for path, plan_at, names in on_plan:
                     if label in names:                         # only a plan whose run keeps this mask out
-                        track, lost = grid_carve(track, np.logical_or.reduce(mine), path, plan_at, first)
+                        track, lost = grid_carve(track, np.logical_or.reduce(mine), path, plan_at, first, depth=depth_arr, valid=valid_arr)
                         grid += lost
                 carved[label]["grid_px"] = grid
                 carved[label]["grid_from"] = [str(p_) for p_, _, names in on_plan if label in names]
@@ -2058,7 +2264,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                       f"{int(cells.sum())} cells, on {int((cells > 0).sum())} of {frames} frames (OWN_TRACK_CELL_SHARE {OWN_TRACK_CELL_SHARE})", flush=True)
         parts = read_mask(m["parts"], size, at, first, frames)[0] if m.get("parts") else None
         took = None
-        cmap = read_classes(m["classes"], size, at, first, frames) if m.get("classes") else None
+        cmap = _pre_masks[(label, by)][1] if (label, by) in _pre_masks else (read_classes(m["classes"], size, at, first, frames) if m.get("classes") else None)
         head_tube_prov = None
         if m.get("head_tube") not in (None, "1", "on", "true", "0", "off", "false"):
             raise SystemExit(f"subject {label!r}: head_tube={m['head_tube']}; give head_tube=1 or --head-tube")
@@ -2113,6 +2319,40 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                   f"facing={len(head_tube_prov['facing_frames'])}, "
                   f"side_with_eye={len(head_tube_prov['side_with_eye_frames'])}, "
                   f"back_of_head={len(head_tube_prov['back_of_head_frames'])})", flush=True)
+        depth_clipped = None
+        front_other_mask = None
+        if parts is not None and pre_owner_data is not None and label in pre_owner_data[1]:
+            ow_pre, lbls_pre, _, _, z_bf, _ = pre_owner_data
+            i_self = lbls_pre.index(label)
+            front_other_mask = np.zeros_like(parts)
+            against_front: list[str] = []
+            for i_other, other_lbl in enumerate(lbls_pre):
+                if i_other == i_self:
+                    continue
+                hit_other = False
+                for f_idx in range(frames):
+                    z_s, z_o = float(z_bf[i_self, f_idx]), float(z_bf[i_other, f_idx])
+                    if np.isfinite(z_s) and np.isfinite(z_o):
+                        tau = max(DEPTH_ORDER_MIN_M, DEPTH_ORDER_REL * min(z_s, z_o))
+                        if z_s - z_o > tau:
+                            m_f = ow_pre[f_idx] == i_other
+                            if (parts[f_idx] & m_f).any():
+                                hit_other = True
+                            front_other_mask[f_idx] |= m_f
+                if hit_other:
+                    against_front.append(other_lbl)
+            clipped_arr = (parts & front_other_mask).reshape(frames, -1).sum(axis=1)
+            parts = parts & ~front_other_mask
+            hit_f = np.nonzero(clipped_arr > 0)[0]
+            depth_clipped = {
+                "against": against_front,
+                "px": int(clipped_arr.sum()),
+                "frames": int(len(hit_f)),
+                "px_by_source_frame": [[int(first + f_idx), int(clipped_arr[f_idx])] for f_idx in hit_f],
+            }
+            if depth_clipped["px"]:
+                print(f"  {label}: clipped {depth_clipped['px']} part px on {depth_clipped['frames']} frame(s) owned by front subject(s) "
+                      f"{', '.join(against_front)}", flush=True)
         if parts is not None and m.get("pieces") == "largest":
             refuse_pieces_on_a_head(label, parts, cmap)
             # the caller looked and the part's other pieces are not the part (`flag_pieces`); what that took away is
@@ -2217,6 +2457,8 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                     lo, hi = (int(x) for x in (span.split("-") * 2)[:2])
                     held[max(lo - first, 0):max(hi - first + 1, 0)] = False
                     dropped.append([lo, hi])
+                if front_other_mask is not None:
+                    held = held & ~front_other_mask
                 held_masks[label] = held
                 write_mask_video(folder / f"parts_held__{by}.mkv", held)
         if m.get("shots"):
@@ -2243,6 +2485,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                                                    "on_the_node_grid_px": int(carved[label]["grid_px"].sum()),
                                                                    "on_the_node_grid_from": carved[label]["grid_from"] or "no plan yet: the canvas carve alone"}}
                                       if label in carved else {}),
+                                   **({"parts_clipped_by_depth": depth_clipped} if depth_clipped is not None else {}),
                                    # a shot table counts from its own load's first frame, which need not be the mask video's
                                    "shots_first_source_frame": int(m.get("shots_at", at)),
                                    "frames_covered": int(covered.sum()), "pose": posed, "parts_pieces": m.get("pieces"),
@@ -2452,13 +2695,24 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
     # or keep mask given as a --mask is a union of things and owns nothing.
     whos = [label for label in sightings if label in class_maps] or list(sightings)
     if len(whos) > 1:
-        owner, labels, shared, contested = owner_map({label: next(iter(sightings[label].values()))[0] for label in whos}, class_maps)
-        np.savez_compressed(out / "owners.npz", owner=owner, labels=np.array(labels), nobody=NOBODY, contested=CONTESTED)
+        if pre_owner_data is not None:
+            owner, labels, shared, contested, z_by_frame, settled_by_depth = pre_owner_data
+        else:
+            owner, labels, shared, contested = owner_map({label: next(iter(sightings[label].values()))[0] for label in whos}, class_maps)
+            z_by_frame = settled_by_depth = None
+        np.savez_compressed(out / "owners.npz", owner=owner, labels=np.array(labels), nobody=NOBODY, contested=CONTESTED,
+                            **({"depth_settled": np.bool_(True), "z_by_frame": z_by_frame} if z_by_frame is not None else {}))
         for n, row in enumerate(cross):
             row["claimed_by_more_than_one_px"], row["contested_px"] = int(shared[n]), int(contested[n])
+            if settled_by_depth is not None:
+                row["settled_by_depth_px"] = int(settled_by_depth[n])
         manifest["owners"] = {"file": "owners.npz", "labels": labels, "nobody": NOBODY, "contested": CONTESTED,
-                              "claimed_by_more_than_one_px": int(shared.sum()), "contested_px": int(contested.sum())}
-        print(f"owners: {int(shared.sum())} pixels claimed by more than one track over the span, {int(contested.sum())} left contested", flush=True)
+                              "claimed_by_more_than_one_px": int(shared.sum()), "contested_px": int(contested.sum()),
+                              **({"depth": {"file": Path(depth_path).name, "source_frames": depth_frames_loaded,
+                                            "settled_by_depth_px": int(settled_by_depth.sum())}}
+                                 if depth_path and settled_by_depth is not None else {})}
+        print(f"owners: {int(shared.sum())} pixels claimed by more than one track over the span, {int(contested.sum())} left contested"
+              + (f" ({int(settled_by_depth.sum())} settled by depth)" if settled_by_depth is not None else ""), flush=True)
     write_table(out / "frames", cross)
     (out / "manifest.json").write_text(json.dumps(manifest, indent=1) + "\n")
     (out / "README.md").write_text(readme(manifest))
@@ -6491,6 +6745,7 @@ def main() -> None:
     f.add_argument("--mask", action="append", default=[], metavar="LABEL:track=V[,parts=V][,classes=V][,held=V][,shots=J][,shots_at=N][,pose=J][,pose_at=N][,by=RUN][,at=N][,hold=A-B+C-D][,drop=A-B+C-D][,word=A-B+C-D][,grade=off][,least=PX][,pieces=largest][,zoom=off][,head_tube=1]",
                    help="one sighting of a subject: its saved mask videos; repeatable")
     f.add_argument("--head-tube", action="store_true", help="opt-in: bound the replaced subject's head tube by its person track and smooth Sapiens2-Seg on one steady shot box before grading")
+    f.add_argument("--depth", metavar="DEPTH.npz", help="opt-in: MoGe-2 depth .npz (bench/measure_moge2_depth.py) to settle contested track overlaps, clip back-subject part spills, and preserve foreground keep-outs")
     f.add_argument("--run", action="append", default=[], metavar="RUN:render=V|preview=DIR,subject=LABEL[,others=L+L][,margin=PX][,at=N][,region=review]",
                    help="one pass that regenerated a subject; its region is the one each window saved beside its latent, or is "
                         "read from the render's review when there is none (or with region=review). With preview= and no "

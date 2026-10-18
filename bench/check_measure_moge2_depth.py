@@ -155,18 +155,30 @@ def end_to_end_tool_run_npz_record_and_sheet() -> str:
         fg_mask[:, 24:72, 32:96] = True
         write_mask_video(msk, fg_mask)
 
-        rc = measure_moge2_depth.main([
-            "--source", str(vid),
-            "--frames", "0,2,4",
-            "--out-dir", str(out_dir),
-            "--size", "128x96",
-            "--box", "16,12,112,84",
-            "--region", f"fg={msk}@0:cyan",
-            "--checkpoint", "tiny",
-            "--device", "cpu",
-            "--cell", "160",
-        ])
+        seen_counts: list[int | None] = []
+        orig_stream = measure_moge2_depth.stream
+
+        def spy_stream(*args, **kwargs):
+            seen_counts.append(kwargs.get("count"))
+            return orig_stream(*args, **kwargs)
+
+        measure_moge2_depth.stream = spy_stream
+        try:
+            rc = measure_moge2_depth.main([
+                "--source", str(vid),
+                "--frames", "0,2,4",
+                "--out-dir", str(out_dir),
+                "--size", "128x96",
+                "--box", "16,12,112,84",
+                "--region", f"fg={msk}@0:cyan",
+                "--checkpoint", "tiny",
+                "--device", "cpu",
+                "--cell", "160",
+            ])
+        finally:
+            measure_moge2_depth.stream = orig_stream
         assert rc == 0, f"expected exit 0, got {rc}"
+        assert seen_counts and seen_counts[0] == 3, f"_grab_frames did not pass count=len(frames) to stream: {seen_counts}"
 
         npz_path = out_dir / "depth.npz"
         json_path = out_dir / "record.json"

@@ -2956,6 +2956,118 @@ def back_of_head_and_no_face_never_held_by_grade() -> str:
     return "back_of_head and noface are never held by the floor rule or neighbour fill; back_of_head empties nothing by itself; word= overrides back_of_head"
 
 
+def depth_in_owner_map_and_the_files_step() -> str:
+    """`--depth` (`bench/capture_masked_run.py`): settles contested pixels in `owner_map` when core depth medians
+    separate (`|z_a - z_b| > max(0.03, 0.03 * min(z_a, z_b))`), leaves background slits and co-planar overlaps
+    contested, clips a back subject's `parts` off a front subject's owned pixels in `files`, preserves keep-out
+    pixels strictly in front of the replaced subject in `carve_keep_out` and `grid_carve`, and refuses on canvas
+    or overlap-frame mismatches with no traceback."""
+    import argparse
+    import tempfile
+    from _lib import refused
+    one, two = rect(16, 16, 64, 64), rect(48, 16, 96, 64)          # overlap in x=48..64, y=16..64 (16x48 = 768 px)
+    map_one = np.where(one, 1, 0).astype(np.uint8)
+    map_two = np.where(two, 1, 0).astype(np.uint8)
+    # Without depth: both class maps claim the overlap, so all 768 overlap pixels are CONTESTED.
+    ow_no, lbls, sh_no, cont_no = cap.owner_map({"one": one, "two": two}, {"one": map_one, "two": map_two})
+    assert lbls == ["one", "two"] and int(sh_no[0]) == 768 and int(cont_no[0]) == 768, (sh_no[0], cont_no[0])
+
+    # Build synthetic depth: `one` (back) at 1.95m, `two` (front) at 1.20m; in overlap y=16..56 is at 1.20m (front),
+    # while y=56..64 is a 3.50m background slit behind the back subject (`3.50 > 1.95 + 0.02`).
+    depth = np.full((N, H, W), 2.50, np.float32)
+    valid = np.ones((N, H, W), bool)
+    depth[:, 16:64, 16:48] = 1.95
+    depth[:, 16:64, 64:96] = 1.20
+    depth[:, 16:56, 48:64] = 1.20
+    depth[:, 56:64, 48:64] = 3.50
+    ow_yes, _, sh_yes, cont_yes = cap.owner_map({"one": one, "two": two}, {"one": map_one, "two": map_two}, depth=depth, valid=valid)
+    assert int(sh_yes[0]) == 768 and int(cont_yes[0]) == 16 * 8, (sh_yes[0], cont_yes[0])
+    assert (ow_yes[:, 16:56, 48:64] == 1).all(), "foreground overlap was not given to front subject `two`"
+    assert (ow_yes[:, 56:64, 48:64] == cap.CONTESTED).all(), "background slit behind back subject was not left CONTESTED"
+
+    # Co-planar subjects (`|z_one - z_two| <= tau_z`): depth does not guess, overlap stays CONTESTED.
+    depth_close = depth.copy()
+    depth_close[:, 16:64, 16:48] = 1.50
+    depth_close[:, 16:64, 64:96] = 1.52
+    _, _, _, cont_close = cap.owner_map({"one": one, "two": two}, {"one": map_one, "two": map_two}, depth=depth_close, valid=valid)
+    assert int(cont_close[0]) == 768, f"co-planar overlap within tau_z was guessed: {cont_close[0]}"
+
+    # Keep-out carving with depth: a foreground keep-out at 1.10m in front of `one` (1.95m) is preserved; one at 1.95m is carved.
+    keep_fg = rect(24, 24, 40, 40)
+    depth_fg = depth.copy()
+    depth_fg[:, 24:40, 24:40] = 1.10
+    carved_fg, px_fg, _ = cap.carve_keep_out(keep_fg, one, depth=depth_fg, valid=valid)
+    assert (carved_fg == keep_fg).all() and int(px_fg.sum()) == 0, "foreground keep-out in front of subject was carved"
+    carved_co, px_co, _ = cap.carve_keep_out(keep_fg, one, depth=depth, valid=valid)
+    assert not carved_co.any() and int(px_co[0]) == 16 * 16, "co-planar keep-out inside subject track was not carved"
+
+    with tempfile.TemporaryDirectory() as tmp_s:
+        tmp = Path(tmp_s)
+        plan_p = _a_node_plan(tmp, rect(20, 20, 44, 44), None, 2)
+        band = rect(44, 20, 48, 44)  # inside the cell 32..48 that `one` (16..64) owns
+        depth_band = depth.copy()
+        depth_band[:, 20:44, 44:48] = 1.10
+        g_fg, lost_fg = cap.grid_carve(band, one, plan_p, 100, 100, depth=depth_band, valid=valid)
+        assert (g_fg == band).all() and int(lost_fg.sum()) == 0, "grid_carve carved a foreground keep-out"
+        g_co, lost_co = cap.grid_carve(band, one, plan_p, 100, 100, depth=depth, valid=valid)
+        assert not g_co.any() and int(lost_co.sum()) > 0, "grid_carve left a co-planar keep-out on a shared cell"
+
+        # Refusal cases on read_depth_npz: canvas mismatch, missing overlap frames, and missing keys.
+        bad_canvas = tmp / "bad_canvas.npz"
+        np.savez_compressed(bad_canvas, depth=np.ones((N, H * 2, W * 2), np.float32), mask=np.ones((N, H * 2, W * 2), bool),
+                            frames=np.arange(100, 100 + N, dtype=np.int32))
+        refused(lambda: cap.read_depth_npz(bad_canvas, (W, H), 100, N), "--depth bad_canvas.npz", "depth canvas is 320x192")
+
+        short_frames = tmp / "short_frames.npz"
+        np.savez_compressed(short_frames, depth=depth[:1], mask=valid[:1], frames=np.array([100], dtype=np.int32))
+        refused(lambda: cap.read_depth_npz(short_frames, (W, H), 100, N, required_frames={100, 101, 102}),
+                "--depth short_frames.npz", "lacks overlap source frame(s) 101-102")
+
+        bad_keys = tmp / "bad_keys.npz"
+        np.savez_compressed(bad_keys, depth=depth[:1], frames=np.array([100], dtype=np.int32))
+        refused(lambda: cap.read_depth_npz(bad_keys, (W, H), 100, N), "--depth bad_keys.npz", "missing mask")
+
+        # Full `_files` step with `--depth`: back subject `one`'s part spills onto front subject `two`'s owned overlap (x=48..60)
+        # and is clipped before `held_parts`/`grade_holds`, while `owners.npz` records `depth_settled=True` and `z_by_frame`.
+        good_depth = tmp / "good_depth.npz"
+        np.savez_compressed(good_depth, depth=depth, mask=valid, frames=np.arange(100, 100 + N, dtype=np.int32))
+        part_one = rect(24, 20, 60, 44)  # 24..48 is inside `one` alone (24x24=576 px); 48..60 spills into `two`'s owned overlap (12x24=288 px)
+        part_two = rect(52, 20, 80, 44)
+        masks_given = {"one.mkv": one, "two.mkv": two, "p1.mkv": part_one, "p2.mkv": part_two}
+        classes_given = {"c1.mkv": map_one, "c2.mkv": map_two}
+        stood_in = {k: getattr(cap, k) for k in ("probe", "read_mask", "read_classes", "write_mask_video", "picture_rows", "input_facts")}
+        cap.probe = lambda _p: (W, H, N)
+        cap.read_mask = lambda path, *_a: (masks_given[Path(path).name].copy(), np.ones(N, bool))
+        cap.read_classes = lambda path, *_a: classes_given[Path(path).name].copy()
+        cap.write_mask_video = lambda *_a: None
+        cap.picture_rows = lambda *_a: [(0.0, 0.0)] * N
+        cap.input_facts = lambda _p: {}
+        try:
+            out_cap = tmp / "cap_depth"
+            args_ = argparse.Namespace(first=100, frames=N, name="cap_depth", date="2026-01-01", source="s.mp4",
+                                       loads=None, voice=None, head_tube=False, depth=str(good_depth))
+            given = [
+                ("one", {"track": "one.mkv", "parts": "p1.mkv", "classes": "c1.mkv", "least": "0"}),
+                ("two", {"track": "two.mkv", "parts": "p2.mkv", "classes": "c2.mkv", "least": "0"}),
+            ]
+            cap._files(args_, out_cap, given, [], [])
+            ow_npz = np.load(out_cap / "owners.npz")
+            assert bool(ow_npz["depth_settled"]) is True and ow_npz["z_by_frame"].shape == (2, N), ow_npz.files
+            m_one = np.load(out_cap / "subjects" / "one" / "masks__preview.npz")
+            p1_out = np.unpackbits(m_one["parts"], axis=-1)[:, :, :W].astype(bool)
+            assert int(p1_out[0].sum()) == 24 * 24 and not p1_out[:, :, 48:60].any(), (
+                f"back subject `one`'s part spill onto `two` was not clipped: {int(p1_out[0].sum())}"
+            )
+            man = json.loads((out_cap / "manifest.json").read_text())
+            s_one = next(s for s in man["subjects"] if s["label"] == "one")["sightings"][0]
+            assert s_one["parts_clipped_by_depth"]["px"] == N * 12 * 24, s_one.get("parts_clipped_by_depth")
+            assert man["owners"]["depth"]["settled_by_depth_px"] == N * 16 * 40, man["owners"]
+        finally:
+            for k, v in stood_in.items():
+                setattr(cap, k, v)
+    return "owner_map settles overlap by core depth and leaves background slits and co-planar overlaps contested; files --depth clips back-subject part spills and preserves foreground keep-outs; canvas and frame mismatches refused"
+
+
 case("one subject's row", one_subject)
 case("across three subjects", across)
 case("two sightings of one subject", two_sightings)
@@ -3008,4 +3120,5 @@ case("the carve, in the files step", the_carve_in_the_files_step)
 case("the carve on the node's own grid", the_carve_on_the_nodes_grid)
 case("the head tube, in the files step", head_tube_in_the_files_step)
 case("back of the head and no-face frames are never held by the grade", back_of_head_and_no_face_never_held_by_grade)
+case("depth in the owner map and the files step", depth_in_owner_map_and_the_files_step)
 sys.exit(finish())

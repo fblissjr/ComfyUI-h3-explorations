@@ -142,7 +142,7 @@ def _grab_frames(
     w, h = size
     pick = "select=" + "+".join(f"eq(n\\,{f})" for f in frames)
     vf = pick + "," + (FIT.format(w=w, h=h) if fit else f"scale={w}:{h}")
-    got = {f: img.copy() for f, img in zip(frames, stream(str(source), size, vf=vf, pix="rgb24"))}
+    got = {f: img.copy() for f, img in zip(frames, stream(str(source), size, count=len(frames), vf=vf, pix="rgb24"))}
     if len(got) != len(frames):
         missing = [f for f in frames if f not in got]
         raise SystemExit(f"REFUSED: could not decode source frame(s) {missing} from {home_relative(source)}")
