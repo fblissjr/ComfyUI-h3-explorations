@@ -7,6 +7,126 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.290.0
+<!-- changelog.d/day-2026-10-17.md -->
+
+### Added
+
+- `bench/recomposite_piece.py` and `render_ledger.py` re-laid provenance: lays a whole masked render again from its
+  saved per-window latents with a changed composite setting (`--set "composite=whole region"`, etc.) as a new piece
+  without re-sampling, or reconstructs and writes `matte` and `kept` into a pre-matte render's region files
+  (`--save-own-matte`). Reads the source clip, first frame, frame cap, composite settings, whether keep-outs were wired,
+  VAE, and `crf` from the render's own graph (`h3_config.resolve_widget`), defaults `--device` to `cuda` (refusing
+  `--device cpu` on an int8 VAE), checks outside-region frame alignment against the source and its immediate neighbours
+  before decoding, and writes `<new_stem>.mp4`, `<new_stem>.png` (carrying the updated graph and a `relaid` provenance
+  block), `<new_stem>_with_mask.mp4`, zoomed companions, `_windows/`, and `<new_stem>.recomposite.json`. On
+  `--save-own-matte`, verifies the reconstructed composite against the rendered video inside and outside the matte
+  (recording mean, p99, and worst level differences) and refuses a `laid_by` rule change unless `--allow-rule-change` is
+  given. `bench/render_ledger.py` reads the `relaid` provenance block (`saved_relaid`), ties a re-laid piece to its
+  source render's build record, and names it `RE-LAID` in the ledger.
+- `bench/rebuild_delivery.py`: one-command post-landing chain running `laid_piece_verify.py`, `render_ledger.py`,
+  `delivery_table.py`, `assemble_delivery.py` and `stack_clip.py` (when `--clip` is passed), the non-waived gap and
+  motion-hold check on `.check.json`, `review_pages.py` in-place regeneration of `PROVENANCE.html` and `TO_REVIEW.html`
+  (verifying every `data-*` attribute and, when `data/<video>/poc/` is present, that `poc/index.html`,
+  `poc/who/index.html`, and every local path they fetch exist on disk), and a `0444` timestamped snapshot of
+  `data/<video>/owner_answers.jsonl` under `data/<video>/owner_answers_snapshots/`. Without `--clip`, refuses to reuse a
+  discovered clip unless its `.check.json` matches the current git blob SHA-1 of `bench/assemble_delivery.py`
+  (`assembler_blob_sha`), the new delivery table's rows, and each piece's current `laid_by` rule, and its sidecar
+  matches `.check.json` and `laid.jsonl` by `sha256`.
+- `bench/stack_delivery.py compare`: builds a stacked comparison video over a shot's span or the whole cut with the
+  original source on top, the current cut in the middle, the candidate cut at the bottom, and each changed subject's
+  current and candidate columns side by side on the right. Accepts either `--candidate-clip` with `--candidate-table` or
+  `--candidate-piece <load>` (swapping the candidate row into the current table and assembling the span), and writes the
+  `.mp4.json` sidecar, `.stack.json`, `.stack.frames.jsonl`, and `.alignment.txt`.
+- `bench/who_view.py`, `who_page.py --three-passes` and `--view`, and `review_pages.py` `reader_notes`:
+  `bench/who_view.py` builds a read-only structured view (`h3_who_view/1`, `data/<video>/who_v2.json` and `who_v2.md`)
+  joining `shots.json`, `cast/cast.jsonl`, `owner_answers.jsonl`, and `plan.json` with `made_from` `sha256`
+  verification, standing cast boxes, range-expanded answer line citations, `seen_standing` with overruled looks,
+  `owner_hedged` detection, and separate `copy_fps` vs `source_fps`. `bench/who_page.py` records `made_from` paths and
+  `sha256` digests in `page.json` and the page header, accepts `--view` to read `who_v2.json` after verifying its
+  digests against the live files, and adds `--three-passes` to show Pass A (early preview tables), Pass B (plain source
+  frames), and Pass C (`shot_c_*` preview tables) side by side with the owner's recorded answer lines printed on each
+  picture. `bench/review_pages.py` supports an optional `reader_notes` field on link and item entries in `--start-here`
+  JSON, rendered inside a closed `<details class="why">` fold as a session's reading notes, and refuses empty or blank
+  `reader_notes`.
+- `bench/check_imports.py` and `bench/check_commit_ready.py`: `check_imports.py` parses tracked root `*.py` and
+  `bench/*.py` files (excluding `archive/`) with `ast` and fails if any top-level import of a local module or package in
+  this repo does not exist; `check_commit_ready.py` runs `git check-ignore` on candidate paths and verifies that
+  `INDEX.md` and `bench/INDEX.md` are in sync when files are added or removed.
+- Operational and folder documentation: `docs/wiki/runbook.md` (operational runbook for ComfyUI lifecycle and `H3_*`
+  environment variables, running a load from preview to landing, the review server and owner pages, provenance and
+  history recovery, end-of-day procedures, and pre-render verification), `docs/wiki/working_with_the_owner.md` (the
+  owner's working preferences for sessions of either model), `data/AGENTS.md` (tracked rules and state router for the
+  masked video-to-video lane), and folder-scoped `AGENTS.md` and `CLAUDE.md` files across `bench/`, `workflows/`,
+  `docs/`, `prompt_bank/`, `archive/`, `vendor/`, `vendor_config/`, `vendor_guides/`, `standalone/`, and
+  `contact_sheets/`.
+- `bench/head_reference.py`, `draw_face_points.py` and `shot_to_load.py`: `--closed-lip-line` (job key
+  `reference.closed_lip_line`), off by default and named in THE DEFAULTS THIS LOAD CARRIES when on, draws a closed mouth
+  as one parting line instead of an open outline, holds the drawn mouth across a syllable instead of blinking, and takes
+  the class map's mouth only inside the head box. Checked on synthetic shapes, and on the untracked `fun` captures when
+  present (skipped with the reason when not).
+- `bench/head_tube_parts.py` and `--head-tube` (`capture_masked_run.py`, `shot_to_load.py`, `load_chain.py`), off by
+  default: a SAM 3.1 track of the subject's whole head, seeded from and kept inside the subject's person-track mask and
+  seeded again from it after a gap, with Sapiens2 head classes smoothed over three frames inside it and a per-frame
+  record from the pose model's face points (`turned_away`, `dropout_bridged`, `off_tube_pose`; records only). Writes
+  `subjects/<s>/head_tube__<by>.json` and `.npz`.
+- `bench/measure_moge2_depth.py` and `vendor/meta_moge2/`: a measuring tool for Meta's HyDen MoGe-2 metric depth and
+  camera intrinsics on a span of frames (depth, per-region depth figures, the recovered field of view, a sheet), wired
+  into no load. The loader lives under `vendor/meta_moge2/` with Meta's licence file and a README naming its source;
+  `README.md` and `vendor/README.md` name the folder as an exception to the pack's licence.
+- `bench/sam_memory_selection.py`: runs ComfyUI core's SAM 3 and SAM 3.1 video trackers with and without memory
+  selection (keeping as memory only past frames where the object was visible, scored per object), put in at run time
+  through ComfyUI's model patcher and kept on every clone, never by editing ComfyUI's files. Its `fun` scenes read
+  explicitly named captures, refuse blocked or superseded ones, and record each masks file's sha256.
+
+### Changed
+
+- `bench/assemble_delivery.py` unifies `merged` (`--size canvas`) and `laid_over` (`--size source`) around one per-plane
+  compositing function `lay_plane(view, piece, was, keep, m)` across `Y`, `U`, and `V`: for a matte row (`m` in `0..1`),
+  `view += keep * ((piece - (1 - m) * was) - m * view)` in one pass with no division by `m`, laying `render` whole at
+  `m = 1` with no `under - was` embossed onto the opaque core and blending `m * render + (1 - m) * view` in the soft
+  band; for a plain fallback row (`m is None`), `view += keep * (piece - view)` with `GROW` and `FEATHER` masked out of
+  pixels already laid by a matte row. `Matte` ignores window files of other stems in a shared `_windows/` folder, allows
+  windows without a matte (`bare`) only on their own frames, and reports `matte_missing` in `laid_by_of` when a piece
+  saved region files with no matte in any.
+- `bench/capture_masked_run.py`, `frame_table.py`, and `load_chain.py` prune part fragments that lie off the subject's
+  head box before floor emptying (`off_head`, wired from `load_chain.py` with `OFF_HEAD_MARGIN = 16`), scoring face
+  points against the shoulder line (`sh_line`) and requiring a face point on the piece's edge (`face_on_edge`) under the
+  bent-head guard so a disconnected hand or chest fragment is never kept, and hold frames emptied by the floor or
+  collapsed against a neighbour from the nearest standing frame (`held by the floor rule`) after every emptying pass,
+  recording `face_points_inside` and `parts_dropped_off_her_head`.
+- `bench/shot_to_load.py job` adds `--carry-words-from OLD.json` (carrying a previous job's words for the frames the new
+  load covers with their original `said_by`/`by` and `at`, tagged `(carried from <old load>)`, while refusing unknown
+  word-bearing keys or carried spans outside or straddling the new load unless dropped with `--leave-word
+  KIND:FIRST-LAST` and `--leave-by`), `--no-carry-words "<why>"` (required on `--remake` when `--carry-words-from` is
+  not given), and `--drop FIRST-LAST[+...]` with `--drop-by WHY`.
+- `bench/review_pages.py` and `bench/shot_coverage.py` read the `frame_coverage.py` gap check JSON, verify that it was
+  built from the same delivery table, and refuse a missing, malformed, or mismatched file; `check_review_pages.py`
+  refuses any dotted IPv4 address in `bench/review_pages.py`.
+- Removes the unimported `meta_sam3/` reference copy, `bench/build_meta_sam3.py`, and `bench/check_meta_sam3_copy.py`,
+  archives `bench/sam3_parity_ladder.py` to `archive/bench/sam3_parity_ladder.py`, and moves the shared ComfyUI SAM 3.1
+  helpers (`COMFY`, `REPO`, `boot`, `environment`, `load_core`, `nudged`) into `bench/_lib/sam3_core.py` for the
+  `bench/subject_*.py` tools.
+- `docs/h3_resolutions.md` and `AGENTS.md` document that `MAX_LENGTH` (`362`) is the only frame cap and any grid length
+  up to `362` is valid for a single-window shot (while lengths whole on the audio clock remain best practice and
+  required at chained seams via `h3_rules.chain_lengths`), that `data/<video>/owner_answers.jsonl` is the primary
+  record of the owner's page answers, that no default keep-out sits on a subject's own body in the masked lane, and that
+  any build changing a file, key, field, or format must list every writer and reader with `file:line`.
+- `bench/frame_coverage.py`, `stack_delivery.py` and `review_pages.py` say "the original: no piece made for these
+  frames" where they said "tracking not known", with the cause: no capture here, or a capture that holds no track of
+  her. The kind key `original_tracking_not_known` is unchanged.
+- `docs/wiki/working_with_the_owner.md` and `data/AGENTS.md`: a clip on the review page is whole, or the gap check's
+  counts for its own frames are printed above the player; otherwise it is not shown.
+
+### Fixed
+
+- `bench/page_answers_to_cast.py` routes a shot-level words line in `owner_answers.jsonl` on a split shot to the
+  sub-shot containing the frame number named in the owner's words, and moves an already-cited note from the wrong
+  sub-shot to the target sub-shot on `--words-to-notes`.
+- `docs/wiki/meta_perception_models.md` records that `coderef/metadepth` is checked out and both HyDen checkpoints load
+  with `torch` and `torchvision`; `docs/checks.md` adds the missing fourth column (`claims block`) to the
+  `check_frame_table.py` row for `bench/check_doc_inventory.py`.
+
 ## 0.289.0
 <!-- changelog.d/day-2026-10-16.md -->
 
