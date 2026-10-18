@@ -124,7 +124,15 @@ One home per kind of fact. Not two.
 - **Two leads, one each side** (the owner, 2026-10-17). The Gemini lead holds the card, git on `main`, the ledger,
   the owner's pages and the plan file, and leads the other Gemini sessions; the Claude lead holds the Open List and
   the inbox, clears each landing, and writes the changelog, the handover and `decisions.md`. They talk only to each
-  other; the mailbox, the landing steps and what each holds are `internal/gemini/PROTOCOL.md`.
+  other; the mailbox, the landing steps and what each holds are `internal/gemini/PROTOCOL.md`. When one model is not
+  available on a day, there is one designated lead, which holds both sides' roles; where it is unclear what to do or
+  how to go forward, that lead asks the owner instead of guessing (the owner, 2026-10-18). A Gemini lead cannot write
+  the Open List, so on such a day its questions go to the owner in its terminal.
+- **A lead starting a day reads, in this order, before its first word to anyone** (the owner, 2026-10-18):
+  `docs/wiki/handover.md`; `docs/wiki/working_with_the_owner.md`; `internal/gemini/PROTOCOL.md` (its "Starting a
+  day as the Gemini lead" has the rest of the order); `docs/comfy_notes.md`, before the first command; then
+  `data/AGENTS.md` and the project's own before lane work. Then `date -u`, `git status`, HEAD and the ports, and its
+  first entry says what it read and what it starts on.
 - **A build goes on its own branch** in a worktree outside `custom_nodes` (`h3_worktrees/<builder>-<item>`), cut from
   current main, never pushed, and lands by pathspec from the merge base (`git diff main...<branch>`) after its own
   blind read and the Claude lead's clearance. A refusal test passes only on the tool's own words with no traceback.
