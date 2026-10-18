@@ -17,6 +17,12 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-18
 
+- **Derived data is made again whenever the code that makes it changes** (the owner, about 23:45Z): `.npz` files,
+  saved tracks, class maps, depth files and the like, which nobody reads in detail, are regenerated after any change
+  to their writer before a load uses them. The root `AGENTS.md` rule "nothing an earlier run made is reused by a key"
+  covers reuse by name; this covers reuse across a code change, which today rests on hand-bumped version stamps
+  (`subject_track.py` MASK_VERSION 15, `video_mask.py` REGION_VERSION, `sapiens2_parts.py` MASK_VERSION). A
+  code-hash stamp that readers check is tomorrow's item 2c.
 - **Leftovers are a standing lens** (the owner, about 23:05Z, in the Claude lead's terminal): the project keeps adding
   a knob, a margin or a one-off rule, then forgets that it was added, why, or that it was built to test one thing and
   never revisited. Every review and audit asks of what it touches: what was this covering for, is that still true, and
