@@ -2046,6 +2046,37 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
         parts = read_mask(m["parts"], size, at, first, frames)[0] if m.get("parts") else None
         took = None
         cmap = read_classes(m["classes"], size, at, first, frames) if m.get("classes") else None
+        head_tube_prov = None
+        if m.get("head_tube") not in (None, "1", "on", "true", "0", "off", "false"):
+            raise SystemExit(f"subject {label!r}: head_tube={m['head_tube']}; give head_tube=1 or --head-tube")
+        use_head_tube = (
+            m.get("head_tube") in ("1", "on", "true")
+            or (bool(getattr(a, "head_tube", False)) and m.get("head_tube") not in ("0", "off", "false") and (label in replaced or not replaced))
+        )
+        if use_head_tube and parts is not None:
+            import head_tube_parts as _htp
+            names_ht = _pack("sapiens2_parts").CLASS_NAMES
+            chosen_ht = [names_ht[k] for k in part_classes(parts, cmap, names_ht)] if cmap is not None else []
+            (out / "subjects" / label).mkdir(parents=True, exist_ok=True)
+            ht_res = _htp.head_tube_for_capture(
+                track,
+                parts,
+                cmap,
+                points_path=m.get("points"),
+                first_frame=first,
+                head_parts=chosen_ht or _htp.DEFAULT_HEAD_PARTS,
+                include_eyeglass="Eyeglass" in chosen_ht,
+                provenance_out=out / "subjects" / label / f"head_tube__{by}.json",
+                masks_out=out / "subjects" / label / f"head_tube__{by}.npz",
+            )
+            parts = ht_res["part_mask"]
+            if cmap is not None:
+                cmap = ht_res["class_map"]
+            head_tube_prov = ht_res["provenance"]
+            print(f"  {label}: head_tube bounded by person_track (shot_box={head_tube_prov['shot_box']}, "
+                  f"clipped_outside_person_px={sum(head_tube_prov['outside_person_track_clipped_px'])}, "
+                  f"suppressed_off_tube_px={sum(head_tube_prov['off_tube_suppressed_px'])}, "
+                  f"bridged={head_tube_prov['dropout_bridged_frames']})", flush=True)
         off_said, off_frags, off_blind = {}, set(), []
         if parts is not None and m.get("points"):
             # WHAT LIES OFF HER HEAD (`off_head`, the lead's rulings of 2026-10-16): from the reference step's face points
@@ -2139,6 +2170,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                             {"subject": label, "seen_by": by, "bar": HOLD_INSIDE, "part_is_made_of": made_of.get(label),
                              "least_px": least, "least_px_set_by": least_by, "measured_on": sizes["measured_on"],
                              "part_sizes": sizes, "held_frames": held_details,
+                             **({"head_tube": True, "head_tube_provenance": f"subjects/{label}/head_tube__{by}.json"} if head_tube_prov is not None else {}),
                              "frames": [{"source_frame": first + f, **d} for f, d in sorted(graded.items())]}, indent=1) + "\n")
                     (folder / "doubted_frames.json").write_text(json.dumps(
                         {"subject": label, "seen_by": by, "what_each_means": UNDER,
@@ -2198,6 +2230,16 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                                                    "nothing_left_at_her_head_on_source_frames": frame_spans([first + k for k in sorted(off_frags)]),
                                                                    "no_face_points_on_source_frames": frame_spans([first + k for k in off_blind])}
                                                                   if m.get("points") else None),
+                                   **({"head_tube": True,
+                                       "head_tube_provenance": f"subjects/{label}/head_tube__{by}.json",
+                                       "head_tube_summary": {
+                                           "shot_box": head_tube_prov["shot_box"],
+                                           "outside_person_track_clipped_px": int(sum(head_tube_prov["outside_person_track_clipped_px"])),
+                                           "regained_from_person_track_frames": [first + f for f in head_tube_prov["regained_from_person_track_frames"]],
+                                           "off_tube_suppressed_px": int(sum(head_tube_prov["off_tube_suppressed_px"])),
+                                           "dropout_bridged_frames": [first + f for f in head_tube_prov["dropout_bridged_frames"]],
+                                           "turned_away_frames": [first + f for f in head_tube_prov["turned_away_frames"]],
+                                       }} if head_tube_prov is not None else {}),
                                    # the part's size on this clip's frames, and where the floor fell among them (`part_sizes`)
                                    "part_sizes": sizes,
                                    # the zoom the starting floor was held to (`floor_zoom`); None with least= or zoom=off
@@ -6404,8 +6446,9 @@ def main() -> None:
     f.add_argument("--source", required=True, help="the clip every run was loaded from")
     f.add_argument("--first", type=int, required=True, help="the source frame that is the span's frame 0")
     f.add_argument("--frames", type=int, required=True)
-    f.add_argument("--mask", action="append", default=[], metavar="LABEL:track=V[,parts=V][,classes=V][,held=V][,shots=J][,shots_at=N][,pose=J][,pose_at=N][,by=RUN][,at=N][,hold=A-B+C-D][,drop=A-B+C-D][,word=A-B+C-D][,grade=off][,least=PX][,pieces=largest][,zoom=off]",
+    f.add_argument("--mask", action="append", default=[], metavar="LABEL:track=V[,parts=V][,classes=V][,held=V][,shots=J][,shots_at=N][,pose=J][,pose_at=N][,by=RUN][,at=N][,hold=A-B+C-D][,drop=A-B+C-D][,word=A-B+C-D][,grade=off][,least=PX][,pieces=largest][,zoom=off][,head_tube=1]",
                    help="one sighting of a subject: its saved mask videos; repeatable")
+    f.add_argument("--head-tube", action="store_true", help="opt-in: bound the replaced subject's head tube by its person track and smooth Sapiens2-Seg on one steady shot box before grading")
     f.add_argument("--run", action="append", default=[], metavar="RUN:render=V|preview=DIR,subject=LABEL[,others=L+L][,margin=PX][,at=N][,region=review]",
                    help="one pass that regenerated a subject; its region is the one each window saved beside its latent, or is "
                         "read from the render's review when there is none (or with region=review). With preview= and no "

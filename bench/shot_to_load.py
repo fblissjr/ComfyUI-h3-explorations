@@ -1409,7 +1409,7 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
             raise Refused(f"--carry-words-from {old_name}: word-bearing key 'loads[0].{k}' in old job cannot be carried")
     job_known = {"name", "note", "source", "first", "frames", "canvas", "output", "subjects", "capture", "preview", "reference_folder",
                  "texts", "keep_outs", "part_on_track", "others_present", "defaults", "restore",
-                 "left_out", "zoomed", "whole_frame", "part", "track_not", "reference", "carried_words_from", "no_carry_words"}
+                 "left_out", "zoomed", "whole_frame", "head_tube", "part", "track_not", "reference", "carried_words_from", "no_carry_words"}
     for k in old_job:
         if k not in job_known:
             raise Refused(f"--carry-words-from {old_name}: word-bearing key 'job.{k}' in old job cannot be carried")
@@ -1450,7 +1450,7 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
     retired_said: list[str] = []
     out: dict = {
         "first": first, "frames": frames, "why_before": "", "why_after": "", "zoomed": None, "whole_frame": None,
-        "zoomed_meta": None, "whole_frame_meta": None,
+        "zoomed_meta": None, "whole_frame_meta": None, "head_tube": None, "head_tube_meta": None,
         "least": None, "least_why": None, "hold_part": [], "drop": None, "drop_by": None,
         "parts": None, "parts_by": None, "parts_on": [], "track_not": [], "track_not_by": None,
         "motion": None, "motion_why": None, "no_strangers": None, "no_strangers_meta": None,
@@ -1616,6 +1616,16 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
             out["whole_frame_meta"] = {"said_by": ow.get("said_by"), "at": ow.get("at"), "carried": dict(carried_rec)}
             carried_said.append(f"whole_frame ({ow.get('said_by')}, {ow.get('at')}): {out['whole_frame']}")
 
+    if old_job.get("head_tube") is not None:
+        oht = old_job["head_tube"]
+        if not isinstance(oht, dict) or set(oht) - {"on", "why", "said_by", "at", "carried"}:
+            raise Refused(f"--carry-words-from {old_name}: word-bearing key in job.head_tube {oht!r} cannot be carried")
+        if oht.get("on") and oht.get("said_by") != "the plan":
+            ht_str = str(oht.get("why") or "")
+            out["head_tube"] = tagged(ht_str)
+            out["head_tube_meta"] = {"said_by": oht.get("said_by"), "at": oht.get("at"), "carried": dict(carried_rec)}
+            carried_said.append(f"head_tube ({oht.get('said_by')}, {oht.get('at')}): {out['head_tube']}")
+
     if old_job.get("track_not") is not None:
         otn = old_job["track_not"]
         if not isinstance(otn, dict) or set(otn) - {"by", "preview", "made", "carried"}:
@@ -1704,7 +1714,7 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
             out["eyes_shut_form"] = es.get("form")
 
     defs_known = {"the reference video", "the reference held to the subject's track", "the eye", "the mouth",
-                  "the part held on a person's word", "the face lines", "zoom", "other people in the shot",
+                  "the part held on a person's word", "the face lines", "the head tube", "zoom", "other people in the shot",
                   "the strangers keep-out", "the part's pieces", "the hair band", "restore spans", "the text",
                   "what the composite kept", "the voice", "the seam", "the kept frames' noise"}
     defs = {}
@@ -1768,7 +1778,8 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
              seam_why: str | None = None, context_noise: float | None = None, context_noise_why: str | None = None,
              mouth_on: list[tuple[int, int, str]] | None = None, data: Path | None = None,
              drop: str | None = None, drop_by: str | None = None, carry_words_from: dict | Path | str | None = None,
-             leave_word: list[str] | None = None, leave_by: str | None = None, no_carry_words: str | None = None) -> dict:
+             leave_word: list[str] | None = None, leave_by: str | None = None, no_carry_words: str | None = None,
+             head_tube: str | None = None) -> dict:
     """The job file of one subject's load on a shot, from the shot's preview. `preview` is the preview's own job
     block; `source` is the file the load renders from, the video's present copy (the preview's own when left out).
     `parts` with `parts_by` makes the load's part some of its subject's plan parts (`part_of`)."""
@@ -1784,7 +1795,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         raise Refused(f"the preview {preview['name']} is of {preview['first']}-{preview['first'] + preview['frames'] - 1}, not of the shot {shot['first']}-{shot['last']}")
     p = planned(plan, subject)
     cw = None
-    wb_from_cw = wa_from_cw = zoomed_from_cw = whole_from_cw = least_from_cw = False
+    wb_from_cw = wa_from_cw = zoomed_from_cw = whole_from_cw = head_tube_from_cw = least_from_cw = False
     parts_from_cw = track_not_from_cw = motion_from_cw = ns_from_cw = es_from_cw = False
     seam_from_cw = cn_from_cw = drop_from_cw = False
     n_cw_hp = 0
@@ -1817,6 +1828,10 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             whole_frame, whole_from_cw = cw["whole_frame"], True
         elif cw["whole_frame"] is not None:
             _ov("whole_frame ", f"whole_frame={whole_frame!r} zoomed={zoomed!r}", repr(cw["whole_frame"]))
+        if head_tube is None and cw["head_tube"] is not None:
+            head_tube, head_tube_from_cw = cw["head_tube"], True
+        elif cw["head_tube"] is not None:
+            _ov("head_tube ", f"head_tube={head_tube!r}", repr(cw["head_tube"]))
         if least is None and cw["least"] is not None:
             least, least_why, least_from_cw = cw["least"], cw["least_why"], True
         elif cw["least"] is not None:
@@ -2196,9 +2211,40 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         if cw and drop_from_cw:
             mine["drop_carried"] = dict(cw["carried_rec"])
         chosen += f" DROP ON THIS LOAD ({mine['drop']}), on {mine['drop_by']}: the capture empties the part there."
+    head_tube_block = None
+    if head_tube is not None and not str(head_tube).strip():
+        raise Refused("--head-tube takes the reason in words, and the word is kept")
+    plan_ht = p.get("head_tube") if "head_tube" in p else (p.get("capture") or {}).get("head_tube")
+    plan_ht_by = p.get("head_tube_by") or (p.get("capture") or {}).get("head_tube_by")
+    if isinstance(plan_ht, dict):
+        plan_ht_on = bool(plan_ht.get("on", True))
+        plan_ht_why = " ".join(str(plan_ht.get("why") or plan_ht.get("by") or plan_ht_by or f"subjects.{subject}.head_tube").split())
+    elif isinstance(plan_ht, str):
+        plan_ht_on = bool(plan_ht.strip())
+        plan_ht_why = " ".join(plan_ht.split())
+    elif plan_ht is True:
+        plan_ht_on = True
+        plan_ht_why = " ".join(str(plan_ht_by or f"subjects.{subject}.head_tube").split())
+    elif plan_ht in (None, False):
+        plan_ht_on = False
+        plan_ht_why = ""
+    else:
+        raise Refused(f"the plan's `head_tube` for {subject!r} is {plan_ht!r}: true/false or {{on, why}}")
+    if head_tube is not None or plan_ht_on:
+        head_tube_block = (
+            {"on": True, "why": " ".join(str(head_tube).split()),
+             "said_by": cw["head_tube_meta"]["said_by"], "at": cw["head_tube_meta"]["at"],
+             "carried": dict(cw["head_tube_meta"]["carried"])}
+            if (cw and head_tube_from_cw and cw.get("head_tube_meta")) else
+            {"on": True, "why": " ".join(str(head_tube).split()), "said_by": by, "at": now}
+            if head_tube is not None else
+            {"on": True, "why": plan_ht_why, "said_by": "the plan", "at": now}
+        )
+        chosen += (f" HEAD TUBE ENABLED FOR THIS LOAD (`--head-tube`), on {head_tube_block['said_by']}'s word: "
+                   f"{head_tube_block['why']}.")
     # what the composite kept, saved for the review clips (the song node's `save_kept`): a chain default, the job's switch (2026-10-15)
     load["save_kept"] = True
-    carried = defaults_carried(p, load, subjects, subject, kept, ref_form, zoom_block, whole_block)
+    carried = defaults_carried(p, load, subjects, subject, kept, ref_form, zoom_block, whole_block, head_tube_block=head_tube_block)
     if motion == "none":
         # no reference: the rows of the drawn reference say nothing of this load, and the text is made from no record
         carried = [x for x in carried if x["what"] not in ("the reference held to the subject's track", "the eye", "the mouth")]
@@ -2281,6 +2327,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
                                                             if r["first"] <= b and r["last"] >= a]) else {}),
                     **({"part": part} if part else {}), **({"part_on_track": on_track} if on_track else {}), **({"zoomed": zoom_block} if zoom_block else {}),
                     **({"whole_frame": whole_block} if whole_block else {}),
+                    **({"head_tube": head_tube_block} if head_tube_block else {}),
                     **({"track_not": gone} if gone else {}),
                     **({"carried_words_from": {**cw["carried_rec"], **({"left_words": cw["left_words"]} if cw["left_words"] else {})}} if cw else {}),
                     **({"no_carry_words": {"why": ncw_why, "by": by, "at": now}} if ncw_why else {}),
@@ -2424,7 +2471,8 @@ def reference_form(p: dict, subject: str) -> dict:
     return out
 
 
-def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: dict | None, ref_form: dict, zoom_block, whole_block) -> list[dict]:
+def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: dict | None, ref_form: dict, zoom_block, whole_block,
+                     head_tube_block: dict | None = None) -> list[dict]:
     """THE DEFAULTS THIS LOAD CARRIES (the owner's word of 2026-10-14), one line each, with where each comes from: printed by the
     job step and kept in the job file (`job.defaults`)."""
     import h3_config
@@ -2453,6 +2501,9 @@ def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: di
         *([("the face lines", "NONE on " + ", ".join(f"{s['first']}-{s['last']}" for s in ref_form["no_face_on"]) + ", turned off on a person's word "
             "(the plain cut body model alone there)", "; ".join(f"{s['first']}-{s['last']}: {s['said_by']}, {s['at']}: {s['why']}" for s in ref_form["no_face_on"]))]
           if ref_form.get("no_face_on") else []),
+        *([("the head tube", "SAM 3.1 whole-head tube bounded by the person track + 3-frame smoothed Sapiens2-Seg on one steady shot box (head_tube_parts --head-tube)",
+            f"shot_to_load.py::defaults_carried (opt-in switch, off by default; {head_tube_block['said_by']}: {head_tube_block['why']})")]
+          if head_tube_block else []),
         ("zoom", "zoomed in where the node's box allows (the node decides at plan)" if zoom_block else "the whole frame",
          f"{(zoom_block or whole_block)['said_by']}: {(zoom_block or whole_block)['why']}"),
         ("other people in the shot", (p.get("others_present") or {}).get("said", "not read"), "bench/others_present.py, from the preview's tables and the owner's answers"),
@@ -2628,7 +2679,8 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
                    eyes_shut_form=getattr(a, "eyes_shut_form", None), seam=seams_arg(getattr(a, "seam", None)), seam_why=getattr(a, "seam_why", None),
                    context_noise=getattr(a, "context_noise", None), context_noise_why=getattr(a, "context_noise_why", None),
                    drop=getattr(a, "drop", None), drop_by=getattr(a, "drop_by", None), carry_words_from=cwf,
-                   leave_word=lw, leave_by=lby, no_carry_words=ncw)
+                   leave_word=lw, leave_by=lby, no_carry_words=ncw,
+                   head_tube=getattr(a, "head_tube", None))
     job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "ITS PREVIEW WAS MADE ON AN EARLIER COPY")
     out = folder / f"{name}.json"
     print(f"{name}: {a.subject}, {renders(region, eff_parts)}, source frames {job['loads'][0]['first']}-{job['loads'][0]['first'] + job['loads'][0]['frames'] - 1}; "
@@ -3175,6 +3227,9 @@ def main() -> int:
                         "no_mouth_on, mouth_on, eyes_shut_on, seam) on purpose, recording the drop in job.carried_words_from.left_words; repeatable")
     j.add_argument("--leave-by", metavar="WHO_WHY", help="who says the --leave-word span(s) are left out and why; kept in job.carried_words_from.left_words")
     j.add_argument("--no-carry-words", metavar="WHY", help="Why a --remake does not carry words from an earlier job on the same shot and subject.")
+    j.add_argument("--head-tube", nargs="?", const="opt-in --head-tube", default=None, metavar="WHY",
+                   help="enable the person-track-bounded SAM 3.1 whole-head tube + 3-frame smoothed Sapiens2-Seg head pass in capture (off by default); "
+                        "optional reason kept in the job file")
     r = sub.add_parser("reference")
     r.add_argument("job_file")
     r.add_argument("--plain", metavar="WHY", help="take the plain cut, on a person's word; the reason is kept in the job file")

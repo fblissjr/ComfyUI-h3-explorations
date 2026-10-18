@@ -2817,6 +2817,77 @@ def text_rules() -> str:
             "whatever its words; one defining a subject by a reference video is read by its head (1097c's drawn mouth is no voice)")
 
 
+def head_tube_in_the_files_step() -> str:
+    """When --head-tube is enabled, the files step bounds the head tube by the person track, bridges 1-frame dropouts, and writes provenance."""
+    import tempfile
+    n = 4
+    cls_names = list(cap._pack("sapiens2_parts").CLASS_NAMES)
+    face_cls = cls_names.index("Face_Neck")
+    torso_cls = cls_names.index("Torso")
+    # Person track covers x=20..60, y=10..80 across all 4 frames.
+    ht_track = rect(20, 10, 60, 80, n)
+    # Head part is at x=28..52, y=14..38 on all frames, except:
+    # - Frame 1 also has an off-person false-positive Face_Neck blob at x=80..96, y=20..36 (outside ht_track)
+    # - Frame 2 has a 1-frame Sapiens2-Seg dropout on the head (empty at x=28..52, y=14..38)
+    ht_parts = rect(28, 14, 52, 38, n)
+    ht_parts[1, 20:36, 80:96] = True
+    ht_parts[2, 14:38, 28:52] = False
+    ht_cmap = np.where(ht_parts, face_cls, 0).astype(np.uint8)
+    ht_cmap[:, 44:70, 26:54] = torso_cls
+
+    stood_in = {k: getattr(cap, k) for k in ("probe", "read_mask", "read_classes", "write_mask_video", "input_facts", "picture_rows")}
+    with tempfile.TemporaryDirectory() as tmp:
+        f_src = Path(tmp) / "src.mp4"
+        f_src.write_bytes(b"")
+        off_dir = Path(tmp) / "cap_off"
+        on_dir = Path(tmp) / "cap_on"
+        written_off: dict[str, np.ndarray] = {}
+        written_on: dict[str, np.ndarray] = {}
+        try:
+            cap.probe = lambda _p: (W, H, n)
+            cap.read_mask = lambda p, *_a: ((ht_track.copy() if "track" in str(p) else ht_parts.copy()), np.ones(n, bool))
+            cap.read_classes = lambda *_a: ht_cmap.copy()
+            cap.input_facts = lambda p: {"file": str(p), "written": "2026-10-17T12:00:00", "size": [W, H], "frames": n}
+            cap.picture_rows = lambda *_a: [(0.0, 0.0)] * n
+
+            cap.write_mask_video = lambda p, m: written_off.__setitem__(Path(p).name, m.copy())
+            args_off = argparse.Namespace(first=100, frames=n, name="off", date="2026-01-01", source=str(f_src), loads=None, voice=None, head_tube=False)
+            spec_a = {"track": "track.mkv", "parts": "parts.mkv", "classes": "classes.mkv", "by": "pv", "at": "100", "least": "50"}
+            cap._files(args_off, off_dir, [("a", dict(spec_a))], [], [])
+
+            cap.write_mask_video = lambda p, m: written_on.__setitem__(Path(p).name, m.copy())
+            args_on = argparse.Namespace(first=100, frames=n, name="on", date="2026-01-01", source=str(f_src), loads=None, voice=None, head_tube=True)
+            cap._files(args_on, on_dir, [("a", dict(spec_a))], [], [])
+
+            try:
+                cap._files(args_off, Path(tmp) / "bad", [("a", {**spec_a, "head_tube": "maybe"})], [], [])
+                raise AssertionError("accepted invalid head_tube=maybe")
+            except SystemExit as exc:
+                assert "head_tube=1 or --head-tube" in str(exc), exc
+        finally:
+            for k, v in stood_in.items():
+                setattr(cap, k, v)
+
+        assert not (off_dir / "subjects" / "a" / "head_tube__pv.json").is_file(), "head_tube ran when off by default"
+        off_sighting = json.loads((off_dir / "manifest.json").read_text())["subjects"][0]["sightings"][0]
+        assert "head_tube" not in off_sighting, off_sighting
+
+        prov_path = on_dir / "subjects" / "a" / "head_tube__pv.json"
+        npz_path = on_dir / "subjects" / "a" / "head_tube__pv.npz"
+        assert prov_path.is_file() and npz_path.is_file(), "head_tube provenance and masks not written when enabled"
+        prov = json.loads(prov_path.read_text())
+        assert prov["outside_person_track_clipped_px"] == [0, 16 * 16, 0, 0], prov["outside_person_track_clipped_px"]
+        assert not (written_on["parts__pv.mkv"] & ~ht_track).any(), "parts__pv.mkv leaked outside person_track"
+        assert int(written_on["parts__pv.mkv"][2, 14:38, 28:52].sum()) == 24 * 24, "1-frame dropout on frame 2 was not bridged by head_tube"
+        on_sighting = json.loads((on_dir / "manifest.json").read_text())["subjects"][0]["sightings"][0]
+        assert on_sighting.get("head_tube") is True and on_sighting.get("head_tube_provenance") == "subjects/a/head_tube__pv.json", on_sighting
+        on_pg = json.loads((on_dir / "subjects" / "a" / "part_grades.json").read_text())
+        assert on_pg.get("head_tube") is True and on_pg.get("head_tube_provenance") == "subjects/a/head_tube__pv.json", on_pg
+        on_classes = np.load(on_dir / "subjects" / "a" / "classes__pv.npz")["classes"]
+        assert (on_classes[:, 44:70, 26:54] == torso_cls).all(), "non-head body classes in classes__pv.npz were lost"
+    return "off by default; when on, bounds head tube by person_track, bridges 1-frame dropout, preserves torso classes, and writes provenance"
+
+
 case("one subject's row", one_subject)
 case("across three subjects", across)
 case("two sightings of one subject", two_sightings)
@@ -2867,4 +2938,5 @@ case("the floor holds", the_floor_holds)
 case("off her head", off_her_head)
 case("the carve, in the files step", the_carve_in_the_files_step)
 case("the carve on the node's own grid", the_carve_on_the_nodes_grid)
+case("the head tube, in the files step", head_tube_in_the_files_step)
 sys.exit(finish())

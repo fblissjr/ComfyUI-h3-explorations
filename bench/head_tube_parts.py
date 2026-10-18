@@ -1,0 +1,1350 @@
+#!/usr/bin/env python3
+"""Head-tube conditioned Sapiens2-Seg part masks and Sapiens2-Pose 39-point face cross-check.
+
+Couples three signals on a shot so head/face part masks stay temporally smooth
+and bounded without per-frame tight-crop jitter or off-head false positives:
+
+1. ``sam31_head_tube``: seeds SAM 3.1 on the subject's head/face on the shot's
+   seed frame (with ``[-1, 1]`` input normalization, exact ``F.gelu`` on the text
+   tower, and ``class_score * presence_score`` filtering) to produce a continuous
+   per-frame boolean head tube ``(T, H, W)`` and one fixed even-snapped bounding
+   box ``shot_box = [x0, y0, x1, y1]`` across the entire shot.
+2. ``smooth_seg_in_tube``: runs or consumes ``Sapiens2ForSemanticSegmentation``
+   logits on ``shot_box`` (with only other people's tracks masked to neutral
+   grey and ``cv2.INTER_AREA`` / ``cv2.INTER_LINEAR`` resizing), bilinearly
+   upsamples logits, applies a 3-frame temporal filter ``[0.25, 0.50, 0.25]`` on
+   the class probabilities, and restricts head/facial classes to lie inside the
+   SAM 3.1 head tube.
+3. ``cross_check_face_points``: cross-checks the 39 scored facial keypoints from
+   the 308-keypoint Sapiens2-Pose layout (excluding unscored pupils) against the
+   head tube and smoothed ``Face_Neck`` / ``Hair`` masks to separate a turned-away
+   or bent head from a 1-2 frame segmentation dropout or an off-track pose jump.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+from typing import Any, Callable, Sequence
+
+import cv2
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+BENCH_DIR = Path(__file__).resolve().parent
+REPO_ROOT = BENCH_DIR.parent
+if str(BENCH_DIR) not in sys.path:
+    sys.path.insert(0, str(BENCH_DIR))
+
+from _lib import face_points as fp  # noqa: E402
+
+SEG_CLASSES_PATH = (
+    REPO_ROOT / "vendor" / "meta_sapiens2" / "seg_classes29.json"
+)  #: inherited: upstream Sapiens2 29-class table path (sapiens2_parts.CLASSES_PATH)
+POSE_KEYPOINTS_PATH = (
+    REPO_ROOT / "vendor" / "meta_sapiens2" / "pose_keypoints308.json"
+)  #: inherited: upstream Sapiens2 308-keypoint table path (pose_along_shot.Pose308)
+
+DEFAULT_TEMPORAL_WEIGHTS: tuple[float, ...] = (
+    0.25,
+    0.50,
+    0.25,
+)  #: reasoned: 3-frame symmetric temporal kernel bridging 1-2 frame Sapiens2-Seg dropouts inside the SAM 3.1 head tube
+DEFAULT_BOX_PAD_FRAC: float = (
+    0.20  #: inherited: 20% padding around the shot-union head tube box (pose_along_shot.PAD_FRAC)
+)
+MIN_BOX_PX: int = (
+    16  #: reasoned: minimum even crop side in pixels for Sapiens2-Seg on the shot-fixed box
+)
+OTHER_PERSON_FILL_RGB: int = (
+    128  #: inherited: neutral mid-grey fill for masking other people's tracks only (pose_along_shot.ALONE_FILL)
+)
+DEFAULT_HEAD_PARTS: tuple[str, ...] = (
+    "Face_Neck",
+    "Hair",
+    "Upper_Lip",
+    "Lower_Lip",
+    "Upper_Teeth",
+    "Lower_Teeth",
+    "Tongue",
+)  #: reasoned: Sapiens2-Seg head and facial part classes restricted to lie inside the SAM 3.1 head tube
+OPTIONAL_HEAD_PARTS: tuple[str, ...] = (
+    "Eyeglass",
+)  #: reasoned: optional head-mounted class included inside the SAM 3.1 head tube when requested
+DEFAULT_PART_PROB_FLOOR: float = (
+    0.35  #: reasoned: temporally smoothed head-part probability threshold bridging 1-2 frame dropouts inside the head tube
+)
+TURNED_AWAY_HAIR_SHARE_MIN: float = (
+    0.85  #: measured: shot 2 frames 684-707 bent/turned-away head holds >85% Hair inside the SAM 3.1 head tube
+)
+TURNED_AWAY_FACE_SHARE_MAX: float = (
+    0.05  #: measured: shot 2 frames 684-707 bent/turned-away head holds <5% Face_Neck inside the SAM 3.1 head tube
+)
+DEFAULT_FACE_POINT_MIN_SCORE: float = (
+    0.30  #: inherited: minimum confidence score for scored Sapiens2-Pose facial landmarks (face_points.FACE_MIN_SCORE)
+)
+SAM31_SCORE_FLOOR: float = (
+    0.30  #: inherited: minimum combined class_score * presence_score for SAM 3.1 head proposals (sam31_corrections.SCORE_FLOOR)
+)
+SYNTHETIC_CLASS_LOGIT: float = (
+    5.0  #: reasoned: log-odds assigned to the discrete Sapiens2-Seg class map winner when smoothing inside the head tube
+)
+
+
+def _load_seg_classes() -> tuple[tuple[str, ...], dict[str, int]]:
+    with open(SEG_CLASSES_PATH, encoding="utf-8") as f:
+        names = tuple(json.load(f)["names"])
+    return names, {name: idx for idx, name in enumerate(names)}
+
+
+def _load_pose_keypoint_index() -> dict[str, int]:
+    with open(POSE_KEYPOINTS_PATH, encoding="utf-8") as f:
+        names = json.load(f)["names"]
+    index = {name: idx for idx, name in enumerate(names)}
+    if "tip_of_nose" not in index and "nose" in index:
+        index["tip_of_nose"] = index["nose"]
+    return index
+
+
+CLASS_NAMES, NAME_TO_ID = _load_seg_classes()
+POSE_KEYPOINT_INDEX = _load_pose_keypoint_index()
+
+
+def sam31_normalize_input(x: torch.Tensor) -> torch.Tensor:
+    """Normalize ``[0, 1]`` or ``[0, 255]`` image tensor to SAM 3.1's ``[-1, 1]`` range."""
+    if not isinstance(x, torch.Tensor):
+        raise SystemExit("sam31_normalize_input: input must be a torch.Tensor")
+    if x.numel() == 0 or x.ndim < 3:
+        raise SystemExit(
+            f"sam31_normalize_input: expected non-empty image tensor with ndim >= 3, got shape {tuple(x.shape)}"
+        )
+    xf = x.float()
+    if float(xf.max().item()) > 1.0 + 1e-3:
+        xf = xf / 255.0
+    return (xf.clamp(0.0, 1.0) * 2.0) - 1.0
+
+
+def sam31_combined_score(
+    pred_logits: torch.Tensor,
+    presence_logits: torch.Tensor | None = None,
+) -> torch.Tensor:
+    """Compute SAM 3.1 proposal scores via ``class_score * presence_score``."""
+    if pred_logits.numel() == 0:
+        raise SystemExit("sam31_combined_score: pred_logits is empty")
+    scores = pred_logits.sigmoid()
+    if presence_logits is not None:
+        scores = scores * presence_logits.sigmoid()
+    return scores
+
+
+def sam31_enforce_exact_gelu(module: nn.Module) -> int:
+    """Replace any approximate GELU inside a SAM 3.1 text tower with exact ``F.gelu``."""
+    patched = 0
+    for sub in module.modules():
+        if isinstance(sub, nn.GELU) and getattr(sub, "approximate", "none") != "none":
+            sub.approximate = "none"
+            patched += 1
+    return patched
+
+
+def _snap_even_box(
+    x0: float,
+    y0: float,
+    x1: float,
+    y1: float,
+    width: int,
+    height: int,
+    min_box_px: int = MIN_BOX_PX,
+) -> list[int]:
+    if width < 2 or height < 2:
+        raise SystemExit(f"shot_box_from_tube: invalid frame dimensions ({height}, {width})")
+    ix0 = max(0, int(np.floor(x0)) & ~1)
+    iy0 = max(0, int(np.floor(y0)) & ~1)
+    ix1 = min(width & ~1, ((int(np.ceil(x1)) + 1) & ~1))
+    iy1 = min(height & ~1, ((int(np.ceil(y1)) + 1) & ~1))
+    min_w = min(width & ~1, max(2, int(min_box_px) & ~1))
+    min_h = min(height & ~1, max(2, int(min_box_px) & ~1))
+    if ix1 - ix0 < min_w:
+        ix1 = min(width & ~1, ix0 + min_w)
+        ix0 = max(0, ix1 - min_w)
+    if iy1 - iy0 < min_h:
+        iy1 = min(height & ~1, iy0 + min_h)
+        iy0 = max(0, iy1 - min_h)
+    return [int(ix0), int(iy0), int(ix1), int(iy1)]
+
+
+def shot_box_from_tube(
+    tube: np.ndarray | torch.Tensor,
+    frame_shape: tuple[int, int] | None = None,
+    pad_frac: float = DEFAULT_BOX_PAD_FRAC,
+) -> list[int]:
+    """Compute one fixed even-snapped bounding box ``[x0, y0, x1, y1]`` across the entire shot."""
+    if isinstance(tube, torch.Tensor):
+        tube_np = tube.detach().cpu().numpy()
+    else:
+        tube_np = np.asarray(tube)
+    if tube_np.ndim != 3 or tube_np.shape[0] < 1:
+        raise SystemExit(
+            f"shot_box_from_tube: expected 3D head tube (T, H, W) with T >= 1, got shape {tube_np.shape}"
+        )
+    if pad_frac < 0.0:
+        raise SystemExit(f"shot_box_from_tube: pad_frac must be >= 0, got {pad_frac}")
+    tube_bool = tube_np > 0
+    if not np.any(tube_bool):
+        raise SystemExit("shot_box_from_tube: head tube is empty across all frames in the shot")
+    _, h_tube, w_tube = tube_bool.shape
+    height, width = (int(frame_shape[0]), int(frame_shape[1])) if frame_shape is not None else (h_tube, w_tube)
+    if (height, width) != (h_tube, w_tube):
+        raise SystemExit(
+            f"shot_box_from_tube: frame_shape {(height, width)} does not match tube spatial shape {(h_tube, w_tube)}"
+        )
+    union_2d = np.any(tube_bool, axis=0)
+    ys, xs = np.nonzero(union_2d)
+    x0_raw, x1_raw = float(xs.min()), float(xs.max() + 1)
+    y0_raw, y1_raw = float(ys.min()), float(ys.max() + 1)
+    pad_x = (x1_raw - x0_raw) * float(pad_frac)
+    pad_y = (y1_raw - y0_raw) * float(pad_frac)
+    return _snap_even_box(
+        x0_raw - pad_x,
+        y0_raw - pad_y,
+        x1_raw + pad_x,
+        y1_raw + pad_y,
+        width=width,
+        height=height,
+    )
+
+
+def mask_other_people_only(
+    frames: np.ndarray,
+    other_people_tube: np.ndarray | None = None,
+    fill_rgb: int = OTHER_PERSON_FILL_RGB,
+) -> np.ndarray:
+    """Mask only other people's tracks to neutral grey, keeping the subject's context intact."""
+    arr = np.asarray(frames)
+    if arr.ndim != 4 or arr.shape[-1] != 3:
+        raise SystemExit(
+            f"mask_other_people_only: expected frames (T, H, W, 3), got shape {arr.shape}"
+        )
+    out = arr.copy()
+    if other_people_tube is None:
+        return out
+    other = np.asarray(other_people_tube) > 0
+    if other.shape != arr.shape[:3]:
+        raise SystemExit(
+            f"mask_other_people_only: other_people_tube shape {other.shape} does not match frames {arr.shape[:3]}"
+        )
+    out[other] = int(fill_rgb)
+    return out
+
+
+def resize_crop(crop: np.ndarray, target_hw: tuple[int, int]) -> np.ndarray:
+    """Resize an image crop using ``cv2.INTER_AREA`` when shrinking and ``cv2.INTER_LINEAR`` when enlarging."""
+    if crop.ndim not in (2, 3) or crop.size == 0:
+        raise SystemExit(f"resize_crop: expected non-empty 2D or 3D crop, got shape {crop.shape}")
+    target_h, target_w = int(target_hw[0]), int(target_hw[1])
+    if target_h <= 0 or target_w <= 0:
+        raise SystemExit(f"resize_crop: invalid target_hw {target_hw}")
+    h, w = crop.shape[:2]
+    if (h, w) == (target_h, target_w):
+        return crop.copy()
+    interp = cv2.INTER_AREA if (target_h < h or target_w < w) else cv2.INTER_LINEAR
+    return cv2.resize(crop, (target_w, target_h), interpolation=interp)
+
+
+def _head_seed_from_person_mask(person_mask_2d: np.ndarray, head_rel_y1: float = 0.40) -> tuple[np.ndarray, list[int]]:
+    """Extract the upper head region and bounding box from a single-frame 2D person-track mask."""
+    ys, xs = np.nonzero(person_mask_2d)
+    if len(ys) == 0:
+        return np.zeros_like(person_mask_2d, dtype=bool), [0, 0, 0, 0]
+    py0, py1 = int(ys.min()), int(ys.max()) + 1
+    px0, px1 = int(xs.min()), int(xs.max()) + 1
+    rel = min(max(float(head_rel_y1), 0.25), 1.0)
+    hy1 = max(py0 + 1, int(np.ceil(py0 + rel * (py1 - py0))))
+    seed = np.zeros_like(person_mask_2d, dtype=bool)
+    seed[py0:hy1, px0:px1] = person_mask_2d[py0:hy1, px0:px1]
+    if not np.any(seed):
+        seed = person_mask_2d.copy()
+    sys_y, sxs_x = np.nonzero(seed)
+    box = [int(sxs_x.min()), int(sys_y.min()), int(sxs_x.max()) + 1, int(sys_y.max()) + 1]
+    return seed, box
+
+
+def _measure_head_rel_y1(head_mask_2d: np.ndarray, person_mask_2d: np.ndarray, default: float = 0.40) -> float:
+    """Measure the vertical fraction of ``person_mask_2d`` spanned by ``head_mask_2d`` from the top of the person."""
+    pys, _ = np.nonzero(person_mask_2d)
+    hys, _ = np.nonzero(head_mask_2d & person_mask_2d)
+    if len(pys) == 0 or len(hys) == 0:
+        return default
+    py0, py1 = int(pys.min()), int(pys.max()) + 1
+    hy1 = int(hys.max()) + 1
+    span = max(1, py1 - py0)
+    return min(max(float(hy1 - py0) / float(span), 0.25), 1.0)
+
+
+def sam31_head_tube(
+    frames_or_tube: np.ndarray | torch.Tensor,
+    *,
+    seed_frame: int = 0,
+    seed_box: Sequence[int] | None = None,
+    seed_mask: np.ndarray | None = None,
+    person_track: np.ndarray | torch.Tensor | None = None,
+    prompt: str = "head",
+    pad_frac: float = DEFAULT_BOX_PAD_FRAC,
+    tracker: Callable[..., np.ndarray | torch.Tensor] | None = None,
+) -> dict[str, Any]:
+    """Produce a continuous per-frame boolean head tube ``(T, H, W)`` bounded by ``person_track`` and one fixed ``shot_box``."""
+    arr = (
+        frames_or_tube.detach().cpu().numpy()
+        if isinstance(frames_or_tube, torch.Tensor)
+        else np.asarray(frames_or_tube)
+    )
+    if arr.ndim == 3:
+        num_frames, height, width = arr.shape
+    elif arr.ndim == 4 and arr.shape[-1] == 3:
+        num_frames, height, width, _ = arr.shape
+    else:
+        raise SystemExit(
+            f"sam31_head_tube: expected 3D tube (T, H, W) or 4D frames (T, H, W, 3), got shape {arr.shape}"
+        )
+    if seed_frame < 0 or seed_frame >= num_frames:
+        raise SystemExit(
+            f"sam31_head_tube: seed_frame {seed_frame} out of range for T={num_frames}"
+        )
+
+    pt_bool: np.ndarray | None = None
+    if person_track is not None:
+        pt_arr = (
+            person_track.detach().cpu().numpy()
+            if isinstance(person_track, torch.Tensor)
+            else np.asarray(person_track)
+        )
+        if pt_arr.shape != (num_frames, height, width):
+            raise SystemExit(
+                f"sam31_head_tube: person_track shape {pt_arr.shape} does not match {(num_frames, height, width)}"
+            )
+        pt_bool = np.asarray(pt_arr > 0, dtype=bool)
+        if seed_mask is not None:
+            sm_raw = (
+                seed_mask.detach().cpu().numpy()
+                if isinstance(seed_mask, torch.Tensor)
+                else np.asarray(seed_mask)
+            )
+            if sm_raw.shape == (height, width):
+                seed_mask = np.asarray(sm_raw > 0, dtype=bool) & pt_bool[seed_frame]
+            elif sm_raw.shape == (num_frames, height, width):
+                seed_mask = np.asarray(sm_raw > 0, dtype=bool) & pt_bool
+            else:
+                raise SystemExit(
+                    f"sam31_head_tube: seed_mask shape {sm_raw.shape} incompatible with {(num_frames, height, width)}"
+                )
+        elif arr.ndim == 4 and seed_box is None and np.any(pt_bool[seed_frame]):
+            seed_mask, seed_box = _head_seed_from_person_mask(pt_bool[seed_frame])
+
+    norm_t: torch.Tensor | None = None
+    if arr.ndim == 3:
+        tube = np.asarray(arr > 0, dtype=bool)
+        normalized_range: tuple[float, float] | None = None
+    else:
+        norm_t = sam31_normalize_input(torch.from_numpy(arr).permute(0, 3, 1, 2))
+        normalized_range = (float(norm_t.min().item()), float(norm_t.max().item()))
+        if tracker is not None:
+            tracked = tracker(
+                norm_t,
+                seed_frame=seed_frame,
+                seed_box=seed_box,
+                seed_mask=seed_mask,
+                prompt=prompt,
+            )
+            tube_arr = (
+                tracked.detach().cpu().numpy()
+                if isinstance(tracked, torch.Tensor)
+                else np.asarray(tracked)
+            )
+            if tube_arr.shape != (num_frames, height, width):
+                raise SystemExit(
+                    f"sam31_head_tube: tracker returned shape {tube_arr.shape}, expected {(num_frames, height, width)}"
+                )
+            tube = np.asarray(tube_arr > 0, dtype=bool)
+        elif seed_mask is not None:
+            sm = np.asarray(seed_mask > 0, dtype=bool)
+            if sm.shape == (height, width):
+                tube = np.broadcast_to(sm[None, :, :], (num_frames, height, width)).copy()
+            elif sm.shape == (num_frames, height, width):
+                tube = sm.copy()
+            else:
+                raise SystemExit(
+                    f"sam31_head_tube: seed_mask shape {sm.shape} incompatible with {(num_frames, height, width)}"
+                )
+        elif seed_box is not None and len(seed_box) == 4:
+            bx0, by0, bx1, by1 = [int(v) for v in seed_box]
+            if bx0 < 0 or by0 < 0 or bx1 <= bx0 or by1 <= by0 or bx1 > width or by1 > height:
+                raise SystemExit(
+                    f"sam31_head_tube: invalid seed_box {list(seed_box)} for frame {(height, width)}"
+                )
+            tube = np.zeros((num_frames, height, width), dtype=bool)
+            tube[:, by0:by1, bx0:bx1] = True
+        else:
+            raise SystemExit(
+                "sam31_head_tube: 4D video frames require a tracker, seed_mask, or seed_box"
+            )
+
+    regained_from_person_track_frames: list[int] = []
+    if pt_bool is not None:
+        clipped = tube & ~pt_bool
+        outside_person_track_clipped_px = [int(clipped[t].sum()) for t in range(num_frames)]
+        tube = tube & pt_bool
+        head_rel_y1 = _measure_head_rel_y1(tube[seed_frame], pt_bool[seed_frame], default=0.40)
+        had_loss_or_gap = False
+        for t in range(seed_frame + 1, num_frames):
+            if np.any(tube[t]):
+                head_rel_y1 = _measure_head_rel_y1(tube[t], pt_bool[t], default=head_rel_y1)
+                had_loss_or_gap = False
+                continue
+            if not np.any(pt_bool[t]):
+                had_loss_or_gap = True
+                continue
+            # Head tube is lost on frame t while person_track holds/regains the subject:
+            # re-seed from person_track[t] so the head tube inherits subject_track's regain search.
+            had_loss_or_gap = True
+            regain_seed, regain_box = _head_seed_from_person_mask(pt_bool[t], head_rel_y1=head_rel_y1)
+            if norm_t is not None and tracker is not None:
+                re_tracked = tracker(
+                    norm_t,
+                    seed_frame=t,
+                    seed_box=regain_box,
+                    seed_mask=regain_seed,
+                    prompt=prompt,
+                )
+                re_arr = (
+                    re_tracked.detach().cpu().numpy()
+                    if isinstance(re_tracked, torch.Tensor)
+                    else np.asarray(re_tracked)
+                )
+                if re_arr.shape == (num_frames, height, width):
+                    re_bounded = np.asarray(re_arr[t:] > 0, dtype=bool) & pt_bool[t:]
+                    for dt in range(num_frames - t):
+                        if not np.any(tube[t + dt]) and np.any(re_bounded[dt]):
+                            tube[t + dt] = re_bounded[dt]
+                            regained_from_person_track_frames.append(t + dt)
+            if not np.any(tube[t]) and np.any(regain_seed):
+                tube[t] = regain_seed
+                if t not in regained_from_person_track_frames:
+                    regained_from_person_track_frames.append(t)
+    else:
+        outside_person_track_clipped_px = [0] * num_frames
+
+    if not np.any(tube[seed_frame]):
+        raise SystemExit(
+            f"sam31_head_tube: head tube is empty on seed_frame={seed_frame}"
+        )
+    shot_box = shot_box_from_tube(tube, frame_shape=(height, width), pad_frac=pad_frac)
+    tube_px = [int(tube[t].sum()) for t in range(num_frames)]
+    return {
+        "tube": tube,
+        "shot_box": shot_box,
+        "seed_frame": int(seed_frame),
+        "prompt": str(prompt),
+        "tube_px": tube_px,
+        "outside_person_track_clipped_px": outside_person_track_clipped_px,
+        "regained_from_person_track_frames": sorted(regained_from_person_track_frames),
+        "normalized_range": normalized_range,
+    }
+
+
+def temporal_smooth_probs(
+    probs: torch.Tensor,
+    weights: Sequence[float] = DEFAULT_TEMPORAL_WEIGHTS,
+) -> torch.Tensor:
+    """Apply an edge-clamped temporal convolution across frames ``dim=0`` on class probabilities ``(T, C, H, W)``."""
+    if probs.ndim != 4 or probs.shape[0] < 1:
+        raise SystemExit(
+            f"temporal_smooth_probs: expected 4D probability tensor (T, C, H, W), got shape {tuple(probs.shape)}"
+        )
+    if len(weights) == 0 or len(weights) % 2 == 0:
+        raise SystemExit(
+            f"temporal_smooth_probs: weights must have a positive odd length, got {list(weights)}"
+        )
+    w_floats = [float(w) for w in weights]
+    if any(w < 0.0 for w in w_floats):
+        raise SystemExit(
+            f"temporal_smooth_probs: weights must be non-negative, got {w_floats}"
+        )
+    w_sum = sum(w_floats)
+    if w_sum <= 0.0:
+        raise SystemExit(
+            f"temporal_smooth_probs: weights sum must be > 0, got {w_floats}"
+        )
+    w_norm = [w / w_sum for w in w_floats]
+    num_frames = probs.shape[0]
+    radius = len(w_norm) // 2
+    out = torch.zeros_like(probs, dtype=torch.float32)
+    for t in range(num_frames):
+        acc = torch.zeros_like(probs[0], dtype=torch.float32)
+        for offset, weight in enumerate(w_norm, start=-radius):
+            clamped_t = min(max(t + offset, 0), num_frames - 1)
+            acc = acc + weight * probs[clamped_t].float()
+        out[t] = acc
+    return out
+
+
+def smooth_seg_in_tube(
+    logits: torch.Tensor | np.ndarray,
+    tube: np.ndarray | torch.Tensor,
+    shot_box: Sequence[int] | None = None,
+    *,
+    temporal_weights: Sequence[float] = DEFAULT_TEMPORAL_WEIGHTS,
+    head_parts: Sequence[str] = DEFAULT_HEAD_PARTS,
+    include_eyeglass: bool = False,
+    part_prob_floor: float = DEFAULT_PART_PROB_FLOOR,
+    class_names: Sequence[str] = CLASS_NAMES,
+    logits_is_crop: bool | None = None,
+    synthetic_class_logit: float | None = None,
+    return_part_probs: bool = True,
+) -> dict[str, Any]:
+    """Smooth Sapiens2-Seg probabilities temporally and restrict head-part classes to the SAM 3.1 head tube."""
+    if len(temporal_weights) == 0 or len(temporal_weights) % 2 == 0:
+        raise SystemExit(
+            f"temporal_smooth_probs: weights must have a positive odd length, got {list(temporal_weights)}"
+        )
+    w_floats = [float(w) for w in temporal_weights]
+    if any(w < 0.0 for w in w_floats) or sum(w_floats) <= 0.0:
+        raise SystemExit(
+            f"temporal_smooth_probs: weights must be non-negative with positive sum, got {w_floats}"
+        )
+    w_sum = sum(w_floats)
+    w_norm = [w / w_sum for w in w_floats]
+    radius = len(w_norm) // 2
+
+    tube_np = (
+        tube.detach().cpu().numpy()
+        if isinstance(tube, torch.Tensor)
+        else np.asarray(tube)
+    )
+    if tube_np.ndim != 3:
+        raise SystemExit(
+            f"smooth_seg_in_tube: expected 3D tube (T, H, W), got shape {tube_np.shape}"
+        )
+    num_frames, height, width = tube_np.shape
+    tube_bool = np.asarray(tube_np > 0, dtype=bool)
+    if not np.any(tube_bool):
+        raise SystemExit("smooth_seg_in_tube: head tube is empty across all frames")
+
+    is_discrete_cmap = synthetic_class_logit is not None and (
+        (isinstance(logits, torch.Tensor) and logits.ndim == 3)
+        or (not isinstance(logits, torch.Tensor) and np.asarray(logits).ndim == 3)
+    )
+    if is_discrete_cmap:
+        cmap_in = (
+            logits.detach().cpu().numpy().astype(np.uint8)
+            if isinstance(logits, torch.Tensor)
+            else np.asarray(logits, dtype=np.uint8)
+        )
+        if cmap_in.shape[0] != num_frames:
+            raise SystemExit(
+                f"smooth_seg_in_tube: logits frame count {cmap_in.shape[0]} != tube frame count {num_frames}"
+            )
+        num_classes = len(class_names)
+        in_h, in_w = int(cmap_in.shape[1]), int(cmap_in.shape[2])
+        logits_t: torch.Tensor | None = None
+    else:
+        logits_t = (
+            logits.detach().float()
+            if isinstance(logits, torch.Tensor)
+            else torch.from_numpy(np.asarray(logits, dtype=np.float32))
+        )
+        if logits_t.ndim != 4 or logits_t.shape[0] < 1 or logits_t.shape[1] < 2:
+            raise SystemExit(
+                f"smooth_seg_in_tube: expected 4D logits (T, C, h, w) with T >= 1 and C >= 2, got shape {tuple(logits_t.shape)}"
+            )
+        if logits_t.shape[0] != num_frames:
+            raise SystemExit(
+                f"smooth_seg_in_tube: logits frame count {logits_t.shape[0]} != tube frame count {num_frames}"
+            )
+        num_classes = int(logits_t.shape[1])
+        in_h, in_w = int(logits_t.shape[2]), int(logits_t.shape[3])
+        cmap_in = None
+
+    name_to_id = {name: idx for idx, name in enumerate(class_names)}
+    chosen_names = list(head_parts)
+    if include_eyeglass:
+        for opt in OPTIONAL_HEAD_PARTS:
+            if opt not in chosen_names:
+                chosen_names.append(opt)
+    if not chosen_names:
+        raise SystemExit("smooth_seg_in_tube: head_parts must name at least one class")
+    part_ids: list[int] = []
+    for name in chosen_names:
+        if name not in name_to_id:
+            raise SystemExit(f"smooth_seg_in_tube: unknown segmentation class {name!r}")
+        cid = name_to_id[name]
+        if cid >= num_classes:
+            raise SystemExit(
+                f"smooth_seg_in_tube: class {name!r} (id={cid}) exceeds logits channel count {num_classes}"
+            )
+        part_ids.append(cid)
+
+    if shot_box is None:
+        box = shot_box_from_tube(tube_bool, frame_shape=(height, width))
+    else:
+        if len(shot_box) != 4:
+            raise SystemExit(f"smooth_seg_in_tube: shot_box must have 4 ints, got {shot_box}")
+        box = [int(v) for v in shot_box]
+    x0, y0, x1, y1 = box
+    if x0 < 0 or y0 < 0 or x1 <= x0 or y1 <= y0 or x1 > width or y1 > height:
+        raise SystemExit(
+            f"smooth_seg_in_tube: invalid shot_box {box} for frame shape {(height, width)}"
+        )
+    if (x0 % 2 != 0) or (y0 % 2 != 0) or ((x1 - x0) % 2 != 0) or ((y1 - y0) % 2 != 0):
+        raise SystemExit(
+            f"smooth_seg_in_tube: shot_box {box} must be snapped to even integer coordinates"
+        )
+    box_h, box_w = y1 - y0, x1 - x0
+
+    full_frame_logits = (
+        (in_h == height and in_w == width)
+        if logits_is_crop is None
+        else (not logits_is_crop)
+    )
+    extra_off_tube_px = [0] * num_frames
+    if not is_discrete_cmap and logits_t is not None and full_frame_logits and (box_h != height or box_w != width):
+        outside_box_mask = np.ones((height, width), dtype=bool)
+        outside_box_mask[y0:y1, x0:x1] = False
+        for t in range(num_frames):
+            frame_raw_cls = logits_t[t].argmax(dim=0).cpu().numpy()
+            frame_raw_is_part = np.isin(frame_raw_cls, part_ids)
+            extra_off_tube_px[t] = int(
+                np.logical_and(frame_raw_is_part, outside_box_mask & ~tube_bool[t]).sum()
+            )
+
+    class_map = np.zeros((num_frames, height, width), dtype=np.uint8)
+    part_probs_full = (
+        np.zeros((num_frames, height, width), dtype=np.float32)
+        if return_part_probs
+        else np.zeros((0, 0, 0), dtype=np.float32)
+    )
+    face_id = name_to_id.get("Face_Neck", -1)
+    hair_id = name_to_id.get("Hair", -1)
+    part_id_arr = np.asarray(part_ids, dtype=np.uint8)
+
+    tube_px: list[int] = []
+    raw_part_px: list[int] = []
+    part_px: list[int] = []
+    raw_face_neck_px: list[int] = []
+    face_neck_px: list[int] = []
+    hair_px: list[int] = []
+    off_tube_suppressed_px: list[int] = []
+    dropout_bridged_frames: list[int] = []
+
+    chunk_size = 16
+    for t0 in range(0, num_frames, chunk_size):
+        t1 = min(num_frames, t0 + chunk_size)
+        h0 = max(0, t0 - radius)
+        h1 = min(num_frames, t1 + radius)
+
+        if is_discrete_cmap and cmap_in is not None:
+            cmap_halo = cmap_in[h0:h1, y0:y1, x0:x1] if (full_frame_logits and (box_h != height or box_w != width)) else cmap_in[h0:h1]
+            halo_np = np.zeros((h1 - h0, num_classes, cmap_halo.shape[1], cmap_halo.shape[2]), dtype=np.float32)
+            for cid in np.unique(cmap_halo):
+                halo_np[:, int(cid), :, :][cmap_halo == cid] = float(synthetic_class_logit)
+            crop_halo = torch.from_numpy(halo_np)
+        else:
+            assert logits_t is not None
+            crop_halo = (
+                logits_t[h0:h1, :, y0:y1, x0:x1]
+                if (full_frame_logits and (box_h != height or box_w != width))
+                else logits_t[h0:h1]
+            )
+
+        if crop_halo.shape[2] != box_h or crop_halo.shape[3] != box_w:
+            up_halo = F.interpolate(
+                crop_halo,
+                size=(box_h, box_w),
+                mode="bilinear",
+                align_corners=False,
+            )
+        else:
+            up_halo = crop_halo
+
+        raw_probs_halo = torch.softmax(up_halo, dim=1)
+        chunk_len = t1 - t0
+        smoothed_chunk = torch.zeros((chunk_len, num_classes, box_h, box_w), dtype=torch.float32, device=raw_probs_halo.device)
+        for idx_in_chunk, t in enumerate(range(t0, t1)):
+            acc = torch.zeros((num_classes, box_h, box_w), dtype=torch.float32, device=raw_probs_halo.device)
+            for offset, weight in enumerate(w_norm, start=-radius):
+                clamped_t = min(max(t + offset, 0), num_frames - 1)
+                acc = acc + weight * raw_probs_halo[clamped_t - h0]
+            smoothed_chunk[idx_in_chunk] = acc
+
+        raw_probs_chunk = raw_probs_halo[t0 - h0 : t1 - h0]
+        raw_cls_box = raw_probs_chunk.argmax(dim=1).cpu().numpy()
+        raw_is_part_box = np.isin(raw_cls_box, part_ids)
+        tube_box = tube_bool[t0:t1, y0:y1, x0:x1]
+
+        part_id_tensor = torch.tensor(part_ids, dtype=torch.long, device=smoothed_chunk.device)
+        part_probs_sub = smoothed_chunk.index_select(1, part_id_tensor)
+        part_prob_box = part_probs_sub.sum(dim=1).cpu().numpy()
+        best_part_sub_idx = part_probs_sub.argmax(dim=1).cpu().numpy()
+        best_part_cls_box = part_id_arr[best_part_sub_idx]
+
+        non_part_probs = smoothed_chunk.clone()
+        non_part_probs[:, part_id_tensor, :, :] = -1.0
+        non_part_cls_box = non_part_probs.argmax(dim=1).cpu().numpy().astype(np.uint8)
+
+        smoothed_argmax_box = smoothed_chunk.argmax(dim=1).cpu().numpy().astype(np.uint8)
+        smoothed_is_part_box = np.isin(smoothed_argmax_box, part_ids)
+
+        active_in_tube = tube_box & (smoothed_is_part_box | (part_prob_box >= float(part_prob_floor)))
+        cls_box = np.where(active_in_tube, best_part_cls_box, non_part_cls_box)
+        class_map[t0:t1, y0:y1, x0:x1] = cls_box
+        if return_part_probs:
+            gated_part_prob_box = np.where(tube_box, part_prob_box, 0.0).astype(np.float32)
+            part_probs_full[t0:t1, y0:y1, x0:x1] = gated_part_prob_box
+
+        raw_face_neck_box = (raw_cls_box == face_id) & tube_box if face_id >= 0 else np.zeros_like(tube_box)
+        for idx_in_chunk, t in enumerate(range(t0, t1)):
+            t_px = int(tube_bool[t].sum())
+            r_px = int(np.logical_and(raw_is_part_box[idx_in_chunk], tube_box[idx_in_chunk]).sum())
+            s_px = int(np.isin(cls_box[idx_in_chunk], part_ids).sum())
+            rf_px = int(raw_face_neck_box[idx_in_chunk].sum())
+            f_px = int(((cls_box[idx_in_chunk] == face_id) & tube_box[idx_in_chunk]).sum()) if face_id >= 0 else 0
+            h_px = int(((cls_box[idx_in_chunk] == hair_id) & tube_box[idx_in_chunk]).sum()) if hair_id >= 0 else 0
+            off_box_px = int(
+                np.logical_and(
+                    raw_is_part_box[idx_in_chunk] | smoothed_is_part_box[idx_in_chunk],
+                    ~tube_box[idx_in_chunk],
+                ).sum()
+            )
+            tube_px.append(t_px)
+            raw_part_px.append(r_px)
+            part_px.append(s_px)
+            raw_face_neck_px.append(rf_px)
+            face_neck_px.append(f_px)
+            hair_px.append(h_px)
+            off_tube_suppressed_px.append(off_box_px + extra_off_tube_px[t])
+            if (s_px > r_px and r_px < max(1, int(0.75 * s_px))) or (
+                f_px > rf_px and rf_px < max(1, int(0.75 * f_px))
+            ):
+                dropout_bridged_frames.append(t)
+
+    part_mask = np.isin(class_map, part_ids)
+    face_neck_mask = ((class_map == face_id) & tube_bool) if face_id >= 0 else np.zeros_like(part_mask)
+    hair_mask = ((class_map == hair_id) & tube_bool) if hair_id >= 0 else np.zeros_like(part_mask)
+    norm_weights = [round(float(w) / w_sum, 6) for w in temporal_weights]
+
+    return {
+        "class_map": class_map,
+        "part_mask": part_mask,
+        "part_probs": part_probs_full,
+        "face_neck_mask": face_neck_mask,
+        "hair_mask": hair_mask,
+        "shot_box": box,
+        "temporal_weights": norm_weights,
+        "part_ids": part_ids,
+        "part_names": chosen_names,
+        "tube_px": tube_px,
+        "raw_part_px": raw_part_px,
+        "part_px": part_px,
+        "smoothed_part_px": list(part_px),
+        "raw_face_neck_px": raw_face_neck_px,
+        "face_neck_px": face_neck_px,
+        "hair_px": hair_px,
+        "off_tube_suppressed_px": off_tube_suppressed_px,
+        "dropout_bridged_frames": dropout_bridged_frames,
+    }
+
+
+def scored_face_ids(keypoint_index: dict[str, int] | None = None) -> list[int]:
+    """Return the scored Sapiens2-Pose facial keypoint indices (39 points in 308-layout), excluding unscored pupils."""
+    idx_map = POSE_KEYPOINT_INDEX if keypoint_index is None else dict(keypoint_index)
+    if "tip_of_nose" not in idx_map and "nose" in idx_map:
+        idx_map["tip_of_nose"] = idx_map["nose"]
+    pupil_ids = {i for name, i in idx_map.items() if "pupil" in name}
+    base_ids = fp.face_ids(idx_map)
+    return [i for i in base_ids if i not in pupil_ids]
+
+
+def cross_check_face_points(
+    pose_keypoints: np.ndarray | Sequence[np.ndarray | None],
+    tube: np.ndarray | torch.Tensor,
+    face_neck_mask: np.ndarray | torch.Tensor,
+    hair_mask: np.ndarray | torch.Tensor,
+    *,
+    part_mask: np.ndarray | torch.Tensor | None = None,
+    raw_face_neck_px: Sequence[int] | None = None,
+    dropout_bridged_seed: Sequence[int] | None = None,
+    keypoint_index: dict[str, int] | None = None,
+    min_score: float = DEFAULT_FACE_POINT_MIN_SCORE,
+    turned_away_hair_min: float = TURNED_AWAY_HAIR_SHARE_MIN,
+    turned_away_face_max: float = TURNED_AWAY_FACE_SHARE_MAX,
+) -> dict[str, Any]:
+    """Cross-check Sapiens2-Pose 39 scored facial points against the head tube and Face_Neck / Hair masks."""
+    tube_bool = (
+        tube.detach().cpu().numpy() > 0
+        if isinstance(tube, torch.Tensor)
+        else np.asarray(tube) > 0
+    )
+    face_bool = (
+        face_neck_mask.detach().cpu().numpy() > 0
+        if isinstance(face_neck_mask, torch.Tensor)
+        else np.asarray(face_neck_mask) > 0
+    )
+    hair_bool = (
+        hair_mask.detach().cpu().numpy() > 0
+        if isinstance(hair_mask, torch.Tensor)
+        else np.asarray(hair_mask) > 0
+    )
+    if tube_bool.ndim != 3 or face_bool.shape != tube_bool.shape or hair_bool.shape != tube_bool.shape:
+        raise SystemExit(
+            f"cross_check_face_points: tube {tube_bool.shape}, face_neck_mask {face_bool.shape}, and hair_mask {hair_bool.shape} must match (T, H, W)"
+        )
+    num_frames, height, width = tube_bool.shape
+    if len(pose_keypoints) != num_frames:
+        raise SystemExit(
+            f"cross_check_face_points: pose_keypoints length {len(pose_keypoints)} != tube frame count {num_frames}"
+        )
+
+    idx_map = POSE_KEYPOINT_INDEX if keypoint_index is None else dict(keypoint_index)
+    if "tip_of_nose" not in idx_map and "nose" in idx_map:
+        idx_map["tip_of_nose"] = idx_map["nose"]
+    face_id_list = scored_face_ids(idx_map)
+    if not face_id_list:
+        raise SystemExit("cross_check_face_points: keypoint_index contains no scored facial keypoints")
+
+    if part_mask is not None:
+        part_bool = (
+            part_mask.detach().cpu().numpy() > 0
+            if isinstance(part_mask, torch.Tensor)
+            else np.asarray(part_mask) > 0
+        )
+    else:
+        part_bool = face_bool | hair_bool
+    bridged_set = set(int(t) for t in (dropout_bridged_seed or ()))
+
+    face_points_scored: list[int] = []
+    face_points_in_tube: list[int] = []
+    face_points_in_part: list[int] = []
+    face_points_on_face_neck: list[int] = []
+    face_point_share: list[float] = []
+    hair_tube_share: list[float] = []
+    face_neck_tube_share: list[float] = []
+    turned_away_frames: list[int] = []
+    dropout_bridged_frames: list[int] = []
+    off_tube_pose_frames: list[int] = []
+    frame_states: list[str] = []
+
+    for t in range(num_frames):
+        t_px = int(tube_bool[t].sum())
+        f_px = int(face_bool[t].sum())
+        h_px = int(hair_bool[t].sum())
+        h_share = (float(h_px) / float(t_px)) if t_px > 0 else 0.0
+        f_share = (float(f_px) / float(t_px)) if t_px > 0 else 0.0
+        hair_tube_share.append(round(h_share, 6))
+        face_neck_tube_share.append(round(f_share, 6))
+
+        pts_raw = pose_keypoints[t]
+        if pts_raw is None:
+            pts = np.zeros((0, 3), dtype=np.float32)
+        else:
+            pts = np.asarray(pts_raw, dtype=np.float32)
+            if pts.ndim != 2 or pts.shape[1] != 3:
+                raise SystemExit(
+                    f"cross_check_face_points: frame {t} keypoints must have shape (K, 3), got {pts.shape}"
+                )
+
+        valid_ids = [i for i in face_id_list if i < len(pts)]
+        scored_pts = pts[valid_ids] if valid_ids else np.zeros((0, 3), dtype=np.float32)
+        scored_pts = scored_pts[scored_pts[:, 2] >= float(min_score)]
+
+        n_scored = int(len(scored_pts))
+        n_in_tube = 0
+        n_in_part = 0
+        n_on_face = 0
+        for x, y, _ in scored_pts:
+            ix, iy = int(round(float(x))), int(round(float(y)))
+            if 0 <= iy < height and 0 <= ix < width:
+                if tube_bool[t, iy, ix]:
+                    n_in_tube += 1
+                if part_bool[t, iy, ix]:
+                    n_in_part += 1
+                if face_bool[t, iy, ix]:
+                    n_on_face += 1
+
+        face_points_scored.append(n_scored)
+        face_points_in_tube.append(n_in_tube)
+        face_points_in_part.append(n_in_part)
+        face_points_on_face_neck.append(n_on_face)
+        share = (float(n_in_part) / float(n_scored)) if n_scored > 0 else 0.0
+        face_point_share.append(round(share, 6))
+
+        middle_in_tube = (
+            fp.face_middle_on_mask(pts[:, :2], idx_map, tube_bool[t])
+            if len(pts) > max(valid_ids, default=0)
+            else False
+        )
+
+        is_turned_away = (
+            t_px > 0
+            and h_share > float(turned_away_hair_min)
+            and f_share < float(turned_away_face_max)
+            and n_on_face == 0
+            and (n_in_tube == 0 or t not in bridged_set)
+        )
+        is_off_tube_pose = n_scored > 0 and not middle_in_tube and n_in_tube == 0
+        raw_f_px = int(raw_face_neck_px[t]) if raw_face_neck_px is not None else f_px
+        is_dropout = (
+            not is_turned_away
+            and not is_off_tube_pose
+            and n_in_tube > 0
+            and middle_in_tube
+            and (t in bridged_set or raw_f_px < max(1, int(0.75 * f_px)) or f_share < float(turned_away_face_max))
+        )
+
+        if is_turned_away:
+            turned_away_frames.append(t)
+            frame_states.append("turned_away")
+        elif is_off_tube_pose:
+            off_tube_pose_frames.append(t)
+            frame_states.append("off_tube_pose")
+        elif is_dropout:
+            dropout_bridged_frames.append(t)
+            frame_states.append("dropout_bridged")
+        else:
+            frame_states.append("normal")
+
+    return {
+        "scored_face_keypoint_ids": face_id_list,
+        "face_points_scored": face_points_scored,
+        "face_points_in_tube": face_points_in_tube,
+        "face_points_in_part": face_points_in_part,
+        "face_points_on_face_neck": face_points_on_face_neck,
+        "face_point_share": face_point_share,
+        "hair_tube_share": hair_tube_share,
+        "face_neck_tube_share": face_neck_tube_share,
+        "turned_away_frames": turned_away_frames,
+        "dropout_bridged_frames": dropout_bridged_frames,
+        "off_tube_pose_frames": off_tube_pose_frames,
+        "frame_states": frame_states,
+    }
+
+
+def build_provenance_record(
+    seg_result: dict[str, Any],
+    pose_check: dict[str, Any] | None = None,
+    *,
+    seed_frame: int = 0,
+    outside_person_track_clipped_px: Sequence[int] | None = None,
+    regained_from_person_track_frames: Sequence[int] | None = None,
+) -> dict[str, Any]:
+    """Assemble the JSON-serializable provenance record for a shot's head-tube part masks."""
+    bridged = sorted(
+        set(seg_result["dropout_bridged_frames"])
+        | set(pose_check["dropout_bridged_frames"] if pose_check is not None else ())
+    )
+    clipped_px = (
+        [int(v) for v in outside_person_track_clipped_px]
+        if outside_person_track_clipped_px is not None
+        else [0] * len(seg_result["tube_px"])
+    )
+    regained_frames = (
+        [int(v) for v in regained_from_person_track_frames]
+        if regained_from_person_track_frames is not None
+        else []
+    )
+    record: dict[str, Any] = {
+        "seed_frame": int(seed_frame),
+        "shot_box": list(seg_result["shot_box"]),
+        "temporal_weights": list(seg_result["temporal_weights"]),
+        "part_names": list(seg_result["part_names"]),
+        "tube_px": list(seg_result["tube_px"]),
+        "raw_part_px": list(seg_result["raw_part_px"]),
+        "part_px": list(seg_result["part_px"]),
+        "off_tube_suppressed_px": list(seg_result["off_tube_suppressed_px"]),
+        "outside_person_track_clipped_px": clipped_px,
+        "regained_from_person_track_frames": regained_frames,
+        "face_points_in_tube": (
+            list(pose_check["face_points_in_tube"]) if pose_check is not None else []
+        ),
+        "face_points_in_part": (
+            list(pose_check["face_points_in_part"]) if pose_check is not None else []
+        ),
+        "face_point_share": (
+            list(pose_check["face_point_share"]) if pose_check is not None else []
+        ),
+        "turned_away_frames": (
+            list(pose_check["turned_away_frames"]) if pose_check is not None else []
+        ),
+        "dropout_bridged_frames": bridged,
+        "off_tube_pose_frames": (
+            list(pose_check["off_tube_pose_frames"]) if pose_check is not None else []
+        ),
+    }
+    return record
+
+
+def run_head_tube_parts(
+    logits: torch.Tensor | np.ndarray,
+    frames_or_tube: np.ndarray | torch.Tensor,
+    pose_keypoints: np.ndarray | Sequence[np.ndarray | None] | None = None,
+    *,
+    person_track: np.ndarray | torch.Tensor | None = None,
+    seed_frame: int = 0,
+    pad_frac: float = DEFAULT_BOX_PAD_FRAC,
+    temporal_weights: Sequence[float] = DEFAULT_TEMPORAL_WEIGHTS,
+    head_parts: Sequence[str] = DEFAULT_HEAD_PARTS,
+    include_eyeglass: bool = False,
+    part_prob_floor: float = DEFAULT_PART_PROB_FLOOR,
+    keypoint_index: dict[str, int] | None = None,
+    min_score: float = DEFAULT_FACE_POINT_MIN_SCORE,
+    provenance_out: Path | None = None,
+    masks_out: Path | None = None,
+) -> dict[str, Any]:
+    """Run SAM 3.1 head tube extraction, Sapiens2-Seg temporal smoothing in tube, and 39-point pose cross-check."""
+    tube_info = sam31_head_tube(
+        frames_or_tube,
+        seed_frame=seed_frame,
+        person_track=person_track,
+        pad_frac=pad_frac,
+    )
+    seg_info = smooth_seg_in_tube(
+        logits,
+        tube_info["tube"],
+        shot_box=tube_info["shot_box"],
+        temporal_weights=temporal_weights,
+        head_parts=head_parts,
+        include_eyeglass=include_eyeglass,
+        part_prob_floor=part_prob_floor,
+    )
+    pose_info: dict[str, Any] | None = None
+    if pose_keypoints is not None:
+        pose_info = cross_check_face_points(
+            pose_keypoints,
+            tube_info["tube"],
+            seg_info["face_neck_mask"],
+            seg_info["hair_mask"],
+            part_mask=seg_info["part_mask"],
+            raw_face_neck_px=seg_info["raw_face_neck_px"],
+            dropout_bridged_seed=seg_info["dropout_bridged_frames"],
+            keypoint_index=keypoint_index,
+            min_score=min_score,
+        )
+    provenance = build_provenance_record(
+        seg_info,
+        pose_info,
+        seed_frame=seed_frame,
+        outside_person_track_clipped_px=tube_info["outside_person_track_clipped_px"],
+        regained_from_person_track_frames=tube_info["regained_from_person_track_frames"],
+    )
+    if provenance_out is not None:
+        provenance_out.parent.mkdir(parents=True, exist_ok=True)
+        provenance_out.write_text(json.dumps(provenance, indent=2) + "\n", encoding="utf-8")
+    if masks_out is not None:
+        masks_out.parent.mkdir(parents=True, exist_ok=True)
+        np.savez_compressed(
+            masks_out,
+            tube=tube_info["tube"].astype(np.uint8),
+            class_map=seg_info["class_map"],
+            part_mask=seg_info["part_mask"].astype(np.uint8),
+            part_probs=seg_info["part_probs"],
+            shot_box=np.asarray(seg_info["shot_box"], dtype=np.int32),
+        )
+    return {
+        "tube_info": tube_info,
+        "seg_info": seg_info,
+        "pose_info": pose_info,
+        "provenance": provenance,
+    }
+
+
+def _load_pose_slice_for_capture(
+    points_path: str | Path,
+    first_frame: int,
+    num_frames: int,
+) -> tuple[list[np.ndarray | None], dict[str, int] | None]:
+    path = Path(points_path)
+    if not path.is_file():
+        raise SystemExit(f"head_tube_for_capture: missing points file: {path}")
+    loaded = np.load(path)
+    if isinstance(loaded, np.lib.npyio.NpzFile):
+        if "keypoints" not in loaded.files:
+            raise SystemExit(f"head_tube_for_capture: points file {path} lacks 'keypoints'")
+        kps = np.asarray(loaded["keypoints"], dtype=np.float32)
+        scores = np.asarray(loaded["scores"], dtype=np.float32) if "scores" in loaded.files else None
+        at = int(loaded["first_frame"]) if "first_frame" in loaded.files else int(first_frame)
+        idx_map: dict[str, int] | None = None
+        if "names" in loaded.files:
+            names = [str(x) for x in loaded["names"]]
+            idx_map = {n: i for i, n in enumerate(names)}
+            if "tip_of_nose" not in idx_map and "nose" in idx_map:
+                idx_map["tip_of_nose"] = idx_map["nose"]
+    else:
+        kps = np.asarray(loaded, dtype=np.float32)
+        scores = None
+        at = int(first_frame)
+        idx_map = None
+
+    if kps.ndim != 3:
+        raise SystemExit(f"head_tube_for_capture: expected 3D keypoints in {path}, got {kps.shape}")
+    if kps.shape[2] == 2:
+        if scores is None or scores.shape != kps.shape[:2]:
+            sc = np.ones((kps.shape[0], kps.shape[1], 1), dtype=np.float32)
+        else:
+            sc = scores[:, :, None]
+        kps3 = np.concatenate([kps, sc], axis=2)
+    elif kps.shape[2] >= 3:
+        kps3 = kps[:, :, :3]
+    else:
+        raise SystemExit(f"head_tube_for_capture: invalid keypoint last dim in {path}: {kps.shape}")
+
+    out: list[np.ndarray | None] = []
+    for k in range(num_frames):
+        j = int(first_frame) + k - at
+        if 0 <= j < len(kps3):
+            out.append(kps3[j])
+        else:
+            out.append(None)
+    return out, idx_map
+
+
+def head_tube_for_capture(
+    track: np.ndarray,
+    parts: np.ndarray,
+    cmap: np.ndarray | None = None,
+    *,
+    points_path: str | Path | None = None,
+    first_frame: int = 0,
+    head_parts: Sequence[str] = DEFAULT_HEAD_PARTS,
+    include_eyeglass: bool = False,
+    temporal_weights: Sequence[float] = DEFAULT_TEMPORAL_WEIGHTS,
+    part_prob_floor: float = DEFAULT_PART_PROB_FLOOR,
+    provenance_out: Path | None = None,
+    masks_out: Path | None = None,
+) -> dict[str, Any]:
+    """Run person-track-bounded head-tube smoothing on a capture's track, parts, class map, and 308-point file."""
+    track_bool = np.asarray(track > 0, dtype=bool)
+    parts_bool = np.asarray(parts > 0, dtype=bool)
+    if track_bool.ndim != 3 or parts_bool.shape != track_bool.shape:
+        raise SystemExit(
+            f"head_tube_for_capture: track shape {track_bool.shape} and parts shape {parts_bool.shape} must match (T, H, W)"
+        )
+    num_frames, height, width = track_bool.shape
+    chosen_names = [n for n in head_parts if n in NAME_TO_ID]
+    if include_eyeglass:
+        for opt in OPTIONAL_HEAD_PARTS:
+            if opt in NAME_TO_ID and opt not in chosen_names:
+                chosen_names.append(opt)
+    if not chosen_names:
+        chosen_names = list(DEFAULT_HEAD_PARTS)
+    part_ids = [NAME_TO_ID[n] for n in chosen_names]
+
+    # The whole-head tube always includes all whole-head classes (Face_Neck + Hair + lips/teeth/tongue),
+    # even on a face-only (fp) load where chosen_names excludes Hair, so the tube stays ~35,000 px on
+    # turned-away frames (684-707) while smooth_seg_in_tube extracts only chosen_names inside it.
+    tube_names = list(DEFAULT_HEAD_PARTS)
+    for n in chosen_names:
+        if n not in tube_names:
+            tube_names.append(n)
+    tube_ids = [NAME_TO_ID[n] for n in tube_names if n in NAME_TO_ID]
+
+    if cmap is not None:
+        cmap_arr = np.asarray(cmap, dtype=np.uint8)
+        if cmap_arr.shape != (num_frames, height, width):
+            raise SystemExit(
+                f"head_tube_for_capture: cmap shape {cmap_arr.shape} does not match {(num_frames, height, width)}"
+            )
+        raw_head = parts_bool | np.isin(cmap_arr, tube_ids)
+    else:
+        cmap_arr = np.where(parts_bool, NAME_TO_ID["Face_Neck"], 0).astype(np.uint8)
+        raw_head = parts_bool.copy()
+
+    # Bridge 1-2 frame segmentation dropouts inside the person track when forming the continuous head tube,
+    # while leaving off-person pixels unclipped in candidate_tube so sam31_head_tube records outside_person_track_clipped_px.
+    candidate_tube = raw_head.copy()
+    in_person = raw_head & track_bool
+    for t in range(num_frames):
+        p1 = in_person[max(0, t - 1)]
+        n1 = in_person[min(num_frames - 1, t + 1)]
+        p2 = in_person[max(0, t - 2)]
+        n2 = in_person[min(num_frames - 1, t + 2)]
+        bridged_t = (p1 | p2) & (n1 | n2) & track_bool[t]
+        candidate_tube[t] = candidate_tube[t] | bridged_t
+
+    bounded_per_frame = (candidate_tube & track_bool).reshape(num_frames, -1).sum(axis=1)
+    if not np.any(bounded_per_frame > 0):
+        raise SystemExit(
+            "head_tube_for_capture: no head-part pixels lie inside the subject's person track across the span"
+        )
+    seed_frame = 0 if int(bounded_per_frame[0]) > 0 else int(np.argmax(bounded_per_frame > 0))
+
+    tube_info = sam31_head_tube(
+        candidate_tube,
+        seed_frame=seed_frame,
+        person_track=track_bool,
+    )
+    x0, y0, x1, y1 = tube_info["shot_box"]
+    cmap_box = np.clip(cmap_arr[:, y0:y1, x0:x1], 0, len(CLASS_NAMES) - 1).copy()
+    unlabeled_part_box = parts_bool[:, y0:y1, x0:x1] & ~np.isin(cmap_box, part_ids)
+    cmap_box[unlabeled_part_box] = NAME_TO_ID["Face_Neck"]
+
+    pose_kps: list[np.ndarray | None] | None = None
+    kp_idx: dict[str, int] | None = None
+    if points_path is not None:
+        pose_kps, kp_idx = _load_pose_slice_for_capture(points_path, first_frame, num_frames)
+
+    seg_info = smooth_seg_in_tube(
+        cmap_box,
+        tube_info["tube"],
+        shot_box=tube_info["shot_box"],
+        temporal_weights=temporal_weights,
+        head_parts=chosen_names,
+        include_eyeglass=include_eyeglass,
+        part_prob_floor=part_prob_floor,
+        logits_is_crop=True,
+        synthetic_class_logit=SYNTHETIC_CLASS_LOGIT,
+        return_part_probs=(masks_out is not None),
+    )
+
+    # Account for any raw requested-part pixels outside shot_box in off_tube_suppressed_px.
+    outside_box = np.ones((height, width), dtype=bool)
+    outside_box[y0:y1, x0:x1] = False
+    raw_part_all = parts_bool | np.isin(cmap_arr, part_ids)
+    for t in range(num_frames):
+        extra = int(np.logical_and(raw_part_all[t], outside_box).sum())
+        seg_info["off_tube_suppressed_px"][t] = int(seg_info["off_tube_suppressed_px"][t]) + extra
+
+    pose_info: dict[str, Any] | None = None
+    if pose_kps is not None:
+        pose_info = cross_check_face_points(
+            pose_kps,
+            tube_info["tube"],
+            seg_info["face_neck_mask"],
+            seg_info["hair_mask"],
+            part_mask=seg_info["part_mask"],
+            raw_face_neck_px=seg_info["raw_face_neck_px"],
+            dropout_bridged_seed=seg_info["dropout_bridged_frames"],
+            keypoint_index=kp_idx,
+        )
+
+    provenance = build_provenance_record(
+        seg_info,
+        pose_info,
+        seed_frame=seed_frame,
+        outside_person_track_clipped_px=tube_info["outside_person_track_clipped_px"],
+        regained_from_person_track_frames=tube_info["regained_from_person_track_frames"],
+    )
+    if provenance_out is not None:
+        provenance_out.parent.mkdir(parents=True, exist_ok=True)
+        provenance_out.write_text(json.dumps(provenance, indent=2) + "\n", encoding="utf-8")
+    if masks_out is not None:
+        masks_out.parent.mkdir(parents=True, exist_ok=True)
+        np.savez_compressed(
+            masks_out,
+            tube=tube_info["tube"].astype(np.uint8),
+            class_map=seg_info["class_map"],
+            part_mask=seg_info["part_mask"].astype(np.uint8),
+            part_probs=seg_info["part_probs"],
+            shot_box=np.asarray(seg_info["shot_box"], dtype=np.int32),
+        )
+
+    # Preserve non-head body classes in cmap while replacing head-part classes with the tube-bounded smoothed result.
+    updated_cmap = cmap_arr.copy()
+    updated_cmap[np.isin(updated_cmap, part_ids)] = 0
+    box_cls = seg_info["class_map"][:, y0:y1, x0:x1]
+    box_part = seg_info["part_mask"][:, y0:y1, x0:x1]
+    updated_cmap[:, y0:y1, x0:x1] = np.where(box_part, box_cls, updated_cmap[:, y0:y1, x0:x1])
+
+    return {
+        "tube_info": tube_info,
+        "seg_info": seg_info,
+        "pose_info": pose_info,
+        "provenance": provenance,
+        "part_mask": seg_info["part_mask"],
+        "class_map": updated_cmap,
+    }
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--tube", type=Path, required=True, help="Input .npy/.npz boolean head tube (T, H, W)")
+    parser.add_argument("--logits", type=Path, required=True, help="Input .npy/.npz Sapiens2-Seg logits (T, C, h, w)")
+    parser.add_argument(
+        "--person-track",
+        type=Path,
+        default=None,
+        help="Optional .npy/.npz boolean person-track mask (T, H, W) bounding the head tube",
+    )
+    parser.add_argument("--pose", type=Path, default=None, help="Optional .npy/.npz Sapiens2-Pose keypoints (T, K, 3)")
+    parser.add_argument("--seed-frame", type=int, default=0, help="Shot seed frame index")
+    parser.add_argument(
+        "--temporal-weights",
+        type=float,
+        nargs="+",
+        default=list(DEFAULT_TEMPORAL_WEIGHTS),
+        help="Odd-length temporal probability smoothing kernel (default: 0.25 0.50 0.25)",
+    )
+    parser.add_argument("--include-eyeglass", action="store_true", help="Include Eyeglass in head-tube parts")
+    parser.add_argument("--out-masks", type=Path, default=None, help="Output .npz path for smoothed masks")
+    parser.add_argument("--out-json", type=Path, required=True, help="Output .json path for provenance record")
+    args = parser.parse_args(argv)
+
+    if not args.tube.is_file():
+        raise SystemExit(f"head_tube_parts: missing --tube file: {args.tube}")
+    if not args.logits.is_file():
+        raise SystemExit(f"head_tube_parts: missing --logits file: {args.logits}")
+
+    tube_arr = np.load(args.tube)
+    if isinstance(tube_arr, np.lib.npyio.NpzFile):
+        tube_arr = tube_arr["tube"] if "tube" in tube_arr.files else tube_arr[tube_arr.files[0]]
+    logits_arr = np.load(args.logits)
+    if isinstance(logits_arr, np.lib.npyio.NpzFile):
+        logits_arr = (
+            logits_arr["logits"] if "logits" in logits_arr.files else logits_arr[logits_arr.files[0]]
+        )
+    person_track_arr = None
+    if args.person_track is not None:
+        if not args.person_track.is_file():
+            raise SystemExit(f"head_tube_parts: missing --person-track file: {args.person_track}")
+        pt_loaded = np.load(args.person_track)
+        if isinstance(pt_loaded, np.lib.npyio.NpzFile):
+            pt_key = "track" if "track" in pt_loaded.files else ("tube" if "tube" in pt_loaded.files else pt_loaded.files[0])
+            person_track_arr = pt_loaded[pt_key]
+        else:
+            person_track_arr = pt_loaded
+    pose_arr = None
+    if args.pose is not None:
+        if not args.pose.is_file():
+            raise SystemExit(f"head_tube_parts: missing --pose file: {args.pose}")
+        pose_loaded = np.load(args.pose)
+        pose_arr = (
+            pose_loaded["keypoints"]
+            if isinstance(pose_loaded, np.lib.npyio.NpzFile) and "keypoints" in pose_loaded.files
+            else pose_loaded
+        )
+
+    res = run_head_tube_parts(
+        logits_arr,
+        tube_arr,
+        pose_keypoints=pose_arr,
+        person_track=person_track_arr,
+        seed_frame=args.seed_frame,
+        temporal_weights=args.temporal_weights,
+        include_eyeglass=args.include_eyeglass,
+        provenance_out=args.out_json,
+        masks_out=args.out_masks,
+    )
+    prov = res["provenance"]
+    print(
+        f"shot_box={prov['shot_box']} frames={len(prov['tube_px'])} "
+        f"suppressed_px={sum(prov['off_tube_suppressed_px'])} "
+        f"clipped_person_px={sum(prov['outside_person_track_clipped_px'])} "
+        f"bridged={prov['dropout_bridged_frames']} "
+        f"turned_away={prov['turned_away_frames']}"
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

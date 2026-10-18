@@ -945,6 +945,8 @@ def tool(world, name: str) -> list[str]:
 def capture_args(ctx: dict, world, files: dict, band: Path | None = None) -> list[str]:
     job = ctx["job"]
     out = ["--folder", ctx["capture"], "--source", job["source"], "--first", job["first"], "--frames", job["frames"]]
+    if (job.get("head_tube") or {}).get("on") or (ctx.get("subject_keys") or {}).get("head_tube"):
+        out.append("--head-tube")
     for spec in mask_specs(ctx, files, band):
         out += ["--mask", spec]
     return out

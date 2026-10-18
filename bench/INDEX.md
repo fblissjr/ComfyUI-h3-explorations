@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 152 |
+| [`check_*`](#check) | 153 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 17 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 186 |
+| [the rest](#the-rest) | 187 |
 
 ## check
 
@@ -68,6 +68,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_graph_values.py`](check_graph_values.py) | A static reader must follow a linked widget, or it goes red on a good graph. |
 | [`check_h3_encoder_loader.py`](check_h3_encoder_loader.py) | Prove the guarded H3 encoder loader guards what it claims to. |
 | [`check_head_reference.py`](check_head_reference.py) | `bench/head_reference.py` against a face whose every line is known by construction, read from the files it wrote. |
+| [`check_head_tube_parts.py`](check_head_tube_parts.py) | Check head_tube_parts: SAM 3.1 head tube gating, temporal seg smoothing, and 39-point face cross-check. |
 | [`check_imports.py`](check_imports.py) | Static AST check over tracked root `*.py` and `bench/*.py` (`C61` item 2a). |
 | [`check_keyframe_canvas.py`](check_keyframe_canvas.py) | Keyframe geometry: does the canvas we hand H3 avoid distorting the keyframe? |
 | [`check_length_ceiling.py`](check_length_ceiling.py) | The longest length anything renders or plans is `h3_rules.MAX_LENGTH`, and no shorter count comes back as a cap. |
@@ -400,6 +401,7 @@ this file is only a way to find a script by what it says it does.
 | [`generate_capture_manifest.py`](generate_capture_manifest.py) | Generate an auditable, fully dynamic manifest.json for an activation capture directory. |
 | [`h3_producer_provenance.py`](h3_producer_provenance.py) | Which version of a producer wrote a result. Pure stdlib, either virtualenv. |
 | [`head_reference.py`](head_reference.py) | The reference video of a head replacement, in one command: the body model cut to the head, with the face drawn on it. |
+| [`head_tube_parts.py`](head_tube_parts.py) | Head-tube conditioned Sapiens2-Seg part masks and Sapiens2-Pose 39-point face cross-check. |
 | [`hwinfo.py`](hwinfo.py) | The host this repo's numbers were measured on, printed rather than written down. |
 | [`instrument_render_occupancy.py`](instrument_render_occupancy.py) | Phase-resolved GPU occupancy of one render, bracketed per node. |
 | [`join_panel_verdicts.py`](join_panel_verdicts.py) | Join a scored blind PANEL with its sealed key, and apply the panel's stop rules. |
