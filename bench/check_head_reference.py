@@ -862,6 +862,192 @@ def the_mouth_on_a_word() -> str:
             "it draws one; refused where the lips do not score, the job says no mouth, outside the span and with no gate")
 
 
+def the_three_mouth_fixes_synthetic() -> str:
+    """The three mouth fixes on synthetic shapes drawn in memory (carrying the red-on-revert proof, with no data from `fun`):
+    (1) with `--closed-lip-line` on (`closed_as_line=True`), closed lips with no teeth or tongue are drawn as one open parting line
+    (`mouth_closed`, `closed=False`), never a hollow 'O' ring, and an unlabelled interior gap inside closed lips with 0 px of teeth
+    or tongue does not make a hole (while off by default preserves the control); (2) hysteresis over time holds a frame above
+    `leave_lines`, bridges a 2-frame mid-syllable dip at `fill_on_body`, and cuts back-and-forth style switching; (3) the class map's
+    largest piece (`argmax`) is taken inside the head box, so a larger lip blob outside the box never wins."""
+    import cv2
+    import capture_masked_run as cap
+    import draw_face_points as dfp
+    import shot_to_load as stl
+    from _lib import face_points as fp
+    names = cap._pack("sapiens2_parts").CLASS_NAMES
+    u_lip, l_lip, tongue = (names.index(c) for c in ("Upper_Lip", "Lower_Lip", "Tongue"))
+    folder, mesh, pts, source = rooms("mouth_fixes_synth", [90] * N, [60] * N, CENTRES, 0)
+    P = fp.load(str(pts), None)
+    lips = [i for k, i in P["index"].items() if "outer_lip" in k or k in ("r_outer_corner_of_mouth", "l_outer_corner_of_mouth")]
+    cm = np.zeros((N, H, W), np.uint8)
+    # an 8,100 px lip blob on the canvas outside the head box on every frame, larger than any real mouth inside the box
+    cm[:, 2:52, 2:164] = u_lip
+    for f in range(N):
+        xy = P["keypoints"][f][lips]
+        cx, cy = (int(round(v)) for v in xy.mean(0))
+        ax, ay = (max(int(0.35 * (xy[:, i].max() - xy[:, i].min()) / 2), 4) for i in (0, 1))
+        if f in (0, 1):
+            # closed class-map lips at the pose mouth, clear of the outer-lip ring, with 0 px of teeth or tongue inside the mouth
+            cv2.ellipse(cm[f], (cx, cy), (ax, ay), 0, 0, 180, u_lip, -1)
+            cv2.ellipse(cm[f], (cx, cy), (ax, ay), 0, 180, 360, l_lip, -1)
+            if f == 1:
+                cm[f, cy - 1:cy + 2, cx - 2:cx + 3] = 0                  # unlabelled interior gap inside closed lips (0 px teeth/tongue)
+                cm[f, max(cy - 28, 0):max(cy - 25, 1), cx - 2:cx + 2] = tongue  # stray tongue speck inside the head box but outside the lips
+        elif f == 2:
+            # open class-map mouth: lip ring with tongue inside it
+            cv2.ellipse(cm[f], (cx, cy), (ax, ay), 0, 0, 360, u_lip, -1)
+            cv2.ellipse(cm[f], (cx, cy), (max(ax // 2, 2), max(ay // 2, 2)), 0, 0, 360, tongue, -1)
+        elif f in (3, 4):
+            # on the lip lines (high share)
+            ring = np.round(xy).astype(np.int32)
+            cv2.fillPoly(cm[f], [cv2.convexHull(ring)], tongue)
+            cv2.polylines(cm[f], [cv2.convexHull(ring)], True, u_lip, 3)
+        else:
+            # frames 5..11: open class-map mouth at the pose mouth
+            cv2.ellipse(cm[f], (cx, cy), (ax, ay), 0, 0, 360, u_lip, -1)
+            cv2.ellipse(cm[f], (cx, cy), (max(ax // 2, 2), max(ay // 2, 2)), 0, 0, 360, tongue, -1)
+    classes = folder / "classes.mkv"
+    enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "gray", "-s", f"{W}x{H}", "-r", "24", "-i", "-", "-c:v", "ffv1",
+                            "-level", "3", str(classes)], stdin=subprocess.PIPE)
+    enc.communicate(cm.tobytes()); assert enc.returncode == 0
+    # run end-to-end with --closed-lip-line on, and compare against default (off)
+    rec_off = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head_off.mp4", "the check", room=ROOM, mouth="auto",
+                     classes=str(classes), classes_first=0, say=lambda *_: None)
+    rec_on = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head_on.mp4", "the check", room=ROOM, mouth="auto",
+                    classes=str(classes), classes_first=0, closed_lip_line="synthetic test", say=lambda *_: None)
+    assert "closed_lip_line" not in rec_off["drawn"]["mouth"], rec_off["drawn"]["mouth"]
+    assert rec_on["drawn"]["mouth"]["closed_lip_line"] == {"why": "synthetic test", "closed_frames": [[0, 1]]}, rec_on["drawn"]["mouth"]
+    box = rec_on["box"]
+    sz = tuple(rec_on["size"])
+    m_off, h_off = hr.class_mouths(str(classes), 0, 0, N, box, sz, closed_as_line=False)
+    m_on, h_on = hr.class_mouths(str(classes), 0, 0, N, box, sz, closed_as_line=True)
+    # (3) head-box gating before argmax: the 8,100 px lip blob at (2..52, 2..164) outside `box` never wins on any frame
+    for f in range(N):
+        cx_m, cy_m = h_on["_centres"][f]
+        assert box[0] <= cx_m <= box[2] and box[1] <= cy_m <= box[3], (f, (cx_m, cy_m), box)
+    # (1) closed lips (frames 0 and 1, including frame 1's unlabelled interior gap and stray outside-lip tongue speck) have no hole
+    # and draw one open parting line (`mouth_closed`, closed=False), never a hollow 'O' ring (`mouth_outer`, closed=True)
+    assert m_off[1][1].any() and not m_on[0][1].any() and not m_on[1][1].any() and m_on[2][1].any(), (h_off, h_on)
+    assert h_on["_inside"][0] == 0 and h_on["_inside"][1] == 0 and h_on["_inside"][2] > 0, h_on["_inside"]
+    for cf in (0, 1):
+        sh = dfp.mouth_shapes(*m_on[cf], closed_as_line=True)
+        assert [n for n, _, c in sh] == ["mouth_closed"] and not any(c for _, _, c in sh), (cf, sh)
+        pic = dfp.draw(np.full((1, sz[1], sz[0], 3), 90, np.uint8), [sh], hr.FORM_WIDTH, set(), False, mouths=[m_on[cf]])[0]
+        _, xs = np.nonzero(m_on[cf][0])
+        cx = int(round(np.median(xs)))
+        u = np.nonzero(m_on[cf][0][:, cx])[0]
+        cy = int(round(0.5 * (u[0] + u[-1])))
+        assert pic[cy - 1:cy + 2, cx].max() > 180 and pic[int(u[0]), cx].max() < 120 and pic[int(u[-1]), cx].max() < 120, (cf, int(u[0]), cy, int(u[-1]))
+    sh_open = dfp.mouth_shapes(*m_on[2], closed_as_line=True)
+    assert [n for n, _, c in sh_open] == ["mouth_outer", "mouth_inner"] and all(c for _, _, c in sh_open), sh_open
+    # (2) hysteresis over time: a run crossing the threshold back and forth holds above leave_lines, bridges a 2-frame mid-syllable
+    # dip at fill_on_body, and cuts style switches
+    lines, leave = hr.MOUTH_CHECK["on_share"], hr.MOUTH_RUNS["leave_lines"]
+    shares = [lines, leave, lines, leave, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04]
+    passes = [True, True, True, True, True, True, False, False, True, True]
+    on_body = [0.80] * 6 + [0.55, 0.55, 0.80, 0.80]
+    near = [0.10] * 10
+    on_l, p2, held_l, refilled, _ = hr.mouth_over_time(shares, passes, on_body, near, set(), 100)
+    assert on_l == [True, True, True, True, False, False, False, False, False, False] and held_l == [101, 103], (on_l, held_l)
+    assert refilled == [106, 107] and all(p2[4:10]), (refilled, p2)
+    # and Where pose and class map agree (agreed_share, agreed_near), agreed_on_body keeps a three-quarter mouth at 0.50 on_body
+    plain_50 = np.zeros((1, sz[1], sz[0], 3), np.uint8)
+    wy, wx = np.nonzero(m_on[2][0])
+    mid = len(wy) // 2
+    plain_50[0, wy[:mid], wx[:mid]] = 90
+    p50_file = video(folder / "plain50.mkv", plain_50)
+    agreed_pass, _ = hr.class_mouth_gate([m_on[2]], [h_on["_centres"][2]], str(p50_file), str(pts), 2, 1, [hr.CLASS_MOUTH_GATE["agreed_share"]])
+    assert agreed_pass == [True], agreed_pass
+    # and the plan/job switch is off by default and shown in THE DEFAULTS THIS LOAD CARRIES when turned on
+    rf_default = stl.reference_form({}, "lead")
+    assert "closed_lip_line" not in rf_default["mouth"], rf_default
+    rf_switched = stl.reference_form({"reference": {"closed_lip_line": True, "why": "mouth test"}}, "lead")
+    carried = stl.defaults_carried({}, {}, [{"label": "lead"}], "lead", None, rf_switched, {"said_by": "plan", "why": "z"}, None)
+    mouth_row = next(d for d in carried if d["what"] == "the mouth")
+    assert "CLOSED LIPS as one parting line" in mouth_row["carries"] and "closed_lip_line: the plan: mouth test" in mouth_row["from"], mouth_row
+    return ("synthetic closed lips (and an unlabelled gap inside them) draw one open parting line (`mouth_closed`) when `--closed-lip-line` is on "
+            "and stay off by default; hysteresis holds across dips and refills 2-frame mid-syllable drops; argmax runs inside the head box; "
+            "`closed_lip_line` is shown in THE DEFAULTS THIS LOAD CARRIES when on")
+
+
+def the_three_mouth_fixes_on_fun_captures() -> str:
+    """Real-data verification on the untracked captures of `805`, `2823-3097` and `5114` read from each load's own job record
+    under `data/` when present; says plainly that it was skipped when they are not on disk (never committed as a tracked fixture)."""
+    import draw_face_points as dfp
+    import h3_config
+    root = Path(__file__).resolve().parents[1]
+    data_dirs = [d for d in [root / "data", *sorted(root.parent.parent.glob("custom_nodes/*/data"))] if d.is_dir()]
+
+    def ref_from_job(job_glob: str, rel_fallback: str) -> Path | None:
+        for d in data_dirs:
+            for jp in sorted(d.glob(job_glob)):
+                try:
+                    rec = json.loads(jp.read_text()).get("job", {}).get("reference", {}).get("record")
+                    if rec and Path(rec).is_file():
+                        return Path(rec)
+                except Exception:
+                    pass
+        try:
+            p = h3_config.output_dir() / "Video" / "fun" / "references" / rel_fallback
+            if p.is_file():
+                return p
+        except BaseException:
+            pass
+        return None
+
+    r805 = ref_from_job("*_lead_fp_0805d_job/job.plan.json", "lead_0805_0833/lead_head_reference_0805_0833.json")
+    r5114 = ref_from_job("*_second_hfp_5114e_job/job.plan.json", "second_5114_5129/second_head_reference_5114_5129.json")
+    r2823 = ref_from_job("*_lead_fp_2823b_job/job.plan.json", "lead_2823_3097/lead_head_reference_2823_3097.json")
+    if r805 is None or r5114 is None or r2823 is None:
+        return "skipped (untracked fun reference captures for 805, 2823-3097 and 5114 not on disk)"
+    d805, d5114, d2823 = (json.loads(p.read_text()) for p in (r805, r5114, r2823))
+    c805 = Path(d805["drawn"]["mouth"]["class_map"]["class_map"])
+    c5114 = Path(d5114["drawn"]["mouth"]["class_map"]["class_map"])
+    c2823 = Path(d2823["drawn"]["mouth"]["class_map"]["class_map"])
+    if not (c805.is_file() and c5114.is_file() and c2823.is_file()):
+        return "skipped (untracked fun class-map captures for 805, 2823-3097 and 5114 not on disk)"
+    # 805 (805..833)
+    p805 = str(r805.parent / d805["files"]["plain_cut"])
+    pts805 = d805["inputs"]["points"]
+    cf805 = int(d805["inputs"]["its_first_frame_is_source_frame"])
+    chk805 = hr.mouth_check(pts805, str(c805), cf805, 805, 29)
+    m805, h805 = hr.class_mouths(str(c805), cf805, 805, 29, d805["box"], tuple(d805["size"]), closed_as_line=True)
+    pass805, gate805 = hr.class_mouth_gate(m805, h805["_centres"], p805, pts805, 805, 29, chk805["_shares"])
+    rows805 = gate805["a_frame_at_a_time"]
+    on805, p2_805, held805, _, _ = hr.mouth_over_time(
+        chk805["_shares"], pass805, [r.get("on_body") for r in rows805], [r.get("from_the_pose_mouth_in_face_heights") for r in rows805], set(), 805)
+    by_class_805 = [805 + f for f in range(29) if not on805[f] and p2_805[f]]
+    assert hr.spans_of(by_class_805) == [[807, 807], [812, 814], [819, 824], [826, 826]] and held805 == [828], (by_class_805, held805)
+    for cf in (807, 826):
+        sh = dfp.mouth_shapes(*m805[cf - 805], closed_as_line=True)
+        assert [n for n, _, c in sh] == ["mouth_closed"] and not any(c for _, _, c in sh), (cf, sh)
+    # 5114 (5114..5129)
+    p5114 = str(r5114.parent / d5114["files"]["plain_cut"])
+    pts5114 = d5114["inputs"]["points"]
+    cf5114 = int(d5114["inputs"]["its_first_frame_is_source_frame"])
+    chk5114 = hr.mouth_check(pts5114, str(c5114), cf5114, 5114, 16)
+    m5114, h5114 = hr.class_mouths(str(c5114), cf5114, 5114, 16, d5114["box"], tuple(d5114["size"]), closed_as_line=True)
+    pass5114, _ = hr.class_mouth_gate(m5114, h5114["_centres"], p5114, pts5114, 5114, 16, chk5114["_shares"])
+    closed_5114 = [5114 + f for f in range(16) if pass5114[f] and not m5114[f][1].any()]
+    assert len(closed_5114) == 13 and all([n for n, _, _ in dfp.mouth_shapes(*m5114[cf - 5114], closed_as_line=True)] == ["mouth_closed"] for cf in closed_5114)
+    # 2823-3097 (275 frames)
+    p2823 = str(r2823.parent / d2823["files"]["plain_cut"])
+    pts2823 = d2823["inputs"].get("points_filled") or d2823["inputs"]["points"]
+    cf2823 = int(d2823["inputs"]["its_first_frame_is_source_frame"])
+    chk2823 = hr.mouth_check(pts2823, str(c2823), cf2823, 2823, 275)
+    m2823, h2823 = hr.class_mouths(str(c2823), cf2823, 2823, 275, d2823["box"], tuple(d2823["size"]), closed_as_line=True)
+    pass2823, gate2823 = hr.class_mouth_gate(m2823, h2823["_centres"], p2823, pts2823, 2823, 275, chk2823["_shares"])
+    rows2823 = gate2823["a_frame_at_a_time"]
+    on2823, p2_2823, held2823, _, _ = hr.mouth_over_time(
+        chk2823["_shares"], pass2823, [r.get("on_body") for r in rows2823], [r.get("from_the_pose_mouth_in_face_heights") for r in rows2823], set(), 2823)
+    raw_style = ["lines" if s >= hr.MOUTH_CHECK["on_share"] else ("class" if p else "none") for s, p in zip(chk2823["_shares"], pass2823)]
+    hyst_style = ["lines" if o else ("class" if p else "none") for o, p in zip(on2823, p2_2823)]
+    switches = lambda seq: sum(a != b for a, b in zip(seq[:-1], seq[1:]))  # noqa: E731
+    assert switches(raw_style) == 46 and switches(hyst_style) == 8 and len(held2823) == 50, (switches(raw_style), switches(hyst_style), len(held2823))
+    return ("verified on untracked fun captures 805, 5114 and 2823-3097: closed mouths on 807, 826 and 5114's 13 closed frames draw one parting "
+            "line (`mouth_closed`), 805's 819-824 stays continuous, and 2823-3097's style switches drop from 46 to 8")
+
+
 case("one run makes the form", one_run_makes_the_form)
 case("a face off the subject's track fails the run", a_face_off_the_track_fails)
 case("her own glasses over her eyes, off her track", her_glasses_over_her_eyes)
@@ -870,6 +1056,8 @@ case("frames from the middle of all three files", frames_from_the_middle)
 case("the mouth by the check", the_mouth_by_the_check)
 case("the class map's mouth by its own gate", the_class_map_mouth_by_its_gate)
 case("a frame at a time in the lip lines' form", a_frame_at_a_time_in_the_lines_form)
+case("the three mouth fixes on synthetic shapes", the_three_mouth_fixes_synthetic)
+case("the three mouth fixes on fun's captures when present", the_three_mouth_fixes_on_fun_captures)
 case("the gate at its bounds", the_gate_at_its_bounds)
 case("the mouth over time", the_mouth_over_time)
 case("an option: no class-map mouth without teeth or tongue", needs_hole_option)

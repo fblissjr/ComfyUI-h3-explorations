@@ -458,8 +458,24 @@ def left_out_and_highlights() -> str:
     assert all(len(v) and not ((v[:, 0] < 70) & (v[:, 1] < 50)).any() for v in found), [len(v) for v in found]
     back = df.read_back(written, mesh, drawings, np.array([df.white_expected(d, WIDE, True) for d in drawings]), np.ones(4, bool), WIDE)
     assert back["passed"] and not back["off_the_lines"], back["lags"]
+    # with closed_as_line=True (--closed-lip-line), a closed class-map mouth (no hole) is one open parting line (`mouth_closed`, closed=False),
+    # never a hollow 'O' ring (`mouth_outer`, closed=True); off by default (`closed_as_line=False`)
+    whole = np.zeros((H, W), bool); whole[130:151, 160:221] = True
+    hole = np.zeros((H, W), bool)
+    assert [n for n, _, c in df.mouth_shapes(whole, hole)] == ["mouth_outer"], "closed_as_line should be off by default"
+    closed_shapes = df.mouth_shapes(whole, hole, closed_as_line=True)
+    assert [n for n, _, c in closed_shapes] == ["mouth_closed"] and not any(c for _, _, c in closed_shapes), closed_shapes
+    closed_pic = df.draw(grey([90]), [closed_shapes], WIDE, set(), False, mouths=[(whole, hole)])[0]
+    assert closed_pic[140, 190].min() > df.WHITE and closed_pic[131, 190].max() < 120 and closed_pic[149, 190].max() < 120, \
+        "a closed mouth with no teeth or tongue was drawn as a hollow 'O' ring instead of one parting line"
+    hole[136:145, 172:209] = True
+    open_shapes = df.mouth_shapes(whole, hole, closed_as_line=True)
+    assert [n for n, _, c in open_shapes] == ["mouth_outer", "mouth_inner"] and all(c for _, _, c in open_shapes), open_shapes
+    open_pic = df.draw(grey([90]), [open_shapes], WIDE, set(), False, mouths=[(whole, hole)])[0]
+    assert open_pic[140, 190].max() < 40 and (open_pic[128:138, 190].min(-1) > df.WHITE).any(), "an open mouth is not dark inside a white ring"
     return ("with the mouth left out there is no white on the lips' points, her eyes are as before, the record says so and a second reader told the same passes; "
-            "a name that is not a part is refused; a highlight the encode lifts over white is not counted and the read-back passes")
+            "a name that is not a part is refused; a highlight the encode lifts over white is not counted and the read-back passes; "
+            "with closed_as_line on, a closed class-map mouth draws one parting line, never a hollow 'O'")
 
 
 def refusals() -> str:

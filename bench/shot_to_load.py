@@ -1660,7 +1660,7 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
 
     old_mouth = old_ref.get("mouth") or {}
     for k in old_mouth:
-        if k not in ("form", "said_by", "why", "no_mouth_on", "mouth_on"):
+        if k not in ("form", "said_by", "why", "no_mouth_on", "mouth_on", "closed_lip_line"):
             raise Refused(f"--carry-words-from {old_name}: word-bearing key 'job.reference.mouth.{k}' in old job cannot be carried")
     if old_mouth.get("said_by") not in (None, "the chain's default", "the plan"):
         raise Refused(f"--carry-words-from {old_name}: word-bearing setting 'reference.mouth' (said_by {old_mouth.get('said_by')!r}) cannot be carried by job")
@@ -2415,6 +2415,12 @@ def reference_form(p: dict, subject: str) -> dict:
             out[key] = {"form": said[key], "said_by": "the plan", "why": " ".join(str(said["why"]).split())}
         else:
             out[key] = {"form": REFERENCE_DEFAULT[key], "said_by": "the chain's default", "why": "REFERENCE_DEFAULT (2026-10-14)"}
+    if "closed_lip_line" in said:
+        if said["closed_lip_line"] is not True:
+            raise Refused(f"the plan's `reference.closed_lip_line` for {subject!r} is {said['closed_lip_line']!r}: `true` with `why`, or leave it out")
+        if out["mouth"]["form"] != "auto":
+            raise Refused(f"the plan's `reference.closed_lip_line` for {subject!r} acts on `mouth: 'auto'`; got {out['mouth']['form']!r}")
+        out["mouth"]["closed_lip_line"] = {"said_by": "the plan", "why": " ".join(str(said["why"]).split())}
     return out
 
 
@@ -2437,9 +2443,11 @@ def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: di
         ("the mouth", {"auto": "drawn when the lip lines lie on the class map's mouth (head_reference.MOUTH_CHECK), else left out: decided and printed at "
                                "the reference step", "drawn": "drawn", "left out": "left out"}[mouth["form"]]
          + "".join(f"; NONE on {s['first']}-{s['last']}, turned off on a person's word" for s in mouth.get("no_mouth_on") or [])
-         + "".join(f"; DRAWN on {s['first']}-{s['last']} where the gate drops it, the pose model's lip rings, on a person's word" for s in mouth.get("mouth_on") or []),
+         + "".join(f"; DRAWN on {s['first']}-{s['last']} where the gate drops it, the pose model's lip rings, on a person's word" for s in mouth.get("mouth_on") or [])
+         + ("; CLOSED LIPS as one parting line where no teeth or tongue show (head_reference --closed-lip-line)" if mouth.get("closed_lip_line") else ""),
          f"{mouth['said_by']}: {mouth['why']}" + "".join(f"; {s['first']}-{s['last']}: {s['said_by']}, {s['at']}: {s['why']}"
-                                                       for s in (mouth.get("no_mouth_on") or []) + (mouth.get("mouth_on") or []))),
+                                                       for s in (mouth.get("no_mouth_on") or []) + (mouth.get("mouth_on") or []))
+         + (f"; closed_lip_line: {mouth['closed_lip_line']['said_by']}: {mouth['closed_lip_line']['why']}" if mouth.get("closed_lip_line") else "")),
         *([("the part held on a person's word", "on " + mine["word"].replace("+", ", ") + ": frames the capture's grade leaves empty there take "
             "the nearest graded part, moved and cut to the track (capture_masked_run.word_shapes)", mine["word_by"])] if mine.get("word") else []),
         *([("the face lines", "NONE on " + ", ".join(f"{s['first']}-{s['last']}" for s in ref_form["no_face_on"]) + ", turned off on a person's word "
@@ -2764,7 +2772,7 @@ def drawn_form(job: dict, a, files: dict, preview_first: int) -> list:
     said = job.get("reference") or {}
     mouth = a.mouth or (said.get("mouth") or {}).get("form")
     iris = a.iris or (said.get("iris") or {}).get("form")
-    if (a.mouth or a.iris or getattr(a, "class_mouth_needs_hole", False)) and not str(a.form_why or "").strip():
+    if (a.mouth or a.iris or getattr(a, "class_mouth_needs_hole", False) or getattr(a, "closed_lip_line", False)) and not str(a.form_why or "").strip():
         raise Refused("--mouth and --iris at the reference step are a person's word: say why with --form-why")
     out = []
     if iris:
@@ -2819,6 +2827,13 @@ def drawn_form(job: dict, a, files: dict, preview_first: int) -> list:
         if mouth != "auto":
             raise Refused(f"--class-mouth-needs-hole acts on the mouth by the check (auto); this load's mouth is {mouth!r}")
         out += ["--class-mouth-needs-hole", " ".join(a.form_why.split())]
+    cl = (" ".join(a.form_why.split()) if getattr(a, "closed_lip_line", False) else
+          f"{(said.get('mouth') or {})['closed_lip_line']['said_by']}: {(said.get('mouth') or {})['closed_lip_line']['why']}"
+          if (said.get("mouth") or {}).get("closed_lip_line") else "")
+    if cl:
+        if mouth != "auto":
+            raise Refused(f"--closed-lip-line acts on the mouth by the check (auto); this load's mouth is {mouth!r}")
+        out += ["--closed-lip-line", cl]
     return out
 
 
@@ -3169,6 +3184,8 @@ def main() -> int:
     r.add_argument("--iris", choices=("between the lids", "whole", "filled", "contrast"), help="the eye, over the job's, with --form-why")
     r.add_argument("--class-mouth-needs-hole", action="store_true", help="an option for one test (5114e): no class-map mouth on a frame "
                    "with no teeth or tongue labelled; with --form-why")
+    r.add_argument("--closed-lip-line", action="store_true", help="an option, off unless asked: draw a closed class-map mouth (no teeth "
+                   "or tongue inside it) as one open parting line from corner to corner; with --form-why")
     r.add_argument("--form-why", default="", help="why this load's mouth or eye is drawn otherwise than its job says")
     t = sub.add_parser("text")
     t.add_argument("job_file")

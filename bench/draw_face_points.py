@@ -381,10 +381,18 @@ def white_expected(drawing: list[tuple[str, np.ndarray, bool]], width: float, do
     return float(inside.sum())
 
 
-def mouth_shapes(whole: np.ndarray, hole: np.ndarray) -> list[tuple[str, np.ndarray, bool]]:
+def mouth_shapes(whole: np.ndarray, hole: np.ndarray, *, closed_as_line: bool = False) -> list[tuple[str, np.ndarray, bool]]:
     """A class-map mouth's outlines as the drawing's shapes: the lips' outer outline and, where the mouth is open, its inner
-    edge, each a closed line (`mouth_outer`, `mouth_inner`)."""
+    edge, each a closed line (`mouth_outer`, `mouth_inner`); with `closed_as_line` True and `not hole.any()` (no teeth or tongue),
+    one open parting line from corner to corner (`mouth_closed`, `closed=False`), never a hollow 'O' ring."""
     import cv2
+    if closed_as_line and not hole.any():
+        xs = np.nonzero(whole.any(0))[0]
+        if len(xs) < 2:
+            return []
+        ys = np.array([0.5 * (u[0] + u[-1]) for x in xs for u in (np.nonzero(whole[:, x])[0],)], float)
+        pts = cv2.approxPolyDP(np.column_stack([xs.astype(float), ys])[:, None, :].astype(np.float32), 1.0, False)[:, 0, :].astype(float)
+        return [("mouth_closed", pts, False)] if len(pts) >= 2 else []
     out = []
     for name, m in (("mouth_outer", whole), ("mouth_inner", hole)):
         cs, _ = cv2.findContours(m.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
@@ -573,8 +581,8 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
         mesh_first: int | None = None, points_first: int | None = None, width: float | None = None, dots: bool = True,
         leave_out: frozenset = frozenset(), bare: list[int] | None = None, bare_by: str = "", source: str = "", source_first: int = 0,
         iris: str = IRIS_FORMS[0], mouths: list | None = None, mouth_lines: bool = True, no_mouth: list[int] | None = None,
-        class_mouth_frames: list[int] | None = None, eyes_shut: list[int] | None = None, eyes_shut_form: str | None = None,
-        eyes_shut_by: str = "", say=print) -> dict:
+        class_mouth_frames: list[int] | None = None, closed_lip_line: bool = False, eyes_shut: list[int] | None = None,
+        eyes_shut_form: str | None = None, eyes_shut_by: str = "", say=print) -> dict:
     """Draw, write, read back, record. `mouths`: a class-map mouth a frame ((whole, hole) masks of the frame, or None), drawn in
     place of the points' mouth (`head_reference`, `--mouth auto` where the lip check fails and the class map holds the mouth);
     with `mouth_lines` False its lips are painted out and its inside filled under the points' own mouth lines, and no
@@ -624,7 +632,7 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
         for f in own:
             drawings[f] = [d for d in drawings[f] if not d[0].endswith("_lip_ring")]
         if mouth_lines or own:
-            drawings = [d + (mouth_shapes(*mouths[f]) if mouths[f] is not None and (mouth_lines or f in own) else []) for f, d in enumerate(drawings)]
+            drawings = [d + (mouth_shapes(*mouths[f], closed_as_line=closed_lip_line) if mouths[f] is not None and (mouth_lines or f in own) else []) for f, d in enumerate(drawings)]
     pictures = draw(mesh, drawings, wide, left, dots, fills, contrast=iris == IRIS_FORMS[3], mouths=mouths)
     but = filled_px(fills, (w, h)) if iris == IRIS_FORMS[3] else None
     out.parent.mkdir(parents=True, exist_ok=True)
