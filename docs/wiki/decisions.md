@@ -17,11 +17,19 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-17
 
+- **Drops are measured per frame, and a person's drop is never carried silently** (the owner, "yes", after asking
+  whether we should drop the way we do). Built before 0613h: the head tube's turned-away label only proposes (C137, C138: it calls
+  709, 710, 712 and 735-737 turned away where the owner sees the side of her face; it lumps a profile with the back of
+  her head), the holds never fill a frame a person says has no face; a
+  carried drop is refused on frames where the capture sees her face, and those frames go to the owner for a look (C136).
+  Why: one 10-16 reading, carried unread through 0613b-0613g, dropped 709-710 and 733-738 where her face shows.
+
 - **The lead's kitchen 708-710, by the owner's look** (2026-10-18T01:07Z, on `lead_fp_0613g`'s compare clip, frames 708-713): 708 shows
   only her hair; 709 her face is still there, an eye, tiny; 710 hard to see, but there, turned. The owner also confirmed
   687-707: a side profile with her hair wholly in the way. So the next kitchen load
-  (0613h) drops 687-708, not 687-710: the 10-16 reading carried in 0613g's `drop=` is overruled for 709-710. 733-738 is
-  not yet answered.
+  (0613h) drops 687-708, not 687-710: the 10-16 reading carried in 0613g's `drop=` is overruled for 709-710. And 733-738 (2026-10-18T01:09Z): her face is
+  there on 735 (harder to see) and 738, and easier on 739, so 733-738 is not dropped either; then 733 too
+  ("its there but its harder"): her side face is visible on all of 733-738, not easily but clearly. 0613h's drop: 687-708, 747-750, 974.
 
 - **Corrected: 0613g's empty 708-710 and 733-738 come from its job's carried `drop=`, not from the holds giving up**
   (gem-matte's gate figures, checked by the Claude lead in `data/2026-10-17_lead_fp_0613g_job/job.plan.json`,

@@ -31,6 +31,18 @@ has got, naming the files: nothing captured; captured, not rendered; rendered, n
 3471 frames "no tied capture", yet 1025 of them have an older capture holding her track, and unkept renders are not
 looked at. The stacked view and the pages print the check's own words, so every view agrees.
 
+And one more before the kitchen load (C136, the owner's yes): the head tube's turned-away label only proposes (it calls
+709, 710, 712 and 735-737 turned away where the owner sees the side of her face: a profile lumped with the back of her
+head, C138), the holds never fill a frame a person says
+has no face, and a person's drop is never carried silently: the job step
+refuses to carry it onto frames where the capture sees her face and lists them for a look. The face lines follow the same
+rule (C140): carried only as a person's word, refused where the capture sees her face. 0613h's own words, from the
+owner's look tonight: drop 687-708, 747-750 and 974 only, the face lines off on those frames only and ON on 709-746
+(the side of her face, one eye); a Gemini reader checks the reference's drawn lines on 705-715 and 730-752 first. gem-matte's handoff (end of
+`internal/gemini/2026-10-17_worker_gem-matte.md`) has the three-state label's design and a one-shot card test for the
+first free slot: Sapiens re-run on the steady shot box over 680-760, against the preview's saved classes on 709-712 and
+735-737.
+
 Tonight renders none of the gaps (the owner's word at the close, C126): the kitchen and hall wait for the head tube's
 gate. The two that are next, from the same check and tonight's `lead_fp_0613g`:
 
@@ -75,6 +87,12 @@ gate. The two that are next, from the same check and tonight's `lead_fp_0613g`:
 - **Open List**: r17_06 (the mom's kitchen re-lays) and r17_07 (the perception order) wait on the owner; r17_08 is
   tonight's state; r17_09 records the licence answer. The inbox is clear.
 
+- **If the close did not finish** (the owner chose that the Claude lead only watches, C144): check, in this order, that
+  `gemmatte-moge` and `gem-memsel-tool` are landed (`git log`; both cleared, C130 and C143), that gem-memsel's measurement
+  ran (`data/2026-10-17_sam_memory_selection/`; the command is in its handoff), that `bench/rebuild_delivery.py --video
+  fun` made a new gap check after 1747Z, and that ComfyUI and the review server were stopped. Whatever did not happen is
+  the first thing tomorrow, before the gaps.
+
 ## What not to assume
 
 - **"Tracking not known" on the stacked view usually means no piece was made there**, not that a track was lost (1402,
@@ -85,7 +103,8 @@ gate. The two that are next, from the same check and tonight's `lead_fp_0613g`:
   834-845, and the old kitchen loads were cut round those frames. 0613g leaves 687-710, 733-738, 747-750 and 974 as the original
   because its job CARRIES `drop=` on them, a 10-16 reading ("only her hair shows") carried since 0613b; tonight's read
   says her face shows on 708-712 and 736-738. The owner's eye on 700-760 decides before 0613h (C130).
-- **The head tube is not a fill.** Its 3-frame average bridges 1-2 frames; its frame labels change nothing; its
+- **The head tube is not a fill, and in the capture it does not re-run Sapiens**: it smooths the preview's saved class
+  map (gem-matte, C137), so the steady-box gain is not there yet. Also not a fill: Its 3-frame average bridges 1-2 frames; its frame labels change nothing; its
   turned-away lines were measured on 684-707 of the same shot (`internal/gemini/2026-10-17_head_tube_how_it_works.md`).
 - **Nothing gem-matte built is a default.** Each switch is off until its tests pass and the owner says yes.
 - **SAM**: core has no memory selection under any name; Meta has it on for SAM 3 base and off for 3.1 with no stated
@@ -118,6 +137,15 @@ gate. The two that are next, from the same check and tonight's `lead_fp_0613g`:
 
 ## Where things are
 
+- **Each session's end-of-day notes**, read before starting:
+  - the Claude lead (mrtabby): this page; working notes in `internal/claude/2026-10-17_mrtabby/` (`mentor_notes.md`,
+    `test_scenes_claude.md`, `who_record_v2.md`);
+  - the Gemini lead (mrgemsol): its closing entry, the last G entry of `internal/gemini/2026-10-17_gemini_to_claude.md`,
+    headed "End of day" (owed at the close, C126, C141);
+  - gem-matte: "End-of-Day Handoff" at the end of `internal/gemini/2026-10-17_worker_gem-matte.md`;
+  - gem-memsel: `internal/gemini/2026-10-17_worker_gem-memsel.md` (still running at this writing; its READY or a handoff
+    owed);
+  - the readers' reviews: `internal/gemini/2026-10-17_review_*.md`.
 - Decisions: `docs/wiki/decisions.md`, 2026-10-17. The owner's preferences: `docs/wiki/working_with_the_owner.md`.
   Day-to-day commands: `docs/wiki/runbook.md`. The lane: `data/AGENTS.md`, then `data/fun/AGENTS.md` (local).
 - The owner's raw answers: `data/fun/owner_answers.jsonl`. Who is who: `data/fun/shots.json` and `cast/cast.jsonl`.
