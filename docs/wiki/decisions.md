@@ -17,6 +17,14 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-18
 
+- **Leftovers are a standing lens** (the owner, about 23:05Z, in the Claude lead's terminal): the project keeps adding
+  a knob, a margin or a one-off rule, then forgets that it was added, why, or that it was built to test one thing and
+  never revisited. Every review and audit asks of what it touches: what was this covering for, is that still true, and
+  is it still needed. The first instance is tomorrow's buffer audit (`handover.md`, item 2b): `GROW_PIXELS` 64 dates from
+  2026-10-04 on one clip and one seed, the face margin and feather from 2026-10-13 copied unmeasured, all before the
+  head tube, memory selection and depth that were built to fix what they cover. A durable form (each such constant
+  saying what it covers and what would retire it, and a tool that lists them by age) is put to the owner as Open List
+  row r18_07.
 - **Corrected: `docs/wiki/sam3_prompting.md` still said "No shipped graph wires it yet" for `MiniMaxH3SAM31Corrections`.**
   Written on 2026-10-07 before `workflows/masked_job_graph.py` landed; every masked job preview graph wires
   `MiniMaxH3SAM31Corrections` with all three corrections on (`workflows/masked_job_graph.py:280-287`,
