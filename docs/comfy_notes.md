@@ -69,6 +69,19 @@ venv's `site-packages` is not empty. **Do not restore the June
 `known_good_venv.txt` / `restore_venv.sh` environment**: the owner ruled it
 too old on 2026-09-10. Rebuild instead.
 
+### After a ComfyUI update
+
+A ComfyUI update that bumps `comfy-kitchen` replaces our fork wheel with stock,
+so our Sol settings (`rotate`, `qk_balance`, `tau_map`, `blk_cnt`) refuse to
+run, while an older fork wheel lacks modules new core imports (`2026-10-18`).
+Sync the owner's `comfy-kitchen` fork (`h3-frontier`) with the new upstream tag
+and rebuild with `bash vendor/rebuild_kernel.sh` (never hand-copy files into
+`.venv`). With `nanobind` 2.10+, every `std::optional` parameter in
+`comfy_kitchen/backends/cuda/dlpack_bindings.cpp` needs `.none()` or
+`= nb::none()` on its `nb::arg` (fork commit `997dd79`). Before restarting, run
+`bash vendor/rebuild_kernel.sh --check`, `bench/check_sol_kernel.py`, and
+`bench/check_solattn_correctness.py`.
+
 `setsid` puts the server in its own session, and the same prefix belongs on
 every long runner (`bench/run_graph_arms.py`) launched from an agent's
 shell: a process that inherits the agent's session dies with the agent's
