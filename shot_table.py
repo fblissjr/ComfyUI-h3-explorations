@@ -232,8 +232,8 @@ def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask
     Three things a tracker may hand in, each None when it has none (added
     2026-10-10, none changes a field that was there): `held`, for a
     tracker given the people others hold, its `held_people` callable (frame ->
-    the held detections); `on_others`, the frames where this track's own mask lies
-    mostly on those people; `track_scores`, {frame: the tracker's own score
+    the held detections); `on_others`, the frames cut where this track's own mask
+    lay mostly on those people; `track_scores`, {frame: the tracker's own score
     there or None}, with its reasons under "trouble"; `joined`, {frame looked
     at: detections left out as another detection of the same thing}; `gap`,
     the two shots' scores an automatic line was put between when it stands
@@ -246,7 +246,7 @@ def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask
     MUST ANSWER A FRAME THE SAME WAY TWICE. The tracker's own callables and
     its wrappers keep each frame they have answered.
     """
-    theirs = set(on_others or [])
+    theirs = set(on_others if on_others is not None else getattr(found, "on_others", None) or [])
     judged = getattr(found, "judged", None) or {}
     frames, height, width = int(mask.shape[0]), int(mask.shape[1]), int(mask.shape[2])
     present = (mask > 0.5).flatten(1).any(dim=1)
@@ -351,8 +351,8 @@ def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask
             "caption": "",
             # every frame this shot was judged on after a cut, with everybody on it (`LOOKS_ARE`); empty for the picked shot
             "looks": looks,
-            # with the `others` input wired: the frames this track's own mask lies mostly on another tracker's person
-            "frames_on_others": None if on_others is None else _runs(
+            # with the `others` input wired: the frames cut where this track's own mask lay mostly on another tracker's person
+            "frames_on_others": None if (on_others is None and held is None) else _runs(
                 [f in theirs for f in range(int(shot.start), int(shot.end))], int(shot.start)),
             # detections that were another detection of the same thing, joined before anyone was numbered
             "duplicates_joined": None if joined is None else {

@@ -1647,7 +1647,7 @@ def check_others(problems):
         problems.append(f"others: exactly half on the held person is not held and a pixel more is; got {line(0)}, {line(1)}")
     text = st.others_report(got.shots, held.seen, [5, 6, 7])
     for need in ("lie mostly on a person another tracker holds: listed and numbered, marked held, never candidates", "[4] no subject",
-                 "on 3 frame(s): 5-7", "Nothing was cut"):
+                 "cut 3 frame(s) where this track lay mostly on another tracker's person: 5-7"):
         if need not in text:
             problems.append(f"others: the report lacks {need!r}: {text!r}")
     table = st.shot_table.build(got, detect, mask, state=st._state, phrase="person", pick=st.PICK_LARGEST,
@@ -1792,6 +1792,65 @@ def check_others(problems):
                                       pick=st.PICK_LARGEST, named_frame=True, named_value=True, cuts=[8, 16], held=twin_held)
     if [r["subject"]["also_held_by_another_tracker"] for r in typed_table["shots"]] != [False, True, False]:
         problems.append("others: the table's take does not carry `also_held_by_another_tracker` on the shot a held person was typed into")
+    if typed.on_others != [] or seeded.on_others != [] or typed_table["shots"][1]["frames_with_subject"] != 8:
+        problems.append(f"others: a shot where a person's word named a held person (`also_held`) was cut as on others: "
+                        f"typed.on_others={typed.on_others}, seeded.on_others={seeded.on_others}, frames_with_subject={typed_table['shots'][1]['frames_with_subject']}")
+
+    # A TRACK THAT MOVES ONTO ANOTHER TRACKED PERSON IS EMPTIED BEFORE REGAIN RUNS, and reported as cut.
+    # On frames 6..17 (12 frames = REGAIN_MIN_RUN) the initial track jumps onto `stranger` (whom `other_mask` holds)
+    # while `me` is hidden on 6..9 and returns on 10..23; cutting 6..17 turns them into a 12-frame empty run, so
+    # `regain` searches, skips the held stranger on frame 6, and re-seeds `me` on frame 10.
+    other_mask = torch.zeros((24, H, W))
+    other_mask[:] = stranger
+    touching_box = _box(90, 20, 110, 50)   # columns 90..110: exactly half (100..110) overlaps stranger (100..120), <= ON_OTHERS
+    drift_sigs = [(me, e(1.0, 0, 0)), (stranger, e(0.0, 1.0, 0)), (touching_box, e(1.0, 0, 0))]
+    drift_sign = lambda _f, m: (next(v for b, v in drift_sigs if torch.equal(b, m)),) * 2   # noqa: E731
+    def drift_detect(f: int):
+        people = [stranger] if 6 <= f < 10 else [me, stranger]
+        return torch.stack(people), [0.9] * len(people)
+    def drift_track(start, end, seed, mask):
+        out = mask[None].repeat(end - start, 1, 1)
+        if start == 0 and end == 24:
+            out[6:18] = stranger           # the initial track jumped onto the held stranger on frames 6..17
+        elif start == 6 and end == 18:
+            out[:10 - start] = 0.0         # re-seeded on frame 10: frames 6..9 stay empty where `me` was hidden
+        return out
+    # 1) no `others` (`held=None`): nothing is cut, so frames 6..17 stay non-empty and `regain` never runs
+    no_others = st.follow(24, [], st.PICK_LARGEST, 2, 0.8, drift_detect, drift_sign, drift_track, stride=4, offset=1)
+    if no_others.on_others != [] or no_others.shots[0].regained != [] or st.empty_runs(no_others.pieces[0]) != []:
+        problems.append(f"others: with no `others`, a track was cut or re-seeded: on_others={no_others.on_others}, regained={no_others.shots[0].regained}")
+    # 2) with `others`: frames 6..17 are emptied before `regain`, recorded in `on_others`/report/shot_table, and `regain` recovers 10..17
+    drift_held = st.held_people(drift_detect, other_mask)
+    cut_got = st.follow(24, [], st.PICK_LARGEST, 2, 0.8, drift_detect, drift_sign, drift_track, stride=4, offset=1, held=drift_held)
+    cut_mask = st.assemble(24, H, W, cut_got.pieces)
+    if cut_got.on_others != list(range(6, 18)):
+        problems.append(f"others: frames where the track moved onto another person were not recorded in `on_others`: {cut_got.on_others}")
+    if [a for a, *_ in cut_got.shots[0].regained] != [6] or [f for _, f, *_ in cut_got.shots[0].regained] != [10]:
+        problems.append(f"others: emptying the frames on others did not trigger `regain` from 6 to re-seed at 10: {cut_got.shots[0].regained}")
+    if st.empty_runs(cut_mask) != [(6, 10)] or not all(torch.equal(cut_mask[f], me) for f in range(10, 18)):
+        problems.append(f"others: after cutting 6..17 and regaining at 10, empty_runs={st.empty_runs(cut_mask)}")
+    cut_report = st.others_report(cut_got.shots, drift_held.seen, cut_got.on_others)
+    if "cut 12 frame(s) where this track lay mostly on another tracker's person: 6-17" not in cut_report:
+        problems.append(f"others: report did not record the 12 cut frames: {cut_report!r}")
+    cut_table = st.shot_table.build(cut_got, drift_detect, cut_mask, state=st._state, phrase="person",
+                                    pick=st.PICK_LARGEST, named_frame=True, named_value=True, cuts=[], held=drift_held)
+    if cut_table["shots"][0]["frames_on_others"] != [[6, 17]] or cut_table["shots"][0]["frames_without_subject"] != [[6, 9]]:
+        problems.append(f"others: shot table after cutting and regaining has frames_on_others={cut_table['shots'][0]['frames_on_others']}, "
+                        f"frames_without_subject={cut_table['shots'][0]['frames_without_subject']}")
+    # 3) a track that merely touches another person (`<= ON_OTHERS`, here exactly 0.5) is untouched
+    def touch_track(start, end, seed, mask):
+        out = mask[None].repeat(end - start, 1, 1)
+        out[6:18] = touching_box
+        return out
+    touch_held = st.held_people(drift_detect, other_mask)
+    touch_got = st.follow(24, [], st.PICK_LARGEST, 2, 0.8, drift_detect, drift_sign, touch_track, stride=4, offset=1, held=touch_held)
+    touch_mask = st.assemble(24, H, W, touch_got.pieces)
+    touch_table = st.shot_table.build(touch_got, drift_detect, touch_mask, state=st._state, phrase="person",
+                                      pick=st.PICK_LARGEST, named_frame=True, named_value=True, cuts=[], held=touch_held)
+    if touch_got.on_others != [] or st.empty_runs(touch_mask) != [] or touch_table["shots"][0]["frames_on_others"] != []:
+        problems.append(f"others: a track touching another person at `<= ON_OTHERS` was cut: on_others={touch_got.on_others}, "
+                        f"empty_runs={st.empty_runs(touch_mask)}")
+
 
 
 
