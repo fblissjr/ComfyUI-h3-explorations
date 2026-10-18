@@ -2637,6 +2637,94 @@ def remake_requires_carry_words_or_no_carry_words() -> str:
             "--no-carry-words records job.no_carry_words and prints NO WORDS CARRIED, and the two flags are mutually exclusive")
 
 
+def carry_words_from_refuses_drop_over_face_frame() -> str:
+    """C136-C139: each carried drop and no_face_on is printed with who said it and when; carrying a drop or no_face_on
+    over a frame where the old capture sees her face is refused (listing those frames for a look); and narrowing/overriding
+    to true back_of_head frames succeeds."""
+    import contextlib
+    import io
+    import numpy as np
+    import head_tube_parts as htp
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        sheet = Path(tmp) / "sheet_100.jpg"
+        sheet.write_bytes(b"jpg")
+        # Build an old job with drop=105-110 and no_face_on=105-110
+        old = made.load(
+            name="a_fp_0100",
+            drop="105-110",
+            drop_by=f"mrgan looked at {sheet}: hair only; entered 2026-10-16T18:00:00Z by the session",
+            no_face_on=[(105, 110, f"mrgan looked at {sheet}: hair only")],
+        )
+        old_file = made.jobs / "a_fp_0100.json"
+        old_file.write_text(json.dumps(old))
+
+        # Create a synthetic capture for a_fp_0100 at made.root / "data" / "2026-01-03_a_fp_0100"
+        # Frames 105-108 (rel 5-8): back_of_head (Hair only in tube, 0 px Face_Neck).
+        # Frames 109-110 (rel 9-10): profile/facing face showing (Face_Neck = 576 px >= least_px=480).
+        cap_dir = made.root / "data" / "2026-01-03_a_fp_0100"
+        subj_dir = cap_dir / "subjects" / "a"
+        subj_dir.mkdir(parents=True, exist_ok=True)
+        n_frames, h, w = 60, 48, 64
+        track = np.zeros((n_frames, h, w), dtype=bool)
+        track[:, 6:44, 14:50] = True
+        parts = np.zeros((n_frames, h, w), dtype=bool)
+        parts[:, 16:40, 20:44] = True  # 24x24 = 576 px on normal frames
+        parts[5:9] = False  # frames 105-108 have 0 Face_Neck px (back_of_head)
+        face_id = htp.NAME_TO_ID["Face_Neck"]
+        hair_id = htp.NAME_TO_ID["Hair"]
+        cmap = np.zeros((n_frames, h, w), dtype=np.uint8)
+        cmap[:, 8:16, 20:44] = hair_id
+        cmap[parts] = face_id
+        cmap[5:9, 8:40, 20:44] = hair_id  # 100% Hair on 105-108 (back_of_head)
+
+        np.savez_compressed(
+            subj_dir / "masks__shot_c_0100.npz",
+            track=np.packbits(track, axis=-1),
+            parts=np.packbits(parts, axis=-1),
+            covered=np.ones(n_frames, dtype=bool),
+            shape=np.array([n_frames, h, w]),
+        )
+        np.savez_compressed(subj_dir / "classes__shot_c_0100.npz", classes=cmap)
+        (subj_dir / "part_grades.json").write_text(
+            json.dumps({"least_px": 480, "part_is_made_of": ["Face_Neck"]})
+        )
+        (cap_dir / "manifest.json").write_text(
+            json.dumps({"name": "2026-01-03_a_fp_0100", "first_frame": 100, "frames": n_frames, "size": [w, h]})
+        )
+
+        # 1. Carrying old_file directly is REFUSED because frames 109-110 show her face (576 px >= 480)
+        refused(
+            lambda: made.load(name="a_fp_0100b", carry_words_from=old_file),
+            "refused to carry drop / no_face_on silently onto frame(s) 109-110",
+            "drop 105-110 (the session, now) has face on 109-110",
+            "no_face_on 105-110 (the session, now) has face on 109-110",
+        )
+
+        # 2. Narrowing drop and no_face_on to the true back_of_head frames (105-108) with a fresh look succeeds,
+        #    and carrying that narrowed job prints who said drop and no_face_on and when.
+        narrowed = made.load(
+            name="a_fp_0100b",
+            carry_words_from=old_file,
+            drop="105-108",
+            drop_by=f"owner looked at {sheet}: 105-108 back of head, 109-110 profile face",
+            no_face_on=[(105, 108, f"owner looked at {sheet}: 105-108 back of head")],
+        )
+        narrowed_file = made.jobs / "a_fp_0100b.json"
+        narrowed_file.write_text(json.dumps(narrowed))
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            carried_clean = made.load(name="a_fp_0100c", carry_words_from=narrowed_file)
+        printed = buf.getvalue()
+        assert "drop=105-108 (the session, now):" in printed and "no_face_on 105-108 (the session, now):" in printed, (
+            f"expected carried drop and no_face_on to print author and time: {printed!r}"
+        )
+        subj_c = next(s for s in carried_clean["job"]["subjects"] if s["label"] == "a")
+        assert subj_c["drop"] == "105-108", subj_c["drop"]
+    return "carried drop and no_face_on print who said them and when, refuse frames where the capture sees her face, and pass on back_of_head frames"
+
+
 case("the frame a tracker picks on is a field of the shots record", the_pick_frame_is_a_field)
 case("the trackers' order, and who is in the shot", the_order_and_who_is_in_the_shot)
 case("a preview made to ask who is on a shot the record is unsure of", a_preview_made_to_ask)
@@ -2667,6 +2755,7 @@ case("carry-words-from: a carried job equals the old one on every word for the s
 case("carry-words-from: a span outside the new frames is said and refused", carry_words_from_refuses_span_outside_new_frames)
 case("carry-words-from: a retired key is not carried and is said", carry_words_from_retired_keys_not_carried)
 case("carry-words-from: a remake on an existing shot and subject requires --carry-words-from or --no-carry-words", remake_requires_carry_words_or_no_carry_words)
+case("carry-words-from: a carried drop or no_face_on over a face frame is refused", carry_words_from_refuses_drop_over_face_frame)
 
 if __name__ == "__main__":
     sys.exit(finish())

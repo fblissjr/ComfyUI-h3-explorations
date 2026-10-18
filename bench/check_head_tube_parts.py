@@ -124,13 +124,13 @@ def _case_face_points_cross_check() -> str:
     face_id = htp.NAME_TO_ID["Face_Neck"]
     hair_id = htp.NAME_TO_ID["Hair"]
 
-    # Frame 1: turned-away / bent head (like shot 2 frames 684-707): >90% Hair in tube, 0% Face_Neck
+    # Frame 1: back of the head (like shot 2 frames 687-708 and 747-750): >85% Hair in tube, 0% Face_Neck
     for f_idx in (1,):
         logits[f_idx, hair_id, 8:24, 20:44] = 8.0
         logits[f_idx, face_id, 8:24, 20:44] = -5.0
         logits[f_idx, 0, 8:24, 20:44] = -4.0
 
-    # Frame 2: 1-frame Face_Neck dropout inside tube while face points remain visible inside tube
+    # Frame 2: side_with_eye / 1-frame Face_Neck dropout inside tube while face points remain visible inside tube
     logits[2, face_id, 14:24, 20:44] = -3.0
     logits[2, 0, 14:24, 20:44] = 5.0
 
@@ -147,7 +147,7 @@ def _case_face_points_cross_check() -> str:
         for kid in face_ids:
             pose[f_idx, kid] = (32.0, 18.0, 0.92)
 
-    # Frame 1 (turned away): scored face points have low score (< 0.30), while unscored pupil points
+    # Frame 1 (back_of_head): scored face points have low score (< 0.30), while unscored pupil points
     # have high score inside the tube to verify pupils are excluded from scored_face_ids
     for kid in face_ids:
         pose[1, kid] = (32.0, 18.0, 0.05)
@@ -159,6 +159,7 @@ def _case_face_points_cross_check() -> str:
     for kid in face_ids:
         pose[3, kid] = (58.0, 58.0, 0.95)
 
+    part_mask_before = seg["part_mask"].copy()
     cc = htp.cross_check_face_points(
         pose,
         tube,
@@ -168,7 +169,11 @@ def _case_face_points_cross_check() -> str:
         dropout_bridged_seed=seg["dropout_bridged_frames"],
     )
 
+    assert cc["facing_frames"] == [0], f"expected facing_frames=[0], got {cc['facing_frames']}"
+    assert cc["back_of_head_frames"] == [1], f"expected back_of_head_frames=[1], got {cc['back_of_head_frames']}"
+    assert cc["proposed_drop_frames"] == [1], f"expected proposed_drop_frames=[1], got {cc['proposed_drop_frames']}"
     assert cc["turned_away_frames"] == [1], f"expected turned_away_frames=[1], got {cc['turned_away_frames']}"
+    assert cc["side_with_eye_frames"] == [2], f"expected side_with_eye_frames=[2], got {cc['side_with_eye_frames']}"
     assert cc["dropout_bridged_frames"] == [2], (
         f"expected dropout_bridged_frames=[2], got {cc['dropout_bridged_frames']}"
     )
@@ -179,14 +184,167 @@ def _case_face_points_cross_check() -> str:
         f"expected 39 face points in tube on frames 0 and 2, got {cc['face_points_in_tube']}"
     )
     assert cc["face_points_in_tube"][1] == 0, (
-        f"expected 0 scored face points on turned-away frame 1, got {cc['face_points_in_tube'][1]}"
+        f"expected 0 scored face points on back_of_head frame 1, got {cc['face_points_in_tube'][1]}"
     )
-    assert cc["frame_states"] == ["normal", "turned_away", "dropout_bridged", "off_tube_pose"], (
+    assert cc["frame_states"] == ["facing", "back_of_head", "side_with_eye", "off_tube_pose"], (
         f"unexpected frame_states: {cc['frame_states']}"
     )
+    assert cc["face_replace_frames"] == [0, 2] and cc["face_lines_on_frames"] == [0, 2], (
+        f"expected facing and side_with_eye to replace and keep face lines on: {cc['face_replace_frames']}"
+    )
+    # back_of_head is a proposal and empties nothing by itself
+    assert np.array_equal(seg["part_mask"], part_mask_before) and int(seg["part_mask"][1].sum()) == 384, (
+        "back_of_head must propose only and never empty part_mask by itself"
+    )
     return (
-        f"states={cc['frame_states']} in_tube={cc['face_points_in_tube']} "
-        f"hair_share_f1={cc['hair_tube_share'][1]:.2f}"
+        f"states={cc['frame_states']} replace={cc['face_replace_frames']} "
+        f"proposed_drop={cc['proposed_drop_frames']} hair_share_f1={cc['hair_tube_share'][1]:.2f}"
+    )
+
+
+def _case_person_word_overrides_three_states() -> str:
+    tube, logits = _make_base_tube_and_logits(num_frames=3)
+    face_id = htp.NAME_TO_ID["Face_Neck"]
+    hair_id = htp.NAME_TO_ID["Hair"]
+
+    # Frame 0: facing (both eyes + full Face_Neck)
+    # Frame 1: back_of_head (Hair > 85%, no Face_Neck)
+    logits[1, hair_id, 8:24, 20:44] = 8.0
+    logits[1, face_id, 8:24, 20:44] = -5.0
+    logits[1, 0, 8:24, 20:44] = -4.0
+    # Frame 2: side_with_eye (profile slice on right side, only right eye visible)
+    logits[2, face_id, 14:24, 20:32] = -5.0
+    logits[2, hair_id, 14:24, 20:32] = 6.0
+
+    seg = htp.smooth_seg_in_tube(logits, tube)
+    num_kpts = len(htp.POSE_KEYPOINT_INDEX)
+    pose = np.zeros((3, num_kpts, 3), dtype=np.float32)
+    for kid in htp.scored_face_ids():
+        pose[0, kid] = (32.0, 18.0, 0.92)
+    for name, kid in htp.POSE_KEYPOINT_INDEX.items():
+        if name.startswith("r_") and name.endswith("_lash_line") and "pupil" not in name:
+            pose[2, kid] = (38.0, 18.0, 0.90)
+
+    # Without person words: [facing, back_of_head, side_with_eye]
+    raw_cc = htp.cross_check_face_points(pose, tube, seg["face_neck_mask"], seg["hair_mask"])
+    assert raw_cc["frame_states"] == ["facing", "back_of_head", "side_with_eye"], raw_cc["frame_states"]
+    assert raw_cc["proposed_drop_frames"] == [1], raw_cc["proposed_drop_frames"]
+    assert raw_cc["face_replace_frames"] == [0, 2], raw_cc["face_replace_frames"]
+
+    # Person words override the label both ways:
+    # - drop on frame 0 (facing -> dropped_by_word)
+    # - hold on frame 1 (back_of_head -> held_by_word)
+    # - no_face on frame 2 (side_with_eye -> no_face_by_word)
+    over_cc = htp.cross_check_face_points(
+        pose,
+        tube,
+        seg["face_neck_mask"],
+        seg["hair_mask"],
+        drop_frames=[0],
+        hold_frames=[1],
+        no_face_frames=[2],
+    )
+    assert over_cc["frame_states"] == ["facing", "back_of_head", "side_with_eye"], (
+        "raw frame_states must remain the model's 3-state label"
+    )
+    assert over_cc["effective_frame_states"] == ["dropped_by_word", "held_by_word", "no_face_by_word"], (
+        f"expected person words to override all 3 frames, got {over_cc['effective_frame_states']}"
+    )
+    assert over_cc["overridden_by_word_frames"] == [0, 1, 2], over_cc["overridden_by_word_frames"]
+    assert over_cc["face_replace_frames"] == [1] and over_cc["face_lines_on_frames"] == [1], (
+        f"expected only held frame 1 in face_replace_frames/face_lines_on_frames, got {over_cc['face_replace_frames']}"
+    )
+    assert over_cc["proposed_drop_frames"] == [], (
+        f"held back_of_head frame must be removed from proposed_drop_frames, got {over_cc['proposed_drop_frames']}"
+    )
+    return (
+        f"raw={over_cc['frame_states']} effective={over_cc['effective_frame_states']} "
+        f"overridden={over_cc['overridden_by_word_frames']}"
+    )
+
+
+def _case_real_0613g_three_states() -> str:
+    candidates = (
+        htp.REPO_ROOT / "data" / "2026-10-17_lead_fp_0613g",
+        htp.REPO_ROOT.parent.parent / "custom_nodes" / "ComfyUI-h3-explorations" / "data" / "2026-10-17_lead_fp_0613g",
+    )
+    cap_dir = next((p for p in candidates if p.is_dir()), None)
+    if cap_dir is None:
+        return "skipped (data/2026-10-17_lead_fp_0613g not on disk)"
+    manifest_path = cap_dir / "manifest.json"
+    masks_files = sorted((cap_dir / "subjects" / "lead").glob("masks__*.npz"))
+    classes_files = sorted((cap_dir / "subjects" / "lead").glob("classes__*.npz"))
+    if not manifest_path.is_file() or not masks_files or not classes_files:
+        return "skipped (0613g masks/classes/manifest not on disk)"
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    first = int(manifest["first_frame"])
+    assert first == 613, f"expected 0613g first_frame=613, got {first}"
+
+    lead_subj = next((s for s in manifest.get("subjects", []) if s.get("label") == "lead"), {})
+    lead_sight = (lead_subj.get("sightings") or [{}])[0]
+    pts_str = (lead_sight.get("parts_dropped_off_her_head") or {}).get("points")
+    if not pts_str or not Path(pts_str).is_file():
+        return "skipped (lead_0613_0974_points.npz not on disk)"
+    pts_path = Path(pts_str)
+
+    m_npz = np.load(masks_files[0])
+    c_npz = np.load(classes_files[0])
+    s_first, s_last = 680, 760
+    s0, s1 = s_first - first, s_last - first + 1
+    cmap = c_npz["classes"][s0:s1]
+    w_canvas = cmap.shape[2]
+    track = np.unpackbits(m_npz["track"][s0:s1], axis=-1)[..., :w_canvas].astype(bool)
+    parts = np.unpackbits(m_npz["parts"][s0:s1], axis=-1)[..., :w_canvas].astype(bool)
+    face_part_names = ("Face_Neck", "Upper_Lip", "Lower_Lip", "Upper_Teeth", "Lower_Teeth", "Tongue")
+
+    res = htp.head_tube_for_capture(
+        track,
+        parts,
+        cmap,
+        points_path=pts_path,
+        first_frame=s_first,
+        head_parts=face_part_names,
+    )
+    prov = res["provenance"]
+    part_px = prov["part_px"]
+    states = {s_first + i: s for i, s in enumerate(prov["frame_states"])}
+    boh_src = {s_first + i for i in prov["back_of_head_frames"]}
+    prop_src = {s_first + i for i in prov["proposed_drop_frames"]}
+    side_src = {s_first + i for i in prov["side_with_eye_frames"]}
+
+    # Owner and lead looks on 0613g:
+    # - 687-708 and 747-750: back_of_head (hair only, proposed drop)
+    # - 709-712 and 733-746: side_with_eye (profile face with an eye / cheek / nose / chin)
+    # - 751-760: facing or side_with_eye (face showing as she turns back)
+    want_boh = set(range(687, 709)) | set(range(747, 751))
+    want_side = set(range(709, 713)) | set(range(733, 747))
+    assert want_boh <= boh_src and want_boh <= prop_src, (
+        f"expected 687-708 and 747-750 in back_of_head_frames, missing {sorted(want_boh - boh_src)}"
+    )
+    assert want_side <= side_src, (
+        f"expected 709-712 and 733-746 in side_with_eye_frames, got {[states[f] for f in sorted(want_side)]}"
+    )
+    px_709_712 = [part_px[f - s_first] for f in range(709, 713)]
+    px_733_746 = [part_px[f - s_first] for f in range(733, 747)]
+    assert min(px_709_712) >= 300, f"expected >=300 px on 709-712, got {px_709_712}"
+    assert min(px_733_746) >= 300, f"expected >=300 px on 733-746, got {px_733_746}"
+    for f in range(751, 761):
+        assert states[f] in ("facing", "side_with_eye"), f"expected face showing on {f}, got {states[f]}"
+
+    # Also verify shot_to_load.capture_face_frames on 0613g catches 709-710 and 733-738 inside the old drop/no_face_on
+    import shot_to_load as stl
+
+    old_drop = set(range(687, 711)) | set(range(733, 739)) | {974}
+    face_seen = set(stl.capture_face_frames(cap_dir, "lead", old_drop | want_boh))
+    flagged = sorted(old_drop & face_seen)
+    assert flagged == [709, 710, 733, 734, 735, 736, 737, 738], (
+        f"expected capture_face_frames to flag [709, 710, 733..738] inside 0613g's old drop, got {flagged}"
+    )
+    assert not (want_boh & face_seen), f"expected 0 back_of_head frames in capture_face_frames, got {sorted(want_boh & face_seen)}"
+    return (
+        f"0613g: boh=687-708,747-750 side_709_712={px_709_712} "
+        f"side_733_738={px_733_746[:6]} flagged_in_old_drop={flagged}"
     )
 
 
@@ -240,6 +398,10 @@ def _case_provenance_and_cli() -> str:
             "outside_person_track_clipped_px",
             "face_points_in_tube",
             "face_points_in_part",
+            "facing_frames",
+            "side_with_eye_frames",
+            "back_of_head_frames",
+            "proposed_drop_frames",
             "turned_away_frames",
             "dropout_bridged_frames",
             "off_tube_pose_frames",
@@ -444,8 +606,10 @@ def main() -> int:
     case("off_tube_false_positive_suppressed", _case_off_tube_false_positive)
     case("temporal_smoothing_bridges_dropout", _case_temporal_smoothing_dropout)
     case("face_points_cross_check_turned_away_vs_dropout", _case_face_points_cross_check)
+    case("person_word_overrides_three_states", _case_person_word_overrides_three_states)
     case("person_track_bounds_tube", _case_person_track_bounds_tube)
     case("person_track_regains_tube_after_gap", _case_person_track_regains_tube_after_gap)
+    case("real_0613g_three_states", _case_real_0613g_three_states)
     case("provenance_json_and_cli", _case_provenance_and_cli)
     case("refuses_invalid_inputs", _case_refuses_invalid_inputs)
     return finish()

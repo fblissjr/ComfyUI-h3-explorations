@@ -1343,6 +1343,174 @@ def _parse_word_by(word: str, word_by: str, old_name: str, subject: str) -> list
     return out
 
 
+def _author_and_time_from_by(by_str: str, fallback_rec: dict | None = None) -> tuple[str, str]:
+    """Extract ``(said_by, at)`` from a ``'<author>, <timestamp>: <reason>'`` string or carried record."""
+    head, sep, _ = str(by_str or "").partition(": ")
+    if sep and ", " in head:
+        who, _, when = head.partition(", ")
+        if who.strip() and when.strip():
+            return who.strip(), when.strip()
+    if isinstance(fallback_rec, dict):
+        return str(fallback_rec.get("by") or ""), str(fallback_rec.get("at") or "")
+    return "", ""
+
+
+def _resolve_old_capture_dir(
+    cw: dict | None,
+    carry_words_from: dict | Path | str | None,
+    data: Path | None,
+    subject: str,
+    capture_folder: Path | str | None = None,
+) -> Path | None:
+    """Locate the capture directory for the job being carried from, when present on disk."""
+    candidates: list[Path] = []
+    if capture_folder is not None:
+        candidates.append(Path(capture_folder))
+    old_cap = str((cw or {}).get("old_capture") or "").strip()
+    cap_name = Path(old_cap).name if old_cap else ""
+    if cap_name:
+        if data is not None:
+            candidates.append(Path(data) / cap_name)
+        if isinstance(carry_words_from, (str, Path)):
+            p = Path(carry_words_from).resolve()
+            candidates.append(p.parent / cap_name)
+            candidates.append(p.parent.parent / cap_name)
+            candidates.append(p.parent.parent / "data" / cap_name)
+        if old_cap:
+            candidates.append(REPO / old_cap)
+    for cand in candidates:
+        if (cand / "subjects" / subject).is_dir():
+            return cand
+    return None
+
+
+def capture_face_frames(
+    cap_dir: Path,
+    subject: str,
+    cand_frames: set[int],
+    points_fallback: str | Path | None = None,
+) -> dict[int, dict]:
+    """Return ``{source_frame: details}`` for candidate frames in ``cap_dir`` where the capture sees her face."""
+    if not cand_frames:
+        return {}
+    subj_dir = cap_dir / "subjects" / subject
+    masks_files = sorted(subj_dir.glob("masks__*.npz"))
+    if not masks_files:
+        return {}
+    import numpy as np
+    import capture_masked_run as cap
+    import head_tube_parts as htp
+    from _lib import face_points as fp
+
+    mz = np.load(masks_files[0])
+    if "parts" not in mz.files or "track" not in mz.files:
+        return {}
+    classes_files = sorted(subj_dir.glob("classes__*.npz"))
+    cmap_full = np.load(classes_files[0])["classes"] if classes_files else None
+
+    man_file = cap_dir / "manifest.json"
+    man = json.loads(man_file.read_text()) if man_file.is_file() else {}
+    cap_first = int(man.get("first_frame", man.get("first_source_frame", min(cand_frames))))
+    canvas = man.get("size") or man.get("canvas") or [0, 0]
+    width = int(canvas[0]) if int(canvas[0]) > 0 else (int(cmap_full.shape[2]) if cmap_full is not None else 0)
+    points_path: str | Path | None = None
+    for s_entry in man.get("subjects") or []:
+        if s_entry.get("label") == subject:
+            for st in s_entry.get("sightings") or []:
+                pts_in = (
+                    (st.get("parts_dropped_off_her_head") or {}).get("points")
+                    or (st.get("inputs") or {}).get("points")
+                )
+                if pts_in and Path(pts_in).is_file():
+                    points_path = pts_in
+                    break
+    if points_path is None and points_fallback and Path(points_fallback).is_file():
+        points_path = points_fallback
+
+    parts_raw = np.unpackbits(mz["parts"], axis=-1)
+    track_raw = np.unpackbits(mz["track"], axis=-1)
+    if width > 0:
+        parts_raw = parts_raw[..., :width]
+        track_raw = track_raw[..., :width]
+    parts_bool = parts_raw.astype(bool)
+    track_bool = track_raw.astype(bool)
+    num_frames, height, w_actual = parts_bool.shape
+
+    pg_file = subj_dir / "part_grades.json"
+    pg = json.loads(pg_file.read_text()) if pg_file.is_file() else {}
+    least_px = int(pg.get("least_px") or cap.starting_floor(parts_bool, (w_actual, height), False)[0])
+    part_names = [n for n in (pg.get("part_is_made_of") or ["Face_Neck"]) if n != "Eyeglass"] or ["Face_Neck"]
+
+    valid_k = sorted(f - cap_first for f in cand_frames if 0 <= f - cap_first < num_frames)
+    if not valid_k:
+        return {}
+    clusters: list[list[int]] = []
+    for k in valid_k:
+        if not clusters or k - clusters[-1][-1] > 6:
+            clusters.append([k])
+        else:
+            clusters[-1].append(k)
+
+    found: dict[int, dict] = {}
+    for cluster in clusters:
+        k0 = max(0, cluster[0] - 3)
+        k1 = min(num_frames, cluster[-1] + 4)
+
+        ht_res = htp.head_tube_for_capture(
+            track_bool[k0:k1],
+            parts_bool[k0:k1],
+            cmap_full[k0:k1] if cmap_full is not None else None,
+            points_path=points_path,
+            first_frame=cap_first + k0,
+            head_parts=part_names,
+        )
+        prov = ht_res["provenance"]
+        pose_info = ht_res["pose_info"]
+
+        pose_slice, kp_idx = (
+            htp._load_pose_slice_for_capture(points_path, cap_first + k0, k1 - k0)
+            if points_path is not None
+            else ([None] * (k1 - k0), None)
+        )
+        idx_map = htp.POSE_KEYPOINT_INDEX if kp_idx is None else kp_idx
+
+        for k in cluster:
+            rel = k - k0
+            sf = cap_first + k
+            raw_px = int(parts_bool[k].sum())
+            sm_px = int(prov["part_px"][rel])
+            state = prov["frame_states"][rel] if rel < len(prov["frame_states"]) else "facing"
+            fp_in_part = int(pose_info["face_points_in_part"][rel]) if pose_info is not None else 0
+            fp_on_fn = int(pose_info["face_points_on_face_neck"][rel]) if pose_info is not None else 0
+            pts_t = pose_slice[rel]
+            if pts_t is not None and len(pts_t) > 0:
+                union_mask = track_bool[k] | parts_bool[k] | ht_res["part_mask"][rel]
+                mid_on_mask = bool(fp.face_middle_on_mask(pts_t[:, :2], idx_map, union_mask))
+            else:
+                mid_on_mask = True
+
+            sees_face = (
+                mid_on_mask
+                and state != "back_of_head"
+                and (
+                    state in ("facing", "side_with_eye")
+                    or raw_px >= least_px
+                    or sm_px >= least_px
+                    or fp_on_fn >= 2
+                )
+            )
+            if sees_face:
+                found[sf] = {
+                    "state": state,
+                    "raw_part_px": raw_px,
+                    "part_px": sm_px,
+                    "least_px": least_px,
+                    "face_points_in_part": fp_in_part,
+                    "face_points_on_face_neck": fp_on_fn,
+                }
+    return found
+
+
 def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str, plan_parts: list[str],
                    first: int | None, frames: int | None, why: str = "", why_before: str = "", why_after: str = "",
                    by: str = "", now: str = "", leave_word: list[str] | None = None, leave_by: str | None = None) -> dict:
@@ -1451,13 +1619,14 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
     out: dict = {
         "first": first, "frames": frames, "why_before": "", "why_after": "", "zoomed": None, "whole_frame": None,
         "zoomed_meta": None, "whole_frame_meta": None, "head_tube": None, "head_tube_meta": None,
-        "least": None, "least_why": None, "hold_part": [], "drop": None, "drop_by": None,
+        "least": None, "least_why": None, "hold_part": [], "drop": None, "drop_by": None, "drop_meta": None,
         "parts": None, "parts_by": None, "parts_on": [], "track_not": [], "track_not_by": None,
         "motion": None, "motion_why": None, "no_strangers": None, "no_strangers_meta": None,
         "no_face_on": [], "no_face_on_meta": [], "no_mouth_on": [], "no_mouth_on_meta": [],
         "mouth_on": [], "mouth_on_meta": [], "eyes_shut_on": [], "eyes_shut_on_meta": [], "eyes_shut_form": None,
         "seam": None, "seam_why": None, "context_noise": None, "context_noise_why": None,
         "old_name": old_name, "old_file": old_file, "old_sha256": old_sha256, "carried_rec": carried_rec,
+        "old_capture": old_job.get("capture"), "old_points": (old_job.get("reference") or {}).get("points"),
         "carried_said": carried_said, "retired_said": retired_said,
         "left_words": left_words, "left_said": left_said, "overridden_said": overridden_said,
     }
@@ -1530,7 +1699,12 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
         dspans = [s.strip() for s in str(old_mine["drop"]).split("+") if s.strip()]
         if not dspans or not str(old_mine.get("drop_by") or "").strip():
             raise Refused(f"--carry-words-from {old_name}: subjects.{subject}.drop or drop_by is empty")
+        d_who, d_at = _author_and_time_from_by(
+            str(old_mine["drop_by"]),
+            old_mine.get("drop_carried") or old_job.get("carried_words_from"),
+        )
         kept_dspans = []
+        kept_dpairs: list[tuple[int, int]] = []
         for sp in dspans:
             try:
                 dx, dy = (int(v) for v in (sp.split("-") * 2)[:2])
@@ -1540,10 +1714,13 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
                 continue
             check_span("drop", dx, dy)
             kept_dspans.append(f"{dx}-{dy}")
+            kept_dpairs.append((dx, dy))
         if kept_dspans:
             out["drop"] = "+".join(kept_dspans)
             out["drop_by"] = tagged(old_mine["drop_by"])
-            carried_said.append(f"drop={out['drop']}: {out['drop_by']}")
+            out["drop_meta"] = {"said_by": d_who, "at": d_at, "spans": kept_dpairs}
+            who_when = f" ({d_who}, {d_at})" if (d_who or d_at) else ""
+            carried_said.append(f"drop={out['drop']}{who_when}: {out['drop_by']}")
     pblock = old_job.get("part")
     if pblock is not None or any(k in old_mine for k in ("parts_of_this_load", "parts_by", "parts_on")):
         pblock = pblock or {}
@@ -1779,7 +1956,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
              mouth_on: list[tuple[int, int, str]] | None = None, data: Path | None = None,
              drop: str | None = None, drop_by: str | None = None, carry_words_from: dict | Path | str | None = None,
              leave_word: list[str] | None = None, leave_by: str | None = None, no_carry_words: str | None = None,
-             head_tube: str | None = None) -> dict:
+             head_tube: str | None = None, capture_folder: Path | str | None = None) -> dict:
     """The job file of one subject's load on a shot, from the shot's preview. `preview` is the preview's own job
     block; `source` is the file the load renders from, the video's present copy (the preview's own when left out).
     `parts` with `parts_by` makes the load's part some of its subject's plan parts (`part_of`)."""
@@ -1799,6 +1976,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
     parts_from_cw = track_not_from_cw = motion_from_cw = ns_from_cw = es_from_cw = False
     seam_from_cw = cn_from_cw = drop_from_cw = False
     n_cw_hp = 0
+    n_cw_nf = 0
     if carry_words_from is not None and no_carry_words is not None:
         raise Refused("--carry-words-from and --no-carry-words cannot both be given")
     ncw_why = ""
@@ -1852,7 +2030,20 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             no_strangers, ns_from_cw = cw["no_strangers"], True
         elif cw["no_strangers"] is not None:
             _ov("no_strangers:", repr(no_strangers), repr(cw["no_strangers"]))
-        no_face_on = list(cw["no_face_on"]) + list(no_face_on or [])
+        fresh_nf = list(no_face_on or [])
+        if fresh_nf and cw["no_face_on"]:
+            kept_cw_nf = []
+            kept_cw_nf_meta = []
+            for (cx, cy, csaid), cmeta in zip(cw["no_face_on"], cw["no_face_on_meta"]):
+                if any(nx <= cy and cx <= ny for nx, ny, _ in fresh_nf):
+                    _ov(f"no_face_on {cx}-{cy}", f"{fresh_nf}", f"{cx}-{cy} ({cmeta.get('said_by')}, {cmeta.get('at')}): {csaid}")
+                else:
+                    kept_cw_nf.append((cx, cy, csaid))
+                    kept_cw_nf_meta.append(cmeta)
+            cw["no_face_on"] = kept_cw_nf
+            cw["no_face_on_meta"] = kept_cw_nf_meta
+        n_cw_nf = len(cw["no_face_on"])
+        no_face_on = list(cw["no_face_on"]) + fresh_nf
         no_mouth_on = list(cw["no_mouth_on"]) + list(no_mouth_on or [])
         mouth_on = list(cw["mouth_on"]) + list(mouth_on or [])
         if not eyes_shut_on and cw["eyes_shut_on"]:
@@ -1860,7 +2051,8 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         elif cw["eyes_shut_on"]:
             _ov("eyes_shut_on ", f"{eyes_shut_on} (form={eyes_shut_form})", f"{cw['eyes_shut_on']} (form={cw['eyes_shut_form']})")
         n_cw_hp = len(cw["hold_part"])
-        hold_part = list(cw["hold_part"]) + list(hold_part or [])
+        fresh_hp = list(hold_part or [])
+        hold_part = list(cw["hold_part"]) + fresh_hp
         if seam is None and cw["seam"] is not None:
             seam, seam_why, seam_from_cw = cw["seam"], cw["seam_why"], True
         elif cw["seam"] is not None:
@@ -1873,6 +2065,51 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             drop, drop_by, drop_from_cw = cw["drop"], cw["drop_by"], True
         elif cw["drop"] is not None:
             _ov("drop=", f"drop={drop} ({drop_by})", f"drop={cw['drop']} ({cw['drop_by']})")
+        # Refuse to carry any frame of drop or no_face_on where the capture sees her face (unless overridden by a fresh word on this job).
+        fresh_hp_frames = {f for hx, hy, _ in fresh_hp for f in range(hx, hy + 1)}
+        carried_drop_spans = list((cw.get("drop_meta") or {}).get("spans") or []) if drop_from_cw else []
+        carried_nf_spans = [
+            (fx, fy, cw["no_face_on_meta"][idx])
+            for idx, (fx, fy, _) in enumerate(no_face_on[:n_cw_nf])
+        ]
+        cand_face_check = (
+            {f for dx, dy in carried_drop_spans for f in range(dx, dy + 1)}
+            | {f for fx, fy, _ in carried_nf_spans for f in range(fx, fy + 1)}
+        ) - fresh_hp_frames
+        if cand_face_check:
+            cap_dir = _resolve_old_capture_dir(cw, carry_words_from, data, subject, capture_folder=capture_folder)
+            if cap_dir is not None:
+                import capture_masked_run as cap
+                face_seen = capture_face_frames(cap_dir, subject, cand_face_check, points_fallback=cw.get("old_points"))
+                if face_seen:
+                    bad_clauses: list[str] = []
+                    if carried_drop_spans:
+                        d_meta = cw.get("drop_meta") or {}
+                        d_who_at = f"{d_meta.get('said_by')}, {d_meta.get('at')}".strip(", ")
+                        for dx, dy in carried_drop_spans:
+                            hit = sorted(f for f in range(dx, dy + 1) if f in face_seen and f not in fresh_hp_frames)
+                            if hit:
+                                sp_str = ", ".join(f"{u}-{v}" for u, v in cap.frame_spans(hit, join=1))
+                                bad_clauses.append(
+                                    f"drop {dx}-{dy}" + (f" ({d_who_at})" if d_who_at else "") + f" has face on {sp_str}"
+                                )
+                    for fx, fy, nf_meta in carried_nf_spans:
+                        nf_who_at = f"{nf_meta.get('said_by')}, {nf_meta.get('at')}".strip(", ")
+                        hit = sorted(f for f in range(fx, fy + 1) if f in face_seen and f not in fresh_hp_frames)
+                        if hit:
+                            sp_str = ", ".join(f"{u}-{v}" for u, v in cap.frame_spans(hit, join=1))
+                            bad_clauses.append(
+                                f"no_face_on {fx}-{fy}" + (f" ({nf_who_at})" if nf_who_at else "") + f" has face on {sp_str}"
+                            )
+                    if bad_clauses:
+                        all_hit = sorted(face_seen)
+                        all_sp = ", ".join(f"{u}-{v}" for u, v in cap.frame_spans(all_hit, join=1))
+                        raise Refused(
+                            f"--carry-words-from {cw['old_name']}: refused to carry drop / no_face_on silently onto frame(s) {all_sp} "
+                            f"where the capture ({cap_dir.name}) sees {subject}'s face ({'; '.join(bad_clauses)}). "
+                            "Look at those frames and narrow or leave out the carried span (--leave-word KIND:FIRST-LAST --leave-by WHY, "
+                            "or pass a fresh --drop / --no-face-on / --hold-part)"
+                        )
     # WHO ELSE IS IN THE SHOT (the owner's word of 2026-10-14: it belongs in the job file), from the preview's own tables and the
     # owner's answers (bench/others_present.py); the strangers keep-out follows it and not the plan's key, where it can say
     others = others_of_load(preview, output, shot, cast, cast_from, plan.get("not_people"))

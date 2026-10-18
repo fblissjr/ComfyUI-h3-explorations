@@ -796,8 +796,8 @@ def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made
                 least_px: int = 0, lost: set[int] | frozenset = frozenset(), lost_fill: np.ndarray | None = None,
                 word: set[int] | frozenset = frozenset(), track: np.ndarray | None = None,
                 noface: set[int] | frozenset = frozenset(), off_head_fragments: set[int] | frozenset = frozenset(),
-                drop: set[int] | frozenset = frozenset(), points: str | None = None,
-                first_frame: int | None = None) -> tuple[np.ndarray, dict[int, dict]]:
+                drop: set[int] | frozenset = frozenset(), back_of_head: set[int] | frozenset = frozenset(),
+                points: str | None = None, first_frame: int | None = None) -> tuple[np.ndarray, dict[int, dict]]:
     """The part to load, frame by frame, from the saved part and a proposed fill, graded by the class map.
 
     A fill takes a neighbour's shape to a frame the gate doubted. On a fast turn the doubted part was right
@@ -836,12 +836,14 @@ def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made
     less of the largest part within `COLLAPSE_REACH` frames either side (a fragment: her face hidden, a scrap of it left), is not emptied
     when she is tracked there: it is held from the nearest frame whose part stands (never from a fragment), moved and cut as a word's
     hold is (`word_shapes`), and unioned with its own small part where that lies on her track. Not on a frame of `noface` (the job's
-    --no-face-on: a person looked and no face shows) or where she is not tracked: those are emptied as before. A held shape, word or
-    floor, that lies under `HOLD_ON_TRACK_LEAST` of its pixels on her track itself places nothing (`HOLD_MISSED`). `drop=` is the
-    caller's, after this, and empties whatever it names."""
+    --no-face-on: a person looked and no face shows), `back_of_head` (the head tube's proposal where only hair shows, unless overridden by
+    `word=`), or where she is not tracked: those are emptied as before, while `back_of_head` never empties a standing part by itself.
+    A held shape, word or floor, that lies under `HOLD_ON_TRACK_LEAST` of its pixels on her track itself places nothing (`HOLD_MISSED`).
+    `drop=` is the caller's, after this, and empties whatever it names."""
     own = np.isin(classes, made)
     out, decisions = parts.copy(), {}
     excluded = (set(drop) | set(noface)) & set(range(len(parts)))
+    boh = (set(back_of_head) - set(word)) & set(range(len(parts)))
 
     def inside(mask: np.ndarray, f: int) -> float | None:
         return round(float((mask & own[f]).sum() / mask.sum()), 3) if mask.any() else None
@@ -851,7 +853,7 @@ def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made
         saved, fill = inside(parts[f], f), inside(filled[f], f) if offered else None
         if not offered and (saved is None or saved >= HOLD_INSIDE):
             continue
-        if offered and fill is not None and fill >= HOLD_INSIDE and fill > (saved or 0.0):
+        if offered and f not in excluded and f not in boh and fill is not None and fill >= HOLD_INSIDE and fill > (saved or 0.0):
             out[f], did = filled[f], "filled"
         elif saved is not None and saved >= HOLD_INSIDE:
             did = "saved part kept, fill refused"
@@ -886,10 +888,10 @@ def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made
                 decisions[f]["not_held"] = "no face on a person's word (--no-face-on)"
     # what a hold may take its shape from: each frame's own part, standing now; never a frame the grade filled from a neighbour
     sources = np.where(np.array([decisions.get(f, {}).get("did", "").startswith("filled") for f in range(len(parts))])[:, None, None], False, out)
-    held_by_floor = {f for f in fragments if f not in noface and f not in drop and track is not None and track[f].any()}
-    # a frame the grade left empty (a frame whose saved part stands is not empty, and a drop/noface frame is never re-filled here)
+    held_by_floor = {f for f in fragments if f not in noface and f not in drop and f not in boh and track is not None and track[f].any()}
+    # a frame the grade left empty (a frame whose saved part stands is not empty, and a drop/noface/back_of_head frame is never re-filled here)
     shape = filled if lost_fill is None else lost_fill
-    gone = [f for f in range(len(parts)) if f in lost and f not in excluded and not out[f].any() and int(shape[f].sum()) >= max(least_px, 1)]
+    gone = [f for f in range(len(parts)) if f in lost and f not in excluded and f not in boh and not out[f].any() and int(shape[f].sum()) >= max(least_px, 1)]
     runs: list[list[int]] = []
     for f in gone:
         if runs and f == runs[-1][-1] + 1:
@@ -947,7 +949,18 @@ def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made
                             "why": f"{was['why']}; held from the nearest standing part, moved and cut to her track, with its own part on her track"}
     for f in sorted(set(fragments) - held_by_floor):
         if track is not None and not out[f].any() and decisions[f].get("did") == "emptied":
-            decisions[f]["not_held"] = "no face on a person's word (--no-face-on)" if f in noface else "she is not tracked on this frame"
+            decisions[f]["not_held"] = (
+                "no face on a person's word (--no-face-on)"
+                if f in noface
+                else "dropped by the job (drop=)"
+                if f in drop
+                else "back of the head (head_tube proposal: not held by the floor rule)"
+                if f in boh
+                else "she is not tracked on this frame"
+            )
+    for f in sorted(boh):
+        if f in decisions and not out[f].any() and decisions[f].get("did") == "emptied" and "not_held" not in decisions[f]:
+            decisions[f]["not_held"] = "back of the head (head_tube proposal: not held by the floor rule)"
     if first_frame is not None or points is not None:
         fp_by_frame = held_face_points(out, points, int(first_frame or 0)) if points else {}
         for f, d in decisions.items():
@@ -2053,10 +2066,26 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             m.get("head_tube") in ("1", "on", "true")
             or (bool(getattr(a, "head_tube", False)) and m.get("head_tube") not in ("0", "off", "false") and (label in replaced or not replaced))
         )
+        off_said, off_frags, off_blind = {}, set(), []
+        if parts is not None and m.get("points"):
+            # WHAT LIES OFF HER HEAD (`off_head`, the lead's rulings of 2026-10-16): from the reference step's face points
+            parts, off_said, off_frags, off_blind = off_head(parts, m["points"], first, int(m.get("points_margin", OFF_HEAD_MARGIN)))
+            if off_said:
+                print(f"  {label}: off her head, dropped from the saved part on {len(off_said)} frame(s); nothing left at her head on "
+                      f"{len(off_frags)} (held by the floor rule)", flush=True)
         if use_head_tube and parts is not None:
             import head_tube_parts as _htp
             names_ht = _pack("sapiens2_parts").CLASS_NAMES
             chosen_ht = [names_ht[k] for k in part_classes(parts, cmap, names_ht)] if cmap is not None else []
+            drop_rel = {
+                f - first
+                for span in str(m.get("drop") or "").split("+")
+                if span
+                for lo, hi in [[int(x) for x in (span.split("-") * 2)[:2]]]
+                for f in range(max(lo, first), min(hi, first + frames - 1) + 1)
+            }
+            noface_rel = word_frames(m.get("noface"), first, frames) if m.get("noface") else set()
+            word_rel = word_frames(m.get("word"), first, frames) if m.get("word") else set()
             (out / "subjects" / label).mkdir(parents=True, exist_ok=True)
             ht_res = _htp.head_tube_for_capture(
                 track,
@@ -2066,24 +2095,24 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                 first_frame=first,
                 head_parts=chosen_ht or _htp.DEFAULT_HEAD_PARTS,
                 include_eyeglass="Eyeglass" in chosen_ht,
+                drop_frames=drop_rel,
+                no_face_frames=noface_rel,
+                hold_frames=word_rel,
                 provenance_out=out / "subjects" / label / f"head_tube__{by}.json",
                 masks_out=out / "subjects" / label / f"head_tube__{by}.npz",
             )
             parts = ht_res["part_mask"]
+            off_frags = {f for f in off_frags if not parts[f].any()}
             if cmap is not None:
                 cmap = ht_res["class_map"]
             head_tube_prov = ht_res["provenance"]
             print(f"  {label}: head_tube bounded by person_track (shot_box={head_tube_prov['shot_box']}, "
                   f"clipped_outside_person_px={sum(head_tube_prov['outside_person_track_clipped_px'])}, "
                   f"suppressed_off_tube_px={sum(head_tube_prov['off_tube_suppressed_px'])}, "
-                  f"bridged={head_tube_prov['dropout_bridged_frames']})", flush=True)
-        off_said, off_frags, off_blind = {}, set(), []
-        if parts is not None and m.get("points"):
-            # WHAT LIES OFF HER HEAD (`off_head`, the lead's rulings of 2026-10-16): from the reference step's face points
-            parts, off_said, off_frags, off_blind = off_head(parts, m["points"], first, int(m.get("points_margin", OFF_HEAD_MARGIN)))
-            if off_said:
-                print(f"  {label}: off her head, dropped from the saved part on {len(off_said)} frame(s); nothing left at her head on "
-                      f"{len(off_frags)} (held by the floor rule)", flush=True)
+                  f"bridged={head_tube_prov['dropout_bridged_frames']}, "
+                  f"facing={len(head_tube_prov['facing_frames'])}, "
+                  f"side_with_eye={len(head_tube_prov['side_with_eye_frames'])}, "
+                  f"back_of_head={len(head_tube_prov['back_of_head_frames'])})", flush=True)
         if parts is not None and m.get("pieces") == "largest":
             refuse_pieces_on_a_head(label, parts, cmap)
             # the caller looked and the part's other pieces are not the part (`flag_pieces`); what that took away is
@@ -2143,8 +2172,9 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                   for t in [next(iter(seen.values()))[0]]]
                     what = under_doubted(made, names.index("Hair"), every, doubted, class_maps[label], others_now)
                     if m.get("grade") != "off":
+                        boh_rel = set(head_tube_prov.get("back_of_head_frames", ())) if head_tube_prov is not None else frozenset()
                         held, graded = grade_holds(parts, held, class_maps[label], made, least, off_head_fragments=off_frags,
-                                                   points=m.get("points"), first_frame=first,
+                                                   back_of_head=boh_rel, points=m.get("points"), first_frame=first,
                                                    **grade_given(m, what, every, first, frames, track))
                         sizes = part_sizes(parts, first, least, least_by,
                                            emptied=[f for f, d in graded.items() if "least_px" in d and d["did"].startswith("emptied")],
@@ -2170,7 +2200,14 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                             {"subject": label, "seen_by": by, "bar": HOLD_INSIDE, "part_is_made_of": made_of.get(label),
                              "least_px": least, "least_px_set_by": least_by, "measured_on": sizes["measured_on"],
                              "part_sizes": sizes, "held_frames": held_details,
-                             **({"head_tube": True, "head_tube_provenance": f"subjects/{label}/head_tube__{by}.json"} if head_tube_prov is not None else {}),
+                             **({"head_tube": True,
+                                 "head_tube_provenance": f"subjects/{label}/head_tube__{by}.json",
+                                 "facing_frames": [first + f for f in head_tube_prov["facing_frames"]],
+                                 "side_with_eye_frames": [first + f for f in head_tube_prov["side_with_eye_frames"]],
+                                 "back_of_head_frames": [first + f for f in head_tube_prov["back_of_head_frames"]],
+                                 "proposed_drop_frames": [first + f for f in head_tube_prov["proposed_drop_frames"]],
+                                 "overridden_by_word_frames": [first + f for f in head_tube_prov.get("overridden_by_word_frames", ())]}
+                                if head_tube_prov is not None else {}),
                              "frames": [{"source_frame": first + f, **d} for f, d in sorted(graded.items())]}, indent=1) + "\n")
                     (folder / "doubted_frames.json").write_text(json.dumps(
                         {"subject": label, "seen_by": by, "what_each_means": UNDER,
@@ -2238,7 +2275,12 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                            "regained_from_person_track_frames": [first + f for f in head_tube_prov["regained_from_person_track_frames"]],
                                            "off_tube_suppressed_px": int(sum(head_tube_prov["off_tube_suppressed_px"])),
                                            "dropout_bridged_frames": [first + f for f in head_tube_prov["dropout_bridged_frames"]],
+                                           "facing_frames": [first + f for f in head_tube_prov["facing_frames"]],
+                                           "side_with_eye_frames": [first + f for f in head_tube_prov["side_with_eye_frames"]],
+                                           "back_of_head_frames": [first + f for f in head_tube_prov["back_of_head_frames"]],
+                                           "proposed_drop_frames": [first + f for f in head_tube_prov["proposed_drop_frames"]],
                                            "turned_away_frames": [first + f for f in head_tube_prov["turned_away_frames"]],
+                                           "overridden_by_word_frames": [first + f for f in head_tube_prov.get("overridden_by_word_frames", ())],
                                        }} if head_tube_prov is not None else {}),
                                    # the part's size on this clip's frames, and where the floor fell among them (`part_sizes`)
                                    "part_sizes": sizes,

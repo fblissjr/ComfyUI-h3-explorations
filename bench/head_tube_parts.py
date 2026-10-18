@@ -17,8 +17,10 @@ and bounded without per-frame tight-crop jitter or off-head false positives:
    SAM 3.1 head tube.
 3. ``cross_check_face_points``: cross-checks the 39 scored facial keypoints from
    the 308-keypoint Sapiens2-Pose layout (excluding unscored pupils) against the
-   head tube and smoothed ``Face_Neck`` / ``Hair`` masks to separate a turned-away
-   or bent head from a 1-2 frame segmentation dropout or an off-track pose jump.
+   head tube and smoothed ``Face_Neck`` / ``Hair`` / part masks to label each
+   frame with one of three face states: ``facing``, ``side_with_eye`` (face skin
+   and at least one eye showing: replace, face lines on), or ``back_of_head``
+   (hair only: a proposal that empties nothing by itself, listed for a look).
 """
 
 from __future__ import annotations
@@ -79,10 +81,34 @@ DEFAULT_PART_PROB_FLOOR: float = (
     0.35  #: reasoned: temporally smoothed head-part probability threshold bridging 1-2 frame dropouts inside the head tube
 )
 TURNED_AWAY_HAIR_SHARE_MIN: float = (
-    0.85  #: measured: shot 2 frames 684-707 bent/turned-away head holds >85% Hair inside the SAM 3.1 head tube
+    0.85  #: measured: shot 2 frames 687-708 and 747-750 back-of-head frames hold >85% Hair inside the SAM 3.1 head tube
 )
 TURNED_AWAY_FACE_SHARE_MAX: float = (
-    0.05  #: measured: shot 2 frames 684-707 bent/turned-away head holds <5% Face_Neck inside the SAM 3.1 head tube
+    0.05  #: measured: shot 2 frames 687-708 and 747-750 back-of-head frames hold <5% Face_Neck inside the SAM 3.1 head tube
+)
+SIDE_PROFILE_MIN_AREA_PX: int = (
+    300  #: measured: shot 2 profile frames 709-712 (368-588 px) and 733-746 (378-4391 px) vs <=238 px hair-edge specks on 687-708 and 747-750
+)
+SIDE_PROFILE_MIN_WIDTH_PX: int = (
+    24  #: measured: shot 2 profile face main piece bounding-box width >=24 px on 709-711 and 733-746
+)
+SIDE_PROFILE_NEIGHBOR_MIN_WIDTH_PX: int = (
+    19  #: measured: shot 2 frame 712 narrow profile slice width (19 px) adjacent to frame 711 (26 px width, 487 px area)
+)
+SIDE_PROFILE_NEIGHBOR_MIN_AREA_PX: int = (
+    480  #: measured: shot 2 frame 711 profile face area (487 px) supporting adjacent narrow profile slice on frame 712
+)
+FACING_PART_TUBE_SHARE_MIN: float = (
+    0.11  #: measured: shot 2 front/three-quarter facing frames hold >=11% part share of the head tube with >=20 scored face points in part
+)
+FACING_MIN_POINTS_IN_PART: int = (
+    20  #: measured: shot 2 front/three-quarter facing frames hold >=20 of 39 scored facial keypoints inside the part mask
+)
+SUBJECT_MARGIN_PX: int = (
+    16  #: inherited: Sapiens2 subject track dilation margin in pixels where attached profile face pieces live (sapiens2_parts.SUBJECT_MARGIN)
+)
+TRACK_TOUCH_DILATE_PX: int = (
+    4  #: reasoned: 4 px bridge tolerance for connected profile face pieces touching the subject's person track inside SUBJECT_MARGIN_PX
 )
 DEFAULT_FACE_POINT_MIN_SCORE: float = (
     0.30  #: inherited: minimum confidence score for scored Sapiens2-Pose facial landmarks (face_points.FACE_MIN_SCORE)
@@ -640,62 +666,140 @@ def smooth_seg_in_tube(
     dropout_bridged_frames: list[int] = []
 
     chunk_size = 16
+    first_non_part = next((c for c in range(num_classes) if c not in part_ids), 0)
     for t0 in range(0, num_frames, chunk_size):
         t1 = min(num_frames, t0 + chunk_size)
         h0 = max(0, t0 - radius)
         h1 = min(num_frames, t1 + radius)
-
-        if is_discrete_cmap and cmap_in is not None:
-            cmap_halo = cmap_in[h0:h1, y0:y1, x0:x1] if (full_frame_logits and (box_h != height or box_w != width)) else cmap_in[h0:h1]
-            halo_np = np.zeros((h1 - h0, num_classes, cmap_halo.shape[1], cmap_halo.shape[2]), dtype=np.float32)
-            for cid in np.unique(cmap_halo):
-                halo_np[:, int(cid), :, :][cmap_halo == cid] = float(synthetic_class_logit)
-            crop_halo = torch.from_numpy(halo_np)
-        else:
-            assert logits_t is not None
-            crop_halo = (
-                logits_t[h0:h1, :, y0:y1, x0:x1]
-                if (full_frame_logits and (box_h != height or box_w != width))
-                else logits_t[h0:h1]
-            )
-
-        if crop_halo.shape[2] != box_h or crop_halo.shape[3] != box_w:
-            up_halo = F.interpolate(
-                crop_halo,
-                size=(box_h, box_w),
-                mode="bilinear",
-                align_corners=False,
-            )
-        else:
-            up_halo = crop_halo
-
-        raw_probs_halo = torch.softmax(up_halo, dim=1)
         chunk_len = t1 - t0
-        smoothed_chunk = torch.zeros((chunk_len, num_classes, box_h, box_w), dtype=torch.float32, device=raw_probs_halo.device)
-        for idx_in_chunk, t in enumerate(range(t0, t1)):
-            acc = torch.zeros((num_classes, box_h, box_w), dtype=torch.float32, device=raw_probs_halo.device)
-            for offset, weight in enumerate(w_norm, start=-radius):
-                clamped_t = min(max(t + offset, 0), num_frames - 1)
-                acc = acc + weight * raw_probs_halo[clamped_t - h0]
-            smoothed_chunk[idx_in_chunk] = acc
-
-        raw_probs_chunk = raw_probs_halo[t0 - h0 : t1 - h0]
-        raw_cls_box = raw_probs_chunk.argmax(dim=1).cpu().numpy()
-        raw_is_part_box = np.isin(raw_cls_box, part_ids)
         tube_box = tube_bool[t0:t1, y0:y1, x0:x1]
 
-        part_id_tensor = torch.tensor(part_ids, dtype=torch.long, device=smoothed_chunk.device)
-        part_probs_sub = smoothed_chunk.index_select(1, part_id_tensor)
-        part_prob_box = part_probs_sub.sum(dim=1).cpu().numpy()
-        best_part_sub_idx = part_probs_sub.argmax(dim=1).cpu().numpy()
-        best_part_cls_box = part_id_arr[best_part_sub_idx]
+        if is_discrete_cmap and cmap_in is not None:
+            cmap_halo = (
+                cmap_in[h0:h1, y0:y1, x0:x1]
+                if (full_frame_logits and (box_h != height or box_w != width))
+                else cmap_in[h0:h1]
+            )
+        else:
+            cmap_halo = None
 
-        non_part_probs = smoothed_chunk.clone()
-        non_part_probs[:, part_id_tensor, :, :] = -1.0
-        non_part_cls_box = non_part_probs.argmax(dim=1).cpu().numpy().astype(np.uint8)
+        if is_discrete_cmap and cmap_halo is not None and cmap_halo.shape[1:] == (box_h, box_w):
+            exp_l = float(np.exp(float(synthetic_class_logit)))
+            denom = exp_l + float(num_classes - 1)
+            p_win = exp_l / denom
+            p_other = 1.0 / denom
+            p_diff = p_win - p_other
+            k_parts = len(part_ids)
 
-        smoothed_argmax_box = smoothed_chunk.argmax(dim=1).cpu().numpy().astype(np.uint8)
-        smoothed_is_part_box = np.isin(smoothed_argmax_box, part_ids)
+            raw_cls_box = cmap_halo[t0 - h0 : t1 - h0]
+            raw_is_part_box = np.isin(raw_cls_box, part_ids)
+            part_prob_box = np.zeros((chunk_len, box_h, box_w), dtype=np.float32)
+            best_part_cls_box = np.zeros((chunk_len, box_h, box_w), dtype=np.uint8)
+            non_part_cls_box = np.zeros((chunk_len, box_h, box_w), dtype=np.uint8)
+            smoothed_argmax_box = np.zeros((chunk_len, box_h, box_w), dtype=np.uint8)
+
+            for idx_in_chunk, t in enumerate(range(t0, t1)):
+                c_center = raw_cls_box[idx_in_chunk]
+                is_part_c = raw_is_part_box[idx_in_chunk]
+                offsets_c = [
+                    cmap_halo[min(max(t + offset, 0), num_frames - 1) - h0]
+                    for offset in range(-radius, radius + 1)
+                ]
+                varying = np.zeros((box_h, box_w), dtype=bool)
+                for c_off in offsets_c:
+                    varying |= c_off != c_center
+
+                p_prob_t = np.where(
+                    is_part_c,
+                    p_win + float(k_parts - 1) * p_other,
+                    float(k_parts) * p_other,
+                ).astype(np.float32)
+                b_part_t = np.where(is_part_c, c_center, part_id_arr[0]).astype(np.uint8)
+                n_part_t = np.where(is_part_c, first_non_part, c_center).astype(np.uint8)
+                s_arg_t = c_center.copy()
+
+                if np.any(varying):
+                    n_var = int(varying.sum())
+                    votes = np.zeros((num_classes, n_var), dtype=np.float32)
+                    for c_off, weight in zip(offsets_c, w_norm):
+                        c_var = c_off[varying]
+                        for cid in np.unique(c_var):
+                            votes[int(cid), c_var == cid] += float(weight)
+                    probs_var = p_other + p_diff * votes
+                    part_probs_var = probs_var[part_ids, :]
+                    p_prob_t[varying] = part_probs_var.sum(axis=0)
+                    b_part_t[varying] = part_id_arr[part_probs_var.argmax(axis=0)]
+                    non_part_var = probs_var.copy()
+                    non_part_var[part_ids, :] = -1.0
+                    n_part_t[varying] = non_part_var.argmax(axis=0).astype(np.uint8)
+                    s_arg_t[varying] = probs_var.argmax(axis=0).astype(np.uint8)
+
+                part_prob_box[idx_in_chunk] = p_prob_t
+                best_part_cls_box[idx_in_chunk] = b_part_t
+                non_part_cls_box[idx_in_chunk] = n_part_t
+                smoothed_argmax_box[idx_in_chunk] = s_arg_t
+
+            smoothed_is_part_box = np.isin(smoothed_argmax_box, part_ids)
+        else:
+            if is_discrete_cmap and cmap_halo is not None:
+                halo_np = np.zeros(
+                    (h1 - h0, num_classes, cmap_halo.shape[1], cmap_halo.shape[2]),
+                    dtype=np.float32,
+                )
+                for cid in np.unique(cmap_halo):
+                    halo_np[:, int(cid), :, :][cmap_halo == cid] = float(synthetic_class_logit)
+                crop_halo = torch.from_numpy(halo_np)
+            else:
+                assert logits_t is not None
+                crop_halo = (
+                    logits_t[h0:h1, :, y0:y1, x0:x1]
+                    if (full_frame_logits and (box_h != height or box_w != width))
+                    else logits_t[h0:h1]
+                )
+
+            if crop_halo.shape[2] != box_h or crop_halo.shape[3] != box_w:
+                up_halo = F.interpolate(
+                    crop_halo,
+                    size=(box_h, box_w),
+                    mode="bilinear",
+                    align_corners=False,
+                )
+            else:
+                up_halo = crop_halo
+
+            raw_probs_halo = torch.softmax(up_halo, dim=1)
+            smoothed_chunk = torch.zeros(
+                (chunk_len, num_classes, box_h, box_w),
+                dtype=torch.float32,
+                device=raw_probs_halo.device,
+            )
+            for idx_in_chunk, t in enumerate(range(t0, t1)):
+                acc = torch.zeros(
+                    (num_classes, box_h, box_w),
+                    dtype=torch.float32,
+                    device=raw_probs_halo.device,
+                )
+                for offset, weight in enumerate(w_norm, start=-radius):
+                    clamped_t = min(max(t + offset, 0), num_frames - 1)
+                    acc = acc + weight * raw_probs_halo[clamped_t - h0]
+                smoothed_chunk[idx_in_chunk] = acc
+
+            raw_probs_chunk = raw_probs_halo[t0 - h0 : t1 - h0]
+            raw_cls_box = raw_probs_chunk.argmax(dim=1).cpu().numpy()
+            raw_is_part_box = np.isin(raw_cls_box, part_ids)
+
+            part_id_tensor = torch.tensor(part_ids, dtype=torch.long, device=smoothed_chunk.device)
+            part_probs_sub = smoothed_chunk.index_select(1, part_id_tensor)
+            part_prob_box = part_probs_sub.sum(dim=1).cpu().numpy()
+            best_part_sub_idx = part_probs_sub.argmax(dim=1).cpu().numpy()
+            best_part_cls_box = part_id_arr[best_part_sub_idx]
+
+            non_part_probs = smoothed_chunk.clone()
+            non_part_probs[:, part_id_tensor, :, :] = -1.0
+            non_part_cls_box = non_part_probs.argmax(dim=1).cpu().numpy().astype(np.uint8)
+
+            smoothed_argmax_box = smoothed_chunk.argmax(dim=1).cpu().numpy().astype(np.uint8)
+            smoothed_is_part_box = np.isin(smoothed_argmax_box, part_ids)
 
         active_in_tube = tube_box & (smoothed_is_part_box | (part_prob_box >= float(part_prob_floor)))
         cls_box = np.where(active_in_tube, best_part_cls_box, non_part_cls_box)
@@ -767,6 +871,19 @@ def scored_face_ids(keypoint_index: dict[str, int] | None = None) -> list[int]:
     return [i for i in base_ids if i not in pupil_ids]
 
 
+def _main_piece_area_and_width(mask_2d: np.ndarray) -> tuple[int, int]:
+    """Return the pixel area and bounding-box width of the largest connected component in ``mask_2d``."""
+    u8 = np.asarray(mask_2d > 0, dtype=np.uint8)
+    if not np.any(u8):
+        return 0, 0
+    num_labels, _, stats, _ = cv2.connectedComponentsWithStats(u8, connectivity=8)
+    if num_labels <= 1:
+        return 0, 0
+    areas = stats[1:, cv2.CC_STAT_AREA]
+    best = 1 + int(np.argmax(areas))
+    return int(stats[best, cv2.CC_STAT_AREA]), int(stats[best, cv2.CC_STAT_WIDTH])
+
+
 def cross_check_face_points(
     pose_keypoints: np.ndarray | Sequence[np.ndarray | None],
     tube: np.ndarray | torch.Tensor,
@@ -780,8 +897,21 @@ def cross_check_face_points(
     min_score: float = DEFAULT_FACE_POINT_MIN_SCORE,
     turned_away_hair_min: float = TURNED_AWAY_HAIR_SHARE_MIN,
     turned_away_face_max: float = TURNED_AWAY_FACE_SHARE_MAX,
+    drop_frames: Sequence[int] | set[int] | None = None,
+    no_face_frames: Sequence[int] | set[int] | None = None,
+    hold_frames: Sequence[int] | set[int] | None = None,
 ) -> dict[str, Any]:
-    """Cross-check Sapiens2-Pose 39 scored facial points against the head tube and Face_Neck / Hair masks."""
+    """Cross-check Sapiens2-Pose 39 scored facial points against the head tube and Face_Neck / Hair masks.
+
+    Labels each frame with one of three face states (plus ``off_tube_pose`` when the pose jumps off the head tube):
+    - ``facing``: front or three-quarter face (replace, face lines on).
+    - ``side_with_eye``: profile / side face with skin and at least one eye or visible profile slice (replace, face lines on).
+    - ``back_of_head``: hair only (a proposal that empties nothing by itself, listed for a look in ``proposed_drop_frames``).
+
+    When a person's word is supplied via ``drop_frames`` / ``no_face_frames`` or ``hold_frames``,
+    it overrides the label both ways in ``effective_frame_states``, ``face_replace_frames``,
+    and ``face_lines_on_frames``.
+    """
     tube_bool = (
         tube.detach().cpu().numpy() > 0
         if isinstance(tube, torch.Tensor)
@@ -814,34 +944,68 @@ def cross_check_face_points(
     if not face_id_list:
         raise SystemExit("cross_check_face_points: keypoint_index contains no scored facial keypoints")
 
+    left_eye_ids = [
+        i
+        for n, i in idx_map.items()
+        if n.startswith("l_") and n.endswith("_lash_line") and "pupil" not in n
+    ]
+    right_eye_ids = [
+        i
+        for n, i in idx_map.items()
+        if n.startswith("r_") and n.endswith("_lash_line") and "pupil" not in n
+    ]
+
     if part_mask is not None:
         part_bool = (
             part_mask.detach().cpu().numpy() > 0
             if isinstance(part_mask, torch.Tensor)
             else np.asarray(part_mask) > 0
         )
+        face_part_bool = (part_bool & ~hair_bool) | face_bool
     else:
         part_bool = face_bool | hair_bool
+        face_part_bool = face_bool
     bridged_set = set(int(t) for t in (dropout_bridged_seed or ()))
+    drop_set = set(int(t) for t in (drop_frames or ()))
+    no_face_set = set(int(t) for t in (no_face_frames or ()))
+    hold_set = set(int(t) for t in (hold_frames or ()))
+
+    main_piece_area: list[int] = []
+    main_piece_width: list[int] = []
+    for t in range(num_frames):
+        area_t, width_t = _main_piece_area_and_width(face_part_bool[t])
+        main_piece_area.append(area_t)
+        main_piece_width.append(width_t)
 
     face_points_scored: list[int] = []
     face_points_in_tube: list[int] = []
     face_points_in_part: list[int] = []
     face_points_on_face_neck: list[int] = []
+    left_eye_points_in_part: list[int] = []
+    right_eye_points_in_part: list[int] = []
     face_point_share: list[float] = []
     hair_tube_share: list[float] = []
     face_neck_tube_share: list[float] = []
+    facing_frames: list[int] = []
+    side_with_eye_frames: list[int] = []
+    back_of_head_frames: list[int] = []
     turned_away_frames: list[int] = []
     dropout_bridged_frames: list[int] = []
     off_tube_pose_frames: list[int] = []
     frame_states: list[str] = []
+    effective_frame_states: list[str] = []
+    face_replace_frames: list[int] = []
+    face_lines_on_frames: list[int] = []
+    overridden_by_word_frames: list[int] = []
 
     for t in range(num_frames):
         t_px = int(tube_bool[t].sum())
         f_px = int(face_bool[t].sum())
         h_px = int(hair_bool[t].sum())
+        p_px = int(face_part_bool[t].sum())
         h_share = (float(h_px) / float(t_px)) if t_px > 0 else 0.0
         f_share = (float(f_px) / float(t_px)) if t_px > 0 else 0.0
+        p_share = (float(p_px) / float(t_px)) if t_px > 0 else 0.0
         hair_tube_share.append(round(h_share, 6))
         face_neck_tube_share.append(round(f_share, 6))
 
@@ -868,15 +1032,31 @@ def cross_check_face_points(
             if 0 <= iy < height and 0 <= ix < width:
                 if tube_bool[t, iy, ix]:
                     n_in_tube += 1
-                if part_bool[t, iy, ix]:
+                if face_part_bool[t, iy, ix]:
                     n_in_part += 1
                 if face_bool[t, iy, ix]:
                     n_on_face += 1
+
+        l_eye_in_part = 0
+        for eid in left_eye_ids:
+            if eid < len(pts) and float(pts[eid, 2]) >= float(min_score):
+                ix, iy = int(round(float(pts[eid, 0]))), int(round(float(pts[eid, 1])))
+                if 0 <= iy < height and 0 <= ix < width and face_part_bool[t, iy, ix]:
+                    l_eye_in_part += 1
+
+        r_eye_in_part = 0
+        for eid in right_eye_ids:
+            if eid < len(pts) and float(pts[eid, 2]) >= float(min_score):
+                ix, iy = int(round(float(pts[eid, 0]))), int(round(float(pts[eid, 1])))
+                if 0 <= iy < height and 0 <= ix < width and face_part_bool[t, iy, ix]:
+                    r_eye_in_part += 1
 
         face_points_scored.append(n_scored)
         face_points_in_tube.append(n_in_tube)
         face_points_in_part.append(n_in_part)
         face_points_on_face_neck.append(n_on_face)
+        left_eye_points_in_part.append(l_eye_in_part)
+        right_eye_points_in_part.append(r_eye_in_part)
         share = (float(n_in_part) / float(n_scored)) if n_scored > 0 else 0.0
         face_point_share.append(round(share, 6))
 
@@ -886,34 +1066,86 @@ def cross_check_face_points(
             else False
         )
 
-        is_turned_away = (
+        w3 = max(main_piece_width[max(0, t - 1) : min(num_frames, t + 2)])
+        a3 = max(main_piece_area[max(0, t - 1) : min(num_frames, t + 2)])
+        has_side_piece = main_piece_area[t] >= SIDE_PROFILE_MIN_AREA_PX and (
+            main_piece_width[t] >= SIDE_PROFILE_MIN_WIDTH_PX
+            or (
+                main_piece_width[t] >= SIDE_PROFILE_NEIGHBOR_MIN_WIDTH_PX
+                and w3 >= SIDE_PROFILE_MIN_WIDTH_PX
+                and a3 >= SIDE_PROFILE_NEIGHBOR_MIN_AREA_PX
+            )
+        )
+        small_tube = t_px < 1000
+        is_back_of_head = (
             t_px > 0
             and h_share > float(turned_away_hair_min)
-            and f_share < float(turned_away_face_max)
-            and n_on_face == 0
-            and (n_in_tube == 0 or t not in bridged_set)
+            and n_in_part <= 1
+            and n_on_face <= 1
+            and not has_side_piece
+            and (not small_tube or f_share < float(turned_away_face_max))
+            and not (t in bridged_set and n_in_tube >= 2)
         )
         is_off_tube_pose = n_scored > 0 and not middle_in_tube and n_in_tube == 0
         raw_f_px = int(raw_face_neck_px[t]) if raw_face_neck_px is not None else f_px
         is_dropout = (
-            not is_turned_away
+            not is_back_of_head
             and not is_off_tube_pose
             and n_in_tube > 0
             and middle_in_tube
             and (t in bridged_set or raw_f_px < max(1, int(0.75 * f_px)) or f_share < float(turned_away_face_max))
         )
-
-        if is_turned_away:
-            turned_away_frames.append(t)
-            frame_states.append("turned_away")
-        elif is_off_tube_pose:
-            off_tube_pose_frames.append(t)
-            frame_states.append("off_tube_pose")
-        elif is_dropout:
+        if is_dropout:
             dropout_bridged_frames.append(t)
-            frame_states.append("dropout_bridged")
+
+        if is_off_tube_pose:
+            off_tube_pose_frames.append(t)
+
+        if is_off_tube_pose and not has_side_piece:
+            raw_state = "off_tube_pose"
+        elif is_back_of_head:
+            back_of_head_frames.append(t)
+            turned_away_frames.append(t)
+            raw_state = "back_of_head"
         else:
-            frame_states.append("normal")
+            is_facing = (p_share >= FACING_PART_TUBE_SHARE_MIN and n_in_part >= FACING_MIN_POINTS_IN_PART) or (
+                small_tube
+                and h_share <= float(turned_away_hair_min)
+                and f_share >= float(turned_away_face_max)
+                and (
+                    (l_eye_in_part > 0 and r_eye_in_part > 0)
+                    or (l_eye_in_part == 0 and r_eye_in_part == 0 and n_on_face > 0)
+                )
+            )
+            if is_facing:
+                facing_frames.append(t)
+                raw_state = "facing"
+            else:
+                side_with_eye_frames.append(t)
+                raw_state = "side_with_eye"
+
+        frame_states.append(raw_state)
+
+        if t in drop_set or t in no_face_set:
+            eff_state = "dropped_by_word" if t in drop_set else "no_face_by_word"
+            if raw_state in ("facing", "side_with_eye"):
+                overridden_by_word_frames.append(t)
+        elif t in hold_set:
+            eff_state = "held_by_word"
+            face_replace_frames.append(t)
+            face_lines_on_frames.append(t)
+            if raw_state in ("back_of_head", "off_tube_pose"):
+                overridden_by_word_frames.append(t)
+        else:
+            eff_state = raw_state
+            if raw_state in ("facing", "side_with_eye"):
+                face_replace_frames.append(t)
+                face_lines_on_frames.append(t)
+        effective_frame_states.append(eff_state)
+
+    proposed_drop_frames = [
+        t for t in back_of_head_frames if t not in hold_set and t not in drop_set and t not in no_face_set
+    ]
 
     return {
         "scored_face_keypoint_ids": face_id_list,
@@ -921,13 +1153,25 @@ def cross_check_face_points(
         "face_points_in_tube": face_points_in_tube,
         "face_points_in_part": face_points_in_part,
         "face_points_on_face_neck": face_points_on_face_neck,
+        "left_eye_points_in_part": left_eye_points_in_part,
+        "right_eye_points_in_part": right_eye_points_in_part,
+        "main_piece_area": main_piece_area,
+        "main_piece_width": main_piece_width,
         "face_point_share": face_point_share,
         "hair_tube_share": hair_tube_share,
         "face_neck_tube_share": face_neck_tube_share,
+        "facing_frames": facing_frames,
+        "side_with_eye_frames": side_with_eye_frames,
+        "back_of_head_frames": back_of_head_frames,
+        "proposed_drop_frames": proposed_drop_frames,
         "turned_away_frames": turned_away_frames,
         "dropout_bridged_frames": dropout_bridged_frames,
         "off_tube_pose_frames": off_tube_pose_frames,
         "frame_states": frame_states,
+        "effective_frame_states": effective_frame_states,
+        "face_replace_frames": face_replace_frames,
+        "face_lines_on_frames": face_lines_on_frames,
+        "overridden_by_word_frames": overridden_by_word_frames,
     }
 
 
@@ -974,12 +1218,33 @@ def build_provenance_record(
         "face_point_share": (
             list(pose_check["face_point_share"]) if pose_check is not None else []
         ),
+        "facing_frames": (
+            list(pose_check["facing_frames"]) if pose_check is not None else []
+        ),
+        "side_with_eye_frames": (
+            list(pose_check["side_with_eye_frames"]) if pose_check is not None else []
+        ),
+        "back_of_head_frames": (
+            list(pose_check["back_of_head_frames"]) if pose_check is not None else []
+        ),
+        "proposed_drop_frames": (
+            list(pose_check["proposed_drop_frames"]) if pose_check is not None else []
+        ),
         "turned_away_frames": (
             list(pose_check["turned_away_frames"]) if pose_check is not None else []
         ),
         "dropout_bridged_frames": bridged,
         "off_tube_pose_frames": (
             list(pose_check["off_tube_pose_frames"]) if pose_check is not None else []
+        ),
+        "frame_states": (
+            list(pose_check["frame_states"]) if pose_check is not None else []
+        ),
+        "effective_frame_states": (
+            list(pose_check["effective_frame_states"]) if pose_check is not None else []
+        ),
+        "overridden_by_word_frames": (
+            list(pose_check["overridden_by_word_frames"]) if pose_check is not None else []
         ),
     }
     return record
@@ -999,6 +1264,9 @@ def run_head_tube_parts(
     part_prob_floor: float = DEFAULT_PART_PROB_FLOOR,
     keypoint_index: dict[str, int] | None = None,
     min_score: float = DEFAULT_FACE_POINT_MIN_SCORE,
+    drop_frames: Sequence[int] | set[int] | None = None,
+    no_face_frames: Sequence[int] | set[int] | None = None,
+    hold_frames: Sequence[int] | set[int] | None = None,
     provenance_out: Path | None = None,
     masks_out: Path | None = None,
 ) -> dict[str, Any]:
@@ -1030,6 +1298,9 @@ def run_head_tube_parts(
             dropout_bridged_seed=seg_info["dropout_bridged_frames"],
             keypoint_index=keypoint_index,
             min_score=min_score,
+            drop_frames=drop_frames,
+            no_face_frames=no_face_frames,
+            hold_frames=hold_frames,
         )
     provenance = build_provenance_record(
         seg_info,
@@ -1109,6 +1380,34 @@ def _load_pose_slice_for_capture(
     return out, idx_map
 
 
+def _expand_track_with_attached_parts(
+    track_bool: np.ndarray,
+    parts_bool: np.ndarray,
+    margin_px: int = SUBJECT_MARGIN_PX,
+    touch_px: int = TRACK_TOUCH_DILATE_PX,
+) -> np.ndarray:
+    """Include connected components of ``parts_bool`` within ``margin_px`` of ``track_bool`` that touch ``track_bool``."""
+    out = track_bool.copy()
+    k_touch = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * touch_px + 1, 2 * touch_px + 1))
+    k_margin = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * margin_px + 1, 2 * margin_px + 1))
+    for t in range(track_bool.shape[0]):
+        outside = parts_bool[t] & ~track_bool[t]
+        if not np.any(outside) or not np.any(track_bool[t]):
+            continue
+        tr_u8 = track_bool[t].astype(np.uint8)
+        near_margin = cv2.dilate(tr_u8, k_margin) > 0
+        cand = parts_bool[t] & near_margin
+        if not np.any(cand & ~track_bool[t]):
+            continue
+        near_touch = cv2.dilate(tr_u8, k_touch) > 0
+        num_labels, labels = cv2.connectedComponents(cand.astype(np.uint8), connectivity=8)
+        for lbl in range(1, num_labels):
+            comp = labels == lbl
+            if np.any(comp & near_touch):
+                out[t] |= comp
+    return out
+
+
 def head_tube_for_capture(
     track: np.ndarray,
     parts: np.ndarray,
@@ -1120,16 +1419,20 @@ def head_tube_for_capture(
     include_eyeglass: bool = False,
     temporal_weights: Sequence[float] = DEFAULT_TEMPORAL_WEIGHTS,
     part_prob_floor: float = DEFAULT_PART_PROB_FLOOR,
+    drop_frames: Sequence[int] | set[int] | None = None,
+    no_face_frames: Sequence[int] | set[int] | None = None,
+    hold_frames: Sequence[int] | set[int] | None = None,
     provenance_out: Path | None = None,
     masks_out: Path | None = None,
 ) -> dict[str, Any]:
     """Run person-track-bounded head-tube smoothing on a capture's track, parts, class map, and 308-point file."""
-    track_bool = np.asarray(track > 0, dtype=bool)
+    raw_track_bool = np.asarray(track > 0, dtype=bool)
     parts_bool = np.asarray(parts > 0, dtype=bool)
-    if track_bool.ndim != 3 or parts_bool.shape != track_bool.shape:
+    if raw_track_bool.ndim != 3 or parts_bool.shape != raw_track_bool.shape:
         raise SystemExit(
-            f"head_tube_for_capture: track shape {track_bool.shape} and parts shape {parts_bool.shape} must match (T, H, W)"
+            f"head_tube_for_capture: track shape {raw_track_bool.shape} and parts shape {parts_bool.shape} must match (T, H, W)"
         )
+    track_bool = _expand_track_with_attached_parts(raw_track_bool, parts_bool)
     num_frames, height, width = track_bool.shape
     chosen_names = [n for n in head_parts if n in NAME_TO_ID]
     if include_eyeglass:
@@ -1142,7 +1445,7 @@ def head_tube_for_capture(
 
     # The whole-head tube always includes all whole-head classes (Face_Neck + Hair + lips/teeth/tongue),
     # even on a face-only (fp) load where chosen_names excludes Hair, so the tube stays ~35,000 px on
-    # turned-away frames (684-707) while smooth_seg_in_tube extracts only chosen_names inside it.
+    # back-of-head frames (687-708, 747-750) while smooth_seg_in_tube extracts only chosen_names inside it.
     tube_names = list(DEFAULT_HEAD_PARTS)
     for n in chosen_names:
         if n not in tube_names:
@@ -1215,18 +1518,19 @@ def head_tube_for_capture(
         extra = int(np.logical_and(raw_part_all[t], outside_box).sum())
         seg_info["off_tube_suppressed_px"][t] = int(seg_info["off_tube_suppressed_px"][t]) + extra
 
-    pose_info: dict[str, Any] | None = None
-    if pose_kps is not None:
-        pose_info = cross_check_face_points(
-            pose_kps,
-            tube_info["tube"],
-            seg_info["face_neck_mask"],
-            seg_info["hair_mask"],
-            part_mask=seg_info["part_mask"],
-            raw_face_neck_px=seg_info["raw_face_neck_px"],
-            dropout_bridged_seed=seg_info["dropout_bridged_frames"],
-            keypoint_index=kp_idx,
-        )
+    pose_info = cross_check_face_points(
+        pose_kps if pose_kps is not None else [None] * num_frames,
+        tube_info["tube"],
+        seg_info["face_neck_mask"],
+        seg_info["hair_mask"],
+        part_mask=seg_info["part_mask"],
+        raw_face_neck_px=seg_info["raw_face_neck_px"],
+        dropout_bridged_seed=seg_info["dropout_bridged_frames"],
+        keypoint_index=kp_idx,
+        drop_frames=drop_frames,
+        no_face_frames=no_face_frames,
+        hold_frames=hold_frames,
+    )
 
     provenance = build_provenance_record(
         seg_info,
@@ -1341,7 +1645,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"suppressed_px={sum(prov['off_tube_suppressed_px'])} "
         f"clipped_person_px={sum(prov['outside_person_track_clipped_px'])} "
         f"bridged={prov['dropout_bridged_frames']} "
-        f"turned_away={prov['turned_away_frames']}"
+        f"facing={len(prov['facing_frames'])} "
+        f"side_with_eye={len(prov['side_with_eye_frames'])} "
+        f"back_of_head={prov['back_of_head_frames']}"
     )
     return 0
 

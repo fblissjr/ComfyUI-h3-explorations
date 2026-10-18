@@ -2881,11 +2881,79 @@ def head_tube_in_the_files_step() -> str:
         assert int(written_on["parts__pv.mkv"][2, 14:38, 28:52].sum()) == 24 * 24, "1-frame dropout on frame 2 was not bridged by head_tube"
         on_sighting = json.loads((on_dir / "manifest.json").read_text())["subjects"][0]["sightings"][0]
         assert on_sighting.get("head_tube") is True and on_sighting.get("head_tube_provenance") == "subjects/a/head_tube__pv.json", on_sighting
+        for k in ("facing_frames", "side_with_eye_frames", "back_of_head_frames", "proposed_drop_frames"):
+            assert k in on_sighting.get("head_tube_summary", {}), f"missing {k} in manifest sighting head_tube_summary: {on_sighting}"
         on_pg = json.loads((on_dir / "subjects" / "a" / "part_grades.json").read_text())
         assert on_pg.get("head_tube") is True and on_pg.get("head_tube_provenance") == "subjects/a/head_tube__pv.json", on_pg
+        for k in ("facing_frames", "side_with_eye_frames", "back_of_head_frames", "proposed_drop_frames"):
+            assert k in on_pg, f"missing {k} in part_grades.json: {on_pg}"
         on_classes = np.load(on_dir / "subjects" / "a" / "classes__pv.npz")["classes"]
         assert (on_classes[:, 44:70, 26:54] == torso_cls).all(), "non-head body classes in classes__pv.npz were lost"
     return "off by default; when on, bounds head tube by person_track, bridges 1-frame dropout, preserves torso classes, and writes provenance"
+
+
+def back_of_head_and_no_face_never_held_by_grade() -> str:
+    """A back_of_head frame or a noface frame is never filled by neighbour fill, short-gap fill, or the floor rule;
+    back_of_head is a proposal that never empties a standing part by itself; and a person's word= overrides back_of_head."""
+    n = 6
+    track = rect(20, 10, 68, 80, n)
+    # Standing face part is 24x24 = 576 px (above least_px=480) on frames 0, 2, 4, 5.
+    parts = rect(28, 16, 52, 40, n)
+    # Frame 1: a 25 px speck (5x5 < least_px=480) that the floor rule would normally hold and fill from frame 0/2.
+    parts[1] = False
+    parts[1, 20:25, 34:39] = True
+    # Frame 3: completely empty (0 px) between standing frames 2 and 4, where neighbour/short-gap fill would normally fill.
+    parts[3] = False
+
+    filled = rect(28, 16, 52, 40, n)
+    cmap = np.zeros((n, H, W), dtype=np.uint8)
+    cmap[parts] = 1  # Face_Neck where standing part / speck exists
+    cmap[3, 16:40, 28:52] = 1  # Offer valid Face_Neck under frame 3's fill to test neighbour/short-gap exclusion on back_of_head
+    cmap[4, 16:40, 28:52] = 1  # Standing part on frame 4
+
+    # 1. Control without back_of_head or noface: frame 1 is held by the floor rule (filled to 576 px), frame 3 is filled.
+    ctrl_kept, ctrl_grade = cap.grade_holds(
+        parts, filled, cmap, [1], least_px=480, lost={3}, track=track
+    )
+    assert ctrl_grade[1]["did"] == "held by the floor rule" and int(ctrl_kept[1].sum()) == 576, (ctrl_grade.get(1), int(ctrl_kept[1].sum()))
+    assert int(ctrl_kept[3].sum()) == 576, (ctrl_grade.get(3), int(ctrl_kept[3].sum()))
+
+    # 2. With back_of_head={1, 3, 4}:
+    #    - Frame 1 (speck < least_px) is NOT held by the floor rule; it is emptied and records not_held="back of the head..."
+    #    - Frame 3 (empty gap) is NOT filled by neighbour/short-gap fill; it stays empty.
+    #    - Frame 4 (standing 576 px >= least_px, no drop=) is NOT emptied by back_of_head (proposal only!).
+    boh_kept, boh_grade = cap.grade_holds(
+        parts, filled, cmap, [1], least_px=480, lost={3}, track=track, back_of_head={1, 3, 4}
+    )
+    assert boh_grade[1]["did"] == "emptied" and not boh_kept[1].any(), (
+        f"back_of_head frame 1 was held by the floor rule: grade={boh_grade.get(1)} px={int(boh_kept[1].sum())}"
+    )
+    assert "back of the head" in boh_grade[1].get("not_held", ""), boh_grade[1]
+    assert not boh_kept[3].any(), (
+        f"back_of_head frame 3 was filled across gap: grade={boh_grade.get(3)} px={int(boh_kept[3].sum())}"
+    )
+    assert int(boh_kept[4].sum()) == 576, (
+        f"back_of_head proposal emptied standing frame 4 without drop=: grade={boh_grade.get(4)} px={int(boh_kept[4].sum())}"
+    )
+
+    # 3. Person's word= overrides back_of_head and fills frame 1 from its neighbour:
+    word_kept, word_grade = cap.grade_holds(
+        parts, filled, cmap, [1], least_px=480, word={1}, track=track, back_of_head={1}
+    )
+    assert int(word_kept[1].sum()) == 576, (
+        f"person's word= did not override back_of_head on frame 1: grade={word_grade.get(1)} px={int(word_kept[1].sum())}"
+    )
+    assert word_grade[1]["did"] == "filled on a person's word", word_grade[1]
+
+    # 4. Person's noface= prevents the floor rule from holding frame 1 even when not back_of_head:
+    nf_kept, nf_grade = cap.grade_holds(
+        parts, filled, cmap, [1], least_px=480, track=track, noface={1}
+    )
+    assert nf_grade[1]["did"] == "emptied" and not nf_kept[1].any(), (
+        f"noface frame 1 was held by the floor rule: grade={nf_grade.get(1)}"
+    )
+    assert nf_grade[1].get("not_held") == "no face on a person's word (--no-face-on)", nf_grade[1]
+    return "back_of_head and noface are never held by the floor rule or neighbour fill; back_of_head empties nothing by itself; word= overrides back_of_head"
 
 
 case("one subject's row", one_subject)
@@ -2939,4 +3007,5 @@ case("off her head", off_her_head)
 case("the carve, in the files step", the_carve_in_the_files_step)
 case("the carve on the node's own grid", the_carve_on_the_nodes_grid)
 case("the head tube, in the files step", head_tube_in_the_files_step)
+case("back of the head and no-face frames are never held by the grade", back_of_head_and_no_face_never_held_by_grade)
 sys.exit(finish())
