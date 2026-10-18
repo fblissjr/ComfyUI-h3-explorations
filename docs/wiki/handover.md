@@ -96,7 +96,8 @@ gate. The two that are next, from the same check and tonight's `lead_fp_0613g`:
     memory selection changes nothing or one frame. On the lead's FACE tracked alone over 680-760 it does: SAM 3.1 off
     is back at 715, on at 710 (the owner's look: the side of her face from 709); SAM 3 base off is empty 691-751, on
     is back at 702, which the owner's look calls hair until 709, so "back" there is a mask, not yet checked against the
-    picture. One shot; a reading of the frames comes before any switch is built.
+    picture. The owner's word: SAM 3.1's memory selection goes ON in the chain
+    (decisions.md, 2026-10-17): built in `sam31_corrections.py`'s form, ON by default, tested on the queue (C148).
   - ON A BRANCH: `gemmatte-faces` (`h3_worktrees/gemmatte-faces`): the three-state face label and drops and face lines
     as a person's word, CPU only (`internal/gemini/2026-10-18_brief_build_faces.md`). The Claude lead lands it if it is
     cleared tonight; otherwise tomorrow's Gemini lead lands it after clearance, before `lead_fp_0613h` is made.

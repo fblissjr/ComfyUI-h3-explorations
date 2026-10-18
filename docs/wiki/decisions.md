@@ -17,6 +17,14 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-17
 
+- **SAM 3.1's memory selection goes ON in the chain** (the owner, 2026-10-18T02:26Z: "If its clearly obvious just turn it on"). On
+  every scene and arm of gem-memsel's measurement (`data/2026-10-17_sam_memory_selection/`), with it on: 0 frames on
+  someone else, as off; the person tracks the same or a frame better; lotsofpeople's dancer held through the occlusions
+  the stock tracker loses (95-116, 130-140); the lead's face back at 710 after the bend (the owner's look: 709) where the
+  stock tracker is back at 715; no measurable cost. SAM 3 base is not switched (its "back" at 702 is on what the owner
+  calls hair). Built as a correction in `sam31_corrections.py`'s form, per object, ON by default for SAM 3.1, with a way
+  off for one load; kept pieces are not remade for it. Its acceptance test runs as a graph on the server's queue.
+
 - **Drops are measured per frame, and a person's drop is never carried silently** (the owner, "yes", after asking
   whether we should drop the way we do). Built before 0613h: the head tube's turned-away label only proposes (C137, C138: it calls
   709, 710, 712 and 735-737 turned away where the owner sees the side of her face; it lumps a profile with the back of
