@@ -52,11 +52,14 @@ the owner's, and under DONE, a closed fold, when it has one, with a piece they s
 there too (the lead's page of 2026-10-14, at the owner's ask of which items were still theirs). The lead's rulings the
 same day, on a sixth reader's findings: a keep with words after it, and words with no click, are answers, under Done on the
 day of the last line and off the page after it; the clicks and words on any joined clip that lays a piece count as
-answers on it (a keep also settles it). Both pages include a short block from the table's per-frame gap check
+answers on it (a keep also settles it). Right above each player on `to-review` (in `Start here`, `Waiting on you`, and
+`Done`), the page prints `frame_coverage.clip_gap_line()` for that clip's own frames (per person, each kind with frame
+counts and spans, in the gap check's own words; no line when whole), and refuses any clip on `Start here` with gaps and
+no such line. Both pages include a short block from the table's per-frame gap check
 (`assembly.stack.coverage_json`, from `bench/delivery_table.py`, held by `table_sha256` and never recomputed; a build
 refuses when it is missing or not this table's), worst shots first in the `remake` and `capture` lists apart, by kind
-(`original_while_tracked`, `emptied_inside`, `laid_but_barely_changed`, `region_far_below_its_own_size`; and, apart,
-`original_tracking_not_known`), and end, or begin, with the lead's holds (the table's
+(`captured_not_rendered`, `rendered_not_kept`, `emptied_inside`, `laid_but_barely_changed`,
+`region_far_below_its_own_size`; and, apart, `no_capture`), and end, or begin, with the lead's holds (the table's
 `held`, a session's word, its reason whole) and the owner's keeps this table does not lay, with the table's reason.
 Links are `--page-url` + an item's id.
 
@@ -94,6 +97,15 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import delivery_table  # noqa: E402
+from frame_coverage import (  # noqa: E402
+    CAPTURE_GAP_KINDS,
+    CLIP_GAP_KINDS,
+    KIND_WORDS,
+    OTHER_RUN_KINDS,
+    REMAKE_GAP_KINDS,
+    clip_gap_line,
+    run_words,
+)
 from piece_gaps import OWNERS_CLOCK  # noqa: E402
 
 E = html.escape
@@ -110,20 +122,15 @@ TOKENS = {
     "day0": ("#17705a", "#35b596"), "day1": ("#8a5a00", "#e0a83c"), "day2": ("#6a4fb3", "#a990f0"), "day3": ("#5f6b7a", "#9aa7b8"),
 }
 DAY_TOKENS = ("day0", "day1", "day2", "day3")
-REMAKE_GAP_KINDS = ("original_while_tracked", "emptied_inside", "laid_but_barely_changed", "region_far_below_its_own_size")
-CAPTURE_GAP_KINDS = ("original_tracking_not_known",)
-OTHER_RUN_KINDS = ("carried_not_known", "original_her_track_empty", "left_out_by_a_look", "seam")
-KIND_WORDS = {
-    "original_while_tracked": "original while tracked, no piece laid",
-    "emptied_inside": "emptied inside a laid piece",
-    "laid_but_barely_changed": "laid piece barely changed its region",
-    "region_far_below_its_own_size": "carried region far below its own size",
-    "original_tracking_not_known": "the original: no piece made for these frames (no capture here, or a capture that holds no track of her)",
-    "carried_not_known": "tracked, whether the laid piece carried a mask is not known",
-    "original_her_track_empty": "original, her tied track is empty (0 px)",
-    "left_out_by_a_look": "original, left out by a person's look",
-    "seam": "seam where two laid pieces of the same person meet",
-}
+REMAKE_GAP_KINDS_ALL = (
+    "captured_not_rendered",
+    "rendered_not_kept",
+    "original_while_tracked",
+    "emptied_inside",
+    "laid_but_barely_changed",
+    "region_far_below_its_own_size",
+)
+CAPTURE_GAP_KINDS_ALL = CAPTURE_GAP_KINDS + ("original_tracking_not_known",)
 
 
 def theme_css() -> str:
@@ -274,7 +281,7 @@ def fmt_shot_spans(x: dict, shot_runs: list[dict], s0: int, s1: int, rate: Fract
 
 def gap_check_block(rec: Records, rate: Fraction) -> list[str]:
     """Per shot, the count of frame-subjects where the original still shows, by kind, worst first, in two lists (`remake` and `capture`),
-    plus the four other run kinds (`carried_not_known`, `original_her_track_empty`, `left_out_by_a_look`, `seam`) and any `failures`,
+    plus the other run kinds (`left_out_by_a_look`, `seam`) and any `failures`,
     read from the table's gap check (`assembly.stack.coverage_json`), never recomputed."""
     cov = rec.gap_check or {}
     by_shot = cov.get("by_shot") or {}
@@ -299,24 +306,24 @@ def gap_check_block(rec: Records, rate: Fraction) -> list[str]:
         for x in remake:
             s0, s1 = int(x["shot"][0]), int(x["shot"][1])
             bk = x.get("by_kind") or {}
-            kinds = ", ".join(f"{k}: {int(bk.get(k, 0))}" for k in REMAKE_GAP_KINDS if int(bk.get(k, 0)))
+            kinds = ", ".join(f"{k}: {int(bk.get(k, 0))}" for k in REMAKE_GAP_KINDS_ALL if int(bk.get(k, 0)))
             subs = ", ".join(str(s) for s in (x.get("subjects") or []))
-            r_runs = [r for r in all_runs if r.get("kind") in REMAKE_GAP_KINDS and r.get("shot") and [int(r["shot"][0]), int(r["shot"][1])] == [s0, s1]]
+            r_runs = [r for r in all_runs if r.get("kind") in REMAKE_GAP_KINDS_ALL and r.get("shot") and [int(r["shot"][0]), int(r["shot"][1])] == [s0, s1]]
             spans = fmt_shot_spans(x, r_runs, s0, s1, rate)
             out.append(f"<li><b>{s0}-{s1}</b> ({E(subs)}; gap(s): {spans}): <b>{int(x['frames'])} frame-subject(s)</b> &mdash; {E(kinds)}</li>")
         out.append("</ul>")
     else:
         out.append('<p class="mut">None counted (gap check FAILED above).</p>' if failures else '<p class="mut">None.</p>')
-    out.append(f"<h3>Capture ({len(capture)} shot(s), {sum(int(x.get('frames', 0)) for x in capture)} frame-subject(s)): the original: no piece made for these frames (no capture here, or a capture that holds no track of her)</h3>")
-    out.append(f'<p class="mut">Kind: <code>original_tracking_not_known</code> ({E(KIND_WORDS["original_tracking_not_known"])}).</p>')
+    out.append(f"<h3>Capture ({len(capture)} shot(s), {sum(int(x.get('frames', 0)) for x in capture)} frame-subject(s)): {E(KIND_WORDS['no_capture'])}</h3>")
+    out.append(f'<p class="mut">Kind: <code>no_capture</code> ({E(KIND_WORDS["no_capture"])}).</p>')
     if capture:
         out.append("<ul>")
         for x in capture:
             s0, s1 = int(x["shot"][0]), int(x["shot"][1])
             bk = x.get("by_kind") or {}
-            kinds = ", ".join(f"{k}: {int(bk.get(k, 0))}" for k in CAPTURE_GAP_KINDS if int(bk.get(k, 0)))
+            kinds = ", ".join(f"{k}: {int(bk.get(k, 0))}" for k in CAPTURE_GAP_KINDS_ALL if int(bk.get(k, 0)))
             subs = ", ".join(str(s) for s in (x.get("subjects") or []))
-            c_runs = [r for r in all_runs if r.get("kind") in CAPTURE_GAP_KINDS and r.get("shot") and [int(r["shot"][0]), int(r["shot"][1])] == [s0, s1]]
+            c_runs = [r for r in all_runs if r.get("kind") in CAPTURE_GAP_KINDS_ALL and r.get("shot") and [int(r["shot"][0]), int(r["shot"][1])] == [s0, s1]]
             spans = fmt_shot_spans(x, c_runs, s0, s1, rate)
             out.append(f"<li><b>{s0}-{s1}</b> ({E(subs)}; gap(s): {spans}): <b>{int(x['frames'])} frame-subject(s)</b> &mdash; {E(kinds)}</li>")
         out.append("</ul>")
@@ -606,20 +613,114 @@ def held_and_set_aside(rec: "Records") -> list[str]:
     out += ([f"<ul>{''.join(kept)}</ul>"] if kept else []) + ([] if held or kept else ["<p class='mut'>None.</p>"])
     return out
 
-def start_here(path: str, drawn: dict[str, str], shots: dict[str, list[str]], out_dir: str) -> list[str]:
+def start_here(
+    path: str,
+    drawn: dict[str, str],
+    shots: dict[str, list[str]],
+    out_dir: str,
+    rec: Records | None = None,
+    item_spans: dict[str, tuple[int, int, list[str] | None]] | None = None,
+    shot_subjects: dict[str, list[str]] | None = None,
+    tables: list[str] | None = None,
+) -> list[str]:
     """START HERE, IN THIS ORDER: the lead's list (the owner, 2026-10-15: the most important first), each entry linking what the page
-    shows below, or a clip that is no item, with its one line of why and optional `reader_notes` in a closed fold headed as a reader's,
-    not the owner's. An entry the page does not hold, a clip that is not there, an entry with no why, or empty `reader_notes` stops the
-    page: the one kind of red."""
+    shows below, or a clip that is no item, with its one line of why, the gap check's counts for that clip's own frames right above it,
+    and optional `reader_notes` in a closed fold headed as a reader's, not the owner's. An entry the page does not hold, a clip that is
+    not there, a clip with gaps and no gap-check line, an entry with no why, or empty `reader_notes` stops the page: the one kind of red."""
     import re
     got = json.load(open(path))
     if not isinstance(got, list) or not got:
         raise SystemExit(f"--start-here {path}: a JSON list of {{\"item\", \"why\"}}, in order, and not empty")
+    cov = (rec.gap_check if rec is not None else None) or {}
+    cov_span = cov.get("span")
     lines = []
+
+    def _resolve_clip_span(k: int, clip: str, e: dict) -> tuple[int, int, list[str] | None] | None:
+        if not Path(clip).is_file():
+            raise SystemExit(f"--start-here {path}, entry {k}: the clip {clip} is not there")
+        if Path(clip).suffix.lower() in {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"}:
+            return None
+        subs = [str(s) for s in e["subjects"]] if isinstance(e.get("subjects"), list) and e.get("subjects") else None
+        for key in ("frames", "span"):
+            sp = e.get(key)
+            if isinstance(sp, (list, tuple)) and len(sp) == 2 and all(isinstance(v, int) for v in sp) and int(sp[0]) <= int(sp[1]):
+                return int(sp[0]), int(sp[1]), subs
+        for key in ("clip_frames", "clip_spans"):
+            cf_map = e.get(key)
+            if isinstance(cf_map, dict):
+                sp = cf_map.get(clip) or cf_map.get(Path(clip).name)
+                if isinstance(sp, (list, tuple)) and len(sp) == 2 and all(isinstance(v, int) for v in sp) and int(sp[0]) <= int(sp[1]):
+                    return int(sp[0]), int(sp[1]), subs
+        cp = Path(clip)
+        for cand in (Path(str(cp) + ".json"), cp.with_suffix(".json"), Path(str(cp) + ".stack.json"), Path(str(cp) + ".check.json")):
+            if cand.is_file():
+                try:
+                    sc = json.loads(cand.read_text())
+                except Exception:
+                    sc = None
+                if isinstance(sc, dict):
+                    for key in ("span", "frames"):
+                        sp = sc.get(key)
+                        if isinstance(sp, (list, tuple)) and len(sp) == 2 and int(sp[0]) <= int(sp[1]):
+                            sc_subs = [str(s) for s in sc["subjects"]] if isinstance(sc.get("subjects"), list) and sc.get("subjects") else subs
+                            return int(sp[0]), int(sp[1]), sc_subs
+                    if isinstance(sc.get("table"), list) and sc["table"]:
+                        fs = [int(r["first"]) for r in sc["table"] if "first" in r]
+                        ls = [int(r["last"]) for r in sc["table"] if "last" in r]
+                        if fs and ls:
+                            sc_subs = list(dict.fromkeys(str(r["subject"]) for r in sc["table"] if r.get("subject"))) or subs
+                            return min(fs), max(ls), sc_subs
+        if rec is not None:
+            renders_raw = rec.L.get("renders") or {}
+            renders_iter = renders_raw.values() if isinstance(renders_raw, dict) else renders_raw
+            for r in renders_iter:
+                if not isinstance(r, dict):
+                    continue
+                rf = str(r.get("file") or "")
+                if rf and (Path(rf).name == cp.name or str(in_repo(rf, rec.ledger_path)) == str(cp.resolve())):
+                    r_first = r.get("first") if r.get("first") is not None else (r.get("span") or [None, None])[0]
+                    r_last = (int(r_first) + int(r["frames"]) - 1) if (r_first is not None and r.get("frames")) else (r.get("span") or [None, None])[1]
+                    if r_first is not None and r_last is not None:
+                        r_subs = [str(r["subject"])] if r.get("subject") else subs
+                        return int(r_first), int(r_last), r_subs
+        stem_clean = re.sub(r"_(?:stacked|STACKED)$", "", cp.stem)
+        for td in (tables or []):
+            tp = Path(td) / f"t_{stem_clean}.json"
+            if tp.is_file():
+                try:
+                    tb = json.loads(tp.read_text())
+                except Exception:
+                    tb = None
+                if isinstance(tb, dict) and isinstance(tb.get("rows"), list) and tb["rows"]:
+                    fs = [int(r["first"]) for r in tb["rows"] if "first" in r]
+                    ls = [int(r["last"]) for r in tb["rows"] if "last" in r]
+                    if fs and ls:
+                        tb_subs = list(dict.fromkeys(str(r["subject"]) for r in tb["rows"] if r.get("subject"))) or subs
+                        return min(fs), max(ls), tb_subs
+        stem_no_date = re.sub(r"\d{4}-\d{2}-\d{2}", "", cp.stem)
+        for m in re.finditer(r"(?<!\d)(\d{3,5})[-_](\d{3,5})(?!\d)", stem_no_date):
+            a_f, b_f = int(m.group(1)), int(m.group(2))
+            if a_f <= b_f:
+                return a_f, b_f, subs
+        raise SystemExit(
+            f"--start-here {path}, entry {k}: clip {clip} has no frame span for its gap-check line "
+            f"(a clip with gaps and no such line does not go on Start here)"
+        )
+
+    def _check_cov_span(k: int, label: str, first: int, last: int) -> None:
+        if isinstance(cov_span, (list, tuple)) and len(cov_span) == 2:
+            cs0, cs1 = int(cov_span[0]), int(cov_span[1])
+            if last < cs0 or first > cs1:
+                raise SystemExit(
+                    f"--start-here {path}, entry {k}: {label} ({first}-{last}) is outside the gap check's span {cs0}-{cs1} "
+                    f"(a clip with gaps and no gap-check line does not go on Start here)"
+                )
+
     def clip_link(k: int, clip: str) -> str:
         if not Path(clip).is_file():
             raise SystemExit(f"--start-here {path}, entry {k}: the clip {clip} is not there")
         return f'<a href="{E(os.path.relpath(clip, out_dir))}">{E(Path(clip).name)}</a>'
+
     def reader_notes_fold(k: int, e: dict) -> str:
         if "reader_notes" not in e:
             return ""
@@ -649,7 +750,10 @@ def start_here(path: str, drawn: dict[str, str], shots: dict[str, list[str]], ou
         items_html = "".join(f"<li>{E(ln)}</li>" for ln in note_lines)
         return (f'<details class="why"><summary>A reader\'s notes{who_said} — a session\'s reading, not the owner\'s (not yours)</summary>'
                 f'<ul>{items_html}</ul></details>')
+
     for k, e in enumerate(got, 1):
+        if "gap_line" in e or e.get("no_gap_line"):
+            raise SystemExit(f"--start-here {path}, entry {k}: a clip with gaps and no gap-check line does not go on Start here")
         what, why = str(e.get("item") or "").strip(), " ".join(str(e.get("why") or "").split())
         url = str(e.get("link") or "").strip()
         if (not what and not url) or not why:
@@ -660,22 +764,57 @@ def start_here(path: str, drawn: dict[str, str], shots: dict[str, list[str]], ou
             # (the owner, 2026-10-15: a clip's own link "just gives me the rendered video", and the buttons were not on it)
             if what or not re.match(r"https?://", url) or not str(e.get("label") or "").strip():
                 raise SystemExit(f"--start-here {path}, entry {k}: a link entry is an http(s) URL with a label, and names no item beside it")
-            clips = [clip_link(k, c) for c in e.get("clips") or []]
+            clip_parts = []
+            for c in e.get("clips") or []:
+                link_html = clip_link(k, c)
+                sp_info = _resolve_clip_span(k, c, e)
+                if sp_info is not None:
+                    cf, cl, csubs = sp_info
+                    _check_cov_span(k, c, cf, cl)
+                    gl = clip_gap_line(cov, cf, cl, csubs)
+                    if gl:
+                        clip_parts.append(f'<div class="why gap-line">{E(gl)}</div>{link_html}')
+                        continue
+                clip_parts.append(link_html)
             lines.append(f'<li><a href="{E(url)}">{E(" ".join(str(e["label"]).split()))}</a>: {E(why)}'
-                         + (f"<br><span class='mut'>the clips: {', '.join(clips)}</span>" if clips else "") + f"{fold}</li>")
+                         + (f"<br><span class='mut'>the clips: {', '.join(clip_parts)}</span>" if clip_parts else "") + f"{fold}</li>")
             continue
+        gap_banner = ""
         if re.fullmatch(r"\d+-\d+", what):
             if what not in shots:
                 raise SystemExit(f"--start-here {path}, entry {k}: the shot {what} is not on this page (its shots: {', '.join(shots) or 'none'})")
             ins = shots[what]
             shown = f"the shot {E(what)}: " + (", ".join(drawn[i] for i in ins) if ins else "its pieces, below")
+            s0, s1 = map(int, what.split("-"))
+            _check_cov_span(k, what, s0, s1)
+            gl = clip_gap_line(cov, s0, s1, (shot_subjects or {}).get(what))
+            if gl:
+                gap_banner = f'<div class="why gap-line">{E(gl)}</div>'
         elif what in drawn:
             shown = drawn[what]
+            sp_info = (item_spans or {}).get(what)
+            if sp_info is None:
+                raise SystemExit(
+                    f"--start-here {path}, entry {k}: item {what!r} has no frame span for its gap-check line "
+                    f"(a clip with gaps and no such line does not go on Start here)"
+                )
+            cf, cl, csubs = sp_info
+            _check_cov_span(k, what, cf, cl)
+            gl = clip_gap_line(cov, cf, cl, csubs)
+            if gl:
+                gap_banner = f'<div class="why gap-line">{E(gl)}</div>'
         elif "/" in what:
             shown = clip_link(k, what) + " (a clip, not on the review list)"
+            sp_info = _resolve_clip_span(k, what, e)
+            if sp_info is not None:
+                cf, cl, csubs = sp_info
+                _check_cov_span(k, what, cf, cl)
+                gl = clip_gap_line(cov, cf, cl, csubs)
+                if gl:
+                    gap_banner = f'<div class="why gap-line">{E(gl)}</div>'
         else:
             raise SystemExit(f"--start-here {path}, entry {k}: {what!r} is no item this page shows, no shot of it and no clip")
-        lines.append(f"<li>{shown}: {E(why)}{fold}</li>")
+        lines.append(f"<li>{gap_banner}{shown}: {E(why)}{fold}</li>")
     return ["<h2>Start here, in this order</h2>", "<p class='mut'>The lead's order: what deciding each changes most. Each is also "
             "where it always is, below.</p>", f"<ol>{''.join(lines)}</ol>"]
 
@@ -694,6 +833,13 @@ def to_review(a: argparse.Namespace) -> str:
     rate, out_dir = rate_of(a.source), os.path.dirname(os.path.abspath(a.out))
     previous = json.load(open(a.previous_table)) if a.previous_table else None
     drawn: dict[str, str] = {}                           # each item the page links, to its link: what --start-here may name
+    item_spans: dict[str, tuple[int, int, list[str] | None]] = {}
+    for it_raw in rec.items_in_order:
+        if it_raw.get("id") and it_raw.get("first") is not None and it_raw.get("frames"):
+            f0 = int(it_raw["first"])
+            f1 = f0 + int(it_raw["frames"]) - 1
+            item_spans[str(it_raw["id"])] = (f0, f1, [str(it_raw["subject"])] if it_raw.get("subject") else None)
+    shot_subjects: dict[str, list[str]] = {}
 
     this_shot: list[str] = []                            # the items the shot being drawn links
 
@@ -729,6 +875,7 @@ def to_review(a: argparse.Namespace) -> str:
         this_shot.clear()
     for sh in shots_of_table(rec.T):
         first, last = sh["first"], sh["last"]
+        shot_subjects[f"{first}-{last}"] = list(sh["subjects"])
         when = f"{clock(first, rate)} to {clock(last + 1, rate)} of the video"
         rows = sorted(sh["rows"], key=lambda r: (r["subject"], r["first"]))
         if not rows:
@@ -747,6 +894,9 @@ def to_review(a: argparse.Namespace) -> str:
         if len(sh["subjects"]) >= 2 or it is not None:
             sect = "joined" if len(sh["subjects"]) >= 2 else "joined_one"
             if it is not None:
+                item_spans[it["id"]] = (first, last, list(sh["subjects"]))
+                shot_gl = clip_gap_line(rec.gap_check, first, last, list(sh["subjects"]))
+                shot_gl_tag = f'<p class="why gap-line">{E(shot_gl)}</p>' if shot_gl else ""
                 # the joined clip is filed by the owner's lines on it: none, waiting; a keep (with words after or not) leaves the
                 # page after the day of their last line, and only when no piece of it has a later line of theirs; any other
                 # click ("wrong" names no piece) stays under Done
@@ -759,7 +909,7 @@ def to_review(a: argparse.Namespace) -> str:
                 each = [rec.last_choice(rec.rows_of(r["name"]), every=True) for r in rows]
                 if not own and all(x and x["chosen"] in delivery_table.KEEP for x in each):
                     if any(v != "gone" for v in state.values()):
-                        done[sect].append(f'<div class="e"><h3>{link(it["id"], f"The shot {first}-{last}")} <span>{E(who)} &middot; {when} &middot; '
+                        done[sect].append(f'<div class="e">{shot_gl_tag}<h3>{link(it["id"], f"The shot {first}-{last}")} <span>{E(who)} &middot; {when} &middot; '
                                               f'every piece kept; the joined clip not watched</span></h3><ul>{lines(rows)}</ul></div>')
                     continue
                 # a keep, or words with no click, leave the page after the day of the last line; any other click stays (a seventh reader)
@@ -769,7 +919,7 @@ def to_review(a: argparse.Namespace) -> str:
                            if c and not kept else "")
                     older = sorted(kin - {it["id"]})
                     (done if own else waiting)[sect].append(
-                        f'<div class="e"><h3>{link(it["id"], f"The shot {first}-{last}")} <span>{E(who)} &middot; {when} &middot; the joined clip: '
+                        f'<div class="e">{shot_gl_tag}<h3>{link(it["id"], f"The shot {first}-{last}")} <span>{E(who)} &middot; {when} &middot; the joined clip: '
                         f'{E(rec.last_click(kin, newest=it["id"]))}</span></h3>'
                         + (f'<p class="why">With your lines on the earlier build(s) of the same pieces on the same frames: {E(", ".join(older))}</p>' if older else "")
                         + f'{ask}<ul>{lines(rows)}</ul></div>')
@@ -777,15 +927,29 @@ def to_review(a: argparse.Namespace) -> str:
             for to, kind in ((waiting, "waiting"), (done, "done")):
                 rr = [r for r in rows if state[r["name"]] == kind]
                 if rr:
-                    to["apart"].append(f'<div class="e"><h3>The shot {first}-{last}: {heads(rr)} <span>{E(who)} &middot; {when}</span></h3>'
+                    for n in dict.fromkeys(r["name"] for r in rr):
+                        it_r = rec.item_of(n)
+                        if it_r:
+                            n_rows = [r for r in rr if r["name"] == n]
+                            item_spans[it_r["id"]] = (max(n_rows[0]["first"], first), min(n_rows[-1]["last"], last), [str(n_rows[0]["subject"])])
+                    apart_gl = clip_gap_line(rec.gap_check, first, last, list(sh["subjects"]))
+                    apart_gl_tag = f'<p class="why gap-line">{E(apart_gl)}</p>' if apart_gl else ""
+                    to["apart"].append(f'<div class="e">{apart_gl_tag}<h3>The shot {first}-{last}: {heads(rr)} <span>{E(who)} &middot; {when}</span></h3>'
                                        f'<p class="why">{E(why)}. Each piece meanwhile, on its own:</p><ul>{lines(rr)}</ul></div>')
         else:
             # one entry a piece, its rows (cut by restore spans) together under it
             for name in dict.fromkeys(r["name"] for r in rows):
                 rr = [r for r in rows if r["name"] == name]
+                p_first, p_last = max(rr[0]["first"], first), min(rr[-1]["last"], last)
+                p_sub = str(rr[0]["subject"])
+                it_p = rec.item_of(name)
+                if it_p:
+                    item_spans[it_p["id"]] = (p_first, p_last, [p_sub])
                 if state[name] != "gone":
+                    p_gl = clip_gap_line(rec.gap_check, p_first, p_last, [p_sub])
+                    p_gl_tag = f'<p class="why gap-line">{E(p_gl)}</p>' if p_gl else ""
                     (waiting if state[name] == "waiting" else done)["single"].append(
-                        f'<div class="e"><h3>{E(rr[0]["subject"])}, {max(rr[0]["first"], first)}-{min(rr[-1]["last"], last)}: {heads(rr)} <span>{when}</span></h3>'
+                        f'<div class="e">{p_gl_tag}<h3>{E(p_sub)}, {p_first}-{p_last}: {heads(rr)} <span>{when}</span></h3>'
                         f'<ul>{lines(rr)}</ul></div>')
 
     shot_drawn()
@@ -799,7 +963,16 @@ def to_review(a: argparse.Namespace) -> str:
         return out + [f"<{tag}>Pieces in a shot of one of them</{tag}>", *(got["single"] or ["<p class='mut'>None.</p>"])]
     n_wait, n_done = (sum(map(len, g.values())) for g in (waiting, done))
     if a.start_here:
-        body += start_here(a.start_here, drawn, shots_drawn, os.path.dirname(os.path.abspath(a.out)))
+        body += start_here(
+            a.start_here,
+            drawn,
+            shots_drawn,
+            os.path.dirname(os.path.abspath(a.out)),
+            rec=rec,
+            item_spans=item_spans,
+            shot_subjects=shot_subjects,
+            tables=a.tables or [],
+        )
     body += [
             *gap_check_block(rec, rate)]
     if previous is not None:

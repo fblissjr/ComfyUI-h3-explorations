@@ -370,9 +370,11 @@ def main() -> int:
              and "60-99 (b): 40 frame-subject(s) (original_tracking_not_known: 40) on b: 50-99" in txt9
              and "Other runs from the gap check" in txt9
              and "carried_not_known (tracked, whether the laid piece carried a mask is not known): 2 frame-subject(s) on 30-31 (a)" in txt9
-             and "original_her_track_empty (original, her tied track is empty (0 px)): 3 frame-subject(s) on 10-12 (a)" in txt9
-             and "left_out_by_a_look (original, left out by a person's look): 2 frame-subject(s) on 13-14 (a)" in txt9
+             and "original_her_track_empty (original, her track is empty (0 px)): 3 frame-subject(s) on 10-12 (a)" in txt9
+             and "left_out_by_a_look (left out by a look): 2 frame-subject(s) on 13-14 (a)" in txt9
              and "seam (seam where two laid pieces of the same person meet): 1 seam(s) on 15 (a)" in txt9
+             and "captured_not_rendered = captured, not rendered; rendered_not_kept = rendered, not kept; emptied_inside = emptied inside a piece" in txt9
+             and "no_capture = no capture" in txt9
              and "other gap-check runs: 30-31 carried_not_known (no region)" in txt9
              and "original shows (15 f: original_while_tracked 10, emptied_inside 2, laid_but_barely_changed 2, region_far_below_its_own_size 1)" in txt9
              and "FAILED GAP CHECK" in txt_fail9 and "0-29 a: original_while_tracked on 2 frame(s)" in txt_fail9

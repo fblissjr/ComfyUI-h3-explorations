@@ -83,28 +83,27 @@ def sync_gap_check(d: Path, by_shot: dict | None = None, runs: list | None = Non
     default_by_shot = {
         "remake": [
             {"shot": [220, 239], "frames": 14, "subjects": ["a", "b"],
-             "by_kind": {"original_while_tracked": 5, "emptied_inside": 4, "laid_but_barely_changed": 3, "region_far_below_its_own_size": 2}},
+             "by_kind": {"captured_not_rendered": 3, "rendered_not_kept": 2, "emptied_inside": 4, "laid_but_barely_changed": 3, "region_far_below_its_own_size": 2}},
             {"shot": [150, 199], "frames": 4, "subjects": ["a"],
-             "by_kind": {"original_while_tracked": 2, "emptied_inside": 2, "laid_but_barely_changed": 0, "region_far_below_its_own_size": 0}},
+             "by_kind": {"captured_not_rendered": 2, "rendered_not_kept": 0, "emptied_inside": 2, "laid_but_barely_changed": 0, "region_far_below_its_own_size": 0}},
         ],
         "capture": [
-            {"shot": [240, 259], "frames": 20, "subjects": ["a", "b"], "by_kind": {"original_tracking_not_known": 20}},
-            {"shot": [220, 239], "frames": 10, "subjects": ["b"], "by_kind": {"original_tracking_not_known": 10}},
+            {"shot": [240, 259], "frames": 20, "subjects": ["a", "b"], "by_kind": {"no_capture": 20}},
+            {"shot": [220, 239], "frames": 10, "subjects": ["b"], "by_kind": {"no_capture": 10}},
         ],
     }
     default_runs = [
-        {"first": 225, "last": 229, "shot": [220, 239], "subject": "b", "kind": "original_while_tracked", "pieces": [], "cause": "no piece laid"},
+        {"first": 225, "last": 227, "shot": [220, 239], "subject": "b", "kind": "captured_not_rendered", "pieces": [], "captures": ["b_cap"], "mask_files": ["data/b_cap/subjects/b/masks__sam.npz"], "cause": "captured, not rendered: b_cap"},
+        {"first": 228, "last": 229, "shot": [220, 239], "subject": "b", "kind": "rendered_not_kept", "pieces": [], "unkept_renders": [{"name": "b_unkept", "window": [220, 239]}], "cause": "rendered, not kept: b_unkept (220-239)"},
         {"first": 230, "last": 233, "shot": [220, 239], "subject": "a", "kind": "emptied_inside", "pieces": ["a_x"], "cause": "floor"},
         {"first": 234, "last": 236, "shot": [220, 239], "subject": "a", "kind": "laid_but_barely_changed", "pieces": ["a_x"], "cause": "0.150 to 0.210"},
         {"first": 237, "last": 238, "shot": [220, 239], "subject": "a", "kind": "region_far_below_its_own_size", "pieces": ["a_x"], "cause": "carried 300 px"},
-        {"first": 160, "last": 161, "shot": [150, 199], "subject": "a", "kind": "original_while_tracked", "pieces": [], "cause": "no piece laid"},
+        {"first": 160, "last": 161, "shot": [150, 199], "subject": "a", "kind": "captured_not_rendered", "pieces": [], "captures": ["a_cap"], "mask_files": ["data/a_cap/subjects/a/masks__sam.npz"], "cause": "captured, not rendered: a_cap"},
         {"first": 170, "last": 170, "shot": [150, 199], "subject": "a", "kind": "emptied_inside", "pieces": ["a_solo"], "cause": "drop="},
         {"first": 172, "last": 172, "shot": [150, 199], "subject": "a", "kind": "emptied_inside", "pieces": ["a_solo"], "cause": "floor"},
-        {"first": 240, "last": 249, "shot": [240, 259], "subject": "a", "kind": "original_tracking_not_known", "pieces": [], "cause": "no tied capture"},
-        {"first": 240, "last": 249, "shot": [240, 259], "subject": "b", "kind": "original_tracking_not_known", "pieces": [], "cause": "no tied capture"},
-        {"first": 220, "last": 229, "shot": [220, 239], "subject": "b", "kind": "original_tracking_not_known", "pieces": [], "cause": "no tied capture"},
-        {"first": 180, "last": 181, "shot": [150, 199], "subject": "a", "kind": "carried_not_known", "pieces": ["a_solo"], "cause": "not known: capture did not read"},
-        {"first": 182, "last": 183, "shot": [150, 199], "subject": "a", "kind": "original_her_track_empty", "pieces": [], "cause": "original: no piece laid"},
+        {"first": 240, "last": 249, "shot": [240, 259], "subject": "a", "kind": "no_capture", "pieces": [], "cause": "no capture"},
+        {"first": 240, "last": 249, "shot": [240, 259], "subject": "b", "kind": "no_capture", "pieces": [], "cause": "no capture"},
+        {"first": 220, "last": 229, "shot": [220, 239], "subject": "b", "kind": "no_capture", "pieces": [], "cause": "no capture"},
         {"first": 184, "last": 185, "shot": [150, 199], "subject": "a", "kind": "left_out_by_a_look", "pieces": [], "cause": "back turned", "who": "reader"},
         {"first": 124, "last": 125, "shot": [100, 149], "subject": "a", "kind": "seam", "pieces": ["a_part1", "a_part2"], "cause": None},
     ]
@@ -786,8 +785,10 @@ def start_here() -> str:
         clip = d / "share" / "pair" / "hair_A.mp4"
         clip.parent.mkdir(parents=True)
         clip.write_bytes(b"x")
+        (clip.with_suffix(".json")).write_text(json.dumps({"span": [100, 149], "subjects": ["a"]}))
         other = clip.with_name("hair_B.mp4")
         other.write_bytes(b"x")
+        (other.with_suffix(".json")).write_text(json.dumps({"span": [150, 199], "subjects": ["a"]}))
         order = [
             {"item": str(clip), "why": "WHY THE PAIR", "reader_notes": ["frame 106 <diff>: softer collar", "frame 367: necklace highlight"]},
             {"item": "150-199", "why": "WHY A_SOLO'S SHOT", "reader_notes": "frame 160: eyes open"},
@@ -855,11 +856,11 @@ def the_page_says_what_is_laid() -> str:
 
 def the_gap_check_is_on_both_pages() -> str:
     """2026-10-16: both pages (TO_REVIEW and PROVENANCE) read the gap check's JSON named by `assembly.stack.coverage_json`
-    and show per shot, worst first, the count of frame-subjects where the original shows by kind (`original_while_tracked`,
-    `emptied_inside`, `laid_but_barely_changed`, `region_far_below_its_own_size`; and, apart, `original_tracking_not_known`),
+    and show per shot, worst first, the count of frame-subjects where the original shows by kind (`captured_not_rendered`,
+    `rendered_not_kept`, `emptied_inside`, `laid_but_barely_changed`, `region_far_below_its_own_size`; and, apart, `no_capture`),
     in two lists (`remake` and `capture`) with each subject's gap spans and clocks (1-frame gaps as one frame, never zero-length,
-    and no repeated spans), plus the four other run kinds (`carried_not_known`, `original_her_track_empty`, `left_out_by_a_look`,
-    and `seam` counted as seams) and any string `failures`, read and never recomputed."""
+    and no repeated spans), plus the other run kinds (`left_out_by_a_look`, and `seam` counted as seams) and any string `failures`,
+    read and never recomputed."""
     with tempfile.TemporaryDirectory() as t1, tempfile.TemporaryDirectory() as t2:
         rev = text_of(to_review(Path(t1)))
         prov = text_of(provenance(Path(t2)))
@@ -867,36 +868,35 @@ def the_gap_check_is_on_both_pages() -> str:
             assert "Where the original still shows: the gap check" in text, f"{which_page} lacks the gap check heading"
             block = text.split("Where the original still shows: the gap check")[1].split(before)[0]
             assert "frame(s)" not in block and "frame-subject(s)" in block, (which_page, block)
-            cap_heading = "Capture (2 shot(s), 30 frame-subject(s)): the original: no piece made for these frames (no capture here, or a capture that holds no track of her)"
+            cap_heading = "Capture (2 shot(s), 30 frame-subject(s)): no capture"
             assert cap_heading in block, (which_page, block)
             remake_part, capture_part = block.split(cap_heading)
             assert "Remake (2 shot(s), 18 frame-subject(s)):" in remake_part, (which_page, remake_part)
             assert remake_part.index("220-239") < remake_part.index("150-199"), (which_page, remake_part)
-            assert ("original_while_tracked: 5, emptied_inside: 4, laid_but_barely_changed: 3, region_far_below_its_own_size: 2"
+            assert ("captured_not_rendered: 3, rendered_not_kept: 2, emptied_inside: 4, laid_but_barely_changed: 3, region_far_below_its_own_size: 2"
                     in remake_part), (which_page, remake_part)
-            assert "original_while_tracked: 2, emptied_inside: 2" in remake_part, (which_page, remake_part)
+            assert "captured_not_rendered: 2, emptied_inside: 2" in remake_part, (which_page, remake_part)
             # per-subject gap spans, 1-frame gap clock as one frame (170 (0:07.1), not 170-170 (0:07.1–0:07.1)), and not the whole shot's clock
-            assert "a: 230-233 (" in remake_part and "b: 225-229 (" in remake_part, (which_page, remake_part)
+            assert "a: 230-233 (" in remake_part and "b: 225-227 (" in remake_part and "228-229 (" in remake_part, (which_page, remake_part)
             assert "a: 160-161 (" in remake_part and "170 (0:07.1)" in remake_part and "172 (0:07.2)" in remake_part, (which_page, remake_part)
             assert "170-170" not in remake_part and "0:07.1–0:07.1" not in remake_part, (which_page, remake_part)
             assert "0:06.3–0:08.3" not in remake_part, (which_page, remake_part)
             assert capture_part.index("240-259") < capture_part.index("220-239"), (which_page, capture_part)
-            assert "original_tracking_not_known: 20" in capture_part and "original_tracking_not_known: 10" in capture_part, (which_page, capture_part)
+            assert "no_capture: 20" in capture_part and "no_capture: 10" in capture_part, (which_page, capture_part)
             # capture gap spans: each span says whose it is, once, with no repeated spans, and not the whole shot's span (N9)
             capture_list_only = capture_part.split("Other runs from the gap check")[0]
             assert "a, b: 240-249 (" in capture_list_only and capture_list_only.count("240-249") == 1, (which_page, capture_list_only)
             assert "b: 220-229 (" in capture_list_only and "0:09.2–0:10.0" not in capture_list_only, (which_page, capture_list_only)
-            # all 4 other run kinds and the words for all 9 kinds; seam counted as seam(s), not frame-subject(s)
+            # other run kinds and the words for all ladder kinds; seam counted as seam(s), not frame-subject(s)
             assert "Other runs from the gap check" in capture_part, (which_page, capture_part)
             for kind_word in (
-                "original_while_tracked (original while tracked, no piece laid)",
-                "emptied_inside (emptied inside a laid piece)",
+                "captured_not_rendered (captured, not rendered)",
+                "rendered_not_kept (rendered, not kept)",
+                "emptied_inside (emptied inside a piece)",
                 "laid_but_barely_changed (laid piece barely changed its region)",
                 "region_far_below_its_own_size (carried region far below its own size)",
-                "original_tracking_not_known (the original: no piece made for these frames (no capture here, or a capture that holds no track of her))",
-                "carried_not_known (tracked, whether the laid piece carried a mask is not known): 2 frame-subject(s) on 180-181 (a)",
-                "original_her_track_empty (original, her tied track is empty (0 px)): 2 frame-subject(s) on 182-183 (a)",
-                "left_out_by_a_look (original, left out by a person's look): 2 frame-subject(s) on 184-185 (a)",
+                "no_capture (no capture)",
+                "left_out_by_a_look (left out by a look): 2 frame-subject(s) on 184-185 (a)",
                 "seam (seam where two laid pieces of the same person meet): 1 seam(s) on 124-125 (a)",
             ):
                 assert kind_word in block, (which_page, kind_word, block)
@@ -931,7 +931,7 @@ def the_gap_check_is_on_both_pages() -> str:
         for wf_page, wf_html, wf_before in (("to-review", out_fail_rev, "Waiting on you"), ("provenance", out_fail_prov, "What changes in the next clip")):
             fblock = text_of(wf_html.read_text()).split("Where the original still shows: the gap check")[1].split(wf_before)[0]
             assert "FAILED GAP CHECK" in fblock and "150-199 a (a_solo): run='bad' does not resolve" in fblock and "None." not in fblock, (wf_page, fblock)
-    return "both pages show remake, capture, and the 4 other run kinds with their words, per-subject gap spans/clocks, seam counts, and string failures"
+    return "both pages show remake, capture, and the other run kinds with their words, per-subject gap spans/clocks, seam counts, and string failures"
 
 
 def missing_or_stale_gap_check_is_refused() -> str:
@@ -1056,6 +1056,61 @@ def missing_or_stale_gap_check_is_refused() -> str:
     return "both to-review and provenance refuse missing/malformed coverage_json, by_shot, span, table_sha256, --out, or clip_check, writing nothing"
 
 
+def per_clip_gap_lines_and_start_here_refusal() -> str:
+    """C131: right above each player on to-review (Start here, Waiting on you, Done), review_pages.py prints the gap check's
+    counts for that clip's own frames: per person, each kind with frame counts and spans, in the check's own words; a whole
+    clip has no line; and a clip on Start here whose gap-check line cannot be computed or is suppressed is refused."""
+    with tempfile.TemporaryDirectory() as tmp:
+        d = Path(tmp)
+        raw_clip = d / "share" / "pair" / "clip_0150_0199.mp4"
+        raw_clip.parent.mkdir(parents=True)
+        raw_clip.write_bytes(b"x")
+        whole_clip = d / "share" / "pair" / "clip_0100_0149.mp4"
+        whole_clip.write_bytes(b"x")
+        order = [
+            {"item": str(raw_clip), "why": "RAW CLIP WITH GAPS"},
+            {"item": str(whole_clip), "why": "WHOLE RAW CLIP"},
+            {"item": "220-239", "why": "SHOT WITH GAPS"},
+            {"item": "100-149", "why": "WHOLE SHOT"},
+        ]
+        f = d / "start_gaps.json"
+        f.write_text(json.dumps(order))
+        page = to_review(d, more=("--start-here", str(f)))
+        # 1. Start here entry for 150-199 raw clip has its gap-check line right above the clip link
+        expected_150 = ("Gaps on 150-199 — a: captured, not rendered: 2 (160-161); "
+                        "emptied inside a piece: 2 (170, 172); left out by a look: 2 (184-185)")
+        assert f'<div class="why gap-line">{expected_150}</div><a href="../share/pair/clip_0150_0199.mp4">' in page, page
+        # 2. Whole clip on 100-149 has NO gap-line banner above it
+        assert '<li><a href="../share/pair/clip_0100_0149.mp4">clip_0100_0149.mp4</a> (a clip, not on the review list): WHOLE RAW CLIP</li>' in page, page
+        # 3. Shot 220-239 on Start here has its per-person gap-check line right above the shot link
+        expected_220 = ("Gaps on 220-239 — a: emptied inside a piece: 4 (230-233); "
+                        "laid piece barely changed its region: 3 (234-236); "
+                        "carried region far below its own size: 2 (237-238) · "
+                        "b: no capture: 10 (220-229); captured, not rendered: 3 (225-227); rendered, not kept: 2 (228-229)")
+        assert f'<li><div class="why gap-line">{expected_220}</div>the shot 220-239:' in page, page
+        # 4. Waiting on you / Done entries have `<p class="why gap-line">` right above `<h3>` inside `<div class="e">`
+        assert f'<div class="e"><p class="why gap-line">{expected_150}</p><h3>a, 150-199:' in page, page
+        assert f'<div class="e"><p class="why gap-line">{expected_220}</p><h3>The shot 220-239:' in page, page
+        # Whole shot 100-149 has no gap-line inside its `<div class="e">`
+        assert '<div class="e"><h3><a href="p#v_0100_0149_joined_NEW_stacked">The shot 100-149</a>' in page, page
+        # 5. Refusal when a clip on Start here has no resolvable frame span (so its gap-check line cannot be computed)
+        mystery_clip = d / "share" / "pair" / "mystery_clip.mp4"
+        mystery_clip.write_bytes(b"x")
+        for bad_start, bad_msg in (
+            ([{"item": str(mystery_clip), "why": "no span"}], "no frame span for its gap-check line"),
+            ([{"item": "150-199", "why": "suppressed", "no_gap_line": True}], "no gap-check line does not go on Start here"),
+            ([{"item": "150-199", "why": "overridden", "gap_line": ""}], "no gap-check line does not go on Start here"),
+        ):
+            f.write_text(json.dumps(bad_start))
+            try:
+                to_review(d, more=("--start-here", str(f)))
+            except SystemExit as stop:
+                assert bad_msg in str(stop), (bad_start, str(stop))
+            else:
+                raise AssertionError(f"Start here accepted an entry without a valid gap-check line: {bad_start}")
+    return "per-clip gap lines printed right above each player in Start here, Waiting on you, and Done; clips without a gap-check line refused on Start here"
+
+
 case("both modes read", both_modes_read)
 case("the page says what is laid", the_page_says_what_is_laid)
 case("to-review is the table's, and hides no live piece", to_review_is_the_tables)
@@ -1075,6 +1130,7 @@ case("start here, in the lead's order", start_here)
 case("nothing of a video in the code", nothing_of_a_video_in_code)
 case("the gap check is on both pages, worst first", the_gap_check_is_on_both_pages)
 case("a missing or stale gap check is refused", missing_or_stale_gap_check_is_refused)
+case("per-clip gap lines right above each player, and Start here refusal", per_clip_gap_lines_and_start_here_refusal)
 
 if __name__ == "__main__":
     sys.exit(finish())

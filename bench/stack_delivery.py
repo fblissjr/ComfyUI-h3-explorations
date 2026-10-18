@@ -143,6 +143,7 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from _lib.frames import FIT, probe  # noqa: E402
+from frame_coverage import CHIP_NO_TRACK_WORDS, CHIP_WORDS, LOST_KINDS, chip_words_of  # noqa: E402
 
 #: Lines of words in the block under the middle row of the layout before 2026-10-16, and a line's height at a canvas 768
 #: tall: kept only so `read_back` can read a stack of that layout. Reasoned then: two pieces, their two references and
@@ -150,26 +151,6 @@ from _lib.frames import FIT, probe  # noqa: E402
 LINES, LINE_AT_768 = 7, 22
 #: A subject's colour on the picture (its zoom box, its legend words, its right-hand block), in the order of the columns.
 COLOURS = ((255, 120, 90), (90, 200, 255), (150, 230, 110), (240, 200, 70))
-#: The chip's words for each kind of run the per-frame gap check writes (`bench/frame_coverage.py`, every `"kind"` it
-#: emits, read 2026-10-16). A run of a kind not here stops the build, naming it: a kind drawn as nothing was the most
-#: common gap of 2026-10-16 (`original_tracking_not_known`, 67 of 128 runs) shown on no frame.
-CHIP_WORDS = {"original_while_tracked": "ORIGINAL WHILE TRACKED", "emptied_inside": "EMPTIED", "seam": "SEAM",
-              "original_her_track_empty": "TRACK EMPTY", "carried_not_known": "MASK NOT KNOWN",
-              "original_tracking_not_known": "THE ORIGINAL: NO PIECE MADE FOR THESE FRAMES (no capture here, so tracking is not shown)",
-              "left_out_by_a_look": "LEFT OUT BY A LOOK",
-              "laid_but_barely_changed": "BARELY CHANGED", "region_far_below_its_own_size": "REGION TOO SMALL"}
-CHIP_NO_TRACK_WORDS = "THE ORIGINAL: NO PIECE MADE FOR THESE FRAMES, AND THE CAPTURE THERE HOLDS NO TRACK OF HER"
-
-
-def chip_words_of(run: dict) -> str:
-    raw_cause = run.get("cause") or ""
-    cause = raw_cause.removesuffix(
-        ": the original: no piece made for these frames (no capture here, so tracking is not shown)"
-    ).removesuffix(
-        ": the original: no piece made for these frames, and the capture there holds no track of her"
-    ).removesuffix(": tracking not known")
-    head = CHIP_NO_TRACK_WORDS if (run["kind"] == "original_tracking_not_known" and "holds no track of her" in raw_cause) else CHIP_WORDS[run["kind"]]
-    return head + (f" ({cause})" if cause else "")
 #: THE MOST A VIEW'S FRAME MAY BE: H.264 level 5.1, which every browser's decoder plays (the owner's review page crashed Chrome,
 #: "Aw Snap", error code 5, on the whole-video views of 2026-10-16: 2448x4172, level 6.0, because legend 2 grew to the busiest of
 #: 6395 frames; every view at or under 3724 tall, level 5.1, played). Inherited from the standard's level table: 36864 macroblocks a
@@ -821,6 +802,7 @@ def build(a: argparse.Namespace) -> None:
     # the per-frame gap check's runs (bench/frame_coverage.py), when handed in, as chips on their frames: every kind has words, and a
     # kind with none stops the build here, before anything is encoded
     chips_at: dict[int, list[tuple[str, str]]] = {}
+    lost_at: dict[int, set[str]] = {}
     if getattr(a, "coverage", ""):
         runs = json.loads(Path(a.coverage).read_text()).get("runs") or []
         unknown = sorted({run["kind"] for run in runs} - set(CHIP_WORDS))
@@ -832,6 +814,8 @@ def build(a: argparse.Namespace) -> None:
             words_ = chip_words_of(run)
             for f in range(max(run["first"], first_f), min(run["last"], last_f) + 1):
                 chips_at.setdefault(f, []).append((who, words_))
+                if run["kind"] in LOST_KINDS:
+                    lost_at.setdefault(f, set()).add(who)
 
     def laid_on(f: int) -> tuple[dict[str, dict], list[tuple[str, dict]]]:
         """The rows the TABLE lays on a frame, by subject (the first of a subject's), and any second row of a subject."""
@@ -848,7 +832,7 @@ def build(a: argparse.Namespace) -> None:
     WHITE, GREY, RED = (255, 255, 255), (170, 170, 170), (235, 50, 50)
 
     def lost_on(f: int) -> list[str]:
-        return sorted({who for who, t in chips_at.get(f, []) if t.startswith(CHIP_WORDS["original_while_tracked"])})
+        return sorted(lost_at.get(f, set()))
 
     def legends_of(f: int) -> tuple[list[dict], list[dict], dict[str, str], list[dict]]:
         """A frame's two legends as items for `flow`, the who-is-laid words by subject, and the live check flags."""
@@ -1627,6 +1611,7 @@ def compare(a: argparse.Namespace) -> None:
     day_of = lambda r: days[Path(r["piece"]).name][0]  # noqa: E731
     colour_of = {who: COLOURS[i % len(COLOURS)] for i, who in enumerate(all_cols)}
     chips_at: dict[int, list[tuple[str, str]]] = {}
+    lost_at: dict[int, set[str]] = {}
     if getattr(a, "coverage", ""):
         runs = json.loads(Path(a.coverage).read_text()).get("runs") or []
         unknown = sorted({run["kind"] for run in runs} - set(CHIP_WORDS))
@@ -1638,6 +1623,8 @@ def compare(a: argparse.Namespace) -> None:
             words_ = chip_words_of(run)
             for f in range(max(run["first"], first_f), min(run["last"], last_f) + 1):
                 chips_at.setdefault(f, []).append((who, words_))
+                if run["kind"] in LOST_KINDS:
+                    lost_at.setdefault(f, set()).add(who)
 
     def laid_on_list(r_list: list[dict], f: int) -> tuple[dict[str, dict], list[tuple[str, dict]]]:
         by, extra = {}, []
@@ -1653,7 +1640,7 @@ def compare(a: argparse.Namespace) -> None:
     WHITE, GREY, RED = (255, 255, 255), (170, 170, 170), (235, 50, 50)
 
     def lost_on(f: int) -> list[str]:
-        return sorted({who for who, t in chips_at.get(f, []) if t.startswith(CHIP_WORDS["original_while_tracked"])})
+        return sorted(lost_at.get(f, set()))
 
     cur_title = getattr(a, "current_tag", "") or "CURRENT CUT"
     cand_title = getattr(a, "tag", "") or "CANDIDATE CUT"

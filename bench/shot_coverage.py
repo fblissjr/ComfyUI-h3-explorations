@@ -79,6 +79,9 @@ from collections import defaultdict
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+from frame_coverage import CAPTURE_GAP_KINDS, KIND_WORDS, OTHER_RUN_KINDS, REMAKE_GAP_KINDS, run_words  # noqa: E402
+
 SHOTS_SCHEMA, PLAN_SCHEMA = "h3_shots/1", "h3_plan/1"
 PRESENT = ("yes", "no", "unsure")
 REGIONS = ("face", "face and hair", "whole")
@@ -101,21 +104,16 @@ STATES = (
 )
 #: What a look may say of a part on frames of a shot (`who[label].seen_looks`, written by `bench/shots_look.py`).
 SEEN_IS = ("not seen", "seen")
-REMAKE_GAP_KINDS = ("original_while_tracked", "emptied_inside", "laid_but_barely_changed", "region_far_below_its_own_size")
-CAPTURE_GAP_KINDS = ("original_tracking_not_known",)
-GAP_KINDS = REMAKE_GAP_KINDS + CAPTURE_GAP_KINDS
-OTHER_RUN_KINDS = ("carried_not_known", "original_her_track_empty", "left_out_by_a_look", "seam")
-KIND_WORDS = {
-    "original_while_tracked": "original while tracked, no piece laid",
-    "emptied_inside": "emptied inside a laid piece",
-    "laid_but_barely_changed": "laid piece barely changed its region",
-    "region_far_below_its_own_size": "carried region far below its own size",
-    "original_tracking_not_known": "original, tracking not known",
-    "carried_not_known": "tracked, whether the laid piece carried a mask is not known",
-    "original_her_track_empty": "original, her tied track is empty (0 px)",
-    "left_out_by_a_look": "original, left out by a person's look",
-    "seam": "seam where two laid pieces of the same person meet",
-}
+REMAKE_GAP_KINDS_ALL = (
+    "captured_not_rendered",
+    "rendered_not_kept",
+    "original_while_tracked",
+    "emptied_inside",
+    "laid_but_barely_changed",
+    "region_far_below_its_own_size",
+)
+CAPTURE_GAP_KINDS_ALL = CAPTURE_GAP_KINDS + ("original_tracking_not_known",)
+GAP_KINDS = REMAKE_GAP_KINDS_ALL + CAPTURE_GAP_KINDS_ALL
 
 
 def _delivery():
@@ -371,7 +369,7 @@ def row_gap_check(gap_check: dict | None, first: int, last: int, label: str, pla
         elif kind in OTHER_RUN_KINDS:
             other_here.append(entry)
     if not by_kind:
-        for which, kinds in (("remake", REMAKE_GAP_KINDS), ("capture", CAPTURE_GAP_KINDS)):
+        for which, kinds in (("remake", REMAKE_GAP_KINDS_ALL), ("capture", CAPTURE_GAP_KINDS_ALL)):
             for x in (gap_check.get("by_shot") or {}).get(which) or []:
                 subs = [alias(str(s), plan) for s in (x.get("subjects") or [])]
                 if len(subs) == 1 and [int(x["shot"][0]), int(x["shot"][1])] == [first, last] and label in subs:
@@ -526,9 +524,9 @@ def print_report(out: dict) -> None:
             print(f"  FAILED GAP CHECK ({len(failures)} failure(s)):")
             for fl in failures:
                 print(f"    {fl}")
-        for which, title, kinds in (
-            ("remake", "remake (a laid piece fails, or no piece where tracked)", REMAKE_GAP_KINDS),
-            ("capture", "capture (original, tracking not known)", CAPTURE_GAP_KINDS),
+        for which, title, kinds, all_kinds in (
+            ("remake", "remake (a laid piece fails, or no piece where tracked)", REMAKE_GAP_KINDS, REMAKE_GAP_KINDS_ALL),
+            ("capture", "capture (original, tracking not known)", CAPTURE_GAP_KINDS, CAPTURE_GAP_KINDS_ALL),
         ):
             entries = by_shot.get(which) or []
             words = "; ".join(f"{k} = {KIND_WORDS[k]}" for k in kinds)
@@ -536,9 +534,9 @@ def print_report(out: dict) -> None:
             for x in entries:
                 s0, s1 = int(x["shot"][0]), int(x["shot"][1])
                 bk = x.get("by_kind") or {}
-                k_str = ", ".join(f"{k}: {int(bk.get(k, 0))}" for k in kinds if int(bk.get(k, 0)))
+                k_str = ", ".join(f"{k}: {int(bk.get(k, 0))}" for k in all_kinds if int(bk.get(k, 0)))
                 subs = ", ".join(str(s) for s in (x.get("subjects") or []))
-                s_runs = [r for r in all_runs if r.get("kind") in kinds and r.get("shot") and [int(r["shot"][0]), int(r["shot"][1])] == [s0, s1]]
+                s_runs = [r for r in all_runs if r.get("kind") in all_kinds and r.get("shot") and [int(r["shot"][0]), int(r["shot"][1])] == [s0, s1]]
                 span_str = fmt_shot_spans_plain(x, s_runs)
                 print(f"    {frames(s0, s1)} ({subs}): {int(x['frames'])} frame-subject(s) ({k_str}){span_str}")
         print("  Other runs from the gap check:")

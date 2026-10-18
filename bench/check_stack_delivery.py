@@ -683,6 +683,11 @@ def every_chip_said() -> str:
     """Chips are facts read from records, none dropped or cut without a word: a kind of the gap check's with no words stops the build
     naming it; `original_tracking_not_known` (the most common kind on 2026-10-16, and dropped until then) is drawn as the original: no piece made for these frames; LONG chips on
     one frame wrap to more lines, each drawn whole inside the source's width; a check flag is shown with its level."""
+    import frame_coverage as fc
+    assert sd.CHIP_WORDS is fc.CHIP_WORDS and sd.chip_words_of is fc.chip_words_of and sd.LOST_KINDS is fc.LOST_KINDS
+    assert sd.chip_words_of({"kind": "no_capture", "cause": "nothing under data/ covers this frame"}) == "NO CAPTURE (nothing under data/ covers this frame)"
+    assert sd.chip_words_of({"kind": "captured_not_rendered", "cause": "cap/subjects/a/masks__p.npz"}) == "CAPTURED, NOT RENDERED (cap/subjects/a/masks__p.npz)"
+    assert sd.chip_words_of({"kind": "rendered_not_kept", "cause": "Video/v/rc_00001.mp4 [25-26]"}) == "RENDERED, NOT KEPT (Video/v/rc_00001.mp4 [25-26])"
     b = built_big()
     recs = frames_of(b.out)
     assert "b: THE ORIGINAL: NO PIECE MADE FOR THESE FRAMES, AND THE CAPTURE THERE HOLDS NO TRACK OF HER (a tied capture covers this frame and holds no track of her on it)" in recs[8]["chips"] and all("no capture" not in c.lower() for c in recs[8]["chips"]), recs[8]["chips"]

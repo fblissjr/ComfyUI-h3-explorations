@@ -1,32 +1,45 @@
 #!/usr/bin/env python3
-"""`bench/frame_coverage.py` on a made table and two made captures: each case is a way a frame where a tracked person
-shows as the original could be missed, given the wrong cause, or called "not tracked" when nothing could tell.
+"""`bench/frame_coverage.py` on a made table, made captures, and made build records: each case is a way a frame on the
+4-step ladder (`no_capture`, `captured_not_rendered`, `rendered_not_kept`, `kept_and_laid`) could be missed, given the
+wrong step or cause, or stripped of its files or canonical words.
 
-No render and no share: the tool reads the table's JSON and the capture records (`manifest.json`, the subject's
-`masks__<by>.npz`, `part_grades.json`, the run's `region.npz`), so the fixture is those files, written here.
+No render and no share: the tool reads the table's JSON, the capture records (`manifest.json`, the subject's
+`masks__<by>.npz`, `part_grades.json`, the run's `region.npz`), and the build records (`*_job/*.render.built.json` and
+`*.render.queued.json`), so the fixture is those files, written here.
 
-The made shot is 10-29, subject `a`. Piece `ra` (capture one, 10-29) lays 12-19; piece `rb` (capture two, 20-24)
-lays 20-24. Inside `ra` the node carried nothing on 14 (`drop=`, its saved part empty too), 15 (the floor), 16 (the grade off its classes),
-17 (nothing saved) and 18 (her track empty there too); 13 is held. Outside the pieces she is tracked on 10-11 and
-25-26, her track is empty on 27, capture one covers 28-29 with no track of her there, and no tied capture covers
-30-31, where an untied capture of the same clip holds her track (named, not read). The shot is `unsure`.
+The made shot is 10-31, subject `a` (`unsure`). Piece `ra` (capture one, 10-29) lays 12-19; piece `rb` (capture two,
+20-24) lays 20-24. Inside `ra` the node carried nothing on 14 (`drop=`, its saved part empty too), 15 (the floor), 16
+(the grade off its classes), 17 (nothing saved) and 18 (her track empty there too); 13 is held. Outside the pieces she is
+tracked on 10-11 and 25-26 in capture one, her track is empty on 27, capture one covers 28-29 with no track of her there
+(step 1: `no_capture`), and untied capture `2026-01-03_untied` holds her track on 30-31 (step 2: `captured_not_rendered`,
+naming `2026-01-03_untied/subjects/a/masks__p.npz`).
 
-1. **The original while tracked**: 10-11 and 25-26 with no piece, and 14, 15, 16, 17 each with its cause; 18 is not
-   in it (her track is empty) and 13 is not (held, carried).
+1. **Step 2 (`captured_not_rendered`) and Step 4 (`emptied_inside`)**: 10-11, 25-26 (tied) and 30-31 (untied) with no
+   piece, naming their mask files, and 14, 15, 16, 17 each with its cause; 18 is not in it (her track is empty) and 13 is
+   not (held, carried).
 2. **Seams**: 19/20, `ra` meeting `rb`, each with its render day.
 3. **Emptied inside a piece**: the four with their causes, and nothing else.
-4. **Not known is not "not tracked"**: 28-29 and 30-31 come back as "the original: no piece made for these frames (no capture here, so tracking is not shown)", each with why, and 30-31
-   name the untied capture; 18 and 27 (her track 0 px) are their own list; the unsure shot is read and said.
+4. **Step 1 (`no_capture`) vs Step 2 (`captured_not_rendered` from untied capture)**: 28-29 come back as `no_capture`
+   with why and `2026-01-01_ra/manifest.json`; 30-31 are read from untied `2026-01-03_untied` as `captured_not_rendered`
+   naming `2026-01-03_untied/subjects/a/masks__p.npz`; 18 and 27 (her track 0 px) are their own list; the unsure shot is
+   read and said.
 5. **A row whose run= does not resolve** is a hard failure and the tool exits 1, and its frames are not known, not
    "no piece laid".
 6. **A capture tied to a row of another shot** that reaches this shot's frames is read for her track there, and a
-   frame whose piece's mask is not known while her track is known is `carried_not_known`, not "the original: no piece made for these frames (no capture here, so tracking is not shown)"
-   (the outside reviewer's D3, bugs A and B).
+   frame whose piece's mask is not known while her track is known is `carried_not_known`, not `no_capture`.
 7. **A look and a job's left_out** (the lead's ruling of 2026-10-16, as built): frames the shots record says are not
    seen are "left out by a look", with who and why, and out of list 1; a later `seen` takes them back; a laid
-   piece's job left_out is said beside its frames and leaves them in list 1, since it may say "left for a later load".
+   piece's job left_out is said beside its frames and leaves them in list 1.
 8. **The ledger reads the same rule**: `render_ledger.left_by_the_load` given the run gives 14-18 by cause; with no
    run it falls back to the manifest's `drop=` list and says so.
+9. **Laid but barely changed; a region far below its own size**: 21-22 at 0.125 barely changed; 23 at 1 px of its median
+   32 too small; `by_shot` ranks `remake` and `capture` separately.
+10. **No clip check, or another table's, is refused**: exit 2, nothing written.
+11. **The 4-step ladder (`no_capture`, `captured_not_rendered`, `rendered_not_kept`, `kept_and_laid`) and canonical
+    words / `clip_gap_line`**: an unkept render in `*_job/*.render.built.json` + `.queued.json` covering 25-26 promotes
+    25-26 from Step 2 (`captured_not_rendered`) to Step 3 (`rendered_not_kept`) naming its clip, windows, and build
+    record; every frame in `shots[0]` carries `step`, `step_name`, and `files`; `run_words`, `chip_words_of`, and
+    `clip_gap_line` format per-person counts and spans in the check's own words.
 """
 from __future__ import annotations
 
@@ -125,12 +138,17 @@ def original_while_tracked() -> str:
                 ((15, 15), "ra", "original: emptied inside the piece (floor)"),
                 ((16, 16), "ra", "original: emptied inside the piece (grade)"),
                 ((17, 17), "ra", "original: emptied inside the piece (nothing saved)"),
-                ((25, 26), None, "original: no piece laid")]
+                ((25, 26), None, "original: no piece laid"),
+                ((30, 31), None, "original: no piece laid")]
         assert got == want, got
+        cnr = [(tuple(x["frames"]), x["tied"], x["mask_files"]) for x in out["captured_not_rendered"]]
+        assert cnr == [((10, 11), True, ["2026-01-01_ra/subjects/a/masks__p.npz"]),
+                       ((25, 26), True, ["2026-01-01_ra/subjects/a/masks__p.npz"]),
+                       ((30, 31), False, ["2026-01-03_untied/subjects/a/masks__p.npz"])], cnr
         st = dict(zip(out["shots"][0]["frames"], out["shots"][0]["state"]))
         assert st[13] == "carried (held from a neighbouring frame)" and st[18].startswith("original: emptied") and st[27] == "original: no piece laid", st
-        assert out["original_while_tracked"][0]["track_px"] == {"least": 32, "median": 32, "most": 32}, out["original_while_tracked"][0]
-    return "no-piece frames and emptied frames each with its cause; an empty track and a held frame left out"
+        assert out["captured_not_rendered"][0]["track_px"] == {"least": 32, "median": 32, "most": 32}, out["captured_not_rendered"][0]
+    return "captured_not_rendered (tied on 10-11, 25-26; untied on 30-31 naming masks__p.npz) and emptied frames each with its cause; empty track and held frame left out"
 
 
 def seams() -> str:
@@ -139,15 +157,17 @@ def seams() -> str:
         (s,) = out["seams"]
         assert s["at"] == [19, 20] and (s["before"]["piece"], s["before"]["day"], s["after"]["piece"], s["after"]["day"]) == ("ra", "01/01", "rb", "01/02"), s
         kinds = [(r["first"], r["last"], r["kind"], r["pieces"], r["cause"]) for r in out["runs"]]
-        assert kinds == [(10, 11, "original_while_tracked", [], "no piece laid"), (14, 14, "emptied_inside", ["ra"], "drop=+nothing saved"),
-                         (15, 15, "emptied_inside", ["ra"], "floor"), (16, 16, "emptied_inside", ["ra"], "grade"),
+        assert kinds == [(10, 11, "captured_not_rendered", [], "2026-01-01_ra/subjects/a/masks__p.npz"),
+                         (14, 14, "emptied_inside", ["ra"], "drop=+nothing saved"),
+                         (15, 15, "emptied_inside", ["ra"], "floor"),
+                         (16, 16, "emptied_inside", ["ra"], "grade"),
                          (17, 17, "emptied_inside", ["ra"], "nothing saved"),
                          (18, 18, "original_her_track_empty", ["ra"], "original: emptied inside the piece (not in the record)"),
                          (19, 20, "seam", ["ra", "rb"], None),
-                         (25, 26, "original_while_tracked", [], "no piece laid"),
+                         (25, 26, "captured_not_rendered", [], "2026-01-01_ra/subjects/a/masks__p.npz"),
                          (27, 27, "original_her_track_empty", [], "original: no piece laid"),
-                         (28, 29, "original_tracking_not_known", [], "a tied capture covers this frame and holds no track of her on it: the original: no piece made for these frames, and the capture there holds no track of her"),
-                         (30, 31, "original_tracking_not_known", [], "no tied capture covers this frame: the original: no piece made for these frames (no capture here, so tracking is not shown)")], kinds
+                         (28, 29, "no_capture", [], "a capture covers this frame and holds no track of her on it (2026-01-01_ra/manifest.json)"),
+                         (30, 31, "captured_not_rendered", [], "2026-01-03_untied/subjects/a/masks__p.npz")], kinds
         assert out["runs"][6]["render_days"] == ["01/01", "01/02"] and out["runs"][1]["render_days"] == ["01/01"], out["runs"]
     return "19/20 with both render days; the page's one list of runs, by frame, kinds disjoint"
 
@@ -166,17 +186,19 @@ def emptied_inside() -> str:
 def not_known() -> str:
     with tempfile.TemporaryDirectory() as tmp:
         out = fc.coverage(json.loads(made(Path(tmp)).read_text()), data=Path(tmp))
-        u, v = out["original_tracking_not_known"]
-        assert u["frames"] == [28, 29] and u["tracking"] == "a tied capture covers this frame and holds no track of her on it: the original: no piece made for these frames, and the capture there holds no track of her" \
-            and "no capture" not in u["tracking"] and u["untied_captures_with_her_track"] == [], u
-        assert v["frames"] == [30, 31] and v["tracking"] == "no tied capture covers this frame: the original: no piece made for these frames (no capture here, so tracking is not shown)" \
-            and v["untied_captures_with_her_track"] == ["2026-01-03_untied"], v
+        (u,) = out["no_capture"]
+        assert u["frames"] == [28, 29] and u["step"] == 1 and u["kind"] == "no_capture" \
+            and u["why"] == "a capture covers this frame and holds no track of her on it (2026-01-01_ra/manifest.json)" \
+            and u["files"] == {"captures": [], "mask_files": [], "captures_without_track": ["2026-01-01_ra/manifest.json"]}, u
+        v = next(x for x in out["captured_not_rendered"] if x["frames"] == [30, 31])
+        assert v["step"] == 2 and not v["tied"] and v["mask_files"] == ["2026-01-03_untied/subjects/a/masks__p.npz"], v
         i = out["shots"][0]["frames"].index(28)
-        assert out["shots"][0]["track_px"][i] is None, out["shots"][0]["track_px"]
+        assert out["shots"][0]["track_px"][i] is None and out["shots"][0]["step"][i] == 1, out["shots"][0]
+        j = out["shots"][0]["frames"].index(30)
+        assert out["shots"][0]["track_px"][j] == 32 and out["shots"][0]["step"][j] == 2, out["shots"][0]
         assert [x["frames"] for x in out["original_her_track_empty"]] == [[18, 18], [27, 27]], out["original_her_track_empty"]
         assert out["shots"][0]["present"] == "unsure" and all(x["present"] == "unsure" for x in out["runs"] if x["kind"] != "seam"), out["runs"]
-        assert not any("2026-01-03_untied" in x["track_from"] for x in out["original_while_tracked"]), "an untied capture was read"
-    return "28-29 and 30-31 not known with why, the untied capture named and not read; her empty track its own list; unsure read and said"
+    return "28-29 Step 1 (no_capture) naming 2026-01-01_ra/manifest.json; 30-31 Step 2 (captured_not_rendered) from untied capture naming masks__p.npz; empty track its own list"
 
 
 def unresolved_is_red() -> str:
@@ -194,12 +216,12 @@ def unresolved_is_red() -> str:
         assert st[25] == "not known: the laid piece gone has a run= that does not resolve" and st[27].startswith("not known: the laid piece norun"), st
         # her track is known on 25-26 (32 px) and 27 (0 px): the piece's mask is what is not known there, not her tracking
         assert [(x["frames"], x["track_px"]["median"]) for x in out["carried_not_known"]] == [([25, 26], 32), ([27, 27], 0)], out["carried_not_known"]
-        assert not any(x["frames"][0] <= 26 and x["frames"][1] >= 25 for x in out["original_tracking_not_known"]), out["original_tracking_not_known"]
+        assert not any(x["frames"][0] <= 26 and x["frames"][1] >= 25 for x in out["no_capture"]), out["no_capture"]
         md = (Path(tmp) / "frame_coverage_t.md").read_text()
         cov_json = json.loads((Path(tmp) / "frame_coverage_t.json").read_text())
-        assert "the original: no piece made for these frames (no capture here, so tracking is not shown)" in cov_json["cannot_see"], cov_json["cannot_see"]
+        assert "1: no capture; 2: captured, not rendered; 3: rendered, not kept; 4: kept and laid" in cov_json["cannot_see"], cov_json["cannot_see"]
         assert (Path(tmp) / "frame_coverage_t.json").is_file() and md.count("## FAILED") == 1 \
-            and "## The original shows, and the tied captures cannot tell whether she is tracked (the original: no piece made for these frames (no capture here, so tracking is not shown))" in md, md
+            and "## Step 1. Nothing captured (`no_capture`)" in md, md
     return "a folder that does not exist and a run its manifest lacks: exit 1, both named, files still written"
 
 
@@ -214,9 +236,11 @@ def a_capture_of_another_shot() -> str:
         table["rows"].append({"first": 20, "last": 24, "name": "rw", "file": "Video/v/rw_00001.mp4", "subject": "b",
                               "run": f"{Path(tmp) / '2026-01-04_wide'}:rw"})
         out = fc.coverage(clip_check(Path(tmp), table), data=Path(tmp))
-        x = [r for r in out["original_while_tracked"] if r["shot"] == [32, 33]]
-        assert [(r["frames"], r["track_from"]) for r in x] == [([32, 33], ["2026-01-04_wide"])], (x, out["original_tracking_not_known"])
-    return "32-33 read from the capture a row of shot 10-31 ties to"
+        x = [r for r in out["captured_not_rendered"] if r["shot"] == [32, 33]]
+        assert [(r["frames"], r["track_from"], r["mask_files"]) for r in x] == [
+            ([32, 33], ["2026-01-04_wide"], ["2026-01-04_wide/subjects/a/masks__p.npz"])
+        ], (x, out["no_capture"])
+    return "32-33 read from the capture a row of shot 10-31 ties to, naming 2026-01-04_wide/subjects/a/masks__p.npz"
 
 
 def looks_and_jobs() -> str:
@@ -257,8 +281,8 @@ def barely_changed_and_too_small() -> str:
         base = fc.coverage(table, data=Path(tmp))
         assert not base["laid_but_barely_changed"] and not base["region_far_below_its_own_size"], "a fully changed piece gave a kind"
         # THE CASE THAT GOES RED when the ranking mixes what a capture answers with what a remake answers (the lead, 2026-10-16)
-        assert base["by_shot"] == {"remake": [{"shot": [10, 31], "frames": 8, "subjects": ["a"], "by_kind": {"original_while_tracked": 4, "emptied_inside": 4}}],
-                                   "capture": [{"shot": [10, 31], "frames": 4, "subjects": ["a"], "by_kind": {"original_tracking_not_known": 4}}]}, base["by_shot"]
+        assert base["by_shot"] == {"remake": [{"shot": [10, 31], "frames": 10, "subjects": ["a"], "by_kind": {"captured_not_rendered": 6, "emptied_inside": 4}}],
+                                   "capture": [{"shot": [10, 31], "frames": 2, "subjects": ["a"], "by_kind": {"no_capture": 2}}]}, base["by_shot"]
         # rb changed 4 of its 32 carried px on 21 and 22; ra changed nothing on 14-18, where its job emptied her part
         clip_check(Path(tmp), table, {"rb": {21: 4, 22: 4}, "ra": {f: 0 for f in range(14, 19)}})
         out = fc.coverage(table, data=Path(tmp))
@@ -280,7 +304,7 @@ def barely_changed_and_too_small() -> str:
         run = next(r for r in out["runs"] if r["kind"] == "laid_but_barely_changed")
         assert run["cause"] == "0.125 to 0.125 of its carried region changed (under 0.3)", run
         assert [r["first"] for r in out["runs"] if r["kind"] == "emptied_inside"] == [14, 15, 16, 17], "an emptied frame changed kind"
-        assert {"shot": [10, 31], "frames": 10, "subjects": ["a"], "by_kind": {"original_while_tracked": 4, "emptied_inside": 4,
+        assert {"shot": [10, 31], "frames": 12, "subjects": ["a"], "by_kind": {"captured_not_rendered": 6, "emptied_inside": 4,
                 "laid_but_barely_changed": 2}} == out["by_shot"]["remake"][0], out["by_shot"]
         # rb's carried region is one px on 23, against its median of 32
         z = Path(tmp) / "2026-01-02_rb" / "runs" / "rb" / "region.npz"
@@ -344,6 +368,106 @@ def ledger_reads_the_same_rule() -> str:
     return "with the run: 14-18 by cause, as the tool counts; without: the manifest's drop= list, said"
 
 
+def four_step_ladder_and_words() -> str:
+    """C129 and C131: every frame gets its furthest step reached on the 4-step ladder (1: no_capture; 2: captured_not_rendered;
+    3: rendered_not_kept from *_job/*.render.built.json + *.render.queued.json; 4: kept_and_laid), naming the files;
+    canonical words and clip_gap_line format per-person counts and spans in the check's own words."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        t = made(root)
+        table = json.loads(t.read_text())
+        job_dir = root / "2026-01-02_rc_job"
+        job_dir.mkdir(parents=True)
+        win_dir = root / "Video" / "v" / "windows"
+        win_dir.mkdir(parents=True)
+        (win_dir / "rc_window_00_00001.mp4").write_bytes(b"win")
+        (job_dir / "rc.render.built.json").write_text(json.dumps({
+            "capture": str(root / "2026-01-01_ra"),
+            "load": {"name": "rc", "subject": "a", "first": 25, "frames": 2, "window": 33, "context": 8},
+            "settings": {"window": {"value": 33}, "context": {"value": 8}},
+            "windows_folder": str(win_dir),
+            "output_folder": str(root / "Video" / "v"),
+        }))
+        (job_dir / "rc.render.queued.json").write_text(json.dumps({
+            "files": ["Video/v/rc_00001.mp4"],
+            "windows_files": ["Video/v/windows/rc_window_00_00001.mp4"],
+        }))
+        out = fc.coverage(table, data=root)
+        sh = out["shots"][0]
+        step_by_f = dict(zip(sh["frames"], sh["step"]))
+        name_by_f = dict(zip(sh["frames"], sh["step_name"]))
+        files_by_f = dict(zip(sh["frames"], sh["files"]))
+        # Step 1 on 28-29
+        assert step_by_f[28] == 1 and name_by_f[28] == "no_capture", (step_by_f[28], name_by_f[28])
+        assert files_by_f[28]["captures_without_track"] == ["2026-01-01_ra/manifest.json"], files_by_f[28]
+        # Step 2 on 10-11 (tied) and 30-31 (untied)
+        assert step_by_f[10] == 2 and name_by_f[10] == "captured_not_rendered", (step_by_f[10], name_by_f[10])
+        assert files_by_f[10]["mask_files"] == ["2026-01-01_ra/subjects/a/masks__p.npz"], files_by_f[10]
+        assert step_by_f[30] == 2 and name_by_f[30] == "captured_not_rendered", (step_by_f[30], name_by_f[30])
+        assert files_by_f[30]["mask_files"] == ["2026-01-03_untied/subjects/a/masks__p.npz"], files_by_f[30]
+        # Step 3 on 25-26 (rendered in rc, not in the table)
+        assert step_by_f[25] == 3 and name_by_f[25] == "rendered_not_kept", (step_by_f[25], name_by_f[25])
+        assert files_by_f[25]["clips"] == ["Video/v/rc_00001.mp4"], files_by_f[25]
+        assert files_by_f[25]["windows"] == ["Video/v/windows/rc_window_00_00001.mp4"], files_by_f[25]
+        assert files_by_f[25]["built_files"] == ["2026-01-02_rc_job/rc.render.built.json"], files_by_f[25]
+        (rnk,) = out["rendered_not_kept"]
+        assert rnk["frames"] == [25, 26] and rnk["clips"] == ["Video/v/rc_00001.mp4"] \
+            and rnk["windows"] == ["Video/v/windows/rc_window_00_00001.mp4"] \
+            and rnk["built_files"] == ["2026-01-02_rc_job/rc.render.built.json"], rnk
+        # Step 4 on 12-24 (kept and laid)
+        assert step_by_f[12] == 4 and name_by_f[12] == "kept_and_laid", (step_by_f[12], name_by_f[12])
+        assert files_by_f[12] == {
+            "piece": "ra",
+            "piece_file": "Video/v/ra_00001.mp4",
+            "capture": "2026-01-01_ra",
+            "region_file": "2026-01-01_ra/runs/ra/region.npz",
+            "mask_file": "2026-01-01_ra/subjects/a/masks__p.npz",
+        }, files_by_f[12]
+        assert out["kept_and_laid"] and out["kept_and_laid"][0]["frames"] == [12, 12], out["kept_and_laid"]
+        # Canonical words stamped on every run, and clip_gap_line in the check's own words
+        assert all("words" in r and "chip_words" in r for r in out["runs"]), out["runs"]
+        line_all = fc.clip_gap_line(out, 10, 31)
+        assert line_all == (
+            "Gaps on 10-31 — a: no capture: 2 (28-29); captured, not rendered: 4 (10-11, 30-31); "
+            "rendered, not kept: 2 (25-26); emptied inside a piece: 4 (14-17)"
+        ), line_all
+        assert fc.clip_gap_line(out, 20, 24) == "", "whole clip span should produce empty gap line"
+    return "steps 1..4 with files (untied mask_files, unkept render clips/windows/built_files, laid region_file); canonical words and clip_gap_line verified"
+
+
+def real_form_run_resolves() -> str:
+    """C151: a row whose `run=` has the real relative form `data/<day>_<load>:<load>` resolves against `data` and
+    `Path.cwd()` even when `REPO` (e.g. a worktree `HERE.parent`) holds no `data/` directory."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        data_dir = root / "data"
+        capture(data_dir, "2026-01-01_ra", 10, 5, track=[True] * 5, covered=[True] * 5, parts=[True] * 5,
+                carried=[True] * 5, run="ra", sighting={}, grades=[])
+        table = {
+            "rows": [{"first": 10, "last": 14, "name": "ra", "file": "Video/v/ra_00001.mp4", "subject": "a",
+                      "run": "data/2026-01-01_ra:ra"}],
+            "reading": [{"first": 10, "last": 14, "subject": "a", "present": "yes",
+                         "stands": [{"render": "ra", "written": "2026-01-01T18:00:00Z"}]}],
+        }
+        clip_check(root, table)
+        old_repo = fc.REPO
+        try:
+            fc.REPO = root / "worktree_without_data"
+            out = fc.coverage(table, data=data_dir)
+        finally:
+            fc.REPO = old_repo
+        # THE CASE THAT GOES RED when resolve() only checks REPO / folder and fails on relative run=data/<day>_<load>:<load>
+        assert not out["failures"], out["failures"]
+        c = fc.counts(out)
+        assert c["kept_and_laid"]["frames"] == 5 and c["kept_and_laid"]["carried_frames"] == 5, c
+        r = subprocess.run(
+            [sys.executable, str(TOOL), "--table", str(root / "t.json")],
+            cwd=str(root), capture_output=True, text=True,
+        )
+        assert r.returncode == 0 and "FAIL" not in r.stdout, r.stdout + r.stderr
+    return "run=data/<day>_<load>:<load> resolves against data= and cwd when REPO has no data/ folder"
+
+
 case("the original while tracked, with or without a piece", original_while_tracked)
 case("seams with both render days", seams)
 case("emptied inside a piece, by cause", emptied_inside)
@@ -354,6 +478,8 @@ case("a look is its own kind; a job's left_out is context", looks_and_jobs)
 case("the ledger reads the same rule", ledger_reads_the_same_rule)
 case("laid but barely changed; a region far below its own size", barely_changed_and_too_small)
 case("no clip check, or another table's, is refused", no_check_refused)
+case("the 4-step ladder, files, and canonical words", four_step_ladder_and_words)
+case("a relative run=data/<day>_<load>:<load> resolves from a worktree or data=", real_form_run_resolves)
 
 if __name__ == "__main__":
     sys.exit(finish())
