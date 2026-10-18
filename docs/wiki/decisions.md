@@ -17,6 +17,12 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-17
 
+- **MoGe-2's loader is vendored with Meta's licence** (the owner, about 00:50Z, choosing on the Claude lead's question).
+  The gemmatte-moge loader follows `coderef/metadepth` closely (108 of 440 substantial lines identical, whole functions
+  such as the focal recovery among them), and that code is under Meta's own licence, not the pack's MIT. So it lives
+  in `vendor/meta_moge2/` with Meta's licence file carried whole and a README naming the source and its commit (the
+  form of `vendor/meta_sapiens2/`); the measuring tool and its check stay in `bench/` and import it from there.
+
 - **Tonight: the hole label and the head tube, both** (the owner, about 23:55Z, "we should do both of them before the
   end of the night if u and mrgemsol agree"). (1) The gap check, stacked view and pages say "the original: no piece made
   for these frames" where they said "tracking not known" (the kind key kept), since a hole read as a lost track at 1402.
