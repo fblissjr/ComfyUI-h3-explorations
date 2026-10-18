@@ -57,7 +57,9 @@ day of the last line and off the page after it; the clicks and words on any join
 answers on it (a keep also settles it). Right above each player on `to-review` (in `Start here`, `Waiting on you`, and
 `Done`), the page prints `frame_coverage.clip_gap_line()` for that clip's own frames (per person, each kind with frame
 counts and spans, in the gap check's own words; no line when whole), and refuses any clip on `Start here` with gaps and
-no such line. On `Start here`, each clip's entry may name `reader_file` (or `reader_files`), pointing at the playback
+no such line. Above each compare clip's player on `to-review`, the page also prints one generated line per person in the
+shot (`<subject>: new here: <load>`, `<subject>: the current cut: <load>, laid <day>`, or `<subject>: the original: no piece`),
+read from the compare clip's sidecar and the table and ledger and never typed into `start_here.json`. On `Start here`, each clip's entry may name `reader_file` (or `reader_files`), pointing at the playback
 reader session's `.md` file (`data/<day>_<load>/playback_reading_<reader>.md`, written by the reader session on live
 playback and read here, never typed into `start_here.json`). Its top block carries a fixed four-field card (`Sees` as
 `frames: what`, `Cannot see`, `Verdict` as `keep` | `remake` | `unsure`, and a one-line `Why`), rendered folded closed
@@ -627,6 +629,9 @@ def held_and_set_aside(rec: "Records") -> list[str]:
 
 READER_CARD_VERDICTS = ("keep", "remake", "unsure")
 INLINE_CARD_KEYS = ("reader_notes", "reader_card", "sees", "cannot_see", "cannot see", "verdict", "reader_verdict", "reader_why")
+MAX_CARD_FIELD_LINES = 3
+MAX_CARD_FIELD_CHARS = 480
+MAX_CARD_WHY_CHARS = 220
 
 
 def normalize_owner_clip_verdict(chosen: str | None) -> str | None:
@@ -636,34 +641,68 @@ def normalize_owner_clip_verdict(chosen: str | None) -> str | None:
         return None
     if c == "taken back":
         return "taken_back"
-    if c in {"keep", "keep this one", "good to go"}:
+    if c in {"keep", "keep this one", "good to go", *(s.lower() for s in delivery_table.KEEP)}:
         return "keep"
-    if c in {"remake", "wrong", "wrong, and i say where", "not needed", "worse, and i say where", "not acceptable", "bothers me"}:
+    if c in {
+        "remake",
+        "not this one",
+        "wrong",
+        "wrong, and i say where",
+        "not needed",
+        "worse, and i say where",
+        "not acceptable",
+        "bothers me",
+        *(s.lower() for s in delivery_table.NOT_THE_ONE),
+    }:
         return "remake"
     if c in {"unsure", "not sure"}:
         return "unsure"
     return None
 
 
-def read_owner_clip_answers(answers_path: str | Path | None) -> dict[str, dict]:
-    """Read the owner's clip verdicts from owner_answers.jsonl (when present), keyed by item id, row name, clip, or shot span."""
-    if not answers_path:
+def read_owner_clip_answers(
+    answers_path: str | Path | None = None,
+    verdicts_path: str | Path | None = None,
+) -> dict[str, dict]:
+    """Read the owner's clip verdicts from owner_answers.jsonl and verdicts.jsonl (when present), keyed by item id, row name, clip, render stem, or shot span."""
+    paths: list[Path] = []
+    if answers_path:
+        p = Path(answers_path)
+        if not p.is_file():
+            raise SystemExit(f"--answers {answers_path}: file not found")
+        paths.append(p)
+        if not verdicts_path:
+            for cand_v in (p.parent / "verdicts" / "verdicts.jsonl", p.parent / "verdicts.jsonl"):
+                if cand_v.is_file():
+                    paths.append(cand_v)
+                    break
+    if verdicts_path:
+        vp = Path(verdicts_path)
+        if vp.is_file() and all(vp.resolve() != x.resolve() for x in paths):
+            paths.append(vp)
+    if not paths:
         return {}
-    p = Path(answers_path)
-    if not p.is_file():
-        raise SystemExit(f"--answers {answers_path}: file not found")
+    raw_rows: list[tuple[str, int, dict]] = []
+    idx = 0
+    for src_p in paths:
+        for raw in src_p.read_text().splitlines():
+            if not raw.strip():
+                continue
+            row = json.loads(raw)
+            if not isinstance(row, dict):
+                continue
+            idx += 1
+            raw_rows.append((str(row.get("at") or ""), idx, row))
+    raw_rows.sort(key=lambda item: (item[0], item[1]))
     out: dict[str, dict] = {}
-    for raw in p.read_text().splitlines():
-        if not raw.strip():
-            continue
-        row = json.loads(raw)
+    for _at, _idx, row in raw_rows:
         if row.get("who") not in ("owner", None, ""):
             continue
         norm = normalize_owner_clip_verdict(row.get("chosen"))
         if norm is None:
             continue
         targets: list[str] = []
-        for k in ("item", "row", "clip"):
+        for k in ("item", "row", "clip", "id", "render"):
             v = str(row.get(k) or "").strip()
             if v:
                 targets.append(v)
@@ -671,14 +710,19 @@ def read_owner_clip_answers(answers_path: str | Path | None) -> dict[str, dict]:
                     frag = v.partition("#")[2].strip()
                     if frag:
                         targets.append(frag)
-                elif "/" in v:
+                elif "/" in v or v.endswith((".mp4", ".mov", ".webm", ".mkv")):
                     stem = Path(v).stem
+                    stem_no_seq = re.sub(r"_\d{5}$", "", stem)
                     targets.extend([
                         Path(v).name,
                         stem,
+                        stem_no_seq,
                         stem.removesuffix("_stacked"),
                         stem.removesuffix("_compare"),
                     ])
+                    stripped = re.sub(r"_\d{3,5}_\d{3,5}(?:_(?:compare|stacked))?$", "", stem_no_seq)
+                    if stripped and stripped != stem_no_seq:
+                        targets.append(stripped)
                 for suf in ("_stacked", "_compare"):
                     if v.endswith(suf):
                         targets.append(v.removesuffix(suf))
@@ -709,17 +753,25 @@ def _clean_reader_name(val: str) -> str:
     return v.strip("`*'\" ").strip()
 
 
-def _join_card_items(items: list[str]) -> str:
+def _strip_card_md(text: str) -> str:
+    return " ".join(str(text or "").replace("**", "").replace("`", "").split()).strip()
+
+
+def _merge_card_items(items: list[str]) -> list[str]:
     out: list[str] = []
     for x in items:
-        s = x.strip()
+        s = _strip_card_md(x)
         if not s:
             continue
         if out and out[-1].endswith(":"):
             out[-1] = f"{out[-1]} {s}"
         else:
             out.append(s)
-    return "; ".join(out)
+    return out
+
+
+def _join_card_items(items: list[str]) -> str:
+    return "; ".join(_merge_card_items(items))
 
 
 def _section_matches(h: str, query: str, allow_span: bool = False) -> bool:
@@ -912,13 +964,27 @@ def parse_reader_card_md(md_spec: str, start_here_path: str, entry_k: int, targe
             f"--start-here {start_here_path}, entry {entry_k}: {raw_path} is missing required card field(s): "
             f"{', '.join(missing)} (need Sees, Cannot see, Verdict, Why)"
         )
-    sees_str = _join_card_items(fields["sees"])
+    sees_items = _merge_card_items(fields["sees"])
+    sees_str = "; ".join(sees_items)
+    if len(sees_items) > MAX_CARD_FIELD_LINES or len(sees_str) > MAX_CARD_FIELD_CHARS:
+        raise SystemExit(
+            f"--start-here {start_here_path}, entry {entry_k}: Sees in {raw_path} exceeds the concise card limit "
+            f"(at most {MAX_CARD_FIELD_LINES} short lines and {MAX_CARD_FIELD_CHARS} characters; "
+            f"got {len(sees_items)} line(s), {len(sees_str)} characters)"
+        )
     if not re.search(r"\d", sees_str) or ":" not in sees_str:
         raise SystemExit(
             f"--start-here {start_here_path}, entry {entry_k}: Sees in {raw_path} must name frame(s) and what is seen "
             f"('frames: what'), got {sees_str!r}"
         )
-    cannot_see_str = _join_card_items(fields["cannot see"])
+    cannot_see_items = _merge_card_items(fields["cannot see"])
+    cannot_see_str = "; ".join(cannot_see_items)
+    if len(cannot_see_items) > MAX_CARD_FIELD_LINES or len(cannot_see_str) > MAX_CARD_FIELD_CHARS:
+        raise SystemExit(
+            f"--start-here {start_here_path}, entry {entry_k}: Cannot see in {raw_path} exceeds the concise card limit "
+            f"(at most {MAX_CARD_FIELD_LINES} short lines and {MAX_CARD_FIELD_CHARS} characters; "
+            f"got {len(cannot_see_items)} line(s), {len(cannot_see_str)} characters)"
+        )
     verdict_raw = " ".join(fields["verdict"]).strip()
     verdict_norm = verdict_raw.strip("`*'\"").strip().lower()
     if verdict_norm not in READER_CARD_VERDICTS:
@@ -930,7 +996,12 @@ def parse_reader_card_md(md_spec: str, start_here_path: str, entry_k: int, targe
         raise SystemExit(
             f"--start-here {start_here_path}, entry {entry_k}: Why in {raw_path} must be one line"
         )
-    why_str = fields["why"][0].strip()
+    why_str = _strip_card_md(fields["why"][0])
+    if len(why_str) > MAX_CARD_WHY_CHARS:
+        raise SystemExit(
+            f"--start-here {start_here_path}, entry {entry_k}: Why in {raw_path} exceeds the concise card limit "
+            f"(1 line, at most {MAX_CARD_WHY_CHARS} characters; got {len(why_str)} characters)"
+        )
     sec_reader = _clean_reader_name(" ".join(fields.get("reader", [])))
     reader_name = sec_reader or preamble_reader or default_reader
     return {
@@ -944,6 +1015,374 @@ def parse_reader_card_md(md_spec: str, start_here_path: str, entry_k: int, targe
     }
 
 
+INLINE_COMPARE_KEYS = ("compare_line", "compare_lines", "who_is_new", "no_compare_line")
+
+
+def _resolve_compare_clip_path(what: str, clip_path: str | None = None, item_obj: dict | None = None, rec: Records | None = None, share: str | None = None) -> Path | None:
+    cands: list[Path] = []
+    if clip_path:
+        cands.append(Path(clip_path))
+        if share:
+            cands.append(Path(share) / clip_path)
+    if what and ("/" in what or what.endswith((".mp4", ".mov", ".webm", ".mkv"))):
+        cands.append(Path(what))
+        if share:
+            cands.append(Path(share) / what)
+    if isinstance(item_obj, dict) and item_obj.get("clip"):
+        ic = str(item_obj["clip"])
+        cands.append(Path(ic))
+        if share:
+            cands.append(Path(share) / ic)
+        if rec is not None:
+            cands.append(in_repo(ic, rec.items_path))
+    for cp in cands:
+        if cp.is_file():
+            return cp
+    return None
+
+
+def _read_compare_sidecars(cp: Path | None) -> dict:
+    if cp is None:
+        return {}
+    merged: dict = {}
+    for cand in (cp.with_suffix(".stack.json"), Path(str(cp) + ".stack.json"), cp.with_suffix(".json"), Path(str(cp) + ".json")):
+        if cand.is_file():
+            try:
+                sc = json.loads(cand.read_text())
+                if isinstance(sc, dict):
+                    merged.update(sc)
+            except Exception:
+                pass
+    return merged
+
+
+def is_compare_clip(what: str, clip_path: str | None = None, item_obj: dict | None = None, rec: Records | None = None, share: str | None = None) -> bool:
+    """Return True when an item or clip path is a compare clip (`*_compare[.mp4]`, `compare_*`, or sidecar `layout: compare`)."""
+    tokens = [str(what or "").strip()]
+    if clip_path:
+        tokens.append(str(clip_path).strip())
+    if isinstance(item_obj, dict):
+        for k in ("id", "name", "clip"):
+            if item_obj.get(k):
+                tokens.append(str(item_obj[k]).strip())
+    for t in tokens:
+        if not t:
+            continue
+        stem = Path(t).stem if ("/" in t or t.endswith((".mp4", ".mov", ".webm", ".mkv"))) else t
+        if stem.endswith("_compare") or stem.startswith("compare_"):
+            return True
+    cp = _resolve_compare_clip_path(what, clip_path=clip_path, item_obj=item_obj, rec=rec, share=share)
+    sc = _read_compare_sidecars(cp)
+    if sc.get("layout") == "compare" or isinstance(sc.get("compared_subjects"), list) or isinstance(sc.get("candidate_pieces"), dict):
+        return True
+    if isinstance((sc.get("extra") or {}).get("panels"), dict):
+        return True
+    return False
+
+
+def compare_clip_lines(
+    rec: Records | None,
+    what: str,
+    first: int,
+    last: int,
+    subjects: list[str] | None = None,
+    clip_path: str | None = None,
+    item_obj: dict | None = None,
+    share: str | None = None,
+    where: str = "",
+) -> list[str]:
+    """One generated line per person in the shot for a compare clip:
+    `<subject>: new here: <load>` or `<subject>: the current cut: <load>, laid <day>` or `<subject>: the original: no piece`."""
+    cp = _resolve_compare_clip_path(what, clip_path=clip_path, item_obj=item_obj, rec=rec, share=share)
+    sc = _read_compare_sidecars(cp)
+
+    shot_subs: list[str] = []
+    for k in ("compared_subjects", "unchanged_subjects", "subjects"):
+        if isinstance(sc.get(k), list):
+            for s in sc[k]:
+                if str(s) and str(s) not in shot_subs:
+                    shot_subs.append(str(s))
+    if rec is not None:
+        for rd in rec.T.get("reading") or []:
+            if int(rd["first"]) <= last and int(rd["last"]) >= first and rd.get("present") in ("yes", "unsure"):
+                s = str(rd.get("subject") or "")
+                if s and s not in shot_subs:
+                    shot_subs.append(s)
+        for r in rec.T.get("rows") or []:
+            if int(r["first"]) <= last and int(r["last"]) >= first:
+                s = str(r.get("subject") or "")
+                if s and s not in shot_subs:
+                    shot_subs.append(s)
+    if subjects:
+        for s in subjects:
+            if str(s) and str(s) not in shot_subs:
+                shot_subs.append(str(s))
+
+    days_map: dict[str, str] = {}
+    if isinstance(sc.get("days"), dict):
+        for k, v in sc["days"].items():
+            if isinstance(v, dict) and v.get("day"):
+                p_stem = re.sub(r"_\d{5}$", "", Path(str(k)).stem)
+                days_map[p_stem] = str(v["day"])
+                days_map[str(k)] = str(v["day"])
+
+    def _day_of(piece_name: str) -> str:
+        if piece_name in days_map:
+            return days_map[piece_name]
+        if rec is not None and piece_name in rec.by_name and rec.by_name[piece_name].get("written"):
+            return owners(rec.by_name[piece_name]["written"])
+        return ""
+
+    cand_by_sub: dict[str, list[str]] = {}
+    cur_by_sub: dict[str, list[tuple[str, str]]] = {}
+
+    if cp is not None and sc.get("records"):
+        rec_file = cp.parent / str(sc["records"])
+        if rec_file.is_file():
+            for raw_ln in rec_file.read_text().splitlines():
+                if not raw_ln.strip():
+                    continue
+                try:
+                    fr = json.loads(raw_ln)
+                except Exception:
+                    continue
+                f_idx = fr.get("source_frame") if fr.get("source_frame") is not None else fr.get("frame")
+                if f_idx is not None and (int(f_idx) < first or int(f_idx) > last):
+                    continue
+                raw_leg = fr.get("legend")
+                leg_list = list(raw_leg.values()) if isinstance(raw_leg, dict) else list(raw_leg or [])
+                for leg in leg_list:
+                    m_c = re.match(
+                        r"^([^:]+):\s*current\s+([^\s(]+)(?:\s*\(([^)]+)\))?\s*->\s*candidate\s+([^\s(]+)(?:\s*\(([^)]+)\))?$",
+                        str(leg).strip(),
+                    )
+                    if m_c:
+                        sub, c_p, c_d, n_p, _n_d = m_c.groups()
+                        sub = sub.strip()
+                        if sub and sub not in shot_subs:
+                            shot_subs.append(sub)
+                        if c_p != "ORIGINAL":
+                            c_day = (c_d or _day_of(c_p)).strip()
+                            cur_by_sub.setdefault(sub, [])
+                            if (c_p, c_day) not in cur_by_sub[sub]:
+                                cur_by_sub[sub].append((c_p, c_day))
+                        if n_p != "ORIGINAL":
+                            cand_by_sub.setdefault(sub, [])
+                            if n_p not in cand_by_sub[sub]:
+                                cand_by_sub[sub].append(n_p)
+                        continue
+                    m_u = re.match(r"^([^:]+):\s*([^\s(]+)\s*\(([^)]+)\)\s*\(both\)$", str(leg).strip())
+                    if m_u:
+                        sub, u_p, u_d = m_u.groups()
+                        sub = sub.strip()
+                        if sub and sub not in shot_subs:
+                            shot_subs.append(sub)
+                        if u_p != "ORIGINAL":
+                            cur_by_sub.setdefault(sub, [])
+                            if (u_p, u_d) not in cur_by_sub[sub]:
+                                cur_by_sub[sub].append((u_p, u_d))
+                        continue
+                    m_o = re.match(r"^([^:]+):\s*ORIGINAL\s*\(both\)$", str(leg).strip())
+                    if m_o:
+                        sub = m_o.group(1).strip()
+                        if sub and sub not in shot_subs:
+                            shot_subs.append(sub)
+                cols = fr.get("columns") or {}
+                for col_k, col in cols.items():
+                    if not isinstance(col, dict):
+                        continue
+                    if col.get("side") in ("current", "candidate") and col.get("subject"):
+                        sub_s = str(col["subject"])
+                        if sub_s and sub_s not in shot_subs:
+                            shot_subs.append(sub_s)
+                        p_name = str(col.get("piece") or "").strip()
+                        if p_name and p_name != "ORIGINAL":
+                            if col["side"] == "current":
+                                c_d = _day_of(p_name)
+                                cur_by_sub.setdefault(sub_s, [])
+                                if (p_name, c_d) not in cur_by_sub[sub_s]:
+                                    cur_by_sub[sub_s].append((p_name, c_d))
+                            else:
+                                cand_by_sub.setdefault(sub_s, [])
+                                if p_name not in cand_by_sub[sub_s]:
+                                    cand_by_sub[sub_s].append(p_name)
+                        continue
+                    sub_s = str(col_k)
+                    if sub_s not in shot_subs:
+                        shot_subs.append(sub_s)
+                    cp_name = col.get("current_piece")
+                    if cp_name:
+                        c_d = _day_of(str(cp_name))
+                        cur_by_sub.setdefault(sub_s, [])
+                        if (str(cp_name), c_d) not in cur_by_sub[sub_s]:
+                            cur_by_sub[sub_s].append((str(cp_name), c_d))
+                    np_name = col.get("candidate_piece")
+                    if np_name:
+                        cand_by_sub.setdefault(sub_s, [])
+                        if str(np_name) not in cand_by_sub[sub_s]:
+                            cand_by_sub[sub_s].append(str(np_name))
+
+    if isinstance(sc.get("candidate_pieces"), dict):
+        for sub, plist in sc["candidate_pieces"].items():
+            sub_s = str(sub)
+            if sub_s and sub_s not in shot_subs:
+                shot_subs.append(sub_s)
+            items_p = [plist] if isinstance(plist, str) else list(plist or [])
+            for p in items_p:
+                if p:
+                    cand_by_sub.setdefault(sub_s, [])
+                    if str(p) not in cand_by_sub[sub_s]:
+                        cand_by_sub[sub_s].append(str(p))
+
+    if isinstance(sc.get("current_pieces"), dict):
+        for sub, plist in sc["current_pieces"].items():
+            sub_s = str(sub)
+            if sub_s and sub_s not in shot_subs:
+                shot_subs.append(sub_s)
+            items_p = [plist] if isinstance(plist, (str, dict)) else list(plist or [])
+            for p in items_p:
+                if isinstance(p, dict) and p.get("name"):
+                    p_name = str(p["name"])
+                    p_day = str(p.get("day") or _day_of(p_name))
+                elif p:
+                    p_name = str(p)
+                    p_day = _day_of(p_name)
+                else:
+                    continue
+                cur_by_sub.setdefault(sub_s, [])
+                if (p_name, p_day) not in cur_by_sub[sub_s]:
+                    cur_by_sub[sub_s].append((p_name, p_day))
+
+    raw_inputs = sc.get("inputs")
+    input_roles: dict[str, str] = {}
+    if isinstance(raw_inputs, dict):
+        for r_k, r_v in raw_inputs.items():
+            if isinstance(r_v, dict) and r_v.get("path"):
+                input_roles[str(r_k)] = str(r_v["path"])
+            elif isinstance(r_v, str):
+                input_roles[str(r_k)] = r_v
+    elif isinstance(raw_inputs, list):
+        for item in raw_inputs:
+            if isinstance(item, dict) and item.get("role"):
+                input_roles[str(item["role"])] = str(item.get("path") or "")
+
+    if not cand_by_sub:
+        cand_load = str(sc.get("candidate_load") or sc.get("load") or "").strip()
+        if not cand_load and input_roles.get("new_render"):
+            cand_load = re.sub(r"_\d{5}$", "", Path(input_roles["new_render"]).stem)
+        if not cand_load and isinstance(sc.get("command"), str):
+            m_tag = re.search(r"--tag\s+([^\s]+)", sc["command"])
+            if m_tag:
+                cand_load = m_tag.group(1).strip()
+        if not cand_load:
+            for raw_tok in (cp.stem if cp is not None else "", Path(str(what)).stem, str((item_obj or {}).get("name") or ""), str((item_obj or {}).get("id") or "")):
+                if not raw_tok:
+                    continue
+                m_vs = re.match(r"^compare_(.+?)_vs_(.+?)(?:_\d{3,5}_\d{3,5})?$", raw_tok)
+                if m_vs:
+                    cand_load = m_vs.group(2)
+                    break
+                m_cmp = re.match(r"^(.+?)(?:_\d{3,5}_\d{3,5})?_compare$", raw_tok)
+                if m_cmp:
+                    cand_load = m_cmp.group(1)
+                    break
+        if cand_load and rec is not None and cand_load not in rec.by_name:
+            suf_hits = [n for n in rec.by_name if n.endswith("_" + cand_load)]
+            if len(suf_hits) == 1:
+                cand_load = suf_hits[0]
+        cand_sub = ""
+        if isinstance(sc.get("compared_subjects"), list) and len(sc["compared_subjects"]) == 1:
+            cand_sub = str(sc["compared_subjects"][0])
+        if not cand_sub and cand_load and rec is not None:
+            if cand_load in rec.by_name and rec.by_name[cand_load].get("subject"):
+                cand_sub = str(rec.by_name[cand_load]["subject"])
+            else:
+                it_c = rec.item_of(cand_load)
+                if it_c and it_c.get("subject"):
+                    cand_sub = str(it_c["subject"])
+        if not cand_sub and isinstance(item_obj, dict) and item_obj.get("subject"):
+            cand_sub = str(item_obj["subject"])
+        if not cand_sub and cand_load:
+            all_known_subs = list(dict.fromkeys([*shot_subs, *(rec.subjects() if rec is not None else [])]))
+            for s in all_known_subs:
+                if cand_load == s or cand_load.startswith(s + "_") or cand_load.endswith("_" + s):
+                    cand_sub = s
+                    break
+        if not cand_sub and len(shot_subs) == 1:
+            cand_sub = shot_subs[0]
+        if cand_sub and cand_load:
+            if cand_sub not in shot_subs:
+                shot_subs.insert(0, cand_sub)
+            cand_by_sub[cand_sub] = [cand_load]
+
+    if not shot_subs or not any(cand_by_sub.values()):
+        loc = f"{where}: " if where else ""
+        raise SystemExit(
+            f"{loc}compare clip {what!r} names no candidate load or subject in its sidecar, ledger, or stem"
+        )
+
+    has_panels_only = bool((sc.get("extra") or {}).get("panels")) and "the table" not in input_roles and "the joined clip" not in input_roles
+
+    out_lines: list[str] = []
+    for sub in shot_subs:
+        cands = cand_by_sub.get(sub) or []
+        if cands:
+            out_lines.append(f"{sub}: new here: {'; '.join(cands)}")
+            continue
+        if has_panels_only:
+            out_lines.append(f"{sub}: the original: no piece")
+            continue
+        curs = list(cur_by_sub.get(sub) or [])
+        if not curs and rec is not None and not (cp is not None and sc.get("records") and (cp.parent / str(sc["records"])).is_file()):
+            seen_p: list[str] = []
+            for r in rec.T.get("rows") or []:
+                if str(r.get("subject") or "") == sub and int(r["first"]) <= last and int(r["last"]) >= first:
+                    p_name = str(r["name"])
+                    span_frames = set(range(max(int(r["first"]), first), min(int(r["last"]), last) + 1))
+                    if span_frames and span_frames <= rec.left_by_ledger(p_name):
+                        continue
+                    if p_name not in seen_p:
+                        seen_p.append(p_name)
+                        curs.append((p_name, _day_of(p_name)))
+        if curs:
+            parts = [f"{p}, laid {d}" if d else p for p, d in curs]
+            out_lines.append(f"{sub}: the current cut: {'; '.join(parts)}")
+        else:
+            out_lines.append(f"{sub}: the original: no piece")
+    return out_lines
+
+
+def format_compare_gap_line(gl: str, cmp_lns: list[str] | None) -> str:
+    """When a compare clip has a gap line, label each person's gap segment with whether it is new or the old cut
+    (e.g. `lead (the current cut): ...` or `second (new here): ...` or `b (the original): ...`)."""
+    if not gl or not cmp_lns:
+        return gl
+    roles: dict[str, str] = {}
+    for ln in cmp_lns:
+        sub, sep, rest = ln.partition(": ")
+        if not sep:
+            continue
+        if rest.startswith("new here:"):
+            roles[sub] = "new here"
+        elif rest.startswith("the current cut:"):
+            roles[sub] = "the current cut"
+        elif rest.startswith("the original:"):
+            roles[sub] = "the original"
+    if not roles:
+        return gl
+    prefix, sep, body = gl.partition(" — ")
+    if not sep:
+        return gl
+    out_parts: list[str] = []
+    for seg in body.split(" · "):
+        sub, s_sep, s_rest = seg.partition(": ")
+        if s_sep and sub in roles:
+            out_parts.append(f"{sub} ({roles[sub]}): {s_rest}")
+        else:
+            out_parts.append(seg)
+    return f"{prefix} — " + " · ".join(out_parts)
+
+
 def start_here(
     path: str,
     drawn: dict[str, str],
@@ -954,13 +1393,15 @@ def start_here(
     shot_subjects: dict[str, list[str]] | None = None,
     tables: list[str] | None = None,
     owner_answers: dict[str, dict] | None = None,
+    share: str | None = None,
 ) -> list[str]:
     """START HERE, IN THIS ORDER: the lead's list (the owner, 2026-10-15: the most important first), each entry linking what the page
-    shows below, or a clip that is no item, with its one line of why, the gap check's counts for that clip's own frames right above it,
+    shows below, or a clip that is no item, with its one line of why, the per-person compare-clip lines (when it is a compare clip) and
+    the gap check's counts for that clip's own frames right above it,
     and optional `reader_file` / `reader_files` rendered as a folded-closed four-field reader card (`Sees`, `Cannot see`, `Verdict`, `Why`)
     whose `<summary>` never shows the verdict so the owner watches first. An entry the page does not hold, a clip that is not there, a
-    clip with gaps and no gap-check line, an entry with no why, inline `reader_notes`/card fields in JSON, or a malformed reader `.md`
-    card stops the page: the one kind of red."""
+    clip with gaps and no gap-check line, an entry with no why, inline compare-clip or `reader_notes`/card fields in JSON, or a malformed
+    reader `.md` card stops the page: the one kind of red."""
     got = json.load(open(path))
     if not isinstance(got, list) or not got:
         raise SystemExit(f"--start-here {path}: a JSON list of {{\"item\", \"why\"}}, in order, and not empty")
@@ -986,7 +1427,7 @@ def start_here(
                 if isinstance(sp, (list, tuple)) and len(sp) == 2 and all(isinstance(v, int) for v in sp) and int(sp[0]) <= int(sp[1]):
                     return int(sp[0]), int(sp[1]), subs
         cp = Path(clip)
-        for cand in (Path(str(cp) + ".json"), cp.with_suffix(".json"), Path(str(cp) + ".stack.json"), Path(str(cp) + ".check.json")):
+        for cand in (Path(str(cp) + ".json"), cp.with_suffix(".json"), cp.with_suffix(".stack.json"), Path(str(cp) + ".stack.json"), Path(str(cp) + ".check.json")):
             if cand.is_file():
                 try:
                     sc = json.loads(cand.read_text())
@@ -1032,6 +1473,9 @@ def start_here(
                         tb_subs = list(dict.fromkeys(str(r["subject"]) for r in tb["rows"] if r.get("subject"))) or subs
                         return min(fs), max(ls), tb_subs
         stem_no_date = re.sub(r"\d{4}-\d{2}-\d{2}", "", cp.stem)
+        m_tail = re.search(r"(?<!\d)(\d{3,5})[-_](\d{3,5})(?:_(?:compare|stacked))?$", stem_no_date)
+        if m_tail and int(m_tail.group(1)) <= int(m_tail.group(2)):
+            return int(m_tail.group(1)), int(m_tail.group(2)), subs
         for m in re.finditer(r"(?<!\d)(\d{3,5})[-_](\d{3,5})(?!\d)", stem_no_date):
             a_f, b_f = int(m.group(1)), int(m.group(2))
             if a_f <= b_f:
@@ -1111,7 +1555,7 @@ def start_here(
                 elif cand_key in rec.lines:
                     row_keys.append(cand_key)
             if row_keys:
-                c = rec.last_choice(Rows(row_keys), every=True)
+                c = next((v for v in reversed(rec.owner_lines(Rows(row_keys), every=True)) if v.get("chosen")), None)
                 if c:
                     norm = normalize_owner_clip_verdict(c.get("chosen"))
                     if norm in READER_CARD_VERDICTS:
@@ -1190,6 +1634,12 @@ def start_here(
     for k, e in enumerate(got, 1):
         if "gap_line" in e or e.get("no_gap_line"):
             raise SystemExit(f"--start-here {path}, entry {k}: a clip with gaps and no gap-check line does not go on Start here")
+        bad_cmp = [key for key in INLINE_COMPARE_KEYS if key in e]
+        if bad_cmp:
+            raise SystemExit(
+                f"--start-here {path}, entry {k}: compare clip lines are generated from the records, never typed into start_here.json "
+                f"(found {', '.join(bad_cmp)})"
+            )
         what, why = str(e.get("item") or "").strip(), " ".join(str(e.get("why") or "").split())
         url = str(e.get("link") or "").strip()
         if (not what and not url) or not why:
@@ -1207,14 +1657,30 @@ def start_here(
                 if sp_info is not None:
                     cf, cl, csubs = sp_info
                     _check_cov_span(k, c, cf, cl)
-                    gl = clip_gap_line(cov, cf, cl, csubs)
-                    if gl:
-                        clip_parts.append(f'<div class="why gap-line">{E(gl)}</div>{link_html}')
+                    cmp_html = ""
+                    cmp_lns = None
+                    if is_compare_clip(c, clip_path=c, rec=rec, share=share):
+                        cmp_lns = compare_clip_lines(
+                            rec,
+                            c,
+                            cf,
+                            cl,
+                            csubs,
+                            clip_path=c,
+                            share=share,
+                            where=f"--start-here {path}, entry {k}",
+                        )
+                        cmp_html = "".join(f'<div class="why compare-line">{E(ln)}</div>' for ln in cmp_lns)
+                    gl = format_compare_gap_line(clip_gap_line(cov, cf, cl, csubs), cmp_lns)
+                    gap_html = f'<div class="why gap-line">{E(gl)}</div>' if gl else ""
+                    if cmp_html or gap_html:
+                        clip_parts.append(f"{cmp_html}{gap_html}{link_html}")
                         continue
                 clip_parts.append(link_html)
             lines.append(f'<li><a href="{E(url)}">{E(" ".join(str(e["label"]).split()))}</a>: {E(why)}'
                          + (f"<br><span class='mut'>the clips: {', '.join(clip_parts)}</span>" if clip_parts else "") + f"{fold}</li>")
             continue
+        compare_banner = ""
         gap_banner = ""
         if re.fullmatch(r"\d+-\d+", what):
             if what not in shots:
@@ -1236,7 +1702,21 @@ def start_here(
                 )
             cf, cl, csubs = sp_info
             _check_cov_span(k, what, cf, cl)
-            gl = clip_gap_line(cov, cf, cl, csubs)
+            it_obj = rec.items.get(what) if rec is not None else None
+            cmp_lns = None
+            if is_compare_clip(what, item_obj=it_obj, rec=rec, share=share):
+                cmp_lns = compare_clip_lines(
+                    rec,
+                    what,
+                    cf,
+                    cl,
+                    csubs,
+                    item_obj=it_obj,
+                    share=share,
+                    where=f"--start-here {path}, entry {k}",
+                )
+                compare_banner = "".join(f'<div class="why compare-line">{E(ln)}</div>' for ln in cmp_lns)
+            gl = format_compare_gap_line(clip_gap_line(cov, cf, cl, csubs), cmp_lns)
             if gl:
                 gap_banner = f'<div class="why gap-line">{E(gl)}</div>'
         elif "/" in what:
@@ -1245,12 +1725,25 @@ def start_here(
             if sp_info is not None:
                 cf, cl, csubs = sp_info
                 _check_cov_span(k, what, cf, cl)
-                gl = clip_gap_line(cov, cf, cl, csubs)
+                cmp_lns = None
+                if is_compare_clip(what, clip_path=what, rec=rec, share=share):
+                    cmp_lns = compare_clip_lines(
+                        rec,
+                        what,
+                        cf,
+                        cl,
+                        csubs,
+                        clip_path=what,
+                        share=share,
+                        where=f"--start-here {path}, entry {k}",
+                    )
+                    compare_banner = "".join(f'<div class="why compare-line">{E(ln)}</div>' for ln in cmp_lns)
+                gl = format_compare_gap_line(clip_gap_line(cov, cf, cl, csubs), cmp_lns)
                 if gl:
                     gap_banner = f'<div class="why gap-line">{E(gl)}</div>'
         else:
             raise SystemExit(f"--start-here {path}, entry {k}: {what!r} is no item this page shows, no shot of it and no clip")
-        lines.append(f"<li>{gap_banner}{shown}: {E(why)}{fold}</li>")
+        lines.append(f"<li>{compare_banner}{gap_banner}{shown}: {E(why)}{fold}</li>")
     return ["<h2>Start here, in this order</h2>", "<p class='mut'>The lead's order: what deciding each changes most. Each is also "
             "where it always is, below.</p>", f"<ol>{''.join(lines)}</ol>"]
 
@@ -1331,7 +1824,14 @@ def to_review(a: argparse.Namespace) -> str:
             sect = "joined" if len(sh["subjects"]) >= 2 else "joined_one"
             if it is not None:
                 item_spans[it["id"]] = (first, last, list(sh["subjects"]))
-                shot_gl = clip_gap_line(rec.gap_check, first, last, list(sh["subjects"]))
+                shot_cmp_tag = ""
+                shot_cmp_lns = None
+                if is_compare_clip(it["id"], item_obj=it, rec=rec, share=a.share):
+                    shot_cmp_lns = compare_clip_lines(
+                        rec, it["id"], first, last, list(sh["subjects"]), item_obj=it, share=a.share, where=f"shot {first}-{last}"
+                    )
+                    shot_cmp_tag = "".join(f'<p class="why compare-line">{E(ln)}</p>' for ln in shot_cmp_lns)
+                shot_gl = format_compare_gap_line(clip_gap_line(rec.gap_check, first, last, list(sh["subjects"])), shot_cmp_lns)
                 shot_gl_tag = f'<p class="why gap-line">{E(shot_gl)}</p>' if shot_gl else ""
                 # the joined clip is filed by the owner's lines on it: none, waiting; a keep (with words after or not) leaves the
                 # page after the day of their last line, and only when no piece of it has a later line of theirs; any other
@@ -1345,7 +1845,7 @@ def to_review(a: argparse.Namespace) -> str:
                 each = [rec.last_choice(rec.rows_of(r["name"]), every=True) for r in rows]
                 if not own and all(x and x["chosen"] in delivery_table.KEEP for x in each):
                     if any(v != "gone" for v in state.values()):
-                        done[sect].append(f'<div class="e">{shot_gl_tag}<h3>{link(it["id"], f"The shot {first}-{last}")} <span>{E(who)} &middot; {when} &middot; '
+                        done[sect].append(f'<div class="e">{shot_cmp_tag}{shot_gl_tag}<h3>{link(it["id"], f"The shot {first}-{last}")} <span>{E(who)} &middot; {when} &middot; '
                                               f'every piece kept; the joined clip not watched</span></h3><ul>{lines(rows)}</ul></div>')
                     continue
                 # a keep, or words with no click, leave the page after the day of the last line; any other click stays (a seventh reader)
@@ -1355,7 +1855,7 @@ def to_review(a: argparse.Namespace) -> str:
                            if c and not kept else "")
                     older = sorted(kin - {it["id"]})
                     (done if own else waiting)[sect].append(
-                        f'<div class="e">{shot_gl_tag}<h3>{link(it["id"], f"The shot {first}-{last}")} <span>{E(who)} &middot; {when} &middot; the joined clip: '
+                        f'<div class="e">{shot_cmp_tag}{shot_gl_tag}<h3>{link(it["id"], f"The shot {first}-{last}")} <span>{E(who)} &middot; {when} &middot; the joined clip: '
                         f'{E(rec.last_click(kin, newest=it["id"]))}</span></h3>'
                         + (f'<p class="why">With your lines on the earlier build(s) of the same pieces on the same frames: {E(", ".join(older))}</p>' if older else "")
                         + f'{ask}<ul>{lines(rows)}</ul></div>')
@@ -1363,14 +1863,23 @@ def to_review(a: argparse.Namespace) -> str:
             for to, kind in ((waiting, "waiting"), (done, "done")):
                 rr = [r for r in rows if state[r["name"]] == kind]
                 if rr:
+                    apart_cmp_lns: list[str] = []
                     for n in dict.fromkeys(r["name"] for r in rr):
                         it_r = rec.item_of(n)
                         if it_r:
                             n_rows = [r for r in rr if r["name"] == n]
-                            item_spans[it_r["id"]] = (max(n_rows[0]["first"], first), min(n_rows[-1]["last"], last), [str(n_rows[0]["subject"])])
-                    apart_gl = clip_gap_line(rec.gap_check, first, last, list(sh["subjects"]))
+                            r_f, r_l = max(n_rows[0]["first"], first), min(n_rows[-1]["last"], last)
+                            item_spans[it_r["id"]] = (r_f, r_l, [str(n_rows[0]["subject"])])
+                            if is_compare_clip(it_r["id"], item_obj=it_r, rec=rec, share=a.share):
+                                apart_cmp_lns.extend(
+                                    compare_clip_lines(
+                                        rec, it_r["id"], r_f, r_l, list(sh["subjects"]), item_obj=it_r, share=a.share, where=f"shot {first}-{last}"
+                                    )
+                                )
+                    apart_cmp_tag = "".join(f'<p class="why compare-line">{E(ln)}</p>' for ln in apart_cmp_lns)
+                    apart_gl = format_compare_gap_line(clip_gap_line(rec.gap_check, first, last, list(sh["subjects"])), apart_cmp_lns)
                     apart_gl_tag = f'<p class="why gap-line">{E(apart_gl)}</p>' if apart_gl else ""
-                    to["apart"].append(f'<div class="e">{apart_gl_tag}<h3>The shot {first}-{last}: {heads(rr)} <span>{E(who)} &middot; {when}</span></h3>'
+                    to["apart"].append(f'<div class="e">{apart_cmp_tag}{apart_gl_tag}<h3>The shot {first}-{last}: {heads(rr)} <span>{E(who)} &middot; {when}</span></h3>'
                                        f'<p class="why">{E(why)}. Each piece meanwhile, on its own:</p><ul>{lines(rr)}</ul></div>')
         else:
             # one entry a piece, its rows (cut by restore spans) together under it
@@ -1382,10 +1891,24 @@ def to_review(a: argparse.Namespace) -> str:
                 if it_p:
                     item_spans[it_p["id"]] = (p_first, p_last, [p_sub])
                 if state[name] != "gone":
-                    p_gl = clip_gap_line(rec.gap_check, p_first, p_last, [p_sub])
+                    p_cmp_tag = ""
+                    p_cmp_lns = None
+                    if is_compare_clip(it_p["id"] if it_p else name, item_obj=it_p, rec=rec, share=a.share):
+                        p_cmp_lns = compare_clip_lines(
+                            rec,
+                            it_p["id"] if it_p else name,
+                            p_first,
+                            p_last,
+                            list(sh["subjects"]) or [p_sub],
+                            item_obj=it_p,
+                            share=a.share,
+                            where=f"piece {name} ({p_first}-{p_last})",
+                        )
+                        p_cmp_tag = "".join(f'<p class="why compare-line">{E(ln)}</p>' for ln in p_cmp_lns)
+                    p_gl = format_compare_gap_line(clip_gap_line(rec.gap_check, p_first, p_last, [p_sub]), p_cmp_lns)
                     p_gl_tag = f'<p class="why gap-line">{E(p_gl)}</p>' if p_gl else ""
                     (waiting if state[name] == "waiting" else done)["single"].append(
-                        f'<div class="e">{p_gl_tag}<h3>{E(p_sub)}, {p_first}-{p_last}: {heads(rr)} <span>{when}</span></h3>'
+                        f'<div class="e">{p_cmp_tag}{p_gl_tag}<h3>{E(p_sub)}, {p_first}-{p_last}: {heads(rr)} <span>{when}</span></h3>'
                         f'<ul>{lines(rr)}</ul></div>')
 
     shot_drawn()
@@ -1407,7 +1930,7 @@ def to_review(a: argparse.Namespace) -> str:
                 if cand_ans.is_file() and (cand_dir == sh_parent or (cand_dir / "review").is_dir() or (cand_dir / "verdicts").is_dir()):
                     ans_path = str(cand_ans)
                     break
-        owner_ans = read_owner_clip_answers(ans_path)
+        owner_ans = read_owner_clip_answers(ans_path, verdicts_path=a.verdicts)
         body += start_here(
             a.start_here,
             drawn,
@@ -1418,6 +1941,7 @@ def to_review(a: argparse.Namespace) -> str:
             shot_subjects=shot_subjects,
             tables=a.tables or [],
             owner_answers=owner_ans,
+            share=a.share,
         )
     body += [
             *gap_check_block(rec, rate)]

@@ -41,6 +41,9 @@
   missing_or_stale_gap_check_is_refused both pages refuse when `coverage_json` is omitted or missing, when `table_sha256`,
                                 `by_shot`, or `span` mismatches, when `assembly.command` lacks `--out`, or when `clip_check`
                                 is missing, missing on disk, or mismatches `--out` or its file's sha256, writing nothing
+  compare_clips_say_who_is_new_and_who_is_the_old_cut above each compare clip's player, one generated line per person in the
+                                shot (`new here: <load>`, `the current cut: <load>, laid <day>`, or `the original: no piece`),
+                                read from `.stack.json`/`.stack.frames.jsonl` or sidecars and the table/ledger, never typed
 
     <comfy venv python> bench/check_review_pages.py
 
@@ -855,13 +858,13 @@ def start_here() -> str:
             "\n".join([
                 json.dumps({"who": "owner", "item": "hair_A.mp4", "chosen": "Keep this one", "at": "2026-10-18T12:00:00Z"}),
                 json.dumps({"who": "owner", "shot": "100-149", "chosen": "wrong, and I say where", "at": "2026-10-18T12:01:00Z"}),
-                json.dumps({"who": "owner", "row": "load_b", "chosen": "keep this one", "at": "2026-10-18T12:02:00Z"}),
                 json.dumps({"who": "owner", "shot": "150-199", "chosen": "Good to go", "at": "2026-10-18T12:05:00Z"}),
                 json.dumps({"who": "owner", "item": "https://the-open-list/#row-7", "chosen": "Keep", "at": "2026-10-18T12:06:00Z"}),
                 json.dumps({"who": "owner", "item": "https://the-open-list/#row-7", "chosen": "taken back", "at": "2026-10-18T12:07:00Z"}),
                 json.dumps({"who": "owner", "item": "open-list-policy", "chosen": "Change the default everywhere", "at": "2026-10-18T12:08:00Z"}),
             ]) + "\n"
         )
+        assert rp.normalize_owner_clip_verdict("not this one") == "remake"
         order = [
             {"item": str(clip), "frames": [100, 149], "why": "WHY THE PAIR", "reader_file": str(md_mrgemsol)},
             {"item": str(cmp_clip), "frames": [100, 149], "why": "WHY LOAD_B COMPARE", "reader_file": str(md_gemread1)},
@@ -872,7 +875,11 @@ def start_here() -> str:
         ]
         f = d / "start.json"
         f.write_text(json.dumps(order))
-        page = to_review(d, more=("--start-here", str(f), "--answers", str(ans_file)))
+        # load_b's owner verdict is in verdicts.jsonl with what="words" and chosen="keep this one" (C50 item 2)
+        verdicts_for_start = [
+            {"what": "words", "row": "load_b", "chosen": "keep this one", "words": "looks good on 100-149", "at": "2026-10-18T12:02:00Z"},
+        ]
+        page = to_review(d, verdicts=verdicts_for_start, more=("--start-here", str(f), "--answers", str(ans_file)))
         text = text_of(page)
         top = text.split("Start here, in this order")[1].split("Where the original still shows: the gap check")[0]
         assert top.index("WHY THE PAIR") < top.index("WHY LOAD_B COMPARE") < top.index("WHY A_SOLO'S SHOT") < top.index("WHY THE JOINED SHOT"), top
@@ -899,8 +906,9 @@ def start_here() -> str:
         assert '<dt>Verdict</dt><dd>reader: <b>keep</b> &middot; owner: <b>keep</b> ("Keep this one") &mdash; <b class="d">agree</b></dd>' in pair_li, pair_li
         assert "<dt>Why</dt><dd>Clean boundary and stable identity across the full span.</dd>" in pair_li, pair_li
         assert "Long prose below the card block" not in pair_li, "body prose below --- leaked into card"
-        # loadb_li: parsed from ## Reader Card — Clip 1 after preamble --- and metadata bullets, reader cleaned to gemread1, matched row="load_b"
+        # loadb_li: parsed from ## Reader Card — Clip 1 after preamble --- and metadata bullets, markdown stripped, matched row="load_b" in verdicts.jsonl
         assert "Reader card (gemread1) — a session&#x27;s reading, not yours" in loadb_li, loadb_li
+        assert "**" not in loadb_li and "`" not in loadb_li, f"markdown punctuation leaked into reader card: {loadb_li}"
         assert '<dt>Verdict</dt><dd>reader: <b>keep</b> &middot; owner: <b>keep</b> ("keep this one") &mdash; <b class="d">agree</b></dd>' in loadb_li, loadb_li
         # solo_li: reader says remake, owner says keep ("Good to go") -> differ
         assert '<dt>Verdict</dt><dd>reader: <b>remake</b> &middot; owner: <b>keep</b> ("Good to go") &mdash; <b class="d">differ</b></dd>' in solo_li, solo_li
@@ -919,6 +927,16 @@ def start_here() -> str:
         bad_md_why.write_text("- **Sees**: 100: ok\n- **Cannot see**: audio\n- **Verdict**: keep\n- **Why**: line one\n  line two\n")
         bad_md_unknown = load_dir / "bad_unknown.md"
         bad_md_unknown.write_text("- **Sees**: 100: ok\n- **Cannot see**: audio\n- **Verdict**: keep\n- **Why**: one line\n- **Extra**: no\n")
+        bad_md_long_sees = load_dir / "bad_long_sees.md"
+        bad_md_long_sees.write_text(
+            "- **Sees**:\n  - 100: line 1\n  - 110: line 2\n  - 120: line 3\n  - 130: line 4\n"
+            "- **Cannot see**: audio\n- **Verdict**: keep\n- **Why**: one line\n"
+        )
+        bad_md_long_why = load_dir / "bad_long_why.md"
+        bad_md_long_why.write_text(
+            "- **Sees**: 100: ok\n- **Cannot see**: audio\n- **Verdict**: keep\n"
+            f"- **Why**: {'x' * 225}\n"
+        )
 
         for bad, said in (
             ([{"item": "a_not_here", "why": "w"}], "no item this page shows"),
@@ -939,6 +957,8 @@ def start_here() -> str:
             ([{"item": "150-199", "why": "w", "reader_file": str(bad_md_verdict)}], "Verdict in"),
             ([{"item": "150-199", "why": "w", "reader_file": str(bad_md_why)}], "Why in"),
             ([{"item": "150-199", "why": "w", "reader_file": str(bad_md_unknown)}], "unknown card field"),
+            ([{"item": "150-199", "why": "w", "reader_file": str(bad_md_long_sees)}], "Sees in"),
+            ([{"item": "150-199", "why": "w", "reader_file": str(bad_md_long_why)}], "Why in"),
         ):
             f.write_text(json.dumps(bad))
             try:
@@ -950,8 +970,8 @@ def start_here() -> str:
         f.write_text(json.dumps(order))
         assert "Start here" not in text_of(to_review(d)), "the list drawn with no --start-here"
     return ("the lead's list first and in its order, a shot, an item and a clip each linked with its why, a link to where a question's buttons "
-            "are with its clips beneath, and each reader card read from playback_reading_<reader>.md in a closed fold whose summary hides the verdict "
-            "and whose Verdict row shows owner agree/differ; eighteen bad lists or cards refused")
+            "are with its clips beneath, and each concise plain-text reader card read from playback_reading_<reader>.md in a closed fold whose summary hides the verdict "
+            "and whose Verdict row shows owner agree/differ from both owner_answers.jsonl and verdicts.jsonl; twenty bad lists or cards refused")
 
 
 def nothing_of_a_video_in_code() -> str:
@@ -1228,6 +1248,143 @@ def per_clip_gap_lines_and_start_here_refusal() -> str:
     return "per-clip gap lines printed right above each player in Start here, Waiting on you, and Done; clips without a gap-check line refused on Start here"
 
 
+def compare_clips_say_who_is_new_and_who_is_the_old_cut() -> str:
+    """C29: above each compare clip's player, review_pages.py generates one line per person in the shot:
+    'new here: <load>', 'the current cut: <load>, laid <day>', or 'the original: no piece', read from
+    .stack.json/.stack.frames.jsonl or sidecars and the table/ledger, and refuses inline compare lines or
+    compare clips whose candidate load/subject cannot be resolved."""
+    with tempfile.TemporaryDirectory() as tmp:
+        d = Path(tmp)
+        pair_dir = d / "share" / "pair"
+        pair_dir.mkdir(parents=True)
+
+        # 1. Stack-delivery compare clip on 100-149 with .stack.json + .stack.frames.jsonl:
+        #    b is new (b_cand_0100), while a has two pieces in the current cut across the shot (a_p1 laid 10/15, a_p2 laid 10/13).
+        cmp_stack = pair_dir / "b_cand_0100_0100_0149_compare.mp4"
+        cmp_stack.write_bytes(b"x")
+        frames_jsonl = cmp_stack.with_suffix(".stack.frames.jsonl")
+        frames_jsonl.write_text(
+            "\n".join([
+                json.dumps({
+                    "source_frame": 100,
+                    "columns": {
+                        "current:b": {"side": "current", "subject": "b", "piece": "b_new"},
+                        "candidate:b": {"side": "candidate", "subject": "b", "piece": "b_cand_0100"},
+                    },
+                    "legend": {
+                        "b": "b: current b_new (10/13) -> candidate b_cand_0100 (10/16)",
+                        "a": "a: a_p1 (10/15) (both)",
+                    },
+                }),
+                json.dumps({
+                    "source_frame": 130,
+                    "columns": {
+                        "current:b": {"side": "current", "subject": "b", "piece": "b_new"},
+                        "candidate:b": {"side": "candidate", "subject": "b", "piece": "b_cand_0100"},
+                    },
+                    "legend": {
+                        "b": "b: current b_new (10/13) -> candidate b_cand_0100 (10/16)",
+                        "a": "a: a_p2 (10/13) (both)",
+                    },
+                }),
+            ]) + "\n"
+        )
+        cmp_stack.with_suffix(".stack.json").write_text(json.dumps({
+            "layout": "compare",
+            "frames": [100, 149],
+            "compared_subjects": ["b"],
+            "unchanged_subjects": ["a"],
+            "days": {
+                "a_p1_00001.mp4": {"day": "10/15"},
+                "a_p2_00001.mp4": {"day": "10/13"},
+                "b_new_00001.mp4": {"day": "10/13"},
+                "b_cand_0100_00001.mp4": {"day": "10/16"},
+            },
+            "records": frames_jsonl.name,
+        }))
+
+        # 2. Shot 220-239 has a (a_x laid 10/14) and b (in the shot, no piece laid -> the original: no piece).
+        #    a_cand_0220_0220_0239_compare.mp4 tests 'a: new here: a_cand_0220' + 'b: the original: no piece'.
+        cmp_orig = pair_dir / "a_cand_0220_0220_0239_compare.mp4"
+        cmp_orig.write_bytes(b"x")
+        #    b_cand_0220_0220_0239_compare.mp4 tests 'a: the current cut: a_x, laid 10/14' + 'b: new here: b_cand_0220'.
+        cmp_b220 = pair_dir / "b_cand_0220_0220_0239_compare.mp4"
+        cmp_b220.write_bytes(b"x")
+
+        # 3. Raw 2x2 panel compare clip (extra.panels, no table/joined clip in inputs) on 100-149:
+        #    only the compared subject is laid; the other person in the shot is 'the original: no piece'.
+        cmp_panels = pair_dir / "compare_a_old_vs_a_cand_panel_0100_0149.mp4"
+        cmp_panels.write_bytes(b"x")
+        (Path(str(cmp_panels) + ".json")).write_text(json.dumps({
+            "inputs": {"source": "v.mp4"},
+            "extra": {"panels": {"top_right": "a_old", "bottom_left": "a_cand_panel"}},
+        }))
+
+        order = [
+            {"item": str(cmp_stack), "why": "STACK COMPARE B NEW A CURRENT"},
+            {"item": str(cmp_orig), "why": "COMPARE A NEW B ORIGINAL"},
+            {"item": str(cmp_b220), "why": "COMPARE B NEW A CURRENT"},
+            {"link": "https://the-open-list/#cmp-q", "label": "PANEL QUESTION", "why": "WHY PANEL", "clips": [str(cmp_panels)]},
+        ]
+        f = d / "start_cmp.json"
+        f.write_text(json.dumps(order))
+        page = to_review(d, more=("--start-here", str(f)))
+
+        # Verify 1: stack compare clip with two current-cut pieces on unchanged subject 'a'
+        assert (
+            '<li>'
+            '<div class="why compare-line">b: new here: b_cand_0100</div>'
+            '<div class="why compare-line">a: the current cut: a_p1, laid 10/15; a_p2, laid 10/13</div>'
+            '<a href="../share/pair/b_cand_0100_0100_0149_compare.mp4">'
+        ) in page, page
+
+        # Verify 2a: a is new here, b is the original: no piece, and gap-line labels each person's cut role (C50 item 3)
+        assert (
+            '<li>'
+            '<div class="why compare-line">a: new here: a_cand_0220</div>'
+            '<div class="why compare-line">b: the original: no piece</div>'
+            '<div class="why gap-line">Gaps on 220-239 — a (new here): emptied inside a piece: 4 (230-233); '
+            'laid piece barely changed its region: 3 (234-236); carried region far below its own size: 2 (237-238) · '
+            'b (the original): no capture: 10 (220-229); captured, not rendered: 3 (225-227); rendered, not kept: 2 (228-229)</div>'
+        ) in page, page
+
+        # Verify 2b: a is the current cut (a_x, laid 10/14), b is new here (b_cand_0220), and gap-line labels both
+        assert (
+            '<li>'
+            '<div class="why compare-line">a: the current cut: a_x, laid 10/14</div>'
+            '<div class="why compare-line">b: new here: b_cand_0220</div>'
+            '<div class="why gap-line">Gaps on 220-239 — a (the current cut): emptied inside a piece: 4 (230-233); '
+            'laid piece barely changed its region: 3 (234-236); carried region far below its own size: 2 (237-238) · '
+            'b (new here): no capture: 10 (220-229); captured, not rendered: 3 (225-227); rendered, not kept: 2 (228-229)</div>'
+        ) in page, page
+
+        # Verify 3: panel compare clip inside a link entry's clips list
+        assert (
+            '<div class="why compare-line">a: new here: a_cand_panel</div>'
+            '<div class="why compare-line">b: the original: no piece</div>'
+            '<a href="../share/pair/compare_a_old_vs_a_cand_panel_0100_0149.mp4">'
+        ) in page, page
+
+        # Verify 4: refusals for inline compare keys and unresolvable compare clips
+        ambig = pair_dir / "mystery_0100_0149_compare.mp4"
+        ambig.write_bytes(b"x")
+        for bad_start, bad_msg in (
+            ([{"item": str(cmp_stack), "why": "typed", "compare_line": "b: new here: x"}], "never typed into start_here.json"),
+            ([{"item": str(cmp_stack), "why": "typed", "compare_lines": ["b: new here: x"]}], "never typed into start_here.json"),
+            ([{"item": str(cmp_stack), "why": "typed", "who_is_new": "b"}], "never typed into start_here.json"),
+            ([{"item": str(cmp_stack), "why": "typed", "no_compare_line": True}], "never typed into start_here.json"),
+            ([{"item": str(ambig), "why": "ambiguous"}], "names no candidate load or subject"),
+        ):
+            f.write_text(json.dumps(bad_start))
+            try:
+                to_review(d, more=("--start-here", str(f)))
+            except SystemExit as stop:
+                assert bad_msg in str(stop), (bad_start, str(stop))
+            else:
+                raise AssertionError(f"Start here accepted invalid compare entry: {bad_start}")
+    return "every compare clip prints one generated line per person in the shot and labels each person in the gap line with '(new here)' / '(the current cut)' / '(the original)', refusing inline or unresolvable compare clips"
+
+
 case("both modes read", both_modes_read)
 case("the page says what is laid", the_page_says_what_is_laid)
 case("to-review is the table's, and hides no live piece", to_review_is_the_tables)
@@ -1248,6 +1405,7 @@ case("nothing of a video in the code", nothing_of_a_video_in_code)
 case("the gap check is on both pages, worst first", the_gap_check_is_on_both_pages)
 case("a missing or stale gap check is refused", missing_or_stale_gap_check_is_refused)
 case("per-clip gap lines right above each player, and Start here refusal", per_clip_gap_lines_and_start_here_refusal)
+case("every compare clip says who is new and who is the old cut", compare_clips_say_who_is_new_and_who_is_the_old_cut)
 
 if __name__ == "__main__":
     sys.exit(finish())

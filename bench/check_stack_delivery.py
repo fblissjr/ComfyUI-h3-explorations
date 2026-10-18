@@ -1446,6 +1446,12 @@ def compare_refusals() -> str:
     refused(lambda: cf.compare(only=None, out=str(never)), "give --only FIRST-LAST for the span to compare")
     refused(lambda: cf.compare(only="0-7", out=str(never)), "is not inside the candidate clip's frames, 2 to 7 of the source")
     refused(lambda: cf.compare(subject="nobody", out=str(never)), "--subject 'nobody' has no piece on frames 2-7 in either table")
+    refused(lambda: cf.compare(current_tag="pcand", out=str(never)), "--current-tag 'pcand' names 'pcand', which is not laid in the current table on frames 2-7")
+    refused(lambda: cf.compare(tag="pa", out=str(never)), "--tag 'pa' names 'pa', which is not laid in the candidate table on frames 2-7")
+    multi_cur = cf.root / "multi_cur.txt"
+    multi_cur.write_text(f"2-4 {cf.m.a} 2 subject=a\n5-7 {cf.pcand} 2 subject=a\n8-10 {cf.m.b} 8 subject=b\n")
+    refused(lambda: cf.compare(table=str(multi_cur), current_tag="pa", out=str(never)),
+            "--current-tag 'pa' names only pa for a on frames 2-7, leaving out pcand")
     empty = cf.root / "empty_cand.txt"
     empty.write_text("source 0-11 subject=a nothing rendered\n")
     refused(lambda: cf.compare(candidate_table=str(empty), out=str(never)), "lays no piece on frames 2-7: there is nothing to compare")
@@ -1459,7 +1465,7 @@ def compare_refusals() -> str:
                            "--candidate-joined", str(cf.cand_span), "--work", str(cf.root / "work"), "--out", str(never)],
                           capture_output=True, text=True)
     assert proc.returncode != 0 and "Traceback" not in proc.stderr and "compare requires --candidate-table or --candidate-piece" in proc.stderr, proc.stderr
-    return "8 compare-mode refusals + CLI refusal with no traceback verified"
+    return "11 compare-mode refusals (--current-tag/--tag piece & multi-piece span checks included) + CLI refusal with no traceback verified"
 
 
 case("the table as read, through the assembler's readers", the_table_as_read)

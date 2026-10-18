@@ -134,6 +134,7 @@ import argparse
 import importlib.util
 import json
 import math
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -1544,6 +1545,33 @@ def compare(a: argparse.Namespace) -> None:
         compared_cols = list(dict.fromkeys(subj_list))
     else:
         compared_cols = [who for who in all_cols if active_sig(rows, who) != active_sig(cand_rows, who)] or list(all_cols)
+    all_table_names = {r["name"] for r in rows + cand_rows if len(r["name"]) >= 2}
+    for flag, side_name, tag_val, r_list in (
+        ("--current-tag", "current", getattr(a, "current_tag", "") or "", rows),
+        ("--tag", "candidate", getattr(a, "tag", "") or "", cand_rows),
+    ):
+        if not tag_val:
+            continue
+        span_rows = [r for r in r_list if r["first"] <= last_f and r["last"] >= first_f]
+        span_names = list(dict.fromkeys(r["name"] for r in span_rows))
+        for tok in re.findall(r"[A-Za-z0-9_.-]+", tag_val):
+            if (tok in all_table_names or re.fullmatch(r"[a-z][a-z0-9]*(?:_[a-z0-9]+)+", tok)) and tok not in span_names:
+                raise SystemExit(
+                    f"{flag} {tag_val!r} names {tok!r}, which is not laid in the {side_name} table on frames "
+                    f"{first_f}-{last_f} (laid: {', '.join(span_names) or 'none'}); nothing written"
+                )
+        for who in all_cols:
+            who_rows = [r for r in span_rows if (r["subject"] or r["name"]) == who]
+            who_names = list(dict.fromkeys(r["name"] for r in who_rows))
+            mentioned = [n for n in who_names if re.search(rf"(?<![A-Za-z0-9_]){re.escape(n)}(?![A-Za-z0-9_])", tag_val)]
+            if mentioned and len(mentioned) < len(who_names):
+                laid_desc = ", ".join(f"{r['name']} ({max(r['first'], first_f)}-{min(r['last'], last_f)})" for r in who_rows)
+                missing_names = [n for n in who_names if n not in mentioned]
+                raise SystemExit(
+                    f"{flag} {tag_val!r} names only {', '.join(mentioned)} for {who} on frames {first_f}-{last_f}, "
+                    f"leaving out {', '.join(missing_names)} (laid: {laid_desc}); name every piece laid for {who} on the span "
+                    f"or pass a cut label; nothing written"
+                )
     slots = [{"col_key": f"{side}:{who}", "side": side, "who": who,
               "title": f"{'CURRENT' if side == 'current' else 'CANDIDATE'} ({who})"}
              for who in compared_cols for side in ("current", "candidate")]
