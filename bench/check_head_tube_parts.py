@@ -602,6 +602,128 @@ def _case_refuses_invalid_inputs() -> str:
     return f"refused 6 invalid inputs cleanly ({cli_err})"
 
 
+def _case_off_head_islands_not_resurrected() -> str:
+    # 1. Deterministic synthetic check (runs even in break_checks copies without data/):
+    # Models (a) dad's 1306 bicep island (off_head dropped y=46..60 from parts while cmap still has Face_Neck there),
+    # (b) 0606 hands island (off_head dropped y=48..58 from parts while cmap still has Face_Neck there),
+    # and (c) 1306t/0438e collar-edge/neck-edge piece kept by off_head in parts.
+    face_id = htp.NAME_TO_ID["Face_Neck"]
+    person_track = np.zeros((3, 64, 64), dtype=bool)
+    person_track[:, 6:62, 10:54] = True
+
+    # Head at y=10..26, x=20..44 (384 px) + kept collar-edge piece at y=28..32, x=26..38 (48 px, like 1306t/0438e)
+    pruned_parts = np.zeros((3, 64, 64), dtype=bool)
+    pruned_parts[:, 10:26, 20:44] = True
+    pruned_parts[:, 28:32, 26:38] = True
+
+    # Uncleaned cmap still holds Face_Neck on the dad's bicep island (frame 0, y=46..60, x=12..28)
+    # and on the 0606 hand islands (frames 1..2, y=48..58, x=34..50), both inside person_track.
+    cmap_uncleaned = np.zeros((3, 64, 64), dtype=np.uint8)
+    cmap_uncleaned[pruned_parts] = face_id
+    cmap_uncleaned[0, 46:60, 12:28] = face_id
+    cmap_uncleaned[1:3, 48:58, 34:50] = face_id
+
+    syn_res = htp.head_tube_for_capture(
+        person_track,
+        pruned_parts,
+        cmap_uncleaned,
+        head_parts=("Face_Neck",),
+    )
+    syn_pm = syn_res["part_mask"]
+    syn_cm = syn_res["class_map"]
+    assert int(syn_pm[0, 46:60, 12:28].sum()) == 0, (
+        f"expected dad's bicep island to stay 0 px, got {int(syn_pm[0, 46:60, 12:28].sum())}"
+    )
+    assert int(syn_pm[1:3, 48:58, 34:50].sum()) == 0, (
+        f"expected 0606 hand islands to stay 0 px, got {int(syn_pm[1:3, 48:58, 34:50].sum())}"
+    )
+    assert np.array_equal(syn_pm, pruned_parts), (
+        "expected head + kept collar-edge piece to remain unchanged when off_head islands are dropped"
+    )
+    assert int((syn_cm[:, 46:60, :] == face_id).sum()) == 0, (
+        "expected updated class_map to clear off_head dropped islands"
+    )
+
+    # 2. Real capture verification when data/ captures are on disk:
+    # - dad's 1306 (2026-10-18_third_fp_1306d): 18,474 px bicep island at y>=500 gone (0 px), 23,129 px head at y<500 unchanged
+    # - 0606 hands (2026-10-18_lead_fp_0606 frame 772): 5,887 px hand island at y>=440 gone (0 px), 15,695 px head at y<440 unchanged
+    # - 1306t (2026-10-18_lead_fp_1306t frame 1391) and 0438e (2026-10-18_lead_fp_0438e frame 444): unchanged (0 px diff)
+    data_roots = (
+        htp.REPO_ROOT / "data",
+        htp.REPO_ROOT.parent.parent / "custom_nodes" / "ComfyUI-h3-explorations" / "data",
+    )
+    data_root = next((p for p in data_roots if (p / "2026-10-18_third_fp_1306d").is_dir()), None)
+    if data_root is None:
+        return "synthetic bicep/hands/collar ok (real 10-18 captures not on disk)"
+
+    import capture_masked_run as cmr
+
+    def _run_slice(cap_name: str, subj: str, s0: int, s1: int, s_first: int):
+        c_dir = data_root / cap_name
+        man = json.loads((c_dir / "manifest.json").read_text(encoding="utf-8"))
+        sight = next(s for s in man["subjects"] if s["label"] == subj)["sightings"][0]
+        dropped_meta = sight.get("parts_dropped_off_her_head") or {}
+        pts_str = dropped_meta.get("points")
+        if not pts_str or not Path(pts_str).is_file():
+            return None
+        margin = int(dropped_meta.get("margin", 16))
+        chosen = sight["part_is_made_of"]
+        m_npz = np.load(next((c_dir / "subjects" / subj).glob("masks__*.npz")))
+        c_npz = np.load(next((c_dir / "subjects" / subj).glob("classes__*.npz")))
+        cm_slice = c_npz["classes"][s0:s1]
+        w_c = cm_slice.shape[2]
+        tr_slice = np.unpackbits(m_npz["track"][s0:s1], axis=-1)[..., :w_c].astype(bool)
+        pt_in = np.unpackbits(m_npz["parts"][s0:s1], axis=-1)[..., :w_c].astype(bool)
+        pt_pruned, _, _, _ = cmr.off_head(pt_in, pts_str, s_first, margin)
+        res = htp.head_tube_for_capture(
+            tr_slice,
+            pt_pruned,
+            cm_slice,
+            points_path=pts_str,
+            first_frame=s_first,
+            head_parts=chosen,
+            include_eyeglass="Eyeglass" in chosen,
+        )
+        return pt_in, pt_pruned, res["part_mask"]
+
+    # Dad's 1306 (frames 1306..1308, k=0..3)
+    dad = _run_slice("2026-10-18_third_fp_1306d", "third", 0, 3, 1306)
+    if dad is None:
+        return "synthetic bicep/hands/collar ok (points file not on disk)"
+    _, dad_pruned, dad_pm = dad
+    assert int(dad_pm[0, 500:].sum()) == 0, f"expected 0 bicep island px on dad 1306, got {int(dad_pm[0, 500:].sum())}"
+    assert int(dad_pm[0, :500].sum()) == 23129 and np.array_equal(dad_pm[0, :500], dad_pruned[0, :500]), (
+        f"expected dad 1306 head unchanged at 23129 px, got {int(dad_pm[0, :500].sum())}"
+    )
+
+    # 0606 hands (frames 771..773, k=165..168, frame 772 at index 1)
+    k0606 = _run_slice("2026-10-18_lead_fp_0606", "lead", 165, 168, 771)
+    if k0606 is not None:
+        _, k_pruned, k_pm = k0606
+        assert int(k_pm[1, 440:].sum()) == 0, f"expected 0 hand island px on 0606 f772, got {int(k_pm[1, 440:].sum())}"
+        assert int(k_pm[1, :440].sum()) == 15695 and np.array_equal(k_pm[1, :440], k_pruned[1, :440]), (
+            f"expected 0606 f772 head unchanged at 15695 px, got {int(k_pm[1, :440].sum())}"
+        )
+
+    # 1306t (frames 1390..1392, k=84..87, frame 1391 at index 1 with 1,361 px collar-edge neck piece)
+    t1306 = _run_slice("2026-10-18_lead_fp_1306t", "lead", 84, 87, 1390)
+    if t1306 is not None:
+        t_in, _, t_pm = t1306
+        assert int(t_pm[1].sum()) == 33120 and np.array_equal(t_pm[1], t_in[1]), (
+            f"expected 1306t f1391 unchanged at 33120 px, got {int(t_pm[1].sum())}"
+        )
+
+    # 0438e (frames 443..445, k=5..8, frame 444 at index 1 with 169 px neck-edge piece)
+    e0438 = _run_slice("2026-10-18_lead_fp_0438e", "lead", 5, 8, 443)
+    if e0438 is not None:
+        e_in, _, e_pm = e0438
+        assert int(e_pm[1].sum()) == 8220 and np.array_equal(e_pm[1], e_in[1]), (
+            f"expected 0438e f444 unchanged at 8220 px, got {int(e_pm[1].sum())}"
+        )
+
+    return "dad 1306 bicep=0/head=23129, 0606 f772 hands=0/head=15695, 1306t f1391=33120, 0438e f444=8220"
+
+
 def main() -> int:
     case("off_tube_false_positive_suppressed", _case_off_tube_false_positive)
     case("temporal_smoothing_bridges_dropout", _case_temporal_smoothing_dropout)
@@ -609,6 +731,7 @@ def main() -> int:
     case("person_word_overrides_three_states", _case_person_word_overrides_three_states)
     case("person_track_bounds_tube", _case_person_track_bounds_tube)
     case("person_track_regains_tube_after_gap", _case_person_track_regains_tube_after_gap)
+    case("off_head_islands_not_resurrected", _case_off_head_islands_not_resurrected)
     case("real_0613g_three_states", _case_real_0613g_three_states)
     case("provenance_json_and_cli", _case_provenance_and_cli)
     case("refuses_invalid_inputs", _case_refuses_invalid_inputs)

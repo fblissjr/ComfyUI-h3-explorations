@@ -1458,6 +1458,9 @@ def head_tube_for_capture(
             raise SystemExit(
                 f"head_tube_for_capture: cmap shape {cmap_arr.shape} does not match {(num_frames, height, width)}"
             )
+        # Drop any requested head-part pixels on the subject's track that were already pruned from parts (e.g. by off_head)
+        # so the class map never resurrects detached off-head islands (biceps, hands, skirts) into the head tube or part mask.
+        cmap_arr = np.where(np.isin(cmap_arr, part_ids) & track_bool & ~parts_bool, 0, cmap_arr)
         raw_head = parts_bool | np.isin(cmap_arr, tube_ids)
     else:
         cmap_arr = np.where(parts_bool, NAME_TO_ID["Face_Neck"], 0).astype(np.uint8)

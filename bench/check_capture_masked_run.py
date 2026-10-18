@@ -2145,6 +2145,10 @@ def off_her_head() -> str:
             spec_a = {"track": "track.mkv", "parts": "parts.mkv", "classes": "classes.mkv",
                       "by": "pv", "at": "100", "least": "50", "points": str(path), "points_margin": "4"}
             cap._files(args_f, f_dir, [("a", spec_a)], [], [])
+            written_ht_vids: dict[str, np.ndarray] = {}
+            cap.write_mask_video = lambda p, m: written_ht_vids.__setitem__(Path(p).name, m.copy())
+            args_ht = argparse.Namespace(first=100, frames=6, name="x_ht", date="2026-01-01", source=str(f_src), loads=None, voice=None, head_tube=True)
+            cap._files(args_ht, Path(tmp) / "cap_ht_files", [("a", dict(spec_a))], [], [])
         finally:
             for k, v in stood_in.items():
                 setattr(cap, k, v)
@@ -2152,6 +2156,10 @@ def off_her_head() -> str:
         f_sighting = f_manifest["subjects"][0]["sightings"][0]
         assert "parts_dropped_off_her_head" in f_sighting and f_sighting["parts_dropped_off_her_head"].get("frames_dropped", 0) >= 1, f_sighting
         assert not written_vids["parts__pv.mkv"][2, 70:95, 30:70].any(), "files step did not prune off-head piece from parts__pv.mkv"
+        assert not written_ht_vids["parts__pv.mkv"][2, 70:95, 30:70].any() and not written_ht_vids["parts_held__pv.mkv"][2, 70:95, 30:70].any(), (
+            "head_tube resurrected off-head piece from classes.mkv into parts__pv.mkv / parts_held__pv.mkv"
+        )
+        assert written_ht_vids["parts__pv.mkv"][2, 20:40, 40:60].all(), "head_tube altered head pixels on frame 2"
         assert "after off_head" in f_sighting["part_sizes"].get("measured_on", ""), f_sighting["part_sizes"]
         f_pg = json.loads((f_dir / "subjects" / "a" / "part_grades.json").read_text())
         assert "after off_head" in f_pg.get("measured_on", ""), f_pg
