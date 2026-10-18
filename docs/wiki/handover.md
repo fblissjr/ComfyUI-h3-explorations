@@ -98,9 +98,14 @@ gate. The two that are next, from the same check and tonight's `lead_fp_0613g`:
     is back at 702, which the owner's look calls hair until 709, so "back" there is a mask, not yet checked against the
     picture. The owner's word: SAM 3.1's memory selection goes ON in the chain
     (decisions.md, 2026-10-17): built in `sam31_corrections.py`'s form, ON by default, tested on the queue (C148).
-  - ON A BRANCH: `gemmatte-faces` (`h3_worktrees/gemmatte-faces`): the three-state face label and drops and face lines
-    as a person's word, CPU only (`internal/gemini/2026-10-18_brief_build_faces.md`). The Claude lead lands it if it is
-    cleared tonight; otherwise tomorrow's Gemini lead lands it after clearance, before `lead_fp_0613h` is made.
+  - LANDED `a15463e9`: the three-state face label (facing; side with an eye; back of the head, which only proposes) and
+    drops and face lines as a person's word: a carried `drop` or `--no-face-on` is refused on frames where the capture
+    sees her face; the holds never fill a back-of-head frame unless a person's word holds it (C136-C140,
+    `internal/gemini/2026-10-18_brief_build_faces.md`). On 0613g's 680-760 its labels match the owner's looks exactly
+    (back of the head 687-708 and 747-750; side with an eye 709-712 and 733-746), and the refusal flags exactly 709, 710
+    and 733-738 of 0613g's old drop. TESTED: its checks (9, 52, 31 cases) on main; a blind read
+    (`internal/gemini/2026-10-18_review_gemmatte_faces.md`). NOT TESTED: any shot but 0613g's kitchen, whose frames its
+    lines were set on; a real load through the chain.
   The four branches of the evening (`gemini-hole-label`, `gemmatte-masks`, `gemmatte-moge`, `gem-memsel-tool`) are
   landed and removed.
 - **The close (C126, C143)**: `bench/rebuild_delivery.py --video fun` ran at `2026-10-18T0141Z`
