@@ -80,19 +80,6 @@ Claims, i.e. what breaks if a case is deleted:
                      one. The generator derives the id from one constant, so
                      this catches a hand-edited graph or a stale regeneration.
 
-  vendored           the VENDORED node ComfyUI loads is the one this repo
-                     tracks. Before 2026-08-14 three untracked copies of that
-                     node existed on one box and nothing could say which was
-                     running; a measurement is meaningless if the code under it
-                     is unidentified. Ours needs no such case -- it is a module
-                     in this pack, tracked by git like every other node here --
-                     which is one of the things the fork bought.
-  node_version       the tracked file's sha256 is a version we have named and
-                     dated. Upstream publishes this node through conversation
-                     rather than a repository, so an unrecorded hash FAILS
-                     rather than warns -- it forces the drop to be recorded in
-                     vendor/README.md before it can be run.
-
   observable         an armed server reaches the render before anything says
                      the installed kernel cannot be observed. `blk_cnt` is
                      ours (not upstream), the route observer needs it, and
@@ -119,6 +106,19 @@ Claims, i.e. what breaks if a case is deleted:
                      model or a server and tells you before you queue anything;
                      that one catches an install swapped out between this check
                      and the render.
+
+  optional_bindings  every bound function in `comfy_kitchen.backends.cuda._C`
+                     whose Python callers in `comfy_kitchen` can pass `None`
+                     (every `std::optional` or nullable pointer parameter in
+                     `dlpack_bindings.cpp`, including `sage_sdpa_prequantized`
+                     and `sage_sdpa`'s `attn_mask`) declares `| None` in its
+                     compiled nanobind signature. Earned 2026-10-18 when
+                     rebuilding `0.2.38+sol` against `nanobind 2.10.2` compiled
+                     bare `nb::arg("attn_mask")` bindings without `accepts_none`
+                     (fixed in fork commit `997dd79`), crashing the dense
+                     fallback at step 0 with `TypeError: ... Invoked with
+                     types: ..., NoneType`. `optional_bindings_refusal` proves
+                     the grader goes red on a signature missing `| None`.
 
 Shown red: 2026-08-14, against the stock PyPI `comfy-kitchen==0.2.31` still
 installed at the time, with `--require`. `present` failed, and `cuda_backend`
@@ -160,63 +160,9 @@ _REPO = Path(__file__).resolve().parent.parent
 # declares `centroid_tail`. A pin graded against the wrong node file is exactly
 # the silent-drift failure this case exists for.
 _NODE_PATHS = (_REPO / "sol_attn_h3.py",)
-
-# **RETIRED 2026-08-30.** `vendor/sol_attn_minimax.py` was the node ComfyUI
-# loaded, through a symlink from `ComfyUI-SolAttn-cuda/`. It is now a READ-ONLY
-# REFERENCE -- upstream's node, pristine at the last genuine drop -- and the
-# node that runs is `sol_attn_h3.py` in this pack.
-#
-# So "not installed" is the CORRECT state and the cases below say so rather
-# than skipping. The pack directory is renamed `.disabled`, which ComfyUI skips
-# (`nodes.py`, `module_path.endswith(".disabled")`), so the arrangement is
-# reversible by renaming it back.
-_INSTALLED = _REPO.parent / "ComfyUI-SolAttn-cuda" / "sol_attn_minimax.py"
-_DISABLED = _REPO.parent / "ComfyUI-SolAttn-cuda.disabled" / "sol_attn_minimax.py"
-_VENDORED = _REPO / "vendor" / "sol_attn_minimax.py"
-
-# sha256 -> label. Upstream publishes this file through conversation, not a
-# repository, so provenance is by hand and an unrecorded hash is a FAILURE
-# rather than a warning: it forces a version to be named and dated before it
-# can be run, which is exactly what was missing when three untracked copies
-# existed on this box and none was authoritative.
-# Hashes that are OURS rather than upstream's. Kept separate from the lineage
-# table because they answer a different question: not "which version is this"
-# but "is this file still upstream's at all". Both were written here on
-# 2026-08-29, in place, which is what the fork in `sol_attn_h3.py` undid.
-OUR_NODE_VERSIONS = {
-    "1c55a4b51011041a03e62ed73458c9ce280ffd8ca6fc5f353b2806d978504ac1": "v3.1",
-    "30625d8734b53c23f1f17d1036be822eb28fbb108cb2972a689b12c2090606b5": "v3.2",
-}
-
-KNOWN_NODE_VERSIONS = {
-    "3a5f0051fce61d9da1a0b1aaaf03bc16af654d7be59a929bcde395a058918d73":
-        "v1 (2026-08-14 10:48) -- sink_q = whole conditioning range",
-    "d856ba83557d18fbe642011e7a101f597cceea75fcf2e9d600ae064d062de526":
-        "v2 (2026-08-14 14:19) -- sink_q narrowed to the target audio span",
-    "7805cf3706bf9b9123932e66f1dd311c3f005b6a1c188d40cc5a23321debc0dd":
-        "v3 (2026-08-22) -- tau/tau_profile folded into a `selection` "
-        "DynamicCombo alongside top-k, routed_cap_percent dropped; needs a "
-        "kernel with topk_ratio (0.2.31+sol.23d1a66 or later)",
-    "30625d8734b53c23f1f17d1036be822eb28fbb108cb2972a689b12c2090606b5":
-        "v3.2 (2026-08-29, review fixes) -- OURS. Same signature adaptation as "
-        "v3.1, with three defects a review found: the kwargs are probed on the "
-        "ENTRY about to be called (the registry and CUDA entries do not carry "
-        "the same parameters, so probing one and calling the other made the "
-        "reuse path unreachable on kijai's branch build); the "
-        "`centroid_tail=False` refusal moved from `_run` to `_apply_patch`, "
-        "because raising inside `_run` is caught by `override`'s catch-all and "
-        "becomes the silent full-dense render the guard existed to prevent; "
-        "and both widget tooltips now describe the merged kernel",
-    "1c55a4b51011041a03e62ed73458c9ce280ffd8ca6fc5f353b2806d978504ac1":
-        "v3.1 (2026-08-29) -- SUPERSEDED by v3.2 within the hour. OURS, not upstream's: the kernel call reads "
-        "`sol_attn`'s signature and passes `centroid_tail` and "
-        "`reuse_qkv_memory` only where they exist, so one node drives both "
-        "kijai's branch build and the merged upstream (#117, dae00a1) which "
-        "dropped them. `centroid_tail=False` raises rather than being "
-        "silently ignored, because the merged kernel always evaluates the "
-        "tail at the centroid and swallowing the request would change the "
-        "math without saying so",
-}
+# `vendored_reference` and `node_version` were removed 2026-10-18: the read-only
+# reference copy `vendor/sol_attn_minimax.py` was deleted in `2a478404`
+# (2026-10-11), leaving both cases permanently skipped (`exit 2`).
 
 
 def declared_inputs(path):
@@ -485,7 +431,208 @@ else:
                                     "does NOT take blk_cnt, so arming the "
                                     "observer would be refused at patch time"))
 
-import hashlib
+def _parse_c_signature(doc):
+    """Parse `(param_names, {param_name: type_and_default})` from a nanobind docstring's first line."""
+    if not doc:
+        return [], {}
+    line = doc.splitlines()[0]
+    lp, rp = line.find("("), line.rfind(")")
+    if lp == -1 or rp == -1 or rp < lp:
+        return [], {}
+    inner = line[lp + 1:rp]
+    params, depth, cur = [], 0, []
+    for ch in inner:
+        if ch in "([":
+            depth += 1
+        elif ch in ")]":
+            depth -= 1
+        if ch == "," and depth == 0:
+            params.append("".join(cur).strip())
+            cur = []
+        else:
+            cur.append(ch)
+    if cur and "".join(cur).strip():
+        params.append("".join(cur).strip())
+    names, by_name = [], {}
+    for p in params:
+        if ":" in p:
+            k, v = p.split(":", 1)
+            k = k.strip()
+            names.append(k)
+            by_name[k] = v.strip()
+    return names, by_name
+
+
+def _expr_can_be_none(expr, nullable_vars, nullable_funcs):
+    if isinstance(expr, ast.Constant) and expr.value is None:
+        return True
+    if isinstance(expr, ast.Name) and expr.id in nullable_vars:
+        return True
+    if isinstance(expr, ast.IfExp):
+        return (_expr_can_be_none(expr.body, nullable_vars, nullable_funcs)
+                or _expr_can_be_none(expr.orelse, nullable_vars, nullable_funcs))
+    if (isinstance(expr, ast.Call)
+            and isinstance(expr.func, ast.Name)
+            and expr.func.id in nullable_funcs):
+        return True
+    return False
+
+
+def _discover_nullable_c_params(ck_mod, c_sigs):
+    """Find every `(func_name, param_name)` where `comfy_kitchen` Python wrappers can pass `None` to `_C`."""
+    nullable_c = {}
+    pkg_dir = Path(ck_mod.__file__).resolve().parent
+    for py in sorted(pkg_dir.rglob("*.py")):
+        if any(p in py.parts for p in ("hip", "triton", "eager", "ascend")):
+            continue
+        try:
+            tree = ast.parse(py.read_text())
+        except (OSError, SyntaxError):
+            continue
+        nullable_funcs = set()
+        for fn in ast.walk(tree):
+            if isinstance(fn, ast.FunctionDef):
+                for ret in ast.walk(fn):
+                    if isinstance(ret, ast.Return) and ret.value is not None:
+                        if _expr_can_be_none(ret.value, set(), set()):
+                            nullable_funcs.add(fn.name)
+                        elif (isinstance(ret.value, ast.Tuple)
+                              and any(_expr_can_be_none(e, set(), set())
+                                      for e in ret.value.elts)):
+                            nullable_funcs.add(fn.name)
+        for fn in ast.walk(tree):
+            if not isinstance(fn, ast.FunctionDef):
+                continue
+            nullable = set()
+            all_args = fn.args.posonlyargs + fn.args.args
+            n_def = len(fn.args.defaults)
+            for i, a in enumerate(all_args):
+                if i >= len(all_args) - n_def:
+                    d = fn.args.defaults[i - (len(all_args) - n_def)]
+                    if isinstance(d, ast.Constant) and d.value is None:
+                        nullable.add(a.arg)
+            for a, d in zip(fn.args.kwonlyargs, fn.args.kw_defaults):
+                if d is not None and isinstance(d, ast.Constant) and d.value is None:
+                    nullable.add(a.arg)
+            for _ in range(4):
+                for sub in ast.walk(fn):
+                    if isinstance(sub, ast.FunctionDef) and sub is not fn:
+                        for ret in ast.walk(sub):
+                            if (isinstance(ret, ast.Return)
+                                    and ret.value is not None
+                                    and _expr_can_be_none(ret.value, nullable, nullable_funcs)):
+                                nullable_funcs.add(sub.name)
+                    elif isinstance(sub, ast.Assign):
+                        for t in sub.targets:
+                            if (isinstance(t, ast.Name)
+                                    and _expr_can_be_none(sub.value, nullable, nullable_funcs)):
+                                nullable.add(t.id)
+                            elif isinstance(t, ast.Tuple):
+                                if (isinstance(sub.value, ast.Tuple)
+                                        and len(t.elts) == len(sub.value.elts)):
+                                    for te, ve in zip(t.elts, sub.value.elts):
+                                        if (isinstance(te, ast.Name)
+                                                and _expr_can_be_none(ve, nullable, nullable_funcs)):
+                                            nullable.add(te.id)
+                                elif _expr_can_be_none(sub.value, nullable, nullable_funcs):
+                                    for te in t.elts:
+                                        if isinstance(te, ast.Name):
+                                            nullable.add(te.id)
+                    elif (isinstance(sub, ast.AnnAssign)
+                          and isinstance(sub.target, ast.Name)
+                          and sub.value is not None
+                          and _expr_can_be_none(sub.value, nullable, nullable_funcs)):
+                        nullable.add(sub.target.id)
+            for node in ast.walk(fn):
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                    is_c = ((isinstance(node.func.value, ast.Name)
+                             and node.func.value.id == "_C")
+                            or (isinstance(node.func.value, ast.Attribute)
+                                and node.func.value.attr == "_C"))
+                    if not is_c:
+                        continue
+                    cname = node.func.attr
+                    pnames, _ = c_sigs.get(cname, ([], {}))
+                    for idx, arg_expr in enumerate(node.args):
+                        if (idx < len(pnames)
+                                and _expr_can_be_none(arg_expr, nullable, nullable_funcs)):
+                            nullable_c.setdefault(cname, set()).add(pnames[idx])
+                    for kw in node.keywords:
+                        if kw.arg and _expr_can_be_none(kw.value, nullable, nullable_funcs):
+                            nullable_c.setdefault(cname, set()).add(kw.arg)
+    return {k: sorted(v) for k, v in sorted(nullable_c.items())}
+
+
+def _grade_optional_c_bindings(c_sigs, required_nullable):
+    """Return `(bad, total_params)` for `required_nullable` against parsed `_C` signatures."""
+    bad = []
+    total = 0
+    for fn_name, params in sorted(required_nullable.items()):
+        _, by_name = c_sigs.get(fn_name, ([], {}))
+        if not by_name:
+            bad.append(f"{fn_name} (<missing signature>)")
+            continue
+        for p in params:
+            total += 1
+            t = by_name.get(p)
+            if t is None:
+                bad.append(f"{fn_name}.{p} (<missing param>)")
+            elif "| None" not in t and "Optional[" not in t and "= None" not in t:
+                bad.append(f"{fn_name}.{p}: {t}")
+    return bad, total
+
+
+print("\nevery optional parameter in comfy_kitchen.backends.cuda._C accepts None:")
+cuda_mod = sys.modules.get("comfy_kitchen.backends.cuda")
+if cuda_mod is None or not hasattr(cuda_mod, "_C"):
+    skip("optional_bindings", "comfy_kitchen.backends.cuda._C unavailable")
+else:
+    _c_ext = cuda_mod._C
+    _c_sigs = {
+        name: _parse_c_signature(getattr(getattr(_c_ext, name), "__doc__", None))
+        for name in dir(_c_ext)
+        if not name.startswith("__")
+    }
+    _nullable_map = _discover_nullable_c_params(ck, _c_sigs)
+    # Explicit floor on the attention and Sol entries our renders hit directly,
+    # so a wrapper refactor cannot quietly shrink the checked set below them.
+    for _fn, _ps in (
+        ("sage_sdpa_prequantized", ("attn_mask",)),
+        ("sage_sdpa", ("attn_mask",)),
+        ("sol_attn", ("key_bias", "threshold", "block_len", "tau_map")),
+        ("sol_attn_core", ("threshold", "block_len")),
+        ("sol_producer_chunk", ("block_len",)),
+    ):
+        _cur = set(_nullable_map.get(_fn, ())) | set(_ps)
+        _nullable_map[_fn] = sorted(_cur)
+    _bad_opt, _total_opt = _grade_optional_c_bindings(_c_sigs, _nullable_map)
+    check(
+        "optional_bindings",
+        not _bad_opt and _total_opt > 0,
+        f"{_total_opt} optional parameter(s) across {len(_nullable_map)} _C "
+        f"function(s) accept None (sage_sdpa_prequantized.attn_mask, "
+        f"sage_sdpa.attn_mask, sol_attn.* included)"
+        if not _bad_opt and _total_opt > 0
+        else f"C++ binding(s) in comfy_kitchen.backends.cuda._C reject None "
+        f"(nanobind 2.10+ requires .none() or = nb::none() on std::optional "
+        f"nb::arg bindings in dlpack_bindings.cpp): {'; '.join(_bad_opt)}",
+    )
+    # Refusal control: strip `| None` from sage_sdpa_prequantized.attn_mask (the
+    # exact signature produced by bare `nb::arg("attn_mask")` before 997dd79)
+    # and prove the grader reports it by name.
+    _mut_names, _mut_by_name = _c_sigs.get("sage_sdpa_prequantized", ([], {}))
+    _mut_sigs = dict(_c_sigs)
+    _mut_copy = dict(_mut_by_name)
+    _mut_copy["attn_mask"] = "ndarray[device='cuda']"
+    _mut_sigs["sage_sdpa_prequantized"] = (_mut_names, _mut_copy)
+    _refusal_bad, _ = _grade_optional_c_bindings(_mut_sigs, _nullable_map)
+    check(
+        "optional_bindings_refusal",
+        _refusal_bad == ["sage_sdpa_prequantized.attn_mask: ndarray[device='cuda']"],
+        f"stripped '| None' caught as {_refusal_bad[0]}"
+        if _refusal_bad == ["sage_sdpa_prequantized.attn_mask: ndarray[device='cuda']"]
+        else f"expected ['sage_sdpa_prequantized.attn_mask: ndarray[device=\\'cuda\\']'], got {_refusal_bad}",
+    )
 
 print("\nno shipped graph wires the Triton node:")
 triton_graphs = graphs_wiring(TRITON_SOL_NODE)
@@ -494,45 +641,6 @@ check("no_triton_graphs", not triton_graphs,
       f"{', '.join(triton_graphs[:3])}" + (" ..." if len(triton_graphs) > 3 else "")
       if triton_graphs else
       f"0 of {len(graph_paths(_REPO / 'workflows'))} graphs")
-
-print("\nthe vendored upstream node is a pristine reference, not the running node:")
-if not _VENDORED.is_file():
-    skip("vendored_reference", f"no vendored copy at vendor/{_VENDORED.name}")
-    skip("node_version", "nothing to hash")
-else:
-    digest = hashlib.sha256(_VENDORED.read_bytes()).hexdigest()
-    # The point of this file is that it is UPSTREAM'S. A copy carrying our
-    # edits answers "does this reproduce on stock?" with "we do not know",
-    # which is the whole property it exists to provide. It was lost between
-    # 2026-08-29 and 2026-08-30, when the merged kernel's API change was
-    # absorbed by editing it in place, and restored by reverting to the last
-    # genuine drop.
-    ours = digest in OUR_NODE_VERSIONS
-    check("vendored_reference", not ours,
-          "pristine upstream drop; a disagreement with it is a finding"
-          if not ours else
-          f"the vendored file is OURS ({OUR_NODE_VERSIONS[digest]}), not "
-          f"upstream's. A reference carrying our edits cannot adjudicate "
-          f"anything -- fork it under its own name instead (sol_attn_h3.py "
-          f"is how that was done).")
-    label = KNOWN_NODE_VERSIONS.get(digest)
-    check("node_version", label is not None,
-          label if label else
-          f"sha256 {digest[:16]}... is not a recorded version; add it to "
-          f"KNOWN_NODE_VERSIONS and vendor/README.md before running it")
-
-    live = _INSTALLED.exists()
-    check("not_loaded_by_comfyui", not live,
-          "correctly absent: the pack is renamed .disabled, which ComfyUI "
-          "skips, so the reference cannot be executed by accident"
-          if not live else
-          f"{_INSTALLED.parent.name}/ is live again, so ComfyUI is loading the "
-          f"PRE-MERGE upstream node. Its `_run` passes `centroid_tail` to a "
-          f"kernel that dropped it, which raises inside `override`'s "
-          f"catch-all and becomes a silent full-dense render.")
-    if _DISABLED.exists():
-        print(f"        the disabled pack still points into vendor/, so "
-              f"renaming it back restores the old arrangement exactly")
 
 print("\nSOL_CUDA_DEFAULTS pins only knobs the node declares:")
 node_file = next((p for p in _NODE_PATHS if p.is_file()), None)
