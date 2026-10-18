@@ -26,12 +26,13 @@ close's is `data/2026-10-18_fun_delivery_tables/frame_coverage_fun_0000_6394_202
    frames; nothing is laid after 5564). WHY: no capture was ever made of them; the work went shot by shot in song order
    and stopped, and today's planned captures did not run (the Claude lead's miss). Each needs a capture before a load.
 
-Before filling them, one build (C129 and C131, the owner's points): a clip on the review page is whole, or the gap
-check's counts for its own frames are printed right above the player (per person, per kind, frames and spans), else it is
-not shown; and the gap check says, per frame and person, how far each gap
-has got, naming the files: nothing captured; captured, not rendered; rendered, not kept; kept and laid. Today it calls
-3471 frames "no tied capture", yet 1025 of them have an older capture holding her track, and unkept renders are not
-looked at. The stacked view and the pages print the check's own words, so every view agrees.
+LANDED after the close (`54eb32a3`, gem-memsel; C129, C131): the gap check's ladder and the counts above each player.
+Per frame and person it names the furthest step: no capture; captured, not rendered (an older capture holds her
+track); rendered, not kept (the clips and windows); kept and laid. On the 0141Z table its steps add to the old totals
+exactly (438 while tracked = 191 + 179 + 68; 3,471 not known = 2,703 + 542 + 163 + 63), and the kitchen's gaps for the
+lead read "rendered, not kept" with the 0613 renders named. FIRST THING: run `bench/rebuild_delivery.py --video fun`,
+so the pages show the new counts above the players; then tonight's candidates can go on Start here with their gaps
+counted (C131). NOT TESTED: the pages made from it, which nobody has opened yet.
 
 And one more before the kitchen load (C136, the owner's yes): the head tube's turned-away label only proposes (it calls
 709, 710, 712 and 735-737 turned away where the owner sees the side of her face: a profile lumped with the back of her
