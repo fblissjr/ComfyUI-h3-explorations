@@ -91,7 +91,12 @@ gate. The two that are next, from the same check and tonight's `lead_fp_0613g`:
     (bit-packed), from captures NAMED explicitly, never a blocked or older one (C146, C147: kitchen
     `data/2026-10-17_lead_fp_0613g/`; the hall `data/2026-10-13_lead_fp_1306s/` and `data/2026-10-13_third_fp_1310c/`;
     1419 `data/2026-10-15_lead_fp_1419d/`; `data/2026-10-12_lead_fp_1306_span_1306_1418_blocked` refused), each masks
-    file's sha256 recorded. NOT RUN: the three scenes need the card (the command is in C147).
+    file's sha256 recorded. RUN after the close (gem-memsel, `internal/gemini/2026-10-17_worker_gem-memsel.md` W4;
+    `data/2026-10-17_sam_memory_selection/summary__*.json`): on the person tracks (the kitchen body, the hall, 1419)
+    memory selection changes nothing or one frame. On the lead's FACE tracked alone over 680-760 it does: SAM 3.1 off
+    is back at 715, on at 710 (the owner's look: the side of her face from 709); SAM 3 base off is empty 691-751, on
+    is back at 702, which the owner's look calls hair until 709, so "back" there is a mask, not yet checked against the
+    picture. One shot; a reading of the frames comes before any switch is built.
   - ON A BRANCH: `gemmatte-faces` (`h3_worktrees/gemmatte-faces`): the three-state face label and drops and face lines
     as a person's word, CPU only (`internal/gemini/2026-10-18_brief_build_faces.md`). The Claude lead lands it if it is
     cleared tonight; otherwise tomorrow's Gemini lead lands it after clearance, before `lead_fp_0613h` is made.
