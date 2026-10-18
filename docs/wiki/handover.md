@@ -97,7 +97,14 @@ gate. The two that are next, from the same check and tonight's `lead_fp_0613g`:
     is back at 715, on at 710 (the owner's look: the side of her face from 709); SAM 3 base off is empty 691-751, on
     is back at 702, which the owner's look calls hair until 709, so "back" there is a mask, not yet checked against the
     picture. The owner's word: SAM 3.1's memory selection goes ON in the chain
-    (decisions.md, 2026-10-17): built in `sam31_corrections.py`'s form, ON by default, tested on the queue (C148).
+    (decisions.md, 2026-10-17). LANDED `35706971`: `MiniMaxH3SAM31Corrections` input `memory_selection` (optional; on
+    by default, absent means on), for one-object tracks on SAM 3.1 only (several objects and SAM 3 base keep ComfyUI's
+    memory); a load turns it off with `--no-memory-selection` and a reason, and THE DEFAULTS name it. TESTED: the node's
+    22 cases, the on-card check on ModelPatcherDynamic, the server queue test with an H3 render (on a scratch copy at
+    port 8191, stopped after), the face over 680-760 of 0613g through the node (710 on, 715 off; 709 and 714 with the
+    range corrected), three blind reads (two Claude, one Gemini: `internal/gemini/2026-10-18_review_memsel_node.md`).
+    NOT TESTED: several objects or a mid-video detection on the real model (CPU stand-in only), SAM 3 base on real
+    weights, a real load through the chain. Captures made from now carry it; kept pieces are not remade for it.
   - LANDED `a15463e9`: the three-state face label (facing; side with an eye; back of the head, which only proposes) and
     drops and face lines as a person's word: a carried `drop` or `--no-face-on` is refused on frames where the capture
     sees her face; the holds never fill a back-of-head frame unless a person's word holds it (C136-C140,
