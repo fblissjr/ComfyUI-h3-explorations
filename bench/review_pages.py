@@ -33,44 +33,38 @@ Decisions are not here: they are on the Open List (`--open-list`), which the pag
 The first local page was unreadable in dark mode because its dark rule sat before the rule it meant to override
 (the owner's screenshot, 2026-10-13); with tokens there is no such order to get wrong.
 
-**`to-review`: what the CURRENT table lays and the owner has not settled**, never every open item of the review
-list (it holds the dead items of earlier days). Settled is a keep or a "not the one" (`SETTLED`, the table's own
-words) with no words of the owner's after it: their words rule over the button, so a keep followed by words is shown
-again with them; a "not sure" leaves a piece to review. Each line of words says where it came from: typed in the
-page's box, or said elsewhere and taken down by a session (the verdicts record's `source` and `note`).
-A record shot of the table with two or more of the subjects in it (the table's reading: present or unsure) is shown
-as its joined clip, the newest item on the list of exactly that shot's frames, ONLY when the table that clip was
-built from (`--tables`) lays the same pieces on the shot as this one, until the owner KEEPS that clip (a "wrong" on
-it leaves the shot here with its pieces); otherwise, and where no joined clip is built, each unsettled piece of the
-shot is shown on its own, with why. A shot of one subject with a joined clip of this table on the list is shown by
-it too, under its own heading (2026-10-15); with none, its piece is shown on its own, once, however many rows its restore
-spans cut it into. A
-piece's item is the one whose id or `name` is the render's. Each piece carries the day it was rendered on the
-owner's clock, its item's look line (said as the card's words), and what it replaces: the rows of its subject that
-`--previous-table` laid on its frames. With `--previous-table`, a part "since the last page", on the frames both
-tables cover (said, with each one's): the pieces added and the pieces that left, and for each subject the frames
-that gained a piece (a gap closed) or lost one (opened). Each entry is put under WAITING ON YOU when it has no click of
-the owner's, and under DONE, a closed fold, when it has one, with a piece they settled on `--today` (their clock) shown
-there too (the lead's page of 2026-10-14, at the owner's ask of which items were still theirs). The lead's rulings the
-same day, on a sixth reader's findings: a keep with words after it, and words with no click, are answers, under Done on the
-day of the last line and off the page after it; the clicks and words on any joined clip that lays a piece count as
-answers on it (a keep also settles it). Right above each player on `to-review` (in `Start here`, `Waiting on you`, and
-`Done`), the page prints `frame_coverage.clip_gap_line()` for that clip's own frames (per person, each kind with frame
-counts and spans, in the gap check's own words; no line when whole), and refuses any clip on `Start here` with gaps and
-no such line. Above each compare clip's player on `to-review`, the page also prints one generated line per person in the
-shot (`<subject>: new here: <load>`, `<subject>: the current cut: <load>, laid <day>`, or `<subject>: the original: no piece`),
-read from the compare clip's sidecar and the table and ledger and never typed into `start_here.json`. On `Start here`, each clip's entry may name `reader_file` (or `reader_files`), pointing at the playback
+**`to-review`: what needs the owner now (`Start here`), what was kept today (`Kept today`), and the gap check**, keeping
+the page short and plain while `PROVENANCE.html` keeps the full record (`C111`, 2026-10-18). Everything answered,
+superseded, or from earlier days (`Since the last page`, `Waiting on you`, `Done`, and `Held back by the lead, and your
+keeps this table does not lay`) leaves `TO_REVIEW.html`. Settled is a keep or a "not the one" (`SETTLED`, the table's own
+words) with no words of the owner's after it: their words rule over the button, so a keep followed by words is open
+again with them; a "not sure" leaves a piece open. Each line of words says where it came from: typed in the page's box,
+or said elsewhere and taken down by a session (the verdicts record's `source` and `note`). A record shot of the table
+with two or more of the subjects in it (the table's reading: present or unsure) links its joined clip, the newest item on
+the list of exactly that shot's frames, ONLY when the table that clip was built from (`--tables`) lays the same pieces on
+the shot as this one, until the owner KEEPS that clip (a "wrong" on it leaves the shot open with its pieces); otherwise,
+and where no joined clip is built, each unsettled piece of the shot is linked on its own. A shot of one subject with a
+joined clip of this table on the list links it too (2026-10-15); with none, its piece is linked once, however many rows
+its restore spans cut it into. A piece's item is the one whose id or `name` is the render's. Right above each player on
+`Start here`, the page prints `frame_coverage.clip_gap_line()` for that clip's own frames (per person, each kind with
+frame counts and spans, in the gap check's own words; no line when whole), and refuses any clip on `Start here` with gaps
+and no such line. Above each compare clip's player on `Start here`, the page also prints one generated line per person in
+the shot (`<subject>: new here: <load>`, `<subject>: the current cut: <load>, laid <day>`, or
+`<subject>: the original: no piece`), read from the compare clip's sidecar and the table and ledger and never typed into
+`start_here.json`. On `Start here`, each clip's entry may name `reader_file` (or `reader_files`), pointing at the playback
 reader session's `.md` file (`data/<day>_<load>/playback_reading_<reader>.md`, written by the reader session on live
 playback and read here, never typed into `start_here.json`). Its top block carries a fixed four-field card (`Sees` as
 `frames: what`, `Cannot see`, `Verdict` as `keep` | `remake` | `unsure`, and a one-line `Why`), rendered folded closed
 (`<details class="why reader-card">`) with a one-line `<summary>` that never shows the verdict so the owner watches
 first; where the owner has answered that clip (`--answers data/<stem>/owner_answers.jsonl` or `--verdicts`), the card
-shows the owner's verdict and `agree` or `differ` beside the two verdicts. Both pages include a short block from the
-table's per-frame gap check
+shows the owner's verdict and `agree` or `differ` beside the two verdicts. Below `Start here`, `Kept today` is generated,
+never typed, from `verdicts.jsonl` (the day's lines whose `chosen` is a keep) joined with `laid.jsonl`: one compact row
+per kept piece, newest first, showing the load name, the frames, a relative link to its compare or stacked clip, the
+owner's own words, and `laid` or `not laid`. Both pages include a short block from the table's per-frame gap check
 (`assembly.stack.coverage_json`, from `bench/delivery_table.py`, held by `table_sha256` and never recomputed; a build
 refuses when it is missing or not this table's), worst shots first in the `remake` and `capture` lists apart, by kind
 (`captured_not_rendered`, `rendered_not_kept`, `emptied_inside`, `laid_but_barely_changed`,
-`region_far_below_its_own_size`; and, apart, `no_capture`), and end, or begin, with the lead's holds (the table's
+`region_far_below_its_own_size`; and, apart, `no_capture`); `PROVENANCE.html` also carries the lead's holds (the table's
 `held`, a session's word, its reason whole) and the owner's keeps this table does not lay, with the table's reason.
 Links are `--page-url` + an item's id.
 
@@ -365,7 +359,7 @@ class Records:
     """The table, the ledger, the review list and the owner's lines, read once, with the day of each piece."""
 
     def __init__(self, table: str, ledger: str, verdicts: str, items: str, tables: list[str] | None = None):
-        self.table_path, self.ledger_path, self.items_path = table, ledger, items
+        self.table_path, self.ledger_path, self.verdicts_path, self.items_path = table, ledger, verdicts, items
         self.T = json.load(open(table))
         self.L = json.load(open(ledger))
         named = re.search(r"from the ledger `([^`]+)`", str(self.T.get("made") or ""))
@@ -376,6 +370,7 @@ class Records:
             raise SystemExit(f"--ledger {ledger}: the table says it was made from another ledger, {named.group(1)}")
         self.gap_check, self.gap_check_path = read_gap_check(self.T, table)
         self.by_name = {r["name"]: r for r in self.L["renders"].values()}
+        self.V = [json.loads(line) for line in open(verdicts) if line.strip()]
         self.lines = read_verdicts(verdicts)
         self.items_in_order = json.load(open(items))["items"]
         self.items = {i["id"]: i for i in self.items_in_order}
@@ -629,6 +624,7 @@ def held_and_set_aside(rec: "Records") -> list[str]:
 
 READER_CARD_VERDICTS = ("keep", "remake", "unsure")
 INLINE_CARD_KEYS = ("reader_notes", "reader_card", "sees", "cannot_see", "cannot see", "verdict", "reader_verdict", "reader_why")
+INLINE_KEPT_TODAY_KEYS = ("kept_today", "kept_today_rows", "kept_pieces")
 MAX_CARD_FIELD_LINES = 3
 MAX_CARD_FIELD_CHARS = 480
 MAX_CARD_WHY_CHARS = 220
@@ -1640,6 +1636,12 @@ def start_here(
                 f"--start-here {path}, entry {k}: compare clip lines are generated from the records, never typed into start_here.json "
                 f"(found {', '.join(bad_cmp)})"
             )
+        bad_kept = [key for key in INLINE_KEPT_TODAY_KEYS if key in e]
+        if bad_kept:
+            raise SystemExit(
+                f"--start-here {path}, entry {k}: Kept today is generated from verdicts.jsonl and laid.jsonl, never typed into start_here.json "
+                f"(found {', '.join(bad_kept)})"
+            )
         what, why = str(e.get("item") or "").strip(), " ".join(str(e.get("why") or "").split())
         url = str(e.get("link") or "").strip()
         if (not what and not url) or not why:
@@ -1836,10 +1838,294 @@ def serve_page_html(html_text: str, laid_path: str | Path, video: str) -> str:
     return banner + html_text
 
 
-def to_review(a: argparse.Namespace) -> str:
-    rec = Records(a.table, a.ledger, a.verdicts, a.items, a.tables)
-    rate, out_dir = rate_of(a.source), os.path.dirname(os.path.abspath(a.out))
-    previous = json.load(open(a.previous_table)) if a.previous_table else None
+def _read_laid_rows(rec: Records, a: argparse.Namespace) -> list[dict]:
+    """Read laid rows from `laid.jsonl` when present, falling back to `rec.T['rows']`."""
+    lp = _find_laid_path(rec.T, a)
+    out: list[dict] = []
+    if lp and lp.is_file():
+        for raw in lp.read_text(encoding="utf-8", errors="replace").splitlines():
+            if not raw.strip():
+                continue
+            try:
+                obj = json.loads(raw)
+            except ValueError:
+                continue
+            if isinstance(obj, dict) and obj.get("first") is not None and obj.get("last") is not None:
+                load_name = str(obj.get("load") or obj.get("name") or "").strip()
+                if load_name:
+                    shot_f0, shot_f1 = int(obj["first"]), int(obj["last"])
+                    fr_pairs = [
+                        (int(p[0]), int(p[1]))
+                        for p in (obj.get("frames") or [])
+                        if isinstance(p, (list, tuple)) and len(p) == 2 and all(isinstance(x, int) for x in p)
+                    ]
+                    piece_f0 = min(p[0] for p in fr_pairs) if fr_pairs else shot_f0
+                    piece_f1 = max(p[1] for p in fr_pairs) if fr_pairs else shot_f1
+                    out.append({
+                        "load": load_name,
+                        "subject": str(obj.get("subject") or ""),
+                        "first": shot_f0,
+                        "last": shot_f1,
+                        "piece_first": piece_f0,
+                        "piece_last": piece_f1,
+                        "by": str(obj.get("by") or ""),
+                    })
+    if not out:
+        for r in rec.T.get("rows") or []:
+            if isinstance(r, dict) and r.get("first") is not None and r.get("last") is not None:
+                load_name = str(r.get("load") or r.get("name") or "").strip()
+                if load_name:
+                    f0, f1 = int(r["first"]), int(r["last"])
+                    out.append({
+                        "load": load_name,
+                        "subject": str(r.get("subject") or ""),
+                        "first": f0,
+                        "last": f1,
+                        "piece_first": f0,
+                        "piece_last": f1,
+                        "by": "",
+                    })
+    return out
+
+
+def kept_today_block(rec: Records, a: argparse.Namespace, out_dir: str, today: str) -> list[str]:
+    """Kept today section on TO_REVIEW.html: generated, never typed, from verdicts.jsonl (the day's lines whose chosen is a keep)
+    joined with laid.jsonl: one compact row per kept piece, newest first:
+    - the load name (and title when distinct)
+    - the frames (first-last)
+    - a relative link to its compare or stacked clip
+    - the owner's own words
+    - laid or not laid"""
+    laid_rows = _read_laid_rows(rec, a)
+    laid_spans_by_load: dict[str, tuple[int, int]] = {}
+    laid_by_text: dict[str, str] = {}
+    for lr in laid_rows:
+        ln = lr["load"]
+        f0, f1 = lr["piece_first"], lr["piece_last"]
+        if ln in laid_spans_by_load:
+            laid_spans_by_load[ln] = (min(laid_spans_by_load[ln][0], f0), max(laid_spans_by_load[ln][1], f1))
+        else:
+            laid_spans_by_load[ln] = (f0, f1)
+        if lr.get("by") and ln not in laid_by_text:
+            laid_by_text[ln] = lr["by"]
+
+    latest_choice: dict[str, tuple[str, int, dict]] = {}
+    latest_words: dict[str, tuple[str, int, str]] = {}
+    for idx, v in enumerate(rec.V):
+        if not isinstance(v, dict) or v.get("who") not in ("owner", None, ""):
+            continue
+        row_key = str(v.get("row") or v.get("item") or "").strip()
+        if not row_key:
+            continue
+        at_str = str(v.get("at") or "")
+        w_str = " ".join(str(v.get("words") or "").split()).strip()
+        if w_str:
+            prev_w = latest_words.get(row_key)
+            if prev_w is None or (at_str, idx) >= (prev_w[0], prev_w[1]):
+                latest_words[row_key] = (at_str, idx, w_str)
+        if v.get("chosen"):
+            prev_c = latest_choice.get(row_key)
+            if prev_c is None or (at_str, idx) >= (prev_c[0], prev_c[1]):
+                latest_choice[row_key] = (at_str, idx, v)
+
+    kept_entries: list[tuple[str, int, str, dict]] = []
+    for row_key, (at_str, idx, v) in latest_choice.items():
+        if v.get("chosen") in delivery_table.KEEP and at_str and owners(at_str, "%Y-%m-%d") == today:
+            kept_entries.append((at_str, idx, row_key, v))
+    kept_entries.sort(key=lambda item: (item[0], item[1]), reverse=True)
+
+    def _resolve_span(row_name: str, v: dict) -> tuple[int, int] | None:
+        if v.get("first") is not None and v.get("last") is not None:
+            return int(v["first"]), int(v["last"])
+        if v.get("first") is not None and isinstance(v.get("frames"), int) and int(v["frames"]) > 0:
+            f0 = int(v["first"])
+            return f0, f0 + int(v["frames"]) - 1
+        vf = v.get("frames") or v.get("span")
+        if isinstance(vf, (list, tuple)) and len(vf) == 2 and all(isinstance(x, int) for x in vf):
+            return int(vf[0]), int(vf[1])
+        if row_name in laid_spans_by_load:
+            return laid_spans_by_load[row_name]
+        it = rec.items.get(row_name) or rec.item_of(row_name)
+        if it and it.get("first") is not None and it.get("frames"):
+            f0 = int(it["first"])
+            return f0, f0 + int(it["frames"]) - 1
+        if row_name in rec.by_name:
+            g = rec.by_name[row_name]
+            gr = g.get("graph") or {}
+            if gr.get("first") is not None and gr.get("frames"):
+                f0 = int(gr["first"])
+                return f0, f0 + int(gr["frames"]) - 1
+            sp = g.get("span")
+            if isinstance(sp, (list, tuple)) and len(sp) == 2:
+                return int(sp[0]), int(sp[1])
+        for probe in (str(v.get("clip") or ""), str(v.get("render") or ""), row_name, str(v.get("title") or "")):
+            s_no_date = re.sub(r"\d{4}-\d{2}-\d{2}", "", probe)
+            m_tail = re.search(r"(?<!\d)(\d{3,5})[-_](\d{3,5})(?:_(?:compare|stacked))?(?:\.[a-z0-9]+)?$", s_no_date, re.I)
+            if m_tail and int(m_tail.group(1)) <= int(m_tail.group(2)):
+                return int(m_tail.group(1)), int(m_tail.group(2))
+            for m in re.finditer(r"(?<!\d)(\d{3,5})[-_](\d{3,5})(?!\d)", s_no_date):
+                if int(m.group(1)) <= int(m.group(2)):
+                    return int(m.group(1)), int(m.group(2))
+        return None
+
+    def _rel_to_out(p_raw: str, base_file: str | Path | None = None) -> tuple[str, Path | None]:
+        out_p = Path(out_dir).resolve()
+        stem_src = Path(a.source).stem if getattr(a, "source", None) else out_p.name
+        sub_rel = ""
+        for st in dict.fromkeys(filter(None, [stem_src, out_p.name])):
+            prefix = f"Video/{st}/"
+            if p_raw.startswith(prefix):
+                sub_rel = p_raw[len(prefix):]
+                break
+        cands = [
+            out_p / p_raw,
+            (out_p / sub_rel) if sub_rel else None,
+            (Path(a.share) / p_raw) if getattr(a, "share", None) else None,
+            (Path(a.share) / "Video" / stem_src / p_raw) if (getattr(a, "share", None) and stem_src) else None,
+            in_repo(p_raw, base_file) if base_file else None,
+            Path(p_raw),
+        ]
+        for cand in filter(None, cands):
+            if cand.is_file():
+                return os.path.relpath(cand.resolve(), out_p), cand.resolve()
+        if sub_rel:
+            return sub_rel, out_p / sub_rel
+        if not os.path.isabs(p_raw):
+            return p_raw, out_p / p_raw
+        return os.path.relpath(p_raw, out_dir), Path(p_raw)
+
+    def _resolve_clip_rel_and_file(row_name: str, v: dict) -> tuple[str, Path | None]:
+        out_p = Path(out_dir).resolve()
+        c_raw = str(v.get("clip") or "").strip()
+        if c_raw:
+            return _rel_to_out(c_raw, rec.verdicts_path)
+
+        r_raw = str(v.get("render") or "").strip()
+        if r_raw and ("review_clips/" in r_raw or r_raw.endswith(("_compare.mp4", "_stacked.mp4"))):
+            return _rel_to_out(r_raw, rec.verdicts_path)
+
+        for text_probe in (str(v.get("source") or ""), laid_by_text.get(row_name, "")):
+            m_rc = re.search(r"((?:Video/[^/\s,;\"']+/)?review_clips/[^\s,;\"')]+?\.(?:mp4|mov|webm|mkv))", text_probe)
+            if m_rc:
+                return _rel_to_out(m_rc.group(1), rec.verdicts_path)
+
+        rc_dir = out_p / "review_clips"
+        if rc_dir.is_dir():
+            hits = sorted(rc_dir.glob(f"{row_name}_*_compare.mp4")) + sorted(rc_dir.glob(f"{row_name}_*_stacked.mp4"))
+            if hits:
+                return os.path.relpath(hits[-1].resolve(), out_p), hits[-1].resolve()
+
+        it = rec.items.get(row_name) or rec.item_of(row_name)
+        if it and it.get("path"):
+            return _rel_to_out(str(it["path"]).strip(), rec.items_path)
+
+        if r_raw:
+            return _rel_to_out(r_raw, rec.verdicts_path)
+
+        if row_name in rec.by_name and rec.by_name[row_name].get("file"):
+            return _rel_to_out(str(rec.by_name[row_name]["file"]).strip(), rec.ledger_path)
+
+        if it and it.get("id"):
+            return f"{a.page_url}{it['id']}", None
+        return "", None
+
+    def _is_laid_entry(row_name: str, v: dict, span: tuple[int, int] | None, clip_file: Path | None) -> bool:
+        if row_name in laid_spans_by_load:
+            return True
+        if clip_file is not None:
+            for cc_cand in (Path(str(clip_file) + ".check.json"), clip_file.with_suffix(".check.json")):
+                if cc_cand.is_file():
+                    try:
+                        cc_obj = json.loads(cc_cand.read_text())
+                    except ValueError:
+                        cc_obj = None
+                    if isinstance(cc_obj, dict) and isinstance(cc_obj.get("table"), list) and cc_obj["table"]:
+                        piece_loads: list[str] = []
+                        for tr in cc_obj["table"]:
+                            if not isinstance(tr, dict):
+                                continue
+                            pf = str(tr.get("piece") or "")
+                            matched = next((n for n, g in rec.by_name.items() if pf.endswith(str(g.get("file") or ""))), None)
+                            if not matched and pf:
+                                matched = re.sub(r"_\d{5}$", "", Path(pf).stem)
+                            if matched:
+                                piece_loads.append(matched)
+                        if piece_loads and all(pl in laid_spans_by_load for pl in piece_loads):
+                            return True
+                        if piece_loads:
+                            return False
+        for td in (a.tables or []):
+            tp = Path(td) / f"t_{row_name.removesuffix('_stacked')}.json"
+            if tp.is_file():
+                try:
+                    tb = json.loads(tp.read_text())
+                except ValueError:
+                    tb = None
+                if isinstance(tb, dict) and isinstance(tb.get("rows"), list) and tb["rows"]:
+                    tb_loads = [str(r.get("name") or r.get("load") or "").strip() for r in tb["rows"] if isinstance(r, dict)]
+                    tb_loads = [x for x in tb_loads if x]
+                    return bool(tb_loads) and all(x in laid_spans_by_load for x in tb_loads)
+        c_raw = str(v.get("clip") or v.get("render") or "")
+        if c_raw:
+            stem_c = Path(c_raw).stem
+            stripped = re.sub(r"_\d{3,5}_\d{3,5}(?:_(?:compare|stacked))?$", "", stem_c)
+            if stripped and stripped != stem_c and stripped in laid_spans_by_load:
+                if span is None:
+                    return True
+                s0, s1 = span
+                present_subs = [
+                    str(rd["subject"])
+                    for rd in (rec.T.get("reading") or [])
+                    if rd.get("present") == "yes" and int(rd["first"]) <= s1 and int(rd["last"]) >= s0
+                ]
+                if not present_subs:
+                    return True
+                return all(
+                    any(lr["subject"] == sub and lr["first"] <= s1 and lr["last"] >= s0 for lr in laid_rows)
+                    for sub in present_subs
+                )
+        return False
+
+    out = [
+        "<h2>Kept today</h2>",
+        f"<p class='mut'>Generated from verdicts.jsonl and laid.jsonl for {E(today)} (newest first).</p>",
+    ]
+    if not kept_entries:
+        out.append("<p class='mut'>None yet today.</p>")
+        return out
+
+    li_rows: list[str] = []
+    for _at, _idx, row_name, v in kept_entries:
+        title = " ".join(str(v.get("title") or "").split()).strip()
+        if title and title != row_name and not title.lower().startswith(row_name.lower()):
+            name_html = f"<b>{E(row_name)}</b> ({E(title)})"
+        else:
+            name_html = f"<b>{E(row_name)}</b>"
+        span = _resolve_span(row_name, v)
+        frames_html = f"{span[0]}-{span[1]}" if span is not None else "frames unknown"
+        rel_href, clip_file = _resolve_clip_rel_and_file(row_name, v)
+        link_html = f'<a href="{E(rel_href)}">{E(rel_href)}</a>' if rel_href else "no clip link"
+        words = " ".join(str(v.get("words") or "").split()).strip()
+        if not words and row_name in latest_words:
+            words = latest_words[row_name][2]
+        words_html = f'"{E(words)}"' if words else "no words"
+        is_laid = _is_laid_entry(row_name, v, span, clip_file)
+        laid_html = "<b>laid</b>" if is_laid else '<b class="d">not laid</b>'
+        li_rows.append(f"<li>{name_html} &middot; {E(frames_html)} &middot; {link_html} &middot; {words_html} &middot; {laid_html}</li>")
+    out.append(f"<ul class='kept-today'>{''.join(li_rows)}</ul>")
+    return out
+
+
+def shot_review_sections(
+    rec: Records,
+    a: argparse.Namespace,
+    rate: Fraction,
+    previous: dict | None,
+    today: str,
+) -> tuple[dict[str, str], dict[str, list[str]], dict[str, tuple[int, int, list[str] | None]], dict[str, list[str]], list[str]]:
+    """Build the shot/item link maps (`drawn`, `shots_drawn`, `item_spans`, `shot_subjects`) for `start_here()`,
+    plus the legacy per-shot sections (`Since the last page`, `Waiting on you`, `Done`, `Held back by the lead`)
+    retained for unit-test coverage of `Records` and shot filing while omitted from `TO_REVIEW.html` (`C111`)."""
     drawn: dict[str, str] = {}                           # each item the page links, to its link: what --start-here may name
     item_spans: dict[str, tuple[int, int, list[str] | None]] = {}
     for it_raw in rec.items_in_order:
@@ -1856,20 +2142,6 @@ def to_review(a: argparse.Namespace) -> str:
         this_shot.append(i)
         return f'<a href="{E(a.page_url + i)}">{E(label or i)}</a>'
     shots_drawn: dict[str, list[str]] = {}               # each shot the page shows, FIRST-LAST, to the items its entry links
-    stem = Path(a.source).stem
-    body = [laid_stamp_line(rec.T, a),
-            f"<h1>{E(stem)}: to review</h1>",
-            f'<p class="mut">Made {datetime.datetime.now(OWNERS_CLOCK):%Y-%m-%d %H:%M} US Central from the table {E(os.path.basename(a.table))} and its '
-            f"ledger.{laid_from(rec.T)} Each piece is marked with the day its file was written: "
-            + ", ".join(f'<span class="d {t}">{datetime.date.fromisoformat(d):%m/%d}</span>' for d, t in rec.day_token.items())
-            + ". Shown: what this table lays and waits on you, then, folded, what you answered: your lines of today, and a not sure or a click on "
-            "a joined clip that names no piece until you say more. The joined clips' tables were read from: "
-            + (", ".join(E(str(t)) for t in a.tables) if a.tables else "no folder (no joined clip can be this table's)") + ".</p>",
-            f'<p>Decisions waiting on you are on <a href="{E(a.open_list)}">the Open List</a>.'
-            + (f' Beside this file: <a href="{E(a.provenance)}">{E(a.provenance)}</a>, every stretch and every gap.' if a.provenance else "") + "</p>"]
-    # WAITING ON YOU, AND DONE: each entry by the owner's last click on it (the lead's page of 2026-10-14, at the owner's ask of
-    # which items were still theirs): no click is waiting on them; a click of theirs, or a piece they settled today, is done
-    today = a.today or datetime.datetime.now(OWNERS_CLOCK).strftime("%Y-%m-%d")
     waiting = {"joined": [], "apart": [], "single": [], "joined_one": []}
     done = {"joined": [], "apart": [], "single": [], "joined_one": []}
     entries_before, last_shot = 0, None
@@ -2000,7 +2272,46 @@ def to_review(a: argparse.Namespace) -> str:
         if got["joined_one"]:
             out += [f"<{tag}>Shots of one of them, as its joined clip</{tag}>", *got["joined_one"]]
         return out + [f"<{tag}>Pieces in a shot of one of them</{tag}>", *(got["single"] or ["<p class='mut'>None.</p>"])]
+
     n_wait, n_done = (sum(map(len, g.values())) for g in (waiting, done))
+    legacy_tail: list[str] = []
+    if previous is not None and getattr(a, "previous_table", None):
+        legacy_tail += ["<h2>Since the last page</h2>", *since(rec, a.previous_table)]
+    legacy_tail += [
+        f"<h2>Waiting on you: {n_wait} with no click or words of yours yet</h2>",
+        "<p class='mut'>Watch these on playback, top to bottom. Each is something this table lays that you have not answered: a shot with a "
+        "joined clip by the joined clip, whatever its pieces' own lines say (each piece's line says them).</p>",
+        *sections(waiting, "h3"),
+        f"<details><summary><b>Done: {n_done} you have answered</b>, the last click and your words with each</summary>",
+        f"<p class='mut'>Each has a line of yours. A keep or not-the-one, a keep with your words after it, or words with no click stay here on "
+        f"the day of your last line on it ({datetime.date.fromisoformat(today):%m/%d}, your clock) and leave the page after it; your words reach "
+        "the sessions through the table and the item. A not sure, and a click on a joined clip that is not a keep (it names no piece), stay "
+        "here until you say more.</p>",
+        *sections(done, "h3"),
+        "</details>",
+        *held_and_set_aside(rec),
+    ]
+    return drawn, shots_drawn, item_spans, shot_subjects, legacy_tail
+
+
+def to_review(a: argparse.Namespace) -> str:
+    rec = Records(a.table, a.ledger, a.verdicts, a.items, a.tables)
+    rate, out_dir = rate_of(a.source), os.path.dirname(os.path.abspath(a.out))
+    previous = json.load(open(a.previous_table)) if a.previous_table else None
+    today = a.today or datetime.datetime.now(OWNERS_CLOCK).strftime("%Y-%m-%d")
+    drawn, shots_drawn, item_spans, shot_subjects, _legacy = shot_review_sections(rec, a, rate, previous, today)
+    stem = Path(a.source).stem
+    body = [
+        laid_stamp_line(rec.T, a),
+        f"<h1>{E(stem)}: to review</h1>",
+        f'<p class="mut">Made {datetime.datetime.now(OWNERS_CLOCK):%Y-%m-%d %H:%M} US Central from the table {E(os.path.basename(a.table))} and its '
+        f"ledger.{laid_from(rec.T)} Shown: what needs you now, what you kept today, and where the original still shows (the gap check). "
+        "Every stretch, earlier answer, and hold is in the provenance page.</p>",
+        f'<p>Decisions waiting on you are on <a href="{E(a.open_list)}">the Open List</a>.'
+        + (f' Beside this file: <a href="{E(a.provenance)}">{E(a.provenance)}</a>, every stretch and every gap.' if a.provenance else "")
+        + (f" The joined clips' tables were read from: {E(', '.join(a.tables))}." if a.tables else "")
+        + "</p>",
+    ]
     if a.start_here:
         ans_path = getattr(a, "answers", None)
         if not ans_path:
@@ -2015,7 +2326,7 @@ def to_review(a: argparse.Namespace) -> str:
             a.start_here,
             drawn,
             shots_drawn,
-            os.path.dirname(os.path.abspath(a.out)),
+            out_dir,
             rec=rec,
             item_spans=item_spans,
             shot_subjects=shot_subjects,
@@ -2023,21 +2334,8 @@ def to_review(a: argparse.Namespace) -> str:
             owner_answers=owner_ans,
             share=a.share,
         )
-    body += [
-            *gap_check_block(rec, rate)]
-    if previous is not None:
-        body += ["<h2>Since the last page</h2>", *since(rec, a.previous_table)]
-    body += [f"<h2>Waiting on you: {n_wait} with no click or words of yours yet</h2>",
-             "<p class='mut'>Watch these on playback, top to bottom. Each is something this table lays that you have not answered: a shot with a "
-             "joined clip by the joined clip, whatever its pieces' own lines say (each piece's line says them).</p>",
-             *sections(waiting, "h3"),
-             f"<details><summary><b>Done: {n_done} you have answered</b>, the last click and your words with each</summary>",
-             f"<p class='mut'>Each has a line of yours. A keep or not-the-one, a keep with your words after it, or words with no click stay here on "
-             f"the day of your last line on it ({datetime.date.fromisoformat(today):%m/%d}, your clock) and leave the page after it; your words reach "
-             "the sessions through the table and the item. A not sure, and a click on a joined clip that is not a keep (it names no piece), stay "
-             "here until you say more.</p>",
-             *sections(done, "h3"), "</details>"]
-    body += held_and_set_aside(rec)
+    body += kept_today_block(rec, a, out_dir, today)
+    body += gap_check_block(rec, rate)
     return page(f"To review: {stem}", "", "\n".join(body), 900)
 
 
@@ -2284,6 +2582,7 @@ def provenance(a: argparse.Namespace) -> str:
                  ("the working copy it read", str(gr.get("of"))),
                  ("built at the commit", f"{made.get('commit')} ({central(made.get('built_at'))}); its record: {g.get('making')}"),
                  ("why it stands", stand_why(next((s for rd in rec.T["reading"] for s in rd.get("stands") or [] if s["render"] == n), {}))),
+                 *([("the card's look line (a session's words)", str(it["look"]))] if it.get("look") else []),
                  ("on the review page", rec.last_click(rec.rows_of(n)))]
         said = "".join(f"<li>{owners(v['at'], '%m/%d %H:%M')}, {E(how_said(v))}"
                        + (f", at frame {v['frame']}" if v.get("frame") is not None else "")

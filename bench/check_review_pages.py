@@ -56,6 +56,13 @@
   the_banner_shows_on_a_stale_page_and_not_on_a_fresh_one when serving either page, if its recorded `sha256` differs from
                                 `laid.jsonl`'s current one, a plain banner is placed at the top:
                                 `This page is older than the cut: rebuild (bench/rebuild_delivery.py --video <video>)`
+  kept_today_is_generated_from_verdicts_and_laid `TO_REVIEW.html` generates `Kept today` from `verdicts.jsonl` (the day's lines
+                                whose `chosen` is a keep) joined with `laid.jsonl`: one compact row per kept piece, newest first
+                                (load name, frames, relative compare/stacked clip link, the owner's own words, and `laid` or `not laid`),
+                                refusing inline `kept_today` keys in `start_here.json`
+  to_review_clears_out_the_old_and_provenance_keeps_the_record `TO_REVIEW.html` shows ONLY `Start here`, `Kept today`, and the gap
+                                check; everything answered, superseded, or from earlier days (`Since the last page`, `Waiting on you`,
+                                `Done`, `Held back by the lead`) leaves `TO_REVIEW.html` while `PROVENANCE.html` keeps the full record
 
     <comfy venv python> bench/check_review_pages.py
 
@@ -222,6 +229,39 @@ def to_review(d: Path, more=(), **kw) -> str:
     return out.read_text()
 
 
+def shot_sections(d: Path, more=(), extra=None, **kw) -> str:
+    """Build TO_REVIEW.html via rp.main(['to-review', ...]) (verifying the clean page has no legacy sections) and append
+    rp.shot_review_sections() legacy_tail so historical unit tests on Records, since(), piece_line(), joined_item(), and
+    held_and_set_aside() continue to run."""
+    args = world(d, **kw)
+    if extra:
+        extra(d)
+    out = d / "day" / "TO_REVIEW.html"
+    cli = ["to-review", *args, "--page-url", "p#", "--open-list", "https://the-open-list", "--tables", str(d / "tables"),
+           "--out", str(out), *(more if "--today" in more else [*more, "--today", "2026-10-20"])]
+    assert rp.main(cli) == 0
+    clean_html = out.read_text()
+    for removed_h2 in ("<h2>Since the last page</h2>", "<h2>Waiting on you:", "<b>Done:", "<h2>Held back by the lead"):
+        assert removed_h2 not in clean_html, f"TO_REVIEW.html still holds legacy section {removed_h2!r}"
+    t_path = cli[cli.index("--table") + 1]
+    l_path = cli[cli.index("--ledger") + 1]
+    v_path = cli[cli.index("--verdicts") + 1]
+    i_path = cli[cli.index("--items") + 1]
+    s_path = cli[cli.index("--source") + 1]
+    sh_path = cli[cli.index("--share") + 1]
+    prev_p = cli[cli.index("--previous-table") + 1] if "--previous-table" in cli else None
+    today = cli[cli.index("--today") + 1]
+    rec = rp.Records(t_path, l_path, v_path, i_path, [str(d / "tables")])
+    previous = json.load(open(prev_p)) if prev_p else None
+    ns = rp.argparse.Namespace(
+        table=t_path, ledger=l_path, verdicts=v_path, items=i_path, source=s_path, share=sh_path,
+        page_url="p#", open_list="https://the-open-list", tables=[str(d / "tables")],
+        previous_table=prev_p, today=today, out=str(out),
+    )
+    _, _, _, _, legacy_tail = rp.shot_review_sections(rec, ns, rp.rate_of(s_path), previous, today)
+    return clean_html.replace("</body></html>", "\n".join(legacy_tail) + "\n</body></html>")
+
+
 def provenance(d: Path, stopped=True, out_at="day") -> str:
     out = d / out_at / "PROVENANCE.html"
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -289,7 +329,7 @@ def both_modes_read() -> str:
 def to_review_is_the_tables() -> str:
     with tempfile.TemporaryDirectory() as tmp:
         d = Path(tmp)
-        page = to_review(d, ["--previous-table", str(d / "t_before.json")])
+        page = shot_sections(d, ["--previous-table", str(d / "t_before.json")])
         text = text_of(page)
         assert 'href="p#v_0100_0149_joined_NEW_stacked"' in page and "joined_OLD" not in page, "not the newest joined clip of this table"
         assert "A DEAD ITEM" not in text and "dead_of_10_11" not in page, "an open item the table does not lay is shown"
@@ -307,16 +347,16 @@ def to_review_is_the_tables() -> str:
         assert 'it replaces, in the previous table: <a href="p#r__s__kitchen">kitchen</a> (rendered 10/10) on 100-149' in page, page
         assert '<a href="https://the-open-list">the Open List</a>' in page
     with tempfile.TemporaryDirectory() as tmp:
-        text = text_of(to_review(Path(tmp)))
+        text = text_of(shot_sections(Path(tmp)))
         assert "it replaces, in the previous table: not known here: no previous table was given" in text, text
     with tempfile.TemporaryDirectory() as tmp:
         # THE VANISHING PIECE (a reader, 2026-10-14): the joined clip of 100-149 is of another table, laying a_new alone, and the owner kept it.
         # By the lead's ruling of that day the keep counts on a_new, which it lays; b_new, which it does not lay, must still show
-        text = text_of(to_review(Path(tmp), joined_table="other",
-                                 verdicts=[{"what": "choice", "row": "v_0100_0149_joined_NEW_stacked", "chosen": "keep this one", "at": "2026-10-14T16:00:00Z"}]))
+        text = text_of(shot_sections(Path(tmp), joined_table="other",
+                                     verdicts=[{"what": "choice", "row": "v_0100_0149_joined_NEW_stacked", "chosen": "keep this one", "at": "2026-10-14T16:00:00Z"}]))
         assert "b , 100-149: b_new" in text and "a , 100-149: a_new" not in text and "lays a_new, and this table lays a_new, b_new" in text, text
     with tempfile.TemporaryDirectory() as tmp:
-        text = text_of(to_review(Path(tmp), verdicts=[{"what": "choice", "row": "v_0100_0149_joined_NEW_stacked", "chosen": "keep this one", "at": "2026-10-14T16:00:00Z"}]))
+        text = text_of(shot_sections(Path(tmp), verdicts=[{"what": "choice", "row": "v_0100_0149_joined_NEW_stacked", "chosen": "keep this one", "at": "2026-10-14T16:00:00Z"}]))
         assert "joined_NEW" not in text and "The shot 100-149" not in text, "a joined clip of this table the owner kept is shown"
     return ("only what this table lays and the owner has not settled; not sure stays with the words since; a joined clip only when its own table lays the "
             "same pieces, else each piece on its own with why, so a piece never vanishes; items by name; the look line a session's; what each replaces")
@@ -330,7 +370,7 @@ def waiting_on_you_and_done() -> str:
              {"what": "choice", "row": "r__s__a_solo", "chosen": "wrong, and I say where", "at": "2026-10-13T15:00:00Z"},  # settled before today
              {"what": "choice", "row": "a_x", "chosen": "not sure", "at": "2026-10-13T10:00:00Z"}]                 # clicked, not settled
     with tempfile.TemporaryDirectory() as tmp:
-        page = to_review(Path(tmp), ["--today", "2026-10-14"], verdicts=lines)
+        page = shot_sections(Path(tmp), ["--today", "2026-10-14"], verdicts=lines)
         wait, done = page.split("<details><summary><b>Done:")
         wt, dt = text_of(wait).split("Waiting on you")[1], text_of(done)
         # THE CASE THAT GOES RED when a clicked entry is said to wait on the owner, or an unclicked one is folded away as done
@@ -340,19 +380,14 @@ def waiting_on_you_and_done() -> str:
         assert "a_solo" not in wt and "a_solo" not in dt, "a piece settled before today is on the page"
         assert "Waiting on you: 2 with no click or words of yours yet" in text_of(wait) and "Done: 2 you have answered" in text_of(page), text_of(page)
     with tempfile.TemporaryDirectory() as tmp:
-        dt = text_of(to_review(Path(tmp), ["--today", "2026-10-15"], verdicts=lines).split("<details><summary><b>Done:")[1])
+        dt = text_of(shot_sections(Path(tmp), ["--today", "2026-10-15"], verdicts=lines).split("<details><summary><b>Done:")[1])
         assert "a_kept" not in dt and "a_x" in dt, "a keep of another day is under Done, or a not sure left it"
     return "an entry with no click waits on the owner; a click puts it under Done with the click; a piece settled today is under Done, and one settled before is on neither"
 
 
 def page_of(d: Path, more=(), extra=None, **kw) -> str:
-    """to-review on the made world, with `extra(d)` run on it before the page is made."""
-    args = world(d, **kw)
-    if extra:
-        extra(d)
-    out = d / "day" / "TO_REVIEW.html"
-    assert rp.main(["to-review", *args, "--page-url", "p#", "--open-list", "o", "--tables", str(d / "tables"), "--out", str(out), *more]) == 0
-    return out.read_text()
+    """shot_sections on the made world, with `extra(d)` run on it before the page is made."""
+    return shot_sections(d, more=more, extra=extra, **kw)
 
 
 def the_sixth_readers_findings() -> str:
@@ -588,7 +623,7 @@ def the_owners_words_rule() -> str:
                          "source": "the lead's terminal (mrx), 2026-10-13", "note": "taken down whole by mrx"},
                         {"what": "choice", "row": "v_0100_0149_joined_NEW_stacked", "chosen": "wrong", "at": "2026-10-14T16:00:00Z"}]
     with tempfile.TemporaryDirectory() as tmp:
-        text = text_of(to_review(Path(tmp), ["--today", "2026-10-13"], verdicts=words_after_keep))
+        text = text_of(shot_sections(Path(tmp), ["--today", "2026-10-13"], verdicts=words_after_keep))
         # THE CASES THAT GO RED: a keep followed by words is to review again; a session's taking-down is said as such
         assert "a_kept" in text and "ACTUALLY HER CHIN IS OFF" in text, "words after a keep were ignored"
         assert ("your words as a session took them down (the lead's terminal (mrx), 2026-10-13; the session's note on the line: taken down whole by mrx) since (10/13 07:00): "
@@ -602,7 +637,7 @@ def the_owners_words_rule() -> str:
         assert "a session's word in the load's job file (its `left_out`, a look's): A LOOK'S WORD" in text, text
         assert "The note, whole, a session's words (data/x/b_fp_0220.STOPPED.txt" in text, text
     return ("a keep followed by the owner's words is shown again with them; a line a session took down says so and who; a wrong on a joined clip leaves the "
-            "shot with its pieces; the lead's holds and the owner's keeps the table does not lay are on both pages; a look's word and a stopped note say whose")
+            "shot with its pieces; the lead's holds and the owner's keeps the table does not lay are on provenance; a look's word and a stopped note say whose")
 
 
 def the_fifth_readers_findings() -> str:
@@ -614,7 +649,7 @@ def the_fifth_readers_findings() -> str:
              {"what": "words", "row": "r__s__a_solo", "words": "ON THE ITEM'S OWN ID", "at": "2026-10-13T11:00:00Z"},
              {"what": "choice", "row": "v_0100_0149_joined_NEW_stacked", "chosen": "wrong", "at": "2026-10-14T16:00:00Z"}]
     with tempfile.TemporaryDirectory() as tmp:
-        page = to_review(Path(tmp), ["--today", "2026-10-13"], verdicts=lines)      # the day of the owner's lines: under Done, not gone
+        page = shot_sections(Path(tmp), ["--today", "2026-10-13"], verdicts=lines)      # the day of the owner's lines: under Done, not gone
         text = text_of(page)
         # words typed just before the last click go with it (B); an older line written later in the file does not undo a keep (M3)
         assert "since the click before it" not in text and "before it (10/13 04:59): \"WORDS JUST BEFORE THE CLICK\"" in text, text
@@ -633,17 +668,14 @@ def the_fifth_readers_findings() -> str:
         t["reading"][6]["passed_over"][0]["the_owners_words"] = [{"at": "2026-10-12T21:00:00Z", "said": "WORDS AFTER THE KEEP"}]
         (d / "t.json").write_text(json.dumps(t))
         sync_gap_check(d)
-        out = d / "day" / "again.html"
-        args = ["--table", str(d / "t.json"), "--ledger", str(d / "l.json"), "--verdicts", str(d / "verdicts.jsonl"), "--items", str(d / "items.json"),
-                "--source", str(d / "v.mp4"), "--share", str(d / "share"), "--page-url", "p#", "--open-list", "o", "--tables", str(d / "tables"), "--out", str(out)]
-        assert rp.main(["to-review", *args]) == 0
-        text = text_of(out.read_text())
+        rec_p = rp.Records(str(d / "t.json"), str(d / "l.json"), str(d / "verdicts.jsonl"), str(d / "items.json"), [str(d / "tables")])
+        text = text_of("".join(rp.held_and_set_aside(rec_p)))
         assert "your keep of b_wrong" not in text and "Your words after the keep (10/12 16:00, where they came from is not said): \"WORDS AFTER THE KEEP\"" in text, text
     with tempfile.TemporaryDirectory() as tmp:
         # a keep on the joined clip counts on each piece it lays: said so under the piece (the lead's ruling)
         page = provenance(Path(tmp)) if False else None
-        text = text_of(to_review(Path(tmp), verdicts=[{"what": "choice", "row": "v_0100_0149_joined_NEW_stacked", "chosen": "keep this one", "at": "2026-10-14T16:00:00Z"}],
-                                 joined_table="other"))
+        text = text_of(shot_sections(Path(tmp), verdicts=[{"what": "choice", "row": "v_0100_0149_joined_NEW_stacked", "chosen": "keep this one", "at": "2026-10-14T16:00:00Z"}],
+                                     joined_table="other"))
         assert "a , 100-149: a_new" not in text, "a keep on the joined clip did not count on the piece it lays"
     return ("words just before the last click go with it; an older line written later in the file does not undo a keep; a line on an item's own id is read; "
             "a wrong on a joined clip asks which piece and hides none, a keep there counts on each piece it lays; unsure subjects are marked in a shot's "
@@ -674,7 +706,7 @@ def a_fifth_readers_mutations() -> str:
 def since_the_last_page() -> str:
     with tempfile.TemporaryDirectory() as tmp:
         d = Path(tmp)
-        text = text_of(to_review(d, ["--previous-table", str(d / "t_before.json")]))
+        text = text_of(shot_sections(d, ["--previous-table", str(d / "t_before.json")]))
         part = text.split("Since the last page")[1].split("Shots with two")[0]
         for said in ("added: a_new (a)", "added: b_new (b)", "added: a_kept (a)", "added: a_x (a)", "left: a_older (a)", "a: a piece now on 210-259",
                      "on the frames both tables cover: 100-259 (this one covers 100-259, that one 100-309)"):
@@ -684,10 +716,10 @@ def since_the_last_page() -> str:
         # against a narrower table, nothing outside its frames is "added"
         (d / "t_narrow.json").write_text(json.dumps({"rows": [{"first": 150, "last": 199, "name": "a_solo", "subject": "a"}],
                                                      "reading": [{"first": 150, "last": 199, "subject": "a"}]}))
-        part = text_of(to_review(d, ["--previous-table", str(d / "t_narrow.json")])).split("Since the last page")[1].split("Shots with two")[0]
+        part = text_of(shot_sections(d, ["--previous-table", str(d / "t_narrow.json")])).split("Since the last page")[1].split("Shots with two")[0]
         assert "no piece added" in part and "no piece left" in part and "150-199 (this one covers 100-259, that one 150-199)" in part, part
     with tempfile.TemporaryDirectory() as tmp:
-        assert "Since the last page" not in text_of(to_review(Path(tmp))), "the part is made with no previous table"
+        assert "Since the last page" not in text_of(shot_sections(Path(tmp))), "the part is made with no previous table"
     return ("pieces added and left, and the frames each subject gained and lost, on the frames both tables cover and said so; against a narrower table "
             "nothing outside it is added; no part without one")
 
@@ -776,10 +808,14 @@ def a_one_subject_shot_and_a_cut_piece() -> str:
         items["items"].insert(0, {"id": "v_0300_0339_joined_ONE_stacked", "first": "300", "frames": "40", "state": "open"})
         (d / "items.json").write_text(json.dumps(items))
         (d / "tables" / "t_v_0300_0339_joined_ONE.json").write_text(json.dumps({"rows": cut[:3]}))
-        out = d / "day" / "TO_REVIEW.html"
-        assert rp.main(["to-review", *args, "--page-url", "p#", "--open-list", "x", "--tables", str(d / "tables"), "--out", str(out),
-                        "--today", "2026-10-20"]) == 0
-        text = text_of(out.read_text())
+        rec_c = rp.Records(str(d / "t.json"), str(d / "l.json"), str(d / "verdicts.jsonl"), str(d / "items.json"), [str(d / "tables")])
+        ns_c = rp.argparse.Namespace(
+            table=str(d / "t.json"), ledger=str(d / "l.json"), verdicts=str(d / "verdicts.jsonl"),
+            items=str(d / "items.json"), source=str(d / "v.mp4"), share=str(d / "share"),
+            page_url="p#", open_list="x", tables=[str(d / "tables")], previous_table=None, today="2026-10-20", out=str(d / "day" / "TO_REVIEW.html"),
+        )
+        _, _, _, _, legacy_c = rp.shot_review_sections(rec_c, ns_c, rp.rate_of(str(d / "v.mp4")), None, "2026-10-20")
+        text = text_of("\n".join(legacy_c))
         one = text.split("Shots of one of them, as its joined clip")[1].split("Pieces in a shot of one of them")[0]
         assert "The shot 300-339" in one and "c_one" in one, one[:400]
         singles = text.split("Pieces in a shot of one of them")[1].split("Done:")[0]
@@ -897,7 +933,8 @@ def start_here() -> str:
         assert top.index("WHY THE PAIR") < top.index("WHY LOAD_B COMPARE") < top.index("WHY A_SOLO'S SHOT") < top.index("WHY THE JOINED SHOT"), top
         assert "hair_A.mp4" in top and "r__s__a_solo" in top and "v_0100_0149_joined_NEW_stacked" in top, top
         assert '<a href="../share/pair/hair_A.mp4">' in page, "the clip is not linked relative to the page"
-        assert text.index("Start here, in this order") < text.index("Where the original still shows: the gap check") < text.index("Waiting on you"), "Start here is not above the gap check and Waiting on you"
+        assert page.index("<h2>Start here, in this order</h2>") < page.index("<h2>Kept today</h2>") < page.index("<h2>Where the original still shows: the gap check</h2>"), "Start here is not above Kept today and the gap check"
+        assert "Waiting on you" not in text and "Done:" not in text and "Since the last page" not in text and "Held back by the lead" not in text, text
         # a question whose buttons are on the Open List: the entry goes there, its clips beneath it as plain links (the owner, 2026-10-15)
         assert '<a href="https://the-open-list/#row-7">THE HAIR QUESTION</a>: WHY THE LINK' in page, "the link entry"
         link_li = page.split("THE HAIR QUESTION")[1].split("</li></ol>")[0]
@@ -1207,7 +1244,7 @@ def missing_or_stale_gap_check_is_refused() -> str:
 
 
 def per_clip_gap_lines_and_start_here_refusal() -> str:
-    """C131: right above each player on to-review (Start here, Waiting on you, Done), review_pages.py prints the gap check's
+    """C131: right above each player on to-review (Start here) and in shot_review_sections, review_pages.py prints the gap check's
     counts for that clip's own frames: per person, each kind with frame counts and spans, in the check's own words; a whole
     clip has no line; and a clip on Start here whose gap-check line cannot be computed or is suppressed is refused."""
     with tempfile.TemporaryDirectory() as tmp:
@@ -1238,11 +1275,12 @@ def per_clip_gap_lines_and_start_here_refusal() -> str:
                         "carried region far below its own size: 2 (237-238) · "
                         "b: no capture: 10 (220-229); captured, not rendered: 3 (225-227); rendered, not kept: 2 (228-229)")
         assert f'<li><div class="why gap-line">{expected_220}</div>the shot 220-239:' in page, page
-        # 4. Waiting on you / Done entries have `<p class="why gap-line">` right above `<h3>` inside `<div class="e">`
-        assert f'<div class="e"><p class="why gap-line">{expected_150}</p><h3>a, 150-199:' in page, page
-        assert f'<div class="e"><p class="why gap-line">{expected_220}</p><h3>The shot 220-239:' in page, page
+        # 4. shot_review_sections entries have `<p class="why gap-line">` right above `<h3>` inside `<div class="e">`
+        sec_page = shot_sections(d, more=("--start-here", str(f)))
+        assert f'<div class="e"><p class="why gap-line">{expected_150}</p><h3>a, 150-199:' in sec_page, sec_page
+        assert f'<div class="e"><p class="why gap-line">{expected_220}</p><h3>The shot 220-239:' in sec_page, sec_page
         # Whole shot 100-149 has no gap-line inside its `<div class="e">`
-        assert '<div class="e"><h3><a href="p#v_0100_0149_joined_NEW_stacked">The shot 100-149</a>' in page, page
+        assert '<div class="e"><h3><a href="p#v_0100_0149_joined_NEW_stacked">The shot 100-149</a>' in sec_page, sec_page
         # 5. Refusal when a clip on Start here has no resolvable frame span (so its gap-check line cannot be computed)
         mystery_clip = d / "share" / "pair" / "mystery_clip.mp4"
         mystery_clip.write_bytes(b"x")
@@ -1258,7 +1296,7 @@ def per_clip_gap_lines_and_start_here_refusal() -> str:
                 assert bad_msg in str(stop), (bad_start, str(stop))
             else:
                 raise AssertionError(f"Start here accepted an entry without a valid gap-check line: {bad_start}")
-    return "per-clip gap lines printed right above each player in Start here, Waiting on you, and Done; clips without a gap-check line refused on Start here"
+    return "per-clip gap lines printed right above each player in Start here and shot_review_sections; clips without a gap-check line refused on Start here"
 
 
 def compare_clips_say_who_is_new_and_who_is_the_old_cut() -> str:
@@ -1760,6 +1798,177 @@ def the_banner_shows_on_a_stale_page_and_not_on_a_fresh_one() -> str:
     return "fresh pages serve without a banner; when laid.jsonl's sha256 differs from the page's recorded sha256, the stale-cut banner is placed at the top of TO_REVIEW.html and PROVENANCE.html"
 
 
+def kept_today_is_generated_from_verdicts_and_laid() -> str:
+    """C111 (2026-10-18): 'Kept today' section on TO_REVIEW.html is generated, never typed, from verdicts.jsonl (the day's lines
+    whose chosen is a keep) joined with laid.jsonl: one compact row per kept piece, newest first — the load name, the frames,
+    a relative link to its compare or stacked clip, the owner's own words, and laid or not laid."""
+    with tempfile.TemporaryDirectory() as tmp:
+        d = Path(tmp)
+        verdicts_lines = [
+            # Earlier day keep -> must NOT appear in Kept today for 2026-10-18
+            {"what": "choice", "row": "a_yesterday_keep", "chosen": "keep this one", "first": 100, "frames": 50,
+             "words": "yesterday keep", "at": "2026-10-17T15:00:00Z"},
+            # Revoked keep today -> must NOT appear in Kept today
+            {"what": "choice", "row": "a_revoked_keep", "chosen": "keep this one", "first": 100, "frames": 50,
+             "words": "first thought keep", "at": "2026-10-18T11:00:00Z"},
+            {"what": "choice", "row": "a_revoked_keep", "chosen": "not sure", "first": 100, "frames": 50,
+             "words": "wait actually unsure", "at": "2026-10-18T11:05:00Z"},
+            # Unlaid keep today -> must appear with 'not laid'
+            {"what": "words", "row": "a_unlaid_keep", "chosen": "keep this one", "first": 150, "frames": 50,
+             "clip": "Video/v/review_clips/a_unlaid_keep_0150_0199_compare.mp4",
+             "words": "good piece, hold for now", "at": "2026-10-18T14:00:00Z"},
+            # The five keeps of 2026-10-18 in chronological order (must render in reverse / newest-first order)
+            {"what": "words", "row": "second_hfp_0604h", "chosen": "keep this one", "first": 604, "frames": 406,
+             "render": "Video/v/s/second_hfp_0604h/second_hfp_0604h_00001.mp4",
+             "source": "watching Video/v/review_clips/second_hfp_0604h_0604_1009_compare.mp4",
+             "words": "mom looks amazing. nice work. like 100x better", "at": "2026-10-18T15:31:59Z"},
+            {"what": "words", "row": "lead_fp_0606", "chosen": "keep this one", "first": 606, "frames": 393,
+             "render": "Video/v/s/lead_fp_0606/lead_fp_0606_00001.mp4",
+             "source": "watching Video/v/review_clips/lead_fp_0606_0606_0998_stacked.mp4",
+             "words": "this looks amazing", "at": "2026-10-18T18:03:00Z"},
+            {"what": "words", "row": "kitchen_0604_1009_joined", "title": "the kitchen 604-1009, both people new",
+             "chosen": "keep this one", "first": 604, "frames": 406,
+             "render": "Video/v/review_clips/lead_fp_0606_0604_1009_compare.mp4",
+             "words": "whole thing looks fantastic", "at": "2026-10-18T18:10:00Z"},
+            {"what": "words", "row": "lead_fp_1306t", "chosen": "keep this one", "first": 1306, "frames": 102,
+             "render": "Video/v/s/lead_fp_1306t/lead_fp_1306t_00001.mp4",
+             "source": "watching Video/v/review_clips/lead_fp_1306t_1306_1407_compare.mp4",
+             "words": "the lead here looks great", "at": "2026-10-18T19:21:00Z"},
+            {"what": "words", "row": "lead_fp_0438e", "chosen": "keep this one", "first": 438, "frames": 46,
+             "render": "Video/v/s/lead_fp_0438e/lead_fp_0438e_00001.mp4",
+             "source": "watching Video/v/review_clips/lead_fp_0438e_0438_0483_stacked.mp4",
+             "words": "replaced correctly on all frames. looks great.", "at": "2026-10-18T19:48:00Z"},
+        ]
+        args = world(d, verdicts=verdicts_lines)
+        # Write raw verdicts.jsonl so custom source strings are preserved
+        (d / "verdicts.jsonl").write_text("".join(json.dumps(v) + "\n" for v in verdicts_lines))
+
+        laid_file = d / "laid.jsonl"
+        laid_entries = [
+            {"schema": "h3_laid/1", "first": 438, "last": 483, "subject": "a", "load": "lead_fp_0438e",
+             "file": "x", "sha256": "a" * 64, "owner": "kept",
+             "by": "watching Video/v/review_clips/lead_fp_0438e_0438_0483_stacked.mp4", "added": "2026-10-18T19:50:00Z"},
+            {"schema": "h3_laid/1", "first": 1306, "last": 1418, "frames": [[1306, 1407]], "subject": "a", "load": "lead_fp_1306t",
+             "file": "x", "sha256": "b" * 64, "owner": "kept",
+             "by": "watching Video/v/review_clips/lead_fp_1306t_1306_1407_compare.mp4", "added": "2026-10-18T19:26:00Z"},
+            {"schema": "h3_laid/1", "first": 604, "last": 1009, "frames": [[606, 998]], "subject": "a", "load": "lead_fp_0606",
+             "file": "x", "sha256": "c" * 64, "owner": "kept",
+             "by": "watching Video/v/review_clips/lead_fp_0606_0606_0998_stacked.mp4", "added": "2026-10-18T18:07:00Z"},
+            {"schema": "h3_laid/1", "first": 604, "last": 1009, "subject": "b", "load": "second_hfp_0604h",
+             "file": "x", "sha256": "d" * 64, "owner": "kept",
+             "by": "watching Video/v/review_clips/second_hfp_0604h_0604_1009_compare.mp4", "added": "2026-10-18T15:57:00Z"},
+        ]
+        laid_file.write_text("".join(json.dumps(x) + "\n" for x in laid_entries))
+
+        out_rev = d / "share" / "Video" / "v" / "TO_REVIEW.html"
+        out_rev.parent.mkdir(parents=True, exist_ok=True)
+        assert rp.main(["to-review", *args, "--laid", str(laid_file), "--page-url", "p#", "--open-list", "https://the-open-list",
+                        "--tables", str(d / "tables"), "--out", str(out_rev), "--today", "2026-10-18"]) == 0
+        page = out_rev.read_text()
+        assert "<h2>Kept today</h2>" in page, page
+        kept_sec = page.split("<h2>Kept today</h2>")[1].split("<h2>Where the original still shows: the gap check</h2>")[0]
+
+        expected_rows = [
+            ('<li><b>lead_fp_0438e</b> &middot; 438-483 &middot; '
+             '<a href="review_clips/lead_fp_0438e_0438_0483_stacked.mp4">review_clips/lead_fp_0438e_0438_0483_stacked.mp4</a> &middot; '
+             '"replaced correctly on all frames. looks great." &middot; <b>laid</b></li>'),
+            ('<li><b>lead_fp_1306t</b> &middot; 1306-1407 &middot; '
+             '<a href="review_clips/lead_fp_1306t_1306_1407_compare.mp4">review_clips/lead_fp_1306t_1306_1407_compare.mp4</a> &middot; '
+             '"the lead here looks great" &middot; <b>laid</b></li>'),
+            ('<li><b>kitchen_0604_1009_joined</b> (the kitchen 604-1009, both people new) &middot; 604-1009 &middot; '
+             '<a href="review_clips/lead_fp_0606_0604_1009_compare.mp4">review_clips/lead_fp_0606_0604_1009_compare.mp4</a> &middot; '
+             '"whole thing looks fantastic" &middot; <b>laid</b></li>'),
+            ('<li><b>lead_fp_0606</b> &middot; 606-998 &middot; '
+             '<a href="review_clips/lead_fp_0606_0606_0998_stacked.mp4">review_clips/lead_fp_0606_0606_0998_stacked.mp4</a> &middot; '
+             '"this looks amazing" &middot; <b>laid</b></li>'),
+            ('<li><b>second_hfp_0604h</b> &middot; 604-1009 &middot; '
+             '<a href="review_clips/second_hfp_0604h_0604_1009_compare.mp4">review_clips/second_hfp_0604h_0604_1009_compare.mp4</a> &middot; '
+             '"mom looks amazing. nice work. like 100x better" &middot; <b>laid</b></li>'),
+            ('<li><b>a_unlaid_keep</b> &middot; 150-199 &middot; '
+             '<a href="review_clips/a_unlaid_keep_0150_0199_compare.mp4">review_clips/a_unlaid_keep_0150_0199_compare.mp4</a> &middot; '
+             '"good piece, hold for now" &middot; <b class="d">not laid</b></li>'),
+        ]
+        for row_html in expected_rows:
+            assert row_html in kept_sec, f"missing expected Kept today row:\n{row_html}\nin:\n{kept_sec}"
+        positions = [kept_sec.index(r) for r in expected_rows]
+        assert positions == sorted(positions), f"Kept today rows are not newest-first: {positions}"
+        assert "a_yesterday_keep" not in kept_sec and "a_revoked_keep" not in kept_sec, kept_sec
+
+        # Inline kept_today keys in start_here.json are refused
+        sh_file = d / "start_bad_kept.json"
+        for bad_key in ("kept_today", "kept_today_rows", "kept_pieces"):
+            sh_file.write_text(json.dumps([{"item": "150-199", "why": "w", bad_key: ["lead_fp_0438e"]}]))
+            try:
+                rp.main(["to-review", *args, "--laid", str(laid_file), "--start-here", str(sh_file), "--page-url", "p#",
+                         "--open-list", "https://the-open-list", "--tables", str(d / "tables"), "--out", str(out_rev), "--today", "2026-10-18"])
+            except SystemExit as stop:
+                assert "never typed into start_here.json" in str(stop), stop
+            else:
+                raise AssertionError(f"start_here.json accepted inline {bad_key!r}")
+    return "Kept today is generated from verdicts.jsonl and laid.jsonl (newest first, with load name, frames, relative compare/stacked clip link, owner words, and laid/not laid), and refuses inline start_here.json keys"
+
+
+def to_review_clears_out_the_old_and_provenance_keeps_the_record() -> str:
+    """C111 (2026-10-18): TO_REVIEW.html shows ONLY what needs the owner now (Start here), what was kept today (Kept today),
+    and the gap check. Everything answered, superseded, or from earlier days leaves TO_REVIEW.html while PROVENANCE.html
+    keeps the full record (including card look lines, earlier answers, holds, and stopped loads)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        d = Path(tmp)
+        sh_file = d / "start.json"
+        sh_file.write_text(json.dumps([{"item": "150-199", "why": "DECIDE SOLO SHOT"}]))
+        rev_with_start = to_review(d, more=("--start-here", str(sh_file), "--previous-table", str(d / "t_before.json"), "--today", "2026-10-18"))
+        rev_no_start = to_review(d, more=("--previous-table", str(d / "t_before.json"), "--today", "2026-10-18"))
+        prov = provenance(d)
+
+        h2_with_start = re.findall(r"<h2>(.*?)</h2>", rev_with_start)
+        assert h2_with_start == [
+            "Start here, in this order",
+            "Kept today",
+            "Where the original still shows: the gap check",
+        ], h2_with_start
+
+        h2_no_start = re.findall(r"<h2>(.*?)</h2>", rev_no_start)
+        assert h2_no_start == [
+            "Kept today",
+            "Where the original still shows: the gap check",
+        ], h2_no_start
+
+        for forbidden in (
+            "Since the last page",
+            "Waiting on you",
+            "Done:",
+            "Held back by the lead",
+            "THE LEAD'S HOLD, whole",
+            "b_held_load",
+            "THE TABLE'S REASON FOR B_OWNER_KEPT",
+            "b_owner_kept",
+            "THE LOOK OF A_Y",
+            "i cant choose between them",
+            "a_older",
+        ):
+            assert forbidden not in text_of(rev_with_start), f"removed content {forbidden!r} still on TO_REVIEW.html"
+
+        prov_txt = text_of(prov)
+        for preserved in (
+            "Where the original still shows: the gap check",
+            "What changes in the next clip",
+            "Loads stopped before a render",
+            "Every stretch, a person at a time",
+            "Held back by the lead, and your keeps this table does not lay",
+            "Each piece and where it came from",
+            "THE LEAD'S HOLD, whole",
+            "b_held_load",
+            "THE TABLE'S REASON FOR B_OWNER_KEPT",
+            "b_owner_kept",
+            "the card's look line (a session's words) THE LOOK OF A_Y",
+            "the card's look line (a session's words) her eyes on 160",
+            "i cant choose between them",
+            "a_older",
+        ):
+            assert preserved in prov_txt, f"PROVENANCE.html lost {preserved!r}"
+    return "TO_REVIEW.html shows only Start here, Kept today, and the gap check; all earlier/answered/superseded items and holds leave TO_REVIEW.html and remain in PROVENANCE.html"
+
+
 case("both modes read", both_modes_read)
 case("the page says what is laid", the_page_says_what_is_laid)
 case("to-review is the table's, and hides no live piece", to_review_is_the_tables)
@@ -1786,7 +1995,10 @@ case("a failing rebuild is said and exits non-zero", a_failing_rebuild_is_said_a
 case("--no-rebuild needs its reason", no_rebuild_needs_its_reason)
 case("the page line matches laid.jsonl", the_page_line_matches_laid_jsonl)
 case("the banner shows on a stale page and not on a fresh one", the_banner_shows_on_a_stale_page_and_not_on_a_fresh_one)
+case("kept today is generated from verdicts.jsonl and laid.jsonl", kept_today_is_generated_from_verdicts_and_laid)
+case("to-review clears out the old and provenance keeps the record", to_review_clears_out_the_old_and_provenance_keeps_the_record)
 
 if __name__ == "__main__":
     sys.exit(finish())
+
 
