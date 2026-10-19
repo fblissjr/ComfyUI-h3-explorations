@@ -758,6 +758,22 @@ def _case_head_track_seed_mask() -> str:
         pose_kps=pose_kps,
     )
     assert np.all(cmap_kp[1:3, 20:28, 20:44] == face_id), "pose_kps hull did not fill unclassified face hole"
+    # A corner of tube_box where reference frames 0 and 3 had neither face nor hair (so face_vote == 0 and hair_vote == 0)
+    # and outside kp_crop must resolve to Hair (not Face_Neck via 0.0 >= 0.0), or ponytail tips on face-only loads inflate zoom_box
+    ht_corner = (head_track & person_track).copy()
+    ht_corner[:, 8:11, 45:50] = True
+    cmap_corner = cmap.copy()
+    htp._fill_unclassified_in_head_tube(
+        cmap_corner,
+        ht_corner,
+        part_ids=(face_id,),
+        hair_id=htp.NAME_TO_ID["Hair"],
+        face_id=face_id,
+        pose_kps=pose_kps,
+    )
+    assert np.all(cmap_corner[1, 8:11, 45:50] == htp.NAME_TO_ID["Hair"]), (
+        "0 == 0 unclassified corner outside reference face/hair and kp_crop was assigned Face_Neck instead of Hair"
+    )
     assert on_res["provenance"]["outside_person_track_clipped_px"] == [16 * 4, 0, 0, 0], on_res["provenance"]
     assert np.array_equal(on_res["tube_info"]["tube"], head_track & person_track), "tube is not head_track clipped to person_track"
     assert int(on_res["part_mask"][1].sum()) == 16 * 24 and int(on_res["part_mask"][2].sum()) == 16 * 24, (

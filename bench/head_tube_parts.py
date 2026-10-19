@@ -1498,7 +1498,7 @@ def _fill_unclassified_in_head_tube(
         uncls_crop = uncls[ty0:ty1, tx0:tx1]
         kp_crop = kp_hull[ty0:ty1, tx0:tx1]
         if np.any(face_vote > 0) or np.any(hair_vote > 0):
-            choose_face = uncls_crop & ((face_vote >= hair_vote) | (kp_crop & (hair_vote < 0.65)))
+            choose_face = uncls_crop & ((face_vote > hair_vote) | (kp_crop & (hair_vote < 0.65)))
         else:
             choose_face = uncls_crop & (kp_crop if np.any(kp_crop) else True)
         choose_hair = uncls_crop & ~choose_face

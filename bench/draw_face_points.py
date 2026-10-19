@@ -764,7 +764,8 @@ def draw(mesh: np.ndarray, drawings: list[list], width: float, bare: set[int], d
         kp_f = keypoints[f] if keypoints is not None else None
         full_h = head_silhouette(mesh[f], erode_px=0, p=kp_f, index=index) if smooth_lips else None
         inner_h = head_silhouette(mesh[f], erode_px=erode_inner, p=kp_f, index=index) if smooth_lips else None
-        im = Image.fromarray(base).resize((w * SUPER, h * SUPER), Image.BICUBIC)
+        im_base = Image.fromarray(base).resize((w * SUPER, h * SUPER), Image.BICUBIC)
+        im = im_base.copy()
         mouth(im, f, inner_h)
         fill(im, f, contrast, full_h, inner_h)
         d = ImageDraw.Draw(im)
@@ -779,8 +780,10 @@ def draw(mesh: np.ndarray, drawings: list[list], width: float, bare: set[int], d
                 for x, y in run:
                     d.ellipse([x - r, y - r, x + r, y + r], fill=colour)
         frame_out = np.asarray(im.resize((w, h), Image.LANCZOS)).copy()
-        if full_h is not None:
-            frame_out[~full_h] = base[~full_h]
+        if full_h is not None and inner_h is not None:
+            ih_big = np.asarray(Image.fromarray((inner_h.astype(np.uint8) * 255)).resize(im.size, Image.NEAREST)) > 0
+            if np.any((np.asarray(im) != np.asarray(im_base))[~ih_big]):
+                frame_out[~full_h] = base[~full_h]
         out[f] = frame_out
     return out
 

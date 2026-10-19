@@ -249,7 +249,7 @@ def args(**more) -> argparse.Namespace:
                  existing=False, writer=None, why_before=None, why_after=None, zoomed=None, least=None, least_why=None, ask=[], seed_cuts_of=None, parts=None, parts_by=None, parts_on=[], whole_frame=None, mouth=None, iris=None, form_why="",
                  place_and_action=None, by_hand=None, plan=None,
                  track_not=[], track_not_by=None, drop=None, drop_by=None, leave_word=[], leave_by=None, carry_words_from=None, no_carry_words=None,
-                 head_tube=None, depth=None, no_head_track=None)
+                 head_tube=None, depth=None, no_head_track=None, no_closed_lip_line=None)
     given.update(more)
     return argparse.Namespace(**given)
 
@@ -1718,7 +1718,8 @@ def the_reference_step() -> str:
                                          "in_the_reference": {"enlarged": scale, "face_height_px": {}, "lid_gap_px": {}, "frames_with_the_gap_under_the_line": 2}}
         record = {"scale": [2.5, 2.5], "files": {"plain_cut": "a_head_reference_0104_0143_plain_cut.mp4"}, "frames": [104, 143], "passed": True,
                   "made_at": "2026-01-03T09:00:00Z", "made_by": "the first session",
-                  "face_on_the_track": {"known": True, "frames_whose_face_middle_is_off_the_track": []}}
+                  "face_on_the_track": {"known": True, "frames_whose_face_middle_is_off_the_track": []},
+                  "drawn": {"mouth": {"closed_lip_line": {"on": True}}}}
         made.m.on["head reference"] = lambda: drawn.with_suffix(".json").write_text(json.dumps(record))
         made.m.on["pose pass"] = lambda: (folder / "a_0104_0143_points.npz").write_bytes(b"")
         kept = lc.REPO
@@ -1752,9 +1753,10 @@ def the_reference_step() -> str:
         assert opt(pose, "--model-folder") == "/store/pose-model" and opt(pose, "--canvas") == "1024x768" and opt(pose, "--video") == "/in/copy.mov", pose
         assert (opt(ref, "--first"), opt(ref, "--count"), opt(ref, "--mesh"), opt(ref, "--mesh-first"), opt(ref, "--out")) == ("104", "40", str(mesh), "100", str(drawn)), ref
         assert opt(ref, "--points") == opt(pose, "--out") == str(folder / "a_0104_0143_points.npz")
-        # THE CHAIN'S DEFAULTS (2026-10-14): the eye in contrast, the mouth by the lip check against the preview's class map of the subject
+        # THE CHAIN'S DEFAULTS (2026-10-14; closed_lip_line 2026-10-19): the eye in contrast, the mouth by the lip check against the preview's class map of the subject, with --closed-lip-line
         classes = made.m.output / "Video/v/the session/shot_c_0100/shot_c_0100_a_classes_00001.mkv"
-        assert (opt(ref, "--iris"), opt(ref, "--mouth"), opt(ref, "--classes"), opt(ref, "--classes-first")) == ("contrast", "auto", str(classes), "100"), ref
+        assert (opt(ref, "--iris"), opt(ref, "--mouth"), opt(ref, "--classes"), opt(ref, "--classes-first")) == ("contrast", "auto", str(classes), "100") \
+            and opt(ref, "--closed-lip-line") == "the chain's default: REFERENCE_DEFAULT (2026-10-19)", ref
         after = json.loads(job_file.read_text())
         block = after["job"]["reference"]
         assert (block["form"], block["said_by"], block["record"]) == ("drawn", "the session", str(drawn.with_suffix(".json"))) and block["made"].endswith("Z"), block
@@ -1791,7 +1793,7 @@ def the_reference_step() -> str:
         hid_file = made.jobs / "a_fp_0104c.json"
         hid_file.write_text(json.dumps(hid))
         e.job_file = str(hid_file)
-        mouthed = {**record, "drawn": {"mouth": {"form": "auto", "no_mouth_on": {"the gate": [[104, 109]]}}}}
+        mouthed = {**record, "drawn": {"mouth": {"form": "auto", "closed_lip_line": {"on": True}, "no_mouth_on": {"the gate": [[104, 109]]}}}}
         drawn.with_suffix(".json").write_text(json.dumps(mouthed))
         # THE CASE THAT GOES RED when --existing takes a drawing with a mouth on frames a person's word says have none
         refused(lambda: stl.step_reference(e, made.m, figures), "--existing", "draws a mouth on 6 frame(s)", "first 110, last 115")
@@ -1945,7 +1947,9 @@ def the_defaults_this_load_carries() -> str:
         assert all(x.get("save_kept") is True for x in d["loads"]) and lines["what the composite kept"]["carries"].startswith("saved"), \
             "a load does not save what its composite kept, the chain's default"
         assert lines["the eye"]["carries"].startswith("white sclera and black iris") and lines["the eye"]["from"].startswith("the chain's default"), lines["the eye"]
-        assert lines["the mouth"]["carries"].startswith("drawn when the lip lines lie") and lines["zoom"]["from"].startswith("the chain's default"), lines
+        assert lines["the mouth"]["carries"].startswith("drawn when the lip lines lie") and "CLOSED LIPS as one parting line" in lines["the mouth"]["carries"] \
+            and "closed_lip_line: the chain's default: REFERENCE_DEFAULT (2026-10-19)" in lines["the mouth"]["from"] \
+            and lines["zoom"]["from"].startswith("the chain's default"), lines
         made.plan["subjects"]["a"]["reference"] = {"mouth": "left out", "iris": "between the lids", "why": "the owner, on this subject's stills"}
         d = made.load()
         lines = {x["what"]: x for x in d["job"]["defaults"]}
@@ -1984,7 +1988,7 @@ def the_defaults_this_load_carries() -> str:
         refused(lambda: stl.drawn_form(job, args(class_mouth_needs_hole=True), files, 100), "say why with --form-why")
         assert "--class-mouth-needs-hole" not in stl.drawn_form(job, args(), files, 100), "the hole option is on by default"
         refused(lambda: stl.drawn_form(job, args(class_mouth_needs_hole=True, mouth="drawn", form_why="X"), files, 100), "acts on the mouth by the check")
-        # M12 & M17: --darken-head passed on with reason, off by default; under closed_lip_line, silent windows leave the mouth out while voiced windows draw it
+        # M12 & M17 (2026-10-19 default): --closed-lip-line is on by default, --darken-head off by default; ways off in plan, job, and reference step require why
         assert stl.drawn_form(job, args(darken_head=True, form_why="DARKER HEAD"), files, 100)[-2:] == ["--darken-head", "DARKER HEAD"]
         refused(lambda: stl.drawn_form(job, args(darken_head=True), files, 100), "say why with --form-why")
         assert "--darken-head" not in stl.drawn_form(job, args(), files, 100), "--darken-head is on by default"
@@ -1992,17 +1996,34 @@ def the_defaults_this_load_carries() -> str:
         assert rf_dark["darken_head"] == {"said_by": "the plan", "why": "testb plan"}, rf_dark
         eye_dark = next(d for d in stl.defaults_carried({}, {}, [{"label": "a"}], "a", None, rf_dark, {"said_by": "plan", "why": "z"}, None) if d["what"] == "the eye")
         assert "DARKENED HEAD MODEL" in eye_dark["carries"] and "darken_head: the plan: testb plan" in eye_dark["from"], eye_dark
-        # M17: under closed_lip_line, a silent window leaves the mouth out ("left out") and passes --closed-lip-line so eye/brow/nose marks clip to the head
-        made.plan["subjects"]["a"]["reference"] = {"closed_lip_line": True, "darken_head": True, "why": "M17 voice window rule"}
+        # M17: under the default closed_lip_line, a silent window leaves the mouth out ("left out") and passes --closed-lip-line so eye/brow/nose marks clip to the head
         made.plan["subjects"]["a"]["voice"] = [{"first": 100, "last": 159, "voice": "silent", "by": "THE OWNER"}]
-        d_silent = made.load(name="a_fp_silent")
-        assert d_silent["job"]["reference"]["mouth"]["form"] == "left out" and "silent window" in d_silent["job"]["reference"]["mouth"]["why"], d_silent["job"]["reference"]["mouth"]
-        df_silent = stl.drawn_form(d_silent["job"], args(), files, 100)
-        assert df_silent[:4] == ["--iris", "contrast", "--mouth", "left out"] and "--closed-lip-line" in df_silent and "--darken-head" in df_silent, df_silent
+        d_silent_def = made.load(name="a_fp_silent_def")
+        assert d_silent_def["job"]["reference"]["mouth"]["form"] == "left out" and "silent window" in d_silent_def["job"]["reference"]["mouth"]["why"], d_silent_def["job"]["reference"]["mouth"]
+        df_silent_def = stl.drawn_form(d_silent_def["job"], args(), files, 100)
+        assert df_silent_def[:4] == ["--iris", "contrast", "--mouth", "left out"] and "--closed-lip-line" in df_silent_def and "--darken-head" not in df_silent_def, df_silent_def
+        # Turning closed_lip_line off in the plan (`closed_lip_line: false` with `why`), on `job` (`--no-closed-lip-line WHY`), or on `reference` (`--no-closed-lip-line --form-why WHY`)
+        made.plan["subjects"]["a"]["reference"] = {"closed_lip_line": False, "why": "plan turns off closed_lip_line"}
+        d_plan_off = made.load(name="a_fp_plan_off")
+        assert d_plan_off["job"]["reference"]["mouth"]["form"] == "auto" and d_plan_off["job"]["reference"]["mouth"]["closed_lip_line"] == {
+            "on": False, "said_by": "the plan", "why": "plan turns off closed_lip_line"
+        }, d_plan_off["job"]["reference"]["mouth"]
+        assert "--closed-lip-line" not in stl.drawn_form(d_plan_off["job"], args(), files, 100)
         del made.plan["subjects"]["a"]["reference"]
-        d_silent_cli = made.load(name="a_fp_silent_cli")
-        df_silent_cli = stl.drawn_form(d_silent_cli["job"], args(closed_lip_line=True, form_why="CLI M17"), files, 100)
-        assert df_silent_cli[:4] == ["--iris", "contrast", "--mouth", "left out"] and "--closed-lip-line" in df_silent_cli, df_silent_cli
+        refused(lambda: made.load(name="a_fp_bad_ncl", no_closed_lip_line="   "), "--no-closed-lip-line takes the reason in words")
+        d_job_off = made.load(name="a_fp_job_off", no_closed_lip_line="job turns off closed_lip_line")
+        assert d_job_off["job"]["reference"]["mouth"]["form"] == "auto" and d_job_off["job"]["reference"]["mouth"]["closed_lip_line"]["on"] is False, d_job_off["job"]["reference"]["mouth"]
+        mouth_off_row = {x["what"]: x for x in d_job_off["job"]["defaults"]}["the mouth"]
+        assert "closed-lip line OFF" in mouth_off_row["carries"] and "job turns off closed_lip_line" in mouth_off_row["from"], mouth_off_row
+        assert "--closed-lip-line" not in stl.drawn_form(d_job_off["job"], args(), files, 100)
+        # Re-enabling at the reference step with --closed-lip-line --form-why
+        df_reenabled = stl.drawn_form(d_job_off["job"], args(closed_lip_line=True, form_why="CLI M17"), files, 100)
+        assert df_reenabled[:4] == ["--iris", "contrast", "--mouth", "left out"] and "--closed-lip-line" in df_reenabled, df_reenabled
+        # Turning off at the reference step with --no-closed-lip-line --form-why
+        refused(lambda: stl.drawn_form(d_silent_def["job"], args(no_closed_lip_line=True), files, 100), "say why with --form-why")
+        refused(lambda: stl.drawn_form(d_silent_def["job"], args(closed_lip_line=True, no_closed_lip_line=True, form_why="X"), files, 100), "cannot both be given")
+        df_ref_off = stl.drawn_form(d_silent_def["job"], args(no_closed_lip_line=True, form_why="off at ref step"), files, 100)
+        assert df_ref_off[:4] == ["--iris", "contrast", "--mouth", "auto"] and "--closed-lip-line" not in df_ref_off, df_ref_off
         made.plan["subjects"]["a"]["reference"] = {"closed_lip_line": True, "darken_head": True, "why": "M17 voice window rule"}
         made.plan["subjects"]["a"]["voice"] = [{"first": 100, "last": 159, "voice": "talks, not heard", "by": "THE OWNER"}]
         d_voiced = made.load(name="a_fp_voiced")
@@ -2345,6 +2366,7 @@ def carry_words_from_equals_old_on_every_word() -> str:
             track_not=[("b", 128, 129, f"mrgan looked at {sheet}: b's track lies on a")],
             track_not_by=f"mrgan, on {sheet}",
             no_strangers=f"mrgan looked at {sheet}: nobody else in frame",
+            no_closed_lip_line=f"mrgan looked at {sheet}: keep two lip rings",
         )
         old_file = Path(tmp) / "a_hfp_0105.json"
         old_file.write_text(json.dumps(old))
@@ -2379,6 +2401,9 @@ def carry_words_from_equals_old_on_every_word() -> str:
         for x in nf_spans:
             assert x["said_by"] == "mrgan" and x["at"] == "2026-10-16T00:10:00Z" and "mrgan, 2026-10-16T00:10:00Z" not in x["why"] \
                 and x["why"].endswith("(carried from a_hfp_0105)") and x.get("carried", {}).get("sha256") == old_sha, x
+        cl_block = carried["job"]["reference"]["mouth"].get("closed_lip_line") or {}
+        assert cl_block.get("on") is False and cl_block.get("said_by") == "mrgan" and cl_block.get("at") == "2026-10-16T00:10:00Z" \
+            and cl_block.get("why", "").endswith("(carried from a_hfp_0105)") and cl_block.get("carried", {}).get("sha256") == old_sha, cl_block
         nm_spans = carried["job"]["reference"]["mouth"].get("no_mouth_on") or []
         m_spans = carried["job"]["reference"]["mouth"].get("mouth_on") or []
         assert [(x["first"], x["last"]) for x in nm_spans] == [(130, 132)], f"carried no_mouth_on mismatch: {nm_spans}"

@@ -1645,6 +1645,7 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
         "first": first, "frames": frames, "why_before": "", "why_after": "", "zoomed": None, "whole_frame": None,
         "zoomed_meta": None, "whole_frame_meta": None, "head_tube": None, "head_tube_meta": None,
         "depth": None, "depth_meta": None, "no_head_track": None, "no_head_track_meta": None,
+        "no_closed_lip_line": None, "no_closed_lip_line_meta": None,
         "least": None, "least_why": None, "hold_part": [], "drop": None, "drop_by": None, "drop_meta": None,
         "parts": None, "parts_by": None, "parts_on": [], "track_not": [], "track_not_by": None,
         "motion": None, "motion_why": None, "no_strangers": None, "no_strangers_meta": None,
@@ -1902,6 +1903,15 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
             raise Refused(f"--carry-words-from {old_name}: word-bearing key 'job.reference.mouth.{k}' in old job cannot be carried")
     if old_mouth.get("said_by") not in (None, "the chain's default", "the plan") and not str(old_mouth.get("why") or "").startswith("silent window "):
         raise Refused(f"--carry-words-from {old_name}: word-bearing setting 'reference.mouth' (said_by {old_mouth.get('said_by')!r}) cannot be carried by job")
+    if old_mouth.get("closed_lip_line") is not None:
+        ocl = old_mouth["closed_lip_line"]
+        if not isinstance(ocl, dict) or set(ocl) - {"on", "why", "said_by", "at", "carried"}:
+            raise Refused(f"--carry-words-from {old_name}: word-bearing key in reference.mouth.closed_lip_line {ocl!r} cannot be carried")
+        if not ocl.get("on", True) and ocl.get("said_by") not in (None, "the chain's default", "the plan"):
+            cl_str = str(ocl.get("why") or "")
+            out["no_closed_lip_line"] = tagged(cl_str)
+            out["no_closed_lip_line_meta"] = {"said_by": ocl.get("said_by"), "at": ocl.get("at"), "carried": dict(carried_rec)}
+            carried_said.append(f"no_closed_lip_line ({ocl.get('said_by')}, {ocl.get('at')}): {out['no_closed_lip_line']}")
     for field, label in (("no_mouth_on", "no_mouth_on"), ("mouth_on", "mouth_on")):
         for s in old_mouth.get(field) or []:
             if not isinstance(s, dict) or set(s) - {"first", "last", "why", "said_by", "at", "carried"}:
@@ -2009,7 +2019,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
               drop: str | None = None, drop_by: str | None = None, carry_words_from: dict | Path | str | None = None,
               leave_word: list[str] | None = None, leave_by: str | None = None, no_carry_words: str | None = None,
               head_tube: str | None = None, depth: str | None = None, no_head_track: str | None = None,
-              capture_folder: Path | str | None = None) -> dict:
+              no_closed_lip_line: str | None = None, capture_folder: Path | str | None = None) -> dict:
     """The job file of one subject's load on a shot, from the shot's preview. `preview` is the preview's own job
     block; `source` is the file the load renders from, the video's present copy (the preview's own when left out).
     `parts` with `parts_by` makes the load's part some of its subject's plan parts (`part_of`)."""
@@ -2025,7 +2035,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         raise Refused(f"the preview {preview['name']} is of {preview['first']}-{preview['first'] + preview['frames'] - 1}, not of the shot {shot['first']}-{shot['last']}")
     p = planned(plan, subject)
     cw = None
-    wb_from_cw = wa_from_cw = zoomed_from_cw = whole_from_cw = head_tube_from_cw = depth_from_cw = no_head_track_from_cw = least_from_cw = False
+    wb_from_cw = wa_from_cw = zoomed_from_cw = whole_from_cw = head_tube_from_cw = depth_from_cw = no_head_track_from_cw = no_cl_from_cw = least_from_cw = False
     parts_from_cw = track_not_from_cw = motion_from_cw = ns_from_cw = es_from_cw = False
     seam_from_cw = cn_from_cw = drop_from_cw = False
     n_cw_hp = 0
@@ -2071,6 +2081,10 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             no_head_track, no_head_track_from_cw = cw["no_head_track"], True
         elif cw["no_head_track"] is not None:
             _ov("no_head_track ", f"no_head_track={no_head_track!r}", repr(cw["no_head_track"]))
+        if no_closed_lip_line is None and cw["no_closed_lip_line"] is not None:
+            no_closed_lip_line, no_cl_from_cw = cw["no_closed_lip_line"], True
+        elif cw["no_closed_lip_line"] is not None:
+            _ov("no_closed_lip_line ", f"no_closed_lip_line={no_closed_lip_line!r}", repr(cw["no_closed_lip_line"]))
         if least is None and cw["least"] is not None:
             least, least_why, least_from_cw = cw["least"], cw["least_why"], True
         elif cw["least"] is not None:
@@ -2586,6 +2600,22 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         )
         chosen += (f" THE SAM 3.1 HEAD TRACK IS OFF FOR THIS LOAD (`--no-head-track`), on {no_head_track_block['said_by']}'s word: "
                    f"{no_head_track_block['why']}.")
+    if no_closed_lip_line is not None and not " ".join(str(no_closed_lip_line).split()):
+        raise Refused("--no-closed-lip-line takes the reason in words: --closed-lip-line is the chain's default, and the word is kept")
+    if no_closed_lip_line is not None:
+        if motion == "none":
+            raise Refused("--no-closed-lip-line acts on the drawn reference, and this load has none (--motion none)")
+        ncl_meta = cw["no_closed_lip_line_meta"] if (cw and no_cl_from_cw and cw.get("no_closed_lip_line_meta")) else None
+        cl_off_block = {
+            "on": False,
+            "why": " ".join(str(no_closed_lip_line).split()),
+            "said_by": ncl_meta["said_by"] if ncl_meta else by,
+            "at": ncl_meta["at"] if ncl_meta else now,
+            **({"carried": dict(ncl_meta["carried"])} if ncl_meta else {}),
+        }
+        ref_form["mouth"] = dict(ref_form["mouth"], closed_lip_line=cl_off_block)
+        chosen += (f" CLOSED-LIP LINE OFF FOR THIS LOAD (`--no-closed-lip-line`), on {cl_off_block['said_by']}'s word: "
+                   f"{cl_off_block['why']}.")
     # what the composite kept, saved for the review clips (the song node's `save_kept`): a chain default, the job's switch (2026-10-15)
     load["save_kept"] = True
     # THE VOICE (the owner's word of 2026-10-15 on 5675b: the plan says per span whether a subject sings, talks unheard or is silent; the
@@ -2597,8 +2627,9 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         voice = None if hair_alone else load_text.voice_of(p, a, b)
     except load_text.Refused as exc:
         raise Refused(str(exc)) from None
-    if (ref_form["mouth"].get("closed_lip_line") and ref_form["mouth"].get("said_by") == "the chain's default"
-            and voice and voice.get("voice") == "silent"):
+    cl_cfg = ref_form["mouth"].get("closed_lip_line")
+    cl_on = cl_cfg.get("on", True) if isinstance(cl_cfg, dict) else bool(cl_cfg)
+    if cl_on and ref_form["mouth"].get("said_by") == "the chain's default" and voice and voice.get("voice") == "silent":
         ref_form["mouth"] = {
             **ref_form["mouth"],
             "form": "left out",
@@ -2799,10 +2830,13 @@ def reference_block(form: str, why: str, by: str, now: str, record: Path, points
 
 
 #: THE REFERENCE'S FORM BY DEFAULT (the owner's word of 2026-10-14: "make these our defaults and stop forgetting the tools we
-#: built"): the mouth by the lip check (`head_reference.mouth_check`), the eye in the contrast form (white sclera, black iris,
-#: 264c0840). A subject's plan may say otherwise (`reference: {mouth, iris, why}`), and a load at its reference step, each
-#: with its reason.
-REFERENCE_DEFAULT = {"mouth": "auto", "iris": "contrast"}
+#: built"; 2026-10-19 on 0278f and 1340d: closed_lip_line on by default, darken_head off): the mouth by the lip check
+#: (`head_reference.mouth_check`) with closed lips drawn as one parting line, the mouth fitted above the chin, silent windows
+#: leaving the mouth out, and every mark clipped to the grey head's silhouette (`head_reference --closed-lip-line`), and the
+#: eye in the contrast form (white sclera, black iris, 264c0840). A subject's plan may say otherwise (`reference: {mouth, iris,
+#: closed_lip_line, why}`), and a load at its job (`--no-closed-lip-line WHY`) or reference step (`--no-closed-lip-line
+#: --form-why WHY`), each with its reason.
+REFERENCE_DEFAULT = {"mouth": "auto", "iris": "contrast", "closed_lip_line": True}
 
 
 def reference_form(p: dict, subject: str) -> dict:
@@ -2821,11 +2855,13 @@ def reference_form(p: dict, subject: str) -> dict:
         else:
             out[key] = {"form": REFERENCE_DEFAULT[key], "said_by": "the chain's default", "why": "REFERENCE_DEFAULT (2026-10-14)"}
     if "closed_lip_line" in said:
-        if said["closed_lip_line"] is not True:
-            raise Refused(f"the plan's `reference.closed_lip_line` for {subject!r} is {said['closed_lip_line']!r}: `true` with `why`, or leave it out")
-        if out["mouth"]["form"] not in ("auto", "left out"):
+        if not isinstance(said["closed_lip_line"], bool):
+            raise Refused(f"the plan's `reference.closed_lip_line` for {subject!r} is {said['closed_lip_line']!r}: `true` or `false` with `why`, or leave it out")
+        if said["closed_lip_line"] is True and out["mouth"]["form"] not in ("auto", "left out"):
             raise Refused(f"the plan's `reference.closed_lip_line` for {subject!r} acts on `mouth: 'auto'` (or `'left out'`); got {out['mouth']['form']!r}")
-        out["mouth"]["closed_lip_line"] = {"said_by": "the plan", "why": " ".join(str(said["why"]).split())}
+        out["mouth"]["closed_lip_line"] = {"on": said["closed_lip_line"], "said_by": "the plan", "why": " ".join(str(said["why"]).split())}
+    elif "mouth" not in said and REFERENCE_DEFAULT.get("closed_lip_line"):
+        out["mouth"]["closed_lip_line"] = {"on": True, "said_by": "the chain's default", "why": "REFERENCE_DEFAULT (2026-10-19)"}
     if "darken_head" in said:
         if said["darken_head"] is not True:
             raise Refused(f"the plan's `reference.darken_head` for {subject!r} is {said['darken_head']!r}: `true` with `why`, or leave it out")
@@ -2877,6 +2913,13 @@ def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: di
     names = [k["name"] for k in (kept or {}).get("made", [])]
     band = load.get("hair_band")
     mouth, iris = ref_form["mouth"], ref_form["iris"]
+    cl_block = mouth.get("closed_lip_line")
+    cl_on = cl_block.get("on", True) if isinstance(cl_block, dict) else bool(cl_block)
+    cl_off = isinstance(cl_block, dict) and not cl_block.get("on", True)
+    cl_from = (
+        f"; closed_lip_line: {cl_block['said_by']}" + (f", {cl_block['at']}" if cl_block.get("at") else "") + f": {cl_block['why']}"
+        if isinstance(cl_block, dict) else ""
+    )
     lines = [
         ("the reference held to the subject's track", "the pose pass reads the face inside the subject's track (pose_along_shot HOLD_GROW_PX); "
          "a short run of frames off it takes its neighbours' points (head_reference FILL_GAP)", "the chain"),
@@ -2892,10 +2935,11 @@ def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: di
                                "the reference step", "drawn": "drawn", "left out": "left out"}[mouth["form"]]
          + "".join(f"; NONE on {s['first']}-{s['last']}, turned off on a person's word" for s in mouth.get("no_mouth_on") or [])
          + "".join(f"; DRAWN on {s['first']}-{s['last']} where the gate drops it, the pose model's lip rings, on a person's word" for s in mouth.get("mouth_on") or [])
-         + ("; CLOSED LIPS as one parting line where no teeth or tongue show (head_reference --closed-lip-line)" if mouth.get("closed_lip_line") else ""),
+         + ("; CLOSED LIPS as one parting line where no teeth or tongue show (head_reference --closed-lip-line)" if cl_on else "")
+         + ("; closed-lip line OFF, turned off on a person's word" if cl_off else ""),
          f"{mouth['said_by']}: {mouth['why']}" + "".join(f"; {s['first']}-{s['last']}: {s['said_by']}, {s['at']}: {s['why']}"
                                                        for s in (mouth.get("no_mouth_on") or []) + (mouth.get("mouth_on") or []))
-         + (f"; closed_lip_line: {mouth['closed_lip_line']['said_by']}: {mouth['closed_lip_line']['why']}" if mouth.get("closed_lip_line") else "")),
+         + cl_from),
         *([("the part held on a person's word", "on " + mine["word"].replace("+", ", ") + ": frames the capture's grade leaves empty there take "
             "the nearest graded part, moved and cut to the track (capture_masked_run.word_shapes)", mine["word_by"])] if mine.get("word") else []),
         *([("the face lines", "NONE on " + ", ".join(f"{s['first']}-{s['last']}" for s in ref_form["no_face_on"]) + ", turned off on a person's word "
@@ -3193,7 +3237,8 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
                    drop=getattr(a, "drop", None), drop_by=getattr(a, "drop_by", None), carry_words_from=cwf,
                    leave_word=lw, leave_by=lby, no_carry_words=ncw,
                    head_tube=getattr(a, "head_tube", None), depth=getattr(a, "depth", None),
-                   no_head_track=getattr(a, "no_head_track", None))
+                   no_head_track=getattr(a, "no_head_track", None),
+                   no_closed_lip_line=getattr(a, "no_closed_lip_line", None))
     job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "ITS PREVIEW WAS MADE ON AN EARLIER COPY")
     out = folder / f"{name}.json"
     print(f"{name}: {a.subject}, {renders(region, eff_parts)}, source frames {job['loads'][0]['first']}-{job['loads'][0]['first'] + job['loads'][0]['frames'] - 1}; "
@@ -3301,9 +3346,17 @@ def step_reference(a, world, figures=figures_of) -> None:
                           f"{wanted or 'none'}: the reference is made again, in a new folder")
         ref_said = job.get("reference") or {}
         md = made.get("drawn") or {}
-        want_cl = bool(getattr(a, "closed_lip_line", False) or (ref_said.get("mouth") or {}).get("closed_lip_line"))
-        if want_cl and not (mouth.get("closed_lip_line") or {}).get("on"):
-            raise again(f"--existing: {record} was not drawn with --closed-lip-line: the reference is made again, in a new folder")
+        cl_cfg = (ref_said.get("mouth") or {}).get("closed_lip_line")
+        want_cl = (
+            False if getattr(a, "no_closed_lip_line", False) else
+            True if getattr(a, "closed_lip_line", False) else
+            bool(cl_cfg.get("on", True)) if isinstance(cl_cfg, dict) else bool(cl_cfg)
+        )
+        if form != "plain":
+            if want_cl and not (mouth.get("closed_lip_line") or {}).get("on"):
+                raise again(f"--existing: {record} was not drawn with --closed-lip-line: the reference is made again, in a new folder")
+            if (getattr(a, "no_closed_lip_line", False) or (isinstance(cl_cfg, dict) and not cl_cfg.get("on", True))) and (mouth.get("closed_lip_line") or {}).get("on"):
+                raise again(f"--existing: {record} was drawn with --closed-lip-line and this load turns it off: the reference is made again, in a new folder")
         if (getattr(a, "darken_head", False) or ref_said.get("darken_head")) and not (md.get("darken_head") or {}).get("on"):
             raise again(f"--existing: {record} was not drawn with --darken-head: the reference is made again, in a new folder")
         written(a, ctx, made, record, points, drawn, form, why, figures, taken=True)
@@ -3346,12 +3399,27 @@ def drawn_form(job: dict, a, files: dict, preview_first: int) -> list:
     mouth = a.mouth or (said.get("mouth") or {}).get("form")
     mouth_why = a.form_why if a.mouth else ((said.get("mouth") or {}).get("why") or "")
     iris = a.iris or (said.get("iris") or {}).get("form")
+    if getattr(a, "closed_lip_line", False) and getattr(a, "no_closed_lip_line", False):
+        raise Refused("--closed-lip-line and --no-closed-lip-line cannot both be given")
     if (a.mouth or a.iris or getattr(a, "class_mouth_needs_hole", False) or getattr(a, "closed_lip_line", False)
-            or getattr(a, "darken_head", False)) and not str(a.form_why or "").strip():
+            or getattr(a, "no_closed_lip_line", False) or getattr(a, "darken_head", False)) and not str(a.form_why or "").strip():
         raise Refused("--mouth and --iris at the reference step are a person's word: say why with --form-why")
-    cl = (" ".join(a.form_why.split()) if getattr(a, "closed_lip_line", False) else
-          f"{(said.get('mouth') or {})['closed_lip_line']['said_by']}: {(said.get('mouth') or {})['closed_lip_line']['why']}"
-          if (said.get("mouth") or {}).get("closed_lip_line") else "")
+    cl_cfg = (said.get("mouth") or {}).get("closed_lip_line")
+    cl_cfg_on = cl_cfg.get("on", True) if isinstance(cl_cfg, dict) else bool(cl_cfg)
+    if getattr(a, "no_closed_lip_line", False):
+        cl = ""
+        if not a.mouth and (said.get("mouth") or {}).get("form") == "left out" and str((said.get("mouth") or {}).get("why") or "").startswith("silent window"):
+            mouth = "auto"
+            mouth_why = "REFERENCE_DEFAULT (2026-10-14)"
+    elif getattr(a, "closed_lip_line", False):
+        cl = " ".join(a.form_why.split())
+    elif cl_cfg_on and isinstance(cl_cfg, dict):
+        if cl_cfg.get("said_by") == "the chain's default" and mouth not in ("auto", "left out"):
+            cl = ""
+        else:
+            cl = f"{cl_cfg['said_by']}: {cl_cfg['why']}"
+    else:
+        cl = ""
     if cl and not a.mouth and (said.get("mouth") or {}).get("said_by") in (None, "the chain's default") and mouth == "auto":
         for row in job.get("defaults") or []:
             if isinstance(row, dict) and row.get("what") == "the voice" and str(row.get("carries") or "").startswith("silent, on "):
@@ -3778,6 +3846,9 @@ def main() -> int:
     j.add_argument("--no-head-track", metavar="WHY",
                    help="do not pass the preview's SAM 3.1 head track (`head_track=`) to the capture on this load; the reason is kept in the job file "
                         "and named in THE DEFAULTS THIS LOAD CARRIES")
+    j.add_argument("--no-closed-lip-line", metavar="WHY",
+                   help="turn off --closed-lip-line for this load (the chain's default since 2026-10-19); the reason is kept in the job file "
+                        "and named in THE DEFAULTS THIS LOAD CARRIES")
     r = sub.add_parser("reference")
     r.add_argument("job_file")
     r.add_argument("--plain", metavar="WHY", help="take the plain cut, on a person's word; the reason is kept in the job file")
@@ -3787,8 +3858,11 @@ def main() -> int:
     r.add_argument("--iris", choices=("between the lids", "whole", "filled", "contrast"), help="the eye, over the job's, with --form-why")
     r.add_argument("--class-mouth-needs-hole", action="store_true", help="an option for one test (5114e): no class-map mouth on a frame "
                    "with no teeth or tongue labelled; with --form-why")
-    r.add_argument("--closed-lip-line", action="store_true", help="an option, off unless asked: draw a closed class-map mouth (no teeth "
-                   "or tongue inside it) as one open parting line from corner to corner, fit the mouth above the chin, and clip every mark to the grey head's silhouette; with --form-why")
+    r.add_argument("--closed-lip-line", action="store_true", help="draw a closed class-map mouth (no teeth or tongue inside it) as one open parting "
+                   "line from corner to corner, fit the mouth above the chin, and clip every mark to the grey head's silhouette (the chain's default "
+                   "since 2026-10-19); with --form-why when overriding at the reference step")
+    r.add_argument("--no-closed-lip-line", action="store_true", help="turn off --closed-lip-line (the chain's default since 2026-10-19) at the "
+                   "reference step; with --form-why")
     r.add_argument("--darken-head", action="store_true", help="an option, off unless asked: darken the grey body model by scale (HEAD_DARKEN_SCALE) so white lines "
                    "and eyes read with higher contrast; with --form-why")
     r.add_argument("--form-why", default="", help="why this load's mouth or eye is drawn otherwise than its job says")

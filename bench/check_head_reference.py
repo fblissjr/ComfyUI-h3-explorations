@@ -981,9 +981,14 @@ def the_three_mouth_fixes_synthetic() -> str:
     p50_file = video(folder / "plain50.mkv", plain_50)
     agreed_pass, _ = hr.class_mouth_gate([m_on[2]], [h_on["_centres"][2]], str(p50_file), str(pts), 2, 1, [hr.CLASS_MOUTH_GATE["agreed_share"]])
     assert agreed_pass == [True], agreed_pass
-    # and the plan/job switch is off by default and shown in THE DEFAULTS THIS LOAD CARRIES when turned on
+    # and closed_lip_line is on by default in the chain (while darken_head stays off by default), and can be turned off with a reason
     rf_default = stl.reference_form({}, "lead")
-    assert "closed_lip_line" not in rf_default["mouth"] and "darken_head" not in rf_default, rf_default
+    assert rf_default["mouth"]["closed_lip_line"] == {"on": True, "said_by": "the chain's default", "why": "REFERENCE_DEFAULT (2026-10-19)"} \
+        and "darken_head" not in rf_default, rf_default
+    rf_off = stl.reference_form({"reference": {"closed_lip_line": False, "why": "off test"}}, "lead")
+    carried_off = stl.defaults_carried({}, {}, [{"label": "lead"}], "lead", None, rf_off, {"said_by": "plan", "why": "z"}, None)
+    mouth_off = next(d for d in carried_off if d["what"] == "the mouth")
+    assert "closed-lip line OFF" in mouth_off["carries"] and "closed_lip_line: the plan: off test" in mouth_off["from"], mouth_off
     rf_switched = stl.reference_form({"reference": {"closed_lip_line": True, "darken_head": True, "why": "mouth test"}}, "lead")
     carried = stl.defaults_carried({}, {}, [{"label": "lead"}], "lead", None, rf_switched, {"said_by": "plan", "why": "z"}, None)
     mouth_row = next(d for d in carried if d["what"] == "the mouth")
@@ -991,7 +996,7 @@ def the_three_mouth_fixes_synthetic() -> str:
     assert "CLOSED LIPS as one parting line" in mouth_row["carries"] and "closed_lip_line: the plan: mouth test" in mouth_row["from"], mouth_row
     assert "DARKENED HEAD MODEL" in eye_row["carries"] and "darken_head: the plan: mouth test" in eye_row["from"], eye_row
     return ("synthetic closed lips on both paths draw one open parting line (`mouth_closed` or `inner_lip_line`) when `--closed-lip-line` is on "
-            "and open mouths draw one outline around a black interior (`mouth_inner` or `inner_lip_ring`); `--darken-head` and silent `--mouth 'left out'` checked; off by default; refusals checked")
+            "and open mouths draw one outline around a black interior (`mouth_inner` or `inner_lip_ring`); `--darken-head` and silent `--mouth 'left out'` checked; chain default and ways off checked")
 
 
 def the_three_mouth_fixes_on_fun_captures() -> str:
