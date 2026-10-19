@@ -724,6 +724,53 @@ def _case_off_head_islands_not_resurrected() -> str:
     return "dad 1306 bicep=0/head=23129, 0606 f772 hands=0/head=15695, 1306t f1391=33120, 0438e f444=8220"
 
 
+def _case_head_track_seed_mask() -> str:
+    """When `head_track` is None (default), `head_tube_for_capture` uses its bbox tube; when `head_track` is given,
+    it is passed as `seed_mask` to `sam31_head_tube` (clipped to `person_track`), fills unclassified head pixels from
+    adjacent frames' head classes, and refuses a wrong-shaped `head_track`."""
+    face_id = htp.NAME_TO_ID["Face_Neck"]
+    person_track = np.zeros((4, 64, 64), dtype=bool)
+    person_track[:, 8:56, 12:52] = True
+    # Tight propagated SAM head track at y=12..28, x=20..44 (plus 4 cols outside person_track on frame 0 to test clipping)
+    head_track = np.zeros((4, 64, 64), dtype=bool)
+    head_track[:, 12:28, 20:44] = True
+    head_track[0, 12:28, 52:56] = True
+    # On frames 1 and 2, Sapiens left the lower half of the face (y=20..28, x=20..44) unclassified (0), while frames 0 and 3 have Face_Neck there.
+    cmap = np.zeros((4, 64, 64), dtype=np.uint8)
+    cmap[:, 12:28, 20:44] = face_id
+    cmap[1:3, 20:28, 20:44] = 0
+    raw_parts = cmap == face_id
+    kps = np.zeros((308, 3), dtype=np.float64)
+    kps[0] = [28.0, 22.0, 0.9]
+    kps[1] = [36.0, 22.0, 0.9]
+    kps[2] = [32.0, 26.0, 0.9]
+    pose_kps = [kps.copy() for _ in range(4)]
+
+    off_res = htp.head_tube_for_capture(person_track, raw_parts, cmap, head_parts=("Face_Neck",))
+    on_res = htp.head_tube_for_capture(person_track, raw_parts, cmap, head_parts=("Face_Neck",), head_track=head_track)
+    cmap_kp = cmap.copy()
+    htp._fill_unclassified_in_head_tube(
+        cmap_kp,
+        head_track & person_track,
+        part_ids=(face_id,),
+        hair_id=htp.NAME_TO_ID["Hair"],
+        face_id=face_id,
+        pose_kps=pose_kps,
+    )
+    assert np.all(cmap_kp[1:3, 20:28, 20:44] == face_id), "pose_kps hull did not fill unclassified face hole"
+    assert on_res["provenance"]["outside_person_track_clipped_px"] == [16 * 4, 0, 0, 0], on_res["provenance"]
+    assert np.array_equal(on_res["tube_info"]["tube"], head_track & person_track), "tube is not head_track clipped to person_track"
+    assert int(on_res["part_mask"][1].sum()) == 16 * 24 and int(on_res["part_mask"][2].sum()) == 16 * 24, (
+        f"unclassified face hole inside head_track on frames 1..2 was not filled: {[int(on_res['part_mask'][t].sum()) for t in range(4)]}"
+    )
+    assert int(off_res["part_mask"][1].sum()) == 8 * 24, "control: without head_track fill, 2-frame hole on frame 1 stays 192 px"
+    refused(
+        lambda: htp.head_tube_for_capture(person_track, raw_parts, cmap, head_parts=("Face_Neck",), head_track=head_track[:2]),
+        "head_track shape",
+    )
+    return "head_track clipped to person_track, 2-frame unclassified hole filled from reference frames, wrong shape refused"
+
+
 def main() -> int:
     case("off_tube_false_positive_suppressed", _case_off_tube_false_positive)
     case("temporal_smoothing_bridges_dropout", _case_temporal_smoothing_dropout)
@@ -732,6 +779,7 @@ def main() -> int:
     case("person_track_bounds_tube", _case_person_track_bounds_tube)
     case("person_track_regains_tube_after_gap", _case_person_track_regains_tube_after_gap)
     case("off_head_islands_not_resurrected", _case_off_head_islands_not_resurrected)
+    case("head_track_seed_mask_and_neighbour_fill", _case_head_track_seed_mask)
     case("real_0613g_three_states", _case_real_0613g_three_states)
     case("provenance_json_and_cli", _case_provenance_and_cli)
     case("refuses_invalid_inputs", _case_refuses_invalid_inputs)

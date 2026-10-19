@@ -2004,7 +2004,7 @@ def sighting_inputs(m: dict, facts=None) -> dict:
     (`MADE_FROM`), that file's facts as `made_from`."""
     facts = facts or input_facts
     return {k: {**facts(m[k]), **({"made_from": facts(m[MADE_FROM[k]])} if k in MADE_FROM and m.get(MADE_FROM[k]) else {})}
-            for k in ("track", "parts", "classes", "held", "shots", "pose") if m.get(k)}
+            for k in ("track", "head_track", "parts", "classes", "held", "shots", "pose") if m.get(k)}
 
 
 def spec(text: str) -> tuple[str, dict]:
@@ -2150,7 +2150,7 @@ def files(a: argparse.Namespace) -> Path:
     masks, runs, plans = [spec(m) for m in a.mask], [spec(r) for r in a.run], [spec(r) for r in a.plan]
     plans += plans_with_the_files(runs, [load for path in a.loads for load in loads_from_file(path)])
     runs = [(n, r) for n, r in runs if r.get("render")]
-    named = [m[k] for _, m in masks for k in ("track", "parts", "shots", "classes", "held", "pose", *MADE_FROM.values()) if m.get(k)] + [a.source]
+    named = [m[k] for _, m in masks for k in ("track", "head_track", "parts", "shots", "classes", "held", "pose", *MADE_FROM.values()) if m.get(k)] + [a.source]
     named += [x for _, r in runs for x in (r["render"], r["render"][:-len(".mp4")] + "_with_mask.mp4")]
     if getattr(a, "depth", None):
         named.append(a.depth)
@@ -2270,17 +2270,27 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
         parts = read_mask(m["parts"], size, at, first, frames)[0] if m.get("parts") else None
         took = None
         cmap = _pre_masks[(label, by)][1] if (label, by) in _pre_masks else (read_classes(m["classes"], size, at, first, frames) if m.get("classes") else None)
+        head_track_arr = None
+        if m.get("head_track"):
+            head_track_arr, ht_covered = read_mask(m["head_track"], size, at, first, frames)
+            if not bool(ht_covered.all()):
+                raise SystemExit(
+                    f"subject {label!r}: head_track={m['head_track']} does not cover the capture's frames {first}-{first + frames - 1} (at={at})"
+                )
         head_tube_prov = None
         if m.get("head_tube") not in (None, "1", "on", "true", "0", "off", "false"):
             raise SystemExit(f"subject {label!r}: head_tube={m['head_tube']}; give head_tube=1 or --head-tube")
         use_head_tube = (
             m.get("head_tube") in ("1", "on", "true")
+            or (head_track_arr is not None and m.get("head_tube") not in ("0", "off", "false"))
             or (bool(getattr(a, "head_tube", False)) and m.get("head_tube") not in ("0", "off", "false") and (label in replaced or not replaced))
         )
         off_said, off_frags, off_blind = {}, set(), []
         if parts is not None and m.get("points"):
             # WHAT LIES OFF HER HEAD (`off_head`, the lead's rulings of 2026-10-16): from the reference step's face points
-            parts, off_said, off_frags, off_blind = off_head(parts, m["points"], first, int(m.get("points_margin", OFF_HEAD_MARGIN)))
+            parts, off_said, off_frags, off_blind = off_head(
+                parts, m["points"], first, int(m.get("points_margin", OFF_HEAD_MARGIN)), head_track=head_track_arr,
+            )
             if off_said:
                 print(f"  {label}: off her head, dropped from the saved part on {len(off_said)} frame(s); nothing left at her head on "
                       f"{len(off_frags)} (held by the floor rule)", flush=True)
@@ -2302,6 +2312,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                 track,
                 parts,
                 cmap,
+                head_track=head_track_arr,
                 points_path=m.get("points"),
                 first_frame=first,
                 head_parts=chosen_ht or _htp.DEFAULT_HEAD_PARTS,
@@ -2387,6 +2398,8 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
         np.savez_compressed(folder / f"masks__{by}.npz", track=np.packbits(track, axis=-1), covered=covered,
                             **({"parts": np.packbits(parts, axis=-1)} if parts is not None else {}))
         write_mask_video(folder / f"track__{by}.mkv", track)
+        if head_track_arr is not None:
+            write_mask_video(folder / f"head_track__{by}.mkv", head_track_arr)
         held_frames: list[int] = []
         left_frames: list[int] = []
         dropped: list[list[int]] = []
@@ -2483,6 +2496,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             entry = {"label": label, "colour": list(COLOURS[len(manifest["subjects"]) % len(COLOURS)]), "sightings": []}
             manifest["subjects"].append(entry)
         entry["sightings"].append({"by": by, "track": Path(m["track"]).name, "parts": Path(m["parts"]).name if m.get("parts") else None,
+                                   **({"head_track": Path(m["head_track"]).name} if m.get("head_track") else {}),
                                    "shots": bool(m.get("shots")), "first_source_frame": at,
                                    **({"carved_out_of_own_track": {"against": carved[label]["against"], "px": int(carved[label]["px"].sum()),
                                                                    "cells": int(carved[label]["cells"].sum()), "frames": int((carved[label]["cells"] > 0).sum()),
@@ -4405,7 +4419,8 @@ OFF_HEAD_MARGIN = CELL
 BENT_LINE_HEAD_HEIGHTS = 1.0
 
 
-def off_head(parts: np.ndarray, points: str, first: int, margin: int) -> tuple[np.ndarray, dict[int, dict], set[int], list[int]]:
+def off_head(parts: np.ndarray, points: str, first: int, margin: int,
+             head_track: np.ndarray | None = None) -> tuple[np.ndarray, dict[int, dict], set[int], list[int]]:
     """The saved part with what lies off her head taken out, a frame at a time, from the reference step's face points (`points`, the npz
     `bench/pose_along_shot.py` writes; its frames from its own `first_frame`). Returns the part, what was dropped on each frame, the frames
     left with nothing at her head while the face points see her (fragments, which the floor rule holds), and the frames with no face point
@@ -4429,6 +4444,8 @@ def off_head(parts: np.ndarray, points: str, first: int, margin: int) -> tuple[n
     if "size" not in z.files or [int(z["size"][0]), int(z["size"][1])] != [w_mask, h_mask]:
         got_sz = [int(v) for v in z["size"]] if "size" in z.files else None
         raise ValueError(f"off_head: points file {points} has size {got_sz}, which is not the mask's size {[w_mask, h_mask]}")
+    if head_track is not None and tuple(head_track.shape) != tuple(parts.shape):
+        raise ValueError(f"off_head: head_track shape {tuple(head_track.shape)} does not match parts shape {tuple(parts.shape)}")
     names = [str(x) for x in z["names"]]
     idx = {n: i for i, n in enumerate(names)}
     fids, at = fp.face_ids(idx), int(z["first_frame"])
@@ -4465,6 +4482,7 @@ def off_head(parts: np.ndarray, points: str, first: int, margin: int) -> tuple[n
         big = 1 + int(np.argmax(st[1:, cv2.CC_STAT_AREA]))
         kept = np.zeros_like(parts[k])
         said, pending = [], []
+        ht_k = (head_track[k] > 0) if head_track is not None else None
         for i in range(1, n):
             piece = lab == i
             near = cv2.dilate(piece.astype(np.uint8), grow).astype(bool)
@@ -4475,8 +4493,9 @@ def off_head(parts: np.ndarray, points: str, first: int, margin: int) -> tuple[n
             box = [x, y, x + bw, y + bh]
             iy0, iy1 = max(0, int(np.floor(hy0))), min(h, int(np.ceil(hy1)) + 1)
             ix0, ix1 = max(0, int(np.floor(hx0))), min(w, int(np.ceil(hx1)) + 1)
-            in_head = bool(piece[iy0:iy1, ix0:ix1].any()) if (iy0 < iy1 and ix0 < ix1) else False
-            if i != big and a < SPECK_SHARE * st[big, cv2.CC_STAT_AREA] and not face_near:
+            in_ht = bool((piece & ht_k).any()) if ht_k is not None else False
+            in_head = in_ht or (bool(piece[iy0:iy1, ix0:ix1].any()) if (iy0 < iy1 and ix0 < ix1) else False)
+            if i != big and a < SPECK_SHARE * st[big, cv2.CC_STAT_AREA] and not face_near and not in_ht:
                 said.append({"px": a, "box": box, "why": f"a speck: {round(a / st[big, cv2.CC_STAT_AREA], 4)} of the largest piece, no face point near"})
             elif bent and x >= hx0 and x + bw <= hx1 and y + bh <= line and face_on_edge:
                 kept |= piece

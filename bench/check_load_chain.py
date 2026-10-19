@@ -1406,12 +1406,39 @@ def depth_in_the_chain() -> str:
     return "first accepts a capture folder holding measure_moge2_depth.py's depth.npz when job.depth.on is true, refuses any other file, and passes --depth to files in first and on-plan"
 
 
+def head_track_in_the_chain() -> str:
+    """When `track_head` is off (default), `preview_files` has `head_track: None` and `mask_specs` omits `head_track=`;
+    when `track_head` is true, `preview_files` resolves `<prefix>_head_track_*.mkv` and `mask_specs` passes `head_track=` to `--mask`."""
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        m = made.m
+        ctx_off = made.ctx()
+        assert lc.preview_files(ctx_off, m.output)["a"]["head_track"] is None
+        assert all("head_track=" not in s for s in lc.mask_specs(ctx_off, lc.preview_files(ctx_off, m.output)))
+        made.job["subjects"][1]["track_head"] = True
+        made.write()
+        refused(lambda: lc.mask_specs(made.ctx(), lc.preview_files(made.ctx(), m.output)), "asks for 'a''s head_track and the preview pv saved none")
+        ht_rel = "Video/v/s/pv/pv_a_head_track_00001.mkv"
+        (m.output / ht_rel).write_bytes(b"")
+        made.listed.append(ht_rel)
+        (made.pv / "preview.queued.json").write_text(json.dumps({"status": "success", "files": made.listed}))
+        files_on = lc.preview_files(made.ctx(), m.output)
+        assert files_on["a"]["head_track"] == m.output / ht_rel and files_on["b"]["head_track"] is None, files_on
+        specs_on = lc.mask_specs(made.ctx(), files_on)
+        assert f"head_track={m.output / ht_rel}" in specs_on[1] and "head_track=" not in specs_on[0], specs_on
+        made.job["subjects"][1]["head_track"] = "/nonexistent/head_track.mkv"
+        made.write()
+        refused(lambda: lc.mask_specs(made.ctx(), files_on), "names a head_track for 'a'", "not there")
+    return "off by default; when track_head is true, preview_files and mask_specs carry head_track=, and a missing head_track file is refused"
+
+
 case("render: the go beside the job file, and what stops it", the_render_step)
 case("land: the pose pass and the stacked clip", the_land_step)
 case("page: the item, with the table's buttons", the_page_step)
 case("the gate is told what is the subject's own", what_the_gate_is_told)
 case("a load of two subjects", a_load_of_two_subjects)
 case("depth: capture folder pre-populated by job --depth and --depth passed to files", depth_in_the_chain)
+case("head_track: off by default, carried in preview_files and mask_specs when track_head is on", head_track_in_the_chain)
 
 if __name__ == "__main__":
     sys.exit(finish())

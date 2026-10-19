@@ -116,7 +116,7 @@ PART_TICKS = tuple(k for k, v in MASKED_JOB_PARTS.items() if isinstance(v, bool)
 #: node's outputs in order, and `bench/check_masked_job.py` holds this table to it.
 SLOT = {
     "MiniMaxH3SAM31Corrections": {"segmenter": 0, "segmenter_clip": 1, "report": 2},
-    "MiniMaxH3SubjectTrack": {"mask": 0, "preview": 1, "report": 2, "shot_table": 3},
+    "MiniMaxH3SubjectTrack": {"mask": 0, "preview": 1, "report": 2, "shot_table": 3, "head_mask": 4},
     "MiniMaxH3SubjectParts": {"parts": 0, "report": 3, "held": 4, "classes": 5},
     "MiniMaxH3SubjectBoxes": {"boxes": 0, "report": 1},
     "MiniMaxH3BodyPose": {"pose_data": 0, "report": 2},
@@ -197,6 +197,8 @@ def check_job(job: dict) -> None:
         if match is not None and (isinstance(match, bool) or not isinstance(match, (int, float)) or not 0 < match <= 1):
             raise ValueError(f"subject {label!r}: match {match!r}; a likeness above 0 and up to 1, or leave it out "
                              f"for the tracker's own line")
+        if "track_head" in subject and not isinstance(subject["track_head"], bool):
+            raise ValueError(f"subject {label!r}: track_head {subject['track_head']!r}; a boolean")
         unknown = set(subject.get("parts") or ()) - set(PART_TICKS)
         if unknown:
             raise ValueError(f"subject {label!r}: unknown parts {sorted(unknown)}; the part node ticks {PART_TICKS}")
@@ -218,12 +220,12 @@ def memory_selection_of(job: dict) -> bool:
 def prefixes(job: dict, label: str) -> dict[str, str]:
     """Where a preview saves each thing it can make for one subject, as save-node prefixes under the output folder.
 
-    Every subject has its own, so a second tracker's table cannot overwrite the first's. `track`, `parts`,
-    `classes`, `shots` and `pose` are the capture's own words for a `--mask` spec. `held_things` is the part
+    Every subject has its own, so a second tracker's table cannot overwrite the first's. `track`, `head_track`,
+    `parts`, `classes`, `shots` and `pose` are the capture's own words for a `--mask` spec. `held_things` is the part
     node's `held` output, the mask of what the subject holds: it is not a part with its doubted frames filled
     (the capture makes that one itself, `parts_held__<by>.mkv`), and it never goes on the capture's `held=`."""
     root = f"{job['output']}/{job['name']}/{job['name']}_{label}"
-    return {key: f"{root}_{key}" for key in ("track", "parts", "classes", "held_things", "shots", "mesh")} | {"pose": root}
+    return {key: f"{root}_{key}" for key in ("track", "head_track", "parts", "classes", "held_things", "shots", "mesh")} | {"pose": root}
 
 
 def _out(g: dict, nid: str, name: str) -> list:
@@ -243,6 +245,8 @@ def _tracker_inputs(job: dict, subject: dict) -> dict:
     for theirs, ours in (("subject_phrase", "phrase"), ("max_people", "max_people"), ("corrections", "corrections"), ("seeds", "seeds")):
         if ours in subject:
             inputs[theirs] = subject[ours]
+    if subject.get("track_head"):
+        inputs["track_head"] = True
     members = {}
     if subject.get("pick_at") is not None:
         # a DynamicCombo: its member is written dotted in the API form, as the song node's `extent` is, and
@@ -311,6 +315,8 @@ def preview(job: dict) -> dict:
                                **MASKED_JOB_PARTS, **({k: k in ticks for k in PART_TICKS} if ticks else {})}}
         _shown(g, block + 7, _out(g, at(8), "report"))
         _save_mask(g, block + 20, track, save["track"])
+        if subject.get("track_head"):
+            _save_mask(g, block + 28, _out(g, at(5), "head_mask"), save["head_track"])
         for k, output, name in ((22, "parts", "parts"), (24, "classes", "classes"), (26, "held", "held_things")):
             _save_mask(g, block + k, _out(g, at(8), output), save[name])
         if not subject.get("pose", True):

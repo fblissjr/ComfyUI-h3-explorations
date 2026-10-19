@@ -338,6 +338,18 @@ def the_capture_command_reads_what_the_preview_saves():
         for key in want - {"by", "at"}:
             prefix = graphs.prefixes(JOB, who)[key]
             assert prefix in saved and given[key].startswith(f"<{prefix}"), f"{who}: {key} is {given[key]}, the preview saves {prefix}"
+    # track_head off (False) is byte-identical to omitted; track_head on (True) wires head_mask (slot 4) to _head_track and passes head_track=
+    job_false = copy.deepcopy(JOB)
+    job_false["subjects"][0]["track_head"] = False
+    assert graphs.preview(job_false) == g, "track_head=False changed the preview graph against track_head omitted"
+    job_head = copy.deepcopy(JOB)
+    job_head["subjects"][0]["track_head"] = True
+    g_head = graphs.preview(job_head)
+    assert g_head["1005"]["inputs"].get("track_head") is True and "track_head" not in g_head["1105"]["inputs"], g_head["1005"]["inputs"]
+    assert g_head["1028"]["inputs"]["mask"] == ["1005", graphs.SLOT["MiniMaxH3SubjectTrack"]["head_mask"]], g_head["1028"]
+    assert g_head["1029"]["inputs"]["filename_prefix"] == graphs.prefixes(job_head, "a")["head_track"], g_head["1029"]
+    cmd_head = tool.capture_command(job_head, "2026-01-01")
+    assert "head_track=<Video/check/check/check_a_head_track_*.mkv>" in cmd_head and "check_b_head_track" not in cmd_head, cmd_head
     return "a subject's held things are left out: they are not a part"
 
 
@@ -1496,8 +1508,10 @@ def build_refuses_what_it_must():
         assert json.loads((folder / "preview.json").read_text()) == graphs.preview(job), "the graph written is not the graph built"
         built = json.loads((folder / "preview.built.json").read_text())
         assert built["tracker_mask_version"] == version and set(built["expects"]) == {"a", "b", "c"}, built
-        assert set(built["expects"]["c"]) == set(tool.SAVED_AS) - {"mesh", "pose"} and set(built["expects"]["a"]) == set(tool.SAVED_AS), \
+        assert set(built["expects"]["c"]) == set(tool.SAVED_AS) - {"mesh", "pose", "head_track"} \
+            and set(built["expects"]["a"]) == set(tool.SAVED_AS) - {"head_track"}, \
             "what the preview must leave on disk does not follow who has a pose pass"
+        assert "head_track" in tool.expected_files({**job, "subjects": [{**job["subjects"][0], "track_head": True}]})["a"]
         # every save of the graph is one of the things looked for afterwards, and the other way round
         saved = {v for n in graphs.preview(job).values() for k, v in n["inputs"].items() if k in ("filename_prefix", "table_prefix")}
         looked_for = {p[:-len(tool.SAVED_AS[k])] for things in built["expects"].values() for k, p in things.items()}
@@ -1537,7 +1551,11 @@ def build_refuses_what_it_must():
         # another day, the same name: the output folder would be reused
         Path(built["output_folder"]).mkdir(parents=True)
         _refused(lambda: tool.build(_job_file(tmp, job), "preview", **{**where, "date": "2026-01-02"}), "output folder")
-        # a subject with no pick; a job with no block
+        # a subject with no pick; a job with no block; a non-bool track_head
+        for wrong_th in ("yes", 1):
+            job_th = dict(_without_corrections(), name="check_th")
+            job_th["subjects"][0]["track_head"] = wrong_th
+            _refused(lambda: tool.build(_job_file(tmp, job_th), "preview", **where), "'a'", "track_head")
         for wrong in (0, 1.5, "0.9", True):
             job3 = dict(_without_corrections(), name="check3")
             job3["subjects"][0]["match"] = wrong

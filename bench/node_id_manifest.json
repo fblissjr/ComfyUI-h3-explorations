@@ -682,14 +682,16 @@
       "corrections",
       "subject_from",
       "others",
-      "seeds"
+      "seeds",
+      "track_head"
     ],
     "node_id": "MiniMaxH3SubjectTrack",
     "outputs": [
       "mask",
       "preview",
       "report",
-      "shot_table"
+      "shot_table",
+      "head_mask"
     ]
   },
   "MiniMaxH3VAEPrecision": {

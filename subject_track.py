@@ -365,6 +365,10 @@ SUBJECT_PHRASE = "person"
 #: The default of `head_phrase`: what SAM 3 is asked for to find each
 #: person's head, the second place a match has to hold.
 HEAD_PHRASE = "head"
+#: The default of `track_head`: whether `MiniMaxH3SubjectTrack` also propagates
+#: the subject's head with SAM 3.1 across each shot (`head_mask` output). Off by
+#: default so existing graphs and outputs are byte-identical unless enabled.
+TRACK_HEAD = False
 #: The default of `max_people`: the most detections of the phrase taken from a
 #: frame. Reasoned: more than a stage usually shows, and each one costs a mask
 #: refinement only on the few frames that are probed.
@@ -714,6 +718,7 @@ class Followed:
     judged: dict[int, list[tuple]] = field(default_factory=dict)
     gallery_whole: list = field(default_factory=list)   # the gallery frames' whole-mask signatures, or None each
     on_others: list[int] = field(default_factory=list)  # frames cut because the track lay mostly on `others`
+    head_pieces: dict[int, torch.Tensor] = field(default_factory=dict)  # {first frame: [n, H, W]} head masks when `track_head=True`
 
 
 #: A seed's box and a detection's are the same person at or over this overlap (intersection over union). Reasoned,
@@ -904,6 +909,50 @@ def clear_best(sims: list[float]) -> tuple[int | None, float, float]:
     return taken, float(best), float(second)
 
 
+def _track_head_span(result: Followed, shot: Shot, start: int, end: int, seed_frame: int, seed_person: torch.Tensor,
+                     sign, track) -> None:
+    """Propagate the subject's head over `[start, end)` from `head_of` on `seed_frame` (or nearest gallery frame in the span),
+    clipped to `result.pieces[shot.start]`."""
+    piece = result.pieces.get(shot.start)
+    if piece is None:
+        return
+    h_piece = result.head_pieces.get(shot.start)
+    if h_piece is None:
+        h_piece = torch.zeros_like(piece)
+        result.head_pieces[shot.start] = h_piece
+    span_piece = piece[start - shot.start:end - shot.start]
+    if not bool((span_piece > 0.5).any()):
+        h_piece[start - shot.start:end - shot.start] = 0.0
+        return
+    head_fn = getattr(sign, "head", None)
+    h_seed_frame, h_seed = int(seed_frame), None
+    if head_fn is not None:
+        h_seed = head_fn(h_seed_frame, seed_person)
+        if h_seed is None or not bool((h_seed > 0.5).any()):
+            candidates = sorted(gallery_frames(span_piece), key=lambda k: abs((start + k) - h_seed_frame))
+            for k in candidates:
+                f = start + k
+                m = head_fn(f, (piece[f - shot.start] > 0.5).to(torch.float32))
+                if m is not None and bool((m > 0.5).any()):
+                    h_seed_frame, h_seed = f, m
+                    break
+        if h_seed is None or not bool((h_seed > 0.5).any()):
+            h_seed_frame, h_seed = int(seed_frame), top_third(seed_person)
+    else:
+        if _has_head(sign(h_seed_frame, seed_person)):
+            h_seed = top_third(seed_person)
+    if h_seed is None or not bool((h_seed > 0.5).any()):
+        h_piece[start - shot.start:end - shot.start] = 0.0
+        return
+    p_at_seed = seed_person if h_seed_frame == int(seed_frame) else piece[h_seed_frame - shot.start]
+    clipped_seed = ((h_seed > 0.5) & (p_at_seed > 0.5)).to(torch.float32)
+    if not bool((clipped_seed > 0.5).any()):
+        clipped_seed = (h_seed > 0.5).to(torch.float32)
+    head_tracker = getattr(track, "without_scores", track)
+    tracked = head_tracker(start, end, h_seed_frame, clipped_seed)
+    h_piece[start - shot.start:end - shot.start] = ((tracked > 0.5) & (span_piece > 0.5)).to(torch.float32)
+
+
 def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, match_threshold: float | None,
            detect: Callable[[int], tuple[torch.Tensor, list[float]]],
            sign: Callable[[int, torch.Tensor], torch.Tensor | None],
@@ -912,7 +961,7 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
            corrections: dict[int, int | None] | None = None, gallery: list[tuple] | None = None,
            sign_whole: Callable[[int, torch.Tensor], torch.Tensor | None] | None = None,
            seeds: dict[int, tuple[int, tuple | None]] | None = None,
-           held=None) -> Followed:
+           held=None, track_head: bool = TRACK_HEAD) -> Followed:
     """The subject's mask per frame, shot by shot. The model work is in three callables.
 
     `detect(frame)` returns that frame's detections, [N, H, W] and their
@@ -1004,8 +1053,8 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
         which = choose_free(masks, scores, pick, off(int(pick_frame)))
         entry = None if which is None else (int(pick_frame), which)
     if entry is None:
-        _correct(result, corrections, detect, track, held)
-        _seed(result, given_seeds, detect, track, held)
+        _correct(result, corrections, detect, track, held, sign=sign, track_head=track_head)
+        _seed(result, given_seeds, detect, track, held, sign=sign, track_head=track_head)
         return result
     frame0, which = entry
     # A SEED ON THE PICKED SHOT IS THE PICK (mrcorn's cold read, 2026-10-10). A tool seeds that shot precisely when
@@ -1118,6 +1167,8 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
                     which = free[which]
                     piece[a - shot.start:b - shot.start] = track(a, b, f, found[which])
                     _cut_on_others(result, shot, held, replace=False)
+                    if track_head:
+                        _track_head_span(result, shot, a, b, f, found[which], sign, track)
                     shot.regained.append((a, f, int(found.shape[0]), best, second))
                     break
             else:
@@ -1142,6 +1193,8 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
             if id(shot) not in by_hand:
                 piece = result.pieces[shot.start] = track(shot.start, shot.end, frame0, picked)
                 _cut_on_others(result, shot, held)
+                if track_head:
+                    _track_head_span(result, shot, shot.start, shot.end, frame0, picked, sign, track)
                 # the subject as this track shows them, for a loss later in the shot and for the run after this one
                 result.gallery_frames = [f + shot.start for f in gallery_frames(piece)]
                 result.gallery = [_views(sign(f, (piece[f - shot.start] > 0.5).to(torch.float32))) for f in result.gallery_frames]
@@ -1171,14 +1224,16 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
         if id(shot) not in by_hand:
             result.pieces[shot.start] = track(shot.start, shot.end, seed, seeds[i])
             _cut_on_others(result, shot, held)
+            if track_head:
+                _track_head_span(result, shot, shot.start, shot.end, seed, seeds[i], sign, track)
             regain(shot)
-    _correct(result, corrections, detect, track, held)
+    _correct(result, corrections, detect, track, held, sign=sign, track_head=track_head)
     # A correction says who, not that the tracker will hold them: where the corrected track lets go, look again as
     # for any other shot. The gallery is the corrected track's own frames (`regain`), so the search is for that person.
     for number, person in sorted(corrections.items()):
         if person is not None:
             regain(result.shots[int(number) - 1])
-    _seed(result, given_seeds, detect, track, held)
+    _seed(result, given_seeds, detect, track, held, sign=sign, track_head=track_head)
     if result.pick_seed == "is the pick":
         # the subject as the seeded track shows them, as the picked shot's own track would have: for a loss later in
         # that shot, for a reader of the table, and for the run after this one
@@ -1214,10 +1269,13 @@ def _cut_on_others(result: Followed, shot: Shot, held, *, replace: bool = True) 
     local = frames_on_others(piece, other_masks[shot.start:shot.end], most)
     if local:
         piece[local] = 0.0
+        if shot.start in result.head_pieces:
+            result.head_pieces[shot.start][local] = 0.0
         result.on_others = sorted(set(result.on_others).union(f + shot.start for f in local))
 
 
-def _correct(result: Followed, corrections: dict[int, int | None], detect, track, held=None) -> None:
+def _correct(result: Followed, corrections: dict[int, int | None], detect, track, held=None,
+             *, sign=None, track_head: bool = False) -> None:
     """Apply the corrections to `follow`'s result: each on the frame its shot's tile shows.
 
     A correction may name a person another tracker holds: a person's word outranks a tracker's take, and one of the
@@ -1227,6 +1285,7 @@ def _correct(result: Followed, corrections: dict[int, int | None], detect, track
         if person is None:
             shot.seed, shot.lone, shot.corrected, shot.also_held = None, False, "none", False
             result.pieces.pop(shot.start, None)
+            result.head_pieces.pop(shot.start, None)
             _cut_on_others(result, shot, held)
             continue
         people, _ = detect(shot.shown)
@@ -1240,6 +1299,8 @@ def _correct(result: Followed, corrections: dict[int, int | None], detect, track
         shot.candidates, shot.width = int(people.shape[0]), _width(people[which])
         result.pieces[shot.start] = track(shot.start, shot.end, shot.shown, people[which])
         _cut_on_others(result, shot, held)
+        if track_head and sign is not None:
+            _track_head_span(result, shot, shot.start, shot.end, shot.shown, people[which], sign, track)
 
 
 def seed_names(detect, frame: int, box: tuple) -> tuple[torch.Tensor, int | None, dict]:
@@ -1262,7 +1323,8 @@ def seed_names(detect, frame: int, box: tuple) -> tuple[torch.Tensor, int | None
     return people, best, record
 
 
-def _seed(result: Followed, seeds: dict[int, tuple[int, tuple | None]], detect, track, held=None) -> None:
+def _seed(result: Followed, seeds: dict[int, tuple[int, tuple | None]], detect, track, held=None,
+          *, sign=None, track_head: bool = False) -> None:
     """Apply the seeds to `follow`'s result: each on its own frame, from the detection its box names."""
     for number, (frame, box) in sorted(seeds.items()):
         shot = result.shots[int(number) - 1]
@@ -1270,6 +1332,7 @@ def _seed(result: Followed, seeds: dict[int, tuple[int, tuple | None]], detect, 
         shot.lone, shot.shown = False, frame
         # a belt: a seeded shot is in `by_hand`, so the automatic pass has tracked nothing here
         result.pieces.pop(shot.start, None)
+        result.head_pieces.pop(shot.start, None)
         _cut_on_others(result, shot, held)
         if box is None:
             shot.seed, shot.index = None, None
@@ -1285,6 +1348,8 @@ def _seed(result: Followed, seeds: dict[int, tuple[int, tuple | None]], detect, 
         shot.also_held = held is not None and best in held(frame)
         result.pieces[shot.start] = track(shot.start, shot.end, frame, people[best])
         _cut_on_others(result, shot, held)
+        if track_head and sign is not None:
+            _track_head_span(result, shot, shot.start, shot.end, frame, people[best], sign, track)
 
 
 def _frame_list(frames: list[int], most: int = 16) -> str:
@@ -1794,24 +1859,29 @@ def _sam_callables(segmenter, segmenter_clip, frames: torch.Tensor, phrase: str,
         """The whole mask's signature. Kept for the shot table and compared by nobody here (`follow`, `sign_whole`)."""
         return signature(trunk_of(f), mask)
 
-    def sign(f: int, mask: torch.Tensor):
-        trunk_of(f)
+    def head_on(f: int, mask: torch.Tensor):
         if f not in head_masks:
             out = SAM3_Detect.execute(segmenter, frames[f:f + 1], conditioning=head_cond,
                                       threshold=float(detection_threshold), individual_masks=True)
             head_masks[f] = getattr(out, "args", out)[0].to(torch.float32).cpu()
-        head = head_of(mask, head_masks[f])
+        return head_of(mask, head_masks[f])
+
+    def sign(f: int, mask: torch.Tensor):
+        trunk_of(f)
+        head = head_on(f, mask)
         return signature(features[f], top_third(mask)), (None if head is None else signature(features[f], head))
 
     sign.whole = whole
+    sign.head = head_on
 
-    def run(images: torch.Tensor, mask: torch.Tensor, first: int, backwards: bool = False) -> torch.Tensor:
+    def run(images: torch.Tensor, mask: torch.Tensor, first: int, backwards: bool = False,
+            record_scores: bool = True) -> torch.Tensor:
         """Track `images` from `mask` on their first frame. `first` is the clip frame of the lowest-numbered one."""
         with ScoreTap(getattr(getattr(segmenter.model, "diffusion_model", None), "tracker", None)) as tap:
             out = SAM3_VideoTrack.execute(images, segmenter, initial_mask=mask[None].to(torch.float32),
                                           conditioning=None, detection_threshold=float(detection_threshold),
                                           max_objects=1, detect_interval=1)
-        if track_scores is not None:
+        if record_scores and track_scores is not None:
             count = int(images.shape[0])
             values, why = scores_for(tap.seen, tap.trouble, count, backwards=backwards)
             # The frame a run is seeded on is GIVEN its mask, and the score the tracker returns there is the constant
@@ -1827,15 +1897,18 @@ def _sam_callables(segmenter, segmenter_clip, frames: torch.Tensor, phrase: str,
         masks = SAM3_TrackToMask.execute(data, "")
         return getattr(masks, "args", masks)[0].to(torch.float32).cpu()
 
-    def track(start: int, end: int, seed: int, mask: torch.Tensor) -> torch.Tensor:
-        if track_scores is not None:
+    def track(start: int, end: int, seed: int, mask: torch.Tensor, record_scores: bool = True) -> torch.Tensor:
+        if record_scores and track_scores is not None:
             for f in range(start, end):       # this track replaces whatever was tracked over these frames before
                 track_scores.pop(f, None)
-        forward = run(frames[seed:end], mask, seed)
+        forward = run(frames[seed:end], mask, seed, record_scores=record_scores)
         if seed == start:
             return forward
-        backward = run(torch.flip(frames[start:seed + 1], dims=[0]), mask, start, backwards=True)
+        backward = run(torch.flip(frames[start:seed + 1], dims=[0]), mask, start, backwards=True,
+                       record_scores=record_scores)
         return torch.cat([torch.flip(backward, dims=[0])[:-1], forward], dim=0)
+
+    track.without_scores = lambda start, end, seed, mask: track(start, end, seed, mask, record_scores=False)
 
     return detect, sign, track
 
@@ -1971,6 +2044,11 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
                                          "says why. A seed in the shot the subject is picked in is the pick: every "
                                          "other shot is then matched against the person it names. A shot cannot have "
                                          "both a seed and a correction.")),
+                # appended 2026-10-18
+                io.Boolean.Input("track_head", default=TRACK_HEAD, optional=True, advanced=True,
+                                 tooltip=("Optional. When on, also propagates the subject's head mask in each shot "
+                                          "from the head detection on that shot's seed frame, clipped to the person "
+                                          "track, and emits it on `head_mask`.")),
             ],
             outputs=[
                 io.Mask.Output(display_name="mask", tooltip="One mask per frame at the frames' size; empty where the subject is absent."),
@@ -1979,13 +2057,17 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
                 io.String.Output(display_name="shot_table",
                                  tooltip="The shots as a table, in JSON: who was found in each, numbered as on the preview, "
                                          "who was taken and why. A Save Shot Table node writes it out for review."),
+                io.Mask.Output(display_name="head_mask",
+                               tooltip="When `track_head` is on, the subject's propagated head mask per frame, clipped "
+                                       "to `mask`; empty when `track_head` is off."),
             ],
         )
 
     @classmethod
     def execute(cls, frames, segmenter, segmenter_clip, pick_on, match, cuts, subject_phrase=SUBJECT_PHRASE,
                 pick=PICK_CENTRAL, detection_threshold=DETECTION_THRESHOLD, max_people=MAX_PEOPLE,
-                head_phrase=HEAD_PHRASE, corrections="", subject_from="", others=None, seeds="") -> io.NodeOutput:
+                head_phrase=HEAD_PHRASE, corrections="", subject_from="", others=None, seeds="",
+                track_head=TRACK_HEAD) -> io.NodeOutput:
         if frames.ndim != 4:
             raise ValueError(f"frames must be [N, H, W, C]; got {tuple(frames.shape)}")
         if others is not None:
@@ -2029,7 +2111,7 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
             found = follow(n, found_cuts, pick, int(pick_frame) if named_frame else None,
                            float(match_threshold) if named_value else None, detect, sign, track, corrections=by_hand,
                            gallery=handed, sign_whole=getattr(sign, "whole", None), seeds=seeded,
-                           held=held)
+                           track_head=bool(track_head), held=held)
         # Stray specks of the tracker's go before anything reads the mask: the tiles, the shot table and every node
         # after this one widen what they are given (`subject_tracks.drop_specks`).
         # In place: `assemble` returns a tensor nothing else holds, and a copy of a clip's mask is gigabytes.
@@ -2050,6 +2132,13 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
                 mask[left] = 0.0
             on_others = sorted(set(found.on_others).union(left))
             text += "\n" + others_report(found.shots, held.seen, on_others)
+        if track_head:
+            head_raw, _, _ = subject_tracks.drop_specks(
+                assemble(n, h, w, found.head_pieces), in_place=True,
+            )
+            head_mask = ((head_raw > 0.5) & (mask > 0.5)).to(torch.float32)
+        else:
+            head_mask = torch.zeros((n, h, w), dtype=torch.float32)
         trouble = track_scores.get("trouble") or []
         if trouble:
             text += ("\nthe tracker's own score per frame could not be read on " + f"{len(trouble)} run(s), and is left "
@@ -2068,4 +2157,4 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
                      "every shot's shown frame")
         both = text + "\n\n" + shot_table.as_text(table)
         shown = {**ui.PreviewImage(tiles, cls=cls).as_dict(), **ui.PreviewText(both).as_dict()}
-        return io.NodeOutput(mask, tiles, text, table_json, ui=shown)
+        return io.NodeOutput(mask, tiles, text, table_json, head_mask, ui=shown)

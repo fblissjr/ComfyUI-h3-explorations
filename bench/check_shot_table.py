@@ -385,8 +385,8 @@ def tracker_emits_the_table():
     names = [getattr(o, "display_name", None) for o in outputs]
     if "shot_table" not in names:
         skip("the Subject Track does not carry the table yet (subject_track.py is shared; agreed order with mrorange)")
-    assert names == ["mask", "preview", "report", "shot_table"], names
-    assert outputs[0].io_type == "MASK" and outputs[3].io_type == "STRING"
+    assert names == ["mask", "preview", "report", "shot_table", "head_mask"], names
+    assert outputs[0].io_type == "MASK" and outputs[3].io_type == "STRING" and outputs[4].io_type == "MASK"
 
 
 def main() -> int:

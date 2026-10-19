@@ -275,7 +275,7 @@ def read_job(job_file: Path, repo: Path = REPO, need_text: bool = True) -> dict:
 
 
 def preview_files(ctx: dict, output: Path) -> dict:
-    """Each preview subject's files, from the names the preview's record lists: {label: {track, parts, classes, shots, pose}}.
+    """Each preview subject's files, from the names the preview's record lists: {label: {track, head_track, parts, classes, shots, pose}}.
 
     The track, part and class-map videos are the ones the record lists (so a second numbered save is not
     mistaken for the first); the shot table and the pose table are written by nodes beside them and are found by
@@ -292,7 +292,8 @@ def preview_files(ctx: dict, output: Path) -> dict:
         if len(shots) != 1:
             raise Refused(f"{len(shots)} shot tables for {label!r} beside {track.name} where one is meant")
         pose = track.parent / f"{prefix}_{label}_pose_table.json"
-        out[label] = {"track": track, "parts": listed("parts"), "classes": listed("classes"), "shots": shots[0], "pose": pose if pose.is_file() else None}
+        out[label] = {"track": track, "head_track": listed("head_track"), "parts": listed("parts"),
+                      "classes": listed("classes"), "shots": shots[0], "pose": pose if pose.is_file() else None}
     # a subject's track a person said is not that person on named frames: the copy with those frames emptied (`job.track_not`)
     for t in ((ctx.get("job") or {}).get("track_not") or {}).get("made", []):
         if t["subject"] in out:
@@ -348,6 +349,17 @@ def mask_specs(ctx: dict, files: dict, band: Path | None = None, hashed=None) ->
         for kind in ("parts", "classes"):
             if f[kind] is None:
                 raise Refused(f"the preview {by} saved no {kind} video for the load's subject {label!r}")
+        head_spec = ""
+        if keys.get("head_track") or keys.get("track_head"):
+            if isinstance(keys.get("head_track"), str):
+                ht = Path(keys["head_track"])
+                if not ht.is_file():
+                    raise Refused(f"the job names a head_track for {label!r}, {ht}, and it is not there")
+            else:
+                ht = f.get("head_track")
+                if ht is None:
+                    raise Refused(f"the job asks for {label!r}'s head_track and the preview {by} saved none")
+            head_spec = f",head_track={ht}"
         # A LOAD'S OWN PART (`parts_file` on its subject in the job file, written by `shot_to_load.py job --parts`): some of
         # the subject's parts, cut from the preview's class map on the preview's own frames. The capture is handed it in
         # place of the preview's saved part, so what the builder loads is what the capture read.
@@ -358,7 +370,8 @@ def mask_specs(ctx: dict, files: dict, band: Path | None = None, hashed=None) ->
                 raise Refused(f"the job names a part of the load's own for {label!r}, {parts}, and it is not there: `shot_to_load.py job --parts` makes it")
             # made today from the preview's own files: the capture's verify holds it to the preview's saved part it came from
             made_from = f",parts_from={f['parts']}"
-        spec = f"{label}:track={f['track']}" + (f",track_from={f['track_from']}" if f.get("track_from") else "") + f",parts={parts}{made_from},classes={f['classes']},shots={f['shots']},shots_at={at}"
+        spec = (f"{label}:track={f['track']}" + (f",track_from={f['track_from']}" if f.get("track_from") else "")
+                + head_spec + f",parts={parts}{made_from},classes={f['classes']},shots={f['shots']},shots_at={at}")
         if keys.get("pose", True) is not False:
             if f["pose"] is None:
                 raise Refused(f"the job does not say `pose: false` for {label!r} and the preview {by} wrote no pose table for them")

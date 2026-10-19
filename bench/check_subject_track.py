@@ -2032,8 +2032,8 @@ def check_schema(problems):
     for flat in ("pick_frame", "match_threshold", "cut_threshold"):
         if flat in inputs:
             problems.append(f"`{flat}` is also a top-level input: two inputs for one thing")
-    if len(schema.outputs) != 4 or schema.outputs[0].io_type != "MASK":
-        problems.append("the node's outputs are not mask, preview, report, shot_table with the mask first")
+    if len(schema.outputs) != 5 or schema.outputs[0].io_type != "MASK" or schema.outputs[4].io_type != "MASK":
+        problems.append("the node's outputs are not mask, preview, report, shot_table, head_mask with the mask first")
     if getattr(schema, "is_output_node", False):
         problems.append("the node is an output node: core would run the tracker on every queue, kept mask or not")
     source = (REPO / "subject_track.py").read_text(encoding="utf-8")
@@ -2042,18 +2042,22 @@ def check_schema(problems):
                         "would reach the tiles, the shot table and every node after it")
     if not isinstance(getattr(st.MiniMaxH3SubjectTrack, "MASK_VERSION", None), int):
         problems.append("the node declares no integer MASK_VERSION, so a kept mask would survive a change to how it is made")
-    fix, handed, last, seeds = schema.inputs[-4], schema.inputs[-3], schema.inputs[-2], schema.inputs[-1]
+    fix, handed, last, seeds, track_head = schema.inputs[-5], schema.inputs[-4], schema.inputs[-3], schema.inputs[-2], schema.inputs[-1]
+    if track_head.id != "track_head" or getattr(track_head, "default", None) is not False or not getattr(track_head, "optional", False):
+        problems.append("`track_head` is not the node's last input, an optional boolean that is False by default")
     if seeds.id != "seeds" or getattr(seeds, "default", None) != "" or not getattr(seeds, "multiline", False) \
             or not getattr(seeds, "optional", False) or "frame 410: 543, 253, 157, 186" not in (seeds.tooltip or ""):
-        problems.append("`seeds` is not the node's last input, an optional multi-line text that is empty by default, with the format in its tooltip")
+        problems.append("`seeds` is not the node's last input but one, an optional multi-line text that is empty by default, with the format in its tooltip")
     if fix.id != "corrections" or getattr(fix, "default", None) != "" or not fix.tooltip or not getattr(fix, "multiline", False):
-        problems.append("`corrections` is not the node's fourth input from the end, a multi-line text that is empty by default, with a tooltip")
+        problems.append("`corrections` is not the node's fifth input from the end, a multi-line text that is empty by default, with a tooltip")
     # each appended after the one before, so a graph saved before it keeps every widget where it was
     if handed.id != "subject_from" or getattr(handed, "default", None) != "" or not handed.tooltip or not getattr(handed, "optional", False):
-        problems.append("`subject_from` is not the node's third input from the end, an optional text that is empty by default, with a tooltip")
+        problems.append("`subject_from` is not the node's fourth input from the end, an optional text that is empty by default, with a tooltip")
     if last.id != "others" or last.io_type != "MASK" or not last.tooltip or not getattr(last, "optional", False):
-        problems.append("`others` is not the node's last input but one, an optional mask with a tooltip")
+        problems.append("`others` is not the node's third input from the end, an optional mask with a tooltip")
     import inspect
+    if inspect.signature(st.MiniMaxH3SubjectTrack.execute).parameters["track_head"].default is not False:
+        problems.append("`track_head` must default to False in execute")
     if inspect.signature(st.MiniMaxH3SubjectTrack.execute).parameters["seeds"].default != "" \
             or "seeded = parse_seeds(seeds, shot_ranges(n, found_cuts))" not in source or "seeds=seeded," not in source:
         problems.append("`seeds` left empty must be the empty text in execute, parsed against the load's shots and handed to `follow`")
@@ -2068,11 +2072,55 @@ def check_schema(problems):
         problems.append("a DynamicCombo's nested dict, or a bare selection, is not read as the choice and its value")
 
 
+def check_track_head(problems: list[str]) -> None:
+    """When `track_head` is False (default), `head_pieces` is None and the person track is byte-identical; when True,
+    each shot's head mask is propagated from `sign.head` on its seed frame and clipped to the person track."""
+    p_mask = _box(4, 4, 16, 16)
+    h_seed = _box(6, 4, 14, 8)
+    # Head tracker drifts outside the person mask (cols 14..18) so clipping to the person track is exercised.
+    h_drifted = _box(6, 4, 18, 8)
+
+    def detect(f: int):
+        return p_mask.unsqueeze(0), [0.95]
+
+    def sign(f: int, m: torch.Tensor):
+        v = torch.tensor([1.0, 0.0, 0.0, 0.0])
+        return v, v
+
+    sign.head = lambda f, m: h_seed
+
+    def track(start: int, end: int, seed: int, m: torch.Tensor):
+        is_head = bool((m[8:16, :] > 0.5).sum() == 0)
+        piece = h_drifted if is_head else p_mask
+        return piece.unsqueeze(0).expand(end - start, -1, -1).clone()
+
+    off = st.follow(8, [4], st.PICK_LARGEST, 0, 0.5, detect, sign, track, track_head=False)
+    on = st.follow(8, [4], st.PICK_LARGEST, 0, 0.5, detect, sign, track, track_head=True)
+    if off.head_pieces:
+        problems.append("follow with track_head=False produced head_pieces")
+    if not torch.equal(st.assemble(8, H, W, off.pieces), st.assemble(8, H, W, on.pieces)):
+        problems.append("track_head=True changed the person track")
+    if len(on.head_pieces) != 2:
+        problems.append(f"track_head=True produced {len(on.head_pieces)} head pieces for 2 shots")
+    else:
+        assembled_head = st.assemble(8, H, W, on.head_pieces)
+        assembled_person = st.assemble(8, H, W, on.pieces)
+        if bool(((assembled_head > 0.5) & ~(assembled_person > 0.5)).any()):
+            problems.append("head_mask was not clipped to the person track")
+        expected_clipped = ((h_drifted > 0.5) & (p_mask > 0.5)).to(torch.float32)
+        if not torch.equal(assembled_head[0], expected_clipped) or not torch.equal(assembled_head[5], expected_clipped):
+            problems.append("head_mask did not match the propagated head clipped to the person track")
+    # A correction to "none" drops that shot's head_pieces as well as its person piece.
+    cleared = st.follow(8, [4], st.PICK_LARGEST, 0, 0.5, detect, sign, track, corrections={2: None}, track_head=True)
+    if 4 in cleared.head_pieces or 0 not in cleared.head_pieces:
+        problems.append(f"correction to none did not clear shot 2's head_pieces: {sorted(cleared.head_pieces)}")
+
+
 def main() -> int:
     problems: list[str] = []
     for check in (check_cuts, check_borders, check_ranges, check_counted, check_choose, check_signature, check_follow, check_corrections,
                   check_automatic, check_alone, check_regain, check_headless_vote, check_two_places, check_empty, check_one_detection_each, check_moved_by_a_gap, check_looks_in_the_table, check_rows_from_tables, check_seeds, check_only_person_off_with_others, check_others,
-                  check_track_score, check_schema):
+                  check_track_score, check_schema, check_track_head):
         check(problems)
     for p in problems:
         print(f"FAIL  {p}")

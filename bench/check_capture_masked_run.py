@@ -2872,13 +2872,33 @@ def head_tube_in_the_files_step() -> str:
                 raise AssertionError("accepted invalid head_tube=maybe")
             except SystemExit as exc:
                 assert "head_tube=1 or --head-tube" in str(exc), exc
+
+            # With head_track= passed in --mask: reads head_track, bounds parts to it, records it in sighting inputs, and refuses a short head_track
+            ht_head = rect(30, 16, 50, 36, n)
+            cap.read_mask = lambda p, *_a: (
+                (ht_head.copy() if "head_track" in str(p) else (ht_track.copy() if "track" in str(p) else ht_parts.copy())),
+                (np.array([True, True, False, False]) if "short_head" in str(p) else np.ones(n, bool)),
+            )
+            ht_dir = Path(tmp) / "cap_ht"
+            written_ht: dict[str, np.ndarray] = {}
+            cap.write_mask_video = lambda p, m: written_ht.__setitem__(Path(p).name, m.copy())
+            cap._files(args_on, ht_dir, [("a", {**spec_a, "head_track": "head_track.mkv"})], [], [])
+            try:
+                cap._files(args_on, Path(tmp) / "bad_ht", [("a", {**spec_a, "head_track": "short_head_track.mkv"})], [], [])
+                raise AssertionError("accepted short head_track")
+            except SystemExit as exc:
+                assert "head_track" in str(exc) and "does not cover the capture's frames" in str(exc), exc
         finally:
             for k, v in stood_in.items():
                 setattr(cap, k, v)
 
         assert not (off_dir / "subjects" / "a" / "head_tube__pv.json").is_file(), "head_tube ran when off by default"
         off_sighting = json.loads((off_dir / "manifest.json").read_text())["subjects"][0]["sightings"][0]
-        assert "head_tube" not in off_sighting, off_sighting
+        assert "head_tube" not in off_sighting and "head_track" not in off_sighting["inputs"], off_sighting
+
+        ht_sighting = json.loads((ht_dir / "manifest.json").read_text())["subjects"][0]["sightings"][0]
+        assert "head_track" in ht_sighting["inputs"] and int(written_ht["parts__pv.mkv"][0].sum()) == 20 * 20 \
+            and int(written_ht["parts__pv.mkv"][2].sum()) == 20 * 20, (ht_sighting, int(written_ht["parts__pv.mkv"][0].sum()))
 
         prov_path = on_dir / "subjects" / "a" / "head_tube__pv.json"
         npz_path = on_dir / "subjects" / "a" / "head_tube__pv.npz"
@@ -2897,7 +2917,7 @@ def head_tube_in_the_files_step() -> str:
             assert k in on_pg, f"missing {k} in part_grades.json: {on_pg}"
         on_classes = np.load(on_dir / "subjects" / "a" / "classes__pv.npz")["classes"]
         assert (on_classes[:, 44:70, 26:54] == torso_cls).all(), "non-head body classes in classes__pv.npz were lost"
-    return "off by default; when on, bounds head tube by person_track, bridges 1-frame dropout, preserves torso classes, and writes provenance"
+    return "off by default; when on, bounds head tube by person_track (or head_track=), bridges 1-frame dropout, preserves torso classes, and writes provenance"
 
 
 def back_of_head_and_no_face_never_held_by_grade() -> str:

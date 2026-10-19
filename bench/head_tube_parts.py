@@ -353,26 +353,31 @@ def sam31_head_tube(
                 f"sam31_head_tube: person_track shape {pt_arr.shape} does not match {(num_frames, height, width)}"
             )
         pt_bool = np.asarray(pt_arr > 0, dtype=bool)
-        if seed_mask is not None:
-            sm_raw = (
-                seed_mask.detach().cpu().numpy()
-                if isinstance(seed_mask, torch.Tensor)
-                else np.asarray(seed_mask)
-            )
-            if sm_raw.shape == (height, width):
-                seed_mask = np.asarray(sm_raw > 0, dtype=bool) & pt_bool[seed_frame]
-            elif sm_raw.shape == (num_frames, height, width):
-                seed_mask = np.asarray(sm_raw > 0, dtype=bool) & pt_bool
-            else:
-                raise SystemExit(
-                    f"sam31_head_tube: seed_mask shape {sm_raw.shape} incompatible with {(num_frames, height, width)}"
-                )
-        elif arr.ndim == 4 and seed_box is None and np.any(pt_bool[seed_frame]):
+        if seed_mask is None and arr.ndim == 4 and seed_box is None and np.any(pt_bool[seed_frame]):
             seed_mask, seed_box = _head_seed_from_person_mask(pt_bool[seed_frame])
+
+    sm_unclipped: np.ndarray | None = None
+    if seed_mask is not None:
+        sm_raw = (
+            seed_mask.detach().cpu().numpy()
+            if isinstance(seed_mask, torch.Tensor)
+            else np.asarray(seed_mask)
+        )
+        if sm_raw.shape == (height, width):
+            sm_2d = np.asarray(sm_raw > 0, dtype=bool)
+            sm_unclipped = np.broadcast_to(sm_2d[None, :, :], (num_frames, height, width)).copy()
+            seed_mask = (sm_2d & pt_bool[seed_frame]) if pt_bool is not None else sm_2d
+        elif sm_raw.shape == (num_frames, height, width):
+            sm_unclipped = np.asarray(sm_raw > 0, dtype=bool).copy()
+            seed_mask = (sm_unclipped & pt_bool) if pt_bool is not None else sm_unclipped
+        else:
+            raise SystemExit(
+                f"sam31_head_tube: seed_mask shape {sm_raw.shape} incompatible with {(num_frames, height, width)}"
+            )
 
     norm_t: torch.Tensor | None = None
     if arr.ndim == 3:
-        tube = np.asarray(arr > 0, dtype=bool)
+        tube = sm_unclipped.copy() if sm_unclipped is not None else np.asarray(arr > 0, dtype=bool)
         normalized_range: tuple[float, float] | None = None
     else:
         norm_t = sam31_normalize_input(torch.from_numpy(arr).permute(0, 3, 1, 2))
@@ -395,16 +400,8 @@ def sam31_head_tube(
                     f"sam31_head_tube: tracker returned shape {tube_arr.shape}, expected {(num_frames, height, width)}"
                 )
             tube = np.asarray(tube_arr > 0, dtype=bool)
-        elif seed_mask is not None:
-            sm = np.asarray(seed_mask > 0, dtype=bool)
-            if sm.shape == (height, width):
-                tube = np.broadcast_to(sm[None, :, :], (num_frames, height, width)).copy()
-            elif sm.shape == (num_frames, height, width):
-                tube = sm.copy()
-            else:
-                raise SystemExit(
-                    f"sam31_head_tube: seed_mask shape {sm.shape} incompatible with {(num_frames, height, width)}"
-                )
+        elif sm_unclipped is not None:
+            tube = sm_unclipped.copy()
         elif seed_box is not None and len(seed_box) == 4:
             bx0, by0, bx1, by1 = [int(v) for v in seed_box]
             if bx0 < 0 or by0 < 0 or bx1 <= bx0 or by1 <= by0 or bx1 > width or by1 > height:
@@ -1408,11 +1405,115 @@ def _expand_track_with_attached_parts(
     return out
 
 
+def _fill_unclassified_in_head_tube(
+    cmap_box: np.ndarray,
+    tube_box: np.ndarray,
+    *,
+    part_ids: Sequence[int],
+    hair_id: int,
+    face_id: int,
+    pose_kps: list[np.ndarray | None] | None = None,
+    x0: int = 0,
+    y0: int = 0,
+) -> None:
+    """Resolve pixels inside the SAM 3.1 head tube that Sapiens labeled as neither face (`part_ids`) nor `Hair`.
+
+    Where Sapiens labeled a head-tube pixel as `part_ids` or `Hair`, that face-against-hair decision stands.
+    Where Sapiens mislabeled head-tube pixels as body/clothing/background (e.g. `Upper_Clothing` or `Background`
+    during a fast turn), transport the face-vs-hair layout from the nearest frames in the shot where Sapiens
+    classified the head tube, reinforced by the convex hull of confident face keypoints on the frame.
+    """
+    import cv2
+
+    num_frames, box_h, box_w = cmap_box.shape
+    is_face = tube_box & np.isin(cmap_box, part_ids)
+    is_hair = (tube_box & (cmap_box == hair_id)) if hair_id >= 0 else np.zeros_like(tube_box)
+
+    good_refs: list[int] = []
+    for t in range(num_frames):
+        t_px = int(tube_box[t].sum())
+        if t_px <= 0:
+            continue
+        f_px = int(is_face[t].sum())
+        h_px = int(is_hair[t].sum())
+        if f_px > 0 and (f_px + h_px) / float(t_px) >= 0.65:
+            good_refs.append(t)
+
+    face_kp_indices = list(range(0, 5)) + list(range(238, 308))
+
+    for t in range(num_frames):
+        tb = tube_box[t]
+        if not np.any(tb):
+            continue
+        uncls = tb & ~is_face[t] & ~is_hair[t]
+        if not np.any(uncls):
+            continue
+
+        ys, xs = np.where(tb)
+        ty0, ty1 = int(ys.min()), int(ys.max()) + 1
+        tx0, tx1 = int(xs.min()), int(xs.max()) + 1
+        th, tw = ty1 - ty0, tx1 - tx0
+
+        face_vote = np.zeros((th, tw), dtype=np.float32)
+        hair_vote = np.zeros((th, tw), dtype=np.float32)
+        if good_refs and th > 0 and tw > 0:
+            prev_refs = [r for r in good_refs if r < t]
+            next_refs = [r for r in good_refs if r > t]
+            chosen_refs: list[int] = []
+            if prev_refs:
+                chosen_refs.append(prev_refs[-1])
+            if next_refs:
+                chosen_refs.append(next_refs[0])
+            if not chosen_refs and t in good_refs:
+                chosen_refs.append(t)
+            for r in chosen_refs:
+                rys, rxs = np.where(tube_box[r])
+                ry0, ry1 = int(rys.min()), int(rys.max()) + 1
+                rx0, rx1 = int(rxs.min()), int(rxs.max()) + 1
+                if ry1 <= ry0 or rx1 <= rx0:
+                    continue
+                w = 1.0 / float(max(1, abs(t - r)))
+                f_crop = is_face[r, ry0:ry1, rx0:rx1].astype(np.float32)
+                h_crop = is_hair[r, ry0:ry1, rx0:rx1].astype(np.float32)
+                face_vote += w * cv2.resize(f_crop, (tw, th), interpolation=cv2.INTER_LINEAR)
+                hair_vote += w * cv2.resize(h_crop, (tw, th), interpolation=cv2.INTER_LINEAR)
+
+        kp_hull = np.zeros((box_h, box_w), dtype=bool)
+        if pose_kps is not None and t < len(pose_kps) and pose_kps[t] is not None:
+            kps = np.asarray(pose_kps[t], dtype=np.float64)
+            valid_idx = [i for i in face_kp_indices if i < kps.shape[0]]
+            if valid_idx:
+                fk = kps[valid_idx]
+                vis = fk[fk[:, 2] >= DEFAULT_FACE_POINT_MIN_SCORE]
+                if len(vis) >= 3:
+                    pts = np.round(vis[:, :2] - np.array([[x0, y0]], dtype=np.float64)).astype(np.int32)
+                    hull = cv2.convexHull(pts)
+                    mask_u8 = np.zeros((box_h, box_w), dtype=np.uint8)
+                    cv2.fillConvexPoly(mask_u8, hull, 1)
+                    rad = max(3, int(round(0.06 * np.sqrt(float(tb.sum())))))
+                    kern = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * rad + 1, 2 * rad + 1))
+                    kp_hull = cv2.dilate(mask_u8, kern) > 0
+
+        uncls_crop = uncls[ty0:ty1, tx0:tx1]
+        kp_crop = kp_hull[ty0:ty1, tx0:tx1]
+        if np.any(face_vote > 0) or np.any(hair_vote > 0):
+            choose_face = uncls_crop & ((face_vote >= hair_vote) | (kp_crop & (hair_vote < 0.65)))
+        else:
+            choose_face = uncls_crop & (kp_crop if np.any(kp_crop) else True)
+        choose_hair = uncls_crop & ~choose_face
+
+        if face_id >= 0 and np.any(choose_face):
+            cmap_box[t, ty0:ty1, tx0:tx1][choose_face] = np.uint8(face_id)
+        if hair_id >= 0 and np.any(choose_hair):
+            cmap_box[t, ty0:ty1, tx0:tx1][choose_hair] = np.uint8(hair_id)
+
+
 def head_tube_for_capture(
     track: np.ndarray,
     parts: np.ndarray,
     cmap: np.ndarray | None = None,
     *,
+    head_track: np.ndarray | None = None,
     points_path: str | Path | None = None,
     first_frame: int = 0,
     head_parts: Sequence[str] = DEFAULT_HEAD_PARTS,
@@ -1434,6 +1535,22 @@ def head_tube_for_capture(
         )
     track_bool = _expand_track_with_attached_parts(raw_track_bool, parts_bool)
     num_frames, height, width = track_bool.shape
+    head_track_bool: np.ndarray | None = None
+    if head_track is not None:
+        ht_arr = (
+            head_track.detach().cpu().numpy()
+            if isinstance(head_track, torch.Tensor)
+            else np.asarray(head_track)
+        )
+        if ht_arr.shape != (num_frames, height, width):
+            raise SystemExit(
+                f"head_tube_for_capture: head_track shape {ht_arr.shape} does not match {(num_frames, height, width)}"
+            )
+        head_track_bool = np.asarray(ht_arr > 0, dtype=bool)
+        if not np.any(head_track_bool & track_bool):
+            raise SystemExit(
+                "head_tube_for_capture: head_track has no pixels inside the subject's person track across the span"
+            )
     chosen_names = [n for n in head_parts if n in NAME_TO_ID]
     if include_eyeglass:
         for opt in OPTIONAL_HEAD_PARTS:
@@ -1478,16 +1595,21 @@ def head_tube_for_capture(
         bridged_t = (p1 | p2) & (n1 | n2) & track_bool[t]
         candidate_tube[t] = candidate_tube[t] | bridged_t
 
-    bounded_per_frame = (candidate_tube & track_bool).reshape(num_frames, -1).sum(axis=1)
-    if not np.any(bounded_per_frame > 0):
-        raise SystemExit(
-            "head_tube_for_capture: no head-part pixels lie inside the subject's person track across the span"
-        )
-    seed_frame = 0 if int(bounded_per_frame[0]) > 0 else int(np.argmax(bounded_per_frame > 0))
+    if head_track_bool is not None:
+        ht_per_frame = (head_track_bool & track_bool).reshape(num_frames, -1).sum(axis=1)
+        seed_frame = 0 if int(ht_per_frame[0]) > 0 else int(np.argmax(ht_per_frame > 0))
+    else:
+        bounded_per_frame = (candidate_tube & track_bool).reshape(num_frames, -1).sum(axis=1)
+        if not np.any(bounded_per_frame > 0):
+            raise SystemExit(
+                "head_tube_for_capture: no head-part pixels lie inside the subject's person track across the span"
+            )
+        seed_frame = 0 if int(bounded_per_frame[0]) > 0 else int(np.argmax(bounded_per_frame > 0))
 
     tube_info = sam31_head_tube(
         candidate_tube,
         seed_frame=seed_frame,
+        seed_mask=head_track_bool,
         person_track=track_bool,
     )
     x0, y0, x1, y1 = tube_info["shot_box"]
@@ -1499,6 +1621,18 @@ def head_tube_for_capture(
     kp_idx: dict[str, int] | None = None
     if points_path is not None:
         pose_kps, kp_idx = _load_pose_slice_for_capture(points_path, first_frame, num_frames)
+
+    if head_track_bool is not None:
+        _fill_unclassified_in_head_tube(
+            cmap_box,
+            tube_info["tube"][:, y0:y1, x0:x1],
+            part_ids=part_ids,
+            hair_id=NAME_TO_ID.get("Hair", -1),
+            face_id=NAME_TO_ID.get("Face_Neck", part_ids[0]),
+            pose_kps=pose_kps,
+            x0=x0,
+            y0=y0,
+        )
 
     seg_info = smooth_seg_in_tube(
         cmap_box,

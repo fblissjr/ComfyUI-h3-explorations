@@ -1214,8 +1214,8 @@ def build(job_file: Path, stage: str, *, date: str, data: Path, output: Path, re
 
 #: The file each thing a preview saves ends up as, after its prefix: a save node numbers its file, the shot
 #: table and the pose table name theirs. A history lists only some of these, so they are looked for on disk.
-SAVED_AS = {"track": "_*.mkv", "parts": "_*.mkv", "classes": "_*.mkv", "held_things": "_*.mkv", "shots": "_*_shots.json",
-            "mesh": "_*.mp4", "pose": "_pose_table.json"}
+SAVED_AS = {"track": "_*.mkv", "head_track": "_*.mkv", "parts": "_*.mkv", "classes": "_*.mkv", "held_things": "_*.mkv",
+            "shots": "_*_shots.json", "mesh": "_*.mp4", "pose": "_pose_table.json"}
 
 
 def expected_files(job: dict) -> dict:
@@ -1223,7 +1223,9 @@ def expected_files(job: dict) -> dict:
     out = {}
     for subject in job["subjects"]:
         prefix = graphs.prefixes(job, subject["label"])
-        wanted = [k for k in SAVED_AS if subject.get("pose", True) or k not in ("mesh", "pose")]
+        wanted = [k for k in SAVED_AS
+                  if (subject.get("pose", True) or k not in ("mesh", "pose"))
+                  and (subject.get("track_head") or k != "head_track")]
         out[subject["label"]] = {k: prefix[k] + SAVED_AS[k] for k in wanted}
     return out
 
@@ -1267,8 +1269,10 @@ def capture_from(job: dict, found: dict, output: Path, date: str) -> str:
              f"--first {job['first']} --frames {job['frames']}"]
     for subject in job["subjects"]:
         mine, spec = found.get(subject["label"]) or {}, []
-        for key in ("track", "parts", "classes", "shots", "pose"):
+        for key in ("track", "head_track", "parts", "classes", "shots", "pose"):
             if key == "pose" and not subject.get("pose", True):
+                continue
+            if key == "head_track" and not subject.get("track_head"):
                 continue
             if len(mine.get(key) or []) != 1:
                 raise Refused(f"{subject['label']}: {len(mine.get(key) or [])} files for `{key}` where one is meant: "
@@ -1287,8 +1291,9 @@ def capture_command(job: dict, date: str) -> str:
              f"--first {job['first']} --frames {job['frames']}"]
     for subject in job["subjects"]:
         p = graphs.prefixes(job, subject["label"])
+        head = f"head_track=<{p['head_track']}_*.mkv>," if subject.get("track_head") else ""
         pose = f"pose=<{p['pose']}_pose_table.json>," if subject.get("pose", True) else ""
-        lines.append(f"    --mask {subject['label']}:track=<{p['track']}_*.mkv>,parts=<{p['parts']}_*.mkv>,"
+        lines.append(f"    --mask {subject['label']}:track=<{p['track']}_*.mkv>,{head}parts=<{p['parts']}_*.mkv>,"
                      f"classes=<{p['classes']}_*.mkv>,shots=<{p['shots']}*.json>,{pose}by={job['name']},"
                      f"at={job['first']}")
     return " \\\n".join(lines)
