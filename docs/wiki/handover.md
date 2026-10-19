@@ -13,6 +13,26 @@ scene, not a recipe; only what it marks ALWAYS (24 fps end to end, derived data 
 holds everywhere. Tomorrow's facts pass (item 1c) automates it. The tracked write-up of the same check (what, how,
 why, the scene's background, and what every scene should probably get): `bench/results/2026-10-18_kitchen_two_pass_validation.md`.
 
+**The night's results, for the owner's first look** (details under "State when closed", late night):
+1. **The SAM 3.1 head track is in and is the default** (`8b50cecf`; the flip C208, landing after its blind read). It
+   fixes the face cut by Sapiens' labels (the lead's face mask on 759-761 from about 2,000-5,000 px to 10,000-13,500).
+   Cost on the kitchen preview: about 2 s and 682 MiB more (mrgemson, C200). CAVEAT: tested on one shot; the first loads
+   on other kinds of shots compare masks with and without it before rendering.
+2. **The drawing tests (Open List r18_08, for the owner):** the repaired mouth on singing windows works (`third_fp_1340d`,
+   reader keep; with no mouth, `third_fp_1340c`, his lips stayed shut while he sang). The darker grey head with filled
+   white-and-black eyes does not (`second_hfp_0278i`: cartoon eyes printed into her face, lips parted; `0278f` better).
+   The owner on 0278i: "googly eyes ... that doesn't work". 0278f already had the same filled eyes and was fine, so
+   the darker head is what made them pop: `--darken-head` stays off. The owner on 1340c and 1340d: 1340d good; 1340c
+   does not open his mouth while he sings (the owner's second look, agreeing with the reader). So singing windows keep
+   the repaired mouth; no 1156-1182 tie-break (C213).
+   The owner then made the mouth rule the default ("just don't make googly eyes", C214), narrowed to the mouth only:
+   the eyes stay exactly as they were, their gaze has been good; the eye changes are off the plan entirely (C215).
+3. **In flight when written:** off_head, the reference crop and the zoom box reading the head track, and head-and-hair
+   loads using it as their region (bundled, C201, C204); each mask-tested, no render.
+4. **Fixed:** 24 fps end to end (`e44af676`); the kitchen cut rebuilt at 24/1. The kitchen render `lead_fp_0606b` was
+   "slightly better", not kept; what remains is the face mask (now fixed), the mom's keep-out (her laid matte, to design)
+   and the drawing.
+
 ## State when closed
 
 - **Kept and laid today** (the owner's keeps; `data/fun/laid.jsonl`, 38 lines): the mom's whole kitchen
@@ -67,7 +87,11 @@ why, the scene's background, and what every scene should probably get): `bench/r
     4,637), 760 (13,505 against 5,054), 761 (12,189 against 2,037), 772 and 784-785, nothing lost inside the head; off
     is identical to today. Sheets: `Video/fun/mrgemson/shot_c_0604c_sam_head_test/sheets/`. Tomorrow: the kitchen render
     with the head track, the mom's laid matte as the keep-out, and the new drawing, for the owner's look.
-  - Made the chain's default at the owner's word (C198; decisions.md): landing, then a small flip so every load's
+  - THE DEFAULT since about 04:00Z (C208; decisions.md), after a short hold: the chain and the node make the head track,
+    the shipped graphs rebuilt, `--no-head-track` with a reason to turn it off; tonight's drawing tests ran with it off.
+    First thing tomorrow, three or four different shots (frontal, profile, a hand over the face, a hair load) compare
+    masks with and without it before anything renders; if one reads worse, turn it off for that kind of shot and say why.
+  - Was made the chain's default at the owner's word (C198; decisions.md), then held: landing, then a small flip so every load's
     preview makes the head track and the capture uses it (`--no-head-track` with a reason to turn it off). CAVEAT:
     tested on one shot. Tomorrow's first loads on other shots (frontal, profile, a hand over the face, a crowd) each
     get the mask comparison old against new before they render, and a reader on the hairline at turns.
@@ -76,7 +100,20 @@ why, the scene's background, and what every scene should probably get): `bench/r
     Follow-ons that read the head track (one answer to "where her head is"), in order: off_head judged by the head
     track (2b'); the reference crop's head box from it (the crown cut on tilted frames, M22); the zoom box from it; then
     head-and-hair loads using it as their region, and depth and keep-outs at crossings.
-    Ordered tonight at the owner's word (C201): the first three, each on a branch, mask-tested, no render.
+    Ordered tonight at the owner's word (C201): the first three, each on a branch, mask-tested, no render. When and
+    where: off_head (tonight; `bench/capture_masked_run.py`; test 772 and the dad's bicep); the reference crop (tonight;
+    `bench/head_reference.py`; test 767, 771, 772 and a frontal shot); the zoom box (tonight; where the chain computes
+    it; test the kitchen and the dad's hall); head-and-hair loads using the head track as their region (tomorrow first;
+    test a past hair-flash shot, 0604g, 1097c or 1156c); depth and keep-outs at crossings (tomorrow, with the back-pass
+    matte design). The drawing's clip does NOT read it: it clips to the grey head inside the reference, a different
+    picture, and stays on the mesh.
+  - The drawing tests (C166, all with the head track off; readers' verdicts, not the owner's; on Start here):
+    `third_fp_1340d` (the repaired mouth, fitted above the chin; grey head at 1.0x): reader keep, full singing
+    articulation on 1345-1360. `third_fp_1340c` (no mouth drawn): lips shut on all 21 frames while he sings, reader
+    remake; so singing windows keep the repaired mouth, and the 1156-1182 tie-break is not needed. `second_hfp_0278i`
+    (silent, no mouth, the grey head darkened to 0.67x, filled white-and-black eyes): reader remake, the eyes bleed into
+    her face as cartoon white with black discs and part her lips; `0278f` stays better. So the darker head and filled
+    eyes are the open question for the owner (Open List r18_08), not a default.
   - If the Claude lead is out of credits, mrgemson is the one designated lead (`AGENTS.md`) and finishes this list,
     with a blind read by a session that did not build in place of mrted's clearance, and asks the owner where unsure.
 - **The chin smear, corrected cause** (the owner on 760, about 03:10Z: the same dark smudge at the lead's chin in

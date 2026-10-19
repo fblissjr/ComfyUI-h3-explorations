@@ -17,6 +17,15 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-18
 
+- **The mouth rule is the drawing's default; the darker grey head is out** (the owner, about 04:45Z on 2026-10-19, on
+  the drawing tests: "just don't make googly eyes"). `third_fp_1340d` (the repaired mouth drawn while he sings) sang;
+  `third_fp_1340c` (no mouth) did not open his mouth; `second_hfp_0278i` (the grey head darkened to 0.67x) printed
+  "googly eyes" into the mom's face, where `0278f` with the same filled eyes on the plain grey head did not. So the
+  default draws no mouth on a silent window and the repaired mouth on every face frame of a singing window, clips marks
+  to the grey head, keeps the eye form of 0278f, and never darkens the head (C214). Narrowed the same night (the owner:
+  "the eye gaze has been great since we figured that solution out, so the eye changes don't need to go in today"): the
+  default changes the mouth only; the eyes are drawn exactly as before, with no new clipping of the eye marks (C215).
+  And not later either ("or at all"): the eye changes are off the plan, the eyes drawn as they are.
 - **The SAM 3.1 head track is the chain's default** (the owner, about 03:35Z on 2026-10-19: "get that into prod ...
   make it a default now", with the caveat that it needs more diverse scenes tested). What it replaces: the capture's
   "SAM 3.1 head tube" never ran SAM 3.1 (`bench/head_tube_parts.py:1488` passed no tracker), so Sapiens' labels alone
@@ -26,7 +35,14 @@ Older history lives elsewhere and is not copied here:
   on 759-761, 772 and 784-785, nothing lost inside the head): the first loads on other shots each get the old-against-new
   mask comparison before they render. The node's own default is on too (the owner: "we're not doing any other use
   case but this video right now"), so every graph using the tracker makes the head track; the extra SAM 3.1 pass per
-  subject is accepted (C199).
+  subject is accepted (C199). **Held the same night** (the owner, about 03:50Z: unsure which does more harm): the default
+  waits for three or four different shots (a frontal face, a profile, a hand over the face, a hair load) to read clean
+  old against new on the masks tomorrow morning, then flips; tonight it would also have changed the drawing tests'
+  renders, two changes at once. The build itself lands, off by default (C205).
+  **Then made the default after all** (about 04:00Z): mrgemson measured the cost on the kitchen preview (751-785: about
+  2 s and 682 MiB more) and named the split-brain trap (previews without it leave every follow-on without it); the
+  drawing tests run with `--no-head-track` so they stay one change each. Both leads agreed and the owner was unsure, so
+  it went ahead (C208); tomorrow's first loads on other shots compare masks with and without it before they render.
 - **24 fps from input to output; a cut is handled and loaded exactly like the real input** (the owner, about
   23:58Z-00:05Z): the joined cut had been written at the original's 23.976 fps (`bench/rebuild_delivery.py` picked the
   source before the 24 fps copy), and a pass rendered against it loaded one frame early (`lead_fp_0751`). What it used
