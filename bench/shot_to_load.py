@@ -1869,7 +1869,7 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
 
     old_ref = old_job.get("reference") or {}
     ref_known = {"form", "why", "made", "points", "record", "said_by", "taken_as_it_was", "figures", "drawn", "mouth", "iris", "no_face_on",
-                 "darken_head", "carried"}
+                 "darken_head", "head_track", "carried"}
     for k in old_ref:
         if k not in ref_known:
             raise Refused(f"--carry-words-from {old_name}: word-bearing key 'job.reference.{k}' in old job cannot be carried")
@@ -1877,6 +1877,15 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
         old_opt = old_ref["darken_head"]
         if not isinstance(old_opt, dict) or set(old_opt) - {"said_by", "why"} or old_opt.get("said_by") not in (None, "the plan"):
             raise Refused(f"--carry-words-from {old_name}: word-bearing setting 'reference.darken_head' ({old_opt!r}) cannot be carried by job")
+    if old_ref.get("head_track") is not None:
+        oht_ref = old_ref["head_track"]
+        if not isinstance(oht_ref, dict) or set(oht_ref) - {"on", "why", "said_by", "at", "carried"}:
+            raise Refused(f"--carry-words-from {old_name}: word-bearing key in reference.head_track {oht_ref!r} cannot be carried")
+        if not oht_ref.get("on", True) and oht_ref.get("said_by") not in (None, "the chain's default", "the plan") and out["no_head_track"] is None:
+            ht_r_str = str(oht_ref.get("why") or "")
+            out["no_head_track"] = tagged(ht_r_str)
+            out["no_head_track_meta"] = {"said_by": oht_ref.get("said_by"), "at": oht_ref.get("at"), "carried": dict(carried_rec)}
+            carried_said.append(f"no_head_track ({oht_ref.get('said_by')}, {oht_ref.get('at')}): {out['no_head_track']}")
     if old_ref.get("form") == "none" or old_load.get("motion") == "none":
         out["motion"] = "none"
         out["motion_why"] = tagged(old_ref.get("why") or "")
@@ -2724,6 +2733,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
                                   {"form": "drawn", "why": "the form for a face, head or hair replacement (AGENTS.md, Settled)", "made": None,
                                    "mouth": ref_form["mouth"], "iris": ref_form["iris"],
                                    **({"darken_head": ref_form["darken_head"]} if ref_form.get("darken_head") else {}),
+                                   **({"head_track": no_head_track_block or ref_form["head_track"]} if (no_head_track_block or ref_form.get("head_track")) else {}),
                                    **({"no_face_on": ref_form["no_face_on"]} if ref_form.get("no_face_on") else {})}),
                     "others_present": others, "defaults": carried},
             "defaults": {**h3_config.MASKED_LOAD_DEFAULTS, "margin": h3_config.MASKED_LOAD_MARGIN[region], "seed": h3_config.SEED},
@@ -2866,6 +2876,16 @@ def reference_form(p: dict, subject: str) -> dict:
         if said["darken_head"] is not True:
             raise Refused(f"the plan's `reference.darken_head` for {subject!r} is {said['darken_head']!r}: `true` with `why`, or leave it out")
         out["darken_head"] = {"said_by": "the plan", "why": " ".join(str(said["why"]).split())}
+    if "head_track" in said:
+        ht_val = said["head_track"]
+        if isinstance(ht_val, dict):
+            if ht_val.get("on") is not False or not str(ht_val.get("why") or said.get("why") or "").strip():
+                raise Refused(f"the plan's `reference.head_track` for {subject!r} is {ht_val!r}: `false` or `{{on: false, why}}` with `why`, or leave it out")
+            out["head_track"] = {"on": False, "said_by": "the plan", "why": " ".join(str(ht_val.get("why") or said.get("why")).split())}
+        elif ht_val is False:
+            out["head_track"] = {"on": False, "said_by": "the plan", "why": " ".join(str(said["why"]).split())}
+        else:
+            raise Refused(f"the plan's `reference.head_track` for {subject!r} is {ht_val!r}: `false` with `why`, or leave it out")
     return out
 
 
@@ -3285,10 +3305,15 @@ def step_reference(a, world, figures=figures_of) -> None:
     job, load, subject = ctx["job"], ctx["load"], ctx["subject"]
     if a.plain is not None and not a.plain.strip():
         raise Refused("--plain takes the reason in words: the plain cut is taken on a person's word, and the word is kept")
+    nht = getattr(a, "no_head_track", None)
+    if nht is not None and not " ".join(str(nht).split()):
+        raise Refused("--no-head-track takes the reason in words: the SAM 3.1 head track is the chain's default, and the word is kept")
     first, last = load["first"], load["first"] + load["frames"] - 1
     if load.get("motion") == "none":
         if a.plain is not None:
             raise Refused("--plain on a load with no reference video (motion none): there is no reference to cut")
+        if nht is not None:
+            raise Refused("--no-head-track on a load with no reference video (motion none): there is no reference to cut")
         print(f"{ctx['name']}: NO REFERENCE VIDEO (motion none), so nothing is made here: the job's note says why. NEXT: the text step")
         return
     drawn = Path(load["motion_file"])
@@ -3359,6 +3384,14 @@ def step_reference(a, world, figures=figures_of) -> None:
                 raise again(f"--existing: {record} was drawn with --closed-lip-line and this load turns it off: the reference is made again, in a new folder")
         if (getattr(a, "darken_head", False) or ref_said.get("darken_head")) and not (md.get("darken_head") or {}).get("on"):
             raise again(f"--existing: {record} was not drawn with --darken-head: the reference is made again, in a new folder")
+        ht_cfg = ref_said.get("head_track") if "head_track" in ref_said else job.get("sam_head_track")
+        want_no_ht = bool(nht is not None or (isinstance(ht_cfg, dict) and not ht_cfg.get("on", True)))
+        used_ht = bool((made.get("inputs") or {}).get("head_track"))
+        if want_no_ht and used_ht:
+            raise again(f"--existing: {record} was cut with a head track and this load turns it off (--no-head-track): the reference is made again, in a new folder")
+        preview_has_ht = any(f"_{subject}_head_track_" in Path(f).name and f.endswith(".mkv") for f in (ctx.get("preview") or {}).get("files") or [])
+        if not want_no_ht and isinstance(made.get("inputs"), dict) and not used_ht and (preview_has_ht or "head_track" in made["inputs"]):
+            raise again(f"--existing: {record} was not cut with a head track: the reference is made again, in a new folder")
         written(a, ctx, made, record, points, drawn, form, why, figures, taken=True)
         return
     if folder.exists():
@@ -3399,6 +3432,13 @@ def drawn_form(job: dict, a, files: dict, preview_first: int) -> list:
     mouth = a.mouth or (said.get("mouth") or {}).get("form")
     mouth_why = a.form_why if a.mouth else ((said.get("mouth") or {}).get("why") or "")
     iris = a.iris or (said.get("iris") or {}).get("form")
+    nht = getattr(a, "no_head_track", None)
+    if nht is not None and not " ".join(str(nht).split()):
+        raise Refused("--no-head-track takes the reason in words: the SAM 3.1 head track is the chain's default, and the word is kept")
+    ht_cfg = said.get("head_track") if "head_track" in said else job.get("sam_head_track")
+    if isinstance(ht_cfg, dict) and not ht_cfg.get("on", True) and not " ".join(str(ht_cfg.get("why") or "").split()):
+        raise Refused("reference.head_track is off with no `why`: the SAM 3.1 head track is the chain's default, and the word is kept")
+    want_no_ht = bool(nht is not None or (isinstance(ht_cfg, dict) and not ht_cfg.get("on", True)))
     if getattr(a, "closed_lip_line", False) and getattr(a, "no_closed_lip_line", False):
         raise Refused("--closed-lip-line and --no-closed-lip-line cannot both be given")
     if (a.mouth or a.iris or getattr(a, "class_mouth_needs_hole", False) or getattr(a, "closed_lip_line", False)
@@ -3487,6 +3527,8 @@ def drawn_form(job: dict, a, files: dict, preview_first: int) -> list:
           f"{said['darken_head']['said_by']}: {said['darken_head']['why']}" if said.get("darken_head") else "")
     if dh:
         out += ["--darken-head", dh]
+    if want_no_ht:
+        out += ["--no-head-track"]
     return out
 
 
@@ -3496,17 +3538,28 @@ def written(a, ctx: dict, made: dict, record: Path, points: Path, drawn: Path, f
     got = figures(points, float(made["scale"][0]))
     d = json.loads(Path(a.job_file).read_text())
     was = d["job"].get("reference") or {}
-    d["job"]["reference"] = reference_block(form, why, a.by, made["made_at"] if taken else load_chain.utc_now(), record, points, got)
+    now_ts = load_chain.utc_now()
+    d["job"]["reference"] = reference_block(form, why, a.by, made["made_at"] if taken else now_ts, record, points, got)
     # the mouth and the eye as asked, and as drawn (the record's own words: the check's figures, the iris form)
     md = made.get("drawn") or {}
-    d["job"]["reference"].update({k: was[k] for k in ("mouth", "iris", "no_face_on", "darken_head") if k in was},
+    d["job"]["reference"].update({k: was[k] for k in ("mouth", "iris", "no_face_on", "darken_head", "head_track") if k in was},
                                  drawn={"mouth": md.get("mouth"), "iris": md.get("iris"),
                                         "eyes_shut": md.get("eyes_shut"),
                                         "parts_left_out": md.get("parts_left_out"),
                                         "frames_left_bare": md.get("frames_left_bare"),
                                         **({k: md[k] for k in ("eye_rings", "darken_head") if md.get(k) is not None})})
+    nht = getattr(a, "no_head_track", None)
+    if nht is not None:
+        d["job"]["reference"]["head_track"] = {
+            "on": False,
+            "why": " ".join(str(nht).split()),
+            "said_by": a.by,
+            "at": now_ts,
+        }
+    elif "head_track" not in d["job"]["reference"] and isinstance(d["job"].get("sam_head_track"), dict) and not d["job"]["sam_head_track"].get("on", True):
+        d["job"]["reference"]["head_track"] = dict(d["job"]["sam_head_track"])
     if taken:
-        d["job"]["reference"]["taken_as_it_was"] = f"made by {made.get('made_by')}; read into this job by {a.by} at {load_chain.utc_now()}, nothing run"
+        d["job"]["reference"]["taken_as_it_was"] = f"made by {made.get('made_by')}; read into this job by {a.by} at {now_ts}, nothing run"
     # the plain cut's name is the reference tool's own, read from its record
     d["loads"][0]["motion_file"] = str(drawn.parent / made["files"]["plain_cut"] if form == "plain" else drawn)
     Path(a.job_file).write_text(json.dumps(d, indent=1))
@@ -3866,6 +3919,8 @@ def main() -> int:
     r.add_argument("--darken-head", action="store_true", help="an option, off unless asked: darken the grey body model by scale (HEAD_DARKEN_SCALE) so white lines "
                    "and eyes read with higher contrast; with --form-why")
     r.add_argument("--form-why", default="", help="why this load's mouth or eye is drawn otherwise than its job says")
+    r.add_argument("--no-head-track", metavar="WHY", help="pass --no-head-track to head_reference.py (use the full body matte instead of "
+                   "head_track for the crop box); the reason is kept in the job file")
     t = sub.add_parser("text")
     t.add_argument("job_file")
     t.add_argument("--writer", metavar="WORDS", help="with --by-hand: who wrote the load's text, and from which frames; into texts.<label>.by")

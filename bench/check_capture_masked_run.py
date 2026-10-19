@@ -3133,6 +3133,91 @@ def depth_in_owner_map_and_the_files_step() -> str:
     return "owner_map settles overlap by core depth and leaves background slits and co-planar overlaps contested; files --depth clips back-subject part spills and preserves foreground keep-outs (including on one-subject loads); canvas and frame mismatches refused"
 
 
+def step_keepout_carves_in_files_and_diagnose() -> str:
+    """Step-level keep-out cell-carve reporting: per window and per latent step (run_lengths(lt)), counts grown units, final units,
+    units carved by each other subject across the whole step (even when the other subject touches only one frame of the step), and
+    units carved that overlap the subject's head_track or part; written to runs/<run>/step_carves.json and manifest.json, and printed
+    in diagnose."""
+    import contextlib
+    import io
+    import tempfile
+    vm = cap._pack("video_mask")
+    lt = 2
+    f = sum(vm.run_lengths(lt))  # 1 + 4 = 5 frames (100, and 101..104)
+
+    def box(x0, y0, x1, y1, on=None):
+        m = np.zeros((f, H, W), bool)
+        m[on if on is not None else slice(None), y0:y1, x0:x1] = True
+        return m
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        part = box(80, 32, 96, 48)
+        head = box(64, 32, 96, 48)
+        # `b` touches only frame index 3 (source frame 103), inside step 1 (101..104), covering 2 cells inside `part`'s 40px grown margin,
+        # 1 of which (64..80) overlaps `head`
+        other_b = box(48, 32, 80, 48, [3])
+        plan = _a_node_plan(tmp_path, part, None, lt, vm.EDGE_CELLS)
+        rows = cap.step_keepout_carves(plan, part, {"b": other_b}, 100, 100, head_or_face=head)
+        assert len(rows) == 2, rows
+        assert rows[0]["step"] == 0 and rows[0]["source_frames"] == [100, 100] and rows[0]["carved_units_total"] == 0 and rows[0]["carved_by_other"] == {"b": 0}, rows[0]
+        assert rows[1]["step"] == 1 and rows[1]["source_frames"] == [101, 104], rows[1]
+        assert rows[1]["carved_units_total"] == 2 and rows[1]["carved_by_other"] == {"b": 2} and rows[1]["carved_touching_head_units"] == 1, rows[1]
+        assert rows[1]["final_units"] == rows[1]["grown_units"] - 2, rows[1]
+
+        # Whole tokens (2x2 cells = 32x32 px): 32..64 and 64..96 are two tokens; `other_b_tok` on 32..64, 32..64 is 1 token
+        tok_dir = tmp_path / "tok"
+        tok_dir.mkdir()
+        other_b_tok = box(32, 32, 64, 64, [3])
+        plan_tok = _a_node_plan(tok_dir, part, None, lt, vm.EDGE_TOKENS)
+        rows_tok = cap.step_keepout_carves(plan_tok, part, {"b": other_b_tok}, 100, 100, head_or_face=part)
+        assert rows_tok[1]["carved_units_total"] == 1 and rows_tok[1]["carved_by_other"] == {"b": 1} and rows_tok[1]["carved_touching_head_units"] == 0, rows_tok[1]
+
+        # End-to-end through `_files` and `diagnose`: querying frame 101 (where `b` is absent on that single frame, but carves step 1 across 101-104)
+        masks_given = {"a.mkv": box(64, 16, 112, 80), "pa.mkv": part, "ha.mkv": head, "b.mkv": other_b}
+        stood_in = {k: getattr(cap, k) for k in ("probe", "read_mask", "write_mask_video", "input_facts", "picture_rows")}
+        cap.probe = lambda _p: (W, H, f)
+        cap.read_mask = lambda path, *_a: (masks_given[Path(path).name].copy(), np.ones(f, bool))
+        cap.write_mask_video = lambda *_a: None
+        cap.input_facts = lambda _p: {}
+        cap.picture_rows = lambda *_a: [(0.0, 0.0)] * f
+        try:
+            shots = tmp_path / "shots.json"
+            shots.write_text('{"shots": []}')
+            out_cap = tmp_path / "cap_step"
+            given = [
+                ("a", {"track": "a.mkv", "parts": "pa.mkv", "head_track": "ha.mkv", "least": "0", "shots": str(shots)}),
+                ("b", {"track": "b.mkv", "shots": str(shots)}),
+            ]
+            args_ = argparse.Namespace(first=100, frames=f, name="x", date="2026-01-01", source="s.mp4",
+                                       loads=None, voice=None, head_tube=False, depth=None)
+            cap._files(args_, out_cap, given, [], [("r", {"subject": "a", "others": "b", "preview": str(plan), "at": "100"})])
+            sc_path = out_cap / "runs" / "r" / "step_carves.json"
+            assert sc_path.is_file(), "runs/r/step_carves.json was not written"
+            sc = json.loads(sc_path.read_text())
+            assert sc["rows"] == rows and sc["steps"] == rows, sc
+            assert sc["summary"]["steps_total"] == 2 and sc["summary"]["steps_carved"] == 1 and sc["summary"]["carved_units_total"] == 2, sc["summary"]
+            assert sc["summary"]["carved_by_other"] == {"b": 2} and sc["summary"]["carved_touching_head_units"] == 1, sc["summary"]
+            man = json.loads((out_cap / "manifest.json").read_text())
+            assert man["runs"][0]["step_carves_summary"] == sc["summary"], man["runs"][0]
+
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                cap.diagnose(argparse.Namespace(capture=str(out_cap), frames="101-101"))
+            out_101 = buf.getvalue()
+            assert "step keep-out carves touching 101-101: 1 step(s)" in out_101, out_101
+            assert "window 1 step 1 (101-104):" in out_101 and "carved=2 by_other=(b=2) touching_head=1" in out_101, out_101
+
+            buf_100 = io.StringIO()
+            with contextlib.redirect_stdout(buf_100):
+                cap.diagnose(argparse.Namespace(capture=str(out_cap), frames="100-100"))
+            assert "step keep-out carves touching" not in buf_100.getvalue(), buf_100.getvalue()
+        finally:
+            for k, v in stood_in.items():
+                setattr(cap, k, v)
+    return "step_keepout_carves reports per-window, per-step grown/final/carved units by other subject and head overlap; written to step_carves.json and manifest.json and printed by diagnose"
+
+
 case("one subject's row", one_subject)
 case("across three subjects", across)
 case("two sightings of one subject", two_sightings)
@@ -3186,4 +3271,6 @@ case("the carve on the node's own grid", the_carve_on_the_nodes_grid)
 case("the head tube, in the files step", head_tube_in_the_files_step)
 case("back of the head and no-face frames are never held by the grade", back_of_head_and_no_face_never_held_by_grade)
 case("depth in the owner map and the files step", depth_in_owner_map_and_the_files_step)
+case("step keep-out carves in the files step and diagnose", step_keepout_carves_in_files_and_diagnose)
 sys.exit(finish())
+

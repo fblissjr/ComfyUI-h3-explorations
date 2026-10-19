@@ -2919,6 +2919,73 @@ def depth_in_the_job_step() -> str:
     return "job --depth finds track and keep-out overlap frames (after track_not), runs measure_moge2_depth.py into the capture folder, records job.depth and defaults, and skips the model when 0 frames overlap"
 
 
+def no_head_track_on_the_reference_step() -> str:
+    """C208: `shot_to_load.py reference --no-head-track WHY` requires a non-empty reason, forwards `--no-head-track` to
+    `bench/head_reference.py`, records `job.reference.head_track`, carries across `--carry-words-from`, and refuses on
+    `--existing` when the existing reference's `inputs.head_track` disagrees."""
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        d = made.load(first=104, frames=40, why="a look cut it", name="a_fp_0104")
+        d["job"]["preview"] = str(Path(d["job"]["preview"]))
+        job_file = made.jobs / "a_fp_0104.json"
+        job_file.write_text(json.dumps(d))
+        folder = made.m.output / "Video/v/references/a_0104_0143"
+        drawn = folder / "a_head_reference_0104_0143.mp4"
+        figures = lambda points, scale: {
+            "frames": 40, "the_drawing_line_px": 1.6, "measured_on": "made", "cannot_see": "made",
+            "at_the_canvas": {"face_height_px": {}, "lid_gap_px": {}, "frames_with_the_gap_under_the_line": 0},
+            "in_the_reference": {"enlarged": scale, "face_height_px": {}, "lid_gap_px": {}, "frames_with_the_gap_under_the_line": 0},
+        }
+        record_no_ht = {
+            "scale": [2.0, 2.0], "files": {"plain_cut": "a_head_reference_0104_0143_plain_cut.mp4"},
+            "frames": [104, 143], "passed": True, "made_at": "2026-01-03T09:00:00Z", "made_by": "the session",
+            "inputs": {"mesh": "m.mp4", "track": "t.mkv"},
+            "face_on_the_track": {"known": True, "frames_whose_face_middle_is_off_the_track": []},
+            "drawn": {"mouth": {"closed_lip_line": {"on": True}}},
+        }
+        made.m.on["head reference"] = lambda: drawn.with_suffix(".json").write_text(json.dumps(record_no_ht))
+        made.m.on["pose pass"] = lambda: (folder / "a_0104_0143_points.npz").write_bytes(b"")
+
+        # 1. Empty --no-head-track reason is refused before anything runs
+        a = args(job_file=str(job_file), model_store="/store", no_head_track="   ")
+        refused(lambda: stl.step_reference(a, made.m, figures), "--no-head-track takes the reason in words")
+        assert made.m.ran == [], made.m.ran
+
+        # 2. Fresh reference with --no-head-track passes --no-head-track to head_reference.py and records job.reference.head_track
+        a.no_head_track = "head_track box jumps on 120"
+        stl.step_reference(a, made.m, figures)
+        ref_argv = made.m.said("head reference")
+        assert "--no-head-track" in ref_argv and "--head-track" not in ref_argv, ref_argv
+        after = json.loads(job_file.read_text())
+        ht_meta = after["job"]["reference"].get("head_track") or {}
+        assert ht_meta.get("on") is False and ht_meta.get("why") == "head_track box jumps on 120" and ht_meta.get("said_by") == "the session", ht_meta
+
+        # 3. Carrying words from a job with reference.head_track.on == False preserves it on the new job
+        sheet = Path(tmp) / "sheet_104.jpg"
+        sheet.write_bytes(b"jpg")
+        carried = made.load(first=104, frames=40, why=f"carried ({sheet})", name="a_fp_0104b", carry_words_from=job_file)
+        assert carried["job"]["reference"]["head_track"]["on"] is False, carried["job"]["reference"]
+        assert "--no-head-track" in stl.drawn_form(carried["job"], args(), {"classes": Path("/c.mkv"), "head_track": Path("/ht.mkv")}, 100)
+
+        # 4. --existing refusals when head_track state disagrees between the job/CLI and the existing reference's inputs
+        carried_file = made.jobs / "a_fp_0104b.json"
+        carried_file.write_text(json.dumps(carried))
+        # Existing reference has no head_track in inputs; carried job wants no_head_track -> succeeds
+        stl.step_reference(args(job_file=str(carried_file), existing=True), made.m, figures)
+        # If existing reference WAS made with head_track, --existing with --no-head-track (or carried head_track.on=False) is refused
+        drawn.with_suffix(".json").write_text(json.dumps({**record_no_ht, "inputs": {"mesh": "m.mp4", "track": "t.mkv", "head_track": "ht.mkv"}}))
+        refused(lambda: stl.step_reference(args(job_file=str(carried_file), existing=True), made.m, figures),
+                "--existing", "was cut with a head track and this load turns it off (--no-head-track)")
+        # If existing reference was made WITHOUT head_track and a normal job (wanting head_track) runs --existing, it is refused
+        normal = made.load(first=104, frames=40, why=f"normal ({sheet})", name="a_fp_0104c")
+        normal_file = made.jobs / "a_fp_0104c.json"
+        normal_file.write_text(json.dumps(normal))
+        drawn.with_suffix(".json").write_text(json.dumps(record_no_ht))
+        refused(lambda: stl.step_reference(args(job_file=str(normal_file), existing=True), made.m, figures),
+                "--existing", "was not cut with a head track")
+    return "reference --no-head-track requires a reason, forwards --no-head-track to head_reference.py, records job.reference.head_track, carries across --carry-words-from, and refuses --existing mismatches"
+
+
 case("the frame a tracker picks on is a field of the shots record", the_pick_frame_is_a_field)
 case("the trackers' order, and who is in the shot", the_order_and_who_is_in_the_shot)
 case("a preview made to ask who is on a shot the record is unsure of", a_preview_made_to_ask)
@@ -2951,6 +3018,7 @@ case("carry-words-from: a retired key is not carried and is said", carry_words_f
 case("carry-words-from: a remake on an existing shot and subject requires --carry-words-from or --no-carry-words", remake_requires_carry_words_or_no_carry_words)
 case("carry-words-from: a carried drop or no_face_on over a face frame is refused", carry_words_from_refuses_drop_over_face_frame)
 case("depth: overlap frames found, measured into the capture folder, and recorded in defaults", depth_in_the_job_step)
+case("reference: --no-head-track forwarded, recorded, carried, and checked on --existing", no_head_track_on_the_reference_step)
 
 if __name__ == "__main__":
     sys.exit(finish())

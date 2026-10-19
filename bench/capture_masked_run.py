@@ -1401,6 +1401,72 @@ def node_taken_inside(people: np.ndarray | None, predicted: Path, mine: np.ndarr
     return count
 
 
+def step_keepout_carves(
+    plan_path: Path,
+    carried: np.ndarray,
+    others_by_name: dict[str, np.ndarray],
+    at: int,
+    first: int,
+    keep: np.ndarray | None = None,
+    head_or_face: np.ndarray | None = None,
+) -> list[dict]:
+    """Per window and per latent step `s` (`video_mask.run_lengths(lt)`), how many of the node's units (latent cells or
+    whole 2x2 tokens) the subject's grown mask (`alone`, with `keep` applied and no `others`) holds, how many remain in
+    `tokens[s]` after `others` and `keep`, how many units `others` carved out (`(alone[s] > 0.5) & (tokens[s] < 0.5)`),
+    how many of those carved units each named `other` (`second`, `hands`, `clothes`, `held`, `strangers`, etc.) touched
+    on any frame of step `s`, and how many of those carved units touch `head_or_face` (defaulting to `carried`)."""
+    vm = _pack("video_mask")
+    _n, h, w = carried.shape
+    plan, windows = node_windows(plan_path, (w, h))
+    zoom = plan.get("zoom")
+    whole = (plan.get("source") or {}).get("edge", vm.EDGE_TOKENS) == vm.EDGE_TOKENS
+    head_mask = head_or_face if head_or_face is not None else carried
+    rows: list[dict] = []
+    for win_idx, (row, got) in enumerate(windows):
+        lt, lh, lw = (int(v) for v in got["tokens"].shape)
+        length = int(got["mask"].shape[0])
+        held = _picture(vm, _window_frames(keep, row, at, first, length), zoom, (w, h)) if keep is not None else None
+        alone_no_others = vm.window(node_source(vm, plan, got, None, held), 0, length, w, h, lt, lh, lw)[2]
+        if others_by_name and (not bool(got["tokens"].any()) or bool((got["tokens"] == alone_no_others).all())):
+            union = np.logical_or.reduce(list(others_by_name.values()))
+            other_pic = _picture(vm, _window_frames(union, row, at, first, length), zoom, (w, h))
+            final_tokens = vm.window(node_source(vm, plan, got, other_pic, held), 0, length, w, h, lt, lh, lw)[2]
+        elif bool(got["tokens"].any()):
+            final_tokens = got["tokens"]
+        else:
+            final_tokens = alone_no_others
+        other_units = {
+            o_name: _units(vm, _picture(vm, _window_frames(o_mask, row, at, first, length), zoom, (w, h)) > 0.5, lh, lw, whole) > 0
+            for o_name, o_mask in others_by_name.items()
+        }
+        head_units = _units(vm, _picture(vm, _window_frames(head_mask, row, at, first, length), zoom, (w, h)) > 0.5, lh, lw, whole) > 0
+        win_num = int(row.get("number", win_idx + 1))
+        win_first = int(at + int(row.get("first_frame", 0)))
+        start = 0
+        for s, steps in enumerate(vm.run_lengths(lt)):
+            grown_mask = (alone_no_others[s] > 0.5).numpy()
+            final_mask = (final_tokens[s] > 0.5).numpy()
+            carved_mask = grown_mask & ~final_mask
+            by_other = {
+                o_name: _unit_count(carved_mask & o_u[start:start + steps].any(0).numpy(), whole)
+                for o_name, o_u in other_units.items()
+            }
+            touching_head = _unit_count(carved_mask & head_units[start:start + steps].any(0).numpy(), whole)
+            rows.append({
+                "window": win_num,
+                "step": int(s),
+                "source_frames": [int(win_first + start), int(win_first + start + steps - 1)],
+                "grown_units": _unit_count(grown_mask, whole),
+                "final_units": _unit_count(final_mask, whole),
+                "carved_units_total": _unit_count(carved_mask, whole),
+                "carved_by_other": by_other,
+                "carved_touching_head_units": touching_head,
+            })
+            start += steps
+    return rows
+
+
+
 def cells_up(cells: np.ndarray, cell: int = CELL) -> np.ndarray:
     return np.repeat(np.repeat(cells, cell, axis=-2), cell, axis=-1)
 
@@ -2183,6 +2249,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
     class_maps: dict = {}
     made_of: dict = {}
     held_masks: dict = {}
+    head_tracks: dict[str, np.ndarray] = {}
     manifest = {"name": a.name, "date": a.date, "clip": Path(a.source).name, "first_frame": first, "frames": frames,
                 "size": [width, height], "fps": FPS, "cell_px": CELL, "subjects": [], "runs": [],
                 "commit": subprocess.run(["git", "-C", str(REPO), "rev-parse", "--short", "HEAD"],
@@ -2277,6 +2344,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                 raise SystemExit(
                     f"subject {label!r}: head_track={m['head_track']} does not cover the capture's frames {first}-{first + frames - 1} (at={at})"
                 )
+            head_tracks[label] = head_track_arr
         head_tube_prov = None
         if m.get("head_tube") not in (None, "1", "on", "true", "0", "off", "false"):
             raise SystemExit(f"subject {label!r}: head_tube={m['head_tube']}; give head_tube=1 or --head-tube")
@@ -2576,6 +2644,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             if who not in sightings:
                 raise SystemExit(f"run {name!r} names subject {who!r}, which no --mask gives")
         lead = {who: next(iter(sightings[who].values())) for who in both + others + kept_labels}
+        step_carves = None
         if r["planned"] and r.get("preview"):
             where = plan_file(r["preview"])
             # ROUTE C (the lead's ruling of 2026-10-16): the region remade on the files the render will read, by the node's own `window`
@@ -2591,6 +2660,9 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             region, carried, read, how = read_planned_regions(where, first, frames, size, r.get("at"))
             if region is None:
                 raise SystemExit(f"run {name!r}: {how['refused']} ({where})")
+            others_by_name = {o: lead[o][0] for o in others}
+            head_or_face = np.logical_or.reduce([head_tracks[who] for who in both if who in head_tracks] + [carried])
+            step_carves = step_keepout_carves(where, carried, others_by_name, plan_at, first, keep=kept_mask, head_or_face=head_or_face)
             graph, settings = None, {k: how["source_settings"].get(k) for k in ("grow_pixels", "grow_by", "edge", "replace", "composite")}
             r = {**r, "margin": settings.get("grow_pixels") if settings.get("grow_by") in (None, "a fixed margin") else r.get("margin"),
                  "at": r.get("at", first)}
@@ -2663,6 +2735,23 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                                                            _pack("sapiens2_parts").CLASS_NAMES))
         if graph is not None:
             (folder / "graph.json").write_text(json.dumps(graph, indent=1) + "\n")
+        step_carves_summary = None
+        if step_carves is not None:
+            step_carves_summary = {
+                "file": f"runs/{name}/step_carves.json",
+                "steps_total": len(step_carves),
+                "steps_carved": sum(1 for sc in step_carves if sc["carved_units_total"] > 0),
+                "carved_units_total": sum(int(sc["carved_units_total"]) for sc in step_carves),
+                "carved_by_other": {o: sum(int(sc["carved_by_other"].get(o, 0)) for sc in step_carves) for o in others},
+                "carved_touching_head_units": sum(int(sc["carved_touching_head_units"]) for sc in step_carves),
+                "carved_steps": [
+                    sc for sc in step_carves
+                    if sc["carved_units_total"] > 0 or any(v > 0 for v in sc["carved_by_other"].values())
+                ],
+            }
+            (folder / "step_carves.json").write_text(
+                json.dumps({"run": name, "subject": label, "others": others, "steps": step_carves, "rows": step_carves, "summary": step_carves_summary}, indent=1) + "\n"
+            )
         captured[name] = entry
         manifest["runs"].append({"name": name, "planned": r["planned"], "render": None if r["planned"] else Path(r["render"]).name,
                                  "subject": label, **({"subjects": both} if also else {}), "others": others, "keep": kept_labels,
@@ -2677,7 +2766,9 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                  # a run rendered zoomed in: the node's own grow, in pixels of the zoomed picture (`canvas_margin`)
                                  **({"margin_px_in_the_zoomed_picture": zoomed_margin} if zoomed_margin is not None else {}),
                                  "masked_source": settings,
-                                 "given_back_worked_out": bool(entry["back"]), "frames_read": int(read.sum()), **how})
+                                 "given_back_worked_out": bool(entry["back"]), "frames_read": int(read.sum()),
+                                 **({"step_carves_summary": step_carves_summary} if step_carves_summary is not None else {}),
+                                 **how})
         if label in floors:
             # the zoom the floor was held to, against the one this run renders at (1 for the whole frame)
             against = floor_against_the_run(floors[label]["px"], first, read, floors[label]["scale"],
@@ -5687,7 +5778,12 @@ def diagnose(a: argparse.Namespace) -> None:
 
     def stat(rows, key):
         vals = [r[key] for r in rows if r.get(key) is not None]
-        return "no value" if not vals else f"median {np.median(vals):.4g}, from {min(vals):.4g} to {max(vals):.4g}"
+        if not vals:
+            return "no value"
+        if any(isinstance(v, str) for v in vals):
+            non_empty = [f"{r['source_frame']}:{r[key]}" for r in rows if r.get(key)]
+            return ", ".join(non_empty) if non_empty else "none"
+        return f"median {np.median(vals):.4g}, from {min(vals):.4g} to {max(vals):.4g}"
 
     print(f"capture {m['name']}, {m['clip']}, source frames {lo}-{hi} (span frames {lo - m['first_frame']}-{hi - m['first_frame']})")
     for s in m["subjects"]:
@@ -5719,6 +5815,23 @@ def diagnose(a: argparse.Namespace) -> None:
               f"margin: {stat(rows, 'margin_share')}; region against the frame before: {stat(rows, 'region_step')}")
         for key in sorted({k for r in cross for k in r if f"__{run['name']}__" in k}):
             print(f"  {key}: {stat(cross, key)}")
+        sc_path = folder / "runs" / run["name"] / "step_carves.json"
+        if sc_path.is_file():
+            sc_raw = json.loads(sc_path.read_text())
+            sc_steps = sc_raw["steps"] if isinstance(sc_raw, dict) else sc_raw
+            hit_sc = [
+                sc for sc in sc_steps
+                if sc["source_frames"][0] <= hi and sc["source_frames"][1] >= lo
+                and (sc.get("carved_units_total", 0) > 0 or any(v > 0 for v in (sc.get("carved_by_other") or {}).values()))
+            ]
+            if hit_sc:
+                print(f"  step keep-out carves touching {lo}-{hi}: {len(hit_sc)} step(s)")
+                for sc in hit_sc:
+                    by_str = ", ".join(f"{k}={v}" for k, v in (sc.get("carved_by_other") or {}).items() if v > 0) or "none"
+                    sf_a, sf_b = sc["source_frames"]
+                    print(f"    window {sc['window']} step {sc['step']} ({sf_a}-{sf_b}): "
+                          f"grown={sc['grown_units']} final={sc['final_units']} carved={sc['carved_units_total']} "
+                          f"by_other=({by_str}) touching_head={sc['carved_touching_head_units']}")
     for key in sorted({k for r in cross for k in r if k.startswith(("masks_overlap__", "same_subject__", "regions_overlap"))}):
         print(f"\nACROSS {key}: {stat(cross, key)}")
     voiced = [r["source_frame"] for r in cross if r.get("voiced")]
