@@ -138,7 +138,7 @@ and raises past the end (`comfy_extras/nodes_minimax_h3.py:226-230`).
 **Rows are not the only consequence.** A video reference advances the packed rotary cursor by
 `max(ref_audio_t, sum of video spans)`, so a soundtrack longer than its own visual reference expands the reference
 span and pushes the target streams down the timeline (both independent reviews reach it:
-`internal/codex/2026-08-21_h3-conditioning-qwen-independent-review.md` section 5.3, and the cursor formula in
+Codex's of 2026-08-21, section 5.3, and the cursor formula in
 `internal/gemini/minimax_h3_comfyui_end_to_end_trace_and_gap_analysis.md`). Trimming is a correctness change, not
 only a saving. `length / 24` is the exact cap: `_ref_t_span` compares the two in the same units
 (`comfy/ldm/minimax/model.py:105-113`), and a soundtrack trimmed to the render lands on its own video's span. Left

@@ -1,10 +1,9 @@
 # 2026-10-05: the turn arms on the masked lane (encoder-only motion reference)
 
 Session mryellow. Rows: `2026-10-05_masked_v2v_motion_arms.jsonl` (one per
-arm, wall and per-node seconds, from `bench/run_graph_arms.py`). Graphs and
-contact sheets under `internal/claude/2026-10-05_mryellow/arms/` (not
-tracked). The research note is `docs/research/masking/2026-10-05_mryellow.md`;
-the question it answers is section 1's: why the replaced subject does not
+arm, wall and per-node seconds, from `bench/run_graph_arms.py`). The graphs and
+contact sheets are not tracked. The question the arms answer is the session's
+research note's first: why the replaced subject does not
 turn with the band when the original does.
 
 ## Setup, shared by every arm

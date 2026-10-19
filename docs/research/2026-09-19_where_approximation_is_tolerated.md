@@ -37,7 +37,7 @@ constants, the Sana, LightX2V and sglang H3 configs, and this pack's
 each at most): LoSA, "Attention Sparsity is Input-Stable", HASTE/HEART's
 method, cumulative-energy filtering, DeepSeek V4.1. Builds on
 `docs/research/2026-09-17_rotation_and_lowbit_attention_survey.md` D.6-D.7 and
-`internal/2026-09-19_question_review.md` C.2-C.4, D, F.4, F.9; does not
+the day's question review (C.2-C.4, D, F.4, F.9); does not
 repeat them.
 
 ## The answer

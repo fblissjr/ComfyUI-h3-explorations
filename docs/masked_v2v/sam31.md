@@ -203,5 +203,5 @@ Each matters more the longer or rarer the phrase.
 | [`docs/research/masking/2026-10-07_sam31_in_comfyui.md`](../research/masking/2026-10-07_sam31_in_comfyui.md) | SAM 3.1 in ComfyUI end to end |
 | [`docs/research/masking/2026-10-07_sam31_core_vs_meta_stages.md`](../research/masking/2026-10-07_sam31_core_vs_meta_stages.md) | the same, one row per stage with the file and lines on ComfyUI's side and on Meta's: the place to look up where a stage lives, the rules between followed objects among them (its tracker rows) |
 | [`2026-10-18_sam31_minimal_core_fixes.md`](../research/masking/2026-10-18_sam31_minimal_core_fixes.md) | the 6 minimal surgical fixes (~25 lines across 4 files) that would bring ComfyUI core's existing SAM 3 / 3.1 detector, tokenizer, and single-shot tracker to numerical and functional parity with Meta's reference |
-| `docs/research/masking/2026-10-06_mrsun.md` (no longer in the tree since 2026-10-11) | Meta's video pipeline for one phrase, frame by frame, and what ComfyUI's port does instead at each step and at a cut. A reading; nothing was run for it |
+| a reading of 2026-10-06, no longer in the tree | Meta's video pipeline for one phrase, frame by frame, and what ComfyUI's port does instead at each step and at a cut. A reading; nothing was run for it |
 

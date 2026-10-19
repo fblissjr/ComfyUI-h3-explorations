@@ -10,8 +10,7 @@ a text prompt it also has an object cap that detection stops at for good, a
 keep-alive count that blanks a track the detector stops matching, and a
 detector mask that overwrites the tracked one on a confident frame
 (`comfy/ldm/sam3/tracker.py::track_video_with_detection`,
-`_match_and_add_detections`). `docs/research/masking/2026-10-04_mrhf.md` has
-the reading.
+`_match_and_add_detections`).
 
 Upstream SAM 3 added a caller-mask request for this on 2026-09-18
 (`coderef/sam3`, "Condition the video tracker on a caller mask"): tell the
@@ -76,7 +75,7 @@ core's `initial_mask` path and has none of the three behaviours above.
    mask (`head_of`). A person is compared with the subject under the top
    third of the mask and under the head, and the lower of the two counts. A
    person on whom no head is found is no match. Measured on three clips
-   (`docs/research/masking/2026-10-04_mrhf.md`): on a clip of young women in
+   (`bench/results/2026-10-04_subject_track_three_clips.md`): on a clip of young women in
    a car the top third alone took two other women as the lead, and the head
    alone took a wrong person on the band clip; the lower of the two took the
    right shots on both.
@@ -129,8 +128,7 @@ core's `initial_mask` path and has none of the three behaviours above.
 
 **How far the matching can be trusted.** SAM 3's trunk is trained to say what
 a thing is, not who, so people in the same clothes score close together. On
-the owner's band clip (six people in one sweatshirt,
-`docs/research/masking/2026-10-04_mrhf.md`): pooled under the whole mask a
+the owner's band clip (six people in one sweatshirt): pooled under the whole mask a
 neighbour scores as close to the pick as the lead in another shot does; under
 the top third with the pick frame's other people subtracted, on the card, the
 lead scored 0.92 and 0.94 on his other two shots and the best wrong person
@@ -298,8 +296,8 @@ BORDER_FLAT = 4.0 / 255.0
 #: from two clips, neither of which it suits as a fixed value: see `CUT_FLOOR`.
 CUT_THRESHOLD = 0.9
 #: Automatic cuts: only a gap whose upper side is at or above this is taken as
-#: the line between cuts and everything else. Measured on two clips
-#: (`docs/research/masking/2026-10-04_mrhf.md`): the band segment's cuts score
+#: the line between cuts and everything else. Measured on two clips: the band
+#: segment's cuts score
 #: 0.99 and above and its other frames 0.76 and below; the one-person clip's
 #: cuts 0.84 and above and its other frames 0.46 and below.
 CUT_FLOOR = 0.8
@@ -339,7 +337,7 @@ REGAIN_MARGIN = 0.03
 #: Automatic matching, similarity relative to the pick frame's other people:
 #: nothing below this is the subject. Measured on one clip on the card, the
 #: band segment with five others on the pick frame: the lead 0.92 and 0.94,
-#: the best wrong person 0.71 (`docs/research/masking/2026-10-04_mrhf.md`).
+#: the best wrong person 0.71.
 MATCH_FLOOR = 0.8
 #: The same floor on the plain similarity, used when the pick frame shows
 #: nobody else. Measured on the same clip by a CPU probe: the lead facing the

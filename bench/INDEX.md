@@ -8,7 +8,7 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 156 |
+| [`check_*`](#check) | 157 |
 | [`measure_*`](#measure) | 39 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
@@ -59,6 +59,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_draw_face_points.py`](check_draw_face_points.py) | `bench/draw_face_points.py` against a face whose every line is known by construction, read from the VIDEO IT WROTE. |
 | [`check_draw_lid_marks.py`](check_draw_lid_marks.py) | `bench/draw_lid_marks.py` against a face whose eyes are known by construction, read from the VIDEO IT WROTE. |
 | [`check_exact_blocks.py`](check_exact_blocks.py) | `MiniMaxH3ExactBlocks` rests on a name, so assert the thing the name stands for. |
+| [`check_folder_rules.py`](check_folder_rules.py) | Every folder's rules file loads, points at its index, and every doc is on an index. |
 | [`check_frame_coverage.py`](check_frame_coverage.py) | `bench/frame_coverage.py` on a made table, made captures, and made build records: each case is a way a frame on the 4-step ladder (`no_capture`, `captured_not_rendered`, `rendered_not_kept`, `kept_and_laid`) could be missed, given the ... |
 | [`check_frame_sheet.py`](check_frame_sheet.py) | The frame reader in `bench/_lib/frames.py` and the sheet tool built on it, against a clip made for the purpose. |
 | [`check_frame_table.py`](check_frame_table.py) | Verify bench/frame_table.py on a synthetic capture folder. |

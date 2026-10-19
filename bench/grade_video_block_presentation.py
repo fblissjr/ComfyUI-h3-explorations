@@ -5,7 +5,7 @@ Run it with the ComfyUI venv python (`docs/working/comfy_notes.md`). CPU only, n
 checkpoint, no server, no CUDA.
 
 **The claim under test, and who made it.**
-`internal/codex/2026-08-21_h3-conditioning-qwen-independent-review.md` section 2
+Codex's independent review of the conditioning path (2026-08-21), section 2,
 calls this "the important non-gap": ComfyUI presents a reference video to
 Qwen3-VL as separate two-frame vision calls, each with `grid_thw = [1, H, W]`
 (`comfy/text_encoders/minimax.py:176-180` driving `:85`), where LightX and

@@ -102,7 +102,7 @@ native socket node has no metadata input.
 
 **The per-pair vision call is not a gap, tested.** Core presents a reference video to Qwen3-VL as separate two-frame
 calls at `grid_thw = [1, H, W]` where LightX2V and sglang pass the whole clip at `[T, H, W]`.
-`internal/codex/2026-08-21_h3-conditioning-qwen-independent-review.md` section 2 argued structural equivalence without
+Codex's independent review of 2026-08-21 (section 2) argued structural equivalence without
 a tensor test; [`../../bench/grade_video_block_presentation.py`](../../bench/grade_video_block_presentation.py) runs
 both through the real `Qwen3VLVisionModel` at the `qwen3vl_32b` vision config and the merged and deepstack outputs
 agree to 7.5e-06, inside fp32 reassociation noise. Two controls show it can see a difference (reordering pairs moves it
@@ -207,7 +207,7 @@ consequence.
 Core encodes the whole waveform at 80 rows per second of excess; sglang cuts every reference soundtrack, a video's and
 a standalone one alike, to the generated duration via `ffmpeg -t`, and diffusers does the same. The excess rows are
 attended every step, and an over-long soundtrack also pushes the target streams down the timeline (both independent
-reviews: `internal/codex/2026-08-21_h3-conditioning-qwen-independent-review.md` section 5.3; the cursor formula in
+reviews: Codex's of 2026-08-21, section 5.3; the cursor formula in
 `internal/gemini/minimax_h3_comfyui_end_to_end_trace_and_gap_analysis.md`). **Measured at the real entry point,
 `_encode_ref_audio`, 2026-08-29**, against the default 124-frame target (5.167 s, `audio_t` 207):
 

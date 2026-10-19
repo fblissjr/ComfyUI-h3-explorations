@@ -3,7 +3,7 @@
 The owner asked for an end-to-end look at render time on ref2va with a 2048
 short-edge reference, without a quality sacrifice. This record holds the day's
 measurements. The running notes, with each early claim and its correction, are
-`internal/claude/2026-10-03_ditman_render_time_notes.md`; the live board is the
+the session's own, untracked; the live board is the
 "H3 Lever Map" artifact.
 
 ## What ran

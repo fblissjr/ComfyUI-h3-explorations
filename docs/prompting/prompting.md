@@ -1766,8 +1766,8 @@ diagnoses, frame grid and speech budget, documented-to-work list and user-messag
 system prompts (its §7 and §7b) are replaced by [`portable/h3_system_prompt.md`](portable/h3_system_prompt.md), a
 tracked draft with a CORE section and one block per mode. `bench/check_prompt_docs_sync.py` grades its Part One
 strings, but that covers the stated mechanical rules only: a broken guide-shown rule stays green, so most of that file
-is untested by construction. A sibling set of externally written per-mode drafts,
-`internal/prompts/2026-08-22_*_system_prompt.md` (t2va, i2va, fl2va and ref2va, no l2va), was removed by the owner the
+is untested by construction. A sibling set of externally written per-mode drafts of 2026-08-22
+(t2va, i2va, fl2va and ref2va, no l2va), was removed by the owner the
 same day. `internal/` is gitignored and not in history: copy what you need into the tracked tree before depending on
 a file there.
 

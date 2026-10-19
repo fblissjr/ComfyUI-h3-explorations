@@ -175,10 +175,7 @@ the two rather than taking the first it finds.
 
 ## What a review caught afterwards
 
-The session that shipped this is written up at
-`internal/postmortems/2026-08-24_session_reference-fold-and-image-policy.md`
-(gitignored, local). Bare path rather than a link, matching how
-`docs/method/evidence.md` and `docs/state/roadmap.md` cite that directory.
+The session that shipped this has a postmortem, kept locally and untracked.
 
 
 An `xhigh` code review of the committed change found fifteen issues, several

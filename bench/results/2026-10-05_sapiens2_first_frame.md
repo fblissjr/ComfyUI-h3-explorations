@@ -6,9 +6,8 @@ verdict: the class order is upstream's for the classes on the frame; hair found 
 Session mrorange. The first real run of `MiniMaxH3Sapiens2Loader` and
 `MiniMaxH3SubjectParts` (`sapiens2_parts.py`, landed in 8b451ebc). The numbers
 are in `2026-10-05_sapiens2_first_frame.json`; this page says what was run and
-what was seen. The script, its graph and the pictures are under
-`internal/claude/2026-10-05_mrorange/` (`sapiens2_first_frame.py`,
-`first_frame_label_sheet.png`, `first_frame_hair_tile.png`), not tracked.
+what was seen. The script, its graph and the pictures (`sapiens2_first_frame.py`,
+`first_frame_label_sheet.png`, `first_frame_hair_tile.png`) are not tracked.
 
 **Everything here is one span of one clip**: 48 consecutive frames of one
 shot, one subject, facing the camera at mid distance.

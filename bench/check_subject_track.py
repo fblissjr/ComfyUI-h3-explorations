@@ -104,7 +104,7 @@ item drives the module's own functions on made-up frames and masks.
 
 What this cannot check: that SAM 3's features tell real people apart, that
 its tracker follows them, or that the text encoder loads. Those need the card;
-`docs/research/masking/2026-10-04_mrhf.md` has what was measured.
+`bench/results/2026-10-04_subject_track_three_clips.md` has what was measured.
 
 No model, no CUDA, no server.
 

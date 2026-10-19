@@ -6,7 +6,7 @@ verdict: it turns him on three of the four chains and keeps his face, cap and ha
 Session mrhf. Rows: `2026-10-05_masked_v2v_per_token_arms.jsonl`. The code is
 in the tree since 0.193.3 (`video_mask.py`: `start_from`, `soften_subject`,
 `top_of`, `start_zero_tokens`; the song node slices the schedule). The arm
-graphs are under `internal/claude/2026-10-05_mrhf/per_token/arms/`; each is
+graphs are local and untracked; each is
 a copy of its control with the four `start_*` inputs set and Sol's
 `start_percent` at 0.2. Renders: `Video/mrhf/masked_v2v_pt_*` on the share.
 

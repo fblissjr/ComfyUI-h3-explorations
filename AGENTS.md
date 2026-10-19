@@ -70,7 +70,7 @@ once; `docs/method/evidence.md`, "Settled about H3", has the rest.
   every commit message is written as already public. While the card runs,
   any file its chain executes (the node pack's code and every `bench/` tool
   a load step calls) is edited in a worktree outside `custom_nodes` and
-  landed by the Gemini lead between steps, once the Claude lead clears it: an uncommitted edit in the shared
+  landed by the operating lead between steps, once the review lead clears it: an uncommitted edit in the shared
   tree is run by the next load.
 - **The changelog is written once a day, from the commits**
   (`changelog.d/README.md`). A commit carries no changelog entry.
@@ -121,24 +121,23 @@ One home per kind of fact. Not two.
   the inbox and carries on. A go is a row on the Open List or a line in the
   lead's terminal; a session that is not the lead takes the lead's relay as
   the go and writes the relay's time in the job's note.
-- **Two leads, one each side** (the owner, 2026-10-17). The Gemini lead holds the card, git on `main`, the ledger,
-  the owner's pages and the plan file, and leads the other Gemini sessions; the Claude lead holds the Open List and
-  the inbox, clears each landing, and writes the changelog, the handover and `decisions.md`. They talk only to each
-  other; the mailbox, the landing steps and what each holds are `internal/gemini/PROTOCOL.md`. When one model is not
-  available on a day, there is one designated lead, which holds both sides' roles; where it is unclear what to do or
-  how to go forward, that lead asks the owner instead of guessing (the owner, 2026-10-18). A Gemini lead cannot write
-  the Open List, so on such a day its questions go to the owner in its terminal.
+- **Two leads, by role** (the owner, 2026-10-17). The operating lead holds the card, git on `main`, the ledger, the
+  owner's pages and the plan file, and leads its own workers; the review lead holds the Open List and the inbox, clears
+  each landing, and writes the changelog, the handover and `decisions.md`. They talk only to each other. The roles,
+  the mailbox, the landing steps and which model holds which role today are `docs/working/protocol.md`. When one model
+  is not available on a day, one designated lead holds both roles, and where it is unclear how to go forward it asks
+  the owner instead of guessing (the owner, 2026-10-18).
 - **A lead starting a day reads, in this order, before its first word to anyone** (the owner, 2026-10-18):
-  `docs/state/handover.md`; `docs/working/working_with_the_owner.md`; `internal/gemini/PROTOCOL.md` (its "Starting a
-  day as the Gemini lead" has the rest of the order); `docs/working/comfy_notes.md`, before the first command; then
-  `data/AGENTS.md` and the project's own before lane work. Then `date -u`, `git status`, HEAD and the ports, and its
-  first entry says what it read and what it starts on.
+  `docs/state/handover.md`; `docs/working/working_with_the_owner.md`; `docs/working/protocol.md` (its "Starting a
+  day" has the rest of the order); `docs/working/comfy_notes.md`, before the first command; then `data/AGENTS.md` and
+  the project's own before lane work. Then `date -u`, `git status`, HEAD and the ports, and its first entry says what
+  it read and what it starts on.
 - **A build goes on its own branch** in a worktree outside `custom_nodes` (`h3_worktrees/<builder>-<item>`), cut from
   current main, never pushed, and lands by pathspec from the merge base (`git diff main...<branch>`) after its own
-  blind read and the Claude lead's clearance. A refusal test passes only on the tool's own words with no traceback.
+  blind read and the review lead's clearance. A refusal test passes only on the tool's own words with no traceback.
 - **A change to data, an input or an output names both ends.** A build that adds or changes a file, a key, a field or
   a format lists every tool that writes it and every tool that reads it (by grep, with file:line), and says what each
-  does with the change: updated, unaffected and why, or refusing on purpose. Its READY carries that list; the Claude lead
+  does with the change: updated, unaffected and why, or refusing on purpose. Its READY carries that list; the review lead
   clears nothing without it. Today's misses were each one step away: a matte key the assembler read, a re-laid graph
   the ledger trusted, a page the review server served (2026-10-17).
 - **A render's prompt is read in FULL before it renders**, from the graph

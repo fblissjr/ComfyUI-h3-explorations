@@ -1,8 +1,7 @@
 # Sol-Attn and VSA: our nodes against core's, and core against FastVideo (2026-09-27)
 
 Read-only code comparisons, prompted by the owner's questions. Two were
-subagents of this session; the third was the lookingdude session
-(`internal/claude/2026-09-27_kitchen_fork_vs_upstream.md`, kitchen fork
+subagents of this session; the third was the lookingdude session (kitchen fork
 against upstream). There are no measurements here. Citations are file:line
 as of this date.
 - core: ComfyUI's `comfy_extras/nodes_sparse_attention.py` (NSA) and

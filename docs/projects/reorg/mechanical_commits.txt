@@ -1,0 +1,6 @@
+# Commits of the reorganization that only moved files or rewrote paths and comments across the repo.
+# bench/bench_inventory.py skips them when it dates a script's last real change. One short hash a line.
+901bee1   # docs/ becomes the wiki: every doc path rewritten repo-wide
+12413d3   # the folder rewrites' integration: quotes and comments repointed
+9699943   # research records renamed with their dates; references follow
+74aa6499  # session-named records renamed; handoffs archived; references follow

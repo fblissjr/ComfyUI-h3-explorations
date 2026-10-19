@@ -369,7 +369,7 @@ identical q/k/v, per block and step, for the eleven in-window steps.
 Summary as data, ranked by mean whole-call rel_l2:
 `data/results/2026-09-03_sol_probe_base16_standoff.json`; the route the
 same render took: `data/results/2026-09-03_sol_route_base16_standoff_probe.json`;
-the raw records under `internal/sol_observe/2026-09-03_probe_base16_standoff{,_observe}`.
+the raw records are local and untracked.
 
 What the ranking says, in words, with the numbers left in the record:
 

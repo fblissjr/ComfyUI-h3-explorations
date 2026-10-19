@@ -12,8 +12,7 @@ slow, but it is a *second implementation*, which is the thing we were missing.
 `bench/_sol_attn_reference.py` vendors it.
 
 **Scope narrowed 2026-08-16: this grades the CUDA kernel only.** It used to
-grade the Triton kernel too, and the Triton arms were removed with the pack
-(see `internal/plan_2026-08-16_sol_fp16_and_triton_retirement.md`, Track A1).
+grade the Triton kernel too, and the Triton arms were removed with the pack.
 Two reasons. The Triton arms graded a kernel no graph has wired since
 2026-08-14, so a regression there could not reach a render. And the CUDA arm
 never needed them: the script loaded Triton first and returned 2 on failure,

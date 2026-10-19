@@ -3,9 +3,8 @@
 Session mrhf, evening. Probes outside the server, loading the module by path
 and calling it with core's real SAM 3 detector on the card (mrblue's method,
 from their validation of the same node earlier that day); then the landed node inside
-the server as mask-only graphs. Probe scripts and outputs:
-`internal/claude/2026-10-04_mrhf/subject_track_v4/head/` and
-`internal/claude/2026-10-04_mrhf/subject_track_v6/card/`.
+the server as mask-only graphs. The probe scripts and outputs are local and
+untracked.
 
 ## The clips
 

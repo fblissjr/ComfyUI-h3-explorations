@@ -50,8 +50,7 @@ job is to move it or kill it.
 a scratch runner rather than a committed script. If they are gone, requeue: both
 are in `bench/grade_pdd_partitions.py`'s `MANUAL` and `ARMS`.
 
-**Parked.** `internal/parked/2026-08-28_head_blocks_dynamiccombo.patch`, with
-its own README. Unrelated to audio; land it in one commit after a restart.
+**Parked.** The head-blocks DynamicCombo patch, kept locally with its own README. Unrelated to audio; land it in one commit after a restart.
 
 ---
 
@@ -214,7 +213,6 @@ correction with a known mechanism rather than a heuristic.
 
 ---
 
-**Postmortem:** `internal/postmortems/2026-08-28_session_audio-carry-ablation.md`
-(gitignored, local scratch) covers the session that executed this plan — why
+**Postmortem:** the session's own (untracked, local scratch) covers the session that executed this plan — why
 experiments A and B were both dropped as non-identifying, what replaced them,
 and which half of the replacement's result was withdrawn by its own control.

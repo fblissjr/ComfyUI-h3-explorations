@@ -3303,7 +3303,7 @@ that session's record disagree, its record is the nearer one.*
   entry said nothing gated the generator's `--check`;
   `bench/check_doc_inventory.py` now runs it.
 - **A masking note said the VOID passes were only in the upstream repo**
-  (`docs/research/masking/2026-10-04_mrhf.md`, "VOID for the plate with
+  (the note of 2026-10-04, "VOID for the plate with
   nobody in it": the Comfy-Org repackage "holds only" the T5 encoder, the VAE
   and RAFT). Wrong, and against the same note's section 5: both passes are
   in the repackage too, and only those load in core, upstream's having
@@ -4795,7 +4795,7 @@ that session's record disagree, its record is the nearer one.*
   `docs/h3/references.md` said the concise swap twin stays shipped (retired
   2026-08-22); `docs/distills/ref2v_distillation.md` said no v4 ref2va graph existed;
   `docs/h3/image_editing.md` pointed at a note in a graph that now lives only
-  under `archive/`. Plan: `internal/2026-09-14_api_only_workflows_plan.md`.
+  under `archive/`. Plan: the API-only workflows plan of 2026-09-14.
 - **Two duplicate Sol-on probes retired** (owner: "retire the
   duplicative/redundant workflows"). `h3_probe_sol_on` and `h3_probe_sol_on_i2v`
   matched `h3_text_to_video` and `h3_first_frame_to_video` in everything but
@@ -4822,7 +4822,7 @@ that session's record disagree, its record is the nearer one.*
   graph comment called it "arguably the largest optimization here" and worth
   more than any kernel knob; `docs/h3/geometry.md` said the same.
   The owner also answered the API-only plan's open questions
-  (`internal/2026-09-14_api_only_workflows_plan.md`, top): loop stage 2 goes
+  (at its top): loop stage 2 goes
   before the conversion.
 - **The frozen-audio loop plan, confirmed** (owner, in answers the same day).
   Encoding comes before sampling: the track and each distinct prompt once.

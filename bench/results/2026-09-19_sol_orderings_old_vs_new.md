@@ -8,7 +8,7 @@ conditions of `2026-09-17_sol_orderings.md`. Data:
 `2026-09-19_sol_orderings_base16_rerun.json` (the old cells) and
 `2026-09-19_sol_orderings_covered_market.json` (the new cells).
 
-Why: the capture plan (`internal/2026-09-18_capture_plan.md`, set A) asked
+Why: the capture plan of 2026-09-18 (set A) asked
 whether the 2026-09-03 set still represents the current stack, before anyone
 recycles it or keeps grading on it. Two things changed since it was taken, and
 this separates them.

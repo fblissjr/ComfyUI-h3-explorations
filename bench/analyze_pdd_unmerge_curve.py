@@ -22,7 +22,15 @@ before it and nearly the lowest inflation. "Which kind quantises worst" and
 "which kind PDD damages most" are separate questions with opposite answers.
 
 **Stored-weight only.** int8_convrot is W8A8; the source records' caveats say
-so, and nothing here is a runtime cost. See `docs/state/open_experiments.md` #23.
+so, and nothing here is a runtime cost (`docs/state/open_experiments.md` #23,
+closed 2026-09-29).
+
+**A record of the merged path, not of what ships.** Since 2026-09-26 a PDD
+LoRA on the int8 checkpoints is applied at the call (`backbone_apply` defaults
+to `exact branch`, `docs/distills/pdd.md`), so the merge this curve measures,
+and `unmerged_blocks` with it, is the control arm. The inputs are the
+2026-08-31 records under `data/results/` (untracked, on the owner's box); the
+result is `docs/distills/pdd.md`'s figure for what un-merging recovers.
 
     <comfy-venv-python> bench/analyze_pdd_unmerge_curve.py
 """
@@ -36,10 +44,13 @@ import statistics
 from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
-SRC = _HERE / "results" / "2026-08-31_pdd_quant_interaction_all_blocks.json"
-STOCH_SRC = _HERE / "results" / "2026-08-31_merge_rounding_regimes.json"
+# Data files live under the untracked data/results/ since 2026-10-10; a
+# record under bench/results/ is its .md only (root AGENTS.md).
+_DATA = _HERE.parent / "data" / "results"
+SRC = _DATA / "2026-08-31_pdd_quant_interaction_all_blocks.json"
+STOCH_SRC = _DATA / "2026-08-31_merge_rounding_regimes.json"
 PDD_NODE = _HERE.parent / "pdd_lora.py"
-OUT = _HERE / "results" / "2026-08-31_pdd_unmerge_recovery.json"
+OUT = _DATA / "2026-08-31_pdd_unmerge_recovery.json"
 STRENGTH = "1.0"
 
 
@@ -151,7 +162,7 @@ def main() -> int:
             "mean_error": e,
             "fraction_of_gap_recovered": (all_merged - e) / gap if gap else 0.0,
             # +2.4% FLOPs on an un-merged block's linears, from the shapes.
-            # NOT timed -- the tooltip and h3_pdd.md say so and so does this.
+            # NOT timed -- the tooltip and docs/distills/pdd.md say so, and so does this.
             "extra_flops_pct_of_linears": n * 2.4 / len(blocks),
         })
 

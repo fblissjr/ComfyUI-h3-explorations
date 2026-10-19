@@ -18,8 +18,8 @@ What it prints, per step that two or more scenes share:
 - each block's Sol error (raster, tau 1.0) and routed density per scene, with
   its rank within the scene (1 = worst);
 - Spearman's rank correlation of the per-block Sol error between each pair of
-  scenes, over the blocks both have. This is the stability check that
-  `internal/2026-09-19_question_review.md` section D asks for before any block
+  scenes, over the blocks both have. This is the stability check that the
+  2026-09-19 question review asked for before any block
   ranking is used: a ranking that does not hold across scenes is noise;
 - the dense kernels' error per block, and the same correlation for each.
 

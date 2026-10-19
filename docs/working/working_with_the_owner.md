@@ -24,7 +24,7 @@ this page is corrected. Each line carries the date it was asked for; the reasons
 ## Where things go, and what they are called
 
 - **Every question says which page it is on.** A decision is a row with buttons on the H3 Open List (written by the
-  Claude lead only); a look at a clip is an item on the local review page. Make the row before mentioning it.
+  the review lead only); a look at a clip is an item on the local review page. Make the row before mentioning it.
   (2026-10-12)
 - **Review links go in one place:** `Video/<video>/TO_REVIEW.html` on the share, beside `PROVENANCE.html`, given as
   the review server's address (`http://<ip address>:<port>/fun_share/...`; run `data/<video>/poc/serve.py` to serve),
@@ -60,7 +60,7 @@ this page is corrected. Each line carries the date it was asked for; the reasons
   a Gemini reader writes a short card: what it sees (frames), what it cannot see, its verdict and a one-line why,
   generated from its reading file and folded closed, so the owner watches first and then compares. The owner's eye
   still accepts a piece; the point is to see where the two reads agree and where each misses something.
-- **Every open decision carries both leads' takes** (2026-10-18): the Claude lead's and the Gemini lead's
+- **Every open decision carries both leads' takes** (2026-10-18): the review lead's and the operating lead's
   recommendation and a one-line why, side by side on the Open List row. Neither lead decides for the owner unless the
   answer is plainly obvious to both.
 - **Judging is comparative and in free text** (stacked pairs at a matched seed), never a score. A still is reported

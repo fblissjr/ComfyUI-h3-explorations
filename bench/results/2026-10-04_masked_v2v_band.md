@@ -157,8 +157,7 @@ and the shipped graph.
   cut found, the lead taken in the three shots he is in, the six other shots
   absent. Solo: every cut found, the singer taken in all seven shots. The
   thresholds, the pick frames and the per-shot scores the node reported are
-  the ones both peers recorded from their own runs
-  (`docs/research/masking/2026-10-04_mrhf.md`). Seconds: `per_node_s`, node
+  the ones both peers recorded from their own runs. Seconds: `per_node_s`, node
   105.
 - The window: the song node's report gives the same share of regenerated
   tokens as `band_subject_w1`, and the Masked Source the same share of the
@@ -196,7 +195,7 @@ tiles across the turn and one frame early in the window.
   the question is how to let the coarse shape through without the look. The
   peer's follow-up, untried: degrade the source inside the region (a hard
   blur, no colour) before the late start, so facing survives and hair and
-  clothes do not (`docs/research/masking/2026-10-04_mrhf.md`).
+  clothes do not.
 - The late arms were also quicker, since they sample fewer steps
   (`per_node_s`). The second and third arms did not run the tracker or the
   Masked Source again; inside one server session core's cache explains that.
@@ -212,7 +211,6 @@ tiles across the turn and one frame early in the window.
   today was inside one session, where core's cache would do the same.
 
 - Whether the regenerated tokens beside him alter the neighbours they
-  overlap. A peer's design for protecting them is in
-  `internal/claude/2026-10-04_mrhf_notes.md`.
+  overlap. A peer drew up a design for protecting them.
 - Whether the faint remnant of the original subject a peer measured in the
   first clip's flicker shot is here too.

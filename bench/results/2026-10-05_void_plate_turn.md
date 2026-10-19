@@ -42,7 +42,7 @@ the shadow: one cell beyond the cells he touches covers the lane's hole and
 not what he casts on the wall. The ring's width is `GRID_GROW` in the probe.
 
 The numbers are in `2026-10-05_void_plate_turn.json`. The script and its
-graph are `internal/claude/2026-10-05_mrorange/void_plate_turn.py`, not
+graph (`void_plate_turn.py`) are not
 tracked: the graph was built by hand from core's nodes and is in no
 generator.
 
@@ -128,7 +128,7 @@ The window `turn_control` loads: `thinkaboutthings_compressed.mp4` from 112 s,
   template (`utility_void_video_inpainting.json`): 672x384, cfg 6, 30
   `simple` steps, `VOIDSampler`, the T5 encoder and the CogVideoX VAE. Pass 2
   and the optical-flow file were left out
-  (`docs/research/masking/2026-10-04_mrhf.md`, "VOID for the plate"). The
+  (the masking note of 2026-10-04, "VOID for the plate"). The
   checkpoint is upstream's, converted:
   `2026-10-05_void_checkpoint_conversion.md`.
 - **The quadmask**, built from core's mask nodes at VOID's size so its levels
@@ -195,8 +195,7 @@ became a small square of "remove".
 Asked by mryellow after the judgment: a flat panel in the shape of the
 subject's region is what an inverted or self-repainting mask would give. Read
 in core and in upstream's own inference code (`netflix/void-model`, `main` at
-e3914f8f551d, fetched 2026-10-05; copies under
-`internal/claude/2026-10-05_mrorange/upstream_void/`). **The polarity is
+e3914f8f551d, fetched 2026-10-05; local copies, untracked). **The polarity is
 right.**
 
 - Upstream (`get_video_mask_input`, in its own utils module): the quadmask
@@ -286,7 +285,7 @@ Two more arms on the empty prompt, seed 43, the same windows, through core's
 node (`second_round` in the record; clips beside the others, named
 `void_plate_turn_empty_cfg1_up` and `void_plate_turn_empty_cfg1`). **Not
 judged.** Read by me from strips of eight frames a shot
-(`internal/claude/2026-10-05_mrorange/void_AB_*_strip.jpg`), which the first
+(`void_AB_*_strip.jpg`, untracked), which the first
 round showed is not enough to judge a plate.
 
 - **B, the quadmask halved, cfg 1.** Core's VAE is then given upstream's mask

@@ -1,7 +1,7 @@
 {
  "what": "The arms on one window of thrill_2160.mkv on 2026-10-06 (the lane's fourth clip): what each changed, what the song node printed, and four measurements beside them (a mask check, frame-to-frame change by zone, a three-way cache control, an island in the part model's labels). No prompt text, no subject text, nothing about what the clip shows.",
  "record": "bench/results/2026-10-06_masked_v2v_body_window_arms.md",
- "assembled_by": "mrop, from the run folder of the session that ran the arms (mrteal_jr, closed): the runner's rows, the saved reports of each prompt, their flicker and mask-check files, and the arm graphs; the cache control and the island were re-derived from the files on disk. The assembling scripts are under internal/claude/2026-10-06_mrop/record/ (untracked).",
+ "assembled_by": "mrop, from the run folder of the session that ran the arms (mrteal_jr, closed): the runner's rows, the saved reports of each prompt, their flicker and mask-check files, and the arm graphs; the cache control and the island were re-derived from the files on disk. The assembling scripts are untracked.",
  "clip": {
   "file": "thrill_2160.mkv",
   "width": 2880,
@@ -1181,7 +1181,7 @@
   }
  ],
  "flicker": {
-  "definition": "mean absolute change in luma between consecutive frames, in 8-bit levels, over a zone, in the render and in the source over the same pixels; `excess` is the render's less the source's. Zones from the mask the arm used and its margin: `mask`, `band` (the margin around it), `edge` (a ring 8 px wide on the region's outer boundary), `plate` (everything else). `excess_by_cycle_position` is the same by the frame's place in the video VAE's four-frame cycle. Frames whose source change is a cut's are left out. Script: internal/claude/2026-10-06_mrteal_jr/flicker.py (untracked).",
+  "definition": "mean absolute change in luma between consecutive frames, in 8-bit levels, over a zone, in the render and in the source over the same pixels; `excess` is the render's less the source's. Zones from the mask the arm used and its margin: `mask`, `band` (the margin around it), `edge` (a ring 8 px wide on the region's outer boundary), `plate` (everything else). `excess_by_cycle_position` is the same by the frame's place in the video VAE's four-frame cycle. Frames whose source change is a cut's are left out. Script: flicker.py (untracked).",
   "arms": {
    "body_345": {
     "grow_pixels": 64,

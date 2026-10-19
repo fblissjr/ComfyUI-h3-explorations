@@ -33,7 +33,7 @@ The tracker and its SAM 3.1 behaviour are [`sam31.md`](sam31.md); recognizing a 
 | the mask is the body, not what the body does to the room | the original's shadow and reflections stay | |
 | two-sampler graphs do not carry the mask as wired | `MiniMaxH3RestorePlate` (`plate_restore.py`) exists for it and is in no shipped graph | |
 | no control adapter | the owner ruled it out for this lane | [`docs/state/decisions.md`](../state/decisions.md), 2026-10-04 |
-| the first clip's flicker | set aside, its dark lines being seams in the source's own backdrop; one part has no explanation | `../../bench/results/2026-10-04_masked_v2v_first_run.md`; `docs/research/masking/2026-10-04_mrhf.md` (no longer in the tree since 2026-10-11), section 4 |
+| the first clip's flicker | set aside, its dark lines being seams in the source's own backdrop; one part has no explanation | `../../bench/results/2026-10-04_masked_v2v_first_run.md` |
 | a small face does not read as the reference's person | every outcome reading says a region differs from the source; none says it looks like the reference | [`state_signals.md`](state_signals.md), "Whether a render looks like the reference" |
 
 ### Using it
@@ -67,8 +67,8 @@ The tracker and its SAM 3.1 behaviour are [`sam31.md`](sam31.md); recognizing a 
 - **Removing the original's shadow and reflections.** Nothing here does it. VOID was tested for it on 2026-10-05 and
   removed: `../../bench/results/2026-10-05_void_plate_turn.md`.
 - **A soft edge**: a matting model on the subject. The nodes exist (`sapiens2_parts.py`, `MiniMaxH3SubjectParts`);
-  the matte is in no graph ([`perception_models.md`](perception_models.md), the matting row). What was read of the
-  model: `docs/research/masking/2026-10-04_mrhf.md` (no longer in the tree since 2026-10-11), "Matting".
+  the matte is in no graph ([`perception_models.md`](perception_models.md), the matting row). The model was read
+  once, on 2026-10-04, and that reading is not in the tree.
 
 ### The render
 

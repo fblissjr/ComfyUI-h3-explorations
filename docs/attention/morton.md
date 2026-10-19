@@ -124,8 +124,7 @@ what Morton fixes on Wan, and our captures disagreed at the centroid level.
 ## The method lessons
 
 - **The one quality finding ever recorded here was retracted within the hour** for vanishing at a second seed (commit
-  `3b86b21` sent it upstream, `440eea9` retracted it, with the method postmortem in the commit message and the long
-  form in [`internal/postmortems/2026-08-14_span_tau-and-morton.md`](../../internal/postmortems/2026-08-14_span_tau-and-morton.md)).
+  `3b86b21` sent it upstream, `440eea9` retracted it, with the method postmortem in the commit message).
 - **A mechanism written to explain an unestablished effect makes it feel confirmed.** Two were drafted here for a
   clip-start impression and cut.
 - **Three arms agreeing is not a control.** The copied "reorder-only" control (Morton on, every block dense) isolated

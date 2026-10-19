@@ -125,8 +125,7 @@ the record's section "A second vote of another kind: SAM's own memory, seeded on
   the track backward, so a seeded shot needs the re-find off for the memory's vote to be read.
 
 One clip, one confirmed look a person, one run each, read on six frames a case by eye. No take leans on it. What is
-not known: Meta's code has nothing for a cut and its training video had none
-(`docs/research/masking/2026-10-06_mrsun.md`, no longer in the tree since 2026-10-11, "At a cut"); nobody has measured
+not known: Meta's code has nothing for a cut and its training video had none (a reading of 2026-10-06); nobody has measured
 a track across one ([`../../bench/results/2026-10-06_meta_sam3_card_run.md`](../../bench/results/2026-10-06_meta_sam3_card_run.md));
 and this tracker has moved a mask onto a neighbour with no empty frame between
 ([`../../bench/results/2026-10-07_subject_regain_looks.md`](../../bench/results/2026-10-07_subject_regain_looks.md)).
@@ -167,7 +166,7 @@ on) and **geometry** (blind to what the camera hides). Nothing here has been tim
 
 | feature | kind | runs already? | used | what makes it lie |
 |---|---|---|---|---|
-| SAM 3.1's trunk features under the mask (the likeness): the top third, the head, the whole mask | appearance | yes, on every frame looked at | vote one | two people with like hair and shoulders; a few feature cells; the first frames after a cut; the whole mask is mostly clothes, so a change or a shared outfit (`docs/research/masking/2026-10-04_mrhf.md`, no longer in the tree since 2026-10-11) |
+| SAM 3.1's trunk features under the mask (the likeness): the top third, the head, the whole mask | appearance | yes, on every frame looked at | vote one | two people with like hair and shoulders; a few feature cells; the first frames after a cut; the whole mask is mostly clothes, so a change or a shared outfit (`../../bench/results/2026-10-04_subject_track_three_clips.md`) |
 | SAM 3.1's tracker seeded from a confirmed look | continuity | the tracker runs; these calls do not | vote two | place, when a neighbour steps where the person stood |
 | the trunk pooled part by part, under the part classes | appearance | the part model runs on the tracked subject only | later: step 5 | a person a few tokens tall, where the part map is itself unreliable |
 | Sapiens2's own backbone features | appearance | the forward runs; nothing reads them | later, with the row above | trained on people is not trained on identity |

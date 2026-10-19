@@ -282,8 +282,7 @@ multiplies each query's class score by presence (`sam3_image.py`, the joint
 score under `supervise_joint_box_scores`) and drops what is at or under its
 threshold (`sam3_multiplex_base.py`, `pos_pred_mask`), so a phrase with
 presence that low returns nothing whatever its class scores are. ComfyUI
-core's port is read as dropping presence
-(`docs/research/masking/2026-10-06_mrsun.md`), which is the difference
+core's port is read as dropping presence (a reading of 2026-10-06), which is the difference
 between the two on a single frame with the same weights. Not measured: the
 class scores themselves.
 

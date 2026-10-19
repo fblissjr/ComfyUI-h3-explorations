@@ -9,8 +9,7 @@ trained task. The same song node, given a masked source video, is the masked vid
 
 The lane was opened by the owner on 2026-09-12: drop a song of any length, keep it exactly, and have the picture move
 to it, as the owner's LTX 2.3 pack (`ComfyUI-AudioLoopHelper`, a sibling custom node, not part of this repo) does with
-a per-stream `noise_mask` and an integer-latent loop. The day's postmortem and session log are under `internal/`
-(gitignored): `internal/postmortems/2026-09-12_session_audio-freeze-lane.md` and `internal/log/log_2026-09-12.md`.
+a per-stream `noise_mask` and an integer-latent loop.
 
 Read first: [`geometry.md`](geometry.md) for the two clocks and the frame grid, [`references.md`](references.md)
 "Audio references" for how core encodes audio and where it crops, and

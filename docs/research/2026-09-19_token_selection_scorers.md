@@ -108,7 +108,7 @@ Ranked by how directly each item could change a Sol default or a kitchen kernel 
    - Query-aware MLLM pruning: conditioning rows are already exact in Sol.
    - Encoder-side merging: `docs/h3/technique_transfer.md`'s open borrow 1 is unchanged by 2026 work.
 
-**The blind spot to keep in view.** Every "measure first" above is a capture proxy. The repo's own evidence says such proxies have anti-predicted pixels once: `coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/subblock_sparse/router.py:48-61` shows better on both offline proxies and worse on 0 of 15 prompts. `internal/2026-09-19_question_review.md` C.11 asks for the verdict-separation check before any lane is built on capture error. So treat equal-cost missed mass as a SCREEN that nominates at most one candidate for a blind panel, not as a decision rule.
+**The blind spot to keep in view.** Every "measure first" above is a capture proxy. The repo's own evidence says such proxies have anti-predicted pixels once: `coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/subblock_sparse/router.py:48-61` shows better on both offline proxies and worse on 0 of 15 prompts. The day's question review (C.11) asks for the verdict-separation check before any lane is built on capture error. So treat equal-cost missed mass as a SCREEN that nominates at most one candidate for a blind panel, not as a decision rule.
 
 ## 1. Corrections and agreements with existing records
 
@@ -293,7 +293,7 @@ Local (cited at lines above):
 - `bench/analyze_sol_block_grouping.py` (uncommitted peer work)
 - `docs/h3/technique_transfer.md`
 - `docs/research/2026-09-17_rotation_and_lowbit_attention_survey.md`
-- `internal/2026-09-19_question_review.md`
+- the day's question review (untracked)
 
 Remote code:
 - https://github.com/jessica-hujie/DFSAttn (`dfsattn/attention_wan.py`, read)

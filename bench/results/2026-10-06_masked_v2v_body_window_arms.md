@@ -15,8 +15,7 @@ runner's rows and the song node's reports hold it.
 **What it leaves out, on purpose.** Nothing here says what the clip shows.
 The clip is its file name and its technical facts, and an arm is what our
 tools did to it. The typed prompts describe the still's person and are not
-in this repo; the record names their files, which are under
-`internal/claude/2026-10-06_mryellow_jr/thrill/prompts/`. Two sibling
+in this repo; the record names their files, which are local and untracked. Two sibling
 records hold the day's other renders of this clip and are not repeated:
 `2026-10-06_masked_v2v_4x3_canvas_pair.md` (thirty seconds on two canvases)
 and `2026-10-06_masked_v2v_margin_and_words_variations.md` (eight short

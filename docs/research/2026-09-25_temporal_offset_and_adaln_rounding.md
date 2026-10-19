@@ -7,8 +7,7 @@ last updated: 2026-09-25
 > **Provenance, 2026-09-25.** A research subagent (Claude) read core, sglang
 > and vllm-omni, and measured on CPU, using real checkpoint tensors and the
 > repo's existing post-RoPE captures. The session that commissioned it wrote
-> this note. The scripts and full outputs are kept unshared under
-> `internal/2026-09-25_offset_adaln/`; the figures below are from them. Where
+> this note. The scripts and full outputs are kept unshared and untracked; the figures below are from them. Where
 > a figure has only that home, it is labelled.
 
 ## A. What a global temporal offset does

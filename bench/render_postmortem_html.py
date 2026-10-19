@@ -7,7 +7,7 @@ each drawn from a shipped record and each spliced in directly after the finding
 it illustrates, with an index of them after the header.
 
     python bench/render_postmortem_html.py \\
-        internal/postmortems/2026-08-20_session_distilled-regime-day.md
+        internal/postmortems/<date>_session_<name>.md
 
 writes the `.html` beside the `.md` and is safe to re-run: the whole page is
 regenerated from the markdown and the records every time, so an edit to either

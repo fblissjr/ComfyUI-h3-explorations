@@ -21,8 +21,8 @@ balanced` + Sol `qk_balance` tau 1.0, plain order, pack `9ad93db`; inventories
   below is in that json.
 
 Why: the owner wants `dense_blocks` decided from data, and blocks 8, 16, 44, 46
-and 47 had never been measured. `internal/2026-09-19_question_review.md`
-section D asks for a one-number ranking and a check that it holds across
+and 47 had never been measured. The day's question review
+asks for a one-number ranking and a check that it holds across
 scenes before anything is built on it; B covers the same twelve blocks as the
 covered market's depth run, which makes that check possible.
 

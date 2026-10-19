@@ -17,7 +17,7 @@
 
 Provenance. Research subagent, 2026-09-19, read-only, no GPU, no git. Repo
 context read in full: `docs/method/eval_comparison.md`, `.claude/skills/h3-ab-session/SKILL.md`,
-`internal/2026-09-19_question_review.md` (all sections, A, B, C.11 and F
+the day's question review (all sections, A, B, C.11 and F
 closely), `bench/results/2026-09-19_audio_sage_vs_kitchen.md`, the tools
 `bench/blind_batch.py` (argument handling), `bench/rubrics/default.json`,
 `bench/quality_metrics.py` and `bench/diff_clip_graphs.py` (docstrings), and
@@ -742,7 +742,7 @@ queued and no armed server is up; no runtime was measured for this draft.
 
 Repo and local clones (read):
 - `docs/method/eval_comparison.md`; `.claude/skills/h3-ab-session/SKILL.md`;
-  `internal/2026-09-19_question_review.md`; `bench/results/2026-09-19_audio_sage_vs_kitchen.md`;
+  the day's question review; `bench/results/2026-09-19_audio_sage_vs_kitchen.md`;
   `bench/blind_batch.py:61-63,271-272`; `bench/rubrics/default.json:13`;
   `bench/quality_metrics.py` (docstring); `bench/diff_clip_graphs.py`
   (docstring); `bench/measure_audio_video_coupling.py` (docstring);

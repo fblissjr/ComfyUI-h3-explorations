@@ -59,7 +59,7 @@ What stands in a video, where each piece came from and the gaps are the render l
 check, made by one command, `bench/rebuild_delivery.py`, after every landing or stopped load; it also makes the
 owner's two pages, `Video/<video>/TO_REVIEW.html` and `PROVENANCE.html` on the share (one copy each), and takes the
 close-of-day snapshot of the answers file. A session reads the files; the owner reads the pages; nothing is typed
-twice. A piece the table does not lay is not in the video. The Gemini lead keeps them while it holds the card.
+twice. A piece the table does not lay is not in the video. The operating lead keeps them while it holds the card.
 
 ## Where the lane's state lives
 

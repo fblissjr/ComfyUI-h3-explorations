@@ -24,7 +24,7 @@ update-coderef.sh
 # only, so the repo was protected by one machine's setup and a fresh checkout
 # would have committed them. (Until 2026-10-10 this said the JSON and JSONL
 # beside them stay tracked; they moved to the untracked `data/results/` that
-# day, see the rule at the end of this file and docs/wiki/decisions.md.)
+# day, see the rule at the end of this file and docs/state/decisions.md.)
 *.safetensors
 *.ckpt
 *.pt
@@ -47,3 +47,7 @@ contact_sheets/*
 !contact_sheets/AGENTS.md
 # 2026-10-17: and the one-line CLAUDE.md that imports it, so Claude sessions load it too.
 !contact_sheets/CLAUDE.md
+
+# A project under docs/projects/ keeps material that should not be published
+# (session scratch, data it was built from) in its own local/ folder.
+docs/projects/*/local/

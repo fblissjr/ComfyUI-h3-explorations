@@ -11,8 +11,7 @@ never written.
 
 ## Why
 
-Every per-head number this pack has recorded used a head prefix of 8
-(`internal/2026-09-19_question_review.md` C.4), and none says WHERE attention
+Every per-head number this pack has recorded used a head prefix of 8, and none says WHERE attention
 mass goes by segment or by latent frame. Three questions need it
 (`docs/research/2026-09-19_in_context_reference_and_sinks.md`, item 1):
 

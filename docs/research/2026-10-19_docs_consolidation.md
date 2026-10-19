@@ -135,11 +135,10 @@ none (no page renamed, merged or deleted).
 - **2026-09-15**: TaoMate removed; "cafe pair: worth re-judging 8 vs 5 steps" cut with PDD parked
   (`bench/results/2026-09-15_cafe_kids_verdict.json`).
 - **2026-09-14**: the two retired Sol-on probes; the frozen-audio loop's stage-by-commit history (`22b046c` ...
-  `e07c462`, smoke records `data/results/2026-09-14_audio_freeze_song_*_smoke.jsonl`, postmortem
-  `internal/postmortems/2026-09-14_session_api-only-and-loop-simplification.md`); UI/API twins (API-only since
-  2026-09-14, plan `internal/2026-09-14_api_only_workflows_plan.md`). Owed renders kept.
+  `e07c462`, smoke records `data/results/2026-09-14_audio_freeze_song_*_smoke.jsonl`, and the day's
+  postmortem); UI/API twins (API-only since 2026-09-14, by the day's plan). Owed renders kept.
 - **2026-09-13**: refview2 closed unscored (key lost, `qwen_view` decided 2026-10-03); "what changed on 2026-09-13"
-  (history, `internal/log/log_2026-09-13.md`); "before queueing a reference render read the preview" (guidance in
+  (history, the day's session log); "before queueing a reference render read the preview" (guidance in
   `docs/h3/references.md`); sage `smooth_k` trade cut: rejected by this stack for materialising a K copy
   (`docs/attention/block49_quant_error.md`). The served sage tag check kept.
 - **2026-09-12, 09-11, 09-10**: audio-freeze morning brief (stale); graphs regenerated; Sol core A/B retired
@@ -173,8 +172,7 @@ none (no page renamed, merged or deleted).
   (kept), `data/results/2026-08-20_session1_verdict.json`, `data/results/2026-08-20_sla_regime_arms.jsonl`,
   `data/results/2026-08-20_ref_transfer_single.jsonl`.
 - **"CLOSED 2026-08-16: token ordering as a quality question"**: Morton is in "Closed lanes" (2026-09-27); the full
-  reasoning is `docs/attention/morton.md` and
-  `internal/postmortems/2026-08-16_session_sol-ordering-and-blind-controls.md`.
+  reasoning is `docs/attention/morton.md` and the 2026-08-16 session postmortem.
 - **"Next, in order" (as of 2026-08-20)**: its own status note said only item 4 (`ncu`) was open, and item 4 was done
   2026-09-17 (`bench/results/2026-09-17_sol_stage_profile.md`). Cut.
 - **"What would make the error-decomposition line worth continuing"**: all done or refuted; the one forward note
@@ -246,15 +244,15 @@ in the old text that is no longer in the new page, with its old line number.)
 - 1864: `internal/blind_keys/`
 - 1910: `bench/results/2026-09-15_cafe_kids_verdict.json`
 - 1963: `data/results/2026-09-14_audio_freeze_song_timeline_smoke.jsonl`
-- 1972: `internal/postmortems/2026-09-14_session_api-only-and-loop-simplification.md`
+- 1972: a 2026-09-14 session postmortem under `internal/`
 - 1982: `data/results/2026-09-14_audio_freeze_song_stage1_smoke.jsonl`
 - 1986: `data/results/2026-09-14_audio_freeze_song_resume_smoke.jsonl`
 - 1994: `data/results/2026-09-14_audio_freeze_song_lists_smoke.jsonl`
-- 2015: `internal/2026-09-14_api_only_workflows_plan.md`
+- 2015: the 2026-09-14 API-only plan under `internal/`
 - 2028: `data/results/2026-09-13_refview2_arms.jsonl`
 - 2029: `Video/blind/refview2_2026-09-13/`
 - 2073: `Video/h3_candidate_t2v_pdd8_baked_audio_freeze_untold_loose_pdd8_00002-audio.mp4`
-- 2079: `internal/log/log_2026-09-13.md`
+- 2079: the 2026-09-13 session log under `internal/`
 - 2117: `data/results/2026-09-13_reference_settings_three_stills.json`
 - 2136: `bench/results/2026-09-12_audio_freeze_step2_verdict.json`
 - 2145: `data/results/2026-09-12_audio_freeze_song_smoke.jsonl`
@@ -302,7 +300,7 @@ in the old text that is no longer in the new page, with its old line number.)
 - 685: `data/results/2026-08-20_ref_transfer_single.jsonl`
 - 698: `data/results/2026-08-20_session1_verdict.json`
 - 712: `data/results/2026-08-20_sla_regime_arms.jsonl`
-- 787: `internal/postmortems/2026-08-16_session_sol-ordering-and-blind-controls.md`
+- 787: a 2026-08-16 session postmortem under `internal/`
 - 854: `data/results/2026-08-20_sol_error_per_head_fl2va.json`
 - 855: `data/results/2026-08-20_head_magnitudes_fl2va.json`
 - 863: `data/results/2026-08-19_sol_error_per_head.json`
@@ -314,8 +312,8 @@ in the old text that is no longer in the new page, with its old line number.)
 
 - 769: `internal/reference_library.md`
 - 1003: `coderef/comfy-kitchen-kijai/comfy_kitchen/backends/eager/sol_attn.py`
-- 1026: `internal/scripts/archive/sol_curve_2026-08-16/probe_routed_density.py:41`
-- 1039: `internal/scripts/archive/sol_curve_2026-08-16/probe_routed_density.py:47`
+- 1026: a 2026-08-16 probe script under `internal/` (line 41)
+- 1039: the same probe script (line 47)
 - 1105: `coderef/ComfyUI-SolAttn_triton/__init__.py`
 - 1163: `coderef/comfy-kitchen-kijai/comfy_kitchen/backends/cuda/sage_attention/sol_attn_route.cu::mma_bf16`
 - 1165: `coderef/comfy-kitchen-kijai/comfy_kitchen/backends/cuda/sage_attention/sol_layout.cuh::pack_bf2`
@@ -336,10 +334,10 @@ in the old text that is no longer in the new page, with its old line number.)
 - 2348: `coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/vae.py`
 - 2405: `data/results/2026-09-26_flashgen_lora_path_s1.jsonl`
 - 2491: `data/results/2026-09-27_vae_encoder_fp16acc_before_672.json`
-- 2506: `internal/postmortems/2026-09-26_session_distill-weights-and-render-dataset.md`
+- 2506: a 2026-09-26 session postmortem under `internal/`
 - 2599: `internal/pdd_shims/shim_fasth3_temb.safetensors`
 - 2611: `data/results/2026-09-26_fasth3_lora_rank.json`
-- 2838: `internal/postmortems/2026-09-26_session_distill-followup-and-attention-parity.md`
+- 2838: a second 2026-09-26 session postmortem under `internal/`
 - 3071: `data/results/2026-09-27_encoder_quant_dit.json`
 
 
@@ -636,7 +634,7 @@ body.
    happened is not recorded in my folder.
 9. **checks.md's Uncontrolled table was swept against the old `CLAUDE.md`**; it now says so, and that root `AGENTS.md`
    has not been swept. A sweep of the current AGENTS.md is a candidate.
-10. `docs/research/masking/2026-10-05_mryellow.md (no longer in the tree since 2026-10-11)` is kept as prose in
+10. The removed 2026-10-05 masking note on fractional masks is kept as prose in
     coderef.md, as before.
 11. **`docs/h3/resolutions.md` disappeared during my run** (the h3/ worker's move; `docs/h3/` now has `geometry.md`
     and `geometry_cost.md`). My pages link it at `docs/method/evidence.md:79,129`, `docs/working/coderef.md:234,488`,

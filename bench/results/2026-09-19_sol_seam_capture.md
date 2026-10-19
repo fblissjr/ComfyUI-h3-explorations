@@ -2,9 +2,9 @@
 
 Date: 2026-09-19. Pack at `14f11b8a` (`b3a15bd1` the seam, `14f11b8a` the
 removal of the old delegate-path capture), comfy-kitchen `0.2.35+sol.8176242`,
-RTX 4090, memory compiler off on every run here. Scripts and logs:
-`internal/2026-09-19_seam_acceptance/` (`run_all.sh`, `compare.sh`, the graphs,
-`chain.log`, `compare.out`).
+RTX 4090, memory compiler off on every run here. The scripts and logs
+(`run_all.sh`, `compare.sh`, the graphs, `chain.log`, `compare.out`) are local
+and untracked.
 
 Why: the only capture hook lived in this pack's sage node
 (`attention.py`), so the DEFAULT chain, which since 2026-09-15 carries core's
@@ -30,7 +30,7 @@ What changed, in one line each:
 
 ## Acceptance, 14 checks, all green
 
-`internal/2026-09-19_seam_acceptance/compare.sh`, output in `compare.out`
+`compare.sh`, output in `compare.out`
 beside it. Three renders of the noodle bar at its declared 107 frames, seed
 730451892, each on its own server.
 

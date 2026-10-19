@@ -112,8 +112,8 @@ class RuntimeVideoReference:
     # no audio rows either, since core builds the audio latent only behind
     # the video one. The same gate as `vae` unwired, for one video
     # (2026-10-05; the still's switch is 2026-10-03). Appended for the
-    # masked lane's encoder-only motion reference (`docs/research/masking/
-    # 2026-10-05_mryellow.md`, section 7).
+    # masked lane's encoder-only motion reference (its arms are
+    # `bench/results/2026-10-05_masked_v2v_motion_arms.md`).
     use_vae: bool = True
 
 

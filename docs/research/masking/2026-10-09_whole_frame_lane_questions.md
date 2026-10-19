@@ -160,9 +160,8 @@ not guidance alone. It should hold structure strongly, and it carries the
 source's look in the same proportion, which works against an edit of the
 look unless the prediction agrees with the source there. The limits on the
 value are in [`docs/h3/audio_freeze.md`](../../h3/audio_freeze.md)
-("Fractional masks are coarse and near-one masks vanish"); mryellow's
-reading of a fraction on part of the frame is
-`docs/research/masking/2026-10-05_mryellow.md`, section 1.
+("Fractional masks are coarse and near-one masks vanish"); mryellow
+read a fraction on part of the frame on 2026-10-05.
 
 **Upstream.** vllm-omni's API takes a single number as the video mask, so it
 can do this; its shipped editing graph uses fractions on audio only and

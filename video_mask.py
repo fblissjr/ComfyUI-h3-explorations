@@ -88,8 +88,7 @@ the part's own outline. The first render regenerated the outline alone (head
 plus a mass of long hair), and the model filled it with a head that size: "a
 giant bobblehead" (owner). Nothing in a head-shaped hole pins the head's
 scale. Drawing the neck and shoulders with it does, because they have to
-meet the kept torso (a peer session's suggestion,
-`docs/research/masking/2026-10-04_mrhf.md`). With short hair the region is
+meet the kept torso (a peer session's suggestion). With short hair the region is
 little more than the head.
 
 A frame the detector misses would otherwise regenerate nothing and show the
@@ -98,7 +97,7 @@ says how many did. The node's `mask` output is the mask it used, for a
 preview.
 
 **Painting the subject out before the encode** (`paint_out`; a peer session's
-finding, `docs/research/masking/2026-10-04_mrhf.md`). The video VAE's encoder
+finding, `bench/results/2026-10-04_masked_v2v_first_run.md`). The video VAE's encoder
 is convolutional, so a kept token beside the mask was encoded with the old
 subject inside its receptive field, and those tokens are re-injected clean on
 every step. A faint remnant of the original measured beside the regenerated
@@ -110,7 +109,7 @@ path hides the original before its encode too
 default until a matched render says it helps.
 
 **What the composite keeps** (`composite`; owner's notes on the first clip
-and a peer's measurements and design, `docs/research/masking/2026-10-04_mrhf.md`).
+and a peer's measurements and design).
 The regenerated tokens hold three kinds of pixel: the new subject, where the
 old subject stood, and margin that is neither. The margin is background the
 model had to invent, and it is where the flicker and the cut-out look were:
@@ -145,7 +144,7 @@ encoder-only form, a few thousand text tokens per window). The song node
 builds it per window from the source it already holds (`window_frames`,
 `motion_reference`), so nothing is wired and no copy of the clip is kept. The
 prompt names the relationship, never the action: the masking board's route
-1, `docs/research/masking/2026-10-05_mryellow.md` section 7.
+1, `bench/results/2026-10-05_masked_v2v_motion_arms.md`.
 
 **A second wired video** (`motion_video_2`, 2026-10-12). Under `a video I
 wire` the node takes a second video beside the first, with its own short
@@ -347,7 +346,8 @@ START_KNOTS = 1
 #: `motion_reference` choices: what of the source window, if anything, the
 #: song node appends to the reference chain as a video, so the model is shown
 #: the original's movement through the channel it was trained to take motion
-#: from (`docs/research/masking/2026-10-05_mryellow.md`, section 2, route A).
+#: from (route A; its arms are
+#: `bench/results/2026-10-05_masked_v2v_motion_arms.md`).
 #: Nothing in the per-token-timestep mechanism carries movement: the arms of
 #: 2026-10-04 showed that whatever enters the target rows brings its look.
 MOTION_NONE = "none"

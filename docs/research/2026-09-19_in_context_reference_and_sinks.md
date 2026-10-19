@@ -55,7 +55,7 @@ and 15 plus blocks 0/24/32/40/45/48/49 at steps 1/3/4/12
 (`data/results/2026-09-19_capture_inventory_covered_market_depth.json`,
 `data/results/2026-09-19_capture_inventory_covered_market_steps.json`).
 **No capture on disk contains reference rows**: capture-plan set D (ref2va) was
-never run (`internal/2026-09-18_capture_plan.md`, set D). Every
+never run (the capture plan of 2026-09-18, set D). Every
 reference-specific measurement below waits on that one capture render.
 
 1. **One CPU pass on set A: segment-resolved exact mass and a measured-sink
@@ -70,8 +70,8 @@ reference-specific measurement below waits on that one capture render.
    excluded tolerance-profiling lane. This is question review C.4's "mass
    outside the diagonal and sink ranges" split by segment, and it must run
    on **all 56 heads**: every
-   ordering and error number in the pack so far used a head prefix of 8
-   (`internal/2026-09-19_question_review.md` C.4), and a pass whose point is
+   ordering and error number in the pack so far used a head prefix of 8,
+   and a pass whose point is
    "are some heads special" answers nothing on 8. It is the t2v stand-in for
    the reference question (text and target audio are the prefix that exists
    on disk), the audio instrument C.5 says is missing, and the input to items
@@ -316,7 +316,7 @@ prefix's INT8 precision.
   the video reorder relies on (`sol_attn_h3.py` (line 430 as of 2026-09-19; the file was restructured 2026-09-27), `_perm_for`). Making the
   reference exact in only a few blocks would additionally need a per-block
   sink setting, which the node does not have
-  (`internal/2026-09-19_question_review.md` section D lists what it can set).
+  (the day's question review, section D, lists what it can set).
 
 ### 1.4 Is the reference K/V constant across steps, and does anyone cache it?
 
@@ -377,8 +377,7 @@ cache across denoising steps in-context DiT bidirectional attention" and
    the reference rows' block-0 K bit-identical across steps, the code reading
    in 1.4 is confirmed.
 
-**After set D (one capture render, `internal/2026-09-18_capture_plan.md`
-set D):**
+**After set D (one capture render, the capture plan's set D):**
 
 4. The same pass with `ref_img` and `ref_audio` as segments: per head and
    block, the share of target-video queries' exact mass on reference rows

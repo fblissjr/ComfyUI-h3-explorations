@@ -95,8 +95,7 @@ per second over the first 32 seconds:
   do not reach, so the pair of prompts says nothing about flicker. In the
   last second of `generic_30s` "the person is only partially there", with
   dark lines during movement.
-- A peer session measured that flicker and the cut-off subject
-  (`docs/research/masking/2026-10-04_mrhf.md`): a faint remnant of the
+- A peer session measured that flicker and the cut-off subject: a faint remnant of the
   original beside the legs with the mask edge fixed; the cap and the back cut
   on the region's edge in the close-ups, because the region is the old
   subject's outline and the replacement sits differently; the microphone

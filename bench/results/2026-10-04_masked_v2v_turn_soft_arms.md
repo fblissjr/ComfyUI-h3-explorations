@@ -5,7 +5,7 @@ those, do it"). Rows: `2026-10-04_masked_v2v_turn_soft_arms.jsonl`. The code
 the arms ran on is NOT in the tree: it is the uncommitted hunk saved beside
 this file as `2026-10-04_masked_v2v_turn_soft_arms_patch.txt` (apply to
 `video_mask.py` at 3204fde5), so the rows are not re-runnable from a clean
-checkout. The arm graphs are under `internal/claude/2026-10-04_mrhf/turn_arms/`.
+checkout. The arm graphs are local and untracked.
 
 **Verdict: not a fix.** The softened late start turns him on both seeds
 tried and does not keep the reference.

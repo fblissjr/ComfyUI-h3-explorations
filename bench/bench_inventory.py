@@ -17,7 +17,13 @@ moved, archived or deleted, this says who would notice. One row per tracked
   script itself and the generated indexes.
 - `docs`: tracked `.md` files that name it, the generated indexes, `CHANGELOG.md`
   and `changelog.d/` excluded (they record history, not a dependency).
-- `last`: the date of the last commit that touched it.
+- `last`: the date of the last commit that touched it, not counting the commits
+  `docs/projects/reorg/mechanical_commits.txt` lists (one hash a line, `#` for a
+  note): commits that only rewrote paths or comments across the repo, which
+  would otherwise date every script to the day of the rewrite.
+- `topics`: the `docs/` subject folders (`masked_v2v`, `attention`, `distills`,
+  `h3`, `prompting`, `working`) whose pages name it, the closest thing to a lane
+  the repo records.
 - `status`: `check`, `lib`, `wired` (something calls it), `documented` (only prose
   names it) or `unreferenced` (nothing tracked names it).
 
@@ -47,6 +53,10 @@ REPO = Path(__file__).resolve().parent.parent
 TEXT = {".py", ".md", ".json", ".sh", ".txt", ".toml", ".yml", ".yaml", ".html", ".js"}
 # Generated indexes list every script by construction; history files record
 # what changed, not what depends on what.
+# Folders that name scripts for every subject (the checks index, the decisions
+# log, dated records), so a mention there says nothing about a script's lane.
+NOT_A_TOPIC = {"method", "state", "research", "projects"}
+MECHANICAL = REPO / "docs" / "projects" / "reorg" / "mechanical_commits.txt"
 NOT_A_DEPENDENCY = {"INDEX.md", "bench/INDEX.md", "bench/results/INDEX.md", "workflows/INDEX.md", "CHANGELOG.md"}
 
 
@@ -55,16 +65,25 @@ def tracked() -> list[str]:
     return [p for p in out.splitlines() if (REPO / p).is_file()]
 
 
+def mechanical() -> set[str]:
+    if not MECHANICAL.is_file():
+        return set()
+    lines = (l.split("#", 1)[0].strip() for l in MECHANICAL.read_text(encoding="utf-8").splitlines())
+    return {l for l in lines if l}
+
+
 def last_touched(paths: set[str]) -> dict[str, str]:
-    """One pass over the log: the newest commit date per path."""
-    log = subprocess.run(["git", "log", "--format=@%cs", "--name-only", "--", "bench"],
+    """One pass over the log: the newest commit date per path, mechanical commits skipped."""
+    skip = mechanical()
+    log = subprocess.run(["git", "log", "--format=@%h %cs", "--name-only", "--", "bench"],
                          cwd=REPO, capture_output=True, text=True, check=True).stdout
     seen: dict[str, str] = {}
-    date = ""
+    date, skipping = "", False
     for line in log.splitlines():
         if line.startswith("@"):
-            date = line[1:]
-        elif line in paths and line not in seen:
+            sha, date = line[1:].split()
+            skipping = any(sha.startswith(h) or h.startswith(sha) for h in skip)
+        elif not skipping and line in paths and line not in seen:
             seen[line] = date
     return seen
 
@@ -113,7 +132,9 @@ def main() -> int:
         kind = "check" if stem.startswith("check_") else ("lib" if imported_by[stem] else "tool")
         status = kind if kind != "tool" else (
             "wired" if called_by[stem] else "documented" if docs[stem] else "unreferenced")
-        rows.append({"script": path, "kind": kind, "status": status, "lines": lines,
+        topics = sorted({d.split("/")[1] for d in docs[stem]
+                         if d.startswith("docs/") and d.count("/") >= 2 and d.split("/")[1] not in NOT_A_TOPIC})
+        rows.append({"script": path, "kind": kind, "status": status, "lines": lines, "topics": topics,
                      "last": dates.get(path, ""), "imported_by": sorted(imported_by[stem]),
                      "called_by": sorted(called_by[stem]), "docs": sorted(docs[stem])})
     if args.only:
@@ -127,9 +148,9 @@ def main() -> int:
     for r in rows:
         counts[r["status"]] += 1
     print(f"{len(rows)} script(s): " + ", ".join(f"{n} {k}" for k, n in sorted(counts.items())))
-    print("\n| script | status | lines | last | imported by | called by | docs |\n|---|---|---|---|---|---|---|")
+    print("\n| script | status | topics | lines | last | imported by | called by | docs |\n|---|---|---|---|---|---|---|---|")
     for r in rows:
-        print(f"| `{r['script']}` | {r['status']} | {r['lines']} | {r['last']} | "
+        print(f"| `{r['script']}` | {r['status']} | {', '.join(r['topics'])} | {r['lines']} | {r['last']} | "
               f"{len(r['imported_by'])} | {len(r['called_by'])} | {len(r['docs'])} |")
     return 0
 

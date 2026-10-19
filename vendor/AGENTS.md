@@ -1,6 +1,7 @@
 # vendor/: third-party files the pack carries
 
-Loaded when a session opens a file here; the root `AGENTS.md` still governs.
+Loaded when a session opens a file here; the root `AGENTS.md` still governs. `README.md` here says what each
+subfolder is and where it came from.
 
 - **Each subfolder is someone else's, under its own license** (`meta_sapiens2/` is Meta's names for the Sapiens2
   points and classes, in `meta_sapiens2/LICENSE.md`; `meta_moge2/` is Meta's HyDen MoGe-2 loader and model, in

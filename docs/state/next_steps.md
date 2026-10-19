@@ -56,7 +56,7 @@ is laid, the gaps, the owner's verdicts) is not here: it is `data/AGENTS.md`, "W
   ways, the cut on a step's edge, for the owner's eye; then a tough shot beside an easy one
   ([`../masked_v2v/running_a_job.md`](../masked_v2v/running_a_job.md), "Two neighbouring shots in one load").
 - **Whole-frame video to video (2026-10-09)**: the swimmers clip by text with a men's suit, written and not rendered
-  (`internal/claude/2026-10-09_mrship/`, `prompt_swim3_*.txt`, `swim3_copy384_*_api.json`); open with the owner whether the rule the text pairs point at goes into
+  (`prompt_swim3_*.txt`, `swim3_copy384_*_api.json`, untracked); open with the owner whether the rule the text pairs point at goes into
   `docs/prompting/prompting.md`, and a repair for the one held frame
   ([`../../bench/results/2026-10-09_whole_frame_text_and_copy_size.md`](../../bench/results/2026-10-09_whole_frame_text_and_copy_size.md)).
 - **The frozen video cache on a masked window** lives in one probe graph (`h3_config.FROZEN_VIDEO_CACHE`). Owed, in
@@ -186,7 +186,7 @@ Each found by a run, none built. The dated entry in [`decisions.md`](decisions.m
   upscaler) go through `bench/compare_vae_decoders.py` before any default moves, the owner's call whether to look.
 - **The M3-to-H3 bridge**: the image lane is next; the fit was stopped unfinished
   ([`docs/research/2026-09-15_m3_h3_bridge.md`](../research/2026-09-15_m3_h3_bridge.md);
-  `internal/claude/2026-09-14_m3-h3-bridge_independent-take.md`, the fixed script
+  the fixed script
   `internal/claude/m3-h3-adapter/fit_image_lane.py`, which needs a GPU window agreed with the card holder).
 - **The frozen-audio loop**: owed the full-length example render (a throwaway first run), resume on the reference song
   graph, one queue from the editor for the workflow chunk; song graphs saved from the editor need remaking. The

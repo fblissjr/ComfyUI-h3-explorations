@@ -42,7 +42,8 @@ What was true when each was written. The current answer is on the topic page nam
 | [`sparse/2026-10-02_sol_dense_blocks_reanalysis.md`](sparse/2026-10-02_sol_dense_blocks_reanalysis.md) | Sol-Attn dense blocks re-analyzed under rotated INT8, the middle-cluster error spike, and the 5-test matrix |
 | [`sparse/2026-10-02_sol_sparse_attention_hyperparameter_campaign.md`](sparse/2026-10-02_sol_sparse_attention_hyperparameter_campaign.md) | the Sol-Attn sparse hyperparameter campaign of 2026-10-02 |
 | [`sparse/2026-10-02_sol_capture_and_optimization_guide.md`](sparse/2026-10-02_sol_capture_and_optimization_guide.md) | Sol-Attn data capture and hyperparameter optimization, end to end; with three explainer pages beside it in `sparse/` |
-| [`vsa/`](vsa/2026-08-30_vsa_node.md) | running VSA on H3, and the FastVideo VSA-distilled checkpoint |
+| [`vsa/2026-08-30_vsa_node.md`](vsa/2026-08-30_vsa_node.md) | running VSA on H3: what the node did and what blocked it (the node was retired 2026-09-29) |
+| [`vsa/2026-08-30_fastvideo_vsa_checkpoint.md`](vsa/2026-08-30_fastvideo_vsa_checkpoint.md) | the FastVideo VSA-distilled H3 checkpoint |
 
 ## Distills (current pages: `docs/distills/`)
 

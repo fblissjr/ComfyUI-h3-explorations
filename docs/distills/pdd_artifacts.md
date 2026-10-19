@@ -264,9 +264,8 @@ unmodified full sidecar applies the backbone TWICE and renders normally, and a
 stripped sidecar on the base applies it never; neither shows in the keys
 (`pdd.md`, "What a backbone bake pins"). Version 2's check on a stripped
 file accepted any distance above a tolerance, which proved "not the base" and
-admitted every wrong bake; Codex's 2026-09-03 audit (gitignored,
-`internal/codex/2026-09-03_post-5b67c0a-audit-and-bake-contract-handoff.md`:
-*"it proves only 'not the base,' not 'this exact bake'"*) is why `e38655d`
+admitted every wrong bake; Codex's 2026-09-03 audit
+(*"it proves only 'not the base,' not 'this exact bake'"*) is why `e38655d`
 made it an exact identity cut from the PAIRED checkpoint
 (`h3_pdd_backbone_probe_of`). `fc2` of block 49 because it carries the largest
 single update in the file (`pdd_rel` per module in

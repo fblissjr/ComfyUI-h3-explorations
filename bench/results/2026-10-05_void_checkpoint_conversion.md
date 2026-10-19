@@ -25,7 +25,7 @@ CogVideoX detection looks for `blocks.0.norm1.linear.weight`
 that is not on this box. `void_pass2.safetensors` is linked the same way and
 is in the same state.
 
-corrected: `docs/research/masking/2026-10-04_mrhf.md` says the Comfy-Org
+corrected: the masking note of 2026-10-04 said the Comfy-Org
 repository holds only the T5 encoder, the VAE and the optical-flow file. The
 template's model list names both passes there, and the header of pass 1 was
 read from it for this record.

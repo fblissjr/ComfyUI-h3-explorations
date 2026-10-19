@@ -163,8 +163,7 @@ an empty memory for that frame: `_deferred_memory_encode` in ComfyUI,
 That reading stands; this run tests whether the difference costs this
 subject anything. A different rule, the suppression of a track the
 detector stops matching, which an earlier reading found computed and
-never applied in Meta's 3.1 code
-(`docs/research/masking/2026-10-06_mrsun.md`),
+never applied in Meta's 3.1 code,
 is not either of these.
 
 The tool's `--rules` switches each off in memory on the tracker object
