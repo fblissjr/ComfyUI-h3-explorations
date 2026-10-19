@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 156 |
+| [`check_*`](#check) | 157 |
 | [`measure_*`](#measure) | 39 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 17 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 188 |
+| [the rest](#the-rest) | 189 |
 
 ## check
 
@@ -59,6 +59,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_draw_face_points.py`](check_draw_face_points.py) | `bench/draw_face_points.py` against a face whose every line is known by construction, read from the VIDEO IT WROTE. |
 | [`check_draw_lid_marks.py`](check_draw_lid_marks.py) | `bench/draw_lid_marks.py` against a face whose eyes are known by construction, read from the VIDEO IT WROTE. |
 | [`check_exact_blocks.py`](check_exact_blocks.py) | `MiniMaxH3ExactBlocks` rests on a name, so assert the thing the name stands for. |
+| [`check_facts_pass.py`](check_facts_pass.py) | Check ``bench/facts_pass.py`` on synthetic masked-run captures. |
 | [`check_frame_coverage.py`](check_frame_coverage.py) | `bench/frame_coverage.py` on a made table, made captures, and made build records: each case is a way a frame on the 4-step ladder (`no_capture`, `captured_not_rendered`, `rendered_not_kept`, `kept_and_laid`) could be missed, given the ... |
 | [`check_frame_sheet.py`](check_frame_sheet.py) | The frame reader in `bench/_lib/frames.py` and the sheet tool built on it, against a clip made for the purpose. |
 | [`check_frame_table.py`](check_frame_table.py) | Verify bench/frame_table.py on a synthetic capture folder. |
@@ -397,6 +398,7 @@ this file is only a way to find a script by what it says it does.
 | [`emulate_kitchen_int8_by_segment.py`](emulate_kitchen_int8_by_segment.py) | Independent CPU emulation of kitchen-like INT8 attention, per query segment (verifier's own). |
 | [`encode_format_ab.py`](encode_format_ab.py) | #38: which save format removes the dark blocking, at what size. |
 | [`exercise_pdd_stripped_path.py`](exercise_pdd_stripped_path.py) | Exercise `MiniMaxH3PDDLoRA.execute` on a LOADED model with the baked pair. |
+| [`facts_pass.py`](facts_pass.py) | Emit a per-frame deterministic geometry and mask facts table for a masked-run capture. |
 | [`frame_coverage.py`](frame_coverage.py) | Per frame, per shot and subject: the furthest step reached on the 4-step ladder, naming the files. |
 | [`frame_sheet.py`](frame_sheet.py) | A sheet of numbered frames from several videos on one clock, for reading a render beside its source by eye. |
 | [`frame_table.py`](frame_table.py) | Build one per-frame table (`frame_table.jsonl` and `frame_table.md`) for a load's capture folder. |
