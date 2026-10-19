@@ -74,6 +74,7 @@ from PIL import Image, ImageDraw
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _lib import face_points as fp  # noqa: E402
+from _lib import npz_writer_fields, writer_stamp  # noqa: E402
 from _lib.frames import FIT, probe, read_mask, stream  # noqa: E402
 
 import draw_face_points as faces  # noqa: E402  the points loader: one copy
@@ -329,6 +330,7 @@ def run(video: str, points_path: str, first: int, count: int, out: Path, by: str
     sheet_path = out.with_name(out.stem + "_sheet.jpg")
     record = {
         "video": out.name, "made_by": by, "made_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "writer_stamp": writer_stamp(__file__),
         "frames": [first, first + count - 1], "size": [w, h],
         "made_from": {"reference_video": str(video), "its_first_frame_is_source_frame": first - skip, "points": str(points_path),
                       "their_first_row_is_source_frame": pf, "the_points_own_record_says": points_say(points_path),
@@ -354,7 +356,8 @@ def run(video: str, points_path: str, first: int, count: int, out: Path, by: str
     }
     carried = out.with_name(out.stem + "_points.npz")
     np.savez_compressed(carried, keypoints=((points["keypoints"] - box[:2]) * scale).astype(np.float32), scores=points["scores"].astype(np.float32),
-                        names=np.array(points["names"]), first_frame=np.array(first), size=np.array([w, h]))
+                        names=np.array(points["names"]), first_frame=np.array(first), size=np.array([w, h]),
+                        **npz_writer_fields(__file__))
     record["points_in_this_picture"] = {"file": carried.name, "which_are": "the span's points, each moved as a point of the canvas is; scores and names as given"}
     out.with_suffix(".json").write_text(json.dumps(record, indent=1) + "\n")
     say(f"faces over frames {first} to {first + count - 1} lie in {found['faces']}; face {found['face_height_px_median']:.0f} px tall at the median; "

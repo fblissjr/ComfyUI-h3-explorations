@@ -31,7 +31,7 @@ import torch
 from PIL import Image, ImageDraw, ImageFont
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _lib import REPO, home_relative  # noqa: E402
+from _lib import REPO, check_upstream_mtime, home_relative, npz_writer_fields, writer_stamp  # noqa: E402
 from _lib.frames import FIT, probe, read_mask, stream  # noqa: E402
 
 sys.path.insert(0, str(REPO))
@@ -300,7 +300,11 @@ def run_measurement(
     sheet_path = out_dir / "sheet.jpg"
     for existing in (npz_path, json_path, sheet_path):
         if existing.exists():
-            raise SystemExit(f"REFUSED: output file already exists: {home_relative(existing)}")
+            stale = check_upstream_mtime(existing, {"--source": source})
+            stale_note = f" ({'; '.join(stale)})" if stale else ""
+            raise SystemExit(
+                f"REFUSED: output file already exists: {home_relative(existing)}{stale_note}"
+            )
 
     w, h = size
     x0, y0, x1, y1 = box if box is not None else (0, 0, w, h)
@@ -433,6 +437,7 @@ def run_measurement(
         fov_x_deg=np.asarray(fov_x_list, dtype=np.float32),
         fov_y_deg=np.asarray(fov_y_list, dtype=np.float32),
         box=np.asarray([x0, y0, x1, y1], dtype=np.int32),
+        **npz_writer_fields(__file__),
     )
 
     sheet_arr = _render_sheet(
@@ -449,6 +454,7 @@ def run_measurement(
 
     record = {
         "what": "HyDen MoGe-2 per-frame metric depth and camera intrinsics measurement",
+        "writer_stamp": writer_stamp(__file__, extra_scripts=("vendor/meta_moge2/hyden_moge2.py",)),
         "model": model_info,
         "source": home_relative(source),
         "canvas": [w, h],

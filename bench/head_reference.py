@@ -79,7 +79,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _lib import REPO  # noqa: E402
+from _lib import NPZ_STAMP_KEYS, REPO, check_upstream_mtime, npz_writer_fields, writer_stamp  # noqa: E402
 
 import crop_reference_to_head as crop  # noqa: E402
 import draw_face_points as faces  # noqa: E402
@@ -161,6 +161,24 @@ def outputs(out: Path) -> dict[str, Path]:
         made.update({f"{key}_record": video.with_suffix(".json"), f"{key}_points": video.with_name(video.stem + "_points.npz"),
                      f"{key}_sheet": video.with_name(video.stem + "_sheet.jpg")})
     return made
+
+
+def check_existing_reference(
+    out: str | Path,
+    mesh: str | Path | None = None,
+    points: str | Path | None = None,
+    source: str | Path | None = None,
+) -> list[str]:
+    """Check whether any upstream input (`--mesh`, `--points`, `--source`) is newer than an existing reference."""
+    out_p = Path(out)
+    rec_p = out_p.with_suffix(".json")
+    if (mesh is None or points is None or source is None) and rec_p.is_file():
+        inputs = (json.loads(rec_p.read_text()).get("inputs") or {})
+        mesh = mesh or inputs.get("body_model_video")
+        points = points or inputs.get("points")
+        source = source or inputs.get("source")
+    target = out_p if out_p.exists() else rec_p
+    return check_upstream_mtime(target, {"--mesh": mesh, "--points": points, "--source": source})
 
 
 #: The classes that sit over the eyes. Where the plan gives one back (the subject's own glasses, a restore span: `--over-the-eyes`),
@@ -250,10 +268,17 @@ def write_filled(points: str, filled: dict[int, tuple[int, int]], out: Path) -> 
         t = (f - a) / (b - a)
         kp[f - at] = (1 - t) * kp[a - at] + t * kp[b - at]
         sc[f - at] = np.minimum(sc[a - at], sc[b - at])
-    np.savez_compressed(out, **{k: z[k] for k in z.files if k not in ("keypoints", "scores")}, keypoints=kp, scores=sc)
+    np.savez_compressed(
+        out,
+        **{k: z[k] for k in z.files if k not in ("keypoints", "scores", *NPZ_STAMP_KEYS)},
+        keypoints=kp,
+        scores=sc,
+        **npz_writer_fields(__file__),
+    )
     rec = Path(points).with_suffix(".json")
     said = json.loads(rec.read_text()) if rec.is_file() else {}
-    out.with_suffix(".json").write_text(json.dumps({**said, "filled_from_neighbours": {str(f): list(v) for f, v in sorted(filled.items())},
+    out.with_suffix(".json").write_text(json.dumps({**said, "writer_stamp": writer_stamp(__file__, extra_scripts=TOOLS),
+                                                    "filled_from_neighbours": {str(f): list(v) for f, v in sorted(filled.items())},
                                                     "filled_from": str(points), "filled_is": "each filled frame's points the straight line between its "
                                                     "neighbours' (bench/head_reference.py, FILL_GAP)"}, indent=1) + "\n")
 
@@ -566,7 +591,12 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     made = outputs(out)
     there = [str(p) for p in made.values() if p.exists()]
     if there:
-        raise SystemExit(f"{len(there)} of the files this would write exist ({there[0]}): a reference made again takes a new name")
+        stale = check_existing_reference(out, mesh=mesh, points=points, source=source)
+        stale_note = f" ({'; '.join(stale)})" if stale else ""
+        raise SystemExit(
+            f"{len(there)} of the files this would write exist ({there[0]}): "
+            f"a reference made again takes a new name{stale_note}"
+        )
     for what, path in (("--mesh", mesh), ("--points", points), ("--source", source),
                        *((("--head-track", str(head_track)),) if head_track is not None else ())):
         if not Path(path).is_file():
@@ -834,6 +864,7 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     record = {
         "video": out.name, "what": "the reference of a head replacement: the body model cut to the head, with the face drawn on it",
         "made_by": by, "made_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "writer_stamp": writer_stamp(__file__, extra_scripts=TOOLS),
         "frames": [first, first + count - 1], "its_first_frame_is_source_frame": first, "size": drawn["size"],
         "inputs": {"body_model_video": str(mesh), "its_first_frame_is_source_frame": cut["made_from"]["its_first_frame_is_source_frame"],
                    "points": str(read_from), **({"points_filled": str(points)} if filled else {}),

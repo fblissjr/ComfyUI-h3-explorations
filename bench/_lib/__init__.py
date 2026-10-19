@@ -283,3 +283,15 @@ def finish() -> int:
         return EXIT_NOT_GRADED
     print(f"all {_ran} case(s) ok")
     return EXIT_OK
+
+
+from _lib.code_stamp import (  # noqa: E402
+    MTIME_TOLERANCE_S,
+    NPZ_STAMP_KEYS,
+    STAMP_KEYS,
+    check_upstream_mtime,
+    npz_writer_fields,
+    verify_writer_stamp,
+    writer_stamp,
+)
+

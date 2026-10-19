@@ -8,7 +8,7 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 157 |
+| [`check_*`](#check) | 158 |
 | [`measure_*`](#measure) | 39 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
@@ -40,6 +40,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_clip_folder.py`](check_clip_folder.py) | Check the analysis folder's shared rules: which folder is a video's, and whether it still is. |
 | [`check_clip_signals.py`](check_clip_signals.py) | `bench/clip_signals.py` on made sound: each case is a way a phrase edge, a beat or an offset could be a frame out, or a poor fit could read as a good one. |
 | [`check_clone_v_wiring.py`](check_clone_v_wiring.py) | Check that `clone_v` reaches the forward, and only on modes that earn it. |
+| [`check_code_stamp.py`](check_code_stamp.py) | Check code-version stamps (`writer_stamp` / `npz_writer_fields`) and upstream-mtime checks across derived lane writers. |
 | [`check_commit_ready.py`](check_commit_ready.py) | Pre-commit readiness check for explicit commit pathspecs (`C61` item 2d). |
 | [`check_conditioning_behaviour.py`](check_conditioning_behaviour.py) | Does `MiniMaxH3Conditioning` still do the things it exists to do? |
 | [`check_contact_sheets.py`](check_contact_sheets.py) | `bench/contact_sheets.py` against a clip made for the purpose: the folder, the names, the tiles, and no second set. |
@@ -612,6 +613,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 | file | what it says |
 |---|---|
 | [`__init__.py`](_lib/__init__.py) | The things a `bench/` check kept writing for itself. |
+| [`code_stamp.py`](_lib/code_stamp.py) | Code-version stamps and upstream-mtime checks for derived lane files. |
 | [`face_lines_fixture.py`](_lib/face_lines_fixture.py) | A whole face made of points whose every line is known by construction, for the checks of the tools that draw it. |
 | [`face_points.py`](_lib/face_points.py) | What is read off the pose model's face points: one definition of each figure, for every tool that uses them. |
 | [`face_points_fixture.py`](_lib/face_points_fixture.py) | A face made of points whose every figure is known by construction, for the checks of the tools that read them. |

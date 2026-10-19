@@ -43,6 +43,7 @@ if str(BENCH_DIR) not in sys.path:
     sys.path.insert(0, str(BENCH_DIR))
 
 from _lib import face_points as fp  # noqa: E402
+from _lib import npz_writer_fields, writer_stamp  # noqa: E402
 
 SEG_CLASSES_PATH = (
     REPO_ROOT / "vendor" / "meta_sapiens2" / "seg_classes29.json"
@@ -1196,6 +1197,7 @@ def build_provenance_record(
         else []
     )
     record: dict[str, Any] = {
+        "writer_stamp": writer_stamp(__file__),
         "seed_frame": int(seed_frame),
         "shot_box": list(seg_result["shot_box"]),
         "temporal_weights": list(seg_result["temporal_weights"]),
@@ -1318,6 +1320,7 @@ def run_head_tube_parts(
             part_mask=seg_info["part_mask"].astype(np.uint8),
             part_probs=seg_info["part_probs"],
             shot_box=np.asarray(seg_info["shot_box"], dtype=np.int32),
+            **npz_writer_fields(__file__),
         )
     return {
         "tube_info": tube_info,
@@ -1737,6 +1740,7 @@ def head_tube_for_capture(
             part_mask=seg_info["part_mask"].astype(np.uint8),
             part_probs=seg_info["part_probs"],
             shot_box=np.asarray(seg_info["shot_box"], dtype=np.int32),
+            **npz_writer_fields(__file__),
         )
 
     # Preserve non-head body classes in cmap while replacing head-part classes with the tube-bounded smoothed result.

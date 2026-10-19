@@ -79,7 +79,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _lib import REPO  # noqa: E402
+from _lib import REPO, npz_writer_fields, writer_stamp  # noqa: E402
 from _lib import face_points as fp  # noqa: E402
 from _lib.frames import FIT, probe, read_mask, stream  # noqa: E402
 
@@ -243,9 +243,10 @@ def run(video: str, first: int, count: int, canvas: tuple[int, int], out: Path, 
         raise SystemExit(f"the model gave {points[0].shape[0]} points a frame and {len(names)} names")
     out.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(out, keypoints=np.stack(points), scores=np.stack(scores), size=np.array([w, h]), names=np.array(names),
-                        first_frame=np.array(source_first))
+                        first_frame=np.array(source_first), **npz_writer_fields(__file__))
     record = {
         "points": out.name, "made_by": by, "made_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "writer_stamp": writer_stamp(__file__),
         "model": model or h3_config.POSE_MODEL, "names_from": names_from or "given by the caller",
         "made_from": {"video": str(video), "its_frames": [first, first + count - 1], "which_are_source_frames": [source_first, source_first + count - 1],
                       "fitted_to_the_canvas": ("as the loader fits a source: cut to the canvas's shape at the centre, then scaled" if fitted

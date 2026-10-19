@@ -116,7 +116,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _lib import REPO  # noqa: E402
+from _lib import REPO, check_upstream_mtime, writer_stamp  # noqa: E402
 from _lib import face_points as fp  # noqa: E402
 from _lib.frames import probe, stream  # noqa: E402
 
@@ -1018,6 +1018,7 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     fit = {str(k): (None if np.isnan(v) else round(v, 3)) for k, v in lags.items()}
     record = {
         "video": out.name, "made_by": by, "made_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "writer_stamp": writer_stamp(__file__),
         "frames": [first, first + count - 1], "size": [w, h],
         "made_from": {"body_model_video": str(mesh_path), "its_first_frame_is_source_frame": first - skip, "points": str(points_path),
                       "their_first_row_is_source_frame": pf},
@@ -1090,6 +1091,9 @@ def verify(video: str, mesh_path: str, points_path: str, first: int, count: int,
            mesh_first: int | None = None, points_first: int | None = None, video_first: int | None = None, width: float | None = None,
            leave_out: frozenset = frozenset(), iris: str = IRIS_FORMS[0], darken_head: bool = False, say=print) -> bool:
     """A drawn video somebody made, read against a points file on the READER's account of each one's first frame."""
+    stale = check_upstream_mtime(video, {"--mesh": mesh_path, "--points": points_path})
+    if stale:
+        say(f"WARNING: {'; '.join(stale)}")
     points, _ = rows_of(points_path, names, first, count, points_first)
     w, h, _ = probe(mesh_path)
     mesh = np.stack(list(stream(mesh_path, (w, h), first - (first if mesh_first is None else mesh_first), count, pix="rgb24")))
