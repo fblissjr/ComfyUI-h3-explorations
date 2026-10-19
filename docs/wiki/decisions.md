@@ -17,6 +17,11 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-18
 
+- **24 fps from input to output; a cut is handled and loaded exactly like the real input** (the owner, about
+  23:58Z-00:05Z): the joined cut had been written at the original's 23.976 fps (`bench/rebuild_delivery.py` picked the
+  source before the 24 fps copy), and a pass rendered against it loaded one frame early (`lead_fp_0751`). What it used
+  to be: the cut, its stacks and review clips at 23.976; only renders and the job's source copies at 24. Both leads'
+  words, verbatim: `docs/research/postmortems/2026-10-18_24fps_joined_cut.md`. Fixed the same night (C152).
 - **Derived data is made again whenever the code that makes it changes** (the owner, about 23:45Z): `.npz` files,
   saved tracks, class maps, depth files and the like, which nobody reads in detail, are regenerated after any change
   to their writer before a load uses them. The root `AGENTS.md` rule "nothing an earlier run made is reused by a key"
