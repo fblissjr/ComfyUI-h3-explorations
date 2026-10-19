@@ -22,10 +22,9 @@ Older history lives elsewhere and is not copied here:
   `third_fp_1340c` (no mouth) did not open his mouth; `second_hfp_0278i` (the grey head darkened to 0.67x) printed
   "googly eyes" into the mom's face, where `0278f` with the same filled eyes on the plain grey head did not. So the
   default draws no mouth on a silent window and the repaired mouth on every face frame of a singing window, clips marks
-  to the grey head, keeps the eye form of 0278f, and never darkens the head (C214). Narrowed the same night (the owner:
-  "the eye gaze has been great since we figured that solution out, so the eye changes don't need to go in today"): the
-  default changes the mouth only; the eyes are drawn exactly as before, with no new clipping of the eye marks (C215).
-  And not later either ("or at all"): the eye changes are off the plan, the eyes drawn as they are.
+  to the grey head, keeps the eye form of 0278f, and never darkens the head (C214). Briefly narrowed to the mouth only
+  (C215), then restored (the owner: "if the eye changes are unrelated, don't take them off"): only the darker head is
+  out, as the cause of the googly eyes; the clip of the marks to the grey head stays, as in 1340d (C216).
 - **The SAM 3.1 head track is the chain's default** (the owner, about 03:35Z on 2026-10-19: "get that into prod ...
   make it a default now", with the caveat that it needs more diverse scenes tested). What it replaces: the capture's
   "SAM 3.1 head tube" never ran SAM 3.1 (`bench/head_tube_parts.py:1488` passed no tracker), so Sapiens' labels alone
@@ -43,6 +42,11 @@ Older history lives elsewhere and is not copied here:
   2 s and 682 MiB more) and named the split-brain trap (previews without it leave every follow-on without it); the
   drawing tests run with `--no-head-track` so they stay one change each. Both leads agreed and the owner was unsure, so
   it went ahead (C208); tomorrow's first loads on other shots compare masks with and without it before they render.
+  **Potential caveat, the reference crop** (`ba061ef3`, C221): the crop now takes the head track's box, which holds all
+  the hair, so the crown is never cut but the face is smaller in the reference (the mom's 278-293 from 1.88x to 1.42x,
+  the kitchen 751-785 from 1.55x to 1.37x). Not yet seen in a render; 0278f looked good at 1.88x with her crown cut. If
+  a face loses detail, the knob is a smaller room for face-only loads (`bench/crop_reference_to_head.py`, CROWN_ROOM
+  and HEAD_TRACK_ROOM), compared old against new first.
 - **24 fps from input to output; a cut is handled and loaded exactly like the real input** (the owner, about
   23:58Z-00:05Z): the joined cut had been written at the original's 23.976 fps (`bench/rebuild_delivery.py` picked the
   source before the 24 fps copy), and a pass rendered against it loaded one frame early (`lead_fp_0751`). What it used

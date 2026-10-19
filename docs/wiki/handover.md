@@ -25,8 +25,9 @@ why, the scene's background, and what every scene should probably get): `bench/r
    the darker head is what made them pop: `--darken-head` stays off. The owner on 1340c and 1340d: 1340d good; 1340c
    does not open his mouth while he sings (the owner's second look, agreeing with the reader). So singing windows keep
    the repaired mouth; no 1156-1182 tie-break (C213).
-   The owner then made the mouth rule the default ("just don't make googly eyes", C214), narrowed to the mouth only:
-   the eyes stay exactly as they were, their gaze has been good; the eye changes are off the plan entirely (C215).
+   The owner then made the new drawing the default as 1340d had it ("just don't make googly eyes", C214, C216): the
+   mouth by the window's voice and the marks clipped to the grey head; only the darker head, which made the googly
+   eyes, is out.
 3. **In flight when written:** off_head, the reference crop and the zoom box reading the head track, and head-and-hair
    loads using it as their region (bundled, C201, C204); each mask-tested, no render.
 4. **Fixed:** 24 fps end to end (`e44af676`); the kitchen cut rebuilt at 24/1. The kitchen render `lead_fp_0606b` was
@@ -100,6 +101,10 @@ why, the scene's background, and what every scene should probably get): `bench/r
     Follow-ons that read the head track (one answer to "where her head is"), in order: off_head judged by the head
     track (2b'); the reference crop's head box from it (the crown cut on tilted frames, M22); the zoom box from it; then
     head-and-hair loads using it as their region, and depth and keep-outs at crossings.
+    Landed tonight: off_head by the head track and head-and-hair regions from it, with the hair-as-face bug fixed
+    (`252667b4`); the head track as the default (`b7927da1`); the reference crop from the head track (`ba061ef3`,
+    C221: the crown never cut; WATCH: the crop grows with the hair, so the face is smaller in the reference, the mom's
+    278-293 from 1.88x to 1.42x; if a face loses detail, a smaller room for face-only loads is the knob).
     Ordered tonight at the owner's word (C201): the first three, each on a branch, mask-tested, no render. When and
     where: off_head (tonight; `bench/capture_masked_run.py`; test 772 and the dad's bicep); the reference crop (tonight;
     `bench/head_reference.py`; test 767, 771, 772 and a frontal shot); the zoom box (tonight; where the chain computes
@@ -166,6 +171,12 @@ why, the scene's background, and what every scene should probably get): `bench/r
   saved track, a class map or a depth file nobody reads in detail is never carried across a code change; the
   hand-bumped version stamps (`subject_track.py` MASK_VERSION, `video_mask.py` REGION_VERSION and others) rely on
   someone remembering. A durable form is tomorrow's item 2c.
+- **Potential caveat: the head-track crop makes the face smaller in the reference** (`ba061ef3`): it holds all the hair,
+  so the crown is never cut, but the zoom drops (the mom's 278-293 from 1.88x to 1.42x). Not yet seen in a render; on
+  the first face-only load, compare its reference and render against the old crop's before trusting it. The owner:
+  this video takes no hair from the reference image except the mom's (her loads replace head and hair), so for
+  face-only loads the hair in the crop buys nothing;
+  the probable fix is the face box for face-only loads and the full head-track box only for head-and-hair loads.
 - **Times from `date -u`.** The Claude lead wrote five stamps ahead of the clock today; each was corrected.
 
 ## Tomorrow, in order
@@ -229,7 +240,9 @@ why, the scene's background, and what every scene should probably get): `bench/r
    A candidate after 2b, not before (the owner asked about noise, about 23:35Z): a band of partly noised cells at the
    region's edge, so H3 blends a kept square into a regenerated one instead of butting them (the hard joins on 0751).
    It changes how the sampler reads the mask (a runtime patch); removing excess margin may shrink the problem first.
-2b'. Her face cut out by off_head (the owner on lead_fp_0751d, about 01:20Z: "are we segmenting out part of her
+2b'. (Corrected 05:10Z: gem-head-track-region's test shows the 8,556 px off_head dropped on 772 are her raised hands
+   and arms, not her face; the face holes were Sapiens' labels, fixed by the head track. off_head now keeps anything
+   touching the head track.) Her face cut out by off_head (the owner on lead_fp_0751d, about 01:20Z: "are we segmenting out part of her
    again?"): `parts_dropped_off_her_head` took 14,577 px over 26 frames, 8,559 on 772, as "no face point near, outside
    her head box" (`bench/capture_masked_run.py` off_head, a box round the pose face points widened 16 px). Today's
    island fix (`ffca8acd`) stops the head tube taking such pixels back, so a wrong cut now sticks. Check the pieces on
