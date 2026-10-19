@@ -337,9 +337,11 @@ def for_job(job_file: Path, place_and_action: str, plan_file: Path, voice_spans:
     first, last = load["first"], load["first"] + load["frames"] - 1
     parts = ((d.get("job") or {}).get("part") or {}).get("parts")
     words = text(plan, load["subject"], record, place_and_action, voiced, first, last, parts)
+    rd = (record or {}).get("drawn") or {}
     return words, {"reference_record": str(record_path) if record_path else "none: the load takes no reference video (motion none)",
                    "plan": str(plan_file), "voice_spans": str(voice_spans),
-                   "drawn": {k: ((record or {}).get("drawn") or {}).get(k) for k in ("parts_left_out", "iris", "mouth")}}
+                   "drawn": {**{k: rd.get(k) for k in ("parts_left_out", "iris", "mouth")},
+                             **{k: rd[k] for k in ("eye_rings", "darken_head") if rd.get(k) is not None}}}
 
 
 def main(argv=None) -> int:

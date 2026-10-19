@@ -466,21 +466,31 @@ def left_out_and_highlights() -> str:
     assert [n for n, _, c in df.mouth_shapes(whole, hole)] == ["mouth_outer"], "closed_as_line should be off by default"
     closed_shapes = df.mouth_shapes(whole, hole, closed_as_line=True)
     assert [n for n, _, c in closed_shapes] == ["mouth_closed"] and not any(c for _, _, c in closed_shapes), closed_shapes
-    closed_pic = df.draw(grey([90]), [closed_shapes], WIDE, set(), False, mouths=[(whole, hole)])[0]
+    closed_pic = df.draw(grey([90]), [closed_shapes], WIDE, set(), False, mouths=[(whole, hole)], smooth_lips=True)[0]
     assert closed_pic[140, 190].min() > df.WHITE and closed_pic[131, 190].max() < 120 and closed_pic[149, 190].max() < 120, \
         "a closed mouth with no teeth or tongue was drawn as a hollow 'O' ring instead of one parting line"
+    assert int((closed_pic[125:156, 150:230].max(-1) < 70).sum()) == 0, \
+        "a closed mouth line drew a dark edge or end-cap dot around the white line"
+    # smooth_lips=True flattens both a sculpted lower-lip highlight ridge and a dark under-lip shadow smoothly into the face's grey
+    sculpted = grey([120])
+    sculpted[0, 143:150, 165:215] = 152  # bright lower-lip ridge (+32 luma)
+    sculpted[0, 151:158, 168:212] = 72   # dark under-lip shadow (-48 luma)
+    flat_only = df.smooth_mouth_area(sculpted[0].copy(), whole)
+    row_means = flat_only[128:158, 170:210].mean(axis=(1, 2))
+    assert float(np.abs(np.diff(row_means)).max()) < 4.0 and float(flat_only[128:158, 170:210].min()) >= 105.0, \
+        ("smooth_mouth_area left a lip ridge or under-lip shadow step", float(np.abs(np.diff(row_means)).max()), float(flat_only[128:158, 170:210].min()))
     # profile mouth next to black ground (frame 755 fault): sampling ignores black ground so closed mouth is never painted black
     prof_mesh = grey([90]); prof_mesh[0, :, :198] = 0
-    prof_pic = df.draw(prof_mesh, [closed_shapes], WIDE, set(), False, mouths=[(whole, hole)])[0]
+    prof_pic = df.draw(prof_mesh, [closed_shapes], WIDE, set(), False, mouths=[(whole, hole)], smooth_lips=True)[0]
     assert int((prof_pic[132:149, 200:218].max(-1) < 40).sum()) == 0, "profile mouth sampled black ground under closed line"
     hole[136:145, 172:209] = True
     assert [n for n, _, _ in df.mouth_shapes(whole, hole, closed_as_line=False)] == ["mouth_outer", "mouth_inner"]
     open_shapes = df.mouth_shapes(whole, hole, closed_as_line=True)
     assert [n for n, _, c in open_shapes] == ["mouth_inner"] and all(c for _, _, c in open_shapes), open_shapes
-    open_pic = df.draw(grey([90]), [open_shapes], WIDE, set(), False, mouths=[(whole, hole)])[0]
+    open_pic = df.draw(grey([90]), [open_shapes], WIDE, set(), False, mouths=[(whole, hole)], smooth_lips=True)[0]
     assert open_pic[140, 190].max() < 40 and (open_pic[134:138, 190].min(-1) > df.WHITE).any() and open_pic[130, 190].max() < 120, \
         "an open class-map mouth under closed_as_line is not one white outline around a dark interior"
-    # lip-line path under closed_lip_line: closed when no hole or inner_gap <= 3 px (0 dark px inside), open single ring + black fill when hole and gap > 3 px
+    # lip-line path under closed_lip_line: closed when no hole or inner_gap <= 3 px (0 dark px inside, 0 dark edge/dot), open single ring + black fill when hole and gap > 3 px
     p0 = face(CENTRES[:1])[0]
     sh_cl, m_cl = df.lip_shape(p0, INDEX, (W, H), (whole, np.zeros((H, W), bool)))
     assert sh_cl[0] == "inner_lip_line" and sh_cl[2] is False and not m_cl[1].any(), sh_cl
@@ -491,16 +501,49 @@ def left_out_and_highlights() -> str:
     sh_tight, m_tight = df.lip_shape(p_tight, INDEX, (W, H), (whole, hole))
     assert sh_tight[0] == "inner_lip_line" and sh_tight[2] is False and not m_tight[1].any(), sh_tight
     slit_mesh = grey([115]); slit_mesh[:, 145:150, 175:205] = 10
-    pic_tight = df.draw(slit_mesh, [[sh_tight]], 1.5, set(), False, mouths=[m_tight])[0]
-    assert int((pic_tight[m_tight[0]].max(-1) < 40).sum()) == 0, "dark slit left inside closed lip-line mouth"
+    pic_tight = df.draw(slit_mesh, [[sh_tight]], 1.5, set(), False, mouths=[m_tight], smooth_lips=True)[0]
+    assert int((pic_tight[m_tight[0]].max(-1) < 80).sum()) == 0, "dark slit or dark edge left inside closed lip-line mouth"
     sh_op, m_op = df.lip_shape(p0, INDEX, (W, H), (whole, hole))
     assert sh_op[0] == "inner_lip_ring" and sh_op[2] is True and m_op[1].any(), sh_op
-    pic_op = df.draw(grey([90]), [[sh_op]], 1.5, set(), False, mouths=[m_op])[0]
+    pic_op = df.draw(grey([90]), [[sh_op]], 1.5, set(), False, mouths=[m_op], smooth_lips=True)[0]
     cx_m, cy_m = p0[[INDEX["r_inner_corner_of_mouth"], INDEX["l_inner_corner_of_mouth"]]].mean(0).round().astype(int)
     assert pic_op[cy_m, cx_m].max() < 40, "open lip-line mouth interior not filled black"
+    # M7, M8, M12, M21: head_silhouette, clip_shape_to_mask, find_mesh_chin_y, fit_mouth_to_head, and darken_head
+    base_120 = grey([120])
+    off_mesh = base_120.copy()
+    off_mesh[0, 145:, :] = 0  # grey head chin ends at y=144; y>=145 is black background
+    sil = df.head_silhouette(off_mesh[0])
+    overhang_line = ("nose_base", np.array([[160.0, 100.0], [160.0, 170.0]]), False)
+    clipped = df.clip_shape_to_mask(*overhang_line, sil)
+    assert len(clipped) == 1 and clipped[0][1][:, 1].max() <= 145.0, clipped
+    assert df.clip_shape_to_mask("nose_bridge", np.array([[160.0, 150.0], [160.0, 170.0]]), False, sil) == []
+    # M8 & M21: find_mesh_chin_y and fit_mouth_to_head shift/compress a mouth that hangs onto or past the grey head's chin
+    chin_mesh = base_120.copy()
+    chin_mesh[0, 160:, :] = 0  # grey head chin ends at y=159; y>=160 is black background
+    kp_low = face(CENTRES[:1])[0].copy()
+    for k_m, i_m in INDEX.items():
+        if "lip" in k_m or "mouth" in k_m or "cupid" in k_m or "labiomental" in k_m or "chin" in k_m:
+            kp_low[i_m, 1] += 26.0  # push pose mouth down past the mesh chin at y=159
+    low_whole = np.zeros((H, W), bool); low_whole[152:174, 170:210] = True
+    low_hole = np.zeros((H, W), bool); low_hole[156:170, 175:205] = True
+    chin_y = df.find_mesh_chin_y(chin_mesh[0], kp_low, INDEX)
+    assert abs(chin_y - 160.0) <= 2.0, chin_y
+    sh_low, masks_low = df.lip_shape(kp_low, INDEX, (W, H), (low_whole, low_hole))
+    sh_fit, m_fit = df.fit_mouth_to_head(chin_mesh[0], kp_low, INDEX, sh_low, masks_low)
+    assert float(sh_fit[1][:, 1].max()) <= chin_y - df.MOUTH_CHIN_CLEAR_MIN_PX + 0.5, (float(sh_fit[1][:, 1].max()), chin_y)
+    assert not m_fit[1].any() or np.nonzero(m_fit[1])[0].max() <= int(chin_y - df.MOUTH_CHIN_CLEAR_MIN_PX) + 1
+    # M12: darken_head scales lit mesh by HEAD_DARKEN_SCALE (0.67) while preserving shading ratios
+    shaded = base_120.copy(); shaded[0, 80:100, 140:180] = 150
+    dark_pic = df.draw(shaded, [[]], 1.5, set(), False, darken_head=True)[0]
+    assert int(round(dark_pic[110, 160, 0])) == int(round(120 * 0.67)), dark_pic[110, 160]
+    assert int(round(dark_pic[90, 160, 0])) == int(round(150 * 0.67)), dark_pic[90, 160]
+    dark_rec = df.run(str(MESH), str(POINTS), 0, N, WORK / "dark.mp4", "the check", width=WIDE, darken_head=True, say=quiet)
+    assert dark_rec["passed"] and dark_rec.get("darken_head") == {"scale": 0.67}, dark_rec
+    assert df.verify(str(WORK / "dark.mp4"), str(MESH), str(POINTS), 0, N, width=WIDE, darken_head=True, say=quiet), "darken_head verify failed"
     return ("with the mouth left out there is no white on the lips' points, her eyes are as before, the record says so and a second reader told the same passes; "
             "a name that is not a part is refused; a highlight the encode lifts over white is not counted and the read-back passes; "
-            "with closed_as_line on, both paths draw one parting line when closed (0 dark px) and one white outline around a black interior when open")
+            "with closed_as_line on, both paths draw one parting line with no dark edge over a smoothed lip area when closed and one white outline around a black interior when open; "
+            "clip_shape_to_mask, fit_mouth_to_head, and darken_head checked")
 
 
 def refusals() -> str:
@@ -576,8 +619,18 @@ def the_iris_between_the_lids() -> str:
     assert cut[-1] > 215 and cut.min() < 150, ("no dark edge between the white sclera and the white lid line", cut.tolist())
     but = df.filled_px([[("l_iris_disc", iris, lids)]], (W_, H_))
     assert but[0, 100, 110] and but[0, 100, 140] and not but[0, 80, 140], "the read-back's leave-out is not the lids' inside"
+    # M20 (2026-10-18): when smooth_lips=True (--closed-lip-line), the white of the eye is clipped a line's width inside the head's edge
+    # (inner_head) while the dark outline and black iris reach the full head silhouette edge (erode_px=0), and nothing bleeds into black space
+    prof_mesh = mesh.copy()
+    prof_mesh[0, :, 165:] = 0  # head edge at x=164; x>=165 is black space
+    full_h = df.head_silhouette(prof_mesh[0], erode_px=0)
+    ring_clipped = df.clip_shape_to_mask("l_lash_ring", lids, True, df.head_silhouette(prof_mesh[0], erode_px=df.HEAD_SILHOUETTE_ERODE_PX))
+    clipped_eye = df.draw(prof_mesh, [ring_clipped], 2.0, set(), False, [[("l_iris_disc", iris, lids)]], contrast=True, smooth_lips=True)[0]
+    assert (clipped_eye[:, 167:] == 0).all() and full_h[100, 164], "eye fill or outline bled past the grey head silhouette into black space"
+    assert clipped_eye[100, 164].max() < 215 and clipped_eye[100, 160].min() > 215, "white sclera was not inset a line's width from the head edge"
     return (f"a ring larger than a narrow opening is drawn only where it lies between the lids ({off:.2f} of it outside), a ring wholly inside "
-            "is drawn closed and one wholly outside not at all; on nearly shut lids the default draws open stretches and `whole` both rings closed")
+            "is drawn closed and one wholly outside not at all; on nearly shut lids the default draws open stretches and `whole` both rings closed; "
+            "when clipped to the grey head silhouette, the white sclera stays a line's width inside the head's edge and nothing bleeds into black space")
 
 case("the iris between the lids", the_iris_between_the_lids)
 case("her eyes shut on a person's word, in either form", eyes_shut)

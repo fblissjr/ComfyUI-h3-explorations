@@ -917,15 +917,22 @@ def the_three_mouth_fixes_synthetic() -> str:
                     classes=str(classes), classes_first=0, closed_lip_line="synthetic test", say=lambda *_: None)
     assert "closed_lip_line" not in rec_off["drawn"]["mouth"], rec_off["drawn"]["mouth"]
     # closed_frames records both closed class-map frames (0, 1) and closed lip-line frames (3)
-    assert rec_on["drawn"]["mouth"]["closed_lip_line"] == {"why": "synthetic test", "closed_frames": [[0, 1], [3, 3]]}, rec_on["drawn"]["mouth"]
+    cl_rec = rec_on["drawn"]["mouth"]["closed_lip_line"]
+    assert cl_rec["why"] == "synthetic test" and cl_rec["closed_frames"] == [[0, 1], [3, 3]] and cl_rec["open_frames"] == [[2, 2], [4, 11]], rec_on["drawn"]["mouth"]
     sz_v = tuple(rec_on["size"])
     v_off = np.stack(list(dfp.stream(str(folder / "head_off.mp4"), sz_v, 0, N, pix="rgb24")))
     v_on = np.stack(list(dfp.stream(str(folder / "head_on.mp4"), sz_v, 0, N, pix="rgb24")))
     for cf in (0, 1, 3, 4):
         assert int((v_on[cf].min(-1) > 200).sum()) < int((v_off[cf].min(-1) > 200).sum()), (cf, int((v_on[cf].min(-1) > 200).sum()), int((v_off[cf].min(-1) > 200).sum()))
-    # refusal cases: empty reason or mouth != "auto", before any files are written
+    # M17: --closed-lip-line with --mouth "left out" (silent window) leaves the mouth out while keeping head silhouette clipping
+    rec_silent = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head_silent.mp4", "the check", room=ROOM, mouth="left out",
+                        mouth_why="silent window", closed_lip_line="silent window test", darken_head="darker grey head", say=lambda *_: None)
+    assert rec_silent["passed"] and rec_silent["drawn"]["mouth"]["drawn"] is False and "mouth" in rec_silent["drawn"]["parts_left_out"], rec_silent["drawn"]
+    assert rec_silent["drawn"]["darken_head"]["scale"] == dfp.HEAD_DARKEN_SCALE == 0.67, rec_silent["drawn"]
+    # refusal cases: empty reason or mouth == "drawn", before any files are written
     for bad_kw, bad_word in (({"mouth": "auto", "classes": str(classes), "classes_first": 0, "closed_lip_line": "   "}, "takes a reason"),
-                             ({"mouth": "drawn", "mouth_why": "test", "closed_lip_line": "test"}, "acts on --mouth auto")):
+                             ({"mouth": "drawn", "mouth_why": "test", "closed_lip_line": "test"}, "acts on --mouth auto with a class map"),
+                             ({"mouth": "left out", "mouth_why": "silent", "darken_head": "   "}, "--darken-head takes a reason")):
         try:
             hr.run(str(mesh), str(pts), str(source), 0, N, folder / "refused_cl.mp4", "the check", room=ROOM, say=lambda *_: None, **bad_kw)
         except SystemExit as exc:
@@ -976,13 +983,15 @@ def the_three_mouth_fixes_synthetic() -> str:
     assert agreed_pass == [True], agreed_pass
     # and the plan/job switch is off by default and shown in THE DEFAULTS THIS LOAD CARRIES when turned on
     rf_default = stl.reference_form({}, "lead")
-    assert "closed_lip_line" not in rf_default["mouth"], rf_default
-    rf_switched = stl.reference_form({"reference": {"closed_lip_line": True, "why": "mouth test"}}, "lead")
+    assert "closed_lip_line" not in rf_default["mouth"] and "darken_head" not in rf_default, rf_default
+    rf_switched = stl.reference_form({"reference": {"closed_lip_line": True, "darken_head": True, "why": "mouth test"}}, "lead")
     carried = stl.defaults_carried({}, {}, [{"label": "lead"}], "lead", None, rf_switched, {"said_by": "plan", "why": "z"}, None)
     mouth_row = next(d for d in carried if d["what"] == "the mouth")
+    eye_row = next(d for d in carried if d["what"] == "the eye")
     assert "CLOSED LIPS as one parting line" in mouth_row["carries"] and "closed_lip_line: the plan: mouth test" in mouth_row["from"], mouth_row
+    assert "DARKENED HEAD MODEL" in eye_row["carries"] and "darken_head: the plan: mouth test" in eye_row["from"], eye_row
     return ("synthetic closed lips on both paths draw one open parting line (`mouth_closed` or `inner_lip_line`) when `--closed-lip-line` is on "
-            "and open mouths draw one outline around a black interior (`mouth_inner` or `inner_lip_ring`); off by default; refusals checked")
+            "and open mouths draw one outline around a black interior (`mouth_inner` or `inner_lip_ring`); `--darken-head` and silent `--mouth 'left out'` checked; off by default; refusals checked")
 
 
 def the_three_mouth_fixes_on_fun_captures() -> str:
@@ -1028,7 +1037,7 @@ def the_three_mouth_fixes_on_fun_captures() -> str:
     c2823 = Path(d2823["drawn"]["mouth"]["class_map"]["class_map"])
     if not (c805.is_file() and c5114.is_file() and c2823.is_file()):
         return "skipped (untracked fun class-map captures for 805, 2823-3097 and 5114 not on disk)"
-    # 278-293 (second_hfp_0278d): all 16 by_lines frames draw inner_lip_line (closed=False) with 0 dark px (luma < 40) inside the mouth
+    # 278-293 (second_hfp_0278d): all 16 by_lines frames draw inner_lip_line (closed=False) with smooth flat lip area (min luma >= 115)
     if r278 is not None and r278.is_file():
         d278 = json.loads(r278.read_text())
         c278 = Path(d278["drawn"]["mouth"]["class_map"]["class_map"])
@@ -1044,10 +1053,28 @@ def the_three_mouth_fixes_on_fun_captures() -> str:
                 s_f, m_f = dfp.lip_shape(p278["keypoints"][f], p278["index"], (w278, h278), m278[f])
                 assert s_f[0] == "inner_lip_line" and s_f[2] is False and not m_f[1].any(), (278 + f, s_f)
                 sh278.append([s_f]); m278_out.append(m_f)
-            pics278 = dfp.draw(mesh278, sh278, hr.FORM_WIDTH, set(), False, mouths=m278_out)
+            pics278 = dfp.draw(mesh278, sh278, hr.FORM_WIDTH, set(), False, mouths=m278_out, smooth_lips=True)
             for f in range(16):
                 luma = 0.299 * pics278[f, :, :, 0] + 0.587 * pics278[f, :, :, 1] + 0.114 * pics278[f, :, :, 2]
-                assert int((luma[m278_out[f][0]] < 40).sum()) == 0, f"dark slit on frame {278 + f}"
+                assert int((luma[m278_out[f][0]] < 85).sum()) == 0, f"dark lip/edge pixel on frame {278 + f}: min={luma[m278_out[f][0]].min():.1f}"
+    # 1306-1418 (third_1306_1418, the dad in near-profile, M8 & M21): fit_mouth_to_head keeps the mouth above the grey head's chin on all 21 frames of 1340-1360
+    r1306 = ref_from_job("*_third_hfp_1306*_job/job.plan.json", "third_1306_1418/third_head_reference_1306_1418.json")
+    if r1306 is not None and r1306.is_file():
+        d1306 = json.loads(r1306.read_text())
+        c1306 = Path(d1306["drawn"]["mouth"]["class_map"]["class_map"])
+        pts1306_p = r1306.parent / d1306["files"]["plain_cut_points"]
+        plain1306_p = r1306.parent / d1306["files"]["plain_cut"]
+        if c1306.is_file() and pts1306_p.is_file() and plain1306_p.is_file():
+            w1306, h1306 = d1306["size"]
+            m1306, _ = hr.class_mouths(str(c1306), 1306, 1306, 113, d1306["box"], (w1306, h1306), closed_as_line=True)
+            p1306 = fp.load(str(pts1306_p), None)
+            mesh1306 = np.stack(list(dfp.stream(str(plain1306_p), (w1306, h1306), 0, 113, pix="rgb24")))
+            for sf in range(1340, 1361):
+                f = sf - 1306
+                chin_y = dfp.find_mesh_chin_y(mesh1306[f], p1306["keypoints"][f], p1306["index"])
+                m_sh, m_pair = dfp.lip_shape(p1306["keypoints"][f], p1306["index"], (w1306, h1306), m1306[f])
+                sh_fit, _ = dfp.fit_mouth_to_head(mesh1306[f], p1306["keypoints"][f], p1306["index"], m_sh, m_pair)
+                assert float(sh_fit[1][:, 1].max()) <= chin_y - dfp.MOUTH_CHIN_CLEAR_MIN_PX + 0.5, (sf, float(sh_fit[1][:, 1].max()), chin_y)
     # 606-998 (lead_0606): no frame switches to 2 rings across all 393 frames, and profile frame 755 has 0 dark pixels under its closed line
     if r606 is not None and r606.is_file():
         d606 = json.loads(r606.read_text())

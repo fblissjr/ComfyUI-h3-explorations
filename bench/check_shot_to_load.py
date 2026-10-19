@@ -1971,6 +1971,30 @@ def the_defaults_this_load_carries() -> str:
         refused(lambda: stl.drawn_form(job, args(class_mouth_needs_hole=True), files, 100), "say why with --form-why")
         assert "--class-mouth-needs-hole" not in stl.drawn_form(job, args(), files, 100), "the hole option is on by default"
         refused(lambda: stl.drawn_form(job, args(class_mouth_needs_hole=True, mouth="drawn", form_why="X"), files, 100), "acts on the mouth by the check")
+        # M12 & M17: --darken-head passed on with reason, off by default; under closed_lip_line, silent windows leave the mouth out while voiced windows draw it
+        assert stl.drawn_form(job, args(darken_head=True, form_why="DARKER HEAD"), files, 100)[-2:] == ["--darken-head", "DARKER HEAD"]
+        refused(lambda: stl.drawn_form(job, args(darken_head=True), files, 100), "say why with --form-why")
+        assert "--darken-head" not in stl.drawn_form(job, args(), files, 100), "--darken-head is on by default"
+        rf_dark = stl.reference_form({"reference": {"closed_lip_line": True, "darken_head": True, "why": "testb plan"}}, "a")
+        assert rf_dark["darken_head"] == {"said_by": "the plan", "why": "testb plan"}, rf_dark
+        eye_dark = next(d for d in stl.defaults_carried({}, {}, [{"label": "a"}], "a", None, rf_dark, {"said_by": "plan", "why": "z"}, None) if d["what"] == "the eye")
+        assert "DARKENED HEAD MODEL" in eye_dark["carries"] and "darken_head: the plan: testb plan" in eye_dark["from"], eye_dark
+        # M17: under closed_lip_line, a silent window leaves the mouth out ("left out") and passes --closed-lip-line so eye/brow/nose marks clip to the head
+        made.plan["subjects"]["a"]["reference"] = {"closed_lip_line": True, "darken_head": True, "why": "M17 voice window rule"}
+        made.plan["subjects"]["a"]["voice"] = [{"first": 100, "last": 159, "voice": "silent", "by": "THE OWNER"}]
+        d_silent = made.load(name="a_fp_silent")
+        assert d_silent["job"]["reference"]["mouth"]["form"] == "left out" and "silent window" in d_silent["job"]["reference"]["mouth"]["why"], d_silent["job"]["reference"]["mouth"]
+        df_silent = stl.drawn_form(d_silent["job"], args(), files, 100)
+        assert df_silent[:4] == ["--iris", "contrast", "--mouth", "left out"] and "--closed-lip-line" in df_silent and "--darken-head" in df_silent, df_silent
+        del made.plan["subjects"]["a"]["reference"]
+        d_silent_cli = made.load(name="a_fp_silent_cli")
+        df_silent_cli = stl.drawn_form(d_silent_cli["job"], args(closed_lip_line=True, form_why="CLI M17"), files, 100)
+        assert df_silent_cli[:4] == ["--iris", "contrast", "--mouth", "left out"] and "--closed-lip-line" in df_silent_cli, df_silent_cli
+        made.plan["subjects"]["a"]["reference"] = {"closed_lip_line": True, "darken_head": True, "why": "M17 voice window rule"}
+        made.plan["subjects"]["a"]["voice"] = [{"first": 100, "last": 159, "voice": "talks, not heard", "by": "THE OWNER"}]
+        d_voiced = made.load(name="a_fp_voiced")
+        assert d_voiced["job"]["reference"]["mouth"]["form"] == "auto", d_voiced["job"]["reference"]["mouth"]
+        del made.plan["subjects"]["a"]["reference"], made.plan["subjects"]["a"]["voice"]
         refused(lambda: stl.drawn_form(job, args(), {"classes": None}, 100), "the preview saved none")
         assert stl.drawn_form({}, args(), files, 100) == [], "a job written before the defaults is drawn as the tool's own"
         # a load whose part is hair alone on some frames (`--parts-on`, 1010d's 1025-1031): no mouth there, said with the job's own words

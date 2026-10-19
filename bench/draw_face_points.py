@@ -180,6 +180,20 @@ PARTS = ("eyes", "brows", "nose", "mouth", "dots")
 #: the pose model places the inner lip arcs 0.64 to 2.79 px apart on a closed mouth, leaving a 10-19 px dark slit
 #: (`luma < 40`) between the two 1.0 px black edge strokes on `278-281` when drawn as a ring (2026-10-18).
 INNER_GAP_CLOSED_PX = 3.0
+#: Silhouette erosion in pixels (`M20`, 2026-10-18) for the inner head mask that clips the white sclera of `--iris contrast`,
+#: keeping a dark outline rim between the white of the eye and the black background at the head's edge.
+HEAD_SILHOUETTE_ERODE_PX = 2
+#: Under `--darken-head` (`M12`, `M14` item 2 & `M15`, 2026-10-18), the grey body model is darkened by this multiplicative scale
+#: (about a third darker, a starting value) before drawing the white lines and fills, keeping its 3D shading gradients intact
+#: while raising line contrast.
+HEAD_DARKEN_SCALE = 0.67
+#: Minimum chin clearance below a drawn mouth (`fit_mouth_to_head`, `M8`, `M17` & `M21`, 2026-10-18), as a fraction of the vertical
+#: distance from the eye line to the grey head's chin (`MOUTH_CHIN_CLEAR_FRAC`) and in pixels (`MOUTH_CHIN_CLEAR_MIN_PX`). Measured
+#: on `third_1306_1418` (`1340-1360`): at `1356` the pose lip ring (`y=403.9`) and class-map mouth (`y=414.0`) reached or hung past
+#: the grey head's chin (`y=411`), where the render grew a grey goatee; `max(8.0, 0.14 * (chin_y - eye_y))` keeps `20.9-70.4 px` of
+#: clean grey chin below the lower lip across all 21 frames (`22.5 px` at `1356`) with `0/21` mouths cut by the head silhouette.
+MOUTH_CHIN_CLEAR_FRAC = 0.14
+MOUTH_CHIN_CLEAR_MIN_PX = 8.0
 
 
 def _ids(index: dict, head: str = "", tail: str = "") -> list[int]:
@@ -360,7 +374,7 @@ def distance(xy: np.ndarray, seg: np.ndarray) -> np.ndarray:
     return out
 
 
-def white_expected(drawing: list[tuple[str, np.ndarray, bool]], width: float, dots: bool) -> float:
+def white_expected(drawing: list[tuple[str, np.ndarray, bool]], width: float, dots: bool, edge_px: float = EDGE_PX) -> float:
     """The white a frame's drawing should leave, in pixels: the pixels nearer a line than half its white core, or
     nearer a point than a dot's. Worked out from the points by distance, not by the code that draws."""
     seg = segments(drawing)
@@ -378,13 +392,224 @@ def white_expected(drawing: list[tuple[str, np.ndarray, bool]], width: float, do
         xy = np.stack([xs.ravel() + lo[0], ys.ravel() + lo[1]], 1).astype(float)
         inside[y0:y1, x0:x1] |= (distance(xy, piece[None]) < within).reshape(ys.shape)
 
-    for piece in seg:
-        mark(piece, max(width - EDGE_PX, 0.0) / 2)
-    if dots:
-        for _, pts, _ in drawing:
+    for name, pts, closed in drawing:
+        ep = 0.0 if name in ("inner_lip_line", "mouth_closed") else edge_px
+        for piece in segments([(name, pts, closed)]):
+            mark(piece, max(width - ep, 0.0) / 2)
+        if dots:
             for point in pts:
-                mark(np.stack([point, point]), max(width - EDGE_PX / 2, 0.0))
+                mark(np.stack([point, point]), max(width - ep / 2, 0.0))
     return float(inside.sum())
+
+
+def head_silhouette(frame: np.ndarray, erode_px: int = HEAD_SILHOUETTE_ERODE_PX,
+                    p: np.ndarray | None = None, index: dict | None = None) -> np.ndarray:
+    """The lit head model silhouette above the chin crease (`frame.max(-1) > 16` cut at `find_mesh_chin_y` when `p` and `index` are
+    given), eroded by `erode_px` (`M7`, `M20`, `M24`) so no drawn feature sits on the neck/shoulders/arms, on the outer silhouette
+    rim, or in black background."""
+    import cv2
+    lit = (frame.max(-1) > 16).astype(np.uint8)
+    if p is not None and index is not None and "tip_of_chin" in index and "bottom_center_of_nose" in index:
+        chin_y = int(np.ceil(find_mesh_chin_y(frame, p, index)))
+        if 0 <= chin_y + 1 < lit.shape[0]:
+            lit[chin_y + 1:, :] = 0
+    if erode_px > 0:
+        k = 2 * erode_px + 1
+        lit = cv2.erode(lit, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k)))
+    return lit > 0
+
+
+def clip_shape_to_mask(name: str, pts: np.ndarray, closed: bool, mask: np.ndarray) -> list[tuple[str, np.ndarray, bool]]:
+    """Clip a shape `(name, pts, closed)` to the boolean `mask` (`M7`): if wholly inside, returns `[(name, pts, closed)]`;
+    if wholly outside, returns `[]`; if partly outside, returns the contiguous stretches inside `mask` as open polylines."""
+    h, w = mask.shape
+    if len(pts) == 0:
+        return []
+    if len(pts) == 1:
+        x, y = int(np.clip(round(pts[0, 0]), 0, w - 1)), int(np.clip(round(pts[0, 1]), 0, h - 1))
+        return [(name, pts, False)] if mask[y, x] else []
+    seg_pts = np.vstack([pts, pts[:1]]) if closed else pts
+    diffs = np.diff(seg_pts, axis=0)
+    lengths = np.hypot(diffs[:, 0], diffs[:, 1])
+    total = float(lengths.sum())
+    if total < 1e-6:
+        x, y = int(np.clip(round(pts[0, 0]), 0, w - 1)), int(np.clip(round(pts[0, 1]), 0, h - 1))
+        return [(name, pts, closed)] if mask[y, x] else []
+    n_samp = max(int(np.ceil(total * 2.0)), 16)
+    cum = np.r_[0.0, np.cumsum(lengths)]
+    s = np.linspace(0.0, total, n_samp, endpoint=not closed)
+    idx_s = np.clip(np.searchsorted(cum, s, side="right") - 1, 0, len(diffs) - 1)
+    frac = (s - cum[idx_s]) / np.maximum(lengths[idx_s], 1e-9)
+    dense = seg_pts[idx_s] + frac[:, None] * diffs[idx_s]
+    xs = np.clip(np.round(dense[:, 0]).astype(int), 0, w - 1)
+    ys = np.clip(np.round(dense[:, 1]).astype(int), 0, h - 1)
+    keep = mask[ys, xs]
+    if keep.all():
+        return [(name, pts, closed)]
+    if not keep.any():
+        return []
+    order = np.r_[int(np.argmin(keep)):n_samp, 0:int(np.argmin(keep))] if closed else np.arange(n_samp)
+    runs, run = [], []
+    for j in order:
+        if keep[j]:
+            run.append(dense[j])
+        elif run:
+            if len(run) > 1:
+                runs.append((name, np.array(run), False))
+            run = []
+    if len(run) > 1:
+        runs.append((name, np.array(run), False))
+    return runs
+
+
+def find_mesh_chin_y(frame: np.ndarray, p: np.ndarray, index: dict) -> float:
+    """Bottom y of the grey head model's chin (`M8`), found in the mouth-to-chin horizontal column (`[mx0..mx1]`) where the head
+    silhouette ends in black background (`~lit[y, x]`), or from the full-row width profile when the neck continues below."""
+    h, w = frame.shape[:2]
+    lit = frame.max(-1) > 16
+    eye_y = 0.5 * (
+        p[[index["l_inner_end_of_upper_lash_line"], index["l_outer_end_of_upper_lash_line"]], 1].mean()
+        + p[[index["r_inner_end_of_upper_lash_line"], index["r_outer_end_of_upper_lash_line"]], 1].mean()
+    )
+    nose_y = float(p[index["bottom_center_of_nose"], 1])
+    chin_kp_y = float(p[index["tip_of_chin"], 1])
+    y_start = max(0, int(round(nose_y)))
+    y_end = min(h - 1, int(round(chin_kp_y + 0.5 * max(chin_kp_y - eye_y, 20.0))))
+    mx0 = int(round(min(p[index["r_outer_corner_of_mouth"], 0], p[index["l_outer_corner_of_mouth"], 0], p[index["tip_of_chin"], 0])))
+    mx1 = int(round(max(p[index["r_outer_corner_of_mouth"], 0], p[index["l_outer_corner_of_mouth"], 0], p[index["tip_of_chin"], 0])))
+    first_black = []
+    for x in range(max(0, mx0), min(w, mx1 + 1)):
+        if not lit[y_start, x]:
+            continue
+        b = np.nonzero(~lit[y_start:y_end + 1, x])[0]
+        if len(b):
+            first_black.append(y_start + int(b[0]))
+    if len(first_black) >= max(3, int(0.25 * max(mx1 - mx0 + 1, 1))):
+        return float(np.median(first_black))
+    widths = np.array([int(lit[y].sum()) for y in range(y_start, y_end + 1)], float)
+    for idx_y in range(len(widths) - 1):
+        if widths[idx_y] <= 10:
+            return float(y_start + idx_y)
+    if len(widths) > 6:
+        diffs = widths[3:] - widths[:-3]
+        min_idx = int(np.argmin(diffs))
+        if diffs[min_idx] < -6:
+            for k in range(min_idx, len(diffs)):
+                if diffs[k] >= -1:
+                    return float(y_start + k + 1)
+    return float(min(y_end, int(round(chin_kp_y))))
+
+
+def fit_mouth_to_head(frame: np.ndarray, p: np.ndarray, index: dict, m_shape: tuple[str, np.ndarray, bool],
+                      m_masks: tuple[np.ndarray, np.ndarray]) -> tuple[tuple[str, np.ndarray, bool], tuple[np.ndarray, np.ndarray]]:
+    """Keep a drawn mouth inside the grey head model's mouth-to-chin space (`M8`, `M21`):
+    1. When the grey head's chin (`find_mesh_chin_y`) is higher than the pose chin (`tip_of_chin`, e.g. when the person's jaw drops
+       open on a neutral-jaw 3D mesh), map vertical coordinates below `bottom_center_of_nose` proportionally onto the grey head's
+       nose-to-chin height and keep at least `max(MOUTH_CHIN_CLEAR_MIN_PX, 0.22 * (chin_y - nose_y))` of chin room below the mouth.
+    2. Shift horizontal coordinates inside the eroded head silhouette across the mouth's scanlines so `head_silhouette` never nips a corner.
+    3. `whole` unions the original and shifted mouth masks so `smooth_mouth_area` covers both the grey head's sculpted lips and the
+       drawn mouth position."""
+    import cv2
+    h, w = frame.shape[:2]
+    name, pts, closed = m_shape
+    whole, hole = m_masks
+    if len(pts) == 0:
+        return m_shape, m_masks
+    nose_y = float(p[index["bottom_center_of_nose"], 1])
+    chin_kp_y = float(p[index["tip_of_chin"], 1])
+    chin_y = find_mesh_chin_y(frame, p, index)
+    scale_n2c = min(1.0, max(chin_y - nose_y, 12.0) / max(chin_kp_y - nose_y, 12.0))
+    new_pts = pts.copy()
+    if scale_n2c < 0.99:
+        new_pts[:, 1] = nose_y + (new_pts[:, 1] - nose_y) * scale_n2c
+    chin_clear = max(MOUTH_CHIN_CLEAR_MIN_PX, 0.22 * max(chin_y - nose_y, 20.0))
+    max_bottom_y = chin_y - chin_clear
+    min_top_y = nose_y + 3.0
+    if max_bottom_y <= min_top_y + 2.0:
+        max_bottom_y = min_top_y + 2.0
+    y0, y1 = float(new_pts[:, 1].min()), float(new_pts[:, 1].max())
+    mh = max(y1 - y0, 0.0)
+    avail_h = max(max_bottom_y - min_top_y, 2.0)
+    if y1 > max_bottom_y:
+        scale_y = min(1.0, (avail_h * 0.85) / max(mh, 1e-6)) if mh > avail_h * 0.85 else 1.0
+        if scale_y < 1.0:
+            new_pts[:, 1] = y0 + (new_pts[:, 1] - y0) * scale_y
+        dy = max_bottom_y - float(new_pts[:, 1].max())
+        new_pts[:, 1] += dy
+        if float(new_pts[:, 1].min()) < min_top_y:
+            new_pts[:, 1] += min_top_y - float(new_pts[:, 1].min())
+    sil_inner = head_silhouette(frame, erode_px=HEAD_SILHOUETTE_ERODE_PX + 1, p=p, index=index)
+    over_l, over_r = 0.0, 0.0
+    for x_pt, y_pt in new_pts:
+        yi = int(np.clip(round(y_pt), 0, h - 1))
+        xs = np.nonzero(sil_inner[yi])[0]
+        if len(xs) >= 4:
+            over_l = max(over_l, float(xs[0]) - float(x_pt))
+            over_r = max(over_r, float(x_pt) - float(xs[-1]))
+    if over_r > 0.0 and over_l == 0.0:
+        new_pts[:, 0] -= over_r
+    elif over_l > 0.0 and over_r == 0.0:
+        new_pts[:, 0] += over_l
+    for k in range(len(new_pts)):
+        yi = int(np.clip(round(new_pts[k, 1]), 0, h - 1))
+        xs = np.nonzero(sil_inner[yi])[0]
+        if len(xs) >= 4:
+            new_pts[k, 0] = np.clip(new_pts[k, 0], float(xs[0]), float(xs[-1]))
+    new_hole = np.zeros((h, w), bool)
+    if closed and hole.any():
+        hm = np.zeros((h, w), np.uint8)
+        cv2.fillPoly(hm, [np.round(new_pts).astype(np.int32)], 1)
+        new_hole = (hm > 0) & head_silhouette(frame, erode_px=HEAD_SILHOUETTE_ERODE_PX, p=p, index=index)
+    wm = np.zeros((h, w), np.uint8)
+    if closed:
+        cv2.fillPoly(wm, [np.round(new_pts).astype(np.int32)], 1)
+    else:
+        cv2.polylines(wm, [np.round(new_pts).astype(np.int32)], False, 1, thickness=6)
+    new_whole = cv2.dilate(wm, np.ones((7, 7), np.uint8)) > 0
+    return (name, new_pts, closed), (whole | new_whole, new_hole)
+
+
+def smooth_mouth_area(frame: np.ndarray, whole: np.ndarray) -> np.ndarray:
+    """Flatten the body model's sculpted lips, mouth corners, lower-lip highlight, and labiomental shadow smoothly into the surrounding
+    grey face (`--closed-lip-line`, Test B): an asymmetric elliptical dilation of `whole` (covering the 3D mesh's lower lip and chin groove
+    8-12 px below the source mouth), Navier-Stokes inpainted and Gaussian-smoothed from the upper/cheek skin grey, blended with an 8 px
+    distance-transform feather inside the body model (`frame.max(-1) > 16`)."""
+    import cv2
+    ys, xs = np.nonzero(whole)
+    if not len(ys):
+        return frame
+    mh = int(ys.max() - ys.min() + 1)
+    mw = int(xs.max() - xs.min() + 1)
+    pad_top = max(6, int(round(0.25 * mh)))
+    pad_bot = max(26, int(round(1.25 * mh)))
+    pad_x = max(20, int(round(0.28 * mw)))
+    dy, dx = np.ogrid[-pad_bot:pad_bot + 1, -pad_x:pad_x + 1]
+    off_y = -dy
+    ry = np.where(off_y < 0, float(max(pad_top, 1)), float(max(pad_bot, 1)))
+    kern = (((dx / float(max(pad_x, 1))) ** 2 + (off_y / ry) ** 2) <= 1.0).astype(np.uint8)
+    erase_raw = cv2.dilate(whole.astype(np.uint8), kern) > 0
+    on_mesh_raw = frame.max(-1) > 16
+    on_mesh = cv2.morphologyEx(on_mesh_raw.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((15, 15), np.uint8)) > 0
+    erase = erase_raw & on_mesh
+    if not erase.any():
+        return frame
+    ring = (cv2.dilate(erase_raw.astype(np.uint8), np.ones((15, 15), np.uint8)) > 0) & ~erase_raw & on_mesh_raw
+    upper_ring = ring.copy()
+    upper_ring[int(ys.max()):, :] = False
+    sample = upper_ring if upper_ring.any() else ring
+    grey = np.median(frame[sample], axis=0).astype(np.uint8) if sample.any() else np.array([128, 128, 128], np.uint8)
+    work = frame.copy()
+    work[~on_mesh_raw] = grey
+    low_shadow = (cv2.dilate(erase_raw.astype(np.uint8), np.ones((15, 15), np.uint8)) > 0) & (work.mean(-1) < float(grey.mean()) - 12.0)
+    work[low_shadow] = grey
+    inpainted = cv2.inpaint(work, erase.astype(np.uint8), 7, cv2.INPAINT_NS)
+    smoothed = cv2.GaussianBlur(inpainted, (31, 31), 9.0)
+    dist = cv2.distanceTransform(erase_raw.astype(np.uint8), cv2.DIST_L2, 5)
+    alpha = np.clip(dist / 8.0, 0.0, 1.0)[..., None]
+    out = frame.copy()
+    blended = np.round(alpha * smoothed + (1.0 - alpha) * frame).astype(np.uint8)
+    out[erase] = blended[erase]
+    return out
 
 
 def inner_lip_centerline(p: np.ndarray, index: dict) -> tuple[np.ndarray, float]:
@@ -472,26 +697,47 @@ def mouth_shapes(whole: np.ndarray, hole: np.ndarray, *, closed_as_line: bool = 
 
 
 def draw(mesh: np.ndarray, drawings: list[list], width: float, bare: set[int], dots: bool = True, fills: list[list] | None = None,
-         contrast: bool = False, mouths: list | None = None) -> np.ndarray:
+         contrast: bool = False, mouths: list | None = None, *, smooth_lips: bool = False, darken_head: bool = False,
+         keypoints: np.ndarray | None = None, index: dict | None = None) -> np.ndarray:
     """The mesh frames [n, h, w, 3] with every frame's drawing on it. With `fills`: first, inside each lash ring only, the
     iris in the edge colour, and with `contrast` the sclera solid white (the line colour) under it; then the lines over
     them, black a little wider first, then white, so the black edge stays round the white sclera and the black iris (an
     outside reviewer, 2026-10-14: filled after the lines, the white sclera covered the lash ring's black edge and the
-    eye ran into the lid line)."""
+    eye ran into the lid line). With `smooth_lips` (`--closed-lip-line`): the whole lip and under-lip area is smoothly flattened
+    into the face's grey (`smooth_mouth_area`), closed mouth lines (`inner_lip_line`, `mouth_closed`) have no dark border or
+    end-cap dot, and eye fills are clipped to the grey head's silhouette with a dark rim inside the silhouette edge (`M20`).
+    With `darken_head`: the grey body model is scaled by `HEAD_DARKEN_SCALE` (`0.67`)."""
     from PIL import ImageChops
+    if darken_head:
+        mesh = np.round(mesh.astype(np.float32) * HEAD_DARKEN_SCALE).astype(np.uint8)
     look = h3_config.FACE_POINTS
     h, w = mesh.shape[1:3]
     out = np.empty_like(mesh)
+    line_col = tuple(look["line"])
+    edge_col = tuple(look["edge"])
+    passes = ((edge_col, look["edge_px"]), (line_col, 0.0))
+    erode_inner = max(HEAD_SILHOUETTE_ERODE_PX, int(np.ceil(width)))
 
-    def fill(im, f: int, white: bool) -> None:
+    def fill(im, f: int, white: bool, full_head: np.ndarray | None = None, inner_head: np.ndarray | None = None) -> None:
+        big = lambda m: Image.fromarray((m.astype(np.uint8) * 255)).resize(im.size, Image.NEAREST)        # noqa: E731
+        fh_mask = big(full_head) if full_head is not None else None
+        ih_mask = big(inner_head) if inner_head is not None else None
         for _, disc, lids in ([] if f in bare or not fills else fills[f]):
             a, b = Image.new("L", im.size, 0), Image.new("L", im.size, 0)
             ImageDraw.Draw(a).polygon([tuple(v * SUPER) for v in disc], fill=255)
             ImageDraw.Draw(b).polygon([tuple(v * SUPER) for v in lids], fill=255)
             if white:
-                im.paste(tuple(look["line"]), mask=b)
-            im.paste(tuple(look["edge"]), mask=ImageChops.multiply(a, b))
-    def mouth(im, f: int) -> None:
+                if fh_mask is not None and ih_mask is not None:
+                    im.paste(edge_col, mask=ImageChops.multiply(b, fh_mask))
+                    im.paste(line_col, mask=ImageChops.multiply(b, ih_mask))
+                else:
+                    im.paste(line_col, mask=b)
+            iris_mask = ImageChops.multiply(a, b)
+            if fh_mask is not None:
+                iris_mask = ImageChops.multiply(iris_mask, fh_mask)
+            im.paste(edge_col, mask=iris_mask)
+
+    def mouth(im, f: int, inner_head: np.ndarray | None = None) -> None:
         """A mouth's paint-out and dark interior (`mouths[f]`: the mouth's whole outline filled, and its open inside, as masks of the frame):
         the body model's own lips painted out to the grey round them (sampling only the body model, never the black ground beside a profile
         face), and the open inside in the edge colour; its outlines are lines."""
@@ -500,27 +746,42 @@ def draw(mesh: np.ndarray, drawings: list[list], width: float, bare: set[int], d
         if got is None or not got[0].any():
             return
         whole, hole = got
-        ring = cv2.dilate(whole.astype(np.uint8), np.ones((15, 15), np.uint8)).astype(bool) & ~cv2.dilate(whole.astype(np.uint8), np.ones((7, 7), np.uint8)).astype(bool)
-        on_body = ring & (mesh[f].max(-1) > 16)
-        sample = on_body if on_body.any() else ring
-        grey = tuple(int(v) for v in np.median(mesh[f][sample], axis=0)) if sample.any() else (128, 128, 128)
         big = lambda m: Image.fromarray((m.astype(np.uint8) * 255)).resize(im.size, Image.NEAREST)        # noqa: E731
-        im.paste(grey, mask=big(cv2.dilate(whole.astype(np.uint8), np.ones((5, 5), np.uint8)).astype(bool)))
-        im.paste(tuple(look["edge"]), mask=big(hole))
+        if not smooth_lips:
+            ring = cv2.dilate(whole.astype(np.uint8), np.ones((15, 15), np.uint8)).astype(bool) & ~cv2.dilate(whole.astype(np.uint8), np.ones((7, 7), np.uint8)).astype(bool)
+            on_body = ring & (mesh[f].max(-1) > 16)
+            sample = on_body if on_body.any() else ring
+            grey = tuple(int(v) for v in np.median(mesh[f][sample], axis=0)) if sample.any() else (128, 128, 128)
+            im.paste(grey, mask=big(cv2.dilate(whole.astype(np.uint8), np.ones((5, 5), np.uint8)).astype(bool)))
+        if hole.any():
+            h_mask = (hole & inner_head) if inner_head is not None else hole
+            if h_mask.any():
+                im.paste(edge_col, mask=big(h_mask))
+
     for f in range(len(mesh)):
-        im = Image.fromarray(mesh[f]).resize((w * SUPER, h * SUPER), Image.BICUBIC)
-        mouth(im, f)
-        fill(im, f, contrast)
+        got_m = None if f in bare or not mouths else mouths[f]
+        base = smooth_mouth_area(mesh[f], got_m[0]) if (smooth_lips and got_m is not None and got_m[0].any()) else mesh[f]
+        kp_f = keypoints[f] if keypoints is not None else None
+        full_h = head_silhouette(mesh[f], erode_px=0, p=kp_f, index=index) if smooth_lips else None
+        inner_h = head_silhouette(mesh[f], erode_px=erode_inner, p=kp_f, index=index) if smooth_lips else None
+        im = Image.fromarray(base).resize((w * SUPER, h * SUPER), Image.BICUBIC)
+        mouth(im, f, inner_h)
+        fill(im, f, contrast, full_h, inner_h)
         d = ImageDraw.Draw(im)
-        for colour, pad in ((tuple(look["edge"]), look["edge_px"]), (tuple(look["line"]), 0.0)):
-            for _, pts, closed in ([] if f in bare else drawings[f]):
+        for colour, pad in passes:
+            for name, pts, closed in ([] if f in bare else drawings[f]):
+                if pad > 0 and name in ("inner_lip_line", "mouth_closed"):
+                    continue
                 run = [tuple(v * SUPER) for v in (np.vstack([pts, pts[:1]]) if closed else pts)]
                 if len(run) > 1:
                     d.line(run, fill=colour, width=max(1, int(round((width + 2 * pad) * SUPER))), joint="curve")
                 r = ((width if dots else width / 2) + pad) * SUPER   # a dot at every point; with none, a round end and a round joint
                 for x, y in run:
                     d.ellipse([x - r, y - r, x + r, y + r], fill=colour)
-        out[f] = np.asarray(im.resize((w, h), Image.LANCZOS))
+        frame_out = np.asarray(im.resize((w, h), Image.LANCZOS)).copy()
+        if full_h is not None:
+            frame_out[~full_h] = base[~full_h]
+        out[f] = frame_out
     return out
 
 
@@ -539,8 +800,8 @@ def filled_px(fills: list[list] | None, size: tuple[int, int], grow: int = 2) ->
 
 
 def white_at(path: Path | str, mesh: np.ndarray, skip: int = 0, but: np.ndarray | None = None) -> list[np.ndarray]:
-    """For each frame, where (x, y) the written video is a line's white and the mesh it was drawn on was not; less `but`
-    (the filled sclera of `--iris contrast`, white that no line drew)."""
+    """For each frame, where (x, y) the written video is a line's white and the mesh it was drawn on was not;
+    less `but` (the filled sclera of `--iris contrast`, white that no line drew)."""
     n, h, w = mesh.shape[:3]
     got = np.stack(list(stream(str(path), (w, h), skip, n, pix="rgb24")))
     if len(got) != n:
@@ -608,7 +869,7 @@ def sheet(path: Path, source_frames: np.ndarray, first: int, drawn: np.ndarray, 
     for f in picks:
         x, y = points["keypoints"][f][idx["tip_of_nose"]]
         x0, y0 = int(min(max(x - side / 2, 0), w - side)), int(min(max(y - side * 0.6, 0), h - side))
-        a, b = (Image.fromarray(v[f][y0:y0 + side, x0:x0 + side]) for v in (source_frames, drawn))
+        a, b = (Image.fromarray(v[f][y0:y0 + side, x0:y0 + side]) for v in (source_frames, drawn))
         row = Image.new("RGB", (tile * 3, tile))
         for i, t in enumerate((a, b, Image.blend(a, b, 0.5))):
             row.paste(t.resize((tile, tile), Image.LANCZOS), (i * tile, 0))
@@ -652,14 +913,14 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
         mesh_first: int | None = None, points_first: int | None = None, width: float | None = None, dots: bool = True,
         leave_out: frozenset = frozenset(), bare: list[int] | None = None, bare_by: str = "", source: str = "", source_first: int = 0,
         iris: str = IRIS_FORMS[0], mouths: list | None = None, mouth_lines: bool = True, no_mouth: list[int] | None = None,
-        class_mouth_frames: list[int] | None = None, closed_lip_line: bool = False, eyes_shut: list[int] | None = None,
-        eyes_shut_form: str | None = None, eyes_shut_by: str = "", say=print) -> dict:
+        class_mouth_frames: list[int] | None = None, closed_lip_line: bool = False, darken_head: bool = False,
+        eyes_shut: list[int] | None = None, eyes_shut_form: str | None = None, eyes_shut_by: str = "", say=print) -> dict:
     """Draw, write, read back, record. `mouths`: a class-map mouth a frame ((whole, hole) masks of the frame, or None), drawn in
     place of the points' mouth (`head_reference`, `--mouth auto` where the lip check fails and the class map holds the mouth);
     with `mouth_lines` False its lips are painted out and its inside filled under the points' own mouth lines, and no
     outline of its own is drawn. `no_mouth`: source frames on which no mouth is drawn at all, neither the points' lip rings nor a
-    class-map mouth (`head_reference`: the lips do not lie on the mouth there, or the load's part holds no lips): the body model's
-    own lips stay. `class_mouth_frames`: source frames on which, with `mouth_lines` False, the class map's mouth is drawn with its own
+    class-map mouth (`head_reference`: the window is silent or the lips are left out): the body model's own lips stay.
+    `class_mouth_frames`: source frames on which, with `mouth_lines` False, the class map's mouth is drawn with its own
     outline in place of the points' lip rings (`head_reference`, a frame at a time: the lip lines miss there and the class map's mouth
     passes its gate). Returns the record; `passed` is False when the read-back or the look at the source fails."""
     if bare and not bare_by:
@@ -687,19 +948,20 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     if shut and (eyes_shut_form not in EYES_SHUT_FORMS or not str(eyes_shut_by).strip()):
         raise SystemExit(f"--eyes-shut-on takes a form, one of {EYES_SHUT_FORMS} (--eyes-shut-form), and whose word it is; got {eyes_shut_form!r}")
     for f in shut:
-        drawings[f] = [d for d in drawings[f] if not any(d[0] == f"{side}{part}" for side in SIDES for part in EYE_PARTS)]
+        drawings[f] = [d for d in drawings[f] if not any(d[0].startswith(f"{side}{part}") for side in SIDES for part in EYE_PARTS)]
         if eyes_shut_form == "lids" and "eyes" not in leave_out:
             drawings[f] += [(f"{side}_shut_lid", fp._line(points["keypoints"][f], idx, side, "upper"), False) for side in SIDES]
         if fills:
             fills[f] = []
+    cmap_set = {f - first for f in (class_mouth_frames or []) if first <= f < first + count}
     bare_mouth = sorted({f - first for f in (no_mouth or []) if first <= f < first + count})
     for f in bare_mouth:
-        drawings[f] = [d for d in drawings[f] if not d[0].endswith("_lip_ring")]
+        drawings[f] = [d for d in drawings[f] if not d[0].endswith("_lip_ring") and d[0] not in ("inner_lip_line", "mouth_outer", "mouth_inner", "mouth_closed")]
     if mouths:
         if len(mouths) != count:
             raise SystemExit(f"{len(mouths)} class-map mouths for {count} frames")
         mouths = [None if f in bare_mouth else m for f, m in enumerate(mouths)]
-        own = {f - first for f in (class_mouth_frames or []) if first <= f < first + count} - set(bare_mouth)
+        own = cmap_set - set(bare_mouth)
         for f in own:
             drawings[f] = [d for d in drawings[f] if not d[0].endswith("_lip_ring")]
         if mouth_lines or own:
@@ -707,28 +969,38 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
             for f in range(count):
                 if mouths[f] is not None and (mouth_lines or f in own):
                     sh = mouth_shapes(*mouths[f], closed_as_line=closed_lip_line)
-                    drawings[f] = drawings[f] + sh
                     if closed_lip_line:
                         if any(n == "mouth_closed" for n, _, _ in sh) and mouths[f][1].any():
                             mouths[f] = (mouths[f][0], np.zeros_like(mouths[f][1]))
                         elif any(n == "mouth_inner" for n, _, _ in sh):
                             bridged = cv2.morphologyEx(mouths[f][1].astype(np.uint8), cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8)).astype(bool)
                             mouths[f] = (mouths[f][0] | bridged, bridged)
+                        if sh:
+                            sh_fit, m_fit = fit_mouth_to_head(mesh[f], points["keypoints"][f], idx, sh[0], mouths[f])
+                            sh = [sh_fit]
+                            mouths[f] = m_fit
+                    drawings[f] = drawings[f] + sh
     if closed_lip_line:
         if mouths is None:
             mouths = [None] * count
         for f in range(count):
             if any(d[0].endswith("_lip_ring") for d in drawings[f]):
                 sh_f, m_f = lip_shape(points["keypoints"][f], idx, (w, h), mouths[f])
+                sh_f, m_f = fit_mouth_to_head(mesh[f], points["keypoints"][f], idx, sh_f, m_f)
                 drawings[f] = [d for d in drawings[f] if not d[0].endswith("_lip_ring")] + [sh_f]
                 mouths[f] = m_f
-    pictures = draw(mesh, drawings, wide, left, dots, fills, contrast=iris == IRIS_FORMS[3], mouths=mouths)
+            if f not in left:
+                hm_f = head_silhouette(mesh[f], p=points["keypoints"][f], index=idx)
+                drawings[f] = [c for n, pts_d, cl_d in drawings[f] for c in clip_shape_to_mask(n, pts_d, cl_d, hm_f)]
+    mesh_draw = np.round(mesh.astype(np.float32) * HEAD_DARKEN_SCALE).astype(np.uint8) if darken_head else mesh
+    pictures = draw(mesh_draw, drawings, wide, left, dots, fills, contrast=iris == IRIS_FORMS[3], mouths=mouths,
+                    smooth_lips=closed_lip_line, keypoints=points["keypoints"], index=idx)
     but = filled_px(fills, (w, h)) if iris == IRIS_FORMS[3] else None
     out.parent.mkdir(parents=True, exist_ok=True)
     marks.write_video(out, pictures)
     drawn = np.array([f not in left for f in range(count)])
-    expected = np.array([white_expected(drawings[f], wide, dots) if drawn[f] else 0.0 for f in range(count)])
-    back = read_back(out, mesh, drawings, expected, drawn, wide, but)
+    expected = np.array([white_expected(drawings[f], wide, dots, edge_px=EDGE_PX) if drawn[f] else 0.0 for f in range(count)])
+    back = read_back(out, mesh_draw, drawings, expected, drawn, wide, but)
     white, lags = back["white"], back["lags"]
     src = marks.source_frames(source, (w, h), first, count, source_first) if source else None
     clock = marks.against_the_source(src, mesh, first) if src is not None else None
@@ -736,7 +1008,8 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     named = [{n for n, _, _ in drawings[f]} | {n for n, _, _ in (fills[f] if fills else [])} for f in range(count)]
     kinds = ("iris",) if fills else RINGS
     shape = "disc" if fills else "ring"
-    rings = {f"{side}_{kind}": [first + f for f in range(count) if f"{side}_{kind}_{shape}" not in named[f] and f not in shut]
+    rings = {f"{side}_{kind}": [first + f for f in range(count)
+                                if f"{side}_{kind}_{shape}" not in named[f] and f"{side}_{kind}_ring" not in named[f] and f not in shut]
              for side in SIDES for kind in kinds} if "eyes" not in leave_out else {}
     scores = {k: [round(float(v), 2) for v in np.percentile([ring_scores(s, idx)[k] for s in points["scores"]], [0, 50, 100])] for k in rings}
     fit = {str(k): (None if np.isnan(v) else round(v, 3)) for k, v in lags.items()}
@@ -759,11 +1032,11 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
                       "share_of_the_ring_outside_the_lids_least_median_most": {
                           k: ([round(float(v), 2) for v in np.percentile(vals, [0, 50, 100])] if vals else None)
                           for k in rings for vals in [[o[k] for o in offs if k in o]]}},
+        **({"darken_head": {"scale": HEAD_DARKEN_SCALE}} if darken_head else {}),
         "frames_left_bare": sorted(first + f for f in left), "left_bare_by": bare_by,
         "frames_with_no_mouth": [first + f for f in bare_mouth],
         "frames_with_the_eyes_shut": ({"frames": [first + f for f in shut], "form": eyes_shut_form, "by": eyes_shut_by} if shut else None),
-        "frames_with_the_class_maps_own_mouth": sorted(first + f for f in ({f - first for f in (class_mouth_frames or []) if first <= f < first + count}
-                                                                          - set(bare_mouth))),
+        "frames_with_the_class_maps_own_mouth": sorted(first + f for f in (cmap_set - set(bare_mouth))),
         "not_known": ["whether a head is turned away on any frame: the model places and scores face points on the back of a head",
                       "whether the lines sit on her face, and whether they can be told apart at this size: open the sheet",
                       "whether the lids are drawn shut where hers are: on a laughing squint the pose model's lid points do not close, and the lid "
@@ -812,22 +1085,24 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
 
 def verify(video: str, mesh_path: str, points_path: str, first: int, count: int, *, names: list[str] | None = None,
            mesh_first: int | None = None, points_first: int | None = None, video_first: int | None = None, width: float | None = None,
-           leave_out: frozenset = frozenset(), iris: str = IRIS_FORMS[0], say=print) -> bool:
+           leave_out: frozenset = frozenset(), iris: str = IRIS_FORMS[0], darken_head: bool = False, say=print) -> bool:
     """A drawn video somebody made, read against a points file on the READER's account of each one's first frame."""
     points, _ = rows_of(points_path, names, first, count, points_first)
     w, h, _ = probe(mesh_path)
     mesh = np.stack(list(stream(mesh_path, (w, h), first - (first if mesh_first is None else mesh_first), count, pix="rgb24")))
     if len(mesh) != count:
         raise SystemExit(f"asked for {count} frames; the body-model video gave {len(mesh)}")
-    fills = ([discs(p, s, points["index"], h3_config.POSE_READING["eye_ring_score_at_least"], leave_out) for p, s in zip(points["keypoints"], points["scores"])]
+    line = h3_config.POSE_READING["eye_ring_score_at_least"]
+    fills = ([discs(p, s, points["index"], line, leave_out) for p, s in zip(points["keypoints"], points["scores"])]
              if iris == IRIS_FORMS[3] else None)
+    mesh_draw = np.round(mesh.astype(np.float32) * HEAD_DARKEN_SCALE).astype(np.uint8) if darken_head else mesh
     try:
-        white = white_at(video, mesh, first - (first if video_first is None else video_first), but=filled_px(fills, (w, h)))
+        white = white_at(video, mesh_draw, first - (first if video_first is None else video_first), but=filled_px(fills, (w, h)))
     except RuntimeError as exc:
         raise SystemExit(str(exc)) from None
     wide = width_for(points, width)[0]
-    line = h3_config.POSE_READING["eye_ring_score_at_least"]
-    segs = [segments(shapes(p, s, points["index"], line, leave_out, iris)) for p, s in zip(points["keypoints"], points["scores"])]
+    segs = [segments(shapes(p, s, points["index"], line, leave_out, iris))
+            for p, s in zip(points["keypoints"], points["scores"])]
     count_white = np.array([len(v) for v in white])
     drawn = count_white > 0
     lags = fit_by_lag(white, segs, drawn)
@@ -854,10 +1129,12 @@ def main() -> int:
         a.add_argument("--width", type=float, help="the width the lines were drawn at, from the video's record; the size rule's when not given")
         a.add_argument("--leave-out", default="", help="the parts the video's record says were left out")
         a.add_argument("--iris", default=IRIS_FORMS[0], choices=IRIS_FORMS, help="how the video's record says its eye rings were drawn")
+        a.add_argument("--darken-head", action="store_true", help="the video was drawn on a darkened grey head (--darken-head)")
         v = a.parse_args(sys.argv[2:])
         names = json.loads(Path(v.names).read_text()) if v.names else None
         return 0 if verify(v.video, v.mesh, v.points, v.first, v.count, names=names, mesh_first=v.mesh_first, points_first=v.points_first,
-                           video_first=v.video_first, width=v.width, leave_out=parts_arg(v.leave_out), iris=v.iris) else 1
+                           video_first=v.video_first, width=v.width, leave_out=parts_arg(v.leave_out), iris=v.iris,
+                           darken_head=v.darken_head) else 1
     a = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     a.add_argument("--mesh", required=True, help="the body-model video, at the canvas's size")
     a.add_argument("--points", required=True, help="the original's points along the shot (bench/pose_along_shot.py)")
@@ -875,13 +1152,14 @@ def main() -> int:
     a.add_argument("--bare-by", default="", help="who looked")
     a.add_argument("--iris", default=IRIS_FORMS[0], choices=IRIS_FORMS,
                    help="an iris or pupil ring drawn only where it lies between the lids (the default), whole (the form before 2026-10-14), the iris filled: a dark disc inside the lids and no ring, or contrast: the sclera solid white and the iris solid black inside the lids (until a render decides)")
+    a.add_argument("--darken-head", action="store_true", help="darken the grey body model by scale (HEAD_DARKEN_SCALE) to raise line contrast")
     a.add_argument("--source", default="", help="the original video: writes a sheet to look at")
     a.add_argument("--source-first", type=int, default=0, help="the source frame of that video's frame 0, for one cut from the original; 0 when left out")
     v = a.parse_args()
     names = json.loads(Path(v.names).read_text()) if v.names else None
     rec = run(v.mesh, v.points, v.first, v.count, Path(v.out), v.by, names=names, mesh_first=v.mesh_first, points_first=v.points_first,
               width=v.width, dots=not v.no_dots, leave_out=parts_arg(v.leave_out), bare=marks.frames_arg(v.bare), bare_by=v.bare_by, source=v.source,
-              source_first=v.source_first, iris=v.iris)
+              source_first=v.source_first, iris=v.iris, darken_head=v.darken_head)
     return 0 if rec["passed"] else 1
 
 

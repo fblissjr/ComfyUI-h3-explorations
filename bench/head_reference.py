@@ -521,7 +521,8 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         mouth: str | None = None, mouth_why: str = "", classes: str | None = None, classes_first: int | None = None,
         no_mouth_on: list[tuple[int, int, str]] | None = None, over_the_eyes: list[tuple[int, int, str]] | None = None,
         no_face_on: list[tuple[int, int, str]] | None = None, class_mouth_needs_hole: str | None = None,
-        closed_lip_line: str | None = None, eyes_shut_on: list[tuple[int, int, str]] | None = None,
+        closed_lip_line: str | None = None, darken_head: str | None = None,
+        eyes_shut_on: list[tuple[int, int, str]] | None = None,
         eyes_shut_form: str | None = None, mouth_on: list[tuple[int, int, str]] | None = None, say=print) -> dict:
     """Cut, cut, draw, record. Returns the record; `passed` is True only when all three steps passed.
 
@@ -549,8 +550,12 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     if closed_lip_line is not None:
         if not str(closed_lip_line).strip():
             raise SystemExit("--closed-lip-line takes a reason (WHY): say who asked for it and why")
-        if mouth != "auto" or not classes or classes_first is None:
-            raise SystemExit(f"--closed-lip-line acts on --mouth auto with a class map; got {mouth!r}")
+        if mouth not in ("auto", "left out") or (mouth == "auto" and (not classes or classes_first is None)):
+            raise SystemExit(f"--closed-lip-line acts on --mouth auto with a class map (or --mouth 'left out' on a silent window); got {mouth!r}")
+    if darken_head is not None and not str(darken_head).strip():
+        raise SystemExit("--darken-head takes a reason (WHY): say who asked for it and why")
+    if width is None:
+        width = FORM_WIDTH
     if out.suffix != ".mp4":
         raise SystemExit(f"--out {out} must end in .mp4: the other files are named from it")
     made = outputs(out)
@@ -612,7 +617,9 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         else:
             if not str(mouth_why or "").strip():
                 raise SystemExit(f"--mouth {mouth} is a person's word: say why with --mouth-why")
-            mouth_said = {"form": mouth, "why": " ".join(mouth_why.split()), "drawn": mouth == "drawn"}
+            mouth_said = {"form": mouth, "why": " ".join(mouth_why.split()), "drawn": mouth == "drawn",
+                          **({"closed_lip_line": {"on": True, "why": " ".join(str(closed_lip_line).split()), "closed_frames": []}}
+                             if closed_lip_line and mouth == "left out" else {})}
         by_points = mouth_said["drawn"] and mouth_said.get("drawn_as") != "the class map"
         leave_out = (frozenset(leave_out) - {"mouth"}) if by_points else (frozenset(leave_out) | {"mouth"})
     say(f"1 of 3: the plain body model cut to the head, frames {first} to {first + count - 1}")
@@ -629,6 +636,7 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     # it (the lead's ruling of 2026-10-14, the outside reviewer's: a white outline over the body model's sculpted, closed lips is
     # a hollow mouth); where they fail, the mouth itself (the lead's ruling of 2026-10-14 on 0294d)
     mouths, lines, centres, gated, by_class, holeless = None, True, None, [], [], []
+    by_lines, worded_drawn, closed_line_on = [], [], []
     if mouth_said and mouth_said["form"] == "auto":
         cw, ch, _ = cap_probe(str(made["plain_cut"]))
         mouths, held = class_mouths(classes, classes_first, first, count, cut["box"], (cw, ch), closed_as_line=bool(closed_lip_line))
@@ -661,6 +669,19 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
             rows[f - first].update(passed=True, filled=True)
         for f in holeless:
             rows[f - first].update(passed=False, no_teeth_or_tongue=True)
+        # Under `--closed-lip-line`, the mouth is decided per window, never per frame (M17, M18): every face frame in a voiced
+        # window draws a mouth (fitted to the grey head's mouth-to-chin space and clipped to its silhouette by draw_face_points),
+        # so no frame pops on/off via CLASS_MOUTH_GATE.
+        if closed_lip_line and not class_mouth_needs_hole:
+            for f in range(count):
+                if first + f in partless or on_lines[f] or passes[f]:
+                    continue
+                near_val = rows[f].get("from_the_pose_mouth_in_face_heights")
+                if mouths[f] is not None and near_val is not None and near_val <= CLASS_MOUTH_GATE["near"]:
+                    passes[f] = True
+                    rows[f].update(passed=True, filled=True)
+                else:
+                    on_lines[f] = True
         by_lines = [first + f for f in range(count) if on_lines[f] and first + f not in partless]
         by_class = [first + f for f in range(count) if not on_lines[f] and passes[f] and first + f not in partless]
         for f in range(count):
@@ -672,7 +693,6 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         # A MOUTH ON A PERSON'S WORD where the gate drops it (`--mouth-on`, `MOUTH_ON`): the lip rings, with their own inside
         # dropped by the gate, or by --class-mouth-needs-hole (the outside reviewer's C7b: a holeless frame named was said to be drawn)
         worded, already = mouth_on_frames(first, count, mouth_on or [], partless, set(gated) | set(holeless))
-        worded_drawn = []
         if worded:
             rings = lip_rings(str(made["plain_cut"]), str(made["plain_cut_points"]), names, first, count, worded)
             for f, (whole, hole) in rings.items():
@@ -689,7 +709,6 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
                 + (", ".join(f"{a}-{b}" if a != b else str(a) for a, b in spans_of(worded)) or "none") + "): the pose model's lip rings, their "
                 "inside dark" + (f"; already drawn by the gate on {', '.join(f'{a}-{b}' if a != b else str(a) for a, b in spans_of(already))}"
                                  if already else ""))
-        closed_line_on = []
         if closed_lip_line:
             cut_pts = faces.rows_of(str(made["plain_cut_points"]), names, first, count, first)[0]
             closed_by_lines = [
@@ -703,13 +722,15 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
                 and any(n == "mouth_closed" for n, _, _ in faces.mouth_shapes(*mouths[f - first], closed_as_line=True))
             ]
             closed_line_on = sorted(closed_by_lines + closed_by_class)
+            open_on = sorted((set(by_lines) | set(by_class) | set(worded_drawn)) - set(closed_line_on))
         mouth_said.update(inside="the class map", inside_on_frames=sum(m is not None for f, m in enumerate(mouths) if on_lines[f]), gate=gate,
                           frames_by_the_lip_lines=spans_of(by_lines), frames_by_the_class_map=spans_of(by_class),
                           over_time={"rule": dict(MOUTH_RUNS), "rule_is": "starting values (bench/results/2026-10-15_mouth_runs.md)",
                                      "held_on_the_lip_lines": spans_of(held_on), "filled_by_the_class_map": spans_of(refilled)},
                           **({"mouth_on": said_on} if mouth_on else {}),
                           **({"class_mouth_needs_hole": {"why": class_mouth_needs_hole, "no_mouth_on": spans_of(holeless)}} if class_mouth_needs_hole else {}),
-                          **({"closed_lip_line": {"why": closed_lip_line, "closed_frames": spans_of(closed_line_on)}} if closed_lip_line else {}))
+                          **({"closed_lip_line": {"on": True, "why": " ".join(str(closed_lip_line).split()), "closed_frames": spans_of(closed_line_on),
+                                                  "open_frames": spans_of(open_on)}} if closed_lip_line else {}))
         leave_out = (frozenset(leave_out) - {"mouth"}) if by_lines or worded_drawn else (frozenset(leave_out) | {"mouth"})
         say(f"    a frame at a time: the lip lines on {len(by_lines)} of {count} frames ({len(held_on)} held on them under the share, over "
             f"{MOUTH_RUNS['leave_lines']:g}), the class map's own mouth on {len(by_class)} (on the body model at {CLASS_MOUTH_GATE['on_body']:g} or "
@@ -752,11 +773,13 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         say(f"    HER EYES SHUT on {len(shut)} of {count} frames ({', '.join(f'{a}-{b}' if a != b else str(a) for a, b in spans_of(shut))}), drawn "
             f"{eyes_shut_form!r}: " + "; ".join(why for _, _, why in eyes_shut_on or []))
     say(f"3 of 3: the face drawn on the cut body model, {width:g} px, {'a dot at every point' if dots else 'no dots'}"
+        + (", darkened grey head" if darken_head else "")
         + (f", left out: {', '.join(sorted(leave_out))}" if leave_out else "")
         + ((", the mouth from the class map" if lines else ", the class map's mouth a frame at a time") if mouths else ""))
     drawn = faces.run(str(made["plain_cut"]), str(made["plain_cut_points"]), first, count, out, by, width=width, dots=dots, leave_out=leave_out,
                       source=str(made["source_cut"]), source_first=first, iris=iris, mouths=mouths, mouth_lines=lines, no_mouth=no_mouth,
-                      class_mouth_frames=by_class, closed_lip_line=bool(closed_lip_line), bare=faceless,
+                      class_mouth_frames=by_class, closed_lip_line=bool(closed_lip_line),
+                      darken_head=bool(darken_head), bare=faceless,
                       eyes_shut=shut, eyes_shut_form=eyes_shut_form if shut else None,
                       eyes_shut_by="; ".join(f"{a_}-{b_}: {why}" for a_, b_, why in eyes_shut_on or []),
                       bare_by="; ".join(f"no face lines: {why}" for _, _, why in no_face_on or []), say=quiet)
@@ -797,9 +820,11 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         "box": cut["box"], "box_is": cut["box_is"], "box_set_by": cut["box_set_by"], "scale": cut["scale"],
         "a_point_of_the_canvas_lands_at": cut["a_point_of_the_canvas_lands_at"],
         "face_height_px": {"on_the_canvas": cut["face_height_px_median"], "in_this_video": cut["face_height_px_in_this_video"]},
-        "drawn": {"line_width_px": drawn["line_width_px"], "width_set_by": "--width" if width != FORM_WIDTH else "FORM_WIDTH, the first references' own",
+        "drawn": {"line_width_px": drawn["line_width_px"],
+                  "width_set_by": "--width" if width != FORM_WIDTH else "FORM_WIDTH, the first references' own",
                   "a_dot_at_every_point": drawn["a_dot_at_every_point"], "points_drawn_alone": drawn["points_drawn_alone"],
                   "parts_left_out": drawn["parts_left_out"], "eye_rings": drawn["eye_rings"], "iris": iris, "frames_left_bare": drawn["frames_left_bare"],
+                  **({"darken_head": {"on": True, "why": " ".join(str(darken_head).split()), **drawn["darken_head"]}} if darken_head and drawn.get("darken_head") else {}),
                   **({"mouth": mouth_said} if mouth_said else {}),
                   **({"eyes_shut": {"form": eyes_shut_form, "frames": spans_of(shut), "on_whose_word": [{"first": a_, "last": b_, "why": why}
                                                                                                         for a_, b_, why in eyes_shut_on or []],
@@ -863,7 +888,9 @@ def main() -> int:
     a.add_argument("--class-mouth-needs-hole", metavar="WHY", help="an option, off unless asked: on a frame given the class map's own mouth "
                    "with no teeth or tongue labelled, draw no mouth; the reason is kept in the record")
     a.add_argument("--closed-lip-line", metavar="WHY", help="an option, off unless asked: draw a closed class-map mouth (no teeth or tongue inside it) "
-                   "as one open parting line from corner to corner rather than an outlined ring; the reason is kept in the record")
+                   "as one open parting line from corner to corner rather than an outlined ring, fit the mouth above the chin, and clip every mark to the grey head's silhouette; the reason is kept in the record")
+    a.add_argument("--darken-head", metavar="WHY", help="an option, off unless asked: darken the grey body model by scale (HEAD_DARKEN_SCALE) "
+                   "keeping its shading intact so the white lines stand out; the reason is kept in the record")
     a.add_argument("--no-face-on", action="append", default=[], metavar="FIRST-LAST=WHY",
                    help="source frames on which no line of the face is drawn, the plain body model alone, with the reason: the load's part "
                         "is her hair alone there, or a person's word that the face does not show there; repeatable")
@@ -885,7 +912,8 @@ def main() -> int:
               classes=v.classes, classes_first=v.classes_first, no_mouth_on=[no_mouth_arg(x) for x in v.no_mouth_on],
               over_the_eyes=[no_mouth_arg(x, "--over-the-eyes") for x in v.over_the_eyes],
               no_face_on=[no_mouth_arg(x, "--no-face-on") for x in v.no_face_on], class_mouth_needs_hole=v.class_mouth_needs_hole,
-              closed_lip_line=v.closed_lip_line, eyes_shut_on=[no_mouth_arg(x, "--eyes-shut-on") for x in v.eyes_shut_on],
+              closed_lip_line=v.closed_lip_line, darken_head=v.darken_head,
+              eyes_shut_on=[no_mouth_arg(x, "--eyes-shut-on") for x in v.eyes_shut_on],
               eyes_shut_form=v.eyes_shut_form, mouth_on=[no_mouth_arg(x, "--mouth-on") for x in v.mouth_on])
     return 0 if rec["passed"] else 1
 
