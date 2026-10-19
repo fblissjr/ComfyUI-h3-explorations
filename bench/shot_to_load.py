@@ -3003,6 +3003,8 @@ def step_preview(a, world) -> None:
     video, source, earlier = working_copy(shots["copy"], world)
     cast = None
     if a.cast:
+        if not Path(a.cast).is_file():
+            raise Refused(f"--cast {a.cast}: no such file")
         import cast_file
         cast = cast_file.read(a.cast)
     name = preview_name(shot)
@@ -3240,12 +3242,17 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
                       "takes --carry-words-from <old_job.json> or --no-carry-words \"<why>\"")
     name = free_name(base_stem, taken, a.remake)
     rel = str(pfolder.resolve().relative_to(REPO.resolve())) if pfolder.resolve().is_relative_to(REPO.resolve()) else str(pfolder)
+    cast_rows = None
+    if getattr(a, "cast", None):
+        if not Path(a.cast).is_file():
+            raise Refused(f"--cast {a.cast}: no such file")
+        cast_rows = [json.loads(x) for x in Path(a.cast).read_text().splitlines() if x.strip()]
     job = load_job(shots, plan, shot, a.subject, preview, rel, video, world.output, a.by, a.day, name, a.first, a.frames, a.why or "", load_chain.utc_now(),
                    source=str(source), why_before=a.why_before or "", why_after=a.why_after or "", zoomed=a.zoomed, least=a.least, least_why=a.least_why,
                    whole_frame=a.whole_frame,
                    preview_files=ran.get("files") or [], parts=a.parts, parts_by=a.parts_by, classes_of=classes_of,
                    parts_on=[parts_on_arg(x) for x in a.parts_on], track_not=[track_not_arg(x) for x in a.track_not], track_not_by=a.track_not_by,
-                   cast=[json.loads(x) for x in open(a.cast) if x.strip()] if getattr(a, "cast", None) else None, cast_from=getattr(a, "cast", None) or "",
+                   cast=cast_rows, cast_from=getattr(a, "cast", None) or "",
                    motion=getattr(a, "motion", None), motion_why=getattr(a, "motion_why", None), no_strangers=getattr(a, "no_strangers", None),
                    no_mouth_on=[no_mouth_on_arg(x) for x in getattr(a, "no_mouth_on", None) or []],
                    mouth_on=[no_mouth_on_arg(x, "--mouth-on") for x in getattr(a, "mouth_on", None) or []], data=world.data,

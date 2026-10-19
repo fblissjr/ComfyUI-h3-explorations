@@ -3218,6 +3218,58 @@ def step_keepout_carves_in_files_and_diagnose() -> str:
     return "step_keepout_carves reports per-window, per-step grown/final/carved units by other subject and head overlap; written to step_carves.json and manifest.json and printed by diagnose"
 
 
+def dropped_frame_with_visible_face_flagged() -> str:
+    """When a frame emptied by `drop` / `--named-empty` has `region_px == 0` while `track` is present and `Face_Neck >= 4000`
+    in the subject's classes (1306c/e frames 1411-1413 with 16,409-48,938 px), `flag_lent` emits a `likely to fail` flag
+    `dropped_frame_has_visible_face` naming the exact source frames and `s_face_px`."""
+    import tempfile
+    n_frames = 5
+    w_c, h_c = 1024, 768
+    face_id = list(cap._pack("sapiens2_parts").CLASS_NAMES).index("Face_Neck")
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp)
+        (folder / "runs" / "third_fp_1306e").mkdir(parents=True)
+        (folder / "subjects" / "third").mkdir(parents=True)
+        carried = np.zeros((n_frames, h_c, w_c), bool)
+        carried[0, 100:200, 100:200] = True
+        region = np.zeros((n_frames, h_c // 16, w_c // 16), bool)
+        region[0, 6:12, 6:12] = True
+        read = np.ones(n_frames, bool)
+        np.savez(
+            folder / "runs" / "third_fp_1306e" / "region.npz",
+            carried=np.packbits(carried, axis=-1),
+            region=region,
+            read=read,
+        )
+        rows = [{"source_frame": 1410 + k, "seen_by": "p", "track_share": 0.25} for k in range(n_frames)]
+        (folder / "subjects" / "third" / "per_frame.json").write_text(json.dumps({"rows": rows}))
+        classes = np.zeros((n_frames, h_c, w_c), np.uint8)
+        # Frames 1411 (k=1: 16,400 px = 100x164), 1412 (k=2: 20,900 px = 100x209), 1413 (k=3: 48,900 px = 100x489),
+        # while frame 1414 (k=4: 1,200 px = 30x40 < DROPPED_FACE_MIN_PX = 4000) is below the threshold.
+        classes[1, 100:200, 100:264] = face_id
+        classes[2, 100:200, 100:309] = face_id
+        classes[3, 100:200, 100:589] = face_id
+        classes[4, 100:130, 100:140] = face_id
+        np.savez(folder / "subjects" / "third" / "classes__p.npz", classes=classes)
+        manifest = {
+            "first_frame": 1410,
+            "frames": n_frames,
+            "size": [w_c, h_c],
+            "subjects": [{"label": "third", "sightings": [{"by": "p", "parts_emptied_on_source_frames": [[1411, 1414]]}]}],
+            "runs": [{"name": "third_fp_1306e", "subject": "third", "planned": True}],
+        }
+        named = {"third": [(1411, 1414, "dropped on exit")]}
+        flags = cap.flag_lent(manifest, folder, named)
+        vis = [f for f in flags if f["rule"] == "dropped_frame_has_visible_face"]
+        assert len(vis) == 1, f"expected 1 dropped_frame_has_visible_face flag, got {vis}"
+        f0 = vis[0]
+        assert f0["level"] == cap.LEVELS[2] and f0["subject"] == "third" and f0["run"] == "third_fp_1306e", f0
+        assert f0["source_frames"] == [[1411, 1413]], f0["source_frames"]
+        assert f0["figures"]["s_face_px"] == {1411: 16400, 1412: 20900, 1413: 48900}, f0["figures"]
+        assert "1411 (s_face_px=16400)" in f0["why"] and "1413 (s_face_px=48900)" in f0["why"], f0["why"]
+    return "dropped frames with region_px=0, track present, and s_face_px >= 4000 emit blocking dropped_frame_has_visible_face naming exact frames and s_face_px"
+
+
 case("one subject's row", one_subject)
 case("across three subjects", across)
 case("two sightings of one subject", two_sightings)
@@ -3272,5 +3324,6 @@ case("the head tube, in the files step", head_tube_in_the_files_step)
 case("back of the head and no-face frames are never held by the grade", back_of_head_and_no_face_never_held_by_grade)
 case("depth in the owner map and the files step", depth_in_owner_map_and_the_files_step)
 case("step keep-out carves in the files step and diagnose", step_keepout_carves_in_files_and_diagnose)
+case("preflight: dropped frame with visible face in classes blocks", dropped_frame_with_visible_face_flagged)
 sys.exit(finish())
 

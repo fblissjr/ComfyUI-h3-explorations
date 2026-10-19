@@ -2986,6 +2986,36 @@ def no_head_track_on_the_reference_step() -> str:
     return "reference --no-head-track requires a reason, forwards --no-head-track to head_reference.py, records job.reference.head_track, carries across --carry-words-from, and refuses --existing mismatches"
 
 
+def missing_cast_file_refused() -> str:
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        missing = str(made.root / "no_such_cast.jsonl")
+        refused(
+            lambda: stl.step_preview(
+                args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), cast=missing),
+                made.m,
+            ),
+            f"--cast {missing}: no such file",
+        )
+        folder = made.preview_ran(made.preview())
+        refused(
+            lambda: stl.step_job(
+                args(
+                    shots=str(made.shots_file),
+                    plan=str(made.plan_file),
+                    shot=100,
+                    folder=str(made.jobs),
+                    subject="a",
+                    preview=str(folder),
+                    cast=missing,
+                ),
+                made.m,
+            ),
+            f"--cast {missing}: no such file",
+        )
+    return "preview and job refuse a non-existent --cast file cleanly via Refused"
+
+
 case("the frame a tracker picks on is a field of the shots record", the_pick_frame_is_a_field)
 case("the trackers' order, and who is in the shot", the_order_and_who_is_in_the_shot)
 case("a preview made to ask who is on a shot the record is unsure of", a_preview_made_to_ask)
@@ -3019,6 +3049,7 @@ case("carry-words-from: a remake on an existing shot and subject requires --carr
 case("carry-words-from: a carried drop or no_face_on over a face frame is refused", carry_words_from_refuses_drop_over_face_frame)
 case("depth: overlap frames found, measured into the capture folder, and recorded in defaults", depth_in_the_job_step)
 case("reference: --no-head-track forwarded, recorded, carried, and checked on --existing", no_head_track_on_the_reference_step)
+case("cast: non-existent --cast file is refused cleanly in preview and job", missing_cast_file_refused)
 
 if __name__ == "__main__":
     sys.exit(finish())

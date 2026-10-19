@@ -4236,7 +4236,63 @@ def bare_frames(carried: np.ndarray, region: np.ndarray, read: np.ndarray, track
     return [int(f) for f in np.nonzero(read & tracked & ~has & ~on)[0]]
 
 
-def lays_nothing(run: dict, bare: list[int], said: dict, total: int) -> list[dict]:
+#: Minimum Face_Neck pixels in a subject's class map on a dropped/unmasked frame (region_px == 0 while track is present)
+#: that triggers dropped_frame_has_visible_face. Measured 2026-10-19 on Hall 1306-1418 (third_fp_1306c/e frames 1411-1413):
+#: 16,409-48,938 px of Face_Neck left unmasked by drop leaked the original actor's grey beard into the context.
+DROPPED_FACE_MIN_PX = 4000
+
+
+def subject_face_neck_px(folder: Path, label: str, seen: str, first: int, frames: int) -> dict[int, int]:
+    """Per-source-frame Face_Neck pixel count for `label` (`seen`), read from `classes__<seen>.npz` or `segments.json`."""
+    cls_path = folder / "subjects" / label / f"classes__{seen}.npz"
+    if cls_path.is_file():
+        classes = np.load(cls_path)["classes"]
+        face_id = list(_pack("sapiens2_parts").CLASS_NAMES).index("Face_Neck")
+        return {first + k: int((classes[k] == face_id).sum()) for k in range(min(frames, len(classes)))}
+    seg_path = folder / "subjects" / label / "segments.json"
+    if seg_path.is_file():
+        rows = json.loads(seg_path.read_text())["rows"]
+        col = f"{label}.Face_Neck"
+        return {int(r["source_frame"]): int(r.get(col, 0)) for r in rows if r.get("seen_by") == seen}
+    return {}
+
+
+def dropped_or_unmasked_face_in_context(
+    run: dict,
+    dropped_no_region: list[int],
+    face_px: dict[int, int],
+    min_face_px: int = DROPPED_FACE_MIN_PX,
+) -> list[dict]:
+    """Flag frames emptied by `drop` / `--named-empty` (where `region_px == 0` while `track` is present) that still have
+    `Face_Neck >= min_face_px` in the subject's class map (`dropped_frame_has_visible_face`, level `likely to fail`)."""
+    hit = [(f, int(face_px[f])) for f in sorted(set(dropped_no_region)) if face_px.get(f, 0) >= min_face_px]
+    if not hit:
+        return []
+    kind = "plan" if run.get("planned") else "run"
+    frames_said = ", ".join(f"{f} (s_face_px={px})" for f, px in hit)
+    return [
+        {
+            "rule": "dropped_frame_has_visible_face",
+            "level": LEVELS[2],
+            "subject": run["subject"],
+            "run": run["name"],
+            "source_frames": frame_spans([f for f, _ in hit], join=1),
+            "why": (
+                f"{kind} {run['name']}: on {len(hit)} dropped frame(s) {run['subject']} is tracked with region_px=0 while "
+                f"{run['subject']}'s class map still has Face_Neck >= {min_face_px} px ({frames_said}): "
+                "leaving a visible face unmasked in context leaks the original actor into the window"
+            ),
+            "figures": {
+                "frames": len(hit),
+                "s_face_px": {f: px for f, px in hit},
+                "max_s_face_px": max(px for _, px in hit),
+            },
+            "threshold": {"DROPPED_FACE_MIN_PX": min_face_px},
+        }
+    ]
+
+
+def lays_nothing(run: dict, bare: list[int], said: dict, total: int, face_px: dict[int, int] | None = None) -> list[dict]:
     """The flags of a load that lays nothing on `bare` frames where its subject is tracked: the frames its job names in
     `said` ({frame: the job's reason}) at the level below the top with the reason; the others at the top."""
     out = []
@@ -4249,6 +4305,8 @@ def lays_nothing(run: dict, bare: list[int], said: dict, total: int) -> list[dic
                     "why": f"{kind} {run['name']}: on {len(meant)} frame(s) {run['subject']} is tracked and the load lays nothing, as its job "
                            f"says it means to: " + "; ".join(f"{spans_said(f for f in meant if said[f] == w)}: {w}" for w in sorted({said[f] for f in meant})),
                     "figures": {"frames": len(meant)}})
+        if face_px:
+            out += dropped_or_unmasked_face_in_context(run, meant, face_px)
     if bare:
         kind = "plan" if run.get("planned") else "run"
         out.append({"rule": "load_lays_nothing_on_frames", "level": LEVELS[2], "subject": run["subject"], "run": run["name"],
@@ -4288,15 +4346,23 @@ def flag_lent(manifest: dict, folder: Path, named: dict | None = None) -> list[d
         # the same question a load at a time: where the subject is tracked and this load lays nothing at all. The
         # grade's own emptyings were only a line in the summary ("by design"), and on 2026-10-10 a face load went
         # to the queue with nothing of a face on most of its frames
-        seen = next(x for x in manifest["subjects"] if x["label"] == run["subject"])["sightings"][0]["by"]
+        sighting = next(x for x in manifest["subjects"] if x["label"] == run["subject"])["sightings"][0]
+        seen = sighting["by"]
         rows = json.loads((folder / "subjects" / run["subject"] / "per_frame.json").read_text())["rows"]
         tracked = np.zeros(manifest["frames"], bool)
         for r in rows:
             if r["seen_by"] == seen and r.get("track_share") and 0 <= r["source_frame"] - first < manifest["frames"]:
                 tracked[r["source_frame"] - first] = True
-        named = set(lent) | set(run.get("left_as_the_source_with_no_mask") or [])     # the rule below names these
-        bare = [first + f for f in bare_frames(carried, saved["region"], saved["read"], tracked) if first + f not in named]
-        out += lays_nothing(run, bare, named_frames.get(run["subject"], {}), int(saved["read"].sum()))
+        named_set = set(lent) | set(run.get("left_as_the_source_with_no_mask") or [])     # the rule below names these
+        bare = [first + f for f in bare_frames(carried, saved["region"], saved["read"], tracked) if first + f not in named_set]
+        said_sub = named_frames.get(run["subject"], {})
+        out += lays_nothing(run, bare, said_sub, int(saved["read"].sum()))
+        dropped_spans = sighting.get("parts_emptied_on_source_frames") or []
+        dropped_set = set(said_sub) | {f for a, b in dropped_spans for f in range(a, b + 1)}
+        dropped_bare = [f for f in bare if f in dropped_set]
+        if dropped_bare:
+            face_px = subject_face_neck_px(folder, run["subject"], seen, first, manifest["frames"])
+            out += dropped_or_unmasked_face_in_context(run, dropped_bare, face_px)
         unlaid = [f for f in run.get("left_as_the_source_with_no_mask") or [] if first <= f < first + manifest["frames"]]
         if lent or unlaid:
             kind = "plan" if run.get("planned") else "run"

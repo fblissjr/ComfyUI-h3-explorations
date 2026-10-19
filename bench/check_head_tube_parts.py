@@ -837,6 +837,61 @@ def _case_head_track_seed_mask() -> str:
     return "head_track clipped to person_track, 2-frame unclassified hole filled, hfp head_track region + Hair assignment verified, wrong shape refused"
 
 
+def _case_short_tube_dips_bridged() -> str:
+    """Short (<= SHORT_DIP_MAX_FRAMES) sharp dips (< SHORT_DIP_RATIO of smaller flanking anchor) in the head tube are bridged
+    from flanking frames clipped to person_track (1306c/f 1402-1404 and 1408-1411); a 7-frame dip or untracked dip is not."""
+    num_frames, height, width = 25, 64, 64
+    track_bool = np.zeros((num_frames, height, width), dtype=bool)
+    track_bool[:, 6:58, 10:54] = True
+    # Full head region is 25x40 = 1000 px (y=10..35, x=12..52), inside track_bool
+    tube = np.zeros((num_frames, height, width), dtype=bool)
+    tube[:, 10:35, 12:52] = True
+
+    # 1. 3-frame dip on frames 2..4 (150 px = 15x10, < 0.6 * 1000 = 600 px)
+    tube[2:5] = False
+    tube[2:5, 10:25, 12:22] = True
+    # 2. 4-frame dip on frames 7..10 (graduated dip: 500, 100, 150, 400 px, all < 600 px)
+    tube[7:11] = False
+    tube[7, 10:35, 12:32] = True    # 500 px
+    tube[8, 10:20, 12:22] = True    # 100 px
+    tube[9, 10:25, 12:22] = True    # 150 px
+    tube[10, 10:30, 12:32] = True   # 400 px
+    # 3. 7-frame dip on frames 13..19 (> SHORT_DIP_MAX_FRAMES = 6, stays unbridged at 150 px)
+    tube[13:20] = False
+    tube[13:20, 10:25, 12:22] = True
+    # 4. 2-frame dip on frames 22..23 where track_bool is empty on frame 22 (stays unbridged)
+    tube[22:24] = False
+    tube[22:24, 10:25, 12:22] = True
+    track_bool[22] = False
+
+    info = htp.sam31_head_tube(tube, seed_frame=0, person_track=track_bool)
+    bridged = info["bridged_short_dips"]
+    assert bridged == [
+        {"span": [2, 4], "before_px": [150, 150, 150], "after_px": [1000, 1000, 1000]},
+        {"span": [7, 10], "before_px": [500, 100, 150, 400], "after_px": [1000, 1000, 1000, 1000]},
+    ], f"unexpected bridged_short_dips: {bridged}"
+    for t in (2, 3, 4, 7, 8, 9, 10):
+        assert int(info["tube"][t].sum()) == 1000, f"frame {t} was not bridged to 1000 px"
+    for t in range(13, 20):
+        assert int(info["tube"][t].sum()) == 150, f"7-frame dip frame {t} should stay 150 px, got {int(info['tube'][t].sum())}"
+    assert int(info["tube"][22].sum()) == 0 and int(info["tube"][23].sum()) == 150, (
+        "dip with missing person_track on frame 22 was bridged"
+    )
+
+    # Also verify through head_tube_for_capture (without head_track, as on 1306c/f):
+    face_id = htp.NAME_TO_ID["Face_Neck"]
+    cmap = np.where(tube, face_id, 0).astype(np.uint8)
+    cap_res = htp.head_tube_for_capture(track_bool, tube, cmap, head_parts=("Face_Neck",))
+    assert any(d["span"] == [7, 10] for d in cap_res["provenance"]["bridged_short_dips"]), (
+        cap_res["provenance"]["bridged_short_dips"]
+    )
+    for t in (2, 3, 4, 7, 8, 9, 10):
+        assert int(cap_res["part_mask"][t].sum()) == 1000, (
+            f"head_tube_for_capture part_mask on bridged dip frame {t} is {int(cap_res['part_mask'][t].sum())}, expected 1000"
+        )
+    return "3-frame and 4-frame dips bridged to 1000 px in tube and part_mask; 7-frame dip and untracked dip left unbridged"
+
+
 def main() -> int:
     case("off_tube_false_positive_suppressed", _case_off_tube_false_positive)
     case("temporal_smoothing_bridges_dropout", _case_temporal_smoothing_dropout)
@@ -846,6 +901,7 @@ def main() -> int:
     case("person_track_regains_tube_after_gap", _case_person_track_regains_tube_after_gap)
     case("off_head_islands_not_resurrected", _case_off_head_islands_not_resurrected)
     case("head_track_seed_mask_and_neighbour_fill", _case_head_track_seed_mask)
+    case("short_tube_dips_bridged", _case_short_tube_dips_bridged)
     case("real_0613g_three_states", _case_real_0613g_three_states)
     case("provenance_json_and_cli", _case_provenance_and_cli)
     case("refuses_invalid_inputs", _case_refuses_invalid_inputs)

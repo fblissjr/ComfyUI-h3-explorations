@@ -120,6 +120,12 @@ SAM31_SCORE_FLOOR: float = (
 SYNTHETIC_CLASS_LOGIT: float = (
     5.0  #: reasoned: log-odds assigned to the discrete Sapiens2-Seg class map winner when smoothing inside the head tube
 )
+SHORT_DIP_MAX_FRAMES: int = (
+    6  #: measured: Hall 1306-1418 (third_fp_1306f vs 1306c, 2026-10-19), up to 6 frames (0.25 s at 24 fps) bridges the 3-frame (1402-1404) and 4-frame (1408-1411) head-tube dips
+)
+SHORT_DIP_RATIO: float = (
+    0.6  #: measured: Hall 1306-1418 (2026-10-19), 1403 dipped to 20,129 px vs 33,748/36,052 px and 1409-1410 dipped to 2,413-5,736 px vs 36,585/47,200 px (<60% of smaller flanking anchor)
+)
 
 
 def _load_seg_classes() -> tuple[tuple[str, ...], dict[str, int]]:
@@ -458,8 +464,10 @@ def sam31_head_tube(
                 tube[t] = regain_seed
                 if t not in regained_from_person_track_frames:
                     regained_from_person_track_frames.append(t)
+        tube, bridged_short_dips = bridge_short_tube_dips(tube, pt_bool)
     else:
         outside_person_track_clipped_px = [0] * num_frames
+        bridged_short_dips = []
 
     if not np.any(tube[seed_frame]):
         raise SystemExit(
@@ -475,8 +483,68 @@ def sam31_head_tube(
         "tube_px": tube_px,
         "outside_person_track_clipped_px": outside_person_track_clipped_px,
         "regained_from_person_track_frames": sorted(regained_from_person_track_frames),
+        "bridged_short_dips": bridged_short_dips,
         "normalized_range": normalized_range,
     }
+
+
+def bridge_short_tube_dips(
+    tube: np.ndarray,
+    track_bool: np.ndarray,
+    max_dip_frames: int = SHORT_DIP_MAX_FRAMES,
+    dip_ratio: float = SHORT_DIP_RATIO,
+) -> tuple[np.ndarray, list[dict[str, Any]]]:
+    """Bridge sharp <= ``max_dip_frames`` dips in ``tube`` from flanking frames when ``track_bool`` is present."""
+    out = np.asarray(tube, dtype=bool).copy()
+    tr = np.asarray(track_bool, dtype=bool)
+    num_frames = out.shape[0]
+    if num_frames < 3 or max_dip_frames < 1:
+        return out, []
+    counts = out.reshape(num_frames, -1).sum(axis=1).astype(np.int64)
+    track_present = tr.reshape(num_frames, -1).any(axis=1)
+    bridged_list: list[dict[str, Any]] = []
+    s = 1
+    while s < num_frames - 1:
+        left_px = int(counts[s - 1])
+        if left_px <= 0 or not track_present[s - 1] or counts[s] >= dip_ratio * left_px:
+            s += 1
+            continue
+        # Find the first frame r > s where the tube recovers to at least dip_ratio * left_px.
+        r = s + 1
+        while r < num_frames and counts[r] < dip_ratio * left_px:
+            r += 1
+        if r >= num_frames:
+            break
+        e = r - 1
+        span_len = e - s + 1
+        if span_len > max_dip_frames:
+            # Dip is longer than max_dip_frames: skip past the entire unrecovered run.
+            s = r + 1
+            continue
+        right_px = int(counts[e + 1])
+        thresh = dip_ratio * min(left_px, right_px)
+        if (
+            right_px > 0
+            and bool(track_present[s - 1 : e + 2].all())
+            and all(counts[t] < thresh for t in range(s, e + 1))
+        ):
+            before_px = [int(counts[t]) for t in range(s, e + 1)]
+            flank_union = out[s - 1] | out[e + 1]
+            for t in range(s, e + 1):
+                out[t] = out[t] | (flank_union & tr[t])
+                counts[t] = int(out[t].sum())
+            after_px = [int(counts[t]) for t in range(s, e + 1)]
+            bridged_list.append(
+                {
+                    "span": [int(s), int(e)],
+                    "before_px": before_px,
+                    "after_px": after_px,
+                }
+            )
+            s = e + 2
+        else:
+            s += 1
+    return out, bridged_list
 
 
 def temporal_smooth_probs(
@@ -1180,6 +1248,7 @@ def build_provenance_record(
     seed_frame: int = 0,
     outside_person_track_clipped_px: Sequence[int] | None = None,
     regained_from_person_track_frames: Sequence[int] | None = None,
+    bridged_short_dips: Sequence[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Assemble the JSON-serializable provenance record for a shot's head-tube part masks."""
     bridged = sorted(
@@ -1208,6 +1277,7 @@ def build_provenance_record(
         "off_tube_suppressed_px": list(seg_result["off_tube_suppressed_px"]),
         "outside_person_track_clipped_px": clipped_px,
         "regained_from_person_track_frames": regained_frames,
+        "bridged_short_dips": list(bridged_short_dips) if bridged_short_dips is not None else [],
         "face_points_in_tube": (
             list(pose_check["face_points_in_tube"]) if pose_check is not None else []
         ),
@@ -1307,6 +1377,7 @@ def run_head_tube_parts(
         seed_frame=seed_frame,
         outside_person_track_clipped_px=tube_info["outside_person_track_clipped_px"],
         regained_from_person_track_frames=tube_info["regained_from_person_track_frames"],
+        bridged_short_dips=tube_info["bridged_short_dips"],
     )
     if provenance_out is not None:
         provenance_out.parent.mkdir(parents=True, exist_ok=True)
@@ -1664,7 +1735,7 @@ def head_tube_for_capture(
     else:
         unlabeled_part_box = parts_bool[:, y0:y1, x0:x1] & ~np.isin(cmap_box, part_ids)
         cmap_box[unlabeled_part_box] = face_id
-        if head_track_bool is not None:
+        if head_track_bool is not None or tube_info["bridged_short_dips"]:
             raw_part_px_in_tube = [
                 int(np.logical_and(np.isin(cmap_box[t], part_ids), tube_box_crop[t]).sum())
                 for t in range(num_frames)
@@ -1673,6 +1744,17 @@ def head_tube_for_capture(
                 int(np.logical_and(cmap_box[t] == face_id, tube_box_crop[t]).sum()) if face_id >= 0 else 0
                 for t in range(num_frames)
             ]
+        if head_track_bool is None and tube_info["bridged_short_dips"]:
+            for dip in tube_info["bridged_short_dips"]:
+                s, e = dip["span"]
+                l_cls = cmap_box[s - 1]
+                r_cls = cmap_box[e + 1]
+                l_in = np.isin(l_cls, part_ids)
+                r_in = np.isin(r_cls, part_ids)
+                donor = np.where(l_in, l_cls, np.where(r_in, r_cls, np.uint8(face_id)))
+                for t in range(s, e + 1):
+                    uncls_t = tube_box_crop[t] & ~np.isin(cmap_box[t], part_ids)
+                    cmap_box[t] = np.where(uncls_t, donor, cmap_box[t])
 
     pose_kps: list[np.ndarray | None] | None = None
     kp_idx: dict[str, int] | None = None
@@ -1772,6 +1854,7 @@ def head_tube_for_capture(
         seed_frame=seed_frame,
         outside_person_track_clipped_px=tube_info["outside_person_track_clipped_px"],
         regained_from_person_track_frames=tube_info["regained_from_person_track_frames"],
+        bridged_short_dips=tube_info["bridged_short_dips"],
     )
     if provenance_out is not None:
         provenance_out.parent.mkdir(parents=True, exist_ok=True)
