@@ -227,7 +227,8 @@ class Made:
         out, listed = self.root / "output" / job["job"]["output"] / name, []
         out.mkdir(parents=True, exist_ok=True)
         for s in job["job"]["subjects"]:
-            for kind, suffix in (("track", "mkv"), ("parts", "mkv"), ("classes", "mkv"), ("held_things", "mkv"), ("mesh", "mp4")):
+            kinds = [("track", "mkv"), *((("head_track", "mkv"),) if s.get("track_head", True) else ()), ("parts", "mkv"), ("classes", "mkv"), ("held_things", "mkv"), ("mesh", "mp4")]
+            for kind, suffix in kinds:
                 (out / f"{name}_{s['label']}_{kind}_00001.{suffix}").write_bytes(b"")
                 listed.append(f"{job['job']['output']}/{name}/{name}_{s['label']}_{kind}_00001.{suffix}")
             (out / f"{name}_{s['label']}_shots_00001_shots.json").write_text("{}")
@@ -248,7 +249,7 @@ def args(**more) -> argparse.Namespace:
                  existing=False, writer=None, why_before=None, why_after=None, zoomed=None, least=None, least_why=None, ask=[], seed_cuts_of=None, parts=None, parts_by=None, parts_on=[], whole_frame=None, mouth=None, iris=None, form_why="",
                  place_and_action=None, by_hand=None, plan=None,
                  track_not=[], track_not_by=None, drop=None, drop_by=None, leave_word=[], leave_by=None, carry_words_from=None, no_carry_words=None,
-                 head_tube=None, depth=None)
+                 head_tube=None, depth=None, no_head_track=None)
     given.update(more)
     return argparse.Namespace(**given)
 
@@ -1899,7 +1900,7 @@ def the_defaults_this_load_carries() -> str:
         d = made.load()
         lines = {x["what"]: x for x in d["job"]["defaults"]}
         assert list(lines) == ["the reference held to the subject's track", "the eye", "the mouth", "depth", "zoom", "other people in the shot", "SAM 3.1 memory selection",
-                               "the strangers keep-out", "the part's pieces", "the hair band", "restore spans", "the text", "what the composite kept", "the voice"], list(lines)
+                               "SAM 3.1 head track", "the strangers keep-out", "the part's pieces", "the hair band", "restore spans", "the text", "what the composite kept", "the voice"], list(lines)
         assert lines["depth"]["carries"].startswith("off:") and lines["depth"]["from"].startswith("the chain's default"), lines["depth"]
         # SAM 3.1'S MEMORY SELECTION (the owner's word of 2026-10-17): on in every preview by default, said among a load's defaults from
         # the preview its masks come from; off only with a person's reason, which the preview's graph and the load's defaults both carry
@@ -1920,6 +1921,18 @@ def the_defaults_this_load_carries() -> str:
         else:
             raise AssertionError("a preview turned off with no reason was not refused by the builder")
         assert stl.memory_selection_carried({k: v for k, v in off.items() if k != "sam_memory_selection"})[0].startswith("not recorded")
+        # SAM 3.1'S HEAD TRACK (the owner's word of 2026-10-19): on in every preview and load by default; off only with a reason
+        ht = lines["SAM 3.1 head track"]
+        assert ht["carries"].startswith("on:") and ht["from"].startswith("the chain's default"), ht
+        assert graphs.preview(made.preview()["job"])["1005"]["inputs"]["track_head"] is True, "a preview's graph does not set track_head on"
+        ht_off = made.preview(no_head_track="comparison against un-tracked head tube")["job"]
+        assert ht_off["sam_head_track"]["on"] is False and "HEAD TRACK IS OFF" in ht_off["note"], ht_off["sam_head_track"]
+        assert graphs.preview(ht_off)["1005"]["inputs"]["track_head"] is False, "a preview with head track off still runs track_head"
+        refused(lambda: made.preview(no_head_track="  "), "--no-head-track takes the reason")
+        refused(lambda: made.load(no_head_track="  "), "--no-head-track takes the reason")
+        d_ht_off = made.load(no_head_track="comparison against un-tracked head tube")
+        assert d_ht_off["job"]["sam_head_track"]["on"] is False and "HEAD TRACK IS OFF" in d_ht_off["job"]["note"]
+        assert {x["what"]: x for x in d_ht_off["job"]["defaults"]}["SAM 3.1 head track"]["carries"].startswith("OFF")
         assert lines["the voice"]["carries"].startswith("the voice table's") and lines["the voice"]["from"] == "the chain", lines["the voice"]
         # THE PLAN'S VOICE (the owner's word of 2026-10-15 on 5675b): said among the defaults, with who said it; two voices in a load refused
         made.plan["subjects"]["a"]["voice"] = [{"first": 100, "last": 159, "voice": "talks, not heard", "by": "THE OWNER, 2026-10-15"}]

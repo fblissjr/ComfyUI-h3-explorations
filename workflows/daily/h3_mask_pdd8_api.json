@@ -223,7 +223,8 @@
       "detection_threshold": 0.5,
       "max_people": 16,
       "head_phrase": "head",
-      "corrections": ""
+      "corrections": "",
+      "track_head": true
     }
   },
   "104": {

@@ -366,9 +366,11 @@ SUBJECT_PHRASE = "person"
 #: person's head, the second place a match has to hold.
 HEAD_PHRASE = "head"
 #: The default of `track_head`: whether `MiniMaxH3SubjectTrack` also propagates
-#: the subject's head with SAM 3.1 across each shot (`head_mask` output). Off by
-#: default so existing graphs and outputs are byte-identical unless enabled.
-TRACK_HEAD = False
+#: the subject's head with SAM 3.1 across each shot (`head_mask` output).
+#: Measured on the kitchen lead 751-785 mask test (2026-10-19) and decided by the
+#: owner (C198, C199, `docs/wiki/decisions.md`, 2026-10-19): replaces `False`;
+#: tested on one shot so far.
+TRACK_HEAD = True
 #: The default of `max_people`: the most detections of the phrase taken from a
 #: frame. Reasoned: more than a stage usually shows, and each one costs a mask
 #: refinement only on the few frames that are probed.
@@ -916,6 +918,9 @@ def _track_head_span(result: Followed, shot: Shot, start: int, end: int, seed_fr
     piece = result.pieces.get(shot.start)
     if piece is None:
         return
+    head_fn = getattr(sign, "head", None)
+    if head_fn is None:
+        return
     h_piece = result.head_pieces.get(shot.start)
     if h_piece is None:
         h_piece = torch.zeros_like(piece)
@@ -924,23 +929,17 @@ def _track_head_span(result: Followed, shot: Shot, start: int, end: int, seed_fr
     if not bool((span_piece > 0.5).any()):
         h_piece[start - shot.start:end - shot.start] = 0.0
         return
-    head_fn = getattr(sign, "head", None)
-    h_seed_frame, h_seed = int(seed_frame), None
-    if head_fn is not None:
-        h_seed = head_fn(h_seed_frame, seed_person)
-        if h_seed is None or not bool((h_seed > 0.5).any()):
-            candidates = sorted(gallery_frames(span_piece), key=lambda k: abs((start + k) - h_seed_frame))
-            for k in candidates:
-                f = start + k
-                m = head_fn(f, (piece[f - shot.start] > 0.5).to(torch.float32))
-                if m is not None and bool((m > 0.5).any()):
-                    h_seed_frame, h_seed = f, m
-                    break
-        if h_seed is None or not bool((h_seed > 0.5).any()):
-            h_seed_frame, h_seed = int(seed_frame), top_third(seed_person)
-    else:
-        if _has_head(sign(h_seed_frame, seed_person)):
-            h_seed = top_third(seed_person)
+    h_seed_frame, h_seed = int(seed_frame), head_fn(int(seed_frame), seed_person)
+    if h_seed is None or not bool((h_seed > 0.5).any()):
+        candidates = sorted(gallery_frames(span_piece), key=lambda k: abs((start + k) - h_seed_frame))
+        for k in candidates:
+            f = start + k
+            m = head_fn(f, (piece[f - shot.start] > 0.5).to(torch.float32))
+            if m is not None and bool((m > 0.5).any()):
+                h_seed_frame, h_seed = f, m
+                break
+    if h_seed is None or not bool((h_seed > 0.5).any()):
+        h_seed_frame, h_seed = int(seed_frame), top_third(seed_person)
     if h_seed is None or not bool((h_seed > 0.5).any()):
         h_piece[start - shot.start:end - shot.start] = 0.0
         return
@@ -2045,8 +2044,8 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
                                          "other shot is then matched against the person it names. A shot cannot have "
                                          "both a seed and a correction.")),
                 # appended 2026-10-18
-                io.Boolean.Input("track_head", default=TRACK_HEAD, optional=True, advanced=True,
-                                 tooltip=("Optional. When on, also propagates the subject's head mask in each shot "
+                io.Boolean.Input("track_head", default=TRACK_HEAD, optional=True,
+                                 tooltip=("When on (the default), also propagates the subject's head mask in each shot "
                                           "from the head detection on that shot's seed frame, clipped to the person "
                                           "track, and emits it on `head_mask`.")),
             ],
@@ -2137,8 +2136,12 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
                 assemble(n, h, w, found.head_pieces), in_place=True,
             )
             head_mask = ((head_raw > 0.5) & (mask > 0.5)).to(torch.float32)
+            head_frames = int((head_mask > 0.5).flatten(1).any(dim=1).sum())
+            text += f"\nhead track (track_head=True): {head_frames} of {n} frame(s)"
         else:
             head_mask = torch.zeros((n, h, w), dtype=torch.float32)
+            head_frames = 0
+            text += "\nhead track (track_head=False): off"
         trouble = track_scores.get("trouble") or []
         if trouble:
             text += ("\nthe tracker's own score per frame could not be read on " + f"{len(trouble)} run(s), and is left "
@@ -2150,6 +2153,8 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
                                  held=held, on_others=on_others,
                                  track_scores=track_scores, joined=joined, gap=moved_by_a_gap(found, named_value),
                                  parts=parts, unsure=unsure)
+        table["track_head"] = bool(track_head)
+        table["head_frames"] = head_frames
         table_json = shot_table.as_json(table)
         if len(table_json) > TABLE_SAID_OVER:
             # the signatures of every shot's people are most of it (mrcorn's cold read: nobody should meet it first in a browser)

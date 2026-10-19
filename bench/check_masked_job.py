@@ -315,7 +315,7 @@ def a_preview_samples_nothing():
 def no_two_saves_share_a_name():
     g = graphs.preview(JOB)
     names = [v for n in g.values() for k, v in n["inputs"].items() if k in ("filename_prefix", "table_prefix")]
-    assert len(names) == 5 * len(JOB["subjects"]) + 2 * len(POSED), f"{len(names)} saves for {len(JOB['subjects'])} subjects"
+    assert len(names) == 6 * len(JOB["subjects"]) + 2 * len(POSED), f"{len(names)} saves for {len(JOB['subjects'])} subjects"
     twice = sorted({n for n in names if names.count(n) > 1})
     assert not twice, f"saved twice: {twice}"
     root = f"{JOB['output']}/{JOB['name']}/"
@@ -332,24 +332,26 @@ def the_capture_command_reads_what_the_preview_saves():
         who, spec = subject["label"], line.strip().split(" ", 1)[1]
         assert spec.startswith(f"{who}:"), f"{who}: the line is {spec[:30]!r}"
         given = dict(pair.split("=", 1) for pair in spec.split(":", 1)[1].split(","))
-        want = {"track", "parts", "classes", "shots", "by", "at"} | ({"pose"} if subject.get("pose", True) else set())
+        want = {"track", "head_track", "parts", "classes", "shots", "by", "at"} | ({"pose"} if subject.get("pose", True) else set())
         assert set(given) == want, f"{who}: the capture is given {sorted(given)}"
         assert given["at"] == str(JOB["first"]), f"{who}: at={given['at']}"
         for key in want - {"by", "at"}:
             prefix = graphs.prefixes(JOB, who)[key]
             assert prefix in saved and given[key].startswith(f"<{prefix}"), f"{who}: {key} is {given[key]}, the preview saves {prefix}"
-    # track_head off (False) is byte-identical to omitted; track_head on (True) wires head_mask (slot 4) to _head_track and passes head_track=
+    # By default track_head is True and saved to _head_track; turning it off sets track_head=False on 1005 and omits 1028/1029 and head_track=
+    assert g["1005"]["inputs"].get("track_head") is True and g["1105"]["inputs"].get("track_head") is True, g["1005"]["inputs"]
+    assert g["1028"]["inputs"]["mask"] == ["1005", graphs.SLOT["MiniMaxH3SubjectTrack"]["head_mask"]], g["1028"]
+    assert g["1029"]["inputs"]["filename_prefix"] == graphs.prefixes(JOB, "a")["head_track"], g["1029"]
     job_false = copy.deepcopy(JOB)
     job_false["subjects"][0]["track_head"] = False
-    assert graphs.preview(job_false) == g, "track_head=False changed the preview graph against track_head omitted"
-    job_head = copy.deepcopy(JOB)
-    job_head["subjects"][0]["track_head"] = True
-    g_head = graphs.preview(job_head)
-    assert g_head["1005"]["inputs"].get("track_head") is True and "track_head" not in g_head["1105"]["inputs"], g_head["1005"]["inputs"]
-    assert g_head["1028"]["inputs"]["mask"] == ["1005", graphs.SLOT["MiniMaxH3SubjectTrack"]["head_mask"]], g_head["1028"]
-    assert g_head["1029"]["inputs"]["filename_prefix"] == graphs.prefixes(job_head, "a")["head_track"], g_head["1029"]
-    cmd_head = tool.capture_command(job_head, "2026-01-01")
-    assert "head_track=<Video/check/check/check_a_head_track_*.mkv>" in cmd_head and "check_b_head_track" not in cmd_head, cmd_head
+    g_false = graphs.preview(job_false)
+    assert g_false["1005"]["inputs"].get("track_head") is False and g_false["1105"]["inputs"].get("track_head") is True, g_false["1005"]["inputs"]
+    assert "1028" not in g_false and "1029" not in g_false and "1128" in g_false, sorted(g_false)
+    cmd_false = tool.capture_command(job_false, "2026-01-01")
+    assert "check_a_head_track" not in cmd_false and "head_track=<Video/check/check/check_b_head_track_*.mkv>" in cmd_false, cmd_false
+    job_all_off = {**copy.deepcopy(JOB), "sam_head_track": {"on": False, "why": "comparison", "said_by": "owner"}}
+    g_all_off = graphs.preview(job_all_off)
+    assert g_all_off["1005"]["inputs"]["track_head"] is False and "1028" not in g_all_off and "1128" not in g_all_off
     return "a subject's held things are left out: they are not a part"
 
 
@@ -1508,16 +1510,18 @@ def build_refuses_what_it_must():
         assert json.loads((folder / "preview.json").read_text()) == graphs.preview(job), "the graph written is not the graph built"
         built = json.loads((folder / "preview.built.json").read_text())
         assert built["tracker_mask_version"] == version and set(built["expects"]) == {"a", "b", "c"}, built
-        assert set(built["expects"]["c"]) == set(tool.SAVED_AS) - {"mesh", "pose", "head_track"} \
-            and set(built["expects"]["a"]) == set(tool.SAVED_AS) - {"head_track"}, \
+        assert set(built["expects"]["c"]) == set(tool.SAVED_AS) - {"mesh", "pose"} \
+            and set(built["expects"]["a"]) == set(tool.SAVED_AS), \
             "what the preview must leave on disk does not follow who has a pose pass"
-        assert "head_track" in tool.expected_files({**job, "subjects": [{**job["subjects"][0], "track_head": True}]})["a"]
+        assert "head_track" not in tool.expected_files({**job, "subjects": [{**job["subjects"][0], "track_head": False}]})["a"]
+        _refused(lambda: tool.build(_job_file(tmp, {**job, "sam_head_track": {"on": False}}), "preview", **where),
+                 "sam_head_track", "why")
         # every save of the graph is one of the things looked for afterwards, and the other way round
         saved = {v for n in graphs.preview(job).values() for k, v in n["inputs"].items() if k in ("filename_prefix", "table_prefix")}
         looked_for = {p[:-len(tool.SAVED_AS[k])] for things in built["expects"].values() for k, p in things.items()}
         assert looked_for == saved, f"saved and not looked for: {sorted(saved - looked_for)}; looked for and not saved: {sorted(looked_for - saved)}"
         out = tmp / "output"
-        for name in ("check_a_track_00001.mkv", "check_a_track_00001.png", "check_a_shots_00001_shots.json", "check_a_pose_table.json"):
+        for name in ("check_a_track_00001.mkv", "check_a_track_00001.png", "check_a_head_track_00001.mkv", "check_a_shots_00001_shots.json", "check_a_pose_table.json"):
             (out / "Video/check/check").mkdir(parents=True, exist_ok=True)
             (out / "Video/check/check" / name).write_bytes(b"")
         found, missing = tool.found_on_disk({"a": built["expects"]["a"]}, out)

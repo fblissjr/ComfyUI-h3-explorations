@@ -412,7 +412,8 @@ def seed_of(cast_lines: list[dict] | None, label: str, shot: dict, canvas, cuts=
 
 
 def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by: str, cast_lines=None, now: str = "", name: str = "",
-                ask: dict | None = None, seed_cuts: dict | None = None, no_memory_selection: str | None = None) -> dict:
+                ask: dict | None = None, seed_cuts: dict | None = None, no_memory_selection: str | None = None,
+                no_head_track: str | None = None) -> dict:
     """The job file of one shot's preview: every subject the record says is in it, a pose pass for each. `name` is
     the preview's, `shot_c_<first>` when left out; a preview made again is handed its lettered name.
 
@@ -426,14 +427,23 @@ def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by
 
     `no_memory_selection` is a person's reason for tracking with ComfyUI's last-six-frames memory in place of SAM 3.1's
     memory selection, the chain's default (`h3_config.MASKED_JOB_SAM_CORRECTIONS`): kept in the job block as
-    `sam_memory_selection`, which the graph reads (`masked_job_graph.memory_selection_of`) and a load's defaults name."""
+    `sam_memory_selection`, which the graph reads (`masked_job_graph.memory_selection_of`) and a load's defaults name.
+
+    `no_head_track` is a person's reason for turning off SAM 3.1 head propagation (`track_head`), the chain's default
+    (`h3_config.SUBJECT_TRACK["track_head"]`): kept in the job block as `sam_head_track` and on each subject's
+    `track_head`."""
     import h3_config
     ask = ask or {}
     if no_memory_selection is not None and not " ".join(str(no_memory_selection).split()):
         raise Refused("--no-memory-selection takes the reason in words: memory selection is the chain's default, and the word is kept")
+    if no_head_track is not None and not " ".join(str(no_head_track).split()):
+        raise Refused("--no-head-track takes the reason in words: the SAM 3.1 head track is the chain's default, and the word is kept")
     memory = ({"on": False, "why": " ".join(str(no_memory_selection).split()), "said_by": by, "at": now} if no_memory_selection is not None else
               {"on": bool(h3_config.MASKED_JOB_SAM_CORRECTIONS["memory_selection"]), "said_by": "the chain's default",
                "why": "h3_config.MASKED_JOB_SAM_CORRECTIONS (the owner's word, 2026-10-17)"})
+    head_track = ({"on": False, "why": " ".join(str(no_head_track).split()), "said_by": by, "at": now} if no_head_track is not None else
+                  {"on": bool(h3_config.SUBJECT_TRACK["track_head"]), "said_by": "the chain's default",
+                   "why": "h3_config.SUBJECT_TRACK['track_head'] (the owner's word, 2026-10-19)"})
     for label, why in ask.items():
         said_ = (shot["who"].get(label) or {}).get("present")
         if said_ != "unsure" or not str(why).strip():
@@ -450,7 +460,7 @@ def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by
     subjects, said = [], []
     for label in order:
         p = planned(plan, label)
-        one = {"label": label, "pick": PICK, "parts": list(p["parts"]), "still": p["still"]}
+        one = {"label": label, "pick": PICK, "parts": list(p["parts"]), "still": p["still"], "track_head": head_track["on"]}
         seed = seeds[label]
         if seed is not None:
             one["seeds"] = seed["text"]
@@ -485,10 +495,11 @@ def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by
             + f"THE PICKS: {'; '.join(said)}. A pick by the largest person is a guess: the tiles are looked at before anything is built on this "
             f"preview, and a wrong pick is corrected in the shots record (the shot's `order`, or a frame for the subject) and the preview made again."
             + (f" THIS IS A PREVIEW MADE AGAIN: {name}, after {base} or a letter before it, which stand as they were made and are not read here." if name != base else "")
-            + (f" SAM 3.1'S MEMORY SELECTION IS OFF in this preview's trackers, on {by}'s word: {memory['why']}." if not memory["on"] else ""))
+            + (f" SAM 3.1'S MEMORY SELECTION IS OFF in this preview's trackers, on {by}'s word: {memory['why']}." if not memory["on"] else "")
+            + (f" THE SAM 3.1 HEAD TRACK IS OFF in this preview's trackers, on {by}'s word: {head_track['why']}." if not head_track["on"] else ""))
     return {"job": {"name": name, "note": note, "source": source, "first": shot["first"], "frames": frames, "canvas": canvas,
                     "output": OUTPUT_KEY.format(video=video, session=by), "subjects": subjects, "left_out": [], "texts": {},
-                    "sam_memory_selection": memory}, "defaults": {}, "loads": []}
+                    "sam_memory_selection": memory, "sam_head_track": head_track}, "defaults": {}, "loads": []}
 
 
 def keep_outs_of(p: dict, subject: str, preview: dict, people: list[str], video: str, output: Path, preview_files) -> tuple[dict | None, str]:
@@ -1591,7 +1602,7 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
             raise Refused(f"--carry-words-from {old_name}: word-bearing key 'loads[0].{k}' in old job cannot be carried")
     job_known = {"name", "note", "source", "first", "frames", "canvas", "output", "subjects", "capture", "preview", "reference_folder",
                  "texts", "keep_outs", "part_on_track", "others_present", "defaults", "restore",
-                 "left_out", "zoomed", "whole_frame", "head_tube", "depth", "part", "track_not", "reference", "carried_words_from", "no_carry_words"}
+                 "left_out", "zoomed", "whole_frame", "head_tube", "depth", "sam_head_track", "part", "track_not", "reference", "carried_words_from", "no_carry_words"}
     for k in old_job:
         if k not in job_known:
             raise Refused(f"--carry-words-from {old_name}: word-bearing key 'job.{k}' in old job cannot be carried")
@@ -1633,7 +1644,7 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
     out: dict = {
         "first": first, "frames": frames, "why_before": "", "why_after": "", "zoomed": None, "whole_frame": None,
         "zoomed_meta": None, "whole_frame_meta": None, "head_tube": None, "head_tube_meta": None,
-        "depth": None, "depth_meta": None,
+        "depth": None, "depth_meta": None, "no_head_track": None, "no_head_track_meta": None,
         "least": None, "least_why": None, "hold_part": [], "drop": None, "drop_by": None, "drop_meta": None,
         "parts": None, "parts_by": None, "parts_on": [], "track_not": [], "track_not_by": None,
         "motion": None, "motion_why": None, "no_strangers": None, "no_strangers_meta": None,
@@ -1678,11 +1689,11 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
             old_mine = s
         else:
             for k in s:
-                if k not in ("label", "phrase", "pick", "parts", "still", "pose"):
+                if k not in ("label", "phrase", "pick", "parts", "still", "pose", "track_head"):
                     raise Refused(f"--carry-words-from {old_name}: word-bearing key 'subjects.{lbl}.{k}' on another subject cannot be carried")
     if old_mine is None:
         raise Refused(f"--carry-words-from {old_name}: subject {subject!r} is not in old job's subjects")
-    subj_known = {"label", "phrase", "pick", "parts", "still", "pose", "parts_file", "parts_held_to_track_px",
+    subj_known = {"label", "phrase", "pick", "parts", "still", "pose", "track_head", "parts_file", "parts_held_to_track_px",
                   "pieces", "pieces_by", "least", "least_by", "least_carried", "word", "word_by", "word_carried",
                   "drop", "drop_by", "drop_carried", "parts_of_this_load", "parts_by", "parts_on"}
     for k in old_mine:
@@ -1828,6 +1839,16 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
             out["depth_meta"] = {"said_by": odp.get("said_by"), "at": odp.get("at"), "carried": dict(carried_rec)}
             carried_said.append(f"depth ({odp.get('said_by')}, {odp.get('at')}): {out['depth']}")
 
+    if old_job.get("sam_head_track") is not None:
+        osht = old_job["sam_head_track"]
+        if not isinstance(osht, dict) or set(osht) - {"on", "why", "said_by", "at", "carried"}:
+            raise Refused(f"--carry-words-from {old_name}: word-bearing key in job.sam_head_track {osht!r} cannot be carried")
+        if not osht.get("on", True) and osht.get("said_by") != "the chain's default":
+            sht_str = str(osht.get("why") or "")
+            out["no_head_track"] = tagged(sht_str)
+            out["no_head_track_meta"] = {"said_by": osht.get("said_by"), "at": osht.get("at"), "carried": dict(carried_rec)}
+            carried_said.append(f"no_head_track ({osht.get('said_by')}, {osht.get('at')}): {out['no_head_track']}")
+
     if old_job.get("track_not") is not None:
         otn = old_job["track_not"]
         if not isinstance(otn, dict) or set(otn) - {"by", "preview", "made", "carried"}:
@@ -1924,7 +1945,7 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
                   "the part held on a person's word", "the face lines", "the head tube", "depth", "zoom", "other people in the shot",
                   "the strangers keep-out", "the part's pieces", "the hair band", "restore spans", "the text",
                   "what the composite kept", "the voice", "the seam", "the kept frames' noise",
-                  "SAM 3.1 memory selection"}     # read again from the new job's own preview, never carried
+                  "SAM 3.1 memory selection", "SAM 3.1 head track"}     # read again from the new job's own preview, never carried
     defs = {}
     for row in old_job.get("defaults") or []:
         if not isinstance(row, dict) or row.get("what") not in defs_known:
@@ -1987,7 +2008,8 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
              mouth_on: list[tuple[int, int, str]] | None = None, data: Path | None = None,
               drop: str | None = None, drop_by: str | None = None, carry_words_from: dict | Path | str | None = None,
               leave_word: list[str] | None = None, leave_by: str | None = None, no_carry_words: str | None = None,
-              head_tube: str | None = None, depth: str | None = None, capture_folder: Path | str | None = None) -> dict:
+              head_tube: str | None = None, depth: str | None = None, no_head_track: str | None = None,
+              capture_folder: Path | str | None = None) -> dict:
     """The job file of one subject's load on a shot, from the shot's preview. `preview` is the preview's own job
     block; `source` is the file the load renders from, the video's present copy (the preview's own when left out).
     `parts` with `parts_by` makes the load's part some of its subject's plan parts (`part_of`)."""
@@ -2003,7 +2025,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         raise Refused(f"the preview {preview['name']} is of {preview['first']}-{preview['first'] + preview['frames'] - 1}, not of the shot {shot['first']}-{shot['last']}")
     p = planned(plan, subject)
     cw = None
-    wb_from_cw = wa_from_cw = zoomed_from_cw = whole_from_cw = head_tube_from_cw = depth_from_cw = least_from_cw = False
+    wb_from_cw = wa_from_cw = zoomed_from_cw = whole_from_cw = head_tube_from_cw = depth_from_cw = no_head_track_from_cw = least_from_cw = False
     parts_from_cw = track_not_from_cw = motion_from_cw = ns_from_cw = es_from_cw = False
     seam_from_cw = cn_from_cw = drop_from_cw = False
     n_cw_hp = 0
@@ -2045,6 +2067,10 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             depth, depth_from_cw = cw["depth"], True
         elif cw["depth"] is not None:
             _ov("depth ", f"depth={depth!r}", repr(cw["depth"]))
+        if no_head_track is None and cw["no_head_track"] is not None:
+            no_head_track, no_head_track_from_cw = cw["no_head_track"], True
+        elif cw["no_head_track"] is not None:
+            _ov("no_head_track ", f"no_head_track={no_head_track!r}", repr(cw["no_head_track"]))
         if least is None and cw["least"] is not None:
             least, least_why, least_from_cw = cw["least"], cw["least_why"], True
         elif cw["least"] is not None:
@@ -2545,6 +2571,21 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         )
         chosen += (f" DEPTH ENABLED FOR THIS LOAD (`--depth`), on {depth_block['said_by']}'s word: "
                    f"{depth_block['why']}.")
+    no_head_track_block = None
+    if no_head_track is not None and not " ".join(str(no_head_track).split()):
+        raise Refused("--no-head-track takes the reason in words: the SAM 3.1 head track is the chain's default, and the word is kept")
+    if no_head_track is not None:
+        mine = next(s for s in subjects if s["label"] == subject)
+        mine["track_head"] = False
+        no_head_track_block = (
+            {"on": False, "why": " ".join(str(no_head_track).split()),
+             "said_by": cw["no_head_track_meta"]["said_by"], "at": cw["no_head_track_meta"]["at"],
+             "carried": dict(cw["no_head_track_meta"]["carried"])}
+            if (cw and no_head_track_from_cw and cw.get("no_head_track_meta")) else
+            {"on": False, "why": " ".join(str(no_head_track).split()), "said_by": by, "at": now}
+        )
+        chosen += (f" THE SAM 3.1 HEAD TRACK IS OFF FOR THIS LOAD (`--no-head-track`), on {no_head_track_block['said_by']}'s word: "
+                   f"{no_head_track_block['why']}.")
     # what the composite kept, saved for the review clips (the song node's `save_kept`): a chain default, the job's switch (2026-10-15)
     load["save_kept"] = True
     # THE VOICE (the owner's word of 2026-10-15 on 5675b: the plan says per span whether a subject sings, talks unheard or is silent; the
@@ -2565,7 +2606,8 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             "why": f"silent window on {voice['first']}-{voice['last']} ({voice['by']}): no mouth drawn",
         }
     carried = defaults_carried(p, load, subjects, subject, kept, ref_form, zoom_block, whole_block,
-                               head_tube_block=head_tube_block, depth_block=depth_block, preview=preview)
+                               head_tube_block=head_tube_block, depth_block=depth_block, preview=preview,
+                               no_head_track_block=no_head_track_block)
     if motion == "none":
         # no reference: the rows of the drawn reference say nothing of this load, and the text is made from no record
         carried = [x for x in carried if x["what"] not in ("the reference held to the subject's track", "the eye", "the mouth")]
@@ -2642,6 +2684,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
                     **({"whole_frame": whole_block} if whole_block else {}),
                     **({"head_tube": head_tube_block} if head_tube_block else {}),
                     **({"depth": depth_block} if depth_block else {}),
+                    **({"sam_head_track": no_head_track_block} if no_head_track_block else {}),
                     **({"track_not": gone} if gone else {}),
                     **({"carried_words_from": {**cw["carried_rec"], **({"left_words": cw["left_words"]} if cw["left_words"] else {})}} if cw else {}),
                     **({"no_carry_words": {"why": ncw_why, "by": by, "at": now}} if ncw_why else {}),
@@ -2805,8 +2848,28 @@ def memory_selection_carried(preview: dict | None) -> tuple[str, str]:
             f"{said.get('said_by')}, {said.get('at')}: {said.get('why')}")
 
 
+def head_track_carried(preview: dict | None, load_head_track: dict | None = None) -> tuple[str, str]:
+    """What the SAM 3.1 head track is for this load, from its own `--no-head-track` or the preview its masks come from: the line of THE DEFAULTS."""
+    if load_head_track is not None and not load_head_track.get("on", True):
+        return ("OFF for this load, turned off on a person's word: the capture does not read the preview's head track",
+                f"{load_head_track.get('said_by')}, {load_head_track.get('at')}: {load_head_track.get('why')}")
+    if preview is None:
+        return "not read (no preview handed in)", "shot_to_load.py::defaults_carried"
+    said = (preview or {}).get("sam_head_track")
+    if said is None:
+        return ("on when the preview saved a head track (`_head_track_*.mkv`), else not recorded (preview made before 2026-10-19)",
+                f"the preview {preview.get('name')}'s job file")
+    if said.get("on"):
+        return ("on: the preview's trackers propagated the subject's head with SAM 3.1 (`track_head=True`) and the capture reads it "
+                "as the head tube's seed mask (`head_tube_parts.py::head_tube_for_capture`)",
+                f"{said.get('said_by')}: {said.get('why')}")
+    return ("OFF in the preview this load's masks come from, turned off on a person's word",
+            f"{said.get('said_by')}, {said.get('at')}: {said.get('why')}")
+
+
 def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: dict | None, ref_form: dict, zoom_block, whole_block,
-                     head_tube_block: dict | None = None, depth_block: dict | None = None, preview: dict | None = None) -> list[dict]:
+                     head_tube_block: dict | None = None, depth_block: dict | None = None, preview: dict | None = None,
+                     no_head_track_block: dict | None = None) -> list[dict]:
     """THE DEFAULTS THIS LOAD CARRIES (the owner's word of 2026-10-14), one line each, with where each comes from: printed by the
     job step and kept in the job file (`job.defaults`). `preview` is the job block of the preview the load's masks come from."""
     import h3_config
@@ -2850,6 +2913,7 @@ def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: di
          f"{(zoom_block or whole_block)['said_by']}: {(zoom_block or whole_block)['why']}"),
         ("other people in the shot", (p.get("others_present") or {}).get("said", "not read"), "bench/others_present.py, from the preview's tables and the owner's answers"),
         ("SAM 3.1 memory selection", *memory_selection_carried(preview)),
+        ("SAM 3.1 head track", *head_track_carried(preview, no_head_track_block)),
         ("the strangers keep-out", "kept out" if "strangers" in names else
          "not kept out, turned off on a person's word; the part still held to the subject's own track" if p.get("strangers_turned_off") else
          "not kept out", p.get("strangers_from") or ("the plan" + (f": {p.get('keep_outs_by')}" if p.get("keep_outs") else ""))),
@@ -2892,7 +2956,8 @@ def step_preview(a, world) -> None:
     if seed_cuts and not cast:
         raise Refused("--seed-cuts-of goes with --cast: the cuts say where a seed from the cast file may go")
     job = preview_job(shots, plan, shot, video, str(source), a.by, cast, load_chain.utc_now(), name=name, ask=ask, seed_cuts=seed_cuts,
-                      no_memory_selection=getattr(a, "no_memory_selection", None))
+                      no_memory_selection=getattr(a, "no_memory_selection", None),
+                      no_head_track=getattr(a, "no_head_track", None))
     if seed_cuts:
         job["job"]["seed_cuts"] = seed_cuts
     if ask:
@@ -2905,6 +2970,8 @@ def step_preview(a, world) -> None:
                       "or a box now in the cast file) takes --remake, which gives it the next free letter and leaves the earlier one as it is")
     print(f"{job['job']['name']}: source frames {shot['first']}-{shot['last']}; " + "; ".join(
         f"{s['label']} " + ("seeded from the cast (its `pick` decides nothing)" if "seeds" in s else f"picked on {s['pick_at']}") for s in job["job"]["subjects"]))
+    ht_cfg = job["job"]["sam_head_track"]
+    print(f"SAM 3.1 head track: {'on' if ht_cfg['on'] else 'OFF'} [{ht_cfg['said_by']}: {ht_cfg['why']}]")
     print(job["job"]["note"])
     folder, _ = held_as_the_builder_holds(job["job"], a.day, world)
     if world.dry:
@@ -3125,7 +3192,8 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
                    context_noise=getattr(a, "context_noise", None), context_noise_why=getattr(a, "context_noise_why", None),
                    drop=getattr(a, "drop", None), drop_by=getattr(a, "drop_by", None), carry_words_from=cwf,
                    leave_word=lw, leave_by=lby, no_carry_words=ncw,
-                   head_tube=getattr(a, "head_tube", None), depth=getattr(a, "depth", None))
+                   head_tube=getattr(a, "head_tube", None), depth=getattr(a, "depth", None),
+                   no_head_track=getattr(a, "no_head_track", None))
     job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "ITS PREVIEW WAS MADE ON AN EARLIER COPY")
     out = folder / f"{name}.json"
     print(f"{name}: {a.subject}, {renders(region, eff_parts)}, source frames {job['loads'][0]['first']}-{job['loads'][0]['first'] + job['loads'][0]['frames'] - 1}; "
@@ -3621,6 +3689,10 @@ def main() -> int:
     sub.choices["preview"].add_argument("--no-memory-selection", metavar="WHY",
                                         help="track with ComfyUI's last-six-frames memory, not SAM 3.1's memory selection (the chain's default); the "
                                              "reason is kept in the preview's job file and named in each load's defaults")
+    sub.choices["preview"].add_argument("--no-head-track", metavar="WHY",
+                                        help="do not propagate the subject's head with SAM 3.1 (`track_head=False`) in this preview's trackers "
+                                             "(the chain's default is `track_head=True`); the reason is kept in the preview's job file and named "
+                                             "in each load's defaults")
     sub.choices["preview"].add_argument("--queue", action="store_true", help="build and queue the preview, on an empty queue")
     sub.choices["preview"].add_argument("--remake", action="store_true", help="the next free letter after the name, for a preview made again; the earlier one stands")
     j = sub.choices["job"]
@@ -3703,6 +3775,9 @@ def main() -> int:
     j.add_argument("--depth", nargs="?", const="opt-in --depth", default=None, metavar="WHY",
                    help="measure MoGe-2 depth (bench/measure_moge2_depth.py) on frames where two tracks or a keep-out overlap into the capture folder "
                         "and pass --depth to the files step (off by default); optional reason kept in the job file")
+    j.add_argument("--no-head-track", metavar="WHY",
+                   help="do not pass the preview's SAM 3.1 head track (`head_track=`) to the capture on this load; the reason is kept in the job file "
+                        "and named in THE DEFAULTS THIS LOAD CARRIES")
     r = sub.add_parser("reference")
     r.add_argument("job_file")
     r.add_argument("--plain", metavar="WHY", help="take the plain cut, on a person's word; the reason is kept in the job file")

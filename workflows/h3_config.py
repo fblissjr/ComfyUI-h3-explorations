@@ -1262,9 +1262,13 @@ SEGMENTER = "sam3.1_multiplex_fp32.safetensors"
 #: frame's edge and `most central` the person meant
 #: (`bench/results/2026-10-07_subject_track_under_nudge.md`). It was
 #: `largest`; an arm recorded before that date was picked with `largest`.
+#: `track_head` is `True` since 2026-10-19 (the owner, C198/C199,
+#: `docs/wiki/decisions.md`, 2026-10-19, measured on the kitchen lead 751-785
+#: mask test; replaces `False` and the capture's un-tracked `sam31_head_tube`
+#: fallback; tested on one shot so far).
 SUBJECT_TRACK = dict(subject_phrase="person", pick="most central", pick_on="automatic", match="automatic",
                      cuts="automatic", detection_threshold=0.5, max_people=16, head_phrase="head",
-                     corrections="")
+                     corrections="", track_head=True)
 #: `MiniMaxH3MaskedSource`'s inputs, equal to the node's defaults
 #: (`video_mask.py`). `grow_pixels` and `composite` are the owner's choice on
 #: the band clip, 2026-10-04: the wider margin "preserved identity better"

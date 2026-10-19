@@ -1225,7 +1225,7 @@ def expected_files(job: dict) -> dict:
         prefix = graphs.prefixes(job, subject["label"])
         wanted = [k for k in SAVED_AS
                   if (subject.get("pose", True) or k not in ("mesh", "pose"))
-                  and (subject.get("track_head") or k != "head_track")]
+                  and (graphs.track_head_of(job, subject) or k != "head_track")]
         out[subject["label"]] = {k: prefix[k] + SAVED_AS[k] for k in wanted}
     return out
 
@@ -1272,7 +1272,7 @@ def capture_from(job: dict, found: dict, output: Path, date: str) -> str:
         for key in ("track", "head_track", "parts", "classes", "shots", "pose"):
             if key == "pose" and not subject.get("pose", True):
                 continue
-            if key == "head_track" and not subject.get("track_head"):
+            if key == "head_track" and not graphs.track_head_of(job, subject):
                 continue
             if len(mine.get(key) or []) != 1:
                 raise Refused(f"{subject['label']}: {len(mine.get(key) or [])} files for `{key}` where one is meant: "
@@ -1291,7 +1291,7 @@ def capture_command(job: dict, date: str) -> str:
              f"--first {job['first']} --frames {job['frames']}"]
     for subject in job["subjects"]:
         p = graphs.prefixes(job, subject["label"])
-        head = f"head_track=<{p['head_track']}_*.mkv>," if subject.get("track_head") else ""
+        head = f"head_track=<{p['head_track']}_*.mkv>," if graphs.track_head_of(job, subject) else ""
         pose = f"pose=<{p['pose']}_pose_table.json>," if subject.get("pose", True) else ""
         lines.append(f"    --mask {subject['label']}:track=<{p['track']}_*.mkv>,{head}parts=<{p['parts']}_*.mkv>,"
                      f"classes=<{p['classes']}_*.mkv>,shots=<{p['shots']}*.json>,{pose}by={job['name']},"

@@ -2043,8 +2043,8 @@ def check_schema(problems):
     if not isinstance(getattr(st.MiniMaxH3SubjectTrack, "MASK_VERSION", None), int):
         problems.append("the node declares no integer MASK_VERSION, so a kept mask would survive a change to how it is made")
     fix, handed, last, seeds, track_head = schema.inputs[-5], schema.inputs[-4], schema.inputs[-3], schema.inputs[-2], schema.inputs[-1]
-    if track_head.id != "track_head" or getattr(track_head, "default", None) is not False or not getattr(track_head, "optional", False):
-        problems.append("`track_head` is not the node's last input, an optional boolean that is False by default")
+    if track_head.id != "track_head" or getattr(track_head, "default", None) is not True or not getattr(track_head, "optional", False) or getattr(track_head, "advanced", False):
+        problems.append("`track_head` is not the node's last input, a visible optional boolean that is True by default")
     if seeds.id != "seeds" or getattr(seeds, "default", None) != "" or not getattr(seeds, "multiline", False) \
             or not getattr(seeds, "optional", False) or "frame 410: 543, 253, 157, 186" not in (seeds.tooltip or ""):
         problems.append("`seeds` is not the node's last input but one, an optional multi-line text that is empty by default, with the format in its tooltip")
@@ -2056,8 +2056,10 @@ def check_schema(problems):
     if last.id != "others" or last.io_type != "MASK" or not last.tooltip or not getattr(last, "optional", False):
         problems.append("`others` is not the node's third input from the end, an optional mask with a tooltip")
     import inspect
-    if inspect.signature(st.MiniMaxH3SubjectTrack.execute).parameters["track_head"].default is not False:
-        problems.append("`track_head` must default to False in execute")
+    if inspect.signature(st.MiniMaxH3SubjectTrack.execute).parameters["track_head"].default is not True:
+        problems.append("`track_head` must default to True in execute")
+    if 'head track (track_head=True): {head_frames} of {n} frame(s)' not in source or 'table["track_head"] = bool(track_head)' not in source:
+        problems.append("`execute` does not report `track_head` in both the text report and `shot_table`")
     if inspect.signature(st.MiniMaxH3SubjectTrack.execute).parameters["seeds"].default != "" \
             or "seeded = parse_seeds(seeds, shot_ranges(n, found_cuts))" not in source or "seeds=seeded," not in source:
         problems.append("`seeds` left empty must be the empty text in execute, parsed against the load's shots and handed to `follow`")
@@ -2073,8 +2075,8 @@ def check_schema(problems):
 
 
 def check_track_head(problems: list[str]) -> None:
-    """When `track_head` is False (default), `head_pieces` is None and the person track is byte-identical; when True,
-    each shot's head mask is propagated from `sign.head` on its seed frame and clipped to the person track."""
+    """When `track_head` is False, `head_pieces` is None and the person track is byte-identical; when True (the node's
+    default), each shot's head mask is propagated from `sign.head` on its seed frame and clipped to the person track."""
     p_mask = _box(4, 4, 16, 16)
     h_seed = _box(6, 4, 14, 8)
     # Head tracker drifts outside the person mask (cols 14..18) so clipping to the person track is exercised.

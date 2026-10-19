@@ -1407,17 +1407,20 @@ def depth_in_the_chain() -> str:
 
 
 def head_track_in_the_chain() -> str:
-    """When `track_head` is off (default), `preview_files` has `head_track: None` and `mask_specs` omits `head_track=`;
-    when `track_head` is true, `preview_files` resolves `<prefix>_head_track_*.mkv` and `mask_specs` passes `head_track=` to `--mask`."""
+    """When the preview saved `_head_track_`, `mask_specs` passes `head_track=` by default; when `track_head: False` or
+    `sam_head_track.on: False`, `mask_specs` omits `head_track=`; when an earlier preview saved none and `track_head: True`
+    was explicitly asked for, `mask_specs` refuses."""
     with tempfile.TemporaryDirectory() as tmp:
         made = Made(Path(tmp))
         m = made.m
-        ctx_off = made.ctx()
-        assert lc.preview_files(ctx_off, m.output)["a"]["head_track"] is None
-        assert all("head_track=" not in s for s in lc.mask_specs(ctx_off, lc.preview_files(ctx_off, m.output)))
+        ctx_legacy = made.ctx()
+        assert lc.preview_files(ctx_legacy, m.output)["a"]["head_track"] is None
+        assert all("head_track=" not in s for s in lc.mask_specs(ctx_legacy, lc.preview_files(ctx_legacy, m.output)))
         made.job["subjects"][1]["track_head"] = True
         made.write()
         refused(lambda: lc.mask_specs(made.ctx(), lc.preview_files(made.ctx(), m.output)), "asks for 'a''s head_track and the preview pv saved none")
+        del made.job["subjects"][1]["track_head"]
+        made.write()
         ht_rel = "Video/v/s/pv/pv_a_head_track_00001.mkv"
         (m.output / ht_rel).write_bytes(b"")
         made.listed.append(ht_rel)
@@ -1426,10 +1429,14 @@ def head_track_in_the_chain() -> str:
         assert files_on["a"]["head_track"] == m.output / ht_rel and files_on["b"]["head_track"] is None, files_on
         specs_on = lc.mask_specs(made.ctx(), files_on)
         assert f"head_track={m.output / ht_rel}" in specs_on[1] and "head_track=" not in specs_on[0], specs_on
+        made.job["sam_head_track"] = {"on": False, "why": "comparison", "said_by": "owner"}
+        made.write()
+        assert all("head_track=" not in s for s in lc.mask_specs(made.ctx(), files_on))
+        del made.job["sam_head_track"]
         made.job["subjects"][1]["head_track"] = "/nonexistent/head_track.mkv"
         made.write()
         refused(lambda: lc.mask_specs(made.ctx(), files_on), "names a head_track for 'a'", "not there")
-    return "off by default; when track_head is true, preview_files and mask_specs carry head_track=, and a missing head_track file is refused"
+    return "when the preview saved _head_track_, preview_files and mask_specs carry head_track= by default; sam_head_track off omits it; a missing file is refused"
 
 
 case("render: the go beside the job file, and what stops it", the_render_step)
@@ -1438,7 +1445,7 @@ case("page: the item, with the table's buttons", the_page_step)
 case("the gate is told what is the subject's own", what_the_gate_is_told)
 case("a load of two subjects", a_load_of_two_subjects)
 case("depth: capture folder pre-populated by job --depth and --depth passed to files", depth_in_the_chain)
-case("head_track: off by default, carried in preview_files and mask_specs when track_head is on", head_track_in_the_chain)
+case("head_track: carried by default when the preview saved it, omitted when off", head_track_in_the_chain)
 
 if __name__ == "__main__":
     sys.exit(finish())

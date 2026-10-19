@@ -199,6 +199,7 @@ def check_job(job: dict) -> None:
                              f"for the tracker's own line")
         if "track_head" in subject and not isinstance(subject["track_head"], bool):
             raise ValueError(f"subject {label!r}: track_head {subject['track_head']!r}; a boolean")
+        track_head_of(job, subject)
         unknown = set(subject.get("parts") or ()) - set(PART_TICKS)
         if unknown:
             raise ValueError(f"subject {label!r}: unknown parts {sorted(unknown)}; the part node ticks {PART_TICKS}")
@@ -215,6 +216,22 @@ def memory_selection_of(job: dict) -> bool:
         raise ValueError("sam_memory_selection is off with no `why` or no `said_by`: SAM 3.1's memory selection is the "
                          "chain's default, and it is turned off only on a person's word, with the reason")
     return said["on"]
+
+
+def track_head_of(job: dict, subject: dict) -> bool:
+    """Whether a subject's tracker runs SAM 3.1 head propagation (`track_head`): the chain's default, or off with a reason."""
+    said = job.get("sam_head_track")
+    if said is not None:
+        if not isinstance(said, dict) or not isinstance(said.get("on"), bool):
+            raise ValueError(f"sam_head_track {said!r}: {{\"on\": true}}, or {{\"on\": false, \"why\": ..., \"said_by\": ...}}")
+        if not said["on"] and not (str(said.get("why") or "").strip() and str(said.get("said_by") or "").strip()):
+            raise ValueError("sam_head_track is off with no `why` or no `said_by`: the SAM 3.1 head track is the "
+                             "chain's default, and it is turned off only on a person's word, with the reason")
+    if "track_head" in subject:
+        return bool(subject["track_head"])
+    if said is not None:
+        return said["on"]
+    return bool(SUBJECT_TRACK["track_head"])
 
 
 def prefixes(job: dict, label: str) -> dict[str, str]:
@@ -239,14 +256,12 @@ def _shown(g: dict, nid: int, source: list) -> None:
 
 
 def _tracker_inputs(job: dict, subject: dict) -> dict:
-    inputs = dict(SUBJECT_TRACK, pick=subject["pick"])
+    inputs = dict(SUBJECT_TRACK, pick=subject["pick"], track_head=track_head_of(job, subject))
     # `seeds` (2026-10-13): which person a tracker follows in a shot, as a box on one frame of the load, in the node's
     # own form (`bench/cast_file.py seeds` writes it from a person's answers). Until then a job could not carry one.
     for theirs, ours in (("subject_phrase", "phrase"), ("max_people", "max_people"), ("corrections", "corrections"), ("seeds", "seeds")):
         if ours in subject:
             inputs[theirs] = subject[ours]
-    if subject.get("track_head"):
-        inputs["track_head"] = True
     members = {}
     if subject.get("pick_at") is not None:
         # a DynamicCombo: its member is written dotted in the API form, as the song node's `extent` is, and
@@ -315,7 +330,7 @@ def preview(job: dict) -> dict:
                                **MASKED_JOB_PARTS, **({k: k in ticks for k in PART_TICKS} if ticks else {})}}
         _shown(g, block + 7, _out(g, at(8), "report"))
         _save_mask(g, block + 20, track, save["track"])
-        if subject.get("track_head"):
+        if track_head_of(job, subject):
             _save_mask(g, block + 28, _out(g, at(5), "head_mask"), save["head_track"])
         for k, output, name in ((22, "parts", "parts"), (24, "classes", "classes"), (26, "held", "held_things")):
             _save_mask(g, block + k, _out(g, at(8), output), save[name])

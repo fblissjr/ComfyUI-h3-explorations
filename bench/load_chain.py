@@ -350,16 +350,19 @@ def mask_specs(ctx: dict, files: dict, band: Path | None = None, hashed=None) ->
             if f[kind] is None:
                 raise Refused(f"the preview {by} saved no {kind} video for the load's subject {label!r}")
         head_spec = ""
-        if keys.get("head_track") or keys.get("track_head"):
+        want_head = keys.get("track_head")
+        if want_head is None:
+            want_head = (ctx["job"].get("sam_head_track") or {}).get("on")
+        if want_head is not False and keys.get("head_track") is not False:
             if isinstance(keys.get("head_track"), str):
                 ht = Path(keys["head_track"])
                 if not ht.is_file():
                     raise Refused(f"the job names a head_track for {label!r}, {ht}, and it is not there")
-            else:
-                ht = f.get("head_track")
-                if ht is None:
-                    raise Refused(f"the job asks for {label!r}'s head_track and the preview {by} saved none")
-            head_spec = f",head_track={ht}"
+                head_spec = f",head_track={ht}"
+            elif f.get("head_track") is not None:
+                head_spec = f",head_track={f['head_track']}"
+            elif keys.get("track_head") is True or keys.get("head_track") is True:
+                raise Refused(f"the job asks for {label!r}'s head_track and the preview {by} saved none")
         # A LOAD'S OWN PART (`parts_file` on its subject in the job file, written by `shot_to_load.py job --parts`): some of
         # the subject's parts, cut from the preview's class map on the preview's own frames. The capture is handed it in
         # place of the preview's saved part, so what the builder loads is what the capture read.
