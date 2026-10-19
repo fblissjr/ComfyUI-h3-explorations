@@ -28,8 +28,11 @@ why, the scene's background, and what every scene should probably get): `bench/r
    The owner then made the new drawing the default as 1340d had it ("just don't make googly eyes", C214, C216): the
    mouth by the window's voice and the marks clipped to the grey head; only the darker head, which made the googly
    eyes, is out.
-3. **In flight when written:** off_head, the reference crop and the zoom box reading the head track, and head-and-hair
-   loads using it as their region (bundled, C201, C204); each mask-tested, no render.
+3. **Landed before close (all C201/C204/C214 follow-ons and default flips):**
+   - `252667b4`: `off_head` judged by the SAM 3.1 head track (`8 px` dilation) and head-and-hair loads (`hfp`) using the head track as their region (fixing the hair-counted-as-face bug; `0 px` cut inside the head on `751-785`, dad's `1306` bicep dropped, `1097c`/`1156c` hair flashes held).
+   - `b7927da1`: SAM 3.1 head track on by default on `MiniMaxH3SubjectTrack` (`TRACK_HEAD = True`) and the masked chain (`--no-head-track WHY` as the way off; 12 shipped graphs rebuilt).
+   - `cb1f1ceb` (`e2b73a17`): reference crop's head box sized from the union of the face box and the head track (`CROWN_ROOM = 0.4`, `HEAD_TRACK_ROOM = 0.25`; `0` frames crown-cut on `751-785` and `278-293`; caveat noted for face-only vs head-and-hair loads).
+   - `8ac7e928`: `--closed-lip-line` on by default in `REFERENCE_DEFAULT` (`--no-closed-lip-line WHY` as the way off, `--darken-head` off, `278-293` bit-for-bit identical to `0278f`, `1340-1360` matching `1340d`'s mouth) and the `0 == 0` head-tube vote tie-break fixed (`>` instead of `>=`) so `zoom_box` on `751-785` stays at `(0, 0, 808, 606)` (`1.27x`, no whole-frame fallback).
 4. **Fixed:** 24 fps end to end (`e44af676`); the kitchen cut rebuilt at 24/1. The kitchen render `lead_fp_0606b` was
    "slightly better", not kept; what remains is the face mask (now fixed), the mom's keep-out (her laid matte, to design)
    and the drawing.
@@ -102,23 +105,21 @@ why, the scene's background, and what every scene should probably get): `bench/r
     track (2b'); the reference crop's head box from it (the crown cut on tilted frames, M22); the zoom box from it; then
     head-and-hair loads using it as their region, and depth and keep-outs at crossings.
     Landed tonight: off_head by the head track and head-and-hair regions from it, with the hair-as-face bug fixed
-    (`252667b4`); the head track as the default (`b7927da1`); the reference crop from the head track (`ba061ef3`,
-    C221: the crown never cut; WATCH: the crop grows with the hair, so the face is smaller in the reference, the mom's
-    278-293 from 1.88x to 1.42x; if a face loses detail, a smaller room for face-only loads is the knob).
+    (`252667b4`; note from the `772` mask test, C220: the `8,556 px` `off_head` drops on `772` are her raised hands and arms, not her face — the face holes on `759-761` and `772` were Sapiens' labels, not `off_head`); the head track as the default (`b7927da1`); the reference crop from the head track (`cb1f1ceb`, `e2b73a17`,
+    C221-C222: the crown never cut; WATCH: the crop grows with the hair, so the face is smaller in the reference, the mom's
+    278-293 from 1.88x to 1.42x; the probable split for tomorrow is the full head-track crop for the mom's head-and-hair loads and the face box for face-only loads); and the mouth-rule default + zoom-box tie-break (`8ac7e928`, C224: `--closed-lip-line` on in `REFERENCE_DEFAULT`, `--darken-head` off, `278-293` bit-for-bit identical to `0278f`, `1340-1360` matching `1340d`'s mouth, and the `0 == 0` head-tube vote tie-break fixed so `zoom_box` on `751-785` stays at `(0, 0, 808, 606)` at `1.27x` with no whole-frame fallback).
     Ordered tonight at the owner's word (C201): the first three, each on a branch, mask-tested, no render. When and
     where: off_head (tonight; `bench/capture_masked_run.py`; test 772 and the dad's bicep); the reference crop (tonight;
     `bench/head_reference.py`; test 767, 771, 772 and a frontal shot); the zoom box (tonight; where the chain computes
-    it; test the kitchen and the dad's hall); head-and-hair loads using the head track as their region (tomorrow first;
-    test a past hair-flash shot, 0604g, 1097c or 1156c); depth and keep-outs at crossings (tomorrow, with the back-pass
+    it; test the kitchen and the dad's hall); head-and-hair loads using the head track as their region (landed in `252667b4`;
+    tested on past hair-flash shots `1097c` and `1156c`); depth and keep-outs at crossings (tomorrow, with the back-pass
     matte design). The drawing's clip does NOT read it: it clips to the grey head inside the reference, a different
     picture, and stays on the mesh.
-  - The drawing tests (C166, all with the head track off; readers' verdicts, not the owner's; on Start here):
-    `third_fp_1340d` (the repaired mouth, fitted above the chin; grey head at 1.0x): reader keep, full singing
-    articulation on 1345-1360. `third_fp_1340c` (no mouth drawn): lips shut on all 21 frames while he sings, reader
-    remake; so singing windows keep the repaired mouth, and the 1156-1182 tie-break is not needed. `second_hfp_0278i`
-    (silent, no mouth, the grey head darkened to 0.67x, filled white-and-black eyes): reader remake, the eyes bleed into
-    her face as cartoon white with black discs and part her lips; `0278f` stays better. So the darker head and filled
-    eyes are the open question for the owner (Open List r18_08), not a default.
+  - The drawing tests (C166, all with the head track off; on Start here):
+    `third_fp_1340d` (the repaired mouth, fitted above the chin; grey head at 1.0x): owner and reader keep, full singing
+    articulation on 1345-1360. `third_fp_1340c` (no mouth drawn): lips shut on all 21 frames while he sings, owner and reader
+    not kept; so singing windows keep the repaired mouth, and the 1156-1182 tie-break is not needed (C213). `second_hfp_0278i`
+    (silent, no mouth, the grey head darkened to 0.67x, filled white-and-black eyes): owner and reader not kept ("googly eyes ... that doesn't work", C211); `0278f` stays better. The mouth rule (with `--darken-head` off) is now the default (`8ac7e928`, C214, C216, C224).
   - If the Claude lead is out of credits, mrgemson is the one designated lead (`AGENTS.md`) and finishes this list,
     with a blind read by a session that did not build in place of mrted's clearance, and asks the owner where unsure.
 - **The chin smear, corrected cause** (the owner on 760, about 03:10Z: the same dark smudge at the lead's chin in
@@ -129,8 +130,9 @@ why, the scene's background, and what every scene should probably get): `bench/r
   the back pass keeps out the mom's laid matte, not her whole track (designed tomorrow), with the SAM 3.1 head track.
 - **Dropped by the owner today:** the dad's beard work (the region grown over his beard, the full hall remake, the
   2050-2622 window test); wider lines; colour per part. The dad's hall stays as laid (`third_fp_1310c`, with its gaps).
-- **Open List:** r18_05 (which kept pieces to remake with the old mouth) waits on the drawing test; r18_02 and r18_03
+- **Open List:** r18_05 (which kept pieces to remake with the old mouth) waits on the owner; r18_08 answered (`8ac7e928`); r18_02 and r18_03
   are answered with conditions (below); r18_06 is tonight's state.
+- **Close (`mrgemson`, 2026-10-19T06:55Z):** all tonight's builds (`252667b4`, `b7927da1`, `cb1f1ceb`, `e2b73a17`, `8ac7e928`) landed on `main`; all worktrees clean; ComfyUI (`8188`) and both review servers (`8765`, `8788`) stopped by the recipe (`ss -ltnp` verified free).
 
 ## What not to assume
 
