@@ -17,10 +17,12 @@ pointer goes; this list is stale the moment the roadmap disagrees with it.
 Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
-**The order of 2026-10-19 is `handover.md`'s "Tomorrow, in order" (written 2026-10-18 22:05Z); where the queue
-below disagrees, the handover is right.** First: the drawing build's tests read by the owner and its defaults put to
-them (the grey head's marks clipped to it, a little darker, the mouth decided per window by voice); then the second
-half, worst first, every old shot from a fresh first preview.
+**The order of 2026-10-20 is [`handover.md`](handover.md)'s "Tomorrow, in order" (written 2026-10-19 22:32Z) and
+[`../masked_v2v/PROTOCOL.md`](../masked_v2v/PROTOCOL.md); where the queue below disagrees, the handover is right.**
+First: lay or run full Kitchen Pass 2 (`lead` on `606-998` using post-Pass-1 preview `shot_c_0604e` or splicing
+`lead_fp_0751e` on `751-785` after the owner's look); then Hallway far table `1419-1465` (`third` and `second`,
+sequential Pass 1 -> post-Pass-1 Pass 2) and the remaining `fun` gap shots (`1093-1133`, `1134-1155`, `1466-1729`,
+`1802-1848`, `2013-2049`, `2050-2622`) with `bench/facts_pass.py` before every render.
 
 **The queue of 2026-10-15 (the lead, mrtall; written before the close and finished in `handover.md`).** Every shot is
 made by the recipe the owner kept on the hall shot: [`masked_v2v.md`](masked_v2v.md), "A shot, made whole" (one load a

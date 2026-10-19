@@ -8,7 +8,7 @@ Loaded when a session opens a file here; [`docs/AGENTS.md`](../AGENTS.md) and th
   - End-to-end pipeline, design, and card runbook: [`docs/wiki/masked_v2v_pipeline.md`](../wiki/masked_v2v_pipeline.md), [`docs/wiki/masked_v2v.md`](../wiki/masked_v2v.md), and [`docs/wiki/runbook.md`](../wiki/runbook.md)
 - **This lane is one use of H3.** A finding about common code (reference conditioning, the shared nodes) is written where that code's page is and linked from [`docs/wiki/index.md`](../wiki/index.md).
 
-## Top five rules that bite when missed
+## Top six rules that bite when missed
 
 ### 1. What `--source` to pass in (Single-Subject vs Multi-Subject Pass 2)
 
@@ -38,3 +38,8 @@ Loaded when a session opens a file here; [`docs/AGENTS.md`](../AGENTS.md) and th
 
 - The owner reviews clips and submits verdicts and frame notes on the interactive review page (`http://<host>:8765/`, served by `data/<video>/poc/serve.py` from `data/<video>/poc/index.html`), which reads `data/<video>/review/items.json` (`state: "open"` renders under `"1. Look at these next"`) and appends clicks to `data/<video>/owner_answers.jsonl`.
 - Every new review clip **must** be added to `data/<video>/review/items.json` (`state: "open"`, via `bench/load_chain.py page`) **and** synced to `data/<video>/poc/TO_REVIEW.html` ([`bench/rebuild_delivery.py`](../../bench/rebuild_delivery.py) rebuilds `TO_REVIEW.html` and `PROVENANCE.html` and verifies `data/<video>/poc/` on disk via `bench/rebuild_delivery.py::verify_poc_on_disk` during the `pages` step).
+
+### 6. 24.0 fps End-to-End, the `17n + 5` Grid, and Dual-Clock Audio Sync (`on_both_clocks`)
+
+- **Exact `24.0` fps (`24/1`) everywhere**: Every working copy, preview, reference, render, and assembled multi-pass delivery cut ([`bench/rebuild_delivery.py`](../../bench/rebuild_delivery.py), [`bench/assemble_delivery.py`](../../bench/assemble_delivery.py)) is forced to `24.0` fps (`bench/shot_to_load.py::working_copy` and [`bench/masked_job.py`](../../bench/masked_job.py) refuse any non-24 fps source).
+- **Video grid (`17n + 5`) vs. Audio clock (`h3_rules.on_both_clocks`)**: Video frame counts round up to `17n + 5` (`5n + 2` latent steps, up to `h3_rules.MAX_LENGTH` = `362`; see [`docs/h3_resolutions.md`](../h3_resolutions.md), "The length axis"). Audio latents run at `h3_rules.AUDIO_LATENT_RATE` (`round(frames / 24 * AUDIO_LATENT_RATE)`), so the video and audio clocks agree **only on every third `17n + 5` length (`39, 90, 141, 192, 243, 294, 345`, `h3_rules.on_both_clocks`)**. Chained multi-window seams (`h3_rules.chain_lengths`, e.g. `[345, 141]` with `90`-frame context on Kitchen `606-998`) **must** meet on dual-clock lengths so audio timing never drifts across windows, and final laid pieces should render the whole shot (`docs/wiki/masked_v2v.md`, "A shot, made whole") rather than relying on ultra-short sub-window diagnostic clips.
