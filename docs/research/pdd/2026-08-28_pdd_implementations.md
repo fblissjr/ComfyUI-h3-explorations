@@ -56,7 +56,7 @@ distillation.
 2026-09-23), so the paragraph above holds for the other three engines only.
 sglang fuses offline over one uniform partition, merges the backbone into the
 unpruned weights, and selects the head by the loop's step counter.
-[`../sglang_comparison.md`](../sglang_comparison.md), "Seventh read", has the
+[`docs/h3/sglang_comparison.md`](../../h3/sglang_comparison.md), "Seventh read", has the
 comparison with ours and a probable defect in its fc1 merge.
 
 ---

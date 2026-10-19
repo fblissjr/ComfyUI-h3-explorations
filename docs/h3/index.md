@@ -28,6 +28,8 @@ Overview pages first, then the detail each links down to.
 | page | what it is for |
 |---|---|
 | [`comfyui_vendor_gaps.md`](comfyui_vendor_gaps.md) | every known divergence of ComfyUI's H3 path from the release, with its cost, native status and what handles or watches it |
+| [`sglang_comparison.md`](sglang_comparison.md) | what the vendor's serving path does that we do not, read on dated passes. Read before proposing an optimization |
+| [`technique_transfer.md`](technique_transfer.md) | what transfers from LLM and ViT serving to H3 and what does not: the lookup before borrowing a technique |
 | [`custom_node_gaps.md`](custom_node_gaps.md) | what our nodes do end to end, and where that differs from sglang, LightX2V, DiffSynth, diffusers and native ComfyUI |
 
 Studies behind these pages, under [`../research/`](../research/index.md): the t2va trace through ComfyUI, the DiT

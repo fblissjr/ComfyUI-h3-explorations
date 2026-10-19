@@ -290,7 +290,7 @@ keeps every backbone delta off the int8 grid; the activation rounding is uncount
 - PDD quality follows the schedule's tail, not the evaluation count (`docs/method/evidence.md`, "Settled about H3").
   On a matched pair the uniform 4-evaluation arm rendered jagged lines and scratchy audio where the 6-evaluation
   `[8,8,4,4,4,4]` arm was acceptable in both, by the owner's look
-  ([`../research/pdd/audio_under_pdd.md`](../research/pdd/audio_under_pdd.md), which also says why no partition
+  ([`docs/research/pdd/2026-08-28_audio_under_pdd.md`](../research/pdd/2026-08-28_audio_under_pdd.md), which also says why no partition
   experiment can attribute the effect to one stream).
 - Graded against the 32-step trajectory (`bench/grade_pdd_partitions.py`) at 362 frames with Sol active, every
   partition sits 0.52 to 0.54 relative L2 from the reference with the same-arm floor exactly zero: the metric does
@@ -305,7 +305,7 @@ keeps every backbone delta off the int8 grid; the activation rounding is uncount
   finding 1), which refutes the change-of-variable mechanism once derived here. The vendor steps audio on its own
   scheduler (`coderef/alibaba-pai_MiniMax-H3-Acc-LoRAs/predict_t2v.py:36`). An audio-only refine pass on the
   undistilled weights is the known fix shape (`coderef/ComfyUI-H3-AudioRefine`; this repo's version is the
-  audio-refine constants in `h3_config.py` and `audio_under_pdd.md`).
+  audio-refine constants in `h3_config.py` and `docs/research/pdd/2026-08-28_audio_under_pdd.md`).
 - Artifact severity under PDD tracks inter-frame delta (+0.676 within clip; `bench/measure_clip_delta.py`). One
   dialogue scene, base 16-step against PDD 4-step, measured 1.72x the motion and 1.39x the jitter, but both arms
   shake (the prompt asks for it) and the owner's reading is that the distilled movement is less natural rather than
@@ -332,7 +332,7 @@ keeps every backbone delta off the int8 grid; the activation rounding is uncount
 - **Whether the fused heads change the output visibly** needs the blind multi-seed process
   (`docs/method/eval_comparison.md`). The `C2_pdd4_nosol` / `C2_pdd8_nosol` pair (three seeds a side, Sol removed
   from both) is the one clean rendered comparison of 4 against 8, and it is unjudged
-  ([`../research/pdd/queued_arms.md`](../research/pdd/queued_arms.md)).
+  ([`docs/research/pdd/2026-08-27_queued_arms.md`](../research/pdd/2026-08-27_queued_arms.md)).
 - **Whether PDD transfers the ref2v difficulty** of `ref2v_distillation.md`: the Ref2VA file is distilled on
   `transformer_ref` itself, so that page's Fact B does not bite it, and its Fact C now has a second counterexample.
 - **Whether this node should keep the head half** now that core's PDD support (Comfy-Org/ComfyUI#15908, merged
@@ -348,7 +348,7 @@ keeps every backbone delta off the int8 grid; the activation rounding is uncount
 - [`pdd_artifacts.md`](pdd_artifacts.md): every PDD file, its sidecar tensors and the converter and artifact
   changelogs.
 - [`../research/pdd/README.md`](../research/pdd/README.md): the handoffs, the audio lane, depth and the axes, and the
-  diagrams; [`../research/pdd/pdd_implementations.md`](../research/pdd/pdd_implementations.md) compares the
+  diagrams; [`docs/research/pdd/2026-08-28_pdd_implementations.md`](../research/pdd/2026-08-28_pdd_implementations.md) compares the
   implementations.
 - [`ref2v_distillation.md`](ref2v_distillation.md): why ref2v resists step distillation, and the measurements the
   delta table above is scaled against.

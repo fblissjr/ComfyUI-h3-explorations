@@ -22,7 +22,7 @@ this file is right and the other is stale.
 | Is a shipped prompt any good? | [`prompt_audit.md`](prompt_audit.md), one hand-written verdict per scene |
 | Reference sizing and the runtime label order | [`docs/h3/references.md`](../h3/references.md) |
 | Legal canvases and lengths | [`docs/h3/geometry.md`](../h3/geometry.md), [`docs/h3/geometry.md`](../h3/geometry.md) |
-| Comparing two prompts fairly | [`docs/method/eval_comparison.md`](../method/eval_comparison.md). The one measured length pair is [`prompt_length_experiment.md`](prompt_length_experiment.md) |
+| Comparing two prompts fairly | [`docs/method/eval_comparison.md`](../method/eval_comparison.md). The one measured length pair is [`docs/research/2026-08-16_prompt_length_experiment.md`](../research/2026-08-16_prompt_length_experiment.md) |
 | Why a rule was added, reversed or withdrawn | [`docs/state/decisions.md`](../state/decisions.md) |
 | Handing the rules to someone outside the repo | [`portable/h3_prompt_standard.html`](portable/h3_prompt_standard.html), and a writer-model version at [`portable/h3_system_prompt.md`](portable/h3_system_prompt.md). Both are copies of this file; `portable/snapshots.json` pins the frozen dated ones, and a copy published elsewhere is a snapshot of whatever it was published from |
 | An agent routing by task | `.claude/skills/h3-prompt` |
@@ -1080,11 +1080,11 @@ This budget is the one ref2va rule most of the composed ref2va arms still miss,
 and it is `preflight_graph.py`'s recurring WARN (§13 has the command that lists
 them; a count here would be a cache). The two scene arms
 (`h3_ref2v_scene_subway`, `h3_ref2v_scene_kitchen`) are written inside it, and
-[`scene_arm_renders.md`](scene_arm_renders.md) says what their renders can and
+[`docs/research/2026-08-28_scene_arm_renders.md`](../research/2026-08-28_scene_arm_renders.md) says what their renders can and
 cannot show.
 
 **Nothing licenses "more words are better".** The one measured length pair,
-[`prompt_length_experiment.md`](prompt_length_experiment.md), is one seed, one
+[`docs/research/2026-08-16_prompt_length_experiment.md`](../research/2026-08-16_prompt_length_experiment.md), is one seed, one
 scene and has no working control. What it does license is §9.11's "silence is
 not neutral": a long description beat a short one because the short one left a
 defective definition in charge, not because it was long.
@@ -1147,7 +1147,7 @@ All HOUSE, all worth having.
   environment in `detailed_description` even when a reference supplies it**, and
   do not assert an attribute you have not looked at. The same mechanism is §16.
   [HOUSE, observed; [`docs/h3/references.md`](../h3/references.md) "A label is a bare
-  ordinal" and [`prompt_length_experiment.md`](prompt_length_experiment.md)]
+  ordinal" and [`docs/research/2026-08-16_prompt_length_experiment.md`](../research/2026-08-16_prompt_length_experiment.md)]
 - **Conditioning, not instruction.** The prompt reaches the encoder as written
   (§15.2); nothing on the other side decides whether to comply, and there is no
   negative prompt field. "Make it feel tense" conditions on the words "make it
@@ -1998,7 +1998,7 @@ differently.
 | where a speaker sits (cafe) | the speaker staged out of frame and the line given to a character declared silent | `sol_reorder_panel.md`, fixed and confirmed the same way |
 | how many people are in the station (subway) | a pursuer cloned, a third person from nowhere, an escalator the text never placed | `bench/results/2026-09-26_distill_compare_s1.md`, `2026-09-26_subway_v2_s1.md`, `2026-09-27_clone_base_control.md` |
 | who is silent (radio drama) | every actor's lips moving at the start, because nothing said the listeners were silent | `bench/results/2026-09-27_render_dataset/findings.jsonl` (`ow-fd-04`); the fix is not confirmed |
-| what a reference's definition claims, where the description is silent | the defective definition drove the render | [`prompt_length_experiment.md`](prompt_length_experiment.md) |
+| what a reference's definition claims, where the description is silent | the defective definition drove the render | [`docs/research/2026-08-16_prompt_length_experiment.md`](../research/2026-08-16_prompt_length_experiment.md) |
 | what the script does once it has ended | undeclared people and motion | `docs/method/eval_comparison.md` ("A stress scene is not a typical scene"), `bench/results/2026-09-18_off_length_prompts.md` |
 
 **Ambiguity costs the evaluation as well as the clip.** An unnamed agent carried

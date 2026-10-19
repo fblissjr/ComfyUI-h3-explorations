@@ -4,7 +4,7 @@ Core carries H3's audio on the video schedule (comfy/ldm/minimax/model.py,
 MiniMaxH3Model.forward: carry = sigma_a / sigma_v before _forward, the velocity
 rescaled after it with sigma_a at the call's sigma; comfy/model_base.py,
 MiniMaxH3.process_latent_out divides by audio_scale at the end). The vendor and
-sglang step audio on its own shift-3 schedule. docs/research/pdd/audio_under_pdd.md
+sglang step audio on its own shift-3 schedule. docs/research/pdd/2026-08-28_audio_under_pdd.md
 section 1 argued that evaluating the transform at a PDD block's START sigma
 while the fused head returns a block MEAN costs error that grows with width.
 

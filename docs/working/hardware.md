@@ -25,7 +25,7 @@ only reports.
 
 **Compare timings only at equal power state; nothing enforces it.** A changed
 limit gives an ordinary-looking s/it that is not comparable to any number in
-[`bench_plan.md`](../method/bench_plan.md) or
+[`docs/research/2026-08-14_sol_bench_plan.md`](../research/2026-08-14_sol_bench_plan.md) or
 [`sol_attn.md`](../attention/sol_attn.md), all of which were taken at the card's
 stock limit (the limit on this box was changed away from stock on 2026-08-17). It
 is set outside the repo and survives reboots once a systemd unit exists for it.
@@ -67,7 +67,7 @@ traffic. Since 2026-08-25 `bench/instrument_render_occupancy.py` takes the
 same reading per node of one render at 100 ms and states, with its
 thresholds, whether the sampler window was launch-bound or compute-bound;
 that verdict is the test for whether CUDA-graph replay could buy anything on
-a graph, and `docs/research/sglang_comparison.md` records why it is not
+a graph, and `docs/h3/sglang_comparison.md` records why it is not
 expected to at video canvases.
 
 Anything reasoning from "the model is resident, so the sampling loop touches no
@@ -187,7 +187,7 @@ that stays honest when the card is asleep.
 - [`docs/working/comfy_notes.md`](comfy_notes.md) — running ComfyUI, restarting it
   correctly, and the settings inside the launcher that are not this file's
   business
-- [`docs/method/bench_plan.md`](../method/bench_plan.md) — the runs whose timings the power-state
+- [`docs/research/2026-08-14_sol_bench_plan.md`](../research/2026-08-14_sol_bench_plan.md) — the runs whose timings the power-state
   caveat applies to
 - [`docs/method/evidence.md`](../method/evidence.md) — its Environment section is the software
   half of "state that is not in git"; this file is the host half

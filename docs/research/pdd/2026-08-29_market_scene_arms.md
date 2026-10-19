@@ -6,7 +6,7 @@ last updated: 2026-08-29
 single-variable pairs (Sol on against off, and `dpmpp_2m_sde_gpu` against `euler`), and every arm met the brief: n=1,
 unblinded and unscored, so no quality verdict. The one transferable result is that the vendor's integrator, Euler at
 eta 0, is viable here, and that only the Euler arm is repeatable, because the SDE sampler draws fresh noise each step.
-The arms are not comparable to [`queued_arms.md`](queued_arms.md) group S. Its paragraph on the audio change of
+The arms are not comparable to [`2026-08-27_queued_arms.md`](2026-08-27_queued_arms.md) group S. Its paragraph on the audio change of
 variable drifting in the final block rests on a mechanism refuted on 2026-09-25
 ([`2026-09-25_upstream_pdd_comparison.md`](2026-09-25_upstream_pdd_comparison.md)); the same-seed repeat of arm C it
 proposes is not recorded here.
@@ -14,7 +14,7 @@ proposes is not recorded here.
 Three renders on the night-market scene that form **two single-variable pairs
 about a shared hub**. Recorded because they existed only as files the owner
 judged good, and because one of the pairs prices a divergence that
-[`../h3_dit_implementations.md`](../h3_dit_implementations.md) §4.1 had left
+[`docs/research/2026-08-29_h3_dit_implementations.md`](../2026-08-29_h3_dit_implementations.md) §4.1 had left
 open.
 
 The machine-readable record is
@@ -25,7 +25,7 @@ rather than from any workflow JSON.
 
 ## Read this first: these are NOT Group S
 
-[`queued_arms.md`](queued_arms.md) group **S** is the market scene too, and it
+[`2026-08-27_queued_arms.md`](2026-08-27_queued_arms.md) group **S** is the market scene too, and it
 is tempting to read these three against it. Do not. Four things moved:
 
 | | group S | here |
@@ -79,7 +79,7 @@ verdict would require. n=1 per arm, unblinded, unscored.
 **The sampler pair carries one thing a pair can carry.** `euler` at ComfyUI's
 default `s_churn=0` takes the no-noise branch and steps `x + d*dt` — first
 order, deterministic, eta=0. That is the integrator every reference engine in
-[`../h3_dit_implementations.md`](../h3_dit_implementations.md) runs. So the
+[`docs/research/2026-08-29_h3_dit_implementations.md`](../2026-08-29_h3_dit_implementations.md) runs. So the
 vendor's own integrator is viable here, which is a fact about reachability, not
 about quality, and it does not need a distribution to be true.
 
@@ -104,7 +104,7 @@ Sigmas are the uniform block-width-4 partition of the 32-point grid.
   coefficient falls by roughly a fifth across block 7 and by roughly half
   across block 8, against a few percent across the early blocks; the same
   statistic on a uniform 4-step partition is worse still in the final block.
-  [`audio_under_pdd.md`](audio_under_pdd.md) owns this mechanism and the values
+  [`2026-08-28_audio_under_pdd.md`](2026-08-28_audio_under_pdd.md) owns this mechanism and the values
   are its statistic evaluated on this schedule, not a new finding. It is the
   reason 8 steps helps where it helps: almost all of the gain over a uniform
   4-step partition is in the tail.
@@ -133,5 +133,5 @@ other comparison in this lane, and its failure mode is the interesting one: if
 the repeat does *not* reproduce, something below the sampler is
 nondeterministic and worth locating, which is a better find than a clean
 reproduction. Compare decoded frames rather than containers, with the recipe
-already in [`queued_arms.md`](queued_arms.md) — `save_metadata` embeds the
+already in [`2026-08-27_queued_arms.md`](2026-08-27_queued_arms.md) — `save_metadata` embeds the
 workflow, so two byte-different mp4s can hold identical video.

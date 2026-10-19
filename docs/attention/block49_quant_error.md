@@ -81,7 +81,7 @@ block 49, 5-11% at blocks 0, 32, 40). The checkpoint scan and attention-target r
 **Blocks 45 and 48, captured 2026-10-02.** Full 50-block telemetry on Ref2VA (S = 119k) under `quantizer="rotated"`:
 block 48's error is 7.14% (max 9.41%) and block 45's 9.55%, against 13.73% at block 49, so rotation resolved the
 outlier defect at 45 and 48 and left them cleaner than the interior, where routing error peaks at blocks 38 to 43
-([`../research/sparse/sol_dense_blocks_reanalysis.md`](../research/sparse/sol_dense_blocks_reanalysis.md)).
+([`docs/research/sparse/2026-10-02_sol_dense_blocks_reanalysis.md`](../research/sparse/2026-10-02_sol_dense_blocks_reanalysis.md)).
 
 ## 2. It is K's rounding, not Q's, not the PV side
 
@@ -249,7 +249,7 @@ own; block 0's simulated 3% cost dilutes to nothing in the real kernel, which is
 rows. Cost: +3.3 ms on the quant step at 104k rows, +0.7% on the call, no change in peak memory. The balanced fp8++
 call at block 49 (0.0364) is below the fp16 kernel's unbalanced error on the same cell (0.0409). Prior art: the rescale
 is SmoothQuant's migration pointed at the attention product
-([`../research/smoothquant_for_attention_qk.md`](../research/smoothquant_for_attention_qk.md)). The Sol form is offered
+([`docs/research/2026-09-15_smoothquant_for_attention_qk.md`](../research/2026-09-15_smoothquant_for_attention_qk.md)). The Sol form is offered
 upstream as [`sol_upstream_qk_balance_pr.md`](sol_upstream_qk_balance_pr.md), not yet sent.
 
 ## The defaults, re-read against the sage-side error records, 2026-09-14

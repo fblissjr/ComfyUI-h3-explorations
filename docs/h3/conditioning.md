@@ -89,7 +89,7 @@ is an empty dict, so the architecture comes entirely from ComfyUI's hardcoded
 builds 50 layers at width 5120 either way. `final_norm=False` is what makes
 "layer 50's output" the un-normed last hidden state the DiT was trained against
 -- the trap diffusers raises on, discussed in
-[`docs/research/h3_dit_implementations.md`](../research/h3_dit_implementations.md) §9.1.
+[`docs/research/2026-08-29_h3_dit_implementations.md`](../research/2026-08-29_h3_dit_implementations.md) §9.1.
 
 **An incomplete checkpoint is not rejected. It is detected as something else.**
 `detect_te_model` keys on which tensors are present, so a file missing one of

@@ -185,7 +185,7 @@ Each found by a run, none built. The dated entry in [`decisions.md`](decisions.m
   Comfy-Org/ComfyUI#15972 lands (ours end-pads); two optional decoders (LynnReal's light H3 VAE, vllm-omni's latent
   upscaler) go through `bench/compare_vae_decoders.py` before any default moves, the owner's call whether to look.
 - **The M3-to-H3 bridge**: the image lane is next; the fit was stopped unfinished
-  ([`../research/m3_h3_bridge.md`](../research/m3_h3_bridge.md);
+  ([`docs/research/2026-09-15_m3_h3_bridge.md`](../research/2026-09-15_m3_h3_bridge.md);
   `internal/claude/2026-09-14_m3-h3-bridge_independent-take.md`, the fixed script
   `internal/claude/m3-h3-adapter/fit_image_lane.py`, which needs a GPU window agreed with the card holder).
 - **The frozen-audio loop**: owed the full-length example render (a throwaway first run), resume on the reference song

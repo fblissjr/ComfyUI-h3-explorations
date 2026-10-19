@@ -9,7 +9,7 @@ Its measured energy changes stand as departures from the exact path.
 
 ## The question
 
-`docs/research/pdd/audio_under_pdd.md` blames PDD's audio penalty on ComfyUI
+`docs/research/pdd/2026-08-28_audio_under_pdd.md` blames PDD's audio penalty on ComfyUI
 freezing the audio change-of-variable's coefficients at each block's STARTING
 sigma. `bench/analyze_pdd_stream_energy.py` established two things that shape
 this run:

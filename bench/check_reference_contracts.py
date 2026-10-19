@@ -5,7 +5,7 @@ Run it with the ComfyUI venv python (`docs/working/comfy_notes.md`). CPU only, n
 server, no weights: both VAEs are stubs and the node is driven only as far as
 the point where its two reference lists are complete.
 
-**Why this exists.** `docs/research/conditioning_nodes.md` records five
+**Why this exists.** `docs/research/2026-08-21_conditioning_nodes.md` records five
 load-bearing contracts in `MiniMaxH3ReferenceToVideo`, plus two smaller ones,
 and says of all of them: they fail silently and are **enforced by nothing**.
 That is `CLAUDE.md`'s "a requirement is not a control" case, seven times over,
@@ -427,7 +427,7 @@ def main() -> int:
         record("contract 5  minimax_token_tags reaches conditioning", False,
                f"could not drive the path: {type(exc).__name__}: {exc}")
 
-    print("\nEvery contract in docs/research/conditioning_nodes.md now has an "
+    print("\nEvery contract in docs/research/2026-08-21_conditioning_nodes.md now has an "
           "assertion.\nContracts 4 and 5 are asserted against "
           "comfy/model_base.py and comfy/sd.py\nrather than against the node, "
           "because that is where they live.")

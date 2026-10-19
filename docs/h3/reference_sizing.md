@@ -19,7 +19,7 @@ scene graphs, `h3_config.REFVIEW2_SCENES`); it was rendered and never scored.
 (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:125-177`:
 `scale = 2048 / min(w, h)`, `"allow_upscale": True`, and a docstring saying reference images have no area-cap branch).
 sglang, diffusers and DiffSynth all feed that one prepared still to both the VAE and Qwen
-([`../research/sglang_h3_pipeline.md`](../research/sglang_h3_pipeline.md), "Reference stills").
+([`docs/research/2026-08-25_sglang_h3_pipeline.md`](../research/2026-08-25_sglang_h3_pipeline.md), "Reference stills").
 
 **Core never upscales.** Its `ref_image_size` clamps with `min(1.0, ...)` in both modes
 (`comfy_extras/nodes_minimax_h3.py:297-301`):
@@ -198,7 +198,7 @@ helper's defaults, applying the same pair to each two-frame video block. Pixel c
 
 - **A keyframe is never resized here.** Every legal H3 canvas is a multiple of 32, the helper's rounding factor, and
   inside both implementations' bounds; the same script's control arm goes loud if a canvas is ever resized, which
-  would make the inert claim in [`../research/official_weights_metadata.md`](../research/official_weights_metadata.md)
+  would make the inert claim in [`docs/research/2026-08-21_official_weights_metadata.md`](../research/2026-08-21_official_weights_metadata.md)
   wrong.
 - **Reference video has a different shape**: the release's video maximum is clip-wide over the sampled frames, core's
   per two-frame block. The boundary is source- and length-dependent ([`comfyui_vendor_gaps.md`](comfyui_vendor_gaps.md),

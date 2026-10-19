@@ -12,8 +12,8 @@ research and the audio-freeze lane ([`docs/state/decisions.md`](../../state/deci
 - [`2026-09-25_upstream_pdd_comparison.md`](2026-09-25_upstream_pdd_comparison.md) -- **the newest record.** Seven
   PDD implementations against ours: none beats ours on anything that reaches a shipped render; core's audio carry is
   exact under Euler, which refuted the change-of-variable account of PDD's audio loss; the stale Kijai files were
-  unlinked. Supersedes [`pdd_implementations.md`](pdd_implementations.md) as the comparison and
-  [`audio_under_pdd.md`](audio_under_pdd.md) section 1.
+  unlinked. Supersedes [`2026-08-28_pdd_implementations.md`](2026-08-28_pdd_implementations.md) as the comparison and
+  [`2026-08-28_audio_under_pdd.md`](2026-08-28_audio_under_pdd.md) section 1.
 - [`2026-09-05_bake_plan.md`](2026-09-05_bake_plan.md) -- **the last handoff, executed.** The backbone bake was
   planned, approved, built, wired and judged blind the same day: the baked arm lost to the sage floor as the merged
   arm had, so the PDD8 look is the schedule's, not the merge's, and the bake stands on hygiene and cost. Supersedes the
@@ -24,7 +24,7 @@ research and the audio-freeze lane ([`docs/state/decisions.md`](../../state/deci
   error under the shipped stochastic rounding (1.12x, the +11.6%, under round-to-nearest). Section 7 records the hold
   on the Tier 1 gate. Its `unmerged_blocks` lever was replaced by the exact branch on 2026-09-26
   ([`docs/state/decisions.md`](../../state/decisions.md)).
-- [`tier1_gate.md`](tier1_gate.md) -- closed, never passed. The ten conditions the Tier 1 activation observer had to
+- [`2026-08-31_tier1_gate.md`](2026-08-31_tier1_gate.md) -- closed, never passed. The ten conditions the Tier 1 activation observer had to
   meet before a render (dated 2026-08-31, item 10 added 2026-09-01). The owner closed the experiment on 2026-09-29
   and the observer was removed ([`docs/state/open_experiments.md`](../../state/open_experiments.md) #23).
 - [`2026-08-30_handoff.md`](2026-08-30_handoff.md) -- superseded by the 2026-08-31 handoff. Per-block quantisation
@@ -38,7 +38,7 @@ research and the audio-freeze lane ([`docs/state/decisions.md`](../../state/deci
   in-place correction to its item 2.
 
 **Depth and the remaining axes**, opened 2026-08-30:
-[`depth_and_axes.md`](depth_and_axes.md) — where in the DiT running undistilled
+[`2026-08-30_depth_and_axes.md`](2026-08-30_depth_and_axes.md) — where in the DiT running undistilled
 or over-distilled makes the most difference, what is already settled about
 per-block *quantisation* (and why that is a different question), the four
 measured depth profiles and the ways they disagree, and an inventory of every
@@ -48,7 +48,7 @@ by a property of Sol's shape that a strength change does not share, and running
 it naively returns numbers that mean nothing.
 
 **Audio under PDD**, opened 2026-08-28 and handed to the `audioclaude` session:
-[`audio_under_pdd.md`](audio_under_pdd.md) is the finding and the reasoning —
+[`2026-08-28_audio_under_pdd.md`](2026-08-28_audio_under_pdd.md) is the finding and the reasoning —
 *(2026-09-25: refuted; see [`2026-09-25_upstream_pdd_comparison.md`](2026-09-25_upstream_pdd_comparison.md))* why a fused head's block-MEAN velocity meets an instantaneous change of variable
 that only audio has, and why that predicts an audio-only error growing with
 block width. [`2026-08-28_audio_plan.md`](2026-08-28_audio_plan.md) is the
@@ -58,7 +58,7 @@ the traps. Read the first, work from the second.
 **What makes a clip degrade, 2026-08-28:**
 [`2026-08-28_scene_complexity.md`](2026-08-28_scene_complexity.md) is the shot-count ablation's record (three
 accounts refuted, the owner's account of total demanded content standing, with a duration confound left open), and
-[`artifact_axis.md`](artifact_axis.md) is the same night's viewing map and pre-registration for the arms queued
+[`2026-08-28_artifact_axis.md`](2026-08-28_artifact_axis.md) is the same night's viewing map and pre-registration for the arms queued
 against it.
 
 **Rendered arms, 2026-08-29:**
@@ -71,7 +71,7 @@ that the reference integrator is viable here, and that only the deterministic
 arm is repeatable — which is the precondition for every other comparison in
 this lane.
 
-[`queued_arms.md`](queued_arms.md) is the session queue those handoffs draw on.
+[`2026-08-27_queued_arms.md`](2026-08-27_queued_arms.md) is the session queue those handoffs draw on.
 The paper itself is
 [`arxiv_2607.26004v1_...md`](arxiv_2607.26004v1_Parallel_Decoding_Distillationfor_Fast_Image_and_Video_Generation.md);
 `docs/distills/pdd.md` owns the contract and every file here defers to it.
@@ -124,7 +124,7 @@ The kernel figures include the forced pairs; the ordering-effect figures
 are the `analyze_routing.py` number. Routing, not quality: nothing in them
 says what the density cost.
 
-[`queued_arms.md`](queued_arms.md) — the arms waiting on the GPU, each with
+[`2026-08-27_queued_arms.md`](2026-08-27_queued_arms.md) — the arms waiting on the GPU, each with
 what it decides. A session queue rather than a roadmap: `docs/state/roadmap.md` and
 `docs/state/open_experiments.md` own those, and nothing in this file is deliberately
 unmeasured. Delete an entry when it runs.

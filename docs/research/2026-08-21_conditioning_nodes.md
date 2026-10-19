@@ -1,11 +1,11 @@
 # Conditioning against the release: what was built, and what was not
 
-**In short (as of 2026-08-25).** A trace of core's reference path on 2026-08-21 refuted the first plan, two replacement conditioning nodes: core's `MiniMaxH3ReferenceToVideo` carries at least five load-bearing contracts that live only in comments, and neither defect found against the release needed replacing it. So the seven special tokens were fixed at the CLIP, and are now native in ComfyUI (PR 15808) with the local shim retired, and the processor's pixel bounds were instrumented, with opt-in local handling. A typed reference surface was later built for other reasons (order, soundtrack ownership, loader metadata). The current gap status is [`../h3/comfyui_vendor_gaps.md`](../h3/comfyui_vendor_gaps.md), and the contracts are owned by [`../h3/custom_node_gaps.md`](../h3/custom_node_gaps.md).
+**In short (as of 2026-08-25).** A trace of core's reference path on 2026-08-21 refuted the first plan, two replacement conditioning nodes: core's `MiniMaxH3ReferenceToVideo` carries at least five load-bearing contracts that live only in comments, and neither defect found against the release needed replacing it. So the seven special tokens were fixed at the CLIP, and are now native in ComfyUI (PR 15808) with the local shim retired, and the processor's pixel bounds were instrumented, with opt-in local handling. A typed reference surface was later built for other reasons (order, soundtrack ownership, loader metadata). The current gap status is [`docs/h3/comfyui_vendor_gaps.md`](../h3/comfyui_vendor_gaps.md), and the contracts are owned by [`docs/h3/custom_node_gaps.md`](../h3/custom_node_gaps.md).
 
 last updated: 2026-08-25
 
 Two defects were found by reading the published release beside the code that
-consumes it ([`official_weights_metadata.md`](official_weights_metadata.md)).
+consumes it ([`2026-08-21_official_weights_metadata.md`](2026-08-21_official_weights_metadata.md)).
 This records what was done about each, and — the part worth more — what was
 deliberately *not* done and why, so nobody rebuilds the discarded option.
 

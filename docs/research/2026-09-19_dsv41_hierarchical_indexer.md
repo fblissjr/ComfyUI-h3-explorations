@@ -88,7 +88,7 @@ arithmetic from shapes; [?] could not verify.
    denoising steps, not across blocks.** [I] Full and Reindex share main KV and
    indexer K across layers; that needs trained projections (V4.1 decoder KV is
    projected from the encoder's last hidden state, §2.2 p. 9) and it is
-   blocked on H3 by `docs/research/technique_transfer.md` fact 2 (every row
+   blocked on H3 by `docs/h3/technique_transfer.md` fact 2 (every row
    updated every block), which agrees with that table's "KV cache
    quantisation: no KV survives a step: n/a" row. Reusing *indices* is
    different: they are routing metadata, not KV, so fact 2 does not forbid
@@ -409,7 +409,7 @@ Shapes: about 1,600 key blocks per head, so `T` is about 102,400 tokens;
   nearly free to drop at 38k tokens (survey D.6). Nothing speaks to which
   blocks must recompute a reused route.
 
-### 3.5 Against `docs/research/technique_transfer.md`
+### 3.5 Against `docs/h3/technique_transfer.md`
 
 - Agrees with the "learned sparse attention with block selection (DeepSeek
   DSA, NSA, MoBA)" row: Sol is the existing analogue, and the learned
@@ -534,7 +534,7 @@ the report as relayed.
   `coderef/comfy-kitchen/comfy_kitchen/backends/cuda/sage_attention/sol_attn_exact.cu`,
   `coderef/comfy-kitchen/comfy_kitchen/backends/cuda/sage_attention/sol_layout.cuh`,
   `coderef/comfy-kitchen/comfy_kitchen/backends/cuda/__init__.py`.
-- This repo: `docs/research/technique_transfer.md`,
+- This repo: `docs/h3/technique_transfer.md`,
   `docs/research/2026-09-17_rotation_and_lowbit_attention_survey.md` (§C.1,
   §C.4, §D.3, §D.5, §D.6), `docs/state/roadmap.md`,
   `bench/analyze_sol_block_grouping.py` (uncommitted peer work, read for its

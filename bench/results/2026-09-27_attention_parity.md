@@ -130,7 +130,7 @@ Being corrected in the same pass as this record; see `docs/state/decisions.md`.
 - **`vsa_attention.py`:** its docstring and refusal texts ("cannot run", "core
   has no gate_compress", "unreachable"); "Nothing has been rendered"; "the
   only other implementation"; its tooltip's "0.90 sparsity".
-- **`docs/research/vsa/vsa_node.md`:** its "core is stock, no
+- **`docs/research/vsa/2026-08-30_vsa_node.md`:** its "core is stock, no
   gate_compress" passages.
 - **`bench/check_vsa_core_patch.py`:** its "applied from PR #15958 DRAFT"
   message. The support is now in stock core.

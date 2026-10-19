@@ -46,7 +46,7 @@ as arithmetic.
    per-step pooled proxy? LoSA's own Table 2 shows that a mass target beats a
    fixed budget at equal coverage. It also supplies the per-head budget rule
    that the prior survey says nothing in the pipeline produces
-   (`docs/research/2026-09-17_rotation_and_lowbit_attention_survey.md:1127-1135`).
+   (`docs/research/2026-09-17_rotation_and_lowbit_attention_survey.md` lines 1127-1135 at `901bee1`).
    The concrete test is in section 1(h).
 2. **HEART's drift signal is the cheapest replication, and it comes out of the
    same pass.** [I] It compares pooled-q/k L1 drift between captured steps
@@ -91,7 +91,7 @@ cross-scene profile. Build that instrument once.
 | cumulative energy, 2606.16317 | "Training-free sparse attention based on cumulative energy filtering", Li et al., 2026-06-15; method name DynSparse | **match** [V] |
 
 **A correction for the prior survey's D.9 [V].** D.9
-(`docs/research/2026-09-17_rotation_and_lowbit_attention_survey.md:1159-1161`)
+(`docs/research/2026-09-17_rotation_and_lowbit_attention_survey.md` lines 1159-1161 at `901bee1`)
 makes two errors:
 
 - It describes "DFSAttn" as "layer-wise sparsity profiling + bidirectional
@@ -301,7 +301,7 @@ running.
     horizon-limited, and a periodic refresh (HEART's or SVOO's) is indicated
     instead of a single freeze. It uses the same masses, subset differently.
   - This set tests the premise on a clean trajectory
-    (`docs/research/2026-09-03_sol_exact_pquant_and_base_capture.md:197-219`
+    (`docs/research/2026-09-03_sol_exact_pquant_and_base_capture.md` lines 197-219 at `901bee1`
     for why a dense-trajectory control differs from production).
 - **Production-trajectory confirmation:
   `2026-09-19_covered_market_sage_chain_steps` plus `_depth`.**
@@ -333,7 +333,7 @@ running.
   answers only frozen against oracle, not the per-head budget question.
 - **Masses are not the constraint; reading the cells is.** 596 MB fp32 of
   masses for 56 heads, by arithmetic, against about 4.18 GiB per q/k/v cell
-  (`docs/research/2026-09-03_sol_exact_pquant_and_base_capture.md:200-201`).
+  (`docs/research/2026-09-03_sol_exact_pquant_and_base_capture.md` lines 200-201 at `901bee1`).
   Keep each cell resident and run both passes on it before releasing it: a
   naive two-pass reads the capture set twice.
 
@@ -397,7 +397,7 @@ worst layers above 97%.
   does a kernel argument (g) become worth building.** Even then, the next step
   is an end-to-end render. The prior survey records that single-layer error
   misorders estimators relative to 40 denoise steps
-  (`docs/research/2026-09-17_rotation_and_lowbit_attention_survey.md:1136-1143`).
+  (`docs/research/2026-09-17_rotation_and_lowbit_attention_survey.md` lines 1136-1143 at `901bee1`).
 
 ---
 
@@ -520,7 +520,7 @@ HunyuanVideo; first layer dense (section 5.1)].**
   variable-size block kernel. Sol's kernel uses fixed, contiguous 64-token
   blocks. The prior survey lists SVG2 and FlashInfer's block-sparse kernels as
   not running on this card
-  (`docs/research/2026-09-17_rotation_and_lowbit_attention_survey.md:974-978`;
+  (`docs/research/2026-09-17_rotation_and_lowbit_attention_survey.md` lines 974-978 at `901bee1`;
   not re-verified here for SVOO's variable-block path [?]). The nearest thing
   on our side is `morton`, one global reorder that is not per head and not
   coupled between q and k (`docs/attention/sol_attn.md` line 430 at `901bee1`).
@@ -768,6 +768,6 @@ Local (read-only):
 - `docs/attention/quant_policy.md` line 27 at `901bee1`
 - `bench/results/2026-09-18_sol_block_size.md:8,23,40-45`
 - `data/results/2026-09-03_capture_inventory_base16.json`
-- `docs/research/2026-09-03_sol_exact_pquant_and_base_capture.md:197-219`
+- `docs/research/2026-09-03_sol_exact_pquant_and_base_capture.md` lines 197-219 at `901bee1`
 - `docs/research/2026-09-17_rotation_and_lowbit_attention_survey.md:974-978,1127-1143,1159-1166,1297`
 - Capture sets by name, listed and their JSON read, no tensors opened: `2026-09-03_base16_t2v_1344x768`, `2026-09-10_sol_impl_courtroom`, `2026-09-19_covered_market_sage_chain_steps`, `2026-09-19_covered_market_sage_chain_depth`

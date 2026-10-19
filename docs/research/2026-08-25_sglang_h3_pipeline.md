@@ -1,6 +1,6 @@
 # sglang's MiniMax-H3 pipeline, end to end
 
-**In short (as of 2026-10-02; first written 2026-08-25).** sglang's H3 pipeline stage by stage at source level: admission, the time grid and canvas, media ingestion, the Qwen3-VL encode, the VAE encodes, the packed sequence, the DiT forward, the denoise loop, decode and the runtime around it, with a numbered insights section. It compares nothing; [`sglang_comparison.md`](sglang_comparison.md) does. It was read at `6569125e3a`, re-anchored at `5ab97c4f44`, extended by a diff read to `320bdd1ee2` (section 14; the line citations in sections 1 to 12 were not re-anchored then) and by a read of the Sol-Attn backend at `593c7a900d`. Re-read sglang before quoting an older section.
+**In short (as of 2026-10-02; first written 2026-08-25).** sglang's H3 pipeline stage by stage at source level: admission, the time grid and canvas, media ingestion, the Qwen3-VL encode, the VAE encodes, the packed sequence, the DiT forward, the denoise loop, decode and the runtime around it, with a numbered insights section. It compares nothing; [`docs/h3/sglang_comparison.md`](../h3/sglang_comparison.md) does. It was read at `6569125e3a`, re-anchored at `5ab97c4f44`, extended by a diff read to `320bdd1ee2` (section 14; the line citations in sections 1 to 12 were not re-anchored then) and by a read of the Sol-Attn backend at `593c7a900d`. Re-read sglang before quoting an older section.
 
 last updated: 2026-10-02 (dated notes on the ComfyUI app's H3 integrated mode, rollout, Spectrum and `convrot_int8`, from the eighth read); 2026-09-25 (one dated note on FastH3's registration)
 
@@ -10,7 +10,7 @@ load. Five scoped readers each took one slice (admission and media; the
 conditioning encode; the packed sequence and DiT; the denoise loop, VAEs and
 output; the runtime layer), read the files whole, and reported with line
 citations they had verified. This file is the synthesis. It does **not**
-compare anything to ComfyUI; [`sglang_comparison.md`](sglang_comparison.md)
+compare anything to ComfyUI; [`docs/h3/sglang_comparison.md`](../h3/sglang_comparison.md)
 owns that and should be read after this one, not instead of it.
 
 **Re-verified 2026-08-30 against `coderef/sglang` at commit `5ab97c4f44`.**
@@ -705,7 +705,7 @@ FSDP is a capacity option. Frame interpolation, upscaling and TeaCache are
 rejected at validation. *2026-10-02: two more since `ae47bcd4da` and
 `e667ab10d5`. Spectrum is a second, opt-in skip-step for H3, and
 `kitchen_int8` is a deprecated alias of `convrot_int8`;
-[`sglang_comparison.md`](sglang_comparison.md), "Eighth read", has both.*
+[`docs/h3/sglang_comparison.md`](../h3/sglang_comparison.md), "Eighth read", has both.*
 
 **Their ComfyUI app** (`coderef/sglang/python/sglang/multimodal_gen/apps/ComfyUI_SGLDiffusion/`): a custom-node pack
 with an integrated mode for FLUX, Qwen-Image and Z-Image, and a **server
@@ -724,7 +724,7 @@ builds the model and runs the encoder, VAEs, conditioning nodes and sampler,
 and the DiT runs one step per call in an sglang worker process. The server
 node is now at
 `coderef/sglang/python/sglang/multimodal_gen/apps/ComfyUI_SGLDiffusion/nodes.py:634`.
-[`sglang_comparison.md`](sglang_comparison.md), "Eighth read", has what it
+[`docs/h3/sglang_comparison.md`](../h3/sglang_comparison.md), "Eighth read", has what it
 means for our patches.*
 
 ---
@@ -1220,7 +1220,7 @@ admission test additions. Not read: the Triton VSA kernel, FlexAttention's
 internals, the FlashInfer SM120 operator, the body of the cube mask module
 past its docstrings, the cookbook's Ascend and AMD sections, and the
 consumer-card sections, which the diff shows unchanged since 2026-08-30 and
-which [`sglang_comparison.md`](sglang_comparison.md) already prices.
+which [`docs/h3/sglang_comparison.md`](../h3/sglang_comparison.md) already prices.
 
 ### 14.9 The Sol-Attn backend, read 2026-09-11 at `593c7a900d`
 

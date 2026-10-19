@@ -14,7 +14,7 @@ a per-stream `noise_mask` and an integer-latent loop. The day's postmortem and s
 
 Read first: [`geometry.md`](geometry.md) for the two clocks and the frame grid, [`references.md`](references.md)
 "Audio references" for how core encodes audio and where it crops, and
-[`../research/sglang_h3_pipeline.md`](../research/sglang_h3_pipeline.md) for the vendor's serving path.
+[`docs/research/2026-08-25_sglang_h3_pipeline.md`](../research/2026-08-25_sglang_h3_pipeline.md) for the vendor's serving path.
 
 ---
 
@@ -320,7 +320,7 @@ that looks right is one sample; two seeds on two scene classes is the floor
 ## 8. What the vendor's serving path says
 
 Read 2026-09-12 by a scoped source read of `coderef/sglang` at `b5a2aebc7e`;
-[`docs/research/sglang_h3_pipeline.md`](../research/sglang_h3_pipeline.md) is the
+[`docs/research/2026-08-25_sglang_h3_pipeline.md`](../research/2026-08-25_sglang_h3_pipeline.md) is the
 stage-by-stage authority and this section records only what bears on this
 lane. sglang is where the model's authors work, so what it has and what it
 lacks are both evidence.
@@ -335,7 +335,7 @@ of any edit, continuation or chunking path. Not checked again: the Video
 DeltaNet layout, the scheduler's two sigma grids, the unit tests and the
 web app named below. One sentence had stopped being true and carries a
 dated note where it stands; the read is
-[`docs/research/sglang_comparison.md`](../research/sglang_comparison.md), "Ninth
+[`docs/h3/sglang_comparison.md`](sglang_comparison.md), "Ninth
 read".*
 
 **Reinforced.**

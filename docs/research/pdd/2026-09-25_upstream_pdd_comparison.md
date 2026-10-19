@@ -36,7 +36,7 @@ unlinked. Whether our node keeps its head half is still undecided in
    - "Vary the transform at fixed partition" has no mechanism left to find.
    - The 2026-08-28 mean-sigma ablation's energy gain is a departure from the
      vendor's integrator, which happens to add energy, not a fix.
-   Corrected in place, with dated notes, in `audio_under_pdd.md`,
+   Corrected in place, with dated notes, in `2026-08-28_audio_under_pdd.md`,
    `docs/distills/pdd.md` and `docs/method/evidence.md`.
 2. **The Kijai PDD files symlinked into this install are stale, and merged
    core decodes them to a roughly doubled head.** They predate Kijai's
@@ -119,7 +119,7 @@ Each needs a render or a capture; none has been run.
      window, against the fp64 mean head over the row's actual span.
    - Reach: the song graphs only.
 2. **Audio refine on the base model after PDD** (T8 implements it for its
-   `pdd8` and `pdd4_plus4` modes; proposed here in `audio_under_pdd.md`
+   `pdd8` and `pdd4_plus4` modes; proposed here in `2026-08-28_audio_under_pdd.md`
    section 3.4 and never run).
    - Its old rationale, the carry, is gone.
    - The practical one stands: coarse partitions lose audio energy.

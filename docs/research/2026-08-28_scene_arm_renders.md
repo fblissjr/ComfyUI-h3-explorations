@@ -11,10 +11,10 @@ the arms are wrong, not the guide.
 
 > **2026-10-01: the prompts these renders used are not the prompts in the bank
 > now.** They carried header times (`00:03.500` and the like); the house rule
-> since 2026-09-18 is that shot headers carry none (`prompting.md` section 3.1),
+> since 2026-09-18 is that shot headers carry none (`docs/prompting/prompting.md` section 3.1),
 > so the cut-time measurements below describe the old text, and the word counts
 > quoted below are the old text's. The current counts are what
-> `prompting.md` section 13's preflight command reports. The measurements are
+> `docs/prompting/prompting.md` section 13's preflight command reports. The measurements are
 > real and stay as written; read them as being about the text they name.
 
 ---
@@ -160,7 +160,7 @@ described.
   matched-seed on/off pair on one scene, which is designed and not built.
 - **Anything from comparing subway to kitchen.** Different scenes and
   references.
-- **Anything about a knob.** `docs/method/eval_comparison.md` and CLAUDE.md's
+- **Anything about a knob.** `docs/method/eval_comparison.md` and docs/prompting/CLAUDE.md's
   different-sample rule apply unchanged: a rendered clip cannot A/B a numerical
   change, because the trajectory diverges completely from any perturbation.
   These arms are "does the brief come out", not "is this setting better".

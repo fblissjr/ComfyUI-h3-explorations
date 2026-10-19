@@ -59,7 +59,7 @@ table is descriptive: one seed, and loudness is not quality.
 | subway, max | -6.7 | -6.4 | -2.6 | -0.7 | -0.9 |
 
 The refine pass raises mean loudness on every pair. That is the direction the
-energy-loss finding predicts (`docs/research/pdd/audio_under_pdd.md`, "What
+energy-loss finding predicts (`docs/research/pdd/2026-08-28_audio_under_pdd.md`, "What
 actually holds"). Whether it sounds better is the owner's ear to decide.
 
 **Sampler time** per row is in the JSONL. On this card: the refine pass costs

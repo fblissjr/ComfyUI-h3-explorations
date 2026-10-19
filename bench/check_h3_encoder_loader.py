@@ -150,7 +150,7 @@ def token_ids_refuse_a_malformed_declaration():
     ids = loader.expected_special_token_ids(tokens)
     markers = vendor_config.h3_markers()
     # The seven H3 markers are the tail run, and the DiT was trained on these
-    # exact ids; `docs/research/official_weights_metadata.md` owns why.
+    # exact ids; `docs/research/2026-08-21_official_weights_metadata.md` owns why.
     assert [ids[token] for token in markers] == list(range(151669, 151676)), ids
     for bad, label in (([], "empty"), (tokens[:19] + [tokens[0]], "duplicate")):
         try:

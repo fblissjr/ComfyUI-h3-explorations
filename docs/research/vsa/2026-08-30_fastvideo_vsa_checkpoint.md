@@ -1,6 +1,6 @@
 # The FastVideo VSA-distilled H3 checkpoint
 
-**In short (as of 2026-08-30, section 6 updated 2026-09-04).** Kijai's FastVideo VSA-distilled checkpoint is the pruned int8 fl2va base plus one trained gate linear per main block (`to_gate_compress`, quantized like its neighbors), with no metadata, provenance or schedule. Its trunk did not move by more than a precision round trip, and the AdaLN surface differs by a change of basis, the signature of a refit rather than training. Its four-step claim, at first only the filename's, has had a source since 2026-09-04: FastVideo's card calls it a four-step DMD2 distillation. Nothing was rendered or timed here. This pack's own VSA node was retired on 2026-09-29, and core's `BlockSparseAttention` in `vsa` mode is the route ([`../../state/roadmap.md`](../../state/roadmap.md), "Closed lanes").
+**In short (as of 2026-08-30, section 6 updated 2026-09-04).** Kijai's FastVideo VSA-distilled checkpoint is the pruned int8 fl2va base plus one trained gate linear per main block (`to_gate_compress`, quantized like its neighbors), with no metadata, provenance or schedule. Its trunk did not move by more than a precision round trip, and the AdaLN surface differs by a change of basis, the signature of a refit rather than training. Its four-step claim, at first only the filename's, has had a source since 2026-09-04: FastVideo's card calls it a four-step DMD2 distillation. Nothing was rendered or timed here. This pack's own VSA node was retired on 2026-09-29, and core's `BlockSparseAttention` in `vsa` mode is the route ([`docs/state/roadmap.md`](../../state/roadmap.md), "Closed lanes").
 
 last updated: 2026-09-04 (section 6 only; every measurement below is from
 2026-08-30 and the artifact has not changed)
@@ -71,7 +71,7 @@ trained matrix quantizes to rather than what an initialized-and-frozen one
 would. Its scale is close to flat with depth: the mean fp32 row scale across
 all 50 blocks spans a factor of 1.35 from smallest to largest, so there is no
 depth structure of the kind this repo found in the PDD LoRA deltas
-([`../h3_partition_distance.md`](../h3_partition_distance.md)).
+([`docs/research/2026-08-29_h3_partition_distance.md`](../2026-08-29_h3_partition_distance.md)).
 
 **What the gate is for.** The installed kernel consumes it as
 `out += gate * softmax(q_mean k_mean^T * scale) v_mean` per block, applied raw
@@ -124,7 +124,7 @@ between 24x and 350x smaller:
 | `final_layer.video_out.weight` | 1.2e-3 | 5.0e-2 |
 
 The ref2va column reproduces the partition distances
-[`../h3_partition_distance.md`](../h3_partition_distance.md) measured
+[`docs/research/2026-08-29_h3_partition_distance.md`](../2026-08-29_h3_partition_distance.md) measured
 independently, which is the corroboration that the comparison is doing what it
 claims.
 
@@ -140,7 +140,7 @@ meaningless number.
 
 `int8_convrot` stores `round(W @ H^T / s)` with a per-row fp32 `s`, where `H` is
 a fixed orthogonal Hadamard of order 256 baked in offline
-([`../comfyui_h3_t2va_trace.md`](../comfyui_h3_t2va_trace.md) section 1.7). Two
+([`docs/research/2026-08-29_comfyui_h3_t2va_trace.md`](../2026-08-29_comfyui_h3_t2va_trace.md) section 1.7). Two
 things follow, and they point opposite ways.
 
 The helpful one: `H` is the same in both files, because both carry the same
@@ -271,7 +271,7 @@ comfy-kitchen#117 the model card points at.
 Comfy-Org/ComfyUI#15958 is not in this install. It is still a draft PR.
 *(Dated note, 2026-09-27: stock core has carried `gate_compress` since core
 commit e308cc73, #16072, so this paragraph describes the 2026-08-31 state
-only; `../vsa/vsa_node.md` has the current one.)*
+only; `2026-08-30_vsa_node.md` has the current one.)*
 
 What that produces, *executed* rather than reasoned: feeding the checkpoint's
 header to this install's `detect_unet_config` returns a config **identical** to

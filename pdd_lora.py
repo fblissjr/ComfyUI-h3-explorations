@@ -580,7 +580,7 @@ class _StepTracker:
         # execution cache keeps that across prompts in a session, so a passing
         # render latched the flag and the next graph -- with a different shift
         # -- skipped the check entirely. That is the trap
-        # `docs/research/pdd/queued_arms.md` records as "a render is not a pure
+        # `docs/research/pdd/2026-08-27_queued_arms.md` records as "a render is not a pure
         # function of its graph", met here in a guard written to catch a
         # different silence. A float compare per forward costs nothing.
         # An ABSENT key is not agreement. `MiniMaxH3SigmaShift` is what writes

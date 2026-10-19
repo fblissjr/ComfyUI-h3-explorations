@@ -23,7 +23,7 @@ so `current_link_speed` reads gen 1 on a card that negotiates gen 4 the moment
 work arrives. Width does not downtrain and is the trustworthy half at idle.
 
 **The line that matters is `power.limit vs default`.** Every timing number in
-`docs/method/bench_plan.md` and `docs/attention/sol_attn.md` was taken at the stock limit. A
+`docs/research/2026-08-14_sol_bench_plan.md` and `docs/attention/sol_attn.md` was taken at the stock limit. A
 board power limit is invisible in a workflow JSON, absent from the capture
 manifest, and survives reboots once someone installs a systemd unit for it --
 so a run at a changed limit is not comparable to any of them, and nothing else
@@ -235,7 +235,7 @@ def main():
             print(f"  POWER LIMIT IS NOT STOCK: {limit} against a "
                   f"default of {default}.")
             print("  Timing taken now is not comparable to any number in")
-            print("  docs/method/bench_plan.md or docs/attention/sol_attn.md. See docs/working/hardware.md.")
+            print("  docs/research/2026-08-14_sol_bench_plan.md or docs/attention/sol_attn.md. See docs/working/hardware.md.")
             print("  " + "-" * 60)
 
     topo = pcie_topology()

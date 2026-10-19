@@ -22,7 +22,7 @@ artifact header), *inference* (a conclusion, with its mechanism named so it can 
 | `coderef/DiffSynth-Studio` | model library with a native H3 pipeline | working checkout |
 | `coderef/diffusers` | model library with a native H3 pipeline | working checkout |
 
-PDD is covered only by its place in the chain: [`../research/pdd/pdd_implementations.md`](../research/pdd/pdd_implementations.md)
+PDD is covered only by its place in the chain: [`docs/research/pdd/2026-08-28_pdd_implementations.md`](../research/pdd/2026-08-28_pdd_implementations.md)
 compares implementations and [`../distills/pdd.md`](../distills/pdd.md) owns the node contract.
 
 ## 1. The node surface
@@ -147,7 +147,7 @@ is not lost, because the H3 DiT never called it. The default chain's dense kerne
 this.
 
 **The five reference contracts** belong to core's `MiniMaxH3ReferenceToVideo` and are owned by
-[`../research/conditioning_nodes.md`](../research/conditioning_nodes.md). Core holds all five, the fifth on both
+[`docs/research/2026-08-21_conditioning_nodes.md`](../research/2026-08-21_conditioning_nodes.md). Core holds all five, the fifth on both
 branches of `CLIP.encode_from_tokens_scheduled` since `6bfaacc6` (2026-09-20), and ours inherits that seam exactly.
 
 ## 4. Against the vendor and the engines
@@ -190,7 +190,7 @@ The sampler itself is no longer a divergence: the base runs Euler, which matches
 ### 4.2 Changes only the cost
 
 Sequence parallelism, AdaLN caching, CUDA graphs and step caching are sglang's and absent here;
-[`../research/sglang_comparison.md`](../research/sglang_comparison.md) owns and prices that list. LightX2V adds block
+[`sglang_comparison.md`](sglang_comparison.md) owns and prices that list. LightX2V adds block
 prefetch, tensor and sequence parallelism, and block-granular text-encoder offload, the last being the shape of a fix
 for the host-memory incident during a bridge load; we have no equivalent. Two apparent gaps are savings (*read*): we
 omit sglang's padding tail, whose rows sit in their own attention segment, and we resample reference audio once where

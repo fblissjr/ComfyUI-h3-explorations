@@ -7,7 +7,7 @@ the library the bench measurements and `MiniMaxH3ProvenanceStamp` call.
 `bench/marker_corpus/compiled.json` declares each arm as a triple -- prompt
 bytes, tokenizer identity, model transform. The prompt bytes are the corpus's
 and reach a render through the graph's text widget; this module owns the other
-two, and `docs/research/marker_arm_binding.md` is the design it implements.
+two, and `docs/research/2026-08-25_marker_arm_binding.md` is the design it implements.
 
 Two rules shape everything here.
 

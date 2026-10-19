@@ -1,6 +1,6 @@
 # Checkpoint and resume for a sequential AWQ calibration run
 
-**In short (as of 2026-08-25).** A design note for checkpoint and resume in a sequential AWQ calibration run, so a mid-run failure costs one layer instead of a ten-hour run. Measured on CPU over a three-layer model: subgraph k smooths layer k-1, per-layer activation state is empty at every boundary, and a checkpoint needs the completed layers' weights and quantization parameters, the pipeline's intermediates cache and the error metrics. It was parked by the owner the same day, verified at fixture scale only. The encoder-calibration lane it served closed on 2026-08-27 ([`../state/roadmap.md`](../state/roadmap.md), "Closed lanes"), and `llmcompressor` and the AWQ recipe files were removed on 2026-09-29 (`docs/state/decisions.md`).
+**In short (as of 2026-08-25).** A design note for checkpoint and resume in a sequential AWQ calibration run, so a mid-run failure costs one layer instead of a ten-hour run. Measured on CPU over a three-layer model: subgraph k smooths layer k-1, per-layer activation state is empty at every boundary, and a checkpoint needs the completed layers' weights and quantization parameters, the pipeline's intermediates cache and the error metrics. It was parked by the owner the same day, verified at fixture scale only. The encoder-calibration lane it served closed on 2026-08-27 ([`docs/state/roadmap.md`](../state/roadmap.md), "Closed lanes"), and `llmcompressor` and the AWQ recipe files were removed on 2026-09-29 (`docs/state/decisions.md`).
 
 last updated: 2026-08-25
 

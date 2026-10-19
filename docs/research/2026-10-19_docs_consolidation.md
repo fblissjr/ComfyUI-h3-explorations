@@ -349,7 +349,7 @@ in the old text that is no longer in the new page, with its old line number.)
   about 95 lines and repeats the night's results block).
 - **decisions.md has no entries before 2026-09-11**; the owner decisions of 2026-09-04 and 2026-09-05 live only in
   `roadmap.md`, "Owner decisions, 2026-09-05 evening". If decisions.md is meant to be the only log, copy them there.
-- **Inbound links to quote updates**: `docs/research/pdd/2026-09-25_upstream_pdd_comparison.md:145` and
+- **Inbound links to quote updates**: `docs/research/pdd/2026-09-25_upstream_pdd_comparison.md` line 145 at `901bee1` and
   `bench/INDEX.md:602` cite roadmap "Owner decisions, 2026-09-05 evening" (heading kept, now a table);
   `workflows/build_workflows.py:4997` comments on "Candidates on trial, 2026-09-05", a next_steps section now cut
   (the comment should point at `h3_config.DAILY_GRAPHS` or the graphs' own notes). Anything citing roadmap "Current
@@ -602,7 +602,7 @@ reads dropped from the body (git history holds the full text):
 
 #### Untouched
 
-`bench_plan.md` (pre-registrations; no obviously duplicated note found; the link fixer may have adjusted its
+`2026-08-14_sol_bench_plan.md` (pre-registrations; no obviously duplicated note found; the link fixer may have adjusted its
 gitignored links), `check_postmortems.md` (history), `rules_history.md` (frozen), `capture_manifest_schema.md`
 body.
 
@@ -729,7 +729,7 @@ Restatements of the geometry outside this folder, with the link that should repl
 - docs/working/runbook.md:152-153 (MAX_LENGTH = 362, 17n+5, audio clock every third step from 39) -> "[`../h3/geometry.md`](../h3/geometry.md), "The length axis" and "Whole on the audio clock"".
 - docs/working/comfy_notes.md:280 ("362 frames is the ceiling") -> "the ceiling is `h3_rules.MAX_LENGTH` ([`../h3/geometry.md`](../h3/geometry.md))".
 - docs/attention/sol_attn.md:151 ("362 is the longest window and 345 is where diffusers stops") -> "[`../h3/geometry.md`](../h3/geometry.md), "The length axis"".
-- docs/method/bench_plan.md:23 and bench/bench_e2e_h3.py:963 call the int32 crossing "the model's ~100k ceiling" -> it is a sage kernel offset width, not the model's: "[`../h3/geometry_cost.md`](../h3/geometry_cost.md), "The int32 crossing"". (input_impacts.md also named docs/attention/sol_attn.md:271; no longer there.)
+- docs/research/2026-08-14_sol_bench_plan.md:23 and bench/bench_e2e_h3.py:963 call the int32 crossing "the model's ~100k ceiling" -> it is a sage kernel offset width, not the model's: "[`../h3/geometry_cost.md`](../h3/geometry_cost.md), "The int32 crossing"". (input_impacts.md also named docs/attention/sol_attn.md:271; no longer there.)
 - docs/prompting/prompt_bank.md:197 ("every legal value on the 17k+5 grid") is generated; the generator's heading text could link geometry.md.
 - docs/masked_v2v/working_rules.md:103,114 and running_a_job.md:80, docs/state/next_steps.md:115, docs/method/checks.md:327, docs/method/evidence.md:72 cite `h3_rules.MAX_LENGTH`/`FRAME_FACTOR` by constant: fine as they are.
 
@@ -1026,7 +1026,7 @@ prompting/prompt_audit.md:
   finding with the defects and the outcome.
 - "`REF_SCENE_SHOTS` exists and is unreachable" and design item 5 "Wire it through `scene=`": superseded (the
   2026-10-01 note: `_ref_prompt` takes `scene=`, the scene arms are wired).
-- "Nothing has been rendered through the marker arms": superseded (rendered; `scene_arm_renders.md`); no marker verdict.
+- "Nothing has been rendered through the marker arms": superseded (rendered; `2026-08-28_scene_arm_renders.md`); no marker verdict.
 - "The cheap gate this audit argues for" (a motion denylist, unbuilt): superseded, `check_camera_vocabulary.py` runs.
 - Done items 1 and 2 of "What to design next" removed; the L2VA render finding kept under "Open findings".
 - The 2026-09-03 `derived:<graph>` key rename note removed (history; no current key affected).
@@ -1035,7 +1035,7 @@ prompting/prompt_audit.md:
 
 ### Left for the lead
 
-- `docs/prompting/scene_arm_renders.md` (viewing guide of 2026-08-28) and `docs/prompting/prompt_length_experiment.md`
+- `docs/research/2026-08-28_scene_arm_renders.md` (viewing guide of 2026-08-28) and `docs/research/2026-08-16_prompt_length_experiment.md`
   (pre-registration of 2026-08-16 with its verdict) are dated records: recommend moving both to `docs/research/`
   (e.g. `research/2026-08-28_scene_arm_renders.md`, `research/2026-08-16_prompt_length_experiment.md`) and updating
   links in prompting.md (§9.10, §9.11, §16.1, "Where everything else lives"), prompt_audit.md, `docs/prompting/index.md`.

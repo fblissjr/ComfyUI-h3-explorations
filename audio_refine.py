@@ -13,7 +13,7 @@ bit-identical. So this node only writes the mask, and the pass itself is
 core's `SamplerCustomAdvanced` with a partial-denoise schedule.
 
 Why it is worth a pass here: PDD's audio loses energy at coarse partitions
-(`docs/research/pdd/audio_under_pdd.md`, "What actually holds"), and that loss
+(`docs/research/pdd/2026-08-28_audio_under_pdd.md`, "What actually holds"), and that loss
 is PDD's own, not a ComfyUI artefact
 (`docs/research/pdd/2026-09-25_upstream_pdd_comparison.md`).
 

@@ -79,7 +79,7 @@ disagree: sglang refuses it for H3, and vllm-omni ships it for FL2VA only.
   closed-loop guard that could sit on a forecaster. *2026-10-02: Spectrum is
   no longer literature only. sglang ships it for H3, opt-in, since
   `ae47bcd4da`, forecasting only the target rows and holding audio;
-  [`sglang_comparison.md`](sglang_comparison.md), "Eighth read", says how it
+  [`docs/h3/sglang_comparison.md`](../h3/sglang_comparison.md), "Eighth read", says how it
   sits against this survey. The verdict here is unchanged.*
 - **DisCa** (2602.05449): the only method aimed at 4-step distills, but it
   needs a trained predictor. Not feasible for a 33B model on one card.

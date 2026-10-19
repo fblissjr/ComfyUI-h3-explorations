@@ -9,7 +9,7 @@ nothing in the record is scored or blinded. The record also gives the two ways t
 PDD quality work was parked on 2026-09-05 ([`docs/state/roadmap.md`](../../state/roadmap.md), "Closed lanes").
 
 **Looking for what to watch and what each file tests?** That is
-[`artifact_axis.md`](artifact_axis.md) section 0, which is the viewing map for
+[`2026-08-28_artifact_axis.md`](2026-08-28_artifact_axis.md) section 0, which is the viewing map for
 every arm all three sessions queued this night. This file is the ablation's own
 record and does not restate it.
 
@@ -208,7 +208,7 @@ and built its falsification on that: clean would clear delta. **It is the
 lowest, on both axes.** So a clean rail clip is what delta predicts and clears
 nothing, and the rail/churn pair confounds predictability with an eightfold
 delta difference. The correction is annotated onto the prediction in
-[`artifact_axis.md`](artifact_axis.md) rather than replacing it.
+[`2026-08-28_artifact_axis.md`](2026-08-28_artifact_axis.md) rather than replacing it.
 
 The general form is worth more than the instance: **a pre-registration can be
 falsified by measuring its premise, before any outcome is observed** — and that

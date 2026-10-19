@@ -137,7 +137,7 @@ ledger row. The full argument for each, as it stood when it was written, is in
   can attribute the effect to audio, and there is no audio-specific transform
   error to find: core's carry is exact under Euler, so the audio loss is PDD's
   own (`docs/research/pdd/2026-09-25_upstream_pdd_comparison.md`).
-  `docs/research/pdd/audio_under_pdd.md`.
+  `docs/research/pdd/2026-08-28_audio_under_pdd.md`.
 - **The encoder this install loads is `h3_config.MODELS["clip"]`**, through
   `MiniMaxH3EncoderLoader`. The v2 AWQ lane was closed on 2026-08-27 and its
   code deleted on 2026-09-13 ([`decisions.md`](../state/decisions.md)). **Closed
@@ -274,7 +274,7 @@ A retraction is done when every **consumer** of the claim is enumerated, not
 when the claim is corrected. That is today's most-repeated failure in one
 sentence: "sage gets nothing" was retracted and went on producing wrong answers
 in three more places, and the 23-point swing was retracted in this file while
-still carrying an argument in `docs/method/bench_plan.md`.
+still carrying an argument in `docs/research/2026-08-14_sol_bench_plan.md`.
 
 The block below makes that enumeration executable.
 `bench/check_retraction_consumers.py` fails when a retracted phrase appears in a
@@ -310,7 +310,7 @@ WHY: the figure was DELETED repo-wide on 2026-08-16, not caveated, so the
      against torch flash, a different and correct claim.
 
 PHRASE: 23-point swing
-ALLOW: docs/method/evidence.md docs/method/bench_plan.md docs/attention/sol_attn.md
+ALLOW: docs/method/evidence.md docs/research/2026-08-14_sol_bench_plan.md docs/attention/sol_attn.md
 WHY: bench_plan's is inside the retraction block that replaced the argument;
      SOLATTN's are its "Do not rely on" table and the reference section.
 
@@ -319,7 +319,7 @@ ALLOW: docs/method/evidence.md docs/attention/sol_attn.md
 WHY: both are retraction statements naming it as withdrawn.
 
 PHRASE: zero DiT calls
-ALLOW: docs/method/bench_plan.md docs/method/checks.md
+ALLOW: docs/research/2026-08-14_sol_bench_plan.md docs/method/checks.md
 WHY: bench_plan's is inside a "RETRACTED 2026-08-14" bullet stating the
      5-of-16 correction. checks.md quotes it as the worked example of why this
      check is an allowlist rather than caveat-detection -- and it was caught
@@ -335,11 +335,11 @@ ALLOW: docs/attention/sol_attn.md
 WHY: both name it as a smoke-harness figure rather than a shipped-graph one.
 
 PHRASE: worth 1.16x alone
-ALLOW: docs/method/evidence.md docs/attention/morton.md docs/attention/sol_attn.md docs/state/open_experiments.md docs/method/bench_plan.md CHANGELOG.md
+ALLOW: docs/method/evidence.md docs/attention/morton.md docs/attention/sol_attn.md docs/state/open_experiments.md docs/research/2026-08-14_sol_bench_plan.md CHANGELOG.md
 WHY: Triton, 362 frames, stacked on int8, retracted 2026-08-16 when a dense
      control showed the CUDA permutation free. docs/attention/morton.md owns the
      retraction; docs/attention/sol_attn.md's is the "do not rely on" row and the corrected
-     Configuration-findings bullet; docs/state/open_experiments.md and bench_plan.md
+     Configuration-findings bullet; docs/state/open_experiments.md and docs/research/2026-08-14_sol_bench_plan.md
      name it as withdrawn in the paragraphs that used to argue from it;
      CHANGELOG.md records the retraction as history and is not rewritten.
      Enumerated the same day the retraction was made -- the earlier three
@@ -391,7 +391,7 @@ WHY: withdrawn 2026-09-03; the grader's docstring and CHANGELOG 0.99.27
 ```
 
 **What this does not defend, and the gap is not small.** The sharpest decay
-found on 2026-08-14 has no string to match: `docs/method/bench_plan.md` read "one
+found on 2026-08-14 has no string to match: `docs/research/2026-08-14_sol_bench_plan.md` read "one
 **345-frame** video reference", where 345 is the *reference* length and looks
 like the shipped config, concealing that the *target* was 362. The retracted
 thing was the **pairing** of two numbers, not any token in the sentence. No
@@ -507,6 +507,6 @@ weights underneath them, enforced by nothing.
 it**: the GPU board power limit changes s/it without changing an output byte and
 appears in no workflow, log or manifest. Run `bench/hwinfo.py` alongside the
 node hash and paste both. The limit on this box was changed away from stock on
-2026-08-17, after every timing in [`bench_plan.md`](bench_plan.md) and
+2026-08-17, after every timing in [`docs/research/2026-08-14_sol_bench_plan.md`](../research/2026-08-14_sol_bench_plan.md) and
 `sol_attn.md` was recorded; those were correct at stock, and reproducing one
 means checking `hwinfo.py` first.

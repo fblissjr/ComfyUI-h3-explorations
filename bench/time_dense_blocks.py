@@ -21,7 +21,7 @@ back-to-back and the model stays resident, so no arm pays a load the others
 did not. A warm-up arm runs first and is discarded, because the first render
 after a model load pays staging the others do not -- that is the defect that
 invalidated `D_start0`'s timing on 2026-08-27
-(`docs/research/pdd/queued_arms.md`).
+(`docs/research/pdd/2026-08-27_queued_arms.md`).
 
 ## What it cannot tell you
 

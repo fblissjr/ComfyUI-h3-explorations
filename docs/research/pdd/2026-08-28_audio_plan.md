@@ -4,7 +4,7 @@
 ComfyUI's audio change of variable acting on a fused head's block-mean velocity: a free coefficient-drift computation
 (A0), grading the `tail6` and `tail5` partitions (A), a shift-arm grid with a 16-step control cell (B), and audio-only
 refinement on the undistilled model as the practical fix (C). A0 and the first `tail6` read were done and are recorded
-in [`audio_under_pdd.md`](audio_under_pdd.md), which also found the drift measure ranks the arms the same with no audio
+in [`2026-08-28_audio_under_pdd.md`](2026-08-28_audio_under_pdd.md), which also found the drift measure ranks the arms the same with no audio
 transform in it; no shift-arm render is recorded. The mechanism was refuted analytically on 2026-09-25
 ([`2026-09-25_upstream_pdd_comparison.md`](2026-09-25_upstream_pdd_comparison.md)), so B has nothing left to find, and C
 stands only as a way to restore the audio energy coarse partitions lose.
@@ -12,7 +12,7 @@ stands only as a way to restore the audio energy coarse partitions lose.
 Written 2026-08-28 for a fresh session. Self-contained on purpose — you should
 not need the conversation this came out of.
 
-[`audio_under_pdd.md`](audio_under_pdd.md) is the finding and the reasoning.
+[`2026-08-28_audio_under_pdd.md`](2026-08-28_audio_under_pdd.md) is the finding and the reasoning.
 **This file is the execution plan**: what is done, what is queued, what to run,
 and what each outcome would mean. Read that one first; it is short.
 
@@ -70,7 +70,7 @@ step in the block, so the quantity is the sum of `|B(sigma) - B(block start)|`
 over the grid points each block spans. Max-of-relative was an ad hoc proxy and
 mis-ranked `opt4`; integrated drift orders **all four** scored arms correctly.
 Full table and the two arithmetic corrections behind it are in
-[`audio_under_pdd.md`](audio_under_pdd.md).
+[`2026-08-28_audio_under_pdd.md`](2026-08-28_audio_under_pdd.md).
 
 **Treat it as a consistency check, not a confirmation.** Four data points, and
 more than one metric was tried. Its claim to be more than a fit is that it is

@@ -29,7 +29,7 @@ does not move the verdict, and C is the list `SOL_SINK_DEFAULT` was judged with
 found the per-option differences inside prompt-and-seed noise on the cells every run measured
 (`bench/results/2026-10-02_sol_campaign_reanalysis.md`). The campaign itself is
 [`../research/sparse/2026-10-02_sol_sparse_attention_hyperparameter_campaign.md`](../research/sparse/2026-10-02_sol_sparse_attention_hyperparameter_campaign.md)
-and its re-analysis [`../research/sparse/sol_dense_blocks_reanalysis.md`](../research/sparse/sol_dense_blocks_reanalysis.md).
+and its re-analysis [`docs/research/sparse/2026-10-02_sol_dense_blocks_reanalysis.md`](../research/sparse/2026-10-02_sol_dense_blocks_reanalysis.md).
 The sequence of lists is in [`../state/decisions.md`](../state/decisions.md).
 
 **What the rotated telemetry showed.** Full 50-block telemetry on a Ref2VA capture (S = 119k) under

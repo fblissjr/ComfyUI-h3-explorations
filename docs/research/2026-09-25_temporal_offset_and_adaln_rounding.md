@@ -92,7 +92,7 @@ eager op:
   activation noise does.
 - **Next to what the checkpoint already carries,** it sits below the int8
   activation quantization error, and below the int8 weight rounding the trace
-  doc measured (`docs/research/comfyui_h3_t2va_trace.md`).
+  doc measured (`docs/research/2026-08-29_comfyui_h3_t2va_trace.md`).
 - **Over one step through all 50 blocks,** the convention ranking flipped
   from seed to seed, so no end-to-end ordering is resolved.
 

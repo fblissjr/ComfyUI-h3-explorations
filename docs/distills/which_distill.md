@@ -148,7 +148,7 @@ with a dated, signed note under the claim; a refuted claim keeps its text and ga
 - **PDD's schedule on motion scenes** (owner, 2026-09-26): the same file at 4 steps (width 8), 6 (`PDD_MANUAL_SIGMAS`,
   8's tail at fewer evaluations), 8 (width 4) and 16 (width 2), judged blind across scenes. If the tail matters rather
   than the count, 6 should match 8. The unjudged `C2_pdd4_nosol` / `C2_pdd8_nosol` pair
-  (`docs/research/pdd/queued_arms.md`, three seeds each) is a zero-card-time first look.
+  (`docs/research/pdd/2026-08-27_queued_arms.md`, three seeds each) is a zero-card-time first look.
 - **The base on Euler over PDD's grid, same seeds**, the controlled pair for every distill. vaedude's capture plan: saved
   latents on every arm (only `h3_text_to_video_pdd_savelat` exists; twins for the 4-, 6- and 16-step graphs and a
   base-on-Euler graph are a small CPU change); the base on Euler at 32 steps (`h3_probe_t2v_base_euler32`, width 1 on

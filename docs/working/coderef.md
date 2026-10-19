@@ -36,7 +36,7 @@ items from the reads, in order of what to act on:
   for the commits named below and titles for the rest. Sol-side movement (core's
   Sol node, comfy-kitchen, kijai's fork, core's PRs, ComfyUI's workflow templates)
   is in [`sol_upstream.md`](../attention/sol_upstream.md); sglang's numbered
-  reads are in [`sglang_comparison.md`](../research/sglang_comparison.md).
+  reads are in [`docs/h3/sglang_comparison.md`](../h3/sglang_comparison.md).
 
 ## A distill's reference is its trainer's contract
 
@@ -82,8 +82,8 @@ rather than restating.
 | `DiffSynth-Studio` | `acf2ad2` (2026-10-09) | model library with a native H3 pipeline, its own converters and a LoRA path | a second opinion on a state-dict namespace or a converter |
 | `diffusers` | `1d5d056ec` (2026-10-09) | model library with a native H3 pipeline, a named H3 scheduler and a conversion script | the canonical tensor namespace, or a clean statement of the sampler |
 
-For sglang, [`sglang_h3_pipeline.md`](../research/sglang_h3_pipeline.md) (what it
-does stage by stage) and [`sglang_comparison.md`](../research/sglang_comparison.md)
+For sglang, [`docs/research/2026-08-25_sglang_h3_pipeline.md`](../research/2026-08-25_sglang_h3_pipeline.md) (what it
+does stage by stage) and [`docs/h3/sglang_comparison.md`](../h3/sglang_comparison.md)
 (what its serving path does that we do not) are the authority over anything here.
 
 **What the 2026-08-28 pass established about the references themselves:**
@@ -98,7 +98,7 @@ does stage by stage) and [`sglang_comparison.md`](../research/sglang_comparison.
   inherit the release tokenizer without touching the ids in code.
 - **PDD**: sglang implements it since `973fb44471` (#40568, 2026-09-23); diffusers,
   LightX2V and DiffSynth do not
-  ([`pdd_implementations.md`](../research/pdd/pdd_implementations.md)).
+  ([`docs/research/pdd/2026-08-28_pdd_implementations.md`](../research/pdd/2026-08-28_pdd_implementations.md)).
 
 ### sglang
 
@@ -408,7 +408,7 @@ Read at `08ff3c11` (against `65787d66`, 2026-10-09). The kitchen pin is `0.2.37`
   (`comfy/k_diffusion/sampling.py::sample_ar_video`) needs a model exposing
   `init_kv_caches`, which only Causal-Wan does, and core's H3 runs one unmasked
   attention over the whole packed sequence
-  ([`technique_transfer.md`](../research/technique_transfer.md), fact 2). The
+  ([`docs/h3/technique_transfer.md`](../h3/technique_transfer.md), fact 2). The
   "attention chunking" nodes in third-party H3 packs slice queries to cut peak VRAM
   and carry no cache.
 

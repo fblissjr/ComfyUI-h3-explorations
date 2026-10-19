@@ -110,7 +110,7 @@ exit 2
 # # the change.** Adding the env gate protects the capture from firing by
 # # accident; adding it here protects the capture from being disarmed by someone
 # # who cannot see it. Grep for the key in the module that reads it, not in the
-# # docs that describe it -- `docs/research/pdd/tier1_gate.md` item 2 asked for
+# # docs that describe it -- `docs/research/pdd/2026-08-31_tier1_gate.md` item 2 asked for
 # # exactly this and it still had not been done.
 # ARMING_KEYS="H3_CAPTURE H3_PDD_OBSERVE H3_QUANT_OBSERVE H3_SOL_OBSERVE"
 #

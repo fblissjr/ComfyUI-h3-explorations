@@ -1,10 +1,10 @@
 # What happens to a LoRA when it is merged onto an int8 module
 
-**In short (as of 2026-08-31, with a section read on 2026-09-05).** A LoRA merged by the PDD node goes through dequantize, add and requantize on the int8 backbone (the output heads do not), and every module takes the stochastic-rounding branch, so round-to-nearest is unreachable on the shipped path. Every figure is a weight statistic on stored weights, not a quality finding: which PDD file or which base does not change the merge cost; which node does. Since 2026-09-26 every LoRA on an int8 checkpoint is applied at the call instead of merged ([`../attention/quant_policy.md`](../attention/quant_policy.md), "LoRAs on the int8 checkpoints").
+**In short (as of 2026-08-31, with a section read on 2026-09-05).** A LoRA merged by the PDD node goes through dequantize, add and requantize on the int8 backbone (the output heads do not), and every module takes the stochastic-rounding branch, so round-to-nearest is unreachable on the shipped path. Every figure is a weight statistic on stored weights, not a quality finding: which PDD file or which base does not change the merge cost; which node does. Since 2026-09-26 every LoRA on an int8 checkpoint is applied at the call instead of merged ([`docs/attention/quant_policy.md`](../attention/quant_policy.md), "LoRAs on the int8 checkpoints").
 
 **A data and provenance record, not a lever inventory.** What was traced in
 code, what was executed, what the numbers are, and what is not established.
-[`quant_levers.md`](quant_levers.md) owns what to DO about any of it and is the
+[`2026-08-31_quant_levers.md`](2026-08-31_quant_levers.md) owns what to DO about any of it and is the
 authority for the lever table; this file owns where the observations came from.
 Where the two disagree on a number, re-run both producers rather than picking.
 
@@ -46,7 +46,7 @@ branch. Any statement about RTN below is about a hypothetical arm.
 
 > **A fourth was added 2026-08-31** and it is not in the table below, because
 > it is measured against a different reference and belongs to
-> [`quant_levers.md`](quant_levers.md) §7: `e` against `W_release + d`, the
+> [`2026-08-31_quant_levers.md`](2026-08-31_quant_levers.md) §7: `e` against `W_release + d`, the
 > weight an unquantised run would use, under BOTH rounding regimes. It is the
 > one that shows the shipped merge costs **+40%** rather than the +11.6% quoted
 > from a round-to-nearest reproduction. Everything below is unaffected — it is
@@ -80,7 +80,7 @@ make that obvious and it is the first thing to check before comparing these
 numbers against anything measured against the release.
 
 **Two spellings are in use across the two lanes and they agree.** This file
-uses `‖Q(W+d) − Q(W) − d‖`; `quant_levers.md` uses `‖Q(W+d) − (W+d)‖`. They
+uses `‖Q(W+d) − Q(W) − d‖`; `2026-08-31_quant_levers.md` uses `‖Q(W+d) − (W+d)‖`. They
 differ by `‖Q(W) − W‖`, the base's requantisation residual, which is NOT zero —
 measured at 1.2e-04, 6.1e-05 and 8.4e-06 of `‖d‖` on three modules, moving the
 final statistic by at most 1.2e-06. So the agreement is real and the reason
@@ -189,7 +189,7 @@ A separate 100-module sweep of PDD fl2va across all 50 blocks put
 agrees in the third decimal: median 1.981, mean 2.002, above 1.0 on 194 of 200
 (97%), same kind ordering (`fc2` 2.222 > `fc1` 2.038 > `out_proj` 1.978 > `qkv`
 1.424), and RTN realised 0.341 mean with a worst module of 0.0043.
-`quant_levers.md` and `data/results/2026-08-31_merge_realisation_pdd_all_blocks.json`
+`2026-08-31_quant_levers.md` and `data/results/2026-08-31_merge_realisation_pdd_all_blocks.json`
 are that record. Two implementations, two subsets, agreement to the third
 decimal — which is what makes these quotable at all. **Both lanes' small
 samples were optimistic in the same direction**, because the two module kinds
@@ -339,7 +339,7 @@ same way.
   the shipped path rounds stochastically, on the reasoning that RTN is "its
   expectation". RTN is the expectation of the WEIGHT, not of the ERROR, and a
   distance statistic cannot borrow that identity — corrected to +40% the same
-  evening ([`quant_levers.md`](quant_levers.md) §7). **The arithmetic was never
+  evening ([`2026-08-31_quant_levers.md`](2026-08-31_quant_levers.md) §7). **The arithmetic was never
   wrong**: a second implementation reproduces all three published RTN means
   bit-identically. The REGIME LABEL was, and it sat in the record's own
   `rounding` field where it read as a disclosure rather than a claim.

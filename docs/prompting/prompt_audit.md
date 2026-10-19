@@ -48,7 +48,7 @@ Ordered by how many graphs carry the scene.
 | `T2V_AISLE_SHORT` / `T2V_AISLE_LONG` | t2va | **keep** | a matched description-length pair: identical dialogue, cuts, camera moves and subjects, elaborated only. Do not edit one alone |
 | `T2V_SORTLINE_SHORT` / `T2V_SORTLINE_LONG` | t2va | **keep** | the second length pair, on an independent scene, for the same reason |
 | `T2V_RAIL_LONG` / `T2V_CHURN_LONG` | t2va | **keep** | a pre-registered predictability-versus-delta pair, both about 500 words, one shot, no dialogue: delta predicts rail is worst, predictability predicts rail is clean |
-| `ref2va_scene_kitchen` | ref2va | **keep** | four shots, inside the word band, the first shipped prompt to carry the lyrics, caption and cutoff markers; [`scene_arm_renders.md`](scene_arm_renders.md) is its viewing guide |
+| `ref2va_scene_kitchen` | ref2va | **keep** | four shots, inside the word band, the first shipped prompt to carry the lyrics, caption and cutoff markers; [`docs/research/2026-08-28_scene_arm_renders.md`](../research/2026-08-28_scene_arm_renders.md) is its viewing guide |
 | `ref2va_scene_subway` | ref2va | **keep** | as kitchen; not an arm of the same experiment (different scene, reference and speaker count) |
 
 ### The composed ref2va scenes
@@ -142,7 +142,7 @@ two audio sections, and the guide's form lives in `subject_definitions` with its
 OPEN, not a defect, because the guide is silent rather than contradictory.
 
 **Markers are in graphs and unjudged.** `h3_ref2v_scene_subway` and `h3_ref2v_scene_kitchen` carry every marker but
-`<d>`; they rendered and [`scene_arm_renders.md`](scene_arm_renders.md) reads them, but no marker verdict is recorded.
+`<d>`; they rendered and [`docs/research/2026-08-28_scene_arm_renders.md`](../research/2026-08-28_scene_arm_renders.md) reads them, but no marker verdict is recorded.
 The `T2V_SCENES` copies (`subway`, `kitchen`, `clinic`) carry markers in t2v form and reach no graph (they are injected
 through `--print-scene` / `--set`, by design), so marker coverage in the t2v layout is zero. The repo's three caption
 uses encode a signage reading `internal/PROMPTING.md` later withdrew.

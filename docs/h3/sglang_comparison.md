@@ -1,6 +1,6 @@
 # sglang's H3 serving path against ours
 
-**In short (as of 2026-10-08, its ninth read; first read 2026-08-21).** What sglang's H3 serving path does that this install does not, read from source. Most of sglang's headline speed is four-card sequence parallelism, and its audited quality deployment requires compile, CUDA graphs, layerwise offload and quantization all off, so a knob sglang has is not on its own an argument. The gaps it records include an exact AdaLN cache, breakable CUDA graphs, an enforced fp32 island that our int8 load collapses, and refusals at admission, and it says where ours is the more conservative side (text-encoder precision). Its sections were read at different sglang commits and are dated; re-read an older one before quoting it as current. The catalogue of gaps is [`../h3/comfyui_vendor_gaps.md`](../h3/comfyui_vendor_gaps.md).
+**In short (as of 2026-10-08, its ninth read; first read 2026-08-21).** What sglang's H3 serving path does that this install does not, read from source. Most of sglang's headline speed is four-card sequence parallelism, and its audited quality deployment requires compile, CUDA graphs, layerwise offload and quantization all off, so a knob sglang has is not on its own an argument. The gaps it records include an exact AdaLN cache, breakable CUDA graphs, an enforced fp32 island that our int8 load collapses, and refusals at admission, and it says where ours is the more conservative side (text-encoder precision). Its sections were read at different sglang commits and are dated; re-read an older one before quoting it as current. The catalogue of gaps is [`comfyui_vendor_gaps.md`](comfyui_vendor_gaps.md).
 
 last updated: 2026-10-08 (closing section "Ninth read" added: frozen audio
 and video inputs, with a dated note in the eighth read); 2026-10-02 (closing section "Eighth read" added, with dated
@@ -33,7 +33,7 @@ older section as current.
 
 **Why this file is not merged into the pipeline walk, asked 2026-08-29.**
 Because the two drift for different reasons and on different clocks.
-[`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) is a source read of somebody
+[`docs/research/2026-08-25_sglang_h3_pipeline.md`](../research/2026-08-25_sglang_h3_pipeline.md) is a source read of somebody
 else's tree: it goes stale when **their** code moves, and the fix is to re-read
 at a new commit. This file goes stale when **ours** moves — a ComfyUI upgrade,
 a node change, a new measurement here — and the fix is to re-derive against our
@@ -41,10 +41,10 @@ side. Merging them would produce one file that needs both kinds of maintenance
 and signals neither, and would put a 700-line vendor description in front of
 every reader who only wanted the delta. The split is kept. What was actually
 drifting is fixed below and in
-[`docs/h3/comfyui_vendor_gaps.md`](../h3/comfyui_vendor_gaps.md).
+[`docs/h3/comfyui_vendor_gaps.md`](comfyui_vendor_gaps.md).
 
 **The pipeline itself, before the comparison.** Since 2026-08-25
-[`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) is the stage-by-stage walk of
+[`docs/research/2026-08-25_sglang_h3_pipeline.md`](../research/2026-08-25_sglang_h3_pipeline.md) is the stage-by-stage walk of
 sglang's H3 path: request, time grid and canvas, media ingestion, the Qwen3-VL
 encode, the VAE encodes, the packed sequence, the DiT forward, the denoise
 loop, decode and output, the runtime around it, and a numbered insights
@@ -55,20 +55,20 @@ differ from here".
 **Scope, and what the index is for.** This file owns the *optimization and
 runtime* comparison. The reference-conditioning comparison — sizing, patchify,
 presentation, packing, condition timestep — is owned by
-[`docs/h3/reference_sizing.md`](../h3/reference_sizing.md), section "The vendor image path,
+[`docs/h3/reference_sizing.md`](reference_sizing.md), section "The vendor image path,
 stage by stage", and its detail must not be restated here.
 
 That split kept every divergence documented and left none of them listed
 together. The consolidated snapshot that fixes it is
-[`docs/h3/comfyui_vendor_gaps.md`](../h3/comfyui_vendor_gaps.md), which defers to this
-file and to [`docs/h3/references.md`](../h3/references.md) rather than competing
+[`docs/h3/comfyui_vendor_gaps.md`](comfyui_vendor_gaps.md), which defers to this
+file and to [`docs/h3/references.md`](references.md) rather than competing
 with them.
 
 ---
 
 ## Every known divergence, in one place
 
-[`docs/h3/comfyui_vendor_gaps.md`](../h3/comfyui_vendor_gaps.md) is the consolidated
+[`docs/h3/comfyui_vendor_gaps.md`](comfyui_vendor_gaps.md) is the consolidated
 report: every gap between this install and the release, with practical impact,
 a priority by what it costs a working user, and what is enforced by an
 assertion versus by nothing. **It is a dated snapshot and this file is still
@@ -216,7 +216,7 @@ of the DiT is bf16 (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/
 and both output heads, and `MINIMAX_H3_FP32_BUFFER_NAMES` covers
 `rope.inv_freq`. It even handles the pruned case, dropping `time_embedder.*`
 from the list when `adaln_t_table` is present (`:2060-2066`).
-[`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) §7 records that the island is
+[`docs/research/2026-08-25_sglang_h3_pipeline.md`](../research/2026-08-25_sglang_h3_pipeline.md) §7 records that the island is
 never quantised.
 
 ComfyUI declares the same intent and does not keep it on a quantized
@@ -225,7 +225,7 @@ explicit `dtype=torch.float32` and calls them "the checkpoint's fp32 island" in
 a comment at `:302` — but `MixedPrecisionOps.Linear.__init__`
 (`comfy/ops.py:1300-1303`) discards the `dtype=` its caller passed and uses the
 compute dtype, so on `int8_convrot` every one of them loads bf16.
-[`comfyui_h3_t2va_trace.md`](comfyui_h3_t2va_trace.md) §1.5 has the mechanism
+[`docs/research/2026-08-29_comfyui_h3_t2va_trace.md`](../research/2026-08-29_comfyui_h3_t2va_trace.md) §1.5 has the mechanism
 and the verification-by-execution; the magnitudes are 3.7e-4 to 1.7e-3
 relative, against the 8.8e-3 the same checkpoint's int8 blocks already carry.
 
@@ -242,7 +242,7 @@ notice if core changed it again.
 
 Recorded so this file is not read as a list of places we are behind. sglang runs
 the Qwen3-VL encode in **bf16**
-([`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) §4). ComfyUI upcasts the
+([`docs/research/2026-08-25_sglang_h3_pipeline.md`](../research/2026-08-25_sglang_h3_pipeline.md) §4). ComfyUI upcasts the
 embedding to fp32 (`comfy/sd1_clip.py:213`) and never comes back down, and
 `comfy/sd.py:269-270` sets the patcher's compute dtype to match with the comment
 "Match torch.float32 hardcode upcast in TE implemention". So the whole 50-layer
@@ -254,7 +254,7 @@ explicit `fp8_matrix_mult=False` with today's `full_precision_mm=True`. Measured
 consequence on this box: int8 costs no more time than bf16 per resident layer
 (0.78 ms dequant against a 0.87 ms cast) and halves the PCIe transfer that
 actually dominates (10.87 ms against 21.75 ms), for 0.88% weight error.
-[`comfyui_h3_t2va_trace.md`](comfyui_h3_t2va_trace.md) §2.4 owns those numbers.
+[`docs/research/2026-08-29_comfyui_h3_t2va_trace.md`](../research/2026-08-29_comfyui_h3_t2va_trace.md) §2.4 owns those numbers.
 
 ### Refusals at admission rather than degraded service
 
@@ -401,7 +401,7 @@ checkpoint, so the mechanism carries and the figures do not.
 ### Sol-Attn defaults: sglang against core's and ours (2026-09-11)
 
 Read from source: sglang at `593c7a900d`
-([`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) section 14.9 has the walk
+([`docs/research/2026-08-25_sglang_h3_pipeline.md`](../research/2026-08-25_sglang_h3_pipeline.md) section 14.9 has the walk
 and the lines); core's `BlockSparseAttention` at ComfyUI `1d48d9cf`
 (`comfy_extras/nodes_sparse_attention.py:368-407` for the schema,
 `:310-318` for what an H3 block does outside the window). Ours is
@@ -453,7 +453,7 @@ we do not run.
 
 The open release is 768p on the short edge. Establishing what *kind* of limit
 that is changed one doc claim and found one defect; the finding itself is owned
-by [`docs/h3/geometry.md`](../h3/geometry.md) and is not restated here. The
+by [`docs/h3/geometry.md`](geometry.md) and is not restated here. The
 short version for anyone arriving from a performance question: the area cap is
 hard upstream, the short edge only warns, and neither is a property of the
 weights.
@@ -472,7 +472,7 @@ upscaled to a 2048 short edge. Core does the opposite: it clamps with
 and never enlarges. The over-count is the square of a scale the reference never
 gets — a 1024x1024 reference priced at four times its real row count. No shipped
 API graph reaches that branch, because they all wire the fit node; the exposure
-is exactly the hand-built graph that `CLAUDE.md` promises preflight can price.
+is exactly the hand-built graph that `docs/research/CLAUDE.md` promises preflight can price.
 Fixed by defaulting the no-fit case to no upscale, and confirmed non-inert
 against a graph rewired to bypass the fit node.
 
@@ -495,14 +495,14 @@ against a graph rewired to bypass the fit node.
   `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:613`) where ComfyUI takes the mean
   (`comfy/ldm/minimax/vae.py:685`). Any encode instrument has to separate
   precision from mean-versus-sample or it measures neither.
-  [`docs/h3/references.md`](../h3/references.md) carries it in the vendor image
+  [`docs/h3/references.md`](references.md) carries it in the vendor image
   path table.
 - Whether an AdaLN cache is worth building, which is downstream of
   [`docs/state/open_experiments.md`](../state/open_experiments.md) #22 and should not be
   started before it.
 - Nothing left on the reference path: video, audio, frame rate, soundtrack
   pairing and condition noise were all re-derived on 2026-08-21 against sglang,
-  diffusers and DiffSynth-Studio, and [`docs/h3/references.md`](../h3/references.md)
+  diffusers and DiffSynth-Studio, and [`docs/h3/references.md`](references.md)
   carries the results. One item there is marked unverified and stays that way:
   what sglang does when a reference video is shorter than its aligned target.
   The mono-upmix question that sat beside it was closed on 2026-08-21 — no
@@ -511,7 +511,7 @@ against a graph rewired to bypass the fit node.
 
 ## Third read, 2026-09-04
 
-[`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) section 14 records what
+[`docs/research/2026-08-25_sglang_h3_pipeline.md`](../research/2026-08-25_sglang_h3_pipeline.md) section 14 records what
 landed in sglang between 2026-08-31 and 2026-09-05. This section says what
 each item is against what we do, in the order a reader deciding what to borrow
 would want, and it changes no earlier verdict on this page.
@@ -520,7 +520,7 @@ would want, and it changes no earlier verdict on this page.
 config refuses every mode, task, step count and quality tier the student was
 not distilled for. That is the discipline any FastH3 rung here would need to
 inherit: a t2va-only arm at five grid points, its own dense pair, never pooled
-with base-H3 rungs. [`vsa/vsa_node.md`](vsa/vsa_node.md) holds the blockers.
+with base-H3 rungs. [`docs/research/vsa/2026-08-30_vsa_node.md`](../research/vsa/2026-08-30_vsa_node.md) holds the blockers.
 
 **Their quality tiers are our ladder, stated as a contract instead of
 measured.** `lossless`, `extra-high` and `high` are request-time promises
@@ -585,7 +585,7 @@ fusion fine-tune shipped full or pruned INT8, through `--model-variant hybrid`
 plus an explicit transformer-weights path: one pipeline for t2va, fl2va and
 ref2va, with the partition gate relaxed (sglang's H3 cookbook page, its
 Singularity section). ComfyUI has no partition gate
-([`docs/h3/comfyui_vendor_gaps.md`](../h3/comfyui_vendor_gaps.md) gap 10), so such a
+([`docs/h3/comfyui_vendor_gaps.md`](comfyui_vendor_gaps.md) gap 10), so such a
 file loads here as it is. Nothing to borrow.
 
 **Two fixes that do not apply to core.** `b83f1bdd21` (#38225) removed
@@ -682,7 +682,7 @@ What landed in `coderef/sglang` between `993d1fccba` and `2f5c9ac43d`. Four
 commits touch H3 paths. One of them is news.
 
 **sglang now implements PDD (`973fb44471`, #40568).** Until this commit no
-engine did ([`pdd/pdd_implementations.md`](pdd/pdd_implementations.md), section
+engine did ([`docs/research/pdd/2026-08-28_pdd_implementations.md`](../research/pdd/2026-08-28_pdd_implementations.md), section
 1, corrected in place). How it works:
 
 - Two offline tools, then an environment variable at serve time. The first
@@ -743,14 +743,14 @@ the fc1 delta landing swapped is an inference, not an observation.
   (`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py::register`).
   Every `coderef/sglang/...` path and `::symbol` cited under `docs/` still
   resolves. The FastH3 sentence in
-  [`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) that says "Registered under
+  [`docs/research/2026-08-25_sglang_h3_pipeline.md`](../research/2026-08-25_sglang_h3_pipeline.md) that says "Registered under
   `registry.py`" is half stale and has a dated note.
 
 **Sol-Attn defaults have not moved**: no new commit touches `sol_attn.py`,
 and it is still opt-in, so the table under "Sol-Attn defaults: sglang against
 core's and ours" holds. `50ec9702d0` adds a "Run in ComfyUI" section to the H3
 cookbook naming a server-mode node, which agrees with
-[`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) that sglang has no in-process
+[`docs/research/2026-08-25_sglang_h3_pipeline.md`](../research/2026-08-25_sglang_h3_pipeline.md) that sglang has no in-process
 ComfyUI path for H3. The rest is serving, MiniMax-M3, HiSparse, ROCm and XPU,
 read at the title.
 
@@ -812,7 +812,7 @@ the forecast, and runs the embed step and the final layer every step
 The skip schedule is a rule: real warm-up forwards, then a widening window
 with no cooldown. That is DPCache's insertion point with a rule where DPCache
 has a calibration. It already forecasts only the target rows, which
-[`2026-09-25_step_caching_survey.md`](2026-09-25_step_caching_survey.md)
+[`docs/research/2026-09-25_step_caching_survey.md`](../research/2026-09-25_step_caching_survey.md)
 said no upstream did, and holds audio rather than weighting the two streams.
 The survey's verdict stands (reasoned): nothing to skip at distilled step
 counts, a second candidate at the base step count. Its code comment credits
@@ -875,7 +875,7 @@ record and holds at this head:
   (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py::minimax_h3_denoise_loop`),
   and the file's track is the decoded latent, with no mux of the source's
   audio (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/decoding.py::MiniMaxH3DecodingStage`).
-  [`docs/h3/audio_freeze.md`](../h3/audio_freeze.md) section 8 owns this; its
+  [`docs/h3/audio_freeze.md`](audio_freeze.md) section 8 owns this; its
   dated note says which of its items were checked again.
 - **There is no edit, continuation, window or partial-strength path.** One
   request is one clip inside the duration limits. The newest file in the
@@ -886,7 +886,7 @@ record and holds at this head:
   (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/task_profiles.py::MINIMAX_H3_TASK_PROFILES`),
   and guidance and the negative prompt are refused at the door
   (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/video_adapter.py::MiniMaxH3VideoModelAdapter`).
-  [`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) sections 1 and 8 have the
+  [`docs/research/2026-08-25_sglang_h3_pipeline.md`](../research/2026-08-25_sglang_h3_pipeline.md) sections 1 and 8 have the
   detail.
 
 **What moved: the stage that runs a DiT step for ComfyUI handles denoise
@@ -905,7 +905,7 @@ read's bullet on that stands, so the labels agree and the output scaling
 does not (reasoned, not run). This is core's rule carried over so a ComfyUI
 sampler can drive sglang's DiT. Nothing in sglang's request, task table or
 native loop reaches it, so it is no evidence about training.
-[`docs/h3/audio_freeze.md`](../h3/audio_freeze.md) section 8 said no mask path
+[`docs/h3/audio_freeze.md`](audio_freeze.md) section 8 said no mask path
 existed anywhere in the serving code; it is corrected there.
 
 **How its edit-shaped request differs from the whole-frame edit rendered
@@ -922,7 +922,7 @@ frozen):
   Here the soundtrack is a block only when it is wired. A reference video
   with no audio block beside a frozen target track is therefore a state
   sglang cannot produce. The arm that carries both is the hybrid row of
-  [`docs/h3/audio_freeze.md`](../h3/audio_freeze.md) section 2.
+  [`docs/h3/audio_freeze.md`](audio_freeze.md) section 2.
 - **Its only way to pin a frame of the target is a still keyframe at the
   first frame, the last, or both**, and ref2va admits those beside its
   references
@@ -948,7 +948,7 @@ frozen):
   Length is set by hand here.
 
 The rest belongs to the reference comparison and is written up where that
-lives, [`docs/h3/references.md`](../h3/references.md): where a reference
+lives, [`docs/h3/references.md`](references.md): where a reference
 video's rows sit against the target's in time and space ("Edit a source
 video"), and the condition noise level as a setting that both sides have,
 set here by one node since `c7fcae2f` ("The vendor image path, stage by
@@ -963,7 +963,7 @@ this read is a default of ours that sglang and core agree against.
 lines, the scheduler, the release's video processor config, and the ComfyUI
 app beyond the H3 executor's pack and unpack. What happens to a reference
 video shorter than the target is still untraced
-([`docs/h3/references.md`](../h3/references.md), "Known limitations,
+([`docs/h3/references.md`](references.md), "Known limitations,
 collected"). Line-number citations in the older sections of this file and
-of [`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) were not re-verified;
+of [`docs/research/2026-08-25_sglang_h3_pipeline.md`](../research/2026-08-25_sglang_h3_pipeline.md) were not re-verified;
 several have moved.

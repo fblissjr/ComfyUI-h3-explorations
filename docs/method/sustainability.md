@@ -31,7 +31,7 @@ What is missing is any **general** forcing function that makes an open question
 close. Two local ones exist and both work, which is the reason to generalise
 rather than invent:
 
-- [`docs/research/pdd/queued_arms.md`](../research/pdd/queued_arms.md) already says
+- [`docs/research/pdd/2026-08-27_queued_arms.md`](../research/pdd/2026-08-27_queued_arms.md) already says
   *"Delete an entry when it runs; one still here in a week belongs in one of
   those two instead."* That is an aging rule, in-tree, and it is the model.
 - [`docs/state/roadmap.md`](../state/roadmap.md) closes items with dates, and `checks.md` has a
@@ -49,14 +49,14 @@ indefinitely, accurately undecided.
 
 Ordered. The first two are worth more than the rest together.
 
-### 1. Generalise the `queued_arms.md` rule to the big trackers
+### 1. Generalise the `docs/research/pdd/2026-08-27_queued_arms.md` rule to the big trackers
 
 Give every open question a review date, not just a status. When the date
 passes, "we are living with this, reviewed `<date>`" is a legitimate and
 *different* state from open.
 
 This adds no instrument. What it changes is that leaving something open becomes
-an act rather than a default. `queued_arms.md` shows the convention already
+an act rather than a default. `docs/research/pdd/2026-08-27_queued_arms.md` shows the convention already
 works here; the gap is that it covers one lane.
 
 ### 2. Close the top of the backlog before adding capability

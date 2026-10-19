@@ -284,7 +284,7 @@ Prose a reader acts on today: node and config comments, the working docs, and sc
 | 1717 | `2026-08-19_sol_error_per_head.json` | `results/` | A matched pair exists and had not been read against itself: 'data/results/2026-08-19_sol_error_per_head.json' (tau 1.3) and '..._per_head_tau1.0.json' (tau 1.0), **same capture, same fourteen (block, step) pairs**, decomposed against an oracle by |  |
 | 1756 | `2026-08-19_sol_error_control.json` | `results/` | ## The trap in the control file '2026-08-19_sol_error_control.json' carries 'tau: 1.3' in its metadata and its 'rows' is **EMPTY**. Its 'controls' hold the DENSE limit ('tau=-1e9') and the SPARSE limit ('tau=26') — the bounds, not a tau arm |  |
 
-## `docs/method/bench_plan.md`
+## `docs/research/2026-08-14_sol_bench_plan.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
@@ -401,20 +401,20 @@ Prose a reader acts on today: node and config comments, the working docs, and sc
 | 1543 | `2026-08-20_adaln_pruning_residual.json` | `results/` | *Tests:** whether the rank-8 AdaLN pruning, which perturbs the modulation output identically on both checkpoints ('data/results/2026-08-20_adaln_pruning_residual.json': same size, same per-parameter and per-timestep shape, ratio 0.97-1.01), moves the *network output* by a different amount on ref2va than on fl2va. |  |
 | 1688 | `2026-08-30_capture_inventory.json` | `results/` | kind) at 1344x768, one or two '(block, step)' pairs. At 98k x 7168 in bf16 that is ~1.4 GB per pair, a third of what the existing qkv captures cost. Every capture inventoried in '2026-08-30_capture_inventory.json' was deleted the day it was written, so this needs a fresh render, and 'bench/restart_comfy.sh''s arming rule applies to the server that runs it. |  |
 
-## `docs/research/h3_dit_implementations.md`
+## `docs/research/2026-08-29_h3_dit_implementations.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
 | 259 | `2026-08-29_market_scene_arms.json` | `results/` | *Partially priced 2026-08-29.** A three-arm record on one scene ('../../data/results/2026-08-29_market_scene_arms.json') includes a pair differing **only** in 'sampler_name', 'dpmpp_2m_sde_gpu' against 'euler', at a fixed seed with PDD-emitted sigmas. Both met the brief. |  |
 | 933 | `2026-08-29_int8_convrot_headroom.json` | `results/` | modules with the release's fp32 islands preserved."* Three defects in one sentence. It carried an ENCODER record ('data/results/2026-08-29_int8_convrot_headroom.json', subject 'qwen3vl_32b_minimax_h3_int8_convrot.safetensors') to a DiT conclusion, which is the two-models crossing 'CLAUDE.md' names. §7 establishes none of what is |  |
 
-## `docs/research/h3_partition_distance.md`
+## `docs/research/2026-08-29_h3_partition_distance.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
 | 13 | `2026-08-29_h3_partition_distance.json` | `results/` | '../../bench/compare_h3_partitions.py' into '../../data/results/2026-08-29_h3_partition_distance.json': relative Frobenius distance and cosine, in float64, over every shared unquantized tensor. Quantized payloads are skipped and reported as skipped — |  |
 
-## `docs/research/official_weights_metadata.md`
+## `docs/research/2026-08-21_official_weights_metadata.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
@@ -460,13 +460,13 @@ Prose a reader acts on today: node and config comments, the working docs, and sc
 | 55 | `2026-08-30_pdd_observe_1344x768_345f.json` | `results/` | 'bench/check_pdd_unmerged.py' \| the merged/un-merged identity in float64, four deliberate violations \| 'bench/record_capture_inventory.py' \| what a capture held, so it can be deleted \| '2026-08-30_pdd_observe_1344x768_345f.json' \| the first clean capture \| *'mlp.fc2' is deliberately NOT un-mergeable.** Its forward is never called on |  |
 | 77 | `2026-08-29_block_propagation.json` | `results/` | **It is not where strength MATTERS.** It measures where the delta is large at the block*, not how much reaches the output. '2026-08-29_block_propagation.json' shows those run opposite with depth. So b7 > b0 here cannot be read as b7 mattering more. **The 1.21x sigma figure is confounded and is withdrawn as a schedule |  |
 
-## `docs/research/pdd/audio_under_pdd.md`
+## `docs/research/pdd/2026-08-28_audio_under_pdd.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
 | 552 | `2026-08-28_pdd_partition_fidelity_362.json` | `results/` | # 2. The evidence, such as it is 'data/results/2026-08-28_pdd_partition_fidelity_362.json', 362 frames, 1152x768, one seed: |  |
 
-## `docs/research/pdd/depth_and_axes.md`
+## `docs/research/pdd/2026-08-30_depth_and_axes.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
@@ -477,13 +477,13 @@ Prose a reader acts on today: node and config comments, the working docs, and sc
 | 48 | `2026-08-30_pdd_block_magnitude.json` | `results/` | Sources, in column order: '2026-08-29_block_propagation.json', '2026-08-29_dense_block_ranking.json', '2026-08-30_pdd_block_magnitude.json', '2026-08-29_h3_partition_distance.json'. |  |
 | 49 | `2026-08-29_h3_partition_distance.json` | `results/` | Sources, in column order: '2026-08-29_block_propagation.json', '2026-08-29_dense_block_ranking.json', '2026-08-30_pdd_block_magnitude.json', '2026-08-29_h3_partition_distance.json'. *Read across, and the disagreement is the finding.** |  |
 
-## `docs/research/pdd/queued_arms.md`
+## `docs/research/pdd/2026-08-27_queued_arms.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
 | 78 | `2026-08-27_qwen_view_under_snapshot.json` | `results/` | it was prepared at: 512, 1024 and 2048 all arrive as 264 merged tokens at 16:9, 266 at 4:3, and only square moves at all ('data/results/2026-08-27_qwen_view_under_snapshot.json'). Under v2's bounds the same knob spans 448 to 7,296. |  |
 
-## `docs/research/quant_levers.md`
+## `docs/research/2026-08-31_quant_levers.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
@@ -492,7 +492,7 @@ Prose a reader acts on today: node and config comments, the working docs, and sc
 | 106 | `2026-08-31_merge_realisation.json` | `results/` | Measured, 'bench/measure_merge_realisation.py' → 'bench/results/2026-08-31_merge_realisation.json', 20 modules across blocks 0/12/25/37/49. 'realised_along_d' is '<Q(W+d) − Q(W), d> / <d, d>' — the fraction of the delta that actually landed: |  |
 | 164 | `2026-08-28_quant_hotspots_ref2va.json` | `results/` | *out_proj's excess is now explained.** 'data/results/2026-08-28_quant_hotspots_ref2va.json' listed under 'not_measured': *"why the INT8 scheme treats out_proj worse. Outlier structure the rotation does not spread is the obvious candidate and is untested."* It is |  |
 
-## `docs/research/sglang_comparison.md`
+## `docs/h3/sglang_comparison.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
@@ -501,19 +501,19 @@ Prose a reader acts on today: node and config comments, the working docs, and sc
 | 305 | `2026-08-21_quant_delta_fl2va.json` | `results/` | the wrong row. 2. **The gap is uniform across module kinds, so it is not qkv-specific.** 'data/results/2026-08-21_quant_delta_fl2va.json': 'fp8_vs_bf16' reads the same for 'attn.qkv_proj' as for 'attn.out_proj', 'mlp.fc1' and 'mlp.fc2'. A layout defect confined to the fused qkv weight |  |
 | 398 | `2026-08-21_vae_encoder_precision.json` | `results/` | 'bench/grade_vae_encoder_precision.py' grades the encoder at the call rather than at a rendered clip, and 'data/results/2026-08-21_vae_encoder_precision.json' records fp16 bit-identical to itself against fp32 moving the latent, with bf16 as the far control. What stays open is whether that delta is *visible*, |  |
 
-## `docs/research/technique_transfer.md`
+## `docs/h3/technique_transfer.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
 | 22 | `2026-08-18_phase0_instrument.json` | `results/` | Where the time goes, MEASURED at one configuration ('data/results/2026-08-18_phase0_instrument.json', 1024x768 with three references): sampling was 87% of the render at 100% SM occupancy and pegged power; load staging and everything else was the rest. The conditioning node |  |
 
-## `docs/research/vsa/fastvideo_vsa_checkpoint.md`
+## `docs/research/vsa/2026-08-30_fastvideo_vsa_checkpoint.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
 | 13 | `2026-08-30_fastvideo_vsa_checkpoint.json` | `results/` | '../../../bench/analyze_vsa_checkpoint.py' into '../../../data/results/2026-08-30_fastvideo_vsa_checkpoint.json', except the load behaviour in section 5, which was produced by executing this install's own detection and module construction against the checkpoint header. |  |
 
-## `docs/research/vsa/vsa_node.md`
+## `docs/research/vsa/2026-08-30_vsa_node.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|

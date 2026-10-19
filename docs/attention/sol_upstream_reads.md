@@ -4,7 +4,7 @@ Detail page of [`sol_upstream.md`](sol_upstream.md), which holds the current sta
 each pass over comfy-kitchen and core, newest first: what moved, and what it meant for this repo on that date. It is
 history, not guidance; where a later pass or the code says otherwise, they win. The other clones' passes are in
 [`../working/coderef.md`](../working/coderef.md), one section per checkout, and sglang's in
-[`../research/sglang_comparison.md`](../research/sglang_comparison.md).
+[`docs/h3/sglang_comparison.md`](../h3/sglang_comparison.md).
 
 **What still bears on this repo:**
 
@@ -38,7 +38,7 @@ checkout.
 
 **Nothing below changes a default this repo ships, and nothing triggers the
 adopt-upstream rule.** No H3 template moved a widget value, and sglang moved
-no default ([`docs/research/sglang_comparison.md`](../research/sglang_comparison.md),
+no default ([`docs/h3/sglang_comparison.md`](../h3/sglang_comparison.md),
 "Eighth read").
 
 **Kitchen: current on that day.** `vendor/rebuild_kernel.sh --check` reported the build

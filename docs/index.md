@@ -16,7 +16,7 @@ Read in this order (root `AGENTS.md`, "How the owner and the sessions talk"):
 | folder | what it answers | start at |
 |---|---|---|
 | [`state/`](state/index.md) | where things stand: the handover, what is next, what was decided, the roadmap, what is not measured | [`handover.md`](state/handover.md) |
-| [`method/`](method/index.md) | how the repo decides something is true: what holds, every check, the A/B process, pre-registered runs | [`evidence.md`](method/evidence.md) |
+| [`method/`](method/index.md) | how the repo decides something is true: what holds, every check, the A/B process | [`evidence.md`](method/evidence.md) |
 | [`working/`](working/index.md) | running ComfyUI and the box, the card and ledger runbook, telemetry, the sister checkouts | [`runbook.md`](working/runbook.md) |
 | [`h3/`](h3/index.md) | the model and its ComfyUI path: what can be made, canvas and length, conditioning, references, gaps against the vendor | [`uses.md`](h3/uses.md) |
 | [`attention/`](attention/index.md) | Sol-Attn and quantization: knobs, measured arms, Morton, upstream, the per-block precision policy | [`sol_attn.md`](attention/sol_attn.md) |

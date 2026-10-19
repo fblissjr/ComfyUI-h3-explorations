@@ -59,7 +59,7 @@
   - cross-layer index reuse (IndexCache, 2603.12201).
 
   On the execution side, flashinfer and MiniMax both run per-query-token block lists as one online softmax per query tile over the UNION of the tile's blocks. That is the contract a query-split Sol would need. It is Blackwell-only in both libraries.
-- **[V] Retrieval-style scoring (PQ, LSH, clustering) pays for its index over many decode steps. H3 has no decode loop and rebuilds K every block and step** (`docs/research/technique_transfer.md`, facts 1 and 2). Only one-pass key sketches survive that: sign bits after a Hadamard (Self-Indexing Attention, 2609.13205), RaBitQ-style 1-bit keys (2606.31519) and per-block summaries. The Quest bound, the best-known per-block bound, was already tested on H3 captures by the peer tool (arm D), and it ranks worse than the centroid rule: too loose at head_dim 128 over 64 keys.
+- **[V] Retrieval-style scoring (PQ, LSH, clustering) pays for its index over many decode steps. H3 has no decode loop and rebuilds K every block and step** (`docs/h3/technique_transfer.md`, facts 1 and 2). Only one-pass key sketches survive that: sign bits after a Hadamard (Self-Indexing Attention, 2609.13205), RaBitQ-style 1-bit keys (2606.31519) and per-block summaries. The Quest bound, the best-known per-block bound, was already tested on H3 captures by the peer tool (arm D), and it ranks worse than the centroid rule: too loose at head_dim 128 over 64 keys.
 - **[V] The one sub-block video scorer with public code, DFSAttn (2605.23445), uses the estimator sglang's H3 notes rejected in pixels.** It takes a softmax over key tiles per query tile, summed per block pair. That is "normalise each query sub-block into a distribution", which sglang measured better on two offline proxies and worse on 0 of 15 prompts end to end (`coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/subblock_sparse/router.py:48-61`). Treat DFSAttn as a warning about offline proxies, not as a recipe.
 
 ## What this means for H3, ranked
@@ -106,14 +106,14 @@ Ranked by how directly each item could change a Sol default or a kitchen kernel 
    - 1-bit key sketches: the INT8 per-token score already exists and is exact to INT8; a sketch saves bandwidth, not selection quality.
    - Quest bounds: measured worse locally.
    - Query-aware MLLM pruning: conditioning rows are already exact in Sol.
-   - Encoder-side merging: `docs/research/technique_transfer.md`'s open borrow 1 is unchanged by 2026 work.
+   - Encoder-side merging: `docs/h3/technique_transfer.md`'s open borrow 1 is unchanged by 2026 work.
 
 **The blind spot to keep in view.** Every "measure first" above is a capture proxy. The repo's own evidence says such proxies have anti-predicted pixels once: `coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/subblock_sparse/router.py:48-61` shows better on both offline proxies and worse on 0 of 15 prompts. `internal/2026-09-19_question_review.md` C.11 asks for the verdict-separation check before any lane is built on capture error. So treat equal-cost missed mass as a SCREEN that nominates at most one candidate for a blind panel, not as a decision rule.
 
 ## 1. Corrections and agreements with existing records
 
 - **[V] Correction to `docs/research/2026-09-17_rotation_and_lowbit_attention_survey.md` §D.9.** That section credits DFSAttn with "layer-wise sparsity profiling + bidirectional co-clustering". The DFSAttn paper (arXiv 2605.23445, "Dynamic Fine-grained Sparse Attention for Efficient Video Generation", 2026-05-22) describes 16-token sub-block pooling, block-score aggregation and 3D Hilbert reordering. The co-clustering mechanism named in D.9's line belongs to arXiv 2603.18636, "Attention Sparsity is Input-Stable ... Offline Sparsity Profiling and Online QK Co-Clustering" (SVOO), which another agent covers. I did not reopen the index D.9 cites, so the cause of the mix-up is not established here. Per CLAUDE.md, log what the line used to claim in `docs/state/decisions.md` when it is fixed.
-- **[V] Agreement with `docs/research/technique_transfer.md`:**
+- **[V] Agreement with `docs/h3/technique_transfer.md`:**
   - Its row "learned sparse attention with block selection (DeepSeek DSA, NSA, MoBA) → exists" holds. Every 2026 LLM indexer found here is learned too: QSA's `index_qk_proj`, MSA's KL-trained index branch, SpotAttention's KL-trained selector.
   - **This draft goes beyond that row in two ways.** First, the training-free 2026 work sits in the search path around learned indexers, and its ideas (hierarchy, query-group proxies, head routing, cross-layer reuse) do transfer. Second, the table has no row for retrieval-style scoring. Such scoring fails here for the table's own facts 1 and 2, not for a new reason.
   - Its row "token merging and pruning → possible, unmeasured" is unchanged by the 2026 MLLM and encoder work in §4.3–4.4. Trend-aware Pruning's finding that importance moves between layers is one more reason to expect fact 2 to bite.
@@ -216,7 +216,7 @@ HAWK's recipe (a cheap first-layer projection without positional terms, plus off
 - **MaMe/MaRe**, 2604.13432 (abstract): matrix-only merging with an inverse "restoration", applied to SD2.1. **ToMA**, 2509.10918 (2025): GPU-aligned merge for diffusion.
 - **LTBM**, 2605.25179 (abstract): audio tokens merged only within a temporal window. Locality helps captioning and is less favourable for multiple-choice audio QA.
 - **Stride-k**, 2608.30927 (abstract): keeping every second Whisper token held WER.
-- **[I] The selection rules here are similarity, locality and stride. None of them decides what attention computes exactly.** They reduce rows for all later layers, which is `docs/research/technique_transfer.md`'s open borrow 1, unchanged. The one echo for H3's audio span: a local-window pooling cell (16 tokens) is the key-side analogue of LTBM's locality constraint.
+- **[I] The selection rules here are similarity, locality and stride. None of them decides what attention computes exactly.** They reduce rows for all later layers, which is `docs/h3/technique_transfer.md`'s open borrow 1, unchanged. The one echo for H3's audio span: a local-window pooling cell (16 tokens) is the key-side analogue of LTBM's locality constraint.
 
 ## 5. A two-stage design for H3, with costs [I: labelled arithmetic from shapes]
 
@@ -291,7 +291,7 @@ Local (cited at lines above):
 - `coderef/flashinfer/flashinfer/msa_ops/{__init__.py, _common.py, proxy_score.py, sparse_prefill.py}`
 - `workflows/h3_config.py`
 - `bench/analyze_sol_block_grouping.py` (uncommitted peer work)
-- `docs/research/technique_transfer.md`
+- `docs/h3/technique_transfer.md`
 - `docs/research/2026-09-17_rotation_and_lowbit_attention_survey.md`
 - `internal/2026-09-19_question_review.md`
 

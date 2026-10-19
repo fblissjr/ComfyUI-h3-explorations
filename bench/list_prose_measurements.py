@@ -53,7 +53,6 @@ GOVERNED_ROOTS = ["docs", "README.md", "CLAUDE.md", "VISION.md", ".claude/skills
 RECORD_PATTERNS = [
     r"^CHANGELOG\.md$",                       # per-version, past tense
     r"^docs/method/check_postmortems\.md$",   # frozen run logs, stale by design
-    r"^docs/method/bench_plan\.md$",          # pre-registered predictions and scores
     r"/\d{4}-\d{2}-\d{2}[_-]",                # a date in the filename is the observation point
     r"^docs/research/.*/brainstorming/",      # session-dated working notes
     r"^docs/(.+/)?index\.md$",                # routers: they name pages, not figures

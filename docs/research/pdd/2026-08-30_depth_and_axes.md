@@ -212,7 +212,7 @@ euler for the same reason `probe_block_propagation.py` does.
   step. So sglang does run deterministic euler, but in the loop rather than
   through that class, and the class is where the math is *documented* rather
   than where it *executes*. Reported by the mask-lane session, verified here by
-  reading both files. `docs/research/sglang_h3_pipeline.md` owns sglang and
+  reading both files. `docs/research/2026-08-25_sglang_h3_pipeline.md` owns sglang and
   already attributes the class correctly.
 
 **MASK GRANULARITY, and it is gated by ComfyUI rather than by the model.**
@@ -269,7 +269,7 @@ is scored against a prediction rather than explained afterwards.
   differently. That is a statement about the time partition, and it is the
   strongest quality result this lane has.
 - **Upstream's, reported and not verified anywhere here.**
-  `docs/research/sglang_h3_pipeline.md` §11 records sglang's SubBlock sparse
+  `docs/research/2026-08-25_sglang_h3_pipeline.md` §11 records sglang's SubBlock sparse
   backend claiming that its step cutoff and its layer cutoff "behave nothing
   alike": dropping the LAYER cutoff to zero sits inside the run-to-run noise
   floor, while dropping the STEP cutoff to zero leaves the sample essentially

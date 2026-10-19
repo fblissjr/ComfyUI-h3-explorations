@@ -3,7 +3,7 @@
 **Written 2026-08-16, after both renders completed and BEFORE either clip was
 watched.** That ordering is the whole point of the file. Once you have seen the
 output, "which one is better" acquires an answer and the reasons arrive to fit
-it. `docs/method/bench_plan.md` exists for the same reason and this follows its shape.
+it. `docs/research/2026-08-14_sol_bench_plan.md` exists for the same reason and this follows its shape.
 
 Nothing here is a result. The verdict goes in a section at the bottom, added
 after the owner judges.

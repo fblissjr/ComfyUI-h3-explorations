@@ -109,7 +109,7 @@ MODELS = dict(
     unet_hybrid_adaln_all="minimax_h3_hybrid_fl2va_ref2va_adaln_all-int8.safetensors",
     # `unet_vsa`, kijai's experimental FastVideo VSA checkpoint, left with
     # `MiniMaxH3VSAAttention` and its two probe graphs in 0.173.0 (owner,
-    # 2026-09-29); `docs/research/vsa/fastvideo_vsa_checkpoint.md` keeps what it was.
+    # 2026-09-29); `docs/research/vsa/2026-08-30_fastvideo_vsa_checkpoint.md` keeps what it was.
     clip=ENCODER_INT8,
     # **The INT8 ConvRot build, by owner decision 2026-09-26** ("yes
     # switch"), after the owner could not tell it from fp16 on a 345-frame
@@ -480,7 +480,7 @@ SOL_BASELINE_124F = dict(
 #: The owner's rule is to take upstream's default where sglang and ComfyUI
 #: agree, and both run Sol through the last step: sglang's `sol_attn` backend
 #: has no end cutoff and core's `BlockSparseAttention` defaults `end_percent`
-#: to 1.0 (`docs/research/sglang_comparison.md`, the 2026-09-11 defaults
+#: to 1.0 (`docs/h3/sglang_comparison.md`, the 2026-09-11 defaults
 #: section). `SOL_RECOMMENDED_CUDA` carries 1.0 now. The name stays because
 #: `sol_for_graph` reads it; the history below is why it held
 #: `{4: 0.74, 6: 0.83, 8: 0.87}` from 2026-08-26 until then.
@@ -1199,7 +1199,7 @@ PDD_STRENGTH = 1.0
 #: **Measured, one seed, 2026-08-28.** Against the uniform 4-evaluation arm on a
 #: matched pair (same seed, canvas, prompt, LoRA, Sol, sampler; only the
 #: schedule differs) the owner called that one "jaggedy lines and scratchy
-#: audio" and this one acceptable in both. `docs/research/pdd/audio_under_pdd.md`
+#: audio" and this one acceptable in both. `docs/research/pdd/2026-08-28_audio_under_pdd.md`
 #: has the arithmetic and the caveats -- and note that no partition experiment
 #: can say WHY, because every coarseness statistic ranks the arms identically
 #: whether computed in video time or through the audio transform.

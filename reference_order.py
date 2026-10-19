@@ -16,7 +16,7 @@ socket-name suffix**. Order is a property of which socket you plugged into, and
 the iteration order.
 
 The ordered model replaces both of those deliberately, and
-`docs/research/conditioning_nodes.md` records which contracts are PRESERVED and
+`docs/research/2026-08-21_conditioning_nodes.md` records which contracts are PRESERVED and
 which are intentionally REPLACED. Preserved: one shared `<Audio j>` counter, a
 soundtrack's label emitted immediately before its video's, a sounded video
 producing two presentation items but one DiT block. Replaced: pairing becomes

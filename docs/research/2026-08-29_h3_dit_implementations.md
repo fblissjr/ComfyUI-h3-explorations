@@ -1,6 +1,6 @@
 # The H3 DiT: five implementations of one model, compared
 
-**In short (as of 2026-08-29).** The H3 DiT compared across ComfyUI, diffusers, sglang, DiffSynth and vllm-omni. The release ships no DiT code, so every one is a reimplementation, and diffusers, which the release's manifest names, is the reference of record. All five agree on the invariant core, verified against the weights; the divergences that change the sample are the sampler (stochastic here, deterministic everywhere else), step-count semantics, how the audio stream is carried, and sequence padding. For this install: core's architecture constants are retyped rather than read from the release (correct today), no shipped graph runs CFG (correct for a guidance-distilled checkpoint), and nothing guards a checkpoint's qkv layout. Its section 10.5 claim about building a better quantized DiT was withdrawn on 2026-08-31, in place and in [`quant_levers.md`](quant_levers.md).
+**In short (as of 2026-08-29).** The H3 DiT compared across ComfyUI, diffusers, sglang, DiffSynth and vllm-omni. The release ships no DiT code, so every one is a reimplementation, and diffusers, which the release's manifest names, is the reference of record. All five agree on the invariant core, verified against the weights; the divergences that change the sample are the sampler (stochastic here, deterministic everywhere else), step-count semantics, how the audio stream is carried, and sequence padding. For this install: core's architecture constants are retyped rather than read from the release (correct today), no shipped graph runs CFG (correct for a guidance-distilled checkpoint), and nothing guards a checkpoint's qkv layout. Its section 10.5 claim about building a better quantized DiT was withdrawn on 2026-08-31, in place and in [`2026-08-31_quant_levers.md`](2026-08-31_quant_levers.md).
 
 last updated: 2026-08-29
 
@@ -10,10 +10,10 @@ rotary embedding, attention, modulation, forward pass, and the sampler that
 drives it — for a text-to-video+audio (`t2va`) generation.
 
 **What it does not own, and must not restate.**
-[`sglang_comparison.md`](sglang_comparison.md) owns the *runtime and
+[`docs/h3/sglang_comparison.md`](../h3/sglang_comparison.md) owns the *runtime and
 optimization* comparison against sglang. [`docs/h3/references.md`](../h3/references.md)
 owns reference-image conditioning. [`docs/distills/pdd.md`](../distills/pdd.md) owns PDD.
-[`comfyui_h3_t2va_trace.md`](comfyui_h3_t2va_trace.md) owns what ComfyUI's own
+[`2026-08-29_comfyui_h3_t2va_trace.md`](2026-08-29_comfyui_h3_t2va_trace.md) owns what ComfyUI's own
 code does call by call -- loaders, quantization ops, memory, the two VAEs -- for
 one t2va render; this file compares implementations, that one traces ours.
 Where this file touches those, it points and stops.
@@ -345,7 +345,7 @@ flow in the video sigma and `forward()`'s output line collapses exactly to
 `n - scale*x0_a`. **Exact per forward.**
 
 **It is not exact under a PDD fused head**, and that qualification is
-[`pdd/audio_under_pdd.md`](pdd/audio_under_pdd.md)'s to own: the transform's
+[`pdd/2026-08-28_audio_under_pdd.md`](pdd/2026-08-28_audio_under_pdd.md)'s to own: the transform's
 coefficients are frozen at the step's own sigma while a fused head returns the
 block's mean velocity. §9's worked shape is such a render — the record it cites
 carries the per-block drift on that exact schedule. It is nonetheless a different arrangement, and anything
@@ -552,7 +552,7 @@ not currently exposed — but the failure is silent, the discriminator is cheap
   were read to the extent they explain the `t2va` layout; the sizing and
   presentation rules are [`docs/h3/references.md`](../h3/references.md)'s.
 - **Runtime and parallelism** — sequence parallelism, disaggregation,
-  quantization backends, cache-DiT. [`sglang_comparison.md`](sglang_comparison.md)
+  quantization backends, cache-DiT. [`docs/h3/sglang_comparison.md`](../h3/sglang_comparison.md)
   owns that axis.
 - **Any rendered comparison.** Nothing here was rendered. Every claim is
   static: read from source, or measured against a file on disk.
@@ -711,7 +711,7 @@ makes consumer inference possible.
 
 There is a third option that is neither approximate nor huge: precompute the
 modulation for exactly the timesteps a schedule visits and drop the projection.
-[`sglang_comparison.md`](sglang_comparison.md) owns that mechanism and its
+[`docs/h3/sglang_comparison.md`](../h3/sglang_comparison.md) owns that mechanism and its
 trade. The shape is worth knowing here because it belongs to this stage — a
 cache over 16 distinct timesteps is roughly 148 MiB across all 50 blocks,
 against 12.11 GiB of unpruned int8 weights. Its precondition is a schedule
@@ -949,7 +949,7 @@ deterministic, data-free transform, so there is no calibration population to
 improve, and that is as true of the DiT as of the encoder. What does NOT
 survive is the conclusion, because **the lane it rests on measures one of the
 two roundings.** `int8_convrot` is W8A8: §1.7-1.8 of
-[`comfyui_h3_t2va_trace.md`](comfyui_h3_t2va_trace.md) traces `int8_linear`
+[`2026-08-29_comfyui_h3_t2va_trace.md`](2026-08-29_comfyui_h3_t2va_trace.md) traces `int8_linear`
 rotating the activation online and quantising it **per token** before an int8
 GEMM whose accumulation is exact — "all the error is in the two roundings".
 Every quant-quality record here
@@ -977,7 +977,7 @@ Two in-format levers therefore remain open rather than closed:
   blocks, and fp8 is strictly worse than int8 here (0.0265 against 0.0104).
 
 **Both were measured on the weight side on 2026-08-31**, and
-[`quant_levers.md`](quant_levers.md) is now the owner of this question —
+[`2026-08-31_quant_levers.md`](2026-08-31_quant_levers.md) is now the owner of this question —
 including the DiT headroom record whose ABSENCE is what let this paragraph
 reason from the encoder's. In summary: the DiT build is at its format floor
 (reproduced to ten significant figures from the release bf16 on all 200

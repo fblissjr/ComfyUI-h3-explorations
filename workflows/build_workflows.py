@@ -277,7 +277,7 @@ def sol_api_inputs(sol):
 # readings of the guide are NOT rules, are `docs/prompting/prompting.md` sections 4, 5.2
 # and 8, and the escape that led to `bench/check_camera_vocabulary.py` is the
 # row in `docs/method/checks.md`. The owner disqualified that text as a SAMPLE on
-# 2026-08-27 (`docs/research/pdd/queued_arms.md`): a render of it is evidence
+# 2026-08-27 (`docs/research/pdd/2026-08-27_queued_arms.md`): a render of it is evidence
 # about that text only, and clips of this scene rendered before 2026-08-28 are
 # not matched-seed comparable with later ones. This block used to restate the
 # rules item by item and was a second copy of the manual.
@@ -2540,7 +2540,7 @@ AUDIO_ROLES = ("music", "voice", "copy")
 # **Do not put a specific attribute in a generic template.** The environment
 # line said "architecture, palette, and lighting" until 2026-08-16, on every
 # image-reference arm, for whatever image happened to be wired. Measured that
-# day (docs/prompting/prompt_length_experiment.md): against a mountain-lake reference
+# day (docs/research/2026-08-16_prompt_length_experiment.md): against a mountain-lake reference
 # with no buildings in it, the arm whose detailed_description was silent about
 # the environment rendered the man inside a timber veranda with a chalet beside
 # it -- the word had nothing to contradict it, so it built one. The arm whose
@@ -2560,7 +2560,7 @@ AUDIO_ROLES = ("music", "voice", "copy")
 #: already paid for that: the environment template claimed "architecture" for
 #: whatever image happened to be there, and a mountain-lake reference with no
 #: buildings produced a timber veranda and a chalet (`1fa5607`,
-#: `docs/prompting/prompt_length_experiment.md`). The graph author picked the file and is
+#: `docs/research/2026-08-16_prompt_length_experiment.md`). The graph author picked the file and is
 #: the only one who knows what is in it, so the role travels with the graph.
 #:
 #: Markers follow guide 4.1. `attribute_transfer` is for a characteristic moved
@@ -4479,7 +4479,7 @@ def main():
         # records the guide's 350-500 word budget for a generation
         # `detailed_description`, and these are written inside it (the current
         # counts are `bench/build_prompt_bank.py`'s, not a number here). They have
-        # since been rendered, and `docs/prompting/scene_arm_renders.md` reads those renders;
+        # since been rendered, and `docs/research/2026-08-28_scene_arm_renders.md` reads those renders;
         # the marker coverage is a property of the TEXT and not a claim about what
         # the model does with it.
         *[
@@ -5020,7 +5020,7 @@ def main():
         # testing if PDD works with this since it's faster iteration", which
         # reopens the parked PDD lane for this use only). Same graph as the
         # candidate below plus the freeze node; the documented PDD weakness is
-        # its audio (docs/research/pdd/audio_under_pdd.md), and a frozen track
+        # its audio (docs/research/pdd/2026-08-28_audio_under_pdd.md), and a frozen track
         # takes the audio rows out of what PDD has to get right.
         ("h3_candidate_t2v_pdd8_baked_audio_freeze.json", "t2v-candidate-pdd8-baked-audio-freeze",
          "t2v", LONG_T2V_PROMPT,

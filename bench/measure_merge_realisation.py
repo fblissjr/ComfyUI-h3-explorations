@@ -2,7 +2,7 @@
 """How much of a LoRA delta actually lands when it is merged into int8.
 
 **Written to refute a claim this repo made on 2026-08-31 and had already
-committed.** `docs/research/quant_levers.md` said that because stochastic
+committed.** `docs/research/2026-08-31_quant_levers.md` said that because stochastic
 rounding carries exactly 2x the MSE of round-to-nearest -- measured, 1.4142150
 on RMS over 200 modules against sqrt(2) = 1.4142136 -- switching the merge path
 to deterministic rounding was "arithmetic, not a hypothesis" and needed no

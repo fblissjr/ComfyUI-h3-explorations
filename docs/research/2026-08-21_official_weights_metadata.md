@@ -1,6 +1,6 @@
 # What the official release ships, against what ComfyUI does with it
 
-**In short (as of 2026-08-25; the release read on 2026-08-21).** The release's metadata against what ComfyUI hard-codes. The worst finding: seven H3-specific special tokens (`<d>`, `</d>` and five others) were unreachable in ComfyUI, and BPE fused their fragments with the text on either side; that is now fixed natively (PR 15808, installed `924743af`) and the local fallback is retired. The native processor's pixel bounds are Qwen2-VL's defaults, and the partition split the release declares is real in the weights. The current state of every gap is [`../h3/comfyui_vendor_gaps.md`](../h3/comfyui_vendor_gaps.md).
+**In short (as of 2026-08-25; the release read on 2026-08-21).** The release's metadata against what ComfyUI hard-codes. The worst finding: seven H3-specific special tokens (`<d>`, `</d>` and five others) were unreachable in ComfyUI, and BPE fused their fragments with the text on either side; that is now fixed natively (PR 15808, installed `924743af`) and the local fallback is retired. The native processor's pixel bounds are Qwen2-VL's defaults, and the partition split the release declares is real in the weights. The current state of every gap is [`docs/h3/comfyui_vendor_gaps.md`](../h3/comfyui_vendor_gaps.md).
 
 last updated: 2026-08-25
 
@@ -12,7 +12,7 @@ here was rendered.
 
 **Scope.** This file owns the *metadata* comparison — what is declared in the
 release against what the code assumes. The runtime and optimization comparison
-against sglang is [`sglang_comparison.md`](sglang_comparison.md); the
+against sglang is [`docs/h3/sglang_comparison.md`](../h3/sglang_comparison.md); the
 reference-conditioning path is [`docs/h3/references.md`](../h3/references.md).
 
 ---
@@ -318,7 +318,7 @@ also carry `sigma_shift_scales` of 12.0 video and 3.0 audio, matching the two
 scheduler configs and what this repo ships.
 
 **How large that split is in the weights is measured separately.**
-[`h3_partition_distance.md`](h3_partition_distance.md) is the companion: this
+[`2026-08-29_h3_partition_distance.md`](2026-08-29_h3_partition_distance.md) is the companion: this
 file owns what the release *declares*, that one owns what the two partitions
 actually differ by, component by component. The short version, because it
 changes how the declaration reads — the checkpoints are within a few percent at

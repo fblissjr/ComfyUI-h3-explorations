@@ -11,7 +11,7 @@ The tokenizer emits `<Picture 1>`, `<Picture 2>`, `<Video 1>` and nothing else. 
 what a reference is, what it is for, or which subject it belongs to (verified against `comfy/ldm/minimax/model.py`).
 Three stills wired to one subject and three wired to three subjects are identical graphs. **The prompt is the only
 place the inputs acquire meaning.** Measured 2026-08-16 in a paired render
-([`../prompting/prompt_length_experiment.md`](../prompting/prompt_length_experiment.md) has the pre-registration and
+([`docs/research/2026-08-16_prompt_length_experiment.md`](../research/2026-08-16_prompt_length_experiment.md) has the pre-registration and
 verdict).
 
 **The authority order, so far** (two results at one render each, same direction, in no guide):
@@ -97,7 +97,7 @@ render:
   the canvas's shape covers the same coordinates as the target, and one of
   another shape does not.
 
-[`docs/research/sglang_comparison.md`](../research/sglang_comparison.md), "Ninth
+[`docs/h3/sglang_comparison.md`](sglang_comparison.md), "Ninth
 read", has the rest of that read.
 
 **When the source already shows the person, leave the still out (owner,

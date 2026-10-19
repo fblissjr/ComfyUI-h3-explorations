@@ -47,7 +47,7 @@
    "clip": "the frozen voice arms",
    "owner": "the timing matched the audio clip but she barely moved. Only when the audio stopped did she turn. Maybe it's a prompting thing",
    "when": "2026-09-12, after the free and untold arms were sent",
-   "reading": "two findings. (1) The mouth's timing followed the clip; the transcript in the prompt carried no timing, so the sync is the audio's. (2) Stillness during the line: the prompt describes no action during the speech and a static camera, the clip is a dry synthetic voice with no room, and single-face close-ups are this corpus's lowest-motion content (docs/research/pdd/audio_under_pdd.md). Next: t2va_none_of_this_is_real_moving, the same scene with action inside the line"
+   "reading": "two findings. (1) The mouth's timing followed the clip; the transcript in the prompt carried no timing, so the sync is the audio's. (2) Stillness during the line: the prompt describes no action during the speech and a static camera, the clip is a dry synthetic voice with no room, and single-face close-ups are this corpus's lowest-motion content (docs/research/pdd/2026-08-28_audio_under_pdd.md). Next: t2va_none_of_this_is_real_moving, the same scene with action inside the line"
   },
   {
    "arm": "voice_untold",

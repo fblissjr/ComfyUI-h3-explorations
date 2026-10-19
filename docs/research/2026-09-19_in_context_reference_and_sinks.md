@@ -17,7 +17,7 @@
 > edited outside this scratchpad, no GPU. Sources: ComfyUI core's MiniMax H3
 > model file (`comfy/ldm/minimax/model.py`, two directories above the repo),
 > this repo's `sol_attn_h3.py`, `workflows/h3_config.py`, `docs/attention/sol_attn.md`,
-> `docs/attention/morton.md`, `docs/research/technique_transfer.md`, the 2026-09-17
+> `docs/attention/morton.md`, `docs/h3/technique_transfer.md`, the 2026-09-17
 > survey and the 2026-09-19 question review, and the `coderef/comfy-kitchen`
 > and `coderef/sage-fork` trees. Papers: every arXiv id below was opened on its
 > abstract page or HTML page this session. **Read at section level through the
@@ -171,7 +171,7 @@ reference-specific measurement below waits on that one capture render.
    papers, I conclusion] On H3 the reference rows' block-0 input is
    step-invariant, so their block-0 K/V are exactly reusable; from block 1 on
    they depend on the noisy targets through unmasked attention
-   (`comfy/ldm/minimax/model.py:199`), as `docs/research/technique_transfer.md` fact 2
+   (`comfy/ldm/minimax/model.py:199`), as `docs/h3/technique_transfer.md` fact 2
    says. Exact reuse is therefore one block of fifty. Every system found that
    caches reference K/V across steps first **trained** one-way attention
    (FullDiT2, OminiControl2, Stand-In, Avatar V; Part 1.4). The training-free
@@ -302,7 +302,7 @@ prefix's INT8 precision.
 - **Read as a lever for H3** [I]: reference pruning attacks the forced-exact
   floor that `tau` cannot reach (`docs/attention/sol_attn.md`, the sink table), so it
   would stack with Sol rather than double-count, which is the opposite of the
-  worry `docs/research/technique_transfer.md` raises for token merging on video rows. It is
+  worry `docs/h3/technique_transfer.md` raises for token merging on video rows. It is
   worth anything only on graphs with large references (the video-reference
   rows in `docs/attention/sol_attn.md`'s reference table); on image references at
   `match` the prefix is small.
@@ -328,7 +328,7 @@ rows mixes in noisy target rows (`:199`) and is added to their residual, so
 from block 1 on their K and V move with the targets. Exact reuse therefore
 covers one block of fifty: at most a fiftieth of the per-step projection work
 on reference rows [I, arithmetic from the block count]. And
-`docs/research/technique_transfer.md` records the GEMM phases as weight-bytes bound on this
+`docs/h3/technique_transfer.md` records the GEMM phases as weight-bytes bound on this
 box, so fewer rows through a GEMM may not shorten it. Not worth building.
 
 **Everyone who caches reference K/V changed the attention first, and
@@ -342,7 +342,7 @@ trained.** [V, HTML digests]
 | Avatar V (arXiv 2606.13872, 2026) | reference tokens only self-attend | yes | full reference context and per-block reference K/V at the first step (section 4.3) |
 
 So the pattern is: make reference rows independent of the targets, train for
-it, then cache. It is `docs/research/technique_transfer.md`'s TaoMate note one level down:
+it, then cache. It is `docs/h3/technique_transfer.md`'s TaoMate note one level down:
 TaoMate re-encodes committed chunks clean and trains for causal attention;
 these re-encode the reference clean and train for one-way attention.
 
@@ -461,7 +461,7 @@ localisation findings, not as scorers.
 
 - **What.** Elastic-Cache, above (1.4). Related dLLM caching work exists and
   was not opened this session [?].
-- **Against `docs/research/technique_transfer.md`.** Agrees with the "KV prefix cache" row
+- **Against `docs/h3/technique_transfer.md`.** Agrees with the "KV prefix cache" row
   (n/a for exact reuse, by fact 2) and goes beyond it: approximate reuse under
   fact 2 is what dLLMs do training-free, so the status for the DiT's prefix
   rows is "possible, unmeasured", not "n/a". The payoff is proportional to
@@ -526,16 +526,16 @@ localisation findings, not as scorers.
   steps and verifies it with small steps of the same model, training-free, up
   to 2.1x on robot-policy video models (arXiv 2603.13438, abstract). [V
   abstract-level]
-- **Against `docs/research/technique_transfer.md`.** Its speculative-decoding row says the
+- **Against `docs/h3/technique_transfer.md`.** Its speculative-decoding row says the
   diffusion analogue needs a trained draft; this one uses the same model, so
   "trained" is not required. The row's other condition still holds: at the
   distilled checkpoint's step count there is little slack, and the step lane
-  sits next to a declined one (`docs/state/roadmap.md`, via `docs/research/technique_transfer.md`).
+  sits next to a declined one (`docs/state/roadmap.md`, via `docs/h3/technique_transfer.md`).
   Leave the row's status as n/a for this box. [I]
 
 ---
 
-## Against `docs/research/technique_transfer.md`, row by row
+## Against `docs/h3/technique_transfer.md`, row by row
 
 - **Fact 2** ("a reference row's K and V at block 1 already depend on the
   video rows"): agrees, and sharpens it. Block 0's reference K/V are

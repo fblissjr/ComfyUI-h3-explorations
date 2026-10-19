@@ -2,7 +2,7 @@
 
 ## What this is for
 
-`docs/research/pdd/audio_under_pdd.md` blames PDD's audio penalty on one thing:
+`docs/research/pdd/2026-08-28_audio_under_pdd.md` blames PDD's audio penalty on one thing:
 ComfyUI converts the audio velocity with a change of variable evaluated at the
 step's OWN sigma (`comfy/ldm/minimax/model.py`, in `MiniMaxH3Model.forward`),
 

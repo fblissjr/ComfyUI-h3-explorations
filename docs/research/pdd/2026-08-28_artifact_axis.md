@@ -18,7 +18,7 @@ Written the night the arms were queued and before any of them rendered.
 If you are reading this after they landed, score section 6 before forming a
 view — the whole point of writing it down was that we kept fooling ourselves.
 
-[`audio_under_pdd.md`](audio_under_pdd.md) is the audio side of the same night
+[`2026-08-28_audio_under_pdd.md`](2026-08-28_audio_under_pdd.md) is the audio side of the same night
 and is separate. [`docs/method/eval_comparison.md`](../../method/eval_comparison.md) owns the
 process rule this produced.
 

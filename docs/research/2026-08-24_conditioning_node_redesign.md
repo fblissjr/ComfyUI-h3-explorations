@@ -1,6 +1,6 @@
 # Reference node redesign: fold the fit, and move the ceiling to the conditioner
 
-**In short (as of 2026-08-24).** Implemented: one image reference went from four nodes to three by folding `MiniMaxH3ReferenceFit` into the append, and the Qwen still-image ceiling moved to the conditioner as `image_policy` (`comfy`, `release`, `encoder`), where the loaded CLIP is in scope. Under the encoder's own bounds a 3648x2048 reference reached it at 704x384. The default stayed `comfy`, core's behavior, pending a measurement. The fit node was retired on 2026-09-29 (`docs/state/decisions.md`); the current reference path is [`../h3/references.md`](../h3/references.md).
+**In short (as of 2026-08-24).** Implemented: one image reference went from four nodes to three by folding `MiniMaxH3ReferenceFit` into the append, and the Qwen still-image ceiling moved to the conditioner as `image_policy` (`comfy`, `release`, `encoder`), where the loaded CLIP is in scope. Under the encoder's own bounds a 3648x2048 reference reached it at 704x384. The default stayed `comfy`, core's behavior, pending a measurement. The fit node was retired on 2026-09-29 (`docs/state/decisions.md`); the current reference path is [`docs/h3/references.md`](../h3/references.md).
 
 **Status:** Implemented
 **Date:** 2026-08-24
@@ -14,8 +14,8 @@ readers `bench/preflight_graph.py` and
 `bench/node_id_manifest.json`, and the deletion of
 `bench/check_short_edge_override.py`; and the docs that stated where these
 knobs live -- `docs/h3/references.md`, `docs/h3/comfyui_vendor_gaps.md`,
-`docs/research/conditioning_nodes.md`, `docs/h3/conditioning.md`,
-`docs/research/sglang_comparison.md`, `docs/method/checks.md`.
+`docs/research/2026-08-21_conditioning_nodes.md`, `docs/h3/conditioning.md`,
+`docs/h3/sglang_comparison.md`, `docs/method/checks.md`.
 
 One image reference cost four nodes: `LoadImage` -> `MiniMaxH3ReferenceFit` ->
 `MiniMaxH3AppendRefImage` -> `MiniMaxH3ReferenceConditioning`. It now costs

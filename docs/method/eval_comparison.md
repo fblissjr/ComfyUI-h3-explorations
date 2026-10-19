@@ -95,7 +95,7 @@ Arms, outcomes and the duration control that confounded one are in
 seven speaker changes, two registers, and almost no delta. The distilled dialogue
 arm shows more frame-to-frame change than the undistilled one on the same prompt,
 which is either motion the base did not generate or the artifact registering as
-motion ([`audio_under_pdd.md`](../research/pdd/audio_under_pdd.md)).
+motion ([`docs/research/pdd/2026-08-28_audio_under_pdd.md`](../research/pdd/2026-08-28_audio_under_pdd.md)).
 
 ## A stress scene is not a typical scene, and neither carries a default alone
 
@@ -419,7 +419,7 @@ session written this way, with the bake lane's predictions folded in on
   schedule, seed, prompt, sage alone. So the merged half equals the baked
   half plus a small random weight perturbation on every backbone linear,
   about the size of the checkpoint's own quantisation error
-  (`docs/research/merge_requantisation.md`;
+  (`docs/research/2026-08-31_merge_requantisation.md`;
   `data/results/2026-08-31_merge_realisation_pdd.json`), spread uniformly.
 - **Should move if the hypothesis holds**: the defects that look like added
   quantisation noise. Compressed or waxy skin, melted or ringing on-screen
@@ -439,7 +439,7 @@ session written this way, with the bake lane's predictions folded in on
   judgement: `bench/measure_clip_loudness.py` on the outputs record, beside
   the verdict. If the ladder's "a bit quieter" on PDD8 was merge noise, the
   baked clip's level moves toward the sage floor's; if not, the level
-  belongs to the heads or the schedule (`docs/research/pdd/audio_under_pdd.md`).
+  belongs to the heads or the schedule (`docs/research/pdd/2026-08-28_audio_under_pdd.md`).
 - **How "same" reads.** Merged-versus-baked judged *same* at one seed is a
   success on hygiene regardless (exact weights, no stochastic dependence,
   one artifact, no per-cast requantise), a small success on cost, and a

@@ -3,7 +3,7 @@
 The detail under [`pdd.md`](pdd.md), which owns the contract and the traps. This page says how `MiniMaxH3PDDLoRA`
 (`pdd_lora.py`), `pdd_math.py` and `bench/convert_pdd_lora.py` work, and what each was checked against. The dated
 story of how each piece arrived is in [`../research/pdd/`](../research/pdd/README.md) and in
-[`pdd_artifacts.md`](pdd_artifacts.md)'s changelogs; [`../research/pdd/pdd_implementations.md`](../research/pdd/pdd_implementations.md)
+[`pdd_artifacts.md`](pdd_artifacts.md)'s changelogs; [`docs/research/pdd/2026-08-28_pdd_implementations.md`](../research/pdd/2026-08-28_pdd_implementations.md)
 compares the implementations at length.
 
 ## What the authors ship

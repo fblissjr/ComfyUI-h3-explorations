@@ -130,7 +130,7 @@ def main() -> int:
     if kf_bitten:
         print(f"  CONTROL FAILED: {len(kf_bitten)} canvas(es) were resized. "
               f"The pixel bounds are NOT inert on the keyframe modes and "
-              f"docs/research/official_weights_metadata.md says they are.")
+              f"docs/research/2026-08-21_official_weights_metadata.md says they are.")
     else:
         print("  control holds: no legal canvas is resized, so the bounds are "
               "inert on every keyframe mode")

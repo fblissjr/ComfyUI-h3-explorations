@@ -42,7 +42,7 @@ whatever the sampler's own discretisation already carries.
 
 So the refutable claim is about GROWTH above that floor, not about a zero:
 **if the gap does not rise with L, the mechanism in
-`docs/research/pdd/audio_under_pdd.md` is wrong and should be withdrawn.**
+`docs/research/pdd/2026-08-28_audio_under_pdd.md` is wrong and should be withdrawn.**
 
 Monotonicity is checked only across the UNIFORM widths. A non-uniform partition
 places its widest block somewhere specific on the curve, so its gap depends on
@@ -124,7 +124,7 @@ def main() -> int:
     print("  L=1 is a FLOOR, not zero: one grid interval still spans sigma.")
     if not grew:
         print("\n  REFUTED: the gap does not grow with block width. The audio "
-              "mechanism in docs/research/pdd/audio_under_pdd.md does not hold "
+              "mechanism in docs/research/pdd/2026-08-28_audio_under_pdd.md does not hold "
               "and should be withdrawn.")
         return 1
     print("\n  CONSISTENT: rising monotonically above the L=1 floor, and "

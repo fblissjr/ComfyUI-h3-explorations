@@ -48,7 +48,7 @@ object and let `VAE.encode` run normally. The posterior belongs in a node of
 that shape, not this one.
 
 Neither omission changes a shipped render today. Both are recorded in
-`docs/research/official_weights_metadata.md`.
+`docs/research/2026-08-21_official_weights_metadata.md`.
 """
 
 from __future__ import annotations

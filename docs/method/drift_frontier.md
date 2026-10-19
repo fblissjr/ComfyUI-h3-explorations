@@ -281,7 +281,7 @@ Three distinct ones are in play and no document says which a claim means:
 
 - **the DiT and CLIP checkpoints** — `workflows/h3_config.py` names all three
   `int8_convrot`, and `README.md` lists them in the shipped config
-- **the Sol-Attn CUDA kernel** — `docs/method/bench_plan.md` says it "routes in INT8
+- **the Sol-Attn CUDA kernel** — `docs/research/2026-08-14_sol_bench_plan.md` says it "routes in INT8
   unconditionally", with `cuda-int8` in the log as the tell
 - **the VAE decoder** — a separate `int8_convrot` build, noted in
   `workflows/h3_config.py`
@@ -552,7 +552,7 @@ story is. Records go beside the results rather than committed, because a committ
 sidecar becomes a second home for numbers the docs also cite, and one-home-per-
 number is the rule this repo keeps relearning.
 
-**Retro-labelling needs nothing from us.** `docs/method/bench_plan.md` and
+**Retro-labelling needs nothing from us.** `docs/research/2026-08-14_sol_bench_plan.md` and
 `docs/method/evidence.md` both carry it as of `c493895`, tightened in `46897f5`. Do not
 add a third home.
 

@@ -1,6 +1,6 @@
 # End-to-End Guide: Sol-Attn Data Capture & Hyperparameter Optimization
 
-**In short (as of 2026-10-02, inferred: the guide carries no date, and it names Options A and B as the candidates, which places it before Option C was adopted that day).** A how-to for arming ComfyUI with Sol's probe, observer and capture instruments, rendering, ingesting the logs into a local DuckDB file, and reading per-block, per-head and per-segment error to choose `dense_blocks`, `tau` and the other settings. It records no result. Its section 7 rules name settings since replaced: the shipped `dense_blocks` is Option C and `sink_conditioning` defaults to `exact_kv_and_all_rows` (`workflows/h3_config.py::SOL_DENSE_TAIL`, `SOL_SINK_DEFAULT`; [`../../attention/sol_dense_blocks.md`](../../attention/sol_dense_blocks.md)). The instruments are documented on [`../../attention/sol_instruments.md`](../../attention/sol_instruments.md).
+**In short (as of 2026-10-02, inferred: the guide carries no date, and it names Options A and B as the candidates, which places it before Option C was adopted that day).** A how-to for arming ComfyUI with Sol's probe, observer and capture instruments, rendering, ingesting the logs into a local DuckDB file, and reading per-block, per-head and per-segment error to choose `dense_blocks`, `tau` and the other settings. It records no result. Its section 7 rules name settings since replaced: the shipped `dense_blocks` is Option C and `sink_conditioning` defaults to `exact_kv_and_all_rows` (`workflows/h3_config.py::SOL_DENSE_TAIL`, `SOL_SINK_DEFAULT`; [`docs/attention/sol_dense_blocks.md`](../../attention/sol_dense_blocks.md)). The instruments are documented on [`docs/attention/sol_instruments.md`](../../attention/sol_instruments.md).
 
 A comprehensive guide for instrumenting, capturing, and analyzing **MiniMax H3 Sparse Attention** (`MiniMaxH3Sol`) telemetry. This pipeline enables data-driven optimization of every hyperparameter in the [`MiniMaxH3Sol`](../../../sol_attn_h3.py) node—including `tau`, `quantizer`, `dense_blocks`, `sink_conditioning`, `token_routing`, and `start_percent`—using local, untracked DuckDB analytics and interactive visual dashboards.
 
@@ -237,7 +237,7 @@ After ingestion, open the generated HTML files in any browser to review the visu
 
 ## 7. Next-Step Parameter Calibration Rules
 
-Once your capture data is in DuckDB, use these quantitative criteria to calibrate your production workflow (see detailed findings and the 5-test matrix in [`sol_dense_blocks_reanalysis.md`](sol_dense_blocks_reanalysis.md)):
+Once your capture data is in DuckDB, use these quantitative criteria to calibrate your production workflow (see detailed findings and the 5-test matrix in [`2026-10-02_sol_dense_blocks_reanalysis.md`](2026-10-02_sol_dense_blocks_reanalysis.md)):
 
 1. **`dense_blocks`**: Add any block where `avg_rel_l2_pct > 15.0%` or `min_cosine < 0.90`. On `quantizer="rotated"`, blocks 45–48 are tamed (~7%), while middle blocks 38–43 spike to ~25% error. Top candidate configs: Option A (`"39,41,42,49"`) or Option B (`"39,40,41,42,49"`).
 2. **`start_percent`**: If early diffusion steps ($t \le 0.2$) show high relative error on text or video segments, maintain `start_percent=0.2` to keep early structural anchoring dense.

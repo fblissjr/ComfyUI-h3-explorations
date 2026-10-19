@@ -164,7 +164,7 @@ video-frozen, audio-reopened pass. `h3_probe_t2v_pdd8_audio_refine` and
 `h3_probe_t2v_flashgen_4step_audio_refine` re-sample the audio on the
 undistilled model with the distill's video frozen. The motivation is PDD's
 own: its audio loses energy at coarse partitions
-(`pdd/audio_under_pdd.md`). Generalised, the audio pass can take any chain,
+(`pdd/2026-08-28_audio_under_pdd.md`). Generalised, the audio pass can take any chain,
 FlashGen's included, and the inverse (keep a distill's audio, reopen the
 video) is the same node with the masks swapped.
 
@@ -194,7 +194,7 @@ code swaps the heads, ours or core's, not about what the heads contribute.
 
 **Evidence that exists and is unjudged.** PDD4 with its heads off
 (`patch_heads` off, the backbone alone) was rendered at three seeds on
-2026-08-27 and confirmed to differ from heads on (`pdd/queued_arms.md`,
+2026-08-27 and confirmed to differ from heads on (`pdd/2026-08-27_queued_arms.md`,
 `C_pdd4_headfree_*`; `pdd/2026-08-27_handoff.md`). Neither session found a
 judgement of it. On the output share only seed 730451893 has both the
 heads-off clip and its heads-on control (`Video/batch/`,
@@ -248,7 +248,7 @@ says so, **reasoned** means neither, and **wrong** means corrected.
 | Inter-frame delta spikes at cuts | reasoned | unmeasured; route 4's mask depends on it |
 | The owner has not compared refine against no refine | **wrong** | the owner's first listen, `2026-09-25_distill_audio_s1.md` |
 | The heads-off question in next_steps is about the heads' value | **wrong** | it is about which code swaps them; corrected in route 6 |
-| Heads-off PDD clips exist and are unjudged | record | `pdd/queued_arms.md`, `C_pdd4_headfree_*`; one matched pair on the share (seed 730451893) |
+| Heads-off PDD clips exist and are unjudged | record | `pdd/2026-08-27_queued_arms.md`, `C_pdd4_headfree_*`; one matched pair on the share (seed 730451893) |
 | The refine arm's pass 1 was a cache hit on the base arm's | **wrong** | it re-rendered; `2026-09-26_frozen_row_probe.md` |
 | The video latent-format round trip is the identity | code (fastdude) | `comfy/latent_formats.py`, `MiniMaxH3.process_latent_in/out` |
 | Heads and backbone perturb by the same order | record | `docs/distills/pdd.md`, the magnitudes table |

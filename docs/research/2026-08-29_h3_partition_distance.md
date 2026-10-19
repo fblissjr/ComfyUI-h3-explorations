@@ -4,7 +4,7 @@
 
 last updated: 2026-08-29
 
-[`official_weights_metadata.md`](official_weights_metadata.md) records that the
+[`2026-08-21_official_weights_metadata.md`](2026-08-21_official_weights_metadata.md) records that the
 partition split is something the release **declares** — two `model_index.json`
 blocks with different task lists. This file measures what that split is
 **worth in the weights**, which nothing had.

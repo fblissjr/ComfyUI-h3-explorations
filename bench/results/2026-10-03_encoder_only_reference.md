@@ -67,7 +67,7 @@ three shots the prompt scripts:
 - **One scene, one still, one seed.** No face in close-up, no second
   reference, no product with fine detail.
 - **Not the vendor's path.** sglang gives the still to both the encoder and
-  the VAE (`docs/research/sglang_h3_pipeline.md`, "Reference stills").
+  the VAE (`docs/research/2026-08-25_sglang_h3_pipeline.md`, "Reference stills").
 - Nothing about a reference video or audio.
 
 So it is a lead, and no default moved. What followed: `use_vae` on

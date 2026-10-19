@@ -46,7 +46,7 @@ The VAE mean-against-sample question is independent. None blocks the typed path.
 
 ## 1. Seven special tokens: fixed natively
 
-Owner: [`../research/official_weights_metadata.md`](../research/official_weights_metadata.md).
+Owner: [`docs/research/2026-08-21_official_weights_metadata.md`](../research/2026-08-21_official_weights_metadata.md).
 
 The release declares twenty `additional_special_tokens`; ComfyUI's bundled `qwen25_tokenizer` declared thirteen. The
 seven missing were `<d>`, `</d>`, `<|cutoff|>`, `<|lyrics_start|>`, `<|lyrics_end|>`, `<|caption_start|>`,
@@ -75,7 +75,7 @@ refuses an install that lacks the fix. No tokenizer patching remains in this pac
 an odd-frame video and an audio reference, a marker-free prompt tokenizes byte-identically with and without the fix.
 The release's `processor/` bundles a tokenizer config and the image and video preprocessor configs; PR 15808 fixes
 the text half, and gaps 3 and 4 are the vision half, untouched. The installed-code walk is in
-`official_weights_metadata.md`, "How the fixed install realises them".
+`docs/research/2026-08-21_official_weights_metadata.md`, "How the fixed install realises them".
 
 | what | where |
 |---|---|
@@ -149,7 +149,7 @@ neither: that is why `video_policy=release` owns the two stages together
 
 ## 2b. Token tags under forced CLIP scheduling: fixed in core
 
-Owner: [`../research/conditioning_nodes.md`](../research/conditioning_nodes.md). Both branches of
+Owner: [`docs/research/2026-08-21_conditioning_nodes.md`](../research/2026-08-21_conditioning_nodes.md). Both branches of
 `CLIP.encode_from_tokens_scheduled` now merge the encoder's third return value, so `minimax_token_tags` reaches
 conditioning either way (core `6bfaacc6`, #16400, 2026-09-20). No shipped graph wires a CLIP hook.
 `bench/check_reference_contracts.py`'s case 5c watched the old state and was retired under its own contract
@@ -258,7 +258,7 @@ refuses more than two channels; nothing watches core. Preflight reports channel 
 
 ## 8. The VAE encode question
 
-Owner: [`../research/sglang_comparison.md`](../research/sglang_comparison.md). sglang keeps the video VAE fp32-resident
+Owner: [`sglang_comparison.md`](sglang_comparison.md). sglang keeps the video VAE fp32-resident
 and decodes in fp16 autocast, because the VAE also encodes keyframes. The decode half was settled on 2026-08-10
 (2-3x cost, no established benefit; the vendor does not decode in fp32 either). The open half is encode: reference
 stills, reference videos and keyframes, computed once per render, whose job is identity fidelity. `--fp32-vae`
@@ -275,7 +275,7 @@ the graded result is a decision, not a measurement. The shipped video VAE is `h3
 
 ## 10-13. Architectural, not user-facing
 
-Owner: [`../research/sglang_comparison.md`](../research/sglang_comparison.md), which carries the reasoning.
+Owner: [`sglang_comparison.md`](sglang_comparison.md), which carries the reasoning.
 
 - **No partition concept.** sglang reads `partition` from `model_index.json` and refuses a task the checkpoint does
   not serve; here a plain t2v graph loads `ref2va` and renders. A ref2va loss at plain t2v is *not a t2v model by its
@@ -293,8 +293,8 @@ quantization, `torch.compile` and layerwise offload all off: "sglang has it" is 
 
 ## 14. The DiT's fp32 island collapses under the int8 load
 
-Owner: [`../research/comfyui_h3_t2va_trace.md`](../research/comfyui_h3_t2va_trace.md) §1.5, with the vendor side in
-[`../research/sglang_comparison.md`](../research/sglang_comparison.md).
+Owner: [`docs/research/2026-08-29_comfyui_h3_t2va_trace.md`](../research/2026-08-29_comfyui_h3_t2va_trace.md) §1.5, with the vendor side in
+[`sglang_comparison.md`](sglang_comparison.md).
 
 Both implementations declare a small fp32 set inside a bf16 DiT. sglang enforces it with a named frozenset (both patch
 projections, the time embedder, both output heads and `rope.inv_freq`;
@@ -314,11 +314,11 @@ embedding (`comfy/sd1_clip.py:213`) and pins the compute dtype to match (`comfy/
 never reaches an int8 GEMM here (`full_precision_mm=True`, `comfy/sd1_clip.py:114`). int8 costs no more time than
 bf16 per resident layer and halves the PCIe transfer that dominates, for 0.88% weight error, so the shipped
 `int8_convrot` encoder is the right choice over the local bf16 file
-([`../research/comfyui_h3_t2va_trace.md`](../research/comfyui_h3_t2va_trace.md) §2.4 owns the numbers).
+([`docs/research/2026-08-29_comfyui_h3_t2va_trace.md`](../research/2026-08-29_comfyui_h3_t2va_trace.md) §2.4 owns the numbers).
 
 ## 15. Reference-audio encode crashes instead of falling back under VRAM pressure
 
-Owner: [`../research/comfyui_h3_t2va_trace.md`](../research/comfyui_h3_t2va_trace.md) §14 item 9. Found by accident
+Owner: [`docs/research/2026-08-29_comfyui_h3_t2va_trace.md`](../research/2026-08-29_comfyui_h3_t2va_trace.md) §14 item 9. Found by accident
 2026-08-29.
 
 **A long reference soundtrack on a busy card is a hard crash, not a slow render**, and it happens exactly when things
@@ -399,7 +399,7 @@ of the stream after fifty blocks, at one step.
 sglang has a `sol_attn` attention backend and a `kitchen_int8` linear path dispatching the same
 `comfy_kitchen.int8_linear` our checkpoints load through, and its consumer-card table's fastest row is an int8 DiT
 with a sage-to-Sol hybrid: convergence, not an action item, and their numbers are not ours to import
-([`../research/sglang_comparison.md`](../research/sglang_comparison.md), retracted against `803b4fb31c`). The SLA
+([`sglang_comparison.md`](sglang_comparison.md), retracted against `803b4fb31c`). The SLA
 router has no counterpart there; [`../attention/sol_attn.md`](../attention/sol_attn.md) owns its numbers.
 
 ## The contracts underneath

@@ -3,7 +3,7 @@
 
 ## The claim this was built to attack
 
-`docs/research/pdd/audio_under_pdd.md` argues that ComfyUI's audio change of
+`docs/research/pdd/2026-08-28_audio_under_pdd.md` argues that ComfyUI's audio change of
 variable (`comfy/ldm/minimax/model.py:530-551`) interacts badly with a PDD fused
 head, producing an error that is **audio-only by construction** and grows with
 block width. Its evidence is the arm table in
@@ -305,7 +305,7 @@ def main() -> int:
         "drift_rank_audio_coefficient": ra_,
         "drift_rank_video_time": rv_,
         "findings": [
-            "The audio-only half of docs/research/pdd/audio_under_pdd.md does "
+            "The audio-only half of docs/research/pdd/2026-08-28_audio_under_pdd.md does "
             "not survive. Raw-video rel L2 is dominated by the DC term; with "
             "the mean removed, video contrast falls monotonically with "
             "partition coarseness on 100% of frames for the two coarsest "
@@ -354,7 +354,7 @@ def main() -> int:
     if not monotone:
         print("\nREFUTED: video contrast does NOT fall monotonically with "
               "coarseness, so video really is flat and the audio-only claim "
-              "in docs/research/pdd/audio_under_pdd.md survives this attack. "
+              "in docs/research/pdd/2026-08-28_audio_under_pdd.md survives this attack. "
               "The headline in this file's docstring is withdrawn.")
         return 1
     print("\nCONSISTENT: video contrast falls monotonically with coarseness, "

@@ -13,7 +13,7 @@ carrying the argument for an entire bench run.
 The claims were all corrected. Nobody enumerated who was quoting them.
 
 **Why this is an allowlist and not a grep-and-judge.** "Is this mention
-caveated" is not mechanically decidable. `docs/method/bench_plan.md` contains the
+caveated" is not mechanically decidable. `docs/research/2026-08-14_sol_bench_plan.md` contains the
 string "zero DiT calls" inside a bullet that begins "RETRACTED 2026-08-14",
 which is correct; a checker that flags it trains readers to skim its output,
 and CLAUDE.md's standard is that a check reporting red while the state is
@@ -27,7 +27,7 @@ all four consumers were files that acquired the claim after the retraction.
 
 ## What it does not defend
 
-**The retracted thing is sometimes a pairing, not a token.** `docs/method/bench_plan.md`
+**The retracted thing is sometimes a pairing, not a token.** `docs/research/2026-08-14_sol_bench_plan.md`
 read "one 345-frame video reference" where 345 is the *reference* length and
 looks like a legal shipped value, concealing that the *target* was 362, which
 is not legal. Nothing in that sentence is a matchable phrase. No configuration

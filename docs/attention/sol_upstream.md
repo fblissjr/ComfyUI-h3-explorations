@@ -409,7 +409,7 @@ each pass is in [`sol_upstream_reads.md`](sol_upstream_reads.md).
 
 ## sglang's SubBlock router: two notes, read 2026-09-10
 
-[`docs/research/sglang_h3_pipeline.md`](../research/sglang_h3_pipeline.md) §11
+[`docs/research/2026-08-25_sglang_h3_pipeline.md`](../research/2026-08-25_sglang_h3_pipeline.md) §11
 owns SubBlock. Two things in the source it does not yet record:
 
 - **A reserved sink block and a forced diagonal were tried and left out.** The
@@ -418,7 +418,7 @@ owns SubBlock. Two things in the source it does not yet record:
   of DiT layers that did not survive to the pixels
   (`coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/subblock_sparse/router.py:212-215`).
 - **The step and layer cutoffs**, already recorded at
-  `docs/research/sglang_h3_pipeline.md:722-729`, now sit beside a second
+  `docs/research/sglang_h3_pipeline.md` lines 722-729 at `901bee1`, now sit beside a second
   compute mode: `sage_fp8`, which on SM90 quantizes Q/K to INT8 and V and the
   softmax probabilities to E4M3
   (`coderef/sglang/python/sglang/kernels/ops/attention/subblock_sage_fp8_sm90.py:2-8`),
@@ -437,9 +437,9 @@ owns SubBlock. Two things in the source it does not yet record:
 sglang has had a `sol_attn` DiT attention backend since `51470b376f` (#33702,
 2026-08-09). It wraps NVLabs' `sol_attn` package from Sana's `sol-engine`
 branch and is opt-in: sglang's default DiT backend is `fa`.
-[`docs/research/sglang_h3_pipeline.md`](../research/sglang_h3_pipeline.md)
+[`docs/research/2026-08-25_sglang_h3_pipeline.md`](../research/2026-08-25_sglang_h3_pipeline.md)
 section 14.9 walks the source with line citations, and
-[`docs/research/sglang_comparison.md`](../research/sglang_comparison.md) sets it
+[`docs/h3/sglang_comparison.md`](../h3/sglang_comparison.md) sets it
 beside core's node and ours.
 
 - **Defaults**
@@ -678,7 +678,7 @@ first, and a perceptual claim needs a blind distribution under
 
 Every upstream cell is cited above; the sglang column is
 read from its `sol_attn` backend on 2026-09-11 and walked in
-`docs/research/sglang_h3_pipeline.md`. Our column is a pointer: the values
+`docs/research/2026-08-25_sglang_h3_pipeline.md`. Our column is a pointer: the values
 live in `workflows/h3_config.py::SOL_RECOMMENDED_CUDA`.
 
 | knob | Sol-Engine per-hardware cells | Sol-H3, T2V / Ref2VA | Spark Ref2VA draft (opt-in) | sglang `sol_attn` (opt-in) | core `BlockSparseAttention` | ours |
@@ -696,7 +696,7 @@ live in `workflows/h3_config.py::SOL_RECOMMENDED_CUDA`.
 **The end of the window is the one knob where sglang and core agree against
 what we shipped**, so it was adopted on 2026-09-11 under the owner's rule that
 this repo takes upstream's default when those two agree
-(`docs/research/sglang_comparison.md`, the 2026-09-11 defaults section). The
+(`docs/h3/sglang_comparison.md`, the 2026-09-11 defaults section). The
 start agrees only at 50 steps, because sglang counts steps and core uses a
 fraction; every other row has the two disagreeing with each other.
 

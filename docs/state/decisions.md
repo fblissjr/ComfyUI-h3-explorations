@@ -69,6 +69,17 @@ Older history lives elsewhere and is not copied here:
     roadmap's "forward plan 2026-09-04" (now "The attention plan, where it stands");
     `bench/check_widget_deviations.py` said a page records the head-chunk saving of about 3227 MiB (only
     `h3_config.py`'s table does, and no doc ever did).
+- **`docs/research/` records open with their finding, and a record's name carries its date.** Every record now
+  starts with "In short (as of <date>)", saying what later replaced it where something did; bodies are as written.
+  Undated records gained their date (for example `research/conditioning_nodes.md` is now
+  `research/2026-08-21_conditioning_nodes.md`, `research/pdd/audio_under_pdd.md` is
+  `research/pdd/2026-08-28_audio_under_pdd.md`). Two living guidance pages moved out to `docs/h3/`
+  (`sglang_comparison.md`, `technique_transfer.md`), and three dated records moved in: `prompting/prompt_length_experiment.md`
+  (now `research/2026-08-16_prompt_length_experiment.md`), `prompting/scene_arm_renders.md`
+  (`research/2026-08-28_scene_arm_renders.md`) and `method/bench_plan.md` (`research/2026-08-14_sol_bench_plan.md`).
+  `research/pdd/README.md` called the 2026-09-05 bake plan "not started" (the plan records it executed and judged
+  blind that day) and gave +11.6% as the 2026-08-31 headline (that handoff's own correction makes it 1.40x under the
+  shipped stochastic rounding; +11.6% is the round-to-nearest part only).
 
 ## 2026-10-18
 
@@ -2935,7 +2946,7 @@ that session's record disagree, its record is the nearer one.*
   that are still unexplained.
 - **An upstream read across the sister checkouts, core and kitchen; no
   default moved, and three line citations became symbols.**
-  `docs/research/sglang_h3_pipeline.md` cited sglang's canonical request,
+  `docs/research/2026-08-25_sglang_h3_pipeline.md` cited sglang's canonical request,
   its dropped `target` keys and its unknown condition key by line range
   (lines 278 to 378 of the request validation file for the first), all
   from its 2026-08-25 read. sglang's `17b2f35ae7` shortened that file and
@@ -2962,7 +2973,7 @@ that session's record disagree, its record is the nearer one.*
   pipeline and no longer for the whole tree: the stage that runs one DiT
   step for a ComfyUI graph takes core's video and audio denoise masks and
   labels masked target rows as core does. The sentence now says "in sglang's
-  own H3 pipeline" and keeps a dated note. `docs/research/sglang_comparison.md`,
+  own H3 pipeline" and keeps a dated note. `docs/h3/sglang_comparison.md`,
   "Eighth read", described that stage and did not mention its masks; the
   "Ninth read" there has it, with the rest of the read. Two line citations
   in `docs/h3/references.md` had moved with their files and are by name now:
@@ -2972,7 +2983,7 @@ that session's record disagree, its record is the nearer one.*
   Nothing else that was checked again in section 8 had moved (its dated
   note lists what was and was not);
   the answer to the owner's question is no, and where it is written is
-  `docs/research/sglang_comparison.md`, "Ninth read".
+  `docs/h3/sglang_comparison.md`, "Ninth read".
 
 ## 2026-10-07
 
@@ -3367,7 +3378,7 @@ that session's record disagree, its record is the nearer one.*
   corrected with it: `docs/distills/which_distill.md` said the base and the distills do
   not share starting noise at one seed, `docs/h3/custom_node_gaps.md` item 2
   listed the sampler as an open gap against the reference engines, and
-  `docs/research/h3_dit_implementations.md` said the shipped graphs split
+  `docs/research/2026-08-29_h3_dit_implementations.md` said the shipped graphs split
   between `er_sde` and `euler`. Each keeps its text under a dated note.
 
 ## 2026-10-04
@@ -3626,8 +3637,8 @@ that session's record disagree, its record is the nearer one.*
     affine in fp32 and core rounds at more points. sglang's bf16 block kernel
     rounds at the same three points as core's `_mod_scale_shift`, and has since
     2026-08-18, so the claim was wrong when written.
-  - `research/sglang_h3_pipeline.md` section 10 and the seventh read in
-    `research/sglang_comparison.md` said sglang's ComfyUI app runs H3 in
+  - `docs/research/2026-08-25_sglang_h3_pipeline.md` section 10 and the seventh read in
+    `docs/h3/sglang_comparison.md` said sglang's ComfyUI app runs H3 in
     server mode only. Since `f1e62e3a2e` it also runs the H3 DiT per step under
     a ComfyUI graph.
   - `docs/h3/custom_node_gaps.md` item 3 said diffusers decodes the H3 VAE in fp32
@@ -3651,7 +3662,7 @@ that session's record disagree, its record is the nearer one.*
   111.06% error, cos 0.6655), proving diffuse middle layers cannot be rescued by token routing and require
   full dense execution (`dense_blocks`). Preflight geometry confirms Triton int32 crossing safety at 99,864 tokens
   via 64-bit index arithmetic and 64-bit CUDA quantizer offsets (`ELEMENT_OFFSET_BITS=64`). Full analysis in
-  [`docs/research/sparse/sol_dense_blocks_reanalysis.md`](../research/sparse/sol_dense_blocks_reanalysis.md).
+  [`docs/research/sparse/2026-10-02_sol_dense_blocks_reanalysis.md`](../research/sparse/2026-10-02_sol_dense_blocks_reanalysis.md).
 
 - **Sol's `dense_blocks` adopts Option A (`"39,41,42,49"`), with Option B (`"39,40,41,42,49"`)
   named** (owner, 2026-10-02: "change the sol dense detail in whatever builds the workflows and the
@@ -3676,7 +3687,7 @@ that session's record disagree, its record is the nearer one.*
   while leaving the 25% middle cluster unprotected. Block 49 remains mandatory as it directly feeds
   `final_layer.video_out`. Top candidate sets under a 5-test matrix: Option A (`"39,41,42,49"`, 4 blocks)
   and Option B (`"39,40,41,42,49"`, 5 blocks). Full analysis and test plan in
-  [`docs/research/sparse/sol_dense_blocks_reanalysis.md`](../research/sparse/sol_dense_blocks_reanalysis.md)
+  [`docs/research/sparse/2026-10-02_sol_dense_blocks_reanalysis.md`](../research/sparse/2026-10-02_sol_dense_blocks_reanalysis.md)
   (0.184.7).
 
 ## 2026-10-01
@@ -4143,7 +4154,7 @@ that session's record disagree, its record is the nearer one.*
   Stock core has built `to_gate_compress` since e308cc73 (#16072), so the old
   refusal passes and the `_publish_layout` leak is reachable. The node is
   parked by an explicit refusal (0.157.1). The remaining stale prose (the
-  module docstring, `docs/research/vsa/vsa_node.md`, and
+  module docstring, `docs/research/vsa/2026-08-30_vsa_node.md`, and
   `check_vsa_core_patch.py`'s "applied from the draft PR" message) is listed
   for correction.
 - **Corrected: the VSA prose, following the entry above.**
@@ -4153,7 +4164,7 @@ that session's record disagree, its record is the nearer one.*
   implementation", and keep 10 is "VSA's published 0.90 sparsity". They now
   say it is parked, core builds the gate since e308cc73, it rendered on
   2026-08-30 on a draft-patched core, and FastH3 V2 trains at keep 20
-  (`h3_config.FASTH3_CONTRACT_VSA`). `docs/research/vsa/vsa_node.md` said core
+  (`h3_config.FASTH3_CONTRACT_VSA`). `docs/research/vsa/2026-08-30_vsa_node.md` said core
   was stock without the gate and the blocker stood until #15958 merged; it now
   says the same as the module. `bench/check_vsa_core_patch.py` said present
   support was "applied from PR #15958 ... DRAFT"; it now says stock core has
@@ -4312,7 +4323,7 @@ that session's record disagree, its record is the nearer one.*
   contract.**
   - `docs/working/coderef.md` said the FastH3 file was "Not on disk here, and
     no graph of ours loads it". A dated note there now says what does.
-  - `docs/research/vsa/fastvideo_vsa_checkpoint.md` quoted Preview v1's 0.9
+  - `docs/research/vsa/2026-08-30_fastvideo_vsa_checkpoint.md` quoted Preview v1's 0.9
     sparsity with nothing saying V2 is 0.8.
   - The `h3_config.FASTH3_CORE_VSA` comment said the template "wins here".
     It now names the contract arms, `h3_config.FASTH3_CONTRACT_*` (0.148.0),
@@ -4352,7 +4363,7 @@ that session's record disagree, its record is the nearer one.*
   wastes dense compute. Block 49 remains mandatory as it feeds `final_layer.video_out`
   [13.73% error]. Top candidates under active trial: Option A `"39,41,42,49"` (4 blocks)
   and Option B `"39,40,41,42,49"` (5 blocks). See 2026-10-02 entry and
-  [`docs/research/sparse/sol_dense_blocks_reanalysis.md`](../research/sparse/sol_dense_blocks_reanalysis.md)).*
+  [`docs/research/sparse/2026-10-02_sol_dense_blocks_reanalysis.md`](../research/sparse/2026-10-02_sol_dense_blocks_reanalysis.md)).*
 - **`token_routing` reworked into one dropdown** (owner: "that token routing
   field UX is confusing"). `off` replaces "text field" as the default, and the
   list is read only under `custom`. The old default meant off by an empty list,
@@ -4391,7 +4402,7 @@ that session's record disagree, its record is the nearer one.*
   is corrected** (`docs/research/pdd/2026-09-25_upstream_pdd_comparison.md`; numbers in
   `bench/results/2026-09-25_upstream_pdd_comparison.md`, section 3; commit
   `aa9f2420`). Each has a dated note in place.
-  - `audio_under_pdd.md` section 1 and "vary the TRANSFORM" said the block-start
+  - `docs/research/pdd/2026-08-28_audio_under_pdd.md` section 1 and "vary the TRANSFORM" said the block-start
     carry is an audio-only error growing with width. Core's carry equals the
     vendor's two-schedule audio Euler step exactly, so the loss is PDD's own.
   - `docs/distills/pdd.md` "Why audio suffers more than video" derived the same mechanism.
@@ -4402,18 +4413,18 @@ that session's record disagree, its record is the nearer one.*
     Their measured effects stand as departures from the exact path.
   - `pdd_math.py::fuse_heads` and `pdd_lora.py` said the vendor fuses in bf16;
     diffusers keeps the heads fp32.
-  - `pdd_implementations.md` section 4.1 called the stale copies the vendor's;
+  - `docs/research/pdd/2026-08-28_pdd_implementations.md` section 4.1 called the stale copies the vendor's;
     they are Kijai's conversions, re-uploaded upstream 2026-08-27T21:25Z. The
     "reported, not verified" notes in `2026-08-28_handoff.md` and
-    `comfyui_h3_t2va_trace.md` are now verified.
+    `docs/research/2026-08-29_comfyui_h3_t2va_trace.md` are now verified.
 - **Prose corrected by the 2026-09-25 upstream survey**
   ([`docs/working/coderef.md`](../working/coderef.md), "What moved by 2026-09-25";
   [`docs/attention/sol_upstream.md`](../attention/sol_upstream.md), "comfy-kitchen and core,
-  2026-09-25"; [`docs/research/sglang_comparison.md`](../research/sglang_comparison.md),
+  2026-09-25"; [`docs/h3/sglang_comparison.md`](../h3/sglang_comparison.md),
   "Seventh read"). Each has a dated note in place. Commit `d226ec0f`, with
   its checks recorded in
   `bench/results/2026-09-25_upstream_survey_checks.md` in the follow-up.
-  - "No engine implements PDD" (`docs/working/coderef.md`, `pdd_implementations.md`
+  - "No engine implements PDD" (`docs/working/coderef.md`, `docs/research/pdd/2026-08-28_pdd_implementations.md`
     section 1, the `docs/index.md` row): sglang has implemented it since
     `973fb44471` (2026-09-23).
   - `docs/distills/pdd.md` "Core is learning this" read Comfy-Org/ComfyUI#15908 as open.
@@ -4425,7 +4436,7 @@ that session's record disagree, its record is the nearer one.*
     stale since the freeze nodes shipped.
   - The rotation survey's E.5, "LightX2V refuses any feature cache on H3" and
     ships Sol and caching "never combined": `8652c6f1` ships DPCache with Sol.
-  - `sglang_h3_pipeline.md`, FastH3 "Registered under `registry.py`": its
+  - `docs/research/2026-08-25_sglang_h3_pipeline.md`, FastH3 "Registered under `registry.py`": its
     config now registers from its own pipeline-config file.
   - `docs/attention/sol_upstream.md`, SubBlock's `sage_fp8` as SM90 only: now SM90 and SM120.
 
@@ -4438,7 +4449,7 @@ that session's record disagree, its record is the nearer one.*
   corrected in `loop_output.py`, `audio_freeze_song.py` (docstring and the
   `save_metadata_png` tooltip), `bench/diff_clip_graphs.py`,
   `bench/verify_vsa_render.py` and `docs/method/eval_comparison.md`; dated notes were
-  added in place in `docs/distills/pdd.md` and `docs/research/vsa/vsa_node.md`,
+  added in place in `docs/distills/pdd.md` and `docs/research/vsa/2026-08-30_vsa_node.md`,
   whose two-mechanism findings still describe every older clip.
 - **Reference-video graphs load through VHS's ffmpeg loader** (owner's
   request, relayed by the dotfiles session). `h3_config.REF_VIDEO_LOADER`;
@@ -4608,7 +4619,7 @@ that session's record disagree, its record is the nearer one.*
   since its 2026-09-15 core pull; the item's 2026-09-19 status says
   so and notes that its before-and-after capture check has no record. No
   decision taken: reopening it is the owner's call.
-- **`docs/research/sglang_comparison.md`'s Sol defaults table said our dense
+- **`docs/h3/sglang_comparison.md`'s Sol defaults table said our dense
   attention outside the Sol window is Sage.** It has been kitchen's dense
   attention since 2026-09-15 (`workflows/h3_config.py::DEFAULT_DENSE_CHAIN`);
   a dated note under the table says so. The same survey found sglang's new
@@ -4891,7 +4902,7 @@ that session's record disagree, its record is the nearer one.*
 - **`MiniMaxH3AppendRefImage` defaults are vendor parity** (owner):
   `size_policy=max`, `dit_short_edge=2048`, `allow_upscale=True`,
   `qwen_view=shared`, which is what sglang, diffusers and DiffSynth do
-  (`docs/research/sglang_h3_pipeline.md` "Reference stills"): one prepared
+  (`docs/research/2026-08-25_sglang_h3_pipeline.md` "Reference stills"): one prepared
   still feeds both the video VAE and Qwen3-VL. Read the values from the node's
   `define_schema`. Before today `allow_upscale` was off (since 2026-08-28) and
   `qwen_view` was `separate` at 512 (since 2026-08-27, on one observation,

@@ -1,18 +1,18 @@
 # What can be changed about H3's quantisation, and what each lever needs
 
-**In short (as of 2026-08-31).** The inventory of quantization levers for H3's DiT, every one measured on the weight side only (`int8_convrot` is W8A8 and the activation rounding was never measured). The deterministic merge and `full_precision_matrix_mult` were withdrawn the same day; the shipped merge costs about +40% weight error, not the +11.6% of a round-to-nearest reproduction; and an offline bake from the release was named the lever to build next. Since then the bake was built for PDD8 ([`pdd/2026-09-05_bake_plan.md`](pdd/2026-09-05_bake_plan.md)), every LoRA on an int8 checkpoint is applied at the call (2026-09-26), and open experiment #23, the activation side, was closed on 2026-09-29 ([`../state/roadmap.md`](../state/roadmap.md), "Closed lanes"); the current policy is [`../attention/quant_policy.md`](../attention/quant_policy.md).
+**In short (as of 2026-08-31).** The inventory of quantization levers for H3's DiT, every one measured on the weight side only (`int8_convrot` is W8A8 and the activation rounding was never measured). The deterministic merge and `full_precision_matrix_mult` were withdrawn the same day; the shipped merge costs about +40% weight error, not the +11.6% of a round-to-nearest reproduction; and an offline bake from the release was named the lever to build next. Since then the bake was built for PDD8 ([`pdd/2026-09-05_bake_plan.md`](pdd/2026-09-05_bake_plan.md)), every LoRA on an int8 checkpoint is applied at the call (2026-09-26), and open experiment #23, the activation side, was closed on 2026-09-29 ([`docs/state/roadmap.md`](../state/roadmap.md), "Closed lanes"); the current policy is [`docs/attention/quant_policy.md`](../attention/quant_policy.md).
 
 **Start here before proposing a quantisation change.** This file owns the
 lever inventory: what is available, what it costs, what it needs, and which
 ones are closed. Nothing owned this before 2026-08-31, which is how
-[`h3_dit_implementations.md`](h3_dit_implementations.md) §10.5 came to carry a
+[`2026-08-29_h3_dit_implementations.md`](2026-08-29_h3_dit_implementations.md) §10.5 came to carry a
 withdrawn claim that a better quantised DiT "does not exist as an option".
 
 **Read the scope line before any number here.** `int8_convrot` is **W8A8**.
 `comfy_kitchen`'s `int8_linear` rotates the activation online with the same
 Hadamard, quantises it **per token**, runs an int8 GEMM whose int32
 accumulation is exact, and scales in fp32 —
-[`comfyui_h3_t2va_trace.md`](comfyui_h3_t2va_trace.md) §1.7-1.8 puts it as
+[`2026-08-29_comfyui_h3_t2va_trace.md`](2026-08-29_comfyui_h3_t2va_trace.md) §1.7-1.8 puts it as
 *"all the error is in the two roundings"*. **Every measurement in this file is
 the WEIGHT rounding.** The activation rounding has never been measured, and
 it is the side with the outliers. That is
@@ -340,7 +340,7 @@ modules, on turbo ~12x.
 > moved, and the output impact that would decide it is unmeasured, so neither
 > may be quoted alone. Third metric in this thread to rank these arms
 > differently — §2b's own rule, third instance.
-> [`merge_requantisation.md`](merge_requantisation.md) carries the table;
+> [`2026-08-31_merge_requantisation.md`](2026-08-31_merge_requantisation.md) carries the table;
 > commit `dc4e6b5`.
 
 **Also relevant to what it is not needed for**: the shipped VSA artifact
@@ -563,9 +563,9 @@ lands and survives in the codes.
 
 ## See also
 
-- [`h3_dit_implementations.md`](h3_dit_implementations.md) §10.5 — where the
+- [`2026-08-29_h3_dit_implementations.md`](2026-08-29_h3_dit_implementations.md) §10.5 — where the
   withdrawn claim was, and the correction.
-- [`comfyui_h3_t2va_trace.md`](comfyui_h3_t2va_trace.md) §1.7-1.8 — the two
+- [`2026-08-29_comfyui_h3_t2va_trace.md`](2026-08-29_comfyui_h3_t2va_trace.md) §1.7-1.8 — the two
   roundings, traced.
 - [`docs/distills/pdd.md`](../distills/pdd.md) — the merge/un-merge trade and the all-blocks
   PDD record.

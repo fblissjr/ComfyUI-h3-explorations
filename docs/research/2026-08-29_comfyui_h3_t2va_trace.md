@@ -1,6 +1,6 @@
 # ComfyUI's H3 t2va pipeline, traced end to end
 
-**In short (as of 2026-08-29, ComfyUI at `e7051b03`).** What ComfyUI's own code does, call by call, for one 1344x768x345 t2va render, without and with the PDD8 LoRA, from loading four artifacts to writing samples; it compares nothing to another engine. Among its findings: the int8 convrot DiT is not dequantized at load and its error is all in two roundings, weight and activation; the text encoder is a physical 50-layer stack with no final norm, and its int8 path exists and is never taken; the PDD node's backbone goes through a dequantize, patch and requantize round trip. It is pinned to that checkout. Current behavior is on the [`../h3/`](../h3/index.md) pages, and since 2026-09-26 PDD's backbone is applied at the call rather than merged ([`../attention/quant_policy.md`](../attention/quant_policy.md)).
+**In short (as of 2026-08-29, ComfyUI at `e7051b03`).** What ComfyUI's own code does, call by call, for one 1344x768x345 t2va render, without and with the PDD8 LoRA, from loading four artifacts to writing samples; it compares nothing to another engine. Among its findings: the int8 convrot DiT is not dequantized at load and its error is all in two roundings, weight and activation; the text encoder is a physical 50-layer stack with no final norm, and its int8 path exists and is never taken; the PDD node's backbone goes through a dequantize, patch and requantize round trip. It is pinned to that checkout. Current behavior is on the [`../h3/`](../h3/index.md) pages, and since 2026-09-26 PDD's backbone is applied at the call rather than merged ([`docs/attention/quant_policy.md`](../attention/quant_policy.md)).
 
 Written 2026-08-29 against the ComfyUI checkout at `e7051b03`, the installed
 `comfy_kitchen` wheel, and the artifacts on this box. Five scoped readers took
@@ -13,8 +13,8 @@ execution, and those are marked.**
 **What this file owns.** What *ComfyUI's own code* does, call by call, from
 loading four artifacts to writing pixels and samples, for one `t2va` render at
 1344x768x345. It compares nothing to another engine.
-[`h3_dit_implementations.md`](h3_dit_implementations.md) owns the five-way
-numerical comparison and [`sglang_comparison.md`](sglang_comparison.md) the
+[`2026-08-29_h3_dit_implementations.md`](2026-08-29_h3_dit_implementations.md) owns the five-way
+numerical comparison and [`docs/h3/sglang_comparison.md`](../h3/sglang_comparison.md) the
 runtime one; where this file touches those it points and stops.
 
 **Deliberately out of scope**, per the brief: every node in this pack except
@@ -1400,7 +1400,7 @@ which is the code line verbatim, with `x_a = audio_src * carry`.
 **Where it stops being exact is under a PDD fused head**, because the transform's
 coefficients are frozen at the step's own sigma while a fused head returns the
 block's *mean* velocity. That qualification is
-[`pdd/audio_under_pdd.md`](pdd/audio_under_pdd.md)'s to own.
+[`pdd/2026-08-28_audio_under_pdd.md`](pdd/2026-08-28_audio_under_pdd.md)'s to own.
 
 Note the wrapper boundary: the carry is undone **outside** the
 `WrappersMP.DIFFUSION_MODEL` executor, so any wrapper sees the stream's own

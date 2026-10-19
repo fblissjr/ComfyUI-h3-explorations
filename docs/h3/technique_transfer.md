@@ -1,6 +1,6 @@
 # What transfers from LLM and ViT serving to H3, and what does not
 
-**In short (as of 2026-08-25, with a note of 2026-09-15).** A translation table of LLM and ViT serving techniques for H3, sorted by two facts: there is no decode loop (the encoder is one prefill), and every row is updated every block, so nothing in the DiT is prefix-shaped. Prefix caching, speculative decoding and paged KV therefore do not apply to the DiT, and sampling was 87% of one measured render. Two borrows were left open as experiments on captured activations, token merging on the video rows and W4 weights for the DiT; neither was scheduled. The 2026-09-15 note on TaoMate-H3, which changes the procedure to put a KV cache on H3, concerns a lane deprecated on 2026-09-27 ([`../state/roadmap.md`](../state/roadmap.md), "Closed lanes").
+**In short (as of 2026-08-25, with a note of 2026-09-15).** A translation table of LLM and ViT serving techniques for H3, sorted by two facts: there is no decode loop (the encoder is one prefill), and every row is updated every block, so nothing in the DiT is prefix-shaped. Prefix caching, speculative decoding and paged KV therefore do not apply to the DiT, and sampling was 87% of one measured render. Two borrows were left open as experiments on captured activations, token merging on the video rows and W4 weights for the DiT; neither was scheduled. The 2026-09-15 note on TaoMate-H3, which changes the procedure to put a KV cache on H3, concerns a lane deprecated on 2026-09-27 ([`docs/state/roadmap.md`](../state/roadmap.md), "Closed lanes").
 
 Written 2026-08-25. A translation table for the owner's home field: each
 serving technique from the LLM and ViT world, the property of the model it
@@ -52,7 +52,7 @@ ordinary LoRA run over the whole clip at once.
 
 Where these two do apply in the owner's workflow: the LLM that writes H3
 prompts against the system prompts in
-[`docs/h3/references.md`](../h3/references.md)'s prompting references. DFlash
+[`docs/h3/references.md`](references.md)'s prompting references. DFlash
 ships drafts for Qwen3 and Gemma 4 under SGLang, vLLM and llama.cpp
 (README read 2026-08-25). Outside ComfyUI and outside this repo.
 
@@ -75,7 +75,7 @@ than the LLM world does.
 | FlashAttention, fp8 attention | sage (quantised QK) and the SDPA kernels | **exists** |
 | sliding window, local attention | video needs global attention across frames; Sol's sink and diagonal are the structured part | n/a |
 | **token merging and pruning (ToMe, VidToMe, FastV)** | merge redundant video rows before attention and unmerge after, a quadratic win on the rows removed | **possible, unmeasured.** [`docs/attention/sol_upstream.md`](../attention/sol_upstream.md) notes Sol-Engine ships token pruning for LTX and not for H3. Sol already exploits the same redundancy by sparsity, so the two may overlap rather than stack; that is the question. Measurement: grade merged against exact on captured activations first (the `bench/grade_sage_on_capture.py` pattern, controlled by construction), then a blind distribution under [`docs/method/eval_comparison.md`](../method/eval_comparison.md) section 3, never a pair |
-| dynamic resolution, patch schedules | canvas, frame count, reference latent rows; the encoder's own view got a knob on 2026-08-25 (`qwen_short_edge`) | **exists** as the sequence-length levers in [`docs/h3/geometry.md`](../h3/geometry.md) and [`docs/h3/geometry_cost.md`](../h3/geometry_cost.md) |
+| dynamic resolution, patch schedules | canvas, frame count, reference latent rows; the encoder's own view got a knob on 2026-08-25 (`qwen_short_edge`) | **exists** as the sequence-length levers in [`docs/h3/geometry.md`](geometry.md) and [`docs/h3/geometry_cost.md`](geometry_cost.md) |
 | token reordering for locality (Hilbert, Morton) | Morton reordering under Sol | **exists**; [`docs/attention/morton.md`](../attention/morton.md) records that whether it reaches the output is unverified |
 
 ## Techniques that shrink weights
@@ -87,7 +87,7 @@ phases DRAM-saturated, so weight bytes are their cost) and on load staging
 | from the LLM/ViT world | here | status |
 |---|---|---|
 | W4/W8 weight-only quantisation of the LLM (AWQ, GPTQ) | the encoder: this repo's W4A16 AWQ, [`h3_awq_encoder.md`](../h3_awq_encoder.md) | **exists**, and the lane is CLOSED. v2 calibrated on native input 2026-08-25 and was rejected at Gate 5; the owner ended further own-calibration quantisation on 2026-08-27, so the planned GPTQ variant will not run. The shipped encoder is the v1 W4A16 AWQ artifact |
-| the same on the ViT/DiT | the DiT ships int8 ConvRot (rotation plus int8); `fp8_scaled` measured worse against the bf16 release ([`docs/method/evidence.md`](../method/evidence.md)) | **exists at int8. The unexplored borrow is W4 DiT weights** in the SVDQuant/Nunchaku style, which those projects apply to Flux and Wan DiTs. Prize: residency on 24 GB and faster DRAM-bound GEMM phases. Risk: diffusion's sensitivity to weight error, and a rendered pair cannot judge it (the different-sample rule in `CLAUDE.md`). Measurement: the same capture-graded route, then a blind distribution |
+| the same on the ViT/DiT | the DiT ships int8 ConvRot (rotation plus int8); `fp8_scaled` measured worse against the bf16 release ([`docs/method/evidence.md`](../method/evidence.md)) | **exists at int8. The unexplored borrow is W4 DiT weights** in the SVDQuant/Nunchaku style, which those projects apply to Flux and Wan DiTs. Prize: residency on 24 GB and faster DRAM-bound GEMM phases. Risk: diffusion's sensitivity to weight error, and a rendered pair cannot judge it (the different-sample rule in `docs/research/CLAUDE.md`). Measurement: the same capture-graded route, then a blind distribution |
 | KV cache quantisation | no KV survives a step | n/a |
 | activation quantisation (A8) | sage quantises inside attention; the GEMMs are not quantised at the activation | possible, unmeasured |
 | NVFP4 | Blackwell only; a 4090 is sm_89 | n/a on this box |

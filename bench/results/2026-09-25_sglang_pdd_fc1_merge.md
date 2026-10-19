@@ -8,7 +8,7 @@ wrong rows, and the merged MLP misses the adapter's intended output. The error
 is the same order as the adapter's whole effect on that MLP.
 
 This is the probable defect the upstream survey recorded by reading
-(`docs/research/sglang_comparison.md`, "Seventh read"); this record measures
+(`docs/h3/sglang_comparison.md`, "Seventh read"); this record measures
 it. Whether to report it upstream is the owner's call.
 
 ## What was compared
