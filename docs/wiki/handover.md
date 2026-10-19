@@ -62,6 +62,21 @@ why, the scene's background, and what every scene should probably get): `bench/r
   - In flight: `lead_fp_0606b` (the full kitchen window against the 24 fps cut, C178); gem-mouth building the real SAM
     3.1 head track (`internal/gemini/2026-10-18_brief_sam_head_track.md`, C190), then its mask test on 751-785 with no
     render; then the drawing tests (C166); then mrgemson's close (C134, C163).
+  - The SAM 3.1 head track is built and cleared (gem-sam-head `04024de6`, C197; landing with a ComfyUI restart),
+    both switches off by default. Its mask test on 751-785, no render: her face part is whole on 759 (10,662 px against
+    4,637), 760 (13,505 against 5,054), 761 (12,189 against 2,037), 772 and 784-785, nothing lost inside the head; off
+    is identical to today. Sheets: `Video/fun/mrgemson/shot_c_0604c_sam_head_test/sheets/`. Tomorrow: the kitchen render
+    with the head track, the mom's laid matte as the keep-out, and the new drawing, for the owner's look.
+  - Made the chain's default at the owner's word (C198; decisions.md): landing, then a small flip so every load's
+    preview makes the head track and the capture uses it (`--no-head-track` with a reason to turn it off). CAVEAT:
+    tested on one shot. Tomorrow's first loads on other shots (frontal, profile, a hand over the face, a crowd) each
+    get the mask comparison old against new before they render, and a reader on the hairline at turns.
+    Its cost is not measured yet: one more SAM 3.1 tracking pass per subject per preview (the render is unchanged);
+    the first preview records the tracker node's time and peak memory with and without it (C200).
+    Follow-ons that read the head track (one answer to "where her head is"), in order: off_head judged by the head
+    track (2b'); the reference crop's head box from it (the crown cut on tilted frames, M22); the zoom box from it; then
+    head-and-hair loads using it as their region, and depth and keep-outs at crossings.
+    Ordered tonight at the owner's word (C201): the first three, each on a branch, mask-tested, no render.
   - If the Claude lead is out of credits, mrgemson is the one designated lead (`AGENTS.md`) and finishes this list,
     with a blind read by a session that did not build in place of mrted's clearance, and asks the owner where unsure.
 - **The chin smear, corrected cause** (the owner on 760, about 03:10Z: the same dark smudge at the lead's chin in

@@ -17,6 +17,16 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-18
 
+- **The SAM 3.1 head track is the chain's default** (the owner, about 03:35Z on 2026-10-19: "get that into prod ...
+  make it a default now", with the caveat that it needs more diverse scenes tested). What it replaces: the capture's
+  "SAM 3.1 head tube" never ran SAM 3.1 (`bench/head_tube_parts.py:1488` passed no tracker), so Sapiens' labels alone
+  decided a face, and on the kitchen's 759-761 they called the lead's face clothing and background. Now the tracker
+  node follows the head with SAM 3.1 and the capture uses it as the tube; Sapiens decides only face against hair inside
+  it (gem-sam-head, cleared C197; the default, C198). Measured on one shot only (the lead, 751-785: her face part whole
+  on 759-761, 772 and 784-785, nothing lost inside the head): the first loads on other shots each get the old-against-new
+  mask comparison before they render. The node's own default is on too (the owner: "we're not doing any other use
+  case but this video right now"), so every graph using the tracker makes the head track; the extra SAM 3.1 pass per
+  subject is accepted (C199).
 - **24 fps from input to output; a cut is handled and loaded exactly like the real input** (the owner, about
   23:58Z-00:05Z): the joined cut had been written at the original's 23.976 fps (`bench/rebuild_delivery.py` picked the
   source before the 24 fps copy), and a pass rendered against it loaded one frame early (`lead_fp_0751`). What it used
