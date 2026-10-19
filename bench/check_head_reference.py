@@ -1143,6 +1143,54 @@ def the_three_mouth_fixes_on_fun_captures() -> str:
             "606-998 draws 1 shape on all frames with 0 dark px on profile frame 755; 805, 5114 and 2823-3097 pass")
 
 
+def head_box_from_the_head_track() -> str:
+    """`bench/head_reference.py` cuts both the body model and the source by the head track's box with crown room when a
+    head track is given (`--head-track`) or sits beside the points' box mask (`_track_` -> `_head_track_`) or body-model
+    video (`_mesh_` -> `_head_track_`); `--no-head-track` uses the faces alone; and missing or out-of-range `--head-track`
+    is refused before any file is written (`C201` item 2, `M22`)."""
+    from _lib.frames import write_mask_video
+    folder, mesh, pts, source = rooms("head_track_box", [90] * N, [60] * N, CENTRES, 0)
+    # A tilted head track whose crown sits at y = 14 on frames 3..6, above the face-only box (which starts around y = 55 at ROOM = 0.4)
+    face_rec = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "face_only.mp4", "the check", room=ROOM, say=quiet)
+    assert face_rec["box"][1] > 35 and "head_track" not in face_rec["inputs"], face_rec["box"]
+    head_mask = np.zeros((N, H, W), bool)
+    for f, (cx, cy) in enumerate(CENTRES):
+        top = 14 if 3 <= f <= 6 else int(round(cy - 30))
+        head_mask[f, top:int(round(cy + 45)), int(round(cx - 45)):int(round(cx + 45))] = True
+    body_tr = folder / "shot_lead_track_00001.mkv"
+    head_tr = folder / "shot_lead_head_track_00001.mkv"
+    write_mask_video(body_tr, head_mask)
+    write_mask_video(head_tr, head_mask)
+    pts.with_suffix(".json").write_text(json.dumps({
+        "made_by": "the check",
+        "made_from": {"box": {"mask_video": str(body_tr), "its_first_frame_is_source_frame": 0}},
+    }))
+    said: list[str] = []
+    auto_rec = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "auto_ht.mp4", "the check", room=ROOM, say=said.append)
+    assert auto_rec["passed"] and auto_rec["box"][1] < 14, (auto_rec["box"], face_rec["box"])
+    assert auto_rec["inputs"]["head_track"]["mask_video"] == str(head_tr) and auto_rec["inputs"]["head_track"]["found_by"] == "beside the points' box mask"
+    assert "the head track with crown room" in auto_rec["box_set_by"] and auto_rec["heads_over_the_span"][1] == 14.0
+    assert json.loads((folder / "auto_ht_plain_cut.json").read_text())["box"] == auto_rec["box"]
+    assert json.loads((folder / "auto_ht_source_cut.json").read_text())["box"] == auto_rec["box"]
+    assert any("from the head track with" in line for line in said), said
+    # --no-head-track ignores the sibling head track and uses the face-only box
+    no_ht_rec = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "no_ht.mp4", "the check", room=ROOM, no_head_track=True, say=quiet)
+    assert no_ht_rec["box"] == face_rec["box"] and "head_track" not in no_ht_rec["inputs"], no_ht_rec
+    # Refusals happen before any file is written
+    for kw, word in (
+            ({"head_track": str(head_tr), "no_head_track": True}, "cannot give both"),
+            ({"head_track": str(folder / "missing_ht.mkv")}, "is not a file"),
+            ({"head_track": str(head_tr), "head_track_first": 5}, "were asked for")):
+        try:
+            hr.run(str(mesh), str(pts), str(source), 0, N, folder / "refused_ht.mp4", "the check", room=ROOM, say=quiet, **kw)
+        except SystemExit as exc:
+            assert word in str(exc) and not list(folder.glob("refused_ht*")), (word, str(exc))
+        else:
+            raise AssertionError(f"not refused: {kw}")
+    return (f"head track beside the points' box mask widens the reference box from {face_rec['box']} to {auto_rec['box']} with crown room on both "
+            "plain_cut and source_cut; --no-head-track keeps the face-only box; bad --head-track flags refuse before writing")
+
+
 case("one run makes the form", one_run_makes_the_form)
 case("a face off the subject's track fails the run", a_face_off_the_track_fails)
 case("her own glasses over her eyes, off her track", her_glasses_over_her_eyes)
@@ -1161,5 +1209,6 @@ case("it writes over nothing, and nothing when it cannot finish", it_writes_over
 case("the form's defaults can be set aside, and the record says so", the_defaults_can_be_set_aside)
 case("a step that fails fails the run", a_step_that_fails_fails_the_run)
 case("the mouth on a person's word where the gate drops it", the_mouth_on_a_word)
+case("the head box from the head track, with room above the crown", head_box_from_the_head_track)
 shutil.rmtree(WORK, ignore_errors=True)
 sys.exit(finish())

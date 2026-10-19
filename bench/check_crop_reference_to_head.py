@@ -258,7 +258,108 @@ def refusals() -> str:
             assert word in str(exc), (what, exc)
         else:
             raise AssertionError(f"{what}: accepted")
-    return "a span the points do not cover, a span the reference does not hold, points on another canvas and a file that does not say its first frame are each refused"
+    for what, kw, word in (
+            ("both --head-track and --no-head-track", {"head_track": str(REF), "no_head_track": True}, "cannot give both"),
+            ("missing --head-track file", {"head_track": str(WORK / "no_such_head_track.mkv")}, "is not a file"),
+            ("a span the head track does not hold", {"head_track": str(REF), "head_track_first": 5}, "were asked for")):
+        try:
+            cr.run(str(REF), str(POINTS), 0, N, WORK / "r_ht.mp4", "the check", say=quiet, **kw)
+        except SystemExit as exc:
+            assert word in str(exc), (what, exc)
+        else:
+            raise AssertionError(f"{what}: accepted")
+    return "a span the points, reference or head track do not cover, another canvas, no first frame, missing --head-track and conflicting flags are each refused"
+
+
+def head_track_and_crown_room() -> str:
+    """The head box from the head track, with `CROWN_ROOM` above the crown (`C201` item 2, `M22`): on tilted frames where
+    the crown reaches further above the glabella than `room` alone leaves, the head track holds the whole head with crown
+    room; on a frontal head whose crown sits inside the face room, the box is no worse; and when the untracked kitchen
+    (`767, 771, 772`, `751-778`, `805-833`) and frontal mom (`278-293`) captures are on disk, checks those exact frames."""
+    from _lib.frames import write_mask_video
+    # 1. Synthetic tilted head track vs frontal head track
+    room = 0.6                                                                  # tight enough that a tilted crown 1.0 * FACE_PX above glabella clips without head_track
+    pts_dir = WORK / "ht_case"
+    pts_dir.mkdir(exist_ok=True)
+    pts_file = fx.save(pts_dir / "shot_points.npz", faces(CENTRES), (W, H), first=0)
+    P, _ = cr.faces.rows_of(str(pts_file), None, 0, N, 0, whole_face=False)
+    face_only = cr.one_box(P, (W, H), room)
+    # Tilted head mask: on frames 4..7 the crown reaches 1.0 * FACE_PX above the glabella (y = centre_y - 10 - FACE_PX)
+    tilted_mask = np.zeros((N, H, W), bool)
+    frontal_mask = np.zeros((N, H, W), bool)
+    for f, (cx, cy) in enumerate(CENTRES):
+        glab_y = int(round(cy - 10))
+        chin_y = int(round(cy - 10 + FACE_PX))
+        crown_frontal = max(2, int(round(glab_y - 0.35 * FACE_PX)))
+        crown_tilted = max(2, int(round(glab_y - (1.0 * FACE_PX if 4 <= f <= 7 else 0.35 * FACE_PX))))
+        x_l, x_r = max(2, int(round(cx - 0.55 * FACE_PX))), min(W - 2, int(round(cx + (0.85 if 4 <= f <= 7 else 0.55) * FACE_PX)))
+        frontal_mask[f, crown_frontal:chin_y, int(round(cx - 0.55 * FACE_PX)):int(round(cx + 0.55 * FACE_PX))] = True
+        tilted_mask[f, crown_tilted:chin_y, x_l:x_r] = True
+    tilted_boxes = cr.head_boxes_of(tilted_mask)
+    assert face_only["box"][1] > tilted_boxes[:, 1].min(), (face_only["box"], tilted_boxes[:, 1].min())   # face-only clips the tilted crown
+    with_tilted = cr.one_box(P, (W, H), room, head_track=tilted_mask)
+    c_room_px = (cr.CROWN_ROOM * (room / cr.HEAD_ROOM)) * FACE_PX
+    assert with_tilted["box"][1] <= tilted_boxes[:, 1].min() - c_room_px + 1, (with_tilted["box"], tilted_boxes[:, 1].min(), c_room_px)
+    assert with_tilted["box"][0] <= tilted_boxes[:, 0].min() and with_tilted["box"][2] >= tilted_boxes[:, 2].max()
+    assert with_tilted["box"][3] >= tilted_boxes[:, 3].max() and "the head track with crown room" in with_tilted["set_by"]
+    with_frontal = cr.one_box(P, (W, H), room, head_track=frontal_mask)
+    assert with_frontal["box"] == face_only["box"], (with_frontal["box"], face_only["box"])               # frontal box is no worse (identical when inside face room)
+    # 2. Auto-discovery beside the points' box mask (`_track_` -> `_head_track_`) and `--no-head-track` override
+    body_tr = pts_dir / "shot_lead_track_00001.mkv"
+    head_tr = pts_dir / "shot_lead_head_track_00001.mkv"
+    write_mask_video(body_tr, frontal_mask)
+    write_mask_video(head_tr, tilted_mask)
+    pts_file.with_suffix(".json").write_text(json.dumps({
+        "made_by": "the check",
+        "made_from": {"box": {"mask_video": str(body_tr), "its_first_frame_is_source_frame": 0}},
+    }))
+    rec_auto = cr.run(str(REF), str(pts_file), 0, N, pts_dir / "auto.mp4", "the check", room=room, say=quiet)
+    rec_no_ht = cr.run(str(REF), str(pts_file), 0, N, pts_dir / "no_ht.mp4", "the check", room=room, no_head_track=True, say=quiet)
+    assert rec_auto["box"] == with_tilted["box"] and rec_auto["made_from"]["head_track"]["found_by"] == "beside the points' box mask", rec_auto
+    assert rec_no_ht["box"] == face_only["box"] and "head_track" not in rec_no_ht["made_from"], rec_no_ht
+    # 3. Real kitchen tilted frames (767, 771, 772, 751-778, 751-785) and frontal shots (805-833, 278-293) when present on disk
+    vdir = Path("/nonexistent")
+    try:
+        vdir = cr.faces.h3_config.output_dir() / "Video" / "fun"
+    except BaseException:
+        root = Path(__file__).resolve().parents[1]
+        for d in (root / "data", *sorted(root.parent.parent.glob("custom_nodes/*/data")), *sorted(root.parent.parent.glob("ComfyUI/custom_nodes/*/data"))):
+            for jp in sorted(d.glob("*_lead_fp_0805*_job/job.plan.json")):
+                rec = json.loads(jp.read_text()).get("job", {}).get("reference", {}).get("record")
+                if rec:
+                    vdir = Path(rec).parents[2]
+                    break
+    ht_604 = vdir / "mrgemson" / "shot_c_0604c_sam_head_test" / "shot_c_0604c_lead_head_track_00001.mkv"
+    pts_606 = vdir / "references" / "lead_0606_0998" / "lead_0606_0998_points.npz"
+    if ht_604.is_file() and pts_606.is_file():
+        for f_tilt, min_clear in ((767, 30), (771, 27), (772, 27)):
+            pts_f, _ = cr.faces.rows_of(str(pts_606), None, f_tilt, 1, 606, whole_face=False)
+            hm_f, _ = cr.read_mask(str(ht_604), (1024, 768), 604, f_tilt, 1)
+            hb_f = cr.head_boxes_of(hm_f)[0]
+            b_old = cr.one_box(pts_f, (1024, 768), cr.HEAD_ROOM)["box"]
+            b_new = cr.one_box(pts_f, (1024, 768), cr.HEAD_ROOM, head_track=hm_f)["box"]
+            assert b_new[0] <= hb_f[0] and b_new[1] <= hb_f[1] - min_clear and b_new[2] >= hb_f[2] and b_new[3] >= hb_f[3], (f_tilt, b_new, hb_f)
+            assert b_new[1] < b_old[1], (f_tilt, b_old, b_new)
+        for s_first, s_count in ((751, 28), (751, 35)):
+            pts_s, _ = cr.faces.rows_of(str(pts_606), None, s_first, s_count, 606, whole_face=False)
+            hm_s, _ = cr.read_mask(str(ht_604), (1024, 768), 604, s_first, s_count)
+            hb_s = cr.head_boxes_of(hm_s)
+            b_old = cr.one_box(pts_s, (1024, 768), cr.HEAD_ROOM)["box"]
+            b_new = cr.one_box(pts_s, (1024, 768), cr.HEAD_ROOM, head_track=hm_s)["box"]
+            assert b_old[1] > hb_s[:, 1].min() + 30, (b_old, hb_s[:, 1].min())                            # face-only cuts 39..43 px off the crown
+            assert b_new[0] <= hb_s[:, 0].min() and b_new[1] <= hb_s[:, 1].min() and b_new[2] >= hb_s[:, 2].max() and b_new[3] >= hb_s[:, 3].max(), (b_new, hb_s)
+        # Frontal 805-833: whole head held with >= 28 px crown room, and box width within 5% of face-only
+        pts_805, _ = cr.faces.rows_of(str(pts_606), None, 805, 29, 606, whole_face=False)
+        hm_805, _ = cr.read_mask(str(ht_604), (1024, 768), 604, 805, 29)
+        hb_805 = cr.head_boxes_of(hm_805)
+        b805_old = cr.one_box(pts_805, (1024, 768), cr.HEAD_ROOM)["box"]
+        b805_new = cr.one_box(pts_805, (1024, 768), cr.HEAD_ROOM, head_track=hm_805)["box"]
+        assert b805_new[0] <= hb_805[:, 0].min() and b805_new[1] <= hb_805[:, 1].min() - 28 and b805_new[2] >= hb_805[:, 2].max() and b805_new[3] >= hb_805[:, 3].max()
+        assert (b805_new[2] - b805_new[0]) <= (b805_old[2] - b805_old[0]) * 1.05, (b805_old, b805_new)
+        kitchen_note = f"; kitchen 767/771/772 and 751-785 hold the whole head ({b_new} vs {b_old}), frontal 805-833 {b805_new} vs {b805_old}"
+    else:
+        kitchen_note = " (kitchen captures not on disk)"
+    return f"tilted head track widens box from {face_only['box']} to {with_tilted['box']} with crown room; frontal head track stays {with_frontal['box']}{kitchen_note}"
 
 
 case("one box, holding every face with its room, and the scale the record says", one_box_and_its_scale)
@@ -266,6 +367,7 @@ case("frames from the middle of both files", frames_from_the_middle)
 case("a head near an edge, and a head that crosses the frame", edges_and_the_whole_frame)
 case("the original itself is fitted, then cut by the same box", the_original_fitted_then_cut)
 case("the read-back can fail", the_read_back_can_fail)
+case("the head box from the head track, with room above the crown", head_track_and_crown_room)
 case("what it refuses", refusals)
 shutil.rmtree(WORK, ignore_errors=True)
 sys.exit(finish())

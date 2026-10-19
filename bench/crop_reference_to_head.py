@@ -3,7 +3,8 @@
 
     python bench/crop_reference_to_head.py --video REFERENCE.mp4 --points SHOT_points.npz --first 1039 --count 22 \\
         --out <share>/Video/<video>/<who>/second_mesh_with_lids_head_crop_1039.mp4 --by <session> \\
-        [--room 1.2] [--video-first N] [--points-first N] [--names NAMES.json] [--fit]
+        [--room 1.2] [--head-track HEAD_TRACK.mkv] [--head-track-first N] [--no-head-track] \\
+        [--video-first N] [--points-first N] [--names NAMES.json] [--fit]
 
 A reference video drawn at the canvas's size shows a small face small: on a face a few dozen pixels tall an
 eye drawn at its true size is a patch a dozen pixels wide, and no line in it can be told from the next
@@ -15,11 +16,16 @@ and enlarged to the canvas, so the face fills the picture.
 ONE BOX FOR THE WHOLE SPAN, so nothing shakes: the head moves inside the picture as it moves in the shot, and
 the picture's edges stand still. The box is:
 
-- round the FACES of every frame asked for: each frame's face is the box round its lash lines, the glabella,
-  the tip of the nose and the tip of the chin (the points `bench/_lib/face_points.py` reads, none of the ones the
-  model scores low), and the box holds all of them;
-- with ROOM on every side: `HEAD_ROOM` times the shot's median face height, or `--room`. The model's points stop
-  at the brows and the chin, and a head is taller than a face;
+- round the HEAD TRACK and the FACES of every frame asked for: when the subject's head track is given
+  (`--head-track`) or sits beside the points' box-mask track (`<prefix>_<subject>_head_track_*.mkv` beside
+  `<prefix>_<subject>_track_*.mkv` in `<points>.json`, or beside `<prefix>_<subject>_mesh_*.mp4`), the box holds
+  every frame's head mask with `CROWN_ROOM` face heights above the crown and `HEAD_TRACK_ROOM` on the sides and
+  bottom, together with every frame's face (the lash lines, the glabella, the tip of the nose and the tip of the
+  chin that `bench/_lib/face_points.py` reads) with `HEAD_ROOM` (`--room`) face heights on every side;
+- when no head track is there (or `--no-head-track` is given), round the faces alone with `HEAD_ROOM` (`--room`)
+  times the shot's median face height on every side. The pose model's points stop at the brows and the chin, so on
+  a tilted or bowed head where the crown reaches more than a face height above the glabella, the head track keeps
+  the crown inside the box;
 - in the CANVAS'S SHAPE, grown the short way to reach it, then moved to lie inside the canvas if it hung over
   an edge. A box that would be larger than the canvas is the whole frame, and the tool says so.
 
@@ -68,7 +74,7 @@ from PIL import Image, ImageDraw
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _lib import face_points as fp  # noqa: E402
-from _lib.frames import FIT, probe, stream  # noqa: E402
+from _lib.frames import FIT, probe, read_mask, stream  # noqa: E402
 
 import draw_face_points as faces  # noqa: E402  the points loader: one copy
 import draw_lid_marks as marks  # noqa: E402  the writer: one copy
@@ -77,6 +83,22 @@ import draw_lid_marks as marks  # noqa: E402  the writer: one copy
 #: head is a little under twice that length from crown to chin, so with this much room a head that holds still
 #: sits in a box about twice its own height. No render has been made from a reference cut this way.
 HEAD_ROOM = 1.2
+#: Room left above the head track's crown, in face heights (glabella to chin), when a head track is read. A
+#: STARTING VALUE, measured 2026-10-18 on the kitchen shot (`shot_c_0604c`, SAM 3.1 head track) and frontal mom
+#: (`shot_c_0278c`): on tilted frames (`767, 771, 772`) the head track's crown reaches 0.93 to 1.16 face heights
+#: above the glabella and `HEAD_ROOM` alone leaves 3 to 20 px above the crown (`-43 px` on `751-778`); `0.4` face
+#: heights above the head track's top (`hy0`) leaves 27 to 31 px above the crown on `767, 771, 772`, holds the
+#: whole head on `751-778` and `751-785` (`y0 = 0`, 5 px above `hy0`, 33 px above the 3D head), and keeps frontal
+#: `805-833` within 4% of the face-only box (`410x307` vs `394x295`, 30 px above the crown) while holding all of
+#: frontal `278-293`'s crown (`+47 px` vs `-17 px`). Scales with `--room / HEAD_ROOM`.
+CROWN_ROOM = 0.4
+#: Room left on the sides and bottom of the head track, in face heights, when a head track is read. A STARTING
+#: VALUE, measured 2026-10-18 alongside `CROWN_ROOM`: on tilted (`767, 771, 772`), profile (`630-657`) and
+#: wide-hair frontal (`278-293`) frames the back of the head or hair reaches 1.00 to 1.75 face heights sideways
+#: from the facial features; `0.25` face heights round the head track's sides and bottom holds the whole head
+#: (`0` frames touching the crop edge) without widening frontal `805-833` beyond `410x307`. Scales with
+#: `--room / HEAD_ROOM`.
+HEAD_TRACK_ROOM = 0.25
 #: The written video must sit within this many grey levels of the picture made for it, at the mean. Reasoned: the
 #: encode moves a picture by about a level; a wrong frame of a moving head moves it by many.
 ENCODE_LEVELS = 6.0
@@ -91,29 +113,98 @@ def face_box(p: np.ndarray, index: dict) -> np.ndarray:
     return np.concatenate([pts.min(0), pts.max(0)])
 
 
-def one_box(points: dict, size: tuple[int, int], room: float) -> dict:
-    """The one box of a span: round every frame's face, with room, in the canvas's shape, inside the canvas."""
+def head_boxes_of(head_track: np.ndarray | list | None) -> np.ndarray:
+    """Non-empty `[x0, y0, x1, y1]` boxes (the far side not included, as `box` is) from a `[n, h, w]` mask array
+    or a sequence of `[x0, y0, x1, y1]` boxes."""
+    if head_track is None:
+        return np.zeros((0, 4), float)
+    arr = np.asarray(head_track)
+    if arr.ndim == 3:
+        boxes = []
+        for m in arr:
+            ys, xs = np.nonzero(m > 0 if m.dtype != bool else m)
+            if len(xs):
+                boxes.append([float(xs.min()), float(ys.min()), float(xs.max() + 1), float(ys.max() + 1)])
+        return np.array(boxes, float) if boxes else np.zeros((0, 4), float)
+    if arr.ndim == 2 and arr.shape[1] == 4:
+        keep = (arr[:, 2] > arr[:, 0]) & (arr[:, 3] > arr[:, 1])
+        return arr[keep].astype(float)
+    return np.zeros((0, 4), float)
+
+
+def one_box(points: dict, size: tuple[int, int], room: float, head_track: np.ndarray | list | None = None,
+            crown_room: float | None = None, head_track_room: float | None = None) -> dict:
+    """The one box of a span: round every frame's head track (with crown room) and face (with room), in the
+    canvas's shape, inside the canvas."""
     w, h = size
     idx = points["index"]
     each = np.array([face_box(p, idx) for p in points["keypoints"]])
     union = np.concatenate([each[:, :2].min(0), each[:, 2:].max(0)])
     face = float(np.median([fp.face_height(p, idx) for p in points["keypoints"]]))
-    need_w, need_h = (union[2] - union[0]) + 2 * room * face, (union[3] - union[1]) + 2 * room * face
+    said = {"faces": [round(float(v), 1) for v in union], "face_height_px_median": round(face, 1), "room_in_face_heights": room}
+    hboxes = head_boxes_of(head_track)
+    if len(hboxes):
+        heads = np.concatenate([hboxes[:, :2].min(0), hboxes[:, 2:].max(0)])
+        head_h = float(np.median(hboxes[:, 3] - hboxes[:, 1]))
+        scale_r = room / HEAD_ROOM if HEAD_ROOM else 1.0
+        c_room = (CROWN_ROOM * scale_r) if crown_room is None else float(crown_room)
+        ht_room = (HEAD_TRACK_ROOM * scale_r) if head_track_room is None else float(head_track_room)
+        face_want = np.array([union[0] - room * face, union[1] - room * face, union[2] + room * face, union[3] + room * face], float)
+        head_want = np.array([heads[0] - ht_room * face, heads[1] - c_room * face, heads[2] + ht_room * face, heads[3] + ht_room * face], float)
+        want = np.concatenate([np.minimum(face_want[:2], head_want[:2]), np.maximum(face_want[2:], head_want[2:])])
+        need_w, need_h = float(want[2] - want[0]), float(want[3] - want[1])
+        cx, cy = float((want[0] + want[2]) / 2), float((want[1] + want[3]) / 2)
+        said.update(heads=[round(float(v), 1) for v in heads], head_height_px_median=round(head_h, 1),
+                    crown_room_in_face_heights=round(c_room, 3), head_track_room_in_face_heights=round(ht_room, 3),
+                    head_track_frames=int(len(hboxes)))
+        whole_by = "the whole frame: the head track and faces with their room are larger than the canvas"
+        shaped_by = "the head track with crown room and the faces with their room, grown to the canvas's shape"
+    else:
+        need_w, need_h = (union[2] - union[0]) + 2 * room * face, (union[3] - union[1]) + 2 * room * face
+        cx, cy = float((union[0] + union[2]) / 2), float((union[1] + union[3]) / 2)
+        whole_by = "the whole frame: the faces with their room are larger than the canvas"
+        shaped_by = "the faces with their room, grown to the canvas's shape"
     box_h = int(np.ceil(max(need_h, need_w * h / w)))
     box_w = int(np.ceil(box_h * w / h))
-    said = {"faces": [round(float(v), 1) for v in union], "face_height_px_median": round(face, 1), "room_in_face_heights": room}
     if box_w >= w or box_h >= h:
-        return dict(said, box=[0, 0, w, h], set_by="the whole frame: the faces with their room are larger than the canvas", moved_to_lie_inside=False)
-    cx, cy = (union[0] + union[2]) / 2, (union[1] + union[3]) / 2
+        return dict(said, box=[0, 0, w, h], set_by=whole_by, moved_to_lie_inside=False)
     x0, y0 = int(round(cx - box_w / 2)), int(round(cy - box_h / 2))
     inside = (min(max(x0, 0), w - box_w), min(max(y0, 0), h - box_h))
-    return dict(said, box=[inside[0], inside[1], inside[0] + box_w, inside[1] + box_h], set_by="the faces with their room, grown to the canvas's shape",
+    return dict(said, box=[inside[0], inside[1], inside[0] + box_w, inside[1] + box_h], set_by=shaped_by,
                 moved_to_lie_inside=bool(inside != (x0, y0)))
+
+
+def discover_head_track(points_path: str, video_path: str | None = None, video_first: int | None = None) -> tuple[str | None, int | None, str | None]:
+    """Find a sibling `*_head_track_*.mkv` beside the points' box-mask video (`<points>.json`) or beside a
+    body-model video (`*_mesh_*`). Returns `(path, first_frame, found_by)` or `(None, None, None)`."""
+    record = Path(points_path).with_suffix(".json")
+    if record.is_file():
+        try:
+            said = json.loads(record.read_text())
+        except ValueError:
+            said = {}
+        box = (said.get("made_from") or {}).get("box")
+        if isinstance(box, dict) and box.get("mask_video") and box.get("its_first_frame_is_source_frame") is not None:
+            mv = Path(str(box["mask_video"]))
+            mf = int(box["its_first_frame_is_source_frame"])
+            if "_head_track" in mv.name and mv.is_file():
+                return str(mv), mf, "the points' box mask (already a head track)"
+            if "_track_" in mv.name:
+                cand = mv.with_name(mv.name.replace("_track_", "_head_track_", 1))
+                if cand.is_file():
+                    return str(cand), mf, "beside the points' box mask"
+    if video_path and video_first is not None:
+        vp = Path(str(video_path))
+        if "_mesh_" in vp.name:
+            cand = vp.with_name(vp.name.replace("_mesh_", "_head_track_", 1)).with_suffix(".mkv")
+            if cand.is_file():
+                return str(cand), int(video_first), "beside the body-model video"
+    return None, None, None
 
 
 def points_say(points_path: str) -> dict | str:
     """What a points file's own record says it was made from: who made it, when, from which video and which track's
-    box (`bench/pose_along_shot.py` writes it beside the file). This tool reads the points and no track."""
+    box (`bench/pose_along_shot.py` writes it beside the file)."""
     record = Path(points_path).with_suffix(".json")
     if not record.is_file():
         return f"no record beside the points file ({record.name}): which track they follow is not known here"
@@ -182,8 +273,12 @@ def sheet(path: Path, reference: np.ndarray, cut_frames: np.ndarray, box: list[i
 
 
 def run(video: str, points_path: str, first: int, count: int, out: Path, by: str, *, names: list[str] | None = None,
-        video_first: int | None = None, points_first: int | None = None, room: float | None = None, fit: bool = False, say=print) -> dict:
+        video_first: int | None = None, points_first: int | None = None, room: float | None = None,
+        head_track: str | Path | np.ndarray | list | None = None, head_track_first: int | None = None,
+        no_head_track: bool = False, head_track_how: str | None = None, fit: bool = False, say=print) -> dict:
     """Find the box, cut, write, read back, record. Returns the record; `passed` is False when the read-back fails."""
+    if no_head_track and head_track is not None:
+        raise SystemExit("cannot give both --head-track and --no-head-track")
     points, pf = faces.rows_of(points_path, names, first, count, points_first, whole_face=False)
     w, h, have = probe(video)
     own = (w, h)
@@ -197,8 +292,32 @@ def run(video: str, points_path: str, first: int, count: int, out: Path, by: str
     elif points["size"] and tuple(points["size"]) != (w, h):
         raise SystemExit(f"the points were made on a picture of {points['size']} and the reference video is {(w, h)}: they are not on one canvas "
                          "(give --fit for the original itself)")
+    ht_masks, ht_info = None, None
+    if not no_head_track:
+        if isinstance(head_track, (str, Path)):
+            ht_path = str(head_track)
+            if not Path(ht_path).is_file():
+                raise SystemExit(f"--head-track {ht_path} is not a file")
+            ht_first = (first - skip) if head_track_first is None else int(head_track_first)
+            _, _, have_ht = probe(ht_path)
+            if first - ht_first < 0 or first - ht_first + count > have_ht:
+                raise SystemExit(f"{ht_path} has {have_ht} frames from source frame {ht_first}; frames {first} to {first + count - 1} were asked for")
+            ht_masks, _ = read_mask(ht_path, (w, h), ht_first, first, count)
+            ht_info = {"mask_video": ht_path, "its_first_frame_is_source_frame": ht_first,
+                       "found_by": head_track_how or "--head-track", "frames_with_a_mask": int(ht_masks.any(axis=(1, 2)).sum())}
+        elif head_track is not None:
+            ht_masks = head_track
+            ht_info = {"found_by": head_track_how or "given array", "frames_with_a_mask": int(len(head_boxes_of(head_track)))}
+        else:
+            ht_path, ht_first, ht_how = discover_head_track(points_path, None if fit else video, None if fit else (first - skip))
+            if ht_path is not None and ht_first is not None:
+                _, _, have_ht = probe(ht_path)
+                if 0 <= first - ht_first and first - ht_first + count <= have_ht:
+                    ht_masks, _ = read_mask(ht_path, (w, h), ht_first, first, count)
+                    ht_info = {"mask_video": ht_path, "its_first_frame_is_source_frame": ht_first,
+                               "found_by": ht_how, "frames_with_a_mask": int(ht_masks.any(axis=(1, 2)).sum())}
     room = HEAD_ROOM if room is None else float(room)
-    found = one_box(points, (w, h), room)
+    found = one_box(points, (w, h), room, head_track=ht_masks)
     box = found["box"]
     scale = [w / (box[2] - box[0]), h / (box[3] - box[1])]
     reference = np.stack(list(stream(video, (w, h), skip, count, vf=FIT.format(w=w, h=h) if fit else "", pix="rgb24")))
@@ -213,6 +332,7 @@ def run(video: str, points_path: str, first: int, count: int, out: Path, by: str
         "frames": [first, first + count - 1], "size": [w, h],
         "made_from": {"reference_video": str(video), "its_first_frame_is_source_frame": first - skip, "points": str(points_path),
                       "their_first_row_is_source_frame": pf, "the_points_own_record_says": points_say(points_path),
+                      **({"head_track": ht_info} if ht_info is not None else {}),
                       "fitted": (f"a source of {own[0]} by {own[1]}, fitted to the canvas as the loader fits it before the cut" if fit else "no: already the canvas's size")},
         "box": box, "box_is": "[x0, y0, x1, y1] in the canvas's pixels, the far side not included; one box for every frame",
         "box_set_by": found["set_by"], "moved_to_lie_inside_the_canvas": found["moved_to_lie_inside"],
@@ -220,6 +340,10 @@ def run(video: str, points_path: str, first: int, count: int, out: Path, by: str
         "a_point_of_the_canvas_lands_at": "((x - x0) * scale across, (y - y0) * scale down)",
         "faces_over_the_span": found["faces"], "face_height_px_median": found["face_height_px_median"],
         "face_height_px_in_this_video": round(found["face_height_px_median"] * scale[1], 1),
+        **({"heads_over_the_span": found["heads"], "head_height_px_median": found["head_height_px_median"],
+            "head_height_px_in_this_video": round(found["head_height_px_median"] * scale[1], 1),
+            "crown_room_in_face_heights": found["crown_room_in_face_heights"],
+            "head_track_room_in_face_heights": found["head_track_room_in_face_heights"]} if "heads" in found else {}),
         "room_in_face_heights": found["room_in_face_heights"], "room_set_by": "--room" if room != HEAD_ROOM else "HEAD_ROOM, a starting value",
         "not_known": ["whether the points are on her: open the sheet",
                       "what a model makes of a reference that no longer lies over the source pixel for pixel: a render's question"],
@@ -235,6 +359,10 @@ def run(video: str, points_path: str, first: int, count: int, out: Path, by: str
     out.with_suffix(".json").write_text(json.dumps(record, indent=1) + "\n")
     say(f"faces over frames {first} to {first + count - 1} lie in {found['faces']}; face {found['face_height_px_median']:.0f} px tall at the median; "
         f"room {room:g} face heights a side")
+    if "heads" in found:
+        say(f"heads over frames {first} to {first + count - 1} lie in {found['heads']} ({found['head_track_frames']} frame(s) on the head track; "
+            f"head {found['head_height_px_median']:.0f} px tall at the median; crown room {found['crown_room_in_face_heights']:g}, "
+            f"side/bottom room {found['head_track_room_in_face_heights']:g} face heights)")
     say(f"box {box} ({box[2] - box[0]} by {box[3] - box[1]}), set by {found['set_by']}" + ("; moved to lie inside the canvas" if found["moved_to_lie_inside"] else ""))
     say(f"enlarged {scale[0]:.3f} times across and {scale[1]:.3f} down: the face is {record['face_height_px_in_this_video']:.0f} px tall in the new picture")
     say("read back: %s frames; grey levels from the picture made for the frame %s, for the frame before %s, for the frame after %s" % (
@@ -255,6 +383,9 @@ def main() -> int:
     a.add_argument("--out", required=True, help="the cut video to write; its record and sheet go beside it")
     a.add_argument("--by", required=True, help="who is making it")
     a.add_argument("--room", type=float, help=f"room round the faces on every side, in face heights; {HEAD_ROOM:g} when left out")
+    a.add_argument("--head-track", help="the subject's head-track mask video; found beside the points' box mask or body-model video when left out")
+    a.add_argument("--head-track-first", type=int, help="the source frame of the head-track video's frame 0; the reference video's first when left out")
+    a.add_argument("--no-head-track", action="store_true", help="size the box from the faces alone, even when a head track is beside the points or video")
     a.add_argument("--names", help="a json list of the points' names, for a points file made before they were kept")
     a.add_argument("--video-first", type=int, help="the source frame of the reference video's frame 0; the span's first when left out")
     a.add_argument("--points-first", type=int, help="the source frame of the points file's row 0; the file's own when it says")
@@ -262,7 +393,7 @@ def main() -> int:
     v = a.parse_args()
     names = json.loads(Path(v.names).read_text()) if v.names else None
     rec = run(v.video, v.points, v.first, v.count, Path(v.out), v.by, names=names, video_first=v.video_first, points_first=v.points_first, room=v.room,
-              fit=v.fit)
+              head_track=v.head_track, head_track_first=v.head_track_first, no_head_track=v.no_head_track, fit=v.fit)
     return 0 if rec["passed"] else 1
 
 

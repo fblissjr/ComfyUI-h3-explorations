@@ -3,15 +3,17 @@
 
     python bench/head_reference.py --mesh PLAIN_MESH.mp4 --points SHOT_points.npz --source SOURCE.mov \\
         --first 1222 --count 84 --out <share>/Video/<video>/<who>/<shot>_inputs/<name>.mp4 --by <session> \\
-        [--width 1.5] [--room 1.2] [--leave-out mouth] [--dots] [--mesh-first N] [--points-first N] [--names NAMES.json]
+        [--width 1.5] [--room 1.2] [--head-track HEAD_TRACK.mkv] [--head-track-first N] [--no-head-track] \\
+        [--leave-out mouth] [--dots] [--mesh-first N] [--points-first N] [--names NAMES.json]
 
 **The form** (the owner, 2026-10-12, 20:12Z; `docs/wiki/decisions.md`): every head or head-and-hair replacement
 takes as its motion video the body model cut to the head with the face points drawn on it, and its text says
 what that video is. Made by hand it was three commands, each with the others' outputs for arguments. This runs
 the three and writes one record:
 
-1. `bench/crop_reference_to_head.py` on the PLAIN body-model video and the shot's points: one box round the head
-   for the whole span, enlarged to the canvas, and the points carried into the new picture.
+1. `bench/crop_reference_to_head.py` on the PLAIN body-model video and the shot's points (and the subject's head
+   track when given or found beside the points' box mask or body-model video, with room above the crown): one box
+   round the head for the whole span, enlarged to the canvas, and the points carried into the new picture.
 2. The same on the SOURCE itself (`--fit`), by the same box, for the sheet and for a strip.
 3. `bench/draw_face_points.py` on the cut body model with the carried points: lines only (no dots) and the mouth
    left out, unless told otherwise, with the cut source under it on the sheet.
@@ -517,6 +519,7 @@ def class_mouth_gate(mouths: list, centres: list, plain_cut: str, points: str, f
 
 def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, by: str, *, names: list[str] | None = None,
         mesh_first: int | None = None, points_first: int | None = None, width: float = FORM_WIDTH, room: float | None = None,
+        head_track: str | Path | None = None, head_track_first: int | None = None, no_head_track: bool = False,
         leave_out: frozenset = frozenset({FORM_LEAVES_OUT}), dots: bool = False, iris: str = faces.IRIS_FORMS[0], repo: Path = REPO,
         mouth: str | None = None, mouth_why: str = "", classes: str | None = None, classes_first: int | None = None,
         no_mouth_on: list[tuple[int, int, str]] | None = None, over_the_eyes: list[tuple[int, int, str]] | None = None,
@@ -534,6 +537,8 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
 
     `mouth_on`: source frames on which a person's look says her mouth is open where the gate drops it (`MOUTH_ON`): the pose model's lip
     rings drawn there, their inside dark under them, as the class map's inside is under the lines on other frames."""
+    if no_head_track and head_track is not None:
+        raise SystemExit("cannot give both --head-track and --no-head-track")
     faceless = sorted({f for a, b, _ in no_face_on or [] for f in range(max(a, first), min(b, first + count - 1) + 1)})
     # HER EYES SHUT ON A SPAN, on a person's word (`--eyes-shut-on` with `--eyes-shut-form`, the lead's ruling of 2026-10-15 on 2823b;
     # `draw_face_points.EYES_SHUT_FORMS` says why and what each form draws). The pose model's lids stop at a slit on a shut eye
@@ -562,10 +567,26 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     there = [str(p) for p in made.values() if p.exists()]
     if there:
         raise SystemExit(f"{len(there)} of the files this would write exist ({there[0]}): a reference made again takes a new name")
-    for what, path in (("--mesh", mesh), ("--points", points), ("--source", source)):
+    for what, path in (("--mesh", mesh), ("--points", points), ("--source", source),
+                       *((("--head-track", str(head_track)),) if head_track is not None else ())):
         if not Path(path).is_file():
             raise SystemExit(f"{what} {path} is not a file")
     faces.rows_of(points, names, first, count, points_first)        # the span and the names, before anything is written
+    ht_path, ht_first, ht_how = None, None, None
+    if not no_head_track:
+        if head_track is not None:
+            ht_path = str(head_track)
+            ht_first = (first if mesh_first is None else int(mesh_first)) if head_track_first is None else int(head_track_first)
+            ht_how = "--head-track"
+            _, _, have_ht = crop.probe(ht_path)
+            if first - ht_first < 0 or first - ht_first + count > have_ht:
+                raise SystemExit(f"{ht_path} has {have_ht} frames from source frame {ht_first}; frames {first} to {first + count - 1} were asked for")
+        else:
+            ht_path, ht_first, ht_how = crop.discover_head_track(points, mesh, first if mesh_first is None else int(mesh_first))
+            if ht_path is not None and ht_first is not None:
+                _, _, have_ht = crop.probe(ht_path)
+                if first - ht_first < 0 or first - ht_first + count > have_ht:
+                    ht_path, ht_first, ht_how = None, None, None
     quiet = lambda *_: None  # noqa: E731
     # A SHORT RUN OF FRAMES OFF THE TRACK takes its points from its neighbours, before anything is cut: another person's face
     # on a frame would move the box as well as draw them (the lead's ruling, 2026-10-14, for the second subject's 895 and 897)
@@ -624,11 +645,14 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         leave_out = (frozenset(leave_out) - {"mouth"}) if by_points else (frozenset(leave_out) | {"mouth"})
     say(f"1 of 3: the plain body model cut to the head, frames {first} to {first + count - 1}")
     cut = crop.run(mesh, points, first, count, made["plain_cut"], by, names=names, video_first=mesh_first, points_first=points_first,
-                   room=room, say=quiet)
-    say(f"    box {cut['box']}, enlarged {cut['scale'][0]:.3f} times: the face is {cut['face_height_px_in_this_video']:.0f} px tall; "
-        + ("PASSED" if cut["passed"] else "FAILED"))
+                   room=room, head_track=ht_path, head_track_first=ht_first, no_head_track=(ht_path is None), head_track_how=ht_how, say=quiet)
+    say(f"    box {cut['box']}, enlarged {cut['scale'][0]:.3f} times: the face is {cut['face_height_px_in_this_video']:.0f} px tall"
+        + (f" (head {cut['head_height_px_in_this_video']:.0f} px, from the head track with {cut['crown_room_in_face_heights']:g} face heights above the crown)"
+           if "head_height_px_in_this_video" in cut else "")
+        + "; " + ("PASSED" if cut["passed"] else "FAILED"))
     say("2 of 3: the source cut by the same box")
-    under = crop.run(source, points, first, count, made["source_cut"], by, names=names, points_first=points_first, room=room, fit=True, say=quiet)
+    under = crop.run(source, points, first, count, made["source_cut"], by, names=names, points_first=points_first, room=room,
+                     head_track=ht_path, head_track_first=ht_first, no_head_track=(ht_path is None), head_track_how=ht_how, fit=True, say=quiet)
     if under["box"] != cut["box"]:
         raise SystemExit(f"the source was cut by {under['box']} and the body model by {cut['box']}: one box is the form")
     say("    " + ("PASSED" if under["passed"] else "FAILED"))
@@ -815,11 +839,16 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
                    "points": str(read_from), **({"points_filled": str(points)} if filled else {}),
                    "their_first_row_is_source_frame": cut["made_from"]["their_first_row_is_source_frame"],
                    "the_points_own_record_says": cut["made_from"]["the_points_own_record_says"],
+                   **({"head_track": cut["made_from"]["head_track"]} if "head_track" in cut["made_from"] else {}),
                    "source": str(source), "the_source_was": under["made_from"]["fitted"]},
         "ran_on": ran_on(repo),
         "box": cut["box"], "box_is": cut["box_is"], "box_set_by": cut["box_set_by"], "scale": cut["scale"],
         "a_point_of_the_canvas_lands_at": cut["a_point_of_the_canvas_lands_at"],
         "face_height_px": {"on_the_canvas": cut["face_height_px_median"], "in_this_video": cut["face_height_px_in_this_video"]},
+        **({"heads_over_the_span": cut["heads_over_the_span"],
+            "head_height_px": {"on_the_canvas": cut["head_height_px_median"], "in_this_video": cut["head_height_px_in_this_video"]},
+            "crown_room_in_face_heights": cut["crown_room_in_face_heights"],
+            "head_track_room_in_face_heights": cut["head_track_room_in_face_heights"]} if "heads_over_the_span" in cut else {}),
         "drawn": {"line_width_px": drawn["line_width_px"],
                   "width_set_by": "--width" if width != FORM_WIDTH else "FORM_WIDTH, the first references' own",
                   "a_dot_at_every_point": drawn["a_dot_at_every_point"], "points_drawn_alone": drawn["points_drawn_alone"],
@@ -870,6 +899,9 @@ def main() -> int:
     a.add_argument("--by", required=True, help="who is making it")
     a.add_argument("--width", type=float, default=FORM_WIDTH, help=f"the lines' width in pixels of the cut picture; {FORM_WIDTH:g} when left out")
     a.add_argument("--room", type=float, help="room round the faces in face heights; the crop tool's own when left out")
+    a.add_argument("--head-track", help="the subject's head-track mask video; found beside the points' box mask or body-model video when left out")
+    a.add_argument("--head-track-first", type=int, help="the source frame of the head-track video's frame 0; the body-model video's first when left out")
+    a.add_argument("--no-head-track", action="store_true", help="size the box from the faces alone, even when a head track is beside the points or body model")
     a.add_argument("--leave-out", default=FORM_LEAVES_OUT, help=f"parts not drawn, any of {', '.join(faces.PARTS)}; `{FORM_LEAVES_OUT}` when left out, \"\" for none")
     a.add_argument("--dots", action="store_true", help="a dot at every point, and the points that belong to no line; lines only when left out")
     a.add_argument("--iris", default=faces.IRIS_FORMS[0], choices=faces.IRIS_FORMS,
@@ -908,7 +940,8 @@ def main() -> int:
     v = a.parse_args()
     names = json.loads(Path(v.names).read_text()) if v.names else None
     rec = run(v.mesh, v.points, v.source, v.first, v.count, Path(v.out), v.by, names=names, mesh_first=v.mesh_first, points_first=v.points_first,
-              width=v.width, room=v.room, leave_out=faces.parts_arg(v.leave_out), dots=v.dots, iris=v.iris, mouth=v.mouth, mouth_why=v.mouth_why,
+              width=v.width, room=v.room, head_track=v.head_track, head_track_first=v.head_track_first, no_head_track=v.no_head_track,
+              leave_out=faces.parts_arg(v.leave_out), dots=v.dots, iris=v.iris, mouth=v.mouth, mouth_why=v.mouth_why,
               classes=v.classes, classes_first=v.classes_first, no_mouth_on=[no_mouth_arg(x) for x in v.no_mouth_on],
               over_the_eyes=[no_mouth_arg(x, "--over-the-eyes") for x in v.over_the_eyes],
               no_face_on=[no_mouth_arg(x, "--no-face-on") for x in v.no_face_on], class_mouth_needs_hole=v.class_mouth_needs_hole,
