@@ -1,23 +1,12 @@
 # How to write an H3 prompt
 
-last updated: 2026-10-11 (one row in "Where everything else lives", pointing at the masked lane's page); 2026-10-01
+**The single source of truth for writing an H3 prompt, in any mode.** It restates the closed vocabularies in full,
+the exact Part One templates, the section layouts, all seven markers, graded worked examples per mode, what the model
+actually receives (§15), what to pin and what to leave to the model (§16), and where the sources that claim to govern
+a prompt disagree (§14, read before citing any of them). No other file holds a prompting rule.
 
-**The single source of truth for writing an H3 prompt, in any mode.** Everything
-needed is restated here: the closed vocabularies in full, the exact Part One
-templates, the section layouts, all seven markers, graded worked examples
-per mode, what the model actually receives, what to pin and what to leave to
-the model (§16), and where every source that claims to govern a prompt
-disagrees with the others. **You do not need `internal/` and you should not
-need any other file for a rule.**
-
-`internal/PROMPTING.md` was superseded and is now DELETED (2026-09-01); §14.5
-says where its content went. §14 is the reconciliation across the sources that
-claim to govern a prompt — read it before citing any of them, because two are
-not authorities.
-
-**Writing one now?** Read in this order: §1 the mode, §2 its structure, §3
-shots and timing, §4 to §8 camera, speakers, text, markers and the audio
-fields, §9 if it has references, §16 what to pin. Grade the draft with
+**Writing one now?** Read in this order: §1 the mode, §2 its structure, §3 shots and timing, §4 to §8 camera,
+speakers, text, markers and the audio fields, §9 if it has references, §16 what to pin. Grade the draft with
 `bench/grade_prompt_text.py` (§10).
 
 ## Where everything else lives
@@ -210,44 +199,21 @@ and do not "correct" a prompt on this axis. What *is* stated: entries inside
 
 ### 3.1 Shot headers
 
-> **OWNER RULE since 2026-09-18: shot headers carry NO timestamps.**
-> Write `[Shot 2] The shot cuts to ...`, never `[Shot 2] At 00:05.200, the shot
-> cuts to ...`. "The only time you should use timestamps in prompts is if you
-> break stuff up mid-shot", that is, a time that splits action INSIDE one shot,
-> not one that opens a shot. This departs from both vendor guides, whose stated
-> format is quoted below and kept for reference; the owner's judgement is that
-> fixed cut times are "probably a big cause of issues" on a model that is never
-> told the clip's duration. Every header timestamp was removed from
-> `prompt_bank/` on that date. **Measured once, and the one pair slightly
-> favoured the guides.** One same-seed pair of the diner prompt, with and
-> without its cut times, unblinded (`bench/results/2026-09-18_timestamps_diner.md`):
-> - both versions cut twice at nearly the same points;
-> - the written times were not hit exactly either;
-> - the owner judged the timestamped take "a better scene", with "nothing really
->   wrong with either".
+> **OWNER RULE since 2026-09-18: shot headers carry NO timestamps.** Write `[Shot 2] The shot cuts to ...`, never
+> `[Shot 2] At 00:05.200, the shot cuts to ...`.
 >
-> The rule stands on the owner's judgement, not on that pair. Until
-> 2026-09-26 this paragraph said the rule was "NOT yet measured in either
-> direction" (`docs/state/decisions.md`). The graded examples of section 10 and
-> the rule table were converted with the bank. `preflight_graph.py` now FAILS
-> any shot header that opens with a time; its older cut-time rules (strictly
-> increasing, inside the clip's duration) still run on whatever times a prompt
-> has, so they now guard the mid-shot exception.
+> - **A cut to the next numbered shot takes no time:** `[Shot 3] The shot cuts to ...`.
+> - **A change inside a shot, before the next `[Shot N]` header, takes one:** `[Shot 2] The shot cuts to a medium
+>   shot of the agent on the landing. ... At 00:07.500, the camera cuts to a close-up of his hand on the rail. ...`
+>   The time is measured from the clip's start and must fall after shot 2 opens and inside the clip's duration.
 >
-> **The one place a time belongs, in the owner's words (2026-09-26):**
-> "timestamps are ONLY to be used when you are changing shots mid-shot... you
-> start shot 2, and then 2 seconds later, you want it to cut to X. That's a
-> timestamp. But if you're just cutting from shot 1 to 2 to 3, no timestamps
-> should be in the prompt."
->
-> - **A cut to the next numbered shot takes no time:** `[Shot 3] The shot cuts
->   to ...`.
-> - **A change inside a shot, before the next `[Shot N]` header, takes one:**
->   `[Shot 2] The shot cuts to a medium shot of the agent on the landing. ...
->   At 00:07.500, the camera cuts to a close-up of his hand on the rail. ...`
->   The time says where inside shot 2 the change lands. It is measured from the
->   clip's start, and it must fall after shot 2 opens and inside the clip's
->   duration.
+> This departs from both vendor guides (their format is below, for reference). The owner's reason: fixed cut times
+> are a likely cause of trouble on a model that is never told the clip's duration. The rule stands on that judgement,
+> not on a measurement; the one same-seed pair of the diner prompt, unblinded, cut twice at nearly the same points
+> both ways, hit neither set of written times exactly, and the owner judged the timestamped take slightly better
+> with nothing wrong in either (`bench/results/2026-09-18_timestamps_diner.md`). `preflight_graph.py` FAILS a shot
+> header that opens with a time; its cut-time rules (strictly increasing, inside the duration) now guard the
+> mid-shot exception.
 
 base §4.2 and ref §5.1, *stated* (the vendor format; superseded for shot
 headers by the house rule above):
@@ -634,12 +600,6 @@ original dialogue into the target video (ref §5.4, *stated*).
 
 ### 5.8 Singing
 
-**Added 2026-09-01. This section was missing while both derived extracts
-carried the rule**, so the portable standard was ahead of this file and its
-footer's claim that the manual is newer was, for a day, false. The underlying
-fact was here as a language-preservation clause in §2 and never as guidance for
-writing a sung line.
-
 **Lyrics go in the dialogue block. There is no separate lyrics tag in either
 guide** — ref §5.1, *stated*: "Give vocal sources stable `(S1)`, `(S2)`, and
 subsequent IDs. Write dialogue and lyrics as `<d>[Language] ...</d>`."
@@ -670,11 +630,6 @@ declared tokens do anything. Do not read §7's structure as a licence, and do no
 read this paragraph as a ban.
 
 ### 5.9 Who a line is spoken to
-
-**Added 2026-09-01, the same lag §5.8 records for singing:** both derived
-extracts carried this rule while this file had only the quoted ref §5.4 example
-in §5.7 and no rule sentence, so for a day the portable standard was ahead of
-the file it says it derives from.
 
 When more than one person is present, say who the line is spoken **to**. The
 addressee goes in the action outside `<d>`, named by what is visible — "turns
@@ -1230,13 +1185,10 @@ prompts written to the same layers as this section; they are neither this
 manual's worked examples nor the vendor's, and the top of that file says so
 before anything else.
 
-**Every example below is GRADED, and a check re-runs that grading.** Until
-2026-09-01 this section asserted that its examples "grade clean through
-`preflight_graph.py`" and nothing checked it; `bench/check_prompt_docs_sync.py`
-now re-grades every one at the duration its heading names, so an edit that
-breaks an example goes red instead of shipping as the reference for "good" -- preflight reads graphs, and
-these are loose text. `bench/grade_prompt_text.py` closes that: it wraps a
-prompt in a shipped graph of the requested mode and runs the same grader.
+**Every example below is graded, and a check re-runs that grading.** `bench/check_prompt_docs_sync.py` re-grades
+each one at the duration its heading names, so an edit that breaks an example goes red. The tool is
+`bench/grade_prompt_text.py`, which wraps loose text in a shipped graph of the requested mode and runs the same
+grader `preflight_graph.py` runs on graphs:
 
     python bench/grade_prompt_text.py --mode fl2va --length 345 example.txt
 
@@ -1560,8 +1512,8 @@ which also prices the sequence, and a bank entry through
 | mid-shot times fall inside the video duration | GUIDE base §4.2, likewise | `preflight_graph.py` |
 | `[Shot N]` header format, sequential numbers | GUIDE ref §5.1, base §4.2, minus their cut time | `bench/preflight_graph.py::header_problems` FAILs a header that is not `[Shot N]` (since 2026-10-01; it used to empty the shot list silently); sequential numbering is checked by nothing |
 | the five cut phrasings; dissolve/fade/wipe on request only | GUIDE base §4.2 | nothing |
-| camera motion type from the twelve-row table | GUIDE base §4.3 | `check_camera_vocabulary.py`, partially: `vocab_matches_guide` pins the check's own motion list to §4.3 (red/green) and `denied_motion` reports known-bad phrases as WARN and never goes red, so a novel out-of-table phrase is caught by neither. By the owner's ruling (§4) those warnings are informational, not defects. This was the escaped instance: a shipped prompt carried `whip pan`, `tracks left` and `at medium amplitude and moderate speed` and every gate passed it. The check has run since 2026-08-28 and this row said "nothing" until 2026-09-01 |
-| amplitude only `with small/large amplitude` | GUIDE base §4.3 | `check_camera_vocabulary.py` (`modifiers_in_set`, red/green over every shipped prompt since 2026-08-28; this row said "nothing" until 2026-09-01) |
+| camera motion type from the twelve-row table | GUIDE base §4.3 | `check_camera_vocabulary.py`, partially: `vocab_matches_guide` pins the check's own motion list to §4.3 (red/green) and `denied_motion` reports known-bad phrases as WARN and never goes red, so a novel out-of-table phrase is caught by neither. By the owner's ruling (§4) those warnings are informational, not defects |
+| amplitude only `with small/large amplitude` | GUIDE base §4.3 | `check_camera_vocabulary.py` (`modifiers_in_set`, red/green over every shipped prompt) |
 | speed only `at slow/fast speed` | GUIDE base §4.3 | `check_camera_vocabulary.py` (`modifiers_in_set`, same case as amplitude) |
 | motion written as natural English inside the shot | GUIDE base §4.3 | nothing |
 | style and initial composition open `[Shot 1]` (base) | GUIDE base §4.1 | nothing |
@@ -1627,7 +1579,7 @@ which also prices the sequence, and a bank entry through
 | speech budget `2.5 x (shot_seconds - 1.0)` | OPEN — functional form assumed, one anchor, an alternative fits it exactly | nothing |
 | turn cap | OPEN — house material states both a cap and no cap | nothing |
 | lips close and jaw stops at the end of every line | HOUSE, from a vendor example | nothing |
-| explicit "produces no vocal sound" for silent on-screen characters | HOUSE | nothing. *Narrowed 2026-09-20*: reserved for a character who never vocalises in the clip; the row above carries it, and §15.3 item 5 says what to write for someone silent only for now |
+| explicit "produces no vocal sound" for silent on-screen characters | HOUSE | nothing. Reserved for a character who never vocalises in the clip (the row above); §15.3 item 5 says what to write for someone silent only for now |
 | L2VA closed-mouth endpoint rule | HOUSE | nothing |
 | "only" as a strict exclusion; wardrobe as preserve/add/replace/modify | HOUSE | nothing |
 | cast sheet: same noun phrase verbatim on every mention | HOUSE | nothing |
@@ -1699,77 +1651,38 @@ Stated so nobody mistakes a house reading for the vendor's.
     (§5.1); the bank currently repeats the id in every ref2va entry and in some
     base entries but not all, which is a house inconsistency and not a guide
     violation. **Do not resolve it by reading base_en's examples as a rule** —
-    that is how the two retracted rules in §13 were invented. *Added
-    2026-09-20.*
+    that is how the two retracted rules of "Four layers" were invented.
 
 ## 13. Known gaps in this repo
 
-**Three of the four bullets this section carried until 2026-09-01 had gone
-false, and they are recorded here as withdrawn rather than quietly rewritten** —
-a reader who remembers the old sentence needs to know it was retracted. Each was
-true when written on 2026-08-28 and was overtaken within days, which is this
-repo's standard failure: prose stating a fact the code already knows.
+Ask the graphs rather than a count written here; a count in prose rots.
 
-### Withdrawn 2026-09-01
-
-Each withdrawn claim is quoted as it stood. **The replacement is a pointer, not
-a new count** — that is what made these rot: they cached a fact the graphs
-already know, and a corrected count would rot the same way.
-
-- **"L2VA has no shipped prompt, and `scene_prompt()`'s L2VA branch returns
-  `[Shot N]` and `S.SS` unsubstituted."** Both halves are false. For what
-  L2VA actually ships, read `prompt_catalogue.md`, or ask the graphs:
-
-      python bench/grade_prompt_text.py --list-donors
-
-  The `scene_prompt()` defect was fixed on 2026-08-28, and the function, which
-  nothing ever called, was deleted on 2026-10-01 as dead code, so it never
-  reached a graph.
-- **"No shipped graph carries any marker but `<d>`."** False. The markers each
-  scene carries are a column in `prompt_catalogue.md`, derived from the graphs.
-- **"Every generated ref2va prompt is one shot at 42-68 words."** False as a
-  universal. For the current distribution, over every graph
-  `h3_config.graph_paths` yields (a literal `workflows/*.json` glob skips
-  `workflows/distill_experiments/`):
+- **What each mode ships, and which markers each scene carries:** `prompt_catalogue.md`, or
+  `python bench/grade_prompt_text.py --list-donors`.
+- **Which ref2va prompts sit under the word budget**, over every graph `h3_config.graph_paths` yields (a literal
+  `workflows/*.json` glob skips `workflows/distill_experiments/`):
 
       python bench/preflight_graph.py $(python -c "import sys; sys.path.insert(0, 'workflows'); from pathlib import Path; import h3_config; print(*h3_config.graph_paths(Path('workflows')))") | grep 'the guide asks 350-500'
 
-### Still open
-
-- **Camera-motion vocabulary has live WARNINGS, and is not unenforced.**
-  `bench/check_camera_vocabulary.py` has graded every shipped prompt's motion
-  phrases against base §4.3's sets since 2026-08-28. Run it; do not restate its
-  findings here. A warned term is informational by the owner's ruling of
-  2026-09-01 (§4), so the warnings are left standing on purpose and a prompt is
-  not rewritten to clear one without a rendering reason.
-
-  > **WITHDRAWN 2026-09-01: this bullet previously read "Camera-motion
-  > vocabulary is enforced by nothing", and carried a same-day
-  > "re-checked" stamp.** The re-check looked in `preflight_graph.py` and
-  > `check_prompt_guide_conformance.py` and nowhere else, so it missed a checker
-  > that had existed for four days and confirmed the claim it set out to verify.
-  > **A date on a claim records when it was written, not whether it is true** —
-  > and a narrow re-check is worse than none, because it launders a stale claim
-  > into a fresh-looking one. The decidable half of that requirement is built;
-  > the speaker-identity half is not mechanizable and remains open.
+- **Camera-motion vocabulary has live warnings.** `bench/check_camera_vocabulary.py` grades every shipped prompt's
+  motion phrases against base §4.3's sets; run it rather than restating its findings. A warned term is informational
+  by the owner's ruling (§4), so a prompt is not rewritten to clear one without a rendering reason. The
+  speaker-identity half of that audit is not mechanizable and stays open.
 - **The ref2va word budget is preflight's only recurring WARN**, which is why it
   stopped being read as a finding. That is a reason to fix the prompts or retire
   the WARN, not to keep both.
-- **No shipped graph is a multi-shot FL2VA or L2VA.** Every keyframe graph is one
-  shot, so the branch that resolves `Shot N` to anything but 1 was dead until
-  2026-09-01 and is exercised only by §10.3.2, §10.3.5, §10.4.3 and §10.4.5.
-  That dead branch was carrying a defect: see §14.
-- **Nothing regenerates `prompt_catalogue.md`.** It has a `--check` mode and no
-  caller, and it had gone stale by 2026-09-01. This repo has no test runner by
-  design (`docs/method/checks.md`), so the discipline is to run it before trusting it,
-  not to wire a gate.
+- **No shipped graph is a multi-shot FL2VA or L2VA.** Every keyframe graph is one shot, so the branch that resolves
+  `Shot N` to anything but 1 is exercised only by §10.3.2, §10.3.5, §10.4.3 and §10.4.5. A dead branch is where a
+  defect sits unseen: the shot-regex inversion of §14.4 sat there.
+- **Nothing regenerates `prompt_catalogue.md`.** It has a `--check` mode and no caller. This repo has no test runner
+  by design (`docs/method/checks.md`), so run `bench/build_prompt_catalogue.py --check` before trusting it.
 
 ---
 
 ## 14. Every source that claims to govern a prompt, and where they disagree
 
-Reconciled 2026-09-01. **Read this before citing any of them**, because they do
-not carry equal weight and two of them are not authorities at all.
+**The vendor's two guides are the only authority.** The vendor's payloads are evidence of practice, its skill is a
+router, and this file is our layered reading. Reconciled 2026-09-01.
 
 ### 14.1 The sources, ranked by what a violation means
 
@@ -1779,186 +1692,89 @@ not carry equal weight and two of them are not authorities at all.
 | 2 | the vendor's own API payloads | `coderef/MiniMax-H3/scripts/readme/*.sh` (gitignored) | evidence of practice, not a rule | you are doing something the vendor's own pipeline never emits |
 | 3 | the vendor's prompt-writing skill | `coderef/MiniMax-H3/.claude/skills/h3-prompt-writing/` | **a router, not a rule set** | nothing; it states no rule of its own |
 | 4 | this file | `docs/prompting/prompting.md` | our reading, layered GUIDE / OWNER / HOUSE / OPEN | depends on the layer, which every rule names |
-| ~~5~~ | ~~`internal/PROMPTING.md`~~ | **deleted 2026-09-01** | — | — |
 
-**Row 5 is struck rather than removed.** `internal/PROMPTING.md` was ranked
-here while it existed, and a reader who remembers being told to weigh it needs
-to know it is gone rather than find it silently absent. **A ranked source that
-does not exist is worse than an omitted one** — the row implies you could
-consult it. Its content is in §14.5.
+`internal/PROMPTING.md`, once ranked here, was deleted on 2026-09-01; §14.5 says where its content went.
 
 ### 14.2 The vendor's skill adds no rule, and its guides are byte-identical to ours
 
-MiniMax ship a prompt-writing skill twice, at
-`.claude/skills/h3-prompt-writing/` and `.agents/skills/h3-prompt-writing/`.
-Checked 2026-09-01:
+**There is no fourth authority.** MiniMax ship a prompt-writing skill twice, at `.claude/skills/h3-prompt-writing/`
+and `.agents/skills/h3-prompt-writing/` (`coderef/MiniMax-H3/.claude/skills/h3-prompt-writing/`). Checked 2026-09-01:
 
-- **The two copies are identical** (`diff -rq`, no differences).
-- **Its `references/base-en.txt` and `references/ref-en.txt` are byte-identical
-  to our `vendor_guides/` copies** — same size, same SHA-256.
-  So our guide corpus is the vendor's own text, and that is now verified rather
-  than assumed.
-- **`SKILL.md` is 35 lines and defers entirely to those two files.** Its three
-  "Output Rules" each trace to a guide statement — the English-body-with-original-
-  language-dialogue rule to ref-en:5 and ref-en:217, the avoid-a-plot-summary
-  rule to ref-en:7, the per-shot description checklist to ref-en:7.
+- The two copies are identical (`diff -rq`).
+- Its `references/base-en.txt` and `references/ref-en.txt` are byte-identical to our `vendor_guides/` copies (same
+  size, same SHA-256), so our guide corpus is the vendor's own text. Both files were hashed: a bundle can carry one
+  guide verbatim and a modified other, so hash every file you rely on, not a representative.
+- `SKILL.md` is 35 lines and defers to those two files. Its three "Output Rules" each trace to a guide statement: the
+  English body with original-language dialogue to ref-en:5 and ref-en:217, avoiding a plot summary to ref-en:7, the
+  per-shot checklist to ref-en:7.
 
-**Why this check is trustworthy rather than lucky: BOTH files were hashed.**
-Two artifacts agreeing is evidence only about the files you actually compared.
-A bundle can carry one guide verbatim and a modified copy of the other, and
-hashing the matching one and generalising to "this bundle is authentic" is a
-conclusion the evidence does not support — the modified file is the one you
-would then quote as vendor text. **Hash every file you intend to rely on, not a
-representative of them.** That has been observed in the wild, so it is a real
-failure mode and not a hypothetical.
-
-**And if you re-derive a delta in Python, pass `autojunk=False`.**
-`difflib.SequenceMatcher` treats "popular" elements as junk once a sequence
-passes 200, and in a markdown file the popular element is the BLANK line — so a
-stock `unified_diff` one-liner returns a valid but non-minimal edit script and
-overstates the delta against what `diff` reports on the same pair. Verified
-2026-09-01 on a 222-line against 252-line pair: 38 changed lines by `diff` and
-by `autojunk=False`, 48 by the default. **`difflib.unified_diff()` exposes no
-way to disable it** — use `SequenceMatcher(None, a, b, autojunk=False)` and walk
-the opcodes. Reproduced only for line diffs of prose; an attempt to make it bite
-on token-id sequences failed, so treat it as a prose-diff trap.
-
-**So there is no fourth authority.** A session that finds the skill and reads it
-as new guidance has found a second pointer to the guides we already have.
+**Re-deriving a delta in Python, pass `autojunk=False`.** `difflib.SequenceMatcher` treats popular elements as junk
+past 200 items, and in markdown that is the blank line, so a stock `unified_diff` overstates the delta (on a 222-line
+against 252-line pair: 38 changed lines by `diff` and by `autojunk=False`, 48 by the default). `unified_diff()` cannot
+disable it; use `SequenceMatcher(None, a, b, autojunk=False)` and walk the opcodes. Seen on prose line diffs only.
 
 ### 14.3 Where our shipped prompts diverged, and what happened to each
 
-**Shot line breaks — CLOSED 2026-09-01, we conformed.** Every vendor
-multi-shot specimen runs shots inline in one unbroken paragraph, and a peer
-session found the same in a third, third-party corpus: it is inline in every
-multi-shot specimen that follows the official three-field grammar, and breaks
-lines only inside a four-section format of that corpus's own invention.
-Three independent corpora, no counterexample. `LONG_T2V_PROMPT` and the four
-aisle/sortline arms were collapsed to one line per field in the generator and
-every carrying graph rebuilt; word counts are unchanged, only newlines.
-**Consequence: clips of those scenes rendered before 2026-09-01 are not
-matched-seed comparable with clips after it.** The aisle and sortline pairs
-changed identically, so the description-length experiment they belong to is
-intact.
+| divergence | outcome |
+|---|---|
+| shot line breaks | **closed 2026-09-01, we conformed**: run shots inline, one line per field |
+| mouth closing | **withdrawn: we were already conformant** under the positional reading (§5.6) |
+| turns per shot | **closed 2026-09-01 by the owner, on the render**: stacked turns are a sanctioned capability |
 
-**Mouth closing — WITHDRAWN 2026-09-01, we were already conformant.** This
-section previously recorded our dialogue prompts as diverging on it. **That was
-a bad statistic, not a finding.** The rule is POSITIONAL, not per-line: a cue
-follows a dialogue line when the shot CONTINUES past it, and never when the
-line ENDS the shot. Cross-tabbed that way:
+**Shot line breaks.** Every vendor multi-shot specimen runs shots inline in one paragraph, and a third-party corpus
+does the same wherever it follows the three-field grammar: three corpora, no counterexample. `LONG_T2V_PROMPT` and the
+four aisle and sortline arms were collapsed to one line per field and every carrying graph rebuilt; only newlines
+changed. **Clips of those scenes rendered before 2026-09-01 are not matched-seed comparable with clips after it.** The
+aisle and sortline pairs changed identically, so the description-length experiment is intact.
+
+**Mouth closing.** A per-line ratio made our prompts look divergent; the rule is positional (a cue when the shot
+continues past the line, none when the line ends the shot), and cross-tabbed that way:
 
 | | cue | no cue |
 |---|---|---|
 | shot continues | ours 32, 3rd-party 17, vendor 2 | ours 12, 3rd-party 7, vendor 4 |
 | line ends the shot | ours 0, 3rd-party 0, vendor 0 | ours 1, 3rd-party 16, vendor 1 |
 
-**The provenance matters and is weaker than it looks.** The pattern is a
-third-party corpus observation that our corpus happens to satisfy — our mid-shot rate is
-73% against their 71%. **The vendor corpus does not corroborate it**: its
-decisive shot-final cell holds a single line, which is consistent with the rule
-and establishes nothing, and its mid-shot cell runs the *other* way at 2 of 6.
-So do not cite the positional rule as vendor practice. The only STATED vendor
-rule here remains base-en:136, for voiceover, which nothing contradicts, and
-§5.6's [HOUSE] label was right all along.
+The pattern is a third-party corpus observation our corpus satisfies (mid-shot rate 73% against their 71%), **not
+vendor practice**: the vendor's shot-final cell holds one line and its mid-shot cell runs the other way at 2 of 6. The
+only stated vendor rule here is base-en:136, for voiceover, and §5.6's [HOUSE] label stands.
 
-It is still the right STATISTIC — it is what turned an apparent 43% cue rate
-into zero counterexamples and retracted the misalignment — but a statistic being
-right does not make its source authoritative.
+**Turns per shot.** `DIALOGUE_T2V_PROMPT` puts four `<d>` blocks in `[Shot 1]` and three in `[Shot 2]`, where every
+base-format vendor specimen uses one; the owner's verdict on the render is that it clearly works. One render settles
+a presence question (does the model deliver stacked turns at all); it is not evidence that stacking beats cutting,
+which would need matched seeds and a distribution (`docs/method/eval_comparison.md`). The vendor's reference format was
+never one turn per shot either: its reproducible ref2va payload puts two turns in one shot (its second `[Shot 1]`
+string is a cross-reference inside `retention_analysis`). `bench/diff_prompt_corpus.py` still reports the base-format
+difference; read that row as a description, not a defect.
 
-**Turns per shot — CLOSED 2026-09-01 by the owner, on the render.**
-`DIALOGUE_T2V_PROMPT` puts four `<d>` blocks in `[Shot 1]` and three in
-`[Shot 2]`, where every base-format vendor specimen uses one. **The owner's
-verdict on the rendered scene is that it clearly works**, so stacked turns are
-an OWNER-sanctioned capability here, not a divergence to correct.
-
-**Why one render settles this and does not settle most things.** "Does the
-model deliver four turns in a shot at all" is a presence/absence question, and
-those a single clip can answer because the behaviour either occurs or does not.
-It is NOT evidence that stacking is *better* than cutting — that would be a
-comparison, and a comparison needs matched seeds and a distribution
-(`docs/method/eval_comparison.md`). Nobody has run that, and nothing here claims it.
-
-A first pass also got the vendor evidence wrong and it is worth keeping: it
-recorded "the vendor uses exactly one `<d>` per shot in every specimen", which
-was **wrong, by counting shot headers across a whole prompt rather than inside
-the narrative field**. The vendor's reproducible ref2va payload puts TWO turns
-in ONE shot; its second `[Shot 1]` string is a cross-reference inside
-`retention_analysis`, not a header. So the reference format was never unanimous,
-and the ref2v scene arms at two turns were doing exactly what the vendor does.
-
-`bench/diff_prompt_corpus.py` still reports the base-format difference. **Read
-that row as a description, not a defect** — it is the tool doing its job, and
-the answer to it is this paragraph.
-
-**Checked and found clean:** ref-en *states* one line per item in
-`subject_definitions` (ref-en:37) and `retention_analysis` (ref-en:157). Every
-shipped ref2va prompt satisfies both. A first pass here flagged twelve of them by
-counting labels per line, which is the wrong test — ref-en:37 explicitly allows a
-source-only `<Picture N>` to be cited inside another item's line.
+**Checked and found clean:** ref-en states one line per item in `subject_definitions` (ref-en:37) and
+`retention_analysis` (ref-en:157), and every shipped ref2va prompt satisfies both. Counting labels per line is the
+wrong test, because ref-en:37 allows a source-only `<Picture N>` inside another item's line.
 
 ### 14.4 The shot regex defect this reconciliation found
 
-`preflight_graph.grade` extracted shots with a pattern whose body group was
-`[^\n]*` -- greedy to end of line. Because the guides put every shot in ONE line, `findall`
-returned a single pair for a multi-shot prompt and `shots[-1][0]` was always
-`"1"`. `_expected_base_alignment` then demanded `from Shot 1` — so a correct
-two-shot FL2VA prompt FAILED and an incorrect one naming `Shot 1` PASSED, an
-exact inversion.
-
-It reached no shipped graph, because every shipped keyframe prompt is one shot
-and the t2va path returns before reading `shots`. Found 2026-09-01 writing
-§10.3.3, fixed the same day, and no shipped graph's grading changed. The
-newly-live branch is red-proved: a two-shot FL2VA claiming `from Shot 1` now
-fails. **This is the standing "a fix moves where a constraint applies" case —
-the branch was dead, so nothing covered it, so the defect sat in it.**
+Fixed 2026-09-01; recorded because the branch it sat in is still exercised only by §10. `preflight_graph.grade`
+extracted shots with a body group greedy to end of line, and since the guides put every shot on one line, a
+multi-shot prompt came back as one shot, so `_expected_base_alignment` demanded `from Shot 1`: a correct two-shot
+FL2VA prompt failed and a wrong one passed. No shipped graph was affected (every shipped keyframe prompt is one shot).
+A two-shot FL2VA claiming `from Shot 1` is now red-proved.
 
 ### 14.5 Where `internal/PROMPTING.md`'s content went
 
-**That file is DELETED as of 2026-09-01.** This section used to be headed "what
-it still uniquely holds" and named §7 and §7b -- its LLM prompt-writer system
-prompts -- as content that had NOT moved and as "the only reason to open the
-file". **Both halves are now wrong, and left here rather than reworded because
-the section spent a day telling readers to open something that no longer
-exists.**
-
-What moved into this file: §1's model facts and the Context-IR framing, §2's
-presentation contract, §3's five diagnoses, §4's frame grid and speech budget
-including the open two-parameter problem, §5's documented-to-work list, and §6's
-user-message contract. All of it is §15.
-
-**What closed the §7/§7b gap:** [`docs/prompting/portable/h3_system_prompt.md`](portable/h3_system_prompt.md),
-a writer-model system prompt — a CORE section plus one block per mode — derived
-from the portable standard and tracked. It is a draft and says so. Its Part One
-strings are graded against the guide-parsed constants by
-`bench/check_prompt_docs_sync.py`, so it cannot drift silently, but **"grades
-clean" there covers the STATED mechanical rules only** — a control breaking a
-GUIDE-SHOWN rule correctly stays green, because the grader refuses to enforce
-shown rules. Most of that file is untested by construction.
-
-**A sibling set of per-mode drafts existed at
-`internal/prompts/2026-08-22_*_system_prompt.md` and was REMOVED by the owner on
-2026-09-01.** They were externally authored, corrected against the guides, and
-covered four modes — t2va, i2va, fl2va, ref2va, with **no l2va draft**, so the
-set never had parity.
-
-**Recorded so the next reader does not go looking.** `internal/` is gitignored,
-so nothing there survives in history and nothing there should be cited as though
-it will still be present. **If you are about to depend on a file under
-`internal/`, copy what you need into the tracked tree first** — that is the
-lesson the vendor guides taught this morning, and the same day proved it twice.
+`internal/PROMPTING.md` was deleted on 2026-09-01. Its model facts and Context-IR framing, presentation contract,
+diagnoses, frame grid and speech budget, documented-to-work list and user-message contract are §15. Its writer-model
+system prompts (its §7 and §7b) are replaced by [`portable/h3_system_prompt.md`](portable/h3_system_prompt.md), a
+tracked draft with a CORE section and one block per mode. `bench/check_prompt_docs_sync.py` grades its Part One
+strings, but that covers the stated mechanical rules only: a broken guide-shown rule stays green, so most of that file
+is untested by construction. A sibling set of externally written per-mode drafts,
+`internal/prompts/2026-08-22_*_system_prompt.md` (t2va, i2va, fl2va and ref2va, no l2va), was removed by the owner the
+same day. `internal/` is gitignored and not in history: copy what you need into the tracked tree before depending on
+a file there.
 
 ## 15. What the model is, and what actually reaches it
 
-**Removed and restored the same day.** `a52999d` (2026-09-01), whose message
-describes a rewrite of §14.5 and the striking of two ranking rows, also dropped
-this whole section, while the §14.5 it wrote says the migrated content "is
-§15". Restored verbatim from that commit's parent later the same day, and it
-has stood since; `docs/prompting/portable/h3_system_prompt.md` routes readers here.
-
-Migrated from `internal/PROMPTING.md` §§1-6 on 2026-09-01 so that file can be
-retired. **Everything checkable here was re-derived against source on that date
-rather than copied on trust** — that file had been wrong before and carries a
-SUPERSEDED banner. Each claim below says which it is.
+Migrated from `internal/PROMPTING.md` §§1-6 on 2026-09-01, with everything checkable re-derived against source
+rather than copied; each claim says which it is. `portable/h3_system_prompt.md` routes readers here.
 
 ### 15.1 What H3 is, and why the prompt carries the whole job
 
@@ -2026,10 +1842,8 @@ runs after — so one soundtracked video plus one standalone clip gives
 
 ### 15.3 The seven ways prompts go wrong here
 
-Carried forward from `internal/PROMPTING.md` §3. These are diagnoses from
-observed outputs, not measurements. Items 6 and 7 were added on 2026-09-20 from
-the bank read of 0.128.0; **neither vendor guide states them**, which is why
-both carry a HOUSE tag and an arm that rendered the defect.
+Diagnoses from observed outputs, not measurements (items 1 to 5 from `internal/PROMPTING.md` §3; items 6 and 7 from
+the bank read of 0.128.0, stated by neither guide, so HOUSE with the arm that rendered the defect).
 
 1. **The writer does not know what H3 is**, so it writes for a generic
    text-to-video model: it hedges, writes instructions rather than descriptions,
@@ -2042,7 +1856,7 @@ both carry a HOUSE tag and an arm that rendered the defect.
    exact phrase verbatim on every mention. Keep the name too; never rely on it.
    Naming the *property* as a style anchor is worth doing.
 3. **Nothing in the prompt knows how long the clip is** (§15.2), so a writer
-   paces beats by feel and overruns the clip. §3.3 is the fix. (Until 2026-09-18 this read "picks cut timestamps"; the house no longer writes them, section 3.1.)
+   paces beats by feel and overruns the clip. §3.3 is the fix.
 4. **Line breaking has no single convention** and the vendor's own artifacts use
    two — see §12.11 and §14.3, which is where this now lives.
 5. **Characters talk over each other**, from three causes: two speakers in one
@@ -2161,20 +1975,15 @@ this repo has neither confirmed nor refuted them. [3rd]
 
 ## 16. Specificity: what to pin, and what to leave to the model
 
-Added 2026-10-01. **Layer: OWNER for the principle, HOUSE for everything derived
-from it; neither guide states any of it** apart from §5.2's placement, which
-base §4.1 does. The owner's statement of it: specificity is something to be
-graded and evaluated and documented as important, so "specify what matters and
-whats important if its ambiguous", but "you can only control so many things in a
-prompt / scene - pick the most important ones and let the model guide the rest".
+**Pin what the scene turns on; leave the rest to the model.** The owner's principle (2026-10-01): specify what
+matters where it would otherwise be ambiguous, but a prompt controls only so many things, so pick the most important
+ones and let the model guide the rest. Layer: OWNER for the principle, HOUSE for everything derived from it; neither
+guide states any of it, apart from §5.2's placement, which base §4.1 does.
 
-**How much this rests on.** This repo is not research-grade (`CLAUDE.md`, "A
-tinkering repo"). Every case below is one clip at one seed, watched by the
-owner, and one has a before-and-after render. A rendered clip cannot A/B a
-prompt change (`docs/method/eval_comparison.md`), so read them as observed failures and not
-as measurements. The first half of the principle has a long record. **The second
-half, what to leave, has none: no record measures that over-specifying hurts**,
-and §16.3 says what it does and does not stand on.
+Every case below is one clip at one seed, watched by the owner, and one has a before-and-after render. A rendered
+clip cannot A/B a prompt change (`docs/method/eval_comparison.md`), so these are observed failures, not measurements.
+The first half of the principle has a long record. **The second half, what to leave, has none: no record measures
+that over-specifying hurts** (§16.3).
 
 ### 16.1 Silence is a decision the model makes
 
@@ -2243,8 +2052,8 @@ prompt]
 that thing countable or visible: a mirror wall doubles every dancer on purpose,
 so a clone could not be told apart, and the wall is matte black now. The `tests`
 field of [`prompt_bank.md`](prompt_bank.md) says what each scene is a test of.
-[OWNER, 2026-09-26: "certain about how specific and well written that prompt is
-for testing what u wanna test"]
+[OWNER, 2026-09-26: be sure a test prompt is specific and well written enough for
+what it tests]
 
 ### 16.3 What to leave to the model, and how to choose
 

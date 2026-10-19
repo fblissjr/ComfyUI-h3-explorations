@@ -2,10 +2,10 @@
 
 | page | what it is for |
 |---|---|
-| [`prompting.md`](prompting.md) | **how to write an H3 prompt**, every mode, and the only home of a prompting rule. Section 14 ranks the sources that claim to govern a prompt |
+| [`prompting.md`](prompting.md) | **how to write an H3 prompt**, every mode, and the only home of a prompting rule: structure (2), shots and timing (3), camera (4), speakers (5), text (6), markers (7), audio (8), references (9), graded examples (10), every rule and its check (11), where the sources disagree (12, 14), what reaches the model (15), what to pin (16) |
 | [`prompt_bank.md`](prompt_bank.md) | the graded bank, generated from `prompt_bank/`: every shipped prompt and which graphs render it |
 | [`prompt_catalogue.md`](prompt_catalogue.md) | every prompt this repo renders, generated from the graphs (run `bench/build_prompt_catalogue.py --check` first) |
-| [`prompt_audit.md`](prompt_audit.md) | the hand-written verdict on each catalogued prompt against the guides |
+| [`prompt_audit.md`](prompt_audit.md) | the hand-written verdict on each catalogued prompt against the guides, the open findings, and what to render next |
 | [`prompt_length_experiment.md`](prompt_length_experiment.md) | a paired render on prompt length, pre-registered before either clip was watched, and its verdict |
 | [`scene_arm_renders.md`](scene_arm_renders.md) | the two scene arms of 2026-08-28: what to look for and what those renders cannot tell you |
 | [`portable/`](portable/h3_system_prompt.md) | copies of the standard for use outside this repo: the system prompt, the HTML page, and a dated snapshot |
