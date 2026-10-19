@@ -7,6 +7,68 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.291.0
+<!-- changelog.d/day-2026-10-19.md -->
+
+### Added
+
+- `bench/facts_pass.py` and `bench/check_facts_pass.py`: single-pass CPU geometry and mask telemetry over a capture
+  directory (`manifest.json`, `classes__<by>.npz`, `subjects/<label>/masks__<by>.npz`, `subjects/<label>/head_tube__<by>.npz`,
+  `runs/<run>/region.npz`, optional window `*_region.npz` mattes, and `head_reference.py` records), writing per-frame
+  `facts.json` and `facts.csv` (`source_track_px`, `s_face_px`, `s_hair_px`, `head_track_px`, `parts_held_px`,
+  `region_cells`, `region_px`, `face_outside_region_px`, `matte_px`, `other_overlap_px`, `mouth_mode`, `ref_crop_box`,
+  `ref_scale`, `zoom_box`) and a Markdown summary of notable spans with `what_measured` and `cannot_see` metadata.
+- `bench/_lib/code_stamp.py` and `bench/check_code_stamp.py` (re-exported from `bench/_lib`): `writer_stamp`,
+  `npz_writer_fields`, and `check_upstream_mtime` (`MTIME_TOLERANCE_S = 1.0`), wired into `bench/pose_along_shot.py`,
+  `bench/crop_reference_to_head.py`, `bench/draw_face_points.py`, `bench/head_reference.py`, `bench/head_tube_parts.py`,
+  and `bench/measure_moge2_depth.py` so derived `.json` and `.npz` outputs record their writer script's path, git
+  commit, dirty state, and `sha256` and downstream readers flag or refuse stale upstream inputs.
+- `bench/capture_masked_run.py::step_keepout_carves`: reports per-window, per-latent-step (`video_mask.run_lengths`)
+  grown units, final units, carved units, per-keep-out carved unit counts, and carved units touching the subject's head
+  track or carried part into `runs/<run>/step_carves.json` and `manifest.json` (`step_carves_summary`), and prints
+  non-zero step carves in `diagnose`.
+- `bench/measure_blocks.py` and `bench/check_measure_blocks.py`: measures 16 px cell-grid step jumps and 4-frame latent
+  temporal block steps inside and outside a render's region.
+- `docs/masked_v2v/AGENTS.md`, `docs/masked_v2v/CLAUDE.md`, and `docs/masked_v2v/PROTOCOL.md`: git-tracked operative
+  rules and step-by-step execution/debugging protocol for the masked video-to-video lane (single- vs. multi-subject
+  `--source` selection, Kitchen `604-1009` bouffant hair dome root cause, Hallway `1306-1418` bidirectional temporal
+  context leaks and short-dip bridging, pre-render telemetry, and interactive review server workflow).
+- `MiniMaxH3SubjectTrack` (`track_head`, default `True`) and `bench/head_tube_parts.py`: SAM 3.1 whole-head tracking
+  alongside the person track (`--no-head-track WHY` on `shot_to_load.py preview` and `reference` to turn it off),
+  judging `off_head` by the SAM 3.1 head track (`8 px` dilation), sizing `crop_reference_to_head.py` from the union of
+  the face box and the head track (`CROWN_ROOM = 0.4`, `HEAD_TRACK_ROOM = 0.25`), and using the head track as the
+  region on head-and-hair (`hfp`) loads.
+
+### Changed
+
+- `bench/shot_to_load.py` (`step_preview` and `step_job`): `preview` now requires `--source <video>` explicitly (never
+  defaulting to `shots.json`'s raw source), refuses non-existent `--source` or `--cast` files via `Refused`, and checks
+  `data/<video>/laid.jsonl` (`check_pass2_source`) in both `preview` and `job` to refuse the raw original source video
+  on multi-subject shots when another subject on the shot is already laid on overlapping frames (unless
+  `--allow-raw-source WHY` is passed), preserving post-Pass-1 video paths in `job["job"]["source"]`.
+- `bench/head_tube_parts.py`: `bridge_short_tube_dips` (`SHORT_DIP_MAX_FRAMES = 6`, `SHORT_DIP_RATIO = 0.6`) bridges
+  transient `<= 6`-frame interior head-tube dips inside a continuous person track from flanking anchor frames and
+  records `bridged_short_dips`; `head_tube_for_capture` expands `head_track_bool` into attached part components sharing
+  pixels with `head_track_bool & raw_track_bool` within its vertical span `[hy0, hy1]`.
+- `bench/capture_masked_run.py`: `dropped_or_unmasked_face_in_context` (`DROPPED_FACE_MIN_PX = 4000`) emits a blocking
+  `dropped_frame_has_visible_face` preflight flag when a frame emptied by `--drop` inside a tracked span still has
+  visible `Face_Neck` in Sapiens classes; MoGe-2 `--depth` ownership settles overlapping subject masks in `files` and
+  `shot_to_load.py job`.
+- `bench/head_reference.py`, `bench/draw_face_points.py`, and `bench/shot_to_load.py`: `--closed-lip-line` is on by
+  default in `REFERENCE_DEFAULT` (`--no-closed-lip-line WHY` to turn it off), drawing the mouth per window by voice
+  (none on silent windows, fitted above the chin on singing windows) and clipping drawn face marks to the grey head's
+  silhouette (`--darken-head` off by default).
+- `bench/rebuild_delivery.py`: prefers the derived 24 fps working copy (`rate == 24.0`), writes assembled delivery cuts
+  at 24/1 fps, and automatically copies `TO_REVIEW.html` and `PROVENANCE.html` into `data/<video>/poc/` during the
+  `pages` step whenever `data/<video>/poc/` exists.
+
+### Fixed
+
+- `bench/shot_to_load.py`: fixed the `0 == 0` head-tube vote tie-break (`>` instead of `>=`) so `zoom_box` does not
+  fall back to the whole frame on unoccluded shots; `masked_job.py` refuses non-24 fps job sources and reads saved
+  `start_time` at 24 fps.
+- `bench/draw_face_points.py::sheet`: fixed horizontal crop slice `x0:y0+side` to `x0:x0+side`.
+
 ## 0.290.0
 <!-- changelog.d/day-2026-10-17.md -->
 
