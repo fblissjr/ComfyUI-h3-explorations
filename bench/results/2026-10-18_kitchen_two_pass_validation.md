@@ -1,7 +1,7 @@
 # Validating a two-pass scene by hand: the kitchen at 751-785, after the 24 fps fix (2026-10-18)
 
 lane: masked video to video
-verdict: measured across four kitchen runs (`lead_fp_0751`, `lead_fp_0751d`, `lead_fp_0606`, `lead_fp_0606b`); the 24.0 fps cut fix removes the 1-frame background slip, the 29-frame `d002` seam defect, and the 755-775 dark chin smear; the remaining 759-761 and 772 face holes trace to Sapiens2-Seg mislabelling her chin/face as `Upper_Clothing` and `Background` while SAM 3.1 tracks the head cleanly
+verdict: measured across four kitchen runs (`lead_fp_0751`, `lead_fp_0751d`, `lead_fp_0606`, `lead_fp_0606b`); the 24.0 fps cut fix removes the 1-frame background slip and the 29-frame `d002` seam defect (`lead_fp_0606b` owner verdict: "slightly better", not laid); the chin smudge at 760 is the same in `0606` and `0606b` because the chin squares (`y = 207..255`) are kept as the source's own pixels (dropped by Sapiens2-Seg and cut by the mom's whole-track keep-out outside her laid matte)
 
 Written by mrted (the Claude lead) on 2026-10-18, before the run, at the owner's ask: what was run, how and why, the
 scene's background, how a two-pass scene was validated by hand tonight, and what should probably be done on every
@@ -99,19 +99,30 @@ All four runs were measured with the fixed tools (`bench/what_h3_got.py`, `bench
 | `measure_blocks.py` on candidate cut (`751-785`) | `22` squares (`13`f); max grid `25.94`, max step `40.70` | `22` squares (`12`f); max grid `27.38`, max step `38.68` | `25` squares (`13`f); max grid `27.38`, max step `44.93` | **`24` squares (`12`f)**: `10` regen, `6` kept, `8` outside; max grid `25.00`, max step `45.32` |
 | Yellow `kept_squares` taken per 4-frame step (`760-763` / `764-767` / `768-771` / `772-775`) | `27` / `28` / `23` / `16` (indexed on aligned `751d` grid) | `27` / `28` / `23` / `16` (`off_head` cut on `772`) | `34` / `41` / `20` / `18` | **`15` / `14` / `7` / `5`** (cut by >50% after `ffca8acd`; `0` `outside` squares on `768-775`) |
 
-### 2. Why the face holes on 759-761 and 772 remained (`C181` / `C185` trace)
+### 2. Why the chin smudge at 760 and face holes on 759-761 / 772 remained (`C181`, `C185`, `C195`)
 
-Even after `ffca8acd` stopped `off_head` from eroding inside the single-component head (`off_head_said_px = 0` on every
-frame of `751-785`), the red regenerated part on `759-761` and `772` still had a missing lower-face bite because
-Sapiens2-Seg mislabelled her chin and lower cheek as `Upper_Clothing` (`20,689 px` on `759`, `21,218 px` on `760`,
-`16,405 px` on `772`) or `Background` (`22,769 px` on `761`), while SAM 3.1's person track above the shoulders
-(`sam_above`, `y <= max(left_shoulder_y, right_shoulder_y)`) held her whole head cleanly (`30,548 px` on `759`,
-`27,741 px` on `760`, `24,806 px` on `761`, `38,375 px` on `772`). Because `head_tube_for_capture`
-(`bench/head_tube_parts.py:1488`) called `sam31_head_tube` without passing `tracker=`, the head tube was built from
-Sapiens' own head classes and collapsed wherever Sapiens dropped the face (`tube_px = 10,277`, `11,182`, `6,969`,
-`23,223 px`).
+- **The owner's look on `760` (`C195`)**: watching `lead_fp_0606b_0604_1009_compare.mp4` at frame `760`, the dark smudge
+  at the lead's chin is the same in `lead_fp_0606` and `lead_fp_0606b`. Checking `frame_table.jsonl` and `region.npz` on
+  the 4-frame latent step `760-763` explains why:
+  - On `760`, the red regenerated mask (`part_px = 5,054`) covers only `x = 366..450, y = 94..206` (stopping above her
+    chin), while the region's `kept` mask covers `118` cells (`27,016 px`) spanning `x = 288..479, y = 64..255` in
+    `0606b` and `0751d` (`154` cells, `34,004 px` in `0606`).
+  - Across the `760-763` 4-frame step, `second`'s whole-track keep-out overlaps `12`, `11`, `9`, and `7` region cells on
+    `760-763` (`18, 17, 13, 8` in `0606`) and gives back `0, 1, 4, 9` margin cells (`0, 6, 10, 9` in `0606`) outside
+    the mom's laid matte.
+  - Because every square in `y = 207..255` across her chin is **kept as the source's own pixels** (both where Sapiens
+    dropped her chin and where the mom's whole-body keep-out cut the margin outside the mom's laid piece), the original
+    source pixels show through at her chin in both `0606` and `0606b`.
+- **Sapiens vs SAM 3.1 on `755-775` (`C181` / `C185`)**: even after `ffca8acd` stopped `off_head` from eroding inside the
+  single-component head (`off_head_said_px = 0`), Sapiens2-Seg mislabelled her chin and lower cheek as `Upper_Clothing`
+  (`20,689 px` on `759`, `21,218 px` on `760`, `16,405 px` on `772`) or `Background` (`22,769 px` on `761`), while
+  SAM 3.1's person track above the shoulders (`sam_above`, `y <= max(left_shoulder_y, right_shoulder_y)`) held her whole
+  head cleanly (`30,548 px` on `759`, `27,741 px` on `760`, `24,806 px` on `761`, `38,375 px` on `772`). Because
+  `head_tube_for_capture` (`bench/head_tube_parts.py:1488`) called `sam31_head_tube` without passing `tracker=`, the head
+  tube was built from Sapiens' own head classes and collapsed wherever Sapiens dropped the face (`tube_px = 10,277`,
+  `11,182`, `6,969`, `23,223 px`).
 
-### 3. Reader cards and owner verdicts
+### 3. Reader cards and owner verdicts (`C195`, `C196`)
 
 - **`lead_fp_0751`** (`data/2026-10-18_lead_fp_0751/playback_reading_gemread-0751d.md`, reader verdict `remake`):
   loaded source `750-784` one frame early from the `23.976` cut; `29` frames of `d002` seam defect; open mouth on the
@@ -122,9 +133,12 @@ Sapiens' own head classes and collapsed wherever Sapiens dropped the face (`tube
   slip, but the `759-761` and `772` face holes remain visible (`lead_fp_0751d_window_1_with_mask` screenshots, `C179`).
   Owner verdict: root-cause diagnostic showing the mask cutting into her face at `760` and `772`.
 - **`lead_fp_0606b`** (`data/2026-10-18_lead_fp_0606b/playback_reading_mrgemson.md`, reader verdict `unsure`):
-  full `606-998` render against the `24/1` cut with `5ebaecfe` (silent-window no-mouth drawing + darkened grey head) and
-  `ffca8acd` (`off_head` single-component fix). Eliminates the `755-775` dark chin smear against the blonde mom, cuts
-  piece blocks on `751-785` from `111` (`lead_fp_0606`) to `44`, and cuts yellow kept squares on `760-775` by more than
-  half (`15, 14, 7, 5` vs `34, 41, 20, 18`), while the Sapiens `759-761` / `772` face-hole outline remains until the
-  SAM 3.1 head track (`gem-sam-head`, `C186`/`C190`) replaces Sapiens' dropped chin classes.
+  full `606-998` render against the `24/1` cut with `5ebaecfe` and `ffca8acd`. Cuts piece blocks on `751-785` from `111`
+  (`lead_fp_0606`) to `44` and yellow kept squares on `760-775` from `34, 41, 20, 18` to `15, 14, 7, 5`, while the dark
+  chin smudge at `760` remains the same as `0606` because those chin squares (`y = 207..255`) are kept as the source's
+  own pixels (`C195`). **Owner verdict (`C196`)**: `"slightly better"` (recorded in `data/fun/verdicts/verdicts.jsonl` as
+  a candidate, not laid: the `24/1` cut and long window helped a little at the chin; what remains needs the SAM 3.1 head
+  track, the back pass keeping out the mom's laid matte instead of her whole track, and the silent-window no-mouth
+  drawing; the kitchen stays as laid until those are in).
+
 

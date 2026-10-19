@@ -64,6 +64,12 @@ why, the scene's background, and what every scene should probably get): `bench/r
     render; then the drawing tests (C166); then mrgemson's close (C134, C163).
   - If the Claude lead is out of credits, mrgemson is the one designated lead (`AGENTS.md`) and finishes this list,
     with a blind read by a session that did not build in place of mrted's clearance, and asks the owner where unsure.
+- **The chin smear, corrected cause** (the owner on 760, about 03:10Z: the same dark smudge at the lead's chin in
+  `0606` and `0606b`): the stack marks squares kept as the original at her chin in both runs, cut by the mom's keep-out
+  (her whole-body track) and outside the mom's laid piece, so the cut shows the source's own pixels there (the lead's
+  original chin against the original mom's dark hair). Rendering against the cut cannot change squares that are never
+  regenerated; the earlier reading (H3 blending her chin into the dark hair, gem-smear) is not the whole story. Fix:
+  the back pass keeps out the mom's laid matte, not her whole track (designed tomorrow), with the SAM 3.1 head track.
 - **Dropped by the owner today:** the dad's beard work (the region grown over his beard, the full hall remake, the
   2050-2622 window test); wider lines; colour per part. The dad's hall stays as laid (`third_fp_1310c`, with its gaps).
 - **Open List:** r18_05 (which kept pieces to remake with the old mouth) waits on the drawing test; r18_02 and r18_03
