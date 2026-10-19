@@ -417,6 +417,20 @@ def build_bench() -> str:
     return "\n".join(out).rstrip() + "\n"
 
 
+# ------------------------------------------------------------ archive/INDEX.md
+
+def build_archive() -> str:
+    """Every retired file, by what it says, so a decision can be read against what it replaced.
+
+    Its own index since 2026-10-19, when the archived session handoffs took it past
+    SMALL_DIRECTORY and the root index would otherwise have listed it as having none.
+    """
+    out = header("archive/, by file", [
+        "Nothing here is current (`archive/AGENTS.md`); each piece says why and when it was retired.",
+    ])
+    return "\n".join(out + listing([p for p in under("archive") if p != "archive/INDEX.md"], "archive")).rstrip() + "\n"
+
+
 # ----------------------------------------------------- bench/results/INDEX.md
 
 def record_fields(rel: str) -> tuple[str, dict[str, str]]:
@@ -569,6 +583,7 @@ WRITERS = {
     "bench/INDEX.md": build_bench,
     "bench/results/INDEX.md": build_results,
     "workflows/INDEX.md": build_workflows,
+    "archive/INDEX.md": build_archive,
 }
 
 

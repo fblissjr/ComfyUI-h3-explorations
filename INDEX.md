@@ -145,9 +145,9 @@ with none is a helper the others import.
 | directory | tracked files | where its index is |
 |---|---|---|
 | `.claude/` | 1 | [below](#claude) |
-| `archive/` | 34 | (none) |
+| `archive/` | 35 | [`archive/INDEX.md`](archive/INDEX.md) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 800 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 801 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |

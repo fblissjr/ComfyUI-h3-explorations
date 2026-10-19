@@ -15,7 +15,7 @@ this file is only a way to find a script by what it says it does.
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 17 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 188 |
+| [the rest](#the-rest) | 189 |
 
 ## check
 
@@ -354,6 +354,7 @@ this file is only a way to find a script by what it says it does.
 | [`audit_shipped_reference_bounds.py`](audit_shipped_reference_bounds.py) | Does any shipped graph hand Qwen a reference image it will shrink? |
 | [`bake_pdd_checkpoint.py`](bake_pdd_checkpoint.py) | Bake a PDD backbone into a new int8_convrot checkpoint, offline. |
 | [`bench_e2e_h3.py`](bench_e2e_h3.py) | End-to-end A/B: a real MiniMax H3 render with the sage node in and out. |
+| [`bench_inventory.py`](bench_inventory.py) | Say, for every script at the top of `bench/`, what in the repo depends on it. |
 | [`bench_kitchen_int8_linear.py`](bench_kitchen_int8_linear.py) | comfy-kitchen's `int8_linear` on H3's real block-0 layers: time per call, and a bitwise digest. |
 | [`bench_minimax_attn.py`](bench_minimax_attn.py) | A/B the patched MiniMax H3 attention forward against the stock one. |
 | [`bench_rect_attention.py`](bench_rect_attention.py) | One block's attention, alone on the card, for a rectangle of queries against every key. |
