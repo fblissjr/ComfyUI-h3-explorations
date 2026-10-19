@@ -4415,7 +4415,7 @@ that session's record disagree, its record is the nearer one.*
     diffusers keeps the heads fp32.
   - `docs/research/pdd/2026-08-28_pdd_implementations.md` section 4.1 called the stale copies the vendor's;
     they are Kijai's conversions, re-uploaded upstream 2026-08-27T21:25Z. The
-    "reported, not verified" notes in `2026-08-28_handoff.md` and
+    "reported, not verified" notes in `archive/docs/pdd_handoffs/2026-08-28_handoff.md` and
     `docs/research/2026-08-29_comfyui_h3_t2va_trace.md` are now verified.
 - **Prose corrected by the 2026-09-25 upstream survey**
   ([`docs/working/coderef.md`](../working/coderef.md), "What moved by 2026-09-25";

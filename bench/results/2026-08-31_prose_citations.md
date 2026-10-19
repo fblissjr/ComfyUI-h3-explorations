@@ -423,7 +423,7 @@ Prose a reader acts on today: node and config comments, the working docs, and sc
 | 157 | `2026-08-21_h3_marker_token_states.json` | `results/` | *What the encoder does with it, measured 2026-08-21** by 'bench/grade_h3_marker_tokens.py', record at 'data/results/2026-08-21_h3_marker_token_states.json'. Three arms per prompt on the same weights -- markers routed to their real ids, markers as the BPE fragments ComfyUI emits, and markers deleted -- compared over the token spans |  |
 | 214 | `2026-08-21_h3_tokenizer_markers.json` | `results/` | *Measured 2026-08-21** by 'bench/compare_h3_tokenizers.py', whose record is 'data/results/2026-08-21_h3_tokenizer_markers.json'. Both tokenizers loaded through 'AutoTokenizer', the release from 'coderef/MiniMax-H3/tokenizer/' (byte-identical to the copy beside |  |
 
-## `docs/research/pdd/2026-08-27_handoff.md`
+## `archive/docs/pdd_handoffs/2026-08-27_handoff.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
@@ -435,7 +435,7 @@ Prose a reader acts on today: node and config comments, the working docs, and sc
 |---|---|---|---|---|
 | 36 | `2026-08-28_pdd_partition_fidelity_362.json` | `results/` | width. Monotone across uniform widths, 0.1425 at L=1 to 1.5408 at L=16, about 10.8x. Consistent. It measures the transform, NOT a render error. 'data/results/2026-08-28_pdd_partition_fidelity_362.json' — four arms at 362 frames. Video flat across a 7x range of block width, audio monotone, ratio 1.58 to 1.90. |  |
 
-## `docs/research/pdd/2026-08-28_handoff.md`
+## `archive/docs/pdd_handoffs/2026-08-28_handoff.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
@@ -451,7 +451,7 @@ Prose a reader acts on today: node and config comments, the working docs, and sc
 |---|---|---|---|---|
 | 12 | `2026-08-29_market_scene_arms.json` | `results/` | The machine-readable record is '../../../data/results/2026-08-29_market_scene_arms.json'; this file is the reasoning. Both were derived with 'bench/diff_render_graphs.py', from the graph ComfyUI embedded in each render |  |
 
-## `docs/research/pdd/2026-08-30_handoff.md`
+## `archive/docs/pdd_handoffs/2026-08-30_handoff.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|

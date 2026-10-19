@@ -18,7 +18,7 @@ research and the audio-freeze lane ([`docs/state/decisions.md`](../../state/deci
   planned, approved, built, wired and judged blind the same day: the baked arm lost to the sage floor as the merged
   arm had, so the PDD8 look is the schedule's, not the merge's, and the bake stands on hygiene and cost. Supersedes the
   2026-08-31 handoff's step 2 on the bake.
-- [`2026-08-31_handoff.md`](2026-08-31_handoff.md) -- superseded. What merging a PDD LoRA onto an int8 module costs,
+- [`archive/docs/pdd_handoffs/2026-08-31_handoff.md`](../../../archive/docs/pdd_handoffs/2026-08-31_handoff.md) -- superseded. What merging a PDD LoRA onto an int8 module costs,
   measured over all 200 modules and stored-weight only. **Read its section 6 before quoting a number**: the headline
   changed four times that day, and the last version is that the merge leaves stored-weight error 1.40x the base int8
   error under the shipped stochastic rounding (1.12x, the +11.6%, under round-to-nearest). Section 7 records the hold
@@ -27,14 +27,14 @@ research and the audio-freeze lane ([`docs/state/decisions.md`](../../state/deci
 - [`2026-08-31_tier1_gate.md`](2026-08-31_tier1_gate.md) -- closed, never passed. The ten conditions the Tier 1 activation observer had to
   meet before a render (dated 2026-08-31, item 10 added 2026-09-01). The owner closed the experiment on 2026-09-29
   and the observer was removed ([`docs/state/open_experiments.md`](../../state/open_experiments.md) #23).
-- [`2026-08-30_handoff.md`](2026-08-30_handoff.md) -- superseded by the 2026-08-31 handoff. Per-block quantisation
+- [`archive/docs/pdd_handoffs/2026-08-30_handoff.md`](../../../archive/docs/pdd_handoffs/2026-08-30_handoff.md) -- superseded by the 2026-08-31 handoff. Per-block quantisation
   sensitivity is flat and closed; where distillation strength matters by depth stayed open; the one capture, and the
   four next steps, which did not run in that form.
-- [`2026-08-28_handoff.md`](2026-08-28_handoff.md) -- superseded in part. The paper makes variable NFE the designed
+- [`archive/docs/pdd_handoffs/2026-08-28_handoff.md`](../../../archive/docs/pdd_handoffs/2026-08-28_handoff.md) -- superseded in part. The paper makes variable NFE the designed
   feature; the six-evaluation `[8,8,4,4,4,4]` partition shipped; four evaluations cannot be improved; the measured
   partition-fidelity result and the prediction it refuted; five methodology traps. Its audio account was refuted on
   2026-09-25 and its partition work parked on 2026-09-05.
-- [`2026-08-27_handoff.md`](2026-08-27_handoff.md) -- superseded by the 2026-08-28 handoff, and carries a dated
+- [`archive/docs/pdd_handoffs/2026-08-27_handoff.md`](../../../archive/docs/pdd_handoffs/2026-08-27_handoff.md) -- superseded by the 2026-08-28 handoff, and carries a dated
   in-place correction to its item 2.
 
 **Depth and the remaining axes**, opened 2026-08-30:

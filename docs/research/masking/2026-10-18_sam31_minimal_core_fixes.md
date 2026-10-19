@@ -2,7 +2,7 @@
 
 **In short (as of 2026-10-18).** If SAM 3 and 3.1 were fixed in ComfyUI core itself, the smallest set is six fixes of about 25 lines in four files: map input images to -1 to 1 (the largest single error), gate detector scores by presence, use exact GELU in the text encoder (submitted as Comfy-Org/ComfyUI#16855), stop the single-prompt path tokenizing a literal count suffix, turn a boolean attention mask into an additive one, and gate tracker memory by quality as Meta does. They would not cover multi-shot and multi-person tracking, which this pack handles in its own nodes. This repo still patches nothing in core; the pack's runtime corrections are mapped in [`../../masked_v2v/sam31_core.md`](../../masked_v2v/sam31_core.md).
 
-Last updated: 2026-10-18. Written against ComfyUI core (`comfy/text_encoders/sam3_clip.py`, `comfy_extras/nodes_sam3.py`, `comfy/ldm/sam3/{sam,detector,tracker}.py`) and Meta's reference (`coderef/sam3`). Companion to [`docs/masked_v2v/sam31.md`](../../masked_v2v/sam31.md), [`2026-10-07_mryolk.md`](2026-10-07_mryolk.md), and [`2026-10-07_mryolk_stage_table.md`](2026-10-07_mryolk_stage_table.md).
+Last updated: 2026-10-18. Written against ComfyUI core (`comfy/text_encoders/sam3_clip.py`, `comfy_extras/nodes_sam3.py`, `comfy/ldm/sam3/{sam,detector,tracker}.py`) and Meta's reference (`coderef/sam3`). Companion to [`docs/masked_v2v/sam31.md`](../../masked_v2v/sam31.md), [`2026-10-07_sam31_in_comfyui.md`](2026-10-07_sam31_in_comfyui.md), and [`2026-10-07_sam31_core_vs_meta_stages.md`](2026-10-07_sam31_core_vs_meta_stages.md).
 
 ---
 

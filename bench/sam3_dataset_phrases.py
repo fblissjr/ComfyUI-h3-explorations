@@ -14,7 +14,7 @@ quoting anything. Formats: coderef/sam3/scripts/eval/{gold,silver,veval}/README.
 
 Any of the four directories may be left out; without `--gold` the modifier list is only colours and three shade words, so "modifier + noun" counts come out
 lower than with it. `run` also prints the controls it carries (Gold's counts against Meta's own README table;
-VEval's phrase map against the count recorded in docs/research/masking/2026-10-07_mryolk_phrases.md).
+VEval's phrase map against the count recorded in docs/research/masking/2026-10-07_sam31_phrases.md).
 
 Definitions, so the tables can be read: a PAIR is one asked (image or video, noun phrase); it is POSITIVE if at least one instance is
 annotated and a NEGATIVE otherwise (Meta's own definition, Gold README). Gold has three annotators over the same pairs: tables use annotator a
@@ -72,7 +72,7 @@ MIN_ANN_PER_PHRASE = 3
 #: count is annotator b's file; the other six are annotator a's (measured when this tool was written)
 README_GOLD_STATS = {"metaclip": (33393, 20144), "sa1b": (13258, 30306), "attributes": (9245, 3663), "crowded": (20687, 50417),
                      "wiki_common": (65502, 6448), "fg_food": (13951, 9825), "fg_sports_equipment": (12166, 5075)}
-#: VEval's global phrase map size as counted by mryolk (docs/research/masking/2026-10-07_mryolk_phrases.md) and the shares it recorded
+#: VEval's global phrase map size as counted by mryolk (docs/research/masking/2026-10-07_sam31_phrases.md) and the shares it recorded
 MRYOLK_MAP = {"phrases": 51248, "1": 0.04, "2": 0.23, "3": 0.39, "4": 0.20, "7+": 0.015}
 # Annotated frames a second. Measured for SA-V (2026-10-07): its frames live in a `JPEGImages_24fps` folder, but the
 # annotation's `file_names` step by four (00000, 00004, ...), so one annotated frame is a sixth of a second like the

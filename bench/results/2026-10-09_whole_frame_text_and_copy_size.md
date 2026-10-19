@@ -51,7 +51,7 @@ show, or leaves open how much of the frame a thing takes, was followed in
 place of the source. The wording that held states sizes as a relationship to
 the source video and names only what that window shows. The vendor's guide
 says the second half already
-([`docs/research/masking/2026-10-09_mrfetch.md`](../../docs/research/masking/2026-10-09_mrfetch.md)).
+([`docs/research/masking/2026-10-09_whole_frame_lane_questions.md`](../../docs/research/masking/2026-10-09_whole_frame_lane_questions.md)).
 All of this is one clip.
 
 The last pair settles a smaller question. In `surreal_zero_knots4_a` the

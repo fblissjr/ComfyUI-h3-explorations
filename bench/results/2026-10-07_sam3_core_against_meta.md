@@ -44,7 +44,7 @@ separately, by an independent session, with floors and a yardstick:
 [`2026-10-07_sam3_precision_arms.md`](2026-10-07_sam3_precision_arms.md).
 That record also found the two departures below without this record's
 notes, and measured a third that was first read in the code
-([`docs/research/masking/2026-10-07_mryolk_stage_table.md`](../../docs/research/masking/2026-10-07_mryolk_stage_table.md),
+([`docs/research/masking/2026-10-07_sam31_core_vs_meta_stages.md`](../../docs/research/masking/2026-10-07_sam31_core_vs_meta_stages.md),
 rows 15 and 17): ComfyUI's detect node thresholds the class score alone and
 removes no overlapping detections, where Meta's code thresholds the class
 score multiplied by the presence score and removes them. The detector rung
@@ -365,7 +365,7 @@ Each line says how it is known.
   detection rule, the detect node's refinement passes, the hole-fill value,
   the pointer token, the rules between subjects and the order of threshold
   and resize on output stay ComfyUI's
-  ([`docs/research/masking/2026-10-07_mryolk.md`](../../docs/research/masking/2026-10-07_mryolk.md)
+  ([`docs/research/masking/2026-10-07_sam31_in_comfyui.md`](../../docs/research/masking/2026-10-07_sam31_in_comfyui.md)
   walks through each).
 
 ## What uses it

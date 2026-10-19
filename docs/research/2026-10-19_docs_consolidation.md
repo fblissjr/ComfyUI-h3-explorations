@@ -965,7 +965,7 @@ distills/pdd.md:
   pdd_artifacts.md sections 4 and 5; removed from pdd.md.
 - The 2026-08-26 renders' md5 table, the container-hash two-mechanism note and the 2026-08-28 SIGMAS-rewiring render
   table: reduced to their current lesson (hash decoded frames; warm-up transient; SIGMAS output is consumed and
-  rewiring moved no render) under "Traps"; the full story is in `docs/research/pdd/2026-08-28_handoff.md`.
+  rewiring moved no render) under "Traps"; the full story is in `archive/docs/pdd_handoffs/2026-08-28_handoff.md`.
 - The "Distilled motion looks WRONG" section: reduced to its numbers and the owner's refined reading under "What is
   measured".
 - Many "Corrected <date>: this said X" layers (patch_heads installs one patch; 16 steps ~2e-3; "Both of us accept any

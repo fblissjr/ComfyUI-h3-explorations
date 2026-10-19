@@ -2,7 +2,7 @@
 
 ComfyUI's SAM 3.1 (`comfy/ldm/sam3`, `comfy_extras/nodes_sam3.py`) is a port. Run beside Meta's code on equal inputs it
 computes the same thing from the trunk on, and departs in two places before the model
-(`bench/results/2026-10-07_sam3_core_against_meta.md`; `docs/research/masking/2026-10-07_mryolk.md` walks through both),
+(`bench/results/2026-10-07_sam3_core_against_meta.md`; `docs/research/masking/2026-10-07_sam31_in_comfyui.md` walks through both),
 and in one in the video tracker:
 
 1. **The image range.** ComfyUI's SAM nodes resize a frame and hand it to the trunk in 0 to 1. Meta's image processor

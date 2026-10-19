@@ -146,7 +146,7 @@ is the edge-cut figure's result only.
 Why does company lose a subject who is held alone? The first suspect was
 the pair of rules ComfyUI's tracker applies between followed objects,
 first read, with file and line for both sides, in
-[`docs/research/masking/2026-10-07_mryolk_stage_table.md`](../../docs/research/masking/2026-10-07_mryolk_stage_table.md),
+[`docs/research/masking/2026-10-07_sam31_core_vs_meta_stages.md`](../../docs/research/masking/2026-10-07_sam31_core_vs_meta_stages.md),
 row 26. (1) Of two tracks whose masks overlap, the one more recently
 empty is blanked: `comfy/ldm/sam3/tracker.py`,
 `_suppress_recently_occluded`, at 0.3 of the larger of intersection over

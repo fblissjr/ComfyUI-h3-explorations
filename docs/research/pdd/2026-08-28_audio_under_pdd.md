@@ -516,7 +516,7 @@ graph sits on the wrong side of it.
 
 **What shipping that would need.** `resolve_emit_steps` refuses counts that do
 not divide 32, so a 5- or 6-evaluation arm needs `ManualSigmas` today. The
-follow-on named in [`2026-08-28_handoff.md`](2026-08-28_handoff.md) §2.2 —
+follow-on named in [`archive/docs/pdd_handoffs/2026-08-28_handoff.md`](../../../archive/docs/pdd_handoffs/2026-08-28_handoff.md) §2.2 —
 accept an explicit non-uniform knot list rather than only divisors — was
 deliberately deferred there as "do not build this first". **It now has a reason
 behind it**: not a convenience, but the only way to ship the operating point the
@@ -696,7 +696,7 @@ velocities, and the change of variable is exact for them.
 Its three nodes are registered on this box. The composition question — its
 `set_model_patch_replace("dit", "double_block", i)` plus a
 `WrappersMP.DIFFUSION_MODEL` wrapper against our object patches — is enumerated
-in [`2026-08-28_handoff.md`](2026-08-28_handoff.md) and has not been run.
+in [`archive/docs/pdd_handoffs/2026-08-28_handoff.md`](../../../archive/docs/pdd_handoffs/2026-08-28_handoff.md) and has not been run.
 
 ---
 

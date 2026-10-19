@@ -51,7 +51,7 @@ woman", "the object in his hand").
   them, which is not the same as failing: the benchmark record, "What a
   phrase looks like" and its fourth line to act on. Meta's own examples are
   one or two plain words throughout:
-  [`2026-10-07_mryolk_phrases.md`](../research/masking/2026-10-07_mryolk_phrases.md).
+  [`docs/research/masking/2026-10-07_sam31_phrases.md`](../research/masking/2026-10-07_sam31_phrases.md).
 - Under Meta's own scoring (the next section) the descriptive phrases an
   independent session tried returned nothing at all
   ([`2026-10-07_sam3_precision_arms.md`](../../bench/results/2026-10-07_sam3_precision_arms.md),
@@ -193,15 +193,15 @@ Each matters more the longer or rarer the phrase.
 | record or note | what it holds |
 |---|---|
 | [`2026-10-07_sam3_benchmark_phrases.md`](../../bench/results/2026-10-07_sam3_benchmark_phrases.md) | Meta's four datasets counted from their annotation files: phrase shapes, how often each is asked where nothing is annotated, sizes, people, video. `bench/sam3_dataset_phrases.py` reproduces it. The datasets are gated and are not in this repository |
-| [`2026-10-07_mryolk_phrases.md`](../research/masking/2026-10-07_mryolk_phrases.md) | what Meta's README, notebooks, tests and eval code do with a phrase, by file and line |
+| [`docs/research/masking/2026-10-07_sam31_phrases.md`](../research/masking/2026-10-07_sam31_phrases.md) | what Meta's README, notebooks, tests and eval code do with a phrase, by file and line |
 | [`2026-10-07_sam3_precision_arms.md`](../../bench/results/2026-10-07_sam3_precision_arms.md) | precision, and three departures of ComfyUI from Meta measured blind |
 | [`2026-10-07_sam3_core_against_meta.md`](../../bench/results/2026-10-07_sam3_core_against_meta.md) | ComfyUI against Meta's code stage by stage on equal inputs (`[0, 1]` vs `[-1, 1]`, `quick_gelu` vs `gelu`, `presence` gating, 32-object seeded tracking) |
 | [`2026-10-07_sam31_corrections_on_a_queue.md`](../../bench/results/2026-10-07_sam31_corrections_on_a_queue.md) | `MiniMaxH3SAM31Corrections` (`correct_image_range` and `correct_text_activation`) accepted on a server's queue |
 | [`2026-10-10_sam31_corrections_on_one_stretch.md`](../../bench/results/2026-10-10_sam31_corrections_on_one_stretch.md) | `MiniMaxH3SAM31Corrections` (`image_range` and `text_activation` alone and together) on the 447-frame kitchen stretch of `fun` (`shots 1–6`): why `text_activation` alone changes 0 detections on `person`/`head` and how `image_range` shifts trunk cosine similarity |
 | [`2026-10-08_one_person_track_against_core_multi_object.md`](../../bench/results/2026-10-08_one_person_track_against_core_multi_object.md) | `MiniMaxH3SubjectTrack` (seeded per shot, `max_objects=1`, with `one_each`, `take_back`, `take_back_by_place`, `drop_specks`, and `others`) against ComfyUI core's text-prompted `SAM3_VideoTrack` (`max_objects=8` and `64`) on `fun` and `lotsofpeople` |
 | [`2026-10-06_bordered_source_cuts.md`](../../bench/results/2026-10-06_bordered_source_cuts.md), [`2026-10-06_subject_track_defaults.md`](../../bench/results/2026-10-06_subject_track_defaults.md), [`2026-10-07_subject_track_under_nudge.md`](../../bench/results/2026-10-07_subject_track_under_nudge.md), [`2026-10-07_subject_alone_or_in_a_group.md`](../../bench/results/2026-10-07_subject_alone_or_in_a_group.md) | border stripping for cut detection (`flat_borders`), requiring a detected `head` on the pick frame (`head_of`), how `pick`, `match` and `regain` hold under a 1-level nudge, and what following a subject alone or in a group does |
-| [`docs/research/masking/2026-10-07_mryolk.md`](../research/masking/2026-10-07_mryolk.md) | SAM 3.1 in ComfyUI end to end |
-| [`2026-10-07_mryolk_stage_table.md`](../research/masking/2026-10-07_mryolk_stage_table.md) | the same, one row per stage with the file and lines on ComfyUI's side and on Meta's: the place to look up where a stage lives, the rules between followed objects among them (its tracker rows) |
+| [`docs/research/masking/2026-10-07_sam31_in_comfyui.md`](../research/masking/2026-10-07_sam31_in_comfyui.md) | SAM 3.1 in ComfyUI end to end |
+| [`docs/research/masking/2026-10-07_sam31_core_vs_meta_stages.md`](../research/masking/2026-10-07_sam31_core_vs_meta_stages.md) | the same, one row per stage with the file and lines on ComfyUI's side and on Meta's: the place to look up where a stage lives, the rules between followed objects among them (its tracker rows) |
 | [`2026-10-18_sam31_minimal_core_fixes.md`](../research/masking/2026-10-18_sam31_minimal_core_fixes.md) | the 6 minimal surgical fixes (~25 lines across 4 files) that would bring ComfyUI core's existing SAM 3 / 3.1 detector, tokenizer, and single-shot tracker to numerical and functional parity with Meta's reference |
 | `docs/research/masking/2026-10-06_mrsun.md` (no longer in the tree since 2026-10-11) | Meta's video pipeline for one phrase, frame by frame, and what ComfyUI's port does instead at each step and at a cut. A reading; nothing was run for it |
 

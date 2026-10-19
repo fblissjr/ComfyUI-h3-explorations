@@ -1,6 +1,6 @@
 # SAM 3.1 in ComfyUI, from input to output
 
-**In short (as of 2026-10-07).** One request through ComfyUI's SAM 3.1 nodes, a video and the word person in and a mask per frame out, stage by stage against Meta's code. Two departures were measured: ComfyUI feeds the trunk images in 0 to 1 where Meta feeds -1 to 1, and its text tower uses `quick_gelu` where Meta uses exact GELU; on equal input the port's arithmetic is otherwise right. It also lists what a user of the stock nodes should know, such as the `person:1` count trap. Both departures are now corrected at run time by this pack's `MiniMaxH3SAM31Corrections`, without patching core ([`../../masked_v2v/sam31_core.md`](../../masked_v2v/sam31_core.md)).
+**In short (as of 2026-10-07).** One request through ComfyUI's SAM 3.1 nodes, a video and the word person in and a mask per frame out, stage by stage against Meta's code. Two departures were measured: ComfyUI feeds the trunk images in 0 to 1 where Meta feeds -1 to 1, and its text tower uses `quick_gelu` where Meta uses exact GELU; on equal input the port's arithmetic is otherwise right. It also lists what a user of the stock nodes should know, such as the `person:1` count trap. Both departures are now corrected at run time by this pack's `MiniMaxH3SAM31Corrections`, without patching core ([`docs/masked_v2v/sam31_core.md`](../../masked_v2v/sam31_core.md)).
 
 Written by the helper session mryolk on 2026-10-07 from reading both codebases; the measurements in section 7 were run by the session mregg and by an independent session, each named there. Placed here by mregg, who folded in the day's corrections before placing: Meta's input range is worded by loading route, and the tracker comparison claims only what every run agrees on. Two wider readings of that comparison were posted on the owner's board during the day and withdrawn; this page carries the corrected one.
 
@@ -10,7 +10,7 @@ Last updated: 2026-10-07. Written against ComfyUI at commit b00c6e952 (no local 
 
 This page follows one request through ComfyUI's SAM 3.1 nodes in the order things happen: a video and the word "person" in, a mask per frame out. It is for someone who knows ComfyUI and not SAM. Each stage says what goes in, what comes out (shapes and data types), which file does it, and what Meta's own code does at the same point.
 
-Paths with no prefix are in the ComfyUI folder. Paths starting `meta_sam3/`, `coderef/`, `bench/` or `workflows/` are in this repository. [`2026-10-07_mryolk_stage_table.md`](2026-10-07_mryolk_stage_table.md), beside this page, has one row per stage with the lines on both sides and the tensor to compare; this page points at it rather than repeating it.
+Paths with no prefix are in the ComfyUI folder. Paths starting `meta_sam3/`, `coderef/`, `bench/` or `workflows/` are in this repository. [`2026-10-07_sam31_core_vs_meta_stages.md`](2026-10-07_sam31_core_vs_meta_stages.md), beside this page, has one row per stage with the lines on both sides and the tensor to compare; this page points at it rather than repeating it.
 
 Every stage carries one verdict. Same: ComfyUI and Meta compute the same thing, shown by running both ("run") or only by reading both ("read"). Different: they differ, as a choice (a default or a threshold) or a departure (the computation itself). Not established: nobody has compared them.
 
@@ -278,4 +278,4 @@ All runs are from 2026-10-07. Rows with `bench/sam3_parity_ladder.py <rung>` in 
 
 ## 9. Where the detail is
 
-[`2026-10-07_mryolk_stage_table.md`](2026-10-07_mryolk_stage_table.md) has one row per stage with the ComfyUI lines, the Meta lines, the verdict, whether a difference is a choice or a departure, and the tensor to compare to test it. The probes named in section 7 and their outputs are the records for the measurements.
+[`2026-10-07_sam31_core_vs_meta_stages.md`](2026-10-07_sam31_core_vs_meta_stages.md) has one row per stage with the ComfyUI lines, the Meta lines, the verdict, whether a difference is a choice or a departure, and the tensor to compare to test it. The probes named in section 7 and their outputs are the records for the measurements.

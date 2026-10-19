@@ -575,7 +575,7 @@ H3 code). The lane's own map is [`overview.md`](../masked_v2v/overview.md).
 Three questions the whole-frame lane asked the same day (the first sigmas of a late
 start, the last latent frame of a window, one fraction as the mask over the whole
 frame) are answered from code in
-[`2026-10-09_mrfetch.md`](../research/masking/2026-10-09_mrfetch.md).
+[`docs/research/masking/2026-10-09_whole_frame_lane_questions.md`](../research/masking/2026-10-09_whole_frame_lane_questions.md).
 
 ---
 

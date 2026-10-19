@@ -162,7 +162,7 @@ Composition is unverified — its `set_model_patch_replace("dit", "double_block"
 plus a `WrappersMP.DIFFUSION_MODEL` wrapper against our object patches on
 `diffusion_model.forward` and `final_layer.*`. Different surfaces, which raises
 the prior and is not evidence. Enumerated in
-[`2026-08-28_handoff.md`](2026-08-28_handoff.md) §2.3.
+[`archive/docs/pdd_handoffs/2026-08-28_handoff.md`](../../../archive/docs/pdd_handoffs/2026-08-28_handoff.md) §2.3.
 
 ---
 

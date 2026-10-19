@@ -14,7 +14,7 @@ clip. The text render differs from the control in several sentences at once
 (listed below), so what it shows cannot be put down to any one of them.
 
 **What was asked.** Two of the changes the upstream cross-check of this date
-raised ([`docs/research/masking/2026-10-09_mrfetch.md`](../../docs/research/masking/2026-10-09_mrfetch.md)),
+raised ([`docs/research/masking/2026-10-09_whole_frame_lane_questions.md`](../../docs/research/masking/2026-10-09_whole_frame_lane_questions.md)),
 each against a control on the same window, seed and code: a window's text
 that names only what that window's source shows, and the region's mask
 handed to the sampler per latent cell (`MiniMaxH3MaskedSource`, `edge`). The

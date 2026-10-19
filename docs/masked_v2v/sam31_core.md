@@ -63,7 +63,7 @@ on clone.
     `coderef/sam3/sam3/model/io_utils.py:348-365` converts uint8 to float
     `0..255` without dividing by 255 before `(x - 0.5)/0.5`, feeding `[-1, 509]`
     into the trunk; see `sam31_corrections.py:35-43` and
-    [`2026-10-07_mryolk.md`](../research/masking/2026-10-07_mryolk.md), finding 7.)*
+    [`docs/research/masking/2026-10-07_sam31_in_comfyui.md`](../research/masking/2026-10-07_sam31_in_comfyui.md), finding 7.)*
 - **How our patch works (`sam31_corrections.py::CorrectedRange`, `sam31_corrections.py:93-131`)**:
   - Wraps `diffusion_model.detector.backbone.vision_backbone.trunk.patch_embed.forward`.
   - Checks `x.amin() < ALREADY_MAPPED_BELOW` (`-0.5`, `sam31_corrections.py:90, 121-125`):

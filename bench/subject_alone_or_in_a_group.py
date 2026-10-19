@@ -235,7 +235,7 @@ def cmd_run(a):
 
     if a.rules:
         # CORE'S TWO RULES BETWEEN FOLLOWED OBJECTS, each switched off in memory for the length of one arm; nothing on
-        # disk is touched. First read in `docs/research/masking/2026-10-07_mryolk_stage_table.md`, row 26, with lines
+        # disk is touched. First read in `docs/research/masking/2026-10-07_sam31_core_vs_meta_stages.md`, row 26, with lines
         # for both sides; this run is what tests it. No arm here is Meta's rule whole: Meta's blanks the returned mask
         # as well as the stored one, and its session logic around it differs (the same table, row 26b: not tested). (1) `_suppress_recently_occluded`: of two tracks whose masks overlap by 0.3 (the larger of
         # intersection over union and over the smaller mask), the one more recently empty is blanked. Meta's full

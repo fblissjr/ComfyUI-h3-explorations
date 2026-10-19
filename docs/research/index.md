@@ -71,10 +71,10 @@ What was true when each was written. The current answer is on the topic page nam
 
 | record | what it is |
 |---|---|
-| [`masking/2026-10-07_mryolk.md`](masking/2026-10-07_mryolk.md) | SAM 3.1 in ComfyUI, from input to output |
-| [`masking/2026-10-07_mryolk_phrases.md`](masking/2026-10-07_mryolk_phrases.md) | phrases for SAM 3.1: what to give it and how specific to be |
-| [`masking/2026-10-07_mryolk_stage_table.md`](masking/2026-10-07_mryolk_stage_table.md) | is ComfyUI's SAM 3.1 the same computation as Meta's, stage by stage |
-| [`masking/2026-10-09_mrfetch.md`](masking/2026-10-09_mrfetch.md) | three questions from the whole-frame lane, answered from code |
+| [`masking/2026-10-07_sam31_in_comfyui.md`](masking/2026-10-07_sam31_in_comfyui.md) | SAM 3.1 in ComfyUI, from input to output |
+| [`masking/2026-10-07_sam31_phrases.md`](masking/2026-10-07_sam31_phrases.md) | phrases for SAM 3.1: what to give it and how specific to be |
+| [`masking/2026-10-07_sam31_core_vs_meta_stages.md`](masking/2026-10-07_sam31_core_vs_meta_stages.md) | is ComfyUI's SAM 3.1 the same computation as Meta's, stage by stage |
+| [`masking/2026-10-09_whole_frame_lane_questions.md`](masking/2026-10-09_whole_frame_lane_questions.md) | three questions from the whole-frame lane, answered from code |
 | [`masking/2026-10-18_sam31_minimal_core_fixes.md`](masking/2026-10-18_sam31_minimal_core_fixes.md) | the minimal upstream fixes for SAM 3 and 3.1 in ComfyUI core |
 | [`postmortems/2026-10-04_feature_lotsofpeopledance-end-to-end.md`](postmortems/2026-10-04_feature_lotsofpeopledance-end-to-end.md) | the lotsofpeopledance masked render, end to end |
 | [`postmortems/2026-10-10_span_fun-three-people.md`](postmortems/2026-10-10_span_fun-three-people.md) | three people replaced in one clip, eight sessions |

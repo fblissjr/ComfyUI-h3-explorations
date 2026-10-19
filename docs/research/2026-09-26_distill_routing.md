@@ -195,7 +195,7 @@ code swaps the heads, ours or core's, not about what the heads contribute.
 **Evidence that exists and is unjudged.** PDD4 with its heads off
 (`patch_heads` off, the backbone alone) was rendered at three seeds on
 2026-08-27 and confirmed to differ from heads on (`pdd/2026-08-27_queued_arms.md`,
-`C_pdd4_headfree_*`; `pdd/2026-08-27_handoff.md`). Neither session found a
+`C_pdd4_headfree_*`; `archive/docs/pdd_handoffs/2026-08-27_handoff.md`). Neither session found a
 judgement of it. On the output share only seed 730451893 has both the
 heads-off clip and its heads-on control (`Video/batch/`,
 `C_pdd4_headfree_s730451893_00001` against `B_upscale_s730451893_00001`), so

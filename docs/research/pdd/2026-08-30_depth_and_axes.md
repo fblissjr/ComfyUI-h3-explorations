@@ -168,7 +168,7 @@ matters.
   1.18x `qkv_proj` — and nothing can act on it.
 - **The partition SHAPE.** `envelope_partition` front-loads wide blocks by a
   rule, chosen because the tail governs quality. It is one legal tiling among
-  hundreds; `2026-08-28_handoff.md` records a DP over 528 spans finding
+  hundreds; `archive/docs/pdd_handoffs/2026-08-28_handoff.md` records a DP over 528 spans finding
   `[28,2,1,1]` minimises the worst per-block fusion loss. Not selectable.
 - **Per-INTERVAL head weighting.** The bank is 32 replicated heads and
   `fusion_plan` averages a block's heads by step size. Weighting them otherwise,
