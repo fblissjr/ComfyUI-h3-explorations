@@ -39,6 +39,19 @@ holds the masked lane's rules and where each video's state lives.
 
 All four come from `bench/build_index.py`; `--check` says whether they are current.
 
+## Outside git, and linked anyway
+
+These are gitignored, so a fresh clone does not have them, but pages link into them because that is where the
+evidence or the working notes are. The links stay.
+
+| path | what is there |
+|---|---|
+| `internal/` | session logs, prompt research and postmortems (start with the newest); `internal/gemini/` and `internal/claude/` hold each lead's notes, and `internal/gemini/PROTOCOL.md` is how the two leads talk |
+| `data/<video>/` | each video's analysis folder and the masked lane's state (`data/AGENTS.md` is tracked); `data/results/` holds the JSON behind older records |
+| `bench/results/**/*.json` and `.jsonl` | the data beside each tracked `.md` record |
+| `coderef/` | the sister checkouts, read and never imported ([`working/coderef.md`](working/coderef.md)) |
+| the share's `output/Video/<video>/` | rendered clips |
+
 ## Keeping the wiki
 
 - **One home per fact.** Before writing a fact, find its page here; if another page has it, link to it.

@@ -10,6 +10,10 @@ Loaded when a session opens a file here; the root `AGENTS.md` still governs.
   claim in `state/decisions.md`. A figure in prose points at the command or constant that holds it.
 - **History is not guidance.** A page carries the current answer; what it used to say goes to `state/decisions.md`,
   and a dated study goes under `research/`, which is what was true then.
+- **Links into gitignored files stay** (`internal/`, `data/`, `coderef/`, `bench/results/**/*.json`). They exist on
+  the owner's machine, and the link says where the evidence is. A link that fails `bench/check_doc_links.py` on a
+  clone without them is not a broken link. When a page moves or its content moves, recompute the link's relative
+  path from the new place; never drop it.
 - **`method/checks.md` is the standard for checks** and their index.
 - **Written for the owner**: plain American English, relative paths only, no quotes of the owner's passing remarks
   (`working/working_with_the_owner.md`, "Writing").
