@@ -6,13 +6,17 @@ Claims, i.e. what breaks if a case is deleted:
   sapiens_face_px, sapiens_hair_px, head_track_px, parts_held_px, region_cells,
   region_px, face_outside_region_px, matte_px, other_overlap_px, zoom_box) or
   notable-span summaries (face_outside_region, parts_held_drop_below_half_rolling_12f_median,
-  other_overlap) could drift from the capture arrays without detection.
+  other_overlap) on the real capture_masked_run.py schema (manifest["subjects"][i]["sightings"],
+  subjects/<label>/classes__<by>.npz, subjects/<label>/head_tube__<by>.npz, bit-packed
+  masks__<by>.npz and carried, and cell-level region/given_back) could drift without detection.
 * mouth_mode_and_ref_metadata: per-frame mouth_mode resolution (no_face, no_mouth,
   closed_lip_line, worded, class_map, lip_lines), mouth_mode_transitions, ref_crop_box,
-  or ref_scale extraction from a head_reference.py JSON record could break silently.
-* missing_optional_inputs: captures without a head_track mask, window matte file, or
-  head_reference.py JSON record could crash instead of recording null/unknown fallbacks,
-  or malformed capture directories could fail with a raw traceback instead of SystemExit.
+  or ref_scale extraction from a head_reference.py JSON record (direct, via --job, or
+  via sibling <capture>_job/job.render.json) could break silently.
+* missing_optional_inputs: captures without a head_tube/head_track mask, window matte
+  file, or head_reference.py JSON record could crash instead of recording null/unknown
+  fallbacks, or malformed capture directories could fail with a raw traceback instead
+  of SystemExit.
 """
 
 from __future__ import annotations
@@ -31,8 +35,8 @@ def _pack(mask: np.ndarray) -> np.ndarray:
     return np.packbits(mask.astype(np.uint8), axis=-1)
 
 
-def _build_base_capture(root: Path, *, include_head_track: bool = True) -> Path:
-    """Create a 4-frame, 32x32 (cell_px=16 -> 2x2 cells) synthetic capture directory."""
+def _build_base_capture(root: Path, *, include_head_tube: bool = True) -> Path:
+    """Create a 4-frame, 32x32 (cell_px=16 -> 2x2 cells) capture directory matching capture_masked_run.py."""
     cap = root / "sample_capture"
     (cap / "subjects" / "alice").mkdir(parents=True)
     (cap / "subjects" / "bob").mkdir(parents=True)
@@ -40,6 +44,7 @@ def _build_base_capture(root: Path, *, include_head_track: bool = True) -> Path:
 
     frames, h, w, cell_px = 4, 32, 32, 16
     first_frame = 100
+    by = "shot_a_0100"
 
     # Classes: 3 = Face_Neck, 4 = Hair
     classes = np.zeros((frames, h, w), dtype=np.uint8)
@@ -48,8 +53,6 @@ def _build_base_capture(root: Path, *, include_head_track: bool = True) -> Path:
     # In all frames, rows 0..4, cols 8..16 (32 px) are Hair (4)
     classes[:, 0:4, 8:16] = 4
 
-    np.savez_compressed(cap / "classes__sapiens2.npz", classes=classes)
-
     # Alice track covers top-left 16x16 quadrant (256 px) on frames 0,1,2,3
     # plus on frame 1 extends 4x4 (16 px) into top-right quadrant rows 4..8, cols 16..20
     alice_track = np.zeros((frames, h, w), dtype=bool)
@@ -57,33 +60,46 @@ def _build_base_capture(root: Path, *, include_head_track: bool = True) -> Path:
     alice_track[1, 4:8, 16:20] = True
     # Mark rows 4..8, cols 16..20 on frame 1 as Face_Neck (3) so 16 px of face are in cell (0, 1)
     classes[1, 4:8, 16:20] = 3
-    np.savez_compressed(cap / "classes__sapiens2.npz", classes=classes)
 
-    # Alice head_track covers rows 0..10, cols 0..16 (160 px); on frame 2 it also extends
-    # into cell (0, 1) rows 0..4, cols 16..22 (24 px), where cols 16..20 are Hair (8 px) and
-    # cols 20..22 are non-hair (8 px).
-    alice_head = np.zeros((frames, h, w), dtype=bool)
-    alice_head[:, 0:10, 0:16] = True
-    alice_head[2, 0:4, 16:22] = True
-    classes[2, 0:2, 16:20] = 4  # 8 px of hair inside alice_track/head_track
-
-    # Note: make sure alice_track also covers that hair region on frame 2 so s_hair_n sees it
+    # Alice head_tube covers rows 0..10, cols 0..16 (160 px); on frame 2 it also extends
+    # into cell (0, 1) rows 0..4, cols 16..22 (24 px), where rows 0..2, cols 16..20 are Hair (8 px)
+    # and the remaining 16 px are non-hair outside region cell (0, 0).
+    alice_head = np.zeros((frames, h, w), dtype=np.uint8)
+    alice_head[:, 0:10, 0:16] = 1
+    alice_head[2, 0:4, 16:22] = 1
+    classes[2, 0:2, 16:20] = 4  # 8 px of hair inside alice_track/head_tube
     alice_track[2, 0:2, 16:20] = True
-    np.savez_compressed(cap / "classes__sapiens2.npz", classes=classes)
 
-    alice_masks_kwargs: dict[str, np.ndarray] = {
-        "track": _pack(alice_track),
-        "covered": np.ones((frames,), dtype=bool),
-    }
-    if include_head_track:
-        alice_masks_kwargs["head_track"] = _pack(alice_head)
-    np.savez_compressed(cap / "subjects" / "alice" / "masks__yolo_sam2.npz", **alice_masks_kwargs)
+    np.savez_compressed(
+        cap / "subjects" / "alice" / f"classes__{by}.npz",
+        classes=classes,
+    )
+    if include_head_tube:
+        np.savez_compressed(
+            cap / "subjects" / "alice" / f"head_tube__{by}.npz",
+            tube=alice_head,
+            class_map=classes,
+        )
+
+    # Bit-packed parts / carried: 200 px on frames 0, 1, 2, then drops to 50 px on frame 3
+    carried = np.zeros((frames, h, w), dtype=bool)
+    carried[0, 0:10, 0:20] = True  # 200 px
+    carried[1, 0:10, 0:20] = True  # 200 px
+    carried[2, 0:10, 0:20] = True  # 200 px
+    carried[3, 0:5, 0:10] = True   # 50 px
+
+    np.savez_compressed(
+        cap / "subjects" / "alice" / f"masks__{by}.npz",
+        track=_pack(alice_track),
+        covered=np.ones((frames,), dtype=bool),
+        parts=_pack(carried),
+    )
 
     # Bob track overlaps Alice on frame 2 in a 4x5 block (20 px) at rows 10..14, cols 10..15
     bob_track = np.zeros((frames, h, w), dtype=bool)
     bob_track[2, 10:14, 10:15] = True
     np.savez_compressed(
-        cap / "subjects" / "bob" / "masks__yolo_sam2.npz",
+        cap / "subjects" / "bob" / f"masks__{by}.npz",
         track=_pack(bob_track),
         covered=np.array([False, False, True, False], dtype=bool),
     )
@@ -91,14 +107,6 @@ def _build_base_capture(root: Path, *, include_head_track: bool = True) -> Path:
     # Run region: 2x2 cells. Only top-left cell (0, 0) is active on all frames (1 cell = 256 px).
     region_cells = np.zeros((frames, h // cell_px, w // cell_px), dtype=bool)
     region_cells[:, 0, 0] = True
-
-    # Carried / parts_held: 200 px on frames 0, 1, 2, then drops to 50 px on frame 3
-    # (< 0.5 * median(200,200,200,50)=200 -> 50 < 100 triggers drop span on frame 3).
-    carried = np.zeros((frames, h, w), dtype=bool)
-    carried[0, 0:10, 0:20] = True  # 200 px
-    carried[1, 0:10, 0:20] = True  # 200 px
-    carried[2, 0:10, 0:20] = True  # 200 px
-    carried[3, 0:5, 0:10] = True   # 50 px
 
     # given_back__bob: cell (1, 1) on frame 3 (1 cell = 256 px)
     given_back_bob = np.zeros((frames, h // cell_px, w // cell_px), dtype=bool)
@@ -113,33 +121,42 @@ def _build_base_capture(root: Path, *, include_head_track: bool = True) -> Path:
     )
 
     manifest = {
-        "video": "synthetic.mp4",
+        "name": "sample_capture",
+        "clip": "synthetic.mp4",
         "frames": frames,
         "first_frame": first_frame,
         "size": [w, h],
         "cell_px": cell_px,
-        "part_by": "sapiens2",
-        "classes_file": "classes__sapiens2.npz",
-        "sightings": [
+        "subjects": [
             {
                 "label": "alice",
-                "by": "yolo_sam2",
-                "files": {"masks": "subjects/alice/masks__yolo_sam2.npz"},
+                "sightings": [
+                    {
+                        "by": by,
+                        "first_source_frame": first_frame,
+                        "frames_covered": frames,
+                    }
+                ],
             },
             {
                 "label": "bob",
-                "by": "yolo_sam2",
-                "files": {"masks": "subjects/bob/masks__yolo_sam2.npz"},
+                "sightings": [
+                    {
+                        "by": by,
+                        "first_source_frame": first_frame,
+                        "frames_covered": frames,
+                    }
+                ],
             },
         ],
         "runs": [
             {
                 "name": "alice_pass1",
                 "subject": "alice",
-                "first_frame": first_frame,
-                "last_frame": first_frame + frames - 1,
+                "first_source_frame": first_frame,
+                "frames_written": frames,
                 "zoom": {"box": [2, 4, 30, 28]},
-                "files": {"region": "runs/alice_pass1/region.npz"},
+                "files": ["alice_window_1_planned_region.npz"],
             }
         ],
     }
@@ -149,11 +166,13 @@ def _build_base_capture(root: Path, *, include_head_track: bool = True) -> Path:
 
 def check_geometry_and_overlap_counts() -> None:
     with tempfile.TemporaryDirectory() as tmp:
-        cap = _build_base_capture(Path(tmp), include_head_track=True)
+        cap = _build_base_capture(Path(tmp), include_head_tube=True)
         # Add a window matte file with 180 active pixels per frame
         matte = np.zeros((4, 32, 32), dtype=np.uint8)
         matte[:, 0:9, 0:20] = 128  # 180 px with value 128/255 > 0.01
-        win_npz = cap / "runs" / "alice_pass1" / "alice_window_100_103_region.npz"
+        pred_dir = cap / "runs" / "alice_pass1" / "predicted"
+        pred_dir.mkdir(parents=True, exist_ok=True)
+        win_npz = pred_dir / "alice_window_1_planned_region.npz"
         np.savez_compressed(win_npz, matte=matte)
 
         out_json = Path(tmp) / "out.json"
@@ -182,6 +201,7 @@ def check_geometry_and_overlap_counts() -> None:
         assert wm["run"] == "alice_pass1"
         assert wm["window_source_frames"] == [100, 103]
         assert wm["frame_count"] == 4
+        assert wm["head_track_source"] == "head_tube__shot_a_0100.npz:tube"
 
         rows = report["frames"]
         assert len(rows) == 4
@@ -209,8 +229,8 @@ def check_geometry_and_overlap_counts() -> None:
         assert f1["sapiens_face_px"] == 64 + 16
         assert f1["face_outside_region_px"] == 16
 
-        # Frame 2 (source_frame 102): head_track extends 24 px outside region cell (0,0),
-        # of which 8 px are sapiens_hair -> 16 px of (head_track & ~hair) outside region.
+        # Frame 2 (source_frame 102): head_tube extends 24 px outside region cell (0,0),
+        # of which 8 px are sapiens_hair -> 16 px of (head_tube & ~hair) outside region.
         # Also bob_track overlaps alice_track & region in 20 px.
         f2 = rows[2]
         assert f2["source_frame"] == 102
@@ -255,26 +275,19 @@ def check_geometry_and_overlap_counts() -> None:
 
 def check_mouth_mode_and_ref_metadata() -> None:
     with tempfile.TemporaryDirectory() as tmp:
-        cap = _build_base_capture(Path(tmp), include_head_track=True)
-        # Create a 6-frame capture to test all 6 mouth modes:
-        # frame 0 (100): no_face
-        # frame 1 (101): no_mouth
-        # frame 2 (102): closed_lip_line
-        # frame 3 (103): worded
-        # frame 4 (104): class_map
-        # frame 5 (105): lip_lines
+        cap = _build_base_capture(Path(tmp), include_head_tube=True)
         ref_path = Path(tmp) / "alice_ref.json"
         ref_record = {
-            "first_frame": 100,
+            "its_first_frame_is_source_frame": 100,
             "box": [10, 20, 138, 148],
-            "scale": 1.25,
+            "scale": [1.25, 1.25],
             "drawn": {
-                "frames_left_bare": [0],
+                "frames_left_bare": [100],
                 "mouth": {
                     "drawn": True,
-                    "no_mouth_on": {"head_yaw": [[1, 1]]},
-                    "closed_lip_line": {"closed_frames": [2]},
-                    "mouth_on": {"drawn_on_the_word": [[3, 3]]},
+                    "no_mouth_on": {"head_yaw": [[101, 101]]},
+                    "closed_lip_line": {"closed_frames": [[102, 102]]},
+                    "mouth_on": {"drawn_on_the_word": [[103, 103]]},
                     "frames_by_the_class_map": [],
                     "frames_by_the_lip_lines": [],
                 },
@@ -293,7 +306,7 @@ def check_mouth_mode_and_ref_metadata() -> None:
         ], f"unexpected mouth modes: {modes}"
         for r in rows:
             assert r["ref_crop_box"] == [10, 20, 138, 148]
-            assert r["ref_scale"] == 1.25
+            assert r["ref_scale"] == [1.25, 1.25]
 
         transitions = report["notable_spans"]["mouth_mode_transitions"]
         assert len(transitions) == 3
@@ -310,26 +323,27 @@ def check_mouth_mode_and_ref_metadata() -> None:
             "to_mode": "worded",
         }
 
-        # Also verify class_map and lip_lines resolution via job.json discovery
+        # Verify class_map and lip_lines resolution via sibling <capture>_job/job.render.json discovery
         ref_record["drawn"]["frames_left_bare"] = []
         ref_record["drawn"]["mouth"]["no_mouth_on"] = {}
-        ref_record["drawn"]["mouth"]["frames_by_the_class_map"] = [0]
-        ref_record["drawn"]["mouth"]["frames_by_the_lip_lines"] = [1]
+        ref_record["drawn"]["mouth"]["frames_by_the_class_map"] = [[100, 100]]
+        ref_record["drawn"]["mouth"]["frames_by_the_lip_lines"] = [[101, 101]]
         ref_path.write_text(json.dumps(ref_record, indent=2), encoding="utf-8")
 
-        job_path = Path(tmp) / "job.json"
-        job_path.write_text(
+        sibling_job_dir = Path(tmp) / "sample_capture_job"
+        sibling_job_dir.mkdir(parents=True, exist_ok=True)
+        (sibling_job_dir / "job.render.json").write_text(
             json.dumps({"loads": [{"motion_file": str(ref_path.with_suffix(".mp4"))}]}),
             encoding="utf-8",
         )
-        report2 = facts_pass.compute_facts(cap, job_path=job_path)
+        report2 = facts_pass.compute_facts(cap)
         modes2 = [r["mouth_mode"] for r in report2["frames"]]
         assert modes2 == ["class_map", "lip_lines", "closed_lip_line", "worded"]
 
 
 def check_missing_optional_inputs() -> None:
     with tempfile.TemporaryDirectory() as tmp:
-        cap = _build_base_capture(Path(tmp), include_head_track=False)
+        cap = _build_base_capture(Path(tmp), include_head_tube=False)
         # Remove zoom from manifest to verify whole-canvas zoom_box fallback
         manifest = json.loads((cap / "manifest.json").read_text(encoding="utf-8"))
         manifest["runs"][0].pop("zoom", None)
@@ -345,7 +359,7 @@ def check_missing_optional_inputs() -> None:
             assert r["ref_scale"] is None
             assert r["zoom_box"] == [0, 0, 32, 32]
 
-        # Without head_track, frame 2 (which only had head_track outside region) has 0 face_outside_region_px,
+        # Without head_tube, frame 2 (which only had head_tube outside region) has 0 face_outside_region_px,
         # while frame 1 (which had sapiens_face outside region) still has 16 px.
         assert rows[1]["face_outside_region_px"] == 16
         assert rows[2]["face_outside_region_px"] == 0

@@ -2,10 +2,10 @@
 """Emit a per-frame deterministic geometry and mask facts table for a masked-run capture.
 
 Reads a ``capture_masked_run.py`` directory (``manifest.json``, ``classes__<by>.npz``,
-``subjects/<label>/masks__<by>.npz``, ``runs/<run>/region.npz``, optional window
-``*_region.npz`` matte files, and optional ``<reference>.json`` record from
-``head_reference.py``) and produces a JSON + Markdown report with one row per
-source frame in the window and a notable-spans summary block.
+``subjects/<label>/masks__<by>.npz``, ``subjects/<label>/head_tube__<by>.npz``,
+``runs/<run>/region.npz``, optional window ``*_region.npz`` matte files, and optional
+``<reference>.json`` record from ``head_reference.py``) and produces a JSON + Markdown
+report with one row per source frame in the window and a notable-spans summary block.
 
 Every measurement is reported as data with what it was measured on and what it
 cannot see; no notable span is a pass/fail gate. Hard structural errors (missing
@@ -72,11 +72,11 @@ def _load_npz(path: Path, label: str) -> Any:
 
 
 def _unpack_mask(arr: np.ndarray, frames: int, h: int, w: int, label: str) -> np.ndarray:
-    """Unpack a [frames, h, w] bool or bit-packed uint8 mask array."""
+    """Unpack a [frames, h, w] bool/uint8 or bit-packed [frames, h, ceil(w/8)] uint8 mask array."""
     if arr.ndim != 3 or arr.shape[0] != frames or arr.shape[1] != h:
         _die(
             f"{label} shape {arr.shape} does not match expected "
-            f"({frames}, {h}, {w}) or packed width"
+            f"({frames}, {h}, {w}) or packed width ({frames}, {h}, {(w + 7) // 8})"
         )
     if arr.dtype == np.bool_:
         if arr.shape[2] != w:
@@ -99,7 +99,7 @@ def _unpack_mask(arr: np.ndarray, frames: int, h: int, w: int, label: str) -> np
 
 
 def _cells_up(cells: np.ndarray, cell_px: int, h: int, w: int, label: str) -> np.ndarray:
-    """Upsample a [frames, h_cells, w_cells] cell grid or return a [frames, h, w] pixel mask."""
+    """Expand a [frames, h // cell_px, w // cell_px] cell grid to [frames, h, w] pixel resolution."""
     if cells.ndim != 3:
         _die(f"{label} must be 3D, got shape {cells.shape}")
     if cells.shape[1] == h and cells.shape[2] == w:
@@ -111,7 +111,7 @@ def _cells_up(cells: np.ndarray, cell_px: int, h: int, w: int, label: str) -> np
             f"{label} shape {cells.shape} does not match cell grid "
             f"({cells.shape[0]}, {expected_hc}, {expected_wc}) or pixel grid ({cells.shape[0]}, {h}, {w})"
         )
-    up = np.repeat(np.repeat(cells.astype(bool), cell_px, axis=-2), cell_px, axis=-1)
+    up = np.repeat(np.repeat(cells.astype(bool), cell_px, axis=1), cell_px, axis=2)
     return up[:, :h, :w]
 
 
@@ -128,15 +128,53 @@ def _resolve_face_hair_classes(manifest: dict[str, Any]) -> tuple[int, int]:
     return face_idx, hair_idx
 
 
+def _normalize_sightings(manifest: dict[str, Any]) -> list[dict[str, Any]]:
+    """Extract normalized sighting dicts (each with 'label' and 'by') from manifest.json.
+
+    Supports both the real capture_masked_run.py layout:
+      manifest["subjects"] = [{"label": "<lbl>", "sightings": [{"by": "<by>", ...}]}, ...]
+    and flat synthetic fixtures:
+      manifest["sightings"] = [{"label": "<lbl>", "by": "<by>", ...}, ...]
+    """
+    normalized: list[dict[str, Any]] = []
+    subjects_list = manifest.get("subjects")
+    if isinstance(subjects_list, list):
+        for subj_entry in subjects_list:
+            if not isinstance(subj_entry, dict):
+                continue
+            lbl = str(subj_entry.get("label") or "")
+            subj_sightings = subj_entry.get("sightings")
+            if isinstance(subj_sightings, list) and subj_sightings:
+                for s in subj_sightings:
+                    if isinstance(s, dict):
+                        merged = dict(s)
+                        if lbl and not merged.get("label"):
+                            merged["label"] = lbl
+                        normalized.append(merged)
+            elif lbl:
+                normalized.append(dict(subj_entry))
+
+    top_sightings = manifest.get("sightings")
+    if isinstance(top_sightings, list):
+        for s in top_sightings:
+            if isinstance(s, dict):
+                normalized.append(dict(s))
+
+    return normalized
+
+
 def _find_sighting_and_run(
     manifest: dict[str, Any],
     subject: str | None,
     run_name: str | None,
-) -> tuple[dict[str, Any], dict[str, Any], str, str]:
+) -> tuple[dict[str, Any], dict[str, Any], str, str, list[dict[str, Any]]]:
     """Resolve the target subject sighting and run entry from manifest.json."""
-    sightings = manifest.get("sightings")
-    if not isinstance(sightings, list) or not sightings:
-        _die("manifest.json must contain a non-empty 'sightings' list")
+    sightings = _normalize_sightings(manifest)
+    if not sightings:
+        _die(
+            "manifest.json must contain a non-empty 'subjects' (with 'sightings') "
+            "or 'sightings' list"
+        )
     runs = manifest.get("runs")
     if not isinstance(runs, list) or not runs:
         _die("manifest.json must contain a non-empty 'runs' list")
@@ -168,19 +206,75 @@ def _find_sighting_and_run(
 
     chosen_sighting: dict[str, Any] | None = None
     for s in sightings:
-        if isinstance(s, dict) and s.get("label") == resolved_subject:
+        if s.get("label") == resolved_subject:
             chosen_sighting = s
             break
     if chosen_sighting is None:
-        available_s = [s.get("label") for s in sightings if isinstance(s, dict)]
+        available_s = [s.get("label") for s in sightings]
         _die(
-            f"subject {resolved_subject!r} not found in manifest.json 'sightings' "
+            f"subject {resolved_subject!r} not found in manifest.json subjects/sightings "
             f"(available: {available_s})"
         )
     if not resolved_run_name:
         resolved_run_name = resolved_subject
 
-    return chosen_sighting, chosen_run, resolved_subject, resolved_run_name
+    return chosen_sighting, chosen_run, resolved_subject, resolved_run_name, sightings
+
+
+def _load_classes_array(
+    capture_dir: Path,
+    manifest: dict[str, Any],
+    sighting: dict[str, Any],
+    resolved_subject: str,
+    frames: int,
+    h: int,
+    w: int,
+) -> np.ndarray:
+    """Locate and load the per-frame Sapiens class map [frames, h, w] uint8."""
+    by = str(sighting.get("by") or "yolo_sam2")
+    part_by = str(manifest.get("part_by") or "sapiens2")
+    files_dict = sighting.get("files") if isinstance(sighting.get("files"), dict) else {}
+
+    rel_candidates: list[str] = []
+    if isinstance(manifest.get("classes_file"), str):
+        rel_candidates.append(manifest["classes_file"])
+    if isinstance(files_dict, dict) and isinstance(files_dict.get("classes"), str):
+        rel_candidates.append(files_dict["classes"])
+    rel_candidates.extend(
+        [
+            f"subjects/{resolved_subject}/classes__{by}.npz",
+            f"classes__{by}.npz",
+            f"classes__{part_by}.npz",
+            f"subjects/{resolved_subject}/head_tube__{by}.npz",
+        ]
+    )
+
+    cand_paths: list[Path] = [
+        (Path(r) if Path(r).is_absolute() else (capture_dir / r)) for r in rel_candidates
+    ]
+    subj_dir = capture_dir / "subjects" / resolved_subject
+    if subj_dir.is_dir():
+        cand_paths.extend(sorted(subj_dir.glob("classes__*.npz")))
+        cand_paths.extend(sorted(subj_dir.glob("head_tube__*.npz")))
+    cand_paths.extend(sorted(capture_dir.glob("classes__*.npz")))
+
+    for cand in cand_paths:
+        if not cand.is_file():
+            continue
+        npz = _load_npz(cand, f"classes npz ({cand})")
+        for key in ("classes", "class_map"):
+            if key in npz.files:
+                arr = npz[key]
+                if arr.shape != (frames, h, w):
+                    _die(
+                        f"{cand}[{key!r}] shape {arr.shape} != expected ({frames}, {h}, {w})"
+                    )
+                return arr
+
+    _die(
+        f"classes npz not found for subject {resolved_subject!r} (by={by!r}) in {capture_dir}"
+    )
+    raise AssertionError("unreachable")
 
 
 def _load_head_track(
@@ -191,51 +285,70 @@ def _load_head_track(
     h: int,
     w: int,
 ) -> tuple[np.ndarray | None, str | None]:
-    """Load optional per-frame head_track boolean mask [frames, h, w] if available."""
-    if "head_track" in subj_masks_npz.files:
-        return (
-            _unpack_mask(
-                subj_masks_npz["head_track"],
-                frames,
-                h,
-                w,
-                "masks.npz['head_track']",
-            ),
-            "masks.npz:head_track",
-        )
+    """Load optional per-frame head_track / head_tube boolean mask [frames, h, w] if available."""
+    for key in ("head_track", "head_tube", "tube"):
+        if key in subj_masks_npz.files:
+            return (
+                _unpack_mask(
+                    subj_masks_npz[key],
+                    frames,
+                    h,
+                    w,
+                    f"masks.npz[{key!r}]",
+                ),
+                f"masks.npz:{key}",
+            )
 
     files_dict = sighting.get("files") if isinstance(sighting.get("files"), dict) else {}
     rel_candidates: list[str] = []
-    if isinstance(files_dict, dict) and isinstance(files_dict.get("head_track"), str):
-        rel_candidates.append(files_dict["head_track"])
-    if isinstance(sighting.get("head_track"), str):
-        rel_candidates.append(sighting["head_track"])
+    if isinstance(files_dict, dict):
+        for k in ("head_track", "head_tube"):
+            if isinstance(files_dict.get(k), str):
+                rel_candidates.append(files_dict[k])
+    for k in ("head_track", "head_tube"):
+        if isinstance(sighting.get(k), str):
+            rel_candidates.append(sighting[k])
     inputs_dict = sighting.get("inputs") if isinstance(sighting.get("inputs"), dict) else {}
     if isinstance(inputs_dict, dict):
-        ht_in = inputs_dict.get("head_track")
-        if isinstance(ht_in, dict) and isinstance(ht_in.get("file"), str):
-            rel_candidates.append(ht_in["file"])
+        for k in ("head_track", "head_tube"):
+            ht_in = inputs_dict.get(k)
+            if isinstance(ht_in, dict) and isinstance(ht_in.get("file"), str):
+                rel_candidates.append(ht_in["file"])
 
     label = str(sighting.get("label", ""))
     by = str(sighting.get("by", "yolo_sam2"))
     if label:
         rel_candidates.extend(
             [
+                f"subjects/{label}/head_tube__{by}.npz",
                 f"subjects/{label}/head_track__{by}.npz",
                 f"subjects/{label}/head_track__{by}.mkv",
             ]
         )
 
-    for rel in rel_candidates:
-        cand = Path(rel) if Path(rel).is_absolute() else (capture_dir / rel)
+    cand_paths: list[Path] = [
+        (Path(r) if Path(r).is_absolute() else (capture_dir / r)) for r in rel_candidates
+    ]
+    if label and (capture_dir / "subjects" / label).is_dir():
+        subj_dir = capture_dir / "subjects" / label
+        cand_paths.extend(sorted(subj_dir.glob("head_tube__*.npz")))
+        cand_paths.extend(sorted(subj_dir.glob("head_track__*.npz")))
+
+    for cand in cand_paths:
         if not cand.is_file():
             continue
         if cand.suffix == ".npz":
             npz = _load_npz(cand, f"head_track ({cand})")
-            key = "head_track" if "head_track" in npz.files else (npz.files[0] if npz.files else "")
+            key = ""
+            for k in ("head_track", "tube", "head_tube"):
+                if k in npz.files:
+                    key = k
+                    break
+            if not key and npz.files:
+                key = npz.files[0]
             if not key:
                 _die(f"head_track npz {cand} has no arrays")
-            return _unpack_mask(npz[key], frames, h, w, f"{cand}[{key!r}]"), str(cand.name)
+            return _unpack_mask(npz[key], frames, h, w, f"{cand}[{key!r}]"), f"{cand.name}:{key}"
         if cand.suffix in (".mkv", ".mp4"):
             from _lib.frames import read_mask
 
@@ -266,23 +379,33 @@ def _load_window_matte(
                     return (arr.astype(np.float32) / 255.0) > MATTE_ACTIVE_THRESHOLD, None, f"region.npz:{key}"
                 return arr > MATTE_ACTIVE_THRESHOLD, None, f"region.npz:{key}"
 
-    files_dict = run_entry.get("files") if isinstance(run_entry.get("files"), dict) else {}
+    run_name = str(run_entry.get("name") or "")
+    run_dir = (capture_dir / "runs" / run_name) if run_name else capture_dir
+    files_field = run_entry.get("files")
     candidates: list[Path] = []
+    if isinstance(files_field, dict):
+        for k in ("window_region", "matte", "window_matte"):
+            val = files_field.get(k)
+            if isinstance(val, str):
+                candidates.append(Path(val) if Path(val).is_absolute() else (capture_dir / val))
+    elif isinstance(files_field, list):
+        for item in files_field:
+            if isinstance(item, str):
+                for base in (run_dir / "predicted", run_dir, capture_dir):
+                    candidates.append(base / item)
+
     for k in ("window_region", "matte", "window_matte"):
-        val = files_dict.get(k) if isinstance(files_dict, dict) else None
-        if isinstance(val, str):
-            candidates.append(Path(val) if Path(val).is_absolute() else (capture_dir / val))
         val_top = run_entry.get(k)
         if isinstance(val_top, str):
             candidates.append(Path(val_top) if Path(val_top).is_absolute() else (capture_dir / val_top))
 
-    run_name = str(run_entry.get("name") or "")
-    if run_name:
-        run_dir = capture_dir / "runs" / run_name
-        if run_dir.is_dir():
-            candidates.extend(sorted(run_dir.glob("*_window_*_region.npz")))
+    if run_dir.is_dir():
+        candidates.extend(sorted(run_dir.glob("*_window_*_region.npz")))
+        if (run_dir / "predicted").is_dir():
+            candidates.extend(sorted((run_dir / "predicted").glob("*_window_*_region.npz")))
     candidates.extend(sorted(capture_dir.glob("*_window_*_region.npz")))
 
+    first_meta_obj: dict[str, Any] | None = None
     for cand in candidates:
         if not cand.is_file():
             continue
@@ -295,6 +418,8 @@ def _load_window_matte(
                 parsed = json.loads(meta_str)
                 if isinstance(parsed, dict):
                     meta_obj = parsed
+                    if first_meta_obj is None:
+                        first_meta_obj = parsed
             except Exception:
                 meta_obj = None
         for key in ("matte", "mask", "carried"):
@@ -306,7 +431,7 @@ def _load_window_matte(
                     else:
                         mask = _unpack_mask(arr, frames, h, w, f"{cand}[{key!r}]")
                     return mask, meta_obj, str(cand.name)
-    return None, None, None
+    return None, first_meta_obj, None
 
 
 def _discover_reference_json(
@@ -343,6 +468,31 @@ def _discover_reference_json(
                 if p.suffix in (".mp4", ".mkv", ".png"):
                     p = p.with_suffix(".json")
                 candidates.append(p)
+
+    # Check sibling <capture_dir>_job directory for job.render.json / job.plan.json / job.json
+    run_name = str(run_entry.get("name") or "")
+    sibling_job_dir = capture_dir.parent / f"{capture_dir.name}_job"
+    if sibling_job_dir.is_dir():
+        job_files = [
+            sibling_job_dir / "job.render.json",
+            sibling_job_dir / "job.plan.json",
+            sibling_job_dir / "job.json",
+        ]
+        if run_name:
+            job_files.extend(
+                [
+                    sibling_job_dir / f"{run_name}.render.json",
+                    sibling_job_dir / f"{run_name}.plan.json",
+                ]
+            )
+        for jf in job_files:
+            if jf.is_file():
+                try:
+                    jd = json.loads(jf.read_text(encoding="utf-8"))
+                    if isinstance(jd, dict):
+                        _collect_ref_candidates_from_job(jd, jf.parent, candidates)
+                except Exception:
+                    pass
 
     for cand in candidates:
         if cand.is_file():
@@ -413,10 +563,9 @@ def _resolve_mouth_modes(
     if not isinstance(drawn, dict):
         return {sf: "unknown" for sf in source_frames}
 
-    # Determine whether frame numbers inside `drawn` are 0-based window offsets or source frames.
-    # head_reference.py records `frames_left_bare` and `mouth.*` in 0-based clip indices when
-    # `first_frame` is set, or direct frame numbers when 0-based matches source_frames.
     first_frame = ref_record.get("first_frame")
+    if not isinstance(first_frame, int):
+        first_frame = ref_record.get("its_first_frame_is_source_frame")
     offset = int(first_frame) if isinstance(first_frame, int) else 0
 
     def _to_source_set(raw: Any) -> set[int]:
@@ -645,26 +794,13 @@ def compute_facts(
     if cell_px <= 0 or (h % cell_px != 0) or (w % cell_px != 0):
         _die(f"invalid cell_px {cell_px} for canvas size {w}x{h}")
 
-    sighting, run_entry, resolved_subject, resolved_run_name = _find_sighting_and_run(
+    sighting, run_entry, resolved_subject, resolved_run_name, all_sightings = _find_sighting_and_run(
         manifest, subject, run_name
     )
 
-    # Resolve classes__<by>.npz
-    classes_rel = manifest.get("classes_file")
-    if not isinstance(classes_rel, str):
-        part_by = str(manifest.get("part_by") or "sapiens2")
-        classes_rel = f"classes__{part_by}.npz"
-    classes_path = (
-        Path(classes_rel) if Path(classes_rel).is_absolute() else (capture_dir / classes_rel)
+    classes_arr = _load_classes_array(
+        capture_dir, manifest, sighting, resolved_subject, frames_total, h, w
     )
-    classes_npz = _load_npz(classes_path, "classes npz")
-    if "classes" not in classes_npz.files:
-        _die(f"classes npz ({classes_path}) is missing 'classes' array")
-    classes_arr = classes_npz["classes"]
-    if classes_arr.shape != (frames_total, h, w):
-        _die(
-            f"classes array shape {classes_arr.shape} != expected ({frames_total}, {h}, {w})"
-        )
     face_cls, hair_cls = _resolve_face_hair_classes(manifest)
 
     # Resolve subject masks__<by>.npz
@@ -709,7 +845,6 @@ def compute_facts(
         region_px_mask = _cells_up(region_cells_arr, cell_px, h, w, "region")
     elif raw_region.shape[1] == h and raw_region.shape[2] == w:
         region_px_mask = raw_region.astype(bool)
-        # Downsample pixel mask into cell grid (any active pixel in cell -> active cell)
         region_cells_arr = (
             region_px_mask.reshape(frames_total, h // cell_px, cell_px, w // cell_px, cell_px)
             .any(axis=(2, 4))
@@ -724,7 +859,6 @@ def compute_facts(
         run_npz["carried"], frames_total, h, w, f"{region_path}['carried']"
     )
 
-    # Optional separate parts_held array if present in subj_masks_npz; otherwise carried_mask is parts_held
     if "parts_held" in subj_masks_npz.files:
         parts_held_mask = _unpack_mask(
             subj_masks_npz["parts_held"],
@@ -746,11 +880,9 @@ def compute_facts(
 
     # Load other subjects' tracks and given_back__<other> arrays for other_overlap_px
     other_tracks: dict[str, np.ndarray] = {}
-    for s in manifest.get("sightings", []):
-        if not isinstance(s, dict):
-            continue
+    for s in all_sightings:
         lbl = str(s.get("label") or "")
-        if not lbl or lbl == resolved_subject:
+        if not lbl or lbl == resolved_subject or lbl in other_tracks:
             continue
         s_files = s.get("files") if isinstance(s.get("files"), dict) else {}
         s_masks_rel = s_files.get("masks") if isinstance(s_files, dict) else None
@@ -790,11 +922,24 @@ def compute_facts(
 
     # Resolve window frame bounds (0-based indices into capture arrays, and source_frame numbers)
     base_first_source = int(manifest.get("first_frame") or 0)
-    win_first = int(first_frame) if first_frame is not None else int(run_entry.get("first_frame") or base_first_source)
+    run_first_default = (
+        run_entry.get("first_frame")
+        if run_entry.get("first_frame") is not None
+        else run_entry.get("first_source_frame")
+    )
+    win_first = (
+        int(first_frame)
+        if first_frame is not None
+        else int(run_first_default if run_first_default is not None else base_first_source)
+    )
     win_last = (
         int(last_frame)
         if last_frame is not None
-        else int(run_entry.get("last_frame") if run_entry.get("last_frame") is not None else (base_first_source + frames_total - 1))
+        else int(
+            run_entry.get("last_frame")
+            if run_entry.get("last_frame") is not None
+            else (base_first_source + frames_total - 1)
+        )
     )
 
     idx_start = win_first - base_first_source
