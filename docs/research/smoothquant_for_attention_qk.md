@@ -1,5 +1,7 @@
 # SmoothQuant's trick, pointed at attention's q and k
 
+**In short (as of 2026-09-15).** The channel balance this repo applies to attention's q and k (`MiniMaxH3ChannelBalance`, sage's and Sol's `qk_balance`) is SmoothQuant's migration pointed at the attention product instead of a linear, computed per head per call without calibration, and gated to heads with loud channels. The rotation form of the same fix already exists in an attention kernel (kitchen's `int8_attention`), and it is both the stronger answer and prior art, so the novelty claim narrows to the migration form. Sol has run `quantizer="rotated"` by default since 2026-09-27 ([`../attention/quant_policy.md`](../attention/quant_policy.md)).
+
 last updated: 2026-09-15
 
 **This file owns the prior-art framing of the channel balance** (the

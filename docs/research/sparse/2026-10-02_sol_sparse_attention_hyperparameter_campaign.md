@@ -1,5 +1,7 @@
 # Sol-Attn Sparse Attention Hyperparameter Campaign & Empirical Optimization Report
 
+**In short (as of 2026-10-02).** An 11-test capture campaign on Sol's `dense_blocks`, `tau` and `start_percent` under the rotated quantizer. It found the old tail list (`45,48,49`) misplaced, since rotation tames those blocks, and routing error peaking in a middle ridge around blocks 38 to 42, and proposed shielding that ridge plus block 49. A re-read the same day ([`../../../bench/results/2026-10-02_sol_campaign_reanalysis.md`](../../../bench/results/2026-10-02_sol_campaign_reanalysis.md)) found most of the credited gains came from cells leaving the measured set, the options within prompt-and-seed noise on the cells every run measured, and one test a replicate of another. The shipped list is Option C, `38,39,40,41,42,49`, kept by the owner after a panel found the choice does not move the verdict, not Option B as section 1 says ([`../../attention/sol_dense_blocks.md`](../../attention/sol_dense_blocks.md)).
+
 **Date**: 2026-10-02  
 **Target Architecture**: MiniMax-H3 DiT (50 Blocks, 56 Heads, Head Dim 128, 119k Tokens, 1344x768 @ 345 Frames)  
 **Primary Artifacts**: `data/sparse/sol_analysis.duckdb`, `docs/research/sparse/sol_duckdb_dashboard.html`  

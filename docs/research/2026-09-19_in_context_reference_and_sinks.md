@@ -1,5 +1,7 @@
 # In-context conditioning, and an open sweep: what 2025-2026 work says about the reference rows, the prefix and the sinks
 
+**In short (as of 2026-09-19).** A read-only sweep of 2025-2026 work on in-context conditioning and attention sinks, read for H3. It separates the pack's sink, a kernel range that forces the whole conditioning prefix exact, from a measured attention sink, and ranks first a cheap CPU pass on existing captures: segment-resolved exact attention mass, to find whether H3 has sinks in the video span that Sol routes. It notes the prefix is exact only in routing and still INT8, that Sol already protects the reference copy on ref2va, and that caching reference K/V across steps is not a quick win. A later measurement of how much video attention goes to the reference images, by depth, is [`../../bench/results/2026-09-29_ref2va_reference_attention.md`](../../bench/results/2026-09-29_ref2va_reference_attention.md).
+
 > **Provenance, 2026-09-19.** Written by a research subagent of the `libguy`
 > session for the lead's wider sweep, read-only, no GPU. The commissioning
 > session re-checked its code pointers and found them correct: the forced-exact

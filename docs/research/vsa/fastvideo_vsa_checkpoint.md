@@ -1,5 +1,7 @@
 # The FastVideo VSA-distilled H3 checkpoint
 
+**In short (as of 2026-08-30, section 6 updated 2026-09-04).** Kijai's FastVideo VSA-distilled checkpoint is the pruned int8 fl2va base plus one trained gate linear per main block (`to_gate_compress`, quantized like its neighbors), with no metadata, provenance or schedule. Its trunk did not move by more than a precision round trip, and the AdaLN surface differs by a change of basis, the signature of a refit rather than training. Its four-step claim, at first only the filename's, has had a source since 2026-09-04: FastVideo's card calls it a four-step DMD2 distillation. Nothing was rendered or timed here. This pack's own VSA node was retired on 2026-09-29, and core's `BlockSparseAttention` in `vsa` mode is the route ([`../../state/roadmap.md`](../../state/roadmap.md), "Closed lanes").
+
 last updated: 2026-09-04 (section 6 only; every measurement below is from
 2026-08-30 and the artifact has not changed)
 

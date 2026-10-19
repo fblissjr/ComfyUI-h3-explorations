@@ -1,5 +1,7 @@
 # sglang's MiniMax-H3 pipeline, end to end
 
+**In short (as of 2026-10-02; first written 2026-08-25).** sglang's H3 pipeline stage by stage at source level: admission, the time grid and canvas, media ingestion, the Qwen3-VL encode, the VAE encodes, the packed sequence, the DiT forward, the denoise loop, decode and the runtime around it, with a numbered insights section. It compares nothing; [`sglang_comparison.md`](sglang_comparison.md) does. It was read at `6569125e3a`, re-anchored at `5ab97c4f44`, extended by a diff read to `320bdd1ee2` (section 14; the line citations in sections 1 to 12 were not re-anchored then) and by a read of the Sol-Attn backend at `593c7a900d`. Re-read sglang before quoting an older section.
+
 last updated: 2026-10-02 (dated notes on the ComfyUI app's H3 integrated mode, rollout, Spectrum and `convrot_int8`, from the eighth read); 2026-09-25 (one dated note on FastH3's registration)
 
 Written 2026-08-25 from a source read of `coderef/sglang` at commit

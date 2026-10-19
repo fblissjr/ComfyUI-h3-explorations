@@ -1,5 +1,7 @@
 # Routing distills within a clip: six routes, three of them H3's own
 
+**In short (as of 2026-09-26).** To put each distill where it is strong within one clip (PDD8 on detail and low motion, FlashGen and FastH3 on large motion, from one-seed looks), it lays out six routes, three of them possible only because of H3: per-row noise levels in one forward, separate video and audio masks, and PDD's step-indexed head bank. One premise was measured that day: a frozen row comes back exact. Its order puts the cheapest evidence first and holds that no route is worth building until the pattern holds on a second seed. Switching distills by step was built and rendered on 2026-09-27 as PDD8 with a FlashGen finish ([`../state/next_steps.md`](../state/next_steps.md), "Ideas saved for later"; `docs/state/decisions.md`, 2026-09-27).
+
 last updated: 2026-09-26
 
 > **Provenance.** Written by the VAE session on the owner's request ("flesh

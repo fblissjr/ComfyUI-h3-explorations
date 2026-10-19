@@ -1,5 +1,7 @@
 # sglang's H3 serving path against ours
 
+**In short (as of 2026-10-08, its ninth read; first read 2026-08-21).** What sglang's H3 serving path does that this install does not, read from source. Most of sglang's headline speed is four-card sequence parallelism, and its audited quality deployment requires compile, CUDA graphs, layerwise offload and quantization all off, so a knob sglang has is not on its own an argument. The gaps it records include an exact AdaLN cache, breakable CUDA graphs, an enforced fp32 island that our int8 load collapses, and refusals at admission, and it says where ours is the more conservative side (text-encoder precision). Its sections were read at different sglang commits and are dated; re-read an older one before quoting it as current. The catalogue of gaps is [`../h3/comfyui_vendor_gaps.md`](../h3/comfyui_vendor_gaps.md).
+
 last updated: 2026-10-08 (closing section "Ninth read" added: frozen audio
 and video inputs, with a dated note in the eighth read); 2026-10-02 (closing section "Eighth read" added, with dated
 notes on the seventh read's ComfyUI sentence, the `kitchen_int8` name and our

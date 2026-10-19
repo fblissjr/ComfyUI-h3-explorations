@@ -1,5 +1,7 @@
 # What transfers from LLM and ViT serving to H3, and what does not
 
+**In short (as of 2026-08-25, with a note of 2026-09-15).** A translation table of LLM and ViT serving techniques for H3, sorted by two facts: there is no decode loop (the encoder is one prefill), and every row is updated every block, so nothing in the DiT is prefix-shaped. Prefix caching, speculative decoding and paged KV therefore do not apply to the DiT, and sampling was 87% of one measured render. Two borrows were left open as experiments on captured activations, token merging on the video rows and W4 weights for the DiT; neither was scheduled. The 2026-09-15 note on TaoMate-H3, which changes the procedure to put a KV cache on H3, concerns a lane deprecated on 2026-09-27 ([`../state/roadmap.md`](../state/roadmap.md), "Closed lanes").
+
 Written 2026-08-25. A translation table for the owner's home field: each
 serving technique from the LLM and ViT world, the property of the model it
 needs in order to work, what it becomes for a bidirectional video DiT with a

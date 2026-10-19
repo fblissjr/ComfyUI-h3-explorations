@@ -39,6 +39,8 @@ artifacts:
 
 # Postmortem: 2026-10-11, one shot read as a result, six sessions
 
+**In short (as of 2026-10-11).** The way of working held: every render went through the builder with its own capture and two looks by a session that did not make the load, and every correction of substance came from a reader given the files and not the conclusions. The day's one good result, marks of the original's eye openings drawn on the body-model video lowering the second subject's lids on one shot, was read further than it went: told to the owner from a whole-shot average, written into the wiki within the hour, and carried to a second shot that changed several things at once, so its null there cannot be placed. The ideas that slipped were small arms that make a result readable, such as a second seed or a one-change repeat.
+
 > **Written with the session transcripts.** A session that took no part in the day (mrmuse) wrote this the same evening from the transcripts of the six sessions that worked the masked lane, the owner's saved answers on the local page, the day's commits, `docs/state/decisions.md`, the records under `bench/results/` and the H3 Open List. The evening's account by the session that held the build is `docs/state/handover.md`; this page checks it and does not build on it. Where this page and a transcript row disagree, the row is right: add a dated annotation under the finding and leave the finding as written.
 
 ## The short version

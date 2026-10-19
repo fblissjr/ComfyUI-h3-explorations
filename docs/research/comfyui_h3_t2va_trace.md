@@ -1,5 +1,7 @@
 # ComfyUI's H3 t2va pipeline, traced end to end
 
+**In short (as of 2026-08-29, ComfyUI at `e7051b03`).** What ComfyUI's own code does, call by call, for one 1344x768x345 t2va render, without and with the PDD8 LoRA, from loading four artifacts to writing samples; it compares nothing to another engine. Among its findings: the int8 convrot DiT is not dequantized at load and its error is all in two roundings, weight and activation; the text encoder is a physical 50-layer stack with no final norm, and its int8 path exists and is never taken; the PDD node's backbone goes through a dequantize, patch and requantize round trip. It is pinned to that checkout. Current behavior is on the [`../h3/`](../h3/index.md) pages, and since 2026-09-26 PDD's backbone is applied at the call rather than merged ([`../attention/quant_policy.md`](../attention/quant_policy.md)).
+
 Written 2026-08-29 against the ComfyUI checkout at `e7051b03`, the installed
 `comfy_kitchen` wheel, and the artifacts on this box. Five scoped readers took
 one stage each (the two VAEs; the Qwen3-VL encoder; the sampler and guider; the

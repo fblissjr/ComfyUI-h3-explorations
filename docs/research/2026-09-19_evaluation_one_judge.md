@@ -1,5 +1,7 @@
 # Evaluation for one judge and one GPU: accelerated video+audio
 
+**In short (as of 2026-09-19).** No paper validates an automatic metric against human judgment on acceleration artifacts, and in the regime that matters here, two clean clips close in quality, 2026 audits put automatic judges near chance, so a metric cannot stand in for the owner. It recommends logging a small set of cheap metrics beside every verdict so their agreement can be measured later, and two decoys: a clip against itself, and one arm at two seeds, the only one that measures how often this judge picks a winner between two takes. By its arithmetic, five scenes with one pair each pass a coin-flipping judge 3% to 12% of the time. Its stop rules are the ones the blind-panel path uses ([`../method/index.md`](../method/index.md)).
+
 > **Provenance, 2026-09-19.** Written by a research subagent of the `libguy`
 > session for the lead's wider sweep, read-only, no GPU; section 0 was written
 > first, at the lead's request, for the dense-against-default panel. The

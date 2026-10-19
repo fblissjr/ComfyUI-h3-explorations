@@ -1,5 +1,7 @@
 # The H3 DiT: five implementations of one model, compared
 
+**In short (as of 2026-08-29).** The H3 DiT compared across ComfyUI, diffusers, sglang, DiffSynth and vllm-omni. The release ships no DiT code, so every one is a reimplementation, and diffusers, which the release's manifest names, is the reference of record. All five agree on the invariant core, verified against the weights; the divergences that change the sample are the sampler (stochastic here, deterministic everywhere else), step-count semantics, how the audio stream is carried, and sequence padding. For this install: core's architecture constants are retyped rather than read from the release (correct today), no shipped graph runs CFG (correct for a guidance-distilled checkpoint), and nothing guards a checkpoint's qkv layout. Its section 10.5 claim about building a better quantized DiT was withdrawn on 2026-08-31, in place and in [`quant_levers.md`](quant_levers.md).
+
 last updated: 2026-08-29
 
 **What this file owns.** The *numerical* comparison of the MiniMax H3 DiT

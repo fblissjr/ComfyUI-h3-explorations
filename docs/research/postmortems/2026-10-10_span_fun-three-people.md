@@ -63,6 +63,8 @@ artifacts:
 
 # Postmortem: 2026-10-10, three people replaced in one clip, eight sessions
 
+**In short (as of 2026-10-10).** Eight sessions replacing three people in one clip, written from the transcripts by a session that took no part. The faults that cost renders were already known: a session, the owner or a tool's printed flag had said the right thing beforehand, and nothing made anyone act on it. When a render was wrong, the text the model was given was read last, four times, and every real catch came from a second reader on real files or a number written down first, never from a check. The video was not finished; the day left a job builder, a capture tool with a gate, a multi-subject tracker and a delivery assembler, to be judged by whether the next job builds on them.
+
 > **Written with the session transcripts.** A session that took no part in the day (mrscribe) wrote this the same evening from the transcripts of the eight sessions that worked the masked lane, the day's commits, `docs/state/decisions.md`, the records under `bench/results/` and the masking board. The lead session's own account is `docs/state/handover.md`; this page checks it and does not build on it. Where this page and a transcript row disagree, the row is right: add a dated annotation under the finding and leave the finding as written.
 
 ## The short version

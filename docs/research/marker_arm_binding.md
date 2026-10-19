@@ -1,5 +1,7 @@
 # Where each marker-corpus arm binds at render time
 
+**In short (as of 2026-08-25).** A design for where each marker-corpus arm attaches at render time: the two prompt-byte arms are graph-level and need no node; `legacy_bpe` is a fresh pre-fix tokenizer on a cloned CLIP; `mean_init_rows` is an offset-keyed patch on a cloned patcher. It recommends one bench-only node per transform, CLIP in and CLIP out, rather than an input on the shipped encoder loader, with a red control per arm. It was implemented as `marker_arms.py`; its node was retired on 2026-09-29 and the module remains the library the bench and the provenance stamp call (its docstring).
+
 last updated: 2026-08-25
 
 Design note, not an implementation. `bench/marker_corpus/compiled.json` declares

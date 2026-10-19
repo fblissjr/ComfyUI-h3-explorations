@@ -1,5 +1,7 @@
 # What happens to a LoRA when it is merged onto an int8 module
 
+**In short (as of 2026-08-31, with a section read on 2026-09-05).** A LoRA merged by the PDD node goes through dequantize, add and requantize on the int8 backbone (the output heads do not), and every module takes the stochastic-rounding branch, so round-to-nearest is unreachable on the shipped path. Every figure is a weight statistic on stored weights, not a quality finding: which PDD file or which base does not change the merge cost; which node does. Since 2026-09-26 every LoRA on an int8 checkpoint is applied at the call instead of merged ([`../attention/quant_policy.md`](../attention/quant_policy.md), "LoRAs on the int8 checkpoints").
+
 **A data and provenance record, not a lever inventory.** What was traced in
 code, what was executed, what the numbers are, and what is not established.
 [`quant_levers.md`](quant_levers.md) owns what to DO about any of it and is the

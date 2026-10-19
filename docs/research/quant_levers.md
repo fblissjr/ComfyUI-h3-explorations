@@ -1,5 +1,7 @@
 # What can be changed about H3's quantisation, and what each lever needs
 
+**In short (as of 2026-08-31).** The inventory of quantization levers for H3's DiT, every one measured on the weight side only (`int8_convrot` is W8A8 and the activation rounding was never measured). The deterministic merge and `full_precision_matrix_mult` were withdrawn the same day; the shipped merge costs about +40% weight error, not the +11.6% of a round-to-nearest reproduction; and an offline bake from the release was named the lever to build next. Since then the bake was built for PDD8 ([`pdd/2026-09-05_bake_plan.md`](pdd/2026-09-05_bake_plan.md)), every LoRA on an int8 checkpoint is applied at the call (2026-09-26), and open experiment #23, the activation side, was closed on 2026-09-29 ([`../state/roadmap.md`](../state/roadmap.md), "Closed lanes"); the current policy is [`../attention/quant_policy.md`](../attention/quant_policy.md).
+
 **Start here before proposing a quantisation change.** This file owns the
 lever inventory: what is available, what it costs, what it needs, and which
 ones are closed. Nothing owned this before 2026-08-31, which is how

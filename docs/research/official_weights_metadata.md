@@ -1,5 +1,7 @@
 # What the official release ships, against what ComfyUI does with it
 
+**In short (as of 2026-08-25; the release read on 2026-08-21).** The release's metadata against what ComfyUI hard-codes. The worst finding: seven H3-specific special tokens (`<d>`, `</d>` and five others) were unreachable in ComfyUI, and BPE fused their fragments with the text on either side; that is now fixed natively (PR 15808, installed `924743af`) and the local fallback is retired. The native processor's pixel bounds are Qwen2-VL's defaults, and the partition split the release declares is real in the weights. The current state of every gap is [`../h3/comfyui_vendor_gaps.md`](../h3/comfyui_vendor_gaps.md).
+
 last updated: 2026-08-25
 
 The MiniMax H3 release as published, read from the repo on the `Storage` side

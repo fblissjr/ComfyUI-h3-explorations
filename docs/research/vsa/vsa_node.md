@@ -1,5 +1,7 @@
 # Running VSA on H3: what the node does and what still blocks it
 
+**In short (as of 2026-09-27).** `MiniMaxH3VSAAttention` ran FastVideo's VSA on H3: one render on 2026-08-30 showed that it runs, consumes the checkpoint's gate and reproduces itself at a fixed seed, and established nothing about quality. VSA is a fourth regime that competes with PDD, not a knob on Sol. The node was parked on 2026-09-27 because it mutated the shared model outside `ModelPatcher`, with core's `BlockSparseAttention` in `vsa` mode as the route, and it was retired on 2026-09-29 ([`../../state/roadmap.md`](../../state/roadmap.md), "Closed lanes"); `vsa_attention.py` is in git history.
+
 last updated: 2026-09-27 (core's gate support and the park only)
 
 **This file owns `MiniMaxH3VSAAttention` -- what it does, what it refuses, and

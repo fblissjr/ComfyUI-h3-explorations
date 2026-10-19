@@ -1,10 +1,8 @@
 # Phrases for SAM 3.1: what to give it and how specific to be
 
+**In short (as of 2026-10-07).** Give SAM 3.1 a short plain noun with at most one or two plain modifiers (`person`, `red apple`, `person torso`), not a sentence about which one you mean, and choose the one you want afterwards with a box, a click or your own rule. Meta's pipeline multiplies each detection's score by a presence score, which tends to reject longer describing phrases, and ComfyUI's detect node ignores presence, so it can hand back detections Meta's rule would drop. For the lane: keep `person` (the `:N` count syntax is ComfyUI's own, the model never reads it, and it is harmless when the count is 2 or more or absent) until the small test at the end shows that a described person is selected more reliably than the pick rule and survives a one-level change of the input. Reading only; that test was not run.
+
 Written by the helper session mryolk on 2026-10-07 for the owner's question ("the eval datasets from meta on hf and tests in their repo and examples should help us with this no? the prompts to use and how specific or generic to be?"); placed by mregg, who spot-checked the code citations. Reading only, nothing run. Paths under `coderef/` are sister checkouts that are not part of this repository. Tags: [card] a dataset card or page; [code] file and line in this repository; [data] counted by me from a shipped file; [digest] a page read through a summarising fetch tool, so a quote is the digest's quote; [inferred] mine; [not found] where I looked is named.
-
-## So what
-
-Give SAM 3.1 a short plain noun with at most one or two plain modifiers (`person`, `red apple`, `person torso`), not a sentence about which one you mean, and choose the one you want afterwards with a box, a click, or your own rule. Meta's own pipeline multiplies each detection's score by a presence score, which tends to reject longer describing phrases outright, and ComfyUI's detect node ignores presence, so it can hand back detections that Meta's rule would drop. For our lane that says: keep `person` (the `:N` count syntax is ComfyUI's own, the model never reads it, and it is harmless as long as the count is 2 or more or absent) until the small test at the end shows that a described person is selected more reliably than the pick rule does and survives a one-level change of the input.
 
 ## What phrases the model was trained and evaluated on
 

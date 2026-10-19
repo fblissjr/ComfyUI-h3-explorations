@@ -1,5 +1,7 @@
 # A persistent conditioning cache: design note
 
+**In short (as of 2026-08-25).** A design for a persistent conditioning cache, never built. ComfyUI's own node cache already covers a same-session workflow in default mode; the case is only across server restarts and in bench mode (`--cache-none`), where a batch of K seeds by N arms pays K x N encodes instead of N, each costing tens of seconds. The whole design is the key: every input the encode depends on, with a key missing any field refusing rather than matching.
+
 Written 2026-08-25, in the reference-nodes lane, at the v2 lead's request.
 **Design only; nothing here is built.** It argues for one thing, the
 cross-session case, and says where ComfyUI already covers the rest.

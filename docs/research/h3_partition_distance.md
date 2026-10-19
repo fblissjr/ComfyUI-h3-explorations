@@ -1,5 +1,7 @@
 # How far apart fl2va and ref2va actually are
 
+**In short (as of 2026-08-29).** Measured on the unquantized tensors: the fl2va and ref2va base checkpoints are nearly identical (output heads within 8%, identical key sets, which is why a wrong-partition load is silent), while their PDD LoRAs are unrelated (`lora_B` and the AdaLN delta near cosine zero, converging only toward the last blocks). So the PDD node's partition guard, which fingerprints the component that differs least, is sound, but its distance is not the size of the error it prevents, and merging the two LoRAs does not work. Nothing was rendered.
+
 last updated: 2026-08-29
 
 [`official_weights_metadata.md`](official_weights_metadata.md) records that the

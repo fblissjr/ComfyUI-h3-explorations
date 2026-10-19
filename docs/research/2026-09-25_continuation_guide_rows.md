@@ -1,5 +1,7 @@
 # Continuing a clip by guide rows: six designs and one to build
 
+**In short (as of 2026-09-25).** Continuing a clip by feeding the previous window's tail as clean guide rows ahead of a fresh target (arm B, as vllm-omni shipped) needs no change to ComfyUI core, and under a hard audio freeze it differs from the pack's frozen-prefix continuation (arm A) in video only, and only a little. A global temporal offset needs no core change either and buys little, since attention sees only position differences. The pack vllm-omni credits carries a code comment arguing against B. This is evidence for a decision, not a build: B is not built, and the one matched pair that would decide it is open experiment #32, with the continuation lane paused ([`../state/open_experiments.md`](../state/open_experiments.md)).
+
 last updated: 2026-09-25
 
 > **Provenance, 2026-09-25.** A research subagent (Claude) read the sources.

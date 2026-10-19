@@ -1,5 +1,7 @@
 # Where approximation is tolerated: steps, blocks and heads chosen by profiling (2026)
 
+**In short (as of 2026-09-19).** Almost every dense warm-up in the sparse-attention literature, Sol-Attn's 20% included, is a borrowed convention rather than a measurement, and removing it can change which sample you get without changing how good it is, so only a blind judgment across scenes, not distance to a dense render, can settle `start_percent`. Late steps are where attention sparsity costs least, per-head patterns transfer across prompts but heads interact, and human studies are nearly absent. Since then a blind panel found no difference between 0.2 and 0.0 on the PDD8-to-FlashGen finish, and PDD graphs run at 0.0 since 2026-10-01 ([`../../bench/results/2026-10-01_start_percent_panel.md`](../../bench/results/2026-10-01_start_percent_panel.md)); base and FlashGen graphs keep 0.2 (`workflows/h3_config.py::SOL_RECOMMENDED_CUDA`).
+
 > **Provenance, 2026-09-19.** Written by a research subagent of the `libguy`
 > session for the lead's wider sweep, read-only, no GPU. The commissioning
 > session re-checked its code pointers and found them correct: the final-layer

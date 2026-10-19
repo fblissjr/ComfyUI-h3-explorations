@@ -1,5 +1,7 @@
 # Cheap scorers that choose what attention computes exactly, finer than a 64-token block (2026 sweep)
 
+**In short (as of 2026-09-19).** The token-level stage the team asked for already exists on this box and is off: kitchen's `token_aug`, now `MiniMaxH3Sol`'s `token_routing`, `off` by default. Its geometry is the least favored one (coarse on the query side, exact on the key side), while the local evidence, the block-grouping tool and sglang's sub-block notes, points at refining the query side with a max-like key summary. By arithmetic from shapes, a symmetric 16x16 sub-block scorer would cost about a fifth of what `token_aug` costs. Nothing was measured; it proposes a two-stage design and one offline test on captured activations (sections 5 and 6).
+
 > **Provenance, 2026-09-19.** Written by a research subagent of the `libguy`
 > session for the lead's wider sweep, read-only, no GPU. The commissioning
 > session re-checked its load-bearing pointers and found them correct: the

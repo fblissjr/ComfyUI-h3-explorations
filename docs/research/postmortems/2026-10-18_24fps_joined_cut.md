@@ -1,19 +1,11 @@
 # 2026-10-18: the joined cut was 23.976 fps, and H3 needs 24 fps end to end
 
+**In short (as of 2026-10-18).** The original `fun.mp4` is 23.976 fps (`24000/1001`), and every job renders from a 24 fps every-frame copy, but `bench/rebuild_delivery.py` took the original's name before the copy's, so the joined cut, and every stack and review clip made from it, was written at 23.976. The job loader turns a frame number into a time assuming 24 fps, so a second pass against the cut (`lead_fp_0751`, 751-785) loaded frames 750-784 while its masks and reference were on 751-785, and each regenerated square carried the previous frame's background. The owner's rule from that night: 24 fps from input to output, and a cut is handled and loaded exactly like the real input. The fix (C152) landed the same night (`docs/state/decisions.md`, 2026-10-18).
+
 A dated record. Written by mrted (the Claude lead) at the owner's ask ("make sure this gets documented now too
 exactly with what both you and gemson said verbatim"), about 00:10Z on 2026-10-19. What each lead said is quoted
 whole, in the order it was said; the only edits are absolute file links made relative, a bare file name given its folder where it cites a line,
 and one symbol replaced by the word "(wrong)". The fix is being built the same night (C152, C153); this record says what was found, not what landed.
-
-## In one paragraph
-
-The original `fun.mp4` is 23.976 fps (`24000/1001`). Every job renders from a 24 fps every-frame copy, and every
-kept piece did. But `bench/rebuild_delivery.py` picked the original's name before the 24 fps copy's when it built the
-joined cut, so the cut, and every stack and review clip made from it, was written at 23.976. The job loader forces no
-rate and turns a frame number into a time assuming 24 fps, so a second pass rendered against the cut (`lead_fp_0751`,
-751-785) loaded frames 750-784 of the cut while its masks and reference were on 751-785: each regenerated square
-carried the previous frame's background, pasted beside kept squares of the current frame. The owner's rule, the same
-night: H3 needs 24 fps from input to output, and a cut is handled and loaded exactly the way the real input is.
 
 ## mrgemson (the Gemini lead), G29, the first catch (internal/gemini/2026-10-18_gemini_to_claude.md)
 

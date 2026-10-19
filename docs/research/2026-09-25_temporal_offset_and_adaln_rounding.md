@@ -1,5 +1,7 @@
 # A global temporal offset, and AdaLN rounding on the INT8 DiT
 
+**In short (as of 2026-09-25).** A global temporal offset does nothing for a seam, because H3 has no absolute clock and media-to-media distances do not change, and it weakens the prompt more each window: on two t2va captures, video attention to text fell by up to about a fifth at the third window's offset. Verdict: do not adopt it for continuation; it is worth a render only as a deliberate knob that weakens the prompt or the reference. Core's bf16 AdaLN rounding on the INT8 checkpoints is real and small (about 5% added to per-GEMM error at the median) and not worth fixing now. It also corrected the continuation note: LongMedia's offset leaves a keyframe's audio and a reference video's frames unshifted (`docs/state/decisions.md`, 2026-09-25).
+
 last updated: 2026-09-25
 
 > **Provenance, 2026-09-25.** A research subagent (Claude) read core, sglang

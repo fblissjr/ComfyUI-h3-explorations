@@ -1,5 +1,7 @@
 # DeepSeek V4.1's hierarchical sparse indexer and layer modes, read for MiniMax H3
 
+**In short (as of 2026-09-19).** DeepSeek V4.1's token-level sparse selection is cheap because of MQA (one KV head serves every query head), and H3 is MHA with 56 independent heads, so on H3 the saving has to come from the query side, which is what kitchen's `token_aug` already does. The training-free form of the idea is HISA (pool blocks, then select tokens inside the kept blocks), which maps onto Sol plus a restricted token pass; of V4.1's three layer modes only index reuse has an H3 analogue, across denoising steps rather than blocks. Nothing was measured. Its single-pass cost figure for `token_aug` is superseded by section 5 of [`2026-09-19_token_selection_scorers.md`](2026-09-19_token_selection_scorers.md).
+
 > **Provenance, 2026-09-19.** Written by a research subagent of the `libguy`
 > session on the lead's brief (item 1 of the second brief), read-only, no GPU.
 > The commissioning session re-checked six of its pointers against the

@@ -1,5 +1,7 @@
 # Postmortem, 2026-10-15: the kitchen came apart, and the whole shot came back
 
+**In short (as of 2026-10-15).** The kitchen shot (604-1009) came apart because a lead's narrowing of the owner's one-shot rule let it be made of separate loads, and the second subject jumped identity where two fresh renders met; the rule now stands as the owner gave it, one load per subject over the whole shot. The hall shot was made whole and kept, and its recipe is in [`../../masked_v2v/running_a_job.md`](../../masked_v2v/running_a_job.md). The other faults were texts written as descriptions of the frozen picture, a reviewer's claim carried to the owner as a decision, and a two-subject pass that blended the faces, a lane since closed. The kitchen was later fixed by one whole-shot load ([`2026-10-18_mom_kitchen_flicker.md`](2026-10-18_mom_kitchen_flicker.md)).
+
 Written by the lead of the day (mrtall) at the close, from `docs/state/decisions.md` (2026-10-15), the three seats'
 close-out notes (`internal/claude/2026-10-15_{mrarc,mrlol,mrvid}_closeout.md`), the outside reviewer's files
 (`internal/gemini/2026-10-15_*`) and the lead's own session. What a postmortem here is for: who got what wrong and why,

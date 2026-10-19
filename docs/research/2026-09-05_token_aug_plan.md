@@ -1,5 +1,7 @@
 # Plan: token routing (`token_aug`) from graded lever to shippable per-block policy
 
+**In short (as of 2026-09-08, its last stage update).** A six-stage plan to take token routing from a graded lever to a per-block default, or to a closed lane with a record. Stages 1 to 3 were done on 2026-09-08: our `blk_cnt` work was rebased onto kitchen v0.2.33, where token routing had merged; the grade reproduced, with the finding that `token_aug` arms are nondeterministic run to run, so the bar became agreement within noise measured in the same session; and a per-block node knob was built, off by default. Stages 4 to 6 (the probe, a blind pair, ship or close) were not run. The knob is now `token_routing` on `MiniMaxH3Sol`, `off` in every shipped graph ([`../attention/sol_attn.md`](../attention/sol_attn.md)).
+
 last updated: 2026-09-05
 
 **This file owns the sequence for roadmap step 7 after the 2026-09-04 grade**,

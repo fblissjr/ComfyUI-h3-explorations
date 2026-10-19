@@ -1,5 +1,7 @@
 # End-to-End Guide: Sol-Attn Data Capture & Hyperparameter Optimization
 
+**In short (as of 2026-10-02, inferred: the guide carries no date, and it names Options A and B as the candidates, which places it before Option C was adopted that day).** A how-to for arming ComfyUI with Sol's probe, observer and capture instruments, rendering, ingesting the logs into a local DuckDB file, and reading per-block, per-head and per-segment error to choose `dense_blocks`, `tau` and the other settings. It records no result. Its section 7 rules name settings since replaced: the shipped `dense_blocks` is Option C and `sink_conditioning` defaults to `exact_kv_and_all_rows` (`workflows/h3_config.py::SOL_DENSE_TAIL`, `SOL_SINK_DEFAULT`; [`../../attention/sol_dense_blocks.md`](../../attention/sol_dense_blocks.md)). The instruments are documented on [`../../attention/sol_instruments.md`](../../attention/sol_instruments.md).
+
 A comprehensive guide for instrumenting, capturing, and analyzing **MiniMax H3 Sparse Attention** (`MiniMaxH3Sol`) telemetry. This pipeline enables data-driven optimization of every hyperparameter in the [`MiniMaxH3Sol`](../../../sol_attn_h3.py) node—including `tau`, `quantizer`, `dense_blocks`, `sink_conditioning`, `token_routing`, and `start_percent`—using local, untracked DuckDB analytics and interactive visual dashboards.
 
 ---

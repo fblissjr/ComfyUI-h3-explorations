@@ -1,5 +1,7 @@
 # Reference node redesign: fold the fit, and move the ceiling to the conditioner
 
+**In short (as of 2026-08-24).** Implemented: one image reference went from four nodes to three by folding `MiniMaxH3ReferenceFit` into the append, and the Qwen still-image ceiling moved to the conditioner as `image_policy` (`comfy`, `release`, `encoder`), where the loaded CLIP is in scope. Under the encoder's own bounds a 3648x2048 reference reached it at 704x384. The default stayed `comfy`, core's behavior, pending a measurement. The fit node was retired on 2026-09-29 (`docs/state/decisions.md`); the current reference path is [`../h3/references.md`](../h3/references.md).
+
 **Status:** Implemented
 **Date:** 2026-08-24
 **Scope, as committed:** `reference_geometry.py` (new),

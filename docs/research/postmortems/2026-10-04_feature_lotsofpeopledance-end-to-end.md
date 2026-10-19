@@ -121,6 +121,8 @@ artifacts:
 
 # Postmortem: the lotsofpeopledance masked render, end to end
 
+**In short (as of 2026-10-10).** The masked render that replaced one man in a crowd with the owner's still was accepted on 2026-10-08 after a ten-minute one-window patch over render v2. Four hand-written per-window texts kept the subject on screen where the node's generic text lost him, though the transcript annotations narrow that to one window, one seed and one layout. The hardest problem was a fixed 64 px region swamping a small subject, and most faults (specks, a part mask on the wrong person, an oversized region) were visible in data before rendering; a preflight that reads that data was built two days later. The final render's record is thin: its graph and texts survive only embedded in the clips.
+
 > **Written without the session transcripts.** A cloud session wrote this on
 > 2026-10-10 from git history, `bench/results/`, the wiki and the masking
 > board; every request for the sessions' transcripts was refused by the

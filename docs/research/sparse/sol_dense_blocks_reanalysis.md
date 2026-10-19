@@ -1,5 +1,7 @@
 # Sol-Attn Dense Blocks Re-Analysis and 5-Test Experimental Plan
 
+**In short (as of 2026-10-02).** Under `quantizer="rotated"`, full 50-block telemetry on a Ref2VA capture showed the tail blocks 45 to 48 already accurate (block 48 about 7%) and routing error peaking across blocks 38 to 43 (about 19% to 26%), so the 2026-09-25 `dense_blocks="45,48,49"` protected the wrong blocks; block 49 stays dense because it feeds `final_layer.video_out`. It proposed candidate lists and a five-test plan. The same-day re-read corrected parts of it ([`../../../bench/results/2026-10-02_sol_campaign_reanalysis.md`](../../../bench/results/2026-10-02_sol_campaign_reanalysis.md)), and the shipped list became Option C, `38,39,40,41,42,49` ([`../../attention/sol_dense_blocks.md`](../../attention/sol_dense_blocks.md)).
+
 **Date**: 2026-10-02  
 **Context**: MiniMax H3 Attention Optimization, Rotated INT8 Quantization, and Sparse Routing Telemetry  
 **Primary Tools**: `sol_observe.py`, `bench/sol_duckdb_analyzer.py`, `docs/research/sparse/sol_duckdb_dashboard.html`, `preflight.py`  

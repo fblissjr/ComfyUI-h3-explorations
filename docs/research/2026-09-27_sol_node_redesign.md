@@ -1,5 +1,7 @@
 # The Sol node redesign: plan, reasons, and the tests that decide it
 
+**In short (as of 2026-09-27).** An audit of `MiniMaxH3SolAttn` found knobs that did nothing, two that overlapped, a default that disagreed with the shipped graphs, fragile plumbing (installed once, patching core process-wide) and one kernel bug. The owner approved a new node, `MiniMaxH3Sol`, and the deletion of the old one with every piece of code only it reached; that shipped, and Morton, top-k and `tau_profile` went with it (`docs/state/decisions.md`, 2026-09-27; [`../attention/sol_attn.md`](../attention/sol_attn.md)). The plan's reading that `qk_balance` was inert was wrong (test 1), and the default quantizer became `rotated` after test 2.
+
 Opened 2026-09-27. The owner approved the approach the same day ("I'm good
 with this approach"). Nothing here is built yet.
 

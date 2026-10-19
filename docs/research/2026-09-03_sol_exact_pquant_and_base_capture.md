@@ -1,5 +1,7 @@
 # Sol exact-P-quantization and the Base16 capture
 
+**In short (as of 2026-09-03).** Kijai's `sol_exact_pquant` branch (comfy-kitchen PR 150) carries the same per-key-block probability quantization the installed `0.2.31+sol.d25f2e8` wheel already ran, so it changes nothing for H3's BF16 Sol numerics, and the advice was to offer our `blk_cnt` count output upstream rather than swap wheels. A no-Sol Base16 capture was proposed as a dense-trajectory control for kernel replays, and it was run and graded the same day (the addendum). Neither that capture nor the route counts can choose `dense_blocks`. The `blk_cnt` work was later rebased onto kitchen v0.2.33 ([`2026-09-05_token_aug_plan.md`](2026-09-05_token_aug_plan.md), stage 1), and `dense_blocks` was chosen on rotated-INT8 telemetry in October ([`../attention/sol_dense_blocks.md`](../attention/sol_dense_blocks.md)).
+
 **Dated research record, 2026-09-03.** This records an audit and the resulting
 experiment design. It is not the authority for shipped Sol settings;
 [`docs/attention/sol_attn.md`](../attention/sol_attn.md) owns those. No workflow, default, model,

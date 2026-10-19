@@ -1,5 +1,7 @@
 # Step caching for H3, re-examined
 
+**In short (as of 2026-09-25, with a note of 2026-10-02).** Step caching, parked on 2026-08-20, is worth reopening only for the 16-step base graphs and only with one method: under every upstream's own warmup and cooldown rules nothing can be skipped at 4 or 6 steps and at most 2 or 3 at 8. That method is DPCache, which LightX2V ships for H3 together with Sol, and it pays only at the base step count. The adopt-upstream rule does not fire, since sglang and vllm-omni both default H3 to no cache. No DPCache-style node was built and step caching stays declined ([`../h3/comfyui_vendor_gaps.md`](../h3/comfyui_vendor_gaps.md)); the 2026-10-02 note records that sglang now ships Spectrum for H3, opt-in.
+
 last updated: 2026-10-02 (a dated note on Spectrum, from sglang's eighth read); 2026-09-25
 
 > **Provenance, 2026-09-25.** A research subagent (Claude) read the upstream

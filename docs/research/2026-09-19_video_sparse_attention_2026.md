@@ -1,5 +1,7 @@
 # Four training-free video sparse-attention methods of 2026, read for MiniMax H3
 
+**In short (as of 2026-09-19).** Of four training-free video sparse-attention methods of 2026 (LoSA, SVOO, HEART, DynSparse), it recommends testing LoSA first, not for speed, since Sol's routing and pooled tail already cost little, but as a question about the selection rule: whether a mask built from exact masses at the last dense step keeps more mass at later steps than Sol's per-step pooled proxy at equal density. The same offline pass would give HEART's drift correlation and SVOO's cross-scene profile; DynSparse has the least to offer. The test is stated in advance (section 1(h)) and needs the GPU; nothing was run for this record.
+
 > **Provenance, 2026-09-19.** Written by a research subagent of the `libguy`
 > session on the lead's brief (item 3 of the second brief), read-only, no GPU.
 > The commissioning session re-checked its repo pointers and found them

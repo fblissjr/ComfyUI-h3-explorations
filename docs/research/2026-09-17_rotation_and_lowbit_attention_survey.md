@@ -1,5 +1,7 @@
 # Rotation and low-bit attention for MiniMax H3 on Ada sm89 — research survey
 
+**In short (as of 2026-09-17).** A read-only survey (no GPU) of rotation and low-bit attention for H3 on the 4090. Its ranked advice: try new rotation forms, kitchen's own sign-word Hadamard first, in the existing PyTorch rotation spike before writing any kernel; stop looking for a mergeable zero-cost rotation, since post-RoPE the one foldable rotation has nothing left to redistribute at block 49; and consider mixed precision by block, chosen from `k_norm.weight`. It also corrected four premises of its brief, among them that sage's quantizer is Triton, not CUDA. Rotation has since become Sol's default quantizer, `rotated`, since 2026-09-27 ([`../attention/quant_policy.md`](../attention/quant_policy.md)), and its D.9 credit of a mechanism to DFSAttn was corrected on 2026-09-19 (`docs/state/decisions.md`).
+
 > **Provenance, 2026-09-17.** Written by a research subagent (Claude Opus) on
 > the owner's request, read-only, no GPU, from the two `coderef/` trees and
 > the web. Reviewed by the session that commissioned it, which re-checked two

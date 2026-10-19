@@ -1,5 +1,7 @@
 # Sol-Attn token routing (`token_aug`) graded on the Base16 capture
 
+**In short (as of 2026-09-04).** On the Base16 capture, kijai's token routing (`token_aug`, comfy-kitchen PR 156) lowered Sol's error against exact attention on four of the five captured blocks at every step and raised it on block 49 at every step, and its budget knob is nearly inert. So it became a per-block policy candidate, not a global switch. It now ships as the Sol node's `token_routing` input, `off` by default, and no render with it on has been judged ([`../attention/sol_attn.md`](../attention/sol_attn.md), the knob table); the plan that followed is [`2026-09-05_token_aug_plan.md`](2026-09-05_token_aug_plan.md).
+
 last updated: 2026-09-04
 
 **This file owns what kijai's token-routing change to Sol-Attn does on this
