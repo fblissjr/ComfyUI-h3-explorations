@@ -283,7 +283,20 @@ def working_copy(name: str, world) -> tuple[str, Path, str]:
     return folder.name, clip_folder.find_source(present["name"], world.inputs), said
 
 
-def held_as_the_builder_holds(job: dict, day: str, world) -> tuple[Path, Path]:
+def _check_analysed(job: dict, world, default_source: Path | None = None) -> None:
+    import clip_folder
+    import masked_job
+    name = Path(job["source"]).name
+    try:
+        clip_folder.folder_of_file(name, world.data)
+    except clip_folder.Refused:
+        if default_source is not None and Path(job["source"]).is_file():
+            masked_job.analysed({**job, "source": str(default_source)}, world.data)
+            return
+    masked_job.analysed(job, world.data)
+
+
+def held_as_the_builder_holds(job: dict, day: str, world, default_source: Path | None = None) -> tuple[Path, Path]:
     """A preview's job held to every refusal of the builder that writes nothing, before anything is written or
     queued: the job block, the video's analysis folder and the file's identity, and the two folders the build
     makes, which must not exist (`bench/masked_job.py::build`: "A run never reuses a name"). Returns those two
@@ -292,7 +305,7 @@ def held_as_the_builder_holds(job: dict, day: str, world) -> tuple[Path, Path]:
     import masked_job_graph
     try:
         masked_job_graph.check_job(job)
-        masked_job.analysed(job, world.data)
+        _check_analysed(job, world, default_source=default_source)
     except (ValueError, masked_job.Refused) as e:
         raise Refused(str(e)) from None
     folder, saves_to = masked_job.job_folder(job, day, world.data), masked_job.output_folder(job, world.output)
@@ -302,7 +315,7 @@ def held_as_the_builder_holds(job: dict, day: str, world) -> tuple[Path, Path]:
     return folder, saves_to
 
 
-def load_held_as_the_builder_holds(given: dict, world) -> None:
+def load_held_as_the_builder_holds(given: dict, world, default_source: Path | None = None) -> None:
     """A load's job file held, before it is written, to every refusal of the builder that needs neither the load's
     capture nor its text: the job block, the video's analysis folder and the file's identity, each load's keys and
     settings (`masked_job_graph.check_load`, with the planner's windows), the shortest load, and `left_out`. A dry
@@ -313,7 +326,7 @@ def load_held_as_the_builder_holds(given: dict, world) -> None:
     try:
         job = given["job"]
         masked_job_graph.check_job(job)
-        masked_job.analysed(job, world.data)
+        _check_analysed(job, world, default_source=default_source)
         _, least = masked_job.shortest_load()
         for one in masked_job.loads_of(given):
             if one["frames"] < least:
@@ -2995,12 +3008,116 @@ def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: di
     return [{"what": a, "carries": b, "from": c} for a, b, c in lines]
 
 
+def _raw_source_names_and_paths(shots: dict, plan_file: str, default_source: Path, world) -> tuple[set[str], set[Path]]:
+    """Return the file names and resolved paths that identify the raw unswapped source video."""
+    plan_dir = Path(plan_file).resolve().parent
+    raw_names: set[str] = {default_source.name, "source.mp4"}
+    raw_paths: set[Path] = {default_source.resolve(), (plan_dir / "source.mp4").resolve()}
+    for k in ("source", "video", "copy"):
+        val = shots.get(k)
+        if val:
+            raw_names.add(Path(val).name)
+            for cand in (Path(val), plan_dir / val, world.inputs / Path(val).name):
+                try:
+                    raw_paths.add(cand.resolve())
+                except OSError:
+                    pass
+    return raw_names, raw_paths
+
+
+def check_pass2_source(
+    shots: dict,
+    plan_file: str,
+    video: str,
+    world,
+    first: int,
+    last: int,
+    other_subjects: list[str],
+    given_source: str,
+    default_source: Path,
+    allow_raw_source: str | None = None,
+) -> str:
+    """Refuse segmenting or rendering from the raw unswapped source video when another subject on `[first, last]`
+    is already laid in `laid.jsonl` (unless `--allow-raw-source WHY` is given)."""
+    if allow_raw_source is not None and not " ".join(str(allow_raw_source).split()):
+        raise Refused("--allow-raw-source takes the reason in words")
+    plan_dir = Path(plan_file).resolve().parent
+    laid_path = next(
+        (p for p in (plan_dir / "laid.jsonl", world.data / video / "laid.jsonl") if p.is_file()),
+        None,
+    )
+    if laid_path is None or not other_subjects:
+        return (
+            f" RAW SOURCE ALLOWED ON PASS 2 ({' '.join(str(allow_raw_source).split())})."
+            if allow_raw_source
+            else ""
+        )
+    other_set = set(other_subjects)
+    laid_hits: list[dict] = []
+    for line in laid_path.read_text().splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except Exception:
+            continue
+        sub = row.get("subject")
+        if sub not in other_set:
+            continue
+        rf, rl = int(row.get("first", -1)), int(row.get("last", -2))
+        row_spans = row.get("frames") or [[rf, rl]]
+        if (rf <= last and rl >= first) and any(int(u) <= last and int(v) >= first for u, v in row_spans):
+            laid_hits.append(row)
+    if not laid_hits:
+        return (
+            f" RAW SOURCE ALLOWED ON PASS 2 ({' '.join(str(allow_raw_source).split())})."
+            if allow_raw_source
+            else ""
+        )
+    given_p = Path(given_source)
+    try:
+        given_res = given_p.resolve()
+    except OSError:
+        given_res = given_p
+    raw_names, raw_paths = _raw_source_names_and_paths(shots, plan_file, default_source, world)
+    is_raw = given_p.name in raw_names or given_res in raw_paths
+    if is_raw and not allow_raw_source:
+        laid_said = ", ".join(
+            f"{r['subject']} ({r.get('load', '?')} on {r.get('first')}-{r.get('last')})"
+            for r in laid_hits
+        )
+        raise Refused(
+            f"on {first}-{last}, {laid_said} is already laid in {laid_path}: "
+            f"Pass 2 must segment and render from the post-Pass-1 video containing Pass 1's output, "
+            f"not the raw unswapped source video ({given_source}); pass the post-Pass-1 video via --source "
+            f"(or --allow-raw-source \"<why>\" if raw source is intentional)"
+        )
+    if is_raw and allow_raw_source:
+        return f" RAW SOURCE ALLOWED ON PASS 2 ({' '.join(str(allow_raw_source).split())})."
+    return ""
+
+
 # ---------------------------------------------------------------- the steps
 
 def step_preview(a, world) -> None:
+    src_arg = getattr(a, "source", None)
+    if not src_arg or not str(src_arg).strip():
+        raise Refused(
+            "preview requires --source <video> explicitly (never defaults to shots.json's raw source); "
+            "on a multi-subject shot where an earlier subject is already laid, pass the post-Pass-1 video"
+        )
+    if not Path(src_arg).is_file():
+        raise Refused(f"--source {src_arg}: no such file")
     shots, plan = _load(a.shots, a.plan)
     shot = shot_of(shots, a.shot)
-    video, source, earlier = working_copy(shots["copy"], world)
+    video, default_source, earlier = working_copy(shots["copy"], world)
+    raw_names, _ = _raw_source_names_and_paths(shots, a.plan, default_source, world)
+    src_p = Path(src_arg)
+    if src_p.name not in raw_names:
+        source = src_p.resolve()
+        earlier = ""
+    else:
+        source = default_source
     cast = None
     if a.cast:
         if not Path(a.cast).is_file():
@@ -3018,6 +3135,19 @@ def step_preview(a, world) -> None:
         if not label.strip() or not why.strip():
             raise Refused(f"--ask {text!r} is not `SUBJECT:why`")
         ask[label.strip()] = " ".join(why.split())
+    present_on_shot = [k for k in shots["subjects"] if (shot["who"].get(k) or {}).get("present") == "yes" or k in ask]
+    raw_note = check_pass2_source(
+        shots,
+        a.plan,
+        video,
+        world,
+        int(shot["first"]),
+        int(shot["last"]),
+        present_on_shot if len(present_on_shot) > 1 else [],
+        str(src_arg),
+        default_source,
+        allow_raw_source=getattr(a, "allow_raw_source", None),
+    )
     seed_cuts = cuts_of_table(a.seed_cuts_of, shot) if a.seed_cuts_of else None
     if seed_cuts and not cast:
         raise Refused("--seed-cuts-of goes with --cast: the cuts say where a seed from the cast file may go")
@@ -3029,7 +3159,7 @@ def step_preview(a, world) -> None:
     if ask:
         job["job"]["made_to_ask"] = {"what": "this preview tracks a subject the shots record is unsure of, to ask the owner who is on the shot; nothing is built on it "
                                               "until they have answered", "subjects": ask, "by": a.by}
-    job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "THE SHOTS RECORD NAMES AN EARLIER COPY")
+    job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "THE SHOTS RECORD NAMES AN EARLIER COPY") + raw_note
     out = Path(a.folder) / f"{job['job']['name']}.json"
     if out.exists():
         raise Refused(f"{out} exists: a preview of this shot was made under that name. A preview made again (a pick corrected in the shots record, "
@@ -3039,7 +3169,7 @@ def step_preview(a, world) -> None:
     ht_cfg = job["job"]["sam_head_track"]
     print(f"SAM 3.1 head track: {'on' if ht_cfg['on'] else 'OFF'} [{ht_cfg['said_by']}: {ht_cfg['why']}]")
     print(job["job"]["note"])
-    folder, _ = held_as_the_builder_holds(job["job"], a.day, world)
+    folder, _ = held_as_the_builder_holds(job["job"], a.day, world, default_source=default_source)
     if world.dry:
         print("DRY: nothing written, nothing run. The job was held to the builder's refusals that write nothing (the job block, the video's analysis "
               "folder and the file's identity, the two folders the build makes). NOT exercised: the build of the graph itself, and the queue.")
@@ -3202,7 +3332,14 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
     if ran.get("status") != "success":
         raise Refused(f"the preview in {pfolder} did not end in success")
     preview = json.loads((pfolder / "job.json").read_text())["job"]
-    video, source, earlier = working_copy(Path(preview["source"]).name, world)
+    video, default_source, _ = working_copy(shots["copy"], world)
+    raw_names, _ = _raw_source_names_and_paths(shots, a.plan, default_source, world)
+    prev_src = Path(preview["source"])
+    if prev_src.is_file() and prev_src.name not in raw_names:
+        source = prev_src.resolve()
+        earlier = ""
+    else:
+        video, source, earlier = working_copy(prev_src.name, world)
     region = plan["subjects"][a.subject]["region"]
     if region not in FORM:
         raise Refused(f"the plan's region for {a.subject!r} is {region!r}: this tool names and makes part loads ({', '.join(FORM)})")
@@ -3266,7 +3403,25 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
                    head_tube=getattr(a, "head_tube", None), depth=getattr(a, "depth", None),
                    no_head_track=getattr(a, "no_head_track", None),
                    no_closed_lip_line=getattr(a, "no_closed_lip_line", None))
-    job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "ITS PREVIEW WAS MADE ON AN EARLIER COPY")
+    load_first = int(job["loads"][0]["first"])
+    load_last = load_first + int(job["loads"][0]["frames"]) - 1
+    other_subjects = list(dict.fromkeys(
+        [k for k in shots["subjects"] if k != a.subject and (shot["who"].get(k) or {}).get("present") == "yes"]
+        + [s["label"] for s in (preview.get("subjects") or []) if s.get("label") and s["label"] != a.subject]
+    ))
+    raw_note = check_pass2_source(
+        shots,
+        a.plan,
+        video,
+        world,
+        load_first,
+        load_last,
+        other_subjects,
+        str(prev_src),
+        default_source,
+        allow_raw_source=getattr(a, "allow_raw_source", None),
+    )
+    job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "ITS PREVIEW WAS MADE ON AN EARLIER COPY") + raw_note
     out = folder / f"{name}.json"
     print(f"{name}: {a.subject}, {renders(region, eff_parts)}, source frames {job['loads'][0]['first']}-{job['loads'][0]['first'] + job['loads'][0]['frames'] - 1}; "
           + (f"its reference will be {job['loads'][0]['motion_file']}" if job["loads"][0].get("motion_file") else "NO REFERENCE VIDEO (motion none)"))
@@ -3274,7 +3429,7 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
     print("THE DEFAULTS THIS LOAD CARRIES:")
     for line in job["job"]["defaults"]:
         print(f"  {line['what']}: {line['carries']}  [{line['from']}]")
-    load_held_as_the_builder_holds(job, world)
+    load_held_as_the_builder_holds(job, world, default_source=default_source)
     # the keep-outs the plan names are made before the job file that points at them is written; a dry run says what would be
     # what is looked for is held first, and the track a part is held to, so a refusal writes nothing; the held part last: it is
     # made from the load's own part
@@ -3806,6 +3961,11 @@ def main() -> int:
         s.add_argument("--shot", type=int, required=True, metavar="FIRST", help="the shot, by the source frame it begins on")
         s.add_argument("--folder", required=True, help="where the job file is written")
         s.add_argument("--day", default=today, help="the day in the names of the job's folders; today when left out")
+    sub.choices["preview"].add_argument("--source", metavar="VIDEO",
+                                        help="required: the source video for this preview (never defaults to shots.json's raw source); "
+                                             "on a multi-subject shot where an earlier subject is already laid, pass the post-Pass-1 video")
+    sub.choices["preview"].add_argument("--allow-raw-source", metavar="WHY",
+                                        help="override the Pass-2 raw-source refusal when another subject is already laid on this shot, with a recorded reason")
     sub.choices["preview"].add_argument("--cast", help="the cast file: a subject with an answer inside the shot is seeded from it")
     sub.choices["preview"].add_argument("--ask", action="append", default=[], metavar="SUBJECT:why",
                                         help="track a subject the record is `unsure` of on this shot, because the preview is made to ask the owner who is on it; "
@@ -3826,6 +3986,8 @@ def main() -> int:
     j = sub.choices["job"]
     j.add_argument("--subject", required=True)
     j.add_argument("--preview", required=True, help="the job folder of the shot's preview")
+    j.add_argument("--allow-raw-source", metavar="WHY",
+                   help="override the Pass-2 raw-source refusal when another subject is already laid on this shot, with a recorded reason")
     j.add_argument("--first", type=int, help="the load's first frame, when a look cut the shot's")
     j.add_argument("--frames", type=int, help="the load's frame count, when a look cut the shot's")
     j.add_argument("--why", help="what a look cut and why; into the job's left_out, for both ends of the load unless one has its own")

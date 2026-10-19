@@ -151,12 +151,12 @@ One home per kind of fact. Not two.
 
 ## The lanes
 
-- **Folders with their own `AGENTS.md`**: `bench/`, `workflows/`, `docs/`, `prompt_bank/`, `archive/`, `vendor/`,
+- **Folders with their own `AGENTS.md`**: `bench/`, `workflows/`, `docs/`, `docs/masked_v2v/`, `prompt_bank/`, `archive/`, `vendor/`,
   `vendor_config/`, `vendor_guides/`, `standalone/`, `contact_sheets/` and `data/`. Read the folder's before working in
   it. Claude Code loads it when it reads a file there; the Antigravity CLI evaluates folder rules only during prompt
   expansion (walking up from where the session starts, or a file @-mentioned in a prompt), not when a tool reads a file
   mid-turn (its rules page, CLI tab; seen 2026-10-17).
-- Masked video to video: read `data/AGENTS.md` (the lane's rules, tracked) and the project's own
+- Masked video to video: read `data/AGENTS.md`, `docs/masked_v2v/AGENTS.md`, and `docs/masked_v2v/PROTOCOL.md` (the lane's rules and execution protocol, tracked) and the project's own
   `data/<video>/AGENTS.md` (its state, local and untracked like the rest of `data/`) before lane work.
 - Prompts: `docs/prompting.md`; a scene's text is data served beside its
   frames, never stored in code or a graph.

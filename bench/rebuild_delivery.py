@@ -838,6 +838,10 @@ def rebuild(
 
         if not to_review_html.is_file() or not provenance_html.is_file():
             raise Refused("pages", f"review_pages.py did not write {to_review_html.name} and {provenance_html.name}")
+        poc_dir = data_dir / video / "poc"
+        if poc_dir.is_dir():
+            shutil.copy2(to_review_html, poc_dir / "TO_REVIEW.html")
+            shutil.copy2(provenance_html, poc_dir / "PROVENANCE.html")
         verify_poc_on_disk(vdir)
         steps_run.append("pages")
         logs["covered_items"] = rel_or_name(cov_items_log, repo, share)

@@ -9,8 +9,8 @@ pack, not the pack (root `AGENTS.md`, "The repo is broader than the current proj
 |---|---|
 | where a project stands today | `docs/wiki/handover.md`, then the project's own `data/<video>/AGENTS.md` |
 | what is in the cut and what gaps remain | `data/<video>/laid.jsonl`; the newest `data/<date>_<video>_delivery_tables/frame_coverage_*.md`; `bench/shot_coverage.py` |
-| the day-to-day commands (ComfyUI, one load, the review server, the rebuild, the close) | `docs/wiki/runbook.md` |
-| the pipeline end to end, and the lane's rules | `docs/wiki/masked_v2v_pipeline.md`, `docs/wiki/masked_v2v.md` |
+| the day-to-day commands (ComfyUI, one load, the review server, the rebuild, the close) | `docs/masked_v2v/PROTOCOL.md`, `docs/wiki/runbook.md` |
+| the pipeline end to end, and the lane's rules | `docs/masked_v2v/AGENTS.md`, `docs/masked_v2v/PROTOCOL.md`, `docs/wiki/masked_v2v_pipeline.md`, `docs/wiki/masked_v2v.md` |
 | after any landing or stopped load | `bench/rebuild_delivery.py --video <video>` |
 
 ## The projects in motion
@@ -25,7 +25,9 @@ daily); this file, the lane's rules for any video, is the one tracked file here,
 
 ## How the lane works, end to end
 
-- The process: `docs/wiki/masked_v2v_pipeline.md`. The lane's rules: `docs/wiki/masked_v2v.md` ("The rule: data
+- The operative rules and execution protocol: [`docs/masked_v2v/AGENTS.md`](../docs/masked_v2v/AGENTS.md) and
+  [`docs/masked_v2v/PROTOCOL.md`](../docs/masked_v2v/PROTOCOL.md). The process: `docs/wiki/masked_v2v_pipeline.md`. The
+  lane's rules: `docs/wiki/masked_v2v.md` ("The rule: data
   before a render, and the same data after"; "Reading one window whole"; "Rules of the lane"). Running a load, the
   review server, the ledger and the end of day: `docs/wiki/runbook.md`.
 

@@ -249,7 +249,7 @@ def args(**more) -> argparse.Namespace:
                  existing=False, writer=None, why_before=None, why_after=None, zoomed=None, least=None, least_why=None, ask=[], seed_cuts_of=None, parts=None, parts_by=None, parts_on=[], whole_frame=None, mouth=None, iris=None, form_why="",
                  place_and_action=None, by_hand=None, plan=None,
                  track_not=[], track_not_by=None, drop=None, drop_by=None, leave_word=[], leave_by=None, carry_words_from=None, no_carry_words=None,
-                 head_tube=None, depth=None, no_head_track=None, no_closed_lip_line=None)
+                 head_tube=None, depth=None, no_head_track=None, no_closed_lip_line=None, source=None, allow_raw_source=None)
     given.update(more)
     return argparse.Namespace(**given)
 
@@ -317,7 +317,8 @@ def a_preview_made_to_ask() -> str:
         made.shots["shots"][1]["who"]["b"]["present"] = "unsure"           # a shot with others in it: the asked one is tracked beside them
         assert sorted(s["label"] for s in made.preview(100, ask={"b": "is the second person b"})["job"]["subjects"]) == ["a", "b", "c"]
         made.shots["shots"][1]["who"]["b"]["present"] = "yes"
-        a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=200, folder=str(made.jobs), ask=["a: the owner has not answered on this cut"])
+        a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=200, folder=str(made.jobs),
+                 source=str(made.root / "input" / "copy.mov"), ask=["a: the owner has not answered on this cut"])
         stl.step_preview(a, made.m)
         kept = json.loads((made.jobs / "shot_c_0200.json").read_text())["job"]
         graphs.check_job(kept)
@@ -422,7 +423,8 @@ def a_shot_the_tracker_cuts_takes_a_seed_a_cut() -> str:
         # THE STEP: the job file carries the cuts; after the queue the tracker's cuts are held to them
         cast = made.root / "cast.jsonl"
         cast.write_text("".join(json.dumps(x) + "\n" for x in lines))
-        a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), cast=str(cast), seed_cuts_of=pair, queue=True)
+        a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs),
+                 source=str(made.root / "input" / "copy.mov"), cast=str(cast), seed_cuts_of=pair, queue=True)
         saved = made.m.output / "Video/v/the session/shot_c_0100"
 
         def tracker(cuts):
@@ -461,7 +463,8 @@ def the_plan_says_what_from() -> str:
 def the_preview_step() -> str:
     with tempfile.TemporaryDirectory() as tmp:
         made = Made(Path(tmp))
-        a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs))
+        a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs),
+                 source=str(made.root / "input" / "copy.mov"))
         stl.step_preview(a, made.m)
         out = made.jobs / "shot_c_0100.json"
         job = json.loads(out.read_text())
@@ -537,7 +540,8 @@ def the_preview_step_against_a_builder_that_refuses_a_folder_that_is_there() -> 
         m = Real(made.root)
         kept, lc.subprocess.run = lc.subprocess.run, builder
         try:
-            a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), queue=True)
+            a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs),
+                     source=str(made.root / "input" / "copy.mov"), queue=True)
             import contextlib
             import io
             screen = io.StringIO()
@@ -1693,13 +1697,13 @@ def a_job_renders_from_the_present_copy() -> str:
         # the shots record naming an earlier copy: the preview is written for the present one, and says so
         made.shots["copy"] = "copy_first.mov"
         made.write()
-        p = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=160, folder=str(made.jobs))
+        p = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=160, folder=str(made.jobs), source=present)
         stl.step_preview(p, made.m)
         pv = json.loads((made.jobs / "shot_c_0160.json").read_text())["job"]
         assert pv["source"] == present and "THE SHOTS RECORD NAMES AN EARLIER COPY: copy_first.mov" in pv["note"], pv
         made.shots["copy"] = "copy_part.mov"
         made.write()
-        refused(lambda: stl.step_preview(args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs)), made.m), "another clock")
+        refused(lambda: stl.step_preview(args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), source=present), made.m), "another clock")
     return ("a load whose preview was made on an earlier copy renders from the video's present copy and its note says which copy and why it was replaced; "
             "a copy on another frame clock is refused and nothing is written; so is a file the video never had")
 
@@ -2992,7 +2996,8 @@ def missing_cast_file_refused() -> str:
         missing = str(made.root / "no_such_cast.jsonl")
         refused(
             lambda: stl.step_preview(
-                args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), cast=missing),
+                args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs),
+                     source=str(made.root / "input" / "copy.mov"), cast=missing),
                 made.m,
             ),
             f"--cast {missing}: no such file",
@@ -3014,6 +3019,86 @@ def missing_cast_file_refused() -> str:
             f"--cast {missing}: no such file",
         )
     return "preview and job refuse a non-existent --cast file cleanly via Refused"
+
+
+def pass2_raw_source_refused_and_source_required() -> str:
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        raw_src = str(made.root / "input" / "copy.mov")
+        # 1. preview without --source is refused cleanly via Refused
+        refused(
+            lambda: stl.step_preview(
+                args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs)),
+                made.m,
+            ),
+            "preview requires --source <video> explicitly",
+            "pass the post-Pass-1 video",
+        )
+        # 2. preview with a non-existent --source file is refused cleanly via Refused
+        missing_src = str(made.root / "input" / "no_such_video.mp4")
+        refused(
+            lambda: stl.step_preview(
+                args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), source=missing_src),
+                made.m,
+            ),
+            f"--source {missing_src}: no such file",
+        )
+        # 3. When another subject on the shot is already laid in laid.jsonl, preview and job refuse the raw source video
+        laid_file = made.plan_file.parent / "laid.jsonl"
+        laid_file.write_text(
+            json.dumps({"load": "b_hfp_0100", "subject": "b", "first": 100, "last": 159}) + "\n"
+        )
+        refused(
+            lambda: stl.step_preview(
+                args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), source=raw_src),
+                made.m,
+            ),
+            "b (b_hfp_0100 on 100-159)",
+            "Pass 2 must segment and render from the post-Pass-1 video",
+            "not the raw unswapped source video",
+        )
+        raw_pjob = made.preview()
+        raw_pjob["job"]["source"] = raw_src
+        raw_pfolder = made.preview_ran(raw_pjob)
+        refused(
+            lambda: stl.step_job(
+                args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs),
+                     subject="a", preview=str(raw_pfolder)),
+                made.m,
+            ),
+            "b (b_hfp_0100 on 100-159)",
+            "Pass 2 must segment and render from the post-Pass-1 video",
+            "not the raw unswapped source video",
+        )
+        # 4. --allow-raw-source WHY overrides the refusal and records the override in job.note
+        stl.step_preview(
+            args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs),
+                 source=raw_src, remake=True, allow_raw_source="testing raw source override"),
+            made.m,
+        )
+        ov_pjob = json.loads((made.jobs / "shot_c_0100b.json").read_text())["job"]
+        assert "RAW SOURCE ALLOWED ON PASS 2 (testing raw source override)" in ov_pjob["note"], ov_pjob["note"]
+        (made.jobs / "shot_c_0100b.json").unlink()
+        # 5. Passing a post-Pass-1 video succeeds in both preview and job and preserves the post-Pass-1 path in job.source
+        pass1_mp4 = made.root / "output" / "Video" / "v" / "the session" / "b_hfp_0100_pass1.mp4"
+        pass1_mp4.parent.mkdir(parents=True, exist_ok=True)
+        pass1_mp4.write_bytes(b"post-pass-1 video")
+        stl.step_preview(
+            args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs),
+                 source=str(pass1_mp4), remake=True),
+            made.m,
+        )
+        p2_pjob = json.loads((made.jobs / "shot_c_0100b.json").read_text())
+        assert p2_pjob["job"]["source"] == str(pass1_mp4.resolve()), p2_pjob["job"]["source"]
+        p2_pfolder = made.preview_ran(p2_pjob)
+        stl.step_job(
+            args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs),
+                 subject="a", preview=str(p2_pfolder)),
+            made.m,
+        )
+        p2_job = json.loads((made.jobs / "a_fp_0100.json").read_text())["job"]
+        assert p2_job["source"] == str(pass1_mp4.resolve()), p2_job["source"]
+    return "preview requires --source explicitly; preview and job refuse the raw source video when another subject is already laid on the shot in laid.jsonl and succeed with a post-Pass-1 video"
 
 
 case("the frame a tracker picks on is a field of the shots record", the_pick_frame_is_a_field)
@@ -3050,6 +3135,7 @@ case("carry-words-from: a carried drop or no_face_on over a face frame is refuse
 case("depth: overlap frames found, measured into the capture folder, and recorded in defaults", depth_in_the_job_step)
 case("reference: --no-head-track forwarded, recorded, carried, and checked on --existing", no_head_track_on_the_reference_step)
 case("cast: non-existent --cast file is refused cleanly in preview and job", missing_cast_file_refused)
+case("pass-2 source: preview requires --source and refuses raw source when another subject is already laid", pass2_raw_source_refused_and_source_required)
 
 if __name__ == "__main__":
     sys.exit(finish())

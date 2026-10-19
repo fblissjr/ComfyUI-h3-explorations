@@ -886,6 +886,28 @@ def stops_at_first_refusal_and_names_the_step() -> str:
         else:
             raise AssertionError("expected rebuild_delivery pages step to call verify_poc_on_disk and refuse missing poc/who/index.html")
 
+        # When poc/ is valid on disk, the pages step copies TO_REVIEW.html and PROVENANCE.html into data/<video>/poc/
+        (poc / "who" / "tiles" / "wt0.jpg").write_bytes(b"jpg")
+        (poc / "who" / "index.html").write_text('<img src="tiles/wt0.jpg"><script>fetch("/api/answer");</script>')
+        ns_poc_ok = rd.build_parser().parse_args([
+            "--video", video,
+            "--clip",
+            "--no-snapshot",
+            "--share", str(fx["share"]),
+            "--inputs", str(fx["inputs"]),
+            "--data", str(fx["data"]),
+            "--out-dir", str(fx["root"] / "out_ok_poc"),
+            "--day", day,
+            "--stamp", stamp,
+        ])
+        rd.rebuild(ns_poc_ok, repo=REPO, runner=ok_runner)
+        for page_name in ("TO_REVIEW.html", "PROVENANCE.html"):
+            share_page = fx["share"] / "Video" / video / page_name
+            poc_page = poc / page_name
+            assert poc_page.is_file() and poc_page.read_bytes() == share_page.read_bytes(), (
+                f"expected {poc_page} to be synced from {share_page}"
+            )
+
     return "every step refusal stops the chain immediately, names the step, leaves later steps unrun, and prints no traceback"
 
 

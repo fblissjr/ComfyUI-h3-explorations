@@ -1,0 +1,279 @@
+# Masked Video-to-Video Execution & Debugging Protocol
+
+This protocol is the step-by-step operational manual for building, auditing, rendering, debugging, and landing masked video-to-video loads. Read [`docs/masked_v2v/AGENTS.md`](AGENTS.md) and [`data/AGENTS.md`](../../data/AGENTS.md) first; see [`docs/wiki/masked_v2v_pipeline.md`](../wiki/masked_v2v_pipeline.md), [`docs/wiki/masked_v2v.md`](../wiki/masked_v2v.md), and [`docs/wiki/runbook.md`](../wiki/runbook.md) for the broader design and card procedures.
+
+---
+
+## Stage 0: Environment, Ports, & Pre-Flight Checks
+
+1. **Never run `uv` (`uv run`, `uv sync`, `uv add`)**:
+   - Invoking `uv` with the ComfyUI venv active empties that venv and dirties `uv.lock` ([`AGENTS.md`](../../AGENTS.md), "Operative rules"; [`docs/comfy_notes.md`](../comfy_notes.md)).
+   - Always invoke the ComfyUI venv Python directly (`<comfy-venv>/bin/python`), and prefix CPU-only tools and checks with `CUDA_VISIBLE_DEVICES=`.
+2. **Environment keys (`H3_OUTPUT_DIR`, `H3_INPUT_DIR`, `H3_MODEL_STORE`, `H3_CAPTURE_ROOT`)**:
+   - `H3_OUTPUT_DIR`: the server's output share (`<share>/output`, holding `Video/<video>/`). Read by `workflows/h3_config.py::output_dir`, [`bench/shot_to_load.py`](../../bench/shot_to_load.py), [`bench/load_chain.py`](../../bench/load_chain.py), and [`bench/rebuild_delivery.py`](../../bench/rebuild_delivery.py).
+   - `H3_INPUT_DIR`: the server's input directory (`<share>/input`, holding working copies and reference stills). Read by `bench/masked_job.py::input_dir`.
+   - `H3_MODEL_STORE`: local model directory holding `workflows/h3_config.py::POSE_MODEL` and perception weights.
+   - `H3_CAPTURE_ROOT`: transient capture directory when captures are stored outside `data/`.
+3. **Inspecting the server process (`:8188`) and review server (`:8765`)**:
+   - The server process is the resource, not the GPU ([`AGENTS.md`](../../AGENTS.md)). Before stopping or restarting ComfyUI on port `8188`, inspect the port owner and its environment:
+     ```bash
+     ss -ltnp | grep -E ':8188|:8765'
+     tr '\0' '\n' < /proc/<pid>/environ | grep '^H3_'
+     ```
+   - If any arming key (`H3_CAPTURE`, `H3_SOL_OBSERVE`, `H3_SOL_PROBE`, `H3_TELEMETRY`) is set in `/proc/<pid>/environ`, ask before killing the server.
+   - Never use `bench/restart_comfy.sh` (disabled; exits 2). Follow the manual recipe in [`docs/comfy_notes.md`](../comfy_notes.md) ("The recipe, by hand").
+4. **Code stamps and clean node code**:
+   - Derived `.json` and `.npz` files carry `writer_stamp` (`bench/_lib/code_stamp.py::writer_stamp`, `bench/_lib/code_stamp.py::npz_writer_fields`) and check upstream mtimes via `bench/_lib/code_stamp.py::check_upstream_mtime` (`bench/_lib/code_stamp.py::MTIME_TOLERANCE_S` = `1.0` s).
+   - `bench/load_chain.py render` refuses to queue if any node-pack module has uncommitted edits in the shared tree.
+
+---
+
+## Stage 1: Choosing `--source` (Single-Subject vs Multi-Subject Sequential Passes) & Running `shot_to_load.py preview`
+
+### 1.1 Choosing `--source` (No Silent Default)
+
+[`bench/shot_to_load.py`](../../bench/shot_to_load.py) `preview` (`bench/shot_to_load.py::step_preview`) requires `--source VIDEO` explicitly and has **no default**:
+
+- **Single-subject shot, or Pass 1 of a multi-subject shot**:
+  - Pass the 24.0 fps working-copy source video registered in `data/<video>/manifest.json` (for `fun`, `fun_0000_6394_24p_sound_in_step.mov`).
+  - The source video must be an exact `24.0` fps every-frame working copy (`bench/clip_analysis.py` `init --copy`, sound stretched in step via [`bench/copy_sound.py`](../../bench/copy_sound.py)). `bench/shot_to_load.py::working_copy` refuses any source whose manifest rate is not `24`.
+- **Pass 2+ of a multi-subject shot (where Pass 1 is already laid in `data/<video>/laid.jsonl`)**:
+  - **NEVER** run `preview` or `job` against the raw unswapped source video.
+  - First build or verify a 24.0 fps post-Pass-1 joined cut using [`bench/assemble_delivery.py`](../../bench/assemble_delivery.py) (or [`bench/rebuild_delivery.py`](../../bench/rebuild_delivery.py) `--video <video> --clip`, producing `fun_..._from_laid.mp4` where Subject A is already replaced) and register it in `<share>/input/` and `data/<video>/manifest.json`.
+  - Run a **fresh** `bench/shot_to_load.py preview --source <post_pass1_video>` so SAM 3.1 and Sapiens segment Subject A's **actual replaced appearance** (new hair/head silhouette) and Subject B's track against the post-Pass-1 picture.
+
+### 1.2 Mandatory `--cast` Verification
+
+Always pass `--cast data/<video>/cast/cast.jsonl` to both `bench/shot_to_load.py preview` and `bench/shot_to_load.py job`:
+- `bench/shot_to_load.py` checks `Path(a.cast).is_file()` up front and raises `bench/shot_to_load.py::Refused` if the cast file is missing.
+- Without `--cast`, the builder cannot seed SAM 3.1 from confirmed cast boxes or auto-identify `lead` vs `second` vs `third` from reference embeddings (`bench/shot_to_load.py::seed_of`, `bench/shot_to_load.py::others_of_load`).
+
+### 1.3 Running `preview`
+
+```bash
+<comfy-venv>/bin/python bench/shot_to_load.py preview \
+  --shots data/<video>/shots.json \
+  --plan data/<video>/plan.json \
+  --cast data/<video>/cast/cast.jsonl \
+  --shot <first_frame> \
+  --video <video> \
+  --source <24p_working_copy_or_post_pass1_cut> \
+  --by <session> \
+  --run
+```
+
+What `preview` produces in `data/<day>_shot_c_<first>[_<letter>]_job/` and on the share:
+- One SAM 3.1 person tracker (`MiniMaxH3SubjectTrack` with `TRACK_HEAD = True` by default, producing both the person track and the SAM 3.1 head track), Sapiens2-Seg part and 29-class maps, Sapiens2-Pose keypoints (`pose.npz`), and SAM 3D Body mesh video (`body.mp4`) per subject listed in `shots.json` for that shot.
+
+---
+
+## Stage 2: Building the Head Tube, Parts Mask, & Reference
+
+### 2.1 Head Tube & Part Masks (`head_tube_parts.py`)
+
+[`bench/head_tube_parts.py`](../../bench/head_tube_parts.py) (`bench/head_tube_parts.py::sam31_head_tube` and `bench/head_tube_parts.py::head_tube_for_capture`) combines the SAM 3.1 head track, Sapiens2-Seg class maps, and Sapiens2-Pose facial landmarks:
+
+- **Unified head track (`TRACK_HEAD = True`)**: SAM 3.1 tracks `"head"` directly, preventing Sapiens misclassifications (such as labeling a cheek or forehead as `Upper_Clothing` or `Background` during turns) from punching holes inside the head.
+- **Attached profile rim expansion**: `bench/head_tube_parts.py::head_tube_for_capture` expands `head_track_bool` into attached part components (`parts_bool & track_bool`) within the head's vertical span `[hy0, hy1]` so side-profile face rims are not clipped.
+- **Bridging short class-map dips (`bridge_short_tube_dips`)**:
+  - During rapid head turns or motion blur, Sapiens `Face_Neck` can dip below 60% of its flanking anchor area for a few frames even while the person track remains continuous.
+  - `bench/head_tube_parts.py::bridge_short_tube_dips` (`bench/head_tube_parts.py::SHORT_DIP_MAX_FRAMES` = `6`, `bench/head_tube_parts.py::SHORT_DIP_RATIO` = `0.6`) automatically bridges any contiguous dip of `<= 6` frames (`0.25` s at `24` fps) where `tube_px < 0.6 * min(pre_px, post_px)` by taking the union of the flanking anchor frames' head tubes clipped to the current frame's dilated person track, recording bridged spans under `bridged_short_dips` in provenance.
+
+### 2.2 Building the Load Job (`shot_to_load.py job`)
+
+```bash
+<comfy-venv>/bin/python bench/shot_to_load.py job \
+  --shots data/<video>/shots.json \
+  --plan data/<video>/plan.json \
+  --cast data/<video>/cast/cast.jsonl \
+  --preview data/<day>_shot_c_<first>_job \
+  --subject <subject> \
+  --video <video> \
+  --by <session>
+```
+
+- Prints and records `THE DEFAULTS THIS LOAD CARRIES` (`bench/shot_to_load.py::defaults_carried`).
+- When remaking an existing load on the same shot and subject (`--remake`), you must pass either `--carry-words-from <old_job.json>` or `--no-carry-words "<why>"` so span words (`--no-face-on`, `--no-mouth-on`, `--mouth-on`, `--hold-part`, `--eyes-shut-on`) are never dropped by accident.
+- **Never `--drop` frames where the original actor's face or beard is visible**: H3 runs full attention over all `5n + 2` latent steps of the `17n + 5` window regardless of `tokens_sum == 0`. Dropping interior frames saves zero compute and exposes the unmasked source face to bidirectional temporal attention. Use `--no-face-on A-B=WHY` on back/side turns while keeping the regeneration mask open.
+
+### 2.3 Cropping & Drawing the Head Reference (`shot_to_load.py reference`)
+
+```bash
+<comfy-venv>/bin/python bench/shot_to_load.py reference \
+  --job-folder data/<day>_<load>_job \
+  --by <session>
+```
+
+Under the hood, `step_reference` invokes [`bench/head_reference.py`](../../bench/head_reference.py), which orchestrates [`bench/crop_reference_to_head.py`](../../bench/crop_reference_to_head.py) and [`bench/draw_face_points.py`](../../bench/draw_face_points.py):
+
+1. **Head-box crop (`bench/crop_reference_to_head.py`)**:
+   - Sizes one constant square box across the load from the union of the Sapiens face box and the SAM 3.1 head track (`bench/crop_reference_to_head.py::CROWN_ROOM` = `0.4`, `bench/crop_reference_to_head.py::HEAD_TRACK_ROOM` = `0.25`) so tilted crowns are not cut.
+   - Cuts both the SAM 3D Body mesh video (`<stem>.mp4`) and the source video (`<stem>_source.mp4`) to that box and writes `<stem>.npz` and `<stem>.json` with `writer_stamp`.
+2. **Facial landmark drawing (`bench/draw_face_points.py`)**:
+   - Default form (`bench/shot_to_load.py::REFERENCE_DEFAULT`): `iris="contrast"`, `mouth="auto"`, `closed_lip_line=True` (`--closed-lip-line` on by default; `--darken-head` off).
+   - **Silhouette clipping**: all drawn marks are clipped to the grey SAM 3D Body head silhouette so profile eyes shrink cleanly into the head edge instead of floating in background space (which H3 can misread as eyeglasses).
+   - **Mouth mode rules (Singing vs Silent Windows)**:
+     - **Silent windows** (no vocal activity for the subject on the window): `mouth="auto"` suppresses the mouth (`no_mouth`), drawing **no mouth marks** at all. Drawing a closed mouth line 8–12 px above the grey head's sculpted lips causes H3 to read the double line as parted lips (`second_hfp_0278d/e/h` vs `0278f`).
+     - **Singing / voiced windows**: `mouth="auto"` draws the repaired mouth (`--closed-lip-line`, fitted above the grey head's chin and covering its sculpted lips) on every face frame so H3 articulates the singing mouth (`third_fp_1340d` vs `1340c`).
+3. **Generating the Prompt Text (`shot_to_load.py text`)**:
+   - Invokes [`bench/load_text.py`](../../bench/load_text.py) (`bench/load_text.py::NO_SCENE`, `bench/load_text.py::NO_CLOTHING`) to generate the load's text from the reference record, `data/<video>/plan.json`, and the voice table.
+
+---
+
+## Stage 3: Running `load_chain.py` & Pre-Render Telemetry (`facts_pass.py`, `step_carves.json`)
+
+### 3.1 `first`, `plan`, `on-plan`, and `table`
+
+Run [`bench/load_chain.py`](../../bench/load_chain.py) steps in strict order from the load's job file:
+
+```bash
+<comfy-venv>/bin/python bench/load_chain.py first   data/<day>_<load>_job/<load>.json --by <session>
+<comfy-venv>/bin/python bench/load_chain.py plan    data/<day>_<load>_job/<load>.json --by <session>
+<comfy-venv>/bin/python bench/load_chain.py on-plan data/<day>_<load>_job/<load>.json --by <session>
+<comfy-venv>/bin/python bench/load_chain.py table   data/<day>_<load>_job/<load>.json --by <session>
+```
+
+- `first`: builds the initial capture at `data/<day>_<load>/` via [`bench/capture_masked_run.py`](../../bench/capture_masked_run.py), runs `verify`, evaluates the preflight gate (`flags.json`), and renders the strip under `<capture>_first`.
+- `plan`: builds and queues the no-sampling plan graph (`workflows/masked_job_graph.py`), which writes `<load>_plan.json` and `<load>_window_N_planned_region.npz`.
+- `on-plan`: copies the initial capture to `<capture>_first`, rebuilds `data/<day>_<load>/` in place on the node's actual planned regions, runs `verify` and `preflight --gate`, writes `runs/<run>/step_carves.json` (`bench/capture_masked_run.py::step_keepout_carves`), draws the plan strip under `Video/<video>/looks/<day>_<load>/`, and writes `frame_table.jsonl` ([`bench/frame_table.py`](../../bench/frame_table.py)).
+- Blocking preflight flags in `flags.json` include `dropped_frame_has_visible_face` (`bench/capture_masked_run.py::dropped_or_unmasked_face_in_context`, triggered when any frame with `region_px == 0` inside a tracked span has `s_face_px >= 4000`).
+
+### 3.2 Running `facts_pass.py` and Auditing `face_outside_region_px` & `step_carves.json`
+
+Before requesting a look or queueing a render, run [`bench/facts_pass.py`](../../bench/facts_pass.py) on the on-plan capture directory:
+
+```bash
+CUDA_VISIBLE_DEVICES= <comfy-venv>/bin/python bench/facts_pass.py \
+  data/<day>_<load> \
+  --out-json data/<day>_<load>/facts_pass.json \
+  --out-md data/<day>_<load>/facts_pass.md
+```
+
+Inspect three critical signals before spending GPU render minutes:
+1. **`face_outside_region_px`** (`bench/facts_pass.py`):
+   - Counts pixels where `(s_face | (head_track & ~s_hair)) & ~region` is non-zero on each frame.
+   - Any frame with `face_outside_region_px > 0` means part of the subject's face or head track lies outside the 16-px token region that H3 will regenerate — guaranteeing a chin, cheek, or profile cutout where the original video shows through.
+2. **`runs/<run>/step_carves.json` and `other_overlap_px`** (`bench/capture_masked_run.py::step_keepout_carves`):
+   - Reports per-window, per-latent-step (`video_mask.py::run_lengths`) grown token units, final token units, total carved units, units carved by each other subject or keep-out across the 4-frame latent step, and **carved units touching the subject's `head_track` or carried `part`**.
+   - Can also be inspected on specific frames with:
+     ```bash
+     CUDA_VISIBLE_DEVICES= <comfy-venv>/bin/python bench/capture_masked_run.py diagnose \
+       data/<day>_<load> --frames <start>-<end>
+     ```
+3. **`mouth_mode` and `parts_held_px` dips**:
+   - Confirm `mouth_mode` matches the window's vocal activity (`no_mouth` on silent windows, drawn mouth on singing windows) and check `notable_spans` for any `parts_held_drop_below_half_rolling_12f_median`.
+
+### 3.3 Second Reader's Look, Full Prompt Read (`what_h3_got.py`), & `render`
+
+1. **Second reader's look**: a session that did not make the capture inspects the plan strip and records `bench/capture_masked_run.py looked` (or the maker runs `bench/load_chain.py no-look` when the gate is clear and no forcing rule in `bench/load_chain.py::FORCING_FLAGS` or `bench/load_chain.py::FORCING_FIGURES` stands).
+2. **Full prompt read (`bench/what_h3_got.py`)**:
+   ```bash
+   CUDA_VISIBLE_DEVICES= <comfy-venv>/bin/python bench/what_h3_got.py \
+     --job-folder data/<day>_<load>_job --load <load> --stage plan
+   ```
+   Read the entire prompt text in full from the queued graph ([`AGENTS.md`](../../AGENTS.md)).
+3. **Queue the render (`load_chain.py render`)**:
+   ```bash
+   <comfy-venv>/bin/python bench/load_chain.py render \
+     data/<day>_<load>_job/<load>.json --by <session> \
+     --grounds GROUNDS.txt --show SHOW.txt
+   ```
+
+---
+
+## Stage 4: Multi-Subject Crossing & Keep-Out Auditing
+
+When two subjects cross paths in the same shot (e.g., `lead` walking behind `second` on Kitchen `604-1009`), keep-out rules operate on 4-frame latent steps (`16x16` pixel cells) and can carve boxy holes into the back subject's face if misconfigured:
+
+1. **Why latent-step keep-outs carve 4 frames at once**:
+   - In `video_mask.py`, token regions are quantized to latent steps (`1` frame on step `0`, `4` frames per step thereafter) and `16x16` pixel cells.
+   - A subject's own part mask wins every cell it touches on any frame of the latent step (`video_mask.py`), so another subject's keep-out only carves **margin cells** or cells where the subject's own part mask dropped out across all frames of that step.
+2. **Three mandatory rules for Pass 2 on a crossing shot**:
+   - **Rule A — Segment Pass 2 on the post-Pass-1 video**: Run `shot_to_load.py preview --source <post_pass1_video>` where Pass 1 (`second`) is already laid at 24.0 fps. Never segment Pass 2 on the raw source video, or Pass 1's keep-out will follow the raw actor's old hair/head silhouette instead of the replaced subject's silhouette.
+   - **Rule B — Keep out only Pass 1's replaced parts (`new_s_face | new_s_hair`) or laid matte, not a raw whole-person track**: When Pass 1 only replaced `face_and_neck` and `hair`, keeping out Pass 1's entire raw person track (`other:second`) carves out cells where Pass 2's chin overlaps Pass 1's unreplaced shoulders or old hair margin.
+   - **Rule C — Absorb orphaned pre-Pass-1 hair pixels (`old_parts_held & ~new_parts`)**: Where Pass 1's replacement hair is smaller than the raw actor's hair (such as the 1980s bouffant dome on `604-1009`), any leftover dark hair halo outside Pass 1's new hair stays in the plate unless Pass 2's region is allowed to regenerate over it.
+3. **Auditing before rendering**:
+   - Check `runs/<run>/step_carves.json` and `facts_pass.json` (`face_outside_region_px` and `other_overlap_px`) on the crossing frames (`755-774`). Verify that `face_outside_region_px == 0` across the entire crossing before queueing `load_chain.py render`.
+
+---
+
+## Stage 5: Review Clips, `items.json`, `TO_REVIEW.html`, `owner_answers.jsonl`, and Landing a Kept Load (`laid.jsonl`)
+
+### 5.1 Landing a Finished Render (`load_chain.py land` & `page`)
+
+When the ComfyUI queue finishes:
+
+```bash
+<comfy-venv>/bin/python bench/load_chain.py land data/<day>_<load>_job/<load>.json --by <session>
+<comfy-venv>/bin/python bench/load_chain.py page data/<day>_<load>_job/<load>.json --by <session> --spec SPEC.json
+```
+
+- `land` frees the GPU (`POST /free`), runs the Sapiens pose pass on the rendered video (`POSE_PASS_FAILED` if incomplete), records `/history` cost lines, and builds the frame-numbered stacked review clip (`Video/<video>/review_clips/<load>_<first>_<last>_stacked.mp4`) and its sidecar (`<video>.mp4.json` via [`bench/sidecar.py`](../../bench/sidecar.py)).
+- `page` prepends the candidate clip with `state: "open"` to `data/<video>/review/items.json` and creates the media symlinks under `data/<video>/review/media/`.
+
+### 5.2 Updating Both the Interactive Review Queue (`items.json`) and Static `TO_REVIEW.html`
+
+The owner uses two views served by `data/<video>/poc/serve.py` on port `8765`:
+1. **Interactive Review Page (`http://<host>:8765/`, served from `data/<video>/poc/index.html`)**:
+   - Dynamically fetches `data/<video>/review/items.json` (`poc/review/items.json`) and `data/<video>/review/start_here.json`.
+   - Renders items with `"state": "open"` under `"1. Look at these next"` with interactive verdict buttons (`keep`, `remake`, etc.) and a frame-note box.
+   - Clicking a verdict button sends `POST /api/answer` to `serve.py`, which appends a timestamped line to `data/<video>/owner_answers.jsonl` (append-only, never hand-edited).
+   - If a playback reader session wrote `data/<day>_<load>/playback_reading_<reader>.md` and referenced it via `reader_file` in `data/<video>/review/start_here.json`, [`bench/review_pages.py`](../../bench/review_pages.py) renders the 4-field reader card (`Sees`, `Cannot see`, `Verdict`, `Why`) folded closed so the owner watches first.
+2. **Static `TO_REVIEW.html` and `PROVENANCE.html` (`Video/<video>/TO_REVIEW.html` and `data/<video>/poc/TO_REVIEW.html`)**:
+   - Built by [`bench/rebuild_delivery.py`](../../bench/rebuild_delivery.py) (`--video <video>` or `--video <video> --clip`), which runs:
+     1. `laid_verify` ([`bench/laid.py`](../../bench/laid.py) `verify`)
+     2. `ledger` ([`bench/render_ledger.py`](../../bench/render_ledger.py))
+     3. `delivery_table` ([`bench/delivery_table.py`](../../bench/delivery_table.py))
+     4. `assemble` (when `--clip` is passed: [`bench/assemble_delivery.py`](../../bench/assemble_delivery.py))
+     5. `gap_check` ([`bench/frame_coverage.py`](../../bench/frame_coverage.py))
+     6. `stack` (when `--clip` is passed: [`bench/stack_delivery.py`](../../bench/stack_delivery.py))
+     7. `pages` ([`bench/covered_items.py`](../../bench/covered_items.py) and [`bench/review_pages.py`](../../bench/review_pages.py) `to-review` and `provenance`, plus `bench/rebuild_delivery.py::verify_poc_on_disk`)
+     8. `snapshot` (`bench/rebuild_delivery.py::snapshot_owner_answers` into `data/<video>/owner_answers_snapshots/`)
+
+### 5.3 Recording Verdicts & Laying a Kept Piece (`laid.jsonl`)
+
+- Translate new lines in `data/<video>/owner_answers.jsonl` into `data/<video>/verdicts/verdicts.jsonl` with [`bench/page_answers_to_verdicts.py`](../../bench/page_answers_to_verdicts.py) (and inspect uncited answers with [`bench/page_answers_ledger.py`](../../bench/page_answers_ledger.py)).
+- When the owner keeps a render, add or update its row in `data/<video>/laid.jsonl` via [`bench/laid.py`](../../bench/laid.py), save its own matte if needed (`bench/recomposite_piece.py --save-own-matte`), and run `bench/rebuild_delivery.py --video <video> --clip`.
+
+---
+
+## Appendix: Case Studies from `fun`
+
+### Case Study 1: Kitchen `604-1009` Bouffant Hair Dome & Crossing Cutout (2026-10-19)
+
+- **Symptom**: On Kitchen `604-1009` (`lead` walking behind `second` on frames `755-774`), `lead`'s face had a dark helmet-like cutout and chin smudge during the crossing, even after `second_hfp_0604h` (blonde mom) had been laid into the cut.
+- **Root Cause**:
+  1. The original 1980s actress playing `second` had a tall dark bouffant hairdo rising ~60 px higher (`ymin=188..209`) than the replaced blonde mom in `second_hfp_0604h` (`ymin=211..221`).
+  2. Pass 2 (`lead`) reused a preview segmented on the **raw 1980s source video** rather than the post-Pass-1 video where `second_hfp_0604h` was already laid. That gave `second`'s keep-out `5,843–9,276 px` of non-existent bouffant hair dome on frames `755-774`, which carved an invisible helmet out of `lead`'s head as she walked behind `second`.
+  3. In addition, on frames `759-761`, Sapiens2-Seg mislabeled `lead`'s cheek and forehead as `Upper_Clothing` (`13,948–16,899 px`) and `Background` (`20,133 px`), leaving only a `2,037 px` crescent of `s_face`. Because a keep-out carves any 4-frame latent cell where the subject's own mask has 0 pixels, `second`'s keep-out carved whole 16x16 squares out of `lead`'s chin and cheek.
+- **Fix**:
+  - Require `--source` explicitly on `shot_to_load.py preview` and run Pass 2's preview on the 24.0 fps post-Pass-1 cut (`fun_..._from_laid.mp4`).
+  - Enable the SAM 3.1 head track (`TRACK_HEAD = True`) by default so `lead`'s face mask stays whole (`10,662–13,505 px` on `759-761`, `face_outside_region_px == 0` in `facts_pass.py`).
+  - Report latent-step keep-out carves touching the head in `runs/<run>/step_carves.json` (`bench/capture_masked_run.py::step_keepout_carves`).
+
+### Case Study 2: Hallway `1306-1418` Bidirectional Beard Leak & Short-Dip Bridging (2026-10-19)
+
+- **Symptom**: In `third_fp_1306d` (replacing the bearded dad `third` with a clean-shaven reference), the rendered subject grew a dark/grey beard and eyeglasses across the window, whereas a control render on clean sub-window `1340-1360` (`third_fp_1340b`) had `0/21` beard and `0/21` glasses.
+- **Root Cause**:
+  - H3's DiT uses full bidirectional temporal attention across all frames in the window. Any frame where the original actor's grey beard is left unmasked in the frozen context acts as an in-context reference that H3 copies onto the regenerated hole across the entire window.
+  - Two distinct mechanisms left `third`'s beard unmasked in `1306-1418`:
+    1. **Transient Sapiens class dips during fast motion (`1402-1404` and `1408-1411`)**: While SAM 3.1's person track stayed solid (`96k–146k px`), Sapiens `Face_Neck` dipped to `20,129 px` on `1403` and `2,413–5,736 px` on `1409-1410` (`< 60%` of the `36,585 px` and `47,200 px` flanking frames), exposing `51,735 px` of raw beard outside the region.
+    2. **Manual `--drop 1411-1413` on frames with a visible face**: Dropping frames `1411-1413` set `region_px = 0` while `1411-1413` still had `48,938 px`, `16,409 px`, and `21,341 px` of visible `Face_Neck` + beard in the frozen context.
+- **Fix**:
+  - `bench/head_tube_parts.py::bridge_short_tube_dips` (`SHORT_DIP_MAX_FRAMES = 6`, `SHORT_DIP_RATIO = 0.6`) automatically bridges `<= 6`-frame head-tube dips inside a continuous person track (`1402-1404` and `1408-1411` bridged to `35k–45k px`).
+  - `bench/capture_masked_run.py::dropped_or_unmasked_face_in_context` raises the blocking preflight flag `dropped_frame_has_visible_face` (`DROPPED_FACE_MIN_PX = 4000`) whenever a dropped/empty frame inside a tracked span has `>= 4,000 px` of visible `Face_Neck`.
+
+### Case Study 3: Singing vs Silent Mouth Drawing Rules (`0278f/i` vs `1340c/d`, 2026-10-18)
+
+- **Symptom**:
+  - On silent shot `278-293` (`second_hfp_0278d/e/h`), drawing a closed mouth line caused `second`'s lips to hang open, because the pose model's mouth line sat `8–12 px` above the SAM 3D Body grey head's own sculpted lips and read as two parted lips. Darkening the grey head (`0278i`, `--darken-head`) made the filled white-and-black contrast eyes pop as cartoon "googly eyes".
+  - Conversely, on singing window `1340-1360` (`third_fp_1340c`), suppressing the drawn mouth caused `third`'s lips to stay shut on all 21 frames while he sang.
+- **Fix (`8ac7e928`, `bench/shot_to_load.py::REFERENCE_DEFAULT`)**:
+  - Keep `--darken-head` off (head brightness `1.0x`) so filled contrast eyes blend naturally (`0278f`).
+  - Decide the mouth per window from the voice table (`mouth="auto"`, `--closed-lip-line` on by default): draw **no mouth** on silent windows (`0278f`, lips stays closed 16/16 frames) and draw the **repaired mouth** (covering the grey head's sculpted lips and fitted above its chin) on voiced/singing windows (`1340d`, full singing articulation).
+
+### Case Study 4: 24.0 fps Source Timing vs 23.976 fps Cut Slip (`lead_fp_0751`, 2026-10-18)
+
+- **Symptom**: `lead_fp_0751` (frames `751-785` rendered against an assembled cut) started 1 frame early (`750` loaded for `751`) and showed boundary flicker against the plate.
+- **Root Cause**: The original video's native rate was `24000/1001` (`23.976024` fps). While the raw working copy `fun_0000_6394_24p_sound_in_step.mov` had been retimed to exact `24.0` fps (`bench/clip_analysis.py` `init --copy`), the assembled cut was written at `23.976` fps, and `workflows/masked_job_graph.py::seek` divides the start frame by `24.0` (`751 / 24.0`), which seeks to frame `750` on a `23.976` fps stream (`floor(751 * 23.976024 / 24.0) = 750`).
+- **Fix (`e44af676`)**: Everything in the lane runs at exact `24.0` fps (`24/1`) from input to assembled cut, and `bench/shot_to_load.py::working_copy` refuses any source whose manifest rate is not `24`.
