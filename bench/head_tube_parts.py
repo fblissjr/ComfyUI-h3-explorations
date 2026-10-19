@@ -1426,7 +1426,8 @@ def _fill_unclassified_in_head_tube(
     import cv2
 
     num_frames, box_h, box_w = cmap_box.shape
-    is_face = tube_box & np.isin(cmap_box, part_ids)
+    face_only_ids = [pid for pid in part_ids if pid != hair_id]
+    is_face = tube_box & np.isin(cmap_box, face_only_ids)
     is_hair = (tube_box & (cmap_box == hair_id)) if hair_id >= 0 else np.zeros_like(tube_box)
 
     good_refs: list[int] = []
@@ -1576,8 +1577,10 @@ def head_tube_for_capture(
                 f"head_tube_for_capture: cmap shape {cmap_arr.shape} does not match {(num_frames, height, width)}"
             )
         # Drop any requested head-part pixels on the subject's track that were already pruned from parts (e.g. by off_head)
-        # so the class map never resurrects detached off-head islands (biceps, hands, skirts) into the head tube or part mask.
-        cmap_arr = np.where(np.isin(cmap_arr, part_ids) & track_bool & ~parts_bool, 0, cmap_arr)
+        # outside the SAM 3.1 head track so the class map never resurrects detached off-head islands (biceps, hands, skirts)
+        # into the head tube or part mask, while keeping Sapiens' face/hair labels inside head_track_bool intact.
+        outside_ht = ~head_track_bool if head_track_bool is not None else True
+        cmap_arr = np.where(np.isin(cmap_arr, part_ids) & track_bool & ~parts_bool & outside_ht, 0, cmap_arr)
         raw_head = parts_bool | np.isin(cmap_arr, tube_ids)
     else:
         cmap_arr = np.where(parts_bool, NAME_TO_ID["Face_Neck"], 0).astype(np.uint8)
@@ -1614,21 +1617,41 @@ def head_tube_for_capture(
     )
     x0, y0, x1, y1 = tube_info["shot_box"]
     cmap_box = np.clip(cmap_arr[:, y0:y1, x0:x1], 0, len(CLASS_NAMES) - 1).copy()
-    unlabeled_part_box = parts_bool[:, y0:y1, x0:x1] & ~np.isin(cmap_box, part_ids)
-    cmap_box[unlabeled_part_box] = NAME_TO_ID["Face_Neck"]
+    hair_id = NAME_TO_ID.get("Hair", -1)
+    face_id = NAME_TO_ID.get("Face_Neck", part_ids[0])
+    head_and_hair_on_head_track = head_track_bool is not None and hair_id >= 0 and hair_id in part_ids
+    face_keep_ids = [pid for pid in part_ids if pid != hair_id] or [
+        NAME_TO_ID[n] for n in DEFAULT_HEAD_PARTS if n != "Hair" and n in NAME_TO_ID
+    ]
+    tube_box_crop = tube_info["tube"][:, y0:y1, x0:x1]
+    raw_part_px_in_tube: list[int] | None = None
+    if head_and_hair_on_head_track:
+        raw_part_px_in_tube = [
+            int(np.logical_and(np.isin(cmap_box[t], part_ids), tube_box_crop[t]).sum())
+            for t in range(num_frames)
+        ]
+        # On a head-and-hair load with a SAM 3.1 head track, the head-and-hair region IS the head track
+        # (`head_track & track_bool`); inside it Sapiens marks only what is face (`face_keep_ids`) and every
+        # non-face pixel inside `tube_box_crop` is `Hair` (`hair_id`), so Sapiens misclassifying hair as
+        # `Apparel` or `Background` on a turn cannot punch a hole in the hair mask.
+        non_face_in_tube = tube_box_crop & ~np.isin(cmap_box, face_keep_ids)
+        cmap_box[non_face_in_tube] = np.uint8(hair_id)
+    else:
+        unlabeled_part_box = parts_bool[:, y0:y1, x0:x1] & ~np.isin(cmap_box, part_ids)
+        cmap_box[unlabeled_part_box] = face_id
 
     pose_kps: list[np.ndarray | None] | None = None
     kp_idx: dict[str, int] | None = None
     if points_path is not None:
         pose_kps, kp_idx = _load_pose_slice_for_capture(points_path, first_frame, num_frames)
 
-    if head_track_bool is not None:
+    if head_track_bool is not None and not head_and_hair_on_head_track:
         _fill_unclassified_in_head_tube(
             cmap_box,
-            tube_info["tube"][:, y0:y1, x0:x1],
+            tube_box_crop,
             part_ids=part_ids,
-            hair_id=NAME_TO_ID.get("Hair", -1),
-            face_id=NAME_TO_ID.get("Face_Neck", part_ids[0]),
+            hair_id=hair_id,
+            face_id=face_id,
             pose_kps=pose_kps,
             x0=x0,
             y0=y0,
@@ -1646,6 +1669,32 @@ def head_tube_for_capture(
         synthetic_class_logit=SYNTHETIC_CLASS_LOGIT,
         return_part_probs=(masks_out is not None),
     )
+    if head_and_hair_on_head_track and raw_part_px_in_tube is not None:
+        tube_full = tube_info["tube"]
+        cls_full = seg_info["class_map"]
+        non_face_full = tube_full & ~np.isin(cls_full, face_keep_ids)
+        cls_full[non_face_full] = np.uint8(hair_id)
+        seg_info["part_mask"] = tube_full.copy()
+        seg_info["face_neck_mask"] = ((cls_full == face_id) & tube_full) if face_id >= 0 else np.zeros_like(tube_full)
+        seg_info["hair_mask"] = (cls_full == hair_id) & tube_full
+        seg_info["raw_part_px"] = raw_part_px_in_tube
+        seg_info["part_px"] = list(seg_info["tube_px"])
+        seg_info["smoothed_part_px"] = list(seg_info["tube_px"])
+        seg_info["face_neck_px"] = [int(seg_info["face_neck_mask"][t].sum()) for t in range(num_frames)]
+        seg_info["hair_px"] = [int(seg_info["hair_mask"][t].sum()) for t in range(num_frames)]
+        if masks_out is not None and seg_info["part_probs"].shape == tube_full.shape:
+            seg_info["part_probs"] = np.where(tube_full, np.maximum(seg_info["part_probs"], 1.0), 0.0).astype(np.float32)
+        bridged_hfp = set(seg_info["dropout_bridged_frames"])
+        for t in range(num_frames):
+            r_px = raw_part_px_in_tube[t]
+            s_px = seg_info["part_px"][t]
+            rf_px = seg_info["raw_face_neck_px"][t]
+            f_px = seg_info["face_neck_px"][t]
+            if (s_px > r_px and r_px < max(1, int(0.75 * s_px))) or (
+                f_px > rf_px and rf_px < max(1, int(0.75 * f_px))
+            ):
+                bridged_hfp.add(t)
+        seg_info["dropout_bridged_frames"] = sorted(bridged_hfp)
 
     # Account for any raw requested-part pixels outside shot_box in off_tube_suppressed_px.
     outside_box = np.ones((height, width), dtype=bool)

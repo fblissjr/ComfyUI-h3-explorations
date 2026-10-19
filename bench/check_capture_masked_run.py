@@ -2116,6 +2116,29 @@ def off_her_head() -> str:
             raise AssertionError("off_head accepted a points file of another size")
         except (ValueError, SystemExit) as exc:
             assert "size" in str(exc), exc
+        # C201 item 1: when head_track is given, off_head drops only pieces outside head_track (+HEAD_TRACK_OFF_HEAD_MARGIN),
+        # keeping detached face pieces and small pieces inside head_track even without pose face points, while dropping bicep/hand
+        # islands outside head_track and falling back to pose face points on any frame where head_track is empty.
+        ht_parts = np.zeros((3, H, W), bool)
+        ht_track = np.zeros((3, H, W), bool)
+        ht_track[0, 18:42, 20:60] = True                               # frame 0: SAM 3.1 head track covers x=20..60, y=18..42
+        ht_parts[0, 20:40, 40:58] = True                               # main face piece inside head_track
+        ht_parts[0, 22:36, 22:30] = True                               # detached side-cheek piece inside head_track (far from pose face points at x=42..58)
+        ht_parts[0, 19:21, 33:35] = True                               # 4px piece inside head_track (would be a speck without head_track)
+        ht_parts[0, 56:76, 36:56] = True                               # 400px hand/bicep island outside head_track (y=56..76)
+        ht_track[1, 18:42, 20:60] = True                               # frame 1: head_track present, only off-head island in ht_parts -> fragment
+        ht_parts[1, 60:75, 36:56] = True
+        ht_parts[2] = parts[2]                                         # frame 2: head_track empty -> falls back to pose face points (drops skirt y=70..95)
+        ht_kept, ht_said, ht_frags, ht_blind = cap.off_head(ht_parts, str(path), 100, 16, head_track=ht_track)
+        assert ht_kept[0, 20:40, 40:58].all() and ht_kept[0, 22:36, 22:30].all() and ht_kept[0, 19:21, 33:35].all(), (
+            f"off_head with head_track cut pixels inside head_track on frame 0: {ht_said.get(0)}"
+        )
+        assert not ht_kept[0, 56:76, 36:56].any() and len(ht_said.get(0, [])) == 1 and "SAM 3.1 head track" in ht_said[0][0]["why"], ht_said.get(0)
+        assert not ht_kept[1].any() and 1 in ht_frags, (ht_kept[1].sum(), ht_frags)
+        assert ht_kept[2, 20:40, 40:60].all() and not ht_kept[2, 70:95, 30:70].any() and any("shoulder" in d.get("bound", "") for d in ht_said[2]), ht_said.get(2)
+        assert ht_blind == [], ht_blind
+        ht_nopts, ht_nopts_said, _, _ = cap.off_head(ht_parts[:1], None, 100, 16, head_track=ht_track[:1])
+        assert np.array_equal(ht_nopts[0], ht_kept[0]) and len(ht_nopts_said.get(0, [])) == 1, ht_nopts_said
         # D22 item 5.2, item 3, item 6.3: run cap._files and cap.preflight with points= on --mask, verifying off_head runs in files,
         # records parts_dropped_off_her_head and part_sizes measured after off_head, and preflight writes held_frames to flags.json and stdout
         f_dir = Path(tmp) / "cap_files"

@@ -2286,10 +2286,11 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             or (bool(getattr(a, "head_tube", False)) and m.get("head_tube") not in ("0", "off", "false") and (label in replaced or not replaced))
         )
         off_said, off_frags, off_blind = {}, set(), []
-        if parts is not None and m.get("points"):
-            # WHAT LIES OFF HER HEAD (`off_head`, the lead's rulings of 2026-10-16): from the reference step's face points
+        if parts is not None and (m.get("points") or head_track_arr is not None):
+            # WHAT LIES OFF HER HEAD (`off_head`, the lead's rulings of 2026-10-16 and 2026-10-18): from the SAM 3.1 head track when given,
+            # else from the reference step's face points
             parts, off_said, off_frags, off_blind = off_head(
-                parts, m["points"], first, int(m.get("points_margin", OFF_HEAD_MARGIN)), head_track=head_track_arr,
+                parts, m.get("points"), first, int(m.get("points_margin", OFF_HEAD_MARGIN)), head_track=head_track_arr,
             )
             if off_said:
                 print(f"  {label}: off her head, dropped from the saved part on {len(off_said)} frame(s); nothing left at her head on "
@@ -2415,7 +2416,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             sizes = part_sizes(parts, first, least, least_by, not_applied=(
                 "grade=off on this --mask" if m.get("grade") == "off" else "no class map was given for this subject, so its part is not graded"
                 if not m.get("classes") else "the mask video does not cover the whole span, so no part to load was written"),
-                after_off_head=bool(m.get("points")))
+                after_off_head=bool(m.get("points") or head_track_arr is not None))
             write_mask_video(folder / f"parts__{by}.mkv", parts)
             mine = [r for r in subject_rows(label, by, first, track, covered, parts)]
             word_refused(label, m, True, all(r["covered"] for r in mine))
@@ -2436,7 +2437,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                                    **grade_given(m, what, every, first, frames, track))
                         sizes = part_sizes(parts, first, least, least_by,
                                            emptied=[f for f, d in graded.items() if "least_px" in d and d["did"].startswith("emptied")],
-                                           after_off_head=bool(m.get("points")))
+                                           after_off_head=bool(m.get("points") or head_track_arr is not None))
                         held_frames = [f for f, d in graded.items() if d["did"].startswith("filled") or d["did"] == "held by the floor rule"]
                         held_by_floor = [first + f for f, d in graded.items() if d["did"] == "held by the floor rule"]
                         hold_missed = [first + f for f, d in graded.items() if d.get("hold_missed")]
@@ -2528,7 +2529,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                                                    "frames": [{"source_frame": first + k, "dropped": v} for k, v in sorted(off_said.items())],
                                                                    "nothing_left_at_her_head_on_source_frames": frame_spans([first + k for k in sorted(off_frags)]),
                                                                    "no_face_points_on_source_frames": frame_spans([first + k for k in off_blind])}
-                                                                  if m.get("points") else None),
+                                                                  if (m.get("points") or head_track_arr is not None) else None),
                                    **({"head_tube": True,
                                        "head_tube_provenance": f"subjects/{label}/head_tube__{by}.json",
                                        "head_tube_summary": {
@@ -4413,52 +4414,91 @@ HEAD_POINT_NAMES = ("nose", "left_eye", "right_eye", "left_ear", "right_ear", "t
 #: Default canvas-pixel margin for `off_head` (`points_margin=`). **Inherited**: one H3 latent cell on the canvas (`CELL` = 16 px),
 #: matching `load_chain.OFF_HEAD_MARGIN` (D22 item 6.2).
 OFF_HEAD_MARGIN = CELL
+#: Canvas-pixel margin around the SAM 3.1 head track for `off_head`. **Measured + inherited**: matches
+#: `MASKED_JOB_PARTS["subject_margin"]` (`CELL // 2` = 8 px); on `shot_c_0604c` (`751-785`, `lead`) every true
+#: face/neck component lies within `0.0..6.6 px` of `head_track` while the closest off-head hand/arm island sits
+#: at `19.4 px` (`103.1 px` on `772`, `18,474 px` bicep patch at `y=576..747` on `1306d`).
+HEAD_TRACK_OFF_HEAD_MARGIN = CELL // 2
 #: How many head heights (`hy1 - hy0`) the shoulder-line bound moves down when her face points reach or pass her shoulder line (`off_head`).
 #: **Reasoned**: one head height matches the no-shoulders fallback bound on the line below, allowing her chin and neck directly beneath a
 #: bent head to chain within margin while cutting off the torso below (D22 item 4, on 0613f's 684-707).
 BENT_LINE_HEAD_HEIGHTS = 1.0
 
 
-def off_head(parts: np.ndarray, points: str, first: int, margin: int,
+def off_head(parts: np.ndarray, points: str | Path | None, first: int, margin: int,
              head_track: np.ndarray | None = None) -> tuple[np.ndarray, dict[int, dict], set[int], list[int]]:
-    """The saved part with what lies off her head taken out, a frame at a time, from the reference step's face points (`points`, the npz
-    `bench/pose_along_shot.py` writes; its frames from its own `first_frame`). Returns the part, what was dropped on each frame, the frames
-    left with nothing at her head while the face points see her (fragments, which the floor rule holds), and the frames with no face point
-    over the line (today's behaviour, said).
+    """The saved part with what lies off her head taken out, a frame at a time: from the SAM 3.1 head track (`head_track`) when given,
+    else from the reference step's face points (`points`, the npz `bench/pose_along_shot.py` writes; its frames from its own `first_frame`).
+    Returns the part, what was dropped on each frame, the frames left with nothing at her head while the head track or face points see her
+    (fragments, which the floor rule holds), and the frames with no face point over the line when no head track is present.
 
-    A piece is DROPPED when it is a speck (not the largest, under `SPECK_SHARE` of it, no face point within `margin` px), or when it lies off
+    When `head_track` has pixels on frame `k`, a piece is KEPT when it overlaps `head_track[k]` grown by `min(margin, HEAD_TRACK_OFF_HEAD_MARGIN)`
+    (8 px) and DROPPED when it lies outside the SAM 3.1 head track (`0751d` frame 772 keeps her whole face inside the head track while dropping
+    the 8,555 px hand/arm islands at `y >= 458`). When `head_track` is `None` (or empty on frame `k`), a piece is DROPPED when it is a speck
+    (not the largest, under `SPECK_SHARE` of it, no face point within `margin` px), or when it lies off
     her head: no face point within `margin` px and its box outside her head box (`HEAD_POINT_NAMES` and the face's points over
     the face-point line (`FACE_POINT_LINE_FROM`), grown by `margin`), unless it is within `margin` px of a kept piece AND above her shoulder line (the lower of the two
     shoulders' y plus `margin`, both shoulders over the line, extended by `BENT_LINE_HEAD_HEIGHTS` head heights when her face points reach or
     pass the shoulder line, where a piece directly under her head box with a face point inside it or on its edge also stays; else within one
     head height of the head box), applied until nothing changes:
     her neck split from her face by a choker or an earring stays, her arm, waist and skirt go (0613f's 628, 772, 850). What it cannot see:
-    a frame whose face points are wrong."""
+    a frame whose face points are wrong when no head track is given."""
     import cv2
     sys.path.insert(0, str(REPO / "workflows"))
     import h3_config  # noqa: E402
     from _lib import face_points as fp
     line_score = getattr(h3_config, FACE_POINT_LINE_FROM[0])[FACE_POINT_LINE_FROM[1]]
-    z = np.load(points)
     h_mask, w_mask = int(parts.shape[1]), int(parts.shape[2])
-    if "size" not in z.files or [int(z["size"][0]), int(z["size"][1])] != [w_mask, h_mask]:
-        got_sz = [int(v) for v in z["size"]] if "size" in z.files else None
-        raise ValueError(f"off_head: points file {points} has size {got_sz}, which is not the mask's size {[w_mask, h_mask]}")
     if head_track is not None and tuple(head_track.shape) != tuple(parts.shape):
         raise ValueError(f"off_head: head_track shape {tuple(head_track.shape)} does not match parts shape {tuple(parts.shape)}")
-    names = [str(x) for x in z["names"]]
-    idx = {n: i for i, n in enumerate(names)}
-    fids, at = fp.face_ids(idx), int(z["first_frame"])
-    head_ids = [idx[n] for n in HEAD_POINT_NAMES if n in idx] + list(fids)
-    shoulders = [idx["left_shoulder"], idx["right_shoulder"]]
+    if points is None and head_track is None:
+        raise ValueError("off_head: points or head_track is required")
+    z = None
+    fids: list[int] = []
+    head_ids: list[int] = []
+    shoulders: list[int] = []
+    at = int(first)
+    if points is not None:
+        z = np.load(points)
+        if "size" not in z.files or [int(z["size"][0]), int(z["size"][1])] != [w_mask, h_mask]:
+            got_sz = [int(v) for v in z["size"]] if "size" in z.files else None
+            raise ValueError(f"off_head: points file {points} has size {got_sz}, which is not the mask's size {[w_mask, h_mask]}")
+        names = [str(x) for x in z["names"]]
+        idx = {n: i for i, n in enumerate(names)}
+        fids, at = fp.face_ids(idx), int(z["first_frame"])
+        head_ids = [idx[n] for n in HEAD_POINT_NAMES if n in idx] + list(fids)
+        shoulders = [idx["left_shoulder"], idx["right_shoulder"]]
     grow = np.ones((2 * margin + 1, 2 * margin + 1), np.uint8)
+    ht_margin = max(0, min(int(margin), HEAD_TRACK_OFF_HEAD_MARGIN))
+    ht_grow = np.ones((2 * ht_margin + 1, 2 * ht_margin + 1), np.uint8)
     edge_grow = np.ones((3, 3), np.uint8)
     out, dropped, fragments, blind = parts.copy(), {}, set(), []
     for k in range(len(parts)):
-        j = first + k - at
         if not parts[k].any():
             continue
-        if not 0 <= j < len(z["keypoints"]):
+        ht_k = (head_track[k] > 0) if head_track is not None else None
+        if ht_k is not None and bool(ht_k.any()):
+            ht_near = cv2.dilate(ht_k.astype(np.uint8), ht_grow).astype(bool) if ht_margin > 0 else ht_k
+            n, lab, st, _ = cv2.connectedComponentsWithStats(parts[k].astype(np.uint8), 8)
+            kept = np.zeros_like(parts[k])
+            said = []
+            for i in range(1, n):
+                piece = lab == i
+                x, y, bw, bh, a = (int(v) for v in st[i])
+                box = [x, y, x + bw, y + bh]
+                if bool((piece & ht_near).any()):
+                    kept |= piece
+                else:
+                    said.append({"px": a, "box": box, "why": "off her head: outside the SAM 3.1 head track",
+                                 "bound": f"the SAM 3.1 head track (+{ht_margin} px)"})
+            if said:
+                dropped[k] = said
+                out[k] = kept
+                if not kept.any():
+                    fragments.add(k)
+            continue
+        j = first + k - at
+        if z is None or not 0 <= j < len(z["keypoints"]):
             blind.append(k)
             continue
         pts, sc = z["keypoints"][j], z["scores"][j]
@@ -4482,7 +4522,6 @@ def off_head(parts: np.ndarray, points: str, first: int, margin: int,
         big = 1 + int(np.argmax(st[1:, cv2.CC_STAT_AREA]))
         kept = np.zeros_like(parts[k])
         said, pending = [], []
-        ht_k = (head_track[k] > 0) if head_track is not None else None
         for i in range(1, n):
             piece = lab == i
             near = cv2.dilate(piece.astype(np.uint8), grow).astype(bool)
@@ -4493,9 +4532,8 @@ def off_head(parts: np.ndarray, points: str, first: int, margin: int,
             box = [x, y, x + bw, y + bh]
             iy0, iy1 = max(0, int(np.floor(hy0))), min(h, int(np.ceil(hy1)) + 1)
             ix0, ix1 = max(0, int(np.floor(hx0))), min(w, int(np.ceil(hx1)) + 1)
-            in_ht = bool((piece & ht_k).any()) if ht_k is not None else False
-            in_head = in_ht or (bool(piece[iy0:iy1, ix0:ix1].any()) if (iy0 < iy1 and ix0 < ix1) else False)
-            if i != big and a < SPECK_SHARE * st[big, cv2.CC_STAT_AREA] and not face_near and not in_ht:
+            in_head = bool(piece[iy0:iy1, ix0:ix1].any()) if (iy0 < iy1 and ix0 < ix1) else False
+            if i != big and a < SPECK_SHARE * st[big, cv2.CC_STAT_AREA] and not face_near:
                 said.append({"px": a, "box": box, "why": f"a speck: {round(a / st[big, cv2.CC_STAT_AREA], 4)} of the largest piece, no face point near"})
             elif bent and x >= hx0 and x + bw <= hx1 and y + bh <= line and face_on_edge:
                 kept |= piece

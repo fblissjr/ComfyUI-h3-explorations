@@ -764,11 +764,61 @@ def _case_head_track_seed_mask() -> str:
         f"unclassified face hole inside head_track on frames 1..2 was not filled: {[int(on_res['part_mask'][t].sum()) for t in range(4)]}"
     )
     assert int(off_res["part_mask"][1].sum()) == 8 * 24, "control: without head_track fill, 2-frame hole on frame 1 stays 192 px"
+    # C201 item 1 (head_tube_parts.py:1580): when head_track is given and parts has a pruned piece inside head_track alongside an
+    # off-head island pruned outside head_track, cmap_arr keeps Sapiens' head classes inside head_track while zeroing the off-head island.
+    hair_id = htp.NAME_TO_ID["Hair"]
+    app_id = htp.NAME_TO_ID["Apparel"]
+    lip_id = htp.NAME_TO_ID["Upper_Lip"]
+    cmap_c201 = cmap.copy()
+    cmap_c201[:, 14:18, 24:30] = lip_id
+    cmap_c201[0, 40:48, 20:36] = face_id  # off-head island on person_track outside head_track
+    parts_c201 = ((cmap == face_id) | (cmap_c201 == lip_id)).copy()
+    parts_c201[0, 12:20, 20:32] = False   # piece inside head_track that was missing from parts
+    res_c201 = htp.head_tube_for_capture(
+        person_track, parts_c201, cmap_c201, head_parts=("Face_Neck", "Upper_Lip"), head_track=head_track
+    )
+    assert np.all(res_c201["part_mask"][0, 12:28, 20:44]), "Sapiens face pixels inside head_track were zeroed when missing from parts"
+    assert np.all(res_c201["class_map"][0, 14:18, 24:30] == lip_id), (
+        "Sapiens Upper_Lip class inside head_track was zeroed when missing from parts"
+    )
+    assert not np.any(res_c201["part_mask"][0, 40:48, 20:36]) and not np.any(res_c201["class_map"][0, 40:48, 20:36] == face_id), (
+        "off-head island outside head_track was not zeroed in part_mask / class_map"
+    )
+    # C202/C203/C204: on a head-and-hair load with head_track, part_mask IS head_track & person_track, Sapiens marks only face inside it,
+    # and every non-face pixel inside head_track & person_track is assigned Hair (even when Sapiens mislabeled hair as Apparel/Background).
+    cmap_hfp = np.zeros((4, 64, 64), dtype=np.uint8)
+    cmap_hfp[:, 18:28, 24:40] = face_id   # face inside lower center of head_track (10x16 = 160 px)
+    cmap_hfp[:, 24:26, 28:36] = lip_id    # upper lip inside face (2x8 = 16 px)
+    cmap_hfp[0, 12:18, 20:44] = hair_id   # frame 0: Sapiens labels top row as Hair
+    cmap_hfp[1, 12:18, 20:44] = app_id    # frame 1: Sapiens mislabels all hair as Apparel (1097c/1156c hair-flash bug)
+    cmap_hfp[2, 12:18, 20:44] = 0         # frame 2: Sapiens drops hair to Background (0751d/0604c turn bug)
+    cmap_hfp[3, 12:18, 20:44] = hair_id   # frame 3: Sapiens labels top row as Hair
+    parts_hfp = (cmap_hfp == face_id) | (cmap_hfp == lip_id) | (cmap_hfp == hair_id)
+    res_hfp = htp.head_tube_for_capture(
+        person_track,
+        parts_hfp,
+        cmap_hfp,
+        head_parts=htp.DEFAULT_HEAD_PARTS,
+        head_track=head_track,
+    )
+    expected_tube = head_track & person_track
+    assert np.array_equal(res_hfp["part_mask"], expected_tube), "hfp part_mask with head_track is not equal to head_track & person_track"
+    assert res_hfp["provenance"]["part_px"] == [16 * 24] * 4, res_hfp["provenance"]["part_px"]
+    assert 1 in res_hfp["provenance"]["dropout_bridged_frames"] and 2 in res_hfp["provenance"]["dropout_bridged_frames"], (
+        res_hfp["provenance"]["dropout_bridged_frames"]
+    )
+    for t in range(4):
+        cls_t = res_hfp["class_map"][t]
+        assert np.all(cls_t[24:26, 28:36] == lip_id), f"frame {t}: lip class lost inside head_track"
+        assert int(res_hfp["seg_info"]["face_neck_mask"][t].sum()) == 160 - 16, f"frame {t}: face_neck_mask px mismatch"
+        assert int(res_hfp["seg_info"]["hair_mask"][t].sum()) == (16 * 24) - 160, (
+            f"frame {t}: non-face pixels inside head_track were not assigned Hair: {int(res_hfp['seg_info']['hair_mask'][t].sum())}"
+        )
     refused(
         lambda: htp.head_tube_for_capture(person_track, raw_parts, cmap, head_parts=("Face_Neck",), head_track=head_track[:2]),
         "head_track shape",
     )
-    return "head_track clipped to person_track, 2-frame unclassified hole filled from reference frames, wrong shape refused"
+    return "head_track clipped to person_track, 2-frame unclassified hole filled, hfp head_track region + Hair assignment verified, wrong shape refused"
 
 
 def main() -> int:
