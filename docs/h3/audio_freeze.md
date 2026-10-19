@@ -1,25 +1,20 @@
 # Freezing a known audio track: audio-driven video on MiniMax H3
 
-last updated: 2026-10-08 (section 8 re-read at a newer sglang head, one sentence narrowed with a dated note); 2026-10-04 (section 4, the song node's `source`: masked video to video; `docs/masked_v2v/overview.md` is the lane's current map); 2026-09-27 (section 5 idea 9, the TaoMate adapter, removed with that lane); 2026-09-25 (dated notes in sections 3 and 5); 2026-09-15
+**The answer.** Writing a track's audio latent into the target rows with a per-stream noise mask of zero, and muxing
+the original waveform at output, makes the picture follow the track: on both test scenes the dancer moved to the beat
+and the speaker's lip sync held (owner's verdicts, 2026-09-12 and 2026-09-13). The plumbing is core's; this pack adds
+`MiniMaxH3FreezeAudio`, a windowed form, and `MiniMaxH3AudioFreezeSong` for a whole song in joined windows. It is not a
+trained task. The same song node, given a masked source video, is the masked video-to-video lane
+([`../masked_v2v/overview.md`](../masked_v2v/overview.md)).
 
-**The owner of this lane.** Opened 2026-09-12 by the owner: drop a song of any
-length, keep it exactly, and have the picture move to it, the way the owner's
-LTX 2.3 pack (`ComfyUI-AudioLoopHelper`, a sibling custom node, not part of
-this repo) does with a per-stream `noise_mask` and an integer-latent loop.
-This page says what the mechanism is on H3, what already exists on this box,
-the plan in order, and every idea worth a render, each with a confidence.
-Nothing here has rendered yet; every claim is a source read, cited, until a
-dated record under `bench/results/` says otherwise.
+The lane was opened by the owner on 2026-09-12: drop a song of any length, keep it exactly, and have the picture move
+to it, as the owner's LTX 2.3 pack (`ComfyUI-AudioLoopHelper`, a sibling custom node, not part of this repo) does with
+a per-stream `noise_mask` and an integer-latent loop. The day's postmortem and session log are under `internal/`
+(gitignored): `internal/postmortems/2026-09-12_session_audio-freeze-lane.md` and `internal/log/log_2026-09-12.md`.
 
-The day's postmortem and session log are under `internal/` (gitignored):
-`internal/postmortems/2026-09-12_session_audio-freeze-lane.md` and
-`internal/log/log_2026-09-12.md`.
-
-Read first: [`geometry_and_nodes.md`](geometry_and_nodes.md) for the two
-clocks and the frame grid, [`references.md`](references.md) "Audio
-references" for how core encodes audio and where it crops, and
-[`docs/research/sglang_h3_pipeline.md`](../research/sglang_h3_pipeline.md) for the
-vendor's serving path.
+Read first: [`geometry.md`](geometry.md) for the two clocks and the frame grid, [`references.md`](references.md)
+"Audio references" for how core encodes audio and where it crops, and
+[`../research/sglang_h3_pipeline.md`](../research/sglang_h3_pipeline.md) for the vendor's serving path.
 
 ---
 
@@ -92,320 +87,145 @@ the frozen latent need not be the track you ship.
 
 ## 3. What already exists on this box
 
-Read 2026-09-12. The two packs are installed as siblings of this repo under
-ComfyUI's `custom_nodes/`, live in the render server, and are not under
-`coderef/` on this date; [`docs/working/coderef.md`](../working/coderef.md) does not
-yet map them. *(2026-10-01: `ComfyUI-H3-Motion-Context-MultiRef` is no longer
-installed, so its two paths below no longer resolve; they are declared absent
-in `docs/method/checks.md`.)*
+Read 2026-09-12. The two sibling packs below sat under ComfyUI's `custom_nodes/`, not under `coderef/`.
 
-- **Core**: the mask path above; `MiniMaxH3AddGuide` for guide audio;
-  nested-latent noise and mask packing. Core's `_encode_ref_audio` still
-  passes through the generic input crop for the H3 audio VAE
-  (`comfy/sd.py` sets `crop_input` false for other VAEs and not this one), so
-  a target-audio encode must pad the end to the hop first:
-  `reference_conditioning.py::_encode_ref_audio_aligned` does exactly that and
-  is the encoder this lane reuses.
-- **`ComfyUI-H3-Motion-Context-MultiRef`** (seitanism's fork): a song node
-  (`custom_nodes/ComfyUI-H3-Motion-Context-MultiRef/h3_song_audio_context.py::MiniMaxH3SongMaskedAVContext`, a path under ComfyUI, not this repo) that writes a
-  master-song slice into the target audio rows, zeros the whole audio mask,
-  optionally copies the previous clip's video latent tail in as a frozen
-  prefix, and returns the nested mask; an extension node with a short audio
-  feather at the seam (`custom_nodes/ComfyUI-H3-Motion-Context-MultiRef/existing_video_extension.py::_apply_audio_context_feather`);
-  a mask-editing pair (`MiniMaxH3SetAVNoiseMask`, `MiniMaxH3ClearAVNoiseMask`);
-  and the geometry fact that contexts of 39 plus multiples of 51 frames land
-  on both the video run grid and the audio grid (`TECHNICAL_ARCHITECTURE.md`
-  section 3, derivable from `FRAME_PER_TOKEN` and the audio rate). The
-  owner's 2026-08-30 read (`internal/`, gitignored) judged the premise and the
-  level of the stack right and the code not worth adopting; its V2V node
-  installs a process-wide precision patch that does not retire until restart.
-  The song node does not install it. Use the pack as an instrument.
-- **`ComfyUI-H3-AudioRefine`**: the inverse, video frozen and audio refined,
-  with a KV cache over the frozen rows. The cache does not invert usefully:
-  frozen audio is a sliver of the sequence, so a step with frozen audio still
-  costs a full forward.
-- **This repo**: the aligned encoder above, the audio-carry probe
-  (`audio_carry_probe.py`, which understands the schedule carry), the length
-  rules (`h3_rules.py`), the generator and `h3_config`. No shipped graph
-  writes a `noise_mask` (verified 2026-08-30, and `custom_node_gaps.md`
-  section 8 excluded the looping packs from its read).
-  *Stale since the freeze nodes shipped; noted 2026-09-25. A walk of
-  `h3_config.graph_paths` finds shipped graphs wiring `MiniMaxH3FreezeAudio`,
-  `MiniMaxH3FreezeAudioWindow` and `MiniMaxH3AudioFreezeSong`, each of which
-  writes one.*
+- **Core**: the mask path above; `MiniMaxH3AddGuide` for guide audio; nested-latent noise and mask packing. Core's
+  `_encode_ref_audio` still passes through the generic input crop for the H3 audio VAE (`comfy/sd.py` sets
+  `crop_input` false for other VAEs and not this one), so a target-audio encode must pad the end to the hop first:
+  `reference_conditioning.py::_encode_ref_audio_aligned` does exactly that and is the encoder this lane reuses.
+- **`ComfyUI-H3-Motion-Context-MultiRef`** (seitanism's fork; no longer installed since 2026-10-01, declared absent in
+  `docs/method/checks.md`): a song node
+  (`custom_nodes/ComfyUI-H3-Motion-Context-MultiRef/h3_song_audio_context.py::MiniMaxH3SongMaskedAVContext`) that
+  writes a master-song slice into the target audio rows, zeros the whole audio mask, optionally copies the previous
+  clip's video latent tail in as a frozen prefix, and returns the nested mask; an extension node with a short audio
+  feather at the seam
+  (`custom_nodes/ComfyUI-H3-Motion-Context-MultiRef/existing_video_extension.py::_apply_audio_context_feather`); a
+  mask-editing pair (`MiniMaxH3SetAVNoiseMask`, `MiniMaxH3ClearAVNoiseMask`); and the geometry fact that contexts of
+  39 plus multiples of 51 frames land on both the video run grid and the audio grid (`TECHNICAL_ARCHITECTURE.md`
+  section 3). The owner's 2026-08-30 read (`internal/`, gitignored) judged the premise and the level of the stack
+  right and the code not worth adopting; its V2V node installs a process-wide precision patch that does not retire
+  until restart. Used as an instrument: its song node is the bit-for-bit control of ours.
+- **`ComfyUI-H3-AudioRefine`**: the inverse, video frozen and audio refined, with a KV cache over the frozen rows. The
+  cache does not invert usefully: frozen audio is a sliver of the sequence.
+- **This repo**: the aligned encoder above, the audio-carry probe (`audio_carry_probe.py`), the length rules
+  (`h3_rules.py`), and the freeze nodes. Shipped graphs wiring `MiniMaxH3FreezeAudio`, `MiniMaxH3FreezeAudioWindow`
+  and `MiniMaxH3AudioFreezeSong` write a `noise_mask` (walk `h3_config.graph_paths`).
 
 ---
 
 ## 4. The plan, in order
 
-Owner agreed 2026-09-12; rewritten the same evening once the first
-verdicts were in. Process note from the owner, same day: this does not need
-to be perfect scientific research. Verdicts are the owner's free-text on a
-clip or a pair, the instrument sits beside them, and one dated record per
-batch is enough.
+Agreed with the owner 2026-09-12. Verdicts are the owner's free text on a clip or a pair, the instrument sits beside
+them, and one dated record per batch is enough: this lane does not need to be perfect research.
 
 **Done, and what it found.**
 
-1. **The freeze node, its graph and its control**
-   (`audio_freeze.py::MiniMaxH3FreezeAudio`,
-   `workflows/h3_text_to_video_audio_freeze_api.json`,
-   `bench/check_audio_freeze.py`; the pack's song node as the bit-for-bit
-   control, [`../data/results/2026-09-12_audio_freeze_control.json`](../data/results/2026-09-12_audio_freeze_control.json)).
-   The node also fixes what it is given (rate, channels, level) and names
-   every transform; section 9 checks its path against the vendor's.
-2. **Does the picture follow a frozen track: yes, on both scenes**, on the
-   owner's word ([`../bench/results/2026-09-12_audio_freeze_step2_verdict.json`](../../bench/results/2026-09-12_audio_freeze_step2_verdict.json);
-   arms `bench/audio_freeze_step2_arms.json`, rows
-   `data/results/2026-09-12_audio_freeze_step2_arms.jsonl`). The dancer
-   "is definitely moving to the beat" at mask 0.0 and "pretty awesome" at
-   0.25; the speaker's lip sync "looks good". The mechanism question is
-   closed for this lane. What the same batch left open: whether the loose
-   mask is better or the seed was (the pair at a second seed,
-   `bench/audio_freeze_mask_seed2_arms.json`), and whether the transcript
-   needs to be in the prompt (the `voice_untold` arm). The wide framing
-   blurs the face, so later renders use `t2va_studio_dancer_close`.
+1. **The freeze node, its graph and its control** (`audio_freeze.py::MiniMaxH3FreezeAudio`,
+   `workflows/h3_text_to_video_audio_freeze_api.json`, `bench/check_audio_freeze.py`; the sibling pack's song node as
+   the bit-for-bit control,
+   [`../data/results/2026-09-12_audio_freeze_control.json`](../../data/results/2026-09-12_audio_freeze_control.json)). The
+   node also fixes what it is given (rate, channels, level) and names every transform; section 9 checks its path
+   against the vendor's.
+2. **The picture follows a frozen track, on both scenes**
+   ([`../bench/results/2026-09-12_audio_freeze_step2_verdict.json`](../../bench/results/2026-09-12_audio_freeze_step2_verdict.json);
+   arms `bench/audio_freeze_step2_arms.json`, rows `data/results/2026-09-12_audio_freeze_step2_arms.jsonl`). The
+   dancer moves to the beat at mask 0.0 and at 0.25; the speaker's lip sync looks good. The wide framing blurs the
+   face, so later renders use `t2va_studio_dancer_close`. The lower-face instrument
+   ([`../data/results/2026-09-12_audio_freeze_voice_mouth_own_audio.json`](../../data/results/2026-09-12_audio_freeze_voice_mouth_own_audio.json))
+   reads the wrong thing on this scene (she turns her head in the silent tail, and this OpenCV build has no face
+   detector); the eye is the verdict until its mouth mode has a landmark model.
+3. **PDD8 is the iteration chain** (owner: both PDD8 arms look and sound right; rows
+   `data/results/2026-09-12_audio_freeze_pdd_arms.jsonl`). Every render in this lane goes through
+   `workflows/h3_candidate_t2v_pdd8_baked_audio_freeze_api.json` first; the base chain is for keepers.
+4. **The open pairs, answered in direction** (owner, 2026-09-13; the clips are under `Video/` in the output share and
+   the verdicts in the step 2 verdict file):
 
-   The lower-face instrument
-   ([`../data/results/2026-09-12_audio_freeze_voice_mouth_own_audio.json`](../data/results/2026-09-12_audio_freeze_voice_mouth_own_audio.json))
-   reads the wrong thing on this scene: the silent tail is where she turns
-   her head, so a fixed region sees more motion in silence than in speech
-   on every arm, and this OpenCV build has no face detector. The eye is the
-   verdict here; the instrument's mouth mode needs a landmark model before
-   it says anything.
-
-**Built while the owner was away, 2026-09-12 evening**, for steps 5 and 6:
-`audio_freeze.py::MiniMaxH3FreezeAudioWindow` (one window of a long track,
-the previous window's video latent tail copied in as frozen context, the
-geometry rules in `window_geometry`), the first-frame twin
-`workflows/h3_first_frame_to_video_audio_freeze_api.json`, and the API-only
-two-window seam graph `workflows/h3_text_to_video_audio_freeze_2windows_api.json`
-(second window fed the first sampler's output, decoded separately, the
-39-frame overlap dropped, the two joined, the muxer on the track's span).
-The freeze node also grew a `level` input (the level guard above).
-
-3. **PDD8 is the iteration chain** (closed 2026-09-12 evening, owner:
-   both PDD8 arms "look and sound great"; rows
-   `data/results/2026-09-12_audio_freeze_pdd_arms.jsonl`). Every later
-   render in this lane goes through
-   `workflows/h3_candidate_t2v_pdd8_baked_audio_freeze_api.json` first; the base
-   chain is for keepers.
-4. **The two open pairs from step 2, answered in direction.** Loose against
-   frozen at a second seed: both read good, so the seed-1 gap was the seed;
-   hard freeze stays the default, the loose mask a knob
-   (`data/results/2026-09-12_audio_freeze_mask_seed2_arms.jsonl`).
-   Transcript against none: the untold arm works, the mouth's timing follows
-   the clip, and the words in the text add polish; the still delivery was
-   the prompt's. Open now: how much subject and camera motion a frozen line
-   carries (three motion arms, `bench/audio_freeze_seam_and_moving_arms.json`)
-   and whether more of the track without words closes the gap (the loose
-   mask and guide audio, `bench/audio_freeze_untold_arms.json`).
-
-**For the owner to judge, rendered 2026-09-12 evening and not yet judged.**
-Clips are in the output share under `Video/`; the rows name each arm's graph,
-prompt id and seed. One line per clip into
-`bench/results/2026-09-12_audio_freeze_step2_verdict.json` is what closes each.
-
-| clip (under `Video/`) | what it asks | rows |
+| question | answer | rows |
 |---|---|---|
-| `h3_t2v_audio_freeze_2windows_seam_dancer_close_00001-audio.mp4` | the loop's first seam: two windows joined at 39 frames, about 12.75 s in. Does the join read? **Owner, 2026-09-13: "even better" than either single window; the join reads.** Recorded in the step 2 verdict file | `2026-09-12_audio_freeze_seam_and_moving_arms.jsonl` |
-| `h3_candidate_t2v_pdd8_baked_audio_freeze_voice_moving_subject_pdd8_00001-audio.mp4` | subject moves during the line, camera held: lip sync intact, natural? **Owner, 2026-09-13: good.** | same |
-| `..._voice_moving_camera_pdd8_00001-audio.mp4` | camera arcs, delivery still. **Owner, 2026-09-13: good.** | same |
-| `..._voice_moving_both_pdd8_00001-audio.mp4` | both. **Owner, 2026-09-13: good.** | same |
-| `h3_candidate_t2v_pdd8_baked_audio_freeze_untold_loose_pdd8_00001-audio.mp4` | no transcript, loose mask: more natural than the untold base arm? **Owner, 2026-09-13: the one failure. Lip sync holds for about two seconds, then she stops talking while the audio continues. Not the loose mask, which the dancer arms clear: the missing transcript, which the guide arm made up for.** | `2026-09-12_audio_freeze_untold_arms.jsonl` |
-| `h3_candidate_t2v_pdd8_baked_audio_freeze_guide_untold_guide_pdd8_00001-audio.mp4` | no transcript, the clip also as guide rows **Owner, 2026-09-13: good.** | same |
-| `..._guide_untold_guide_loose_pdd8_00001-audio.mp4` | both. **Owner, 2026-09-13: good.** | same |
+| loose against hard mask at a second seed | both good: the seed-1 gap was the seed; hard freeze stays the default, the loose mask a knob | `bench/audio_freeze_mask_seed2_arms.json`; `data/results/2026-09-12_audio_freeze_mask_seed2_arms.jsonl` |
+| two windows joined at 39 frames (`h3_text_to_video_audio_freeze_2windows_api.json`) | the join reads; better than either single window | `bench/audio_freeze_seam_and_moving_arms.json`; `2026-09-12_audio_freeze_seam_and_moving_arms.jsonl` |
+| subject moving, camera arcing, or both during a frozen line | all good | same |
+| no transcript in the prompt, hard mask | works; the mouth's timing follows the clip, and the words add polish | `bench/audio_freeze_untold_arms.json`; `2026-09-12_audio_freeze_untold_arms.jsonl` |
+| no transcript, loose mask | **the one failure**: lip sync holds about two seconds, then she stops talking while the audio continues. The missing transcript, not the mask | same |
+| no transcript, the clip also as guide rows (hard or loose) | good: the guide rows make up for the missing transcript | same |
 
-**Built the same evening, first run still owed** (a new tool's first run is
-a throwaway): the whole-track node `MiniMaxH3AudioFreezeSong`
-(`workflows/h3_text_to_video_audio_freeze_song_api.json`, a 30 s look by
-default; its window-length and prompt-block modes went on 2026-09-14 for the
-timeline); the shot-per-window chain
-(`workflows/h3_text_to_video_audio_freeze_shots.json` and
-`..._shots_repeat.json`, retired unrendered on 2026-09-14: the song node's
-timeline and `--- label` blocks cover them);
-the audio attention gain knob (`MiniMaxH3AudioAttentionGain`,
-`bench/audio_freeze_gain_arms.json` renders key and value gains of two on the
-PDD8 chain). The first item tomorrow is one short run of the song graph.
+**What was built on it.**
 
-**2026-09-14, the song node's second shape** (`audio_freeze_song.py`,
-`loop_output.py`): it encodes the track and each distinct prompt once
-before any window samples, takes reference stills with every window's
-prompt, writes its window files to `<prefix>_windows/`, and embeds the prompt
-and workflow in the finished file. Resume followed the same day
-(`loop_resume.py`: stored windows whose inputs had not changed were reused
-in order) and was removed on 2026-10-10 under the owner's rule that nothing
-an earlier run made is reused by a key; every run renders every window, and
-a stored window is read again only when `continue_from` names it. Prompt lists followed
-(`prompt_lists.py`, `MiniMaxH3PromptList`): a `__name__` in the prompt takes
-a value from a Prompt List chained into the node's `lists`, typed or read from
-a file in `wildcards/` under the input directory, without repeats until the
-list is used up unless the list says `random`. Every loop node fills through
-the same call, and a graph built from separate nodes uses Fill Prompt Lists by
-index. Then the node was simplified (owner): a `timeline` of `mm:ss label`
-lines lines the windows up with the song's sections, a list moves on once per
-section, one `--- label` block per label is optional, and `preview` reports
-the plan without loading a model (`loop_plan.py`). The example graph is
-`workflows/h3_text_to_video_audio_freeze_song_lists_pdd8_api.json`, on
-`just-a-flicker.mp3` with its sections as the timeline. The module docstrings
-hold the rules; `docs/state/next_steps.md` holds what is still owed.
+- **`MiniMaxH3FreezeAudioWindow`** (`audio_freeze.py`): one window of a long track, the previous window's video latent
+  tail copied in as frozen context, the geometry rules in `window_geometry`; and the first-frame twin
+  `workflows/h3_first_frame_to_video_audio_freeze_api.json`.
+- **The song node, `MiniMaxH3AudioFreezeSong`** (`audio_freeze_song.py`, `loop_output.py`, `loop_plan.py`): it encodes
+  the track and each distinct prompt once before any window samples, takes reference stills with every window's
+  prompt, writes its window files to `<prefix>_windows/`, and embeds the prompt and workflow in the finished file. A
+  `timeline` of `mm:ss label` lines lines the windows up with the song's sections; a list moves on once per section; one
+  `--- label` block per label is optional; and `preview` reports the plan without loading a model. Every run renders
+  every window; a stored window is read again only when `continue_from` names it (the resume-by-key that stood from
+  2026-09-14 was removed on 2026-10-10 under the owner's rule that nothing an earlier run made is reused by a key).
+  Example graph: `workflows/h3_text_to_video_audio_freeze_song_lists_pdd8_api.json`. The module docstrings hold the
+  rules; `docs/state/next_steps.md` holds what is owed.
+- **Prompt lists** (`prompt_lists.py`, `MiniMaxH3PromptList`): a `__name__` in the prompt takes a value from a list
+  chained into the node's `lists`, typed or read from `wildcards/` under the input directory, without repeats until the
+  list is used up unless it says `random`. A graph built from separate nodes uses Fill Prompt Lists by index.
+- **The audio attention gain knob** (`MiniMaxH3AudioAttentionGain`; `bench/audio_freeze_gain_arms.json` renders key
+  and value gains of two on the PDD8 chain).
 
-**2026-10-04, a source video for the song node** (owner: take a music video,
-keep its audio and everything outside one subject, replace the subject from a
-reference still). The node's `source` input takes a Masked Source
-(`video_mask.py`, `MiniMaxH3MaskedSource`): the track's own frames and a
-per-frame mask over the subject, which core's SAM 3 nodes track from a word.
-Each window then starts from the source's frames over its span, regenerates
-only the masked tokens, and after the decode gets the source's own pixels back
-outside them. The mechanism is core's (a latent mask is a per-token timestep,
-`comfy/ldm/minimax/model.py::mask_row_values`); the module docstring says what
-this pack adds and why stock `SetLatentNoiseMask` and core's mask resize are
-not enough. Three things a reader should know before trusting it:
+**A source video for the song node** (2026-10-04): the masked video-to-video lane, whose page is
+[`../masked_v2v/overview.md`](../masked_v2v/overview.md). The node's `source` input takes a Masked Source
+(`video_mask.py`, `MiniMaxH3MaskedSource`): the track's own frames and a per-frame mask over the subject. Each window
+starts from the source's frames over its span, regenerates only the masked tokens, and after the decode gets the
+source's pixels back outside them. The mechanism is core's (a latent mask is a per-token timestep,
+`comfy/ldm/minimax/model.py::mask_row_values`); the module docstring says why stock `SetLatentNoiseMask` and core's
+mask resize are not enough. What to know before trusting it:
 
-- **It is not a trained task.** The release trains t2va, fl2va and ref2va,
-  and its edit is ref2va with the source as a reference block
-  (`workflows/h3_ref_video_swap_api.json`). A spatial mask on a base
-  checkpoint is an inference-time method in every implementation read
-  (`docs/working/coderef.md`, the vllm-omni rows). What is new here is a mask
-  together with a reference still.
-- **One sampler per window is what carries the mask, as the graphs are
-  wired.** The song chain is one; the two-sampler graphs in `workflows/daily/`
-  are not, because the second sampler's starting latent is still noisy and
-  core's inpaint step uses it as the clean plate
-  (`comfy/samplers.py::KSamplerX0Inpaint`). A peer session (mrblue,
-  2026-10-04) reproduced that on core's sampler classes with a stub model,
-  and found the fix: restore the plate in the pinned rows of both streams
-  between the two samplers. Neither the failure nor the fix has run on H3,
-  and no node here does it yet.
-- **The mask is the body, not what the body does to the room.** The original
-  subject's shadow and reflections stay in the plate.
-- **The tracker's object cap counts every track it ever made**
-  (`h3_config.SEGMENTER_TRACK` says where in core). A subject lost after a
-  cut shows as a window whose report line says few or no tokens regenerate;
-  a window with none is written from the source without sampling.
-
-**What the afternoon of 2026-10-04 added and what it ruled out**, on two
-clips (`bench/results/2026-10-04_masked_v2v_first_run.md`,
-`bench/results/2026-10-04_masked_v2v_band.md`):
-
-- **The node says what it masks.** `replace`, `composite`, the detector's
-  phrases, threshold and margin are inputs, and the mask the node used is an
-  output for a preview (owner: "we should unhide the detection stuff").
-- **`composite` = `only what changed`** keeps the render where it differs
-  from the source or the old subject stood and restores the source in the
-  margin, so the margin can be generous. Built after the owner saw a cut-off
-  cap and a cut-out look; from frames the cap is whole and the margin clean,
-  and the owner called the render that used it the best. It is the default.
-- **`replace` = `head and hair`** keeps the body as source pixels. On a
-  long-haired original it gave a head half as wide again as the original's,
-  twice (owner: "a giant bobblehead"): the model sizes what it paints to the
-  hole. Kept as an option, not a recommendation, until a short-haired
-  original shows otherwise.
-- **`paint_out`** made things worse and stays off.
-- **Movement is not carried.** A generic prompt leaves the replaced subject
-  facing the camera when the original turns away; naming the shot fixes it
-  and is specific prompting; a generic "do what the people beside you do"
-  turns him at the right moment and twice at wrong ones. Starting the
-  sampler part-way into its schedule, so the source shows through under the
-  mask, does carry the turn with no prompt text and brings the original's
-  hair and clothes with it, from the first knot dropped
-  (`bench/results/2026-10-04_masked_v2v_band.md`, "The turn without a
-  prompt"). The same start from a softened copy of the original still
-  changes his clothes
-  (`bench/results/2026-10-04_masked_v2v_turn_soft_arms.md`). **Open**: the
-  owner does not want to prompt movement.
-- **The margin decides how far the new subject may differ from the old one,
-  in place as well as in outline.** Seen on the band clip: at the wider
-  margin the replaced lead stands further to one side than at the default,
-  which uncovers a band member the source never shows, and the model invents
-  him. The explanation the owner endorsed (2026-10-04, "it makes sense"),
-  and confirmed by the render that changes the margin alone
-  (`band_changed32_w1`: at the default margin he is back in the original's
-  footprint and the hidden member stays hidden): the only thing telling the model where the original stood is the shape of the hole, so a wider hole lets him stand somewhere else. The reference still carries no
-  height or build either, so the subject's size comes from the hole and the
-  scene around it. The invented member kept one identity through the shot
-  (owner, on playback), so this is a trade and not a fault: a tight margin
-  keeps the new subject in the original's footprint, a wide one stops a
-  differently shaped subject being cut off, and on that pair the owner found
-  the wide one kept the reference's identity better.
-- **Two pack nodes, and one pick** (owner, 2026-10-04: two nodes, "Lets make
-  that the shipped workflow"). `MiniMaxH3SubjectTrack` (`subject_track.py`,
-  a peer session's) finds the clip's cuts, takes the subject on one frame by
-  a stated rule, finds them again at the start of every other shot and
-  tracks each shot from there; `MiniMaxH3MaskedSource` decides what happens
-  to them. Kept apart so a change to the margin or the composite never runs
-  the tracker again inside one server session (core's own node cache); the
-  kept-mask store that carried a mask across runs was removed on
-  2026-10-10. The shipped graph carries no core
-  tracker and no object index. On the band clip one pick took the three
-  shots the lead is in and no cutaway, once the match threshold was set from
-  that run's own numbers. *(Later the same day the node stopped needing a
-  frame or a threshold from the user, and a third clip changed what a match
-  is compared on: [`docs/masked_v2v/overview.md`](../masked_v2v/overview.md) is the current
-  description, and the code beats both.)*
-- **What was compared and dropped, same window and seed** (the band rows'
-  `per_node_s` have the times): the baseline chain, no distill and no Sol,
-  several times slower and to the owner's eye worse on likeness, with a
-  sampler that adds noise every step, so not a like-for-like test; the
-  distill with Sol's window closed, slower and with the reference's clothes
-  lost, which fits Sol keeping the conditioning rows exact
-  (`sink_conditioning`) where the dense int8 fallback does not. The owner:
-  "still seems like our original distill/sol worked best".
-- **One word does not isolate one person among several**; the first band arms
-  select the lead's tracked objects by index.
-
-The graph is `workflows/h3_video_to_video_masked_song_pdd8_api.json`, on the
-placeholder clip and still, with a prompt that names no setting or shot
-(`prompt_bank/ref2va_masked_subject_swap.txt`) so one text serves every
-window of any clip. (Since 2026-10-06 the graph's prompt is written by the
-Masked Prompt node, `masked_prompt.py`, and is `ref2va_masked_person_swap`.) The first renders, on the owner's clip, are the arms in
-`bench/masked_v2v_arms.json`; their record and what the owner made of them
-are in `bench/results/2026-10-04_masked_v2v_first_run.md`.
-A second graph, `workflows/h3_video_to_video_masked_song_ref2va_motion_api.json`
-(2026-10-05), carries the original's movement to the replaced subject through
-the Masked Source's motion reference on the ref2va base; what it costs and
-why it is ref2va: `bench/results/2026-10-05_masked_v2v_motion_arms.md`.
+- **It is not a trained task.** The release's edit is ref2va with the source as a reference block
+  (`workflows/h3_ref_video_swap_api.json`); a spatial mask on a base checkpoint is an inference-time method in every
+  implementation read (`docs/working/coderef.md`, the vllm-omni rows). New here is a mask together with a reference
+  still.
+- **One sampler per window carries the mask.** A two-sampler graph does not, because the second sampler's starting
+  latent is still noisy and core's inpaint step uses it as the clean plate (`comfy/samplers.py::KSamplerX0Inpaint`).
+  A peer session reproduced that on core's sampler classes with a stub model, with the fix of restoring the plate in
+  the pinned rows of both streams between the samplers (`plate_restore.py`, `MiniMaxH3RestorePlate`); neither has run
+  on H3.
+- **The mask is the body, not what the body does to the room**: the original's shadow and reflections stay.
+- **The margin decides how far the new subject may stand from the old one**, because the shape of the hole is the
+  only thing telling the model where the original stood; the reference still carries no height or build either.
+- First findings, on two clips (`bench/results/2026-10-04_masked_v2v_first_run.md`,
+  `bench/results/2026-10-04_masked_v2v_band.md`, `bench/results/2026-10-04_masked_v2v_turn_soft_arms.md`;
+  `bench/masked_v2v_arms.json`): `composite = only what changed` is the default; `replace = head and hair` oversized
+  the head on a long-haired original; `paint_out` stays off; movement is not carried by a generic prompt, and a late
+  start on the schedule carries it with the original's look. The distill with Sol was preferred over the baseline
+  chain and over Sol's window closed (the band rows' `per_node_s` have the times). The ref2va motion graph,
+  `workflows/h3_video_to_video_masked_song_ref2va_motion_api.json`, is in
+  `bench/results/2026-10-05_masked_v2v_motion_arms.md`. The shipped graph is
+  `workflows/h3_video_to_video_masked_song_pdd8_api.json`, its prompt written by the Masked Prompt node
+  (`masked_prompt.py`). The current account of all of it is the lane's page.
 
 **Next, in order.**
 
-5. **First-frame keyframe**: the LTX pack's init-image pattern, one graph
-   change on the freeze graph, for a first window
-   (`workflows/h3_first_frame_to_video_audio_freeze_api.json`). **Corrected
-   2026-09-14:** this said the keyframe was needed before the loop because
-   the loop anchors each window on a frame. The loop anchors on the previous
-   window's frozen latent tail, and no per-window image goes to the encoder
-   (`docs/state/decisions.md`).
-6. **The loop**: one shot per window (owner, 2026-09-12 evening), windows
-   of different lengths allowed, each on both clocks (39 plus multiples of
-   51 frames, `h3_rules.chain_lengths()`), the context on the same grid, the
-   previous window's video latent tail copied in as a frozen prefix, the
-   next song slice frozen at the previous window's `next_start_seconds`,
-   hard masks on both streams, iterations through the installed TensorLoop
-   pack. Shorter windows are the lane's cost lever: attention is quadratic
-   in the packed sequence (`bench/preflight_graph.py` prices it), a seam
-   re-pays its context, and short windows sit inside the trained range.
-   The two-window seam render at the longest chained length is the first
-   join to look at.
-   Expect identity drift across windows first; the lever is a fixed
-   reference still presented with every window's prompt, which fl2va takes
-   (owner, 2026-09-14): the song node's `references` input and
-   `workflows/h3_text_to_video_audio_freeze_song_ref_pdd8_api.json`. Corrected
-   2026-09-14 from "the ref2va checkpoint with a per-window reference image".
-7. **Then the ideas in section 5**, ordered by what the verdicts so far
-   suggest: the stem (once a separated stem is on disk), the hybrid and the
-   ref2va-checkpoint freeze at the loop stage, guide audio and the ceiling
-   as single renders when the card is free, feather only when a seam shows.
-   Every idea renders eventually (owner); results decide the order.
+5. **First-frame keyframe**: one graph change on the freeze graph, for a first window
+   (`workflows/h3_first_frame_to_video_audio_freeze_api.json`). The loop itself anchors each window on the previous
+   window's frozen latent tail, and no per-window image goes to the encoder (`docs/state/decisions.md`, 2026-09-14).
+6. **The loop**: one shot per window (owner, 2026-09-12), windows of different lengths, each on both clocks
+   (`h3_rules.chain_lengths()`), the context on the same grid, the previous window's video latent tail copied in as a
+   frozen prefix, the next song slice frozen at the previous window's `next_start_seconds`, hard masks on both
+   streams. Shorter windows are the cost lever: attention is quadratic in the packed sequence
+   (`bench/preflight_graph.py` prices it), a seam re-pays its context, and short windows sit inside the trained
+   range. Expect identity drift across windows first; the lever is a fixed reference still presented with every
+   window's prompt, which fl2va takes (owner, 2026-09-14): the song node's `references` input and
+   `workflows/h3_text_to_video_audio_freeze_song_ref_pdd8_api.json`.
+7. **Then the ideas in section 5**: the stem (once a separated stem is on disk), the hybrid and the ref2va-checkpoint
+   freeze at the loop stage, guide audio and the ceiling as single renders when the card is free, feather only when a
+   seam shows. Every idea renders eventually (owner); results decide the order.
 
-Alongside: a `docs/state/next_steps.md` pointer kept current, and the check that no
-shipped graph feeds an AV latent through the stock `SetLatentNoiseMask`,
-which is in `bench/check_audio_freeze.py`.
+`bench/check_audio_freeze.py` also checks that no shipped graph feeds an AV latent through the stock
+`SetLatentNoiseMask`.
 
 ---
 
 ## 5. Ideas worth a render, with confidence
 
-Each is cheap against what it could change. Confidence is the owner's session
-judgement on 2026-09-12, not a measurement.
+Each is cheap against what it could change. Confidence is the owner's session judgement on 2026-09-12, not a
+measurement. Ideas 2 and 4 have answers in direction (section 4, item 4).
 
 1. **Freeze a stem, ship the mix.** Freeze a vocal or dialogue stem while
    muxing the full mix, so the model sees speech without drums in the same
@@ -433,7 +253,7 @@ judgement on 2026-09-12, not a measurement.
    in the sequence, seams uncompared. Medium confidence either wins.
    *2026-09-25: vllm-omni ships the guide arm, taken from the sampled latent
    tail with no decode, and adds a global temporal offset per window
-   ([`docs/working/coderef.md`](../working/coderef.md), "What moved by 2026-09-25").
+   ([`docs/working/coderef.md`](../working/coderef.md), "vllm-omni").
    Core can place a latent tail as `minimax_keyframes` rows, so the guide
    half is buildable as a pack node, and `ttulttul`'s pack already ships one.
    *Corrected the same day:* this note said the offset needed a core change.
@@ -471,9 +291,9 @@ judgement on 2026-09-12, not a measurement.
 - **Stock `SetLatentNoiseMask` destroys the nested mask.** It reshapes one
   tensor and stores it flat; the sampler then pads a ones mask for the audio
   stream and the track regenerates. Only a nested mask freezes audio.
-- **The trained ceiling does not land on the audio grid; `LONG_LENGTH` does.**
-  `temporal_shape` rounds the audio length, so a window that lands on both
-  clocks has no rounded tail to reconcile at a seam.
+- **The ceiling does not land on the audio clock; `h3_config.LONG_WINDOW` does.** `temporal_shape` rounds the
+  audio length, so a window on both clocks has no rounded tail to reconcile at a seam ([`geometry.md`](geometry.md),
+  "Whole on the audio clock").
 - **Fractional masks are coarse and near-one masks vanish.** The 1/256 grid
   and the drop threshold are in `_token_grid_masks` and
   `_denoise_mask_values`. Hard masks are unaffected.

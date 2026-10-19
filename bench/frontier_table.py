@@ -69,7 +69,7 @@ VERDICT_BUCKETS = ("preferred", "not_preferred", "same", "cant_tell")
 # stock-attention arm `dense`; `--dense-rung` overrides it.
 DENSE_RUNG = "dense"
 # decided: the owner, 2026-09-04, sage is always on and every speed is read
-# against it (docs/state/roadmap.md, forward plan 2026-09-04).
+# against it (docs/state/roadmap.md, "The attention plan, where it stands").
 FLOOR_RUNG = "sage"
 
 

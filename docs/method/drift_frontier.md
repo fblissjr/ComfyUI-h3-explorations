@@ -658,66 +658,22 @@ file exists to catch.*
 
 ---
 
-## Where this stands, 2026-08-17 end of session
+## Where this stands
 
-Everything below was left green: `check_doc_links`, `check_doc_inventory`,
-`check_capture_manifest`, `check_graph_discovery`, `check_node_ids`, and all five
-harnesses in `bench/red/` including `spine_control`. Nothing pushed.
+The 2026-08-17 end-of-session snapshot that stood here is superseded by the rows
+above: F1-F4 were dropped on 2026-09-11 with the shown-red rule, `bench/red/` was
+removed in `0a764a33`, the `_git_head` duplication it handed over is collapsed
+(the rest is the "shared substrate readers" row in [`checks.md`](checks.md),
+"Uncontrolled requirements"), and `workflows/h3_probe_capture_ref3_api.json` no
+longer carries the orphaned Sol node it flagged. What is still open is the rows
+marked `open`: the postmortem-filing phase (F7 is its entry point, then F8), the
+citation rows F5 and F6, F13, and F18's step three, which waits on
+the owner's call on whether `bench/bench_e2e_h3.py` must persist at all.
 
-**Pick up here.** F1 unlocks the most — under option (b) both F3 and F4 disappear
-and F5 shrinks. F7 unlocks four held items. F10 and F14 are single confirmations,
-and F10's answer is "build nothing", which costs least of all.
-
-**Not started: the postmortem-filing phase (F7, F4, F8).** Uncontested, and F7 is
-its entry point: write `.postmortem.json`, decide the collection's tracked-ness for
-the collection rather than per file, and move the outlier this session created in
-`docs/method/check_postmortems.md` into the resolved directory with `filing.md`
-frontmatter. `postmortem-index` resolves one directory, so a split shows partial
-history as though it were complete.
-
-**In flight with the parallel Claude session**, who owns `substrate.py`,
-`provenance.py`, `bench/hwinfo.py`, `docs/working/hardware.md` and `CHANGELOG.md`:
-
-- F18 step three waits on the owner's call that `bench/bench_e2e_h3.py` must
-  persist at all. It persists nothing today.
-- `weights.*` in the substrate block is expected to move and nothing under it
-  should be required until it does. The gap worth closing is LoRA strength and
-  rank, which the extractor cannot reach because strength is a node input rather
-  than a filename — and reference graphs are the ones this repo most wants to
-  reason about.
-- They hold a blocked `_git_head` duplication between `provenance.py` and
-  `substrate.py`, recorded in `docs/method/checks.md` rather than in memory. A ComfyUI
-  restart is the scarce resource; collapse `_git_head` first because it moves no
-  stamp output, and leave the version readers until the stamp adopts the substrate
-  block, since reshaping those *is* a stamp schema change.
-
-**Two things flagged and deliberately not acted on.**
-`workflows/h3_probe_capture_ref3_api.json` is a committed hand-edit of a generated
-file: node 23 wired to node 20, orphaning node 21 `SolAttnMiniMax`. The existing
-capture is probably safe — the graph copy stored beside it is the evidence, and a
-`build_workflows.py` revert cannot poison it retroactively. The risk is
-prospective, and the durable fix is `sol_on=False` on the GRAPHS entry, which
-fixes the UI twin too.
-
-**Corrected 2026-08-17, after this paragraph was written: the manifest does NOT
-say so.** It was cited here as evidence that the capture ran Sol-free, on the
-strength of `sol_attn: bypassed_for_capture`. That value is a literal assigned
-once in `bench/generate_capture_manifest.py` and never reassigned — the script
-does not mention `SolAttn` anywhere, so it writes `bypassed_for_capture` whether
-Sol ran or not. It is a constant wearing the shape of an observation, and it
-cannot fail. The graph copy is real evidence; that field is not, and the two were
-conflated. Recorded in [`docs/method/evidence.md`](evidence.md). That was fixed later the same day: the field is
-derived now, so after a revert a regenerated manifest would report `wired` and
-the record does catch it. The prospective risk is now only that the graph edit
-itself reverts. And
-`docs/method/check_postmortems.md` still holds two publication blockers, relevant only if
-F7 goes tracked.
-
-**The pattern this session kept producing, worth reading before adding anything.**
+**The pattern that session kept producing, worth reading before adding anything.**
 Six proposed instruments dissolved on contact with something already installed, and
-four separate claims — two mine, two the peer's — passed their author's own review
-and failed a second reader's. In every case the instrument had looked somewhere
-other than where its author thought and returned something shaped like an answer.
-`CLAUDE.md` now carries the no-new-check rule that follows from it, and the
-counter-move is in `claim-audit`: name the deriving command before running it, and
-check what the instrument actually examined before believing what it says.
+four separate claims passed their author's own review and failed a second reader's.
+In every case the instrument had looked somewhere other than where its author
+thought and returned something shaped like an answer. The counter-move is in
+`claim-audit`: name the deriving command before running it, and check what the
+instrument actually examined before believing what it says.

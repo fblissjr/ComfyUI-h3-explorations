@@ -36,7 +36,7 @@ once; `docs/method/evidence.md`, "Settled about H3", has the rest.
   longest window is 362 frames, `h3_rules.MAX_LENGTH`, the owner's word of
   2026-10-15, and there is no other cap. Longest is not best: attention grows
   with the square of the sequence, so a window is as long as its shot needs
-  and no longer (`docs/h3/resolutions.md`, "The length axis").
+  and no longer (`docs/h3/geometry.md`, "The length axis").
 - Two models live here and "attention" and "capture" each name something at
   the DiT and at the encoder: check what a node takes before carrying a
   claim across.

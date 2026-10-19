@@ -54,7 +54,7 @@ is laid, the gaps, the owner's verdicts) is not here: it is `data/AGENTS.md`, "W
   (`data/2026-10-13_lead_fp_0168_job/lead_fp_0168.plan.queued.json`).
 - **Two shots in one window** is built (`bench/two_shot_load.py`) and has never rendered. Next: one pair made both
   ways, the cut on a step's edge, for the owner's eye; then a tough shot beside an easy one
-  ([`../masked_v2v/overview.md`](../masked_v2v/overview.md), "Two neighbouring shots in one load").
+  ([`../masked_v2v/running_a_job.md`](../masked_v2v/running_a_job.md), "Two neighbouring shots in one load").
 - **Whole-frame video to video (2026-10-09)**: the swimmers clip by text with a men's suit, written and not rendered
   (`internal/claude/2026-10-09_mrship/`, `prompt_swim3_*.txt`, `swim3_copy384_*_api.json`); open with the owner whether the rule the text pairs point at goes into
   `docs/prompting/prompting.md`, and a repair for the one held frame

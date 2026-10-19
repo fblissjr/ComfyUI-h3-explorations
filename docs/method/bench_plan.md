@@ -774,7 +774,7 @@ totals are.
 > The question they asked -- does marker representation reach the DiT --
 > survives, and its instrument is now the marker arms in
 > `bench/marker_corpus/` plus
-> [`2026-08-27_marker_epsilon_control.json`](../data/results/2026-08-27_marker_epsilon_control.json),
+> [`2026-08-27_marker_epsilon_control.json`](../../data/results/2026-08-27_marker_epsilon_control.json),
 > which measured the DiT no more sensitive to the marker rows than to arbitrary
 > conditioning rows. Kept as written because a pre-registered plan that is
 > rewritten after the fact stops being one.
@@ -840,7 +840,7 @@ would have been, and nothing here should be quoted as though it were the
 planned test.
 
 **What was measured.** `bench/grade_arm_audio_spectrum.py`, record at
-[`data/results/2026-08-21_marker_arm_audio_spectrum.json`](../data/results/2026-08-21_marker_arm_audio_spectrum.json).
+[`data/results/2026-08-21_marker_arm_audio_spectrum.json`](../../data/results/2026-08-21_marker_arm_audio_spectrum.json).
 Six seeds an arm, band energy fractions and brightness on the decoded audio,
 loudness normalised first. **The within-arm spread across seeds is the control**
 and every number is read against it, because two arms differing in conditioning

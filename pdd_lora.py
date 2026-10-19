@@ -935,7 +935,7 @@ def _make_final_layer_forward(base_forward, tracker):
     weight its original size, so core takes its `n == 1` path and our two
     output-linear patches still own the head swap. That is correct, and it is
     also two implementations of one mechanism sitting in one process. See
-    `docs/distills/pdd.md`.
+    `docs/distills/pdd_node.md`, "Checked against".
     """
     def forward(x, t_emb, video_seg, audio_seg, *args, **kwargs):
         tracker.update(t_emb, video_seg, audio_seg)

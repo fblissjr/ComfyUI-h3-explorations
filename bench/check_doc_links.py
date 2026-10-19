@@ -27,7 +27,7 @@ repo whose named trap is "`import nodes` resolves to ours", by someone who had
 just read that trap.
 
 **The sixth was nobody's mistake that day, and it is the better advertisement.**
-`docs/h3/geometry_and_nodes.md` cited a diffusers path with no root prefix,
+`docs/h3/geometry.md` cited a diffusers path with no root prefix,
 resolving nowhere. It was introduced in `6375763` on **2026-08-06** and had been
 dead for ten days, in a doc that had been read and edited repeatedly since. So
 one pass caught new work and a stale committed defect together -- and only the

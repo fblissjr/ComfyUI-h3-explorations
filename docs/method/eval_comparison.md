@@ -1,58 +1,44 @@
-# Paired Video Evaluation & Stacking Guide
+# Comparing renders: the A/B process and the stacking tool
 
-Tool: [`bench/stack_eval_clips.py`](../../bench/stack_eval_clips.py)
-
-Utility for building side-by-side or top-to-bottom comparison videos with synchronized playback and metadata overlays for blind and qualitative evaluations.
+**A comparison meant to be quoted is rendered at matched seeds, blinded, scored
+before unblinding, and recorded as a preference over distributions**: section 3,
+"The standard A/B process". Before that, choose a scene that can show the
+difference ("What a scene can show"). Sections 1 and 2 are the stacking tool,
+[`bench/stack_eval_clips.py`](../../bench/stack_eval_clips.py): side-by-side or
+top-to-bottom comparison videos with synchronized playback and metadata overlays.
 
 ---
 
 
-## Motion regime is part of a perceptual claim, not context for it
+## What a scene can show
 
-Added 2026-08-28, from an owner observation that turned out to be measurable and
-to bear on judgements already made.
+**A perceptual claim states the scene it was judged on, because a scene can be
+incapable of showing the defect being judged.** Blinding controls who knows which
+arm; it does nothing about whether the content can express the difference. Three
+findings decide which scene to judge on:
 
-**Artifact severity in distilled arms tracks MOTION.** Comparing a coarse
-partition against a fine one frame by frame with shot cuts masked, the effect
-correlates with per-frame motion at **+0.676**, and the high-motion quartile
-carries 1.18x the low-motion one.
+| finding | what to do with it | status |
+|---|---|---|
+| within a clip, artifact severity in a distilled arm tracks frame-to-frame change (correlation **+0.676**, cuts masked; the high-change quartile carries 1.18x the low one) | expect busier frames inside a shot to be worse | measured 2026-08-28, unretracted |
+| across clips and shots, frame-to-frame change does **not** predict severity; it failed twice | never choose or judge a scene by it | refuted twice, below |
+| what breaks a distilled arm is the content the prompt **demands**: how much fine structure, and how many setups in one clip (three setups in fifteen seconds broke, two did not) | judge a distillation on a scene that asks for the thing that breaks; read demand from the prompt, before rendering | one observer, three clips, one seed: a candidate |
 
-**And this repo's scenes differ enormously in motion.** Measured on shipped
-renders:
+### Frame-to-frame change, and why it is not motion
 
-| scene | median motion | frames above 0.02 |
+`bench/measure_clip_delta.py` computes mean |frame[n] - frame[n-1]|: change,
+whatever causes it. A cut, a light switching on and a camera whip all score high
+with nothing moving. Call it **delta**, not motion. On shipped renders the scenes
+differ enormously in it:
+
+| scene | median delta | frames above 0.02 |
 |---|---|---|
 | market (t2v, wide, crowd) | 0.0142 | **47.6%** |
 | dialogue, PDD 4-step | 0.0082 | 6.4% |
 | dialogue, base 16-step | 0.0047 | **0.0%** |
 
-**So a scene can be incapable of showing the defect being judged.** A dialogue
-scene with zero high-motion frames cannot discriminate a motion-dependent
-artifact, however carefully it is scored, however blind the process, and however
-many seeds it gets. Blinding controls who knows which arm; it does nothing about
-whether the content can express the difference.
-
-**The rule.** A perceptual claim about a distilled arm states the motion regime
-it was judged in. "Looks fine at 4 steps" on the dialogue corpus is a claim about
-that corpus. If the question is whether a distillation holds up, the scene has to
-contain the thing that breaks.
-
-### Correction, same day: DELTA is the wrong axis for choosing a scene
-
-The measurement above is real and unretracted. **Its label is wrong twice, and
-the second one changes what you should do with it.**
-
-**First, "motion" was a gloss.** What is computed is mean |frame[n] -
-frame[n-1]| — frame-to-frame CHANGE, whatever causes it. No flow, no tracking.
-A cut, a light switching on and a camera whip all score high with nothing
-moving in the scene's own terms. Read every "motion" above as **delta**.
-`bench/measure_clip_delta.py` is the instrument.
-
-**Second, and worse: across shots, severity runs OPPOSITE to delta.** The owner
-identifies shot 3 of the market scene — wide, crowd, crates of small coloured
-fruit — as where ghosting and melting appear, and shot 2, a crate lift, as
-"just ghosts a bit". Measured per shot on `text_to_video_pdd_4step_00007`, cuts
-located by delta peak rather than assumed:
+**Across shots it runs opposite to severity.** On `text_to_video_pdd_4step_00007`
+(cuts located by delta peak), the owner identifies shot 3 as where ghosting and
+melting appear and shot 2 as only slightly ghosted:
 
 | shot | mean delta | spatial detail | change concentration |
 |---|---|---|---|
@@ -60,52 +46,22 @@ located by delta peak rather than assumed:
 | 2 — crate lift | 0.0252 | 0.0507 | 38.2% |
 | **3 — crowd and fruit** | **0.0058** | **0.0666** | 64.6% |
 
-The worst shot has **0.23x the delta and 1.32x the spatial detail** of the one
-called nearly clean. The camera is locked and the stalls are static, so
-frame-differencing reads a quiet shot where the eye reads a busy one.
+The worst shot has 0.23x the delta and 1.32x the spatial detail of the one called
+nearly clean: the camera is locked and the stalls static, so differencing reads a
+quiet shot where the eye reads a busy one.
 
-**Both numbers survive because they measure different things.** The +0.676 is
-WITHIN a clip, frame to frame, cuts masked — busier frames may well be worse
-inside a shot. The table above is ACROSS shots. What does not survive is using
-delta to choose a scene, which is what the rule above was for.
+### Demand, not result
 
-**The hypothesis, in the owner's correction of it.** First stated here as
-"detail at the latent resolution limit" measured on the render. He corrected
-the quantity the same evening: *"what i meant by ghosted fruit was.... theres
-too much detail in whats being asked of the scene / frames being generated."*
+**The quantity is the fine structure the prompt asks to be resolved**, readable
+from the text before anything renders (the owner's correction of the first
+statement, which measured detail on the output). Detail measured on the output is
+the wrong quantity twice: it is downstream of the cause, and ghosted fruit reads as
+low detail, so it cannot tell a plain scene from a destroyed one. A wide market
+shot asks for each orange in one or two latent cells, where a stairwell closeup
+gives a face hundreds, and fewer steps means less refinement at exactly that scale.
 
-**Demand, not result.** What matters is the fine structure the PROMPT asks to
-be resolved, which is readable from the text before anything renders. Detail
-measured on the output is the wrong quantity twice over: it is downstream of
-the cause, and it is ambiguous between a plain scene and a destroyed one, since
-ghosted fruit reads as low detail. A wide market shot demands each orange be
-resolved in one or two latent cells where a stairwell closeup gives a face
-hundreds, and fewer steps means less refinement at exactly that scale.
-
-The arms, their outcomes and the duration control that confounded one of them
-are written up in
-[`docs/research/pdd/2026-08-28_scene_complexity.md`](../research/pdd/2026-08-28_scene_complexity.md).
-
-**Pre-registered predictions, written before the arms rendered.**
-
-| arms | demand predicts | the account it beats |
-|---|---|---|
-| `h3_text_to_video_{aisle,sortline}_{short,long}` | long worse than short in **both** scenes, damage on the elaborated surfaces | length-of-conditioning: no consistent direction |
-| market shot-count ablation | `shots12` best (lowest total demand), `shots13` worst | delta: `shots12` worst, being the all-high-delta arm |
-
-The two rows oppose each other on `shots12`, which is what makes it worth
-scoring first. And the demand pairs hold subjects, actions, camera moves,
-dialogue and cut phrasing exactly, so they manipulate demand more cleanly than any
-shot swap can — a shot swap necessarily changes content.
-
-### Scored the same evening, then corrected within the hour
-
-**Read the correction, not the first pass.** The first scoring here said
-"delta won, demand was refuted", on the owner reading `shots13` as way better
-than `shots12`. He then scored `shots12` too — *"great too. the box didnt
-ghost... video and audio great"* — and **both** two-shot arms are good. The
-comparison was never `shots13` against `shots12`; it is both of them against
-the three-shot original.
+**The shot-count ablation, scored 2026-08-28** (the first pass read only one arm
+and was corrected within the hour; both two-shot arms are good):
 
 | arm | prompted shots | delta | detail (output) | verdict |
 |---|---|---|---|---|
@@ -113,128 +69,88 @@ the three-shot original.
 | `shots13` | 2 | 0.0122 | 0.0640 | great |
 | `shots12` | 2 | **0.0209** | 0.0580 | great, the box did not ghost |
 
-**Delta is refuted, and by the arm I had just called its confirmation.**
-`shots12` carries the HIGHEST delta of the three and is fine. A delta account
-has to call it the worst.
+- **Delta is refuted** without scoring finesse: `shots12` has the highest delta and
+  is fine.
+- **Output detail gives no story**: `shots12` lowest and good, `shots13` highest and
+  good, the bad clip between them.
+- **Prompted shot count is the only clean split.** `shots12` rendered an unprompted
+  extra cut (peaks at frames 182 and 219, where only 180 was asked for) and was still
+  fine, so what breaks the original is not the number of segments on screen; total
+  content demanded survives that.
 
-**Output detail gives no story either.** `shots12` is lowest and good,
-`shots13` highest and good, the bad clip sits between them.
+**The pre-registered demand pairs are the experiment.**
+`h3_text_to_video_{aisle,sortline}_{short,long}` vary how much one scene asks at
+fixed shot count, holding subjects, actions, camera moves, dialogue and cut times,
+so they cannot move delta and content together.
 
-**Prompted shot count is the only clean split**, and it is the owner's own
-reading: *"too much shit in one scene? so you make the stuff gigantic and it
-loses its shit."* Three setups in fifteen seconds breaks; two does not.
+| arms | demand predicts | the account it beats |
+|---|---|---|
+| `h3_text_to_video_{aisle,sortline}_{short,long}` | long worse than short in **both** scenes, damage on the elaborated surfaces | length-of-conditioning: no consistent direction |
+| market shot-count ablation | `shots12` best (lowest total demand), `shots13` worst | delta: `shots12` worst, being the all-high-delta arm |
 
-**One measured complication, kept because it constrains the mechanism.**
-`shots12` rendered an UNPROMPTED extra cut — peaks at frames 182 and 219,
-where only 180 was asked for — so it delivered three visual segments and was
-still fine. Whatever breaks the original is therefore not the number of
-segments on screen. Total content DEMANDED across the clip survives that;
-"how many shots got rendered" does not.
+Arms, outcomes and the duration control that confounded one are in
+[`2026-08-28_scene_complexity.md`](../research/pdd/2026-08-28_scene_complexity.md).
 
-**What this costs the earlier entries on this page.** The "+0.676 severity
-tracks delta" measurement is not retracted — it is within-clip and frame-level
-— but delta has now failed twice as an across-clip account: once on the market
-shots, once here. Do not choose or judge a scene by it.
-
-**Status: one observer, three clips, one seed.** The split is clean and the
-delta refutation is solid because it needs no scoring finesse — the
-highest-delta arm is good. Everything else here is a candidate.
-
-**The demand pairs are now the experiment, not a side one.**
-`h3_text_to_video_{aisle,sortline}_{short,long}` vary exactly "how much is
-being asked of one scene" at fixed shot count, holding subjects, actions,
-camera moves, dialogue and cut times. They are the direct test of the owner's
-reading, and unlike the shot ablation they cannot move delta and content
-together by construction.
-
-**This does not retire the dialogue scenes.** They remain the sharpest AUDIO
-instrument available -- eight lines, seven speaker changes, two registers -- and
-that is a different axis from the one above. The error is calling such a scene a
-quality probe rather than an audio probe.
-
-`docs/research/pdd/audio_under_pdd.md` has the measurements and the one thing
-they cannot settle: the distilled dialogue arm shows MORE frame-to-frame change
-than the undistilled one on the same prompt, which is either motion the base did
-not generate or the artifact registering as motion.
+**The dialogue scenes are audio instruments, not quality probes**: eight lines,
+seven speaker changes, two registers, and almost no delta. The distilled dialogue
+arm shows more frame-to-frame change than the undistilled one on the same prompt,
+which is either motion the base did not generate or the artifact registering as
+motion ([`audio_under_pdd.md`](../research/pdd/audio_under_pdd.md)).
 
 ## A stress scene is not a typical scene, and neither carries a default alone
 
-> **Corrected 2026-09-18 (the owner): the fault below was ours, not the
-> prompt's.** The bank declares the length each prompt was written for, and
-> the noodle bar is a 107-frame prompt; every arm discussed here rendered it at
-> 345. "It scripts a few seconds of action for a clip several times that long"
-> describes what WE did to it. Rendered past its script, the model improvises,
-> and the morph starts where the script ends. So this was not a stress scene
-> in the sense this section means (a hard moment inside the prompt's own
-> length); it was an out-of-distribution render, and it is retired at that
-> length. What stands and what does not:
-> `bench/results/2026-09-18_off_length_prompts.md`. The runner now refuses a
-> bank prompt at a length its entry does not declare. The rest of the section,
-> on what a stress scene may and may not decide, stands as written; read "the
-> noodle bar" in it as "an over-length render".
+**A scene one candidate passes and the others fail earns a panel, not a flip of
+the default.** One scene at one seed says a candidate can matter, not that it
+matters in general.
 
-Written 2026-09-17, after an evening in which the owner scored every noodle bar
-stack and then asked whether the prompt just sucks. The answer was "partly",
-and the parts are worth keeping because they say what a scene can and cannot
-tell us while new defaults are being evaluated. The clips and verdicts are in
-`bench/results/2026-09-17_sol_options_noodlebar_batch.md`.
+**The panel.** Four or five bank prompts chosen for different hard moments (a
+person entering frame, hands with objects, on-screen text, fast motion, a static
+shot), each at one seed, plain against the candidate, scored on one question at a
+time (for the reorder: does anything morph, yes or no). A default moves when the
+panel agrees, and the record says which scenes and what was asked.
 
-**What makes a scene fragile, on any attention stack.** Two things, both
-visible in `prompt_bank/t2va_noodle_bar.txt`:
+**Render a bank prompt only at the length its entry declares.** The runner refuses
+otherwise. The noodle bar, which carried this section's first example, is a
+107-frame prompt that every arm rendered at 345: past its script the model
+improvises, and the morph started where the script ended. It was an
+out-of-distribution render, not a stress scene, and it is retired at that length
+(`bench/results/2026-09-18_off_length_prompts.md`; the batch is
+`bench/results/2026-09-17_sol_options_noodlebar_batch.md`). In it, every arm with
+plain token order morphed and the two with Sol's `3d` token reorder did not: that
+shape, one candidate passing where the rest fail, is what a stress scene is for.
 
-- *It scripts a few seconds of action for a clip several times that long.* One
-  customer steps up, gestures, says one line and lowers a hand; one cook nods
-  and lifts a ladle. Nothing injects the duration into the model
-  (`docs/prompting/prompting.md` section 15.2, and 3.3 for the frame grid), so the rest of the clip is the
-  model's to fill, and what it fills with is undeclared people and motion.
-- *Its hardest moment is structural.* A slow zoom-out keeps opening the bottom
-  of the frame while a person has to arrive from off frame. Someone entering
-  newly revealed space is the case a diffusion model fades in rather than walks
-  in, and the artifact the owner saw sits exactly there: a figure morphing in
-  at the bottom of the frame, duplicating, and dissolving a second or two later.
+**What makes a scene fragile, on any attention stack** (`prompt_bank/t2va_noodle_bar.txt`):
 
-A tighter prompt would reduce both: say where the entering person starts, say
-the rest of the street is empty, and either fill the timeline with beats or
-shorten the clip.
+- it scripts a few seconds of action for a longer clip, and nothing injects the
+  duration into the model ([`prompting.md`](../prompting/prompting.md) section 15.2,
+  and 3.3 for the frame grid), so the model fills the rest with undeclared people
+  and motion;
+- its hardest moment is structural: a slow zoom-out keeps opening the bottom of the
+  frame while a person arrives from off frame, which a diffusion model fades in
+  rather than walks in.
 
-**Why the scene is still worth keeping.** Same prompt, same seed: every arm
-with plain token order morphed (both dense chains, both rotations, all three
-token-routing presets, and the default rendered two days earlier), and the two
-arms with Sol's `3d` token reorder did not. A scene that one candidate passes
-and the others fail is a discriminating scene. That is what a stress scene is
-for.
+A tighter prompt says where the entering person starts, that the rest of the street
+is empty, and either fills the timeline with beats or shortens the clip.
 
-**What it must not be used for.** Choosing a default. One scene at one seed
-says a candidate CAN matter; it does not say it matters in general, and this
-pack has made that mistake once already: the market scene at seed 730451892
-carried the kitchen-versus-sage question for two days on a missing hand that
-did not reproduce on five other scenes, and whose prompt sentence named no one
-doing the action (`bench/results/2026-09-15_block49_repro_batch.md`). A result
-from a stress scene earns a panel, not a flip.
-
-**The panel.** Four or five prompts from the bank chosen for DIFFERENT hard
-moments (a person entering frame, hands with objects, on-screen text, fast
-motion, a static shot), each at one seed, plain order against the candidate,
-scored on one question at a time (for the reorder: does anything morph, yes or
-no). A default moves when the panel agrees, and the record says which scenes
-and what was asked.
+This pack has made the one-scene mistake before: the market scene at seed 730451892
+carried the kitchen-versus-sage question for two days on a missing hand that did not
+reproduce on five other scenes, and whose prompt sentence named no one doing the
+action (`bench/results/2026-09-15_block49_repro_batch.md`).
 
 **Two instrument lessons from the same evening.**
 
-- *One character in a prompt is a different sample.* The runner scripts of
-  2026-09-17 passed a bank prompt with its trailing newline; an earlier batch
-  had passed it stripped; the two defaults of "the same scene and seed" were as
-  far apart as two unrelated arms, and several stacks had been built with the
-  older clip on top as the reference. Rows of a stack must share the prompt
-  byte for byte, and the `prompt` in each clip's first-frame PNG is how to
-  check (`bench/diff_clip_graphs.py` reads it; clips from before 2026-09-23
-  also carry it in the mp4's own tags).
-  Renders on this stack repeat bit for bit, so a PSNR of infinity between two
-  clips is a usable identity test, and anything less is a different input.
-- *An option that improves a capture metric does not thereby fix what the eye
-  sees.* Rotation and balancing lower the INT8 error and are worth having; none
-  of them touched this artifact. It comes from which tokens share a block, and
-  the reorder is the only lever that changes that.
+- **One character in a prompt is a different sample.** A trailing newline on a bank
+  prompt made two renders of "the same scene and seed" as far apart as two
+  unrelated arms. Rows of a stack share the prompt byte for byte; the `prompt` in
+  each clip's first-frame PNG is how to check (`bench/diff_clip_graphs.py` reads it;
+  clips from before 2026-09-23 also carry it in the mp4's own tags). Renders on this
+  stack repeat bit for bit, so a PSNR of infinity between two clips is an identity
+  test, and anything less is a different input.
+- **An option that improves a capture metric does not thereby fix what the eye
+  sees.** Rotation and balancing lower the INT8 error; none touched this artifact,
+  which comes from which tokens share a block, and the reorder is the only lever
+  that changes that.
+
 
 ## 1. Automatic Layout Optimization
 
@@ -294,7 +210,7 @@ any comparison that is meant to be quoted:
    --seed S` so every arm sees the same seed per run index, `--warmup` on the
    first arm. Every row records its graph sha, patches, seed, `prompt_id` and
    substrate (including the power limit). One render per arm is two samples,
-   not a comparison -- CLAUDE.md's different-sample rule -- so N is the number
+   not a comparison (root `AGENTS.md`, "No render that does not decide something"), so N is the number
    of seeds the claim needs, and for a perceptual claim that is many.
    **A manifest names a graph, not a render.** The graph is whatever the
    generator last built, so re-running an old manifest renders today's
@@ -395,7 +311,7 @@ rather than restate it.
 
 **The two halves of a pair are two samples, not one clip rendered two
 ways.** The trajectory diverges at frame zero under any change to the
-sampler's inputs (`CLAUDE.md`, "A rendered clip cannot A/B a numerical
+sampler's inputs (root `AGENTS.md`, "A rendered clip cannot A/B a numerical
 change"), so two arms at one seed differ in composition, blocking, faces and
 line delivery before either arm's quality is in play. **Composition
 differences count, framed as prompt adherence** (owner's decision,
@@ -513,7 +429,7 @@ session written this way, with the bake lane's predictions folded in on
   shows.
 - **Should NOT move**: anything the eight-step partition owns, which the
   bake does not touch. Motion smear on fast action, flicker at block
-  boundaries, shaky framing, temporal coherence (`CLAUDE.md`, "PDD quality
+  boundaries, shaky framing, temporal coherence ([`evidence.md`](evidence.md), "PDD quality
   is governed by the sigma schedule's coarseness"). If those clear on the
   baked half, suspect a sample difference, not the bake.
 - **Audio is in the pair.** The audio tokens run through the same backbone

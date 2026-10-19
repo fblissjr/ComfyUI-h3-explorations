@@ -1,10 +1,8 @@
 # Working with the owner
 
-last updated: 2026-10-18 (moved here on 2026-10-17 from the Claude sessions' private memory at the owner's word, so the Gemini and
-Claude sessions read the same preferences)
-
-**How the owner likes to work, for every session of either model.** AGENTS.md holds the rules of the repo; this page
-holds the owner's preferences about being asked, shown and told things. Where the two disagree, AGENTS.md is right and
+**How the owner likes to work, for every session of either model** (moved here on 2026-10-17 from the Claude sessions'
+private memory, so both models read the same preferences). AGENTS.md holds the rules of the repo; this page holds the
+owner's preferences about being asked, shown and told things. Where the two disagree, AGENTS.md is right and
 this page is corrected. Each line carries the date it was asked for; the reasons are in `docs/state/decisions.md` on that date.
 
 ## Their time
@@ -98,7 +96,8 @@ this page is corrected. Each line carries the date it was asked for; the reasons
 ## Tools and nodes
 
 - **A tool measures and says what it measured on and what it cannot see**; it gives no verdict. Green or red only for
-  a hard failure; a colour is read in context before anything is reverted. (2026-10-11, 2026-10-16)
+  a hard failure (root AGENTS.md, "Operative rules"); a colour is read in context before anything is reverted.
+  (2026-10-11, 2026-10-16)
 - **Simplest first; no precision on a guess**; a rule easily worked around is friction and goes. (2026-10-10/12)
 - **No zero sentinels:** a numeric widget never means a mode by being 0. (2026-09-13)
 - **A node is easy to use:** no bookkeeping inputs; every tooltip says what the input does. (2026-10-03)

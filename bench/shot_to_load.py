@@ -3582,7 +3582,7 @@ def step_text(a, world) -> None:
 #: subject whose region is larger"). Reasoned from the builder's rule. A whole person is not here: the delivery table lays no whole-person
 #: render, so a pair of one is refused.
 PAIR_RANK = ("face and hair", "face")
-#: Why a pair is rendered on the whole frame (docs/masked_v2v/overview.md: a two-subject load is not rendered zoomed in).
+#: Why a pair is rendered on the whole frame (docs/masked_v2v/pieces.md, "A small subject, rendered zoomed in": a two-subject load is not rendered zoomed in).
 PAIR_WHOLE_FRAME_WHY = "a load of two subjects is rendered on the whole frame: the zoom is to one subject's part, and a pair has two"
 #: What the two jobs' file defaults may differ in: the margin, where the pair takes the larger (one margin a load: the node grows its
 #: region by one number). Any other setting that differs is refused, since the pair would carry one of them silently.

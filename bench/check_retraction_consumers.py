@@ -4,7 +4,7 @@
 A retraction is done when every **consumer** of the claim is enumerated, not
 when the claim is corrected. On 2026-08-14 that distinction cost four separate
 wrong statements: "sage gets nothing" was retracted at the top of
-`docs/attention/sol_attn.md` and went on producing wrong answers in the Ordering section,
+`docs/attention/sol_wiring.md` and went on producing wrong answers in the Ordering section,
 in a bench-plan paragraph, and in `h3_capture.py`'s docstring -- where it would
 have produced a *number* from a skewed sample of timesteps. Separately, the
 23-point reference-load swing was retracted in `docs/method/evidence.md` while still

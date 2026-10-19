@@ -27,6 +27,48 @@ Older history lives elsewhere and is not copied here:
   tool descriptions went: those are `bench/INDEX.md`'s, from each tool's docstring. Every link and path mention in
   the repo was rewritten (changelog entries and `archive/` left as written, and citations at a pinned commit keep
   the old path). `bench/build_wiki_index.py` now walks from root `AGENTS.md` and `docs/index.md`.
+- **Every topic folder rewritten to lead with the answer** (the owner's ask: shorter pages that link down, superseded
+  layers and duplicates gone). Long pages became an overview plus detail pages: `masked_v2v/overview.md` (2359 lines
+  to 89, its sections now `working_rules.md`, `running_a_job.md`, `pieces.md`, `text.md`, `renders_by_form.md`,
+  `limits_and_directions.md`; `sam31_core.md` from `sam31.md`; `who_is_who_evidence.md` merged into
+  `who_is_who.md`), `attention/sol_attn.md` (2516 to 167, with eight `sol_*.md` detail pages), `distills/pdd.md`
+  (2430 to 355, with `pdd_node.md`), `h3/references.md` (1544 to 293, with `reference_sizing.md` and
+  `reference_prompts.md`); `state/next_steps.md` 2668 to 253, `open_experiments.md` 3248 to 78 (every "#N" kept),
+  `roadmap.md` 1064 to 227. **Canvas, frame grid and length have one home**, `h3/geometry.md` with its cost tables in
+  `h3/geometry_cost.md`: `h3/resolutions.md`, `input_impacts.md` and the geometry half of `geometry_and_nodes.md`
+  merged there; which node to use is `h3/nodes.md`. Quoted headings kept their text, and every quote in code and
+  docs was repointed; line citations into rewritten pages from dated records are pinned to `901bee1`, where those
+  lines still say what was cited. Every cut, with where it went, is
+  [`docs/research/2026-10-19_docs_consolidation.md`](../research/2026-10-19_docs_consolidation.md). The claims below
+  were wrong against the code or a newer record, not merely superseded:
+  - `h3/` said the base sampler is er_sde (it is Euler); showed our sage node as the default dense kernel (it is
+    core's backend node); said a still's encoder copy defaults to `qwen_view=shared` (it is `separate`); presented
+    ReferenceFit, ReferenceVideoFit, ReferenceReport, KeyframeCanvas and SageChainAssert as current (all retired);
+    said `LONG_LENGTH` is on the audio clock (it is the ceiling; `LONG_WINDOW` is on both clocks); said no graph
+    writes a noise mask (the audio-freeze and masked nodes do).
+  - `attention/` said dense-block Options A and B were on trial and A adopted (the code ships Option C,
+    `"38,39,40,41,42,49"`); `quant_policy.md` said Sol runs with `qk_balance` (it has run `quantizer="rotated"` since
+    2026-09-27); the withdrawn "v1 formula" sink cost (57.9% and the rest) is exactly the cost of
+    `exact_kv_and_all_rows`, the shipped sink mode since 2026-10-02, and `sol_sink.md` now shows it as that;
+    `morton.md`'s geometric case for `2d_frame` and `hilbert` is contradicted by the 2026-09-17 equal-cost result.
+  - `distills/` said the run-time PDD merge ships (`backbone_apply` has defaulted to `exact branch` since
+    2026-09-26, so the merge is the control arm); said no baked checkpoint exists (the fl2va bake and its stripped
+    sidecar exist, and the masked-lane and song graphs load them); said the head bank is fused at load (the node
+    fuses per block on first use). `prompting/prompt_audit.md` dropped verdicts on five scenes the catalogue no
+    longer has.
+  - `masked_v2v/` called `bench/sidecar.py` and `bench/stack_delivery.py` uncommitted (both are tracked); named
+    `held_tail` as the remedy for the fading short load (that input is gone; the tail is always held with its region
+    open); said nothing reads depth (`bench/measure_moge2_depth.py` does); treated the zoomed render as a niche
+    option (the chain renders zoomed by default). The who-is-who design's guessed constants and its premortems
+    written against removed tools were cut to one table of failures still open.
+  - `method/` said bench runs record nothing about power (`bench/run_graph_arms.py` has recorded the power limit per
+    row since 2026-08-18; only `bench/bench_e2e_h3.py` records none); `evidence.md` dropped one do-not-rely row its
+    own re-measure retired (`_ref_prompt()`, restored 2026-08-17). `working/coderef.md`'s seven dated "What moved
+    by" reads folded into one current section per checkout, each with the revision last read.
+  - Code comments repointed with them: `workflows/build_workflows.py` and `bench/frontier_table.py` cited the
+    roadmap's "forward plan 2026-09-04" (now "The attention plan, where it stands");
+    `bench/check_widget_deviations.py` said a page records the head-chunk saving of about 3227 MiB (only
+    `h3_config.py`'s table does, and no doc ever did).
 
 ## 2026-10-18
 
@@ -286,7 +328,7 @@ Older history lives elsewhere and is not copied here:
 - **No guidance names a frame count under 362 as a cap or a default; short windows are encouraged** (the owner,
   about 14:20Z: "Remove all references to that 345"; "always make sure there's guidance that the frames can be low too.
   More frames = quadratic attention"). Removed from AGENTS.md, `docs/method/evidence.md`, `docs/working/comfy_notes.md`,
-  `docs/h3/resolutions.md`, `docs/h3/references.md`, `docs/state/roadmap.md`, `docs/h3/input_impacts.md`,
+  `docs/h3/geometry.md`, `docs/h3/references.md`, `docs/state/roadmap.md`, `docs/h3/geometry_cost.md`,
   `docs/h3/audio_freeze.md` and one stale line of `next_steps.md` (it said the default length was one grid step under
   362; `h3_config.LONG_LENGTH` is `MAX_LENGTH`). Kept: the measured records, the changelog, this file's history and
   the tables that list every grid length, since each says what was run or what exists. The chained window's default
@@ -295,7 +337,7 @@ Older history lives elsewhere and is not copied here:
 - **A length whole on both the video and the audio clock is a best practice, not a rule** (the owner, about 14:15Z, on
   a community report relayed that morning). A one-window load takes any 17n+5 length up to `MAX_LENGTH`; only a seam
   between chained windows is held to both clocks, as before (`h3_rules.chain_lengths`). Written with the why in
-  `docs/h3/resolutions.md`, "Whole on the audio clock".
+  `docs/h3/geometry.md`, "Whole on the audio clock".
 
 - **Two leads, one each side: a Gemini lead co-leads and leads the Gemini sessions; the Claude lead is oversight and
   the method's expert** (the owner, in the Claude lead's terminal, about 13:45Z; the Claude usage cap is near). It
@@ -625,7 +667,7 @@ Older history lives elsewhere and is not copied here:
 - **The longest window is 362 frames, `h3_rules.MAX_LENGTH`; no cap of 345 anywhere** (the owner, 2026-10-15: "362 is
   the max I have no idea why 345 was set - that was ages ago. remove that reference to 345 please. i dont want it
   coming back"; AGENTS a071659e). What it used to claim: `h3_config.LONG_LENGTH` was 345, and
-  `docs/h3/geometry_and_nodes.md` said "The shipped graphs render at h3_config.LONG_LENGTH, which is 345, not 362".
+  `docs/h3/geometry.md` said "The shipped graphs render at h3_config.LONG_LENGTH, which is 345, not 362".
   Built by mrvid (branch mrvid-length): every long graph takes 362, the stamped baseline among them, so a figure
   measured on the baseline before the change is one grid step shorter. A window chained on another stays on the seam
   grid (17n+5 and a multiple of 3), whose longest under 362 is 345, derived and never typed (`LONG_WINDOW`);
@@ -646,7 +688,7 @@ Older history lives elsewhere and is not copied here:
   the audio guide it - it was jointly trained on video/audio, thats why the music / singing guides the singer to sing
   and open her mouth by stating shes singing without having to say when"). The draft had told the two
   women apart by "on the right" and "on the left"; mrlol's read of 0604d's tracks found the lead on the right of the
-  seated woman on 606-761, so the words were false for 156 frames as well. Reversed in `docs/masked_v2v/overview.md`: step 2 of
+  seated woman on 606-761, so the words were false for 156 frames as well. Reversed in `docs/masked_v2v/text.md`: step 2 of
   "The frame every masked text is written in" asked for "where the subject is, and what on them is the scene's own",
   and the two-subject section asked for "where each of them is in the picture"; both now say the opposite. Made a
   line of `AGENTS.md`, "Settled about H3". Open, and read on the first render: whether H3 puts each pair of
@@ -921,7 +963,7 @@ Older history lives elsewhere and is not copied here:
   `bench/load_text.py`, called by `shot_to_load.py text --place-and-action`, makes the fixed lines from the reference's
   record, the plan's `text` words for the subject and the video, and the voice table. What it replaces: each load's text
   copied by hand from the last, whose `<Subject 2>` sentence could name what an earlier reference drew; and
-  `docs/masked_v2v/overview.md`'s "The text: the fragment", which quoted the 10/11 form ("shapes drawn on its face") as the form to
+  `docs/masked_v2v/text.md`'s "The text: the fragment", which quoted the 10/11 form ("shapes drawn on its face") as the form to
   copy. That section now points at the generator. (Written by the tooling seat, mrdrill, at the lead's order.)
 
 ## 2026-10-13
@@ -1074,9 +1116,9 @@ commits.*
   `RENDER_ZOOM_REPLACED` ("a zoomed run with a wired motion video [is]
   removed") and the node's tooltip ("a load with a cut in it is refused,
   and so is a run that continues another or wires a motion video");
-  `docs/masked_v2v/overview.md`, "Limits known today" ("A load rendered zoomed in takes
+  `docs/masked_v2v/renders_by_form.md`, "Limits known today" ("A load rendered zoomed in takes
   no motion video ... the section below and this one cannot be combined
-  today") and "A small subject, rendered zoomed in" ("a zoomed run with a
+  today") and `docs/masked_v2v/pieces.md`, "A small subject, rendered zoomed in" ("a zoomed run with a
   wired motion video is refused"); the builder's note at `RENDER_REGIONS`
   ("takes no motion video (the node refuses one)"); `docs/method/checks.md`,
   the row of `check_video_mask.py` ("a wired motion video refused"). Not
@@ -1149,7 +1191,7 @@ commits.*
   1152x768 would be the more native size, and agreed it stays once the
   three facts below were read out). The job's canvas
   (`workflows/h3_config.py::MASKED_JOB_CANVAS`) is the 4:3 row of
-  `docs/h3/resolutions.md`; 1152x768 is that page's 3:2 row, as much a
+  `docs/h3/geometry.md`; 1152x768 is that page's 3:2 row, as much a
   trained size and the wrong shape for a 4:3 source (`ffprobe` on the
   working copy gives the source's size). Every preview, track and mask is
   made at the job's canvas and `verify` holds them to it
@@ -1160,7 +1202,7 @@ commits.*
   used to claim: the constant's comment says only that the value was
   inherited from the job files since 2026-10-10 and names the table's row;
   nothing said why that row, and the question was re-derived in the
-  terminal. Where it lives now: `docs/masked_v2v/overview.md`, "Rules of the lane". Not
+  terminal. Where it lives now: `docs/masked_v2v/working_rules.md`, "Rules of the lane". Not
   queued: one render of a zoomed inset on a 3:2 box and canvas, which is
   where the full frame's shape would not matter.
 
@@ -1189,7 +1231,7 @@ owner's words in its terminal.*
   did not allow carried "no shorter sampling" as if ruled; that was one
   word of an earlier lead's about fewer sampling steps, the owner never
   ruled on it, and a shorter window had not been raised. Where it lives
-  now: `docs/masked_v2v/overview.md`, "Rules of the lane". When this was written the
+  now: `docs/masked_v2v/working_rules.md`, "Rules of the lane". When this was written the
   builder's change was in hand and what the lane's sound does with a count
   that is not exact on the audio clock had not been read. Both were done
   later the same day: the sound's count is rounded by core and cut exactly
@@ -1233,7 +1275,7 @@ owner's words in its terminal.*
   was one the assembler's own reading of the picture had missed. What the
   repo held: `docs/prompting/prompting.md` has the `[Shot N]` form; nothing said a
   text's shots and a load's windows are two different things. Where it
-  lives now: `docs/masked_v2v/overview.md`, "Rules of the lane". Not built when this was
+  lives now: `docs/masked_v2v/working_rules.md`, "Rules of the lane". Not built when this was
   written: the record's two halves made one shot, the assembler taking
   its cuts from the record, and one window for a load between the
   planner's longest length and the model's
@@ -1250,7 +1292,7 @@ owner's words in its terminal.*
   `bench/two_shot_load.py` from the two shots' ordinary loads, and the one
   thing by which `bench/masked_job.py` lets a text hold a cut
   (`held_as_two_shots`). What the repo held, and what it used to claim:
-  `docs/masked_v2v/overview.md`, "Running a job", said "A load that holds a cut cannot
+  `docs/masked_v2v/running_a_job.md`, "Running a job", said "A load that holds a cut cannot
   be built for now", and its "Not built" list named "a load over several
   shots with a text that describes each shot"; `bench/masked_job.py` said
   such a load "is not built yet" (`ONE_SHOT`). Each now carries a dated
@@ -1490,7 +1532,7 @@ writer, and the row or commit named is the nearer record.*
   subject a load, two passes over a shot with both people in it, and the
   second pass's keep-out of the first where the two overlap. Builder code
   only: no node code, no restart. No render had been made of one.
-  [`docs/masked_v2v/overview.md`](../masked_v2v/overview.md), "Running a job".
+  [`docs/masked_v2v/running_a_job.md`](../masked_v2v/running_a_job.md), "Running a job".
 - **A hair band is built into the job builder, and it is read by a session
   that did not build it** (the owner, 2026-10-12, as the lead relayed it to
   the session that built it: at about 18:52Z "the issue that caused the
@@ -1504,7 +1546,7 @@ writer, and the row or commit named is the nearer record.*
   What it used to be: every cell under the part was the keep-out's to give
   back, frame by frame. Builder code only, no node code and no restart. It
   is untested on a render as of its commit, and nothing here or in
-  [`docs/masked_v2v/overview.md`](../masked_v2v/overview.md), "Running a job", says what it does to a
+  [`docs/masked_v2v/running_a_job.md`](../masked_v2v/running_a_job.md), "Running a job", says what it does to a
   picture.
 - **More than one reference video into the Masked Source, and what a
   reference costs printed by the song node** (the owner's click on Open
@@ -1702,7 +1744,7 @@ writer, and the row or commit named is the nearer record.*
   transferred (the guide's `retention_analysis`), what is generated (here a
   face, or a face and hair), and the movements and expressions from the
   body-model video with its shapes. Now written at the head of the masked
-  lane page's text section ([`docs/masked_v2v/overview.md`](../masked_v2v/overview.md), "The text:
+  lane page's text section ([`docs/masked_v2v/text.md`](../masked_v2v/text.md), "The text:
   the fragment"; moved later the same day, when the page was reorganized,
   to its own section "The frame every masked text is written in"), which
   had the fragment's rules and not the frame; the same words
@@ -2168,7 +2210,7 @@ that session's record disagree, its record is the nearer one.*
     consisted of and how it was made, and why it is thought to have
     worked; said to be from one case; and changed when it turns out not
     to be true. It is
-    [`docs/masked_v2v/overview.md`](../masked_v2v/overview.md), "The motion video as a body model,
+    [`docs/masked_v2v/renders_by_form.md`](../masked_v2v/renders_by_form.md), "The motion video as a body model,
     with marks drawn on its face". Each load keeps its own copy of the
     lines in its text file.
   - **The day's tools are tracked, and the day's way of working is
@@ -2718,7 +2760,7 @@ that session's record disagree, its record is the nearer one.*
   proposed again unasked: the owner's reason is that the more complex a
   thing is the more of it fails. And a missed cut is to be made cheap,
   not impossible. In
-  [`docs/masked_v2v/who_is_who_evidence.md`](../masked_v2v/who_is_who_evidence.md), first screen and
+  [`docs/masked_v2v/who_is_who.md`](../masked_v2v/who_is_who.md), first screen and
   sections 2, 6 and 8; what the page said of the classifier is in
   50989af7.
 - **A rule that depends on the picture takes its value from the input
@@ -2768,7 +2810,7 @@ that session's record disagree, its record is the nearer one.*
   disclosure"; and of lip sync, to see what the model infers from the frozen
   audio first). What is never minimal is the reference: the subject's
   definition, what the still provides and the vendor guide's retention
-  marker. `docs/masked_v2v/overview.md`, "Say the least first", states the order and what
+  marker. `docs/masked_v2v/text.md`, "Say the least first", states the order and what
   the first day showed. It extends 2026-10-07's "the text says nothing it
   cannot know" from the prompt node's generated text to a text written for
   one window after looking at it; no node text, graph or default changed.
@@ -2783,7 +2825,7 @@ that session's record disagree, its record is the nearer one.*
   built by patching the last job's graph.
 - **Where the masked lane's tracker and mask data can be seen is written
   down**, after a session had to be told the tooling existed:
-  `docs/masked_v2v/overview.md`, "Seeing what the tracker and the masks did". It also
+  `docs/masked_v2v/running_a_job.md`, "Seeing what the tracker and the masks did". It also
   records what a read of the tree found missing: no tool captures a run end
   to end (the 2026-10-07 captures under `data/` were made by scripts that
   were not kept), and nothing carries a label for which person a mask is
@@ -2883,7 +2925,7 @@ that session's record disagree, its record is the nearer one.*
   already shows the person and the video model has its own copy of the
   source.** Recorded as a rule at the owner's word, in that narrowed form:
   it is a choice a clip makes, not a default, and no graph or default
-  changed. `docs/h3/references.md`, "Edit a source video", states it.
+  changed. `docs/h3/reference_prompts.md`, "Edit a source video", states it.
   `bench/results/2026-10-09_whole_frame_text_and_copy_size.md` holds the
   renders it rests on (stills from two renders of one clip against one) and,
   kept as a tracked file at the owner's decision the same day, every
@@ -3080,7 +3122,7 @@ that session's record disagree, its record is the nearer one.*
   the graph. Found when the owner asked on the board for samples.
 
 - **Corrected: a typed correction has run on a real clip.**
-  `docs/masked_v2v/overview.md`, "Known limits", said "not yet run on a clip",
+  `docs/masked_v2v/limits_and_directions.md`, "Known limits", said "not yet run on a clip",
   and the masking board's card said the same and held a demonstration for
   the owner's word. It ran on 2026-10-06 on the car window
   (`bench/results/2026-10-06_subject_track_defaults.md`, "The correction").
@@ -4637,9 +4679,9 @@ that session's record disagree, its record is the nearer one.*
     `bench/check_attention_defaults.py` still grades the wiring.
   - **Corrected.** Three docs still showed our sage node as the default dense
     node after the 2026-09-15 flip, which that change's prose sweep missed:
-    - `docs/h3/geometry_and_nodes.md`'s chain block;
+    - `docs/h3/geometry.md`'s chain block;
     - `docs/h3/stages.md`'s attention row;
-    - `docs/attention/sol_attn.md`'s Ordering diagram, which also showed the assert.
+    - `docs/attention/sol_wiring.md`'s Ordering diagram, which also showed the assert.
 
 ## 2026-09-15
 
@@ -4716,7 +4758,7 @@ that session's record disagree, its record is the nearer one.*
   list node reads `name.txt` or `name.json` from the wildcards folder;
   `docs/working/comfy_notes.md` and `bench/check_node_ids.py` said an input may only
   ever be appended (removal is the owner's call now that shipped graphs are
-  API format); `docs/h3/geometry_and_nodes.md` gave `MiniMaxH3ImageToVideo`
+  API format); `docs/h3/geometry.md` gave `MiniMaxH3ImageToVideo`
   as the t2v/i2v node without saying the pack wires `MiniMaxH3Conditioning`.
 - **Shipped workflows are API format only** (owner: "If I dont need a layout,
   node titles, bypassed nodes (we dont even use those), or notes in workflows,
@@ -4735,7 +4777,7 @@ that session's record disagree, its record is the nearer one.*
   the graphs do not wire, sage-only twins of the Sol probes); they went with
   the notes. Facts that lived only in the notes moved to their docs, and the
   move corrected doc prose that had lost: `docs/attention/sol_attn.md` printed `[sol_attn]`
-  log lines (the prefix is `[h3-sol]`); `docs/h3/geometry_and_nodes.md` told
+  log lines (the prefix is `[h3-sol]`); `docs/h3/geometry.md` told
   readers to wire `MiniMaxH3KeyframeCanvas` on every i2v and fl2v graph (the
   conditioner owns the canvas), showed a node order through the deleted
   `SolAttnPatch`, and said `MiniMaxH3SigmaShift` sits in every shipped graph;
@@ -4767,7 +4809,7 @@ that session's record disagree, its record is the nearer one.*
   `ModelPreviewOverrideKJ` with taeh3 left every UI graph and the generator's
   `preview` path. What the prose used to claim: the generator's node note and
   graph comment called it "arguably the largest optimization here" and worth
-  more than any kernel knob; `docs/h3/geometry_and_nodes.md` said the same.
+  more than any kernel knob; `docs/h3/geometry.md` said the same.
   The owner also answered the API-only plan's open questions
   (`internal/2026-09-14_api_only_workflows_plan.md`, top): loop stage 2 goes
   before the conversion.
@@ -4801,7 +4843,7 @@ that session's record disagree, its record is the nearer one.*
 - **References work on the fl2va checkpoint** (owner: done often). Three
   places said or implied otherwise and are corrected:
   `MiniMaxH3ReferenceConditioning`'s description ("Use an H3 reference
-  checkpoint"), `docs/h3/geometry_and_nodes.md`'s node table (fl2va "for
+  checkpoint"), `docs/h3/geometry.md`'s node table (fl2va "for
   t2v/i2v, ref2va for reference-to-video"), and `docs/h3/audio_freeze.md`
   step 6 ("the fix is the ref2va checkpoint with a per-window reference
   image").
@@ -4831,7 +4873,7 @@ that session's record disagree, its record is the nearer one.*
   comment). What the prose used to claim: `docs/h3/stages.md` named the
   AWQ loader as the alternate encoder load; `docs/h3/custom_node_gaps.md` §5.1
   said every graph wires core's `CLIPLoader` and the adapter was live code
-  read by preflight and the config; `docs/h3/geometry_and_nodes.md` called it
+  read by preflight and the config; `docs/h3/geometry.md` called it
   "the loader used by every generated graph".
 - **The `encoder` option is gone from `MiniMaxH3ReferenceConditioning`**
   (owner). `image_policy` and `video_policy` each offer `comfy` (default) and
@@ -4868,7 +4910,7 @@ that session's record disagree, its record is the nearer one.*
   (`h3_config.REFVIEW2_SCENES`, `workflows/h3_probe_refview2_*.json`) built
   at the node defaults, with six arms per scene as widget patches in
   `bench/refview2_arms.json`. Unrendered; nothing is claimed.
-- **`docs/h3/input_impacts.md` pointed at `preflight.py:28`** for the int32
+- **`docs/h3/geometry_cost.md` pointed at `preflight.py:28`** for the int32
   crossing; the line moved, and `preflight.py::_INT32_FUSED` is the pointer now.
   The same section gains the second ceiling, the CUDA v-side `uint32` wrap in
   the sage fork's `csrc/fused/fused.cu`, from the fork's own CHANGELOG.

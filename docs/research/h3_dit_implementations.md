@@ -467,12 +467,12 @@ they assume opposite things.** A release-native file fed to ComfyUI, or a
 Comfy-Org repack fed to vllm-omni, loads without error and produces noise —
 the row count is identical either way — `56 * 3 * 128 = 21504` under both
 layouts — so vllm-omni's guard is **structurally incapable** of discriminating
-them, not merely insufficient (*read*). §7 finding 5 leans on this. `docs/method/evidence.md:176-186` already records the
+them, not merely insufficient (*read*). §7 finding 5 leans on this. `docs/method/evidence.md` lines 176-186 at `901bee1` already records the
 concrete instance from the ComfyUI side: a DeepBeepMeep bf16 file stores
 `qkv_proj` in release order, so head 0's k rows land where ComfyUI's split
 expects head 1's q.
 
-This is already recorded at `docs/method/evidence.md:168-175` from an earlier session.
+This is already recorded at `docs/method/evidence.md` lines 168-175 at `901bee1` from an earlier session.
 A spot check corroborates it and settles which layout this box holds:
 splitting `blocks.0.attn.qkv_proj.weight_scale` into contiguous thirds gives
 three clearly distinct means and explains ~10.6% of the total variance, while
@@ -538,7 +538,7 @@ clean and rendering noise. `bench/check_model_files.py` guards model *names*,
 not their qkv order. This install only ever loads Comfy-Org repacks, so it is
 not currently exposed — but the failure is silent, the discriminator is cheap
 (§6's weight-scale grouping separates the two decisively), and
-`docs/method/evidence.md:176-186` records a real file in circulation that trips it.
+`docs/method/evidence.md` lines 176-186 at `901bee1` records a real file in circulation that trips it.
 
 ---
 

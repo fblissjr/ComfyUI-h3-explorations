@@ -44,7 +44,7 @@ if the builder's keys change it can go stale; the builder's docstring
 
 A job is one video and its people; a load is one person on one stretch.
 How a job is run, with the capture, its gate and the two looks before a
-render, is in `docs/masked_v2v/overview.md`, "Running a job".
+render, is in `docs/masked_v2v/running_a_job.md`, "Running a job".
 
 | key | in the example | what it says, and what has to exist first |
 |---|---|---|
@@ -164,4 +164,4 @@ piece. Do not carry them to a new text.
 The four places in 1, 2, 5 and 6 are the whole difference from the load
 this one is a change of, whose text took only her head from the video.
 The fragment alone, and what to hold to when it is set into another
-load's text, is in `docs/masked_v2v/overview.md`, "The text: the fragment".
+load's text, is in `docs/masked_v2v/text.md`, "The text: the fragment".

@@ -43,20 +43,14 @@ which is exactly where the drift lives.
 
 ## What will not fix it
 
-Worth stating, because these are the reflexes and this repo has already spent a
-day discovering that instruments dissolve on contact with what is installed
-(`docs/method/sustainability.md`).
-
 - **Review discipline.** Refuted by the single-commit contradiction above.
 - **Deleting the prose.** It is load-bearing. Several comments are the only
   record of why a tolerance sits between two noise floors, and one of them
   prevented a correct bake being silently rejected.
-- **A general "docs match code" checker.** Undecidable in the general case, and
-  the failure mode is worse than the disease: a checker that reports red while
-  the state is correct trains you to ignore red, which `docs/method/checks.md` already
-  records as the reason two existing checks use allowlists.
-- **More dates.** Every wrong claim above already carried a date. The date told
-  you when it was written, not whether it is still true.
+- **A general "docs match code" checker**, or **more dates**: the first is on
+  [`sustainability.md`](sustainability.md)'s do-not-do list (it is red on a
+  correct state); as for the second, every wrong claim above already carried a
+  date, which said when it was written, not whether it is still true.
 
 ## What would
 
@@ -72,13 +66,9 @@ what the value MEANS and why it was chosen — never what currently uses it.
 Concretely: a `bench/` reporter that prints, for each entry in `MODELS`,
 `CANVAS_TIERS`, and the LoRA sets, how many shipped graphs reference it and
 which. Then the docstrings say "see the reporter" and stop asserting counts.
-This is the same move `docs/prompting/prompt_catalogue.md` already makes — generated from
-the graphs, judges nothing — and it is why that file has not drifted.
-
-**This is the general answer to "make the code the source of truth".** Not
-"delete the prose": *stop writing down anything a script can answer, and write a
-script for the things worth answering.* The prose that survives is the part that
-explains a decision, which no script can reconstruct.
+This is the same move `docs/prompting/prompt_catalogue.md` already makes --
+generated from the graphs, judges nothing -- and the general rule for where a
+number goes instead is [`prose_measurements.md`](prose_measurements.md).
 
 ### 2. Give absence claims an expiry that is a test, not a date
 
@@ -122,7 +112,7 @@ generator could not disagree — that is this rule applied by hand, once.
 
 ## The one-line version
 
-**Prose that states a fact the code already knows is a cache, and this repo has
-no invalidation for it.** Either derive the fact, or write the sentence so that
-it explains a decision rather than reporting a state — decisions do not go
-stale, states do.
+Root `AGENTS.md`, "Do not trust prose", and [`VISION.md`](../../VISION.md),
+"Truth", state the rule this file applies to `h3_config.py`: derive the fact, or
+write the sentence so that it explains a decision rather than reporting a
+state. Decisions do not go stale; states do.

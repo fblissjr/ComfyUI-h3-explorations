@@ -1783,7 +1783,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # ModelPatcher, and keeping that clone upstream of both attention
         # nodes avoids inserting it between the two that have to compose.
         # The load-bearing ordering constraint is sage-then-Sol (see
-        # docs/attention/sol_attn.md's Ordering section). A LoRA in front of both is
+        # docs/attention/sol_wiring.md's Ordering section). A LoRA in front of both is
         # orthogonal to it and does not belong in that constraint.
         # Node id 18; 20/21/22 are already spoken for.
         # The turbo pack's loader is not a drop-in for LoraLoaderModelOnly and
@@ -4997,7 +4997,7 @@ def main():
         # **Candidates on trial, 2026-09-05.** The owner asked for canonical
         # graphs carrying the settings the lane currently thinks are its
         # leaders, to render their own prompts on. The evidence stands as
-        # docs/state/roadmap.md (forward plan 2026-09-04) records it: the shipped
+        # docs/state/roadmap.md ("The attention plan, where it stands") records it: the shipped
         # h3_text_to_video (sage + Sol) is the leader with a verdict behind
         # it; each candidate below is a configuration blinded but not yet
         # judged, and its note says what it costs and what would settle it.

@@ -1,7 +1,7 @@
 # Upstream survey checks, 2026-09-25
 
 Four checks run during the 2026-09-25 upstream survey
-(`docs/attention/sol_upstream.md`, "comfy-kitchen and core, 2026-09-25"). Each check
+(`docs/attention/sol_upstream_reads.md`, "comfy-kitchen and core, 2026-09-25"). Each check
 is here with its command and outcome, so the prose can point at a record
 instead of carrying the result. ComfyUI checkout at `88ab4a06`, run with its
 venv interpreter, on this box's RTX 4090. No server was running, and no core

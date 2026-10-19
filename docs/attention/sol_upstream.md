@@ -1,578 +1,32 @@
-# What upstream says: the paper, Sol-Engine, Sol-H3, and the other packs
+# What upstream says: the paper, Sol-Engine, Sol-H3, core, kitchen, sglang and the other packs
 
-Last updated: 2026-10-09 (section "comfy-kitchen and core, 2026-10-09", a pointer); 2026-10-03 (a dated note under "Kitchen: current" in the 2026-10-02
-section: the installed build has moved); 2026-10-02 (section "comfy-kitchen and core, 2026-10-02"; a
-superseded note on the 2026-09-25 INT8 VAE paragraph; core's model.py line
-citations re-read); 2026-09-27 (core's model.py line citations and the chunked
-producer's V scale only); 2026-09-25 (section "comfy-kitchen and core, 2026-09-25", with
-ComfyUI's workflow templates; a dated note under sglang's SubBlock router);
-2026-09-22 (section "comfy-kitchen, 2026-09-22": kitchen only,
-core not re-read); 2026-09-19 (section "comfy-kitchen and core, 2026-09-19", with
-dated notes on the PRs it found closed or merged); 2026-09-15 (the
-comfy-kitchen section); before that 2026-09-11, when sglang's own Sol-Attn backend was added, the
-comfy-kitchen snapshot moved forward, an
-open core PR against core's Sol node was read, and a third ComfyUI Sol pack
-was added from its README. Before that, 2026-09-10, when Sana's `sol-engine`
-branch was re-read at `757d902` (the Sol-H3, Sol-H3-Spark,
-`super_acceleration` and `RTX4090` packages), ComfyUI core's own Sol node was
-added, two sglang SubBlock notes were recorded, and the comfy-kitchen snapshot
-moved forward. The paper and the two original third-party packs are as read
-on 2026-08-16. Renamed from
-`sol_engine_reference.md` on 2026-08-19, when the paper was added and the scope
-widened past one vendor's framework.
+This page states what other people ship and claim, once per upstream, with the revision it was read at. It asserts
+none of our numbers and takes no decision except in its last section, "What we would adopt, and what would decide
+it". Where it and a page about our configuration disagree about ours, that page is right. Every pass over
+comfy-kitchen and ComfyUI core, with what each one found, is logged in
+[`sol_upstream_reads.md`](sol_upstream_reads.md).
 
-**This page states what other people do and claim. It asserts none of our
-numbers, and it takes no decision.** When a comparison against what we run is
-needed, it lives in the doc that owns our side of it: [`docs/attention/sol_attn.md`](sol_attn.md)
-for the knobs, the measurements, and what we would adopt from upstream (its
-section "What Sana's newer H3 packages offer this card"), and
-[`docs/attention/morton.md`](morton.md) for token order. If this page and one of those
-disagree about our configuration, they are right.
+| source | how it was read | revision | when |
+|---|---|---|---|
+| arXiv 2607.24027, the Sol-Attn paper | abstract, ablation summary, HTML v1; not a full read | v1 | 2026-08-16 |
+| Sol-Engine's per-hardware H3 cells | source, `coderef/Sana` on `sol-engine` | first read at `6fb7eb1`, re-verified at `757d902` | 2026-08-15, 2026-09-10 |
+| Sol-H3, Sol-H3-Spark, `super_acceleration`, `RTX4090` | source; added by `9791888` (RTX4090, 2026-08-17), `2936c47` (Sol-H3, 2026-09-08), `8249b28` (its MXFP8, 2026-09-09), `757d902` (Spark) | `757d902` | 2026-09-10 |
+| [`Efficient-Large-Model/H3-to-LTX-Latent-Adapter`](https://huggingface.co/Efficient-Large-Model/H3-to-LTX-Latent-Adapter) | the Hugging Face model card only | | 2026-09-10 |
+| ComfyUI core's `BlockSparseAttention` | source in the ComfyUI checkout | `1f641fd9`, line citations re-read at `65787d66` | 2026-09-10, 2026-10-02 |
+| core running Sol with no node | the pass logged in `sol_upstream_reads.md` | `08ff3c11` | 2026-10-09 |
+| comfy-kitchen | fetch, `gh` and the fork clone | the installed build ([`sol_kernel.md`](sol_kernel.md)) | latest pass 2026-10-09 |
+| sglang's SubBlock router | source | `ffe98a4279`; `sage_fp8`'s arch set at `2f5c9ac43d` | 2026-09-10, 2026-09-25 |
+| sglang's Sol-Attn backend | source, its attention-backend doc and H3 cookbook page | `593c7a900d` | 2026-09-11 |
+| Saganaki22 and sumeetprashant ComfyUI packs | their READMEs only | | 2026-08-16 |
+| xmarre's ComfyUI-Sol-H3 | its README and the body of its PR 9, via `gh` | | 2026-09-11 |
 
-| source | how it was read | when |
-|---|---|---|
-| arXiv 2607.24027, the Sol-Attn paper | fetched: abstract, ablation summary, HTML v1. **Not a full end-to-end read** | 2026-08-16 |
-| Sol-Engine's per-hardware H3 cells | source, `coderef/Sana` on `sol-engine`; first read at `6fb7eb1`, pointers re-verified at `757d902` | 2026-08-15, 2026-08-16, 2026-09-10 |
-| Sol-H3, Sol-H3-Spark, `super_acceleration`, `RTX4090` | source at `757d902`: added by `9791888` (RTX4090, 2026-08-17), `2936c47` (Sol-H3, 2026-09-08), `8249b28` (its MXFP8, 2026-09-09), `757d902` (Spark) | 2026-09-10 |
-| [`Efficient-Large-Model/H3-to-LTX-Latent-Adapter`](https://huggingface.co/Efficient-Large-Model/H3-to-LTX-Latent-Adapter) | the Hugging Face model card only | 2026-09-10 |
-| ComfyUI core's `BlockSparseAttention` | source in the ComfyUI checkout at `1f641fd9` | 2026-09-10 |
-| sglang's SubBlock router | source at `ffe98a4279`; `sage_fp8`'s arch set re-read at `2f5c9ac43d` | 2026-09-10, 2026-09-25 |
-| sglang's Sol-Attn backend | source at `593c7a900d`, with its attention-backend doc and H3 cookbook page | 2026-09-11 |
-| two third-party ComfyUI packs | their READMEs only | 2026-08-16 |
-| Comfy-Org/workflow_templates | `gh api`: commits since 2026-09-19 touching H3, and the diff of `fc427f00`; on 2026-10-02, commits since 2026-09-25 and a widget-value diff of the H3 and FastH3 t2v templates | 2026-09-25, 2026-10-02 |
-| xmarre's ComfyUI-Sol-H3 | its README and the body of its PR 9, via `gh` | 2026-09-11 |
-| Comfy-Org/ComfyUI PR 16239 (closed unmerged 2026-09-16) | its diff via `gh`: `nodes_sparse_attention.py` and two helpers in its new module | 2026-09-11 |
-| Comfy-Org/ComfyUI PRs touching H3 or core's sparse node, and kitchen's open PRs | `gh`: lists, bodies and threads; diffs for 16388, 16344, 16404, 16245, 16362, 16378 (2026-09-19); diffs for 16460, 16508, 16497, 16548, 16476, 16542, 16156, 16483, 16391 (2026-09-25) | 2026-09-19, 2026-09-25 |
-| Comfy-Org/comfy-kitchen | fetch and `gh`; dated sections below | 2026-09-04, 2026-09-08, 2026-09-10, 2026-09-11, 2026-09-15, 2026-09-19, 2026-09-22, 2026-09-25, 2026-10-02 |
-
-Every `coderef/Sana/...` pointer below resolves against a checkout at
-`757d902`. The branch `release/sol-h3-spark` has the same tree as that tip.
-
----
-
-## comfy-kitchen and core, 2026-10-09
-
-Read with the ComfyUI checkout at `08ff3c11`, against `65787d66`, and with
-`gh` for kitchen. The account is in
-[`docs/working/coderef.md`](../working/coderef.md), "What moved by 2026-10-09",
-under "ComfyUI core" and "comfy-kitchen". The one thing a reader of this
-page needs from it: **core can now run kitchen's Sol-Attn with no node in
-the graph**, on a model file's or a LoRA's say-so (`b26625f2`, #16831;
-`f49c531e`, #16880), at kitchen's defaults but for the threshold. "ComfyUI
-core's own Sol node" below describes `BlockSparseAttention`, which is a
-different door to the same kernel and did not change.
-
-## comfy-kitchen and core, 2026-10-02
-
-Read with `gh` (compare, PR lists, bodies and diffs) and the ComfyUI checkout
-at `65787d66` (pulled 2026-10-02; `git reflog` in it dates each pull),
-against `88ab4a06`, the 2026-09-25 read. The next server start runs this
-checkout.
-
-**Nothing below changes a default this repo ships, and nothing triggers the
-adopt-upstream rule.** No H3 template moved a widget value, and sglang moved
-no default ([`docs/research/sglang_comparison.md`](../research/sglang_comparison.md),
-"Eighth read").
-
-**Kitchen: current.** `vendor/rebuild_kernel.sh --check` reports the build
-installed and current against ComfyUI's pin, which core moved to `0.2.36`
-(`6f6a2742`, #16635). The build's contents are recorded in
-`bench/results/2026-10-01_kitchen_merge_aade8d5.md`. Upstream main's two
-commits past the build, `5eeefcf` (#201) and `d0da34b` (#199), are Ascend.
-An open stack of H3-targeted kitchen PRs splits two ways. 217, 218, 222, 227
-and 231 dispatch only on SM120, which is not this card. 219, 220, 221 and 223
-add opt-in indexed-gate, fused-norm and BSHD-output APIs that core does not
-call yet; core's 16681 and 16678 below are their consumers. 224 fixes INT8
-attention for a nonpositive scale, which H3 never passes. **168 (ours)** is
-still open with no activity since 2026-09-11.
-
-*2026-10-03: the pin and the build named above are the 2026-10-02 state and
-both have moved. Core's pin is the `comfy-kitchen==` line of ComfyUI's
-`requirements.txt`; the installed build, its upstream base and the commits it
-carries are in `comfy_kitchen_build.json` beside the ComfyUI venv, which
-`vendor/rebuild_kernel.sh` writes, and `bench/check_sol_kernel.py` reports
-the build that is importable. Read those, not this paragraph. Between the
-build above and the installed one the fork's log shows upstream's two Ascend
-commits and a version bump, and no change to what we carry
-(`git log aade8d5..6b42fab` in the clone).*
-
-**Core, merged since 2026-09-25:**
-
-- **`2d6b7328` (#16677) is an extract-method refactor of H3's forward.** The
-  patchify, cond-row scatter, patch projections, condition projection and
-  token refiner move from `MiniMaxH3Model._forward` into
-  `comfy/ldm/minimax/model.py::MiniMaxH3Model._embed_and_pack`, so their
-  temporaries are freed before the blocks run. Statement order is unchanged
-  and `Attention.forward` did not move. No forward in this pack copies that
-  span, so nothing here follows it. A DiT peak recorded before this pull
-  describes the older core. The line citations in "ComfyUI core's own Sol
-  node" below and in `h3_capture.py` were re-read against it.
-- **`83071e1a` (#16698) fixes a crash decoding H3 video with the VAE
-  offloaded.** `FeedForward.forward` and `Attention.forward` in
-  `comfy/ldm/minimax/vae.py` passed the pre-norm weight uncast into
-  `linear_input_act`'s fused RMSNorm, so an offloaded weight sat on the CPU.
-  It now goes through `CastBiasWeightContext`. The shipped INT8 decoder
-  (`h3_config.MODELS["video_vae"]`) takes that path, and `start.sh`'s `safe`
-  mode offloads. The failure was loud, so no clip that decoded is affected.
-  Whether the cast is a bit-level no-op for a resident VAE was not checked.
-- **`986c4d15` (#16657) loads H3 video VAEs with a shorter decoder.**
-  `comfy/sd.py` counts the decoder's transformer blocks from the file and
-  passes the count to `MiniMaxH3VideoVAE`. Its first user is LynnReal's
-  "light" VAE: the stock encoder with a distilled decoder of fewer blocks,
-  whose model card says the latent space is unchanged and the RGB output is
-  not. It is a full decoder, not a preview one, and stock `VAELoader` loads
-  it. The shipped files load as before. Nothing here has measured it.
-- `8d534945` (#16595) adds `comfy_attention` to other models; H3's
-  `Attention` already passed `preferred_attention`. W6A8 (`491bf3b9`,
-  `9671d89f`), the RGBA fix (`39cb5a8b`, the 16548 of the last read) and a
-  `FixedKVBias` write in `generate()` (`a7169322`) have no reach. ComfyUI
-  `v0.38.0` was tagged 2026-09-29. The rest is other models, assets, partner
-  nodes and EXR.
-
-**Templates.** Since 2026-09-25 the H3 files in Comfy-Org/workflow_templates
-changed only their download notes (`98fd32ca`, `e7cd011d`); a widget-value
-diff of the H3 and FastH3 t2v templates before and after shows no change.
-`e7849852` adds API copies of those two graphs under `benchmarks/`, and
-`9b912856` removes the site's H3 demo page. Core bumped the package through
-`v0.11.74` (`fa98a189`).
-
-**Open core PRs, new or moved since 2026-09-25.** Keyword search as before,
-so a PR touching an H3 path under an unrelated title can be missed.
-
-- **16681 would break `MiniMaxH3LoRABranch` on any LoRA that touches fc2.**
-  It changes `MLP.forward(x)` to `forward(x, residual=None, gate=None,
-  segments=None)`, and `DiTBlock.forward` then calls
-  `self.mlp(h, residual=x, gate=gate_mlp, segments=mod_segments)` unless the
-  MLP carries a hook or core is training. `lora_branch.py::_mlp_forward`
-  installs a one-argument `forward(x)` as an object patch, which is not a
-  hook, so the call would raise a TypeError. The same copy is in
-  `standalone/h3_mutant_distill/exact_lora.py`. Read from the diff and
-  reasoned; nothing has run under the PR. The fix is to accept the three
-  keywords and apply core's `_mod_gate` when `residual` is given;
-  [`docs/state/next_steps.md`](../state/next_steps.md) carries it. *Made the same day
-  in 0.184.10.*
-- 16712 and 16713 rework `_embed_and_pack` again and move reference-row
-  preparation into `extra_conds`; their bodies report identical latents.
-  Nothing here mutates `cond_*_latents`. `bench/probe_ref_rows_16604.py`
-  calls `_cond_video_rows` and would need to follow 16713. 16678 waits on
-  kitchen 220. 16688 duplicates `83071e1a`. 16619 fixes async-offload cast
-  aliasing, including the H3 audio VAE, and reaches only `--async-offload`.
-- 16508, 16460 and 16542 have not moved. 16156 reworded its 2026-09-27
-  commit and keeps the exclusive end. 16391 is still open though superseded.
-
----
-
-## comfy-kitchen and core, 2026-09-25
-
-Read with the kitchen clone's `upstream` and kijai's fork fetched, `gh` PR
-lists, bodies and diffs, and the ComfyUI checkout at `88ab4a06` (pulled
-2026-09-25; `git reflog` in it dates each pull). Core commits are read against
-`3c80da7f`, the 2026-09-19 read. No ComfyUI server was running at the time of
-the read, so the next start runs this checkout.
-
-**Kitchen: still current, nothing to rebuild.** `vendor/rebuild_kernel.sh
---check` reports the source current against ComfyUI's pin and the venv
-holding the `h3-build` tip. Upstream `main` is past `v0.2.35` and untagged,
-so by policy it is not built. What it holds, for the next rebase:
-
-*2026-09-27: that policy is reversed. The build now tracks upstream main
-(`h3-frontier`, `vendor/rebuild_kernel.sh` "Track upstream main"), and
-everything below is in it from `0.2.35+sol.863e953.up.c8c7825`.*
-
-- **`ef40891` (#192, kijai) will reach H3's video VAE encode on the next
-  tag.** Its `zero_pad` and `out=` work is for the SeedVR2 VAE, which closes
-  the 2026-09-19 note that the fork commit named no model. The same PR also
-  raises the depth gate on `fp16_conv3d`'s fp16 accumulation. Core's H3 VAE
-  calls that kernel when fp16 accumulation is on (`comfy/ldm/minimax/vae.py`,
-  the `fp16_conv3d` helper, gated on `comfy/ops.py::_fp16_linear_wanted`).
-  This install's launcher turned fp16 accumulation on (`start.sh`,
-  `--fast fp16_accumulation`) until 2026-09-28, and passes no `--fast`
-  since. The reader counted the encoder's 512-channel
-  3x3x3 convolutions that fall between the old gate and the new one; the
-  decoder has none. So after that rebase, reference and keyframe encodes on
-  those stages move to fp16 accumulation. The PR body reports the fidelity
-  cost for SeedVR2's decoder. Nothing here has measured it for H3. The
-  rebuild record for that tag should say so.
-- `f61028a` makes kitchen's `is_available` functions return False on a CPU
-  device, a semantics change to carry through the next rebase. #186 adds head
-  dim 256 to the Flash kernel, which is not H3's. #191 and #193 add W6A8 (no
-  model in `workflows/h3_config.py::MODELS` uses it: every DiT and encoder
-  header is `int8_tensorwise`, `bench/results/2026-09-25_upstream_survey_checks.md` check 3). #194 is HIP INT8 attention; the rest is
-  Ascend.
-- **Open:** 187 and 189 unchanged; 195, 197, 199, 200, 201 and 202 are HIP,
-  Ascend, or Triton INT8 dequantisation. **168 (ours)** is still open with no
-  activity since 2026-09-11.
-
-**kijai's fork.** `zero-pad-mode` moved to `624fdaf` (2026-09-25), which adds
-an `fp32_accumulate` option to `fp16_conv3d`. A `w6a8` branch holds #191's
-follow-ups.
-
-**Core, merged since 2026-09-19 and in this checkout:**
-
-- **`fc584aaa` (#16436, kijai) changes every H3 video decode's pixels at tile
-  seams.** Tiles now blend against their neighbours as already blended.
-  Tiling is on by default in core's H3 VAE (`MiniMaxH3VideoVAE.__init__`,
-  `tiling=True`), so every decode at a trained canvas takes that path. It
-  reached this checkout in the 2026-09-22 pull. **A clip rendered before that
-  pull is not bit-comparable with one rendered after it**, which bears on any
-  record that grades a rebuild by a bit-identical render against an older
-  reference clip, such as `bench/results/2026-09-18_kitchen_0.2.35_rebuild.md`.
-- `912fca4f` (#16485) moves the VAE's `qk_norm_scale` to the query's device
-  before kitchen's fused `rms_rope`, for offloaded VAEs. It supersedes open
-  16391.
-- **`c194dd00` (#16419): a model file can name a block's attention.** A
-  `<module>.comfy_attention.config` tensor holding JSON selects kitchen INT8
-  attention for that block, and only that method is supported. An
-  `optimized_attention_override` keeps priority, so Sol's override still
-  wins. **No file in `workflows/h3_config.py::MODELS` carries the key**
-  (`bench/results/2026-09-25_upstream_survey_checks.md` check 2), so no shipped graph
-  moves. Two copies of core's forward in this pack would react differently
-  to a file that did carry it. `exact_blocks.py::_exact_forward` strips the
-  override and calls core's `Attention.forward`, so its "exact" blocks would
-  run kitchen INT8. The sage node's forward
-  (`attention.py::make_minimax_attn_forward`) does not pass
-  `preferred_attention`. Both are inert today.
-- **`b16023b0` (#16457) removes torchaudio from core's requirements.** Core's
-  H3 reference-audio resample now calls `comfy/audio.py::resample`. This pack
-  still imports torchaudio lazily at its resample sites
-  (`grep -n torchaudio audio_freeze.py reference_conditioning.py`), and `pyproject.toml`
-  declares no dependency. So a fresh install without torchaudio fails only
-  when a clip's sample rate differs from the audio VAE's. This box still has
-  torchaudio. `comfy.audio.resample` returned tensors `torch.equal` to
-  `torchaudio.functional.resample` on CPU in fp32 (`bench/results/2026-09-25_upstream_survey_checks.md` check 1,
-  with the conditions it did not cover). That makes it a drop-in
-  replacement there. *Made the same day in 0.139.0 (`audio_resample.py`),
-  after the check was extended to CUDA, fp16 and bf16.*
-- `95539f56` (#16471) Fun-ControlNet Union 2.0 for H3; nothing here wires a
-  ControlNet. ComfyUI `v0.37.0` was tagged 2026-09-20. The rest is other
-  models, assets, partner nodes and NPU/ROCm.
-
-**ComfyUI's workflow templates switched H3's video VAE to INT8.**
-Comfy-Org/workflow_templates `fc427f00` (#1280, 2026-09-22) points every H3
-template, the FastH3 ones included, at
-`minimax_h3_video_vae_int8_convrot.safetensors`. That is the file the owner
-removed from this repo on 2026-08-21 (the comment at
-`workflows/h3_config.py::MODELS`, `video_vae`), and
-`bench/check_model_files.py` goes red on any graph naming it. **It does not
-trigger the adopt-upstream rule.** Templates are not one of the rule's three
-upstreams. sglang runs the VAE more precisely, not less
-([`docs/working/coderef.md`](../working/coderef.md), "What the 2026-08-28 pass
-established"). The owner's decision stands unless the owner reopens it. The
-core decoder has an INT8 attention branch for such a file
-(`comfy/ldm/minimax/vae.py`, `Attention.forward`, the `QuantizedTensor`
-test).
-
-*Superseded 2026-10-02: the owner reopened that lane on 2026-09-26, and
-`workflows/h3_config.py::MODELS` names the INT8 file as `video_vae` again
-(the comment beside it says why). The sentences above about the file being
-removed, `bench/check_model_files.py` going red on it, and the decision
-standing describe the repo before that date.*
-
-**Open core PRs, new or moved since 2026-09-19.** Found by keyword search
-(`gh pr list --search`) on H3, MiniMax, sparse attention, Qwen3, kitchen and
-the new attention key, with no file filter, so a PR that touches an H3 path
-under an unrelated title can be missed.
-
-- **16508 (fp16 inference for H3) would have moved this install's DiT to
-  fp16 if it merged.** *Not since 2026-09-28: `start.sh` passes no `--fast`,
-  so `PRIORITIZE_FP16` is off and both calls below choose bf16 with or
-  without the PR (check 4's other three cases). Someone launching with
-  `--fast fp16_accumulation` still gets the fp16 case.* It adds `torch.float16` to H3's `supported_inference_dtypes`.
-  `start.sh`'s `--fast fp16_accumulation` sets `PRIORITIZE_FP16`
-  (`comfy/model_management.py`). With the flag on and the PR's list,
-  `unet_dtype` and `unet_manual_cast` both choose fp16 for a quantized
-  checkpoint. The quantized-checkpoint exemption in the PR body does not
-  cover that path, and every graph loads the DiT with `weight_dtype` at
-  default. Both were called in-process (`bench/results/2026-09-25_upstream_survey_checks.md` check 4). With fp16 activations, Sol's eligibility
-  gate refuses the call (`sol_attn_h3.py::_ineligible`, "kernel is
-  bf16-only"), so every Sol graph would run dense, and the reason would show
-  only in the route record. This pack's own attention forwards also lack the
-  PR's fp16 `out_proj` rescale. The dtype choice was run; the Sol fallback
-  and the rescale are reasoned from the code, with no render under the PR.
-  *Since 0.139.0 the Sol node refused a non-bf16 H3 model at patch time. Since
-  2026-09-27 `MiniMaxH3Sol` takes fp16 as well (the direct kernel entry
-  accepts it; `sol_attn_h3.py::_apply_sol`), so an fp16 DiT under this PR
-  would run Sol rather than fail.* It is the one open PR here worth watching.
-- **16460 (packed-row memory estimate) and 16542 (dynamic-VRAM headroom)**
-  would together change what gets paged out when sampling is admitted: the
-  first changes the estimate, and the second makes `free_memory` partially
-  unload dynamic models to meet it. On long runs that means the text encoder
-  and the DiT's own resident pages. Neither is measured here.
-- **16156 (`percent_to_sigma` rounding and half-open windows)** reaches
-  `sol_attn_h3.py`, `pdd_lora.py` and `audio_freeze.py`, which all call
-  `percent_to_sigma`. The reader simulated the schedulers, step counts and
-  windows our graphs use, and none puts a step exactly on a boundary, so no
-  shipped graph's step set changes. That was simulated, not rendered. A
-  window whose percent times the step count is a whole number would move by
-  one step.
-- 16497 (save and load nested conditioning), 16548 (RGBA into Qwen VL
-  preprocessing), 16476 (a stale KV cache in `generate()`) and 16483 (W6A8):
-  no reach. We save no conditioning, every image path here is already RGB,
-  H3 conditioning never calls `generate()`, and no model here is W6A8.
-- Unchanged and still open from the 2026-09-19 list: 16388, 16344, 16404,
-  16245, 16116, 15735, 16283, 16221, 16228, 16301, 16076, 15135, 16401,
-  16402, 16362. 16391 is superseded by 16485 above.
-
-## comfy-kitchen, 2026-09-22
-
-Read with `upstream` and `origin` fetched in the clone, `gh` PR lists and
-bodies, and kijai's fork through the GitHub API (the clone no longer has a
-`kijai` remote). Core was not re-read.
-
-**Still current, nothing to carry.** `vendor/rebuild_kernel.sh --check` is the
-observable: ComfyUI's pin has not moved from the tag the 2026-09-19 read
-found, upstream `main` has nothing past it, and the venv holds the `h3-build`
-tip. The clone's local `main` and the fork's `origin/main` mirror lag
-upstream; neither is built.
-
-**Kitchen PRs new or changed since 2026-09-19:**
-
-- **187, Triton `rms_rope` grid overflow at 65,536 or more rows** (issue
-  169). H3's packed sequence is past that, but the kernel is kitchen's Triton
-  backend, which core disables unless `--enable-triton-backend` is passed
-  (`comfy/quant_ops.py`), and this install's launcher does not pass it. The
-  failure is also loud (a CUDA invalid-argument error), not silent. Not this
-  card, the same reasoning as 172.
-- **189, CUDA `dequantize_mxfp8`** (issue 190), replacing an eager fallback.
-  No model in `workflows/h3_config.py::MODELS` is MXFP8. Not this card.
-- 185 (HIP arch support), and 184 updated (HIP Sol exact): not this card.
-- **168 (ours)**: open, still no activity since 2026-09-11. Its last comment
-  names PR 171's `*, key_bias` as the thing it folds with; 171 closed
-  unmerged on 2026-09-16, so that note no longer binds anything.
-
-**kijai's fork:** no branch has moved since the last read; the newest head
-is still `zero-pad-mode` at `16651db`.
-
-## comfy-kitchen and core, 2026-09-19
-
-Read with the fork's remotes fetched and `gh` (PR lists, bodies, threads, and
-the diffs named below). ComfyUI's pin is `comfy-kitchen==0.2.35`
-(`requirements.txt` in the ComfyUI checkout); upstream `main` has nothing past
-the `v0.2.35` tag, and `h3-build` is rebased onto it (CHANGELOG 0.123.1).
-
-**Closed since the last read, and what that retires here:**
-
-- **Kitchen PR 171 (chunked `key_bias`) and core PR 16239 (attention key
-  measure) were both closed unmerged by their author on 2026-09-16.** The
-  author's closing comments say the mixed-resolution path they served was
-  retired from the author's own pipeline, and that the branches are kept on
-  the author's fork. The `*, key_bias` rebase hazard in the 2026-09-11 section
-  and the "would rewrite this node" note under core's Sol node no longer
-  apply. Neither came back under a new number: the same author's 2026-09-18
-  core PRs 16401 and 16402 are for "MiniMax H3 Keyless", a checkpoint variant
-  whose main blocks carry a packed `qv_proj` and no K projection (core's
-  sparse node would give it only the generic override and refuse VSA; generic
-  LoRA loading fails closed). This repo loads no such checkpoint.
-- **Kitchen PR 176 (W4A8 decode GEMV) merged into `v0.2.35`**, with its HIP
-  port 182, so the 2026-09-15 table's "not carried" row is now carried code.
-  What the tag brings is in CHANGELOG 0.123.1: nothing on the H3 attention
-  path. Its core half, PR 15623 (Qwen3 cudagraphs and W4A8 GEMV), merged
-  2026-09-18.
-
-**Open kitchen PRs new since 2026-09-15:**
-
-- **179 (another developer), `draft_attention`, with its core half 16362.**
-  A DraftMap block-sparse self-attention for packed video, adapted from the
-  anemoi project, with a native Ada executor: its body lists SM89 among the
-  served capabilities, so **it is the one open kernel that would run on this
-  card.** The core half adds it as a `draft` method in core's Sparse
-  Attention node, H3 only, prefix exact, sparse routing on the video rows.
-  The PR body's end-to-end table includes an RTX 4090. kijai's reply on
-  2026-09-16 graded it against kitchen's `sol_attn` on real H3 captures (two
-  blocks, relative L2 against dense, on a 5090) and found it no better than
-  Sol at matched speed, with a much larger workspace; the numbers are in that
-  thread and not copied here. If it merges and is ever worth a look, the
-  instrument is a capture grader (`bench/grade_sol_route_on_capture.py` and
-  its siblings), not a render.
-- **186 (comfyanonymous): head dim 256 in the Flash kernel.** H3's DiT head
-  dim is `attention_head_dim` in `vendor_config/fl2va_transformer_config.json`,
-  which is not 256. Not H3.
-- 183, 184 (HIP Sol exact attention), 174, 180, 185 (HIP), 151 (Ascend), 181
-  (agent docs): not this card.
-- **168 (ours, `blk_cnt`)** is open, no activity since 2026-09-11. The
-  `qk_balance` branch (`sol-qk-balance-pr`, section "2026-09-15, evening"
-  below) has no PR.
-
-**kijai's fork.** `zero-pad-mode` (`16651db`, 2026-09-19, not a PR yet) adds a
-zero-padding mode to the fused VAE group-norm, SiLU and pad3d kernel from PR
-167, and touches the fp16 conv3d path. The commit does not name the model it
-is for.
-
-**Core, merged since 2026-09-11 and running in this install** (the ComfyUI
-checkout is at `3c80da7f`; `git reflog` in it dates each pull):
-
-- **16187 and 16332: the H3 VAE kernels are live.** With kitchen PR 167 in
-  `v0.2.34`, both halves of [`docs/state/open_experiments.md`](../state/open_experiments.md) #28
-  have merged; its status line carries what that means.
-- **16326, 16351, 16389 and 15623 reach H3's text encoder, not the DiT.**
-  Core's Qwen3-VL encoder is `Llama2_` from `comfy/text_encoders/llama.py`
-  (`comfy/text_encoders/qwen3vl.py` imports it), and 16326 (`6cff1e97`) makes
-  that file's `apply_rope` call kitchen's `apply_rope_split_half` in place of
-  core's own torch code. The 2026-09-18 rebuild record's bit-identical render
-  (`bench/results/2026-09-18_kitchen_0.2.35_rebuild.md`) spans core `36da3ff7`
-  to `a8686f2b`, which covers 16351, 16389 and 15623 on that graph and scene:
-  none of the three reached this checkout before the 2026-09-16 pull, and the
-  reference clip was rendered on 2026-09-15. It does not establish anything
-  about 16326: the checkout had `6cff1e97` from the 2026-09-15 morning pull,
-  and no record says whether the server that rendered the reference clip was
-  started before or after it.
-
-  **What of 15623 reaches H3's encode path, read 2026-09-19 at `3c80da7f`:
-  one change, and it is a load-order change.** Most of the PR is decode-time
-  work (fixed KV caches, CUDA-graph decode, speculative verify, layer
-  prefetch), and H3 conditions with one prefill and a layer tap, never a
-  decode loop: in `comfy/text_encoders/llama.py::Llama2_.forward`, graph
-  capture needs a decode step, and layer prefetch is gated on
-  `past_key_values is not None`. `Qwen3VL_32BConfig` inherits the new
-  `fixed_kv`, `graph_dynamic_vbar_blocks` and `prefetch_dynamic_vbars`
-  flags from `Qwen3VL_8BConfig`, but only the second reaches an encode: the
-  PR moved `get_dynamic_vram__units` onto `comfy/sd1_clip.py::SD1ClipModel`,
-  which `MiniMaxH3TEModel` extends, so `comfy/model_patcher.py`'s dynamic-VRAM
-  load now groups the encoder's weights one unit per decoder layer, where
-  before the H3 TE model offered no units. Checked by building
-  `comfy/text_encoders/minimax.py::MiniMaxH3TEModel` on the meta device and
-  calling it.
-
-  **Its multi-token prediction (MTP) half cannot apply to H3, three ways.**
-  Wiring: `comfy/sd.py` passes `mtp=` only in the `QWEN35_*` branch, and
-  `MTPHead` lives in `comfy/text_encoders/qwen35.py`; H3 loads through the
-  `CLIPType.MINIMAX` branch, and
-  `comfy/text_encoders/qwen3vl.py::Qwen3VLClipModel.generate`
-  accepts `mtp` and ignores it. Weights: core arms MTP on an `mtp.fc.weight`
-  tensor, and the shipped encoder's header (`h3_config.ENCODER_INT8`) has no
-  `mtp`, `lm_head` or final-norm tensors, matching the config's
-  `lm_head=False, final_norm=False`, so it cannot produce logits at all. Call
-  path: MTP is speculative decoding inside `generate()`, and nothing in this
-  pack calls `generate()`; conditioning goes through
-  `encode_from_tokens_scheduled` (`conditioning.py`).
-
-  **`MiniMaxH3EncoderLoader` gets all of it, as `CLIPLoader` does.**
-  `h3_encoder_loader.py::load_guarded_clip` is core's `comfy.sd.load_clip`
-  with `CLIPType.MINIMAX`, guards run after construction, and the
-  `cached_patcher_init` it registers rebuilds through the same call. The
-  flags live on the config class and the units method on the base class, so
-  nothing here has to opt in. What the unit grouping does to encode wall time
-  or peak VRAM is not measured, and a figure for it would be a statement
-  about cache state.
-- 16285 (`linear_input_act` respects `_full_precision_mm`): acts only where a
-  format is disabled on the device; INT8 is supported on this card
-  (reasoned). 16240: the Fun ControlNet under the memory compiler.
-
-**Open core PRs that touch H3, read against their diffs:**
-
-- **16388** makes core's `parse_block_list` (the `dense_blocks` of core's
-  sparse node) refuse a negative entry that it used to read as positive. Ours
-  is not affected: `block_spec.py::parse_blocks` resolves negatives from the
-  end and refuses anything else, and no graph uses core's node (a walk of
-  `h3_config.graph_paths(..., include_bench=True)` finds only
-  `MiniMaxH3SolAttn`).
-- **16344**: core's sparse node replaced any earlier `double_block` patch (a
-  Fun ControlNet applied before it silently stopped acting), and the ControlNet
-  tower inherited the sparse override. Our VSA node already refuses an earlier
-  block patch (`vsa_attention.py`), and our Sol node composes with a previous
-  override. The second half applies to our Sol override too: a ControlNet
-  wired under it would run its tower through Sol. Nothing here wires one.
-- **16404** (supersedes the closed 16378): keeps one INT8 QKV cast alive
-  across core's chunked producer when VBAR falls back to temporary casts;
-  measured on AMD. Our `MiniMaxH3SolChunked` projects per chunk the same way
-  (`sol_chunked_h3.py::make_chunked_forward`), and no shipped graph uses it.
-  kijai's reply on 16378 disputes its chunk-size claim on CUDA.
-- **16245**: a per-model `disable_comfy_compiler` key in `transformer_options`
-  for H3. If it merges, it is the per-graph alternative to a node refusing
-  the memory compiler (the reorder's history: CHANGELOG 0.123.0).
-- 16116 (attention memory estimate; its body says NVIDIA with PyTorch
-  attention on is unaffected), 15735 (an H3 AV latent builder for two-pass
-  upscales), 16283 and 16221 (Fun ControlNet), 16391 (XPU VAE), 16228 (AMD
-  encoder fallback), 16301 (startup guard): title and body only, none reaches
-  a shipped graph on this card.
-
-**Open core PRs on H3's text encoder, 2026-09-19, title and body only via
-`gh` (no diffs read), against core at `3c80da7f`:**
-
-- **16076, per-image text-encoder-only references.** A marker node that
-  sends one still to Qwen3-VL alone while its neighbours keep their DiT
-  rows. Ours is all or nothing per node: leave the VAE unwired and every
-  reference goes encoder-only (`docs/h3/references.md`, "Encoder-only
-  references"). Per-image mixing is the capability open experiment 26 would
-  want if it closes toward the cheaper arm. If it merges, it is a port
-  candidate for `MiniMaxH3ReferenceConditioning`; nothing to do before.
-- **15135, masked grouped-query attention falls back to SDPA's math
-  backend.** Probably covered in core already, by `a1c42199` (PR 15190,
-  2026-07-31), and not yet observed. H3's encoder is that case: fp32
-  activations, a causal float mask, fewer KV heads than query heads. On
-  NVIDIA, `comfy/ops.py::scaled_dot_product_attention` expands K and V only
-  when `SDPAParams` says no fused backend takes native grouped-query
-  attention under the mask; elsewhere it expands unconditionally. The
-  2026-08-25 record found flash, cuDNN and efficient all unavailable for
-  that call at fp32 (torch 2.13, the closed calibration lane's transformers
-  harness, not core's path:
-  `docs/research/qwen3-vl-special-tokens-post-training/brainstorming/claude-encoder/2026-08-25-gate2a-corrected-floor.md`,
-  "Backend selection, measured"). If torch 2.14 answers the same, core
-  expands and the efficient kernel runs. What closes it is the dispatched
-  `aten::_scaled_dot_product_*` op under the profiler, on core's call with
-  the encoder's geometry, on a free card; `bench/probe_sdpa_backend_selection.py`
-  is the pattern, though it calls torch directly rather than `comfy.ops`.
-- **15316**, reserve the encoder's memory for image encodes: its body
-  describes the stall with `--disable-dynamic-vram`, which this server does
-  not pass. **15552**, an INT8 embedding crash under dynamic VRAM: the
-  encoder this install loads keeps `model.embed_tokens.weight` in BF16 (the
-  header of `h3_config.ENCODER_INT8`). **16277, 15638, 16262**: `generate()`
-  only; H3's encoder has no `lm_head` and is never asked to generate.
-  **15983** is the DiT's memory estimate, not the encoder's.
-
-**Merged, on the encoder's placement:** 16374 (`d39cdfdb`) makes
-`text_encoder_device()` the GPU whenever dynamic VRAM is on. Before, that
-branch still asked `should_use_fp16`, which this card answers yes, so no
-change is expected here (reasoned, not checked). A `device` of cpu on
-`MiniMaxH3EncoderLoader` overrides it either way (CHANGELOG 0.131.0).
-
----
-
-## comfy-kitchen, 2026-09-15: the pin moved to v0.2.34, and what was and was not carried
-
-Read with the fork's remotes fetched (Comfy-Org as `upstream`, kijai as
-`kijai`) and the GitHub PR lists of both, the day ComfyUI's
-`requirements.txt` moved to `comfy-kitchen==0.2.34`.
-
-**Carried, by rebasing `h3-build` onto `v0.2.34`** (everything the tag holds
-past `v0.2.33`): PR 167 and its HIP port 175, the MiniMax H3 VAE kernels
-(fused encoder pad/norm, fp16-accumulate conv3d and GEMM, int8 residual
-epilogue); PR 162, persistent RoPE allocations behind
-`set_allocation_context`, which core now calls; PR 165, `compress-mode=size`
-for the CUDA build; an eager `apply_rope_split_half1` optimization. Our six
-`blk_cnt` commits (PR 168, still open) reapplied without conflict.
-
-**Kijai's branches: nothing left to pull.** Comfy-Org squash-merges, so
-commit counts against upstream overstate what is unmerged; by content, on
-`comfy_kitchen/backends/cuda/sage_attention` and the eager Sol reference,
-`kijai/sol_exact_pquant` (#150), `kijai/sol_token_aug_main` (#156) and
-`kijai/minimax_vae` (#167) are identical to `v0.2.34`. Their remaining
-differences are an older base (`v0.2.32`): missing HIP ports and tests, and
-older Triton rope/quantization helpers. `kijai/w4a8_gemv` is PR 176 below.
-A local branch named `sol_fp16_pv` in the kijai mirror is kijai's
-2026-08-14 `sol_attn` head, not a 16-bit PV variant; the name misleads.
-
-**Open PRs assessed and not carried:**
-
-| PR | what | why not |
-|---|---|---|
-| 176, kijai, `w4a8_gemv` (*merged into `v0.2.35` on 2026-09-16 and carried since the 0.123.1 rebuild; 2026-09-19*) | W4A8 codebook GEMV for M <= 8, int8 decode GEMV, fused GatedDeltaNet decode; for an LLM text-encoder *decode* loop, paired with a core PR | H3's encoder is prefill only here; no decode path runs. Revisit if ComfyUI's pin moves to a tag that needs it, which the rebuild gate will say |
-| 171, xmarre, chunked `key_bias` (*closed unmerged 2026-09-16; 2026-09-19*) | per-key logit bias on the fused-QKV `sol_attn_chunked` producers, CUDA and HIP | `sol_attn_chunked` is registered and unwired here, and `key_bias` is left at its default on the direct path too |
-| 172, neuregex, Triton INT8 GEMM int64 offsets | the same overflow class as the sage fork's v0.7.0 and v0.7.17 fixes, in kitchen's Triton INT8 GEMM output offset | this card runs the CUDA INT8 linear, not the Triton one; a correct fix for a path not on ours. Worth taking if that changes |
-| 174 (HIP WMMA), 151/153/154/155/161 (Ascend), 157 (stochastic fp8, Triton), 160 (dead import) | other backends, or cosmetic | not this card |
-
-**What would make this stale:** ComfyUI moving its pin again (the gate in
-`vendor/rebuild_kernel.sh` reports it), PR 168 merging (drop the carried
-commits on the next rebase), or a kitchen change to `quant_k_rows` /
-`quant_q_rows`, which is where the sage fork's `qk_balance` factor would go
-on the Sol side (`docs/attention/block49_quant_error.md`, section 7).
+Every `coderef/Sana/...` pointer below resolves against a checkout at `757d902`. The branch `release/sol-h3-spark` has
+the same tree as that tip.
 
 ## The paper
 
-**"Sol-Attn: Accelerating Video Generation Inference via On-the-Fly Attention
-Sparsification."** Read 2026-08-16, after this repo spent two weeks treating it
-as unread. Scope qualifier that matters: the abstract, the ablation summary and
-the HTML were read, not the whole PDF. Anything below is at that depth.
+**"Sol-Attn: Accelerating Video Generation Inference via On-the-Fly Attention Sparsification."** Read 2026-08-16:
+the abstract, the ablation summary and the HTML, not the whole PDF. Everything below is at that depth.
 
 **The contribution is the correction, not the sparsity.** The framing is that
 existing block-sparse methods fail two ways: routing is rigid and costly to
@@ -587,26 +41,19 @@ What follows from it:
 
 - **The pooled tail is the method, not a side knob.** Sol-Engine's public API
   has no toggle for it at all, and neither does the copy Sol-H3 vendors (both
-  signatures are cited below). Our side of it is `pooled_tail` in
-  [`docs/attention/sol_attn.md`](sol_attn.md).
+  signatures are cited below). Our node has no switch for it either ([`sol_attn.md`](sol_attn.md)).
 - **`tau` is the paper's beta, and it is never swept.** The threshold is
   `t_i = mu_i + beta * sigma_i` over the row-wise mean and standard deviation,
   with beta described as a shared standardized cutoff. Sol-Engine defaults 1.0.
-  *Corrected 2026-09-10:* this bullet said "the paper does not settle 1.0
-  against our 1.3"; ours has been 1.0 since 2026-08-20
-  (`workflows/h3_config.py::SOL_RECOMMENDED_CUDA`), and this page does not
-  carry our values.
 - **H3 is not evaluated anywhere in it.** Tested models are Wan 2.1-14B,
   HunyuanVideo-13B, LTX 2.3-22B, Bernini-14B for editing, a SANA-WM refiner,
   Ideogram 4 for 2K text-to-image, and Wan 2.1-1.3B on a 5090. The headline
   speedups are in the abstract, against dense.
-- **No token reordering appears in it.** No Morton, no Z-order, no permutation,
-  no spatial block layout. See [`docs/attention/morton.md`](morton.md), which owns what
-  that does and does not license.
-- **sm89 was not an official target** when the paper and its docs were written.
-  That changed on 2026-08-15; see the kernel section below.
+- **No token reordering appears in it.** No Morton, no Z-order, no permutation, no spatial block layout ([`morton.md`](morton.md)).
+- **sm89 was not an official target** when the paper and its docs were written. That changed on 2026-08-15 ("The SM89 CuTe kernel" below).
 
----
+
+
 
 ## Sol-Engine's per-hardware H3 cells
 
@@ -614,8 +61,7 @@ Sol-Engine **supports MiniMax-H3 as a first-class model** with validated,
 pinned configurations. The paper does not mention H3. The framework does.
 
 The per-hardware cells run at **1344x768, 124 frames**, 50 steps, on the
-released BF16 weights. *Corrected 2026-09-10:* this said "every H3 config runs
-at 1344x768, 124 frames"; the packages added since run other geometries
+released BF16 weights. The packages added since run other geometries
 (Sol-H3 at 124, 243 or 362 frames, Spark's draft at 672x384, the
 `super_acceleration` first stage at 896x512), each cited in its own section.
 
@@ -642,9 +88,7 @@ steps dense.** `SOL_ATTN_FIRST_DENSE_STEPS` and `SOL_ATTN_FIRST_DENSE_LAYERS`
 (`coderef/Sana/models/minimax_h3/RTX5090/adapter.py:457-460`, the same
 function in the RTX4090 cell at `:457-461`), `H3_SOL_DENSE_LAYERS`
 (`coderef/Sana/models/minimax_h3/GB200/gpu_infer.py:146`), `dense_blocks: int = 2`
-(`coderef/Sana/models/minimax_h3/GB10/fusion_install.py:84`). *Corrected
-2026-09-10:* this said "every profile", and read as NVLabs' H3 policy. The
-packages added since do not follow it: Sol-H3 runs Ref2VA with no dense steps
+(`coderef/Sana/models/minimax_h3/GB10/fusion_install.py:84`). This is the per-hardware cells' policy, not NVLabs' H3 policy: the packages added since do not follow it. Sol-H3 runs Ref2VA with no dense steps
 or layers, and Spark's Ref2VA draft keeps only step 0 and layer 0 dense, both
 cited below.
 
@@ -685,7 +129,6 @@ README says itself. Its correctness evidence is a real-QKV gate against SDPA
 collected at Sana `6fb7eb1` before the cell was split into its own directory
 (`:81`, `:88-91`).
 
----
 
 ## Sol-H3: the multi-GPU production package
 
@@ -787,7 +230,6 @@ from either 49-forward baseline is not a runtime-only speedup"
 comparison is MXFP8 against BF16 at one prompt and seed, as decoded-RGB PSNR
 and SSIM (`:67-83`).
 
----
 
 ## Sol-H3-Spark: one DGX Spark, two stages
 
@@ -866,7 +308,6 @@ small set of Ref2VA image and image-plus-audio cases
 identity, accessory or voice fidelity guarantee and does not establish that
 reducing reference detail preserves quality (`:104-106`).
 
----
 
 ## `super_acceleration`: the same split across two GB200s
 
@@ -879,8 +320,6 @@ keeps LTX layer 0 dense and runs layers 1-47 on Sol with taus 1.0, 1.25, 1.5
 makes no speedup claim and says its validation "must not be described as a
 quality pass" (`coderef/Sana/models/minimax_h3/super_acceleration/README.md:52-56`). Spark runs the same H3-draft-then-LTX-refiner
 shape on one box.
-
----
 
 ## ComfyUI core's own Sol node, `BlockSparseAttention`
 
@@ -922,27 +361,51 @@ display name "Model Sparse Attention", experimental
   the checkpoint carries one (`comfy/ldm/minimax/model.py:169-172`, detected at
   `comfy/model_detection.py:415`, i.e. FastH3 VSA weights), and two
   `transformer_options` keys for attention patches, `minimax_h3_layout`
-  (`comfy/ldm/minimax/model.py:667`) and `block_index` (`:760`). *Line
-  numbers re-read 2026-10-02 at core `65787d66`; they were `:624` and `:755`
-  before `2d6b7328` moved the embed span into `_embed_and_pack`.*
+  (`comfy/ldm/minimax/model.py:667`) and `block_index` (`:760`). Line numbers read at core `65787d66` (2026-10-02).
 
-*2026-09-19: PR 16239 was closed unmerged on 2026-09-16 and this paragraph no
-longer describes a pending change; section "comfy-kitchen and core,
-2026-09-19".*
+**Core can also run kitchen's Sol-Attn with no node in the graph** (read 2026-10-09 at `08ff3c11`), on a model
+file's or a LoRA's say-so (`b26625f2`, #16831; `f49c531e`, #16880), at kitchen's defaults but for the threshold.
+That is a different door to the same kernel; `BlockSparseAttention` did not change. Before that, a model file could
+already name a block's attention through a `<module>.comfy_attention.config` tensor (`c194dd00`, #16419, kitchen INT8
+only); an `optimized_attention_override` keeps priority, so Sol's override still wins, and no file in
+`workflows/h3_config.py::MODELS` carries the key.
 
-**An open PR would rewrite this node (read 2026-09-11).** Comfy-Org/ComfyUI
-PR 16239 (another developer; draft, unreviewed) adds a per-key "attention
-measure" to both paths for a mixed-resolution pipeline, handed to kitchen as
-`key_bias` (kitchen PR 171, below). Read against its diff: with no measure in
-`transformer_options`, the non-VSA paths make the same `ck.sol_attn` and
-`sol_attn_chunked` calls with the same arguments, and the pooled-statistics
-key keeps its three fields (`pool_key` in the PR's new
-`comfy_extras/sparse_attention_measure.py`). The VSA branch is restructured,
-and every install registers a capability object into `transformer_options`
-whether or not a measure is requested. If it merges, a record comparing
-against core's node names the core commit it ran on.
+## comfy-kitchen
 
----
+**The Sol kernel is upstream's.** Everything once carried from kijai's branches is merged: PR 117 (int8 Sol-Attn,
+2026-08-29), 143 (its HIP port), 150 (`4950f16`: full-range P quantisation in the exact branch, fp16 q/k/v/out through
+an `elem` code, and a public `sol_attn_chunked`), 156 (`b678fdf`, token routing; the identical tree to the PR head
+`1128df6` that the 2026-09-04 grade was taken against, so the grade transferred,
+[`data/results/2026-09-08_kitchen_0233_blk_cnt_rebase.json`](../../data/results/2026-09-08_kitchen_0233_blk_cnt_rebase.json))
+and 158 (its HIP port). By content, kijai's `sol_exact_pquant`, `sol_token_aug_main` and `minimax_vae` branches hold
+nothing the tags lack. Comfy-Org squash-merges, so commit counts against upstream overstate what is unmerged. A branch
+named `sol_fp16_pv` in the kijai mirror is kijai's 2026-08-14 `sol_attn` head, not a 16-bit PV variant.
+
+**What we carry**, on the owner's fork (`coderef/comfy-kitchen`, branch `h3-frontier`, upstream main plus our
+commits since 2026-09-27; [`sol_kernel.md`](sol_kernel.md) has how to read the installed build):
+
+| commits | what | upstream status |
+|---|---|---|
+| `blk_cnt` | the routed-count out-parameter on `sol_attn` and `sol_attn_chunked`; Python-only, since the route stage already writes the count | PR 168 carries the two `sol_attn` commits; open, no activity since 2026-09-11. The chunked commit stays a fork delta even if it merges |
+| `qk_balance` | per-head q/k channel rebalancing inside the INT8 quantizers ([`block49_quant_error.md`](block49_quant_error.md)) | branch `sol-qk-balance-pr`: rebased by hand onto `e5e0d02` (the v0.2.34 tag) with the `blk_cnt`-adjacent lines dropped and the two route tests restated on the output; built for sm_89, the ten new cases pass and the suite fails only the pre-existing `test_topk_ties_over_select`. Not pushed, no PR. The PR text is [`sol_upstream_qk_balance_pr.md`](sol_upstream_qk_balance_pr.md); the owner pushes and opens it, with `gh pr create --repo Comfy-Org/comfy-kitchen --base main --head <fork>:sol-qk-balance-pr` spelled out |
+| `rotate` | Hadamard rotation of q/k before Sol's INT8 quantizers | ours only |
+
+**Carried for good (owner, 2026-09-11).** The carried commits stay whether or not their PRs merge, and everything
+else tracks upstream; `vendor/rebuild_kernel.sh` refuses any other source and `--check` reports whether the source is
+current without building. What would make the carry change: PR 168 merging (drop those commits on the next rebase),
+or a kitchen change to `quant_k_rows` / `quant_q_rows`, where `qk_balance` and `rotate` live.
+
+**Upstream's own Sol suite does not pass on this card**, on the stock PyPI wheel or on a local build of the same
+commit: three groups of nanobind binding-validation cases whose expected error only the HIP bindings raise, and
+`test_topk_ties_over_select` against its own cosine bar. One binding case leaves a sticky CUDA error, so a single gap
+reads as dozens of failures in the same process. Attribution and the stock control are in the 2026-09-08 rebase
+record above. Whether these fail on upstream's CI is not established.
+
+**Open kitchen PRs that matter here**, as of the 2026-10-02 pass: 179 (`draft_attention`, with core half 16362) is the
+one open kernel that would run on this card; kijai graded it against `sol_attn` on real H3 captures and found it no
+better at matched speed, with a larger workspace, so the instrument if it merges is a capture grader, not a render.
+The H3-targeted stack 217-231 either dispatches only on SM120 or adds opt-in APIs core does not call yet. The rest of
+each pass is in [`sol_upstream_reads.md`](sol_upstream_reads.md).
 
 ## sglang's SubBlock router: two notes, read 2026-09-10
 
@@ -968,7 +431,6 @@ owns SubBlock. Two things in the source it does not yet record:
   SubBlock still accepts only SM90, SM100 and SM120, so none of it runs on
   this card.*
 
----
 
 ## sglang's own Sol-Attn backend, read 2026-09-11
 
@@ -988,9 +450,7 @@ beside core's node and ours.
 - **Step policy.** Dense for the first `dense_steps` step indices, sparse
   from there through the last step, with no end gate (`:128-140` of the same
   file).
-  Tau, threshold, dense prefix and dense layers take the shape of the
-  per-hardware cells' policy in `docs/attention/sol_attn.md`'s "Upstream H3 policies
-  beside ours"; the sink does not.
+  Tau, threshold, dense prefix and dense layers take the shape of the per-hardware cells' policy ("Upstream H3 policies beside ours" below); the sink does not.
 - **Sink.** A fixed `sink_start`/`sink_tokens` range from the config.
   Nothing in sglang's H3 pipeline derives it from the packed layout, so by
   default no conditioning rows are exact.
@@ -1001,8 +461,6 @@ beside core's node and ours.
 - **The documented H3 recipe** is `dense_backend=sage_attn,dense_steps=10`,
   with the text encoder on `torch_sdpa`
   (`coderef/sglang/docs/cookbook/diffusion/MiniMax/MiniMax-H3.mdx:1116-1119`).
-
----
 
 ## Sol-Engine's shared kernel package, and what separates it from comfy-kitchen's
 
@@ -1025,8 +483,7 @@ reduces `c_d^2 * kcvar[d]` (`:148`), and thresholds at
 `tau * sqrt(var + 1e-6)` (`:54`), against mean-centred key centroids so the
 mean term is already absorbed. **That is Sol-Engine's `diag` formula.** `exact`
 is therefore a threshold kernel comfy-kitchen does not have, not an input it
-leaves unexposed. *Pointers updated 2026-09-10*: they were `:122`, `:191` and
-`:198`, which no longer land in that checkout.
+leaves unexposed.
 
 The single-consumer-card cells (RTX 5090, RTX 4090) both run `diag`.
 
@@ -1034,9 +491,7 @@ The single-consumer-card cells (RTX 5090, RTX 4090) both run `diag`.
 
 `coderef/Sana/techniques/sparse_backends/sol_attn/interface.py:116` raises
 `"kv_splits=2/4 is currently available on SM90 only"`. A 4090 gets 1 in
-Sol-Engine too. *Corrected 2026-09-10:* this also said "their own docs say
-B200, RTX 4090 and RTX 5090 use `kv_splits=1`"; no such document was found in
-the tree at `757d902`, so only the code claim stands.
+Sol-Engine too.
 
 ### The SM89 CuTe kernel
 
@@ -1094,8 +549,6 @@ Two of Sol-Engine's five methods, and **not applied to their H3 stacks**.
   and it needs a `ModelSpec` seam H3 does not have there. It ships on LTX-2.3,
   not H3.
 
----
-
 ## Morton in Sol-Engine, which does exist
 
 Correcting a claim this repo made three times on 2026-08-15: **Sol-Engine does
@@ -1135,14 +588,9 @@ And the ablation control they ship for Wan, `config/wan21_t2v_14b/reorder_only.t
 **One H3 permutation now exists, and it is not a spatial curve.** Spark's
 Ref2VA Sol draft permutes Q, K and V so visual rows come first and text-audio
 rows last, keeping native order inside each part, to make the sink contiguous;
-it records that block grouping changes (see the Spark section). *Corrected
-2026-09-10:* this page said no Sol-Engine H3 path reorders tokens. That still
-holds for spatial reordering; it no longer holds for token order as such.
+it records that block grouping changes (see the Spark section). So no Sol-Engine H3 path reorders tokens spatially, and one reorders them by segment.
 
-**Whether any of that transfers to H3 is argued in
-[`docs/attention/morton.md`](morton.md), not here.**
-
----
+Whether any of that transfers to H3 is argued in [`morton.md`](morton.md).
 
 ## FirstBlockCache and TeaCache
 
@@ -1159,11 +607,6 @@ the change is below the threshold, reuse the step's residual instead of running
 the remaining blocks. A step-skipping cache, orthogonal to attention.
 
 Their thresholds are tuned at **50 steps**, and every cache cell above runs 50.
-*Corrected 2026-09-10:* this section carried a frame-correlation figure for a
-forecasting cache attributed to "the `h3-turbo-eval` prior art", with no
-findable record; withdrawn rather than re-pointed.
-
----
 
 ## Other ComfyUI Sol-Attn packs
 
@@ -1176,12 +619,10 @@ to dense late, with selectable interpolation curves. Spark's Ref2VA draft
 ramps the other way, dense first and sparser late.
 
 - They default **tau to 1.3, "tuned locally", against the paper's 1.0**.
-  *Corrected 2026-09-10:* this called it independent convergence "on the value
-  we ship"; that was our value until 2026-08-20 and is not now.
 - Their quality evaluation is **correctness against a reference** (L2 against
   SDPA, bit-identical strided views), not perceptual.
 - Their speed numbers are on a 5090 with `torch.randn` tensors, which is both a
-  different card and the synthetic-input trap `docs/attention/sol_attn.md` already carries.
+  different card and the synthetic-input trap ([`sol_instruments.md`](sol_instruments.md)).
 
 **[sumeetprashant/ComfyUI-SolAttn](https://github.com/sumeetprashant/ComfyUI-SolAttn)**
 exists and was not read past its README.
@@ -1197,153 +638,6 @@ mixed-resolution work behind kitchen PR 171.
 
 **Neither of the two 2026-08-16 packs reorders tokens.** With the paper and the Sol-Engine cells, no
 searched source outside kijai's packs applies a spatial token order to H3.
-
----
-
-## Comfy-Org/comfy-kitchen, as of 2026-09-11
-
-Fetch and `gh` only. Nothing merged since the 2026-09-10 snapshot: `main` is
-still `21003fa`, and there is no tag after `v0.2.33`.
-
-- *2026-09-19: PR 171 was closed unmerged on 2026-09-16, so the rebase
-  hazard below no longer applies; section "comfy-kitchen and core,
-  2026-09-19".*
-- **PR 171** (another developer; draft, no maintainer review, and its body
-  says a compiled GPU run is still owed) gives `sol_attn_chunked` the
-  `key_bias` the direct `sol_attn` already takes: a natural-log per-key score
-  bias, folded into K-row quantisation so only exact blocks see it, with the
-  pooled statistics left unweighted. Biased blocks must be sinks, and neither
-  path checks it; the contract lives in comments. **Nothing here consumes
-  it**: `sol_attn_h3.py`'s module docstring says why `key_bias` is not
-  offered. The one contact is the fork. The PR puts `*, key_bias` exactly
-  where the fork's chunked `blk_cnt` sits as a positional parameter, and its
-  AST test requires the positional parameters to end at `token_aug`. On a
-  rebase onto a tag that contains it, `blk_cnt` moves behind the `*`; the one
-  caller here that passes it already does so by keyword (the
-  `sol_attn_chunked` call in `sol_chunked_h3.py`).
-- **PR 168 carries only the two `sol_attn` commits.** The chunked `blk_cnt`
-  commit stays a fork delta even if 168 merges.
-- **PR 172** (issue 136) moves the Triton INT8 GEMM's output offsets to
-  int64. The int32 form faults once rows times output width passes the int32
-  range, which H3's widest projection reaches at the shipped long 16:9 length
-  (`workflows/h3_config.py::LONG_LENGTH`; rows per frame in
-  [`docs/h3/geometry_and_nodes.md`](../h3/geometry_and_nodes.md); the width is
-  `ffn_hidden_size` in `vendor_config/fl2va_transformer_config.json`, doubled
-  by core's fused `fc1`). **It cannot reach this install, and the reason is a
-  launcher default rather than our code**: core disables kitchen's Triton
-  backend unless `--enable-triton-backend` is passed
-  (`comfy/quant_ops.py:33-41`), this install's launcher does not pass it, the
-  installed build has cuBLASLt so the CUDA backend takes `int8_linear`, and
-  that path's quantise and dequantise kernels index with 64-bit offsets
-  (`comfy_kitchen/backends/cuda/ops/int8_linear.cu` in the kitchen source).
-- **PR 167** has not moved since `a63ca28`, and it is not VAE-only: it
-  changes the launch block size of `quantize_int8_rowwise_convrot64_kernel`,
-  the fused ConvRot quantiser `int8_linear` calls when `convrot` is on and the
-  row width qualifies, and adds opt-in residual and RMSNorm arguments to
-  `int8_linear`. [`docs/state/open_experiments.md`](../state/open_experiments.md) #28 carries what
-  that means.
-- Nothing else open touches H3 on NVIDIA. PR 134 changed on 2026-09-11 and is
-  HIP-only; 124, 146 and 142 have not moved, and 142 tunes sm86 only.
-
-## Comfy-Org/comfy-kitchen, as of 2026-09-10
-
-Fetch and `gh` only. The branches are the authority; this is a dated snapshot.
-
-- **No tag after `v0.2.33`.** `main` has two commits past it that matter here:
-  PR 162 (`e3d714b`, persistent RoPE allocations) demotes the kernel's cached
-  RoPE reference to a weakref and adds `set_allocation_context`
-  (`comfy_kitchen/allocation.py` on `main`), a hook through which ComfyUI can
-  hand kitchen a context for allocations that outlive a call. Its PR body says
-  this takes ComfyUI's memory compiler to zero graph breaks in every sparse
-  attention mode on H3. PR 165 adds a compile flag. ComfyUI core calls the hook
-  only when kitchen exports it (`comfy/model_prefetch.py:63-64`).
-- **PR 168** (`blk_cnt`, opened 2026-09-08 from the owner's fork) is open.
-  **PR 167** (kijai's H3 VAE kernels) is open, and kijai's `minimax_vae`
-  branch moved on 2026-09-09.
-
-## Comfy-Org/comfy-kitchen, as of 2026-09-08
-
-Checked in a working checkout on 2026-09-08, after ComfyUI moved its pin to
-`comfy-kitchen==0.2.33` (core `18ebc2af`) and the stock wheel replaced our
-build. **This section stood at 2026-09-04 and said PR 156 was open and that
-the installed wheel predated the 150 merge; both are stale.**
-
-**The fork's delta is four commits.** Everything we carried from kijai's
-`sol_attn_continued` is upstream: PR 117 (int8 Sol-Attn), 143 (HIP port), 150
-(`4950f16`, full-range P quantisation in the exact branch and a public
-`sol_attn_chunked`), 156 (`b678fdf`, token routing) and 158 (its HIP port).
-What is left that is ours is `blk_cnt`, the routed-count out-parameter the
-route observer reads, on `sol_attn` and on `sol_attn_chunked`. It is a
-Python-only change: the route stage already writes the count into the
-workspace and the public API discarded it.
-
-**The rebase target did not need re-grading.** The 2026-09-04 token routing
-grade was taken against kijai's PR head `1128df6`, and the plan said a moved
-head means the grade is redone. It did not move, it merged: `b678fdf` has the
-identical tree to `1128df6`. Recorded, with the control that shows the diff
-command can print something, in
-`data/results/2026-09-08_kitchen_0233_blk_cnt_rebase.json`.
-
-**Which build is installed** is read, never written down:
-`bench/check_sol_kernel.py` reports the local segment, and
-`comfy_kitchen_build.json` beside the venv names the branch it came from, built
-by `vendor/rebuild_kernel.sh`. *Corrected 2026-09-10:* this paragraph named the
-installed build and branch as of 2026-09-08; the build has been rebuilt since,
-which is why it now points instead. The clone's checked-out branch need not be
-the built sha: the build record is what says which wheel runs.
-
-**Carried for good, current by rule (owner, 2026-09-11).** The `blk_cnt`
-commits stay in the fork whether or not PR 168 merges (and so, from
-2026-09-15, do the `qk_balance` commits: the per-head q/k channel rebalancing
-inside Sol's INT8 quantizers, `docs/attention/block49_quant_error.md` section 8,
-not offered upstream until it has a blind pair behind it), and everything
-else tracks upstream: the carried commits sit on the tag ComfyUI's requirements
-pin, because a build on any other version stops satisfying that pin and a
-requirements install puts the stock wheel back. `vendor/rebuild_kernel.sh`
-refuses any other source, and `vendor/rebuild_kernel.sh --check` reports
-whether the source is current without building.
-
-**Upstream's own Sol suite does not pass on this card**, on the stock PyPI
-wheel or on a local build of the same commit: three groups of nanobind
-binding-validation cases whose expected error is raised only by the HIP
-bindings, and `test_topk_ties_over_select` against its own cosine bar. One of
-the binding cases leaves a sticky CUDA error, so a single gap reads as dozens
-of failures in the same process. Attribution, the stock control and the
-numbers are in the record named above. Not established there: whether these
-fail on upstream's CI, which builds elsewhere with its own flags.
-
-## Comfy-Org/comfy-kitchen, as it stood on 2026-09-04
-
-Checked by fetch and `gh` on 2026-09-04; nothing was pulled into a working
-checkout. This section is a dated snapshot and the branches are the authority.
-
-**In `main`.** PR 117 (int8 Sol-Attn, 2026-08-29), PR 143 (the HIP port,
-2026-08-31), and PR 150 (kijai, merged 2026-09-03 as `4950f16`): full-range
-P quantisation in the exact branch, fp16 q/k/v/out through an `elem` code,
-and a public `sol_attn_chunked`. The installed wheel then predated that merge
-but was built from kijai's `sol_attn_continued`, which carried the same
-exact-branch algorithm, so the merge moved nothing numerically on this box.
-
-**Open then.** [PR 156](https://github.com/Comfy-Org/comfy-kitchen/pull/156)
-(kijai, opened 2026-09-04, head `sol_token_aug_main`): a `token_aug` knob,
-zero or a multiple of 64 up to 256. Each query block additionally attends up
-to that many top-scoring individual tokens outside its routed blocks, and the
-remaining tail is made exact for the block centroid; a new `sol_attn_token.cu`
-does the selection, the eager reference ignores the knob, HIP warns and runs
-without it. The PR body carries his numbers on an H3 capture and names the
-defect it targets as a DC bias that shows as brightness pulsing on a
-five-latent-frame period. **Our `sol-blk-cnt` commits did not cherry-pick onto
-that branch**: conflicts in `comfy_kitchen/__init__.py`, both backend
-`__init__.py` files and `backends/eager/sol_attn.py`; resolved by the
-2026-09-08 rebase above. [PR 146](https://github.com/Comfy-Org/comfy-kitchen/pull/146)
-(Sage INT8 consumer for the Sol exact branch, `tail=False` only) was open and
-idle since 2026-09-01. [PR 124](https://github.com/Comfy-Org/comfy-kitchen/pull/124)
-is not Sol but touches every int8 H3 render: it rounds the fused SwiGLU product
-to the storage dtype before ConvRot quantisation, and
-`docs/research/quant_levers.md` owns why that path is reached on the shipped
-model.
-
----
 
 ## Published numbers, and why not to quote them against ours
 
@@ -1364,20 +658,99 @@ publishes latency with no baseline. Ours is Sol-Attn against sage at our own
 step count on one 4090. Different stack, different baseline, different step
 count, and on all but one cell different hardware.
 
-This is `docs/attention/sol_attn.md`'s unit trap at a larger scale. The RTX 4090 cell's
+This is the unit trap ([`sol_measured_arms.md`](sol_measured_arms.md)) at a larger scale. The RTX 4090 cell's
 Sol increment is the closest thing to comparable, and it is an increment over
 TeaCache from one sample. The one arm that *would* be comparable,
 `rtx5090_sol` against `rtx5090_dense`, still has no published result.
 
-## 2026-09-15, evening: `qk_balance` prepared for upstream
 
-Branch `sol-qk-balance-pr` in the fork clone (`coderef/comfy-kitchen`): the
-two `qk_balance` commits rebased by hand onto upstream `main`
-(`e5e0d02`, the v0.2.34 tag), with the blk_cnt-adjacent lines dropped and
-the two tests that read the route through `blk_cnt` restated on the
-output. Built against that base (sm_89) and its Sol suite run from the
-wheel: the ten new cases pass, the whole suite fails only the pre-existing
-`test_topk_ties_over_select`. Not pushed, no PR opened; the PR text is
-`docs/attention/sol_upstream_qk_balance_pr.md`. The owner pushes and opens it, per
-the standing rule; `gh pr create` needs `--repo Comfy-Org/comfy-kitchen
---base main --head <fork>:sol-qk-balance-pr` spelled out.
+
+
+## What we would adopt, and what would decide it
+
+The sections above say what upstream ships; this one is the decision side, for one sm89 card with 24 GB. Read
+2026-09-10 and 2026-09-11. **Nothing below has been run here.** Each row says what would decide
+it under this repo's rules: a numerical knob is graded on captured activations
+first, and a perceptual claim needs a blind distribution under
+[`docs/method/eval_comparison.md`](../method/eval_comparison.md) section 3.
+
+### Upstream H3 policies beside ours
+
+Every upstream cell is cited above; the sglang column is
+read from its `sol_attn` backend on 2026-09-11 and walked in
+`docs/research/sglang_h3_pipeline.md`. Our column is a pointer: the values
+live in `workflows/h3_config.py::SOL_RECOMMENDED_CUDA`.
+
+| knob | Sol-Engine per-hardware cells | Sol-H3, T2V / Ref2VA | Spark Ref2VA draft (opt-in) | sglang `sol_attn` (opt-in) | core `BlockSparseAttention` | ours |
+|---|---|---|---|---|---|---|
+| tau | 1.0 | 1.0 / 1.0 | none, 1.0, 1.25, 1.5 by step | 1.0 | its `define_schema` | `SOL_RECOMMENDED_CUDA` |
+| threshold | `exact` on A100/H100, `diag` elsewhere | `diag` | `diag` | `diag` | kitchen's, which is `diag` | kitchen's, `diag` |
+| dense at the start | first 10 of 50 steps | first forward / none | step 0 | first `dense_steps` (10), a step count | `start_percent` | `start_percent` |
+| dense at the end | none | none | none | none | none at its default `end_percent` | none since 2026-09-11 (`end_percent` 1.0); the last step before that |
+| dense layers | first two | two / none | layer 0 | `dense_layers`, 0 and 1 | `dense_blocks`, empty | `dense_blocks`, `SOL_DENSE_TAIL` (the middle ridge and block 49 since 2026-10-02; every upstream that keeps layers dense keeps the first ones) |
+| sink | prefix KV exact, prefix query rows dense (our `exact_kv_and_all_rows`) | same / text and audio exact both ways, references sparse | text and audio exact both ways, references sparse, by permutation | none by default (`sink_tokens` 0, a manual count) | `exact_kv_and_rows` | `sink_conditioning`, `exact_kv_and_all_rows` since 2026-10-02 |
+| token routing | absent | absent | absent | absent | on for every block | `token_routing`, off |
+| token order | native | native | segment permutation | native | native | native (Morton closed 2026-09-27) |
+| cache | FirstBlockCache or TeaCache | none | none | none in the backend | none | none shipped |
+
+**The end of the window is the one knob where sglang and core agree against
+what we shipped**, so it was adopted on 2026-09-11 under the owner's rule that
+this repo takes upstream's default when those two agree
+(`docs/research/sglang_comparison.md`, the 2026-09-11 defaults section). The
+start agrees only at 50 steps, because sglang counts steps and core uses a
+fraction; every other row has the two disagreeing with each other.
+
+### What could be adopted, and what would decide it
+
+| technique, and where upstream runs it | runs here | what it would change | decided by | cheapest first test |
+|---|---|---|---|---|
+| **Per-step tau.** Spark's opt-in Ref2VA draft, four updates. A tau ramp also runs on Spark's and `super_acceleration`'s LTX refiners, which are not H3 | yes; the kernel takes tau per call | `tau_table` is per head and block, with no step axis; a per-step profile needs the step, which the override can take from the current sigma the way the window already does | captured activations first, then a blind distribution. The only H3 instance is a four-update Ref2VA draft, so whether it transfers to a 16-step base schedule is itself the question | give `bench/measure_sol_exact_variants.py --capture` a tau list (it grades fixed arms today) and read, per captured step, whether the error against exact at a higher tau late is no worse than at the shipped tau early: the premise the ramp rests on |
+| **Text and audio exact, references sparse, by permutation.** Spark's Ref2VA Sol draft | yes; an `index_select` on Q/K/V around the kernel call and its inverse on the output, no kernel change | a fourth `sink_conditioning` mode: permute so the text and audio rows are contiguous, pass that range as `sink_blocks` and `sink_q`, permute the output back. It changes block membership at the boundary, so routing moves too. The `rows` input's `tau_map` route ([`sol_sink.md`](sol_sink.md)) now expresses the same split without a permutation, ungraded | captured activations on a reference capture against exact, beside `exact_kv_and_rows` and `exact_kv_and_all_rows`; then cost, from the route observer | call `ck.sol_attn` directly on permuted Q/K/V from a capture taken with `workflows/h3_probe_capture_ref3_api.json`, all three sink modes against fp32 dense |
+| **Dense layers.** Two in the per-hardware cells and Sol-H3 T2V, none in Sol-H3 Ref2VA, layer 0 in Spark | yes; `dense_blocks` exists | a string in `SOL_RECOMMENDED_CUDA` | [`sol_dense_blocks.md`](sol_dense_blocks.md). Upstream disagrees with itself, so copying one of them settles nothing | as that page says |
+| **An all-routed arithmetic gate.** Sol-H3's `_run_bsa_gate`; the RTX 4090 cell's `tau=-1000` gate against SDPA | already here | nothing | nothing | `bench/check_solattn_correctness.py` calibrates the eager oracle against SDPA with every block exact; `bench/measure_sol_exact_variants.py`'s `exact_all_routed` arm and `bench/read_sol_probe.py:334` run the kernel with every block routed against fp32 dense on captured Q/K/V |
+| **Sana's `cute_sm89` kernel.** Sana's shared `sol_attn` package; the RTX 4090 cell imports it | yes; `vendor/build_sana_sol_sm89.sh` builds and runs it here | a second kernel behind the same override. It is BF16 throughout with no INT8 route, so it is better placed as a second, closer-to-exact implementation than as a production path (reasoned, not measured); their API has no `sink_q` | kernel-level grade on captured Q/K/V, both kernels against fp32 dense at the shipped tau with the same KV sink | one Base16 capture cell, KV sink only so both APIs can express it ([`sol_attn.md`](sol_attn.md), "What is open") |
+| **TeaCache.** The RTX 5090 and RTX 4090 cells | yes; the RTX 4090 cell runs it on this card class | a model-level step cache, orthogonal to Sol and not an attention knob; it changes the trajectory | a blind distribution against the true baseline (`CLAUDE.md`). At few steps a skipped step is a larger share of the schedule, and their thresholds are tuned at 50 (reasoned) | render the existing EasyCache probe (`workflows/h3_probe_cache_easy_api.json`), a cache of the same family, before porting anything |
+
+**What does not transfer, and why:**
+
+- **MXFP8 compute.** It refuses any device whose major compute capability is
+  not 10; sm89's is 8.
+- **The multi-GPU exchange** (`relayout.py` and the int8 and FP8 transport).
+  It exists only when heads move between GPUs; one card has no exchange.
+- **`sol_bsa`, cuDNN block-sparse attention.** Upstream validates it on SM103
+  only and declares SM90 and SM120 unvalidated. Nothing says whether the cuDNN
+  block-sparse API runs on sm89, and nothing here has tried; not a candidate
+  until that is known.
+- **The two-stage H3-then-LTX pipelines** (Spark, `super_acceleration`). They
+  keep both DiTs resident on a GB10's full memory or across two GB200s; on a
+  24 GB card that is offload of two large DiTs, and the LTX refiner is outside
+  this repo's H3 scope. The H3-to-LTX latent adapter is a separate question
+  from Sol.
+- **VSA** (Spark's T2VA and FL2VA drafts). It needs the FastH3 VSA weights; it
+  is already probed here (`workflows/h3_probe_vsa_api.json`, exempt from Sol in
+  `bench/check_attention_defaults.py::SOL_EXEMPT_STEMS`), and core's
+  `BlockSparseAttention` runs it too.
+
+### Core's `BlockSparseAttention` against ours: the implementation is not a variable (2026-09-10)
+
+*Measured on captured activations*
+([`data/results/2026-09-10_sol_impl_capture_grade.json`](../../data/results/2026-09-10_sol_impl_capture_grade.json), graded by
+`bench/grade_sol_impl_on_capture.py` on the `pre=` capture recorded in
+[`data/results/2026-09-10_capture_inventory_sol_impl_courtroom.json`](../../data/results/2026-09-10_capture_inventory_sol_impl_courtroom.json)). At
+matched knobs (`h3_config.SOL_CORE_DEFAULTS`), core's chunked producer --
+q/k-norm and RoPE inside the kernel, K/V statistics carried from the previous
+step -- and our node's call on ComfyUI's own normed, roped tensors land the
+same distance from exact attention in every cell. Against each other they are
+close but not within the floor: the record's `core_fresh.vs_ours` sits above
+our all-routed floor (`control_ours_all_routed`) in most cells, and
+`core_carried.vs_ours` sits above it in every carried cell. Carrying the
+statistics moves core's output away from ours but not its distance from
+exact. So at matched knobs the two nodes are equally far from exact and their
+defaults (the knob column above) are the larger difference. Against core's
+defaults, ours at the policy shipped on 2026-09-10 (the record's
+`knobs.shipped`; qk_balance and the dense tail came later) is not uniformly
+closer to exact: it loses on all four block-0 cells and on the per-row mean,
+and wins the whole-tensor mean because of block 49. The rendered pairs from
+that day were never scored. Ours as shipped since (the `rotated` quantizer, the kitchen fallback, `SOL_DENSE_TAIL`, `exact_kv_and_all_rows`) has not been compared with core
+(`bench/results/2026-09-27_attention_parity.md`). One capture, one scene,
+three blocks, four steps: a statement about these cells, not every layer.

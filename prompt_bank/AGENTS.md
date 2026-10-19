@@ -7,5 +7,5 @@ Loaded when a session opens a file here; the root `AGENTS.md` still governs.
 - **The authority on how to write an H3 prompt is MiniMax's own guides** in `vendor_guides/`; `docs/prompting/prompting.md` is
   our reading of them.
 - **A prompt is written for its frame count**; rendering it at another length makes the model improvise past the
-  script. Short is allowed (`docs/h3/resolutions.md`, "The length axis").
+  script. Short is allowed (`docs/h3/geometry.md`, "The length axis").
 - **A scene's text is data**, kept here or beside its frames, never in code or a graph.

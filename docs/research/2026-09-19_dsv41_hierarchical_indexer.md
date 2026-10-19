@@ -11,7 +11,7 @@
 > the token-tile gather in
 > `coderef/comfy-kitchen/comfy_kitchen/backends/cuda/sage_attention/sol_attn_exact.cu:178-190`,
 > the head count in ComfyUI core `comfy/ldm/minimax/model.py:475`, and the
-> block-49 `k_norm.weight` note at `docs/state/roadmap.md:826-835`. The rest is as
+> block-49 `k_norm.weight` note at `docs/state/roadmap.md` lines 826-835 at `901bee1`. The rest is as
 > the agent reported it, with its own labels. Figures quoted from the report
 > or other repos are theirs, on their setups. `bench/analyze_sol_block_grouping.py`
 > was a peer session's uncommitted work when this was written.
@@ -460,7 +460,7 @@ Shapes: about 1,600 key blocks per head, so `T` is about 102,400 tokens;
      (one `m16n8k32` k-step each), each rescaled by `s_q[i,g] * s_k[j,g]`
      in FP32: four times the dequant epilogue of per-row scaling.
 - [I] The dynamic-range argument does not transfer. H3's frozen
-  `k_norm.weight` is far from uniform at block 49 (`docs/state/roadmap.md:826-835`
+  `k_norm.weight` is far from uniform at block 49 (`docs/state/roadmap.md` lines 826-835 at `901bee1`
   carries the figures), which is why that block has loud K channels. A
   scheme justified by "norm weights are about 1" needs checking per block
   against `k_norm.weight`.

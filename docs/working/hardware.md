@@ -1,90 +1,63 @@
 # The box, and what actually bounds it
 
-Last updated: 2026-10-03.
-
-Every measured number in this repo was taken on one machine. This file is what
-about that machine can change a result, and how to tell whether it has. It does
-not carry the machine's current values — `bench/hwinfo.py` prints those, because
-driver versions, power limits and clock states drift and CLAUDE.md's rule is
-that a drifting number does not belong in prose.
+**Every measured number in this repo was taken on one machine, and the setting
+that most often invalidates a timing is the GPU board power limit.** This page is
+what about the machine can change a result and how to tell whether it has. It
+carries no values: `bench/hwinfo.py` prints them (driver versions, power limits
+and clock states drift, and a drifting number does not belong in prose,
+[`prose_measurements.md`](../method/prose_measurements.md)).
 
 ```
 python bench/hwinfo.py
 ```
 
-Run it before quoting a timing number and after any host change. It is not a
-check; it asserts nothing and only reports.
-
-## The short version
+Run it before quoting a timing and after any host change. It asserts nothing and
+only reports.
 
 | if you are about to | read |
 |---|---|
-| quote or compare a render time | [Host power state](#host-power-state-invalidates-timing) — first, and it is the one people skip |
+| quote or compare a render time | [Host power state](#host-power-state-invalidates-timing), first; it is the one people skip |
 | reason about why a knob did or did not help | [What bounds this workload](#what-bounds-this-workload) |
 | blame the host for a slow render | [What is not the bottleneck](#what-is-not-the-bottleneck) |
 | change a GPU-level setting | [Host settings and their blast radius](#host-settings-and-their-blast-radius) |
 
 ## Host power state invalidates timing
 
-A GPU board power limit changes render times, is set outside the repo, and
-survives reboots the moment somebody installs a systemd unit for it. A render at
-a changed limit produces a perfectly ordinary-looking s/it that is not
-comparable to any number in [`docs/method/bench_plan.md`](../method/bench_plan.md) or
-[`docs/attention/sol_attn.md`](../attention/sol_attn.md). Every timing figure in those two files was
-taken at the card's stock limit.
+**Compare timings only at equal power state; nothing enforces it.** A changed
+limit gives an ordinary-looking s/it that is not comparable to any number in
+[`bench_plan.md`](../method/bench_plan.md) or
+[`sol_attn.md`](../attention/sol_attn.md), all of which were taken at the card's
+stock limit (the limit on this box was changed away from stock on 2026-08-17). It
+is set outside the repo and survives reboots once a systemd unit exists for it.
 
-**How well it is recorded depends entirely on which artifact you are holding**,
-and the three cases are not the same defect:
+Whether a run records it depends on the artifact:
 
-| artifact | host power state | so what |
+| artifact | host power state | what would close it |
 |---|---|---|
-| capture manifest | `provenance.gpu_power_limit_watts` **exists**, and the one manifest on disk populates it | and as of 2026-08-17 it is required and asserted, so a manifest that omits it fails. It is also **read** now rather than typed in -- the generator wrote a literal `450.0` until the same day |
-| render stamp | **no power, driver or GPU field at all** | a stamped render cannot be placed on a power state even in principle |
-| bench run | **persisted per row since 2026-08-18** by `bench/run_graph_arms.py` (`substrate.power_limit`, `power_limit_is_stock`, driver, package versions, git commit); `bench/bench_e2e_h3.py` still persists nothing | the runner that carries the day's timings now records its own conditions; the older harness does not |
+| capture manifest | `provenance.gpu_power_limit_watts`, required and asserted since 2026-08-17, and read rather than typed (the generator wrote a literal `450.0` until that day) | closed |
+| render stamp | no power, driver or GPU field at all | a field that does not exist |
+| bench run | `bench/run_graph_arms.py` persists it per row since 2026-08-18 (`substrate.power_limit`, `power_limit_is_stock`, driver, package versions, git commit); `bench/bench_e2e_h3.py` persists nothing | deciding the older harness should emit a record at all |
 
-So the fix is not one fix. For captures it is an assertion on a field that is
-already there; for stamps it is a field that does not exist; for bench runs it
-is deciding a bench run should emit a record at all.
-
-`bench/hwinfo.py` prints the limit and flags it when it differs from the
-default. That is a report a person chooses to run, not a guard — and no check
-can see the power state of a run whose number is already written down.
-
-**A correction, kept because it is instructive.** This section originally said
-the power limit was "invisible everywhere this repo looks", naming the capture
-manifest among the places it was absent. That was wrong: the field existed, and
-was found by a peer session the same day. The error came from reading the
-schema's `required` list and inferring the property did not exist — an inference
-stated as a fact about the file, which is the failure
-[`docs/method/evidence.md`](../method/evidence.md) exists to catch. The distinction matters
-practically, not just for the record: a field that exists and is unasserted is
-fixed by an assertion, and a field that is absent is fixed by adding one. Only
-the second was the work originally proposed here.
-
-This remains a live example of CLAUDE.md's rule about requirements without
-controls: the requirement is "compare timings only at equal power state", and
-the control is a script somebody has to choose to run. It is **not** enforced.
-
-Because the limit is a host setting rather than a repo setting, the same caution
-applies to anything else that changes the machine's steady state under load:
-ambient temperature, case airflow, a concurrent job on the same card, and the
-persistence-mode setting that decides whether the driver was already resident
-when the run started.
+`bench/hwinfo.py` flags a limit that differs from the default, but it is a report
+a person chooses to run, and no check can see the power state of a run whose
+number is already written down. The same caution applies to anything else that
+changes the steady state under load: ambient temperature, case airflow, a
+concurrent job on the card, and persistence mode (whether the driver was already
+resident when the run started).
 
 ## What bounds this workload
 
-The honest answer is that it depends on the phase, and the parts have never been
-separated on this box. What follows is the reasoning frame, not a verdict.
+**It depends on the phase, and the parts have never been separated on this box.**
+What follows is the reasoning frame and the measurements so far, not a verdict.
 
 ### The model does not fit
 
 Measured 2026-08-17: the DiT, text encoder and VAE of a reference render exceed
 this card's memory together, and the DiT alone exceeds what stays resident once
 activations for a full-length packed sequence are accounted for. So ComfyUI
-streams blocks rather than holding everything resident. **This paragraph used
-to conclude that PCIe therefore carries continuous traffic through the whole
-sampling loop. Measured 2026-08-18 and it does not, at the one configuration
-measured:** `data/results/2026-08-18_phase0_instrument.json` recorded ~20 MB/s
+streams blocks rather than holding everything resident, but **PCIe does not
+carry continuous traffic through the sampling loop** at the one configuration
+measured (2026-08-18): `data/results/2026-08-18_phase0_instrument.json` recorded ~20 MB/s
 of PCIe receive during sampling at 1024x768 with three references, with power
 pegged at the 450 W limit and core clocks pulled ~24% under their maximum.
 Sampling at that configuration is compute/power-bound, not host-bound; the
@@ -128,8 +101,7 @@ footprints. `docs/state/open_experiments.md` owns the tensor-core issue rates, w
 ### What would settle it
 
 Nsight Compute on a single Sol-Attn kernel, or a paired render at two power
-limits on one graph and seed. ~~Neither has been run.~~ **The power pair was
-run on 2026-08-20** (`bench/results/2026-08-20_power_limit_pair_verdict.json`):
+limits on one graph and seed. **The power pair was run on 2026-08-20** (`bench/results/2026-08-20_power_limit_pair_verdict.json`):
 on a 4-step 768p turbo render the 330 W cap costs 5.8% of sampler time against
 a 12.5% core-clock delta, power pegged at both limits. Partly core-clock-bound;
 a core clock change is not free here, and it is not proportional either. The

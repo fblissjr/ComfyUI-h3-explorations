@@ -1,13 +1,17 @@
 # What ties a window to the window before it, and what loosens it
 
-A ledger for one question in the masked lane: a continuation window follows
-the frames it inherits more than it follows its motion reference. The
-mechanism is read from code and cited; every result is a dated line with
-its scope, and a change is a new dated line under the old one, never a
-rewrite. `docs/masked_v2v/overview.md` has the lane; `docs/masked_v2v/state_signals.md`
-has the signals a window can be shown.
+**A continuation window follows the frames it inherits more than it follows its motion reference.** The kept frames
+are conditioning rows, as clean and as trusted as a reference, and core gives no way to set their level per
+reference. The lever that loosens them without patching core is `context_noise`: at 0.8 on one stretch the head made
+the turn with almost no seam (`h3_config.MASKED_JOB_CONTEXT_NOISE`, a starting value from that stretch); at 0.5 it did
+not; at 1.0 it turned and broke the seam. A short load's held tail is the same mechanism after the new frames, and is
+always held with its region open. The lane is [`overview.md`](overview.md); the signals a window can be shown are
+[`state_signals.md`](state_signals.md).
 
-## The mechanism (read from code 2026-10-10, nothing run)
+## The mechanism
+
+Read from code on 2026-10-10; nothing run.
+
 
 - The window node copies the previous window's SAMPLED video latent tail
   into this window's first latent steps and gives those rows a mask of
@@ -46,15 +50,15 @@ pack). None needs core patched.
 
 | lever | where | kind | status |
 |---|---|---|---|
-| fewer context frames | `context_frames` on the song node; `loop_plan.check_window_settings` lists the values, `audio_freeze.window_geometry` refuses fewer | INPUT | on the card 2026-10-10 |
+| fewer context frames | `context_frames` on the song node; `loop_plan.check_window_settings` lists the values, `audio_freeze.window_geometry` refuses fewer | INPUT | tried 2026-10-10 |
 | no context | a load of its own; `continue_from` unwired | INPUT | 2026-10-10: see results |
-| the context shown part noised | `context_noise` on the song node and the window node (0.271.0); core runs a mask value between 0 and 1 as that row's own strength | INPUT since 0.271.0 | 2026-10-10: at 1.0 it turned the head and broke the seam (results below); the levels between are on the card |
+| the context shown part noised | `context_noise` on the song node and the window node (0.271.0); core runs a mask value between 0 and 1 as that row's own strength | INPUT since 0.271.0 | 0.8 works on one stretch, 0.5 does not, 1.0 breaks the seam; per load on a person's word (results below) |
 | the context dropped for part of the schedule | the model patcher's `denoise_mask_function` for the value and a diffusion-model wrapper for the label, both together | CODE | not built; only if the noised context helps |
 | the motion video over the context's own frames | a prepared video on `motion_video` | INPUT | not run |
-| a larger motion video | `motion_short_edge`, `motion_vae` | INPUT | on the card 2026-10-10 |
+| a larger motion video | `motion_short_edge`, `motion_vae` | INPUT | tried 2026-10-10 |
 | a longer window | `window_frames` and where the plan puts a boundary | INPUT | not run |
-| the seed | `seed`; each window takes seed plus its index | INPUT | on the card 2026-10-10 |
-| a text for the window | the timeline and its blocks; one text a load with a load per shot | INPUT | on the card 2026-10-10 |
+| the seed | `seed`; each window takes seed plus its index | INPUT | tried 2026-10-10 |
+| a text for the window | the timeline and its blocks; one text a load with a load per shot | INPUT | tried 2026-10-10 |
 | the attention kernel | the graph | INPUT | not run; only if nothing else moves it |
 
 Not levers here: `reference_noise.py` (it weakens references, the still
@@ -72,201 +76,40 @@ well as for what it was run to move.
 
 ## The held tail of a short load: the same mechanism, after the new frames
 
-A load capped at its shot's last frame is shorter than its window, and the
-node holds the shot's last frame for the rest with an empty mask
-(`video_mask.window_frames`). An empty mask is plate, and the plate there is
-the source's last frame with the ORIGINAL subject in it. So a short load's
-window is its own frames with the region open, followed by a long run of
-clean, conditioning-labelled rows that show the original where the new
-subject has to end up: the rows that outweigh a motion video on a
-continuation, placed after the new frames where a context is placed before
-them.
+**A window past its load's last frame holds that frame with its mask, so the region stays open over the held tail**
+(`video_mask.held_mask`; the owner asked for one behaviour, 2026-10-10, [`docs/state/decisions.md`](../state/decisions.md)).
+Held as plate, the tail showed the model the source's last frame with the ORIGINAL in it, a long run of clean
+conditioning rows after the new frames, and the render faded back to the original.
 
-- 2026-10-10, NOT BUILT, scope only: hold the mask with the frame, so the
-  region stays open over the held tail and the model draws the new subject
-  standing still there. It would cost no sampling time (every step runs the
-  whole sequence either way; only the regenerating share in the report
-  changes), the held frames are never written, and it takes the original's
-  look out of the window. It is a change to `video_mask.window_frames` with
-  a choice to switch it and a check, because "a held plate is what a frozen
-  row should see" was decided on purpose (the function's docstring).
-  Evidence that the unmasked tail is survivable: two per-shot loads of that
-  morning, each with a held tail several times its own length, kept the
-  still's person on the lead's stills (two shots, one seed). Evidence that
-  it could matter: every result below. What to read on a short load: its
-  last frames, for the subject's look drifting toward the original as the
-  held frames approach.
-
-- 2026-10-10, later the same day, one render, one seed, read from stills
-  and not on playback (the lead): a 29-frame load capped at its shot's end
-  drew the still's person on its first frames and the ORIGINAL on its last,
-  with the region open on every latent step of the shot (the render's own
-  saved region) and a held tail four times the shot's length. Two readings
-  the stills cannot tell apart: the sampler drew the original toward the
-  held frames, or it drew something else and `only what changed` gave the
-  source back. The window's stored latent, decoded and laid again
-  (`bench/recomposite_window.py`), separates them; pending a decode.
-- 2026-10-10: BUILT, not committed and not on a server: `held_tail` on the
-  Masked Source, `the last frame, with its region open`
-  (`video_mask.held_mask`). The default is the plate, as before.
-- 2026-10-10, read from code: a shorter window is possible in core's
-  terms. Core's lengths are one clip of the VAE plus a remainder
-  (`comfy/sd.py`, the video VAE's ratios), and the lengths on both the
-  video and the audio clock start below the planner's shortest
-  (`loop_plan.CHAIN_LENGTHS`; the two shorter ones are the values
-  `check_window_settings` allows as a context). What refuses them as a
-  window is this pack's planner and the song node's own minimum, not core.
-  Whether the model renders a window that short well is not known here: no
-  render of one exists. Not built.
-
-- 2026-10-10, the reading asked for before any patch, and it changes the
-  line above from "possible" to "possible and outside what the model is
-  documented to make". The vendor's README gives the output duration as a
-  range whose lower end is four seconds (`coderef/MiniMax-H3/README.md`,
-  the capabilities table, "Output duration"). Core's own node says where
-  the trained range of frame counts starts and ends
-  (`comfy_extras/nodes_minimax_h3.py`, the `length` input's tooltip;
-  `docs/h3/geometry_and_nodes.md` restates it). The planner's shortest
-  window is the shortest length on both clocks that is inside both
-  statements, which is why `loop_plan.CHAIN_LENGTHS` starts where it does
-  (`docs/h3/audio_freeze.md`, "short windows sit inside the trained
-  range"). Of the two shorter lengths on both clocks, one is a little under
-  the vendor's lower end and the other far under it. And the one that is
-  nearly inside would still leave a load as short as the one above with a
-  held tail about twice its own length. So a shorter window is not scoped
-  as a patch: it buys little where it is nearly allowed and is unsupported
-  where it would buy much. The open tail is the lever for a short load.
-- 2026-10-13, BUILT, on the owner's word that a window's length is a
-  choice and only has to be a count the model takes
-  ([`docs/state/decisions.md`](../state/decisions.md), 2026-10-13; the two entries above are
-  what was thought on the 10th and are left as written). The two entries
-  held a short window to both clocks; the audio clock is a rule of the
-  seam between two windows, and a window that is the whole run has no
-  seam (`loop_plan.stands_alone`). A load one window holds is now given
-  the shortest length of the video grid that holds it
-  (`masked_job_graph.window_for`), so its held tail is under one video
-  step; the chained lengths and every run of two windows or more are as
-  they were. At a short window Sol-Attn may decline a call under its own
-  least tokens, and the load is then sampled by plain attention, which the
-  owner ruled fine the same day; the server's log line for a declined call
-  is read on each short load and written in its item.
-
-- 2026-10-10, the same short load measured (a peer's capture,
-  `data/2026-10-10_fun_kitchen_shot2_1010`; the tracked figures are that
-  session's to write): it is a FADE, not a flip. On the subject's hair,
-  where the still and the original differ most in tone, the render holds
-  the still's tone on the shot's first frames, moves toward the source's
-  on every frame after, is about half way before the shot's last third, and
-  is the source's on its last frames; the last frame of the shot is the
-  source's to within the plate's own floor. So the tail's reach is long:
-  more than two cycles of latent steps back from the first held frame.
-- 2026-10-10, OPEN QUESTION: the tail's pull against the subject's share of
-  the frame. The morning's two short loads, each with a longer tail in
-  proportion, did not fade by the same session's look figure, and in those
-  the subject was large in the frame; in the load that faded she is small
-  and partly hidden. Not separated: one load of each kind.
-
-- 2026-10-10, NOT BUILT, the next thing if the open tail leaves a doubt:
-  fill the tail with the shot played back, the frames, the mask and the
-  motion video mirrored in time past the last frame, with the region open.
-  The reasoning: an open tail over a held frame still asks the model to draw
-  the subject standing still for most of the window, with only a held plate
-  and one held frame of the motion video to say so, and where that frame
-  shows little of the subject the signal is weak. Played back, the window
-  asks one thing from its first frame to its last, the subject moving as the
-  motion video moves, and holds no frozen picture. It would be a third
-  `held_tail` choice. Reasoned only.
-- 2026-10-10, the order agreed with the lead: the open tail is the arm that
-  tests the fade (the same load, window, seed, motion video and text, the
-  one choice changed); the zoomed motion video on the same shot is read for
-  the pose on the shot's first frames only, where the tail has not reached.
-
-- 2026-10-10, the same short load's stored latent decoded and laid from the
-  region the render saved: the fade is the SAMPLER's. The composite kept
-  all of the render under the subject's mask on every frame, and the
-  decode itself moves toward the source on every latent step as the held
-  frames approach (`bench/results/2026-10-10_saved_windows_laid_again.md`,
-  the short load). The other reading, the composite giving the source back,
-  is ruled out for this render.
-- 2026-10-10, the same load's pose (a peer's records,
-  `data/2026-10-10_fun_pose/`, and `docs/masked_v2v/state_signals.md`): on its
-  first frames, where the render still shows the still's person, the motion
-  video held the source's pose and the render did not take it. A load of
-  its own that did NOT follow its motion video. What differs from the load
-  that did, on the other stretch: the subject is a far smaller share of the
-  frame, and most of the window is held tail. The open tail and the zoomed
-  motion video are the two arms that separate those.
-
-- 2026-10-10, the grid of a short load's last step, confirmed from
-  `loop_plan.step_span`: a load that starts on a cut ends on a latent
-  step's last frame only when its length, counted in cycles of
-  `loop_plan.STEP_CYCLE`, leaves a remainder that is one of the cycle's own
-  step starts. A shot's length is the shot's, so most short loads end
-  inside a step, and that step then holds real frames and held ones: with
-  the tail as plate it is part plate by construction, before any pull from
-  the frames after it. The load that faded ends three real frames into a
-  four-frame step. Under the open tail the held frame in that step carries
-  the last frame's mask, so the one arm tests both. A second render of the
-  same shot, a large, well-lit face, held until that last step and lost
-  only it (a peer's figures), where the small subject lost twenty frames.
-
-- 2026-10-10, the zoomed motion video on the short load that faded (a
-  peer's pose records): no change. The render took neither the pose nor any
-  difference in the fade, zoomed or not, so on that shot the motion video
-  is not being read at all, and the held tail is the one thing left that
-  differs from a load that follows its motion video. The open-tail renders
-  of three loads that all end on the source are on the card.
-- 2026-10-10, later: `held_tail` is committed (e2469ab7) and served since
-  the restart that afternoon; the "BUILT, not committed" line above is of
-  the hour it was written.
-- 2026-10-10, the first open-tail render, the short load that faded, one
-  change against it (the lead's reading of stills every fourth frame, not
-  judged on playback; one seed): the still's person holds on every still to
-  the shot's last frame, where the first render showed the original from
-  about two thirds of the way through. The two other loads that had ended
-  on the source hold on stills too. A peer's measured curves for all three
-  are pending and are that session's to record; until they are in, this is
-  a reading of stills.
-- 2026-10-10, the composite's side of the tail: a held frame of a plate
-  tail has no mask of its own, and since 8952c545 no such frame is laid
-  (`video_mask.unlaid_frames`), so the first held frame no longer carries
-  the render its latent step lent it. Under the open tail the held frames
-  carry the last frame's mask and are laid as before. Not served yet.
-- 2026-10-10, the open tail measured on all three loads that had ended on
-  the source (a peer's captures,
-  `data/2026-10-10_fun_face_street_0438_tail` and
-  `data/2026-10-10_fun_kitchen_shot2_tails_1010`; one seed each; the
-  figures are that session's to record): the fall at the end of the load is
-  gone on every one, the back half of the two face loads is lifted as well,
-  and nothing reads worse. The job builder takes the open tail as its
-  default.
-- 2026-10-10, judged on playback by the owner: in the joined file with the
-  three open-tail pieces in it the street face reads as swapped, where the
-  file before it had not. That earlier verdict had been read as "the face
-  is too small to be drawn as the reference's"; one of its two pieces is
-  unchanged between the files, so part of it was the fading tail and the
-  shots not yet attempted, and how much is the size of the face is not
-  settled. A render zoomed in on a small subject (`render_region`, built
-  the same day, not served when this was written) is to be judged against
-  the open-tail render that was accepted, not against a failure.
-- 2026-10-10, the short load that had ignored its motion video, with ONE
-  change, the reference still (the lead's relay of a peer's pose reading;
-  one seed; the figures are that session's to record): the render took the
-  pose the motion video has, head and hand, where every earlier render of
-  that load had not, zoomed motion video or plain. So on that load what
-  held the pose was the still, not the motion video's size and not the
-  tail: a reference still that shows another pose is a pull of the same
-  kind as a kept frame, and it is not among the levers above. Not built
-  on; one load.
-- 2026-10-10, the end of the day: THE PLATE TAIL AND THE INPUT ARE REMOVED.
-  A window past its source's last frame always holds that frame with its
-  mask, so the region stays open (`video_mask.held_mask`); `held_tail` is
-  no longer an input of the Masked Source and the choice named "the last
-  frame, as the source's" no longer exists. Why: on all three loads
-  measured the plate brought the original back toward the end and the open
-  tail did not, and the owner asked for the one behaviour
-  ([`docs/state/decisions.md`](../state/decisions.md), 2026-10-10). The lines above that speak
-  of a choice are of their hour. One clip: a second clip has not been run.
+- **What was seen with the plate tail**: a 29-frame load capped at its shot's end drew the still's person on its first
+  frames and the original on its last. It is a FADE, not a flip: on the hair the render moves toward the source's tone
+  on every frame and is the source's on the last (the capture `data/2026-10-10_fun_kitchen_shot2_1010`). The stored
+  latent, decoded and laid again, says the fade is the SAMPLER's, not the composite giving the source back
+  (`bench/results/2026-10-10_saved_windows_laid_again.md`, the short load). The tail's reach is more than two cycles of
+  latent steps back from the first held frame.
+- **What the open tail did**: on all three loads that had ended on the source the fall at the end is gone, the back
+  half of the two face loads is lifted as well, and nothing reads worse (`data/2026-10-10_fun_face_street_0438_tail`,
+  `data/2026-10-10_fun_kitchen_shot2_tails_1010`; one seed each). In the joined file the street face then read as
+  swapped on the owner's playback. One clip; a second has not been run.
+- **On the composite's side**: a held frame with no mask of its own is not laid (`video_mask.unlaid_frames`, 8952c545).
+- **The tail is short now**: a load one window holds is given the shortest length of the video grid that holds it
+  (`masked_job_graph.window_for`, the owner, 2026-10-13), so its held tail is under one video step. The audio clock is
+  a rule of the seam between two windows, and a window that is the whole run has none (`loop_plan.stands_alone`).
+- **A short load's last step is part held**: a load that starts on a cut ends on a step's last frame only when its
+  length leaves a remainder that is one of the cycle's step starts (`loop_plan.step_span`, `loop_plan.STEP_CYCLE`), so
+  most short loads end inside a step that holds real and held frames. The open tail carries the last frame's mask into
+  it.
+- **A small subject did not follow her motion video on that load** with or without the zoomed motion video; one change
+  of the reference still made it take the pose. A still that shows another pose is a pull of the same kind as a kept
+  frame, and is not among the levers below (one load; `data/2026-10-10_fun_pose/`).
+- **Open**: the tail's pull against the subject's share of the frame. Two short loads with a large subject and a longer
+  tail did not fade; the one that faded had her small and partly hidden. Not separated.
+- **Not built, if the open tail leaves a doubt**: fill the tail with the shot played back in time, frames, mask and
+  motion video mirrored past the last frame, so the window asks one thing from first frame to last. Reasoned only.
+- **Not scoped**: a window shorter than the planner's shortest. The vendor's README gives the output duration's lower
+  end as four seconds (`coderef/MiniMax-H3/README.md`, "Output duration"), and core's `length` tooltip gives the trained
+  range (`comfy_extras/nodes_minimax_h3.py`; [`docs/h3/geometry.md`](../h3/geometry.md)); the
+  lengths below the planner's are a little or far under it.
 
 ## Results, dated
 
@@ -306,8 +149,6 @@ them.
   continuations keep both at the source's own step (the figures are that
   peer's to record). After the seam it moves as the source does. So the
   hold is in the context's subject rows, which is what this lever reaches.
-  THE QUESTION THE NEXT TWO ARMS ANSWER: is there a level below 1.0 that
-  turns the head and keeps the seam's step near the source's.
 - 2026-10-10, `context_noise` 1.0, 0.8 and none against a load with no kept
   frames, measured on that stretch (a peer's pose records,
   `data/2026-10-10_fun_pose/kitchen_cn_*`; one stretch, one seed each; the
@@ -321,25 +162,13 @@ them.
   load with no kept frames is still the closest to the source. Both noised
   ones are a little LATE: the movement fits best a few frames behind, more
   at 1.0 than at 0.8. So at 0.8 the kept frames still tie the first new
-  frame to what came before and no longer pin the pose. 0.5 is on the card
-  and says how far down that holds.
+  frame to what came before and no longer pin the pose.
 - 2026-10-10, `context_noise` 0.5 on the same continuation (the lead's
   relay of a peer's reading; one stretch, one seed): it did not make the
   turn. So on this stretch the level that loosens the pose lies between
   0.5 and 0.8, and 0.8 is the lowest tried that works. It is a starting
   value from one stretch of one clip (`h3_config.MASKED_JOB_CONTEXT_NOISE`),
   not a default measured for another clip.
-- 2026-10-15, a ruling and no measurement: a load longer than one window
-  may take `context_noise` for its inner windows, per load, on a person's
-  word (`bench/shot_to_load.py job --context-noise X --context-noise-why
-  WHY`; the lead's ruling, A (a)). Until then only a continuation
-  (`continue_from`) could set it, though the song node shows an inner window
-  its kept frames the same way. Without it the inner windows see them
-  clean, the node's own. Not a default yet: 0.8 rests on the one stretch
-  above, and its cost is a seam that may show. The kitchen's second subject
-  over 604-1009 (seam 898, context 90, 0.8) is the second data point; if its
-  seam holds on the owner's playback, it becomes the default for every
-  window that keeps frames, with that render as the reason.
 - 2026-10-10, the lateness, two READINGS and no measurement. It is not the
   clean share of the context pulling the first frames back, because it is
   larger with none of that share (1.0) than with some (0.8). What the
@@ -364,3 +193,14 @@ them.
 - 2026-10-10: the same morning's two per-shot loads kept the still's person
   with no frozen context (two shots, one seed;
   `bench/results/2026-10-10_one_load_per_shot_against_one_long_load.md`).
+- 2026-10-15, a ruling and no measurement: a load longer than one window
+  may take `context_noise` for its inner windows, per load, on a person's
+  word (`bench/shot_to_load.py job --context-noise X --context-noise-why
+  WHY`; the lead's ruling, A (a)). Until then only a continuation
+  (`continue_from`) could set it, though the song node shows an inner window
+  its kept frames the same way. Without it the inner windows see them
+  clean, the node's own. Not a default yet: 0.8 rests on the one stretch
+  above, and its cost is a seam that may show. The kitchen's second subject
+  over 604-1009 (seam 898, context 90, 0.8) is the second data point; if its
+  seam holds on the owner's playback, it becomes the default for every
+  window that keeps frames, with that render as the reason.

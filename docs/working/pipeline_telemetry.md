@@ -1,13 +1,10 @@
 # Pipeline telemetry
 
-Last updated: 2026-09-26
-
 What a ComfyUI prompt loaded, moved and spent, end to end, as one JSONL
 record per prompt. The recorder is `pipeline_telemetry.py`; the reader is
 `bench/telemetry_report.py`; the controls are
-`bench/check_pipeline_telemetry.py`. Asked for by the owner on 2026-09-26:
-"we should know whats happening throughout our pipeline in a structured
-schema and be able to record it end to end".
+`bench/check_pipeline_telemetry.py`. Built on the owner's ask of 2026-09-26 for
+a structured, end-to-end record of the pipeline.
 
 ## Arming
 

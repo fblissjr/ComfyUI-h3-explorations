@@ -408,7 +408,7 @@ route record logs `sigma_start` 0.9796,
 `data/results/2026-09-01_sol_route_pdd8_chunked_ab.json`), 0.966 at shift 7,
 0.952 at shift 5 and 0.923 at shift 3. STA's 3 of 10 steps at shift 17 ends
 near 0.975. The literature's "20%" is a different point on the noise axis for
-every model. `docs/attention/sol_attn.md` ("The sigma window is not a step fraction")
+every model. `docs/attention/sol_measured_arms.md` ("The sigma window is not a step fraction")
 already shows the step-count side of this. Compare dense step counts and
 sigmas, never percents.
 
@@ -633,5 +633,5 @@ Local code and records:
 - `coderef/Sana/models/minimax_h3/RTX4090/teacache.py:45-46`
 - `sol_attn_h3.py:1028-1029, 1063-1078, 1386`; `sol_observe.py:10-18`
 - `workflows/h3_config.py` (`start_percent` note in `SOL_RECOMMENDED_CUDA`; `SOL_END_PERCENT_BY_STEPS` note)
-- `docs/attention/sol_attn.md` ("The sigma window is not a step fraction"; knob table)
+- `docs/attention/sol_measured_arms.md` ("The sigma window is not a step fraction"; knob table)
 - `bench/results/2026-09-17_sol_start_percent_batch.md`, `bench/results/2026-09-17_sol_stage_profile.md`, `data/results/2026-08-29_block_propagation.json`, `data/results/2026-09-01_sol_route_pdd8_chunked_ab.json`, `data/results/2026-08-19_head_granularity_arms.json`, `data/results/2026-08-19_routing_density_per_head.json`, `2026-08-19_sol_error_per_head.json`

@@ -53,7 +53,7 @@ differ from here".
 **Scope, and what the index is for.** This file owns the *optimization and
 runtime* comparison. The reference-conditioning comparison — sizing, patchify,
 presentation, packing, condition timestep — is owned by
-[`docs/h3/references.md`](../h3/references.md), section "The vendor image path,
+[`docs/h3/reference_sizing.md`](../h3/reference_sizing.md), section "The vendor image path,
 stage by stage", and its detail must not be restated here.
 
 That split kept every divergence documented and left none of them listed
@@ -451,7 +451,7 @@ we do not run.
 
 The open release is 768p on the short edge. Establishing what *kind* of limit
 that is changed one doc claim and found one defect; the finding itself is owned
-by [`docs/h3/resolutions.md`](../h3/resolutions.md) and is not restated here. The
+by [`docs/h3/geometry.md`](../h3/geometry.md) and is not restated here. The
 short version for anyone arriving from a performance question: the area cap is
 hard upstream, the short edge only warns, and neither is a property of the
 weights.

@@ -2,15 +2,15 @@
 
 | page | what it is for |
 |---|---|
-| [`evidence.md`](evidence.md) | **start here before stating a number**: what is measured, what is retracted, what must not be relied on |
-| [`checks.md`](checks.md) | the standard every check is held to, and the index of every check with what it defends. Start here before changing behavior or adding a check |
-| [`eval_comparison.md`](eval_comparison.md) | the A/B process: matched seeds, blinded, scored before unblinding, recorded as a distribution |
+| [`evidence.md`](evidence.md) | **start here before stating a number**: what must not be relied on, what holds, the retraction-consumer ledger, and the environment that is not in git |
+| [`checks.md`](checks.md) | the standard every check is held to, how to run them, and the index of every check with what it defends. Start here before changing behavior or adding a check |
+| [`eval_comparison.md`](eval_comparison.md) | the A/B process (matched seeds, blinded, scored before unblinding, recorded as a distribution), which scene can show a difference, and the stacking tool |
 | [`bench_plan.md`](bench_plan.md) | Sol-Attn runs pre-registered with predictions, and the outcomes that scored them |
-| [`check_postmortems.md`](check_postmortems.md) | what individual check defects taught; history, not operative |
-| [`drift_frontier.md`](drift_frontier.md) | the doc-drift and control-calibration work opened 2026-08-17, one row per decision |
-| [`config_drift.md`](config_drift.md) | why `workflows/h3_config.py` drifts and what would stop it. Read before adding prose to a config file |
-| [`prose_measurements.md`](prose_measurements.md) | why a number in prose is a copy and where it goes instead. Read before writing a speedup, size or time into a doc |
 | [`sustainability.md`](sustainability.md) | the direction argument and its do-not-do list. Read before proposing process |
+| [`prose_measurements.md`](prose_measurements.md) | why a number in prose is a copy and where it goes instead. Read before writing a speedup, size or time into a doc |
+| [`config_drift.md`](config_drift.md) | why `workflows/h3_config.py` drifts and what would stop it. Read before adding prose to a config file |
+| [`drift_frontier.md`](drift_frontier.md) | the doc-drift and control-calibration work opened 2026-08-17, one row per decision, and what is still open |
+| [`check_postmortems.md`](check_postmortems.md) | what individual check defects taught; history, not operative |
 | [`rules_history.md`](rules_history.md) | `CLAUDE.md` as it stood before the 2026-09-03 cut, frozen: the dated instances behind each rule |
 
 ## The paths a judged result takes

@@ -25,7 +25,7 @@ daily); this file, the lane's rules for any video, is the one tracked file here,
 
 ## How the lane works, end to end
 
-- The process: `docs/masked_v2v/pipeline.md`. The lane's rules: `docs/masked_v2v/overview.md` ("The rule: data
+- The process: `docs/masked_v2v/pipeline.md`. The lane's rules: `docs/masked_v2v/working_rules.md` ("The rule: data
   before a render, and the same data after"; "Reading one window whole"; "Rules of the lane"). Running a load, the
   review server, the ledger and the end of day: `docs/working/runbook.md`.
 
@@ -35,7 +35,7 @@ daily); this file, the lane's rules for any video, is the one tracked file here,
   outside is frozen context it already has, and the frozen video and the audio round the hole steer what it makes (it
   was trained on video and audio jointly: told she sings, it opens her mouth with the song, with no word of when). A
   text says who is generated in each hole and from which reference, never the frozen picture (where a person stands,
-  what she wears, the room) and never as an edit (`docs/masked_v2v/overview.md`, "The frame every masked text is written
+  what she wears, the room) and never as an edit (`docs/masked_v2v/text.md`, "The frame every masked text is written
   in"). The owner's word of 2026-10-10, made core 2026-10-15.
 - A text says a person sings only where they sing in that shot or window, and otherwise says nothing about singing or
   talking: no "silent", no "does not sing", no "talks" (the owner, 2026-10-15). Who sings is plan data,

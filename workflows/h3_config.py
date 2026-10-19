@@ -1600,7 +1600,7 @@ MASKED_LOAD_COMPOSITE = "whole region"
 #: (3262-3265, mrtwo, 2026-10-14), is to be met by closing a hole the region encloses, never by dropping a piece; not built.
 NO_PIECES_ON = ("hair", "face_and_neck")
 #: The canvas a job is made on when a tool writes its file. **Inherited**: every job file of this lane since
-#: 2026-10-10 names it; `docs/h3/resolutions.md` lists it (its 4:3 row).
+#: 2026-10-10 names it; `docs/h3/geometry.md` lists it (its 4:3 row).
 MASKED_JOB_CANVAS = (1024, 768)
 
 # ---- FastH3 8-step V2 ------------------------------------------------------------
@@ -1770,7 +1770,7 @@ FLASHGEN_SAMPLER = "euler"
 # `SolAttnMiniMax` on 2026-08-14 this list stayed on the Triton node id and
 # nothing could notice, because there was nothing to notice with.
 #
-# The order now lives in one place that a reader reaches, docs/attention/sol_attn.md's
+# The order now lives in one place that a reader reaches, docs/attention/sol_wiring.md's
 # Ordering section, and in one place a machine checks -- every graph's actual
 # wiring, graded by `bench/check_attention_defaults.py`. (`SageChainAssert`,
 # the runtime gate that failed a render whose chain was not composed as

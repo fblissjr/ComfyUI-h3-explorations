@@ -105,7 +105,7 @@ IDENTITY = {
 #:
 #: **Both rows that were UNRECORDED at first turned out to be recorded, in
 #: files the author had not searched** -- `head_chunks` in
-#: `docs/h3/geometry_and_nodes.md` and a timing table in `h3_config.py`,
+#: `docs/h3/geometry.md` and a timing table in `h3_config.py`,
 #: `video_policy` in `docs/h3/references.md`. So treat an UNRECORDED row as a
 #: prompt to look harder before treating it as a gap in the repo; twice out of
 #: twice it was a gap in the search.
@@ -261,19 +261,19 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("MiniMaxH3Resolution", "shape"):
         ("ARM", "the arm's aspect: 'wide' on 41, 'standard' on 27, and one "
                 "each of tall/ultrawide/square/custom. The node's first option "
-                "is 'ultrawide'. docs/h3/resolutions.md owns the list."),
+                "is 'ultrawide'. docs/h3/geometry.md owns the list."),
     ("MiniMaxH3Resolution", "shape.wide_resolution"):
         ("ARM", "1344x768 in 39 graphs -- a trained canvas, and what anything "
                 "informing a shipped decision is measured at -- against "
                 "1152x768 on two cheaper probe arms. Classified HOUSE first; "
                 "the pinned-value rule caught that it takes two values. "
-                "docs/h3/resolutions.md owns the list. NOTE: this is why a "
+                "docs/h3/geometry.md owns the list. NOTE: this is why a "
                 "graph moved off 1344x768 does NOT go red here and is what anything informing "
                   "a shipped decision is measured at; the node's first option "
                 "."),
     ("MiniMaxH3Resolution", "shape.standard_resolution"):
         ("HOUSE", "1024x768 on every 4:3 arm, cheaper per frame than the "
-                  "node's first option. docs/h3/resolutions.md.",
+                  "node's first option. docs/h3/geometry.md.",
          "1024x768  4/3  768 tok/frame  0.58x"),
     ("MiniMaxH3Resolution", "shape.tall_resolution"):
         ("ARM", "768x1344 on the portrait canvas probe -- the trained canvas "
@@ -351,8 +351,7 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("MiniMaxH3SageAttention", "head_chunks"):
         ("ARM", "4 on h3_probe_head_chunks, the one graph that exists to "
                   "exercise head chunking. It is a MEASURED group count, not "
-                  "a guess: docs/h3/geometry_and_nodes.md records ~3227 MiB "
-                  "saved at 4 groups, and workflows/h3_config.py's table has the "
+                  "a guess: workflows/h3_config.py's table has the "
                 "head4/ffn1 row at 396.5s / 13475 MiB / -3227 / 0.998x -- the "
                   "saving is real and the speed cost is nil. NOT House: 76 "
                   "graphs carry this input at the node default, and a HOUSE "

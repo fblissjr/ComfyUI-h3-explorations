@@ -1,35 +1,25 @@
-# MiniMax H3 references: every type, what it costs, how to prompt it
+# References: every type, what happens to it, what it costs
 
-`ref2va` conditions on an ordered list of references. This is what each type
-is, what ComfyUI actually does to it, what it costs, and how to write the
-prompt so the model uses it the way you meant.
+`ref2va` conditions on an ordered list of references: stills, videos (with or without their soundtrack) and audio
+clips, each named in the prompt by a label. This page says what each type is, what ComfyUI does to it, what it costs
+and where the known limits are, and links down:
 
-last updated: 2026-10-09 (when the source already shows the person, under "Edit a source video"); 2026-10-08 (dated notes from a re-read of sglang: the vendor path under "Edit a source video", the condition noise level as a setting, two citations moved to names); 2026-10-03 (the section "Encoding references apart from the prompt", the append nodes showing their label, `use_vae` on the still's append node, and dated notes where `qwen_view`'s default is stated: it is `separate` at 512 again); 2026-08-25; the reference policies, the append node's defaults and the reference-view ablation corrected 2026-09-13 (`docs/state/decisions.md`); the retired concise swap twin corrected 2026-09-14
+- [`reference_sizing.md`](reference_sizing.md): how big a still is when it reaches the video model and the text
+  encoder, the knobs that decide it, the vendor's image path stage by stage, and the encoder's pixel bounds.
+- [`reference_prompts.md`](reference_prompts.md): a label is a bare ordinal, and how to write the relationships
+  (edit, swap, continue, motion, structure, voice, music), with the shipped graph for each.
+- [`conditioning.md`](conditioning.md): how every conditioning input is presented, encoded and positioned.
+- [`comfyui_vendor_gaps.md`](comfyui_vendor_gaps.md): the catalogue of where core differs from the release, with
+  status and enforcement.
 
-Sources: MiniMax's official prompt guide, general prompting research, ComfyUI's
-own code, and **sglang's MiniMax H3 serving path** (`coderef/sglang`, read at
-commit `a41da991c8`), which is the vendor-side authority this document compares
-against. Every number marked **measured** was taken on this install against a
-live render; everything else is read from source and says so.
+The vendor-side authority compared against is **sglang's MiniMax H3 serving path** (`coderef/sglang`). diffusers is a
+portability target (`h3_rules.reference_would_emit`), not a description of how the release is served; a sentence
+here that says only "the reference pipeline" is a claim about diffusers. Numbers marked **measured** were taken on
+this install against a live render; everything else is read from source and says so.
 
-**"The reference pipeline" meant diffusers here until 2026-08-21, and that was
-the wrong authority.** We do not run diffusers. Its H3 modular pipeline is a
-portability target — the thing `h3_rules.reference_would_emit()` answers about,
-— not a description of how the release is served. Every vendor-side comparison below
-that has been re-derived against sglang says **sglang** and carries a citation.
-Anything still saying *the reference pipeline* is a claim about diffusers alone,
-not yet checked against sglang, and should be read that way until it is.
+## The four reference types
 
-Written 2026-08-13 against ComfyUI v0.33.0. Reference-image sizing re-read from
-source and corrected 2026-08-16; the vendor-side image path re-derived against
-sglang 2026-08-21.
-
----
-
-## The four reference types: native sockets and this repo's typed surface
-
-Native ComfyUI's `MiniMaxH3ReferenceToVideo` has four parallel reference socket
-groups. There is **no mask socket and no fps input** on any of them.
+Core's `MiniMaxH3ReferenceToVideo` has four parallel socket groups, with **no mask socket and no fps input**:
 
 | socket | type | max | what it is |
 |---|---|---|---|
@@ -38,79 +28,36 @@ groups. There is **no mask socket and no fps input** on any of them.
 | `ref_video_audios.ref_video_audio_N` | AUDIO | 3 | the soundtrack of the **same-numbered** video |
 | `ref_audios.ref_audio_N` | AUDIO | 3 | a standalone audio asset |
 
-Shipped workflows in this repo no longer wire those groups. They use local
-`MiniMaxH3AppendRefImage`, `MiniMaxH3AppendRefVideo`, and
-`MiniMaxH3AppendRefAudio` nodes feeding `MiniMaxH3ReferenceConditioning`.
-List position is explicit, the video record owns its optional soundtrack and
-`VHS_VIDEOINFO`, and the compiler owns duration/channel normalization. This is
-the repo's handling of native gaps, not a claim that core's socket node changed.
+A reference video is an IMAGE batch, not a VIDEO: it arrives through a frame loader, which is why the frame rate is
+your problem (below).
 
-The generator deliberately preserves native presentation order -- images,
-then each sounded video, then standalone audio -- so existing prompts keep
-their ordinals. A hand-built typed chain can choose another order.
+**This pack's typed surface.** Generated graphs wire `MiniMaxH3AppendRefImage`, `MiniMaxH3AppendRefVideo` and
+`MiniMaxH3AppendRefAudio` into `MiniMaxH3ReferenceConditioning`. List position is explicit, the video record owns its
+optional soundtrack and `VHS_VIDEOINFO`, and the compiler owns duration and channel normalization. The generator keeps
+core's presentation order (images, then each sounded video, then standalone audio) so prompts keep their ordinals; a
+hand-built chain can choose another order. Each append node shows the label it got once it has run.
 
-Two limits **diffusers** enforces with a raise and ComfyUI does not: 12
-references total across all types (`coderef/diffusers/src/diffusers/modular_pipelines/minimax_h3/before_encoder.py:410-413`), and an audio reference
-paired with nothing (`coderef/diffusers/src/diffusers/modular_pipelines/minimax_h3/before_encoder.py:414-418`). Wire 15 and ComfyUI will accept it.
-
-**Do not read those as vendor-wide — re-derived 2026-08-21 and only one of
-three vendor implementations has them.** sglang's ref2va profile sets neither a
-minimum nor a maximum condition count (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/task_profiles.py:183-231`), and
-DiffSynth-Studio's H3 pipeline raises only on an unknown reference kind and on
-a silent video passed as `video` (`coderef/DiffSynth-Studio/diffsynth/pipelines/minimax_h3_audio_video.py`). Both are exactly as permissive as
-ComfyUI here. diffusers is transcribing a documented API limit into a local
-guard — its own docstring says the limits "bound nothing but this block's own
-validation" — and the origin is MiniMax's README table for the Open Platform
-API, `coderef/MiniMax-H3/README.md:85`. That table also carries per-clip
-2-15 s and aggregate 15 s duration limits for video and audio references, which
-nothing in ComfyUI enforces either.
-
-**A fourth implementation states them per type, and calls them the
-checkpoint's.** `aigc-apps/VideoX-Fun` PR #508 (merged; not in `coderef/`, read
-from the diff 2026-08-27) adds `examples/minimax_h3/predict_ref2va.py`, whose
-comment reads: "Budgets of the released checkpoint: at most 9 images, 3 videos,
-3 audios and 12 references in total, and an audio reference cannot stand alone."
-Same 12 and same audio rule diffusers raises on, plus a per-type split nothing
-else here records -- from the org that published the PDD LoRAs.
-
-Weigh it as a claim, not a control: it is a comment in an example script, so
-that repo documents the budgets rather than enforcing them, and it does not say
-where the per-type numbers come from. It does move the open question above --
-whether these are vendor-wide or one validator's transcription -- because the
-publisher's own example now asserts them of the checkpoint. Nothing in ComfyUI
-enforces any of it either way.
-
-A reference video is an **IMAGE batch, not a VIDEO** — it arrives through a
-frame loader, which is why the frame rate is your problem (below).
-
----
+**Budgets.** diffusers raises on more than 12 references in total
+(`coderef/diffusers/src/diffusers/modular_pipelines/minimax_h3/before_encoder.py:410-413`) and on an audio reference
+paired with nothing (`coderef/diffusers/src/diffusers/modular_pipelines/minimax_h3/before_encoder.py:414-418`).
+ComfyUI, sglang and DiffSynth-Studio enforce neither: sglang's ref2va profile sets no count
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/task_profiles.py:183-231`),
+and DiffSynth raises only on an unknown kind and on a silent video passed as `video`
+(`coderef/DiffSynth-Studio/diffsynth/pipelines/minimax_h3_audio_video.py`). The limits come from MiniMax's Open
+Platform API table (`coderef/MiniMax-H3/README.md:85`), which also carries per-clip 2-15 s and aggregate 15 s duration
+limits nothing in ComfyUI enforces. VideoX-Fun's example `examples/minimax_h3/predict_ref2va.py` (PR #508, read
+2026-08-27) states them per type as the released checkpoint's: at most 9 images, 3 videos, 3 audios, 12 in total, and
+no audio alone. A comment in an example script, not an enforced control.
 
 ## Encoder-only references: leave the VAE unwired
 
-**For one still, since 2026-10-03:** `MiniMaxH3AppendRefImage` has a `use_vae`
-switch, on by default. Off, that still is presented to the text encoder as
-before and gets no reference-latent rows, while the other references keep
-theirs. It is the per-reference form of what this section describes. One
-render with the only still encoder-only looked the same to the owner and its
-sampler was faster; the record, with what one unblinded clip does not
-establish, is `bench/results/2026-10-03_encoder_only_reference.md`. No shipped
-graph turns it off.
-
-Since ComfyUI PR 16065 (core commit `1aec3a13`, merged 2026-09-03) both VAE
-inputs on `MiniMaxH3ReferenceToVideo` are optional, and since this pack's
-0.99.33 the same is true of `MiniMaxH3ReferenceConditioning`. A reference
-whose VAE is absent still reaches the text encoder exactly as before: same
-label, same vision block, and the DiT still tags that span of the text
-sequence as video modality (`comfy/text_encoders/minimax.py::token_tags_from_embeds_info`,
-consumed in `comfy/ldm/minimax/model.py` where `text_token_tags` splits the
-text span into modulation runs). What it no longer gets is reference-latent
-rows: no block is built, `minimax_refs` is never set, and `model_base` lays
-the sequence out as it would for a text-only pass. Both nodes reach the DiT
-by that same door, and
-`bench/check_reference_runtime.py::encoder_only_references_skip_the_dit_rows`
-holds ours to core's three cells.
-
-What each reference kind becomes without its VAE:
+A reference whose VAE is absent still reaches the text encoder exactly as before (same label, same vision block, and
+the DiT still tags that text span as video modality,
+`comfy/text_encoders/minimax.py::token_tags_from_embeds_info`, consumed in `comfy/ldm/minimax/model.py`), but gets no
+reference-latent rows: no block is built and the sequence is laid out as for a text-only pass. Both VAE inputs are
+optional on core's node (PR 16065, core `1aec3a13`) and on `MiniMaxH3ReferenceConditioning`;
+`bench/check_reference_runtime.py::encoder_only_references_skip_the_dit_rows` holds ours to core's three cells. For
+one still, `MiniMaxH3AppendRefImage.use_vae` (on by default) does the same per reference.
 
 | kind | without the video VAE | without the audio VAE |
 |---|---|---|
@@ -118,253 +65,107 @@ What each reference kind becomes without its VAE:
 | video | Qwen's 2 fps samples only, no rows; its soundtrack label stays and its audio latent is never built | label stays, silent `video` block |
 | standalone audio | unchanged | its `<Audio j>` label and nothing else |
 
-The last row is the one to know before wiring an experiment: the encoder is
-never handed audio, so an audio reference with no audio VAE conditions on a
-bare ordinal. Core does the same, and the gate order is core's: a sounded
-video needs the video VAE before its soundtrack is considered at all.
+The encoder is never handed audio, so an audio reference with no audio VAE conditions on a bare ordinal; core's gate
+order is the same, a sounded video needing the video VAE before its soundtrack is considered.
 
-**Why anyone would want this.** Reference rows are the expensive input
-(section "What references cost"), attended every step; the encoder pathway
-costs tokens in the text segment only. Whether the encoder pathway carries
-identity on its own, and how much of the shipped result the rows add, is
-unmeasured. `bench/ref_pathway_arms.json` is the five-arm ablation built for
-it, from `workflows/build_workflows.py`'s `h3_probe_ref_pathway_*` family:
-our conditioner and core's, each with and without the VAEs, plus the fl2va
-checkpoint under encoder-only stills. `ref_latents=False` on either builder
-is the knob, and `native_ref=True` emits core's node for the A/B. The manifest
-says which pairs are controlled and which are not.
-
-`bench/preflight_graph.py` reports an encoder-only conditioner as zero DiT
-reference rows and still prices the Qwen tokens. Not the release's path: the
-vendor pipelines always build the latents, so nothing there is a control for
-this.
-
----
+**Why anyone would want it.** Reference rows are the expensive input, attended every step; the encoder pathway costs
+tokens in the text segment only. One render with its only still encoder-only looked the same to the owner and sampled
+faster (`bench/results/2026-10-03_encoder_only_reference.md`, with what one unblinded clip does not establish); no
+shipped graph turns it off. How much of the result the rows carry is unmeasured: `bench/ref_pathway_arms.json` is the
+five-arm ablation built for it (the `h3_probe_ref_pathway_*` family; `ref_latents=False` and `native_ref=True` are the
+builder's knobs). `bench/preflight_graph.py` reports an encoder-only conditioner as zero DiT reference rows. Not the
+release's path: the vendor pipelines always build the latents.
 
 ## Encoding references apart from the prompt
 
-`MiniMaxH3ReferenceConditioning` encodes the references and the prompt as one
-sequence, so a prompt edit pays for the references again, and nearly all of
-that is the text encoder reading the stills
-(`data/results/2026-10-03_prompt_edit_conditioning_cost.json`). Core puts
-every reference ahead of the prompt and the encoder's attention is causal, so
-what it computes for the references cannot depend on the prompt. Two
-experimental nodes split the work there (`reference_encode.py`):
+`MiniMaxH3ReferenceConditioning` encodes the references and the prompt as one sequence, so a prompt edit pays for the
+references again, nearly all of it the text encoder reading the stills
+(`data/results/2026-10-03_prompt_edit_conditioning_cost.json`). Core puts every reference ahead of the prompt and the
+encoder is causal, so the references' encoding cannot depend on the prompt. Two experimental nodes split the work
+there (`reference_encode.py`):
 
-- **MiniMax H3 Encode References** takes the encoder, the VAEs and the
-  reference chain, and encodes the references alone. Its inputs do not include
-  the prompt, so a prompt edit leaves it cached.
-- **MiniMax H3 Prompt On References** takes its output and the prompt, and
-  encodes only the prompt's tokens on top. It uses the encoder the references
-  were encoded with; there is none to wire.
+- **MiniMax H3 Encode References** takes the encoder, the VAEs and the chain and encodes the references alone, each
+  continued on the ones before it. It does not take the prompt, so a prompt edit leaves it in core's node cache. Its
+  preview gives each reference's token count and time.
+- **MiniMax H3 Prompt On References** takes that output and the prompt and encodes only the prompt's tokens on top,
+  with the encoder the references were encoded with.
 
-Each reference is encoded every time the encode node executes, each one
-continued on the references before it in the chain, and nothing is kept
-after the call: the node's output holds the rows on the host for as long as
-it is wired, never on the card between passes and never on disk. The encode
-node's preview says, per reference, encoded or continued on the ones before
-it, with its token count and time (`reference_encode.py::encode_references`).
-
-*2026-10-10: until that day this paragraph described a session store: each
-reference kept under a key made of what the encoder was shown for it and
-for everything ahead of it, a changed or moved reference a miss, a chain
-used a moment ago a hit, the preview saying "kept, continued or encoded",
-and the kept data under a byte budget in host memory. The store and its
-budget were removed (efc99317; "No keyed keep" below).*
-
-**It is not bit-identical to the one-node path.** The conditioning differs in
-the last bits, by far less than the shipped int8 encoder differs from bf16;
-`data/results/2026-10-03_reference_split.json` has each span's distance with
-one reference and with two, and `2026-10-03_encoder_prefix_reuse.json` the
-mechanism. The owner accepted that difference on 2026-10-03. No shipped graph
-wires these nodes; the one-node path is the default and the reference for
-"today's conditioning".
-
-**No keyed keep (2026-10-10).** Until that day the encode kept each
-reference's span in host memory under a chained hash and handed it back on
-a later run, and `keep_references` on `MiniMaxH3ReferenceConditioning`
-reached that store without rewiring. Both are removed under the owner's
-rule that nothing an earlier run made is reused by a key
-(`docs/state/decisions.md`). The two-node form above is the explicit one and
-stays: the encode node's output is wired into the prompt node, and what a
-prompt edit saves is core's own node cache holding that output.
-
-The encode node runs every reference's vision pass and VAE encode each time it executes.
-
-The two RefMod packs under `coderef/` pre-encode references differently: they
-store the VAE rows, one also the encoder's rows for the image alone, and both
-encode the prompt without the image in context. That prompt is a different
-conditioning, not a rounding of this one (the same record's
+Nothing is kept between runs: the output holds the rows on the host while wired, never on the card and never on disk
+(the owner's rule that nothing an earlier run made is reused by a key, `docs/state/decisions.md`, 2026-10-10). The
+result is not bit-identical to the one-node path; it differs by far less than the int8 encoder differs from bf16
+(`data/results/2026-10-03_reference_split.json`; the mechanism in `2026-10-03_encoder_prefix_reuse.json`), which the
+owner accepted on 2026-10-03. No shipped graph wires these nodes. The two RefMod packs under `coderef/` pre-encode
+differently, encoding the prompt without the image in context, which is a different conditioning (the same record's
 `prompt_without_image` case).
 
 ## What ComfyUI does to each one
 
 ### Image references
 
-Scaled and rounded to 32. **ComfyUI clamps the scale with `min(1.0, ...)` in
-both of its modes and sglang does not** (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:125-177`,
-read from source 2026-08-21: `scale = 2048 / min(w, h)`, `"allow_upscale": True`
-in the returned shape, nearest-32 per axis, and a docstring that says in as many
-words that reference images have no area-cap branch). So a reference smaller
-than 2048 on its short side reaches the DiT under-sized — and identity fidelity
-is the whole job of a reference image. Native ComfyUI still behaves this way;
-this repo's optional `MiniMaxH3ReferenceFit` node handles the divergence only
-for graphs that explicitly wire it.
-
-**The default mode is off-vendor in the other direction too, and by more.**
-`ref_image_size` defaults to `match`, which sizes a reference to the
-*generation's pixel area*. sglang's ceiling does not move with the canvas: it is
-a fixed 2048 short edge with no area cap, so a 16:9 reference lands near 7.5 MP
-where `match` on a 1344x768 render lands near 1 MP. `max` fixes the ceiling and `allow_upscale` fixes the
-floor; you need both to condition the way the release is served. **Since
-2026-09-13 a freshly dragged `MiniMaxH3AppendRefImage` does both**: its
-defaults are `size_policy=max`, `dit_short_edge=2048`, `allow_upscale=True`
-and `qwen_view=shared`, one prepared still for both the video VAE and
-Qwen3-VL, which is what sglang, diffusers and DiffSynth do
-([`docs/research/sglang_h3_pipeline.md`](../research/sglang_h3_pipeline.md)
-"Reference stills"). *2026-10-03: `qwen_view` moved again. The owner made `separate` at a 512 short edge the default (node, constant and generated graphs) on two clips of the finish graph at one seed; `size_policy`, the 2048 short edge and `allow_upscale` stay at vendor parity. `docs/state/decisions.md` has the evidence and what it does not cover.* Read the values from the node's `define_schema`;
-`bench/refview2_arms.json` is the ablation that would move them.
-
-**On the typed path both live on `MiniMaxH3AppendRefImage`** and that is the
-whole of it. The sentence you may remember -- that the floor needs
-`MiniMaxH3ReferenceFit(allow_upscale=True)` as a separate node -- describes the
-NATIVE path, where core's `MiniMaxH3ReferenceToVideo` hardcodes its own clamp
-and a second node has to pre-empt it. `MiniMaxH3ReferenceFit` was **deprecated
-2026-08-28**: no graph here wires it, chaining it into the append resamples
-twice, it cannot express `match`, and it has no `qwen_view`.
-
-Two separate knobs decide the final size and they are constantly confused for
-each other. See **Sizing a reference image** below; the short version is that
-`ref_image_size` never upscales in either of its modes, so `max` alone does
-nothing for a reference that is already under 2048.
-
-Refused outside 1:4..4:1. Image references are deliberately **exempt from the
-768x1344 area cap** that binds the video, which is why one can legitimately
-reach 7.5 megapixels when the video cannot exceed about one.
+Scaled and rounded to 32, and exempt from the video's area cap, which is why one can reach several megapixels when
+the video cannot exceed about one. Refused outside 1:4..4:1. A still is read twice: the video VAE's copy becomes DiT
+reference rows attended every step (`size_policy` sizes it), the text encoder's copy becomes vision tokens ahead of
+the prompt (`qwen_view` sizes it). The defaults are the append node's `define_schema`: the video model's copy at
+vendor parity (a 2048 short edge, upscaling allowed), the text encoder's copy `separate` at
+`h3_rules.REF_QWEN_SHORT_EDGE`, the owner's choice of 2026-10-03 and a departure from the vendor. Core's own node never
+upscales. All of it: [`reference_sizing.md`](reference_sizing.md).
 
 ### Video references
 
 1. Canvas from the reference's **own** aspect ratio via `adapt_canvas`.
-2. **Never upscaled.** If the source has fewer pixels than that canvas,
-   ComfyUI uses the source size rounded to 32 (`comfy_extras/nodes_minimax_h3.py:316-320`).
-   **All three vendor implementations put it on the canvas rule with no such
-   clamp** (re-derived 2026-08-21): sglang resolves reference-video geometry
-   through the same shape function it uses for the target, from the clip's own
-   display aspect (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/prequeue.py:292-302`); DiffSynth-Studio scales by
-   `min(768/min(w,h), sqrt(max_pixels/(w*h)))` with no unity clamp; diffusers
-   routes through its canvas resolver. Native ComfyUI still has this
-   divergence. This repo's typed conditioner can handle it locally with
-   `video_policy=release`, which also enables the coupled Qwen stage below;
-   generated graphs use `video_policy=comfy`, the default, which is core's
-   behaviour. (The `encoder` value most graphs selected until 2026-09-13
-   always resolved to `comfy` on the shipped encoder and was removed;
-   `docs/state/decisions.md`.)
-3. Truncated to the **generated** frame count, then snapped **down** to the
-   `17n+5` grid. Fewer than 5 frames raises.
+2. **Never upscaled.** If the source has fewer pixels than that canvas, core uses the source size rounded to 32
+   (`comfy_extras/nodes_minimax_h3.py:316-320`). All three vendor implementations put it on the canvas rule with no
+   such clamp: sglang through the same shape function it uses for the target
+   (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/prequeue.py:292-302`),
+   DiffSynth-Studio by `min(768/min(w,h), sqrt(max_pixels/(w*h)))`, diffusers through its canvas resolver. The typed
+   conditioner's `video_policy=release` applies the vendor's view and its coupled Qwen stage
+   ([`reference_sizing.md`](reference_sizing.md), "Video and audio"); generated graphs use `comfy`, core's behavior.
+3. Truncated to the **generated** frame count, then snapped **down** to the `17n+5` grid. Fewer than 5 frames raises.
+   So a short render can only ever be conditioned on a short reference.
 4. VAE-encoded whole. Those rows ride **every sampling step**.
-5. Subsampled to **2 fps** for the text conditioner, each merged frame pair
-   labelled `<T.T seconds>`.
-
-Consequence worth internalising: **a reference video is truncated to the
-generated frame count**, so a short render can only ever be conditioned on a
-short reference. Rendering 124 frames means at most 124 frames of reference no
-matter how long the clip is.
+5. Subsampled to **2 fps** for the text encoder, each merged frame pair labelled `<T.T seconds>`; identical to sglang,
+   index pad and pair timestamp included.
 
 ### Audio references
 
-Resampled to the audio VAE's rate. **Core does not truncate.** ComfyUI encodes
-the whole waveform, at 80 rows per second of excess.
+Resampled to the audio VAE's rate. **Core does not truncate**: it encodes the whole waveform, at 80 rows per second
+of excess. sglang cuts every reference soundtrack to the generated duration
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/audio_encoding.py:147-151`)
+and diffusers does too (`coderef/diffusers/src/diffusers/modular_pipelines/minimax_h3/before_encoder.py:346`);
+DiffSynth-Studio does not. Core is inconsistent with itself: a keyframe's audio is truncated to the remaining track
+and raises past the end (`comfy_extras/nodes_minimax_h3.py:226-230`).
 
-**Rows are not the only consequence, and framing it as cost alone was too
-narrow.** A reference block advances the packed 3D-RoPE cursor, and a video
-reference advances it by `max(ref_audio_t, sum of video spans)` -- so a
-soundtrack longer than its own visual reference **expands the reference span**
-and pushes the target streams further down the timeline. Both independent
-reviews of this pipeline reach it: `internal/codex/2026-08-21_h3-conditioning-qwen-independent-review.md`
-section 5.3 states it directly, and `internal/gemini/minimax_h3_comfyui_end_to_end_trace_and_gap_analysis.md`
-carries the cursor formula. Trimming is therefore a correctness change on the
-soundtrack path, not only a saving.
+**Rows are not the only consequence.** A video reference advances the packed rotary cursor by
+`max(ref_audio_t, sum of video spans)`, so a soundtrack longer than its own visual reference expands the reference
+span and pushes the target streams down the timeline (both independent reviews reach it:
+`internal/codex/2026-08-21_h3-conditioning-qwen-independent-review.md` section 5.3, and the cursor formula in
+`internal/gemini/minimax_h3_comfyui_end_to_end_trace_and_gap_analysis.md`). Trimming is a correctness change, not
+only a saving. `length / 24` is the exact cap: `_ref_t_span` compares the two in the same units
+(`comfy/ldm/minimax/model.py:105-113`), and a soundtrack trimmed to the render lands on its own video's span. Left
+untrimmed, a 19.541 s source against a 124-frame render claims 3.8x the timeline it should (computed 2026-08-22 with
+`temporal_shape` and `_video_t_spans` imported).
 
-**`length / 24` is not an approximation of the right value, it is the exact
-one**, and the arithmetic says so. `_ref_t_span` compares `ref_audio_t`
-against `sum(_video_t_spans(latent_t))` in the same timeline units
-(`comfy/ldm/minimax/model.py:105-113`). At 124 frames those are 207 and
-206.667; at 362 they are 603 and 603.333. A soundtrack trimmed to the render
-lands on its own video's span and the `max` is a tie. Left untrimmed, the
-19.541s source clip here gives `ref_audio_t` about 782 against a video span of
-206.667 -- the reference block claims **3.8x** the timeline it should, and the
-target streams start that much later. Computed 2026-08-22 with
-`temporal_shape` and `_video_t_spans` imported, not restated.
-
-**Every shipped graph here is now capped at the typed boundary.** The compiler
-derives `frame_count / 24`, slices both an owned video soundtrack and standalone
-audio, duplicates mono to stereo, and refuses ambiguous multichannel input.
-There is no `TrimAudioDuration` widget left to drift when a bench patches
-`length`. **Core itself still does none of this**, so a native socket graph
-remains exposed; preflight reports its trim and channel state separately.
-
-**On the video-soundtrack path the trim overlaps a mechanism VHS already had,
-and this was found after wiring it.** Both VHS upload loaders, the cv2
-`VHS_LoadVideo` and the `h3_config.REF_VIDEO_LOADER` the graphs use, go
-through one `load_video`, which asks ffmpeg for
-`frame_load_cap * (1 / force_rate)` seconds of audio
-(`custom_nodes/ComfyUI-VideoHelperSuite/videohelpersuite/load_video_nodes.py::load_video`
-into `custom_nodes/ComfyUI-VideoHelperSuite/videohelpersuite/utils.py::get_audio`,
-paths relative to the ComfyUI root), so with
-`frame_load_cap` set to the generated length the soundtrack arrives already
-capped before the typed compiler sees it. Measured 2026-08-22 by
-driving that exact ffmpeg call: cap 0 yields 19.541s of a 19.541s track, cap
-124 yields 5.167s, cap 362 yields 15.083s.
-
-So on that path VHS and the typed compiler handle the still-open native gap
-**redundantly**, and it is worth keeping which is doing what straight:
-
-| path | locally handled by `frame_load_cap` | locally handled by typed compiler |
-|---|---|---|
-| `ref_video_audio_*` | yes, whenever the cap is non-zero | yes, and it is what holds if the cap goes back to 0 |
-| `ref_audio_*` (standalone `LoadAudio`) | no such mechanism exists | **yes, and it is the only one** |
-
-The compiler cap stays authoritative on both. It survives a loader cap someone
-sets back to zero and is the only mechanism on the standalone path.
-
-**Two of three vendor implementations truncate; one does not** (re-derived
-2026-08-21). sglang cuts every reference soundtrack to the generated duration —
-`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/audio_encoding.py:147-151` computes it from the frame count and
-it reaches `ffmpeg -t` — and diffusers does the same at `coderef/diffusers/src/diffusers/modular_pipelines/minimax_h3/before_encoder.py:346`.
-DiffSynth-Studio does not truncate, matching ComfyUI. Worth knowing that
-ComfyUI is inconsistent with *itself* here: a **keyframe's** audio is truncated
-to the remaining track and raises past the end
-(`comfy_extras/nodes_minimax_h3.py:226-230`), and the reference path in the
-same file does neither.
-
----
+**Every shipped graph is capped at the typed boundary**: the compiler derives `frame_count / 24`, slices an owned
+soundtrack and standalone audio alike, duplicates mono to stereo, and refuses more than two channels. A native socket
+graph is still exposed; preflight reports its trim and channel state. On the video-soundtrack path VHS also caps:
+both its upload loaders ask ffmpeg for `frame_load_cap * (1 / force_rate)` seconds of audio
+(`custom_nodes/ComfyUI-VideoHelperSuite/videohelpersuite/load_video_nodes.py::load_video` into
+`custom_nodes/ComfyUI-VideoHelperSuite/videohelpersuite/utils.py::get_audio`, paths relative to the ComfyUI root;
+measured 2026-08-22: cap 0 yields the whole track, cap 124 yields 5.167 s). The compiler cap stays authoritative: it
+survives a loader cap set back to 0 and is the only mechanism for standalone `ref_audio_*`.
 
 ## Frame rate: the one that bites silently
 
-ComfyUI's node has **no fps input** and assumes 24 twice over — for the DiT's
-temporal clock and for the `<T.T seconds>` labels the conditioner reads
-(`FPS = 24` at `comfy_extras/nodes_minimax_h3.py:30`; no node in that file
-exposes an fps or rate input).
-
-**Both implementations target 24. Only one enforces it** (read 2026-08-22 at
-`coderef/sglang` `a7ec6b97f7`). sglang's constant is the same value —
-`MINIMAX_H3_SUPPORTED_FPS = 24` at
-`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/constants.py:29`
-— but it reaches the clip as an ffmpeg `fps=` filter in the same decode pass
-that does rotation, Lanczos scaling and square-pixel normalisation
+Core has **no fps input** and assumes 24 twice, for the DiT's clock and for the `<T.T seconds>` labels
+(`FPS = 24` at `comfy_extras/nodes_minimax_h3.py:30`). sglang's constant is the same
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/constants.py:29`)
+but it is applied as an ffmpeg `fps=` filter in the decode pass
 (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:397`),
-so a 30 fps source is genuinely converted to constant-rate 24 before anything
-else sees it. ComfyUI applies no such filter: it takes whatever the loader
-hands it and assumes the rate.
-
-Two consequences follow from that being one ffmpeg pass. **fps is never in
-sglang's API surface** — the caller asks for `duration_seconds` and the frame
-count is derived as `duration * 24` at request validation
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/request_validation.py:291-295`),
-so there is no rate for a user to get wrong. And **the decoded array is shared
-by Qwen and the visual VAE** by construction rather than by convention
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:380-383`), which is the same one-tensor-two-towers
-property ComfyUI gets by passing one object to both.
+so a 30 fps source really is converted to 24 before anything sees it, and fps never enters its API: the caller asks
+for `duration_seconds`
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/request_validation.py:291-295`).
+The decoded array is shared by Qwen and the VAE by construction
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:380-383`).
 
 **Measured**, three 6.00-second clips differing only in frame rate:
 
@@ -375,1170 +176,118 @@ property ComfyUI gets by passing one object to both.
 | 30 fps | 0 | **7.292s** | **+25.0%** | `<7.0 seconds>` |
 | any | 24 | correct | 0.0% | correct |
 
-At 30 fps the model is told a six-second reference is seven and a quarter
-seconds of action. **Set `force_rate=24` on the loader.** A 24 fps source is
-unaffected either way, which is exactly why testing on one proves nothing.
-`bench/check_ref_prompt_labels.py` fails the build if any loader feeding a
-reference socket drops off 24.
+**Set `force_rate=24` on the loader** for a reference whose exact frames do not matter. A 24 fps source is unaffected
+either way, which is why testing on one proves nothing; `bench/check_ref_prompt_labels.py` fails the build if a loader
+feeding a reference drops off 24. The typed `MiniMaxH3AppendRefVideo` also records the loader's `loaded_fps` and the
+conditioner normalizes to 24.
 
-**Dated note, 2026-10-10: `force_rate=24` sets the labels right by dropping
-or repeating frames, and on a source whose every frame matters that is a
-fault of its own.** On a 25 fps source it drops one frame a second: measured
-on 2026-10-08 as a camera step of nearly double on those frames in every
-render made from one such clip, and seen by the owner as jitter. A masked
-source, or any video the result must stay in step with, is given to the
-loader as an every-frame 24 fps copy (the same frames re-stamped, nothing
-resampled) with `force_rate` 0, and the delivery is re-stamped to the
-source's own rate with its own audio (`bench/assemble_delivery.py`). The
-sentence above stands for a reference whose exact frames do not matter.
-
----
+**But `force_rate=24` gets the labels right by dropping or repeating frames.** On a 25 fps source it drops one frame
+a second, measured on 2026-10-08 as a doubled camera step on those frames and seen by the owner as jitter. A masked
+source, or any video the result must stay in step with, goes to the loader as an every-frame 24 fps copy (the same
+frames re-stamped, nothing resampled) with `force_rate` 0, and the delivery is re-stamped to the source's own rate
+with its own audio (`bench/assemble_delivery.py`).
 
 ## What references cost
 
-Reference rows are attended at **every sampling step**, exactly as video rows
-are. Measured against a live render, 1344x768:
+Reference rows are attended at **every sampling step**, exactly as video rows are. Measured against a live render at
+1344x768, the DiT reference block:
 
 | reference | rows |
 |---|---|
 | audio, per second | 80 |
 | image at `match` | ~1,008 |
-| image, 1024x1024 source, **upscaled** to 2048 | 4,096 |
-| image, 1280x720 source, **upscaled** to 2048 | 7,296 |
+| image, 1024x1024 source, upscaled to 2048 | 4,096 |
+| image, 1280x720 source, upscaled to 2048 | 7,296 |
 | video, 960x544 source, 124 frames | 18,870 |
 | video, 960x544 source, 345 frames | **52,020** |
 
-> **Corrected 2026-08-16.** The two image rows above used to read "at `max`",
-> which credited our node's effect to core. `max` alone cannot produce either
-> number: it clamps with `min(1.0, ...)`, so a 1024x1024 source at `max` is
-> **1,024 rows, unchanged**. 4,096 and 7,296 are what you get with
-> `MiniMaxH3ReferenceFit(allow_upscale=True)` feeding `max`. The next section
-> is why.
+**A still costs in two places.** The text encoder reads it too, as vision tokens in the text segment. Measured
+2026-08-13 on one graph with both copies shared, upscaling one 1024x1024 still to 2048 added 3,072 rows to the
+reference segment and 3,072 to the text segment. A ladder of 1/2/3/4/6 references at the sizing of 2026-08-15 (a
+peer session's measurement, not re-derived) gave text rows of 4,171 / 19,778 / 28,002 against reference rows of
+4,096 / 19,648 / 27,840 at 1, 4 and 6 references, the prompt under 200 tokens of the text column. Nine references at
+that sizing is roughly 94,000 rows and OOMs on 24 GB. With `qwen_view=separate`, the default, the text copy is
+smaller than the video model's copy and the two costs part. **Price a graph's two copies with
+`bench/preflight_graph.py`**, which reports each separately and says when one was clamped and by whose bounds, or read
+the conditioner's on-node preview; not with a rule of thumb from this page.
 
-**Reference IMAGES cost in two places as well, and the table above is only
-the first.** Measured 2026-08-13 on one graph, toggling `allow_upscale` alone,
-from two Preflight lines:
-
-| segment | refs not upscaled | upscaled to 2048 | delta |
-|---|---|---|---|
-| references | 53,044 | 56,116 | **+3,072** |
-| text | 9,294 | 12,366 | **+3,072** |
-| total | 143,386 | 149,530 | **+6,144** |
-
-The reference-block half is exactly what the table predicts — a 1024x1024
-source is 1,024 rows and a 2048x2048 one is 4,096. The text segment grew by
-the same amount again, because the conditioner's vision blocks read the
-resized image too. **So upscaling one reference image cost 6,144 tokens, not
-3,072**, and any budget built from the table alone is short by half.
-
-**And the text half scales with reference COUNT, measured across a ladder.**
-Reported 2026-08-15 by the single-frame session, from Preflight lines on
-1/2/3/4/6 references at the shipped sizing. Their measurement, not re-derived
-here:
-
-| references | text rows | reference rows |
-|---|---|---|
-| 1 | 4,171 | 4,096 |
-| 4 | 19,778 | 19,648 |
-| 6 | 28,002 | 27,840 |
-
-Two things follow. The text segment does not merely grow, it lands **75-160
-rows above the reference segment itself** at every rung, so "images cost
-double" is if anything an understatement. And the prompt is under 200 tokens of
-that text column, so the column is almost entirely vision blocks.
-
-**Nine references at the shipped sizing is roughly 94,000 rows and OOMs on a
-24 GB card**, which is larger than the whole 124-frame video graph. Same
-source, same date.
-
-**A reference video costs rows in two places, not one.** The DiT reference
-block is the number above; the conditioner also reads the clip at 2 fps and
-each merged frame pair becomes a vision block **inside the text segment**, at
-roughly 519 tokens per block. Going from 124 to 345 reference frames grew the
-text segment by 4,667 tokens on top of the 33,150 extra reference rows.
+**A reference video costs in two places too**: the DiT block above, and its 2 fps frame pairs as vision blocks in the
+text segment, roughly 519 tokens a block. Going from 124 to 345 reference frames grew the text segment by 4,667 tokens
+on top of 33,150 extra reference rows.
 
 ### It does not all fit
 
-**Measured on a 24 GB card**, images at `max` plus one video plus its
-soundtrack:
+**Measured on a 24 GB card**, images at `max` plus one video plus its soundtrack:
 
 | generated | sequence | result |
 |---|---|---|
 | 124 frames | 78,019 | **success**, 740s, peak 21,938 MiB |
 | 345 frames | 182,092 | **OOM** at step 4 of 16, 21.05 GiB allocated |
 
-**The video-reference arms ship 362 frames as of 2026-08-16**, not the
-length these rows were measured at. `REF_VIDEO_LENGTH` was deleted rather than raised
--- a safe length here depends on reference count, kind, duration, canvas and
-upscale, so no constant is right twice. Treat the table as the shape of the
-cliff, not as clearance, and read preflight before any reference render.
-
-The failure is graceful and worth recognising: Sol-Attn's kernel OOMed and
-fell back, then sage's OOMed and fell back, then ComfyUI's own SDPA OOMed.
-Three clean degradations, each logged. There was simply no room.
-
-Note the margin at the successful run — 21,938 of 24,564 MiB, about 2.6 GB
-spare. Reference video is the most expensive input in the model.
-
-**Budget by pixel area, not by count.** The same clip at 640x360 costs a third
-of what it costs at 960x544.
-
----
-
-## The vendor image path, stage by stage
-
-Read from source 2026-08-21 against `coderef/sglang` at commit `a41da991c8`,
-alongside ComfyUI's `comfy_extras/nodes_minimax_h3.py`,
-`comfy/text_encoders/minimax.py` and `comfy/ldm/minimax/model.py`. **This
-section covers the image path only.** The video and audio paths have their own
-vendor-side attributions, re-derived 2026-08-21 against sglang, diffusers and
-DiffSynth-Studio in the sections that own them.
-
-The headline: the two implementations are the same pipeline written twice, and
-the largest divergence is **how large a reference image is when it reaches the
-two towers.** Downstream of the resize the presentation, patch geometry,
-packing, condition timestep and condition-noise recipe all match; the VAE
-encode does not. **Corrected 2026-08-21** — this paragraph said "everything
-downstream of the resize matches" until the posterior row below was added.
-
-| stage | sglang | ComfyUI | same? |
-|---|---|---|---|
-| admission | validates `minimax_h3.request/v1`, resolves the release partition from `model_index.json._minimax_h3`, refuses a task outside it (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/release_metadata.py:60-135`) | no partition concept; any checkpoint takes any graph | **no**, see below |
-| geometry | resolved before queueing and frozen; the runtime is forbidden from recomputing it from the plan (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/prequeue.py:303-315`) | computed inline in the node at execute time | no consequence found |
-| sizing | 2048 short edge, upscale included, nearest-32 per axis, ratio 1:4..4:1 enforced, no area cap (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:125-203`) | `min(1.0, ...)` in both modes; default `match` targets the generation area | **no — the whole divergence** |
-| resampler | PIL LANCZOS (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:181-203`) | `common_upscale(..., "lanczos")` on the tensor (`comfy_extras/nodes_minimax_h3.py:64-68`) | same intent |
-| orientation | `ImageOps.exif_transpose` on open (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:886-887`) | none — a tensor arrives already decoded | not applicable |
-| one image, two towers | the identical prepared image feeds Qwen `pixel_values` and the visual-condition tokenizer, cached on the batch (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:840-846`) | the same `resized` tensor goes to `vae.encode` and into `ref_items` (`comfy_extras/nodes_minimax_h3.py:304-306`) | **yes, until 3.0625:1** — past that the Qwen ceiling shrinks one branch and not the other; measured below |
-| VAE encode | the released `DiagonalGaussian` is **sampled** under a pinned seed 42, not averaged (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/keyframe_encoding.py:7-30`, and `MINIMAX_H3_REFERENCE_VIDEO_ENCODE_SEED` at `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:613`) | the posterior **mean**, `torch.chunk(moments, 2, dim=1)[0]`, never sampled (`comfy/ldm/minimax/vae.py:685`) | **no**, found 2026-08-21 |
-| patchify | delegated to the HF `image_processor`, which reads the release's own `processor/preprocessor_config.json` | reimplemented, with the geometry right and two bounds left on the shared helper's signature defaults (`comfy/text_encoders/minimax.py:35-66`, `comfy/text_encoders/qwen3vl.py:62-68`) | **algorithm yes, constants no** |
-| presentation | `<Picture i>: ` then a vision block, no chat template (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/presentation.py:104`) | the same string, the same place (`comfy/text_encoders/minimax.py:164`) | **yes** |
-| packing | ref blocks in request order, target timeline starts past their spans (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/packed_sequence.py:274-320`) | `_ref_t_span` does the same (`comfy/ldm/minimax/model.py:335-338`) | **yes** |
-| condition timestep | 0.999, applied as `max(t_video, aug)` (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py:24`) | 0.999, applied as `max(t_v, vis_aug)` (`comfy/ldm/minimax/model.py:32`) | **yes** |
-| condition noise | the same 0.999 is the mixing weight: per-condition CPU generator, `aug * clean + (1 - aug) * noise` (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/condition_noise.py:93-117`) | the same recipe, the same constant, a fresh generator per condition (`comfy/ldm/minimax/model.py:499-511`) | **recipe yes, draw no** -- corrected 2026-08-28, see the note below |
-
-**The condition noise level is a setting on both sides (2026-10-08, sglang
-`214347891a`).** sglang takes it per request
-(`coderef/sglang/python/sglang/multimodal_gen/configs/sample/minimax_h3.py::MiniMaxH3SamplingParams`,
-`imgvid_cond_noise_aug_for_inference`; the default is resolved in
-`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/denoising.py::minimax_h3_condition_noise_aug`).
-Core takes it from the conditioning key `minimax_visual_cond_noise_aug`
-(`comfy/model_base.py::MiniMaxH3`, `extra_conds`) and uses the one value as
-the mixing weight and as the timestep label of every visual condition alike:
-keyframes, reference stills and reference video
-(`comfy/ldm/minimax/model.py::MiniMaxH3Model`, `_cond_video_rows` and the
-`seg_t` table of `_forward`). No node of this pack wrote that key at
-`90d5543e`. Since `c7fcae2f` one node sets the level,
-`reference_noise.py::MiniMaxH3ReferenceNoise`, and it does so on the model
-side: a wrapper hands core the payload value directly and the
-conditioning key stays unwritten. A lower value mixes more noise into the
-reference rows and labels them less clean, so it is a way to weaken a
-visual reference without touching the prompt (reasoned from the two
-recipes, not rendered here).
-
-**Four consequences worth carrying away.**
-
-**The two VAEs disagree in opposite directions, and only one of them is a
-divergence.** Recorded 2026-08-21 after an outside review pointed at the audio
-half, which this section had not covered. sglang samples the **video** VAE
-posterior at a pinned seed and takes the **audio** VAE posterior *mean*
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/audio_encoding.py:83`, whose docstring says "audio VAE posterior
-mean" in as many words). ComfyUI takes the mean for both. So ComfyUI diverges
-on every reference image and reference video and **matches the release on
-reference audio** -- and it matches on precision too, since `comfy/sd.py`
-pins the H3 audio VAE to `working_dtypes = [torch.float32]`. The asymmetry is
-in the release, not in ComfyUI: the audio VAE's own `logs_proj` ships in the
-checkpoint and is unused at inference on both sides.
-
-**The condition latent is drawn differently, and this is separate from the
-condition noise below.** Read on both sides 2026-08-21. sglang samples the
-released posterior with a seed pinned at 42 for keyframes and for reference
-video; ComfyUI takes the mean and has no sampling path at all. So the latent
-that reaches the DiT differs before any noise is mixed in, on every reference
-image, reference video and keyframe. Two caveats before anyone measures it.
-Our video VAE is an fp16 cast of the release fp32, so a parity test carries
-precision and mean-versus-sample as two variables at once and has to separate
-them. And a rendered clip cannot answer it — `CLAUDE.md`'s different-sample
-rule applies, so the comparison has to be made at the latent, not the output.
-
-**The condition-noise recipe matches and the DRAW does not, found 2026-08-28.**
-The table row said a flat yes until then. The mixing weight, the constant and
-the per-condition generator are the same on both sides; what differs is where
-the noise is drawn. sglang draws in latent space at the target's own length
-plus its conditions and prefix-slices before patchify
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/condition_noise.py:94-119`);
-ComfyUI draws in row space after patchify, at the condition's own size
-(`comfy/ldm/minimax/model.py:505-511`). Two independent reasons the tensors
-differ at one seed.
-
-**Read this as a difference, not a defect.** *Source read, not measured.* The
-recipe being identical is the part that governs behaviour; a different draw at
-one seed is a different sample, which `CLAUDE.md`'s different-sample rule says
-cannot be ranked by looking at two clips. Nothing here says sglang's draw is
-the correct one — **it is the vendor's serving path, not a specification**, and
-several of its choices follow from hardware we do not have. This box is a
-24 GB card with 128 GB of host memory streaming blocks through CPU RAM to fit a
-model that would not otherwise fit; a serving stack sized for datacentre parts
-makes different trades and some of them do not transfer. Where a mechanism
-*does* transfer it is worth knowing, which is why the row is kept rather than
-dropped. What would settle whether the draw matters at all is a latent-space
-comparison at one seed, not a render.
-
-**The smart-resize policies do not match the release, found 2026-08-21.** The
-patch geometry does: `patch_size=16`, `temporal_patch_size=2`, `merge_size=2`
-and the 0.5 mean/std are the same on both sides, and ComfyUI passes 16
-explicitly rather than inheriting Qwen2-VL's 14
-(`comfy/text_encoders/qwen3vl.py:62-68`). The **pixel bounds** do not. The
-release ships still bounds in `processor/preprocessor_config.json` and video
-bounds in `processor/video_preprocessor_config.json`, both as
-`size.shortest_edge` / `size.longest_edge`. ComfyUI reads neither file: it
-leaves `process_qwen2vl_images` on the signature defaults of the shared
-Qwen2-VL helper, and `process_video_block` carries the same pair for each
-two-frame block. The released video processor instead applies its pixel budget
-over the whole sampled clip. The model is Qwen3-VL-32B on both sides — this is
-one shared helper's defaults reaching a model it was not written for, not a
-wrong model.
-
-| bound | H3 release | ComfyUI |
-|---|---|---|
-| image min pixels | 65,536 | 3,136 |
-| image max pixels | 16,777,216 | 12,845,056 |
-| video min pixels | 4,096 | 3,136 |
-| video max pixels | 25,165,824 | 12,845,056 |
-
-The still-image edges bite in opposite directions. **Below:** the release
-*enlarges* anything under 65,536 pixels to reach that floor; ComfyUI's floor is
-twenty times lower, so a small reference is under-tokenized rather than raised.
-That is a second, independent way a small reference arrives smaller than the
-release intends, on top of the `min(1.0, ...)` clamp — and unlike the clamp,
-`MiniMaxH3ReferenceFit` does not close it, because it operates before the
-tokenizer.
-
-Reference video is a different failure shape. An individual canvas-sized frame
-is below either numeric maximum, but the release's 25,165,824-pixel maximum is
-clip-wide and becomes duration-sensitive. Native ComfyUI applies 12,845,056 to
-each two-frame block independently, so it never enforces that whole-clip row
-budget. The executed boundary is source-dependent: it starts at legal H3
-lengths of 311 frames for a 1344x768 input, but is outside the legal range for
-the measured 960x544 input. `comfy`, the default, retains native behavior and
-`release` applies both vendor video stages; the `encoder` policy that used to
-sit between them was removed on 2026-09-13 because it resolved to `comfy` on
-the shipped encoder.
-
-**Above, and this is measured rather than derived.**
-`bench/measure_qwen_bounds_bite.py` calls the real `process_qwen2vl_images`
-with the arguments `comfy/text_encoders/qwen3vl.py:65` passes and reports the
-grid it gets back; record in
-[`data/results/2026-08-21_qwen_bounds_bite.json`](../data/results/2026-08-21_qwen_bounds_bite.json).
-References prepared to a 2048 short edge:
-
-| prepared | what Qwen sees | release |
-|---|---|---|
-| 6144x2048 (3:1) | 6144x2048, untouched | untouched |
-| 6272x2048 | 6272x2048, untouched | untouched |
-| **6656x2048 (3.25:1)** | **6432x1984, shrunk** | untouched |
-| 7168x2048 (3.5:1) | 6688x1888, shrunk | untouched |
-| 8192x2048 (4:1) | 7168x1792, shrunk | untouched |
-
-So the ceiling starts biting between 3:1 and 3.25:1 — the crossing is at
-`12,845,056 / 2048² = 3.0625` — and the release carries the same image
-untouched all the way to 4:1, which is the widest ratio the reference resize
-accepts at all. **The consequence is worse than the shrink itself: it breaks
-the one-image-two-towers row above.** The VAE still receives the full
-2048-short-edge tensor while Qwen silently receives a smaller one, so past
-3.0625:1 the two towers are no longer looking at the same picture, and nothing
-says so.
-
-The same script carries the arm that says where this *cannot* happen. Every
-legal H3 canvas — the keyframe case — comes back untouched, because a canvas is
-always a multiple of 32, which is exactly the `patch_size * merge_size` factor
-the helper rounds to, and every legal canvas sits inside both implementations'
-floors and ceilings. So the resize never runs on a keyframe and the
-bilinear-against-bicubic difference never fires there either. That arm is the
-control: if a canvas ever is resized, the inert claim in
-[`official_weights_metadata.md`](../research/official_weights_metadata.md) is
-wrong and the script goes loud.
-
-**Being seen in patches is still not a mechanism for anything.** The bounds
-above are a sizing difference wearing the tokenizer's clothes: they decide how
-big the image is before it is cut up, not how it is cut up. Patchified images
-are what the model was conditioned on in the first place, on every
-implementation, so "Qwen sees it in patches rather than natively" describes the
-training distribution rather than a departure from it. What can cost you is
-arriving at the tokenizer a different size than the release would have chosen —
-which is the resize, and now also the floor.
-
-The partition refusal is a fact about the release, and **the release itself is
-where it comes from** — confirmed 2026-08-21 by reading the official
-weights rather than sglang's reader. MiniMax ships two partitioned entry
-points beside the shared components, and each carries a `_minimax_h3` block in
-its own `model_index.json`: the fl2va one declares `tasks: ["t2va", "fl2va"]`,
-the ref2va one declares `tasks: ["ref2va"]` and nothing else. So "ref2va is not
-a text-to-video model" is the vendor's own metadata, not an inference from a
-serving implementation. sglang reads that `partition` field and
-raises when the requested task does not belong to it, which is why a `t2va`
-request against the `ref2va` partition is refused rather than served badly.
-ComfyUI has no such gate: a plain t2v graph will load `ref2va` and render. Read
-a `ref2va` loss at plain t2v as **not a t2v model by its own release
-metadata**, not as a defect.
-
-**The condition rows are noised on both sides, and the one difference is the
-shape of the draw.** Worth stating because the timestep row above invites the
-opposite reading. sglang and DiffSynth-Studio both draw the noise in latent
-space over the full conditioned length, slice it, then patchify
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/condition_noise.py:93-113`); ComfyUI draws directly in patchified row
-space (`comfy/ldm/minimax/model.py:507`). Same distribution, different
-realisation for the same seed, and two of three implementations agree against
-ComfyUI. At the shipped aug the noise carries a thousandth of the weight, so
-this changes which sample you get and is not an argument about fidelity. It
-would matter if anyone drove the aug low, and nothing ships that: ComfyUI reads
-`minimax_visual_cond_noise_aug` and `minimax_audio_cond_noise_aug` out of the
-conditioning at the payload boundary (`comfy/model_base.py:2175-2179`) and **no
-shipped node sets either**, so the knob is reachable only from a custom node.
-
----
-
-## Sizing a reference image: two knobs, not one
-
-The single most confused thing on this page, and the confusion was in this
-document until 2026-08-16. `ref_image_size` on `MiniMaxH3ReferenceToVideo` and
-`allow_upscale` on `MiniMaxH3ReferenceFit` are **orthogonal**. Neither is a
-version of the other.
-
-### What each one actually does
-
-`comfy_extras/nodes_minimax_h3.py:297-301`, read from source:
-
-```python
-if ref_image_size == "match":
-    scale = min(1.0, math.sqrt((width * height) / (w * h)))
-else:  # "max"
-    scale = min(1.0, REF_IMAGE_SHORT_EDGE / min(w, h))   # 2048
-```
-
-**Both branches clamp with `min(1.0, ...)`. Core never upscales in either
-mode.** `max` changes *which ceiling* sizes a reference down — the 2048 short
-edge instead of the generation's pixel area — not the direction. Core's own
-socket tooltip says so: "downscaled to 2048 short edge if larger, **never
-upscaled**".
-
-`reference_fit.py:181` is the only thing in the stack that drops that clamp:
-
-```python
-scale = full if allow_upscale else min(1.0, full)
-```
-
-So: **`ref_image_size` picks the ceiling; `allow_upscale` decides whether a
-small reference is raised to it.** You need `max` *and* `allow_upscale=True` to
-condition at 2048.
-
-### Scope: one is global, one is per reference
-
-| | `ref_image_size` | `allow_upscale` |
-|---|---|---|
-| lives on | `MiniMaxH3ReferenceToVideo` | `MiniMaxH3AppendRefImage` |
-| applies to | **all image references at once** | **one reference** |
-| touches video refs | no | no |
-| touches audio refs | no | no |
-
-`ref_image_size` is read in exactly one loop, the `ref_images` one. Video
-references never see it — they take `adapt_canvas` from their own aspect ratio
-(`:315-319`) — and audio has no spatial sizing at all.
-
-`MiniMaxH3AppendRefImage` takes **one image per node** and warns if you feed it
-a batch, so upscaling is decided per reference. Five references means five
-nodes and five independent decisions. The retired `MiniMaxH3ReferenceFit` did
-the same and still does, for saved graphs that wire it.
-
-### The four combinations — PRE-FOLD WIRING ONLY
-
-**Scope, added 2026-08-27 because this table was applied to the shipped path
-and produced a wrong conclusion.** Everything in this subsection describes
-**two** nodes: `MiniMaxH3ReferenceFit`'s `allow_upscale` feeding **core's**
-`MiniMaxH3ReferenceToVideo.ref_image_size`. Two nodes means two resizes, which
-is where row two's wasted work comes from. **No shipped graph is wired this
-way** — see the subsection below for what the typed path does. The table is
-kept because saved graphs outside this repo still wire `MiniMaxH3ReferenceFit`,
-which is the only reason that node is still registered.
-
-| ReferenceFit | core conditioning node | what happens |
-|---|---|---|
-| `allow_upscale=True` | `max` | 2048 survives. **The working combination.** |
-| `allow_upscale=True` | `match` | upscale **undone** — core re-shrinks to the generation's pixel area, and you paid two lanczos resamples for nothing |
-| `allow_upscale=False` | `max` | both no-ops for anything under 2048 |
-| `allow_upscale=False` | `match` | reference sized to the generation's pixel area |
-
-Row two is why the node inspects its consumer at run time
-(`reference_fit.py:199-206`) and warns. Row three is the state **10 of the 18
-graphs that wire ReferenceFit are in**, deliberately — `REF_VIDEO_BUDGET`
-holds `allow_upscale=False` to fit 24 GB. As of 2026-08-16 the node says "NO
-CHANGE" in the log when it lands there, because its presence in a graph
-otherwise reads as "the references were fitted".
-
-### What the shipped path does instead, and why row two cannot happen on it
-
-`MiniMaxH3AppendRefImage` carries `size_policy`, `short_edge` and
-`allow_upscale` itself, and `MiniMaxH3ReferenceConditioning` performs **one**
-resize with the canvas in scope. `reference_fit.py`'s own docstring records the
-fold: "On the typed reference path this node is no longer needed."
-
-So the two knobs above are no longer on two nodes, and the `match` branch does
-not read `allow_upscale` at all
-([`reference_geometry.py::fit_reference_image`](../../reference_geometry.py)):
-
-```python
-if size_policy == "match":
-    # allow_upscale is never read here
-    scale = min(1.0, math.sqrt((canvas_w * canvas_h) / (source_w * source_h)))
-else:
-    full  = short_edge / min(source_w, source_h)
-    scale = full if allow_upscale else min(1.0, full)
-```
-
-`match` + `allow_upscale=True` on the shipped path is therefore **not a double
-resample**. One resize either way, and no wasted lanczos pass.
-
-**And since 2026-08-27 the combination is not expressible.** `size_policy` is a
-`DynamicCombo`: `short_edge` and `allow_upscale` are nested under the `max`
-branch, so they do not exist when `match` is selected. The node used to carry
-them as flat widgets and log a warning that they were not read — visible only
-after a render was queued. The warning is gone because its subject is
-unreachable.
-
-**The reason to prefer `max` for a vendor-matching arm is the one this page
-already gives above and not row two**: `match` sizes from the generation's
-pixel area, so its ceiling moves with the canvas, where sglang's is a fixed
-2048 short edge with no area cap. That is a divergence in a different
-direction, and it is what makes `match` the wrong policy for parity — not a
-resample it does not perform.
-
-### Worked examples
-
-Five image references, `ref_image_size='max'` on the conditioning node
-throughout, `short_edge=2048`. Rows are `(w/32) x (h/32)` after the round-to-32
-— the VAE compresses by 16 and the DiT patchifies 2x2 on top. Computed from the
-formulas above, not measured.
-
-| source | short edge | upscale off | rows | upscale on | rows | factor |
-|---|---|---|---|---|---|---|
-| 1024x512 | 512 | 1024x512 | 512 | 4096x2048 | 8,192 | **16.00x** |
-| 960x1280 | 960 | 960x1280 | 1,200 | 2048x2720 | 5,440 | 4.53x |
-| 2048x2612 | 2048 | 2048x2624 | 5,248 | 2048x2624 | 5,248 | **1.00x** |
-| 768x512 | 512 | 768x512 | 384 | 3072x2048 | 6,144 | **16.00x** |
-| 1920x1080 | 1080 | 1920x1088 | 2,040 | 3648x2048 | 7,296 | 3.58x |
-
-`2048x2612` is already at the target, so `allow_upscale` changes nothing —
-`full = 2048/2048 = 1.0` in both modes. That is the second "no change" case the
-node reports.
-
-Mixing them, same five references:
-
-| scenario | reference rows | vs baseline | with the text twin |
-|---|---|---|---|
-| none upscaled | 9,384 | 1.00x | ~18,768 |
-| **only the two 512-short-edge** (1024x512, 768x512) | 22,824 | 2.43x | ~45,648 |
-| only the two largest (960x1280, 1920x1080) | 18,880 | 2.01x | ~37,760 |
-| all upscaled | 32,320 | 3.44x | ~64,640 |
-
-**The counterintuitive one, and the reason this table is here: the smaller the
-reference, the more upscaling costs it.** Rows are quadratic in the scale
-factor and the scale factor is `2048 / short_edge`, so a 512-short-edge image
-pays 16x and a 1080 one pays 3.58x. Upscaling the two *smallest* references
-above adds **13,440 rows**; upscaling the two *largest* adds **9,496**. The
-instinct that big references are the expensive ones is backwards — big
-references are already close to the ceiling, and the ceiling is where everything
-ends up.
-
-The "text twin" column is not padding. A reference is read twice — the video VAE
-encodes it, and the conditioner's vision blocks read it as well — so it is
-charged in the text segment on top of the reference segment. **What that second
-charge comes to was removed on 2026-08-28 as unsupported.** The figure that
-stood here ("75-160 rows above the reference segment itself, measured") cites
-the ladder above, which does not contain it, and a source trace could not derive
-it: under `qwen_view = shared` and no clamp the two counts are identical by
-construction, both `(w/32)*(h/32)`, and the only genuine extra is the per-
-reference `<Picture N>: ` label plus its vision delimiters — a handful of
-tokens. It may rest on a measurement that was never recorded here. **Price the
-two views with `bench/preflight_graph.py`, which reports each separately and
-says when one was clamped and by whose bounds, or wire the chain into
-`MiniMaxH3ReferenceReport` (`reference_report.py`), which draws both copies of
-every reference, the packed sequence and the prompt's share of the text
-segment from the conditioner's own sizing functions and touches no model but
-the tokenizer, rather than applying a rule of thumb from this page.** The
-conditioner shows the same text as an on-node preview after it runs.
-
-Nothing here says the 2048 version looks better. That is
-`docs/state/open_experiments.md` #1, still unmeasured, and its own entry notes that
-2048 "is a good reason to offer it and a weaker reason to default to it,
-because upscaling adds tokens rather than detail."
-
-### Both stages on three real sizes, and what the v2 decision changes
-
-> **History note, 2026-09-13.** The v1 and v2 W4 artifacts this section
-> compares, the loader that stamped their contracts and the `encoder` policy
-> that read them were deleted with the AWQ lane's code
-> (`docs/state/decisions.md`). The table stands as the computation of its
-> date; on the shipped encoder the Qwen column is the v2 column, because
-> core's own bounds bind nothing a reference node produces
-> (`data/results/2026-08-29_qwen_view_under_snapshot.json`). The owner
-> decision below is the calibration lane's and is closed with it; the
-> shipped node defaults are now choice B (vendor parity), and
-> `bench/refview2_arms.json` is the ablation that compares it with A.
-
-The table above is the DiT half. A reference is sized twice, and the second
-stage is the encoder's own processor bounds, which can only shrink what Qwen
-sees. Computed 2026-08-25 through the shipped functions rather than the
-formulas: `reference_geometry.fit_reference_image` for stage one,
-`reference_geometry.qwen_image_size` under the loaded encoder's stamped
-contract for stage two (`bench/check_reference_runtime.py` holds both to the
-installed processors). "v1" is the current W4 artifact's 200,704--301,056-pixel
-snapshot; "v2" is the release declaration, 65,536--16,777,216, which the v2
-candidate is calibrated and served at.
-
-| source | choice | stage 1 (VAE and Qwen input) | DiT rows | Qwen tokens, v1 | Qwen tokens, v2 |
-|---|---|---|---:|---:|---:|
-| 640x480 | A: `max`, no upscale | 640x480 | 300 | 266 | 300 |
-| | B: 2048 short edge, upscale | 2720x2048 | 5,440 | 266 | 5,440 |
-| 1920x1080 | A | 1920x1088 | 2,040 | 264 | 2,040 |
-| | B | 3648x2048 | 7,296 | 264 | 7,296 |
-| 3024x4032 | A | 2048x2720 | 5,440 | 266 | 5,440 |
-| | B | 2048x2720 | 5,440 | 266 | 5,440 |
-
-Four things to read off it:
-
-- **A and B differ only for sources below a 2048 short edge.** The portrait
-  is already past it, so both choices cap it at 2048 and the rows are
-  identical; the crop and the 1080p photo are where the choice exists.
-- **Under v1, A versus B changes only the DiT.** Stage two crushes Qwen to
-  about 265 tokens either way, so B buys 5,440 DiT rows for the crop instead
-  of 300 and the conditioner never sees the extra pixels. That asymmetry is
-  why no-upscale was the sound default while v1 was the encoder.
-- **Under v2, B multiplies what Qwen sees.** The crop goes from 300 to 5,440
-  Qwen tokens, every one interpolated from 640x480; the photo from 2,040 to
-  7,296. A reference pays twice, as DiT rows and as Qwen tokens in the text
-  segment, and both sit inside Sol-Attn's exact sink
-  ([`docs/attention/sol_attn.md`](../attention/sol_attn.md)), attended every step.
-- **The choice is distribution against information.** A feeds the encoder
-  real pixels only and is far cheaper. B feeds it the geometry the vendor's
-  serving pipeline produces (the sglang rule at the top of this section),
-  which is what the DiT was trained to read layer-50 states of.
-
-**OWNER-DECISION, 2026-08-25:** v2 calibrates reference stills at B, the
-vendor's 2048 upscale, as the primary policy, cost accepted; `max` with no
-upscale stays as a comparison stratum. Recorded in
-`canonical/active_plan.md`.
-The consequence for graphs: a v2 parity graph needs the upscale at stage one
-(`allow_upscale=True` on the fit or append) and `video_policy=release` for
-video references, in addition to the encoder contract the loader stamps. On
-2026-08-25 the shipped graphs are 6 upscale-on to 28 off and 39 of 40 on
-`video_policy=encoder`, so most of them would run v2 at A geometry: the AWQ
-scales chosen from B-sized activations applied to A-sized inputs. That is the
-same class of mismatch measured for v1 in the other direction (vision cosine
-0.966 at its calibration geometry, 0.832 served wider;
-`2026-08-24_layer50_processor_policy_benchmark.md`),
-not yet measured in this one. Which graphs flip, and when, is the owner's
-call at v2 acceptance. The paragraph above this one still stands: none of
-this says the 2048 version looks better; it says which distribution the
-encoder was calibrated on.
-
-### A third knob, 2026-08-25: a Qwen view of its own
-
-**Renamed 2026-08-31.** This was a flat `qwen_short_edge` Int with default 0,
-where 0 meant "no separate view" -- a number selecting a mode, which is the
-shape the literal-widget rule (`bench/check_literal_widgets.py`) forbids and which also rendered
-differently through the UI than through an API prompt that omitted it.
-`MiniMaxH3AppendRefImage.qwen_view` gives the text encoder a
-view of the reference that the video VAE does not encode. With `shared`, Qwen
-sees the same tensor the VAE encodes, which is every graph built before the
-knob existed and, **since 2026-09-13, the default again**: vendor parity, one
-prepared still for both readers. With `separate` and its `qwen_short_edge` N
-(pre-filled from `h3_rules.REF_QWEN_SHORT_EDGE`), the conditioner is shown
-the *source* scaled so its shorter side reaches N (nearest 32, one Lanczos
-resample, upscaling allowed, so a 4k source comes down to N as well), while
-the VAE keeps the stage-one view chosen by `size_policy` / `dit_short_edge` /
-`allow_upscale`. `separate` at 512 was the shipped default from 2026-08-27 to
-2026-09-13, on one observation (CHANGELOG 0.82.0). Under `image_policy=release`
-the stage-two bounds are pre-applied to the Qwen view alone; the VAE view is
-no longer clamped when a Qwen view exists.
-
-Why this breaks no contract is section 1b of
-[`conditioning.md`](conditioning.md): nothing
-indexes a Qwen token against a latent patch, the deployed v1 path has always
-run VAE-fine / Qwen-coarse, and video is 2 fps pairs against 24 fps latents by
-design. What it changes is the cost split in the table above: only the Qwen
-column grows. A 640x480 reference at `qwen_view.qwen_short_edge=2048` costs the same 300
-reference-latent rows as choice A and the same 5,440 Qwen tokens as choice B,
-which is the `noup_q2048` arm of the reference-view ablation:
-`bench/refview2_arms.json`, six arms per scene as widget patches on five
-ref2va scene graphs (`h3_config.REFVIEW2_SCENES`,
-`workflows/h3_probe_refview2_*.json`, each built at the node defaults, so
-`parity` is the graph as built). The earlier three-arm family
-(`h3_probe_refview_{a_source,b_qwen2048,c_parity}`) was priced on 2026-08-25,
-never rendered, and deleted on 2026-09-13. Whether any arm helps is
-unmeasured and is the owner's matched-seed comparison to judge.
-
-**The caveat, and which regime you are in decides everything.** The loaded
-encoder's own processor applies its bounds afterwards, so this knob is only ever
-worth as much as the selected artifact's still-image budget allows. There were
-three regimes and they did not agree; **since 2026-09-13 only the last row is
-a regime this install can be in**, the v1 and v2 artifacts and their loader
-having been deleted with the AWQ lane's code. The table stays as the record's
-shape:
-
-| encoder | still bounds | what `qwen_view.qwen_short_edge` does |
-|---|---|---|
-| v1 W4 snapshot | 200,704..301,056 | **exactly inert** on every non-square aspect -- 512, 1024 and 2048 all arrive as 264 merged tokens at 16:9 |
-| v2 W4 snapshot | the release's own | live, 448..7,296 merged tokens across that range |
-| **`ENCODER_INT8`, what ships** | **core's `process_qwen2vl_images` defaults, 3,136..12,845,056** | **live, and cell-for-cell identical to v2** |
-
-**Corrected 2026-08-29: the INT8 row said "the widest of the three". It is
-not, and the v2 row above it already carried the numbers that show why.**
-Native and v2 produce IDENTICAL merged-token counts at every aspect and every
-short edge swept -- 448 / 1,824 / 7,296 at 16:9 -- because neither ceiling
-binds a reference at any legal short edge. Only v1's 301,056 does. v2's ceiling
-is in fact the numerically larger of the two, so "widest" was wrong in both
-readings. The practical half is worth more than the correction: **an encoder
-swap between v2 and the shipped INT8 changes the weights and not the reference
-view**, which makes it a clean single variable for a matched-seed comparison.
-`data/results/2026-08-29_qwen_view_under_snapshot.json` is the record; its
-generator swept only the two AWQ snapshots until that date and omitted the
-regime every shipped graph actually runs, which is how the claim survived.
-
-**Corrected 2026-08-28: this section said the shipped encoder is v2. It is
-not.** `h3_config.MODELS["clip"]` is `ENCODER_INT8`
-(`qwen3vl_32b_minimax_h3_int8_convrot.safetensors`) and every `CLIPLoader` in
-the shipped graphs loads it; the v2 lane was closed rather than adopted. The
-conclusion that the knob is load-bearing survives the correction, but **not for
-the reason given here** -- it is live because INT8 loads through core's
-`CLIPLoader`, which stamps no `_h3_encoder_contract`, so no snapshot's bounds
-are installed and core's own defaults apply, 43x wider than v1's.
-`h3_config.py`'s note on `ENCODER_INT8` owns this and is the current one. Read the
-bounds from what `MiniMaxH3EncoderLoader` stamps
-(`h3_encoder_loader.native_encoder_contract`, read out of core, never typed),
-never from prose; `MiniMaxH3ReferenceReport` shows on the line when the
-encoder's copy was moved by them, and `bench/preflight_graph.py` prices both
-views per reference the same way. Controlled by
-`bench/check_reference_runtime.py::qwen_view_is_separate_from_the_vae_view`
-and `preflight_prices_the_two_views`.
-
-### Should video and audio have fit nodes too?
-
-Both have the same kind of divergence from the reference pipeline. The answers
-go opposite ways.
-
-**Audio: yes, at this repo's typed boundary.** Native ComfyUI encodes the whole
-waveform (`_encode_ref_audio`, no truncation on either material path) where the
-reference pipeline cuts it to generated duration. That costs 80 rows per second
-of excess. The first local handling used explicit `TrimAudioDuration` nodes in
-2026-08-22; the typed migration replaced them with one compiler-derived cap,
-which cannot drift from `length`.
-
-The same boundary duplicates mono to stereo and refuses more than two channels.
-**Corrected 2026-08-29: this paragraph used to add "native `_encode_ref_audio`
-still raises on mono", which is false** — core upmixes it in the VAE wrapper
-(see Known limitations). Duration handling is still local behavior; mono is
-not, and the divergence that remains is multichannel, where core silently keeps
-the first two channels and the typed boundary refuses. Preflight reports native
-socket graphs separately, including "unreadable" when ffprobe cannot answer.
-
-**Video: full release parity remains opt-in; `comfy` is the generated
-default.** The divergence is the same shape as the image one, native ComfyUI
-never upscales where the release puts the clip on the full canvas rule, but
-video is the most expensive reference input.
-`MiniMaxH3ReferenceConditioning.video_policy` offers two values: `comfy`, the
-default, is core's no-upscale VAE view and per-pair Qwen processor; `release`
-is the explicit full-parity experiment. The `encoder` hybrid that sat between
-them until 2026-09-13 (the native VAE view plus the loaded encoder's
-duration-aware Qwen stage, read off a stamped contract) resolved to `comfy` on
-the shipped encoder and was removed.
-
-`release` owns two inseparable stages. It upscales the full-rate view to
-`adapt_canvas` for the video VAE, then independently sends the raw 2 fps Qwen
-samples through the release's `Qwen3VLVideoProcessor`. Above the processor's
-duration boundary, Qwen may shrink its view while the VAE keeps the full
-canvas. Exposing “upscale only” would overshoot the release's Qwen rows, so it
-is deliberately not an option.
-
-This is handling in our custom node, not native ComfyUI. Core's
-`MiniMaxH3ReferenceToVideo` remains no-upscale and duration-unaware. The
-39-frame live smoke proves the local policy executes; it does not establish
-that upscaling improves a clip. `MiniMaxH3ReferenceVideoFit` remains useful for
-reporting or deliberate downscaling on native-compatible paths, not as a
-substitute for the atomic release policy.
-
----
+Treat this as the shape of the cliff, not as clearance: the video-reference arms render at `h3_config.LONG_LENGTH`,
+and a safe length depends on reference count, kind, duration, canvas and upscale, so no constant is right twice. Read
+preflight before any reference render. The failure was graceful: Sol-Attn's kernel, then sage's, then ComfyUI's SDPA
+each ran out and fell back, logged. Reference video is the most expensive input the model takes.
+
+**Budget by pixel area, not by count.** The same clip at 640x360 costs a third of what it costs at 960x544.
 
 ## Labels: the tokenizer decides, not the prompt
 
-**Since 2026-10-03 each append node shows the label it ended up with** once it
-has run (`<Picture 2>`, with the chain so far), and `MiniMaxH3EncodeReferences`
-lists the references by label. A label is a position in the chain, so it is
-shown after the chain is known, not typed anywhere.
-
-
-Native socket references are emitted in a fixed order with a **separate
-1-based counter per type**:
+Core emits native socket references in a fixed order with a **separate 1-based counter per type**:
 
 1. images, as `<Picture i>`
-2. then each video: its paired soundtrack's `<Audio j>` **immediately before**
-   its `<Video k>`
+2. then each video: its paired soundtrack's `<Audio j>` **immediately before** its `<Video k>`
 3. then standalone audio, continuing the `<Audio j>` count
 
-So one video with sound plus one standalone clip reads `<Audio 1>`,
-`<Video 1>`, `<Audio 2>` — the soundtrack takes the first audio ordinal and the
-standalone clip is second, while the video is `<Video 1>` either way. This is
-easy to get wrong by hand, and getting it wrong is silent: the render succeeds
-and quietly ignores an instruction about something that is not there.
-
-`bench/check_ref_prompt_labels.py` asserts every shipped graph's prompt names
-exactly what its graph wires, in this numbering. It also catches the reverse —
-a wired reference the prompt never mentions, which still costs its rows on
-every step and is the most expensive way to say nothing.
-
-This repo's typed surface replaces fixed grouping with list position and suffix
-pairing with ownership. The label counters and sounded-video rule are unchanged:
-an owned soundtrack still emits its `<Audio j>` immediately before its
-`<Video k>`. Generated workflows preserve the native group order during this
-migration; arbitrary order is available only when a graph explicitly builds it.
-
-`<Video N>` and `<Audio N>` are numbered independently, and an ordinary
-reference video does not create an `<Audio N>` merely because the file has
-sound. Its native soundtrack socket or typed soundtrack input has to be wired.
-
-**A silent clip must not have its soundtrack pulled.** VHS raises "failed to
-extract audio" when its audio output is pulled on a video with no audio
-stream, and the render dies at execution having validated cleanly.
-
----
-
-## A label is a bare ordinal. You have to say what it is.
-
-**Measured 2026-08-16**, paired render, one variable —
-[`docs/prompting/prompt_length_experiment.md`](../prompting/prompt_length_experiment.md) for the full pre-registration and verdict.
-
-The tokenizer emits `<Picture 1>`, `<Picture 2>`, `<Video 1>` and nothing else.
-There is no socket, flag or payload field carrying what a reference *is*, what
-it is *for*, or which subject it belongs to — verified against
-`comfy/ldm/minimax/model.py`. Three images wired to one subject and three
-images wired to three subjects are **identical graphs**. The model only knows
-which you meant because the prompt says so.
-
-So the prompt is not a description of the output. It is the only place the
-inputs acquire meaning.
-
-### The authority order, so far
-
-Two n=1 results on this model in this pipeline, in the same direction. Neither
-is in any guide.
-
-1. **`subject_definitions` beats `retention_analysis`.** A brunette reference
-   described as blonde in the definitions rendered blonde, despite
-   `fully_preserved` on the retention line. Owner's observation.
-2. **A specific `detailed_description` beats `subject_definitions`.** Both arms
-   of the length experiment carried a byte-identical definition claiming
-   `<Subject 2>` had "architecture", against a mountain-lake reference with no
-   buildings in it. The arm whose description said nothing about the
-   environment rendered the subject **inside a timber veranda with a chalet
-   beside it**. The arm whose description named the lake, the reflection, the
-   meadow and the conifers produced **no structure at all**.
-
-Read together: **a wrong word in `subject_definitions` is load-bearing exactly
-to the extent that nothing downstream contradicts it.** Silence downstream is
-not neutral — it leaves the definition in charge.
-
-### What follows for writing one
-
-- **The writing rules that follow** (say what each reference is, do not assert
-  an attribute you have not looked at, describe the environment even when a
-  reference supplies it) are [`docs/prompting/prompting.md`](../prompting/prompting.md) section 9.11, "Silence
-  is not neutral". The template that shipped on every image-reference arm until
-  2026-08-16 said "architecture, palette, and lighting" for whatever image was
-  wired; it now says "setting", which is true of any environment, because
-  `_ref_prompt()` cannot see the image.
-- **A reference wired but never described costs its rows on every step and
-  says nothing.** `bench/check_ref_prompt_labels.py` catches the unnamed case;
-  `bench/preflight_graph.py` also warns when a defined label is never cited in
-  `detailed_description`, which is the guide's actual requirement
-  (`coderef/MiniMax-H3/skills/h3-prompt-writing/references/ref-en.txt:231`)
-  and the half `subjects_resolve` did not implement.
-
-### One caution on the experiment behind this
-
-The length arm had **no working control**. Both prompts carried the identical
-camera sentence, which was supposed to bound seed noise; the long arm executed
-the move and the short one did not, because the long arm elaborated it with
-consequences. You cannot hold one sentence constant inside a prompt whose
-length you are varying — the model reads it in context, not as a string. So the
-direction above is credible (four results agree, and the architecture one is
-binary rather than aesthetic) and the magnitude is not bounded.
-
-## Prompt structure
-
-The reference format's six sections, the base format's three fields (and the
-alignment line the keyframe modes always use), what each of the four labels
-means, and the two marker sets, which share `weak_reference` and nothing else,
-are owned by [`docs/prompting/prompting.md`](../prompting/prompting.md): sections 2.1 and 2.2, 9.1 to 9.4
-and 9.8. Both prompt instruments select the guide from the graph itself and
-support native sockets plus typed append chains (`bench/preflight_graph.py`,
-`bench/check_prompt_guide_conformance.py`). The label check verifies that labels
-exist; it does not verify that you picked a sensible marker.
-
----
-
-## The relationships, and how to ask for them
-
-Which sockets you wire is mechanical. **What the prompt asks those labels to
-do is the axis that changes the output.** The official guide names three
-whole-video relationships plus a subject-sourcing rule that yields a fourth.
-
-### Edit a source video (the closest thing to inpainting)
-
-**There is no mask.** This is whole-frame regeneration conditioned on the
-source; what holds the untouched parts still is `retention_analysis` saying
-precisely what survives.
-
-*2026-10-04: true of this relationship and no longer of the pack. A masked
-path exists on the song node, where the source is the starting latent and not
-a reference: [`audio_freeze.md`](audio_freeze.md) section 4, "a source
-video for the song node". It keeps the plate exactly and is not a trained
-task; this one is trained and keeps nothing exactly.*
-
-```
-subject_definitions:
-<Subject 1> is the person in <Video 1>, whose face, build, and position in frame are kept in the target video.
-<Subject 2> is a bright red waxed-cotton jacket that replaces the garment <Subject 1> wears in <Video 1>.
-<Video 1> is the source video for the target video edit.
-
-retention_analysis:
-<Subject 1> (appears in [Shot 1]): partially_preserved - face, build, posture, and motion are retained from <Video 1>; the garment changes.
-<Subject 2> (appears in [Shot 1]): attribute_transfer - the red jacket replaces the original garment on <Subject 1>.
-<Video 1> (source video for the edit): partially_preserved - framing, camera movement, and shot timing are kept; only what is named above changes.
-```
-
-`partially_preserved` is the marker meaning "keep this, except".
-`fully_preserved` asks for a copy and leaves the edit nowhere to happen;
-`weak_reference` throws away the framing you are trying to keep.
-
-Graph: `h3_ref_video_edit.json`.
-
-**The vendor's serving path has no edit task (read 2026-10-08, sglang
-`214347891a`).** An edit there is this same request: a reference video and
-a prompt that says it is the source. Its tasks are text, keyframes
-and references (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/task_profiles.py::MINIMAX_H3_TASK_PROFILES`),
-a condition is a keyframe or a reference and carries nothing else
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/request_validation.py::_ALLOWED_CONDITION_KEYS`),
-and nothing in its own pipeline starts from the source's latent, masks it
-or anchors a frame from it. What follows for anyone reading an edit's
-render:
-
-- **The source's frames are not at the target's time positions.** Every
-  reference block is placed before the target on the time axis, a video
-  block with its soundtrack at one shared origin, and the target starts
-  where the last block ends
-  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/packed_sequence.py::minimax_h3_packed_sequence_ref2va_blocks`;
-  core's `comfy/ldm/minimax/model.py::PackedLayout` does the same). Frame
-  for frame correspondence is something the model does through attention,
-  not something the layout states.
-- **In space the source does lie over the target when the two have one
-  aspect ratio.** A frame's rows are spread over a span set by its aspect
-  ratio alone, at any resolution
-  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/packed_sequence.py::_axis_from_sqrt_area`,
-  and `comfy/ldm/minimax/model.py::_axis_from_sqrt_area`), so a source at
-  the canvas's shape covers the same coordinates as the target, and one of
-  another shape does not.
-
-[`docs/research/sglang_comparison.md`](../research/sglang_comparison.md), "Ninth
-read", has the rest of that read.
-
-**When the source already shows the person, leave the still out (owner,
-2026-10-09).** A reference still is there to give the model a face. A source
-video that already shows that face gives it too, provided the video model
-has its own copy of the source: `use_vae` on the reference video, or
-`motion_vae` on a `MiniMaxH3MaskedSource` whose mask covers the whole frame.
-In that case wire no still: one input fewer, and its rows with it. Wire the
-still when the person is not in the source, which is the ordinary first
-pass, or when the source reaches the text encoder only, where the lead came
-out as someone else. This rests on stills from two renders of one clip
-against one, not on playback, and no default moved:
-[`bench/results/2026-10-09_whole_frame_text_and_copy_size.md`](../../bench/results/2026-10-09_whole_frame_text_and_copy_size.md),
-"The lead without a still".
-
-### Replace a character, keeping the video as the plate
-
-The same sockets as the edit above, pointed at the opposite question: there
-the person stays and the garment changes, here the person is the only thing
-that changes. `<Video 1>` is the *plate*; `<Picture 1>` is the new identity.
-
-**Speech in a reused soundtrack came out damaged on three of four renders,
-2026-08-22, and the prompt is NOT established as the cause.** Three prompts --
-the structured arm below, the concise twin, and a third imperative arm carried
-from a community write-up -- were rendered on identical references, canvas
-(1152x768) and length (124 frames). Four renders landed before the batch was
-stopped: structured at two seeds, concise and imperative at one each. The
-owner, on playback, found exactly one of the four clean, and it was a
-structured render -- but **the other structured render was not clean**, so the
-split does not follow the prompt.
-
-**What that supports and what it does not.** It supports the owner's call to
-delete the imperative arm, which was made and is recorded in the changelog. It
-does **not** support "the six sections protect the speech": one clean render
-of four, with the only within-arm pair disagreeing with itself, is a draw from
-a distribution and says nothing about the knob -- `CLAUDE.md`'s
-different-sample rule applies to prompts as much as to numbers.
-
-**The concise twin is retired**, and this paragraph said it "stays shipped"
-until 2026-09-14. A later batch at the shipped canvas and length, with matched
-seeds and no bench patch, broke its speech on every seed, by ear and by
-`bench/grade_soundtrack_reuse.py`
-([`../data/results/2026-08-22_swap_prompt_verdict_362.json`](../data/results/2026-08-22_swap_prompt_verdict_362.json);
-CHANGELOG 0.57.0). That record still does not make the six sections the cause:
-structure, length and how the soundtrack is stated moved together there too.
-`workflows/h3_ref_video_swap_api.json` is the one swap graph.
-
-**Two things were ruled out afterwards and one hypothesis is still open.**
-The source clip is **25 fps** (489 frames / 19.560s, `r_frame_rate=25/1`),
-which is exactly the rate the fps gap in
-[`comfyui_vendor_gaps.md`](comfyui_vendor_gaps.md) is about -- but the
-workaround is wired: these graphs set `force_rate=24`, which VHS applies as an
-ffmpeg `fps=fps=24` filter, preserving wall-clock. And the audio window VHS
-hands out is `frame_load_cap / force_rate` seconds from the same origin, so
-the frame window and the soundtrack window cover the same span of the source.
-Neither desync is present. **Span expansion is ruled out for that batch too**, and it
-was the appealing explanation: the runs were patched to `frame_load_cap=124`,
-so VHS handed out 5.167s of soundtrack against a 5.167s visual reference and
-the cursor formula above had nothing to expand. Checked in the recorded
-patches rather than assumed. 124 is also exactly `17*7+5`, so the reference
-video lost nothing to the grid snap.
-
-**What is still open is the owner's other hypothesis**: that 124 frames is too
-short for the density of dialogue in the source, so the model is asked to fit
-a continuous monologue's speech into 5.167s. Nothing here tests it, and the
-test is a length sweep on one prompt -- not a prompt comparison.
-
-**The real finding is that reused-soundtrack speech degrades often** at this
-canvas and length, across prompt registers. That is worth a designed
-experiment and did not get one: the arms were confounded -- structure, length,
-and whether the soundtrack is stated as an `<Audio 1>: fully_copy` retention
-line or as prose in the body all moved together -- and four renders is not a
-rate.
-
-```
-subject_definitions:
-<Subject 1> is the character whose complete visual identity -- face, facial structure, eyes, skin tone, hair style and colour, body proportions, and overall appearance -- comes exclusively from <Picture 1>. Their body motion, posture, gestures, head movements, timing, and physical performance come from the original character in <Video 1>.
-<Picture 1> supplies subject identity only. It does not supply lighting, exposure, colour grade, background, camera angle, pose, framing, or scene composition.
-<Video 1> is the source video for the target video edit. It supplies the camera path, framing, background, environment, lighting, composition, action timing, and the original character's body motion. It does not supply the face or identity.
-
-retention_analysis:
-<Subject 1> (appears in [Shot 1]): fully_preserved - facial structure, identity, hair, and appearance from <Picture 1> are retained.
-<Video 1> (environment and motion): partially_preserved - the setting, lighting, and camera composition are retained, and the original character's actions are transferred to <Subject 1>.
-```
-
-**The negative clauses are not from the official guide.** Every relationship
-there is stated as what a reference *provides*; nothing in it tells a
-reference what it does not supply. They come from general prompting research,
-where the reported failure is the model blending the two identities or
-pulling the image's own lighting and background into the plate. Treat them as
-an open question, not a rule -- that is why this arm sits beside
-`h3_ref_video_edit` rather than replacing it.
-
-Two practical notes. It wires **one** image, not two: the environment comes
-from the plate, and a second reference would pay rows on every step to say
-nothing. And a low-resolution reference, or a face far from the camera, is
-the first thing to rule out when likeness fails -- the identity has to
-survive being fitted into the reference budget before any wording matters.
-
-Graph: `h3_ref_video_swap_api.json`.
-
-### Continue from the end of a source video
-
-`<Video 1>` is a starting state, not a thing to copy.
-
-```
-<Video 1> is the source video the target video continues from, beginning at its final frame.
-
-retention_analysis:
-<Video 1> (continuation source): partially_preserved - scene, lighting, and subject position continue from its final state.
-<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained from <Video 1>.
-
-detailed_description:
-[Shot 1] The shot begins exactly where <Video 1> ends, on the same framing and lighting, and carries the motion forward without a cut.
-```
-
-Graph: `h3_ref_video_continue.json`.
-
-### Transfer motion onto a different subject
-
-Motion does not ride on `<Video N>`. One subject, two assets, each named for
-what it provides:
-
-```
-<Subject 1> is the person whose appearance comes from <Picture 1> and whose walking motion comes from <Video 1>.
-
-retention_analysis:
-<Subject 1> (appears in [Shot 1]): attribute_transfer - the gait and timing of <Video 1> are transferred to the person in <Picture 1>.
-<Video 1> (motion source): attribute_transfer - only the gait and its timing are taken; the scene and the person are not.
-```
-
-Say explicitly that the video's own scene is not reused, or the model has two
-competing environments.
-
-Graph: `h3_ref_video_motion.json`.
-
-### Follow camera movement, cuts and rhythm only
-
-The weakest relationship, and the right one when images already supply the
-subjects.
-
-```
-<Video 1> (cut and pacing structure): weak_reference - only the pacing of the camera move is followed.
-```
-
-Graph: `h3_ref_video_to_video.json` and the socket-combination arms.
-
-### Reference a voice
-
-Audio can carry a speaker's timbre and delivery, and the guide requires the
-target speaker's **global speaker id**, not a new number:
-
-```
-<Audio 1> is the voice-timbre reference for <Subject 1> (S1).
-
-retention_analysis:
-<Audio 1>: reference - only timbre and delivery are referenced, the signal is not copied.
-```
-
-`fully_copy` would ask for the source waveform itself, which is a different
-request. Graph: `h3_ref_audio_voice.json`.
-
-### Reference a music style
-
-```
-<Audio 1> is a standalone music reference whose tempo and instrumentation the target video's score follows.
-<Audio 1>: reference - only tempo and instrumentation are referenced, the signal is not copied.
-```
-
-Graph: `h3_ref_image_audio.json`.
-
----
-
-## The shipped arms
-
-Nine reference graphs. The first five vary **which sockets are wired**; the
-last four vary **what the prompt asks for**, holding the wiring roughly still.
-
-| graph | images | video | soundtrack | audio | relationship |
-|---|---|---|---|---|---|
-| `h3_image_ref_plus_text_to_video` | 2 | | | | subjects from pictures |
-| `h3_ref_video_only` | | yes | | | structure |
-| `h3_ref_video_audio` | | yes | yes | | structure |
-| `h3_ref_image_audio` | 2 | | | yes | music style |
-| `h3_ref_video_to_video` | 2 | yes | yes | | structure |
-| `h3_ref_image_video_audio` | 2 | yes | yes | yes | structure + music |
-| `h3_ref_video_edit` | | yes | yes | | **edit** |
-| `h3_ref_video_swap` | 1 | yes | yes | | **character swap** |
-| `h3_ref_video_continue` | | yes | yes | | **continuation** |
-| `h3_ref_video_motion` | 2 | yes | | | **motion transfer** |
-| `h3_ref_audio_voice` | 2 | | | yes | **voice timbre** |
-
-All load the `ref2va` checkpoint.
-
-The `h3_probe_ref_pathway_*` family (section "Encoder-only references") is
-the other exception: two of its arms wire core's `MiniMaxH3ReferenceToVideo`
-rather than the typed chain, and one loads `fl2va`.
-
----
+So one video with sound plus one standalone clip reads `<Audio 1>`, `<Video 1>`, `<Audio 2>`. Getting it wrong is
+silent: the render succeeds and quietly ignores an instruction about something that is not there.
+`bench/check_ref_prompt_labels.py` asserts every shipped graph's prompt names exactly what its graph wires, in this
+numbering, and also catches a wired reference the prompt never mentions, which still costs its rows every step.
+
+The typed surface replaces fixed grouping with list position and suffix pairing with ownership; the counters and the
+sounded-video rule are unchanged. An ordinary reference video does not create an `<Audio N>` because its file has
+sound: the soundtrack has to be wired. **A silent clip must not have its soundtrack pulled**: VHS raises "failed to
+extract audio" at execution, after the graph validated cleanly.
+
+What the labels mean and how to write the prompt around them: [`reference_prompts.md`](reference_prompts.md).
 
 ## Known limitations, collected
 
-- **No mask.** Edits are prompt-driven whole-frame regeneration.
-- **Native core has no fps input.** It assumes 24 twice. Shipped typed graphs
-  own loader metadata and normalize, while retaining `force_rate=24` to keep
-  migration media policy unchanged.
-- **Reference video is never upscaled**, where the reference pipeline upscales.
-- **Core never truncates reference audio**, where the reference pipeline
-  truncates to the generated duration. Costs 80 rows per second of excess.
-  **Locally handled in shipped graphs** by the typed compiler's derived cap;
-  core's own behaviour is unchanged, so this stays a native limitation.
-- **`ref_image_size='max'` does not upscale.** Neither mode does. It picks
-  which ceiling sizes a reference down; `MiniMaxH3AppendRefImage` with
-  `allow_upscale=True` (its default since 2026-09-13; the deprecated
-  `MiniMaxH3ReferenceFit` did the same on the native path) is the only thing
-  that raises a small one to it.
-- **Reference video is truncated to the generated frame count**, so a short
-  render cannot be conditioned on a long reference.
-- **12-total and audio-never-alone are unenforced** by ComfyUI — and by
-  sglang and DiffSynth-Studio. Only diffusers raises. See the reference-types
-  section for where the limits come from.
-- A silent clip's soundtrack output/input must be left unwired or the render dies.
-- **Native core pairs a reference video's soundtrack by socket number, not by
-  material.** ComfyUI matches `ref_video_audio_N` to `ref_video_N` on the name
-  suffix (`comfy_extras/nodes_minimax_h3.py:313`), so a mis-numbered socket
-  silently pairs the wrong track. sglang routes the video material itself into
-  the audio encoder (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/task_profiles.py::MINIMAX_H3_TASK_PROFILES`,
-  the `video` reference rule's `audio_tokenizer_encode`) and represents an
-  absent soundtrack as a zero-length audio condition to keep block order
-  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/audio_encoding.py::MiniMaxH3AudioEncodingStage`), so
-  the mistake is not expressible there. *2026-10-08: this cited
-  lines 193-202 of that file, which is no longer where the rule is; the
-  citation is by name now. Re-read at `214347891a`.* This repo's typed video record replaces
-  suffix pairing with explicit ownership; native core remains unchanged.
-- **No trim offset.** sglang takes a `start_time_seconds` on every material,
-  video and audio alike. ComfyUI has no equivalent; trim upstream.
-- **A mono reference works on native core. More than two channels is silently
-  truncated to the first two.** **WITHDRAWN 2026-08-29: this entry used to say a
-  mono reference "does not render — it raises", and it was wrong.** Measured
-  against the real audio VAE on CPU
-  ([`../data/results/2026-08-29_ref_audio_channels.json`](../data/results/2026-08-29_ref_audio_channels.json),
-  [`../bench/audit_ref_audio_channels.py`](../../bench/audit_ref_audio_channels.py)):
-  a `[1,1,32000]` mono waveform encodes to `[1,32,2,40]`, producing exactly the
-  80 rows `PackedLayout` allocates. It packs.
+Core's behavior; where this pack handles one locally it says so.
 
-  **What the old entry got wrong is where it stopped reading.** It traced
-  `comfy/ldm/minimax/audio_vae.py::encode`, which does preserve the channel
-  count — but `_encode_ref_audio` calls `comfy.sd.VAE.encode`, one wrapper up,
-  and that runs `vae_encode_crop_pixels` first. The H3 audio VAE declares
-  `output_channels = 2` and `pad_channel_value = "replicate"`
-  (`comfy/sd.py:1030-1035`), so mono is duplicated to stereo before the model
-  is reached. sglang does the same thing with `-ac 2` in its ffmpeg call, so
-  this is parity rather than a divergence.
-
-  **And core never had this defect.** `output_channels = 2` with
-  `pad_channel_value = "replicate"` were set in `57500fc5`, the commit that
-  added H3 support on 2026-08-03, on a generic trim/pad mechanism that predates
-  H3 by eight months (`6a2678ac`, 2025-12-18). The entry above was written on
-  2026-08-21, eighteen days later. **This was never a stale claim about a fixed
-  bug; it was wrong on the day it was written.** `bench/check_mono_ref_audio.py`
-  asserted the old claim, verified it by hand-building a 1-channel latent
-  rather than by encoding mono audio, and was therefore green about a state the
-  real path cannot produce. Retired 2026-08-29.
-
-  **The live case is the other direction.** Six channels encode to `[1,32,2,40]`
-  as well — `vae_encode_crop_pixels` takes `pixels[..., :2]` when the input has
-  more channels than the VAE wants, so a 5.1 track becomes its first two
-  channels with no error and no warning. This repo's typed
-  `reference_conditioning._prepare_audio` refuses more than two channels
-  instead; core does not.
-- At 1344x768 with images at `max`, one video reference does not fit on 24 GB
-  past about 124 generated frames.
-- **Confirmed identical, so nobody re-checks it**: the 2 fps subsample for the
-  conditioner, including the pad of the index list to the temporal patch with
-  the last value, and the merged-pair timestamp
-  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::minimax_h3_sample_reference_video_frames` against
-  `comfy/text_encoders/minimax.py`, the `video` branch of the reference
-  items). *2026-10-08: both line ranges cited here had moved (706-718 and
-  170-179), so both citations are by name now. Re-read at sglang
-  `214347891a`: the pad and the pair's mean timestamp are still the same
-  on both sides, and so is the stride.*
-
-**Read but not verified**, from the 2026-08-21 re-derivation and cheap to
-close if it ever matters: what sglang does when a reference video is
-**shorter** than its aligned target frame count. It truncates with
-`ffmpeg -frames:v`, which simply returns fewer frames; whether the encoder then
-re-aligns them was not traced. ComfyUI walks **down** to the nearest `17n+5`,
-and so does DiffSynth-Studio.
+- **No mask.** Edits are prompt-driven whole-frame regeneration. (The masked lane is not a reference route:
+  [`../masked_v2v/overview.md`](../masked_v2v/overview.md).)
+- **No fps input**; core assumes 24. Typed graphs normalize from loader metadata and keep `force_rate=24`.
+- **Reference video is never upscaled**, where the vendor puts it on the canvas rule.
+- **Reference audio is never truncated**, where sglang and diffusers truncate. Capped locally by the typed compiler.
+- **Core never upscales a still** in either `ref_image_size` mode; on the typed path `allow_upscale` does
+  ([`reference_sizing.md`](reference_sizing.md)).
+- **Reference video is truncated to the generated frame count.**
+- **The 12-total and audio-never-alone budgets are unenforced** by ComfyUI, sglang and DiffSynth; only diffusers
+  raises.
+- **A silent clip's soundtrack must be left unwired**, or the render dies.
+- **Core pairs a video's soundtrack by socket number**, matching `ref_video_audio_N` to `ref_video_N` on the suffix
+  (`comfy_extras/nodes_minimax_h3.py:313`), so a mis-numbered socket silently pairs the wrong track. sglang routes the
+  video material itself into the audio encoder
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/task_profiles.py::MINIMAX_H3_TASK_PROFILES`,
+  the `video` rule's `audio_tokenizer_encode`) and keeps an absent soundtrack as a zero-length condition
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/audio_encoding.py::MiniMaxH3AudioEncodingStage`).
+  The typed record uses ownership instead.
+- **No trim offset.** sglang takes a `start_time_seconds` on every material; ComfyUI has none, so trim upstream.
+- **Mono works; more than two channels is silently cut to the first two.** Core's `comfy.sd.VAE.encode` runs
+  `vae_encode_crop_pixels` first, and the H3 audio VAE declares `output_channels = 2` and
+  `pad_channel_value = "replicate"` (`comfy/sd.py:1030-1035`), so mono is duplicated to stereo (sglang does the same
+  with `-ac 2`) and a 5.1 track becomes its first two channels with no warning. Measured against the real audio VAE
+  ([`../../data/results/2026-08-29_ref_audio_channels.json`](../../data/results/2026-08-29_ref_audio_channels.json),
+  [`../../bench/audit_ref_audio_channels.py`](../../bench/audit_ref_audio_channels.py)). The typed
+  `reference_conditioning._prepare_audio` refuses more than two channels.
+- At 1344x768 with images at `max`, one video reference does not fit on 24 GB past about 124 generated frames.
+- **Read, not verified**: what sglang does with a reference video shorter than its aligned target. It truncates with
+  `ffmpeg -frames:v`; whether the encoder re-aligns was not traced. ComfyUI and DiffSynth walk down to the nearest
+  `17n+5`.
 
 ## See also
 
-- `docs/distills/ref2v_distillation.md` — why ref2v resists step distillation, and
-  what to expect running it with an fl2v distill LoRA anyway.
-- `docs/h3/resolutions.md` — the canvas rules the reference video inherits.
-- `docs/method/checks.md` — what is guarded and what is not.
+- [`../distills/ref2v_distillation.md`](../distills/ref2v_distillation.md): why ref2v resists step distillation.
+- [`geometry.md`](geometry.md): the canvas rule a reference video inherits.
+- [`../method/checks.md`](../method/checks.md): what is guarded and what is not.

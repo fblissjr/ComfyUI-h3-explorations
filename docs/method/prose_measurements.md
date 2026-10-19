@@ -23,9 +23,9 @@ against, on what hardware, at what canvas, in what cache state, or under which
 commit. A pointer to the record answers all of those, because a record that
 does not answer them is not a record yet (see the tiers below).
 
-This extends the decorative-number rule in `CLAUDE.md`'s Guiding Principles.
-That rule deletes numbers a reader does not act on. This one governs the
-numbers a reader DOES act on: they move out of the sentence and into a home.
+This is [`VISION.md`](../../VISION.md), "Truth", made operational. The tenet
+deletes numbers a reader does not act on; this page governs the numbers a
+reader DOES act on: they move out of the sentence and into a home.
 
 ## What counts
 
@@ -54,7 +54,7 @@ under what conditions they were taken:
 
 - `bench/results/` -- the primary home. A record carries the script that
   wrote it, the commit, the hardware (`bench/hwinfo.py`), the inputs, and the
-  cache state where a render is involved (`CLAUDE.md`'s caching rule).
+  cache state where a render is involved (root `AGENTS.md`'s caching rule).
   Since `57b3200` a render record also carries `rendered`: the prompt-bank
   id, the prompt's hash, length, canvas and seed. That is the block a pointer
   from prose relies on, so a record without it is the copy-with-a-different-
@@ -104,28 +104,16 @@ command; a measurement with no command behind it is what it reports.
 
 ## The wiki
 
-`docs/index.md` is the router, written by hand: each document and the
-question it answers, and the only copy of those routes. It owns no values, so
-it is already the shape the rule wants and needs no migration of its own.
-`bench/build_wiki_index.py` reports the documents no link reaches.
+The wiki's indexes own no values, so they already have the shape this rule
+wants: `docs/index.md` and each folder's `index.md` route by hand, and the code
+indexes are generated (`bench/build_index.py`). A frame count that names a grid
+point in a wiki page is an identifier and will show as an inventory hit; leave it.
 
-What follows from that:
-
-- **The index inherits whatever `CLAUDE.md` carries.** It is skipped as a
-  generated file, correctly, but its blurbs come from a governed one. A
-  measurement in a `CLAUDE.md` row appears in the index verbatim; fixing the
-  row fixes both, which is why `CLAUDE.md` is step one below.
-- **The written pages beside it** (`docs/working/coderef.md`, `docs/h3/stages.md`,
-  `docs/prompting/prompting.md`) are governed like any other doc and sit in the inventory.
-  A frame count that names a grid point is an identifier and will show as a
-  hit; leave it.
-- **Records have no route yet.** The migration will create many links from
-  docs into `bench/results/*.json`. `bench/check_doc_links.py` verifies they
-  resolve, but the index walks markdown only, so a record is reachable through
-  whichever doc cites it and nothing lists them. When enough links exist to
-  make it worth a page, the fix is the same move as the index: a page
-  generated from the links themselves, listing which record each doc cites,
-  never written by hand. Do not build it before the links exist.
+**Records have no route yet.** Links from docs into `bench/results/*.json`
+resolve through whichever doc cites them, and nothing lists them. When enough
+exist to make it worth a page, it is generated from the links themselves,
+listing which record each doc cites, never written by hand. Do not build it
+before the links exist.
 
 ## The plan for existing prose
 
@@ -141,21 +129,20 @@ and says why.
 By read rate, not by hit count. A stale number in a file every session opens
 costs more than fifty in a deep dive.
 
-1. `CLAUDE.md` -- small, read first, and it carries measurements of its own.
-2. The "read these before you start" set `docs/index.md` names:
+1. Root `AGENTS.md` -- small, read first, and it carries measurements of its own.
+2. The pages every session opens: the start-of-day set in `docs/index.md`,
    `docs/state/roadmap.md`, `docs/method/evidence.md`, `docs/method/checks.md`,
    `docs/h3/comfyui_vendor_gaps.md`, `docs/h3/custom_node_gaps.md`.
 3. The authorities: `docs/attention/sol_attn.md`, `docs/h3/references.md`,
    `docs/distills/pdd.md`, `docs/prompting/prompting.md`.
 4. Table-heavy derivable docs, by generation rather than by editing:
-   `docs/h3/resolutions.md`, `docs/h3/input_impacts.md`,
-   `docs/h3/geometry_and_nodes.md`. The relative-cost column is a function of
+   `docs/h3/geometry.md`, `docs/h3/geometry_cost.md`,
+   `docs/h3/geometry.md`. The relative-cost column is a function of
    the token count and belongs to a script.
 5. `docs/research/` -- deep dives, one per session when already in the file
    for another reason. Do not sweep them.
 
-Never edit a file another agent has uncommitted changes in without asking;
-`git status` first. This checkout is shared.
+The checkout is shared: root `AGENTS.md`, "The shared tree", before editing.
 
 ### Per number: find the origin, then pick the tier
 
@@ -172,8 +159,8 @@ the run. Then:
 **Tier 1, derivable now.** The value is a function of the current tree.
 Replace the number with the command or constant. Run it; if the current output
 differs from what the prose said, write the withdrawal in the same sentence
-("this used to say N") rather than silently rewording, per `CLAUDE.md`'s
-correction rule.
+("this used to say N") rather than silently rewording (`VISION.md`, "Label the
+evidence, and withdraw out loud").
 
 **Tier 2, measured with a record.** The value traces to a `bench/results/`
 file or a dated section. Replace the number with direction plus pointer. Check
@@ -193,8 +180,8 @@ bare number, because it lends the number a provenance it never had. Two moves:
   quarantine, so use it.
 
 **Re-measuring is not the fix for tier 3.** It makes the sentence true today
-and useless tomorrow (Guiding Principles: generating a decorative number is not
-a lesser fix than deleting it). Re-measure only when the magnitude changes a
+and useless tomorrow (`VISION.md`, "Truth": a decorative number is deleted,
+not refreshed). Re-measure only when the magnitude changes a
 decision, and then the result goes into a new dated record and the prose gets
 the pointer.
 
@@ -207,12 +194,11 @@ Re-run the inventory with `--json` into a new dated file under
 restates them. When the governed set's residual is tier 4 only, a `--check`
 mode with an allowlist of quoted lines becomes a gate that can be green on a
 correct tree, and only then. Before that point a gate is red while the state
-is correct, which `CLAUDE.md` says trains a reader to ignore red.
+is correct (`VISION.md`, "Controls").
 
 ### After closure
 
-- A generated records page under `docs/`, built from the doc-to-record
-  links the migration creates (see The wiki above).
+- A generated records page under `docs/` (see "The wiki" above).
 - `--check` on the inventory, with the quoted-withdrawal allowlist.
 
 ### Handoffs

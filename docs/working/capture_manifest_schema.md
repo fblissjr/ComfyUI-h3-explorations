@@ -1,4 +1,4 @@
-# Activation Capture Manifest Schema
+# Activation capture manifest schema
 
 **The accepted version set is `bench/check_capture_manifest.py::SCHEMA_VERSIONS`, and what a new manifest is stamped with is `bench/generate_capture_manifest.py`.** This document describes the shape; those two own the number. A version written into prose here drifted against the code once already, which is why the constant exists.
 
@@ -411,7 +411,7 @@ Two wrong answers were considered before the right one:
 So the substrate block records the lock as **`unobservable`**, a first-class state
 alongside recorded and confirmed-absent. It keeps the record that the question was
 asked and could not be answered, which is the not-covered-versus-correctly-absent
-distinction `CLAUDE.md` names.
+distinction root `AGENTS.md` names.
 
 Clock behaviour under load is worth measuring — it measures the thing rather than
 the setting supposed to cause it — and it belongs in the **bench payload**, where

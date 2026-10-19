@@ -60,6 +60,12 @@ What was true when each was written. The current answer is on the topic page nam
 |---|---|
 | [`2026-09-19_evaluation_one_judge.md`](2026-09-19_evaluation_one_judge.md) | evaluation for one judge and one GPU: decoys, a low anchor, stop rules, small-panel arithmetic. Read before building a blind panel |
 
+## The docs themselves (current pages: `docs/index.md`)
+
+| record | what it is |
+|---|---|
+| [`2026-10-19_docs_consolidation.md`](2026-10-19_docs_consolidation.md) | what the 2026-10-19 rewrite of every topic folder cut, and where each piece went; the text before it is in git at `901bee1` |
+
 ## Masked video to video (current pages: `docs/masked_v2v/`)
 
 | record | what it is |

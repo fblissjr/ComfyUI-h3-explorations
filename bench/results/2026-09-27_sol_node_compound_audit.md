@@ -193,7 +193,7 @@ behind the §5.1 bug.
      dense fallback: kitchen int8, with its own rotation.
    - `qk_balance`'s gate is recorded as opening on exactly those blocks:
      "no per-block list: blocks 45, 48 and 49 open on their own"
-     (`docs/attention/block49_quant_error.md:543`). Blocks 0, 32 and 40 measured
+     (`docs/attention/block49_quant_error.md` line 543 at `901bee1`). Blocks 0, 32 and 40 measured
      below the gate (`2026-09-15_channel_balance_kernel_b{0,32}_s15.json`).
    - **So with the shipped dense tail, shipped `qk_balance=True` is probably
      a no-op.** This is inferred, not measured: blocks 1-44, 46 and 47 were
@@ -299,7 +299,7 @@ behind the §5.1 bug.
    - The "all blocks" error text (`sol_attn_h3.py` (line 301 as of 2026-09-27; the file was restructured 2026-09-27)), per §4.5.
    - The `qk_balance` tooltip calls it "an experiment" (`:1693`), yet 129
      graphs ship it on.
-   - `docs/state/roadmap.md:757-763` says Sol "ships off" and that
+   - `docs/state/roadmap.md` lines 757-763 at `901bee1` says Sol "ships off" and that
      `dense_blocks` ships empty.
    - `sol_attn_h3.py:780, 861, 879, 104` say the kernel is bf16-only. Direct
      `sol_attn` takes fp16; only the chunked entry is bf16-only.

@@ -86,7 +86,7 @@ Our sage node object-patches `diffusion_model.blocks.{i}.attn.forward`, which
 deletes the `optimized_attention` call site for all 50 DiT blocks. Sol's
 `_compose_module_patch` gates that patch and calls `stock()` inside the sigma
 window, which should reach the override. **Should.** That is an inference from
-source, and `docs/attention/sol_attn.md`'s Ordering section documents two separate nodes
+source, and `docs/attention/sol_wiring.md`'s Ordering section documents two separate nodes
 that look like they compose and do not. The same shape has cost this repo
 several confident wrong claims.
 

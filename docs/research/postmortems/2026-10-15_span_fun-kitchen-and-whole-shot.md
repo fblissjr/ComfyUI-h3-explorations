@@ -19,7 +19,7 @@ ideas deferred, where the sessions converged. No blame. Figures live in the file
   text never describes the frozen picture; "sings" only where a person sings, nothing else about voice; a reference
   still's definition is specific and the description says less; two subjects in one masked pass is closed; two
   Claude sessions.
-- The recipe that made the hall shot, kept and written down: `docs/masked_v2v/overview.md`, "A shot, made whole".
+- The recipe that made the hall shot, kept and written down: `docs/masked_v2v/running_a_job.md`, "A shot, made whole".
 - Tools landed (each with a cold reader but one; commits in `git log --since=2026-10-15`): `--no-face-on`,
   `--hold-part`, `--seam A,B`, `--no-mouth-on`, `--no-strangers`, `--eyes-shut-on`, the voice key and the hair change
   in `load_text`, no place-and-action sentence, the mouth said only where drawn, pairs through the chain (now unused),
@@ -48,7 +48,7 @@ ideas deferred, where the sessions converged. No blame. Figures live in the file
    (docs/state/decisions.md, the evening answers). Both caught by checking the files and the frames. Now: verbatim quotes with line numbers,
    grepped first; a reviewer's frame list is a pointer, never data a load takes.
 5. **The two-subject pass blended the faces.** The owner asked for the test; the code read beforehand said nothing ties
-   a reference to a hole (`docs/masked_v2v/overview.md`, the two-subject section). The pair tooling went to a lane now closed. The
+   a reference to a hole (`docs/masked_v2v/running_a_job.md`, the two-subject section). The pair tooling went to a lane now closed. The
    cost was knowingly paid for a direct
    answer. A blind reader called it "no swap"; the card seat's stills beside the render caught the cross.
 6. **Continuing 2823b was offered and then found impossible** (its stored window, off the chained grid, cannot be

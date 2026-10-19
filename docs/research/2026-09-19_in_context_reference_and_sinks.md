@@ -192,7 +192,7 @@ reference-specific measurement below waits on that one capture render.
    isolating it (`bench/sweep_sol_orderings_on_capture.py` docstring).
    **Measure first:** INT8-K-alone error on set A, raster against `3d`. A
    positive result is an argument for the reorder that the latest decision
-   says is missing (`docs/state/decisions.md:51`, "`morton` stays off by
+   says is missing (`docs/state/decisions.md` line 51 at `901bee1`, "`morton` stays off by
    default, and the panel did NOT decide it").
 
 7. **Audio-video synchronisation heads: nobody has published a per-head
@@ -247,7 +247,7 @@ reference version reuses unchanged.
   queries only for target audio (`sol_attn_h3.py` (lines 894-946 as of 2026-09-19; the file was restructured 2026-09-27)). So reference
   **keys** are always unpooled, reference **queries** are routed. The mode
   `exact_kv_and_all_rows` makes reference queries dense too; its price is in
-  `docs/attention/sol_attn.md`, "References are pinned exact".
+  `docs/attention/sol_sink.md`, "References are pinned exact".
 - The kernel takes one exact-key range and one dense-query range, each a
   single `[start, end)` (`coderef/comfy-kitchen/comfy_kitchen/__init__.py:175-177`). "Text and target audio exact, references routed" is two ranges
   and is not expressible as the layout stands.
@@ -589,7 +589,7 @@ Code read (ComfyUI core and this repo cited by repo-relative path; clones as
   `:117-123`, `:181-199`, `:291-297`, `:350-470`, `:532-545`, `:633-637`.
 - `sol_attn_h3.py` (line 430 as of 2026-09-19; the file was restructured 2026-09-27) (`_perm_for`), `:894-946` (`_sink_blocks`).
 - `workflows/h3_config.py`, `SOL_CORE_DEFAULTS`, `SOL_RECOMMENDED`.
-- `docs/state/decisions.md:51`; `docs/attention/sol_attn.md`, "References are pinned
+- `docs/state/decisions.md` line 51 at `901bee1`; `docs/attention/sol_attn.md`, "References are pinned
   exact" and the sink table; `docs/attention/morton.md`, "Related papers".
 - `coderef/comfy-kitchen/comfy_kitchen/__init__.py:175-177`.
 - `coderef/comfy-kitchen/comfy_kitchen/backends/cuda/sage_attention/sol_attn_preprocess.cu:101-115`, `:251-267`.

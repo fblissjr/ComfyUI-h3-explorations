@@ -1,12 +1,7 @@
 # What can be made here: a library of uses
 
-last updated: 2026-10-11 (a row for eyelids from marks on the body mesh, and dated notes on the body-mesh rows); 2026-10-10 (the body-mesh row: this pack's own nodes); 2026-10-05 (first written; what each unshipped use needs, added the same day)
-
-Written by hand, at the owner's ask (2026-10-05: "a library of potential
-uses given what we have done here and can do here holistically with
-everything we've built and with what minimax h3 itself can do with it").
-One row per thing a person can make: what H3 itself does for it, which
-nodes and graph do it today, its state, and where the evidence is.
+Can we do X? One row per thing a person can make: what H3 itself does for it, which nodes and graph do it today, its
+state, and where the evidence is. Each row links down to the page that owns it.
 
 This page is a map, not an authority. It carries no measurement and no
 verdict: a record named in the last column holds those. A graph named here
@@ -33,8 +28,8 @@ labelled in the prompt and each is given a role. Everything else on this
 page is one of those three, or one of two mechanisms core exposes on top of
 them: a noise mask per stream and per token, which freezes part of a latent
 while the rest is generated, and guide rows. `docs/prompting/prompting.md` section 1
-is the authority on the modes; `references.md` on references;
-`audio_freeze.md` section 1 on the mask.
+is the authority on the modes; [`references.md`](references.md) on references;
+[`audio_freeze.md`](audio_freeze.md) section 1 on the mask.
 
 ## 1. From text and stills
 
@@ -42,10 +37,10 @@ is the authority on the modes; `references.md` on references;
 |---|---|---|---|---|
 | A clip from text alone, with sound | t2va | `MiniMaxH3Conditioning`, `MiniMaxH3Resolution`; `h3_text_to_video`, `daily/h3_t2v_pdd8_flashgen_finish` | shipped | `docs/distills/which_distill.md`; `bench/results/2026-09-27_finisher_grid.md` |
 | Scripted dialogue between speakers; singing; text on screen | the prompt's speaker ids and `<d>` blocks; no node | `h3_text_to_video_dialogue` | shipped | `docs/prompting/prompting.md` sections 5 and 6; `bench/results/2026-09-19_dialogue_transcription.md` |
-| A clip that starts on a given still | fl2va with a first frame | `MiniMaxH3Conditioning` with the canvas taken from the keyframe; `h3_first_frame_to_video`, `daily/h3_i2v_pdd8_flashgen_finish` | shipped | `geometry_and_nodes.md`; `bench/results/2026-09-26_flashgen_tasks_s1.md` |
+| A clip that starts on a given still | fl2va with a first frame | `MiniMaxH3Conditioning` with the canvas taken from the keyframe; `h3_first_frame_to_video`, `daily/h3_i2v_pdd8_flashgen_finish` | shipped | [`geometry.md`](geometry.md), "A canvas from a keyframe"; `bench/results/2026-09-26_flashgen_tasks_s1.md` |
 | A clip between two stills | fl2va | `MiniMaxH3Conditioning`; `h3_first_last_frame_to_video` | shipped | `docs/prompting/prompting.md` 3.5 and 10.3 |
 | A clip that ends on a given still | fl2va with a last frame only | `MiniMaxH3Conditioning`; `h3_last_frame_to_video` | shipped | `docs/prompting/prompting.md` 10.4 |
-| Portrait, ultrawide and square shapes; long clips | the trained family of canvases and the frame grid | `MiniMaxH3Resolution`, `MiniMaxH3Preflight`; `h3_probe_canvas_portrait`, `h3_probe_canvas_ultrawide`, `h3_probe_square_canvas` | probe | `resolutions.md` |
+| Portrait, ultrawide and square shapes; long clips | the trained family of canvases and the frame grid | `MiniMaxH3Resolution`, `MiniMaxH3Preflight`; `h3_probe_canvas_portrait`, `h3_probe_canvas_ultrawide`, `h3_probe_square_canvas` | probe | [`geometry.md`](geometry.md) |
 
 ## 2. From references
 
@@ -54,17 +49,17 @@ audio clip, and the prompt names it by its label.
 
 | use | what H3 does for it | nodes and graph today | state | evidence |
 |---|---|---|---|---|
-| A person, several people or a place from stills, in a new scene | ref2va, `<Picture N>` and `<Subject N>` | `MiniMaxH3AppendRefImage`, `MiniMaxH3ReferenceConditioning`; `h3_image_ref_plus_text_to_video`, `h3_ref2v_market`, `daily/h3_ref2v_pdd8_flashgen_finish` | shipped | `references.md`, "The four reference types"; `bench/results/2026-10-03_r2v_finish_time_budget.md` |
-| A clip that follows a reference video's camera, cuts and pacing | ref2va, `<Video N>` as a weak reference | `MiniMaxH3AppendRefVideo`; `h3_ref_video_only`, `h3_ref_video_to_video` | shipped | `references.md`, "Follow camera movement, cuts and rhythm only" |
-| The movement of a reference video on a subject from a still | ref2va, attribute transfer from `<Video N>` | the same nodes; `h3_ref_video_motion` | shipped | `references.md`, "Transfer motion onto a different subject" |
-| Edit a video by handing it in as a reference (change a garment, keep the rest) | ref2va, the video partly preserved. The whole frame is regenerated; nothing is kept exactly | the same nodes; `h3_ref_video_edit`, `h3_ref_video_image_edit` | shipped | `references.md`, "Edit a source video" |
-| Replace a character, with the video as the plate | ref2va, a video and one still | the same nodes; `h3_ref_video_swap` | shipped | `references.md`, "Replace a character, keeping the video as the plate"; `data/results/2026-08-22_swap_prompt_verdict.json` |
-| Continue from the end of a video | ref2va, the video as a continuation source | the same nodes; `h3_ref_video_continue` | shipped | `references.md`, "Continue from the end of a source video" |
-| Speech in a referenced voice | ref2va, `<Audio N>` referenced, not copied | `MiniMaxH3AppendRefAudio`; `h3_ref_audio_voice` | shipped | `references.md`, "Reference a voice" |
-| Music in the style of a referenced track | ref2va, `<Audio N>` referenced | the same node; `h3_ref_image_audio` | shipped | `references.md`, "Reference a music style" |
-| A video reference with its own soundtrack carried over | ref2va, the video's audio as part of the reference | `h3_ref_video_audio`, `h3_ref_image_video_audio` | shipped | `references.md`, "Video references" |
-| References on the keyframe checkpoint, or seen by the text encoder only | the encoder's view of a reference without the video model's copy | `use_vae` on the Append nodes; `h3_probe_ref_pathway_fl2va_encoder` | probe | `references.md`, "Encoder-only references"; `bench/results/2026-10-03_encoder_only_reference.md` |
-| Encode the references once and change only the prompt | none; a split of the conditioning | `MiniMaxH3EncodeReferences`, `MiniMaxH3PromptOnReferences` | built | `references.md`, "Encoding references apart from the prompt" |
+| A person, several people or a place from stills, in a new scene | ref2va, `<Picture N>` and `<Subject N>` | `MiniMaxH3AppendRefImage`, `MiniMaxH3ReferenceConditioning`; `h3_image_ref_plus_text_to_video`, `h3_ref2v_market`, `daily/h3_ref2v_pdd8_flashgen_finish` | shipped | [`references.md`](reference_prompts.md), "The four reference types"; `bench/results/2026-10-03_r2v_finish_time_budget.md` |
+| A clip that follows a reference video's camera, cuts and pacing | ref2va, `<Video N>` as a weak reference | `MiniMaxH3AppendRefVideo`; `h3_ref_video_only`, `h3_ref_video_to_video` | shipped | [`reference_prompts.md`](reference_prompts.md), "Follow camera movement, cuts and rhythm only" |
+| The movement of a reference video on a subject from a still | ref2va, attribute transfer from `<Video N>` | the same nodes; `h3_ref_video_motion` | shipped | [`reference_prompts.md`](reference_prompts.md), "Transfer motion onto a different subject" |
+| Edit a video by handing it in as a reference (change a garment, keep the rest) | ref2va, the video partly preserved. The whole frame is regenerated; nothing is kept exactly | the same nodes; `h3_ref_video_edit`, `h3_ref_video_image_edit` | shipped | [`reference_prompts.md`](reference_prompts.md), "Edit a source video" |
+| Replace a character, with the video as the plate | ref2va, a video and one still | the same nodes; `h3_ref_video_swap` | shipped | [`reference_prompts.md`](reference_prompts.md), "Replace a character, keeping the video as the plate"; `data/results/2026-08-22_swap_prompt_verdict.json` |
+| Continue from the end of a video | ref2va, the video as a continuation source | the same nodes; `h3_ref_video_continue` | shipped | [`reference_prompts.md`](reference_prompts.md), "Continue from the end of a source video" |
+| Speech in a referenced voice | ref2va, `<Audio N>` referenced, not copied | `MiniMaxH3AppendRefAudio`; `h3_ref_audio_voice` | shipped | [`reference_prompts.md`](reference_prompts.md), "Reference a voice" |
+| Music in the style of a referenced track | ref2va, `<Audio N>` referenced | the same node; `h3_ref_image_audio` | shipped | [`reference_prompts.md`](reference_prompts.md), "Reference a music style" |
+| A video reference with its own soundtrack carried over | ref2va, the video's audio as part of the reference | `h3_ref_video_audio`, `h3_ref_image_video_audio` | shipped | [`references.md`](references.md), "Video references" |
+| References on the keyframe checkpoint, or seen by the text encoder only | the encoder's view of a reference without the video model's copy | `use_vae` on the Append nodes; `h3_probe_ref_pathway_fl2va_encoder` | probe | [`references.md`](references.md), "Encoder-only references"; `bench/results/2026-10-03_encoder_only_reference.md` |
+| Encode the references once and change only the prompt | none; a split of the conditioning | `MiniMaxH3EncodeReferences`, `MiniMaxH3PromptOnReferences` | built | [`references.md`](references.md), "Encoding references apart from the prompt" |
 
 ## 3. To a known audio track
 
@@ -182,7 +177,7 @@ only where something more than promoting its graph is needed.
 So that nobody plans on them. `docs/state/roadmap.md`, "Closed lanes", is the list
 and the reasons.
 
-- Single-frame image generation and editing: parked; `image_editing.md`.
+- Single-frame image generation and editing: parked; [`image_editing.md`](image_editing.md).
 - Keyframes at arbitrary points inside a clip: not built. Core's guide rows
   are used in one graph, for audio at the start.
 - Upscaling or frame interpolation of a finished video: nothing here.

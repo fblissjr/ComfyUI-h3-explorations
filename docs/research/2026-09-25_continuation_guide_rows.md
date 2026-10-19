@@ -151,7 +151,7 @@ docstring.
   off our audio grid.
 - **Cost.** B adds the overlap's rows to every window: `video_latent_t` of
   the context against that of the window, at the canvas's rows per step
-  (`h3_rules.py`, [`docs/h3/resolutions.md`](../h3/resolutions.md)). Under Sol
+  (`h3_rules.py`, [`docs/h3/geometry.md`](../h3/geometry.md)). Under Sol
   those rows are exact-KV columns for every query, which erodes Sol's saving.
 - **Checkpoint.** A clean multi-step conditioning block ahead of the target
   is outside what fl2va was trained on, since the release's keyframes are

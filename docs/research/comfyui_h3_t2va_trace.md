@@ -1662,7 +1662,7 @@ release shards store the fused rows **per-head interleaved**,
 `[q_h|k_h|v_h] x 56`; the Comfy-Org repacks store them **contiguous**,
 `[q_all; k_all; v_all]`, which is what the `split` above assumes. Both are
 `[21504, 5376]` and `56*3*128` is the row count either way, so a file in the
-wrong order loads clean and renders noise. `docs/method/evidence.md:176-186` records a
+wrong order loads clean and renders noise. `docs/method/evidence.md` lines 176-186 at `901bee1` records a
 `DeepBeepMeep`/WanGP bf16 file that does exactly that.
 
 **Retracted 2026-08-29, the same day it was written.** An earlier version of

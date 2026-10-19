@@ -21,12 +21,12 @@ this file is right and the other is stale.
 | What does the repo render? | [`prompt_catalogue.md`](prompt_catalogue.md), generated from the graphs |
 | Is a shipped prompt any good? | [`prompt_audit.md`](prompt_audit.md), one hand-written verdict per scene |
 | Reference sizing and the runtime label order | [`docs/h3/references.md`](../h3/references.md) |
-| Legal canvases and lengths | [`docs/h3/resolutions.md`](../h3/resolutions.md), [`docs/h3/geometry_and_nodes.md`](../h3/geometry_and_nodes.md) |
+| Legal canvases and lengths | [`docs/h3/geometry.md`](../h3/geometry.md), [`docs/h3/geometry.md`](../h3/geometry.md) |
 | Comparing two prompts fairly | [`docs/method/eval_comparison.md`](../method/eval_comparison.md). The one measured length pair is [`prompt_length_experiment.md`](prompt_length_experiment.md) |
 | Why a rule was added, reversed or withdrawn | [`docs/state/decisions.md`](../state/decisions.md) |
 | Handing the rules to someone outside the repo | [`portable/h3_prompt_standard.html`](portable/h3_prompt_standard.html), and a writer-model version at [`portable/h3_system_prompt.md`](portable/h3_system_prompt.md). Both are copies of this file; `portable/snapshots.json` pins the frozen dated ones, and a copy published elsewhere is a snapshot of whatever it was published from |
 | An agent routing by task | `.claude/skills/h3-prompt` |
-| The text of a masked video-to-video load, and what it says of a motion video | [`docs/masked_v2v/overview.md`](../masked_v2v/overview.md): its section on the Masked Prompt node for what that node writes, and "The motion video as a body model, with marks drawn on its face" for the lines that say what such a video is and that the subject follows it. **That second one is provisional and ours (HOUSE, 2026-10-11): it held on one shot and did not repeat on a second.** It is a practice written down with its evidence, not a rule of this file |
+| The text of a masked video-to-video load, and what it says of a motion video | [`docs/masked_v2v/renders_by_form.md`](../masked_v2v/renders_by_form.md): its section on the Masked Prompt node for what that node writes, and "The motion video as a body model, with marks drawn on its face" for the lines that say what such a video is and that the subject follows it. **That second one is provisional and ours (HOUSE, 2026-10-11): it held on one shot and did not repeat on a second.** It is a practice written down with its evidence, not a rule of this file |
 
 ## Four layers, and every rule says which one it is
 
