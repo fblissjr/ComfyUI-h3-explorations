@@ -66,10 +66,7 @@ The tracker and its SAM 3.1 behaviour are [`sam31.md`](sam31.md); recognizing a 
 
 - **Removing the original's shadow and reflections.** Nothing here does it. VOID was tested for it on 2026-10-05 and
   removed: `../../bench/results/2026-10-05_void_plate_turn.md`.
-- **A soft edge**: a matting model on the subject. The nodes exist (`sapiens2_parts.py`, `MiniMaxH3SubjectParts`);
-  the matte is in no graph ([`perception_models.md`](perception_models.md), the matting row). The model was read
-  once, on 2026-10-04, and that reading is not in the tree.
-
-### The render
-
+- **A soft edge**: a matting model on the subject. Closed, not refuted, on 2026-10-18: the loader keeps a slot for it
+  (`sapiens2_parts.MATTE_ARCH`) and `h3_config.SAPIENS2["matting"]` is `"none"`
+  ([`perception_trials.md`](perception_trials.md), "Sapiens2 matting").
 - The mask through two samplers, with the plate restored between them.

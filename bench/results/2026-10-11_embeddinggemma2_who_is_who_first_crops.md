@@ -16,7 +16,7 @@ likeness from the tracker's own features failed on this clip on the 10th
 the right person first on the shots that went wrong then, it would be worth
 showing beside the numbered picture; if it does not, the road stays closed
 with one more model tried. The plan this belongs to is "The trials" in
-`docs/masked_v2v/perception_models.md`, the paragraph on a likeness score.
+`docs/masked_v2v/perception_trials.md`, the paragraph on a likeness score.
 
 ## How it was run
 

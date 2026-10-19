@@ -44,13 +44,13 @@ Order and timing words in a text ("then", "near the end") need no measurement, t
   end of the scale. A head seen from behind still gets a nose point, because the body model completes what it cannot
   see, so "the face shows" must come from the angle and the face class, never from a keypoint existing.
 - **Two crops**: the record's angles are from ComfyUI's own body nodes (`SAM3DBody_Predict`), not this pack's
-  `MiniMaxH3BodyPose`, whose crop is Meta's ([`perception_models.md`](perception_models.md)). The two have not been
+  `MiniMaxH3BodyPose`, whose crop is Meta's ([`sam3d_body.md`](sam3d_body.md)). The two have not been
   compared on a frame.
 - **The dense pose model** (Sapiens2 pose 1b) names the lips point by point, both eyelids, the iris and pupil, the
   nose, each ear's outline and each finger's joints
   (`coderef/sapiens2/sapiens/pose/configs/_base_/keypoints308.py`). It is run along shots by
   `bench/pose_along_shot.py`; its eye figure is trusted at its two ends and its mouth figure is not
-  ([`perception_models.md`](perception_models.md), "The trials").
+  ([`sapiens2_pose.md`](sapiens2_pose.md), "Trial 1's verdict").
 
 ## Whether the face shows
 
@@ -86,10 +86,9 @@ separate faces side by side at the same distance, or a hand on a face.
   become a case in `bench/check_body_pose.py` with a depth field. A whole-frame box on a frame of several people
   comes back as one body at about the nearest person's distance, so depth is read only from a box on one person. A
   mesh has no hair, clothing or held things, which is what the unsettled pixels were.
-- **The Sapiens2 pointmap** (in the store) gives points in a canonical camera per image given; whether two separately
-  cropped people's depths compare after `scales` has not been read out of
-  `coderef/sapiens2/sapiens/dense/src/models/heads/pointmap_head.py`. Loading it would take a third architecture in
-  `sapiens2_parts.py::MiniMaxH3Sapiens2Loader` and turns on the card with the video model.
+- **The Sapiens2 pointmap** was tried and dropped on 2026-10-18 (`6aebcbf6`): a flat sheet at 1b, a soft edge at
+  far more than MoGe-2's time ([`perception_trials.md`](perception_trials.md), "Sapiens2 pointmap"). MoGe-2 is the
+  depth the lane uses ([`depth.md`](depth.md)).
 - **Objects** need the body model's sibling scene model (`coderef/sam-3d-body/README.md`), which is not in the store.
 
 ## A mouth open with no voice

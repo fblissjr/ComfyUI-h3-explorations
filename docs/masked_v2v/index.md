@@ -21,7 +21,13 @@ Rules first: [`data/AGENTS.md`](../../data/AGENTS.md). Then these pages, from th
 | [`sam31_core.md`](sam31_core.md) | the code map: runtime patches (`sam31_corrections.py`), what is left as core computes it, and our shot-aware tracker against core's, file and line |
 | [`who_is_who.md`](who_is_who.md) | recognizing a named person again: the owner's answer and the cast file today, what is built, what the evidence showed, the two-vote plan, the design further ahead |
 | [`state_signals.md`](state_signals.md) | what code can say about a subject (head direction, face showing, a hand at the face, who is in front, an open mouth) and what it cannot yet |
-| [`perception_models.md`](perception_models.md) | what SAM-Audio, PE-AV, SAM 3D Body, Sapiens2 and the depth models each give the lane, what is on disk, the trials |
+| [`perception_models.md`](perception_models.md) | **the perception models in one table**: what each gives the lane, whether it is wired (and into what), tried and dropped, or a candidate, since when, and the commit or record |
+| [`sapiens2_parts.md`](sapiens2_parts.md) | the Sapiens2 part model: the region of a part load, the class map the capture grades against, the head tube inside SAM 3.1's head track, which classes are safe to offer |
+| [`sapiens2_pose.md`](sapiens2_pose.md) | the Sapiens2 keypoint model: the pose pass, the face points drawn on the head reference and its defaults, the eye reader, trial 1's verdict |
+| [`sam3d_body.md`](sam3d_body.md) | SAM 3D Body: our body nodes and the body-model video, the face it lacks, hands, more than one person, core's port against Meta's, the preflight flags |
+| [`depth.md`](depth.md) | MoGe-2 depth for who is in front where masks overlap: the tool, the capture's settling, what it measured, the other depth models in the store |
+| [`voice_stem.md`](voice_stem.md) | the Hybrid Demucs vocal stem: where a voice is by frame, what reads it, what it cannot say |
+| [`perception_trials.md`](perception_trials.md) | the models the lane does not run (SAM-Audio, PE-AV, matting, the pointmap, relative depth, the other body backbone, core's face expression, MoE-ViE) and the trials that would decide them |
 
 ## Windows and renders
 

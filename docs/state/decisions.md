@@ -80,6 +80,21 @@ Older history lives elsewhere and is not copied here:
   `research/pdd/README.md` called the 2026-09-05 bake plan "not started" (the plan records it executed and judged
   blind that day) and gave +11.6% as the 2026-08-31 headline (that handoff's own correction makes it 1.40x under the
   shipped stochastic rounding; +11.6% is the round-to-nearest part only).
+- **`masked_v2v/perception_models.md` is an overview of what each perception model gives the lane today** (562 lines
+  to 49, a table of each model's status, since when and its commit), with a page per model the lane uses:
+  `sapiens2_parts.md`, `sapiens2_pose.md`, `sam3d_body.md`, `depth.md`, `voice_stem.md`, and `perception_trials.md`
+  for what was tried. Quoted headings kept their text and every quote now names the new page. Corrected: the page
+  said the mesh preflight flags were not written (they are `bench/capture_masked_run.py::flag_pose` since 2026-10-10,
+  `252b6f8e`); called MoGe-2 loaded by nothing, the pointmap the only depth option and matting worth a try (by
+  2026-10-18 MoGe-2 was wired behind `--depth`, the pointmap dropped, `6aebcbf6`, and matting closed, `23c32dbb`);
+  said the keypoint model is run by a bench tool (the chain runs it on every load). `state_signals.md` no longer
+  offers the pointmap, and `limits_and_directions.md` records matting as closed.
+- **The leads' protocol is a tracked page with roles named by job**: `docs/working/protocol.md`, the operating lead
+  and the review lead, replaces `internal/gemini/PROTOCOL.md`, whose roles were named by model (the Gemini lead, the
+  Claude lead); which model holds which role is one line on the page. Root `AGENTS.md`, `working_with_the_owner.md`
+  and `data/AGENTS.md` use the role names. The folder-rules standard is `docs/method/agents_and_indexes.md`, held by
+  `bench/check_folder_rules.py`; it carries the owner's rule that a tracked file does not cite a dated session note
+  more than seven days old. `docs/projects/` holds work across folders, starting with `reorg/`.
 
 ## 2026-10-18
 

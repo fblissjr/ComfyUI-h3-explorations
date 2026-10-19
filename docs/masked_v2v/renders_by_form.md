@@ -57,7 +57,7 @@ One video, the load's motion video, the size of the canvas, one frame for each f
 
 - **A plain grey body model on a black ground**, posed on every frame as the person in the source is posed. Nothing
   of the source's picture is in it. Its own face is a neutral modelled face that never changes: the body model sets
-  the jaw and every expression to zero ([`perception_models.md`](perception_models.md), "The face"). On the frames
+  the jaw and every expression to zero ([`sam3d_body.md`](sam3d_body.md), "The face"). On the frames
   looked at its mouth is shut.
 - **On that face, over each eye, a white shape with a thin black edge** filling the space between her upper and lower
   lash line on that frame: an almond where her eye is open, a sliver where it is lowered or shut. Lids only. Each
@@ -148,7 +148,7 @@ The pose model on every frame of the source and of the render: the eye opening t
 are open and where they are lowered, and where the head sits in pixels beside any correlation, since a correlation
 hid the head's offset on this shot. A level is stated with a floor beside it, the same render made twice. The eye
 figure is trusted at its two ends and not in between, and the mouth figure is not trusted
-([`perception_models.md`](perception_models.md), "The trials"). `../../bench/read_render_against_original.py` does
+([`sapiens2_pose.md`](sapiens2_pose.md), "Trial 1's verdict"). `../../bench/read_render_against_original.py` does
 this reading from the points files of the source and each render; without two makes of one render handed in as a
 floor it prints every difference and calls none a difference, and it writes the lip gap as a column and says nothing
 of a mouth. Its figures are defined in `../../bench/_lib/face_points.py`, read against `h3_config.POSE_READING`, each a

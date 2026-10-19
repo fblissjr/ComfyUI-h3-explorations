@@ -38,7 +38,7 @@ corrections) is [`sam31.md`](sam31.md) and its code map [`sam31_core.md`](sam31_
 - **`replace`.** `whole subject`; `head and hair`, which keeps the body's pixels and finds the part with SAM 3 from
   `part_phrases`; or `the wired parts`, a part of the subject the Sapiens2 part node finds (`MiniMaxH3SubjectParts`,
   `sapiens2_parts.py`). The part classes are not things a person would choose; which are safe to offer is in
-  [`perception_models.md`](perception_models.md), "The part classes are not things a person would choose".
+  [`sapiens2_parts.md`](sapiens2_parts.md), "The part classes are not things a person would choose".
 - **`edge`** (a trial, off by default). `whole tokens` is the rule above; `latent cells` hands the sampler the mask
   per latent cell, half a token's side, so a kept cell inside a regenerated token is the source's in the result
   (`video_mask.EDGES` has the provenance; `bench/check_video_mask.py` item 15 holds it). It aims at the rounding that
@@ -62,7 +62,7 @@ corrections) is [`sam31.md`](sam31.md) and its code map [`sam31_core.md`](sam31_
   (`subject_boxes.py`), one box a frame round the tracked mask, so the mesh is of the tracked person. The reference
   form the lane uses for a face, head or hair replacement is in [`data/AGENTS.md`](../../data/AGENTS.md); how it is
   made and what it carried is [`renders_by_form.md`](renders_by_form.md). What the body model gives and does not (no
-  mouth) is [`perception_models.md`](perception_models.md).
+  mouth) is [`sam3d_body.md`](sam3d_body.md).
 - **`motion_video_2`**, with its own `motion_short_edge_2`: a second wired video, shown as the next video reference
   after the first, for a text that gives each video something of its own to carry
   ([`docs/prompting/prompting.md`](../prompting/prompting.md), section 9). `motion_vae` is one switch for both, and a

@@ -170,7 +170,7 @@ subject's `classes=`) to `bench/capture_masked_run.py files`.
   single-frame camera FOV reading on close-ups.
 - **Cost and measurements**: paid only on the load's overlap frames; figures, camera FOV ranges and commands are in
   [`2026-10-18_moge2_depth_on_crossings.md`](../../bench/results/2026-10-18_moge2_depth_on_crossings.md). The depth
-  models in the store are listed in [`perception_models.md`](perception_models.md), "Depth and geometry".
+  models in the store are listed in [`depth.md`](depth.md), "Depth and geometry".
 
 ## Seeing what the tracker and the masks did
 
