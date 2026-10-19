@@ -131,10 +131,10 @@ def source_info(data_dir: Path, video: str, inputs_dir: Path, source_arg: str | 
         return src_path, s0, s1
 
     file_name = (
-        src_block.get("name")
-        or src_block.get("file")
-        or derived.get("name")
+        derived.get("name")
         or derived.get("file")
+        or src_block.get("name")
+        or src_block.get("file")
         or shots_data.get("video")
         or shots_data.get("clip")
         or f"{video}.mp4"

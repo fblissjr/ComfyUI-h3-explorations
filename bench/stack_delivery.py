@@ -143,7 +143,7 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from _lib.frames import FIT, probe  # noqa: E402
+from _lib.frames import FIT, FPS, probe  # noqa: E402
 from frame_coverage import CHIP_NO_TRACK_WORDS, CHIP_WORDS, LOST_KINDS, chip_words_of  # noqa: E402
 
 #: Lines of words in the block under the middle row of the layout before 2026-10-16, and a line's height at a canvas 768
@@ -209,6 +209,16 @@ def frame_of(seconds: float, rate: float) -> int:
     return math.ceil(seconds * rate - 1e-3)
 
 
+def _loader_first_frame(loader: dict | None) -> int | None:
+    """A loader's first frame from its saved `start_time` at `FPS` (the rate `masked_job_graph.py::seek` wrote it at),
+    or its recorded `first_frame` when `start_time` is absent."""
+    if not loader:
+        return None
+    if "start_time" in loader and loader["start_time"] is not None:
+        return frame_of(float(loader["start_time"]), float(FPS))
+    return int(loader["first_frame"]) if loader.get("first_frame") is not None else None
+
+
 def _loader(graph: dict, link, depth: int = 0) -> dict | None:
     node = graph.get(str(link[0])) if isinstance(link, list) and link else None
     if node is None or depth > 8:
@@ -223,10 +233,11 @@ def _loader(graph: dict, link, depth: int = 0) -> dict | None:
     return None
 
 
-def graph_reads(piece: str, rate: float) -> tuple[int | None, tuple[str, int] | None]:
+def graph_reads(piece: str, rate: float = float(FPS)) -> tuple[int | None, tuple[str, int] | None]:
     """From the graph saved in a piece's picture: the source frame it loaded from, and its reference video with the
-    frame it starts on. (None, None) when there is no picture, no graph or no Masked Source in it; a reference
-    of None where the graph wires none."""
+    frame it starts on (both read at `FPS`, the 24 fps rate `masked_job_graph.py::seek` wrote `start_time` at).
+    (None, None) when there is no picture, no graph or no Masked Source in it; a reference of None where the graph
+    wires none."""
     png = Path(piece).with_suffix(".png")
     if not png.is_file():
         return None, None
@@ -242,8 +253,8 @@ def graph_reads(piece: str, rate: float) -> tuple[int | None, tuple[str, int] | 
     frames = _loader(graph, ins.get("frames"))
     direct = graph.get(str(ins["motion_video"][0])) if isinstance(ins.get("motion_video"), list) else None
     ref = direct["inputs"] if direct is not None and isinstance(direct["inputs"].get("video"), str) else None     # a file, wired straight in
-    return (frame_of(float(frames.get("start_time", 0.0)), rate) if frames else None,
-            (ref["video"], frame_of(float(ref.get("start_time", 0.0)), rate)) if ref else None)
+    return (frame_of(float(frames.get("start_time", 0.0)), float(FPS)) if frames else None,
+            (ref["video"], frame_of(float(ref.get("start_time", 0.0)), float(FPS))) if ref else None)
 
 
 def read_rows(table: str, rate: float, aliases: dict[str, str]) -> tuple[list[dict], list[dict]]:
@@ -458,7 +469,7 @@ class KeptSquares:
                 if not all(size):
                     self.tracks, self.track_why = [], f"{Path(t['file']).name}: its loader leaves the size to the file and {why}"
                     return
-            self.tracks.append((t["file"], int(loader.get("first_frame") or 0), size))
+            self.tracks.append((t["file"], int(_loader_first_frame(loader) or 0), size))
 
     def _hers_of(self, wd: dict):
         """[latent steps, units] of bool: more than the capture's share hers on any frame of the step, the union of her tracks,
@@ -976,7 +987,7 @@ def build(a: argparse.Namespace) -> None:
         file = Path(r["piece"]).name
         g = given.get(file)
         src_in = next((x for x in (g or {}).get("inputs") or [] if x.get("role") == "the source"), None)
-        load_first = ((src_in or {}).get("loader") or {}).get("first_frame")
+        load_first = _loader_first_frame((src_in or {}).get("loader"))
         origin = r["graph_first"] if load_first is None else load_first
         rendered = (r["piece_first"] - origin) + probe(r["piece"])[2] if Path(r["piece"]).is_file() else None   # the load frames the render holds
         kept_of[file] = KeptSquares(r, g, why_unread.get(file), capm, vm, origin, rendered)
@@ -1805,7 +1816,7 @@ def compare(a: argparse.Namespace) -> None:
             continue
         g = given.get(file)
         src_in = next((x for x in (g or {}).get("inputs") or [] if x.get("role") == "the source"), None)
-        load_first = ((src_in or {}).get("loader") or {}).get("first_frame")
+        load_first = _loader_first_frame((src_in or {}).get("loader"))
         origin = r["graph_first"] if load_first is None else load_first
         rendered = (r["piece_first"] - origin) + probe(r["piece"])[2] if Path(r["piece"]).is_file() else None
         kept_of[p_key] = KeptSquares(r, g, why_unread.get(file), capm, vm, origin, rendered)

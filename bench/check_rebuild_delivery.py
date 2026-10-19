@@ -465,17 +465,24 @@ def discovery_rules_are_deterministic() -> str:
         for p in (data / video, inputs):
             p.mkdir(parents=True)
 
-        # source_info prefers source.name over derived.name while reading frames from derived
-        (inputs / f"{video}.mp4").write_bytes(b"mp4")
+        # source_info prefers derived.name over source.name (matching derived.frames), and falls back to source.name when derived is absent
+        (inputs / f"{video}_source.mp4").write_bytes(b"mp4")
         (inputs / f"{video}_working.mov").write_bytes(b"mov")
         (data / video / "shots.json").write_text(json.dumps({"shots": [{"first": 0, "last": 5}]}))
         (data / video / "manifest.json").write_text(json.dumps({
-            "source": {"name": f"{video}.mp4"},
+            "source": {"name": f"{video}_source.mp4", "frames": 6},
             "derived": {"name": f"{video}_working.mov", "frames": 8},
         }))
         src_p, s0, s1 = rd.source_info(data, video, inputs)
-        assert (src_p.name, s0, s1) == (f"{video}.mp4", 0, 7), (
-            f"expected source_info to prefer source.name {video}.mp4 with span 0-7 from derived.frames, got {(src_p.name, s0, s1)}"
+        assert (src_p.name, s0, s1) == (f"{video}_working.mov", 0, 7), (
+            f"expected source_info to prefer derived.name {video}_working.mov with span 0-7 from derived.frames, got {(src_p.name, s0, s1)}"
+        )
+        (data / video / "manifest.json").write_text(json.dumps({
+            "source": {"name": f"{video}_source.mp4", "frames": 6},
+        }))
+        src_p_no_derived, s0_nd, s1_nd = rd.source_info(data, video, inputs)
+        assert (src_p_no_derived.name, s0_nd, s1_nd) == (f"{video}_source.mp4", 0, 5), (
+            f"expected source_info to fall back to source.name {video}_source.mp4 with span 0-5 when derived is absent, got {(src_p_no_derived.name, s0_nd, s1_nd)}"
         )
 
         # Table dirs + trial subfolder

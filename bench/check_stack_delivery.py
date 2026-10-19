@@ -274,6 +274,16 @@ def the_table_as_read() -> str:
     picture(odd.with_suffix(".png"), 3, m.ref_a)
     (row,), _ = sd.read_rows(str(odd_table), 24.0, {})
     assert row["ref"] == (str(m.ref_a), 0) and row["ref_refused"] is None, row
+    # A SAVED start_time WAS WRITTEN AT 24 FPS (`masked_job_graph.py::seek`): at frame 751 (`start_time = 31.275`),
+    # multiplying by 24000/1001 (23.976024) shifts the frame down to 750 (`C154`). Both `graph_reads` and
+    # `_loader_first_frame` (used for KeptSquares `origin`) must read `start_time` back at 24 fps -> 751.
+    assert sd.frame_of((751 - 0.4) / 24.0, 24000 / 1001) == 750, "the control: 24000/1001 shifts frame 751 down to 750"
+    picture(odd.with_suffix(".png"), 751, m.ref_a, 751)
+    assert sd.graph_reads(str(odd), 24000 / 1001) == (751, (str(m.ref_a), 751)), sd.graph_reads(str(odd), 24000 / 1001)
+    (row_751,), _ = sd.read_rows(str(odd_table), 24000 / 1001, {})
+    assert row_751["graph_first"] == 751 and row_751["ref"] == (str(m.ref_a), 751), row_751
+    assert sd._loader_first_frame({"start_time": (751 - 0.4) / 24.0, "rate": 24000 / 1001, "first_frame": 750}) == 751
+    assert sd._loader_first_frame({"first_frame": 12}) == 12 and sd._loader_first_frame(None) is None
     # A PLAYLIST UNDER A VIDEO'S NAME passes a check of the name, so the reader must not follow it: ffmpeg is told
     # the container by the suffix and the file does not read. The control: left to probe the content, ffmpeg DOES
     # follow this same file to the video it lists, so the fixture is a working playlist and the gap was real

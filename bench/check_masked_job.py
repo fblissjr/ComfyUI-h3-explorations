@@ -1558,8 +1558,8 @@ def a_job_is_built_on_its_videos_analysis_folder():
         video.write_bytes(b"the input video")
         copy.write_bytes(b"the copy a job renders from")
 
-        def about(path: Path, frames: int) -> dict:
-            return {"name": path.name, "bytes": path.stat().st_size, "frames": frames, "rate": 24.0, "size": [32, 16],
+        def about(path: Path, frames: int, rate: float = 24.0) -> dict:
+            return {"name": path.name, "bytes": path.stat().st_size, "frames": frames, "rate": rate, "size": [32, 16],
                     "head_sha256": cf.head_hash(path)}
         job = dict(_without_corrections(), source=str(copy))
         where = dict(date="2026-01-01", data=tmp / "data", output=tmp / "output")
@@ -1567,7 +1567,14 @@ def a_job_is_built_on_its_videos_analysis_folder():
         # no folder: refused, with the command that makes one, and nothing written
         _refused(lambda: tool.build(_job_file(tmp, job), "preview", **where), "not been analysed", "clip_analysis.py init", "fun_24p.mkv")
         assert not list((tmp / "data").glob("*_job")), "a refused build left a job folder behind"
-        made = cf.write_manifest(tmp / "data" / "fun", {"source": about(video, 30), "derived": about(copy, 24)})
+        # a non-24 fps source with no 24 fps copy in derived: refused naming the file's rate and clip_analysis.py init --copy
+        cf.write_manifest(tmp / "data" / "fun", {"source": about(video, 30, rate=23.976024), "derived": None})
+        _refused(lambda: tool.build(_job_file(tmp, dict(job, name="check_rate_no_copy", source=str(video))), "preview", **where),
+                 "fun.mkv", "23.976024", "24 fps", "clip_analysis.py init fun.mkv --copy")
+        made = cf.write_manifest(tmp / "data" / "fun", {"source": about(video, 30, rate=23.976024), "derived": about(copy, 24, rate=24.0)})
+        # a non-24 fps source when derived is 24.0 fps: refused naming the file's rate and the 24 fps derived copy
+        _refused(lambda: tool.build(_job_file(tmp, dict(job, name="check_rate_has_copy", source=str(video))), "preview", **where),
+                 "fun.mkv", "23.976024", "24 fps", "fun_24p.mkv")
         folder = tool.build(_job_file(tmp, job), "preview", **where)
         assert json.loads((folder / "preview.built.json").read_text())["analysis"] == {"folder": "fun", "fingerprint": made["fingerprint"]}, \
             "the build record does not say which analysis it was built on"

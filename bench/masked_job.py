@@ -205,19 +205,31 @@ def check_corrections(job: dict, version: int) -> None:
 
 
 def analysed(job: dict, data: Path) -> dict:
-    """The analysis folder of the video a job renders from, checked to be that file's: its name and fingerprint.
+    """The analysis folder of the video a job renders from, checked to be that file's and at H3's 24 fps rate:
+    its name and fingerprint.
 
     A job is built on an input video's analysis folder (`clip_folder.py`; made by `bench/clip_analysis.py`)
     or it is not built: the folder is found from the name of the file the job renders from, and the file is
-    held to the identity the folder recorded, so a folder that is another file's, or older than the file, is
-    as good as none."""
+    held to the identity the folder recorded and to `MASK_FPS` (`24` fps, because `force_rate` is `0.0`), so a
+    folder that is another file's, older than the file, or naming a non-24 fps source is refused."""
+    name = Path(job["source"]).name
     try:
-        folder = clip_folder.folder_of_file(Path(job["source"]).name, data)
+        folder = clip_folder.folder_of_file(name, data)
         manifest = clip_folder.read_manifest(folder)
         clip_folder.verify(manifest, Path(job["source"]))
     except (clip_folder.Refused, OSError) as e:
         raise Refused(f"{e}\n  (the job renders from {job['source']}; the command is `bench/clip_analysis.py init "
-                      f"<the input video's file name> --copy {Path(job['source']).name}`)") from e
+                      f"<the input video's file name> --copy {name}`)") from e
+    entry = clip_folder.copy_named(manifest, name) or manifest["source"]
+    rate = entry.get("rate")
+    if rate is None or abs(float(rate) - float(MASK_FPS)) > 1e-3:
+        derived = manifest.get("derived") or {}
+        d_rate = derived.get("rate")
+        how = (f"set the job's `source` to the {MASK_FPS:g} fps copy `{derived['name']}`"
+               if derived.get("name") and d_rate is not None and abs(float(d_rate) - float(MASK_FPS)) <= 1e-3
+               else f"register a {MASK_FPS:g} fps copy with `bench/clip_analysis.py init {manifest['source']['name']} --copy <24fps_copy>`")
+        raise Refused(f"{name} is {rate} fps in {folder.name}/manifest.json and H3 renders at {MASK_FPS:g} fps "
+                      f"(with `force_rate: 0.0`); {how}")
     return {"folder": folder.name, "fingerprint": manifest["fingerprint"]}
 
 
