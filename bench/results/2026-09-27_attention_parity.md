@@ -147,7 +147,7 @@ Being corrected in the same pass as this record; see `docs/state/decisions.md`.
 - **`sol_attn_h3.py` (lines 1506-1507 as of 2026-09-27; the file was restructured 2026-09-27) and the `h3_config.py` min_tokens comment:**
   both name sage as the fallback, where the shipped graphs use the kitchen
   backend node.
-- **`workflows/h3_config.py:846-849`:** `SOL_CUDA_DEFAULTS` is called "untouched", but
+- **`workflows/h3_config.py` lines 846-849 at `56ccfb83`:** `SOL_CUDA_DEFAULTS` is called "untouched", but
   it pins qk_balance True.
 - **`docs/attention/sol_upstream.md`:** line citations drifted by one, and the V-scale
   margin is not mentioned.

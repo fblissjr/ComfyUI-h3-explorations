@@ -920,7 +920,7 @@ box); only prose outside the generated regions was edited and no commit hash was
 - Headings renamed or removed in pdd.md that code or docs may quote: "What a backbone bake pins" KEPT (no date suffix
   now: was "What a backbone bake pins, traced 2026-08-31"; code quotes it without the date). "Enforced by nothing" ->
   "Not enforced, and not measured" (cited by `pdd_lora.py:2346` as history; harmless). "The sweep, 1 to 10
-  evaluations" -> table under "Schedule: the node emits it" (`workflows/h3_config.py:2681` says "pdd.md's sweep table"; still
+  evaluations" -> table under "Schedule: the node emits it" (`workflows/h3_config.py` line 2681 at `56ccfb83` says "pdd.md's sweep table"; still
   true). Composition table -> "What is measured", "Where the file's run-time footprint is" (`pdd_lora.py:737`).
 - prompting.md: no section moved or renumbered; every section the h3-prompt skill names (2, 3.1, 3.3, 4, 5, 5.10, 6,
   8, 9, 10, 12, 14.3, 16, 16.4, "Four layers...", "Where everything else lives") is where it was. §13 lost its
@@ -1171,3 +1171,79 @@ Quoted headings (heading text kept; repoint the quotes):
 - docs/working/runbook.md section (b) may duplicate running_a_job.md's chain summary; I left the runbook as the commands' home and linked it.
 - Unsure and kept: `bench/load_chain.py` not refusing `no-look` on a `two_shots` job (stated by a reviewer 2026-10-13; not re-read in code); the hair band's current status for subjects other than the second (data/AGENTS.md retires it for the second subject only); perception_models.md is still 562 lines (the core-against-Meta section and the SAM-Audio reading are current reference; a split into a short page plus perception_models_reading.md is a candidate).
 - sam31_core.md still contains the original "---" separators and long tables verbatim (file:line citations kept as written).
+
+## workflows/h3_config.py's comments
+
+The comment history cut from `workflows/h3_config.py` on 2026-10-19 (1971 comment lines to 885, the code proven
+unchanged by its AST). The comments before are in git at `56ccfb83`.
+
+One line per cut, decisions.md style. Items marked (in decisions.md) are already there and need no line.
+
+- SAMPLING said `bench/check_distill_grid.py` became the control of the `simple`-matches-the-grid claim on 2026-08-23
+  (before that it was prose only). Cut.
+- SAMPLING said every timing before 2026-08-15 was on `res_multistep` and every base render 2026-08-15 to 2026-10-05
+  on `er_sde`. Compressed to "a base clip from before 2026-10-05 is not seed-comparable".
+- SOL_RECOMMENDED's tau note carried a 2026-08-14 reframing (kijai: quality peaks at 1.0) with an "UNCHANGED pending
+  measurement, do not fix this to 1.0" instruction, superseded by the owner's 2026-08-20 move to 1.0. Cut to one line.
+- SOL_RECOMMENDED's morton note: the Triton-era 1.16x morton speed cost (362 frames, stacked on int8) was retracted for
+  the CUDA backend on 2026-08-16; the 2026-08-16 run's peak VRAM (17,326-23,208 MiB across arms) was not a morton
+  effect; a "caveat decay" paragraph about an earlier wording. Cut to the CUDA speed result.
+- Head chunking: "three times the ~1070 MiB previously estimated" (2026-08-10). Cut.
+- An orphaned block (old lines 396-478) described the CUDA node's knob set and "what the graphs wire as of
+  2026-08-14", for constants that no longer exist: `centroid_tail=True` chosen 2026-08-14 (cos 0.9988 between modes),
+  `reuse_qkv_memory` off (numerically identical, "cheap win"), min_tokens corrections of 2026-08-27 and 2026-08-28
+  (the retracted single-attention-site claim; 52 attention modules, 50 DiT plus 2 refiner), "not wired into any
+  graph, node id provisional". Removed whole; those knobs left with the 2026-09-27 redesign.
+- SOL_END_PERCENT_BY_STEPS: its derivation as written 2026-08-26 (shift and length checked; PDD heads deviate 0.0146
+  vs 0.0047 at the last step; NVLabs' SOL_ATTN_FIRST_DENSE_STEPS=10 of 50; `vendor/sol_attn_minimax.py:654` stores
+  sigma thresholds at patch time; the hand-edited-steps edge). Cut to a summary; the table is retired (in decisions.md,
+  2026-09-11).
+- min_tokens: "CLOSED 2026-08-27, raised 2026-08-26" (whether S = 7,194 at 22 frames made the two thresholds agree),
+  and the argument that sage is ~2.7x ahead of torch flash, which raised the crossover. Cut.
+- dense_blocks: the 2026-09-02 rule "do not repopulate the shared default until all 50 blocks are measured on the
+  target schedule and survive a multi-scene check", superseded by the Option C adoption of 2026-10-02. Cut (the
+  adoption is in decisions.md).
+- quantizer: qk_balance off the morning of 2026-09-15 and on that day; Sol rotate off 2026-09-15 night
+  (`bench/results/2026-09-15_sol_rotate_*.json`, about half of block 49's quantization term). Compressed (in
+  decisions.md, 2026-09-15 / 2026-09-27).
+- start_percent: "until 2026-10-01 this said it had never been measured"; the open question whether 0.0 on the 4-step
+  arm (2 sparse steps to 3) is free or harmful. Cut.
+- SOL_PDD_OVERRIDES: the `end_percent` 0.74 derivation (percent_to_sigma(0.75) is 0.8 at shift 12, index 24 of the
+  32-point grid) and its untested prediction that 0.87 is worse at 8 evaluations; three knobs dropped 2026-08-29
+  (min_tokens 11776, morton_curve "2d_frame", dense_blocks "0-5,48-49"). Cut.
+- SAGE_NODE: the 2026-08-13 fp16 decision's two legs (the owner's perceptual judgment; the numeric leg withdrawn
+  2026-08-16 as untrusted), and the correction that a sage grade on capture existed when the comment said none did.
+  Compressed to one line each. Also a wrong earlier figure for the refiner ("~2k rows against ~42k").
+- CACHE_NODE: at 0.3 on er_sde it skipped ~4 steps for 1.31x; at 16 steps with start/end forced dense at most 12 of 16
+  forwards are skippable; EasyCache slices H3's dual latent per stream (latent_channels=32, a source read); the two
+  er_sde cautions. Cut.
+- SIGMA_SHIFT: DiffSynth's `linspace(1, 0, N+1)[:-1]` construction and its Gaussian loss weight; the lightx2v turbo
+  6/3 rows retired 2026-09-26 (in decisions.md). Cut.
+- DISTILL_SAMPLER: before 2026-08-27 the distills kept `er_sde` and euler was a probe pair; the two `_euler` probes
+  were retired that day. Cut.
+- PDD_FL2VA_STRIPPED_LORA: "until 2026-09-05 this said no such constant could exist". Cut.
+- The `CHAIN` note: the constant listed the Triton node id and stayed stale when graphs moved to `SolAttnMiniMax` on
+  2026-08-14; `SageChainAssert` left every generated graph 2026-09-17 (in decisions.md). Cut to two lines.
+- IMAGE_EDIT_CANVAS: "this line got the token-vs-attention ratio wrong until 2026-08-28". Cut.
+- CANVAS_TIER: "every ratio at or above 1.75 costs the same" was the comment until 2026-08-28 and false. Cut (the
+  class is recorded in `docs/method/config_drift.md`).
+- REF_VIDEO_LENGTH: deleted 2026-08-16, reintroduced 2026-08-22 (`f9d63c59`); a prohibition against it stood until
+  2026-08-28; "28 shipped graphs render at it". Cut (the case is in `docs/method/config_drift.md`).
+- graph_schedule docstring: "Corrected 2026-08-31: the PDD node's SIGMAS output only expresses counts that divide the
+  32-point grid" (false since 2026-08-29, `resolve_emit_steps`' envelope route; the fourth place carrying it, with the
+  node's tooltip, `docs/distills/pdd.md`'s sweep table and `check_distill_grid`). Cut.
+- output_dir: `check_output_dir_resolution.py`'s docstring named the empty-stock-dir case before the guard could fire.
+  Cut.
+- PROMPT_INPUTS: the same escape happened earlier in preflight (`MiniMaxH3Conditioning` missing). Cut.
+- Reading a value: `bench/check_distill_settings.py::_literal` documented the literal-only read as deliberate. Cut.
+- ENCODER_INT8: "shipped on every graph since 2026-08-27 (late)" (ship state in prose). Replaced by `MODELS["clip"]`.
+- MODELS video_vae: it first shipped 2026-08-10 (removed 2026-08-21, back 2026-09-26). The 2026-08-10 start cut.
+- MODELS hybrid: `build_hybrid.py` once reproduced the retired b30 hybrid byte for byte as its control. Cut.
+- DRAFT_VAE: core loads it through `comfy/sd.py`'s `decoder.22.bias` branch (24 latent channels, 17k+5 frames). Cut.
+- IMAGE_VAE: 121 of 562 tensors identical / 439 decoder tensors plus both `post_quant_conv` differ; `_adaptive_decode`
+  detail. Compressed.
+- STRANGERS: "on 3240 every hole left is there with no keep-out at all"; "a blind reader, 2026-10-14". Cut.
+- HAIR_BAND: "what `top` did to that load's planned region is in the commit that set it". Cut.
+- FASTH3_CORE_VSA: "until 2026-09-26 this said the template wins here". Cut (in decisions.md).
+- GRAPH_DIRS: "the rest of the by-purpose layout is prepared on the branch `workflows-by-purpose` and has not landed"
+  (2026-10-03). Cut; see Left for the lead.

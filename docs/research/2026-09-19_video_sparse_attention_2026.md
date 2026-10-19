@@ -242,7 +242,7 @@ retained-mass code. Its hits outside `.git` were Sana probe policies (sections
   selective. Finer query blocks push the other way. So H3's coverage at theta
   0.99 is not predictable from Table 3 and has to be measured.
 - **Construction step.** At 16 steps, `start_percent` 0.2 makes 4 of 16
-  evaluations dense (`workflows/h3_config.py:553-554`). The step table in
+  evaluations dense (`workflows/h3_config.py` lines 553-554 at `56ccfb83`). The step table in
   `docs/attention/sol_attn.md` lines 1472-1477 at `901bee1` reads 11/16 sparse because its header assumes
   `end_percent` 0.9. `end_percent` is 1.0 now, so the dense steps are 0 to 3
   and there is no dense tail. The natural t0 is step
@@ -732,7 +732,7 @@ profile. DynSparse needs a different simulation and has the least to offer.
 | **tau-sigma threshold**, per (head, query block), from pooled centroids, each step (`bench/analyze_routing.py:9`; `docs/attention/sol_attn.md` line 425 at `901bee1`) | theta-mass prefix per (head, query block) from exact masses at one step, then frozen | top-p on cluster centroids plus a per-head floor from an offline profile (code); Eq. 7 (paper) | per-head top-p threshold chosen offline by velocity error | per-row running-LSE threshold inside the kernel |
 | **pooled tail** (`docs/attention/sol_attn.md` line 432 at `901bee1`) | drops and renormalizes | drops (the EAR code path compensates; not in the paper) | inherits the backbone: drops | skips |
 | **token_aug** (`docs/attention/sol_attn.md` line 436 at `901bee1`) | nothing comparable | per-token cluster membership is the nearest idea | none | none |
-| **start_percent dense warm-up**, 4 of 16 (`workflows/h3_config.py:553-554`) | 4 dense of 50, and the last one is used to build the mask: the only one of the four that turns the warm-up into information | 20% (Wan), 10% (HunyuanVideo) | first 5 of 50 | not stated [?] |
+| **start_percent dense warm-up**, 4 of 16 (`workflows/h3_config.py` lines 553-554 at `56ccfb83`) | 4 dense of 50, and the last one is used to build the mask: the only one of the four that turns the warm-up into information | 20% (Wan), 10% (HunyuanVideo) | first 5 of 50 | not stated [?] |
 | **sink_conditioning, diagonal forced** (`docs/attention/sol_attn.md` line 429 at `901bee1`) | forces nothing; the mass rule is claimed to be enough | none | none | none |
 | **per-block `tau_profile`** (`docs/attention/sol_attn.md` line 435 at `901bee1`) | per (layer, head, query block) by construction | per (step, layer, head) profile | per head | none |
 
@@ -760,7 +760,7 @@ Local (read-only):
 - `coderef/Sana/config/sparse_attention/qk_coclustering.toml:3-14`
 - `coderef/Sana/search_space/04_sparse_attention.md:97-116`
 - `docs/attention/sol_attn.md:425-436,1029-1034,1472-1477`
-- `workflows/h3_config.py:553-554`
+- `workflows/h3_config.py` lines 553-554 at `56ccfb83`
 - `bench/analyze_routing.py:9,22-23`
 - `bench/sweep_sol_block_size_on_capture.py:104-121,321`
 - `bench/analyze_sol_error.py:28-30`

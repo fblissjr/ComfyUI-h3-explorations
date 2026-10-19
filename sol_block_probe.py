@@ -38,7 +38,7 @@ scratch dir to read; do not reinstall it into `custom_nodes/`.
 `docs/attention/sol_attn.md` names the thing it is for: at `tau` above roughly 1.5 a small
 persistent object can dissolve partway through a clip. The stated fix is to
 force the most approximation-sensitive blocks dense, and `SOL_ARTIFACT_INSURANCE`
-in `workflows/h3_config.py:280` is a guessed starting set that is deliberately
+in `workflows/h3_config.py:158` is a guessed starting set that is deliberately
 not wired, pending a probe run nobody has done.
 
 ## What is being ported, and what is not

@@ -95,6 +95,15 @@ Older history lives elsewhere and is not copied here:
   and `data/AGENTS.md` use the role names. The folder-rules standard is `docs/method/agents_and_indexes.md`, held by
   `bench/check_folder_rules.py`; it carries the owner's rule that a tracked file does not cite a dated session note
   more than seven days old. `docs/projects/` holds work across folders, starting with `reorg/`.
+- **`workflows/h3_config.py`'s comments say what is current** (1971 comment lines to 885; the code is unchanged, by
+  its AST with docstrings stripped): each constant says what it is for, its provenance, and when it took its value and
+  why; history layers are gone, listed in
+  [`docs/research/2026-10-19_docs_consolidation.md`](../research/2026-10-19_docs_consolidation.md). Corrected, where
+  a comment contradicted the code: the reference still's encoder view was said to default to `shared` (it has been
+  `separate` at 512 since 2026-10-03, `h3_rules.py`); `PDD_MANUAL_EVALS` named `_sol_for_steps`, which does not
+  exist; `FACE_POINTS` called its tool and check in progress (both exist); a pointer named an "Ordering" section of
+  `docs/attention/sol_wiring.md` (the heading is "The order"). Line citations into the file from current pages point
+  at the new lines; from dated records they are pinned to `56ccfb83`.
 
 ## 2026-10-18
 
@@ -150,7 +159,7 @@ Older history lives elsewhere and is not copied here:
 - **Corrected: `docs/masked_v2v/sam31.md` still said "No shipped graph wires it yet" for `MiniMaxH3SAM31Corrections`.**
   Written on 2026-10-07 before `workflows/masked_job_graph.py` landed; every masked job preview graph wires
   `MiniMaxH3SAM31Corrections` with all three corrections on (`workflows/masked_job_graph.py:280-287`,
-  `workflows/h3_config.py::MASKED_JOB_SAM_CORRECTIONS` at `workflows/h3_config.py:1441`), while the single-pass shipped
+  `workflows/h3_config.py::MASKED_JOB_SAM_CORRECTIONS` at `workflows/h3_config.py` line 1441 at `56ccfb83`), while the single-pass shipped
   templates in `workflows/build_workflows.py:2259-2276` wire `CheckpointLoaderSimple` directly. Updated in
   `docs/masked_v2v/sam31.md` alongside the full map of our SAM 3.1 nodes, runtime patches, and shared helpers against
   ComfyUI core.

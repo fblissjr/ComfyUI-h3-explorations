@@ -252,7 +252,7 @@ solver that **adds fresh noise every step** —
 it differ from the vendor's integrator in two independent ways: solver order,
 and stochasticity.
 
-This is not news as a *choice* — `workflows/h3_config.py:178-197` records
+This is not news as a *choice* — `workflows/h3_config.py` lines 178-197 at `56ccfb83` records
 `er_sde` as the owner's call since 2026-08-15. What is new is the comparison:
 nothing in the repo recorded that **all four reference engines run eta=0
 deterministic Euler**, so the divergence had never been priced against them.
@@ -315,7 +315,7 @@ coarseness is what governs quality here — the PDD lane established that, and
 `CLAUDE.md` carries it — so `simple` being the close one matters.
 
 That corroborates the `simple` choice already argued at
-`workflows/h3_config.py:199-218`, but by a different route: that note argues
+`workflows/h3_config.py` lines 199-218 at `56ccfb83`, but by a different route: that note argues
 from a distilled LoRA's published grid and is controlled by
 `bench/check_distill_grid.py`; this argues from the vendor's own *inference
 engine* construction. Two independent reasons, same answer.

@@ -4,3 +4,4 @@
 12413d3   # the folder rewrites' integration: quotes and comments repointed
 9699943   # research records renamed with their dates; references follow
 74aa6499  # session-named records renamed; handoffs archived; references follow
+d9316ed8  # citations of dated session notes removed from comments and docstrings

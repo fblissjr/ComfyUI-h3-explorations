@@ -121,7 +121,7 @@ Each matters more the longer or rarer the phrase.
   Every masked job preview graph wires it with all three corrections on
   (`workflows/masked_job_graph.py:280-287`,
   `workflows/h3_config.py::MASKED_JOB_SAM_CORRECTIONS` at
-  `workflows/h3_config.py:1441`), while the single-pass shipped templates in
+  `workflows/h3_config.py:643-644`), while the single-pass shipped templates in
   `workflows/build_workflows.py:2259-2276` wire `CheckpointLoaderSimple`
   directly. Even
   corrected, a descriptive phrase is still scored by ComfyUI's rule and not
