@@ -8,8 +8,8 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 155 |
-| [`measure_*`](#measure) | 38 |
+| [`check_*`](#check) | 156 |
+| [`measure_*`](#measure) | 39 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
@@ -84,6 +84,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_marker_arms.py`](check_marker_arms.py) | A marker-corpus arm that was declared and not applied must go red. |
 | [`check_masked_job.py`](check_masked_job.py) | Check the masked job builder: the graphs it writes and what it refuses. |
 | [`check_masked_prompt.py`](check_masked_prompt.py) | The masked lane's prompt node: what it writes, and that the graders read the same text. |
+| [`check_measure_blocks.py`](check_measure_blocks.py) | Check `bench/measure_blocks.py`: pasted 16x16 squares found, clean clips clear, real grid edges said as such. |
 | [`check_measure_moge2_depth.py`](check_measure_moge2_depth.py) | Check `vendor/meta_moge2/hyden_moge2.py` (`vendor/meta_moge2/LICENSE`) and `bench/measure_moge2_depth.py` on CPU. |
 | [`check_meta_sapiens2.py`](check_meta_sapiens2.py) | `vendor/meta_sapiens2/` is Meta's text as Meta wrote it: its licence, and its names for the Sapiens2 models' points and classes. |
 | [`check_model_contents.py`](check_model_contents.py) | What is INSIDE each shipped model file, asserted against a committed baseline. |
@@ -186,6 +187,7 @@ this file is only a way to find a script by what it says it does.
 | [`measure_bake_realisation.py`](measure_bake_realisation.py) | Does an offline bake DELIVER the LoRA, or does it win on distance by discarding it? |
 | [`measure_bf16_delta_rank.py`](measure_bf16_delta_rank.py) | How low-rank is FastH3's backbone change, measured on the bf16 sources? |
 | [`measure_block_period.py`](measure_block_period.py) | Is there an edge grid in a clip at VSA's cube period? Decoded pixels only. |
+| [`measure_blocks.py`](measure_blocks.py) | Measure visible 16 px blocks on a laid clip or render piece and a saved window region. |
 | [`measure_checkpoint_lora_rank.py`](measure_checkpoint_lora_rank.py) | How well would a LoRA capture one checkpoint's difference from another? |
 | [`measure_checkpoint_overlay.py`](measure_checkpoint_overlay.py) | How small an exact overlay of one int8 H3 checkpoint on another would be. |
 | [`measure_clip_delta.py`](measure_clip_delta.py) | How much a rendered clip CHANGES frame to frame. |
