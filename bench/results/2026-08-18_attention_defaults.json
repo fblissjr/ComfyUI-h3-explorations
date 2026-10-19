@@ -1,7 +1,7 @@
 {
   "measurement": "sage kernel mode x Sol-Attn reachability, end to end",
   "date": "2026-08-18",
-  "why": "`docs/evidence.md` withdrew every fp8-vs-fp16 accuracy ratio on 2026-08-16, leaving the shipped `fp16 (most accurate)` default resting only on a perceptual verdict taken 2026-08-13 at 124 frames with Sol ABSENT -- one day before Sol-Attn landed. This run measures the cost side in the configuration actually shipped.",
+  "why": "`docs/method/evidence.md` withdrew every fp8-vs-fp16 accuracy ratio on 2026-08-16, leaving the shipped `fp16 (most accurate)` default resting only on a perceptual verdict taken 2026-08-13 at 124 frames with Sol ABSENT -- one day before Sol-Attn landed. This run measures the cost side in the configuration actually shipped.",
   "method": "One variable per arm, same graph, same seed, same sequence. Sampler seconds are read from the progress line, so model load and VAE decode are excluded. One run per arm.",
   "held_fixed": {
     "graph": "workflows/h3_probe_capture_ref3_api.json, length set to 260",

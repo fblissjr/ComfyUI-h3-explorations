@@ -170,7 +170,7 @@ cleared them: the five research files below, the unpruned V2, and
 `internal/pdd_shims/control_fl2va_pdd_8step_comfy`. Hashes and rebuild
 commands are in `2026-09-27_research_files_deleted.md` (9d222c19). **Kept**:
 `internal/pdd_shims/shim_fasth3_temb` and `shim_fl2va_temb`, and the bf16
-pruned FastH3 and fl2va until `docs/open_experiments.md` #35 lands; that
+pruned FastH3 and fl2va until `docs/state/open_experiments.md` #35 lands; that
 record says why. The list below is as written before the deletion.
 
 Built on a reading the swap renders overturned, and not worth keeping for

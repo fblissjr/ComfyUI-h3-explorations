@@ -1,7 +1,7 @@
 # Queued arms, 2026-08-27
 
-A session queue, not a roadmap. [`docs/roadmap.md`](../../roadmap.md) owns what
-to work on and [`docs/open_experiments.md`](../../open_experiments.md) owns what
+A session queue, not a roadmap. [`docs/state/roadmap.md`](../../state/roadmap.md) owns what
+to work on and [`docs/state/open_experiments.md`](../../state/open_experiments.md) owns what
 is deliberately unmeasured. Nothing here is either: it is measurable today, on
 tooling that exists. Delete an entry when it runs; one still here in a week
 belongs in one of those two instead.
@@ -461,7 +461,7 @@ between runs as inert.
 **The PDD blind session.** Everything built so far establishes correctness and
 nobody has judged quality. PDD is pitched against the **turbo distill**, not
 against base, and `h3_image_ref_plus_text_to_video_turbo_4step.json` is the
-matched control with the LoRA node as the only difference. `docs/eval_comparison.md`
+matched control with the LoRA node as the only difference. `docs/method/eval_comparison.md`
 section 3, and the owner's to run.
 
 Stated confound: the turbo was distilled at 544p mixed aspect and the paired arm

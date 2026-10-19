@@ -1,6 +1,6 @@
 {
  "date": "2026-09-12",
- "what": "the owner's free-text verdicts on the audio-freeze step 2 arms (docs/h3_audio_freeze.md section 4 step 2), as given, in order. Arms and seeds: bench/audio_freeze_step2_arms.json; rows: bench/results/2026-09-12_audio_freeze_step2_arms.jsonl.",
+ "what": "the owner's free-text verdicts on the audio-freeze step 2 arms (docs/h3/audio_freeze.md section 4 step 2), as given, in order. Arms and seeds: bench/audio_freeze_step2_arms.json; rows: bench/results/2026-09-12_audio_freeze_step2_arms.jsonl.",
  "how_judged": "the owner watched the clip in the output share while the batch was still rendering; not blind, not a matched-pair comparison yet. The free twin (dancer_free) had rendered but had not been watched at the time of the first verdict.",
  "verdicts": [
   {
@@ -81,7 +81,7 @@
    "arm": "dancer_close_frozen_s2, dancer_close_loose_s2 (re-watched)",
    "clip": "Video/h3_t2v_audio_freeze_dancer_close_frozen_s2_00001-audio.mp4 against Video/h3_t2v_audio_freeze_dancer_close_loose_s2_00001-audio.mp4",
    "owner": "Both are pretty awesome. i like h3_t2v_audio_freeze_dancer_close_loose_s2_00001-audio better but i dont know why... just seems better slightly.",
-   "when": "2026-09-13, re-watched while adjudicating the prompt (docs/prompt_audit.md, the dancer rows)",
+   "when": "2026-09-13, re-watched while adjudicating the prompt (docs/prompting/prompt_audit.md, the dancer rows)",
    "reading": "a slight, unexplained preference for the loose mask at the second seed, the same direction as the first seed's pair. Two seeds, same direction, no stated reason: enough to keep loose in the running, not enough to pick a mask value. The prompt verdict is keep."
   },
   {
@@ -114,7 +114,7 @@
   }
  ],
  "caveats": [
-  "one arm, one seed, one scene, judged alone: a sample, not a result (docs/eval_comparison.md)",
+  "one arm, one seed, one scene, judged alone: a sample, not a result (docs/method/eval_comparison.md)",
   "the throwaway first render (covered-market prompt under the same drum track, 2026-09-12_audio_freeze_first_run.jsonl) drew the opposite reading from the owner: 'not entirely sure it changed anything in the video'. The prompt there described dialogue and a market, not music; the dancer prompt describes a dancer to a beat. Whether the difference is the prompt, the scene or the seed is the pair question"
  ]
 }

@@ -2,7 +2,7 @@
 
 Exists because accuracy numbers measured on `torch.randn` are a pessimistic
 bound rather than an estimate. Every fp8-vs-fp16 accuracy ratio this repo used
-to carry was **withdrawn on 2026-08-16 as untrusted** (`docs/evidence.md`) --
+to carry was **withdrawn on 2026-08-16 as untrusted** (`docs/method/evidence.md`) --
 the synthetic sweep measures an input distribution H3 does not have, and the
 competing real-activation figure was never re-derived here. Real captures are
 the only way to settle it, and no kernel has yet been graded against the ones
@@ -727,7 +727,7 @@ def maybe_capture_final(out, length_hint=None):
     """Save the DiT's own output -- the velocity -- at the requested steps.
 
     This is the one tensor that is "the network output", which is what
-    `docs/open_experiments.md` #22 compares between a pruned and an unpruned
+    `docs/state/open_experiments.md` #22 compares between a pruned and an unpruned
     checkpoint. q/k/v at five depths say where two forwards diverge; only this
     says by how much it mattered by the end.
 

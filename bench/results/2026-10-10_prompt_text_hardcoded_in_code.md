@@ -26,7 +26,7 @@ line 3206 is not changed by this.
 
 **The same night: the owner ordered the sentences fixed and a second
 session to audit the fix.** What was cut and what replaced the soundscape
-line is in `docs/wiki/decisions.md`, 2026-10-10, "The masked text's
+line is in `docs/state/decisions.md`, 2026-10-10, "The masked text's
 hardcoded assertions cut", once that change is in the tree; this record
 describes the file as it stood before it.
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate an auditable, fully dynamic manifest.json for an activation capture directory.
 
-Adheres strictly to docs/capture_manifest_schema.md without hardcoded workload constants.
+Adheres strictly to docs/working/capture_manifest_schema.md without hardcoded workload constants.
 """
 
 from __future__ import annotations
@@ -204,7 +204,7 @@ def read_substrate() -> dict:
 
     **The power limit is the one that was already wrong.** This box was set to
     330 W on the day this was found, so every manifest generated here would have
-    recorded 450.0 -- and `docs/hardware.md` exists because a changed power limit
+    recorded 450.0 -- and `docs/working/hardware.md` exists because a changed power limit
     makes a timing incomparable. The record built to catch that was asserting the
     stock value from a constant.
 
@@ -453,7 +453,7 @@ def extract_from_workflow(wf: dict, input_base: Path):
     # `sol_attn` was the literal string "bypassed_for_capture" here from this
     # function's first version until 2026-08-17, and nothing ever reassigned it
     # -- this file did not mention SolAttn anywhere. So it reported a capture as
-    # Sol-free whether Sol had run or not, and `docs/drift_frontier.md` cited it
+    # Sol-free whether Sol had run or not, and `docs/method/drift_frontier.md` cited it
     # as evidence that a specific capture was clean. A record whose value is a
     # constant cannot fail, which is the defect `CLAUDE.md` names. Now derived;
     # see `_sol_attn_state`.

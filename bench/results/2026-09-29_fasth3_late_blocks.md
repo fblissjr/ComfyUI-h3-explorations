@@ -1,12 +1,12 @@
 # FastH3's backbone by depth, on top of the gates alone: the owner's blind read (2026-09-29)
 
-`docs/open_experiments.md` #48. `MiniMaxH3OverlayLoader` on `fasth3_v2_on_fl2va.h3overlay.safetensors`, gates on,
+`docs/state/open_experiments.md` #48. `MiniMaxH3OverlayLoader` on `fasth3_v2_on_fl2va.h3overlay.safetensors`, gates on,
 refiner, adaln and io off: `gates_only` (no backbone diff), `late_30_49` (FastH3's backbone diff on blocks 30-49)
 and `early_0_29` (blocks 0-29, the location control). FastH3's contract harness, seed 730451892, three scenes at
 their written lengths, one clip per arm per scene. Renders: `2026-09-29_fasth3_late_blocks.jsonl` (nine rows, no
 errors, no cache hits). Blinded as the session `fasth3_late_blocks`: six pairs, each late or early against
 gates_only on one scene, scored by the owner on the lean pairs-only form
-(`docs/eval_comparison.md`, "The lean pairs-only session"), one preference per pair with a tie option. Joined
+(`docs/method/eval_comparison.md`, "The lean pairs-only session"), one preference per pair with a tie option. Joined
 by `bench/score_session.py`: `2026-09-29_fasth3_late_blocks_verdict.json`. Manifest with the predictions written
 before any render: `bench/fasth3_late_blocks_arms.json`.
 

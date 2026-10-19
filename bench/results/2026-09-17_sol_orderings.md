@@ -7,7 +7,7 @@ sinks, shipped recipe (`qk_balance` on, pooled tail), tau swept over
 0.6 to 2.0. Script: `bench/sweep_sol_orderings_on_capture.py`. Data:
 `2026-09-17_sol_orderings.json`.
 
-Why this was runnable now and not in August: `docs/morton.md` found that a
+Why this was runnable now and not in August: `docs/attention/morton.md` found that a
 reorder moves the routing threshold with a sign that changes by block and
 sigma, so no matched-tau A/B exists. With the kernel's own routed-block count
 and the finding that a Sol call's time is proportional to routed density
@@ -38,7 +38,7 @@ Readings:
   32, and badly on block 49, where ordering within a frame separates tokens
   that attend to each other across frames. Neither beats `3d` on any cell
   that matters. This contradicts the geometric argument `sol_curves.py` was
-  written on, which `docs/morton.md` had already warned does not rank
+  written on, which `docs/attention/morton.md` had already warned does not rank
   orderings.
 - This supersedes the Triton-era note that Morton turned negative stacked on
   INT8: on the CUDA kernel at full length it is positive.

@@ -29,7 +29,7 @@ says anything about ComfyUI's SAM 3.1 run on a CPU. (Corrected the same
 day: this said neither side was known to be the right one. The cause is
 known: a CPU process uses an attention function that does not hide a
 phrase's padding, and the card's path is the right one;
-[`docs/wiki/sam3_prompting.md`](../../docs/wiki/sam3_prompting.md) has the
+[`docs/masked_v2v/sam31.md`](../../docs/masked_v2v/sam31.md) has the
 code and the flag.) Every number is in
 [`2026-10-07_sam3_core_against_meta.json`](../../data/results/2026-10-07_sam3_core_against_meta.json)
 and every table below is printed from it by the tool's `render`; where a

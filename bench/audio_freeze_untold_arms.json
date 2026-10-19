@@ -1,5 +1,5 @@
 {
-  "what": "docs/h3_audio_freeze.md: the no-transcript voice scene with more of the track and no words, after the owner read the untold arm as working but less natural than the transcribed one. Same clip, same seed as the step 2 voice arms, on the PDD8 chain. Arms: the untold prompt at a loose mask; the untold prompt with the clip also anchored as guide rows; both together.",
+  "what": "docs/h3/audio_freeze.md: the no-transcript voice scene with more of the track and no words, after the owner read the untold arm as working but less natural than the transcribed one. Same clip, same seed as the step 2 voice arms, on the PDD8 chain. Arms: the untold prompt at a loose mask; the untold prompt with the clip also anchored as guide rows; both together.",
   "arms": {
     "untold_loose_pdd8": "workflows/h3_candidate_t2v_pdd8_baked_audio_freeze_api.json",
     "untold_guide_pdd8": "workflows/h3_candidate_t2v_pdd8_baked_audio_freeze_guide_api.json",

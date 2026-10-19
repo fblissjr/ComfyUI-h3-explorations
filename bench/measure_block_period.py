@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Is there an edge grid in a clip at VSA's cube period? Decoded pixels only.
 
-Written 2026-09-26 for the FastH3 texture question in `docs/h3_distills.md`
+Written 2026-09-26 for the FastH3 texture question in `docs/distills/which_distill.md`
 ("ps2 polygons"; vaedude's annotation under FlashGen and FastH3). VSA works on
 4x4x4-token cubes (`comfy_extras/nodes_sparse_attention.py`, `VSA_CUBE`). A
 token is a 2x2 patch of a 16x latent, so a cube spans 128x128 pixels. If VSA's

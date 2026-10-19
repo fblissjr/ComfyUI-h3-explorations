@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Add FastH3's VSA gates to a checkpoint, or take them out. CPU only.
 
-Written 2026-09-27 for `docs/open_experiments.md` #35: the conditioning swap
+Written 2026-09-27 for `docs/state/open_experiments.md` #35: the conditioning swap
 (`bench/results/2026-09-27_fasth3_swap.md`) left FastH3's look with its
 weights and gates, and cannot say which. The gates are the 50
 `blocks.N.attn.to_gate_compress` linears, int8 with a per-row scale and a

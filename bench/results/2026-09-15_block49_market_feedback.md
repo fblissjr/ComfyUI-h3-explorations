@@ -50,7 +50,7 @@ is about the originals in the order above.
 > actually sets the crate down on the table and then lifts it up. coupled
 > with moving around the people walking toward him its just a better scene.
 
-Interpretation and caveats: `docs/h3_block49_quant_error.md`, section 6.
+Interpretation and caveats: `docs/attention/block49_quant_error.md`, section 6.
 
 ## Owner, later: what was wrong with clip 2, and what the morph is
 

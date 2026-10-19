@@ -76,7 +76,7 @@ COMFY = REPO.parent.parent
 
 # ComfyUI's root goes FIRST. This repo has its own `nodes.py`, and a bare
 # `import nodes` from inside comfy must find ComfyUI's -- the trap
-# `docs/comfy_notes.md` records as costing three separate debugging rounds.
+# `docs/working/comfy_notes.md` records as costing three separate debugging rounds.
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(COMFY))
 

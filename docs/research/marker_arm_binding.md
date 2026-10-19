@@ -179,7 +179,7 @@ not.
   behind these ids are untrained (`bench/audit_h3_token_embeddings.py`) and
   whether the markers reach the output is not settled here.
 - Any rendered or perceptual claim. Arms rendered from this design are compared
-  under `docs/eval_comparison.md` section 3 like every other comparison, and
+  under `docs/method/eval_comparison.md` section 3 like every other comparison, and
   the same-sample rule applies: these are different samples, not degraded
   versions of one.
 - That the corpus is frozen. It declares itself a seed set, and freezing is the

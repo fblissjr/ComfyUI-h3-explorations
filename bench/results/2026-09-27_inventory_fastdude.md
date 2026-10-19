@@ -20,7 +20,7 @@ rendered:
 
 | file | what it is | made by |
 |---|---|---|
-| `minimax_h3_fl2va_pruned_int8_convrot` | the base: the shipped pruned int8 ConvRot FL2VA DiT | `h3_config.MODELS["unet_fl2va"]`; provenance in `docs/h3_quant_policy.md` |
+| `minimax_h3_fl2va_pruned_int8_convrot` | the base: the shipped pruned int8 ConvRot FL2VA DiT | `h3_config.MODELS["unet_fl2va"]`; provenance in `docs/attention/quant_policy.md` |
 | `minimax_h3_ref2va_pruned_int8_convrot` | the Ref2VA partition, the same form | `MODELS["unet_ref2va"]` |
 | `fastvideo_fasth3_8step_v2_pruned_int8_convrot` | FastVideo's FastH3 V2: a full DMD2-distilled T2VA DiT with its own curve basis and 50 VSA gates | HF `FastVideo/FastVideo-FastH3-Comfy`, as downloaded; `MODELS["unet_fasth3_v2"]` |
 | `h3/minimax_h3_fl2va_pdd_8step_comfy` | alibaba-pai's PDD 8-step (FL2VA): backbone and refiner LoRA, adaln baked into fl2va's curve basis, and the 32-head bank | `bench/convert_pdd_lora.py`, converter v3 at `eb791f8` (stamped in the file's metadata), from `MiniMax-H3-FL2VA-Acc-8Step` |

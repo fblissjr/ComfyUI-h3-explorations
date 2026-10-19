@@ -90,7 +90,7 @@ The source already shows the lead. With no still wired:
 So the still is not needed when the source already shows the person and the
 video model has its own copy of the source, and it is needed when either is
 missing. Two renders against one, one clip, stills.
-[`docs/h3_references.md`](../../docs/h3_references.md), "Edit a source
+[`docs/h3/references.md`](../../docs/h3/references.md), "Edit a source
 video", states the rule; the owner had it recorded on 2026-10-09 and no
 default changed.
 

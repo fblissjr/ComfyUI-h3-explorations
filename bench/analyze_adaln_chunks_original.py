@@ -5,7 +5,7 @@
 files, and found its largest per-chunk differences on the audio chunks, with
 nothing interpreting it (`data/results/2026-08-20_dit_internals.json`). The
 pruned files factor the modulation through a shared basis, whose sign flips
-withdrew one reading (`docs/evidence.md`). The release's own `adaln_proj.linear`
+withdrew one reading (`docs/method/evidence.md`). The release's own `adaln_proj.linear`
 has no factoring, so its weight and bias compare directly.
 
 Each block's `adaln_proj.linear` output is 18 chunks of 5376: 3 modalities

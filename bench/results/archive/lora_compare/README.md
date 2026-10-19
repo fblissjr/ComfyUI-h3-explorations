@@ -9,5 +9,5 @@ module counts, dtypes. No render, no GPU, nothing cached.
 
 **The lane is finished, not broken.** `bench/compare_lora_files.py` and
 `bench/build_hybrid.py` both still run; if a publisher ships a new artifact,
-re-run the tool rather than reading these. `docs/evidence.md` carries what the
+re-run the tool rather than reading these. `docs/method/evidence.md` carries what the
 survey concluded.

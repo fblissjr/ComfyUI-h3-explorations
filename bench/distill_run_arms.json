@@ -1,6 +1,6 @@
 {
  "what": "The fresh distill run, 2026-09-26: base, PDD8, FlashGen (rank 64 at the call) and FastH3 (contract) on eleven bank scenes at one seed, each at its declared length, plus FlashGen dense, refine pairs, the step-switch arm, and the five-second subway twin. Built by bench/make_distill_run_manifest.py.",
- "why": "The owner, 2026-09-26: test FlashGen's prompt adherence across diverse bank scenes, and what each distill is good and bad at (docs/h3_distills.md), fresh, with everything measured. Seed-matched clips are different scenes per distill, so the unit is the scene, judged blind against its beat checklist.",
+ "why": "The owner, 2026-09-26: test FlashGen's prompt adherence across diverse bank scenes, and what each distill is good and bad at (docs/distills/which_distill.md), fresh, with everything measured. Seed-matched clips are different scenes per distill, so the unit is the scene, judged blind against its beat checklist.",
  "scenes": {
   "t2va_noodle_bar": 107,
   "t2va_post_office": 141,

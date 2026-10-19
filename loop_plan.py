@@ -1,6 +1,6 @@
 """Where a loop's windows fall on its track, and which text each window renders.
 
-`docs/h3_audio_freeze.md` owns the lane; `audio_freeze_song.py` is the node
+`docs/h3/audio_freeze.md` owns the lane; `audio_freeze_song.py` is the node
 that uses this first. Imports nothing from the pack, so
 `bench/check_audio_freeze.py` exercises it without the node, and the next loop
 node plans the same way.
@@ -78,7 +78,7 @@ TIMELINE_LINE = re.compile(r"^(\d+):([0-5]\d(?:\.\d+)?)\s+(\S.*)$")
 BLOCK_LINE = re.compile(r"^---(.*)$")
 #: A clock time in prompt text: "At 00:04.500, ...". Until 2026-09-18 that was how
 #: a later shot opened; the house now writes one only to split action INSIDE a
-#: shot (`docs/prompting.md` section 3.1), and that is what this still guards.
+#: shot (`docs/prompting/prompting.md` section 3.1), and that is what this still guards.
 CUT_TIME = re.compile(r"\bAt (\d+):(\d{2}(?:\.\d+)?)")
 
 

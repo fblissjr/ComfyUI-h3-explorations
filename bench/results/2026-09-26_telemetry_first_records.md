@@ -2,7 +2,7 @@
 
 **What ran.** `h3_text_to_video_flashgen` at seed 730451892, 1344x768, 345
 frames. The server was a fresh process started with `H3_TELEMETRY`
-(`docs/pipeline_telemetry.md`, schema 1, 250 ms sampler, block residency on).
+(`docs/working/pipeline_telemetry.md`, schema 1, 250 ms sampler, block residency on).
 Two renders, one after the other: a cold warmup, then a warm render whose
 conditioning and loaders came from cache.
 
@@ -34,7 +34,7 @@ Numbers are from the two summaries. The prose says what they mean.
   than stalling it.
 - **The link is PCIe gen 4 x8.** The card's maximum is x16 (header
   `pcie_width_max`, sample `pcie_width`). The bursts reach roughly what x8
-  gen 4 can carry. `docs/hardware.md` already notes the narrowed link.
+  gen 4 can carry. `docs/working/hardware.md` already notes the narrowed link.
   Whether x16 would shorten a render is not answered here: the mean transfer
   rate is far below the link and the GPU is busy.
 - **The text encoder is evicted by the sampler and the video VAE by the

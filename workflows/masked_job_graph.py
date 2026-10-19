@@ -563,7 +563,7 @@ def contexts_for(window: int, windows: tuple[int, ...]) -> tuple[int, ...]:
 
 
 #: The shot headers a two-shot load's text carries, and the one it must not: the vendor's form for a text of
-#: several shots (`docs/prompting.md`, the `[Shot N]` form). Held by presence, never by count: a text's other
+#: several shots (`docs/prompting/prompting.md`, the `[Shot N]` form). Held by presence, never by count: a text's other
 #: sections name a shot as well (`(appears in [Shot 1])`).
 TWO_SHOT_HEADERS, THIRD_SHOT_HEADER = ("[Shot 1]", "[Shot 2]"), "[Shot 3]"
 

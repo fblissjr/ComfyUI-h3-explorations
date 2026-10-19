@@ -383,7 +383,7 @@ def weights(prompt=None):
     available signal and must not be presented as a read of the tensor data.
 
     **This returns LESS than the capture manifest already records**, and the
-    commit that introduced it claimed otherwise. `docs/capture_manifest_schema.md`
+    commit that introduced it claimed otherwise. `docs/working/capture_manifest_schema.md`
     has `audio_vae` and a `loras` array, and the existing manifest populates
     both -- with `strength` and `rank` per LoRA, which nothing here recovers,
     because strength is a node input rather than a filename. The claim that

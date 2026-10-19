@@ -36,7 +36,7 @@ Wall time (seconds, execution_start to execution_success from server history):
 
 All eleven succeeded. The sage levers chain is consistently a few seconds
 faster than the kitchen dense chain on this batch, opposite to the market
-seed-730451892 timing (`docs/h3_quant_policy.md`, wall-time table), so
+seed-730451892 timing (`docs/attention/quant_policy.md`, wall-time table), so
 the ordering of the two chains is within run-to-run noise.
 
 Scoring: owner, by eye, per stack. Unscored at the time of writing.

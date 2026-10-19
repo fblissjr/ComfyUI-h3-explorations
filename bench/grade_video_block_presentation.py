@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Is ComfyUI's per-pair vision call equivalent to the vendor's one-clip call?
 
-Run it with the ComfyUI venv python (`docs/comfy_notes.md`). CPU only, no
+Run it with the ComfyUI venv python (`docs/working/comfy_notes.md`). CPU only, no
 checkpoint, no server, no CUDA.
 
 **The claim under test, and who made it.**

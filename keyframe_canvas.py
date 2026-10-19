@@ -176,7 +176,7 @@ def resolve_keyframe_geometry(first_frame=None, last_frame=None,
                 "The single-frame lane runs on MiniMaxH3ReferenceToVideo, "
                 "and it is PARKED -- this pack ships no graphs for it and "
                 "no longer patches core's 5-frame floor. See "
-                "docs/h3_image_editing.md. Use a length of at least 5."
+                "docs/h3/image_editing.md. Use a length of at least 5."
             )
         if not duration_in_range(length):
             raise RuntimeError(

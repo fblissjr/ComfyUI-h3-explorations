@@ -21,7 +21,7 @@ node's own plan is read.
 
 NOT HELD: the `room` and `check` steps end to end on a real job (a capture's folder, the server's files); the job
 file's rewrite; what the model draws; whether a band of 16 px is right for another face. The region reader was held
-by hand on 2026-10-14 to two real plans (docs/checks.md)."""
+by hand on 2026-10-14 to two real plans (docs/method/checks.md)."""
 from __future__ import annotations
 
 import json

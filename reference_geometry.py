@@ -23,7 +23,7 @@ with its own defaults. `release` pre-applies the bounds the release declares
 in `vendor_config/preprocessor_config.json`. A third policy, `encoder`, read a
 processor contract stamped by the AWQ adapter and resolved to `comfy` on any
 core-loaded CLIP; the AWQ lane closed on 2026-08-27 and the policy was removed
-with it (`docs/wiki/decisions.md`).
+with it (`docs/state/decisions.md`).
 """
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ def fit_reference_image(
     `allow_upscale` applies to `max` ONLY. False reproduces ComfyUI, which
     clamps its scale with `min(1.0, ...)` and only ever shrinks; True
     reproduces the three serving implementations, which upscale
-    unconditionally. `docs/h3_references.md` owns what that costs. Under
+    unconditionally. `docs/h3/references.md` owns what that costs. Under
     `match` the flag is ignored -- see the branch below for why.
     """
     if size_policy not in SIZE_POLICIES:

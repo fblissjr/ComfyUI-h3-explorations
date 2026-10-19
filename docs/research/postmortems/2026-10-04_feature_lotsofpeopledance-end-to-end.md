@@ -9,17 +9,17 @@ artifacts:
   - data/results/2026-10-09_masked_text_and_edge_one_window.json
   - bench/results/2026-10-04_subject_track_three_clips.md
   - bench/results/2026-10-09_masked_one_window_why.md
-  - docs/wiki/decisions.md
+  - docs/state/decisions.md
   - prompt_bank/ref2va_masked_person_upper_motion.txt
   - masked_prompt_text.py
-  - docs/wiki/masked_v2v.md
+  - docs/masked_v2v/overview.md
   - workflows/h3_config.py
-  - docs/wiki/sam3_prompting.md
+  - docs/masked_v2v/sam31.md
   - subject_track.py
   - video_mask.py
   - workflows/build_workflows.py
   - CHANGELOG.md
-  - docs/wiki/next_steps.md
+  - docs/state/next_steps.md
   - bench/patch_render_window.py
   - bench/subject_regain_looks.py
   - bench/capture_masked_run.py
@@ -332,7 +332,7 @@ The regain fired 11 times across 33 runs and found him on the first frame it loo
 
 The final ran on the shipped upper-body ref2va motion graph [`workflows/build_workflows.py:3902-3911`](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/a5c54dde419b2366885b0ffa413c9c9a5f13af63/workflows/build_workflows.py#L3902-L3911), changed by hand. It used typed per-window text, a path loader on a 24 fps relabel of the 25 fps source (906 frames from 4.0 s, no frames resampled), pick largest on frame 4, a fixed 64 px margin, a motion reference at short edge 768, and 12 steps [`data/results/2026-10-09_masked_text_and_edge_one_window.json`](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/a5c54dde419b2366885b0ffa413c9c9a5f13af63/data/results/2026-10-09_masked_text_and_edge_one_window.json). Windows joined at frames 243, 498 and 753 [board msx-09](https://claude.ai/artifact/Byvp9hbg99FDdB27c9wq4B). The result was retimed to 25 fps under the original audio [board post-which-task-is-harder-stack](https://claude.ai/artifact/Byvp9hbg99FDdB27c9wq4B).
 
-*Annotation 2026-10-10 (transcripts):* the 24 fps relabel began with v2. Every earlier render of this clip, the candidate and the comparison renders included, loaded the 25 fps trim at a forced rate of 24, which drops one frame in 25 (noted when the trim was made: mrdragon to mregg, 15:52Z on 10-07); the owner saw it as jitter in the candidate. The every-frame copy plays 4% slow, so the audio the model was given, frozen, was the track slowed by that much with its pitch kept (mryo to mrunder, 17:10:50Z). `docs/h3_references.md` has carried a dated note on that loader setting since aec5d7eb.
+*Annotation 2026-10-10 (transcripts):* the 24 fps relabel began with v2. Every earlier render of this clip, the candidate and the comparison renders included, loaded the 25 fps trim at a forced rate of 24, which drops one frame in 25 (noted when the trim was made: mrdragon to mregg, 15:52Z on 10-07); the owner saw it as jitter in the candidate. The every-frame copy plays 4% slow, so the audio the model was given, frozen, was the track slowed by that much with its pitch kept (mryo to mrunder, 17:10:50Z). `docs/h3/references.md` has carried a dated note on that loader setting since aec5d7eb.
 
 ```mermaid
 flowchart LR
@@ -422,7 +422,7 @@ flowchart LR
    *Annotation 2026-10-10 (the postmortem of that day, `2026-10-10_span_fun-three-people.md`):* run on every load of 2026-10-10 that went through the job builder, with `flags.json` in each capture; outcomes are written in some captures and not in others. The refutation condition is met in part: takes of the wrong person read clear, and the fault that cost that evening was in a text, which no flag reads.
 3. **Label who each mask is on (the owner's eye on a stacked tile) before measuring a tracker change.** *Check:* the next tracker record names the person by tile number and frame.
 4. **Save the tracker's per-frame score** and test it on 10-07's eight drops. *Refuted if* it warns fewer than two frames ahead on most of them.
-   *Annotation 2026-10-10 (the postmortem of that day, `2026-10-10_span_fun-three-people.md`):* the score is saved per frame since `83430df8`; the test on the 10-07 drops was not run, and `track_score` is on the approved removal list (`docs/wiki/decisions.md`, 2026-10-10), so this item is overtaken unless someone runs the test first.
+   *Annotation 2026-10-10 (the postmortem of that day, `2026-10-10_span_fun-three-people.md`):* the score is saved per frame since `83430df8`; the test on the 10-07 drops was not run, and `track_score` is on the approved removal list (`docs/state/decisions.md`, 2026-10-10), so this item is overtaken unless someone runs the test first.
 5. **Wire the jump test and re-find by place into the Subject Track.** *Accepted when* the 10-07 regain-looks stretch (largest pick) retakes the original person in all four re-finds.
 6. **Render the timed-text arm on the patched stretch.** *Refuted if* actions still land more than 0.5 s off the source (today about 1 s late and 2 s long).
    *Annotation 2026-10-10 (transcripts):* the timed text for v3 and its graphs were in session scratchpads and are gone; the nine times would have to be written again from the source.
@@ -437,8 +437,8 @@ flowchart LR
 These were found while gathering evidence and left unchanged. The repo rule is to correct them and log the change in [`docs/wiki/decisions.md`](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/a5c54dde419b2366885b0ffa413c9c9a5f13af63/docs/wiki/decisions.md).
 
 - [`docs/wiki/masked_v2v.md:213-214`](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/a5c54dde419b2366885b0ffa413c9c9a5f13af63/docs/wiki/masked_v2v.md#L213-L214) still says "A shot corrected by hand is not searched", which [0408a1f1](https://github.com/fblissjr/ComfyUI-h3-explorations/commit/0408a1f1) changed.
-  *Annotation 2026-10-10: corrected in the same change that filed this postmortem; logged in `docs/wiki/decisions.md` under 2026-10-10.*
+  *Annotation 2026-10-10: corrected in the same change that filed this postmortem; logged in `docs/state/decisions.md` under 2026-10-10.*
 - [`workflows/h3_config.py:1271-1273`](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/a5c54dde419b2366885b0ffa413c9c9a5f13af63/workflows/h3_config.py#L1271-L1273) says the subject-sized margin "has not rendered". It rendered in all35 and texts35 [board mhi-07](https://claude.ai/artifact/Byvp9hbg99FDdB27c9wq4B).
-  *Annotation 2026-10-10: corrected on main the same day by session mrpop, with a fuller account (it rendered, and has not been judged against the fixed margin as a pair); logged in `docs/wiki/decisions.md` under 2026-10-10.*
+  *Annotation 2026-10-10: corrected on main the same day by session mrpop, with a fuller account (it rendered, and has not been judged against the fixed margin as a pair); logged in `docs/state/decisions.md` under 2026-10-10.*
 - [`docs/wiki/next_steps.md`](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/a5c54dde419b2366885b0ffa413c9c9a5f13af63/docs/wiki/next_steps.md) stops at the evening of 10-07. It still lists the margin and the exclusion as owed, and has no entry for the 10-08 render or the patch tool.
 - [`docs/wiki/masked_v2v.md`](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/a5c54dde419b2366885b0ffa413c9c9a5f13af63/docs/wiki/masked_v2v.md) documents neither `grow_by` nor `others` as inputs, and does not name [`bench/patch_render_window.py`](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/a5c54dde419b2366885b0ffa413c9c9a5f13af63/bench/patch_render_window.py).

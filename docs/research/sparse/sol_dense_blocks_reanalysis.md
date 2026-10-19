@@ -3,7 +3,7 @@
 **Date**: 2026-10-02  
 **Context**: MiniMax H3 Attention Optimization, Rotated INT8 Quantization, and Sparse Routing Telemetry  
 **Primary Tools**: `sol_observe.py`, `bench/sol_duckdb_analyzer.py`, `docs/research/sparse/sol_duckdb_dashboard.html`, `preflight.py`  
-**Referents**: `docs/h3_block49_quant_error.md`, `workflows/h3_config.py::SOL_DENSE_TAIL`, `docs/wiki/decisions.md`
+**Referents**: `docs/attention/block49_quant_error.md`, `workflows/h3_config.py::SOL_DENSE_TAIL`, `docs/state/decisions.md`
 
 > **Re-read 2026-10-02, later the same day**: `bench/results/2026-10-02_sol_campaign_reanalysis.md`
 > corrects this plan against the raw captures. Test 1 was two-stage like the
@@ -42,7 +42,7 @@ In **Test 1** (our unmasked 50-block diagnostic baseline on Ref2VA at sequence l
 ### 2.1 The Unrotated INT8 Regime (Pre-2026-09-27)
 Prior to late September 2026, INT8 attention in both stock Sol and SageAttention used per-row or per-block quantization with a single shared scale across all 128 channels. 
 
-As documented in `docs/h3_block49_quant_error.md`, MiniMax H3's released weights place an order-of-magnitude gain on four specific channels in `k_norm.weight` on blocks 45, 48, and 49:
+As documented in `docs/attention/block49_quant_error.md`, MiniMax H3's released weights place an order-of-magnitude gain on four specific channels in `k_norm.weight` on blocks 45, 48, and 49:
 - Because the quantization scale had to cover these outlier spikes, the remaining 124 channels were quantized into only 1 or 2 bits of effective precision.
 - This caused INT8 attention error on Block 49 to spike to over $5\times$ that of Block 0.
 - `SOL_DENSE_TAIL = "45,48,49"` was implemented on 2026-09-25 as an emergency heuristic to force these three outlier blocks onto the dense fallback (`attention_comfy_kitchen_int8`), bypassing the broken INT8 quantizer.
@@ -246,4 +246,4 @@ As of version **0.184.8** (commit `20528eab`):
    SOL_DENSE_TAIL = SOL_DENSE_OPTION_A  # Active default
    ```
 2. **All 166 Shipped Workflows Rebuilt**: The entire workflow fleet reflects Option A while leaving Option B exposed as an easily selectable configuration.
-3. **Decisions Log Updated**: The rationale, empirical evidence, and reversal of `"45,48,49"` are documented in `docs/wiki/decisions.md`.
+3. **Decisions Log Updated**: The rationale, empirical evidence, and reversal of `"45,48,49"` are documented in `docs/state/decisions.md`.

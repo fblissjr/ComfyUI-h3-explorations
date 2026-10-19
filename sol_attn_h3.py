@@ -396,12 +396,12 @@ def _sink_blocks(transformer_options, tokens, mode):
                              two ranges differ by the text rows alone; on a
                              ref2v graph with a video reference the difference
                              is the reference's rows, which can be most of the
-                             conditioning. Priced in docs/SOLATTN.md, the
+                             conditioning. Priced in docs/attention/sol_attn.md, the
                              recomputed sink-share table
 
     `exact_kv_and_rows` falls back to the all-rows range when the layout did
     not publish an audio span, which is a guard against an upstream layout
-    change, not dead code (docs/SOLATTN.md, the sink section). Pure: no
+    change, not dead code (docs/attention/sol_attn.md, the sink section). Pure: no
     tensor, no kernel, graded on CPU by bench/check_sol_node_equivalence.py.
     """
     return sink_ranges(_h3layout.span(transformer_options, "video", tokens),

@@ -40,7 +40,7 @@ given, and no `subject=` on its row) is never ruled out by a mask it was not ask
 pixel it changed. Either way the frames are flagged.
 
 **A piece rendered "whole region" is laid by its region, not by `changed`** (the owner's decision of 2026-10-16 and the
-lead's ruling of that day, docs/wiki/decisions.md). Its graph, the PNG VHS saved beside the render, says the Masked
+lead's ruling of that day, docs/state/decisions.md). Its graph, the PNG VHS saved beside the render, says the Masked
 Source's `composite` (`laid_by_of`); where it is the node's `COMPOSITE_REGION`, the piece's pixels are its run's regenerated region on
 each frame (`Captures.region`, the capture's `region.npz`), at both sizes and on every row, so H3's barely-changed pixels
 are not laid back as the source. MEASURED before the rule on the saved files (internal/claude/2026-10-16_mrtaco/
@@ -736,7 +736,7 @@ class Matte:
 def laid_by_of(piece, run=None) -> dict:
     """How a piece is laid: by its run's regenerated region (`rule` "region") where the render's composite is the node's
     `COMPOSITE_REGION` ("whole region": H3's picture kept whole inside the region; the owner's decision of 2026-10-16 and the
-    lead's ruling of that day, docs/wiki/decisions.md), else by `changed`, with `why` wherever the records do not all say so.
+    lead's ruling of that day, docs/state/decisions.md), else by `changed`, with `why` wherever the records do not all say so.
     "only what changed" keeps `changed`: the node already put the source back there at the canvas's resolution, and its
     region would swap the sharp original for the render's upscaled copy of it.
 

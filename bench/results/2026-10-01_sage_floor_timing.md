@@ -1,6 +1,6 @@
 # Sage fp8++ rotated against kitchen int8 as Sol's dense fallback: wall time (2026-10-01)
 
-The owner reopened the lane parked on 2026-09-27 (`docs/wiki/next_steps.md`, the Sol node
+The owner reopened the lane parked on 2026-09-27 (`docs/state/next_steps.md`, the Sol node
 redesign): our sage attention from the sage fork, in its `fp8++ rotated` mode, in place of
 kitchen's `int8_attention` under `MiniMaxH3Sol`. Kitchen is already the more accurate kernel on
 every dense-tail cell graded (`2026-09-27_sol_redesign_test2.md`, "The dense tail"), so the sage

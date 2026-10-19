@@ -5,7 +5,7 @@ last updated: 2026-09-27 (core's gate support and the park only)
 **This file owns `MiniMaxH3VSAAttention` -- what it does, what it refuses, and
 what is verified about it.** It does not own the checkpoint
 ([`fastvideo_vsa_checkpoint.md`](fastvideo_vsa_checkpoint.md)) or the kernel
-([`../../SOLATTN.md`](../../SOLATTN.md)), and asserts nothing against either.
+([`docs/attention/sol_attn.md`](../../attention/sol_attn.md)), and asserts nothing against either.
 
 **Parked since 2026-09-27 (pack 0.157.1).** The node refuses at execute
 while `vsa_attention.PARK_OVERRIDE` is False, because `_publish_layout`
@@ -166,7 +166,7 @@ under VHS's `save_metadata`, so any two ARMS differ by construction; and
 `format.tags.creation_time` is a wall clock, so any two RUNS differ, including
 two runs of one arm. The muxer and the codec are not the cause -- remuxing a
 file twice, and re-encoding it twice at the same settings, each give identical
-bytes. `docs/h3_pdd.md` has recorded the first mechanism since 2026-08-27;
+bytes. `docs/distills/pdd.md` has recorded the first mechanism since 2026-08-27;
 rediscovering it says the note was not reachable from where people look.
 
 The tell was that the two VSA runs hashed differently while their file sizes
@@ -273,10 +273,10 @@ the only question those two renders can answer.
    pointers in [`fastvideo_vsa_checkpoint.md`](fastvideo_vsa_checkpoint.md)
    section 6). What remains open is whether this repo's sampler lands on
    those points, which is a check, not a search.
-6. **Anything perceptual**, which needs `docs/eval_comparison.md` section 3 --
+6. **Anything perceptual**, which needs `docs/method/eval_comparison.md` section 3 --
    many seeds per arm, judged blind, recorded as a distribution.
 
 Step 4 is a weight-level comparison and answers "does each arm satisfy the
 brief", never "which clip is better": a rendered pair cannot A/B a numerical
-change, and `docs/eval_comparison.md` section 3 is the process for anything
+change, and `docs/method/eval_comparison.md` section 3 is the process for anything
 that will be quoted.

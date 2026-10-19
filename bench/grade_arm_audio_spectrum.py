@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Does one render arm's audio differ in timbre from another's, or is that the seed?
 
-Run it with the ComfyUI venv python (`docs/comfy_notes.md`); it needs torchaudio
+Run it with the ComfyUI venv python (`docs/working/comfy_notes.md`); it needs torchaudio
 and ffmpeg.
 
     bench/grade_arm_audio_spectrum.py \

@@ -5,7 +5,7 @@ change the file an entry describes and run the generator.
 `bench/build_index.py --check` says whether this file is current.
 An entry's text is the file's own: a docstring's first sentence, a
 heading, a `what` line. `README.md` says what ships and why, and
-`docs/wiki/index.md` routes a question to the document that answers it;
+`docs/index.md` routes a question to the document that answers it;
 this file only says what is here.
 
 ## The pack's modules
@@ -151,8 +151,8 @@ with none is a helper the others import.
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
-| `docs/` | 138 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
-| `prompt_bank/` | 170 | [`docs/prompt_bank.md`](docs/prompt_bank.md), the prompt catalogue |
+| `docs/` | 138 | [`docs/index.md`](docs/index.md), the hand-written router |
+| `prompt_bank/` | 170 | [`docs/prompting/prompt_bank.md`](docs/prompting/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
 | `standalone/` | 27 | [below](#standalone) |
 | `vendor/` | 11 | [below](#vendor) |

@@ -7,7 +7,7 @@ verdict: one load of one clip, two named subjects, read from the trackers' own s
 measurement modes of `bench/who_is_who_across_shots.py` (`galleries`, `looks`,
 `--crops`), the sum over all subjects (`hand_out`), its lead, the evidence
 total and its levels, `--suggest-lead` and `--unsure take` were removed from
-the tree after the last section below was written (`docs/wiki/decisions.md`, 2026-10-10, "What the owner cut from the tools around the nodes"). They were
+the tree after the last section below was written (`docs/state/decisions.md`, 2026-10-10, "What the owner cut from the tools around the nodes"). They were
 the tracker's own likeness arranged again, not further votes. Every figure
 here was made with them and stays as written; the code that made it is in
 git before that commit, and the data is under the untracked `data/`. The
@@ -510,7 +510,7 @@ list everybody on the frame, with a mark on whoever another tracker
 holds, so that every table's looks are complete; today only the first
 tracker's are. The design's casting pass, which looks at every shot with
 no subject and no `others`, is that by construction
-(`docs/wiki/who_is_who.md`, section 5). Until one of them exists, most
+(`docs/masked_v2v/who_is_who.md`, section 5). Until one of them exists, most
 shots of a load with several trackers have one complete look.
 
 **Seen on the tiles and in no table** (the lead session's reading): after

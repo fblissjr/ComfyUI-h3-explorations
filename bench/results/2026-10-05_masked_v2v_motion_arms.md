@@ -33,7 +33,7 @@ Pending at the time of writing (appended below as they land):
 `ref2va_pdd8_s1` (ref2va with its PDD8 bake, 8 steps), `ref2va_pdd6_s1` (the
 same bake on `h3_config.PDD_MANUAL_SIGMAS`, six evaluations; a `steps`
 request of 6 is refused by the node and the knot list is the sanctioned
-form, `docs/h3_pdd.md`), `ref2va_base_s2` (the base at seed two).
+form, `docs/distills/pdd.md`), `ref2va_base_s2` (the base at seed two).
 
 ## What the five rows say
 

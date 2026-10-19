@@ -10,7 +10,7 @@ a `lane:` or `verdict:` line near its top overrides the one and fills
 the other, and an empty verdict cell means the record has no such
 line, not that it reached none. The `.json` and `.jsonl` files beside
 the records are their data and are counted, not listed. Nothing here
-replaces `docs/evidence.md`, which says what the records established.
+replaces `docs/method/evidence.md`, which says what the records established.
 
 ## 2026-10
 
@@ -24,7 +24,7 @@ replaces `docs/evidence.md`, which says what the records established.
 | 2026-10-15 | masked video to video | [The head reference's mouth a frame at a time, on the remade references (2026-10-15)](2026-10-15_class_mouth_gate.md) | data, against the answers known. Under eed4acb9 a frame whose lip lines missed the class map's mouth got no mouth, in either form: the remade references had a mouth on 11 of 51, 10 of 29, 0 of 22, 0 of 16 and 214 of 275 frames (630, 805, 1010, 5114, 2823). A frame at a time, the lines where they lie on it and else the class map's own mouth where a gate of its own passes (on the body model's picture, near the pose model's mouth), they get one on 27, 19, 11, 14 and 275. Of 101 answered frames, 6 go against the answer, all on 805. |
 | 2026-10-13 | working | [A working copy's sound against its picture: the copy made without the stretch, and the one that replaces it](2026-10-13_working_copy_sound_against_its_picture.md) |  |
 | 2026-10-13 | fun | [Every render of the fun clip on the share, and how each was made: the ledger's first record](2026-10-13_fun_render_ledger.md) |  |
-| 2026-10-12 | masked video to video | [The masked lane's page held to the clips and files it names](2026-10-12_masked_v2v_page_held_to_its_clips.md) | no render. Every clip, strip, sheet and data file `docs/wiki/masked_v2v.md` names was opened and its sentence held to it; the pictures hold, and the sentences that had lost to a file, to the code or to a saved graph are corrected in the page: the rows that say "does not hold", and the second table. |
+| 2026-10-12 | masked video to video | [The masked lane's page held to the clips and files it names](2026-10-12_masked_v2v_page_held_to_its_clips.md) | no render. Every clip, strip, sheet and data file `docs/masked_v2v/overview.md` names was opened and its sentence held to it; the pictures hold, and the sentences that had lost to a file, to the code or to a saved graph are corrected in the page: the rows that say "does not hold", and the second table. |
 | 2026-10-12 | green | [Green and red: a census of what goes red in this repo, and on what kind of failure](2026-10-12_green_red_census.md) |  |
 | 2026-10-12 | fun | [Where the fun clip stands, a shot and a subject at a time: what is laid, what is left, what is unsure](2026-10-12_fun_shot_coverage.md) |  |
 | 2026-10-12 | masked video to video | [The body model posed the other person for half a second, and what was changed](2026-10-12_body_model_posed_the_other_person.md) | no render; three previews of one shot. Given a box alone, the body model was posed as the person standing behind the subject on twelve frames. The model's own mask prompt, which both upstreams feed, put the two ends of that stretch right and left the middle wrong. Shown the subject alone it is on her on every frame, and where the box alone had been right her head moved a few pixels and the joints the picture does not show moved most. Run twice since (the dated note): two runs of one form agree to a fraction of a pixel, so the forms' differences are real. Not judged for a whole person's hands. |

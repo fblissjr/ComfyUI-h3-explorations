@@ -23,7 +23,7 @@ can be made again after every render and is not typed by hand.
   owner's answer on a numbered picture exists it is the source (rows `b20` and `who` of
   `data/fun/poc/answers.jsonl`); where two sources disagree the row says `unsure` and quotes both.
 - `data/fun/plan.json`: the owner's defaults of 2026-10-11 (the lead, face only; the second subject, face
-  and hair; the third subject, face only, his own hair; `docs/wiki/decisions.md`, 2026-10-11) and their
+  and hair; the third subject, face only, his own hair; `docs/state/decisions.md`, 2026-10-11) and their
   dated notes on stretches, each with where it was said.
 - the delivery table the joined clip of 2026-10-11 was built from, and the page's inventory of every
   render of this video read from each render's saved graph.

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""The PDD artifact record and the generated regions of `docs/pdd_artifacts.md`,
+"""The PDD artifact record and the generated regions of `docs/distills/pdd_artifacts.md`,
 derived from the files, from git, and from the node's source -- never typed.
 
-`docs/pdd_artifacts.md` is the master page for every PDD weight file on this
+`docs/distills/pdd_artifacts.md` is the master page for every PDD weight file on this
 box. VISION.md's rule for it is the rule for everything here: prose carries
 pointers and records carry numbers, and anything a file or a commit already
 knows is generated, never retyped. So this script owns three things:
@@ -71,7 +71,7 @@ import h3_config  # noqa: E402
 
 LORAS = HERE.parents[2] / "models" / "loras" / "h3"
 ARCHIVE = LORAS / "pdd_archive"
-OUT = REPO / "docs" / "pdd_artifacts.md"
+OUT = REPO / "docs" / "distills" / "pdd_artifacts.md"
 RESULTS = HERE.parent / "data" / "results"
 CONVERTER = REPO / "bench" / "convert_pdd_lora.py"
 NODE = REPO / "pdd_lora.py"

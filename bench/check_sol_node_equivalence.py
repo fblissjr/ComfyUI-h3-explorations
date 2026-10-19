@@ -680,7 +680,7 @@ def graded_kernel_cases(node, ck, check, **kw):
     less. Before 2026-09-04 the guard for this wrapped nothing, so the check
     died on a torch traceback with exit 1, which reads exactly like a real
     mismatch -- and a check that goes red while the state is correct trains a
-    reader to ignore red, which is the one thing docs/checks.md says is worse
+    reader to ignore red, which is the one thing docs/method/checks.md says is worse
     than having no check. Exit 2, naming the cases that were not graded and
     the fix. The sink cases before this point stand on their own result."""
     graded = []

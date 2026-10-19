@@ -40,7 +40,7 @@ procedure and distilling for it: the video is generated in causal chunks,
 one extra forward at sigma zero commits each finished chunk's K/V, later
 chunks attend to it, and the cache keeps a first-chunk sink plus the two most
 recent chunks, which is the LLM world's attention sink and sliding window
-([`../wiki/references.md`](../wiki/references.md), "The streaming references:
+([`docs/working/coderef.md`](../working/coderef.md), "The streaming references:
 TaoMate"). Fact 2 still holds for the checkpoint as released, so these rows
 stay n/a for it. Two parts have no LLM counterpart: history has to be
 re-encoded clean, because K/V computed from a noisy chunk change every step,
@@ -50,7 +50,7 @@ ordinary LoRA run over the whole clip at once.
 
 Where these two do apply in the owner's workflow: the LLM that writes H3
 prompts against the system prompts in
-[`h3_references.md`](../h3_references.md)'s prompting references. DFlash
+[`docs/h3/references.md`](../h3/references.md)'s prompting references. DFlash
 ships drafts for Qwen3 and Gemma 4 under SGLang, vLLM and llama.cpp
 (README read 2026-08-25). Outside ComfyUI and outside this repo.
 
@@ -58,8 +58,8 @@ ships drafts for Qwen3 and Gemma 4 under SGLang, vLLM and llama.cpp
 
 | from the LLM world | here | status |
 |---|---|---|
-| early exit, layer skipping, mixture of depths | step caching (Cache-DiT, TeaCache): reuse a block's residual when it moved little since the last step | **declined**, owner decision 2026-08-20 ([`roadmap.md`](../roadmap.md)): the measured speedup was steps skipped on a 16-step schedule, and the 4-step arm has nothing to skip. sglang's audited H3 setting and its SSIM are in [`sglang_comparison.md`](sglang_comparison.md) |
-| distillation to a smaller student | step distillation | **exists**: the Turbo LoRA 4-step arm. [`h3_ref2v_distillation.md`](../h3_ref2v_distillation.md) records that ref2v resists it |
+| early exit, layer skipping, mixture of depths | step caching (Cache-DiT, TeaCache): reuse a block's residual when it moved little since the last step | **declined**, owner decision 2026-08-20 ([`docs/state/roadmap.md`](../state/roadmap.md)): the measured speedup was steps skipped on a 16-step schedule, and the 4-step arm has nothing to skip. sglang's audited H3 setting and its SSIM are in [`sglang_comparison.md`](sglang_comparison.md) |
+| distillation to a smaller student | step distillation | **exists**: the Turbo LoRA 4-step arm. [`docs/distills/ref2v_distillation.md`](../distills/ref2v_distillation.md) records that ref2v resists it |
 | adaptive compute (stop when converged) | adaptive step count | same regime as step caching; nothing to trade at 4 steps |
 
 ## Techniques that shrink or sparsify attention
@@ -69,23 +69,23 @@ than the LLM world does.
 
 | from the LLM/ViT world | here | status |
 |---|---|---|
-| learned sparse attention with block selection (DeepSeek DSA, NSA, MoBA) | Sol-Attn's block-sparse routing with an exact sink and diagonal; a hard top-k router is what the Turbo-SLA LoRA was distilled under (ours, `MiniMaxH3SLARouter`, was retired 2026-08-28 and removed 2026-08-31), and [`SOLATTN.md`](../SOLATTN.md) records why Sol at `top-k` is a third attention rather than a cheaper spelling of the router | **exists**, the most measured thing in the repo |
+| learned sparse attention with block selection (DeepSeek DSA, NSA, MoBA) | Sol-Attn's block-sparse routing with an exact sink and diagonal; a hard top-k router is what the Turbo-SLA LoRA was distilled under (ours, `MiniMaxH3SLARouter`, was retired 2026-08-28 and removed 2026-08-31), and [`docs/attention/sol_attn.md`](../attention/sol_attn.md) records why Sol at `top-k` is a third attention rather than a cheaper spelling of the router | **exists**, the most measured thing in the repo |
 | FlashAttention, fp8 attention | sage (quantised QK) and the SDPA kernels | **exists** |
 | sliding window, local attention | video needs global attention across frames; Sol's sink and diagonal are the structured part | n/a |
-| **token merging and pruning (ToMe, VidToMe, FastV)** | merge redundant video rows before attention and unmerge after, a quadratic win on the rows removed | **possible, unmeasured.** [`sol_upstream.md`](../sol_upstream.md) notes Sol-Engine ships token pruning for LTX and not for H3. Sol already exploits the same redundancy by sparsity, so the two may overlap rather than stack; that is the question. Measurement: grade merged against exact on captured activations first (the `bench/grade_sage_on_capture.py` pattern, controlled by construction), then a blind distribution under [`eval_comparison.md`](../eval_comparison.md) section 3, never a pair |
-| dynamic resolution, patch schedules | canvas, frame count, reference latent rows; the encoder's own view got a knob on 2026-08-25 (`qwen_short_edge`) | **exists** as the sequence-length levers in [`h3_resolutions.md`](../h3_resolutions.md) and [`h3_input_impacts.md`](../h3_input_impacts.md) |
-| token reordering for locality (Hilbert, Morton) | Morton reordering under Sol | **exists**; [`morton.md`](../morton.md) records that whether it reaches the output is unverified |
+| **token merging and pruning (ToMe, VidToMe, FastV)** | merge redundant video rows before attention and unmerge after, a quadratic win on the rows removed | **possible, unmeasured.** [`docs/attention/sol_upstream.md`](../attention/sol_upstream.md) notes Sol-Engine ships token pruning for LTX and not for H3. Sol already exploits the same redundancy by sparsity, so the two may overlap rather than stack; that is the question. Measurement: grade merged against exact on captured activations first (the `bench/grade_sage_on_capture.py` pattern, controlled by construction), then a blind distribution under [`docs/method/eval_comparison.md`](../method/eval_comparison.md) section 3, never a pair |
+| dynamic resolution, patch schedules | canvas, frame count, reference latent rows; the encoder's own view got a knob on 2026-08-25 (`qwen_short_edge`) | **exists** as the sequence-length levers in [`docs/h3/resolutions.md`](../h3/resolutions.md) and [`docs/h3/input_impacts.md`](../h3/input_impacts.md) |
+| token reordering for locality (Hilbert, Morton) | Morton reordering under Sol | **exists**; [`docs/attention/morton.md`](../attention/morton.md) records that whether it reaches the output is unverified |
 
 ## Techniques that shrink weights
 
 These act on the non-attention share (the phase-0 instrument found the GEMM
 phases DRAM-saturated, so weight bytes are their cost) and on load staging
-(the DiT does not fit resident, [`hardware.md`](../hardware.md)).
+(the DiT does not fit resident, [`docs/working/hardware.md`](../working/hardware.md)).
 
 | from the LLM/ViT world | here | status |
 |---|---|---|
 | W4/W8 weight-only quantisation of the LLM (AWQ, GPTQ) | the encoder: this repo's W4A16 AWQ, [`h3_awq_encoder.md`](../h3_awq_encoder.md) | **exists**, and the lane is CLOSED. v2 calibrated on native input 2026-08-25 and was rejected at Gate 5; the owner ended further own-calibration quantisation on 2026-08-27, so the planned GPTQ variant will not run. The shipped encoder is the v1 W4A16 AWQ artifact |
-| the same on the ViT/DiT | the DiT ships int8 ConvRot (rotation plus int8); `fp8_scaled` measured worse against the bf16 release ([`evidence.md`](../evidence.md)) | **exists at int8. The unexplored borrow is W4 DiT weights** in the SVDQuant/Nunchaku style, which those projects apply to Flux and Wan DiTs. Prize: residency on 24 GB and faster DRAM-bound GEMM phases. Risk: diffusion's sensitivity to weight error, and a rendered pair cannot judge it (the different-sample rule in `CLAUDE.md`). Measurement: the same capture-graded route, then a blind distribution |
+| the same on the ViT/DiT | the DiT ships int8 ConvRot (rotation plus int8); `fp8_scaled` measured worse against the bf16 release ([`docs/method/evidence.md`](../method/evidence.md)) | **exists at int8. The unexplored borrow is W4 DiT weights** in the SVDQuant/Nunchaku style, which those projects apply to Flux and Wan DiTs. Prize: residency on 24 GB and faster DRAM-bound GEMM phases. Risk: diffusion's sensitivity to weight error, and a rendered pair cannot judge it (the different-sample rule in `CLAUDE.md`). Measurement: the same capture-graded route, then a blind distribution |
 | KV cache quantisation | no KV survives a step | n/a |
 | activation quantisation (A8) | sage quantises inside attention; the GEMMs are not quantised at the activation | possible, unmeasured |
 | NVFP4 | Blackwell only; a 4090 is sm_89 | n/a on this box |

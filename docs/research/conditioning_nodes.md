@@ -70,7 +70,7 @@ markers are for. The release lists them and documents neither.
 The native conditioner leaves `min_pixels` / `max_pixels` on a shared helper's
 signature defaults where the release declares separate image and video
 processor policies; the table and executed boundaries are owned by
-[`h3_references.md`](../h3_references.md). Stock ComfyUI applies its common
+[`docs/h3/references.md`](../h3/references.md). Stock ComfyUI applies its common
 defaults to a still or to each two-frame video block. The release video maximum
 is instead clip-wide over the sampled reference.
 

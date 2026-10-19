@@ -38,7 +38,7 @@ COMFY = REPO.parent.parent
 
 # ComfyUI's root ahead of the repo's PARENT, and the repo itself never on the
 # path: this repo has its own `nodes.py`, so a bare `import nodes` inside
-# `comfy_extras` finds ours and dies on a relative import. `docs/comfy_notes.md`
+# `comfy_extras` finds ours and dies on a relative import. `docs/working/comfy_notes.md`
 # carries the trap; the repo's modules are reached as a package instead.
 sys.path.insert(0, str(REPO.parent))
 sys.path.insert(0, str(COMFY))
@@ -288,7 +288,7 @@ def _core_clip_loader():
     """Core's own `CLIPLoader`, imported from ComfyUI's `nodes.py` by path.
 
     By path under its own name, because this repo has a `nodes.py` too
-    (`docs/comfy_notes.md`, the `import nodes` trap).
+    (`docs/working/comfy_notes.md`, the `import nodes` trap).
     """
     import importlib.util
 

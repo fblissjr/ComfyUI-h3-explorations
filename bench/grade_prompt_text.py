@@ -4,7 +4,7 @@
 ## Why this exists
 
 `bench/preflight_graph.py` grades prompts, but only ones already baked into a
-graph. That left the prompts in `docs/prompting.md` section 10 ungraded by
+graph. That left the prompts in `docs/prompting/prompting.md` section 10 ungraded by
 anything: the section states its examples "grade clean through
 `preflight_graph.py`", and until 2026-09-01 nothing checked that -- the claim
 and the artifact had no connection. Writing a new example meant either shipping
@@ -226,7 +226,7 @@ def main() -> int:
     # A REFERENCE LABEL IS GRADED AGAINST THE DONOR'S SOCKETS, so a prompt that
     # legitimately names two pictures and an audio clip FAILS against a donor
     # wiring one picture -- and the failure names the prompt, not the donor.
-    # That reading nearly got `docs/prompting.md` section 10.5 recorded as
+    # That reading nearly got `docs/prompting/prompting.md` section 10.5 recorded as
     # defective on 2026-09-01 when it is clean against a socket-matched donor.
     # Say so here rather than leaving the next reader to re-derive it.
     unwired = [m for lvl, m in fails if "which no socket wires" in m]

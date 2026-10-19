@@ -1,6 +1,6 @@
 """Capture q/k/v on core's sparse producer path, and change nothing.
 
-Written 2026-09-27 for `docs/open_experiments.md` #45 (is part of FastH3's
+Written 2026-09-27 for `docs/state/open_experiments.md` #45 (is part of FastH3's
 over-polish the kitchen's VSA selection?). FastH3's contract graph runs core's
 `BlockSparseAttention` (`comfy_extras/nodes_sparse_attention.py`). On the calls
 it takes, core swaps each H3 block's attention for its sparse producer, which

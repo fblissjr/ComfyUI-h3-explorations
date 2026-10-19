@@ -3,7 +3,7 @@
 fixed lengths of 243, 311 and 362 frames (all on the grid; 362 is the trained
 ceiling), which bench/run_graph_arms.py now refuses for a 345-frame prompt. Kept byte for byte because dated records
 were produced by it; do not copy its prompt format into new work: the house no
-longer writes timestamps on shot headers (docs/prompting.md section 3.1) and
+longer writes timestamps on shot headers (docs/prompting/prompting.md section 3.1) and
 renders a bank prompt only at the length its entry declares.
 
 Emit the Phase B workload grid as API graphs, plus a manifest of arms.

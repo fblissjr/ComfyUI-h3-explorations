@@ -79,7 +79,7 @@ MAX_DURATION = MAX_LENGTH / FPS  # 15.083s
 #: decision on three clips of the current finish graph at one seed, not blind,
 #: which they passed and which sampled faster
 #: (`bench/results/2026-10-03_sol_output_check.md`, section 5;
-#: `docs/wiki/decisions.md` has what the evidence does and does not cover,
+#: `docs/state/decisions.md` has what the evidence does and does not cover,
 #: including a louder mix on the one dialogue scene). It departs from the
 #: vendor. The reference-view
 #: ablation that would test it properly (`bench/refview2_arms.json`) was
@@ -135,7 +135,7 @@ def chain_lengths(ceiling: int = MAX_LENGTH) -> tuple[int, ...]:
 # not one bolted on here -- which is why these predicates stay correct with the
 # lane parked. What is parked is the pack's shim over core's 5-frame FLOOR
 # (`archive/single_frame.py`, 2026-08-27) and the graphs that needed it; the
-# arithmetic below is core's and is unaffected. See `docs/h3_image_editing.md`.
+# arithmetic below is core's and is unaffected. See `docs/h3/image_editing.md`.
 #
 # **Every duration rule below is about VIDEO and none of them applies to it.**
 # A single frame is 0.042s, so a naive reading of the 5-15s window calls it

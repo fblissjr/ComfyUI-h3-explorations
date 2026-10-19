@@ -85,7 +85,7 @@ from the vendor's files:
   needs sglang, which does not run on this card. The fc2, attention and AdaLN
   merges are not affected.
 - It is not a statement about this pack. Our converter swaps
-  (`docs/h3_pdd.md`, the `bench/convert_pdd_lora.py` section), and the
+  (`docs/distills/pdd.md`, the `bench/convert_pdd_lora.py` section), and the
   in-repo bake inherits that.
 
 ## Reproduce

@@ -123,7 +123,7 @@ class MiniMaxH3SageAttention(io.ComfyNode):
                         "rebalancing in the INT8 quantizer: less error on the "
                         "blocks whose K channels are lopsided (H3's last ones), "
                         "same elsewhere, under 1% slower. An experiment; "
-                        "docs/h3_block49_quant_error.md."
+                        "docs/attention/block49_quant_error.md."
                     ),
                 ),
                 io.Boolean.Input(
@@ -229,7 +229,7 @@ class MiniMaxH3SageAttention(io.ComfyNode):
         # upstream guarantee it cannot enforce. `check_clone_v_wiring.py`
         # pins it against a deliberately shallow-cloning fake, since against
         # the real ModelPatcher the assertion cannot fail.
-        # The final-layer tap for `docs/open_experiments.md` #22. Installed
+        # The final-layer tap for `docs/state/open_experiments.md` #22. Installed
         # here rather than in its own node so that BYPASSING THIS NODE TURNS IT
         # OFF, which is only true if the tap rides on a patch. Inert unless
         # `H3_CAPTURE` carries `final=1`, which is every normal render.

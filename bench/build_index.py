@@ -40,7 +40,7 @@ What is written, and from what:
     pack's nodes it wires).
 
 Already indexed elsewhere and only pointed at: `docs/` by the hand-written
-router `docs/wiki/index.md`, and `prompt_bank/` by `docs/prompt_bank.md`.
+router `docs/index.md`, and `prompt_bank/` by `docs/prompting/prompt_bank.md`.
 
 Every description is the file's own words (a docstring, a heading, a `what`
 key); nothing is written here about a file. All of it is generated: edit the
@@ -102,8 +102,8 @@ GROWS_WITH_EVERY_COMMIT = {
 
 #: Top-level directories whose index already exists and is not written here.
 INDEXED_ELSEWHERE = {
-    "docs": ("docs/wiki/index.md", "the hand-written router"),
-    "prompt_bank": ("docs/prompt_bank.md", "the prompt catalogue"),
+    "docs": ("docs/index.md", "the hand-written router"),
+    "prompt_bank": ("docs/prompting/prompt_bank.md", "the prompt catalogue"),
 }
 
 DATED = re.compile(r"^(\d{4})-(\d{2})-(\d{2})_(.+)$")
@@ -326,7 +326,7 @@ def build_root() -> str:
     out = header("The repo, by tracked file", [
         "An entry's text is the file's own: a docstring's first sentence, a",
         "heading, a `what` line. `README.md` says what ships and why, and",
-        "`docs/wiki/index.md` routes a question to the document that answers it;",
+        "`docs/index.md` routes a question to the document that answers it;",
         "this file only says what is here.",
     ])
     out += ["## The pack's modules", "",
@@ -385,7 +385,7 @@ def build_bench() -> str:
         groups[bench_group(Path(rel).name)].append(rel)
 
     out = header("bench/, by script", [
-        "`docs/checks.md` is the index of the checks with what each defends;",
+        "`docs/method/checks.md` is the index of the checks with what each defends;",
         "this file is only a way to find a script by what it says it does.",
     ])
     out += ["| group | scripts |", "|---|---|"]
@@ -463,7 +463,7 @@ def build_results() -> str:
         "the other, and an empty verdict cell means the record has no such",
         "line, not that it reached none. The `.json` and `.jsonl` files beside",
         "the records are their data and are counted, not listed. Nothing here",
-        "replaces `docs/evidence.md`, which says what the records established.",
+        "replaces `docs/method/evidence.md`, which says what the records established.",
     ])
     for month in sorted(set(months) | set(data), reverse=True):
         rows = sorted(months.get(month, []), key=lambda r: (r[0], r[2]), reverse=True)
@@ -536,7 +536,7 @@ def build_workflows() -> str:
             if notes else
             "The generator's one-line note for each graph is not shown: it lives "
             "inside `build_workflows.py::main` and no flag prints it yet."),
-        "`docs/prompt_bank.md` catalogues the prompts; this lists the graphs.",
+        "`docs/prompting/prompt_bank.md` catalogues the prompts; this lists the graphs.",
     ])
     rest = [n for n in under("workflows") if not n.endswith(".json") and n != "workflows/INDEX.md"]
     out += ["## The generator and its files", ""] + listing(

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Is block 49's oddity in the original MiniMax weights, before any conversion?
 
-Two facts about the Comfy conversions are recorded (`docs/h3_block49_quant_error.md`,
+Two facts about the Comfy conversions are recorded (`docs/attention/block49_quant_error.md`,
 `bench/analyze_checkpoint_delta.py`): four K channels carry most of block 49's
 `k_norm` energy, and block 49's text-row modulation chunks are exactly zero. Every
 file that was scanned was made from the release by us or Comfy-Org. This reads

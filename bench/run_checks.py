@@ -15,7 +15,7 @@ result that is not green. Then a verdict against `bench/checks_baseline.json`.
            card, a dataset, the server). Expected when masked, never a failure.
     other  red, including a crash and a timeout.
 
-`docs/checks.md` "Running them" is the standard for those codes. A check that
+`docs/method/checks.md` "Running them" is the standard for those codes. A check that
 needs a resource says so through `bench/_lib::needs`.
 
 ## The baseline

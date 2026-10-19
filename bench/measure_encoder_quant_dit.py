@@ -52,7 +52,7 @@ the token count, so it is a scale, not a controlled pair.
 
 Whether the difference is visible. A per-step prediction delta at one point on
 the trajectory can wash out or compound by the final frame; perceptual claims
-need `docs/eval_comparison.md`.
+need `docs/method/eval_comparison.md`.
 
     python bench/measure_encoder_quant_dit.py capture --source-video <render.mp4>
     python bench/measure_encoder_quant_dit.py forward --out data/results/<date>_encoder_quant_dit.json

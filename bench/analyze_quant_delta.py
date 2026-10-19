@@ -40,7 +40,7 @@ Neither the fp8 `input_scale` path nor whatever int8 does with activations
 at runtime is observable in any comparison of stored weights, and the fp8 numbers here are
 what the format costs before a single activation is quantized. The controlled
 runtime measurement is a fixed-input first-step forward with `unet_name` arms,
-which is `docs/open_experiments.md` #22's method.
+which is `docs/state/open_experiments.md` #22's method.
 
 The AdaLN is deliberately excluded from every vs-bf16 number: the bf16 release
 is unpruned, so grading a pruned AdaLN against it measures the rank-8 pruning

@@ -49,7 +49,7 @@ What it records, and why each field is here rather than inferred:
                          nothing here does it yet.
 
 **Nothing covers this file.** No `bench/check_*.py` drives it, and
-`docs/checks.md` has no row for it, so the five outcomes above are
+`docs/method/checks.md` has no row for it, so the five outcomes above are
 correct-by-construction: no one has forced each case and confirmed the field
 lands where it should. Treat a share computed from it as unverified until
 that exists.

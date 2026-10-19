@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Does any shipped graph hand Qwen a reference image it will shrink?
 
-Run it with the ComfyUI venv python (`docs/comfy_notes.md`). CPU only.
+Run it with the ComfyUI venv python (`docs/working/comfy_notes.md`). CPU only.
 
 `bench/measure_qwen_bounds_bite.py` established *where* ComfyUI's Qwen pixel
 ceiling starts resizing a reference prepared to a 2048 short edge. It answered
@@ -242,7 +242,7 @@ def main() -> int:
         import folder_paths  # noqa: F401
     except ImportError as exc:
         print(f"ComfyUI is not importable from here ({exc}); run this with the "
-              f"ComfyUI venv python (see docs/comfy_notes.md)")
+              f"ComfyUI venv python (see docs/working/comfy_notes.md)")
         return 2
 
     from workflows import h3_config

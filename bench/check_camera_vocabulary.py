@@ -3,7 +3,7 @@
 
 ## The escaped instance that earns this
 
-`docs/checks.md` recorded this rule as decidable and unbuilt for weeks. On
+`docs/method/checks.md` recorded this rule as decidable and unbuilt for weeks. On
 2026-08-28 it acquired its instance: the shipped market t2v prompt -- the
 DEFAULT, carried by seventeen graph files -- rendered badly and was found by
 reading the guide against it BY HAND. Every gate passed it. It carried
@@ -13,7 +13,7 @@ is in either modifier set), and `whip pan` (in no row at all).
 
 ## Why the split, and which half this is
 
-`docs/checks.md` also states the split correctly and this file honours it.
+`docs/method/checks.md` also states the split correctly and this file honours it.
 
 **The modifier axes are DECIDABLE and are gated.** Amplitude and speed are
 closed at two phrases each. Any `with <word> amplitude` or `at <word> speed`
@@ -196,7 +196,7 @@ def case_quiet_on_guide_examples() -> list[str]:
     beginning "The camera ", plus every worked
     `integrated_multimodal_description`. A red proof shows a check CAN fail;
     this shows it does not fail on known-good text, and the two are different
-    properties. `docs/checks.md`: a check reporting red while the state is
+    properties. `docs/method/checks.md`: a check reporting red while the state is
     correct trains you to ignore red.
 
     **What it does NOT prove**, stated because the sibling project stated it
@@ -313,7 +313,7 @@ def case_no_denied_motion(corpus) -> list[str]:
 # in-distribution, and a reader deciding between `Truck Right` and a phrase the
 # vendor never uses should see the difference. **Do not "fix" a warned term
 # without a rendering reason, and do not re-open the question from this output
-# alone** -- `docs/prompting.md` section 4 carries the ruling.
+# alone** -- `docs/prompting/prompting.md` section 4 carries the ruling.
 #
 # Revisit only if output quality gives a reason to. Recorded here so the next
 # reader meets the adjudication where the warnings are, not three files away.

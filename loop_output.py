@@ -1,6 +1,6 @@
 """Where a frozen-audio loop's files go, and what they carry.
 
-`docs/h3_audio_freeze.md` owns the lane. `MiniMaxH3AudioFreezeSong` writes its
+`docs/h3/audio_freeze.md` owns the lane. `MiniMaxH3AudioFreezeSong` writes its
 video through here; the layout lives outside the node so the next loop writer
 gets the same one. (`MiniMaxH3JoinWindows`, the shot workflows' join node,
 shared it until both retired on 2026-09-14.)

@@ -3,7 +3,7 @@
 
 This is the run `h3_capture.py` was written to enable and that its own
 docstring records as never having happened: "no kernel has yet been graded
-against the ones this script produced". `docs/evidence.md` withdrew every
+against the ones this script produced". `docs/method/evidence.md` withdrew every
 fp8-vs-fp16 accuracy ratio this repo carried, on provenance rather than size --
 the surviving sweep measured `torch.randn`, which is not H3's input
 distribution, and the competing real-activation figure came from an uncommitted
@@ -29,7 +29,7 @@ a mode is named above at all is to say which one the numbers below grade.
 
 ## Why a sampled reference, and why that is not a compromise
 
-An exact O(S^2) fp32 reference cannot run at capture length -- `docs/evidence.md`
+An exact O(S^2) fp32 reference cannot run at capture length -- `docs/method/evidence.md`
 already records that as the blocker on the Sol diagnostic. But nothing requires
 scoring *every* query row. Attention rows are independent: row i's output
 depends on q[i] and on all of k/v, and on no other query. So the exact fp32

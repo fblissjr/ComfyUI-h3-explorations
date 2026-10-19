@@ -4,7 +4,7 @@
 Written 2026-09-26 for two questions: what the INT8 ConvRot video VAE costs
 and saves at the owner's length (its 2026-08-10 measurement was at 124 frames;
 CHANGELOG, "Decode 12.8s -> 9.9s"), and what `h3_config.DRAFT_VAE` saves
-(`docs/open_experiments.md` #31). A decode of a fixed latent is a legitimate
+(`docs/state/open_experiments.md` #31). A decode of a fixed latent is a legitimate
 numerical comparison, unlike a render: nothing upstream of the decoder moves,
 so every pixel difference is the decoder's.
 

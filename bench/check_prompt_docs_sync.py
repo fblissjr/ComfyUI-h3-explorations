@@ -4,7 +4,7 @@
 ## Renamed 2026-09-01, and why
 
 This was `check_portable_standard.py` and guarded only the published extract.
-That was **backwards**: the extract was checked and `docs/prompting.md` -- the
+That was **backwards**: the extract was checked and `docs/prompting/prompting.md` -- the
 document the extract is derived FROM, and the one this repo calls its single
 source of truth -- was guarded by nothing. Deliberately corrupting the manual's
 FL2VA Part One template and its camera vocabulary was caught by no check in the
@@ -12,7 +12,7 @@ repo. Same class of quotation, same sources, so one check owns both.
 
 ## Why this is a check and not a promise
 
-`docs/portable/h3_prompt_standard.html` is published as an artifact and handed
+`docs/prompting/portable/h3_prompt_standard.html` is published as an artifact and handed
 to readers outside this repo. It is, by construction, a **second copy** of rules
 that are owned elsewhere -- and this repo's whole documented failure mode is a
 second copy with nothing to invalidate it. A note saying "regenerate rather than
@@ -20,7 +20,7 @@ edit" is not invalidation. This is.
 
 **It had already drifted before it was checked once**, which is the escaped
 instance: the T2VA example on the page carried `non_diegetic_music: N/A` where
-`docs/prompting.md` section 10.1 carries a real cue -- transcribed by hand and
+`docs/prompting/prompting.md` section 10.1 carries a real cue -- transcribed by hand and
 changed in transcription, into the very habit the same page warns against. The
 camera table had also lost half of seven motion types to abbreviation
 (`Zoom In / Out` for the guide's `Zoom In / Zoom Out`), in the one section
@@ -35,7 +35,7 @@ diffed against anything. This checks the parts that are quotations:
 1. **The three Part One templates** against `BASE_ALIGNMENT`, which
    `preflight_graph` parses out of the vendor guide rather than retyping.
 2. **The camera motion vocabulary** against the guide's own 4.3 table.
-3. **Every worked example** against `docs/prompting.md` section 10, exactly,
+3. **Every worked example** against `docs/prompting/prompting.md` section 10, exactly,
    after whitespace normalisation -- so an example cannot be reworded, and
    cannot silently stop being one that grades clean.
 4. **Quoted guide sentences** against the guide text.
@@ -74,9 +74,9 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-PAGE = REPO / "docs" / "portable" / "h3_prompt_standard.html"
-MANUAL = REPO / "docs" / "prompting.md"
-SNAPSHOTS = REPO / "docs" / "portable" / "snapshots.json"
+PAGE = REPO / "docs" / "prompting" / "portable" / "h3_prompt_standard.html"
+MANUAL = REPO / "docs" / "prompting" / "prompting.md"
+SNAPSHOTS = REPO / "docs" / "prompting" / "portable" / "snapshots.json"
 GUIDE = REPO / "vendor_guides" / "base_en.md"
 
 sys.path.insert(0, str(REPO / "bench"))
@@ -218,7 +218,7 @@ def guides_unchanged() -> int:
 def manual_quotations(manual: str, guide: str) -> int:
     """The manual retypes two closed vocabularies. Grade both against source.
 
-    `docs/prompting.md` restates the three Part One templates and base_en 4.3's
+    `docs/prompting/prompting.md` restates the three Part One templates and base_en 4.3's
     motion table in prose, for readers. Those are the two things in it a reader
     COPIES rather than reads, so a typo there ships into a prompt -- and
     `preflight_graph` parses its own copy from the guide, so the two can
@@ -406,7 +406,7 @@ def page_examples_grade(page: str) -> int:
 
 
 def derived_portables(guide: str) -> int:
-    """Anything else in `docs/portable/` that quotes the templates is checked too.
+    """Anything else in `docs/prompting/portable/` that quotes the templates is checked too.
 
     A second portable artifact that can disagree with the first is the failure
     this file exists to prevent, and one now exists: a writer-model system
@@ -419,7 +419,7 @@ def derived_portables(guide: str) -> int:
     being scanned because it was renamed would otherwise read as green.
     """
     from preflight_graph import BASE_ALIGNMENT
-    found = sorted(p for p in (REPO / "docs" / "portable").glob("*.md"))
+    found = sorted(p for p in (REPO / "docs" / "prompting" / "portable").glob("*.md"))
     if not found:
         print("  note  no additional portable markdown to check")
         return 0
@@ -451,8 +451,8 @@ def audit_covers_catalogue() -> int:
     is exactly how the audit came to cover a minority of the catalogue before
     2026-09-01, unnoticed because both files looked fine on their own.
     """
-    cat = REPO / "docs" / "prompt_catalogue.md"
-    aud = REPO / "docs" / "prompt_audit.md"
+    cat = REPO / "docs" / "prompting" / "prompt_catalogue.md"
+    aud = REPO / "docs" / "prompting" / "prompt_audit.md"
     if not (cat.exists() and aud.exists()):
         print("  FAIL  catalogue or audit missing; coverage cannot be checked")
         return 1
@@ -678,7 +678,7 @@ def main() -> int:
     fails += examples_still_grade(manual)
     fails += page_examples_grade(page)
     fails += derived_portables(guide)
-    fails += rule_pins(manual, prose, (REPO / "docs" / "portable" / "h3_system_prompt.md").read_text(encoding="utf-8"))
+    fails += rule_pins(manual, prose, (REPO / "docs" / "prompting" / "portable" / "h3_system_prompt.md").read_text(encoding="utf-8"))
     fails += audit_covers_catalogue()
     fails += snapshots()
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Does routing `<d>` to its real token id change what the encoder produces?
 
-Run it with the ComfyUI venv python and a free GPU (`docs/comfy_notes.md`).
+Run it with the ComfyUI venv python and a free GPU (`docs/working/comfy_notes.md`).
 Loads the H3 text encoder; no sampler, no DiT, no VAE.
 
 **Why this is not a render.** `CLAUDE.md`'s different-sample rule: two arms that
@@ -83,7 +83,7 @@ SHIPPED = ("<Subject 1> (S1) turns toward the camera and says, in the clear "
            "<d>[English] I thought you would have gone by now.</d>")
 
 # Its shot headers carry cut times, the vendor format, because it was written
-# on 2026-08-22, before the house rule of 2026-09-18 (docs/prompting.md section
+# on 2026-08-22, before the house rule of 2026-09-18 (docs/prompting/prompting.md section
 # 3.1). It is an encoder tokenization fixture that is never rendered, so it is
 # left as recorded: rewriting it would change the input its results measured.
 # Fourteen marker pairs in the base guide's three-field t2v format, which is
@@ -115,7 +115,7 @@ def _unpatched(clip):
     so that arm would silently become a second copy of `vendor` and this file
     would report near-zero deltas -- reading as a retraction of its own earlier
     numbers rather than as the arm having changed meaning underneath it. That
-    is the rule in `docs/rules_history.md`, "when something gains an off state,
+    is the rule in `docs/method/rules_history.md`, "when something gains an off state,
     revisit every assertion about it", applied to this harness.
 
     One implementation: the reconstruction lives in the tokenization audit and

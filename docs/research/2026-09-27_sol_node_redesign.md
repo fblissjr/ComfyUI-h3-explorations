@@ -147,8 +147,8 @@ commit on the branch.
 
    The analysis scripts that only reproduce closed-lane records are
    reviewed one by one, and deleted ones are cited by commit.
-5. **Prose:** `docs/SOLATTN.md`, `docs/morton.md`, the module docstrings,
-   `CHANGELOG.md`, and `docs/wiki/decisions.md`.
+5. **Prose:** `docs/attention/sol_attn.md`, `docs/attention/morton.md`, the module docstrings,
+   `CHANGELOG.md`, and `docs/state/decisions.md`.
 6. **Merge to `main`, rebuild, restart ComfyUI, and smoke-render** one graph
    per mode.
 
@@ -160,7 +160,7 @@ commit on the branch.
 For each retired input, the code only it reaches goes too: helpers, hooks,
 the checks that pin them, and the prose that describes them. Records that
 cite a deleted script keep citing it by the commit where it last existed.
-That commit goes in the `docs/wiki/decisions.md` line for the retirement.
+That commit goes in the `docs/state/decisions.md` line for the retirement.
 
 Starting map. `grep -rlw` over the pack, excluding `coderef/`, `internal/`
 and `vendor/`. This is a starting point, not the final list. Each item is

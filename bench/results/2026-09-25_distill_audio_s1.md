@@ -20,7 +20,7 @@ the kitchen chain at 0.141.0.
 
 - **A power outage** cut it after four rows: the diner warmup, `pdd8`,
   `pdd8_refine` and `fasth3`. After the reboot the server was restarted by
-  the `docs/comfy_notes.md` recipe, and the remaining arms were run with a
+  the `docs/working/comfy_notes.md` recipe, and the remaining arms were run with a
   fresh warmup and appended to the same file. The diner arms therefore span
   two server sessions.
 - **Every arm rendered.** No row is flagged `error` or `suspect_cache_hit`.

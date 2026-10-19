@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """What each render RAN UNDER, so a time or memory number can be checked.
 
-Run it with the ComfyUI venv python (`docs/comfy_notes.md`). Needs a live
+Run it with the ComfyUI venv python (`docs/working/comfy_notes.md`). Needs a live
 server; reads `/history` and allocates nothing. Safe during a render.
 
 **Not a check.** It asserts nothing and grades nothing. It records the
@@ -63,7 +63,7 @@ enforced by what the code reads rather than by what a caller passes.
     type. Nothing that describes WHAT was rendered, only what it ran under.
   - **No host identifiers.** `--sample` records memory and GPU totals, which
     are the same class of fact `bench/hwinfo.py` already publishes by design
-    (`docs/hardware.md` owns that decision). No hostname, user, PID or path.
+    (`docs/working/hardware.md` owns that decision). No hostname, user, PID or path.
 """
 
 from __future__ import annotations

@@ -23,7 +23,7 @@ is:
 Deliberately **not** archived, and the reason each time:
 
 - The raw arm records (`*_arms.jsonl`, `*_smoke.jsonl`) behind verdicts that
-  `docs/evidence.md` and `docs/SOLATTN.md` still cite. Splitting a verdict from
+  `docs/method/evidence.md` and `docs/attention/sol_attn.md` still cite. Splitting a verdict from
   its substrate is how a result stops being reproducible.
 - The `_sla` and `_v11` variants. **The reason first given here was wrong** --
   it said `h3_probe_turbo_768p_sla_router` is a live graph, and no such graph

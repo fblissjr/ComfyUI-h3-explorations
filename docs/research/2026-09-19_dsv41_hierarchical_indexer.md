@@ -11,7 +11,7 @@
 > the token-tile gather in
 > `coderef/comfy-kitchen/comfy_kitchen/backends/cuda/sage_attention/sol_attn_exact.cu:178-190`,
 > the head count in ComfyUI core `comfy/ldm/minimax/model.py:475`, and the
-> block-49 `k_norm.weight` note at `docs/roadmap.md:826-835`. The rest is as
+> block-49 `k_norm.weight` note at `docs/state/roadmap.md:826-835`. The rest is as
 > the agent reported it, with its own labels. Figures quoted from the report
 > or other repos are theirs, on their setups. `bench/analyze_sol_block_grouping.py`
 > was a peer session's uncommitted work when this was written.
@@ -451,7 +451,7 @@ Shapes: about 1,600 key blocks per head, so `T` is about 102,400 tokens;
   1. Per-channel smoothing between q and k, exact for `q . k` and free in the
      MMA: kitchen's `qk_balance`
      (`coderef/comfy-kitchen/comfy_kitchen/backends/cuda/__init__.py:2653-2656`)
-     and the planned fold into `k_norm.weight` (`docs/roadmap.md`, the
+     and the planned fold into `k_norm.weight` (`docs/state/roadmap.md`, the
      2026-09-14 block-49 entry).
   2. Per-channel E4M3 for Q and K on Ada's FP8 tensor cores (survey §C.4).
   3. Per-token, per-32-channel INT8 or E4M3 scales (the MXFP8 shape). The
@@ -460,7 +460,7 @@ Shapes: about 1,600 key blocks per head, so `T` is about 102,400 tokens;
      (one `m16n8k32` k-step each), each rescaled by `s_q[i,g] * s_k[j,g]`
      in FP32: four times the dequant epilogue of per-row scaling.
 - [I] The dynamic-range argument does not transfer. H3's frozen
-  `k_norm.weight` is far from uniform at block 49 (`docs/roadmap.md:826-835`
+  `k_norm.weight` is far from uniform at block 49 (`docs/state/roadmap.md:826-835`
   carries the figures), which is why that block has loud K channels. A
   scheme justified by "norm weights are about 1" needs checking per block
   against `k_norm.weight`.
@@ -534,6 +534,6 @@ the report as relayed.
   `coderef/comfy-kitchen/comfy_kitchen/backends/cuda/__init__.py`.
 - This repo: `docs/research/technique_transfer.md`,
   `docs/research/2026-09-17_rotation_and_lowbit_attention_survey.md` (§C.1,
-  §C.4, §D.3, §D.5, §D.6), `docs/roadmap.md`,
+  §C.4, §D.3, §D.5, §D.6), `docs/state/roadmap.md`,
   `bench/analyze_sol_block_grouping.py` (uncommitted peer work, read for its
   framing only). ComfyUI core `comfy/ldm/minimax/model.py`.

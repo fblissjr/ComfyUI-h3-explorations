@@ -269,7 +269,7 @@ CELL = 16
 #: its pixels (`keep_out_inside_own_track`). Reasoned: a cell mostly hers is a cell of her picture put back as the source; a
 #: cell on her outline, mostly the keep-out's or the background's, is the margin doing its work. No other value was chosen on
 #: a measure: at 0.75 the cells the old captures gave back inside her track lose the lead's one-cell strangers hits (3240b-d)
-#: and a few frames of the mom's held and hands (docs/wiki/decisions.md, 2026-10-16). It also sets how much the carve takes
+#: and a few frames of the mom's held and hands (docs/state/decisions.md, 2026-10-16). It also sets how much the carve takes
 #: outside her track (`carve_keep_out`), in the files step.
 OWN_TRACK_CELL_SHARE = 0.5
 #: The share of a cell's readable pixels that must be tinted for the cell to count as regenerated. Reasoned:
@@ -738,7 +738,7 @@ def pieces_taken(stray: np.ndarray, first: int) -> dict:
 
 def refuse_pieces_on_a_head(label: str, parts: np.ndarray, cmap: np.ndarray | None) -> None:
     """`pieces=largest` refused on a part made of a face or hair (`h3_config.NO_PIECES_ON`, the owner's word of 2026-10-16,
-    docs/wiki/decisions.md e6993b5e): a face or hair is rightly in more than one piece, and dropping the others leaves the
+    docs/state/decisions.md e6993b5e): a face or hair is rightly in more than one piece, and dropping the others leaves the
     original inside the new face. Read here, where every load passes whoever wrote its job file or command: the part's
     classes read back from the class map (`part_classes`) before a piece is dropped. Without a class map the part cannot
     be read, so the option is refused there too."""
@@ -752,7 +752,7 @@ def refuse_pieces_on_a_head(label: str, parts: np.ndarray, cmap: np.ndarray | No
     if head & set(held):
         raise SystemExit(f"subject {label!r}: pieces=largest on a part made of {' + '.join(held)}: a face or hair is rightly in more than "
                          "one piece (split by hair, a hand or an arm), and the largest-piece rule drops the others, which leaves the original "
-                         "showing inside the new face (the owner, 2026-10-16, docs/wiki/decisions.md, commit e6993b5e). Take pieces= off "
+                         "showing inside the new face (the owner, 2026-10-16, docs/state/decisions.md, commit e6993b5e). Take pieces= off "
                          f"this subject (and `pieces` off the job file's subject): no part holding {', '.join(h3_config.NO_PIECES_ON)} is read with it")
 
 
@@ -1194,21 +1194,21 @@ def carve_keep_out(keep: np.ndarray, mine: np.ndarray, share: float = OWN_TRACK_
                    depth: np.ndarray | None = None, valid: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """A keep-out less every cell that is more than `share` the load subject's own track (`mine`, [n, h, w]) and less every
     pixel of that track, and per frame the pixels and the cells it lost. THE CARVE (the lead's ruling of 2026-10-16 on the
-    owner's decision of that day, "The simplification wins. Make sure this never happens again", docs/wiki/decisions.md):
+    owner's decision of that day, "The simplification wins. Make sure this never happens again", docs/state/decisions.md):
     nothing puts the original back inside a person's region, and a keep-out's cells are given back as the source. Done in
     the files step before the keep-out's track is written, so the copy the builder hands the node (`masked_job.capture_files`,
     the capture's `track__<by>.mkv`) is the carved one. When `depth` and `valid` (`--depth`) are given, keep-out pixels with
     valid depth strictly in front of `mine`'s core median by `> tau_z` are preserved as foreground.
 
     ITS COST: it takes whole cells more than `share` hers, so it takes keep-out pixels OUTSIDE her track too, in those cells.
-    MEASURED on second_hfp_0014f (docs/wiki/decisions.md, 2026-10-16): 34989 of the 144813 `hands` pixels and 4930 of the
+    MEASURED on second_hfp_0014f (docs/state/decisions.md, 2026-10-16): 34989 of the 144813 `hands` pixels and 4930 of the
     15213 `clothing` pixels outside her track. Taking her own pixels as well costs none outside her track.
 
     NAMED GAPS, not built:
     - The canvas grid and frame by frame, ANSWERED at the on-plan rebuild by `grid_carve` (the node's own steps and grid) and
       counted by `node_taken_inside` (the node's own `window`): on the saved masks of second_hfp_0014f (zoomed) the node gave
       back 168 unit-frames of hands and 4 of strangers inside her track after this carve alone, and on second_hfp_0604g 100 of
-      hands; after the grid carve, none (docs/wiki/decisions.md, 2026-10-16). Before a plan exists the first files step has
+      hands; after the grid carve, none (docs/state/decisions.md, 2026-10-16). Before a plan exists the first files step has
       only this carve.
     - One capture, first sighting: every replaced subject of the capture is carved against, where the rule is per load (the
       same in the chain, one load a job), and a subject's first sighting whatever `by` the load names.
@@ -1305,7 +1305,7 @@ def node_source(vm, plan: dict, got: dict, others, keep=None) -> dict:
 
 def grid_carve(keep: np.ndarray, mine: np.ndarray, plan_path: Path, at: int, first: int, share: float = OWN_TRACK_CELL_SHARE,
                depth: np.ndarray | None = None, valid: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
-    """THE CARVE ON THE NODE'S OWN GRID (the lead's ruling of 2026-10-16, docs/wiki/decisions.md): per window of the node's plan,
+    """THE CARVE ON THE NODE'S OWN GRID (the lead's ruling of 2026-10-16, docs/state/decisions.md): per window of the node's plan,
     per latent step (`video_mask.run_lengths`) and per unit of its token grid (a latent cell, or a whole token; of the zoomed
     picture for a zoomed load), a unit more than `share` the subject's own track on ANY frame of the step loses every keep-out
     pixel under it on EVERY frame of that step, mapped back to the canvas: nearest, as the node lays cells; under a zoom
@@ -2075,7 +2075,7 @@ def by_subject(runs: list[dict]) -> list[dict]:
     """Each run once for each subject it replaces, with `subject` that one: what a rule that is a FACT ABOUT A SUBJECT
     walks (a shot of the load without them, their size, their face, their mouth, their pose ahead of kept frames).
     A run of one subject comes back as it is. A rule that reads the mask the load carries does not walk this: that
-    mask is both subjects' parts as one, and whose a missing part is cannot be read off it (`docs/wiki/next_steps.md`)."""
+    mask is both subjects' parts as one, and whose a missing part is cannot be read off it (`docs/state/next_steps.md`)."""
     return [run if len(subjects_of(run)) == 1 else {**run, "subject": who} for run in runs for who in subjects_of(run)]
 
 
@@ -3932,7 +3932,7 @@ def flag_runs(manifest: dict, folder: Path, own: dict | None = None, given: dict
         name, kind = run["name"], "plan" if run.get("planned") else "run"
         whom = " and ".join(subjects_of(run))
         # NO KEEP-OUT CARVES HER OWN TRACK (the owner, 2026-10-16, "The simplification wins. Make sure this never happens again",
-        # docs/wiki/decisions.md): a keep-out's cells given back that are mostly the subject's own track put the source back
+        # docs/state/decisions.md): a keep-out's cells given back that are mostly the subject's own track put the source back
         # inside her picture (a strangers track at the mom's ear, a held track at her neckline, second_hfp_0014d). Hard: no override
         hit = [(r["source_frame"], int(r[f"node_units_given_back_inside_own_track__{name}"])) for r in cross
                if r.get(f"node_units_given_back_inside_own_track__{name}")]
@@ -3955,7 +3955,7 @@ def flag_runs(manifest: dict, folder: Path, own: dict | None = None, given: dict
                             "why": f"the keep-out {other!r} takes back cells of {whom}'s own track in {kind} {name}'s region on {len(hit)} frame(s), up to "
                                    f"{max(c for _, c, _ in hit)} cells (more than {OWN_TRACK_CELL_SHARE:.0%} hers; row,column of the {CELL}-px grid): "
                                    + "; ".join(f"{f}: {at}" for f, _, at in hit[:12]) + (f"; and {len(hit) - 12} frame(s) more" if len(hit) > 12 else "")
-                                   + ". Nothing puts the original back inside a person's region (the owner, 2026-10-16, docs/wiki/decisions.md), and "
+                                   + ". Nothing puts the original back inside a person's region (the owner, 2026-10-16, docs/state/decisions.md), and "
                                    "the files step carves every keep-out out of her track (`carve_keep_out`), so this is a CAPTURE FAULT: no override takes it",
                             "figures": {"frames": len(hit), "cells_most": max(c for _, c, _ in hit), "cells_a_frame": {f: at for f, _, at in hit}},
                             "threshold": {"OWN_TRACK_CELL_SHARE": OWN_TRACK_CELL_SHARE}})
@@ -5478,7 +5478,7 @@ def with_the_voice(level: np.ndarray, series: np.ndarray) -> dict:
 
 
 #: A mouth is "open for the shot" on the frames in the top quarter of the source's own openings over the shot.
-#: Reasoned, not measured: the ledger's entry (`docs/wiki/state_signals.md`, "A mouth open with no voice")
+#: Reasoned, not measured: the ledger's entry (`docs/masked_v2v/state_signals.md`, "A mouth open with no voice")
 #: asks for the top share; a quarter is the first try.
 OPEN_SHARE = 0.25
 #: A run of open frames is one at least this long. Inherited: the same entry's "a dozen frames or longer".

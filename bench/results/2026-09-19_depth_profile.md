@@ -79,7 +79,7 @@ SDPA sits flat at the floor on every block, so its correlation is noise.
    nominates.
 3. **Block 49 is Sol's BEST block of the twelve, on both scenes at both
    steps**, with `qk_balance` on. It is the dense kernels' worst block, which
-   is the block-49 INT8 story (`docs/h3_block49_quant_error.md`), and it is
+   is the block-49 INT8 story (`docs/attention/block49_quant_error.md`), and it is
    what a dense-tail practice ("keep 47 to 49 dense") is aimed at. On these
    captures that practice sends to the dense kernel the block where Sol does
    the least damage and where the dense kernel does the most. Blocks 47 and 48
@@ -106,7 +106,7 @@ SDPA sits flat at the floor on every block, so its correlation is noise.
   `exact_kv_and_rows` sink, pooled tail; the json's `conditions` carry it). So
   "block 49 is Sol's best block" holds WITH `qk_balance` on. With it off,
   block 49's quantization term is the one `qk_balance` was built to cut
-  (`docs/h3_block49_quant_error.md`), and the ranking there is unmeasured.
+  (`docs/attention/block49_quant_error.md`), and the ranking there is unmeasured.
 - **Nothing about what the owner will see.** Capture error and the eye have
   disagreed in this pack (the reorder won most capture cells and no panel,
   `2026-09-18_sol_reorder_panel.md`). This nominates candidates for a render

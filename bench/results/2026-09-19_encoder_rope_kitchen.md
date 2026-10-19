@@ -14,7 +14,7 @@ ComfyUI core `6cff1e97` (PR 16326), pulled into this install on the morning
 of 2026-09-15, replaced the Qwen3-VL text encoder's torch RoPE
 (`comfy/text_encoders/llama.py::apply_rope`) with a call to
 `comfy_kitchen.apply_rope_split_half`. No render record spans the change
-(`docs/sol_upstream.md`, section "comfy-kitchen and core, 2026-09-19"). The
+(`docs/attention/sol_upstream.md`, section "comfy-kitchen and core, 2026-09-19"). The
 probe feeds the old function (copied from `6cff1e97^`) and the installed one
 the same bf16 q and k, laid out as the encoder lays them out, with the
 32B config's M-RoPE tables over a sequence that includes a vision span, and

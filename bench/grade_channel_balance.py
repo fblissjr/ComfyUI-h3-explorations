@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Does per-channel q/k balancing lower Sol's INT8 term on a captured cell?
 
-Step 3 of the experiment in `docs/SOLATTN.md`, "The defaults, re-read against
+Step 3 of the experiment in `docs/attention/sol_attn.md`, "The defaults, re-read against
 the sage-side error records, 2026-09-14". The sage fork measured that
 rebalancing K's channels before INT8 quantization cuts *sage's* error at block
 49 by about a fifth. Whether *Sol's* CUDA kernel benefits is a separate

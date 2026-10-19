@@ -97,7 +97,7 @@ full-magnitude vector pointing elsewhere.
 
 It also explains the failure's shape. The heads are 99.9% aligned, so the
 output projection is nearly right and the render looks structurally normal —
-`docs/h3_pdd.md`'s "renders and looks entirely normal". What is wrong sits
+`docs/distills/pdd.md`'s "renders and looks entirely normal". What is wrong sits
 underneath and has no visual signature announcing which partition it came from.
 
 ## What this means for merging the two

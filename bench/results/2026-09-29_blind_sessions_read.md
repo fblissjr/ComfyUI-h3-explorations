@@ -1,6 +1,6 @@
 # Five blind sessions, read (2026-09-29)
 
-The owner scored five blind batches (`docs/eval_comparison.md` section 3),
+The owner scored five blind batches (`docs/method/eval_comparison.md` section 3),
 seed 730451892, one clip per arm, so each is a look and not a distribution.
 Verdict records, from `bench/score_session.py` after the scores were in:
 

@@ -2,7 +2,7 @@
 
 **Dated research record, 2026-09-03.** This records an audit and the resulting
 experiment design. It is not the authority for shipped Sol settings;
-[`../SOLATTN.md`](../SOLATTN.md) owns those. No workflow, default, model,
+[`docs/attention/sol_attn.md`](../attention/sol_attn.md) owns those. No workflow, default, model,
 kernel, or installed wheel was changed by this analysis.
 
 The target models throughout are the checkpoints this repository actually
@@ -283,7 +283,7 @@ identified: exact checkpoint/sidecar identity now includes both INT8 codes and
 FP32 scales, and the population is asserted against the release's 50-block,
 208-module layout. The baked checkpoint and its paired stripped sidecar still
 do not exist; producing and grading that pair is the remaining bake work. See
-[`../h3_pdd.md`](../h3_pdd.md), which owns the current contract.
+[`docs/distills/pdd.md`](../distills/pdd.md), which owns the current contract.
 
 ## Addendum, later on 2026-09-03: the dense-trajectory control was run and graded
 

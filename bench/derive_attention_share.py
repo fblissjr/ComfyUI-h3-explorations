@@ -49,7 +49,7 @@ beside the figure, from the source record rather than by hand.
 
 Sampler time only. VAE decode is outside it. Bounds, not point estimates. One
 seed. And the dense-versus-sparse step split that produces `t_sol` is specific
-to the ladder's step count and shift -- `docs/open_experiments.md` warns not
+to the ladder's step count and shift -- `docs/state/open_experiments.md` warns not
 to reuse it -- so a different step count or clip length needs its own arms.
 """
 from __future__ import annotations
@@ -184,7 +184,7 @@ def main():
             "outside it.",
             "transfer to another step count or clip length. The sol arm's "
             "dense-versus-sparse step split is specific to the ladder's "
-            "schedule, which docs/open_experiments.md says not to reuse.",
+            "schedule, which docs/state/open_experiments.md says not to reuse.",
             "a second seed. One seed, and the per-scene agreement below is "
             "consistency across scenes, not across seeds.",
         ],

@@ -1,0 +1,440 @@
+# Notes on building custom nodes and workflows inside ComfyUI
+
+Last updated: 2026-08-16.
+
+## Running things
+
+### Where this machine keeps things: three environment keys
+
+A folder that is this machine's is an environment key, never a path in a tracked file. Each tool that
+needs one says so in words when the key is not set.
+
+| key | what it is | read by |
+|---|---|---|
+| `H3_OUTPUT_DIR` | the folder the server writes to (it is started with `--output-directory`; nothing in the HTTP API reports it back) | `workflows/h3_config.py::output_dir` |
+| `H3_INPUT_DIR` | the folder the server reads stills and input videos from | `bench/masked_job.py::input_dir` |
+| `H3_MODEL_STORE` | the folder that holds the pose model's own folder (`h3_config.POSE_MODEL`); `--model-store` on the tool is over it | `bench/load_chain.py land`, `bench/shot_to_load.py reference` |
+
+No test suite. Verify against a live ComfyUI and GPU: `bench/smoke_h3.py` for a
+fast pass, the relevant `bench/*.py` for the claim you changed. Most
+`check_*.py` need neither CUDA nor a model. This repo runs inside ComfyUI's
+venv, not a standalone uv project — there is no `uv.lock` here on purpose.
+
+**Start ComfyUI with `<comfy>/start.sh`** so its log is readable. Several
+findings here were only ever visible in that log. Check the settings inside `<comfy>/start.sh` to ensure they align with what you're trying to do. 
+If you need to change them, ask the owner first.
+
+**Restart by the process that owns port 8188, not by `pgrep | head -1`.**
+`start.sh` launches through a `uv` wrapper, so killing the first match takes
+the wrapper and leaves the server serving. You then read a stale
+`/object_info` and confirm a reload that never happened.
+
+`pgrep -f` also matches the shell command that contains the pattern, so a
+liveness check written that way reports the server up when nothing is
+listening. `ss -lptn 'sport = :8188'` answers the question actually being
+asked: who holds the port.
+
+**The recipe, by hand.** `bench/restart_comfy.sh` was written to automate this
+and is DISABLED since 2026-09-02 because it hung on every run; it exits 2 and
+points here. Before killing, read the port owner's environment: an `H3_*`
+key there means the server is ARMED for somebody's capture, and restarting
+it silently disarms them (CLAUDE.md, "the server process is the resource").
+
+    PID=$(ss -ltnp | grep ':8188' | grep -oP 'pid=\K[0-9]+' | head -1)
+    tr '\0' '\n' < /proc/$PID/environ | grep '^H3_'   # armed? ask first
+    kill $PID; sleep 5; ss -ltnp | grep ':8188' || echo "port free"
+    (cd <comfy> && setsid nohup ./start.sh > <a log you can read> 2>&1 < /dev/null &)
+
+**`start.sh` must never reach `uv run`.** Until 2026-09-10 its last line fell
+back to `<comfy-venv-python> main.py` when `COMFY_PYTHON` was unset. That
+day a restart by this recipe deleted `.venv` and recreated it empty (a fresh
+venv made by the `uv` that ComfyUI-Manager's requirements install inside the
+venv, first on PATH while it is active), so `main.py` could not import torch
+and every package in the environment, the kitchen build and the editable sage
+and torchaudio installs included, had to be rebuilt. `uv run` treats the
+ComfyUI checkout's `pyproject.toml` as a project and may sync or rebuild its
+environment. The owner's `start.sh` now falls back to the venv's own python
+(`$PWD/.venv/bin/python`), which touches nothing; `COMFY_PYTHON` still
+overrides it. If a `start.sh` in front of you still says `uv run`, set
+`COMFY_PYTHON=.venv/bin/python` before launching.
+
+**No `uv` project command from this repo while `VIRTUAL_ENV` names the
+ComfyUI venv.** Sessions here inherit that variable, and `uv run` or `uv sync`
+treats this repo's `pyproject.toml` as a project and can recreate the active
+venv empty. It happened on 2026-09-11 from this checkout, the day after the
+`start.sh` wipe above: the recreated venv's `pyvenv.cfg` carried this
+project's name as its prompt. Run scripts with `<comfy-venv-python>`
+directly, and before starting the server or a kitchen build confirm the
+venv's `site-packages` is not empty. **Do not restore the June
+`known_good_venv.txt` / `restore_venv.sh` environment**: the owner ruled it
+too old on 2026-09-10. Rebuild instead.
+
+### After a ComfyUI update
+
+A ComfyUI update that bumps `comfy-kitchen` replaces our fork wheel with stock,
+so our Sol settings (`rotate`, `qk_balance`, `tau_map`, `blk_cnt`) refuse to
+run, while an older fork wheel lacks modules new core imports (`2026-10-18`).
+Sync the owner's `comfy-kitchen` fork (`h3-frontier`) with the new upstream tag
+and rebuild with `bash vendor/rebuild_kernel.sh` (never hand-copy files into
+`.venv`). Built with `nanobind` 2.10.x (the venv's 2.10.2), a `std::optional`
+parameter bound with a bare `nb::arg` rejects `None`; 2.11.0 applies `.none()`
+implicitly (wjakob/nanobind#1262). The fork marks them `.none()` (`997dd79`),
+correct under every version; at the next planned rebuild, update the venv's
+nanobind to the latest. Before restarting, run
+`bash vendor/rebuild_kernel.sh --check`, `bench/check_sol_kernel.py`, and
+`bench/check_solattn_correctness.py`.
+
+`setsid` puts the server in its own session, and the same prefix belongs on
+every long runner (`bench/run_graph_arms.py`) launched from an agent's
+shell: a process that inherits the agent's session dies with the agent's
+process group when that client exits, and a render lost that way looks
+like a hang from the outside. The 2026-09-04 evening run lost nothing to
+this (the box lost power), but every launch since is detached, and the log
+goes to a file so the owner can read it.
+    curl -s localhost:8188/system_stats                # until it answers
+    ps -o lstart= -p $(ss -ltnp | grep ':8188' | grep -oP 'pid=\K[0-9]+' | head -1)
+
+**The three arming keys**, all read once by the server process from its
+environment: `H3_CAPTURE` (q/k/v tensors, gigabytes per cell),
+`H3_SOL_OBSERVE` (Sol route counts per call), `H3_SOL_PROBE` (Sol against
+the shipped fallback per call, summaries only). Each takes `dir=`; put it
+under `$H3_CAPTURE_ROOT`. A fourth, `H3_TELEMETRY` (2026-09-26), records what
+each prompt loaded, moved and spent per node:
+[`pipeline_telemetry.md`](pipeline_telemetry.md). A server carrying any of them renders slower and
+its timings are void, which is the reason to read the port owner's
+environment before you trust a number from it.
+
+**Between the kill and the launch, confirm the launcher chain is gone too.**
+On 2026-09-03 a `kill` of the port owner was followed within seconds by a
+new listener whose parent chain led back to the PREVIOUS `start.sh` shell,
+and the fresh launch then lost the port and exited 1 -- so the running
+server was the old chain's, without the environment the new launch
+carried. It did not reproduce on a later kill and the mechanism was not
+found; the operative rule is to check `ps` for `start.sh` and `uv run
+--active` survivors after the port frees, kill those too, and read the new
+owner's environment rather than assuming it is the one you launched.
+
+The last line is the point: the new process's start time must be LATER than
+the file you changed, or you are measuring the old code with a fresh-looking
+server. The running server's log is `GET /internal/logs/raw` (see "Traps"
+below). *Until 2026-09-26 this said the server writes `user/comfyui_<port>.log`
+whatever you do with stdout, so redirecting the launcher to `/dev/null` loses
+nothing. The server launched that day wrote no such file, so send the
+launcher's output to a file.*
+
+**Captures are transient, and the collection root is `start.sh`'s.** Since
+2026-09-03 `start.sh` exports `H3_CAPTURE_ROOT`, the directory every
+`h3_capture.py` capture goes under (pass `dir=$H3_CAPTURE_ROOT/<date>_<what>`
+when arming) and the one `bench/check_capture_manifest.py` and
+`bench/recycle_captures.py` walk. The path is not written anywhere in this
+repo on purpose; read it from `start.sh`, and export the same line in the
+shell that runs the bench tools, or they skip. The lifecycle, because the
+disk is not unlimited: take the capture; write `manifest.json` with
+`bench/generate_capture_manifest.py` (it needs the graph that rendered) and a
+`retention.json` beside it saying what the capture is for and a `keep_until`
+date; copy the manifest and an inventory record under `bench/results/`
+(`bench/record_capture_inventory.py`); grade; then
+`bench/recycle_captures.py --delete <name>` removes the tensors and leaves
+the manifest, the retention note and a `DELETED.json` marker. The recycler
+refuses any capture the repo cannot account for, so a directory that owes
+a manifest keeps its tensors until someone writes one or owns the deletion.
+A capture's value ends when the analysis it was taken for is recorded; a
+week is the outer bound anyone has set so far.
+
+**If you started the server, stop it when you are done.** An idle ComfyUI still
+holds a CUDA context and VRAM, and from the outside a leftover server is
+indistinguishable from somebody's live run without inspecting the queue — so
+leaving one up costs the next person the card and a diagnosis. This applies to a
+server *you* started; one that was already running when you arrived is not yours
+to stop.
+
+**The local review page has its own small server, started and stopped by
+hand.** It is the page the owner watches renders and answers on
+(`AGENTS.md`, "Where state lives"). From the repo's root:
+
+    python3 data/<video>/poc/serve.py
+    # or, left running after the terminal closes:
+    (setsid nohup python3 data/<video>/poc/serve.py > <a log you can read> 2>&1 < /dev/null &)
+
+It prints each address it listens on when it starts: open one of them in a
+browser. It reads only the files beside it and appends each click as one line
+to `answers.jsonl` there; it needs no ComfyUI and no GPU, so it can be up
+while the card is busy or the ComfyUI server is down. Its port is `PORT` in
+the script (`--port` overrides it); `--bind` adds an address to listen on and
+is the owner's word to use. To stop it, go by the port's owner, as for
+ComfyUI:
+
+    ss -ltnp | grep ':<PORT> '        # who holds the port: pid=N
+    kill <N>; sleep 1; ss -ltnp | grep ':<PORT> ' || echo "port free"
+
+`python3 data/<video>/poc/check_page.py` says whether the page and its clips
+load. Since 2026-10-15 the owner's two generated pages are served by the same
+server: `data/<video>/poc/fun_share` links to the share's `Video/<video>/`, so
+`http://<the address it prints>:8765/fun_share/TO_REVIEW.html` and
+`.../fun_share/PROVENANCE.html` open with every clip link working (the server
+serves files only, so a link to a folder does not open). Whoever starts it stops it at the day's end; a session that finds it up
+asks before stopping it, since the owner may be reviewing. The script lives
+under the untracked `data/` folder and is a throwaway of 2026-10-11 that has
+been in daily use since: a tracked tool with a check is a row in
+[`docs/state/next_steps.md`](../state/next_steps.md).
+
+**No `check_*.py` submits a prompt** — they all reason about graphs.
+`smoke_h3.py` is the fast one that does, and `bench_e2e_h3.py` submits real
+renders. A static check cannot catch a bug whose cause is the static check, so **run the smoke after any generator
+change and after any ComfyUI or node-pack update**, and treat a green
+validator on an unsubmitted graph as unverified.
+
+Free the GPU between a render and the CUDA checks (`POST /free` with
+`unload_models`) or they OOM and look like regressions.
+
+**The host is a variable too.** A GPU board power limit changes render times and
+appears in no workflow, log or manifest. `docs/working/hardware.md` is what about this
+machine can move a result; `bench/hwinfo.py` prints its current state and says
+so when the power limit is not stock.
+
+### Changing a graph
+
+1. Edit `workflows/build_workflows.py` or `workflows/h3_config.py`.
+2. If a node schema changed, **restart ComfyUI** (see the port note above).
+3. Read the changed default back out of `/object_info` before regenerating. A
+   stale server bakes in the exact mismatch the validation exists to catch.
+4. `<comfy-venv-python> workflows/build_workflows.py` (the ComfyUI venv's
+   python, never `uv run`: the repo-local venv lacks `packaging`; while a
+   render holds the card, prefix `CUDA_VISIBLE_DEVICES=`, see `docs/method/checks.md`
+   "Running them")
+5. The smoke, `bench/smoke_h3.py`. Step 4 already validated every graph by
+   input name against the live `/object_info` and wrote nothing if one failed;
+   given `--object-info <file>` it validates against that cached schema and
+   says it could not confirm the server.
+
+**Adding a probe or an arm.** Copy an existing probe row in
+`workflows/build_workflows.py::main`'s `GRAPHS`. A setting no vendor row attests runs as a
+`bench/run_graph_arms.py --set` patch, not as a shipped row; that script's
+docstring says when. Before the card, run `bench/preflight_graph.py <graph>`
+on any new or hand-built graph and `bench/check_distill_settings.py` on any
+LoRA row, and give a new bench tool one throwaway run, read end to end,
+before any batch.
+
+## What is cached, and by whom
+
+Two different things hand a render a result it did not compute, and they are
+checked in two different places.
+
+**ComfyUI's own node cache** is outside this pack and always on. A node's
+result is served again when its signature is unchanged: its class, what its
+change test returned, its input values, and the same for every node upstream
+(`comfy_execution/caching.py::CacheKeySetInputSignature.get_node_signature`).
+Which cache holds the results is set by the server's flags; with none of
+`--cache-classic`, `--cache-lru` or `--cache-none` it is the RAM-pressure one
+(`main.py`, where `cache_type` is chosen), which is how `start.sh` runs it.
+It lasts for the server's life and no longer. What that means here:
+
+- Two graphs queued in one session that share a loader, a tracker and a
+  Masked Source share one track and one mask. That is wanted when arms are
+  compared, and it is why the first arm after a restart is the slow one.
+- A node whose result depends on something that is not one of its inputs is
+  served stale. A file is the usual case, and each loader has its own change
+  test: VHS's video loaders hash the path and its modified time, not its
+  bytes (`calculate_file_hash` in VideoHelperSuite's `utils` module), and a model loader
+  has none, so a model file replaced under the same name needs a restart.
+- An identical graph queued twice runs nothing the second time.
+- A traceback in the server's log that is NOT a fault (2026-10-10): "VHS
+  failed to extract audio from ..." for a mask video, under core's "Could
+  not size cache entry ...; evicting it first". The RAM-pressure cache
+  sizes every cached output (`comfy_execution/caching.py`, where that
+  warning is logged). A VHS video loader's audio output is lazy: it runs
+  ffmpeg for the sound only when something touches it, and sizing touches
+  it (`LazyAudioMap` in VideoHelperSuite's `utils` module). A mask video
+  has no sound, so the loader raises, core logs it and evicts that entry
+  first. It happens once per mask loader each time memory is sized, on an
+  output nothing wired, and never on a render's path. Nothing here is
+  built to silence it; a mask loader of our own would, and is not worth it
+  for the log alone.
+- `bench/record_render_substrate.py` reads `/history` and reports, per
+  prompt, how many nodes were served from it; `/history`'s
+  `execution_cached` message names them. Read it before believing a time.
+
+**This pack reuses nothing an earlier run made (2026-10-10).** The owner's
+rule: nothing an earlier run made is reused by a key;
+a result is made again, or handed in explicitly as a
+named file or a wired input
+(`AGENTS.md`, "Operative rules"; `docs/state/decisions.md`). Until that day
+the pack had four stores of its own, each opt-in and off in every shipped
+graph: a kept subject mask (`reuse_mask`, `mask_store.py`), stored-window
+reuse (`reuse_windows`, keyed in `loop_resume.py`), an in-memory keep of a
+window's source encode and prompt encode (`window_keep.py`), and kept
+reference encodes (`keep_references`, the store in `reference_encode.py`).
+All four are removed with their inputs, code and checks. None could show
+that its key covered everything its result depended on, and a stale kept
+mask had already hidden a fix (2026-10-07). What remains is explicit: a
+window's files, which a person names (`keep_windows`, `continue_from`); a
+mask video a job loads from the file its capture wrote; and the two
+reference nodes that encode once and WIRE the result
+(`MiniMaxH3EncodeReferences`, `MiniMaxH3PromptOnReferences`). The cache
+nodes that only probe graphs wire are a different thing: the step cache
+keeps rows from the first model call of ONE run for that run's later steps.
+
+## Settings not to change without measuring
+
+**Sage runs `mode="auto"`, which resolves to `fp8_cuda++`**
+(`workflows/h3_config.py::SAGE_NODE`). `fp16 (most accurate)` shipped on
+2026-08-13 on the owner's perceptual verdict, rendered with Sol absent, and
+`497b421` returned to `auto` on 2026-08-18: with Sol on, sage runs only the
+steps outside Sol's window, so fp16 was paid for on every step and delivered on
+a minority of them. The six-arm comparison is
+`bench/results/2026-08-18_attention_defaults.json`. Every fp8-vs-fp16 accuracy
+ratio was withdrawn 2026-08-16 as untrusted. **Do not reintroduce a ratio to
+defend either mode** — see `docs/method/evidence.md`.
+Captured activations to measure it properly exist under `$H3_CAPTURE_ROOT/`, but
+not the `2026-08-15_dense_124f_1344x768` one this used to name -- that is gone.
+The 2026-08-17 reference-heavy pair is what is on disk.
+
+**Sol-Attn Triton is retired**, deleted 2026-08-16 (`6872dfd`). Recover from
+`github.com/kijai/ComfyUI-SolAttn_triton` at `842c4ea` if an old number needs
+re-deriving. `SolAttnMiniMax` (CUDA) is the only implementation now.
+`SolAttnBlockProbe` went with it and has no CUDA replacement, so `dense_blocks`
+cannot currently be chosen from measurement.
+
+**`centroid_tail`'s "~1.4x" is the operation, not end-to-end.** Measured 2.5%
+e2e here, which makes it the *smallest* knob in the node against sol's 1.20x and
+int8's 1.39x. Two separate readers have quoted the tooltip as an e2e figure and
+built arguments on it. See `docs/method/evidence.md`.
+
+**362 frames is the ceiling** (`h3_rules.MAX_LENGTH`), and `MAX_DURATION`
+derives from it. Nothing shorter is a model limit: diffusers' own cap is a
+fact about diffusers, and presenting it as legality cost a withdrawn bench run.
+`reference_would_emit()` answers the portability question separately. Know what
+362 rests on before quoting it: one upstream statement with no artifact, plus a
+third-party config that ships it.
+
+**Reference graphs load the ref2va checkpoint directly.** There is no
+alternative path and no switch; the turbo probes carry their own turbo LoRAs
+and nothing else in the model path moves.
+
+## Traps that have each bitten more than once
+
+**The running server's log is readable over HTTP, whatever the launcher does
+with stdout.** `GET /internal/logs/raw` returns core's in-memory log buffer
+for the current session (`app/logger.py`), with a timestamp per entry. This is
+where the answer lives for "did that render silently fall back to lowvram,
+novram or a partial load", and for what dynamic VRAM staged, which is
+otherwise unanswerable after the fact and turns any timing or quality
+comparison into an argument. The buffer is bounded and dies with the process,
+so copy what a record needs into the record. *Until 2026-09-26 this paragraph
+named `user/comfyui_<port>.log` as the log. The server `start.sh` launched that
+day wrote only to its stdout pipe, and that file's last write was 2026-09-16.* On 2026-08-28
+this lane read a stale `comfyui_detail.log`, saw the live process had both fds
+on a pipe, and concluded a VRAM-mode switch was *unobservable* — then proposed a
+26-minute control render partly to work around the gap. It was observable the
+whole time, and a grep across both files answered it in seconds. **Grep the log
+before designing a control for something the server already records.**
+
+**`free_memory` on `/free` unloads every model, even with
+`unload_models: False`.** The server sets the unload flag only when it is
+truthy, so the executor's `flags.get("unload_models", free_memory)` falls
+through to `free_memory`. There is no way to clear cached memory without
+dropping the models. Both flags are consumed *between* prompts rather than
+mid-render, so calling it is safe on a queue shared with other sessions — it
+just costs the next job a full reload. Worth saying out loud on a shared box.
+
+**`import nodes` resolves to ours.** This repo has a `nodes.py` and
+`build_workflows.py` inserts the repo root at `sys.path[0]`, so a later bare
+`import nodes` inside `comfy_extras` finds ours and dies on a relative import.
+Put ComfyUI's root ahead of the repo, or import `nodes` first.
+
+**A running ComfyUI holds TWO copies of every `comfy_extras` module, and
+patching the wrong one looks exactly like success.** `load_custom_node`
+registers each file under its own path-minus-extension
+(`ComfyUI/nodes.py:2245-2250` -- **ComfyUI's**, not ours, which is the trap the
+paragraph above describes and which this citation walked into),
+and `comfy_extras/` has no `__init__.py`, so a dotted
+`import comfy_extras.nodes_minimax_h3` builds a **second, independent module
+object**. `keyframe_canvas.py` (and `reference_fit.py`, retired 0.173.0) did this at module scope;
+`resolution.py`, `preflight.py` and `build_workflows.py` do it inside
+functions. On 2026-08-15 `single_frame.py` -- parked since 2026-08-27 and now
+`archive/single_frame.py` -- patched only the dotted copy: it
+logged success, an in-process check agreed, and the server served the unpatched
+one. **Resolve by identity, not by name** — start from
+`nodes.NODE_CLASS_MAPPINGS`, then collect every `sys.modules` entry whose
+`__file__` matches. Verify against a live `/object_info`, the only surface that
+can tell a patched module from a patched copy of one.
+
+**The same family, not yet bitten, recorded before it does: custom-node import
+order is `os.listdir` order, with no sort** (`ComfyUI/nodes.py:2356`). So
+whether `ComfyUI-SolAttn-cuda` imports before `ComfyUI-h3-explorations` is a
+property of directory entry order, not of the names — it holds today by
+accident. **Anything that patches another pack must do it at `execute()` time
+and count what it patched**, which is why `sol_curves.install()` returns an int
+and the node raises on zero. Moving that to `__init__.py` to catch an earlier
+hook would swap a loud failure for a silent one: patch nothing, log nothing,
+render with the unpatched path, look fine. That proposal has been made once.
+
+**DynamicCombo members are dotted in the API form.** `shape.wide_resolution`,
+not `wide_resolution`; the executor rejects the flat spelling with
+`required_input_missing`. The UI form is positional and unaffected.
+
+**A constant ending in `_LORA` must be a LoRA filename.**
+`bench/check_lora_alpha.py` selects by that suffix and resolves each on disk, so
+a bool named `REF_VIA_LORA` crashed it with a bare `TypeError`.
+
+### Prompts
+
+Graphs carry their prompt baked in, which is what lets a hand-edit diverge from
+the generator.
+
+```bash
+python workflows/build_workflows.py --list-prompts
+python workflows/build_workflows.py --print-prompt ref_video_edit
+```
+
+Every reference prompt comes from one function, `_ref_prompt()`.
+`bench/check_ref_prompt_labels.py` fails the build if a graph carries a prompt
+that function cannot produce, or if the prompt does not name exactly the labels
+the graph wires — the tokenizer derives `<Picture i>` / `<Video k>` /
+`<Audio j>` from the **sockets**, so the two drift silently.
+
+## Saved graphs address everything by position
+
+Never rename a node's `node_id=` (in any `io.Schema`). It is baked into every
+saved workflow's `type` field — this repo's `workflows/*.json` and the owner's
+live graphs outside it. Renaming breaks every saved graph silently, with no
+clear error in the UI. Class names, menu `category=`, log prefixes and package
+metadata are all safe to rename.
+
+**The same applies to order.** `widgets_values` is a bare list and links are
+integer slots, both matched by index at load. Adding an input or output
+anywhere but the **end** re-points every later one in every existing graph.
+Append, and leave a comment saying why the ordering looks wrong — semantic
+grouping is the instinct that breaks this. (Cost a real bug on 2026-08-10:
+`head_chunks` inserted after `mode` landed an old graph's
+`patch_token_refiner=False` on an INT with `min=1`.)
+
+Shipped workflows are API format and carry inputs by name, so this rule now
+protects the owner's editor-saved graphs, not anything in `workflows/`. That
+makes a removal or a reorder the owner's call rather than a forbidden change:
+when the owner accepts re-making their saved graphs of a node, its inputs may
+be removed and regrouped, the manifest below is regenerated in the same
+commit, and the CHANGELOG names the node whose saved graphs need re-making.
+First used 2026-09-14, when `MiniMaxH3AudioFreezeSong` lost `prompt_mode` and
+`window_mode` and the list nodes lost `seed` and `count`.
+
+**`bench/check_node_ids.py` catches the rename rule**, against
+`bench/node_id_manifest.json` — a committed baseline that is *not* regenerated
+from the schema, which is the whole point. It covers the positional contract
+too: ordered input and output names, so the "append only" half above is guarded
+by the same file. Added 2026-08-16; before that nothing guarded either.
+
+**Why nothing else can, and it is worth knowing.** Every graph here is
+generated from the schema, so a rename regenerates every tracked graph
+consistently: the generator revalidates against a live `/object_info` and
+passes, the smoke renders. Everything is
+green and the artifacts that actually break — the owner's live graphs outside
+this repo — are invisible to all of it. **A control whose input is regenerated
+from the thing it is checking cannot fail**, which is why the guard had to be a
+hand-maintained file.
+
+Two partial catches exist and neither rescues the rule: `bench/bench_e2e_h3.py`
+hardcodes **2 of the 8** `node_id` strings, so a rename of those two fails at
+submit time (GPU, server, runtime — not the fast suite); and a rename shows as
+every generated graph changing its `class_type` in `git diff`, which is human-visible and
+machine-checked by nothing.

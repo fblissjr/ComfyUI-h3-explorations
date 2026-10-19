@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """What ComfyUI's tokenizer does to the seven markers the release declares, scene by scene.
 
-Run it with the ComfyUI venv python (`docs/comfy_notes.md`). Loads the H3 text
+Run it with the ComfyUI venv python (`docs/working/comfy_notes.md`). Loads the H3 text
 encoder for its tokenizer only -- **no encoder forward, no sampler, no VAE, no
 GPU work**. `bench/grade_h3_marker_tokens.py` is the encoder-level companion and
 owns the hidden-state deltas; this file owns the token sequences underneath them

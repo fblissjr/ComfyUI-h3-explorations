@@ -1,6 +1,6 @@
 """Body parts and a soft matte on one tracked person, from Sapiens2.
 
-What it is for (the masked video-to-video lane, `docs/wiki/masked_v2v.md`):
+What it is for (the masked video-to-video lane, `docs/masked_v2v/overview.md`):
 the Masked Source's `head and hair` finds its part by asking SAM 3 for a
 phrase on every frame the subject is in, which cost minutes before sampling on
 the band clip and misses frames (`bench/results/2026-10-04_masked_v2v_band.md`,

@@ -2,7 +2,7 @@
 
 2026-10-12, session mrfern (the afternoon's lead on the fun video). A reading, no render, no
 check changed. It applies the owner's ruling (`AGENTS.md`, "Green or red only for a hard
-failure"; `docs/wiki/decisions.md`, 2026-10-11 and 2026-10-12: the scope is everywhere) to
+failure"; `docs/state/decisions.md`, 2026-10-11 and 2026-10-12: the scope is everywhere) to
 the 110 `bench/check_*.py` scripts, the capture tool's gate and the masked lane's other stops,
 and says which reds are of a hard failure and which are of a degree. The cuts the ruling owes
 are listed at the end for the owner's word; none is made here, since each changes what a
@@ -61,7 +61,7 @@ Of a degree, where a red can stand on a value that is not plainly broken:
 
 | check or tool | the red | the bar and its provenance | what the cut would be |
 |---|---|---|---|
-| `check_correctness.py` | `FAIL` when the patched forward's error against the stock one is over `TOLERANCE = 0.15` | the comment above it says only that the failures it catches are shape-independent; `docs/checks.md` says this check "records rather than inventing a threshold", which the code does not do | print the error with the sequence length and the dtype, no red; or keep the red and say in the comment what measured 0.15 |
+| `check_correctness.py` | `FAIL` when the patched forward's error against the stock one is over `TOLERANCE = 0.15` | the comment above it says only that the failures it catches are shape-independent; `docs/method/checks.md` says this check "records rather than inventing a threshold", which the code does not do | print the error with the sequence length and the dtype, no red; or keep the red and say in the comment what measured 0.15 |
 | `check_solattn_correctness.py` | a case is red when the kernel's agreement with the eager reference is under a bar (`got > bar`) | the bars are per case in the script; not read here | the same question: is each bar float noise (then a hard failure) or a quality level |
 | `check_sol_chunked.py` | `cos > BAR` against the direct path; `agree > 0.9`; "the chunked path did not reduce the peak" | the cosine bar is an agreement level; the peak comparison is a design claim (chunking saves memory), not a break | print the cosine and both peaks; red only when the chunked output has the wrong shape |
 | `check_channel_balance.py` | red when any block's energy share sits within 2x of the selection threshold ("selection is fragile") | a warning about the design's margin, raised as a failure | print the shares and which are near the line, no red |
@@ -77,6 +77,6 @@ Of a degree, where a red can stand on a value that is not plainly broken:
 Nothing. The three cuts that are plainly inside the ruling (`check_correctness`'s bar,
 `check_sol_chunked`'s cosine and peak, `check_channel_balance`'s fragile-selection red, and
 `draw_lid_marks`' second verdict) are listed for the owner's word on the Open List; each is a
-small change with its check's docstring and `docs/checks.md` row updated in the same commit.
+small change with its check's docstring and `docs/method/checks.md` row updated in the same commit.
 `draw_lid_marks` is in use on the card today (the second subject's cutaways), so its change
 waits for a day it is not.

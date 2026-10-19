@@ -1,7 +1,7 @@
 # The masked lane's page held to the clips and files it names
 
 lane: masked video to video
-verdict: no render. Every clip, strip, sheet and data file `docs/wiki/masked_v2v.md` names was opened and its sentence held to it; the pictures hold, and the sentences that had lost to a file, to the code or to a saved graph are corrected in the page: the rows that say "does not hold", and the second table.
+verdict: no render. Every clip, strip, sheet and data file `docs/masked_v2v/overview.md` names was opened and its sentence held to it; the pictures hold, and the sentences that had lost to a file, to the code or to a saved graph are corrected in the page: the rows that say "does not hold", and the second table.
 
 2026-10-12, session mrprompt, written at 18:06Z by the clock (`date -u`).
 A reading: nothing was rendered, queued or measured again, and no
@@ -66,14 +66,14 @@ The share is `/mnt/hub/ai/img/output/`; `Video/...` below is under it.
 | a frame of an input video is found with `bench/contact_sheets.py find <video> <frame>` | `contact_sheets/fun/` | `find fun 114` | holds: it names a sheet. The video's name there is `fun`, not the file's stem |
 | `data/CAPTURE_GAPS.md` U5, U6 and 30 | that file | each entry's first line | holds |
 | the composite's hold was "measured, `bench/results/2026-10-10_saved_windows_laid_again.json`" | that path | existence; `git log --diff-filter=D` | does not hold: the file left the tree (commit a3aeab08) and is under `data/2026-10-10_recomposite_decodes/`. The page now names the record's `.md` |
-| "the statement of who is in each window" is in `handover.md`, "After the close" | `docs/wiki/handover.md` | its headings | does not hold: no section of that name. Said beside the sentence, with where the fact lives now |
+| "the statement of who is in each window" is in `handover.md`, "After the close" | `docs/state/handover.md` | its headings | does not hold: no section of that name. Said beside the sentence, with where the fact lives now |
 | the old notes file `docs/research/masking/2026-10-04_mrhf.md` is "no longer in the tree" | that path | existence | holds |
 
 ## Held to the code, not to a clip
 
 Found while the page was read with the code beside it; each is corrected
 in the page with what it used to say, and logged in
-`docs/wiki/decisions.md` under 2026-10-12.
+`docs/state/decisions.md` under 2026-10-12.
 
 | the page said | the observable | now |
 |---|---|---|

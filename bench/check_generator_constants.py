@@ -36,7 +36,7 @@ sys.path.insert(0, str(_REPO.parent.parent))  # ComfyUI root
 # for its own `h3_rules` import, and our `nodes.py` then shadows ComfyUI's,
 # which `comfy_extras.nodes_minimax_h3` imports by that name. Pull core in
 # first, while ComfyUI's root is still the one that answers. With the card
-# masked (`CUDA_VISIBLE_DEVICES=`, `docs/checks.md`), core's import picks a
+# masked (`CUDA_VISIBLE_DEVICES=`, `docs/method/checks.md`), core's import picks a
 # device and raises, so put it on its CPU path first, as the generator's
 # `_core_cpu_when_no_card` does; with a card visible nothing changes.
 import torch  # noqa: E402

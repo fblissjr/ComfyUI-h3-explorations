@@ -51,7 +51,7 @@ do not meet at the cut, a subject one preview tracks and the other does not, a l
 load, a continued one, a hair band, keep-outs.
 
 **What it prints before anything is built on the job: the latent steps at the cut.** A latent step is several
-frames and its grid counts from the load's first frame (`docs/wiki/masked_v2v.md`, "A latent step is several
+frames and its grid counts from the load's first frame (`docs/masked_v2v/overview.md`, "A latent step is several
 frames"), so whether the cut falls inside a step is arithmetic, done here with the planner's own function
 (`loop_plan.split_steps`) on the frames the subject's part is on as the previews saved it: the step that holds
 the cut, the frames on each side that would share it, which of the capture's two flags that is

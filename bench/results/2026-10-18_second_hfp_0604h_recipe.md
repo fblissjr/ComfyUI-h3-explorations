@@ -43,7 +43,7 @@ Because the mom's kitchen flicker had been the central open fault on this shot f
 
 ## 3. The command sequence as run, with each step's flags
 
-All commands run with the ComfyUI virtualenv Python and `H3_INPUT_DIR`, `H3_OUTPUT_DIR`, and `H3_MODEL_STORE` set in the environment (`docs/comfy_notes.md`).
+All commands run with the ComfyUI virtualenv Python and `H3_INPUT_DIR`, `H3_OUTPUT_DIR`, and `H3_MODEL_STORE` set in the environment (`docs/working/comfy_notes.md`).
 
 ### Step 0: Shot preview (`shot_c_0604b`, run 2026-10-14 by `mrcircle`)
 

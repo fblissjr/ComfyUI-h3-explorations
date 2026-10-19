@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """How far saved latents sit from a reference latent, per latent frame. No decode.
 
-Written 2026-09-26 for the PDD schedule tests (`docs/h3_distills.md`, "Tests
+Written 2026-09-26 for the PDD schedule tests (`docs/distills/which_distill.md`, "Tests
 that would move this section"; predictions P1, P2 and P5 in
 `bench/results/2026-09-26_distill_run_predictions.md`). The reference is
 usually the base on Euler at 32 steps (`h3_probe_t2v_base_euler32_savelat`),

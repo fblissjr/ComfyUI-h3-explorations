@@ -17,9 +17,9 @@ go". The readings from frames had called the eyes a draw
 (`data/2026-10-12_lead_g_1222_fp_cv/reading_mrforest.md` and
 `reading_blind/reading.md`, untracked); what shows in motion is the
 owner's to see. The decision and its figures are in
-[`docs/wiki/decisions.md`](../../../docs/wiki/decisions.md) (2026-10-12,
+[`docs/state/decisions.md`](../../../docs/state/decisions.md) (2026-10-12,
 "always cropped to the head, with the face points drawn") and the rule in
-[`docs/wiki/masked_v2v.md`](../../../docs/wiki/masked_v2v.md), "Rules of
+[`docs/masked_v2v/overview.md`](../../../docs/masked_v2v/overview.md), "Rules of
 the lane". It is the owner's standard, provisional on holding up across
 the rest of the video.
 

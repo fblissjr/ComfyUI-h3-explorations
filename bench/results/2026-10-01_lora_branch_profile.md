@@ -55,8 +55,8 @@ Per forward at 110000 rows, from the tool's output:
 2. **Fold the add into the int8 GEMM's epilogue** for qkv, fc1 and the rest:
    the base matmul writes `W x + B (A x)` in one pass, removing the add's
    read and rewrite. That is a kitchen kernel change, on the fork the owner
-   builds from (`docs/wiki/references.md`, comfy-kitchen), and the larger of
+   builds from (`docs/working/coderef.md`, comfy-kitchen), and the larger of
    the two.
 3. **Not worth doing:** keeping A and B resident (above).
 
-Nothing is changed by this record. *The owner chose neither, 2026-10-01* (`docs/wiki/decisions.md`).
+Nothing is changed by this record. *The owner chose neither, 2026-10-01* (`docs/state/decisions.md`).

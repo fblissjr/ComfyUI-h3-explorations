@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Grade `docs/open_experiments.md` #22: does the AdaLN pruning move the output?
+"""Grade `docs/state/open_experiments.md` #22: does the AdaLN pruning move the output?
 
 Reads the per-arm capture directories written by `bench/run_pruning_arms.py`
 and answers the entry's pre-registered question at its pre-registered
@@ -30,7 +30,7 @@ Two scales sit beside it, and without them a number like 0.004 means nothing:
   within `10 x floor` (then the pruning is invisible on both and the ratio is
   noise over noise).
 - Anything else, including `S` above `fp8_ref` on either checkpoint, is a
-  finding about the pruning itself and reopens `docs/evidence.md` regardless of
+  finding about the pruning itself and reopens `docs/method/evidence.md` regardless of
   the ratio.
 
 ## Self-test (`--self-test`)
@@ -158,7 +158,7 @@ def main() -> int:
 
     rec: dict = {
         "date": "2026-08-21",
-        "experiment": "docs/open_experiments.md #22",
+        "experiment": "docs/state/open_experiments.md #22",
         "what": "pruned vs unpruned AdaLN at a fixed first-step forward",
         "canvas": "768x768, 124 frames, seed 730451892, 1 sampler step",
         "capture_dir": cap.name,

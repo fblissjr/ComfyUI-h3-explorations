@@ -54,7 +54,7 @@ is the one wording a person has accepted, changed only in its sound line
 where a motion reference is wired (its unrendered sentence for a render
 with none was cut):
 four sentences of the kinds cut elsewhere are held in it until a render
-says they can go (`HELD`). `docs/wiki/decisions.md`, 2026-10-10.
+says they can go (`HELD`). `docs/state/decisions.md`, 2026-10-10.
 """
 from __future__ import annotations
 
@@ -158,7 +158,7 @@ MUSIC = "non_diegetic_music: N/A"
 #: the head-and-upper-body role had a sentence for that case (the upper body and the legs "move as one body"),
 #: which asserted legs in the frame and that they move, had never rendered, and was cut with the rest.
 #:
-#: **What these texts no longer say (owner, 2026-10-10; `docs/wiki/decisions.md`, that date;
+#: **What these texts no longer say (owner, 2026-10-10; `docs/state/decisions.md`, that date;
 #: `bench/results/2026-10-10_prompt_text_hardcoded_in_code.md` has every sentence that went).** Two kinds were
 #: cut from all three roles. (1) Anything the node cannot know of a clip it never sees: that the picture is
 #: photorealistic live-action, that the subject is there for the whole take at one size, what else stands in
@@ -295,7 +295,7 @@ def assemble(subject: str = SUBJECT_PERSON, voice: str = VOICE_MAIN, picture_giv
 
     `subject` is who the still shows, in the user's words; it sits in the
     subject's definition, and the pronouns follow it (`pronouns`). The text
-    outranks the picture where the two disagree (`docs/prompting.md`,
+    outranks the picture where the two disagree (`docs/prompting/prompting.md`,
     "Silence is not neutral"), so words that match the still hold a look the
     render drifts from and words that do not match override it. `replace`
     and `motion_reference` are the Masked Source's own values, or None when

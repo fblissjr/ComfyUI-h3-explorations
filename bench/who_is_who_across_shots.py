@@ -14,7 +14,7 @@ A tracker's own take is one vote with nothing to agree with. Until 2026-10-10 th
 all subjects at once and an "evidence total" with a zero for nobody, and a row agreed when three readings said
 the same. They were the tracker's own likeness arranged twice more, not second and third votes: where they agreed
 it was one clue agreeing with itself, a row could agree with a wrong take, and on five shots of one clip the two
-totals failed in opposite directions. The owner cut them (`docs/wiki/decisions.md`, 2026-10-10, "What the owner
+totals failed in opposite directions. The owner cut them (`docs/state/decisions.md`, 2026-10-10, "What the owner
 cut from the tools around the nodes"); what was measured with them is the record,
 `bench/results/2026-10-10_who_is_who_across_shots.md`, and the code that made its tables is in git before this
 commit. A second vote of ANOTHER kind (SAM's own memory seeded on a confirmed frame, the record's last

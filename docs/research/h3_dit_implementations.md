@@ -9,8 +9,8 @@ drives it — for a text-to-video+audio (`t2va`) generation.
 
 **What it does not own, and must not restate.**
 [`sglang_comparison.md`](sglang_comparison.md) owns the *runtime and
-optimization* comparison against sglang. [`../h3_references.md`](../h3_references.md)
-owns reference-image conditioning. [`../h3_pdd.md`](../h3_pdd.md) owns PDD.
+optimization* comparison against sglang. [`docs/h3/references.md`](../h3/references.md)
+owns reference-image conditioning. [`docs/distills/pdd.md`](../distills/pdd.md) owns PDD.
 [`comfyui_h3_t2va_trace.md`](comfyui_h3_t2va_trace.md) owns what ComfyUI's own
 code does call by call -- loaders, quantization ops, memory, the two VAEs -- for
 one t2va render; this file compares implementations, that one traces ours.
@@ -49,7 +49,7 @@ the component `config.json`, and carries **no `scaling_factor` and no
 `coderef/` checkouts are gitignored symlinks, so citations into them are
 advisory to `bench/check_doc_links.py` and may drift. Re-read before quoting an
 older section as current — the standing rule in
-[`../config_drift.md`](../config_drift.md).
+[`docs/method/config_drift.md`](../method/config_drift.md).
 
 ---
 
@@ -259,7 +259,7 @@ A/B a numerical change — with `er_sde`, two runs of the *same* arm differ too.
 
 **Not a defect, and no verdict here.** `er_sde` may well be the better solver;
 this repo has no measurement either way, and getting one needs a distribution
-under [`../eval_comparison.md`](../eval_comparison.md) section 3, not a pair.
+under [`docs/method/eval_comparison.md`](../method/eval_comparison.md) section 3, not a pair.
 
 **Partially priced 2026-08-29.** A three-arm record on one scene
 ([`../../data/results/2026-08-29_market_scene_arms.json`](../../data/results/2026-08-29_market_scene_arms.json))
@@ -467,12 +467,12 @@ they assume opposite things.** A release-native file fed to ComfyUI, or a
 Comfy-Org repack fed to vllm-omni, loads without error and produces noise —
 the row count is identical either way — `56 * 3 * 128 = 21504` under both
 layouts — so vllm-omni's guard is **structurally incapable** of discriminating
-them, not merely insufficient (*read*). §7 finding 5 leans on this. `docs/evidence.md:176-186` already records the
+them, not merely insufficient (*read*). §7 finding 5 leans on this. `docs/method/evidence.md:176-186` already records the
 concrete instance from the ComfyUI side: a DeepBeepMeep bf16 file stores
 `qkv_proj` in release order, so head 0's k rows land where ComfyUI's split
 expects head 1's q.
 
-This is already recorded at `docs/evidence.md:168-175` from an earlier session.
+This is already recorded at `docs/method/evidence.md:168-175` from an earlier session.
 A spot check corroborates it and settles which layout this box holds:
 splitting `blocks.0.attn.qkv_proj.weight_scale` into contiguous thirds gives
 three clearly distinct means and explains ~10.6% of the total variance, while
@@ -538,7 +538,7 @@ clean and rendering noise. `bench/check_model_files.py` guards model *names*,
 not their qkv order. This install only ever loads Comfy-Org repacks, so it is
 not currently exposed — but the failure is silent, the discriminator is cheap
 (§6's weight-scale grouping separates the two decisively), and
-`docs/evidence.md:176-186` records a real file in circulation that trips it.
+`docs/method/evidence.md:176-186` records a real file in circulation that trips it.
 
 ---
 
@@ -548,14 +548,14 @@ not currently exposed — but the failure is silent, the discriminator is cheap
   vllm-omni's VAE wrapper was read (§1) and no other engine's was.
 - **Reference and keyframe conditioning paths.** `ref2va` and `fl2va` layouts
   were read to the extent they explain the `t2va` layout; the sizing and
-  presentation rules are [`../h3_references.md`](../h3_references.md)'s.
+  presentation rules are [`docs/h3/references.md`](../h3/references.md)'s.
 - **Runtime and parallelism** — sequence parallelism, disaggregation,
   quantization backends, cache-DiT. [`sglang_comparison.md`](sglang_comparison.md)
   owns that axis.
 - **Any rendered comparison.** Nothing here was rendered. Every claim is
   static: read from source, or measured against a file on disk.
 - **Whether any divergence is visible.** Not attempted, and not answerable
-  without a distribution under [`../eval_comparison.md`](../eval_comparison.md).
+  without a distribution under [`docs/method/eval_comparison.md`](../method/eval_comparison.md).
 
 ---
 
@@ -896,7 +896,7 @@ estimate. The 5x gap is wide enough that the ordering is unlikely to flip, but
 the margin is uncertain and a dequantisation of the shipped tensor would settle
 it. Nothing here has done that.
 
-**This does not contradict `evidence.md` #22**, which measured first-step
+**This does not contradict `docs/method/evidence.md` #22**, which measured first-step
 *velocity* moving 5.6-9.4% between the two checkpoints. That is the model's
 output after 50 blocks, not the modulation entering them, and it compares two
 files differing in pruning *and* in adaln quantisation at once. The two numbers
@@ -953,7 +953,7 @@ GEMM whose accumulation is exact — "all the error is in the two roundings".
 Every quant-quality record here
 (`2026-08-21_quant_delta_*`, `2026-08-28_quant_hotspots_ref2va`,
 `2026-08-29_int8_convrot_headroom`) is a stored-WEIGHT distance and is blind to
-the activation rounding by construction. `docs/evidence.md` carries that
+the activation rounding by construction. `docs/method/evidence.md` carries that
 caveat on the source measurement; this paragraph dropped it and then reasoned
 past it.
 
@@ -985,7 +985,7 @@ CUDA kernel, which requires `group_size == 256`, so it is a trade rather than a
 free win.
 
 Neither is worth turning until the runtime decomposition exists —
-`docs/open_experiments.md` #23. Everything above is one of the two roundings.
+`docs/state/open_experiments.md` #23. Everything above is one of the two roundings.
 
 If the goal is exact modulation, neither file is the answer. The exact AdaLN
 cache in §9.8 is: bf16-exact, ~148 MiB for this schedule, built from the

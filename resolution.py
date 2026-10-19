@@ -219,7 +219,7 @@ class MiniMaxH3Resolution(io.ComfyNode):
                         "1 is the single exception to the grid: it renders ONE "
                         "frame, needs the single-image H3 VAE to decode, and "
                         "none of the duration rules above apply to it. The "
-                        "single-frame path is PARKED (docs/h3_image_editing.md) "
+                        "single-frame path is PARKED (docs/h3/image_editing.md) "
                         "-- stock ComfyUI floors these nodes at 5 frames and "
                         "this node refuses rather than degrade."
                     )),
@@ -292,7 +292,7 @@ class MiniMaxH3Resolution(io.ComfyNode):
                     "clip -- through a VAE meant for one frame, which is the "
                     "grid-artifact case -- with nothing said. This pack no "
                     "longer patches core: the single-frame path is PARKED, "
-                    "see docs/h3_image_editing.md. Use a length of at least 5 "
+                    "see docs/h3/image_editing.md. Use a length of at least 5 "
                     "and the video VAE, or run a ComfyUI that accepts one "
                     "frame on its own."
                 )
@@ -302,7 +302,7 @@ class MiniMaxH3Resolution(io.ComfyNode):
                 "here), and leave the audio decoder out -- the audio stream is "
                 "0.04s of nothing. Your ComfyUI accepts one frame, so this "
                 "renders; this pack ships no graphs for it -- the lane is "
-                "PARKED, see docs/h3_image_editing.md.")
+                "PARKED, see docs/h3/image_editing.md.")
         elif not duration_in_range(snapped):
             notes.append(
                 f"WARNING {describe_length(snapped)} is outside H3's trained "

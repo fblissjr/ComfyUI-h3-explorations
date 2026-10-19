@@ -113,7 +113,7 @@ BANK_COPIES = {
 }
 SONG, SOURCE, NODE = "MiniMaxH3AudioFreezeSong", "MiniMaxH3MaskedSource", h3_config.MASKED_PROMPT_NODE
 #: A phrase from each sentence cut on 2026-10-10 (bench/results/2026-10-10_prompt_text_hardcoded_in_code.md,
-#: sorts 1 and 4; docs/wiki/decisions.md, that date). The first row is what the node cannot know, the second
+#: sorts 1 and 4; docs/state/decisions.md, that date). The first row is what the node cannot know, the second
 #: is talk of an edit. Lower case; matched in the lowered text.
 CUT = ("photorealistic", "whole take", "walls", "furniture", "steady and in focus", "shadow", "its print",
        "on the shoulders", "breath", "blink", "line of sight", "hands move", "long note", "quiet ambience",

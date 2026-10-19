@@ -7,7 +7,7 @@ This file is **only the gate**. What was measured on the weight side, the four
 review defects that reproduced against the observer, and the method lessons the
 day earned are [`2026-08-31_handoff.md`](2026-08-31_handoff.md)'s and are not
 restated. The experiment itself is
-[`../../open_experiments.md`](../../open_experiments.md) #23; the lever
+[`docs/state/open_experiments.md`](../../state/open_experiments.md) #23; the lever
 inventory is [`../quant_levers.md`](../quant_levers.md); the joint-capture
 contract is `internal/codex/2026-08-31_joint-tier1-capture-and-quant-reachability-review.md`.
 
@@ -36,7 +36,7 @@ The server process is the resource, not the GPU. An armed server nobody can see
 is what cost three renders on 2026-08-30, one of them killed at 345 frames.
 `ARMING_KEYS` is one list to extend -- **but the script is DISABLED since
 2026-09-02 (it hung on every run)**, so the list is documentation and the
-guard is the manual environ check in `docs/comfy_notes.md`'s restart recipe.
+guard is the manual environ check in `docs/working/comfy_notes.md`'s restart recipe.
 
 ### 3. A disk-budget print before execution, not after
 

@@ -15,7 +15,7 @@ load-bearing and neither previously assertable:
      node's own `schedule_knots` and the knots are the uniform block boundaries
      -- which is the property the head selection actually depends on.
 
-`docs/checks.md` records that a requirement with no assertion behind it is not
+`docs/method/checks.md` records that a requirement with no assertion behind it is not
 a control. Both claims above are prose in `pdd_lora.py` and
 `workflows/build_workflows.py` until this file grades them.
 
@@ -233,7 +233,7 @@ def case_untileable_raises():
 
     Drives `pdd_lora.resolve_emit_steps` itself. The first version of this case
     recomputed the condition and asserted its own arithmetic, which could not
-    have failed however the node behaved -- the shape `docs/checks.md` calls a
+    have failed however the node behaved -- the shape `docs/method/checks.md` calls a
     check whose input already satisfies the outcome.
 
     **Narrowed 2026-08-29, and the old form was over-broad.** It asserted that
@@ -520,7 +520,7 @@ def case_graph_shift_matches_file():
     # NOT `assert graded`. This module's contract says it needs "no checkpoint
     # on disk", and every LoRA being absent is a correct state on a fresh
     # checkout -- failing there would be red while nothing is wrong, which
-    # `docs/checks.md` calls worse than no check. An empty result is reported
+    # `docs/method/checks.md` calls worse than no check. An empty result is reported
     # as a skip; what stays a failure is a graph whose file IS present and
     # disagrees, which `problems` above carries. A tree with NO PDD graph is a
     # different state -- discovery found nothing, and no LoRA's presence

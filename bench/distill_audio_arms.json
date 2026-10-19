@@ -1,5 +1,5 @@
 {
- "what": "The 2026-09-25 distill and audio-recovery session, THROWAWAY FIRST RUN (docs/wiki/next_steps.md, the 2026-09-25 blocks). Five arms on two bank scenes at one seed, to catch wiring errors before a quoted session spends GPU. Arms: pdd8 = the shipped PDD8 t2v graph (h3_text_to_video_pdd); pdd8_refine = the same plus an audio-only refine pass on the undistilled model (h3_probe_t2v_pdd8_audio_refine, h3_config.AUDIO_REFINE); fasth3 = FastVideo's FastH3 8-step V2 as ComfyUI's own template runs it (h3_probe_t2v_fasth3_8step, h3_config.FASTH3_*); flashgen = Beidouqixing's FlashGen 4-step LoRA as kijai converted it, on its own sigmas (h3_probe_t2v_flashgen_4step, h3_config.FLASHGEN_*); flashgen_refine = flashgen plus the refine pass. 1344x768, 345 frames.",
+ "what": "The 2026-09-25 distill and audio-recovery session, THROWAWAY FIRST RUN (docs/state/next_steps.md, the 2026-09-25 blocks). Five arms on two bank scenes at one seed, to catch wiring errors before a quoted session spends GPU. Arms: pdd8 = the shipped PDD8 t2v graph (h3_text_to_video_pdd); pdd8_refine = the same plus an audio-only refine pass on the undistilled model (h3_probe_t2v_pdd8_audio_refine, h3_config.AUDIO_REFINE); fasth3 = FastVideo's FastH3 8-step V2 as ComfyUI's own template runs it (h3_probe_t2v_fasth3_8step, h3_config.FASTH3_*); flashgen = Beidouqixing's FlashGen 4-step LoRA as kijai converted it, on its own sigmas (h3_probe_t2v_flashgen_4step, h3_config.FLASHGEN_*); flashgen_refine = flashgen plus the refine pass. 1344x768, 345 frames.",
  "why": "The owner's 2026-09-25 questions: can audio lost to a distill be recovered with a few undistilled audio-only steps (C1), and do FastH3 V2 (DMD2, a full checkpoint trained WITH VSA) and FlashGen (VSD, a LoRA) do better than PDD8 and than the LightX2V Turbo LoRAs the owner found disappointing. All three distills are distribution-matching; PDD is the different mechanism.",
  "scenes": {
   "diner": "t2va_diner_breakup -- close-up two-person dialogue over scored music: the audio-judgeable one",
@@ -32,7 +32,7 @@
  ],
  "seeds": {
   "first": 730451892,
-  "note": "the ladder's seed. Every arm here shares canvas and length, so a matched seed matches the audio noise too (docs/eval_comparison.md, 'What a matched seed does not match'). The refine arms' second pass reuses the graph seed."
+  "note": "the ladder's seed. Every arm here shares canvas and length, so a matched seed matches the audio noise too (docs/method/eval_comparison.md, 'What a matched seed does not match'). The refine arms' second pass reuses the graph seed."
  },
  "pairs_that_are_controlled": {
   "pdd8 vs pdd8_refine": "identical first pass (same graph, seed, prompt); only the refine pass differs, so video should be bit-identical and the pair judges AUDIO",

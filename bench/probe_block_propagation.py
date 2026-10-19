@@ -7,7 +7,7 @@
 LOCALLY -- Sol's error at that block minus sage's. It cannot see propagation:
 an error at block 0 travels through 49 more blocks and may be amplified or
 washed out, while block 49's lands on the output head directly.
-`docs/SOLATTN.md` names that gap as the one thing that could overturn the local
+`docs/attention/sol_attn.md` names that gap as the one thing that could overturn the local
 ranking. This measures it.
 
 ## Why this needs neither an exact kernel nor a clean render

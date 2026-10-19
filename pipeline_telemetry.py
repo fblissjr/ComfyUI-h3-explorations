@@ -3,7 +3,7 @@
 Inert unless the server process starts with `H3_TELEMETRY` set; then every
 prompt the server runs writes `<dir>/<date>_<time>_<prompt>.jsonl`. The
 schema, the reading tool (`bench/telemetry_report.py`) and what each field
-can and cannot say are in `docs/pipeline_telemetry.md`. Arming key:
+can and cannot say are in `docs/working/pipeline_telemetry.md`. Arming key:
 
     H3_TELEMETRY=dir=<path>[,interval_ms=250][,blocks=1]
 

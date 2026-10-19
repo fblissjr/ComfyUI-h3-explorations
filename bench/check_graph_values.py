@@ -180,7 +180,7 @@ def _core_schema(class_type):
     """`(input ids, output count)` for a core node, from its own schema.
 
     Only the classes `OUTPUT_SOURCES` actually names are looked up. Import is
-    by module rather than through `nodes.py`: `docs/comfy_notes.md`'s
+    by module rather than through `nodes.py`: `docs/working/comfy_notes.md`'s
     `import nodes` trap makes the wide path expensive and nothing here needs
     this pack registered.
     """
@@ -381,7 +381,7 @@ def case_states_are_distinct():
     The baseline is the same graph unmutated, and it must RESOLVE. That is what
     makes each row evidence: a mutation that left the verdict alone would be
     reporting on a path the resolver never took, which is the family
-    `docs/checks.md` calls a check whose input cannot fail.
+    `docs/method/checks.md` calls a check whose input cannot fail.
 
     Three distinct states appear here rather than one `None`, and that is the
     load-bearing part. MALFORMED says the graph is broken and a caller should
@@ -420,7 +420,7 @@ def case_cycle_terminates():
     MALFORMED", it stayed green with the cycle set deleted: the walk went round
     and round until `MAX_LINK_HOPS` stopped it and reported MALFORMED for the
     other reason. Two guards, one verdict, and the case was reading whichever
-    fired -- the family `docs/checks.md` calls a check whose input already
+    fired -- the family `docs/method/checks.md` calls a check whose input already
     satisfies the expected outcome.
 
     So the assertion is the property rather than the verdict: the reported

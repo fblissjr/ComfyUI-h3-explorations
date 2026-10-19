@@ -4,7 +4,7 @@
 The HF hybrids (`smhfacct/Minimax-H3-fl2va-ref2va-hybrid-models`) are fl2va
 with ref2va's `blocks.{N..49}.adaln_proj.linear.{weight,bias}` swapped in,
 everything else fl2va, all four leaving `final_layer.adaln_proj` on fl2va
-(byte-compared 2026-08-16, `docs/roadmap.md`). This builds the same kind of
+(byte-compared 2026-08-16, `docs/state/roadmap.md`). This builds the same kind of
 file locally from the two parents on disk, with the cut as an argument, so a
 hybrid nobody published -- every block plus the final layer -- is one command
 rather than an 84 GB download that does not exist.
@@ -16,7 +16,7 @@ keep one parent's table under the other parent's linears. Measured 2026-08-25
 the two partitions' tables span nearly the same subspace but are not equal,
 and the `adaln_all` build's modulation sits 0.1-0.2% from ref2va's own at
 every block. An all-blocks build could copy ref2va's table too; this script
-does not, and `docs/evidence.md` carries the entry.
+does not, and `docs/method/evidence.md` carries the entry.
 
 ## The control comes before the build
 

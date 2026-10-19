@@ -9,7 +9,7 @@
     <python> bench/laid.py refs --laid data/<video>/laid.jsonl --ledger LEDGER.json --share SHARE
     (read by) <python> bench/delivery_table.py ... --laid data/<video>/laid.jsonl
 
-**Why** (the owner's order of 2026-10-16, `docs/wiki/decisions.md`): what the cut laid was decided in four places
+**Why** (the owner's order of 2026-10-16, `docs/state/decisions.md`): what the cut laid was decided in four places
 (the owner's keeps, a session's `prefers.txt`, lines typed into a rebuild script, the newest table by file time),
 and what the owner reviewed drifted from what was laid. Here one line says which render is laid on a shot for a
 subject, in what order among that shot's lines, the sha256 of its file as laid, and who chose it: `owner` is `kept` where the owner's last choice on that render is a keep (`delivery_table.KEEP`)

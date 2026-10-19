@@ -10,7 +10,7 @@ patched by `bench/run_graph_arms.py`. Seed 730451892 on every render.
 comfy-kitchen 0.2.34+sol.b532e28, pack at 7e44b2d, RTX 4090.
 
 Why: `start_percent` had never been measured at any value
-(`docs/SOLATTN.md`), and `2026-09-17_sol_stage_profile.md` priced it: the
+(`docs/attention/sol_attn.md`), and `2026-09-17_sol_stage_profile.md` priced it: the
 four dense steps it forces cost more attention time than the twelve Sol
 steps. At shift 12 on 16 steps, 0.2 leaves four steps dense, 0.1 two, 0.0 none.
 

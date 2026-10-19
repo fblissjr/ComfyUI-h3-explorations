@@ -6,7 +6,7 @@ Two things nobody had written down: **how our PDD implementation compares to
 every other one available**, and **how the lane arrived at its current shape**
 across the days it was built.
 
-[`../../h3_pdd.md`](../../h3_pdd.md) owns the converter and node contract and
+[`docs/distills/pdd.md`](../../distills/pdd.md) owns the converter and node contract and
 this file defers to it. Where the two disagree, that file is right — except at
 §4 below, which is a list of places this pass found it stale.
 
@@ -179,7 +179,7 @@ pixel-identical, and the same at a second step count.
 ## 4. Stale records this pass found
 
 Four, in descending order of consequence. All are proposed corrections to
-[`../../h3_pdd.md`](../../h3_pdd.md), not applied here.
+[`docs/distills/pdd.md`](../../distills/pdd.md), not applied here.
 
 1. *Corrected 2026-09-25: the stale copies are Kijai's conversions, not alibaba-pai's
    artifacts. alibaba-pai's weights have not changed since 2026-08-26; Kijai re-uploaded
@@ -191,17 +191,17 @@ Four, in descending order of consequence. All are proposed corrections to
    with an exact zero difference against the published values — and applying the
    PR's current formula to them yields a badly wrong result, a doubled head. The
    upstream repository's last-modified timestamp sits two minutes after that
-   commit, so the artifacts were re-uploaded. Consequence: `h3_pdd.md`'s
+   commit, so the artifacts were re-uploaded. Consequence: `docs/distills/pdd.md`'s
    statement that the PR's strength parameter "means something different from
    ours" is **no longer true**, and our copies should be re-fetched before any
    further comparison. The per-file hashes added on 2026-08-27 are what made
    this visible at all, and the failure mode is loud rather than silent.
-2. `h3_pdd.md` says the PR's diff is one file. It is now two — a later commit
+2. `docs/distills/pdd.md` says the PR's diff is one file. It is now two — a later commit
    changes several sites in core's model patcher so that a shape-changing patch
    cannot be deferred. Not H3-specific.
 3. The UtilsCollection row reading "unconsumed keys are an error — open,
    converter-side" is stale; the converter enforces it.
-4. One characterisation to soften: `h3_pdd.md` describes UtilsCollection's
+4. One characterisation to soften: `docs/distills/pdd.md` describes UtilsCollection's
    pruned-adaln handling as "the same affine solve" and the pair as "two
    independent solutions". It is an exact composition against a basis shipped as
    an asset, with no residual to score.
@@ -210,14 +210,14 @@ Four, in descending order of consequence. All are proposed corrections to
 
 ## 5. Still uncontrolled in this lane
 
-`docs/checks.md` holds the standing audit; these are candidates for it.
+`docs/method/checks.md` holds the standing audit; these are candidates for it.
 
 | requirement | status |
 |---|---|
 | a PDD arm is consumed by `euler`, not a re-noising sampler | **nothing.** Re-verified: no check reads the sampler name off a shipped graph. No escaped instance — every shipped graph carries it — so per CLAUDE.md that is a reason not to build the check yet |
 | the node's own step and fused-head counts agree | **deliberately not enforced, and this row was wrong to call it a gap.** They are allowed to disagree: the step count picks the schedule the node emits, the head count picks the blocks the heads fuse into, and setting them apart *is* the documented "decode one partition while stepping another". Announced rather than refused -- the tracker logs the override on every such run |
 | `strength` semantics | read into the record, graded only against turbo recipes |
-| the runtime adaln injection path | **dead code that announces itself as a safe fallback.** The pruned conversion removes the tensors it reads, so it raises after logging that it is doing the right thing. Unreachable only because another guard refuses first — one guard masking another's failure. Now recorded in [`../../h3_pdd.md`](../../h3_pdd.md); reached independently by two readers from opposite directions on the same day |
+| the runtime adaln injection path | **dead code that announces itself as a safe fallback.** The pruned conversion removes the tensors it reads, so it raises after logging that it is doing the right thing. Unreachable only because another guard refuses first — one guard masking another's failure. Now recorded in [`docs/distills/pdd.md`](../../distills/pdd.md); reached independently by two readers from opposite directions on the same day |
 | a legal step count is a *sensible* one | an envelope warning exists; nothing grades it |
 | whether the heads change the output visibly | **not established.** No blind session has been run on a PDD arm |
 | the positional widget read | **graded since `d94e286`**, by comparing the UI form's positional read against the API form's named one across every PDD pair -- so a schema move is caught rather than assumed |
@@ -252,7 +252,7 @@ Two findings this document raised were taken up rather than filed:
   routes. It also corrected a handoff document that had used "the adaln takes
   care of itself" to argue a decision was narrower than it is.
 - The core-PR head-formula finding (§4) was recorded in
-  [`../../h3_pdd.md`](../../h3_pdd.md) as a **lead, explicitly labelled
+  [`docs/distills/pdd.md`](../../distills/pdd.md) as a **lead, explicitly labelled
   reported-and-not-verified**, and the paragraph it contradicts was deliberately
   left standing with the doubt attached — because the evidence against it is a
   source read on a moving target and the evidence for it was a measurement.

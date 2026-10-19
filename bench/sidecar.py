@@ -12,7 +12,7 @@ frames, the text it was given IN FULL, the graph that made it IN FULL, the refer
 bytes they were read from and every step made to them on the way to H3.
 
 **Its name** is the video's whole file name with `.json` added (`lead_fp_0438c_00001.mp4.json` beside
-`lead_fp_0438c_00001.mp4`; the lead, mrtony, 2026-10-16, docs/wiki/decisions.md), named by `sidecar_path` and nowhere
+`lead_fp_0438c_00001.mp4`; the lead, mrtony, 2026-10-16, docs/state/decisions.md), named by `sidecar_path` and nowhere
 else: `<stem>.json` is already many tools' own record beside a video (a reference's, a zoomed picture's), which a
 sidecar never reads or writes over. A sidecar written under the old name (`<stem>.json`, before 2026-10-16T19Z) is
 not migrated: `read` does not find it, and the video's next writer writes the new one.
@@ -473,7 +473,7 @@ def write(video, command: list[str] | None = None, inputs: dict | None = None, e
            "made_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
            "made_by": made_by or os.environ.get(SESSION_KEY) or "not said (no --by and no H3_SESSION)",
            "command": " ".join(shlex.quote(str(c)) for c in command), "cwd": os.getcwd(),
-           # stills, inputs and the output folder are read through these keys (docs/comfy_notes.md): every H3_ key the command ran with
+           # stills, inputs and the output folder are read through these keys (docs/working/comfy_notes.md): every H3_ key the command ran with
            "environment": {k: v for k, v in sorted(os.environ.items()) if k.startswith("H3_")}, "git": git_state(),
            "tool": ({"path": str(tool), "sha256": sha256_of(tool)} if tool.is_file() else
                     {"path": str(tool), "sha256": None, "why": f"not a file at {tool} (the command's script, taken relative to the cwd {os.getcwd()})"})

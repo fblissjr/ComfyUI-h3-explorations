@@ -13,7 +13,7 @@ the two records before leaning on any of it:
 and
 [`2026-10-11_lead_closeup_lid_marks_did_not_carry.md`](../../results/2026-10-11_lead_closeup_lid_marks_did_not_carry.md).
 The practice as patterns with their conditions is in
-[`docs/wiki/masked_v2v.md`](../../../docs/wiki/masked_v2v.md), "The motion
+[`docs/masked_v2v/overview.md`](../../../docs/masked_v2v/overview.md), "The motion
 video as a body model, with marks drawn on its face".
 
 ## What is here
@@ -44,7 +44,7 @@ if the builder's keys change it can go stale; the builder's docstring
 
 A job is one video and its people; a load is one person on one stretch.
 How a job is run, with the capture, its gate and the two looks before a
-render, is in `docs/wiki/masked_v2v.md`, "Running a job".
+render, is in `docs/masked_v2v/overview.md`, "Running a job".
 
 | key | in the example | what it says, and what has to exist first |
 |---|---|---|
@@ -134,7 +134,7 @@ piece. Do not carry them to a new text.
    black ground are not. The third of the four places.
    *Context:* a line for `<Video 1>` as a source of movement is this
    pack's form; the vendor guide keeps `<Video N>` for a relationship to
-   a whole video (`docs/prompting.md`, section 9.4). A render with this
+   a whole video (`docs/prompting/prompting.md`, section 9.4). A render with this
    line reworded to say what is retained came out the same.
    *Required first:* the marked video, as under 2.
 
@@ -164,4 +164,4 @@ piece. Do not carry them to a new text.
 The four places in 1, 2, 5 and 6 are the whole difference from the load
 this one is a change of, whose text took only her head from the video.
 The fragment alone, and what to hold to when it is set into another
-load's text, is in `docs/wiki/masked_v2v.md`, "The text: the fragment".
+load's text, is in `docs/masked_v2v/overview.md`, "The text: the fragment".

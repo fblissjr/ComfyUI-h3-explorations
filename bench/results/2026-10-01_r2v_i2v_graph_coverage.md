@@ -81,7 +81,7 @@ prompt from the prompt bank), because that is what the blind session rendered.
 
 - **FastH3 alone on i2v or ref2va, and PDD8 then FastH3 on i2v.** Never rendered,
   so not an experiment we did. The FastH3 finisher lane is parked
-  (`docs/wiki/decisions.md`, 2026-09-29), and the owner rejected the FlashGen
+  (`docs/state/decisions.md`, 2026-09-29), and the owner rejected the FlashGen
   finish on i2v.
 - **The reference finishers with the generic two-reference prompt.** Never
   rendered. That prompt is the thin default that `bench/preflight_graph.py` warns
@@ -111,4 +111,4 @@ prompt from the prompt bank), because that is what the blind session rendered.
 "currently misses nothing" because `GRAPH_DIRS` was `("",)`. `GRAPH_DIRS` has
 held `distill_experiments` since 2026-09-27, so that glob misses every graph in
 the map above. Corrected in the same change, with the old claim logged in
-`docs/wiki/decisions.md`.
+`docs/state/decisions.md`.

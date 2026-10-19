@@ -3,18 +3,23 @@
 
 ## What it walks
 
-Every markdown link in `CLAUDE.md` and in each page under `docs/wiki/` is a
+Every markdown link in the root `AGENTS.md` and in `docs/index.md` is a
 starting point; from there it follows links between documents and prints each
-`.md` under `docs/` that nothing reaches. Reachability, not membership: a deep
-dive reached only through its parent (`morton.md` through `SOLATTN.md`) is not
-a finding, and a document no file links at all is.
+`.md` under `docs/` that nothing reaches. Each folder's `index.md` is reached
+from `docs/index.md`, so the walk follows the same route a reader does.
+Reachability, not membership: a deep dive reached only through its parent
+(`docs/attention/morton.md` through `docs/attention/sol_attn.md`) is not a
+finding, and a document no file links at all is.
+
+Until 2026-10-19 the starting points were every page under `docs/wiki/`; that
+folder was dissolved into the topic folders under `docs/` that day.
 
 ## Why it no longer generates the index
 
-Until 2026-09-11 this script built `docs/wiki/index.md` from CLAUDE.md's
+Until 2026-09-11 this script built `docs/index.md` from CLAUDE.md's
 routing tables, and `--check` refused a stale copy. The owner moved those
 tables into the wiki, so CLAUDE.md routes there instead of carrying them.
-`docs/wiki/index.md` is now written by hand and is the only copy of the
+`docs/index.md` is now written by hand and is the only copy of the
 routes, so there is nothing left to go stale and nothing to generate.
 
 ## A report, not a gate
@@ -34,20 +39,22 @@ from collections import defaultdict
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-WIKI = REPO / "docs" / "wiki"
+ROUTER = REPO / "docs" / "index.md"
 LINK = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 
 
 def starting_files() -> list[Path]:
-    return [REPO / "CLAUDE.md", *sorted(WIKI.glob("*.md"))]
+    return [REPO / "AGENTS.md", ROUTER]
 
 
 def docs_on_disk() -> list[str]:
     found = []
     for p in sorted((REPO / "docs").rglob("*.md")):
         rel = p.relative_to(REPO).as_posix()
-        if rel.startswith("docs/wiki/"):
-            continue  # the wiki describes the docs, not itself
+        if rel == "docs/index.md":
+            continue  # the router describes the docs, not itself
+        if p.name in ("AGENTS.md", "CLAUDE.md"):
+            continue  # a folder's rules are loaded by the harness, not reached by a link
         found.append(rel)
     return found
 
@@ -110,12 +117,12 @@ def collapse(paths: list[str], threshold: int = 3) -> list[str]:
 
 def main() -> int:
     argparse.ArgumentParser(description=__doc__).parse_args()
-    for required in (REPO / "CLAUDE.md", WIKI / "index.md"):
+    for required in starting_files():
         if not required.exists():
             print(f"FAIL  {required.relative_to(REPO)} not found")
             return 2
     unrouted = unreachable(docs_on_disk())
-    print(f"ok    walked links from CLAUDE.md and {len(starting_files()) - 1} wiki page(s)")
+    print("ok    walked links from AGENTS.md and docs/index.md")
     print(f"      unreachable       {len(unrouted)} doc(s) no link reaches")
     for entry in collapse(unrouted):
         print(f"        {entry}")

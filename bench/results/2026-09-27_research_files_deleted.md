@@ -45,7 +45,7 @@ Sources, all kept: `h3_config.MODELS["unet_fl2va"]` (`F`) and
   from the swap file, so a bake for FastH3 itself needs a new shim with FastH3's
   probe; the embedder tensors carry over.
 - **The bf16 pruned FastH3 and fl2va** (the owner's download folder), until
-  `../../docs/open_experiments.md` #35 lands. The rank record
+  `docs/state/open_experiments.md` #35 lands. The rank record
   (`2026-09-26_fasth3_lora_rank.json`) compares the two int8 files, whose
   rounding noise is on the order of FastH3's backbone drift (`edf70ef6`), so
   its low energy is most likely a noise floor, not the drift's rank. The bf16

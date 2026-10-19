@@ -119,5 +119,5 @@
   ]
  },
  "how_to_run": "python bench/run_graph_arms.py --manifest bench/refview2_arms.json --seed <base> --runs <K> --out bench/results/<date>_refview2_arms.jsonl; then bench/blind_batch.py on that JSONL with --pairs per scene, e.g. --pairs diner_parity,diner_noup_q512. Price first: python bench/preflight_graph.py workflows/h3_probe_refview2_*_api.json, and MiniMaxH3ReferenceReport on the graph in the UI.",
- "judging": "docs/eval_comparison.md: blind, matched seeds, free-text verdicts per pair, aggregate before unblinding."
+ "judging": "docs/method/eval_comparison.md: blind, matched seeds, free-text verdicts per pair, aggregate before unblinding."
 }

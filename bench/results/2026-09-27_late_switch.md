@@ -1,6 +1,6 @@
 # #34: PDD8 finished by late-only FlashGen, against the full-FlashGen finish (2026-09-27)
 
-`docs/open_experiments.md` #34. PDD8 runs to sigma 0.8 (`STEP_SWITCH_REV["h080"]`),
+`docs/state/open_experiments.md` #34. PDD8 runs to sigma 0.8 (`STEP_SWITCH_REV["h080"]`),
 then FlashGen finishes in two steps, either whole (`rev_h080`) or on blocks
 34-49 alone (`rev_late_h080`, `MiniMaxH3LoRABranch.blocks="34-49"`).
 

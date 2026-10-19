@@ -33,7 +33,7 @@ it -- the same shape as the `frame_count` break of 2026-08-13.
 ## Presence and gating
 
 Sol-Attn is enabled ON by default across all shipped video workflows
-(`docs/SOLATTN.md` owns its knobs, and `bench/check_attention_defaults.py` owns
+(`docs/attention/sol_attn.md` owns its knobs, and `bench/check_attention_defaults.py` owns
 the exempt set -- the single-frame image workflows that used to omit it are
 parked as of 2026-08-27 and ship no longer).
 

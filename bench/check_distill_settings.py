@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check every distill is loaded at the shift and step count it was trained at.
 
-A distill runs on its trainer's contract (`docs/wiki/references.md`): PDD and
+A distill runs on its trainer's contract (`docs/working/coderef.md`): PDD and
 FlashGen at the base 12/3 on their own grids, FastH3 V2 at `FASTH3_SHIFT`.
 None of them carries its shift in the file, so a graph at the wrong one
 renders plausibly wrong and **nothing errors**.
@@ -16,7 +16,7 @@ Claims, i.e. what breaks if a case is deleted:
                         population is empty: a walk that matches no file
                         grades nothing, and nothing reads as a pass
   no retired turbo      a graph loading any lightx2v or other turbo LoRA
-                        fails: that lane is closed (`docs/roadmap.md`,
+                        fails: that lane is closed (`docs/state/roadmap.md`,
                         "Closed lanes", 2026-09-26). Its vendor-row grading
                         (the `LEGAL` table, `UNATTESTED`, `OWNER_RECIPE`) went
                         with it and is in git
@@ -215,7 +215,7 @@ def classify_flashgen(lora_name):
 
 
 def is_pdmd(lora_name):
-    """Any PDMD LoRA, a retired lane since 2026-10-05 (`docs/roadmap.md`,
+    """Any PDMD LoRA, a retired lane since 2026-10-05 (`docs/state/roadmap.md`,
     "Closed lanes"): pdmd2026's files and kijai's resizes of them."""
     return "pdmd" in lora_name.lower()
 
@@ -334,11 +334,11 @@ def main():
             retired = [l for l in found.loras if is_turbo(l)]
             assert not retired, (
                 f"{path.name}: loads {retired}. Turbo LoRAs are a closed lane "
-                f"(docs/roadmap.md, 'Closed lanes', 2026-09-26)")
+                f"(docs/state/roadmap.md, 'Closed lanes', 2026-09-26)")
             retired = [l for l in found.loras if is_pdmd(l)]
             assert not retired, (
                 f"{path.name}: loads {retired}. PDMD is a retired lane "
-                f"(docs/roadmap.md, 'Closed lanes', 2026-10-05)")
+                f"(docs/state/roadmap.md, 'Closed lanes', 2026-10-05)")
             nodes_all = [n for n in doc.values() if isinstance(n, dict)]
             unets_all = {n["inputs"].get("unet_name") for n in nodes_all
                          if n.get("class_type") == "UNETLoader"}
@@ -396,7 +396,7 @@ def main():
                 vsa = [n["inputs"] for n in nodes_all if n.get("class_type") == cfg.SOL_CORE_NODE]
                 if path.name.removesuffix("_api.json").removesuffix("_savelat") == \
                         "h3_probe_t2v_fasth3_8step_contract_novsa":
-                    # The texture probe (docs/h3_distills.md): VSA off by design,
+                    # The texture probe (docs/distills/which_distill.md): VSA off by design,
                     # so it must carry NO VSA node, the inverse of the rule below.
                     assert not vsa, f"{path.name}: the VSA-off probe carries a VSA node {vsa}"
                     continue

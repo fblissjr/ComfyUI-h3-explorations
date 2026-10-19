@@ -23,7 +23,7 @@ tracks the LoRA rather than the base.** 0.00942 -> 0.01058 at strength 1.0,
 correlating 0.78 with the module's own `||BA||/||W||`
 (`bench/results/2026-08-30_pdd_quant_interaction.json`). So a strength
 schedule keyed to quantisation would turn PDD down exactly where PDD is doing
-the most work. **That plan is dead**; `docs/h3_pdd.md` carries the reasoning
+the most work. **That plan is dead**; `docs/distills/pdd.md` carries the reasoning
 and the two fixes that replaced it.
 
 Neither of those answers the depth question. They are about the *quantiser*.
@@ -169,7 +169,7 @@ matters.
 
 ### Two more axes, both reported by the mask-lane session on 2026-08-30
 
-**The SAMPLER, and it is not free the way it looks.** `docs/h3_pdd.md` records
+**The SAMPLER, and it is not free the way it looks.** `docs/distills/pdd.md` records
 that a second-order or stochastic sampler is *structurally invisible* to the
 node's boundary guard: heun evaluates its corrector at `sigmas[i+1]`, which IS
 the next block boundary, so the guard measures ~0 distance and calls it

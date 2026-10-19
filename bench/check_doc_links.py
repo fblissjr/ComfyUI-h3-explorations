@@ -4,7 +4,7 @@
 Two kinds of pointer rot, both of which happened here:
 
 **Markdown links between docs.** On 2026-08-16 `docs/sol_engine_reference.md`
-was renamed to `docs/sol_upstream.md`. `CLAUDE.md:41` went stale instantly, and
+was renamed to `docs/attention/sol_upstream.md`. `CLAUDE.md:41` went stale instantly, and
 it went stale inside an hour of a wholesale CLAUDE.md rewrite whose entire
 purpose was removing stale references. Nothing said so. A peer session noticed
 by eye.
@@ -12,7 +12,7 @@ by eye.
 **Code citations of the form `path:line`.** There were 19 of these across
 `docs/` when this check was written. All 19 were accurate that day, which is the
 only reason this check is preventive rather than a cleanup: `vendor/` had not
-changed since the commit `docs/morton.md` pins its line numbers at. The next
+changed since the commit `docs/attention/morton.md` pins its line numbers at. The next
 edit to any cited file silently invalidates them, and the failure is invisible
 -- a reader follows `sol_attn_route.cu:18` to whatever line 18 says today and
 believes it.
@@ -27,7 +27,7 @@ repo whose named trap is "`import nodes` resolves to ours", by someone who had
 just read that trap.
 
 **The sixth was nobody's mistake that day, and it is the better advertisement.**
-`docs/h3_geometry_and_nodes.md` cited a diffusers path with no root prefix,
+`docs/h3/geometry_and_nodes.md` cited a diffusers path with no root prefix,
 resolving nowhere. It was introduced in `6375763` on **2026-08-06** and had been
 dead for ten days, in a doc that had been read and edited repeatedly since. So
 one pass caught new work and a stale committed defect together -- and only the
@@ -38,7 +38,7 @@ this in ten days.
 **The gap was invisible from a green run, which is the lesson.** The grammar
 was `path:line`; a `::symbol` reference has no line number, so it was not a
 citation as far as this file was concerned, and the whole-repo run said 34
-citations and green. `docs/h3_image_editing.md` contributed zero while
+citations and green. `docs/h3/image_editing.md` contributed zero while
 containing two ambiguous references. **"Not covered" and "correctly absent"
 look identical from the outside** unless the check reports what it examined,
 which is why `parses_the_corpus` prints its counts rather than just passing.
@@ -79,9 +79,9 @@ Claims, i.e. what breaks if a case is deleted:
 
 ## Where the data lives
 
-`docs/checks.md`, in a fenced ```doc-link-absent block -- with the index of
+`docs/method/checks.md`, in a fenced ```doc-link-absent block -- with the index of
 checks it belongs to, so the enumeration cannot drift from the check that reads
-it. Same pattern as the `retraction-consumers` block in `docs/evidence.md`, and
+it. Same pattern as the `retraction-consumers` block in `docs/method/evidence.md`, and
 the same reason: nothing gets a second copy.
 
 Entries are paths that are cited on purpose and cannot resolve, the deleted
@@ -92,7 +92,7 @@ Triton pack being the whole of it today.
 **It cannot tell whether a cited line still says what the citation claims.**
 `morton_perm` moving from line 150 to line 90 while something else lands on 150
 passes every case here. Only a human reading both settles that, which is why
-`docs/morton.md` pins a commit as well.
+`docs/attention/morton.md` pins a commit as well.
 
 **It sweeps only backticked `path:line` and `path::symbol`, not every path
 mentioned in prose.** A bare `nodes.py` in a sentence is legitimate English and
@@ -138,7 +138,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 COMFY = REPO.parents[1]
-LEDGER = REPO / "docs" / "checks.md"
+LEDGER = REPO / "docs" / "method" / "checks.md"
 
 SKIP_DIRS = {".git", ".claude", "internal", "__pycache__", "coderef", "vendor", "archive"}  # .claude: harness worktrees live there
 
@@ -422,7 +422,7 @@ def main():
     for src, n, cited in absent_returned:
         warns.append(
             f"  warn  declared_absent_still_absent  {cited} is declared absent "
-            f"in docs/checks.md but resolves now ({src}:{n}) -- drop the entry")
+            f"in docs/method/checks.md but resolves now ({src}:{n}) -- drop the entry")
     if not absent_returned:
         print(f"  ok    declared_absent_still_absent  {len(absent)} declared, "
               "still absent")

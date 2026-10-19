@@ -5,7 +5,7 @@
 `eager_sol_reference` against the vendored upstream oracle at t <= 2001 and
 infers agreement at production S = 98498. Its docstring named chunking the
 oracle as "the one change that would make this a real production gate", and
-`docs/roadmap.md` carried that as the highest-value remaining item on the
+`docs/state/roadmap.md` carried that as the highest-value remaining item on the
 error-decomposition line.
 
 This probe was written to price that change and refuted it instead. Two results,

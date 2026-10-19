@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """#45: core's kitchen VSA against a FastVideo-exact reference, on captured FastH3 attention. GPU.
 
-`docs/open_experiments.md` #45 asks whether part of FastH3's over-polish is the
+`docs/state/open_experiments.md` #45 asks whether part of FastH3's over-polish is the
 kitchen's VSA selection rather than what FastH3 was trained with. Core's VSA
 (`comfy_extras/nodes_sparse_attention.py`, via `ck.sol_attn_chunked`) departs
 from FastVideo's training in three ways (`bench/results/2026-09-27_attention_parity.md`):

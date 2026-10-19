@@ -75,7 +75,7 @@ What each case claims, i.e. what breaks if it is deleted:
       centroid unconditionally and the argument is gone from both sides, so
       there is no mode left to discover. Recorded rather than deleted because
       the defect it fixed (grading cross-mode, live here until 2026-08-14) is
-      in `docs/checks.md`.
+      in `docs/method/checks.md`.
 
 Exit codes: 0 all graded cases passed, 1 a case failed, 2 nothing was graded
 (no CUDA, or the installed comfy_kitchen has no `sol_attn` -- the expected

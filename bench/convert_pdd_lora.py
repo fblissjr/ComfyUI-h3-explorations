@@ -78,7 +78,7 @@ that `MiniMaxH3PDDLoRA` reads.
     basis. Measured 2026-08-26 over the 1025-row grid, reconstructed against
     the true delta: **1.2e-5 to 1.1e-4 relative** over all fifty blocks --
     an earlier range of "1.2e-5 to 6.1e-5" was the three blocks sampled by
-    hand, and `docs/h3_pdd.md`'s "worst 1.1e-4" is the correct one. Still an
+    hand, and `docs/distills/pdd.md`'s "worst 1.1e-4" is the correct one. Still an
     order of magnitude below the pruning error the modulation already carries. The projection is affine -- the basis plus a
     constant column -- because the pruned form is an SVD of the CENTRED time
     curve and the mean lives in the bias.
@@ -153,7 +153,7 @@ The population is FIXED by the release, not read off the input.
 `h3_pdd.base_video_out`  [96, 5376]
     `final_layer.video_out.weight` from `--base`, verbatim. The partition
     check. fl2va and ref2va ship IDENTICAL key sets -- the whole silent-success
-    failure `docs/h3_ref2v_distillation.md` records -- so a Ref2VA LoRA loads
+    failure `docs/distills/ref2v_distillation.md` records -- so a Ref2VA LoRA loads
     onto an fl2va checkpoint with zero unmatched keys and renders. This tensor
     distinguishes them: 5.0% apart, and unquantised in every checkpoint variant
     we ship.

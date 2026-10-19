@@ -42,7 +42,7 @@ selection is still free to differ between arms. Running Sol would therefore let
 the approximation respond to the treatment and fold the kernel's reaction into
 the measurement. Running dense removes that failure mode rather than balancing
 it. It is also most of the cost: a forward here is ~120 s where a shipped
-sage+Sol render is ~37 s/step, and `docs/h3_pdd.md` records dense SDPA at 2.4x
+sage+Sol render is ~37 s/step, and `docs/distills/pdd.md` records dense SDPA at 2.4x
 on this workload for the same reason.
 
 ## A hazard this measurement walked into, recorded because it generalises
@@ -101,7 +101,7 @@ the prompt this file happens to carry.
 
 Direction. A large delta says the DiT is sensitive to the marker rows, not
 which representation is the one it was trained against. That still needs
-renders judged blind under `docs/eval_comparison.md` section 3, and this script
+renders judged blind under `docs/method/eval_comparison.md` section 3, and this script
 is the gate on whether to spend them.
 """
 
@@ -119,7 +119,7 @@ COMFY = REPO.parents[1]
 # ComfyUI's root goes on LAST so it ends up FIRST. This repo has a `nodes.py`,
 # and `comfy_extras/nodes_minimax_h3.py` does a bare `import nodes`: with the
 # repo ahead of ComfyUI that resolves to ours and dies on a relative import.
-# The trap and its two fixes are in `docs/comfy_notes.md`.
+# The trap and its two fixes are in `docs/working/comfy_notes.md`.
 sys.path.insert(0, str(REPO / "workflows"))
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(COMFY))

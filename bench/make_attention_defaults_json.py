@@ -11,7 +11,7 @@ back to a command.
 
 Input is the runner's `results.jsonl` (one JSON object per arm, written by the
 harness as each render finished). Substrate is read live from `nvidia-smi` and
-the installed packages, not remembered -- `docs/hardware.md` records that a
+the installed packages, not remembered -- `docs/working/hardware.md` records that a
 board power limit changes render times, is set outside the repo, and is
 invisible in a workflow JSON, so a timing record that does not carry it cannot
 be compared against later.
@@ -31,7 +31,7 @@ OUT = HERE.parent / "data" / "results" / "2026-08-18_attention_defaults.json"
 
 # What each arm varied. `sol` is whether a SolAttnMiniMax node was REACHABLE
 # from an output node, which is the property that decides whether it runs --
-# not whether the node was present. `docs/evidence.md` records a capture whose
+# not whether the node was present. `docs/method/evidence.md` records a capture whose
 # provenance field asked the wrong one and reported the situation backwards.
 ARMS = {
     "A_sol_fp16":      dict(sage="fp16 (most accurate)", sol=True,
@@ -155,7 +155,7 @@ def main():
     payload = {
         "measurement": "sage kernel mode x Sol-Attn reachability, end to end",
         "date": "2026-08-18",
-        "why": ("`docs/evidence.md` withdrew every fp8-vs-fp16 accuracy ratio on "
+        "why": ("`docs/method/evidence.md` withdrew every fp8-vs-fp16 accuracy ratio on "
                 "2026-08-16, leaving the shipped `fp16 (most accurate)` default "
                 "resting only on a perceptual verdict taken 2026-08-13 at 124 "
                 "frames with Sol ABSENT -- one day before Sol-Attn landed. This "

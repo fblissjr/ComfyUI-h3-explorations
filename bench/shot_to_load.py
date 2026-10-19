@@ -562,7 +562,7 @@ def seam_window(frames: int, context: int) -> dict[tuple[int, ...], tuple[int, l
     window holds the load. Every later window shares `context` frames with the one before it, so the first seam is the first window's
     length and each later seam is the one before it plus the length of the window between them less the context. Since 2026-10-15 (the owner, about
     20:15Z: "you can do shorter windows too just make sure the frame multiples we documented ... are right to avoid seams"; the lead's
-    reading in docs/wiki/decisions.md) a plan of three windows or more is one of them: every window is a chained length, so the step grid
+    reading in docs/state/decisions.md) a plan of three windows or more is one of them: every window is a chained length, so the step grid
     holds from the load's first frame."""
     if frames <= h3_config.MAX_LENGTH:                  # one window holds a load up to the ceiling (masked_job_graph.window_for)
         return {}
@@ -640,7 +640,7 @@ def context_noise_of(n: int, noise: float | None, why: str | None, by: str, now:
     """THE NOISE A LOAD'S LATER WINDOWS ARE SHOWN THEIR KEPT FRAMES AT (the lead's ruling of 2026-10-15, per load): `--context-noise X
     --context-noise-why WHY`, for a load longer than one window. By default its later windows see the frames they keep from the window
     before clean (the song node's `audio_freeze.CONTEXT_NOISE`), and on one stretch of the kitchen a continuation shown them clean did not
-    follow its motion video through a turn where one at 0.8 did (`docs/wiki/window_context.md`, "Results, dated", 2026-10-10, the records
+    follow its motion video through a turn where one at 0.8 did (`docs/masked_v2v/window_context.md`, "Results, dated", 2026-10-10, the records
     `data/2026-10-10_fun_pose/kitchen_cn_*`). Per load, not a default,
     until a render of a load of several windows says more: its cost is a seam that may show. (the defaults row, or None when not given)."""
     import h3_config
@@ -1191,11 +1191,11 @@ def stay_of(p: dict, subject: str, kept: dict | None, load: dict, preview: dict,
     items = [x for x in ((p.get("look") or {}).get("stay") or []) if x.get("as") == "one keep-out"]
     if not items:
         return kept, ""
-    # RETIRED (the owner chose to redraw her clothing with her: docs/wiki/decisions.md, 26f208c0): a stay keep-out is drawn from her
+    # RETIRED (the owner chose to redraw her clothing with her: docs/state/decisions.md, 26f208c0): a stay keep-out is drawn from her
     # own track's classes, so it puts the original back inside her region, which nothing may (the owner, 2026-10-16)
     raise Refused(f"the plan's look for {subject!r} has a stay item made as one keep-out ({', '.join(items[0].get('classes_on_her_track') or [])} on her own "
                   "track): it is drawn on the subject's own track, and nothing puts the original back inside her region. The owner chose to redraw her "
-                  "clothing with her and the stay is retired (docs/wiki/decisions.md, 26f208c0): take `look.stay` out of the plan")
+                  "clothing with her and the stay is retired (docs/state/decisions.md, 26f208c0): take `look.stay` out of the plan")
     import h3_config
     import capture_masked_run as cap
     if len(items) > 1:
@@ -2418,7 +2418,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         if {c for k in held for c in table[k]} & {c for k in h3_config.NO_PIECES_ON for c in table[k]}:
             raise Refused(f"the plan's `pieces={p['pieces']}` for {subject!r} on a load whose part holds {' + '.join(held)}: a face or hair is rightly "
                           "in more than one piece (split by hair, a hand or an arm), and the largest-piece rule drops the others, which leaves the original "
-                          "showing inside the new face (the owner, 2026-10-16, docs/wiki/decisions.md, commit e6993b5e). Take `pieces` and `pieces_by` off "
+                          "showing inside the new face (the owner, 2026-10-16, docs/state/decisions.md, commit e6993b5e). Take `pieces` and `pieces_by` off "
                           f"the plan's {subject!r}: no load of a face or of hair is made with it")
         mine = next(s for s in subjects if s["label"] == subject)
         mine["pieces"], mine["pieces_by"] = p["pieces"], f"the plan ({p['pieces_by']})"
@@ -3582,7 +3582,7 @@ def step_text(a, world) -> None:
 #: subject whose region is larger"). Reasoned from the builder's rule. A whole person is not here: the delivery table lays no whole-person
 #: render, so a pair of one is refused.
 PAIR_RANK = ("face and hair", "face")
-#: Why a pair is rendered on the whole frame (docs/wiki/masked_v2v.md: a two-subject load is not rendered zoomed in).
+#: Why a pair is rendered on the whole frame (docs/masked_v2v/overview.md: a two-subject load is not rendered zoomed in).
 PAIR_WHOLE_FRAME_WHY = "a load of two subjects is rendered on the whole frame: the zoom is to one subject's part, and a pair has two"
 #: What the two jobs' file defaults may differ in: the margin, where the pair takes the larger (one margin a load: the node grows its
 #: region by one number). Any other setting that differs is refused, since the pair would carry one of them silently.

@@ -6,7 +6,7 @@ last updated: 2026-09-25
 > implementations and wrote the probes. The session that commissioned it
 > re-ran every probe from `bench/`, checked the load-bearing claims against
 > source and the Hugging Face API, and wrote this note. The owner reopened PDD
-> for this research on 2026-09-25 (`../../wiki/decisions.md`). A render in
+> for this research on 2026-09-25 (`docs/state/decisions.md`). A render in
 > this lane still waits on the owner's go. The numbers are in
 > `../../../bench/results/2026-09-25_upstream_pdd_comparison.md`; this note
 > carries none of them.
@@ -38,7 +38,7 @@ else.
    - The 2026-08-28 mean-sigma ablation's energy gain is a departure from the
      vendor's integrator, which happens to add energy, not a fix.
    Corrected in place, with dated notes, in `audio_under_pdd.md`,
-   `../../h3_pdd.md` and `../../evidence.md`.
+   `docs/distills/pdd.md` and `docs/method/evidence.md`.
 2. **The Kijai PDD files symlinked into this install are stale, and merged
    core decodes them to a roughly doubled head.** They predate Kijai's
    2026-08-27 re-upload, which moved the banks to deltas to match core's
@@ -76,7 +76,7 @@ forward, which merged core calls with seven. It is not installed here.
 
 ## Evidence for the open decision: does our node keep its head half?
 
-`../../h3_pdd.md`, "Core is learning this", left this open when core's PR
+`docs/distills/pdd.md`, "Core is learning this", left this open when core's PR
 merged on 2026-08-29.
 
 **Precision is not an argument either way.** Core with correct deltas sits
@@ -142,4 +142,4 @@ Each needs a render or a capture; none has been run.
   put beside it in the same pair;
 - an off-grid refusal (every shipped schedule is exact);
 - partition arms, which the owner ruled out on 2026-09-05
-  (`../../roadmap.md`, "Owner decisions, 2026-09-05 evening").
+  (`docs/state/roadmap.md`, "Owner decisions, 2026-09-05 evening").

@@ -53,7 +53,7 @@ could not be found on any run, and nobody noticed because the default path
 when this was written (the UI graphs carried the node bypassed and the API
 graphs omitted it); it has been on by default since, per CLAUDE.md. On a graph
 without the node those lines are *correctly* absent, and asserting them made a
-fully compliant run report failure. `docs/SOLATTN.md` is the authority for
+fully compliant run report failure. `docs/attention/sol_attn.md` is the authority for
 Sol's knobs. That is
 the third-case trap CLAUDE.md names -- when something gains an "off" state,
 every assertion about it inherits a new case, and "correctly absent" is not

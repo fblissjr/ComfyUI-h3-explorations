@@ -64,7 +64,7 @@ misread once in the session that recorded them:
 result and it is the honest ceiling for a pair. Sol and the sampler are each a
 numerical change, so each arm is a *different sample* rather than a variant of
 the same one — the standing rule in `CLAUDE.md`, and
-[`../../eval_comparison.md`](../../eval_comparison.md) section 3 is what a
+[`docs/method/eval_comparison.md`](../../method/eval_comparison.md) section 3 is what a
 verdict would require. n=1 per arm, unblinded, unscored.
 
 **The sampler pair carries one thing a pair can carry.** `euler` at ComfyUI's

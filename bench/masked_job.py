@@ -638,7 +638,7 @@ def capture_files(job: dict, one: dict, capture: Path, mesh_of, stage: str = "pl
         raise Refused(f"load {one['name']!r} is on frames {one['first']}..{one['first'] + one['frames'] - 1} and the "
                       f"capture {capture.name} holds {at}..{held - 1}")
     sightings = {s["label"]: [x["by"] for x in s["sightings"]] for s in manifest["subjects"]}
-    # NO UNCARVED KEEP-OUT REACHES THE NODE (the lead's ruling of 2026-10-16, docs/wiki/decisions.md): a mask the load keeps out
+    # NO UNCARVED KEEP-OUT REACHES THE NODE (the lead's ruling of 2026-10-16, docs/state/decisions.md): a mask the load keeps out
     # that is not one of our people (no sighting with a shot table) is handed on only from a capture that carved it out of the
     # subject's own track (`capture_masked_run.carve_keep_out`, its sighting's `carved_out_of_own_track`)
     # A render is built only on a capture rebuilt on its plan that carved each keep-out on the node's own grid too (`grid_carve`), and

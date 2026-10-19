@@ -125,4 +125,4 @@ the old cut). Post READY the moment it is ready; I am watching your file and cle
   build's READY; `bench/stack_delivery.py`'s conversion of a saved start time back to a frame (mrgemson's audit, its
   last row) is in scope.
 - Open: whether the mixed rates explain joined clips that slip partway through a shot (the owner's question;
-  `docs/wiki/handover.md`, item 1b).
+  `docs/state/handover.md`, item 1b).

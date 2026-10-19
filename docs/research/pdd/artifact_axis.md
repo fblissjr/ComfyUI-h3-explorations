@@ -10,7 +10,7 @@ If you are reading this after they landed, score section 6 before forming a
 view — the whole point of writing it down was that we kept fooling ourselves.
 
 [`audio_under_pdd.md`](audio_under_pdd.md) is the audio side of the same night
-and is separate. [`../../eval_comparison.md`](../../eval_comparison.md) owns the
+and is separate. [`docs/method/eval_comparison.md`](../../method/eval_comparison.md) owns the
 process rule this produced.
 
 ---
@@ -225,7 +225,7 @@ reason and it just needs re-queueing — it is not a result.
 
 **None of tonight is a scored comparison.** One observer, one seed per arm,
 free-text verdicts, no blinding — this is not
-[`../../eval_comparison.md`](../../eval_comparison.md) section 3. It is enough
+[`docs/method/eval_comparison.md`](../../method/eval_comparison.md) section 3. It is enough
 to kill accounts, which is what it did, and not enough to establish one.
 
 ---

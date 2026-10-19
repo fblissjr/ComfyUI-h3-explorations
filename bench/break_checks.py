@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Break the code on purpose, in a copy, and see whether a check notices: with the unbroken copy run FIRST.
 
-Nothing here is required of a check (`docs/checks.md`: the owner retired "shown red" on 2026-09-11). It exists
+Nothing here is required of a check (`docs/method/checks.md`: the owner retired "shown red" on 2026-09-11). It exists
 because sessions do it anyway before trusting a new case, and on 2026-10-10 one did it wrong: fourteen breaks were
 reported as seen from copies that could not import ComfyUI, so every run was red whatever was broken, and four of
 the breaks had never been seen by any case. Three things make a break evidence, and this tool does all three:

@@ -8,10 +8,10 @@ survives the decision standard or is closed with a record saying why. It
 states, per stage, what is done, what it costs, what it produces, what would
 count, and what would stop it. It restates no measurement:
 [`2026-09-04_sol_token_aug_grade.md`](2026-09-04_sol_token_aug_grade.md) owns
-the numbers that put this lane on the roadmap, [`../SOLATTN.md`](../SOLATTN.md)
-owns the knobs, [`../roadmap.md`](../roadmap.md) owns the decision standard
+the numbers that put this lane on the roadmap, [`docs/attention/sol_attn.md`](../attention/sol_attn.md)
+owns the knobs, [`docs/state/roadmap.md`](../state/roadmap.md) owns the decision standard
 (the 2026-09-03 plan's "The decision standard" and "What would count as
-finding it"), and [`../eval_comparison.md`](../eval_comparison.md) section 3
+finding it"), and [`docs/method/eval_comparison.md`](../method/eval_comparison.md) section 3
 owns how a pair is judged. Nothing below starts until the owner says go; the
 card is shared and every stage that touches it says so.
 
@@ -278,7 +278,7 @@ mechanism the PR fixes may not be one we have.
 
 **Ship** means: the block set becomes the default in `SOL_CUDA_DEFAULTS`
 through the generator, the wheel is the one the build record names, the
-SOLATTN knob table gains the row, `docs/evidence.md` gains a bounded row
+SOLATTN knob table gains the row, `docs/method/evidence.md` gains a bounded row
 pointing at the probe and pair records, and the changelog names the sha.
 The reversal condition is written beside the default: a blind session where
 the set loses to the shipped call on a scene class the owner cares about.

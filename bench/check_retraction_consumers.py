@@ -4,16 +4,16 @@
 A retraction is done when every **consumer** of the claim is enumerated, not
 when the claim is corrected. On 2026-08-14 that distinction cost four separate
 wrong statements: "sage gets nothing" was retracted at the top of
-`docs/SOLATTN.md` and went on producing wrong answers in the Ordering section,
+`docs/attention/sol_attn.md` and went on producing wrong answers in the Ordering section,
 in a bench-plan paragraph, and in `h3_capture.py`'s docstring -- where it would
 have produced a *number* from a skewed sample of timesteps. Separately, the
-23-point reference-load swing was retracted in `docs/evidence.md` while still
+23-point reference-load swing was retracted in `docs/method/evidence.md` while still
 carrying the argument for an entire bench run.
 
 The claims were all corrected. Nobody enumerated who was quoting them.
 
 **Why this is an allowlist and not a grep-and-judge.** "Is this mention
-caveated" is not mechanically decidable. `docs/bench_plan.md` contains the
+caveated" is not mechanically decidable. `docs/method/bench_plan.md` contains the
 string "zero DiT calls" inside a bullet that begins "RETRACTED 2026-08-14",
 which is correct; a checker that flags it trains readers to skim its output,
 and CLAUDE.md's standard is that a check reporting red while the state is
@@ -27,7 +27,7 @@ all four consumers were files that acquired the claim after the retraction.
 
 ## What it does not defend
 
-**The retracted thing is sometimes a pairing, not a token.** `docs/bench_plan.md`
+**The retracted thing is sometimes a pairing, not a token.** `docs/method/bench_plan.md`
 read "one 345-frame video reference" where 345 is the *reference* length and
 looks like a legal shipped value, concealing that the *target* was 362, which
 is not legal. Nothing in that sentence is a matchable phrase. No configuration
@@ -38,7 +38,7 @@ Adding a file to a row asserts that someone read that occurrence.
 
 ## Where the data lives
 
-`docs/evidence.md`, in a fenced ```retraction-consumers block -- with the
+`docs/method/evidence.md`, in a fenced ```retraction-consumers block -- with the
 ledger it belongs to, so the enumeration cannot drift from the retraction it
 enumerates. h3_config.py's rule applied to prose: nothing gets a second copy.
 
@@ -62,7 +62,7 @@ A claim deleted repo-wide rather than caveated has no consumers left, and its
 row cannot name one. Until 2026-08-25 the only ways to express that were to
 delete the row, which throws the tripwire away, or to plant a deliberate
 mention in the ledger's own prose so the row had something to match --
-`docs/evidence.md` does exactly that for `2.7x more accurate` and for
+`docs/method/evidence.md` does exactly that for `2.7x more accurate` and for
 `bypassed_for_capture`, each spelled once and saying so.
 
 `ALLOW: (none)` says it directly: this phrase belongs in no file, and any
@@ -86,7 +86,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-LEDGER = REPO / "docs" / "evidence.md"
+LEDGER = REPO / "docs" / "method" / "evidence.md"
 
 # Prose only. Generated graphs are regenerated from build_workflows.py, so a
 # phrase reaching one of them is a finding about the generator, which is a
@@ -234,7 +234,7 @@ def main():
         print()
         for phrase, name in unlisted:
             print(f"  FAIL  no_unlisted_consumers  {phrase!r} appears in {name}, "
-                  f"which is not on its row in docs/evidence.md")
+                  f"which is not on its row in docs/method/evidence.md")
         print(
             "\nA retracted claim reached a file nobody signed off on. Either the\n"
             "occurrence is wrong and should be fixed, or it is correct in context\n"

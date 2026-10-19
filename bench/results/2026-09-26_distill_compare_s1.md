@@ -82,7 +82,7 @@ In the owner's words, relayed in session.
 - **Across the three:** "we should look at the subway prompt and make sure its
   super clear and specific about what is going on in this scene."
 
-**The subway prompt was rewritten after this look** (`docs/wiki/decisions.md`,
+**The subway prompt was rewritten after this look** (`docs/state/decisions.md`,
 2026-09-26). These subway clips used the earlier text.
 
 ## Clips

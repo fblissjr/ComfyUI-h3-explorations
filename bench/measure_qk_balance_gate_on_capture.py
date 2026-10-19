@@ -10,7 +10,7 @@ Otherwise the head's codes are bit-identical to the plain path.
 
 Written for the Sol redesign's test 1 (2026-09-27,
 `docs/research/2026-09-27_sol_node_redesign.md`): the audit had inferred from
-`docs/h3_block49_quant_error.md` ("blocks 45, 48 and 49 open on their own",
+`docs/attention/block49_quant_error.md` ("blocks 45, 48 and 49 open on their own",
 a statement about the q/k norm WEIGHTS) that the gate stays shut everywhere
 else, so that qk_balance is inert behind the shipped dense tail. Test 1's
 renders say it is not inert. This reads the gate off real activations.

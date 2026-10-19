@@ -11,7 +11,7 @@
 sound was read for one thing: whether a text may say the subject sings (`bench/voice_spans.py`). The model hears
 its window's sound, so a window that begins in the middle of a sung phrase or off the beat begins in the middle of
 something. The owner's word of 2026-10-13: no rule; capture it, and have it in front of whoever sets a window's
-edges. The wants are `docs/wiki/window_edges_data.md`; this tool is the three of them that need only the two
+edges. The wants are `docs/masked_v2v/window_edges.md`; this tool is the three of them that need only the two
 stems and the copies themselves, with no card and no library the environment did not already hold.
 
 **Nothing here is a rule.** No step refuses a load, moves an edge or colors anything. Every setting below carries

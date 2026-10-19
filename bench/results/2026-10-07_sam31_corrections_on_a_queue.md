@@ -116,7 +116,7 @@ module showed before its call. On the node as first served that step is
 WRONG, as it must be: the module shows exact GELU before the call, the
 node attaches no activation patch, and the text encoder runs the shipped
 activation. On the fix it reads the stock range, as asked, and exact
-GELU. `docs/checks.md`, "A node tested on the queue has to be made to run,
+GELU. `docs/method/checks.md`, "A node tested on the queue has to be made to run,
 in the state under test", is the rule drawn from it.
 
 ## What this shows

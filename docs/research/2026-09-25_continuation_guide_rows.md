@@ -8,7 +8,7 @@ last updated: 2026-09-25
 > Nothing was rendered and nothing was built. Points the subagent took from a
 > second-hand read are marked *(second-hand)*.
 
-**The question.** [`../h3_audio_freeze.md`](../h3_audio_freeze.md), section 5
+**The question.** [`docs/h3/audio_freeze.md`](../h3/audio_freeze.md), section 5
 idea 5, asks how to continue a clip. Ours freezes the previous window's
 sampled tail as a masked prefix of the target (arm A). The alternative feeds
 that tail as clean conditioning rows ahead of a fresh target, regenerates the
@@ -143,7 +143,7 @@ docstring.
   keys of windows 2 and later only (the window key in `loop_resume.py`, as
   it was at efc99317's parent), so a mode switch reuses window 1.
   *2026-10-10: the keyed reuse of stored windows this sentence builds on
-  was removed (efc99317; `docs/wiki/decisions.md`, that date, "What the
+  was removed (efc99317; `docs/state/decisions.md`, that date, "What the
   owner cut from the masked lane's nodes"). Every run renders every window,
   so there is no key for a mode to fold into and nothing to reuse.*
 - **Overlap: 39 frames**, the smallest context on both clocks and the one
@@ -151,7 +151,7 @@ docstring.
   off our audio grid.
 - **Cost.** B adds the overlap's rows to every window: `video_latent_t` of
   the context against that of the window, at the canvas's rows per step
-  (`h3_rules.py`, [`../h3_resolutions.md`](../h3_resolutions.md)). Under Sol
+  (`h3_rules.py`, [`docs/h3/resolutions.md`](../h3/resolutions.md)). Under Sol
   those rows are exact-KV columns for every query, which erodes Sol's saving.
 - **Checkpoint.** A clean multi-step conditioning block ahead of the target
   is outside what fl2va was trained on, since the release's keyframes are
@@ -216,7 +216,7 @@ organisation and the H3 integration list found nothing. It is not RAVEN
 (`mvp-lab/MiniMax-H3-RAVEN-Streaming-LoRA`), which differs in form, task and
 cache policy. That it was trained with clean driving audio in the target rows
 is reasoned from its scheduler and runner, never stated. So
-`h3_audio_freeze.md` section 5 item 8 stays plausible and unconfirmed.
+`docs/h3/audio_freeze.md` section 5 item 8 stays plausible and unconfirmed.
 
 ## Not established
 

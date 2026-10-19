@@ -11,9 +11,9 @@ readers `bench/preflight_graph.py` and
 `bench/check_reference_fit.py`, `bench/check_typed_reference_consumers.py`,
 `bench/node_id_manifest.json`, and the deletion of
 `bench/check_short_edge_override.py`; and the docs that stated where these
-knobs live -- `docs/h3_references.md`, `docs/comfyui_vendor_gaps.md`,
-`docs/research/conditioning_nodes.md`, `docs/h3_conditioning_end_to_end.md`,
-`docs/research/sglang_comparison.md`, `docs/checks.md`.
+knobs live -- `docs/h3/references.md`, `docs/h3/comfyui_vendor_gaps.md`,
+`docs/research/conditioning_nodes.md`, `docs/h3/conditioning.md`,
+`docs/research/sglang_comparison.md`, `docs/method/checks.md`.
 
 One image reference cost four nodes: `LoadImage` -> `MiniMaxH3ReferenceFit` ->
 `MiniMaxH3AppendRefImage` -> `MiniMaxH3ReferenceConditioning`. It now costs
@@ -176,7 +176,7 @@ the two rather than taking the first it finds.
 The session that shipped this is written up at
 `internal/postmortems/2026-08-24_session_reference-fold-and-image-policy.md`
 (gitignored, local). Bare path rather than a link, matching how
-`docs/evidence.md` and `docs/roadmap.md` cite that directory.
+`docs/method/evidence.md` and `docs/state/roadmap.md` cite that directory.
 
 
 An `xhigh` code review of the committed change found fifteen issues, several

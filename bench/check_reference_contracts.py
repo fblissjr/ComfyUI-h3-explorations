@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The load-bearing contracts in core's reference node, asserted for the first time.
 
-Run it with the ComfyUI venv python (`docs/comfy_notes.md`). CPU only, no
+Run it with the ComfyUI venv python (`docs/working/comfy_notes.md`). CPU only, no
 server, no weights: both VAEs are stubs and the node is driven only as far as
 the point where its two reference lists are complete.
 

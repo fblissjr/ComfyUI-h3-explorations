@@ -53,7 +53,7 @@ not. Video and image-reference rows are arithmetic on the graph, so they are
 exact. The text segment is measured with ComfyUI's own tokenizer when it can be
 imported, and the conditioner's vision blocks are estimated from the measured
 rule that text lands 75-160 rows above the reference segment
-(`docs/h3_references.md`), because computing them properly needs the vision
+(`docs/h3/references.md`), because computing them properly needs the vision
 encoder.
 
 **Peak VRAM is deliberately NOT predicted.** Peak is not a function of token
@@ -96,7 +96,7 @@ from check_ref_prompt_labels import wired_labels  # noqa: E402
 # second copy of either would drift, and the first run of this file without
 # them reported FAIL on 7 of 8 image graphs for sections that structurally
 # cannot apply -- a checker going red while the state is correct, which is the
-# one thing docs/checks.md says is worse than no checker.
+# one thing docs/method/checks.md says is worse than no checker.
 from check_prompt_guide_conformance import (  # noqa: E402
     BASE_GUIDE, _STRUCTURE_PROBES, _audio_sections_optional)
 
@@ -191,7 +191,7 @@ BASE_ALIGNMENT = _base_alignment_templates()
 # refuses to assert anything the guide does not state, and it is right to.
 #
 # The escaped instance, which is what earns a new check at all
-# (`docs/checks.md`: a new check needs one). On 2026-08-22 a prompt written
+# (`docs/method/checks.md`: a new check needs one). On 2026-08-22 a prompt written
 # elsewhere came through with three caption pairs on their own lines, one
 # padded with spaces, one spoken line split across two adjacent pairs, and a
 # trailing space inside a `<d>`. Run through this file as it stood, it scored
@@ -201,8 +201,8 @@ BASE_ALIGNMENT = _base_alignment_templates()
 # The nesting and balance cases below did NOT escape -- no instance of either
 # has been seen. They are here because the same day
 # `internal/PROMPTING.md` (retired 2026-09-01, migrated into
-# `docs/prompting.md`) gained a "must" stating the nesting rule, and
-# the rule in `docs/rules_history.md` is that a "must" with no assertion behind
+# `docs/prompting/prompting.md`) gained a "must" stating the nesting rule, and
+# the rule in `docs/method/rules_history.md` is that a "must" with no assertion behind
 # it is an uncontrolled requirement. This is that assertion.
 #
 # What these deliberately do NOT decide: whether a caption is on the RIGHT
@@ -1250,7 +1250,7 @@ def grade(node: dict, graph: dict, stem: str = "") -> list[tuple[str, str]]:
     # L2VA both bracket, so a rule that demands `<Picture N>` is correct for
     # every keyframe graph EXCEPT the two-frame one.
     #
-    # This is the one-implementation trap (`docs/rules_history.md`), caught by a second
+    # This is the one-implementation trap (`docs/method/rules_history.md`), caught by a second
     # implementation rather than by reasoning: the rule was written when i2v was
     # the only keyframe graph in the repo, it was right about that graph, and it
     # would have failed the first correct fl2va prompt anybody wrote -- pushing
@@ -1363,7 +1363,7 @@ def grade(node: dict, graph: dict, stem: str = "") -> list[tuple[str, str]]:
                                     "timing, camera-over-time or chronology "
                                     "to describe) -- deliberate, not an "
                                     "oversight. That path is PARKED and ships "
-                                    "no graphs; see docs/h3_image_editing.md"))
+                                    "no graphs; see docs/h3/image_editing.md"))
 
     # base-en's Part One. The exact instruction is parsed from the guide, then
     # its N and S.SS placeholders are resolved from this graph. Presence alone
@@ -1789,7 +1789,7 @@ _OUTPUT_TYPES = {"VHS_VideoCombine", "SaveImage", "PreviewImage", "SaveAudio",
 def _reachable_from_outputs(graph):
     """Node ids that feed an output node, for either graph format.
 
-    Reachability, not presence. `docs/evidence.md` records a capture whose
+    Reachability, not presence. `docs/method/evidence.md` records a capture whose
     provenance field reported Sol-free by asking whether the node existed; the
     node existed and was orphaned, so the field read the situation backwards.
     """
@@ -1885,7 +1885,7 @@ def report_attention_chain(graph):
 # ComfyUI's smart-resize bounds, read from source rather than restated, so this
 # goes stale loudly if the shared helper's defaults ever move. They are the
 # signature defaults of `process_qwen2vl_images` and of `process_video_block`;
-# nothing in the H3 path overrides them. `docs/h3_references.md` owns the
+# nothing in the H3 path overrides them. `docs/h3/references.md` owns the
 # comparison against what the release declares.
 _COMFY_BOUND_RE = re.compile(
     r"min_pixels\s*[:=]\s*int\s*=\s*(\d+)|min_pixels\s*=\s*(\d+)")

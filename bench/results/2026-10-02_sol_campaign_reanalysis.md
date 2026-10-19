@@ -155,7 +155,7 @@ FlashGen finisher (node 123), averaged over every run that measured the block
 
 The report's "tail debunked" holds for the PDD stage only. Blocks 45, 48 and
 49 are also the three blocks whose `k_norm.weight` is lopsided
-(`docs/h3_block49_quant_error.md` section 1), so the finisher may be loading
+(`docs/attention/block49_quant_error.md` section 1), so the finisher may be loading
 those channels harder. Not measured.
 
 ## 4. Block 49's and block 0's error sits in a few fixed heads; the ridge's does not
@@ -176,7 +176,7 @@ dense), matched steps (ad hoc on `sol_probe_heads`: per block, sum
   about a third to two fifths, and exact heads would not fix these blocks.
 
 Heads 9 and 11 at block 49 are on the K-rounding worst list in
-`docs/h3_block49_quant_error.md` (peaky heads, a handful of effective keys).
+`docs/attention/block49_quant_error.md` (peaky heads, a handful of effective keys).
 Under rotation the quantization term is small (`2026-09-27_sol_redesign_test2.md`),
 so their remaining error is plausibly routing: a pooled block mean can miss a
 single sharp key. Hypothesis, not measured.
@@ -225,4 +225,4 @@ seeds, and against it the owner did see Sol's effect.
    from the PDD stage's, and FlashGen graphs ship.
 
 A rendered blind pair is still the bar for a shipped default
-(`docs/eval_comparison.md`). None of the Option A, B or C adoptions had one.
+(`docs/method/eval_comparison.md`). None of the Option A, B or C adoptions had one.

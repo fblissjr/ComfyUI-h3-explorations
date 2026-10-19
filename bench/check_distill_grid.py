@@ -7,7 +7,7 @@ is what turns (shift, steps) into actual sigmas. A distill fitted at four
 evaluations saw four specific sigmas; a scheduler that puts its four steps
 elsewhere is running a distilled model off its own grid, and nothing errors.
 Since 2026-09-26 the graded population is PDD; the lightx2v
-turbo arms this file was written for are retired (`docs/wiki/decisions.md`),
+turbo arms this file was written for are retired (`docs/state/decisions.md`),
 and their cases went with them. The vendor README they shipped with stays the
 external anchor for the flow-shift rule itself.
 
@@ -38,7 +38,7 @@ both rather than computing its own expected values:
 DiffSynth is a third implementation of the same rule
 (`coderef/DiffSynth-Studio/diffsynth/diffusion/flow_match.py::set_timesteps_minimax_h3`
 builds `linspace(1, 0, N+1)[:-1]`, which is `q_i`), at a different shift. The
-rule is not in dispute; only the constant is. See `docs/comfyui_vendor_gaps.md`.
+rule is not in dispute; only the constant is. See `docs/h3/comfyui_vendor_gaps.md`.
 
 **Why exactness rather than a tolerance.** `simple` reads the model's discrete
 1,000-entry sigma table at truncated indices, so it reproduces the closed form
@@ -413,7 +413,7 @@ def main() -> int:
             # `resolve_emit_steps` accepts and what the shipped
             # `..._manual_sigmas` graphs run at six. Grading only divisibility
             # made this check RED on a graph the project ships on purpose --
-            # `docs/checks.md`'s rule that a red on correct state is worse than
+            # `docs/method/checks.md`'s rule that a red on correct state is worse than
             # no check. Both `envelope_partition` and `partition_bounds` are
             # imported from the node and `pdd_math` rather than restated here,
             # so deleting either reddens this rather than silently agreeing.

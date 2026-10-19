@@ -14,7 +14,7 @@ the table for the cause, each from one clip: the faceless body-mesh motion
 video, and the size of the redrawn area. The owner asked for both to be
 tested before anything is built on pose data. This is those two renders,
 and with them the first run of the pose model on consecutive frames
-(trial 1 of `docs/wiki/meta_perception_models.md`, "The trials"), which
+(trial 1 of `docs/masked_v2v/perception_models.md`, "The trials"), which
 gives the question a measure. It applies to this shot. Accepted when the
 owner has looked at the clips and agrees with what the figures say.
 

@@ -5,7 +5,7 @@
 
 A LoRA merged onto an int8_convrot module is dequantised, added and
 REQUANTISED. Three things can go wrong and each is invisible to the other two's
-metric -- `docs/checks.md`, "A metric that ranks two arms is a claim about the
+metric -- `docs/method/checks.md`, "A metric that ranks two arms is a claim about the
 metric", is the rule this file exists under.
 
   delta / step        how big the update is against ONE quantisation step.
@@ -120,7 +120,7 @@ def _delta(handle, prefix: str) -> torch.Tensor | None:
     rank = A.shape[0]
     alpha_key = f"{prefix}.alpha"
     # ComfyUI reads alpha only from a `<module>.alpha` TENSOR and falls back to
-    # 1.0 scaling; `docs/checks.md`'s check_lora_alpha row owns that rule.
+    # 1.0 scaling; `docs/method/checks.md`'s check_lora_alpha row owns that rule.
     alpha = float(handle.get_tensor(alpha_key)) if alpha_key in keys else float(rank)
     return (B @ A) * (alpha / rank)
 

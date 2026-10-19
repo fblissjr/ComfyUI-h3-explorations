@@ -126,7 +126,7 @@ passes no `token_aug` and keys its statistics differently.
 
 ## Prose the code contradicts, found by these comparisons
 
-Being corrected in the same pass as this record; see `docs/wiki/decisions.md`.
+Being corrected in the same pass as this record; see `docs/state/decisions.md`.
 - **`vsa_attention.py`:** its docstring and refusal texts ("cannot run", "core
   has no gate_compress", "unreachable"); "Nothing has been rendered"; "the
   only other implementation"; its tooltip's "0.90 sparsity".
@@ -134,13 +134,13 @@ Being corrected in the same pass as this record; see `docs/wiki/decisions.md`.
   gate_compress" passages.
 - **`bench/check_vsa_core_patch.py`:** its "applied from PR #15958 DRAFT"
   message. The support is now in stock core.
-- **`docs/SOLATTN.md`:**
+- **`docs/attention/sol_attn.md`:**
   - the dense-layers row, with its columns swapped;
   - "ship empty as of 2026-09-02";
   - qk_balance described as off, or as a declared deviation;
   - "differ by no more than the all-routed floor" and "ours sits closer to
     exact", both contradicted as worded by the 2026-09-10 record (also in
-    `docs/wiki/next_steps.md`).
+    `docs/state/next_steps.md`).
 - **`sol_chunked_h3.py:22-27`:** the routing threshold uses the current
   `kcvar`; only the K int8 centering and the V scale are stale.
 - **`sol_attn_h3.py` (lines 13-15 as of 2026-09-27; the file was restructured 2026-09-27):** "every local change is listed below", when
@@ -150,5 +150,5 @@ Being corrected in the same pass as this record; see `docs/wiki/decisions.md`.
   backend node.
 - **`workflows/h3_config.py:846-849`:** `SOL_CUDA_DEFAULTS` is called "untouched", but
   it pins qk_balance True.
-- **`docs/sol_upstream.md`:** line citations drifted by one, and the V-scale
+- **`docs/attention/sol_upstream.md`:** line citations drifted by one, and the V-scale
   margin is not mentioned.

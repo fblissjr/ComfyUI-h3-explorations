@@ -58,7 +58,7 @@ Every item is read from the installed ComfyUI checkout, not from a model card.
   frame adds `<Picture 1>: `, a vision-start marker, one pad per merged patch
   and a vision-end marker before the prompt (`comfy/text_encoders/minimax.py`,
   module docstring). The seven H3 markers (`<d>`, `</d>` and five others) are
-  single ids fixed by the release tokenizer; `docs/evidence.md` "The marker
+  single ids fixed by the release tokenizer; `docs/method/evidence.md` "The marker
   ids are the release's own" and
   `data/results/2026-08-27_marker_tokenization_alignment.json` are the
   record. A capture made with the stock Qwen tokenizer splits `<d>` into three
@@ -201,7 +201,7 @@ Three readings, each of which the Mac side checked against its captures:
 
 **Image lane** (twelve I2VA scenes from the owner's stills, fifteen examples
 with three flipped-frame variants as the image-dependence control, captured
-and validated on both sides): the fit is written and unrun. `docs/wiki/next_steps.md`
+and validated on both sides): the fit is written and unrun. `docs/state/next_steps.md`
 carries the pointer and the three readings it must produce: visual pad rows
 against a per-position mean and a shuffled source; post-image text against
 the text lane's number; and the flipped pairs, where reading the unflipped
@@ -254,7 +254,7 @@ In order of how much each one costs the idea.
   question to point 2 above.
 - **A scene family where M3-written text through Qwen fails** and the
   bridged conditioning does not, on matched seeds, judged the way
-  `docs/eval_comparison.md` requires. That is the only shape a value claim
+  `docs/method/eval_comparison.md` requires. That is the only shape a value claim
   can take.
 - **A different M3 feature point** (final-norm rows, or an earlier layer)
   closing a large part of the tolerance gap on the text lane. One Mac
@@ -296,7 +296,7 @@ carries something the other should.
   at the table gets the wrong feature.
 - **The marker finding is described as a third declaration site** there and
   as "no file assigns them an id; the loader assigns them by sequential
-  append" here (`docs/evidence.md`). Both are true of the release files; the
+  append" here (`docs/method/evidence.md`). Both are true of the release files; the
   operative fact both agree on is that the release tokenizer directory yields
   single ids and the stock one does not.
 
@@ -304,7 +304,7 @@ carries something the other should.
 
 - **This checkout**: the consumer-side code and records. Tracked: this
   document, the four `bench/results/2026-09-14_m3_bridge_*` records, the
-  pointer in `docs/wiki/next_steps.md`. Gitignored, under `internal/claude/`:
+  pointer in `docs/state/next_steps.md`. Gitignored, under `internal/claude/`:
   the take of 2026-09-14 with its results section and next-session list, the
   adapter code and its per-run JSON, the image-bank builder and its inputs;
   under `internal/codex/`: the pilot contract, the text-bank manifest and the

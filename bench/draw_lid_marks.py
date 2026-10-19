@@ -78,7 +78,7 @@ WHITE = 235
 #: levels. The body model has highlights just under `WHITE`, and the encode lifts some of them over it: they were
 #: counted as marks, and on a frame left bare, where the read-back wants no white at all, they failed it.
 #: Measured twice on 2026-10-12: on a run whose bare frames failed with the pixels spread over the body and none at
-#: an eye (`docs/wiki/next_steps.md`), and on the first shot `bench/draw_face_points.py` drew, where highlights of
+#: an eye (`docs/state/next_steps.md`), and on the first shot `bench/draw_face_points.py` drew, where highlights of
 #: 218 to 230 on the model's head read back over `WHITE`, three a frame, a hundred pixels from her face.
 NEAR_WHITE = 20
 #: How much better the right frame must fit than a neighbour for the read-back to pass, as a difference of

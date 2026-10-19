@@ -3,11 +3,11 @@
 > **Provenance, 2026-09-19.** Written by a research subagent of the `libguy`
 > session on the lead's brief (item 3 of the second brief), read-only, no GPU.
 > The commissioning session re-checked its repo pointers and found them
-> correct: the exact stage following routed density (`docs/SOLATTN.md:1029-1031`),
+> correct: the exact stage following routed density (`docs/attention/sol_attn.md:1029-1031`),
 > Sol's densities on the covered-market cells
 > (`bench/results/2026-09-18_sol_block_size.md:40-45`) and that sweep's
 > density convention (`bench/sweep_sol_block_size_on_capture.py:104-121,321`),
-> and the `tau_profile` and pooled-tail lines in `docs/SOLATTN.md`. Paper
+> and the `tau_profile` and pooled-tail lines in `docs/attention/sol_attn.md`. Paper
 > figures are the papers' own, on their setups. The LoSA capture test in
 > section 1(h) needs the GPU and is a proposal, not a run.
 
@@ -30,7 +30,7 @@ as arithmetic.
    premise can be tested offline on the captures we already have. Freezing the
    mask saves almost nothing on our kernel, because Sol's routing and pooled
    tail are already negligible in cost and the exact stage follows routed
-   density (`docs/SOLATTN.md:1029-1031`). LoSA's default operating point is
+   density (`docs/attention/sol_attn.md:1029-1031`). LoSA's default operating point is
    also much denser than Sol's: 66.1% block coverage at theta 0.99 (LoSA
    Table 3, Wan2.1-1.3B), against Sol's routed density of 0.202 to 0.227 on
    the covered-market step-15 cells at tau 1.0
@@ -55,7 +55,7 @@ as arithmetic.
 3. **SVOO: test the input-stability claim, and do not port the
    co-clustering.** [I] A per-(block, head) density profile compared across
    two captured scenes would justify a static per-block `tau_profile`, a
-   socket Sol already has (`docs/SOLATTN.md:435`). The co-clustering needs
+   socket Sol already has (`docs/attention/sol_attn.md:435`). The co-clustering needs
    per-head permutations and variable-size blocks, which Sol's fixed 64-token
    kernel cannot express. The paper and its own code also disagree on the
    selection rule (section 2(b)).
@@ -73,7 +73,7 @@ arithmetic from the stated resolution and frame count); H3 is 104,361
 packed [text | audio | video] self-attention. All four drop unselected
 attention outright. Only Sol keeps a pooled tail term. So every "retained
 mass" figure in these papers is mass that is lost, while Sol partly
-approximates it (`docs/SOLATTN.md:432`).
+approximates it (`docs/attention/sol_attn.md:432`).
 
 **One instrument serves three tests [I].** Exact 64x64 block masses from the
 captured q/k feed the LoSA test, the HEART drift correlation and the SVOO
@@ -241,13 +241,13 @@ retained-mass code. Its hits outside `.git` were Sana probe policies (sections
   0.99 is not predictable from Table 3 and has to be measured.
 - **Construction step.** At 16 steps, `start_percent` 0.2 makes 4 of 16
   evaluations dense (`workflows/h3_config.py:553-554`). The step table in
-  `docs/SOLATTN.md:1472-1477` reads 11/16 sparse because its header assumes
+  `docs/attention/sol_attn.md:1472-1477` reads 11/16 sparse because its header assumes
   `end_percent` 0.9. `end_percent` is 1.0 now, so the dense steps are 0 to 3
   and there is no dense tail. The natural t0 is step
   3, the last dense step. That is the same count of dense steps as LoSA but
   25% of our schedule against their 8% (arithmetic). A later t0 should favour
   stability if the contraction story holds. The dense steps already cost more
-  attention time than all the Sol steps together (`docs/SOLATTN.md:1033-1034`).
+  attention time than all the Sol steps together (`docs/attention/sol_attn.md:1033-1034`).
   LoSA does not reduce them, and it adds a mass-accumulating pass that costs
   "roughly one denoising step" in the paper.
 - **Kernel.**
@@ -259,7 +259,7 @@ retained-mass code. Its hits outside `.git` were Sana probe policies (sections
     `coderef/comfy-kitchen/comfy_kitchen/__init__.py:191`). A frozen or union
     mask needs a new kernel argument.
   - It also needs a dense pass at step 3 that emits masses. Our dense steps
-    run kitchen INT8 attention or sage (`docs/h3_quant_policy.md:27`), and
+    run kitchen INT8 attention or sage (`docs/attention/quant_policy.md:27`), and
     neither is documented to emit block masses [?]. Searched only the
     `sol_attn` signature and docstring, not the dense kernels.
 - **Storage.** A bitmask over 50 blocks x 56 heads x 1631^2 block pairs is
@@ -270,7 +270,7 @@ retained-mass code. Its hits outside `.git` were Sana probe policies (sections
   approximated rather than lost. That changes what theta buys, so theta would
   need re-deriving under the tail.
 - **Conditioning.** Sol forces the conditioning key blocks and the diagonal
-  exact (`docs/SOLATTN.md:429`; `bench/analyze_routing.py:22-23`). LoSA forces
+  exact (`docs/attention/sol_attn.md:429`; `bench/analyze_routing.py:22-23`). LoSA forces
   nothing and claims the mass criterion keeps "whichever blocks dominate". H3
   packs text and audio into the same self-attention, so that claim is
   directly checkable.
@@ -363,7 +363,7 @@ running.
    - (c) A structure-matched floor: a diagonal band plus the conditioning
      blocks, with the same cardinality. A uniform random set, with expected
      recall |Omega|/n_k by arithmetic, is only a sanity check. Attention's
-     diagonal structure clears it trivially, and `docs/evidence.md:78` is
+     diagonal structure clears it trivially, and `docs/method/evidence.md:78` is
      about a control matched on the right axis, not just any control.
 5. **Coverage.** Compute `sum |Omega| / (n_q n_k)` at theta 0.99, per head,
    next to Sol's density on the same cells. This decides whether LoSA could
@@ -521,12 +521,12 @@ HunyuanVideo; first layer dense (section 5.1)].**
   (`docs/research/2026-09-17_rotation_and_lowbit_attention_survey.md:974-978`;
   not re-verified here for SVOO's variable-block path [?]). The nearest thing
   on our side is `morton`, one global reorder that is not per head and not
-  coupled between q and k (`docs/SOLATTN.md:430`).
+  coupled between q and k (`docs/attention/sol_attn.md:430`).
 - **Clustering cost** is per head and per iteration pass, on the order of an
   N x 1280 x 128 GEMM, against attention's N x N x 128. That is about 1.2% of
   QK^T at our N (arithmetic).
 - **The profiling half** maps onto Sol's per-block `tau_profile`
-  (`docs/SOLATTN.md:435`). A per-head profile needs a kernel change, because
+  (`docs/attention/sol_attn.md:435`). A per-head profile needs a kernel change, because
   `tau` is a scalar
   (`coderef/comfy-kitchen/comfy_kitchen/backends/cuda/__init__.py:2624`).
 - **Offline premise test** (from the block masses of section 1(h)):
@@ -627,7 +627,7 @@ borrow HASTE's framing, not its algorithm
 **(g) What it would take on H3 [I].**
 
 - **TMR** saves mask-prediction time, which Sol barely spends
-  (`docs/SOLATTN.md:1029-1031`). Its drift signal is still useful as a
+  (`docs/attention/sol_attn.md:1029-1031`). Its drift signal is still useful as a
   per-head refresh rule for a frozen-set hybrid. delta is in absolute L1
   units of pooled q and k, so it would need re-deriving for H3.
 - **EBC at our shape** is 12 x 50 x 56 = 33,600 isolated-head full forwards
@@ -727,12 +727,12 @@ profile. DynSparse needs a different simulation and has the least to offer.
 
 | Sol mechanism | LoSA | SVOO | HEART | DynSparse |
 |---|---|---|---|---|
-| **tau-sigma threshold**, per (head, query block), from pooled centroids, each step (`bench/analyze_routing.py:9`; `docs/SOLATTN.md:425`) | theta-mass prefix per (head, query block) from exact masses at one step, then frozen | top-p on cluster centroids plus a per-head floor from an offline profile (code); Eq. 7 (paper) | per-head top-p threshold chosen offline by velocity error | per-row running-LSE threshold inside the kernel |
-| **pooled tail** (`docs/SOLATTN.md:432`) | drops and renormalizes | drops (the EAR code path compensates; not in the paper) | inherits the backbone: drops | skips |
-| **token_aug** (`docs/SOLATTN.md:436`) | nothing comparable | per-token cluster membership is the nearest idea | none | none |
+| **tau-sigma threshold**, per (head, query block), from pooled centroids, each step (`bench/analyze_routing.py:9`; `docs/attention/sol_attn.md:425`) | theta-mass prefix per (head, query block) from exact masses at one step, then frozen | top-p on cluster centroids plus a per-head floor from an offline profile (code); Eq. 7 (paper) | per-head top-p threshold chosen offline by velocity error | per-row running-LSE threshold inside the kernel |
+| **pooled tail** (`docs/attention/sol_attn.md:432`) | drops and renormalizes | drops (the EAR code path compensates; not in the paper) | inherits the backbone: drops | skips |
+| **token_aug** (`docs/attention/sol_attn.md:436`) | nothing comparable | per-token cluster membership is the nearest idea | none | none |
 | **start_percent dense warm-up**, 4 of 16 (`workflows/h3_config.py:553-554`) | 4 dense of 50, and the last one is used to build the mask: the only one of the four that turns the warm-up into information | 20% (Wan), 10% (HunyuanVideo) | first 5 of 50 | not stated [?] |
-| **sink_conditioning, diagonal forced** (`docs/SOLATTN.md:429`) | forces nothing; the mass rule is claimed to be enough | none | none | none |
-| **per-block `tau_profile`** (`docs/SOLATTN.md:435`) | per (layer, head, query block) by construction | per (step, layer, head) profile | per head | none |
+| **sink_conditioning, diagonal forced** (`docs/attention/sol_attn.md:429`) | forces nothing; the mass rule is claimed to be enough | none | none | none |
+| **per-block `tau_profile`** (`docs/attention/sol_attn.md:435`) | per (layer, head, query block) by construction | per (step, layer, head) profile | per head | none |
 
 ## Sources
 
@@ -757,13 +757,13 @@ Local (read-only):
 - `coderef/Sana/techniques/sparse_attention_policies.py:1157-1175,1196-1206,1303-1316`
 - `coderef/Sana/config/sparse_attention/qk_coclustering.toml:3-14`
 - `coderef/Sana/search_space/04_sparse_attention.md:97-116`
-- `docs/SOLATTN.md:425-436,1029-1034,1472-1477`
+- `docs/attention/sol_attn.md:425-436,1029-1034,1472-1477`
 - `workflows/h3_config.py:553-554`
 - `bench/analyze_routing.py:9,22-23`
 - `bench/sweep_sol_block_size_on_capture.py:104-121,321`
 - `bench/analyze_sol_error.py:28-30`
-- `docs/evidence.md:78`
-- `docs/h3_quant_policy.md:27`
+- `docs/method/evidence.md:78`
+- `docs/attention/quant_policy.md:27`
 - `bench/results/2026-09-18_sol_block_size.md:8,23,40-45`
 - `data/results/2026-09-03_capture_inventory_base16.json`
 - `docs/research/2026-09-03_sol_exact_pquant_and_base_capture.md:197-219`

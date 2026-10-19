@@ -130,7 +130,7 @@ MODES = {
     # quantizer (sage fork v0.7.19, `qk_balance`): exact for the attention
     # math, gated per head, measured -22.9% INT8 error on H3's block 49 and
     # neutral elsewhere for +0.7% call time and no memory. Off in the fork;
-    # this mode is how a graph turns it on. docs/h3_block49_quant_error.md.
+    # this mode is how a graph turns it on. docs/attention/block49_quant_error.md.
     "fp8++ balanced": (None, {"pv_accum_dtype": "fp32+fp16", "qk_balance": True}),
     # fp8++ with the fork's fused Hadamard rotation of q/k inside the INT8
     # quantizer (sage fork v0.7.20, `qk_rotate`): exact for the attention math,

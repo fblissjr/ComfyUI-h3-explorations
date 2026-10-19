@@ -11,10 +11,10 @@ and encoder artifacts every graph loads, ComfyUI's stock attention, the base
 step count, no LoRA. Every quality or speed claim here is relative to that,
 and says so. The vendor's own bf16 baseline does not fit this card and is
 named as unreachable rather than implied; what the local artifacts cost
-against it is measured offline, and `docs/evidence.md` owns those records.
+against it is measured offline, and `docs/method/evidence.md` owns those records.
 
 This file is the why. It should rarely change. `AGENTS.md` is the operative
-form, one line per rule; `docs/rules_history.md` is the dated instances that
+form, one line per rule; `docs/method/rules_history.md` is the dated instances that
 earned them; `docs/` carries the stories. If a tenet here turns out to be
 wrong, change it in a commit that says what it used to claim and what refuted
 it.

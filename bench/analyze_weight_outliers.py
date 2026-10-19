@@ -38,7 +38,7 @@ So the two kinds that can take a wider group are exactly out_proj and fc2.
 activation online and quantises it per token, so the error a module carries at
 run time is TWO roundings and everything here is the first. A flat result for a
 knob whose job is to spread outliers is not evidence the knob is inert -- the
-activation is the side with the outliers, and it is `docs/open_experiments.md`
+activation is the side with the outliers, and it is `docs/state/open_experiments.md`
 #23 that measures it. This file exists to say which levers are worth putting on
 that render, not to decide them.
 
@@ -284,7 +284,7 @@ def main() -> int:
             "the two roundings. A flat groupsize result here does not "
             "establish that convrot_groupsize is inert, because the "
             "activation is the side with the outliers. "
-            "docs/open_experiments.md #23"),
+            "docs/state/open_experiments.md #23"),
         "blocks_sampled": blocks,
         "kinds": list(KINDS),
         "shape": {"rows": len(rows), "expected": expected},

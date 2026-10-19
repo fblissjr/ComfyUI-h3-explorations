@@ -38,7 +38,7 @@ rebuild. The script reads `available` from /proc/meminfo and refuses to start
 below --rss-budget-gb, because the live server holds most of this host while
 a DiT is staged and the 2026-08-25 bridge load took it down.
 
-CPU only. Run with CUDA_VISIBLE_DEVICES= (docs/checks.md, "Running them").
+CPU only. Run with CUDA_VISIBLE_DEVICES= (docs/method/checks.md, "Running them").
 
     CUDA_VISIBLE_DEVICES= python bench/bake_pdd_checkpoint.py \\
         --base models/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors \\
@@ -449,7 +449,7 @@ def main() -> int:
         return 0 if rec["verdict"]["same_regime"] else 3
     if torch.cuda.is_available():
         raise SystemExit("a CUDA device is visible; run with CUDA_VISIBLE_DEVICES= "
-                         "(docs/checks.md, 'Running them')")
+                         "(docs/method/checks.md, 'Running them')")
     avail = mem_available_gb()
     if avail < args.rss_budget_gb:
         raise SystemExit(f"MemAvailable {avail:.1f} GB is below the budget "

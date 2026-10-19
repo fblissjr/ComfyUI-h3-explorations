@@ -2,8 +2,8 @@
 
 `base_en.md` and `ref_en.md` are MiniMax's own published H3 prompt-writing
 guides, byte for byte. **They are the only authority on how to write an H3
-prompt**; [`docs/prompting.md`](../docs/prompting.md) is our reading of them and
-says so, and `docs/prompting.md` §14 ranks every other source that claims to
+prompt**; [`docs/prompting/prompting.md`](../docs/prompting/prompting.md) is our reading of them and
+says so, and `docs/prompting/prompting.md` §14 ranks every other source that claims to
 govern a prompt.
 
 ## Why they are here rather than in `internal/`
@@ -40,6 +40,6 @@ is here. **Revising a guide is a deliberate, visible event**: replace the file,
 update `sha256.json`, and expect the downstream checks to report what moved.
 
 **A third-party fork exists and is easy to mistake for the original** — see
-`docs/prompting.md` §14.2. One of its two guides is byte-identical to the
+`docs/prompting/prompting.md` §14.2. One of its two guides is byte-identical to the
 vendor's and the other is not, so hashing one and generalising gets the wrong
 answer.

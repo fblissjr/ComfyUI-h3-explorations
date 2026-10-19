@@ -17,7 +17,7 @@ correctly refuses to assert anything the guide does not state, and preflight
 encodes the stated rules. The gap is the whole space of things the vendor DOES
 consistently and never says. Nothing was looking there.
 
-That is the escaped instance this file cites (`docs/checks.md`: a new
+That is the escaped instance this file cites (`docs/method/checks.md`: a new
 instrument needs an escaped instance). It is a REPORT, not a gate: it cannot know whether
 a divergence is a defect, a deliberate house choice, or noise from a corpus of
 four.
@@ -211,7 +211,7 @@ def skew(label: str, vendor: list[dict], mine: list[dict],
     **A skew is much weaker evidence than a divergence.** Both corpora are
     legal by construction here, so this reports a HOUSE PATTERN, never a defect.
     Its value is that a house pattern nobody chose is invisible until counted --
-    the rule in `docs/rules_history.md`: "a default is not a decision, and shipping is not evidence".
+    the rule in `docs/method/rules_history.md`: "a default is not a decision, and shipping is not evidence".
     """
     rows = []
     keys = {k for row in vendor + mine for k in row if k != "src"}

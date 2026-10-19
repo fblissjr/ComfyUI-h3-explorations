@@ -31,7 +31,7 @@ Autonomy-of-Heads 2608.06849, HeadCast 2607.20125, the ParaAttention README
 VSA 2505.13389. Local: the sglang SubBlock router notes and schedule
 constants, the Sana, LightX2V and sglang H3 configs, and this pack's
 `sol_attn_h3.py`, `sol_observe.py`, `workflows/h3_config.py`,
-`docs/SOLATTN.md` and the named records. Out of scope by assignment (one line
+`docs/attention/sol_attn.md` and the named records. Out of scope by assignment (one line
 each at most): LoSA, "Attention Sparsity is Input-Stable", HASTE/HEART's
 method, cumulative-energy filtering, DeepSeek V4.1. Builds on
 `docs/research/2026-09-17_rotation_and_lowbit_attention_survey.md` D.6-D.7 and
@@ -372,7 +372,7 @@ else read]
   last step and late masks "highly similar" across steps (Sec. 3.1,
   Fig. S11); ScalingAttention Observation 2 ("robust later stages"); DFSAttn
   Fig. 3 (recall rises with step). Sol-Attn and sglang run to the last step,
-  which is what this pack adopted on 2026-09-11 (`docs/SOLATTN.md` knob
+  which is what this pack adopted on 2026-09-11 (`docs/attention/sol_attn.md` knob
   table).
 - **Step caching: the last step is protected.** [V] EasyCache forces
   t = T-1; EpaCache computes the last step fully "to prevent severe quality
@@ -408,7 +408,7 @@ route record logs `sigma_start` 0.9796,
 `data/results/2026-09-01_sol_route_pdd8_chunked_ab.json`), 0.966 at shift 7,
 0.952 at shift 5 and 0.923 at shift 3. STA's 3 of 10 steps at shift 17 ends
 near 0.975. The literature's "20%" is a different point on the noise axis for
-every model. `docs/SOLATTN.md` ("The sigma window is not a step fraction")
+every model. `docs/attention/sol_attn.md` ("The sigma window is not a step fraction")
 already shows the step-count side of this. Compare dense step counts and
 sigmas, never percents.
 
@@ -562,7 +562,7 @@ choose what reaches it.
 
 ## 5. What the node can express
 
-From `docs/SOLATTN.md`, `sol_attn_h3.py` and question review D: per block
+From `docs/attention/sol_attn.md`, `sol_attn_h3.py` and question review D: per block
 (`dense_blocks`, `tau_profile`, `token_aug_blocks`), one global sigma window
 (`start_percent`, `end_percent`), per head recordable only.
 
@@ -633,5 +633,5 @@ Local code and records:
 - `coderef/Sana/models/minimax_h3/RTX4090/teacache.py:45-46`
 - `sol_attn_h3.py:1028-1029, 1063-1078, 1386`; `sol_observe.py:10-18`
 - `workflows/h3_config.py` (`start_percent` note in `SOL_RECOMMENDED_CUDA`; `SOL_END_PERCENT_BY_STEPS` note)
-- `docs/SOLATTN.md` ("The sigma window is not a step fraction"; knob table)
+- `docs/attention/sol_attn.md` ("The sigma window is not a step fraction"; knob table)
 - `bench/results/2026-09-17_sol_start_percent_batch.md`, `bench/results/2026-09-17_sol_stage_profile.md`, `data/results/2026-08-29_block_propagation.json`, `data/results/2026-09-01_sol_route_pdd8_chunked_ab.json`, `data/results/2026-08-19_head_granularity_arms.json`, `data/results/2026-08-19_routing_density_per_head.json`, `2026-08-19_sol_error_per_head.json`

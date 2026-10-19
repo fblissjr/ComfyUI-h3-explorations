@@ -1,5 +1,5 @@
 {
-  "what": "docs/h3_audio_freeze.md, the owner's 'give audio more influence' ask (2026-09-12 evening): the audio attention gain knob on the PDD8 freeze chain, on the no-transcript rooftop line and the reframed dancer, same seeds as before. value_gain scales what the audio rows contribute to every row's attention output; key_gain is a temperature on the audio keys. Both unmeasured; the owner's eye against the ungained twins (untold_loose_pdd8 in the untold set, dancer_close_frozen_s2 on the base chain) says whether either does anything and in which direction.",
+  "what": "docs/h3/audio_freeze.md, the owner's 'give audio more influence' ask (2026-09-12 evening): the audio attention gain knob on the PDD8 freeze chain, on the no-transcript rooftop line and the reframed dancer, same seeds as before. value_gain scales what the audio rows contribute to every row's attention output; key_gain is a temperature on the audio keys. Both unmeasured; the owner's eye against the ungained twins (untold_loose_pdd8 in the untold set, dancer_close_frozen_s2 on the base chain) says whether either does anything and in which direction.",
   "arms": {
     "untold_value2_pdd8": "workflows/h3_candidate_t2v_pdd8_baked_audio_freeze_gain_api.json",
     "untold_key2_pdd8": "workflows/h3_candidate_t2v_pdd8_baked_audio_freeze_gain_api.json",

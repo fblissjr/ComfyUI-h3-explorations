@@ -8,7 +8,7 @@ per-head RMS norm and the split-half rope itself, chunk by chunk, and hands
 the routed attention back without ever holding the full Q, K and V tensors.
 Upstream reports about 5 GB less peak at 113k tokens. At the canonical
 104,361-token sequence on a 24 GB card that is the size of lever that decides
-whether a reference-heavy arm renders at all (`docs/open_experiments.md` #25).
+whether a reference-heavy arm renders at all (`docs/state/open_experiments.md` #25).
 
 `sol_attn_h3.py` cannot reach it: `optimized_attention` hands that node
 finished Q, K and V, so the saving is already spent by the time its override

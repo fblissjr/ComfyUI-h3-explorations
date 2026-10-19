@@ -7,7 +7,7 @@ and chain-assert nodes. See README.md.
 from .nodes import comfy_entrypoint
 from . import pipeline_telemetry as _telemetry
 
-# Inert unless the server starts with H3_TELEMETRY set (docs/pipeline_telemetry.md).
+# Inert unless the server starts with H3_TELEMETRY set (docs/working/pipeline_telemetry.md).
 # It observes through core's cache-provider API and a logging handler; it
 # patches nothing.
 _telemetry.install_from_env()
@@ -16,6 +16,6 @@ _telemetry.install_from_env()
 # the last thing in this pack that modified ComfyUI core. Nothing here patches
 # core now, at import or otherwise; model changes go through ModelPatcher's own
 # `add_object_patch`. See `archive/single_frame.py` for what it was and
-# `docs/h3_image_editing.md` for why the path it served is parked.
+# `docs/h3/image_editing.md` for why the path it served is parked.
 
 __all__ = ["comfy_entrypoint"]

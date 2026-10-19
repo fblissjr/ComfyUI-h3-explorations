@@ -11,7 +11,7 @@ for the rows it has (`pdd_observe.py`'s lesson).
 
 `--join` asks the named server's `/history/<prompt_id>` for every prompt id
 in the file and reports which are known to it -- the live acceptance the
-uncontrolled row in `docs/checks.md` is waiting on. A row whose prompt id the
+uncontrolled row in `docs/method/checks.md` is waiting on. A row whose prompt id the
 server does not know was either rendered by another server process or
 recorded under no executing context; the report says which by the row's
 `identity_source`.

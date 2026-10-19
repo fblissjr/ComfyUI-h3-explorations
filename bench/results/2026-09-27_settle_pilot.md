@@ -1,6 +1,6 @@
 # #43 pilot: does a frame settle later where the picture changes more? (2026-09-27)
 
-`docs/open_experiments.md` #43, the premise under the owner's motion-adaptive
+`docs/state/open_experiments.md` #43, the premise under the owner's motion-adaptive
 schedule. CPU only, on two renders that already existed: `subway_chase` at seed
 730451892 and 345 frames, on PDD8 (8 steps) and on the base on Euler at 32
 steps (PDD's teacher path, sharing PDD8's starting noise).
@@ -43,7 +43,7 @@ over the non-cut frames.)
 - **Inference, not measured:** PDD8's fused tail does not give high-change
   frames the late refinement its teacher gives them. That fits the owner's
   read that PDD8 "sucks at motion" and does well at low delta
-  (`../../docs/wiki/next_steps.md`), and it points the same way as the
+  (`docs/state/next_steps.md`), and it points the same way as the
   motion-adaptive idea. A finer tail on moving scenes would restore late
   steps where the teacher uses them.
 - **#43's decision rule is not met as written.** It expected high-delta frames

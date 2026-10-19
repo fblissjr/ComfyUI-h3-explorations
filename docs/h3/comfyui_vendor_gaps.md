@@ -1,0 +1,1133 @@
+# Where ComfyUI's H3 path differs from the vendor's
+
+last updated: 2026-09-13 (the `encoder` policy and the AWQ adapter marked removed, see the correction below; 2026-09-10 recorded two core commits under "Settled"; row 17 added 2026-09-04; everything else is the 2026-08-29 snapshot)
+
+**Corrected 2026-08-29: this file described the compressed-tensors W4 AWQ
+artifact as the shipped encoder, and it is not.** Every encoder-loader node
+in `workflows/` is core's `CLIPLoader` naming
+`qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (*measured*). Two things
+follow, and they change several rows below:
+
+- **The W4 artifact's narrow 200,704--301,056-pixel still snapshot is not on
+  the shipped path.** Core's own 3,136--12,845,056 applies instead, and that
+  ceiling binds nothing a reference node produces. Rows that call the W4
+  snapshot "the deployed-path issue" describe a path this install left.
+- **`video_policy=encoder` is selected by most shipped graphs and reached by
+  none of them.** `reference_geometry.effective_policy` downgrades `encoder` to
+  `comfy` for a CLIP that declares nothing, and core's `CLIPLoader` declares
+  nothing (*measured*: `effective_policy("encoder", None) == "comfy"`). So the
+  local hybrid this file credits as shipped handling is wired and dormant, and
+  the reference path that actually runs is native ComfyUI end to end.
+
+**Also corrected 2026-08-29: gap 7 is withdrawn, and it was never real.** A
+mono reference does not raise -- core has upmixed it since `57500fc5`, the
+commit that added H3 support, eighteen days before this file said otherwise.
+Section 7 has the mechanism and the measurement.
+
+**That one is worth reading as a fact about this document, not just about
+mono.** This file's opening rule is "if this file disagrees with an owner, the
+owner is right". Gap 7 did not disagree with its owner; it faithfully reproduced
+an owner that was wrong, and a gate agreed with both by verifying the claim
+against a hand-built latent instead of a real encode. **Deferring to an owner is
+not a substitute for the owner having run anything**, and three artifacts
+agreeing with each other is not three pieces of evidence. Gap 5 below survived
+the same scrutiny on 2026-08-29 and gap 15 was found while applying it.
+
+**Corrected again 2026-09-13** (`docs/state/decisions.md`): the `encoder`
+value is removed from both policies, which now offer `comfy` (default) and
+`release`; every generated graph loads the INT8 file through
+`MiniMaxH3EncoderLoader` (core's load plus guards); and the W4 AWQ adapter,
+its check, its document and `config/` are deleted, the lane having closed on
+2026-08-27. Rows and sentences below that describe `video_policy=encoder` as
+selected, dormant or hybrid describe a value that no longer exists, and the
+ones that describe the W4 artifact describe deleted code; both are kept as
+the 2026-08-29 snapshot's history. The append node's defaults are vendor
+parity since the same day (`docs/h3/references.md`), which changes gap 6's
+"shipped defaults remain native-compatible" to "shipped defaults follow the
+release for stills".
+
+`MiniMaxH3EncoderLoader` (`h3_encoder_loader.py`, 2026-08-29) was what would
+make `encoder` reachable on a native artifact — it stamps a contract derived
+from core's own signatures. Every generated graph now wires it
+(`workflows/build_workflows.py`, the loader comment); the `encoder` policy it
+was written for was removed instead, and the stamp serves the reference
+report and preflight. [`conditioning.md`](conditioning.md) §0 owns
+the loader chain this rests on.
+
+Every known divergence between this ComfyUI install and the MiniMax H3 release,
+in one place, with what each one costs a working user.
+
+**This file is a snapshot, not an authority.** Every fact in it is owned by
+another document, named in each section. It exists because the ownership rule
+that keeps those documents from drifting also meant that answering "what are all
+the gaps" required knowing which of three files to open. **If this file
+disagrees with an owner, the owner is right** and this one is stale. Regenerate
+it by re-reading the owners rather than by editing it in place.
+
+**Native status and local handling are separate facts.** In this document,
+"native ComfyUI" means code provided by the installed ComfyUI checkout, without
+this custom-node pack. "Local handling" means a node, check, preflight rule or
+shipped workflow in this repository. A local workaround can make this repo's
+graphs safe without resolving the ComfyUI/vendor divergence for anyone else;
+it is therefore described as **locally handled**, never as a closed native gap.
+Conversely, a native ComfyUI fix remains a native fix after this repo retires
+its workaround and keeps only inert saved-graph compatibility slots.
+
+Sources, and what each is worth:
+
+- **Measured here** — a record in `bench/results/`, named where it applies.
+- **Read from source** — `coderef/sglang` at `a7ec6b97f7` and `coderef/diffusers`,
+  against ComfyUI's own files. A source read is an inference, not a run.
+- The 2026-08-21 reads were made at `coderef/sglang` `a41da991c8`. Every cited
+  line still resolves; the surrounding prose has not been re-read.
+
+---
+
+## The two kinds, because they are fixed differently
+
+**Config inheritance.** The release ships a value in a config file. sglang reads
+it through `AutoTokenizer` / `AutoProcessor` from the paths `model_index.json`
+names
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/loader/component_loaders/component_loader.py:70`).
+ComfyUI hardcodes its own. These are cheap: the fix is to read the file.
+
+**Behavioural.** sglang decided something we did not. Copying it is a design
+choice, not a correction.
+
+---
+
+## Adjacent checkpoint-format status — AWQ is not one loader format
+
+This is not a MiniMax-release divergence, but it belongs beside the gap table
+because the filenames otherwise make the wrong conclusion easy.
+
+Core ComfyUI **does natively support the shipped NVFP4-AWQ H3 encoder** on
+compatible hardware. Its file uses the H3 namespace core detects
+(`visual.*`, `model.layers.0` through `49`) and carries per-layer
+`comfy_quant` records: 350 language linears declare `format=nvfp4`. The stock
+`CLIPLoader` is the correct owner of that artifact. This is native ComfyUI
+support, not code from this repository.
+
+Until 2026-08-27 the graphs selected `qwen3vl_32b_minimax_h3_w4a16_awq.safetensors`,
+AWQ-calibrated but a different representation: compressed-tensors W4A16,
+packed `int32` weights, group-128 scales, and the full Hugging Face
+`model.language_model.*` namespace. Core lists such a file because it is in
+`models/text_encoders`, then detects that namespace as Qwen3-VL-8B and builds
+width 4096 for width-5120 tensors; the resulting load failure was reproduced
+on 2026-08-23. `MiniMaxH3AWQEncoderLoader` was this repo's local adapter for
+that representation, and it never supplied or implied generic AWQ support in
+core. **The adapter, its check (`bench/check_h3_awq_encoder.py`), its
+document (`docs/h3_awq_encoder.md`) and the `config/` snapshots were deleted
+on 2026-09-13** with the closed lane (`docs/state/decisions.md`); the lane's
+records under `docs/research/qwen3-vl-special-tokens-post-training/` stayed
+until 2026-10-12 and are in git history. The
+generator refuses any encoder file outside
+`workflows/h3_config.py::CORE_LOADED_ENCODERS`.
+
+---
+
+## Summary
+
+Priority is by what it costs a working user, not by how interesting it is.
+
+| # | gap | kind | native ComfyUI status | handling in this repo |
+|---|---|---|---|---|
+| 1 | Seven special tokens absent from the tokenizer | config | **fixed in the installed checkout by merged PR 15808** | local fallback retired; native behavior is required and audited |
+| 2 | Reference video frame rate assumed, not enforced | behavioural | open | typed nodes normalize from owned loader metadata; shipped graphs also retain and check `force_rate=24` |
+| 3 | Reference image floor (`min_pixels`) | config | open | preflight reports the divergence; no general runtime parity implementation |
+| 4 | Reference image ceiling (`max_pixels`) | config | open | `MiniMaxH3ReferenceConditioning.image_policy` can opt in to one declared ceiling for both towers, off by default; core remains unchanged. **Corrected 2026-08-29**: the shipped encoder is no longer the W4 artifact, so the binding ceiling is core's 12,845,056 px, which no shipped graph reaches. What split the two towers from 2026-08-27 was `qwen_short_edge`, deliberately, on 80 of 89 append nodes; **since 2026-09-13 nothing does by default** (`qwen_view=shared`, vendor parity) |
+| 5 | Reference soundtracks not truncated | behavioural | open, **measured 2026-08-29**: 15 s against a 5.167 s target is 786 excess rows | all shipped graphs now use typed internal caps; native socket graphs remain exposed unless they trim upstream |
+| 6 | Reference media never upscaled, and never reported | behavioural | sizing divergence remains; native path does not report the choice | fit nodes report it; the typed conditioner has an opt-in atomic release-video policy, while shipped defaults remain native-compatible |
+| 7 | ~~Mono reference audio raises~~ **withdrawn**; multichannel silently truncated | behavioural | **mono: not a gap, core upmixes.** Multichannel: open | typed nodes refuse >2 channels; core keeps the first two silently |
+| 8 | VAE encode precision, and mean vs sample | behavioural | open | measured only; no claimed fix |
+| 9 | H3 VAE tiling as a runtime branch | behavioural | **not a gap in the installed native implementation** | documented as fixed H3-owned policy; no custom-node fix claimed |
+| 10-13 | Partition gate, AdaLN cache, CUDA graphs, step caching | behavioural | architectural differences | researched or explicitly declined; no native-equivalence claim |
+| 14 | DiT fp32 island collapses to bf16 under the int8 load | behavioural | open, and core-side | **nothing**; measured only, and 5-20x below the quantization error already present |
+| 15 | Reference-audio encode crashes under VRAM pressure instead of tiling | behavioural | open, core-side (`extra_1d_channel` unset) | **nothing**; trimming the soundtrack shrinks the encode but does not fix it |
+| 16 | Generic VAE crop narrows the reference waveform's SAMPLE axis | behavioural | open, core-side (`crop_input` unset); [Comfy-Org/ComfyUI#15972](https://github.com/Comfy-Org/ComfyUI/pull/15972) proposes the one-line fix, open as of 2026-08-30 | **nothing**; the shipped trim lands on a non-aligned length, so every soundtracked graph here is exposed |
+| 17 | The gated residual rounds once in core and twice in the reference | numerical | open, core-side: `comfy/ldm/minimax/model.py::_mod_gate` folds `x + gate * out` into one in-place `addcmul_` on the bf16 stream, one rounding; the diffusers reference of record computes `gate * out` and the add as two bf16 ops (`coderef/diffusers/src/diffusers/models/transformers/transformer_minimax_h3.py`, the block forward), and sglang's fused kernel rounds the product to bf16 explicitly before adding (`coderef/sglang/python/sglang/kernels/ops/diffusion/modulate/indexed_modulation_triton.py::_indexed_gate_bf16_kernel`) to match it. Twice per block, fifty blocks, every step. The scale-shift path matches: core's `mul_`/`add_` chain rounds at the same three points as sglang's kernel. Found 2026-09-04 reading both; **unmeasured** | **nothing**; our attention mirror replaces `Attention.forward` only and never touches the residual. What would size it: one block forward on a captured hidden state under both formulas, relative L2 of the stream after fifty blocks, at one step; per element the difference is at most one bf16 ulp of the gated update |
+
+### Processor-policy impact by conditioning role
+
+The processor rows above do not have one uniform consequence. **SOURCE unless
+explicitly marked MEASURED:** stock ComfyUI does not instantiate the released
+image or video processor configs for its native H3 encoder. It uses the shared
+Qwen helper's defaults for stills and independently for each two-frame video
+block. The practical boundary is:
+
+| input role | stock-versus-release consequence | present assessment |
+|---|---|---|
+| T2VA | no pixels enter Qwen | no image/video-processor exposure |
+| FL2VA keyframe | a legal H3 canvas is inside both still-image bounds and already on the required 32-pixel grid | the stock-versus-release config difference does not change keyframe geometry. Under the W4 loader (deleted 2026-09-13) this row was not exempt: its `preprocess_embed` treats every image embed alike, so a 1344x768 keyframe reaches Qwen under the 200,704--301,056-pixel snapshot at roughly 294 merged tokens instead of 1,008 (SOURCE at the time, the deleted adapter's `install_source_processors`). |
+| Ref2VA still inside the common interval | inputs from 65,536 through 12,845,056 pixels satisfy both numeric bounds | a processing-policy distinction, not malformed encoding; geometry changes only if another sizing stage acts |
+| tiny or extreme-aspect Ref2VA still | the release floor can enlarge what stock leaves small; stock can hit its lower ceiling before the release | grid and visual-token count can materially differ |
+| Ref2VA video, stock native path | the release has a clip-wide sampled-frame budget; stock budgets each two-frame block independently and never upscales a small source | **MEASURED bounded divergence:** the duration-aware resize begins only for canvas-sized sources at 311+ target frames; it cannot engage inside H3's legal range for the measured 960x544 source |
+| Ref2VA video, this repo's shipped graphs | `video_policy=comfy` on every graph but the `release` probe arm since 2026-09-13, so each two-frame block goes through core's own per-block budget. **History:** most graphs selected `encoder` from 2026-08-25, and from 2026-08-29 it was known that selecting it was not running it: with core's `CLIPLoader` there was no stamped contract, so `encoder` resolved to `comfy`; the value was removed 2026-09-13 | the VAE view remains no-upscale and the Qwen stage is core's per-pair one; `release` is the explicit full-parity option. The contract-bound `encoder` stage this cell used to describe (bound to the loaded CLIP since 2026-08-25, enforced by a `bench/check_reference_runtime.py` case, `encoder_policy_binds_to_the_loaded_clip`, that went with it) was removed with the value on 2026-09-13 |
+| the compressed-tensors W4 artifact (loader deleted 2026-09-13) | its local loader replaced the stock still path with the artifact snapshot's 200,704--301,056-pixel budget | **MEASURED major reduction in Qwen input geometry and visual rows**, but this is an artifact-specific deployed-path gap, not a native-ComfyUI defect |
+
+No row above establishes malformed tensors or a perceptual failure. Patch size,
+temporal patch size, merge geometry, H3 normalization, odd-frame padding and
+the native two-frame presentation are aligned. The live differences are which
+pixels and grids reach that otherwise-correct structure, plus their cost and
+activation distribution.
+
+The stock float/bilinear path and the release/configured
+bicubic-through-uint8 path are also numerically different. Their contribution
+has **not** been isolated from the bounds at layer 49. Treating that difference
+as smaller than geometry is a reasonable expectation, not a measurement, and
+it remains a v1-versus-v2 variable as well as a stock-versus-release one.
+
+---
+
+## 1. Seven special tokens — fixed natively in installed ComfyUI
+
+Owner: [`docs/research/official_weights_metadata.md`](../research/official_weights_metadata.md).
+
+The release declares twenty `additional_special_tokens`. ComfyUI's bundled
+`qwen25_tokenizer` directory declares thirteen. The seven missing are `<d>`,
+`</d>`, `<|cutoff|>`, `<|lyrics_start|>`, `<|lyrics_end|>`,
+`<|caption_start|>`, `<|caption_end|>`.
+
+**Practical impact: every dialogue prompt**, because the release's prompt guide
+mandates `<d>` around all spoken lines. And the cost is not confined to the
+marker. BPE has no reason to stop at the angle bracket, so the fragments fuse
+with the text on either side:
+
+| | release emits | ComfyUI emitted |
+|---|---|---|
+| `<d>[English]` | `<d>` `[` `English` | `·<` `d` `>[` `English` |
+| `window.<\|cutoff\|>` | `window` `.` `<\|cutoff\|>` | `window` `.<` `\|` `c` `utoff` |
+| `<\|lyrics_start\|><d>` | two tokens | six fragments, fusing into `><` |
+
+A full stop before `<|cutoff|>` is dragged into `.<`, so a marker retokenizes
+the sentence *before* it. Measured 2026-08-22 across nine prompt shapes
+([`data/results/2026-08-24_h3_marker_tokenization_native.json`](../data/results/2026-08-24_h3_marker_tokenization_native.json)): in an ordinary
+two-person dialogue prompt, 9 of 91 non-marker tokens come out different.
+
+**Native ComfyUI status: fixed.**
+[Comfy-Org/ComfyUI PR 15808](https://github.com/Comfy-Org/ComfyUI/pull/15808)
+(kijai) is merged, and this installed checkout contains it as commit
+`924743af`. It declares the seven on a `Qwen3VLSDTokenizer` subclass so every
+consumer gets them, including core's `MiniMaxH3ReferenceToVideo`. An older
+ComfyUI install without that commit still has the defect described below.
+
+Verified here against the release tokenizer: all nine scenes reproduce its ids
+exactly, the reference path carries the marker beside its vision blocks, and a
+marker-free prompt is byte-identical to the reconstructed legacy arm.
+[`bench/audit_h3_marker_tokenization.py`](../../bench/audit_h3_marker_tokenization.py)
+is the harness and refuses an install that lacks the native fix.
+
+**Handling in this repo:** no tokenizer patching remains. The conditioning
+nodes rely on native ComfyUI. Their `vendor_tokens` inputs and the standalone
+`MiniMaxH3VendorTokens` node were inert compatibility tombstones until
+2026-08-27 and are now **removed** — the owner traded saved-graph widget
+compatibility for schemas that carry nothing dead.
+
+### Do the seven tokens touch Qwen3-VL's vision tower?
+
+**No.** The question is a fair one because the release's `processor/` directory
+carries the tokenizer config, so the tokens do sit next to the vision
+configuration. They do not reach the tower:
+
+- The tower consumes pixel patches. No vocabulary reaches it.
+- The vision sentinels are hardcoded ids in `comfy/text_encoders/minimax.py:29-30`,
+  never a vocabulary lookup.
+- The seven append *above* the highest existing added token, so no id shifts.
+
+The assertion that closes it: over two images, an odd-frame video and an audio
+reference, a **marker-free prompt tokenizes byte-identically with and without
+the fix, vision structure included**. Had any vision id moved, that arm fails.
+
+Why the ids cannot move, and why the tower has no vocabulary to align in the
+first place (the seven are appended above every existing id; native ComfyUI
+splices vision features by list position and never materialises
+`<|image_pad|>`), is walked through the installed code in
+[`docs/research/official_weights_metadata.md`](../research/official_weights_metadata.md),
+"How the fixed install realises them".
+
+**The useful reframe.** `processor/` bundles two different things, because HF's
+`AutoProcessor` wraps both halves: a tokenizer config, and the image and video
+preprocessor configs. PR 15808 fixes the text half. Gaps 3 and 4 below are the
+vision half, and they are untouched. **Those are the ones that change what Qwen
+actually sees.**
+
+---
+
+## 2. Reference video frame rate — assumed, not enforced
+
+Owner: [`references.md`](references.md).
+
+Both implementations target 24 fps. Only one enforces it.
+
+sglang applies it as an ffmpeg `fps=` filter in the same decode pass that does
+rotation, Lanczos scaling and square-pixel normalisation
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:397`),
+so a 30 fps source becomes constant-rate 24 before anything sees it. ComfyUI
+applies no filter: `FPS = 24` at `comfy_extras/nodes_minimax_h3.py:30`, no node
+in that file exposes an fps input, and it assumes whatever the loader hands it
+is already 24.
+
+**Practical impact: any reference video that is not 24 fps.** The 2 fps
+conditioner subsample steps by `FPS // 2` and stamps timestamps at `i / 2.0`.
+Both are right at 24 and wrong at anything else. Measured on three 6.00-second
+clips differing only in frame rate:
+
+| source | `force_rate` | H3 reads it as | error | last label |
+|---|---|---|---|---|
+| 24 fps | 0 or 24 | 5.875s | 0.0% | `<5.2 seconds>` |
+| 25 fps | 0 | 5.875s | +4.2% | `<5.2 seconds>` |
+| 30 fps | 0 | **7.292s** | **+25.0%** | `<7.0 seconds>` |
+| any | 24 | correct | 0.0% | correct |
+
+At 30 fps the model is told a six-second reference holds seven and a quarter
+seconds of action, and the spoken-word timestamps stretch with it.
+
+**Workaround: `force_rate=24` on the loader.** A 24 fps source is unaffected
+either way, which is exactly why testing on one proves nothing.
+[`bench/check_ref_prompt_labels.py`](../../bench/check_ref_prompt_labels.py) fails the build if any loader feeding a
+reference socket drops off 24.
+
+**Native ComfyUI status: open. Handling in this repo:**
+`MiniMaxH3AppendRefVideo` requires the frames' own `VHS_VIDEOINFO`, records its
+`loaded_fps`, and `MiniMaxH3ReferenceConditioning` normalizes the frames to 24
+fps before either Qwen or the video VAE sees them. Every shipped reference
+workflow now uses that local path and also retains `force_rate=24` so migration
+did not change media policy. The native socket node still has no metadata input.
+
+Two design consequences of sglang doing this in one ffmpeg pass: **fps never
+enters its API surface** — the caller asks for `duration_seconds` and the frame
+count is derived
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/request_validation.py:291-295`)
+— and the decoded array is shared by Qwen and the VAE by construction.
+
+The 2 fps subsample itself, including the index pad and merged-pair timestamp,
+is **confirmed identical** to sglang. The rate is the whole gap.
+
+**And the per-pair vision call is now tested, not argued.** ComfyUI presents a
+reference video to Qwen3-VL as separate two-frame calls at `grid_thw =
+[1, H, W]` where LightX and sglang pass the whole sampled clip at `[T, H, W]`.
+`internal/codex/2026-08-21_h3-conditioning-qwen-independent-review.md` section 2
+calls this "the important non-gap" and argues structural equivalence -- then
+says in its own words that it "should be tensor-tested, but it is not". It now
+is: [`bench/grade_video_block_presentation.py`](../../bench/grade_video_block_presentation.py)
+runs both presentations through the real `Qwen3VLVisionModel` at the
+`qwen3vl_32b` vision config and the merged and deepstack outputs agree to
+7.5e-06, inside fp32 reassociation noise. **Two controls establish that the
+comparison can see a difference** -- reordering the pairs moves it by 7.0, and
+perturbing one pair by 1e-3 moves it by 6.0e-03 -- and the harness exits
+non-zero rather than reporting a pass if either fails to separate. The
+mechanism is `comfy/text_encoders/qwen35.py:660-663`: `cu_seqlens` splits attention at every
+`h*w`, so attention never crosses a frame in either presentation, and the
+position construction carries no temporal term.
+
+**Random weights are the right instrument and not a shortcut**: the claim is
+about how the tower routes tokens, which is architecture rather than anything
+learned. It tests nothing weight-dependent, and nothing in the claim is.
+
+**The Qwen tower gets a SECOND, duration-aware resize the VAE never sees.**
+Established 2026-08-22 by executing the release processor, after this section
+claimed the opposite for several hours and was refuted by codex tracing the
+call graph. The wrong claim rested on three sglang docstrings saying the
+decoded array is "shared by Qwen and the visual VAE"
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:382`).
+That is true and it is the *source* array. One call later,
+`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/text_encoding.py:488` sends the 2 fps sampled view
+through `proc.video_processor(...)` -- the release `Qwen3VLVideoProcessor` --
+and the VAE consumes the shared array directly. **Shared source is not
+identical tower resolution**, and reading docstrings instead of following the
+call is what produced the error.
+
+Its budget is duration-aware: `vendor_config/video_preprocessor_config.json`
+sets `size.longest_edge` to 25,165,824 px **across the clip**, so more sampled
+frames means each is smaller. Run against the real processor at 31 sampled
+frames (362 target frames at 2 fps, padded to 32, 16 temporal blocks):
+
+| fed to the processor | `grid_thw` | effective | Qwen rows |
+|---|---|---|---|
+| 1344x768 | `[16, 42, 74]` | 1184x672 | **12,432** |
+| 960x544 (our source) | `[16, 34, 60]` | 960x544, untouched | **8,160** |
+
+**At our source size the duration-aware pass is inactive**, and that is the
+part neither the report nor the refutation had: 960x544 over 32 frames is
+16.7M px, under the 25.2M budget, so the processor returns the frames
+unresized and ComfyUI's per-pair path lands on the identical grid. The
+divergence for this clip is **entirely gap 6 below** -- sglang upscales the
+reference video to 1344x768 first, and the duration-aware pass then pulls it
+back to 1184x672.
+
+**It has a threshold, and every H3 length below 311 frames sits under it.**
+Swept against the real processor rather than derived -- a first attempt
+derived it from `budget // pixels_per_frame` and was wrong twice, on the frame
+count and on the mapping; codex caught both. The executed boundary at
+1344x768:
+
+| sampled frames | `grid_thw` | effective |
+|---|---|---|
+| 24 | `[12, 48, 84]` | unchanged |
+| 25 | `[13, 48, 84]` | unchanged -- 13 blocks, but `smart_resize` ties to even and budgets it as 24 |
+| **26** | `[13, 46, 80]` | **1280x736, first resize** |
+
+Sampling is `ceil(N / 12)`, so 26 samples starts at **301 target frames**, and
+the first legal `17n+5` at or above it is **311**. At our un-upscaled 960x544
+the first resize is at 50 sampled frames -- target 589, first legal 600 --
+which is outside the legal range entirely, so **the pass can never activate on
+this clip as ComfyUI feeds it.**
+
+So the coupling below is length-dependent, and the boundary is exact:
+
+- **124 through 294 frames**: only the upscale differs between the two paths.
+- **311 through 362 frames**: the upscale and the duration-aware limit both
+  apply.
+
+**Which makes the duration-aware pass a cost LIMITER, and couples the two
+gaps.** Closing gap 6 alone -- upscaling to 1344x768 and feeding Qwen per pair
+as now -- gives 84x48/4 = 1,008 tok/block x 16 = 16,128 rows, **3,696 more
+than the vendor's 12,432**. So the correct order is both or neither: an
+upscale without the duration-aware resize overshoots the release rather than
+matching it.
+
+**None of this touches the per-pair result above.**
+`grade_video_block_presentation.py` held the grid fixed and asked whether the
+*call shape* diverges. It does not. This is a different question -- what grid
+the tower is handed -- and the answer is that it can diverge, through the
+upscale.
+
+---
+
+## 2b. Token tags under forced CLIP scheduling -- fixed in core
+
+Owner: [`docs/research/conditioning_nodes.md`](../research/conditioning_nodes.md).
+
+`CLIP.encode_from_tokens_scheduled` has two branches, and both now merge the
+encoder's third return value, so `minimax_token_tags` reaches conditioning
+either way. The forced-hook branch read only `o[:2]` until core `6bfaacc6`
+(#16400, 2026-09-20) added `if len(o) > 2: pooled_dict.update(o[2])`. No
+shipped graph here wires a CLIP hook, so nothing rendered changes.
+`bench/check_reference_contracts.py`'s case 5c watched the old state and
+flipped, and was retired under its own contract;
+[`docs/state/decisions.md`](../state/decisions.md) 2026-09-25 has what it recorded.
+
+---
+
+## 3 and 4. The image preprocessor bounds
+
+Owner: [`references.md`](references.md).
+
+Native ComfyUI does not load the released image or video preprocessor configs
+on the H3 path. It leaves `min_pixels` / `max_pixels` on the shared Qwen2-VL
+helper's signature defaults and applies the same pair to stills and to **each
+two-frame video block independently**. The release ships different values for
+images and video, and its video maximum is a **clip-wide** budget over the
+sampled frames rather than a per-block ceiling:
+
+| bound | H3 release | ComfyUI |
+|---|---|---|
+| image min pixels | 65,536 | 3,136 |
+| image max pixels | 16,777,216 | 12,845,056 |
+| video min pixels | 4,096 | 3,136 |
+| video max pixels | 25,165,824 | 12,845,056 |
+
+The patch **geometry** is right on both sides — `patch_size=16`,
+`temporal_patch_size=2`, `merge_size=2`, 0.5 mean/std, and ComfyUI passes 16
+explicitly rather than inheriting Qwen2-VL's 14. Only the bounds were never
+wired to the release's files. The video rows in the table therefore compare
+different scopes as well as different numbers: stock applies its value to one
+pair; the release applies its value to the sampled clip.
+
+**Read these as pixel counts, not edge lengths.** 65,536 is 256x256;
+16,777,216 is 4096x4096. Reading them as edges makes every bound look absurd.
+
+### 3. The floor — the one that is not extreme
+
+The release *enlarges* anything under 65,536 pixels to reach that floor.
+ComfyUI's floor is twenty times lower, so it does not.
+
+**Practical impact: any reference under roughly 256x256 equivalent.** A 200x200
+thumbnail lands at 192x192, which is 36,864 pixels. The release would enlarge
+it; we hand Qwen fewer patches than the vendor intends, so the reference carries
+less identity signal. Thumbnails and cropped faces land here easily.
+
+Both towers agree with each other, so this is not a VAE-versus-Qwen split. It is
+a ComfyUI-versus-release split, and nothing about it looks extreme. Native
+ComfyUI does not warn; this repo's preflight does. **This is the higher-priority
+half of the two.**
+
+**Native ComfyUI status: open. Handling in this repo:** preflight reports when
+the release floor would enlarge a reference that ComfyUI leaves alone.
+`MiniMaxH3ReferenceFit` can deliberately upscale a reference, but it does not
+implement the release processor's `min_pixels` rule as a general runtime
+boundary and therefore is not a native-equivalence fix.
+
+### 4. The ceiling — real but genuinely extreme
+
+Past 12,845,056 pixels ComfyUI's helper resizes what the VAE already received,
+so the two towers see different resolutions of the same picture. Measured
+2026-08-22 with the real `process_qwen2vl_images`:
+
+| source | mode | both towers get | Qwen actually sees | divergent |
+|---|---|---|---|---|
+| 3840x2160 | match | 1344x768 | 1344x768 | no |
+| 6144x2048 | max | 6144x2048 | 6144x2048 | no |
+| 6656x2048 | max | 6656x2048 | **6432x1984** | **yes** |
+| 7168x2048 | max | 7168x2048 | **6688x1888** | **yes** |
+| 4096x4096 | max | 2048x2048 | 2048x2048 | no |
+
+**In `ref_image_size="match"` it is unreachable.** Match scales to the
+generation's pixel area, around 1M pixels at 1344x768, twelve times below the
+ceiling. No source resolution trips it.
+
+**In `max` mode** it needs roughly 3.06:1 or wider at a 2048 short edge — the
+crossing is `12,845,056 / 2048² = 3.0625`. The ceiling counts pixels; the ratio
+only names it because the sweep pinned the short edge.
+
+When it fires it is a resolution mismatch, not corruption: Qwen gets a bilinear
+downscale of the same picture, with slight aspect drift from independent
+rounding to 32. The consequence worth holding is that the VAE's latent is finer
+than what Qwen extracted identity from, and nothing says so.
+
+[`data/results/2026-08-21_shipped_reference_bounds.json`](../data/results/2026-08-21_shipped_reference_bounds.json): **no shipped graph
+reaches it, against the native ceiling.** Against the shipped W4 encoder's
+301,056-pixel ceiling every reference graph reaches it; that case is the
+artifact's, below.
+
+**Native ComfyUI status: open. Handling in this repo:**
+`MiniMaxH3ReferenceConditioning.image_policy` selects WHOSE still-image ceiling
+applies -- `comfy` (default, no opinion) or `release` (the `encoder` value was
+removed 2026-09-13) -- and pre-applies the selected policy's bounds before the
+VAE, keeping both towers on one resolution. On the shipped encoder the two
+produce the same geometry at every legal short edge
+(`data/results/2026-08-29_qwen_view_under_snapshot.json`). That is an opt-in local guard and it is **off by default**; the
+native reference node and every graph left on `comfy` remain exposed.
+
+Until 2026-08-24 this was `MiniMaxH3ReferenceFit.keep_towers_matched`, which
+clamped to Comfy's `process_qwen2vl_images` default unconditionally. That is
+the right ceiling on a native BF16 path and wrong by orders of magnitude under
+the AWQ adapter, and the fit node has no `clip` with which to tell the
+difference. `MiniMaxH3ReferenceVideoFit` keeps `keep_towers_matched` and keeps
+reading Comfy's default, which is correct there: it is a reporter for
+native-core paths.
+
+One reference-video **frame** at the H3 canvas is around 1M pixels and below
+either numeric maximum. That does **not** make the policies universally equal:
+the release ceiling accumulates over the sampled clip, while stock ComfyUI
+restarts its budget for every two-frame block. The executed boundary is narrow
+and source-dependent, not a blanket long-video defect: at 1344x768 the release
+first resizes at 26 sampled frames, corresponding to legal H3 lengths of 311
+frames and above; for the measured 960x544 source the first boundary would be
+outside H3's legal range. Section 2 owns those measurements.
+
+This repo's shipped reference graphs take that stock video path: all but the
+`release` probe arm select `video_policy=comfy`, the default since 2026-09-13.
+The `release` policy applies both vendor stages. **History:** until
+2026-09-13 all but that arm selected `video_policy=encoder`, meant to retain
+the cheaper no-upscale VAE view while applying the loaded encoder's stamped
+contract as its duration-aware Qwen stage (`h3_awq_encoder.install_source_processors`
+stamped `_h3_encoder_contract` on the CLIP; `reference_geometry.encoder_contract_from_clip`
+read it back), and a CLIP that declared nothing resolved to the native path
+and said so. Until 2026-08-25 it read the W4 artifact's snapshot whichever
+CLIP the graph loaded. On the shipped core-loaded encoder it therefore always
+ran as `comfy`, which is why the value was removed; the adapter and the
+contract functions went with it.
+
+Do not confuse either native policy with the current compressed-tensors W4
+artifact. Its adapter binds a separately snapshotted 200,704--301,056-pixel
+still-image processor to that CLIP instance. The layer-49 benchmark measured
+the resulting large reduction in reference visual rows and rejected widening
+that already-calibrated artifact as a config-only repair; see
+`2026-08-24_layer50_processor_policy_benchmark.md`.
+
+---
+
+## 5, 6, 7. The rest of the reference path
+
+Owner: [`references.md`](references.md).
+
+**5. Soundtracks not truncated.** ComfyUI encodes the whole waveform, at 80 rows
+per second of excess. sglang cuts every reference soundtrack to the generated
+duration via `ffmpeg -t`, and diffusers does the same. It applies to **both**
+material chains there -- a video's soundtrack and a standalone audio reference
+alike. *Impact:* wasted rows on any soundtrack longer than the render, and
+those rows are attended every step. **And more than rows**: a video
+reference advances the packed RoPE cursor by
+`max(ref_audio_t, sum of video spans)`, so an over-long soundtrack expands
+the reference span and pushes the target streams down the timeline. Both
+independent reviews reach this (`internal/codex/2026-08-21_h3-conditioning-qwen-independent-review.md`
+section 5.3; the cursor formula is in `internal/gemini/minimax_h3_comfyui_end_to_end_trace_and_gap_analysis.md`).
+
+**Confirmed at the real entry point 2026-08-29**, deliberately, because gap 7
+next door turned out never to have been true and the two were filed on the same
+reasoning. Run against the real audio VAE through `_encode_ref_audio` itself
+rather than by reading it:
+
+| soundtrack | `ref_audio_t` | rows | excess over the target's 414 |
+|---|---|---|---|
+| 5 s | 200 | 400 | 0 |
+| 15 s | 600 | 1,200 | **786** |
+
+against the node's default 124-frame target (5.167 s, `audio_t` 207). **Gap 5 is
+real**, nothing in core trims, and the excess is attended at every sampling
+step.
+
+**That measurement was blind to gap 16 below, and the reason is worth keeping.**
+Both durations are whole seconds, so both sample counts are exact multiples of
+800 -- the audio VAE's `downscale_ratio`, and the modulus the generic crop
+narrows to. An aligned input is precisely the input on which that crop is a
+no-op, so the arms could not have observed it however carefully they were run.
+`CLAUDE.md`'s rule names the shape: a check whose input already satisfies the
+expected outcome cannot fail. Nothing in the table above is withdrawn -- the
+excess rows are real and the row counts stand for whole-second soundtracks.
+
+**Native ComfyUI status: open. Handling in this repo:** every shipped graph now
+uses the typed compiler, which derives duration from aligned `frame_count` and
+slices every video soundtrack and standalone reference internally. The former
+explicit `TrimAudioDuration` nodes were removed, so there is no second widget
+to drift. Core remains exposed in a hand-built socket graph; preflight warns
+there. This closes the gap for this repo's workflows, not in native ComfyUI.
+
+**Where the gap actually bit is narrower than it looked, found the same day.**
+VHS's video loaders already ask ffmpeg for `frame_load_cap / force_rate` seconds
+of audio, so a soundtrack was only ever untrimmed because `frame_load_cap` was
+0 -- which it was, on every graph here, until that day. The gap is real for
+**standalone** `ref_audio_*` on any loader, and for any graph that leaves the
+cap at 0. `references.md` carries the per-path table and the measurement.
+
+**6. Reference media never upscaled — a tradeoff ComfyUI exposes and the vendor
+does not.** If the source has fewer pixels than the canvas, ComfyUI uses the
+source size rounded to 32. All three vendor implementations put it on the canvas
+rule with no such clamp.
+
+**This was filed as a defect and that framing was wrong.** Corrected 2026-08-22
+after a user pointed out the cost, which the measurements here already had.
+Reference rows are attended at **every sampling step**, so a larger reference is
+not a one-off cost, it is a tax on the whole render. From the measured table in
+[`references.md`](references.md): upscaling a single 1024x1024 reference
+image to 2048 costs **6,144 tokens**, half in the reference block and half in
+the conditioner's vision blocks, which read the resized image too. A 960x544
+reference video at 124 frames is already 18,870 rows; putting it on a 1344x768
+canvas roughly doubles the pixel area and the rows with it.
+
+So deliberately passing downscaled references is a **sound default**, and the
+clamp is a knob the vendor's pipeline does not give you.
+
+**What is actually unresolved is narrower.** The cost of upscaling is measured
+and large. The benefit is **not measured at all** — no controlled comparison
+here shows that a canvas-sized reference conditions better than a downscaled
+one, and a rendered pair could not show it anyway, because two arms differing in
+reference size are two different samples rather than a good and a degraded
+version of one. So the honest state is a measured cost against an unmeasured
+benefit, which is a strong argument for the current default.
+
+**The clamp is defensible. The silence is not, and that is the actual defect.**
+Nothing reports what resolution a reference finally reached. The node accepts a
+reference at any size, conditions on whatever it gets, and emits no signal about
+what it did, so a user cannot tell a deliberate downscale from an accidental one
+and has no way to find out what it cost. That is the same class as gap 4, where
+the two towers silently diverge. It applies to the default too, so users who
+never chose the tradeoff are also making it. This repo's custom fit nodes report
+the reached resolution; the native node still does not.
+
+**And "H3 handles it fine" is not evidence that nothing was lost.** Recorded
+because the temptation to treat it as evidence is strong and this file nearly
+did. Anyone reporting it has seen their references at one size only, so they
+have no baseline to notice a fidelity loss against. It is compatible both with
+"the model is robust here" and with "identity is quietly worse than it would
+have been", and a rendered comparison cannot separate them: two arms differing
+in reference size are two different samples. The claim that would settle it is a
+blind session under [`docs/method/eval_comparison.md`](../method/eval_comparison.md) section 3, and
+nobody has run one.
+
+So the state is a **measured** cost against an **unmeasured** benefit, with no
+instrument reporting which regime a given render was in. The first argues for
+the current default. The second is why the default should say what it did.
+
+One more thing it means, not urgent: output will not reproduce the vendor's for
+the same inputs, which matters only if that is your goal.
+
+**7. Mono reference audio — WITHDRAWN 2026-08-29. It does not raise; core
+upmixes it.** *measured* against the real audio VAE
+([`../data/results/2026-08-29_ref_audio_channels.json`](../data/results/2026-08-29_ref_audio_channels.json)):
+a mono waveform encodes to `[1,32,2,40]` and produces exactly the 80 rows
+`PackedLayout` allocates. `_encode_ref_audio` calls `comfy.sd.VAE.encode`, whose
+`vae_encode_crop_pixels` replicates the channel because the H3 audio VAE
+declares `output_channels = 2, pad_channel_value = "replicate"`
+(`comfy/sd.py:1030-1035`). sglang does the same with `-ac 2`, so this is parity.
+
+**Core never had this defect.** `output_channels = 2` and
+`pad_channel_value = "replicate"` were set in `57500fc5`, the commit that added
+H3 support (2026-08-03), on a generic channel trim/pad mechanism from
+`6a2678ac` (2025-12-18). The gap was filed on 2026-08-21, eighteen days after
+the behaviour it denies shipped. **So this is not a stale entry about a bug
+upstream fixed — it was wrong when written**, which is the worse of the two and
+the reason the retirement contract did not fire.
+
+**Why it was believed.** The claim traced
+`comfy/ldm/minimax/audio_vae.py::encode`, which does preserve the channel count,
+and stopped one wrapper short of the call `_encode_ref_audio` actually makes.
+`bench/check_mono_ref_audio.py` then "verified" it by hand-building a 1-channel
+latent and reproducing `PackedLayout`'s assignment — which fails, so the gate
+stayed green while being green about a state the real path cannot produce. It
+could not have caught the correction at any revision, because it never ran the
+entry point. Retired 2026-08-29 under its own stated contract; replaced by
+[`../bench/audit_ref_audio_channels.py`](../../bench/audit_ref_audio_channels.py),
+an audit rather than a gate, because there is no longer a defect to hold red.
+
+**What is actually open is the other direction: more than two channels is
+silently truncated to the first two.** Six channels also encode to `[1,32,2,40]`
+— `vae_encode_crop_pixels` slices `pixels[..., :2]` when the input is wider than
+the VAE wants — with no error and no warning, so a 5.1 reference conditions on
+a pair nobody chose.
+
+**Native ComfyUI status: mono is not a gap. Multichannel is open.** **Handling
+in this repo:** the typed compiler's `_prepare_audio` refuses more than two
+channels rather than silently selecting a pair; core does not, and no check
+watches it.
+
+---
+
+## 8. The VAE encode question
+
+Owner: [`docs/research/sglang_comparison.md`](../research/sglang_comparison.md).
+
+**8. Encode precision, tangled with mean-versus-sample.** sglang keeps the video
+VAE fp32-resident and decodes in fp16 autocast, and says why: the VAE also
+encodes keyframes. Ours runs fp16 throughout.
+
+The decode half was settled in 2026-08-10 — measured 2-3x cost, no established
+benefit — but that decision was scoped to decode, and **the vendor does not
+decode in fp32 either**. The open half is encode: reference images, reference
+videos and keyframes, whose whole job is identity fidelity, computed once per
+render rather than per step. `--fp32-vae` cannot express the split.
+
+Half of this is now measured. [`bench/grade_vae_encoder_precision.py`](../../bench/grade_vae_encoder_precision.py) grades the
+encoder at the call rather than at a rendered clip
+([`data/results/2026-08-21_vae_encoder_precision.json`](../data/results/2026-08-21_vae_encoder_precision.json)): fp16 is bit-identical
+to itself, fp32 moves the latent, bf16 moves it far further. The second and
+third are controls; only the middle is a result.
+
+What stays open is whether that delta is *visible*, and a second variable
+tangled with it: sglang **samples** the released posterior under a seed pinned
+at 42 for keyframes and reference video, where ComfyUI takes the mean
+(`comfy/ldm/minimax/vae.py:685`). Any encode instrument has to separate
+precision from mean-versus-sample or it measures neither.
+
+### Removed gap: H3 VAE tiling
+
+This snapshot used to describe tiling as an unrecorded runtime fallback. The
+installed H3 VAE does not have that branch: `MiniMaxH3VideoVAE` owns a fixed
+spatial tile/overlap policy, always uses its H3 temporal chunking, declares
+chunked I/O, and its `encode_tiled`/`decode_tiled` routes back through the same
+H3 implementation. Generic OOM retry does not silently switch H3 to another
+algorithm. Recording the fixed policy may improve provenance; it is not an
+untiled-versus-tiled gap.
+
+---
+
+## 10-13. Architectural, and not user-facing
+
+Owner: [`docs/research/sglang_comparison.md`](../research/sglang_comparison.md), which
+carries the reasoning. Summarised only so the list is complete:
+
+- **No partition concept.** sglang reads `partition` from `model_index.json`
+  and refuses a task the checkpoint does not serve. A plain t2v graph here loads
+  `ref2va` and renders. This is the frame for the checkpoint-swap arm: a
+  `ref2va` loss at plain t2v is *not a t2v model by its own release metadata*,
+  not a defect.
+- **Exact AdaLN cache.** Buys unpruned accuracy at pruned memory, not speed.
+  Downstream of `docs/state/open_experiments.md` #22.
+- **Breakable CUDA graphs.** Their own quality gate requires it off, and
+  under it H3's attention runs eager anyway. ComfyUI core has a per-block
+  equivalent (`comfy/model_prefetch.py`, keyed on dynamic-VRAM placement) that
+  the H3 DiT loop does not enable; `sglang_comparison.md` records why it is
+  not worth asking for on this box, and the one small-canvas case untested.
+- **Step caching.** Priced and declined 2026-08-20: their speedup came from
+  skipping steps on a 16-step schedule at 50 steps on four H200s. At 4 steps
+  there is nothing to skip.
+
+**The filter that applies to all four.** sglang's audited `quality="high"`
+deployment is a 4xH200 server with sequence parallelism we cannot copy on one
+card, and its own gate requires quantization, `torch.compile` and layerwise
+offload all *off*. "sglang has it and we don't" is not on its own an argument.
+
+---
+
+## 15. Reference-audio encode crashes instead of falling back under VRAM pressure
+
+Owner: [`docs/research/comfyui_h3_t2va_trace.md`](../research/comfyui_h3_t2va_trace.md)
+§14 item 9.
+
+Added 2026-08-29, **found by accident while testing something else**, which is
+the only reason it is here. `comfy/sd.py:514` defaults `extra_1d_channel` to
+`None`. Both peer stereo VAEs set it to 16 — ACE Step at `:884`, LTX Audio at
+`:966` — and the H3 audio branch (`:1030-1046`) sets `latent_dim = 2` and leaves
+it `None`. So `VAE.encode`'s out-of-memory retry hands a `[B, L, C]` audio
+tensor to `encode_tiled_`, the **2D image tiler**, which indexes
+`pixel_samples.shape[3]` (`comfy/sd.py:1166`).
+
+*measured*: `vae.encode_tiled(torch.randn(1, 8000, 2))` raises
+`IndexError: tuple index out of range`. It surfaced unprompted first — a
+15-second reference soundtrack encoding while ComfyUI held the card hit
+`expandable_segments: memory mapping failed with OOM`, logged `Warning: Ran out
+of memory when regular VAE encoding, retrying with tiled VAE encoding`, and died
+in the retry.
+
+**Practical impact: a long reference soundtrack on a busy card is a hard crash,
+not a slow render.** The conditions are ordinary — the reference encode happens
+at graph start, when the DiT and text encoder may still be resident. This is the
+failure you meet exactly when things are already tight, which is when a fallback
+is supposed to save you.
+
+**Native ComfyUI status: open, core-side.** Setting `extra_1d_channel` on the H3
+audio branch the way both peer VAEs do would route it correctly.
+**Handling in this repo: none, and enforced by nothing.** Trimming the
+soundtrack (gap 5) makes it far less likely by shrinking the encode, but that is
+a mitigation, not a fix.
+
+---
+
+## 16. The generic VAE crop narrows the reference waveform's sample axis
+
+Owner: this file. Added 2026-08-30, prompted by
+[Comfy-Org/ComfyUI#15972](https://github.com/Comfy-Org/ComfyUI/pull/15972)
+(open, opened 2026-08-29), which proposes the fix as one line:
+`self.crop_input = False` on the H3 audio branch.
+
+`comfy/sd.py:515` defaults `crop_input` to `True`, and the H3 audio branch
+(`:1030-1046`) never clears it, so `vae_encode_crop_pixels` runs on every
+reference-audio encode. `_encode_ref_audio` presents `[1, samples, channels]`
+(`comfy_extras/nodes_minimax_h3.py:77`), so `dims = pixels.shape[1:-1]` is the
+**sample** axis. The crop narrows it to a multiple of
+`spacial_compression_encode()` -- which for this VAE is the audio
+`downscale_ratio`, 800 -- taking `(samples % 800) // 2` off the **front** and
+the remainder off the back.
+
+*measured* against the real audio VAE through `_encode_ref_audio` itself, with
+`crop_input = False` as the matched control arm
+([`../bench/audit_ref_audio_crop.py`](../../bench/audit_ref_audio_crop.py),
+[record](../data/results/2026-08-30_ref_audio_crop.json)):
+
+| case | samples | dropped front | dropped back | `ref_audio_t` shipped | crop disabled |
+|---|---|---|---|---|---|
+| aligned | 64,000 | 0 | 0 | 80 | 80 |
+| the PR's own case | 437,333 | 266 | 267 | 546 | **547** |
+| shipped trim | 165,333 | 266 | 267 | 206 | **207** |
+
+Two consequences, and the second is the one that reaches a render here.
+
+**A latent step is lost whenever the length is not a multiple of 800** -- two
+packed rows, since audio packs stereo. Minor on its own.
+
+**The reference audio is shifted earlier against the reference video by up to
+12.5 ms**, because the leading samples go. The video reference is *not* shifted:
+its tensor is `[T, H, W, C]`, so the time axis is dim 0, the batch dim, and
+`dims` covers only H and W -- which every shipped graph has already snapped to
+32, a multiple of the video VAE's 16. So the same crop is a no-op on video and
+live on audio, and a paired soundtrack drifts against its own frames.
+
+**This repo is exposed on its default settings, not just on hand-built graphs.**
+`_prepare_audio` caps a soundtrack at `round(duration * sample_rate)` with
+`duration = frame_count / FPS` (`reference_conditioning.py:563,224`), and the
+`length` widget defaults to 124 (`reference_conditioning.py:960`). That is
+`round(124 / 24 * 32000)` = 165,333 samples, remainder 533 -- the same remainder
+as the PR's case, and not an accident: both come from H3's 24 fps grid against a
+32 kHz rate, which share no factor that lands on 800. **The trim gap 5 added is
+what puts us on a non-aligned length**; an untrimmed whole-second soundtrack
+would have been aligned by luck.
+
+**Native ComfyUI status: open, core-side.** The PR's one line is the fix, and
+the H3 audio VAE's own right-padding then handles the non-aligned tail.
+**Handling in this repo: none, and enforced by nothing.** Rounding
+`_prepare_audio`'s cap up to a multiple of 800 would sidestep it locally, but
+that trades a core defect for a second copy of the modulus, and it cannot
+recover the leading samples for a soundtrack that is already shorter than the
+target.
+
+---
+
+## 14. The DiT's fp32 island collapses under the int8 load
+
+Owner: [`docs/research/comfyui_h3_t2va_trace.md`](../research/comfyui_h3_t2va_trace.md)
+§1.5, with the vendor side in
+[`docs/research/sglang_comparison.md`](../research/sglang_comparison.md).
+
+Added 2026-08-29. Both implementations declare that a small set of tensors stays
+fp32 while the rest of the DiT is bf16. sglang **enforces** it with a named
+frozenset covering both patch projections, the time embedder, both output heads
+and `rope.inv_freq`
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py:144-159`),
+and drops `time_embedder.*` from the list on a pruned checkpoint (`:2060-2066`).
+
+ComfyUI declares the same intent — `comfy/ldm/minimax/model.py` builds those
+layers with an explicit `dtype=torch.float32` and calls them "the checkpoint's
+fp32 island" at `:302` — and does not keep it on a quantized checkpoint.
+`MixedPrecisionOps.Linear.__init__` (`comfy/ops.py:1300-1303`) discards the
+caller's `dtype=` and uses the compute dtype, so on
+`minimax_h3_fl2va_pruned_int8_convrot.safetensors` every one of them loads
+**bf16**. Verified by executing the load path, not by reading it.
+
+**Practical impact: small, and not where it first looks.** *measured*, the bf16
+load costs 6.1e-4 on `final_layer.video_out`, 8.9e-4 on `video_patch_proj` and
+1.7e-3 on `adaln_proj.linear`, against the **8.8e-3** the same checkpoint's int8
+block linears already carry. So it is 5x to 20x below the dominant error term
+and no rendered difference should be attributed to it. Two things still follow:
+`adaln_proj` is a **strict** regression, F16 on disk to bf16 in memory; and a
+bf16-against-int8 checkpoint A/B moves the block linears, the heads, the patch
+projections and the AdaLN projection simultaneously, so `docs/method/evidence.md` #22's
+5.6-9.4% first-step velocity delta is a four-variable measurement.
+
+**Native ComfyUI status: open, and it is a core-side issue this repo cannot
+patch** — `comfy/ops.py` is outside this tree and `CLAUDE.md` records that
+nothing here patches core. **Handling in this repo: none, and enforced by
+nothing.** No check asserts our fp32 set against the vendor's named list.
+
+### Adjacent, and the inverse direction: text-encoder precision
+
+Not a gap. sglang runs the Qwen3-VL encode in **bf16**; ComfyUI upcasts to fp32
+at the embedding (`comfy/sd1_clip.py:213`) and pins the patcher's compute dtype
+to match (`comfy/sd.py:269-270`), so ours is the more conservative of the two.
+That policy is also why an int8 encoder never reaches an int8 GEMM here
+(`full_precision_mm=True`, `comfy/sd1_clip.py:114`, continuing an explicit
+`fp8_matrix_mult=False` from `25022e0b`). Measured consequence: int8 costs no
+more time than bf16 per resident layer and halves the PCIe transfer that
+dominates, for 0.88% weight error — so the shipped `int8_convrot` encoder is the
+right choice over the local bf16 file, on transfer volume rather than disk.
+[`docs/research/comfyui_h3_t2va_trace.md`](../research/comfyui_h3_t2va_trace.md) §2.4
+owns those numbers.
+
+---
+
+## Settled — recorded so nobody re-derives them
+
+- **The 2 fps conditioner subsample**, including the index-list pad to the
+  temporal patch and the merged-pair timestamp: **confirmed identical**.
+- **Patch geometry**: **confirmed identical**, and ComfyUI correctly passes 16
+  rather than inheriting Qwen2-VL's 14.
+- **qkv row-permutation as the cause of the fp8/int8 fidelity gap**:
+  **refuted** on two independent grounds. The fp8 file has a scalar
+  `weight_scale` with no row to misalign, and the gap is uniform across module
+  kinds rather than confined to the fused qkv weight.
+- **What sglang does with a reference video shorter than its aligned target**:
+  **read, not verified.** It truncates with `ffmpeg -frames:v`; whether the
+  encoder then re-aligns was not traced. Cheap to close.
+- **Mono reference audio on native core**: **works, and always did.** Core
+  upmixes in `comfy.sd.VAE.encode` (`vae_encode_crop_pixels`, with the H3 audio
+  VAE declaring `output_channels = 2, pad_channel_value = "replicate"`), which
+  shipped in the H3 support commit. Measured 2026-08-29:
+  [`../data/results/2026-08-29_ref_audio_channels.json`](../data/results/2026-08-29_ref_audio_channels.json).
+  A mono source reaches the DiT as exact dual-mono -- the audio VAE treats
+  stereo as a batch axis with no cross-channel coupling, so the two latent
+  channels are bitwise identical, at the two `w`-grid extremes. sglang's `-ac 2`
+  does the same. **Do not re-file this as a gap.**
+
+### Core commits read 2026-09-10 that are not gaps
+
+- **`421a1c24` ([Comfy-Org/ComfyUI#15988](https://github.com/Comfy-Org/ComfyUI/pull/15988),
+  merged 2026-09-08) scales each stream's velocity by its denoise mask**
+  (`comfy/ldm/minimax/model.py`, `MiniMaxH3Model.forward`, straight after the
+  graph output), so a masked row's prediction matches the mask-scaled sigma the
+  outer x0 conversion assumes. It reaches only a latent that carries a noise
+  mask, and neither core's H3 nodes (`comfy_extras/nodes_minimax_h3.py`) nor
+  any node in this pack writes one (*read*, a grep for `noise_mask`). A server
+  process started before the checkout pulled it runs without it, so restart
+  before a masked-latent render counts.
+- **The quantized-matmul gating rework
+  ([#16185](https://github.com/Comfy-Org/ComfyUI/pull/16185), then
+  [#16189](https://github.com/Comfy-Org/ComfyUI/pull/16189), both 2026-09-08)
+  leaves the H3 text-encoder encode path where it was.** The mixed-precision
+  `Linear` still dequantizes whenever `_full_precision_mm` is set, and the new
+  `comfy.ops.use_quantized_matmul` context lifts that only inside
+  `CLIP.generate` (`comfy/sd.py`). The H3 conditioners encode through
+  `encode_from_tokens_scheduled` (`comfy_extras/nodes_minimax_h3.py`), never
+  `generate` (*read*).
+
+---
+
+## What we do that they do not
+
+Recorded so the comparison is not read one-directionally. The **SLA router**
+has no counterpart in sglang's H3 path. [`docs/attention/sol_attn.md`](../attention/sol_attn.md) owns those
+numbers. Their speedups and ours are not comparable and must not be put in the
+same table.
+
+**Corrected 2026-08-29. This paragraph used to include Sol-Attn and the sage
+kernels, and to say sglang "runs dense FlashAttention".** Its owner,
+[`docs/research/sglang_comparison.md`](../research/sglang_comparison.md), retracted that
+on 2026-08-28 against `803b4fb31c`: sglang ships a `sol_attn` attention backend
+and a `kitchen_int8` linear path dispatching the same
+`comfy_kitchen.int8_linear` our checkpoints load through, and its published
+consumer-card table's fastest row is an int8 DiT with a sage-to-Sol hybrid —
+the stack our graphs already wire. **This snapshot carried the withdrawn claim
+for a day after the owner corrected it**, which is exactly the failure the
+"if this file disagrees with an owner, the owner is right" rule at the top
+exists to catch, met here by the file itself. Convergence, not an action item;
+do not import their numbers.
+
+---
+
+## Everything built against these gaps
+
+Code, instruments and records, per gap. Except where a row explicitly says
+"native ComfyUI", entries in these tables are this repository's handling and
+do not change the native status above. A gap with nothing in this table is a gap
+nothing is watching.
+
+### 1. Special tokens
+
+| what | where |
+|---|---|
+| The merged native fix in this installed ComfyUI | [PR 15808](https://github.com/Comfy-Org/ComfyUI/pull/15808), `comfy/text_encoders/minimax.py` at installed commit `924743af` |
+| Tokenization audit, nine scenes plus reference integrity | [`bench/audit_h3_marker_tokenization.py`](../../bench/audit_h3_marker_tokenization.py) |
+| Record | [`data/results/2026-08-24_h3_marker_tokenization_native.json`](../data/results/2026-08-24_h3_marker_tokenization_native.json) |
+| Encoder-level companion, what the states do | [`bench/grade_h3_marker_tokens.py`](../../bench/grade_h3_marker_tokens.py), [record](../data/results/2026-08-21_h3_marker_token_states.json) |
+| Are the embedding rows trained | [`bench/audit_h3_token_embeddings.py`](../../bench/audit_h3_token_embeddings.py) |
+| The release's declared list, never retyped | [`vendor_config.py`](../../vendor_config.py), guarded by [`bench/check_vendor_config.py`](../../bench/check_vendor_config.py) |
+
+The audit's two controls are what make it worth running. A marker-free prompt
+must tokenize identically across the release, native and reconstructed legacy
+tokenizers, and the native arm must reproduce the **release** tokenizer exactly
+rather than merely differing from legacy. Missing native tokens refuse the run.
+
+### 2. Frame rate
+
+| what | where |
+|---|---|
+| Fails the build if a loader feeding a reference socket drops off 24 | [`bench/check_ref_prompt_labels.py`](../../bench/check_ref_prompt_labels.py) |
+| Prompt and label grading before a render is queued | [`bench/preflight_graph.py`](../../bench/preflight_graph.py) |
+| Typed ownership and normalization | [`reference_conditioning.py`](../../reference_conditioning.py), controlled by [`bench/check_reference_runtime.py`](../../bench/check_reference_runtime.py) |
+
+Native ComfyUI has no fix. The legacy check enforces this repo's workaround;
+the typed surface implements the behaviour locally.
+
+### 3 and 4. Pixel bounds
+
+| what | where |
+|---|---|
+| Where the ceiling actually resizes, against the real helper | [`bench/measure_qwen_bounds_bite.py`](../../bench/measure_qwen_bounds_bite.py), [record](../data/results/2026-08-21_qwen_bounds_bite.json) |
+| Does any shipped graph hand Qwen a reference it shrinks | [`bench/audit_shipped_reference_bounds.py`](../../bench/audit_shipped_reference_bounds.py), [record](../data/results/2026-08-21_shipped_reference_bounds.json) |
+| The release's bounds, read not retyped | [`vendor_config.py`](../../vendor_config.py) `image_pixel_bounds()` / `video_pixel_bounds()` |
+
+The measurement instruments **report**; neither refuses. Preflight reports a
+real graph crossing either divergent bound, but there is no runtime assertion
+that implements the release's image floor.
+
+### 7. Reference audio channel count
+
+| what | where |
+|---|---|
+| What core does with 1, 2 and 6 channels, measured on the real VAE | [`bench/audit_ref_audio_channels.py`](../../bench/audit_ref_audio_channels.py), [record](../data/results/2026-08-29_ref_audio_channels.json) |
+| Reports it on a real graph's real media | [`bench/preflight_graph.py`](../../bench/preflight_graph.py) |
+| Typed boundary that refuses >2 channels | [`reference_conditioning.py`](../../reference_conditioning.py), controlled by [`bench/check_reference_runtime.py`](../../bench/check_reference_runtime.py) |
+
+`bench/check_mono_ref_audio.py` was the gate here and was **retired 2026-08-29**
+under the retirement contract written into its own docstring — a succeeding mono
+arm means upstream fixed the path, which retires the file rather than repairing
+it. The twist is that its mono arm never succeeded: it tested a hand-built
+latent instead of the real encode, so it could not observe the fix. The audit
+above replaces it and is deliberately not a gate.
+
+**Mono is not a gap. Multichannel is, and nothing watches it in core.**
+Preflight still reports channel counts on a real graph's media, and "channel
+count unreadable" remains its own state -- no ffprobe and no audio stream are
+not a pass.
+
+### 8. VAE encode precision
+
+| what | where |
+|---|---|
+| Grades the encoder at the call, not at a rendered clip | [`bench/grade_vae_encoder_precision.py`](../../bench/grade_vae_encoder_precision.py) |
+| Record | [`data/results/2026-08-21_vae_encoder_precision.json`](../data/results/2026-08-21_vae_encoder_precision.json) |
+| The two probe arms | `workflows/h3_probe_ref_vae_encoder_fp16_api.json`, `workflows/h3_probe_ref_vae_encoder_fp32_api.json` |
+
+The probe arms render and **assert nothing**; they price the knob and prove it
+runs. They are labelled as unable to say which output is better, because a
+rendered clip cannot A/B a numerical change.
+
+### 6. Reference video sizing and reporting
+
+| what | where |
+|---|---|
+| The node that was missing entirely | `MiniMaxH3ReferenceVideoFit`, retired 0.173.0 (`CHANGELOG.md`); git has `reference_video_fit.py` |
+| Held its copy of core's sizing rule to core's real behaviour | `bench/check_ref_video_prediction.py`, retired with the node |
+| Opt-in local release policy | `MiniMaxH3ReferenceConditioning.video_policy=release`, controlled by [`bench/check_reference_runtime.py`](../../bench/check_reference_runtime.py) and its red harness |
+| Shipped default | `video_policy=comfy`: core's no-upscale VAE geometry and per-pair Qwen processor. The `encoder` hybrid this row used to name (native VAE view plus a stamped contract's duration-aware Qwen stage) was removed 2026-09-13; on the shipped encoder it always ran as `comfy` |
+
+### Custom W4A16 encoder format (adjacent, not a vendor-release gap)
+
+Deleted on 2026-09-13 with the closed AWQ lane (`docs/state/decisions.md`):
+the adapter `h3_awq_encoder.py` (`MiniMaxH3AWQEncoderLoader`), its check
+`bench/check_h3_awq_encoder.py`, its document `docs/h3_awq_encoder.md` and
+the `config/` snapshot directories. Git history has them, and since
+2026-10-12 the lane's records too (they were under
+`docs/research/qwen3-vl-special-tokens-post-training/` and
+`bench/results/archive/v2_encoder/`). The loader every graph wires is
+[`h3_encoder_loader.py`](../../h3_encoder_loader.py) (`MiniMaxH3EncoderLoader`),
+controlled by [`bench/check_h3_encoder_loader.py`](../../bench/check_h3_encoder_loader.py).
+
+### The contracts underneath all of it
+
+| what | where |
+|---|---|
+| Core's reference-node contracts | [`bench/check_reference_contracts.py`](../../bench/check_reference_contracts.py) |
+| Ordered plan against core plus intended differences | [`bench/check_reference_order.py`](../../bench/check_reference_order.py) |
+| Typed runtime media and compiler contracts | [`bench/check_reference_runtime.py`](../../bench/check_reference_runtime.py), red harness (removed 2026-09-11) |
+| Label/preflight visibility of typed chains | [`bench/check_typed_reference_consumers.py`](../../bench/check_typed_reference_consumers.py) |
+
+All seven contracts in `MiniMaxH3ReferenceToVideo` are controlled. The ordered
+surface preserves the four that remain semantic contracts and deliberately
+replaces suffix pairing and fixed modality grouping with ownership and list
+position.
+
+### Policy disposition
+
+Soundtrack duration is an executable property of this repo's typed runtime;
+native ComfyUI remains unchanged. Mono normalization is **no longer** in that
+list -- core does it (gap 7, withdrawn 2026-08-29); what the typed runtime still
+adds there is refusing more than two channels. VAE tiling was removed
+as a gap after the native H3-owned paths were traced.
+
+The release's video upscale and duration-aware Qwen resize are implemented as
+one **opt-in local policy**. `video_policy=release` puts the full-rate VAE view
+on the release canvas and independently runs the raw 2 fps samples through the
+release's own Qwen video processor. Shipped graphs default to
+`video_policy=comfy`, the unmodified native preprocessing (the local
+`encoder` hybrid they selected until 2026-09-13, ComfyUI's no-upscale VAE
+view plus a stamped contract's duration-aware Qwen stage, ran as `comfy` on
+the shipped encoder and was removed). Native
+`MiniMaxH3ReferenceToVideo` still does neither stage and exposes no policy;
+this implementation therefore does not close gap 6 upstream.
+
+Gap **6** needs no further instrument for the cost or mechanism, which are now
+reported and live-smoked; what remains is a controlled comparison of the
+*benefit*, and
+[`docs/method/eval_comparison.md`](../method/eval_comparison.md) section 3 is the only process here
+that could supply one. Nobody has asked for it, and the measured cost argues
+against bothering.
+
+
+---
+
+## Native status versus what this repo enforces
+
+A gap with no assertion behind it is a gap that will come back.
+
+| gap | native ComfyUI status | this repo's enforcement or handling |
+|---|---|---|
+| 1, special tokens | **fixed** in installed commit `924743af` / merged PR 15808 | [`bench/audit_h3_marker_tokenization.py`](../../bench/audit_h3_marker_tokenization.py) requires and verifies native behavior |
+| 2, frame rate | open | legacy: [`bench/check_ref_prompt_labels.py`](../../bench/check_ref_prompt_labels.py); typed: [`bench/check_reference_runtime.py`](../../bench/check_reference_runtime.py) |
+| 3, image floor | open | preflight warning only; **no runtime parity enforcement** |
+| 4, image ceiling | open | opt-in local guard, **off by default**: `MiniMaxH3ReferenceConditioning.image_policy` (`release`; `encoder` removed 2026-09-13) since 2026-08-24, replacing `MiniMaxH3ReferenceFit.keep_towers_matched`, which read the wrong ceiling under the AWQ adapter. Graphs left on `comfy` remain exposed |
+| 5, soundtrack length | open | shipped typed graphs: [`bench/check_reference_runtime.py`](../../bench/check_reference_runtime.py); native socket graphs: [`bench/preflight_graph.py`](../../bench/preflight_graph.py) reports required upstream handling |
+| 6, media upscale/reporting | sizing divergence remains; native path is silent | custom fit nodes report the resolution reached; the typed conditioner's opt-in `release` policy handles both video stages locally, with no claim that native sizing now matches the vendor |
+| 7, audio channels | mono **not a gap** (core upmixes); >2 channels silently truncated, open | audit only: [`bench/audit_ref_audio_channels.py`](../../bench/audit_ref_audio_channels.py); local typed refusal: [`bench/check_reference_runtime.py`](../../bench/check_reference_runtime.py) |
+| 8, VAE encode precision | open | **nothing enforces a choice**; measurement only |
+| 9, VAE tiling | not a gap in installed native H3 path | policy documented from native source; no custom fix |
+| 14, fp32 island | open, core-side (`comfy/ops.py`) | **nothing enforces it**; magnitudes measured 2026-08-29 |
+| 15, audio encode OOM fallback | open, core-side (`comfy/sd.py`) | **nothing**; reproduced 2026-08-29 |
+| 16, waveform sample-axis crop | open, core-side (`comfy/sd.py`); PR 15972 proposes the fix | **nothing**; measured 2026-08-30, and the shipped default trim is a non-aligned length |
+| 17, gated-residual rounding | open, core-side (`comfy/ldm/minimax/model.py`) | **nothing**; read 2026-09-04, unmeasured |
+
+For the stock native path, the image floor remains the most reachable still
+boundary and the clip-wide video policy remains a bounded source/length
+divergence. This repo locally handles or exposes the video choices; the current
+W4 artifact's narrow still snapshot remains the unhandled deployed-path issue
+that motivates v2. The visual VAE mean-versus-sample question is independent.
+None blocks typed migration.

@@ -316,7 +316,7 @@ out.write_text(json.dumps(
        "it is NOT the 1344x768 that ships, so magnitudes here describe "
        "1152x768; the ordering is what carries to the shipped canvas.",
        "PROMPT: this graph carries LONG_T2V_PROMPT (the market scene), which "
-       "docs/prompt_audit.md verdicts `rewrite` on four official-guide defects "
+       "docs/prompting/prompt_audit.md verdicts `rewrite` on four official-guide defects "
        "and which the owner disqualified as a sample on 2026-08-27. Shared "
        "across every arm, so it does not flip an ordering, but no magnitude "
        "here is a statement about a well-formed prompt."]},

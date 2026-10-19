@@ -10,7 +10,7 @@ repo's own instructions.
 
 That is not hypothetical. `h3-experiment` step 4 -- the step that answers "how
 is a prompt written" -- routed to `internal/2026-8-20-system-prompts/`, a
-gitignored directory that does not exist, while `docs/prompting.md` sat
+gitignored directory that does not exist, while `docs/prompting/prompting.md` sat
 unreferenced by any skill at all. Found 2026-09-01 by reading the skill, not by
 any check: `check_doc_links.py` scans `.claude/` but its grammar is
 `path.ext:12` citations and markdown links, and a bare backticked directory is

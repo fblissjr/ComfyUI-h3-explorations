@@ -18,7 +18,7 @@ owner's eye on playback; nothing below replaces it.**
 window of 345 frames, typed arms through `bench/run_graph_arms.py`, the same
 seed in every arm of a comparison unless a second seed is named. The Subject
 Track's `pick` was `largest` in every arm: these were rendered around the
-change of its default (`docs/wiki/decisions.md`, 2026-10-07). The switch and
+change of its default (`docs/state/decisions.md`, 2026-10-07). The switch and
 keep graphs were scratch copies of the shipped graph and are not in the tree;
 what each changed is said below. Every figure is in
 [`2026-10-07_masked_switch_keep_prompt_verdicts.json`](../../data/results/2026-10-07_masked_switch_keep_prompt_verdicts.json).
@@ -156,7 +156,7 @@ Same window. The node's assembled text replaced by a typed prompt in the
 guide's fields: the subject's features stated in the definition, the
 retention line and the first shot; no "that person"; no "untouched"; the role
 said once without mouth choreography; shot headers without times, by the
-house rule (`docs/prompting.md`, 3.1). Stock and rewrite on the graph's seed
+house rule (`docs/prompting/prompting.md`, 3.1). Stock and rewrite on the graph's seed
 and on a second seed.
 
 **The owner:** the rewrite is better than stock on both seeds (movement and

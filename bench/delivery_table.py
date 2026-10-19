@@ -300,7 +300,7 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
         """The plan's `restore` spans for a subject, as (first, last, the row's `restore=` token): those classes of the
         subject's own class map given back to the source on the pieces of theirs on those source frames only, at assembly;
         generated here, never typed. ONLY AS A MARKED EXCEPTION (the owner, 2026-10-16, "The simplification wins. Make sure
-        this never happens again", docs/wiki/decisions.md): H3's picture is kept whole inside a person's region, so a span
+        this never happens again", docs/state/decisions.md): H3's picture is kept whole inside a person's region, so a span
         that gives back her own classes is refused unless it carries `exception` with its reason in words. A trial
         (`--restore-extra`) carries its reason as `trial` and is said as one. What it replaces: the owner's keep-accessories
         rule of 2026-10-14, under which every such span was laid. NAMED GAP: a `restore=<subject>.<Class>` typed straight into
@@ -313,7 +313,7 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
         if bare:
             x = bare[0]
             raise SystemExit(f"the plan's `restore` for {label!r} gives back {label!r}'s own {'+'.join(x['classes'])} on {x['first']}-{x['last']} with no "
-                             "`exception`: nothing puts the original back inside a person's region (the owner, 2026-10-16, docs/wiki/decisions.md), "
+                             "`exception`: nothing puts the original back inside a person's region (the owner, 2026-10-16, docs/state/decisions.md), "
                              "so a span of her own classes stands only as an exception, with its reason in words (`exception`) and gone when its "
                              "shot is made again. Mark it, or take it out of the plan")
         import capture_masked_run as cap

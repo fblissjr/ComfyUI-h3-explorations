@@ -1,6 +1,6 @@
 # #45: core's kitchen VSA against a FastVideo-exact reference, on captured FastH3 attention (2026-09-27)
 
-`docs/open_experiments.md` #45 asks whether part of FastH3's over-polish is the
+`docs/state/open_experiments.md` #45 asks whether part of FastH3's over-polish is the
 kitchen's VSA rather than FastH3's training. Core's VSA departs from FastVideo
 three ways (`2026-09-27_attention_parity.md`):
 - it keeps `round(0.2n)` video tiles where FastVideo keeps `ceil`;
@@ -65,7 +65,7 @@ By segment, block 49 against exact:
   - on video rows the two are within 1% of each other.
   - Text queries are computed densely by both. So the gap is the kitchen's
     int8 arithmetic on block 49's outlier keys, the pattern
-    `../../docs/h3_block49_quant_error.md` documents for the base model's last
+    `docs/attention/block49_quant_error.md` documents for the base model's last
     blocks. It is not VSA selection.
 - **The coarse term matters most at block 49,** about 9.5% of the output
   there against 1.5-2.3% at blocks 0 and 24.

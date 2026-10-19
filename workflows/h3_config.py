@@ -56,7 +56,7 @@ def _h3_rules():
 #: `bench/results/` establishes that. All four holdout arms also hold the
 #: vision tower at BF16, so the record is silent on tower precision. The owner
 #: primarily runs the bf16 pruned encoder, so this default is not their
-#: working configuration. `docs/wiki/decisions.md`, 2026-09-20 and 2026-09-27.
+#: working configuration. `docs/state/decisions.md`, 2026-09-20 and 2026-09-27.
 #:
 #: It loads through `MiniMaxH3EncoderLoader`, which is core's own `CLIPLoader`
 #: plus checks and a stamped preprocessing contract (`h3_encoder_loader.py`'s
@@ -67,7 +67,7 @@ def _h3_rules():
 #: The W4A16 AWQ artifacts (`..._w4a16_awq.safetensors`, `..._v2-comfy`) and
 #: the adapter that loaded them (`h3_awq_encoder.py`, `MiniMaxH3AWQEncoderLoader`)
 #: were deleted on 2026-09-13 with the lane they served
-#: (`docs/roadmap.md` "Closed lanes", `docs/wiki/decisions.md`). Their records
+#: (`docs/state/roadmap.md` "Closed lanes", `docs/state/decisions.md`). Their records
 #: under `bench/results/` and `docs/research/` stand as history.
 ENCODER_INT8 = "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
 
@@ -83,7 +83,7 @@ MODELS = dict(
     # the shipped file with the LoRA folded in and nothing else moved. It
     # loads ONLY with `PDD_FL2VA_STRIPPED_LORA`; the node refuses the full
     # sidecar on it (double apply) and refuses the stripped one on the base.
-    # `docs/pdd_artifacts.md` is the inventory; `_s1` in the name is the
+    # `docs/distills/pdd_artifacts.md` is the inventory; `_s1` in the name is the
     # baked strength.
     unet_fl2va_pdd8_baked=("minimax_h3_fl2va_pruned_int8_convrot"
                            "_pdd8_baked_s1.safetensors"),
@@ -91,11 +91,11 @@ MODELS = dict(
     # projections: `adaln_all` is built here by `bench/build_hybrid.py` (all
     # 50 blocks plus final_layer). It exists to ask whether an fl2v distill
     # LoRA transfers to reference work better on fl2va's linears than on
-    # ref2va's; `docs/roadmap.md`, the regime section. The filename ends
+    # ref2va's; `docs/state/roadmap.md`, the regime section. The filename ends
     # `-int8`, not `_int8_convrot`; `substrate.py` tags it. A second hybrid,
     # `unet_hybrid_b30` (the HF release, blocks 30-49), was retired on
     # 2026-10-05: its download was gone from the box and the owner called it
-    # long deprecated (`docs/wiki/decisions.md`). `build_hybrid.py` once
+    # long deprecated (`docs/state/decisions.md`). `build_hybrid.py` once
     # reproduced it byte for byte as its control.
     # FastVideo's FastH3 8-step V2 (HF FastVideo/FastVideo-FastH3-Comfy): a full
     # distilled T2VA DiT (data-free DMD2, trained WITH VSA-H3), pruned int8
@@ -122,7 +122,7 @@ MODELS = dict(
     # History: it shipped from 2026-08-10, was removed by owner decision on
     # 2026-08-21 in favour of VIDEO_VAE_FP16 (below), and came back on
     # 2026-09-26 when ComfyUI's own templates had moved to it
-    # (`docs/sol_upstream.md`). MiniMaxH3VAEPrecision refuses to cast its
+    # (`docs/attention/sol_upstream.md`). MiniMaxH3VAEPrecision refuses to cast its
     # quantized decoder.
     video_vae="minimax_h3_video_vae_int8_convrot.safetensors",
     audio_vae="minimax_h3_audio_vae_fp32.safetensors",
@@ -291,7 +291,7 @@ SAMPLING = dict(sampler="euler", scheduler="simple", steps=16, denoise=1.0)
 #
 #                     morton stays OFF anyway, now on a different basis: the
 #                     reason is no longer cost, it is that nothing has shown it
-#                     changes the output. See docs/morton.md.
+#                     changes the output. See docs/attention/morton.md.
 #
 #                     Do NOT quote peak VRAM from that run. The four arms
 #                     spanned 17,326-23,208 MiB with morton saving 3.7 GB in
@@ -313,7 +313,7 @@ SAMPLING = dict(sampler="euler", scheduler="simple", steps=16, denoise=1.0)
 #                     comment, three paragraphs under the retraction. There is
 #                     no cost to buy anything with: the permutation is free, so
 #                     any quality gain at all would make morton worth turning
-#                     on. See docs/morton.md and docs/open_experiments.md.
+#                     on. See docs/attention/morton.md and docs/state/open_experiments.md.
 #   int8_qk/pv on     Worth 1.16x on top of plain sparsity at 362 frames.
 #
 # Head chunking is deliberately not in this chain, and as of 2026-08-10 that
@@ -377,10 +377,10 @@ SOL_RECOMMENDED = dict(
 # Not in the shipped config -- see the tau/dense_blocks notes above.
 SOL_ARTIFACT_INSURANCE = dict(tau=1.3, dense_blocks="33-35,39-42")
 
-# The settings the 124-frame evaluation in docs/SOLATTN.md ran on. This exists so
+# The settings the 124-frame evaluation in docs/attention/sol_attn.md ran on. This exists so
 # a bench arm can reproduce an old number, and it deliberately differs from
 # SOL_RECOMMENDED above -- do not "fix" it to match. Every recorded ratio in
-# docs/SOLATTN.md's frontier table was produced with these, so changing them
+# docs/attention/sol_attn.md's frontier table was produced with these, so changing them
 # silently makes old and new numbers incomparable while both still print.
 #
 # Keeping the two side by side is the point: before this file existed the
@@ -443,7 +443,7 @@ SOL_BASELINE_124F = dict(
 #                     otherwise were SageChainAssert's own probes." That is a
 #                     retracted claim (retracted 2026-08-14) and it was wrong
 #                     twice over: the refiner calls are model code, not
-#                     instrumentation. `docs/SOLATTN.md` owns this and states
+#                     instrumentation. `docs/attention/sol_attn.md` owns this and states
 #                     it -- one SOURCE LINE
 #                     (`comfy/ldm/minimax/model.py`'s single
 #                     `optimized_attention` inside `Attention.forward`) but 52
@@ -629,7 +629,7 @@ SOL_RECOMMENDED_CUDA = dict(
     # which argues it is the most redundant place to route sparsely, and it also
     # sets global composition, which argues a routing error there propagates
     # into everything after. The speed half is one bench patch; the quality half
-    # is a numerical knob and needs `docs/eval_comparison.md` section 3.
+    # is a numerical knob and needs `docs/method/eval_comparison.md` section 3.
     start_percent=0.2,
     # 1.0 since 2026-09-11, adopting upstream: sglang's `sol_attn` backend has
     # no end cutoff and core's `BlockSparseAttention` defaults to 1.0. It was
@@ -663,7 +663,7 @@ SOL_RECOMMENDED_CUDA = dict(
     # `bench/check_attention_defaults.py::FLOOR_STEMS` names. So this is Sol
     # against the kitchen kernel, and the crossover against it is unmeasured.
     #
-    # The sage argument moved the crossover UP. `docs/SOLATTN.md` puts sage
+    # The sage argument moved the crossover UP. `docs/attention/sol_attn.md` puts sage
     # about 2.7x ahead of torch's flash backend on this shape, so a sparse
     # kernel has to clear a good dense one, not a naive one. `SOL_CUDA_DEFAULTS`
     # below already
@@ -709,7 +709,7 @@ SOL_RECOMMENDED_CUDA = dict(
     # ("38,39,40,41,42,49") via SOL_DENSE_TAIL, shielding the full middle plateau
     # (38, 39, 40, 41, 42) plus terminal block 49 (feeds final_layer.video_out),
     # dropping peak network error below 18% (17.73%) even under high sparsity tau=1.3.
-    # Option B is SOL_DENSE_OPTION_B; Option A is SOL_DENSE_OPTION_A. `docs/wiki/decisions.md`.
+    # Option B is SOL_DENSE_OPTION_B; Option A is SOL_DENSE_OPTION_A. `docs/state/decisions.md`.
     dense_blocks=SOL_DENSE_TAIL,
     # `quantizer` "balanced" = qk_balance on, rotate off, the shipped state
     # until 2026-09-27; "rotated" since (below).
@@ -718,7 +718,7 @@ SOL_RECOMMENDED_CUDA = dict(
     # INT8 quantizers, carried on the owner's kitchen fork (h3-frontier) and
     # graded on captures by bench/grade_channel_balance.py; exact for every
     # attention score, so what it changes is the INT8 error on the blocks
-    # whose K-norm is lopsided (docs/h3_block49_quant_error.md). Measured on
+    # whose K-norm is lopsided (docs/attention/block49_quant_error.md). Measured on
     # captures, not judged blind: it lowers Sol's quantization error on block
     # 49 and is neutral on blocks 0 and 32, where its per-head gate stays shut
     # (bench/results/2026-09-15_channel_balance_kernel_b{49,0,32}_s15.json),
@@ -898,7 +898,7 @@ SOL_CUDA_DEFAULTS = dict(
 # the rest, so fp16 buys accuracy on a minority of steps while being paid for
 # on all of them. The arms show the whole fp16 difference living in exactly
 # those dense steps, because Sol's own kernel cost does not move with the sage
-# mode. That is caveat decay of the kind `docs/evidence.md` exists to catch:
+# mode. That is caveat decay of the kind `docs/method/evidence.md` exists to catch:
 # the verdict was sound for what it measured and was carried somewhere else.
 #
 # **What would reverse this**: a blind paired judgement at the SHIPPED config
@@ -923,7 +923,7 @@ SOL_CUDA_DEFAULTS = dict(
 #   re-derived here and the script producing it is not committed in the fork;
 #   and nothing in `bench/` uses captured activations, so every accuracy number
 #   this repo could print inherits the synthetic instrument. See
-#   `docs/evidence.md`. **Do not reintroduce a ratio here.**
+#   `docs/method/evidence.md`. **Do not reintroduce a ratio here.**
 #
 #   **The decision does not change and never depended on the withdrawn leg.**
 #
@@ -949,7 +949,7 @@ SOL_CUDA_DEFAULTS = dict(
 #
 # token_refiner runs over the text span only, which is a few hundred rows
 # against a hundred thousand -- this said "~2k rows against ~42k" and both
-# halves were wrong; `docs/SOLATTN.md` has the measured breakdown off a shipped
+# halves were wrong; `docs/attention/sol_attn.md` has the measured breakdown off a shipped
 # graph, and this file's own numbers elsewhere say a few hundred. So
 # patching it is worth well under 1% of attention time.
 # head_chunks 1 = off. It trades ~4x the attention launches for headroom that
@@ -1073,7 +1073,7 @@ CACHE_NODE = dict(reuse_threshold=0.2, start_percent=0.15, end_percent=0.95,
 # shift is *visible and switchable*, because a distill runs at its trainer's
 # shift, not the base model's: FastH3 at `FASTH3_SHIFT`, PDD and FlashGen at
 # these. The lightx2v turbo LoRAs and their 6/3 rows were retired 2026-09-26
-# (docs/wiki/decisions.md); their table is in git.
+# (docs/state/decisions.md); their table is in git.
 #
 # **2.22 is not a trained shift here, and it will be offered to you.** DiffSynth's H3
 # pipeline defaults to flow shift 2.22 and applies it to video and audio alike
@@ -1223,7 +1223,7 @@ PDD_SHIFT = dict(shift_video=12.0, shift_audio=3.0)
 #: own node defaults (`coderef/ComfyUI-H3-AudioRefine/nodes.py`,
 #: `H3AudioRefineSampler`: steps 6, euler, simple, audio_denoise 0.5), which its
 #: README shows after a 4-step Turbo pass. Nothing here has tuned them; the
-#: first pair is the 2026-09-25 C1 session (`docs/wiki/next_steps.md`).
+#: first pair is the 2026-09-25 C1 session (`docs/state/next_steps.md`).
 AUDIO_REFINE = dict(steps=6, sampler="euler", scheduler="simple", denoise=0.5,
                     video_mask=0.0, audio_mask=1.0)
 
@@ -1263,7 +1263,7 @@ SEGMENTER = "sam3.1_multiplex_fp32.safetensors"
 #: (`bench/results/2026-10-07_subject_track_under_nudge.md`). It was
 #: `largest`; an arm recorded before that date was picked with `largest`.
 #: `track_head` is `True` since 2026-10-19 (the owner, C198/C199,
-#: `docs/wiki/decisions.md`, 2026-10-19, measured on the kitchen lead 751-785
+#: `docs/state/decisions.md`, 2026-10-19, measured on the kitchen lead 751-785
 #: mask test; replaces `False` and the capture's un-tracked `sam31_head_tube`
 #: fallback; tested on one shot so far).
 SUBJECT_TRACK = dict(subject_phrase="person", pick="most central", pick_on="automatic", match="automatic",
@@ -1424,7 +1424,7 @@ MASKED_JOB_LOADER = "VHS_LoadVideoFFmpegPath"
 #: The loader's rate for a job: the file's own. The copy is already at the
 #: model's rate with no frame dropped, and a forced rate drops or repeats
 #: frames of a file that is not. **Measured** on one clip, 2026-10-08
-#: (`docs/h3_references.md`, the note dated 2026-10-10 under the loader's
+#: (`docs/h3/references.md`, the note dated 2026-10-10 under the loader's
 #: rate table).
 MASKED_JOB_FORCE_RATE = 0.0
 #: How far before a frame, in frames, a loader is asked to start so that the
@@ -1440,7 +1440,7 @@ MASKED_JOB_SEEK_BACK = 0.4
 #: `memory_selection`: **measured** on three `fun` scenes and a group dance with
 #: SAM 3.1, 2026-10-17, no arm worse with it on
 #: (`data/2026-10-17_sam_memory_selection/`), and on at the owner's word that day
-#: (`docs/wiki/decisions.md`). A preview job turns it off only with a person's
+#: (`docs/state/decisions.md`). A preview job turns it off only with a person's
 #: reason (`sam_memory_selection` in the job block, `masked_job_graph.check_job`).
 MASKED_JOB_SAM_CORRECTIONS = dict(correct_image_range=True, correct_text_activation=True, memory_selection=True)
 #: The part node in a job's preview: `SUBJECT_PARTS` with the node's own fill
@@ -1469,7 +1469,7 @@ MASKED_JOB_BOXES = dict(margin=16, smallest_mask=2048)
 MASKED_JOB_BODY_POSE = dict(hand_refinement=True, camera="image diagonal", fov_degrees=55.0, batch_size=64)
 #: The mesh a job's preview draws for each subject: the plain lit body, at the
 #: canvas's width and height, which the graph adds. `marked` is committed and
-#: had not been rendered when this was written (`docs/wiki/state_signals.md`,
+#: had not been rendered when this was written (`docs/masked_v2v/state_signals.md`,
 #: "How a signal reaches the model").
 MASKED_JOB_MESH = dict(style="mesh", size="width and height")
 #: How a job's preview saves a mask or a class map: lossless, no chroma step,
@@ -1492,13 +1492,13 @@ MASKED_JOB_PICTURE = dict(format="video/h264-mp4", pix_fmt="yuv420p", crf=14, lo
 MASKED_JOB_BASE_GRAPH = "h3_video_to_video_masked_upper_song_ref2va_motion_api.json"
 #: The frames a later window keeps from the one before, in a job. **Inherited** from the 2026-10-08 final and
 #: every render of 2026-10-10; the shipped row keeps fewer. What the kept frames do to a window is argued in
-#: `docs/wiki/window_context.md`.
+#: `docs/masked_v2v/window_context.md`.
 MASKED_JOB_CONTEXT = 90
 #: How clean a load that continues another is shown the frames it keeps (the song node's `context_noise`),
 #: set by default only when a load has a `continue_from`. A load of several chained windows takes a value of its
 #: own for its inner windows on a person's word (`shot_to_load job --context-noise`), and this is not its default:
-#: the lead's ruling of 2026-10-15, until a render of such a load says more (`docs/wiki/window_context.md`). **Measured** on one stretch of one clip, one seed
-#: (`docs/wiki/window_context.md`, "Results, dated"; the records are `data/2026-10-10_fun_pose/kitchen_cn_*`):
+#: the lead's ruling of 2026-10-15, until a render of such a load says more (`docs/masked_v2v/window_context.md`). **Measured** on one stretch of one clip, one seed
+#: (`docs/masked_v2v/window_context.md`, "Results, dated"; the records are `data/2026-10-10_fun_pose/kitchen_cn_*`):
 #: at this level a continuation followed its motion video through a head turn that the same continuation
 #: with clean kept frames did not make. A lower level was still to be read when this was written and may
 #: move it. One clip: a starting value for another, which a load's own `context_noise` replaces.
@@ -1509,7 +1509,7 @@ MASKED_JOB_CONTEXT_NOISE = 0.8
 MASKED_JOB_SOL_SINK = "exact_kv_and_rows"
 #: The Masked Source's choices a load sets by name. A body mesh saved by the preview is a video the builder
 #: wires. A motion video goes in at the canvas's short edge, which the
-#: graph works out: the vendor rule for a reference video (`docs/h3_references.md`, "Video references"),
+#: graph works out: the vendor rule for a reference video (`docs/h3/references.md`, "Video references"),
 #: adopted and not shown to be a gain (the node's own default, `video_mask.MOTION_SHORT_EDGE`, is smaller). A
 #: load's own `motion_edge` replaces it.
 MASKED_JOB_MOTION = dict(none="none", wired="a video I wire")
@@ -1593,14 +1593,14 @@ MASKED_LOAD_COMPOSITE = "whole region"
 #: The part model's parts (`sapiens2_parts.PARTS`) no part is read with the largest-piece rule on: a load whose part holds
 #: any of their classes on any frame is refused, at the job (`bench/shot_to_load.py`) and at the capture
 #: (`bench/capture_masked_run.py refuse_pieces_on_a_head`, on the class map). **The owner's decision, 2026-10-16**
-#: (docs/wiki/decisions.md, e6993b5e: "make sure this never happens again"). **Measured**: the rule dropped pieces of the
+#: (docs/state/decisions.md, e6993b5e: "make sure this never happens again"). **Measured**: the rule dropped pieces of the
 #: mom's face and hair on 146 of 154 frames of second_hfp_0014d (`internal/gemini/2026-10-16_holes_trace.md`) and of the
 #: lead's face on 180 of 362 frames of lead_fp_0613c, up to 9333 px on 772 (the lead, mrtony). OPEN: the case the rule was
 #: set for, enclosed holes where scraps of her part on an arm, grown by the margin, wrap a cell of her own shoulder
 #: (3262-3265, mrtwo, 2026-10-14), is to be met by closing a hole the region encloses, never by dropping a piece; not built.
 NO_PIECES_ON = ("hair", "face_and_neck")
 #: The canvas a job is made on when a tool writes its file. **Inherited**: every job file of this lane since
-#: 2026-10-10 names it; `docs/h3_resolutions.md` lists it (its 4:3 row).
+#: 2026-10-10 names it; `docs/h3/resolutions.md` lists it (its 4:3 row).
 MASKED_JOB_CANVAS = (1024, 768)
 
 # ---- FastH3 8-step V2 ------------------------------------------------------------
@@ -1617,7 +1617,7 @@ FASTH3_SHIFT = dict(shift_video=10.0, shift_audio=3.0)
 #: TEMPLATE's; FastVideo's own contract is sparsity 0.8, keep 20, on every step.
 #: This constant stays the template arm; `FASTH3_CONTRACT_VSA` below is the
 #: contract, and `bench/results/2026-09-26_fasth3_contract_s1.md` compares them.
-#: Until 2026-09-26 this said the template "wins here" (`docs/wiki/decisions.md`).
+#: Until 2026-09-26 this said the template "wins here" (`docs/state/decisions.md`).
 FASTH3_CORE_VSA = {k: v for k, v in dict(SOL_CORE_DEFAULTS, **{
     "selection": "vsa", "selection.keep_percent": 10.0}).items() if k != "selection.tau"}
 
@@ -1655,7 +1655,7 @@ FASTH3_CONTRACT_VSA = dict(FASTH3_CORE_VSA, **{"selection.keep_percent": 20.0,
 #: projected onto the pruned checkpoint's curve basis. So it loads on
 #: `MODELS["unet_fl2va"]` and on nothing else. A plain weight LoRA with per-module
 #: alphas. Graphs apply it through `MiniMaxH3LoRABranch`, as every LoRA on
-#: int8 since 0.154.0 (`docs/h3_quant_policy.md`).
+#: int8 since 0.154.0 (`docs/attention/quant_policy.md`).
 FLASHGEN_LORA = "h3/minimax_h3_4step_lora_flashgen_v1.0_768p_fl2va_pruned_avg_rank_13_bf16.safetensors"
 #: The publisher's LoRA at its full rank 64, converted here by
 #: `bench/convert_flashgen_lora.py` (`data/results/2026-09-25_flashgen_lora_conversion.json`):
@@ -1684,7 +1684,7 @@ FLASHGEN_MANUAL_SIGMAS = "1.0, 0.965517, 0.888889, 0.679245, 0.0"
 SOL_DISTILL_LORA_FILES = frozenset({FLASHGEN_LORA, FLASHGEN_R64_LORA, FLASHGEN_R64_REF2VA_LORA})
 
 #: Route 3 of the distill-routing idea (docs/research/2026-09-26_distill_routing.md;
-#: the design is in docs/wiki/next_steps.md, agreed by two sessions and the
+#: the design is in docs/state/next_steps.md, agreed by two sessions and the
 #: owner, 2026-09-26): FlashGen's own first two steps, then PDD8 from exactly
 #: where FlashGen left the latent. Pass 1 is derived from FLASHGEN_MANUAL_SIGMAS
 #: so it cannot drift from it. Pass 2's last two points are PDD8's own knots,
@@ -1705,7 +1705,7 @@ PDD8_SIGMAS = "1.0, 0.988235, 0.972973, 0.952381, 0.923077, 0.878049, 0.8, 0.631
 #: distills' complements, "my gut says pdd"): PDD8's own early steps, which
 #: follow the teacher's layout, then FlashGen finishing, so its committed final
 #: jump replaces PDD's hedging late block (docs/research/2026-09-26_distill_routing.md,
-#: `docs/h3_distills.md` P3). Two handoffs, both on PDD8 knots:
+#: `docs/distills/which_distill.md` P3). Two handoffs, both on PDD8 knots:
 #:   h063: PDD steps 1..7 to 0.631579 (knot 28), then FlashGen 0.631579 -> 0,
 #:         near FlashGen's trained last step 0.679245 -> 0;
 #:   h080: PDD steps 1..6 to 0.8 (knot 24), then FlashGen 0.8 -> 0.679245 -> 0.
@@ -1716,7 +1716,7 @@ STEP_SWITCH_REV = {
     "h080": (", ".join(_P8[:7]), ", ".join(["0.8", FLASHGEN_MANUAL_SIGMAS.split(", ")[3], "0.0"])),
 }
 #: PDD8 cut at a handoff, then the undistilled base finishes on Euler
-#: (`docs/open_experiments.md` #37). **Reasoned:** pass 2 walks the 32-point
+#: (`docs/state/open_experiments.md` #37). **Reasoned:** pass 2 walks the 32-point
 #: grid at shift 12, `12t / (1 + 11t)`, from the handoff down: h063 is t = 4/32
 #: (PDD8's last block boundary, 4 base evaluations over the tail PDD8 takes in
 #: one) and h080 is t = 8/32, exactly 0.8 (8 evaluations; the handoff of
@@ -1770,7 +1770,7 @@ FLASHGEN_SAMPLER = "euler"
 # `SolAttnMiniMax` on 2026-08-14 this list stayed on the Triton node id and
 # nothing could notice, because there was nothing to notice with.
 #
-# The order now lives in one place that a reader reaches, docs/SOLATTN.md's
+# The order now lives in one place that a reader reaches, docs/attention/sol_attn.md's
 # Ordering section, and in one place a machine checks -- every graph's actual
 # wiring, graded by `bench/check_attention_defaults.py`. (`SageChainAssert`,
 # the runtime gate that failed a render whose chain was not composed as
@@ -1817,7 +1817,7 @@ IMAGE_VAE = "minimax_h3_t1_image_vae_step1597.safetensors"
 # saves the sampled latent so a keeper gets the real decode from
 # `h3_decode_saved_latent_api.json` without sampling again. What a draft
 # costs against the real decode, and whether a keep decision made on it
-# survives the real decode, is `docs/open_experiments.md` #31.
+# survives the real decode, is `docs/state/open_experiments.md` #31.
 DRAFT_VAE = "taeh3.safetensors"
 
 # 2:3 portrait, and INSIDE the trained family -- `adapt_canvas(2, 3)` returns
@@ -2041,7 +2041,7 @@ ASPECTS = {
 #: **Not the default view since 2026-09-13.** The node and every generated
 #: graph default to `shared`: one prepared copy feeds both the video VAE and
 #: Qwen3-VL, which is what sglang, diffusers and DiffSynth do (owner decision,
-#: `docs/wiki/decisions.md`). `separate` at this size was the shipped default
+#: `docs/state/decisions.md`). `separate` at this size was the shipped default
 #: from 2026-08-27 to 2026-09-13 on the strength of one render whose dialogue
 #: bound to the wrong speaker when two 2048 references sat ahead of the
 #: prompt; that observation is recorded in the CHANGELOG under 0.82.0 and was
@@ -2678,7 +2678,7 @@ def graph_schedule(graph) -> tuple:
         graph still wires `ManualSigmas`, which remains correct and is graded
         against `partition_bounds` by `bench/check_distill_grid.py`. This was
         the fourth place carrying that withdrawn claim; the others were the
-        node's `steps` tooltip, `docs/h3_pdd.md`'s sweep table, and
+        node's `steps` tooltip, `docs/distills/pdd.md`'s sweep table, and
         `check_distill_grid` itself, which was RED on a correct graph because
         of it.
       * neither -> `(None, None)`, and the caller decides whether that is a

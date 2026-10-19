@@ -80,7 +80,7 @@ own frame at its first and last quarter, with the two frame buttons and no numbe
 in after the shown frame can be said to be on THAT frame (the owner's ask, 2026-10-12: late entrances were
 not labelled); `bench/page_answers_to_cast.py --shots` takes such answers into the shots record's `present`, and
 nothing of them into the cast file. Parts in
-color and the pose model's points are the layered view's job (`docs/wiki/next_steps.md`), not this page's.
+color and the pose model's points are the layered view's job (`docs/state/next_steps.md`), not this page's.
 """
 from __future__ import annotations
 

@@ -12,7 +12,7 @@ does not reach it. What remains is `deterministic=False`: cuDNN may pick a
 different algorithm when the free workspace differs, and node caching means
 an input is encoded once per server process, so a drift would show up across
 restarts and VRAM states rather than inside one session.
-`docs/open_experiments.md` #30 names this test.
+`docs/state/open_experiments.md` #30 names this test.
 
 Arms, each a FRESH process so no cuDNN or allocator state carries over:
 
@@ -233,7 +233,7 @@ def main() -> int:
         produced_by="bench/measure_keyframe_encode_determinism.py",
         question="does the H3 keyframe VAE encode give the same latent bytes across "
                  "fresh processes, free-VRAM states and cudnn.deterministic "
-                 "(vllm-omni 30d6a0b4e; docs/open_experiments.md #30)",
+                 "(vllm-omni 30d6a0b4e; docs/state/open_experiments.md #30)",
         vae=MODELS["video_vae"], canvas=CANVAS, repeats=args.repeats,
         fill_free_gib=fill_free, headroom_gib=args.headroom_gib,
         substrate=_substrate(), arms=rows, verdict=verdict), indent=2) + "\n")

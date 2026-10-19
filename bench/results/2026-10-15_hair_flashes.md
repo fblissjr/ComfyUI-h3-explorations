@@ -81,7 +81,7 @@ islands of the first measure, which are apron, chest or bowl below her arms.
 - **Filling the composite's small pockets** (proposal (c)). Its first half, the weight held over each step, is already the
   node's (`changed_alpha`, since fc2628f9). Small enclosed pockets lie on 33 of 0604d's 345 frames and 10 of 0014d's 154.
   None is on her hair or face, and none is on a flash.
-  - 1C's tip shimmer (0014d, 50-65) is the outer edge of the blend, not a pocket. It is a row in `docs/wiki/next_steps.md`.
+  - 1C's tip shimmer (0014d, 50-65) is the outer edge of the blend, not a pocket. It is a row in `docs/state/next_steps.md`.
 - **0604d's lower-left hair, stopped at her blouse and apron strap** (608-612, 621-652). This is the large clothes and
   held keep-outs, and it is the owner's ruled form: Open List row 10 of 2026-10-12, "clothes left alone, hair to the
   shoulder line". It is not a fault.

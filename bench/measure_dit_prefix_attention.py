@@ -102,7 +102,7 @@ agreement between the two on one head.
 
 Needs `PYTHONPATH` reaching ComfyUI, or nothing at all -- it inserts the roots
 itself, ComfyUI ahead of this repo (the `import nodes` trap in
-`docs/comfy_notes.md`).
+`docs/working/comfy_notes.md`).
 """
 
 from __future__ import annotations
@@ -127,7 +127,7 @@ import torch  # noqa: E402
 # THIS IMPORT MUST COME FIRST, and the reason is not style. `comfy_extras.
 # nodes_minimax_h3` does a bare `import nodes`, and this repo has a `nodes.py`
 # that dies on a relative import when found first -- the trap in
-# `docs/comfy_notes.md`. The sys.path block above puts ComfyUI ahead, but every
+# `docs/working/comfy_notes.md`. The sys.path block above puts ComfyUI ahead, but every
 # sibling bench module below (`preflight_graph`, `grade_sage_on_capture`)
 # re-inserts the repo root at position 0 when IT is imported, which puts the
 # repo back in front. So resolve `nodes` while ComfyUI is still leading.

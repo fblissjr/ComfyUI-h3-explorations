@@ -14,7 +14,7 @@ accumulation is exact, and scales in fp32 —
 *"all the error is in the two roundings"*. **Every measurement in this file is
 the WEIGHT rounding.** The activation rounding has never been measured, and
 it is the side with the outliers. That is
-[`open_experiments.md`](../open_experiments.md) #23.
+[`docs/state/open_experiments.md`](../state/open_experiments.md) #23.
 
 Scope is the DiT's 200 backbone linears. `adaln_proj.linear` is F16 and the
 output heads are F32, so all quantisation loss lives there. The encoder is out
@@ -39,7 +39,7 @@ bf16 Qwen3-VL.
 
 **On the bake row, because the reason it is not already built is stale.** The
 bake was DEPRIORITISED by the owner on 2026-08-28, when the blocker was
-believed to be loss on the bake side; `../h3_pdd.md` then measured that the
+believed to be loss on the bake side; `docs/distills/pdd.md` then measured that the
 loss is on the run-time side instead and the priority was never revisited.
 **The owner's position on 2026-08-31 is that a decision that old does not bind
 this lane.** So the row above is open work, not a settled no.
@@ -155,7 +155,7 @@ once**: `unmerged_blocks` silently dropped `mlp.fc2` on 2026-08-30 for exactly
 this reason — the object patch on `mlp.fc2.forward` never fired while the LoRA
 keys had already left the weight patch. Anything patching a linear's `forward`
 on this model must account for fc2 separately. **That includes
-`docs/open_experiments.md` #23's observer**, whose planned 200 object patches
+`docs/state/open_experiments.md` #23's observer**, whose planned 200 object patches
 would have silently recorded 150.
 
 Source reading put both rows in the table; running the code took one out and
@@ -556,7 +556,7 @@ lands and survives in the codes.
    on both statistics rather than trading them (§7), reaches all 200 modules
    where `unmerged_blocks` reaches 150, and costs nothing at run time. What it
    needs is a converter, a declared bake strength the node refuses to
-   contradict, and a render — `../h3_pdd.md` has the contract and the two
+   contradict, and a render — `docs/distills/pdd.md` has the contract and the two
    footguns.
 
 ## See also
@@ -565,7 +565,7 @@ lands and survives in the codes.
   withdrawn claim was, and the correction.
 - [`comfyui_h3_t2va_trace.md`](comfyui_h3_t2va_trace.md) §1.7-1.8 — the two
   roundings, traced.
-- [`../h3_pdd.md`](../h3_pdd.md) — the merge/un-merge trade and the all-blocks
+- [`docs/distills/pdd.md`](../distills/pdd.md) — the merge/un-merge trade and the all-blocks
   PDD record.
-- [`../open_experiments.md`](../open_experiments.md) #23 — the runtime
+- [`docs/state/open_experiments.md`](../state/open_experiments.md) #23 — the runtime
   decomposition.

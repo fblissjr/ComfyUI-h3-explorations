@@ -65,7 +65,7 @@ implementation can take a seed. `agreement` in the record is that check.
 
 **What it is not.** A stored-weight distance, like everything else in this
 lane. `int8_convrot` is W8A8 and the activation rounding is untouched here;
-`docs/open_experiments.md` #23 is that half. Nothing here was rendered.
+`docs/state/open_experiments.md` #23 is that half. Nothing here was rendered.
 """
 
 import argparse
@@ -318,7 +318,7 @@ def main() -> int:
         },
         "is_not": ("an activation, runtime or output measurement. Stored "
                    "weights only; int8_convrot is W8A8 and the activation "
-                   "rounding is untouched. docs/open_experiments.md #23"),
+                   "rounding is untouched. docs/state/open_experiments.md #23"),
         "summary": summary,
         "modules": rows,
         "reproduce": ("python bench/measure_merge_rounding_regimes.py --lora "

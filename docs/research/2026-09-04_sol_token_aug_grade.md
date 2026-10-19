@@ -12,7 +12,7 @@ does not license.** The records are
 [`bench/measure_sol_exact_variants.py`](../../bench/measure_sol_exact_variants.py)
 with its `--token-aug` arms added the same day. The upstream change is
 [Comfy-Org/comfy-kitchen PR 156](https://github.com/Comfy-Org/comfy-kitchen/pull/156);
-[`../sol_upstream.md`](../sol_upstream.md) holds the survey it came out of.
+[`docs/attention/sol_upstream.md`](../attention/sol_upstream.md) holds the survey it came out of.
 Nothing here was rendered, and a rendered clip could not have A/B'd it
 (`CLAUDE.md`).
 
@@ -117,7 +117,7 @@ to the 2026-09-01 timing rows at a different shape, and not to the PR's own
 
 - that the block 49 loss, or the other blocks' gains, produce a perceptible
   render difference; a blind pair per candidate is the standard
-  (`../eval_comparison.md`, section 3), one seed anchors and does not decide;
+  (`docs/method/eval_comparison.md`, section 3), one seed anchors and does not decide;
 - what token routing does on the shipped call with sink ranges: every arm
   here is unsunk, and errors can cancel, so the shipped call's delta is not
   bounded by these;

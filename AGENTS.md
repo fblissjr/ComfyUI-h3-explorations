@@ -8,7 +8,7 @@ session cannot work around without noticing. A rule that is easily worked
 around is friction, not a rule, and goes.
 
 **The repo is broader than the current project.** This is the owner's whole MiniMax H3 research repo (every module
-and node in `INDEX.md`, every use in `docs/wiki/h3_uses.md`). Masked video-to-video, and the projects in it such as
+and node in `INDEX.md`, every use in `docs/h3/uses.md`). Masked video-to-video, and the projects in it such as
 `fun`, is one use: its rules and state are `data/AGENTS.md`. So a lane rule is never read as a rule of H3 or the pack;
 common code (reference conditioning, the shared nodes) serves every use, the lane included, so a finding about it
 applies everywhere; and a shared node or default changes only when it is right for every use, masking-only behavior
@@ -21,12 +21,12 @@ a default, a shipped artifact or what "every graph" does is a cache with no
 invalidation. Cite the observable: `h3_config.MODELS["clip"]` over "the
 shipped encoder is"; a node's `define_schema` over "the default is"; a walk
 of `graph_paths` over "every graph". When prose has lost, correct it and
-log what it used to claim in `docs/wiki/decisions.md`.
+log what it used to claim in `docs/state/decisions.md`.
 
 ## Settled about H3
 
 Each was measured or decided and has been re-derived as news at least
-once; `docs/evidence.md`, "Settled about H3", has the rest.
+once; `docs/method/evidence.md`, "Settled about H3", has the rest.
 
 - Sol-Attn is on by default in every shipped video workflow; the exempt set
   is `bench/check_attention_defaults.py::SOL_EXEMPT_STEMS`.
@@ -36,7 +36,7 @@ once; `docs/evidence.md`, "Settled about H3", has the rest.
   longest window is 362 frames, `h3_rules.MAX_LENGTH`, the owner's word of
   2026-10-15, and there is no other cap. Longest is not best: attention grows
   with the square of the sequence, so a window is as long as its shot needs
-  and no longer (`docs/h3_resolutions.md`, "The length axis").
+  and no longer (`docs/h3/resolutions.md`, "The length axis").
 - Two models live here and "attention" and "capture" each name something at
   the DiT and at the encoder: check what a node takes before carrying a
   claim across.
@@ -47,17 +47,17 @@ once; `docs/evidence.md`, "Settled about H3", has the rest.
   agree on a default and ours differs, adopt theirs in `workflows/h3_config.py`
   and the generator, rebuild, and say in the commit what it replaced. One
   upstream alone, or a knob no upstream has, is a judgement call. Closed lanes
-  stay closed unless the owner reopens them (`docs/roadmap.md`, "Closed lanes").
+  stay closed unless the owner reopens them (`docs/state/roadmap.md`, "Closed lanes").
 - **Never hand-edit `workflows/*.json`.** `workflows/build_workflows.py`
   generates them, and nothing is true of a graph until it is rebuilt.
   Every walker goes through `workflows/h3_config.py::graph_paths`.
 - **Never run `uv` in this repo** (`uv run`, `uv sync`, `uv add`): with the ComfyUI venv active it has emptied
-  that venv and dirtied `uv.lock`. Run every script with the ComfyUI venv's python directly (`docs/comfy_notes.md`).
+  that venv and dirtied `uv.lock`. Run every script with the ComfyUI venv's python directly (`docs/working/comfy_notes.md`).
 - **Nothing in this pack patches ComfyUI core**; `bench/check_vsa_core_patch.py`
   is the observable.
 - **The server process is the resource, not the GPU.** An idle server can
   be an armed one: read `/proc/<pid>/environ` for `H3_*` keys and ask before
-  killing it. Start and stop it by the recipe in `docs/comfy_notes.md`.
+  killing it. Start and stop it by the recipe in `docs/working/comfy_notes.md`.
   ComfyUI caches: a wall time or VRAM figure says which cache state it was
   measured in; `/history` is the observable for which arm ran.
 - **The shared tree.** `git status` before editing, and commit promptly with
@@ -91,7 +91,7 @@ once; `docs/evidence.md`, "Settled about H3", has the rest.
   activations (`bench/grade_sage_on_capture.py`).
 - **No render that does not decide something.** One clip, one seed, one
   shot is not a result; a repeat and a different shot are two tests.
-- **Checks**: `docs/checks.md` is the standard and the index; add one only
+- **Checks**: `docs/method/checks.md` is the standard and the index; add one only
   when something escapes the existing ones, and every tool worth keeping is
   tracked with one, never parked in `internal/` or a scratchpad.
 
@@ -103,14 +103,14 @@ One home per kind of fact. Not two.
 |---|---|
 | decisions waiting on the owner, their answers, and their passing thoughts | the H3 Open List (the owner's page with Claude): one card a decision; the "Tell Claude anything" box is the owner's inbox |
 | everything about a video in the masked lane (what stands, what it needs, who is in each shot, the owner's answers and verdicts) | `data/AGENTS.md`, "Where the lane's state lives" |
-| the day boundary | `docs/wiki/handover.md` (about 80 lines, four headings: state when closed; what not to assume; tomorrow, in order; where things are) and the top block of `docs/wiki/next_steps.md` |
-| what was decided or reversed, and when | `docs/wiki/decisions.md` |
-| everything else | `docs/wiki/index.md`, the router |
+| the day boundary | `docs/state/handover.md` (about 80 lines, four headings: state when closed; what not to assume; tomorrow, in order; where things are) and the top block of `docs/state/next_steps.md` |
+| what was decided or reversed, and when | `docs/state/decisions.md` |
+| everything else | `docs/index.md`, the router |
 
 ## How the owner and the sessions talk
 
 - **The owner's working preferences** (their clock, batching, never re-asking, where links go, how a clip is
-  shown, how a question names its page, writing) are `docs/wiki/working_with_the_owner.md`, read by every session
+  shown, how a question names its page, writing) are `docs/working/working_with_the_owner.md`, read by every session
   of either model before it speaks to the owner.
 - **One inbox.** The owner's thoughts go in the Open List's box as they come,
   with a time. Nothing there is a go. The lead reads it at its next natural
@@ -129,8 +129,8 @@ One home per kind of fact. Not two.
   how to go forward, that lead asks the owner instead of guessing (the owner, 2026-10-18). A Gemini lead cannot write
   the Open List, so on such a day its questions go to the owner in its terminal.
 - **A lead starting a day reads, in this order, before its first word to anyone** (the owner, 2026-10-18):
-  `docs/wiki/handover.md`; `docs/wiki/working_with_the_owner.md`; `internal/gemini/PROTOCOL.md` (its "Starting a
-  day as the Gemini lead" has the rest of the order); `docs/comfy_notes.md`, before the first command; then
+  `docs/state/handover.md`; `docs/working/working_with_the_owner.md`; `internal/gemini/PROTOCOL.md` (its "Starting a
+  day as the Gemini lead" has the rest of the order); `docs/working/comfy_notes.md`, before the first command; then
   `data/AGENTS.md` and the project's own before lane work. Then `date -u`, `git status`, HEAD and the ports, and its
   first entry says what it read and what it starts on.
 - **A build goes on its own branch** in a worktree outside `custom_nodes` (`h3_worktrees/<builder>-<item>`), cut from
@@ -158,10 +158,10 @@ One home per kind of fact. Not two.
   mid-turn (its rules page, CLI tab; seen 2026-10-17).
 - Masked video to video: read `data/AGENTS.md` (the lane's rules, tracked) and the project's own
   `data/<video>/AGENTS.md` (its state, local and untracked like the rest of `data/`) before lane work.
-- Prompts: `docs/prompting.md`; a scene's text is data served beside its
+- Prompts: `docs/prompting/prompting.md`; a scene's text is data served beside its
   frames, never stored in code or a graph.
 - Reference implementations: `coderef/` (gitignored) is read, never
-  imported; `docs/wiki/references.md`.
+  imported; `docs/working/coderef.md`.
 - `workflows/h3_config.py` holds every shared constant, one copy each;
   `vendor_config/` holds the release's own config files verbatim;
   `internal/` is gitignored and never shipped.

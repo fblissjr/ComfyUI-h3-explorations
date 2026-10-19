@@ -48,7 +48,7 @@ cannot write a partial output.
 
 Verdicts are the owner's, free-text, on the muxed file. **One observer, one
 seed, one pair at a time, and a coarse verdict rather than a scored
-comparison** — this is not `docs/eval_comparison.md` section 3 and must not be
+comparison** — this is not `docs/method/eval_comparison.md` section 3 and must not be
 quoted as though it were.
 
 ### The bad clip is bracketed on both clip-level metrics

@@ -3,7 +3,7 @@ headers by design, from a frozen out-of-bank base graph at 362 frames (on the
 grid, one step above the 345 every shipped graph now renders;
 docs/research/pdd/2026-08-28_scene_complexity.md is its record). Kept byte for byte because dated records were produced by it; do
 not copy its prompt format into new work: the house no longer writes
-timestamps on shot headers (docs/prompting.md section 3.1) and renders a bank
+timestamps on shot headers (docs/prompting/prompting.md section 3.1) and renders a bank
 prompt only at the length its entry declares.
 
 Render the same market scene as three two-shot arms, holding everything but the prompt.

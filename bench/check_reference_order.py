@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The ordered-reference resolver against the socket resolver it replaces.
 
-Run it with the ComfyUI venv python (`docs/comfy_notes.md`). **It imports
+Run it with the ComfyUI venv python (`docs/working/comfy_notes.md`). **It imports
 ComfyUI** -- core is the oracle, so it must -- with stub VAEs and a patched
 tokenizer. No CUDA, no model, no server.
 

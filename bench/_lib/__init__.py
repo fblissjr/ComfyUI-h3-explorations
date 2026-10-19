@@ -3,7 +3,7 @@
     from _lib import bootstrap, needs, case, refused, finish
 
 A check runs as `python bench/check_x.py`, so `bench/` is `sys.path[0]` and
-`_lib` imports with no setup. `docs/checks.md` "Running them" says what each
+`_lib` imports with no setup. `docs/method/checks.md` "Running them" says what each
 exit code means; this file is where two of them are produced.
 
 `bootstrap()`

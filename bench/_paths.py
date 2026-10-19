@@ -54,7 +54,7 @@ from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[1]
 
-# inherited: start.sh passes `--port 8188` and docs/comfy_notes.md finds the
+# inherited: start.sh passes `--port 8188` and docs/working/comfy_notes.md finds the
 # server by that port's owner. Not measured, not reasoned.
 COMFY_PORT = 8188
 
@@ -96,7 +96,7 @@ def _read_cmdline(pid: int | str) -> bytes | None:
 
 def port_owner_pid(port: int = COMFY_PORT) -> int | None:
     """The pid listening on `port`, from `ss -ltnp`; None when nothing is,
-    or `ss` is unavailable. The same observable docs/comfy_notes.md uses."""
+    or `ss` is unavailable. The same observable docs/working/comfy_notes.md uses."""
     try:
         out = subprocess.run(["ss", "-ltnp"], capture_output=True, text=True, timeout=10).stdout
     except (OSError, subprocess.SubprocessError):

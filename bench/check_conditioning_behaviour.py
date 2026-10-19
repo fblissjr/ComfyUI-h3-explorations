@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Does `MiniMaxH3Conditioning` still do the things it exists to do?
 
-Run it with the ComfyUI venv python (`docs/comfy_notes.md`). CPU only, no
+Run it with the ComfyUI venv python (`docs/working/comfy_notes.md`). CPU only, no
 server, no weights: the VAE is a stub and `clip.tokenize` is patched so the
 node is driven to the point where its geometry decisions are complete and no
 further.

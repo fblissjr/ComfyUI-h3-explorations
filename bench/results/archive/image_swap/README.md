@@ -1,7 +1,7 @@
 # Single-frame image swap
 
 **Parked 2026-08-27** with the rest of the single-frame image gen/edit path.
-`docs/h3_image_editing.md` owns that record in the past tense; the code moved
+`docs/h3/image_editing.md` owns that record in the past tense; the code moved
 to `archive/`, `workflows/image/` is gone, and `h3_config.GRAPH_DIRS` no longer
 walks it.
 

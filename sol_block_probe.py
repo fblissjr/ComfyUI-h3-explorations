@@ -35,7 +35,7 @@ target is upstream at a pinned commit rather than a local path:
 `https://github.com/kijai/ComfyUI-SolAttn_triton` at `842c4ea`. Fetch it into a
 scratch dir to read; do not reinstall it into `custom_nodes/`.
 
-`docs/SOLATTN.md` names the thing it is for: at `tau` above roughly 1.5 a small
+`docs/attention/sol_attn.md` names the thing it is for: at `tau` above roughly 1.5 a small
 persistent object can dissolve partway through a clip. The stated fix is to
 force the most approximation-sensitive blocks dense, and `SOL_ARTIFACT_INSURANCE`
 in `workflows/h3_config.py:280` is a guessed starting set that is deliberately
@@ -69,11 +69,11 @@ whatever override is installed, so it works against the CUDA node in principle.
    not blocks. Density is what decides whether Sol's exact branch is a thin
    slice or most of the work, which is the open question behind the 16-bit PV
    decision (plan Track B, gate B0a).
-2. **Report the tail, not only the mean.** `docs/morton.md` found the p10
+2. **Report the tail, not only the mean.** `docs/attention/morton.md` found the p10
    mattered where the mean did not: `2d_frame`'s p10 centroid fidelity sits
    below raster at blocks 0 and 49 while its mean sits above.
 3. **Per-segment error.** H3 packs text, audio, references and video into one
-   sequence. The audio rows are thin -- `docs/SOLATTN.md` calls them the shape a
+   sequence. The audio rows are thin -- `docs/attention/sol_attn.md` calls them the shape a
    block-sparse router drops first -- and a whole-tensor error number cannot see
    them. Split by the `PackedLayout` spans the compose hooks already publish.
 
@@ -86,7 +86,7 @@ Our sage node object-patches `diffusion_model.blocks.{i}.attn.forward`, which
 deletes the `optimized_attention` call site for all 50 DiT blocks. Sol's
 `_compose_module_patch` gates that patch and calls `stock()` inside the sigma
 window, which should reach the override. **Should.** That is an inference from
-source, and `docs/SOLATTN.md`'s Ordering section documents two separate nodes
+source, and `docs/attention/sol_attn.md`'s Ordering section documents two separate nodes
 that look like they compose and do not. The same shape has cost this repo
 several confident wrong claims.
 

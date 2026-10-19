@@ -29,7 +29,7 @@ schedule and the place the fused heads differ most from each other.
 
 **Nothing could have caught it.** The recovered `t` was correct to 4e-5, so
 the residual warning is silent by construction; the render completes; the
-output is merely wrong. It is the shape `docs/checks.md` calls a
+output is merely wrong. It is the shape `docs/method/checks.md` calls a
 silent-success, and the only thing that found it was driving the tracker with
 real inputs instead of reading the code.
 
@@ -673,7 +673,7 @@ def no_stale_chaining():
         f"`m.get_model_object(\"<path>.forward\")`.")
 
     try:
-        # Masked, as docs/checks.md runs every check while a render holds the
+        # Masked, as docs/method/checks.md runs every check while a render holds the
         # card: without the CPU flag core's device probe raises on import and
         # this half would skip on every run that matters.
         import comfy.cli_args
@@ -857,7 +857,7 @@ def head_strength_sentinel_is_resolved():
 
     Nothing could have caught it. The tooltip is prose; the arithmetic is
     correct for the number it is handed; the render completes and is merely
-    wrong. `docs/checks.md` calls that shape a silent-success.
+    wrong. `docs/method/checks.md` calls that shape a silent-success.
 
     ## Why it is graded this way
 
@@ -868,7 +868,7 @@ def head_strength_sentinel_is_resolved():
     The arithmetic is graded by driving the real `_HeadBank` and `_FusedHeads`
     rather than by restating `base + s * (fused - base)` here. A helper the
     check defines is the escape `check_pdd_sigmas.py` shipped and
-    `docs/checks.md` records: it agrees with the code by construction.
+    `docs/method/checks.md` records: it agrees with the code by construction.
 
     The bank is built with every interval identical, so the fused head equals
     that value for any block, shift or step count. That removes the grid from

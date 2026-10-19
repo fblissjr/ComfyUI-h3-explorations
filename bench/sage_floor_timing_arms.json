@@ -1,5 +1,5 @@
 {
- "what": "Sage fp8++ rotated as Sol's dense fallback against kitchen int8 (the shipped chain), wall time only, on the t2v finish. Owner-approved 2026-10-01 (review1001), reopening the lane docs/wiki/next_steps.md parked under the Sol node redesign.",
+ "what": "Sage fp8++ rotated as Sol's dense fallback against kitchen int8 (the shipped chain), wall time only, on the t2v finish. Owner-approved 2026-10-01 (review1001), reopening the lane docs/state/next_steps.md parked under the Sol node redesign.",
  "why": "Kitchen int8 is the more accurate dense kernel on all 12 dense-tail cells (bench/results/2026-09-27_sol_redesign_test2.md, 'The dense tail'), so a sage case rests on speed, or on the early dense steps that no capture has graded; bench/sage_floor_capture_arms.json grades those. A rendered clip cannot A/B a numerical change, so these renders are timed, not judged.",
  "arms": {
   "kitchen": "workflows/h3_text_to_video_pdd8_flashgen_finish_api.json",

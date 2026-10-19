@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The audio-freeze node's contract, and the two ways a graph can silently unfreeze.
 
-`docs/h3_audio_freeze.md` is the lane; `audio_freeze.py` is the node. Three
+`docs/h3/audio_freeze.md` is the lane; `audio_freeze.py` is the node. Three
 things here, each a way the freeze could look present and not be:
 
 1. **The slice is on the grid and exact.** `slice_window` must return exactly

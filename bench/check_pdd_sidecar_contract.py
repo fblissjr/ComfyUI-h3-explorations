@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The PDD sidecar's bake contract: exact pairing and the fixed population.
 
-`docs/h3_pdd.md` ("What a backbone bake pins") names mismatches that all
+`docs/distills/pdd.md` ("What a backbone bake pins") names mismatches that all
 render normally: a full sidecar on a checkpoint whose backbone is already
 baked in applies the backbone TWICE; a stripped sidecar on the unbaked base
 applies it NEVER; a stripped sidecar on any bake but its own -- another
@@ -39,7 +39,7 @@ exist; it does now, and `bench/exercise_pdd_stripped_path.py` runs `execute`
 on a loaded model against the real pair (record
 `bench/results/2026-09-05_bake_node_stripped_path.txt`). The functions
 graded here are the whole of the decision; `execute` only routes their
-inputs, and `docs/checks.md` records that as the gap.
+inputs, and `docs/method/checks.md` records that as the gap.
 
     <comfy-venv-python> bench/check_pdd_sidecar_contract.py
 """
@@ -460,7 +460,7 @@ def main() -> int:
               and b_meta.get("h3_bake_rounding") == "round_to_nearest",
               f"{n_i8} int8 modules")
     else:
-        # A skipped control must not read as a pass (docs/checks.md, the
+        # A skipped control must not read as a pass (docs/method/checks.md, the
         # uncontrolled-requirement audit): exit 2, the convention
         # check_distill_settings.py and check_model_files.py already use.
         print("  SKIP  real baked-pair cases: bake or stripped sidecar not on disk")

@@ -1,6 +1,6 @@
 """The files a frozen-audio loop leaves beside its windows, and a window's stored latent.
 
-`docs/h3_audio_freeze.md` owns the lane; `audio_freeze_song.py` is the node
+`docs/h3/audio_freeze.md` owns the lane; `audio_freeze_song.py` is the node
 that uses this. Imports nothing from the pack, so
 `bench/check_audio_freeze.py` exercises it without the node.
 
@@ -12,7 +12,7 @@ or a change to this pack's code, the reuse had been switched off in code
 since 2026-10-07 after a stale stored mask hid a fix, and the owner's rule
 of 2026-10-10 removed it: nothing an earlier run made is reused by a key; a
 result is made again, or handed in explicitly as a named file or a wired
-input (`AGENTS.md`, "Operative rules"; `docs/wiki/decisions.md`).
+input (`AGENTS.md`, "Operative rules"; `docs/state/decisions.md`).
 
 What is left is explicit. Every window's sampled latent is written beside
 its video (`save_window`), and it is read again in two cases, each named by

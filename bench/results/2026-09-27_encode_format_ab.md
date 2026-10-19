@@ -1,6 +1,6 @@
 # #38: the save format, measured (2026-09-27)
 
-`docs/open_experiments.md` #38. O1 (`2026-09-27_o1_lossless.md`) found that
+`docs/state/open_experiments.md` #38. O1 (`2026-09-27_o1_lossless.md`) found that
 the dark blocking comes from the save (8-bit 4:2:0 h264 at crf 19), not the
 model. This measures the candidates against the VAE's own frames, with no
 render. `bench/encode_format_ab.py` (eb339fea) decodes the first 22 latent

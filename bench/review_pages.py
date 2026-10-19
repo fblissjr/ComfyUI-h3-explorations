@@ -13,7 +13,7 @@
 
 **NOT MADE** (2026-10-14): four blind readers of the per-shot clip tool and two of the pages each found real faults; the
 lead ruled that neither tool takes a new feature until it passes one more read. What the last read found and is not
-mended is in docs/checks.md's row for its check ("NOT HELD") and in the lead's notes. Read its output against the
+mended is in docs/method/checks.md's row for its check ("NOT HELD") and in the lead's notes. Read its output against the
 table and the ledger it was made from.
 
 **What it buys.** The owner's rule (2026-10-14, `AGENTS.md`, "One ledger, made new on every landing"): their pages

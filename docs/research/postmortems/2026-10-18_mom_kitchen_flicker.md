@@ -31,7 +31,7 @@ Inspection and measurements across 2026-10-16 and 2026-10-17 (`mrtoon`, `mrtony`
 
 ## 2. Chronology of Kitchen (`604–1009`) Runs for the Second Subject (`2026-10-10` to `2026-10-17`)
 
-Measured from `data/2026-10-10_fun_*` through `data/2026-10-17_second_hfp_0604h*` and `docs/wiki/decisions.md`.
+Measured from `data/2026-10-10_fun_*` through `data/2026-10-17_second_hfp_0604h*` and `docs/state/decisions.md`.
 
 | Date | Run / Artifact | Session | Span (frames) | Windows & Seam | Mask, Keep-Outs & Composite | Outcome |
 |---|---|---|---|---|---|---|

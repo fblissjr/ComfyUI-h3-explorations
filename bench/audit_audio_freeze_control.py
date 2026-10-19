@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The control for the audio-freeze node: the sibling pack's song node, bit for bit.
 
-`docs/h3_audio_freeze.md` section 4 step 1 names the control: fed the same
+`docs/h3/audio_freeze.md` section 4 step 1 names the control: fed the same
 track at the same start, `audio_freeze.py::MiniMaxH3FreezeAudio` and the
 installed pack's `MiniMaxH3SongMaskedAVContext`
 (`custom_nodes/ComfyUI-H3-Motion-Context-MultiRef/h3_song_audio_context.py`,

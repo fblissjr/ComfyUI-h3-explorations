@@ -81,7 +81,7 @@ overlaps and margins can be counted by hand and reads the rows back.
    nothing. A sighting that was not graded says why nothing was emptied; a part on no frame has no sizes. A
    capture that exists is sized from its record, or from its own saved masks when it was made before sizes
    were recorded. Not covered: the `files` command's own reading of `least=` from a `--mask`, which takes mask
-   videos; it was run by hand on one capture's inputs the day it was written (`docs/wiki/decisions.md`).
+   videos; it was run by hand on one capture's inputs the day it was written (`docs/state/decisions.md`).
    The starting floor is held at the size the load renders at (`starting_floor`, 2026-10-14): PART_LEAST_PX over
    the square of the node's own zoom_box on the part's boxes, so a far face is kept where the canvas value
    emptied it; not scaled with `zoom=off` or where the node will not zoom; a run at another zoom names the frames

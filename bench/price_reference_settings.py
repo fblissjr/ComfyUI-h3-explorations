@@ -5,7 +5,7 @@
         --sources 1208x1350,3840x1280,1920x1080 \
         [--out data/results/<date>_reference_settings.json]
 
-Run it with the ComfyUI venv python (`docs/comfy_notes.md`). CPU only, no
+Run it with the ComfyUI venv python (`docs/working/comfy_notes.md`). CPU only, no
 server, no model weights, no media: geometry depends only on width and height.
 
 The question this answers is the one the owner asked on 2026-09-13: "what
@@ -39,7 +39,7 @@ REPO = Path(__file__).resolve().parent.parent
 COMFY = Path.home() / "ComfyUI"
 
 # ComfyUI's root ahead of the repo's PARENT, and the repo itself never on the
-# path: this repo has its own `nodes.py`. `docs/comfy_notes.md` has the trap.
+# path: this repo has its own `nodes.py`. `docs/working/comfy_notes.md` has the trap.
 sys.path.insert(0, str(REPO.parent))
 sys.path.insert(0, str(COMFY))
 

@@ -3,7 +3,7 @@
 
     <python> bench/rebuild_delivery.py --video <stem> [--clip] [--share <dir>] [--inputs <dir>]
 
-Replaces the untracked per-session `rebuild.sh` and `pages.sh` shell scripts with one tracked tool (`docs/wiki/runbook.md`,
+Replaces the untracked per-session `rebuild.sh` and `pages.sh` shell scripts with one tracked tool (`docs/working/runbook.md`,
 sections `(c)` and `(d)`). Runs the provenance and delivery chain in strict order and stops at the first refusal, naming the
 step that failed and keeping each step's `.out` log under `data/<day>_<video>_delivery_tables/`:
 

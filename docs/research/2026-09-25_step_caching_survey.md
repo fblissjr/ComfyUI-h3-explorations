@@ -8,7 +8,7 @@ last updated: 2026-10-02 (a dated note on Spectrum, from sglang's eighth read); 
 > claims, labelled as such. Nothing here was rendered.
 
 **The owner's question:** step caching was parked on 2026-08-20
-(`docs/roadmap.md`, `CACHE_NODE` probe-only, "Dies: step caching"). Is there a
+(`docs/state/roadmap.md`, `CACHE_NODE` probe-only, "Dies: step caching"). Is there a
 newer method worth reopening it for?
 
 **Answer: only for the 16-step base graphs, and only one method.** Under

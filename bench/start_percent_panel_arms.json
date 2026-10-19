@@ -1,6 +1,6 @@
 {
  "what": "Sol start_percent on the t2v pick (h3_text_to_video_pdd8_flashgen_finish), 0.2 as shipped against 0.0, on five 345-frame bank scenes chosen to differ (crowd and music, fast swordplay, nature with voiceover, dialogue close-ups, 2D cartoon). Owner-approved 2026-10-01 (review1001, item 1).",
- "why": "start_percent 0.2 puts sigma 1.0 and 0.988 outside Sol's window (the server log prints the window as [0, 0.9796]), so 2 of the finish's 8 evaluations run dense. On 2026-10-01 the ref2va finish's two dense steps ran about 65 s each against about 39 s per Sol step (server log timestamps against bench/results/2026-10-01_mutant_parity_flashgen_i2v_r2v_finish.jsonl), and docs/SOLATTN.md says the setting was never measured. Removing dense warm-up moves the sample into another basin, so a distance metric cannot score it (docs/wiki/next_steps.md, the start_percent note); the owner judges blind pairs. Upstream gives no lower default to adopt: core's BlockSparseAttention also defaults to 0.2.",
+ "why": "start_percent 0.2 puts sigma 1.0 and 0.988 outside Sol's window (the server log prints the window as [0, 0.9796]), so 2 of the finish's 8 evaluations run dense. On 2026-10-01 the ref2va finish's two dense steps ran about 65 s each against about 39 s per Sol step (server log timestamps against bench/results/2026-10-01_mutant_parity_flashgen_i2v_r2v_finish.jsonl), and docs/attention/sol_attn.md says the setting was never measured. Removing dense warm-up moves the sample into another basin, so a distance metric cannot score it (docs/state/next_steps.md, the start_percent note); the owner judges blind pairs. Upstream gives no lower default to adopt: core's BlockSparseAttention also defaults to 0.2.",
  "arms": {
   "marching_band__sp020": "workflows/h3_text_to_video_pdd8_flashgen_finish_api.json",
   "marching_band__sp000": "workflows/h3_text_to_video_pdd8_flashgen_finish_api.json",
@@ -35,7 +35,7 @@
   "note": "held: one seed per scene, the pair differs only in start_percent"
  },
  "run": "run_graph_arms.py --manifest bench/start_percent_panel_arms.json --runs 1 --seed 730451892 --hold-seed --no-alternate --warmup marching_band__sp020 --out bench/results/2026-10-01_start_percent_panel.jsonl",
- "blind": "blind_batch.py --pairs sp020,sp000 over the rows (see docs/eval_comparison.md section 3)",
+ "blind": "blind_batch.py --pairs sp020,sp000 over the rows (see docs/method/eval_comparison.md section 3)",
  "order": "per scene, 0.2 then 0.0, so the second arm reuses the scene's text encode; the two arms share no sampler cache (Sol's window differs).",
  "next": "If 0.0 loses, 0.1 is the next arm: it leaves only sigma 1.0 dense (percent_to_sigma at shift 12 puts the edge near 0.991)."
 }

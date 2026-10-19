@@ -70,7 +70,7 @@ The per-cell counts are in the JSON.
 
 The earlier record did not support the audit's inference either:
 
-- The block-49 page's table (`docs/h3_block49_quant_error.md`, "What it
+- The block-49 page's table (`docs/attention/block49_quant_error.md`, "What it
   measured") moves blocks 0 and 40 at the default gate.
 - `2026-09-15_channel_balance_kernel_b0_s15.json` has a `kernel` row that
   differs from its `plain` row.

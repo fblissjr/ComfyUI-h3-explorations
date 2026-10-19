@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Does a latent frame settle later in sampling when the picture changes more there? CPU only.
 
-Written 2026-09-27 for `docs/open_experiments.md` #43, the premise under the
-owner's motion-adaptive schedule (`docs/wiki/next_steps.md`, "fit the
+Written 2026-09-27 for `docs/state/open_experiments.md` #43, the premise under the
+owner's motion-adaptive schedule (`docs/state/next_steps.md`, "fit the
 schedule to how much of the frame changes"): the idea only pays if frames that
 change a lot frame to frame are still being decided late, where PDD's tail is
 coarse.

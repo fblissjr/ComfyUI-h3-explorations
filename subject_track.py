@@ -143,7 +143,7 @@ is an input or is stated in the report.
 `MiniMaxH3MaskedSource` kept a finished mask on disk under a key
 (`mask_store.py`) and on a hit never asked for its `mask` input, so core did
 not run this node at all; that store was removed under the owner's rule that
-nothing an earlier run made is reused by a key (`docs/wiki/decisions.md`).
+nothing an earlier run made is reused by a key (`docs/state/decisions.md`).
 `MASK_VERSION` on the node was part of that key and stays as the number the
 job builder reads for its corrections rule: bump it when a change would give
 a different mask from the same inputs and settings (the cut score, the pick,
@@ -368,7 +368,7 @@ HEAD_PHRASE = "head"
 #: The default of `track_head`: whether `MiniMaxH3SubjectTrack` also propagates
 #: the subject's head with SAM 3.1 across each shot (`head_mask` output).
 #: Measured on the kitchen lead 751-785 mask test (2026-10-19) and decided by the
-#: owner (C198, C199, `docs/wiki/decisions.md`, 2026-10-19): replaces `False`;
+#: owner (C198, C199, `docs/state/decisions.md`, 2026-10-19): replaces `False`;
 #: tested on one shot so far.
 TRACK_HEAD = True
 #: The default of `max_people`: the most detections of the phrase taken from a
@@ -1968,7 +1968,7 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
                                 tooltip="What SAM 3 is asked to find in each shot. `person` finds everyone."),
                 # the default is `most central` since 2026-10-07 (the owner): on the three windows tested
                 # `largest` and `most central` were different detections, and `most central` the person
-                # meant (docs/wiki/decisions.md, 2026-10-07, which says where the evidence is)
+                # meant (docs/state/decisions.md, 2026-10-07, which says where the evidence is)
                 io.Combo.Input("pick", options=list(PICKS), default=PICK_CENTRAL,
                                tooltip=("Which of the people found is the subject: the one covering the most of "
                                         "the frame, the one nearest its centre, or SAM 3's highest score.")),

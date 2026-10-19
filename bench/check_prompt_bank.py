@@ -3,7 +3,7 @@
 
 `bench/build_prompt_bank.py --check` is the gate on `prompt_bank/`: every
 prompt grades clean at its own length, no entry has a shape problem that is
-not recorded, and `docs/prompt_bank.md` is the table the bank would write
+not recorded, and `docs/prompting/prompt_bank.md` is the table the bank would write
 today. `bench/run_checks.py` runs files named `check_*.py`, and the gate is
 not named that way, so a sweep never ran it. On 2026-10-06 it was found red
 at a commit whose sweeps had all been green (a bank entry ending in a

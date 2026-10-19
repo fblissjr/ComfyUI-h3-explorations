@@ -2,7 +2,7 @@
 
 The owner asked what happens when a reference is encoded "with just the
 vision tower and not the vae". The conditioning node already allows it (leave
-`vae` unwired: `docs/h3_references.md`, "Encoder-only references"), so this is
+`vae` unwired: `docs/h3/references.md`, "Encoder-only references"), so this is
 one render of the shipped graph that way, beside the shipped render at the
 same seed.
 

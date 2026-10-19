@@ -1,5 +1,5 @@
 {
-  "what": "docs/h3_audio_freeze.md section 4 step 2, the fast chain: the two frozen arms of bench/audio_freeze_step2_arms.json rendered on the PDD8 baked checkpoint at the same seeds, so the PDD render can be set beside the base render of the same scene and track. If it follows the track as the base does, the lane iterates at PDD cost. Owner 2026-09-12; PDD reopened for this use only (decisions.md).",
+  "what": "docs/h3/audio_freeze.md section 4 step 2, the fast chain: the two frozen arms of bench/audio_freeze_step2_arms.json rendered on the PDD8 baked checkpoint at the same seeds, so the PDD render can be set beside the base render of the same scene and track. If it follows the track as the base does, the lane iterates at PDD cost. Owner 2026-09-12; PDD reopened for this use only (decisions.md).",
   "arms": {
     "dancer_frozen_pdd8": "workflows/h3_candidate_t2v_pdd8_baked_audio_freeze_api.json",
     "voice_frozen_pdd8": "workflows/h3_candidate_t2v_pdd8_baked_audio_freeze_api.json"

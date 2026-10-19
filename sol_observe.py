@@ -26,7 +26,7 @@ a quality claim; it is the cost side of the trade.
 
 Read once at import, like `h3_capture.py`: arming is a property of the SERVER
 PROCESS, which is why the (now disabled) `bench/restart_comfy.sh` listed the
-key in `ARMING_KEYS`; the manual restart recipe in `docs/comfy_notes.md`
+key in `ARMING_KEYS`; the manual restart recipe in `docs/working/comfy_notes.md`
 reads the port owner's environ for `H3_*` before killing it. Unarmed, the node passes no `blk_cnt`
 keyword at all, so an older installed wheel still renders and the default
 path allocates, copies and synchronizes nothing. Armed with a wheel that lacks
@@ -127,7 +127,7 @@ once called "the same density" and are not (Codex's review, 2026-09-01):
       sum(cnt - forced) / sum(NTB - forced) over query blocks NOT in sink_q:
       PAIR-weighted, one ratio per call and one per head. This is the number
       `bench/analyze_routing.py::densities` computes and the one that joins
-      the tables in `docs/SOLATTN.md`. Null where the denominator is zero.
+      the tables in `docs/attention/sol_attn.md`. Null where the denominator is zero.
   routed_density
       the distribution of the per-query-block fraction
       (cnt - forced) / (NTB - forced) over the same rows: min, p50, p95, max,

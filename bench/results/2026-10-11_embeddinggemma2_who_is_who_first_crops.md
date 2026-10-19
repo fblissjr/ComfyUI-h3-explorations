@@ -4,7 +4,7 @@
 of it (source frames 1039 to 1465), run by the session that wrote it and judged
 by nobody yet. Nothing is built on it. It does not reopen the ruling of
 2026-10-10 that who is in a scene is a person's answer to a numbered picture
-(`docs/wiki/decisions.md`): the question here is only whether a likeness could
+(`docs/state/decisions.md`): the question here is only whether a likeness could
 sit BESIDE that picture as a second reading.
 
 ## What it buys
@@ -16,7 +16,7 @@ likeness from the tracker's own features failed on this clip on the 10th
 the right person first on the shots that went wrong then, it would be worth
 showing beside the numbered picture; if it does not, the road stays closed
 with one more model tried. The plan this belongs to is "The trials" in
-`docs/wiki/meta_perception_models.md`, the paragraph on a likeness score.
+`docs/masked_v2v/perception_models.md`, the paragraph on a likeness score.
 
 ## How it was run
 

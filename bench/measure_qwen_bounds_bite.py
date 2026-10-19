@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Where does ComfyUI's Qwen pixel ceiling actually shrink an H3 input?
 
-Run it with the ComfyUI venv python (`docs/comfy_notes.md`). CPU only; it
+Run it with the ComfyUI venv python (`docs/working/comfy_notes.md`). CPU only; it
 allocates one blank image per row and frees it.
 
-`docs/h3_references.md` records that ComfyUI leaves the shared Qwen2-VL
+`docs/h3/references.md` records that ComfyUI leaves the shared Qwen2-VL
 helper's `min_pixels`/`max_pixels` on their signature defaults while the
 release declares its own. This measures the consequence rather than deriving
 it: it calls the real `process_qwen2vl_images` with the arguments
@@ -96,7 +96,7 @@ def main() -> int:
         import comfy.text_encoders.qwen_vl  # noqa: F401
     except ImportError as exc:
         print(f"ComfyUI is not importable from here ({exc}); run this with the "
-              f"ComfyUI venv python (see docs/comfy_notes.md)")
+              f"ComfyUI venv python (see docs/working/comfy_notes.md)")
         return 2
 
     rel_min, rel_max = _release_bounds()

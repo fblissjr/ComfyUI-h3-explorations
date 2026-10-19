@@ -56,7 +56,7 @@ stages cost the same per evaluation. Core's allocation compiler logs 12 breaks
 and 24 rogues on the first PDD stage after a start and 4 and 0 on every later
 stage.
 
-By MAC count against the int8 issue rate in `docs/open_experiments.md` #17
+By MAC count against the int8 issue rate in `docs/state/open_experiments.md` #17
 (arithmetic, not a measurement): dense attention runs at about two thirds of
 it, the linear layers at roughly 0.7 to 0.85.
 

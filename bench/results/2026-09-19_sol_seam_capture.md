@@ -56,7 +56,7 @@ beside it. Three renders of the noodle bar at its declared 107 frames, seed
 Both manifests are schema 1.7.0, whose `workload.attention.dense_node` names
 the node that supplied the dense attention, read from the graph, so a file
 tagged with a route REASON says which kernel ran
-(`docs/capture_manifest_schema.md`).
+(`docs/working/capture_manifest_schema.md`).
 
 ## What this does not change
 

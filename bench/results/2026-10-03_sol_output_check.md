@@ -175,7 +175,7 @@ sparse attention either. **The level shift does come with the 512 view**: it
 is as large with dense attention as with sparse
 (`2026-10-03_backstage_qview512_clip.json`), and the owner heard that clip
 and passed it. The 512 view became the default for reference stills the same
-day (`docs/wiki/decisions.md`).
+day (`docs/state/decisions.md`).
 
 ## Decisions (owner, 2026-10-03)
 

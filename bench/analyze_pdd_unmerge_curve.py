@@ -7,7 +7,7 @@ RTN block curve, while `merge_rounding_regimes` supplies the seeded stochastic
 errors the shipped merge actually carries.
 
 **Written to settle whether `unmerged_blocks` should take a SUBSET.** The
-tooltip and `docs/h3_pdd.md` carried "worst-first by inflation: 49, 7, 24, 16"
+tooltip and `docs/distills/pdd.md` carried "worst-first by inflation: 49, 7, 24, 16"
 from a 7-block sample, which reads as advice to target. Two of those four are
 mid-pack over all 50. The answer the curve gives is that there is no hotspot to
 target. On the shipped stochastic path the reachable gain spans 1.836x and
@@ -22,7 +22,7 @@ before it and nearly the lowest inflation. "Which kind quantises worst" and
 "which kind PDD damages most" are separate questions with opposite answers.
 
 **Stored-weight only.** int8_convrot is W8A8; the source records' caveats say
-so, and nothing here is a runtime cost. See `docs/open_experiments.md` #23.
+so, and nothing here is a runtime cost. See `docs/state/open_experiments.md` #23.
 
     <comfy-venv-python> bench/analyze_pdd_unmerge_curve.py
 """
@@ -224,7 +224,7 @@ def main() -> int:
             "stored-WEIGHT distance, so this is blind to the activation "
             "rounding -- which un-merging also avoids on the delta, and which "
             "is therefore not counted in any recovery figure here. "
-            "docs/open_experiments.md #23"),
+            "docs/state/open_experiments.md #23"),
         "shape": {"blocks": len(blocks), "kinds": kinds,
                   "modules": len(mods)},
         "source_agreement": {

@@ -75,7 +75,7 @@ this lane.
 [`queued_arms.md`](queued_arms.md) is the session queue those handoffs draw on.
 The paper itself is
 [`arxiv_2607.26004v1_...md`](arxiv_2607.26004v1_Parallel_Decoding_Distillationfor_Fast_Image_and_Video_Generation.md);
-`docs/h3_pdd.md` owns the contract and every file here defers to it.
+`docs/distills/pdd.md` owns the contract and every file here defers to it.
 
 ## Diagrams
 
@@ -100,7 +100,7 @@ and Kijai's. Three diagrams: where each one gets the block index, which
 partitions of the 32-interval grid each will build, and who owns the fused head
 tensors at runtime. Plus a guard matrix, which is where the three actually
 separate — that pack fails closed on several things ours only warns about, and
-on one row (a partial patch-key match) it enforces what `docs/h3_pdd.md` lists
+on one row (a partial patch-key match) it enforces what `docs/distills/pdd.md` lists
 under "Enforced by nothing".
 
 [`thirty_two_intervals.html`](thirty_two_intervals.html) — what an NFE is, what
@@ -126,12 +126,12 @@ are the `analyze_routing.py` number. Routing, not quality: nothing in them
 says what the density cost.
 
 [`queued_arms.md`](queued_arms.md) — the arms waiting on the GPU, each with
-what it decides. A session queue rather than a roadmap: `docs/roadmap.md` and
-`docs/open_experiments.md` own those, and nothing in this file is deliberately
+what it decides. A session queue rather than a roadmap: `docs/state/roadmap.md` and
+`docs/state/open_experiments.md` own those, and nothing in this file is deliberately
 unmeasured. Delete an entry when it runs.
 
 **A teaching surface, not a source.** Every number on those pages is owned by
-[`docs/h3_pdd.md`](../../h3_pdd.md), and where a page disagrees with it that
+[`docs/distills/pdd.md`](../../distills/pdd.md), and where a page disagrees with it that
 document is right. Nothing generates them and no check reads them, so they are
 the copies that go stale silently — the same standing hazard `CLAUDE.md` records for
 `internal/h3_resolution_explainer.html`.

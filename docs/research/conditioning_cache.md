@@ -54,7 +54,7 @@ source of silently wrong conditioning.
 | tokenizer identity | the seven H3 special tokens are appended by the installed ComfyUI, and their ids are what the presentation is made of | the loader's token-set assertion (`vendor_tokens.py` was removed 2026-08-27) |
 
 Every row is something this repo already computes or records for the capture
-manifest (`docs/capture_manifest_schema.md`), so the key is the manifest's
+manifest (`docs/working/capture_manifest_schema.md`), so the key is the manifest's
 provenance record reused, not a new schema.
 
 ## The payload

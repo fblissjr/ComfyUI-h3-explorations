@@ -9,7 +9,7 @@ from the other. `MiniMaxH3SubjectBoxes` does: the box of the mask on each frame,
 no box on a frame the mask is empty on.
 
 Why it matters, from a read of Meta's code and a comparison of core's port with it on Meta's own sample
-images (`docs/wiki/meta_perception_models.md`, 2026-10-10; session mrfrog). Given no box, that prediction takes
+images (`docs/masked_v2v/perception_models.md`, 2026-10-10; session mrfrog). Given no box, that prediction takes
 the whole frame as one person's crop, which with two people in the frame is not defined. Core's port matches
 Meta's code once both are given the same crop; as shipped the two differ by how the crop is sampled, least when
 the person's crop is about the model's own input size and more when a large crop is shrunk (a whole-frame box)

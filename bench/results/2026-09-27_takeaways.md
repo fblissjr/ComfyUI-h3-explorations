@@ -30,7 +30,7 @@ is `2026-09-27_render_dataset/`.
    - Now the default everywhere (0.154.0). The owner caught the stacking bug
      in it by eye (`2026-09-26_followup_contamination.md`).
 4. **A seed-matched base and distill do not share starting noise.** The base's
-   `er_sde` replaces the seeded noise at its first step (`docs/h3_distills.md`,
+   `er_sde` replaces the seeded noise at its first step (`docs/distills/which_distill.md`,
    the working model). That explains much of "same seed, different scene"
    and changes how every base-against-distill pair is read.
 5. **The three distills put their change in different places, and each has a

@@ -1249,7 +1249,7 @@ starting point, not a measurement. **[V]**
 *2026-09-25: the LightX2V half of E.5 is stale. `8652c6f1` (#1557) makes
 `MiniMaxH3Model._init_infer_class` accept DPCache and ships it combined with
 Sol (`coderef/LightX2V/configs/minimax_h3/decache/`), so LightX2V now does
-both at once. [`../wiki/references.md`](../wiki/references.md), "What moved by
+both at once. [`docs/working/coderef.md`](../working/coderef.md), "What moved by
 2026-09-25".*
 
 **E.5 A cross-repo contradiction worth knowing.** LightX2V **refuses** to run

@@ -3,7 +3,7 @@
 last updated: 2026-09-26
 
 > **Provenance.** Written by the VAE session on the owner's request ("flesh
-> out" routes 1 and 2 of the idea in [`../wiki/next_steps.md`](../wiki/next_steps.md),
+> out" routes 1 and 2 of the idea in [`docs/state/next_steps.md`](../state/next_steps.md),
 > "Idea saved for later, 2026-09-26", and "something unique to h3" beyond
 > position or step). Everything below is read from code on 2026-09-26.
 > Nothing was rendered or built. Route 3's design is in that entry, agreed
@@ -12,7 +12,7 @@ last updated: 2026-09-26
 **The premise.** The owner's one-seed looks: PDD8 is strong on close-ups,
 medium shots and low motion (detail, colour), and weak on large motion.
 FlashGen and FastH3 hold motion better
-(`../../bench/results/2026-09-26_distill_compare_s1.md`, `../h3_distills.md`).
+(`../../bench/results/2026-09-26_distill_compare_s1.md`, `docs/distills/which_distill.md`).
 So the aim is to put each distill where it is strong within one clip. H3
 generates every frame of a clip in one joint pass, which rules out the
 obvious per-shot switch.
@@ -41,7 +41,7 @@ Three facts, read from core, make routes 4 to 6 possible:
    same base time (`time_shift_sigma`).
 3. **A step-indexed output head bank.** PDD is a backbone LoRA plus 32 output
    heads, and the final layer fuses the heads each step spans
-   (`FinalLayer.forward`, `_pdd_head`; `../h3_pdd.md`). FlashGen and FastH3 are
+   (`FinalLayer.forward`, `_pdd_head`; `docs/distills/pdd.md`). FlashGen and FastH3 are
    backbone deltas only.
 
 ## Route 1: render each shot on its distill and join them
@@ -49,7 +49,7 @@ Three facts, read from core, make routes 4 to 6 possible:
 **Mechanism.** The pack already builds a two-window seam, and the second
 window takes the first's sampled latent as a frozen prefix (`freeze_windows`
 in `build_api`, `audio_freeze.py::MiniMaxH3FreezeAudioWindow`;
-[`../h3_audio_freeze.md`](../h3_audio_freeze.md) section 4 step 6). Route 1 is
+[`docs/h3/audio_freeze.md`](../h3/audio_freeze.md) section 4 step 6). Route 1 is
 that seam with a different model chain per window: window 1 on, say, PDD8
 and its schedule, and window 2 on FlashGen and its own. Each window runs its
 distill on its own trained schedule, and that is this route's advantage.
@@ -58,7 +58,7 @@ distill on its own trained schedule, and that is this route's advantage.
 - **A model chain per window.** `build_api` builds one chain for both
   windows today.
 - **Per-shot prompts.** A multi-shot prompt becomes one prompt per window,
-  each timed to its shot ([`../prompting.md`](../prompting.md) §5.10). The
+  each timed to its shot ([`docs/prompting/prompting.md`](../prompting/prompting.md) §5.10). The
   model no longer plans the cut; each window is its own scene.
 - **The join.** Three designs are compared in
   [`2026-09-25_continuation_guide_rows.md`](2026-09-25_continuation_guide_rows.md):
@@ -186,8 +186,8 @@ features, so pairing them with another backbone is off-distribution.
 Neither half is obviously the one that carries PDD's look: the fused head
 differs from the checkpoint's own by 0.005 early to 0.015 at the last step,
 the same order as the backbone's perturbation, 0.004 to 0.015
-([`../h3_pdd.md`](../h3_pdd.md), the magnitudes table). The "head half"
-question in [`../wiki/next_steps.md`](../wiki/next_steps.md) is about which
+([`docs/distills/pdd.md`](../distills/pdd.md), the magnitudes table). The "head half"
+question in [`docs/state/next_steps.md`](../state/next_steps.md) is about which
 code swaps the heads, ours or core's, not about what the heads contribute.
 
 **Evidence that exists and is unjudged.** PDD4 with its heads off
@@ -249,7 +249,7 @@ says so, **reasoned** means neither, and **wrong** means corrected.
 | Heads-off PDD clips exist and are unjudged | record | `pdd/queued_arms.md`, `C_pdd4_headfree_*`; one matched pair on the share (seed 730451893) |
 | The refine arm's pass 1 was a cache hit on the base arm's | **wrong** | it re-rendered; `2026-09-26_frozen_row_probe.md` |
 | The video latent-format round trip is the identity | code (fastdude) | `comfy/latent_formats.py`, `MiniMaxH3.process_latent_in/out` |
-| Heads and backbone perturb by the same order | record | `../h3_pdd.md`, the magnitudes table |
+| Heads and backbone perturb by the same order | record | `docs/distills/pdd.md`, the magnitudes table |
 
 **Why the two bottom routes stay at the bottom, checked rather than
 assumed.**

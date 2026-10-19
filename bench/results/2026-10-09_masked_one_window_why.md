@@ -154,7 +154,7 @@ Nothing from this pack: no shipped graph turns a reuse on, and
 `bench/check_mask_store.py` item 9 now holds that. ComfyUI's own node cache
 served the loader, the track and the parts to most of these renders (the
 json has the count for each), so they rendered from one mask; the render
-after a changed Masked Source ran that node again. `docs/comfy_notes.md`,
+after a changed Masked Source ran that node again. `docs/working/comfy_notes.md`,
 "What is cached, and by whom", says how it is keyed.
 
 ## What this does not settle

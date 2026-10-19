@@ -17,7 +17,7 @@ install's own detection and module construction against the checkpoint header.
 
 **It does not own what the checkpoint is worth.** Nothing here was rendered,
 nothing was timed, and no attention output was compared. It also does not own
-sparse attention itself: [`../../SOLATTN.md`](../../SOLATTN.md) is the authority
+sparse attention itself: [`docs/attention/sol_attn.md`](../../attention/sol_attn.md) is the authority
 for the kernel this gate feeds, and this file asserts nothing against it.
 
 ## 1. The whole difference from the base is the gate, and nothing else
@@ -306,7 +306,7 @@ schedule, no step count, no scheduler config, no LoRA alpha, and no extra output
 heads. The file carries exactly one `final_layer.video_out` and one
 `final_layer.audio_out`, so whatever "4step" means here, it is **not** PDD,
 which reaches its step count by replicating output heads over a 32-point grid
-([`../../h3_pdd.md`](../../h3_pdd.md)).
+([`docs/distills/pdd.md`](../../distills/pdd.md)).
 
 **The model card does not say either.** Its only text about this file is that it
 is "currently for testing with these PRs", linking Comfy-Org/ComfyUI#15958 and

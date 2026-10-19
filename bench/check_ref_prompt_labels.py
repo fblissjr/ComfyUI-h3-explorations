@@ -244,7 +244,7 @@ def main():
         cites neither. Six of the eight image graphs shipped that way on
         2026-08-16 and every check here was green; `bench/preflight_graph.py`,
         written in another session, caught it on first contact. That is
-        the second-reader finding in `docs/evidence.md`, and the fix is to make the check
+        the second-reader finding in `docs/method/evidence.md`, and the fix is to make the check
         able to see it rather than to rely on the second reader.
 
         Scoped to `detailed_description` because that is where the guide puts
@@ -335,7 +335,7 @@ def main():
 
         **What this does NOT catch**, and no mechanical check can: a GRAPHS
         entry that wires the wrong prompt for its arm. The graph would
-        faithfully match its entry and pass. That stays `docs/prompt_audit.md`
+        faithfully match its entry and pass. That stays `docs/prompting/prompt_audit.md`
         and `bench/preflight_graph.py`.
         """
         import subprocess

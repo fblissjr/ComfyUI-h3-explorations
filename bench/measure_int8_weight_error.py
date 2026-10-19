@@ -2,7 +2,7 @@
 """How much of each linear's weight the shipped int8 convrot file loses, block by block.
 
 There is no sensitivity measurement of the int8 linears here
-(`docs/h3_quant_policy.md`, "policy table (linears)"). This is its cheapest
+(`docs/attention/quant_policy.md`, "policy table (linears)"). This is its cheapest
 half: for every quantized linear of the shipped int8 file, the relative L2
 error of its dequantized weight against the bf16 file it was made from
 (`err_shipped`). It is a WEIGHT error: it says which layers the int8 grid

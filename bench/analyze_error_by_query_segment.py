@@ -6,7 +6,7 @@ Two records above this one leave ref2va's block 49 unexplained: K's INT8 stress
 (`bench/analyze_attention_mass.py`) are alike in the t2v and ref2va cells. A
 grade of a captured cell over ALL rows also counts the text rows as queries, and
 at block 49 the text rows' modulation is exactly zero, so what attention writes
-to them is never read (`docs/wiki/decisions.md`, 2026-09-29). ref2va's cell has
+to them is never read (`docs/state/decisions.md`, 2026-09-29). ref2va's cell has
 many times more text rows. This measures, per query segment, the error of an
 attention whose K is quantized to int8 with one absmax scale per (head, row) (the
 unrotated stress) against exact float32 attention, on the captured q, k, v:

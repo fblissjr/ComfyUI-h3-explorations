@@ -18,7 +18,7 @@ nothing pre-applied) and `release` (the release's own processor declaration,
 read through `vendor_config`). The cases here hold them apart on one input,
 which is the only way a selector that quietly collapses to one branch goes
 red. A third policy, `encoder`, bound to a contract the AWQ adapter stamped on
-its CLIP; that lane closed on 2026-09-13 (`docs/roadmap.md` "Closed lanes")
+its CLIP; that lane closed on 2026-09-13 (`docs/state/roadmap.md` "Closed lanes")
 and its arms left with it. The guarded loader `h3_encoder_loader.py` still
 records core's bounds, and the static preflight prices against them.
 """
@@ -695,7 +695,7 @@ def append_node_defaults_are_the_serving_defaults():
     (since 2026-09-13): `size_policy=max` at the release's 2048 short edge
     WITH upscale. The encoder's copy is NOT theirs since 2026-10-03: the
     owner made `qwen_view = separate` at `h3_rules.REF_QWEN_SHORT_EDGE` the
-    default, on two clips (`docs/wiki/decisions.md`); the serving
+    default, on two clips (`docs/state/decisions.md`); the serving
     implementations share one copy, which is the second option. A
     DynamicCombo's default is its FIRST option: that is what the UI
     pre-selects, and there is no second copy of it to compare against, so

@@ -339,7 +339,7 @@ def main() -> int:
             "mostly the energy loss.",
             "One seed, one length, one canvas, one prompt, six partitions "
             "from one family. The prompt is the market scene that "
-            "docs/prompt_audit.md verdicts `rewrite`.",
+            "docs/prompting/prompt_audit.md verdicts `rewrite`.",
             "Distance to the distilled 32-point trajectory is not quality, "
             "and no clip was judged by a person.",
             "Every number here is float64. Statistics over ~1e9 float32 "

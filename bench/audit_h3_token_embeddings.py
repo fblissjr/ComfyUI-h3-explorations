@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Do the seven H3 marker rows carry trained values, or are they init noise?
 
-Run it with the ComfyUI venv python (`docs/comfy_notes.md`). Reads weights off
+Run it with the ComfyUI venv python (`docs/working/comfy_notes.md`). Reads weights off
 disk; no CUDA, no model load.
 
 `bench/compare_h3_tokenizers.py` establishes that ComfyUI cannot emit IDs
@@ -114,7 +114,7 @@ def main() -> int:
         import safetensors  # noqa: F401
     except ImportError:
         print("safetensors is not importable; run this with the ComfyUI venv "
-              "python (see docs/comfy_notes.md)")
+              "python (see docs/working/comfy_notes.md)")
         return 2
 
     record, seen = {}, 0

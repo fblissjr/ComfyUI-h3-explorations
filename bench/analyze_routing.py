@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """How many blocks does Sol's router keep exact?
 
-`docs/open_experiments.md` #18. This is the missing denominator under every
+`docs/state/open_experiments.md` #18. This is the missing denominator under every
 curve comparison this repo ran: every Morton or Hilbert A/B held `tau` fixed
 and believed that held the operating point fixed. It does not. The routing
 threshold is
@@ -94,8 +94,8 @@ def load_eager():
     `_pool`, `sol_attn` and `_normalize_key_bias` are structurally identical to
     the vendored `bench/_sol_attn_reference.py` (compared by AST, re-derived
     2026-08-22 after re-vendoring). The clone is
-    still needed for the CUDA sources, which ship in no wheel -- `docs/morton.md`
-    and `docs/sol_upstream.md` cite `.cu` files by path.
+    still needed for the CUDA sources, which ship in no wheel -- `docs/attention/morton.md`
+    and `docs/attention/sol_upstream.md` cite `.cu` files by path.
     """
     try:
         from comfy_kitchen.backends.eager.sol_attn import _pool
@@ -236,7 +236,7 @@ def run_controls(q, k, start, stop, tau, heads, pool, sink_kv, sink_q):
     #
     # Written after the first version of this control stayed green under a
     # deliberate mutation, on 2026-08-16. It was tautological, which is the
-    # defect `verify_adjacency` had and the reason `docs/checks.md` gap #5
+    # defect `verify_adjacency` had and the reason `docs/method/checks.md` gap #5
     # exists.
     g = torch.Generator().manual_seed(11)
     within = torch.arange(stop - start)

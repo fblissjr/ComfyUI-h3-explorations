@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """What does promoting the H3 video VAE's encoder to fp32 actually change?
 
-Run it with the ComfyUI venv python (`docs/comfy_notes.md`). Loads the real
+Run it with the ComfyUI venv python (`docs/working/comfy_notes.md`). Loads the real
 video VAE; CPU is fine and no server is needed.
 
 **Why this exists rather than a pair of clips.** Encoder precision is a
@@ -115,7 +115,7 @@ def main() -> int:
     # the shipped file's baseline: whether swapping the FILE moves the latent.
     # Added 2026-09-26 for the INT8 ConvRot file, whose decoder is quantized.
     ap.add_argument("--against", action="append", default=[], metavar="VAE_NAME")
-    # Experiment #33 (docs/open_experiments.md): the fp16 encode with
+    # Experiment #33 (docs/state/open_experiments.md): the fp16 encode with
     # `--fast fp16_accumulation`'s switch on, as start.sh launched the server
     # until 2026-09-28 (it passes no --fast since).
     # kitchen's fp16_conv3d only runs on CUDA with the switch on, so this arm
@@ -136,7 +136,7 @@ def main() -> int:
         import folder_paths  # noqa: F401
     except ImportError as exc:
         print(f"ComfyUI is not importable from here ({exc}); run this with the "
-              f"ComfyUI venv python (see docs/comfy_notes.md)")
+              f"ComfyUI venv python (see docs/working/comfy_notes.md)")
         return 2
 
     sys.path.insert(0, str(_REPO / "workflows"))

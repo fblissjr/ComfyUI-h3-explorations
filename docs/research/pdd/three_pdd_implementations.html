@@ -756,7 +756,7 @@ if invalid:
     </div>
 
     <div class="col">
-      <p>The second row is worth dwelling on. <code>docs/h3_pdd.md</code> lists it under "Enforced by nothing" in our own words — a partial key match would not be caught. They caught it in three lines:</p>
+      <p>The second row is worth dwelling on. <code>docs/distills/pdd.md</code> lists it under "Enforced by nothing" in our own words — a partial key match would not be caught. They caught it in three lines:</p>
       <p class="srcline">patcher_helpers.py, patch_minimax_h3_pdd_model</p>
       <pre><code>expected_keys = sum(key.endswith((".lora_A.weight", ".diff", ".diff_b"))
                     for key in lora_state)
@@ -814,7 +814,7 @@ if len(applied) != expected_keys:
 
   <footer>
     <p>Read 2026-08-27 from <code>patcher_nodes.py</code> and <code>patcher_helpers.py</code> in <code>silveroxides/ComfyUI-UtilsCollection</code>, fetched raw at repository HEAD <code>5bac35be3d61</code>. The PDD path arrived in <code>23ab5f2dd4f6</code> (2026-08-26) and was last touched by <code>2ede53355074</code> (2026-08-27), "fix(h3): remove PDD filename validation" — so it is moving, and every claim here describes that day. Claims about Kijai's converted files and about Comfy-Org/ComfyUI#15908 are dated the same way and were also moving; the PR was open with <code>comfy/ldm/minimax/model.py</code> alone in its diff.</p>
-    <p>A teaching surface, not a source. Numbers about our own implementation are owned by <code>docs/h3_pdd.md</code>, and where this page disagrees with it, that document is right.</p>
+    <p>A teaching surface, not a source. Numbers about our own implementation are owned by <code>docs/distills/pdd.md</code>, and where this page disagrees with it, that document is right.</p>
   </footer>
 
 </div>

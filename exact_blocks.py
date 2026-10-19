@@ -18,7 +18,7 @@ fallback kernel is worst at.
 
 **This node is a knob, not a recommendation.** No shipped graph wires it, and
 what it buys end to end has not been measured here -- only what it removes at
-the call. See `docs/SOLATTN.md`.
+the call. See `docs/attention/sol_attn.md`.
 
 ## What "exact" means, precisely
 
@@ -165,7 +165,7 @@ class MiniMaxH3ExactBlocks(io.ComfyNode):
                         "means this node does nothing. The measured case for "
                         "this is the LAST block, where sage's cosine against "
                         "an exact reference goes negative on some rows; see "
-                        "docs/SOLATTN.md."
+                        "docs/attention/sol_attn.md."
                     ),
                 ),
             ],

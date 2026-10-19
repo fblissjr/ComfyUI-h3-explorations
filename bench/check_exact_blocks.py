@@ -28,7 +28,7 @@ So two things are checked, and neither of them needs a GPU, a model or a server:
 
 **What this does NOT establish:** that a real render routes a named block away
 from both kernels. That needs the model, and the observable is the node's own
-log line beside Sol's `keeping blocks [...] dense` -- see `docs/SOLATTN.md`.
+log line beside Sol's `keeping blocks [...] dense` -- see `docs/attention/sol_attn.md`.
 This check covers the part that rots silently, not the part a render shows.
 
     python bench/check_exact_blocks.py

@@ -1,0 +1,3248 @@
+# Open experiments
+
+Last updated: 2026-09-29 (#48 to #50 added); 2026-09-27 (#33 closed; #34 to #46 added); #28 status 2026-09-19; otherwise 2026-09-11
+
+> **Several of these are now scheduled rather than parked.** The working plan
+> and the render scenes that would settle the quality-blocked ones live in
+> `internal/`, which is **gitignored and not distributed** -- if you cloned
+> this repo you do not have them, by design. The entries below stand on their
+> own; the cross-references are for the owner's checkout. Specifically:
+> **#3** (comfy-kitchen INT8 arm) has a moved target, now 0.2.31; **#6**
+> (revalidate 16 steps) is subsumed by the plan's stage B, which sweeps
+> sampler against step count on the base model and reads a convergence curve
+> rather than judging a single count; and **#1** (reference `short_edge`)
+> stays blocked on the same owner judgment, now recorded as hole H5 with the
+> decision to hold `allow_upscale` at True until its benefit is measured.
+> `docs/method/checks.md` is the companion index of what *is* checked.
+
+What has not been measured, what each run would settle, and what changes
+depending on the answer. Ordered by value per unit of card time.
+
+An experiment belongs here only if its result would change a decision. If the
+answer would not move a default, a doc claim, or a piece of code, it is
+curiosity and should be cut rather than parked.
+
+Each entry states its **blocker** honestly. Several are blocked on a judgment
+only the owner can make, not on machine time, and those will not resolve by
+running them harder.
+
+
+## Aging: this file is swept, not accumulated
+
+**Next sweep: 2026-09-28.** At a sweep every entry is either **closed** --
+which includes "we are living with this, reviewed `<date>`", a real and
+different state from open -- or **re-dated with a reason**. An entry that
+survives two sweeps with the same reason is not open, it is declined, and
+should say so.
+
+Adopted 2026-08-28. The reason is measured rather than felt: this file's
+numbered sections went 7, 8, 13, 16, 19, 21, 24, 24 across sampled commits --
+monotone at every sample. Nothing here prevents false belief; the machinery for
+that is good. What was missing is anything that makes an open question more
+expensive to leave open, and a sweep date is the cheapest version of that.
+[`docs/method/sustainability.md`](../method/sustainability.md) argues the case;
+[`docs/research/pdd/queued_arms.md`](../research/pdd/queued_arms.md) is where the
+convention already worked in one lane.
+
+---
+
+## 1. Reference `short_edge`, sweeping down from 2048
+
+**Tests:** whether identity fidelity holds as a reference arrives smaller,
+and where it stops holding.
+
+**Why it matters:** cost is quadratic in the short edge, and reference tokens
+are attended at every sampling step. At the shipped default two references
+cost 13,872 vision tokens, roughly a third of the sequence at 124 frames. If
+fidelity holds at 1024 that is three quarters of it back. It also decides
+whether `allow_upscale=True` is the right default: 2048 matches the released
+pipeline, which is a good reason to offer it and a weaker reason to default
+to it, because upscaling adds tokens rather than detail.
+
+**Arms:** `short_edge` 2048, 1536, 1024, 768, 512 at `allow_upscale=True`,
+fixed seed, one small reference (`krea2_ref_dog_face.png`, 500x520, where
+upscaling is a real 4.1x) and one already-large (`krea2_ref_dog.png`,
+1024x1024, where it is 2x).
+
+**Cost:** 5 renders per reference. Minutes each at 124 frames.
+
+**Decision it changes:** the shipped default, and whether `allow_upscale`
+stays on.
+
+**Blocker: owner judgment.** The machine can produce the videos and the token
+counts; only a person can say whether the subject still looks like itself.
+Do not expect a number to settle this.
+
+---
+
+## 2. `_chunked_heads` output buffer
+
+**Tests:** whether the chunked path allocates a full-size output buffer the
+single-shot path does not, and how much that costs.
+
+**Why it matters:** it is the last live hypothesis for why head chunking
+behaves worse than its per-call peak suggests. `_chunked_heads` builds
+`out = torch.empty((1, s, heads, head_dim))` and writes groups into it, where
+the single-shot path returns the kernel's own output. That is a concrete,
+deterministic, per-call quantity.
+
+**Cost:** microbench, seconds, no card contention.
+
+**Decision it changes:** whether chunking is worth recommending at all, and
+whether the chunked path should be restructured to write into the kernel's
+output rather than a separate buffer.
+
+**Blocker: none.** This is the cheapest remaining lead and should be run first.
+
+**RESULT (2026-08-11): confirmed, and it is a flat 572 MiB.** Extra allocated
+across the loop at S=41822: n=1 1144 MiB, n=2 858, n=4 715, n=8 643. That is
+the full-size `out` buffer (572, constant) plus the kernel's per-group output
+(572/n). The single-shot path returns the kernel's own output and allocates
+neither. So chunking's floor is `full output + largest group transient`, which
+is why its advantage narrows rather than scaling with n. Recorded in
+`_chunked_heads`. Not removable by assembling differently; it would need a
+kernel that writes into a caller-provided view.
+
+---
+
+## 3. comfy-kitchen INT8 attention arm
+
+**Tests:** how core's own INT8 attention compares with ours on the same graph.
+
+**Why it matters:** ComfyUI now ships `comfy_kitchen.int8_attention` behind
+`--use-ck-attention` and a `ModelAttentionBackend` node, available on this
+machine. The README claims ~2.1x against PyTorch attention, which was the
+only alternative when it was written. Against a first-party INT8 path that
+number may be much smaller, and the claim as written invites the wrong
+reading.
+
+**Arms:** `sage` against `ModelAttentionBackend=comfy kitchen attention`,
+with our node removed from the second arm, since it is inert otherwise.
+
+**Cost:** 2 arms, 2 runs each.
+
+**Decision it changes:** the README's headline claim, and possibly whether
+this pack's attention node earns its complexity.
+
+**Blocker: none.**
+
+---
+
+## 4. Does any call reach the attention override
+
+**Tests:** whether `make_sage_override` is invoked at all in a Sol-Attn graph.
+
+**Why it matters:** the override deliberately keeps q, k and v alive so its
+fallback can degrade, giving up the release that `sageattn_consume` exists
+for. If no call ever reaches it, that trade is documenting a path that never
+executes, and the comment should say so. If calls do reach it, core has
+already cloned v and handed us sole ownership and we re-pin it, which is the
+clone-without-consume arm.
+
+**Cost:** a counter and one render.
+
+**Decision it changes:** whether to restructure the override to consume, and
+what its comment should claim.
+
+**Blocker: none.** Instrument deliberately rather than bolting a counter on
+at the end of a session.
+
+---
+
+## 5. `MiniMaxChunkFeedForward`
+
+**Tests:** whether KJNodes' FFN chunking lowers the block peak.
+
+**Why it matters:** derived arithmetic says no. `fc1`'s output at S=41822 is
+2287 MiB, and attention and the MLP do not co-exist within a block, so the
+block peak is the taller of the two. Attention is still taller at every
+setting we run. That is reasoning from layer sizes, not a measurement.
+
+**Cost:** one arm.
+
+**Decision it changes:** whether to add the node to any graph. Currently
+recommended against on arithmetic alone.
+
+**Blocker: none, but low value.** Run it only before anyone leans on the
+recommendation.
+
+---
+
+## 6. Revalidate 16 steps
+
+> **Reframed 2026-08-20.** Under the distilled regime the owner is moving to
+> (4-6 step lightx2v students on fl2va; `docs/state/roadmap.md`, "The regime
+> question"), the step count is set by the LoRA's vendor row and graded by
+> `bench/check_distill_settings.py`, so this entry's question becomes "which
+> LoRA row is canonical", which that section tracks. 16 stays the base-model
+> number and this entry stays as written for the base path.
+
+**Tests:** whether 16 is still the right step count.
+
+**Why it matters:** it was measured at 362 frames on 2026-08-06. That length
+was called illegal on 2026-08-14 and the default moved to 345; both were
+reverted on 2026-08-16, so **the 2026-08-06 measurement is back on the shipped
+length** and this entry no longer needs a re-measure to be comparable. The
+rejection of 12 steps rested on a real gate — the third shot of a three-shot
+prompt silently stops happening — and that gate still stands.
+
+**Cost:** 3 arms at 345 frames, and someone watching each to the end knowing
+what the prompt asked for.
+
+**Decision it changes:** `SAMPLING["steps"]`, which multiplies everything.
+
+**Blocker: owner judgment**, same as #1. The failure mode is prompt
+adherence, which no metric here detects.
+
+**Added 2026-09-05, from the owner's "dense as in full 16+ step renders".**
+Nothing here has judged the base model above sixteen steps. If more steps
+help, the arm that matters under the sage-always decision is not dense at
+twenty but sage at twenty-odd steps against dense at sixteen: by the ladder
+record's per-step costs it still renders well under the dense time, and it
+would be a base-model question, separate from the Sol policy lane. One seed,
+one scene, judged blind against the dense sixteen-step clip. Not scheduled.
+
+---
+
+## 7. Head-chunk process peak, settled
+
+**Tests:** whether the 1186 MiB process-peak difference between
+`head_chunks=1` and `4` is real.
+
+**Why it matters:** it would close out the one measurement this repo has that
+points the opposite way from its microbench.
+
+**Cost:** more runs than the decision justifies. Process peak showed a 2265
+MiB excursion across two runs of one unchanged configuration, so separating a
+1186 MiB effect needs many runs or a less excursive observable — steady-state
+allocated, or resident weight bytes sampled during the sampler loop.
+
+**Decision it changes: none.** Wall-clock already answers whether to chunk
+(0.992x, so no).
+
+**Blocker: not worth the card.** Listed so nobody re-derives the idea and
+spends the time.
+
+> **Amended 2026-08-13, and the amendment matters more than the entry.** That
+> 0.992x was measured in a graph that also loads Sol-Attn, and Sol's compose
+> gate hands every call it TAKES to ComfyUI's stock forward
+> (`__init__.py` at `842c4ea`) unless a delegate is published. So head
+> chunking never ran on the taken steps at all. The wall-clock that "already
+> answers whether to chunk" is a number for a configuration in which chunking
+> was mostly switched off, and it does not answer the question it was retired
+> for. Entry 8 is the live version.
+
+---
+
+## 8. Does head chunking do anything once nothing is bypassing it
+
+**Tests:** whether `head_chunks` moves peak VRAM when it actually runs on
+every step, and separately whether publishing a `sol_take_forward` delegate is
+worth implementing.
+
+**Why it matters:** the 345-frame reference arms peak at 22,735 MiB on a
+24,564 MiB card. 1,829 MiB of headroom is the whole margin, and today's OOM
+happened on Sol's own kernel, on the sparse path, where chunking cannot reach
+it at any value.
+
+**The trap in the obvious fix.** Sol's gate prefers a delegate over the stock
+forward, so publishing one looks like a one-line win. It is not: our forward
+is built around a single sage kernel (`make_minimax_attn_forward(kernel_fn,
+...)`, and `attention.py` says so outright -- "it calls sage directly and
+never reaches `optimized_attention`"). Hand it a sparse call and it runs
+sage's DENSE kernel, silently disabling Sol-Attn inside its own sigma window,
+with a render that succeeds and looks fine. The delegate contract is
+specifically a forward that *reaches* `optimized_attention` so the override
+chain still decides sparse-versus-dense. KJNodes' low-VRAM forward qualifies
+and self-declares `_uses_optimized_attention = True`; ours does not.
+
+So implementing this means a NEW forward -- the head slicing we already have
+in `_chunked_heads`, calling `optimized_attention` per group instead of
+`kernel_fn` -- not publishing the existing one.
+
+**Cost:** two renders to answer whether it is worth writing at all, which is
+why the measurement comes first. `sage only + chunks 4` against `sage only`
+removes Sol entirely, so chunking runs on every step with no gate in the way.
+If the peak does not move there, chunking is not the lever and no delegate
+should be written.
+
+**Do not reuse the dense/sparse step ratio without re-deriving it.** The
+audit's 5 dense / 11 sparse is specific to shift 12, `simple`, and 16 steps:
+`take` is gated on `min_tokens` and a sigma window resolved as a *percent*
+band, so it moves with clip length, with step count, and with any window
+change. The new 8-step turbo arms do not share it.
+
+**The observable had to change before the arm could answer anything.** The
+first version of this probe took a single-run `max()` of whole-GPU
+`nvidia-smi` samples. Predicted effect ~715 MiB; entry 7's documented
+single-config excursion is 2265 MiB. It could not have resolved the effect in
+either direction, and a null would have been reportable as "chunking is
+inert". Now sampling torch *allocated*
+(`torch_vram_total - torch_vram_free` from `/system_stats`) at 1 Hz, which
+excludes sibling processes and the allocator reserve, and comparing on **p90**
+— a max is one excursion, a p90 is the level the run sat at.
+
+**Do not turn that into "prefer p90 over max".** It is right *here* because
+the observable is a noisy 33-minute sampled series. For a high-water mark over
+a bounded region — `torch.cuda.max_memory_allocated()` around one call,
+baseline-subtracted — max *is* the statistic and a percentile of it is
+meaningless. Same principle, opposite implementation; the instrument shape
+decides. Flagged because the slogan travels better than the reasoning.
+
+**And state the question narrowly.** "Does chunking lower the peak" is too
+loose to be falsified: `_chunked_heads` already measures net *per call* lower
+(2645 against 2862 MiB at n=4, a 7.6% saving), and both terms are s-linear —
+`out` is `(1, s, 56, 128)` bf16, exactly 571.8 MiB at S=41822 and ~2010 MiB at
+these arms' size — so the ratio is scale-invariant and the absolute saving
+grows. The open question is whether a per-call transient saving reaches
+**process** peak at all, or whether that peak is set by what stays resident
+across the whole step: weights, latents, and ~53k reference rows. A null
+answers that, not "chunking does nothing".
+
+**If two arms land close, reverse them before believing it.** The arms run
+sequentially in one process with a `POST /free` between, which is
+order-dependent state by construction — the same hazard class that cost an
+upstream measurement ~535 MiB of a real delta once, via an allocator primed by
+the preceding arm. Waiting to *notice* suspiciously-close numbers is a symptom
+you have to be lucky to catch; running the pair in reversed order and checking
+whether the delta changes magnitude or sign is a positive test that can be
+scheduled. One extra render, and only worth it if the numbers are close.
+
+**The wall-clock half of this is load-bearing outside this repo.** Upstream
+has filed the caller-provided-view work with a trigger-to-act that names this
+A/B: it proceeds only if a consumer adopts head-group chunking in production
+*and* the in-pipeline A/B is acceptable on **wall-clock**. So the minutes
+column here is not incidental to the VRAM question — a null on process peak
+leaves that item live, while chunking being too slow retires it. Report both
+numbers, and do not drop the timing because the memory answer looked
+conclusive.
+
+This also makes the sage-only arms the first clean wall-clock chunking has
+ever had here: the 0.992x in entry 7 was measured with Sol taking most of the
+steps, i.e. with chunking mostly not running.
+
+**Pre-registered prediction, so a bad number cannot be explained after the
+fact.** 0.992x is not merely unreliable, it is biased in a knowable
+*direction*: chunking ran only on the dense steps, and every sparse step
+contributed exactly 1.0x. Solving `(d/N)x + ((N-d)/N)(1) = 0.992` recovers the
+per-chunked-step factor.
+
+**The right unknown is the dense WALL-CLOCK SHARE, not the dense step count.**
+Weighting by steps assumes a dense step and a sparse step cost the same, which
+is false by construction — making sparse steps faster is what the sparse
+kernel is *for* (measured on record: 1.15x at 124 frames, 1.39x at 362). With
+`f` the dense share of wall-clock:
+
+    ratio = f·x + (1-f)   ⟹   x = 1 − 0.008/f
+
+Step-count weighting is just the `f = d/N` special case, and it **overstates
+the cost** in a knowable direction:
+
+| sparse speedup | f (d=5, N=16) | x | slower by |
+|---|---|---|---|
+| 1.00x (step-count weighting) | 0.3125 | 0.9744 | 2.56% |
+| 1.15x (measured, 124f) | 0.3433 | 0.9767 | 2.33% |
+| 1.39x (measured, 362f) | 0.3872 | 0.9793 | 2.07% |
+
+An earlier revision of this entry carried a four-row table of `d` values
+instead. It was correct arithmetic on the wrong model; its magnitudes are
+withdrawn, its direction stands.
+
+**The falsification branch needs neither `d` nor `f`.** For any `f < 1`,
+`x < 0.992` — algebraically, not approximately. So "0.99x or better means the
+per-step-overhead model is wrong" is sound no matter how the dense count
+resolves. Only the *confirmation* branch's magnitude was ever input-dependent,
+which leaves the pre-registration in better shape than the unresolved `d`
+suggests. Expect roughly **0.96–0.98x**; treat any single value in it as
+illustrative.
+
+**`d` is the wrong thing to measure, and the planned instrument measured it.**
+The intent was verbose-on plus a dense-path call count — which yields `d`, not
+`f`, and would have produced a precise number for a quantity that does not
+enter the corrected solve. Cancelled before the render rather than after.
+
+If the historical 0.992x is ever wanted, `x` is directly measurable with no
+model at all: `dense_phase_time_chunked / dense_phase_time_base`. The whole
+solve exists only because the original figure was an aggregate over a mixed
+run.
+
+**Round 2 supersedes all of it.** Sol removed, every step chunked, so `f = 1`
+and `x` is read straight off the two arms' wall-clock. The reconstruction is
+then optional history — worth doing only to settle whether the audit's
+"reproduces 6 dense at 20 steps" control ever held, which is a real question
+about that audit's credibility but not a prerequisite for this result.
+
+**A null here does not close the area.** The out buffer is real and constant
+regardless of where process peak is set, and removing it is not something any
+consumer-side arrangement can do — it needs a kernel writing into a
+caller-provided view. That is scoped upstream and unscheduled, not impossible;
+see the amended `_chunked_heads` docstring.
+
+### Round 1 result, 2026-08-13 — and read the timing, not the memory
+
+`h3_ref_video_swap_api.json`, 345 frames at 1024x768, unmodified against the
+same graph with `MiniMaxLowVRAMAttention` (head_chunks 4) spliced between sage
+and Sol-Attn:
+
+| arm | whole-GPU peak | wall clock |
+|---|---|---|
+| control | 22,248 MiB | 33.2 min |
+| + lowvram delegate x4 | 22,762 MiB | **30.7 min** |
+
+**Memory: +514 MiB, and that is UNRESOLVED, not "unchanged".** The delta is
+well inside this observable's documented 2,265 MiB single-config excursion
+(entry 7). The probe script auto-printed "the peak did not move, so head
+slicing is not what sets it" — that conclusion is not supported by its own
+instrument and is withdrawn. All that can be said is that the effect is
+smaller than whole-GPU peak can see.
+
+**Time: 0.925x — 7.5% FASTER.** This is the axis that resolves, since
+wall-clock does not carry the allocator excursion, and it is the axis the
+script buried in a parenthetical because it was written to answer a memory
+question. Single run, so it wants a repeat before it is quoted as a figure.
+
+**Do not read this as a result about head chunking.** The delegate is
+KJNodes' `minimax_attn_lowmem_forward`, which chunks *and* releases the
+block's `h` early via a separate block-level patch. A speedup cannot be
+attributed between the two from this arm. The clean test is round 2's
+`sage only` against `sage only + chunks 4`, where nothing else differs.
+
+Worth noting against the pre-registered prediction: it expected chunking to
+cost wall-clock. This arm gained it. If round 2 agrees, the per-step-overhead
+model is wrong — which is the falsification branch, and it holds without
+needing `d` or `f`.
+
+**The script's conclusion logic had no branch for this outcome** — memory
+unresolved, timing moved — so it defaulted to a memory verdict it could not
+support. Same lesson as choosing an instrument that no longer matches the
+model: the interpretation has to be re-checked when the informative axis
+changes, not just the measurement.
+
+**Blocker: none, round 2 is running.**
+
+---
+
+## 9. A clean run with no speed-ups at all
+
+> **More important under distillation, 2026-08-20, and still not run.** Every
+> distilled arm stacks a LoRA on sage on Sol, so a disappointing 4-step result
+> has three candidate causes. Note what does NOT discharge this entry: the
+> "dense" arm in the SLA-router regime set (`docs/state/roadmap.md`) is sage on with
+> Sol off, the repo's baseline convention, not stock torch attention.
+
+**Tests:** whether the stack costs prompt adherence and reference fidelity,
+not just time.
+
+**Why it matters:** every reference graph here ships sage plus Sol-Attn, and
+several add a turbo LoRA on top. There is **no arm anywhere in this repo that
+renders without them**, so every quality judgment ever made here has been made
+through the stack. General prompting research reports that stacking
+accelerators degrades adherence and that a plain 20-25 step run is the thing
+to fall back on when references are being ignored — untested here, and
+untestable without the control.
+
+**Cost:** one render per comparison, at base steps, on an existing graph.
+
+**Decision it changes:** whether a disappointing reference result is the
+model, the prompt, or the acceleration. Today that is unattributable, which
+makes it the most expensive gap on this page.
+
+**Blocker CLEARED 2026-08-13** — see `docs/method/checks.md`. Was: `SageChainAssert`
+fails on a sage-only graph. Not because sage is broken — its call-time probe reads
+Sol-Attn's counters (`sol_attn_stats`), and we publish none of our own, so
+with Sol removed nothing moves and the node reports the composed path was not
+taken. Both sage-only arms of round 2 died on it in 1.0 min. See
+`docs/method/checks.md`. The control needs either that counter added or
+`require_override`/`exercise` turned off, and only the first is a repair.
+
+---
+
+## 10. The swap arm measures likeness with likeness turned down
+
+**Tests:** whether `allow_upscale=True` fits the reference-video budget.
+
+**Why it matters:** `REF_VIDEO_BUDGET` sets `ref_upscale=False` across all
+eight video-bearing arms, which was right for the arms that vary structure,
+motion or continuation. `h3_ref_video_swap` is the one arm whose entire
+subject is **identity**, and its reference is `1-man.png` at 1024x1024 —
+1.0 MP, half the 2048 short edge the model accepts. General prompting research
+puts the floor for face likeness at 2 MP and says a small reference or a face
+far from camera is the first failure to rule out. So that arm currently
+undercuts the thing it exists to measure.
+
+Cost is known from the table in `docs/h3/references.md`: 1,024 → 4,096
+reference rows, about +2% on a ~147k sequence.
+
+**Second-order:** `h3_probe_reference_upscale` exists to A/B upscaling against
+`h3_image_ref_plus_text_to_video`. Now that `ref_upscale=False` is the default
+for eight arms, that probe no longer isolates its own variable.
+
+**Blocker: none, it is priced in round 2's third arm.**
+
+---
+
+## 11. Does a reference video's INPUT resolution cost tokens
+
+**RESOLVED for mechanism and cost, 2026-08-23.** Feeding a smaller clip changes
+both core's no-upscale VAE rows and Comfy's Qwen rows. Preflight now reports
+source, VAE-prepared, raw/padded sample count, and both Comfy and release Qwen
+grids. The typed conditioner's opt-in `release` policy executes the other path:
+full release canvas for the VAE, duration-budgeted sampled view for Qwen.
+
+**Why it mattered:** general prompting research recommends downscaling a
+reference video hard when it is only providing motion, and our loaders sit at
+native (`custom_width: 0`). A reference video already costs rows in two
+places — the DiT reference block, and vision blocks inside the *text* segment
+at 2 fps, ~519 tokens per merged pair (`docs/h3/references.md`). The DiT side
+uses core's source-size clamp when the source is below its canvas, and the
+**Qwen vision** side tokenizes the prepared input resolution under Comfy's
+per-pair policy. Downscaling is therefore a real sequence lever, not only a
+load-time saving.
+
+The remaining question is quality, not token accounting: whether the more
+expensive release-sized video transfers identity or motion better. That is gap
+6's controlled-benefit experiment, not this retired geometry question.
+
+---
+
+## 12. Aspect-ratio agreement between references and target
+
+**Tests:** whether mismatched aspect ratios across reference video, reference
+images and the target canvas degrade output.
+
+**Why it matters:** general prompting research says line them up. Nothing here
+does — `1-man.png` is 1:1, the placeholder clips are 16:9, and the arms render
+4:3 or 7:4. If it matters, it is a confound sitting under every reference
+result on this page.
+
+**Cost:** a matched-ratio arm against an existing one.
+
+**Blocker: needs a quality judgment, not a measurement.** Listed because the
+mismatch is currently invisible and unacknowledged rather than accepted.
+
+---
+
+## 13. Preflight's token math has an independent implementation now
+
+**Tests:** our packed-sequence arithmetic against somebody else's.
+
+**Why it matters:** every validation of the reference cost model so far has
+compared Preflight to numbers this repo derived. KJNodes shipped
+`MiniMaxH3TokenCounter` on 2026-08-11, which builds the same
+`[text | keyframes/refs | audio | video]` layout and reports `seq_len` plus a
+breakdown, written by a different author from the same upstream source. This
+repo's stated preference is an independent implementation over a self-derived
+number, and one is now sitting in `custom_nodes/`.
+
+Note the two are already known to differ elsewhere: `docs/h3/resolutions.md`
+records it computing its int32 warning from the contiguous stride where our
+Preflight uses the fused one. That is a reason to diff them, not a reason to
+assume either is wrong.
+
+**Cost:** wire it beside Preflight in one graph and compare, or lift its
+arithmetic into a CUDA-free check.
+
+**Blocker: none.** The strongest available control for a number this repo
+leans on heavily.
+
+---
+
+## 14. There is no output-quality instrument for any modality
+
+**Tests:** nothing yet. This entry exists because four entries above are filed
+under "blocker: owner judgment" and that is only half true — it is the blocker
+on the *verdict*, not on getting a first pass.
+
+**The observation that prompted it.** Asked why quality work here leans on
+audio, the honest answer turned out not to be "audio matters more". It is that
+`bench/` has **no output-quality tooling at all**: every number in it is
+kernel-level cosine or rtol against a reference tensor, and nothing reads a
+rendered frame or a decoded waveform. What exists at the output level is ad
+hoc, and it split by whether a number could be extracted mechanically:
+
+| modality | what was measured | status |
+|---|---|---|
+| audio | dB mean/peak per render | **retracted** — did not survive 362 frames; `docs/attention/sol_attn.md` says accuracy against the sage output was never checked at all |
+| video | human viewing — object dissolve, prompt adherence at 12 steps | `docs/attention/sol_attn.md`'s Quality section is marked **REOPENED**: judged from stills, and the failure mode is temporal |
+| reference image identity | nothing | entry #1, blocked on owner judgment |
+
+Audio is not over-tested. It is the one that got a *number*, because `ffmpeg`
+prints dB and nothing prints "the subject still looks like itself". That is
+instrument availability, not a claim about what matters — and the one number it
+did produce was retracted, which is the argument for building the instrument
+rather than against it.
+
+**Why it matters:** #1, #6, #9 and #12 are all queued behind the owner
+watching renders, and that queue does not drain by adding card time. A
+mechanical screen would not settle any of them, but it would order them —
+say which pairs are worth watching and which are indistinguishable — and it
+would catch regressions between the sessions where somebody is watching.
+
+**Arms:** none. The deliverable is the instrument, and the repo already knows
+what shape each one has to be:
+
+- **temporal, not per-frame.** `docs/attention/sol_attn.md` is explicit that a grid of stills
+  cannot catch the object-dissolve artifact, and states the form a gate takes:
+  track one small persistent object frame by frame. A per-frame metric
+  averaged over a clip would report the artifact as noise.
+- **not a numeric diff of two renders.** Comparing finished renders
+  numerically measures trajectory chaos — at 20 steps of a flow ODE any
+  perturbation diverges while both outputs look fine. That trap is already in
+  `docs/attention/sol_attn.md`'s measurement-traps list and it is the reason the obvious
+  instrument is the wrong one.
+- **not through a codec.** `h3_config.py` records the first int8-VAE quality
+  pass measuring an h264 round trip's noise floor (1.63/255 at 41.1 dB) and
+  reporting it as the decoder. Three comparisons returning the same number was
+  the tell. Whatever this reads, it reads it before encode.
+- **audio has the cheapest first version**: the paired files already exist, so
+  accuracy against the sage output is a comparison, not a render.
+
+**Cost:** unknown, and deliberately not estimated here. Scoping it is the
+first task, not a thing to guess at.
+
+**Decision it changes:** whether #1, #6, #9 and #12 stay blocked on a person.
+
+**The cheaper route, 2026-08-20:** at ~3 minutes a 4-step render, many seeds
+per arm judged blind in aggregate costs under an hour for 8 seeds x 3 arms, which no base-model
+session could afford. That does not build the instrument; it makes the
+owner's judgment affordable enough to drain the queue without one.
+`bench/blind_batch.py` is the batching layer.
+
+**Blocker: none, and that is the point.** Every other entry blocked on owner
+judgment has been listed that way since 2026-08-13 without anyone asking what
+would make the judgment cheaper. A screen that can go red is worth more than
+another parked question.
+
+---
+
+## 15. tau 1.0 against 1.3, and morton's quality axis
+
+**Tests:** two defaults the algorithm's author reframed on 2026-08-14, both of
+which we set on evidence that turns out to address a different question.
+
+> Kijai: "tau 1.0 is where it's the default *max* quality, any higher further
+> degrades it, but also speeds it up. morton may or may not increase quality,
+> that's something to test."
+
+**Why it matters — and this is the part worth reading carefully.** Neither
+statement contradicts anything measured here. Both reveal that what we measured
+was a different axis from what we claimed.
+
+**tau.** `h3_config.py` presents 1.3 as the quality choice, on the grounds that
+it sits below the object-dissolve artifact's onset (~1.5). True, and it is a
+statement about where quality falls off a *cliff*. Kijai's is about where
+quality *peaks*: 1.0, degrading monotonically above it. So 1.3 is a
+speed-for-quality trade we have been describing as a quality decision, and we
+sit in the gradual-degradation band between the two thresholds — precisely the
+band with no dramatic tell, which a stills-based judgement cannot see. Every
+tau arm ever run here compared 1.3 against 2.0, so all it establishes is that
+1.3 beats something worse. **1.3 against 1.0 has never been run.**
+
+**morton.** We set `morton=False` on a speed result — worth 1.16x alone, a net
+loss stacked on int8, 94% GPU utilisation against 99% elsewhere — and **that
+result is RETRACTED for the CUDA backend, 2026-08-16.** It was Triton, 362
+frames, stacked on int8. Isolated against a dense control the permutation is
+free -- the dense and sparse pairs disagree in sign and both sit under the
+bench's run-to-run spread -- and the three curves are speed-indistinguishable.
+Kijai says the quality effect is untested, and it still is.
+
+This makes the arm **more** worth running, not less. Reordering video tokens so
+each 64-token block is a compact 3D neighbourhood changes *which* blocks the
+router keeps, and on captured activations it measurably tightens the per-block
+centroid. With the cost at zero, any quality gain at all would justify turning
+it on, so the default is no longer a trade — it is an untested knob left off.
+`Canonical: docs/attention/morton.md`.
+
+*2026-09-27: closed with Morton (`docs/state/roadmap.md`, "Closed lanes"); the arms
+below are deleted from `bench_e2e_h3.py` and live in git.*
+
+**Arms:** `shipped` (tau 1.3, morton off), `shipped[tau=1.0]`,
+`shipped+morton2d`, `shipped+morton3d`, `shipped+hilbert`, and
+`shipped+reorder_only` for the cost-in-isolation control. All are named arms in
+`bench_e2e_h3.py` as of 2026-08-16; the ad-hoc syntax covers any tau crossing.
+Note that a fair Morton test raises `tau` rather than holding it, since the one
+stated payoff is "the same quality at higher sparsity" — an arm at fixed tau
+measures the cost and none of the benefit.
+
+**Cost:** 4 arms at 345 frames. Time is the cheap half.
+
+**Decision it changes:** `SOL_RECOMMENDED_CUDA`'s two most-quoted values.
+
+> **2026-08-20: the default moves to tau 1.0 by owner decision, and 1.3 has to
+> earn its way back.** 1.3 stays only if it shows no difference from 1.0 on the
+> distilled LoRAs while buying meaningful speed. The speed half is a
+> `--set SolAttnMiniMax.tau=1.3` patch arm in the day's regime set; the quality
+> half is an 8-seed blind session, not yet run.
+
+**Blocker: the same one as #1, #6, #9 and #12 — an instrument.** Speed will
+answer itself in one run. The quality half is a gradual degradation with no
+artifact to point at, which is the failure mode #14 exists for: stills cannot
+see it, a numeric diff of two renders measures trajectory chaos, and there is
+no output-quality tooling for any modality. **Run the speed half now and do not
+pretend the quality half was answered by it.** Recording the timing alone would
+produce exactly the reading this repo keeps having to retract — "1.0 costs N
+seconds" filed as if the tradeoff had been priced.
+
+---
+
+## 16. The single-frame path: four questions the first render did not answer
+
+> **PARKED 2026-08-27 with the path itself.** 16a-16g are closed as *will not
+> be measured*, which is not the same as answered. The owner moved off this
+> lane; the graphs are `archive/workflows/image/`, the core patch is
+> `archive/single_frame.py`, and nothing generates, walks or grades any of it.
+> [`docs/h3/image_editing.md`](../h3/image_editing.md) is the parking record.
+>
+> **Everything below is left as it was written** -- registrations, blockers
+> and results in their original tense -- because it is the record of what was
+> measured and what was not. Read every "blocker", "still open" and "next
+> arms" line as superseded by this banner: the arms they name are archived,
+> and running one means un-parking first.
+
+Added 2026-08-15, when `length=1` became reachable and
+`workflows/image/h3_image_edit.json` shipped (it was `workflows/h3_image_edit.json` until the image graphs were foldered by use case on 2026-08-16; both paths are now under `archive/`). The path worked end to end and the VAE
+question is settled with ground truth (37.27 dB against 22.04 dB on a `T=1`
+round trip, in `CHANGELOG.md`). These four are not.
+
+**16a. Does the latent-slice fallback work, and what does it cost?** The
+no-shim workaround everyone uses is: render 5 frames, decode all five, keep
+image 0. Nobody appears to have tried the other one -- render 5 frames, slice
+the LATENT to `T=1`, then decode that single temporal step with the image VAE.
+The reported grid artifact comes from handing a 2-step latent to a decoder
+trained on 1, so slicing first should avoid it entirely while still paying 2x
+the video rows. **Why it matters:** if it works it is a shim-free path, and it
+also separates "the artifact is a decode-side effect of multi-frame latents"
+from "the DiT's extra temporal context changes the image". **Blocker:** needs a
+node to slice a nested AV latent temporally, and this repo has deliberately not
+spent a permanent `node_id` on a temporary problem. Cheap to answer with a
+throwaway script before deciding.
+
+**16b. Is the image VAE's softness ever the wrong trade on GENERATED latents?**
+The 15.2 dB result is a *reconstruction* measurement -- encode a real image,
+decode it, compare. That is the right test for a decoder and it is decisive
+there. It is not the same question as which decoder produces the better image
+from a latent the DiT invented, where there is no ground truth. On the one
+generated sample compared, variance-of-Laplacian preferred the video VAE
+(163 against 118) and a 1:1 crop showed why the metric was wrong: the video VAE
+was adding local contrast and a colour shift, not detail. **That is n=1 with a
+metric that misled once already**, which is exactly the shape of the h264
+noise-floor mistake in `h3_config.py`. **Blocker:** owner judgment on a handful
+of paired renders; there is no automatic instrument for this (see #14).
+
+**16c. fl2va at one frame is unmeasured, and we refuse it rather than know.**
+`MiniMaxH3ImageToVideo` pins a `last_frame` keyframe at `frame_count - 1`,
+which in a one-frame video is frame 0 -- on top of `first_frame`.
+`keyframe_canvas.py` therefore refuses `length=1` outright -- **still true and
+now the only trace of this lane on the live tree**, and its error message says
+the lane is parked -- and the image path that shipped was ref2v. Whether
+fl2va with only a `first_frame` does something useful at one frame (a true
+img2img) is unknown. **Why it matters:** it is a
+different edit modality from reference conditioning, and the refusal is a
+guess wearing an error message. **Blocker:** one render, plus deciding what a
+`last_frame` should mean at one frame.
+
+**16e. How many reference images does a single-frame edit actually hold?
+Untested, and the cost curve says the limit is not the one we would guess.**
+Every render on this path used ONE reference. Core caps images at 9 (and
+videos at 3, audio at 3), and the sequence arithmetic says nothing breaks
+before that: one 1024x1024 reference through `MiniMaxH3ReferenceFit` at
+`allow_upscale=True` is 4,096 rows (measured by Preflight, and the arithmetic
+agrees exactly), so nine of them is 36,864 reference rows and 42,008 total --
+**51% of the 124-frame reference video graph, which already fits on the 4090.**
+Turn the fit node's upscaling off and nine references cost 9,216 rows, a
+sequence of 14,360.
+
+So VRAM and sequence length are NOT the binding constraint, and the interesting
+limits are the ones no number here predicts: whether identities stay separate
+past two or three people, whether the model still attends to `<Picture 7>` when
+it is told to, and whether prompt adherence degrades with label count. The
+community write-up reached four (three people plus a location) and reported it
+works; nobody has published where it stops.
+
+**Decision it changes:** whether the shipped graph stays single-reference, and
+whether `allow_upscale=True` is right on THIS path -- it is the single largest
+cost here (4x per reference) and it exists for identity fidelity, which is the
+one thing a multi-subject edit stresses most.
+
+**Arms:** 1, 2, 3, 4, 6, 9 references at the shipped canvas, same seed, prompt
+naming every label; then the 4-reference arm repeated with `allow_upscale=False`
+to price the fit node. `internal/reference_library.md` has 19 images ready.
+
+**Cost:** 7 renders, seconds each at one frame. This is the cheapest experiment
+on the whole list.
+
+**Blocker: none for the numbers, owner judgment for the verdict.** Token counts
+and render times are mechanical; whether four faces still look like four
+specific people is not.
+
+**RESULT (2026-08-16), 13 arms via `bench/bench_image_edit_refs.py`.** Three
+things settled and one still open.
+
+*Composition is not what breaks; the card is.* Measured sequence and wall clock
+at the shipped sizing, one frame each:
+
+| refs | sequence | secs | outcome |
+|---:|---:|---:|---|
+| 1 | 9,135 | 42 | identity held |
+| 2 | 17,352 | 78 | subject + scene composed |
+| 3 | 32,093 | 198 | subject + garment + place, jersey text legible |
+| 4 | 40,294 | 280 | **two distinct identities, no blending**, right garment on the right person |
+| 6 | 56,710 | 491 | **three distinct identities**, all correct |
+| 9 | ~94,000 | -- | **OOM on a 24 GB 4090** |
+
+Three separate faces survive in one frame. What fails first is memory, and it
+fails between 6 and 9 references at this sizing.
+
+*The cost model was wrong, and the correction is the finding.* Reference images
+are paid for TWICE -- as Qwen vision tokens in the `text` segment and again as
+latent rows -- and the text half scales with count, landing 75-160 rows above
+the reference half at every rung. The ladder is recorded in
+`docs/h3/references.md`. The projected costs in the bench script are therefore
+about half of true, and 9 references is ~94k rows: more than the 124-frame
+video graph, on a single frame.
+
+*What `allow_upscale` buys is, on this evidence, nothing.* Same seed, same two
+references, three sizings:
+
+| sizing | ref rows | secs |
+|---|---:|---:|
+| `max` + fit upscale (SHIPPED) | 8,192 | 84 |
+| `max`, no fit upscale | 2,048 | 18 |
+| `match` | 1,682 | 16 |
+
+4.9x the rows and 5.2x the wall clock, and at 1:1 on the face all three hold
+the same identity, glasses, hair and features. **One subject, one seed, one
+scene -- this is not enough to move the default on its own**, and identity
+drift is exactly what a person judges better than a crop comparison. But it is
+the first evidence either way, and it points at the shipped default costing 5x
+for nothing. `size-small-source` is the sharper version of the same point: a
+662x1177 source enlarged 3.1x to reach 2048 cost 14,784 reference rows and
+186s, more than the entire four-reference composition, for the least detailed
+source in the library.
+
+**RESOLVED FOR THE IMAGE PATH, 2026-08-16.** The sizing result was reproduced
+on a second subject and seed -- `h3_image_style`, two references, 89.1s with
+the fit upscale against 18.1s without, and the pair compared against the source
+reference rather than against each other: same identity, freckle pattern, head
+angle, expression and hairstyle, with the graphite medium transferring in both.
+So `ref_upscale=False` became the default for every graph on that path
+(`workflows/h3_config.py`'s `IMAGE_EDIT_BUDGET`, which outlived the graphs),
+and the set rendered in about two minutes against about eleven.
+
+**Two subjects and two seeds is still a small n**, and none of it transfers to
+the video path, which keeps `ref_upscale=True`: a 124-frame render is minutes,
+and identity there has to survive motion as well as a still frame.
+
+**STILL OPEN, and it is 16b's question in a new place:** whether the sizing
+result holds across more subjects and seeds. Two cheap follow-ups: repeat the three
+sizings on 3 more subjects at 2 seeds, and re-run the 9-reference arm at native
+sizes (~19k reference rows rather than ~94k), which should fit and would tell
+us whether 9 identities hold when the memory wall is moved.
+
+*Canvas, at one frame, is nearly free and nothing chose itself.* 768x1152,
+1024x1536 (out of family), 1344x768 and 768x768 all rendered cleanly at
+comparable cost. 16d stays open on owner judgment.
+
+**16d. In-family 768x1152 against the community's 1024x1536.** The shipped
+graph uses the in-family canvas; the write-up it follows renders 1.57 MP, 52%
+over H3's area cap. At one frame the canvas costs almost nothing (the video
+segment is 9% of the sequence), so the usual reason to stay small does not
+apply here -- which makes this the cheapest quality question on the list and
+the one most likely to change a shipped default. **Blocker:** owner judgment on
+paired renders.
+
+---
+
+## 16f. Which prompt format a single-frame edit wants
+
+Added 2026-08-16, when the image path moved to `workflows/image/` and its
+prompts were rewritten into the guide's structure.
+
+**Tests:** whether the official ref2va structure earns its tokens on a still
+frame, and separately whether the two audio sections cost anything when
+carried on a graph that has no audio decoder.
+
+**Why it is open rather than decided.** This path shipped flat prose until
+2026-08-16, on the argument that the guide is a *video* guide -- two audio
+sections and a `[Shot 1]` with shot timing. Then the r/StableDiffusion author
+whose write-up this path follows published a second prompt set, and **between
+their two posts they switched from flat prose to the guide's structure** with
+the audio sections dropped. They had rendered a couple of thousand images by
+then. But neither post held the scene or the references fixed, so it is a
+practitioner's revealed preference and not a measurement -- the same grade of
+evidence as the third-party kit in [`docs/prompting/prompting.md`](../prompting/prompting.md) section 15.4.
+
+**The arms exist and are unrendered.** `h3_image_style.json` (four sections,
+the shipped default), `h3_image_probe_format_av.json` (all six, audio ones
+`N/A`), `h3_image_probe_format_flat.json` (one paragraph). Same scene, same two
+references, same seed. The content is generated once per scene and rendered
+into all three formats, so the arms cannot differ in wording -- which is what
+the two Reddit posts do differ in, and why they cannot answer this.
+
+**What to look at:** whether the style reference brings its own cottage. That
+is the scene's designed failure and it is visible at a glance, which matters
+because there is still no output-quality instrument here (#14).
+
+**Ladder, and read a result against it:** `av` -> `sections` removes only the
+audio pair. `sections` -> `flat` removes the guide's formal apparatus as a unit
+-- headers, shot marker, and marker vocabulary rendered as English. That last
+rung is three things on purpose: a paragraph carrying `attribute_transfer -`
+mid-sentence is a form nobody writes, and beating a strawman would tell us
+nothing.
+
+**Cost:** 3 renders, seconds each at one frame with 2 references.
+
+**RESULT (2026-08-16). All three arms rendered; none failed.** Same scene, same
+two references, same seed, same 16 steps, one pass so nothing drifted between
+them. ~18s each.
+
+| arm | prompt tokens | sequence | mean pixel delta vs `sections` |
+|---|---:|---:|---:|
+| `sections` (default) | 326 | 5,386 | -- |
+| `av` (six sections) | 341 | 5,401 | **3.45** |
+| `flat` (one paragraph) | 292 | 5,352 | **44.61** |
+
+Grey-scale mean absolute difference, 0-255. For scale, an h264 round trip on
+*identical* pixels measures ~1.6 (`h3_config.py`), so 3.45 is close to the
+floor and 44.61 is 13x larger.
+
+**The two audio sections cost essentially nothing**, in tokens (15) or in
+output (3.45, near the noise floor). The prediction in the probe's own note --
+"no visible difference, which is the useful outcome" -- held. Carrying them is
+free; so is not carrying them, which is why the four-section default stands on
+the honesty argument rather than a cost one.
+
+**The scaffolding is a large lever on the image and did NOT break the role
+binding.** `flat` differs from both structured arms by 44.6, which is a
+materially different picture -- tighter crop, the subject larger in frame. But
+a prompt text change moves the image by construction, so a large delta is
+expected and is not by itself a defect. What matters is the designed failure:
+**no cottage appeared in any of the three.** Identity, freckle pattern, head
+angle and the graphite medium held in all three. `attribute_transfer` bound
+without the section scaffolding.
+
+**So the honest reading is a negative result: on this scene, at this seed,
+format did not decide whether the roles bound.** That is worth having and it is
+not "format does not matter" -- see the limits below.
+
+**Limits, and they are real.** n=1 per arm, one scene, one seed. The `flat` arm
+deliberately KEEPS the negative clause ("<Picture 2> supplies no subject, no
+scene and no composition") because content is held fixed across formats, so it
+carried the same protection the structured arms have -- it is not the bare
+community-style prompt. And a two-reference style transfer with an explicit
+negative clause may simply be too easy a case to separate the formats.
+
+**What would actually discriminate**, in order: drop the negative clause from
+one arm (that is the untested technique, not the scaffolding); run the ladder
+on `h3_image_multiperson`, where three references and two identities give the
+model more to confuse; and repeat at 2-3 seeds, since one seed cannot separate
+a format effect from a sample.
+
+**Blocker: the path is parked.** It was none, and the next arms are specified
+above; they were never run and now sit in `archive/workflows/image/`.
+
+**Two follow-ups it would open, not close.** If the structured arms win,
+whether the `<Subject N>` indirection specifically is what did it (the flat arm
+keeps it, deliberately, so content is held fixed). And whether the result holds
+on a one-reference scene, where there are no roles to confuse.
+
+---
+
+## 16g. Step count on the single-frame path
+
+Added and partly answered 2026-08-16.
+
+**Tests:** whether one frame needs the 16 steps the video path uses.
+
+**RESULT: it does, and the value is in where it breaks.** One paired render per
+scene, same seed, `ref_upscale=False`, 16 against 8:
+
+| scene | refs | 16 steps | 8 steps | verdict |
+|---|---:|---:|---:|---|
+| `h3_image_edit` | 1 | 13.0s | 4.0s | indistinguishable |
+| `h3_image_style` | 2 | 18.0s | 7.0s | freckling and medium both hold |
+| `h3_image_multiperson` | 3 | 25.0s | 10.0s | **8 loses the freckling and the pendant** |
+
+At three references, 8 steps drops precisely the fine detail that scene's
+`partially_preserved` entry names as retained. It buys ~15s on the one graph
+where that detail is the point, so **`steps` stays 16** and no per-scene step
+count was introduced.
+
+**The methodological point is the durable half.** Measured only on the
+one-reference portrait -- the obvious scene to try, and the fastest -- 8 steps
+looks free everywhere and the default would have moved. A check whose input
+already satisfies the expected outcome cannot fail, and a single studio
+portrait is that input for step count.
+
+**Still open:** a real sweep (12, 10) on the three-reference scene, and whether
+a per-scene step count is worth the complexity. One paired render per condition
+is consistent with the expected mechanism and is not a sweep.
+
+---
+
+## 18. Routed density under each curve, at fixed `tau`
+
+**Tests:** how far a token ordering moves Sol-Attn's operating point. Every
+Morton and Hilbert A/B this repo has run compared two orderings *and* two
+sparsity levels, without knowing the size or the sign of the second.
+
+> **Substantially done 2026-08-19.** `bench/sweep_routing_density.py` measures
+> routed density per block, step and head at production S on the 2026-08-18
+> capture (`data/results/2026-08-19_routing_density_per_head.json`), with the
+> curve as an argument; the per-block and per-step axes came out flat. What
+> remains of this entry is the curve comparison at fixed tau specifically.
+
+**Blocker: a capture at a known video geometry.** No render, no GPU, no server
+once one exists, and it belongs in `bench/analyze_routing.py`, which now runs
+without the `coderef/` clone. The `2026-08-15_dense_124f_1344x768` capture this
+item was written against is **no longer on disk**; what is there is the
+2026-08-17 reference-heavy pair at 362 frames 1024x768, whose video span differs,
+so the geometry has to be re-derived rather than reused.
+
+**Method, and one constraint that is not optional.** Score with upstream's eager
+reference (`coderef/comfy-kitchen-kijai/comfy_kitchen/backends/eager/sol_attn.py`,
+routing at `:112-142`), not a fresh transcription of the threshold formula. Its
+own docstring says it "defines the algorithm, not the CUDA kernel's arithmetic",
+which is exactly the right relationship: it is upstream's statement of what
+routing *means*, so using it keeps a reimplementation risk out from between the
+measurement and the claim. `bench/analyze_capture.py` already builds all four
+orderings and applies the `(-video_start) % 64` roll -- reuse that, do not
+rebuild it. Count the conditioning rows into the block population, since `kcvar`
+is a variance over *all* block centroids; exclude the forced-exact pairs
+(diagonal +-1 and sink) from the density, since they never consult the
+threshold.
+
+**Those two exclusions are different things, and only one of them is an
+exclusion.** Forced-exact *pairs* come out of the density -- they never consult
+the threshold. Conditioning *rows* stay in the block population, because
+`kcvar` is a variance over every block centroid in the sequence and dropping
+530 rows would move the threshold for every query block. That is also the
+reason to score the whole packed sequence rather than slicing the video span:
+the slice is a different partition from the one the kernel sees.
+
+> **A caveat stood here on 2026-08-16 saying the prototype had dropped the
+> conditioning rows, and it was wrong.** Withdrawn the same day after reading
+> the script rather than the report of it:
+> `internal/scripts/archive/sol_curve_2026-08-16/probe_routed_density.py:41` sets
+> `n = S // BLOCK` over the full 37,826-row sequence, and `kc`, `kmean` and
+> `kc_var` are all computed over that population. The threshold is already
+> derived the way the kernel derives it, and no reported number moves for this
+> reason. Left in place because "expect the numbers to move" would have sent
+> the next reader hunting a discrepancy that does not exist -- a wrong caveat
+> costs more than a missing one.
+
+### Pick which density you are reporting, and emit both
+
+**The real defect in the prototype, and it is a labelling one.** Its docstring
+claims diagonal, neighbour *and sink* blocks are excluded from numerator and
+denominator. The code masks only `|i-j| <= 1`
+(`internal/scripts/archive/sol_curve_2026-08-16/probe_routed_density.py:47`); there is no sink mask
+anywhere. Sink pairs sit in the denominator and are judged by the threshold
+like any other pair, when the kernel forces them exact regardless.
+
+So the figures produced on 2026-08-16 are **"the fraction of non-adjacent pairs
+the threshold would route"**, not "the fraction the kernel routes exact". The
+kernel's number is higher. Two consequences, and they point opposite ways:
+
+- **The ratios stand.** Same pair set under every ordering, and forced-exact
+  status is ordering-invariant, so the 1.15x / 1.11x comparisons are unaffected.
+- **The absolutes do not mean what their label says**, and anything sized
+  against them -- `routed_cap_percent` headroom, cost estimates -- would be
+  sized against the wrong quantity.
+
+These are two different measurements and neither substitutes for the other:
+
+| | what it answers | how |
+|---|---|---|
+| **ordering-effect density** | what did the permutation do | drop *every* forced-exact pair -- diagonal, neighbour, sink-KV range, sink-query range -- from numerator and denominator |
+| **kernel density** | what does the kernel actually route, and what does it cost | count forced pairs in, as the kernel does |
+
+**Emit both.** It is one extra mask, and reporting one while labelling it the
+other is the mistake that already happened once here. `docs/attention/morton.md`'s pending
+figures are the first kind and are labelled as such.
+
+**What it must report, not just a number.** Density per (curve, depth), and the
+`tau` that returns each curve to raster's density. If those compensating taus
+differ by depth, that is expressible as a `tau_profile` -- it is keyed per
+transformer block (`vendor/sol_attn_minimax.py:55-76`). If they differ by
+*sigma*, nothing in the node can compensate it, and the whole idea dies there.
+
+**Do not build a compensation table off this alone.** The only capture is step 1
+of 6, and Sol runs 11 of 16 steps at the shipped window. Three depths is also
+three points to cover fifty blocks. A second capture at a late step is the
+prerequisite for anything shipping, and is a separate small job:
+`h3_capture.py` needs `H3_CAPTURE` set before ComfyUI starts.
+
+**Why it matters beyond Morton.** It is the missing denominator under
+`docs/attention/morton.md`'s six-arm sweep, under `SOL_RECOMMENDED_CUDA`'s pinning of
+`3d`, and under any future curve. It converts "these two orderings scored X and
+Y" into "these two orderings sat at different points on the speed-quality curve,
+this far apart" -- which is the difference between a comparison and a
+coincidence.
+
+---
+
+## 17. A 16-bit PV branch for the CUDA Sol-Attn kernel
+
+**Tests:** whether `sol_attn_exact.cu` should get a 16-bit PV matmul, keeping
+INT8 QK -- the same shape sage runs -- and whether that is worth the kernel
+work at all.
+
+**The name is misleading and the scope is much narrower than it sounds.**
+Sage's `fp16 (most accurate)` is not an fp16 kernel. It is `qk_int8_sv_f16`:
+INT8 QK, 16-bit PV (`csrc/qattn/qk_int_sv_f16_cuda_sm80.cu`, `MMA_QK_K 32`
+int8 against `MMA_SV_K 16` fp16). So "give Sol an fp16 path" means one thing --
+move the PV matmul from `mma_u8s8` to a 16-bit MMA. QK stays INT8 on both
+sides. Read as "add fp16 kernels" this looks like a rewrite; it is one matmul.
+
+### A 16-bit Sol-Attn exists on Triton -- but it does NOT price this change
+
+**Corrected 2026-08-16, same day this entry was written.** The first draft said
+the Triton numbers "already price" a 16-bit PV. They do not, and the reason is
+the failure shape the 2026-08-15 postmortem names three times: a measurement
+stated at a scope wider than it was taken at.
+
+What is verified, read from `coderef/ComfyUI-SolAttn_triton/__init__.py` rather than
+from our own bench comment:
+
+- The node dispatches **two different kernels**, not one kernel with a dtype
+  flag: `kernel = _sol_attn_int8_kernel if int8_qk else _sol_attn_kernel`
+  (`:214`), logged as `int8` or `bf16` (`:222`).
+- `int8_pv` is passed only when `int8_qk` is on (`:213`), and the node's own
+  default is **`int8_pv=True`** (`:468`). Our `SOL_BASELINE_124F` pins it
+  `False`, which is the only reason the bench's `sage+sol+int8qk` arm really is
+  INT8 QK with 16-bit PV. **Read from the node alone, that arm is full INT8.**
+
+So the frontier table's `sol, no int8` (827.9 s) against `sol + int8 + int8_pv`
+(714.9 s) is **bf16 kernel against int8 kernel** -- it varies the PV dtype, the
+QK dtype, and the implementation, all at once. It cannot be read as the price
+of the PV dtype.
+
+**The clean isolation has never been run.** `int8_qk=True` with `int8_pv` on
+against off, same kernel, one variable, is the arm that would price this, and
+there is no such row anywhere. The 2668 ms profile is the only measurement of
+the proposed config and it has no `int8_pv=True` counterpart profiled beside it.
+
+**And Triton cannot price a CUDA change anyway.** `docs/attention/morton.md` retracted
+exactly this move on 2026-08-16: `h3_config.py`'s "morton is worth 1.16x alone"
+was Triton, 362 frames, stacked on int8, and the CUDA isolation found no
+resolvable cost at all. Its verdict -- "correct for what it measured, wrong as a description
+of the CUDA backend" -- applies here unchanged. The 2026-08-14 CUDA migration
+postmortem is blunter: **every headline number that migration produced was
+withdrawn.**
+
+Everything above also inherits docs/attention/sol_attn.md's "do not rely on" list: 362 frames
+(not a legal length), an unrecorded build, pre-2026-08-14, `res_multistep`.
+
+**Not an accuracy argument, and the first draft used it as one.** Triton bf16
+grades 0.999995 against the eager reference where Triton INT8 grades 0.999885.
+docs/attention/sol_attn.md lists those cosines under "do not rely on": they are **implementation
+fidelity, not accuracy** -- each kernel is graded against the reference *at the
+same tau*, so the sparse approximation sits on both sides and cancels -- and
+they are T=512 synthetic. They say the bf16 kernel tracks its own reference more
+closely. They say nothing about what 16-bit buys on real H3 activations, which
+is the question.
+
+### The one measured fact that bears on the cost
+
+From the captured-activation run written up in `docs/attention/morton.md`, real q/k, this
+model, 124 frames: **attention is not very sparse on this workload.** At its
+most concentrated a query still needs 178 key blocks of 591 to hold 90% of its
+mass, and 394 at block 0.
+
+That is a bound on how small the exact branch can be, and it pushes the cost of
+a 16-bit PV **up**, not down: the more work sits in the exact branch, the more
+of the kernel a 2.5x PV touches. It is not the routed density -- mass
+concentration and the tau routing decision are different quantities -- but it is
+the closest measured thing, and it argues against the assumption that the exact
+branch is a thin slice.
+
+### The layout problem is already solved in-tree
+
+Expected to be the hard part; it is not.
+`coderef/comfy-kitchen-kijai/comfy_kitchen/backends/cuda/sage_attention/sol_attn_route.cu::mma_bf16`
+already runs bf16 PV inside the Sol codebase, and
+`coderef/comfy-kitchen-kijai/comfy_kitchen/backends/cuda/sage_attention/sol_layout.cuh::pack_bf2`
+already carries the helpers it needs.
+
+**Cited by symbol since 2026-08-30, and the reason is a silent miss.** Both
+were line ranges into those two files -- lines 509-528 of the routing kernel
+and 104-116 of the layout header -- taken when that checkout sat at kijai's
+pre-merge tip. Advancing it to the
+merged code rewrote the routing kernel, and the two citations came apart
+DIFFERENTLY: the first went out of range and `bench/check_doc_links.py` caught
+it, while the second stayed in range and now points at a staging helper with
+nothing to do with the claim. **The range check can only see a line that does not
+exist, never a line that means something else**, so a citation into a file that
+moves under you is only half-guarded by it. The claim itself survived both --
+bf16 PV is still there -- which is exactly why nothing else would have noticed. The INT8 QK score tile feeds a 16-bit A
+operand with no shuffle and no permutation -- two adjacent n8 tiles are exactly
+the `m16n8k16` A layout. Sage does the same (`RS_32_to_16` in its
+`attn_utils.cuh` is a pure convert, no lane exchange). Read from both sources,
+not derived from a fragment map on paper.
+
+Consequence: **`perm_key` exists only to make the INT8 repack free**
+(`coderef/comfy-kitchen-kijai/comfy_kitchen/backends/cuda/sage_attention/sol_layout.cuh:63-65`). A 16-bit path does not need it, and V^T stays in the
+logical key order it is already stored in.
+
+### MMA issue rates, measured on this box 2026-08-16
+
+`bench/mma_rate.cu`, RTX 4090 sm_89, register-resident and issue-bound:
+
+```
+form                        ms      TMAC/s   vs int8
+s8   m16n8k32 -> s32     0.822       334.5     1.00x
+u8s8 m16n8k32 -> s32     0.822       334.6     1.00x
+bf16 m16n8k16 -> f32     1.640        83.8     0.25x
+f16  m16n8k16 -> f32     1.640        83.8     0.25x
+f16  m16n8k16 -> f16     0.821       167.3     0.50x
+```
+
+`coderef/comfy-kitchen-kijai/comfy_kitchen/backends/cuda/sage_attention/sol_layout.cuh:83` justifies the all-INT8 branch with "sm_120 is issue-rate
+bound and f32-accumulate forms issue at half rate". **That holds on sm_89 too**
+-- identical instruction count, exactly 2x the time. Verified rather than
+carried over.
+
+Exact-kernel MMA per warp per key block: QK is 8 n-tiles x 4 k-chunks = 32; PV
+INT8 is 16 x 2 = 32; PV 16-bit is 16 x 4 = 64. So the arithmetic predicts
+**2.5x on the exact branch** with f32 accumulate, 1.5x with f16 accumulate.
+
+**This is now the only cost estimate that exists**, and it is arithmetic over
+an instruction-rate measurement, not a kernel measurement. It is an upper bound
+on the MMA term alone: it assumes the exact kernel is MMA-issue-bound, and if
+the kernel is bound by cp.async staging instead -- which the 16-bit V tile also
+makes worse, doubling `LDV` and taking smem from 32 KB to 48 KB per block -- the
+real figure sits somewhere below 2.5x for a reason this arithmetic cannot see.
+Nothing here has profiled the CUDA Sol path per stage. **17a is no longer a
+tie-breaker between two numbers; it is the only way to get a second one.**
+
+### Three gates, all cheap, before any CUDA is written
+
+**17b and 17c are done; 17a is done (2026-09-17) by other means than it planned.**
+The scaffolds exist to fix the metric, the control and the sampling before the
+measurement, because in each case a wrong design produces a plausible number
+rather than an error -- which is exactly what 17b then demonstrated, by shipping
+three of them past its own first run. See each item below for current state.
+
+**17a. Profile the CUDA exact kernel per stage.**
+`bench/profile_sol_stages.py`. One `ncu` run settles MMA-bound against
+staging-bound, which is the whole uncertainty in the 2.5x estimate. While
+there, record routed density: `sol_attn_stats()` counts dispatches, not blocks
+(`vendor/sol_attn_minimax.py:102-104`), so **how much of Sol's work the exact
+branch even is has never been measured**. Two hazards the scaffold already
+carries: `ncu` needs the card alone, and Sol runs only inside the sigma window,
+so an unfiltered capture mixes 5 dense sage steps into the average.
+*2026-09-17: the second half is answered.* `bench/profile_sol_stages.py` is
+implemented and splits the call by kernel name on captured q/k/v; the exact
+branch is nearly the whole call, its time is linear in routed density, and a
+live render with `H3_SOL_TIME` armed (`sol_call_timer.py`) reproduces the
+replay's per-call time, so the split is the render's. Record:
+`bench/results/2026-09-17_sol_stage_profile.md`. The first half was answered
+the same day by probe builds rather than `ncu`, whose counters are admin-only
+on the owner's machine: compute is the critical path, staging hides behind it
+(`data/results/2026-09-17_sol_exact_stage_vs_compute.json`). That is a
+coarser answer than counters would give, and it is about the INT8 PV kernel as
+written, not the 16-bit PV variant the 2.5x estimate was about.
+
+**17b. Decompose Sol's error on captured activations.**
+`bench/analyze_sol_error.py`. Split total error into sparsity error (eager Sol
+against dense) and quantization error (CUDA Sol against eager Sol at the same
+tau). **If quantization error is small against sparsity error, a 16-bit PV buys
+nothing measurable and 17 closes without a kernel being written**, so this runs
+before anything expensive.
+
+`bench/check_solattn_correctness.py` already computes both quantities and
+already says why they do not count: at T=512 on `torch.randn` it prints DOUBLY
+PESSIMISTIC, DO NOT QUOTE, because a near-uniform softmax leaves a block router
+nothing to find and 8 blocks is a different regime rather than a small version
+of production. 17b is that same decomposition somewhere the premise holds.
+
+**Done 2026-08-17, and it does not close 17.** Across all twelve rows the
+quant/sparsity ratio runs 14.43% to 62.20%, against the 5% threshold the script
+uses to retire the question. Quantization is a measurable share of total error,
+so a 16-bit PV is not ruled out on these numbers. Block 49 climbs monotonically
+across the trajectory (49.42%, 55.56%, 62.20%).
+
+**Three things this gate got wrong about itself**, all now stated in
+`bench/analyze_sol_error.py`'s module docstring rather than only here.
+
+Its `rho` column was not a valid cosine, because `quant_l2` was normalised by
+`‖out_eager‖` while the other two used `‖out_dense‖`. Its `cosine_sim` returned
+values above 1.0 at production tensor size. And **its eager Sol diverged from
+the vendored oracle**: `colmean` was normalised on the key-block axis rather
+than the query-block axis, which is identical at every block-aligned length and
+wrong at every ragged one -- rel_l2 0.166 against the oracle at t=1000, where
+production S = 98498 = 1539*64 + 2 is ragged.
+
+All three are fixed and a calibration gate now runs before any capture is read.
+The twelve rows above are post-fix; the correction moved each by under 1.2
+points and changed no conclusion, because the mis-normalised row and column are
+two entries out of 1540 at production scale.
+
+The instructive part is how it survived a day. The sibling gate in
+`bench/simulate_track_b_lite.py` tests at t=320 = 5*64, block-aligned, so it
+could never have caught a ragged-block divergence -- while naming ragged-block
+handling as a known failure mode in its own refusal text. A control whose
+fixture cannot express the defect is not a control for it.
+
+*Blocker: none.* ~~Next action is chunking the oracle, so the gate can run at
+production S instead of inferring from t <= 2001.~~ **Refuted 2026-08-19**
+(`docs/state/roadmap.md`, the error-decomposition section): chunked to production
+length the gate goes red on tie flips while both implementations are correct.
+
+**The next action instead, 2026-08-20:** split the quantization error into
+its INT8 QK half and its INT8 PV half. `bench/analyze_head_magnitudes.py`
+found per-head quant error tracks Q and K magnitude (Spearman ~0.4-0.5) and not
+V (~0), on both checkpoints; a 16-bit PV changes the V side. If that holds
+under a proper split, 17 targets the wrong operand. **`bench/simulate_track_b_lite.py`
+cannot do this split**, and its own docstring says why: its "fp16 PV" arm is
+the unquantized reference, so it adds nothing beyond the quant/sparsity ratio
+-- and it refuses to run. The split needs the kernel's quantization scheme
+mirrored in the eager reference, which is a plausible-number trap; scoped
+here, not built.
+
+**17c. Capture a reference-heavy render.** NEW, and it gates the value of the
+other two. Every Sol measurement in this repo -- including the
+`2026-08-15_dense_124f_1344x768` capture this was written against, which has
+since been removed -- was t2v on fl2va with zero references, while the work
+actually being done is reference-heavy.
+Reference rows are pinned by `sink_conditioning`, so reference-heavy is where
+Sol has the **least** room: every existing ratio is an optimistic bound for the
+real workload, and a bigger pinned region makes a 16-bit PV *more* expensive,
+not less. `h3_capture.py` is env-driven and graph-agnostic, so this is one
+render with `H3_CAPTURE` set against `h3_probe_sol_on_refs_api.json` -- no code
+change. Run 17b on both captures and report both.
+
+**Done 2026-08-17**, on `h3_probe_capture_ref3_api.json` rather than
+`h3_probe_sol_on_refs_api.json`: 362 frames at 1024x768 with three references,
+`S = 98498`, captured at seven blocks single-step and at four blocks across
+steps 3/8/14. The prediction above held -- reference-heavy is not a smaller
+version of t2v, and the multi-step arm additionally showed the ratio moving
+along the trajectory, which a single-step capture cannot see. *Blocker: none.
+Outstanding: the multi-step directory has no `manifest.json`, because it was
+written before the manifest tooling existed.*
+
+### The port itself, if the gates pass
+
+| file | work |
+|---|---|
+| `sage_attention/sol_attn_exact.cu` | the real work. `pack4u8`/`mma_u8s8`/`__dp4a` l-sum become `pack_bf2`/`mma_bf16`/a plain float sum; `PKC` 2 to 4; `LDV` 64 to 128 bytes; the epilogue drops the `vsc` multiply and the 255. Removes the `log2(255)` exponent fold and the num/den-quantize-identically subtlety rather than adding one. |
+| `sage_attention/sol_layout.cuh` | `swz_v` re-derived for a 128-byte V row. The header says to enumerate both 16-lane LDS.64 phases against 32 banks; that is not optional. |
+| `sage_attention/sol_attn_vtranspose.cu` | a bf16 variant: transpose without quantize. |
+| `sage_attention/sol_attn_route.cu` | **the dangerous part.** Both route kernels hand over `o_part * (255/vsc)` and `l * 255` to land in the INT8 exact kernel's units (lines 252-260, 546-551). A 16-bit branch wants plain units. Ten lines -- and `coderef/comfy-kitchen-kijai/comfy_kitchen/backends/cuda/sage_attention/sol_layout.cuh:19-21` warns this class of drift "is invisible to either side's own test". |
+| `sage_attention/sol_attn.cu`, `dlpack_bindings.cpp`, `backends/cuda/__init__.py`, `constraints.py` | plan sizing (`vTi` doubles), the flag, validation. |
+| `coderef/comfy-kitchen-kijai/comfy_kitchen/backends/cuda/CMakeLists.txt:135-139` | sol sources are listed explicitly; a new `.cu` needs adding, a template parameter does not. |
+| `tests/test_sol_attn.py` | parametrize the existing cosine cases over the flag. The eager reference is full-precision and already the oracle for both, so **a case asserting 16-bit scores no worse than INT8 is free, and it is the one that would catch a bad handover.** |
+
+Ours: a node input appended **last** (`vendor/sol_attn_minimax.py`, the
+widget-order rule), a `SOL_CUDA_DEFAULTS` key, an arm in
+`check_solattn_correctness.py`, then regenerate, restart, smoke.
+`check_sol_kernel.py`'s `schema` case picks the new key up with no edit.
+
+**Cost:** 17a and 17b are hours each. The port is 2-4 days for someone
+comfortable with MMA fragment layouts, most of it verification rather than
+writing. A full `comfy_kitchen` rebuild is ~4 minutes (from the `build/`
+timestamps, not timed).
+
+**Decision it changes:** whether the CUDA Sol path gets a precision knob at
+all, and if so whether it ships on. Also whether the standing suspicion --
+that Sol's all-INT8 branch discards what sage's 16-bit PV pays 1.58x for --
+survives contact with a measurement.
+
+**Blocker: 17b, and it may close the entry.** The motivating premise -- that
+Sol's INT8 PV discards what sage's 16-bit PV pays for -- rested on an
+fp8-vs-fp16 accuracy ratio that was **withdrawn on 2026-08-16 as untrusted and
+removed from this repo** (`docs/method/evidence.md`). So the premise now has no
+supporting number at all, in either direction: INT8-V is unmeasured, sage's fp8
+and fp16 kernels differ in both PV operands so nothing isolates V, and the
+durable half of the sage verdict is perceptual -- a verdict about *dense*
+attention, which does not transfer unexamined to a kernel that is also dropping
+most of the blocks.
+
+---
+
+## Completed, kept for the record
+
+- **Should we load through `DiffusionModelLoaderKJ`** — no, decided
+  2026-08-13, recorded so it is not re-opened on the strength of its feature
+  list. It offers six inputs where stock `UNETLoader` has two, and **three of
+  them mutate global state as a side effect of loading**: `sage_attention`
+  patches comfy attention globally, `enable_fp16_accumulation` flips
+  `torch.backends.cuda.matmul.allow_fp16_accumulation` (and its `else` branch
+  turns it *off*), `patch_cublaslinear` swaps `nn.Linear`. In a repo whose
+  premise is that two arms differ in one variable, that is three new ways for
+  a graph to silently change numerics. `sage_attention` is specifically
+  hostile here — we install our own H3 patch and compose Sol-Attn onto it in a
+  pinned order that `SageChainAssert` verifies, so a second global sage path
+  would either double-patch or shadow ours. Its fp8 `weight_dtype` options are
+  moot on an already-int8 checkpoint, and the fp16-accumulation flag cannot
+  reach sage's kernels at all (confirmed against the fork's source): it would
+  change Linear numerics while telling us nothing about attention. `VAELoaderKJ`
+  is a TAE selector we already get through the preview override;
+  `GGUFLoaderKJ` and `CheckpointLoaderKJ` do not apply.
+- **int8 VAE decode after ComfyUI `2a68ce33`** — re-measured 2026-08-11 at
+  1.28x against 1.29x recorded. Unchanged; the figure stands.
+- **Does per-call attention peak predict process peak** — no. See
+  `attention.py`'s clone docstring. This is why several entries above are
+  scoped to per-call claims.
+- **Does chunking fragment the allocator** — no. `allocated` and `reserved`
+  track within 8 MiB on all three arms.
+
+## 20. The SLA LoRA under its training router
+
+**PARTLY RETIRED 2026-08-31.** The router half cannot be run here any
+more: `MiniMaxH3SLARouter` and `vendor/sla_sparse_triton.py` were removed
+(the arm itself was retired 2026-08-28 by owner decision, for the reason
+below -- it patched `diffusion_model.blocks`, 50 of the 52 `Attention`
+modules the LoRA adapts, so it never answered the question it was named
+for). **The second half is still open and still reachable**: whether the
+Turbo-SLA LoRA behaves differently under Sol-Attn than under dense
+attention. The two `h3_probe_turbo_768p_sla*` arms that addressed it were
+retired unrendered with the lightx2v turbo lane on 2026-09-26, so it stays
+open and is not pursued. Sol's `top-k (SLA)` selection is NOT a substitute for
+the router -- it keeps a pooled term for every unpicked block, which
+`docs/attention/sol_attn.md` records as making it a third attention rather than a
+cheaper spelling.
+
+**Tests:** whether lightx2v's Turbo-SLA LoRA behaves differently under the
+attention it was distilled with than under Sol-Attn or dense attention, and
+whether a student trained to survive a top-k block cut produces attention that
+is more block-sparse under Sol's router than a student that was not.
+
+**What is reproducible, read 2026-08-20 from `coderef/LightX2V` and
+`coderef/SLA` (source reads, not builds).** LightX2V's "SLA" is SLA v1's
+sparse top-k branch only: mean-pooled q.(k - mean k) block scores, a hard
+`topk` at `1 - sparsity_ratio`, no linear branch, no `proj_l`. The LoRA file
+carries no extra weights (624 tensors, attn+mlp only; byte accounting against
+the upstream PEFT file closes). The Triton kernel has no arch gate. So the
+LoRA's training attention is runnable here. Two named gaps: the release ran
+128/64 blocks through SageSLA's `sage2` operator (needs a SpargeAttn build;
+the Triton path is 64/64), and LightX2V's inference config leaves the token
+refiner on the router while ours patches it only on request.
+
+**Arms:** the SLA LoRA under {router, Sol at the shipped tau, sage-only
+dense}; the v1.1 768p LoRA under the same three as the never-SLA-trained
+control. Plus two 4-step captures (v1.1, SLA) read by
+`bench/sweep_routing_density.py` and `bench/analyze_sol_error.py`.
+
+**Decision it changes:** whether SLA + Sol is the speed lever, and whether the
+SLA probe graph should ship with the router rather than Sol.
+
+**Blocker: none.** A correctness gate on captured activations comes before
+any render through the kernel; `docs/state/roadmap.md` carries the day's plan.
+
+**Measured 2026-08-20, the capture half.** Two 4-step t2v captures on the
+fl2va base, one under the v1.1 LoRA and one under the SLA LoRA
+(`2026-08-20_t2v_362f_1344x768_{v11,sla}`, Sol absent, blocks 0/24/49, steps 1
+and 2). Sol's per-head error at tau 1.0 agrees between them within a few
+percent at every cell (`bench/results/2026-08-20_sol_error_per_head_{v11,sla}.json`),
+and Sol's routed density under its own router agrees within half a point at
+every block, step and tau (`bench/results/2026-08-20_routing_density_{v11,sla}.json`:
+block 0 about 22% at tau 1.0 and 16% at 1.3 on both; block 49 about 19% and
+13% on both). **The SLA distillation did not make the activations Sol sees
+sparser or easier.** What it changed is what the router renders, which is the
+regime set's question, not the captures'.
+
+## 21. The power-limit pair
+
+**Tests:** what the 330 W board limit costs against the stock 450 W on one
+graph and seed, which `docs/working/hardware.md` names as one of two things that would
+settle whether sampling is core-clock-bound here.
+
+**History:** a forward item three times (2026-08-17, twice on 2026-08-18),
+blocked on sudo every time; never run, controlled or accidental. The card
+was at 330 W on the morning of 2026-08-20 with no unit currently setting it.
+
+**Decision it changes:** whether any timing taken at 330 W can be compared to
+the 450 W records, and the bandwidth-bound reading in `docs/working/hardware.md`. The
+rule written on 2026-08-17: a delta under ~2% supports bandwidth-bound; a
+delta near the clock delta supports L2-bound.
+
+**Run 2026-08-20**, on the 4-step 768p turbo graph: 5.8% sampler cost at
+330 W against a 12.5% core-clock delta, within-arm spread 0.2%
+(`bench/results/2026-08-20_power_limit_pair.jsonl`, verdict in
+`_verdict.json`). Partly core-clock-bound. Closed for this workload; the
+16-step all-refs pair is the remaining optional arm.
+
+## 19. Does convrot's rotation reach Sol's routing or Morton's ordering?
+
+**Tests:** whether the shipped weights' quantization changes the geometric
+premise both Sol-Attn and the token orderings rest on. Sol reorders and routes at
+a 64-token block, an 8x8 tile in 2d and 4x4x4 in 3d, and the ordering's whole
+argument is that tokens adjacent in that tile carry similar q/k, so grouping them
+yields a tight centroid and the block becomes skippable at a given `tau`.
+
+**Three properties of the shipped checkpoints attack that premise
+independently**, and none has been tested against the ordering:
+
+- **int8** adds quantization noise to q/k, inflating within-block variance
+  whatever the ordering, so the locality signal competes with noise the ordering
+  cannot reduce.
+- **convrot** applies a rotation: the file stores `W @ H^T` in a Hadamard
+  basis rather than the weight (measured 2026-08-21,
+  `bench/analyze_quant_delta.py`). So "similar in value" is judged in a rotated
+  basis, and whether spatial adjacency still maps
+  to proximity there is stated nowhere.
+- **pruned** means the distribution being exploited is the pruned model's. A
+  locality result need not transfer to unpruned weights, and pruning may itself
+  have removed the structure that carried spatial coherence.
+
+**Evidence kind: inferences from source reads, not measurements.** Together they
+are a mechanism that would explain the retracted Morton speed claim, which
+`docs/attention/sol_attn.md` records as not surviving an int8 path. That does not make them
+true.
+
+**Method, and the control is already on hand.** `fp8_scaled` exists as a matched
+build of **both** models, so `int8_convrot` against `fp8_scaled` within one model
+role is a one-variable comparison — the quantization moves and the role does not.
+Compare the routed density and the centroid variance the router reads, not
+wall-clock. A `w4a8_mixed` fl2va build gives a third point if the first two
+separate. No new render is needed if the captures record which build produced
+them.
+
+**Blocker: provenance, and narrower than first written.** Corrected 2026-08-17
+the same day, after a peer session checked the schema rather than reading my
+summary of it.
+
+- **For captures, the build is recoverable.** `models` in
+  `docs/working/capture_manifest_schema.md` requires `unet`, `clip` and `video_vae`, and
+  those filenames are self-describing: `_int8_convrot`, `_fp8_scaled` and
+  `_w4a8_mixed` are distinguishable by name. So any conforming manifest already
+  says which build ran. The first version of this entry claimed the opposite.
+- **What is actually broken is the assertion.** `weight_quantization` and
+  `vae_quantization` exist as properties and appear in **no** `required` list, and
+  `bench/check_capture_manifest.py` never inspects either. A manifest can omit
+  both and pass green. That is the tight piece of work: make them required, then
+  assert them.
+- **For bench runs there is no manifest at all**, so a timing carries no record
+  of the weights it was measured on. That is the real hole, and it is the same
+  shape as the host power-limit gap `docs/method/evidence.md` now records: the substrate
+  is knowable at run time and nothing writes it down.
+
+Settle the bench-run half before comparing anything whose evidence is a timing.
+The centroid and density comparison this item actually calls for reads captures,
+so it is not blocked on that.
+
+## 22. Pruning sensitivity: does the same AdaLN residual move ref2va's output more than fl2va's?
+
+**MEASURED AND REFUTED 2026-08-21.** Eleven forwards at 768x768, 124 frames,
+seed 730451892, one sampler step; record in
+[`data/results/2026-08-21_pruning_sensitivity.json`](../data/results/2026-08-21_pruning_sensitivity.json),
+grader `bench/grade_pruning_sensitivity.py`, driver `bench/run_pruning_arms.py`.
+ref2va moves 0.86 of what fl2va moves on the reference input and 0.81 on the
+plain one -- inside the [0.5, 2] refutation band and in the opposite direction
+to the hypothesis. **The prediction attached below was also wrong**: it said the
+velocity would move under 1% and it moves 5.6-9.4%, so the pruning is not
+invisible at the output, only equally (in)visible on both checkpoints and
+smaller than the int8-vs-fp8 difference already shipped. `docs/method/evidence.md`
+carries the consequence. The design below is left as written, including the
+prediction it got wrong.
+
+**How the "decision it changes" clause resolved.** The fl2va hedge for
+reference work has no basis in *sensitivity*: both checkpoints respond to the
+pruning by the same amount, so preferring the unpruned 34 GB ref2va file over
+the pruned one cannot be justified on ref2va-specific grounds. What stays open
+is the plain pruned-vs-unpruned preference on either checkpoint, which is now a
+perceptual question rather than a numerical one and would need its own blind
+session under `docs/method/eval_comparison.md` section 3. This entry never claimed one
+and still does not.
+
+**One clause was graded under a reading this entry did not specify.** The rule
+below asks whether the profile "opens at or after the blocks where the
+reference rows carry the modulation residual" without giving a threshold. The
+grader implements the weakest testable reading — deepest block at least twice
+block 0 — and says so in its own docstring. Under that reading the profile does
+open late, but the shape is not a monotone opening: q error climbs to a peak at
+block 36 and falls back at 49, on both checkpoints. The verdict did not turn on
+this clause; it was refuted on the ratio.
+
+
+**Tests:** whether the rank-8 AdaLN pruning, which perturbs the modulation
+output identically on both checkpoints
+([`data/results/2026-08-20_adaln_pruning_residual.json`](../data/results/2026-08-20_adaln_pruning_residual.json):
+same size, same per-parameter and per-timestep shape, ratio 0.97-1.01),
+moves the *network output* by a different amount on ref2va than on fl2va.
+That record measured the perturbation; this measures the sensitivity to it.
+Designed 2026-08-20 evening at the owner's request, not run.
+
+**Why it is not already answered.** A perturbation of equal size can matter
+more to one set of weights than another. There is a structural reason to
+suspect ref2va: the residual grows with t and is largest at the 0.999
+condition timestep, reference rows sit at 0.999 on every step, and the ref2va
+task rides on those rows. Against it stands a magnitude argument: on the bf16
+final layer the truncation is a 2e-4 perturbation, the int8 linears both
+builds carry are tens of times larger on the same activations, and the pruned
+AdaLN is closer to bf16 than the unpruned int8 AdaLN is. An argument is not a
+measurement.
+
+**Decision it changes.** `docs/method/evidence.md`'s "pruning closed" paragraph, and
+whether reference work should prefer the unpruned `int8_convrot` ref2va file
+(34 GB, offloaded on this card, slower) over the pruned one in
+`internal/recipes/`. A perceptual consequence, if the numbers say there could
+be one, would then need its own blind session under `docs/method/eval_comparison.md`
+section 3; this entry never claims one.
+
+**Method: a fixed-input forward, not a render.** The first sampler step of any
+graph is a controlled comparison between two checkpoints: the latent is the
+seed's noise, the conditioning is identical, and the forward is deterministic,
+so the different-sample rule in `CLAUDE.md` does not apply. Two arms that
+differ only in `unet_name`, pruned against unpruned, compared at that step.
+
+- **Graphs:** the two capture graphs, `workflows/h3_probe_capture_ref3_api.json`
+  (ref2va, three image references) and its twin
+  `workflows/h3_probe_capture_ref3_fl2va_api.json` (fl2va), because they wire
+  sage without Sol and so record the true attention inputs; plus
+  `workflows/bench/h3_text_to_video_stamped_api.json` for the no-reference
+  input. The unpruned arms patch `--set LABEL:UNETLoader.unet_name=minimax_h3_{fl2va,ref2va}_int8_convrot.safetensors`
+  (the files are on disk since 2026-08-20; `comfy/model_detection.py` handles
+  the time-embedder layout, and the int8 AdaLN carries its own `comfy_quant`
+  marker at group 64, so no code change is expected). All arms patch
+  `BasicScheduler.steps=1`: the first sigma is the schedule's maximum
+  whatever the step count, so the forward is the same one a 16-step render
+  would make first, and nothing after it is needed.
+- **Canvas:** 768x768, the cheapest legal canvas (`docs/h3/resolutions.md`,
+  0.33x attention), at 124 frames, the bottom of the trained range. The owner
+  has not yet confirmed the canvas; the standing rule is to ask before the
+  card is touched. The references keep the capture graphs' fit (2048 short
+  edge, no upscale), so the reference rows are the ones the hypothesis is
+  about. Sol's 60k-token floor is irrelevant here because Sol is off in these
+  graphs by design.
+- **Instrument:** `H3_CAPTURE="dir=...,blocks=0:12:24:36:49,steps=0,cycle=1"`
+  at server start (step 0 is the fixed-input forward; the module's default of
+  step 1 exists for trajectory statistics, which this is not), giving q/k/v
+  at five depths per arm. Plus one addition to `h3_capture.py`: an optional
+  `final=1` key that writes the final layer's output (the velocity) at the
+  captured steps, the one number that is "the network output". A
+  written tensor must reproduce the sampler's first-step update to bf16
+  precision. If the tap is not built,
+  the fallback is the decoded one-step frames, a monotone but nonlinear
+  proxy, and the entry must say so.
+- **Arms:** {t2v, ref3} x {fl2va, ref2va} x {pruned, unpruned}, eight
+  forwards; one **repeat** of a pruned arm with a changed output prefix
+  (defeats the node cache, which returns a cached result for a byte-identical
+  resubmission) to measure the determinism floor; and two **scale
+  references**: the `fp8_scaled` build of each checkpoint on the ref3 input,
+  so "pruned vs unpruned" can be read against "int8 vs fp8", a quantisation-
+  size difference the repo already lives with. Eleven forwards; each is
+  seconds of compute, and the unpruned arms cost a model load from `Storage`
+  each switch, so the whole thing is under an hour including the two server
+  restarts (capture armed, then plain). Seed 730451892 throughout. Matched
+  seeds across arms are what make the input identical.
+- **Grader:** a new `bench/grade_pruning_sensitivity.py`, reading the
+  captures by filename: per arm pair, relative L2 and cosine of q, k, v per
+  block and per head, and of the velocity; records to
+  `bench/results/<date>_pruning_sensitivity.json` with filenames only.
+
+**Pre-registered prediction and decision rule.** Let `S(ckpt, input)` be the
+relative L2 between the pruned and unpruned velocity on the same input, and
+`floor` the repeat arm's own relative L2.
+
+- Prediction from the magnitude argument: `S` under 1% on both checkpoints,
+  and well under the int8-vs-fp8 reference on the same input.
+- The hypothesis **survives** if `S(ref2va, ref3) / S(fl2va, ref3) >= 2` with
+  both values at least 10x `floor`, and the per-depth profile shows the gap
+  opening at or after the blocks where the reference rows carry the
+  modulation residual rather than uniformly from block 0.
+- It is **refuted** if the ratio sits in [0.5, 2] with both values above the
+  floor, or if both values sit within 10x of the floor (then the pruning is
+  invisible at the output on both, and the ratio is noise over noise).
+- Any other outcome, including `S` above the int8-vs-fp8 reference on either
+  checkpoint, is a finding about the pruning itself and reopens the
+  `docs/method/evidence.md` paragraph regardless of the ratio.
+
+**Blocker:** none technical. The unpruned file has never been loaded through
+ComfyUI on this card; the first action is a one-step render with it alone,
+output read end to end (a 34 GB file on a 24 GB card goes through partial
+offload, and that path is the untested one). Then the canvas question to the
+owner, then the tap, then the arms.
+
+
+## 23. What INT8 actually costs at run time, per module kind
+
+**Closed 2026-09-29 (owner: "experiment 23 is old i dont think anything has been done with it since august so retire everything related to that").** The Tier 1 observer, `MiniMaxH3QuantObserve`, its module `dit_observe.py` and its check were removed in 0.173.0; the entry below is kept as the record of what was proposed. Closed, not refuted.
+
+**Tests:** how much of a module's `int8_convrot` error is the WEIGHT rounding
+and how much is the ACTIVATION rounding, per module kind, at production
+geometry. Everything this repo has measured about int8 fidelity is the first
+term; the second has never been looked at.
+
+**Why it is not already answered.** `int8_convrot` is W8A8, and
+[`docs/research/comfyui_h3_t2va_trace.md`](../research/comfyui_h3_t2va_trace.md)
+sections 1.7-1.8 trace why: `int8_linear` rotates the activation online with
+the same Hadamard, quantises it **per token**, runs an int8 GEMM whose int32
+accumulation is exact, and scales in fp32 — "all the error is in the two
+roundings". Every quant record here
+(`2026-08-21_quant_delta_*`, `2026-08-28_quant_hotspots_ref2va`,
+`2026-08-29_int8_convrot_headroom`, `2026-08-30_pdd_quant_interaction`) is a
+stored-weight distance. `docs/method/evidence.md` states that caveat correctly on the
+source measurement; two files then cited those records past it, and both were
+corrected on 2026-08-31.
+
+**Decision it changes.** Three, and none of them can move without this:
+
+- **Whether `attn.out_proj` deserves different treatment.** It is the worst
+  kind on stored weights (1.18x qkv_proj on the mean, row_rel p95 0.0128
+  against 0.0101) and its input is the attention output, the most
+  outlier-heavy activation in the block. Those two facts point at different
+  levers and the records cannot separate them.
+- **Whether `convrot_groupsize` is a live knob.** The encoder sweep found it
+  flat, on weights. The rotation's whole job is to spread outliers before
+  rounding, and the activation is the side with the outliers, so that result
+  does not transfer. The DiT's dimensions make this specific rather than
+  hypothetical: `_build_hadamard` wants a power of 4 dividing `in_features`,
+  so `attn.qkv_proj` and `mlp.fc1` (5376 = 2^8·21) are **capped at the shipped
+  256**, while `attn.out_proj` (7168 = 2^10·7) and `mlp.fc2` (14336 = 2^11·7)
+  admit **1024**. The kind that is worst is one of the two that can take a
+  wider group.
+- **`docs/research/h3_dit_implementations.md` §10.5**, which until 2026-08-31
+  said building a better quantised DiT "does not exist as an option" on the
+  strength of the weight-only lane.
+
+**Method: captured activations, then everything offline.** One capture, scored
+many ways — the capture-broadly-first rule, and the reason not to design this
+as a sweep.
+
+- Capture `attn.out_proj` **input** (and one `qkv_proj` input as the control
+  kind) at 1344x768, one or two `(block, step)` pairs. At 98k x 7168 in bf16
+  that is ~1.4 GB per pair, a third of what the existing qkv captures cost.
+  Every capture inventoried in `2026-08-30_capture_inventory.json` was deleted
+  the day it was written, so this needs a fresh render, and
+  the arming rule (CLAUDE.md, "the server process is the resource") applies
+  to the server that runs it; `bench/restart_comfy.sh` is disabled, so check
+  the port owner's environ by hand.
+- Offline, four arms kept explicit, and **the activation-only arm is subtler
+  than an earlier draft of this entry said**. It is not "exact weight with
+  quantised activation": the runtime activation is ROTATED before it is
+  quantised, so the reference weight must be represented in the **matching
+  rotated basis** or the arms are not comparable. Corrected 2026-08-31 from an
+  external review.
+
+  | arm | weight | activation | measures |
+  |---|---|---|---|
+  | reference | released BF16 `W` | BF16 `X` | the denominator |
+  | runtime W8A8 | shipped `Q(W)` | rotated, row-quantised `X` | the actual combined error |
+  | weight-only | dequantised `Q(W)` | BF16 `X` | what every existing record measures |
+  | activation-only | BF16 `W` **in the matching rotated basis** | rotated, row-quantised `X` | the term nothing has measured |
+
+- **Do not name a flag as an arm until its output has been checked against the
+  arithmetic it is meant to implement.** `full_precision_matrix_mult` is the
+  concrete reason: it was entered in the lever inventory from a source trace,
+  and an executable probe found it changes nothing at all on H3.
+- Only then sweep `gs` in {256, 1024} on `out_proj` and `fc2` against the same
+  `x`. It is a re-score of one capture, not a second render.
+
+**Pre-registered prediction and decision rule.** Let `E_rt`, `E_act`, `E_wt` be
+the three relative L2s above, per kind.
+
+- Prediction: `E_act > E_wt` on `attn.out_proj`, and the gap between kinds in
+  `E_rt` does **not** follow the stored-weight ranking.
+- The stored-weight lane's implicit claim **survives** if `E_wt / E_rt >= 0.8`
+  on every kind, i.e. the weight rounding dominates and the existing ranking
+  transfers. Then a re-bake is the right lever after all and groupsize is
+  noise.
+- It is **refuted** if `E_act > E_wt` on any kind, which makes every
+  kind-ranking in this repo a statement about half the error, and makes
+  `convrot_groupsize` the first thing to sweep.
+- If `E_rt` is within a few percent of `E_wt + E_act` on all kinds the two
+  terms are independent and can be reasoned about separately; if it is not,
+  they interact through the rotation and only `E_rt` is quotable.
+
+**Two implementation traps, both found by an executable probe on 2026-08-31
+and both fatal to the naive observer** (`docs/research/quant_levers.md` §3):
+
+- **`mlp.fc2.forward` is never called on the shipped INT8 path.**
+  `comfy.ops.linear_input_act` owns it for the SwiGLU fusion. So the planned
+  200 object patches on `blocks.N.<kind>.forward` would have fired on 150 and
+  reported a clean-looking record over three kinds. This repo already paid for
+  this once — `unmerged_blocks` silently dropped fc2 on 2026-08-30 for exactly
+  this reason. The observer must reach fc2 through the fused helper, and must
+  **assert its own 50x4 shape** rather than aggregate what fired.
+- **The capture can be joint with the attention lane, but the products must be
+  separate.** One instrumented render emits a sparse set of full Q/K/V tensors
+  for the attention question and an all-50-block statistical sidecar for this
+  one. Saving full linear inputs for all 200 modules is terabytes and is not
+  the plan; exact offline error decomposition, if wanted, gets full snapshots
+  at one or two preselected `(block, knot)` cells only, or is computed online.
+  A joint render replaces a duplicate render of the SAME scene — it does not
+  replace the second scene/seed generalisation needs.
+
+**Two more things the capture must get right**, same source:
+
+- **Keep the canonical Sol stack ENABLED.** `h3_capture.py`'s docstring says a
+  capture must bypass Sol; that is right for the kernel-accuracy question and
+  wrong here. Bypassing Sol changes the downstream `out_proj` and MLP
+  activation distributions away from the workflow being characterised. Preserve
+  the per-cell kernel tag instead, and treat a fully dense capture as a control
+  arm rather than the default.
+- **An instrumented run's TIMING is void.** CPU copies, reductions and
+  synchronisation do not change deterministic tensor values when written
+  correctly, but they do change wall time and peak pressure. So the
+  `convrot_groupsize` timing arm this entry gates cannot be run in the same
+  process — it needs an uninstrumented one, after the statistical arms have
+  chosen what to time.
+
+The full contract — attention cells, `H3_CAPTURE` syntax, sidecar fields,
+storage budgets (20 Q/K/V cells ≈ 84 GiB; all four linear inputs ≈ 6.27 GiB per
+(block, step); a naive all-modules capture ≈ 2.45 TiB) and seven acceptance
+checks — is in `internal/codex/2026-08-31_joint-tier1-capture-and-quant-reachability-review.md`
+and is deliberately NOT restated here.
+
+**Blocker:** one render's worth of card time, plus the capture spec on the
+server that runs it. Nothing else — the scoring is CPU and needs no server.
+
+**Narrowed 2026-08-31 by the weight-side pass.**
+`bench/analyze_weight_outliers.py` answered everything answerable without a
+card ([`docs/research/quant_levers.md`](../research/quant_levers.md)), which changes
+what this entry has to establish rather than closing it:
+
+- The second bullet above is no longer speculative on the weight side.
+  `convrot_groupsize` 1024 buys 10.2% on `attn.out_proj` and nothing on
+  `mlp.fc2`, and out_proj's excess is explained — its outliers span wider than
+  256 channels, which a 1024-wide rotation reaches and the shipped one does
+  not. What this entry must now decide is whether that survives to the output,
+  and whether it pays for the **fused CUDA kernel** it costs:
+  `_should_use_convrot_fused_kernel` requires `group_size == 256`, so an arm
+  must be TIMED and not only scored.
+- The first bullet is unchanged and is still the point of the entry.
+- One prediction is now cheap to score against something real: the weight-side
+  kind ranking is out_proj worst, and T2 says the runtime ranking will differ
+  from it.
+
+## 24. The two markers both repos spell differently, rendered every way
+
+**Built 2026-09-01 and deferred the same day by the owner before anything was
+queued. Nothing has rendered.** This is the render `docs/prompting/prompt_audit.md` item 4
+describes and the one the sister engine's marker decision waits on.
+
+**The question.** base §4.4 states `<scenetrans>` at the connecting points of a
+line that crosses a cut and `<cutoff>` for speech the end of the video
+truncates; the release declares `<|cutoff|>` and no `<scenetrans>`. This repo
+writes the declared piped form tight against `</d>` and no tag for the split
+line; the sister engine writes the guides' spellings, `<cutoff>` after a space,
+and splits the words across the cut with the tag in both parts. Neither side
+has rendered either, and neither side's gate can see the difference.
+
+**The arms**, all in [`bench/marker_arms.json`](../../bench/marker_arms.json),
+eight patches of one shipped t2va graph, prompt and length only, base texts
+from `prompt_bank/`: three split-line forms (ours in prose; the sister form;
+tag-only with the words unsplit, and split words with no tag, which together
+make split and tag a square so each effect can be told apart -- the last one
+added at the sister engine's suggestion after the owner's call, so it is not
+yet part of it) and four cutoff forms (ours; the sister form; unpiped tight and piped spaced, which
+isolate spelling from spacing). Every variant is an asserted single
+substitution, graded clean, and every patched graph passed preflight.
+
+**What counts as an answer.** Meets-the-brief per arm, never A/B: does the line
+audibly continue across the cut, does the last line stop mid-sentence at the
+end. `bench/marker_arms_brief.md` is the judge's brief. Two seeds per arm is
+what the owner chose, which is a presentation and not a distribution; the
+sister engine will read the verdict the same way.
+
+**How to run it:** `bench/run_marker_arms.sh` does the render and the blinding in one
+command and prints the two steps that are the owner's; by hand, from the
+manifest's own `run` and `then` fields: the
+`run_graph_arms.py` line renders about forty-five minutes of card at 1344x768;
+`blind_batch.py` with the five `--pairs` blinds it; the owner scores in
+`score.html`; `score_session.py` writes the verdict record. Then hand the
+per-arm verdict to the sister engine, which is the only thing it needs back.
+
+**Blocker:** the owner's call, 2026-09-01. Also worth knowing before the first
+run: the server as started that day runs a rebuilt Sol kernel and a restructured
+Sol node, both expected output-neutral and this batch their first
+production-geometry render; the Sol session asked to be told before anything
+odd in its log lines is attributed to an arm.
+
+
+## 25. The chunked producer as a memory lever, with one node's worth of cost
+
+**Not built. Added 2026-09-01, after the owner corrected a claim.**
+`sol_attn_h3.py` and `docs/attention/sol_attn.md` say `sol_attn_chunked` is
+"structurally unreachable". That is exact for the seam our node uses and
+wrong as a statement about this repo, which owns H3-specific forward code in
+three other nodes already.
+
+**The question.** comfy-kitchen's second Sol entry, `sol_attn_chunked` on
+its CUDA backend, takes chunks of the fused
+`qkv_proj` output (`[M, 3*H*128]` bf16, 64-aligned starts), applies H3's RMS
+norm and rope itself per chunk, and never materialises full Q, K, V. Upstream
+reports about 5 GB less peak at 113k tokens (`docs/attention/sol_attn.md`, the
+kernel-argument table). At the canonical 104,361-token sequence on a 24 GB
+card, where reference-heavy graphs already OOM
+(`docs/research/pdd/README.md`'s pricing notes), that is the size of lever
+that decides whether an arm renders at all. Does it deliver that here, and at
+what cost in agreement with the direct path?
+
+**Why our node cannot reach it, and what could.** `optimized_attention`
+hands the override finished Q, K and V: `qkv_proj` has run over the whole
+sequence, the norms and rope are applied, the saving is spent, and feeding
+the chunked entry post-rope tensors would apply rope twice. A per-block
+forward patch, the shape the Sage node already uses, sees `x` before the
+projection and can run `qkv_proj` over row chunks and feed each to the
+producer. Sol's composition gate already has the hook for this:
+`_compose_module_patch` prefers a published `sol_take_forward` delegate over
+the stock forward for the calls it takes, so a chunked forward slots in
+without disturbing the Sage arrangement for declined calls.
+
+**What it needs from the model.** The rope table (`rope_freqs`, which the
+Morton hooks already intercept), the two QK-norm weights from the attention
+module, and the previous step's K-mean and V-scale statistics, which the
+producer returns for the next call and runs twice to bootstrap on the first.
+That last point means the first forward of a render pays the producer twice;
+say so in the record rather than in a footnote.
+
+**The observable.** Peak allocated VRAM per render at the canonical geometry,
+with and without the delegate published, on the same graph and seed
+(`torch.cuda.max_memory_allocated` reset per prompt, not `nvidia-smi`, which
+sees the allocator's reservation). Agreement is graded at the call level
+against `sol_attn` on the same post-rope tensors, the way upstream's own
+`test_chunked_producer_matches_separate_rope` does; a rendered clip cannot
+A/B it. The Sol route record (`sol_observe.py`) should show identical
+routing on both arms if the producer's rope and norm match core's, and
+different counts if they do not, which is the cheapest tell that the
+per-chunk arithmetic drifted.
+
+**Blocker.** None technical. Cost is one node that owns H3's norm and rope
+application for one forward, plus the call-level equivalence check, plus
+the composition proof that `check_sol_node_equivalence.py`'s pattern already
+gives. Enforced by nothing until built.
+
+**Built and measured the same evening, and the answer is no, in this
+arrangement.** `sol_chunked_h3.py` (`MiniMaxH3SolChunked`), graded by
+`bench/check_sol_chunked.py` at toy scale (cosine 0.99995 against the
+direct path, peak over a 32k-token call 87 MiB against 192), then rendered
+against the shipped PDD graph at 1344x768, 345 frames, same seed, in one
+armed process. The process peak was 11.68 GiB by the end of the FIRST
+forward, which runs on Sage outside the Sol window, and 11.88 GiB by the
+end of the shipped arm; Sol's direct attention call never set it. The
+chunked arm's first in-window call raised it to 12.87 GiB and the next to
+12.91. So the Q, K, V the producer avoids are not where this graph's peak
+lives, and the producer's own working set costs about a gigabyte more.
+Routing: same density to four decimals (0.2090 against 0.2090 at the first
+in-window forward) but a different block set, agreeing on 23 percent of
+(head, query block) pairs at that forward and 11 percent by the fourth, as
+the producer's previous-step key statistics drift from the direct path's
+current ones. What that costs in output is unmeasured. Where the peak
+actually sits is the next question, and it is not an attention question.
+Records: `internal/sol_observe/2026-09-01_chunked_ab/`; summaries
+`bench/results/2026-09-01_sol_route_pdd8_{direct_ab,chunked_ab,direct_vs_chunked}.json`.
+
+## 26. What the encoder pathway carries on its own: references with no VAE
+
+Added 2026-09-03. ComfyUI PR 16065 made the VAE inputs on the reference
+conditioner optional, and 0.99.33 mirrors it on ours: without a VAE a
+reference is presented to Qwen3-VL as before and adds no reference-latent
+rows to the DiT (`docs/h3/references.md`, section "Encoder-only
+references"). Reference rows are the expensive input, attended every step.
+Nothing here has measured how much of the shipped reference result they
+buy over the encoder pathway alone.
+
+**The observable.** `bench/ref_pathway_arms.json`: five arms from one base
+graph, the capture stills, matched seeds, judged blind through
+`docs/method/eval_comparison.md` section 3 as pairs. The primary pair is our
+conditioner with both pathways against itself with neither VAE wired; the
+same pair on core's node is the replication; the two encoder-only arms
+against each other are the A/B of our conditioner against core's on the one
+pathway both implement identically; the fl2va arm is a bound. Step time per
+arm is a second result, since the encoder-only arms carry the t2v sequence
+length; `bench/preflight_graph.py` prices that before anything renders.
+
+**What changes depending on the answer.** If identity survives without the
+rows, every reference graph has a cheaper arm and the reference-sizing
+knobs (`docs/h3/references.md`, "Sizing a reference image") stop being the
+only lever on cost. If it does not, the encoder pathway is a label and the
+rows are the reference, which settles a question the conditioning notes
+have left open in prose.
+
+**Rendered 2026-09-03, one seed, unjudged.** All five arms in
+`data/results/2026-09-03_ref_pathway_arms.jsonl`, clips on the output
+share under `Video/h3_probe_ref_pathway_*`. The timing half of the answer
+is in the record; the perceptual half waits on the blind pairing.
+
+**Blinded 2026-09-04** as session `ref_pathway_2026-09-03`, the manifest's
+four controlled contests stacked, singles with audio, key sealed.
+
+**Scored 2026-09-04, one seed, pairs only.**
+`data/results/2026-09-04_ref_pathway_2026-09-03_verdict.json`, joined after
+the key was checked against the manifest and the render rows. On the primary
+pair (ours, both pathways against encoder only) and its replication on
+core's node the owner could not tell which was which; the two encoder-only
+arms were called the same, with the same defect in both (eyes "almost
+flowing" on the woman); fl2va under encoder-only stills lost to ours on a
+named defect. The owner named none of the manifest's `what_to_look_for`
+items (performer identity, the jersey's print, the loft's layout) as
+differing on any pair. The one thing the owner did name, on every
+encoder-only arm and on neither both-pathway arm: two people on the couch in
+the background who never move. At one seed that is a signature to look for,
+not a mechanism. Two pixel facts beside the verdict
+(`bench/compare_clip_pixels.py`): the two encoder-only arms are different
+renders despite reading as the same
+(`data/results/2026-09-04_ref_pathway_encoder_arms_pixels.json`), so the
+Qwen view difference between the conditioners reaches the pixels and not
+the owner's eye; and the primary pair differs more than that pair does. The
+timing half is in the render record: the encoder-only arms' sampler time
+sits below their both-pathway twins', as the reference rows predict.
+
+**Where this leaves the item.** Leaning to the cheaper-arm branch, not
+closed: identity survived one seed without the rows, and the cost of the
+rows is measured. What would close it is the static-people signature either
+recurring or not on a second seed, and the singles heard (no single was
+scored). The manifest's `run` line is the multi-seed command; the owner has
+not asked for it.
+
+## 27. The window's start, with the vendor's own step schedule as the prior
+
+Added 2026-09-04. `start_percent` on the Sol node (`MiniMaxH3Sol` since 2026-09-27) has never been
+measured at any value (`workflows/h3_config.py`, the note above the CUDA
+dict), and roadmap step 5 asks where the window should start. sglang's cube
+sparse attention backend, merged 2026-09-02 with two MiniMax engineers as
+co-authors, ships a per-update keep-ratio schedule for the base fifty-step
+grid: dense for the first two updates, then a keep that falls fast through
+the first third of the trajectory to a small floor. It is recorded verbatim
+in `data/results/2026-09-04_sglang_cube_topk_schedule.json`, and
+`bench/map_cube_schedule.py` maps it onto the sigma grid our graphs sample
+(ComfyUI's `simple` at shift 12, built by the same two lines
+`bench/check_pdd_sigmas.py` uses) by sigma, not by step index. The mapping
+record for our shipped step counts is
+`data/results/2026-09-04_cube_schedule_on_h3_grid.json`; it says how many
+leading updates the vendor would keep dense on our grid against the shipped
+window's leading count, and the `start_percent` interval that reproduces the
+vendor's count. **Mapped 2026-09-04**: on the sixteen-step grid the
+vendor's dense band covers the first update only, where the shipped window
+keeps four leading and one trailing update dense, and on the vendor's grid
+the updates we run dense would carry keep ratios that fall from about half
+to a fifth before the shipped window even opens; the values and the
+`start_percent` interval are in the record. The probe's `blk_cnt` gives our
+effective keep per step under the shipped tau, so the vendor's floor can be
+read against a measured number rather than a guess.
+
+**What the prior says, in shape.** Two things our binary window cannot say
+at once: go sparse earlier than we do, and keep more early than late. The
+first is expressible today through `start_percent`; the second needs a
+per-step keep profile, which the node lacks (`tau_profile` is per block),
+and would be node code, so a restart before it counts.
+
+**The arm.** The shipped Sol graph with `start_percent` set from the
+mapping record's interval, against the shipped 0.2, both at the shipped tau
+and `end_percent`, matched seed, one bank scene; `bench/run_graph_arms.py
+--set 'label:MiniMaxH3Sol.start_percent=<value>'` is the whole
+difference. Probe first (`sol_block_probe.py` on an armed restart), then one
+blind pair through `docs/method/eval_comparison.md` section 3; the roadmap's
+decision standard applies. Speed is the cheap half: each leading dense step
+removed is one sixteenth of the sampler at 16 steps
+(`workflows/h3_config.py`, the pricing note).
+
+**What would count.** The probe's per-step disagreement on the newly sparse
+leading steps, and the blind pair not preferring the shipped window. What
+would kill it: the first step's routing error propagating into composition,
+which the h3_config note names as the open risk.
+
+**Not the same as cube sparse attention.** The vendor's blocks are (4, 4, 4)
+cubes and ours are 64-row runs in raster order on the shipped configuration
+(`morton=False` in every SOL dict), and their selection has no pooled
+correction; only the schedule transfers, as a prior.
+
+**A second vendor step prior, 2026-09-10.** sglang's SubBlock backend
+(`ffe98a4279`) records a step-cutoff sweep, run independently of its layer
+cutoff, beside `DEFAULT_SKIP_FIRST_STEPS`
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/subblock_sparse_attn.py`).
+[`docs/attention/sol_upstream.md`](../attention/sol_upstream.md) records it; read it on our sigma grid by
+sigma, as the mapping record above does for the cube schedule, before it
+informs the arm.
+
+## 28. The kitchen VAE kernels: DECLINED 2026-09-08, not deferred
+
+Added and closed the same day. comfy-kitchen [PR 167](https://github.com/Comfy-Org/comfy-kitchen/pull/167)
+(kijai, opened 2026-09-08) adds fused encoder pad/norm, fp16-accumulate
+conv3d and GEMM, and an int8 residual epilogue for the H3 video VAE. It only
+does anything with its core half, ComfyUI
+[PR 16187](https://github.com/Comfy-Org/ComfyUI/pull/16187), which rewrites
+`comfy/ldm/minimax/vae.py` and `comfy/ops.py` to call those kernels.
+
+**The owner's rule, 2026-09-08: a performance change that lives only in an
+unmerged PR is not worth carrying.** It is a standing rule, not a verdict on
+these two. What we carry is what unblocks work upstream does not offer --
+`blk_cnt` is observability our own tooling hard-refuses to run without, which
+is why it is carried while this is not. A speedup can wait for a merge.
+
+**The sizing, so nobody re-derives it.** Across the 74 rendered arms in the
+`*_outputs.json` records that carry both fields, VAE decode is a mean 6.6% of
+render wall time, ranging 1.9% to 14.9%. Re-derive it rather than trusting
+this sentence; every input is in the repo:
+
+    python3 -c "import json,glob; a=[(x['decode_s'],x['total_s']) \
+      for f in glob.glob('bench/results/*_outputs.json') \
+      for x in json.load(open(f)).get('arms',[]) \
+      if x.get('decode_s') and x.get('total_s')]; \
+      print(len(a), sum(d for d,_ in a)/sum(t for _,t in a))"
+ Whatever the
+kernels do to decode, the render sees at most that share of it, and the
+sampler is the rest.
+
+**The other blocker, which is not cost.** Evaluating it at all means applying
+16187 to the ComfyUI checkout, and this repo's rule is that the checkout is
+stock (`CLAUDE.md`; `bench/check_vsa_core_patch.py` is the pattern for a
+tracked exception, where absence is legitimate and half-applied is the
+failure). So it is a deliberate core patch with a provenance record, not a
+`gh pr checkout`.
+
+**Reopens when** both PRs merge, or when decode's share of a shipped render
+grows enough to matter -- a longer canvas or a cheaper sampler moves that
+share without anyone touching the VAE.
+
+**Status 2026-09-10:** both PRs still open; kijai's `minimax_vae` branch moved
+to `a63ca28` on 2026-09-09. Neither reopen condition is met.
+
+**Status 2026-09-11:** both PRs still open, `minimax_vae` still at `a63ca28`.
+The sizing above prices decode only, and PR 167 is not VAE-only: it changes
+the launch block size of kitchen's fused ConvRot activation quantiser, which
+the DiT's INT8 ConvRot linears call, and adds opt-in arguments to
+`int8_linear` ([`docs/attention/sol_upstream.md`](../attention/sol_upstream.md), section
+"Comfy-Org/comfy-kitchen, as of 2026-09-11"). Declining it does not keep it
+out: a kitchen tag that contains it reaches this install through ComfyUI's
+pin or the next fork rebase. Whether the DiT's numbers move is unmeasured.
+The check when that tag lands is the DiT's INT8 linear outputs on a capture,
+before and after, which is cheaper than any render and needs no core patch.
+
+**Status 2026-09-19: both reopen halves have merged, and the kernels have been
+in this install since 2026-09-15.** Kitchen PR 167 is in `v0.2.34`,
+which `h3-build` was rebased onto on 2026-09-15 (CHANGELOG, the `0.2.34+sol`
+entry); core PR 16187 merged on 2026-09-15 with a follow-up, 16332, and this
+install's ComfyUI checkout pulled both that morning (`git reflog` in the
+checkout; the commits are `b2e31e89` and `f14bbe28`). So the core-patch
+blocker above is gone: it is stock. The before-and-after capture check named
+in the 2026-09-11 status has no record in `bench/results/`, and no record
+there compares a render made before that pull with one made after it (the
+bit-identical pairs in `2026-09-17_sol_options_noodlebar_batch.md` and
+`2026-09-18_kitchen_0.2.35_rebuild.md` both start on 2026-09-15). The same
+pull also moved H3's text encoder RoPE onto kitchen
+([`docs/attention/sol_upstream.md`](../attention/sol_upstream.md), section "comfy-kitchen and core,
+2026-09-19"). Whether to reopen this item is the owner's call; what is
+settled is that the code runs here either way.
+
+## 29. What makes token routing's selection unstable, on one block
+
+Added 2026-09-08, and it is here rather than closed because two obvious causes
+are already dead and the third guess should not be made without a measurement.
+
+**What is established.** With `token_aug` on, one captured DiT block's output
+differs between launches on bit-identical inputs, while the plain arms and the
+other captured blocks move no element at all over repeated identical calls.
+It is not accumulation order: the deltas are many times the output's own mean
+magnitude on a small fraction of rows, and a reordered sum cannot do that.
+`bench/probe_token_aug_determinism.py` and
+`data/results/2026-09-08_token_aug_determinism_shape.json` own it.
+
+**What was NOT established when this entry was written, and is the whole
+question.** What varies. The admitted token set is not observable from outside
+the kernel, so the first record rules out the benign explanation and identifies
+nothing.
+
+**"Not observable from outside the kernel" was half wrong, and the correction
+is the reason arm 1 changed.** The kernel's source says exactly how the set is
+chosen (comfy-kitchen `sol_attn_token.cu`, on the branch the installed wheel
+was built from; `bench/check_sol_kernel.py` reports which build that is). Three
+facts from it, each load-bearing below:
+
+- **A centroid is shared by `TOK_GROUP` neighbouring query blocks.** The unit
+  of selection is `TOK_GROUP * BLOCK` contiguous token rows, per head, so a
+  changed set has a granularity that IS observable from outside.
+- **The boundary is a histogram bin edge, not a rank cut.** Pass 1 histograms
+  every candidate's score; pass 2 admits whole bins from the top until the next
+  would overflow the budget, and thresholds at that bin's lower edge. So arm 1
+  as first written -- "the gap between the last admitted token's score and the
+  first rejected one" -- names a quantity the kernel never computes. The
+  statistics it implicates instead are the occupancy of the boundary bin and
+  the slack between the admitted count and the budget.
+- **A token clearing the threshold takes a slot by `atomicAdd` and is listed
+  only if its slot is below the budget.** The docstring's claim that the set
+  "does not depend on scheduling" holds while the count clearing the threshold
+  is at most the budget. Above it, which tokens survive is decided by the order
+  the atomics land in. That is a scheduling-dependent set, and it is the
+  symptom.
+
+One more source fact that bears on how such an overflow could arise: the scores
+are an int8 matmul scaled per key block, so score values are discrete. Pass 1
+bins on `(s - ref) + HLO` and pass 2 compares `s` against `(ref - HLO) + edge`
+-- equal in exact arithmetic, not in floating point. Because the scores are
+quantised, a disagreement at the boundary moves a whole clump of equal-scoring
+tokens at once rather than one marginal token.
+
+**Two causes are eliminated, both recorded in that file.** Centroid fidelity,
+because token routing selects by the block centroid and the 2026-08-15 morton
+work measured that fidelity per block -- but of the two depths sampled the
+unstable block has the BETTER centroids under both curves, which is the
+opposite of what the story needs. And the high-norm-row hotspot that survived
+the withdrawal of the "4x the error" claim in `docs/method/evidence.md`, because none of
+the rows that move are in the top rows by norm and their median norm sits
+below everyone else's.
+
+**Why it matters.** Not for renders today: `token_aug` ships off in every
+graph, so nothing shipped can be affected. It matters because the block-policy
+step wants token routing as a per-block candidate, and a lever whose output
+is not reproducible cannot be graded blind against anything -- two clips from
+the same seed and settings would differ. It also matters to the sister
+project, whose kernel work is ranked against shares measured on this path.
+
+**The arms, cheapest first. All offline on captured activations, none needs a
+render.**
+
+1. ~~**Score separation at the selection boundary.**~~ **REPLACED and DONE
+   2026-09-08: the shape of the moving rows.** Replaced because the source
+   above says the boundary is a bin edge, so the original statistic does not
+   exist, and reconstructing the bin occupancy offline would mean
+   reimplementing the route stage, the int8 centroid quantisation and the
+   reference score -- a lot of surface to get subtly wrong for a quantity the
+   kernel could report directly (arm 5). What was measured instead is the
+   granularity of the variation, which the first fact above makes observable:
+   whether the moving rows cluster inside centroid-sized windows, and whether
+   both query blocks sharing a centroid move together.
+   `bench/probe_token_aug_selection_structure.py` and
+   `data/results/2026-09-08_token_aug_selection_structure.json`.
+   **The movement carries the selection unit's fingerprint on both tests**: it
+   clusters far above the run's own scattered control, which is the same rows
+   permuted within each head rather than a null asserted from theory, and the
+   aligned grid beats a grid shifted by one query block by a wide margin on
+   whether both halves of a window move. A single window can move nearly all
+   its rows, which is more than one query block holds. The delta magnitude is
+   the size a token moving between exact and pooled treatment would produce,
+   which is the consistency check the mechanism has to pass.
+   **What it does not do is confirm the mechanism**: the fingerprint is
+   consistent with a changed admitted set and with any other per-centroid
+   effect, and the record says so. A scattered result would have refuted it;
+   this one does not establish it.
+
+2. **The other three captured blocks. DONE 2026-09-08, same record, and
+   widened twice.** All four of the other captured blocks are bitwise
+   deterministic under the same budget, at every captured step rather than at
+   one, and block 49 is unstable at every captured step. So the claim rests on
+   the whole grid of captured cells, not on a single point of the trajectory --
+   which matters, because sigma changes the score distribution and that is the
+   quantity the mechanism says decides stability.
+   **Each control cell carries a plain arm of its own**, because "bitwise
+   deterministic" is otherwise ambiguous between two opposite readings: the
+   lever ran and its selection was stable, or the lever admitted nothing and
+   the arm is the plain path under another name. The record's `engagement`
+   field settles it -- token routing changes the output on every control cell,
+   so the stable blocks are stable rather than inert.
+   "The last block is special" survives with more behind it, and still
+   unconfirmed: nothing here says why depth would matter.
+
+3. **Budgets 128 and 256. DONE 2026-09-08, same record.** The instability is
+   present at every budget and does not scale smoothly with it, and the
+   fingerprint of arm 1 holds at each. Under the overflow mechanism that is
+   what to expect: the budget changes which windows overflow rather than how
+   badly. It is a weak discriminator and it is now spent.
+
+4. **The morton arm, and note what it is now for.** Reordering into compact
+   blocks and re-running the probe. This is no longer a test of the centroid
+   story, which is dead -- it is a test of `docs/attention/morton.md`'s **link 6**, "Morton's
+   canvas dependence matters for output", untested since August because the
+   fidelity metric could only ever measure an input quantity. Selection
+   stability is a downstream observable that did not exist before today. Needs
+   the permutation applied to captured q/k/v ahead of the kernel call, so it
+   is more than a flag flip.
+
+4b. **Provenance and a shippable repro. DONE 2026-09-08.** Two things the
+   entry needed before any of this could leave the machine.
+   *It is upstream's, not ours.* Our delta against the tag is Python only and
+   the selection kernel is byte-identical, but that is an argument; the
+   measurement is `bench/compare_token_aug_wheels.py` and
+   `data/results/2026-09-08_token_aug_stock_wheel_control.json`, which runs
+   the repro under a plain upstream wheel holding none of our code. It
+   reproduces there in every cold run, and each arm carries a positive control
+   that it is the wheel it claims to be, because otherwise "stock reproduces"
+   could be our build under two labels.
+   *A capture cell is not a repro.* `bench/repro_token_aug_nondeterminism.py`
+   is standalone and imports nothing from this repo, and
+   `bench/verify_token_aug_repro_shapes.py` found the smallest input that still
+   moves, recorded in `data/results/2026-09-08_token_aug_repro_shapes.json`.
+   **The methodology note is the part worth keeping**: the first search ran
+   inside one process and the artifact it chose failed when run cold, because
+   this is an intermittent race and a warm process is not the state the
+   receiver is in. Candidates are re-tested in fresh processes now.
+   *And the finding that came out of the search rather than the plan:*
+   reproduction depends on head count and sequence length **non-monotonically**
+   -- shapes reproduce, slightly larger ones do not, and the full tensor does.
+   Needing concurrency to manifest is what a scheduling race looks like from
+   outside and what a wrong-but-deterministic computation does not do. Random
+   tensors at the same shapes never reproduce, so the trigger is in the
+   activations rather than in the code path alone. It also means a negative on
+   one shape is not evidence of correctness, which is the trap for anyone
+   re-testing this.
+
+5. **The one that settled it: the admitted count. DONE 2026-09-08, and it
+   needed no kernel change.** The entry said this was a kernel build and a
+   wheel swap. It is not: the Python wrapper allocates the kernel's workspace
+   itself and the plan already exports a `tokCnt` offset, so calling the same C
+   entry point with a workspace we keep reads the count out of the installed
+   build. `bench/probe_token_aug_admitted_count.py` and
+   `data/results/2026-09-08_token_aug_admitted_count.json`.
+   **The count exceeds the budget, by orders of magnitude rather than at the
+   margin**, on a few hundred of several thousand centroid groups. Which groups
+   overflow is identical across launches, as the mechanism predicts: what
+   overflows is a function of the input and only the winners inside are racy.
+   **And the correlation holds exactly**: every centroid group whose output
+   moved between launches is one that overflowed, with none moving that never
+   did, on two independently sized slices. That is what turns the earlier
+   fingerprint into a cause.
+   The kernel's own code anticipates the state -- `min(tok_cnt, n_tok)` appears
+   in both the sort and the exact stage -- so the docstring's "the set never
+   depends on scheduling" is not backed by the implementation it describes.
+   Two things the probe cannot do: name which tokens were dropped, since the
+   count is a count, and rule out some other way the kernel could vary. It
+   carries a replication control, because it does not call the public wrapper:
+   with `token_aug` off its output must be bitwise equal to `sol_attn`'s.
+   **What the overshoot does and does not say about the first proposed fix.**
+   That fix was to make pass 2 evaluate the same expression pass 1 binned on,
+   since the two are equal in exact arithmetic and not in floating point. The
+   overshoot was first read here as refuting it, on the grounds that boundary
+   leakage is worth a handful of tokens. **That reasoning was wrong and is
+   withdrawn**: when the threshold loop completes without breaking, pass 2's
+   threshold collapses to the window's lower bound, which is exactly where the
+   reassociation straddles, and a flip there admits the entire population below
+   the window that pass 1 never binned. Because the scores are quantised, a
+   clump moves together. So the same defect can produce an overshoot of any
+   size.
+   The magnitude distribution is in the record and does not separate the two:
+   most overflowing groups sit at a small multiple of the budget, a few sit at
+   a large fraction of the sequence. **Untested, not refuted.** What would
+   separate them is whether the overflowing groups are the ones whose threshold
+   loop ran to completion, which needs one more value out of the kernel.
+   Either way, reproducibility is a separable and smaller question: the drop is
+   decided by the order atomics arrive in, so making that deterministic fixes
+   the nondeterminism whether or not the count is ever bounded. The
+   mechanism says a window is unstable exactly when the count clearing the
+   threshold exceeds the budget, and that count is a kernel-internal array the
+   caller never sees. An optional out-parameter for it is the same shape as the
+   `blk_cnt` parameter this fork already added, and against the same argument:
+   observability our tooling cannot work without. It would turn a fingerprint
+   into a cause -- and if the counts never exceed the budget, it refutes the
+   mechanism outright, which nothing available today can do.
+   **Blocker: the owner's call, on two things.** It is a kernel change, so it
+   is a build through `vendor/rebuild_kernel.sh` and a wheel swap in the
+   ComfyUI venv, which is not something to do under a shared checkout without
+   asking. And the finding it would confirm is a defect in a third-party
+   kernel, so where it is written up is a placement decision, not a technical
+   one.
+
+**Decision each would change.** 4 landing gives the block-policy step a reason
+to trust or distrust token routing per block; 5 gave it the cause. 2 and 3 were eliminations, both spent, and neither was expected to
+be the answer.
+
+**Stopping condition, as met.** This entry said it stops if arm 1 showed the
+selection's own margin was unremarkable. Arm 1 was replaced rather than run,
+and its replacement went the other way: the variation carries the selection
+unit's granularity. So the cheap outside-the-kernel work is finished and did
+not stop the lane -- but it did not name a cause either, and everything left
+(4 and 5) costs more than a flag flip. The disqualifying fact stands on its own
+either way: `token_aug`'s output is not reproducible on at least one block, and
+a lever that cannot render the same clip twice cannot be graded blind, which is
+sufficient reason not to ship it without ever learning why.
+
+## 30. Is the keyframe VAE encode deterministic on this card
+
+Added 2026-09-10. vllm-omni `30d6a0b4e` (#7191, 2026-09-07) wraps its keyframe
+VAE encode in `torch.backends.cudnn.flags(benchmark=False, deterministic=True,
+allow_tf32=True)`, because cuDNN's default algorithm choice produced
+numerically different keyframe latents on H100s and the denoiser amplified the
+difference (`coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/vae.py`,
+`_minimax_h3_keyframe_encode_context`).
+
+**What is known here, by reading.** Core encodes fl2va keyframes through
+`vae.encode` (`comfy_extras/nodes_minimax_h3.py`, both keyframe paths) under
+whatever cuDNN state is global. `cudnn.benchmark` follows `--fast autotune`
+(`comfy/model_management.py::set_cudnn_benchmark`), which this install's launch
+command does not pass, so it is off; `cudnn.deterministic` is never set, so the
+algorithm is cuDNN's heuristic pick, which can depend on free workspace. TF32
+does not enter, because the video VAE runs fp16 (gap 8 in
+[`docs/h3/comfyui_vendor_gaps.md`](../h3/comfyui_vendor_gaps.md)). Node caching encodes a
+given input once per server process, so any drift would show across restarts or
+VRAM states, not within one session. **Unmeasured on sm89.**
+
+**The arm, the cheapest in this file.** The same keyframe image encoded in two
+fresh processes at deliberately different free VRAM, latents compared bitwise.
+No render, no judge.
+
+**Decision it changes.** If the bytes differ, fl2va renders here are not
+matched across a server restart even at a matched seed, which bears on every
+fl2va comparison that spans one, and the fix is a flags wrapper around that
+encode -- in a pack node, since the checkout is stock. If they match, close
+this as checked, with the record.
+
+**Measured 2026-09-10, and closed as checked within a bound**
+(`bench/measure_keyframe_encode_determinism.py`, record
+`data/results/2026-09-10_keyframe_encode_determinism.json`). Five fresh
+processes at the shipped canvas -- free VRAM as found, a ballast-reduced
+state, the first state again, and both states under
+`cudnn.deterministic=True` -- gave byte-identical latents on every arm and
+every in-process repeat, with no tiled fallback. **The bound:** the encode's
+own peak is most of the card, so the reduced state could remove only a small
+slice of free VRAM before a regular encode stops fitting (the record carries
+both numbers); drift under heavier memory pressure, where ComfyUI would tile
+instead, is not ruled out, and a tiled latent differs for its own reason. No
+flags wrapper is warranted on this evidence. The first run of the tool left a
+guessed margin and ran out of memory, which is why the ballast is now sized
+from the measured peak.
+
+## 31. Draft decodes with taeh3: DECLINED 2026-09-26 by the owner
+
+**Declined the same day it was built.** The owner: "how much time does it
+save? i dont think its worth it no matter what. thats probably why its
+always used as a preview node only". The arithmetic backs that. The INT8
+VAE (0.151.0) brought the real decode down to about 17.6 s, so a draft saves
+about 15 s per discarded seed, and every kept seed pays the full decode
+anyway. The draft decoder also ghosts on motion. Observables 1 and 2 stand
+below as measured. The two blind sessions for observable 3 were built and
+are optional; the owner may score them for the record. The latent-saving
+and keeper-decode tools stay: the `_savelat` twins use the same mechanism.
+
+### What was proposed
+
+Added 2026-09-26 (owner: the VAE items not already on the list become
+experiments). The case for it moved with the sampler: on the 4-step
+FlashGen graphs decode is a much larger share of a render than #28 sized on
+the base step count. Compare `decode_s` against `total_s` in
+`data/results/2026-09-26_flashgen_lora_path_s1.jsonl` with #28's command.
+
+**Built the same day, and unmeasured.** *(The graph was retired on 2026-09-26 with the decline above.)* `h3_text_to_video_flashgen_draft` was
+the shipped FlashGen graph with the video decoded by `h3_config.DRAFT_VAE`
+(core's taeh3, loaded whole by stock `VAELoader`). It also saves the
+sampled latent in two halves under `latents/`, and
+`h3_decode_saved_latent` decodes a saved pair with the real video VAE and no
+sampling. The generator switch is `draft_decode` on `build_api`. Audio goes
+through the real audio VAE on both graphs.
+
+**Three observables, cheapest first:**
+
+1. **The keeper path is lossless.** The same saved latent through
+   `h3_decode_saved_latent` against the shipped graph's own decode at a
+   matched seed. The frames should be bit-identical. The one step that could
+   break that is the round trip through the file: `LoadLatent` returns
+   float32 whatever dtype was saved. If they differ, the keeper decode is a
+   different clip and the draft route is broken.
+   `bench/compare_clip_pixels.py` on the two clips.
+2. **The saving.** `decode_s` for the draft graph against the shipped one,
+   in the same cache state, plus the peak VRAM of each decode.
+3. **Does a keep decision survive?** Several seeds of one scene, each as a
+   draft and as a real decode. The owner picks keepers from the drafts,
+   blind to the real decodes, then judges the real decodes. What matters is
+   whether the choice would change. This is a scouting question, not a
+   quality A/B, so `docs/method/eval_comparison.md`'s pair protocol does not apply.
+
+**Decision it changes.** If 1 holds and 3 does not change the choice, the
+draft graph is how seeds are scouted, and the generator can grow draft twins
+of the other shipped graphs. If 3 changes the choice, taeh3 is a preview and
+nothing more, and the graphs go.
+
+**Blocker:** none for 1 and 2, which are machine time. 3 needs the owner.
+
+**Measured 2026-09-26: 1 holds, and 2 is recorded.** The keeper clip is
+identical to the shipped graph's clip on video and audio, and the draft
+decode's time and peak VRAM against fp16 on one 345-frame latent are in
+`bench/results/2026-09-26_vae_decoders_345f.md`. That record also covers the
+INT8 decoder. 3 is open and needs the owner.
+
+## 32. Continuation by the previous window's latent tail, as guide rows
+
+Added 2026-09-26, promoted from [`next_steps.md`](next_steps.md)
+(2026-09-25). It is VAE work only in passing: a window that takes the last
+window's sampled latent as conditioning never decodes and re-encodes it.
+The design, what core already expresses, and the arms are in
+[`docs/research/2026-09-25_continuation_guide_rows.md`](../research/2026-09-25_continuation_guide_rows.md);
+this entry adds nothing to them.
+
+**The arm.** One matched pair: guide rows (arm B in that note) against
+`MiniMaxH3FreezeAudioWindow` (arm A), judged through
+[`docs/method/eval_comparison.md`](../method/eval_comparison.md) with the seam as the thing to
+look at.
+
+**Decision it changes.** Whether the continuation lane builds B, or keeps A
+as its only design.
+
+**Blocker:** the owner. The continuation lane is paused, and the note is
+evidence for the owner's decision, not a build.
+
+## 33. The video VAE encode under fp16 accumulation, on the next kitchen tag
+
+Added 2026-09-26. Kitchen `ef40891` (#192) raises the depth gate on
+`fp16_conv3d`'s fp16 accumulation. On this launcher (`start.sh`,
+`--fast fp16_accumulation`) that moves some of the H3 video encoder's
+convolutions onto fp16 accumulation once the next tag is built; the decoder
+has none past the old gate ([`docs/attention/sol_upstream.md`](../attention/sol_upstream.md),
+"comfy-kitchen and core, 2026-09-25"). Every keyframe and reference encode
+passes through it.
+
+**The arm.** `bench/grade_vae_encoder_precision.py` before and after the
+rebuild. It already runs fp16 against fp32 and bf16 on the real VAE with a
+determinism and a direction control. Add the new kitchen's fp16 encode as a
+fourth arm, and read its delta from the fp32 encode against the current fp16
+delta. No render: an encoder change would diverge the trajectory at frame
+zero (`CLAUDE.md`).
+
+**Decision it changes.** If the new delta sits well past fp16's and toward
+bf16's, the encode needs fp32 accumulation. kijai's fork has an
+`fp32_accumulate` option on `fp16_conv3d` (`docs/attention/sol_upstream.md`), and a pack
+node can scope that to the encode, since the checkout stays stock. If it
+sits with fp16's, the rebuild record says so and this closes.
+
+**Blocker:** none since 2026-09-27. The build tracks upstream main
+(`vendor/rebuild_kernel.sh`), and `0.2.35+sol.863e953.up.c8c7825` carries
+`ef40891`. The "before" arm is
+`data/results/2026-09-27_vae_encoder_fp16acc_before_672.json`. *Until then
+this said the tag was the blocker: untagged main was not built by policy.*
+
+**Closed 2026-09-27: no change** (`../bench/results/2026-09-27_vae_encoder_fp16acc.md`).
+Before and after, the fp16-accumulate encode is identical to every printed
+digit, because core's H3 encoder always tiles at 256 px. Its 512-channel
+convs launch at 16x16 tiles, where #192's small-launch rule keeps fp32
+accumulation. It reopens if core encodes H3 untiled or with much larger
+tiles. *Since 2026-09-28 `start.sh` passes no `--fast`, so the kernel's fp16
+path is not reached here at any tile size; a reopening also needs the flag.*
+
+
+## 34. PDD8 finished by late-block FlashGen
+
+Added 2026-09-27 (the VAE session's held-back list,
+`../internal/postmortems/2026-09-26_session_distill-weights-and-render-dataset.md`,
+addendum). It combines the night's two best recipes:
+- the reverse switch lifts PDD8's highlights (white .918 to .958 on subway,
+  `../bench/results/2026-09-27_reverse_switch.md`);
+- FlashGen on blocks 34-49 alone keeps the 4-step finish with about half the
+  haze (fastdude's FT1, `../bench/results/2026-09-27_inventory_fastdude.md`).
+
+Full FlashGen as the finisher may be adding its haze back.
+
+- **Models:**
+  - `minimax_h3_fl2va_pruned_int8_convrot`;
+  - `loras/h3/minimax_h3_fl2va_pdd_8step_comfy` (PDD pass);
+  - `loras/h3/minimax_h3_flashgen_4step_v1.0_768p_fl2va_pruned_rank64_comfy`
+    (finish).
+- **Workflow, to build:** a generator entry
+  `h3_probe_t2v_step_switch_pdd8_flashgen_late_h080`. It is the existing
+  `_reverse` h080 entry plus `step_switch_blocks="34-49"`, which `build_api`
+  takes since 0.157.0, and it routes to `distill_experiments/` with a
+  `_savelat` twin. The declared `MiniMaxH3LoRABranch.blocks` row in
+  `bench/check_widget_deviations.py` has to name this graph too.
+- **Bench, to build:** a manifest on noodle_bar, radio_drama and
+  courtroom_verdict (PDD8's largest contrast gaps, per the signatures record)
+  plus subway_chase, at the followup seed 730451892. The comparison rows
+  already exist: `<scene>__pdd8` (the followup rerun) and
+  `subway_chase__rev_h080`.
+- **Measures:**
+  - `bench/measure_clip_tone.py`: white, rms_contrast, haze, shadow and mid;
+  - `bench/measure_clip_resolution.py`: hf and moved_share;
+  - `bench/measure_clip_temporal.py`: boil;
+  - `bench/compare_audio_pairs.py`.
+  - Read against PDD8 and rev_h080 per scene. A clip x0 preview is not
+    needed.
+- **Decision it changes.** Take this recipe if it matches rev_h080's
+  highlight lift with less haze than rev_h080 on most scenes. If haze matches
+  rev_h080, full FlashGen stays as the finisher.
+- **Blocker:** the owner's go (card time: about 5 min per render at 345
+  frames).
+- **Closed 2026-09-27, no change: haze matches, so full FlashGen stays as
+  the finisher.** `../bench/results/2026-09-27_late_switch.md`, fastdude.
+  - The run: seven renders on the four scenes, each at its written length,
+    with `rev_h080` added where it was missing.
+  - Late-only and full finishers are within 0.002 on haze on every scene.
+    The full finish from 0.8 adds no haze over PDD8 in the first place.
+  - Both finishers lift highlights and detail alike.
+  - One seed, measured, not yet judged by eye.
+
+## 35. FastH3: gates or backbone drift
+
+Added 2026-09-27. The conditioning swap (`../bench/results/2026-09-27_fasth3_swap.md`)
+showed that FastH3's speed and look live in its 50 VSA gates and its small
+backbone drift (about 1e-4 relative) together. fastdude's VSA-off arm removes
+sparsity and gates at once. This splits the two.
+
+- **Models, to build:**
+  - (a) fl2va plus FastH3's gates. Add the 150 `blocks.N.attn.to_gate_compress.{weight,
+    weight_scale, comfy_quant}` tensors (int8 with per-row fp32 scales) from
+    `fastvideo_fasth3_8step_v2_pruned_int8_convrot` to
+    `minimax_h3_fl2va_pruned_int8_convrot`. Core's detection turns
+    `gate_compress` on from the keys.
+  - (b) FastH3 without its gates. Drop those 150 tensors; core's VSA node
+    then warns and runs the fine stage only.
+  - Both go under `models/diffusion_models/h3_research/`.
+- **Bench, to build:** `bench/build_checkpoint_keys.py`, generalising
+  `bench/build_adaln_swap.py` to add or drop a key set by regex, with the same
+  streaming and byte verification.
+- **Workflow:** the existing `distill_experiments/h3_probe_t2v_fasth3_8step_contract_savelat_api.json`
+  with a per-arm `UNETLoader.unet_name` patch, as the swap did.
+- **Manifest, to build:** the swap's three scenes (look_anchor,
+  slapstick_moving_piano, radio_drama), seed 730451892. FastH3 and base rows
+  exist.
+- **Measures:** `measure_clip_resolution.py` (hf, loss4, moved_share) and
+  `measure_clip_tone.py` (detail, chroma, sat, haze), against FastH3
+  (`__fasth3`) and base (`__fl2va_contract`).
+- **Decision it changes.**
+  - If (a) reaches FastH3's hf within 10% on all three scenes, the gates
+    carry FastH3. A "FastH3 lite" is then the base checkpoint plus about
+    1.9 GB of int8 gates (50 x 7168 x 5376), and #36's dial is the detail
+    control.
+  - If (b) keeps FastH3's look, the backbone drift carries it and no light
+    variant exists.
+- **Blocker:** the owner's go; two CPU builds (about 1 min each) and six
+  renders.
+- **What follows, by outcome** (added 2026-09-27, the owner approved). Each
+  route puts a base-trained adapter (PDD, FlashGen), whose adaln is baked into
+  fl2va's curve basis, on FastH3's behaviour.
+  1. **If the gates carry it: (a) is the stacking platform.** fl2va plus
+     FastH3's gates is the exact backbone PDD and FlashGen were trained on, in
+     their own basis. Adapters load unchanged. The swap file with FastH3's
+     weights and fl2va's conditioning would also have worked, but it carries
+     the backbone drift the adapters never saw, so (a) supersedes it.
+  2. **Whatever the outcome: bake the adapter into FastH3's own basis.**
+     - This keeps FastH3 exactly as trained.
+     - `bench/build_pdd_base_shim.py` needs FastH3's time embedder, which is
+       kept in `../internal/pdd_shims/shim_fasth3_temb.safetensors`. The
+       unpruned V2 it came from is deleted.
+     - That shim's int8 probe came from the deleted swap file, so a bake for
+       FastH3 needs a new shim with FastH3's probe. The embedder tensors carry
+       over.
+     - Routes 1 and 2 should render alike if FastH3's conditioning is
+       near-inert (S2 in `../bench/results/2026-09-27_fasth3_swap.md`). That
+       is testable.
+  3. **If the backbone drift carries it: an α dial on the drift.**
+     - fl2va plus α times FastH3's backbone delta, with the gates kept.
+     - The two bf16 pruned files are kept for it (the owner's download
+       folder, until this entry lands).
+     - The existing rank record (`../data/results/2026-09-26_fasth3_lora_rank.json`)
+       compares the two int8 files, whose rounding noise is on the order of
+       the drift (`edf70ef6`), so its low energy is most likely a noise
+       floor.
+     - `bench/measure_checkpoint_lora_rank.py` on the bf16 pair is what
+       measures the drift's true rank. It decides whether the dial can be a
+       LoRA or must be a merged checkpoint built from bf16.
+  The deleted research files, their hashes and rebuild commands are in
+  `../bench/results/2026-09-27_research_files_deleted.md`.
+
+## 36. A strength dial on FastH3's gates
+
+Added 2026-09-27. FastH3 carries the most fine detail of the distills on 13
+of 13 scenes, and the owner reads it as too polished. The time-embedder dial
+built on 2026-09-27 targeted conditioning the swap then showed to be inert.
+The gates are the live target.
+
+Core computes the gate as a plain linear with no activation
+(`comfy_extras/nodes_sparse_attention.py`: `coarse_gate = gate(xc)`), and
+kitchen multiplies the coarse term by it with no sigmoid. That second half is
+per the 2026-09-26 forward-parity audit and was not re-read here. The gate
+weights are int8 with per-row fp32 `weight_scale`, so multiplying each
+`weight_scale` by α scales the gate output by exactly α (a byte-level edit,
+not a refit), and the coarse term by α if the kitchen reading holds.
+
+- **Models, to build:** FastH3 with the 50 `to_gate_compress.weight_scale`
+  tensors scaled by α in {0.5, 0.75} (0 approximates #35's (b)). Same builder
+  as #35, with a `--scale` mode.
+- **Workflow:** the FastH3 contract `_savelat` graph with a `unet_name`
+  patch.
+- **Measures:** hf, detail and chroma (the over-polish axes) and moved_share
+  against FastH3 at α = 1. Then the owner's eye on "too polished", in blind
+  pairs (#41).
+- **Decision it changes.** If detail falls monotonically with α while motion
+  holds, an α below 1 becomes FastH3's shipped setting.
+- **Blocker:** best after #35. If the gates do not carry the look, this dial
+  moves little.
+
+## 37. PDD8 finished by the base model
+
+Added 2026-09-27. PDD's trained blocks force a coarse final step, σ 0.632 to
+0 at shift 12. PDD8 cannot give that tail more resolution, and the reverse
+switch gives it to FlashGen instead. Finishing with the undistilled base is
+the clean test of whether the tail is PDD's problem.
+
+- **Models:** fl2va int8 and the PDD sidecar (pass 1); fl2va with no LoRA
+  (pass 2).
+- **Workflow, to build:**
+  - `build_api` gains `step_switch_to="base"`; today it accepts only pdd8
+    and flashgen.
+  - Pass 1 is PDD8 to 0.631579 (`STEP_SWITCH_REV["h063"][0]`). Pass 2 is the
+    base on Euler over `0.631579, 0.553846, 0.444444, 0.279070, 0.0`: the
+    32-grid's last four intervals at shift 12, 4 evaluations.
+  - `h3_config.STEP_SWITCH_REV` or `STEP_SWITCH_PAIRS` gains the pair, so
+    `bench/check_distill_settings.py` and `bench/check_distill_grid.py`
+    accept it.
+  - Graph: `h3_probe_t2v_step_switch_pdd8_base_h063`, with a `_savelat`
+    twin.
+- **Bench:** a manifest on subway_chase plus the #34 interiors, against
+  `subway_chase__rev_h063` (the FlashGen finish at the same handoff) and
+  PDD8.
+- **Measures:** as #34, plus the time cost (4 base evaluations, about 25 s at
+  345 frames).
+- **Decision it changes.**
+  - If the base finish lifts highlights and detail as much as FlashGen's
+    without its haze, the tail is PDD's weakness and the finisher is a free
+    choice.
+  - If it looks like PDD8, the dim highlights are not the tail's.
+- **Blocker:** the owner's go; a small generator change.
+- **Run 2026-09-27 in the finisher grid** (`../bench/results/2026-09-27_finisher_grid.md`,
+  fastdude): the base finish from 0.8 on six t2v scenes.
+  - It leaves PDD8's highlights, contrast, haze and detail about where they
+    were, and on noodle_bar the highlights drop.
+  - Motion detail rises on four of six scenes, less than under the FlashGen
+    finish.
+  - On measures it does not repair PDD8's dim highlights; the FlashGen finish
+    does. The owner's eye is pending.
+- **The owner's eye, 2026-09-27** (the board's review, ow-vd-07 to 09, vd-v01).
+  The base finish is not inert, which the measures missed:
+  - on noodle_bar it matches both FlashGen finishes, and all three beat
+    PDD8 alone;
+  - on spec_unusual it partly fixes the sign text, better than PDD8 but
+    worse than FlashGen;
+  - on courtroom it morphs a face.
+
+  So PDD8's coarse tail is part of its weakness, but a FlashGen finish stays
+  the recipe for t2v. Closed.
+  - By this entry's rule (the VAE session): a base finish that looks like
+    PDD8 means the dim highlights are not the tail's. The reverse switch's
+    lift is FlashGen's own.
+
+## 38. The save format, measured
+
+Added 2026-09-27. O1 (`../bench/results/2026-09-27_o1_lossless.md`) put the
+dark blocking on the save: 8-bit 4:2:0 h264 at crf 19. The fix was handed to
+the owner as a choice with no measurement of either option.
+
+- **Models:** none. It re-encodes decoded frames.
+- **Bench, to build:** `bench/encode_format_ab.py`.
+  - It decodes a `_savelat` latent through the video VAE on the GPU, as
+    `distill_experiments/h3_decode_saved_latent_api.json` does. The CPU path
+    took 7.4 h for 22 frames.
+  - It encodes the frames at crf 19 (today), crf 14 and crf 10, and as 10-bit
+    (`libx264 yuv420p10le`, and `libx265` 10-bit).
+- **Inputs:** look_noir and look_anchor latents on PDD8 and FlashGen (dark
+  scenes; FlashGen lifts blacks), from `latents/`.
+- **Measures:**
+  - the block-edge ratios `o1_lossless_blocking.py` already computes (dark
+    and bright, 8 and 16 px) against the lossless frames;
+  - mean absolute luma error;
+  - file size per second.
+- **Decision it changes.** Pick the setting that brings dark_block8 within
+  0.02 of lossless at the smallest size, then change `VHS_VideoCombine`'s
+  `crf`/`format`/`pix_fmt` in the generator and rebuild. Check the owner's
+  players first for 10-bit.
+- **Blocker:** a few minutes of GPU for the decodes; no render.
+- **Ran 2026-09-27** (`../bench/results/2026-09-27_encode_format_ab.md`).
+  No candidate meets the 0.02 bar on the PDD8 clips. A lower crf in 8-bit
+  blocks more, not less. 10-bit cuts the excess, and H.265 10-bit at crf 22
+  does it at half the size with today's dark error. That switch is the
+  owner's call, gated on their players, one pair by eye, and the measure
+  tools reading 10-bit with accurate rounding.
+- **Closed 2026-09-27, no change.** The owner saw no difference in the pair.
+  The encodes differ by under a level in the darks, and a 4x crop shows no
+  visible blocking, so the save format stays. O1's splotchy blacks are not
+  the codec's 8 px blocking; that question is open again, on a clip where
+  the owner sees it.
+
+## 39. Telemetry armed on a mixed-model batch
+
+Added 2026-09-27. The owner's first question on 2026-09-26 was what gets
+offloaded and reloaded on a 24 GB card with 128 GB of RAM.
+`pipeline_telemetry.py` was built for it, and the overnight batch swapped
+among PDD, FlashGen and FastH3 all night with it off.
+
+- **Models and workflows:** whatever the next mixed batch runs (#34, #35,
+  #37 and #40 all switch checkpoints and LoRAs).
+- **Bench, existing:**
+  - arm by starting the server with `H3_TELEMETRY=dir=<capture root>`
+    (`docs/working/pipeline_telemetry.md`);
+  - report with `bench/telemetry_report.py`;
+  - `bench/record_render_substrate.py` for cache position.
+- **Measures:** per render, load and offload time per model, VRAM peak, RAM
+  resident, PCIe traffic, and cache hits, across model switches.
+- **Decision it changes.** It tells whether batches should be ordered to
+  minimise checkpoint switches, and whether FastH3's separate checkpoint
+  costs a full reload each time. It answers the owner's question with
+  numbers.
+- **Blocker:** none beyond a batch to ride on. It costs almost nothing
+  (`../bench/results/2026-09-26_telemetry_first_records.md` has the overhead).
+- **Run 2026-09-27 on the finisher grid** (`../bench/results/2026-09-27_finisher_grid.md`,
+  "Telemetry"; per-render summary `../data/results/2026-09-27_finisher_grid_telemetry.json`).
+  - The card peaks at 24.3-24.5 GB on every render.
+  - The DiT is about 90% resident, and the rest streams every forward.
+  - The text encoder loads and evicts per new prompt: 8.5-10 s and 22-31 GiB
+    of PCIe.
+  - About 19.5 GB of disk reads on most renders that encode a new prompt
+    point at page-cache eviction. A CPU sweep ran alongside, so a quiet
+    batch should confirm it.
+
+## 40. A second seed on the recipes we would ship
+
+Added 2026-09-27. Every recommendation in
+`../bench/results/2026-09-27_evening_takeaways.md` rests on seed 730451892.
+
+- **Workflows, existing:**
+  - `distill_experiments/h3_text_to_video_flashgen_late_blocks_api.json`;
+  - `distill_experiments/h3_probe_t2v_step_switch_pdd8_flashgen_h080_savelat_api.json`;
+  - `h3_text_to_video_pdd_manual_sigmas_api.json` (PDD6);
+  - and their references: PDD8, full FlashGen.
+- **Bench:** the existing manifests (`bench/flashgen_transplant_arms.json`,
+  `bench/followup_reverse_switch_arms.json`) re-run with
+  `run_graph_arms.py --seed <second seed>` on the same scenes.
+- **Measures:** the same tone, resolution and temporal measures. The read is
+  sign agreement across seeds per scene, via `bench/distill_signatures.py`
+  or a small comparison.
+- **Decision it changes.** A recipe whose effect keeps its sign at the second
+  seed on most scenes can become a default; one that flips stays a probe.
+- **Blocker:** the owner's go.
+
+## 41. Blind pairs for the owner on the leading recipes
+
+Added 2026-09-27. Last night's verdicts are measures plus a few unblinded
+reads.
+
+- **Pairs:**
+  - FlashGen full against late-blocks;
+  - PDD8 against the reverse switch h080;
+  - FastH3 against FastH3 at gate α 0.75 (after #36);
+  - PDD8 against PDD6.
+  All on the #40 renders, so both seeds.
+- **Bench, existing:** `bench/blind_batch.py --pairs`,
+  `bench/blind_score_app.py` and `bench/score_session.py`, per
+  `docs/method/eval_comparison.md` section 3.
+- **Measures:** the owner's free-text verdicts, tallied per pair; notes
+  first.
+- **Decision it changes.** It turns the measured leads into defaults.
+- **Blocker:** the #40 renders; the owner's time.
+
+## 42. What PDD's head fusion costs, against the same model unfused
+
+Added 2026-09-27. It was cut by the 2026-09-26 batch's cap and never picked
+up. It was fastdude's P2 (`../bench/results/2026-09-26_distill_run_predictions.md`).
+
+- **Workflows, existing (`distill_experiments/`):**
+  - `h3_probe_t2v_pdd16_savelat`;
+  - `h3_probe_t2v_pdd32_savelat` (PDD at width 1, no fusion);
+  - `h3_probe_t2v_base_euler16_savelat`;
+  - `h3_probe_t2v_base_euler32_savelat`.
+- **Bench, existing:** `bench/make_followup_manifest.py` has the `pdd16`,
+  `pdd32`, `base_euler16` and `base_euler32` roles; a manifest selecting them
+  on two scenes is to build.
+- **Measures:**
+  - look and temporal measures against PDD8;
+  - `bench/x0_step_frames.py` for events;
+  - not final-latent distance, which is divergence
+    (`../bench/analyze_followup.py`'s note).
+- **Decision it changes.**
+  - If PDD32 looks like base Euler 32 while PDD8 does not, the fusion into 8
+    blocks is where PDD's quality goes.
+  - If PDD32 already looks like PDD8, the LoRA itself is the cost.
+- **Blocker:** the owner's go (base Euler 32 at 345 frames is about 16 min
+  per render).
+
+## 43. Does the picture settle later where the frame changes most
+
+Added 2026-09-27 (fastdude's held-back list,
+`../internal/postmortems/2026-09-26_session_distill-followup-and-attention-parity.md`,
+addendum). It tests the premise under the owner's motion-adaptive schedule,
+saved in `next_steps.md` ("fit the schedule to how much of the frame
+changes"). The idea only pays if frames that change a lot are still being
+decided late in the schedule, where PDD's tail is coarse. Nobody has checked
+that premise.
+
+- **Models:** `h3_config.MODELS["unet_fl2va"]`; PDD8 through
+  `h3_config.PDD_FL2VA_LORA`. The base on Euler 32 is the undistilled control.
+- **Workflows, existing (`distill_experiments/`):**
+  - `h3_text_to_video_pdd_x0` (PDD8);
+  - `h3_probe_t2v_base_euler32_x0`.
+  Both save every step's x0 and the final latent (`probe_step_x0`, through
+  `step_x0_observer.py`).
+- **Data already on disk, a pilot with no render:** subway_chase on both
+  (`../data/results/2026-09-26_x0_steps_subway_pdd8.json`,
+  `../data/results/2026-09-27_x0_steps_subway_base_euler32.json`).
+- **Bench:**
+  - existing: `bench/x0_step_frames.py` (per latent frame, each step's
+    `to_final` and `change`) and `bench/measure_clip_delta.py --json` (the
+    per-frame delta series and cut times, from the mp4);
+  - to build: `bench/analyze_settle_vs_delta.py`. It maps each latent frame
+    to its video frames (the packing `x0_step_frames` already uses) and takes
+    the frame's settle step, the first step where `to_final` falls under a
+    threshold, reported at several thresholds rather than one chosen. It
+    ranks that against the frame's mean delta, with cut frames reported
+    apart from the rest.
+- **Scenes, after the pilot:**
+  - two high-delta: slapstick_moving_piano, samurai_bamboo_duel;
+  - two low-delta: courtroom_verdict, radio_drama;
+  - seed 730451892, 345 frames, both models.
+  - A manifest is to build (`bench/make_followup_manifest.py` roles).
+- **Measures:**
+  - per render, the rank correlation between delta and settle step;
+  - the settle step of cut frames against their neighbours;
+  - per scene, where the last quarter of `change` falls.
+- **Decision it changes.**
+  - If high-delta frames settle later on PDD8 and not on the base, PDD's
+    coarse tail is where motion gets short-changed. A per-scene partition
+    (`pdd_lora.envelope_partition`, a finer tail on moving scenes) is then
+    worth building.
+  - If settle step does not follow delta on either model, the adaptive
+    schedule has no target in the sampler, and the idea closes as a sampler
+    lever.
+  - Cut frames settling at the first steps would mean a cut is a composition
+    decision. That would support the owner's "pixel wipe" reading of why
+    cuts must be prompted.
+- **Blocker:** none for the pilot (CPU, existing latents). The scene renders
+  need the owner's go, and base Euler 32 is the long one (see #42).
+- **Pilot run 2026-09-27** (`../bench/results/2026-09-27_settle_pilot.md`).
+  - On subway, the base on Euler 32 settles its high-change frames later at
+    every threshold: rank correlation +0.50 to +0.60, and +0.38 on the
+    threshold-free measure.
+  - PDD8 shows no consistent relation after the loosest threshold.
+  - So the late refinement of moving frames is the teacher's, and PDD8 lacks
+    it. That is the reverse of the pattern this entry's rule expected.
+  - The scene pass decides whether it holds; the record says what follows.
+
+## 44. Timestamps inside a shot
+
+Added 2026-09-27 (the same list). The owner's hypothesis: a change inside a
+shot has to be timed for the same reason a cut has to be prompted, because
+the model changes much of the frame at once. The house rule allows a time
+only inside a shot (`docs/prompting/prompting.md` section 3.1). The one measured pair timed
+shot headers, not beats inside a shot
+(`../bench/results/2026-09-18_timestamps_diner.md`).
+
+- **Models:** `h3_config.MODELS["unet_fl2va"]`, with PDD8 and FlashGen
+  (`h3_config.FLASHGEN_R64_LORA`), both on the exact branch. The base comes
+  later, only if a distill shows a difference (the owner's no-base rule for
+  this batch).
+- **Prompts, to build:** one new single-shot T2VA prompt with three agented
+  beats, in two bank entries, `t2va_<scene>_beats_timed` and
+  `_beats_untimed`, identical except for the times.
+  - It is written per `docs/prompting/prompting.md` sections 3.1 and 5.10, with times
+    fitted to the scene, not a template.
+  - It needs a new `bench/adherence_checklists.json` entry, one line per
+    beat, with its intended time.
+- **Workflows, existing:**
+  - `distill_experiments/h3_text_to_video_pdd_savelat`;
+  - `distill_experiments/h3_text_to_video_flashgen_savelat`.
+  Both are patched with `MiniMaxH3Conditioning.prompt=@bank:...`.
+- **Seeds:** two (730451892 and 730451893). The comparison is between
+  prompts, so a second seed separates the prompt's effect from one take's
+  luck. A seed is not being used to probe adherence here.
+- **Bench:**
+  - existing: `bench/make_followup_manifest.py`,
+    `bench/measure_clip_delta.py --json` (the delta peaks give each beat's
+    rendered time), `bench/grade_prompt_text.py` (grades both texts before
+    render);
+  - to build: nothing, unless reading beat times off the delta series by
+    hand proves unreliable.
+- **Measures:**
+  - per beat: present, in order, and rendered time against written time;
+  - the owner's eye on whether the beats land.
+- **Decision it changes.**
+  - If the timed version lands its beats in order and near their times more
+    often on both distills, `docs/prompting/prompting.md` recommends times for multi-beat
+    shots. That extends the house rule from allowed to advised.
+  - If there is no difference, the rule stays as written.
+- **Blocker:** the owner's go (8 renders at 345 frames).
+
+## 45. Is part of FastH3's over-polish the kitchen's VSA selection
+
+Added 2026-09-27 (the same list). The owner reads FastH3 as "super high
+detail like almost way too much" (`../bench/results/2026-09-26_followup_contamination.md`).
+Turning VSA off roughly halves its fine detail (F6 in
+`../bench/results/2026-09-26_distill_run_predictions.md`). Core's VSA, which
+runs on kitchen, departs from FastVideo's training in three ways
+(`../bench/results/2026-09-27_attention_parity.md`):
+- it keeps `round(0.2n)` blocks plus a tie back-off, where FastVideo uses
+  `ceil`;
+- it forces the ±1 diagonal exact;
+- it runs Q/K/V in int8, where FastVideo uses bf16.
+
+Inference, not measured: if kitchen keeps blocks FastVideo would not, the
+render carries attention FastH3 never trained with, which could add detail.
+
+- **Models:** `h3_config.MODELS["unet_fasth3_v2"]`.
+- **Workflow, existing:**
+  `distill_experiments/h3_probe_t2v_fasth3_8step_contract_savelat`, core's
+  `BlockSparseAttention` at `h3_config.FASTH3_CONTRACT_VSA`.
+- **Capture, to build:** `h3_capture.maybe_capture` is called only from our
+  own attention paths (`attention.py`, `exact_blocks.py`), not from core's
+  sparse path. So a FastH3 capture needs one of two things:
+  - an observer override that records q/k/v and then calls core's override
+    unchanged, as `exact_blocks.py` does for the stock kernel;
+  - or `pre=1` capture at the block input, where the selection's own
+    inputs are reconstructed.
+  Blocks 0, 24 and 49, at an early and a late step.
+- **Bench, to build:** `bench/grade_vsa_selection_on_capture.py`.
+  - A torch reference selection: fp32 pooled scores, `ceil`, no forced
+    diagonal.
+  - Kitchen's selection on the same q/k, through the kernel core calls.
+  - Per cell: the kept-block overlap, how many blocks each keeps, and each
+    output's error against exact dense attention and against the other.
+- **Measures:** the capture grade first. A render only if the grade shows
+  the selections differ materially. That render is the reference node
+  (`MiniMaxH3VSAAttention` rewritten, the board's "vsa-fastvideo-reference"),
+  on look_anchor and slapstick at 730451892. It is read with
+  `bench/measure_clip_resolution.py` (hf, moved_share) against the kitchen
+  render.
+- **Decision it changes.**
+  - If the selections match on nearly every cell, FastH3's detail is trained,
+    not ours, and the reference node is not worth building.
+  - If kitchen keeps materially more blocks or its output diverges, the
+    reference node is justified. A kitchen `ceil` or diagonal flag becomes a
+    fork candidate.
+- **Blocker:** the capture hook. After that, one FastH3 render with
+  `H3_CAPTURE` set (disk for three blocks at two steps). It is sequenced
+  after the Sol redesign's own capture session.
+- **Graded 2026-09-27** (`../bench/results/2026-09-27_vsa_selection_grade.md`, fastdude;
+  capture by lookingdude). Answered for selection.
+  - At blocks 0 and 24 the kitchen matches the FastVideo-exact reference to
+    within about 1%. Both sit 9-11% from exact, which is FastH3's trained
+    sparsity.
+  - At block 49 the kitchen is 4-5% from the reference. The gap is int8 on
+    the text and audio rows (text 29-34% against 4%), not selection. On video
+    rows the two agree to within 1%.
+  - The selection deviations do not explain the over-polish.
+  - Whether block 49's text-row error is visible needs a bf16 VSA render of
+    that block, which the reference node would give. That is the owner's
+    call.
+
+
+## 46. Late-only FlashGen on the adherence scenes, then as its own file
+
+Added 2026-09-27 (the same list). The owner's theory O2: FlashGen is overfit
+to a narrow distribution, so it follows unusual prompts poorly
+(`../bench/results/2026-09-26_distill_run_predictions.md`, "The owner").
+FT1 found FlashGen's early blocks carry a large high-rank change that makes
+its haze, while its late blocks carry the 4-step finish
+(`../bench/results/2026-09-26_flashgen_weights_predictions.md`). If O2 lives
+in the early blocks, late-only FlashGen should follow prompts better. The
+specificity ladder could not see "weird" by measure
+(`../bench/results/2026-09-27_followup_summary.md`), so this is the owner's
+eye.
+
+- **Models:** `h3_config.MODELS["unet_fl2va"]`, `h3_config.FLASHGEN_R64_LORA`.
+- **Workflows, existing:**
+  - `distill_experiments/h3_text_to_video_flashgen_late_blocks` (blocks
+    34-49, 0.157.0);
+  - `h3_text_to_video_flashgen` (full), and its `_savelat` twin.
+- **Scenes:**
+  - subway_chase and subway_chase_short, where FlashGen lost the prompt's
+    roles (`../bench/results/2026-09-26_subway_v2_s1.md`);
+  - the specificity ladder's unusual rung;
+  - two more checklisted scenes, the owner's pick.
+  Seed 730451892, where the full FlashGen rows already exist.
+- **Bench, existing:** `bench/make_followup_manifest.py`,
+  `bench/adherence_checklists.json`. The blind path (`bench/blind_batch.py`,
+  `bench/blind_score_app.py`) applies if #41 runs.
+- **Measures:** checklist beats and roles per clip, from the owner's eye.
+  Tone and temporal as a side read (`bench/analyze_followup.py`).
+- **Then, only if late-only is preferred: its own file.**
+  - To build: `bench/extract_lora_blocks.py`, which writes a LoRA holding
+    only the keys `lora_branch.select` keeps for `blocks="34-49"` (block
+    keys only; the refiner and final layer drop, as they do today).
+  - Control: the stripped file at `blocks="all"` must give a final latent
+    `torch.equal` to the full file at `blocks="34-49"`, same seed and graph.
+  - Then the late-blocks graph points at the file, and the loader's
+    `blocks` input goes back to its default.
+- **Decision it changes.**
+  - If late-only follows the checklists better, O2 sits in the early blocks,
+    and late-only is the FlashGen to ship.
+  - If not, FT1 stays a tone result and O2 is a property of the whole
+    adapter.
+- **Blocker:** the owner's go (4 renders); then the owner's scoring.
+- **Run 2026-09-27 in the finisher grid** (`../bench/results/2026-09-27_finisher_grid.md`,
+  Part B): FlashGen alone, full against blocks 34-49, on the specificity
+  ladder, subway_chase_short and `t2va_offpath_tortoise`.
+  - A control re-render reproduced the existing full-FlashGen row bit for
+    bit.
+  - On measures, late-only has less haze on three scenes and more on two,
+    and less contrast on four. FT1's "half the haze" does not generalise at
+    124 frames.
+  - Adherence, the question, awaits the owner's eye. The pairs are on the
+    board's review tab.
+- **Closed 2026-09-27 by the owner's eye (ow-fd-10): no clear win, so the
+  stripped file is not built.**
+  - Late-only is more natural on the beach ladder, increasingly so on the
+    unusual rung.
+  - It loses coherence on subway_chase_short (a third person) and FT1's
+    slapstick (the piano).
+  - O2 stays open. `../bench/results/2026-09-27_finisher_grid.md`, "The
+    owner's review".
+
+## 47. Does the int8 encoder's conditioning error reach the distills' output
+
+**Closed unbuilt, 2026-09-27: the floor arm confirmed the floor.** Noise far below int8's error moves the int8 DiT's prediction as much as int8 does (`../data/results/2026-09-27_encoder_quant_floor.json`), so no per-step DiT test here can resolve encoder precision, and the distills share the int8 blocks. The conditioning path was measured floor-free instead (`../data/results/2026-09-27_encoder_quant_refiner.json`). The plan below stands as the design if a bf16 DiT ever makes the question answerable.
+
+Added 2026-09-27 (encoderdude). On the base DiT at 16 steps, int8 moved the
+prediction no more than a norm-matched random perturbation or a one-token
+prompt edit (`../data/results/2026-09-27_encoder_quant_dit.json`; only its
+step-0 rows are on a real trajectory). This asks the same question of the
+models the owner renders with: does int8-against-bf16 conditioning matter to
+PDD6 and FastH3? Three things it would tell apart:
+
+- whether a few-step distill, where each step does more of the work and PDD
+  adds its own LoRA heads, is more sensitive to conditioning error;
+- whether content-dependent sparse attention (Sol on PDD6, VSA on FastH3)
+  amplifies a small conditioning change through its selections;
+- where in the schedule it bites: the first step (composition) or the last
+  (detail).
+
+The expected answer is "the same as the base DiT": all these DiTs are
+int8_convrot W8A8, so the suspected floor applies to them too. Run the floor
+arm on the base DiT first (noise far below int8's error): if it moves the
+prediction as much as int8, no per-step DiT test can resolve encoder
+precision, and this entry closes without being built.
+
+- **Workflows:** `h3_text_to_video_pdd_manual_sigmas` (PDD6: UNET 1 ->
+  `MiniMaxH3PDDLoRA` 18 -> `ModelAttentionBackend` 58 -> Sol 21, `ManualSigmas`
+  60 = `h3_config.PDD_MANUAL_SIGMAS`) and
+  `distill_experiments/h3_probe_t2v_fasth3_8step_contract` (FastH3: UNET 1 ->
+  `MiniMaxH3SigmaShift` 19 -> 58 -> `BlockSparseAttention` 21, vsa). Both run
+  euler through `BasicGuider` 9. The Sol redesign regenerates these graphs, so
+  re-read the chains before building.
+- **What the simple harness gets wrong, and this needs** (fastdude, from the
+  graphs and code, 2026-09-27):
+  - **PDD picks its heads from the whole schedule.** A single forward must
+    carry the full sigma list (`transformer_options["sample_sigmas"]`), or
+    PDD6 silently falls back to 8-step heads (`pdd_lora.py`, the forward
+    wrapper).
+  - **FastH3's VSA attention carries state between calls**
+    (`comfy_extras/nodes_sparse_attention.py`, reset only on cleanup). Each arm
+    needs a reset, and the arms should alternate order, or the second arm
+    inherits the first one's statistics. A lone call is a "first step" call;
+    step 0 is also one, which gives a free control.
+  - **Sol turns on by the current sigma** (`start_percent` 0.2), so every
+    forward has to carry it and go through the fully patched model (node 21),
+    never the bare DiT.
+  - **Real latents at later steps** come from a full run's per-step
+    predictions (the `probe_step_x0` twin, `build_api(probe_step_x0=True)`),
+    which rebuilds the exact trajectory: euler with no injected noise,
+    `x_{k+1} = x_k + (s_{k+1} - s_k)(x_k - x0_k)/s_k`. The manual-sigmas graph
+    has no x0 twin yet.
+  - **Steps to probe:** the first (composition is fixed by step 1), the
+    middle, and the last (PDD's detail lives there).
+- **Design:** a bench-only node in `bench/comfy_capture_nodes/` that runs one
+  forward inside the server on the graph's own node-21 MODEL and node-60
+  SIGMAS, fed the conditioning `bench/measure_encoder_quant_dit.py capture`
+  saves. Arms as in that tool: bf16, int8, the norm-matched control, and the
+  floor arm.
+- **Scenes:** violin t2v and i2v for PDD6; violin t2v only for FastH3 (trained
+  for t2v alone).
+- **Cost:** about a day of tool work, then about 24 forwards.
+- **Decision it changes:** only whether the image-conditioned distill graphs
+  keep `ENCODER_INT8`. That is unlikely to move given the base-DiT result.
+- **Blocker:** the floor arm's result, then the owner's go.
+
+## 48. Does FastH3's late-block backbone add anything to fl2va plus its gates
+
+**Read 2026-09-29 (owner, blind, six pairs): no arm is clearly different from gates alone.** Late (blocks 30-49) took
+two preferences to none with one tie, early (0-29) two to one, nearly all described as slight, audio the same
+throughout; the arms and the depth are not separated, and no FastH3-as-released arm was in the session
+(`../bench/results/2026-09-29_fasth3_late_blocks.md`). The gates-alone reading stands, untested against FastH3 itself;
+the entry stays held with the FastH3 mutant.
+
+Added 2026-09-29 (mutantdude, from a transplant brainstorm h3dude asked for at
+the owner's request; board directions `transplant-*`). **Held** with the FastH3
+mutant: the owner put it on hold on 2026-09-29, so nothing here starts until it
+is reopened.
+
+#35 found that fl2va plus FastH3's 50 gate tensors reproduces FastH3's look and
+FastH3 without them does not (`../bench/results/2026-09-29_fasth3_gates.md`).
+What is left is whether any of FastH3's backbone change adds to that. The only
+structure in it is at the ends (blocks 0, 43 and 49 in
+`../bench/results/2026-09-29_fasth3_bf16_rank.md`), and FastH3 and FlashGen
+agree in blocks 30 to 49 (`../bench/results/2026-09-26_fasth3_weights.md`
+finding 5). `MiniMaxH3OverlayLoader`'s `blocks` input already selects a range
+with the gates on, so this needs no new code.
+
+- **Arms:** fl2va plus gates, against the same plus FastH3's backbone diff on
+  blocks 30-49, same seed and scene, on the contract harness.
+- **What it changes:** if the second arm looks the same, the shippable piece is
+  the gates alone (`fl2va_plus_gates_on_fl2va.h3overlay`, small) and the
+  backbone diff is dead weight. If not, the late blocks are the piece to keep.
+- **Confidence:** the structure is measured; any quality difference is a hunch.
+  A low-rank adapter for blocks 43 and 49 alone is `fasth3-adapter` on the
+  board, parked ("an end-blocks-only adapter has no case").
+- **Ruled out before this entry:** FastH3's backbone as a general adapter (not
+  low-rank), its adaln or time table onto anything (no shared basis), PDD's
+  head bank onto FastH3 (no shared step grid), FlashGen or PDD stacked on FastH3
+  itself (two few-step schedules), and any LoRA merged into int8 (the requant
+  record). None of these were rendered.
+- **Blocker:** the owner's hold, and his eye for the pair.
+- **How it gets built, and what exists (2026-09-29, not run):** no new checkpoint
+  and no new node. The overlay `fasth3_v2_on_fl2va.h3overlay.safetensors` exists.
+  `../bench/make_overlay_loader_graphs.py` writes the three arms as scratch graphs:
+  `overlay_gates` (gates only), `overlay_late_30_49` and the location control
+  `overlay_early_0_29` (refiner, adaln and io stay fl2va's). Checked from the
+  overlay's header: gates only selects the gates and no backbone diff, late selects
+  gates plus the 20 diffs of blocks 30-49, early gates plus the 30 of blocks 0-29.
+  `../bench/fasth3_late_blocks_arms.json` drives `../bench/run_graph_arms.py`
+  on the contract harness, three scenes, seed 730451892, with predictions written
+  before any render. The loader graphs were h3dude's; with h3dude on other work
+  mutantdude carries this (owner, 2026-09-29).
+
+## 49. FastH3's gate tensors on the w6a8 fl2va file
+
+Added 2026-09-29 (mutantdude; held with #48). Comfy-Org published
+`minimax_h3_fl2va_pruned_w6a8.safetensors` on 2026-09-29 (about 5 GB smaller
+than the int8 convrot one). The gates are new whole tensors, so unlike the
+overlay's code diffs they do not depend on the int8 codes underneath.
+
+- **What it changes:** whether the FastH3 look can go onto a smaller base by
+  adding the gates alone.
+- **Confidence:** a hunch. Not checked: that core loads the gates beside the
+  w6a8 layout.
+- **First step, and the blocker:** w6a8 has never run here. Its load, sampler
+  time and look on the owner's 4090 against int8 convrot are unmeasured, and
+  nothing else in this entry means anything until they are.
+- **How it gets built:** the w6a8 file is not on disk (`diffusion_models` holds
+  w4a8_mixed and fp8_scaled, no w6a8), so a download of about 16 GB comes first,
+  which is the owner's to approve. Then w6a8 alone against int8 convrot (load,
+  sampler time, peak VRAM, look). Then
+  `python bench/build_gate_transplant.py --add --base <w6a8> --donor <FastH3 V2 int8> --out <new>`:
+  it streams the base and appends the 150 gate tensors byte for byte, reopens the
+  output and compares. It was written for int8 bases, so its behaviour on w6a8 is
+  untested. Then confirm core places all 50 gates (the `check_vsa_core_patch.py`
+  style test), record the core commit, and render the contract harness against the
+  int8 fl2va-plus-gates arm. Code needed: a manifest, unless the build fails.
+
+## 50. One partition's timestep path onto the other, fl2va and ref2va
+
+Added 2026-09-29 (mutantdude); corrected the same day after a byte comparison.
+**Owner's call before anything renders:** it sits beside the closed
+fl2va-to-ref2va reference LoRA lane (`roadmap.md` "Closed lanes"), and closed is
+not refuted.
+
+The one structured difference between the release's two partitions is the
+timestep path: `time_embedder.proj_in` and `proj_out`, every `adaln_proj`
+(`../bench/results/2026-09-29_ref2va_partition_delta.md` finding 3, confirmed on
+an independent float64 path by
+`../bench/results/2026-09-29_ref2va_partition_delta_verify.md`; that record also
+says the older `2026-09-29_partition_delta_map.jsonl` has cosines above 1 in
+about half its rows, so do not read cosines from it). It bears on the board's
+`ref2va-investigation`.
+
+**What the pruned files hold** (`../bench/compare_hybrid_timestep_set.py`,
+`../data/results/2026-09-29_hybrid_adaln_all_timestep_set.json`, CPU): the
+pruned int8 files have no `time_embedder` tensors at all. The embedder is folded
+into `adaln_t_table` (a 1025x8 curve basis) and every `adaln_proj.linear` is
+expressed on it, so in pruned form the timestep path is that whole set, and
+`../bench/build_adaln_swap.py` already moves exactly that set. The August
+hybrid `minimax_h3_hybrid_fl2va_ref2va_adaln_all-int8` is **not** a clean swap
+of it: its 102 `adaln_proj` tensors are ref2va's, byte for byte, but its
+`adaln_t_table` is fl2va's, and the two tables differ (largest element
+difference about 0.014, on values averaging about 0.034). So it puts ref2va's
+projections on fl2va's basis. `h3_config.MODELS` describes it as "fl2va
+everywhere except the adaln projections". No clean set swap of this pair is
+named in `h3_config` or in the records I read.
+
+- **Built 2026-09-29 (owner approved the disk), not rendered:**
+  `h3_research/hybrid__fl2va-weights__plus-ref2va-timestep-set__int8.safetensors`
+  and `h3_research/hybrid__ref2va-weights__plus-fl2va-timestep-set__int8.safetensors`
+  in `models/diffusion_models`, about 21 GB each. The tool reopened each and
+  confirmed the 103 swapped tensors equal the donor's and 42 sampled others equal
+  the backbone's, byte for byte. Rendering them is still the owner's call.
+- **How it gets built, once the owner agrees, with no new code:**
+  `python bench/build_adaln_swap.py --backbone <fl2va pruned> --donor <ref2va pruned> --out <new>`
+  gives fl2va's backbone with ref2va's whole timestep set; swap the two paths
+  for the reverse. It streams bytes, asserts the two sets match in dtype and
+  shape, and reopens the output to compare. Each output is a full checkpoint on
+  disk. Render against plain fl2va and plain ref2va on the reference scenes; the
+  owner judges.
+- **What it changes:** whether reports about ref2va localise to the timestep
+  path, and so whether `ref2va-investigation` has a lead. The older hybrids
+  cannot answer it, because they mix bases.
+- **Confidence:** a hunch.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """How closely does a `fully_copy` render reproduce its reference soundtrack?
 
-Run it with the ComfyUI venv python (`docs/comfy_notes.md`). CPU only, no
+Run it with the ComfyUI venv python (`docs/working/comfy_notes.md`). CPU only, no
 model, no server. ffmpeg on PATH.
 
 **Why this exists.** The swap prompts ask for `<Audio 1>: fully_copy - reused

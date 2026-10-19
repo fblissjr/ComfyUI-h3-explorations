@@ -7,7 +7,7 @@ with a call to `comfy_kitchen.apply_rope_split_half`; `9b572343` (PR 16351)
 then taught the new function 3-d inputs. H3's Qwen3-VL encoder is `Llama2_`
 from that file, so every conditioning tensor since then has gone through the
 new code. No render record spans the change
-(`docs/sol_upstream.md`, section "comfy-kitchen and core, 2026-09-19").
+(`docs/attention/sol_upstream.md`, section "comfy-kitchen and core, 2026-09-19").
 
 This compares the two implementations at the one seam that changed: the same
 bf16 q and k, the same rope tables, old function against new. It needs no

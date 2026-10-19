@@ -214,7 +214,7 @@ def loads_in_song(rows: list[dict], song_id: str, parsed: dict) -> list[dict]:
     start = None
     for r in rows:
         if r["type"] == "node_start" and r["node"] == song_id:
-            start = r["t"]          # the last start before the end is the run (`docs/pipeline_telemetry.md`)
+            start = r["t"]          # the last start before the end is the run (`docs/working/pipeline_telemetry.md`)
     if start is None:
         return []
     line = timeline(parsed)

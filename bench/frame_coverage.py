@@ -3,7 +3,7 @@
 
     <python> bench/frame_coverage.py --table data/<...>/t_<...>.json [--span A-B] [--json OUT.json] [--md OUT.md]
 
-**Why it exists** (the owner's order of 2026-10-16 and 2026-10-17, `docs/wiki/decisions.md`). In the kitchen a person laid as
+**Why it exists** (the owner's order of 2026-10-16 and 2026-10-17, `docs/state/decisions.md`). In the kitchen a person laid as
 swapped turned back into the original halfway through the shot, and nothing in the ledger or the pages said so: the table
 counted a gap against the whole shot, not against the frames she is in, two renders of one person meeting were not
 flagged, and the ledger read only the frames a person's `drop=` emptied, not the floor's or the grade's. The method is

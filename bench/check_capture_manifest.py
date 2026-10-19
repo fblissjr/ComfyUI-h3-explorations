@@ -2,7 +2,7 @@
 """Check that activation captures contain valid, conforming manifest.json files.
 
 Validates all top-level and nested schema constraints, token arithmetic invariants,
-and tensor checksum integrity per docs/capture_manifest_schema.md.
+and tensor checksum integrity per docs/working/capture_manifest_schema.md.
 """
 
 from __future__ import annotations

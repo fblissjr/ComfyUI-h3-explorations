@@ -74,7 +74,7 @@ def readme(manifest: dict, older: list[str]) -> str:
              "  the copy jobs render from, every mask video with its size and first frame, and one fingerprint that",
              "  changes when anything a render reads changes.",
              "- `analysis/<run>/`: what one analysis run saved. A second run is a new folder.",
-             "- `cast/`: who is in the video (`docs/wiki/who_is_who.md`).",
+             "- `cast/`: who is in the video (`docs/masked_v2v/who_is_who.md`).",
              "- `capture/`: `bench/capture_masked_run.py`'s tables, and `rules_input.json`.",
              "- `profile.json`: what this clip measured and what was set from it.",
              "- `jobs/<job>/`: one job's graphs, records and hand-set values.", "",

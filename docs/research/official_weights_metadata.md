@@ -11,7 +11,7 @@ here was rendered.
 **Scope.** This file owns the *metadata* comparison — what is declared in the
 release against what the code assumes. The runtime and optimization comparison
 against sglang is [`sglang_comparison.md`](sglang_comparison.md); the
-reference-conditioning path is [`h3_references.md`](../h3_references.md).
+reference-conditioning path is [`docs/h3/references.md`](../h3/references.md).
 
 ---
 
@@ -300,7 +300,7 @@ untrained, measured above.
 
 ### 2. The native processor's pixel bounds are Qwen2-VL's defaults
 
-Owned by [`h3_references.md`](../h3_references.md), which carries the table and
+Owned by [`docs/h3/references.md`](../h3/references.md), which carries the table and
 the consequence. Recorded here only because it is the same class of defect
 found the same way: the geometry is read correctly and two constants next to it
 are inherited from a shared helper's signature.
@@ -374,7 +374,7 @@ proves the native NVFP4 control and the local W4A16 contract separately.
 
 ## Which divergence is live in which mode
 
-Added 2026-08-21. Everything above and in [`h3_references.md`](../h3_references.md)
+Added 2026-08-21. Everything above and in [`docs/h3/references.md`](../h3/references.md)
 is stated as a property of the pipeline. This section answers the question that
 actually decides what to do about any of it: **for the mode you are running,
 which of these fire at all?** Several do not, and the inert ones are the useful
@@ -438,7 +438,7 @@ little else.
 over because a reference image costs in the text segment as well as the
 reference segment. It is the mode where both still-image boundary behavior and
 the separate clip-wide video-processor policy can be live;
-[`h3_references.md`](../h3_references.md) owns the measured thresholds. This
+[`docs/h3/references.md`](../h3/references.md) owns the measured thresholds. This
 repo's shipped typed graphs use `video_policy=encoder` (all but the `release`
 probe arm), so the native stock video exposure remains a vendor gap rather
 than their runtime path.

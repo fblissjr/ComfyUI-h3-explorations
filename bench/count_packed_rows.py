@@ -6,7 +6,7 @@
 
 Everything in this repo that prices a sequence does it by **arithmetic over
 row counts recorded elsewhere** -- `bench/preflight_graph.py`,
-`docs/SOLATTN.md`'s sink table, `docs/h3_references.md`'s reference costs. This
+`docs/attention/sol_attn.md`'s sink table, `docs/h3/references.md`'s reference costs. This
 builds the layout ComfyUI will actually build and reads the segments off it, so
 those numbers have something to be right or wrong against.
 
@@ -14,10 +14,10 @@ those numbers have something to be right or wrong against.
 
 Three consumers, all of which were derived rather than counted:
 
-  - `docs/SOLATTN.md`'s **sink share**, quoted as 16.6% of all (query block,
+  - `docs/attention/sol_attn.md`'s **sink share**, quoted as 16.6% of all (query block,
     key block) pairs. Derived from `video_start`, and `video_start` was itself
     derived.
-  - `docs/evidence.md`'s v1-vs-v2 sink table, which still says "derived, not
+  - `docs/method/evidence.md`'s v1-vs-v2 sink table, which still says "derived, not
     measured" because each row's `S` came from a published percentage.
   - `bench/preflight_graph.py`'s total, which **under-reported the 2026-08-17
     capture by 1,136 rows**. See below -- the cause is a missing segment, not
@@ -98,7 +98,7 @@ def main():
     # load-bearing: `comfy_extras.nodes_minimax_h3` does a bare `import nodes`,
     # and this repo has a `nodes.py` of its own that dies on a relative import
     # when found first. Inserting the repo root second puts ComfyUI first. This
-    # is the trap in `docs/comfy_notes.md` and it bit this file on its first run.
+    # is the trap in `docs/working/comfy_notes.md` and it bit this file on its first run.
     here = Path(__file__).resolve()
     sys.path.insert(0, str(here.parents[1]))     # repo, for reference_fit
     sys.path.insert(0, str(here.parents[3]))     # ComfyUI, ahead of it
@@ -134,7 +134,7 @@ def main():
         print(f"\n  block grid: {blocks:,} whole blocks of {BLOCK}")
         print(f"  video_start {video_start:,} -> {sink:,} sink blocks "
               f"({sink / blocks:.1%} of all query/key block pairs)")
-        print("  (this is the number docs/SOLATTN.md's depth table calls the "
+        print("  (this is the number docs/attention/sol_attn.md's depth table calls the "
               "sink floor)")
 
     if args.against is not None:

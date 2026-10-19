@@ -1,6 +1,6 @@
 """Freeze a known audio track into an H3 AV latent so the video follows it.
 
-`docs/h3_audio_freeze.md` owns the lane; this file is the node.
+`docs/h3/audio_freeze.md` owns the lane; this file is the node.
 
 **What it does.** Takes the joint video+audio latent the conditioner emits,
 slices one window of a song onto H3's audio latent grid, encodes it with the
@@ -272,7 +272,7 @@ class MiniMaxH3FreezeAudio(io.ComfyNode):
                 "rows and freeze them, so the video is generated against that track. "
                 "Sits between the conditioner (or preflight) and the sampler. Mux the "
                 "clip_audio output, not a decoded audio stream: the latent is a "
-                "control signal and the VAE round trip is lossy. docs/h3_audio_freeze.md."
+                "control signal and the VAE round trip is lossy. docs/h3/audio_freeze.md."
             ),
             inputs=[
                 io.Latent.Input("latent", tooltip="The joint video+audio latent from the H3 conditioner."),
@@ -316,7 +316,7 @@ class MiniMaxH3FreezeAudio(io.ComfyNode):
         fixes += level_fixes
         # What the VAE is about to see, stated so a wrong input cannot pass
         # quietly: the vendor's path takes float PCM in [-1, 1] at 32 kHz,
-        # stereo, with no gain or normalisation (docs/h3_audio_freeze.md
+        # stereo, with no gain or normalisation (docs/h3/audio_freeze.md
         # section 9). Anything outside that is reported, not corrected.
         peak = float(piece.abs().max()) if piece.numel() else 0.0
         rms = float(piece.pow(2).mean().sqrt()) if piece.numel() else 0.0
@@ -369,7 +369,7 @@ def window_geometry(latent_t: int, context_frames: int) -> dict:
     """Frames, context steps and stride for one window, or raise naming the rule broken.
 
     Three rules, all derived from core's grid and stated in
-    docs/h3_audio_freeze.md section 4 step 6:
+    docs/h3/audio_freeze.md section 4 step 6:
     - the context is a valid video run (17k + 5 frames) so it maps to whole
       latent steps;
     - it lands on the audio grid (frames * 5/3 whole), so the seam is at an
@@ -445,7 +445,7 @@ class MiniMaxH3FreezeAudioWindow(io.ComfyNode):
                 "feeding its own sampler, next_start_seconds into the next window's start; drop "
                 "trim_frames from each decoded window after the first and concatenate. "
                 "span_audio is the track from 0 to the end of this window, for the muxer. "
-                "docs/h3_audio_freeze.md section 4 step 6."
+                "docs/h3/audio_freeze.md section 4 step 6."
             ),
             inputs=[
                 io.Latent.Input("latent", tooltip="A fresh joint video+audio latent for this window, from the H3 conditioner."),
@@ -686,7 +686,7 @@ class MiniMaxH3AudioAttentionGain(io.ComfyNode):
             display_name="MiniMax H3 Audio Attention Gain",
             category="model/patches/minimax",
             description=(
-                "A knob on how much the audio rows weigh in attention (docs/h3_audio_freeze.md, "
+                "A knob on how much the audio rows weigh in attention (docs/h3/audio_freeze.md, "
                 "the lane's 'more audio influence' ask). key_gain scales the audio rows' keys, a "
                 "temperature on how sharply every query attends to them; value_gain scales what "
                 "the audio rows contribute to every row's attention output. Both 1.0 is inert. "

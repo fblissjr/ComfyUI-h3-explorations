@@ -39,7 +39,7 @@ side. Merging them would produce one file that needs both kinds of maintenance
 and signals neither, and would put a 700-line vendor description in front of
 every reader who only wanted the delta. The split is kept. What was actually
 drifting is fixed below and in
-[`../comfyui_vendor_gaps.md`](../comfyui_vendor_gaps.md).
+[`docs/h3/comfyui_vendor_gaps.md`](../h3/comfyui_vendor_gaps.md).
 
 **The pipeline itself, before the comparison.** Since 2026-08-25
 [`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) is the stage-by-stage walk of
@@ -53,20 +53,20 @@ differ from here".
 **Scope, and what the index is for.** This file owns the *optimization and
 runtime* comparison. The reference-conditioning comparison — sizing, patchify,
 presentation, packing, condition timestep — is owned by
-[`h3_references.md`](../h3_references.md), section "The vendor image path,
+[`docs/h3/references.md`](../h3/references.md), section "The vendor image path,
 stage by stage", and its detail must not be restated here.
 
 That split kept every divergence documented and left none of them listed
 together. The consolidated snapshot that fixes it is
-[`comfyui_vendor_gaps.md`](../comfyui_vendor_gaps.md), which defers to this
-file and to [`h3_references.md`](../h3_references.md) rather than competing
+[`docs/h3/comfyui_vendor_gaps.md`](../h3/comfyui_vendor_gaps.md), which defers to this
+file and to [`docs/h3/references.md`](../h3/references.md) rather than competing
 with them.
 
 ---
 
 ## Every known divergence, in one place
 
-[`comfyui_vendor_gaps.md`](../comfyui_vendor_gaps.md) is the consolidated
+[`docs/h3/comfyui_vendor_gaps.md`](../h3/comfyui_vendor_gaps.md) is the consolidated
 report: every gap between this install and the release, with practical impact,
 a priority by what it costs a working user, and what is enforced by an
 assertion versus by nothing. **It is a dated snapshot and this file is still
@@ -114,7 +114,7 @@ per step, which is the same fact our packing already encodes.
 **Why this is interesting here.** It is an exact answer to the problem the
 Comfy-Org "pruned" checkpoints answer approximately. The pruned file replaces
 those weights with a rank-8 SVD of the time curve
-([`evidence.md`](../evidence.md) owns that measurement); the cache keeps full
+([`docs/method/evidence.md`](../method/evidence.md) owns that measurement); the cache keeps full
 accuracy and pays a cache tensor sized by the step count instead of by the
 weight matrix.
 
@@ -135,7 +135,7 @@ error that is not the largest one in the stack.
 **What would make it worth building** is evidence that the difference is
 *visible*, which no measurement here can supply — the arms are one forward, not
 a render. That is a blind session on pruned against unpruned under
-[`eval_comparison.md`](../eval_comparison.md) section 3, and it has not been run
+[`docs/method/eval_comparison.md`](../method/eval_comparison.md) section 3, and it has not been run
 or scheduled.
 
 
@@ -155,7 +155,7 @@ global top-k pool. No pooled correction term, so it is the SLA shape of the
 idea rather than the Sol shape. Their own cookbook calls it approximate and
 says FlexAttention's routing overhead can outweigh the saving on short
 sequences. It is the vendor's engineers choosing cube geometry for this
-model, which [`../morton.md`](../morton.md) has no measurement against.
+model, which [`docs/attention/morton.md`](../attention/morton.md) has no measurement against.
 
 **VSA-H3** (`coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/video_sparse_attn_h3.py`, merged 2026-09-02): the
 trained sparse policy for the FastH3 weights, an in-tree Triton kernel gated
@@ -165,7 +165,7 @@ kept or compete in the top-k), `vsa_dense_first_n_steps`, `vsa_dense_layers`.
 Ours: sink ranges derived from the segment table play the role of `exempt`,
 `dense_blocks` is `vsa_dense_layers`, and the `sigma_start`/`sigma_end`
 window on `MiniMaxH3SolAttn` is the per-step knob in sigma rather than in
-step index. [`../SOLATTN.md`](../SOLATTN.md) owns those.
+step index. [`docs/attention/sol_attn.md`](../attention/sol_attn.md) owns those.
 
 ### Breakable CUDA graphs over a packed sequence
 
@@ -192,7 +192,7 @@ Gemma4 decode and MiniMax Music; the H3 DiT loop
 `core` nor `enable_graph`, so no H3 block is captured. `TorchCompileModel`'s
 `cudagraphs` backend is the other route and it clones the model with
 `disable_dynamic=True`, which on a card the DiT does not fit
-([`hardware.md`](../hardware.md), measured 2026-08-17) is not a route.
+([`docs/working/hardware.md`](../working/hardware.md), measured 2026-08-17) is not a route.
 What is left to gain is bounded by
 `data/results/2026-08-18_phase0_instrument.json`: sampling at 1024x768 with
 three references ran at 100% SM occupancy with power pegged at the limit, and
@@ -359,7 +359,7 @@ norm. **No new work is owed here.**
 **Step caching.** sglang ships a Cache-DiT configuration for `quality="high"`
 with a measured SSIM and PSNR against lossless
 (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/constants.py:57-64`),
-so it reads as an obvious gap. It is not. [`roadmap.md`](../roadmap.md) records
+so it reads as an obvious gap. It is not. [`docs/state/roadmap.md`](../state/roadmap.md) records
 the owner decision of 2026-08-20 that step caching dies here: the speedup came
 from skipping steps on a 16-step schedule, and at 4 steps there is nothing to
 skip. Their number is at 50 steps on four H200s. Different regime.
@@ -373,7 +373,7 @@ anything. We already run quantized weights by necessity on 24 GB.
 ## What we do that they do not
 
 Recorded so the comparison is not read one-directionally: the SLA router has no
-counterpart in sglang's H3 path. [`SOLATTN.md`](../SOLATTN.md) owns those
+counterpart in sglang's H3 path. [`docs/attention/sol_attn.md`](../attention/sol_attn.md) owns those
 numbers. Their speedups and ours are not comparable and must not be put in the
 same table.
 
@@ -451,7 +451,7 @@ we do not run.
 
 The open release is 768p on the short edge. Establishing what *kind* of limit
 that is changed one doc claim and found one defect; the finding itself is owned
-by [`h3_resolutions.md`](../h3_resolutions.md) and is not restated here. The
+by [`docs/h3/resolutions.md`](../h3/resolutions.md) and is not restated here. The
 short version for anyone arriving from a performance question: the area cap is
 hard upstream, the short edge only warns, and neither is a property of the
 weights.
@@ -493,18 +493,18 @@ against a graph rewired to bypass the fit node.
   `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:613`) where ComfyUI takes the mean
   (`comfy/ldm/minimax/vae.py:685`). Any encode instrument has to separate
   precision from mean-versus-sample or it measures neither.
-  [`h3_references.md`](../h3_references.md) carries it in the vendor image
+  [`docs/h3/references.md`](../h3/references.md) carries it in the vendor image
   path table.
 - Whether an AdaLN cache is worth building, which is downstream of
-  [`open_experiments.md`](../open_experiments.md) #22 and should not be
+  [`docs/state/open_experiments.md`](../state/open_experiments.md) #22 and should not be
   started before it.
 - Nothing left on the reference path: video, audio, frame rate, soundtrack
   pairing and condition noise were all re-derived on 2026-08-21 against sglang,
-  diffusers and DiffSynth-Studio, and [`h3_references.md`](../h3_references.md)
+  diffusers and DiffSynth-Studio, and [`docs/h3/references.md`](../h3/references.md)
   carries the results. One item there is marked unverified and stays that way:
   what sglang does when a reference video is shorter than its aligned target.
   The mono-upmix question that sat beside it was closed on 2026-08-21 — no
-  upmix happens and the packed layout raises — and `h3_references.md` carries
+  upmix happens and the packed layout raises — and `docs/h3/references.md` carries
   it under Known limitations.
 
 ## Third read, 2026-09-04
@@ -575,7 +575,7 @@ What landed in `coderef/sglang` between `320bdd1ee2` (the third read) and
 `887c401e15`, against what we do. It changes no earlier verdict on this page.
 The two Sol-side items, SubBlock's new Sage compute and its router's note on
 reserved sink blocks and the forced diagonal, are recorded in
-[`../sol_upstream.md`](../sol_upstream.md) and not repeated here.
+[`docs/attention/sol_upstream.md`](../attention/sol_upstream.md) and not repeated here.
 
 **"Singularity" is a third-party checkpoint, not a vendor variant.**
 `65400bb420` (#38455) serves `WarmBloodAban/Minimax-h3_Singularity`, an FL/Ref
@@ -583,7 +583,7 @@ fusion fine-tune shipped full or pruned INT8, through `--model-variant hybrid`
 plus an explicit transformer-weights path: one pipeline for t2va, fl2va and
 ref2va, with the partition gate relaxed (sglang's H3 cookbook page, its
 Singularity section). ComfyUI has no partition gate
-([`../comfyui_vendor_gaps.md`](../comfyui_vendor_gaps.md) gap 10), so such a
+([`docs/h3/comfyui_vendor_gaps.md`](../h3/comfyui_vendor_gaps.md) gap 10), so such a
 file loads here as it is. Nothing to borrow.
 
 **Two fixes that do not apply to core.** `b83f1bdd21` (#38225) removed
@@ -735,7 +735,7 @@ the fc1 delta landing swapped is an inference, not an observation.
   not established here: its CUDA source is not in the wheel.
 - `2a0cb2f04e` (#40116) extends SubBlock's `sage_fp8` to SM120; the note is
   under "sglang's SubBlock router" in
-  [`../sol_upstream.md`](../sol_upstream.md). No SM89 path.
+  [`docs/attention/sol_upstream.md`](../attention/sol_upstream.md). No SM89 path.
 - `e6931ca889`, reverted by `f702a0be29`, re-landed as `ce06a14444`: each
   model's pipeline config now registers from its own file
   (`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py::register`).
@@ -761,7 +761,7 @@ only" is not. See "Eighth read".*
 
 What landed in `coderef/sglang` between `2f5c9ac43d` and `89f21671bb`. Six
 commits touch H3 paths. One retires a sentence in the seventh read, and the
-re-read retires a sentence in [`../wiki/references.md`](../wiki/references.md)
+re-read retires a sentence in [`docs/working/coderef.md`](../working/coderef.md)
 that was already wrong when written.
 
 **No default moved, and the adopt-upstream rule does not fire.**
@@ -815,7 +815,7 @@ said no upstream did, and holds audio rather than weighting the two streams.
 The survey's verdict stands (reasoned): nothing to skip at distilled step
 counts, a second candidate at the base step count. Its code comment credits
 "Comfy / Wan2GP", probably xmarre's Spectrum pack
-([`../sol_upstream.md`](../sol_upstream.md), "Other ComfyUI Sol-Attn
+([`docs/attention/sol_upstream.md`](../attention/sol_upstream.md), "Other ComfyUI Sol-Attn
 packs"); not verified.
 
 **The same commit's "fused RMSNorm/AdaLN" landed unfused.**
@@ -827,7 +827,7 @@ rounds to bf16 at `1+scale`, at the product and at the stored sum. Core's
 `comfy/ldm/minimax/model.py::_mod_scale_shift` is three in-place bf16 ops at
 the same three points. That kernel has not changed since 2026-08-18
 (`git log` on the file), so the seventh-read-era claim in
-[`../wiki/references.md`](../wiki/references.md) that sglang keeps the affine
+[`docs/working/coderef.md`](../working/coderef.md) that sglang keeps the affine
 in fp32 and core rounds at more points was wrong when written; it is corrected
 there. vllm-omni's fp32 affine is the outlier of the three.
 
@@ -873,7 +873,7 @@ record and holds at this head:
   (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py::minimax_h3_denoise_loop`),
   and the file's track is the decoded latent, with no mux of the source's
   audio (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/decoding.py::MiniMaxH3DecodingStage`).
-  [`../h3_audio_freeze.md`](../h3_audio_freeze.md) section 8 owns this; its
+  [`docs/h3/audio_freeze.md`](../h3/audio_freeze.md) section 8 owns this; its
   dated note says which of its items were checked again.
 - **There is no edit, continuation, window or partial-strength path.** One
   request is one clip inside the duration limits. The newest file in the
@@ -903,7 +903,7 @@ read's bullet on that stands, so the labels agree and the output scaling
 does not (reasoned, not run). This is core's rule carried over so a ComfyUI
 sampler can drive sglang's DiT. Nothing in sglang's request, task table or
 native loop reaches it, so it is no evidence about training.
-[`../h3_audio_freeze.md`](../h3_audio_freeze.md) section 8 said no mask path
+[`docs/h3/audio_freeze.md`](../h3/audio_freeze.md) section 8 said no mask path
 existed anywhere in the serving code; it is corrected there.
 
 **How its edit-shaped request differs from the whole-frame edit rendered
@@ -920,7 +920,7 @@ frozen):
   Here the soundtrack is a block only when it is wired. A reference video
   with no audio block beside a frozen target track is therefore a state
   sglang cannot produce. The arm that carries both is the hybrid row of
-  [`../h3_audio_freeze.md`](../h3_audio_freeze.md) section 2.
+  [`docs/h3/audio_freeze.md`](../h3/audio_freeze.md) section 2.
 - **Its only way to pin a frame of the target is a still keyframe at the
   first frame, the last, or both**, and ref2va admits those beside its
   references
@@ -946,7 +946,7 @@ frozen):
   Length is set by hand here.
 
 The rest belongs to the reference comparison and is written up where that
-lives, [`../h3_references.md`](../h3_references.md): where a reference
+lives, [`docs/h3/references.md`](../h3/references.md): where a reference
 video's rows sit against the target's in time and space ("Edit a source
 video"), and the condition noise level as a setting that both sides have,
 set here by one node since `c7fcae2f` ("The vendor image path, stage by
@@ -961,7 +961,7 @@ this read is a default of ours that sglang and core agree against.
 lines, the scheduler, the release's video processor config, and the ComfyUI
 app beyond the H3 executor's pack and unpack. What happens to a reference
 video shorter than the target is still untraced
-([`../h3_references.md`](../h3_references.md), "Known limitations,
+([`docs/h3/references.md`](../h3/references.md), "Known limitations,
 collected"). Line-number citations in the older sections of this file and
 of [`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) were not re-verified;
 several have moved.

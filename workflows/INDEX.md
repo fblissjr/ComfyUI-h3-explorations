@@ -8,7 +8,7 @@ Never edit a graph either: `workflows/build_workflows.py` writes them.
 The chain column is read off each graph: how many nodes, its
 checkpoint and LoRAs, and which of this pack's nodes it wires (the
 `MiniMaxH3` prefix dropped). The note is the generator's own line for the graph.
-`docs/prompt_bank.md` catalogues the prompts; this lists the graphs.
+`docs/prompting/prompt_bank.md` catalogues the prompts; this lists the graphs.
 
 ## The generator and its files
 

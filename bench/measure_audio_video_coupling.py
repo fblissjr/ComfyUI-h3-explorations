@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Does the picture move with the audio? Two instruments with a null, per clip.
 
-`docs/h3_audio_freeze.md` section 4 step 2 asks whether video generated
+`docs/h3/audio_freeze.md` section 4 step 2 asks whether video generated
 against a frozen track follows it. The owner's eye is the verdict; this is
 the instrument that sits beside it, so a verdict has a number with a null
 next to it rather than standing alone.
@@ -35,7 +35,7 @@ clip actually carries (or `--audio` for a track to test against instead):
   through the silence does not.
 
 **What this is not.** A metric that ranks two arms is a claim about the
-metric (`docs/checks.md`). Frame-difference energy is camera motion, cuts
+metric (`docs/method/checks.md`). Frame-difference energy is camera motion, cuts
 and fabric as much as limbs; the Haar box is coarse and the lower-face
 region catches chin and hands. The z-score says whether the coupling beats
 chance for that clip; it does not say the coupling looks right. Read it
@@ -310,7 +310,7 @@ def main() -> int:
                        "lower-face motion energy against the audio RMS envelope, per video frame, with a circular-shift null; loud/quiet is the mean motion ratio between frames where the audio is above a fifth of its peak RMS and the rest"),
               "against": args.audio or "each clip's own soundtrack",
               "rows": rows,
-              "caveats": ["an instrument beside the owner's verdict, not a ranking (docs/checks.md)",
+              "caveats": ["an instrument beside the owner's verdict, not a ranking (docs/method/checks.md)",
                           "motion energy is camera, cuts and fabric as much as the subject; the Haar face box is coarse",
                           "z is against a circular-shift null of the same envelope, so it says the coupling beats chance for this clip and nothing about how it looks"]}
     out = Path(args.out)

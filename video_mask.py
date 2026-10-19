@@ -153,7 +153,7 @@ edge (`motion_short_edge_2`), and the song node shows it to the model as the
 next video reference after the first: `<Video 2>` when the reference chain
 holds no video of its own. It is for a load whose text gives each reference
 a subject of its own, the way the vendor guide writes several references
-(`docs/prompting.md`, section 9): a body for the movement and a closer view
+(`docs/prompting/prompting.md`, section 9): a body for the movement and a closer view
 of a face, say. It is cut window by window as the first is (`wired_motion`),
 and `motion_vae` is one switch for both. A second video with no first is
 refused. No render had been made with it when this was written.
@@ -189,7 +189,7 @@ and `part_warning`.
 job that reads it, and nothing hands a mask from one run to another by a key
 (the owner's rule, 2026-10-10: nothing an earlier run made is reused by a
 key; a result is made again, or handed in explicitly as a named file or a
-wired input; `AGENTS.md`, "Operative rules", and `docs/wiki/decisions.md`).
+wired input; `AGENTS.md`, "Operative rules", and `docs/state/decisions.md`).
 From 2026-10-04 this node kept its finished mask on disk (`reuse_mask`,
 `mask_store.py`) under a key made from the upstream graph, a sample of the
 frames and hand-bumped version numbers. The key could not see a change to
@@ -364,7 +364,7 @@ MOTION_ZOOM = "subject only, zoomed in"
 #: way drew an action the same text did not draw from the subject-on-grey reference. Appended, so the choices
 #: before it keep their place.
 MOTION_WIRED = "a video I wire"
-#: Removed on 2026-10-10 with their code (`docs/wiki/decisions.md`): a sixth choice, `a video I wire, zoomed in`
+#: Removed on 2026-10-10 with their code (`docs/state/decisions.md`): a sixth choice, `a video I wire, zoomed in`
 #: (one render, no difference), and three inputs for the reference's look, a blur by a share of the box, a blur
 #: in pixels and grey (reasoned, never rendered). A saved graph that names the sixth choice is refused by name.
 MOTIONS = (MOTION_NONE, MOTION_SUBJECT, MOTION_ZOOM, MOTION_FRAME, MOTION_WIRED)
@@ -372,17 +372,17 @@ MOTIONS = (MOTION_NONE, MOTION_SUBJECT, MOTION_ZOOM, MOTION_FRAME, MOTION_WIRED)
 #: the region stays open and the model draws the new subject standing still there. Until 2026-10-10 the held
 #: frames had an empty mask (a plate: the source's last frame with the ORIGINAL subject in it, shown clean
 #: for the rest of the window), and for a day an input `held_tail` chose between the two. Measured that day
-#: on three loads of one clip, one seed each (`docs/wiki/window_context.md`): under the plate a short load
+#: on three loads of one clip, one seed each (`docs/masked_v2v/window_context.md`): under the plate a short load
 #: drew the still's person on its first frames and the original on its last; with the region held open the
 #: fall at the end was gone on every one, and the owner read the result as swapped on playback. The plate
-#: and the input were removed the same day (`docs/wiki/decisions.md`). A held frame past the TRACK's end is
+#: and the input were removed the same day (`docs/state/decisions.md`). A held frame past the TRACK's end is
 #: not written; one inside the track (a track longer than the source, usually audio that was not cut to the
 #: load) is written, and the song node's report says how many.
 #: Where the region is rendered (`render_region`, 2026-10-10). `the whole frame` is the render as it has been:
 #: the source fitted to the canvas. The zoomed choice crops the load to ONE box round what is replaced, scales
 #: that box to the canvas, runs the whole render on it as if it were the clip, and lays the region back into
 #: the whole frame (`zoomed_source`, `lay_back`). Cut down on 2026-10-10 to what its one render used, until
-#: the owner rules on that render (`docs/wiki/decisions.md`): a second choice round the tracked subject, an
+#: the owner rules on that render (`docs/state/decisions.md`): a second choice round the tracked subject, an
 #: input for the largest zoom, the rules that let a zoomed run continue another, and the cut of a wired motion
 #: video to the box are removed. From then until 2026-10-13 a zoomed run with a wired motion video was refused;
 #: since then it takes the video AS IT IS WIRED, not cut to the box (`zoomed_source` has what that does and does
@@ -426,7 +426,7 @@ MOTION_BOX_ROOM = 32
 #: Shorter side of that reference, in pixels. Reasoned, 2026-10-05: core never
 #: enlarges a reference video, so this sets its pixel area; with the VAE copy
 #: on, a 384 short edge costs a quarter of the 768 canvas's rows
-#: (`docs/h3_references.md`, "Budget by pixel area"). Encoder-only, it sets
+#: (`docs/h3/references.md`, "Budget by pixel area"). Encoder-only, it sets
 #: how much the text encoder sees of the subject at two frames per second.
 MOTION_SHORT_EDGE = 384
 #: The lazy inputs core is asked for through `check_lazy_status`: the mask always, the segmenter and its text

@@ -17,7 +17,7 @@ What it records per render, one JSON object per line:
     re-runnable from itself;
   - the substrate (GPU, driver, power limit vs stock, torch, git commit),
     read live at each render via `make_attention_defaults_json.substrate` --
-    docs/hardware.md records that a power limit changes render times and
+    docs/working/hardware.md records that a power limit changes render times and
     appears in no workflow JSON, and that bench runs historically persisted
     nothing about their own conditions. This runner exists partly to end
     that: a timing row without its substrate cannot be compared later.
@@ -102,7 +102,7 @@ def split_target(graph: dict, target: str) -> tuple[str, str]:
     `rpartition(".")` -- which this used until 2026-08-21 -- took the LAST dot
     and produced the node key `27.shape`, which matches nothing. The tool could
     therefore not express a canvas change at all, which is why the arms for
-    `docs/open_experiments.md` #22 could not be written as a command line.
+    `docs/state/open_experiments.md` #22 could not be written as a command line.
 
     Split at the FIRST dot whose left side actually names a node, so the node
     key stays greedy-shortest and everything after it is the field. Falls back

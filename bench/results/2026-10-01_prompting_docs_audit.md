@@ -1,6 +1,6 @@
 # Prompting docs and code: one source of truth (2026-10-01)
 
-What was changed is CHANGELOG 0.179.1 and `docs/wiki/decisions.md` (2026-10-01).
+What was changed is CHANGELOG 0.179.1 and `docs/state/decisions.md` (2026-10-01).
 This record is what the audit found and did NOT change, with who has to decide.
 Method: three read-only passes (code and comments, documents, the specificity
 records), each claim re-checked against the file before it was acted on. Where
@@ -31,7 +31,7 @@ malformed header, the retention-line test reads compound ids, and
 to the guide. The shot, speaker and clock patterns have one definition in
 `bench/preflight_graph.py`, and `loop_plan.CUT_TIME` is pinned to it. The guide file names
 and line numbers in code are the real ones, and the prompting-related comments that cited a
-rule `CLAUDE.md` no longer holds point at `docs/rules_history.md`. The portable copies agree
+rule `CLAUDE.md` no longer holds point at `docs/method/rules_history.md`. The portable copies agree
 with the manual and twelve of their rule sentences are pinned. What those items described is
 kept below as the record.
 
@@ -53,9 +53,9 @@ is still the 2026-09-01 snapshot.
   suitable input it would write into the bank with no manifest entry and a
   trailing newline. Delete it, or make it refuse a `--dst` inside the bank.
 - **The camera warnings** (`tracks right`, `whip pan`, `dolly`) stay by the
-  owner's ruling of 2026-09-01, now in `docs/prompting.md` section 4.
+  owner's ruling of 2026-09-01, now in `docs/prompting/prompting.md` section 4.
 - **The published portable page.** The claude.ai copy named in
-  `docs/portable/snapshots.json` is the 2026-09-01 snapshot: it states the
+  `docs/prompting/portable/snapshots.json` is the 2026-09-01 snapshot: it states the
   stamped shot header as the rule and its good example carries one. Nothing
   compares it to the file. Republishing is outward-facing, so it was not done.
 - **The portable copies' prose.** Not edited here. In the HTML: the timestamp rule's
@@ -67,7 +67,7 @@ is still the 2026-09-01 snapshot.
   sync check pins the system prompt only on the three Part One strings and the HTML
   on Part One, the camera tokens, the examples and three quotations, so a prose rule
   in either can invert and stay green (shown by an in-memory mutation).
-- **Mouth-closing, `docs/prompting.md` section 5.6.** Reconciled to the positional
+- **Mouth-closing, `docs/prompting/prompting.md` section 5.6.** Reconciled to the positional
   pattern of section 14.3 and the copies, where it said "every line". The section 10
   examples cue at shot ends too. If the owner prefers "every line", change 5.6 and
   the copies together.
@@ -87,7 +87,7 @@ is still the 2026-09-01 snapshot.
 - **The stamped-header FAIL has holes** (`bench/preflight_graph.py`): a lowercase
   `at 00:05.200,`, a time written elsewhere in the header, and a malformed
   `[Shot 2, 00:05.200]` header all pass with no finding, and no check proves the FAIL
-  can fire. `docs/prompting.md` section 11 records the holes.
+  can fire. `docs/prompting/prompting.md` section 11 records the holes.
 - **The retention-line `(Sx)` test** uses `\(S\d+\)`, so a compound `(S1,S2)` in
   `retention_analysis` passes while a single id fails.
 - **Unpinned copies of closed sets**, equal today and checked by nothing: the
@@ -121,7 +121,7 @@ is still the 2026-09-01 snapshot.
   bit-identical, so neither shows the fix.
 - **The specificity classes have no grader.** `bench/adherence_checklists.json` has
   no reader in code and no score anywhere; the scenes that taught the classes have no
-  checklist. `docs/prompting.md` section 16.4 says what exists. A mechanical grader
+  checklist. `docs/prompting/prompting.md` section 16.4 says what exists. A mechanical grader
   for most of these classes is not possible on the text; a render-side one would need
   a person counter, which nothing here has.
 
@@ -129,7 +129,7 @@ is still the 2026-09-01 snapshot.
 
 - History notes sit inside rules (section 13 "Withdrawn 2026-09-01", 14.4, 14.5, the
   "Added 2026-09-01" lines in 5.8 and 5.9). `CLAUDE.md` says history goes in
-  `docs/wiki/decisions.md`. Moving them is a larger edit than this pass.
+  `docs/state/decisions.md`. Moving them is a larger edit than this pass.
 - Headings cited by title ("Four layers", "Three traps", the section 8 field names)
   are unnumbered, so a pointer to them cannot be stable. Numbering them changes
   titles that code docstrings quote.
@@ -138,13 +138,13 @@ is still the 2026-09-01 snapshot.
 
 ## Still red, and not from this pass
 
-*2026-10-01, later: `check_doc_links.py` is clean again (the two `docs/h3_audio_freeze.md` citations
+*2026-10-01, later: `check_doc_links.py` is clean again (the two `docs/h3/audio_freeze.md` citations
 were corrected by another session), and "fourteen" below was a count that moves with whether a GPU
 is visible to the sweep. Read the non-zero exits of `for f in bench/check_*.py` instead of this list;
 what follows is what it said when written.*
 
 
-- `check_doc_links.py`: two citations in `docs/h3_audio_freeze.md` to a sister pack
+- `check_doc_links.py`: two citations in `docs/h3/audio_freeze.md` to a sister pack
   path that is not on this machine. Red at `HEAD` too.
 - Fourteen other `bench/check_*.py` exit non-zero from the environment: no `comfy`
   import under bare `python`, no HF cache, no server, or gitignored `internal/` files

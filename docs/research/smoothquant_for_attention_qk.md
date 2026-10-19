@@ -7,8 +7,8 @@ last updated: 2026-09-15
 where the idea comes from, who already uses it in DiT quantization, and
 which part of what this repo does is, as far as we can tell, not in the
 literature. The mechanism, the measurements and the visible results live in
-[`docs/h3_block49_quant_error.md`](../h3_block49_quant_error.md); the plan
-in [`docs/h3_quant_policy.md`](../h3_quant_policy.md). Prior-art claims
+[`docs/attention/block49_quant_error.md`](../attention/block49_quant_error.md); the plan
+in [`docs/attention/quant_policy.md`](../attention/quant_policy.md). Prior-art claims
 below are dated and hedged on purpose: "as far as we know on 2026-09-15"
 is the strongest thing said here.
 
@@ -112,16 +112,16 @@ answers are finer granularity (per-group scales, SVDQuant's low-rank
 residue) or rotation (QuaRot, SpinQuant), and rotation handles the
 per-token case too, since it flattens whatever a row's outlier is. That
 is what kitchen's `int8_attention` does, and it is the shape Tier 2 in
-[`docs/h3_quant_policy.md`](../h3_quant_policy.md) should take in sage's
+[`docs/attention/quant_policy.md`](../attention/quant_policy.md) should take in sage's
 and Sol's quantizers rather than a second scale group.
 
 ## What to cite if this gets written up
 
-- The mechanism and measurements: `docs/h3_block49_quant_error.md`
+- The mechanism and measurements: `docs/attention/block49_quant_error.md`
   sections 1 through 4 and 8.
 - The checkpoint one-liner (the weights fact anyone can check on any H3
   checkpoint): `bench/check_channel_balance.py`, or the inline version in
-  `docs/h3_block49_quant_error.md`.
+  `docs/attention/block49_quant_error.md`.
 - The grade records: `bench/results/2026-09-14_channel_balance_*.json`
   and `bench/results/2026-09-15_channel_balance_kernel_*.json`.
 - The visible results: `bench/results/2026-09-15_block49_market_feedback.md`,

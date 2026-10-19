@@ -6,13 +6,13 @@ verdict: measured across four kitchen runs (`lead_fp_0751`, `lead_fp_0751d`, `le
 Written by mrted (the Claude lead) on 2026-10-18, before the run, at the owner's ask: what was run, how and why, the
 scene's background, how a two-pass scene was validated by hand tonight, and what should probably be done on every
 scene. The exact commands, as run, are kept outside git because they carry machine paths:
-`internal/gemini/2026-10-18_kitchen_24fps_check.md` (linked from `docs/wiki/handover.md`). **This is a record of one
+`internal/gemini/2026-10-18_kitchen_24fps_check.md` (linked from `docs/state/handover.md`). **This is a record of one
 scene's check, not a recipe.** Only the three points under "Always true" hold everywhere.
 
 ## The scene, and why it needed two passes
 
 The kitchen, source frames 604-1009: the mom (`second`) at the table and the lead walking behind her. Each person is
-replaced in a pass of their own (two or more subjects in one pass is a closed lane, `docs/roadmap.md`). The mom's pass,
+replaced in a pass of their own (two or more subjects in one pass is a closed lane, `docs/state/roadmap.md`). The mom's pass,
 `second_hfp_0604h`, was kept and laid on 2026-10-18 (`bench/results/2026-10-18_second_hfp_0604h_recipe.md`); the lead's,
 `lead_fp_0606`, was kept and laid the same day. Both had been rendered against the original video, so where the lead
 passes behind the mom (about 755-775) the lead's chin was generated beside the original mom's dark hair, and when the
@@ -57,7 +57,7 @@ In order (the commands are in the untracked file named above):
    - a Gemini reader watching both natively, writing a card that cites the figures.
 5. The candidate on Start here for the owner; laid only on the owner's keep.
 
-## Always true (the owner's rules, `docs/wiki/decisions.md`, 2026-10-18)
+## Always true (the owner's rules, `docs/state/decisions.md`, 2026-10-18)
 
 - H3 gets 24 fps from input to output, and a cut used as a source is made and loaded exactly like the real input's
   24 fps copy.
@@ -69,7 +69,7 @@ In order (the commands are in the untracked file named above):
 
 - Two-person shots: the person in front first; the person behind rendered against the cut that holds them, at 24 fps.
 - Before any render: the loaders' first frames agree (source, masks, reference).
-- After every render: the facts beside the clip, in its JSON sidecars, read before anyone watches (`docs/wiki/handover.md`,
+- After every render: the facts beside the clip, in its JSON sidecars, read before anyone watches (`docs/state/handover.md`,
   item 1c): the offset check against the source, the pixel diffs, the block measure, the mouth opening against the
   source's, the face points, the gaps, and the reader's card citing them.
 - The margin and the keep-outs read against the subject's own mask before a crossing renders (item 2b).

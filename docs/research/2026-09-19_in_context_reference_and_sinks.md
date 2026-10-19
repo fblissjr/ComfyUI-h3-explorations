@@ -14,8 +14,8 @@
 > **Provenance.** Research subagent, 2026-09-19. Read-only: no git, no file
 > edited outside this scratchpad, no GPU. Sources: ComfyUI core's MiniMax H3
 > model file (`comfy/ldm/minimax/model.py`, two directories above the repo),
-> this repo's `sol_attn_h3.py`, `workflows/h3_config.py`, `docs/SOLATTN.md`,
-> `docs/morton.md`, `docs/research/technique_transfer.md`, the 2026-09-17
+> this repo's `sol_attn_h3.py`, `workflows/h3_config.py`, `docs/attention/sol_attn.md`,
+> `docs/attention/morton.md`, `docs/research/technique_transfer.md`, the 2026-09-17
 > survey and the 2026-09-19 question review, and the `coderef/comfy-kitchen`
 > and `coderef/sage-fork` trees. Papers: every arXiv id below was opened on its
 > abstract page or HTML page this session. **Read at section level through the
@@ -153,9 +153,9 @@ reference-specific measurement below waits on that one capture render.
    approximated by routing. Two things are: (a) under the shipped mode the
    reference rows' **queries** are routed, because the dense-query range is
    target audio only (`sol_attn_h3.py` (line 946 as of 2026-09-19; the file was restructured 2026-09-27)), so the K/V those rows present
-   to later blocks carry Sol error, and `docs/SOLATTN.md` calls this
+   to later blocks carry Sol error, and `docs/attention/sol_attn.md` calls this
    second-order without a measurement; (b) the forced-exact range grows with
-   every reference row, which `docs/SOLATTN.md` ("References are pinned
+   every reference row, which `docs/attention/sol_attn.md` ("References are pinned
    exact") prices as the dominant cost at video-reference load. Three 2026
    papers measure reference rows as low-salience and prunable in most blocks
    (ISA, arXiv 2605.04569 Fig. 5; ToPi, arXiv 2602.01609 section on
@@ -192,7 +192,7 @@ reference-specific measurement below waits on that one capture render.
    isolating it (`bench/sweep_sol_orderings_on_capture.py` docstring).
    **Measure first:** INT8-K-alone error on set A, raster against `3d`. A
    positive result is an argument for the reorder that the latest decision
-   says is missing (`docs/wiki/decisions.md:51`, "`morton` stays off by
+   says is missing (`docs/state/decisions.md:51`, "`morton` stays off by
    default, and the panel did NOT decide it").
 
 7. **Audio-video synchronisation heads: nobody has published a per-head
@@ -247,7 +247,7 @@ reference version reuses unchanged.
   queries only for target audio (`sol_attn_h3.py` (lines 894-946 as of 2026-09-19; the file was restructured 2026-09-27)). So reference
   **keys** are always unpooled, reference **queries** are routed. The mode
   `exact_kv_and_all_rows` makes reference queries dense too; its price is in
-  `docs/SOLATTN.md`, "References are pinned exact".
+  `docs/attention/sol_attn.md`, "References are pinned exact".
 - The kernel takes one exact-key range and one dense-query range, each a
   single `[start, end)` (`coderef/comfy-kitchen/comfy_kitchen/__init__.py:175-177`). "Text and target audio exact, references routed" is two ranges
   and is not expressible as the layout stands.
@@ -298,11 +298,11 @@ prefix's INT8 precision.
   Sol; ? for others: the sglang and LightX2V H3 reference paths were not
   checked for their sink handling.]
 - **Read as a lever for H3** [I]: reference pruning attacks the forced-exact
-  floor that `tau` cannot reach (`docs/SOLATTN.md`, the sink table), so it
+  floor that `tau` cannot reach (`docs/attention/sol_attn.md`, the sink table), so it
   would stack with Sol rather than double-count, which is the opposite of the
   worry `docs/research/technique_transfer.md` raises for token merging on video rows. It is
   worth anything only on graphs with large references (the video-reference
-  rows in `docs/SOLATTN.md`'s reference table); on image references at
+  rows in `docs/attention/sol_attn.md`'s reference table); on image references at
   `match` the prefix is small.
 - **The expressible experiment today** [I]: default against
   `exact_kv_and_all_rows` on a ref2va graph measures item 4(a). Routing the
@@ -474,7 +474,7 @@ localisation findings, not as scorers.
   (max over mean-abs); INT8/INT4 Q, K and P in 64x64 blocks; training-free;
   removing the reorder costs PSNR in both its sparse and its quantised
   configurations (Table 3). CogVideoX-5B, Wan2.1-14B, FLUX.1-dev. [V, HTML
-  digest] `docs/morton.md` cites it "from memory, not read in source"; this
+  digest] `docs/attention/morton.md` cites it "from memory, not read in source"; this
   is the reading.
 - **Transfer.** Partial, ranked item 6: P path no (row-max u8 in kitchen), K
   path possibly. Note also PARO's per-head permutation is a per-head policy
@@ -495,7 +495,7 @@ localisation findings, not as scorers.
   `w` extremes with `h` zero (`comfy/ldm/minimax/model.py:117-123`, called at
   `:440-442`). Video advances `FRAME_RESCALE` = 5/3 units per pixel frame
   (`:31`, `:95-96`); audio advances 1.0 unit per latent frame (`:120`), and
-  `temporal_shape(362)` gives `audio_t` 603 (`docs/SOLATTN.md`, the recomputed
+  `temporal_shape(362)` gives `audio_t` 603 (`docs/attention/sol_attn.md`, the recomputed
   sink table), which is 5/3 audio latents per pixel frame. Both streams
   therefore move 5/3 units per pixel frame: H3 already has temporal-aligned
   RoPE in the JoVA/MMAudio sense [I, arithmetic from two constants and one
@@ -528,7 +528,7 @@ localisation findings, not as scorers.
   diffusion analogue needs a trained draft; this one uses the same model, so
   "trained" is not required. The row's other condition still holds: at the
   distilled checkpoint's step count there is little slack, and the step lane
-  sits next to a declined one (`docs/roadmap.md`, via `docs/research/technique_transfer.md`).
+  sits next to a declined one (`docs/state/roadmap.md`, via `docs/research/technique_transfer.md`).
   Leave the row's status as n/a for this box. [I]
 
 ---
@@ -589,8 +589,8 @@ Code read (ComfyUI core and this repo cited by repo-relative path; clones as
   `:117-123`, `:181-199`, `:291-297`, `:350-470`, `:532-545`, `:633-637`.
 - `sol_attn_h3.py` (line 430 as of 2026-09-19; the file was restructured 2026-09-27) (`_perm_for`), `:894-946` (`_sink_blocks`).
 - `workflows/h3_config.py`, `SOL_CORE_DEFAULTS`, `SOL_RECOMMENDED`.
-- `docs/wiki/decisions.md:51`; `docs/SOLATTN.md`, "References are pinned
-  exact" and the sink table; `docs/morton.md`, "Related papers".
+- `docs/state/decisions.md:51`; `docs/attention/sol_attn.md`, "References are pinned
+  exact" and the sink table; `docs/attention/morton.md`, "Related papers".
 - `coderef/comfy-kitchen/comfy_kitchen/__init__.py:175-177`.
 - `coderef/comfy-kitchen/comfy_kitchen/backends/cuda/sage_attention/sol_attn_preprocess.cu:101-115`, `:251-267`.
 - `coderef/comfy-kitchen/comfy_kitchen/backends/cuda/sage_attention/quant_qk_int8.cu:447-453`.

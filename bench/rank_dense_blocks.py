@@ -40,7 +40,7 @@ quote a single `removed` value as a measured quantity.
 **It says nothing about propagation.** Error at a block is not impact at the
 output: block 0's travels through 49 more blocks, block 49's lands on the
 output head. Nothing here or anywhere in this repo measures that, and it is the
-one thing that could overturn the ranking. See `docs/SOLATTN.md`.
+one thing that could overturn the ranking. See `docs/attention/sol_attn.md`.
 
     python bench/rank_dense_blocks.py [--write]
 

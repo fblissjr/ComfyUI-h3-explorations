@@ -3,7 +3,7 @@
 **Question.** What do the INT8 ConvRot video VAE and `h3_config.DRAFT_VAE`
 (taeh3) cost and save against the shipped fp16 decoder, at the owner's
 length? Also, is the draft route's keeper decode lossless?
-`docs/open_experiments.md` #31 (observables 1 and 2), and the INT8 lane,
+`docs/state/open_experiments.md` #31 (observables 1 and 2), and the INT8 lane,
 which the owner reopened for measurement the same day ("lets try").
 
 **Latent.** The shipped FlashGen t2v graph (`h3_text_to_video_flashgen`) at

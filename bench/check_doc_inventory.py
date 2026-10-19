@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Every check on disk has a row in the index, and every row names a real file.
 
-`docs/checks.md`'s index is the repo's answer to "what does this repo check". A
+`docs/method/checks.md`'s index is the repo's answer to "what does this repo check". A
 check that exists and is not listed is invisible to anyone reading that answer,
 and a row naming a file that is gone teaches the next reader something false.
 Nothing watched either direction until 2026-08-17.
@@ -49,13 +49,13 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-CHECKS_MD = REPO / "docs" / "checks.md"
+CHECKS_MD = REPO / "docs" / "method" / "checks.md"
 
 # A row's subject is the first backticked *.py in it. The index's own convention
 # is that the subject leads the row, and every row has followed it since the file
 # was written.
 #: A row's subject, with the strikethrough that marks a RETIRED check optional.
-#: `~~`name.py`~~` is how `docs/checks.md` records a check that was withdrawn
+#: `~~`name.py`~~` is how `docs/method/checks.md` records a check that was withdrawn
 #: rather than deleted silently, and the row is kept because it carries why.
 #:
 #: **This pattern had only ever met live rows.** It was written when every row

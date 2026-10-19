@@ -1,7 +1,7 @@
 """The host this repo's numbers were measured on, printed rather than written down.
 
 NOT a check. It asserts nothing and always exits 0 when it can read the box.
-It exists because `docs/hardware.md` describes a machine whose driver version,
+It exists because `docs/working/hardware.md` describes a machine whose driver version,
 power limit and clock state all drift, and CLAUDE.md's rule is that a number
 which changes as the project evolves does not belong in prose. So the doc
 carries the shape and this carries the values.
@@ -10,7 +10,7 @@ carries the shape and this carries the values.
 
 Deliberately **not** `uv run`: this repo has a `pyproject.toml` but is meant to
 run inside ComfyUI's venv, so `uv run` without `--active` builds a second one
-and writes the `uv.lock` that `docs/comfy_notes.md` says must not exist here.
+and writes the `uv.lock` that `docs/working/comfy_notes.md` says must not exist here.
 Nothing below imports anything outside the standard library, so a bare
 interpreter is enough and the question does not arise.
 
@@ -23,7 +23,7 @@ so `current_link_speed` reads gen 1 on a card that negotiates gen 4 the moment
 work arrives. Width does not downtrain and is the trustworthy half at idle.
 
 **The line that matters is `power.limit vs default`.** Every timing number in
-`docs/bench_plan.md` and `docs/SOLATTN.md` was taken at the stock limit. A
+`docs/method/bench_plan.md` and `docs/attention/sol_attn.md` was taken at the stock limit. A
 board power limit is invisible in a workflow JSON, absent from the capture
 manifest, and survives reboots once someone installs a systemd unit for it --
 so a run at a changed limit is not comparable to any of them, and nothing else
@@ -166,7 +166,7 @@ def pcie_topology():
 
     Width below capability is the interesting case and is not always
     intentional: seating and firmware both produce it, and neither announces
-    itself. `docs/hardware.md` records what this box currently negotiates.
+    itself. `docs/working/hardware.md` records what this box currently negotiates.
     """
     rows = []
     root = Path("/sys/bus/pci/devices")
@@ -235,7 +235,7 @@ def main():
             print(f"  POWER LIMIT IS NOT STOCK: {limit} against a "
                   f"default of {default}.")
             print("  Timing taken now is not comparable to any number in")
-            print("  docs/bench_plan.md or docs/SOLATTN.md. See docs/hardware.md.")
+            print("  docs/method/bench_plan.md or docs/attention/sol_attn.md. See docs/working/hardware.md.")
             print("  " + "-" * 60)
 
     topo = pcie_topology()

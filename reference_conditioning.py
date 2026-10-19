@@ -13,7 +13,7 @@ the release canvas and uses the release processor settings. The two release
 stages are one policy because enabling the upscale alone overshoots Qwen's
 long-clip budget. A third policy, ``encoder``, read a contract stamped by the
 AWQ adapter; that lane closed and the policy went with it on 2026-09-13
-(`docs/wiki/decisions.md`).
+(`docs/state/decisions.md`).
 
 **Every still is read twice.** The video VAE encodes one copy into reference
 latent rows the DiT attends on every sampling step; Qwen3-VL reads a copy as
@@ -91,7 +91,7 @@ class RuntimeImageReference:
     # is what every serving implementation does and the node default since
     # 2026-09-13. N scales the SOURCE so its shorter side reaches N, for the
     # conditioner alone; the VAE view is unchanged.
-    # `docs/h3_conditioning_end_to_end.md` section 1b is why the two branches
+    # `docs/h3/conditioning.md` section 1b is why the two branches
     # need not share a geometry.
     qwen_short_edge: int = 0
     # False: this still reaches the model through the text encoder only. No
@@ -259,7 +259,7 @@ def _encode_ref_audio_aligned(audio_vae, audio):
     crop (`comfy/sd.py::vae_encode_crop_pixels`) narrows the SAMPLE axis to a
     multiple of `spacial_compression_encode()` and takes the remainder off both
     ends, so the leading samples go and a soundtrack drifts early against its
-    own frames: gap 16 in `docs/comfyui_vendor_gaps.md`, measured by
+    own frames: gap 16 in `docs/h3/comfyui_vendor_gaps.md`, measured by
     `bench/audit_ref_audio_crop.py`.
 
     The release pads the end instead. Its audio VAE's `preprocess`
@@ -547,7 +547,7 @@ def _reference_views(image, source_w, source_h, role_w, role_h, record,
     stage-one tensor unclamped, and the encoder is shown a second view of the
     source at an N short edge, with the stage-two bounds pre-applied to that
     view alone under `release`. Section 1b of
-    `docs/h3_conditioning_end_to_end.md` is why nothing indexes a Qwen token
+    `docs/h3/conditioning.md` is why nothing indexes a Qwen token
     against a latent patch, so this breaks no contract; what it changes is a
     quality question the blind comparison owns.
     """
@@ -790,7 +790,7 @@ def _compile_reference_records(
 # A tooltip tells the person wiring the node what the input does, when to
 # change it and what it costs. Why a default is what it is (who chose it, on
 # which clips, which upstream it follows) is a comment beside the input and a
-# dated entry in `docs/wiki/decisions.md`, never tooltip text (owner,
+# dated entry in `docs/state/decisions.md`, never tooltip text (owner,
 # 2026-10-04). Texts more than one node shows live here, one copy each.
 REFERENCES_CHAIN_TOOLTIP = (
     "The reference chain so far, from another Append node. Leave it "
@@ -901,7 +901,7 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
                                 # do; off is core ComfyUI's behaviour. Whether
                                 # upscaling helps identity is the
                                 # reference-view ablation's question
-                                # (docs/h3_references.md).
+                                # (docs/h3/references.md).
                                 "allow_upscale", default=True,
                                 tooltip=(
                                     "On (default): a still smaller than "
@@ -935,7 +935,7 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
                 # omitted DynamicCombo and `execute` then fails (driven through
                 # core's input building, 2026-10-04).
                 # `separate` first since 2026-10-03, the owner's decision on a
-                # few clips at one seed (docs/wiki/decisions.md;
+                # few clips at one seed (docs/state/decisions.md;
                 # h3_rules.REF_QWEN_SHORT_EDGE has the history). `shared` was
                 # first from 2026-09-13 and is what every serving
                 # implementation does. Known of `separate`: on the one

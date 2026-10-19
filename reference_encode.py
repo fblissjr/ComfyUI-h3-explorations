@@ -38,7 +38,7 @@ on a later run when the hash matched (and `keep_references` on the one-node
 path reached that store without rewiring). The owner's rule of that day
 removed it: nothing an earlier run made is reused by a key; a result is made
 again, or handed in explicitly as a named file or a wired input
-(`AGENTS.md`, "Operative rules"; `docs/wiki/decisions.md`). What is left is
+(`AGENTS.md`, "Operative rules"; `docs/state/decisions.md`). What is left is
 the explicit form. `MiniMaxH3EncodeReferences` hands its result out on an
 output and `MiniMaxH3PromptOnReferences` takes it on an input, so a prompt
 edit that leaves the references' node untouched pays for the prompt alone,

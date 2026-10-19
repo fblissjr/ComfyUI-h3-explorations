@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Assemble the standalone PDD node that ships beside the weights on the Hub.
 
-Run it with the ComfyUI venv python (`docs/comfy_notes.md`). Needs no server and
+Run it with the ComfyUI venv python (`docs/working/comfy_notes.md`). Needs no server and
 no GPU; copies files.
 
 ## Why this exists rather than a hand-copied folder

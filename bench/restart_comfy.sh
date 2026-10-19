@@ -5,7 +5,7 @@
 # docs cite it by name, and because ARMING_KEYS documents what to look for.
 #
 # Restart ComfyUI by hand instead -- the way it was done before this script
-# existed (docs/comfy_notes.md, "Restart by the process that owns port 8188"):
+# existed (docs/working/comfy_notes.md, "Restart by the process that owns port 8188"):
 #
 #   PID=$(ss -ltnp | grep ':8188' | grep -oP 'pid=\K[0-9]+' | head -1)
 #   tr '\0' '\n' < /proc/$PID/environ | grep '^H3_'    # ARMED? it is somebody's
@@ -21,7 +21,7 @@
 #
 # Kill the PORT OWNER, never `pgrep | head -1`: start.sh runs under a uv
 # wrapper, and killing the wrapper leaves the old server on the port.
-echo "bench/restart_comfy.sh is DISABLED (it hangs); restart ComfyUI by hand -- see the header of this file or docs/comfy_notes.md" >&2
+echo "bench/restart_comfy.sh is DISABLED (it hangs); restart ComfyUI by hand -- see the header of this file or docs/working/comfy_notes.md" >&2
 exit 2
 
 # ---- original script, commented out in full below this line ----------------

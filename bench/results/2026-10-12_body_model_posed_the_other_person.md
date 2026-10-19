@@ -15,7 +15,7 @@ a second run made after the commit.
 
 A masked load can show the model a body-model video of its subject, so
 that a redrawn head or person moves as the original did
-([`../../docs/wiki/masked_v2v.md`](../../docs/wiki/masked_v2v.md), "The
+([`docs/masked_v2v/overview.md`](../../docs/masked_v2v/overview.md), "The
 motion video as a body model, with marks drawn on its face"). That video
 is only as good as the body it was posed from. This record says that on
 frames where a second person stands in the subject's box the body model

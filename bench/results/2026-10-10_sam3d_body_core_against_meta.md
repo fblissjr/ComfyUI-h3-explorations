@@ -4,14 +4,14 @@ lane: sam3d
 verdict: on two public samples, on the CPU in float32: core's port computes what Meta's code computes once both are given the same crop, to under the difference between Meta's own two precisions for five boxes of six; as shipped core is off Meta by millimetres, all of it from how core samples the crop, smallest when the person's crop is about the model's input size and larger when it is shrunk or enlarged; one hand moved by centimetres where the two sides disagreed on using the hand decoder; the camera is the same on both sides; expression is zero on both
 
 **What was asked.** The render lane uses a SAM 3D Body mesh as a motion
-signal ([`docs/wiki/masked_v2v.md`](../../docs/wiki/masked_v2v.md)), through
+signal ([`docs/masked_v2v/overview.md`](../../docs/masked_v2v/overview.md)), through
 ComfyUI core's port, and the owner does not take core's ports of Meta's
 models on trust (core's SAM 3 port had three departures found on
 2026-10-07, [`2026-10-07_sam3_core_against_meta.md`](2026-10-07_sam3_core_against_meta.md)).
 The lead asked for the same comparison here: core's whole prediction
 against Meta's on the same frames, the camera each used, and whether hand
 refinement ran on each side. The reading of the two code paths that came
-first is [`docs/wiki/meta_perception_models.md`](../../docs/wiki/meta_perception_models.md),
+first is [`docs/masked_v2v/perception_models.md`](../../docs/masked_v2v/perception_models.md),
 "Core's port against Meta's inference"; this record is the run that page
 said was missing.
 

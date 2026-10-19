@@ -14,7 +14,7 @@
 > summarising fetch tool; recheck against the PDF before reusing one.
 
 Provenance. Research subagent, 2026-09-19, read-only, no GPU, no git. Repo
-context read in full: `docs/eval_comparison.md`, `.claude/skills/h3-ab-session/SKILL.md`,
+context read in full: `docs/method/eval_comparison.md`, `.claude/skills/h3-ab-session/SKILL.md`,
 `internal/2026-09-19_question_review.md` (all sections, A, B, C.11 and F
 closely), `bench/results/2026-09-19_audio_sage_vs_kitchen.md`, the tools
 `bench/blind_batch.py` (argument handling), `bench/rubrics/default.json`,
@@ -51,7 +51,7 @@ recommendation [I]; the numbers are labelled binomial arithmetic (section
 
 Eight stacks in one shuffled session (five contests, two decoys, one anchor),
 audio heard on every pair (the page's "Hear" row), predictions written in the
-brief but defects not named to the judge (`docs/eval_comparison.md`, the
+brief but defects not named to the judge (`docs/method/eval_comparison.md`, the
 priming caution). Run `bench/diff_clip_graphs.py --expect` on every contest
 before stacking; each contest must differ only in the attention chain and Sol.
 
@@ -68,7 +68,7 @@ The page's four verdicts stay as they are. The join reads each pair as one of:
 - **same**: evidence of no difference. Counts toward "cannot tell".
 - **can't tell**: no judgement formed. Counts toward "cannot tell" for the
   stop rule, but reported apart: three or more of five says the scenes, not
-  the arms, failed (`docs/eval_comparison.md`, verdict item 3).
+  the arms, failed (`docs/method/eval_comparison.md`, verdict item 3).
 
 For any directional statistic, drop same and can't tell (sign-test
 convention) and report how many were dropped.
@@ -203,7 +203,7 @@ what to measure first, zero-GPU first.
    verdict records (`bench/results/*_verdict.json`, contest `tally` fields) to
    see what tie rate the judge actually runs at, which is the input the
    section 3.3 arithmetic needs. The one on-file near-null reading is session 1
-   of 2026-08-20 (`docs/roadmap.md:683-691`; LoRA recipes, not a decoy).
+   of 2026-08-20 (`docs/state/roadmap.md:683-691`; LoRA recipes, not a decoy).
 2. **An alignment index on every pair, then reference metrics only on the
    aligned ones.** Per-frame PSNR/SSIM trajectory against the dense render and
    the audio record's 20 ms envelope correlation decide whether a pair is inside
@@ -285,7 +285,7 @@ what to measure first, zero-GPU first.
   flickering (Table 1) and runs no human study. [V] VBench temporal
   flickering is, as the extractor summarised VBench's dimension section, a mean
   absolute difference between consecutive frames; if so it is close to this
-  repo's `delta`, which `docs/eval_comparison.md` records failing twice as an
+  repo's `delta`, which `docs/method/eval_comparison.md` records failing twice as an
   across-clip account. [I; the definition not read line by line]
 
 ### 1.2 Where human-alignment numbers exist, read the unit
@@ -468,7 +468,7 @@ Notes, each [V] unless marked:
     luminance jitter over a second or two. Missing the anchor makes that
     batch's "same" verdicts non-evidence.
 - **Same, can't tell, and signal detection.** The rubric's split between
-  *same* and *can't tell* (`docs/eval_comparison.md`, section 3) is already a
+  *same* and *can't tell* (`docs/method/eval_comparison.md`, section 3) is already a
   same-different design. The decoys estimate the false-alarm rate, the anchor
   the hit rate; with a handful of each, d' is not estimable precisely, and the
   controls act as vetoes, not estimates. [I]
@@ -492,7 +492,7 @@ Notes, each [V] unless marked:
   one reference (a `start_percent` sweep at 0, 0.1, 0.2, 0.3), because it pools
   the transitive information across contests, and Davidson's model keeps the
   ties instead of discarding them. Slot order is already randomised per pair
-  (`docs/eval_comparison.md`, section 3), which is the precondition for
+  (`docs/method/eval_comparison.md`, section 3), which is the precondition for
   estimating a position bias later.
 
 ### 3.3 Labelled arithmetic: what five pairs can and cannot say
@@ -661,7 +661,7 @@ as the review asks for B.2.
 ## 5. Protocol recommendation for this repo [I]
 
 Everything here is a proposal. It keeps the owner's process
-(`docs/eval_comparison.md` section 3; free text first, pairs not singles,
+(`docs/method/eval_comparison.md` section 3; free text first, pairs not singles,
 tallies not means, no 1-5 scale) and adds only controls and logging that cost
 the owner little or nothing.
 
@@ -689,7 +689,7 @@ the owner little or nothing.
    call it).
 6. **Optional defect tags per half from a fixed list**, replacing the
    meaningless "same" and "can't tell" per-half tags the page reuses today
-   (`bench/rubrics/default.json:13`; `docs/eval_comparison.md`, "What the
+   (`bench/rubrics/default.json:13`; `docs/method/eval_comparison.md`, "What the
    judge records", item 4, which records it as a rubric defect). A starting list: the Sol-Engine categories
    ghosting, morphing, flicker, block seams, degraded text, faces or hands,
    blur, colour shift, plus audio ones (muffled, level, garbled words, desync,
@@ -739,12 +739,12 @@ queued and no armed server is up; no runtime was measured for this draft.
 ## Sources
 
 Repo and local clones (read):
-- `docs/eval_comparison.md`; `.claude/skills/h3-ab-session/SKILL.md`;
+- `docs/method/eval_comparison.md`; `.claude/skills/h3-ab-session/SKILL.md`;
   `internal/2026-09-19_question_review.md`; `bench/results/2026-09-19_audio_sage_vs_kitchen.md`;
   `bench/blind_batch.py:61-63,271-272`; `bench/rubrics/default.json:13`;
   `bench/quality_metrics.py` (docstring); `bench/diff_clip_graphs.py`
   (docstring); `bench/measure_audio_video_coupling.py` (docstring);
-  `docs/roadmap.md:683-691`; `docs/research/2026-09-17_rotation_and_lowbit_attention_survey.md` D.6.
+  `docs/state/roadmap.md:683-691`; `docs/research/2026-09-17_rotation_and_lowbit_attention_survey.md` D.6.
 - `coderef/Sana/evals/tiers.toml:12-15,46-51`;
   `coderef/Sana/evals/rubrics/gemini_visual_artifact_gate.md:38-53,80-88`;
   `coderef/Sana/tools/vision/lpips_judge.py:33-46`;

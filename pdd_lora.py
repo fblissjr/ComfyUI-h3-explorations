@@ -734,7 +734,7 @@ class _HeadBank(torch.nn.Module):
     less than it cost:
 
     * **What it was buying is 42 MiB of HOST ram per cached arm** (the bank as
-      stored, `docs/h3_pdd.md`'s composition table), on a box whose host peaks
+      stored, `docs/distills/pdd.md`'s composition table), on a box whose host peaks
       are measured in tens of gibibytes. Accounted or not, nothing was ever
       going to reclaim it under pressure that mattered.
     * **What it cost is card memory, where this workload is actually tight.**
@@ -935,7 +935,7 @@ def _make_final_layer_forward(base_forward, tracker):
     weight its original size, so core takes its `n == 1` path and our two
     output-linear patches still own the head swap. That is correct, and it is
     also two implementations of one mechanism sitting in one process. See
-    `docs/h3_pdd.md`.
+    `docs/distills/pdd.md`.
     """
     def forward(x, t_emb, video_seg, audio_seg, *args, **kwargs):
         tracker.update(t_emb, video_seg, audio_seg)
@@ -1123,7 +1123,7 @@ def split_unmerged(backbone, blocks, kinds=UNMERGED_KINDS):
 #: A converted file carries either the whole backbone (`full`: the default,
 #: paired with the base it was converted against) or none of it (`stripped`:
 #: paired with the ONE baked checkpoint its backbone lives in,
-#: `docs/h3_pdd.md` "What a backbone bake pins"). The two mismatches are
+#: `docs/distills/pdd.md` "What a backbone bake pins"). The two mismatches are
 #: mirror images and BOTH render normally: a full sidecar on a baked
 #: checkpoint applies the backbone twice, a stripped one on anything but its
 #: own bake applies the wrong backbone or none. Neither is visible in the
@@ -1532,7 +1532,7 @@ def shipped_pdd_loras() -> tuple[str, ...]:
     of `..._comfy` -- so a freshly dragged node used to start on the portable
     file rather than the one that fits the checkpoint every shipped graph
     loads. Both work on a pruned base; only the baked one avoids installing 50
-    runtime forward patches to get there. `docs/h3_pdd.md` has the pairing.
+    runtime forward patches to get there. `docs/distills/pdd.md` has the pairing.
 
     Read, never copied -- `h3_config.PDD_FL2VA_LORA` / `PDD_REF2VA_LORA` are
     the same strings the graphs wire, and a second copy of a filename here
@@ -1708,7 +1708,7 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                 # set rather than with how the input came to exist. The repo
                 # history they used to carry is not lost: the withdrawn "+19 MB
                 # per block" pricing of `unmerged_blocks` is recorded in
-                # `docs/h3_pdd.md` (measured identical at 19995 MB across both
+                # `docs/distills/pdd.md` (measured identical at 19995 MB across both
                 # arms of the 2026-08-30 smoke), and the widget-ordering defect
                 # is the comment above and the one on `head_strength`.
                 io.Boolean.Input(
@@ -1865,7 +1865,7 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                         "The measurement is stored-weight only, and "
                         "int8_convrot is W8A8, so it does not price the "
                         "activation rounding this also avoids on the delta. "
-                        "See docs/open_experiments.md #23."
+                        "See docs/state/open_experiments.md #23."
                     ),
                 ),
                 # APPENDED. See the note on patch_heads.
@@ -2084,7 +2084,7 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
 
         # Partition check. fl2va and ref2va ship identical key sets, so a
         # mismatched pair loads with zero unmatched keys and renders -- the
-        # silent-success failure docs/h3_ref2v_distillation.md records.
+        # silent-success failure docs/distills/ref2v_distillation.md records.
         #
         # Compared BY DISTANCE, not by hash. The first version hashed this
         # tensor and fired on the first real render against the correct
@@ -2343,7 +2343,7 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
         m = model.clone()
         # `add_patches` returns only the keys it found in the model's state
         # dict, so this separates "matched nothing" -- already caught above --
-        # from "matched SOME", which is the case `docs/h3_pdd.md` listed under
+        # from "matched SOME", which is the case `docs/distills/pdd.md` listed under
         # Enforced by nothing until 2026-08-27. A checkpoint layout change that
         # renames a subset leaves the rest applied and the render plausible.
         #

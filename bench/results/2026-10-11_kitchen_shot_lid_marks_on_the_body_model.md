@@ -18,7 +18,7 @@ the model is given carries her lids. The owner ruled out a sentence about
 her eyes (it is written a shot at a time and hides whether the text or the
 reference did it) and asked for the pose model's points on the body-model
 video instead, with a text that says what the video is and that she
-follows it (`docs/wiki/decisions.md`, 2026-10-11). These renders say
+follows it (`docs/state/decisions.md`, 2026-10-11). These renders say
 whether the model takes anything from marks drawn on that video, at what
 size, and under which words. It applies to this shot. Accepted when the
 owner has picked on playback and the same form has held on a second shot.

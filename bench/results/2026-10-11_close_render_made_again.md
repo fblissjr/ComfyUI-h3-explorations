@@ -7,7 +7,7 @@ files, and two stills looked at by the session that made the run.
 ## What it buys
 
 The owner ruled that the masked lane is redesigned around segments
-(`docs/wiki/decisions.md`, 2026-10-11) and that nothing changes before the
+(`docs/state/decisions.md`, 2026-10-11) and that nothing changes before the
 one render they called close is made again unchanged. This run says whether
 the tools at `9de6210d` still make that piece, so that a later difference is
 the design's and not drift nobody saw. It applies to this load only.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The release Qwen video grid, pinned at the boundaries that were got wrong.
 
-Run it with the ComfyUI venv python (`docs/comfy_notes.md`). CPU only, no
+Run it with the ComfyUI venv python (`docs/working/comfy_notes.md`). CPU only, no
 model, no server, no GPU.
 
 **The escaped instance, and there are three of it in one day.** On 2026-08-22

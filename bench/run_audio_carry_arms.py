@@ -319,7 +319,7 @@ def main() -> int:
             "two modes but its magnitudes are not a statement about a "
             "partition anyone should ship.",
             "One seed, one length, one canvas, one prompt -- the market scene "
-            "that docs/prompt_audit.md verdicts `rewrite`.",
+            "that docs/prompting/prompt_audit.md verdicts `rewrite`.",
         ],
     }, indent=1) + "\n")
     print(f"\nwrote {out.relative_to(REPO)}")

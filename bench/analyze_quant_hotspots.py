@@ -7,7 +7,7 @@ measurement, produced by `bench/analyze_quant_delta.py` against the bf16
 release, with its own self-tests (identity, perturbation, rotated-vs-unrotated,
 wrong-groupsize).
 
-**Written to answer one question and it came back NO.** `docs/SOLATTN.md` records
+**Written to answer one question and it came back NO.** `docs/attention/sol_attn.md` records
 that Sol's CUDA kernel disagrees with its eager reference far more at block 49
 than anywhere else -- `1 - quant_cos` about 7.5e-3 against 2.1e-4..8.3e-4 through
 the trunk, scale-invariant, so not a normalisation effect. The obvious
@@ -83,7 +83,7 @@ def main() -> int:
                        "so the error a module carries at run time is TWO "
                        "roundings and this file sees one. A ranking of module "
                        "kinds by stored-weight error is not a ranking of what "
-                       "they cost. See docs/open_experiments.md #23.",
+                       "they cost. See docs/state/open_experiments.md #23.",
         "by_block": {
             "spread_max_over_min": spread,
             "block_49_rank_of_50": rank49,

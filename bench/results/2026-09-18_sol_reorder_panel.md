@@ -15,7 +15,7 @@ sampler seconds per render: `2026-09-18_sol_reorder_panel_arms.jsonl`.
 On 2026-09-17 the owner found every plain-order noodle bar arm morphing around
 four seconds and the two `3d` reorder arms clean
 (`2026-09-17_sol_options_noodlebar_batch.md`). That is one stress scene at one
-seed. A default moves on a panel (`docs/eval_comparison.md`, "A stress scene is
+seed. A default moves on a panel (`docs/method/eval_comparison.md`, "A stress scene is
 not a typical scene, and neither carries a default alone"), and this is it.
 
 ## Arms

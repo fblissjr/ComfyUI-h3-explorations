@@ -105,8 +105,8 @@ IDENTITY = {
 #:
 #: **Both rows that were UNRECORDED at first turned out to be recorded, in
 #: files the author had not searched** -- `head_chunks` in
-#: `docs/h3_geometry_and_nodes.md` and a timing table in `h3_config.py`,
-#: `video_policy` in `docs/h3_references.md`. So treat an UNRECORDED row as a
+#: `docs/h3/geometry_and_nodes.md` and a timing table in `h3_config.py`,
+#: `video_policy` in `docs/h3/references.md`. So treat an UNRECORDED row as a
 #: prompt to look harder before treating it as a gap in the repo; twice out of
 #: twice it was a gap in the search.
 #: **Why HOUSE rows pin a value and the others do not.** Grading "is this
@@ -200,7 +200,7 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "decode drops its frozen context frames (the generator's "
                 "`freeze_context`, wired to MiniMaxH3FreezeAudioWindow."
                 "context_frames on the same graph) so the join carries new "
-                "frames only. docs/h3_audio_freeze.md section 4 step 6."),
+                "frames only. docs/h3/audio_freeze.md section 4 step 6."),
     ("ImageFromBatch", "length"):
         ("ARM", "the window's frames minus its frozen context, the companion "
                 "of batch_index above; both derive from the same two generator "
@@ -261,19 +261,19 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("MiniMaxH3Resolution", "shape"):
         ("ARM", "the arm's aspect: 'wide' on 41, 'standard' on 27, and one "
                 "each of tall/ultrawide/square/custom. The node's first option "
-                "is 'ultrawide'. docs/h3_resolutions.md owns the list."),
+                "is 'ultrawide'. docs/h3/resolutions.md owns the list."),
     ("MiniMaxH3Resolution", "shape.wide_resolution"):
         ("ARM", "1344x768 in 39 graphs -- a trained canvas, and what anything "
                 "informing a shipped decision is measured at -- against "
                 "1152x768 on two cheaper probe arms. Classified HOUSE first; "
                 "the pinned-value rule caught that it takes two values. "
-                "docs/h3_resolutions.md owns the list. NOTE: this is why a "
+                "docs/h3/resolutions.md owns the list. NOTE: this is why a "
                 "graph moved off 1344x768 does NOT go red here and is what anything informing "
                   "a shipped decision is measured at; the node's first option "
                 "."),
     ("MiniMaxH3Resolution", "shape.standard_resolution"):
         ("HOUSE", "1024x768 on every 4:3 arm, cheaper per frame than the "
-                  "node's first option. docs/h3_resolutions.md.",
+                  "node's first option. docs/h3/resolutions.md.",
          "1024x768  4/3  768 tok/frame  0.58x"),
     ("MiniMaxH3Resolution", "shape.tall_resolution"):
         ("ARM", "768x1344 on the portrait canvas probe -- the trained canvas "
@@ -351,7 +351,7 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("MiniMaxH3SageAttention", "head_chunks"):
         ("ARM", "4 on h3_probe_head_chunks, the one graph that exists to "
                   "exercise head chunking. It is a MEASURED group count, not "
-                  "a guess: docs/h3_geometry_and_nodes.md records ~3227 MiB "
+                  "a guess: docs/h3/geometry_and_nodes.md records ~3227 MiB "
                   "saved at 4 groups, and workflows/h3_config.py's table has the "
                 "head4/ffn1 row at 396.5s / 13475 MiB / -3227 / 0.998x -- the "
                   "saving is real and the speed cost is nil. NOT House: 76 "
@@ -360,7 +360,7 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("MiniMaxH3ReferenceConditioning", "video_policy"):
         ("ARM", "'release' on the probe graphs -- h3_probe_release_video_policy "
                 "and the refview probes -- against the node default 'comfy' "
-                "everywhere else. docs/h3_references.md: 'release' handles "
+                "everywhere else. docs/h3/references.md: 'release' handles "
                 "the vendor's own video sizing locally AND enables the coupled "
                 "Qwen stage, while 'comfy' is what core does and pre-applies "
                 "nothing, which is why generated graphs leave it. The probes "
@@ -397,7 +397,7 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "h3_probe_t2v_rotate (the Tier 2 witness) and "
                 "h3_probe_t2v_sage_rotate (the sage chain with every lever), Sol's "
                 "Hadamard rotation of q/k before INT8 (2026-09-15, "
-                "docs/h3_quant_policy.md). The node default 'rotated' "
+                "docs/attention/quant_policy.md). The node default 'rotated' "
                 "(sol_attn_h3.SOL_QUANTIZER_DEFAULT) everywhere else. Replaced the "
                 "qk_balance and rotate rows with the 2026-09-27 node redesign; "
                 "the per-graph value is graded by "
@@ -415,7 +415,7 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("MiniMaxH3ChannelBalance", "balance"):
         ("ARM", "'loud blocks (from weights)' on h3_probe_t2v_levers and "
                 "h3_probe_t2v_policy, the weights fold on the lopsided blocks "
-                "(2026-09-15, docs/h3_block49_quant_error.md)"),
+                "(2026-09-15, docs/attention/block49_quant_error.md)"),
     ("MiniMaxH3ExactBlocks", "blocks"):
         ("ARM", "'45,48,49' on h3_probe_t2v_exact_tail and h3_probe_t2v_policy, "
                 "the bf16 ceiling at the three lopsided blocks (2026-09-15)"),

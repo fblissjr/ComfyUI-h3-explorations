@@ -1,6 +1,6 @@
 """Drop a song and a prompt; the windows come from the track.
 
-`docs/h3_audio_freeze.md` section 4 step 6, the loop: the LTX pack's
+`docs/h3/audio_freeze.md` section 4 step 6, the loop: the LTX pack's
 music-video mode on H3. One prompt, one track, and the node plans the windows
 from the track's length, runs them one after another inside itself, writes
 each window's new frames to a file as it goes, and joins the files with the
@@ -40,7 +40,7 @@ stored window never loaded the encoder; that reuse is removed, below.)
 with every window's prompt through `MiniMaxH3ReferenceConditioning`'s own
 execute, so the stills are fitted, VAE-encoded and labelled exactly as on the
 reference graphs. The prompt then follows the reference prompt format
-(`docs/prompting.md` section 2.2). The fl2va checkpoint takes references
+(`docs/prompting/prompting.md` section 2.2). The fl2va checkpoint takes references
 (owner, 2026-09-14).
 
 **A source video** (`source`, a Masked Source node; owner, 2026-10-04) turns
@@ -466,7 +466,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 "An optional timeline lines the windows up with sections of the track, one "
                 "prompt block per label; preview reports the plan without loading a model, and with "
                 "a source wired writes each planned window's region and a plan file. "
-                "docs/h3_audio_freeze.md."
+                "docs/h3/audio_freeze.md."
             ),
             # The order was reset on 2026-09-14, when prompt_mode and window_mode
             # went (owner): shipped graphs carry inputs by name, and a song graph

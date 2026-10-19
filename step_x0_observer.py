@@ -1,6 +1,6 @@
 """Save each sampling step's x0 prediction to disk, and change nothing.
 
-Written 2026-09-26 for the PDD schedule tests in `docs/h3_distills.md`
+Written 2026-09-26 for the PDD schedule tests in `docs/distills/which_distill.md`
 ("Tests that would move this section", vaedude's note): to find the step, and
 so the fused block, where a moving person first appears twice, by setting each
 step's prediction against the Euler-32 base's at the same sigma.

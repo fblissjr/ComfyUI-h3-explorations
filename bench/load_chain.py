@@ -43,7 +43,7 @@ fact of the machine is an environment key; nothing is found by a name left over 
 - The video's voice tables from its analysis folder's manifest (`clip_analysis.py voice`); refused when absent, and
   when the per-frame table does not cover every frame of the load (the frames it covers are read from the table).
 - The pose model's store from `H3_MODEL_STORE` (the folder holding one named `h3_config.POSE_MODEL`), or
-  `--model-store`; refused without. `docs/comfy_notes.md` lists the key.
+  `--model-store`; refused without. `docs/working/comfy_notes.md` lists the key.
 - The words only a person has: `--grounds` and `--show` for a render (who relayed the go and on what it rests;
   what the render is to show), `--spec` for the page (its `title_rest`, `state_words`, `what`, `look`,
   `prompt_note`). Refused without.
@@ -813,7 +813,7 @@ def card_line(host: str) -> str:
 
 
 def free_card(host: str) -> str:
-    """Ask the server to unload its models and free the card (`POST /free`, as `docs/comfy_notes.md` has it), and
+    """Ask the server to unload its models and free the card (`POST /free`, as `docs/working/comfy_notes.md` has it), and
     say what the card then holds. A pose pass runs in its own process beside the server; with the server's models
     resident after a render it has no room (2026-10-13: a land's pose pass died of it, and the step went on)."""
     body = json.dumps({"unload_models": True, "free_memory": True}).encode()

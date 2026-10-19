@@ -62,7 +62,7 @@ components for holdout". Neither holdout bundle carries one. Of the pool's
 small-source rows, one is in calibration and none is in holdout.
 
 This requirement had no assertion anywhere until this harness; it is now in
-`docs/checks.md`'s uncontrolled-requirements table with a named check.
+`docs/method/checks.md`'s uncontrolled-requirements table with a named check.
 
 ## What passed
 

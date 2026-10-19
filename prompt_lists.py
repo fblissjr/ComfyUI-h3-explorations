@@ -1,6 +1,6 @@
 """Prompt lists: fill `__name__` placeholders, one value per use, no repeat before a list is used up.
 
-`docs/h3_audio_freeze.md` owns the lane that uses these first (the song node's
+`docs/h3/audio_freeze.md` owns the lane that uses these first (the song node's
 `lists` input); nothing here is specific to audio. The owner's rules
 (2026-09-14), and where each lives:
 

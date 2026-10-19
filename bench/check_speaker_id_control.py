@@ -11,10 +11,10 @@ its audible source and you "do not invent an additional `(Sx)`".
 Exists because the rule shipped green. `4bd7b429` (0.128.0) fixed four
 unattributed vocal events in the two composed reference scenes by hand, after
 a full read of the bank; nothing in the repo could have found them, because
-`docs/prompting.md` section 11's speaker-id row read `nothing` in its
+`docs/prompting/prompting.md` section 11's speaker-id row read `nothing` in its
 checked-by column. A check whose only evidence is that it passes today would
 be indistinguishable from one that cannot fire, which is the rule in
-`docs/rules_history.md`, so the input it was built against is reconstructed from git rather
+`docs/method/rules_history.md`, so the input it was built against is reconstructed from git rather
 than described in prose.
 
 Cases, all offline and in seconds -- no GPU, no server, no fixture files:
@@ -39,7 +39,7 @@ clause, this is the case that goes red.
 `base_is_noted` is the case that keeps the rule inside the guide. base-en
 states the id and its stability and says nothing about repeating it per vocal
 event; only its two examples show one per line, and an example is not a rule
-(`docs/prompting.md` section 12.13). A future edit that promotes the base note
+(`docs/prompting/prompting.md` section 12.13). A future edit that promotes the base note
 to a FAIL turns this case red, which is the point of it.
 """
 from __future__ import annotations

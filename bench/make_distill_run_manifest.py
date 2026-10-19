@@ -4,7 +4,7 @@
 The owner, 2026-09-26: FlashGen's prompt adherence "needs badly to be tested. I'd
 use a diverse set of scenes from prompt bank. Varying lengths and goals based on
 the json metadata in prompt bank". Seed-matched clips are different scenes per
-distill (`docs/h3_distills.md`), so the comparison is across many scenes,
+distill (`docs/distills/which_distill.md`), so the comparison is across many scenes,
 judged against each scene's beat checklist (`bench/adherence_checklists.json`),
 not across seeds of one scene.
 
@@ -137,7 +137,7 @@ def main() -> int:
                  "declared length, plus FlashGen dense, refine pairs, the step-switch arm, and "
                  "the five-second subway twin. Built by bench/make_distill_run_manifest.py."),
         "why": ("The owner, 2026-09-26: test FlashGen's prompt adherence across diverse bank "
-                "scenes, and what each distill is good and bad at (docs/h3_distills.md), fresh, "
+                "scenes, and what each distill is good and bad at (docs/distills/which_distill.md), fresh, "
                 "with everything measured. Seed-matched clips are different scenes per "
                 "distill, so the unit is the scene, judged blind against its beat checklist."),
         "scenes": {s: frames[s] for s in SCENES + ["t2va_subway_chase_short"]},

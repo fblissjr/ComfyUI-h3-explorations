@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Inventory the measurements that live in prose, so they can be moved out.
 
-`docs/prose_measurements.md` is the rule and the migration plan; this is the
+`docs/method/prose_measurements.md` is the rule and the migration plan; this is the
 instrument that sizes the backlog and shows closure. It is a REPORT, not a
 check: it exits 0 whatever it finds, because a gate over prose that still
 carries hundreds of legitimate-looking numbers would be red while the state is
@@ -28,7 +28,7 @@ numbers with their conditions. That set is `RECORD_PATTERNS` below; it is the
 one judgement in this file, and a path added to it should say why.
 
     python bench/list_prose_measurements.py              # per-file totals
-    python bench/list_prose_measurements.py --file docs/SOLATTN.md   # the lines
+    python bench/list_prose_measurements.py --file docs/attention/sol_attn.md   # the lines
     python bench/list_prose_measurements.py --json out.json          # a record
 """
 
@@ -52,15 +52,15 @@ GOVERNED_ROOTS = ["docs", "README.md", "CLAUDE.md", "VISION.md", ".claude/skills
 # what conditions they were taken. Each line says why it is a record.
 RECORD_PATTERNS = [
     r"^CHANGELOG\.md$",                       # per-version, past tense
-    r"^docs/check_postmortems\.md$",          # frozen run logs, stale by design
-    r"^docs/bench_plan\.md$",                 # pre-registered predictions and scores
+    r"^docs/method/check_postmortems\.md$",   # frozen run logs, stale by design
+    r"^docs/method/bench_plan\.md$",          # pre-registered predictions and scores
     r"/\d{4}-\d{2}-\d{2}[_-]",                # a date in the filename is the observation point
     r"^docs/research/.*/brainstorming/",      # session-dated working notes
-    r"^docs/wiki/index\.md$",                 # generated; fix the generator
-    r"^docs/prompt_bank\.md$",                # generated; frame counts are grid points
-    r"^docs/prompt_catalogue\.md$",           # generated from the graphs
+    r"^docs/(.+/)?index\.md$",                # routers: they name pages, not figures
+    r"^docs/prompting/prompt_bank\.md$",      # generated; frame counts are grid points
+    r"^docs/prompting/prompt_catalogue\.md$", # generated from the graphs
     r"/arxiv_\d",                            # a transcribed paper; its numbers are the paper's
-    r"^docs/rules_history\.md$",             # CLAUDE.md frozen at the 2026-09-03 cut
+    r"^docs/method/rules_history\.md$",      # CLAUDE.md frozen at the 2026-09-03 cut
 ]
 
 # Bump when a pattern below changes; written into every --json record.

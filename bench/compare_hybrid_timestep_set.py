@@ -6,7 +6,7 @@ curve basis) and every `adaln_proj.linear` weight and bias expressed on it. Ther
 `time_embedder` tensors in these files; the release's embedder is folded into the table.
 This byte-compares that set in a hybrid against fl2va's and ref2va's pruned files, and a
 spread of every other tensor, and prints the tally. Written 2026-09-29 for
-`docs/open_experiments.md` #50.
+`docs/state/open_experiments.md` #50.
 
     CUDA_VISIBLE_DEVICES= python bench/compare_hybrid_timestep_set.py HYBRID.safetensors \\
         --fl2va FL2VA.safetensors --ref2va REF2VA.safetensors --out RECORD.json

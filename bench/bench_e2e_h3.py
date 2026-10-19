@@ -77,7 +77,7 @@ from h3_config import CORE_LOADED_ENCODERS, MODELS, SAMPLING  # noqa: E402
 # branches. Deriving it closes the hole without needing a check to notice.
 #
 # `steps` deliberately stays 20 and NOT `SAMPLING["steps"]`: every frontier
-# table in `docs/SOLATTN.md` was taken at 20, and the bench's job is to
+# table in `docs/attention/sol_attn.md` was taken at 20, and the bench's job is to
 # reproduce them. The `shipped` arm is what carries the graphs' own settings.
 DEFAULTS = dict(
     unet="minimax_h3_fl2va_pruned_int8_convrot.safetensors",
@@ -101,7 +101,7 @@ DEFAULTS = dict(
 # cut time on each later shot; the house stopped writing those on 2026-09-18) -- a 15-second request against a 6-second prompt leaves the
 # model to invent twelve seconds of nothing, which is its own confound.
 #
-# Second, and the reason the content is what it is: docs/SOLATTN.md flags that
+# Second, and the reason the content is what it is: docs/attention/sol_attn.md flags that
 # the earlier quality comparison ran on slow camera moves and diffuse fog,
 # which is close to the worst case for *noticing* a block-sparse artifact.
 # A router that drops the wrong block shows up in fast motion, in fine
@@ -568,7 +568,7 @@ ARMS = {
     # moves, these arms move with it, which is the point of deriving them.
     #
     # RUN THESE LONG. `--length` defaults to 73 and the whole frontier table
-    # in docs/SOLATTN.md was measured at 124; upstream is explicit that the
+    # in docs/attention/sol_attn.md was measured at 124; upstream is explicit that the
     # gains only appear at high token counts -- large canvas, long duration,
     # or many references -- and that the relative gain grows with size, with
     # its own 1.4x figure taken around 500 frames. A start_percent sweep at
@@ -579,7 +579,7 @@ ARMS = {
     # result can contradict it: time should fall roughly linearly as
     # start_percent drops (more steps inside the sparse window), and the
     # moving-content artifact -- a small persistent object dissolving partway
-    # through a clip, documented under Quality in docs/SOLATTN.md -- should
+    # through a clip, documented under Quality in docs/attention/sol_attn.md -- should
     # appear at the low end first. If motion is genuinely the least-affected
     # axis, 0.3/0.4 should buy back the artifact for less time than lowering
     # tau does. Stills cannot judge this; it needs watching to the end.
@@ -852,7 +852,7 @@ def main():
             "--sol-backend triton is gone. The Triton Sol-Attn pack was removed "
             "on 2026-08-16: no graph had wired SolAttnPatch since 2026-08-14, "
             "and every number it could reproduce already carries "
-            "docs/SOLATTN.md's 'do not rely on' caveats (362 frames, an "
+            "docs/attention/sol_attn.md's 'do not rely on' caveats (362 frames, an "
             "unrecorded build, res_multistep). Source is recoverable from "
             "github.com/kijai/ComfyUI-SolAttn_triton if a number ever has to be "
             "re-derived. See internal/plan_2026-08-16_sol_fp16_and_triton_"
@@ -914,7 +914,7 @@ def main():
 
     # A Sol-Attn arm below the length floor cannot produce a signal, and a null
     # there reads as "the knob does nothing" rather than "this run could not
-    # have shown anything". docs/SOLATTN.md carries the full note, including
+    # have shown anything". docs/attention/sol_attn.md carries the full note, including
     # that that page's own 124-frame frontier table sits under this floor.
     # Warn rather than gate -- a short run is legitimate for proving the chain
     # composes at all, which is what the verbose arm is for.

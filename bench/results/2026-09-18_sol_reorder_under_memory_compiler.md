@@ -56,7 +56,7 @@ of the three renders.
 ## What it does not say
 
 Nothing about whether the reorder should be a default: that is the panel's job
-(`docs/eval_comparison.md`, "A stress scene is not a typical scene"). Nothing
+(`docs/method/eval_comparison.md`, "A stress scene is not a typical scene"). Nothing
 about a render with reference or keyframe conditioning, where the target rows
 are a slice of the embedder's input at a non-zero offset: that path is covered
 by the CPU check (`bench/check_sol_reorder_equivalence.py`, `with_conditioning`)

@@ -9,7 +9,7 @@ nobody else yet. Nothing is built on it.
 The owner ruled that of the perception models on disk that no code loads,
 this one is wired first, because it serves head movement and expression,
 and that it is tried on a handful of frames where the answer is obvious by
-eye before anything is built (`docs/wiki/decisions.md`, 2026-10-11). This is
+eye before anything is built (`docs/state/decisions.md`, 2026-10-11). This is
 that handful. It says whether the model's named points land on lips, lids
 and brows on this film, at the sizes its faces have, and whether two plain
 numbers made from them agree with what the picture shows. Accepted when a
@@ -103,7 +103,7 @@ it says nothing about whether the lids were seen. The sheet:
 `data/2026-10-11_sapiens2_pose_consecutive/leadcanvas_1575_eyes_by_rank_sheet.jpg`.*
 
 *The same evening, the verdict on that run as trial 1 of
-`docs/wiki/meta_perception_models.md`, "The trials", by a session that
+`docs/masked_v2v/perception_models.md`, "The trials", by a session that
 did not run it and looked at every one of the 155 frames before reading
 the paragraph above (the figures are the opening over the distance from
 glabella to chin):*

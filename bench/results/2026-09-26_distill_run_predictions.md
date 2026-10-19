@@ -4,12 +4,12 @@ Registered before any distill arm of the run was looked at. When this was
 committed the run was on its base arms (`bench/distill_run_arms.json`, rows in
 `2026-09-26_distill_run.jsonl`). A prediction is kept as written. When results
 land, each gets a dated verdict line under it: held, failed, or could not tell.
-The reasoning behind each is `../../docs/h3_distills.md`, "Why they differ: a
+The reasoning behind each is `docs/distills/which_distill.md`, "Why they differ: a
 working model".
 
 Two facts constrain what the run can say:
 - **The base and the distills do not share starting noise at one seed**
-  (`er_sde` replaces it at step 1; `h3_distills.md`). A tone or layout
+  (`er_sde` replaces it at step 1; `docs/distills/which_distill.md`). A tone or layout
   difference between the base and a distill in this run is two unrelated
   samples, not a controlled pair.
 - **The three distills do share starting noise** (all Euler, no injected

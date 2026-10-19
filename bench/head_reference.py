@@ -6,7 +6,7 @@
         [--width 1.5] [--room 1.2] [--head-track HEAD_TRACK.mkv] [--head-track-first N] [--no-head-track] \\
         [--leave-out mouth] [--dots] [--mesh-first N] [--points-first N] [--names NAMES.json]
 
-**The form** (the owner, 2026-10-12, 20:12Z; `docs/wiki/decisions.md`): every head or head-and-hair replacement
+**The form** (the owner, 2026-10-12, 20:12Z; `docs/state/decisions.md`): every head or head-and-hair replacement
 takes as its motion video the body model cut to the head with the face points drawn on it, and its text says
 what that video is. Made by hand it was three commands, each with the others' outputs for arguments. This runs
 the three and writes one record:

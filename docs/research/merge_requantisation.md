@@ -107,7 +107,7 @@ rather than inherit the equivalence. Mechanism and constant from the PDD lane,
 verified here on a fourth module it did not test.
 
 **The three rank the arms differently and that is the finding**, recorded as a
-rule in [`../checks.md`](../checks.md): stored-weight distance prefers the arm
+rule in [`docs/method/checks.md`](../method/checks.md): stored-weight distance prefers the arm
 that does nothing, realisation prefers the arm that adds noise, and only
 `noise/|d|` sees the third failure.
 
@@ -163,7 +163,7 @@ Which denominator matters depends on the question, and **the output impact,
 which would settle it, is unmeasured.** So neither is "the" answer and neither
 should be quoted alone. This is the third
 metric in this file to rank these arms differently, after stored-weight
-distance and `realised`; `../checks.md` carries the rule.
+distance and `realised`; `docs/method/checks.md` carries the rule.
 
 Round-to-nearest, which does not ship, realises 0.467 mean / 0.020 worst on PDD
 and 0.025 mean / 0.0001 worst on turbo — it discards a sub-step update rather
@@ -258,7 +258,7 @@ therefore per-LoRA and larger where the delta is smaller.
 
 - That any of this is visible in a render. Nothing here was rendered.
 - Any effect on the ACTIVATION rounding. `int8_convrot` is W8A8 and every
-  number here is the weight side; `../open_experiments.md` #23 owns the other.
+  number here is the weight side; `docs/state/open_experiments.md` #23 owns the other.
 - Whether the `ref2va` PDD pairing behaves like `fl2va` beyond a shape check.
 - Whether a LoRA applied through `unmerged_blocks` produces a different output,
   as opposed to different weights.
@@ -346,4 +346,4 @@ same way.
 reading.** Two lanes wrote the statistics independently and agreed on the turbo
 worst case to four figures (26.606 against 26.6) and on PDD's RTN worst case to
 four (0.0199 against 0.01988). That agreement is what makes the numbers
-quotable, and it is recorded as a rule in [`../checks.md`](../checks.md).
+quotable, and it is recorded as a rule in [`docs/method/checks.md`](../method/checks.md).

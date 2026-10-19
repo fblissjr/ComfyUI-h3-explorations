@@ -1,7 +1,7 @@
 # Block-49 arms on the diner-breakup prompt, two seeds (2026-09-15)
 
 Replication of the market-scene look (`2026-09-15_block49_market_feedback.md`)
-on a second scene at two seeds, the step `docs/h3_quant_policy.md` asks for
+on a second scene at two seeds, the step `docs/attention/quant_policy.md` asks for
 before any row moves from "proposed" to "measured". Model: MiniMax H3
 fl2va pruned int8 convrot (the shipped checkpoint). Prompt:
 `prompt_bank/t2va_diner_breakup.txt`, unchanged. Graphs: the shipped

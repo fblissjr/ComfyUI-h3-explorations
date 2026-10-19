@@ -159,7 +159,7 @@ GUIDE_NODE = "MiniMaxH3AddGuide"
 # **Currently empty, and that is a state rather than an oversight.** The only
 # member was `h3_image_probe_format_flat_api`, the same experiment on the image
 # path, and the single-frame lane was parked on 2026-08-27
-# (`docs/h3_image_editing.md`); `h3_ref_video_swap_concise` was retired before
+# (`docs/h3/image_editing.md`); `h3_ref_video_swap_concise` was retired before
 # it. So every shipped prompt is graded structurally, with nothing waived --
 # which the run prints, because "waived nothing" and "forgot to waive" are the
 # pair this file exists to keep apart.

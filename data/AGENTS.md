@@ -7,10 +7,10 @@ pack, not the pack (root `AGENTS.md`, "The repo is broader than the current proj
 
 | you need | it is |
 |---|---|
-| where a project stands today | `docs/wiki/handover.md`, then the project's own `data/<video>/AGENTS.md` |
+| where a project stands today | `docs/state/handover.md`, then the project's own `data/<video>/AGENTS.md` |
 | what is in the cut and what gaps remain | `data/<video>/laid.jsonl`; the newest `data/<date>_<video>_delivery_tables/frame_coverage_*.md`; `bench/shot_coverage.py` |
-| the day-to-day commands (ComfyUI, one load, the review server, the rebuild, the close) | `docs/wiki/runbook.md` |
-| the pipeline end to end, and the lane's rules | `docs/wiki/masked_v2v_pipeline.md`, `docs/wiki/masked_v2v.md` |
+| the day-to-day commands (ComfyUI, one load, the review server, the rebuild, the close) | `docs/working/runbook.md` |
+| the pipeline end to end, and the lane's rules | `docs/masked_v2v/pipeline.md`, `docs/masked_v2v/overview.md` |
 | after any landing or stopped load | `bench/rebuild_delivery.py --video <video>` |
 
 ## The projects in motion
@@ -25,9 +25,9 @@ daily); this file, the lane's rules for any video, is the one tracked file here,
 
 ## How the lane works, end to end
 
-- The process: `docs/wiki/masked_v2v_pipeline.md`. The lane's rules: `docs/wiki/masked_v2v.md` ("The rule: data
+- The process: `docs/masked_v2v/pipeline.md`. The lane's rules: `docs/masked_v2v/overview.md` ("The rule: data
   before a render, and the same data after"; "Reading one window whole"; "Rules of the lane"). Running a load, the
-  review server, the ledger and the end of day: `docs/wiki/runbook.md`.
+  review server, the ledger and the end of day: `docs/working/runbook.md`.
 
 ## Settled for the masked lane
 
@@ -35,7 +35,7 @@ daily); this file, the lane's rules for any video, is the one tracked file here,
   outside is frozen context it already has, and the frozen video and the audio round the hole steer what it makes (it
   was trained on video and audio jointly: told she sings, it opens her mouth with the song, with no word of when). A
   text says who is generated in each hole and from which reference, never the frozen picture (where a person stands,
-  what she wears, the room) and never as an edit (`docs/wiki/masked_v2v.md`, "The frame every masked text is written
+  what she wears, the room) and never as an edit (`docs/masked_v2v/overview.md`, "The frame every masked text is written
   in"). The owner's word of 2026-10-10, made core 2026-10-15.
 - A text says a person sings only where they sing in that shot or window, and otherwise says nothing about singing or
   talking: no "silent", no "does not sing", no "talks" (the owner, 2026-10-15). Who sings is plan data,
@@ -81,7 +81,7 @@ twice. A piece the table does not lay is not in the video. The Gemini lead keeps
   to be judged shows every subject of the shot replaced, as the cut would.
 - A clip on the review page is whole, or has its gaps counted right above the player from the gap check on its own
   frames (per person, per kind, frames and spans); a clip with gaps and no such line is not shown
-  (`docs/wiki/working_with_the_owner.md`, the owner of 2026-10-17).
+  (`docs/working/working_with_the_owner.md`, the owner of 2026-10-17).
 - Playback questions go to Gemini, which watches video and hears audio natively: say in the request that it watches
   and listens first, code only to augment. Its watching is a reader's, never the owner's acceptance.
 - Each playback reader writes its reading to `data/<day>_<load>/playback_reading_<reader>.md`, starting at the top

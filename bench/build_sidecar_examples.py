@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate the example graphs that ship with the sidecar weights on the Hub.
 
-Run it with the ComfyUI venv python (`docs/comfy_notes.md`). Needs no server and
+Run it with the ComfyUI venv python (`docs/working/comfy_notes.md`). Needs no server and
 no GPU; writes JSON.
 
 **These are not this repo's graphs and must not go in `workflows/`.** Two
@@ -68,7 +68,7 @@ sys.path.insert(0, str(HERE.parent / "workflows"))
 from build_workflows import DIALOGUE_T2V_PROMPT  # noqa: E402
 
 #: The example renders at a trained canvas and a legal frame count. 1344x768 is
-#: the shape `docs/h3_resolutions.md` calls trained, and 362 frames is the
+#: the shape `docs/h3/resolutions.md` calls trained, and 362 frames is the
 #: repo's own dialogue arm -- the prompt's third shot starts at 00:11, so a
 #: shorter clip would cut the scene the prompt describes.
 WIDTH, HEIGHT, LENGTH, FPS = 1344, 768, 362, 24.0

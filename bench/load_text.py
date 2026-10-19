@@ -206,7 +206,7 @@ def subject_2(drawn: dict | None, moves: str = MOVES["face"], frames: int | None
 #: "just dont mention anything about the mom talking or singing"): the plan holds who sings as data, and the text says only that.
 VOICES = {"sings": "", "talks, not heard": "", "silent": ""}
 #: A text says who is generated in each hole and from which reference, never the frozen picture and never as an edit (AGENTS.md,
-#: "Settled about H3", made core 2026-10-15; docs/wiki/masked_v2v.md, "The frame every masked text is written in"): so no
+#: "Settled about H3", made core 2026-10-15; docs/masked_v2v/overview.md, "The frame every masked text is written in"): so no
 #: place-and-action sentence (where she stands or sits, what she does, the room) is written into a generated text.
 NO_SCENE = ("a generated text takes no place-and-action sentence: to H3 a masked load is not an edit, and a text says who is generated "
             "in the hole and from which reference, never the frozen picture (where a person stands or sits, what she wears, the room); "

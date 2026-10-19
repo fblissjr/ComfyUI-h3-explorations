@@ -6,9 +6,9 @@ range: 2026-10-10 (commits 4b1f49dd..dab2f38f)
 summary: The day's costly faults were not unknown problems; in each one the owner, a session or a tool's own printed flag had already said the right thing and nothing made anyone answer it, the text a model was given was read last every time a render was wrong, and every real catch came from a second reader on real files or a number written down first, never from a check.
 evidence_commit: dab2f38f
 artifacts:
-  - docs/wiki/decisions.md
+  - docs/state/decisions.md
   - bench/results/
-  - docs/wiki/handover.md
+  - docs/state/handover.md
   - masked_prompt_text.py
   - bench/results/2026-10-10_prompt_text_hardcoded_in_code.md
   - data/2026-10-10_fun_job_inputs/jobs/lead_face_street.txt
@@ -17,7 +17,7 @@ artifacts:
   - bench/cast_file.py
   - bench/results/2026-10-10_who_is_who_across_shots.md
   - AGENTS.md
-  - docs/checks.md
+  - docs/method/checks.md
   - bench/results/2026-10-10_one_load_per_shot_against_one_long_load.md
   - data/2026-10-10_fun_delivery_tables/t_fun_0000_1919_a_build.txt
   - bench/masked_job.py
@@ -63,7 +63,7 @@ artifacts:
 
 # Postmortem: 2026-10-10, three people replaced in one clip, eight sessions
 
-> **Written with the session transcripts.** A session that took no part in the day (mrscribe) wrote this the same evening from the transcripts of the eight sessions that worked the masked lane, the day's commits, `docs/wiki/decisions.md`, the records under `bench/results/` and the masking board. The lead session's own account is `docs/wiki/handover.md`; this page checks it and does not build on it. Where this page and a transcript row disagree, the row is right: add a dated annotation under the finding and leave the finding as written.
+> **Written with the session transcripts.** A session that took no part in the day (mrscribe) wrote this the same evening from the transcripts of the eight sessions that worked the masked lane, the day's commits, `docs/state/decisions.md`, the records under `bench/results/` and the masking board. The lead session's own account is `docs/state/handover.md`; this page checks it and does not build on it. Where this page and a transcript row disagree, the row is right: add a dated annotation under the finding and leave the finding as written.
 
 ## The short version
 
@@ -176,7 +176,7 @@ One row each. The last column is what the rest of the day showed, and "cannot te
 | Patch on top of the previous render, where every pass from the original needs a merge | Lead session to the owner, L4675 17:21Z | No answer found; never tested | Cannot tell. The other choice is what needed the restore rules, the owner map and the contested-pixel option |
 | Feed the audio in as a labelled reference | Owner, L666 14:13Z; again L14166 | Never tried | Cannot tell |
 | A whole-person render of the lead | The lead session, in its answer to section 5; no row | Never said, never run. The lead was a face part on every load, as the brief asked | Cannot tell, and it is the cheapest untested alternative for a stiff face |
-| One row a check in `docs/checks.md`; a commit guard by the diff | mrdeer, L2033 and L2251 (17:21Z, 17:34Z) | Deferred | Yes: two later carried commits were in that file |
+| One row a check in `docs/method/checks.md`; a commit guard by the diff | mrdeer, L2033 and L2251 (17:21Z, 17:34Z) | Deferred | Yes: two later carried commits were in that file |
 | Two warnings on the frames that later failed (a mouth open with no voice; a part in fragments) | The gate itself (L13716, L6630) | In a list nobody read | Yes for the first: it named the stretch where a test render could show nothing |
 | Objects near a tracked subject get their own segment | Owner, L2114 15:17Z; L9834 20:43Z | A section of a design page (`d300c55f`) | Cannot tell |
 | Tie a render to the analysis folder it was built from | Owner, L10531 21:12Z; mrnemo | Built, read cold, held for a day | Cannot tell |
@@ -248,7 +248,7 @@ The pattern is one thing: a fixture or a proof shaped by the code's idea of its 
 
 ## 8. Where the handover is wrong or short
 
-`docs/wiki/handover.md` was written the same evening from a memory that had been summarised several times, and says so. Each of these has a dated line in that page.
+`docs/state/handover.md` was written the same evening from a memory that had been summarised several times, and says so. Each of these has a dated line in that page.
 
 1. **"Frames 0 to 1050 were delivered earlier in the week and that file is locked."** The job began that morning. The locked file is `fun_0604_1050.mp4`, built and locked on 2026-10-10 (L5856, L6004), and its record has read as failing since 19:27Z (L8211). The files covering 0 to 1050 were first placed at 20:34Z the same day (L9638) and none is locked.
 2. **"Four commits of the day carried a peer's uncommitted lines."** The rows show the ten of section 1.7.
@@ -270,7 +270,7 @@ Small, and each can be marked done or wrong.
 3. **The statement of who is in each shot, with a confidence, shown per window and refusing nothing** (in progress as this is written). *Check after its first real job:* did a confident wrong "in" get noticed at the window it was shown on. *Refuted if* sessions read past it as they read past the warnings.
 4. **The one-change variant of a built load.** *Done when* a test arm is made without a hand-posted graph. *Refuted if* hand posts continue after it exists.
 5. **Three renders that each decide something already on the list:** the caption sentence on a second seed; the same sentence on a voiced load with a smaller face; and one whole-person render of the lead on the close-up load, the alternative nobody ran. Before any of them, with no render: set the morning's face text and settings beside the evening's and say why the morning's mouth opened.
-6. **A flag is answered or it is not printed.** The two warning rules their author filtered are already on the approved removal list in `docs/wiki/decisions.md`. *Done when* the next delivery's record shows no flag without an outcome, or names who left it.
+6. **A flag is answered or it is not printed.** The two warning rules their author filtered are already on the approved removal list in `docs/state/decisions.md`. *Done when* the next delivery's record shows no flag without an outcome, or names who left it.
 7. **A check's fixture is cut from a real job file.** *Check:* the next new check case in `bench/` names the real file its fixture came from.
 8. **The commit helper** for files several sessions write: the diff read in the same command, the commit refused when it is not what its author expects. *Done when* the next day has no carried line. *Wrong premise if* it has one anyway.
 9. **mrwolf's queued readings:** read them or drop them, one line on its card.
@@ -289,7 +289,7 @@ Two habits of the day cost nothing and found more than every rule written that d
 8. *Not built. No carried line was found; fewer sessions were in the tree at once.*
 9. *Neither read nor dropped, a second day.*
 
-*Annotation 2026-10-10, later the same night:* the owner read the sessions' answers to section 5's questions and to two more rounds about the statement of who is in a scene, and marked four things to actively avoid: a new place for a fact that is already written; a record with no way to say "I looked and I am still not sure"; the three costs of answering a picture (the cuts must be right, one picture is one frame, a wrong answer is inherited by every later job); and a rule for every fault. What each needs, and which of them exist, is in `docs/wiki/decisions.md`, 2026-10-10, under the contact sheets entry. Item 3 above is overtaken in form by the same entry: the answers are kept once a video, as a person's answer to a numbered picture, and a tool drafts nothing into that file.
+*Annotation 2026-10-10, later the same night:* the owner read the sessions' answers to section 5's questions and to two more rounds about the statement of who is in a scene, and marked four things to actively avoid: a new place for a fact that is already written; a record with no way to say "I looked and I am still not sure"; the three costs of answering a picture (the cuts must be right, one picture is one frame, a wrong answer is inherited by every later job); and a rule for every fault. What each needs, and which of them exist, is in `docs/state/decisions.md`, 2026-10-10, under the contact sheets entry. Item 3 above is overtaken in form by the same entry: the answers are kept once a video, as a person's answer to a numbered picture, and a tool drafts nothing into that file.
 
 ## 10. Where the sessions agreed, where they split, and where each saw it from its own seat
 
@@ -322,4 +322,4 @@ Two habits of the day cost nothing and found more than every rule written that d
 
 **Raised by one or two, and contested by nobody.** That the owner's eyes on playback are the real "seen" and should be kept apart from a session's look at stills (mrcorn, mrpop). That one load a shot was never tested against the alternative (mrsheep). That the question to ask is "who are the numbered people on this picture" and never "is this subject in", because a pre-filled "not in" was wrong on the two shots where a wrong take hid somebody (mrfrog); the owner called it a good idea.
 
-What the owner marked from these to actively avoid, and what was built that night on the strength of them, is the annotation at the end of section 9 and `docs/wiki/decisions.md`, 2026-10-10.
+What the owner marked from these to actively avoid, and what was built that night on the strength of them, is the annotation at the end of section 9 and `docs/state/decisions.md`, 2026-10-10.

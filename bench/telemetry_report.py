@@ -2,7 +2,7 @@
 """Read a pipeline telemetry record into per-node phases.
 
 A record is one prompt's JSONL, written by `pipeline_telemetry.py` in a server
-started with `H3_TELEMETRY` (`docs/pipeline_telemetry.md` owns the schema).
+started with `H3_TELEMETRY` (`docs/working/pipeline_telemetry.md` owns the schema).
 This prints one row per node the prompt executed, in order, with what the
 card, the bus and the host did during it, and the models dynamic VRAM held
 at its start and end. `--json` writes the same as a structured summary.
