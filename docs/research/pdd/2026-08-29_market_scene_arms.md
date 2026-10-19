@@ -2,6 +2,15 @@
 
 last updated: 2026-08-29
 
+**In short (as of 2026-08-29).** Three 8-step market-scene renders on PDD-emitted sigmas form two clean
+single-variable pairs (Sol on against off, and `dpmpp_2m_sde_gpu` against `euler`), and every arm met the brief: n=1,
+unblinded and unscored, so no quality verdict. The one transferable result is that the vendor's integrator, Euler at
+eta 0, is viable here, and that only the Euler arm is repeatable, because the SDE sampler draws fresh noise each step.
+The arms are not comparable to [`queued_arms.md`](queued_arms.md) group S. Its paragraph on the audio change of
+variable drifting in the final block rests on a mechanism refuted on 2026-09-25
+([`2026-09-25_upstream_pdd_comparison.md`](2026-09-25_upstream_pdd_comparison.md)); the same-seed repeat of arm C it
+proposes is not recorded here.
+
 Three renders on the night-market scene that form **two single-variable pairs
 about a shared hub**. Recorded because they existed only as files the owner
 judged good, and because one of the pairs prices a divergence that

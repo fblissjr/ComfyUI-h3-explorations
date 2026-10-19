@@ -1,10 +1,12 @@
 # What makes a PDD clip degrade: three accounts refuted, one standing
 
-**Status 2026-08-28.** The owner's account is the only one still standing, and
-he stated it before any of us measured anything. Three accounts registered by
-the assistant lanes died in the space of an hour. This file records what was
-tested, what died, and — more useful than either — the two ways we kept fooling
-ourselves.
+**In short (as of 2026-08-28).** A shot-count ablation of the bad market render: dropping any one of its three shots
+gave a clip the owner judged great, and the original sits inside the good clips' range on both inter-frame delta and
+output detail. So delta, detail and the crate lift as a trigger are refuted, and the owner's account stands: too much
+content demanded across one clip. It carries an unresolved confound, since dropping a shot also stretched each
+surviving shot from about 5 s to 7.5 s; the 241-frame control arms rendered and are recorded here as unjudged, and
+nothing in the record is scored or blinded. The record also gives the two ways the sessions kept fooling themselves.
+PDD quality work was parked on 2026-09-05 ([`docs/state/roadmap.md`](../../state/roadmap.md), "Closed lanes").
 
 **Looking for what to watch and what each file tests?** That is
 [`artifact_axis.md`](artifact_axis.md) section 0, which is the viewing map for

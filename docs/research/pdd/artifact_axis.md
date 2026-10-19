@@ -1,5 +1,14 @@
 # What actually makes a distilled clip fall apart
 
+**In short (as of 2026-08-28).** Written the night eleven arms were queued, before they rendered: it is the viewing
+map (§0) and the pre-registration (§6) for what makes a PDD clip ghost and melt. Three accounts died that evening:
+inter-frame delta, the detail demanded of the scene, and the crate lift as the trigger. What survived is the owner's:
+too much content demanded across one clip, read more sharply as how hard the next frame is to predict. A correction
+measured after the clips landed found the rail clip, built as the highest-delta test, is the lowest, so it cannot clear
+delta. The ablation's own record is [`2026-08-28_scene_complexity.md`](2026-08-28_scene_complexity.md); most of these
+arms are recorded there as unjudged, and the PDD quality lane was parked on 2026-09-05
+([`docs/state/roadmap.md`](../../state/roadmap.md), "Closed lanes").
+
 One evening, 2026-08-28, three sessions, four accounts registered and **three
 of them dead by the end of it**. The one still standing was the owner's, stated
 before anyone measured anything.

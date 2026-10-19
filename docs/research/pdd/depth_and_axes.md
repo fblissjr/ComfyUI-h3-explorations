@@ -1,5 +1,14 @@
 # Where in the DiT does PDD matter, and what else can be turned
 
+**In short (as of 2026-08-30).** Per-block quantisation sensitivity is settled and flat (1.086x across 50 blocks), and
+it is a different question from where PDD's strength matters, which four measured depth profiles leave open because
+they disagree. The probe that would answer it, strengths 0.0 to 1.5 per block, cannot reuse
+`probe_block_propagation.py` naively (a strength change diverges from step 0) and needs a one-step gate or a
+single-forward harness; it was not run. The record also inventories every PDD axis (exposed, present but unreachable,
+fixed) and pre-registers a prediction that the depth profile comes back flat. PDD quality work was parked on 2026-09-05
+([`docs/state/roadmap.md`](../../state/roadmap.md), "Closed lanes"), and `unmerged_blocks`, which design 1 relied on,
+was replaced by the exact branch on 2026-09-26 ([`docs/state/decisions.md`](../../state/decisions.md)).
+
 **Opened 2026-08-30.** Two questions that were being conflated with a third.
 The third — per-block *quantisation* sensitivity — is answered and closed;
 these two are not, and this file says what would answer them.

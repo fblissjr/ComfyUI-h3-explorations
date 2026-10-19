@@ -1,5 +1,14 @@
 # Audio under PDD: the plan, for the session that picks this up
 
+**In short (as of 2026-08-28).** A plan, not a result. It set out to test whether PDD's audio loss comes from
+ComfyUI's audio change of variable acting on a fused head's block-mean velocity: a free coefficient-drift computation
+(A0), grading the `tail6` and `tail5` partitions (A), a shift-arm grid with a 16-step control cell (B), and audio-only
+refinement on the undistilled model as the practical fix (C). A0 and the first `tail6` read were done and are recorded
+in [`audio_under_pdd.md`](audio_under_pdd.md), which also found the drift measure ranks the arms the same with no audio
+transform in it; no shift-arm render is recorded. The mechanism was refuted analytically on 2026-09-25
+([`2026-09-25_upstream_pdd_comparison.md`](2026-09-25_upstream_pdd_comparison.md)), so B has nothing left to find, and C
+stands only as a way to restore the audio energy coarse partitions lose.
+
 Written 2026-08-28 for a fresh session. Self-contained on purpose — you should
 not need the conversation this came out of.
 

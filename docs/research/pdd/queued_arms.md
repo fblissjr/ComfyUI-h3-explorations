@@ -1,5 +1,13 @@
 # Queued arms, 2026-08-27
 
+**In short (as of 2026-08-27).** A session queue, not a finding: the arms on the card that evening, each with what it
+decides (reference sizing, heads against step count, a Sol-free 4-against-8 pair, two Sol knobs, prompt conformance,
+a Sol sweep on the market scene, and the shipped 8-step reference graph), plus the rule that a render is not a pure
+function of its graph. Most groups rendered on the v1 encoder before the shipped graphs moved to INT8 ConvRot; group G
+did not run. The `C2_pdd4_nosol` / `C2_pdd8_nosol` pair is still listed as unjudged in
+[`docs/distills/pdd.md`](../../distills/pdd.md), and PDD quality work was parked on 2026-09-05
+([`docs/state/roadmap.md`](../../state/roadmap.md), "Closed lanes").
+
 A session queue, not a roadmap. [`docs/state/roadmap.md`](../../state/roadmap.md) owns what
 to work on and [`docs/state/open_experiments.md`](../../state/open_experiments.md) owns what
 is deliberately unmeasured. Nothing here is either: it is measurable today, on

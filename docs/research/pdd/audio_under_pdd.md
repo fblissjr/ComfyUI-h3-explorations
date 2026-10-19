@@ -2,6 +2,15 @@
 
 last updated: 2026-09-25 (dated notes: the change-of-variable mechanism is refuted analytically)
 
+**In short (as of 2026-08-28, with dated notes of 2026-09-25).** One matched pair proves the sigma schedule causes
+PDD's bad renders: the same graph with a six-evaluation partition in place of the uniform four looks and sounds
+acceptable. Partition coarseness governs both streams; video was not unaffected, the metric could not see it; and 4-step
+audio is 4.6 to 11 dB down rather than subtly wrong. Four evaluations has one legal partition, so it cannot be tuned.
+The low-motion bias of the dialogue corpus may have flattered earlier reads. The audio change-of-variable mechanism in
+§1 is refuted (the note below and
+[`2026-09-25_upstream_pdd_comparison.md`](2026-09-25_upstream_pdd_comparison.md)); the energy loss stands as PDD's own.
+The plan that worked from this file is [`2026-08-28_audio_plan.md`](2026-08-28_audio_plan.md).
+
 > **2026-09-25: the audio change-of-variable mechanism below is refuted, not merely unidentified.**
 > Given the same velocity, core's single-schedule carry lands exactly where the vendor's
 > two-schedule audio Euler step lands, at every partition. The carry factor is affine in

@@ -2,6 +2,15 @@
 
 last updated: 2026-09-25 (dated corrections under sections 1 and 4; the title now undercounts: seven implementations are compared in [2026-09-25_upstream_pdd_comparison.md](2026-09-25_upstream_pdd_comparison.md)); otherwise 2026-08-28
 
+**In short (as of 2026-08-28, with dated corrections of 2026-09-25).** Ours, the vendor's, the core PR, UtilsCollection
+and Mamad8 agree on the fusion arithmetic term for term; ours alone carries a partition fingerprint (the only guard
+against a Ref2VA file on an FL2VA base, since the two are key-for-key identical) and derives the step index from `t_emb`,
+while the other three refuse an off-grid step count where ours warns. The record also reconstructs from git how the lane
+reached its shape and lists the places [`docs/distills/pdd.md`](../../distills/pdd.md) was stale. Superseded as the
+comparison by [`2026-09-25_upstream_pdd_comparison.md`](2026-09-25_upstream_pdd_comparison.md), which covers seven
+implementations, including core as merged; current mechanism detail is
+[`docs/distills/pdd_node.md`](../../distills/pdd_node.md).
+
 Two things nobody had written down: **how our PDD implementation compares to
 every other one available**, and **how the lane arrived at its current shape**
 across the days it was built.

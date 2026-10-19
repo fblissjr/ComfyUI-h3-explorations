@@ -2,6 +2,15 @@
 
 last updated: 2026-09-25
 
+**In short (as of 2026-09-25).** No upstream implementation of the seven compared beats ours on anything that reaches a
+shipped render: ours sits at the fp32 floor for fused-head precision, as do the vendor, UtilsCollection and core when
+fed correct deltas, and ours and core pick the same heads on every shipped schedule without an audio mask. The
+adopt-upstream rule does not fire on any axis: sglang and core agree with ours on eight evaluations, the shifts and
+Euler, and with each other on nothing else. Two findings changed what the repo believed: core's audio carry is exact under Euler, which refutes the
+change-of-variable account of PDD's audio loss, and the Kijai PDD files linked into this install were stale and were
+unlinked. Whether our node keeps its head half is still undecided in
+[`docs/distills/pdd.md`](../../distills/pdd.md), and none of the four arms listed here had run.
+
 > **Provenance, 2026-09-25.** A research subagent (Claude) read the seven
 > implementations and wrote the probes. The session that commissioned it
 > re-ran every probe from `bench/`, checked the load-bearing claims against
@@ -10,16 +19,6 @@ last updated: 2026-09-25
 > this lane still waits on the owner's go. The numbers are in
 > `../../../bench/results/2026-09-25_upstream_pdd_comparison.md`; this note
 > carries none of them.
-
-**The answer.** No upstream implementation beats ours on anything that
-reaches a shipped render. Ours sits at the fp32 floor for fused-head
-precision, as do the vendor, UtilsCollection, and core when fed correct
-deltas. Ours and core pick the same heads on every shipped schedule without
-an audio mask. The places where ours could still improve are listed under
-"Arms", and each needs the owner's go for a render. The adopt-upstream rule
-does not fire on any axis: sglang and core agree with ours on eight
-evaluations, shifts and Euler, and disagree with each other on everything
-else.
 
 **Two findings change what the repo believes:**
 

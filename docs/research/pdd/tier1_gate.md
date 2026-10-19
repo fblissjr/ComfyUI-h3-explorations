@@ -1,5 +1,13 @@
 # Tier 1: what must be true before the observer gets a render
 
+**In short (as of 2026-08-31).** Nine (later ten) conditions to meet before the Tier 1 int8 activation observer was
+given a render: a dedicated capture graph, the arming key, a disk-budget print, a full-input allowlist, the join to
+`H3_CAPTURE`, an offline scorer, four arms defined in advance, a composition test against a real model, the canvas, and
+cells chosen from the live route record. It was written because the instrument passed its acceptance cases and still
+carried a defect that would have allocated 2.79 GiB per MLP at production geometry. The gate was never passed: the owner closed the experiment on
+2026-09-29 and the observer was removed in 0.173.0
+([`docs/state/open_experiments.md`](../../state/open_experiments.md) #23).
+
 **Opened 2026-08-31, with the instrument built, green and deliberately
 unstarted** at the owner's call. Nothing here has spent card time.
 

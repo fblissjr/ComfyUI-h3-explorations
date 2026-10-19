@@ -1,48 +1,41 @@
 # PDD diagrams and handoffs
 
-## Handoffs — newest first, and read the newest before anything else here
+**No record here is current.** The current pages are [`docs/distills/pdd.md`](../../distills/pdd.md), which owns
+the contract, the traps and what is measured, and [`docs/distills/pdd_node.md`](../../distills/pdd_node.md), which
+owns how the node, `pdd_math.py` and the converter work. Every file below is what was true on its date, and where it
+disagrees with those two pages they are right. PDD quality work has been parked since 2026-09-05
+([`docs/state/roadmap.md`](../../state/roadmap.md), "Closed lanes"), reopened only for the 2026-09-25 upstream
+research and the audio-freeze lane ([`docs/state/decisions.md`](../../state/decisions.md)).
 
-- [`2026-09-05_bake_plan.md`](2026-09-05_bake_plan.md) — **the backbone
-  bake, planned and owner-approved, not started.** What the pair of files is,
-  the preconditions met that day (the sidecar contract green, the release on
-  local disk, the quantiser importable), the tools it lifts rather than
-  rewrites, the script step by step with its one-block dry run, the repo
-  wiring, the merged-versus-baked first pair, and a risk table naming a
-  control per row. Supersedes the 2026-08-31 handoff's step 2 on the bake
-  and nothing else in it.
-- [`2026-08-31_handoff.md`](2026-08-31_handoff.md) — **current.** What merging
-  a PDD LoRA onto an int8 module costs, measured over all 200 modules: the
-  backbone requantises and the output heads do not, the update lands but the
-  requantisation perturbs the weights by more than the update on 97% of
-  modules, and which PDD file and which base are now closed questions. Also the
-  Tier 1 observer's state and the four review defects that reproduced against
-  it. **Everything in it is stored-weight; nothing was rendered.** Read **§6
-  before quoting any number from it** — the headline changed twice at the end
-  of the day and the third framing is the one to use: the merge injects an
-  error about the size of the entire int8 quantisation the checkpoint already
-  carries, which is +11.6% on total stored-weight error against the release.
-  §7 records the decision to HOLD on the Tier 1 gate, and why.
-- [`tier1_gate.md`](tier1_gate.md) — **the gate, and undated because it is a
-  standing precondition rather than a day's state.** Nine items that must be
-  true before the Tier 1 activation observer is given a render: the dedicated
-  capture graph, the arming key, the disk budget, the full-input allowlist, the
-  open join to `H3_CAPTURE`, the absent offline scorer, the four-arm
-  decomposition, the composition test against a real model, and the canvas.
-  Read it before arming anything. Restates none of the handoff above.
-- [`2026-08-30_handoff.md`](2026-08-30_handoff.md) — superseded as current by
-  the above, and unchanged on its own subject. The depth
-  question and the method correction that reshaped it: what is settled about
-  per-block quantisation, the one clean observation capture and the two things
-  it does not say, the four next steps in order, and the multi-session working
-  rules the day earned.
-- [`2026-08-28_handoff.md`](2026-08-28_handoff.md) — What the paper
-  says about variable NFE and why it overturns the previous handoff's central
-  conclusion; the six-evaluation arm the node refuses but the paper permits; the
-  audio-refinement path; six prioritised action items with sources; the measured
-  partition-fidelity result and the prediction it refuted; and five methodology
-  traps that each cost time.
-- [`2026-08-27_handoff.md`](2026-08-27_handoff.md) — superseded on its central
-  question by the above, and carries a dated in-place correction to its item 2.
+## Handoffs and dated records, newest first
+
+- [`2026-09-25_upstream_pdd_comparison.md`](2026-09-25_upstream_pdd_comparison.md) -- **the newest record.** Seven
+  PDD implementations against ours: none beats ours on anything that reaches a shipped render; core's audio carry is
+  exact under Euler, which refuted the change-of-variable account of PDD's audio loss; the stale Kijai files were
+  unlinked. Supersedes [`pdd_implementations.md`](pdd_implementations.md) as the comparison and
+  [`audio_under_pdd.md`](audio_under_pdd.md) section 1.
+- [`2026-09-05_bake_plan.md`](2026-09-05_bake_plan.md) -- **the last handoff, executed.** The backbone bake was
+  planned, approved, built, wired and judged blind the same day: the baked arm lost to the sage floor as the merged
+  arm had, so the PDD8 look is the schedule's, not the merge's, and the bake stands on hygiene and cost. Supersedes the
+  2026-08-31 handoff's step 2 on the bake.
+- [`2026-08-31_handoff.md`](2026-08-31_handoff.md) -- superseded. What merging a PDD LoRA onto an int8 module costs,
+  measured over all 200 modules and stored-weight only. **Read its section 6 before quoting a number**: the headline
+  changed four times that day, and the last version is that the merge leaves stored-weight error 1.40x the base int8
+  error under the shipped stochastic rounding (1.12x, the +11.6%, under round-to-nearest). Section 7 records the hold
+  on the Tier 1 gate. Its `unmerged_blocks` lever was replaced by the exact branch on 2026-09-26
+  ([`docs/state/decisions.md`](../../state/decisions.md)).
+- [`tier1_gate.md`](tier1_gate.md) -- closed, never passed. The ten conditions the Tier 1 activation observer had to
+  meet before a render (dated 2026-08-31, item 10 added 2026-09-01). The owner closed the experiment on 2026-09-29
+  and the observer was removed ([`docs/state/open_experiments.md`](../../state/open_experiments.md) #23).
+- [`2026-08-30_handoff.md`](2026-08-30_handoff.md) -- superseded by the 2026-08-31 handoff. Per-block quantisation
+  sensitivity is flat and closed; where distillation strength matters by depth stayed open; the one capture, and the
+  four next steps, which did not run in that form.
+- [`2026-08-28_handoff.md`](2026-08-28_handoff.md) -- superseded in part. The paper makes variable NFE the designed
+  feature; the six-evaluation `[8,8,4,4,4,4]` partition shipped; four evaluations cannot be improved; the measured
+  partition-fidelity result and the prediction it refuted; five methodology traps. Its audio account was refuted on
+  2026-09-25 and its partition work parked on 2026-09-05.
+- [`2026-08-27_handoff.md`](2026-08-27_handoff.md) -- superseded by the 2026-08-28 handoff, and carries a dated
+  in-place correction to its item 2.
 
 **Depth and the remaining axes**, opened 2026-08-30:
 [`depth_and_axes.md`](depth_and_axes.md) — where in the DiT running undistilled
@@ -61,6 +54,12 @@ that only audio has, and why that predicts an audio-only error growing with
 block width. [`2026-08-28_audio_plan.md`](2026-08-28_audio_plan.md) is the
 execution plan: state, three experiments in order, what each outcome means, and
 the traps. Read the first, work from the second.
+
+**What makes a clip degrade, 2026-08-28:**
+[`2026-08-28_scene_complexity.md`](2026-08-28_scene_complexity.md) is the shot-count ablation's record (three
+accounts refuted, the owner's account of total demanded content standing, with a duration confound left open), and
+[`artifact_axis.md`](artifact_axis.md) is the same night's viewing map and pre-registration for the arms queued
+against it.
 
 **Rendered arms, 2026-08-29:**
 [`2026-08-29_market_scene_arms.md`](2026-08-29_market_scene_arms.md) — three
