@@ -87,6 +87,11 @@ why, the scene's background, and what every scene should probably get): `bench/r
   on all four frames. On 0751 at 772 the mom's keep-out gave back 0 cells and the load carried no keep, so the squares
   are NOT TRACED: read what the stack's yellow fill and `kept_px` count first (`bench/stack_delivery.py`, KEPT_INSIDE;
   C141), before building anything for crossings.
+- **Sapiens' eyeglass class (2) was in the dad's face part on `1306d` and on the kept `1310c`**, and absent on the clean
+  `1340b` and `1306e`, so it does not track his glasses. It is included only when Sapiens labels some of the original
+  man's pixels eyeglass, so Sapiens saw something glasses-like on him in 1306-1418: if the original actor wears glasses,
+  they leaked in with the beard. A cheap check if the hall is ever reopened: class 2's px per frame in his class map,
+  and a reader on the source frames.
 - **A dropped stretch is not the back of the head because a label says so**: 1412-1413 show the dad's bearded profile.
 - **Old tracks predate today's tracker fixes.** A shot captured before today gets a fresh first preview, never a
   re-run on its saved .mkv (10a and regain run only in the preview).
