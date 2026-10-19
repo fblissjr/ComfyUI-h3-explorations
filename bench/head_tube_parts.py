@@ -1550,11 +1550,32 @@ def head_tube_for_capture(
             raise SystemExit(
                 f"head_tube_for_capture: head_track shape {ht_arr.shape} does not match {(num_frames, height, width)}"
             )
-        head_track_bool = np.asarray(ht_arr > 0, dtype=bool)
+        head_track_bool = np.asarray(ht_arr > 0, dtype=bool).copy()
         if not np.any(head_track_bool & track_bool):
             raise SystemExit(
                 "head_tube_for_capture: head_track has no pixels inside the subject's person track across the span"
             )
+        # H3SubjectTrack clips head_track to raw_track_bool; when _expand_track_with_attached_parts expands
+        # track_bool by up to 8 px to include attached part components (e.g. side-profile nose/cheek on 0606c
+        # frames 621-622 and 709-737), expand head_track_bool into those attached components that share pixels
+        # with (head_track_bool & raw_track_bool) and lie within its vertical span [hy0, hy1].
+        k_touch_ht = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        for t in range(num_frames):
+            ht_in_raw = head_track_bool[t] & raw_track_bool[t]
+            if not np.any(ht_in_raw) or not np.any(parts_bool[t]):
+                continue
+            ys_ht = np.where(ht_in_raw)[0]
+            hy0, hy1 = int(ys_ht.min()), int(ys_ht.max())
+            near_ht = cv2.dilate(ht_in_raw.astype(np.uint8), k_touch_ht) > 0
+            num_l, labels, stats, _ = cv2.connectedComponentsWithStats(
+                (parts_bool[t] & track_bool[t]).astype(np.uint8), connectivity=8
+            )
+            for lbl in range(1, num_l):
+                comp = labels == lbl
+                cy0 = int(stats[lbl, cv2.CC_STAT_TOP])
+                cy1 = cy0 + int(stats[lbl, cv2.CC_STAT_HEIGHT]) - 1
+                if cy0 >= hy0 and cy1 <= hy1 and np.any(comp & near_ht) and np.any(comp & ht_in_raw):
+                    head_track_bool[t] |= comp
     chosen_names = [n for n in head_parts if n in NAME_TO_ID]
     if include_eyeglass:
         for opt in OPTIONAL_HEAD_PARTS:
@@ -1628,6 +1649,7 @@ def head_tube_for_capture(
     ]
     tube_box_crop = tube_info["tube"][:, y0:y1, x0:x1]
     raw_part_px_in_tube: list[int] | None = None
+    raw_face_neck_px_in_tube: list[int] | None = None
     if head_and_hair_on_head_track:
         raw_part_px_in_tube = [
             int(np.logical_and(np.isin(cmap_box[t], part_ids), tube_box_crop[t]).sum())
@@ -1642,6 +1664,15 @@ def head_tube_for_capture(
     else:
         unlabeled_part_box = parts_bool[:, y0:y1, x0:x1] & ~np.isin(cmap_box, part_ids)
         cmap_box[unlabeled_part_box] = face_id
+        if head_track_bool is not None:
+            raw_part_px_in_tube = [
+                int(np.logical_and(np.isin(cmap_box[t], part_ids), tube_box_crop[t]).sum())
+                for t in range(num_frames)
+            ]
+            raw_face_neck_px_in_tube = [
+                int(np.logical_and(cmap_box[t] == face_id, tube_box_crop[t]).sum()) if face_id >= 0 else 0
+                for t in range(num_frames)
+            ]
 
     pose_kps: list[np.ndarray | None] | None = None
     kp_idx: dict[str, int] | None = None
@@ -1698,6 +1729,20 @@ def head_tube_for_capture(
             ):
                 bridged_hfp.add(t)
         seg_info["dropout_bridged_frames"] = sorted(bridged_hfp)
+    elif raw_part_px_in_tube is not None and raw_face_neck_px_in_tube is not None:
+        seg_info["raw_part_px"] = raw_part_px_in_tube
+        seg_info["raw_face_neck_px"] = raw_face_neck_px_in_tube
+        bridged_fp = set(seg_info["dropout_bridged_frames"])
+        for t in range(num_frames):
+            r_px = raw_part_px_in_tube[t]
+            s_px = seg_info["part_px"][t]
+            rf_px = raw_face_neck_px_in_tube[t]
+            f_px = seg_info["face_neck_px"][t]
+            if (s_px > r_px and r_px < max(1, int(0.75 * s_px))) or (
+                f_px > rf_px and rf_px < max(1, int(0.75 * f_px))
+            ):
+                bridged_fp.add(t)
+        seg_info["dropout_bridged_frames"] = sorted(bridged_fp)
 
     # Account for any raw requested-part pixels outside shot_box in off_tube_suppressed_px.
     outside_box = np.ones((height, width), dtype=bool)

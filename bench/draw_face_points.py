@@ -872,7 +872,7 @@ def sheet(path: Path, source_frames: np.ndarray, first: int, drawn: np.ndarray, 
     for f in picks:
         x, y = points["keypoints"][f][idx["tip_of_nose"]]
         x0, y0 = int(min(max(x - side / 2, 0), w - side)), int(min(max(y - side * 0.6, 0), h - side))
-        a, b = (Image.fromarray(v[f][y0:y0 + side, x0:y0 + side]) for v in (source_frames, drawn))
+        a, b = (Image.fromarray(v[f][y0:y0 + side, x0:x0 + side]) for v in (source_frames, drawn))
         row = Image.new("RGB", (tile * 3, tile))
         for i, t in enumerate((a, b, Image.blend(a, b, 0.5))):
             row.paste(t.resize((tile, tile), Image.LANCZOS), (i * tile, 0))
