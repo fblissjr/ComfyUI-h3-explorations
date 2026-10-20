@@ -37,7 +37,7 @@ Loaded when a session opens a file here; [`docs/AGENTS.md`](../AGENTS.md) and th
 ### 5. Review Server (`items.json`), Verdicts (`owner_answers.jsonl`), and Static `poc/TO_REVIEW.html`
 
 - The owner reviews clips and submits verdicts and frame notes on the interactive review page (`http://<host>:8765/`, served by `data/<video>/poc/serve.py` from `data/<video>/poc/index.html`), which reads `data/<video>/review/items.json` (`state: "open"` renders under `"1. Look at these next"`) and appends clicks to `data/<video>/owner_answers.jsonl`.
-- Every new review clip **must** be added to `data/<video>/review/items.json` (`state: "open"`, via `bench/load_chain.py page`) **and** synced to `data/<video>/poc/TO_REVIEW.html` ([`bench/rebuild_delivery.py`](../../bench/rebuild_delivery.py) rebuilds `TO_REVIEW.html` and `PROVENANCE.html` and verifies `data/<video>/poc/` on disk via `bench/rebuild_delivery.py::verify_poc_on_disk` during the `pages` step).
+- Every new review clip **must** be added to `data/<video>/review/items.json` (`state: "open"`, via `bench/load_chain.py page`) **and** synced to `data/<video>/poc/TO_REVIEW.html` ([`bench/rebuild_delivery.py`](../../bench/rebuild_delivery.py) rebuilds `TO_REVIEW.html` and `PROVENANCE.html` and verifies `data/<video>/poc/` on disk via `bench/rebuild_delivery.py::verify_poc_on_disk` during the `pages` step; [`bench/build_cut_map.py`](../../bench/build_cut_map.py) builds the 2-tab chronological cut table, frame-level gap audit, and 6-stage hierarchical data flow lineage DAG in `data/<video>/poc/PROVENANCE.html`, `data/<video>/poc/CUT_MAP.html`, and `data/<video>/CUT_MAP.md`).
 
 ### 6. 24.0 fps End-to-End, the `17n + 5` Grid, and Dual-Clock Audio Sync (`on_both_clocks`)
 

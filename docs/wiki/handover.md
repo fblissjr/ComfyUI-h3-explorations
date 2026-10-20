@@ -1,22 +1,35 @@
 # Handover: read this before anything else
 
-**Rewritten at the end of each working day by the designated lead; the day before is in git.** Written for 2026-10-19 by
-`mrgem` (designated lead holding both sides' roles) at 22:32Z. Where this page and a record disagree, the record is
-right ([`decisions.md`](decisions.md), newest first; `data/fun/laid.jsonl`; the newest gap check under
+> **PINNED SOURCE OF TRUTH FOR FINISHING `fun` (`0000–6394`)**:
+> 1. **Clean End-to-End Cut, Frame-Level Gap Audit & Hierarchical Data Flow Lineage Map (CST timestamps, MP4 paths, per-frame coverage barcodes, and 6-stage DAG)**:
+>    - **Browser**: `http://100.87.141.65:8765/PROVENANCE.html` (also at `http://100.87.141.65:8765/CUT_MAP.html` / `data/fun/poc/PROVENANCE.html`)
+>    - **Markdown**: **`data/fun/CUT_MAP.md`** (regenerated in ~1.4s anytime via `<comfy-venv>/bin/python bench/build_cut_map.py --video fun`)
+> 2. **Execution Runbook & Pre-Built Previews**:
+>    - Read **`data/fun/FINAL_STRETCH_RUNBOOK.md`** (and [`data/2026-10-20_fun_phase2_inputs/README.md`](../../data/2026-10-20_fun_phase2_inputs/README.md) / [`data/2026-10-20_fun_phase3_inputs/README.md`](../../data/2026-10-20_fun_phase3_inputs/README.md) beside the per-window input files) FIRST. Keep this block pinned at the top of `handover.md` throughout the day until `fun` is 100% finished.
+
+**Rewritten at the end of each working day by the designated lead; the day before is in git.** Written for 2026-10-20 by
+`mrgem` (designated lead holding both sides' roles) at 2026-10-20T19:20Z (`2:20 PM CST`). Where this page and a record disagree, the record is
+right ([`decisions.md`](decisions.md), newest first; `data/fun/laid.jsonl`; `data/fun/CUT_MAP.md`; `data/fun/FINAL_STRETCH_RUNBOOK.md`; the newest gap check under
 `data/2026-10-19_fun_delivery_tables/`; `git log`).
 
 ## State when closed
 
-- **Kept and laid today** (`data/fun/laid.jsonl`, 38 lines):
-  - **Hallway `1306-1418` (`third_fp_1306f`, replacing `third_fp_1310c`)**: reviewed and kept by the owner ("fantastic
-    job on that one"). Covers the entire 113-frame hallway shot (`1306-1418`, zero dropped frames) clean-shaven (`0/113`
-    beard, `0/113` glasses) with `lead_fp_1306t` + `third_fp_1306f` assembled in
-    `Video/fun/mrgem/hall_1306_1418_lead_fp_1306t_third_fp_1306f_assembled.mp4`.
-  - **Kitchen crossing `751-785` (`lead_fp_0751e`)**: rendered on the 24.0 fps post-Pass-1 cut (`second_hfp_0604h`
-    already laid) using the post-Pass-1 preview `shot_c_0604e`. Eliminated the 1980s mom's tall dark bouffant hair dome
-    (`5,843–9,276 px` on `758-771`), reducing `face_outside_region_px` from `9,665–14,189 px` to `0–17 px` on `758-759`
-    and `0–6 px` on `771-785` (confirmed by the owner: "solved the mystery of the mask hiding the lead's face in the
-    kitchen scene"). Live at the top of `data/fun/review/items.json` (`http://<host>:8765/`).
+- **Kept and laid in `data/fun/laid.jsonl` (`41` subject-shots in cut out of `90`: `24` clean 100% carried, `16` with frame gaps or queued re-run, `50` pending)**:
+  - **Phase 1 Full Kitchen Pass-2 (`lead_fp_0606d` on `606–998`, 393f / 2 windows `[345, 141]`)**: rendered (`1879 s`), landed (`Video/fun/mrgem/lead_fp_0606d/lead_fp_0606d/lead_fp_0606d_00001.mp4`), stacked review clip generated (`Video/fun/review_clips/lead_fp_0606d_0606_0998_stacked.mp4`), laid on `604–1009` (`lead`) in `data/fun/laid.jsonl` (replacing `lead_fp_0751e` and `lead_fp_0606c`), and added to `data/fun/review/items.json`.
+  - **Phase 2A & 2B Subject 2 (`second`) Remakes Completed & Laid Today (`10` of `19` `second` shots now done as whole-shot renders with `TRACK_HEAD=True`, `"whole region"`, and retired `held`/`hands`/`clothes`/`hair_band` keep-outs)**:
+    1. `second_hfp_0278i` (`278–293`, 16f, replacing `second_hfp_0278f`)
+    2. `second_hfp_0415e` (`415–437`, 23f, replacing `second_hfp_0415d`)
+    3. `second_hfp_0484d` (`484–515`, 32f, replacing `second_hfp_0484c`)
+    4. `second_hfp_1010g` (`1010–1038`, 29f, 0 dropped frames, replacing `second_hfp_1010j`)
+    5. `second_hfp_1039b` (`1039–1060`, 22f, replacing `second_hf_1039_g` — restoring 100% live `.render.built.json` records across all rows in `laid.jsonl`)
+    6. `second_hfp_4479b` (`4479–4509`, 31f)
+    7. `second_hfp_5114f` (`5114–5129`, 16f, replacing `second_hfp_5114d`)
+    8. `second_hfp_5461e` (`5461–5497`, 37f, replacing `second_hp_5461c`)
+    9. `second_hfp_5533b` (`5533–5564`, 32f)
+    10. `second_hfp_5675c` (`5675–5715`, 41f).
+  - **All 15 Remaining `second` Clothing Spans Added to `data/fun/plan.json`**: verified from source frames (`415–437`, `484–515`, `1093–1133`, `1419–1465`, `4479–4509`, `4602–4646`, `4647–4725`, `4726–4773`, `4912–4946`, `5011–5043`, `5114–5129`, `5533–5564`, `5675–5767`, `5768–5791`, `5889–5934`).
+  - **Interactive 2-Tab Cut, Frame-Level Gap Audit & Lineage Explorer (`PROVENANCE.html` / `CUT_MAP.md`)**:
+    - Built by `data/fun/build_cut_map.py` (local-disk-first, runs in ~1.4s). Syncs status badges (`IN CUT 100%` vs `GAP / RERUN`) with `frame_coverage_fun_0000_6394_*.json` + Phase 2/3/4 queued inputs, and provides a per-window **Frame-Level Coverage Barcode & Drill-Down** alongside the **6-Stage Hierarchical Data Flow Lineage DAG**.
 - **Landed on `main` today (`93572357`, `35fb81fd`, `647e443d`, `5b56c7ef`)**:
   1. **Mandatory `--source` & Multi-Subject Pass-2 Refusal (`5b56c7ef`, [`bench/shot_to_load.py`](../../bench/shot_to_load.py))**:
      `shot_to_load.py preview` requires `--source <video>` with no default (`Refused` if omitted), and both `preview`
@@ -57,21 +70,16 @@ right ([`decisions.md`](decisions.md), newest first; `data/fun/laid.jsonl`; the 
   no verdict buttons; the owner submits verdicts and frame notes on `http://<host>:8765/` (`data/<video>/poc/index.html`),
   which reads `items.json` and appends to `data/<video>/owner_answers.jsonl`.
 
-## Tomorrow, in order
+## Next up, in order
 
-1. **Read in by `AGENTS.md`'s order**, plus [`docs/masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md) and
-   [`docs/masked_v2v/PROTOCOL.md`](../masked_v2v/PROTOCOL.md) before lane work.
-2. **Full Kitchen Pass-2 Load (`lead_fp_0606d` on `606-998`) or Splice of `lead_fp_0751e` (`751-785`)**:
-   - Check the owner's verdict on `lead_fp_0751e` in `data/fun/owner_answers.jsonl` / `items.json`.
-   - Either lay the full `606-998` Pass-2 load on `shot_c_0604e` (rendered against the 24.0 fps post-Pass-1 cut with
-     `shot_c_0604e`'s clean blonde hair keep-out + orphaned bouffant bridge) or splice `lead_fp_0751e` (`751-785`, where
-     `747-750` is already a zero-mask back-of-head drop boundary) into `lead_fp_0606c` (`606-998`).
-3. **Remaining `fun` Gap Shots (from `data/2026-10-19_fun_delivery_tables/frame_coverage_fun_0000_6394_*.md`)**:
-   - **Hallway far table `1419-1465` (`47f`)**: `third` (`fun_dad.jpg`, clean-shaven) and `second` (`fun_mom_edit.jpg`,
-     `--no-face-on` on `1419-1427, 1437-1452`), sequential Pass 1 -> Pass 2 using the post-Pass-1 video for Pass 2.
-   - **Mid-song multi-subject and single-subject shots**: `1093-1133`, `1134-1155`, `1466-1729`, `1802-1848`,
-     `2013-2049`, `2050-2622` (windowed `<= 362` frames). Every load runs `bench/facts_pass.py` before rendering and
-     goes to `data/fun/review/items.json` (`load_chain.py page`) + `rebuild_delivery.py` afterward.
+1. **Read in by `AGENTS.md`'s order**, plus [`docs/masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md),
+   [`docs/masked_v2v/PROTOCOL.md`](../masked_v2v/PROTOCOL.md), `data/fun/AGENTS.md`, `data/fun/CUT_MAP.md`, and `data/fun/FINAL_STRETCH_RUNBOOK.md` before lane work.
+2. **Phase 2B `second` Previews & Load Jobs (Currently Running on `:8188` in `task-700`)**:
+   - Previews `shot_c_4479c`, `4602c`, `4647c`, `4726c`, `4912c`, `5114c`, `5461c`, `5533c`, `5675c`, `5768c`, `5889c` are completed on `:8188`; `shot_c_5011c` + `reference -> text -> first -> plan -> on-plan -> table` for all Phase-2B `second` jobs (`second_hfp_4479b`..`5889b`) are running now.
+   - Note on `1093–1133` and `1419–1465` (`second`): on `1093–1133`, `lead`'s gloved hand occludes `second` on `1124–1127` (use `--first 1093 --frames 31 --why ...` or `--who-is-who`); on `1419–1465`, `second` is only visible in the far background on `1455–1465` (11f).
+   - Once Phase-2B `second` jobs reach `table`, verify their full prompts (`what_h3_got.py`), record `looked`, render & land them on `:8188`, lay them in `data/fun/laid.jsonl`, and assemble a fresh post-Pass-1 cut MP4 (`bench/assemble_delivery.py` + `bench/frame_coverage_report.py`) before running Pass-2 (`lead`/`third`) on multi-subject shots (`1010–1038`, `4479`, `4602`, `4647`, `4726`, `4912`, `5011`, `5533`, `5675`, `5768`, `5889`).
+3. **Phase 3 & 4 — Remaining Unfinished / Gap Shots (`data/2026-10-20_fun_phase3_inputs/`)**:
+   - Includes the `2823–3166` tail gap (`3098–3109`, pre-built in `shot_c_2823c.json` to render the continuous `2823–3109` 287f span) and all remaining `PENDING` / `GAP` windows shown in `PROVENANCE.html`.
 
 ## Where things are
 
