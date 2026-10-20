@@ -8,7 +8,7 @@ Loaded when a session opens a file here; [`docs/AGENTS.md`](../AGENTS.md) and th
   - End-to-end pipeline, design, and card runbook: [`docs/wiki/masked_v2v_pipeline.md`](../wiki/masked_v2v_pipeline.md), [`docs/wiki/masked_v2v.md`](../wiki/masked_v2v.md), and [`docs/wiki/runbook.md`](../wiki/runbook.md)
 - **This lane is one use of H3.** A finding about common code (reference conditioning, the shared nodes) is written where that code's page is and linked from [`docs/wiki/index.md`](../wiki/index.md).
 
-## Top six rules that bite when missed
+## Top seven rules that bite when missed
 
 ### 1. What `--source` to pass in (Single-Subject vs Multi-Subject Pass 2)
 
@@ -63,3 +63,10 @@ Loaded when a session opens a file here; [`docs/AGENTS.md`](../AGENTS.md) and th
     3. The stitcher **throws away the `90` overlap context frames from Window 2** plus the `W_total - N` held tail frames (`396 - 393 = 3` frames), emitting exact `N` frames (`393` frames = `606–998`) with zero audio or visual seam.
 - **Zero Stale Pose or Mask Data (`code_stamp.py` Upstream Mtime Enforcement)**:
   - Never reuse masks, SAM tracks, Sapiens2 part/class maps, or pose files across incompatible runs. When `shot_to_load.py reference` runs on a load, it creates a fresh `<subject>_<first>_<last>` (or `_b`) reference folder if any prior attempt failed or differed in form, runs a fresh `bench/pose_along_shot.py` pass bounded by the current preview's SAM track, and `bench/head_reference.py`, `bench/draw_face_points.py`, and `bench/measure_moge2_depth.py` enforce `bench/_lib/code_stamp.py::check_upstream_mtime` to refuse stale upstream `.npz` or `.mp4` inputs.
+
+### 7. Head Reference Mouth Drawing & Unified `<Subject 2>` Prompt (Closed = 3D Grey Mesh Lips; Open = Black Interior + White Outline)
+
+- **No mouth smoothing (`smooth_mouth_area` retired, 2026-10-20)**: `bench/draw_face_points.py::smooth_mouth_area` is a no-op. Painting a flat grey oval over the mouth region created a bright grey splotch across the lips, chin, and hands (`second_hfp_0415e`, `second_hfp_0484d`, `second_hfp_1039b`) that H3 read as an open mouth.
+- **Closed-mouth frames stay as natural 3D grey mesh lips (`mouths[f] = None`)**: Whenever Sapiens2 (`sapiens2-seg-1b` + `sapiens2-pose-1b`) detects a closed mouth (`not has_hole` and `gap <= INNER_GAP_CLOSED_PX`), `head_reference.py` sets `mouths[f] = None` and `draw_face_points.py::draw` skips `inner_lip_line` / `mouth_closed`, leaving the 3D grey mesh's sculpted closed lips untouched (matching `lead_fp_0606d` and `second_hfp_1010g`).
+- **Open-mouth frames draw black interior + white outline (`inner_lip_ring` / `mouth_inner`)**: Whenever Sapiens2 detects an open mouth (teeth/tongue hole in the 29-class map or inner-lip gap `> 3.5` px), the black interior + white outline is drawn at the mouth, and `bench/head_reference.py::fit_mouth_to_head` only shifts vertically above a real bottom-of-frame dark neck gap under the jaw (`run_end >= h - 4` and `chin_y >= pose_cy - 0.08 * fh`), never on a hand/arm gap above the pose mouth.
+- **Single unified `<Subject 2>` prompt sentence (`bench/load_text.py::subject_two_what`)**: All face-drawn loads use a single unified `<Subject 2>` sentence ("with facial features drawn on its face as thin white outlines, the white of the eye white and the iris black") without mentioning mouth/lips, so the text never biases H3 toward opening or closing the mouth and `<Video 1>` alone drives frame-by-frame mouth articulation.

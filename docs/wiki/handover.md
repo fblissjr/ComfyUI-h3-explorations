@@ -30,7 +30,12 @@ right ([`decisions.md`](decisions.md), newest first; `data/fun/laid.jsonl`; `dat
   - **All 15 Remaining `second` Clothing Spans Added to `data/fun/plan.json`**: verified from source frames (`415–437`, `484–515`, `1093–1133`, `1419–1465`, `4479–4509`, `4602–4646`, `4647–4725`, `4726–4773`, `4912–4946`, `5011–5043`, `5114–5129`, `5533–5564`, `5675–5767`, `5768–5791`, `5889–5934`).
   - **Interactive 2-Tab Cut, Frame-Level Gap Audit & Lineage Explorer (`PROVENANCE.html` / `CUT_MAP.md`)**:
     - Built by `data/fun/build_cut_map.py` (local-disk-first, runs in ~1.4s). Syncs status badges (`IN CUT 100%` vs `GAP / RERUN`) with `frame_coverage_fun_0000_6394_*.json` + Phase 2/3/4 queued inputs, and provides a per-window **Frame-Level Coverage Barcode & Drill-Down** alongside the **6-Stage Hierarchical Data Flow Lineage DAG**.
-- **Landed on `main` today (`93572357`, `35fb81fd`, `647e443d`, `5b56c7ef`)**:
+- **Landed on `main` today (`93572357`, `35fb81fd`, `647e443d`, `5b56c7ef`, `b270be7e`)**:
+  0. **Clean 3D Mesh Closed Lips, Retired `smooth_mouth_area` Smudge, Fixed `fit_mouth_to_head`, & Unified `<Subject 2>` Prompt (`b270be7e`, [`bench/draw_face_points.py`](../../bench/draw_face_points.py), [`bench/head_reference.py`](../../bench/head_reference.py), [`bench/load_text.py`](../../bench/load_text.py))**:
+     - `smooth_mouth_area` is a no-op (retiring the flat grey oval smudge over the lips/chin/hands).
+     - Closed-mouth frames (`not has_hole` and `gap <= INNER_GAP_CLOSED_PX`) stay as natural 3D grey mesh lips (`mouths[f] = None`, no white parting line); open-mouth frames (`inner_lip_ring` / `mouth_inner`) draw a black interior + white outline at the mouth.
+     - `fit_mouth_to_head` only shifts vertically above a real bottom-of-frame dark neck gap under the jaw, never on a hand/arm gap above the pose mouth.
+     - `load_text.py` uses one unified `<Subject 2>` sentence across all face-drawn loads ("with facial features drawn on its face as thin white outlines, the white of the eye white and the iris black") so text never biases mouth state and `<Video 1>` alone drives frame-by-frame mouth articulation. Verified on `second_hfp_0415f` (`415–437`) and `second_hfp_0484e` (`484–515`).
   1. **Mandatory `--source` & Multi-Subject Pass-2 Refusal (`5b56c7ef`, [`bench/shot_to_load.py`](../../bench/shot_to_load.py))**:
      `shot_to_load.py preview` requires `--source <video>` with no default (`Refused` if omitted), and both `preview`
      and `job` check `data/<video>/laid.jsonl` (`check_pass2_source`), refusing the raw original source video when

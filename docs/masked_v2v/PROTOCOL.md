@@ -125,11 +125,13 @@ Under the hood, `step_reference` invokes [`bench/head_reference.py`](../../bench
 2. **Facial landmark drawing (`bench/draw_face_points.py`)**:
    - Default form (`bench/shot_to_load.py::REFERENCE_DEFAULT`): `iris="contrast"`, `mouth="auto"`, `closed_lip_line=True` (`--closed-lip-line` on by default; `--darken-head` off).
    - **Silhouette clipping**: all drawn marks are clipped to the grey SAM 3D Body head silhouette so profile eyes shrink cleanly into the head edge instead of floating in background space (which H3 can misread as eyeglasses).
-   - **Mouth mode rules (Singing vs Silent Windows)**:
-     - **Silent windows** (no vocal activity for the subject on the window): `mouth="auto"` suppresses the mouth (`no_mouth`), drawing **no mouth marks** at all. Drawing a closed mouth line 8–12 px above the grey head's sculpted lips causes H3 to read the double line as parted lips (`second_hfp_0278d/e/h` vs `0278f`).
-     - **Singing / voiced windows**: `mouth="auto"` draws the repaired mouth (`--closed-lip-line`, fitted above the grey head's chin and covering its sculpted lips) on every face frame so H3 articulates the singing mouth (`third_fp_1340d` vs `1340c`).
-3. **Generating the Prompt Text (`shot_to_load.py text`)**:
+   - **Mouth mode rules (Closed = 3D Grey Mesh Lips; Open = Black Interior + White Outline)**:
+     - **No mouth smoothing (`smooth_mouth_area` retired, 2026-10-20)**: `bench/draw_face_points.py::smooth_mouth_area` is a no-op. Painting a flat grey oval over the mouth region created a bright grey splotch across the lips, chin, and hands (`0415e`, `0484d`, `1039b`) that H3 interpreted as an open mouth.
+     - **Closed-mouth frames stay as natural 3D grey mesh lips (`mouths[f] = None`)**: Whenever Sapiens2 (`sapiens2-seg-1b` + `sapiens2-pose-1b`) detects a closed mouth (`not has_hole` and `gap <= INNER_GAP_CLOSED_PX`), `head_reference.py` sets `mouths[f] = None` and `draw_face_points.py::draw` skips `inner_lip_line` / `mouth_closed`, leaving the 3D grey mesh's own sculpted closed lips untouched (just like `lead_fp_0606d` and `second_hfp_1010g`).
+     - **Open-mouth frames draw black interior + white outline (`inner_lip_ring` / `mouth_inner`)**: Whenever Sapiens2 detects an open mouth (teeth/tongue hole in the 29-class map or inner-lip gap `> 3.5` px), the black interior + white outline is drawn at the mouth, and `bench/head_reference.py::fit_mouth_to_head` only shifts vertically above a real bottom-of-frame dark neck gap under the jaw (`run_end >= h - 4` and `chin_y >= pose_cy - 0.08 * fh`), never on a hand/arm gap above the pose mouth.
+3. **Generating the Prompt Text (`shot_to_load.py text` — Unified `<Subject 2>` Sentence)**:
    - Invokes [`bench/load_text.py`](../../bench/load_text.py) (`bench/load_text.py::NO_SCENE`, `bench/load_text.py::NO_CLOTHING`) to generate the load's text from the reference record, `data/<video>/plan.json`, and the voice table.
+   - All face-drawn loads use a **single unified `<Subject 2>` sentence** (`bench/load_text.py::subject_two_what`) that describes the reference video ("with facial features drawn on its face as thin white outlines, the white of the eye white and the iris black") without mentioning mouth/lips, so the text never biases H3 toward opening or closing the mouth and `<Video 1>` alone drives frame-by-frame mouth state.
 
 ---
 
