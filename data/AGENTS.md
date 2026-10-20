@@ -11,6 +11,7 @@ pack, not the pack (root `AGENTS.md`, "The repo is broader than the current proj
 | what is in the cut and what gaps remain | `data/<video>/laid.jsonl`; the newest `data/<date>_<video>_delivery_tables/frame_coverage_*.md`; `bench/shot_coverage.py` |
 | the day-to-day commands (ComfyUI, one load, the review server, the rebuild, the close) | `docs/masked_v2v/PROTOCOL.md`, `docs/wiki/runbook.md` |
 | the pipeline end to end, and the lane's rules | `docs/masked_v2v/AGENTS.md`, `docs/masked_v2v/PROTOCOL.md`, `docs/wiki/masked_v2v_pipeline.md`, `docs/wiki/masked_v2v.md` |
+| when to restart ComfyUI (`:8188`) and what parent -> child data must be regenerated when code, prompts, references, or Pass-1 cuts change | [`docs/masked_v2v/AGENTS.md`](../docs/masked_v2v/AGENTS.md) ("8. Parent -> Child Invalidation DAG") and [`docs/masked_v2v/PROTOCOL.md`](../docs/masked_v2v/PROTOCOL.md) ("Stage 0.5: When to Restart ComfyUI and Parent -> Child Data Regeneration Rules") |
 | after any landing or stopped load | `bench/rebuild_delivery.py --video <video>` |
 
 ## The projects in motion
@@ -66,6 +67,7 @@ daily); this file, the lane's rules for any video, is the one tracked file here,
 - Every laid piece is laid by its own matte under one compositing law (`bench/assemble_delivery.py::lay_plane`,
   2026-10-17). A matte is reconstructed from the render's own inputs, never today's defaults
   (`bench/recomposite_piece.py --save-own-matte`).
+- **Parent -> child data invalidation & ComfyUI restarts**: Any change to server-loaded node code requires restarting ComfyUI (`:8188`) on an empty queue (`docs/comfy_notes.md`), and any change to an upstream stage (`--source` post-Pass-1 cut, `preview`, `job`, `reference`, `text`, or `capture`/`plan`) invalidates every downstream child stage. Follow the exact Parent -> Child Invalidation DAG and lookup table in [`docs/masked_v2v/AGENTS.md`](../docs/masked_v2v/AGENTS.md) ("8. Parent -> Child Invalidation DAG") and [`docs/masked_v2v/PROTOCOL.md`](../docs/masked_v2v/PROTOCOL.md) ("Stage 0.5").
 
 ## One ledger, made new on every landing
 
