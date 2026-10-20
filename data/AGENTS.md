@@ -12,7 +12,6 @@ pack, not the pack (root `AGENTS.md`, "The repo is broader than the current proj
 | the day-to-day commands (ComfyUI, one load, the review server, the rebuild, the close) | `docs/masked_v2v/PROTOCOL.md`, `docs/wiki/runbook.md` |
 | the pipeline end to end, and the lane's rules | `docs/masked_v2v/AGENTS.md`, `docs/masked_v2v/PROTOCOL.md`, `docs/wiki/masked_v2v_pipeline.md`, `docs/wiki/masked_v2v.md` |
 | when to restart ComfyUI (`:8188`) and what parent -> child data must be regenerated when code, prompts, references, or Pass-1 cuts change | [`docs/masked_v2v/AGENTS.md`](../docs/masked_v2v/AGENTS.md) ("8. Parent -> Child Invalidation DAG") and [`docs/masked_v2v/PROTOCOL.md`](../docs/masked_v2v/PROTOCOL.md) ("Stage 0.5: When to Restart ComfyUI and Parent -> Child Data Regeneration Rules") |
-| the live ETL build queue, what ran vs what is next per shot/subject, and Tab 3 of `PROVENANCE.html` | `data/<video>/DAG_STATUS.md` & `data/<video>/DAG_STATUS.json` (`http://localhost:8765/PROVENANCE.html#etl`), refreshed and queried via `bench/build_cut_map.py --next [--stage stage-a\|stage-b\|stage-c\|stage-d] [--shot <FIRST>] [--subject <SUBJ>]` |
 | after any landing or stopped load | `bench/rebuild_delivery.py --video <video>` |
 
 ## The projects in motion
