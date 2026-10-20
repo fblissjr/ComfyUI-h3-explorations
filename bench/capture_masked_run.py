@@ -3007,7 +3007,7 @@ def verify_checks(manifest: dict, track_flags: list[dict], statements: list[dict
             for st in statements:
                 hit = [n for n in each if st["subject"] == run["subject"] and st["source_frames"][0] <= n <= st["source_frames"][1] and at <= n < at + count]
                 if hit:
-                    whole_shot_part = run.get("carried_is") in ("the part", "the held part") and len(hit) < count
+                    whole_shot_part = run.get("carried_is") in ("the part", "the held part", "the mask each window was given") and len(hit) < count
                     add("no_mask_statement_against_a_load", run["name"], whole_shot_part,
                         f"{st['by']} said {st['subject']} has no mask on {st['source_frames'][0]}-{st['source_frames'][1]} and that this is known "
                         f"(\"{st['why']}\"); whole-shot part load {run['name']} ({at}-{at + count - 1}) keeps the shot in one window (2026-10-15, one shot is never split) and leaves those {len(hit)} occluded frame(s) as the source (`left_as_the_source_with_no_mask`)" if whole_shot_part else
