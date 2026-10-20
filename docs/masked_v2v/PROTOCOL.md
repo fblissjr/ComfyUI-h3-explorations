@@ -133,6 +133,7 @@ Under the hood, `step_reference` invokes [`bench/head_reference.py`](../../bench
 3. **Generating the Prompt Text (`shot_to_load.py text` — Unified `<Subject 2>` Sentence)**:
    - Invokes [`bench/load_text.py`](../../bench/load_text.py) (`bench/load_text.py::NO_SCENE`, `bench/load_text.py::NO_CLOTHING`) to generate the load's text from the reference record, `data/<video>/plan.json`, and the voice table.
    - All face-drawn loads use a **single unified `<Subject 2>` sentence** (`bench/load_text.py::subject_2`) that describes the reference video ("with facial features drawn on its face as thin white outlines, where the eyes open, close and look where the person's eyes do") without mentioning mouth/lips, so the text never biases H3 toward opening or closing the mouth while preserving eye-gaze transfer.
+   - **Render verification (`second_hfp_0415g` on `415–437` and `second_hfp_0484f` on `484–515`)**: `0415g` completely eliminated the camera-staring wide eyes and toothy smile on frame `437` (`0415f`) and kept the mouth closed and gaze lowered across `415–437`; `0484f` eliminated the dark open `"O"` mouth of `0484d` and lowered the gaze compared to `0484e` (with `0484c`'s heavier downward eyelids on `484–496` attributable to `0484c` rendering on `render_region: full` at `1.0x` zoom vs. `0484f` on `render_region: part` at `1.63x` zoom).
 
 ---
 
