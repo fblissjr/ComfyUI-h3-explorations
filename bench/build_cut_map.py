@@ -37,14 +37,14 @@ def local_tz_abbr() -> str:
     return datetime.datetime.now().astimezone().strftime("%Z") or "local"
 
 
-def fmt_cst(ts: float | None) -> str:
+def fmt_local_ts(ts: float | None) -> str:
     if not ts:
         return "—"
     dt = datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc).astimezone()
     return dt.strftime("%Y-%m-%d %I:%M:%S %p %Z")
 
 
-def fmt_iso_to_cst(iso_str: str | None) -> str:
+def fmt_iso_to_local(iso_str: str | None) -> str:
     if not iso_str:
         return "—"
     try:
@@ -62,7 +62,7 @@ def fmt_iso_to_cst(iso_str: str | None) -> str:
 _MTIME_CACHE: dict[str, str] = {}
 
 
-def path_mtime_cst(p: Path | None) -> str:
+def path_mtime_local(p: Path | None) -> str:
     if p is None:
         return "missing"
     key = str(p)
@@ -72,24 +72,24 @@ def path_mtime_cst(p: Path | None) -> str:
         _MTIME_CACHE[key] = "on share (H3_OUTPUT_DIR)"
         return _MTIME_CACHE[key]
     try:
-        res = fmt_cst(p.stat().st_mtime) if p.exists() else "missing"
+        res = fmt_local_ts(p.stat().st_mtime) if p.exists() else "missing"
     except Exception:
         res = "missing"
     _MTIME_CACHE[key] = res
     return res
 
 
-def load_mtime_cst_for_laid(r: dict, built_idx: dict[str, dict]) -> str:
+def load_mtime_local_for_laid(r: dict, built_idx: dict[str, dict]) -> str:
     """Resolve render timestamp from local render.queued.json, render.built.json, or laid.jsonl 'added'."""
     lname = r.get("load", "")
     binfo = built_idx.get(lname)
     if binfo:
         if binfo.get("queued_path") and binfo["queued_path"].exists():
-            return path_mtime_cst(binfo["queued_path"])
+            return path_mtime_local(binfo["queued_path"])
         if binfo.get("built_path") and binfo["built_path"].exists():
-            return path_mtime_cst(binfo["built_path"])
+            return path_mtime_local(binfo["built_path"])
     if r.get("added"):
-        return fmt_iso_to_cst(r.get("added"))
+        return fmt_iso_to_local(r.get("added"))
     return "—"
 
 
@@ -200,7 +200,7 @@ def load_today_previews() -> dict[tuple[int, int], list[dict]]:
             qdata = None
             found_files: dict[str, list[dict]] = {}
             if queued_file.is_file():
-                q_mtime = path_mtime_cst(queued_file)
+                q_mtime = path_mtime_local(queued_file)
                 try:
                     qdata = json.loads(queued_file.read_text())
                     for subj_k, sdict in (qdata.get("found") or {}).items():
@@ -221,10 +221,10 @@ def load_today_previews() -> dict[tuple[int, int], list[dict]]:
                 "name": pname,
                 "source": j.get("source", "input/fun_0000_6394_24p_sound_in_step.mov"),
                 "input_json": jpath.relative_to(REPO),
-                "input_mtime": path_mtime_cst(jpath),
+                "input_mtime": path_mtime_local(jpath),
                 "job_folder": job_folder.relative_to(REPO) if job_folder.exists() else None,
                 "preview_done": queued_file.is_file(),
-                "preview_done_mtime": path_mtime_cst(queued_file) if queued_file.is_file() else None,
+                "preview_done_mtime": path_mtime_local(queued_file) if queued_file.is_file() else None,
                 "preview_commit": (qdata or {}).get("commit", "—"),
                 "preview_seconds": (qdata or {}).get("seconds"),
                 "found_files": found_files,
@@ -283,7 +283,7 @@ def build_dag_steps_for_row(
                 "items": [
                     {"k": "Shot Span", "v": f"Frames {first}–{last} ({n_frames}f, {fmt_tc(first)}–{fmt_tc(last)})"},
                     {"k": "Subject Presence (`shots.json`)", "v": "lead: no, second: no, third: no"},
-                    {"k": "Source Video Plate", "v": f"{src_mov} (mtime: {path_mtime_cst(src_mov)})"},
+                    {"k": "Source Video Plate", "v": f"{src_mov} (mtime: {path_mtime_local(src_mov)})"},
                     {"k": "Shot Note", "v": str(sh.get("note") or "—")},
                 ],
             },
@@ -295,7 +295,7 @@ def build_dag_steps_for_row(
                 "status_label": "Passed Through Unchanged to Final Cut",
                 "items": [
                     {"k": "Action at Assembly", "v": "Original source frames copied directly into final cut"},
-                    {"k": "Latest Joined Cut MP4", "v": f"{latest_joined.name if latest_joined else '—'} (mtime: {path_mtime_cst(latest_joined)})"},
+                    {"k": "Latest Joined Cut MP4", "v": f"{latest_joined.name if latest_joined else '—'} (mtime: {path_mtime_local(latest_joined)})"},
                 ],
             },
         ]
@@ -341,29 +341,29 @@ def build_dag_steps_for_row(
         {
             "k": "Source Video Fed In",
             "v": f"{src_video_path.name} ({src_video_path})",
-            "ts": path_mtime_cst(src_video_path),
+            "ts": path_mtime_local(src_video_path),
         },
         {
             "k": "Subject Reference Still (`<Picture 1>`)",
             "v": f"{still_rel} ({still_abs})",
-            "ts": path_mtime_cst(still_abs),
+            "ts": path_mtime_local(still_abs),
         },
         {
             "k": "Target Region & Parts (`plan.json`)",
             "v": f"region={subj_plan.get('region', '—')} · parts={', '.join(parts_list)}",
-            "ts": path_mtime_cst(FUN_DIR / "plan.json"),
+            "ts": path_mtime_local(FUN_DIR / "plan.json"),
         },
         {
             "k": "Shot Presence (`data/fun/shots.json`)",
             "v": f"present={who_info.get('present', '—')} · how: {who_info.get('how', '—')} · boxed frames: {who_info.get('frames_boxed', [])}",
-            "ts": path_mtime_cst(FUN_DIR / "shots.json"),
+            "ts": path_mtime_local(FUN_DIR / "shots.json"),
         },
     ]
     if clothing_entry:
         step1_items.append({
             "k": "Clothing Words (`data/fun/plan.json`)",
             "v": f"\"{clothing_entry.get('words')}\" (spans {clothing_entry.get('first')}–{clothing_entry.get('last')})",
-            "ts": fmt_iso_to_cst(clothing_entry.get("by", "").split(",")[1].strip() if "," in clothing_entry.get("by", "") else None),
+            "ts": fmt_iso_to_local(clothing_entry.get("by", "").split(",")[1].strip() if "," in clothing_entry.get("by", "") else None),
         })
     if cast_matches:
         boxes_str = " ; ".join(
@@ -373,7 +373,7 @@ def build_dag_steps_for_row(
         step1_items.append({
             "k": "Cast Seed Boxes (`data/fun/cast/cast.jsonl`)",
             "v": boxes_str,
-            "ts": path_mtime_cst(FUN_DIR / "cast" / "cast.jsonl"),
+            "ts": path_mtime_local(FUN_DIR / "cast" / "cast.jsonl"),
         })
 
     step1 = {
@@ -417,7 +417,7 @@ def build_dag_steps_for_row(
             step2_items.append({
                 "k": "Preview Job Folder",
                 "v": f"{rel_or_str(preview_jdir)} (commit: {pq_data.get('commit', '—')}, duration: {pq_data.get('seconds', '—')}s)",
-                "ts": path_mtime_cst(pq if pq.is_file() else pb),
+                "ts": path_mtime_local(pq if pq.is_file() else pb),
             })
         # Extract sightings / tracker files from manifest.json
         for s_entry in (manifest_data.get("subjects") or []):
@@ -430,13 +430,13 @@ def build_dag_steps_for_row(
                         step2_items.append({
                             "k": f"Tracker/Part Output (`{s_lbl}` · `{ikind}`)",
                             "v": f"{idata['file']} (preview: {by_prev}, frames: {idata.get('frames', '—')})",
-                            "ts": fmt_iso_to_cst(idata.get("written")),
+                            "ts": fmt_iso_to_local(idata.get("written")),
                         })
                 if sight.get("pose") and isinstance(sight["pose"], dict) and sight["pose"].get("file"):
                     step2_items.append({
                         "k": f"3D Body/Hand Pose Table (`{s_lbl}`)",
                         "v": f"{sight['pose']['file']} (hand_refinement={sight['pose'].get('hand_refinement')})",
-                        "ts": path_mtime_cst(cap_dir / "manifest.json") if cap_dir else "—",
+                        "ts": path_mtime_local(cap_dir / "manifest.json") if cap_dir else "—",
                     })
 
     # Also include any today's Phase 2 / Phase 3 preview jobs on this shot
@@ -481,7 +481,7 @@ def build_dag_steps_for_row(
             step3_items.append({
                 "k": "Load Job JSON",
                 "v": rel_or_str(in_json_path),
-                "ts": path_mtime_cst(in_json_path),
+                "ts": path_mtime_local(in_json_path),
             })
         # Find subject config in job_block
         subj_job_cfg = next(
@@ -499,7 +499,7 @@ def build_dag_steps_for_row(
             step3_items.append({
                 "k": "Load Rules & Mask Conditioning",
                 "v": " · ".join(rules_bits),
-                "ts": path_mtime_cst(in_json_path) if in_json_path else "—",
+                "ts": path_mtime_local(in_json_path) if in_json_path else "—",
             })
 
         motion_file = load_cfg.get("motion_file")
@@ -509,12 +509,12 @@ def build_dag_steps_for_row(
             step3_items.append({
                 "k": "Head Reference Video (`<Video 1>`)",
                 "v": f"{motion_file} (motion_edge={load_cfg.get('motion_edge', 768)}, motion_first={load_cfg.get('motion_first', first)})",
-                "ts": path_mtime_cst(in_json_path) if in_json_path else "—",
+                "ts": path_mtime_local(in_json_path) if in_json_path else "—",
             })
             step3_items.append({
                 "k": "Head Reference Provenance JSON",
                 "v": str(ref_json),
-                "ts": path_mtime_cst(in_json_path) if in_json_path else "—",
+                "ts": path_mtime_local(in_json_path) if in_json_path else "—",
             })
 
         text_block = bdata.get("text") or {}
@@ -528,7 +528,7 @@ def build_dag_steps_for_row(
             step3_items.append({
                 "k": "Prompt Text File (`<load>.txt`)",
                 "v": f"{rel_or_str(txt_path)} (sha256: {(text_block.get('sha256') or '')[:16]}...)",
-                "ts": path_mtime_cst(txt_path),
+                "ts": path_mtime_local(txt_path),
             })
             if text_block.get("by"):
                 step3_items.append({
@@ -569,7 +569,7 @@ def build_dag_steps_for_row(
         step4_items.append({
             "k": "Capture Directory & Manifest",
             "v": f"{rel_or_str(cap_dir / 'manifest.json')} (span: {manifest_data.get('first_frame', first)}..{int(manifest_data.get('first_frame', first)) + int(manifest_data.get('frames', n_frames)) - 1}, {manifest_data.get('frames', n_frames)}f)",
-            "ts": path_mtime_cst(cap_dir / "manifest.json"),
+            "ts": path_mtime_local(cap_dir / "manifest.json"),
         })
         if flags_path.is_file():
             held_cnt = len((flags_data.get("held_frames") or {}).get(subject) or [])
@@ -577,20 +577,20 @@ def build_dag_steps_for_row(
             step4_items.append({
                 "k": "Gate Verification (`flags.json`)",
                 "v": f"verdict={verdict} · overridden={overridden} · held_frames={held_cnt} · emptied_by_grade={emptied_cnt}",
-                "ts": path_mtime_cst(flags_path),
+                "ts": path_mtime_local(flags_path),
             })
         ft_md = cap_dir / "frame_table.md"
         if ft_md.is_file():
             step4_items.append({
                 "k": "Per-Frame Audit Table (`frame_table.md`)",
                 "v": rel_or_str(ft_md),
-                "ts": path_mtime_cst(ft_md),
+                "ts": path_mtime_local(ft_md),
             })
         for f_mkv in sorted((cap_dir / "subjects").glob("*/*.mkv")) if (cap_dir / "subjects").is_dir() else []:
             step4_items.append({
                 "k": f"Prepared Capture Matte (`{f_mkv.parent.name}`)",
                 "v": rel_or_str(f_mkv),
-                "ts": path_mtime_cst(f_mkv),
+                "ts": path_mtime_local(f_mkv),
             })
 
     step4 = {
@@ -616,7 +616,7 @@ def build_dag_steps_for_row(
             step5_items.append({
                 "k": f"Final Rendered Clip MP4 (`{lname}`)",
                 "v": f"{lr['file']} (sha256: {lr.get('sha256', '')[:16]}...)",
-                "ts": path_mtime_cst(mp4_abs),
+                "ts": path_mtime_local(mp4_abs),
             })
             if lbinfo:
                 lb = lbinfo.get("built") or {}
@@ -624,27 +624,27 @@ def build_dag_steps_for_row(
                 step5_items.append({
                     "k": f"Render Build Record (`{lname}.render.built.json`)",
                     "v": f"{rel_or_str(lbinfo['built_path'])} (commit: {lb.get('commit', '—')}, seed: {(lb.get('load') or {}).get('seed', '—')})",
-                    "ts": path_mtime_cst(lbinfo["built_path"]),
+                    "ts": path_mtime_local(lbinfo["built_path"]),
                 })
                 if lbinfo.get("queued_path"):
                     step5_items.append({
                         "k": f"Render Queue Record (`{lname}.render.queued.json`)",
                         "v": f"{rel_or_str(lbinfo['queued_path'])} (status: {lq.get('status', '—')}, wall_time: {lq.get('seconds', '—')}s, prompt_id: {lq.get('prompt_id', '—')})",
-                        "ts": path_mtime_cst(lbinfo["queued_path"]),
+                        "ts": path_mtime_local(lbinfo["queued_path"]),
                     })
                 if (lq.get("look") or {}).get("by"):
                     lk = lq["look"]
                     step5_items.append({
                         "k": "Pre-Render 1fps Strip Inspection (`look`)",
-                        "v": f"by {lk.get('by')} at {fmt_iso_to_cst(lk.get('at'))}: {lk.get('note', '')[:180]}...",
-                        "ts": fmt_iso_to_cst(lk.get("at")),
+                        "v": f"by {lk.get('by')} at {fmt_iso_to_local(lk.get('at'))}: {lk.get('note', '')[:180]}...",
+                        "ts": fmt_iso_to_local(lk.get("at")),
                     })
                 win_files = lq.get("windows_files") or []
                 if win_files:
                     step5_items.append({
                         "k": "Per-Window Outputs & Region NPZs",
                         "v": ", ".join(win_files),
-                        "ts": path_mtime_cst(mp4_abs),
+                        "ts": path_mtime_local(mp4_abs),
                     })
                 digests = lq.get("digests") or {}
                 if digests:
@@ -652,7 +652,7 @@ def build_dag_steps_for_row(
                     step5_items.append({
                         "k": "Verified Input SHA256 Digests at Queue Time",
                         "v": dig_str,
-                        "ts": fmt_iso_to_cst(lq.get("queued_at")),
+                        "ts": fmt_iso_to_local(lq.get("queued_at")),
                     })
         step5_label = f"Rendered ({', '.join(r['load'] for r in lrows)})"
 
@@ -677,12 +677,12 @@ def build_dag_steps_for_row(
             step6_items.append({
                 "k": f"Ledger Entry (`data/fun/laid.jsonl` · `{lr['load']}`)",
                 "v": f"frames={lr.get('frames')} · owner={lr.get('owner')} · added_by={lr.get('added_by')}",
-                "ts": fmt_iso_to_cst(lr.get("added")),
+                "ts": fmt_iso_to_local(lr.get("added")),
             })
             step6_items.append({
                 "k": f"Verdict & Provenance (`by`)",
                 "v": str(lr.get("by", "—")),
-                "ts": fmt_iso_to_cst(lr.get("added")),
+                "ts": fmt_iso_to_local(lr.get("added")),
             })
             if lr.get("replaces"):
                 step6_items.append({
@@ -694,7 +694,7 @@ def build_dag_steps_for_row(
             step6_items.append({
                 "k": "Assembled Full Delivery Cut MP4",
                 "v": f"{latest_joined.name} ({latest_joined})",
-                "ts": path_mtime_cst(latest_joined),
+                "ts": path_mtime_local(latest_joined),
             })
 
     step6 = {
@@ -1193,7 +1193,7 @@ def render_frame_drilldown_html(cov: dict, first: int, last: int, subject: str, 
 
 def main() -> None:
     tz_abbr = local_tz_abbr()
-    now_cst = fmt_cst(datetime.datetime.now(tz=datetime.timezone.utc).timestamp())
+    now_local = fmt_local_ts(datetime.datetime.now(tz=datetime.timezone.utc).timestamp())
     shots_data = json.loads((FUN_DIR / "shots.json").read_text())
     shots = shots_data["shots"]
     plan_data = json.loads((FUN_DIR / "plan.json").read_text())
@@ -1222,7 +1222,7 @@ def main() -> None:
         dt_latest = delivery_tables[-1]
         ts_tag = dt_latest.stem.replace("t_fun_0000_6394_", "")
         latest_joined = SHARE_DIR / "Video" / "fun" / f"fun_0000_6394_joined_{ts_tag}_from_laid.mp4"
-        latest_joined_mtime = path_mtime_cst(dt_latest)
+        latest_joined_mtime = path_mtime_local(dt_latest)
     else:
         latest_joined = None
         latest_joined_mtime = "—"
@@ -1289,7 +1289,7 @@ def main() -> None:
                 loads_str = ", ".join(r["load"] for r in lrows)
                 mp4_rels = [r["file"] for r in lrows]
                 mp4_abs_list = [SHARE_DIR / r["file"] for r in lrows]
-                mp4_mtimes = [load_mtime_cst_for_laid(r, built_idx) for r in lrows]
+                mp4_mtimes = [load_mtime_local_for_laid(r, built_idx) for r in lrows]
                 rendered_today = any(
                     "2026-10-20" in m or "0278i" in r["load"] or "0604h" in r["load"] or "0606d" in r["load"]
                     for r, m in zip(lrows, mp4_mtimes)
@@ -1356,12 +1356,12 @@ def main() -> None:
                             lineage_items.append({
                                 "kind": "Job Input JSON",
                                 "path": str(in_json.relative_to(REPO)),
-                                "mtime": path_mtime_cst(in_json),
+                                "mtime": path_mtime_local(in_json),
                             })
                         lineage_items.append({
                             "kind": "Built/Queued Job",
                             "path": str(jdir.relative_to(REPO)),
-                            "mtime": path_mtime_cst(binfo["built_path"]),
+                            "mtime": path_mtime_local(binfo["built_path"]),
                         })
                         bdata = binfo.get("built") or {}
                         src_vid = (bdata.get("job") or {}).get("source") or (bdata.get("load") or {}).get("source")
@@ -1370,13 +1370,13 @@ def main() -> None:
                             lineage_items.append({
                                 "kind": "Source Video Fed In",
                                 "path": src_p.name,
-                                "mtime": path_mtime_cst(src_p),
+                                "mtime": path_mtime_local(src_p),
                             })
                     if cap_dir:
                         lineage_items.append({
                             "kind": "Capture & Matte Folder",
                             "path": str(cap_dir.relative_to(REPO)),
-                            "mtime": path_mtime_cst(cap_dir / "manifest.json"),
+                            "mtime": path_mtime_local(cap_dir / "manifest.json"),
                         })
                     for rc in (FUN_DIR / "review" / "media").glob(f"{lname}_*_stacked.mp4"):
                         review_clip_url = f"/media/{rc.name}"
@@ -1428,9 +1428,9 @@ def main() -> None:
     md_lines = [
         "# `fun` End-to-End Cut & Lineage Map (`0000–6394`)",
         "",
-        f"- **Generated**: `{now_cst}` by `data/fun/build_cut_map.py` from `data/fun/shots.json`, `data/fun/plan.json`, `data/fun/cast/cast.jsonl`, `data/fun/laid.jsonl`, `frame_coverage_fun_0000_6394_*.json`, and `data/*_job/`",
+        f"- **Generated**: `{now_local}` by `data/fun/build_cut_map.py` from `data/fun/shots.json`, `data/fun/plan.json`, `data/fun/cast/cast.jsonl`, `data/fun/laid.jsonl`, `frame_coverage_fun_0000_6394_*.json`, and `data/*_job/`",
         f"- **Browser View (Table + Frame-Level Coverage Drill-Down + Hierarchical Data Flow DAG)**: `http://localhost:8765/PROVENANCE.html` (`data/fun/poc/PROVENANCE.html`)",
-        f"- **Latest Full Joined Cut MP4**: `{latest_joined}` (created `{path_mtime_cst(latest_joined)}`)",
+        f"- **Latest Full Joined Cut MP4**: `{latest_joined}` (created `{path_mtime_local(latest_joined)}`)",
         f"- **Subject-Shot Coverage**: **{counts['in_cut']} / {counts['total_subj_shots']}** in cut (**{counts['clean_in_cut']}** clean 100% carried, **{counts['in_cut_rerun']}** in cut with frame gaps or queued re-run, **{counts['pending']}** pending render, `{counts['no_subject']}` shots with no tracked subject)",
         "",
         f"| Frames (`TC`) | Len | Subject | Status & Frame Coverage | Final Rendered MP4 (under `H3_OUTPUT_DIR/`) | MP4 Created ({tz_abbr}) | Data Folders / Input Files & Timestamps ({tz_abbr}) |",
@@ -1559,7 +1559,7 @@ def main() -> None:
     joined_name = latest_joined.name if latest_joined else "none"
     joined_mtime = latest_joined_mtime
     cov_name = cov_json_path.name if cov_json_path else "none"
-    cov_mtime = path_mtime_cst(cov_json_path)
+    cov_mtime = path_mtime_local(cov_json_path)
 
     page_html = f"""<!doctype html>
 <html lang="en">
@@ -2061,7 +2061,7 @@ def main() -> None:
     <a href="/index.html">← Review Queue (TO_REVIEW)</a>
     <a href="/PROVENANCE.html"><strong>Cut, Frame Coverage &amp; Hierarchical Data Flow Provenance</strong></a>
     <a href="/CUT_MAP.html">Cut Map Alias</a>
-    <span style="color:var(--muted); margin-left:auto;">Generated: {html.escape(now_cst)}</span>
+    <span style="color:var(--muted); margin-left:auto;">Generated: {html.escape(now_local)}</span>
   </div>
 
   <h1><code>fun</code> (Frames 0–6394) — Chronological Cut, Frame-Level Gap Audit &amp; Hierarchical Data Flow Lineage</h1>
