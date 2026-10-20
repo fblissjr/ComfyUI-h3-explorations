@@ -19,11 +19,16 @@ Writes:
 """
 from __future__ import annotations
 
+import argparse
 import datetime
+import hashlib
 import html
 import json
 import os
 import re
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -1191,6 +1196,508 @@ def render_frame_drilldown_html(cov: dict, first: int, last: int, subject: str, 
 
 
 
+def file_mtime_ts(p: Path | None) -> float:
+    if p is None:
+        return 0.0
+    try:
+        return p.stat().st_mtime if p.exists() else 0.0
+    except Exception:
+        return 0.0
+
+
+def find_job_folder_any_date(load_name: str | None, built_idx: dict[str, dict]) -> Path | None:
+    if not load_name:
+        return None
+    if load_name in built_idx and built_idx[load_name].get("job_dir"):
+        return built_idx[load_name]["job_dir"]
+    matches = sorted(DATA_DIR.glob(f"*_{load_name}_job"), key=file_mtime_ts)
+    return matches[-1] if matches else None
+
+
+def find_cap_dir_any_date(load_name: str | None, built_idx: dict[str, dict]) -> Path | None:
+    if not load_name:
+        return None
+    if load_name in built_idx:
+        c = find_capture_dir_for_load(load_name, built_idx[load_name].get("built"))
+        if c:
+            return c
+    matches = sorted(
+        (p for p in DATA_DIR.glob(f"*_{load_name}") if p.is_dir() and not p.name.endswith(("_job", "_first"))),
+        key=file_mtime_ts,
+    )
+    return matches[-1] if matches else None
+
+
+def discover_candidate_loads(shots: list[dict]) -> dict[tuple[int, int, str], list[dict]]:
+    """Discover all candidate load JSONs on disk mapped to their enclosing shot (shot_first, shot_last, subject), sorted by (mtime, name)."""
+    out: dict[tuple[int, int, str], list[dict]] = {}
+    seen_names: dict[tuple[int, int, str, str], dict] = {}
+    shot_spans = [(int(sh["first"]), int(sh["last"])) for sh in shots]
+
+    for pat in ("*_fun_phase*_inputs/*.json", "*_job/*.json"):
+        for p in sorted(DATA_DIR.glob(pat)):
+            if p.name.endswith((
+                ".spec.json", ".built.json", ".queued.json", ".chain.json",
+                ".masks.json", ".who_is_who.json", ".plan.json", ".render.json",
+            )) or p.name.startswith(("shot_c_", "items.")):
+                continue
+            try:
+                d = json.loads(p.read_text())
+            except Exception:
+                continue
+            j = d.get("job") or {}
+            loads = d.get("loads") or []
+            if not loads or not isinstance(j, dict) or "first" not in j or "frames" not in j:
+                continue
+            l = loads[0]
+            lname = str(l.get("name") or p.stem)
+            subj = str(l.get("subject") or "")
+            l_first = int(j["first"])
+            l_last = l_first + int(j["frames"]) - 1
+            if not subj:
+                continue
+            # Map sub-shot or full-shot load to its enclosing shot span
+            matched_span = (l_first, l_last)
+            for sf, sl in shot_spans:
+                if l_first >= sf and l_last <= sl:
+                    matched_span = (sf, sl)
+                    break
+            s_first, s_last = matched_span
+            existing = seen_names.get((s_first, s_last, subj, lname))
+            if existing and "_job" in p.parent.name and "_job" not in existing["json_path"].parent.name:
+                continue
+            seen_names[(s_first, s_last, subj, lname)] = {
+                "name": lname,
+                "subject": subj,
+                "first": l_first,
+                "last": l_last,
+                "shot_first": s_first,
+                "shot_last": s_last,
+                "json_path": p,
+                "mtime_ts": file_mtime_ts(p),
+                "data": d,
+            }
+    for (s_first, s_last, subj, _), item in sorted(seen_names.items(), key=lambda x: (x[1]["mtime_ts"], x[0][3])):
+        out.setdefault((s_first, s_last, subj), []).append(item)
+    return out
+
+
+def inspect_load_etl_steps(
+    cand: dict | None,
+    laid_rows_here: list[dict],
+    previews_here: list[dict],
+    first: int,
+    last: int,
+    subject: str,
+    present_subjs: list[str],
+    upstream_parent_states: list[dict],
+    built_idx: dict[str, dict],
+    has_frame_gaps: bool,
+    gap_summary_str: str,
+    latest_joined: Path | None,
+    latest_joined_ts: float,
+) -> dict:
+    """Compute the 8-node Parent -> Child ETL DAG state, measured_on, cannot_see, and next command for (first, last, subject)."""
+    is_multi = len(present_subjs) > 1
+    has_second = "second" in present_subjs
+
+    if subject == "second":
+        etl_stage = "stage_a"
+        stage_label = "Stage A · Pass 1 (second)"
+        pass_badge = "Pass 1 (Base)"
+    elif is_multi and has_second:
+        etl_stage = "stage_c"
+        if len(present_subjs) == 3 and subject == "lead":
+            stage_label = "Stage C · Pass 3 (lead after second+third)"
+            pass_badge = "Pass 3 (after S2+S3)"
+        else:
+            stage_label = f"Stage C · Pass 2 ({subject} after second)"
+            pass_badge = "Pass 2 (after S2)"
+    elif is_multi:
+        etl_stage = "stage_c"
+        stage_label = f"Stage C · Multi-Pass ({subject})"
+        pass_badge = "Multi-Pass"
+    else:
+        etl_stage = "stage_d"
+        stage_label = f"Stage D · Single-Subject ({subject})"
+        pass_badge = "Single-Pass"
+
+    laid_latest = laid_rows_here[-1] if laid_rows_here else None
+    laid_name = laid_latest["load"] if laid_latest else None
+    cand_name = cand["name"] if cand else laid_name
+    cand_json_path = cand["json_path"] if cand else None
+
+    if not cand_json_path and laid_name and laid_name in built_idx:
+        cand_json_path = find_input_json_for_load(laid_name, built_idx[laid_name]["job_dir"], built_idx[laid_name].get("built"))
+
+    job_folder = find_job_folder_any_date(cand_name, built_idx)
+    cap_dir = find_cap_dir_any_date(cand_name, built_idx)
+
+    cand_data = (cand or {}).get("data") or {}
+    if not cand_data and cand_json_path and cand_json_path.is_file():
+        try:
+            cand_data = json.loads(cand_json_path.read_text())
+        except Exception:
+            cand_data = {}
+
+    jblock = cand_data.get("job") or {}
+    lblock = ((cand_data.get("loads") or [{}])[0]) if cand_data.get("loads") else {}
+
+    rq_path = (job_folder / f"{cand_name}.render.queued.json") if (job_folder and cand_name) else None
+    if not (rq_path and rq_path.is_file()) and cand_name and cand_name in built_idx and built_idx[cand_name].get("queued_path"):
+        rq_path = built_idx[cand_name]["queued_path"]
+    this_render_ts = file_mtime_ts(rq_path)
+
+    is_laid_current = bool(laid_latest and laid_name == cand_name)
+    laid_clean_shortcut = bool(is_laid_current and not has_frame_gaps and etl_stage == "stage_d")
+
+    # Node 1: Upstream Source / Pass Dependency (using real parent mtime_ts!)
+    n1_status = "done"
+    n1_detail = "Original source plate (fun_0000_6394_24p_sound_in_step.mov)"
+    max_parent_render_ts = max((p.get("render_ts", 0.0) for p in upstream_parent_states), default=0.0)
+    if etl_stage == "stage_c" and upstream_parent_states:
+        unlaid_parents = [p["active_load"] for p in upstream_parent_states if p.get("overall_state") != "complete_fresh"]
+        if unlaid_parents:
+            n1_status = "blocked"
+            n1_detail = f"Waiting on upstream pass ({', '.join(unlaid_parents)}) to finish & be laid in Post-Pass-1 Cut (Stage B)"
+        else:
+            src_used = str(jblock.get("source") or "")
+            on_joined_cut = ("joined_" in src_used or "from_laid" in src_used)
+            if this_render_ts < max_parent_render_ts or not on_joined_cut or has_frame_gaps:
+                n1_status = "stale"
+                n1_detail = (
+                    f"Upstream pass rendered at {fmt_local_ts(max_parent_render_ts)} "
+                    f"(this row render={fmt_local_ts(this_render_ts)}, source={Path(src_used).name if src_used else 'original'}); "
+                    f"needs Pass-2 preview+render on fresh Post-Pass-1 Cut"
+                )
+            else:
+                n1_status = "done"
+                n1_detail = f"Built on Post-Pass-1 Cut ({Path(src_used).name}) after upstream pass"
+
+    # Node 2: Preview (SAM3 + 3DBody)
+    prev_ref = jblock.get("preview")
+    prev_jdir = find_preview_job_dir(prev_ref)
+    latest_prev = previews_here[-1] if previews_here else None
+    if not prev_jdir and latest_prev and latest_prev.get("job_folder"):
+        prev_jdir = REPO / latest_prev["job_folder"]
+    pq_file = (prev_jdir / "preview.queued.json") if prev_jdir else None
+    prev_ts = file_mtime_ts(pq_file)
+
+    n2_status = "pending"
+    n2_detail = "No preview job yet"
+    if n1_status == "blocked":
+        n2_status = "blocked"
+        n2_detail = "Blocked until upstream pass is laid in Post-Pass-1 Cut"
+    elif n1_status == "stale":
+        n2_status = "stale"
+        n2_detail = "Needs `shot_to_load.py preview --source <post_pass1_cut.mp4> --remake --run`"
+    elif pq_file and pq_file.is_file():
+        n2_status = "done"
+        n2_detail = f"{prev_jdir.name} ({path_mtime_local(pq_file)})"
+    elif latest_prev and latest_prev.get("preview_done"):
+        n2_status = "done"
+        n2_detail = f"{latest_prev['name']} ({latest_prev['preview_done_mtime']})"
+    elif (prev_jdir and (prev_jdir / "preview.built.json").is_file()) or (latest_prev and not latest_prev.get("preview_done")):
+        n2_status = "ready"
+        pname = prev_jdir.name if prev_jdir else latest_prev["name"]
+        n2_detail = f"Pre-built ({pname}); ready to queue on :8188"
+    elif laid_clean_shortcut:
+        n2_status = "done"
+        n2_detail = f"Completed in earlier run ({laid_name})"
+
+    # Node 3: Pose (Sapiens-2 1B points.npz)
+    ref_block = jblock.get("reference") or {}
+    pts_file = Path(ref_block["points"]) if ref_block.get("points") else None
+    pts_ts = file_mtime_ts(pts_file)
+    n3_status = "pending"
+    n3_detail = "Pending pose_along_shot.py"
+    if n2_status in ("blocked", "stale"):
+        n3_status = n2_status
+        n3_detail = "Waiting on fresh preview"
+    elif pts_file and pts_file.exists():
+        n3_status = "done"
+        n3_detail = f"{pts_file.name}"
+    elif job_folder and (job_folder.parent / "chain" / f"{cand_name}.pose_pass.out").is_file():
+        n3_status = "done"
+        n3_detail = f"{cand_name}.pose_pass.out"
+    elif laid_clean_shortcut:
+        n3_status = "done"
+        n3_detail = f"Completed ({laid_name})"
+    elif n2_status == "done":
+        n3_status = "ready"
+        n3_detail = "Ready for `shot_to_load.py reference`"
+
+    # Node 4: Job JSON & Head Reference <Video 1>
+    motion_file = Path(lblock["motion_file"]) if lblock.get("motion_file") else None
+    motion_ts = file_mtime_ts(motion_file)
+    json_ts = file_mtime_ts(cand_json_path)
+    n4_status = "pending"
+    n4_detail = "Pending `shot_to_load.py job -> reference`"
+    if n2_status in ("blocked", "stale"):
+        n4_status = n2_status
+        n4_detail = "Waiting on upstream preview"
+    elif cand_json_path and cand_json_path.is_file() and motion_file and motion_file.exists():
+        if pts_ts > 0 and motion_ts > 0 and motion_ts + 2.0 < pts_ts:
+            n4_status = "stale"
+            n4_detail = f"{motion_file.name} is older than {pts_file.name if pts_file else 'points.npz'}; rerun `shot_to_load.py reference`"
+        else:
+            n4_status = "done"
+            n4_detail = f"{cand_json_path.name} + {motion_file.name} ({path_mtime_local(cand_json_path)})"
+    elif laid_clean_shortcut:
+        n4_status = "done"
+        n4_detail = f"Completed ({laid_name})"
+    elif cand_json_path and cand_json_path.is_file():
+        n4_status = "ready"
+        n4_detail = f"{cand_json_path.name} built; needs `shot_to_load.py reference`"
+    elif n2_status == "done":
+        n4_status = "ready"
+        n4_detail = "Ready for `shot_to_load.py job -> reference`"
+
+    # Node 5: Prompt Text (<load>.txt)
+    txt_path = cand_json_path.with_suffix(".txt") if cand_json_path else None
+    if txt_path and not txt_path.is_file() and job_folder:
+        alt_txt = job_folder / f"{cand_name}.txt"
+        if alt_txt.is_file():
+            txt_path = alt_txt
+    txt_ts = file_mtime_ts(txt_path)
+    n5_status = "pending"
+    n5_detail = "Pending `shot_to_load.py text`"
+    if n2_status in ("blocked", "stale"):
+        n5_status = n2_status
+        n5_detail = "Waiting on upstream preview"
+    elif txt_path and txt_path.is_file():
+        n5_status = "done"
+        n5_detail = f"{txt_path.name} ({path_mtime_local(txt_path)})"
+    elif laid_clean_shortcut:
+        n5_status = "done"
+        n5_detail = f"Completed ({laid_name})"
+    elif n4_status in ("done", "ready") and cand_json_path:
+        n5_status = "ready"
+        n5_detail = "Ready for `shot_to_load.py text`"
+
+    # Node 6: Capture, Window Plan & Gate (first -> plan -> on-plan -> table -> looked)
+    n6_status = "pending"
+    n6_detail = "Pending `load_chain.py first -> plan -> on-plan -> table`"
+    if n2_status in ("blocked", "stale") or n4_status == "stale":
+        n6_status = "stale" if (n2_status == "stale" or n4_status == "stale") else "blocked"
+        n6_detail = "Waiting on fresh upstream preview/reference"
+    elif cap_dir and cap_dir.is_dir():
+        v_ok = False
+        g_ok = False
+        v_path = cap_dir / "verify.json"
+        f_path = cap_dir / "flags.json"
+        ft_path = cap_dir / "frame_table.jsonl"
+        lk_path = cap_dir / "looks.json"
+        if v_path.is_file():
+            try:
+                v_ok = json.loads(v_path.read_text()).get("verdict") == "reads what the nodes wrote"
+            except Exception:
+                v_ok = False
+        if f_path.is_file():
+            try:
+                g_ok = json.loads(f_path.read_text()).get("verdict") == "clear"
+            except Exception:
+                g_ok = False
+        cap_ts = max(file_mtime_ts(v_path), file_mtime_ts(f_path), file_mtime_ts(ft_path))
+        if v_ok and g_ok and ft_path.is_file() and lk_path.is_file():
+            if txt_ts > 0 and cap_ts > 0 and cap_ts + 2.0 < txt_ts:
+                n6_status = "stale"
+                n6_detail = f"{cap_dir.name} gate predates {txt_path.name if txt_path else 'prompt'}; rerun `on-plan -> table -> looked`"
+            else:
+                n6_status = "done"
+                n6_detail = f"{cap_dir.name} (verify=ok, gate=clear, looked)"
+        elif (v_path.is_file() and not v_ok) or (f_path.is_file() and not g_ok):
+            n6_status = "failed"
+            n6_detail = f"{cap_dir.name} (verify_ok={v_ok}, gate_clear={g_ok})"
+        else:
+            n6_status = "ready"
+            n6_detail = f"In progress in {cap_dir.name}"
+    elif laid_clean_shortcut:
+        n6_status = "done"
+        n6_detail = f"Completed ({laid_name})"
+    elif n4_status == "done" and n5_status == "done":
+        n6_status = "ready"
+        n6_detail = "Ready for `load_chain.py first -> plan -> on-plan -> table`"
+
+    # Node 7: H3 DiT Render
+    n7_status = "pending"
+    n7_detail = "Pending `load_chain.py render`"
+    if n2_status in ("blocked", "stale") or n4_status == "stale" or n6_status == "stale":
+        n7_status = "stale" if "stale" in (n2_status, n4_status, n6_status) else "blocked"
+        n7_detail = "Waiting on fresh upstream inputs/plan"
+    elif rq_path and rq_path.is_file():
+        try:
+            rq_d = json.loads(rq_path.read_text())
+        except Exception:
+            rq_d = {}
+        if rq_d.get("status") == "success":
+            if (motion_ts > 0 and this_render_ts + 2.0 < motion_ts) or (txt_ts > 0 and this_render_ts + 2.0 < txt_ts):
+                n7_status = "stale"
+                n7_detail = f"{cand_name} render ({path_mtime_local(rq_path)}) is older than reference/prompt text!"
+            else:
+                n7_status = "done"
+                n7_detail = f"{cand_name} rendered in {rq_d.get('seconds', '—')}s ({path_mtime_local(rq_path)})"
+        else:
+            n7_status = "failed"
+            n7_detail = f"{cand_name} render status={rq_d.get('status')}"
+    elif laid_clean_shortcut:
+        n7_status = "done"
+        n7_detail = f"Rendered ({laid_name})"
+    elif n6_status == "done":
+        n7_status = "ready"
+        n7_detail = f"Ready for `what_h3_got.py` check + `load_chain.py render` ({cand_name})"
+
+    # Node 8: Land, Page & Laid in Cut
+    rpts_path = (cap_dir / f"{cand_name}_render_points.npz") if (cap_dir and cand_name) else None
+    n8_status = "pending"
+    n8_detail = "Not yet landed / laid in cut"
+    if n2_status in ("blocked", "stale") or n7_status == "stale":
+        n8_status = "stale" if "stale" in (n2_status, n7_status) else "blocked"
+        n8_detail = "Waiting on fresh render"
+    elif is_laid_current and not has_frame_gaps and n7_status == "done":
+        n8_status = "done"
+        n8_detail = f"Laid in cut ({laid_name}, 100% carried)"
+    elif rpts_path and rpts_path.is_file() and not is_laid_current and n7_status == "done":
+        n8_status = "ready"
+        n8_detail = f"Landed ({cand_name}); inspect stacked review clip, then lay into `data/fun/laid.jsonl`"
+    elif n7_status == "done" and not (rpts_path and rpts_path.is_file()):
+        n8_status = "ready"
+        n8_detail = f"Rendered ({cand_name}); ready for `load_chain.py land && page`"
+    elif is_laid_current and has_frame_gaps:
+        n8_status = "stale"
+        n8_detail = f"Laid ({laid_name}), but has frame gap: {gap_summary_str}"
+
+    nodes = [
+        {"num": 1, "short": "1. Pass/Source", "status": n1_status, "detail": n1_detail},
+        {"num": 2, "short": "2. Preview", "status": n2_status, "detail": n2_detail},
+        {"num": 3, "short": "3. Pose", "status": n3_status, "detail": n3_detail},
+        {"num": 4, "short": "4. Job+Ref", "status": n4_status, "detail": n4_detail},
+        {"num": 5, "short": "5. Prompt", "status": n5_status, "detail": n5_detail},
+        {"num": 6, "short": "6. Plan+Gate", "status": n6_status, "detail": n6_detail},
+        {"num": 7, "short": "7. H3 Render", "status": n7_status, "detail": n7_detail},
+        {"num": 8, "short": "8. Land+Laid", "status": n8_status, "detail": n8_detail},
+    ]
+
+    # Build explicit measured_on and cannot_see strings (AGENTS.md rule: print what was measured on and what it cannot see)
+    measured_bits = []
+    if cand_json_path:
+        measured_bits.append(f"job={rel_or_str(cand_json_path)} ({path_mtime_local(cand_json_path)})")
+    if pq_file and pq_file.is_file():
+        measured_bits.append(f"preview={rel_or_str(pq_file)} ({path_mtime_local(pq_file)})")
+    elif latest_prev:
+        measured_bits.append(f"preview_input={latest_prev['input_json']} ({latest_prev['input_mtime']})")
+    if motion_file:
+        measured_bits.append(f"head_ref={motion_file.name}")
+    if txt_path and txt_path.is_file():
+        measured_bits.append(f"prompt={rel_or_str(txt_path)} ({path_mtime_local(txt_path)})")
+    if cap_dir and cap_dir.is_dir():
+        measured_bits.append(f"capture={rel_or_str(cap_dir)}")
+    if rq_path and rq_path.is_file():
+        measured_bits.append(f"render_queued={rel_or_str(rq_path)} ({path_mtime_local(rq_path)})")
+    if laid_name:
+        measured_bits.append(f"laid={laid_name}")
+    measured_on_str = " · ".join(measured_bits) if measured_bits else "shots.json + laid.jsonl (no candidate job on disk yet)"
+
+    sheet_hint = str(motion_file).replace(".mp4", "_sheet.jpg") if motion_file else "<head_reference>_sheet.jpg"
+    cannot_see_str = (
+        f"Visual & prompt fidelity cannot be verified by mtime: inspect `{sheet_hint}` (3D head ref & face-not-shown frames), "
+        f"`{rel_or_str(cap_dir) + '/frame_table.md' if cap_dir else 'data/<cap>/frame_table.md'}` + `.1fps.` strip, "
+        f"full prompt via `bench/what_h3_got.py`, and stacked review clip `/media/{cand_name or laid_name or '<load>'}_{first:04d}_{last:04d}_stacked.mp4` before laying in `data/fun/laid.jsonl`."
+    )
+
+    jf_rel = rel_or_str(cand_json_path) if cand_json_path else f"data/2026-10-20_fun_phase3_inputs/{subject}_hfp_{first:04d}a.json"
+    orig_src_mov = str(INPUT_DIR / "mrpop" / "fun_0000_6394_24p_sound_in_step.mov")
+    if etl_stage == "stage_c":
+        rerun_src = str(latest_joined) if (latest_joined and latest_joined_ts >= max_parent_render_ts) else "<RUN_STAGE_B_FIRST_FOR_POST_PASS1_CUT.mp4>"
+    else:
+        rerun_src = orig_src_mov
+
+    if n8_status == "done" and n1_status == "done":
+        overall_state = "complete_fresh"
+        overall_label = "✅ COMPLETE & FRESH IN CUT"
+        reason = f"Laid in cut ({cand_name}), 100% carried frames, all parents fresh."
+        next_cmd = f"# Complete ({cand_name})"
+        runner_cmd = "—"
+    elif n6_status == "failed" or n7_status == "failed":
+        overall_state = "failed_gate"
+        overall_label = "❌ GATE / VERIFY BLOCKED"
+        reason = n6_detail if n6_status == "failed" else n7_detail
+        next_cmd = f"python bench/load_chain.py on-plan {jf_rel} --by mrgem"
+        runner_cmd = f"python bench/build_cut_map.py --next --shot {first} --subject {subject}"
+    elif n1_status == "blocked":
+        overall_state = "blocked_by_parent"
+        overall_label = "🔒 BLOCKED BY PASS-1 PARENT"
+        reason = n1_detail
+        next_cmd = f"# Wait for Stage A (second_{first}) + Stage B (laid.jsonl + rebuild_delivery.py --clip), then run Pass 2"
+        runner_cmd = f"python bench/build_cut_map.py --next --shot {first} --subject {subject}"
+    elif rpts_path and rpts_path.is_file() and not is_laid_current and n7_status == "done":
+        overall_state = "ready_to_lay"
+        overall_label = "📥 LANDED — READY TO LAY IN CUT"
+        reason = f"{cand_name} finished render + land + pose pass; verify stacked review clip & lay into data/fun/laid.jsonl (Stage B)."
+        next_cmd = f"python bench/rebuild_delivery.py --video fun --clip && python bench/build_cut_map.py"
+        runner_cmd = f"python bench/build_cut_map.py --next --stage stage-a"
+    elif n1_status == "stale" or n8_status == "stale" or n4_status == "stale" or n6_status == "stale" or n7_status == "stale":
+        overall_state = "stale_needs_rerun"
+        overall_label = "🔄 NEEDS RERUN (STALE PARENT / GAP)"
+        reason = next((d for st, d in [(n1_status, n1_detail), (n4_status, n4_detail), (n6_status, n6_detail), (n7_status, n7_detail), (n8_status, n8_detail)] if st == "stale"), gap_summary_str)
+        if latest_prev and not latest_prev.get("preview_done") and etl_stage == "stage_d":
+            p_jdir = latest_prev.get("job_folder") or f"data/2026-10-20_{latest_prev['name']}_job"
+            next_cmd = f"python bench/masked_job.py queue {p_jdir} preview --wait"
+        else:
+            next_cmd = (
+                f"python bench/shot_to_load.py preview --source {rerun_src} "
+                f"--first {first} --last {last} --cast data/fun/cast/cast.jsonl --remake --run --by mrgem"
+            )
+        runner_cmd = f"python bench/build_cut_map.py --next --shot {first} --subject {subject}"
+    else:
+        overall_state = "ready_to_run"
+        if n2_status == "ready" and latest_prev:
+            overall_label = f"⚡ READY: STEP 2 PREVIEW ({latest_prev['name']})"
+            reason = f"Preview job {latest_prev['name']} is pre-built; ready to queue on :8188."
+            p_jdir = latest_prev.get("job_folder") or f"data/2026-10-20_{latest_prev['name']}_job"
+            next_cmd = f"python bench/masked_job.py queue {p_jdir} preview --wait"
+        elif n4_status == "ready" or n5_status == "ready":
+            overall_label = f"⚡ READY: STEP 3–5 JOB/REF/TEXT ({cand_name or subject})"
+            reason = f"Preview complete; ready to generate job/head_reference/text for {cand_name or f'{subject}_{first:04d}'}."
+            next_cmd = f"python bench/shot_to_load.py reference {jf_rel} --by mrgem && python bench/shot_to_load.py text {jf_rel} --by mrgem --plan data/fun/plan.json"
+        elif n6_status == "ready":
+            overall_label = f"⚡ READY: STEP 6 PLAN & GATE ({cand_name})"
+            reason = f"Reference & prompt text ready; run first -> plan -> on-plan -> table for {cand_name}."
+            next_cmd = f"python bench/load_chain.py first {jf_rel} --by mrgem && python bench/load_chain.py plan {jf_rel} --by mrgem && python bench/load_chain.py on-plan {jf_rel} --by mrgem"
+        elif n7_status == "ready":
+            overall_label = f"⚡ READY: STEP 7 H3 RENDER ({cand_name})"
+            reason = f"Plan & gate clear and looked; verify prompt via what_h3_got.py, then render + land + page {cand_name}."
+            jfolder_rel = rel_or_str(job_folder) if job_folder else f"data/2026-10-20_{cand_name}_job"
+            next_cmd = f"python bench/what_h3_got.py --job-folder {jfolder_rel} --load {cand_name} --stage plan && python bench/load_chain.py render {jf_rel} --by mrgem && python bench/load_chain.py land {jf_rel} --by mrgem"
+        elif n8_status == "ready":
+            overall_label = f"⚡ READY: STEP 8 LAND & PAGE ({cand_name})"
+            reason = f"Render finished; run land & page for {cand_name}."
+            next_cmd = f"python bench/load_chain.py land {jf_rel} --by mrgem"
+        else:
+            overall_label = f"⚡ READY TO BUILD ({subject} {first}–{last})"
+            reason = gap_summary_str or "Pending build"
+            next_cmd = f"python bench/build_cut_map.py --next --shot {first} --subject {subject}"
+        runner_cmd = f"python bench/build_cut_map.py --next --shot {first} --subject {subject}"
+
+    return {
+        "etl_stage": etl_stage,
+        "stage_label": stage_label,
+        "pass_badge": pass_badge,
+        "active_load": cand_name or laid_name or "—",
+        "laid_load": laid_name or "—",
+        "json_path": jf_rel if cand_json_path else None,
+        "render_ts": this_render_ts,
+        "overall_state": overall_state,
+        "overall_label": overall_label,
+        "reason": reason,
+        "measured_on": measured_on_str,
+        "cannot_see": cannot_see_str,
+        "next_cmd": next_cmd,
+        "runner_cmd": runner_cmd,
+        "nodes": nodes,
+    }
+
+
 def main() -> None:
     tz_abbr = local_tz_abbr()
     now_local = fmt_local_ts(datetime.datetime.now(tz=datetime.timezone.utc).timestamp())
@@ -1212,6 +1719,8 @@ def main() -> None:
     built_idx = load_built_index()
     today_previews = load_today_previews()
     cov_idx, cov_json_path = load_frame_coverage_index()
+    cand_idx = discover_candidate_loads(shots)
+    laid_sha256 = hashlib.sha256((FUN_DIR / "laid.jsonl").read_bytes()).hexdigest() if (FUN_DIR / "laid.jsonl").is_file() else ""
 
     # Latest full joined video (resolved from local delivery table so we never block on SMB)
     delivery_tables = sorted(
@@ -1223,9 +1732,11 @@ def main() -> None:
         ts_tag = dt_latest.stem.replace("t_fun_0000_6394_", "")
         latest_joined = SHARE_DIR / "Video" / "fun" / f"fun_0000_6394_joined_{ts_tag}_from_laid.mp4"
         latest_joined_mtime = path_mtime_local(dt_latest)
+        latest_joined_ts = file_mtime_ts(dt_latest)
     else:
         latest_joined = None
         latest_joined_mtime = "—"
+        latest_joined_ts = 0.0
 
     rows = []
     counts = {
@@ -1424,6 +1935,201 @@ def main() -> None:
                     "cov_data": cov_data,
                 })
 
+    # Compute 8-node Parent -> Child ETL DAG state for every row (Pass 1 second first, then Pass 2/3 & single-pass)
+    present_by_shot: dict[tuple[int, int], list[str]] = {}
+    for r in rows:
+        if r["subject"] != "—":
+            present_by_shot.setdefault((r["first"], r["last"]), []).append(r["subject"])
+
+    second_etl_by_shot: dict[tuple[int, int], dict] = {}
+    third_etl_by_shot: dict[tuple[int, int], dict] = {}
+    for r in rows:
+        if r["subject"] == "second":
+            key3 = (r["first"], r["last"], "second")
+            cands_here = cand_idx.get(key3, [])
+            latest_cand = cands_here[-1] if cands_here else None
+            lrows = laid_by_shot_subj.get(key3, [])
+            previews_here = today_previews.get((r["first"], r["last"]), [])
+            cc = r["cov_data"]["counts"]
+            has_gaps = (cc["unrendered_gap"] > 0 or cc["emptied"] > 0)
+            gap_str = " · ".join(r["cov_data"]["gap_summary_parts"][:2]) if r["cov_data"]["gap_summary_parts"] else ""
+            etl_info = inspect_load_etl_steps(
+                latest_cand, lrows, previews_here, r["first"], r["last"], "second",
+                present_by_shot.get((r["first"], r["last"]), ["second"]),
+                [], built_idx, has_gaps, gap_str, latest_joined, latest_joined_ts,
+            )
+            r["etl"] = etl_info
+            second_etl_by_shot[(r["first"], r["last"])] = etl_info
+
+    for r in rows:
+        if r["subject"] == "third":
+            key3 = (r["first"], r["last"], "third")
+            cands_here = cand_idx.get(key3, [])
+            latest_cand = cands_here[-1] if cands_here else None
+            lrows = laid_by_shot_subj.get(key3, [])
+            previews_here = today_previews.get((r["first"], r["last"]), [])
+            cc = r["cov_data"]["counts"]
+            has_gaps = (cc["unrendered_gap"] > 0 or cc["emptied"] > 0)
+            gap_str = " · ".join(r["cov_data"]["gap_summary_parts"][:2]) if r["cov_data"]["gap_summary_parts"] else ""
+            up_parents = [second_etl_by_shot[(r["first"], r["last"])]] if (r["first"], r["last"]) in second_etl_by_shot else []
+            etl_info = inspect_load_etl_steps(
+                latest_cand, lrows, previews_here, r["first"], r["last"], "third",
+                present_by_shot.get((r["first"], r["last"]), ["third"]),
+                up_parents, built_idx, has_gaps, gap_str, latest_joined, latest_joined_ts,
+            )
+            r["etl"] = etl_info
+            third_etl_by_shot[(r["first"], r["last"])] = etl_info
+
+    for r in rows:
+        if r["subject"] == "—":
+            r["etl"] = {
+                "etl_stage": "no_subject",
+                "stage_label": "Source Pass-Through",
+                "pass_badge": "Source Only",
+                "active_load": "—",
+                "laid_load": "—",
+                "json_path": None,
+                "render_ts": 0.0,
+                "overall_state": "no_subject",
+                "overall_label": "SOURCE PASS-THROUGH",
+                "reason": "No tracked subject in shot; original source video kept unchanged.",
+                "measured_on": "data/fun/shots.json",
+                "cannot_see": "—",
+                "next_cmd": "—",
+                "runner_cmd": "—",
+                "nodes": [
+                    {"num": 1, "short": "1. Source Plate", "status": "done", "detail": "Original source kept"},
+                    {"num": 8, "short": "8. In Cut", "status": "done", "detail": "Passed through to final cut"},
+                ],
+            }
+        elif r["subject"] == "lead":
+            key3 = (r["first"], r["last"], "lead")
+            cands_here = cand_idx.get(key3, [])
+            latest_cand = cands_here[-1] if cands_here else None
+            lrows = laid_by_shot_subj.get(key3, [])
+            previews_here = today_previews.get((r["first"], r["last"]), [])
+            cc = r["cov_data"]["counts"]
+            has_gaps = (cc["unrendered_gap"] > 0 or cc["emptied"] > 0)
+            gap_str = " · ".join(r["cov_data"]["gap_summary_parts"][:2]) if r["cov_data"]["gap_summary_parts"] else ""
+            up_parents = []
+            if (r["first"], r["last"]) in second_etl_by_shot:
+                up_parents.append(second_etl_by_shot[(r["first"], r["last"])])
+            if (r["first"], r["last"]) in third_etl_by_shot and (r["first"], r["last"]) in second_etl_by_shot:
+                up_parents.append(third_etl_by_shot[(r["first"], r["last"])])
+            r["etl"] = inspect_load_etl_steps(
+                latest_cand, lrows, previews_here, r["first"], r["last"], "lead",
+                present_by_shot.get((r["first"], r["last"]), ["lead"]),
+                up_parents, built_idx, has_gaps, gap_str, latest_joined, latest_joined_ts,
+            )
+
+    # Compute ETL summary counts across stages
+    etl_counts = {
+        "complete_fresh": sum(1 for r in rows if r["etl"]["overall_state"] == "complete_fresh"),
+        "ready_to_lay": sum(1 for r in rows if r["etl"]["overall_state"] == "ready_to_lay"),
+        "ready_to_run": sum(1 for r in rows if r["etl"]["overall_state"] == "ready_to_run"),
+        "stale_needs_rerun": sum(1 for r in rows if r["etl"]["overall_state"] == "stale_needs_rerun"),
+        "blocked_by_parent": sum(1 for r in rows if r["etl"]["overall_state"] == "blocked_by_parent"),
+        "failed_gate": sum(1 for r in rows if r["etl"]["overall_state"] == "failed_gate"),
+        "stage_a_total": sum(1 for r in rows if r["etl"]["etl_stage"] == "stage_a"),
+        "stage_a_done": sum(1 for r in rows if r["etl"]["etl_stage"] == "stage_a" and r["etl"]["overall_state"] in ("complete_fresh", "ready_to_lay")),
+        "stage_a_laid": sum(1 for r in rows if r["etl"]["etl_stage"] == "stage_a" and r["etl"]["overall_state"] == "complete_fresh"),
+        "stage_c_total": sum(1 for r in rows if r["etl"]["etl_stage"] == "stage_c"),
+        "stage_c_done": sum(1 for r in rows if r["etl"]["etl_stage"] == "stage_c" and r["etl"]["overall_state"] == "complete_fresh"),
+        "stage_d_total": sum(1 for r in rows if r["etl"]["etl_stage"] == "stage_d"),
+        "stage_d_done": sum(1 for r in rows if r["etl"]["etl_stage"] == "stage_d" and r["etl"]["overall_state"] == "complete_fresh"),
+    }
+
+    # Write DAG_STATUS.json and DAG_STATUS.md
+    dag_status_payload = {
+        "video": "fun",
+        "span": [0, 6394],
+        "last_updated_local": now_local,
+        "last_updated_utc": datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "laid_sha256": laid_sha256,
+        "latest_joined_mp4": str(latest_joined) if latest_joined else None,
+        "latest_joined_mtime": latest_joined_mtime,
+        "summary": etl_counts,
+        "stage_order": [
+            {
+                "stage": "Stage A — Pass 1 (second, 19 shots)",
+                "progress": f"{etl_counts['stage_a_done']} / {etl_counts['stage_a_total']} rendered & landed ({etl_counts['stage_a_laid']} laid in cut)",
+                "command": "python bench/build_cut_map.py --next --stage stage-a",
+            },
+            {
+                "stage": "Stage B — Lay Pass 1 & Rebuild 24.0 fps Post-Pass-1 Cut",
+                "progress": "Ready once all 19 Stage A loads are landed" if etl_counts["stage_a_done"] < etl_counts["stage_a_total"] else "READY TO RUN NOW",
+                "command": "python bench/rebuild_delivery.py --video fun --clip && python bench/build_cut_map.py",
+            },
+            {
+                "stage": "Stage C — Multi-Pass Pass 2/3 (lead & third on multi-subject shots)",
+                "progress": f"{etl_counts['stage_c_done']} / {etl_counts['stage_c_total']} complete in cut",
+                "command": "python bench/build_cut_map.py --next --stage stage-c",
+            },
+            {
+                "stage": "Stage D — Single-Subject lead & third Shots (0000–6394)",
+                "progress": f"{etl_counts['stage_d_done']} / {etl_counts['stage_d_total']} complete in cut",
+                "command": "python bench/build_cut_map.py --next --stage stage-d",
+            },
+        ],
+        "rows": [
+            {
+                "row_id": r["row_id"],
+                "first": r["first"],
+                "last": r["last"],
+                "frames": r["n_frames"],
+                "tc": r["tc"],
+                "subject": r["subject"],
+                **r["etl"],
+            }
+            for r in rows
+            if r["subject"] != "—"
+        ],
+    }
+    (FUN_DIR / "DAG_STATUS.json").write_text(json.dumps(dag_status_payload, indent=2) + "\n")
+
+    dag_md = [
+        "# `fun` (0000–6394) — Parent -> Child ETL Build Queue & Execution DAG Status",
+        "",
+        f"- **Last Updated**: `{now_local}` (`{dag_status_payload['last_updated_utc']}`)",
+        f"- **Browser Interactive View (Tab 3 of Provenance)**: `http://localhost:8765/PROVENANCE.html#etl` (`data/fun/poc/PROVENANCE.html`)",
+        f"- **Machine-Readable Record**: `data/fun/DAG_STATUS.json`",
+        f"- **Refresh Status & HTML Pages**: `python bench/build_cut_map.py`",
+        f"- **Show Next Runnable Queue**: `python bench/build_cut_map.py --next`",
+        f"- **Query by Stage / Shot / Subject**: `python bench/build_cut_map.py --next [--stage stage-a|stage-b|stage-c|stage-d] [--shot <FIRST>] [--subject <SUBJ>]`",
+        "",
+        "## 1. Macro-Stage Topological Order & Live Progress",
+        "",
+        "| Stage | Description | Progress | CLI Runner Command |",
+        "|---|---|---|---|",
+        f"| **Stage A** | **Pass 1 (`second`, 19 shots)** on original source (`fun_0000_6394_24p_sound_in_step.mov`) | **{etl_counts['stage_a_done']} / {etl_counts['stage_a_total']}** landed (**{etl_counts['stage_a_laid']}** laid in cut) | `python bench/build_cut_map.py --run --stage stage-a` |",
+        f"| **Stage B** | **Lay Pass 1 & Assemble 24.0 fps Post-Pass-1 Cut** (`laid.jsonl` + `rebuild_delivery.py --clip`) | Latest cut: `{latest_joined.name if latest_joined else 'none'}` (`{latest_joined_mtime}`) | `python bench/build_cut_map.py --run --stage stage-b` |",
+        f"| **Stage C** | **Multi-Pass Pass 2 & Pass 3 (`lead` & `third`)** on the Post-Pass-1 Cut | **{etl_counts['stage_c_done']} / {etl_counts['stage_c_total']}** complete & fresh | `python bench/build_cut_map.py --run --stage stage-c` |",
+        f"| **Stage D** | **Single-Subject `lead` & `third` Shots** (`0000–6394`) on original source | **{etl_counts['stage_d_done']} / {etl_counts['stage_d_total']}** complete & fresh | `python bench/build_cut_map.py --run --stage stage-d` |",
+        "",
+        "## 2. Summary Counts Across All 121 Subject-Shots",
+        "",
+        f"- ✅ **Complete & Fresh in Cut**: `{etl_counts['complete_fresh']}`",
+        f"- 📥 **Landed — Ready to Lay in Cut (`laid.jsonl`)**: `{etl_counts['ready_to_lay']}`",
+        f"- ⚡ **Ready to Run Now**: `{etl_counts['ready_to_run']}`",
+        f"- 🔄 **Needs Rerun (Stale Parent / Frame Gap)**: `{etl_counts['stale_needs_rerun']}`",
+        f"- 🔒 **Blocked by Upstream Pass-1 Parent**: `{etl_counts['blocked_by_parent']}`",
+        f"- ❌ **Gate / Verify Blocked**: `{etl_counts['failed_gate']}`",
+        "",
+        "## 3. Active Work Queue (All Non-Complete Subject-Shots in Execution Order)",
+        "",
+        "| Stage & Pass | Shot (`TC`) | Subject | Active Load | Overall ETL State | Why / Dependency Reason | Next Step Command |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    stage_rank = {"stage_a": 1, "stage_c": 2, "stage_d": 3, "no_subject": 9}
+    actionable_rows = [r for r in rows if r["subject"] != "—" and r["etl"]["overall_state"] != "complete_fresh"]
+    actionable_rows.sort(key=lambda r: (stage_rank.get(r["etl"]["etl_stage"], 9), r["first"], r["subject"]))
+    for r in actionable_rows:
+        e = r["etl"]
+        dag_md.append(
+            f"| `{e['stage_label']}` | `{r['first']}–{r['last']}` ({r['tc']}, {r['n_frames']}f) | `{r['subject']}` | `{e['active_load']}` | **{e['overall_label']}** | {e['reason']} | `{e['next_cmd']}` |"
+        )
+    (FUN_DIR / "DAG_STATUS.md").write_text("\n".join(dag_md) + "\n")
+
     # Write Markdown (data/fun/CUT_MAP.md)
     md_lines = [
         "# `fun` End-to-End Cut & Lineage Map (`0000–6394`)",
@@ -1554,6 +2260,77 @@ def main() -> None:
             f"  <div style='margin-top:16px; margin-bottom:8px; font-weight:600; font-size:14px; color:#93c5fd;'>6-Stage Hierarchical Data Flow Lineage (Source → Cast/Plan → Preview → Job/Text → Capture/Render → Cut)</div>"
             f"  {dag_html}"
             f"</div>"
+        )
+
+    # Build Tab 3 HTML rows (ETL Build Queue & Parent -> Child Execution DAG)
+    etl_html_rows = []
+    for r in rows:
+        if r["subject"] == "—":
+            continue
+        row_id = r["row_id"]
+        e = r["etl"]
+        ost = e["overall_state"]
+        ost_badge_cls = {
+            "complete_fresh": "badge-green",
+            "ready_to_lay": "badge-blue",
+            "ready_to_run": "badge-blue",
+            "stale_needs_rerun": "badge-amber",
+            "blocked_by_parent": "badge-gray",
+            "failed_gate": "badge-red",
+        }.get(ost, "badge-gray")
+
+        pill_html = []
+        for nd in e["nodes"]:
+            nd_cls = {
+                "done": "etl-pill-done",
+                "ready": "etl-pill-ready",
+                "stale": "etl-pill-stale",
+                "blocked": "etl-pill-blocked",
+                "failed": "etl-pill-failed",
+                "pending": "etl-pill-pending",
+            }.get(nd["status"], "etl-pill-pending")
+            nd_icon = {
+                "done": "✓",
+                "ready": "▶",
+                "stale": "↻",
+                "blocked": "🔒",
+                "failed": "✕",
+                "pending": "○",
+            }.get(nd["status"], "○")
+            pill_html.append(
+                f"<div class='etl-pill {nd_cls}' title='{html.escape(nd['short'] + ': ' + nd['detail'])}'>"
+                f"<span class='etl-pill-ic'>{nd_icon}</span><span>{html.escape(nd['short'])}</span>"
+                f"</div>"
+            )
+
+        cmd_html = f"<code class='etl-cmd-box'>{html.escape(e['next_cmd'])}</code>"
+        if e["runner_cmd"] != "—":
+            cmd_html += (
+                f"<div style='margin-top:5px; display:flex; gap:6px; align-items:center; flex-wrap:wrap;'>"
+                f"<span class='sub'>Runner: <code>{html.escape(e['runner_cmd'])}</code></span>"
+                f"<button class='btn-sm' onclick=\"navigator.clipboard.writeText({html.escape(json.dumps(e['next_cmd']))}); this.textContent='✓ Copied!'\">📋 Copy Cmd</button>"
+                f"<button class='btn-sm btn-sm-accent' onclick=\"openInExplorer('{row_id}')\">☍ Open Lineage</button>"
+                f"</div>"
+            )
+        else:
+            cmd_html += (
+                f"<div style='margin-top:5px;'>"
+                f"<button class='btn-sm btn-sm-accent' onclick=\"openInExplorer('{row_id}')\">☍ Open Lineage</button>"
+                f"</div>"
+            )
+
+        etl_html_rows.append(
+            f"<tr class='etl-row' data-row-id='{row_id}' data-etl-state='{ost}' data-etl-stage='{e['etl_stage']}' data-subject='{r['subject']}'>"
+            f"<td class='mono'><strong>{r['first']}–{r['last']}</strong><div class='sub'>{r['tc']} ({r['n_frames']}f)</div></td>"
+            f"<td><span class='subj subj-{r['subject']}'>{html.escape(r['subject'])}</span><div class='sub' style='margin-top:4px;'><code>{html.escape(e['pass_badge'])}</code></div></td>"
+            f"<td class='mono'><code>{html.escape(e['active_load'])}</code><div class='sub'>Laid: <code>{html.escape(e['laid_load'])}</code></div></td>"
+            f"<td><span class='badge {ost_badge_cls}'>{html.escape(e['overall_label'])}</span>"
+            f"<div class='sub' style='margin-top:4px;'>{html.escape(e['reason'])}</div>"
+            f"<div class='sub' style='margin-top:3px; color:#93c5fd;'><strong>Measured on:</strong> <code>{html.escape(e['measured_on'])}</code></div></td>"
+            f"<td><div class='etl-strip'>{''.join(pill_html)}</div>"
+            f"<div class='sub' style='margin-top:5px;'><strong>Verify in data (`cannot_see`):</strong> {html.escape(e['cannot_see'])}</div></td>"
+            f"<td>{cmd_html}</td>"
+            f"</tr>"
         )
 
     joined_name = latest_joined.name if latest_joined else "none"
@@ -2054,19 +2831,72 @@ def main() -> None:
     background: #171b24;
     font-size: 11px;
   }}
+  /* Tab 3: ETL Build Queue & Parent -> Child Execution DAG */
+  .etl-stage-grid {{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+  }}
+  .etl-stage-card {{
+    background: #151923;
+    border: 1px solid #2b3346;
+    border-radius: 8px;
+    padding: 12px 14px;
+  }}
+  .etl-stage-card h3 {{
+    margin: 0 0 6px 0;
+    font-size: 13.5px;
+    color: #93c5fd;
+  }}
+  .etl-strip {{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+  }}
+  .etl-pill {{
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 7px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    border: 1px solid transparent;
+    cursor: help;
+    white-space: nowrap;
+  }}
+  .etl-pill-ic {{ font-weight: 700; }}
+  .etl-pill-done {{ background: rgba(16, 185, 129, 0.14); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.35); }}
+  .etl-pill-ready {{ background: rgba(59, 130, 246, 0.22); color: #93c5fd; border-color: rgba(59, 130, 246, 0.55); font-weight: 600; }}
+  .etl-pill-stale {{ background: rgba(245, 158, 11, 0.18); color: #fcd34d; border-color: rgba(245, 158, 11, 0.45); }}
+  .etl-pill-blocked {{ background: rgba(148, 163, 184, 0.12); color: #94a3b8; border-color: rgba(148, 163, 184, 0.3); }}
+  .etl-pill-failed {{ background: rgba(239, 68, 68, 0.2); color: #fca5a5; border-color: rgba(239, 68, 68, 0.5); font-weight: 600; }}
+  .etl-pill-pending {{ background: #12151e; color: #64748b; border-color: #222734; }}
+  .etl-cmd-box {{
+    display: block;
+    background: #0b0d12;
+    border: 1px solid #262b36;
+    padding: 5px 8px;
+    border-radius: 5px;
+    font-size: 11.5px;
+    color: #e2e8f0;
+    word-break: break-all;
+  }}
 </style>
 </head>
-<body>
+<body data-laid-sha256="{laid_sha256}">
   <div class="top-nav">
     <a href="/index.html">← Review Queue (TO_REVIEW)</a>
     <a href="/PROVENANCE.html"><strong>Cut, Frame Coverage &amp; Hierarchical Data Flow Provenance</strong></a>
     <a href="/CUT_MAP.html">Cut Map Alias</a>
-    <span style="color:var(--muted); margin-left:auto;">Generated: {html.escape(now_local)}</span>
+    <span style="color:var(--muted); margin-left:auto;">Last Updated: <strong>{html.escape(now_local)}</strong> · <code>data/fun/DAG_STATUS.md</code></span>
   </div>
 
-  <h1><code>fun</code> (Frames 0–6394) — Chronological Cut, Frame-Level Gap Audit &amp; Hierarchical Data Flow Lineage</h1>
+  <h1><code>fun</code> (Frames 0–6394) — Chronological Cut, Frame-Level Gap Audit &amp; Parent → Child Execution DAG</h1>
   <div style="color:var(--muted); font-size:13px;">
-    Live provenance &amp; frame-level gap audit generated directly from <code>data/fun/shots.json</code>, <code>data/fun/plan.json</code>, <code>data/fun/cast/cast.jsonl</code>, <code>data/fun/laid.jsonl</code>, <code>{html.escape(cov_name)}</code>, and <code>data/*_job/</code>. All timestamps in {html.escape(tz_abbr)}.
+    Live provenance, frame-level gap audit, and topological ETL build queue generated directly from <code>data/fun/shots.json</code>, <code>data/fun/plan.json</code>, <code>data/fun/cast/cast.jsonl</code>, <code>data/fun/laid.jsonl</code>, <code>{html.escape(cov_name)}</code>, and <code>data/*_job/</code>. All timestamps in {html.escape(tz_abbr)}.
   </div>
 
   <div class="summary-cards">
@@ -2076,23 +2906,29 @@ def main() -> None:
       <div class="sub"><span style="color:#34d399">{counts['clean_in_cut']} clean 100%</span> · <span style="color:#fcd34d">{counts['in_cut_rerun']} with frame gap / queued re-run</span> · <span style="color:#fca5a5">{counts['pending']} pending</span></div>
     </div>
     <div class="card">
+      <div class="k">ETL Build Queue (Parent → Child DAG)</div>
+      <div class="v"><span style="color:#60a5fa">{etl_counts['ready_to_run'] + etl_counts['ready_to_lay']} Ready</span> · <span style="color:#fcd34d">{etl_counts['stale_needs_rerun']} Rerun</span> · <span style="color:#94a3b8">{etl_counts['blocked_by_parent']} Blocked</span></div>
+      <div class="sub">Stage A (S2): {etl_counts['stage_a_done']}/{etl_counts['stage_a_total']} · Stage C (Multi): {etl_counts['stage_c_done']}/{etl_counts['stage_c_total']} · Stage D (Single): {etl_counts['stage_d_done']}/{etl_counts['stage_d_total']}</div>
+    </div>
+    <div class="card">
       <div class="k">Latest Full Joined Cut MP4</div>
       <div class="v" style="font-size:13px; word-break:break-all;"><code>{html.escape(joined_name)}</code></div>
       <div class="sub">Created: {html.escape(joined_mtime)}</div>
     </div>
     <div class="card">
-      <div class="k">Frame Coverage &amp; Runbook</div>
-      <div class="v" style="font-size:13px;"><code>{html.escape(cov_name)}</code></div>
-      <div class="sub">Created: {html.escape(cov_mtime)} · Plus <code>data/fun/CUT_MAP.md</code></div>
+      <div class="k">Agent &amp; CLI DAG Runbook</div>
+      <div class="v" style="font-size:13px;"><code>data/fun/DAG_STATUS.md</code></div>
+      <div class="sub">Run: <code>python bench/build_cut_map.py --next</code> or <code>--run</code></div>
     </div>
   </div>
 
   <div class="view-tabs">
     <button class="view-tab active" id="tabBtnTable" onclick="switchMainTab('table')">1. Chronological Cut Table (0–6394) + Frame-Level Coverage &amp; Lineage Drawers</button>
     <button class="view-tab" id="tabBtnExplorer" onclick="switchMainTab('explorer')">2. Hierarchical Data Flow &amp; Frame Coverage Explorer (Master-Detail DAG)</button>
+    <button class="view-tab" id="tabBtnEtl" onclick="switchMainTab('etl')">3. ETL Build Queue &amp; Parent → Child Execution DAG ({etl_counts['total_subj_shots'] if 'total_subj_shots' in etl_counts else counts['total_subj_shots']} Subject-Shots)</button>
   </div>
 
-  <div class="controls">
+  <div class="controls" id="mainControls">
     <button class="btn active" onclick="filterRows('all', this)">All Rows ({len(rows)})</button>
     <button class="btn" onclick="filterRows('in_cut_clean', this)">Clean In Cut 100% ({counts['clean_in_cut']})</button>
     <button class="btn" onclick="filterRows('in_cut_rerun', this)">In Cut w/ Gap or Queued Re-run ({counts['in_cut_rerun']})</button>
@@ -2100,7 +2936,7 @@ def main() -> None:
     <button class="btn" onclick="filterRows('todo', this)">All Needs Work: Gap / Re-run / Pending ({counts['in_cut_rerun'] + counts['pending']})</button>
     <button class="btn" onclick="filterRows('in_cut_today', this)">Rendered Today ({counts['today_updated']})</button>
     <button class="btn" onclick="filterRows('second', this)">Subject 2 Only</button>
-    <input type="text" class="search" id="searchBox" placeholder="Filter by frame, load name, or file..." oninput="applySearch()">
+    <input type="text" class="search" id="searchBox" placeholder="Filter by frame, load name, status, or file..." oninput="applySearch()">
   </div>
 
   <!-- TAB 1: CHRONOLOGICAL TABLE WITH EXPANDABLE LINEAGE DRAWERS -->
@@ -2134,15 +2970,104 @@ def main() -> None:
     </div>
   </div>
 
+  <!-- TAB 3: ETL BUILD QUEUE & PARENT -> CHILD EXECUTION DAG -->
+  <div id="viewEtl" style="display:none;">
+    <div class="etl-stage-grid">
+      <div class="etl-stage-card">
+        <h3>Stage A · Pass 1 (<code>second</code>, 19 Shots)</h3>
+        <div style="font-size:16px; font-weight:700; margin-bottom:4px;">{etl_counts['stage_a_done']} / {etl_counts['stage_a_total']} Landed ({etl_counts['stage_a_laid']} Laid)</div>
+        <div class="sub">Whole-region <code>face_and_neck + hair</code> on original source plate. Must finish before Stage B &amp; C.</div>
+        <div style="margin-top:6px;"><code>python bench/build_cut_map.py --run --stage stage-a</code></div>
+      </div>
+      <div class="etl-stage-card">
+        <h3>Stage B · Lay Pass 1 &amp; Build 24p Post-Pass-1 Cut</h3>
+        <div style="font-size:16px; font-weight:700; margin-bottom:4px;">{"Ready to Run Now" if etl_counts['stage_a_done'] == etl_counts['stage_a_total'] else f"Waiting on {etl_counts['stage_a_total'] - etl_counts['stage_a_done']} Stage-A Load(s)"}</div>
+        <div class="sub">Updates <code>data/fun/laid.jsonl</code> &amp; runs <code>rebuild_delivery.py --clip</code> to create the 24.0 fps source plate for Pass 2.</div>
+        <div style="margin-top:6px;"><code>python bench/build_cut_map.py --run --stage stage-b</code></div>
+      </div>
+      <div class="etl-stage-card">
+        <h3>Stage C · Multi-Pass Pass 2/3 (<code>lead</code> &amp; <code>third</code>)</h3>
+        <div style="font-size:16px; font-weight:700; margin-bottom:4px;">{etl_counts['stage_c_done']} / {etl_counts['stage_c_total']} Complete in Cut</div>
+        <div class="sub">Runs <code>preview --remake</code> → <code>job</code> → <code>reference</code> → <code>text</code> → <code>render</code> on the Post-Pass-1 Cut MP4.</div>
+        <div style="margin-top:6px;"><code>python bench/build_cut_map.py --run --stage stage-c</code></div>
+      </div>
+      <div class="etl-stage-card">
+        <h3>Stage D · Single-Subject <code>lead</code> &amp; <code>third</code> Shots</h3>
+        <div style="font-size:16px; font-weight:700; margin-bottom:4px;">{etl_counts['stage_d_done']} / {etl_counts['stage_d_total']} Complete in Cut</div>
+        <div class="sub">Independent single-subject shots on original source plate (<code>data/2026-10-20_fun_phase3_inputs/</code>).</div>
+        <div style="margin-top:6px;"><code>python bench/build_cut_map.py --run --stage stage-d</code></div>
+      </div>
+    </div>
+
+    <div class="controls" id="etlControls">
+      <button class="btn active" onclick="filterEtlRows('all', this)">All Subject-Shots ({counts['total_subj_shots']})</button>
+      <button class="btn" onclick="filterEtlRows('actionable', this)">All Remaining / Needs Action ({counts['total_subj_shots'] - etl_counts['complete_fresh']})</button>
+      <button class="btn" onclick="filterEtlRows('ready_to_run', this)">⚡ Ready to Run Now ({etl_counts['ready_to_run']})</button>
+      <button class="btn" onclick="filterEtlRows('ready_to_lay', this)">📥 Landed — Ready to Lay ({etl_counts['ready_to_lay']})</button>
+      <button class="btn" onclick="filterEtlRows('stale_needs_rerun', this)">🔄 Needs Rerun / Stale / Gap ({etl_counts['stale_needs_rerun']})</button>
+      <button class="btn" onclick="filterEtlRows('blocked_by_parent', this)">🔒 Blocked by Pass 1 ({etl_counts['blocked_by_parent']})</button>
+      <button class="btn" onclick="filterEtlRows('failed_gate', this)">❌ Gate Blocked ({etl_counts['failed_gate']})</button>
+      <button class="btn" onclick="filterEtlRows('complete_fresh', this)">✅ Complete &amp; Fresh ({etl_counts['complete_fresh']})</button>
+      <button class="btn" onclick="filterEtlRows('stage_a', this)">Stage A (Pass 1 S2)</button>
+      <button class="btn" onclick="filterEtlRows('stage_c', this)">Stage C (Multi-Pass)</button>
+      <button class="btn" onclick="filterEtlRows('stage_d', this)">Stage D (Single-Subj)</button>
+    </div>
+
+    <table id="etlTable">
+      <thead>
+        <tr>
+          <th style="width:115px;">Shot &amp; TC</th>
+          <th style="width:110px;">Subject &amp; Pass</th>
+          <th style="width:165px;">Active Load &amp; Cut Load</th>
+          <th style="width:260px;">Overall ETL State &amp; Parent/Gap Reason</th>
+          <th>8-Stage ETL Pipeline Status (Hover any pill for file, timestamp &amp; parent details)</th>
+          <th style="width:360px;">What Needs to Run Next (CLI Command)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {''.join(etl_html_rows)}
+      </tbody>
+    </table>
+  </div>
+
 <script>
 let currentMode = 'all';
+let currentEtlMode = 'all';
 
 function switchMainTab(which) {{
-  const isTable = (which === 'table');
-  document.getElementById('viewTable').style.display = isTable ? 'block' : 'none';
-  document.getElementById('viewExplorer').style.display = isTable ? 'none' : 'block';
-  document.getElementById('tabBtnTable').classList.toggle('active', isTable);
-  document.getElementById('tabBtnExplorer').classList.toggle('active', !isTable);
+  document.getElementById('viewTable').style.display = (which === 'table') ? 'block' : 'none';
+  document.getElementById('viewExplorer').style.display = (which === 'explorer') ? 'block' : 'none';
+  document.getElementById('viewEtl').style.display = (which === 'etl') ? 'block' : 'none';
+  document.getElementById('mainControls').style.display = (which === 'etl') ? 'none' : 'flex';
+  document.getElementById('tabBtnTable').classList.toggle('active', which === 'table');
+  document.getElementById('tabBtnExplorer').classList.toggle('active', which === 'explorer');
+  document.getElementById('tabBtnEtl').classList.toggle('active', which === 'etl');
+  if (which === 'etl') {{
+    window.location.hash = 'etl';
+  }}
+}}
+
+function filterEtlRows(mode, btn) {{
+  currentEtlMode = mode;
+  document.querySelectorAll('#etlControls .btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  applyEtlSearch();
+}}
+
+function applyEtlSearch() {{
+  const q = (document.getElementById('searchBox').value || '').toLowerCase();
+  document.querySelectorAll('#etlTable tbody tr.etl-row').forEach(tr => {{
+    const ost = tr.getAttribute('data-etl-state');
+    const stg = tr.getAttribute('data-etl-stage');
+    let show = true;
+    if (currentEtlMode === 'actionable') show = (ost !== 'complete_fresh');
+    else if (currentEtlMode === 'stage_a' || currentEtlMode === 'stage_c' || currentEtlMode === 'stage_d') show = (stg === currentEtlMode);
+    else if (currentEtlMode !== 'all') show = (ost === currentEtlMode);
+    if (show && q) {{
+      show = tr.innerText.toLowerCase().includes(q);
+    }}
+    tr.style.display = show ? '' : 'none';
+  }});
 }}
 
 function toggleDrawer(rowId, btn) {{
@@ -2175,7 +3100,7 @@ function openInExplorer(rowId) {{
 
 function filterRows(mode, btn) {{
   currentMode = mode;
-  document.querySelectorAll('.controls .btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#mainControls .btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   applySearch();
 }}
@@ -2217,6 +3142,11 @@ function applySearch() {{
     const show = rowMatchesFilter(st, subj, searchTxt, q);
     sb.style.display = show ? '' : 'none';
   }});
+  applyEtlSearch();
+}}
+
+if (window.location.hash === '#etl') {{
+  switchMainTab('etl');
 }}
 </script>
 </body>
@@ -2224,7 +3154,47 @@ function applySearch() {{
 """
     (FUN_DIR / "poc" / "CUT_MAP.html").write_text(page_html)
     (FUN_DIR / "poc" / "PROVENANCE.html").write_text(page_html)
-    print(f"Wrote {FUN_DIR / 'CUT_MAP.md'}, {FUN_DIR / 'poc' / 'PROVENANCE.html'}, and {FUN_DIR / 'poc' / 'CUT_MAP.html'} ({len(rows)} rows)")
+    share_fun = SHARE_DIR / "Video" / "fun"
+    if share_fun.is_dir():
+        try:
+            (share_fun / "PROVENANCE.html").write_text(page_html)
+            (share_fun / "CUT_MAP.html").write_text(page_html)
+        except Exception:
+            pass
+    print(
+        f"Wrote {FUN_DIR / 'DAG_STATUS.md'}, {FUN_DIR / 'DAG_STATUS.json'}, {FUN_DIR / 'CUT_MAP.md'}, "
+        f"{FUN_DIR / 'poc' / 'PROVENANCE.html'}, and {FUN_DIR / 'poc' / 'CUT_MAP.html'} ({len(rows)} rows)"
+    )
+
+    ap = argparse.ArgumentParser(description="Build PROVENANCE.html + DAG_STATUS.md (read-only execution & artifact ledger) and inspect actionable DAG items.")
+    ap.add_argument("--video", default="fun", help="Video project name (default: fun)")
+    ap.add_argument("--next", action="store_true", help="Print the ordered ETL work queue with exact disk paths, timestamps, and cannot_see verification notes")
+    ap.add_argument("--stage", choices=["stage-a", "stage-b", "stage-c", "stage-d"], help="Filter by macro stage")
+    ap.add_argument("--shot", type=int, help="Filter by shot first frame (e.g. 1093)")
+    ap.add_argument("--subject", choices=["lead", "second", "third"], help="Filter by subject")
+    ap.add_argument("--load", help="Filter by load name")
+    args, _ = ap.parse_known_args()
+
+    if args.next or args.stage or args.shot is not None or args.subject or args.load:
+        target_rows = list(actionable_rows) if not (args.shot is not None or args.load) else [r for r in rows if r["subject"] != "—"]
+        if args.stage:
+            st_key = args.stage.replace("-", "_")
+            target_rows = [r for r in target_rows if r["etl"]["etl_stage"] == st_key]
+        if args.shot is not None:
+            target_rows = [r for r in target_rows if r["first"] == args.shot]
+        if args.subject:
+            target_rows = [r for r in target_rows if r["subject"] == args.subject]
+        if args.load:
+            target_rows = [r for r in target_rows if r["etl"]["active_load"] == args.load]
+
+        print(f"\n=== ETL EXECUTION & ARTIFACT LEDGER ({len(target_rows)} matching rows, updated {now_local}) ===")
+        for i, r in enumerate(target_rows, 1):
+            e = r["etl"]
+            print(f"[{i:02d}] {e['stage_label']} | Shot {r['first']}–{r['last']} ({r['subject']}) | Load: {e['active_load']} | {e['overall_label']}")
+            print(f"     State:       {e['reason']}")
+            print(f"     Measured on: {e['measured_on']}")
+            print(f"     Cannot see:  {e['cannot_see']}")
+            print(f"     Next Cmd:    {e['next_cmd']}")
 
 
 if __name__ == "__main__":
