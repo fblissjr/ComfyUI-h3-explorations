@@ -25,6 +25,24 @@ This protocol is the step-by-step operational manual for building, auditing, ren
 4. **Code stamps and clean node code**:
    - Derived `.json` and `.npz` files carry `writer_stamp` (`bench/_lib/code_stamp.py::writer_stamp`, `bench/_lib/code_stamp.py::npz_writer_fields`) and check upstream mtimes via `bench/_lib/code_stamp.py::check_upstream_mtime` (`bench/_lib/code_stamp.py::MTIME_TOLERANCE_S` = `1.0` s).
    - `bench/load_chain.py render` refuses to queue if any node-pack module has uncommitted edits in the shared tree.
+5. **When to Restart ComfyUI (`:8188`) and Parent -> Child Data Regeneration Rules**:
+   - **Why ComfyUI must be restarted after any node-side Python edit**: ComfyUI loads custom node modules (`nodes.py`, `subject_track.py`, `sapiens2_parts.py`, `body_pose.py`, `video_mask.py`, `loop_plan.py`, `sol_attention.py`, `workflows/h3_config.py`) into memory once at server startup. Editing a file on disk does **not** reload it in a running server process, and restarting ComfyUI clears `/queue` and `/history`. Always wait for `/queue` to be empty, land `load` steps first (since `load_chain.py land` reads `/history/<prompt_id>`), and restart by the recipe in [`docs/comfy_notes.md`](../comfy_notes.md) (`kill $PID` on the `:8188` port owner, then `setsid nohup ./start.sh`).
+   - **Parent -> Child Invalidation Table (never reuse a child artifact when its parent code or data changes)**:
+     - **Parent Stage 0 — Source Video (`--source`) or Perception Node Code (`subject_track.py`, `sapiens2_parts.py`, `body_pose.py`)**:
+       - *Triggers*: Pass 1 was laid on a multi-subject shot (so Pass 2 needs the post-Pass-1 cut MP4 as `--source`), or SAM 3.1 / Sapiens2 / SAM 3D Body node code changed (after restarting ComfyUI).
+       - *Regenerate*: **`preview -> job -> reference -> text -> first -> plan -> on-plan -> table -> render -> land -> page`**.
+     - **Parent Stage 1 — Job / Keep-Out / Head-Tube Code (`shot_to_load.py`, `strangers.py`, `head_tube_parts.py`)**:
+       - *Triggers*: Changes to keep-outs (`strangers`), `part_saved_on_track`, `head_tube_for_capture`, or CLI span flags (`--no-face-on`, `--no-mouth-on`, `--mouth-on`, `--hold-part`, `--drop`).
+       - *Regenerate*: **`job --remake -> reference -> text -> first -> plan -> on-plan -> table -> render -> land -> page`** ( note: `preview` `.mkv` and `_mesh.mp4` files from the same `--source` remain valid).
+     - **Parent Stage 2 — Reference / Pose / Face-Drawing Code (`pose_along_shot.py`, `crop_reference_to_head.py`, `head_reference.py`, `draw_face_points.py`)**:
+       - *Triggers*: Any change to how `_points.npz`, `_plain_cut.mp4`, or `<Video 1>` (`<subject>_head_reference_<first>_<last>.mp4`) is cropped or drawn (`b270be7e`, `a0dddf18`).
+       - *Regenerate*: **`job --remake -> reference -> text -> first -> plan -> on-plan -> table -> render -> land -> page`** (`reference` writes into a brand-new `<subject>_<first>_<last>_<letter>` directory; `first` and `on-plan` read the new `_points.npz` for `off_head` and `--chin-points`, and `plan`/`render` load the new `<Video 1>`).
+     - **Parent Stage 3 — Prompt Generator (`load_text.py`) or `plan.json` Clothing / Voice Spans**:
+       - *Triggers*: Any change to `bench/load_text.py` (such as `<Subject 2>` wording) or `data/<video>/plan.json` clothing/voice entries.
+       - *Regenerate*: **`job --remake` (or `text` if `first` has not run) `-> first -> plan -> on-plan -> table -> render -> land -> page`** (`preflight` gates `flag_text`, `looks.json` locks `text_sha256`, and `plan.json` / `render.json` embed the prompt string).
+     - **Parent Stage 4 — Node Mask / Planning Code (`video_mask.py`, `loop_plan.py`, `nodes.py`) or Capture Gate (`capture_masked_run.py`, `frame_table.py`)**:
+       - *Triggers*: Changes to how ComfyUI plans windows/regions (restart ComfyUI first!) or how `capture_masked_run.py` grades masks.
+       - *Regenerate*: **`job --remake -> first -> plan -> on-plan -> table -> render -> land -> page`**.
 
 ---
 

@@ -8,7 +8,7 @@ Loaded when a session opens a file here; [`docs/AGENTS.md`](../AGENTS.md) and th
   - End-to-end pipeline, design, and card runbook: [`docs/wiki/masked_v2v_pipeline.md`](../wiki/masked_v2v_pipeline.md), [`docs/wiki/masked_v2v.md`](../wiki/masked_v2v.md), and [`docs/wiki/runbook.md`](../wiki/runbook.md)
 - **This lane is one use of H3.** A finding about common code (reference conditioning, the shared nodes) is written where that code's page is and linked from [`docs/wiki/index.md`](../wiki/index.md).
 
-## Top seven rules that bite when missed
+## Top eight rules that bite when missed
 
 ### 1. What `--source` to pass in (Single-Subject vs Multi-Subject Pass 2)
 
@@ -72,3 +72,27 @@ Loaded when a session opens a file here; [`docs/AGENTS.md`](../AGENTS.md) and th
 - **Downcast / narrowed eyes (`DOWNCAST_RING_OUTSIDE_MIN = 0.65`)**: When `>= 65%` of an eye's iris ring lies outside the eyelids (`between_the_lids`), the black edge of the lash lines covers `100%` of the clipped black iris disc; `draw_face_points.py::discs` leaves the sclera unpainted on that eye and `draw_face_points.py::shapes` draws the between-the-lids iris arc (`_iris_ring`, matching `0484c` on downcast frames while preserving white sclera + black iris on open frames) instead of flooding the narrowed eye slit with `255,255,255` white sclera.
 - **Single unified `<Subject 2>` prompt sentence (`bench/load_text.py::subject_2`)**: All face-drawn loads use a single unified `<Subject 2>` sentence ("with facial features drawn on its face as thin white outlines, where the eyes open, close and look where the person's eyes do") without mentioning mouth/lips, so the text never biases H3 toward opening or closing the mouth while preserving eye-gaze direction.
 - **Verified on `second_hfp_0415g` (`415–437`) and `second_hfp_0484f` (`484–515`)**: `0415g` completely eliminated the wide camera-staring eyes and toothy smile on frame `437` (`0415f`) and kept the mouth closed and gaze lowered across `415–437`; `0484f` eliminated the dark open `"O"` mouth of `0484d` and lowered the gaze compared to `0484e` (note: when a close-up load renders on `render_region: part` at high zoom like `0484f` at `1.63x` vs. `0484c` on `render_region: full` at `1.0x`, `<Picture 1>`'s frontal portrait has stronger cross-attention weight on frames where the eyes have no contrast fill).
+
+### 8. Parent -> Child Invalidation DAG (What Must Be Regenerated or Restarted When Code or Data Changes)
+
+Any change to an upstream input or script invalidates **every downstream child stage** (`AGENTS.md`, "nothing an earlier run made is reused by a key"; [`docs/wiki/decisions.md`](../wiki/decisions.md), 2026-10-18, "Derived data is made again whenever the code that makes it changes"). Never reuse a child artifact across a parent change:
+
+```
+[Stage 0: Source Video (`--source`) & Node Pack Code (`*.py` loaded by ComfyUI)]
+   └──> [Stage 1: `shot_to_load.py preview` (`track`, `head_track`, `parts`, `classes`, `pose`, `mesh`)]
+           ├──> [Stage 2A: `shot_to_load.py job` (`strangers`, `part_saved_on_track`, `<load>.json`)]
+           │       └──> [Stage 2B: `shot_to_load.py reference` (`_points.npz`, `_plain_cut.mp4`, `<Video 1>`)]
+           │               ├──> [Stage 2C: `shot_to_load.py text` (`<load>.txt` prompt)]
+           │               └──> [Stage 3: `load_chain.py first -> plan -> on-plan -> table` (`capture`, `frame_table.jsonl`)]
+           │                       └──> [Stage 4: `load_chain.py render -> land -> page` (`<load>_00001.mp4`, stacked clip)]
+           │                               └──> [Stage 5: `laid.py` & `rebuild_delivery.py --clip` (post-Pass-1 cut MP4)]
+           └───────────────────────────────────────^ (feeds back into Stage 0 `--source` for Pass 2+ on multi-subject shots!)
+```
+
+| If this parent changes... | Need ComfyUI (`:8188`) Restart? | What is STILL VALID? | What MUST be regenerated in order (Parent -> Child)? |
+|---|---|---|---|
+| **A. Custom Node / Server-Loaded Code** (`__init__.py`, `nodes.py`, `subject_track.py`, `sapiens2_parts.py`, `body_pose.py`, `video_mask.py`, `loop_plan.py`, `sol_attention.py`, `workflows/h3_config.py`) | **YES — Mandatory** (`docs/comfy_notes.md`: ComfyUI imports custom node Python once at startup; restarting clears `/queue` and `/history`, so only restart on an empty queue and re-run affected stages fresh). | Raw 24.0 fps working copy, `shots.json`, `cast.jsonl`, `plan.json`. | If tracker/part/pose node code changed: **`preview -> job -> reference -> text -> first -> plan -> on-plan -> table -> render -> land -> page`**. If `video_mask.py` / `loop_plan.py` / `nodes.py` changed: **`first -> plan -> on-plan -> table -> render -> land -> page`**. |
+| **B. Pass 1 Laid on a Multi-Subject Shot** (new Pass-1 render laid in `data/<video>/laid.jsonl` for Subject A on a shot shared with Subject B) | No | Pass 1's own kept render. | **Everything for Pass 2 (Subject B)**: first assemble the 24.0 fps post-Pass-1 cut MP4 (`rebuild_delivery.py --clip` / `assemble_delivery.py`), then run **`shot_to_load.py preview --source <post_pass1_cut.mp4> -> job -> reference -> text -> first -> plan -> on-plan -> table -> render -> land -> page`**. |
+| **C. Reference / Pose / Face-Drawing Code or Flags** ([`bench/pose_along_shot.py`](../../bench/pose_along_shot.py), [`bench/crop_reference_to_head.py`](../../bench/crop_reference_to_head.py), [`bench/head_reference.py`](../../bench/head_reference.py), [`bench/draw_face_points.py`](../../bench/draw_face_points.py), or `--no-face-on` / `--no-mouth-on` / `--mouth-on` / `--eyes-shut-on`) | No (CLI subprocesses) | `shot_to_load.py preview` (`track`, `head_track`, `parts`, `classes`, `mesh`). | **`shot_to_load.py job --remake -> reference -> text -> first -> plan -> on-plan -> table -> render -> land -> page`**. (`reference` writes into a fresh `<subject>_<first>_<last>_<letter>` folder; `first` uses the new `_points.npz` for `off_head` and `--chin-points`.) |
+| **D. Prompt Generator or Plan Clothing / Voice Spans** ([`bench/load_text.py`](../../bench/load_text.py), `data/<video>/plan.json` clothing/voice spans, `voice_spans.json`) | No | `preview` and `reference` (`<Video 1>` MP4 and `_points.npz`, provided `reference` code did not change). | **`shot_to_load.py job --remake` (or `text`) `-> first -> plan -> on-plan -> table -> render -> land -> page`**. (`preflight` gates `flag_text` against the prompt, `looks.json` hashes `text_sha256`, and `plan.json` embeds the prompt.) |
+| **E. Capture / Head-Tube / Keep-Out / Region Rules** ([`bench/head_tube_parts.py`](../../bench/head_tube_parts.py), [`bench/strangers.py`](../../bench/strangers.py), [`bench/capture_masked_run.py`](../../bench/capture_masked_run.py), [`bench/frame_table.py`](../../bench/frame_table.py), or `--drop` / `--hold-part` / `--no-strangers` / `--track-not`) | No | `preview`, `reference`, and `text`. | **`shot_to_load.py job --remake -> first -> plan -> on-plan -> table -> render -> land -> page`**. (Never copy an old capture folder's `outcomes.json` or `masks.json` without re-running `verify` and `preflight` on the new capture.) |
