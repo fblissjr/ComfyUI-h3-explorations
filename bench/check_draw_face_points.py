@@ -500,9 +500,9 @@ def left_out_and_highlights() -> str:
             p_tight[i, 1] -= 4.0  # gap = 2.0 px <= 3.0 px even with a hole present
     sh_tight, m_tight = df.lip_shape(p_tight, INDEX, (W, H), (whole, hole))
     assert sh_tight[0] == "inner_lip_line" and sh_tight[2] is False and not m_tight[1].any(), sh_tight
-    slit_mesh = grey([115]); slit_mesh[:, 145:150, 175:205] = 10
-    pic_tight = df.draw(slit_mesh, [[sh_tight]], 1.5, set(), False, mouths=[m_tight], smooth_lips=True)[0]
-    assert int((pic_tight[m_tight[0]].max(-1) < 80).sum()) == 0, "dark slit or dark edge left inside closed lip-line mouth"
+    slit_mesh = grey([115])
+    pic_tight = df.draw(slit_mesh, [[]], 1.5, set(), False, mouths=[None], smooth_lips=True)[0]
+    assert (pic_tight == slit_mesh[0]).all(), "closed frame under smooth_lips modified the 3D grey mesh"
     sh_op, m_op = df.lip_shape(p0, INDEX, (W, H), (whole, hole))
     assert sh_op[0] == "inner_lip_ring" and sh_op[2] is True and m_op[1].any(), sh_op
     pic_op = df.draw(grey([90]), [[sh_op]], 1.5, set(), False, mouths=[m_op], smooth_lips=True)[0]

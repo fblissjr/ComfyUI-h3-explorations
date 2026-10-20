@@ -772,8 +772,9 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
             ]
             closed_by_class = [
                 f for f in by_class
-                if mouths[f - first] is not None
-                and any(n == "mouth_closed" for n, _, _ in faces.mouth_shapes(*mouths[f - first], closed_as_line=True))
+                if mouths[f - first] is None
+                or faces.inner_lip_centerline(cut_pts["keypoints"][f - first], cut_pts["index"])[1] <= faces.INNER_GAP_CLOSED_PX
+                or any(n == "mouth_closed" for n, _, _ in faces.mouth_shapes(*mouths[f - first], closed_as_line=True))
             ]
             closed_line_on = sorted(closed_by_lines + closed_by_class)
             open_on = sorted((set(by_lines) | set(by_class) | set(worded_drawn)) - set(closed_line_on))

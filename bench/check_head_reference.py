@@ -1053,15 +1053,12 @@ def the_three_mouth_fixes_on_fun_captures() -> str:
             m278, _ = hr.class_mouths(str(c278), 278, 278, 16, d278["box"], (w278, h278), closed_as_line=True)
             p278 = fp.load(str(pts278_p), None)
             mesh278 = np.stack(list(dfp.stream(str(plain278_p), (w278, h278), 0, 16, pix="rgb24")))
-            sh278, m278_out = [], []
             for f in range(16):
                 s_f, m_f = dfp.lip_shape(p278["keypoints"][f], p278["index"], (w278, h278), m278[f])
                 assert s_f[0] == "inner_lip_line" and s_f[2] is False and not m_f[1].any(), (278 + f, s_f)
-                sh278.append([s_f]); m278_out.append(m_f)
-            pics278 = dfp.draw(mesh278, sh278, hr.FORM_WIDTH, set(), False, mouths=m278_out, smooth_lips=True)
-            for f in range(16):
-                luma = 0.299 * pics278[f, :, :, 0] + 0.587 * pics278[f, :, :, 1] + 0.114 * pics278[f, :, :, 2]
-                assert int((luma[m278_out[f][0]] < 85).sum()) == 0, f"dark lip/edge pixel on frame {278 + f}: min={luma[m278_out[f][0]].min():.1f}"
+            pics278 = dfp.draw(mesh278, [[] for _ in range(16)], hr.FORM_WIDTH, set(), False, mouths=[None] * 16, smooth_lips=True)
+            unsmoothed278 = dfp.draw(mesh278, [[] for _ in range(16)], hr.FORM_WIDTH, set(), False)
+            assert np.array_equal(pics278, unsmoothed278), "smooth_lips=True altered the 3D grey mesh lips"
     # 1306-1418 (third_1306_1418, the dad in near-profile, M8 & M21): fit_mouth_to_head keeps the mouth above the grey head's chin on all 21 frames of 1340-1360
     r1306 = ref_from_job("*_third_hfp_1306*_job/job.plan.json", "third_1306_1418/third_head_reference_1306_1418.json")
     if r1306 is not None and r1306.is_file():

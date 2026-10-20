@@ -463,8 +463,9 @@ def clip_shape_to_mask(name: str, pts: np.ndarray, closed: bool, mask: np.ndarra
 
 
 def find_mesh_chin_y(frame: np.ndarray, p: np.ndarray, index: dict) -> float:
-    """Bottom y of the grey head model's chin (`M8`), found in the mouth-to-chin horizontal column (`[mx0..mx1]`) where the head
-    silhouette ends in black background (`~lit[y, x]`), or from the full-row width profile when the neck continues below."""
+    """Bottom y of the grey head model's chin (`M8`), found in the mouth-to-chin horizontal column (`[mx0..mx1]`) below the outer
+    lips where the head silhouette ends in black background (`~lit[y, x]`); when the neck continues below (`first_black` empty),
+    returns `tip_of_chin` without scanning full-row widths across ears, shoulders, or hands."""
     h, w = frame.shape[:2]
     lit = frame.max(-1) > 16
     eye_y = 0.5 * (
@@ -486,17 +487,6 @@ def find_mesh_chin_y(frame: np.ndarray, p: np.ndarray, index: dict) -> float:
             first_black.append(y_start + int(b[0]))
     if len(first_black) >= max(3, int(0.25 * max(mx1 - mx0 + 1, 1))):
         return float(np.median(first_black))
-    widths = np.array([int(lit[y].sum()) for y in range(y_start, y_end + 1)], float)
-    for idx_y in range(len(widths) - 1):
-        if widths[idx_y] <= 10:
-            return float(y_start + idx_y)
-    if len(widths) > 6:
-        diffs = widths[3:] - widths[:-3]
-        min_idx = int(np.argmin(diffs))
-        if diffs[min_idx] < -6:
-            for k in range(min_idx, len(diffs)):
-                if diffs[k] >= -1:
-                    return float(y_start + k + 1)
     return float(min(y_end, int(round(chin_kp_y))))
 
 
@@ -504,11 +494,9 @@ def fit_mouth_to_head(frame: np.ndarray, p: np.ndarray, index: dict, m_shape: tu
                       m_masks: tuple[np.ndarray, np.ndarray]) -> tuple[tuple[str, np.ndarray, bool], tuple[np.ndarray, np.ndarray]]:
     """Keep a drawn mouth inside the grey head model's mouth-to-chin space (`M8`, `M21`):
     1. When the grey head's chin (`find_mesh_chin_y`) is higher than the pose chin (`tip_of_chin`, e.g. when the person's jaw drops
-       open on a neutral-jaw 3D mesh), map vertical coordinates below `bottom_center_of_nose` proportionally onto the grey head's
-       nose-to-chin height and keep at least `max(MOUTH_CHIN_CLEAR_MIN_PX, 0.22 * (chin_y - nose_y))` of chin room below the mouth.
-    2. Shift horizontal coordinates inside the eroded head silhouette across the mouth's scanlines so `head_silhouette` never nips a corner.
-    3. `whole` unions the original and shifted mouth masks so `smooth_mouth_area` covers both the grey head's sculpted lips and the
-       drawn mouth position."""
+       open on a neutral-jaw 3D mesh over black background), map vertical coordinates below `bottom_center_of_nose` proportionally
+       onto the grey head's nose-to-chin height and keep at least `max(MOUTH_CHIN_CLEAR_MIN_PX, 0.22 * (chin_y - nose_y))` of chin room.
+    2. Shift horizontal coordinates inside the eroded head silhouette across the mouth's scanlines so `head_silhouette` never nips a corner."""
     import cv2
     h, w = frame.shape[:2]
     name, pts, closed = m_shape
@@ -566,7 +554,7 @@ def fit_mouth_to_head(frame: np.ndarray, p: np.ndarray, index: dict, m_shape: tu
     else:
         cv2.polylines(wm, [np.round(new_pts).astype(np.int32)], False, 1, thickness=6)
     new_whole = cv2.dilate(wm, np.ones((7, 7), np.uint8)) > 0
-    return (name, new_pts, closed), (whole | new_whole, new_hole)
+    return (name, new_pts, closed), (new_whole, new_hole)
 
 
 def smooth_mouth_area(frame: np.ndarray, whole: np.ndarray) -> np.ndarray:
@@ -759,8 +747,7 @@ def draw(mesh: np.ndarray, drawings: list[list], width: float, bare: set[int], d
                 im.paste(edge_col, mask=big(h_mask))
 
     for f in range(len(mesh)):
-        got_m = None if f in bare or not mouths else mouths[f]
-        base = smooth_mouth_area(mesh[f], got_m[0]) if (smooth_lips and got_m is not None and got_m[0].any()) else mesh[f]
+        base = mesh[f]
         kp_f = keypoints[f] if keypoints is not None else None
         full_h = head_silhouette(mesh[f], erode_px=0, p=kp_f, index=index) if smooth_lips else None
         inner_h = head_silhouette(mesh[f], erode_px=erode_inner, p=kp_f, index=index) if smooth_lips else None
@@ -973,13 +960,13 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
                 if mouths[f] is not None and (mouth_lines or f in own):
                     sh = mouth_shapes(*mouths[f], closed_as_line=closed_lip_line)
                     if closed_lip_line:
-                        if any(n == "mouth_closed" for n, _, _ in sh) and mouths[f][1].any():
-                            mouths[f] = (mouths[f][0], np.zeros_like(mouths[f][1]))
+                        gap_f = inner_lip_centerline(points["keypoints"][f], idx)[1]
+                        if gap_f <= INNER_GAP_CLOSED_PX or any(n == "mouth_closed" for n, _, _ in sh):
+                            sh = []
+                            mouths[f] = None
                         elif any(n == "mouth_inner" for n, _, _ in sh):
                             bridged = cv2.morphologyEx(mouths[f][1].astype(np.uint8), cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8)).astype(bool)
-                            mouths[f] = (mouths[f][0] | bridged, bridged)
-                        if sh:
-                            sh_fit, m_fit = fit_mouth_to_head(mesh[f], points["keypoints"][f], idx, sh[0], mouths[f])
+                            sh_fit, m_fit = fit_mouth_to_head(mesh[f], points["keypoints"][f], idx, sh[0], (mouths[f][0] | bridged, bridged))
                             sh = [sh_fit]
                             mouths[f] = m_fit
                     drawings[f] = drawings[f] + sh
@@ -989,9 +976,13 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
         for f in range(count):
             if any(d[0].endswith("_lip_ring") for d in drawings[f]):
                 sh_f, m_f = lip_shape(points["keypoints"][f], idx, (w, h), mouths[f])
-                sh_f, m_f = fit_mouth_to_head(mesh[f], points["keypoints"][f], idx, sh_f, m_f)
-                drawings[f] = [d for d in drawings[f] if not d[0].endswith("_lip_ring")] + [sh_f]
-                mouths[f] = m_f
+                if sh_f[0] == "inner_lip_line":
+                    drawings[f] = [d for d in drawings[f] if not d[0].endswith("_lip_ring")]
+                    mouths[f] = None
+                else:
+                    sh_f, m_f = fit_mouth_to_head(mesh[f], points["keypoints"][f], idx, sh_f, m_f)
+                    drawings[f] = [d for d in drawings[f] if not d[0].endswith("_lip_ring")] + [sh_f]
+                    mouths[f] = m_f
             if f not in left:
                 hm_f = head_silhouette(mesh[f], p=points["keypoints"][f], index=idx)
                 drawings[f] = [c for n, pts_d, cl_d in drawings[f] for c in clip_shape_to_mask(n, pts_d, cl_d, hm_f)]
