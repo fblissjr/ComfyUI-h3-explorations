@@ -628,6 +628,13 @@ def the_iris_between_the_lids() -> str:
     clipped_eye = df.draw(prof_mesh, [ring_clipped], 2.0, set(), False, [[("l_iris_disc", iris, lids)]], contrast=True, smooth_lips=True)[0]
     assert (clipped_eye[:, 167:] == 0).all() and full_h[100, 164], "eye fill or outline bled past the grey head silhouette into black space"
     assert clipped_eye[100, 164].max() < 215 and clipped_eye[100, 160].min() > 215, "white sclera was not inset a line's width from the head edge"
+    # Downcast / narrowed eyes under closed_lip_line (2026-10-20): when >= DOWNCAST_RING_OUTSIDE_MIN (0.65) of the iris ring lies outside
+    # the eyelids, discs() leaves out the white sclera fill and shapes() draws the between-the-lids iris arc instead of flooding the slit white
+    assert df.discs(p, s, INDEX, 0.0, closed_lip_line=True) == [], "downcast eye under closed_lip_line was given a contrast sclera fill"
+    downcast_shapes = [x for x in df.shapes(p, s, INDEX, 0.0, frozenset(), df.IRIS_FORMS[3], closed_lip_line=True) if x[0].endswith("_iris_ring")]
+    assert downcast_shapes and all(not c for _, _, c in downcast_shapes), downcast_shapes
+    p_open = face([(160.0, 100.0)], opening=OPEN)[0]
+    assert len(df.discs(p_open, s, INDEX, 0.0, closed_lip_line=True)) == 2, "open eye under closed_lip_line lost its contrast disc"
     return (f"a ring larger than a narrow opening is drawn only where it lies between the lids ({off:.2f} of it outside), a ring wholly inside "
             "is drawn closed and one wholly outside not at all; on nearly shut lids the default draws open stretches and `whole` both rings closed; "
             "when clipped to the grey head silhouette, the white sclera stays a line's width inside the head's edge and nothing bleeds into black space")

@@ -71,7 +71,7 @@ def what_a_reference_draws_the_text_says() -> str:
     assert "dark inside" not in drawn, drawn
     want_unified = ("<Subject 2> is the movements of the head and the facial expressions performed by the figure in <Video 1>: "
                     "a closer view of the head and shoulders of a plain grey body model of a person on a black ground, posed as the person moves, "
-                    "with facial features drawn on its face as thin white outlines, the white of the eye white and the iris black.")
+                    "with facial features drawn on its face as thin white outlines, where the eyes open, close and look where the person's eyes do.")
     closed_line_all = s2({"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast",
                                                      "mouth": {"drawn": True, "inside": "the class map", "closed_lip_line": {"why": "test", "closed_frames": [], "open_frames": [[1730, 1754]]}}}})
     closed_line_some = s2({"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast",

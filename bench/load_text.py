@@ -181,7 +181,7 @@ def subject_2(drawn: dict | None, moves: str = MOVES["face"], frames: int | None
             iris = drawn.get("iris") or "whole"
             if iris not in EYES:
                 raise Refused(f"the reference's record says the iris was drawn {iris!r}: no words for it ({', '.join(EYES)})")
-            eye_key = ", the white of the eye white and the iris black" if iris == "contrast" else f"; {EYES[iris]}"
+            eye_key = ", where the eyes open, close and look where the person's eyes do"
         shut_tail = {"lids": "; where the person's eyes are shut, each eye is drawn as a single closed line",
                      "none": "; where the person's eyes are shut, no eye is drawn"}.get((drawn.get("eyes_shut") or {}).get("form"), "")
         return head + ", with facial features drawn on its face as thin white outlines" + eye_key + shut_tail + "."

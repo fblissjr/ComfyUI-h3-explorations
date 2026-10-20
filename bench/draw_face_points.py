@@ -194,6 +194,15 @@ HEAD_DARKEN_SCALE = 0.67
 #: clean grey chin below the lower lip across all 21 frames (`22.5 px` at `1356`) with `0/21` mouths cut by the head silhouette.
 MOUTH_CHIN_CLEAR_FRAC = 0.14
 MOUTH_CHIN_CLEAR_MIN_PX = 8.0
+#: Share of the iris ring outside the eyelids (`between_the_lids`) at or above which an eye is narrowed or downcast enough that
+#: under `smooth_lips` (`--closed-lip-line`), `--iris contrast` leaves the sclera unpainted and draws the between-the-lids iris arc
+#: (`_iris_ring`) instead of flooding the narrowed eyelid slit with `255,255,255` white sclera. Measured on `second_0484_0515_c`
+#: (`0.69–0.78` on all 32 downcast frames), `second_0415_0437_c` (`0.72–0.73` on downcast frame `437` vs `0.31–0.61` on open frames
+#: `415–436`), and `second_1039_1060_c` (`0.64–0.77` on downcast frames `1055–1060` vs `0.20–0.50` on open frames `1039–1051`): at
+#: `>= 0.65`, the black edge of the upper and lower lash lines covers `100%` of the clipped black iris disc (`0 px` visible black iris)
+#: while the `255,255,255` white sclera under the lash ring turns the narrowed eye into a bright white slit that H3 reads as wide-open
+#: camera-staring eyes (`2026-10-20`).
+DOWNCAST_RING_OUTSIDE_MIN = 0.65
 
 
 def _ids(index: dict, head: str = "", tail: str = "") -> list[int]:
@@ -265,7 +274,8 @@ def between_the_lids(ring: np.ndarray, lids: np.ndarray) -> tuple[list[np.ndarra
 
 
 def shapes(p: np.ndarray, s: np.ndarray, index: dict, score_line: float, leave_out: frozenset = frozenset(),
-           iris: str = IRIS_FORMS[0], outside: dict | None = None) -> list[tuple[str, np.ndarray, bool]]:
+           iris: str = IRIS_FORMS[0], outside: dict | None = None,
+           closed_lip_line: bool = False) -> list[tuple[str, np.ndarray, bool]]:
     """One frame's drawing as (name, points in order, whether it closes on itself). A dot alone is one point.
     `iris`: a ring drawn between the lids or whole (`IRIS_FORMS`); `outside`, when given, gets each drawn ring's
     share outside the lids, by its name."""
@@ -283,8 +293,8 @@ def shapes(p: np.ndarray, s: np.ndarray, index: dict, score_line: float, leave_o
                     runs, closed, off = between_the_lids(whole, ring)
                     if outside is not None:
                         outside[f"{side}_{kind}"] = off
-                    if iris in (IRIS_FORMS[2], IRIS_FORMS[3]):
-                        continue                                       # filled or contrast: the iris is a disc (`discs`), and no ring is drawn
+                    if iris == IRIS_FORMS[2] or (iris == IRIS_FORMS[3] and not (closed_lip_line and kind == "iris" and off >= DOWNCAST_RING_OUTSIDE_MIN)):
+                        continue                                       # filled or contrast: the iris is a disc (`discs`), unless downcast under closed_lip_line
                     if iris == IRIS_FORMS[1] or closed:
                         out.append((f"{side}_{kind}_ring", whole, True))
                     else:
@@ -315,7 +325,8 @@ def shapes(p: np.ndarray, s: np.ndarray, index: dict, score_line: float, leave_o
     return out
 
 
-def discs(p: np.ndarray, s: np.ndarray, index: dict, score_line: float, leave_out: frozenset = frozenset()) -> list[tuple[str, np.ndarray, np.ndarray]]:
+def discs(p: np.ndarray, s: np.ndarray, index: dict, score_line: float, leave_out: frozenset = frozenset(),
+          closed_lip_line: bool = False) -> list[tuple[str, np.ndarray, np.ndarray]]:
     """One frame's irises for `--iris filled`, as (name, the iris ring sampled at `RING_SAMPLES` points, that eye's lash ring):
     `draw` fills each in the edge colour where it lies inside its lash ring. An iris under the score line is left out, as its ring is."""
     if "eyes" in leave_out:
@@ -324,6 +335,8 @@ def discs(p: np.ndarray, s: np.ndarray, index: dict, score_line: float, leave_ou
     for side, ring in zip(SIDES, fp.lid_rings(p, index)):
         if scores[f"{side}_iris"] >= score_line:
             whole = _round(p, _ids(index, f"{side}_border_of_iris"), p[index[f"{side}_center_of_iris"]])
+            if closed_lip_line and between_the_lids(whole, ring)[2] >= DOWNCAST_RING_OUTSIDE_MIN:
+                continue
             k = len(whole)
             t = np.linspace(0.0, k, RING_SAMPLES, endpoint=False)
             i = np.floor(t).astype(int)
@@ -928,12 +941,12 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     if iris not in IRIS_FORMS:
         raise SystemExit(f"--iris is one of {IRIS_FORMS}; got {iris!r}")
     offs = [{} for _ in range(count)]
-    drawings = [shapes(p, s, idx, line, leave_out, iris, offs[f]) for f, (p, s) in enumerate(zip(points["keypoints"], points["scores"]))]
+    drawings = [shapes(p, s, idx, line, leave_out, iris, offs[f], closed_lip_line=closed_lip_line) for f, (p, s) in enumerate(zip(points["keypoints"], points["scores"]))]
     if not dots:
         drawings = [lines_only(d) for d in drawings]                # no dots is no dots: the points that belong to no line go too
     wide, face, wide_by = width_for(points, width)
     left = {f - first for f in (bare or []) if first <= f < first + count}
-    fills = [discs(p, s, idx, line, leave_out) for p, s in zip(points["keypoints"], points["scores"])] if iris in IRIS_FORMS[2:] else None
+    fills = [discs(p, s, idx, line, leave_out, closed_lip_line=closed_lip_line) for p, s in zip(points["keypoints"], points["scores"])] if iris in IRIS_FORMS[2:] else None
     shut = sorted({f - first for f in (eyes_shut or []) if first <= f < first + count})
     if shut and (eyes_shut_form not in EYES_SHUT_FORMS or not str(eyes_shut_by).strip()):
         raise SystemExit(f"--eyes-shut-on takes a form, one of {EYES_SHUT_FORMS} (--eyes-shut-form), and whose word it is; got {eyes_shut_form!r}")
