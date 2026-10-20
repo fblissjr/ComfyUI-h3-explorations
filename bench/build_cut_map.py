@@ -25,21 +25,23 @@ import json
 import os
 import re
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 REPO = Path(__file__).resolve().parents[1]
 DATA_DIR = REPO / "data"
 FUN_DIR = DATA_DIR / "fun"
 SHARE_DIR = Path(os.environ.get("H3_OUTPUT_DIR", "output"))
 INPUT_DIR = Path(os.environ.get("H3_INPUT_DIR", str(SHARE_DIR.parent / "input")))
-CST = ZoneInfo("America/Chicago")
+
+
+def local_tz_abbr() -> str:
+    return datetime.datetime.now().astimezone().strftime("%Z") or "local"
 
 
 def fmt_cst(ts: float | None) -> str:
     if not ts:
         return "—"
-    dt = datetime.datetime.fromtimestamp(ts, tz=CST)
-    return dt.strftime("%Y-%m-%d %I:%M:%S %p CST")
+    dt = datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc).astimezone()
+    return dt.strftime("%Y-%m-%d %I:%M:%S %p %Z")
 
 
 def fmt_iso_to_cst(iso_str: str | None) -> str:
@@ -52,7 +54,7 @@ def fmt_iso_to_cst(iso_str: str | None) -> str:
         dt = datetime.datetime.fromisoformat(s)
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=datetime.timezone.utc)
-        return dt.astimezone(CST).strftime("%Y-%m-%d %I:%M:%S %p CST")
+        return dt.astimezone().strftime("%Y-%m-%d %I:%M:%S %p %Z")
     except Exception:
         return iso_str
 
@@ -1190,7 +1192,8 @@ def render_frame_drilldown_html(cov: dict, first: int, last: int, subject: str, 
 
 
 def main() -> None:
-    now_cst = fmt_cst(datetime.datetime.now(tz=CST).timestamp())
+    tz_abbr = local_tz_abbr()
+    now_cst = fmt_cst(datetime.datetime.now(tz=datetime.timezone.utc).timestamp())
     shots_data = json.loads((FUN_DIR / "shots.json").read_text())
     shots = shots_data["shots"]
     plan_data = json.loads((FUN_DIR / "plan.json").read_text())
@@ -1430,7 +1433,7 @@ def main() -> None:
         f"- **Latest Full Joined Cut MP4**: `{latest_joined}` (created `{path_mtime_cst(latest_joined)}`)",
         f"- **Subject-Shot Coverage**: **{counts['in_cut']} / {counts['total_subj_shots']}** in cut (**{counts['clean_in_cut']}** clean 100% carried, **{counts['in_cut_rerun']}** in cut with frame gaps or queued re-run, **{counts['pending']}** pending render, `{counts['no_subject']}` shots with no tracked subject)",
         "",
-        "| Frames (`TC`) | Len | Subject | Status & Frame Coverage | Final Rendered MP4 (under `H3_OUTPUT_DIR/`) | MP4 Created (CST) | Data Folders / Input Files & Timestamps (CST) |",
+        f"| Frames (`TC`) | Len | Subject | Status & Frame Coverage | Final Rendered MP4 (under `H3_OUTPUT_DIR/`) | MP4 Created ({tz_abbr}) | Data Folders / Input Files & Timestamps ({tz_abbr}) |",
         "|---|---:|---|---|---|---|---|",
     ]
     for r in rows:
@@ -2063,7 +2066,7 @@ def main() -> None:
 
   <h1><code>fun</code> (Frames 0–6394) — Chronological Cut, Frame-Level Gap Audit &amp; Hierarchical Data Flow Lineage</h1>
   <div style="color:var(--muted); font-size:13px;">
-    Live provenance &amp; frame-level gap audit generated directly from <code>data/fun/shots.json</code>, <code>data/fun/plan.json</code>, <code>data/fun/cast/cast.jsonl</code>, <code>data/fun/laid.jsonl</code>, <code>{html.escape(cov_name)}</code>, and <code>data/*_job/</code>. All timestamps in CST.
+    Live provenance &amp; frame-level gap audit generated directly from <code>data/fun/shots.json</code>, <code>data/fun/plan.json</code>, <code>data/fun/cast/cast.jsonl</code>, <code>data/fun/laid.jsonl</code>, <code>{html.escape(cov_name)}</code>, and <code>data/*_job/</code>. All timestamps in {html.escape(tz_abbr)}.
   </div>
 
   <div class="summary-cards">
@@ -2109,8 +2112,8 @@ def main() -> None:
           <th style="width:75px;">Subject</th>
           <th style="width:270px;">Status, Frame Coverage Barcode &amp; Actions</th>
           <th style="width:280px;">Final Rendered MP4 (under <code>H3_OUTPUT_DIR/</code>)</th>
-          <th style="width:170px;">MP4 Created (CST)</th>
-          <th>Summary Data Folders, Input JSONs &amp; Timestamps (CST)</th>
+          <th style="width:170px;">MP4 Created ({html.escape(tz_abbr)})</th>
+          <th>Summary Data Folders, Input JSONs &amp; Timestamps ({html.escape(tz_abbr)})</th>
         </tr>
       </thead>
       <tbody>
