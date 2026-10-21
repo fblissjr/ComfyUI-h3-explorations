@@ -177,6 +177,18 @@ From about 17:58Z mrturtle led, with mrgordon on the card and Gemini building. R
 - **5768-5791: nothing to make for the third** (the owner, on second_hfp_5768f, which they kept at
   `data/fun/owner_answers.jsonl:1400`): his face never shows there. The preview's class maps agree
   (`internal/claude/2026-10-21_mrturtle/third_face_list.txt`).
+- **4912: the tracker is right** (the owner, on second_hfp_4912e at 4942). It drops her where someone walks in front
+  of her, which is correct. The handover's "4912 after its tracking is solved" was wrong, so 4912 joins the mom's
+  remake batch: a fresh preview with the hair and eye fixes. The owner: the mask is right on every frame, and the
+  only fault of 4912e is that her hair is never blonde. Not the cause: the text (the same as 5768f's, which came out
+  blonde, sha256 60256d94) or the face's size (4912e's face part is flagged small, but 4602c's, kept, is smaller;
+  each capture's `flags.json`, `face_small_in_tokens`). What explains it: on 4944-4946 her own dark hair shows above a
+  hat brim with nothing regenerated there (the owner's look; 4946 is repeated 4 more times at the window's end), and
+  inside the region H3 redrew her face but kept her hair near the original on every frame
+  (`internal/claude/2026-10-21_mrturtle/d4912_hair_vs_face.txt`): the same pattern as 5768e. The remake puts that hair
+  inside the region. No tool flagged it, because the hair figures are read only inside her tracked outline.
+- **The lane docs point at the code** (W6, cleared at `claude-docs-w6` 52d368cb). The claims each corrected, with what
+  they used to say and the evidence, are listed in `internal/claude/2026-10-21_ready_docs-w6.md` ("Corrected claims").
 - **5768f's render box moved a few pixels** from 5768e's, at the same size (both boxes are in S22 of
   `internal/claude/2026-10-21_mrgordon_to_mrtent.md`). The node centers one box on the union of the region over the
   load (`video_mask.py::zoom_box`). Keeping her hair in the region on 5768-5773 moves that
