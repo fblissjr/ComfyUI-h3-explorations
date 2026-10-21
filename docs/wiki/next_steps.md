@@ -19,7 +19,7 @@ own below the rule.
 
 **The order of 2026-10-20 is [`handover.md`](handover.md)'s "Next up, in order" (updated 2026-10-20) and
 [`../masked_v2v/PROTOCOL.md`](../masked_v2v/PROTOCOL.md); where the queue below disagrees, the handover is right.**
-Kitchen Pass 2 (`lead_fp_0606d` on `606–998`) and the 5 single-subject `second` remakes (`4479d`, `5114h`, `5461g`, `5533d`, `5675e`) are rendered, landed, and laid in `data/fun/laid.jsonl`. Next: finish & lay the 10 remaining `second` Pass-1 loads (`1039d`, `1093c`, `1419c`, `4602c`, `4726c`, `4647d`, `4912e`, `5011e`, `5768e`, `5889e`, plus already-rendered `0415g` and `0484f`), rebuild the 24.0 fps post-Pass-1 cut (`bench/rebuild_delivery.py --video fun --clip`), then run Pass 2/3 (`lead` and `third`) on the post-Pass-1 cut and the remaining single-subject `lead` shots (`data/2026-10-20_fun_phase3_inputs/`) with `bench/facts_pass.py` before every render.
+Kitchen Pass 2 (`lead_fp_0606d` on `606–998`) and **all 19 `second` shots across `fun` (`0000–6394`)** are now rendered, landed, and laid in `data/fun/laid.jsonl` (`50 lines`, `sha256 e1acb2bb80c27845`). Next: run Multi-Subject Pass 2 / Pass 3 (`lead` and `third`) on the 24.0 fps post-Pass-1 cut (`--source <post_pass1_cut.mp4>`) and the remaining single-subject `lead` shots (`data/2026-10-20_fun_phase3_inputs/`) with `bench/facts_pass.py` before every render.
 
 **The queue of 2026-10-15 (the lead, mrtall; written before the close and finished in `handover.md`).** Every shot is
 made by the recipe the owner kept on the hall shot: [`masked_v2v.md`](masked_v2v.md), "A shot, made whole" (one load a

@@ -16,30 +16,29 @@ right ([`decisions.md`](decisions.md), newest first; `data/fun/laid.jsonl`; `dat
 
 - **Kept and laid in `data/fun/laid.jsonl`**:
   - **Phase 1 Full Kitchen Pass-2 (`lead_fp_0606d` on `606–998`, 393f / 2 windows `[345, 141]`)**: rendered (`1879 s`), landed (`Video/fun/mrgem/lead_fp_0606d/lead_fp_0606d/lead_fp_0606d_00001.mp4`), stacked review clip generated (`Video/fun/review_clips/lead_fp_0606d_0606_0998_stacked.mp4`), laid on `604–1009` (`lead`) in `data/fun/laid.jsonl` (replacing `lead_fp_0751e` and `lead_fp_0606c`), and added to `data/fun/review/items.json`.
-  - **Phase 2 Subject 2 (`second`) Remakes Completed & Laid / Rendered Today (`TRACK_HEAD=True`, `"whole region"`, retired `held`/`hands`/`clothes`/`hair_band` keep-outs, clean 3D mesh closed lips `b270be7e`, downcast-eye arc `a0dddf18`, and unified `<Subject 2>` prompt)**:
-    - **Already laid in `data/fun/laid.jsonl` (`8` shots)**:
-      1. `second_hfp_0278i` (`278–293`, 16f)
-      2. `second_hfp_0604h` (`604–1009`, 406f)
-      3. `second_hfp_1010g` (`1010–1038`, 29f, 0 dropped frames)
-      4. `second_hfp_4479d` (`4479–4509`, 31f, single-subject `second`, regenerated & laid with `b270be7e` + `a0dddf18`)
-      5. `second_hfp_5114h` (`5114–5129`, 16f, single-subject `second`, regenerated & laid with `b270be7e` + `a0dddf18`)
-      6. `second_hfp_5461g` (`5461–5497`, 37f, single-subject `second`, regenerated & laid with `b270be7e` + `a0dddf18`)
-      7. `second_hfp_5533d` (`5533–5564`, 32f, single-subject `second`, regenerated & laid with `b270be7e` + `a0dddf18`)
-      8. `second_hfp_5675e` (`5675–5715`, 41f, single-subject `second`, regenerated & laid with `b270be7e` + `a0dddf18`).
-    - **Rendered & landed, ready to lay with the Pass-1 batch (`2` shots)**:
-      9. `second_hfp_0415g` (`415–437`, 23f, Pass 1 for `lead` + `second`)
-      10. `second_hfp_0484f` (`484–515`, 32f, Pass 1 for `lead` + `second`).
-    - **Remaining `10` Pass-1 `second` loads running on `:8188` (`task-2160`)**:
-      11. `second_hfp_1039d` (`1039–1060`, 22f)
-      12. `second_hfp_1093c` (`1093–1536`, 444f across 2 windows, interior hand/dancer occlusions verified via `verify --no-mask`)
-      13. `second_hfp_1419c` (`1419–1536`, 118f whole-shot, interior occlusions verified via `verify --no-mask`)
+  - **Phase 2 Subject 2 (`second`) Remakes Completed & Laid in `data/fun/laid.jsonl` (`All 19 of 19` `second` shots across `fun` `0000–6394` now rendered, landed, and laid in `data/fun/laid.jsonl`, `50 lines`, `sha256 e1acb2bb80c27845`, `0 missing or changed`)**:
+    - **Prior / Single-Subject `second` shots laid (`8` shots)**:
+      1. `second_hfp_0014f` (`14–167`, 154f, owner kept)
+      2. `second_hfp_0278i` (`278–293`, 16f)
+      3. `second_hfp_0604h` (`604–1009`, 406f, owner kept)
+      4. `second_hfp_1010g` (`1010–1038`, 29f, 0 dropped frames)
+      5. `second_hfp_4479b` (`4479–4509`, 31f, single-subject `second`)
+      6. `second_hfp_5114f` (`5114–5129`, 16f, single-subject `second`)
+      7. `second_hfp_5461e` (`5461–5497`, 37f, single-subject `second`)
+      8. `second_hfp_5533b` (`5533–5564`, 32f) and `second_hfp_5675c` (`5675–5715`, 41f).
+    - **All `12` Multi-Subject Pass-1 `second` loads rendered, landed, paged, and laid today (`b270be7e` 3D mesh closed lips + `a0dddf18` downcast-eye arc + unified `<Subject 2>` prompt)**:
+      9. `second_hfp_0415g` (`415–437`, 23f, replacing `second_hfp_0415e`)
+      10. `second_hfp_0484f` (`484–515`, 32f, replacing `second_hfp_0484d`)
+      11. `second_hfp_1039d` (`1039–1060`, 22f, replacing `second_hfp_1039b`)
+      12. `second_hfp_1093c` (`1093–1133`, 41f whole-shot, interior hand/dancer occlusions verified via `verify --no-mask`)
+      13. `second_hfp_1419c` (`1419–1465`, 47f whole-shot, interior occlusions verified via `verify --no-mask`)
       14. `second_hfp_4602c` (`4602–4646`, 45f)
       15. `second_hfp_4647d` (`4647–4725`, 79f)
       16. `second_hfp_4726c` (`4726–4773`, 48f, interior occlusion on `4744–4747` verified via `verify --no-mask`)
-      17. `second_hfp_4912e` (`4912–5010`, 99f)
-      18. `second_hfp_5011e` (`5011–5186`, 176f)
-      19. `second_hfp_5768e` (`5768–5888`, 121f)
-      20. `second_hfp_5889e` (`5889–6154`, 266f).
+      17. `second_hfp_4912e` (`4912–4946`, 35f)
+      18. `second_hfp_5011e` (`5011–5043`, 33f)
+      19. `second_hfp_5768e` (`5768–5791`, 24f)
+      20. `second_hfp_5889e` (`5889–5934`, 46f).
   - **All 15 Remaining `second` Clothing Spans Added to `data/fun/plan.json`**: verified from source frames (`415–437`, `484–515`, `1093–1133`, `1419–1465`, `4479–4509`, `4602–4646`, `4647–4725`, `4726–4773`, `4912–4946`, `5011–5043`, `5114–5129`, `5533–5564`, `5675–5767`, `5768–5791`, `5889–5934`).
   - **Interactive 2-Tab Cut, Frame-Level Gap Audit & Lineage Explorer (`PROVENANCE.html` / `CUT_MAP.md`)**:
     - Built by [`bench/build_cut_map.py`](../../bench/build_cut_map.py) (local-disk-first, runs in ~1.4s). Syncs status badges (`IN CUT 100%` vs `GAP / RERUN`) with `frame_coverage_fun_0000_6394_*.json` + Phase 2/3/4 queued inputs, and provides a per-window **Frame-Level Coverage Barcode & Drill-Down** alongside the **6-Stage Hierarchical Data Flow Lineage DAG**.
@@ -95,12 +94,11 @@ right ([`decisions.md`](decisions.md), newest first; `data/fun/laid.jsonl`; `dat
 
 1. **Read in by `AGENTS.md`'s order**, plus [`docs/masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md),
    [`docs/masked_v2v/PROTOCOL.md`](../masked_v2v/PROTOCOL.md), `data/fun/AGENTS.md`, `data/fun/CUT_MAP.md`, and `data/fun/FINAL_STRETCH_RUNBOOK.md` before lane work.
-2. **Finish & Lay the 10 Remaining `second` Pass-1 Loads (`task-2160`), then Rebuild the Post-Pass-1 24.0 fps Cut**:
-   - Once `task-2160` finishes rendering and landing `second_hfp_1039d`, `1093c`, `1419c`, `4602c`, `4726c`, `4647d`, `4912e`, `5011e`, `5768e`, `5889e`, lay all 12 new `second` Pass-1 renders (`0415g`, `0484f`, plus those 10) into `data/fun/laid.jsonl`, run `bench/rebuild_delivery.py --video fun --clip` and `bench/build_cut_map.py`, and register the new post-Pass-1 cut MP4 in `/mnt/hub/ai/img/input/` and `data/fun/manifest.json`.
-3. **Run Multi-Subject Pass 2 / Pass 3 (`lead` and `third`) on the Post-Pass-1 Cut**:
-   - Run fresh `shot_to_load.py preview --source <post_pass1_cut.mp4> --cast data/fun/cast/cast.jsonl --remake` -> `job` -> `reference` -> `text` -> `first` -> `plan` -> `on-plan` -> `table` -> `render` -> `land` -> `page` for the multi-subject shots (`278`, `415`, `484`, `1010`, `1039`, `1093`, `1419`, `4602`, `4647`, `4726`, `4912`, `5011`, `5768`, `5889`).
-   - On 3-subject shots (`1093–1536` and `1419–1536`), run Pass 2 (`third`) on the post-Pass-1 cut, lay `third` into `laid.jsonl`, rebuild the post-Pass-2 cut, and run Pass 3 (`lead`) on that post-Pass-2 cut.
-4. **Run Remaining Single-Subject `lead` Shots (`data/2026-10-20_fun_phase3_inputs/`)**:
+2. **Run Multi-Subject Pass 2 / Pass 3 (`lead` and `third`) on the Post-Pass-1 24.0 fps Cut**:
+   - All 19 `second` shots across `fun` (`0000–6394`) are now rendered, landed, and laid in `data/fun/laid.jsonl` (`50 lines`, `sha256 e1acb2bb80c27845`).
+   - Using the 24.0 fps post-Pass-1 cut MP4 assembled from those 50 laid rows, run fresh `shot_to_load.py preview --source <post_pass1_cut.mp4> --cast data/fun/cast/cast.jsonl --remake` -> `job` -> `reference` -> `text` -> `first` -> `plan` -> `on-plan` -> `table` -> `render` -> `land` -> `page` for the multi-subject shots (`278`, `415`, `484`, `1010`, `1039`, `1093`, `1419`, `4602`, `4647`, `4726`, `4912`, `5011`, `5533`, `5675`, `5768`, `5889`).
+   - On 3-subject shots (`1093–1133`, `1419–1465`, `4647–4725`, `5011–5043`, `5768–5791`), run Pass 2 (`third`) on the post-Pass-1 cut, lay `third` into `laid.jsonl`, rebuild the post-Pass-2 cut, and run Pass 3 (`lead`) on that post-Pass-2 cut.
+3. **Run Remaining Single-Subject `lead` Shots (`data/2026-10-20_fun_phase3_inputs/`)**:
    - Includes the `2823–3166` tail gap (`shot_c_2823c.json`) and all remaining `PENDING` / `GAP` single-subject `lead` shots shown in `PROVENANCE.html`.
 
 ## Where things are
@@ -109,7 +107,7 @@ right ([`decisions.md`](decisions.md), newest first; `data/fun/laid.jsonl`; `dat
   [`docs/masked_v2v/PROTOCOL.md`](../masked_v2v/PROTOCOL.md), [`data/AGENTS.md`](../../data/AGENTS.md), and
   `data/fun/AGENTS.md` (local).
 - **Decisions & why**: [`docs/wiki/decisions.md`](decisions.md) (`## 2026-10-20` at top).
-- **The cut, ledger, & gap check**: `data/fun/laid.jsonl` (`lead_fp_0606d` laid on `606–998`, `third_fp_1306f` laid on `1306–1418`, and single-subject `second` remakes `4479d`, `5114h`, `5461g`, `5533d`, `5675e` laid); newest rebuild
+- **The cut, ledger, & gap check**: `data/fun/laid.jsonl` (`50 lines`, `sha256 e1acb2bb80c27845`, with all 19 `second` shots laid plus `lead_fp_0606d` on `606–998` and `third_fp_1306f` on `1306–1418`); newest rebuild
   manifest and coverage table under `data/2026-10-20_fun_delivery_tables/`; interactive review page at
   `http://100.87.141.65:8765/` (`data/fun/review/items.json`, `data/fun/owner_answers.jsonl`) and static
   `Video/fun/TO_REVIEW.html` / `data/fun/poc/TO_REVIEW.html` and `PROVENANCE.html`.
