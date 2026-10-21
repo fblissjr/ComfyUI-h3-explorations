@@ -61,6 +61,10 @@ is `data/fun/FINAL_STRETCH_RUNBOOK.md`, rewritten today from records.
    and correct §9's 5889e account (she is visible 5916-5917, gone from 5918).
 3. **On the owner's go, one test render:** second_hfp_5768e at seed 730451892, with her hair kept in the region on
    5768-5773 (no `--no-face-on` there, no overrides). If blonde, remake the six the same way; 4912e needs its own look.
+   Small faces (4647d: 19.7 px on the canvas, about 40 px at the 2.0x cap) also need more zoom. The lead's insets
+   worked at 2.0x only because their faces were 56-76 px. `video_mask.py::ZOOM_LARGEST` = 2.0 has no per-load
+   input, so a per-load zoom is a build. Then test 4647d at about 5x, with the hair fix, at one seed (the owner,
+   2026-10-21).
 4. **Open List rows, from internal/claude/2026-10-21_tools_to_diagnostics_plan.md:**
    - stop-and-show or print-only;
    - one seed per cut (R8);
