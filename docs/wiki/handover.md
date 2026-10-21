@@ -74,6 +74,8 @@ on 4946 (the dancer's face in front of her) and the gate blocked on her part emp
    passes (4602, 4726, 5461, 5675), the lead's gap-page shots (owner_answers.jsonl:1402-1465).
 7. Queued: W7 (staleness from a chain record), `laid.py set-owner --recite`, a leaner `<Subject 2>` text, whole-video prep,
    1039's head pose, the bigger zoom (parked).
+8. Owed records: the 2026-10-20 changelog entry was never written (`changelog.d/` has no `day-2026-10-20.md`); five older
+   pointers in `decisions.md` do not resolve (`bench/check_doc_links.py docs/wiki/decisions.md` names them).
 
 ## Where things are
 
