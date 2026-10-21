@@ -115,6 +115,15 @@ overlaps and margins can be counted by hand and reads the rows back.
    or hair, stops before a piece is dropped; on a part of clothing it reaches the drop; with no class map it stops.
    Seen red with the call taken out of the files step.
 
+23. **No face on a person's word keeps her hair** (`grade_holds`, `noface`, `NO_FACE_HAIR_KEPT`, the lead's design D2 of
+   2026-10-21). On a frame of the job's --no-face-on, a part made of Hair loses its face classes and keeps the rest (her
+   hair, and what the part model called something else), with the px kept and dropped in the record; the kept hair is
+   never a hold's source; a part not made of Hair is emptied there as before; `drop=` empties the whole part, also on a
+   frame --no-face-on names; a no-face frame that is a fragment (under the floor, or collapsed) stays empty, hair and
+   all; through the files step the part it writes keeps her hair there, `part_grades.json` says so
+   and the manifest lists the frame. The other no-face cases (the floor holds, back of the head) are face-only parts and
+   still assert the emptying.
+
 No video, no model, no card, no server.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/check_capture_masked_run.py
@@ -3007,6 +3016,98 @@ def back_of_head_and_no_face_never_held_by_grade() -> str:
     return "back_of_head and noface are never held by the floor rule or neighbour fill; back_of_head empties nothing by itself; word= overrides back_of_head"
 
 
+def no_face_keeps_her_hair() -> str:
+    """The job's --no-face-on (`noface`) on a part made of Hair drops the part's face classes and keeps the rest (her hair), the lead's
+    design D2 of 2026-10-21 (second_hfp_5768e's 5768-5773: the whole part emptied, her original hair left in the picture); a part not
+    made of Hair is emptied there as before; `drop=` empties the whole part; and the kept hair is never a hold's source. The class map
+    carries the part model's own indices (`sapiens2_parts.CLASS_NAMES`), and the grade finds Hair there itself."""
+    names = list(cap._pack("sapiens2_parts").CLASS_NAMES)
+    face_neck, hair, upper_lip, apparel = (names.index(c) for c in ("Face_Neck", "Hair", "Upper_Lip", "Apparel"))
+    n = 5
+    head = rect(40, 10, 70, 50, n)                                        # 30 x 40 = 1200 px on every frame
+    classes = np.zeros((n, H, W), np.uint8)
+    classes[:, 10:28, 40:70] = hair                                       # 540 px of hair on top
+    classes[:, 28:30, 40:70] = apparel                                    # 60 px the part model called Apparel inside the part
+    classes[:, 30:46, 40:70] = face_neck                                  # 480 px of face
+    classes[:, 46:50, 40:70] = upper_lip                                  # 120 px of lip
+    classes[:, 60:80, 40:70] = apparel                                    # her clothes below, so Apparel is not a class the part is made of
+    track = rect(36, 6, 74, 54, n)
+    hair_px, face_px = 540 + 60, 480 + 120
+    # (a) A HAIR-AND-FACE PART ON A NO-FACE FRAME: frame 2 keeps every pixel of its part but the face classes; frame 3 is a sliver under
+    # the floor, held from a standing frame that is not frame 2
+    parts = head.copy()
+    parts[3] = False
+    parts[3, 12:16, 50:60] = True                                         # 40 px, under the floor of 100
+    held, did = cap.grade_holds(parts, parts, classes, [face_neck, hair, upper_lip], least_px=100, track=track, noface={2})
+    # THE CASE THAT GOES RED when a no-face frame empties her hair with her face (the 10-17 to 10-21 behavior)
+    assert held[2].any() and int(held[2].sum()) == hair_px, (int(held[2].sum()), did.get(2))
+    # THE CASE THAT GOES RED when the face classes stay in on a no-face frame, or what the part model called something else is dropped
+    assert (held[2] == (head[2] & ~np.isin(classes[2], [face_neck, upper_lip]))).all() and held[2][head[2] & (classes[2] == apparel)].all(), \
+        did.get(2)
+    assert did[2]["did"] == cap.NO_FACE_HAIR_KEPT and did[2]["px"] == hair_px and did[2]["face_px_dropped"] == face_px, did[2]
+    assert did[2].get("not_held") == "no face on a person's word (--no-face-on)", did[2]
+    # THE CASE THAT GOES RED when the kept hair is a hold's source (a face-less shape laid on a face frame)
+    assert did[3]["did"] == "held by the floor rule" and did[3]["from_frames"] == [4], did[3]
+    assert all((held[f] == head[f]).all() for f in (0, 1, 4)) and all(f not in did for f in (0, 1, 4)), {f: did.get(f) for f in (0, 1, 4)}
+    # (b) A FACE-ONLY PART ON A NO-FACE FRAME is emptied as before, the class map's Hair under it and all
+    face_only = head & ~(np.arange(H)[None, :, None] < 28)                # rows 28-49: Apparel, face and lip (660 px)
+    face_only[:, 20:28, 40:70] = True                                     # and 240 px the class map calls Hair, inside the part
+    fo, fo_did = cap.grade_holds(face_only, face_only, classes, [face_neck, upper_lip], least_px=100, track=track, noface={2})
+    # THE CASE THAT GOES RED when a face-only part keeps anything on a no-face frame
+    assert not fo[2].any() and fo_did[2]["did"] == "emptied" and fo_did[2]["why"] == "no face on a person's word (--no-face-on)", fo_did[2]
+    assert fo_did[2].get("not_held") == "no face on a person's word (--no-face-on)", fo_did[2]
+    # (c) DROP= EMPTIES THE WHOLE PART, its hair too, alone and on a frame the job also says shows no face
+    dr, dr_did = cap.grade_holds(head, head, classes, [face_neck, hair, upper_lip], least_px=100, track=track, drop={2})
+    both, both_did = cap.grade_holds(head, head, classes, [face_neck, hair, upper_lip], least_px=100, track=track, drop={2}, noface={2})
+    # THE CASE THAT GOES RED when a dropped frame keeps her hair
+    assert not dr[2].any() and dr_did[2]["why"] == "dropped by the job (drop=)", dr_did[2]
+    assert not both[2].any() and both_did[2]["did"] == "emptied" and both_did[2]["why"] == "dropped by the job (drop=)", both_did[2]
+    # (d) A NO-FACE FRAME THAT IS A FRAGMENT stays empty, hair and all: the cut reads the graded part, which the floor and the collapse
+    # test have already emptied, never the saved part (frame 1: 40 px of hair under the floor of 100; frame 3: 150 px of hair, over the
+    # floor and collapsed against its 1200 px neighbors)
+    bits = head.copy()
+    bits[1] = False
+    bits[1, 12:16, 50:60] = True
+    bits[3] = False
+    bits[3, 10:15, 40:70] = True
+    fr, fr_did = cap.grade_holds(bits, bits, classes, [face_neck, hair, upper_lip], least_px=100, track=track, noface={1, 3})
+    # THE CASE THAT GOES RED when a no-face frame's hair is cut from the saved part, so a fragment the grade emptied keeps its hair
+    assert not fr[1].any() and fr_did[1]["did"] == "emptied" and not fr[3].any() and fr_did[3]["did"] == "emptied", \
+        ({f: int(fr[f].sum()) for f in (1, 3)}, fr_did.get(1), fr_did.get(3))
+    assert all((fr[f] == head[f]).all() for f in (0, 2, 4)), {f: fr_did.get(f) for f in (0, 2, 4)}
+    # (e) THROUGH THE FILES STEP (its readers stood in), as load_chain hands it `noface=`: the part to load keeps her hair on the
+    # no-face frame, part_grades.json says so, and the manifest lists the frame
+    import tempfile
+    stood_in = {k: getattr(cap, k) for k in ("probe", "read_mask", "read_classes", "write_mask_video", "input_facts", "picture_rows")}
+    written: dict[str, np.ndarray] = {}
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            cap.probe = lambda _p: (W, H, n)
+            cap.read_mask = lambda p, *_a: ((track.copy() if "track" in str(p) else head.copy()), np.ones(n, bool))
+            cap.read_classes = lambda *_a: classes.copy()
+            cap.input_facts = lambda p: {"file": str(p), "written": "2026-10-21T12:00:00", "size": [W, H], "frames": n}
+            cap.picture_rows = lambda *_a: [(0.0, 0.0)] * n
+            cap.write_mask_video = lambda p, m: written.__setitem__(Path(p).name, m.copy())
+            args = argparse.Namespace(first=100, frames=n, name="nf", date="2026-01-01", source=str(Path(tmp) / "src.mp4"), loads=None,
+                                      voice=None, head_tube=False)
+            spec = {"track": "track.mkv", "parts": "parts.mkv", "classes": "classes.mkv", "by": "pv", "at": "100", "least": "100",
+                    "noface": "102-102"}
+            cap._files(args, Path(tmp) / "cap", [("a", spec)], [], [])
+        finally:
+            for k, v in stood_in.items():
+                setattr(cap, k, v)
+        pg = json.loads((Path(tmp) / "cap" / "subjects" / "a" / "part_grades.json").read_text())
+        seen = json.loads((Path(tmp) / "cap" / "manifest.json").read_text())["subjects"][0]["sightings"][0]
+    # THE CASE THAT GOES RED when the files step does not carry the grade's kept hair into the part it writes, its record or the manifest
+    assert int(written["parts_held__pv.mkv"][2].sum()) == hair_px and int(written["parts_held__pv.mkv"][1].sum()) == 1200, \
+        [int(x.sum()) for x in written["parts_held__pv.mkv"]]
+    assert [g["did"] for g in pg["frames"] if g["source_frame"] == 102] == [cap.NO_FACE_HAIR_KEPT], pg["frames"]
+    assert seen["parts_face_dropped_on_a_word_on_source_frames"] == [[102, 102]] and not seen["parts_emptied_by_grade_on_source_frames"], seen
+    return (f"no face on a hair-and-face part: {hair_px} px of hair kept, {face_px} px of face dropped, never a hold's source; "
+            "a face-only part emptied there as before; drop= empties all; a no-face fragment stays empty; the files step writes the kept "
+            "hair, says it and lists the frame")
+
+
 def depth_in_owner_map_and_the_files_step() -> str:
     """`--depth` (`bench/capture_masked_run.py`): settles contested pixels in `owner_map` when core depth medians
     separate (`|z_a - z_b| > max(0.03, 0.03 * min(z_a, z_b))`), leaves background slits and co-planar overlaps
@@ -3322,6 +3423,7 @@ case("the carve, in the files step", the_carve_in_the_files_step)
 case("the carve on the node's own grid", the_carve_on_the_nodes_grid)
 case("the head tube, in the files step", head_tube_in_the_files_step)
 case("back of the head and no-face frames are never held by the grade", back_of_head_and_no_face_never_held_by_grade)
+case("no face on a person's word: her hair kept, the face classes dropped", no_face_keeps_her_hair)
 case("depth in the owner map and the files step", depth_in_owner_map_and_the_files_step)
 case("step keep-out carves in the files step and diagnose", step_keepout_carves_in_files_and_diagnose)
 case("preflight: dropped frame with visible face in classes blocks", dropped_frame_with_visible_face_flagged)

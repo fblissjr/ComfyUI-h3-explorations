@@ -2976,7 +2976,8 @@ def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: di
         *([("the part held on a person's word", "on " + mine["word"].replace("+", ", ") + ": frames the capture's grade leaves empty there take "
             "the nearest graded part, moved and cut to the track (capture_masked_run.word_shapes)", mine["word_by"])] if mine.get("word") else []),
         *([("the face lines", "NONE on " + ", ".join(f"{s['first']}-{s['last']}" for s in ref_form["no_face_on"]) + ", turned off on a person's word "
-            "(the plain cut body model alone there)", "; ".join(f"{s['first']}-{s['last']}: {s['said_by']}, {s['at']}: {s['why']}" for s in ref_form["no_face_on"]))]
+            "(the plain cut body model alone there); the capture drops the part's face classes there and keeps the rest, her hair "
+            "(a face-only part is emptied there; capture_masked_run.grade_holds)", "; ".join(f"{s['first']}-{s['last']}: {s['said_by']}, {s['at']}: {s['why']}" for s in ref_form["no_face_on"]))]
           if ref_form.get("no_face_on") else []),
         *([("the head tube", "SAM 3.1 whole-head tube bounded by the person track + 3-frame smoothed Sapiens2-Seg on one steady shot box (head_tube_parts --head-tube)",
             f"shot_to_load.py::defaults_carried (opt-in switch, off by default; {head_tube_block['said_by']}: {head_tube_block['why']})")]
@@ -4016,7 +4017,9 @@ def main() -> int:
     j.add_argument("--no-face-on", action="append", default=[], metavar="FIRST-LAST=WHY",
                    help="no line of the face drawn on those source frames of the reference (the plain cut body model alone), on a person's word: "
                         "who looked, at which sheet of those frames (its file named; only that a file of that name is there is checked), and that "
-                        "the face does not show there (a head turned away, hidden behind somebody); repeatable")
+                        "the face does not show there (a head turned away, hidden behind somebody). The capture's grade then drops the part's face "
+                        "classes on those frames and keeps the rest of it, her hair (a face-only part is emptied there; "
+                        "capture_masked_run.grade_holds); repeatable")
     j.add_argument("--hold-part", action="append", default=[], metavar="FIRST-LAST=WHY",
                    help="hold the subject's part on those source frames where the capture's grade leaves it empty, from the nearest graded part, "
                         "on a person's word: who looked, at which sheet of those frames (its file named; only that a file of that name is there is "

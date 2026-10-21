@@ -384,7 +384,8 @@ def mask_specs(ctx: dict, files: dict, band: Path | None = None, hashed=None) ->
             if key in keys:
                 spec += f",{key}={keys[key]}"
         # THE FLOOR HOLDS, NEVER WHERE NO FACE SHOWS (build (B), the lead's ruling of 2026-10-16): the job's --no-face-on spans, a person's look,
-        # so the capture holds no part there (`capture_masked_run.grade_holds`, `noface`)
+        # so the capture holds no part there from a neighbor, and drops the part's face classes there while keeping the rest, her hair (a
+        # face-only part is emptied; the lead's design D2 of 2026-10-21; `capture_masked_run.grade_holds`, `noface`, NO_FACE_HAIR_KEPT)
         faceless = [f"{s['first']}-{s['last']}" for s in ((ctx.get("job") or {}).get("reference") or {}).get("no_face_on") or []] if label == ctx["subject"] else []
         if faceless:
             spec += ",noface=" + "+".join(faceless)

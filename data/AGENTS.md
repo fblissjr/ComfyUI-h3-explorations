@@ -62,8 +62,10 @@ daily); this file, the lane's rules for any video, is the one tracked file here,
   (`bench/capture_masked_run.py::dropped_or_unmasked_face_in_context`): H3 attention runs over the full `17n + 5`
   window (`5n + 2` latent steps) regardless of `tokens_sum == 0`, so mid-window drops save zero compute and expose the
   original actor's features in the frozen context for bidirectional attention to propagate across the whole window. On
-  back- or side-of-head turns, keep the regeneration mask open and pass `--no-face-on` to `head_reference.py` so
-  `<Video 1>` draws no facial marks there.
+  back- or side-of-head turns, pass `--no-face-on` to `bench/shot_to_load.py job` instead: `<Video 1>` draws no face
+  lines there, and on a hair-and-face part the capture drops only the face classes from her part, the mask the load
+  carries, on those frames, so her hair stays in (`bench/capture_masked_run.py::grade_holds`). The node grows the region
+  from that part, so its margin may still cover some of the face. A face-only part is emptied on those frames.
 - Every laid piece is laid by its own matte under one compositing law (`bench/assemble_delivery.py::lay_plane`,
   2026-10-17). A matte is reconstructed from the render's own inputs, never today's defaults
   (`bench/recomposite_piece.py --save-own-matte`).

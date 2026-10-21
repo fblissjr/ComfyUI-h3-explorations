@@ -1041,6 +1041,39 @@ def main() -> int:
             c_d22_1_floor_hold_and_emptied_dids,
         )
 
+        def c_no_face_hair_kept() -> str:
+            pg_path = subj_dir / "part_grades.json"
+            orig_pg = json.loads(pg_path.read_text(encoding="utf-8"))
+            try:
+                pg_nf = copy.deepcopy(orig_pg)
+                # 104: the job's --no-face-on on a part made of Hair, its face classes dropped and the rest kept (the capture's own string)
+                pg_nf["frames"] = [g for g in orig_pg["frames"] if g["source_frame"] != 104] + [{
+                    "source_frame": 104,
+                    "did": "face classes dropped on a person's word (--no-face-on), the rest of the part kept",
+                    "saved_on_its_classes": 0.95,
+                    "fill_on_its_classes": None,
+                    "px": 900,
+                    "face_px_dropped": 600,
+                    "not_held": "no face on a person's word (--no-face-on)",
+                    "why": "no face on a person's word (--no-face-on): the part's face classes dropped, the rest of it (her hair) kept",
+                }]
+                pg_path.write_text(json.dumps(pg_nf, indent=2) + "\n", encoding="utf-8")
+                w = frame_table.build_frame_table(cap)
+                _, r_nf = _read_table(w["jsonl"])
+                r104 = {r["source_frame"]: r for r in r_nf}[104]
+                # THE CASE THAT GOES RED when the record's own `did` is refused, read as emptied, or read as the whole saved part laid
+                assert r104["outcome"] == "replaced" and r104["loaded_part_px"] == 900 and r104["part_px"] == 900, r104
+                assert r104["face_px_dropped"] == 600 and "face classes" in r104["part_px_measures"], r104
+                assert "face classes dropped on a person's word (600 px)" in w["md"].read_text(encoding="utf-8")
+                return f"104: outcome={r104['outcome']}, loaded_part_px={r104['loaded_part_px']}, face_px_dropped={r104['face_px_dropped']}"
+            finally:
+                pg_path.write_text(json.dumps(orig_pg, indent=2) + "\n", encoding="utf-8")
+
+        case(
+            "no face on a person's word (2026-10-21): her hair kept is replaced with the px the record kept, the face px dropped said",
+            c_no_face_hair_kept,
+        )
+
     return finish()
 
 

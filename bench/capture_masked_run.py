@@ -843,6 +843,12 @@ HOLD_ON_TRACK_LEAST = 0.25
 COLLAPSE_SHARE = 0.15
 COLLAPSE_REACH = 2
 HOLD_MISSED = "hold missed her track: the nearest standing part, moved, lies mostly off her track, so nothing is placed (data, which the gap check shows)"
+#: What a frame of the job's --no-face-on (`noface`) says when its part's face classes were dropped and the rest of the part kept
+#: (`grade_holds`). **Reasoned** (the lead's design D2, 2026-10-21): --no-face-on is a word about the drawn reference (no face lines there,
+#: 2026-10-15); from 2026-10-17 the grade emptied the WHOLE part on its frames, and on a hair-and-face part that left her original hair
+#: in the picture as frozen context (second_hfp_5768e's 5768-5773, docs/wiki/decisions.md 2026-10-21). A part not made of Hair is emptied
+#: there as before.
+NO_FACE_HAIR_KEPT = "face classes dropped on a person's word (--no-face-on), the rest of the part kept"
 
 
 def grade_given(m: dict, what: dict, every: np.ndarray, first: int, frames: int, track: np.ndarray) -> dict:
@@ -928,7 +934,8 @@ def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made
                 word: set[int] | frozenset = frozenset(), track: np.ndarray | None = None,
                 noface: set[int] | frozenset = frozenset(), off_head_fragments: set[int] | frozenset = frozenset(),
                 drop: set[int] | frozenset = frozenset(), back_of_head: set[int] | frozenset = frozenset(),
-                points: str | None = None, first_frame: int | None = None) -> tuple[np.ndarray, dict[int, dict]]:
+                points: str | None = None, first_frame: int | None = None,
+                hair: int | None = None) -> tuple[np.ndarray, dict[int, dict]]:
     """The part to load, frame by frame, from the saved part and a proposed fill, graded by the class map.
 
     A fill takes a neighbour's shape to a frame the gate doubted. On a fast turn the doubted part was right
@@ -968,9 +975,19 @@ def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made
     when she is tracked there: it is held from the nearest frame whose part stands (never from a fragment), moved and cut as a word's
     hold is (`word_shapes`), and unioned with its own small part where that lies on her track. Not on a frame of `noface` (the job's
     --no-face-on: a person looked and no face shows), `back_of_head` (the head tube's proposal where only hair shows, unless overridden by
-    `word=`), or where she is not tracked: those are emptied as before, while `back_of_head` never empties a standing part by itself.
+    `word=`), or where she is not tracked: those are emptied as before (a `noface` frame but for its hair, below), while `back_of_head`
+    never empties a standing part by itself.
     A held shape, word or floor, that lies under `HOLD_ON_TRACK_LEAST` of its pixels on her track itself places nothing (`HOLD_MISSED`).
-    `drop=` is the caller's, after this, and empties whatever it names."""
+    `drop=` is the caller's, after this, and empties whatever it names.
+
+    NO FACE ON A PERSON'S WORD, HER HAIR KEPT (`noface`, the lead's design D2 of 2026-10-21): a part standing on a `noface` frame loses
+    its face classes (every class of `made` but `hair`: the split `head_tube_parts` makes as `face_keep_ids`) and keeps the rest, so a
+    hair-and-face load lays her hair there and none of her original hair stays in the picture (`NO_FACE_HAIR_KEPT`, with the px kept and
+    the face px dropped). A part not made of `hair` keeps nothing: a face-only part is emptied as before. The rest is set aside when the
+    frame is emptied and laid back after every hold, so a `noface` frame is still never held, never a hold's source and never the
+    neighbor a fill or a collapse reads; a `drop` frame keeps nothing. `hair` is the class map's Hair, `sapiens2_parts.CLASS_NAMES`'s
+    when not given. What it cannot see: a word that is wrong (a face that shows there loses its face classes all the same), and the
+    hair of a frame whose whole part was emptied before it (under the floor, collapsed, or off the part's classes), which stays empty."""
     own = np.isin(classes, made)
     out, decisions = parts.copy(), {}
     excluded = (set(drop) | set(noface)) & set(range(len(parts)))
@@ -1010,8 +1027,17 @@ def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made
     for f, why in fragments.items():
         out[f] = False
         decisions[f] = {**decisions.get(f, {"saved_on_its_classes": inside(parts[f], f), "fill_on_its_classes": None}), "did": "emptied", **why}
+    # NO FACE ON A PERSON'S WORD, HER HAIR KEPT (NO_FACE_HAIR_KEPT): what a standing part keeps on a `noface` frame, set aside here and
+    # laid back after every hold; nothing on a `drop` frame, and nothing from a part not made of Hair
+    if noface and hair is None:
+        hair = list(_pack("sapiens2_parts").CLASS_NAMES).index("Hair")
+    face = [c for c in made if c != hair]
+    face_cut: dict[int, tuple[np.ndarray, int]] = {}
     for f in sorted(excluded):
         if out[f].any() or f in fragments:
+            if f in noface and f not in drop and hair in made:
+                on_face = out[f] & np.isin(classes[f], face)
+                face_cut[f] = (out[f] & ~on_face, int(on_face.sum()))
             out[f] = False
             decisions[f] = {**decisions.get(f, {"saved_on_its_classes": inside(parts[f], f), "fill_on_its_classes": None}), "did": "emptied",
                             "why": "dropped by the job (drop=)" if f in drop else "no face on a person's word (--no-face-on)"}
@@ -1092,6 +1118,11 @@ def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made
     for f in sorted(boh):
         if f in decisions and not out[f].any() and decisions[f].get("did") == "emptied" and "not_held" not in decisions[f]:
             decisions[f]["not_held"] = "back of the head (head_tube proposal: not held by the floor rule)"
+    for f, (keep, on_face_px) in sorted(face_cut.items()):
+        if keep.any():
+            out[f] = keep
+            decisions[f] = {**decisions[f], "did": NO_FACE_HAIR_KEPT, "px": int(keep.sum()), "face_px_dropped": on_face_px,
+                            "why": "no face on a person's word (--no-face-on): the part's face classes dropped, the rest of it (her hair) kept"}
     if first_frame is not None or points is not None:
         fp_by_frame = held_face_points(out, points, int(first_frame or 0)) if points else {}
         for f, d in decisions.items():
@@ -2477,6 +2508,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
         word_not_held: list[int] = []
         held_by_floor: list[int] = []
         hold_missed: list[int] = []
+        face_dropped: list[int] = []
         sizes = None
         if parts is None:
             word_refused(label, m, False)
@@ -2515,6 +2547,11 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                         if word_not_held:
                             print(f"  {label}: THE WORD IS NOT HELD on {', '.join(f'{x}-{y}' if x != y else str(x) for x, y in frame_spans(word_not_held))}: "
                                   f"{WORD_NOT_HELD}", flush=True)
+                        face_dropped = [first + f for f, d in graded.items() if d["did"] == NO_FACE_HAIR_KEPT]
+                        if face_dropped:
+                            print(f"  {label}: no face on a person's word on {', '.join(f'{x}-{y}' if x != y else str(x) for x, y in frame_spans(face_dropped))}: "
+                                  f"the part's face classes dropped ({sum(graded[f - first]['face_px_dropped'] for f in face_dropped)} px), the rest "
+                                  f"of it kept ({sum(graded[f - first]['px'] for f in face_dropped)} px)", flush=True)
                         held_details = [
                             {"source_frame": first + f, "did": d["did"], "from_frames": d.get("from_frames"),
                              "from_source_frames": d.get("from_source_frames"), "source_px": d.get("source_px"),
@@ -2588,6 +2625,8 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                    "parts_fill_refused_by_grade_on_source_frames": frame_spans(refused),
                                    "parts_emptied_by_grade_on_source_frames": frame_spans(emptied_by_grade),
                                    "parts_word_not_held_on_source_frames": frame_spans(word_not_held),
+                                   # --no-face-on: the part's face classes dropped and the rest of it kept (`grade_holds`, NO_FACE_HAIR_KEPT)
+                                   "parts_face_dropped_on_a_word_on_source_frames": frame_spans(face_dropped),
                                    # THE FLOOR HOLDS (build (B)): frames held by the floor rule, and holds that missed her track (`grade_holds`)
                                    "parts_held_by_the_floor_rule_on_source_frames": frame_spans(held_by_floor),
                                    "parts_hold_missed_her_track_on_source_frames": frame_spans(hold_missed),

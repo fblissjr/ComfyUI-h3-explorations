@@ -56,6 +56,7 @@ if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
 from workflows import h3_config  # noqa: E402
+from capture_masked_run import NO_FACE_HAIR_KEPT  # noqa: E402
 
 #: Schema tag for the top-of-table header line in `frame_table.jsonl`. Reasoned: version 1 of the per-load frame table.
 SCHEMA = "h3_frame_table/1"
@@ -75,6 +76,13 @@ CLOSED_DID_VOCAB = frozenset({
     "left empty: hold missed her track: the nearest standing part, moved, lies mostly off her track, so nothing is placed (data, which the gap check shows)",
     "emptied: hold missed her track: the nearest standing part, moved, lies mostly off her track, so nothing is placed (data, which the gap check shows)",
     "emptied: no standing part in the load to hold it from",
+    # the job's --no-face-on on a part made of Hair: its face classes dropped, the rest kept (capture_masked_run.NO_FACE_HAIR_KEPT, 2026-10-21)
+    NO_FACE_HAIR_KEPT,
+})
+#: Subset of `CLOSED_DID_VOCAB` that produces `outcome == "replaced"` with the part the record says it kept (`px`), not the saved part.
+#: Reasoned: what is laid there is the saved part less its face classes (capture_masked_run.NO_FACE_HAIR_KEPT, 2026-10-21).
+FACE_DROPPED_DIDS = frozenset({
+    NO_FACE_HAIR_KEPT,
 })
 #: Subset of `CLOSED_DID_VOCAB` that produces `outcome == "held"`.
 HELD_DIDS = frozenset({
@@ -925,6 +933,15 @@ def build_frame_table(
                 part_px = int(saved_part_px or 0)
                 part_px_measures = "saved_part (carried)"
                 outcome_extra["did"] = did
+            elif did in FACE_DROPPED_DIDS:
+                outcome = "replaced"
+                loaded_part_px = int(g["px"])
+                part_px = int(g["px"])
+                part_px_measures = "the saved part less its face classes, on a person's word (carried)"
+                outcome_extra["did"] = did
+                outcome_extra["face_px_dropped"] = g.get("face_px_dropped")
+                if g.get("why"):
+                    outcome_extra["why"] = g["why"]
             elif did in EMPTIED_DIDS:
                 outcome = "emptied"
                 loaded_part_px = 0
@@ -1400,7 +1417,7 @@ def _render_markdown(header: dict, rows: list[dict]) -> str:
         "",
         "## Per-frame table",
         "",
-        "- **Size columns**: `loaded_part_px` is what is carried into the load (`saved_part_px` on `replaced`, `held_fill` on `held`, `0` on `emptied`/`dropped`); `saved_part_px` and `saved_part_height_px` are the saved part before grading/holding/dropping; `part_px (measured)` shows `part_px` with what it measures (`saved_part`, `held_fill`, or `removed_part`).",
+        "- **Size columns**: `loaded_part_px` is what is carried into the load (`saved_part_px` on `replaced`, less its face classes where a person's --no-face-on dropped them, `held_fill` on `held`, `0` on `emptied`/`dropped`); `saved_part_px` and `saved_part_height_px` are the saved part before grading/holding/dropping; `part_px (measured)` shows `part_px` with what it measures (`saved_part`, `held_fill`, or `removed_part`).",
         "",
         "| source_frame | load_frame | tracked (share / px) | loaded_part_px | part_px (measured) | saved_part_height_px | outcome | detail | sam (score / in_view / from) | others_given_back | inside_flag_spans |",
         "|---:|---:|---|---:|---|---:|---|---|---|---|---|",
@@ -1417,6 +1434,8 @@ def _render_markdown(header: dict, rows: list[dict]) -> str:
                 detail_parts.append(f"saved={r['saved_part_px']}px")
         elif r["outcome"] == "dropped":
             detail_parts.append(str(r.get("reason", "")))
+        elif r["outcome"] == "replaced" and r.get("did") in FACE_DROPPED_DIDS:
+            detail_parts.append(f"face classes dropped on a person's word ({r.get('face_px_dropped')} px), the rest kept")
         elif r["outcome"] == "emptied":
             detail_parts.append(f"cause={r.get('cause')}")
             if r.get("word_not_held"):
