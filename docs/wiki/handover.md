@@ -99,7 +99,9 @@ right ([`decisions.md`](decisions.md), newest first; `data/fun/laid.jsonl`; `dat
 
 1. **Read in by `AGENTS.md`'s order**, plus [`docs/masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md),
    [`docs/masked_v2v/PROTOCOL.md`](../masked_v2v/PROTOCOL.md), `data/fun/AGENTS.md`, `data/fun/CUT_MAP.md`, and `data/fun/FINAL_STRETCH_RUNBOOK.md` before lane work. Start ComfyUI (`:8188`) and the review server (`:8765`, `data/fun/poc/serve.py`) per [`docs/comfy_notes.md`](../comfy_notes.md).
-2. **Owner Review Check of the 12 New `second` Pass-1 Clips & Joined Cut**:
+2. **Switch `_sheet.jpg` & Validation Contact Sheets from Fixed-6 `linspace` to Constant-FPS + Transition-Boundary Sampling**:
+   - `bench/crop_reference_to_head.py:256`, `bench/draw_face_points.py:869`, and `bench/head_reference.py` currently write `<stem>_sheet.jpg` using fixed 6-frame `np.linspace(0, count - 1, 6)` regardless of shot length (whether 16 frames or 362 frames), which warps time deltas and skips mid-shot exits (`5914 -> 5916` on `second_hfp_5889e`). Replace fixed-count `linspace` with **constant-FPS sampling** (e.g., `2 fps` = every 12 frames at 24 fps, or `4 fps` on short shots) augmented with exact state-transition boundary frames (`off_head`, `mouth_mode` changes, `pose_mostly_outside_the_frame`, `part_not_visible`).
+3. **Owner Review Check of the 12 New `second` Pass-1 Clips & Joined Cut**:
    - All 12 new `second` Pass-1 clips (`0415g`, `0484f`, `1039d`, `1093c`, `1419c`, `4602c`, `4647d`, `4726c`, `4912e`, `5011e`, `5768e`, `5889e`) are open in `data/fun/review/items.json` and `data/fun/review/start_here.json` with folded reader cards (`playback_reading_mrgemread.md`, all 12 `keep`).
 3. **Run Multi-Subject Pass 2 / Pass 3 (`lead` and `third`) on the Post-Pass-1 24.0 fps Cut (`fun_0000_6394_joined_2026-10-20T0110Z_from_laid.mp4`)**:
    - All 19 `second` shots across `fun` (`0000–6394`) are laid in `data/fun/laid.jsonl` (`50 lines`, `sha256 80f694bba3639c1f`), and the 24.0 fps post-Pass-1 cut is registered in `data/fun/manifest.json` as `fun_0000_6394_joined_2026-10-20T0110Z_from_laid.mp4` under `H3_INPUT_DIR`.
