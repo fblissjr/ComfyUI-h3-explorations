@@ -15,6 +15,82 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-10-21
+
+Claude led today (mrtusk), with mrsim on the card and Gemini advising. The day re-read the two days Gemini led alone
+against the records.
+- The working records are under `internal/claude/2026-10-21_*`: the control audit and its verification, the
+  AGENTS.md claims map, the pages trace, the tools-to-diagnostics plan, the dark-hair trace and the final-stretch
+  status.
+- The two mailboxes hold the step-by-step: `internal/claude/2026-10-21_mrtusk_to_mrsim.md` and
+  `..._mrsim_to_mrtusk.md`.
+
+- **Tools are diagnostics** (the owner): red only on a hard failure, meaning data that cannot be processed (a missing
+  or malformed key, a hard error). Otherwise a tool prints what it read and what it cannot see, with no business rule
+  inside. Open for the owner: whether irreversible steps (queue, lay, assemble) may stop on a judgement until
+  overridden with a written reason, or only print. The plan shows both forms per item
+  (`internal/claude/2026-10-21_tools_to_diagnostics_plan.md`).
+- **One source of truth, with its lineage visible** (the owner): PROVENANCE reads the records it names, with each
+  file's mtime in Central time. Changing X means rebuilding Y per `docs/masked_v2v/AGENTS.md` §8, which is to be
+  shown on the page as data. This confirms the 10-20 revert of the derived DAG tab (057a9260 to 427154bb).
+- **Adaptive frame picking, not even sampling** (the owner: "deltas are what matter"; Apollo, arXiv 2412.10360, found
+  fps sampling better than evenly spaced frames for understanding). `bench/pick_frames.py` (branch
+  claude-pick-frames, in review) picks frames where a recorded signal changes, keeps a one-a-second floor, and never
+  drops a change, a record event or an island.
+  - Gemini reads video at about 1 fps natively, so its reads miss events shorter than a second; it watches whole
+    first, then a slowed clip of the picked windows.
+  - Claude reads one composite sheet of the picked frames.
+  - Neither reads every frame or evenly spaced frames.
+- **Corrected in the record:**
+  - `second_hfp_0278i`, which the owner turned down on 10-19, had been laid on 278-293 on 10-20. It is out, and the
+    owner-kept 0278c is back.
+  - Five second pieces (4479b, 5114f, 5461e, 5533b, 5675c) read `kept` from `bench/laid.py`'s default. They are reset
+    to unconfirmed, and `--owner` is now required, with every `kept` citing the owner's own line (10b1939f).
+- **Corrected tools:**
+  - `laid.py`'s `frames` was accepted and ignored. The delivery table now honors it, and laid.py refuses malformed
+    spans. `remove` now takes a reason and keeps a record (7b7354d2).
+  - The assembler's audio proof failed every cut since the source became the PCM .mov (10-19): it compared packet
+    layout, though the decoded samples were identical (sha256 876a91db). It now compares decoded samples in place
+    (d7068b36).
+- **Corrected docs:**
+  - docs/masked_v2v/PROTOCOL.md's command examples used flags that do not exist (7d194514).
+  - The closed-mouth rule is `(not has_hole) or (gap <= INNER_GAP_CLOSED_PX)`, with the constant at 3.0 px
+    (draw_face_points.py:182). The docs had said `and` and 3.5 (cd94b32d). That correction also fixes the pointers
+    to 10-20 items 2-3 below.
+  - `smooth_mouth_area` is no longer called, but its code remains.
+  - `fit_mouth_to_head`'s quoted conditions (`run_end`, `pose_cy`) never existed in code.
+  - The 10-20 note "matching lead_fp_0606d and second_hfp_1010g" is wrong: both were made with the drawing before
+    b270be7e.
+- **The handover's Pass-2 list disagreed with `shots.json`** (lead absent on 278, 415, 484, 1039; third missing on
+  4479, 5114, 5461). shots.json wins. The list re-derived from it: lead after second on 1010, 1093, 1419, 4647; third
+  after second on 1419, 4479, 4602, 4647, 4726, 4912, 5011, 5114, 5461, 5533, 5675, 5768, 5889. The owner's look takes
+  the third off 5889.
+- **second_hfp_5889e is right as rendered** (the owner, on playback). She is swapped at 5916-5917 and out of frame
+  from 5918, where the render equalling the source is correct.
+  - The 10-20 advice to trim at 5915 was wrong.
+  - The assembler's `ends` failure there was a correct tail read as a fault.
+  - The owner kept it (owner_answers.jsonl:1352); it is laid on 5889-5917.
+- **Why several second pieces kept her original dark hair** (internal/claude/2026-10-21_dark_hair_trace.md):
+  - Not zoom. The 2.0x cap appears on both dark and blonde loads.
+  - Her original head was left visible inside the window on 4 of the 6: frames emptied by a face-only `--no-face-on`
+    and by overrides written from a contact sheet. The beard rule applies to hair.
+  - Faces under 20 px on the canvas account for 3 of them; 4912e is unexplained.
+  - One test settles it: re-render 5768e at the same seed with her hair kept in the region on 5768-5773.
+  - How it got through:
+    - A 10-20 batch script (`run_batch2_10.sh`, in the Gemini session's scratch) copied earlier no-mask statements
+      forward. It auto-overrode every blocking preflight flag before plan and render, including 5768e's f001: "look at
+      those frames before anything renders" (data/2026-10-20_second_hfp_5768e/outcomes.json).
+    - The pieces were laid as soon as they rendered.
+    - The checks that ran afterwards could not see it: evenly spaced shrunken sheets, a close-up that cropped the
+      text panel, and a 1 fps card that said "clean blonde".
+  - Rule for the next lead: an override is a person's act after a look, never a loop in a script (Open List, who may
+    override).
+- **Preview seeding uses one owner box per cut and drops the rest** (cast_file.py; 11 subject-shots,
+  internal/claude/2026-10-21_mrsim_preview_seeds.md). It cost 1419c its 1420-1423. No owner word found for this rule.
+- **Mistakes of the day, for the next lead:** characterizing a claim before checking it, acting on readings without
+  looking at the clip, and passing an advisor's line on as fact. Each is written down in
+  `internal/claude/2026-10-21_mrtusk/mentor_notes.md`.
+
 ## 2026-10-20
 
 - **Why fixed-$N$ uniform `linspace` sampling fails (`second_hfp_5889e` on `5889–5934`, `bench/crop_reference_to_head.py`, `bench/draw_face_points.py`, `bench/head_reference.py`)**: On `second_hfp_5889e` (`5889–5934`), a 4-frame evenly-spaced contact sheet (`5889, 5904, 5919, 5934`) and the fixed 6-frame `np.linspace(0, count - 1, 6)` reference sheet (`_sheet.jpg`) missed that `second`'s face and hair are only in frame on `5889–5915`—at `5916`, the door opens and a conga line marches out while her head exits the right edge of the frame, leaving only her arm and dress at the right border on `5916–5934`. Because `second` is a `face_and_neck` + `hair` part load (`part_saved_on_track`), keeping the arm/shoulder track open on `5916–5933` after `Face_Neck` and `Hair` exited the frame (`pose_mostly_outside_the_frame (second) on 5915-5934`) left the rendered pixels on `5930–5933` nearly identical to the source (`10.7` levels vs `41.2` in the middle), which `bench/assemble_delivery.py`'s `ends` proof rightly rejected (`ends on the source's own picture under its subject: frames 5930-5933`). **Why fixed-$N$ uniform sampling failed here** (the owner, 2026-10-20): fixed-count uniform `np.linspace(0, count - 1, 6)` in `_sheet.jpg` writers (`crop_reference_to_head.py:256`, `draw_face_points.py:869`, `head_reference.py`) and validation contact sheets is blind to both clip duration (giving a 16-frame clip and a 362-frame clip the same number of samples and warping time deltas, as noted in Meta's *Apollo* video understanding paper) and content/state transitions (where a subject enters/exits the frame, becomes occluded, or changes expression between uniform sample points). How to replace fixed-$N$ `linspace` is left open for tomorrow; meanwhile, when a part-load subject's replaced parts (`Face_Neck` + `Hair`) exit the frame before the shot ends while an unreplaced body part (arm/dress) remains in view, `--drop` those tail frames in the job (or lay only the visible-head span `5889–5915` in `laid.jsonl`).
@@ -23,7 +99,7 @@ Older history lives elsewhere and is not copied here:
 - **Parent -> Child data invalidation DAG and ComfyUI (`:8188`) restart rules documented (`825d2f65`, `b47a7852`, `427154bb`)**: Documented the 6-stage Parent -> Child invalidation DAG and ComfyUI server-restart rules in [`docs/masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md) ("8. Parent -> Child Invalidation DAG"), [`docs/masked_v2v/PROTOCOL.md`](../masked_v2v/PROTOCOL.md) ("Stage 0.5"), and [`data/AGENTS.md`](../../data/AGENTS.md). Evaluated and reverted (`057a9260` -> `427154bb`) a heuristic Stage A/B/C/D DAG constructor in [`bench/build_cut_map.py`](../../bench/build_cut_map.py) (which grouped by `(shot_first, subject)` and used `mtime` heuristics that silently omitted sub-shot loads such as `lead_fp_1093b` and `lead_fp_1537c`), keeping `PROVENANCE.html` strictly as a 2-tab view over authoritative records (`shots.json`, `laid.jsonl`, `manifest.json`, and run folders) and [`bench/load_chain.py`](../../bench/load_chain.py) as the sole hard-error validator.
 - **Head-reference mouth smudge (`smooth_mouth_area`) retired, closed-mouth frames left as natural 3D grey mesh lips (`mouths[f] = None`), chin/hand gap bug in `fit_mouth_to_head` fixed, downcast-eye arc (`DOWNCAST_RING_OUTSIDE_MIN = 0.65`) restored, and `<Subject 2>` prompt unified across all face-drawn loads** (the owner, 2026-10-20, on `second_hfp_0415e`..`0415g`, `second_hfp_0484d`..`0484f`, `second_hfp_1039b`, and `lead_fp_0606d` / `second_hfp_1010g`; landed in `b270be7e` and `a0dddf18`):
   1. `bench/draw_face_points.py::smooth_mouth_area` is now a no-op: painting a flat `89th`-percentile grey oval over the mouth region created a bright grey splotch across the lips, chin, and hands (`0415e`, `0484d`, `1039b`) that H3 read as an open mouth.
-  2. Closed-mouth frames (`not has_hole` and `gap <= INNER_GAP_CLOSED_PX` in Sapiens2 `sapiens2-seg-1b` + `sapiens2-pose-1b`) stay as the natural 3D grey mesh sculpted closed lips (`mouths[f] = None` in `bench/head_reference.py` and `draw_face_points.py::draw` skips `inner_lip_line` / `mouth_closed`), matching the kept renders `lead_fp_0606d` and `second_hfp_1010g`. Open-mouth frames (`inner_lip_ring` / `mouth_inner`) continue to draw a black interior with a white outline at the mouth.
+  2. Closed-mouth frames (`(not has_hole) or (gap <= INNER_GAP_CLOSED_PX)`, `INNER_GAP_CLOSED_PX` = 3.0; corrected 2026-10-21, it read `and`) stay as the natural 3D grey mesh sculpted closed lips (`mouths[f] = None` in `bench/head_reference.py` and `draw_face_points.py::draw` skips `inner_lip_line` / `mouth_closed`), matching the kept renders `lead_fp_0606d` and `second_hfp_1010g`. Open-mouth frames (`inner_lip_ring` / `mouth_inner`) continue to draw a black interior with a white outline at the mouth.
   3. `bench/head_reference.py::fit_mouth_to_head` (`find_mesh_chin_y`) now triggers vertical clamping only above a real bottom-of-frame dark neck gap under the jaw (`run_end >= h - 4` and `chin_y >= pose_cy - 0.08 * fh`), never on a hand/arm gap above the pose mouth (which had pushed the mouth line up under the nostrils on `0415e` and `1039b`).
   4. On downcast or narrowed eyes (`bench/draw_face_points.py::DOWNCAST_RING_OUTSIDE_MIN = 0.65`, where `>= 65%` of the iris ring lies outside the eyelids so the black lash-ring border covers `100%` of the clipped black iris disc), `discs()` leaves the sclera unpainted and `shapes()` draws the between-the-lids iris arc (`_iris_ring`, matching `second_hfp_0484c` on downcast frames while keeping white sclera + black iris on open frames), instead of flooding the narrowed eye slit with `255,255,255` white sclera (which H3 read as glowing camera-staring eyes on `0415f` frame `437` and `0484e`).
   5. `bench/load_text.py::subject_2` now uses a single unified `<Subject 2>` sentence across all face-drawn loads ("with facial features drawn on its face as thin white outlines, where the eyes open, close and look where the person's eyes do") without mentioning the mouth or lips in text, so the text never biases H3 toward opening or closing the mouth while preserving eye-gaze direction.
