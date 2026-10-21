@@ -17,9 +17,9 @@ pointer goes; this list is stale the moment the roadmap disagrees with it.
 Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
-**The order of 2026-10-20 is [`handover.md`](handover.md)'s "Next up, in order" (updated 2026-10-20) and
+**The order of 2026-10-20 is [`handover.md`](handover.md)'s "Next up, in order" (updated 2026-10-20 close) and
 [`../masked_v2v/PROTOCOL.md`](../masked_v2v/PROTOCOL.md); where the queue below disagrees, the handover is right.**
-Kitchen Pass 2 (`lead_fp_0606d` on `606–998`) and **all 19 `second` shots across `fun` (`0000–6394`)** are now rendered, landed, and laid in `data/fun/laid.jsonl` (`50 lines`, `sha256 e1acb2bb80c27845`). Next: run Multi-Subject Pass 2 / Pass 3 (`lead` and `third`) on the 24.0 fps post-Pass-1 cut (`--source <post_pass1_cut.mp4>`) and the remaining single-subject `lead` shots (`data/2026-10-20_fun_phase3_inputs/`) with `bench/facts_pass.py` before every render.
+Kitchen Pass 2 (`lead_fp_0606d` on `606–998`) and **all 19 `second` shots across `fun` (`0000–6394`)** are now rendered, landed, validated (`mrgemread`, all `keep`), and laid in `data/fun/laid.jsonl` (`50 lines`, `sha256 80f694bba3639c1f`), and the 24.0 fps post-Pass-1 cut is assembled and registered as `fun_0000_6394_joined_2026-10-20T0110Z_from_laid.mp4` in `data/fun/manifest.json`. Next: run Multi-Subject Pass 2 / Pass 3 (`lead` and `third`) on `--source "$H3_INPUT_DIR/fun_0000_6394_joined_2026-10-20T0110Z_from_laid.mp4"` and the remaining single-subject `lead`/`third` shots (`data/2026-10-20_fun_phase3_inputs/`) with `bench/facts_pass.py` before every render.
 
 **The queue of 2026-10-15 (the lead, mrtall; written before the close and finished in `handover.md`).** Every shot is
 made by the recipe the owner kept on the hall shot: [`masked_v2v.md`](masked_v2v.md), "A shot, made whole" (one load a
