@@ -63,8 +63,8 @@ is `data/fun/FINAL_STRETCH_RUNBOOK.md`, rewritten today from records.
    5768-5773 (no `--no-face-on` there, no overrides). If blonde, remake the six the same way; 4912e needs its own look.
    Small faces (4647d: 19.7 px on the canvas, about 40 px at the 2.0x cap) also need more zoom. The lead's insets
    worked at 2.0x only because their faces were 56-76 px. `video_mask.py::ZOOM_LARGEST` = 2.0 has no per-load
-   input, so a per-load zoom is a build. Then test 4647d at about 5x, with the hair fix, at one seed (the owner,
-   2026-10-21).
+   input, so a per-load zoom is a build. The owner (2026-10-21): barely visible; note it as an issue, and build only
+   if it is easy. Low priority. 4647d may still be remade with the hair fix alone, alongside the others.
 4. **Open List rows, from internal/claude/2026-10-21_tools_to_diagnostics_plan.md:**
    - stop-and-show or print-only;
    - one seed per cut (R8);
