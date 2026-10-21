@@ -100,6 +100,64 @@ against the records.
   looking at the clip, and passing an advisor's line on as fact. Each is written down in
   `internal/claude/2026-10-21_mrtusk/mentor_notes.md`.
 
+From about 16:18Z mrtent led, with mrgordon on the card and Gemini (mrgemx, with a reader subagent) advising. Running
+notes: `internal/claude/2026-10-21_mrtent/notes.md`; mailboxes `internal/claude/2026-10-21_mrtent_to_mrgordon.md` /
+`..._mrgordon_to_mrtent.md` and `internal/gemini/2026-10-21_*`.
+- **The owner's answers decide** (the owner): what they recorded is not asked again. While they review, they work from
+  the review page, not the Open List, and decisions come to the lead's terminal, recorded there.
+- **A kept subject in a scene stays** (the owner): it is not remade unless something broken changes the composite,
+  which the assembler's `two_pieces_change_the_same_pixels` flag or the owner's look shows. The other subject is made on
+  the newest cut that holds it. In a two-pass shot, pass 1's output is pass 2's source, and the whole chain is made
+  again on it: no tracks, masks, keep-outs, references or text are reused from the original video. Only the owner's
+  own words carry (cast boxes, `plan.json`). This replaces "the second subject always goes first" in
+  docs/masked_v2v/AGENTS.md §1 and data/fun/AGENTS.md, which are due in the docs pass.
+- **When in doubt, preprocess the whole thing** (the owner): a remake starts from a fresh preview. The exception is a
+  one-variable test, which reuses a preview whose code has not changed since it ran (git log 7058b6d1..HEAD on the
+  preview-side code: no change).
+- **What misleads is fixed so it cannot mislead again** (the owner): prose holds no state, it points at records and
+  commands; reuse is made visible. Plan: `internal/claude/2026-10-21_mrtent/fix_plan.md`. Audits:
+  `internal/claude/2026-10-21_audit_data_docs.md`, `..._audit_masked_v2v_runbook.md`.
+- **Before a step that cannot be undone, a tool may stop and show** (Open List r21_04, the owner). It is cleared only
+  by a session that did not make the load, after looking at the frames it names (r21_05, left to the lead). The stop
+  shows what the tool sees, the raw figures and frames, never what a predefined rule concluded (the owner).
+- **The mom's eyes: lowered eyes are drawn closed, not changed in the text** (the owner; r21_09). The reference drew
+  lowered eyes as thin white outlines with no dark iris, which H3 read as wide open. On 0415g that form came only on
+  437, the last frame. On 1039d's small face the outlines merged into a white almond. 0484f had it on all 32 frames,
+  and H3 kept the gaze lowered there. The text was identical on all three (sha256 7a2745a513a80947), so it does not
+  separate them. Sources: `internal/claude/2026-10-21_1039d_eyes_trace.md`, Gemini's G12-G16. Build
+  `claude-eyes-closed`. A second trigger (lid opening under 0.020 of face height) was dropped: it fired on open eyes of
+  4602c and 4726c, which the owner judged right (Gemini's G16, the builder's figures).
+- **`--no-face-on` keeps her hair** (build `claude-noface-hair`, cleared 27a9c806): on a no-face frame of a
+  hair-and-face part, only the face classes leave the part. A face-only part is emptied as before.
+- **4912e is not the `--no-face-on` fault**, which narrows the line above. On the owner's frame 4915 her head was
+  inside the region; the tracker lost her on 4921-4926 and 4941-4946 (`internal/claude/2026-10-21_g10_verify.md`,
+  Gemini's G10-G11).
+- **The tiny-face pieces (1093c, 1419c, 4647d): no zoom build now** (the owner's earlier word: low priority, only if
+  easy; Open List r21_08). Every blonde 10-20 piece had a face of 25 px or more on the canvas
+  (`internal/claude/2026-10-21_dark_hair_trace.md`).
+- **The owner's verdicts today, and the sync** (step 1 of the read-in, run by mrgordon from 17:12Z):
+  - out: 5768e, 4912e, 4647d, 1419c, 1093c, 1039d, 0415g (eyes); 5533b, 5114f, 4479b (the grey mouth patch: rendered
+    on 10-19's code before b270be7e removed it); and after the sync, 0278c (eyes);
+  - kept: 4602c, 0484f, 5675c, 5461e, 4726c;
+  - 5011e is remade with the hair fix and stays laid until its remake is kept;
+  - the three mouth pieces of r18_05 (0014f, the lead's 2625 and 1097c) are remade after the eye fix (the owner).
+  Lines: `data/fun/owner_answers.jsonl` :1360-1399 and `data/fun/verdicts/verdicts.jsonl` :742-746.
+- **5792-5836: nothing to make for the third** (the owner): only his eye shows, through a keyhole on 5825.
+- **The review page showed each copied answer twice, labeled "said in the terminal"**: its filter missed
+  `owner_answers.jsonl` sources after the 10-17 move. Fixed in `data/fun/poc/index.html` (mrgordon).
+- **Deleted at the owner's word**: the partial cut `..._2026-10-21T1453Z_from_laid.mp4` on the share, from this
+  morning's failed rebuild. It stopped at 213 of 266 seconds, and nothing cited it.
+- **Gemini now reads the pictures for the final stretch** (the owner): a reader subagent (mrgemx-reader,
+  `internal/gemini/2026-10-21_reader_brief.md`) looks at each preview, at each load before it renders, and at each
+  render before the owner sees it. Jobs come from mrgordon directly. Its first job agreed with the data: the specks
+  the owner saw on the third in 4726c are in the 1980s source (G19; `internal/claude/2026-10-21_4726c_specks_trace.md`).
+- **Corrected in the record:**
+  - 2026-10-20 item 6 below: "0415g eliminated the camera-staring eyes and kept the gaze lowered on 437" was never the
+    owner's look. It was written in 1f7a8903 from a compacted summary after the owner had stepped away (Gemini's
+    transcript, G12). The owner called 0415g's eyes wrong (`owner_answers.jsonl:1383-1385`). Also there, "0484f at
+    1.63x" is the reference's enlargement; the plan's zoom was 1.78.
+  - The same claim in docs/masked_v2v/AGENTS.md §7 and PROTOCOL.md is due in the docs pass.
+
 ## 2026-10-20
 
 - **Why fixed-$N$ uniform `linspace` sampling fails (`second_hfp_5889e` on `5889–5934`, `bench/crop_reference_to_head.py`, `bench/draw_face_points.py`, `bench/head_reference.py`)**: On `second_hfp_5889e` (`5889–5934`), a 4-frame evenly-spaced contact sheet (`5889, 5904, 5919, 5934`) and the fixed 6-frame `np.linspace(0, count - 1, 6)` reference sheet (`_sheet.jpg`) missed that `second`'s face and hair are only in frame on `5889–5915`—at `5916`, the door opens and a conga line marches out while her head exits the right edge of the frame, leaving only her arm and dress at the right border on `5916–5934`. Because `second` is a `face_and_neck` + `hair` part load (`part_saved_on_track`), keeping the arm/shoulder track open on `5916–5933` after `Face_Neck` and `Hair` exited the frame (`pose_mostly_outside_the_frame (second) on 5915-5934`) left the rendered pixels on `5930–5933` nearly identical to the source (`10.7` levels vs `41.2` in the middle), which `bench/assemble_delivery.py`'s `ends` proof rightly rejected (`ends on the source's own picture under its subject: frames 5930-5933`). **Why fixed-$N$ uniform sampling failed here** (the owner, 2026-10-20): fixed-count uniform `np.linspace(0, count - 1, 6)` in `_sheet.jpg` writers (`crop_reference_to_head.py:256`, `draw_face_points.py:869`, `head_reference.py`) and validation contact sheets is blind to both clip duration (giving a 16-frame clip and a 362-frame clip the same number of samples and warping time deltas, as noted in Meta's *Apollo* video understanding paper) and content/state transitions (where a subject enters/exits the frame, becomes occluded, or changes expression between uniform sample points). How to replace fixed-$N$ `linspace` is left open for tomorrow; meanwhile, when a part-load subject's replaced parts (`Face_Neck` + `Hair`) exit the frame before the shot ends while an unreplaced body part (arm/dress) remains in view, `--drop` those tail frames in the job (or lay only the visible-head span `5889–5915` in `laid.jsonl`).
@@ -112,7 +170,7 @@ against the records.
   3. `bench/head_reference.py::fit_mouth_to_head` (`find_mesh_chin_y`) now triggers vertical clamping only above a real bottom-of-frame dark neck gap under the jaw (`run_end >= h - 4` and `chin_y >= pose_cy - 0.08 * fh`), never on a hand/arm gap above the pose mouth (which had pushed the mouth line up under the nostrils on `0415e` and `1039b`).
   4. On downcast or narrowed eyes (`bench/draw_face_points.py::DOWNCAST_RING_OUTSIDE_MIN = 0.65`, where `>= 65%` of the iris ring lies outside the eyelids so the black lash-ring border covers `100%` of the clipped black iris disc), `discs()` leaves the sclera unpainted and `shapes()` draws the between-the-lids iris arc (`_iris_ring`, matching `second_hfp_0484c` on downcast frames while keeping white sclera + black iris on open frames), instead of flooding the narrowed eye slit with `255,255,255` white sclera (which H3 read as glowing camera-staring eyes on `0415f` frame `437` and `0484e`).
   5. `bench/load_text.py::subject_2` now uses a single unified `<Subject 2>` sentence across all face-drawn loads ("with facial features drawn on its face as thin white outlines, where the eyes open, close and look where the person's eyes do") without mentioning the mouth or lips in text, so the text never biases H3 toward opening or closing the mouth while preserving eye-gaze direction.
-  6. **Render verification (`second_hfp_0415g` on `415–437` and `second_hfp_0484f` on `484–515`)**: `second_hfp_0415g` completely eliminated the wide camera-staring eyes and toothy smile on frame `437` (seen in `0415f`) and kept the mouth closed and gaze lowered across `415–437`. `second_hfp_0484f` eliminated the dark open `"O"` mouth of `0484d` and lowered/softened the gaze compared to `0484e` (with `0484c`'s even heavier eyelids on `484–496` attributable to `0484c` rendering on `render_region: full` at `zoom: 1.0x` vs. `0484f` on `render_region: part` at `zoom: 1.63x`).
+  6. *(Corrected 2026-10-21: the 0415g half of this item was not the owner's look, and the owner called its eyes wrong; see 2026-10-21.)* **Render verification (`second_hfp_0415g` on `415–437` and `second_hfp_0484f` on `484–515`)**: `second_hfp_0415g` completely eliminated the wide camera-staring eyes and toothy smile on frame `437` (seen in `0415f`) and kept the mouth closed and gaze lowered across `415–437`. `second_hfp_0484f` eliminated the dark open `"O"` mouth of `0484d` and lowered/softened the gaze compared to `0484e` (with `0484c`'s even heavier eyelids on `484–496` attributable to `0484c` rendering on `render_region: full` at `zoom: 1.0x` vs. `0484f` on `render_region: part` at `zoom: 1.63x`).
 
 ## 2026-10-19
 
