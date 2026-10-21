@@ -41,8 +41,11 @@ Running notes: `internal/claude/2026-10-21_mrturtle/notes.md`. Mailboxes: `inter
   keeps.
 - **The closed-eye drawing is reverted** (c076fd87). A lowered eye is the 2026-10-20 arc again. 0415 and 1039 stay
   unsolved: 0415 waits on the lowered-eye span; 1039's body-model head stays upright while she bows (parked).
-- **4912's dark hair** is her own hair crown handed to the strangers keep-out on 4939-4946, plus the held tail frames of
-  4946; H3 redrew her hair in a new shape but dark. Its remake waits on the head-tube build.
+- **4912's dark hair:** her own hair crown above the brim on 4944-4946 is in no mask at all (not the strangers keep-out,
+  as first said), and stands unregenerated on those frames and the held tail frames of 4946; H3 redrew her hair in a
+  new shape but dark, on every frame of the clip. The head-tube build removes the fake head on her hand; nothing puts her
+  crown in the region. The owner: render 4912 once on today's fixes as a test (T63) before building anything for it; if
+  she is dark again, compare its inputs with 5768f's (same text, came out blonde).
 - **The beard-era checks look at the face only, inside the subject's outline.** They cannot see a replaced hair part
   outside it. The follow-up is a flag over every part the plan replaces.
 - **A reader's read is never the owner's.** And the lead's figures compared hair to the source: wrong for a replaced part.
@@ -68,6 +71,19 @@ Running notes: `internal/claude/2026-10-21_mrturtle/notes.md`. Mailboxes: `inter
 - Today's traces and figures: `internal/claude/2026-10-21_mrturtle/` (d4912_hair_vs_face, eyes_mean_vs_main_*,
   third_face_list), `internal/claude/2026-10-21_g10_verify.md`, Gemini's G23 and G24.
 - The archive of stale data docs: `data/fun/archive/2026-10-21/INDEX.md`.
+- **Code built today and held off main** (the owner's trims of 2026-10-21; each branch is unpushed, each worktree is
+  under `h3_worktrees/`; keep both until the item is landed or dropped):
+  - `claude-seed-every-box`: every owner box seeds its tracker. Its node-code commits are held for the next day with a
+    blind read: 988bc644 (seeding, bench and `subject_track.py`), 9ce71f58 (seed spans under the shot table's frame keys,
+    `shot_table.py`), f87a7a44 (an annotation fix). Its READY: `internal/claude/2026-10-21_ready_seed-every-box.md`
+    (tables, the 16 subject-shots it changes, the landing hazard: land with the ComfyUI restart, never before it). Its
+    fourth commit, 57926228 (`preview --for`), lands tonight by itself as `claude-preview-for`.
+  - `claude-change-check` at df2bf603: a reader tool measuring each replaced part against the still. Parked by the owner,
+    not reviewed. What replaces it: `internal/claude/2026-10-21_mrtak/replaced_part_measure_brief.md` (reviewed by Gemini,
+    G28), a fix to the existing figures that read a replaced part against the source.
+  - The test-only switch for the "not used" clauses (the text fix's branch, `claude-blonde-hair-words`): retired after
+    tonight's A/B renders.
+- **Code built today and landed:** `git log e40e817a..main` is the list; the lead's T-entries from T61 name each landing.
 - Worktrees to remove at the close, once each is checked landed and clean: mrgordon-cut-map-a, claude-docs-w6,
   claude-noface-hair, mrgemx-eyes-mean, claude-eyes-closed (never landed), and the earlier sessions' list in
   `internal/claude/2026-10-21_mrgordon/handover_card.md`; mrgem-cut-map is Gemini's: ask it.

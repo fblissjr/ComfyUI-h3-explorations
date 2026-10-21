@@ -187,12 +187,18 @@ From about 17:58Z mrturtle led, with mrgordon on the card and Gemini building. R
   inside the region H3 redrew her hair, in a new, tighter shape that fits the mask, but dark (the owner, several times,
   and Gemini's G23). Corrected the same day: this line first said H3 "kept her hair near the original", from
   `internal/claude/2026-10-21_mrturtle/d4912_hair_vs_face.txt`, whose figures show only that her hair pixels stayed
-  close in value to the dark original, not that the hair was copied. The hair was replaced, in the wrong color. From
-  4939 her own hair crown above the brim is taken by the strangers keep-out and left as the original (strangers holds
-  most of that area on 4942; the region there is small on 4942-4945 and empty on 4946), and her head tube is rebuilt from
-  the top of her person track on 4921-4923 and 4941-4945, which Gemini reads as her raised hand labelled hair
-  (`head_tube__shot_c_4912c.json`, `regained_from_person_track_frames`). The remake puts her crown inside her region and
-  waits on a fix to that rebuild. No tool flagged it, because the hair figures are read only inside her tracked outline.
+  close in value to the dark original, not that the hair was copied. The hair was replaced, in the wrong color. On
+  4944-4946 her own hair crown above the brim is in no mask at all, so it stays the original: the preview's tracks lose
+  her there, and no step today can add it (`--hold-part` is cut to her track). Corrected the same evening by the
+  head-tube builder's read of the records (`internal/claude/2026-10-21_ready_headtube-hair.md`): this line first said the
+  strangers keep-out took her crown, from a count of strangers pixels in a box that held the white-hat woman (her brim,
+  and her own hair under it), not the mom. Her head tube was also rebuilt from the top of her person track on 4921-4923
+  and 4941-4945, which Gemini reads as her raised hand labelled hair
+  (`head_tube__shot_c_4912c.json`, `regained_from_person_track_frames`); the head-tube build stops that re-seed. Gemini's
+  blind read of that build agrees with the builder on whose hair is whose in the box (G29), and G23 is corrected there.
+  No tool flagged it, because the hair figures are read only inside her tracked outline. The owner, the same evening: her
+  hair was dark on every frame of 4912e, so the crown frames at the end do not explain it; render 4912 once on the day's
+  fixes as a test before building anything for her crown.
 - **Every replacement is a pass, and each pass is made on the cut that holds all the others** (the owner). A
   replacement is anything H3 makes in a hole: a person's face, her hair, an object such as a table. H3 makes one a
   render, so on a shot with several, each is made on the newest whole-video cut that holds every other replacement laid
