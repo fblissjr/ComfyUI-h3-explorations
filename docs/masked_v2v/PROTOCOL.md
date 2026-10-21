@@ -1,6 +1,6 @@
 # Masked Video-to-Video Execution & Debugging Protocol
 
-This protocol is the step-by-step operational manual for building, auditing, rendering, debugging, and landing masked video-to-video loads. Read [`docs/masked_v2v/AGENTS.md`](AGENTS.md) and [`data/AGENTS.md`](../../data/AGENTS.md) first; see [`docs/wiki/masked_v2v_pipeline.md`](../wiki/masked_v2v_pipeline.md), [`docs/wiki/masked_v2v.md`](../wiki/masked_v2v.md), and [`docs/wiki/runbook.md`](../wiki/runbook.md) for the broader design and card procedures.
+This protocol is the step-by-step operational manual for building, auditing, rendering, debugging, and landing masked video-to-video loads. Read [`docs/masked_v2v/AGENTS.md`](AGENTS.md) first, above all "The owner's rules for passes, prep and judging", which every step below follows, then [`data/AGENTS.md`](../../data/AGENTS.md); see [`docs/wiki/masked_v2v_pipeline.md`](../wiki/masked_v2v_pipeline.md), [`docs/wiki/masked_v2v.md`](../wiki/masked_v2v.md), and [`docs/wiki/runbook.md`](../wiki/runbook.md) for the broader design and card procedures.
 
 ---
 

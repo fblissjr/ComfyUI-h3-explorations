@@ -193,6 +193,53 @@ From about 17:58Z mrturtle led, with mrgordon on the card and Gemini building. R
   the top of her person track on 4921-4923 and 4941-4945, which Gemini reads as her raised hand labelled hair
   (`head_tube__shot_c_4912c.json`, `regained_from_person_track_frames`). The remake puts her crown inside her region and
   waits on a fix to that rebuild. No tool flagged it, because the hair figures are read only inside her tracked outline.
+- **Every replacement is a pass, and each pass is made on the cut that holds all the others** (the owner). A
+  replacement is anything H3 makes in a hole: a person's face, her hair, an object such as a table. H3 makes one a
+  render, so on a shot with several, each is made on the newest whole-video cut that holds every other replacement laid
+  there, and each adds a link to the chain; no tool may name a subject in this rule. `check_pass2_source` follows it at
+  `job`, but at `preview` it counted the piece being redone as another's (5011 needed an override), and it never checked
+  that the cut given holds the current pieces of the others, only that it is not the raw source. Both are in the
+  every-box seeding build (`claude-seed-every-box`). Each pass also records the chain it was made on (its source and
+  the other pieces that source holds on its frames), so that what was made on a chain shows as stale once anything in
+  it changes (the owner); the report is the "reuse made visible" build (W7), queued next. A stale kept piece is shown,
+  not remade by rule.
+- **Any render with a dependency gets its whole data prep made fresh** (the owner, "the safer route"): a render that
+  depends on another replacement is prepped from a fresh preview on today's chain, with nothing reused, and only the
+  owner's own words carried. `job` will refuse a preview made on another chain (the every-box seeding build). The
+  one-variable exception stays only for a single replacement with nothing else laid on its shot, and only where no
+  code that feeds that stage (masks, the part and pose models, SAM tracking, the drawing) has changed since it ran (the
+  owner), and only where the window and its start and end frames are unchanged (the owner). So the previews made today,
+  and every stage after them, are remade once, after the head-tube, seeding, window and eye builds have all landed.
+- **Prep is not reused between loads** (the owner: "stop reusing it"). A fresh preview costs little card time (each
+  preview's start and end are in `internal/claude/2026-10-21_mrgordon_previews.log`), far less than a render made on
+  stale prep. Each load gets its own preview and strangers file and draws its own reference; reusing one takes a
+  written reason in the job (the one-variable test). Built into the every-box seeding build.
+- **Moving a render's true start or end frame invalidates its prep** (the owner), unless the prep was made upfront for
+  the whole video and the render is a single pass: then a window is a slice of data that already covers every frame. A
+  second pass never has that, since its source is a cut that changes with the pieces under it. A future build follows
+  from this: prep each first-pass subject once over the whole video, so its windows can move without new prep.
+- **A re-render is not a pass** (the owner). Redoing a replacement that is alone on its shot, or the last pass with
+  nothing laid on top of it, is one preview against its source and one render. Redoing pass N of a chain breaks every
+  pass made on its output after it, and those are made again in order on the new chain. In `fun` today only the kitchen
+  (604-1009) is such a chain: lead_fp_0606d was rendered on the 10-19 cut holding second_hfp_0604h. Elsewhere both pieces
+  of a shot were rendered on the raw source (each piece's render graph), and the dad's pieces on 5533 and 4647 are pass
+  1 under the mom's remakes there.
+- **A render window is only a length on both clocks, filled with real frames** (the owner). The lengths are
+  `h3_rules.on_both_clocks`'s (39 the shortest). Where a shot is shorter than its window, the extra frames are the
+  source's real frames before and after it, as untouched context, tossed after the decode, never held copies of the
+  last frame. Where that context crosses a cut, the zoom's one box applies to it too (the owner took that option). This
+  reverses `docs/h3_resolutions.md`'s "a best practice, not a rule" and "do not pad or cut a shot to reach one". Held
+  copies of 4946 filled the whole last encoder clip of second_hfp_4912e with her untouched hair. Built by Gemini
+  (`mrgemx-window-overlap`, C38).
+- **0415: her eyes lowered on chosen frames by a person's word** (the owner's go): the 2026-10-20 arc drawn on 415-437,
+  where the ring share is under the rule's line on 415-436 and the reference drew open eyes (Gemini's G24). Built by
+  Gemini (`mrgemx-eyes-down`, C38), then one test render. 1039's upright body-model head is parked.
+- **A render is measured against the change being made, per subject** (the owner). A part the plan replaces for that
+  subject (`plan.json` `subjects.<s>.parts`; in `fun` the second subject's hair and face, the lead's and the third's face)
+  is compared to the reference still, never to the source: dark hair that matches the original is a fault for the second
+  subject and correct for the lead and the third, whose hair is kept. A part not replaced is compared to the source. The
+  hair figures read for 4912e compared her hair to the source, and so could not show the fault. A reader tool built on
+  this rule prints the figures with no verdict.
 - **The closed-eye drawing is taken back out; a lowered eye is drawn as on 2026-10-20 again** (the owner, after the eye
   tests). It reverses r21_09's "lowered eyes are drawn closed" and the mean rule above. On second_hfp_0484g (only the
   drawing changed from 0484f, which the owner kept) H3 drew her eyes open and toward the camera where 0484f kept her gaze

@@ -8,6 +8,30 @@ Loaded when a session opens a file here; [`docs/AGENTS.md`](../AGENTS.md) and th
   - End-to-end pipeline, design, and card runbook: [`docs/wiki/masked_v2v_pipeline.md`](../wiki/masked_v2v_pipeline.md), [`docs/wiki/masked_v2v.md`](../wiki/masked_v2v.md), and [`docs/wiki/runbook.md`](../wiki/runbook.md)
 - **This lane is one use of H3.** A finding about common code (reference conditioning, the shared nodes) is written where that code's page is and linked from [`docs/wiki/index.md`](../wiki/index.md).
 
+## The owner's rules for passes, prep and judging (2026-10-21)
+
+The owner's words of 2026-10-21, each with its reasons in [`docs/wiki/decisions.md`](../wiki/decisions.md) on that date. Where a tool does not enforce a rule yet, the rule still holds and the session follows it by hand; the build that enforces it is named in `decisions.md`.
+
+**Passes and the chain**
+- **Every replacement is a pass.** A replacement is anything H3 makes in a hole: a person's face, her hair, an object such as a table. H3 makes one replacement a render, so on a shot with several, each pass is made on the newest whole-video cut that holds every other replacement laid there. Each replacement adds a link to that chain. No tool names a subject in this rule: it reads the labels in `shots.json`, `plan.json` and `laid.jsonl`.
+- **A kept piece stays** unless something broken changes the composite, which is the owner's look to say (§1).
+- **A re-render is not a pass.** Redoing a replacement that is alone on its shot, or the last pass with nothing laid on top of it, is one fresh preview against its source and one render. Redoing pass N of a chain breaks every pass made on its output, and those are made again, in order, on the new chain. Each pass's job records the chain it was made on, so what was made on a chain shows as stale once anything in it changes. A stale kept piece is shown to the owner, not remade by rule.
+- **A shot is done when every subject who can be swapped there is kept.** A subject with nothing to replace is recorded `not seen` with [`bench/shots_look.py`](../../bench/shots_look.py), on the owner's word or a look, and owes no load (§1).
+
+**Prep**
+- **Prep is not reused between loads, at any stage of the chain** (§8). Each load makes its own preview, strangers file, job, reference, text and capture; only the owner's own words carry (the cast boxes and `plan.json`). A fresh preview costs little card time next to a render made on stale prep.
+- **Any render with a dependency gets its whole prep made fresh** on today's chain.
+- **The one exception**, a one-variable test of a single replacement with nothing else laid on its shot, may keep its own preview, with a written reason in the job. It holds only where no code that feeds that stage has changed since it ran (masks, the part and pose models, SAM tracking, the drawing), and the window and its start and end frames have not moved. When in doubt, regenerate.
+- **Moving a render's true start or end frame invalidates its prep**, unless the prep was made upfront for the whole video and the render is a single pass.
+
+**Windows**
+- **A render window is only a length on both clocks** (`h3_rules.on_both_clocks`). Where a shot is shorter than its window, the extra frames are the source's real frames before and after it, as untouched context, tossed after the decode, never held copies of the last frame. Where that context crosses a cut, the zoom's one box covers it too. This reverses the "best practice, not a rule" of [`docs/h3_resolutions.md`](../h3_resolutions.md), "Whole on the audio clock".
+
+**Judging a render**
+- **A render is measured against the change being made, per subject.** A part the plan replaces for that subject (`plan.json` `subjects.<s>.parts`) is compared to the subject's reference still, never to the source: dark hair that matches the original is a fault for a subject who replaces her hair, and right for one who replaces only the face. A part not replaced is compared to the source.
+- **Tools show what they see:** the raw figures and frames, with what they were measured on and what they cannot see, and no rule's verdict. A tool may stop before a step that cannot be undone, and only a session that did not make the load clears it, after looking at the frames it names.
+- **A look at one shot assembles and stacks that span alone**, or uses the load's own stacked clip where nobody else is laid on the shot. The whole-video rebuild runs only when the cut and pages must move, once a batch ([`PROTOCOL.md`](PROTOCOL.md) 5.3).
+
 ## The rules that bite when missed
 
 ### 1. What `--source` to pass in, and which subject is made first on a shot of two
