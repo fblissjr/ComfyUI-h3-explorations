@@ -53,6 +53,9 @@ with only the fields the rule reads, a shots file of three shots and a plan of t
    order, a kept render it does not list is not laid, a shot it names nothing for is a `source` line saying so; a
    listed render that never stands, one the owner called not the one, a file the ledger does not have, frames that
    are no shot, and `--laid` with `--prefer` are refused.
+14b. **A laid line's `frames` are laid** (2026-10-21): the render stands on those frames only and the rest of the shot
+   is a comment with the line's reason; no `frames`, or the whole shot, lays as before; frames outside the shot, a
+   malformed span, or frames the render covers none of are refused.
 
 No video, no model, no card, no server.
 
@@ -437,6 +440,66 @@ def the_list_of_what_is_laid() -> str:
     return "only listed renders are laid, in the list's order; a kept render not listed is not laid; refusals stop the table; changed bytes stop the list's reader"
 
 
+def the_lists_own_frames() -> str:
+    """14b. A laid line's `frames` are laid (2026-10-21, W3e): the render stands on those frames only, the rest of the
+    shot is a comment saying the line's reason, and frames outside the shot or none of the render's are refused. A
+    line with no `frames`, or `frames` equal to the shot, lays the render's whole span on the shot as before. Until
+    2026-10-21 `frames` were read nowhere that lays: a line saying 5889-5917 laid its render on all of 5889-5934."""
+    whole = render("whole", (0, 49), "01")
+    def line(n, frames=None, by="the owner watched it: she is out of frame after 39"):
+        x = {"first": 0, "last": 49, "subject": "a", "load": "whole", "file": "Video/s/whole/whole_00001.mp4",
+             "sha256": "x", "owner": "unconfirmed", "by": by, "line": n}
+        return {**x, "frames": frames} if frames is not None else x
+    def laid(*lines):
+        return dt.decide(ledger(whole), SHOTS, PLAN, laid=list(lines))
+    cut = laid(line(1, [[0, 39]]))
+    rows = [(r["first"], r["last"], r["name"]) for r in cut["rows"] if r["subject"] == "a"]
+    assert rows == [(0, 39, "whole")], rows
+    assert entry(cut, 0, "a")["stands"][0]["frames"] == [(0, 39)] and entry(cut, 0, "a")["left_as_the_source"] == [(40, 49)], entry(cut, 0, "a")
+    gap = [g for g in cut["gaps"] if g["subject"] == "a"]
+    assert [(g["first"], g["last"]) for g in gap] == [(40, 49)] and gap[0].get("laid_frames"), gap
+    assert "line 1, lays whole on 0-39 only: the owner watched it" in gap[0]["why"], gap[0]["why"]
+    assert not [s for s in cut["sources"] if s["first"] == 0 and s["subject"] == "a"], cut["sources"]
+    said = dt.table_text(cut, "/share", "MADE", PLAN, "t")
+    assert "#   40-49 a: the list of what is laid, line 1, lays whole on 0-39 only: the owner watched it" in said, said
+    for lines in ((line(1),), (line(1, [[0, 49]]),)):
+        same = laid(*lines)
+        assert [(r["first"], r["last"]) for r in same["rows"] if r["subject"] == "a"] == [(0, 49)], same["rows"]
+        assert not [g for g in same["gaps"] if g["subject"] == "a"], same["gaps"]
+    two = laid(line(1, [[0, 9], [20, 29]]))
+    assert [(r["first"], r["last"]) for r in two["rows"] if r["subject"] == "a"] == [(0, 9), (20, 29)], two["rows"]
+    assert [(g["first"], g["last"]) for g in two["gaps"] if g["subject"] == "a"] == [(10, 19), (30, 49)], two["gaps"]
+    # the reading says why the frames are left, a lead's record before a build
+    said_r = dt.reading_text(cut, "MADE", "t")
+    assert "left as the source inside this shot: 40-49 (the list of what is laid, line 1, lays whole on 0-39 only:" in said_r, said_r
+    # a `#` in the reason is taken out: the assembler's reader ends a line at one
+    hashed = dt.table_text(laid(line(1, [[0, 39]], by="see row #4 of the look")), "/share", "MADE", PLAN, "t")
+    gap_line = next(x for x in hashed.splitlines() if x.startswith("#   40-49 a:"))
+    assert "#" not in gap_line[1:] and "see row 4 of the look" in gap_line, gap_line
+    # two lines on one shot: a frame the first line's frames leave and a later line takes is that line's, not left
+    later = render("later", (0, 49), "02")
+    both = dt.decide(ledger(whole, later), SHOTS, PLAN, laid=[line(1, [[0, 19]]), {**line(2), "load": "later", "file": "Video/s/later/later_00001.mp4"}])
+    assert [(r["first"], r["last"], r["name"]) for r in both["rows"] if r["subject"] == "a"] == [(0, 19, "whole"), (20, 49, "later")], both["rows"]
+    assert not [g for g in both["gaps"] if g["subject"] == "a"], both["gaps"]
+    for frames, words in (([[40, 60]], "not a span inside the shot 0-49"), ([[0, 3, 5]], "not a span inside the shot"),
+                          ([[20, 10]], "not a span inside the shot"), ([0, 39], "not a span inside the shot"),
+                          ([["0", "39"]], "not a span inside the shot"), ("0-39", "`frames` is a list of [first, last] spans")):
+        try:
+            laid(line(1, frames))
+        except SystemExit as e:
+            assert words in str(e), (frames, str(e))
+        else:
+            raise AssertionError(f"laid frames {frames} were taken")
+    part = render("part", (10, 29), "03")
+    try:
+        dt.decide(ledger(part), SHOTS, PLAN, laid=[{**line(1, [[40, 49]]), "load": "part", "file": "Video/s/part/part_00001.mp4"}])
+    except SystemExit as e:
+        assert "covers none of those frames (10-29)" in str(e), str(e)
+    else:
+        raise AssertionError("laid frames that the render covers none of were taken")
+    return "a narrower `frames` cuts the row and says the rest with the line's reason; whole or absent frames lay as before; frames outside the shot or none of the render's are refused"
+
+
 def a_hold_of_the_leads() -> str:
     """A render the lead says is not to be laid, before the owner has judged it (2026-10-13: a render read as not one
     face across its shot was the only render of that shot, and stood by the rule)."""
@@ -772,6 +835,7 @@ case("restore: the other subjects of the shot", restores)
 case("the owner's words, under the render they are on", the_owners_words_are_in_the_reading)
 case("a preference of the lead's", a_preference)
 case("the list of what is laid", the_list_of_what_is_laid)
+case("the list's own frames", the_lists_own_frames)
 case("a hold of the lead's: not this one, and why", a_hold_of_the_leads)
 case("the table reads back through the assembler", the_table_reads_back)
 case("a plan that keeps an accessory", a_plan_that_keeps_an_accessory)

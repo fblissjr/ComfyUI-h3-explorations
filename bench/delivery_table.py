@@ -454,8 +454,34 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
                 may.sort(key=lambda m: m[0])                                   # within the rule's steps in their order
             free = set(range(s["first"], s["last"] + 1))
             stands = []
+            meant: dict[int, str] = {}      # frames a laid line's own `frames` leave out of its render on this shot, with why
             for step, _when, r, why, choice in may:
-                take = sorted(free & set(range(r["span"][0], r["span"][1] + 1)))
+                spans_of = set(range(r["span"][0], r["span"][1] + 1))
+                line = next((x for x in laid_here if (x["load"], x["file"]) == (r["name"], r["file"])), None) if laid is not None else None
+                if line is not None and line.get("frames") and line["frames"] != [[s["first"], s["last"]]] \
+                        and line["frames"] != [(s["first"], s["last"])]:
+                    # THE LIST'S OWN FRAMES ARE LAID (2026-10-21, W3e): until then `frames` were read nowhere that lays, and a line
+                    # that said 5889-5917 laid its render on the whole 5889-5934. Honored or refused, never ignored
+                    allowed = set()
+                    if not isinstance(line["frames"], list):
+                        raise SystemExit(f"the list of what is laid, line {line['line']}, lays {r['name']} on {line['frames']!r}: `frames` is a list of "
+                                         "[first, last] spans")
+                    for f in line["frames"]:
+                        if not (isinstance(f, (list, tuple)) and len(f) == 2 and all(isinstance(v, int) and not isinstance(v, bool) for v in f)) \
+                                or not (s["first"] <= f[0] <= f[1] <= s["last"]):
+                            raise SystemExit(f"the list of what is laid, line {line['line']}, lays {r['name']} on {f}, which is not a span inside "
+                                             f"the shot {s['first']}-{s['last']}")
+                        allowed |= set(range(int(f[0]), int(f[1]) + 1))
+                    if not allowed & spans_of:
+                        raise SystemExit(f"the list of what is laid, line {line['line']}, lays {r['name']} on {line['frames']} and its render "
+                                         f"covers none of those frames ({r['span'][0]}-{r['span'][1]})")
+                    said = " ".join(f"the list of what is laid, line {line['line']}, lays {r['name']} on "
+                                    f"{', '.join(frames(int(a_), int(b_)) for a_, b_ in line['frames'])} only: {line.get('by') or 'no reason given'}"
+                                    .replace("#", " ").split())
+                    for n in (free & spans_of) - allowed:
+                        meant.setdefault(n, said)
+                    spans_of &= allowed
+                take = sorted(free & spans_of)
                 if not take:
                     passed.append({"render": r["name"], "file": r["file"], "written": r["written"],
                                    "why": f"may stand ({why.split(':')[0]}) and every frame of it on this shot is taken by a render before it in the rule's order",
@@ -515,8 +541,22 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
                 sources.append({"first": s["first"], "last": s["last"], "subject": label, "why": why})
                 entry["source_line"] = why
             elif left:
-                gaps += [{"first": a, "last": b, "subject": label, "why": f"inside the shot {s['first']}-{s['last']}, which has a piece: no render that may stand covers these frames"}
-                         for a, b in left]
+                # a run is said by why it is left: a laid line's own frames (`meant`), or no render that may stand
+                here: list[dict] = []
+                for a, b in left:
+                    for n in range(a, b + 1):
+                        w = meant.get(n)
+                        if here and here[-1]["meant"] == w and here[-1]["last"] + 1 == n:
+                            here[-1]["last"] = n
+                        else:
+                            here.append({"first": n, "last": n, "subject": label, "meant": w})
+                for g in here:
+                    w = g.pop("meant")
+                    g["why"] = w or f"inside the shot {s['first']}-{s['last']}, which has a piece: no render that may stand covers these frames"
+                    if w:
+                        g["laid_frames"] = True
+                gaps += here
+                entry["left_why"] = [{"first": g["first"], "last": g["last"], "why": g["why"], "laid_frames": bool(g.get("laid_frames"))} for g in here]
             reading.append(entry)
     # rows of one render on touching runs with the same restores are one row; face rows after the others on shared frames
     rows.sort(key=lambda r: (r["subject"], r["file"], r["first"]))
@@ -685,7 +725,8 @@ def table_text(out: dict, share: str, made: str, plan: dict, name: str) -> str:
                      + (f" run={r['run']}" if r.get("run") else "") + "".join(f" restore={x}" for x in r["restore"]))
     if out["gaps"]:
         lines.append("# Left as the source INSIDE a shot that has a piece (a `source` line covers a whole shot, so these are said here):")
-        lines += [f"#   {frames(g['first'], g['last'])} {g['subject']}: no render that may stand covers these frames" for g in out["gaps"]]
+        lines += [f"#   {frames(g['first'], g['last'])} {g['subject']}: "
+                  + (g["why"] if g.get("laid_frames") else "no render that may stand covers these frames") for g in out["gaps"]]
     for s in out["sources"]:
         lines.append(f"source {frames(s['first'], s['last'])} subject={s['subject']} {s['why']}")
     if out.get("not_in_the_shot"):
@@ -740,7 +781,10 @@ def reading_text(out: dict, made: str, table: str, built: dict | None = None) ->
         if not e["stands"]:
             lines.append(f"- NOTHING STANDS. The table's line: `source {frames(e['first'], e['last'])} subject={e['subject']} {e['source_line']}`")
         elif e["left_as_the_source"]:
-            lines.append(f"- left as the source inside this shot: {', '.join(frames(a, b) for a, b in e['left_as_the_source'])} (no render that may stand covers them)")
+            said = e.get("left_why") or [{"first": a, "last": b, "laid_frames": False} for a, b in e["left_as_the_source"]]
+            for g in said:
+                lines.append(f"- left as the source inside this shot: {frames(g['first'], g['last'])} "
+                             + (f"({g['why']})" if g.get("laid_frames") else "(no render that may stand covers them)"))
         for p in e["passed_over"]:
             lines.append(f"- passed over: `{p['render']}` (written {p['written']}): {p['why']}")
             lines += words_lines(p.get("the_owners_words") or [])

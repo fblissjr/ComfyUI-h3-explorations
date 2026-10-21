@@ -13,6 +13,8 @@
                                 a row that is not a joined clip's; a keep whose row has a later "wrong" by `at` though
                                 earlier in the file; `unconfirmed` with a citation; the state the line has; a
                                 load on two subjects of one shot without `--subject`. Each refusal leaves the file's bytes
+  a_removed_line_leaves_its_record  `remove` refuses no `--by`; keeps the line whole with why in `laid.removed.jsonl`; with
+                                `--no-rebuild` no other line of the list changes
   history_grows                 kept and back to unconfirmed: two history entries, the citation gone from the line and kept
                                 in the history; a keep in the verdicts record's form (`what: words`, no `who`) taken past an
                                 older "not sure" appended after it; `kept in a joined clip` on a row ending `_joined` taken
@@ -179,9 +181,43 @@ def history_grows() -> str:
     return "kept then reset: two entries, the citation kept in the history; a verdicts-form keep and a joined clip's keep taken"
 
 
+def a_removed_line_leaves_its_record() -> str:
+    """`remove` takes `--by` and keeps the line whole, with why, in `laid.removed.jsonl`; with `--no-rebuild` no other
+    line of the list changes (until 2026-10-21 its reason was written onto the last line left)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        fx = made(Path(tmp))
+        before = fx["laid"].read_bytes()
+        # a reason no fixture line carries, so a write of it onto another line shows
+        base = ["remove", "--laid", fx["laid"], "--share", fx["share"], "--load", "pc", "--no-rebuild", "a check's removal"]
+        refused(run(*base), "--by")
+        refused(run(*base, "--by", "   "), "--by is required")
+        assert fx["laid"].read_bytes() == before and not (fx["laid"].parent / "laid.removed.jsonl").exists(), "a refused remove wrote"
+        # --frames outside the shot is refused by the list's reader before anything is written
+        refused(run("lay", "--laid", fx["laid"], "--share", fx["share"], "--shot", "40-49", "--subject", "a", "--load", "pe",
+                    "--file", "Video/v/pa/pa_00001.mp4", "--owner", "unconfirmed", "--by", "x", "--frames", "35-45",
+                    "--no-rebuild", "a check's batch"), "are not [first, last] spans inside the shot 40-49")
+        assert fx["laid"].read_bytes() == before, "a refused lay replaced the list"
+        old = fx["laid"].read_text().splitlines()
+        r = run(*base, "--by", "the owner's look says it goes")
+        assert r.returncode == 0, r.stdout + r.stderr
+        new = fx["laid"].read_text().splitlines()
+        assert new == [old[0], old[1], old[2], old[4]], "remove changed a line it did not take out"
+        rec = [json.loads(x) for x in (fx["laid"].parent / "laid.removed.jsonl").read_text().splitlines()]
+        assert len(rec) == 1 and rec[0]["removed"] == json.loads(old[3]) and rec[0]["by"] == "the owner's look says it goes", rec
+        assert rec[0]["no_rebuild"] == "a check's removal" and rec[0]["laid_sha256_before"] != rec[0]["laid_sha256_after"], rec[0]
+        # a remove that matches several lines keeps a record of each
+        r = run("remove", "--laid", fx["laid"], "--share", fx["share"], "--load", "pb", "--by", "both go", "--no-rebuild", "a check's removal")
+        assert r.returncode == 0, r.stdout + r.stderr
+        rec = [json.loads(x) for x in (fx["laid"].parent / "laid.removed.jsonl").read_text().splitlines()]
+        assert [(x["removed"]["load"], x["removed"]["subject"], x["by"]) for x in rec[1:]] == [("pb", "a", "both go"), ("pb", "b", "both go")], rec
+        assert len(fx["laid"].read_text().splitlines()) == 2, fx["laid"].read_text()
+    return "no --by refused and nothing written; the line kept whole with why in laid.removed.jsonl; no other line touched"
+
+
 if __name__ == "__main__":
     case("owner_is_always_said", owner_is_always_said)
     case("set_owner_changes_only_owner", set_owner_changes_only_owner)
     case("kept_needs_the_owners_keep", kept_needs_the_owners_keep)
     case("history_grows", history_grows)
+    case("a_removed_line_leaves_its_record", a_removed_line_leaves_its_record)
     sys.exit(finish())

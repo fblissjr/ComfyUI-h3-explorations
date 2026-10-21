@@ -1598,6 +1598,7 @@ def a_lay_triggers_a_rebuild() -> str:
                 "--shot", "0-7",
                 "--subject", "a",
                 "--load", "pa_0000",
+                "--by", "a check takes pa_0000 out",
                 "--day", "2026-10-18",
                 "--stamp", stamp_rem,
             ],

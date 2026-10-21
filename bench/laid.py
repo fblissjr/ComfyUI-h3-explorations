@@ -5,7 +5,7 @@
     <python> bench/laid.py lay --video <video> --first F --last L --subject SUB --load LOAD --file FILE --owner OWNER [--owner-word FILE:LINE] --by WHY [--no-rebuild WHY]
     <python> bench/laid.py replace --video <video> --first F --last L --subject SUB --load LOAD --file FILE --owner OWNER [--owner-word FILE:LINE] --by WHY [--replaces OLD] [--no-rebuild WHY]
     <python> bench/laid.py set-owner --video <video> --load LOAD [--shot F-L] [--subject SUB] --owner OWNER [--owner-word FILE:LINE] --by WHY [--no-rebuild WHY]
-    <python> bench/laid.py remove --video <video> [--first F --last L] [--subject SUB] [--load LOAD] [--no-rebuild WHY]
+    <python> bench/laid.py remove --video <video> [--first F --last L] [--subject SUB] [--load LOAD] --by WHY [--no-rebuild WHY]
     <python> bench/laid.py verify --laid data/<video>/laid.jsonl --share SHARE
     <python> bench/laid.py refs --laid data/<video>/laid.jsonl --ledger LEDGER.json --share SHARE
     (read by) <python> bench/delivery_table.py ... --laid data/<video>/laid.jsonl
@@ -20,9 +20,16 @@ clip, not alone), else `unconfirmed` (mrgan's cold read, 2026-10-16).
 
 **A line** (`schema` `h3_laid/1`): `first`, `last` (the shot, as the shots file has it), `subject`, `load`, `file`
 (relative to the share, as the ledger has it), `sha256`, `owner`, `by` (the chooser's words: the owner's keep with
-its time and row, or a session's reason), `frames` (what the table that seeded it laid, for reading only: the
-table works the frames out again), `added`, `added_by`, and when `--no-rebuild WHY` was given, `no_rebuild`. On one
-shot and subject the lines are laid in file order, each on frames no line before it took.
+its time and row, or a session's reason), `frames` (the frames the piece is laid on: since 2026-10-21 the delivery
+table lays the render on these and no others, says the rest of the shot is left as the source with this line's `by`,
+and refuses frames outside the shot or none of the render's; until then they were read nowhere that lays, and
+5889e's 5889-5915 was laid on all of 5889-5934), `added`, `added_by`, and when `--no-rebuild WHY` was given,
+`no_rebuild`. On one shot and subject the lines are laid in file order, each on frames no line before it took.
+
+**A removed line leaves its record** (2026-10-21): `remove` takes `--by`, and appends each line it takes out, whole,
+to `laid.removed.jsonl` beside the list (`schema` `h3_laid_removed/1`: `removed`, `by`, `at`, `by_session`, the list's
+sha256 before and after, and `no_rebuild` when given). Until then the reason was kept nowhere, and `--no-rebuild`'s
+was written onto whichever line was last in the list.
 
 **`--owner` is always said** (2026-10-21): `lay` and `replace` take it with no default. Until then it defaulted to
 `kept`, and on 2026-10-20 five pieces laid on a go to render read `kept` with no keep behind them. `kept` and `kept in
@@ -88,8 +95,15 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 SCHEMA = "h3_laid/1"
+#: A line of `laid.removed.jsonl`: a line taken out of the list, whole, with why and by whom (2026-10-21).
+REMOVED_SCHEMA = "h3_laid_removed/1"
 FIELDS = ("first", "last", "subject", "load", "file", "sha256", "owner", "by")
 OWNER = ("kept", "kept in a joined clip", "unconfirmed")
+
+
+def removed_path(laid_path: Path) -> Path:
+    """Where the lines taken out of a list are kept: `laid.removed.jsonl` beside it."""
+    return Path(laid_path).with_name(Path(laid_path).stem + ".removed.jsonl")
 
 
 def zoomed(f: Path) -> Path:
@@ -122,6 +136,11 @@ def read(path: str, share: str, check_bytes: bool = True) -> list[dict]:
         missing = [k for k in FIELDS if k not in x]
         if x.get("schema") != SCHEMA or missing:
             raise SystemExit(f"{path}, line {n}: schema {x.get('schema')!r} (wanted {SCHEMA!r}); missing {missing}")
+        fr = x.get("frames")
+        if fr is not None and not (isinstance(fr, list) and fr and all(
+                isinstance(f, list) and len(f) == 2 and all(type(v) is int for v in f) and x["first"] <= f[0] <= f[1] <= x["last"] for f in fr)):
+            raise SystemExit(f"{path}, line {n}: frames {fr!r} are not [first, last] spans inside the shot {x['first']}-{x['last']}: "
+                             "the delivery table lays the piece on them (since 2026-10-21)")
         if x["owner"] not in OWNER:
             raise SystemExit(f"{path}, line {n}: owner {x['owner']!r} is not one of {OWNER}")
         key = (x["first"], x["last"], x["subject"], x["load"])
@@ -374,7 +393,7 @@ def mutate_laid(a: argparse.Namespace) -> int:
     if a.no_rebuild is not None:
         why_no_rebuild = a.no_rebuild.strip()
         if not why_no_rebuild or why_no_rebuild.startswith("-"):
-            raise SystemExit("--no-rebuild requires a non-empty reason (WHY), recorded in the line")
+            raise SystemExit("--no-rebuild requires a non-empty reason (WHY), recorded in the line, or for remove in laid.removed.jsonl")
     laid_path, video = _resolve_laid_and_video(a)
     share = _resolve_share(a, laid_path)
     existing = [{k: v for k, v in x.items() if k != "line"} for x in read(str(laid_path), str(share), check_bytes=True)] if laid_path.is_file() else []
@@ -421,8 +440,8 @@ def mutate_laid(a: argparse.Namespace) -> int:
                 kept_lines.append(x)
         if not removed:
             raise SystemExit(f"remove: no line in {laid_path} matched first={first} last={last} subject={sub!r} load={load!r}")
-        if why_no_rebuild and kept_lines:
-            kept_lines[-1] = {**kept_lines[-1], "no_rebuild": why_no_rebuild}
+        if not (getattr(a, "by", None) or "").strip():
+            raise SystemExit("remove: --by is required: why the line comes out, which is kept in the record of what was removed")
         new_lines = kept_lines
         action_desc = "removed " + ", ".join(f"{x['load']} on {x['first']}-{x['last']} ({x['subject']})" for x in removed)
     else:
@@ -432,6 +451,21 @@ def mutate_laid(a: argparse.Namespace) -> int:
     tmp_path = laid_path.with_suffix(".jsonl.tmp")
     tmp_path.write_text("".join(json.dumps(x) + "\n" for x in new_lines))
     read(str(tmp_path), str(share), check_bytes=True)
+    sha_before = digest(str(laid_path)) if laid_path.is_file() else None
+    if a.cmd == "remove":
+        # A REMOVED LINE LEAVES ITS RECORD (2026-10-21, W3e): the line whole, why it went and who took it out, appended to
+        # `laid.removed.jsonl` beside the list. Until then the reason was nowhere, and `--no-rebuild`'s was written onto
+        # whichever line was last in the list
+        now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        session = (os.environ.get("H3_SESSION") or "").strip() or "not said (no H3_SESSION)"
+        with open(removed_path(laid_path), "a") as f:
+            for x in removed:
+                # written before the list is replaced, so a failure between the two can leave a record of a removal that did not
+                # happen, never a line gone with no record
+                f.write(json.dumps({"schema": REMOVED_SCHEMA, "removed": x, "by": a.by.strip(), "at": now, "by_session": session,
+                                    "laid_sha256_before": sha_before, "laid_sha256_after": digest(str(tmp_path)),
+                                    **({"no_rebuild": why_no_rebuild} if why_no_rebuild else {})}) + "\n")
+        print(f"the record of it: {removed_path(laid_path)}")
     tmp_path.replace(laid_path)
     print(f"{action_desc} in {laid_path} (sha256 {digest(str(laid_path))[:16]}, {len(new_lines)} lines)")
     if why_no_rebuild:
@@ -508,7 +542,7 @@ def set_owner(a: argparse.Namespace) -> int:
     if a.no_rebuild is not None:
         why_no_rebuild = a.no_rebuild.strip()
         if not why_no_rebuild or why_no_rebuild.startswith("-"):
-            raise SystemExit("--no-rebuild requires a non-empty reason (WHY), recorded in the line")
+            raise SystemExit("--no-rebuild requires a non-empty reason (WHY), recorded in the line's history entry")
     if not (a.by or "").strip():
         raise SystemExit("set-owner: --by is required: where the owner's word is, or why the line is not the owner's word")
     if a.owner == "unconfirmed" and a.owner_word:
@@ -561,6 +595,8 @@ def _add_write_args(sp: argparse.ArgumentParser, is_remove: bool = False, is_rep
     sp.add_argument("--last", type=int, help="last frame of the shot")
     sp.add_argument("--subject", required=not is_remove, help="subject name")
     sp.add_argument("--load", required=not is_remove, help="render load name")
+    if is_remove:
+        sp.add_argument("--by", required=True, help="why the line comes out; kept with the line whole in laid.removed.jsonl beside the list")
     if not is_remove:
         sp.add_argument("--file", required=True, help="render file relative to --share (or absolute inside --share)")
         sp.add_argument("--owner", choices=OWNER, required=True, help="owner state, always said (no default since 2026-10-21): "
@@ -568,13 +604,14 @@ def _add_write_args(sp: argparse.ArgumentParser, is_remove: bool = False, is_rep
         sp.add_argument("--by", required=True, help="chooser's words / reason")
         sp.add_argument("--owner-word", metavar="FILE:LINE", help="for `kept` and `kept in a joined clip`: the owner's own line saying the "
                         "keep (data/<video>/owner_answers.jsonl or data/<video>/verdicts/verdicts.jsonl, by line number), read and held to it")
-        sp.add_argument("--frames", help="frames laid, e.g. [[first, last]] or FIRST-LAST (for reading only)")
+        sp.add_argument("--frames", help="frames laid, e.g. [[first, last]] or FIRST-LAST: the delivery table lays the render on these "
+                        "frames only and says the rest of the shot is left as the source (since 2026-10-21)")
         sp.add_argument("--added", help="UTC timestamp (default: now)")
         sp.add_argument("--added-by", help="session name (default: H3_SESSION or --by)")
     if is_replace:
         sp.add_argument("--replaces", help="specific load on that shot and subject to replace (default: any line on that shot and subject)")
     sp.add_argument("--no-rebuild", nargs="?", const="", default=None, metavar="WHY",
-                    help="skip running bench/rebuild_delivery.py for a batch of lays (requires WHY, recorded in the line)")
+                    help="skip running bench/rebuild_delivery.py for a batch of lays (requires WHY, recorded in the line; for remove, in laid.removed.jsonl)")
     sp.add_argument("--inputs", help="optional inputs.json path forwarded to bench/rebuild_delivery.py")
     sp.add_argument("--data", help="optional data/<video> path forwarded to bench/rebuild_delivery.py")
     sp.add_argument("--out-dir", help="optional output folder forwarded to bench/rebuild_delivery.py")
@@ -609,7 +646,7 @@ def main(argv: list[str] | None = None) -> int:
                     "(data/<video>/owner_answers.jsonl or data/<video>/verdicts/verdicts.jsonl, by line number)")
     so.add_argument("--session", help="who makes the change (default: H3_SESSION)")
     so.add_argument("--no-rebuild", nargs="?", const="", default=None, metavar="WHY",
-                    help="skip running bench/rebuild_delivery.py for a batch of changes (requires WHY, recorded in the line)")
+                    help="skip running bench/rebuild_delivery.py for a batch of changes (requires WHY, recorded in the line's history entry)")
     for flag in ("--inputs", "--data", "--out-dir", "--day"):
         so.add_argument(flag, help="optional, forwarded to bench/rebuild_delivery.py")
     v = sub.add_parser("verify", help="print every line with its file's state now")
