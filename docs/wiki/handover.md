@@ -1,70 +1,70 @@
 # Handover: read this before anything else
 
-Written 2026-10-21 by mrtent (the Claude lead after mrtusk, from about 16:18Z), with mrgordon on the card and Gemini
-(mrgemx, with its reader subagent mrgemx-reader) advising. Where this page and a record disagree, the record is right:
+Rewritten 2026-10-21 at about 20:45Z by mrturtle (the Claude lead after mrtent), with mract on the card (after mrgordon)
+and Gemini (mrgemx) building and reviewing. Where this page and a record disagree, the record is right:
 - `data/fun/laid.jsonl`, `data/fun/owner_answers.jsonl`, `data/fun/verdicts/verdicts.jsonl`, `data/fun/shots.json`,
   `data/fun/cast/cast.jsonl`;
 - [`decisions.md`](decisions.md), 2026-10-21 at the top;
+- the owner's rules at the top of [`../masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md);
 - `git log`.
-Running notes: `internal/claude/2026-10-21_mrtent/notes.md`. The plan for fixing what misleads:
-`internal/claude/2026-10-21_mrtent/fix_plan.md`. The mailboxes: `internal/claude/2026-10-21_mrtent_to_mrgordon.md`
-(T1-T25) and `..._mrgordon_to_mrtent.md` (S1-S17e); `internal/gemini/2026-10-21_*`.
+Running notes: `internal/claude/2026-10-21_mrturtle/notes.md`. Mailboxes: `internal/claude/2026-10-21_mrtent_to_mrgordon.md`
+(the lead's T-entries, now to mract) and `..._mrgordon_to_mrtent.md` (the card's S-entries); `internal/gemini/2026-10-21_*`.
 
-## State at this writing (about 17:55Z)
+## State at this writing
 
-- **The owner reviewed** every new second-subject piece on the review page; their verdicts are in owner_answers
-  :1360-1399. decisions.md 2026-10-21 lists them.
-- **The sync (step 1)** removed the ten pieces called wrong, set four kept, and took the verdicts. Its `--clip` rebuild
-  was running at this writing (mrgordon, from 17:15Z). When it ends, in order (T17, T23, T24):
-  1. land `claude-noface-hair` 27a9c806 (CLEARED; `internal/claude/2026-10-21_ready_noface-hair.md`);
-  2. take out 0278c, set 4726c kept, and record "nothing to make" for the third on 5792, with no rebuild;
-  3. start ComfyUI; render the 5768e hair test on its existing preview, BEFORE the eye fix lands (one variable);
-  4. queue the lead's 23 never-run previews plus a new 1189 preview.
-- **Built, in blind read:** `claude-eyes-closed` 0b8ab179: lowered eyes drawn closed, both eyes per frame
-  (`internal/claude/2026-10-21_ready_eyes-closed.md`; review: `..._review_eyes-closed.md` when it lands). It lands
-  only after the 5768e test renders.
-- **mrgordon is building** W3d-a (`h3_worktrees/mrgordon-cut-map-a`): build_cut_map made reliable. It is parked
-  while the sync runs.
-- **Servers:** the review server :8765 (pid 17874, mrtusk's, left for the owner). ComfyUI starts after the sync.
+- **The card is on hold** (T46): no reference, job or render. The owner's go while they are away (T55): renders may queue
+  once four gating builds are cleared and landed, the prep is remade once, fresh, on main's code, and each load passes
+  its full prompt read, a second reader and the gate. Nothing is laid without the owner's keep.
+- **Five builds, each through the gate** (its own branch, checks with breaks shown red, a blind read, the lead's
+  clearance, the card lands it by pathspec from the merge base):
+  - `claude-headtube-hair` (a lead's builder): the head tube re-seeds a head only on the subject's own evidence; the
+    Hair relabel only for a subject who replaces hair; a subject's replaced parts are never a stranger's. Gates the prep.
+    Brief `internal/claude/2026-10-21_mrturtle/headtube_strangers_brief.md`; Gemini blind-reads it.
+  - `claude-seed-every-box` (a lead's builder): every owner box seeds its tracker; the prep step knows which replacement
+    it is for; the source must hold today's chain; each pass records its chain; no reuse at any stage. Node code
+    (`subject_track.py`): its landing needs a ComfyUI restart. Gates the prep. Brief `..._mrturtle/seed_every_box_brief.md`.
+  - `mrgemx-eyes-down` (Gemini): a person's word that draws lowered eyes as the 2026-10-20 arc on chosen frames (for
+    0415). Gates the prep. Brief C38.
+  - `mrgemx-window-overlap` (Gemini): windows only on both clocks, real context frames, zoom across a cut. Node code
+    (`video_mask.py`): land it back to back with the seeding build, one restart. Gates the prep. Brief C38.
+  - `claude-change-check` (a lead's builder): a reader tool measuring each replaced part against the still, kept parts
+    against the source. Does not gate. Brief `..._mrturtle/change_check_brief.md`.
+- **Today's previews are provisional** (T52, T53): remade once after the four gating builds land.
+- **Kept today:** second_hfp_5768f (the hair fix holds); 4602c, 0484f, 5675c, 5461e, 4726c. Out today: see decisions.md.
+- **Servers:** ComfyUI :8188 (mract's; stop when the card work is done, by ear). The review server :8765 (pid 17874) is
+  the lead's to stop at 22:00Z (the owner's 5 pm), by the recipe.
 
 ## What not to assume
 
-- **A kept subject stays.** It is never remade to make the other subject; the other subject is made on the newest
-  cut that holds it, with the whole chain made again on that cut. Pass 1's output is pass 2's source.
-- **`--no-face-on` emptied her hair** until claude-noface-hair lands. After it lands, check that the frames in the
-  record (part_grades.json `did`) show her hair kept on hair-and-face loads.
-- **The eye fix has a flicker risk** on loads where one eye alone dips past the line for a frame or two (4726c,
-  4479b, 5533b, 5768e). The builder's note has the counts. None of the three eye tests has it. Decide after the tests.
-- **A reader's read, Claude's or Gemini's, is never the owner's.** The owner's eye on playback accepts a piece.
-- **The tiny-face pieces (1093c, 1419c, 4647d)** may need more zoom than the 2x cap. The zoom is held: low priority
-  by the owner's word (Open List r21_08).
-- **1039d's 1039-1040** stay drawn open after the eye fix (the dropped second trigger). Watch them in its test.
+- **The cut on the share (1714Z) is behind laid.jsonl.** The PROVENANCE page says so. No `--clip` rebuild until a batch of
+  keeps.
+- **The closed-eye drawing is reverted** (c076fd87). A lowered eye is the 2026-10-20 arc again. 0415 and 1039 stay
+  unsolved: 0415 waits on the lowered-eye span; 1039's body-model head stays upright while she bows (parked).
+- **4912's dark hair** is her own hair crown handed to the strangers keep-out on 4939-4946, plus the held tail frames of
+  4946; H3 redrew her hair in a new shape but dark. Its remake waits on the head-tube build.
+- **The beard-era checks look at the face only, inside the subject's outline.** They cannot see a replaced hair part
+  outside it. The follow-up is a flag over every part the plan replaces.
+- **A reader's read is never the owner's.** And the lead's figures compared hair to the source: wrong for a replaced part.
 
 ## Next up, in order
 
-1. Steps 1-4 of the state above (mrgordon).
-2. **Reader jobs** go from mrgordon to Gemini's reader directly (`internal/gemini/2026-10-21_mrgordon_to_reader.md`;
-   brief `internal/gemini/2026-10-21_reader_brief.md`): a look at each preview, at each load before it renders, and
-   a card on each render. Only problems come to the lead.
-3. **The eye fix:** after its blind read and the lead's clearance, land it, then render the eye tests 0415g, 1039d
-   and 0484f on their existing previews.
-4. **Remakes, each from a fresh preview** after the tests are read:
-   - the mom: 5533 and 4647 on the new cut (a kept third is there); 4479, 5114, 5011 and 0278 on the raw source;
-     4912 after its tracking is solved;
-   - the mouth (r18_05): 0014f, the lead's 2625 and 1097c.
-5. **The lead's first renders** (23 shots plus 1189) after the eye fix, in batches the owner reviews.
-6. **The third's second passes** on shots whose mom is kept (4602, 5461, 5675 now), each on the newest cut.
-7. **The docs pass (W6) and data docs**, after both builds land: §8 as the trace order, §1's pass order, the
-   `--no-face-on` lines, the 0415g claims, the runbook's commands, data/fun/AGENTS.md as pointers, and the runbook as
-   the one copy (`fix_plan.md`).
-8. **Builds queued:** W7 (reuse made visible), the stop-and-show gate with fresh-eyes clearance (r21_04/05), the
-   every-box tracker seeding (r21_06), the rest of W3d, pick_frames reading the eyes.
+1. Clear each build as its READY lands (`internal/claude/2026-10-21_ready_*.md`, Gemini's G-entries): read the diff,
+   re-run a check from its worktree, read its blind review, then a CLEARED T-entry; mract lands it.
+2. After the four gating builds: the prep remade once, then renders in T55's order: the 0415 eye test; 4912; the mom's
+   remakes (4479, 5114, 5011, 0278 on the raw copy; 5533, 4647 on the 1714Z cut); the dad's second passes (4602, 4726,
+   5461, 5675); the lead's shots from the gap page (data/fun/poc/gaps.html; answers at owner_answers.jsonl:1402-1465).
+3. At the close: the changelog from the commits (changelog.d/README.md); decisions.md; archive today's
+   `data/fun/laid.jsonl.before_*` backups to `data/fun/archive/2026-10-21/`; remove landed worktrees.
+4. Builds queued after these: W7 (reuse and staleness made visible, reading the chain record), the per-part flag above,
+   `laid.py set-owner --recite`, whole-video prep for first-pass subjects, 1039's head pose, the bigger zoom (parked).
 
 ## Where things are
 
-- Today's traces: `internal/claude/2026-10-21_{dark_hair_trace,g10_verify,1039d_eyes_trace,4726c_specks_trace}.md`.
-- Today's audits: `internal/claude/2026-10-21_audit_data_docs.md`, `..._audit_masked_v2v_runbook.md`.
-- Build notes and reviews: `internal/claude/2026-10-21_{ready,review}_*.md`.
-- Worktrees to remove at the close, once each is checked landed and clean: claude-control-audit (scratch),
-  mrsim-laid-owner, mrsim-laid-frames, mrsim-audio-pcm, claude-pick-frames, and today's builds once landed.
-  mrgem-cut-map is Gemini's: ask it.
+- Read-ins: `internal/claude/2026-10-21_readin_next_lead_2.md` (the next lead), `..._readin_next_card.md` (the card).
+- The gap census and page: `internal/claude/2026-10-21_mrturtle/gaps.md`, `data/fun/poc/gaps.html`.
+- Today's traces and figures: `internal/claude/2026-10-21_mrturtle/` (d4912_hair_vs_face, eyes_mean_vs_main_*,
+  third_face_list), `internal/claude/2026-10-21_g10_verify.md`, Gemini's G23 and G24.
+- The archive of stale data docs: `data/fun/archive/2026-10-21/INDEX.md`.
+- Worktrees to remove at the close, once each is checked landed and clean: mrgordon-cut-map-a, claude-docs-w6,
+  claude-noface-hair, mrgemx-eyes-mean, claude-eyes-closed (never landed), and the earlier sessions' list in
+  `internal/claude/2026-10-21_mrgordon/handover_card.md`; mrgem-cut-map is Gemini's: ask it.
