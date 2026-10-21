@@ -1176,6 +1176,11 @@ def who_else_is_in_the_shot() -> str:
         flags = stl.drawn_form(eyes["job"], args(), {"classes": Path("/c.mkv")}, 100)
         assert flags[flags.index("--eyes-shut-on") + 1].startswith("110-115=a person's word on a look (the session, now): G3 LOOKED") \
             and flags[flags.index("--eyes-shut-form") + 1] == "lids", flags
+        eyes_low = load_with(Made(Path(tmp) / "e6"), ours, eyes_shut_on=[(110, 115, look)], eyes_shut_form="lowered")
+        eye_low_row = {x["what"]: x for x in eyes_low["job"]["defaults"]}["the eye"]
+        assert eyes_low["job"]["reference"]["iris"]["eyes_shut"]["form"] == "lowered" and "SHUT on 110-115 (drawn 'lowered')" in eye_low_row["carries"], eye_low_row
+        flags_low = stl.drawn_form(eyes_low["job"], args(), {"classes": Path("/c.mkv")}, 100)
+        assert flags_low[flags_low.index("--eyes-shut-form") + 1] == "lowered", flags_low
     with tempfile.TemporaryDirectory() as tmp:
         # nobody else: no strangers keep-out, though the plan names one; the plan's other keep-outs stand
         d = load_with(Made(Path(tmp)), ours, plan_keep=["held", "strangers"])

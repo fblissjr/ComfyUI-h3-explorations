@@ -101,6 +101,11 @@ def what_a_reference_draws_the_text_says() -> str:
         shut = s2({"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast", "mouth": {"drawn": True}, "eyes_shut": {"form": form}}})
         # THE CASE THAT GOES RED when the text says the eyes are outlined open on frames the reference draws them shut
         assert words in shut, shut
+    shut_lowered = s2({"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast", "mouth": {"drawn": True}, "eyes_shut": {"form": "lowered"}}})
+    shut_lowered_cl = s2({"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast",
+                                                     "mouth": {"drawn": True, "closed_lip_line": {"why": "test", "closed_frames": [[1730, 1754]], "open_frames": []}},
+                                                     "eyes_shut": {"form": "lowered"}}})
+    assert shut_lowered == drawn and shut_lowered_cl == want_unified, (shut_lowered, shut_lowered_cl)
     assert "shut" not in drawn, drawn
     # THE PLAN'S VOICE (the owner's word of 2026-10-15 on second_hfp_5675b): in place of the voice table's guess where it names one
     import copy

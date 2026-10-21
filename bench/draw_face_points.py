@@ -161,14 +161,15 @@ RINGS = ("iris", "pupil")
 #: lash ring filled solid white and the iris solid black, both clipped to the lids, drawn before the lid lines so their
 #: black edge stays round both (drawn after them until an outside reviewer's sheet showed the edge lost).
 IRIS_FORMS = ("between the lids", "whole", "filled", "contrast")
-#: HER EYES SHUT ON A SPAN, on a person's word (`--eyes-shut-on`, the lead's ruling of 2026-10-15 on 2823b, whose eyes never closed in
-#: the render): the pose model's lid points stop at a slit on a closed eye (2823's reference, G3's six closed runs: the drawn opening's
-#: median 0.0105-0.0170 of a face height against 0.0200 open), and nothing else measured tells closed on her (the part model has no eye
-#: class; the dark inside the lids is her makeup; the model's own scores are high either way). On those frames the eye's lash ring,
-#: lid and crease lines, iris and pupil and their fill are not drawn; the brows stay. "none": nothing more, the body model's own eyes
-#: show (whose sculpted eyes are open on every frame); "lids": each eye drawn shut as one line along its upper lash line. Both for one
-#: test (2945-2981), neither a default.
-EYES_SHUT_FORMS = ("none", "lids")
+#: HER EYES SHUT OR LOWERED ON A SPAN, on a person's word (`--eyes-shut-on`, the lead's ruling of 2026-10-15 on 2823b, whose eyes never
+#: closed in the render; `"lowered"` added 2026-10-21 on 0415, the owner's go): the pose model's lid points stop at a slit on a closed eye
+#: (2823's reference, G3's six closed runs: the drawn opening's median 0.0105-0.0170 of a face height against 0.0200 open), and nothing
+#: else measured tells closed on her (the part model has no eye class; the dark inside the lids is her makeup; the model's own scores are
+#: high either way). With `"none"` or `"lids"`, the eye's lash ring, lid and crease lines, iris and pupil and their fill are not drawn and
+#: the brows stay ("none": nothing more, the body model's own eyes show; "lids": each eye drawn shut as one line along its upper lash line).
+#: With `"lowered"`, each eye is drawn in the 2026-10-20 downcast form regardless of `DOWNCAST_RING_OUTSIDE_MIN`: no white sclera or black
+#: iris disc (`discs`), the lash ring, eyelid and crease lines stay, and the iris ring is drawn between the lids (`_iris_ring`). None is a default.
+EYES_SHUT_FORMS = ("none", "lids", "lowered")
 EYE_PARTS = ("_lash_ring", "_upper_eyelid_line", "_lower_eyelid_line", "_upper_crease_line", "_iris_ring", "_pupil_ring")
 #: Points a ring is sampled at to find where it lies between the lids. Reasoned: a ring is eight points round a
 #: centre; 64 along it puts a sample about every 6 degrees, finer than a line is wide on any face drawn so far.
@@ -276,7 +277,7 @@ def between_the_lids(ring: np.ndarray, lids: np.ndarray) -> tuple[list[np.ndarra
 
 def shapes(p: np.ndarray, s: np.ndarray, index: dict, score_line: float, leave_out: frozenset = frozenset(),
            iris: str = IRIS_FORMS[0], outside: dict | None = None,
-           closed_lip_line: bool = False) -> list[tuple[str, np.ndarray, bool]]:
+           closed_lip_line: bool = False, lowered: bool = False) -> list[tuple[str, np.ndarray, bool]]:
     """One frame's drawing as (name, points in order, whether it closes on itself). A dot alone is one point.
     `iris`: a ring drawn between the lids or whole (`IRIS_FORMS`); `outside`, when given, gets each drawn ring's
     share outside the lids, by its name."""
@@ -294,8 +295,8 @@ def shapes(p: np.ndarray, s: np.ndarray, index: dict, score_line: float, leave_o
                     runs, closed, off = between_the_lids(whole, ring)
                     if outside is not None:
                         outside[f"{side}_{kind}"] = off
-                    if iris == IRIS_FORMS[2] or (iris == IRIS_FORMS[3] and not (closed_lip_line and kind == "iris" and off >= DOWNCAST_RING_OUTSIDE_MIN)):
-                        continue                                       # filled or contrast: the iris is a disc (`discs`), unless downcast under closed_lip_line
+                    if iris == IRIS_FORMS[2] or (iris == IRIS_FORMS[3] and not (kind == "iris" and (lowered or (closed_lip_line and off >= DOWNCAST_RING_OUTSIDE_MIN)))):
+                        continue                                       # filled or contrast: the iris is a disc (`discs`), unless downcast under closed_lip_line or lowered on a person's word
                     if iris == IRIS_FORMS[1] or closed:
                         out.append((f"{side}_{kind}_ring", whole, True))
                     else:
@@ -327,10 +328,10 @@ def shapes(p: np.ndarray, s: np.ndarray, index: dict, score_line: float, leave_o
 
 
 def discs(p: np.ndarray, s: np.ndarray, index: dict, score_line: float, leave_out: frozenset = frozenset(),
-          closed_lip_line: bool = False) -> list[tuple[str, np.ndarray, np.ndarray]]:
+          closed_lip_line: bool = False, lowered: bool = False) -> list[tuple[str, np.ndarray, np.ndarray]]:
     """One frame's irises for `--iris filled`, as (name, the iris ring sampled at `RING_SAMPLES` points, that eye's lash ring):
     `draw` fills each in the edge colour where it lies inside its lash ring. An iris under the score line is left out, as its ring is."""
-    if "eyes" in leave_out:
+    if "eyes" in leave_out or lowered:
         return []
     scores, out = ring_scores(s, index), []
     for side, ring in zip(SIDES, fp.lid_rings(p, index)):
@@ -977,20 +978,26 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     line = h3_config.POSE_READING["eye_ring_score_at_least"]
     if iris not in IRIS_FORMS:
         raise SystemExit(f"--iris is one of {IRIS_FORMS}; got {iris!r}")
+    shut = sorted({f - first for f in (eyes_shut or []) if first <= f < first + count})
+    if shut and (eyes_shut_form not in EYES_SHUT_FORMS or not str(eyes_shut_by).strip()):
+        raise SystemExit(f"--eyes-shut-on takes a form, one of {EYES_SHUT_FORMS} (--eyes-shut-form), and whose word it is; got {eyes_shut_form!r}")
+    shut_set = set(shut)
     offs = [{} for _ in range(count)]
-    drawings = [shapes(p, s, idx, line, leave_out, iris, offs[f], closed_lip_line=closed_lip_line) for f, (p, s) in enumerate(zip(points["keypoints"], points["scores"]))]
+    drawings = [shapes(p, s, idx, line, leave_out, iris, offs[f], closed_lip_line=closed_lip_line,
+                       lowered=(f in shut_set and eyes_shut_form == "lowered"))
+                for f, (p, s) in enumerate(zip(points["keypoints"], points["scores"]))]
     if not dots:
         drawings = [lines_only(d) for d in drawings]                # no dots is no dots: the points that belong to no line go too
     wide, face, wide_by = width_for(points, width)
     left = {f - first for f in (bare or []) if first <= f < first + count}
-    fills = [discs(p, s, idx, line, leave_out, closed_lip_line=closed_lip_line) for p, s in zip(points["keypoints"], points["scores"])] if iris in IRIS_FORMS[2:] else None
-    shut = sorted({f - first for f in (eyes_shut or []) if first <= f < first + count})
-    if shut and (eyes_shut_form not in EYES_SHUT_FORMS or not str(eyes_shut_by).strip()):
-        raise SystemExit(f"--eyes-shut-on takes a form, one of {EYES_SHUT_FORMS} (--eyes-shut-form), and whose word it is; got {eyes_shut_form!r}")
+    fills = [discs(p, s, idx, line, leave_out, closed_lip_line=closed_lip_line,
+                   lowered=(f in shut_set and eyes_shut_form == "lowered"))
+             for f, (p, s) in enumerate(zip(points["keypoints"], points["scores"]))] if iris in IRIS_FORMS[2:] else None
     for f in shut:
-        drawings[f] = [d for d in drawings[f] if not any(d[0].startswith(f"{side}{part}") for side in SIDES for part in EYE_PARTS)]
-        if eyes_shut_form == "lids" and "eyes" not in leave_out:
-            drawings[f] += [(f"{side}_shut_lid", fp._line(points["keypoints"][f], idx, side, "upper"), False) for side in SIDES]
+        if eyes_shut_form != "lowered":
+            drawings[f] = [d for d in drawings[f] if not any(d[0].startswith(f"{side}{part}") for side in SIDES for part in EYE_PARTS)]
+            if eyes_shut_form == "lids" and "eyes" not in leave_out:
+                drawings[f] += [(f"{side}_shut_lid", fp._line(points["keypoints"][f], idx, side, "upper"), False) for side in SIDES]
         if fills:
             fills[f] = []
     cmap_set = {f - first for f in (class_mouth_frames or []) if first <= f < first + count}

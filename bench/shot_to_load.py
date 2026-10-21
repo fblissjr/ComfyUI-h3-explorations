@@ -4038,8 +4038,8 @@ def main() -> int:
                         "named), and that her eyes are shut there; with --eyes-shut-form; repeatable")
     import draw_face_points
     j.add_argument("--eyes-shut-form", choices=draw_face_points.EYES_SHUT_FORMS,
-                   help="what the reference draws for her eyes on the --eyes-shut-on frames: none (no eye, the body model's own) or lids (each "
-                        "shut as one line); for one test, no default")
+                   help="what the reference draws for her eyes on the --eyes-shut-on frames: none (no eye, the body model's own), lids (each "
+                        "shut as one line), or lowered (the iris arc between the lids, no disc); no default")
     j.add_argument("--no-strangers", metavar="WHY", help="no strangers keep-out on this load, on a person's word: who looked, at the contact "
                    "sheet of the load's frames (its file named; only that a file of that name is there is checked), and that nobody but our "
                    "subjects is in the picture. The part stays held to the subject's own track")

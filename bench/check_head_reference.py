@@ -344,6 +344,10 @@ def no_face_where_hair_alone() -> str:
     assert shut["drawn"]["eyes_shut"] == {"form": "lids", "frames": [[2, 3]], "on_whose_word": [{"first": 2, "last": 4, "why": "G3 LOOKED"}],
                                           "drawn_shut_on": [[2, 3]]}, shut["drawn"]
     assert any("HER EYES SHUT on 2 of 12 frames (2-3), drawn 'lids': G3 LOOKED" in x for x in said), said
+    lowered = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head_lowered.mp4", "the check", room=ROOM, iris="contrast",
+                     eyes_shut_on=[(2, 4, "G24 LOOKED")], eyes_shut_form="lowered", no_face_on=[(4, 4, "HAIR ALONE")], say=said.append)
+    assert lowered["drawn"]["eyes_shut"] == {"form": "lowered", "frames": [[2, 3]], "on_whose_word": [{"first": 2, "last": 4, "why": "G24 LOOKED"}],
+                                             "drawn_shut_on": [[2, 3]]}, lowered["drawn"]
     try:
         hr.run(str(mesh), str(pts), str(source), 0, N, folder / "x.mp4", "the check", room=ROOM, eyes_shut_on=[(2, 4, "X")], say=lambda *_: None)
         raise AssertionError("--eyes-shut-on with no form was taken")

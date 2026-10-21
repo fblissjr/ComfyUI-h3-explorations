@@ -236,6 +236,7 @@ def eyes_shut() -> str:
     df.run(str(MESH), str(POINTS), 0, N, WORK / "open.mp4", "the check", **kw)
     none = df.run(str(MESH), str(POINTS), 0, N, WORK / "shut_none.mp4", "the check", eyes_shut=[6, 7], eyes_shut_form="none", eyes_shut_by="A LOOK", **kw)
     lids = df.run(str(MESH), str(POINTS), 0, N, WORK / "shut_lids.mp4", "the check", eyes_shut=[6, 7], eyes_shut_form="lids", eyes_shut_by="A LOOK", **kw)
+    lowered = df.run(str(MESH), str(POINTS), 0, N, WORK / "shut_lowered.mp4", "the check", eyes_shut=[6, 7], eyes_shut_form="lowered", eyes_shut_by="A LOOK", **kw)
     pts = df.rows_of(str(POINTS), None, 0, N, None)[0]
 
     def in_the_eyes(path, f):
@@ -245,16 +246,17 @@ def eyes_shut() -> str:
             cv2.fillPoly(m, [np.round(ring).astype(np.int32)], 1)
         m = cv2.dilate(m, np.ones((3, 3), np.uint8)).astype(bool)
         return int((got & m).sum())
-    opened, shut_none, shut_lids = (in_the_eyes(WORK / x, 6) for x in ("open.mp4", "shut_none.mp4", "shut_lids.mp4"))
-    # THE CASE THAT GOES RED when an eye named shut is still drawn open (its ring, its sclera), or "lids" draws no line there
-    assert opened > 0 and shut_none == 0 and 0 < shut_lids < opened, (opened, shut_none, shut_lids)
+    opened, shut_none, shut_lids, shut_lowered = (in_the_eyes(WORK / x, 6) for x in ("open.mp4", "shut_none.mp4", "shut_lids.mp4", "shut_lowered.mp4"))
+    # THE CASE THAT GOES RED when an eye named shut is still drawn open (its ring, its sclera), "lids" draws no line there, or "lowered" keeps the black iris disc instead of the white iris ring
+    assert shut_none == 0 and 0 < shut_lids < opened < shut_lowered, (opened, shut_none, shut_lids, shut_lowered)
     # the other frames are drawn as before, and the record says which frames, in which form, on whose word
     # (the codec carries a few edge pixels across frames, so a neighbour is held to the drawing's own, not to the bit)
     before, after = white(WORK / "open.mp4", N), white(WORK / "shut_none.mp4", N)
     moved = [int((before[f] ^ after[f]).sum()) for f in (4, 5, 8, 9)]
     assert max(moved) <= 0.02 * min(int(before[f].sum()) for f in (4, 5, 8, 9)), ("a frame not named shut changed", moved)
-    assert none["frames_with_the_eyes_shut"] == {"frames": [6, 7], "form": "none", "by": "A LOOK"} and lids["frames_with_the_eyes_shut"]["form"] == "lids", none
-    assert none["passed"] and lids["passed"], (none["read_back"], lids["read_back"])
+    assert none["frames_with_the_eyes_shut"] == {"frames": [6, 7], "form": "none", "by": "A LOOK"} and lids["frames_with_the_eyes_shut"]["form"] == "lids" \
+        and lowered["frames_with_the_eyes_shut"] == {"frames": [6, 7], "form": "lowered", "by": "A LOOK"}, (none, lids, lowered)
+    assert none["passed"] and lids["passed"] and lowered["passed"], (none["read_back"], lids["read_back"], lowered["read_back"])
     # the ring record does not call a shut frame's ring left out by its score, and the brows stay on a shut frame
     assert not {6, 7} & {f for v in none["eye_rings"]["frames_a_ring_is_left_out_on"].values() for f in v}, none["eye_rings"]
     brows = np.zeros((H, W), np.uint8)
@@ -641,6 +643,12 @@ def the_iris_between_the_lids() -> str:
     assert downcast_shapes and all(not c for _, _, c in downcast_shapes), downcast_shapes
     p_open = face([(160.0, 100.0)], opening=OPEN)[0]
     assert len(df.discs(p_open, s, INDEX, 0.0, closed_lip_line=True)) == 2, "open eye under closed_lip_line lost its contrast disc"
+    p_mid = face([(160.0, 100.0)], opening=3.0)[0]
+    assert len(df.discs(p_mid, s, INDEX, 0.0, closed_lip_line=True, lowered=False)) == 2, "eye under DOWNCAST_RING_OUTSIDE_MIN lost its contrast disc without lowered"
+    assert df.discs(p_mid, s, INDEX, 0.0, closed_lip_line=True, lowered=True) == [], "lowered eye kept its contrast disc"
+    assert [x for x in df.shapes(p_mid, s, INDEX, 0.0, frozenset(), df.IRIS_FORMS[3], closed_lip_line=True, lowered=False) if x[0].endswith("_iris_ring")] == []
+    lowered_shapes = [x for x in df.shapes(p_mid, s, INDEX, 0.0, frozenset(), df.IRIS_FORMS[3], closed_lip_line=True, lowered=True) if x[0].endswith("_iris_ring")]
+    assert lowered_shapes and all(not c for _, _, c in lowered_shapes), lowered_shapes
     return (f"a ring larger than a narrow opening is drawn only where it lies between the lids ({off:.2f} of it outside), a ring wholly inside "
             "is drawn closed and one wholly outside not at all; on nearly shut lids the default draws open stretches and `whole` both rings closed; "
             "when clipped to the grey head silhouette, the white sclera stays a line's width inside the head's edge and nothing bleeds into black space")
