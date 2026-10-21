@@ -171,6 +171,12 @@ From about 17:58Z mrturtle led, with mrgordon on the card and Gemini building. R
   1039d and 0484f, and less single-eye flicker on three-quarter faces: none left on 4479 and 5768, fewer frames on
   5533 (the per-frame table is in `internal/claude/2026-10-21_review_eyes-closed.md`). The same review found that 0b8ab179 changed the `filled` eye
   form, which it was not meant to touch. The rule acts only under the contrast eye with the closed-lip line.
+- **A shot is done when every subject who can be swapped there is kept** (the owner). A subject with nothing to replace
+  (only the back of the head shows) does not hold a shot open: it is recorded as "not seen" with `bench/shots_look.py`
+  on the owner's word or a look. A kept subject is still never re-rendered to make the other.
+- **5768-5791: nothing to make for the third** (the owner, on second_hfp_5768f, which they kept at
+  `data/fun/owner_answers.jsonl:1400`): his face never shows there. The preview's class maps agree
+  (`internal/claude/2026-10-21_mrturtle/third_face_list.txt`).
 - **5768f's render box moved a few pixels** from 5768e's, at the same size (both boxes are in S22 of
   `internal/claude/2026-10-21_mrgordon_to_mrtent.md`). The node centers one box on the union of the region over the
   load (`video_mask.py::zoom_box`). Keeping her hair in the region on 5768-5773 moves that
