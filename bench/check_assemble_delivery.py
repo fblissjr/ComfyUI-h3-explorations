@@ -182,7 +182,7 @@ def run(cmd, **kw):
     return proc.stdout
 
 
-def make_source(path: Path) -> None:
+def make_source(path: Path, pcm: bool = False) -> None:
     """A soft picture that drifts, different on every frame, tagged BT.709, with a tone under it. One keyframe, so
     a straight cut has a long head. Soft and slow on purpose: on a hard test pattern that moves fast (`testsrc2`)
     the writer's own codec noise reaches twice `CHANGE` and a piece that kept every pixel reads as changed
@@ -190,7 +190,8 @@ def make_source(path: Path) -> None:
     run([tool.FFMPEG, "-y", "-v", "error", "-f", "lavfi", "-i", f"gradients=size={SW}x{SH}:rate={RATE}:speed=0.03:{PICTURE}",
          "-f", "lavfi", "-i", "sine=frequency=330:sample_rate=44100", "-frames:v", str(FRAMES), "-shortest",
          "-vf", "setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv", "-c:v", "libx264", "-crf", "12",
-         "-g", "250", "-pix_fmt", "yuv420p", *tool.BT709_TAGS, "-c:a", "aac", "-ac", "2", "-b:a", "96k", str(path)])
+         "-g", "250", "-pix_fmt", "yuv420p", *tool.BT709_TAGS,
+         *(["-c:a", "pcm_s16le", "-ac", "2", "-f", "mov"] if pcm else ["-c:a", "aac", "-ac", "2", "-b:a", "96k"]), str(path)])
 
 
 def loaded(source: Path, first: int, count: int) -> torch.Tensor:
@@ -438,6 +439,57 @@ with tempfile.TemporaryDirectory() as _tmp:
         assert r["verdict"] == "passes" and 0 < a["head_the_edit_list_skips_s"] <= tool.HEAD_PACKETS * packet + 1e-4, a
         assert a["mean_difference_in_place"] < a["nearest_other_place"][1] and abs(a["sync_error_s"]) < 1.5 / 44100, a
         return f"the track begins {a['head_the_edit_list_skips_s']} s before the span"
+
+    def pcm_by_its_samples() -> str:
+        """A PCM track (fun's source: pcm_s16le in a .mov) copied into the file can be the source's samples cut into
+        other packets (fun's 1408Z cut). Decoded in place, sample for sample, it is the source's track and passes with a
+        note; a PCM track with its samples changed fails. Until 2026-10-21 any packet split but the source's failed."""
+        d = TMP / "pcm"
+        d.mkdir()
+        make_source(d / "source.mp4", pcm=True)
+        code, r, out = deliver(d, "whole_pcm", ROWS, f"0-{FRAMES - 1}")
+        assert code == 0 and r["verdict"] == "passes", r["failures"]
+        # the same samples in other packets: PCM to PCM in 1000-sample packets is lossless
+        split = d / "split_otherwise.mp4"
+        run([tool.FFMPEG, "-y", "-v", "error", "-i", str(out), "-map", "0:v:0", "-map", "0:a:0", "-c:v", "copy",
+             "-af", "asetnsamples=n=1000:p=0", "-c:a", "pcm_s16le", str(split)])
+        assert np.array_equal(tool.pcm(out), tool.pcm(split)), "the fixture changed the samples"
+        assert [p[1:3] for p in tool.audio_packets(out)] != [p[1:3] for p in tool.audio_packets(split)], "the fixture kept the packets"
+        code, r = recheck(d, "whole_pcm", ROWS, f"0-{FRAMES - 1}", split)
+        a = r["audio"]
+        assert code == 0 and r["verdict"] == "passes", r["failures"]
+        assert a["a_run_of_the_source's_packets"] is False and a["decoded_samples_are_the_source's_in_place"] is True and a.get("note"), a
+        # the same samples, delayed half a second: decoded, they are the same bytes, so the place is read off the packets
+        late = d / "split_and_late.mp4"
+        run([tool.FFMPEG, "-y", "-v", "error", "-i", str(out), "-itsoffset", "0.5", "-i", str(split), "-map", "0:v:0", "-map", "1:a:0",
+             "-c", "copy", str(late)])
+        assert np.array_equal(tool.pcm(late), tool.pcm(out)), "the delayed fixture changed the samples"
+        code, r = recheck(d, "whole_pcm", ROWS, f"0-{FRAMES - 1}", late)
+        assert code == 1 and any("off the span" in f for f in r["failures"]), (r["failures"], r["audio"])
+        # the source's own samples from the start, cut short at half the span
+        short = d / "split_and_short.mp4"
+        run([tool.FFMPEG, "-y", "-v", "error", "-i", str(split), "-map", "0:v:0", "-map", "0:a:0", "-c:v", "copy",
+             "-af", f"atrim=end_sample={FRAMES * 44100 * 1001 // 24000 // 2}", "-c:a", "pcm_s16le", str(short)])
+        code, r = recheck(d, "whole_pcm", ROWS, f"0-{FRAMES - 1}", short)
+        assert code == 1 and any("samples where the span is" in f for f in r["failures"]), (r["failures"], r["audio"])
+        # a sample off: the same packets' worth, at half the level
+        quieter = d / "samples_changed.mp4"
+        run([tool.FFMPEG, "-y", "-v", "error", "-i", str(out), "-map", "0:v:0", "-map", "0:a:0", "-c:v", "copy",
+             "-af", "volume=0.5", "-c:a", "pcm_s16le", str(quieter)])
+        code, r = recheck(d, "whole_pcm", ROWS, f"0-{FRAMES - 1}", quieter)
+        assert code == 1 and any("decoded samples are not the source's in place" in f for f in r["failures"]), r["failures"]
+        # a span from the middle: the samples are held at the span's own place in the source, not from its start
+        code, r, mid = deliver(d, "middle_pcm", ROWS, "30-60")
+        assert code == 0 and r["verdict"] == "passes", r["failures"]
+        mid_split = d / "middle_split_otherwise.mp4"
+        run([tool.FFMPEG, "-y", "-v", "error", "-i", str(mid), "-map", "0:v:0", "-map", "0:a:0", "-c:v", "copy",
+             "-af", "asetnsamples=n=1000:p=0", "-c:a", "pcm_s16le", str(mid_split)])
+        code, r = recheck(d, "middle_pcm", ROWS, "30-60", mid_split)
+        m = r["audio"]
+        assert code == 0 and m.get("decoded_samples_are_the_source's_in_place") is True, (r["failures"], m)
+        return (f"{a['samples_compared']} samples, the source's in place in other packets, pass; the same delayed half a second, "
+                f"cut to half its length, or at half the level fails; "
+                f"a span from the middle held at its own place ({m['samples_compared']} samples)")
 
     def two_pieces() -> str:
         f = 20
@@ -2024,6 +2076,7 @@ with tempfile.TemporaryDirectory() as _tmp:
     case("a delivery of pieces and original ranges passes its own check", delivery_passes)
     case("controls: three files that must fail", controls_fail)
     case("a span from the middle begins its track at the span", middle_span)
+    case("a PCM track is held to its decoded samples", pcm_by_its_samples)
     case("two pieces on the same frames", two_pieces)
     case("the flags", flags)
     case("at the source's size", at_the_sources_size)

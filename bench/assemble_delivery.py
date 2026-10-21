@@ -269,7 +269,13 @@ by another rule is not passed for being in order: a whole-frame mean passes a fi
 region of it. Frames whose
 neighbours are the same picture cannot be placed by content and are counted apart. Audio: the file's
 packets are a run of the source's packets, byte for byte, the head is under `HEAD_PACKETS` packets, and the
-decoded samples fit the source's at their own place better than a sample or more either side (`SHIFTS`).
+decoded samples fit the source's at their own place better than a sample or more either side (`SHIFTS`). Where the
+packets are not a run (a PCM track copied in is the source's samples cut into other packets: fun's 1408Z cut), the
+file's decoded samples must be the source's at their own place, every one, its first packet where the span begins
+(or a head the edit list skips, under `HEAD_PACKETS` packets), and its track the span's length less one packet, or
+it fails; that is written with a note and passes (2026-10-21), for 16-bit PCM on both sides only. What that cannot
+see: a PCM file of a span from the middle whose track starts on a lead the edit list does not skip reads as not in
+place and fails, which is a false failure, never a false pass.
 Colour: the four fields, and the decoded file's planes have no bias against the frames fed (`BIAS`), which is
 what a silent matrix conversion would leave. Regions: per piece and frame, the pixels it changed.
 
@@ -417,6 +423,12 @@ def probe(path) -> dict:
 def audio_rate(path) -> int | None:
     out = sh(["ffprobe", "-v", "error", "-select_streams", "a:0", "-show_entries", "stream=sample_rate", "-of", "csv=p=0", str(path)])
     return int(out.decode().strip().split(",")[0]) if out.strip() else None
+
+
+def audio_codec(path) -> str | None:
+    """The first audio stream's codec name, as ffprobe gives it, or None."""
+    out = sh(["ffprobe", "-v", "error", "-select_streams", "a:0", "-show_entries", "stream=codec_name", "-of", "csv=p=0", str(path)])
+    return out.decode().strip().split(",")[0] or None if out.strip() else None
 
 
 def class_names() -> tuple[str, ...]:
@@ -2418,7 +2430,35 @@ def check(args, segs, canvas, span, src, rows, captures):
         runs = [i for i in range(len(src_packets) - len(out) + 1) if src_packets[i][2] == out[0][2]
                 and all(src_packets[i + j][1:3] == out[j][1:3] for j in range(len(out)))] if out else []
         audio = {"packets": len(out), "a_run_of_the_source's_packets": bool(runs)}
-        if not runs:
+        if not runs and out and audio_codec(args.source) == audio_codec(args.out) == "pcm_s16le":
+            # THE SAMPLES, WHEN THE PACKETS ARE NOT THE SOURCE'S (2026-10-21, W3f): a PCM track copied into the file is the
+            # source's samples cut into other packets (fun's 1408Z cut: 11487 packets on both, split 4096/4088/4092 at
+            # other places, decoding to the same bytes). It passes only as the source's own track at its own place and
+            # length: every decoded sample the source's in place, its first packet where the span begins (a delayed copy
+            # of the same samples decodes to the same bytes, so the place is read off the packets), and the span's length
+            # less one packet. 16-bit PCM on both sides only: `pcm` decodes to s16, which would hide a deeper source cut down
+            a_, b_ = pcm(args.source), pcm(args.out)
+            s0, size = int(round(start * sound)), src_packets[0][3]
+            same = len(b_) > 0 and s0 + len(b_) <= len(a_) and np.array_equal(a_[s0:s0 + len(b_)], b_)
+            head = max(0, -out[0][0])
+            want = int(round(length * sound))
+            audio.update({"decoded_samples_are_the_source's_in_place": bool(same), "samples_compared": int(len(b_)),
+                          "head_the_edit_list_skips_s": round(head / sound, 6),
+                          # with a head the edit list skips, the place is the in-place samples' (decoded from s0), not measured here
+                          "sync_error_s": round(out[0][0] / sound, 6) if not head else None,
+                          "track_ends_after_the_picture_by_s": round((len(b_) - want) / sound, 6)})
+            if not same:
+                fail("the audio packets are not a run of the source's packets, and its decoded samples are not the source's in place")
+            elif not head and abs(out[0][0]) > 1.5:
+                fail(f"the audio packets are not a run of the source's packets, and its track begins {out[0][0] / sound:.6f} s off the span")
+            elif head > HEAD_PACKETS * size:
+                fail(f"the track begins {head / sound:.3f} s before the span, over {HEAD_PACKETS} packets")
+            elif len(b_) < want - size:
+                fail(f"the audio packets are not a run of the source's packets, and its track is {len(b_)} samples where the span is {want}")
+            else:
+                audio["note"] = ("the packets are laid out otherwise than the source's, and every decoded sample is the source's at its "
+                                 "own place, from the span's first sample, to the span's length: the source's track, split into other packets")
+        elif not runs:
             fail("the audio packets are not a run of the source's packets")
         else:
             k0, size = runs[0], src_packets[0][3]
