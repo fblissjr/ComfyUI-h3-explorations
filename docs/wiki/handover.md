@@ -93,6 +93,7 @@ right ([`decisions.md`](decisions.md), newest first; `data/fun/laid.jsonl`; `dat
 - **Every review clip must be added to `data/<video>/review/items.json` (`state: "open"`).** Static `TO_REVIEW.html` has
   no verdict buttons; the owner submits verdicts and frame notes on `http://<host>:8765/` (`data/<video>/poc/index.html`),
   which reads `items.json` and appends to `data/<video>/owner_answers.jsonl`.
+- **Never validate a clip from 4 evenly-spaced frame samples (`start, 1/3, 2/3, end`), and never lay tail frames where a part-load subject's head/hair has already exited the frame (`second_hfp_5889e`, `5889–5934`).** On `second_hfp_5889e`, `second` is behind `third` on `5889–5915`, then at `5916` the door opens and a conga line marches out while `second`'s face and hair exit the right frame edge, leaving only her arm/dress at the edge on `5916–5934`. Evenly-spaced 4-frame samples missed the `5914 -> 5916` exit completely, whereas the stacked clip's own flags (`pose_mostly_outside_the_frame (second) on 5915-5934`, `part_not_visible (['second.Face_Neck', 'second.Hair', ...])`) and `assemble_delivery.py`'s `ends` check (`ends on the source's own picture under its subject: frames 5930-5933`) caught that nothing of her face/hair was in frame on the tail. Always watch the continuous clip across every `pose_mostly_outside_the_frame` / `part_not_visible` transition, and `--drop` (or lay only `--frames 5889-5915` in `laid.jsonl`) tail spans where the replaced parts (`face_and_neck` + `hair`) have left the frame.
 
 ## Next up, in order
 
