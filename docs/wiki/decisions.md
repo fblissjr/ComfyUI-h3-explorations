@@ -158,6 +158,24 @@ notes: `internal/claude/2026-10-21_mrtent/notes.md`; mailboxes `internal/claude/
     1.63x" is the reference's enlargement; the plan's zoom was 1.78.
   - The same claim in docs/masked_v2v/AGENTS.md §7 and PROTOCOL.md is due in the docs pass.
 
+From about 17:58Z mrturtle led, with mrgordon on the card and Gemini building. Running notes:
+`internal/claude/2026-10-21_mrturtle/notes.md`; mailboxes as above, from T29 and C27.
+- **No whole-video build to check one shot** (the owner, after a full `--clip` rebuild was used to look at 1010-1038).
+  A look at one shot's composite assembles and stacks that span alone (`bench/assemble_delivery.py --span`,
+  `bench/stack_delivery.py --only`). The full `--clip` rebuild runs only when the cut and pages must move (after
+  landings or removals), batched.
+- **1010-1038: lead_fp_1010c is kept over the new mom** (the owner, on the 1714Z cut's stacked view; Open List r21_02).
+  The lead's eyes on 1032 look off. A remake of 1010c with the eye fix is optional, only if easy.
+- **The closed eye is decided on the mean of the two eyes**, not on either eye alone (Gemini's G21, built by Gemini at
+  the owner's word, branch `mrgemx-eyes-mean`). Checked per frame on eight references: the same closed frames on 0415g,
+  1039d and 0484f, and less single-eye flicker on three-quarter faces: none left on 4479 and 5768, fewer frames on
+  5533 (the per-frame table is in `internal/claude/2026-10-21_review_eyes-closed.md`). The same review found that 0b8ab179 changed the `filled` eye
+  form, which it was not meant to touch. The rule acts only under the contrast eye with the closed-lip line.
+- **5768f's render box moved a few pixels** from 5768e's, at the same size (both boxes are in S22 of
+  `internal/claude/2026-10-21_mrgordon_to_mrtent.md`). The node centers one box on the union of the region over the
+  load (`video_mask.py::zoom_box`). Keeping her hair in the region on 5768-5773 moves that
+  union, so the shift comes from the change under test, not a second variable. The test went on.
+
 ## 2026-10-20
 
 - **Why fixed-$N$ uniform `linspace` sampling fails (`second_hfp_5889e` on `5889–5934`, `bench/crop_reference_to_head.py`, `bench/draw_face_points.py`, `bench/head_reference.py`)**: On `second_hfp_5889e` (`5889–5934`), a 4-frame evenly-spaced contact sheet (`5889, 5904, 5919, 5934`) and the fixed 6-frame `np.linspace(0, count - 1, 6)` reference sheet (`_sheet.jpg`) missed that `second`'s face and hair are only in frame on `5889–5915`—at `5916`, the door opens and a conga line marches out while her head exits the right edge of the frame, leaving only her arm and dress at the right border on `5916–5934`. Because `second` is a `face_and_neck` + `hair` part load (`part_saved_on_track`), keeping the arm/shoulder track open on `5916–5933` after `Face_Neck` and `Hair` exited the frame (`pose_mostly_outside_the_frame (second) on 5915-5934`) left the rendered pixels on `5930–5933` nearly identical to the source (`10.7` levels vs `41.2` in the middle), which `bench/assemble_delivery.py`'s `ends` proof rightly rejected (`ends on the source's own picture under its subject: frames 5930-5933`). **Why fixed-$N$ uniform sampling failed here** (the owner, 2026-10-20): fixed-count uniform `np.linspace(0, count - 1, 6)` in `_sheet.jpg` writers (`crop_reference_to_head.py:256`, `draw_face_points.py:869`, `head_reference.py`) and validation contact sheets is blind to both clip duration (giving a 16-frame clip and a 362-frame clip the same number of samples and warping time deltas, as noted in Meta's *Apollo* video understanding paper) and content/state transitions (where a subject enters/exits the frame, becomes occluded, or changes expression between uniform sample points). How to replace fixed-$N$ `linspace` is left open for tomorrow; meanwhile, when a part-load subject's replaced parts (`Face_Neck` + `Hair`) exit the frame before the shot ends while an unreplaced body part (arm/dress) remains in view, `--drop` those tail frames in the job (or lay only the visible-head span `5889–5915` in `laid.jsonl`).
