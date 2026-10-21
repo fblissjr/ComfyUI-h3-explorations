@@ -275,146 +275,6 @@ def eyes_shut() -> str:
     return f"white inside her eyes on a frame named shut: {opened} px open, {shut_none} with no eye, {shut_lids} with the lids shut; other frames as before"
 
 
-def eyes_closed_by_the_rule() -> str:
-    """The owner's direction of 2026-10-21 (second_hfp_0415g at 437, second_hfp_1039d at 1053-1060): under the chain's default form
-    (`--iris contrast` with the closed lip line) a frame where the two eyes' mean iris ring outside the lids (or that eye's share when only
-    one scores) is DOWNCAST_RING_OUTSIDE_MIN or more draws BOTH eyes shut as the "lids" form: one line along each upper lash line, no lash
-    ring, lid, crease, iris or pupil line and no sclera. Built here: on 6-7 the left iris is downcast (0.83) and the right lies just under
-    the line (0.61), with their mean over it (0.72, the 1057-1059 shape: shut); on 8 the left iris alone is over the line (0.67) while the
-    right is open (0.0, mean 0.34: open, no three-quarter-profile flicker); on 12-13 both lids nearly meet over a small iris (nearly shut,
-    not downcast), drawn open as before: a closed eye by the lash gap was dropped the day it was tried, for meeting open eyes the owner
-    judged right (draw_face_points.DOWNCAST_RING_OUTSIDE_MIN)."""
-    import cv2
-    from _lib import face_points as fp
-    sides = fp.SIDES
-
-    def ring_ids(side, kind):
-        return [i for n, i in INDEX.items() if n.startswith(f"{side}_border_of_{kind}") or n == f"{side}_center_of_{kind}"]
-    kp, nearly = face(CENTRES), face(CENTRES, opening=1.0)
-    for f in (6, 7):
-        for kind in ("iris", "pupil"):
-            kp[f][ring_ids("l", kind), 1] += 10.0                      # left downcast (0.83), right just under the line (0.61): mean 0.72 >= 0.65 (shut)
-            kp[f][ring_ids("r", kind), 1] += 8.0
-    for kind in ("iris", "pupil"):
-        kp[8][ring_ids("l", kind), 1] += 8.5                           # left downcast (0.67) and right open (0.0): mean 0.34 < 0.65 (open)
-    for f in (12, 13):
-        kp[f] = nearly[f]
-        for side in sides:
-            for kind in ("iris", "pupil"):                              # a small iris inside the slit: nearly shut, not downcast
-                ids, cen = ring_ids(side, kind), nearly[f][INDEX[f"{side}_center_of_{kind}"]]
-                kp[f][ids] = cen + 0.25 * (kp[f][ids] - cen)
-    pts = save(WORK / "rule_points.npz", kp, first=0)
-    sc, line = np.full(len(NAMES), 0.9), h3_config.POSE_READING["eye_ring_score_at_least"]
-    reads = {f: df.eye_reading(kp[f], sc, INDEX, line) for f in (5, 6, 8, 12)}
-    assert reads[6]["eyes"]["l"]["downcast"] and not reads[6]["eyes"]["r"]["downcast"] and reads[6]["shut"], reads[6]
-    # THE CASE THAT GOES RED when the rule reverts from the two-eye mean to the max (either eye alone): on 8, left is over and mean is under
-    assert reads[8]["eyes"]["l"]["downcast"] and not reads[8]["eyes"]["r"]["downcast"] and not reads[8]["shut"], reads[8]
-    assert not reads[5]["shut"] and not reads[12]["shut"] and fp.eye_opening(kp[12], INDEX) < h3_config.POSE_READING["eyes_shut_under"], reads
-    # Where only one eye's iris ring scores, that eye decides alone; where neither scores, the frame is not shut
-    sc_one, sc_none = sc.copy(), sc.copy()
-    sc_one[ring_ids("r", "iris")] = 0.2
-    sc_none[ring_ids("l", "iris") + ring_ids("r", "iris")] = 0.2
-    r_one = df.eye_reading(kp[8], sc_one, INDEX, line)
-    assert r_one["eyes"]["r"]["ring_outside"] is None and r_one["mean_outside"] == r_one["eyes"]["l"]["ring_outside"] and r_one["shut"], r_one
-    assert not df.eye_reading(kp[5], sc_one, INDEX, line)["shut"], "one scored open eye was called shut"
-    r_none = df.eye_reading(kp[6], sc_none, INDEX, line)
-    assert r_none["mean_outside"] is None and not r_none["shut"], r_none
-    eye_parts = ("_lash_ring", "_eyelid_line", "_crease_line", "_iris_ring", "_pupil_ring")
-    names = [n for n, _, _ in df.shapes(kp[6], sc, INDEX, line, frozenset(), "contrast", closed_lip_line=True)]
-    # THE CASE THAT GOES RED when a downcast eye is drawn open, or only the eye that is downcast is shut
-    assert {"l_shut_lid", "r_shut_lid"} <= set(names) and not [n for n in names if n.endswith(eye_parts)], names
-    assert {"l_eyebrow", "r_eyebrow"} <= set(names) and df.discs(kp[6], sc, INDEX, line, closed_lip_line=True) == [], names
-    shut_line = dict((n, p_) for n, p_, _ in df.shapes(kp[6], sc, INDEX, line, frozenset(), "contrast", closed_lip_line=True))["l_shut_lid"]
-    assert np.allclose(shut_line, fp._line(kp[6], INDEX, "l", "upper")), "the shut line is not the upper lash line"
-    # AN OPEN EYE IS DRAWN AS BEFORE: on a frame the mean does not shut, an eye over the line (8's l) keeps 982f08e4's iris arc and no
-    # disc while the open eye (8's r) keeps its contrast disc; on frames where neither eye is over the line (12, nearly shut), the
-    # drawing and the discs are those of the contrast form without the rule
-    names_8 = [n for n, _, _ in df.shapes(kp[8], sc, INDEX, line, frozenset(), "contrast", closed_lip_line=True)]
-    assert "l_iris_ring" in names_8 and "r_iris_ring" not in names_8 and "l_lash_ring" in names_8 and "r_lash_ring" in names_8 \
-        and not [n for n in names_8 if n.endswith("_shut_lid")], names_8
-    assert [n for n, _, _ in df.discs(kp[8], sc, INDEX, line, closed_lip_line=True)] == ["r_iris_disc"], "frame 8 did not drop only the downcast eye's disc"
-    for f in (0, 5, 11, 12, 13, 14):
-        for left_out in (frozenset(), frozenset({"mouth"})):
-            with_rule = df.shapes(kp[f], sc, INDEX, line, left_out, "contrast", closed_lip_line=True)
-            without = df.shapes(kp[f], sc, INDEX, line, left_out, "contrast", closed_lip_line=False)
-            assert [n for n, _, _ in with_rule] == [n for n, _, _ in without] and all(np.array_equal(a[1], b[1]) for a, b in zip(with_rule, without)), f
-        assert [(n, d.tolist()) for n, d, _ in df.discs(kp[f], sc, INDEX, line, closed_lip_line=True)] == \
-            [(n, d.tolist()) for n, d, _ in df.discs(kp[f], sc, INDEX, line)], f
-    # only under the default form: in another iris form, or with no closed lip line, a downcast eye is drawn open as before; under
-    # `--iris filled` with `closed_lip_line`, the open eye keeps its disc and only the downcast eye's disc is dropped per eye (as at 982f08e4)
-    for iris, cl in (("contrast", False), ("between the lids", True), ("whole", True), ("filled", True)):
-        names = [n for n, _, _ in df.shapes(kp[6], sc, INDEX, line, frozenset(), iris, closed_lip_line=cl)]
-        assert "l_lash_ring" in names and "r_lash_ring" in names and not [n for n in names if n.endswith("_shut_lid")], (iris, cl, names)
-    assert [n for n, _, _ in df.discs(kp[6], sc, INDEX, line, closed_lip_line=True, iris="filled")] == ["r_iris_disc"], "filled lost the open eye's disc"
-    assert [n for n, _, _ in df.discs(kp[8], sc, INDEX, line, closed_lip_line=True, iris="filled")] == ["r_iris_disc"], "filled lost the open eye's disc on 8"
-    filled_rec = df.run(str(MESH), str(pts), 0, N, WORK / "rule_filled.mp4", "the check", width=WIDE, iris="filled", closed_lip_line=True, say=quiet)
-    assert filled_rec["eye_rings"]["frames_a_ring_is_left_out_on"]["r_iris"] == [] \
-        and filled_rec["eye_rings"]["frames_a_ring_is_left_out_on"]["l_iris"] == [6, 7, 8], filled_rec["eye_rings"]
-    # through a whole run, read from the video: on a shut frame no white inside the lash ring away from the line (no sclera)
-    said: list[str] = []
-    kw = dict(width=WIDE, iris="contrast", closed_lip_line=True)
-    rec = df.run(str(MESH), str(pts), 0, N, WORK / "rule.mp4", "the check", say=said.append, **kw)
-    plain = df.run(str(MESH), str(POINTS), 0, N, WORK / "rule_open.mp4", "the check", say=quiet, **kw)
-    got, before = white(WORK / "rule.mp4", N), white(WORK / "rule_open.mp4", N)
-    ys, xs = np.mgrid[0:H, 0:W]
-    grid = np.stack([xs.ravel(), ys.ravel()], 1).astype(float)
-
-    def inside_away(f):                                                  # inside both lash rings, more than a line's reach from the upper lash line
-        m = np.zeros((H, W), np.uint8)
-        for ring in fp.lid_rings(kp[f], INDEX):
-            cv2.fillPoly(m, [np.round(ring).astype(np.int32)], 1)
-        far = np.ones(H * W, bool)
-        for side in sides:
-            far &= df.distance(grid, df.segments([("x", fp._line(kp[f], INDEX, side, "upper"), False)])) > WIDE + 1.5
-        return m.astype(bool) & far.reshape(H, W)
-    for f in (6, 7):
-        away = inside_away(f)
-        # THE CASE THAT GOES RED when a shut frame is given its sclera
-        assert away.sum() > 50 and int((got[f] & away).sum()) == 0 and int((before[f] & away).sum()) > 0.25 * away.sum(), \
-            (f, int(away.sum()), int((got[f] & away).sum()), int((before[f] & away).sum()))
-    away_8 = inside_away(8)
-    assert int((got[8] & away_8).sum()) > 0.25 * away_8.sum(), "frame 8 (one eye over, mean under) lost its sclera in the video"
-    assert rec["passed"], rec["read_back"]
-    moved = [int((before[f] ^ got[f]).sum()) for f in (3, 4, 9, 10, 15, 16)]
-    assert max(moved) <= 0.02 * min(int(before[f].sum()) for f in (3, 4, 9, 10, 15, 16)), ("a frame no rule meets changed", moved)
-    # THE RECORD names the frames, the form, the rule and each eye's share, in spans; a ring is not called left out where the rule shut it
-    block = rec["eye_rings"]["closed_by_the_rule"]
-    assert block["on"] and block["frames"] == [[6, 7]] and block["one_eye_under_the_line_on"] == [[6, 7]], block
-    assert [(s["first"], s["last"], s["drawn"], s["downcast_eyes"]) for s in block["spans"]] == [
-        (0, 5, "open", []), (6, 7, "shut", ["l"]), (8, N - 1, "open", [])], block["spans"]
-    six = block["spans"][1]
-    assert six["l"]["ring_outside"][0] >= df.DOWNCAST_RING_OUTSIDE_MIN > six["r"]["ring_outside"][1] \
-        and six["mean_outside"][0] >= df.DOWNCAST_RING_OUTSIDE_MIN, six
-    assert not {6, 7} & {f for v in rec["eye_rings"]["frames_a_ring_is_left_out_on"].values() for f in v}, rec["eye_rings"]
-    assert any(x.startswith("BOTH EYES DRAWN SHUT BY THE RULE on 2 of 24 frames (6-7)") and "one eye under the line on 2 (6-7)" in x for x in said), said
-    assert json.loads((WORK / "rule.json").read_text())["eye_rings"]["closed_by_the_rule"] == block
-    assert plain["eye_rings"]["closed_by_the_rule"]["frames"] == [] and not df.run(
-        str(MESH), str(pts), 0, N, WORK / "rule_off.mp4", "the check", width=WIDE, iris="contrast", say=quiet)["eye_rings"]["closed_by_the_rule"]["on"]
-    # A PERSON'S WORD WINS on its frames, in its own form: "none" draws no eye on 6 though the rule would shut it, and 7 stays the rule's;
-    # and a frame left bare (`--bare`, `--no-face-on`) that also meets the rule is drawn bare and recorded as "no face drawn"
-    worded = df.run(str(MESH), str(pts), 0, N, WORK / "rule_word.mp4", "the check", eyes_shut=[6], eyes_shut_form="none", eyes_shut_by="A LOOK",
-                    say=quiet, **kw)
-    m = np.zeros((H, W), np.uint8)
-    for ring in fp.lid_rings(kp[6], INDEX):
-        cv2.fillPoly(m, [np.round(ring).astype(np.int32)], 1)
-    m = cv2.dilate(m, np.ones((3, 3), np.uint8)).astype(bool)
-    word_white = white(WORK / "rule_word.mp4", N)
-    # THE CASE THAT GOES RED when the rule's line is drawn over a person's word on its frame
-    assert int((word_white[6] & m).sum()) == 0 < int((got[6] & m).sum()), (int((word_white[6] & m).sum()), int((got[6] & m).sum()))
-    wb = worded["eye_rings"]["closed_by_the_rule"]
-    assert wb["frames"] == [[7, 7]] and wb["spans"][1]["drawn"] == "shut on a person's word" and worded["frames_with_the_eyes_shut"]["form"] == "none", wb
-    bare_rec = df.run(str(MESH), str(pts), 0, N, WORK / "rule_bare.mp4", "the check", source=str(MESH), bare=[6], bare_by="a person", say=quiet, **kw)
-    bare_white = white(WORK / "rule_bare.mp4", N)
-    bb = bare_rec["eye_rings"]["closed_by_the_rule"]
-    # THE CASE THAT GOES RED when a bare frame that meets the rule is drawn or recorded as shut by the rule
-    assert int(bare_white[6].sum()) == 0 and bb["frames"] == [[7, 7]] and bb["spans"][1]["drawn"] == "no face drawn" \
-        and "rule" not in str(bare_rec["sheet"]["why"].get("6", "")), (bb, bare_rec["sheet"]["why"])
-    return (f"mean downcast (6-7, one eye under at 0.61): both eyes one line along the upper lash line, no sclera "
-            f"({int((before[6] & inside_away(6)).sum())} px of white inside the lids away from the line when open, 0 shut); one eye over and mean "
-            "under (8), nearly shut (12-13), filled with closed_lip_line and every other open frame drawn as before; one scored ring decides alone; "
-            "the record's spans name the downcast eyes, mean and each eye's share; a person's 'none' wins on its frame")
-
-
 def bare_frames() -> str:
     rec = df.run(str(MESH), str(POINTS), 0, N, WORK / "bare.mp4", "the check", width=WIDE, bare=[6, 7, 30], bare_by="a person", say=quiet)
     got = white(WORK / "bare.mp4", N).sum((1, 2))
@@ -774,9 +634,11 @@ def the_iris_between_the_lids() -> str:
     clipped_eye = df.draw(prof_mesh, [ring_clipped], 2.0, set(), False, [[("l_iris_disc", iris, lids)]], contrast=True, smooth_lips=True)[0]
     assert (clipped_eye[:, 167:] == 0).all() and full_h[100, 164], "eye fill or outline bled past the grey head silhouette into black space"
     assert clipped_eye[100, 164].max() < 215 and clipped_eye[100, 160].min() > 215, "white sclera was not inset a line's width from the head edge"
-    # Downcast / narrowed eyes under closed_lip_line: no white sclera fill (2026-10-20); since 2026-10-21 the eyes are drawn shut there
-    # (`eyes_closed_by_the_rule`), where until then the between-the-lids iris arc was drawn
+    # Downcast / narrowed eyes under closed_lip_line (2026-10-20): when >= DOWNCAST_RING_OUTSIDE_MIN (0.65) of the iris ring lies outside
+    # the eyelids, discs() leaves out the white sclera fill and shapes() draws the between-the-lids iris arc instead of flooding the slit white
     assert df.discs(p, s, INDEX, 0.0, closed_lip_line=True) == [], "downcast eye under closed_lip_line was given a contrast sclera fill"
+    downcast_shapes = [x for x in df.shapes(p, s, INDEX, 0.0, frozenset(), df.IRIS_FORMS[3], closed_lip_line=True) if x[0].endswith("_iris_ring")]
+    assert downcast_shapes and all(not c for _, _, c in downcast_shapes), downcast_shapes
     p_open = face([(160.0, 100.0)], opening=OPEN)[0]
     assert len(df.discs(p_open, s, INDEX, 0.0, closed_lip_line=True)) == 2, "open eye under closed_lip_line lost its contrast disc"
     return (f"a ring larger than a narrow opening is drawn only where it lies between the lids ({off:.2f} of it outside), a ring wholly inside "
@@ -785,7 +647,6 @@ def the_iris_between_the_lids() -> str:
 
 case("the iris between the lids", the_iris_between_the_lids)
 case("her eyes shut on a person's word, in either form", eyes_shut)
-case("both eyes drawn shut where the two eyes' mean is downcast, under the default form", eyes_closed_by_the_rule)
 case("the lines run through their points in order, and are as long as they say", in_order_and_as_long)
 case("the lines are where the points are", where_the_points_are)
 case("frames from the middle of both files", frames_from_the_middle)

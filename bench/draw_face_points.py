@@ -63,12 +63,6 @@ sclera solid white and its iris solid black, the lines' black edge round them (t
 whole ring was larger than the opening and read as an open eye looking down. The record says which was drawn and,
 for each ring, the share of it that lay outside the lids, least, median and most over the frames.
 
-A FRAME'S EYES ARE DRAWN SHUT BY THE RULE under `--iris contrast` with the closed lip line (the chain's default form; the owner's
-direction of 2026-10-21): where the two eyes' mean iris ring outside the lids (or that eye's share when only one scores) is
-`DOWNCAST_RING_OUTSIDE_MIN` or more, both eyes are drawn as one line along the upper lash line, the "lids" of `EYES_SHUT_FORMS`, with no
-sclera, iris or lid lines (`eye_reading`). A person's word (`eyes_shut`) wins on its frames. The record (`eye_rings.closed_by_the_rule`)
-gives every frame in spans of one form, with the eyes that met the line and each eye's share.
-
 WHAT IS LEFT OUT, and said in the record: an iris or a pupil ring on a frame where the model's score, at the
 median over that ring's points, is under `h3_config.POSE_READING["eye_ring_score_at_least"]`. On a small face
 the pupil points score low and lie far off the face; that line is a starting value from one shot.
@@ -173,10 +167,9 @@ IRIS_FORMS = ("between the lids", "whole", "filled", "contrast")
 #: class; the dark inside the lids is her makeup; the model's own scores are high either way). On those frames the eye's lash ring,
 #: lid and crease lines, iris and pupil and their fill are not drawn; the brows stay. "none": nothing more, the body model's own eyes
 #: show (whose sculpted eyes are open on every frame); "lids": each eye drawn shut as one line along its upper lash line. Both for one
-#: test (2945-2981). "lids" is also the closed eye drawn BY THE RULE (`eye_reading`, 2026-10-21) under the chain's default form; a
-#: person's word wins over the rule on its frames, in its own form.
+#: test (2945-2981), neither a default.
 EYES_SHUT_FORMS = ("none", "lids")
-EYE_PARTS = ("_lash_ring", "_upper_eyelid_line", "_lower_eyelid_line", "_upper_crease_line", "_iris_ring", "_pupil_ring", "_shut_lid")
+EYE_PARTS = ("_lash_ring", "_upper_eyelid_line", "_lower_eyelid_line", "_upper_crease_line", "_iris_ring", "_pupil_ring")
 #: Points a ring is sampled at to find where it lies between the lids. Reasoned: a ring is eight points round a
 #: centre; 64 along it puts a sample about every 6 degrees, finer than a line is wide on any face drawn so far.
 RING_SAMPLES = 64
@@ -202,27 +195,14 @@ HEAD_DARKEN_SCALE = 0.67
 #: clean grey chin below the lower lip across all 21 frames (`22.5 px` at `1356`) with `0/21` mouths cut by the head silhouette.
 MOUTH_CHIN_CLEAR_FRAC = 0.14
 MOUTH_CHIN_CLEAR_MIN_PX = 8.0
-#: Share of the iris ring outside the eyelids (`between_the_lids`) at or above which an eye is DOWNCAST (`eye_reading`): under
-#: `--iris contrast` with `--closed-lip-line`, the frame's eyes are then drawn shut where the MEAN of the scored eyes' shares is at or
-#: above this line (that eye's share when only one iris ring scores). Measured on `second_0484_0515_c` (`0.69–0.78` on all 32 downcast
-#: frames; two-eye mean `0.703–0.766` on `second_0484_0515_d`), `second_0415_0437_c` (`0.72–0.73` on downcast frame `437`, mean `0.727`,
-#: vs `0.31–0.61` on open frames `415–436`), and `second_1039_1060_c` (`0.64–0.77` on downcast frames `1053–1060`, mean `0.664–0.719` on
-#: `second_1039_1060_d`, vs `0.20–0.50` on open frames `1039–1051`): at `>= 0.65`, the black edge of the upper and lower lash lines covers
-#: `100%` of the clipped black iris disc (`0 px` visible black iris) while the `255,255,255` white sclera under the lash ring turns the
-#: narrowed eye into a bright white slit that H3 reads as wide-open camera-staring eyes (`2026-10-20`). From 2026-10-20 such an eye was
-#: drawn with no sclera and its iris as an arc between the lids, inside the lash ring and the lid lines; the owner judged the renders
-#: (second_hfp_0415g at 437, second_hfp_1039d at 1053-1060) to read that as an open eye looking ahead, and on a small face the white lines
-#: touched into a white almond. Since 2026-10-21 both eyes are drawn shut where the two eyes' mean share is at or above this line (the
-#: owner: closed and gazing down look the same at this size; the text stays as it is). Decided on the two-eye mean rather than the two-eye
-#: max (`0b8ab179`, dropped the same day): across eight references (`second_0415_0437_d` 1/1 on 437, `second_1039_1060_d` 8/8 on 1053-1060,
-#: `second_0484_0515_d` 32/32 on 484-515, `second_4602_4646_b` 0/0, `second_4726_4773_b` 7 max vs 2 mean on 4760 and 4766,
-#: `second_4479_4509` 6 max vs 0 mean, `second_5768_5791_c` 2 max vs 0 mean, `second_5533_5564` 15 max vs 7 mean on 5551-5552, 5559-5560
-#: and 5562-5564), the mean keeps every downcast frame on the three eye tests while dropping the one- or two-frame flicker where a single
-#: foreshortened eye on a three-quarter face crosses 0.65 alone. NOT a closed eye by the lash gap: an eye whose lash-line gap was under
-#: `h3_config.POSE_READING["eyes_shut_under"]` of the face's height was tried as a second rule and dropped the same day: on the references
-#: of second_hfp_4602c (whose eyes the owner called correct, data/fun/owner_answers.jsonl:1373) and second_hfp_4726c (its face called right,
-#: :1371) it met 40 of 45 and 30 of 48 frames on which no eye was downcast (measured from their saved points through `eye_reading` and
-#: `_lib/face_points.py::lid_gap_px`).
+#: Share of the iris ring outside the eyelids (`between_the_lids`) at or above which an eye is narrowed or downcast enough that
+#: under `smooth_lips` (`--closed-lip-line`), `--iris contrast` leaves the sclera unpainted and draws the between-the-lids iris arc
+#: (`_iris_ring`) instead of flooding the narrowed eyelid slit with `255,255,255` white sclera. Measured on `second_0484_0515_c`
+#: (`0.69–0.78` on all 32 downcast frames), `second_0415_0437_c` (`0.72–0.73` on downcast frame `437` vs `0.31–0.61` on open frames
+#: `415–436`), and `second_1039_1060_c` (`0.64–0.77` on downcast frames `1055–1060` vs `0.20–0.50` on open frames `1039–1051`): at
+#: `>= 0.65`, the black edge of the upper and lower lash lines covers `100%` of the clipped black iris disc (`0 px` visible black iris)
+#: while the `255,255,255` white sclera under the lash ring turns the narrowed eye into a bright white slit that H3 reads as wide-open
+#: camera-staring eyes (`2026-10-20`).
 DOWNCAST_RING_OUTSIDE_MIN = 0.65
 
 
@@ -294,59 +274,28 @@ def between_the_lids(ring: np.ndarray, lids: np.ndarray) -> tuple[list[np.ndarra
     return [r for r in runs if len(r) > 1], False, float(1.0 - keep.mean())
 
 
-def closes_downcast_eyes(iris: str, closed_lip_line: bool, leave_out: frozenset = frozenset()) -> bool:
-    """Whether the closed-eye rule (`eye_reading`) acts: only under `--iris contrast` with `--closed-lip-line` and the eyes drawn."""
-    return "eyes" not in leave_out and iris == IRIS_FORMS[3] and bool(closed_lip_line)
-
-
-def eye_reading(p: np.ndarray, s: np.ndarray, index: dict, score_line: float) -> dict:
-    """One frame's two eyes against the closed eye (2026-10-21): for each eye (`eyes[side]`) the share of its iris ring outside its lids
-    (`ring_outside`, None where the ring scores under `score_line` and is not drawn) and whether it is `downcast` (the share at or over
-    `DOWNCAST_RING_OUTSIDE_MIN`); `mean_outside`, the mean of the scored eyes' shares (that eye's share when only one scores, None when
-    neither does); and `shut`, whether the frame's eyes are drawn shut under `--iris contrast` with the closed lip line (`mean_outside` at
-    or over `DOWNCAST_RING_OUTSIDE_MIN`). BOTH EYES OR NEITHER on a frame: where the two eyes' mean is downcast both are shut, since one eye
-    shut and the other open (a wink) is not what the source showed on the loads this was made for (the lead, 2026-10-21, on the outside
-    reviewer's G13 and G21)."""
-    scores = ring_scores(s, index)
-    eyes = {}
-    for side, ring in zip(SIDES, fp.lid_rings(p, index)):
-        share = None
-        if scores[f"{side}_iris"] >= score_line:
-            share = between_the_lids(_round(p, _ids(index, f"{side}_border_of_iris"), p[index[f"{side}_center_of_iris"]]), ring)[2]
-        eyes[side] = {"ring_outside": share, "downcast": share is not None and share >= DOWNCAST_RING_OUTSIDE_MIN}
-    scored = [e["ring_outside"] for e in eyes.values() if e["ring_outside"] is not None]
-    mean_outside = float(sum(scored) / len(scored)) if scored else None
-    return {"eyes": eyes, "mean_outside": mean_outside, "shut": mean_outside is not None and mean_outside >= DOWNCAST_RING_OUTSIDE_MIN}
-
-
 def shapes(p: np.ndarray, s: np.ndarray, index: dict, score_line: float, leave_out: frozenset = frozenset(),
            iris: str = IRIS_FORMS[0], outside: dict | None = None,
            closed_lip_line: bool = False) -> list[tuple[str, np.ndarray, bool]]:
     """One frame's drawing as (name, points in order, whether it closes on itself). A dot alone is one point.
-    `iris`: a ring drawn between the lids or whole (`IRIS_FORMS`); `outside`, when given, gets each scored ring's
-    share outside the lids, by its name. Under `--iris contrast` with `closed_lip_line` (the chain's default form), on a frame
-    `eye_reading` calls shut each eye is one line along its upper lash line (`<side>_shut_lid`, the "lids" of `EYES_SHUT_FORMS`) and
-    nothing else of it is drawn; the brows stay."""
+    `iris`: a ring drawn between the lids or whole (`IRIS_FORMS`); `outside`, when given, gets each drawn ring's
+    share outside the lids, by its name."""
     out: list[tuple[str, np.ndarray, bool]] = []
     scores = ring_scores(s, index)
-    shut = closes_downcast_eyes(iris, closed_lip_line, leave_out) and eye_reading(p, s, index, score_line)["shut"]
     for side, ring in zip(SIDES, fp.lid_rings(p, index)):
         if "eyes" not in leave_out:
-            if shut:
-                out.append((f"{side}_shut_lid", fp._line(p, index, side, "upper"), False))
-            else:
-                a, b = p[index[f"{side}_inner_end_of_upper_lash_line"]], p[index[f"{side}_outer_end_of_upper_lash_line"]]
-                out.append((f"{side}_lash_ring", ring, True))
-                for line in ("upper_eyelid_line", "lower_eyelid_line", "upper_crease_line"):
-                    out.append((f"{side}_{line}", _along(p, _ids(index, f"{side}_", f"_of_{line}"), a, b), False))
+            a, b = p[index[f"{side}_inner_end_of_upper_lash_line"]], p[index[f"{side}_outer_end_of_upper_lash_line"]]
+            out.append((f"{side}_lash_ring", ring, True))
+            for line in ("upper_eyelid_line", "lower_eyelid_line", "upper_crease_line"):
+                out.append((f"{side}_{line}", _along(p, _ids(index, f"{side}_", f"_of_{line}"), a, b), False))
             for kind in RINGS:
                 if scores[f"{side}_{kind}"] >= score_line:
                     whole = _round(p, _ids(index, f"{side}_border_of_{kind}"), p[index[f"{side}_center_of_{kind}"]])
                     runs, closed, off = between_the_lids(whole, ring)
                     if outside is not None:
                         outside[f"{side}_{kind}"] = off
-                    if shut or iris == IRIS_FORMS[2] or (iris == IRIS_FORMS[3] and not (closed_lip_line and kind == "iris" and off >= DOWNCAST_RING_OUTSIDE_MIN)):
-                        continue                                       # shut, or filled or contrast: the iris is a disc (`discs`), unless downcast on an open frame
+                    if iris == IRIS_FORMS[2] or (iris == IRIS_FORMS[3] and not (closed_lip_line and kind == "iris" and off >= DOWNCAST_RING_OUTSIDE_MIN)):
+                        continue                                       # filled or contrast: the iris is a disc (`discs`), unless downcast under closed_lip_line
                     if iris == IRIS_FORMS[1] or closed:
                         out.append((f"{side}_{kind}_ring", whole, True))
                     else:
@@ -378,12 +327,10 @@ def shapes(p: np.ndarray, s: np.ndarray, index: dict, score_line: float, leave_o
 
 
 def discs(p: np.ndarray, s: np.ndarray, index: dict, score_line: float, leave_out: frozenset = frozenset(),
-          closed_lip_line: bool = False, iris: str = IRIS_FORMS[3]) -> list[tuple[str, np.ndarray, np.ndarray]]:
+          closed_lip_line: bool = False) -> list[tuple[str, np.ndarray, np.ndarray]]:
     """One frame's irises for `--iris filled`, as (name, the iris ring sampled at `RING_SAMPLES` points, that eye's lash ring):
-    `draw` fills each in the edge colour where it lies inside its lash ring. An iris under the score line is left out, as its ring is.
-    Under `--iris contrast` with `closed_lip_line`, none on a frame `eye_reading` calls shut: no iris and no sclera (`shapes` draws its
-    eyes shut); on any other frame with `closed_lip_line`, a downcast eye's own disc is dropped per eye as before."""
-    if "eyes" in leave_out or (closes_downcast_eyes(iris, closed_lip_line, leave_out) and eye_reading(p, s, index, score_line)["shut"]):
+    `draw` fills each in the edge colour where it lies inside its lash ring. An iris under the score line is left out, as its ring is."""
+    if "eyes" in leave_out:
         return []
     scores, out = ring_scores(s, index), []
     for side, ring in zip(SIDES, fp.lid_rings(p, index)):
@@ -924,12 +871,11 @@ CLOSED_MOUTHS, OPEN_MOUTHS = ("inner_lip_line", "mouth_closed"), ("mouth_outer",
 
 
 def sheet_picks(source_frames: np.ndarray, first: int, points: dict, count: int, drawings: list, *, left: set = frozenset(),
-                shut: list | None = None, mouths: list | None = None, closed_lip_line: bool = False, closed: list | None = None) -> dict:
+                shut: list | None = None, mouths: list | None = None, closed_lip_line: bool = False) -> dict:
     """The frames the sheet shows (`_lib/pick_frames.py`): where the face's points, the inner-lip gap (its crossings of
     `INNER_GAP_CLOSED_PX` and its peaks), the mouth drawn, a mouth drawn shut while the points hold it open (or, with
     `closed_lip_line`, drawn open while they hold it shut), or the picture round the nose change, either side of each;
-    the edges of the frames left bare or drawn with the eyes shut (a person's word, so always), and of those whose eyes
-    the rule drew shut (`closed`, `eye_reading`: the drawing changes form there, so always); and one a second."""
+    the edges of the frames left bare or drawn with the eyes shut (a person's word, so always); and one a second."""
     h, w = source_frames.shape[1:3]
     idx = points["index"]
     gap = [inner_lip_centerline(p, idx)[1] for p in points["keypoints"]]
@@ -945,8 +891,6 @@ def sheet_picks(source_frames: np.ndarray, first: int, points: dict, count: int,
               "mouth_drawn": drawn, "mouth_drawn_against_the_gap": against,
               "left_bare": {"values": picker.labels_of(count, 0, left, "bare", "drawn"), "record": True},
               "eyes": {"values": picker.labels_of(count, 0, shut, "drawn shut", "as the points"), "record": True},
-              **({"eyes_by_the_rule": {"values": picker.labels_of(count, 0, closed, "drawn shut by the rule", "open"), "record": True}}
-                 if closed else {}),
               "picture_round_the_nose": {"values": picker.difference_in_boxes(source_frames, picker.nose_boxes(points, (w, h))), "rules": ("peak",)}}
     return picker.sheet_picks(first, count, series)
 
@@ -1005,71 +949,6 @@ def width_for(points: dict, width: float | None) -> tuple[float, float, str]:
     return max(1, int(round(asked * SUPER))) / SUPER, face, by
 
 
-def _spans(frames: list[int]) -> list[list[int]]:
-    out: list[list[int]] = []
-    for f in sorted(frames):
-        if out and f == out[-1][1] + 1:
-            out[-1][1] = f
-        else:
-            out.append([f, f])
-    return out
-
-
-def closed_by_the_rule(reads: list[dict], first: int, left: set, shut: list) -> dict:
-    """The record of the closed eye (`eye_reading`) over a span: the frames whose eyes it drew shut, and every frame in spans of one
-    form, each with the eyes that were downcast and each eye's share of its iris ring outside the lids, least and most over the span, so
-    that a reader sees what was drawn and why without the picture. A frame left bare or shut on a person's word is said as such: the
-    rule does not act there."""
-    def form(f: int, r: dict) -> tuple[str, tuple]:
-        if f in left:
-            return "no face drawn", ()
-        if f in shut:
-            return "shut on a person's word", ()
-        if r["shut"]:
-            return "shut", tuple(side for side in SIDES if r["eyes"][side]["downcast"])
-        return "open", ()
-
-    def least_most(vals: list, digits: int) -> list | None:
-        vals = [v for v in vals if v is not None]
-        return [round(min(vals), digits), round(max(vals), digits)] if vals else None
-    spans: list[dict] = []
-    for f, r in enumerate(reads):
-        drawn, met = form(f, r)
-        if spans and (spans[-1]["drawn"], tuple(spans[-1]["downcast_eyes"])) == (drawn, met):
-            spans[-1]["last"] = first + f
-            spans[-1]["rows"].append(r)
-        else:
-            spans.append({"first": first + f, "last": first + f, "drawn": drawn, "downcast_eyes": list(met), "rows": [r]})
-    for sp in spans:
-        rows = sp.pop("rows")
-        sp["mean_outside"] = least_most([r["mean_outside"] for r in rows], 3)
-        for side in SIDES:
-            sp[side] = {"ring_outside": least_most([r["eyes"][side]["ring_outside"] for r in rows], 3)}
-    shut_here = [f for f, r in enumerate(reads) if form(f, r)[0] == "shut"]
-    one_under = [first + f for f in shut_here
-                 if any(reads[f]["eyes"][side]["ring_outside"] is not None and not reads[f]["eyes"][side]["downcast"] for side in SIDES)]
-    return {"on": True, "drawn_as": "both eyes shut, each one line along its upper lash line (EYES_SHUT_FORMS 'lids'): no lash ring, lid or crease "
-                                    "line, iris, pupil or sclera; the brows stay",
-            "rule": "on a frame where the mean of the scored eyes' iris rings outside their lids (mean_outside; that eye's share when only one "
-                    "scores) is downcast_at_least or more; both eyes or neither; ring_outside is each eye's share, least and most over a span, "
-                    "and none where its iris ring scores under score_at_least",
-            "downcast_at_least": DOWNCAST_RING_OUTSIDE_MIN,
-            "frames": _spans([first + f for f in shut_here]),
-            "one_eye_under_the_line_on": _spans(one_under),
-            "spans": spans}
-
-
-def closed_said(block: dict, count: int) -> str:
-    """The closed eye's record (`closed_by_the_rule`) in a line: what the reference step prints."""
-    frames = [f for a, b in block["frames"] for f in range(a, b + 1)]
-    under = [f for a, b in block["one_eye_under_the_line_on"] for f in range(a, b + 1)]
-    spans = lambda sp: ", ".join(f"{a}-{b}" if a != b else str(a) for a, b in sp) or "none"      # noqa: E731
-    return (f"BOTH EYES DRAWN SHUT BY THE RULE on {len(frames)} of {count} frames ({spans(block['frames'])}): one line along each upper "
-            f"lash line where the two eyes' mean iris ring outside the lids is {block['downcast_at_least']:g} or more; one eye under the line "
-            f"on {len(under)} ({spans(block['one_eye_under_the_line_on'])}); the spans with each eye's share are in the record "
-            "(eye_rings.closed_by_the_rule)")
-
-
 def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by: str, *, names: list[str] | None = None,
         mesh_first: int | None = None, points_first: int | None = None, width: float | None = None, dots: bool = True,
         leave_out: frozenset = frozenset(), bare: list[int] | None = None, bare_by: str = "", source: str = "", source_first: int = 0,
@@ -1104,7 +983,7 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
         drawings = [lines_only(d) for d in drawings]                # no dots is no dots: the points that belong to no line go too
     wide, face, wide_by = width_for(points, width)
     left = {f - first for f in (bare or []) if first <= f < first + count}
-    fills = [discs(p, s, idx, line, leave_out, closed_lip_line=closed_lip_line, iris=iris) for p, s in zip(points["keypoints"], points["scores"])] if iris in IRIS_FORMS[2:] else None
+    fills = [discs(p, s, idx, line, leave_out, closed_lip_line=closed_lip_line) for p, s in zip(points["keypoints"], points["scores"])] if iris in IRIS_FORMS[2:] else None
     shut = sorted({f - first for f in (eyes_shut or []) if first <= f < first + count})
     if shut and (eyes_shut_form not in EYES_SHUT_FORMS or not str(eyes_shut_by).strip()):
         raise SystemExit(f"--eyes-shut-on takes a form, one of {EYES_SHUT_FORMS} (--eyes-shut-form), and whose word it is; got {eyes_shut_form!r}")
@@ -1114,11 +993,6 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
             drawings[f] += [(f"{side}_shut_lid", fp._line(points["keypoints"][f], idx, side, "upper"), False) for side in SIDES]
         if fills:
             fills[f] = []
-    # THE CLOSED EYE BY THE RULE (2026-10-21): under --iris contrast with the closed lip line, `shapes` and `discs` drew a frame's eyes shut
-    # where `eye_reading` says so; read again here for the record. A person's word (`shut`) wins on its frames, in its own form
-    ruled = closes_downcast_eyes(iris, closed_lip_line, leave_out)
-    reads = [eye_reading(p, s, idx, line) for p, s in zip(points["keypoints"], points["scores"])] if ruled else []
-    by_rule = {f for f, r in enumerate(reads) if r["shut"]}
     cmap_set = {f - first for f in (class_mouth_frames or []) if first <= f < first + count}
     bare_mouth = sorted({f - first for f in (no_mouth or []) if first <= f < first + count})
     for f in bare_mouth:
@@ -1179,8 +1053,7 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     kinds = ("iris",) if fills else RINGS
     shape = "disc" if fills else "ring"
     rings = {f"{side}_{kind}": [first + f for f in range(count)
-                                if f"{side}_{kind}_{shape}" not in named[f] and f"{side}_{kind}_ring" not in named[f] and f not in shut
-                                and f not in by_rule]
+                                if f"{side}_{kind}_{shape}" not in named[f] and f"{side}_{kind}_ring" not in named[f] and f not in shut]
              for side in SIDES for kind in kinds} if "eyes" not in leave_out else {}
     scores = {k: [round(float(v), 2) for v in np.percentile([ring_scores(s, idx)[k] for s in points["scores"]], [0, 50, 100])] for k in rings}
     fit = {str(k): (None if np.isnan(v) else round(v, 3)) for k, v in lags.items()}
@@ -1196,18 +1069,14 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
         "lines_px_a_frame_median": round(float(np.median([length(d) for d in drawings])), 1),
         "eye_rings": {"score_at_least": line, "that_line_is": "a starting value from one shot: under it a ring's points lay far off the face",
                       "frames_a_ring_is_left_out_on": rings, "score_a_frame_least_median_most": scores,
-                      "not_counted": "the frames her eyes are drawn shut on a person's word (frames_with_the_eyes_shut) or by the rule "
-                                     "(closed_by_the_rule): no ring there by that word or that rule",
+                      "not_counted": "the frames her eyes are drawn shut on a person's word (frames_with_the_eyes_shut): no ring there by that word",
                       "drawn": iris, "drawn_is": {IRIS_FORMS[0]: "only the stretches of each ring between the lids", IRIS_FORMS[1]: "each ring whole",
                                                   IRIS_FORMS[2]: "each iris a dark disc inside the lash ring, and no ring",
                                                   IRIS_FORMS[3]: "inside each lash ring the sclera solid white and the iris solid black, drawn before "
                                                                  "the lines, whose black edge stays round them; the white of the sclera is left out of the read-back"}[iris],
                       "share_of_the_ring_outside_the_lids_least_median_most": {
                           k: ([round(float(v), 2) for v in np.percentile(vals, [0, 50, 100])] if vals else None)
-                          for k in rings for vals in [[o[k] for o in offs if k in o]]},
-                      "closed_by_the_rule": (closed_by_the_rule(reads, first, left, shut) if ruled else
-                                             {"on": False, "why": "the rule acts on the eyes drawn under --iris contrast with the closed lip line"
-                                                                  + ("; the eyes are left out" if "eyes" in leave_out else "")})},
+                          for k in rings for vals in [[o[k] for o in offs if k in o]]}},
         **({"darken_head": {"scale": HEAD_DARKEN_SCALE}} if darken_head else {}),
         "frames_left_bare": sorted(first + f for f in left), "left_bare_by": bare_by,
         "frames_with_no_mouth": [first + f for f in bare_mouth],
@@ -1236,8 +1105,7 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     if source:
         sheet_path = out.with_name(out.stem + "_sheet.jpg")
         assert src is not None                      # read above whenever there is a --source
-        picked = sheet_picks(src, first, points, count, drawings, left=left, shut=shut, mouths=mouths, closed_lip_line=closed_lip_line,
-                             closed=sorted(by_rule - set(shut) - left))
+        picked = sheet_picks(src, first, points, count, drawings, left=left, shut=shut, mouths=mouths, closed_lip_line=closed_lip_line)
         record["sheet"] = {"file": sheet_path.name, "frames": sheet(sheet_path, src, first, pictures, points, count, picked),
                            "why": {str(k): v for k, v in picker.first_reasons(picked).items()}, "dropped": picked["dropped"],
                        "cap": picked["cap"], "over_the_cap": picked["over_the_cap"], "looked_at_by": ""}
@@ -1251,8 +1119,6 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
         say(f"on {len(back['too_thin'])} of {count} frames the lines should leave under {THIN_PX:g} pixels of white")
     if shut:
         say(f"her eyes drawn shut ({eyes_shut_form!r}) on {len(shut)} of {count} frames, on a person's word: {eyes_shut_by}")
-    if ruled:
-        say(closed_said(record["eye_rings"]["closed_by_the_rule"], count))
     say(f"frames left bare: {len(left)}" + (f", by {bare_by}" if left else " (none named; a head turned away is not found by this tool)"))
     say("read back: white a frame %d to %d (expected %d to %d); mean distance of the white from its own frame's lines %s px, from the frame before's %s, from the frame after's %s; white on a bare frame %d" % (
         white.min(), white.max(), record["read_back"]["white_px_expected_a_frame"]["least"], record["read_back"]["white_px_expected_a_frame"]["most"],

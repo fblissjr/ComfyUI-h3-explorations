@@ -1871,14 +1871,6 @@ def the_reference_step() -> str:
         mouthed["drawn"]["eyes_shut"].update(frames=[[110, 112]], drawn_shut_on=[[110, 112]])
         drawn.with_suffix(".json").write_text(json.dumps(mouthed))
         stl.step_reference(e, made.m, figures)
-        # drawn in contrast with the closed-lip line before the closed eye by the rule (draw_face_points.eye_reading, 2026-10-21): made again
-        mouthed["drawn"]["iris"] = "contrast"
-        drawn.with_suffix(".json").write_text(json.dumps(mouthed))
-        # THE CASE THAT GOES RED when --existing takes a drawing whose downcast eyes may be drawn open
-        refused(lambda: stl.step_reference(e, made.m, figures), "--existing", "drawn before its eyes were drawn shut where downcast")
-        mouthed["drawn"]["eye_rings"] = {"closed_by_the_rule": {"on": True, "frames": []}}
-        drawn.with_suffix(".json").write_text(json.dumps(mouthed))
-        stl.step_reference(e, made.m, figures)
         e.job_file = str(again_file)
         other = made.load(name="a_fp_0100")
         (made.jobs / "a_fp_0100.json").write_text(json.dumps(other))
@@ -1987,9 +1979,7 @@ def the_defaults_this_load_carries() -> str:
             stl.step_job(args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="a", preview=str(folder)), made.m)
         made.m.dry = False
         text = out.getvalue()
-        # the closed eye by the rule (draw_face_points.eye_reading, 2026-10-21) is said on the eye's row under the chain's default form
-        assert "THE DEFAULTS THIS LOAD CARRIES:" in text and ("  the eye: white sclera and black iris inside the lids; BOTH EYES SHUT, one line along "
-                                                              "each upper lash line, on a frame where the two eyes' mean is downcast") in text, text[-1500:]
+        assert "THE DEFAULTS THIS LOAD CARRIES:" in text and "  the eye: white sclera and black iris inside the lids  [the chain's default" in text, text[-1500:]
         # the reference step's own word stands over the job's, with its reason, and not without one
         job = {"reference": {"mouth": {"form": "auto"}, "iris": {"form": "contrast"}}}
         files = {"classes": Path("/c.mkv")}

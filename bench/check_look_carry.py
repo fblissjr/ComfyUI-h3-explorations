@@ -410,8 +410,8 @@ def the_reader_named_gaps() -> str:
 
 
 def shut_eyes_are_a_form() -> str:
-    """Her eyes drawn shut on a person's word (2026-10-15), or by the rule where downcast (2026-10-21), are a form of their own on those
-    frames: a frame shut in one reference and open in another owes a look."""
+    """Her eyes drawn shut on a person's word (2026-10-15) are a form of their own on those frames: a frame shut in one reference and open
+    in another owes a look."""
     import json
     import tempfile
     with tempfile.TemporaryDirectory() as tmp:
@@ -421,17 +421,6 @@ def shut_eyes_are_a_form() -> str:
         got = lc.drawn_frames(job, 0, 9)
     # THE CASE THAT GOES RED when a shut frame reads as the same form as an open one
     assert got[3][1] == "shut, drawn 'lids'" and got[2][1] == "contrast" and got[3][0] == got[2][0], got
-    # the eyes drawn shut BY THE RULE where downcast (draw_face_points.eye_reading, 2026-10-21) are a form of their own too, and a person's
-    # word on a frame stays the word's
-    with tempfile.TemporaryDirectory() as tmp:
-        job = Path(tmp) / "job.json"
-        job.write_text(json.dumps({"job": {"reference": {"drawn": {"mouth": {"drawn": True, "frames_by_the_lip_lines": [[0, 9]]}, "iris": "contrast",
-                                                                   "eyes_shut": {"form": "none", "frames": [[3, 3]], "drawn_shut_on": [[3, 3]]},
-                                                                   "eye_rings": {"closed_by_the_rule": {"on": True, "frames": [[3, 6]]}}}}}}))
-        ruled = lc.drawn_frames(job, 0, 9)
-    # THE CASE THAT GOES RED when a frame the rule drew shut reads as the contrast eye
-    assert [ruled[f][1] for f in (2, 3, 4, 6, 7)] == ["contrast", "shut, drawn 'none'", "shut by the rule, drawn 'lids'", "shut by the rule, drawn 'lids'",
-                                                       "contrast"], ruled
     # a mouth on a person's word (`--mouth-on`, 2026-10-15) is its own form, never "no mouth" (the cold reader: the word's frames read as none)
     with tempfile.TemporaryDirectory() as tmp:
         job = Path(tmp) / "job.json"
@@ -441,7 +430,7 @@ def shut_eyes_are_a_form() -> str:
         worded = lc.drawn_frames(job, 0, 9)
     # THE CASE THAT GOES RED when a frame drawn on a person's word reads as no mouth
     assert [worded[f][0] for f in (5, 6, 8, 9)] == ["the lip lines", "the lip rings on a person's word", "the lip rings on a person's word", "no mouth"], worded
-    return "a frame drawn shut, on a word or by the rule, is its own eye form; its neighbours keep theirs"
+    return "a frame drawn shut is its own eye form; its neighbours keep theirs"
 
 
 case("equal and subset carry", equal_and_subset_carry)

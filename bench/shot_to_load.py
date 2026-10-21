@@ -2959,8 +2959,6 @@ def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: di
         ("the eye", {"contrast": "white sclera and black iris inside the lids", "between the lids": "the iris ring between the lids",
                      "filled": "a dark iris disc inside the lids", "whole": "the whole iris ring"}[iris["form"]]
          + ("; DARKENED HEAD MODEL (0.67x luma)" if ref_form.get("darken_head") else "")
-         + ("; BOTH EYES SHUT, one line along each upper lash line, on a frame where the two eyes' mean is downcast (draw_face_points.eye_reading: "
-            "the chain's default with the contrast eye and the closed-lip line, since 2026-10-21)" if iris["form"] == "contrast" and cl_on else "")
          + "".join(f"; SHUT on {s['first']}-{s['last']} (drawn {iris['eyes_shut']['form']!r}), on a person's word" for s in (iris.get("eyes_shut") or {}).get("spans") or []),
          f"{iris['said_by']}: {iris['why']}"
          + (f"; darken_head: {ref_form['darken_head']['said_by']}: {ref_form['darken_head']['why']}" if ref_form.get("darken_head") else "")
@@ -3547,10 +3545,6 @@ def step_reference(a, world, figures=figures_of) -> None:
                 raise again(f"--existing: {record} was not drawn with --closed-lip-line: the reference is made again, in a new folder")
             if (getattr(a, "no_closed_lip_line", False) or (isinstance(cl_cfg, dict) and not cl_cfg.get("on", True))) and (mouth.get("closed_lip_line") or {}).get("on"):
                 raise again(f"--existing: {record} was drawn with --closed-lip-line and this load turns it off: the reference is made again, in a new folder")
-            # drawn in contrast with the closed-lip line before the closed eye by the rule (draw_face_points.eye_reading, 2026-10-21)
-            if md.get("iris") == "contrast" and (mouth.get("closed_lip_line") or {}).get("on") and "closed_by_the_rule" not in (md.get("eye_rings") or {}):
-                raise again(f"--existing: {record} was drawn before its eyes were drawn shut where downcast: the reference is made again, in a "
-                            "new folder")
         if (getattr(a, "darken_head", False) or ref_said.get("darken_head")) and not (md.get("darken_head") or {}).get("on"):
             raise again(f"--existing: {record} was not drawn with --darken-head: the reference is made again, in a new folder")
         ht_cfg = ref_said.get("head_track") if "head_track" in ref_said else job.get("sam_head_track")

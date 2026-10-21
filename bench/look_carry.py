@@ -286,9 +286,7 @@ def drawn_frames(job: Path | None, first: int, last: int) -> dict:
         else:
             m = mouth.get("drawn_as", "the lip lines")
         shut = said.get("eyes_shut") or {}
-        ruled = (said.get("eye_rings") or {}).get("closed_by_the_rule") or {}       # the closed eye by the rule (draw_face_points.eye_reading)
-        eyes = (f"shut, drawn {shut.get('form')!r}" if inside(shut.get("drawn_shut_on") or shut.get("frames"), f)
-                else "shut by the rule, drawn 'lids'" if inside(ruled.get("frames"), f) else said.get("iris"))
+        eyes = said.get("iris") if not inside(shut.get("drawn_shut_on") or shut.get("frames"), f) else f"shut, drawn {shut.get('form')!r}"
         out[f] = (m, eyes, mouth.get("inside"), tuple(said.get("parts_left_out") or ()))
     return out
 

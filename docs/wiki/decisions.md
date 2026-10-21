@@ -184,9 +184,22 @@ From about 17:58Z mrturtle led, with mrgordon on the card and Gemini building. R
   blonde, sha256 60256d94) or the face's size (4912e's face part is flagged small, but 4602c's, kept, is smaller;
   each capture's `flags.json`, `face_small_in_tokens`). What explains it: on 4944-4946 her own dark hair shows above a
   hat brim with nothing regenerated there (the owner's look; 4946 is repeated 4 more times at the window's end), and
-  inside the region H3 redrew her face but kept her hair near the original on every frame
-  (`internal/claude/2026-10-21_mrturtle/d4912_hair_vs_face.txt`): the same pattern as 5768e. The remake puts that hair
-  inside the region. No tool flagged it, because the hair figures are read only inside her tracked outline.
+  inside the region H3 redrew her hair, in a new, tighter shape that fits the mask, but dark (the owner, several times,
+  and Gemini's G23). Corrected the same day: this line first said H3 "kept her hair near the original", from
+  `internal/claude/2026-10-21_mrturtle/d4912_hair_vs_face.txt`, whose figures show only that her hair pixels stayed
+  close in value to the dark original, not that the hair was copied. The hair was replaced, in the wrong color. From
+  4939 her own hair crown above the brim is taken by the strangers keep-out and left as the original (strangers holds
+  most of that area on 4942; the region there is small on 4942-4945 and empty on 4946), and her head tube is rebuilt from
+  the top of her person track on 4921-4923 and 4941-4945, which Gemini reads as her raised hand labelled hair
+  (`head_tube__shot_c_4912c.json`, `regained_from_person_track_frames`). The remake puts her crown inside her region and
+  waits on a fix to that rebuild. No tool flagged it, because the hair figures are read only inside her tracked outline.
+- **The closed-eye drawing is taken back out; a lowered eye is drawn as on 2026-10-20 again** (the owner, after the eye
+  tests). It reverses r21_09's "lowered eyes are drawn closed" and the mean rule above. On second_hfp_0484g (only the
+  drawing changed from 0484f, which the owner kept) H3 drew her eyes open and toward the camera where 0484f kept her gaze
+  down, and on second_hfp_1039e her head came out upright with her eyes open, as on 1039d. H3 did not read the closed lid
+  lines. Without an iris to follow, it took the open eyes of the still. The nine files of 9e8cc290 go back to 807c4a0a.
+  Still unsolved: the lowered gaze on 0415 and 1039, which the 2026-10-20 arc did not fix either. Gemini is asked for
+  the root cause (C36).
 - **The lane docs point at the code** (W6, cleared at `claude-docs-w6` 52d368cb). The claims each corrected, with what
   they used to say and the evidence, are listed in `internal/claude/2026-10-21_ready_docs-w6.md` ("Corrected claims").
 - **5768f's render box moved a few pixels** from 5768e's, at the same size (both boxes are in S22 of

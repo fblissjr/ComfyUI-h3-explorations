@@ -842,8 +842,6 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     fit = drawn["read_back"]["white_from_the_lines_px_mean_by_frames_of_slip"]
     say(f"    white {fit['0']} px from its own frame's lines, {fit['1']} and {fit['-1']} from the neighbours'; "
         + ("PASSED" if drawn["passed"] else "FAILED"))
-    if (drawn["eye_rings"].get("closed_by_the_rule") or {}).get("on"):     # the closed eye by the rule (draw_face_points.eye_reading, 2026-10-21)
-        say("    " + faces.closed_said(drawn["eye_rings"]["closed_by_the_rule"], count))
     say("    " + faces.marks.against_the_source_line(drawn["body_model_against_the_source"]))
     on_track = {**on_track, "frames_filled_from_their_neighbours": {str(f): list(v) for f, v in sorted(filled.items())},
                 "frames_off_the_track_not_filled": unfilled, "frames_off_the_track_with_no_face_drawn": off_and_bare, "fill_gap_frames": FILL_GAP,

@@ -1146,42 +1146,6 @@ def the_three_mouth_fixes_on_fun_captures() -> str:
             "606-998 draws 1 shape on all frames with 0 dark px on profile frame 755; 805, 5114 and 2823-3097 pass")
 
 
-def eyes_closed_by_the_rule() -> str:
-    """The closed eye by the rule (`draw_face_points.eye_reading`, the owner's direction of 2026-10-21) through the one command: under
-    `--iris contrast` with the closed lip line the drawing's record of it reaches the reference's record (`drawn.eye_rings.closed_by_the_rule`)
-    and the step prints it in a line; with the closed lip line off it is not on. The job's defaults say it under the chain's default form."""
-    import shot_to_load as stl
-    folder, mesh, _, source = rooms("eyes_closed", [90] * N, [60] * N, CENTRES, 0)
-    kp = fl.face(CENTRES)
-    for f in (4, 5):                                               # left downcast (0.83), right just under the line (0.61): mean 0.72 >= 0.65 (shut)
-        kp[f][[i for n, i in fl.INDEX.items() if n.startswith(("l_border_of_", "l_center_of_"))], 1] += 10.0
-        kp[f][[i for n, i in fl.INDEX.items() if n.startswith(("r_border_of_", "r_center_of_"))], 1] += 8.0
-    scores = np.full((N, len(fl.NAMES)), 0.9)
-    scores[:, [i for n, i in fl.INDEX.items() if "pupil" in n]] = 0.2
-    pts = fl.save(folder / "closed_points.npz", kp, (W, H), first=0, scores=scores)
-    said: list[str] = []
-    form = dict(room=ROOM, iris="contrast", mouth="left out", mouth_why="silent window")
-    rec = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head.mp4", "the check", closed_lip_line="the chain's default",
-                 say=said.append, **form)
-    block = rec["drawn"]["eye_rings"]["closed_by_the_rule"]
-    # THE CASE THAT GOES RED when the closed eye does not reach the reference's record, or is not printed
-    assert rec["passed"] and block["on"] and block["frames"] == [[4, 5]] and block["one_eye_under_the_line_on"] == [[4, 5]], block
-    assert [(s["first"], s["last"], s["drawn"], s["downcast_eyes"]) for s in block["spans"]] == [(0, 3, "open", []), (4, 5, "shut", ["l"]),
-                                                                                                 (6, N - 1, "open", [])], block["spans"]
-    assert any(x.strip().startswith("BOTH EYES DRAWN SHUT BY THE RULE on 2 of 12 frames (4-5)") for x in said), said
-    assert json.loads(hr.outputs(folder / "head.mp4")["record"].read_text())["drawn"]["eye_rings"]["closed_by_the_rule"] == block
-    off = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head_off.mp4", "the check", say=lambda *_: None, **form)
-    assert off["drawn"]["eye_rings"]["closed_by_the_rule"]["on"] is False, off["drawn"]["eye_rings"]["closed_by_the_rule"]
-    # the job's defaults say it under the chain's default form, and not with the closed lip line off or another eye form
-    eye = lambda said_: next(d for d in stl.defaults_carried({}, {}, [{"label": "lead"}], "lead", None, stl.reference_form(said_, "lead"),   # noqa: E731
-                                                             {"said_by": "plan", "why": "z"}, None) if d["what"] == "the eye")["carries"]
-    assert "BOTH EYES SHUT" in eye({}), eye({})
-    assert "BOTH EYES SHUT" not in eye({"reference": {"closed_lip_line": False, "why": "off"}}) \
-        and "BOTH EYES SHUT" not in eye({"reference": {"iris": "between the lids", "why": "form"}}), "the defaults say a closed eye the form does not draw"
-    return ("mean downcast on 4-5 shuts both eyes there in the drawing, the reference's record names the frames, the downcast eyes and "
-            "each eye's share, and the step prints it; off with the closed lip line off; the job's eye row says it under the default form only")
-
-
 def head_box_from_the_head_track() -> str:
     """`bench/head_reference.py` cuts both the body model and the source by the head track's box with crown room when a
     head track is given (`--head-track`) or sits beside the points' box mask (`_track_` -> `_head_track_`) or body-model
@@ -1249,6 +1213,5 @@ case("the form's defaults can be set aside, and the record says so", the_default
 case("a step that fails fails the run", a_step_that_fails_fails_the_run)
 case("the mouth on a person's word where the gate drops it", the_mouth_on_a_word)
 case("the head box from the head track, with room above the crown", head_box_from_the_head_track)
-case("both eyes drawn shut by the rule, recorded and printed", eyes_closed_by_the_rule)
 shutil.rmtree(WORK, ignore_errors=True)
 sys.exit(finish())
