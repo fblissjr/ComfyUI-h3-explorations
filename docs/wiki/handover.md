@@ -64,7 +64,8 @@ is `data/fun/FINAL_STRETCH_RUNBOOK.md`, rewritten today from records.
    Small faces (4647d: 19.7 px on the canvas, about 40 px at the 2.0x cap) also need more zoom. The lead's insets
    worked at 2.0x only because their faces were 56-76 px. `video_mask.py::ZOOM_LARGEST` = 2.0 has no per-load
    input, so a per-load zoom is a build. The owner (2026-10-21): barely visible; note it as an issue, and build only
-   if it is easy. Low priority. 4647d may still be remade with the hair fix alone, alongside the others.
+   if it is easy. Low priority. For 4647d the owner's word is to replace the hair only, with no face work and no zoom
+   build (owner_answers.jsonl, 2026-10-21T16:14:59Z): remake it with the hair fix alone, alongside the others.
 4. **Open List rows, from internal/claude/2026-10-21_tools_to_diagnostics_plan.md:**
    - stop-and-show or print-only;
    - one seed per cut (R8);
