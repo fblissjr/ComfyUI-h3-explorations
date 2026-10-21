@@ -1415,11 +1415,11 @@ def check_song_loop(problems):
             if not costs[0] or costs[0] != costs[1]:
                 _fail(problems, f"song loop, zoomed: the wired video of a zoomed plan must cost what it costs on the whole frame: {costs[0]} against {costs[1]}")
         try:
-            run(tmp, "y/run", record={**source, "render_region": vm.RENDER_ZOOM_REPLACED})
-            _fail(problems, "song loop, zoomed: a load with cuts in it was rendered zoomed; one box cannot frame two shots")
+            y_plan = run(tmp, "y/run", record={**far, "cuts": [7]}, preview=True)[1]
+            if "rendered zoomed in on what is replaced" not in y_plan:
+                _fail(problems, f"song loop, zoomed: a load with a context cut in its window did not extend the zoom: {y_plan}")
         except ValueError as exc:
-            if "one box for the whole load" not in str(exc):
-                _fail(problems, f"song loop, zoomed: the refusal of a load with cuts does not say why: {exc}")
+            _fail(problems, f"song loop, zoomed: a load with a cut in its window was refused instead of extending the zoom: {exc}")
         # CONTINUING a stored window: a zoomed run continues nothing, whatever the stored window says of its
         # framing; and a whole-frame run is refused on a stored window that says it was zoomed
         for said_of_it in ("has no region file", "says it was zoomed"):
@@ -1588,7 +1588,9 @@ def check_render_zoom(problems):
     if again["frames"] is z["frames"] or not torch.equal(again["frames"], z["frames"]) or not torch.equal(again["mask"], z["mask"]):
         _fail(problems, "render zoom: a second run makes the zoomed pictures again, the same pictures and not the same tensors: "
                         "nothing an earlier run made is kept")
-    for bad, word in (({**rec, "cuts": [7]}, "one box for the whole load"), ({**rec, "region_boxes": None}, "box on each frame"),
+    if vm.zoomed_source({**rec, "cuts": [7]}, width, height)[0].get("zoom") != z["zoom"]:
+        _fail(problems, "render zoom: a source with a cut in its window must extend the shot's one zoom box across the window")
+    for bad, word in (({**rec, "region_boxes": None}, "box on each frame"),
                       ({**rec, "render_region": "closer"}, "unknown render_region")):
         try:
             vm.zoomed_source(bad, width, height)
@@ -1816,6 +1818,37 @@ def check_held_tail(problems):
     if '"its last frame is held with its region open"' not in song or "held frame(s) are INSIDE the track and are written" not in song:
         problems.append("held tail: the song node's report does not say the held frames keep their region open, or that some "
                         "of them are inside the track and written")
+
+    # A 35-frame shot in a 39-frame window (`C38`, 2026-10-21): `MiniMaxH3MaskedSource.execute` pads 2 context frames
+    # before and 2 after (`pad_before=2, pad_after=2`) with empty mask, keeping all 39 real source frames (`held == 0`),
+    # and `save_window_region` / `load_window_region` record `pad_before=2, pad_after=2` while storing the 35-frame mask.
+    frames_39 = torch.rand(39, H, W, 3)
+    mask_35 = torch.zeros(35, H, W)
+    mask_35[:, 32:64, 48:80] = 1.0
+    motion_35 = torch.linspace(0.1, 0.9, 35).view(35, 1, 1, 1).expand(35, H, W, 3).contiguous()
+    from types import SimpleNamespace
+    prompt_39 = {"10": {"_meta": {"pad_before": 2, "pad_after": 2}}}
+    node.hidden = SimpleNamespace(prompt=prompt_39, unique_id="10")
+    try:
+        rec_39 = node.execute(frames_39, mask_35, grow_pixels=8, motion_reference=vm.MOTION_WIRED,
+                              motion_video=motion_35).args[0]
+    finally:
+        node.hidden = None
+    if (rec_39.get("pad_before"), rec_39.get("pad_after")) != (2, 2) or rec_39["mask"].shape[0] != 39:
+        problems.append(f"context padding (35 in 39): expected pad_before=2, pad_after=2 and 39 mask frames, got {rec_39.get('pad_before')}, {rec_39.get('pad_after')}, {rec_39['mask'].shape}")
+    if bool(rec_39["mask"][:2].any()) or bool(rec_39["mask"][37:].any()) or not bool(rec_39["mask"][2:37].all(dim=0).any()):
+        problems.append("context padding (35 in 39): context frames before (0..1) and after (37..38) must have empty mask and shot frames (2..36) keep the mask")
+    if rec_39["motion_frames"].shape[0] != 39 or not torch.equal(rec_39["motion_frames"][0], motion_35[0]) or not torch.equal(rec_39["motion_frames"][-1], motion_35[-1]):
+        problems.append("context padding (35 in 39): motion_video was not padded to 39 frames by repeating its first and last frame")
+    win_39 = vm.window(rec_39, 0, 39, W, H, 12, LAT_H, LAT_W)
+    if win_39[4] != 0:
+        problems.append(f"context padding (35 in 39): held tail must be 0 when 39 real source frames are loaded, got {win_39[4]}")
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        reg_path = vm.save_window_region(str(Path(tmp) / "w1_region.npz"), win_39[3], win_39[2], rec_39, 8, 0, 2)
+        loaded_reg = vm.load_window_region(reg_path)
+        if (loaded_reg["pad_before"], loaded_reg["pad_after"], loaded_reg["trim"], int(loaded_reg["mask"].shape[0])) != (2, 2, 2, 39):
+            problems.append(f"context padding (35 in 39): saved region must carry pad_before=2, pad_after=2, trim=2 and 39 window frames, got {loaded_reg['pad_before']}, {loaded_reg['pad_after']}, {loaded_reg['trim']}, {loaded_reg['mask'].shape}")
 
 
 def check_others(problems):

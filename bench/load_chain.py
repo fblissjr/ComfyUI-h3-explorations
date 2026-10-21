@@ -747,7 +747,7 @@ def region_as_predicted(ctx: dict, render_folder: Path) -> list[str]:
         steps = [k for k in range(p.shape[0]) if not (p[k] == r[k]).all()]
         if steps:
             lengths = run_lengths(p.shape[0])
-            first = ctx["load"]["first"] + int(row["first_frame"])
+            first = ctx["load"]["first"] + int(row["first_frame"]) - int(row.get("pad_before", 0))
             frames = sorted({first + sum(lengths[:k]) + i for k in steps for i in range(lengths[k])})
             units = int(sum(int((p[k] != r[k]).sum()) for k in steps))
             said.append(f"window {row['number']}: the render's region differs from the prediction by {units} unit(s) on {len(steps)} latent step(s), "

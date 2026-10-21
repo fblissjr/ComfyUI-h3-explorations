@@ -394,7 +394,9 @@ def two_shot_job(a: dict, b: dict, name: str, preview_name: str, preview_folder:
             f"THE TEXT IS NOT WRITTEN: {name}.txt beside this file is a person's, with a [Shot 1] and a [Shot 2], and texts.{name}.by says who wrote it. "
             f"THE CUT IS {grid['the_cut_is']} of the load ({'; '.join(grid['the_captures_flags']) or 'neither cut flag of the capture has anything to fire on'})."
             + (f" RENDERED ON THE WHOLE FRAME: {WHOLE_FRAME_WHY}." if unzoomed else ""))
-    return {"job": {"name": name, "note": note, "source": ja["source"], "first": first, "frames": last - first + 1, "canvas": list(ja["canvas"]), "output": output_key,
+    return {"job": {"name": name, "note": note, "source": ja["source"], "first": first, "frames": last - first + 1, "canvas": list(ja["canvas"]),
+                    **({"source_frames": int(ja["source_frames"])} if ja.get("source_frames") is not None else {}),
+                    "output": output_key,
                     "subjects": copy.deepcopy(ja["subjects"]), "left_out": list(ja.get("left_out") or []) + list(b["job"].get("left_out") or []),
                     "capture": f"data/{day}_{name}", "preview": preview_folder,
                     "texts": {name: {"file": f"{name}.txt", "frames": [first, last], "by": ""}},
@@ -451,7 +453,7 @@ def step_job(a, world) -> None:
     last = cut + two["load"]["frames"] - 1
     frames, windows = last - first + 1, masked_job.chain_lengths()
     if not graphs.one_window(frames, graphs.window_for(frames, windows), windows):
-        raise Refused(f"the two loads are {frames} frames together and the longest one window is {graphs.MAX_LENGTH}: two shots too long for ONE window are two loads")
+        raise Refused(f"the two loads are {frames} frames together and the longest one window is {max(windows)}: two shots too long for ONE window are two loads")
     subject, folder = one["subject"], Path(a.folder)
     video = load_chain.video_of(one, world.data)
     taken = lambda n: (folder / f"{n}.json").exists() or any(world.data.glob(f"????-??-??_{n}")) or any(world.data.glob(f"????-??-??_{n}_job"))   # noqa: E731
@@ -553,7 +555,10 @@ def node_cuts(ctx: dict, plan: dict) -> tuple[list[int], list[int], bool]:
     two = graphs.two_shots_of(ctx["job"])
     if two is None:
         raise Refused(f"{ctx['job_file']} names no `two_shots`: this step is for a load that holds a cut on its job's word")
-    found = [ctx["load"]["first"] + int(c) for c in (plan.get("source") or {}).get("cuts") or []]
+    pad_before = int(((plan.get("windows") or [{}])[0]).get("pad_before", 0))
+    n_load = int(ctx["load"]["frames"])
+    found = [ctx["load"]["first"] + int(c) - pad_before for c in (plan.get("source") or {}).get("cuts") or []
+             if not pad_before or (pad_before < int(c) < pad_before + n_load)]
     return found, [two["cut"]], found == [two["cut"]]
 
 

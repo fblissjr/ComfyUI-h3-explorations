@@ -400,7 +400,8 @@ def save_own_matte(a: argparse.Namespace, decode=None) -> dict:
     for (n, latent, region_path, before_sha, region, tokens, own_settings, zoom, first, trim, written, piece_first,
          alpha, matte, outside_levels, held, decoded, lines, control) in to_write:
         vm.save_window_region(str(region_path), region["mask"], tokens,
-                              {**own_settings, "zoom": zoom}, region["margin"], first, trim,
+                              {**own_settings, "zoom": zoom, "pad_before": region.get("pad_before", 0), "pad_after": region.get("pad_after", 0)},
+                              region["margin"], first, trim,
                               kept=alpha, matte=matte,
                               piece={"stem": render.stem, "first": piece_first, "written": int(written)})
         rows.append({"window": n, "latent": latent.name, "latent_sha256": sha256(latent),
@@ -497,7 +498,8 @@ def run(a: argparse.Namespace, decode=None) -> dict:
         pieces.append((piece_first, mine))
         song._write_frames_mp4(str(new_windows / f"{a.name}_window_{n}.mp4"), mine, crf)
         vm.save_window_region(str(new_windows / f"{a.name}_window_{n}_region.npz"), region["mask"], region["tokens"],
-                              {**changed, "zoom": zoom}, region["margin"], first, trim, kept=alpha, matte=matte,
+                              {**changed, "zoom": zoom, "pad_before": region.get("pad_before", 0), "pad_after": region.get("pad_after", 0)},
+                              region["margin"], first, trim, kept=alpha, matte=matte,
                               piece={"stem": new_stem, "first": piece_first, "written": int(mine.shape[0])})
         kept_outline = alpha if changed.get("composite") == vm.COMPOSITE_CHANGED else None
         replace_mode = changed.get("replace") or (source.get("settings") or {}).get("replace") or vm.REPLACE_WHOLE

@@ -266,7 +266,7 @@ here and will not run unmodified there. Ask `h3_rules.reference_would_emit()`
 when you care. There is no on-grid count at exactly 15.0 seconds, which is
 how the gap appears.
 
-### Whole on the audio clock: a best practice, not a rule
+### Whole on the audio clock
 
 H3 lays its audio at `h3_rules.AUDIO_LATENT_RATE` latents a second against
 `h3_rules.FPS` frames, and ComfyUI's node gives a clip
@@ -274,20 +274,24 @@ H3 lays its audio at `h3_rules.AUDIO_LATENT_RATE` latents a second against
 (`comfy_extras/nodes_minimax_h3.py`, `temporal_shape`). The two clocks agree
 exactly only when `frames * AUDIO_LATENT_RATE` is a multiple of `FPS`; on the
 video grid that is every third length, 39 the first
-(`h3_rules.on_both_clocks`). Any other grid length, 22 and 362 among them,
-ends with the sound off its last frame by a third of one audio latent, the
-rounding adding it (22) or dropping it (362).
+(`h3_rules.on_both_clocks`: `39, 90, 141, 192, 243, 294, 345`). Any other grid
+length, 22 and 362 among them, ends with the sound off its last frame by a
+third of one audio latent, the rounding adding it (22) or dropping it (362).
 
-**It is a best practice, not a rule.** Every length on the 17n+5 grid up to
-`MAX_LENGTH` is valid, and a window that holds its whole shot takes any of
-them (`loop_plan.stands_alone`; the owner's word that 362 is the ceiling
-stands). The mismatch sits at the window's last frame and is smaller than
-one audio latent. Where it is enforced is a seam: two chained windows meet
-only on a length whole on both clocks (`h3_rules.chain_lengths`, from
-`SHORTEST_CHAINED`), because there the next window's sound starts where the
-last one's ended, and an off-clock seam would start it off its picture by
-that remainder (reasoned, not measured). So: prefer a length on both clocks
-when the shot leaves the choice free; do not pad or cut a shot to reach one.
+**In the masked video-to-video lane it is a rule (`docs/masked_v2v/AGENTS.md`, "Windows"; 2026-10-21).**
+Every masked load renders in a window on both clocks (`workflows/masked_job_graph.py::both_clocks`,
+`workflows/masked_job_graph.py::window_for`, `workflows/masked_job_graph.py::one_window`).
+When a shot is shorter than its window, `workflows/masked_job_graph.py::window_pad` pads the
+window with real frames of the source before and after the shot as untouched context (empty
+regeneration mask in `video_mask.py::MiniMaxH3MaskedSource.execute`, never held copies of the last
+frame), and `audio_freeze_song.py::MiniMaxH3AudioFreezeSong.execute` tosses those context frames
+after the VAE decode. Why: repeating the last frame into a held tail (`second_hfp_4912e`) repeated
+unregenerated features across the window and filled the encoder's last clip with a frozen frame,
+whereas real neighbor frames keep the video and audio clocks exact without held copies.
+
+**Outside the masked lane (standalone text-to-video and image-to-video):** every length on the
+`17n + 5` grid up to `MAX_LENGTH` (`362`) remains valid (`loop_plan.stands_alone`), while chained
+windows meet only on a length whole on both clocks (`h3_rules.chain_lengths`, from `SHORTEST_CHAINED`).
 
 Where it came from: a community report on H3 (attributed to seitanism,
 relayed by the owner on 2026-10-17: 39 frames is the smallest length with

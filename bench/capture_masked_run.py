@@ -1309,14 +1309,16 @@ def _unit_count(cells, whole: bool) -> int:
 
 
 def _window_frames(mask: np.ndarray, row: dict, at: int, first: int, length: int) -> np.ndarray:
-    """A capture's [n, h, w] mask on a window's frames (load frame `row.first_frame` on, `length` of them): a frame past the
-    capture's last holds its last, as the node holds a window's frames past the source's end (`video_mask.held_mask`)."""
+    """A capture's [n, h, w] mask on a window's frames (load frame `row.first_frame` on, `length` of them): context frames
+    padded before or after the shot (`pad_before`, `pad_after`) are empty; a frame past the capture's last when no padding is
+    set holds its last (`video_mask.held_mask`)."""
     out = np.zeros((length,) + mask.shape[1:], bool)
-    for i in range(length):
-        k = at + row["first_frame"] + i - first
+    pad_before, pad_after = int(row.get("pad_before", 0)), int(row.get("pad_after", 0))
+    for i in range(pad_before, length - pad_after):
+        k = at + row["first_frame"] + (i - pad_before) - first
         if 0 <= k < len(mask):
             out[i] = mask[k]
-        elif k >= len(mask) and len(mask):
+        elif not (pad_before or pad_after) and k >= len(mask) and len(mask):
             out[i] = mask[-1]
     return out
 
@@ -1374,8 +1376,9 @@ def grid_carve(keep: np.ndarray, mine: np.ndarray, plan_path: Path, at: int, fir
                     foot = cv2.dilate((px[0] > 0).numpy().astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
                 else:
                     foot = (px[0] > 0.5).numpy()
+                pad_before = int(row.get("pad_before", 0))
                 for i in range(start, start + steps):
-                    k = at + row["first_frame"] + i - first
+                    k = at + row["first_frame"] + (i - pad_before) - first
                     if 0 <= k < n:
                         out[k] &= ~(foot & ~front[k])
             start += steps
@@ -1400,7 +1403,9 @@ def predict_regions(plan_path: Path, at: int, first: int, others: np.ndarray, ke
         other = _picture(vm, _window_frames(others, row, at, first, length), zoom, size)
         held = _picture(vm, _window_frames(keep, row, at, first, length), zoom, size) if keep is not None else None
         tokens = vm.window(node_source(vm, plan, got, other, held), 0, length, w, h, lt, lh, lw)[2]
-        vm.save_window_region(str(into / row["region_file"]), got["mask"], tokens, {**dict(plan.get("source") or {}), "zoom": zoom},
+        pad_meta = {k: int(row[k]) for k in ("pad_before", "pad_after") if row.get(k)}
+        vm.save_window_region(str(into / row["region_file"]), got["mask"], tokens,
+                              {**dict(plan.get("source") or {}), "zoom": zoom, **pad_meta},
                               got["margin"], int(row["first_frame"]), int(row.get("trim", 0)))
     copy = into / Path(plan_path).name
     copy.write_text(Path(plan_path).read_text())
@@ -1429,8 +1434,9 @@ def node_taken_inside(people: np.ndarray | None, predicted: Path, mine: np.ndarr
         start = 0
         for s, steps in enumerate(vm.run_lengths(lt)):
             taken = _unit_count(((alone[s] > 0.5) & (got["tokens"][s] < 0.5) & hers[start:start + steps].any(0)).numpy(), whole)
+            pad_before = int(row.get("pad_before", 0))
             for i in range(start, start + steps):
-                k = at + row["first_frame"] + i - first
+                k = at + row["first_frame"] + (i - pad_before) - first
                 if 0 <= k < n:
                     count[k] = max(count[k], taken)
             start += steps
@@ -1477,7 +1483,7 @@ def step_keepout_carves(
         }
         head_units = _units(vm, _picture(vm, _window_frames(head_mask, row, at, first, length), zoom, (w, h)) > 0.5, lh, lw, whole) > 0
         win_num = int(row.get("number", win_idx + 1))
-        win_first = int(at + int(row.get("first_frame", 0)))
+        win_first = int(at + int(row.get("first_frame", 0)) - int(row.get("pad_before", 0)))
         start = 0
         for s, steps in enumerate(vm.run_lengths(lt)):
             grown_mask = (alone_no_others[s] > 0.5).numpy()
@@ -1887,9 +1893,10 @@ def read_saved_regions(files: list[Path], first: int, frames: int, size: tuple[i
         if wrong:
             return None, None, None, {"refused": wrong, "zoomed": True}
         start, trim, mask, tokens = got["first_frame"], got["trim"], got["mask"], got["tokens"]
+        pad_before, pad_after = int(got.get("pad_before", 0)), int(got.get("pad_after", 0))
         count = int(mask.shape[0])
-        if start + trim != end:
-            return None, None, None, {"refused": f"{f.name} starts its video on frame {start + trim} of the load and the "
+        if start + trim - pad_before != end:
+            return None, None, None, {"refused": f"{f.name} starts its video on frame {start + trim - pad_before} of the load and the "
                                                  f"window before it ended on {end}"}
         # the gate and "no mask on this frame" are the node's own, on the mask it was given (the zoomed one, for a zoomed run)
         gate = vm.cut_gate(mask, int(tokens.shape[0]), got["source"].get("cuts"), start) > 0.5
@@ -1907,8 +1914,9 @@ def read_saved_regions(files: list[Path], first: int, frames: int, size: tuple[i
         # the composite leaves every frame with no mask of its own as the source. A render from before that rule
         # (2026-10-10) laid such frames with their step's region, and read back here it differs on them: an edge
         # accepted with the node, which no longer keeps the switch that said which kind a file was
-        for k in range(trim, count if last is None else min(count, last - start)):
-            n = at + start + k - first
+        limit = count - pad_after
+        for k in range(trim, limit if last is None else min(limit, last - start + pad_before)):
+            n = at + start + k - pad_before - first
             empty = not bool((given[k] > 0.5).any())
             unlaid = empty and bool(cells[k].any())
             if 0 <= n < frames:
@@ -1916,10 +1924,10 @@ def read_saved_regions(files: list[Path], first: int, frames: int, size: tuple[i
                 if zoom and bool(gate[k]) and not unlaid:
                     shares.append(share[k])
             if unlaid:
-                bare.append(at + start + k)
+                bare.append(at + start + k - pad_before)
             elif not bool(gate[k]):
-                across.append(at + start + k)
-        end, composite = start + count, got["source"].get("composite")
+                across.append(at + start + k - pad_before)
+        end, composite = start + count - pad_before - pad_after, got["source"].get("composite")
         names.append(f.name)
     if last is not None and end < last:
         return None, None, None, {"refused": f"the windows' files cover {end} frames and the render has {render_frames}"}
@@ -2039,8 +2047,9 @@ def read_planned_regions(plan_path: Path, first: int, frames: int, size: tuple[i
             if tuple(mask.shape[1:]) != (h, w):
                 import torch
                 mask = torch.nn.functional.interpolate(mask[:, None], size=(h, w), mode="nearest")[:, 0]
+        pad_before = int(row.get("pad_before", got.get("pad_before", 0)))
         for f in range(row["first_written_frame"], row["last_written_frame"] + 1):
-            k, n = f - row["first_frame"], at + f - first
+            k, n = f - row["first_frame"] + pad_before, at + f - first
             if 0 <= n < frames:
                 region[n], carried[n], read[n] = (cells[k].numpy() if f not in left else False), (mask[k] > 0.5).numpy(), True
                 if zoom and f not in left:
@@ -2050,9 +2059,10 @@ def read_planned_regions(plan_path: Path, first: int, frames: int, size: tuple[i
                 (bare if f in set(row.get("frames_with_no_mask", [])) else across).append(at + f)
         end = row["last_written_frame"] + 1
         windows.append({"window": row["number"], "writes_source_frames": [at + row["first_written_frame"], at + row["last_written_frame"]],
-                        "text": row.get("text"), "regenerating_share": row.get("regenerating_share"), "kept_frames": int(row.get("trim", 0)),
-                        "first_frame": at + row["first_frame"],
-                        **held_tail_facts(got["mask"], got["tokens"], int(row.get("source_frames_held", 0)), at + row["first_frame"], vm.run_lengths)})
+                        "text": row.get("text"), "regenerating_share": row.get("regenerating_share"),
+                        "kept_frames": int(row.get("trim", 0)) if not pad_before else 0,
+                        "first_frame": at + row["first_frame"] - pad_before,
+                        **held_tail_facts(got["mask"], got["tokens"], int(row.get("source_frames_held", 0)), at + row["first_frame"] - pad_before, vm.run_lengths)})
     if not placed and end != frames:
         # a plan does not know which source frame its load starts on. Placed at the span's first frame by default,
         # ten loads of one capture were each read as starting on the capture's first frame (2026-10-10), and every

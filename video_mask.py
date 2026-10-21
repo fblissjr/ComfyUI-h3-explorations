@@ -239,6 +239,7 @@ from comfy_api.latest import io
 import comfy.utils
 from comfy.ldm.minimax.model import FRAME_PER_TOKEN
 
+from .h3_rules import on_both_clocks
 from .part_coverage import RECORD_KEY as PART_WARNING
 from .part_coverage import coverage, summarise
 
@@ -985,6 +986,9 @@ def save_window_region(path: str, mask: torch.Tensor, tokens: torch.Tensor, sour
             # None, or the box this window was rendered in (`zoomed_source`): the mask and the tokens are then
             # of the ZOOMED picture, and a reader that lays them or counts their cells maps through the box
             "zoom": source.get("zoom")}
+    if source.get("pad_before") or source.get("pad_after"):
+        meta["pad_before"] = int(source.get("pad_before", 0))
+        meta["pad_after"] = int(source.get("pad_after", 0))
     extra = {}
     if matte is not None:
         if tuple(matte.shape[:1]) != tuple(mask.shape[:1]) or matte.dtype != torch.uint8:
@@ -1025,7 +1029,9 @@ def load_window_region(path: str) -> dict:
         if "matte" in z.files:
             out["matte"] = torch.from_numpy(z["matte"]).to(torch.float32) / 255.0
     return {**out, "first_frame": int(meta["first_frame"]), "trim": int(meta["trim"]), "source": dict(meta["source"]),
-            "zoom": meta.get("zoom")}
+            "zoom": meta.get("zoom"),
+            **({"pad_before": int(meta.get("pad_before", 0)), "pad_after": int(meta.get("pad_after", 0))}
+               if (meta.get("pad_before") or meta.get("pad_after")) else {})}
 
 
 @dataclass(frozen=True)
@@ -1861,11 +1867,6 @@ def zoomed_source(source: dict, width: int, height: int, continued=NOT_CONTINUED
     if rows is None:
         raise ValueError(f"render_region `{choice}` needs the replaced part's box on each frame, and this source carries "
                          "none: it was not made by a Masked Source that tracked a subject")
-    cuts = [int(c) for c in source.get("cuts") or [] if 0 < int(c) < n]
-    if cuts:
-        raise ValueError(f"render_region `{choice}` takes one box for the whole load, and this load has a cut at "
-                         f"frame(s) {', '.join(str(c) for c in cuts)}: load one shot at a time (the loader's "
-                         f"skip and cap), or render `{RENDER_WHOLE}`")
     box, why = zoom_box(rows, old_w, old_h, width, height)
     if box is None:
         if stored is not None:      # a whole-frame run after all, and the window it continues was zoomed
@@ -2302,6 +2303,7 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                                      tooltip=("A strip of sampled frames: the plate with the regenerated region "
                                               "tinted red, and beside it what the text encoder is shown as the "
                                               "motion reference when one is on. Look before rendering."))],
+            hidden=[io.Hidden.prompt, io.Hidden.unique_id],
         )
 
     @classmethod
@@ -2365,29 +2367,48 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
         if motion_reference == MOTION_WIRED and motion_video is None:
             raise ValueError(f"motion_reference is `{motion_reference}` and nothing is wired to `motion_video`: wire the "
                              "video that shows the movement, or choose another motion_reference")
+        n_frames = int(frames.shape[0])
+        n_shot = (int(mask.shape[0]) if mask is not None and getattr(mask, "ndim", 0) >= 3
+                  and 0 < int(mask.shape[0]) < n_frames and on_both_clocks(n_frames) else n_frames)
+        hidden = getattr(cls, "hidden", None)
+        prompt = getattr(hidden, "prompt", None) if hidden is not None else None
+        uid = getattr(hidden, "unique_id", None) if hidden is not None else None
+        meta = (prompt.get(str(uid), {}).get("_meta") if isinstance(prompt, dict) and uid is not None else None) or {}
+        if n_shot < n_frames:
+            extra = n_frames - n_shot
+            if "pad_before" in meta or "pad_after" in meta:
+                pad_before, pad_after = int(meta.get("pad_before", 0)), int(meta.get("pad_after", 0))
+                if pad_before < 0 or pad_after < 0 or pad_before + pad_after != extra:
+                    raise ValueError(f"window pad ({pad_before}, {pad_after}) does not add up to the {extra} context "
+                                     f"frame(s) around a {n_shot}-frame shot in a {n_frames}-frame window")
+            else:
+                pad_before = extra // 2
+                pad_after = extra - pad_before
+        else:
+            pad_before = pad_after = 0
         if motion_video is not None:
             if motion_reference != MOTION_WIRED:
                 raise ValueError(f"`motion_video` is wired and motion_reference is `{motion_reference}`: set it to "
                                  f"`{MOTION_WIRED}` to use the video, or unwire it. It is never used in silence")
-            if motion_video.ndim != 4 or int(motion_video.shape[0]) != int(frames.shape[0]):
+            if motion_video.ndim != 4 or int(motion_video.shape[0]) != n_shot:
                 raise ValueError(
-                    f"`motion_video` is {tuple(motion_video.shape)} and the source has {int(frames.shape[0])} "
+                    f"`motion_video` is {tuple(motion_video.shape)} and the source has {n_shot} "
                     "frames: it needs one frame per source frame, made from the same `frames`, so that a window "
                     "is shown the movement of its own frames")
         if motion_video_2 is not None:
             if motion_video is None:
                 raise ValueError("`motion_video_2` is wired and `motion_video` is not: a second video comes after a "
                                  "first. Wire the one video to `motion_video`")
-            if motion_video_2.ndim != 4 or int(motion_video_2.shape[0]) != int(frames.shape[0]):
+            if motion_video_2.ndim != 4 or int(motion_video_2.shape[0]) != n_shot:
                 raise ValueError(
-                    f"`motion_video_2` is {tuple(motion_video_2.shape)} and the source has {int(frames.shape[0])} "
+                    f"`motion_video_2` is {tuple(motion_video_2.shape)} and the source has {n_shot} "
                     "frames: it needs one frame per source frame, as `motion_video` does")
         if keep is not None:
             if keep.ndim == 4 and int(keep.shape[-1]) == 1:
                 keep = keep[..., 0]
-            if tuple(keep.shape) != tuple(frames.shape[:3]):
+            if tuple(keep.shape) != (n_shot, *frames.shape[1:3]):
                 raise ValueError(
-                    f"`keep` is {tuple(keep.shape)} and the frames {tuple(frames.shape[:3])}: it needs one mask "
+                    f"`keep` is {tuple(keep.shape)} and the frames {(n_shot, *frames.shape[1:3])}: it needs one mask "
                     "per source frame at the frames' own size, from a node that ran on the same `frames`")
             if paint_out or start_from != START_NOISE:
                 # both show a changed copy of the source under the subject, which a kept token would put on screen
@@ -2398,9 +2419,9 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
         if others is not None:
             if others.ndim == 4 and int(others.shape[-1]) == 1:
                 others = others[..., 0]
-            if others.ndim != 3 or int(others.shape[0]) != int(frames.shape[0]):
+            if others.ndim != 3 or int(others.shape[0]) != n_shot:
                 raise ValueError(
-                    f"`others` has {int(others.shape[0])} masks and the source {int(frames.shape[0])} frames: it "
+                    f"`others` has {int(others.shape[0])} masks and the source {n_shot} frames: it "
                     "needs one mask per source frame, made on the same `frames` this node takes. Nothing is "
                     "stretched or cut to fit, since a mask on the wrong frame keeps the wrong people out")
             if tuple(others.shape[1:]) != tuple(frames.shape[1:3]):
@@ -2419,8 +2440,26 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
             raise ValueError("the Masked Source was run with no mask: wire one (a tracker's, or a mask video loaded "
                              "from a file)")
         tracked = mask          # the tracker's own mask, before it is cut to a part below
-        mask, note, part_warning = cls._settle_mask(frames, mask, replace, segmenter, segmenter_clip,
-                                                    part_phrases, part_threshold, part_margin, parts)
+        mask, note, part_warning = cls._settle_mask(frames[pad_before:pad_before + n_shot], mask, replace, segmenter,
+                                                    segmenter_clip, part_phrases, part_threshold, part_margin, parts)
+        if n_shot < n_frames:
+            tracked_2d = tracked[..., 0] if tracked.ndim == 4 else tracked
+            tracked = F.pad(tracked_2d.to(torch.float32), (0, 0, 0, 0, pad_before, pad_after))
+            mask = F.pad(mask.to(torch.float32), (0, 0, 0, 0, pad_before, pad_after))
+            if keep is not None:
+                keep = F.pad(keep, (0, 0, 0, 0, pad_before, pad_after))
+            if others is not None:
+                others = F.pad(others, (0, 0, 0, 0, pad_before, pad_after))
+            if motion_video is not None:
+                motion_video = torch.cat(
+                    ([motion_video[:1].expand(pad_before, -1, -1, -1)] if pad_before else [])
+                    + [motion_video]
+                    + ([motion_video[-1:].expand(pad_after, -1, -1, -1)] if pad_after else []), dim=0)
+            if motion_video_2 is not None:
+                motion_video_2 = torch.cat(
+                    ([motion_video_2[:1].expand(pad_before, -1, -1, -1)] if pad_before else [])
+                    + [motion_video_2]
+                    + ([motion_video_2[-1:].expand(pad_after, -1, -1, -1)] if pad_after else []), dim=0)
         # The whole subject's box per frame, from the tracker's mask and not from the part it was just
         # cut to: on a parts graph nothing after this node knows where the subject is otherwise.
         boxes = _tracked_boxes(tracked[..., 0] if tracked.ndim == 4 else tracked)
@@ -2496,7 +2535,8 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                               "shot_table": table, "replace": replace,
                               # the frames that start a shot: the composite lays nothing across one of them
                               # from the subject (`cut_gate`)
-                              "cuts": source_cuts(frames, table)},
+                              "cuts": source_cuts(frames, table),
+                              **({"pad_before": pad_before, "pad_after": pad_after} if (pad_before or pad_after) else {})},
                              mask.to(torch.float32),
                              preview_strip(frames, mask, each, motion_reference,
                                            int(motion_short_edge), int(grow_pixels) // 2, zoomed, others,

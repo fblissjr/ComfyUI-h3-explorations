@@ -431,8 +431,12 @@ def _read(one: dict, files) -> set:
 
 def a_load_lands_on_the_inputs_it_names():
     g = _a_load()
-    src, run = g[graphs._the(g, graphs.SOURCE)]["inputs"], g[graphs._the(g, graphs.SONG)]["inputs"]
-    assert _files_behind(g, src["frames"]) == {(LOAD_JOB["source"], graphs.seek(WHOLE["first"]), WHOLE["frames"])}, "the source's frames"
+    pad_before, pad_after = graphs.window_pad(WHOLE["first"], WHOLE["frames"], SHORT_WINDOW, LOAD_JOB.get("source_frames"),
+                                              bool(WHOLE.get("continue_from")), floor=WHOLE.get("audio_first", LOAD_JOB["first"]))
+    src_node = g[graphs._the(g, graphs.SOURCE)]
+    src, run = src_node["inputs"], g[graphs._the(g, graphs.SONG)]["inputs"]
+    assert _files_behind(g, src["frames"]) == {(LOAD_JOB["source"], graphs.seek(WHOLE["first"] - pad_before), SHORT_WINDOW)}, "the source's frames"
+    assert src_node.get("_meta") == {"pad_before": pad_before, "pad_after": pad_after}, f"the source node's _meta: {src_node.get('_meta')}"
     assert _files_behind(g, src["mask"]) == _read(WHOLE, FILES_WHOLE["track"]), f"the subject's mask: {_files_behind(g, src['mask'])}"
     assert _files_behind(g, src["others"]) == _read(WHOLE, FILES_WHOLE["others"]), f"the others: {_files_behind(g, src['others'])}"
     assert _files_behind(g, src["motion_video"]) == _read(WHOLE, FILES_WHOLE["motion"]), f"the motion video: {_files_behind(g, src['motion_video'])}"
@@ -453,11 +457,20 @@ def a_load_lands_on_the_inputs_it_names():
     assert "composite" in graphs.SETTINGS, "a build record would not say a job set the composite"
     assert src["motion_reference"] == cfg.MASKED_JOB_MOTION["wired"] and src["motion_vae"] is True, "the mesh is not wired to the video model"
     assert src["motion_short_edge"] == min(LOAD_JOB["canvas"]), f"the motion video goes in at {src['motion_short_edge']}"
-    assert run["window_frames"] == SHORT_WINDOW >= WHOLE["frames"] and SHORT_WINDOW < WINDOWS[0] and "held_tail" not in src, \
-        "a short load is in another window than the shortest length on the video grid that holds it, or still sets an input the node no longer has"
+    assert run["window_frames"] == SHORT_WINDOW >= WHOLE["frames"] and SHORT_WINDOW in graphs.both_clocks(WINDOWS) and "held_tail" not in src, \
+        "a load is in another window than the shortest length on both clocks that holds it, or still sets an input the node no longer has"
+    shorter = _a_load({**WHOLE, "frames": 70})
+    assert shorter[graphs._the(shorter, graphs.SONG)]["inputs"]["window_frames"] == 90 < WINDOWS[0], "a 70-frame load is not in a 90-frame window"
+    # At the clip's end (`source_frames=825`), a 25-frame shot 799..823 in a 39-frame window shifts context before (13 before, 1 after: 786..824)
+    at_end = _a_load({**WHOLE, "first": 799, "frames": 25}, job={**LOAD_JOB, "source_frames": 825})
+    end_src = at_end[graphs._the(at_end, graphs.SOURCE)]
+    assert end_src.get("_meta", {}).get("pad_before") == 13 and end_src.get("_meta", {}).get("pad_after") == 1, end_src.get("_meta")
+    assert _files_behind(at_end, end_src["inputs"]["frames"]) == {(LOAD_JOB["source"], graphs.seek(786), 39)}, "end-of-clip context shift"
+    # And a load whose window needs more context frames than exist in the clip is refused
+    _unbuildable("context frame(s) from the source, and only", {**WHOLE, "first": 700, "frames": 25, "audio_first": 700}, job={**LOAD_JOB, "source_frames": 730})
     assert (run["prompt"], run["seed"], run["preview"]) == ("the words", 11, False), "text, seed or preview"
     assert (run["width"], run["height"], run["context_frames"]) == (*LOAD_JOB["canvas"], cfg.MASKED_JOB_CONTEXT), "canvas or context"
-    assert run["extent"] == "first_seconds" and abs(run["extent.seconds"] * cfg.FPS - WHOLE["frames"]) < 1e-6, "the extent is not the load's frames"
+    assert run["extent"] == "first_seconds" and abs(run["extent.seconds"] * cfg.FPS - SHORT_WINDOW) < 1e-6, "the extent is not the window's frames"
     assert run["filename_prefix"] == graphs.run_prefix(LOAD_JOB, WHOLE, False) and run["timeline"] == "", "prefix or timeline"
     assert "continue_from" not in run and "context_noise" not in run, "a load of its own is given kept frames"
     assert "save_kept" not in run, "a load that did not ask saves what the composite kept"
@@ -465,9 +478,9 @@ def a_load_lands_on_the_inputs_it_names():
     assert asked[graphs._the(asked, graphs.SONG)]["inputs"].get("save_kept") is True, "a load that asked does not save what the composite kept"
     audio = g[run["audio"][0]]
     assert audio["class_type"] == "VHS_LoadAudio" and audio["inputs"]["audio_file"] == WHOLE["audio"], "the audio file"
-    assert abs(audio["inputs"]["seek_seconds"] * cfg.FPS - (WHOLE["first"] - WHOLE["audio_first"])) < 1e-3, "the audio does not start on the load's first frame"
-    short = WHOLE["frames"] - audio["inputs"]["duration"] * cfg.FPS
-    assert 0 < short < 1, f"the audio file is cut {short:.3f} frames short of the load: over the load it writes a frame more, a frame under it loses one"
+    assert abs(audio["inputs"]["seek_seconds"] * cfg.FPS - (WHOLE["first"] - pad_before - WHOLE["audio_first"])) < 1e-3, "the audio does not start on the window's first frame"
+    short = SHORT_WINDOW - audio["inputs"]["duration"] * cfg.FPS
+    assert 0 < short < 1, f"the audio file is cut {short:.3f} frames short of the window: over the window it writes a frame more, a frame under it loses one"
     assert not any(n["class_type"] == "TrimAudioDuration" for n in g.values()), "a load with an audio file also cuts the source's track"
     assert g[graphs._the(g, "LoadImage")]["inputs"]["image"] == WHOLE["still"], "the still"
     view = {k: v for k, v in g[graphs._the(g, graphs.STILL)]["inputs"].items() if k.startswith("qwen_view")}
@@ -648,15 +661,16 @@ def a_load_the_graph_cannot_be_built_from():
     # a context is held to a window on the planner's list; a load that is one window off the list keeps none and is held to none
     _unbuildable("context", {**WHOLE, "window": WINDOWS[0], "context": 40})
     _unbuildable("context", {**WHOLE, "window": WINDOWS[0], "context": WINDOWS[0]})     # a context as long as its window
-    assert _a_load({**WHOLE, "context": 40}), "a load of one window off the planner's list was held to a context"
-    # THE WINDOW A LOAD MAY NAME: a length of the planner's, or one on the video grid that holds it whole and is no longer than the
-    # model's ceiling (`MAX_LENGTH`, 2026-10-15); a load that continues another window takes one of the planner's
+    assert _a_load({**WHOLE, "frames": 70, "context": 40}), "a load of one window off the planner's list was held to a context"
+    # THE WINDOW A LOAD MAY NAME: a length on both clocks that holds it whole (`both_clocks`, 2026-10-21);
+    # a load that continues another window takes one of the planner's (`WINDOWS`)
     _unbuildable("window", {**WHOLE, "window": SHORT_WINDOW + 1})                       # off the video grid
-    _unbuildable("window", {**WHOLE, "window": SHORT_WINDOW - 17})                      # on the grid and does not hold the load
-    _unbuildable("window", {**WHOLE, "window": graphs.MAX_LENGTH + 17})                 # on the grid, past the ceiling
-    assert _a_load({**WHOLE, "window": graphs.MAX_LENGTH}), "a lone window at the ceiling was refused"
-    _unbuildable("seam", {**WHOLE, "continue_from": "before.safetensors", "window": graphs.MAX_LENGTH})   # a seam off the chain
-    assert _a_load({**WHOLE, "window": WINDOWS[0]}) and _a_load({**WHOLE, "window": SHORT_WINDOW + 17}), "a window that holds the load was refused"
+    _unbuildable("window", {**WHOLE, "window": 107})                                    # on the video grid, off the audio clock
+    _unbuildable("window", {**WHOLE, "window": 90})                                     # on both clocks and does not hold the load
+    _unbuildable("window", {**WHOLE, "window": graphs.MAX_LENGTH})                      # at MAX_LENGTH (362), off the audio clock
+    assert _a_load({**WHOLE, "window": WINDOWS[-1]}), "a lone window at the longest length on both clocks was refused"
+    _unbuildable("seam", {**WHOLE, "frames": 70, "continue_from": "before.safetensors", "window": 90})   # a seam off the chain
+    assert _a_load({**WHOLE, "window": WINDOWS[0]}) and _a_load({**WHOLE, "window": WINDOWS[1]}), "a window on both clocks that holds the load was refused"
     _unbuildable("context_noise|one window|no window of it keeps frames", {**WHOLE, "context_noise": 0.5})
     _unbuildable("name", {**WHOLE, "name": "b 0700"})
     _unbuildable("part", {**WHOLE, "carried": "held"})                      # a part pass with no part mask
@@ -664,16 +678,16 @@ def a_load_the_graph_cannot_be_built_from():
     _unbuildable("still", {k: v for k, v in WHOLE.items() if k != "still"})
     _unbuildable("audio", {**WHOLE, "audio_first": 701})
     assert _a_load({k: v for k, v in WHOLE.items() if k != "still"}, plan=True), "a plan needs no still"
-    # THE WINDOW THE BUILDER GIVES: the shortest length on the video grid that holds a load one window can hold (the rules
-    # module's own snap) up to the ceiling, never the shortest CHAINED length for a load far shorter than it; the planner's longest
-    # for a longer load; for a load that continues another window, the shortest chained length that holds it
+    # THE WINDOW THE BUILDER GIVES: the shortest length on both clocks (`h3_rules.on_both_clocks`) that holds a load one window
+    # can hold; the planner's longest for a longer load; for a load that continues another window, the shortest chained length
     import h3_rules
     assert all(graphs.snapped(n) == h3_rules.snap_length(n) for n in range(2, WINDOWS[-1] + 40)), "the builder's snap is not h3_rules.snap_length"
     assert (graphs.FRAME_FACTOR, graphs.FRAME_REMAINDER) == (h3_rules.FRAME_FACTOR, h3_rules.FRAME_REMAINDER)
-    top = graphs.MAX_LENGTH
-    assert [graphs.window_for(n, WINDOWS) for n in (12, 22, 23, 24, 39, 40, 114, WINDOWS[0], WINDOWS[0] + 1, WINDOWS[-1], WINDOWS[-1] + 1, top, top + 1, 2 * top)] == \
-        [22, 22, 39, 39, 39, 56, 124, WINDOWS[0], 158, WINDOWS[-1], top, top, WINDOWS[-1], WINDOWS[-1]], "the window is not the shortest valid length that holds the load"
-    assert all(graphs.window_for(n, WINDOWS) - n < graphs.FRAME_FACTOR for n in range(5, top + 1)), "a load one window holds was given a video step or more of held frames"
+    assert graphs.both_clocks(WINDOWS) == tuple(n for n in range(1, graphs.MAX_LENGTH + 1) if h3_rules.on_both_clocks(n)) == (39, 90, *WINDOWS)
+    top = WINDOWS[-1]
+    assert [graphs.window_for(n, WINDOWS) for n in (12, 22, 23, 24, 39, 40, 90, 91, 114, WINDOWS[0], WINDOWS[0] + 1, top, top + 1, graphs.MAX_LENGTH, 2 * top)] == \
+        [39, 39, 39, 39, 39, 90, 90, WINDOWS[0], WINDOWS[0], WINDOWS[0], WINDOWS[1], top, top, top, top], "the window is not the shortest length on both clocks that holds the load"
+    assert all(graphs.window_for(n, WINDOWS) in graphs.both_clocks(WINDOWS) and graphs.window_for(n, WINDOWS) >= n for n in range(5, top + 1)), "a load one window holds was given a window off both clocks"
     assert [graphs.window_for(n, WINDOWS, continues=True) for n in (24, WINDOWS[0] + 1, WINDOWS[-1], WINDOWS[-1] + 1)] == \
         [WINDOWS[0], WINDOWS[1], WINDOWS[-1], WINDOWS[-1]], "a load that continues another window was given a length off the chain"
 
@@ -971,8 +985,8 @@ def a_load_of_two_shots():
     _unbuildable("two subjects|`two_shots`", graphs.one_subject_view(pair), FILES_PAIR, job=TWO_JOB)
     long_job = {**TWO_JOB, "two_shots": {**TWO_SHOTS, "shots": [[604, 899], [900, 1050]]}}
     _unbuildable("ONE window|two loads", two(first=650, frames=400), files, job=long_job)
-    assert graphs.one_window(graphs.MAX_LENGTH - 1, graphs.MAX_LENGTH, WINDOWS) is True, "a lone window at the ceiling was refused"
-    assert graphs.one_window(graphs.MAX_LENGTH + 1, graphs.MAX_LENGTH + 17, WINDOWS) is False, "a window past the ceiling was taken as one window"
+    assert graphs.one_window(WINDOWS[-1] - 1, WINDOWS[-1], WINDOWS) is True, "a lone window at the longest length on both clocks was refused"
+    assert graphs.one_window(WINDOWS[-1] + 1, graphs.MAX_LENGTH, WINDOWS) is False, "a window off the audio clock was taken as one window"
     # through a whole build: the text across the named cut is taken, the record and the printed lines say what the load is
     with tempfile.TemporaryDirectory() as t:
         tmp = Path(t)
@@ -1093,8 +1107,8 @@ def loads_from_a_capture():
         assert json.loads(written[0].with_suffix(".built.json").read_text())["settings"]["motion_edge_2"]["value"] == "no second motion video"
         _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**second, "name": "b_gone", "motion_file_2": str(tmp / "nothing.mp4")},)),
                                           "plan", [], **where), "motion_file_2", "is not a file")
-        assert any("held" in line and "open" in line for line in json.loads(written[0].with_suffix(".built.json").read_text())["shown"]), \
-            "what a short load is shown does not say its held tail"
+        assert any("padded with" in line and "as untouched context, tossed after the decode" in line for line in json.loads(written[0].with_suffix(".built.json").read_text())["shown"]), \
+            "what a short load is shown does not say its context frames tossed after decoding"
         assert (folder / "b_0700.plan.txt").read_text().strip() == "the words", "the text was not kept beside the graph"
         whole = json.loads(written[0].with_suffix(".built.json").read_text())["shown"]
         shown_at = BASE[graphs._the(BASE, graphs.STILL)]["inputs"]["size_policy.dit_short_edge"]
@@ -1119,7 +1133,9 @@ def loads_from_a_capture():
         assert seen["subject"]["share_of_the_frame"] == {"least": WHOLE["first"] / 1000, "middle": (WHOLE["first"] + WHOLE["frames"] // 2) / 1000,
                                                          "most": last / 1000}, seen["subject"]["share_of_the_frame"]
         assert seen["subject"]["box_height_px_middle"] == 160 and "not in the capture" in seen["part"], seen
-        assert seen["load_against_its_window"] == {"frames": WHOLE["frames"], "window": SHORT_WINDOW, "held_past_the_load": SHORT_WINDOW - WHOLE["frames"]}, seen["load_against_its_window"]
+        pad_before, pad_after = graphs.window_pad(WHOLE["first"], WHOLE["frames"], SHORT_WINDOW, LOAD_JOB.get("source_frames"),
+                                                  bool(WHOLE.get("continue_from")), floor=WHOLE.get("audio_first", LOAD_JOB["first"]))
+        assert seen["load_against_its_window"] == {"frames": WHOLE["frames"], "window": SHORT_WINDOW, "context_before": pad_before, "context_after": pad_after, "tossed_after_decode": SHORT_WINDOW - WHOLE["frames"], "held_past_the_load": 0}, seen["load_against_its_window"]
         absent = part["what_this_clips_preview_measured"]
         assert "not in the capture" in absent["subject"] and "not in the capture" in absent["cuts_on_source_frames"], \
             f"a figure the capture does not hold is not said to be absent: {absent}"
@@ -1131,6 +1147,7 @@ def loads_from_a_capture():
 
         def node_refuses(frames: int) -> bool:
             graph = ours_only(_a_load({**PART, "frames": frames}, FILES_PART, plan=True), declared())
+            graph[graphs._the(graph, graphs.SONG)]["inputs"]["extent.seconds"] = frames / cfg.FPS
             return any("extent.seconds" in e and "below min" in e for e in build_workflows.validate_api(graph, declared(), "short"))
         assert node_refuses(least_frames - 1) and not node_refuses(least_frames), \
             f"the node's own schema does not draw the line at {least_frames} frames ({least_seconds} s), where the tool reads it"

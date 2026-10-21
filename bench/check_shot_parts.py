@@ -94,7 +94,7 @@ def main() -> int:
 
     names = cap._pack("sapiens2_parts").CLASS_NAMES
     hair, face = names.index("Hair"), names.index("Face_Neck")
-    longest = shot_parts.h3_config.MAX_LENGTH    # one window holds a load up to the ceiling (2026-10-15)
+    longest = max(masked_job.chain_lengths())    # one window holds a load up to the longest length on both clocks (2026-10-21)
     with tempfile.TemporaryDirectory() as d:
         d = Path(d)
         last = 199 + longest + 20
@@ -192,7 +192,7 @@ def main() -> int:
         case("no_preview_says_so", far["preview"] is None and far["part"] is None and far["no_preview"] == "no preview handed in covers this shot and tracks this subject"
              and far["stands"]["state"] and other is not None and other["no_preview"] == "a preview handed in covers this shot and does not track this subject"
              and "### No part read: 2 row(s)" in md and "NO PREVIEW READ: no preview handed in covers this shot" in md, (far.get("no_preview"), other and other.get("no_preview"), r2.stderr[-300:]))
-        case("one_window_or_more", row[(100, "a")]["window"]["one_window"] is True and row[(100, "a")]["window"]["the_builder_would_take"] == 22 < min(masked_job.chain_lengths())
+        case("one_window_or_more", row[(100, "a")]["window"]["one_window"] is True and row[(100, "a")]["window"]["the_builder_would_take"] == 39 < min(masked_job.chain_lengths())
              and far["window"]["one_window"] is False and far["window"]["frames_over_the_longest"] == 20 and f"MORE THAN ONE WINDOW: 20 frames over the ceiling ({longest})" in md, far["window"])
         read_table, read_intents = shot_coverage._delivery()
         theirs = shot_coverage.coverage(shot_coverage.load_shots(d / "shots.json"), shot_coverage.load_plan(d / "plan.json", ["a", "b"]), read_table(str(d / "t.txt")),

@@ -515,6 +515,7 @@ def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by
             + (f" SAM 3.1'S MEMORY SELECTION IS OFF in this preview's trackers, on {by}'s word: {memory['why']}." if not memory["on"] else "")
             + (f" THE SAM 3.1 HEAD TRACK IS OFF in this preview's trackers, on {by}'s word: {head_track['why']}." if not head_track["on"] else ""))
     return {"job": {"name": name, "note": note, "source": source, "first": shot["first"], "frames": frames, "canvas": canvas,
+                    **({"source_frames": int(shots["source_frames"])} if shots.get("source_frames") is not None else {}),
                     "output": OUTPUT_KEY.format(video=video, session=by), "subjects": subjects, "left_out": [], "texts": {},
                     "sam_memory_selection": memory, "sam_head_track": head_track}, "defaults": {}, "loads": []}
 
@@ -581,10 +582,10 @@ def seam_window(frames: int, context: int) -> dict[tuple[int, ...], tuple[int, l
     20:15Z: "you can do shorter windows too just make sure the frame multiples we documented ... are right to avoid seams"; the lead's
     reading in docs/wiki/decisions.md) a plan of three windows or more is one of them: every window is a chained length, so the step grid
     holds from the load's first frame."""
-    if frames <= h3_config.MAX_LENGTH:                  # one window holds a load up to the ceiling (masked_job_graph.window_for)
-        return {}
     import capture_masked_run as cap
     lp = cap._pack("loop_plan")
+    if frames <= max(lp.CHAIN_LENGTHS):                 # one window holds a load up to the longest chained length (masked_job_graph.window_for)
+        return {}
     out = {}
     for w in lp.CHAIN_LENGTHS:
         try:
@@ -612,7 +613,8 @@ def seam_of(n: int, a: int, seam: list[int] | None, seam_why: str | None, by: st
     context = int(h3_config.MASKED_JOB_CONTEXT)                   # the load's context: the job step sets none, so the chain's
     if (seam is None) != (not str(seam_why or "").strip()):
         raise Refused("--seam and --seam-why go together: the frames the later windows begin writing on, and a person's reason")
-    longest, one = max(masked_job.chain_lengths()), h3_config.MAX_LENGTH   # the planner's window; what one window holds
+    longest = max(masked_job.chain_lengths())
+    one = longest                                                 # the planner's window; what one window holds
     reach = seam_window(n, context)
     said = lambda seams: ", ".join(str(a + k) for k in seams)     # noqa: E731
     tail = lambda seams: n - seams[-1]                                # noqa: E731  the new frames the last window writes
@@ -661,13 +663,14 @@ def context_noise_of(n: int, noise: float | None, why: str | None, by: str, now:
     `data/2026-10-10_fun_pose/kitchen_cn_*`). Per load, not a default,
     until a render of a load of several windows says more: its cost is a seam that may show. (the defaults row, or None when not given)."""
     import h3_config
+    import masked_job
     if (noise is None) != (not str(why or "").strip()):
         raise Refused("--context-noise and --context-noise-why go together: the noise, and a person's reason")
     if noise is None:
         return None
     if not 0.0 < float(noise) <= 1.0:
         raise Refused(f"--context-noise {noise}: above 0 (the kept frames shown clean, the node's own) and at most 1 (redrawn whole)")
-    if n <= h3_config.MAX_LENGTH:
+    if n <= max(masked_job.chain_lengths()):
         raise Refused(f"--context-noise {noise}: one window holds this load's {n} frames, so no window of it keeps frames")
     return {"what": "the kept frames' noise", "carries": f"{float(noise):g}: each later window is shown the frames it keeps from the one before "
             "at that noise and redraws them by that share, so it follows its own motion video more and the window before less; the "
@@ -1617,7 +1620,7 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
     for k in old_load:
         if k not in load_known:
             raise Refused(f"--carry-words-from {old_name}: word-bearing key 'loads[0].{k}' in old job cannot be carried")
-    job_known = {"name", "note", "source", "first", "frames", "canvas", "output", "subjects", "capture", "preview", "reference_folder",
+    job_known = {"name", "note", "source", "source_frames", "first", "frames", "canvas", "output", "subjects", "capture", "preview", "reference_folder",
                  "texts", "keep_outs", "part_on_track", "others_present", "defaults", "restore",
                  "left_out", "zoomed", "whole_frame", "head_tube", "depth", "sam_head_track", "part", "track_not", "reference", "carried_words_from", "no_carry_words"}
     for k in old_job:
@@ -2724,7 +2727,9 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
                 print(f"  {line}")
     if ncw_why:
         print(f"NO WORDS CARRIED: {ncw_why} ({by}, {now})")
+    src_frames = shots.get("source_frames") if shots.get("source_frames") is not None else preview.get("source_frames")
     return {"job": {"name": name, "note": note, "source": source or preview["source"], "first": a, "frames": n, "canvas": list(preview["canvas"]),
+                    **({"source_frames": int(src_frames)} if src_frames is not None else {}),
                     "output": OUTPUT_KEY.format(video=video, session=by), "subjects": subjects,
                     "left_out": [{"subject": subject, "first": x, "frames": y - x + 1, "why": said,
                                   **({"carried": dict(cw["carried_rec"])} if cw and ((x == shot["first"] and wb_from_cw) or (y == shot["last"] and wa_from_cw)) else {})}

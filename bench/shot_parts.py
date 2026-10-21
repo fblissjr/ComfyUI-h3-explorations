@@ -189,12 +189,12 @@ def lists(shots: dict, plan: dict, covered: dict, made: list[dict], answers: lis
                 continue
             wanted, there = plan["subjects"][label], stands[(s["first"], s["last"], label)]
             n = s["last"] - s["first"] + 1
+            longest = max(windows)
             row = {"first": s["first"], "last": s["last"], "frames": n, "subject": label, "present": s["who"][label]["present"],
                    "region": wanted["region"], "parts": list(wanted.get("parts") or []), "keep_outs": list(wanted.get("keep_outs") or []),
                    "window": {"the_builder_would_take": masked_job_graph.window_for(n, windows), "the_planners_lengths": list(windows),
-                              # one window up to the model's ceiling (the owner, 2026-10-15), not the longest chained length
-                              "one_window": n <= h3_config.MAX_LENGTH, "the_ceiling": h3_config.MAX_LENGTH,
-                              "frames_over_the_longest": max(n - h3_config.MAX_LENGTH, 0)},
+                              "one_window": n <= longest, "the_ceiling": longest,
+                              "frames_over_the_longest": max(n - longest, 0)},
                    "nothing_to_make": there.get("nothing_to_make"),
                    "stands": {"state": there["state"], "laid": there["laid"], "left_as_the_source": there["left"],
                               "other_renders": [o for o in there["others"] if not o["in_table"]]},

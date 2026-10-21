@@ -1085,9 +1085,9 @@ def who_else_is_in_the_shot() -> str:
             and reach[(L,)][1] == [L, 192] and reach[(243, 396)][1] == [243, 243, 141], reach
         # each later seam is the one before it plus the length of the window between them less the context it shares
         assert {k: v[0] for k, v in stl.seam_window(573, 90).items()}[(294, 498)] == 294
-        # one window holds a load up to the ceiling (2026-10-15), so a load at the ceiling has no seam
-        assert stl.seam_window(stl.h3_config.MAX_LENGTH, 90) == {} and stl.seam_window(60, 90) == {}
-        assert stl.seam_of(stl.h3_config.MAX_LENGTH, 100, None, None, "s", "n") == (None, None)
+        # one window holds a load up to the longest length on both clocks (2026-10-21), so a load at L has no seam
+        assert stl.seam_window(L, 90) == {} and stl.seam_window(60, 90) == {}
+        assert stl.seam_of(L, 100, None, None, "s", "n") == (None, None)
         refused(lambda: load_with(Made(Path(tmp) / "s1"), ours, seam=[110], seam_why="A CALM STRETCH"), "one window holds this load's 60 frames")
         refused(lambda: load_with(Made(Path(tmp) / "s2"), ours, seam=[110]), "go together")
         window, row = stl.seam_of(406, 604, [898], "A CALM STRETCH", "the session", "now")
@@ -1142,7 +1142,7 @@ def who_else_is_in_the_shot() -> str:
         assert row["what"] == "the kept frames' noise" and row["carries"].startswith("0.8: each later window") \
             and row["from"] == "the session, now: THE TURN AT 945", row
         assert stl.context_noise_of(406, None, None, "s", "n") is None
-        refused(lambda: stl.context_noise_of(stl.h3_config.MAX_LENGTH, 0.8, "X", "s", "n"), "one window holds this load's", "no window of it keeps frames")
+        refused(lambda: stl.context_noise_of(L, 0.8, "X", "s", "n"), "one window holds this load's", "no window of it keeps frames")
         refused(lambda: stl.context_noise_of(406, 0.8, None, "s", "n"), "go together")
         refused(lambda: stl.context_noise_of(406, None, "X", "s", "n"), "go together")
         refused(lambda: stl.context_noise_of(406, 0.0, "X", "s", "n"), "above 0")

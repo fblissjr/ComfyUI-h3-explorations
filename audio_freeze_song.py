@@ -289,6 +289,8 @@ def write_plan(source: dict, windows, writes: list[int], context_frames: int, co
     """
     os.makedirs(work_dir, exist_ok=True)
     have = int(source["frames"].shape[0])
+    pad_before = int(source.get("pad_before", 0)) if len(windows) == 1 and not continued else 0
+    pad_after = int(source.get("pad_after", 0)) if len(windows) == 1 and not continued else 0
     cuts = [int(c) for c in source.get("cuts") or []]
     on = (source["mask"] > 0.5).flatten(1).any(dim=1).tolist()
     present, at = [], None
@@ -299,12 +301,21 @@ def write_plan(source: dict, windows, writes: list[int], context_frames: int, co
             present.append((at, f - 1))
             at = None
     split = loop_plan.split_steps(cuts, 0, present, have)
+    if pad_before or pad_after:
+        n_shot = have - pad_before - pad_after
+        split = [{"step": [max(0, s["step"][0] - pad_before), min(n_shot - 1, s["step"][1] - pad_before)],
+                  "cuts": [c - pad_before for c in s["cuts"] if pad_before <= c < have - pad_after],
+                  "across": [f - pad_before for f in s["across"] if pad_before <= f < have - pad_after],
+                  "shared": [f - pad_before for f in s["shared"] if pad_before <= f < have - pad_after]}
+                 for s in split if any(pad_before <= c < have - pad_after for c in s["cuts"])]
     rows, lines, past = [], [], []
     for i, w in enumerate(windows):
         start = int(round(w.start * FPS))
-        trim = int(context_frames) if (i or continued) else 0
+        trim = int(context_frames) if (i or continued) else pad_before
+        first_written = (start + trim) if (i or continued) else 0
         row = {"number": w.number, "first_frame": start, "frames": w.frames, "trim": trim, "frames_written": int(writes[i]),
-               "first_written_frame": start + trim, "last_written_frame": start + trim + int(writes[i]) - 1, "text": w.text}
+               "first_written_frame": first_written, "last_written_frame": first_written + int(writes[i]) - 1, "text": w.text,
+               **({"pad_before": pad_before, "pad_after": pad_after} if (pad_before or pad_after) else {})}
         if start >= have:
             past.append(w.number)
             rows.append({**row, "region_file": None, "why": f"starts past the source's {have} frames"})
@@ -316,6 +327,9 @@ def write_plan(source: dict, windows, writes: list[int], context_frames: int, co
         path = loop_resume.planned_region_path(work_dir, filename, w.number)
         video_mask.save_window_region(path, mask, tokens, source, margin, start, trim)
         across, bare = video_mask.unlaid_frames(mask, tokens, cuts, start)
+        if pad_before or pad_after:
+            across = [f - pad_before for f in across if pad_before <= f < w.frames - pad_after]
+            bare = [f - pad_before for f in bare if pad_before <= f < w.frames - pad_after]
         gated = sorted(start + f for f in across + bare)
         written = range(row["first_written_frame"], row["last_written_frame"] + 1)
         rows.append({**row, "latent_steps": int(tokens.shape[0]), "source_frames_held": int(held),
@@ -341,7 +355,8 @@ def write_plan(source: dict, windows, writes: list[int], context_frames: int, co
             # file of this plan is then of that box scaled to the canvas, not of the whole frame
             "zoom": source.get("zoom"),
             "source": {"frames": have, **{k: source.get(k) for k in video_mask.REGION_SETTINGS}},
-            "frames_with_the_mask": [list(r) for r in present], "windows": rows}
+            "frames_with_the_mask": [[a - pad_before, b - pad_before] for a, b in present] if (pad_before or pad_after) else [list(r) for r in present],
+            "windows": rows}
     part = loop_resume.plan_path(work_dir, filename) + ".part"
     with open(part, "w", encoding="utf-8") as fh:
         json.dump(plan, fh, indent=1)
@@ -642,17 +657,20 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
         continue_from = str(continue_from or "").strip()
         if continue_from:
             loop_resume.check_window_latent(continue_from)      # here, so a preview's plan refuses a wrong file too
-        head = context_frames if continue_from else 0
+        pad_before = int(source.get("pad_before", 0)) if source is not None and n_windows == 1 and not continue_from else 0
+        pad_after = int(source.get("pad_after", 0)) if source is not None and n_windows == 1 and not continue_from else 0
+        head = context_frames if continue_from else pad_before
         total = loop_plan.frames_covered([w.frames for w in windows], context_frames)
         # what is written of that: every frame, or as far as the track runs when it ends first;
         # the frames past it come off the last window's tail before it is encoded
-        kept_frames = loop_plan.frames_kept(total, track_seconds)
+        kept_frames = (total - pad_after) if (pad_before or pad_after) else loop_plan.frames_kept(total, track_seconds)
         writes = loop_plan.frames_written([w.frames for w in windows], context_frames, kept_frames, head)
 
         clock = loop_plan.clock
         lines = [f"{n_windows} windows {[w.frames for w in windows]} with {context_frames}-frame context, "
                  f"{total} frames ({total / FPS:.2f}s) over {seconds:.2f}s of track"
-                 + (f"; {kept_frames} are written, the track ends first" if kept_frames < total else "")]
+                 + (f"; {kept_frames - head} are written ({pad_before} before and {pad_after} after are context)" if (pad_before or pad_after)
+                    else f"; {kept_frames} are written, the track ends first" if kept_frames < total else "")]
         if continue_from:
             lines.append(f"continues from {os.path.basename(continue_from)}: the first {head} frames of this run's "
                          f"track are that window's context and are not written; {kept_frames - head} frames are")
@@ -866,6 +884,8 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 context_noise=context_noise)
             win = getattr(win, "args", win)
             wlatent, _clip_audio, _span, trim, next_start, wreport, _new_audio = win
+            if i == 0 and not continue_from and (pad_before or pad_after):
+                trim = pad_before
             reports.append(f"[{w.number}] {wreport}")
             if src_tokens is not None:
                 # a minimum, so the context the window node froze stays frozen whole
@@ -951,8 +971,9 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
             if w.number == n_windows and overrun > 0:
                 # past the track's end: dropped here, at the frames, so the join copies whole windows
                 images = images[:writes[i]]
-                reports.append(f"[{w.number}] the track ends {overrun} frames before this window "
-                               "does; they are not written")
+                if not (pad_before or pad_after):
+                    reports.append(f"[{w.number}] the track ends {overrun} frames before this window "
+                                   "does; they are not written")
             if zoomed_images is not None:
                 zoomed_images = zoomed_images[int(trim):][:int(images.shape[0])]     # frame for frame with the video
             video_path, latent_path = loop_resume.window_paths(work_dir, filename, w.number)

@@ -715,6 +715,12 @@ def saved_regions() -> str:
         # files that do not reach the render's end, or leave a gap, are not this render's
         assert cap.read_saved_regions(found, 100, 13, (W, H), render_frames=21)[0] is None, "a longer render, and its region read"
         assert cap.read_saved_regions(found[1:], 100, 13, (W, H))[0] is None, "a window missing from the front, and its region read"
+        # a context-padded single window (pad_before=2, pad_after=2, trim=2 in a 9-frame window writing 5 shot frames)
+        pad_mask, pad_tokens = one(32, slice(2, 7))
+        pad_file = folder / "pad_window_1_region.npz"
+        vm.save_window_region(str(pad_file), pad_mask, pad_tokens, {**settings, "pad_before": 2, "pad_after": 2}, 8, 0, 2)
+        p_reg, p_car, p_read, p_how = cap.read_saved_regions([pad_file], 100, 5, (W, H), render_frames=5)
+        assert p_reg is not None and p_read.all() and p_reg[:, 2, 2].all() and p_how["held_frames_past_the_render"] == 0, p_how
     return ("two windows tile one run's region, each frame from the window whose video holds it; a frame left as the "
             "source across a cut has none and is named; files that do not fit the render are refused")
 

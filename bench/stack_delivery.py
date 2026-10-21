@@ -422,8 +422,9 @@ class KeptSquares:
                 got = vm.load_window_region(str(f))
                 mask, tokens = got["mask"], got["tokens"]
                 start, trim, count = int(got["first_frame"]), int(got["trim"]), int(mask.shape[0])
-                if start + trim != end:
-                    self.windows, self.why = [], (f"{f.name} lays from load frame {start + trim} and the window before it ended on {end}: "
+                pad_before, pad_after = int(got.get("pad_before", 0)), int(got.get("pad_after", 0))
+                if start + trim - pad_before != end:
+                    self.windows, self.why = [], (f"{f.name} lays from load frame {start + trim - pad_before} and the window before it ended on {end}: "
                                                   "the windows do not follow on")
                     return
                 lt, lh, lw = (int(v) for v in tokens.shape)
@@ -432,11 +433,12 @@ class KeptSquares:
                 taken = (grown & ~(tokens > 0.5)).numpy()
                 gate = (vm.cut_gate(mask, lt, got["source"].get("cuts"), start) > 0.5).numpy()
                 has_mask = (mask > 0.5).flatten(1).any(dim=1).numpy()
-                self.windows.append({"file": f.name, "start": start, "trim": trim, "count": count, "zoom": got.get("zoom"),
+                self.windows.append({"file": f.name, "start": start, "trim": trim, "count": count,
+                                     "pad_before": pad_before, "pad_after": pad_after, "zoom": got.get("zoom"),
                                      "picture": (int(mask.shape[1]), int(mask.shape[2])), "cells": (lh, lw), "whole": whole,
                                      "taken": taken[:, ::2, ::2] if whole else taken, "runs": np.cumsum([0] + vm.run_lengths(lt)),
                                      "gate": gate, "has_mask": has_mask})
-                end = start + count
+                end = start + count - pad_before - pad_after
         except Exception as e:                      # a file the node's own reader refuses
             self.windows, self.why = [], f"a window region file does not read ({type(e).__name__}: {e})"
             return
@@ -480,13 +482,17 @@ class KeptSquares:
         lh, lw = wd["cells"]
         h, w = wd["picture"]
         union = None
+        pad_before, pad_after = int(wd.get("pad_before", 0)), int(wd.get("pad_after", 0))
         for file, first, (cw, ch) in self.tracks:
             reader = Reader(file, first + wd["start"], FIT.format(w=cw, h=ch), cw, ch, "gray")
             frames, last = [], None
             for i in range(wd["count"]):
-                got = reader.frame(first + wd["start"] + i)
+                if i < pad_before or i >= wd["count"] - pad_after:
+                    frames.append(None)
+                    continue
+                got = reader.frame(first + wd["start"] + i - pad_before)
                 last = got if got is not None else last     # a frame past the track's end holds its last, as the node holds a window's
-                frames.append(last)
+                frames.append(last if not (pad_before or pad_after) else got)
             reader.close()
             if last is None:
                 self._hers[wd["file"]] = None
@@ -510,10 +516,10 @@ class KeptSquares:
         if self.why:
             return {"not_read": self.why}
         n = f - self.load_first
-        wd = next((x for x in self.windows if x["start"] + x["trim"] <= n < x["start"] + x["count"]), None)
+        wd = next((x for x in self.windows if x["start"] + x["trim"] - x.get("pad_before", 0) <= n < x["start"] + x["count"] - x.get("pad_before", 0) - x.get("pad_after", 0)), None)
         if wd is None:
             return {"not_read": f"no window region file lays load frame {n} (source frame {f})"}
-        k = n - wd["start"]
+        k = n - wd["start"] + wd.get("pad_before", 0)
         if not (wd["gate"][k] and wd["has_mask"][k]):
             why = "its mask is empty on this frame" if not wd["has_mask"][k] else "the cut gate leaves this frame as the source"
             return {"windows": {wd["file"]: {"inside": 0, "outside": 0, "taken": 0}}, "draw": None, "not_split": None,

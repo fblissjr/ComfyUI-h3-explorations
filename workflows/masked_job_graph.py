@@ -515,33 +515,50 @@ def snapped(frames: int) -> int:
     return frames + (FRAME_REMAINDER - frames) % FRAME_FACTOR
 
 
+def both_clocks(windows: tuple[int, ...]) -> tuple[int, ...]:
+    """Every window length on both clocks (17n + 5 and whole on the 25 Hz audio clock: `h3_rules.on_both_clocks`),
+    worked out from `loop_plan.CHAIN_LENGTHS` (`windows`) alone since that module needs ComfyUI."""
+    if len(windows) < 2:
+        return tuple(windows)
+    step = windows[1] - windows[0]
+    return tuple(c for c in range(windows[0] % step, max(windows) + 1, step) if c > 0)
+
+
 def one_window(frames: int, window: int, windows: tuple[int, ...]) -> bool:
-    """Whether a load of `frames` in a window of `window` is ONE window that stands alone: the window holds it whole,
-    is on the video grid and is no longer than the model's ceiling, `MAX_LENGTH` (`loop_plan.stands_alone`, the same
-    rule; until 2026-10-15 it was held to the planner's longest chained length, a seam rule a lone window has no seam
-    for)."""
-    return window % FRAME_FACTOR == FRAME_REMAINDER and 0 < frames <= window <= MAX_LENGTH
+    """Whether a load of `frames` in a window of `window` is ONE window that stands alone: the window holds it whole
+    and is on both clocks (`both_clocks`, `h3_rules.on_both_clocks`: the owner, 2026-10-21)."""
+    return 0 < frames <= window and window in both_clocks(windows)
 
 
 def window_for(frames: int, windows: tuple[int, ...], continues: bool = False) -> int:
-    """The window a load is rendered in: for a load one window can hold, the shortest length the model's video grid
-    has that holds it whole (`snapped`), up to the ceiling `MAX_LENGTH` (the owner, 2026-10-15), every real frame kept
-    and the window's frames past them held; for a longer one, the planner's longest, and it runs in several.
-
-    Until 2026-10-13 a load one window could hold took the shortest CHAINED length that held it, so a load of two
-    dozen frames was sampled as the shortest of those, most of it a held last frame; the owner's word that day: a
-    window's length is a choice and only has to be valid for the model, and one shot stays in one window where a
-    valid length holds it. A load shorter than its window still holds its last frame with the region open for the
-    frames between (`video_mask.held_mask`): under one video step of them now. `windows` is
-    `loop_plan.CHAIN_LENGTHS`, handed in because that module needs ComfyUI; a load may still name a `window` of its
-    own, a chained length or any that holds it as one window.
+    """The window a load is rendered in: for a load one window can hold, the shortest length on both clocks
+    (`both_clocks`, `h3_rules.on_both_clocks`) that holds it whole (the owner, 2026-10-21), padded with real source
+    frames before and after the shot (`window_pad`) that are tossed after the decode; for a longer one, the planner's
+    longest, and it runs in several.
 
     A load that `continues` another window (`continue_from`) meets it at a seam, so its window is a chained length:
-    the shortest of `windows` that holds it, or the longest. The ceiling is not on the audio clock, and the window node
-    refuses a seam off it (`audio_freeze.window_geometry`)."""
-    if continues:
-        return next((w for w in sorted(windows) if w >= frames), max(windows))
-    return snapped(frames) if frames <= MAX_LENGTH else max(windows)
+    the shortest of `windows` that holds it, or the longest."""
+    choices = sorted(windows) if continues else both_clocks(windows)
+    return next((w for w in choices if w >= frames), max(windows))
+
+
+def window_pad(first: int, frames: int, window: int, source_frames: int | None = None,
+               continues: bool = False, floor: int = 0) -> tuple[int, int]:
+    """(before, after) real source frames of untouched context around a one-window load shorter than its window.
+
+    Split evenly before and after (`extra // 2` before, the rest after), shifted into `after` when `first` is near
+    the start of the clip (`floor`, 0 or an external audio file's `audio_first`) and into `before` when `first + frames`
+    is near `source_frames` (the clip's end)."""
+    if continues or frames >= window:
+        return 0, 0
+    extra = int(window) - int(frames)
+    avail_before = max(0, int(first) - int(floor))
+    before = min(avail_before, extra // 2)
+    after = extra - before
+    if source_frames is not None and int(first) + int(frames) + after > int(source_frames):
+        after = max(0, int(source_frames) - (int(first) + int(frames)))
+        before = min(avail_before, extra - after)
+    return before, after
 
 
 def keeps_frames(one: dict, frames: int, window: int) -> bool:
@@ -666,9 +683,18 @@ def check_load(job: dict, one: dict, windows: tuple[int, ...]) -> None:
         raise ValueError(f"load {name!r} sets held_tail: no longer a key. A load shorter than its window keeps its "
                          f"region open over the held frames, and that is the node's only behaviour since 2026-10-10")
     if "window" in one and one["window"] not in windows and not one_window(frames, one["window"], windows):
-        raise ValueError(f"load {name!r}: window {one['window']} is not a length the planner has, {windows}, nor one that holds "
-                         f"this load's {frames} frames as one window on the video grid (17n + 5, no longer than {MAX_LENGTH})")
+        raise ValueError(f"load {name!r}: window {one['window']} is not a length the planner has, {windows}, nor one on both clocks "
+                         f"{both_clocks(windows)} that holds this load's {frames} frames as one window")
     window, context = one.get("window", window_for(frames, windows, bool(one.get("continue_from")))), one.get("context", MASKED_JOB_CONTEXT)
+    if job.get("source_frames") is not None:
+        total_src = int(job["source_frames"])
+        if first + frames > total_src:
+            raise ValueError(f"load {name!r}: frames {first}..{first + frames - 1} reach past the source's {total_src} frames")
+        floor = one.get("audio_first", job["first"]) if one.get("audio") else 0
+        before, after = window_pad(first, frames, window, total_src, bool(one.get("continue_from")), floor=floor)
+        if not one.get("continue_from") and frames < window and frames + before + after < window:
+            raise ValueError(f"load {name!r}: a {window}-frame window around frames {first}..{first + frames - 1} needs {window - frames} "
+                             f"context frame(s) from the source, and only {before + after} exist within {floor}..{total_src - 1}")
     if one.get("continue_from") and window not in windows:
         raise ValueError(f"load {name!r} continues another run (`continue_from`) in a window of {window}: a window that meets "
                          f"another at a seam is one of the planner's chained lengths, {windows}")
@@ -704,8 +730,8 @@ def check_load(job: dict, one: dict, windows: tuple[int, ...]) -> None:
             raise ValueError(f"load {name!r} continues another run (`continue_from`) in a job of two shots (`two_shots`): a "
                              f"two-shot load is a run of its own")
         if not one_window(frames, window, windows):
-            raise ValueError(f"load {name!r} is {frames} frames in a window of {window}: a two-shot load is ONE window that holds "
-                             f"both shots whole (on the video grid, no longer than {MAX_LENGTH}). Two shots too long for one "
+            raise ValueError(f"load {name!r} is {frames} frames in a window of {window}: a two-shot load is ONE window on both clocks "
+                             f"{both_clocks(windows)} that holds both shots whole. Two shots too long for one "
                              f"window are two loads")
 
 
@@ -734,10 +760,18 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
     check_load(job, one, windows)
     canvas = tuple(job["canvas"])
     first, frames = one["first"], one["frames"]
+    if one.get("audio") and first < one.get("audio_first", job["first"]):
+        raise ValueError(f"load {one['name']!r} starts before its audio file does")
+    window = one.get("window", window_for(frames, windows, bool(one.get("continue_from"))))
+    floor = one.get("audio_first", job["first"]) if one.get("audio") else 0
+    before, after = window_pad(first, frames, window, job.get("source_frames"), bool(one.get("continue_from")), floor=floor)
+    win_first, win_frames = first - before, frames + before + after
     g = copy.deepcopy(base)
     song, source = _the(g, SONG), _the(g, SOURCE)
     frames_from = g[source]["inputs"]["frames"][0]
-    g[frames_from] = loader(job["source"], first, frames, canvas)
+    g[frames_from] = loader(job["source"], win_first, win_frames, canvas)
+    if before or after:
+        g[source].setdefault("_meta", {}).update(pad_before=before, pad_after=after)
     counter = iter(range(MASK_FILES, MASK_FILES + 1000, 10))
 
     def from_file(path: str, at: int, as_mask: bool = True) -> list:
@@ -814,7 +848,6 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
             # a second video beside the first, the next video reference; at the canvas's short edge unless the load says
             src.update(motion_video_2=from_file(*files["motion_2"], as_mask=False),
                        motion_short_edge_2=one.get("motion_edge_2", min(canvas)))
-    window = one.get("window", window_for(frames, windows, bool(one.get("continue_from"))))
     for theirs in ("render_region", "largest_zoom"):
         src.pop(theirs, None)
     if RENDER_REGIONS[one.get("render_region", "frame")]:
@@ -854,9 +887,9 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
     # before that still names their inputs, and a load must not carry them over
     run.pop("reuse_windows", None)
     src.pop("reuse_mask", None)
-    # the model hears the source's own track, cut to the load (`AUDIO_SHORT_BY` has why it is cut again
+    # the model hears the source's own track, cut to the window (`AUDIO_SHORT_BY` has why it is cut again
     # after the loader has cut it)
-    heard = round((frames - AUDIO_SHORT_BY) / FPS, 6)
+    heard = round((win_frames - AUDIO_SHORT_BY) / FPS, 6)
     g[AUDIO_CUT] = {"class_type": "TrimAudioDuration",
                     "inputs": {"audio": [frames_from, 2], "start_index": 0.0, "duration": heard}}
     run["audio"] = [AUDIO_CUT, 0]
@@ -864,7 +897,7 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
         run["seed"] = one["seed"]
     # a DynamicCombo: the member after its parent
     run["extent"] = "first_seconds"
-    run["extent.seconds"] = frames / FPS
+    run["extent.seconds"] = win_frames / FPS
     if one.get("continue_from"):
         run["continue_from"] = one["continue_from"]
         run["context_noise"] = one.get("context_noise", MASKED_JOB_CONTEXT_NOISE)
@@ -877,15 +910,13 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
     if one.get("save_kept"):
         run["save_kept"] = True
     if one.get("audio"):
-        # a file in place of the source's track, cut the same way: left to run past the load's last frame it
+        # a file in place of the source's track, cut the same way: left to run past the window's last frame it
         # makes the song node write frames to fill it
         g.pop(AUDIO_CUT)
         g[AUDIO_FILE] = {"class_type": "VHS_LoadAudio",
                          "inputs": {"audio_file": one["audio"],
-                                    "seek_seconds": round((first - one.get("audio_first", job["first"])) / FPS, 6),
+                                    "seek_seconds": round((win_first - one.get("audio_first", job["first"])) / FPS, 6),
                                     "duration": heard}}
-        if first < one.get("audio_first", job["first"]):
-            raise ValueError(f"load {one['name']!r} starts before its audio file does")
         run["audio"] = [AUDIO_FILE, 0]
     roots = [nid for nid, n in g.items() if n["class_type"] == "PreviewAny" and n["inputs"]["source"][0] == song]
     return _reached(g, [song] + roots)

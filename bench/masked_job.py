@@ -936,9 +936,12 @@ def shown(job: dict, one: dict, files: dict, graph: dict, inputs: Path) -> list[
     src = graph[graphs._the(graph, graphs.SOURCE)]["inputs"]
     run = graph[graphs._the(graph, graphs.SONG)]["inputs"]
     ref = graph[graphs.stills_of(graph)[0][0]]["inputs"]              # the first still's; a second is shown as the first is
+    floor = one.get("audio_first", job["first"]) if one.get("audio") else 0
+    before, after = graphs.window_pad(one["first"], one["frames"], run["window_frames"], job.get("source_frames"),
+                                      bool(one.get("continue_from")), floor=floor)
     lines = [f"frames {one['first']}..{one['first'] + one['frames'] - 1} of the copy at {h3_config.FPS:g} fps, canvas "
              f"{run['width']}x{run['height']}, window {run['window_frames']}, context {run['context_frames']}"
-             + (f", its last frame held for {run['window_frames'] - one['frames']} frames with the region open"
+             + (f", padded with {before} real frame(s) before and {after} after ({one['first'] - before}..{one['first'] + one['frames'] + after - 1}) as untouched context, tossed after the decode"
                 if one["frames"] < run["window_frames"] else ""),
              (still_seen(one["still"], ref["size_policy.dit_short_edge"], ref["size_policy.allow_upscale"], inputs)
               if one.get("still") else "no still named: a plan samples nothing")
@@ -1036,7 +1039,11 @@ def measured(job: dict, one: dict, capture: Path, graph: dict) -> dict:
     else:
         out["subject"] = "not in the capture: no per-frame table"
     window = graph[graphs._the(graph, graphs.SONG)]["inputs"]["window_frames"]
-    out["load_against_its_window"] = {"frames": one["frames"], "window": window, "held_past_the_load": max(window - one["frames"], 0)}
+    floor = one.get("audio_first", job["first"]) if one.get("audio") else 0
+    before, after = graphs.window_pad(one["first"], one["frames"], window, job.get("source_frames"),
+                                      bool(one.get("continue_from")), floor=floor)
+    out["load_against_its_window"] = {"frames": one["frames"], "window": window, "context_before": before, "context_after": after,
+                                      "tossed_after_decode": before + after, "held_past_the_load": 0}
     return out
 
 

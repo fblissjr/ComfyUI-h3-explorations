@@ -117,22 +117,23 @@ def the_chain_is_the_rule() -> str:
 def one_window_every_frame_kept() -> str:
     import masked_job
     import masked_job_graph as g
-    chain, top = masked_job.chain_lengths(), h3_rules.MAX_LENGTH
+    chain, top = masked_job.chain_lengths(), max(masked_job.chain_lengths())
+    both = g.both_clocks(chain)
     for n in range(1, top + 1):
         w = g.window_for(n, chain)
-        # THE CASE THAT GOES RED when a load's last real frames are dropped to fit a window, or a load under the ceiling
-        # is split into windows
-        assert w >= n and w <= top and w % h3_rules.FRAME_FACTOR == h3_rules.FRAME_REMAINDER and g.one_window(n, w, chain), (n, w)
-    for n in range(top + 1, top + 300):
-        assert g.window_for(n, chain) == max(chain), (n, g.window_for(n, chain))
-    said = f"every load of 1 to {top} frames is one window holding every frame; longer ones chain at {max(chain)}"
+        # THE CASE THAT GOES RED when a load's last real frames are dropped to fit a window, or a load under the longest
+        # length on both clocks is split into windows, or a window is off either clock
+        assert w >= n and w <= top and w in both and g.one_window(n, w, chain), (n, w)
+    for n in range(top + 1, h3_rules.MAX_LENGTH + 300):
+        assert g.window_for(n, chain) == top, (n, g.window_for(n, chain))
+    said = f"every load of 1 to {top} frames is one window on both clocks holding every frame; longer ones chain at {top}"
     try:
         bootstrap(cpu=True)
         import loop_plan
     except Exception as e:  # noqa: BLE001
         return said + f"; loop_plan NOT read ({type(e).__name__})"
     assert all(loop_plan.stands_alone(g.window_for(n, chain), n) or g.window_for(n, chain) in chain for n in range(1, top + 1))
-    assert not loop_plan.stands_alone(top + h3_rules.FRAME_FACTOR, top + 1), "a lone window past the ceiling was taken"
+    assert not loop_plan.stands_alone(h3_rules.MAX_LENGTH + h3_rules.FRAME_FACTOR, h3_rules.MAX_LENGTH + 1), "a lone window past the ceiling was taken"
     return said + "; the planner takes each as a window that stands alone"
 
 
