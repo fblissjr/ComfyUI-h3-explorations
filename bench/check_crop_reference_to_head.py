@@ -22,6 +22,8 @@ else on every frame (`bench/_lib/face_points_fixture.py`), runs the tool, and re
    said to be untellable.
 6. **What it refuses.** A span the points do not cover; a span the reference does not hold; points made on
    another canvas; a points file that does not say its first frame.
+7. **The sheet shows a change.** A reference whose whole picture changes at frame 9 has 9 on its sheet with the
+   picture's change as the reason (`bench/_lib/pick_frames.py`).
 
 Needs ffmpeg and ffprobe on the path. No model, no card, no server.
 
@@ -138,7 +140,8 @@ def one_box_and_its_scale() -> str:
     saved = json.loads((WORK / "a.json").read_text())
     assert saved["points_in_this_picture"]["file"] == "a_points.npz"
     assert saved["box"] == rec["box"] and saved["frames"] == [0, N - 1] and saved["made_from"]["reference_video"] == str(REF)
-    assert (WORK / "a_sheet.jpg").exists() and len(saved["sheet"]["frames"]) == 6 and saved["sheet"]["looked_at_by"] == ""
+    assert (WORK / "a_sheet.jpg").exists() and saved["sheet"]["looked_at_by"] == "" \
+        and saved["sheet"]["frames"][::len(saved["sheet"]["frames"]) - 1] == [0, N - 1] and set(saved["sheet"]["why"]) == {str(f) for f in saved["sheet"]["frames"]}
     assert "no record beside the points file" in saved["made_from"]["the_points_own_record_says"], saved["made_from"]
     POINTS.with_suffix(".json").write_text(json.dumps({"made_by": "a session", "made_at": "then", "made_from": {"box_mask": "track.mkv"}, "frames": N}))
     told = cr.run(str(REF), str(POINTS), 0, N, WORK / "told.mp4", "the check", say=quiet)["made_from"]["the_points_own_record_says"]
@@ -151,6 +154,16 @@ def one_box_and_its_scale() -> str:
     assert tight["box"][0] <= need[0] + 1 and tight["box"][1] <= need[1] + 1 and tight["box"][2] >= need[2] - 1 and tight["box"][3] >= need[3] - 1
     return (f"one box {rec['box']} holds every face with its room and is the canvas's shape; enlarged {sx:.3f} times, each frame's square is within "
             f"{worst:.1f} px of where the record puts it and that many times larger; the points written beside it put each nose on its square; less room gives a tighter box ({tight['scale'][0]:.3f} times)")
+
+
+def the_sheet_shows_a_change() -> str:
+    """The sheet's frames come from what the run holds: a reference whose whole picture changes at frame 9 has 9 on its
+    sheet, with the picture's change as the reason (red when the sheet takes first, last and one a second alone)."""
+    ref = video(WORK / "ref_change.mkv", reference(CENTRES, [90] * 9 + [200] * (N - 9)))
+    rec = cr.run(str(ref), str(POINTS), 0, N, WORK / "change.mp4", "the check", say=quiet)
+    assert 9 in rec["sheet"]["frames"] and "picture" in rec["sheet"]["why"]["9"], rec["sheet"]
+    assert rec["sheet"]["over_the_cap"] is False and rec["sheet"]["cap"].endswith("within it"), rec["sheet"]
+    return f"frame 9, where the picture changes, is on the sheet: {rec['sheet']['why']['9']}"
 
 
 def frames_from_the_middle() -> str:
@@ -363,6 +376,7 @@ def head_track_and_crown_room() -> str:
 
 
 case("one box, holding every face with its room, and the scale the record says", one_box_and_its_scale)
+case("the sheet shows a change", the_sheet_shows_a_change)
 case("frames from the middle of both files", frames_from_the_middle)
 case("a head near an edge, and a head that crosses the frame", edges_and_the_whole_frame)
 case("the original itself is fitted, then cut by the same box", the_original_fitted_then_cut)

@@ -12,7 +12,8 @@ fills the area between each eye's upper and lower lash line, from the pose model
 points' lip lines were judged and are not drawn (`bench/_lib/face_points.py::lip_gap`).
 
 Everything is named in and named out. It reads the mesh video and the points file it is given and writes the
-video, a record beside it (`.json`) and, with `--source`, a sheet of a few frames laid over the original to
+video, a record beside it (`.json`) and, with `--source`, a sheet laid over the original (its frames where something
+changes and one a second, `bench/_lib/pick_frames.py`, each saying why) to
 look at before the video is used. Nothing is looked up by a key and nothing made earlier is reused.
 
 THE SIZE. Each eye's outline is grown about its own centre by one factor for the whole shot:
@@ -63,6 +64,7 @@ from PIL import Image, ImageDraw
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _lib import REPO  # noqa: E402
 from _lib import face_points as fp  # noqa: E402
+from _lib import pick_frames as picker  # noqa: E402
 from _lib.frames import FIT, FPS, probe, stream  # noqa: E402
 
 sys.path.insert(0, str(REPO / "workflows"))
@@ -241,11 +243,25 @@ def read_back(video: Path, mesh: np.ndarray, area: np.ndarray, drawn: np.ndarray
             "passed": passed}
 
 
-def sheet(path: Path, source_frames: np.ndarray, first: int, marked: np.ndarray, points: dict, count: int) -> list[int]:
-    """A few frames in three panels (the original, the marked body model, the two blended), cut round the nose."""
+def sheet_picks(source_frames: np.ndarray, first: int, points: dict, count: int, left: set, gap: list[float]) -> dict:
+    """The frames the sheet shows (`_lib/pick_frames.py`): where the face's points, the lid gap against the line it is
+    drawn by, or the picture round the nose change, either side of each; the edges of the frames left bare (a person's
+    word, so always); and one a second."""
+    h, w = source_frames.shape[1:3]
+    series = {**picker.points_series(points), "left_bare": {"values": picker.labels_of(count, 0, left, "bare", "marked"), "record": True},
+              "lid_gap_px": {"values": gap, "rules": ("line", "step"), "line": h3_config.POSE_READING["lid_gap_px_to_draw"]},
+              "picture_round_the_nose": {"values": picker.difference_in_boxes(source_frames, picker.nose_boxes(points, (w, h))), "rules": ("peak",)}}
+    return picker.sheet_picks(first, count, series)
+
+
+def sheet(path: Path, source_frames: np.ndarray, first: int, marked: np.ndarray, points: dict, count: int, picked: dict | None = None) -> list[int]:
+    """The picked frames (`sheet_picks`; the points' changes and one a second when not given) in three panels (the
+    original, the marked body model, the two blended), cut round the nose, each with why it was picked."""
     h, w = marked.shape[1:3]
     idx = points["index"]
-    picks = sorted(set(np.linspace(0, count - 1, 6).astype(int).tolist()))
+    picked = picked or picker.sheet_picks(first, count, picker.points_series(points))
+    why = picker.first_reasons(picked)
+    picks = [f - first for f in picker.frames_of(picked)]
     src = source_frames
     side, tile = max(120, int(2.2 * np.median([fp.face_height(p, idx) for p in points["keypoints"]]))), 440
     rows = []
@@ -257,6 +273,7 @@ def sheet(path: Path, source_frames: np.ndarray, first: int, marked: np.ndarray,
         for i, t in enumerate((a, b, Image.blend(a, b, 0.5))):
             row.paste(t.resize((tile, tile), Image.LANCZOS), (i * tile, 0))
         ImageDraw.Draw(row).text((6, 6), f"source frame {first + f}: the original | the body model with the marks | the two blended", fill=(255, 255, 0))
+        ImageDraw.Draw(row).text((6, 20), f"picked: {why.get(first + f, '')}", fill=(255, 255, 255))
         rows.append(row)
     out = Image.new("RGB", (tile * 3, tile * len(rows)))
     for i, r in enumerate(rows):
@@ -329,7 +346,11 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     }
     if source:
         sheet_path = out.with_name(out.stem + "_sheet.jpg")
-        record["sheet"] = {"file": sheet_path.name, "frames": sheet(sheet_path, src, first, marked, points, count), "looked_at_by": ""}
+        assert src is not None                      # read above whenever there is a --source
+        picked = sheet_picks(src, first, points, count, left, [sum(fp.lid_gap_px(p, idx)) / 2 for p in points["keypoints"]])
+        record["sheet"] = {"file": sheet_path.name, "frames": sheet(sheet_path, src, first, marked, points, count, picked),
+                           "why": {str(k): v for k, v in picker.first_reasons(picked).items()}, "dropped": picked["dropped"],
+                       "cap": picked["cap"], "over_the_cap": picked["over_the_cap"], "looked_at_by": ""}
     out.with_suffix(".json").write_text(json.dumps(record, indent=1) + "\n")
     say(f"face {face:.0f} px tall at the median; lid gap {gap:.2f} px, {record['lid_gap_median_is']} of {line} px ({record['that_line_is']})")
     say(f"marks grown {factor:.2f} times: {size[0]:.0f} px wide and {size[1]:.0f} px tall on the canvas at the median")

@@ -15,6 +15,9 @@ and reads it back.
 4. **The sheet.** A row whose video starts at source frame F shows source frame f as its own frame f - F: the
    tile's level says so. A followed crop is centred on the mask and stays inside the canvas; an empty mask
    falls back on the whole canvas. The picture has a row per video and a tile per frame.
+5. **A picked list.** `--frames-from` takes a `bench/pick_frames.py` list's frames and writes each one's first reason
+   along the foot of its tile; a `:whole` row is shown uncropped beside cropped rows; both lists at once are refused,
+   and so are a missing list, one that is not JSON and one that is not a picked list.
 
 Needs ffmpeg and ffprobe on the path. No model, no card, no server.
 
@@ -22,6 +25,7 @@ Needs ffmpeg and ffprobe on the path. No model, no card, no server.
 """
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 import sys
@@ -31,7 +35,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _lib import case, finish, needs  # noqa: E402
+from _lib import case, finish, needs, refused  # noqa: E402
 
 needs("ffmpeg and ffprobe on the path", bool(shutil.which("ffmpeg") and shutil.which("ffprobe")))
 
@@ -109,6 +113,36 @@ def the_sheet() -> str:
     return "a row starting at frame 4 shows source frame 6 as its own frame 2; a followed box stays in the canvas; a tile per frame and row"
 
 
+def picked_frames_and_a_whole_row() -> str:
+    """`--frames-from` (a `bench/pick_frames.py` list): its frames, in order, and each one's first reason written along the
+    foot of the first row's tiles; a `:whole` row is shown uncropped beside rows cut by `--crop`; and `--frames` and
+    `--frames-from` together are refused."""
+    pick = WORK / "pick.json"
+    pick.write_text(json.dumps({"frames": [{"source_frame": 4, "reasons": [{"role": "first", "short": "first frame"}]},
+                                           {"source_frame": 9, "reasons": [{"role": "at", "short": "track_px gone 500>0"}]}]}))
+    frames, why = fs.picked_frames(str(pick))
+    assert frames == [4, 9] and why == {4: "first frame", 9: "track_px gone 500>0"}, (frames, why)
+    got = fs.grab(str(SRC), 0, frames, (W, H), False)
+    rows = [("crop", got, 0), ("whole", got, 0, True)]
+    boxes = {f: (0, 0, 16, 16) for f in frames}
+    picture = fs.sheet(rows, frames, boxes, [], cell=64, why=why)
+    tall = 64                                       # the 16-square crop at 64 wide is 64 tall; the whole 64x32 canvas is 32
+    assert picture.shape == (2 * (tall + fs.LABEL), 2 * 64, 3), picture.shape
+    assert int(picture[tall + 2 * fs.LABEL + 20, 64 + 60, 0]) == 90, "the whole row's tile is not frame 9 uncropped"
+    foot = picture[tall + fs.LABEL - 16:tall + fs.LABEL - 2, 64:128]
+    plain = fs.sheet(rows, frames, boxes, [], cell=64)[tall + fs.LABEL - 16:tall + fs.LABEL - 2, 64:128]
+    assert (foot != plain).any() and (foot == 255).any(), "no reason was written along the foot of the first row's tile"
+    out = subprocess.run([sys.executable, str(Path(fs.__file__)), str(WORK / "x.png"), "--frames", "4", "--frames-from", str(pick),
+                          "--row", f"s={SRC}"], capture_output=True, text=True)
+    refused(out, "not allowed with")
+    (WORK / "not.json").write_text("not json")
+    (WORK / "list.json").write_text("[1, 2]")
+    for bad, words in ((WORK / "none.json", "no such file"), (WORK / "not.json", "is not JSON"), (WORK / "list.json", "lists no frames")):
+        refused(lambda: fs.picked_frames(str(bad)), words)
+    return ("a picked list's frames and reasons; the reason along the tile's foot; a whole row beside a cropped one; both lists "
+            "refused; a missing list, one that is not JSON and one that is not a picked list refused in the tool's words")
+
+
 def one_a_second_in_parts() -> str:
     """The one-a-second copy of a review clip (`frames.OneASecond`): every frame written once, in order, at one a second, in
     parts no larger than the size it is given, each named by the source frames it holds; a frame's level says which it is."""
@@ -140,6 +174,7 @@ case("frames by number", by_number)
 case("the loader's fit", the_fit)
 case("a mask on a span's clock", a_mask)
 case("the sheet", the_sheet)
+case("frames from a picked list, and a whole row", picked_frames_and_a_whole_row)
 case("one a second, in parts", one_a_second_in_parts)
 shutil.rmtree(WORK, ignore_errors=True)
 sys.exit(finish())

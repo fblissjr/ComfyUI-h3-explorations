@@ -130,7 +130,8 @@ def one_run_makes_the_form() -> str:
     assert set(rec["read_backs"]) == {"the_cut_body_model", "the_cut_source", "the_drawing"} and all(r["passed"] for r in rec["read_backs"].values())
     assert rec["ran_on"]["commit"] and set(rec["ran_on"]["tools"]) == set(hr.TOOLS)
     assert all(isinstance(t["changed_since"], bool) and t["last_changed_in"] for t in rec["ran_on"]["tools"].values())
-    assert rec["sheet"]["file"] == "head_sheet.jpg" and len(rec["sheet"]["frames"]) == 6 and rec["files"]["reference"] == "head.mp4"
+    assert rec["sheet"]["file"] == "head_sheet.jpg" and rec["files"]["reference"] == "head.mp4" \
+        and rec["sheet"]["frames"][::len(rec["sheet"]["frames"]) - 1] == [0, N - 1] and set(rec["sheet"]["why"]) == {str(f) for f in rec["sheet"]["frames"]}
     assert any('"motion_file"' in line and str(out) in line and '"motion_first": 0' in line for line in said), "the load's keys are not printed"
     return (f"every file is there; the white is within {worst:.1f} px of the face's lines as the record's box and scale carry them, with no lips and "
             f"no points alone; the source is cut by the same box; the record names the inputs, the commits and the three read-backs")

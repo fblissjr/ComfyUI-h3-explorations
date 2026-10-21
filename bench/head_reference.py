@@ -32,7 +32,8 @@ have it back with `--leave-out ""`. Look at the sheet.
     <stem>.json                ONE record: every input by path, the box and scale, what was drawn, the three
                                read-backs, who made it and when, and the commit it ran on with the last commit
                                of each of the two tools (and whether a tool's file was changed since)
-    <stem>_sheet.jpg           six frames: the cut source, the drawn body model, the two blended
+    <stem>_sheet.jpg           the frames where something changes and one a second (bench/_lib/pick_frames.py,
+                               each row saying why): the cut source, the drawn body model, the two blended
     <stem>_plain_cut.mp4       the cut body model with nothing drawn, and its record, points and sheet
     <stem>_source_cut.mp4      the source cut by the same box, and its record and sheet
 

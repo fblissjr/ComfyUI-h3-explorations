@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A sheet of numbered frames from several videos on one clock, for reading a render beside its source by eye.
 
-    <python> bench/frame_sheet.py OUT.png --frames 604,640,676 \\
+    <python> bench/frame_sheet.py OUT.png (--frames 604,640,676 | --frames-from PICK.json) \\
         --row source=CLIP.mov:fit --row render=R.mp4@604 [--crop X,Y,W,H | --follow MASK.mkv@604 --side 300] \\
         [--outline red=PART.mkv@604] [--cell 380] [--size 1024x768]
 
@@ -11,8 +11,21 @@ read a render had written its own tool for it. This is the one in the tree.
 
 **The clock.** `--frames` are source frame numbers. A row's video starts at source frame `@FIRST` (0 when not
 given), so a render that begins at source frame 604 is `R.mp4@604` and its tile for 640 is its own frame 36,
-which the label says (`r36`). `:fit` fits a row to the canvas as the lane's loader does (cut to the canvas's shape at the
+which the label says (`r36`). `:whole` leaves a row out of `--crop` and `--follow`. `:fit` fits a row to the canvas as the lane's loader does (cut to the canvas's shape at the
 centre, then scale: `bench/_lib/frames.py::FIT`); a row without it is scaled to the canvas. A frame a video does not have is a black tile.
+
+**Which frames.** `--frames` names them; `--frames-from` takes the list `bench/pick_frames.py` wrote (the frames
+where something changes, either side of each, and one a second) and writes each frame's first reason along the
+foot of its tiles in the first row, so a stills reader and a video reader look at the same frames for the same
+reasons.
+
+**Upstream or downstream.** Three rows tell whether a fault was already in the reference or came from the render:
+
+    <python> bench/frame_sheet.py OUT.png --frames-from PICK.json --row source=SOURCE.mov:fit \\
+        --row reference=HEAD_REFERENCE.mp4@5889:whole --row cut=CUT.mp4 --follow HEAD_TRACK.mkv@5889
+
+The head reference's frame 0 is the shot's first frame, and it is already cut to the head, so `:whole` shows each
+of its frames whole while the source and cut rows are cropped round the followed head.
 
 **The crop.** `--crop` is one box on the canvas for every tile. `--follow` takes a mask video and centres a
 square of `--side` pixels on the mask's centre frame by frame, for a face that moves across the frame; a frame
@@ -46,6 +59,20 @@ def named(text: str) -> tuple[str, int, bool]:
     return path, int(at) if at else 0, fit
 
 
+def picked_frames(path: str) -> tuple[list[int], dict[int, str]]:
+    """The frames of a `bench/pick_frames.py` list, and each one's first reason, short."""
+    import json
+    if not Path(path).is_file():
+        raise SystemExit(f"--frames-from {path}: no such file")
+    try:
+        got = json.loads(Path(path).read_text())
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        raise SystemExit(f"--frames-from {path} is not JSON ({e}): is it a bench/pick_frames.py list?") from None
+    if not isinstance(got, dict) or not got.get("frames") or not all(isinstance(f, dict) and "source_frame" in f for f in got["frames"]):
+        raise SystemExit(f"{path} lists no frames as bench/pick_frames.py writes them ({{\"frames\": [{{\"source_frame\": ...}}]}})")
+    return [int(f["source_frame"]) for f in got["frames"]], {int(f["source_frame"]): f["reasons"][0]["short"] for f in got["frames"] if f.get("reasons")}
+
+
 def grab(path: str, first: int, frames: list[int], size: tuple[int, int], fit: bool) -> dict[int, np.ndarray]:
     """The frames asked for, by source frame number, from a video whose frame 0 is source frame `first`."""
     w, h = size
@@ -73,41 +100,56 @@ def tile_size(box: tuple[int, int, int, int], cell: int) -> tuple[int, int]:
     return cell, max(1, int(round(cell * box[3] / box[2])))
 
 
-def sheet(rows: list[tuple[str, dict[int, np.ndarray], int]], frames: list[int], boxes: dict[int, tuple[int, int, int, int]],
-          outlines: list[tuple[tuple[int, int, int], dict[int, np.ndarray]]], cell: int) -> np.ndarray:
-    """The picture: a row per video, a tile per frame, each with its label above it."""
+def sheet(rows: list[tuple], frames: list[int], boxes: dict[int, tuple[int, int, int, int]],
+          outlines: list[tuple[tuple[int, int, int], dict[int, np.ndarray]]], cell: int, why: dict[int, str] | None = None) -> np.ndarray:
+    """The picture: a row per video, a tile per frame, each with its label above it. A row is (label, frames, first)
+    or (label, frames, first, whole): a whole row is shown uncropped. `why` is written along the foot of the first
+    row's tiles."""
     import cv2
     from PIL import Image, ImageDraw, ImageFont
-    tall = max(tile_size(boxes[f], cell)[1] for f in frames)
+    shown = [img for row in rows for img in row[1].values()]
+    canvas = (0, 0, shown[0].shape[1], shown[0].shape[0]) if shown else None     # every row is brought to the canvas
+    uncut = [canvas] if canvas is not None and any(len(row) > 3 and row[3] for row in rows) else []
+    tall = max(tile_size(b, cell)[1] for b in [boxes[f] for f in frames] + uncut)
     out = np.zeros((len(rows) * (tall + LABEL), len(frames) * cell, 3), np.uint8)
-    marks = []
-    for r, (label, got, first) in enumerate(rows):
+    marks, notes = [], []
+    for r, row in enumerate(rows):
+        label, got, first = row[:3]
+        whole = len(row) > 3 and row[3]
         for c, f in enumerate(frames):
-            x, y, w, h = boxes[f]
+            x, y, w, h = canvas if whole and canvas else boxes[f]
             if f in got:
                 tile = got[f].copy()
                 for colour, masks in outlines:
                     if f in masks:
                         cont, _ = cv2.findContours(masks[f].astype(np.uint8), cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
                         cv2.drawContours(tile, cont, -1, colour, 2)
-                tw, th = tile_size(boxes[f], cell)
+                tw, th = tile_size((x, y, w, h), cell)
                 top = r * (tall + LABEL) + LABEL
                 out[top:top + th, c * cell:c * cell + tw] = cv2.resize(
                     tile[y:y + h, x:x + w], (tw, th), interpolation=cv2.INTER_CUBIC if w < tw else cv2.INTER_AREA)
             marks.append((c * cell + 3, r * (tall + LABEL) + 3, f"{label} {f}" + (f" (r{f - first})" if first else "")))
+            if r == 0 and why and f in why:
+                notes.append((c * cell + 3, (tall + LABEL) - 16, why[f]))
     img = Image.fromarray(out)
     d = ImageDraw.Draw(img)
-    font = ImageFont.truetype(MONO, 14)
+    font, small = ImageFont.truetype(MONO, 14), ImageFont.truetype(MONO, 11)
     for x, y, text in marks:
         d.text((x, y), text, font=font, fill=(255, 255, 0))
+    for x, y, text in notes:                       # the reason a frame was picked, cut to the tile's width
+        text = text[:max(4, (cell - 6) // 7)]
+        d.rectangle([x - 2, y - 1, x + 7 * len(text) + 1, y + 13], fill=(0, 0, 0))
+        d.text((x, y), text, font=small, fill=(255, 255, 255))
     return np.asarray(img)
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    p = argparse.ArgumentParser(description=(__doc__ or "").split("\n")[0])
     p.add_argument("out")
-    p.add_argument("--frames", required=True, help="source frame numbers, comma separated")
-    p.add_argument("--row", action="append", required=True, metavar="LABEL=VIDEO[@FIRST][:fit]")
+    which = p.add_mutually_exclusive_group(required=True)
+    which.add_argument("--frames", help="source frame numbers, comma separated")
+    which.add_argument("--frames-from", metavar="PICK.json", help="the frames bench/pick_frames.py picked, each tile footed with its first reason")
+    p.add_argument("--row", action="append", required=True, metavar="LABEL=VIDEO[@FIRST][:fit|:whole]")
     p.add_argument("--crop", metavar="X,Y,W,H", help="one box on the canvas for every tile")
     p.add_argument("--follow", metavar="MASK[@FIRST]", help="centre a square on this mask, frame by frame")
     p.add_argument("--side", type=int, default=300, help="the followed square's side on the canvas")
@@ -116,7 +158,11 @@ def main() -> None:
     p.add_argument("--size", default="1024x768", help="the canvas every row is brought to")
     a = p.parse_args()
     w, h = (int(v) for v in a.size.split("x"))
-    frames = [int(v) for v in a.frames.split(",")]
+    why: dict[int, str] = {}
+    if a.frames_from:
+        frames, why = picked_frames(a.frames_from)
+    else:
+        frames = [int(v) for v in a.frames.split(",")]
 
     def masks_at(spec: str) -> dict[int, np.ndarray]:
         path, at, _ = named(spec)
@@ -138,10 +184,11 @@ def main() -> None:
     rows = []
     for item in a.row:
         label, _, spec = item.partition("=")
-        path, at, fit = named(spec)
-        rows.append((label, grab(path, at, frames, (w, h), fit), at))
+        whole = spec.endswith(":whole")
+        path, at, fit = named(spec[:-len(":whole")] if whole else spec)
+        rows.append((label, grab(path, at, frames, (w, h), fit), at, whole))
     from PIL import Image
-    picture = sheet(rows, frames, boxes, outlines, a.cell)
+    picture = sheet(rows, frames, boxes, outlines, a.cell, why)
     Image.fromarray(picture).save(a.out)
     print("wrote", a.out, f"{picture.shape[1]}x{picture.shape[0]}")
 

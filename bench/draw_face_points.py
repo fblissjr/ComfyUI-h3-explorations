@@ -118,6 +118,7 @@ from PIL import Image, ImageDraw
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _lib import REPO, check_upstream_mtime, writer_stamp  # noqa: E402
 from _lib import face_points as fp  # noqa: E402
+from _lib import pick_frames as picker  # noqa: E402
 from _lib.frames import probe, stream  # noqa: E402
 
 import draw_lid_marks as marks  # noqa: E402  the writer, the look against the source and the slip rule: one copy
@@ -862,11 +863,46 @@ def read_back(video: Path, mesh: np.ndarray, drawings: list[list], expected: np.
             "slipped": slipped, "off_the_lines": off_the_lines, "passed": passed}
 
 
-def sheet(path: Path, source_frames: np.ndarray, first: int, drawn: np.ndarray, points: dict, count: int) -> list[int]:
-    """A few frames in three panels (the original, the drawn body model, the two blended), cut round the nose."""
+#: The shapes that draw a mouth shut, and those that draw it open, by their names in a frame's drawing. Inherited: the
+#: names `lip_shape`, `mouth_shapes` and `shapes` above give their shapes. Without `--closed-lip-line` the points' lip
+#: rings are drawn on every frame and a closed class-map mouth draws `mouth_outer` alone, so both read as open: the
+#: sheet sees a mouth drawn shut only under that option.
+CLOSED_MOUTHS, OPEN_MOUTHS = ("inner_lip_line", "mouth_closed"), ("mouth_outer", "mouth_inner", "inner_lip_ring")
+
+
+def sheet_picks(source_frames: np.ndarray, first: int, points: dict, count: int, drawings: list, *, left: set = frozenset(),
+                shut: list | None = None, mouths: list | None = None, closed_lip_line: bool = False) -> dict:
+    """The frames the sheet shows (`_lib/pick_frames.py`): where the face's points, the inner-lip gap (its crossings of
+    `INNER_GAP_CLOSED_PX` and its peaks), the mouth drawn, a mouth drawn shut while the points hold it open (or, with
+    `closed_lip_line`, drawn open while they hold it shut), or the picture round the nose change, either side of each;
+    the edges of the frames left bare or drawn with the eyes shut (a person's word, so always); and one a second."""
+    h, w = source_frames.shape[1:3]
+    idx = points["index"]
+    gap = [inner_lip_centerline(p, idx)[1] for p in points["keypoints"]]
+    drawn = []
+    for f, d in enumerate(drawings):
+        names = {n for n, _, _ in d}
+        drawn.append("shut" if names & set(CLOSED_MOUTHS) else "open" if any(n.endswith("_lip_ring") or n in OPEN_MOUTHS for n in names)
+                     else "class map" if mouths and mouths[f] is not None else "none")
+    against = ["drawn shut, the points open" if g > INNER_GAP_CLOSED_PX and m == "shut"
+               else "drawn open, the points shut" if closed_lip_line and g <= INNER_GAP_CLOSED_PX and m == "open" else "agree"
+               for g, m in zip(gap, drawn)]
+    series = {**picker.points_series(points), "inner_lip_gap_px": {"values": gap, "rules": ("line", "peak"), "line": INNER_GAP_CLOSED_PX},
+              "mouth_drawn": drawn, "mouth_drawn_against_the_gap": against,
+              "left_bare": {"values": picker.labels_of(count, 0, left, "bare", "drawn"), "record": True},
+              "eyes": {"values": picker.labels_of(count, 0, shut, "drawn shut", "as the points"), "record": True},
+              "picture_round_the_nose": {"values": picker.difference_in_boxes(source_frames, picker.nose_boxes(points, (w, h))), "rules": ("peak",)}}
+    return picker.sheet_picks(first, count, series)
+
+
+def sheet(path: Path, source_frames: np.ndarray, first: int, drawn: np.ndarray, points: dict, count: int, picked: dict | None = None) -> list[int]:
+    """The picked frames (`sheet_picks`; the points' changes and one a second when not given) in three panels (the
+    original, the drawn body model, the two blended), cut round the nose, each with why it was picked."""
     h, w = drawn.shape[1:3]
     idx = points["index"]
-    picks = sorted(set(np.linspace(0, count - 1, 6).astype(int).tolist()))
+    picked = picked or picker.sheet_picks(first, count, picker.points_series(points))
+    why = picker.first_reasons(picked)
+    picks = [f - first for f in picker.frames_of(picked)]
     side, tile = max(120, int(2.2 * np.median([fp.face_height(p, idx) for p in points["keypoints"]]))), 440
     rows = []
     for f in picks:
@@ -877,6 +913,7 @@ def sheet(path: Path, source_frames: np.ndarray, first: int, drawn: np.ndarray, 
         for i, t in enumerate((a, b, Image.blend(a, b, 0.5))):
             row.paste(t.resize((tile, tile), Image.LANCZOS), (i * tile, 0))
         ImageDraw.Draw(row).text((6, 6), f"source frame {first + f}: the original | the body model with the face drawn | the two blended", fill=(255, 255, 0))
+        ImageDraw.Draw(row).text((6, 20), f"picked: {why.get(first + f, '')}", fill=(255, 255, 255))
         rows.append(row)
     out = Image.new("RGB", (tile * 3, tile * len(rows)))
     for i, r in enumerate(rows):
@@ -1067,7 +1104,11 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     }
     if source:
         sheet_path = out.with_name(out.stem + "_sheet.jpg")
-        record["sheet"] = {"file": sheet_path.name, "frames": sheet(sheet_path, src, first, pictures, points, count), "looked_at_by": ""}
+        assert src is not None                      # read above whenever there is a --source
+        picked = sheet_picks(src, first, points, count, drawings, left=left, shut=shut, mouths=mouths, closed_lip_line=closed_lip_line)
+        record["sheet"] = {"file": sheet_path.name, "frames": sheet(sheet_path, src, first, pictures, points, count, picked),
+                           "why": {str(k): v for k, v in picker.first_reasons(picked).items()}, "dropped": picked["dropped"],
+                       "cap": picked["cap"], "over_the_cap": picked["over_the_cap"], "looked_at_by": ""}
     out.with_suffix(".json").write_text(json.dumps(record, indent=1) + "\n")
     say(f"face {face:.0f} px tall at the median; lines {wide:g} px wide ({wide_by}), {'a dot at every point' if dots else 'no dots'}; "
         f"{record['lines_px_a_frame_median']:.0f} px of line a frame at the median" + (f"; left out: {', '.join(sorted(leave_out))}" if leave_out else ""))

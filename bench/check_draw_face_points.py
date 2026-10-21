@@ -363,7 +363,13 @@ def off_the_sources_clock() -> str:
     # the figures say what they were read on and what they cannot see, and decide nothing
     assert clock["measured_on"]["frames"] == [0, N - 1] and len(clock["measured_on"]["box"]) == 4 and "a second person" in clock["cannot_see"], clock
     assert "no part of `passed`" in clock["decides"], clock
-    assert (WORK / "on_sheet.jpg").exists() and on["sheet"]["looked_at_by"] == "" and len(on["sheet"]["frames"]) == 6
+    assert (WORK / "on_sheet.jpg").exists() and on["sheet"]["looked_at_by"] == "" and on["sheet"]["frames"][::len(on["sheet"]["frames"]) - 1] == [0, N - 1] \
+        and set(on["sheet"]["why"]) == {str(f) for f in on["sheet"]["frames"]}, on["sheet"]   # first, last, and each picked frame says why
+    # the sheet shows a change the run holds: frames 9-11 left bare on a person's word; their edges are on it, with that reason
+    bared = df.run(str(WORK / "mesh_on.mkv"), str(POINTS), 0, N, WORK / "bared.mp4", "the check", width=WIDE, source=str(source),
+                   bare=list(range(9, 12)), bare_by="the check", say=quiet)
+    assert {9, 12} <= set(bared["sheet"]["frames"]) and "left_bare" in bared["sheet"]["why"]["12"], bared["sheet"]   # 12: the first drawn again
+    assert bared["sheet"]["over_the_cap"] is False and bared["sheet"]["cap"].endswith("within it"), bared["sheet"]
     said = []
     for name, frames in (("late", np.concatenate([mesh[:1], mesh[:-1]])), ("early", np.concatenate([mesh[1:], mesh[-1:]]))):
         rec = df.run(str(video(WORK / f"mesh_{name}.mkv", frames)), str(POINTS), 0, N, WORK / f"{name}.mp4", "the check", width=WIDE, source=str(source), say=said.append)

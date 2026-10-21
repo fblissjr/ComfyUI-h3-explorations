@@ -31,8 +31,9 @@ the picture's edges stand still. The box is:
 
 It writes the video, a record beside it (`.json`: the box, the scale, the frames, what it was made from, where a
 point of the canvas lands in the new picture), the span's points carried into the new picture
-(`<out>_points.npz`, as `bench/pose_along_shot.py` writes one) and a sheet of six frames, the reference with the
-box drawn on it beside the cut picture, to look at before the video is used.
+(`<out>_points.npz`, as `bench/pose_along_shot.py` writes one) and a sheet, the reference with the box drawn on it
+beside the cut picture, to look at before the video is used. Its frames are where the face's points, the head track
+or the picture change, either side of each, and one a second (`bench/_lib/pick_frames.py`), each saying why.
 
 THE ORIGINAL, CUT THE SAME WAY. With `--fit` the video is the source itself, of whatever size: it is fitted to
 the points' canvas as the lane's loader fits it (`bench/_lib/frames.py::FIT`) and then cut by the same box, since
@@ -75,6 +76,7 @@ from PIL import Image, ImageDraw
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _lib import face_points as fp  # noqa: E402
 from _lib import npz_writer_fields, writer_stamp  # noqa: E402
+from _lib import pick_frames as picker  # noqa: E402
 from _lib.frames import FIT, probe, read_mask, stream  # noqa: E402
 
 import draw_face_points as faces  # noqa: E402  the points loader: one copy
@@ -250,10 +252,28 @@ def read_back(video: Path, made: np.ndarray) -> dict:
             "passed": bool(not slipped and lags[0] <= ENCODE_LEVELS)}
 
 
-def sheet(path: Path, reference: np.ndarray, cut_frames: np.ndarray, box: list[int], first: int, scale: float) -> list[int]:
-    """Six frames in two panels: the reference with the box drawn on it, and the cut picture."""
+def sheet_picks(reference: np.ndarray, box: list[int], first: int, points: dict, head_track=None) -> dict:
+    """The frames the sheet shows (`_lib/pick_frames.py`): where the face's points, the head track (its pixels and its
+    place, when it is a mask a frame), or the picture inside the box or over the whole frame change; either side of
+    each, and one a second. A head track given as boxes, or none, adds nothing."""
     n, h, w = reference.shape[:3]
-    picks = sorted(set(np.linspace(0, n - 1, 6).astype(int).tolist()))
+    series = {**picker.points_series(points),
+              "picture_in_the_box": {"values": picker.difference_in_boxes(reference, [tuple(box)] * n), "rules": ("peak",)},
+              "picture_whole": {"values": picker.difference_in_boxes(reference, [(0, 0, w, h)] * n), "rules": ("peak",)}}
+    track = np.asarray(head_track) if head_track is not None else None
+    if track is not None and track.ndim == 3 and len(track) == n:
+        series["head_track_px"] = [int((m > 0).sum()) for m in track]
+        series["head_track_place"] = picker.centroids(track > 0)
+    return picker.sheet_picks(first, n, series)
+
+
+def sheet(path: Path, reference: np.ndarray, cut_frames: np.ndarray, box: list[int], first: int, scale: float, picked: dict | None = None) -> list[int]:
+    """The picked frames (`sheet_picks`; first, last and one a second when not given) in two panels: the reference with
+    the box drawn on it, and the cut picture, each with why it was picked."""
+    n, h, w = reference.shape[:3]
+    picked = picked or picker.sheet_picks(first, n)
+    why = picker.first_reasons(picked)
+    picks = [f - first for f in picker.frames_of(picked)]
     tw = 560
     th = int(round(tw * h / w))
     rows = []
@@ -265,6 +285,7 @@ def sheet(path: Path, reference: np.ndarray, cut_frames: np.ndarray, box: list[i
         row.paste(whole, (0, 0))
         row.paste(Image.fromarray(cut_frames[f]).resize((tw, th), Image.LANCZOS), (tw, 0))
         ImageDraw.Draw(row).text((6, 6), f"source frame {first + f}: the reference with the box | the box enlarged {scale:.2f} times", fill=(255, 255, 0))
+        ImageDraw.Draw(row).text((6, 20), f"picked: {why.get(first + f, '')}", fill=(255, 255, 255))
         rows.append(row)
     out = Image.new("RGB", (tw * 2, th * len(rows)))
     for i, r in enumerate(rows):
@@ -352,8 +373,11 @@ def run(video: str, points_path: str, first: int, count: int, out: Path, by: str
         "read_back": {"frames_read": back["frames_read"],
                       "grey_levels_from_the_picture_made_by_frames_of_slip": {str(k): (None if np.isnan(v) else round(v, 3)) for k, v in lags.items()},
                       "a_neighbour_fits_better": back["slipped"], "no_neighbour_can_be_told_from_the_frame": back["cannot_tell"], "passed": back["passed"]},
-        "sheet": {"file": sheet_path.name, "frames": sheet(sheet_path, reference, made, box, first, scale[0]), "looked_at_by": ""},
     }
+    picked = sheet_picks(reference, box, first, points, ht_masks)
+    record["sheet"] = {"file": sheet_path.name, "frames": sheet(sheet_path, reference, made, box, first, scale[0], picked),
+                       "why": {str(k): v for k, v in picker.first_reasons(picked).items()}, "dropped": picked["dropped"],
+                       "cap": picked["cap"], "over_the_cap": picked["over_the_cap"], "looked_at_by": ""}
     carried = out.with_name(out.stem + "_points.npz")
     np.savez_compressed(carried, keypoints=((points["keypoints"] - box[:2]) * scale).astype(np.float32), scores=points["scores"].astype(np.float32),
                         names=np.array(points["names"]), first_frame=np.array(first), size=np.array([w, h]),

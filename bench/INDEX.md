@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 159 |
+| [`check_*`](#check) | 160 |
 | [`measure_*`](#measure) | 39 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 189 |
+| [the rest](#the-rest) | 190 |
 
 ## check
 
@@ -107,6 +107,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_pdd_sidecar_contract.py`](check_pdd_sidecar_contract.py) | The PDD sidecar's bake contract: exact pairing and the fixed population. |
 | [`check_pdd_sigmas.py`](check_pdd_sigmas.py) | The PDD node's SIGMAS output is the block boundaries, and the graphs use it. |
 | [`check_pdd_unmerged.py`](check_pdd_unmerged.py) | Grade the un-merged backbone path against the merged one it replaces. |
+| [`check_pick_frames.py`](check_pick_frames.py) | The frame picker (`bench/_lib/pick_frames.py`) and its command (`bench/pick_frames.py`), on spans made for the purpose. |
 | [`check_picks_against_answers.py`](check_picks_against_answers.py) | `bench/picks_against_answers.py` keeps what a tracker picked and what a session read against what the owner clicked; each case is a way a line could say the wrong thing of one of the three. |
 | [`check_piece_gaps.py`](check_piece_gaps.py) | `bench/piece_gaps.py` on a made table: each case is a way a frame no piece covers could be missed, joined to the wrong shot's people, or hidden. |
 | [`check_pipeline_telemetry.py`](check_pipeline_telemetry.py) | Controls for `pipeline_telemetry.py` and `bench/telemetry_report.py`. |
@@ -442,6 +443,7 @@ this file is only a way to find a script by what it says it does.
 | [`page_answers_to_verdicts.py`](page_answers_to_verdicts.py) | The owner's verdicts and notes on the review page's clips, copied from the page's raw file into the video's record, one line each, with the render they are about. |
 | [`patch_render_window.py`](patch_render_window.py) | Redo one stretch of a finished masked render: build the one-window graph that patches it, and join the patch back. |
 | [`pdd_artifact_inventory.py`](pdd_artifact_inventory.py) | The PDD artifact record and the generated regions of `docs/pdd_artifacts.md`, derived from the files, from git, and from the node's source -- never typed. |
+| [`pick_frames.py`](pick_frames.py) | The frames of a span to look at: where a capture's figures, flags, statements, the owner's boxes or the picture change. |
 | [`picks_against_answers.py`](picks_against_answers.py) | What the models thought against what the owner said, kept a batch at a time: one line a subject of a preview, with what each got right. |
 | [`piece_gaps.py`](piece_gaps.py) | The frames no generated piece covers, sorted and loud; then the frames a piece covers and leaves as the original; then a subject in a shot with no piece of their own. |
 | [`pose_along_shot.py`](pose_along_shot.py) | Run the pose model on every frame of a shot and keep its points: what the eye marks and the reader are made from. |
@@ -620,6 +622,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 | [`face_points.py`](_lib/face_points.py) | What is read off the pose model's face points: one definition of each figure, for every tool that uses them. |
 | [`face_points_fixture.py`](_lib/face_points_fixture.py) | A face made of points whose every figure is known by construction, for the checks of the tools that read them. |
 | [`frames.py`](_lib/frames.py) | Frames and masks in and out of video files, by frame number, for the tools that read renders. |
+| [`pick_frames.py`](_lib/pick_frames.py) | Which frames of a span a reader looks at: every frame where something changes, the frames either side, and one a second. |
 | [`sam3_core.py`](_lib/sam3_core.py) | Shared ComfyUI SAM 3.1 helpers moved from `bench/sam3_parity_ladder.py` (2026-10-17, r17_05). |
 
 ### briefs
