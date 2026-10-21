@@ -25,24 +25,10 @@ This protocol is the step-by-step operational manual for building, auditing, ren
 4. **Code stamps and clean node code**:
    - Derived `.json` and `.npz` files carry `writer_stamp` (`bench/_lib/code_stamp.py::writer_stamp`, `bench/_lib/code_stamp.py::npz_writer_fields`) and check upstream mtimes via `bench/_lib/code_stamp.py::check_upstream_mtime` (`bench/_lib/code_stamp.py::MTIME_TOLERANCE_S` = `1.0` s).
    - `bench/load_chain.py render` refuses to queue if any node-pack module has uncommitted edits in the shared tree.
-5. **When to Restart ComfyUI (`:8188`) and Parent -> Child Data Regeneration Rules**:
-   - **Why ComfyUI must be restarted after any node-side Python edit**: ComfyUI loads custom node modules (`nodes.py`, `subject_track.py`, `sapiens2_parts.py`, `body_pose.py`, `video_mask.py`, `loop_plan.py`, `sol_attention.py`, `workflows/h3_config.py`) into memory once at server startup. Editing a file on disk does **not** reload it in a running server process, and restarting ComfyUI clears `/queue` and `/history`. Always wait for `/queue` to be empty, land `load` steps first (since `load_chain.py land` reads `/history/<prompt_id>`), and restart by the recipe in [`docs/comfy_notes.md`](../comfy_notes.md) (`kill $PID` on the `:8188` port owner, then `setsid nohup ./start.sh`).
-   - **Parent -> Child Invalidation Table (never reuse a child artifact when its parent code or data changes)**:
-     - **Parent Stage 0 — Source Video (`--source`) or Perception Node Code (`subject_track.py`, `sapiens2_parts.py`, `body_pose.py`)**:
-       - *Triggers*: Pass 1 was laid on a multi-subject shot (so Pass 2 needs the post-Pass-1 cut MP4 as `--source`), or SAM 3.1 / Sapiens2 / SAM 3D Body node code changed (after restarting ComfyUI).
-       - *Regenerate*: **`preview -> job -> reference -> text -> first -> plan -> on-plan -> table -> render -> land -> page`**.
-     - **Parent Stage 1 — Job / Keep-Out / Head-Tube Code (`shot_to_load.py`, `strangers.py`, `head_tube_parts.py`)**:
-       - *Triggers*: Changes to keep-outs (`strangers`), `part_saved_on_track`, `head_tube_for_capture`, or CLI span flags (`--no-face-on`, `--no-mouth-on`, `--mouth-on`, `--hold-part`, `--drop`).
-       - *Regenerate*: **`job --remake -> reference -> text -> first -> plan -> on-plan -> table -> render -> land -> page`** ( note: `preview` `.mkv` and `_mesh.mp4` files from the same `--source` remain valid).
-     - **Parent Stage 2 — Reference / Pose / Face-Drawing Code (`pose_along_shot.py`, `crop_reference_to_head.py`, `head_reference.py`, `draw_face_points.py`)**:
-       - *Triggers*: Any change to how `_points.npz`, `_plain_cut.mp4`, or `<Video 1>` (`<subject>_head_reference_<first>_<last>.mp4`) is cropped or drawn (`b270be7e`, `a0dddf18`).
-       - *Regenerate*: **`job --remake -> reference -> text -> first -> plan -> on-plan -> table -> render -> land -> page`** (`reference` writes into a brand-new `<subject>_<first>_<last>_<letter>` directory; `first` and `on-plan` read the new `_points.npz` for `off_head` and `--chin-points`, and `plan`/`render` load the new `<Video 1>`).
-     - **Parent Stage 3 — Prompt Generator (`load_text.py`) or `plan.json` Clothing / Voice Spans**:
-       - *Triggers*: Any change to `bench/load_text.py` (such as `<Subject 2>` wording) or `data/<video>/plan.json` clothing/voice entries.
-       - *Regenerate*: **`job --remake` (or `text` if `first` has not run) `-> first -> plan -> on-plan -> table -> render -> land -> page`** (`preflight` gates `flag_text`, `looks.json` locks `text_sha256`, and `plan.json` / `render.json` embed the prompt string).
-     - **Parent Stage 4 — Node Mask / Planning Code (`video_mask.py`, `loop_plan.py`, `nodes.py`) or Capture Gate (`capture_masked_run.py`, `frame_table.py`)**:
-       - *Triggers*: Changes to how ComfyUI plans windows/regions (restart ComfyUI first!) or how `capture_masked_run.py` grades masks.
-       - *Regenerate*: **`job --remake -> first -> plan -> on-plan -> table -> render -> land -> page`**.
+5. **When to restart ComfyUI (`:8188`), and what a change forces**: [`docs/masked_v2v/AGENTS.md`](AGENTS.md) §8 is the one
+   copy. It gives each stage in trace order, its command, what it reads and writes, and what a change to it forces. The
+   default remake is a fresh preview and every stage after it; a restart goes by the recipe in
+   [`docs/comfy_notes.md`](../comfy_notes.md).
 
 ---
 
@@ -52,13 +38,14 @@ This protocol is the step-by-step operational manual for building, auditing, ren
 
 [`bench/shot_to_load.py`](../../bench/shot_to_load.py) `preview` (`bench/shot_to_load.py::step_preview`) requires `--source VIDEO` explicitly and has **no default**:
 
-- **Single-subject shot, or Pass 1 of a multi-subject shot**:
+- **Which subject is pass 1**: the one already kept on the shot. A kept subject stays and is not remade to make the other, unless something broken changes the composite ([`AGENTS.md`](AGENTS.md) §1; the owner, 2026-10-21). No subject goes first by rule.
+- **Single-subject shot, or pass 1 of a shot of two**:
   - Pass the 24.0 fps working-copy source video registered in `data/<video>/manifest.json` (for `fun`, `fun_0000_6394_24p_sound_in_step.mov`).
   - The source video must be an exact `24.0` fps every-frame working copy (`bench/clip_analysis.py` `init --copy`, sound stretched in step via [`bench/copy_sound.py`](../../bench/copy_sound.py)). `bench/shot_to_load.py::working_copy` refuses any source whose manifest rate is not `24`.
-- **Pass 2+ of a multi-subject shot (where Pass 1 is already laid in `data/<video>/laid.jsonl`)**:
+- **Pass 2 (where pass 1 is already laid in `data/<video>/laid.jsonl`, and the other subject has something to replace: a subject recorded `not seen` with `bench/shots_look.py` owes no load, [`AGENTS.md`](AGENTS.md) §1)**:
   - **NEVER** run `preview` or `job` against the raw unswapped source video.
-  - First build or verify a 24.0 fps post-Pass-1 joined cut using [`bench/assemble_delivery.py`](../../bench/assemble_delivery.py) (or [`bench/rebuild_delivery.py`](../../bench/rebuild_delivery.py) `--video <video> --clip`, producing `fun_..._from_laid.mp4` where Subject A is already replaced) and register it in `<share>/input/` and `data/<video>/manifest.json`.
-  - Run a **fresh** `bench/shot_to_load.py preview --source <post_pass1_video>` so SAM 3.1 and Sapiens segment Subject A's **actual replaced appearance** (new hair/head silhouette) and Subject B's track against the post-Pass-1 picture.
+  - Use the newest cut of the whole video that holds pass 1 ([`bench/rebuild_delivery.py`](../../bench/rebuild_delivery.py) `--video <video> --clip`, producing `fun_..._from_laid.mp4` where pass 1's subject is already replaced) and register it in `<share>/input/` and `data/<video>/manifest.json`. A cut of one span (5.3) begins on that span's first frame and is not a source ([`AGENTS.md`](AGENTS.md) §1).
+  - Run a **fresh** `bench/shot_to_load.py preview --source <post_pass1_video>` so SAM 3.1 and Sapiens segment pass 1's **actual replaced appearance** (new hair/head silhouette) and the other subject's track against the post-Pass-1 picture, then make pass 2's whole chain again on it. Only the owner's own words carry from the original video's preview: the cast boxes and `data/<video>/plan.json`.
 
 ### 1.2 Mandatory `--cast` Verification
 
@@ -133,13 +120,13 @@ What `preview` produces in `data/<day>_shot_c_<first>[<letter>]_job/` and on the
     2. **Head Reference & Pose (`shot_to_load.py reference`)**: Runs `pose_along_shot.py` and `head_reference.py` on `--first <shot.first> --count <N>` with `--mesh-first <shot.first>` and `--classes-first <shot.first>`, so `<Video 1>` (`<subject>_head_reference_<first>_<last>.mp4`) has frame `0 == shot.first` and exact length `N`.
     3. **Prompt & Voice (`shot_to_load.py text`)**: `load_text.py` reads the clothing span and vocal activity (`voice_spans.json`) over `[shot.first, shot.last]` and records `"frames": [shot.first, shot.last]` in the job JSON (`masked_job.py` refuses any prompt whose frame range does not match `[first, last]`).
     4. **Hard Verification Gate (`capture_masked_run.py verify`)**: Checks `at_is_the_previews_first_frame` (`at == shot.first`), `inputs_reach_the_span` (every file covers `shot.first .. shot.last`), and `inputs_at_the_canvas` (`1024x768` at `24.0` fps) before any `plan` or `render` can run.
-    5. **Single-Subject vs. Multi-Subject (`> 1` Subject in the Same Shot)**: Both subjects use the **exact same shot boundaries `[shot.first, shot.last]`**. Pass 1 (`second`) runs against the 24.0 fps raw working copy with the other subjects tracked on `[shot.first, shot.last]` as keep-outs (`others`); Pass 2 (`lead` / `third`) runs a fresh preview, masks, pose, and render on the **exact same `[shot.first, shot.last]`** against the **post-Pass-1 assembled cut** (`--source <post_pass1_video>`) so `other:second`'s keep-out matches the swapped hair/head silhouette frame-for-frame.
+    5. **A shot of two subjects**: both use the **same shot boundaries `[shot.first, shot.last]`**. Pass 1 is the subject already kept ([`AGENTS.md`](AGENTS.md) §1), made on the working copy with the other subjects tracked on `[shot.first, shot.last]` as keep-outs (`others`); pass 2 is made on the newest whole-video cut that holds pass 1 (`--source <post_pass1_video>`), from a fresh preview and every stage after it, so pass 1's keep-out follows its new silhouette frame for frame.
   - **How inputs align with H3's `17n + 5` grid and what held/overlap frames are thrown away**:
     - **Single-window shot (`N <= 362` frames, `[first .. last]`)**: Every input (`source`, `track`, `parts`, `others`, `<Video 1>` `head_reference`) loads `N` frames at `24.0` fps starting at `first`, and audio is trimmed to `extent.seconds = N / 24.0`. `window_for(N)` snaps `N` up to the next `17n + 5` H3 length `W` (`video_mask.py::held_mask` pads `W - N` tail frames by holding frame `N - 1`), and `MiniMaxH3Song` (`extent.seconds = N / 24.0`) **throws away the `W - N` held tail frames** after VAE decode so the output MP4 is exact frames `[first .. last]` (`N` frames).
     - **Multi-window chained shot (`N > 362` frames, e.g. Kitchen `606–998`, `393` frames on `[345, 141]`)**: Only shots exceeding `362` frames run as chained windows inside one load, using lengths on the dual video+audio clock grid (`h3_rules.chain_lengths`: `39, 90, 141, 192, 243, 294, 345`, `h3_rules.on_both_clocks`) with `context_frames = 90` overlap. Window 2 takes the last `90` frames of Window 1 as overlap context, generates `141` frames (`90` overlap + `51` new), and the stitcher **throws away the `90` overlap context frames from Window 2** plus the `W_total - N` held tail frames (`396 - 393 = 3` frames), emitting exact `N` frames (`393` frames = `606–998`).
 - When remaking an existing load on the same shot and subject (`--remake`), you must pass either `--carry-words-from <old_job.json>` or `--no-carry-words "<why>"` so span words (`--no-face-on`, `--no-mouth-on`, `--mouth-on`, `--hold-part`, `--eyes-shut-on`) are never dropped by accident.
 - **Never `--drop` frames where the original actor's face or beard is visible**: H3 runs full attention over all `5n + 2` latent steps of the `17n + 5` window regardless of `tokens_sum == 0`. Dropping interior frames saves zero compute and exposes the unmasked source face to bidirectional temporal attention. Use `--no-face-on A-B=WHY` on back/side turns instead: the reference draws no face lines there, and on a hair-and-face part the capture drops only the face classes from her part, the mask the load carries, on those frames, so her hair stays in (`bench/capture_masked_run.py::grade_holds`; a face-only part is emptied there). The node grows the region from that part, so its margin may still cover some of the face.
-- **Zero stale pose or mask data (`code_stamp.py`)**: `shot_to_load.py reference` creates a fresh `<subject>_<first>_<last>` (or `_b`) reference folder whenever a prior reference failed or differed in form, runs a fresh `bench/pose_along_shot.py` pass bounded by the current preview's SAM track, and `bench/head_reference.py`, `bench/draw_face_points.py`, and `bench/measure_moge2_depth.py` enforce `bench/_lib/code_stamp.py::check_upstream_mtime` to refuse stale upstream `.npz` or `.mp4` inputs.
+- **No stale pose or mask data**: `job` chooses the load's reference folder (`bench/shot_to_load.py::reference_folder`), and `bench/_lib/code_stamp.py::check_upstream_mtime` only warns. What each stage reads, what a change forces, and what no tool enforces: [`AGENTS.md`](AGENTS.md) §8.
 
 ### 2.3 Cropping & Drawing the Head Reference (`shot_to_load.py reference`)
 
@@ -158,16 +145,16 @@ Under the hood, `step_reference` invokes [`bench/head_reference.py`](../../bench
    - Cuts both the SAM 3D Body mesh video (`<stem>.mp4`) and the source video (`<stem>_source.mp4`) to that box and writes `<stem>.npz` and `<stem>.json` with `writer_stamp`.
 2. **Facial landmark drawing (`bench/draw_face_points.py`)**:
    - Default form (`bench/shot_to_load.py::REFERENCE_DEFAULT`): `iris="contrast"`, `mouth="auto"`, `closed_lip_line=True` (`--closed-lip-line` on by default; `--darken-head` off).
-   - **Silhouette clipping**: all drawn marks are clipped to the grey SAM 3D Body head silhouette so profile eyes shrink cleanly into the head edge instead of floating in background space (which H3 can misread as eyeglasses).
-   - **Mouth mode rules (Closed = 3D Grey Mesh Lips; Open = Black Interior + White Outline)**:
-     - **No mouth smoothing (`smooth_mouth_area` retired, 2026-10-20)**: `bench/draw_face_points.py::smooth_mouth_area` is no longer called on the drawing path (still defined, and exercised only by `bench/check_draw_face_points.py`). Painting a flat grey oval over the mouth region created a bright grey splotch across the lips, chin, and hands (`0415e`, `0484d`, `1039b`) that H3 interpreted as an open mouth.
-     - **Closed-mouth frames stay as natural 3D grey mesh lips (`mouths[f] = None`)**: Whenever Sapiens2 (`sapiens2-seg-1b` + `sapiens2-pose-1b`) detects a closed mouth (`(not has_hole) or (gap <= INNER_GAP_CLOSED_PX)`, `bench/draw_face_points.py::INNER_GAP_CLOSED_PX` = `3.0` px), `bench/head_reference.py` sets `mouths[f] = None` and `bench/draw_face_points.py::draw` skips `inner_lip_line` / `mouth_closed`, leaving the 3D grey mesh's own sculpted closed lips untouched (just like `lead_fp_0606d` and `second_hfp_1010g`).
-     - **Open-mouth frames draw black interior + white outline (`inner_lip_ring` / `mouth_inner`)**: Whenever Sapiens2 detects an open mouth (a teeth/tongue hole in the 29-class map and an inner-lip gap over `bench/draw_face_points.py::INNER_GAP_CLOSED_PX` = `3.0` px), the black interior + white outline is drawn at the mouth, and `bench/draw_face_points.py::fit_mouth_to_head` only shifts vertically above a real bottom-of-frame dark neck gap under the jaw (`run_end >= h - 4` and `chin_y >= pose_cy - 0.08 * fh`), never on a hand/arm gap above the pose mouth.
-     - **Downcast / narrowed eyes (`DOWNCAST_RING_OUTSIDE_MIN = 0.65`)**: When `>= 65%` of an eye's iris ring lies outside the eyelids (`between_the_lids`), the black edge of the lash lines covers `100%` of the clipped black iris disc; `bench/draw_face_points.py::discs` leaves the sclera unpainted on that eye and `bench/draw_face_points.py::shapes` draws the between-the-lids iris arc (`_iris_ring`, matching `0484c` on downcast frames while preserving white sclera + black iris on open frames) instead of flooding the narrowed eye slit with `255,255,255` white sclera.
+   - **Silhouette clipping**: all drawn marks are clipped to the gray SAM 3D Body head silhouette so profile eyes shrink cleanly into the head edge instead of floating in background space (which H3 can misread as eyeglasses).
+   - **Mouth mode rules (Closed = 3D Gray Mesh Lips; Open = Black Interior + White Outline)**:
+     - **No mouth smoothing (`smooth_mouth_area` retired, 2026-10-20)**: `bench/draw_face_points.py::smooth_mouth_area` is no longer called on the drawing path (still defined, and exercised only by `bench/check_draw_face_points.py`). Painting a flat gray oval over the mouth region created a bright gray splotch across the lips, chin, and hands (`0415e`, `0484d`, `1039b`) that H3 interpreted as an open mouth.
+     - **Closed-mouth frames stay as natural 3D gray mesh lips (`mouths[f] = None`)**: Whenever Sapiens2 (`sapiens2-seg-1b` + `sapiens2-pose-1b`) detects a closed mouth (`(not has_hole) or (gap <= INNER_GAP_CLOSED_PX)`, `bench/draw_face_points.py::INNER_GAP_CLOSED_PX`), `bench/draw_face_points.py::run` sets `mouths[f] = None` and draws no mouth there, leaving the 3D gray mesh's own sculpted closed lips untouched.
+     - **Open-mouth frames draw black interior + white outline (`inner_lip_ring` / `mouth_inner`)**: Whenever Sapiens2 detects an open mouth (a teeth/tongue hole in the 29-class map and an inner-lip gap over `bench/draw_face_points.py::INNER_GAP_CLOSED_PX`), the black interior + white outline is drawn at the mouth, and `bench/draw_face_points.py::fit_mouth_to_head` keeps the drawn mouth inside the gray head's mouth-to-chin space (its docstring says how).
+   - **Lowered eyes are drawn shut**: both eyes as one line along the upper lash line where the two eyes' mean iris-ring share outside the lids is at or over `bench/draw_face_points.py::DOWNCAST_RING_OUTSIDE_MIN`, only under `--iris contrast` with the closed lip line; a person's `--eyes-shut-on` wins on its frames. On every other frame each eye is drawn as before the rule: an eye whose own share is at or over the line keeps its iris arc between the lids and no disc, and the other eye keeps its contrast disc. The rule and its record: [`AGENTS.md`](AGENTS.md) §7.
 3. **Generating the Prompt Text (`shot_to_load.py text` — Unified `<Subject 2>` Sentence)**:
    - Invokes [`bench/load_text.py`](../../bench/load_text.py) (`bench/load_text.py::NO_SCENE`, `bench/load_text.py::NO_CLOTHING`) to generate the load's text from the reference record, `data/<video>/plan.json`, and the voice table.
    - All face-drawn loads use a **single unified `<Subject 2>` sentence** (`bench/load_text.py::subject_2`) that describes the reference video ("with facial features drawn on its face as thin white outlines, where the eyes open, close and look where the person's eyes do") without mentioning mouth/lips, so the text never biases H3 toward opening or closing the mouth while preserving eye-gaze transfer.
-   - **Render verification (`second_hfp_0415g` on `415–437` and `second_hfp_0484f` on `484–515`)**: `0415g` completely eliminated the camera-staring wide eyes and toothy smile on frame `437` (`0415f`) and kept the mouth closed and gaze lowered across `415–437`; `0484f` eliminated the dark open `"O"` mouth of `0484d` and lowered the gaze compared to `0484e` (with `0484c`'s heavier downward eyelids on `484–496` attributable to `0484c` rendering on `render_region: full` at `1.0x` zoom vs. `0484f` on `render_region: part` at `1.63x` zoom).
+   - **What each form did on a render** is the owner's to judge on playback (`data/<video>/owner_answers.jsonl`, `data/<video>/verdicts/verdicts.jsonl`); what was decided and corrected is in [`docs/wiki/decisions.md`](../wiki/decisions.md) (2026-10-20, item 6, corrected on 2026-10-21).
 
 ---
 
@@ -219,7 +206,7 @@ Inspect three critical signals before spending GPU render minutes:
 
 ### 3.3 Second Reader's Look, Full Prompt Read (`what_h3_got.py`), & `render`
 
-1. **Second reader's look**: a session that did not make the capture inspects the plan strip and records `bench/capture_masked_run.py looked` (or the maker runs `bench/load_chain.py no-look` when the gate is clear and no forcing rule in `bench/load_chain.py::FORCING_FLAGS` or `bench/load_chain.py::FORCING_FIGURES` stands).
+1. **Second reader's look**: a session that did not make the capture inspects the plan strip and records `bench/capture_masked_run.py looked` (or the maker runs `bench/load_chain.py no-look <load job file> --by <session> --not-first WORDS.txt` when the gate is clear and no forcing rule in `bench/load_chain.py::FORCING_FLAGS` or `bench/load_chain.py::FORCING_FIGURES` stands; `--not-first` is a file with the maker's statement that the load is not the first of its kind, and which earlier load it follows).
 2. **Full prompt read (`bench/what_h3_got.py`)**:
    ```bash
    CUDA_VISIBLE_DEVICES= <comfy-venv>/bin/python bench/what_h3_got.py \
@@ -242,10 +229,7 @@ When two subjects cross paths in the same shot (e.g., `lead` walking behind `sec
 1. **Why latent-step keep-outs carve 4 frames at once**:
    - In `video_mask.py`, token regions are quantized to latent steps (`1` frame on step `0`, `4` frames per step thereafter) and `16x16` pixel cells.
    - A subject's own part mask wins every cell it touches on any frame of the latent step (`video_mask.py`), so another subject's keep-out only carves **margin cells** or cells where the subject's own part mask dropped out across all frames of that step.
-2. **Three mandatory rules for Pass 2 on a crossing shot**:
-   - **Rule A — Segment Pass 2 on the post-Pass-1 video**: Run `shot_to_load.py preview --source <post_pass1_video>` where Pass 1 (`second`) is already laid at 24.0 fps. Never segment Pass 2 on the raw source video, or Pass 1's keep-out will follow the raw actor's old hair/head silhouette instead of the replaced subject's silhouette.
-   - **Rule B — Keep out only Pass 1's replaced parts (`new_s_face | new_s_hair`) or laid matte, not a raw whole-person track**: When Pass 1 only replaced `face_and_neck` and `hair`, keeping out Pass 1's entire raw person track (`other:second`) carves out cells where Pass 2's chin overlaps Pass 1's unreplaced shoulders or old hair margin.
-   - **Rule C — Absorb orphaned pre-Pass-1 hair pixels (`old_parts_held & ~new_parts`)**: Where Pass 1's replacement hair is smaller than the raw actor's hair (such as the 1980s bouffant dome on `604-1009`), any leftover dark hair halo outside Pass 1's new hair stays in the plate unless Pass 2's region is allowed to regenerate over it.
+2. **The rule for Pass 2 on a crossing shot: segment it on the post-Pass-1 video.** Run `shot_to_load.py preview --source <post_pass1_video>` where pass 1 (the subject already kept, [`AGENTS.md`](AGENTS.md) §1) is laid at 24.0 fps. Pass 1's subject is then kept out by its own track on that preview, as another subject is on any shot (`bench/load_chain.py::mask_specs`), so the keep-out follows the replaced subject's silhouette. Never segment Pass 2 on the raw source video, or Pass 1's keep-out will follow the raw actor's old hair/head silhouette instead. Where pass 1's replacement covers less than the original did (on the kitchen, the original's taller hair), what is left of the original shows in the cut, and pass 2's region may need to cover it.
 3. **Auditing before rendering**:
    - Check `runs/<run>/step_carves.json` and `facts_pass.json` (`face_outside_region_px` and `other_overlap_px`) on the crossing frames (`755-774`). Verify that `face_outside_region_px == 0` across the entire crossing before queueing `load_chain.py render`.
 
@@ -262,7 +246,7 @@ When the ComfyUI queue finishes:
 <comfy-venv>/bin/python bench/load_chain.py page data/<day>_<load>_job/<load>.json --by <session> --spec SPEC.json
 ```
 
-- `land` frees the GPU (`POST /free`), runs the Sapiens pose pass on the rendered video (`POSE_PASS_FAILED` if incomplete), records `/history` cost lines, and builds the frame-numbered stacked review clip (`Video/<video>/review_clips/<load>_<first>_<last>_stacked.mp4`) and its sidecar (`<video>.mp4.json` via [`bench/sidecar.py`](../../bench/sidecar.py)).
+- `land` frees the GPU (`POST /free`), runs the Sapiens pose pass on the rendered video (`POSE_PASS_FAILED` if incomplete), records `/history` cost lines, and builds the frame-numbered stacked review clip (`Video/<video>/review_clips/<load>_<first>_<last>_stacked.mp4`), whose record goes under `<capture>/strips/`. `land` writes no sidecar: [`bench/sidecar.py`](../../bench/sidecar.py) is called by the assembler, `bench/stack_delivery.py` and `bench/recomposite_piece.py`.
 - `page` prepends the candidate clip with `state: "open"` to `data/<video>/review/items.json` and creates the media symlinks under `data/<video>/review/media/`.
 
 ### 5.2 Updating Both the Interactive Review Queue (`items.json`) and Static `TO_REVIEW.html`
@@ -287,7 +271,17 @@ The owner uses two views served by `data/<video>/poc/serve.py` on port `8765`:
 ### 5.3 Recording Verdicts & Laying a Kept Piece (`laid.jsonl`)
 
 - Translate new lines in `data/<video>/owner_answers.jsonl` into `data/<video>/verdicts/verdicts.jsonl` with [`bench/page_answers_to_verdicts.py`](../../bench/page_answers_to_verdicts.py) (and inspect uncited answers with [`bench/page_answers_ledger.py`](../../bench/page_answers_ledger.py)).
-- When the owner keeps a render, add or update its row in `data/<video>/laid.jsonl` via [`bench/laid.py`](../../bench/laid.py), save its own matte if needed (`bench/recomposite_piece.py --save-own-matte`), and run `bench/rebuild_delivery.py --video <video> --clip`.
+- **Laying a piece is a person's act** ([`bench/laid.py`](../../bench/laid.py); its docstring has every flag). `lay` and `replace` write a line, `remove` takes one out with its reason (kept in `laid.removed.jsonl` beside the list), and `set-owner` changes a line's owner state in place. `--owner` is required on `lay`, `replace` and `set-owner`, and `kept` or `kept in a joined clip` takes `--owner-word FILE:LINE`, the owner's own line. Save the piece's own matte if needed (`bench/recomposite_piece.py --save-own-matte`).
+- **One rebuild a batch.** Every `laid.py` write runs `bench/rebuild_delivery.py --video <video>` without `--clip`, and that run refuses once the list has changed since the clip was assembled (`bench/rebuild_delivery.py::verify_reused_clip`). Pass `--no-rebuild WHY` on each write of a batch, then run one `bench/rebuild_delivery.py --video <video> --clip`. The full rebuild runs only when the cut and the pages must move, after landings or removals (the owner, 2026-10-21).
+- **A look at one shot** assembles and stacks that span alone, or uses the load's own stacked clip from `land` where nobody else is laid on the shot (the owner, 2026-10-21). It never takes a whole-video build. The current table's JSON (how to tell which is current: [`data/AGENTS.md`](../../data/AGENTS.md), "Where the lane's state lives") records its own assembly and stack commands (`assembly.command`, `assembly.stack.build`); take them with the shot's span:
+  ```bash
+  # the table's assembly.command, with --span set to the shot and an --out of its own
+  <comfy-venv>/bin/python bench/assemble_delivery.py --source <working copy> --table <table .txt> \
+    --span FIRST-LAST --out <span clip>.mp4 <the rest of the table's assembly.command: --size, --shots, every --capture>
+  # stack it: --first is the source frame the span clip begins on
+  <comfy-venv>/bin/python bench/stack_delivery.py build --source <working copy> --table <table .txt> \
+    --joined <span clip>.mp4 --first FIRST --only FIRST-LAST --out <stacked>.mp4 --work <scratch folder>
+  ```
 
 ---
 
@@ -307,9 +301,9 @@ The owner uses two views served by `data/<video>/poc/serve.py` on port `8765`:
 
 ### Case Study 2: Hallway `1306-1418` Bidirectional Beard Leak & Short-Dip Bridging (2026-10-19)
 
-- **Symptom**: In `third_fp_1306d` (replacing the bearded dad `third` with a clean-shaven reference), the rendered subject grew a dark/grey beard and eyeglasses across the window, whereas a control render on clean sub-window `1340-1360` (`third_fp_1340b`) had `0/21` beard and `0/21` glasses.
+- **Symptom**: In `third_fp_1306d` (replacing the bearded dad `third` with a clean-shaven reference), the rendered subject grew a dark/gray beard and eyeglasses across the window, whereas a control render on clean sub-window `1340-1360` (`third_fp_1340b`) had `0/21` beard and `0/21` glasses.
 - **Root Cause**:
-  - H3's DiT uses full bidirectional temporal attention across all frames in the window. Any frame where the original actor's grey beard is left unmasked in the frozen context acts as an in-context reference that H3 copies onto the regenerated hole across the entire window.
+  - H3's DiT uses full bidirectional temporal attention across all frames in the window. Any frame where the original actor's gray beard is left unmasked in the frozen context acts as an in-context reference that H3 copies onto the regenerated hole across the entire window.
   - Two distinct mechanisms left `third`'s beard unmasked in `1306-1418`:
     1. **Transient Sapiens class dips during fast motion (`1402-1404` and `1408-1411`)**: While SAM 3.1's person track stayed solid (`96k–146k px`), Sapiens `Face_Neck` dipped to `20,129 px` on `1403` and `2,413–5,736 px` on `1409-1410` (`< 60%` of the `36,585 px` and `47,200 px` flanking frames), exposing `51,735 px` of raw beard outside the region.
     2. **Manual `--drop 1411-1413` on frames with a visible face**: Dropping frames `1411-1413` set `region_px = 0` while `1411-1413` still had `48,938 px`, `16,409 px`, and `21,341 px` of visible `Face_Neck` + beard in the frozen context.
@@ -320,11 +314,11 @@ The owner uses two views served by `data/<video>/poc/serve.py` on port `8765`:
 ### Case Study 3: Singing vs Silent Mouth Drawing Rules (`0278f/i` vs `1340c/d`, 2026-10-18)
 
 - **Symptom**:
-  - On silent shot `278-293` (`second_hfp_0278d/e/h`), drawing a closed mouth line caused `second`'s lips to hang open, because the pose model's mouth line sat `8–12 px` above the SAM 3D Body grey head's own sculpted lips and read as two parted lips. Darkening the grey head (`0278i`, `--darken-head`) made the filled white-and-black contrast eyes pop as cartoon "googly eyes".
+  - On silent shot `278-293` (`second_hfp_0278d/e/h`), drawing a closed mouth line caused `second`'s lips to hang open, because the pose model's mouth line sat `8–12 px` above the SAM 3D Body gray head's own sculpted lips and read as two parted lips. Darkening the gray head (`0278i`, `--darken-head`) made the filled white-and-black contrast eyes pop as cartoon "googly eyes".
   - Conversely, on singing window `1340-1360` (`third_fp_1340c`), suppressing the drawn mouth caused `third`'s lips to stay shut on all 21 frames while he sang.
 - **Fix (`8ac7e928`, `bench/shot_to_load.py::REFERENCE_DEFAULT`)**:
   - Keep `--darken-head` off (head brightness `1.0x`) so filled contrast eyes blend naturally (`0278f`).
-  - Decide the mouth per window from the voice table (`mouth="auto"`, `--closed-lip-line` on by default): draw **no mouth** on silent windows (`0278f`, lips stays closed 16/16 frames) and draw the **repaired mouth** (covering the grey head's sculpted lips and fitted above its chin) on voiced/singing windows (`1340d`, full singing articulation).
+  - Decide the mouth per window from the voice table (`mouth="auto"`, `--closed-lip-line` on by default): draw **no mouth** on silent windows (`0278f`, lips stays closed 16/16 frames) and draw the **repaired mouth** (covering the gray head's sculpted lips and fitted above its chin) on voiced/singing windows (`1340d`, full singing articulation).
 
 ### Case Study 4: 24.0 fps Source Timing, the `17n + 5` Grid, & Dual-Clock Audio Sync (`lead_fp_0751`, 2026-10-18)
 
