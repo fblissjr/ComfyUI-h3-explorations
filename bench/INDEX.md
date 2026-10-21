@@ -8,12 +8,12 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 158 |
+| [`check_*`](#check) | 159 |
 | [`measure_*`](#measure) | 39 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
-| [`build_*`](#build) | 17 |
+| [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
 | [the rest](#the-rest) | 189 |
 
@@ -73,6 +73,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_head_tube_parts.py`](check_head_tube_parts.py) | Check head_tube_parts: SAM 3.1 head tube gating, temporal seg smoothing, and 39-point face cross-check. |
 | [`check_imports.py`](check_imports.py) | Static AST check over tracked root `*.py` and `bench/*.py` (`C61` item 2a). |
 | [`check_keyframe_canvas.py`](check_keyframe_canvas.py) | Keyframe geometry: does the canvas we hand H3 avoid distorting the keyframe? |
+| [`check_laid.py`](check_laid.py) | `bench/laid.py`'s owner state on a made list: who says a piece is kept, and what a change of that leaves on the line. |
 | [`check_length_ceiling.py`](check_length_ceiling.py) | The longest length anything renders or plans is `h3_rules.MAX_LENGTH`, and no shorter count comes back as a cap. |
 | [`check_literal_widgets.py`](check_literal_widgets.py) | A numeric widget must mean the quantity it names, not a mode. |
 | [`check_load_chain.py`](check_load_chain.py) | The load chain (`bench/load_chain.py`) on a made job: what each step reads, runs and refuses, with no server. |
@@ -310,6 +311,7 @@ this file is only a way to find a script by what it says it does.
 | [`build_adaln_swap.py`](build_adaln_swap.py) | Swap the timestep-conditioning set between two pruned H3 checkpoints. CPU only. |
 | [`build_changelog.py`](build_changelog.py) | Build the top of `CHANGELOG.md` from one fragment file per entry, and number the entries when it is built. |
 | [`build_checkpoint_overlay.py`](build_checkpoint_overlay.py) | Write an exact overlay of one int8 H3 checkpoint on another, piece by piece. |
+| [`build_cut_map.py`](build_cut_map.py) | Build a clean, chronological Cut & Hierarchical Data Flow Lineage Map (PROVENANCE.html, CUT_MAP.html, CUT_MAP.md) for fun (0000-6394). |
 | [`build_gate_transplant.py`](build_gate_transplant.py) | Add FastH3's VSA gates to a checkpoint, or take them out. CPU only. |
 | [`build_hybrid.py`](build_hybrid.py) | Build an fl2va/ref2va hybrid checkpoint by copying tensors, and prove the builder first. |
 | [`build_index.py`](build_index.py) | Write the generated indexes: one way in for every tracked area of the repo. |
