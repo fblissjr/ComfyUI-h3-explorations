@@ -20,15 +20,16 @@ Running notes: `internal/claude/2026-10-21_mrturtle/notes.md`. Mailboxes: `inter
   - `claude-headtube-hair` (a lead's builder): the head tube re-seeds a head only on the subject's own evidence; the
     Hair relabel only for a subject who replaces hair; a subject's replaced parts are never a stranger's. Gates the prep.
     Brief `internal/claude/2026-10-21_mrturtle/headtube_strangers_brief.md`; Gemini blind-reads it.
-  - `claude-seed-every-box` (a lead's builder): every owner box seeds its tracker; the prep step knows which replacement
-    it is for; the source must hold today's chain; each pass records its chain; no reuse at any stage. Node code
-    (`subject_track.py`): its landing needs a ComfyUI restart. Gates the prep. Brief `..._mrturtle/seed_every_box_brief.md`.
+  - `claude-seed-every-box` (a lead's builder), trimmed by the owner to its core: every owner box seeds its tracker, and
+    the prep step knows which replacement it is for (5011 needs no override). If it touches `subject_track.py`, its
+    landing needs a ComfyUI restart. Gates the prep. The stale-cut check, the chain record and the no-reuse refusals
+    move to the next day; tonight the prep is remade fresh by hand.
   - `mrgemx-eyes-down` (Gemini): a person's word that draws lowered eyes as the 2026-10-20 arc on chosen frames (for
     0415). Gates the prep. Brief C38.
   - `mrgemx-window-overlap` (Gemini): windows only on both clocks, real context frames, zoom across a cut. Node code
     (`video_mask.py`): land it back to back with the seeding build, one restart. Gates the prep. Brief C38.
-  - `claude-change-check` (a lead's builder): a reader tool measuring each replaced part against the still, kept parts
-    against the source. Does not gate. Brief `..._mrturtle/change_check_brief.md`.
+  - `claude-change-check`: parked unlanded at df2bf603 (the owner). The fix instead corrects the existing measurement that
+    compares a replaced part to the source; the lead traces which tool says it.
 - **Today's previews are provisional** (T52, T53): remade once after the four gating builds land.
 - **Kept today:** second_hfp_5768f (the hair fix holds); 4602c, 0484f, 5675c, 5461e, 4726c. Out today: see decisions.md.
 - **Servers:** ComfyUI :8188 (mract's; stop when the card work is done, by ear). The review server :8765 (pid 17874) is
@@ -51,11 +52,13 @@ Running notes: `internal/claude/2026-10-21_mrturtle/notes.md`. Mailboxes: `inter
 1. Clear each build as its READY lands (`internal/claude/2026-10-21_ready_*.md`, Gemini's G-entries): read the diff,
    re-run a check from its worktree, read its blind review, then a CLEARED T-entry; mract lands it.
 2. After the four gating builds: the prep remade once, then renders in T55's order: the 0415 eye test; 4912; the mom's
-   remakes (4479, 5114, 5011, 0278 on the raw copy; 5533, 4647 on the 1714Z cut); the dad's second passes (4602, 4726,
-   5461, 5675); the lead's shots from the gap page (data/fun/poc/gaps.html; answers at owner_answers.jsonl:1402-1465).
+   remakes (4479, 5114, 5011, 0278 on the raw copy; 5533, 4647 on the 1714Z cut). The owner trimmed tonight to those;
+   the dad's second passes (4602, 4726, 5461, 5675) and the lead's shots from the gap page (data/fun/poc/gaps.html;
+   answers at owner_answers.jsonl:1402-1465) move to the next day.
 3. At the close: the changelog from the commits (changelog.d/README.md); decisions.md; archive today's
    `data/fun/laid.jsonl.before_*` backups to `data/fun/archive/2026-10-21/`; remove landed worktrees.
-4. Builds queued after these: W7 (reuse and staleness made visible, reading the chain record), the per-part flag above,
+4. Builds queued after these: the seeding build's trimmed parts (the stale-cut check, the chain record, the no-reuse
+   refusals) and W7 (reuse and staleness made visible, reading that record), the per-part flag above,
    `laid.py set-owner --recite`, whole-video prep for first-pass subjects, 1039's head pose, the bigger zoom (parked).
 
 ## Where things are

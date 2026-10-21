@@ -198,22 +198,22 @@ From about 17:58Z mrturtle led, with mrgordon on the card and Gemini building. R
   render, so on a shot with several, each is made on the newest whole-video cut that holds every other replacement laid
   there, and each adds a link to the chain; no tool may name a subject in this rule. `check_pass2_source` follows it at
   `job`, but at `preview` it counted the piece being redone as another's (5011 needed an override), and it never checked
-  that the cut given holds the current pieces of the others, only that it is not the raw source. Both are in the
-  every-box seeding build (`claude-seed-every-box`). Each pass also records the chain it was made on (its source and
-  the other pieces that source holds on its frames), so that what was made on a chain shows as stale once anything in
-  it changes (the owner); the report is the "reuse made visible" build (W7), queued next. A stale kept piece is shown,
-  not remade by rule.
+  that the cut given holds the current pieces of the others, only that it is not the raw source. The first is in the
+  every-box seeding build (`claude-seed-every-box`). The owner trimmed that build to its core the same evening: the
+  stale-cut check, a recorded chain for each pass (so what was made on a chain shows as stale once anything in it
+  changes) and its report (W7) move to the next day. A stale kept piece is shown, not remade by rule.
 - **Any render with a dependency gets its whole data prep made fresh** (the owner, "the safer route"): a render that
   depends on another replacement is prepped from a fresh preview on today's chain, with nothing reused, and only the
-  owner's own words carried. `job` will refuse a preview made on another chain (the every-box seeding build). The
-  one-variable exception stays only for a single replacement with nothing else laid on its shot, and only where no
+  owner's own words carried. Until a tool refuses a preview made on another chain (moved to the next day), the session
+  remakes the prep fresh by hand. The one-variable exception stays only for a single replacement with nothing else laid on its shot, and only where no
   code that feeds that stage (masks, the part and pose models, SAM tracking, the drawing) has changed since it ran (the
   owner), and only where the window and its start and end frames are unchanged (the owner). So the previews made today,
   and every stage after them, are remade once, after the head-tube, seeding, window and eye builds have all landed.
 - **Prep is not reused between loads** (the owner: "stop reusing it"). A fresh preview costs little card time (each
   preview's start and end are in `internal/claude/2026-10-21_mrgordon_previews.log`), far less than a render made on
   stale prep. Each load gets its own preview and strangers file and draws its own reference; reusing one takes a
-  written reason in the job (the one-variable test). Built into the every-box seeding build.
+  written reason in the job (the one-variable test). The refusals that enforce it at every stage move to the next day
+  (the owner trimmed the seeding build to its core); until then the prep is remade fresh by hand.
 - **Moving a render's true start or end frame invalidates its prep** (the owner), unless the prep was made upfront for
   the whole video and the render is a single pass: then a window is a slice of data that already covers every frame. A
   second pass never has that, since its source is a cut that changes with the pieces under it. A future build follows
@@ -238,8 +238,9 @@ From about 17:58Z mrturtle led, with mrgordon on the card and Gemini building. R
   subject (`plan.json` `subjects.<s>.parts`; in `fun` the second subject's hair and face, the lead's and the third's face)
   is compared to the reference still, never to the source: dark hair that matches the original is a fault for the second
   subject and correct for the lead and the third, whose hair is kept. A part not replaced is compared to the source. The
-  hair figures read for 4912e compared her hair to the source, and so could not show the fault. A reader tool built on
-  this rule prints the figures with no verdict.
+  hair figures read for 4912e compared her hair to the source, and so could not show the fault. A new reader tool for
+  this (`claude-change-check`) was parked unlanded the same evening (the owner): the fix is to correct or remove the
+  existing measurement that compares a replaced part to the source, and the owner judges the hair on playback.
 - **The closed-eye drawing is taken back out; a lowered eye is drawn as on 2026-10-20 again** (the owner, after the eye
   tests). It reverses r21_09's "lowered eyes are drawn closed" and the mean rule above. On second_hfp_0484g (only the
   drawing changed from 0484f, which the owner kept) H3 drew her eyes open and toward the camera where 0484f kept her gaze
