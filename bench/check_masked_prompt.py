@@ -46,6 +46,18 @@ Each case is a way a render could run on a text nobody meant:
                                   against one is whoever reads the text. And
                                   the soundscape is the reference composer's
                                   own line, held once.
+  no_negative_clauses             no combination of the choices says what of
+                                  a reference is NOT taken (the owner,
+                                  2026-10-21: "Our negatives never help"):
+                                  the phrases of the clauses cut that day,
+                                  `NEGATED`, are in no text, and each
+                                  `<Video 1>` line is exactly the module's.
+                                  Like `CUT` it is a list of what went: a
+                                  new negative of another wording stays
+                                  green, and the guard is the reader. The
+                                  silent voice's "does not speak or sing" is
+                                  a different sentence (the subject's state
+                                  in the shot) and is not read here.
   wired_parts_must_be_named       the Masked Source's `the wired parts` can
                                   be any part, so following it is refused
                                   with the input to set named.
@@ -120,6 +132,11 @@ CUT = ("photorealistic", "whole take", "walls", "furniture", "steady and in focu
        "brush of clothing",
        "the scene's own", "exactly as", "takes the place", "already lit", "do not change", "stays as it is",
        "stay exactly", "untouched", "the original", "body beneath", "everyone and everything else")
+
+#: A phrase from each negative clause cut on 2026-10-21 (the owner; the module's note above `VIDEO_DEFINITION`): the
+#: `<Video 1>` lines' "not reused" and "appearance are not", their "only", and the definitions' "not present in the
+#: target video". Lower case; matched in the lowered text.
+NEGATED = ("not reused", "appearance is not", "appearance are not", "not present", "not used", "only the body motion")
 
 
 def bank_copies_are_what_it_writes():
@@ -216,6 +233,24 @@ def nothing_says_what_was_cut():
     generator = (REPO / "workflows" / "build_workflows.py").read_text(encoding="utf-8")
     assert m.AMBIENCE not in generator and "_masked_text().AMBIENCE" in generator, "the reference composer has its own soundscape line"
     return f"{count} combinations, {len(CUT)} phrases"
+
+
+def no_negative_clauses():
+    count = 0
+    for subject, voice, gives, motion in itertools.product((m.SUBJECT_PERSON, m.SUBJECT_MAN, m.SUBJECT_WOMAN), m.VOICES,
+                                                         m.ROLES, (None, m.MOTION_NONE, MOTION_ON)):
+        text = m.assemble(subject, voice, gives, motion_reference=motion)
+        back = [phrase for phrase in NEGATED if phrase in text.lower()]
+        assert not back, f"{(subject, voice, gives, motion)}: {back}"
+        if motion == MOTION_ON:
+            lines = text.split("\n")
+            assert lines.count(m.VIDEO_DEFINITION) == 1 and lines.count(m.VIDEO_RETENTION) == 1, (subject, voice, gives)
+        count += 1
+    # the lines say what <Video 1> gives and end there
+    assert m.VIDEO_DEFINITION == "<Video 1> is the source of the movement transferred to <Subject 1>.", m.VIDEO_DEFINITION
+    assert m.VIDEO_RETENTION == ("<Video 1> (motion source): attribute_transfer - the body motion, posture, gestures and "
+                                 "their timing are taken."), m.VIDEO_RETENTION
+    return f"{count} combinations, {len(NEGATED)} phrases"
 
 
 def wired_parts_must_be_named():
@@ -371,7 +406,7 @@ def main() -> int:
         return 0
     for fn in (bank_copies_are_what_it_writes, every_combination_is_well_formed, extra_lands_in_the_shot,
                subject_is_the_users_words, summary_says_what_was_worked_out, nothing_says_what_was_cut,
-               wired_parts_must_be_named, upper_body_role_says_nothing_it_cannot_know,
+               no_negative_clauses, wired_parts_must_be_named, upper_body_role_says_nothing_it_cannot_know,
                copies_match_the_masked_source, config_is_the_defaults,
                graders_read_what_the_node_writes, node_reads_the_source, shipped_graphs_wire_the_node):
         case(fn.__name__, fn)

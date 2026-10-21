@@ -55,6 +55,13 @@ where a motion reference is wired (its unrendered sentence for a render
 with none was cut):
 four sentences of the kinds cut elsewhere are held in it until a render
 says they can go (`HELD`). `docs/wiki/decisions.md`, 2026-10-10.
+
+**Cut again on 2026-10-21: no negative clauses** (the owner: "Our negatives
+never help"). The `<Video 1>` lines lost what they said is not taken, and the
+whole-person and head definitions what of <Picture 1> is not present; neither
+form has rendered, and the accepted head-and-upper-body wording now differs
+from what was accepted in those two `<Video 1>` lines. See the note above
+`VIDEO_DEFINITION`.
 """
 from __future__ import annotations
 
@@ -100,10 +107,15 @@ MOTION_NONE = "none"
 
 MOTION_CLAUSE = (", whose body motion, posture, gestures, head movements and their timing come from the "
                  "person in <Video 1>")
-VIDEO_DEFINITION = ("<Video 1> is the source of the movement transferred to <Subject 1>; its scene is not "
-                    "reused and its person's appearance is not.")
-VIDEO_RETENTION = ("<Video 1> (motion source): attribute_transfer - only the body motion, posture, gestures "
-                   "and their timing are taken; the scene and the person's appearance are not.")
+# NO NEGATIVE CLAUSES (the owner, 2026-10-21: "Our negatives never help"): a clause naming what is not taken still puts
+# those words in front of the model, so a line says what a reference gives and stops, as the release's guide writes it
+# (`vendor_guides/ref_en.md`, section 4). Until then the two `<Video 1>` lines ended with "its scene is not reused
+# and its person's appearance is not" and "the scene and the person's appearance are not", and the retention line
+# opened "only the body motion"; "only" went too, since it points at an unnamed rest that is not taken, and
+# `attribute_transfer` already says the named characteristics are what transfers.
+VIDEO_DEFINITION = "<Video 1> is the source of the movement transferred to <Subject 1>."
+VIDEO_RETENTION = ("<Video 1> (motion source): attribute_transfer - the body motion, posture, gestures and their "
+                   "timing are taken.")
 # The relationship and nothing else (owner, 2026-10-07): a list of what the movements might be
 # ("turning when they turn ...") is read as an instruction, and the subject turned.
 MOVES = "<Subject 1> moves as the person in <Video 1> moves, at the same moments."
@@ -147,10 +159,11 @@ SOUNDSCAPE = "overall_soundscape: " + AMBIENCE
 #: track. No generic sentence stands in for it, because any sentence here asserts such a score.
 MUSIC = "non_diegetic_music: N/A"
 
-#: "The [clothing,] background, lighting and framing of <Picture 1> are not present in the target video", in two
-#: definitions, is OURS and not the guide's form: the guide never says what a reference does not supply. It is
-#: kept because it says how much of a WIRED reference is used, which the node knows, and in the head role it is
-#: the one sentence that keeps the still's clothing out.
+#: Each definition says what of <Picture 1> is preserved, and nothing of what is not: until 2026-10-21 the whole-person
+#: and head roles ended theirs with "The [clothing,] background, lighting and framing of <Picture 1> are not present in
+#: the target video", which was OURS and not the guide's form (the guide never says what a reference does not supply).
+#: It went with the `<Video 1>` lines' negatives, by the owner's rule of that day (above `VIDEO_DEFINITION`); the head
+#: role's list of what is preserved is now the whole of what keeps the still's clothing out.
 #:
 #: What the still provides -> that role's text. `shot` is what follows the place and movement sentences,
 #: `performance` the sentences per voice choice. `opening`, where a role has it, is a line before the shot, and
@@ -176,8 +189,7 @@ MUSIC = "non_diegetic_music: N/A"
 ROLES: dict[str, dict] = {
     GIVES_WHOLE: dict(
         definition=("<Subject 1> is the {who} shown in <Picture 1>, preserving {poss} facial identity, hair, "
-                    "build and the clothing visible in <Picture 1>{motion}. The background, lighting and "
-                    "framing of <Picture 1> are not present in the target video."),
+                    "build and the clothing visible in <Picture 1>{motion}."),
         summary="[reference generation] <Subject 1> is in the scene {voice}.",
         retention=("<Subject 1> (appears in [Shot 1]): fully_preserved - retain the same face, hair, build "
                    "and clothing in every frame, at every distance from the camera and from every side."),
@@ -218,8 +230,7 @@ ROLES: dict[str, dict] = {
     ),
     GIVES_HEAD: dict(
         definition=("<Subject 1> is the {who} shown in <Picture 1>, preserving {poss} facial identity, "
-                    "{poss} hair and anything worn on the head in <Picture 1>{motion}. The clothing, "
-                    "background, lighting and framing of <Picture 1> are not present in the target video."),
+                    "{poss} hair and anything worn on the head in <Picture 1>{motion}."),
         summary=("[reference generation] <Subject 1> is in the scene, with the face, the hair and anything "
                  "worn on the head as <Picture 1> shows them, {voice}."),
         retention=("<Subject 1> (appears in [Shot 1]): fully_preserved - retain the same face, hair and "

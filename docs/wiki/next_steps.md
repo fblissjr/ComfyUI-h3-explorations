@@ -508,8 +508,9 @@ fixed the same day, said inline below.**
   ([`handover.md`](handover.md), "Tomorrow", has each in full): the
   layered view of the preprocessing, shared helpers first; then a
   generated workflow for the lid-marks form, after the close-up's next
-  render is read. What exists in its place:
-  `../../bench/examples/masked_job_lid_marks/`.
+  render is read. What stood in its place, an example job under
+  `bench/examples/`, was removed with every other example on 2026-10-21
+  (the owner's word).
 - **The local page reorganized** (the owner, 2026-10-12 about 17:23Z, in
   the lead's terminal: it is impossible to find what is important and what
   is stale). Three sections and nothing else: look at now; the video a

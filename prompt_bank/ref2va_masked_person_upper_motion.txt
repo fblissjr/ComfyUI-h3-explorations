@@ -1,13 +1,13 @@
 subject_definitions:
 <Subject 1> is the person shown in <Picture 1>, whose body motion, posture, gestures, head movements and their timing come from the person in <Video 1>.
-<Video 1> is the source of the movement transferred to <Subject 1>; its scene is not reused and its person's appearance is not.
+<Video 1> is the source of the movement transferred to <Subject 1>.
 
 summary:
 [reference generation] <Subject 1> is in a scene that is already lit, framed and cut. From the waist up <Subject 1> is as <Picture 1> shows them, and performs the main voice heard on the track to its timing.
 
 retention_analysis:
 <Subject 1> (appears in [Shot 1]): fully_preserved - the person: their face and everything <Picture 1> shows of them from the waist up are retained in every frame.
-<Video 1> (motion source): attribute_transfer - only the body motion, posture, gestures and their timing are taken; the scene and the person's appearance are not.
+<Video 1> (motion source): attribute_transfer - the body motion, posture, gestures and their timing are taken.
 
 detailed_description:
 The target video is photorealistic live-action.

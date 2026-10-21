@@ -13,14 +13,14 @@ Scenes are ordered by how many graphs carry them, so the defaults that reach the
 | [`ref2va_role_character_environment`](#ref2va-role-character-environment) | `ref2va_role_character_environment` | 10 | 135 | 1 | 0 | — |
 | [`I2V_PROMPT`](#i2v-prompt) | `i2va_lighthouse_keyframe` | 9 | 90 | 1 | 0 | — |
 | [`ref2va_role_character_garment_environment`](#ref2va-role-character-garment-environment) | `ref2va_role_character_garment_environment` | 9 | 173 | 1 | 0 | — |
-| [`ref2va_masked_person_swap`](#ref2va-masked-person-swap) | `ref2va_masked_person_swap` | 4 | 248 | 1 | 1 | — |
+| [`ref2va_masked_person_swap`](#ref2va-masked-person-swap) | `ref2va_masked_person_swap` | 4 | 233 | 1 | 1 | — |
 | [`fl2va_interior_converge`](#fl2va-interior-converge) | `fl2va_interior_converge` | 3 | 159 | 1 | 0 | — |
 | [`ref2va_image_video_audio_music`](#ref2va-image-video-audio-music) | `ref2va_image_video_audio_music` | 3 | 264 | 1 | 0 | — |
-| [`ref2va_masked_person_motion`](#ref2va-masked-person-motion) | `ref2va_masked_person_motion` | 3 | 327 | 1 | 1 | — |
-| [`ref2va_masked_person_upper_motion`](#ref2va-masked-person-upper-motion) | `ref2va_masked_person_upper_motion` | 3 | 250 | 1 | 1 | — |
+| [`ref2va_masked_person_motion`](#ref2va-masked-person-motion) | `ref2va_masked_person_motion` | 3 | 292 | 1 | 1 | — |
+| [`ref2va_masked_person_upper_motion`](#ref2va-masked-person-upper-motion) | `ref2va_masked_person_upper_motion` | 3 | 230 | 1 | 1 | — |
 | [`BENCH_T2V_PROMPT`](#bench-t2v-prompt) | `t2va_frontier_standoff` | 2 | 385 | 3 | 2 | `<d>` |
 | [`DIALOGUE_REF2V_PROMPT`](#dialogue-ref2v-prompt) | `ref2va_stairwell_dialogue` | 2 | 640 | 3 | 2 | `<d>` |
-| [`ref2va_masked_person_head`](#ref2va-masked-person-head) | `ref2va_masked_person_head` | 2 | 229 | 1 | 1 | — |
+| [`ref2va_masked_person_head`](#ref2va-masked-person-head) | `ref2va_masked_person_head` | 2 | 213 | 1 | 1 | — |
 | [`ref2va_studio_dancer_close_refs`](#ref2va-studio-dancer-close-refs) | `ref2va_studio_dancer_close_refs` | 2 | 568 | 2 | 0 | — |
 | [`ref2va_video_sound_structure`](#ref2va-video-sound-structure) | `ref2va_video_sound_structure` | 2 | 183 | 1 | 0 | — |
 | [`t2va_studio_dancer_close`](#t2va-studio-dancer-close) | `t2va_studio_dancer_close` | 2 | 236 | 2 | 0 | — |
@@ -321,7 +321,7 @@ Carried by **4** graph(s). Sections: `subject_definitions`, `summary`, `retentio
 
 ```text
 subject_definitions:
-<Subject 1> is the person shown in <Picture 1>, preserving their facial identity, hair, build and the clothing visible in <Picture 1>. The background, lighting and framing of <Picture 1> are not present in the target video.
+<Subject 1> is the person shown in <Picture 1>, preserving their facial identity, hair, build and the clothing visible in <Picture 1>.
 
 summary:
 [reference generation] <Subject 1> is in the scene and performs the main voice heard on the track to its timing.
@@ -350,7 +350,7 @@ Carried by **3** graph(s). Sections: none.
 </details>
 
 ```text
-How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 14.38-second mark of the target video.
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 15.08-second mark of the target video.
 
 integrated_multimodal_description: [Shot 1] Live-action, cinematic, one continuous shot that begins in the exact state of the opening frame and ends in the exact state of the closing frame. The subject holds the opening position, framing, lighting and colors, then moves steadily through the space while the camera trucks right with small amplitude at slow speed. Wardrobe, palette and the surrounding scene stay continuous throughout, and the subject's pose, placement and the camera's position, angle and framing converge on the closing composition, reaching it only at the final frame.
 
@@ -414,15 +414,15 @@ Carried by **3** graph(s). Sections: `subject_definitions`, `summary`, `retentio
 
 ```text
 subject_definitions:
-<Subject 1> is the person shown in <Picture 1>, preserving their facial identity, hair, build and the clothing visible in <Picture 1>, whose body motion, posture, gestures, head movements and their timing come from the person in <Video 1>. The background, lighting and framing of <Picture 1> are not present in the target video.
-<Video 1> is the source of the movement transferred to <Subject 1>; its scene is not reused and its person's appearance is not.
+<Subject 1> is the person shown in <Picture 1>, preserving their facial identity, hair, build and the clothing visible in <Picture 1>, whose body motion, posture, gestures, head movements and their timing come from the person in <Video 1>.
+<Video 1> is the source of the movement transferred to <Subject 1>.
 
 summary:
 [reference generation] <Subject 1> is in the scene and performs the main voice heard on the track to its timing.
 
 retention_analysis:
 <Subject 1> (appears in [Shot 1]): fully_preserved - retain the same face, hair, build and clothing in every frame, at every distance from the camera and from every side.
-<Video 1> (motion source): attribute_transfer - only the body motion, posture, gestures and their timing are taken; the scene and the person's appearance are not.
+<Video 1> (motion source): attribute_transfer - the body motion, posture, gestures and their timing are taken.
 
 detailed_description:
 [Shot 1] <Subject 1>, the person, is in the scene. <Subject 1> moves as the person in <Video 1> moves, at the same moments. Where the frame shows the whole figure, <Subject 1> is whole, in the clothing of <Picture 1>, and whatever <Picture 1> does not show of their clothing is plain and in keeping with it; where the frame shows only the head and shoulders, it shows the face of <Subject 1> with the skin texture, the hairline and the eyes of <Picture 1>. Seen from the side or from behind, <Subject 1> keeps the same hair, the same build and the same clothing. <Subject 1> (S1) is the main voice on the track and performs it on screen: the jaw drops and the lips open on the first syllable of each phrase of that voice, the mouth shapes each vowel and closes on each consonant in time with it, and the lips rest together, still, whenever that voice pauses.
@@ -447,14 +447,14 @@ Carried by **3** graph(s). Sections: `subject_definitions`, `summary`, `retentio
 ```text
 subject_definitions:
 <Subject 1> is the person shown in <Picture 1>, whose body motion, posture, gestures, head movements and their timing come from the person in <Video 1>.
-<Video 1> is the source of the movement transferred to <Subject 1>; its scene is not reused and its person's appearance is not.
+<Video 1> is the source of the movement transferred to <Subject 1>.
 
 summary:
 [reference generation] <Subject 1> is in a scene that is already lit, framed and cut. From the waist up <Subject 1> is as <Picture 1> shows them, and performs the main voice heard on the track to its timing.
 
 retention_analysis:
 <Subject 1> (appears in [Shot 1]): fully_preserved - the person: their face and everything <Picture 1> shows of them from the waist up are retained in every frame.
-<Video 1> (motion source): attribute_transfer - only the body motion, posture, gestures and their timing are taken; the scene and the person's appearance are not.
+<Video 1> (motion source): attribute_transfer - the body motion, posture, gestures and their timing are taken.
 
 detailed_description:
 The target video is photorealistic live-action.
@@ -536,7 +536,7 @@ Carried by **2** graph(s). Sections: `subject_definitions`, `summary`, `retentio
 
 ```text
 subject_definitions:
-<Subject 1> is the person shown in <Picture 1>, preserving their facial identity, their hair and anything worn on the head in <Picture 1>. The clothing, background, lighting and framing of <Picture 1> are not present in the target video.
+<Subject 1> is the person shown in <Picture 1>, preserving their facial identity, their hair and anything worn on the head in <Picture 1>.
 
 summary:
 [reference generation] <Subject 1> is in the scene, with the face, the hair and anything worn on the head as <Picture 1> shows them, and performs the main voice heard on the track to its timing.
@@ -814,7 +814,7 @@ Carried by **1** graph(s). Sections: none.
 </details>
 
 ```text
-How the reference pictures align with the target video — <Picture 1> (from [Shot 1]) aligns with the 14.38-second mark of the target video.
+How the reference pictures align with the target video — <Picture 1> (from [Shot 1]) aligns with the 15.08-second mark of the target video.
 
 integrated_multimodal_description: [Shot 1] Live-action, cinematic, one continuous shot in a quiet interior. A woman in a dark jacket crosses the room unhurriedly, passing a window that throws a soft band of daylight across the floor. The camera trucks right with small amplitude at slow speed, holding her in frame as she moves. Her pace settles, her shoulders come level, and her position, wardrobe, the lighting and the camera's angle and framing converge on the closing composition, reaching it only at the final frame.
 

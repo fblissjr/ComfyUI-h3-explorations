@@ -189,6 +189,13 @@ five now run under the reference guide's word budget for a description,
 which the bank records on each, and none of the five has rendered as it
 now stands.*
 
+*2026-10-21: every clause saying what a reference does not give went from
+the node's texts (the owner's rule of no negatives; `masked_prompt_text.py`,
+the note above `VIDEO_DEFINITION`): the two `<Video 1>` lines and the
+whole-person and head definitions' sentence on what of <Picture 1> is not
+present. The upper-body entry's `<Video 1>` lines changed with them, so
+none of the six has rendered as it now stands.*
+
 | scene | mode | verdict | why |
 |---|---|---|---|
 | `ref2va_masked_person_swap` | ref2va | **keep** | the shipped prompt of `h3_video_to_video_masked_song_pdd8`: the node at its defaults. mrhf's generic swap text of 2026-10-04, which drops what `ref2va_masked_subject_swap` claimed about the clip (one performer, alone, standing, a fourteen-second static shot). Rendered once in that form, one window and one seed on the band clip, and not judged by the owner |

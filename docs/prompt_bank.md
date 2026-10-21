@@ -3515,7 +3515,7 @@ non_diegetic_music: N/A
 
 **ref2va, 345 frames, 14.375 s, donor `h3_probe_refview2_dancer_api`.** Masked video to video, the head only, written by the Masked Prompt node when the Masked Source replaces head and hair: <Picture 1> gives the face, the hair and anything worn on the head. ref2va_masked_head_swap generalised the way the whole-person text was: no lead performer, no duration, no camera claim, and since 2026-10-10 nothing about the original's hair, body or clothes. **Tests:** that the node's head-and-hair text grades clean; not rendered The wording was cut on 2026-10-10 (docs/wiki/decisions.md, that date) and has not rendered as it now stands; what is said here of a render is of the earlier wording, which git keeps. **Recorded findings:** The bank's shape rule reads no camera motion because the text names none on purpose: the node never sees the window it writes for, and the plate holds the camera (docs/prompt_audit.md, the ref2va_masked rows). detailed_description is under ref 5.2's 350-500 word budget, on purpose since 2026-10-10: every sentence that asserted what the node cannot know of a clip, and every sentence about an edit, was cut (bench/results/2026-10-10_prompt_text_hardcoded_in_code.md), and nothing was written to fill the count. Ships in: `h3_mask_parts_pdd8_api`, `h3_video_to_video_masked_parts_song_pdd8_api`.
 
-Derived: camera: ; speakers: S1; task: [reference generation]; labels: <Picture 1>; 111 words in the main field; 1351 characters in all.
+Derived: camera: ; speakers: S1; task: [reference generation]; labels: <Picture 1>; 111 words in the main field; 1252 characters in all.
 
 ```
 python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_probe_refview2_dancer_api prompt_bank/ref2va_masked_person_head.txt
@@ -3524,7 +3524,7 @@ python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_probe_ref
 
 ```text
 subject_definitions:
-<Subject 1> is the person shown in <Picture 1>, preserving their facial identity, their hair and anything worn on the head in <Picture 1>. The clothing, background, lighting and framing of <Picture 1> are not present in the target video.
+<Subject 1> is the person shown in <Picture 1>, preserving their facial identity, their hair and anything worn on the head in <Picture 1>.
 
 summary:
 [reference generation] <Subject 1> is in the scene, with the face, the hair and anything worn on the head as <Picture 1> shows them, and performs the main voice heard on the track to its timing.
@@ -3544,7 +3544,7 @@ non_diegetic_music: N/A
 
 **ref2va, 345 frames, 14.375 s, donor `h3_probe_refview2_dancer_api`.** Masked video to video with the original's movement, written by the Masked Prompt node when the Masked Source's motion reference is on: ref2va_masked_person_swap with <Video 1>, the source subject's own frames, named as the source of the subject's motion and timing and nothing else (attribute_transfer). ref2va_masked_subject_motion is the same text for 'the man', which is the one the motion arms measured. **Tests:** the shipped default of h3_video_to_video_masked_song_ref2va_motion since 2026-10-06: the measured text with the noun and pronouns of a placeholder still; rendered once on 2026-10-06 beside the man text, same graph, window and seed (bench/results/2026-10-06_masked_v2v_person_text.md) The wording was cut on 2026-10-10 (docs/wiki/decisions.md, that date) and has not rendered as it now stands; what is said here of a render is of the earlier wording, which git keeps. **Recorded findings:** <Video 1> has no socket on any donor: the song node builds it per window from the Masked Source's motion reference (audio_freeze_song.py), so the label grade fails on a property of the donor. The bank's shape rule reads no camera motion because the text names none on purpose: the node never sees the window it writes for, and the plate holds the camera (docs/prompt_audit.md, the ref2va_masked rows). detailed_description is under ref 5.2's 350-500 word budget, on purpose since 2026-10-10: every sentence that asserted what the node cannot know of a clip, and every sentence about an edit, was cut (bench/results/2026-10-10_prompt_text_hardcoded_in_code.md), and nothing was written to fill the count. Ships in: `h3_mask_ref2va_motion_api`, `h3_probe_v2v_masked_song_ref2va_motion_cache_api`, `h3_video_to_video_masked_song_ref2va_motion_api`.
 
-Derived: camera: ; speakers: S1; task: [reference generation]; labels: <Picture 1>, <Video 1>; 162 words in the main field; 1941 characters in all.
+Derived: camera: ; speakers: S1; task: [reference generation]; labels: <Picture 1>, <Video 1>; 162 words in the main field; 1740 characters in all.
 
 ```
 python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_probe_refview2_dancer_api prompt_bank/ref2va_masked_person_motion.txt
@@ -3553,15 +3553,15 @@ python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_probe_ref
 
 ```text
 subject_definitions:
-<Subject 1> is the person shown in <Picture 1>, preserving their facial identity, hair, build and the clothing visible in <Picture 1>, whose body motion, posture, gestures, head movements and their timing come from the person in <Video 1>. The background, lighting and framing of <Picture 1> are not present in the target video.
-<Video 1> is the source of the movement transferred to <Subject 1>; its scene is not reused and its person's appearance is not.
+<Subject 1> is the person shown in <Picture 1>, preserving their facial identity, hair, build and the clothing visible in <Picture 1>, whose body motion, posture, gestures, head movements and their timing come from the person in <Video 1>.
+<Video 1> is the source of the movement transferred to <Subject 1>.
 
 summary:
 [reference generation] <Subject 1> is in the scene and performs the main voice heard on the track to its timing.
 
 retention_analysis:
 <Subject 1> (appears in [Shot 1]): fully_preserved - retain the same face, hair, build and clothing in every frame, at every distance from the camera and from every side.
-<Video 1> (motion source): attribute_transfer - only the body motion, posture, gestures and their timing are taken; the scene and the person's appearance are not.
+<Video 1> (motion source): attribute_transfer - the body motion, posture, gestures and their timing are taken.
 
 detailed_description:
 [Shot 1] <Subject 1>, the person, is in the scene. <Subject 1> moves as the person in <Video 1> moves, at the same moments. Where the frame shows the whole figure, <Subject 1> is whole, in the clothing of <Picture 1>, and whatever <Picture 1> does not show of their clothing is plain and in keeping with it; where the frame shows only the head and shoulders, it shows the face of <Subject 1> with the skin texture, the hairline and the eyes of <Picture 1>. Seen from the side or from behind, <Subject 1> keeps the same hair, the same build and the same clothing. <Subject 1> (S1) is the main voice on the track and performs it on screen: the jaw drops and the lips open on the first syllable of each phrase of that voice, the mouth shapes each vowel and closes on each consonant in time with it, and the lips rest together, still, whenever that voice pauses.
@@ -3575,7 +3575,7 @@ non_diegetic_music: N/A
 
 **ref2va, 345 frames, 14.375 s, donor `h3_probe_refview2_dancer_api`.** Masked video to video, the whole person, silent, written by the Masked Prompt node with voice set to silent: ref2va_masked_person_swap for a replaced person who is not the voice on the track, the lips resting closed and none of the track's voices theirs. **Tests:** that the node's silent text grades clean; not rendered The wording was cut on 2026-10-10 (docs/wiki/decisions.md, that date) and has not rendered as it now stands; what is said here of a render is of the earlier wording, which git keeps. **Recorded findings:** The bank's shape rule reads no camera motion because the text names none on purpose: the node never sees the window it writes for, and the plate holds the camera (docs/prompt_audit.md, the ref2va_masked rows). detailed_description is under ref 5.2's 350-500 word budget, on purpose since 2026-10-10: every sentence that asserted what the node cannot know of a clip, and every sentence about an edit, was cut (bench/results/2026-10-10_prompt_text_hardcoded_in_code.md), and nothing was written to fill the count.
 
-Derived: camera: ; task: [reference generation]; labels: <Picture 1>; 128 words in the main field; 1329 characters in all.
+Derived: camera: ; task: [reference generation]; labels: <Picture 1>; 128 words in the main field; 1240 characters in all.
 
 ```
 python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_probe_refview2_dancer_api prompt_bank/ref2va_masked_person_silent.txt
@@ -3584,7 +3584,7 @@ python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_probe_ref
 
 ```text
 subject_definitions:
-<Subject 1> is the person shown in <Picture 1>, preserving their facial identity, hair, build and the clothing visible in <Picture 1>. The background, lighting and framing of <Picture 1> are not present in the target video.
+<Subject 1> is the person shown in <Picture 1>, preserving their facial identity, hair, build and the clothing visible in <Picture 1>.
 
 summary:
 [reference generation] <Subject 1> is in the scene without speaking or singing.
@@ -3604,7 +3604,7 @@ non_diegetic_music: N/A
 
 **ref2va, 345 frames, 14.375 s, donor `h3_probe_refview2_dancer_api`.** Masked video to video, the whole person, written by the Masked Prompt node at its defaults (masked_prompt_text.py): <Picture 1> defines a person who is in the scene and is the main voice on a frozen track, written as (S1). It claims no count of people, no duration, no posture, no camera, no look and nothing the subject does beyond the mouth following that voice, so one text serves every window of any clip. Until 2026-10-10 it was mrhf's generic swap prompt of 2026-10-04. **Tests:** the shipped default of h3_video_to_video_masked_song_pdd8 since 2026-10-06, in place of ref2va_masked_subject_swap, which said one performer standing through a fourteen-second static shot; and that the node still writes this text (bench/check_masked_prompt.py) The wording was cut on 2026-10-10 (docs/wiki/decisions.md, that date) and has not rendered as it now stands; what is said here of a render is of the earlier wording, which git keeps. **Recorded findings:** The bank's shape rule reads no camera motion because the text names none on purpose: the node never sees the window it writes for, and the plate holds the camera (docs/prompt_audit.md, the ref2va_masked rows). detailed_description is under ref 5.2's 350-500 word budget, on purpose since 2026-10-10: every sentence that asserted what the node cannot know of a clip, and every sentence about an edit, was cut (bench/results/2026-10-10_prompt_text_hardcoded_in_code.md), and nothing was written to fill the count. Ships in: `h3_mask_pdd8_api`, `h3_mask_review_api`, `h3_video_to_video_masked_review_api`, `h3_video_to_video_masked_song_pdd8_api`.
 
-Derived: camera: ; speakers: S1; task: [reference generation]; labels: <Picture 1>; 148 words in the main field; 1472 characters in all.
+Derived: camera: ; speakers: S1; task: [reference generation]; labels: <Picture 1>; 148 words in the main field; 1383 characters in all.
 
 ```
 python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_probe_refview2_dancer_api prompt_bank/ref2va_masked_person_swap.txt
@@ -3613,7 +3613,7 @@ python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_probe_ref
 
 ```text
 subject_definitions:
-<Subject 1> is the person shown in <Picture 1>, preserving their facial identity, hair, build and the clothing visible in <Picture 1>. The background, lighting and framing of <Picture 1> are not present in the target video.
+<Subject 1> is the person shown in <Picture 1>, preserving their facial identity, hair, build and the clothing visible in <Picture 1>.
 
 summary:
 [reference generation] <Subject 1> is in the scene and performs the main voice heard on the track to its timing.
@@ -3633,7 +3633,7 @@ non_diegetic_music: N/A
 
 **ref2va, 345 frames, 14.375 s, donor `h3_probe_refview2_dancer_api`.** Masked video to video, the head and upper body, with the original's movement: written by the Masked Prompt node when the still is said to give the head and upper body and the Masked Source's motion reference is on. <Picture 1> gives the face, the hair, anything worn on the head and what is worn above the waist; the legs are the source's own; <Video 1>, the source subject's own frames, is the source of the subject's motion and timing and nothing else. **Tests:** the shipped default of h3_video_to_video_masked_upper_song_ref2va_motion since 2026-10-07. The arm the owner called solid on 2026-10-06 rendered a typed text for this region. The node's own wording rendered the same day on the same window and seed, with the subject described, beside the typed arm (the pair is stacked on the output share as Video/compare_stacked/body_345_p7_typed_beside_node_over_mask.mp4), and once on another clip; the owner watched the pair on 2026-10-07 and called both good and could not tell them apart (bench/results/2026-10-06_masked_v2v_body_window_arms.md, with its note of 2026-10-07) On 2026-10-10 only its sound line changed: the sentences of the kinds cut from the other roles that day are held in this one, as accepted, until a render with and without them is read (masked_prompt_text.py, HELD). **Recorded findings:** <Video 1> has no socket on any donor: the song node builds it per window from the Masked Source's motion reference (audio_freeze_song.py), so the label grade fails on a property of the donor. The bank's shape rule reads no camera motion because the text names none on purpose: "The framing and every movement of the camera are the scene's own and do not change". The plate holds the camera, and one text serves every window of any clip (docs/prompt_audit.md, the ref2va_masked rows). Ships in: `h3_mask_upper_ref2va_motion_api`, `h3_probe_v2v_masked_upper_song_ref2va_motion_cache_api`, `h3_video_to_video_masked_upper_song_ref2va_motion_api`.
 
-Derived: camera: ; speakers: S1; task: [reference generation]; labels: <Picture 1>, <Video 1>; 95 words in the main field; 1506 characters in all.
+Derived: camera: ; speakers: S1; task: [reference generation]; labels: <Picture 1>, <Video 1>; 95 words in the main field; 1394 characters in all.
 
 ```
 python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_probe_refview2_dancer_api prompt_bank/ref2va_masked_person_upper_motion.txt
@@ -3643,14 +3643,14 @@ python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_probe_ref
 ```text
 subject_definitions:
 <Subject 1> is the person shown in <Picture 1>, whose body motion, posture, gestures, head movements and their timing come from the person in <Video 1>.
-<Video 1> is the source of the movement transferred to <Subject 1>; its scene is not reused and its person's appearance is not.
+<Video 1> is the source of the movement transferred to <Subject 1>.
 
 summary:
 [reference generation] <Subject 1> is in a scene that is already lit, framed and cut. From the waist up <Subject 1> is as <Picture 1> shows them, and performs the main voice heard on the track to its timing.
 
 retention_analysis:
 <Subject 1> (appears in [Shot 1]): fully_preserved - the person: their face and everything <Picture 1> shows of them from the waist up are retained in every frame.
-<Video 1> (motion source): attribute_transfer - only the body motion, posture, gestures and their timing are taken; the scene and the person's appearance are not.
+<Video 1> (motion source): attribute_transfer - the body motion, posture, gestures and their timing are taken.
 
 detailed_description:
 The target video is photorealistic live-action.
@@ -3697,7 +3697,7 @@ non_diegetic_music: N/A
 
 **ref2va, 345 frames, 14.375 s, donor `h3_probe_refview2_dancer_api`.** Masked video to video with the original's movement: the Masked Prompt node's whole-person text for 'the man' with <Video 1>, the source subject's own frames, named as the source of the subject's motion and timing and nothing else (attribute_transfer), and one shot sentence tying his movement to it; names no setting, shot or cut. Until 2026-10-10 this entry held the exact text the measured arms ran, mrhf's generic subject-swap text with those lines (replaced 2026-10-05 the same evening: a first version grafted the three <Video 1> lines onto ref2va_masked_subject_swap, and the shipped graph's render on that text did not turn him). **Tests:** the shipped default of h3_video_to_video_masked_song_ref2va_motion: whether the relationship on an encoder-only video reference of the source subject carries the original's movement to the replaced subject on the ref2va base, measured on the band clip's turn (bench/results/2026-10-05_masked_v2v_motion_arms.md) The wording was cut on 2026-10-10 (docs/wiki/decisions.md, that date) and has not rendered as it now stands; what is said here of a render is of the earlier wording, which git keeps. **Recorded findings:** <Video 1> has no socket on any donor: the song node builds it per window from the Masked Source's motion reference (audio_freeze_song.py), so the label grade fails on a property of the donor. The bank's shape rule reads no camera motion because the text names none on purpose: the node never sees the window it writes for, and the plate holds the camera (docs/prompt_audit.md, the ref2va_masked rows). detailed_description is under ref 5.2's 350-500 word budget, on purpose since 2026-10-10: every sentence that asserted what the node cannot know of a clip, and every sentence about an edit, was cut (bench/results/2026-10-10_prompt_text_hardcoded_in_code.md), and nothing was written to fill the count.
 
-Derived: camera: ; speakers: S1; task: [reference generation]; labels: <Picture 1>, <Video 1>; 162 words in the main field; 1931 characters in all.
+Derived: camera: ; speakers: S1; task: [reference generation]; labels: <Picture 1>, <Video 1>; 162 words in the main field; 1730 characters in all.
 
 ```
 python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_probe_refview2_dancer_api prompt_bank/ref2va_masked_subject_motion.txt
@@ -3706,15 +3706,15 @@ python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_probe_ref
 
 ```text
 subject_definitions:
-<Subject 1> is the man shown in <Picture 1>, preserving his facial identity, hair, build and the clothing visible in <Picture 1>, whose body motion, posture, gestures, head movements and their timing come from the person in <Video 1>. The background, lighting and framing of <Picture 1> are not present in the target video.
-<Video 1> is the source of the movement transferred to <Subject 1>; its scene is not reused and its person's appearance is not.
+<Subject 1> is the man shown in <Picture 1>, preserving his facial identity, hair, build and the clothing visible in <Picture 1>, whose body motion, posture, gestures, head movements and their timing come from the person in <Video 1>.
+<Video 1> is the source of the movement transferred to <Subject 1>.
 
 summary:
 [reference generation] <Subject 1> is in the scene and performs the main voice heard on the track to its timing.
 
 retention_analysis:
 <Subject 1> (appears in [Shot 1]): fully_preserved - retain the same face, hair, build and clothing in every frame, at every distance from the camera and from every side.
-<Video 1> (motion source): attribute_transfer - only the body motion, posture, gestures and their timing are taken; the scene and the person's appearance are not.
+<Video 1> (motion source): attribute_transfer - the body motion, posture, gestures and their timing are taken.
 
 detailed_description:
 [Shot 1] <Subject 1>, the man, is in the scene. <Subject 1> moves as the person in <Video 1> moves, at the same moments. Where the frame shows the whole figure, <Subject 1> is whole, in the clothing of <Picture 1>, and whatever <Picture 1> does not show of his clothing is plain and in keeping with it; where the frame shows only the head and shoulders, it shows the face of <Subject 1> with the skin texture, the hairline and the eyes of <Picture 1>. Seen from the side or from behind, <Subject 1> keeps the same hair, the same build and the same clothing. <Subject 1> (S1) is the main voice on the track and performs it on screen: the jaw drops and the lips open on the first syllable of each phrase of that voice, the mouth shapes each vowel and closes on each consonant in time with it, and the lips rest together, still, whenever that voice pauses.

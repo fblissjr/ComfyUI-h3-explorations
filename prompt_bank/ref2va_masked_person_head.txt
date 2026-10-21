@@ -1,5 +1,5 @@
 subject_definitions:
-<Subject 1> is the person shown in <Picture 1>, preserving their facial identity, their hair and anything worn on the head in <Picture 1>. The clothing, background, lighting and framing of <Picture 1> are not present in the target video.
+<Subject 1> is the person shown in <Picture 1>, preserving their facial identity, their hair and anything worn on the head in <Picture 1>.
 
 summary:
 [reference generation] <Subject 1> is in the scene, with the face, the hair and anything worn on the head as <Picture 1> shows them, and performs the main voice heard on the track to its timing.

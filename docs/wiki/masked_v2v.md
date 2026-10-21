@@ -1925,7 +1925,7 @@ What to hold to when it is used on another load:
 ### One whole text, as an example
 
 **An example, not a text to copy.** The whole text of the render the
-owner picked is kept so the fragment can be seen in its place. Every
+owner picked was kept so the fragment could be seen in its place. Every
 sentence about the scene in it was written from that one shot's frames and
 is true of those frames only; a text for another load is written from that
 load's frames (`../../AGENTS.md`, "A scene's text is data"). And it is not
@@ -1936,12 +1936,13 @@ thing changed at a time, and a render of this shot with them deleted came
 out as the same piece (the lid-marks record, the load called `text`). Do
 not carry them to a new text.
 
-The whole text is kept in one place, beside an example of that load's job
-file: [`bench/examples/masked_job_lid_marks/text.example.txt`](../../bench/examples/masked_job_lid_marks/text.example.txt).
-The page beside it
-([`README.md`](../../bench/examples/masked_job_lid_marks/README.md)) goes
-through it section by section: why each part is there, what it speaks of,
-and what had to be made before it was true.
+The whole text, an example of that load's job file and a page that went
+through the text section by section (why each part is there, what it speaks
+of, and what had to be made before it was true) were kept under
+`bench/examples/masked_job_lid_marks/` until 2026-10-21, when every example
+under `bench/examples/` was removed at the owner's word. They are in the
+history: `git show a63b7906:bench/examples/masked_job_lid_marks/text.example.txt`,
+and `README.md` beside it.
 
 ### Why we think it worked, and what is not shown
 

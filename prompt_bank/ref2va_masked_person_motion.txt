@@ -1,13 +1,13 @@
 subject_definitions:
-<Subject 1> is the person shown in <Picture 1>, preserving their facial identity, hair, build and the clothing visible in <Picture 1>, whose body motion, posture, gestures, head movements and their timing come from the person in <Video 1>. The background, lighting and framing of <Picture 1> are not present in the target video.
-<Video 1> is the source of the movement transferred to <Subject 1>; its scene is not reused and its person's appearance is not.
+<Subject 1> is the person shown in <Picture 1>, preserving their facial identity, hair, build and the clothing visible in <Picture 1>, whose body motion, posture, gestures, head movements and their timing come from the person in <Video 1>.
+<Video 1> is the source of the movement transferred to <Subject 1>.
 
 summary:
 [reference generation] <Subject 1> is in the scene and performs the main voice heard on the track to its timing.
 
 retention_analysis:
 <Subject 1> (appears in [Shot 1]): fully_preserved - retain the same face, hair, build and clothing in every frame, at every distance from the camera and from every side.
-<Video 1> (motion source): attribute_transfer - only the body motion, posture, gestures and their timing are taken; the scene and the person's appearance are not.
+<Video 1> (motion source): attribute_transfer - the body motion, posture, gestures and their timing are taken.
 
 detailed_description:
 [Shot 1] <Subject 1>, the person, is in the scene. <Subject 1> moves as the person in <Video 1> moves, at the same moments. Where the frame shows the whole figure, <Subject 1> is whole, in the clothing of <Picture 1>, and whatever <Picture 1> does not show of their clothing is plain and in keeping with it; where the frame shows only the head and shoulders, it shows the face of <Subject 1> with the skin texture, the hairline and the eyes of <Picture 1>. Seen from the side or from behind, <Subject 1> keeps the same hair, the same build and the same clothing. <Subject 1> (S1) is the main voice on the track and performs it on screen: the jaw drops and the lips open on the first syllable of each phrase of that voice, the mouth shapes each vowel and closes on each consonant in time with it, and the lips rest together, still, whenever that voice pauses.
