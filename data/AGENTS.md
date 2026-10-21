@@ -62,7 +62,8 @@ so a builder's worktree has them.
   on it from a fresh `bench/shot_to_load.py preview --source <that cut>`. Nothing is reused from a preview of the
   original video; only the owner's own words carry (the cast boxes and `plan.json`). On pass 2, pass 1's subject is
   kept out by its own track on that preview, as another subject is on any shot. `preview` requires `--source` with no
-  silent default, and `bench/shot_to_load.py::check_pass2_source` refuses the raw source where another subject is laid
+  silent default, takes `--for` (the replacement it is made for) where anything is laid on the shot, and
+  `bench/shot_to_load.py::check_pass2_source` refuses the raw source where another replacement is laid
   ([`docs/masked_v2v/AGENTS.md`](../docs/masked_v2v/AGENTS.md) §1).
 - Never `--drop` frames mid-window when the original actor's face or beard is still in the picture
   (`bench/capture_masked_run.py::dropped_or_unmasked_face_in_context`): H3 attention runs over the full `17n + 5`

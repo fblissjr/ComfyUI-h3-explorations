@@ -249,7 +249,7 @@ def args(**more) -> argparse.Namespace:
                  existing=False, writer=None, why_before=None, why_after=None, zoomed=None, least=None, least_why=None, ask=[], seed_cuts_of=None, parts=None, parts_by=None, parts_on=[], whole_frame=None, mouth=None, iris=None, form_why="",
                  place_and_action=None, by_hand=None, plan=None, say_not_used=None,
                  track_not=[], track_not_by=None, drop=None, drop_by=None, leave_word=[], leave_by=None, carry_words_from=None, no_carry_words=None,
-                 head_tube=None, depth=None, no_head_track=None, no_closed_lip_line=None, source=None, allow_raw_source=None)
+                 head_tube=None, depth=None, no_head_track=None, no_closed_lip_line=None, source=None, allow_raw_source=None, made_for=[])
     given.update(more)
     return argparse.Namespace(**given)
 
@@ -3074,15 +3074,36 @@ def pass2_raw_source_refused_and_source_required() -> str:
         laid_file.write_text(
             json.dumps({"load": "b_hfp_0100", "subject": "b", "first": 100, "last": 159}) + "\n"
         )
+        # 3a. a preview on a shot where anything is laid says which replacement it is made for (--for), with no silent default
         refused(
             lambda: stl.step_preview(
                 args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), source=raw_src),
+                made.m,
+            ),
+            "on 100-159, b_hfp_0100 (b) is laid", "say which replacement this preview is made for, --for LABEL", "Nothing is written",
+        )
+        refused(lambda: stl.step_preview(args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), source=raw_src,
+                                              made_for=["z"]), made.m), "--for z: a preview is made for a replacement the shots record says is on 100-159")
+        # 3b. made for a, the laid piece is another replacement's (b's): the raw source is refused
+        refused(
+            lambda: stl.step_preview(
+                args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), source=raw_src, made_for=["a"]),
                 made.m,
             ),
             "b (b_hfp_0100 on 100-159)",
             "Pass 2 must segment and render from the post-Pass-1 video",
             "not the raw unswapped source video",
         )
+        # 3c. made for b, to redo b's own laid piece with nothing else laid: the raw source is taken, with no override (5011)
+        stl.step_preview(args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), source=raw_src, made_for=["b"]),
+                         made.m)
+        own = json.loads((made.jobs / "shot_c_0100.json").read_text())["job"]
+        assert own["made_for"]["subjects"] == ["b"] and "MADE FOR b (--for)" in own["note"] and "RAW SOURCE ALLOWED" not in own["note"], own["note"]
+        (made.jobs / "shot_c_0100.json").unlink()
+        # 3d. made for both, a pair: nothing else is laid, so the raw source is taken
+        stl.step_preview(args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), source=raw_src, made_for=["a", "b"]),
+                         made.m)
+        (made.jobs / "shot_c_0100.json").unlink()
         raw_pjob = made.preview()
         raw_pjob["job"]["source"] = raw_src
         raw_pfolder = made.preview_ran(raw_pjob)
@@ -3099,7 +3120,7 @@ def pass2_raw_source_refused_and_source_required() -> str:
         # 4. --allow-raw-source WHY overrides the refusal and records the override in job.note
         stl.step_preview(
             args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs),
-                 source=raw_src, remake=True, allow_raw_source="testing raw source override"),
+                 source=raw_src, remake=True, allow_raw_source="testing raw source override", made_for=["a"]),
             made.m,
         )
         ov_pjob = json.loads((made.jobs / "shot_c_0100b.json").read_text())["job"]
@@ -3111,7 +3132,7 @@ def pass2_raw_source_refused_and_source_required() -> str:
         pass1_mp4.write_bytes(b"post-pass-1 video")
         stl.step_preview(
             args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs),
-                 source=str(pass1_mp4), remake=True),
+                 source=str(pass1_mp4), remake=True, made_for=["a"]),
             made.m,
         )
         p2_pjob = json.loads((made.jobs / "shot_c_0100b.json").read_text())
@@ -3124,7 +3145,8 @@ def pass2_raw_source_refused_and_source_required() -> str:
         )
         p2_job = json.loads((made.jobs / "a_fp_0100.json").read_text())["job"]
         assert p2_job["source"] == str(pass1_mp4.resolve()), p2_job["source"]
-    return "preview requires --source explicitly; preview and job refuse the raw source video when another subject is already laid on the shot in laid.jsonl and succeed with a post-Pass-1 video"
+    return ("preview requires --source explicitly, and --for where anything is laid on the shot; preview and job refuse the raw source video when another "
+            "replacement is laid on the shot in laid.jsonl, preview counting only the labels it is not made for, and succeed with a post-Pass-1 video")
 
 
 case("the frame a tracker picks on is a field of the shots record", the_pick_frame_is_a_field)
@@ -3161,7 +3183,7 @@ case("carry-words-from: a carried drop or no_face_on over a face frame is refuse
 case("depth: overlap frames found, measured into the capture folder, and recorded in defaults", depth_in_the_job_step)
 case("reference: --no-head-track forwarded, recorded, carried, and checked on --existing", no_head_track_on_the_reference_step)
 case("cast: non-existent --cast file is refused cleanly in preview and job", missing_cast_file_refused)
-case("pass-2 source: preview requires --source and refuses raw source when another subject is already laid", pass2_raw_source_refused_and_source_required)
+case("pass-2 source: preview requires --source (and --for where a piece is laid) and refuses raw source when another replacement is laid", pass2_raw_source_refused_and_source_required)
 
 if __name__ == "__main__":
     sys.exit(finish())

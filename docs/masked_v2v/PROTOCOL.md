@@ -63,13 +63,15 @@ Always pass `--cast data/<video>/cast/cast.jsonl` to both `bench/shot_to_load.py
   --shot <first_frame> \
   --folder <folder the preview's job file is written in> \
   --source <24p_working_copy_or_post_pass1_cut> \
+  --for <subject> \
   --by <session> \
   --remake \
   --queue
 ```
 
 `--shots`, `--plan`, `--shot`, `--folder` and `--by` are required (`bench/shot_to_load.py::main`); there is no `--video`
-or `--run`. `--remake` takes the next free letter when a preview of the shot exists. Without `--queue` the job file is
+or `--run`. `--source` is required by the step, and `--for` (the replacement the preview is made for, repeatable) where
+anything is laid on the shot ([`AGENTS.md`](AGENTS.md) §1). `--remake` takes the next free letter when a preview of the shot exists. Without `--queue` the job file is
 written and the two commands that build and queue it are printed (`bench/masked_job.py build preview <job file> --date
 <day>`, then `bench/masked_job.py queue data/<day>_shot_c_<first>[<letter>]_job preview --host <host> --wait`). A
 preview that was built and never queued has no `preview.queued.json`, and `job` refuses it until it is queued.
