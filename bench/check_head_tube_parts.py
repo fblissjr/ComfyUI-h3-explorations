@@ -498,11 +498,18 @@ def _case_person_track_regains_tube_after_gap() -> str:
     logits[1:3, :, :, :] = -4.0
     logits[1:3, 0, :, :] = 5.0
 
+    # Her face points over the line on frames 3..5, where she reappears: the evidence a re-seed needs. Without them nothing is re-seeded.
+    shown = [39, 0, 0, 39, 39, 39]
+    unseen = htp.run_head_tube_parts(logits, lost_tube, person_track=person_track, seed_frame=0)
+    assert unseen["provenance"]["regained_from_person_track_frames"] == [], unseen["provenance"]["regained_from_person_track_frames"]
+    assert [r["frame"] for r in unseen["provenance"]["regain_refused"]] == [3, 4, 5], unseen["provenance"]["regain_refused"]
+    assert all(r["why"] == "no face points were given" for r in unseen["provenance"]["regain_refused"]), unseen["provenance"]["regain_refused"]
     res = htp.run_head_tube_parts(
         logits,
         lost_tube,
         person_track=person_track,
         seed_frame=0,
+        regain_face_points=shown,
     )
     regained_tube = res["tube_info"]["tube"]
     part_mask = res["seg_info"]["part_mask"]
@@ -538,6 +545,7 @@ def _case_person_track_regains_tube_after_gap() -> str:
         seed_frame=0,
         person_track=person_track,
         tracker=_gap_dropping_tracker,
+        regain_face_points=shown,
     )
     assert seed_calls == [0, 3], f"expected tracker to be seeded at 0 and re-seeded at 3 after gap, got {seed_calls}"
     assert tracked_info["regained_from_person_track_frames"] == [3, 4, 5], (
@@ -759,7 +767,8 @@ def _case_head_track_seed_mask() -> str:
     )
     assert np.all(cmap_kp[1:3, 20:28, 20:44] == face_id), "pose_kps hull did not fill unclassified face hole"
     # A corner of tube_box where reference frames 0 and 3 had neither face nor hair (so face_vote == 0 and hair_vote == 0)
-    # and outside kp_crop must resolve to Hair (not Face_Neck via 0.0 >= 0.0), or ponytail tips on face-only loads inflate zoom_box
+    # and outside kp_crop must not resolve to Face_Neck via 0.0 >= 0.0, or ponytail tips on face-only loads inflate zoom_box.
+    # It keeps the part model's own class (Background here): a face-only subject's tube pixels are not relabelled Hair.
     ht_corner = (head_track & person_track).copy()
     ht_corner[:, 8:11, 45:50] = True
     cmap_corner = cmap.copy()
@@ -771,8 +780,9 @@ def _case_head_track_seed_mask() -> str:
         face_id=face_id,
         pose_kps=pose_kps,
     )
-    assert np.all(cmap_corner[1, 8:11, 45:50] == htp.NAME_TO_ID["Hair"]), (
-        "0 == 0 unclassified corner outside reference face/hair and kp_crop was assigned Face_Neck instead of Hair"
+    assert np.all(cmap_corner[1, 8:11, 45:50] == 0), (
+        "0 == 0 unclassified corner outside reference face/hair and kp_crop did not keep the part model's own class (Background): "
+        f"{np.unique(cmap_corner[1, 8:11, 45:50]).tolist()}"
     )
     assert on_res["provenance"]["outside_person_track_clipped_px"] == [16 * 4, 0, 0, 0], on_res["provenance"]
     assert np.array_equal(on_res["tube_info"]["tube"], head_track & person_track), "tube is not head_track clipped to person_track"
@@ -892,6 +902,92 @@ def _case_short_tube_dips_bridged() -> str:
     return "3-frame and 4-frame dips bridged to 1000 px in tube and part_mask; 7-frame dip and untracked dip left unbridged"
 
 
+def _points_file(folder: Path, per_frame: list[tuple[tuple[float, float], tuple[float, float], float]]) -> Path:
+    """A 308-point file in the reference step's form, the 39 scored face points of each frame spread over one box at one score:
+    `per_frame` is ((x0, y0), (x1, y1), score) a frame."""
+    ids = htp.scored_face_ids()
+    kps = np.zeros((len(per_frame), 308, 2), dtype=np.float32)
+    scores = np.zeros((len(per_frame), 308), dtype=np.float32)
+    for t, ((x0, y0), (x1, y1), score) in enumerate(per_frame):
+        for j, i in enumerate(ids):
+            kps[t, i] = (x0 + (x1 - x0) * ((j % 7) / 6.0), y0 + (y1 - y0) * ((j // 7) / 5.0))
+            scores[t, i] = score
+    path = folder / "points.npz"
+    np.savez(path, keypoints=kps, scores=scores, first_frame=np.int64(0))
+    return path
+
+
+def _case_regain_needs_her_own_face_points() -> str:
+    """4912e: where the head track loses her head and her person track still holds her, the top of the person track was her
+    raised hand, which her class map calls face and hair. A head is re-seeded there only when at least
+    `REGAIN_FACE_POINTS_MIN` of her face points over the line lie on her own replaced classes; otherwise the frame stays empty
+    and `regain_refused` says why. Points over the line on her clothing do not count; the same hand with face points over the line
+    on it IS re-seeded: the points on her own replaced classes decide."""
+    face_id, hair_id, cloth_id = htp.NAME_TO_ID["Face_Neck"], htp.NAME_TO_ID["Hair"], htp.NAME_TO_ID["Upper_Clothing"]
+    num_frames, size = 6, 64
+    track = np.zeros((num_frames, size, size), dtype=bool)
+    head = np.zeros_like(track)
+    cmap = np.zeros((num_frames, size, size), dtype=np.uint8)
+    for t in (0, 1, 2, 5):                           # her head at the top of her body
+        track[t, 20:60, 16:48] = True
+        cmap[t, 20:60, 16:48] = cloth_id
+        cmap[t, 20:24, 24:40] = hair_id
+        cmap[t, 24:32, 24:40] = face_id
+    head[0:3, 20:32, 24:40] = True                    # the head track holds her head on 0..2 and loses it on 3..5
+    for t in (3, 4):                                  # her head hidden; her raised hand is the top of her track
+        track[t, 40:60, 16:48] = True
+        cmap[t, 40:60, 16:48] = cloth_id
+        track[t, 4:20, 8:14] = True
+        cmap[t, 4:10, 8:14] = hair_id                 # the class map reads her hand as hair and face
+        cmap[t, 10:20, 8:14] = face_id
+    parts = np.isin(cmap, [face_id, hair_id])
+    on_face, on_hand = ((25.0, 25.0), (38.0, 31.0)), ((8.0, 5.0), (13.0, 19.0))
+    with tempfile.TemporaryDirectory() as tmp:
+        under = _points_file(Path(tmp), [(*on_face, 0.9)] * 3 + [(*on_hand, 0.1)] * 2 + [(*on_face, 0.9)])
+        res = htp.head_tube_for_capture(track, parts, cmap, head_track=head, points_path=under, head_parts=htp.DEFAULT_HEAD_PARTS)
+        prov = res["provenance"]
+        assert prov["regained_from_person_track_frames"] == [5], prov["regained_from_person_track_frames"]
+        refused_frames = [(r["frame"], r["face_points_on_own_part"]) for r in prov["regain_refused"]]
+        assert refused_frames == [(3, 0), (4, 0)], refused_frames
+        for t in (3, 4):
+            assert int(res["tube_info"]["tube"][t].sum()) == 0, f"frame {t}: her hand was re-seeded as her head ({int(res['tube_info']['tube'][t].sum())} px)"
+            assert int(res["part_mask"][t].sum()) == 0, f"frame {t}: her hand is in her part"
+            assert int(((res["class_map"][t] == hair_id) & track[t]).sum()) == 0, f"frame {t}: her hand was relabelled Hair"
+        assert int(res["tube_info"]["tube"][5].sum()) > 0, "frame 5: her face shows with its points and was not re-seeded"
+        on_body = ((20.0, 44.0), (44.0, 56.0))           # over the line, inside her track, on her clothing: not her own replaced classes
+        body = _points_file(Path(tmp), [(*on_face, 0.9)] * 3 + [(*on_body, 0.9)] * 2 + [(*on_face, 0.9)])
+        clothed = htp.head_tube_for_capture(track, parts, cmap, head_track=head, points_path=body, head_parts=htp.DEFAULT_HEAD_PARTS)
+        assert clothed["provenance"]["regained_from_person_track_frames"] == [5], clothed["provenance"]["regained_from_person_track_frames"]
+        over = _points_file(Path(tmp), [(*on_face, 0.9)] * 3 + [(*on_hand, 0.9)] * 2 + [(*on_face, 0.9)])
+        shown = htp.head_tube_for_capture(track, parts, cmap, head_track=head, points_path=over, head_parts=htp.DEFAULT_HEAD_PARTS)
+        assert shown["provenance"]["regained_from_person_track_frames"] == [3, 4, 5], shown["provenance"]["regained_from_person_track_frames"]
+    return (f"regained {prov['regained_from_person_track_frames']}, refused {refused_frames} (least {htp.REGAIN_FACE_POINTS_MIN}); "
+            f"with points over the line on the hand: regained {shown['provenance']['regained_from_person_track_frames']}")
+
+
+def _case_face_only_tube_keeps_its_classes() -> str:
+    """A face-only subject's head-tube pixels the part model did not call face keep its own class: the neighbour fill writes
+    only the face, never Hair (a hair-and-face subject's non-face tube pixels are Hair, `head_track_seed_mask_and_neighbour_fill`).
+    Its part is the face alone either way."""
+    face_id, hair_id, app_id = htp.NAME_TO_ID["Face_Neck"], htp.NAME_TO_ID["Hair"], htp.NAME_TO_ID["Apparel"]
+    track = np.zeros((4, 64, 64), dtype=bool)
+    track[:, 8:56, 12:52] = True
+    head = np.zeros_like(track)
+    head[:, 12:28, 20:44] = True
+    cmap = np.zeros((4, 64, 64), dtype=np.uint8)
+    cmap[:, 18:28, 20:44] = face_id
+    cmap[[0, 3], 12:18, 20:44] = hair_id              # frames 0 and 3: her hair above her face
+    cmap[1:3, 12:18, 20:44] = app_id                  # frames 1 and 2: the part model reads that hair as Apparel
+    parts = cmap == face_id
+    res = htp.head_tube_for_capture(track, parts, cmap, head_parts=("Face_Neck",), head_track=head)
+    hair_px = [int(res["seg_info"]["hair_mask"][t, 12:18, 20:44].sum()) for t in range(4)]
+    assert hair_px[1] == 0 and hair_px[2] == 0, f"a face-only subject's Apparel tube pixels were relabelled Hair: {hair_px}"
+    assert hair_px[0] == 6 * 24 and hair_px[3] == 6 * 24, f"the part model's own Hair was lost: {hair_px}"
+    for t in range(4):
+        assert int(res["part_mask"][t].sum()) == 10 * 24, f"frame {t}: the face part changed: {int(res['part_mask'][t].sum())}"
+    return f"Hair px above the face by frame {hair_px}; the part is the face alone, {int(res['part_mask'][1].sum())} px a frame"
+
+
 def main() -> int:
     case("off_tube_false_positive_suppressed", _case_off_tube_false_positive)
     case("temporal_smoothing_bridges_dropout", _case_temporal_smoothing_dropout)
@@ -899,6 +995,8 @@ def main() -> int:
     case("person_word_overrides_three_states", _case_person_word_overrides_three_states)
     case("person_track_bounds_tube", _case_person_track_bounds_tube)
     case("person_track_regains_tube_after_gap", _case_person_track_regains_tube_after_gap)
+    case("regain_needs_her_own_face_points", _case_regain_needs_her_own_face_points)
+    case("face_only_tube_keeps_its_classes", _case_face_only_tube_keeps_its_classes)
     case("off_head_islands_not_resurrected", _case_off_head_islands_not_resurrected)
     case("head_track_seed_mask_and_neighbour_fill", _case_head_track_seed_mask)
     case("short_tube_dips_bridged", _case_short_tube_dips_bridged)

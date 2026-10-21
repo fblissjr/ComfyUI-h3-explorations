@@ -126,6 +126,9 @@ SHORT_DIP_MAX_FRAMES: int = (
 SHORT_DIP_RATIO: float = (
     0.6  #: measured: Hall 1306-1418 (2026-10-19), 1403 dipped to 20,129 px vs 33,748/36,052 px and 1409-1410 dipped to 2,413-5,736 px vs 36,585/47,200 px (<60% of smaller flanking anchor)
 )
+REGAIN_FACE_POINTS_MIN: int = (
+    9  #: measured: 2026-10-21, on every frame the head tube re-seeded from the person track on second_hfp_4912e, 1093c, 4647d, 4726c, 5011e and 5889e and lead_fp_0606d (own_part_face_points on each capture's own inputs): at most 1 such point where the seed held no head of hers (4912e's 4943; her raised hand on 4921-4923 and 4941-4945, which her class map calls face and hair), at least 17 where it held her face (4726c's 4751); the gap's midpoint, a starting value. Not seen by it: 5889e's 5923 and 5926, 38 points piled at the frame's edge as she leaves it
+)
 
 
 def _load_seg_classes() -> tuple[tuple[str, ...], dict[str, int]]:
@@ -306,6 +309,36 @@ def _head_seed_from_person_mask(person_mask_2d: np.ndarray, head_rel_y1: float =
     return seed, box
 
 
+def own_part_face_points(
+    pose_kps: Sequence[np.ndarray | None],
+    own_part: np.ndarray,
+    *,
+    keypoint_index: dict[str, int] | None = None,
+    min_score: float = DEFAULT_FACE_POINT_MIN_SCORE,
+) -> list[int]:
+    """Per frame, how many of the 39 scored face points at or over ``min_score`` lie on ``own_part`` (T, H, W): the pixels of the
+    subject's person track whose class is one of the parts the subject replaces. The evidence ``sam31_head_tube`` needs before it
+    re-seeds a lost head from the person track: on 4912e her raised hand was class face and hair, and held no face point over the line."""
+    own = np.asarray(own_part, dtype=bool)
+    num_frames, height, width = own.shape
+    if len(pose_kps) != num_frames:
+        raise SystemExit(f"own_part_face_points: {len(pose_kps)} frames of points for {num_frames} frames of the part")
+    ids = scored_face_ids(keypoint_index)
+    out: list[int] = []
+    for t in range(num_frames):
+        pts = pose_kps[t]
+        if pts is None:
+            out.append(0)
+            continue
+        p = np.asarray(pts, dtype=np.float64)
+        p = p[[i for i in ids if i < len(p)]]
+        p = p[np.isfinite(p).all(axis=1) & (p[:, 2] >= float(min_score))]
+        xs, ys = np.round(p[:, 0]).astype(int), np.round(p[:, 1]).astype(int)
+        inside = (xs >= 0) & (xs < width) & (ys >= 0) & (ys < height)
+        out.append(int(own[t, ys[inside], xs[inside]].sum()))
+    return out
+
+
 def _measure_head_rel_y1(head_mask_2d: np.ndarray, person_mask_2d: np.ndarray, default: float = 0.40) -> float:
     """Measure the vertical fraction of ``person_mask_2d`` spanned by ``head_mask_2d`` from the top of the person."""
     pys, _ = np.nonzero(person_mask_2d)
@@ -328,8 +361,16 @@ def sam31_head_tube(
     prompt: str = "head",
     pad_frac: float = DEFAULT_BOX_PAD_FRAC,
     tracker: Callable[..., np.ndarray | torch.Tensor] | None = None,
+    regain_face_points: Sequence[int] | None = None,
+    regain_least: int = REGAIN_FACE_POINTS_MIN,
 ) -> dict[str, Any]:
-    """Produce a continuous per-frame boolean head tube ``(T, H, W)`` bounded by ``person_track`` and one fixed ``shot_box``."""
+    """Produce a continuous per-frame boolean head tube ``(T, H, W)`` bounded by ``person_track`` and one fixed ``shot_box``.
+
+    Where the tube is lost on a frame and ``person_track`` still holds the subject, a head is re-seeded from the top of the
+    person track only when ``regain_face_points[t]`` (``own_part_face_points``: her face points over the line on her own
+    replaced classes) is at least ``regain_least``. Otherwise the frame stays empty, since her head is hidden there, and is
+    listed in ``regain_refused`` with its count. With no ``regain_face_points``, no frame is re-seeded. On 4912e the top of
+    her person track was her raised hand on 4921-4923 and 4941-4945, and a re-seed there made her hand her head."""
     arr = (
         frames_or_tube.detach().cpu().numpy()
         if isinstance(frames_or_tube, torch.Tensor)
@@ -423,6 +464,11 @@ def sam31_head_tube(
             )
 
     regained_from_person_track_frames: list[int] = []
+    regain_refused: list[dict[str, Any]] = []
+    if regain_face_points is not None and len(regain_face_points) != num_frames:
+        raise SystemExit(
+            f"sam31_head_tube: regain_face_points has {len(regain_face_points)} frames, expected {num_frames}"
+        )
     if pt_bool is not None:
         clipped = tube & ~pt_bool
         outside_person_track_clipped_px = [int(clipped[t].sum()) for t in range(num_frames)]
@@ -438,8 +484,19 @@ def sam31_head_tube(
                 had_loss_or_gap = True
                 continue
             # Head tube is lost on frame t while person_track holds/regains the subject:
-            # re-seed from person_track[t] so the head tube inherits subject_track's regain search.
+            # re-seed from person_track[t] so the head tube inherits subject_track's regain search,
+            # only where her own face points show (hidden is hidden).
             had_loss_or_gap = True
+            seen = None if regain_face_points is None else int(regain_face_points[t])
+            if seen is None or seen < int(regain_least):
+                regain_refused.append({
+                    "frame": int(t),
+                    "face_points_on_own_part": seen,
+                    "least": int(regain_least),
+                    "why": ("no face points were given" if seen is None
+                            else f"{seen} of her face points over the line on her own part, under {int(regain_least)}: her head is hidden here"),
+                })
+                continue
             regain_seed, regain_box = _head_seed_from_person_mask(pt_bool[t], head_rel_y1=head_rel_y1)
             if norm_t is not None and tracker is not None:
                 re_tracked = tracker(
@@ -483,6 +540,7 @@ def sam31_head_tube(
         "tube_px": tube_px,
         "outside_person_track_clipped_px": outside_person_track_clipped_px,
         "regained_from_person_track_frames": sorted(regained_from_person_track_frames),
+        "regain_refused": regain_refused,
         "bridged_short_dips": bridged_short_dips,
         "normalized_range": normalized_range,
     }
@@ -1248,6 +1306,7 @@ def build_provenance_record(
     seed_frame: int = 0,
     outside_person_track_clipped_px: Sequence[int] | None = None,
     regained_from_person_track_frames: Sequence[int] | None = None,
+    regain_refused: Sequence[dict[str, Any]] | None = None,
     bridged_short_dips: Sequence[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Assemble the JSON-serializable provenance record for a shot's head-tube part masks."""
@@ -1277,6 +1336,7 @@ def build_provenance_record(
         "off_tube_suppressed_px": list(seg_result["off_tube_suppressed_px"]),
         "outside_person_track_clipped_px": clipped_px,
         "regained_from_person_track_frames": regained_frames,
+        "regain_refused": list(regain_refused) if regain_refused is not None else [],
         "bridged_short_dips": list(bridged_short_dips) if bridged_short_dips is not None else [],
         "face_points_in_tube": (
             list(pose_check["face_points_in_tube"]) if pose_check is not None else []
@@ -1336,15 +1396,19 @@ def run_head_tube_parts(
     drop_frames: Sequence[int] | set[int] | None = None,
     no_face_frames: Sequence[int] | set[int] | None = None,
     hold_frames: Sequence[int] | set[int] | None = None,
+    regain_face_points: Sequence[int] | None = None,
     provenance_out: Path | None = None,
     masks_out: Path | None = None,
 ) -> dict[str, Any]:
-    """Run SAM 3.1 head tube extraction, Sapiens2-Seg temporal smoothing in tube, and 39-point pose cross-check."""
+    """Run SAM 3.1 head tube extraction, Sapiens2-Seg temporal smoothing in tube, and 39-point pose cross-check.
+
+    ``regain_face_points`` is handed to ``sam31_head_tube`` as it is: without it, a head lost from the tube is not re-seeded."""
     tube_info = sam31_head_tube(
         frames_or_tube,
         seed_frame=seed_frame,
         person_track=person_track,
         pad_frac=pad_frac,
+        regain_face_points=regain_face_points,
     )
     seg_info = smooth_seg_in_tube(
         logits,
@@ -1377,6 +1441,7 @@ def run_head_tube_parts(
         seed_frame=seed_frame,
         outside_person_track_clipped_px=tube_info["outside_person_track_clipped_px"],
         regained_from_person_track_frames=tube_info["regained_from_person_track_frames"],
+        regain_refused=tube_info["regain_refused"],
         bridged_short_dips=tube_info["bridged_short_dips"],
     )
     if provenance_out is not None:
@@ -1496,6 +1561,10 @@ def _fill_unclassified_in_head_tube(
     Where Sapiens mislabeled head-tube pixels as body/clothing/background (e.g. `Upper_Clothing` or `Background`
     during a fast turn), transport the face-vs-hair layout from the nearest frames in the shot where Sapiens
     classified the head tube, reinforced by the convex hull of confident face keypoints on the frame.
+
+    Only the face is written. A pixel the layout does not take as face keeps the part model's own class: this runs only
+    for a part that does not replace hair (a face-only subject; `head_tube_for_capture` takes every non-face tube pixel
+    of a hair-and-face part as `Hair` instead), and such a subject's tube pixels are not relabelled `Hair`.
     """
     import cv2
 
@@ -1575,12 +1644,9 @@ def _fill_unclassified_in_head_tube(
             choose_face = uncls_crop & ((face_vote > hair_vote) | (kp_crop & (hair_vote < 0.65)))
         else:
             choose_face = uncls_crop & (kp_crop if np.any(kp_crop) else True)
-        choose_hair = uncls_crop & ~choose_face
 
         if face_id >= 0 and np.any(choose_face):
             cmap_box[t, ty0:ty1, tx0:tx1][choose_face] = np.uint8(face_id)
-        if hair_id >= 0 and np.any(choose_hair):
-            cmap_box[t, ty0:ty1, tx0:tx1][choose_hair] = np.uint8(hair_id)
 
 
 def head_tube_for_capture(
@@ -1671,6 +1737,8 @@ def head_tube_for_capture(
             raise SystemExit(
                 f"head_tube_for_capture: cmap shape {cmap_arr.shape} does not match {(num_frames, height, width)}"
             )
+        # Her own replaced classes on her person track, as the part model labelled them: what a re-seed's face points must land on.
+        own_part = track_bool & np.isin(cmap_arr, part_ids)
         # Drop any requested head-part pixels on the subject's track that were already pruned from parts (e.g. by off_head)
         # outside the SAM 3.1 head track so the class map never resurrects detached off-head islands (biceps, hands, skirts)
         # into the head tube or part mask, while keeping Sapiens' face/hair labels inside head_track_bool intact.
@@ -1680,6 +1748,7 @@ def head_tube_for_capture(
     else:
         cmap_arr = np.where(parts_bool, NAME_TO_ID["Face_Neck"], 0).astype(np.uint8)
         raw_head = parts_bool.copy()
+        own_part = track_bool & parts_bool
 
     # Bridge 1-2 frame segmentation dropouts inside the person track when forming the continuous head tube,
     # while leaving off-person pixels unclipped in candidate_tube so sam31_head_tube records outside_person_track_clipped_px.
@@ -1704,11 +1773,19 @@ def head_tube_for_capture(
             )
         seed_frame = 0 if int(bounded_per_frame[0]) > 0 else int(np.argmax(bounded_per_frame > 0))
 
+    pose_kps: list[np.ndarray | None] | None = None
+    kp_idx: dict[str, int] | None = None
+    if points_path is not None:
+        pose_kps, kp_idx = _load_pose_slice_for_capture(points_path, first_frame, num_frames)
+
     tube_info = sam31_head_tube(
         candidate_tube,
         seed_frame=seed_frame,
         seed_mask=head_track_bool,
         person_track=track_bool,
+        regain_face_points=(
+            own_part_face_points(pose_kps, own_part, keypoint_index=kp_idx) if pose_kps is not None else None
+        ),
     )
     x0, y0, x1, y1 = tube_info["shot_box"]
     cmap_box = np.clip(cmap_arr[:, y0:y1, x0:x1], 0, len(CLASS_NAMES) - 1).copy()
@@ -1755,11 +1832,6 @@ def head_tube_for_capture(
                 for t in range(s, e + 1):
                     uncls_t = tube_box_crop[t] & ~np.isin(cmap_box[t], part_ids)
                     cmap_box[t] = np.where(uncls_t, donor, cmap_box[t])
-
-    pose_kps: list[np.ndarray | None] | None = None
-    kp_idx: dict[str, int] | None = None
-    if points_path is not None:
-        pose_kps, kp_idx = _load_pose_slice_for_capture(points_path, first_frame, num_frames)
 
     if head_track_bool is not None and not head_and_hair_on_head_track:
         _fill_unclassified_in_head_tube(
@@ -1854,6 +1926,7 @@ def head_tube_for_capture(
         seed_frame=seed_frame,
         outside_person_track_clipped_px=tube_info["outside_person_track_clipped_px"],
         regained_from_person_track_frames=tube_info["regained_from_person_track_frames"],
+        regain_refused=tube_info["regain_refused"],
         bridged_short_dips=tube_info["bridged_short_dips"],
     )
     if provenance_out is not None:

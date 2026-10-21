@@ -218,6 +218,10 @@ pass 2, only the owner's own words among them carry (§1).
      hair-and-face part loses only its face classes on those frames and a face-only part is emptied
      (`bench/capture_masked_run.py::grade_holds`). `--drop` goes to the capture (`drop=`) and to the gate's
      `--named-empty`. `--hold-part` goes to the capture (`word=`).
+   - **The head tube knows what its subject replaces** (`bench/head_tube_parts.py::head_tube_for_capture`, from the
+     classes the preview cut from the plan's parts). A head the head track lost is re-seeded from the person track only
+     where her own face points show on her own replaced classes (`sam31_head_tube`, `regain_refused` in its
+     provenance), and tube pixels become `Hair` only on a part made of `Hair` ([`PROTOCOL.md`](PROTOCOL.md) 2.1).
    - `plan` is a run on the server: it builds and queues the plan graph and writes `<load>.plan.json`, `job.plan.json`,
      `<load>.plan.queued.json`, the band file on a hair-band load, and the node's plan of the windows on the share.
      `on-plan` copies the capture to `<capture>_first`, builds it again in place on the node's plan, writes
