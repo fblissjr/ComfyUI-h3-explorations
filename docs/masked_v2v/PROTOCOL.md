@@ -74,13 +74,20 @@ Always pass `--cast data/<video>/cast/cast.jsonl` to both `bench/shot_to_load.py
   --plan data/<video>/plan.json \
   --cast data/<video>/cast/cast.jsonl \
   --shot <first_frame> \
-  --video <video> \
+  --folder <folder the preview's job file is written in> \
   --source <24p_working_copy_or_post_pass1_cut> \
   --by <session> \
-  --run
+  --remake \
+  --queue
 ```
 
-What `preview` produces in `data/<day>_shot_c_<first>[_<letter>]_job/` and on the share:
+`--shots`, `--plan`, `--shot`, `--folder` and `--by` are required (`bench/shot_to_load.py::main`); there is no `--video`
+or `--run`. `--remake` takes the next free letter when a preview of the shot exists. Without `--queue` the job file is
+written and the two commands that build and queue it are printed (`bench/masked_job.py build preview <job file> --date
+<day>`, then `bench/masked_job.py queue data/<day>_shot_c_<first>[<letter>]_job preview --host <host> --wait`). A
+preview that was built and never queued has no `preview.queued.json`, and `job` refuses it until it is queued.
+
+What `preview` produces in `data/<day>_shot_c_<first>[<letter>]_job/` and on the share:
 - One SAM 3.1 person tracker (`MiniMaxH3SubjectTrack` with `TRACK_HEAD = True` by default, producing both the person track and the SAM 3.1 head track), Sapiens2-Seg part and 29-class maps, Sapiens2-Pose keypoints (`pose.npz`), and SAM 3D Body mesh video (`body.mp4`) per subject listed in `shots.json` for that shot.
 
 ---
@@ -104,12 +111,19 @@ What `preview` produces in `data/<day>_shot_c_<first>[_<letter>]_job/` and on th
   --shots data/<video>/shots.json \
   --plan data/<video>/plan.json \
   --cast data/<video>/cast/cast.jsonl \
-  --preview data/<day>_shot_c_<first>_job \
+  --shot <first_frame> \
+  --folder <folder the load's job file is written in> \
+  --preview data/<day>_shot_c_<first>[<letter>]_job \
   --subject <subject> \
-  --video <video> \
-  --by <session>
+  --by <session> \
+  --remake --no-carry-words "<why>"
 ```
 
+- `--shots`, `--plan`, `--shot`, `--folder`, `--subject`, `--preview` and `--by` are required; there is no `--video`.
+  `--preview` is the preview's job FOLDER, which must hold `job.json` and a `preview.queued.json` that ended in
+  success (`bench/shot_to_load.py::step_job`), never its `job.json`. `--remake` with an earlier load of the shot and
+  subject takes `--no-carry-words "<why>"` or `--carry-words-from <old job file>`. Run it with `--dry` first: it
+  prints the load's name and its defaults and writes nothing.
 - Prints and records `THE DEFAULTS THIS LOAD CARRIES` (`bench/shot_to_load.py::defaults_carried`).
 - **One Shot = One Prompt = One Render (Never Split a Shot `<= 362` Frames)**:
   - Every shot in `data/<video>/shots.json` of `<= 362` frames (`h3_rules.MAX_LENGTH`) renders as **one single-window H3 load** (`workflows/masked_job_graph.py::window_for`) with zero mid-shot seams ([`docs/wiki/decisions.md`](../wiki/decisions.md), 2026-10-15, "One shot is never split").
@@ -130,10 +144,12 @@ What `preview` produces in `data/<day>_shot_c_<first>[_<letter>]_job/` and on th
 ### 2.3 Cropping & Drawing the Head Reference (`shot_to_load.py reference`)
 
 ```bash
-<comfy-venv>/bin/python bench/shot_to_load.py reference \
-  --job-folder data/<day>_<load>_job \
-  --by <session>
+<comfy-venv>/bin/python bench/shot_to_load.py reference <load job file> --by <session>
+<comfy-venv>/bin/python bench/shot_to_load.py text <load job file> --by <session> --plan data/<video>/plan.json
 ```
+
+The job file is positional for both. `reference` reads the pose model's store from `H3_MODEL_STORE` (or
+`--model-store`); `text` refuses without `--plan`.
 
 Under the hood, `step_reference` invokes [`bench/head_reference.py`](../../bench/head_reference.py), which orchestrates [`bench/crop_reference_to_head.py`](../../bench/crop_reference_to_head.py) and [`bench/draw_face_points.py`](../../bench/draw_face_points.py):
 
@@ -145,9 +161,9 @@ Under the hood, `step_reference` invokes [`bench/head_reference.py`](../../bench
    - **Silhouette clipping**: all drawn marks are clipped to the grey SAM 3D Body head silhouette so profile eyes shrink cleanly into the head edge instead of floating in background space (which H3 can misread as eyeglasses).
    - **Mouth mode rules (Closed = 3D Grey Mesh Lips; Open = Black Interior + White Outline)**:
      - **No mouth smoothing (`smooth_mouth_area` retired, 2026-10-20)**: `bench/draw_face_points.py::smooth_mouth_area` is a no-op. Painting a flat grey oval over the mouth region created a bright grey splotch across the lips, chin, and hands (`0415e`, `0484d`, `1039b`) that H3 interpreted as an open mouth.
-     - **Closed-mouth frames stay as natural 3D grey mesh lips (`mouths[f] = None`)**: Whenever Sapiens2 (`sapiens2-seg-1b` + `sapiens2-pose-1b`) detects a closed mouth (`not has_hole` and `gap <= INNER_GAP_CLOSED_PX`), `head_reference.py` sets `mouths[f] = None` and `draw_face_points.py::draw` skips `inner_lip_line` / `mouth_closed`, leaving the 3D grey mesh's own sculpted closed lips untouched (just like `lead_fp_0606d` and `second_hfp_1010g`).
-     - **Open-mouth frames draw black interior + white outline (`inner_lip_ring` / `mouth_inner`)**: Whenever Sapiens2 detects an open mouth (teeth/tongue hole in the 29-class map or inner-lip gap `> 3.5` px), the black interior + white outline is drawn at the mouth, and `bench/head_reference.py::fit_mouth_to_head` only shifts vertically above a real bottom-of-frame dark neck gap under the jaw (`run_end >= h - 4` and `chin_y >= pose_cy - 0.08 * fh`), never on a hand/arm gap above the pose mouth.
-     - **Downcast / narrowed eyes (`DOWNCAST_RING_OUTSIDE_MIN = 0.65`)**: When `>= 65%` of an eye's iris ring lies outside the eyelids (`between_the_lids`), the black edge of the lash lines covers `100%` of the clipped black iris disc; `draw_face_points.py::discs` leaves the sclera unpainted on that eye and `draw_face_points.py::shapes` draws the between-the-lids iris arc (`_iris_ring`, matching `0484c` on downcast frames while preserving white sclera + black iris on open frames) instead of flooding the narrowed eye slit with `255,255,255` white sclera.
+     - **Closed-mouth frames stay as natural 3D grey mesh lips (`mouths[f] = None`)**: Whenever Sapiens2 (`sapiens2-seg-1b` + `sapiens2-pose-1b`) detects a closed mouth (`not has_hole` and `gap <= INNER_GAP_CLOSED_PX`), `bench/head_reference.py` sets `mouths[f] = None` and `bench/draw_face_points.py::draw` skips `inner_lip_line` / `mouth_closed`, leaving the 3D grey mesh's own sculpted closed lips untouched (just like `lead_fp_0606d` and `second_hfp_1010g`).
+     - **Open-mouth frames draw black interior + white outline (`inner_lip_ring` / `mouth_inner`)**: Whenever Sapiens2 detects an open mouth (teeth/tongue hole in the 29-class map or inner-lip gap `> 3.5` px), the black interior + white outline is drawn at the mouth, and `bench/draw_face_points.py::fit_mouth_to_head` only shifts vertically above a real bottom-of-frame dark neck gap under the jaw (`run_end >= h - 4` and `chin_y >= pose_cy - 0.08 * fh`), never on a hand/arm gap above the pose mouth.
+     - **Downcast / narrowed eyes (`DOWNCAST_RING_OUTSIDE_MIN = 0.65`)**: When `>= 65%` of an eye's iris ring lies outside the eyelids (`between_the_lids`), the black edge of the lash lines covers `100%` of the clipped black iris disc; `bench/draw_face_points.py::discs` leaves the sclera unpainted on that eye and `bench/draw_face_points.py::shapes` draws the between-the-lids iris arc (`_iris_ring`, matching `0484c` on downcast frames while preserving white sclera + black iris on open frames) instead of flooding the narrowed eye slit with `255,255,255` white sclera.
 3. **Generating the Prompt Text (`shot_to_load.py text` — Unified `<Subject 2>` Sentence)**:
    - Invokes [`bench/load_text.py`](../../bench/load_text.py) (`bench/load_text.py::NO_SCENE`, `bench/load_text.py::NO_CLOTHING`) to generate the load's text from the reference record, `data/<video>/plan.json`, and the voice table.
    - All face-drawn loads use a **single unified `<Subject 2>` sentence** (`bench/load_text.py::subject_2`) that describes the reference video ("with facial features drawn on its face as thin white outlines, where the eyes open, close and look where the person's eyes do") without mentioning mouth/lips, so the text never biases H3 toward opening or closing the mouth while preserving eye-gaze transfer.
@@ -180,9 +196,12 @@ Before requesting a look or queueing a render, run [`bench/facts_pass.py`](../..
 ```bash
 CUDA_VISIBLE_DEVICES= <comfy-venv>/bin/python bench/facts_pass.py \
   data/<day>_<load> \
-  --out-json data/<day>_<load>/facts_pass.json \
-  --out-md data/<day>_<load>/facts_pass.md
+  --job <load job file> \
+  --output-json data/<day>_<load>/facts_pass.json \
+  --output-md data/<day>_<load>/facts_pass.md
 ```
+
+With neither `--output-json` nor `--output-md` it prints the Markdown and writes nothing.
 
 Inspect three critical signals before spending GPU render minutes:
 1. **`face_outside_region_px`** (`bench/facts_pass.py`):
