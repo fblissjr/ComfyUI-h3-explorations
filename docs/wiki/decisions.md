@@ -85,6 +85,15 @@ against the records.
       text panel, and a 1 fps card that said "clean blonde".
   - Rule for the next lead: an override is a person's act after a look, never a loop in a script (Open List, who may
     override).
+  - **The mechanism, verified in code** (Gemini's G10, checked): `--no-face-on` empties the subject's whole part on its
+    frames (`bench/capture_masked_run.py:1017-1019`; "did: emptied" in
+    data/2026-10-20_second_hfp_5768e/subjects/second/part_grades.json). On a face-and-hair load that removes her hair
+    from the region too.
+    - docs/masked_v2v/AGENTS.md §2 says the opposite: use `--no-face-on` to keep the mask open. That doc line is
+      wrong and is due in W6.
+    - The tool should change only the reference drawing on those frames, never empty a hair part. That is a build.
+    - 4912e fits the same family: its region shrank to 13.5k px on 4942-4945 and to 0 on 4946 while her head was
+      partly behind a hat.
 - **Preview seeding uses one owner box per cut and drops the rest** (cast_file.py; 11 subject-shots,
   internal/claude/2026-10-21_mrsim_preview_seeds.md). It cost 1419c its 1420-1423. No owner word found for this rule.
 - **Mistakes of the day, for the next lead:** characterizing a claim before checking it, acting on readings without
