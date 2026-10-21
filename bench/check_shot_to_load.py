@@ -247,7 +247,7 @@ class Made:
 def args(**more) -> argparse.Namespace:
     given = dict(by="the session", day="2026-01-03", cast=None, queue=False, first=None, frames=None, why=None, remake=False, plain=None, model_store="",
                  existing=False, writer=None, why_before=None, why_after=None, zoomed=None, least=None, least_why=None, ask=[], seed_cuts_of=None, parts=None, parts_by=None, parts_on=[], whole_frame=None, mouth=None, iris=None, form_why="",
-                 place_and_action=None, by_hand=None, plan=None,
+                 place_and_action=None, by_hand=None, plan=None, say_not_used=None,
                  track_not=[], track_not_by=None, drop=None, drop_by=None, leave_word=[], leave_by=None, carry_words_from=None, no_carry_words=None,
                  head_tube=None, depth=None, no_head_track=None, no_closed_lip_line=None, source=None, allow_raw_source=None)
     given.update(more)
@@ -1656,6 +1656,27 @@ def the_text_step() -> str:
         assert lc.read_job(job_file, made.root)["text"] == made.jobs / "a_fp_0100.txt"
         (made.jobs / "a_fp_0100.txt").write_text("somebody's own words\n")
         refused(lambda: stl.step_text(a, made.m), "holds another text", "written once")
+    # THE OLD FORM WITH BOTH "NOT USED" CLAUSES, TEST-ONLY (the owner's A/B of 2026-10-21; none by default): passed to load_text, recorded
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        made.plan["text"] = {"film": "THE FILM LINE."}
+        made.plan["subjects"]["a"]["text"] = {"who": "the girl", "looks": "brown eyes", "her": "her", "she": "she"}
+        d = made.load()
+        job_file = made.jobs / "a_fp_0100.json"
+        job_file.write_text(json.dumps(d, indent=1))
+        ref = Path(d["loads"][0]["motion_file"]).with_suffix(".json")
+        ref.parent.mkdir(parents=True, exist_ok=True)
+        ref.write_text(json.dumps({"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast", "mouth": {"drawn": True}}}))
+        refused(lambda: stl.step_text(args(job_file=str(job_file), plan=str(made.plan_file), say_not_used=" "), made.m), "takes the reason in words")
+        (made.jobs / "a_fp_0100.txt").write_text("the words of the load\n")
+        refused(lambda: stl.step_text(args(job_file=str(job_file), writer="w", by_hand="w", say_not_used="the A/B"), made.m), "is for a generated text")
+        (made.jobs / "a_fp_0100.txt").unlink()
+        stl.step_text(args(job_file=str(job_file), plan=str(made.plan_file), say_not_used="the owner's A/B"), made.m)
+        words = (made.jobs / "a_fp_0100.txt").read_text()
+        t = json.loads(job_file.read_text())["job"]["texts"]["a_fp_0100"]
+        # THE CASE THAT GOES RED when the text step drops the switch, or does not record it
+        assert words.count("are not used.") == 2, words
+        assert t["generated_from"]["not_used_said"] == "the owner's A/B" and "both \"not used\" clauses said (test-only): the owner's A/B" in t["by"], t
     return ("the text is made from the reference's record, the plan's words and the voice table with no place-and-action sentence (one is refused), "
             "written beside the job file and said as generated; a text written whole by a person only with its reason; refused with no text, with no "
             "words, with neither or both ways, before the reference, over another text, and once the plan is built; a dry run writes nothing")

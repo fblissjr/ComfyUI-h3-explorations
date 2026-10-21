@@ -174,8 +174,10 @@ order and stops:
    minimal**: the subject's definition, what `<Picture 1>` provides, and the
    vendor guide's marker for it (`vendor_guides/ref_en.md`, section 4.1):
    `fully_preserved` for a whole person; `partially_preserved` when only a
-   part of the still is taken, with what is kept and what is not used said
-   in the line; `attribute_transfer` for a motion video.
+   part of the still is taken, with what is kept (and what is changed) said
+   in the line; `attribute_transfer` for a motion video. No line says what
+   is not used (the owner, 2026-10-21; `bench/load_text.py`, the guide
+   writes none either).
 2. **Nothing about the frozen picture.** *Corrected 2026-10-15 (the owner):
    until then this step asked for "where the subject is, and what on them is
    the scene's own (the hair or clothing the plate keeps), in a sentence".*

@@ -377,6 +377,11 @@ REFERENCE_PICTURE = "<picture"
 #: is outlined ... and it opens and closes where the person's mouth does") were read as a voice on lead_fp_1097c and
 #: second_hfp_0014d, which have none; the head still counts ("<Subject 2> is the singing performed by ... <Video 1>").
 REFERENCE_VIDEO_HEAD = r"<subject \d+> is [^:]*<video \d+>:"
+#: A retention line that says what of a reference is kept ("<Subject 1> (appears in [Shot 1]): partially_preserved - only the
+#: girl's face is retained, wherever it shows: her eyes, eyebrows, nose, mouth and skin.") is not a voice sentence whatever its
+#: words. Reasoned, 2026-10-21: `bench/load_text.py` writes no "not used" clause since that day (the owner), so the face line no
+#: longer names <Picture 1> and `REFERENCE_PICTURE` no longer covers it. A transfer (`attribute_transfer`) is still read.
+RETENTION_KEPT = r"<subject \d+> \(appears in [^)]*\): (fully_preserved|partially_preserved) - "
 #: One colour a subject, in the order subjects are given. Reasoned: told apart by hue at a glance, none of
 #: them the review's own red and cyan, so the two pictures are never confused.
 COLOURS = ((60, 220, 90), (255, 70, 220), (255, 170, 40), (70, 150, 255), (240, 240, 60), (120, 240, 240))
@@ -5104,13 +5109,13 @@ def flag_loads(manifest: dict, folder: Path, not_in: dict | None = None) -> list
 
 def voice_sentences(text: str) -> tuple[list[str], list[str]]:
     """The sentences of a prompt that say a voice is performed, and those that deny one. A sentence that names a
-    reference picture is neither (`REFERENCE_PICTURE`); one that defines a subject by a reference video is read by its
-    head only (`REFERENCE_VIDEO_HEAD`)."""
+    reference picture, or is a retention line of what is kept, is neither (`REFERENCE_PICTURE`, `RETENTION_KEPT`); one
+    that defines a subject by a reference video is read by its head only (`REFERENCE_VIDEO_HEAD`)."""
     import re
     says, denies = [], []
     for sentence in re.split(r"(?<=[.!?])\s+|\n+", text):
         low = sentence.lower()
-        if REFERENCE_PICTURE in low:
+        if REFERENCE_PICTURE in low or re.match(RETENTION_KEPT, low.strip()):
             continue
         if re.match(REFERENCE_VIDEO_HEAD, low.strip()):
             low = low.split(":", 1)[0]

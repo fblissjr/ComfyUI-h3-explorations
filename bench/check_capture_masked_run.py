@@ -2827,7 +2827,11 @@ def text_rules() -> str:
     kept = ("<Subject 1> (appears in [Shot 1]): partially_preserved - only the girl's face is retained, wherever it shows: her eyes, eyebrows, "
             "nose, mouth and skin; the hair, the clothing and the background of <Picture 1> are not used.")
     kept_plain = "<Subject 1> (appears in [Shot 1]): partially_preserved - only the face is retained: the eyes, eyebrows, nose, mouth and skin of <Picture 1>."
-    for line in (kept, kept_plain):
+    # THE CASE THAT GOES RED when the retention line load_text writes since 2026-10-21 (no "not used" clause, so no <Picture 1>) is read
+    # as a voice performed
+    kept_now = ("<Subject 1> (appears in [Shot 1]): partially_preserved - only the girl's face is retained, wherever it shows: her eyes, "
+                "eyebrows, nose, mouth and skin.")
+    for line in (kept, kept_plain, kept_now):
         assert cap.voice_sentences(line) == ([], []), f"a retention line was read as a voice sentence: {cap.voice_sentences(line)}"
         assert cap.flag_text("She is in a room. " + line, [[500, 600]], 100, 50) == [], "a retention line over silence was flagged as naming a voice"
         said = cap.flag_text("She is in a room. " + line, [[120, 130]], 100, 50)

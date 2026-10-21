@@ -2,7 +2,7 @@
 """A load's text, generated from its reference's record, the plan and the voice table. No place-and-action sentence since 2026-10-15
 (`NO_SCENE`: to H3 a masked load is not an edit, and a text never describes the frozen picture).
 
-    <python> bench/load_text.py show JOB.json --plan PLAN.json --voice-spans SPANS.json
+    <python> bench/load_text.py show JOB.json --plan PLAN.json --voice-spans SPANS.json [--say-not-used WHY]
 
 (`bench/shot_to_load.py text JOB.json --plan PLAN.json --by SESSION` writes it beside the job file.)
 
@@ -17,7 +17,7 @@ records. Until 2026-10-15 a person wrote the shot's place and action, once; no l
 - `<Subject 1>`'s definition, and the retention line's words for them: the plan's subject, `text`:
   `who` ("the girl"), `looks` ("brown eyes, dark eyebrows and fair skin"), `her` and `she` (the pronouns), optionally
   `hair` (for a face-and-hair subject: "her long, loose blonde hair"), `not_used` (what of the still is not used; by the
-  plan's region when left out) and `sings` (true for the subject whose voice the song is).
+  plan's region when left out; said only by the test-only `--say-not-used` since 2026-10-21) and `sings` (true for the subject whose voice the song is).
 - `<Subject 2>`'s sentence: the reference's record. "a closer view of the head and shoulders" (the lead's ruling of
   2026-10-14: the fewest words, nothing typed by sight); the parts drawn (`drawn.parts_left_out`: eyes, eyebrows, nose,
   and the mouth when drawn); the eyes' clause by the iris form (`drawn.iris`); the mouth's clause when it is drawn
@@ -34,6 +34,11 @@ records. Until 2026-10-15 a person wrote the shot's place and action, once; no l
   whose clothing is redrawn with her (the plan's `look.stay_removed_by`, the owner's decision of 2026-10-16, 26f208c0) and not
   named is refused (`clothing_of`, `NO_CLOTHING`); the job step refuses the same, before anything is made.
 - `<Subject 2>`'s retention line, the soundscape and the music: fixed, the kept loads' words.
+- No "not used" clause (the owner, 2026-10-21; the release's guide, vendor_guides/ref_en.md section 4, writes none): each
+  retention line ends at what is kept or changed ("... are transferred to <Subject 1>."). Until then both lines ended with what of
+  the still, and of the body model, is not used. TEST-ONLY, to retire after the A/B renders of 2026-10-21: `--say-not-used WHY`
+  writes that old form for one load (`<Subject 1>`'s "; <not_used> of <Picture 1> are not used" and `SUBJECT_2_NOT_USED`), the
+  reason kept in the job's `texts.<label>.generated_from.not_used_said` and its `by`.
 
 **The form is the kept loads'**, word for word but where a record or the plan says otherwise: lead_fp_1730 and
 lead_fp_1755 (10/13; the same text), second_hfp_0484c (10/14, face and hair). Places differ from them, by ruling: no
@@ -42,7 +47,7 @@ shoulders" (theirs named arms or hands, typed by sight). `bench/check_load_text.
 those texts.
 
 **A load of the hair alone** (`--parts hair`, the job's `part.parts`): its words are the hair's, not the plan's region's. The
-summary and the retention line name the hair alone, the face is among what of the still is not used, the detailed line says her
+summary and the retention line name the hair alone, the detailed line says her
 hair (not her face) is the still's, and nothing speaks of facial expressions or singing: her face is not replaced (mrarc's
 second_hp_5461b, 2026-10-15: the text of a hair load said her face was the still's, and its plan look read a face drawn on her
 crown). Nor does it carry the plan's `looks` ("blue-grey eyes"): eye words invite a face where none is drawn, and <Picture 1>
@@ -73,13 +78,14 @@ EYES = {"whole": "the eyes are outlined with the iris inside them",
         "between the lids": "the eyes are outlined with the iris inside them",
         "filled": "the eyes are outlined with a dark iris inside them",
         "contrast": "inside each eye's outline the white of the eye is white and the iris black"}
-#: What of the still is not used, by the plan's region, where the subject's `text.not_used` does not say.
+#: What of the still is not used, by the plan's region, where the subject's `text.not_used` does not say: said only by the test-only
+#: `say_not_used` since 2026-10-21. Its keys are also the regions a text is made for.
 NOT_USED = {"face": "the hair, the clothing and the background", "face and hair": "the clothing, the accessories and the background",
             "hair": "the face, the clothing, the accessories and the background"}
 #: What a load renders, by its own part (`job.part.parts`) where it carries one: the hair alone, or the face alone.
 RENDERS = {frozenset({"hair"}): "hair", frozenset({"face_and_neck"}): "face", frozenset({"hair", "face_and_neck"}): "face and hair"}
-SUBJECT_2_KEPT = ("<Subject 2> (appears in [Shot 1]): attribute_transfer - {moves} are transferred to "
-                  "<Subject 1>; the grey body model's look, the drawn outlines themselves and its black ground are not used.")
+SUBJECT_2_NOT_USED = "; the grey body model's look, the drawn outlines themselves and its black ground are not used"
+SUBJECT_2_KEPT = "<Subject 2> (appears in [Shot 1]): attribute_transfer - {moves} are transferred to <Subject 1>{not_used}."
 #: What <Subject 1> follows of the figure: the head and the face, or the head alone where only the hair is replaced.
 MOVES = {"face": "the movements of the head and the facial expressions", "face and hair": "the movements of the head and the facial expressions",
          "hair": "the movements of the head"}
@@ -236,9 +242,9 @@ def voice_of(p: dict, first: int, last: int) -> dict | None:
 
 
 def text(plan: dict, subject: str, record: dict | None, place_and_action: str, voiced: list[list[int]], first: int, last: int,
-         parts: list[str] | None = None) -> str:
+         parts: list[str] | None = None, say_not_used: bool = False) -> str:
     """The whole text of one load; `parts`, the load's own part where it carries one (`job.part.parts`); `record` None for a load with no
-    reference video (`motion: none`)."""
+    reference video (`motion: none`); `say_not_used`, both "not used" clauses written, the old form (test-only, `for_job`)."""
     p = plan["subjects"][subject]
     t = p.get("text") or {}
     lacking = [k for k in ("who", "looks", "her", "she") if not str(t.get(k) or "").strip()]
@@ -267,12 +273,13 @@ def text(plan: dict, subject: str, record: dict | None, place_and_action: str, v
     hair = " ".join(str(t.get("hair") or "").split())
     not_used = " ".join(str((t.get("not_used") if region != "hair" else None) or NOT_USED[region]).split())
     # HER HAIR CHANGED FROM THE STILL'S (the plan's `text.hair_change`, the owner's word of 2026-10-15 on the second subject: her still has
-    # long blonde hair; keep its colour, change only its length): the release's guide (vendor_guides/ref_en.md, section 4.1) has
+    # long blonde hair; keep its color, change only its length): the release's guide (vendor_guides/ref_en.md, section 4.1) has
     # `partially_preserved` as "some defined characteristics are changed or only partially retained", so the retention line says which
     # of the still's hair is kept and what is changed, and the summary takes the face from <Picture 1> and the plan's hair; "retained"
     # alone would tell H3 the still's hair is the plan's. The parts are the plan's words, never parsed out of a sentence: `kept` (what of
-    # the still's hair stays, or none), `what` (the characteristic changed) and `to` (what it becomes), with `by`. Every other line of the
-    # form is as it was
+    # the still's hair stays, as the words that go before "hair", such as "blonde", read as "the woman's face and blonde hair"; the
+    # owner's word of 2026-10-21, "just say 'face and blonde hair'"; or none), `what` (the characteristic changed) and `to` (what it
+    # becomes), with `by`. Every other line of the form is as it was
     change = t.get("hair_change") if region in ("face and hair", "hair") else None
     if change is not None and (not isinstance(change, dict) or not str(change.get("what") or "").strip() or not str(change.get("to") or "").strip()
                                or not str(change.get("by") or "").strip()):
@@ -283,11 +290,13 @@ def text(plan: dict, subject: str, record: dict | None, place_and_action: str, v
         changed_to = f"{her} hair's {' '.join(str(change['what']).split())} is changed to " + " ".join(str(change["to"]).split())
         if region == "hair":                            # her hair alone: what of the still's hair is kept, and what is changed
             with_what = bare
-            kept_now = (f"{kept_of} of the {noun}'s hair from <Picture 1> is retained; " if kept_of else "") + changed_to
+            kept_now = (f"the {noun}'s {kept_of} hair from <Picture 1> is retained; " if kept_of else "") + changed_to
         else:
             with_what = f"the face of <Picture 1> and {bare}"
-            kept_now = (f"the {noun}'s face" + (f" and {kept_of} of {her} hair" if kept_of else "") + f" from <Picture 1> "
+            kept_now = (f"the {noun}'s face" + (f" and {kept_of} hair" if kept_of else "") + f" from <Picture 1> "
                         + ("are" if kept_of else "is") + f" retained; " + changed_to)
+    # NO "NOT USED" CLAUSE (the owner, 2026-10-21); the old form only for a test load that asks for it (`say_not_used`)
+    not_used_1 = f"; {not_used} of <Picture 1> are not used" if say_not_used else ""
     kept = (kept_now if change is not None else
             f"only the {noun}'s face and {hair} are retained, wherever they show" if region == "face and hair" else
             f"only the {noun}'s {hair.split(' ', 1)[1] if hair.split(' ', 1)[0] in ('her', 'his', 'their') else hair} is retained, wherever it shows"
@@ -298,7 +307,7 @@ def text(plan: dict, subject: str, record: dict | None, place_and_action: str, v
             raise Refused("a load with no reference video (motion none) is for her hair alone, the lead's ruling of 2026-10-15")
         return (f"subject_definitions:\n<Subject 1> is {who} whose hair comes from <Picture 1>.\n\n"
                 f"summary:\n[reference generation] <Subject 1> has {bare if change is not None else 'the hair of <Picture 1>'}.\n\n"
-                f"retention_analysis:\n<Subject 1> (appears in [Shot 1]): partially_preserved - {kept}; {not_used} of <Picture 1> are not used.\n\n"
+                f"retention_analysis:\n<Subject 1> (appears in [Shot 1]): partially_preserved - {kept}{not_used_1}.\n\n"
                 f"detailed_description:\n{film}\n[Shot 1] <Subject 1>, {who}, has {bare if change is not None else 'the hair of <Picture 1>'}.{wears}"
                 f"\n\n{SOUND}")
     drawn = None if record.get("form") == "plain" else (record.get("drawn") or {})
@@ -316,17 +325,20 @@ def text(plan: dict, subject: str, record: dict | None, place_and_action: str, v
     return (f"subject_definitions:\n<Subject 1> is {who} whose appearance comes from <Picture 1>{with_looks} and who follows {moves} "
             f"of the figure in <Video 1>.\n{subject_2(drawn, moves, (record['frames'][1] - record['frames'][0] + 1) if record.get('frames') else last - first + 1)}\n\n"
             f"summary:\n[reference generation] <Subject 1>, with {with_what}{'' if change is not None else ' of <Picture 1>'}, performs <Subject 2>.\n\n"
-            f"retention_analysis:\n<Subject 1> (appears in [Shot 1]): partially_preserved - {kept}; {not_used} of <Picture 1> are not used.\n"
-            f"{SUBJECT_2_KEPT.format(moves=moves)}\n\n"
+            f"retention_analysis:\n<Subject 1> (appears in [Shot 1]): partially_preserved - {kept}{not_used_1}.\n"
+            f"{SUBJECT_2_KEPT.format(moves=moves, not_used=SUBJECT_2_NOT_USED if say_not_used else '')}\n\n"
             f"detailed_description:\n{film}\n[Shot 1] <Subject 1>, {who}{'' if region == 'hair' else f' with {bare}' if change is not None else f' with {looks}'}, {has}.{wears} "
             f"<Subject 1> performs <Subject 2>: {she} follows {moves} of the figure."
             + (f" <Subject 1> (S1) sings, {her} mouth opening wide on the sung phrases." if sings else "")
             + (VOICES[said["voice"]].format(her=her) if said is not None else "") + f"\n\n{SOUND}")
 
 
-def for_job(job_file: Path, place_and_action: str, plan_file: Path, voice_spans: Path) -> tuple[str, dict]:
+def for_job(job_file: Path, place_and_action: str, plan_file: Path, voice_spans: Path, say_not_used: str | None = None) -> tuple[str, dict]:
     # `place_and_action`: none since 2026-10-15 (`NO_SCENE`); an empty one is taken, a sentence refused
-    """The text of a job file's load, and what it was made from."""
+    """The text of a job file's load, and what it was made from. `say_not_used` (test-only, 2026-10-21): a person's reason to write
+    both "not used" clauses, the old form, recorded in what it was made from (`not_used_said`); None writes none (the default)."""
+    if say_not_used is not None and not " ".join(str(say_not_used).split()):
+        raise Refused("--say-not-used takes the reason in words: a text has no \"not used\" clause by default")
     d = json.loads(Path(job_file).read_text())
     load = d["loads"][0]
     if load.get("motion") == "none":
@@ -340,12 +352,13 @@ def for_job(job_file: Path, place_and_action: str, plan_file: Path, voice_spans:
     voiced = json.loads(Path(voice_spans).read_text())["voiced_spans_inclusive"]
     first, last = load["first"], load["first"] + load["frames"] - 1
     parts = ((d.get("job") or {}).get("part") or {}).get("parts")
-    words = text(plan, load["subject"], record, place_and_action, voiced, first, last, parts)
+    words = text(plan, load["subject"], record, place_and_action, voiced, first, last, parts, say_not_used is not None)
     rd = (record or {}).get("drawn") or {}
     return words, {"reference_record": str(record_path) if record_path else "none: the load takes no reference video (motion none)",
                    "plan": str(plan_file), "voice_spans": str(voice_spans),
                    "drawn": {**{k: rd.get(k) for k in ("parts_left_out", "iris", "mouth")},
-                             **{k: rd[k] for k in ("eye_rings", "darken_head") if rd.get(k) is not None}}}
+                             **{k: rd[k] for k in ("eye_rings", "darken_head") if rd.get(k) is not None}},
+                   **({"not_used_said": " ".join(str(say_not_used).split())} if say_not_used is not None else {})}
 
 
 def main(argv=None) -> int:
@@ -356,9 +369,11 @@ def main(argv=None) -> int:
     s.add_argument("--place-and-action", default="", help="none: refused if given (NO_SCENE)")
     s.add_argument("--plan", required=True)
     s.add_argument("--voice-spans", required=True)
+    s.add_argument("--say-not-used", metavar="WHY", help="TEST-ONLY (2026-10-21 A/B): write both \"not used\" clauses, the old form, with a person's "
+                   "reason; none by default")
     v = ap.parse_args(argv)
     try:
-        words, _ = for_job(Path(v.job_file), v.place_and_action, Path(v.plan), Path(v.voice_spans))
+        words, _ = for_job(Path(v.job_file), v.place_and_action, Path(v.plan), Path(v.voice_spans), v.say_not_used)
     except Refused as e:
         print(f"REFUSED: {e}")
         return 5
