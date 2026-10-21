@@ -8,7 +8,7 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 160 |
+| [`check_*`](#check) | 161 |
 | [`measure_*`](#measure) | 39 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
@@ -28,6 +28,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_bench_matches_shipped.py`](check_bench_matches_shipped.py) | Check the e2e bench measures the configuration the graphs actually ship. |
 | [`check_body_pose.py`](check_body_pose.py) | Hold `body_pose.py` to Meta's SAM 3D Body code: the crop bit for bit, the bodies within Meta's own precision, and no ComfyUI SAM node. |
 | [`check_break_checks.py`](check_break_checks.py) | `bench/break_checks.py` tells a break a check sees from one it does not, and from a run that was red for no reason. |
+| [`check_build_cut_map.py`](check_build_cut_map.py) | `bench/build_cut_map.py` names the cut and gaps of the laid list as it is, says where they came from, and writes nothing when asked for help. |
 | [`check_camera_vocabulary.py`](check_camera_vocabulary.py) | Camera motion in every shipped prompt comes from base_en 4.3's closed sets. |
 | [`check_capture_manifest.py`](check_capture_manifest.py) | Check that activation captures contain valid, conforming manifest.json files. |
 | [`check_capture_manifest_controls.py`](check_capture_manifest_controls.py) | Red controls for the capture-manifest contract: each case is a fixture built to violate one rule, and the run is green only when every violation is caught and the two legitimate fixtures pass. |

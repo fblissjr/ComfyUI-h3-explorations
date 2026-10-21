@@ -7,24 +7,48 @@ Reads directly from the live sources of truth:
   - data/fun/cast/cast.jsonl (owner cast seed boxes per frame & subject)
   - data/fun/laid.jsonl (currently laid render MP4 per shot + subject)
   - data/*_job/*.render.built.json & *.render.queued.json (lineage: input job JSON, preview, capture folder, source video, digests, windows)
-  - data/2026-*_<load>/manifest.json & flags.json (capture inputs, tracker/part files, gate status, held/emptied frames)
+  - data/2026-*_<load>/manifest.json & flags.json (capture inputs, tracker/part files, gate status, held frames)
   - data/2026-10-20_fun_phase2_inputs/ & data/2026-10-20_fun_phase3_inputs/ (queued/pre-built inputs for remaining/updated shots)
 
-Writes:
+The cut, its table and its gap check are the ones made from today's laid.jsonl, never the newest file by mtime
+(2026-10-21: the page named a stopped, half-written cut and counted gaps from a check made on another list). A
+delivery table records the laid sha it was made from in its `made` line; the table that names today's sha is read, its
+gap check only through `review_pages.read_gap_check` (bound to the table by `table_sha256`, the same rule TO_REVIEW
+uses), its cut from its own `assembly.command --out`. Only whole-video tables named `t_fun_0000_6394_<YYYY-MM-DDTHHMMZ>.json`
+are read; trials, joined-clip tables and a stamp in another form are not. Where no table names today's sha, the page says so in words
+above the table and names the table it read instead, with that table's laid sha; frames a laid line holds that the
+gap check it read did not measure are shown as "laid, not measured", never as carried. The page lists every record it
+read with its sha256 and its mtime on the owner's clock (US Central), and names the file that ran it.
+
+    <comfy venv python> bench/build_cut_map.py [--data DATA] [--share SHARE]
+
+`--help` prints this and writes nothing.
+
+Writes, and nothing else (the share's copies are made by hand after it, with backups):
   - data/fun/CUT_MAP.md
-  - data/fun/poc/PROVENANCE.html (served at http://localhost:8765/PROVENANCE.html)
-  - data/fun/poc/CUT_MAP.html (served at http://localhost:8765/CUT_MAP.html)
-  - H3_OUTPUT_DIR/Video/fun/PROVENANCE.html
-  - H3_OUTPUT_DIR/Video/fun/CUT_MAP.html
+  - data/fun/poc/PROVENANCE.html (served at http://localhost:8765/PROVENANCE.html), stamped `data-laid-sha256`
+  - data/fun/poc/CUT_MAP.html (served at http://localhost:8765/CUT_MAP.html), the same bytes
+
+data/fun/poc/PROVENANCE.html has a second writer: `bench/rebuild_delivery.py`'s pages step copies review_pages'
+provenance page over it on every rebuild (rebuild_delivery.py:842-844), so the page the server shows is whichever ran
+last. Run this after a rebuild to show the cut map there.
 """
 from __future__ import annotations
 
+import argparse
 import datetime
+import hashlib
 import html
 import json
 import os
 import re
+import shlex
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from piece_gaps import OWNERS_CLOCK  # noqa: E402
+from review_pages import in_repo, read_gap_check  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
 DATA_DIR = REPO / "data"
@@ -68,7 +92,7 @@ def path_mtime_local(p: Path | None) -> str:
     key = str(p)
     if key in _MTIME_CACHE:
         return _MTIME_CACHE[key]
-    if not key.startswith(str(REPO)):
+    if not (key.startswith(str(REPO)) or key.startswith(str(DATA_DIR))):
         _MTIME_CACHE[key] = "on share (H3_OUTPUT_DIR)"
         return _MTIME_CACHE[key]
     try:
@@ -136,9 +160,19 @@ def load_built_index() -> dict[str, dict]:
     return idx
 
 
+def from_record(path: str) -> Path:
+    """A path a record holds, relative to the repo it was written in (`data/...`): under the data root this run reads
+    (`--data`) when it is there, else under this repo."""
+    p = Path(path)
+    if p.is_absolute():
+        return p
+    under_root = DATA_DIR / Path(*p.parts[1:]) if p.parts and p.parts[0] == "data" else DATA_DIR.parent / p
+    return under_root if under_root.exists() else REPO / p
+
+
 def find_input_json_for_load(load_name: str, job_dir: Path, built_data: dict | None = None) -> Path | None:
     if built_data and built_data.get("job_file"):
-        jf = REPO / str(built_data["job_file"])
+        jf = from_record(str(built_data["job_file"]))
         if jf.is_file():
             return jf
     cand1 = job_dir / "job.render.json"
@@ -152,9 +186,7 @@ def find_input_json_for_load(load_name: str, job_dir: Path, built_data: dict | N
 
 def find_capture_dir_for_load(load_name: str, built_data: dict | None = None) -> Path | None:
     if built_data and built_data.get("capture"):
-        cp = Path(str(built_data["capture"]))
-        if not cp.is_absolute():
-            cp = REPO / cp
+        cp = from_record(str(built_data["capture"]))
         if cp.is_dir():
             return cp
     matches = sorted(
@@ -167,9 +199,7 @@ def find_capture_dir_for_load(load_name: str, built_data: dict | None = None) ->
 def find_preview_job_dir(preview_ref: str | None) -> Path | None:
     if not preview_ref:
         return None
-    p = Path(preview_ref)
-    if not p.is_absolute():
-        p = REPO / p
+    p = from_record(preview_ref)
     if p.is_dir():
         return p
     matches = sorted(DATA_DIR.glob(f"*{preview_ref}*_job"))
@@ -220,9 +250,9 @@ def load_today_previews() -> dict[tuple[int, int], list[dict]]:
                 "phase": phase_label,
                 "name": pname,
                 "source": j.get("source", "input/fun_0000_6394_24p_sound_in_step.mov"),
-                "input_json": jpath.relative_to(REPO),
+                "input_json": rel_or_str(jpath),
                 "input_mtime": path_mtime_local(jpath),
-                "job_folder": job_folder.relative_to(REPO) if job_folder.exists() else None,
+                "job_folder": rel_or_str(job_folder) if job_folder.exists() else None,
                 "preview_done": queued_file.is_file(),
                 "preview_done_mtime": path_mtime_local(queued_file) if queued_file.is_file() else None,
                 "preview_commit": (qdata or {}).get("commit", "—"),
@@ -295,7 +325,7 @@ def build_dag_steps_for_row(
                 "status_label": "Passed Through Unchanged to Final Cut",
                 "items": [
                     {"k": "Action at Assembly", "v": "Original source frames copied directly into final cut"},
-                    {"k": "Latest Joined Cut MP4", "v": f"{latest_joined.name if latest_joined else '—'} (mtime: {path_mtime_local(latest_joined)})"},
+                    {"k": "The cut named (from the table read)", "v": f"{latest_joined.name if latest_joined else '—'} (mtime: {path_mtime_local(latest_joined)})"},
                 ],
             },
         ]
@@ -672,7 +702,8 @@ def build_dag_steps_for_row(
 
     if lrows:
         step6_status = "done"
-        step6_label = f"Laid in Cut ({lrows[-1].get('owner', 'in cut')})"
+        step6_label = (f"Laid in Cut ({lrows[-1].get('owner', 'in cut')})" if CUT_WORD == "IN CUT"
+                       else f"Laid ({lrows[-1].get('owner', '—')}); the cut named is older than laid.jsonl")
         for lr in lrows:
             step6_items.append({
                 "k": f"Ledger Entry (`data/fun/laid.jsonl` · `{lr['load']}`)",
@@ -692,7 +723,7 @@ def build_dag_steps_for_row(
                 })
         if latest_joined:
             step6_items.append({
-                "k": "Assembled Full Delivery Cut MP4",
+                "k": "The cut named (from the table read)",
                 "v": f"{latest_joined.name} ({latest_joined})",
                 "ts": path_mtime_local(latest_joined),
             })
@@ -759,31 +790,136 @@ def render_dag_html(steps: list[dict], row_id: str) -> str:
     return f"<div class='dag-tree' id='dag-{row_id}'>{''.join(blocks)}</div>"
 
 
-def load_frame_coverage_index() -> tuple[dict[tuple[int, int, str], dict], Path | None]:
-    """Load the newest frame_coverage_fun_0000_6394_*.json keyed by (first, last, subject)."""
-    files = sorted(
-        DATA_DIR.glob("*_fun_delivery_tables/frame_coverage_fun_0000_6394_*.json"),
-        key=lambda p: p.stat().st_mtime,
-    )
-    if not files:
-        return {}, None
-    latest_path = files[-1]
-    try:
-        data = json.loads(latest_path.read_text())
-    except Exception:
-        return {}, latest_path
+#: A whole-video table's name, `t_fun_0000_6394_<stamp>.json`: its stamp orders tables made from the same laid list
+#: (a recorded name, never an mtime). Trials and joined-clip tables have other names and are not read.
+TABLE_NAME = re.compile(r"^t_fun_0000_6394_(\d{4}-\d{2}-\d{2}T\d{4}Z)\.json$")
+#: How `bench/delivery_table.py` records, in a table's `made` line, the laid list it was made from.
+LAID_IN_TABLE = re.compile(r"ONLY the list of what is laid, `([^`]+)` \(sha256 ([0-9a-f]{16,64}), (\d+) lines")
+
+
+def sha256_of(p: Path) -> str:
+    return hashlib.sha256(p.read_bytes()).hexdigest()
+
+
+def central(ts: float) -> str:
+    """A file time on the owner's clock (US Central), as the pages say it."""
+    return datetime.datetime.fromtimestamp(ts, OWNERS_CLOCK).strftime("%Y-%m-%d %H:%M:%S %Z")
+
+
+def table_cut(T: dict, table: Path) -> Path | None:
+    """The cut a table was assembled into: its own `assembly.command --out`, never a name built from its stamp."""
+    parts = shlex.split(str((T.get("assembly") or {}).get("command") or ""))
+    if "--out" not in parts[:-1]:
+        return None
+    return in_repo(parts[parts.index("--out") + 1], str(table))
+
+
+def bound_records(data_dir: Path, laid_path: Path) -> dict:
+    """The table, gap check and cut made from the laid list as it is now, found by the sha the table recorded.
+
+    Tables are tried newest first by the stamp in their name; one counts only when its gap check passes
+    `review_pages.read_gap_check`. `match` is the newest that recorded today's sha; `fallback` the newest that did not,
+    read only where there is no match and said so on the page; `rejected` the tables of today's sha whose gap check
+    could not be used, each with the reason in that tool's words."""
+    laid_sha = sha256_of(laid_path)
+    cands = []
+    for p in data_dir.glob("*_fun_delivery_tables/t_fun_0000_6394_*.json"):
+        m = TABLE_NAME.match(p.name)
+        if not m:
+            continue
+        try:
+            T = json.loads(p.read_text())
+        except (OSError, ValueError):
+            continue
+        lm = LAID_IN_TABLE.search(str(T.get("made") or "")) if isinstance(T, dict) else None
+        if lm:
+            cands.append((m.group(1), p.parent.name, p, T, lm.group(2)))
+    # newest stamp first; one stamp in two day folders, the later folder first (a name, never an mtime)
+    cands.sort(key=lambda c: (c[0], c[1]), reverse=True)
+    match = fallback = None
+    rejected = []
+    for stamp, _day, p, T, sha in cands:
+        today = laid_sha.startswith(sha)
+        try:
+            cov, cov_path = read_gap_check(T, str(p))
+        except SystemExit as exc:
+            rejected.append({"table": p, "laid": sha, "today": today, "why": str(exc.code)})
+            continue
+        except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+            # a record that cannot be read is a reason, not a crash: the page stays up and says it
+            rejected.append({"table": p, "laid": sha, "today": today, "why": f"{type(exc).__name__}: {exc}"})
+            continue
+        rec = {"table": p, "stamp": stamp, "laid": sha, "cov": cov, "cov_path": cov_path, "cut": table_cut(T, p), "matches": today}
+        if today:
+            match = rec
+            break
+        if fallback is None:
+            fallback = rec
+    return {"laid_sha": laid_sha, "laid_path": laid_path, "match": match, "fallback": fallback, "rejected": rejected}
+
+
+def coverage_index(cov: dict | None) -> dict[tuple[int, int, str], dict]:
+    """A gap check's shots keyed by (first, last, subject)."""
     idx: dict[tuple[int, int, str], dict] = {}
-    for sh in data.get("shots") or []:
-        shot_pair = sh.get("shot") or [0, 0]
-        if len(shot_pair) == 2:
-            key = (int(shot_pair[0]), int(shot_pair[1]), str(sh.get("subject")))
-            idx[key] = sh
-    return idx, latest_path
+    for sh in (cov or {}).get("shots") or []:
+        try:
+            shot_pair = sh.get("shot") or [0, 0]
+            if len(shot_pair) == 2:
+                idx[(int(shot_pair[0]), int(shot_pair[1]), str(sh.get("subject")))] = sh
+        except (AttributeError, TypeError, ValueError):
+            continue  # a shot entry that is not one is skipped; the rest of the check stands
+    return idx
+
+
+def bound_words(bound: dict) -> list[str]:
+    """What the page says, above its table, about where its cut and gaps came from: one sentence each, generated."""
+    short = bound["laid_sha"][:16]
+    m, fb = bound["match"], bound["fallback"]
+    words = []
+    if m:
+        words.append(f"The cut, its table and its gap check were made from laid.jsonl as it is now (sha256 {short}): "
+                     f"table {m['table'].name}, gap check {m['cov_path'].name}, cut {m['cut'] or 'not named by the table'}.")
+    elif fb:
+        words.append(f"No cut on disk was made from laid.jsonl as it is now (sha256 {short}). The cut named and the gap "
+                     f"figures below are from table {fb['table'].name}, made from laid.jsonl sha256 {fb['laid']}. The rows "
+                     "show laid.jsonl as it is now (a laid row says LAID, not IN CUT): where it differs from that table, "
+                     "frames are shown as laid, not measured, or as no longer laid, and the cut named may still show "
+                     "pieces taken out since.")
+    else:
+        words.append(f"No table with a usable gap check was found, for laid.jsonl as it is now (sha256 {short}) or any "
+                     f"other ({len(bound['rejected'])} tried): no cut is named and no gap figures are shown."
+                     + (f" The newest one tried, {bound['rejected'][0]['table'].name}, could not be used: {bound['rejected'][0]['why']}"
+                        if bound["rejected"] else ""))
+    for r in bound["rejected"]:
+        if r["today"]:
+            words.append(f"Table {r['table'].name} was made from laid.jsonl as it is now, but its gap check could not be used: {r['why']}")
+    return words
+
+
+def held_frames_of(cap_dir: Path | None, subject: str) -> set[int]:
+    """The frames a capture's flags.json says it held from a neighbour, for `subject`; empty when it says nothing."""
+    try:
+        hf = json.loads((cap_dir / "flags.json").read_text()).get("held_frames") if cap_dir else None
+    except (OSError, ValueError):
+        return set()
+    if isinstance(hf, dict):
+        return {int(x) for x in (hf.get(subject) or [])}
+    return {int(x) for x in hf} if isinstance(hf, list) else set()
+
+
+#: How the page says a laid piece stands: "IN CUT" when the cut named was made from the list the rows show, "LAID" when
+#: the cut is older (set by main from the binding; the blind read of 2026-10-21, its finding 6).
+CUT_WORD = "IN CUT"
+
+#: The step name of a frame a laid line holds that the gap check read did not measure.
+NOT_MEASURED = "laid_not_measured"
 
 
 def classify_frame_cat(step_name: str, state_str: str) -> str:
     st = str(state_str or "")
     sn = str(step_name or "")
+    if sn == NOT_MEASURED:
+        return "not_measured"
     if st.startswith("carried (held"):
         return "held"
     if st.startswith("carried"):
@@ -795,6 +931,17 @@ def classify_frame_cat(step_name: str, state_str: str) -> str:
     return "no_capture"
 
 
+def laid_by_frame(first: int, last: int, lrows: list[dict]) -> dict[int, dict]:
+    """Which laid line lays each frame of the shot today: the lines in file order, each on its `frames` (its whole
+    span when it has none) and only on frames no line before it took (`bench/laid.py`, "laid in file order")."""
+    out: dict[int, dict] = {}
+    for r in lrows:
+        for a0, b0 in (r.get("frames") or [[int(r.get("first", first)), int(r.get("last", last))]]):
+            for x in range(max(first, int(a0)), min(last, int(b0)) + 1):
+                out.setdefault(x, r)
+    return out
+
+
 def build_frame_coverage_for_row(
     first: int,
     last: int,
@@ -802,141 +949,77 @@ def build_frame_coverage_for_row(
     lrows: list[dict],
     cov_idx: dict[tuple[int, int, str], dict],
     built_idx: dict[str, dict],
+    check_is_of_this_list: bool = False,
 ) -> dict:
-    """Build per-frame coverage array, contiguous spans, and gap summary for (first, last, subject)."""
+    """Per-frame coverage, contiguous spans and gap summary for (first, last, subject), frame by frame against the laid
+    list as it is now.
+
+    Where the gap check was made from this very list (`check_is_of_this_list`), its reading of every frame stands as it
+    is, "no track" included: it measured them all. The comparison below is for a check made from another list.
+
+    A frame keeps the gap check's own figures only where the check measured the same load laid there that laid.jsonl
+    lays there now. A frame laid now by a load the check did not measure there is "laid, not measured" (never carried;
+    2026-10-21, the overlay this replaces wrote "carried" on such frames). A frame the check measured a piece on that
+    laid.jsonl no longer lays there is said as no longer laid. Every other frame is the check's (or, with no check of the
+    shot, not captured)."""
     n_frames = last - first + 1
     if subject == "—":
         return {
             "has_data": False,
             "frames": [],
             "spans": [],
-            "counts": {"carried": 0, "held": 0, "emptied": 0, "unrendered_gap": 0, "no_capture": n_frames},
+            "counts": {"carried": 0, "held": 0, "emptied": 0, "unrendered_gap": 0, "no_capture": n_frames, "not_measured": 0},
             "gap_summary_parts": [],
             "short_summary": f"{n_frames}f source pass-through",
         }
 
-    sh_cov = cov_idx.get((first, last, subject))
-    laid_loads = [r["load"] for r in lrows]
-    cov_pieces = sorted({str(p) for p in (sh_cov.get("piece") or []) if p}) if sh_cov else []
-
-    # Check if laid.jsonl has a newer load than what was in frame_coverage_*.json
-    use_live_overlay = False
-    if lrows and (not sh_cov or set(laid_loads) != set(cov_pieces)):
-        use_live_overlay = True
-
-    per_frame: list[dict] = []
-    if sh_cov and not use_live_overlay:
+    sh_cov = cov_idx.get((first, last, subject)) or {}
+    checked: dict[int, dict] = {}
+    if sh_cov:
         frames_list = sh_cov.get("frames") or list(range(first, last + 1))
-        step_names = sh_cov.get("step_name") or ["no_capture"] * len(frames_list)
-        states = sh_cov.get("state") or ["original: no piece laid"] * len(frames_list)
-        pieces = sh_cov.get("piece") or [None] * len(frames_list)
-        track_pxs = sh_cov.get("track_px") or [None] * len(frames_list)
-        track_froms = sh_cov.get("track_from") or ["—"] * len(frames_list)
-        carried_pxs = sh_cov.get("carried_px") or [None] * len(frames_list)
-        changed_shares = sh_cov.get("changed_share") or [None] * len(frames_list)
+        cols = {k: sh_cov.get(k) or [] for k in ("step_name", "state", "piece", "track_px", "track_from", "carried_px", "changed_share")}
+        at = lambda k, i, d=None: cols[k][i] if i < len(cols[k]) else d  # noqa: E731
         for i, fnum in enumerate(frames_list):
-            sn = str(step_names[i]) if i < len(step_names) else "no_capture"
-            st = str(states[i]) if i < len(states) else "—"
-            cat = classify_frame_cat(sn, st)
-            per_frame.append({
+            checked[int(fnum)] = {
                 "f": int(fnum),
-                "step_name": sn,
-                "state": st,
-                "piece": pieces[i] if i < len(pieces) and pieces[i] else "—",
-                "track_px": track_pxs[i] if i < len(track_pxs) else None,
-                "track_from": str(track_froms[i]) if i < len(track_froms) and track_froms[i] else "—",
-                "carried_px": carried_pxs[i] if i < len(carried_pxs) else None,
-                "changed_share": changed_shares[i] if i < len(changed_shares) else None,
-                "cat": cat,
-            })
-    else:
-        # Synthesize or overlay live manifest.json + flags.json from current lrows on top of sh_cov
-        base_map: dict[int, dict] = {}
-        if sh_cov:
-            frames_list = sh_cov.get("frames") or list(range(first, last + 1))
-            step_names = sh_cov.get("step_name") or ["no_capture"] * len(frames_list)
-            states = sh_cov.get("state") or ["original: no piece laid"] * len(frames_list)
-            pieces = sh_cov.get("piece") or [None] * len(frames_list)
-            track_pxs = sh_cov.get("track_px") or [None] * len(frames_list)
-            track_froms = sh_cov.get("track_from") or ["—"] * len(frames_list)
-            for i, fnum in enumerate(frames_list):
-                base_map[int(fnum)] = {
-                    "f": int(fnum),
-                    "step_name": str(step_names[i]),
-                    "state": str(states[i]),
-                    "piece": pieces[i] or "—",
-                    "track_px": track_pxs[i],
-                    "track_from": str(track_froms[i] or "—"),
-                    "carried_px": None,
-                    "changed_share": None,
-                }
-        for fnum in range(first, last + 1):
-            if fnum not in base_map:
-                base_map[fnum] = {
-                    "f": fnum,
-                    "step_name": "no_capture",
-                    "state": "original: no piece laid",
-                    "piece": "—",
-                    "track_px": None,
-                    "track_from": "—",
-                    "carried_px": None,
-                    "changed_share": None,
-                }
-            elif lrows:
-                # Reset old piece before overlaying current lrows
-                base_map[fnum]["piece"] = "—"
-                if base_map[fnum]["step_name"] == "kept_and_laid":
-                    base_map[fnum]["step_name"] = "captured_not_rendered"
-                    base_map[fnum]["state"] = "original: no piece laid"
-
-        for r in lrows:
-            lname = r["load"]
-            binfo = built_idx.get(lname)
-            cap_dir = find_capture_dir_for_load(lname, (binfo or {}).get("built"))
-            c_first = int(r.get("first", first))
-            c_last = int(r.get("last", last))
-            emptied_set: set[int] = set()
-            held_set: set[int] = set()
-            if cap_dir and (cap_dir / "manifest.json").is_file():
-                try:
-                    m = json.loads((cap_dir / "manifest.json").read_text())
-                    c_first = int(m.get("first_frame", m.get("first", c_first)))
-                    c_last = c_first + int(m.get("frames", c_last - c_first + 1)) - 1
-                except Exception:
-                    pass
-                if (cap_dir / "flags.json").is_file():
-                    try:
-                        fl = json.loads((cap_dir / "flags.json").read_text())
-                        hf = fl.get("held_frames")
-                        if isinstance(hf, dict):
-                            held_set = {int(x) for x in (hf.get(subject) or [])}
-                        elif isinstance(hf, list):
-                            held_set = {int(x) for x in hf}
-                    except Exception:
-                        pass
-            # If this load intentionally starts at c_first > first or ends at c_last < last, frames outside c_first..c_last are left_out_by_a_look (off-screen at shot edge)
-            if c_first > first or c_last < last:
-                for fnum in range(first, last + 1):
-                    if fnum < c_first or fnum > c_last:
-                        base_map[fnum]["step_name"] = "left_out_by_a_look"
-                        base_map[fnum]["state"] = "left out by a look (subject off-screen at shot edge)"
-            for fnum in range(max(first, c_first), min(last, c_last) + 1):
-                entry = base_map[fnum]
-                entry["piece"] = lname
-                entry["step_name"] = "kept_and_laid"
-                if fnum in emptied_set:
-                    entry["state"] = "original: emptied inside the piece (flags.json)"
-                elif fnum in held_set:
-                    entry["state"] = "carried (held from a neighbouring frame)"
-                else:
-                    entry["state"] = "carried"
-                if cap_dir:
-                    entry["track_from"] = cap_dir.name
-
-        for fnum in range(first, last + 1):
-            entry = base_map[fnum]
-            entry["cat"] = classify_frame_cat(entry["step_name"], entry["state"])
-            per_frame.append(entry)
+                "step_name": str(at("step_name", i, "no_capture")),
+                "state": str(at("state", i, "—")),
+                "piece": at("piece", i) or "—",
+                "track_px": at("track_px", i),
+                "track_from": str(at("track_from", i) or "—"),
+                "carried_px": at("carried_px", i),
+                "changed_share": at("changed_share", i),
+            }
+    today = laid_by_frame(first, last, lrows)
+    held: dict[str, set[int]] = {}
+    capture_name: dict[str, str | None] = {}
+    per_frame: list[dict] = []
+    differs = False
+    for fnum in range(first, last + 1):
+        entry = dict(checked.get(fnum) or {"f": fnum, "step_name": "no_capture", "state": "original: no piece laid", "piece": "—",
+                                           "track_px": None, "track_from": "—", "carried_px": None, "changed_share": None})
+        line = None if check_is_of_this_list and sh_cov else today.get(fnum)
+        measured = entry["piece"] if entry["step_name"] == "kept_and_laid" else None
+        if line is not None and line["load"] != measured:
+            differs = True
+            lname = line["load"]
+            if lname not in held:
+                cap_dir = find_capture_dir_for_load(lname, (built_idx.get(lname) or {}).get("built"))
+                held[lname] = held_frames_of(cap_dir, subject)
+                capture_name[lname] = cap_dir.name if cap_dir else None
+            entry.update(piece=lname, step_name=NOT_MEASURED, carried_px=None, changed_share=None,
+                         state=("laid, not measured: the gap check read measured no piece on this frame" if not measured
+                                else f"laid, not measured: the gap check read measured {measured} on this frame, not this load")
+                               + ("; its capture held this frame from a neighbour (flags.json)" if fnum in held[lname] else ""))
+            if capture_name[lname]:
+                entry["track_from"] = capture_name[lname]
+        elif line is None and measured and not (check_is_of_this_list and sh_cov):
+            differs = True
+            entry.update(piece="—", step_name="captured_not_rendered", carried_px=None, changed_share=None,
+                         state=f"original: {measured} was laid here when the gap check read was made, and laid.jsonl no longer lays it here")
+        entry["cat"] = classify_frame_cat(str(entry["step_name"]), str(entry["state"]))
+        per_frame.append(entry)
+    use_live_overlay = differs or bool(lrows and not sh_cov)
 
     # Group into contiguous spans
     spans: list[dict] = []
@@ -972,7 +1055,7 @@ def build_frame_coverage_for_row(
                 "changed_vals": [float(pf["changed_share"])] if pf["changed_share"] is not None else [],
             })
 
-    counts = {"carried": 0, "held": 0, "emptied": 0, "unrendered_gap": 0, "no_capture": 0}
+    counts = {"carried": 0, "held": 0, "emptied": 0, "unrendered_gap": 0, "no_capture": 0, "not_measured": 0}
     for pf in per_frame:
         counts[pf["cat"]] = counts.get(pf["cat"], 0) + 1
 
@@ -981,11 +1064,14 @@ def build_frame_coverage_for_row(
     unren_spans = [f"{sp['f0']}–{sp['f1']}" if sp["f0"] != sp["f1"] else f"{sp['f0']}" for sp in spans if sp["cat"] == "unrendered_gap"]
     emptied_spans = [f"{sp['f0']}–{sp['f1']}" if sp["f0"] != sp["f1"] else f"{sp['f0']}" for sp in spans if sp["cat"] == "emptied"]
     nocap_spans = [f"{sp['f0']}–{sp['f1']}" if sp["f0"] != sp["f1"] else f"{sp['f0']}" for sp in spans if sp["cat"] == "no_capture"]
+    unmeasured_spans = [f"{sp['f0']}–{sp['f1']}" if sp["f0"] != sp["f1"] else f"{sp['f0']}" for sp in spans if sp["cat"] == "not_measured"]
 
     if counts["unrendered_gap"] > 0:
         gap_parts.append(f"{counts['unrendered_gap']}f unrendered gap ({', '.join(unren_spans[:3])}{'…' if len(unren_spans) > 3 else ''})")
     if counts["emptied"] > 0:
         gap_parts.append(f"{counts['emptied']}f emptied inside ({', '.join(emptied_spans[:3])}{'…' if len(emptied_spans) > 3 else ''})")
+    if counts["not_measured"] > 0:
+        gap_parts.append(f"{counts['not_measured']}f laid, not measured by the gap check read ({', '.join(unmeasured_spans[:3])}{'…' if len(unmeasured_spans) > 3 else ''})")
     if counts["no_capture"] > 0 and lrows:
         gap_parts.append(f"{counts['no_capture']}f no track/off-screen ({', '.join(nocap_spans[:2])}{'…' if len(nocap_spans) > 2 else ''})")
 
@@ -995,6 +1081,8 @@ def build_frame_coverage_for_row(
         short_parts.append(f"{counts['unrendered_gap']}f unrendered ({', '.join(unren_spans[:2])})")
     if counts["emptied"] > 0:
         short_parts.append(f"{counts['emptied']}f emptied")
+    if counts["not_measured"] > 0:
+        short_parts.append(f"{counts['not_measured']}f laid, not measured")
     if counts["no_capture"] > 0 and lrows:
         short_parts.append(f"{counts['no_capture']}f untrk ({', '.join(nocap_spans[:2])})")
 
@@ -1068,6 +1156,7 @@ def render_frame_drilldown_html(cov: dict, first: int, last: int, subject: str, 
             "emptied": "badge-amber",
             "unrendered_gap": "badge-red",
             "no_capture": "badge-gray",
+            "not_measured": "badge-gray",
         }.get(sp["cat"], "badge-gray")
         cat_label = {
             "carried": "CARRIED IN CUT",
@@ -1075,6 +1164,7 @@ def render_frame_drilldown_html(cov: dict, first: int, last: int, subject: str, 
             "emptied": "EMPTIED INSIDE PIECE",
             "unrendered_gap": "GAP: TRACKED / NOT IN CUT",
             "no_capture": "NO TRACK / OFF-SCREEN",
+            "not_measured": "LAID, NOT MEASURED",
         }.get(sp["cat"], sp["cat"])
 
         trk_str = "—"
@@ -1112,6 +1202,7 @@ def render_frame_drilldown_html(cov: dict, first: int, last: int, subject: str, 
             "emptied": "badge-amber",
             "unrendered_gap": "badge-red",
             "no_capture": "badge-gray",
+            "not_measured": "badge-gray",
         }.get(pf["cat"], "badge-gray")
         trk_s = f"{int(pf['track_px']):,} px" if pf["track_px"] is not None else "—"
         car_s = f"{int(pf['carried_px']):,} px" if pf["carried_px"] is not None else "—"
@@ -1146,6 +1237,8 @@ def render_frame_drilldown_html(cov: dict, first: int, last: int, subject: str, 
         f"      <span class='leg-item'><i class='leg-dot fcat-emptied'></i> Emptied Inside ({c['emptied']}f)</span>"
         f"      <span class='leg-item'><i class='leg-dot fcat-unrendered_gap'></i> Unrendered / Unkept Gap ({c['unrendered_gap']}f)</span>"
         f"      <span class='leg-item'><i class='leg-dot fcat-no_capture'></i> No Track / Off-Screen ({c['no_capture']}f)</span>"
+        + (f"      <span class='leg-item'><i class='leg-dot fcat-not_measured'></i> Laid, Not Measured ({c.get('not_measured', 0)}f)</span>"
+           if c.get("not_measured") else "") +
         f"    </div>"
         f"  </div>"
         f"  <div class='fbar-lg-wrap'>"
@@ -1191,7 +1284,39 @@ def render_frame_drilldown_html(cov: dict, first: int, last: int, subject: str, 
 
 
 
+def read_from_rows(bound: dict, chosen: dict | None) -> list[dict]:
+    """Every record the page's figures come from: path, sha256 (or size, for a video) and mtime on the owner's clock.
+    The per-row lineage files are named in each row with their own mtimes."""
+    files = [("the shots record", FUN_DIR / "shots.json"), ("the plan", FUN_DIR / "plan.json"),
+             ("the owner's cast boxes", FUN_DIR / "cast" / "cast.jsonl"), ("the list of what is laid", bound["laid_path"])]
+    if chosen:
+        files += [("the delivery table", chosen["table"]), ("the gap check", chosen["cov_path"])]
+        if chosen["cut"]:
+            files += [("the cut's check record", Path(str(chosen["cut"]) + ".check.json")),
+                      ("the cut's sidecar", Path(str(chosen["cut"]) + ".json")), ("the cut", chosen["cut"])]
+    out = []
+    for what, p in files:
+        if not p.is_file():
+            out.append({"what": what, "path": rel_or_str(p), "sha": "not there", "mtime": "—"})
+            continue
+        st = p.stat()
+        sha = f"{st.st_size:,} bytes, not hashed" if p.suffix.lower() in (".mp4", ".mov") else sha256_of(p)[:16]
+        out.append({"what": what, "path": rel_or_str(p), "sha": sha, "mtime": central(st.st_mtime)})
+    return out
+
+
 def main() -> None:
+    global DATA_DIR, FUN_DIR, SHARE_DIR, INPUT_DIR
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--data", default=str(DATA_DIR), help="the data root, holding fun/ and the delivery tables (default: this repo's data/)")
+    ap.add_argument("--share", default=str(SHARE_DIR), help="the server's output folder (default: H3_OUTPUT_DIR)")
+    a = ap.parse_args()
+    DATA_DIR, SHARE_DIR = Path(a.data), Path(a.share)
+    FUN_DIR = DATA_DIR / "fun"
+    INPUT_DIR = Path(os.environ.get("H3_INPUT_DIR", str(SHARE_DIR.parent / "input")))
+    tool = Path(__file__).resolve()
+    tool_said = f"{rel_or_str(tool)} (sha256 {sha256_of(tool)[:12]})"
+
     tz_abbr = local_tz_abbr()
     now_local = fmt_local_ts(datetime.datetime.now(tz=datetime.timezone.utc).timestamp())
     shots_data = json.loads((FUN_DIR / "shots.json").read_text())
@@ -1199,11 +1324,10 @@ def main() -> None:
     plan_data = json.loads((FUN_DIR / "plan.json").read_text())
     cast_rows = load_cast_index()
 
-    laid_rows = [
-        json.loads(line)
-        for line in (FUN_DIR / "laid.jsonl").read_text().splitlines()
-        if line.strip()
-    ]
+    # The rows and the binding read one set of bytes, so the sha the page names is the list its rows show.
+    laid_path = FUN_DIR / "laid.jsonl"
+    laid_bytes = laid_path.read_bytes()
+    laid_rows = [json.loads(line) for line in laid_bytes.decode().splitlines() if line.strip()]
     laid_by_shot_subj: dict[tuple[int, int, str], list[dict]] = {}
     for r in laid_rows:
         key = (int(r["first"]), int(r["last"]), str(r["subject"]))
@@ -1211,21 +1335,22 @@ def main() -> None:
 
     built_idx = load_built_index()
     today_previews = load_today_previews()
-    cov_idx, cov_json_path = load_frame_coverage_index()
-
-    # Latest full joined video (resolved from local delivery table so we never block on SMB)
-    delivery_tables = sorted(
-        DATA_DIR.glob("*_fun_delivery_tables/t_fun_0000_6394_*.txt"),
-        key=lambda p: p.stat().st_mtime,
-    )
-    if delivery_tables:
-        dt_latest = delivery_tables[-1]
-        ts_tag = dt_latest.stem.replace("t_fun_0000_6394_", "")
-        latest_joined = SHARE_DIR / "Video" / "fun" / f"fun_0000_6394_joined_{ts_tag}_from_laid.mp4"
-        latest_joined_mtime = path_mtime_local(dt_latest)
-    else:
-        latest_joined = None
-        latest_joined_mtime = "—"
+    bound = bound_records(DATA_DIR, laid_path)
+    if bound["laid_sha"] != hashlib.sha256(laid_bytes).hexdigest():
+        raise SystemExit(f"{laid_path} changed while this ran; run it again")
+    chosen = bound["match"] or bound["fallback"]
+    cov_idx = coverage_index(chosen["cov"] if chosen else None)
+    cov_json_path = chosen["cov_path"] if chosen else None
+    latest_joined = chosen["cut"] if chosen else None
+    latest_joined_mtime = central(latest_joined.stat().st_mtime) if latest_joined and latest_joined.is_file() else (
+        "not there" if latest_joined else "—")
+    said_bound = bound_words(bound)
+    # A row says IN CUT only where the cut named was made from the list the rows show; on the fallback the rows are the
+    # list as it is now and the cut is older, so a laid row says LAID (the blind read of 2026-10-21, its finding 6).
+    in_cut_word = "IN CUT" if bound["match"] else "LAID"
+    global CUT_WORD
+    CUT_WORD = in_cut_word
+    read_from = read_from_rows(bound, chosen)
 
     rows = []
     counts = {
@@ -1281,7 +1406,7 @@ def main() -> None:
             dag_steps = build_dag_steps_for_row(
                 sh, s, lrows, previews_here, plan_data, cast_rows, built_idx, latest_joined
             )
-            cov_data = build_frame_coverage_for_row(first, last, s, lrows, cov_idx, built_idx)
+            cov_data = build_frame_coverage_for_row(first, last, s, lrows, cov_idx, built_idx, check_is_of_this_list=bound["match"] is not None)
             cc = cov_data["counts"]
 
             if lrows:
@@ -1317,8 +1442,10 @@ def main() -> None:
                     and not rendered_today
                 )
 
-                has_frame_gaps = (cc["unrendered_gap"] > 0 or cc["emptied"] > 0)
-                gap_str = " · ".join(cov_data["gap_summary_parts"][:2]) if cov_data["gap_summary_parts"] else ""
+                # a laid row is clean only when every frame is carried: frames with no track are one of a person's gaps
+                # (the gap check's "no capture"; the third round of the blind read, 2026-10-21)
+                has_frame_gaps = (cc["unrendered_gap"] > 0 or cc["emptied"] > 0 or cc.get("not_measured", 0) > 0 or cc["no_capture"] > 0)
+                gap_str = " · ".join(cov_data["gap_summary_parts"]) if cov_data["gap_summary_parts"] else ""
 
                 if slated_phase2 or slated_phase3 or slated_pass2_after_second or has_frame_gaps:
                     counts["in_cut_rerun"] += 1
@@ -1333,15 +1460,15 @@ def main() -> None:
                     elif slated_pass2_after_second:
                         reasons.append("Queued Pass-2 Re-run")
                     reason_suffix = " · ".join(reasons) if reasons else "Needs Review / Gap Check"
-                    status_label = f"IN CUT ({lrows[-1]['owner']}) · {reason_suffix}"
+                    status_label = f"{in_cut_word} ({lrows[-1]['owner']}) · {reason_suffix}"
                 elif rendered_today:
                     counts["clean_in_cut"] += 1
                     status_kind = "in_cut_today"
-                    status_label = f"IN CUT (Rendered Today · 100% Carried)"
+                    status_label = f"{in_cut_word} (Rendered Today · {cc['carried'] + cc['held']}/{n_frames}f carried)"
                 else:
                     counts["clean_in_cut"] += 1
                     status_kind = "in_cut"
-                    status_label = f"IN CUT ({lrows[-1]['owner']} · 100% Carried)"
+                    status_label = f"{in_cut_word} ({lrows[-1]['owner']} · {cc['carried'] + cc['held']}/{n_frames}f carried)"
 
                 lineage_items = []
                 review_clip_url = None
@@ -1355,12 +1482,12 @@ def main() -> None:
                         if in_json:
                             lineage_items.append({
                                 "kind": "Job Input JSON",
-                                "path": str(in_json.relative_to(REPO)),
+                                "path": rel_or_str(in_json),
                                 "mtime": path_mtime_local(in_json),
                             })
                         lineage_items.append({
                             "kind": "Built/Queued Job",
-                            "path": str(jdir.relative_to(REPO)),
+                            "path": rel_or_str(jdir),
                             "mtime": path_mtime_local(binfo["built_path"]),
                         })
                         bdata = binfo.get("built") or {}
@@ -1375,7 +1502,7 @@ def main() -> None:
                     if cap_dir:
                         lineage_items.append({
                             "kind": "Capture & Matte Folder",
-                            "path": str(cap_dir.relative_to(REPO)),
+                            "path": rel_or_str(cap_dir),
                             "mtime": path_mtime_local(cap_dir / "manifest.json"),
                         })
                     for rc in (FUN_DIR / "review" / "media").glob(f"{lname}_*_stacked.mp4"):
@@ -1402,7 +1529,7 @@ def main() -> None:
                 })
             else:
                 counts["pending"] += 1
-                gap_str = " · ".join(cov_data["gap_summary_parts"][:2]) if cov_data["gap_summary_parts"] else ""
+                gap_str = " · ".join(cov_data["gap_summary_parts"]) if cov_data["gap_summary_parts"] else ""
                 p_label = f"PENDING RENDER · {gap_str}" if gap_str else "PENDING RENDER"
                 rows.append({
                     "row_id": row_id,
@@ -1428,10 +1555,17 @@ def main() -> None:
     md_lines = [
         "# `fun` End-to-End Cut & Lineage Map (`0000–6394`)",
         "",
-        f"- **Generated**: `{now_local}` by `data/fun/build_cut_map.py` from `data/fun/shots.json`, `data/fun/plan.json`, `data/fun/cast/cast.jsonl`, `data/fun/laid.jsonl`, `frame_coverage_fun_0000_6394_*.json`, and `data/*_job/`",
+        f"- **Generated**: `{now_local}` by `{tool_said}`, from the records listed under \"Read from\" and `data/*_job/`",
         f"- **Browser View (Table + Frame-Level Coverage Drill-Down + Hierarchical Data Flow DAG)**: `http://localhost:8765/PROVENANCE.html` (`data/fun/poc/PROVENANCE.html`)",
-        f"- **Latest Full Joined Cut MP4**: `{latest_joined}` (created `{path_mtime_local(latest_joined)}`)",
-        f"- **Subject-Shot Coverage**: **{counts['in_cut']} / {counts['total_subj_shots']}** in cut (**{counts['clean_in_cut']}** clean 100% carried, **{counts['in_cut_rerun']}** in cut with frame gaps or queued re-run, **{counts['pending']}** pending render, `{counts['no_subject']}` shots with no tracked subject)",
+        *[f"- **Where the cut and gaps come from**: {w}" for w in said_bound],
+        f"- **The cut**: `{latest_joined or 'none'}` (file time {latest_joined_mtime})",
+        f"- **Subject-Shot Coverage**: **{counts['in_cut']} / {counts['total_subj_shots']}** {CUT_WORD.lower()} (**{counts['clean_in_cut']}** clean, every frame carried, **{counts['in_cut_rerun']}** {CUT_WORD.lower()} with frame gaps, untracked frames, laid but not measured, or queued re-run, **{counts['pending']}** pending render, `{counts['no_subject']}` shots with no tracked subject)",
+        "",
+        "**Read from** (file times US Central):",
+        "",
+        "| what | path | sha256 | file time |",
+        "|---|---|---|---|",
+        *[f"| {x['what']} | `{x['path']}` | `{x['sha']}` | {x['mtime']} |" for x in read_from],
         "",
         f"| Frames (`TC`) | Len | Subject | Status & Frame Coverage | Final Rendered MP4 (under `H3_OUTPUT_DIR/`) | MP4 Created ({tz_abbr}) | Data Folders / Input Files & Timestamps ({tz_abbr}) |",
         "|---|---:|---|---|---|---|---|",
@@ -1466,8 +1600,8 @@ def main() -> None:
         }.get(r["status_kind"], "badge-gray")
 
         short_badge = {
-            "in_cut": "IN CUT 100%",
-            "in_cut_today": "TODAY 100%",
+            "in_cut": CUT_WORD,
+            "in_cut_today": f"{CUT_WORD} · TODAY",
             "in_cut_rerun": "GAP / RERUN",
             "pending": "PENDING",
             "no_subject": "SOURCE",
@@ -1556,10 +1690,15 @@ def main() -> None:
             f"</div>"
         )
 
-    joined_name = latest_joined.name if latest_joined else "none"
+    joined_name = rel_or_str(latest_joined) if latest_joined else "none"
     joined_mtime = latest_joined_mtime
     cov_name = cov_json_path.name if cov_json_path else "none"
-    cov_mtime = path_mtime_local(cov_json_path)
+    cov_mtime = central(cov_json_path.stat().st_mtime) if cov_json_path else "—"
+    bound_html = "".join(f"<p>{html.escape(w)}</p>" for w in said_bound)
+    bound_cls = "bound-ok" if bound["match"] else "bound-stale"
+    read_from_html = "".join(
+        f"<tr><td>{html.escape(x['what'])}</td><td><code>{html.escape(x['path'])}</code></td>"
+        f"<td><code>{html.escape(x['sha'])}</code></td><td>{html.escape(x['mtime'])}</td></tr>" for x in read_from)
 
     page_html = f"""<!doctype html>
 <html lang="en">
@@ -1969,6 +2108,14 @@ def main() -> None:
   .fcat-emptied {{ background: #f59e0b; }}
   .fcat-unrendered_gap {{ background: #ef4444; }}
   .fcat-no_capture {{ background: #374151; }}
+  .bound {{ margin: 10px 0; padding: 8px 12px; border-radius: 6px; font-size: 13px; }}
+  .bound p {{ margin: 4px 0; }}
+  .bound-ok {{ background: #10261c; border: 1px solid #1f6f4a; }}
+  .bound-stale {{ background: #3a1d1d; border: 1px solid #b45454; font-weight: 600; }}
+  .read-from {{ margin: 6px 0 12px; font-size: 12.5px; color: var(--muted); }}
+  .read-from table {{ border-collapse: collapse; margin-top: 6px; }}
+  .read-from td, .read-from th {{ padding: 2px 10px 2px 0; text-align: left; }}
+  .fcat-not_measured {{ background: repeating-linear-gradient(45deg, #6b7280 0 3px, #374151 3px 6px); }}
 
   .cov-panel {{
     background: var(--panel);
@@ -2065,18 +2212,22 @@ def main() -> None:
   </div>
 
   <h1><code>fun</code> (Frames 0–6394) — Chronological Cut, Frame-Level Gap Audit &amp; Hierarchical Data Flow Lineage</h1>
-  <div style="color:var(--muted); font-size:13px;">
-    Live provenance &amp; frame-level gap audit generated directly from <code>data/fun/shots.json</code>, <code>data/fun/plan.json</code>, <code>data/fun/cast/cast.jsonl</code>, <code>data/fun/laid.jsonl</code>, <code>{html.escape(cov_name)}</code>, and <code>data/*_job/</code>. All timestamps in {html.escape(tz_abbr)}.
+  <div style="color:var(--muted); font-size:13px;" data-laid-sha256="{html.escape(bound['laid_sha'])}">
+    Made by <code>{html.escape(tool_said)}</code> from the records under "Read from" and <code>data/*_job/</code>, laid.jsonl sha256 <code>{html.escape(bound['laid_sha'][:16])}</code>. Row times in {html.escape(tz_abbr)}; "Read from" in US Central.
   </div>
+  <div class="bound {bound_cls}">{bound_html}</div>
+  <details class="read-from"><summary>Read from: {len(read_from)} records, each with its sha256 and file time</summary>
+    <table><thead><tr><th>what</th><th>path</th><th>sha256</th><th>file time (US Central)</th></tr></thead><tbody>{read_from_html}</tbody></table>
+  </details>
 
   <div class="summary-cards">
     <div class="card">
-      <div class="k">Subject-Shots In Cut</div>
+      <div class="k">Subject-Shots {'In Cut' if bound['match'] else 'Laid'}</div>
       <div class="v">{counts['in_cut']} / {counts['total_subj_shots']}</div>
-      <div class="sub"><span style="color:#34d399">{counts['clean_in_cut']} clean 100%</span> · <span style="color:#fcd34d">{counts['in_cut_rerun']} with frame gap / queued re-run</span> · <span style="color:#fca5a5">{counts['pending']} pending</span></div>
+      <div class="sub"><span style="color:#34d399">{counts['clean_in_cut']} clean, every frame carried</span> · <span style="color:#fcd34d">{counts['in_cut_rerun']} with frame gap, untracked frames, laid but not measured, or queued re-run</span> · <span style="color:#fca5a5">{counts['pending']} pending</span></div>
     </div>
     <div class="card">
-      <div class="k">Latest Full Joined Cut MP4</div>
+      <div class="k">The Cut (from the table read)</div>
       <div class="v" style="font-size:13px; word-break:break-all;"><code>{html.escape(joined_name)}</code></div>
       <div class="sub">Created: {html.escape(joined_mtime)}</div>
     </div>
@@ -2094,8 +2245,8 @@ def main() -> None:
 
   <div class="controls">
     <button class="btn active" onclick="filterRows('all', this)">All Rows ({len(rows)})</button>
-    <button class="btn" onclick="filterRows('in_cut_clean', this)">Clean In Cut 100% ({counts['clean_in_cut']})</button>
-    <button class="btn" onclick="filterRows('in_cut_rerun', this)">In Cut w/ Gap or Queued Re-run ({counts['in_cut_rerun']})</button>
+    <button class="btn" onclick="filterRows('in_cut_clean', this)">Clean {CUT_WORD.title()}, Every Frame Carried ({counts['clean_in_cut']})</button>
+    <button class="btn" onclick="filterRows('in_cut_rerun', this)">{CUT_WORD.title()} w/ Gap, Untracked Frames or Queued Re-run ({counts['in_cut_rerun']})</button>
     <button class="btn" onclick="filterRows('pending', this)">Pending Render ({counts['pending']})</button>
     <button class="btn" onclick="filterRows('todo', this)">All Needs Work: Gap / Re-run / Pending ({counts['in_cut_rerun'] + counts['pending']})</button>
     <button class="btn" onclick="filterRows('in_cut_today', this)">Rendered Today ({counts['today_updated']})</button>
