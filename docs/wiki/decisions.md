@@ -261,6 +261,39 @@ From about 17:58Z mrturtle led, with mrgordon on the card and Gemini building. R
   load (`video_mask.py::zoom_box`). Keeping her hair in the region on 5768-5773 moves that
   union, so the shift comes from the change under test, not a second variable. The test went on.
 
+From about 20:42Z mrtak led, with mract on the card and Gemini (mrgemx) building until it went offline at about 22:50Z.
+Running notes: `internal/claude/2026-10-21_mrtak/notes.md`; mailboxes from T60 and C42.
+- **The owner trimmed the evening** (the owner, in the lead's terminal; Gemini agreed with each, G27): the reader tool
+  `claude-change-check` is parked unlanded; the every-box seeding build lands only `preview --for` tonight (3925e6db), its
+  node code held for the next day on `claude-seed-every-box`; tonight's renders are the 0415 and 4912 tests only.
+- **A figure against the source misleads for a replaced part** (the owner): "her hair is close to the source" read as fine
+  on 4912e, where the hair was redrawn dark. The fix corrects the existing measurement rather than adding a tool: the
+  figure stays for replaced parts and is read the other way (close to the source is a place to look, never "fine"), and
+  no check passes by skipping. Brief `internal/claude/2026-10-21_mrtak/replaced_part_measure_brief.md`, reviewed by Gemini
+  (G28), queued for the next day.
+- **4912: test before building** (the owner): her hair was dark on every frame of 4912e, so the unregenerated crown on
+  4944-4946 does not explain it. Her crown there is in no mask at all, and the strangers keep-out held the passing woman,
+  not her (the head-tube builder's read; Gemini's G29 agrees and corrects G23). No tool for her crown is built; 4912
+  renders once on the day's fixes, and a dark result is compared with 5768f's inputs.
+- **No negatives in a text** (the owner: "Our negatives never help"). The load text writes no "not used" clause
+  (a63b7906), and the Masked Prompt node none of its "not reused" or "not present" sentences (fb1cf796). The release's guide
+  writes none in its examples (`vendor_guides/ref_en.md` sections 4 and 7); its marker table itself uses "Only" and "not
+  copied directly" (:168, :196), and "only" is fine (the owner). The 2026-10-14 form said what was not used; the lead's
+  earlier answer that the guide never uses such words was too broad. A sweep of the remaining negatives (a non-masked graph,
+  `docs/h3_references.md`, bank prompts) is queued; the silent-voice and camera sentences stay until a render shows
+  something. Tonight's tests render both forms (A, the old, by `--say-not-used`; B, the default).
+- **The mom's retention line says "face and blonde hair"** (the owner), and her looks "blonde hair, blue eyes, and fair
+  skin": `data/fun/plan.json` `text.hair_change.kept` and `text.looks`, set with a63b7906 in one step. The 2026-10-15 words
+  ("the blonde colour of her hair", "blue-grey eyes") are replaced.
+- **`bench/examples/` removed** (the owner: not needed). The old text forms they showed are in history at a63b7906.
+- **The masked render path rides the audio-freeze song node**, and the owner uses no audio-freeze graph. Tonight's window
+  build (79831be9) threads the padding through several layers; Gemini's report
+  (`internal/gemini/2026-10-21_render_path_report.md`, corrected by C61: chained shots are live) is the plan for one
+  simplification build.
+- **3719's owner box sits on a man behind the singer**, most likely a slip of the box; 20 of 21 lead previews track her
+  (reader A1). A new box replaces it.
+- **The review server was stopped at 23:00Z** (the owner, done for the night); the two tests render for the next day.
+
 ## 2026-10-20
 
 - **Why fixed-$N$ uniform `linspace` sampling fails (`second_hfp_5889e` on `5889–5934`, `bench/crop_reference_to_head.py`, `bench/draw_face_points.py`, `bench/head_reference.py`)**: On `second_hfp_5889e` (`5889–5934`), a 4-frame evenly-spaced contact sheet (`5889, 5904, 5919, 5934`) and the fixed 6-frame `np.linspace(0, count - 1, 6)` reference sheet (`_sheet.jpg`) missed that `second`'s face and hair are only in frame on `5889–5915`—at `5916`, the door opens and a conga line marches out while her head exits the right edge of the frame, leaving only her arm and dress at the right border on `5916–5934`. Because `second` is a `face_and_neck` + `hair` part load (`part_saved_on_track`), keeping the arm/shoulder track open on `5916–5933` after `Face_Neck` and `Hair` exited the frame (`pose_mostly_outside_the_frame (second) on 5915-5934`) left the rendered pixels on `5930–5933` nearly identical to the source (`10.7` levels vs `41.2` in the middle), which `bench/assemble_delivery.py`'s `ends` proof rightly rejected (`ends on the source's own picture under its subject: frames 5930-5933`). **Why fixed-$N$ uniform sampling failed here** (the owner, 2026-10-20): fixed-count uniform `np.linspace(0, count - 1, 6)` in `_sheet.jpg` writers (`crop_reference_to_head.py:256`, `draw_face_points.py:869`, `head_reference.py`) and validation contact sheets is blind to both clip duration (giving a 16-frame clip and a 362-frame clip the same number of samples and warping time deltas, as noted in Meta's *Apollo* video understanding paper) and content/state transitions (where a subject enters/exits the frame, becomes occluded, or changes expression between uniform sample points). How to replace fixed-$N$ `linspace` is left open for tomorrow; meanwhile, when a part-load subject's replaced parts (`Face_Neck` + `Hair`) exit the frame before the shot ends while an unreplaced body part (arm/dress) remains in view, `--drop` those tail frames in the job (or lay only the visible-head span `5889–5915` in `laid.jsonl`).

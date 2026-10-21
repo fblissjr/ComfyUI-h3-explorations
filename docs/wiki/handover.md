@@ -1,89 +1,88 @@
 # Handover: read this before anything else
 
-Rewritten 2026-10-21 at about 20:45Z by mrturtle (the Claude lead after mrtent), with mract on the card (after mrgordon)
-and Gemini (mrgemx) building and reviewing. Where this page and a record disagree, the record is right:
-- `data/fun/laid.jsonl`, `data/fun/owner_answers.jsonl`, `data/fun/verdicts/verdicts.jsonl`, `data/fun/shots.json`,
-  `data/fun/cast/cast.jsonl`;
-- [`decisions.md`](decisions.md), 2026-10-21 at the top;
-- the owner's rules at the top of [`../masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md);
-- `git log`.
-Running notes: `internal/claude/2026-10-21_mrturtle/notes.md`. Mailboxes: `internal/claude/2026-10-21_mrtent_to_mrgordon.md`
-(the lead's T-entries, now to mract) and `..._mrgordon_to_mrtent.md` (the card's S-entries); `internal/gemini/2026-10-21_*`.
+Rewritten 2026-10-21 at the close by mrtak (the Claude lead after mrturtle), with mract on the card and Gemini (mrgemx)
+building. Where this page and a record disagree, the record is right: `git log`, [`decisions.md`](decisions.md) 2026-10-21,
+the owner's rules at the top of [`../masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md), and `data/fun/` (laid.jsonl,
+owner_answers.jsonl, verdicts, shots.json, cast). Running notes: `internal/claude/2026-10-21_mrtak/notes.md`.
 
-## State at this writing
+## State when closed
 
-- **The card is on hold** (T46): no reference, job or render. The owner's go while they are away (T55): renders may queue
-  once four gating builds are cleared and landed, the prep is remade once, fresh, on main's code, and each load passes
-  its full prompt read, a second reader and the gate. Nothing is laid without the owner's keep.
-- **Five builds, each through the gate** (its own branch, checks with breaks shown red, a blind read, the lead's
-  clearance, the card lands it by pathspec from the merge base):
-  - `claude-headtube-hair` (a lead's builder): the head tube re-seeds a head only on the subject's own evidence; the
-    Hair relabel only for a subject who replaces hair; a subject's replaced parts are never a stranger's. Gates the prep.
-    Brief `internal/claude/2026-10-21_mrturtle/headtube_strangers_brief.md`; Gemini blind-reads it.
-  - `claude-seed-every-box` (a lead's builder), trimmed by the owner to its core: every owner box seeds its tracker, and
-    the prep step knows which replacement it is for (5011 needs no override). If it touches `subject_track.py`, its
-    landing needs a ComfyUI restart. Gates the prep. The stale-cut check, the chain record and the no-reuse refusals
-    move to the next day; tonight the prep is remade fresh by hand.
-  - `mrgemx-eyes-down` (Gemini): a person's word that draws lowered eyes as the 2026-10-20 arc on chosen frames (for
-    0415). Gates the prep. Brief C38.
-  - `mrgemx-window-overlap` (Gemini): windows only on both clocks, real context frames, zoom across a cut. Node code
-    (`video_mask.py`): land it back to back with the seeding build, one restart. Gates the prep. Brief C38.
-  - `claude-change-check`: parked unlanded at df2bf603 (the owner). The fix instead corrects the existing measurement that
-    compares a replaced part to the source; the lead traces which tool says it.
-- **Today's previews are provisional** (T52, T53): remade once after the four gating builds land.
-- **Kept today:** second_hfp_5768f (the hair fix holds); 4602c, 0484f, 5675c, 5461e, 4726c. Out today: see decisions.md.
-- **Servers:** ComfyUI :8188 (mract's; stop when the card work is done, by ear). The review server :8765 (pid 17874) is
-  the lead's to stop at 22:00Z (the owner's 5 pm), by the recipe.
+**What the evening taught us (start here):**
+- **A figure against the source misleads for a replaced part** (the owner). Dark hair "close to the source" read as fine on
+  4912e. The fix is to correct that reading, not add a tool: brief `internal/claude/2026-10-21_mrtak/replaced_part_measure_brief.md`
+  (reviewed by Gemini, G28). Until it lands, no hair figure against the source says anything about the second subject.
+- **4912: her hair was dark on every frame** (the owner), so the crown frames at the end do not explain it. Her crown on
+  4944-4946 is in no mask (the builder's read, confirmed by Gemini's G29; G23 was wrong there). The owner: test before
+  building anything for it.
+- **Negatives never help** (the owner): a "not used" sentence puts those words in front of the model. The release's guide
+  writes none in its examples. "Only" is fine (the owner).
+- **The masked render path rides the old song node.** `audio_freeze_song.py` is the live render node of every masked load;
+  the owner uses no audio-freeze graph. Tonight's window build threaded the padding through six places. **Read Gemini's
+  report first: [How the masked render path works, and what to simplify](../../internal/gemini/2026-10-21_render_path_report.md)**
+  (`internal/` is local, not in git; C61 corrects one claim: chained shots are live, 2050-2622 and 604-1009 run several
+  windows).
+- **3719: the owner's box on 3729 sits on a man behind the singer**, most likely a slip of the box (the owner asked; 20 of
+  21 lead previews track her, reader A1), so not a scale fault. A new box on 3719-3758 replaces it.
+- **Gemini's specifics need checking** before they are relayed (about a third off in detail today, never the core).
+
+**Landed this evening** (`git log e40e817a..main`): the lowered-eye span word; the head-tube re-seed only on her own face
+points; the text fix ("face and blonde hair", no "not used" clause) with the plan words `kept` = "blonde" and `looks` =
+"blonde hair, blue eyes, and fair skin" (backup `data/fun/plan.json.before_t71_*`); `preview --for`; no negatives in the
+Masked Prompt node and `bench/examples/` removed; the window build (both clocks, real context frames, zoom across a cut).
+ComfyUI restarted once for it (T76; the pid and start time are in the card's S-entry).
+
+**Tonight's tests** (S52, S53): **0415 rendered both ways**, second_hfp_0415i (A: the old text with both "not used"
+clauses, `--say-not-used`) and second_hfp_0415j (B: the default), seed 730451892, the lowered-eye word on 415-437; both
+paged at the top of the review page, not laid. **4912 is held**: second_hfp_4912b stopped at `first`, its reference failed
+on 4946 (the dancer's face in front of her) and the gate blocked on her part empty where she is hidden (4921-4926,
+4941-4946). The review server is stopped: start it to watch (`data/fun/poc/serve.py`).
+
+**Held off main, on purpose** (each branch also on the `nas` remote):
+- `claude-seed-every-box`: every owner box seeds its tracker. Node code (988bc644, 9ce71f58, f87a7a44); needs a blind read
+  and lands only together with a ComfyUI restart. READY `internal/claude/2026-10-21_ready_seed-every-box.md`.
+- `claude-change-check` (df2bf603): parked by the owner; replaced by the measurement brief above.
 
 ## What not to assume
 
-- **The cut on the share (1714Z) is behind laid.jsonl.** The PROVENANCE page says so. No `--clip` rebuild until a batch of
-  keeps.
-- **The closed-eye drawing is reverted** (c076fd87). A lowered eye is the 2026-10-20 arc again. 0415 and 1039 stay
-  unsolved: 0415 waits on the lowered-eye span; 1039's body-model head stays upright while she bows (parked).
-- **4912's dark hair:** her own hair crown above the brim on 4944-4946 is in no mask at all (not the strangers keep-out,
-  as first said), and stands unregenerated on those frames and the held tail frames of 4946; H3 redrew her hair in a
-  new shape but dark, on every frame of the clip. The head-tube build removes the fake head on her hand; nothing puts her
-  crown in the region. The owner: render 4912 once on today's fixes as a test (T63) before building anything for it; if
-  she is dark again, compare its inputs with 5768f's (same text, came out blonde).
-- **The beard-era checks look at the face only, inside the subject's outline.** They cannot see a replaced hair part
-  outside it. The follow-up is a flag over every part the plan replaces.
-- **A reader's read is never the owner's.** And the lead's figures compared hair to the source: wrong for a replaced part.
+- **`--say-not-used` is test-only.** It exists for tonight's A renders; retire it next.
+- **The cut on the share (1714Z) is behind laid.jsonl.** No `--clip` rebuild until a batch of keeps.
+- **Held copies remain for chained shots** (over 345 frames). One-window loads are padded with real frames (Gemini's C58).
+- **The capture's `RETENTION_KEPT`** reads a kept retention line as no voice sentence; a hand-written one that names a voice
+  is not flagged (the text-fix review).
+- **A preview made with `--for b` on a cut that holds b's own piece is taken silently** (the `--for` review). Use the raw
+  source for a lone replacement.
+- **Nothing the 1093 preview showed is fixed tonight**: the tracker refused her box on the 1714Z cut.
+- **A load whose reference failed still reaches `first`** (4912b; the gate blocked it). With no face points the head tube
+  refuses every re-seed, "no face points were given": that is the failed reference, not missing wiring (checked: both
+  callers pass `points_path`). The chain could stop at the failed reference instead.
 
-## Next up, in order
+## Tomorrow, in order
 
-1. Clear each build as its READY lands (`internal/claude/2026-10-21_ready_*.md`, Gemini's G-entries): read the diff,
-   re-run a check from its worktree, read its blind review, then a CLEARED T-entry; mract lands it.
-2. After the four gating builds: the prep remade once, then renders in T55's order: the 0415 eye test; 4912; the mom's
-   remakes (4479, 5114, 5011, 0278 on the raw copy; 5533, 4647 on the 1714Z cut). The owner trimmed tonight to those;
-   the dad's second passes (4602, 4726, 5461, 5675) and the lead's shots from the gap page (data/fun/poc/gaps.html;
-   answers at owner_answers.jsonl:1402-1465) move to the next day.
-3. At the close: the changelog from the commits (changelog.d/README.md); decisions.md; archive today's
-   `data/fun/laid.jsonl.before_*` backups to `data/fun/archive/2026-10-21/`; remove landed worktrees.
-4. Builds queued after these: the seeding build's trimmed parts (the stale-cut check, the chain record, the no-reuse
-   refusals) and W7 (reuse and staleness made visible, reading that record), the per-part flag above,
-   `laid.py set-owner --recite`, whole-video prep for first-pass subjects, 1039's head pose, the bigger zoom (parked).
+1. The owner watches the 0415 A/B clips. B is no worse: retire `--say-not-used`. Then 4912b: the owner's word on 4946
+   (the dancer's face) and on her hidden frames (left as the original), then its A/B. If she comes out dark again, compare
+   its inputs with 5768f's, before any build. Tools to fix: back-to-back A/B jobs took one reference folder (S52); the
+   review item has no fields for a load's text form, seed and span words (S53).
+2. One sweep of negatives everywhere (the owner): `workflows/build_workflows.py` `h3_ref_video_motion` text and its bank copy,
+   `docs/h3_references.md` "say the scene is not reused", bank prompts "not present in the target video"; put "only" back in
+   `masked_prompt_text.VIDEO_RETENTION`. The silent-voice and camera lines stay until a render shows something.
+3. The owner redraws the lead's box on 3719-3758 (a review-page item).
+4. The measurement fix (the brief), then the render-path simplification (Gemini's report): one home for window, padding
+   and trim; trim before the region is saved; plain node inputs over the hidden graph read; the window computed once;
+   retire the audio-freeze graphs (the owner uses none).
+5. The seeding node code (blind read, land with a restart).
+6. Then renders on fresh prep: the mom's remakes (4479, 5114, 5011, 0278 raw; 5533, 4647 on the 1714Z cut), the dad's second
+   passes (4602, 4726, 5461, 5675), the lead's gap-page shots (owner_answers.jsonl:1402-1465).
+7. Queued: W7 (staleness from a chain record), `laid.py set-owner --recite`, a leaner `<Subject 2>` text, whole-video prep,
+   1039's head pose, the bigger zoom (parked).
 
 ## Where things are
 
-- Read-ins: `internal/claude/2026-10-21_readin_next_lead_2.md` (the next lead), `..._readin_next_card.md` (the card).
-- The gap census and page: `internal/claude/2026-10-21_mrturtle/gaps.md`, `data/fun/poc/gaps.html`.
-- Today's traces and figures: `internal/claude/2026-10-21_mrturtle/` (d4912_hair_vs_face, eyes_mean_vs_main_*,
-  third_face_list), `internal/claude/2026-10-21_g10_verify.md`, Gemini's G23 and G24.
-- The archive of stale data docs: `data/fun/archive/2026-10-21/INDEX.md`.
-- **Code built today and held off main** (the owner's trims of 2026-10-21; each branch is unpushed, each worktree is
-  under `h3_worktrees/`; keep both until the item is landed or dropped):
-  - `claude-seed-every-box`: every owner box seeds its tracker. Its node-code commits are held for the next day with a
-    blind read: 988bc644 (seeding, bench and `subject_track.py`), 9ce71f58 (seed spans under the shot table's frame keys,
-    `shot_table.py`), f87a7a44 (an annotation fix). Its READY: `internal/claude/2026-10-21_ready_seed-every-box.md`
-    (tables, the 16 subject-shots it changes, the landing hazard: land with the ComfyUI restart, never before it). Its
-    fourth commit, 57926228 (`preview --for`), lands tonight by itself as `claude-preview-for`.
-  - `claude-change-check` at df2bf603: a reader tool measuring each replaced part against the still. Parked by the owner,
-    not reviewed. What replaces it: `internal/claude/2026-10-21_mrtak/replaced_part_measure_brief.md` (reviewed by Gemini,
-    G28), a fix to the existing figures that read a replaced part against the source.
-  - The test-only switch for the "not used" clauses (the text fix's branch, `claude-blonde-hair-words`): retired after
-    tonight's A/B renders.
-- **Code built today and landed:** `git log e40e817a..main` is the list; the lead's T-entries from T61 name each landing.
-- Worktrees to remove at the close, once each is checked landed and clean: mrgordon-cut-map-a, claude-docs-w6,
-  claude-noface-hair, mrgemx-eyes-mean, claude-eyes-closed (never landed), and the earlier sessions' list in
-  `internal/claude/2026-10-21_mrgordon/handover_card.md`; mrgem-cut-map is Gemini's: ask it.
+- Mailboxes: `internal/claude/2026-10-21_mrtent_to_mrgordon.md` (T-entries, to T76+), `..._mrgordon_to_mrtent.md` (S-entries);
+  `internal/gemini/2026-10-21_*` (C-entries to C61, G-entries to G31).
+- READYs and blind reads: `internal/claude/2026-10-21_ready_*.md`, `..._review_*.md`, `internal/gemini/2026-10-21_review_*.md`.
+- The reader's R1: `internal/gemini/2026-10-21_reader_r1_previews.md`. Preview sheets: `Video/fun/looks/2026-10-21_r1_lead_previews/`.
+- Worktrees left (S54 removed the 16 landed or dead ones, branches kept): claude-seed-every-box (the next day's merge),
+  claude-change-check (parked), mrgem-cut-map (Gemini's; mostly landed, the rest reverted on purpose 10-20: ask it).
+- ComfyUI and the review server are both stopped (S54; 23:00Z).
+- A worktree check that imports ComfyUI needs core's `nodes` first and `--cpu` with argument parsing on (the builders' and
+  the lead's runners in their scratchpads show how).

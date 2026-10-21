@@ -3,6 +3,8 @@
 Loaded when a session opens a file here; [`docs/AGENTS.md`](../AGENTS.md) and the root [`AGENTS.md`](../../AGENTS.md) still govern.
 
 - **Start here**:
+  - How the masked render path works today, and what to simplify (Gemini, 2026-10-21; local, not in git; one claim
+    corrected in its mailbox's C61: chained shots are live): [`internal/gemini/2026-10-21_render_path_report.md`](../../internal/gemini/2026-10-21_render_path_report.md)
   - Execution & debugging protocol: [`docs/masked_v2v/PROTOCOL.md`](PROTOCOL.md)
   - Lane rules and where state lives: [`data/AGENTS.md`](../../data/AGENTS.md) (and each project's untracked `data/<video>/AGENTS.md`)
   - End-to-end pipeline, design, and card runbook: [`docs/wiki/masked_v2v_pipeline.md`](../wiki/masked_v2v_pipeline.md), [`docs/wiki/masked_v2v.md`](../wiki/masked_v2v.md), and [`docs/wiki/runbook.md`](../wiki/runbook.md)
