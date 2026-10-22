@@ -620,6 +620,15 @@ def left_out_and_highlights() -> str:
     low_hole = np.zeros((H, W), bool); low_hole[156:170, 175:205] = True
     chin_y = df.find_mesh_chin_y(chin_mesh[0], kp_low, INDEX)
     assert abs(chin_y - 160.0) <= 2.0, chin_y
+    # a face whose points lie below the picture (a hidden frame's guessed points mapped through the cranium crop, second_hfp_4647e):
+    # the chin is the chin point held to the picture, no IndexError (it went red as index 945 of 768 before the clamp)
+    kp_off = face(CENTRES[:1])[0].copy()
+    kp_off[:, 1] += 3.0 * H
+    off_y = df.find_mesh_chin_y(chin_mesh[0], kp_off, INDEX)
+    assert off_y == float(H - 1), off_y
+    kp_up = face(CENTRES[:1])[0].copy()
+    kp_up[:, 1] -= 3.0 * H
+    assert df.find_mesh_chin_y(chin_mesh[0], kp_up, INDEX) == 0.0
     sh_low, masks_low = df.lip_shape(kp_low, INDEX, (W, H), (low_whole, low_hole))
     sh_fit, m_fit = df.fit_mouth_to_head(chin_mesh[0], kp_low, INDEX, sh_low, masks_low)
     assert float(sh_fit[1][:, 1].max()) <= chin_y - df.MOUTH_CHIN_CLEAR_MIN_PX + 0.5, (float(sh_fit[1][:, 1].max()), chin_y)

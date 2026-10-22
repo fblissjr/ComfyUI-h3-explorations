@@ -661,6 +661,10 @@ def find_mesh_chin_y(frame: np.ndarray, p: np.ndarray, index: dict) -> float:
     chin_kp_y = float(p[index["tip_of_chin"], 1])
     y_start = max(0, int(round(nose_y)))
     y_end = min(h - 1, int(round(chin_kp_y + 0.5 * max(chin_kp_y - eye_y, 20.0))))
+    if y_start > h - 1 or y_end < 0 or y_start > y_end:
+        # the face's points lie off this picture (second_hfp_4647e, 2026-10-22: a hidden frame's guessed points mapped through the
+        # cranium crop put the nose at y 945 of 768): no chin to find here; the chin point held to the picture
+        return float(min(h - 1, max(0, int(round(chin_kp_y)))))
     mx0 = int(round(min(p[index["r_outer_corner_of_mouth"], 0], p[index["l_outer_corner_of_mouth"], 0], p[index["tip_of_chin"], 0])))
     mx1 = int(round(max(p[index["r_outer_corner_of_mouth"], 0], p[index["l_outer_corner_of_mouth"], 0], p[index["tip_of_chin"], 0])))
     first_black = []
