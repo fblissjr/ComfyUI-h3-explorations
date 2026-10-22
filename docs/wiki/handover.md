@@ -36,6 +36,11 @@ onward, and nothing older is reused.
 - **1093-1095 and 1099 have a wrong body-model fit** (upside down, eyes on her hands) and are not marked hidden: the 1093 pair
   draws no face there; if it misbehaves there, those frames are the reason.
 - **The cut on the share** is the rebuild started 21:04Z (laid 355df89e); 0278m was laid after it, so the next rebuild takes it.
+- **A code fault for tomorrow:** 4647e's reference crashed in `bench/draw_face_points.py` `find_mesh_chin_y` (IndexError, an index past
+  the 768-row frame; `data/2026-10-22_mrtiger_jobs/chain/second_hfp_4647e.head_reference.out`), likely the cranium crop with her face
+  points off the frame. Fix it before 4647 renders.
+- **Strangers files:** the first job on a preview writes it; previews whose first job ran after b7cb94b4 carry the whole-frame
+  part map the hair check needs. 5114 and 4912 were re-previewed at the close for that; 1093 and 1419 get theirs on the new cut.
 - **A load's letter can read older than it is** (second_hfp_0014b after 0014f): the next-letter scan misses older days.
 
 ## Tomorrow, in order
