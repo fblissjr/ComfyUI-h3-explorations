@@ -17,6 +17,28 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-22
 
+- **A reference that shows no figure where its subject is in the load stops the load** (the Claude lead's ask, after
+  second_hfp_1419c rendered with its `<Video 1>`, `second_1419_1465_b`, black on 1419-1454, 36 of 47 frames: the body-model fit
+  found no body for her, tiny and hidden, and nothing said so). `bench/head_reference.py` now writes `figure` into the
+  reference's record: the frames whose plain cut has no pixel over `FIGURE_GREY`. The capture's gate is told each subject's
+  reference video (`preflight --reference`, from `bench/load_chain.py::told_to_the_gate`). On a black frame where the capture
+  tracks the subject or her run carries a mask, less the frames the job leaves empty on a person's word (`--named-empty`), it
+  raises `reference_shows_no_figure`, a hard flag no override clears, where her part there is at or over the capture's own floor
+  (`part_sizes.floor_px`, `PART_LEAST_PX` held to the load's zoom); under the floor, `reference_black_under_the_floor`, data with
+  each frame's px at the lowest level. And it stops only on a run of `FIGURE_RUN_LEAST` (4) or more such frames at or over the
+  floor; a shorter run is data too (`reference_black_in_a_short_run`). Both are the Claude lead's rulings of the same day: as
+  first built the flag stopped kept loads over single sliver frames, and clearing each by a person's `drop=` is the bookkeeping
+  the owner does not want; with the floor alone, the loads it still stopped did so on one or two isolated frames. A record
+  made before this is measured on its plain cut (`head_reference.figure_of`). From two read-only surveys that day: over the 205
+  head references then under `Video/fun/references/`, a plain-cut frame has no lit pixel or at least 5,821, so "black" needs no
+  threshold; 30 of them have black frames where the preview's track holds the subject, each with 291 to 2,046 px of her track.
+  Over the 131 rendered loads in `data/` whose job names a reference, none stops. Four say a short run as data, each a single
+  frame her part is just over the floor of 1,024 px: 1093c (1096 at 1,211 px, 1128 at 1,817), 4602c and 4602d (4637 at 1,313)
+  and 4726c (4751 at 1,195); 5 say frames under the floor (1093c, 1419c, 4647d, 4912e, 5011e). With the floor and no run, those
+  4 stopped; with neither, 8.
+  On 1419c her part was under the floor (none on 1428-1453, 393 px on 1454), and on 1419-1453 the capture's mask was empty and
+  its gate's flags were overridden as occluded, so those frames showed the original through the composite, not the reference.
+  This flag does not change that: those overrides let them through. Branch claude-reference-not-blank.
 - **A short load's context frames across a cut are held copies of the shot's edge frame, not the other shot's real
   frames** (the owner's "seam problem"). Measured on second_hfp_4479c (shot 4479-4509, window 39, its context across
   the cuts on both sides): the box's mean brightness tracked the source on every frame but at the shot's end, a seam at

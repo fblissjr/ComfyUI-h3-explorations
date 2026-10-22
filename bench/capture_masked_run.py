@@ -4449,6 +4449,106 @@ def flag_lent(manifest: dict, folder: Path, named: dict | None = None) -> list[d
     return out
 
 
+#: The shortest run of consecutive black frames, each with the subject's part at or over the floor, that stops a load
+#: (`flag_reference_figure`). REASONED, a starting value: one latent step of the video model holds four video frames
+#: (`bench/measure_step_yaw.py`, "The slice"), so a shorter gap sits inside a step the model fills from its neighbours;
+#: `head_reference.FILL_GAP` is 4 by the same reasoning. Set by the Claude lead's ruling of 2026-10-22, on that day's survey: every
+#: load the floor alone still stopped did so on one or two isolated frames (1093c on 1096 and 1128, 4602c and 4602d on 4637, 4726c
+#: on 4751).
+FIGURE_RUN_LEAST = 4
+
+
+def flag_reference_figure(manifest: dict, folder: Path, references: list[tuple[str, str, int | None]], named: dict | None = None,
+                          figure_of=None) -> list[dict]:
+    """A replaced subject's reference video that shows no figure on a frame where the subject is in the load AT THE PART'S FLOOR: a
+    hard flag, which no override clears (2026-10-22: second_hfp_1419c rendered with its `<Video 1>` black on 1419-1454, 36 of 47
+    frames, where the body-model fit found no body for her, tiny and hidden; nothing stopped it).
+
+    `references`: (subject, reference video, the source frame its frame 0 is on) for each subject of the load that has one
+    (`--reference`, from `bench/load_chain.py::told_to_the_gate`). What the reference shows is read by the reference tool's own
+    `bench/head_reference.py::figure_of`: its record's `figure`, or measured on its plain cut, where no pixel over its grey is no
+    figure (the reference is black). The subject is in the load on a frame where the capture tracks them (their first sighting's
+    `track_share`, as `flag_lent` reads it) or a run of theirs alone carries a mask; a frame the job leaves the subject empty on
+    purpose (`named`: `--named-empty`, its drop= with drop_by and its left_out, each a person's word) is not.
+
+    THE FLOOR (the Claude lead's ruling of 2026-10-22, on the survey of that day: every black frame in the load was a sliver of 291
+    to 2,046 px of her track, and as first built the flag stopped kept loads over one such frame): a black frame refuses only where
+    the subject's part there (`parts_share` of the per-frame row, the saved part the floor is measured on; the track where the
+    sighting has no part) is at or over the floor the capture used for that sighting (`part_sizes.floor_px`: `PART_LEAST_PX` held
+    to the load's zoom, or `least=`; `PART_LEAST_PX` itself where the sighting records none). Under it the capture treats her as a
+    fragment, so a missing figure there is no failure: those frames are said as data with their px, at the lowest level, never
+    blocking. THE RUN (the same ruling, a second step): of the frames at or over the floor, only a run of `FIGURE_RUN_LEAST` or more
+    consecutive ones stops the load; a shorter run is said as data beside the frames under the floor, at the same level.
+    A frame `--no-face-on` names keeps the grey body and is lit. Cannot see: whether the lit body is the subject's, or
+    a frame the floor rule HOLDS from a neighbour (its saved part is under the floor, the load carries the held one)."""
+    if figure_of is None:
+        import head_reference
+        figure_of = head_reference.figure_of
+    named_frames = {lab: {f for a, b, _ in v for f in range(a, b + 1)} for lab, v in (named or {}).items()}
+    first, frames, (w, h), out = manifest["first_frame"], manifest["frames"], manifest["size"][:2], []
+    span = set(range(first, first + frames))
+    runs_of = lambda fs: ", ".join(f"{a}-{b}" if a != b else str(a) for a, b in frame_spans(fs, join=1))    # noqa: E731
+    for who, video, at in references:
+        said = figure_of(video, at)
+        none = sorted(set(said["frames_with_no_figure"]) & span)
+        if not none:
+            continue
+        there, px, floor, floor_by, sized = set(), {}, PART_LEAST_PX, "PART_LEAST_PX: the sighting records no floor", "the part"
+        subject = next((s for s in manifest["subjects"] if s["label"] == who), None)
+        if subject is not None:
+            sighting = subject["sightings"][0]
+            seen = sighting["by"]
+            if (sighting.get("part_sizes") or {}).get("floor_px") is not None:
+                floor, floor_by = int(sighting["part_sizes"]["floor_px"]), sighting["part_sizes"].get("floor_set_by") or "the capture's floor"
+            rows = [r for r in json.loads((folder / "subjects" / who / "per_frame.json").read_text())["rows"] if r["seen_by"] == seen]
+            there |= {r["source_frame"] for r in rows if r.get("track_share")}
+            has_part = any(r.get("parts_share") is not None for r in rows)
+            sized = "the part" if has_part else "the track (the sighting has no part)"
+            px = {r["source_frame"]: int(round(float(r.get("parts_share" if has_part else "track_share") or 0.0) * w * h)) for r in rows}
+        for run in manifest["runs"]:
+            if subjects_of(run) == [who] and (folder / "runs" / run["name"] / "region.npz").is_file():
+                carried = np.unpackbits(np.load(folder / "runs" / run["name"] / "region.npz")["carried"], axis=-1)[..., :w]
+                there |= {first + int(f) for f in np.flatnonzero(carried.reshape(len(carried), -1).any(axis=1))}
+        dropped = sorted(set(none) & there & named_frames.get(who, set()))
+        black_in = sorted((set(none) & there) - named_frames.get(who, set()))
+        at_floor = [f for f in black_in if px.get(f, 0) >= floor]
+        under = [f for f in black_in if px.get(f, 0) < floor]
+        runs = frame_spans(at_floor, join=1)
+        hit = [f for a, b in runs if b - a + 1 >= FIGURE_RUN_LEAST for f in range(a, b + 1)]
+        short = [f for a, b in runs if b - a + 1 < FIGURE_RUN_LEAST for f in range(a, b + 1)]
+        where = f"{said['said_by']}; {sized} against the floor of {floor} px ({floor_by})"
+        if hit:
+            out.append({"rule": "reference_shows_no_figure", "level": LEVELS[2], "hard": True, "subject": who,
+                        "source_frames": frame_spans(hit, join=1),
+                        "why": f"the reference shows no figure on {runs_of(hit)} ({len(hit)} of {frames} frames) where {who} is in the load at "
+                               f"or over the part's floor, in runs of {FIGURE_RUN_LEAST} frames or more: the body-model fit found no body there, "
+                               f"and H3 has no figure to follow. It is black "
+                               f"on {len(none)} frame(s) in all ({runs_of(none)}; {where})"
+                               + (f"; {len(dropped)} of them the job leaves empty on a person's word" if dropped else "")
+                               + f". Make the reference again where the fit finds {who}, or the job leaves those frames empty on a person's "
+                                 "word (drop= with drop_by), where the original then shows. No override clears this",
+                        "figures": {"frames": len(hit), "black_frames": len(none), "px": {str(f): px.get(f, 0) for f in hit}, "floor_px": floor,
+                                    "run_least": FIGURE_RUN_LEAST, "reference": str(video), "read_from": said.get("read_from"),
+                                    "said_by": said.get("said_by")}})
+        if short:
+            out.append({"rule": "reference_black_in_a_short_run", "level": LEVELS[0], "subject": who,
+                        "source_frames": frame_spans(short, join=1),
+                        "why": f"the reference shows no figure on {runs_of(short)} ({len(short)} of {frames} frames) where {who} is in the "
+                               f"load at or over the part's floor ({', '.join(f'{f}: {px.get(f, 0)} px' for f in short)}), each run under "
+                               f"{FIGURE_RUN_LEAST} frames in a row: data, not a stop ({where})",
+                        "figures": {"frames": len(short), "px": {str(f): px.get(f, 0) for f in short}, "floor_px": floor,
+                                    "run_least": FIGURE_RUN_LEAST, "reference": str(video), "said_by": said.get("said_by")}})
+        if under:
+            out.append({"rule": "reference_black_under_the_floor", "level": LEVELS[0], "subject": who,
+                        "source_frames": frame_spans(under, join=1),
+                        "why": f"the reference shows no figure on {runs_of(under)} ({len(under)} of {frames} frames) where {who} is in the "
+                               f"load under the part's floor ({', '.join(f'{f}: {px.get(f, 0)} px' for f in under)}): a sliver the capture "
+                               f"takes as a fragment, so data, not a stop ({where})",
+                        "figures": {"frames": len(under), "px": {str(f): px.get(f, 0) for f in under}, "floor_px": floor,
+                                    "reference": str(video), "said_by": said.get("said_by")}})
+    return out
+
+
 def flag_held_tail(manifest: dict, folder: Path) -> list[dict]:
     """The invariant, checked before anything samples: in no planned window is the model shown, as a frame to
     keep, a picture of the subject it is replacing.
@@ -5165,7 +5265,8 @@ def flag_text(text: str, spans: list[list[int]], first: int, frames: int) -> lis
 
 def told_by_the_job(a: argparse.Namespace) -> dict:
     """What the caller says of the load's job (`bench/load_chain.py` reads it from the job file): its subject's own keep-outs
-    with their classes, the frames something gives a keep-out back on, and the frames the job leaves empty on purpose."""
+    with their classes, the frames something gives a keep-out back on, the frames the job leaves empty on purpose, and each
+    subject's reference video with the source frame its frame 0 is on (`--reference`, read by `flag_reference_figure`)."""
     def span_why(text: str, flag: str) -> tuple[str, int, int, str]:
         who, _, rest = text.partition(":")
         rng, sep, why = rest.partition("=")
@@ -5189,7 +5290,20 @@ def told_by_the_job(a: argparse.Namespace) -> dict:
     for x in getattr(a, "named_empty", None) or []:
         n, lo, hi, why = span_why(x, "--named-empty")
         named.setdefault(n, []).append((lo, hi, why))
-    return {"own": own, "given": given, "named": named, "chin": getattr(a, "chin_points", None)}
+    references = []
+    for x in getattr(a, "reference", None) or []:
+        who, _, rest = x.partition(":")
+        at, sep, video = rest.partition("=")
+        try:
+            at_frame = int(at)
+        except ValueError:
+            raise SystemExit(f"--reference {x!r}: not SUBJECT:FIRST=VIDEO") from None
+        if not who or not sep or not video.strip():
+            raise SystemExit(f"--reference {x!r}: not SUBJECT:FIRST=VIDEO")
+        if not Path(video).is_file():
+            raise SystemExit(f"--reference {x!r}: {video} is not a file")
+        references.append((who, video, at_frame))
+    return {"own": own, "given": given, "named": named, "chin": getattr(a, "chin_points", None), "references": references}
 
 
 def preflight(a: argparse.Namespace) -> None:
@@ -5222,7 +5336,7 @@ def preflight(a: argparse.Namespace) -> None:
                 flags += flag_pose(s["label"], by, json.loads(path.read_text())["rows"], mine, others_on,
                                    bool((seen.get("pose") or {}).get("hand_refinement")))
     told = told_by_the_job(a)
-    flags += flag_runs(m, folder, told["own"], told["given"], chin_rows(told["chin"], tuple(m["size"]))) + flag_segments(m, folder) + flag_keep(m, folder) + flag_cuts(m, folder) + flag_loads(m, folder, not_in) + flag_lent(m, folder, told["named"]) + flag_held_tail(m, folder) + flag_kept(m, folder) + flag_mouth(m, folder) + flag_face_size(m, folder) + flag_pieces(m, folder)
+    flags += flag_runs(m, folder, told["own"], told["given"], chin_rows(told["chin"], tuple(m["size"]))) + flag_segments(m, folder) + flag_keep(m, folder) + flag_cuts(m, folder) + flag_loads(m, folder, not_in) + flag_lent(m, folder, told["named"]) + flag_reference_figure(m, folder, told["references"], told["named"]) + flag_held_tail(m, folder) + flag_kept(m, folder) + flag_mouth(m, folder) + flag_face_size(m, folder) + flag_pieces(m, folder)
     cross = json.loads((folder / "frames.json").read_text())["rows"]
     # a kept-out or keep mask given as a subject is a union of things, not somebody: it has no class map
     whos = {x["label"] for x in m["subjects"] if x["sightings"][0].get("classes")} or {x["label"] for x in m["subjects"]}
@@ -5289,7 +5403,8 @@ def preflight(a: argparse.Namespace) -> None:
                            for s in m["subjects"]],
               "shots": shots, "flags": flags,
               "told_by_the_job": {"own_keep_outs": told["own"], "given_back": {k: [list(x) for x in v] for k, v in told["given"].items()},
-                                  "named_empty": {k: [list(x) for x in v] for k, v in told["named"].items()}},
+                                  "named_empty": {k: [list(x) for x in v] for k, v in told["named"].items()},
+                                  "references": [{"subject": who, "video": video, "first": at} for who, video, at in told["references"]]},
               "outcomes": "outcomes.json, beside this file: what happened in a render against each flag id, once one exists"}
     if (folder / "flags.json").is_file() and (folder / "outcomes.json").is_file():
         # outcomes name flags by the id they had when they were written; a new list renumbers. Keep the list they
@@ -7118,6 +7233,9 @@ def main() -> None:
                    "tip_of_chin a frame, below which Background on her track is her clothing in the held keep-out's split")
     g.add_argument("--named-empty", action="append", default=[], metavar="SUBJECT:FIRST-LAST=WHY",
                    help="source frames the job leaves the subject empty on purpose (its drop= or left_out), with its reason; repeatable")
+    g.add_argument("--reference", action="append", default=[], metavar="SUBJECT:FIRST=VIDEO",
+                   help="a subject's reference video (the load's motion_file) and the source frame its frame 0 is on: a frame it shows no "
+                        "figure on where the subject is in the load is a hard flag; repeatable")
     ri = sub.add_parser("rules", help="every figure a per-clip rule needs, in one file: writes rules_input.json")
     ri.add_argument("capture")
     ri.add_argument("--not-in", action="append", default=[], metavar="LABEL:FIRST-LAST")

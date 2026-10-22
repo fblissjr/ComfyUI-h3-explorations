@@ -18,6 +18,9 @@ The steps themselves are held by their own checks.
    white on the lips and at the points drawn alone, and a width given by hand is recorded as one.
 5. **A step that fails fails the run.** With the drawing step's read-back made to fail, the run does not pass
    and the record says which step.
+6. **Where the body model shows nobody, the record says so** (2026-10-22). Frames black in the body-model video are listed in
+   `figure` and printed; a `--no-face-on` frame keeps the grey body and is not listed; the gate's reader (`figure_of`) takes the
+   record's word, measures the plain cut where a record predates the field, and a reference with no record of this tool's on itself.
 
 Needs ffmpeg and ffprobe on the path. No model, no card, no server.
 
@@ -1213,6 +1216,53 @@ def head_box_from_the_head_track() -> str:
             "plain_cut and source_cut; --no-head-track keeps the face-only box; bad --head-track flags refuse before writing")
 
 
+def where_the_body_model_shows_nobody() -> str:
+    """2026-10-22, second_hfp_1419c: its reference was black on 36 of 47 frames, where the body-model fit found no body, and nothing
+    said so. The record's `figure` lists the frames whose plain cut has no pixel over `FIGURE_GREY`; a `--no-face-on` frame keeps the
+    grey body and is not among them; `figure_of`, the gate's reader, takes the record's word, measures the plain cut where a record
+    predates it, and measures a reference with no record of this tool's on itself."""
+    levels = [90] * N
+    levels[4] = levels[5] = 0                                        # the fit found nobody: the body-model video is black there
+    folder, mesh, pts, source = rooms("nobody", levels, [60] * N, CENTRES, 0)
+    said: list[str] = []
+    out = folder / "head.mp4"
+    rec = hr.run(str(mesh), str(pts), str(source), 0, N, out, "the check", room=ROOM, no_face_on=[(8, 9, "HER BACK")], say=said.append)
+    fig = rec["figure"]
+    # THE CASE THAT GOES RED when a black frame is not recorded, or a --no-face-on frame (the grey body, no line) is called black
+    assert fig["frames_with_no_figure"] == [4, 5] and fig["frames"] == N and fig["grey"] == hr.FIGURE_GREY, fig
+    assert fig["read_from"] == "head_plain_cut.mp4" and fig["lit_px_least_median_most"][0] > 0, fig
+    assert any("THE BODY MODEL SHOWS NO FIGURE on 2 of 12 frames (4-5)" in x for x in said), said
+    assert json.loads(out.with_suffix(".json").read_text())["figure"] == fig
+    # the gate's reader: the record's own word
+    assert hr.figure_of(out)["frames_with_no_figure"] == [4, 5] and "its `figure`" in hr.figure_of(out)["said_by"]
+    # a record made before it said: measured now on the plain cut it names, on the record's own frames
+    old = folder / "old" / "head.mp4"
+    old.parent.mkdir()
+    shutil.copy(out, old)
+    shutil.copy(folder / "head_plain_cut.mp4", old.parent / "head_plain_cut.mp4")
+    old.with_suffix(".json").write_text(json.dumps({k: v for k, v in rec.items() if k != "figure"} | {"its_first_frame_is_source_frame": 100,
+                                                                                                      "frames": [100, 100 + N - 1]}))
+    got = hr.figure_of(old, 7)
+    assert got["frames_with_no_figure"] == [104, 105] and "measured now on head_plain_cut.mp4" in got["said_by"], got
+    # the plain form (its record is the crop tool's) and a reference with no record: measured on itself, from the load's first frame
+    assert hr.figure_of(folder / "head_plain_cut.mp4", 200)["frames_with_no_figure"] == [204, 205]
+    bare = folder / "bare" / "ref.mp4"
+    bare.parent.mkdir()
+    shutil.copy(folder / "head_plain_cut.mp4", bare)
+    assert hr.figure_of(bare, 10)["frames_with_no_figure"] == [14, 15] and "no record" in hr.figure_of(bare, 10)["said_by"]
+    try:
+        hr.figure_of(bare)
+        raise AssertionError("a reference with no record and no first frame was read")
+    except SystemExit as e:
+        assert "which source frame its frame 0 is on" in str(e), e
+    # THE CONTROL: a body model lit on every frame records none
+    folder, mesh, pts, source = rooms("somebody", [90] * N, [60] * N, CENTRES, 0)
+    lit = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head.mp4", "the check", room=ROOM, say=quiet)["figure"]
+    assert lit["frames_with_no_figure"] == [], lit
+    return ("the black frames of the plain cut are recorded and said, a --no-face-on frame's grey body is not black; the gate's reader takes "
+            "the record's word, measures the plain cut a record names when the record predates it, and a reference with none on itself")
+
+
 case("one run makes the form", one_run_makes_the_form)
 case("a face off the subject's track fails the run", a_face_off_the_track_fails)
 case("her own glasses over her eyes, off her track", her_glasses_over_her_eyes)
@@ -1232,5 +1282,6 @@ case("the form's defaults can be set aside, and the record says so", the_default
 case("a step that fails fails the run", a_step_that_fails_fails_the_run)
 case("the mouth on a person's word where the gate drops it", the_mouth_on_a_word)
 case("the head box from the head track, with room above the crown", head_box_from_the_head_track)
+case("where the body model shows nobody", where_the_body_model_shows_nobody)
 shutil.rmtree(WORK, ignore_errors=True)
 sys.exit(finish())

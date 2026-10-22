@@ -1244,8 +1244,16 @@ def what_the_gate_is_told() -> str:
         told = lc.told_to_the_gate(dict(ctx, job=dict(ctx["job"], reference={"points": pts.name})))
         assert told[-2:] == ["--chin-points", pts.name], told
     assert "--chin-points" not in lc.told_to_the_gate(dict(ctx, job=dict(ctx["job"], reference={"points": "/nowhere/x_points.npz"}))), "a missing points file was told"
+    # THE REFERENCE VIDEO goes to the gate with the source frame its frame 0 is on (2026-10-22): the load's motion_first, else the job's
+    # first frame (the builder's rule); a load with no motion video tells none
+    told = lc.told_to_the_gate(dict(ctx, load=dict(ctx["load"], motion_file="/out/ref.mp4", motion_first=100)))
+    assert told[-2:] == ["--reference", "second:100=/out/ref.mp4"], told
+    assert lc.told_to_the_gate(dict(ctx, load=dict(ctx["load"], motion_file="/out/ref.mp4"), job=dict(ctx["job"], first=96)))[-2:] == \
+        ["--reference", "second:96=/out/ref.mp4"]
+    assert "--reference" not in lc.told_to_the_gate(dict(ctx, load=dict(ctx["load"], motion="none", motion_file="/out/ref.mp4"))), "a load with no motion video told one"
     return ("her own keep-outs with their classes, not strangers; a restore span gives back only a keep-out whose classes it holds, on the load's frames; the "
-            "job's drop= with its reason and its left_out told as named; nothing of another subject's keep-outs; the reference's points as the chin")
+            "job's drop= with its reason and its left_out told as named; nothing of another subject's keep-outs; the reference's points as the chin; "
+            "the reference video with the frame it begins on, and none on a load with no motion video")
 
 
 def a_load_of_two_subjects() -> str:
@@ -1275,7 +1283,12 @@ def a_load_of_two_subjects() -> str:
             assert part in b, f"{part!r} is not in the second subject's mask: {b}"
         assert a.startswith("a:track=") and "parts=" in a and "pieces=" not in a, a
         assert lc.others_of(ctx) == [], f"a subject of the pair is kept out of the load: {lc.others_of(ctx)}"
-        assert ["--named-empty", "b:112-112=the job's drop= (B'S DROP)"] == lc.told_to_the_gate(ctx)[-2:], lc.told_to_the_gate(ctx)
+        told = lc.told_to_the_gate(ctx)
+        pairs = list(zip(told[::2], told[1::2]))
+        assert ("--named-empty", "b:112-112=the job's drop= (B'S DROP)") in pairs, told
+        # BOTH REFERENCES go to the gate, each with its own subject (2026-10-22: a black reference where its subject is in the load)
+        assert [p for p in pairs if p[0] == "--reference"] == [("--reference", f"a:{ctx['job']['first']}=/out/ref.mp4"),
+                                                               ("--reference", f"b:{ctx['job']['first']}=/out/ref_b.mp4")], told
         # A PAIR'S KEEP-OUT IS GIVEN BACK BY ITS OWN SUBJECT'S RESTORE ONLY: a's hands span does not give back b's hands
         hands = {"of": ["a", "b"], "made": [{"name": "hands", "classes": ["Left_Hand"], "of": "b"}, {"name": "strangers", "track": "s"}]}
         spans = [{"classes": ["Left_Hand"], "first": 100, "last": 200, "by": "A'S", "subject": "a"},

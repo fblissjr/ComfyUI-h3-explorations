@@ -1018,7 +1018,11 @@ def told_to_the_gate(ctx: dict) -> list[str]:
       classes hold all of an own keep-out's, on the load's frames;
     - `--named-empty SUBJECT:FIRST-LAST=WHY`: the frames the job empties on purpose: its subject's `drop` with `drop_by`,
       and its `left_out` with each reason;
-    - `--chin-points POINTS.npz`: the job's reference points, whose chin the held keep-out's split reads her clothing below."""
+    - `--chin-points POINTS.npz`: the job's reference points, whose chin the held keep-out's split reads her clothing below;
+    - `--reference SUBJECT:FIRST=VIDEO`: each subject's reference video (the load's `motion_file`, and a pair's `motion_file_2`) with
+      the source frame its frame 0 is on (`motion_first`, else the job's first frame: the builder's rule), which the gate holds to the
+      frames the subject is in the load (`capture_masked_run.py::flag_reference_figure`, 2026-10-22). A load with no motion video
+      (`motion: none`) names none."""
     job, out = ctx["job"], []
     kept = job.get("keep_outs") or {}
     own = {}
@@ -1048,6 +1052,12 @@ def told_to_the_gate(ctx: dict) -> list[str]:
     points = (job.get("reference") or {}).get("points")
     if points and Path(points).is_file():
         out += ["--chin-points", str(points)]
+    load = ctx["load"]
+    if load.get("motion") != "none":
+        for who, x in ((ctx["subject"], ""), (ctx.get("also"), "_2")):
+            if who is not None and load.get(f"motion_file{x}"):
+                at = load[f"motion_first{x}"] if load.get(f"motion_first{x}") is not None else job["first"]
+                out += ["--reference", f"{who}:{int(at)}={load[f'motion_file{x}']}"]
     return out
 
 

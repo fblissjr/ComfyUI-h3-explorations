@@ -202,6 +202,13 @@ pass 2, only the owner's own words among them carry (§1).
    - **The pose points have two readers**: the drawing, and the capture, as its `off_head` (`points=`) and the gate's
      `--chin-points` (`bench/load_chain.py::mask_specs`, `bench/load_chain.py::told_to_the_gate`). The capture's
      `pose=` is the preview's own pose table, not these.
+   - **A black reference stops the load at the gate** (2026-10-22). The record's `figure` lists the frames where the
+     body-model fit found no body and `<Video 1>` is black; the gate is told the load's reference video (`--reference`,
+     `bench/load_chain.py::told_to_the_gate`) and refuses, with no override, where the subject is tracked or carried on
+     a run of `FIGURE_RUN_LEAST` such frames with her part at or over the capture's floor
+     (`bench/capture_masked_run.py::flag_reference_figure`); a shorter run, and frames under the floor, are said as data
+     with their px, never a stop. Its way out: a reference that finds her
+     there, or the job leaving those frames empty on a person's word (`drop=` with `drop_by`), only where she is truly hidden.
    - Where `job` gave the new load a folder that already holds a reference, `reference` refuses, and
      `reference --existing` takes the old drawing as it is: held to its frames, its form and the span words, not to
      the code that drew it. Once a queued graph has read the folder, the new load gets a new folder, and the pose pass

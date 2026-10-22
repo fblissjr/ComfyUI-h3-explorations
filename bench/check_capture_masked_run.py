@@ -124,6 +124,16 @@ overlaps and margins can be counted by hand and reads the rows back.
    and the manifest lists the frame. The other no-face cases (the floor holds, back of the head) are face-only parts and
    still assert the emptying.
 
+24. **A reference with no figure where the subject is in the load** (`flag_reference_figure`, 2026-10-22, second_hfp_1419c). On
+   1419c's own frames, a reference black where the capture tracks her or her run carries a mask, her part there at or over the
+   capture's own floor (`part_sizes.floor_px`), in a run of `FIGURE_RUN_LEAST` (4) or more, is a hard flag no override clears,
+   with the frames in the tool's words; a run of 3, a single frame at the floor and a frame under it are data with each frame's px,
+   at the lowest level, blocking nothing; a drop that cuts a run short leaves it short; carried alone counts; a sighting with no part is
+   held by its track's px, one with no floor by `PART_LEAST_PX`; not where she is neither, nor on frames the job leaves empty on a
+   person's word, nor outside the capture; another subject's rows are not hers; `--reference` is parsed and refused in words; the
+   gate's own code calls it (read off its source: no whole capture is built here). Seen red on main (no such flag) and with the
+   hard mark, the floor, the run (none, 3, and `>`), the named frames, the track, the plain numbers and the gate's call each taken out.
+
 No video, no model, no card, no server.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/check_capture_masked_run.py
@@ -2676,7 +2686,7 @@ def what_the_job_says_is_its_own() -> str:
     told = cap.told_by_the_job(argparse.Namespace(own_keep_out=["hands=Left_Hand+Right_Hand", "held="], given_back=["hands:100-102=THE RESTORE"],
                                                   named_empty=["a:5-6=THE DROP"]))
     assert told == {"own": {"hands": ["Left_Hand", "Right_Hand"], "held": []}, "given": {"hands": [(100, 102, "THE RESTORE")]},
-                    "named": {"a": [(5, 6, "THE DROP")]}, "chin": None}, told
+                    "named": {"a": [(5, 6, "THE DROP")]}, "chin": None, "references": []}, told
     for bad, words in ((dict(given_back=["clothes:1-2=X"]), "not one of the --own-keep-out"), (dict(given_back=["hands:1-2="]), "with the why"),
                        (dict(named_empty=["a:9-2=X"]), "with the why"), (dict(named_empty=["a:x=X"]), "not NAME:FIRST-LAST")):
         try:
@@ -3394,6 +3404,131 @@ def dropped_frame_with_visible_face_flagged() -> str:
     return "dropped frames with region_px=0, track present, and s_face_px >= 4000 emit blocking dropped_frame_has_visible_face naming exact frames and s_face_px"
 
 
+def a_reference_with_no_figure() -> str:
+    """A replaced subject's reference that is black where the subject is in the load, her part there at or over the capture's floor,
+    is a hard flag (2026-10-22, second_hfp_1419c: `<Video 1>` black on 1419-1454, 36 of 47 frames, the body-model fit having found
+    no body for her). In the load: where the capture tracks her or a run of hers alone carries a mask, less a frame the job leaves
+    empty on a person's word. Under the floor (the Claude lead's ruling that day) a black frame is data with its px, never a stop.
+    Shaped on 1419c's own frames: tracked on 1428-1436 and 1453-1465, carried on 1454-1465."""
+    import inspect
+    import tempfile
+    first, n, floor = 1419, 47, 100
+    area = W * H
+    big, small = 200, 50
+    # at or over the floor: 1428-1431 (a run of FIGURE_RUN_LEAST), 1433-1435 (one short of it) and 1454 (at the floor, alone);
+    # under it: 1432, 1436 and 1453
+    part_px = {f: big for f in range(1428, 1432)} | {1432: small} | {f: big for f in range(1433, 1436)} | {1436: small, 1453: small, 1454: floor} \
+        | {f: big for f in range(1455, 1466)}
+    tracked = set(range(1428, 1437)) | set(range(1453, 1466))
+
+    def rows(parts=True, track_px=None):
+        return {"rows": [{"source_frame": f, "seen_by": "pv", "track_share": (track_px or {}).get(f, 60) / area if f in tracked else 0.0,
+                          **({"parts_share": part_px.get(f, 0) / area} if parts else {})} for f in range(first, first + n)]}
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp)
+        (folder / "runs" / "r").mkdir(parents=True)
+        (folder / "subjects" / "second").mkdir(parents=True)
+        (folder / "subjects" / "lead").mkdir(parents=True)
+        carried = np.zeros((n, H, W), bool)
+        carried[1454 - first:, 40:50, 40:50] = True
+        np.savez(folder / "runs" / "r" / "region.npz", carried=np.packbits(carried, axis=-1), region=np.zeros((n, H // CELL, W // CELL), bool),
+                 read=np.ones(n, bool))
+        mine = folder / "subjects" / "second" / "per_frame.json"
+        mine.write_text(json.dumps(rows()))
+        # another subject tracked on every frame: her track is not the second subject's
+        (folder / "subjects" / "lead" / "per_frame.json").write_text(json.dumps({"rows": [
+            {"source_frame": f, "seen_by": "pv", "track_share": 0.3, "parts_share": 0.1} for f in range(first, first + n)]}))
+        sized = {"by": "pv", "part_sizes": {"floor_px": floor, "floor_set_by": "THE CAPTURE'S FLOOR"}}
+        manifest = {"first_frame": first, "frames": n, "size": [W, H],
+                    "subjects": [{"label": "second", "sightings": [sized]}, {"label": "lead", "sightings": [sized]}],
+                    "runs": [{"name": "r", "subject": "second", "planned": True}]}
+        black = list(range(1419, 1455))
+        asked = []
+
+        def said(frames):
+            def figure_of(video, at):
+                asked.append((video, at))
+                return {"frames_with_no_figure": frames, "read_from": "x_plain_cut.mp4", "said_by": "x.json, its `figure`"}
+            return figure_of
+        refs = [("second", "/out/ref.mp4", first)]
+        flags = cap.flag_reference_figure(manifest, folder, refs, {}, figure_of=said(black))
+        top = [f for f in flags if f["rule"] == "reference_shows_no_figure"]
+        data = [f for f in flags if f["rule"] == "reference_black_under_the_floor"]
+        brief = [f for f in flags if f["rule"] == "reference_black_in_a_short_run"]
+        # THE CASE THAT GOES RED when a run of FIGURE_RUN_LEAST black frames at or over the floor passes, or the flag can be overridden
+        assert cap.FIGURE_RUN_LEAST == 4 and len(top) == 1 and len(data) == 1 and len(brief) == 1 and len(flags) == 3, flags
+        f = top[0]
+        assert (f["level"], f["hard"], f["subject"]) == (cap.LEVELS[2], True, "second"), f
+        assert f["source_frames"] == [[1428, 1431]] and f["figures"]["frames"] == 4 and f["figures"]["black_frames"] == 36, f
+        assert f["figures"]["px"] == {str(x): big for x in range(1428, 1432)} and f["figures"]["floor_px"] == floor, f
+        assert f["why"].startswith("the reference shows no figure on 1428-1431 (4 of 47 frames) where second is in the load at or over the "
+                                   "part's floor, in runs of 4 frames or more: the body-model fit found no body there"), f["why"]
+        assert "black on 36 frame(s) in all (1419-1454; x.json, its `figure`; the part against the floor of 100 px (THE CAPTURE'S FLOOR))" in f["why"], f["why"]
+        # THE CASE THAT GOES RED when a run shorter than FIGURE_RUN_LEAST stops the load, or is not said with its px (1454 is AT the floor)
+        b_ = brief[0]
+        assert b_["level"] == cap.LEVELS[0] and not b_.get("hard") and b_["source_frames"] == [[1433, 1435], [1454, 1454]], b_
+        assert b_["figures"]["px"] == {"1433": big, "1434": big, "1435": big, "1454": floor}, b_
+        assert "1454: 100 px" in b_["why"] and "data, not a stop" in b_["why"], b_["why"]
+        # THE CASE THAT GOES RED when a sliver under the floor stops the load, or is not said with its px
+        d = data[0]
+        assert d["level"] == cap.LEVELS[0] and not d.get("hard") and d["source_frames"] == [[1432, 1432], [1436, 1436], [1453, 1453]], d
+        assert d["figures"]["px"] == {"1432": small, "1436": small, "1453": small}, d
+        assert "1432: 50 px" in d["why"] and "data, not a stop" in d["why"], d["why"]
+        assert asked[0] == ("/out/ref.mp4", first), asked
+        json.dumps(flags)                                             # flags.json takes it as written
+        f.update(id="f001", key=cap.flag_key(f))
+        d.update(id="f002", key=cap.flag_key(d))
+        b_.update(id="f003", key=cap.flag_key(b_))
+        over = {"flag": "f001", "key": f["key"], "overridden": True}
+        assert cap.gate_verdict([f, d, b_], [over])["blocking"] == ["f001"], "an override cleared a black reference"
+        assert cap.gate_verdict([d, b_], [])["verdict"] == "clear", "a sliver under the floor or a short run blocked"
+        # carried alone counts: with no track, the frame the run carries her on is still hers, held to its part's px (none: under)
+        mine.write_text(json.dumps({"rows": []}))
+        alone = cap.flag_reference_figure(manifest, folder, refs, {}, figure_of=said(black))
+        assert [(x["rule"], x["source_frames"]) for x in alone] == [("reference_black_under_the_floor", [[1454, 1454]])], alone
+        json.dumps(alone)                                             # plain numbers, no numpy ones
+        # a sighting with no part is held by its track's px; one that records no floor, by PART_LEAST_PX
+        mine.write_text(json.dumps(rows(parts=False, track_px={x: 500 for x in range(1429, 1433)})))
+        by_track = cap.flag_reference_figure(manifest, folder, refs, {}, figure_of=said(black))
+        assert [x["source_frames"] for x in by_track if x["rule"] == "reference_shows_no_figure"] == [[[1429, 1432]]], by_track
+        assert "the track (the sighting has no part)" in by_track[0]["why"], by_track[0]["why"]
+        mine.write_text(json.dumps(rows()))
+        unsized = dict(manifest, subjects=[{"label": "second", "sightings": [{"by": "pv"}]}])
+        assert [x["rule"] for x in cap.flag_reference_figure(unsized, folder, refs, {}, figure_of=said(black))] == ["reference_black_under_the_floor"]
+        # THE CONTROLS: a reference lit on every frame; black only where she is neither tracked nor carried; every black frame at the
+        # floor left empty by the job on a person's word; and another subject's reference read against HER rows
+        assert cap.flag_reference_figure(manifest, folder, refs, {}, figure_of=said([])) == []
+        assert cap.flag_reference_figure(manifest, folder, refs, {}, figure_of=said(list(range(1419, 1428)) + list(range(1437, 1453)))) == []
+        dropped = {"second": [(1428, 1431, "THE JOB'S DROP")]}
+        assert "reference_shows_no_figure" not in [x["rule"] for x in cap.flag_reference_figure(manifest, folder, refs, dropped, figure_of=said(black))]
+        # a run cut short by a drop is short: 1428-1429 dropped leaves 1430-1431, under FIGURE_RUN_LEAST
+        part = cap.flag_reference_figure(manifest, folder, refs, {"second": [(1428, 1429, "THE JOB'S DROP")]}, figure_of=said(black))
+        assert "reference_shows_no_figure" not in [x["rule"] for x in part], part
+        # a run of five, with a drop on another frame, still stops, and says the dropped frames
+        five = cap.flag_reference_figure(manifest, folder, refs, {"second": [(1453, 1453, "THE JOB'S DROP")]}, figure_of=said(black))
+        assert five[0]["source_frames"] == [[1428, 1431]] and "1 of them the job leaves empty on a person's word" in five[0]["why"], five
+        lead = cap.flag_reference_figure(manifest, folder, [("lead", "/out/lead.mp4", first)], {}, figure_of=said(list(range(1420, 1424))))
+        assert lead[0]["subject"] == "lead" and lead[0]["rule"] == "reference_shows_no_figure" and lead[0]["source_frames"] == [[1420, 1423]], lead
+        # a black frame outside the capture's span is not this load's
+        assert cap.flag_reference_figure(manifest, folder, refs, {}, figure_of=said([1400, 1500])) == []
+    # --reference as the gate is told it, and refused in its own words
+    with tempfile.NamedTemporaryFile(suffix=".mp4") as video:
+        told = cap.told_by_the_job(argparse.Namespace(own_keep_out=[], given_back=[], named_empty=[], reference=[f"second:1419={video.name}"]))
+        assert told["references"] == [("second", video.name, 1419)], told
+        for bad, words in ((f"second={video.name}", "not SUBJECT:FIRST=VIDEO"), ("second:1419", "not SUBJECT:FIRST=VIDEO"),
+                           ("second:1419=/nowhere/ref.mp4", "is not a file")):
+            try:
+                cap.told_by_the_job(argparse.Namespace(own_keep_out=[], given_back=[], named_empty=[], reference=[bad]))
+                raise AssertionError(f"taken: {bad}")
+            except SystemExit as e:
+                assert words in str(e), (bad, str(e))
+    # the gate runs it, with what the job told it (read off the gate's own code: a whole capture is not built here)
+    assert 'flag_reference_figure(m, folder, told["references"], told["named"])' in inspect.getsource(cap.preflight)
+    return ("a reference black where the subject's part is at or over the capture's floor, in a run of FIGURE_RUN_LEAST, is a hard flag no "
+            "override clears, in the tool's words; a shorter run and a frame under the floor are data with their px that block nothing; carried alone counts; the track's px where there is no part; "
+            "not where she is neither, on frames the job leaves empty, or outside the capture; another subject's rows are not hers; "
+            "--reference parsed and refused in words; the gate calls it")
+
 case("one subject's row", one_subject)
 case("across three subjects", across)
 case("two sightings of one subject", two_sightings)
@@ -3450,5 +3585,6 @@ case("no face on a person's word: her hair kept, the face classes dropped", no_f
 case("depth in the owner map and the files step", depth_in_owner_map_and_the_files_step)
 case("step keep-out carves in the files step and diagnose", step_keepout_carves_in_files_and_diagnose)
 case("preflight: dropped frame with visible face in classes blocks", dropped_frame_with_visible_face_flagged)
+case("preflight: a reference with no figure where the subject is in the load", a_reference_with_no_figure)
 sys.exit(finish())
 

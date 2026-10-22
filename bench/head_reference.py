@@ -66,6 +66,13 @@ rulings of 2026-10-14 on 630b's profile, 805b and 1010d's chest). 0294d's piece 
 piece).
 Without `--mouth` the tool leaves the mouth out as before (`FORM_LEAVES_OUT`), unless `--leave-out` says otherwise.
 
+**Where the body model shows nobody** (2026-10-22): the record's `figure` lists the source frames on which the plain cut has no
+pixel over `FIGURE_GREY`, where the body-model fit found no body and the reference is black (`figure_frames`). It does not fail the
+reference: whether the subject is in the load on those frames is the capture's to say, and its gate refuses a load that has her part
+there at or over the capture's floor on a run of `FIGURE_RUN_LEAST` frames, and says shorter runs and the frames under it as data (`bench/capture_masked_run.py::flag_reference_figure`,
+which reads it through `figure_of`). A frame `--no-face-on` names keeps the
+grey body, with no line drawn on it, so it has a figure; where the fit found no body there either, it is black like any other.
+
 A passing run says each step's file holds what that step made, on the frames it was told, and that the face it
 drew lies on the subject's track on every frame. It does not say the track is the right person or that the lines
 are on her face: open the sheet.
@@ -132,6 +139,12 @@ CLASS_MOUTH_GATE = dict(on_body=0.6, near=0.4, body_grey=16, agreed_share=0.60, 
 MOUTH_RUNS = dict(leave_lines=0.6, fill_frames=2, fill_on_body=0.45)
 #: The mouth's forms: drawn whatever the check says, left out, or by the check.
 MOUTH_FORMS = ("auto", "drawn", "left out")
+#: A frame of the reference holds a figure when its plain cut body model has a pixel over this grey (`figure_frames`): the body
+#: model's picture, as the mouth gate reads it (`CLASS_MOUTH_GATE["body_grey"]`, inherited). MEASURED 2026-10-22 on the plain cuts of
+#: the 205 head references then under the share's `Video/fun/references/` (the survey: `docs/wiki/decisions.md`, that day): a frame
+#: there has no pixel over it or thousands (the least lit of 15,064 lit frames has 5,821), and the codec's noise on an empty frame is
+#: at most 2 grey levels. So "no figure" is no pixel at all, with no count to tune.
+FIGURE_GREY = CLASS_MOUTH_GATE["body_grey"]
 TOOLS = ("bench/head_reference.py", "bench/crop_reference_to_head.py", "bench/draw_face_points.py")
 
 
@@ -180,6 +193,50 @@ def check_existing_reference(
         source = source or inputs.get("source")
     target = out_p if out_p.exists() else rec_p
     return check_upstream_mtime(target, {"--mesh": mesh, "--points": points, "--source": source})
+
+
+def figure_frames(video: str | Path, count: int | None = None) -> list[int]:
+    """The pixels over `FIGURE_GREY` on each frame of a body-model video (the plain cut), from its frame 0: none is a frame where the
+    body-model fit found no body and the reference is black. Cannot see whether what is lit is HER body; a drawn reference's white
+    lines over black read as lit too, which is why the plain cut is read where there is one."""
+    from _lib.frames import probe, stream
+    w, h, _ = probe(str(video))
+    return [int((f[..., :3].max(-1) > FIGURE_GREY).sum()) for f in stream(str(video), (w, h), 0, count, pix="rgb24")]
+
+
+def figure_said(lit: list[int], first: int, read: str) -> dict:
+    """The record's `figure`: the source frames whose plain cut shows no figure, with the figures it was read from."""
+    none = [first + i for i, px in enumerate(lit) if px == 0]
+    shown = sorted(px for px in lit if px)
+    return {"what": f"the source frames on which the plain cut body model has no pixel over grey {FIGURE_GREY}: the body-model fit found "
+                    "no body there, and the reference is black", "read_from": read, "grey": FIGURE_GREY, "frames": len(lit),
+            "frames_with_no_figure": none,
+            "lit_px_least_median_most": [shown[0], shown[len(shown) // 2], shown[-1]] if shown else None,
+            "cannot_see": "whether the lit body is the subject's, and whether the subject is in the load on a frame with none: the capture's "
+                          "gate holds that (`bench/capture_masked_run.py::flag_reference_figure`)"}
+
+
+def figure_of(reference: str | Path, first: int | None = None) -> dict:
+    """What a load's reference video shows of a figure, a frame at a time, for the capture's gate (`capture_masked_run.py preflight
+    --reference`). The record beside it (`<stem>.json`, this tool's) says it in `figure` since 2026-10-22; a record of this tool's made
+    before then is measured now on the plain cut it names, and a reference with no such record (the plain form, whose record is the
+    crop tool's) is measured on itself. `first`: the source frame the load says its frame 0 is on, read only where no record of this
+    tool's says it."""
+    ref = Path(reference)
+    rec_p = ref.with_suffix(".json")
+    rec = json.loads(rec_p.read_text()) if rec_p.is_file() else {}
+    ours = str(rec.get("what", "")).startswith("the reference of a head replacement")
+    if ours and isinstance(rec.get("figure"), dict):
+        return {**rec["figure"], "said_by": f"{rec_p.name}, its `figure`"}
+    plain = ref.parent / str((rec.get("files") or {}).get("plain_cut") or "") if ours else None
+    video = plain if plain is not None and plain.is_file() else ref
+    at = int(rec["its_first_frame_is_source_frame"]) if ours and rec.get("its_first_frame_is_source_frame") is not None else first
+    if at is None:
+        raise SystemExit(f"{ref}: neither its record nor the load says which source frame its frame 0 is on")
+    count = int(rec["frames"][1]) - int(rec["frames"][0]) + 1 if ours and rec.get("frames") else None
+    return {**figure_said(figure_frames(video, count), at, video.name),
+            "said_by": f"measured now on {video.name}: " + ("its record was made before records said it" if ours else
+                                                          "no record of bench/head_reference.py beside it")}
 
 
 #: The classes that sit over the eyes. Where the plan gives one back (the subject's own glasses, a restore span: `--over-the-eyes`),
@@ -689,6 +746,14 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         + (f" (head {cut['head_height_px_in_this_video']:.0f} px, from the head track with {cut['crown_room_in_face_heights']:g} face heights above the crown)"
            if "head_height_px_in_this_video" in cut else "")
         + "; " + ("PASSED" if cut["passed"] else "FAILED"))
+    # WHERE THE BODY MODEL SHOWS NOBODY (2026-10-22: second_1419_1465_b was black on 36 of its 47 frames and nothing said so). Data
+    # here; the capture's gate refuses a load that has her part at or over its floor on a run of such frames (`figure_of`)
+    figure = figure_said(figure_frames(made["plain_cut"], count), first, made["plain_cut"].name)
+    if figure["frames_with_no_figure"]:
+        nobody = figure["frames_with_no_figure"]
+        say(f"    THE BODY MODEL SHOWS NO FIGURE on {len(nobody)} of {count} frames ("
+            + ", ".join(f"{a}-{b}" if a != b else str(a) for a, b in spans_of(nobody)) + "): the body-model fit found no body there, and "
+            "the reference is black. The gate refuses a load that has the subject's part there at or over its floor, on a long enough run")
     say("2 of 3: the source cut by the same box")
     under = crop.run(source, points, first, count, made["source_cut"], by, names=names, points_first=points_first, room=room,
                      head_track=ht_path, head_track_first=ht_first, no_head_track=(ht_path is None), head_track_how=ht_how, fit=True, say=quiet)
@@ -906,6 +971,7 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         "read_backs": {"the_cut_body_model": cut["read_back"], "the_cut_source": under["read_back"], "the_drawing": drawn["read_back"]},
         "body_model_against_the_source": drawn["body_model_against_the_source"],
         "face_on_the_track": on_track,
+        "figure": figure,
         "sheet": drawn.get("sheet"),
         "files": {key: path.name for key, path in made.items() if path.exists() or key == "record"},
         "not_known": ["whether the track is the right person and the lines are on her face: open the sheet",
