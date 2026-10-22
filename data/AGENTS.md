@@ -44,12 +44,16 @@ so a builder's worktree has them.
 - A text says a person sings only where they sing in that shot or window, and otherwise says nothing about singing or
   talking: no "silent", no "does not sing", no "talks" (the owner, 2026-10-15). Who sings is plan data,
   `subjects.<s>.voice`; only "sings" writes a line (`bench/load_text.py`).
-- A face, head or hair replacement takes its reference as the body model cut to one box round the head with the pose
-  model's face points drawn on it (`bench/head_reference.py`), and a text that says exactly what that video is. What
+- A face, head or hair replacement takes its reference as the body model cut to one box, the plan's
+  `reference.crop` (head, face or cranium, `bench/head_reference.py::CROP_FORMS`), with the pose model's face points
+  drawn on it (`bench/head_reference.py`), and a text that says exactly what that video is. What
   every load carries beyond that is the chain's defaults, never a session's pick: each job step prints them as "THE
   DEFAULTS THIS LOAD CARRIES" and keeps them in the job file (`bench/shot_to_load.py::defaults_carried`; the drawing's
   form is `REFERENCE_DEFAULT`). Turning one off takes a written reason. A better form does not remake a piece the
   owner kept.
+- A visible subject is never left as the original. An imperfect replacement is kept over the film; only frames where
+  she is truly hidden stay as filmed, marked `hidden` in the plan's `head_marks` (the owner, 2026-10-22;
+  `docs/wiki/decisions.md`). Data is made fresh before a render, never patched after it.
 - No default keep-outs on a subject's own body: a thing is kept as the original only where a look names it ("she
   holds an egg on 1010-1017"); the second subject's `held`, `hands`, `clothes` and hair band were retired on
   2026-10-17 (`decisions.md`).
@@ -95,12 +99,12 @@ holds the card keeps them.
 |---|---|
 | what stands in a video, where each piece came from, the gaps | what the newest finished rebuild names: `ls -t data/*_<video>_delivery_tables/rebuild_<video>_*.json \| head -1` (`bench/rebuild_delivery.py` writes that record when it finishes; its `span` says what it covers, and a rebuild of one span is not the video's). Its `artifacts` name the table (`table_txt`, `table_json`), the ledger (`ledger_json`), the gap check (`coverage_json`), the cut (`clip`) and the cut's check (`clip_check`). A table or cut counts only if it names the sha256 that `sha256sum data/<video>/laid.jsonl` prints now: the table on its first line ("the list of what is laid ... (sha256 ...)", the start of that sha256 as `bench/delivery_table.py` writes it), the cut in its sidecar `<cut>.mp4.json`, as the input whose role is "the list of what is laid". A gap check counts only with the table JSON whose sha256 it records (`table_sha256`) |
 | what is laid in the cut | `data/<video>/laid.jsonl` (`bench/laid.py`) |
-| the plan: subjects, parts, keep-outs, clothing and voice by span | `data/<video>/plan.json`, edited only with a dated copy beside it and a `_by` line saying whose word |
+| the plan: subjects, parts, keep-outs, reference form, text words, what the context frames show, head marks, clothing and voice by span | `data/<video>/plan.json`, edited only with a dated copy beside it and a `_by` line saying whose word |
 | who is in each shot, and which numbered person is ours | `data/<video>/shots.json` and `data/<video>/cast/cast.jsonl`, written by their tools; pass `--cast data/<video>/cast/cast.jsonl` on every `bench/shot_to_load.py preview` and `bench/shot_to_load.py job` call |
 | every answer the owner gave on the local pages, raw | `data/<video>/owner_answers.jsonl`: append-only, cited by line, never edited |
 | the interactive review queue ("1. Look at these next" with verdict buttons and frame note box on `data/<video>/poc/index.html`, served on port `8765`) | `data/<video>/review/items.json` (with media symlinks in `data/<video>/review/media/`), updated on every candidate clip (`bench/load_chain.py page`) so the owner can save verdicts and frame notes directly to `data/<video>/owner_answers.jsonl` |
 | the owner's verdicts on renders | `data/<video>/verdicts/verdicts.jsonl` |
-| a reader's playback reading of a load or clip | `data/<day>_<load>/playback_reading_<reader>.md`, written by the playback reader session and read by `bench/review_pages.py` (via `reader_file` / `reader_files` in `data/<video>/review/start_here.json`) |
+| a reader's playback reading of a load or clip | `data/<day>_<load>/playback_reading_<reader>.md`, written by the playback reader session only after the owner's answer, and read by `bench/review_pages.py` (via `reader_file` / `reader_files` in `data/<video>/review/start_here.json`) |
 | videos | the share's `Video/<video>/`, never under `data/` |
 
 ## Handing a render over
@@ -113,7 +117,7 @@ holds the card keeps them.
 - A clip on the review page is whole, or has its gaps counted right above the player from the gap check on its own
   frames (per person, per kind, frames and spans); a clip with gaps and no such line is not shown
   (`docs/wiki/working_with_the_owner.md`, the owner of 2026-10-17).
-- Playback questions go to Gemini, which watches video and hears audio natively: say in the request that it watches
+- After the owner has watched and answered a clip, playback questions on it go to Gemini, which watches video and hears audio natively: say in the request that it watches
   and listens first, code only to augment. Its watching is a reader's, never the owner's acceptance.
 - Each playback reader writes its reading to `data/<day>_<load>/playback_reading_<reader>.md`, starting at the top
   (before the first `---` or `##` body heading; or per clip under `### <clip>`) with a four-field card:

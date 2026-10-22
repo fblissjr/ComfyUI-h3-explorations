@@ -8,9 +8,10 @@ that sets it; when this page and the code disagree, the code is right ([`AGENTS.
 `AGENTS.md`, "Do not trust prose"). The lane's other rules are in [`AGENTS.md`](AGENTS.md); the legal lengths and
 their cost for H3 in general are in [`docs/h3_resolutions.md`](../h3_resolutions.md). The whole render path in trace
 order, as it stood on 2026-10-21, is Gemini's report (`internal/gemini/2026-10-21_render_path_report.md`, local, not in
-git). Two things it describes have changed since: the padding was split evenly before and after (now all after, §4),
-and `<Video 1>` was padded with black frames (now held copies of its first and last frames,
-`video_mask.py`'s motion padding). Its simplifications (one function for the window plan, the audio sliced to the
+git). Three things it describes have changed since: the padding was split evenly before and after (now all after, §4);
+`<Video 1>` was padded with black frames (now held copies of its first and last frames, `video_mask.py`'s motion
+padding); and context frames across a cut were the other shot's real frames (now held copies of the shot's edge frame,
+§4). Its simplifications (one function for the window plan, the audio sliced to the
 window's exact frames, the padding as explicit inputs) stand as proposals.
 
 ## The rule
@@ -42,8 +43,8 @@ So in a 39-frame window: clip 1 is frames 0-16, clip 2 is 17-33, clip 3 is 34-38
 **What goes wrong when a shot's frame is outnumbered in its clip.** `second_hfp_4479e` (31 frames in 39, padded 4 before
 and 4 after): its last frame, 4509, was window frame 34, alone at the start of clip 3 with the next shot's 4 frames and
 12 copies of the last of them. Everything regenerated round her came out brighter on 4509 alone, a square (the owner,
-2026-10-22). `third_fp_4602c` showed no such frame: its last frame sat in a clip of 15 of its own frames and one of the
-next shot's.
+2026-10-22). `third_fp_4602c` showed no such frame: its last frame sat in a clip of 16 of its own frames and one of the
+next shot's (22 before and 23 after in 90, so 4646 is window frame 66, in the clip of frames 51-67).
 
 ## 3. How the text encoder sees `<Video 1>`
 
@@ -60,7 +61,9 @@ next shot's.
 - Both see `<Video 1>` at the canvas's size: the text encoder in 16 px patches merged to 32 px, the video model in 32 px
   tokens. At the head crop (`bench/crop_reference_to_head.py`, enlarged 1.654 times on `second_0278_0293_g`) a drawn
   iris is 15-21 px across and, where the lids cut it on a downcast eye, 6-9 px tall: under one 16 px patch tall
-  (measured 2026-10-22, `claude-face-crop`'s proof). That is why the `<Video 1>` crop's size matters for gaze.
+  (measured 2026-10-22, `claude-face-crop`'s proof). That is why the `<Video 1>` crop's size matters for gaze. At the
+  cranium crop, which the plan gives every subject of fun, the iris is larger and still under one 16 px patch tall
+  ([`docs/wiki/decisions.md`](../wiki/decisions.md), 2026-10-22).
   The plan's `reference.crop` picks the box (`bench/head_reference.py::CROP_FORMS`: `head`, `face`, or `cranium`, the body model's
   grey head, enlarged at most `bench/crop_reference_to_head.py::CRANIUM_MOST` since the cut only resamples a canvas-size render).
 - This is upstream's design: sglang sizes a reference video like the target canvas, short edge 768, and feeds one
@@ -74,7 +77,8 @@ next shot's.
 
 - **After the shot, always** (`workflows/masked_job_graph.py::window_pad`: before 0, after the window less the shot).
   The one exception: a shot ending so near the source's last frame that the frames after it do not exist takes the
-  rest before it, held.
+  rest before it: held copies of its first frame where those frames are another shot (the guard below applies), real
+  frames where the shot goes on.
 - **Held copies of the shot's last frame, with its masks,** where the frames after the shot belong to another shot
   (the shot's boundaries are `data/<video>/shots.json`'s). **Real frames** where the shot goes on past the load.
 - **The guard**: where the shot's last frame has no mask, or less than `video_mask.HELD_EDGE_LEAST` of the shot's median
@@ -92,6 +96,6 @@ piece, its region and its matte are the shot's own frames and nothing else.
 | load | shot | window | padding | encoder clips | what happened |
 |---|---|---|---|---|---|
 | `second_hfp_4479e` (before the rule) | 4479-4509, 31 | 39 | 4 real before, 4 real after, both other shots | 4479 in a step with 3 frames of another shot; 4509 alone in clip 3 with the next shot | a bright square on 4509 |
-| 4479 (under the rule) | 4479-4509, 31 | 39 | 8 held after | clips 1-2 her frames; clip 3 her last frame held | to be rendered |
-| `third_fp_4602c` | 4602-4646, 45 | 90 | 22 before, 23 after, other shots | 4646 in a clip of 15 of its own frames | no bright frame |
+| `second_hfp_4479f` (under the rule) | 4479-4509, 31 | 39 | 8 held after | clips 1-2 her frames; clip 3 her last frame held | no bright frame (`data/fun/owner_answers.jsonl:1515`) |
+| `third_fp_4602c` | 4602-4646, 45 | 90 | 22 before, 23 after, other shots | 4646 in a clip of 16 of its own frames | no bright frame |
 | `second_hfp_4912e` | 4912-4946 | | held copies of 4946, whose mask was empty | the last clip a frozen frame of her untouched hair | why the guard exists |
