@@ -61,6 +61,10 @@ next shot's.
   tokens. At the head crop (`bench/crop_reference_to_head.py`, enlarged 1.654 times on `second_0278_0293_g`) a drawn
   iris is 15-21 px across and, where the lids cut it on a downcast eye, 6-9 px tall: under one 16 px patch tall
   (measured 2026-10-22, `claude-face-crop`'s proof). That is why the `<Video 1>` crop's size matters for gaze.
+- This is upstream's design: sglang sizes a reference video like the target canvas, short edge 768, and feeds one
+  array to Qwen3-VL (every 12th frame) and the VAE, while a reference still goes to a 2048 short edge
+  ([`docs/research/sglang_h3_pipeline.md`](../research/sglang_h3_pipeline.md), §2 and §3). A larger `<Video 1>` is
+  off that path; a tighter crop inside the 768 frame is on it.
 - `<Picture 1>`, the still, goes to the VAE and to Qwen3-VL as one image (`qwen_view` "shared",
   `workflows/h3_config.py::MASKED_JOB_STILL_VIEW`), so the two see it alike.
 
