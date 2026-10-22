@@ -33,8 +33,12 @@ onward, and nothing older is reused.
   she looks. Shut eyes are drawn open too (1156g, 1163-1188): name a shut stretch `--eyes-shut-on ... --eyes-shut-form closed`.
 - **The stacked clip's `<Video 1>` "head" inset is the strip's own zoom**, not what H3 got; it cut 4479f's profile where the
   reference holds her whole head.
-- **1093-1095 and 1099 have a wrong body-model fit** (upside down, eyes on her hands) and are not marked hidden: the 1093 pair
-  draws no face there; if it misbehaves there, those frames are the reason.
+- **1093's frames: the job carries `--no-face-on` on 1093-1099 and 1125-1127** (the owner's hidden marks on 1096-1098 and
+  1125-1127; the body-model fit is wrong on 1093-1095 and 1099: upside down, a torso, eyes on her hand). `--no-face-on` keeps the
+  grey body, so those frames still show H3 the wrong figure and still size the cranium box (4.30x, not 5.72x; the Gemini reviewer's
+  §9). A candidate first build tomorrow, before the 1093 pair or after it if the pair renders well: a span word for frames whose
+  fit is wrong, which blanks the figure and leaves them out of the box (not `--no-face-on` itself, whose grey body shows a turning
+  head on the back-of-head frames).
 - **The cut on the share** is the rebuild started 21:04Z (laid 355df89e); 0278m was laid after it, so the next rebuild takes it.
 - **A code fault for tomorrow:** 4647e's reference crashed in `bench/draw_face_points.py` `find_mesh_chin_y` (IndexError, an index past
   the 768-row frame; `data/2026-10-22_mrtiger_jobs/chain/second_hfp_4647e.head_reference.out`), likely the cranium crop with her face
