@@ -86,6 +86,14 @@ builder's own `check_job`, and a load's to `masked_job.loads_of`, so a file the 
 9. **The figures** are the same rows at the canvas and at the reference's scale, each with its frames under
    the drawing line.
 
+10. **A load's seed is a person's word** (`job --seed N --seed-why WHY`, 2026-10-22). Without the flag the job's `defaults.seed` is
+   `h3_config.SEED` with no record, row or note about a seed. With it `defaults.seed` is N and `defaults.seed_by` holds the words, the
+   session and the time; THE DEFAULTS THIS LOAD CARRIES and the note say it; and the builder's own reading of the file puts N in the song
+   node (`masked_job_graph.load`) and in the build record's `settings.seed` (`masked_job.settings_of`). Refused, in the tool's words with
+   no traceback: `--seed` with no words, words with no `--seed`, a seed that is not a whole number from 0 to `shot_to_load.SEED_MAX`.
+   `--carry-words-from` carries none of it: the old job's seed is named under RETIRED KEYS NOT CARRIED and the new load takes the
+   job's own, or its own `--seed`. `pair` takes two loads of one seed made at two times (their words differ) and refuses two seeds.
+
 No server, no card, no video decoded.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/check_shot_to_load.py
@@ -249,7 +257,8 @@ def args(**more) -> argparse.Namespace:
                  existing=False, writer=None, why_before=None, why_after=None, zoomed=None, least=None, least_why=None, ask=[], seed_cuts_of=None, parts=None, parts_by=None, parts_on=[], whole_frame=None, mouth=None, iris=None, form_why="",
                  place_and_action=None, by_hand=None, plan=None,
                  track_not=[], track_not_by=None, drop=None, drop_by=None, leave_word=[], leave_by=None, carry_words_from=None, no_carry_words=None,
-                 head_tube=None, depth=None, no_head_track=None, no_closed_lip_line=None, source=None, allow_raw_source=None, made_for=[])
+                 head_tube=None, depth=None, no_head_track=None, no_closed_lip_line=None, source=None, allow_raw_source=None, made_for=[],
+                 seed=None, seed_why=None)
     given.update(more)
     return argparse.Namespace(**given)
 
@@ -2176,6 +2185,16 @@ def a_load_of_two_subjects() -> str:
             noised = json.loads((inputs / "noised.json").read_text())
             # THE CASE THAT GOES RED when the pair does not carry the noise both its loads name
             assert noised["loads"][0].get("context_noise") == 0.8, noised["loads"][0]
+            # two loads of ONE seed made at two times: the seed is the same and its words (`defaults.seed_by`) are two records, not a setting
+            # that differs; the pair carries the first subject's, and each subject's own row among its defaults. THE CASE THAT GOES RED when
+            # the records are held to each other as settings (a seed asked for twice could then never be paired: the times differ)
+            for src, dst, at in ((ja, inputs / "a4.json", "T1"), (jb, inputs / "b4.json", "T2")):
+                d = json.loads(src.read_text())
+                d["defaults"].update(seed=9, seed_by={"why": f"W{at}", "by": "the session", "at": at})
+                dst.write_text(json.dumps(d))
+            stl.step_pair(a_(inputs / "a4.json", inputs / "b4.json", name="seeded"), m)
+            seeded = json.loads((inputs / "seeded.json").read_text())
+            assert seeded["defaults"] == {"margin": 64, "seed": 9, "seed_by": {"why": "WT1", "by": "the session", "at": "T1"}}, seeded["defaults"]
             stl.step_pair(a_(ja, jb), m)
         finally:
             stl.load_chain.video_of = kept
@@ -2211,7 +2230,8 @@ def a_load_of_two_subjects() -> str:
                 "a load of two subjects takes its text written whole")
     return ("two loads of the same frames make one load of two subjects, the larger region first, each with its own still, reference, keys and "
             "keep-outs, neither kept out of the other, one margin, the whole frame, no zoom row; the smaller region first, other frames, a setting "
-            "that differs and a reference not made are refused; the chain reads it; its text is written whole")
+            "that differs and a reference not made are refused; two loads of one seed asked for at two times are paired, with the first's words; "
+            "the chain reads it; its text is written whole")
 def where_a_face_may_not_show() -> str:
     """The two cues printed under a reference's figures (the lead's ruling of 2026-10-15): ears reversed, and the face points' scores under
     the floor, as runs of source frames with their figures and what each cannot see; data, nothing decided."""
@@ -3132,6 +3152,111 @@ def pass2_raw_source_refused_and_source_required() -> str:
             "replacement is laid on the shot in laid.jsonl, preview counting only the labels it is not made for, and succeed with a post-Pass-1 video")
 
 
+def a_loads_seed_is_a_persons_word() -> str:
+    """`job --seed N --seed-why WHY` (2026-10-22): a load's seed is `h3_config.SEED` unless a person asks for another. With the flag the job
+    file's `defaults.seed` is N and `defaults.seed_by` says why, who and when, THE DEFAULTS THIS LOAD CARRIES say it, and the builder's
+    own reading of the file (`masked_job.loads_of`, `masked_job_graph.load`) puts N in the song node and in the build record's
+    settings; without it the file is as it was. A seed is per load: `--carry-words-from` names the old job's and takes none of it.
+    (`pair` of two loads of one seed is in `a_load_of_two_subjects`, and the two-shot load's in `bench/check_two_shot_load.py`.)"""
+    import contextlib
+    import io
+    import os
+    import re
+    import capture_masked_run as cap
+    why = "the lead asked for a second draw of this shot: the first one's hands melted"
+    files = {"track": ("/capture/a/track.mkv", 100), "parts": ("/capture/a/parts.mkv", 100), "motion": ("/ref.mp4", 100), "others": []}
+    base_graph = json.loads((HERE.parent / "workflows" / cfg.MASKED_JOB_BASE_GRAPH).read_text())
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        folder = made.preview_ran(made.preview(100))
+        a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="a", preview=str(folder))
+
+        def stepped(**more) -> str:
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                stl.step_job(args(**{**vars(a), **more}), made.m)
+            return buf.getvalue()
+
+        def written(name: str) -> dict:
+            return json.loads((made.jobs / f"{name}.json").read_text())
+
+        def in_the_graph(d: dict) -> tuple:
+            """The song node's seed and the build record's `settings.seed`, from the file as the builder reads it."""
+            one = masked_job.loads_of(d)[0]
+            one["still"] = {x["label"]: x["still"] for x in d["job"]["subjects"] if x.get("still")}[one["subject"]]    # masked_job.build's own fill
+            g = graphs.load(base_graph, d["job"], one, files, "the words", windows=masked_job.chain_lengths())
+            return g[graphs._the(g, graphs.SONG)]["inputs"]["seed"], masked_job.settings_of(one, g)["seed"]
+
+        def cli(*more: str) -> str:
+            out = subprocess.run(
+                [sys.executable, "-c",
+                 f"import sys; sys.path.insert(0, {str(HERE)!r}); from pathlib import Path; "
+                 f"import load_chain as lc, shot_to_load as stl; lc.REPO = stl.REPO = Path({str(made.root)!r}); sys.exit(stl.main())",
+                 "job", "--shots", str(made.shots_file), "--plan", str(made.plan_file), "--shot", "100", "--subject", "a", "--preview", str(folder),
+                 "--folder", str(made.jobs), "--by", "the session", "--day", "2026-01-03", *more],
+                capture_output=True, text=True, env={**os.environ, "H3_OUTPUT_DIR": str(made.m.output), "H3_INPUT_DIR": str(made.root / "input")})
+            assert out.returncode != 0 and "Traceback" not in out.stdout + out.stderr, f"{more}: exit {out.returncode}: {out.stdout + out.stderr!r}"
+            return out.stdout + out.stderr
+
+        # 1. THE REFUSALS, in the tool's words and with nothing written (the CLI as a person runs it, and the builder of the file)
+        assert "--seed-why" in cli("--seed", "5"), "a --seed with no words is not refused in the tool's words"
+        assert "--seed-why goes with --seed" in cli("--seed-why", why)
+        for bad in ("-1", "abc", "1.5", "0x10", "", "5e3", str(stl.SEED_MAX + 1), "9" * 5000):
+            assert "a whole number from 0 to" in cli(f"--seed={bad}", "--seed-why", why), f"--seed={bad[:20]!r} is not refused as not a seed"
+        assert not list(made.jobs.glob("a_fp_*.json")), "a refused --seed wrote a job file"
+        refused(lambda: made.load(seed=5), "--seed takes --seed-why")
+        refused(lambda: made.load(seed=5, seed_why="   "), "--seed takes --seed-why")
+        refused(lambda: made.load(seed_why=why), "--seed-why goes with --seed")
+        for bad in (-1, 1.5, True, "abc", "-1", "1.5", "", stl.SEED_MAX + 1):
+            refused(lambda: made.load(seed=bad, seed_why=why), "--seed", "a whole number from 0 to")
+
+        # 2. WITHOUT --seed THE JOB IS AS IT WAS: the job's own seed, no record, no row, nothing in the note
+        printed = stepped()
+        plain = written("a_fp_0100")
+        want = {**cfg.MASKED_LOAD_DEFAULTS, "margin": cfg.MASKED_LOAD_MARGIN["face"], "seed": cfg.SEED}
+        assert plain["defaults"] == want and list(plain["defaults"]) == list(want), f"a load with no --seed: {plain['defaults']}"
+        assert not [x for x in plain["job"]["defaults"] if x["what"] == "the seed"] and "THE SEED" not in plain["job"]["note"] \
+            and "the seed" not in printed, "a load with no --seed says a seed"
+        assert in_the_graph(plain) == (cfg.SEED, {"value": cfg.SEED, "set_by": "the job file"}), in_the_graph(plain)
+
+        # 3. WITH --seed: the file, the printed block, the note, the song node and the build record
+        printed = stepped(remake=True, no_carry_words="a draw of its own", seed="5", seed_why=why)
+        mine = written("a_fp_0100b")
+        by = mine["defaults"].get("seed_by") or {}
+        assert mine["defaults"]["seed"] == 5 and type(mine["defaults"]["seed"]) is int, f"--seed 5 is not the file's seed: {mine['defaults']}"
+        assert (by.get("why"), by.get("by")) == (why, "the session") and re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", str(by.get("at"))), by
+        assert {k: v for k, v in mine["defaults"].items() if k not in ("seed", "seed_by")} == {k: v for k, v in want.items() if k != "seed"}, mine["defaults"]
+        row = next((x for x in mine["job"]["defaults"] if x["what"] == "the seed"), None)
+        assert row and row["carries"].startswith("5 ") and why in row["from"] and "the session" in row["from"], row
+        assert "THE DEFAULTS THIS LOAD CARRIES:" in printed and any(line.startswith("  the seed: 5 ") and why in line for line in printed.splitlines()), \
+            "THE DEFAULTS THIS LOAD CARRIES does not say the seed and why"
+        assert "THE SEED IS 5" in mine["job"]["note"] and why in mine["job"]["note"], mine["job"]["note"]
+        assert in_the_graph(mine) == (5, {"value": 5, "set_by": "the job file"}), f"the song node and the build record: {in_the_graph(mine)}"
+        graphs.check_job(mine["job"])
+        # the capture reads the same file for its plans: the seed rides along as a word, the record as one it does not read
+        spec = dict(cap.loads_from_file(str(made.jobs / "a_fp_0100b.json"))[0][1])
+        assert spec["seed"] == "5" and json.loads(spec["seed_by"])["why"] == why, spec
+        # a seed of 0 is a seed; a number given as a number or with spaces round it is the same one
+        assert (made.load(name="z0", seed="0", seed_why=why)["defaults"]["seed"], made.load(name="z7", seed=7, seed_why=why)["defaults"]["seed"],
+                made.load(name="z8", seed=" 8 ", seed_why=why)["defaults"]["seed"]) == (0, 7, 8)
+
+        # 4. A SEED IS PER LOAD: --carry-words-from names the old job's and takes none of it; the new load's own flag is its own
+        printed = stepped(remake=True, carry_words_from=str(made.jobs / "a_fp_0100b.json"))
+        carried = written("a_fp_0100c")
+        assert carried["defaults"] == want and not [x for x in carried["job"]["defaults"] if x["what"] == "the seed"], carried["defaults"]
+        assert in_the_graph(carried)[0] == cfg.SEED, "a seed was carried"
+        assert "RETIRED KEYS NOT CARRIED FROM a_fp_0100b:" in printed and "defaults.seed: not carried (was 5, the session," in printed and why in printed, printed
+        stepped(remake=True, carry_words_from=str(made.jobs / "a_fp_0100b.json"), seed="9", seed_why="the other draw")
+        again = written("a_fp_0100d")
+        assert again["defaults"]["seed"] == 9 and again["defaults"]["seed_by"]["why"] == "the other draw", again["defaults"]
+        # an old job with no seed record and the job's own seed says nothing of one
+        assert "defaults.seed" not in stepped(remake=True, carry_words_from=str(made.jobs / "a_fp_0100.json"))
+
+    return ("a load's seed is h3_config.SEED unless a person gives --seed with --seed-why; then defaults.seed and defaults.seed_by (why, session, time) "
+            "say it, THE DEFAULTS THIS LOAD CARRIES and the note say it, and the song node and the build record take it; refused with no words, with "
+            "words and no seed, and for anything but a whole number the node takes; --carry-words-from carries none of it")
+
+
 case("the frame a tracker picks on is a field of the shots record", the_pick_frame_is_a_field)
 case("the trackers' order, and who is in the shot", the_order_and_who_is_in_the_shot)
 case("a preview made to ask who is on a shot the record is unsure of", a_preview_made_to_ask)
@@ -3167,6 +3292,7 @@ case("depth: overlap frames found, measured into the capture folder, and recorde
 case("reference: --no-head-track forwarded, recorded, carried, and checked on --existing", no_head_track_on_the_reference_step)
 case("cast: non-existent --cast file is refused cleanly in preview and job", missing_cast_file_refused)
 case("pass-2 source: preview requires --source (and --for where a piece is laid) and refuses raw source when another replacement is laid", pass2_raw_source_refused_and_source_required)
+case("seed: --seed with --seed-why is the load's own, in the file, the block, the song node and the build record; never carried", a_loads_seed_is_a_persons_word)
 
 if __name__ == "__main__":
     sys.exit(finish())

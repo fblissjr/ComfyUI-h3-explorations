@@ -13,7 +13,8 @@ picture on every frame), shot tables and pose tables, and an ordinary load on ea
    moved on, by hand for each field `shot_table.py` numbers by frame, and the cut where the two meet; the
    lane's own reader of a table cut to a stretch (`who_is_who_across_shots.cut_to`) gets each source's shots
    back. Tables of two sizes are refused. **A joined pose table** the same; two that do not meet are refused.
-3. **The two loads are held to each other**: another seed, margin, subject, still or reference form, a load
+3. **The two loads are held to each other**: another seed (the words behind a `--seed`, `defaults.seed_by`, are a record and not a difference: two
+   loads of one seed asked for at two times are made one load), margin, subject, still or reference form, a load
    zoomed on a person's word (the chain's default zoom is set aside and the load rendered on the whole frame, said), keep-outs, loads that do not meet at the cut, a second load that is not on the next shot, a preview
    that is not of its whole shot, and a load with no reference made are each refused by name.
 4. **The job step** lays every subject's track, part and class map end to end with each frame equal to its
@@ -311,6 +312,14 @@ def the_two_loads_are_held_to_each_other() -> str:
         def with_a(name, change, *words):
             refused(lambda: made.job(a=str(made.changed(made.a, name, change))), *words)
         with_b("b_seed", lambda j: j["defaults"].update(seed=1), "`defaults`", "the window alone")
+        # two loads of ONE seed asked for at two times (`shot_to_load.py job --seed N --seed-why`): the seed is the same and the words behind it
+        # (`defaults.seed_by`) are a record, not a setting that differs; the two-shot load carries the first load's. THE CASE THAT GOES RED when
+        # the records are held to each other as settings: a seed asked for twice could then never be made one load
+        words = lambda at: {"why": f"asked at {at}", "by": "the session", "at": at}   # noqa: E731
+        once = made.job(a=str(made.changed(made.a, "a_asked", lambda j: j["defaults"].update(seed=9, seed_by=words("T1")))),
+                        b=str(made.changed(made.b, "b_asked", lambda j: j["defaults"].update(seed=9, seed_by=words("T2")))), name="asked_twice")
+        assert "wrote" in once and json.loads((made.jobs / "asked_twice.json").read_text())["defaults"]["seed_by"] == words("T1"), once
+        with_b("b_asked_other", lambda j: j["defaults"].update(seed=9, seed_by=words("T3")), "`defaults`", "the window alone")   # a's seed is not 9
         with_b("b_margin", lambda j: j["loads"][0].update(margin=64), "the load's settings")
         with_b("b_still", lambda j: j["job"]["subjects"][0].update(still="other.png"), "the subject a's keys")
         with_b("b_pieces", lambda j: j["job"]["subjects"][0].update(pieces="largest"), "the subject a's keys")
@@ -338,7 +347,8 @@ def the_two_loads_are_held_to_each_other() -> str:
         (folder / "job.json").write_text(json.dumps({"job": off}))
         refused(lambda: made.job(), "different memory", "SAM 3.1 memory selection")
         assert not list((made.root / "data").glob("*a_two*")), "a refused two-shot load wrote its joined preview"
-    return "another seed, margin, still, form, subject; zoomed, kept out, banded; not meeting at the cut; out of order"
+    return ("another seed, margin, still, form, subject; zoomed, kept out, banded; not meeting at the cut; out of order; the words behind one seed "
+            "asked for at two times are not a difference")
 
 
 def the_job_step() -> str:

@@ -133,7 +133,8 @@ pass 2, only the owner's own words among them carry (§1).
   form, zoom, clothing, voice and text.
 - The span words given to `job` (`--no-face-on`, `--drop`, `--hold-part`, `--no-mouth-on`, `--mouth-on`,
   `--eyes-shut-on` and `--eyes-shut-form`, `--parts-on`, `--track-not`). A remake carries them with `--carry-words-from OLD_JOB`, or says why
-  not with `--no-carry-words WHY`.
+  not with `--no-carry-words WHY`. The one word it never carries is a seed (`--seed N --seed-why WHY`, written as `defaults.seed` and
+  `defaults.seed_by`): a seed is per load, so the remake takes `h3_config.SEED` unless it is given its own.
 - A look (stage 6), and an override of a gate flag (stage 5). Each belongs to one capture. A new capture takes its own
   look, or a person rests one on an earlier capture's with [`bench/look_carry.py`](../../bench/look_carry.py), which
   compares the two captures first.

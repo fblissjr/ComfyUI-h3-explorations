@@ -94,6 +94,10 @@ KINDS = ("track", "parts", "classes")
 #: A load's keys that are its own place and words, and so differ between the two ordinary loads; every other key
 #: of the two loads must be equal, and is carried into the two-shot load.
 OWN_KEYS = ("name", "first", "frames", "text", "motion_file", "motion_first", "others")
+#: The file `defaults` keys that are a record, not a setting, so they may differ between the two loads: `seed_by` is the words behind a
+#: `--seed` of `shot_to_load.py job` (who, when), which two loads of one seed made at two times never share. `seed` itself must be the
+#: same, and the two-shot load carries the first load's `defaults` whole, `seed_by` with them.
+DEFAULTS_MAY_DIFFER = ("seed_by",)
 #: A subject's keys in a job file that say where a tracker starts. A load tracks nobody, so they may differ.
 TRACKER_KEYS = ("pick", "pick_at", "seeds", "phrase")
 #: What of an ordinary load this tool does not carry into a two-shot load, as (where it is, the key, what it is).
@@ -288,7 +292,8 @@ def held_to_each_other(a: dict, b: dict) -> None:
         raise Refused(f"the two loads are of two subjects ({a['subject']!r} and {b['subject']!r}): one subject across the cut")
     differs = []
     for what, x, y in (("the source", a["job"]["source"], b["job"]["source"]), ("the canvas", a["job"]["canvas"], b["job"]["canvas"]),
-                       ("`defaults`", a["defaults"], b["defaults"]),
+                       ("`defaults`", {k: v for k, v in a["defaults"].items() if k not in DEFAULTS_MAY_DIFFER},
+                        {k: v for k, v in b["defaults"].items() if k not in DEFAULTS_MAY_DIFFER}),
                        ("the load's settings", {k: v for k, v in a["load"].items() if k not in OWN_KEYS}, {k: v for k, v in b["load"].items() if k not in OWN_KEYS}),
                        (f"the subject {a['subject']}'s keys", {k: v for k, v in a["subject_keys"].items() if k not in TRACKER_KEYS},
                         {k: v for k, v in b["subject_keys"].items() if k not in TRACKER_KEYS}),

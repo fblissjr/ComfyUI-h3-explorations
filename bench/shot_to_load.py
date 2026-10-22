@@ -14,6 +14,7 @@
         [--no-face-on FIRST-LAST="who looked, at which sheet (its file), and that the face does not show there"]
         [--seam FRAME[,FRAME...] --seam-why "a person's reason": every seam of one plan of the chained window lengths]
         [--hold-part FIRST-LAST="who looked, at which sheet (its file), and that her part belongs there"]
+        [--seed N --seed-why "who asked for this seed and why": the song node's seed for this load in place of h3_config.SEED]
     <python> bench/shot_to_load.py reference JOB.json --by SESSION [--plain "why"] [--model-store FOLDER] [--existing]
         (it prints, under the figures, where a face may not show by two cues of the pose model's points, as data for the sheet)
         (a person writes the shot's place and action, one sentence)
@@ -101,7 +102,12 @@ CARRIES, a line each with where it comes from, and keeps the same in the job fil
   written, and in a `--dry` run as well, the load is held to the builder's refusals that need neither its
   capture nor its text (`load_held_as_the_builder_holds`). A plan that asks a `hair_band` is refused here: the
   band is cut out of a keep-out no preview of this tool tracks, and until 2026-10-13 the load was written and
-  its own builder refused it at the plan.
+  its own builder refused it at the plan. THE SEED is `h3_config.SEED` unless a person asks for another:
+  `--seed N --seed-why "who asked and why"` writes it as the file's `defaults.seed` with `defaults.seed_by`
+  (the words, the session and the time) beside it, and says it among THE DEFAULTS THIS LOAD CARRIES; the song
+  node reads it (`workflows/masked_job_graph.py`, `run["seed"]`). A seed is per load, so `--carry-words-from`
+  does not carry it, and `--seed` with no words, words with no `--seed`, and a seed that is not a whole number
+  the song node takes are refused.
 - `reference`: on the LOAD's own frames, so the box is round the head on those frames: the pose pass in the
   subject's tracked box, then `bench/head_reference.py`, which writes the drawn form and the plain cut both. It
   goes to `Video/<video>/references/<subject>_<first>_<last>/`: a reference belongs to a shot, a subject and a
@@ -676,6 +682,36 @@ def context_noise_of(n: int, noise: float | None, why: str | None, by: str, now:
             "at that noise and redraws them by that share, so it follows its own motion video more and the window before less; the "
             "cost, a first new frame that may differ from the last frame written before it",
             "from": f"{by}, {now}: {' '.join(str(why).split())}"}
+
+
+#: Room kept under the song node's greatest seed for the windows of one load: it samples window `i` at `seed + i`
+#: (`audio_freeze_song.py`, `prepare_noise(..., int(seed) + i)`), and torch refuses a seed over 2**64 - 1 (the ComfyUI venv's
+#: `torch.manual_seed(2**64)` raised ValueError, 2026-10-22), so a seed at the node's greatest would fail on window 1, mid-render.
+#: **Reasoned**: no load has this many windows.
+SEED_ROOM = 1024
+#: The greatest seed a job takes. **Inherited** from the song node's `seed` input (`audio_freeze_song.py`: `max=0xffffffffffffffff`),
+#: less `SEED_ROOM`.
+SEED_MAX = 0xffffffffffffffff - SEED_ROOM
+
+
+def job_seed_of(seed: int | str | None, seed_why: str | None, by: str, now: str) -> tuple[int | None, dict | None]:
+    """THE SEED OF ONE LOAD (`--seed N --seed-why WHY`): (the seed, its record for `defaults.seed_by`), or (None, None) when neither
+    is given. A seed is per load and a person's: the job's own is `h3_config.SEED` and nothing but this changes it, so the record says
+    who asked and why, and `--carry-words-from` never carries it (`carry_words_of`). Refused: a seed that is not a whole number from 0 to
+    `SEED_MAX`, a `--seed` with no words, and words with no `--seed`."""
+    if seed is None:
+        if seed_why is not None:
+            raise Refused("--seed-why goes with --seed: there is no seed to give a reason for")
+        return None, None
+    given = seed.strip() if isinstance(seed, str) else seed
+    digits = isinstance(given, str) and given.isascii() and given.isdigit() and len(given) <= len(str(SEED_MAX))
+    whole = digits or (isinstance(given, int) and not isinstance(given, bool))
+    if not whole or not 0 <= int(given) <= SEED_MAX:
+        raise Refused(f"--seed {seed!r}: a seed is a whole number from 0 to {SEED_MAX} (the song node's greatest, less room for each window's `seed + i`)")
+    words = " ".join(str(seed_why or "").split())
+    if not words:
+        raise Refused("--seed takes --seed-why: who asked for this seed and why (the job's own is h3_config.SEED; a seed is per load and a person's word)")
+    return int(given), {"why": words, "by": by, "at": now}
 
 
 def seams_arg(text: str | int | None) -> list[int] | None:
@@ -1606,7 +1642,7 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
     for k in old:
         if k not in ("job", "defaults", "loads"):
             raise Refused(f"--carry-words-from {old_name}: word-bearing key {k!r} at top of old job cannot be carried")
-    base_defaults = set(h3_config.MASKED_LOAD_DEFAULTS) | {"margin", "seed"}
+    base_defaults = set(h3_config.MASKED_LOAD_DEFAULTS) | {"margin", "seed", "seed_by"}
     for k in (old.get("defaults") or {}):
         if k not in base_defaults:
             raise Refused(f"--carry-words-from {old_name}: word-bearing key 'defaults.{k}' in old job cannot be carried")
@@ -1678,6 +1714,12 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
         "left_words": left_words, "left_said": left_said, "overridden_said": overridden_said,
     }
 
+    old_seed = (old.get("defaults") or {}).get("seed")
+    if "seed_by" in (old.get("defaults") or {}) or (old_seed is not None and old_seed != h3_config.SEED):
+        said_by = (old.get("defaults") or {}).get("seed_by")
+        retired_said.append(f"defaults.seed: not carried (was {old_seed!r}"
+                            + (f", {said_by.get('by')}, {said_by.get('at')}: {said_by.get('why')}" if isinstance(said_by, dict) else "")
+                            + f"; a seed is per load, so this load takes h3_config.SEED ({h3_config.SEED}) unless it is given --seed with --seed-why)")
     if old_job.get("restore"):
         retired_said.append("job.restore: retired (2026-10-16: plan restore gone from the plan; not carried)")
     if "hair_band" in old_load:
@@ -1984,7 +2026,8 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
                   "the part held on a person's word", "the face lines", "the head tube", "depth", "zoom", "other people in the shot",
                   "the strangers keep-out", "the part's pieces", "the hair band", "restore spans", "the text",
                   "what the composite kept", "the voice", "the seam", "the kept frames' noise",
-                  "SAM 3.1 memory selection", "SAM 3.1 head track"}     # read again from the new job's own preview, never carried
+                  "SAM 3.1 memory selection", "SAM 3.1 head track",     # read again from the new job's own preview, never carried
+                  "the seed"}                                           # a seed is per load: only this load's own `--seed`, never carried
     defs = {}
     for row in old_job.get("defaults") or []:
         if not isinstance(row, dict) or row.get("what") not in defs_known:
@@ -2048,7 +2091,8 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
               drop: str | None = None, drop_by: str | None = None, carry_words_from: dict | Path | str | None = None,
               leave_word: list[str] | None = None, leave_by: str | None = None, no_carry_words: str | None = None,
               head_tube: str | None = None, depth: str | None = None, no_head_track: str | None = None,
-              no_closed_lip_line: str | None = None, capture_folder: Path | str | None = None) -> dict:
+              no_closed_lip_line: str | None = None, capture_folder: Path | str | None = None,
+              seed: int | str | None = None, seed_why: str | None = None) -> dict:
     """The job file of one subject's load on a shot, from the shot's preview. `preview` is the preview's own job
     block; `source` is the file the load renders from, the video's present copy (the preview's own when left out).
     `parts` with `parts_by` makes the load's part some of its subject's plan parts (`part_of`)."""
@@ -2071,6 +2115,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
     n_cw_nf = 0
     if carry_words_from is not None and no_carry_words is not None:
         raise Refused("--carry-words-from and --no-carry-words cannot both be given")
+    job_seed, seed_by = job_seed_of(seed, seed_why, by, now)
     ncw_why = ""
     if no_carry_words is not None:
         ncw_why = " ".join(str(no_carry_words).split())
@@ -2698,13 +2743,18 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         if cw and cn_from_cw:
             noise_row["from"] = " ".join(str(context_noise_why).split())
         carried.append(noise_row)
+    if seed_by is not None:
+        carried.append({"what": "the seed", "carries": f"{job_seed} (h3_config.SEED is {h3_config.SEED}): the song node samples window i at seed + i",
+                        "from": f"{by}, {now}: {seed_by['why']}"})
     note = (f"Written by bench/shot_to_load.py for {by}, {now}. ONE LOAD: {subject}, {renders(region, parts)}, source frames {a} to {b} ({n} frames) of the shot "
             f"{shot['first']}-{shot['last']}, its masks from the preview {preview['name']} (job.preview), "
             + ("with no reference video (motion none, below). " if motion == "none" else
                "in the frozen form: the body model cut to the head with the face points drawn, made on these frames by this tool's `reference` step. ")
             + f"Its settings are in `defaults`, from workflows/h3_config.py. "
             f"THE TEXT IS NOT WRITTEN: {name}.txt beside this file is a person's, and texts.{name}.by says who wrote it."
-            + pieces + part_said + kept_said + on_track_said + gone_said + chosen + (f" CUT BY A LOOK: {cut_said}" if cut else "")
+            + pieces + part_said + kept_said + on_track_said + gone_said + chosen
+            + (f" THE SEED IS {job_seed} (h3_config.SEED is {h3_config.SEED}), on {by}'s word ({now}): {seed_by['why']}." if seed_by else "")
+            + (f" CUT BY A LOOK: {cut_said}" if cut else "")
             + (f" ITS REFERENCE GOES TO {ref_folder.name}, A NEW FOLDER: {ref_why}; a new one." if ref_why else "")
             + (f" NO REFERENCE VIDEO (motion none): the reference step makes nothing for this load and the text names no video: "
                f"{' '.join(str(motion_why).split())} ({by}, {now})." if motion == "none" else ""))
@@ -2758,7 +2808,8 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
                                    **({"head_track": no_head_track_block or ref_form["head_track"]} if (no_head_track_block or ref_form.get("head_track")) else {}),
                                    **({"no_face_on": ref_form["no_face_on"]} if ref_form.get("no_face_on") else {})}),
                     "others_present": others, "defaults": carried},
-            "defaults": {**h3_config.MASKED_LOAD_DEFAULTS, "margin": h3_config.MASKED_LOAD_MARGIN[region], "seed": h3_config.SEED},
+            "defaults": {**h3_config.MASKED_LOAD_DEFAULTS, "margin": h3_config.MASKED_LOAD_MARGIN[region],
+                         "seed": h3_config.SEED if job_seed is None else job_seed, **({"seed_by": seed_by} if seed_by else {})},
             "loads": [load]}
 
 
@@ -3438,7 +3489,8 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
                    leave_word=lw, leave_by=lby, no_carry_words=ncw,
                    head_tube=getattr(a, "head_tube", None), depth=getattr(a, "depth", None),
                    no_head_track=getattr(a, "no_head_track", None),
-                   no_closed_lip_line=getattr(a, "no_closed_lip_line", None))
+                   no_closed_lip_line=getattr(a, "no_closed_lip_line", None),
+                   seed=getattr(a, "seed", None), seed_why=getattr(a, "seed_why", None))
     load_first = int(job["loads"][0]["first"])
     load_last = load_first + int(job["loads"][0]["frames"]) - 1
     other_subjects = list(dict.fromkeys(
@@ -3836,8 +3888,10 @@ PAIR_RANK = ("face and hair", "face")
 #: Why a pair is rendered on the whole frame (docs/wiki/masked_v2v.md: a two-subject load is not rendered zoomed in).
 PAIR_WHOLE_FRAME_WHY = "a load of two subjects is rendered on the whole frame: the zoom is to one subject's part, and a pair has two"
 #: What the two jobs' file defaults may differ in: the margin, where the pair takes the larger (one margin a load: the node grows its
-#: region by one number). Any other setting that differs is refused, since the pair would carry one of them silently.
-PAIR_DEFAULTS_MAY_DIFFER = ("margin",)
+#: region by one number); and `seed_by`, the words behind a `--seed` (who, when), which differ between two loads of one seed made at two
+#: times: the seed itself must be the same, and the pair carries the first subject's `seed_by` with each subject's own row among its
+#: defaults. Any other setting that differs is refused, since the pair would carry one of them silently.
+PAIR_DEFAULTS_MAY_DIFFER = ("margin", "seed_by")
 #: A subject's rows of THE DEFAULTS its own load carried that a pair does not: it renders on the whole frame, and its text is written whole
 #: (the voice is read by a generated text only). The pair's own row says each.
 PAIR_NOT_CARRIED = ("zoom", "the text", "the voice")
@@ -4094,12 +4148,18 @@ def main() -> int:
     j.add_argument("--drop", metavar="FIRST-LAST[+FIRST-LAST...]", help="source frame spans where the capture empties the subject's part on this load; with --drop-by")
     j.add_argument("--drop-by", metavar="WHY", help="who says the part is dropped on those frames and why; kept in the job file")
     j.add_argument("--carry-words-from", metavar="OLD_JOB.json", help="carry every person's word from an earlier load's job file for the frames this load covers, "
-                   "tagged (carried from <old load>); refuses any word-bearing key it does not know how to carry or any carried span outside this load's frames")
+                   "tagged (carried from <old load>); refuses any word-bearing key it does not know how to carry or any carried span outside this load's frames. "
+                   "A seed is per load and is never carried: the old job's `defaults.seed` is named under RETIRED KEYS NOT CARRIED, and this load takes "
+                   "h3_config.SEED unless it is given --seed")
     j.add_argument("--leave-word", action="append", default=[], metavar="KIND:FIRST-LAST",
                    help="with --carry-words-from and --leave-by: leave out a carried span (left_out, drop, hold_part, parts_on, track_not, no_face_on, "
                         "no_mouth_on, mouth_on, eyes_shut_on, seam) on purpose, recording the drop in job.carried_words_from.left_words; repeatable")
     j.add_argument("--leave-by", metavar="WHO_WHY", help="who says the --leave-word span(s) are left out and why; kept in job.carried_words_from.left_words")
     j.add_argument("--no-carry-words", metavar="WHY", help="Why a --remake does not carry words from an earlier job on the same shot and subject.")
+    j.add_argument("--seed", metavar="N", help="the song node's seed for this load, in place of h3_config.SEED (the job's own): a whole number from 0 to "
+                   f"{SEED_MAX}; with --seed-why. The job file gets it as `defaults.seed` with `defaults.seed_by` (the words, who and when), and THE "
+                   "DEFAULTS THIS LOAD CARRIES say it. A seed is per load and a person's word: --carry-words-from does not carry it")
+    j.add_argument("--seed-why", metavar="WHY", help="who asked for the seed and why; kept in the job file beside the seed. Goes with --seed")
     j.add_argument("--head-tube", nargs="?", const="opt-in --head-tube", default=None, metavar="WHY",
                    help="enable the person-track-bounded SAM 3.1 whole-head tube + 3-frame smoothed Sapiens2-Seg head pass in capture (off by default); "
                         "optional reason kept in the job file")
