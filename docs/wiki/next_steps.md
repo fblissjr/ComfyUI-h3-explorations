@@ -17,6 +17,8 @@ pointer goes; this list is stale the moment the roadmap disagrees with it.
 Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
+**The order of 2026-10-22 is [`handover.md`](handover.md)'s "Tomorrow, in order" (rewritten at the 2026-10-22 close): the remaining renders from fresh previews made on that day's final code, job onward, then the tool notes after the video. Where the queue below disagrees, the handover is right.**
+
 **The order of 2026-10-20 is [`handover.md`](handover.md)'s "Next up, in order" (updated 2026-10-20 close) and
 [`../masked_v2v/PROTOCOL.md`](../masked_v2v/PROTOCOL.md); where the queue below disagrees, the handover is right.**
 Kitchen Pass 2 (`lead_fp_0606d` on `606–998`) and **all 19 `second` shots across `fun` (`0000–6394`)** are now rendered, landed, validated (`mrgemread`, all `keep`), and laid in `data/fun/laid.jsonl` (`50 lines`, `sha256 80f694bba3639c1f`), and the 24.0 fps post-Pass-1 cut is assembled and registered as `fun_0000_6394_joined_2026-10-20T0110Z_from_laid.mp4` in `data/fun/manifest.json`. Next: run Multi-Subject Pass 2 / Pass 3 (`lead` and `third`) on `--source "$H3_INPUT_DIR/fun_0000_6394_joined_2026-10-20T0110Z_from_laid.mp4"` and the remaining single-subject `lead`/`third` shots (`data/2026-10-20_fun_phase3_inputs/`) with `bench/facts_pass.py` before every render.

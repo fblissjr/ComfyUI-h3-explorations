@@ -17,6 +17,37 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-22
 
+- **The owner's rulings of the day that no entry below records** (mrtim, the Claude lead, with mrcat then mrtiger on the card;
+  Gemini absent as a lead, its reviewer reading by the owner's hand; the words are in the lead's transcript and
+  `internal/claude/2026-10-22_mrtim/render_plan.md`):
+  - **No session looks at a render or reads it second before the owner does.** A plan strip may be sanity-checked; the owner
+    watches every render on the review page. A look or an override a tool requires is signed by the lead "on the owner's word,
+    not inspected", named so in its note.
+  - **A visible subject is never left as the original** to dodge a fault: an imperfect replacement is kept over the film. Only
+    frames where the person is truly hidden or out of the picture stay as filmed (marked `hidden` in the plan's `head_marks`,
+    as on second 1096-1098 and 1125-1127, the owner's look at the stacked cut).
+  - **Her hair is plain "blonde hair"**, never shortened: the shortening words were added for the kitchen bleed and are gone from
+    every second-subject text. second_hfp_4479e, 4479c with only those three phrases removed (same seed, masks and window), came
+    out with her hair the right color and length, where 4479c had a dark nape.
+  - **The least opening opens downward** ("down", the default of `draw_face_points.EYE_OPEN`): the owner's "good enough to try" on
+    `Video/fun/looks/2026-10-22_mouth_forms/least_opening_enlarged.png`. Its cost, seen on lead_fp_1156g (1163-1188): an eye shut
+    in the source is drawn open too; a shut stretch takes `--eyes-shut-on ... --eyes-shut-form closed`.
+  - **Kept today:** second_hfp_0415n (owner_answers.jsonl:1497), second_hfp_4602d, second_hfp_5011e, third_fp_1306g,
+    third_fp_4602c (the owner: "lock it"), lead_fp_1156g (verdicts.jsonl:785: "mouth is fixed ... eyes dont match perfectly but
+    ill take it") and second_hfp_0278m (verdicts.jsonl:786).
+  - **0278's gaze is parked, not solved.** On 0278m the mouth stays shut and the gaze holds down to 287, then the eyes open as the
+    head lifts (the source lifts too, 17-20 px from 287 to 293, the Gemini reviewer's measure): a dark iris filling the propped
+    slit reads as lowered on a bowed head and as open on a raised one. The owner's idea for a later test: an iris whose position
+    in a white eye says where she looks.
+  - **The cranium crop for every subject** (the plan's `reference.crop`, the owner: "so why wouldnt we just use this now instead of
+    wait?"), and the zoom to a head size switched off until the 1093 pair decides it (both below).
+  - **The data is made fresh before a render, never patched after** (the owner: "why wouldnt we fix the data before running renders
+    though?"): every load still to render starts from a preview made on the day's final code. And **the day ended on tool
+    editing** (the owner: "we're done playing tool editing again right"): what is left is renders.
+  - **What the review page and the stacked clip's "head" inset show is not what H3 got.** The inset is the strip's own zoom of
+    `<Video 1>` (`capture_masked_run.py` near 7035) and cut her thrown-back profile on 4479f, where `<Video 1>` holds her whole
+    head; the lead first read it as the reference cutting her face, and corrected it the same hour.
+
 - **A text names the mouth only where its reference draws an open mouth on some frame** (the owner's go, relayed by the lead, after
   second_hfp_0278l). 0278l's drawing opened no mouth (its closed-lip line's `open_frames` was empty) and its text said "her mouth
   opening and closing where its mouth does"; she spoke, lifted her head and looked at the camera, where 0278f, the same no-mouth
