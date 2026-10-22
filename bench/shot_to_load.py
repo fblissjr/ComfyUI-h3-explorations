@@ -51,7 +51,8 @@ CARRIES, a line each with where it comes from, and keeps the same in the job fil
   the `still` its face is taken from, the `parts` the part model ticks for it, and optionally `hair_band`. A
   subject whose plan lacks `still` or `parts` is refused with the keys to add. Optionally `context` with `context_by`:
   what the real frames a short load is padded with show, `as filmed` (the default) or `face covered`, copied onto each
-  load as `context_shows` (`context_of`). A plan look's stay item made as one
+  load as `context_shows` (`context_of`). Optionally `head_marks`, a person's marks on the subject's head and hair by span
+  (`head_marks_of`): copied onto the subject in the job file, cut to the load's frames, and handed to the capture. A plan look's stay item made as one
   keep-out (`look.stay[]` with `as: "one keep-out"`, `replaces_keep_out`, `classes_on_her_track`, `hold_frames`, and
   `look_by`) is made by the job step in place of the keep-out it replaces (`stay_of`, `cut_stay`). Optionally `pieces` (with
   `pieces_by`: who chose it, on what): how the capture reads the subject's part, copied by `job` onto the
@@ -1796,7 +1797,8 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
         raise Refused(f"--carry-words-from {old_name}: subject {subject!r} is not in old job's subjects")
     subj_known = {"label", "phrase", "pick", "parts", "still", "pose", "track_head", "parts_file", "parts_held_to_track_px",
                   "pieces", "pieces_by", "least", "least_by", "least_carried", "word", "word_by", "word_carried",
-                  "drop", "drop_by", "drop_carried", "parts_of_this_load", "parts_by", "parts_on"}
+                  "drop", "drop_by", "drop_carried", "parts_of_this_load", "parts_by", "parts_on",
+                  "head_hidden", "hair_hers", "hair_not_hers", "head_marks_by"}     # read again from the plan's `head_marks`, never carried
     for k in old_mine:
         if k not in subj_known:
             raise Refused(f"--carry-words-from {old_name}: word-bearing key 'subjects.{subject}.{k}' in old job cannot be carried")
@@ -2544,6 +2546,14 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         mine["pieces"], mine["pieces_by"] = p["pieces"], f"the plan ({p['pieces_by']})"
         pieces = (f" THE CAPTURE READS {subject}'s PART WITH pieces={p['pieces']}, from the plan ({' '.join(str(p['pieces_by']).split())}): each frame's largest "
                   "piece of the part is loaded and its other pieces are not; the capture's `files` step prints what that takes away, a frame at a time.")
+    # HER HEAD AND HAIR, A PERSON'S MARKS (`head_marks_of`, the plan's `head_marks`): the spans on the load's frames, a key a mark on the
+    # subject, where the chain passes each to the capture (`load_chain.MASK_OPTIONS`, `capture_masked_run.her_hair_in_hole`)
+    marks = head_marks_of(p, subject, a, b)
+    if marks:
+        mine = next(s for s in subjects if s["label"] == subject)
+        mine.update(marks)
+        pieces += (f" A PERSON'S MARKS ON {subject}'s HEAD AND HAIR, from the plan's head_marks: "
+                   + "; ".join(f"{k}={v}" for k, v in marks.items() if k != "head_marks_by") + ".")
     # The load's own part, where it names a subset: a key on the load's subject, where the chain reads it for the capture's `parts=`.
     if part:
         mine = next(s for s in subjects if s["label"] == subject)
@@ -2979,6 +2989,38 @@ def reference_block(form: str, why: str, by: str, now: str, record: Path, points
 #: 2026-10-22, on lead_fp_1156d: the lead's outlined, on the class map's lips and to the face's size, the other subjects as they are),
 #: carried to `head_reference --open-mouth`.
 REFERENCE_DEFAULT = {"mouth": "auto", "iris": "contrast", "closed_lip_line": True}
+
+
+def head_marks_of(p: dict, subject: str, a: int, b: int) -> dict:
+    """A PERSON'S MARKS on a subject's head and hair (2026-10-22), from the plan's `subjects.<s>.head_marks`: a list of
+    {first, last, mark, by} in source frames, `mark` one of `capture_masked_run.HEAD_MARK_KEYS` (`hidden`: her head is not in view
+    where SAM lost it; `hers` / `not hers`: the unclaimed hair the capture asked about is hers or someone else's; `hers` on a lost
+    head also holds her nearest whole head). The owner marks the frames on the page the capture's refusal names; the mark is
+    written here, the one home of a person's span words on a subject, as `restore`, `voice` and `clothing` are. Returns the subject's
+    job keys for the spans on the load's frames `a`-`b`, cut to them (`head_hidden`, `hair_hers`, `hair_not_hers` as
+    FIRST-LAST+FIRST-LAST, and `head_marks_by`), or {}; refused: a mark not of the list, a span backwards, one with no `by`, and two
+    marks on one frame."""
+    import capture_masked_run as cap
+    out: dict[str, list[str]] = {}
+    said, seen = [], {}
+    for x in p.get("head_marks") or []:
+        if x.get("mark") not in cap.HEAD_MARK_KEYS:
+            raise Refused(f"the plan's head_marks for {subject!r} has mark {x.get('mark')!r}: one of {tuple(cap.HEAD_MARK_KEYS)}")
+        lo, hi = int(x["first"]), int(x["last"])
+        if lo > hi:
+            raise Refused(f"the plan's head_marks for {subject!r} has {lo}-{hi}, which runs backwards")
+        if not str(x.get("by") or "").strip():
+            raise Refused(f"the plan's head_marks for {subject!r} on {lo}-{hi} says no `by`: who marked it, and where")
+        lo, hi = max(lo, a), min(hi, b)
+        if lo > hi:
+            continue
+        for f in range(lo, hi + 1):
+            if f in seen and seen[f] != x["mark"]:
+                raise Refused(f"the plan's head_marks for {subject!r} mark {f} both {seen[f]!r} and {x['mark']!r}")
+            seen[f] = x["mark"]
+        out.setdefault(cap.HEAD_MARK_KEYS[x["mark"]], []).append(f"{lo}-{hi}")
+        said.append(f"{x['mark']} {lo}-{hi} ({' '.join(str(x['by']).split())})")
+    return {**{k: "+".join(v) for k, v in out.items()}, "head_marks_by": "the plan: " + "; ".join(said)} if out else {}
 
 
 def context_of(p: dict, subject: str) -> dict:

@@ -134,7 +134,7 @@ pass 2, only the owner's own words among them carry (§1).
   [`bench/shots_look.py`](../../bench/shots_look.py)).
 - `data/<video>/cast/cast.jsonl`: the owner's boxes.
 - `data/<video>/plan.json`: for each subject, the region, parts, keep-outs, restore, hair band, pieces, reference
-  form, zoom, what the context frames show, clothing, voice and text.
+  form, zoom, what the context frames show, a person's marks on the head and hair (`head_marks`, §10), clothing, voice and text.
 - The span words given to `job` (`--no-face-on`, `--drop`, `--hold-part`, `--no-mouth-on`, `--mouth-on`,
   `--eyes-shut-on` and `--eyes-shut-form`, `--parts-on`, `--track-not`). A remake carries them with `--carry-words-from OLD_JOB`, or says why
   not with `--no-carry-words WHY`. The one word it never carries is a seed (`--seed N --seed-why WHY`, written as `defaults.seed` and
@@ -239,6 +239,7 @@ pass 2, only the owner's own words among them carry (§1).
      classes the preview cut from the plan's parts). A head the head track lost is re-seeded from the person track only
      where her own face points show on her own replaced classes (`sam31_head_tube`, `regain_refused` in its
      provenance), and tube pixels become `Hair` only on a part made of `Hair` ([`PROTOCOL.md`](PROTOCOL.md) 2.1).
+   - **Her hair in the hole** (§10) runs after every mask is read and writes the part the load carries again.
    - `plan` is a run on the server: it builds and queues the plan graph and writes `<load>.plan.json`, `job.plan.json`,
      `<load>.plan.queued.json`, the band file on a hair-band load, and the node's plan of the windows on the share.
      `on-plan` copies the capture to `<capture>_first`, builds it again in place on the node's plan, writes
@@ -293,3 +294,37 @@ pass 2, only the owner's own words among them carry (§1).
   `second_hfp_5889e` was right as rendered: after the subject leaves, the render equals the source, as it should. It is laid on
   its kept span (`data/fun/laid.jsonl`), and the assembler's `ends` failure there read a correct tail as a fault
   (decisions.md, 2026-10-21).
+
+### 10. Her hair in the hole: no original hair of hers left in the window (2026-10-22)
+
+- **The fault.** Where a replaced subject's original hair shows unregenerated on frames of the window, H3 draws her new hair dark to
+  match it (measured over 61 renders of the second subject; second_hfp_5768e against 5768f is the controlled pair: the same load with
+  her hair kept in the hole came out blonde and was kept). On second_hfp_4912e her crown above a passing hat brim on 4944-4946 was in
+  no mask at all ([`docs/wiki/decisions.md`](../wiki/decisions.md), 2026-10-21).
+- **The pass** (`bench/capture_masked_run.py::her_hair_in_hole`, at the capture's `files` step, on every load, for a subject whose
+  part is made of Hair; no one looks). SAM 3.1 is the source of truth for her and her head; Sapiens2 decides only what is hair.
+  1. Her SAM head track outside the hole (the part grown by the load's margin at the zoom the node will run it at, from the load's
+     `render_region` and `zoom_up_to`, `hole_zoom`; on the capture built on the node's plan, the plan's own margin and zoom,
+     `hole_of_the_load`; refused in words where a load names her and its margin cannot be read) is added to the part the load carries,
+     less another person's pixels and her face on a `--no-face-on` frame.
+  2. A run of frames with no head where SAM's own score still holds her is a lost head. The capture runs no model and cannot seed
+     SAM again, so it refuses (`her_head_lost_in_view`, at the top level of the gate) with the frames.
+  3. Sapiens2's Hair in her room (round her head, or her nearest whole head) that no one's mask holds and the hole does not is
+     added; a piece touching another person is refused (`unclaimed_hair_touches_another`).
+  What it added and why, a frame at a time, and what it cannot see: `subjects/<s>/hair_in_hole__<by>.json` and a line in the manifest.
+- **It does not reopen the head tube's re-seed gate** (`bench/head_tube_parts.py`, `regain_refused`): nothing is taken from the top
+  of her person track, and every addition leaves out every other person's mask as its file holds it, before the capture's carve. The
+  carve gives keep-out cells that are mostly hers back to her for the node; it does not make another person's pixels hers. On
+  4912e's 4940-4941 the carve on the node's grid had taken the passing woman's hat and brow out of the capture's strangers mask
+  (5,243 of her nearest whole head's 5,356 px on 4941 are in the strangers file and 4 in the capture's copy); read from the file,
+  `hers` there holds 113 px, not 5,352. A lost head's frames are asked about, and filled only on a person's `hers`.
+- **The owner answers on the page; the answer is plan data.** `subjects.<s>.head_marks`: `[{first, last, mark, by}]` with `mark`
+  one of `hidden` (her head is not in view there: nothing asked), `hers` (the unclaimed hair is hers; on a lost head, her nearest
+  whole head track, less every other person's mask, is held there) or `not hers` (no unclaimed hair added there). `job` cuts the
+  spans to the load (`bench/shot_to_load.py::head_marks_of`) and the chain hands them to the capture. A lost head can also be
+  boxed in the cast file for a fresh preview, which seeds SAM on that frame.
+- **Her hair is read from** the whole-frame class map the strangers run now keeps beside its file (`whole_frame_classes` in the
+  strangers record, `bench/strangers.py`), else her own class map as the preview saved it (her crop alone). Sapiens2 labels her
+  crown on 4912e's 4944 and 4945 Background even on the whole frame (run on those two frames, 2026-10-22), so there only part 2
+  catches her.
+- `bench/capture_masked_run.py hair-in-hole CAPTURE` works the same out on a capture that exists, read-only, and writes it elsewhere.

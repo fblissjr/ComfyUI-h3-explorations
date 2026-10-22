@@ -15,7 +15,8 @@ and its files, not the model.
    where it is on each frame.
 3. **A lost track is held**: a frame where a subject's track is empty takes its last frame with one, and the record
    lists the frame.
-4. **Where it writes** is the path the job step looks for, with a record the job step holds it to
+4. **Where it writes** is the path the job step looks for, with the whole frame's classes beside it on the preview's frames
+   (`whole_frame_classes`, read by the capture's her-hair-in-hole pass) and a record the job step holds it to
    (`held_to_its_record`): another preview's record, another grow or other tracks are named.
 5. **It writes over nothing**: a file that is there, two tracks for a subject, a track not of the canvas's size, a
    source shorter than the preview and an output key that names no video are refused, with nothing written."""
@@ -145,6 +146,10 @@ def where_it_writes() -> str:
         w = json.loads(path.with_suffix(".json").read_text())
         assert w["grow_px"] == GROW and w["first_source_frame"] == FIRST and w["frames_a_track_is_empty_and_held"] == {"a": [FIRST + 2]} and w["source_size"] == [SRC_W, H], w
         assert any("does not find" in x for x in w["cannot_see"]) and said and f"strangers on {N} of them" in said[0], said
+        # THE CASE THAT GOES RED when the whole frame's classes are not kept beside the file, or not on the preview's own frames
+        kept = np.load(w["whole_frame_classes"])
+        assert Path(w["whole_frame_classes"]) == path.with_name("pv_strangers_classes.npz") and int(kept["first"]) == FIRST, w["whole_frame_classes"]
+        assert kept["classes"].shape == (N, H, W) and ((kept["classes"] > 0) == people).all(), "the kept classes are not the model's on the preview's frames"
         tracks = {"a": str(root / "output/Video/v/s/pv/pv_a_track_00001.mkv"), "b": str(root / "output/Video/v/s/pv/pv_b_track_00001.mkv")}
         assert st.held_to_its_record(path, "pv", FIRST, N, tracks) == [] and w["frame_hash"] and w["hold_frames"] == st.h3_config.MASKED_STRANGERS["hold_frames"]
         assert any("record's frames" in x for x in st.held_to_its_record(path, "pv", FIRST, N + 1, tracks))

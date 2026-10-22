@@ -3348,6 +3348,49 @@ def a_loads_seed_is_a_persons_word() -> str:
             "words and no seed, and for anything but a whole number the node takes; --carry-words-from carries none of it")
 
 
+
+def a_persons_marks_on_her_head() -> str:
+    """The plan's `head_marks` (2026-10-22): a person's marks on a subject's head and hair by span, the answer to the capture's
+    her-hair-in-hole refusals. On the load's frames each goes onto the subject in the job file as its key, cut to the load
+    (`capture_masked_run.HEAD_MARK_KEYS`), and reaches the capture's `--mask` (`load_chain.MASK_OPTIONS`); a span off the load is left
+    out; a mark not of the list, a span backwards, one with no `by`, and two marks on one frame are refused; a remake re-reads the plan."""
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        d = made.load()
+        a, b = d["job"]["first"], d["job"]["first"] + d["job"]["frames"] - 1
+        mine = next(s for s in d["job"]["subjects"] if s["label"] == "a")
+        assert not any(k in mine for k in ("head_hidden", "hair_hers", "hair_not_hers", "head_marks_by")), mine
+        made.plan["subjects"]["a"]["head_marks"] = [
+            {"first": a - 5, "last": a + 1, "mark": "hidden", "by": "THE OWNER ON THE PAGE"},
+            {"first": a + 3, "last": a + 3, "mark": "hers", "by": "THE OWNER ON THE PAGE"},
+            {"first": b + 10, "last": b + 12, "mark": "not hers", "by": "THE OWNER ON THE PAGE"}]
+        d = made.load(name="a_fp_marked")
+        mine = next(s for s in d["job"]["subjects"] if s["label"] == "a")
+        # THE CASE THAT GOES RED when the plan's marks do not reach the subject in the job file, cut to the load's frames
+        assert (mine.get("head_hidden"), mine.get("hair_hers"), mine.get("hair_not_hers")) == (f"{a}-{a + 1}", f"{a + 3}-{a + 3}", None), mine
+        assert "THE OWNER ON THE PAGE" in mine["head_marks_by"] and "A PERSON'S MARKS ON a's HEAD AND HAIR" in d["job"]["note"], d["job"]["note"]
+        graphs.check_job(d["job"])
+        # THE CASE THAT GOES RED when the chain does not hand the capture the marks
+        (made.jobs / "a_fp_marked.json").write_text(json.dumps(d))
+        ctx = lc.read_job(made.jobs / "a_fp_marked.json", made.root, need_text=False)
+        files = {label: {"track": f"{label}_track.mkv", "head_track": None, "parts": f"{label}_parts.mkv", "classes": f"{label}_classes.mkv",
+                         "shots": f"{label}_shots.json", "pose": f"{label}_pose.json"} for label in ctx["preview"]["order"]}
+        theirs = [x for x in lc.mask_specs(ctx, files) if x.startswith("a:")]
+        assert len(theirs) == 1 and f",head_hidden={a}-{a + 1}" in theirs[0] and f",hair_hers={a + 3}-{a + 3}" in theirs[0], theirs
+        # a remake re-reads the plan: the old job's keys are not refused as words it cannot carry, and are not carried past the plan
+        made.plan["subjects"]["a"].pop("head_marks")
+        again = made.load(name="a_fp_marked_b", carry_words_from=str(made.jobs / "a_fp_marked.json"))
+        assert "head_hidden" not in next(s for s in again["job"]["subjects"] if s["label"] == "a"), again["job"]["subjects"]
+        for bad, words in (({"first": a, "last": a, "mark": "maybe", "by": "W"}, ("mark", "'maybe'")),
+                           ({"first": a + 1, "last": a, "mark": "hidden", "by": "W"}, ("runs backwards",)),
+                           ({"first": a, "last": a, "mark": "hidden"}, ("no `by`",))):
+            made.plan["subjects"]["a"]["head_marks"] = [bad]
+            refused(lambda: made.load(name="a_fp_x"), *words)
+        made.plan["subjects"]["a"]["head_marks"] = [{"first": a, "last": a + 2, "mark": "hers", "by": "W"},
+                                                    {"first": a + 2, "last": a + 2, "mark": "not hers", "by": "W"}]
+        refused(lambda: made.load(name="a_fp_x"), "both")
+    return ("a person's head marks reach the subject in the job file cut to the load, and the capture's --mask; off-load spans left "
+            "out; a bad mark, a backwards span, no `by` and two marks on a frame refused; a remake re-reads the plan")
 def a_loads_larger_zoom_is_a_persons_word() -> str:
     """`job --zoom-up-to N --zoom-up-to-why WHY` (2026-10-22): the zoom to a target head size lands switched off (the owner's word),
     and one load asks for it to test. With the flag the job file's `defaults.zoom_up_to` is N with `defaults.zoom_up_to_by` (why, who,
@@ -3445,6 +3488,7 @@ case("reference: --no-head-track forwarded, recorded, carried, and checked on --
 case("cast: non-existent --cast file is refused cleanly in preview and job", missing_cast_file_refused)
 case("pass-2 source: preview requires --source (and --for where a piece is laid) and refuses raw source when another replacement is laid", pass2_raw_source_refused_and_source_required)
 case("seed: --seed with --seed-why is the load's own, in the file, the block, the song node and the build record; never carried", a_loads_seed_is_a_persons_word)
+case("head marks: a person's marks on her head and hair reach the job file and the capture", a_persons_marks_on_her_head)
 case("zoom: --zoom-up-to with --zoom-up-to-why asks one load past the node's own 2; off by default; never carried", a_loads_larger_zoom_is_a_persons_word)
 
 if __name__ == "__main__":

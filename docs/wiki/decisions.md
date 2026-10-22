@@ -166,6 +166,34 @@ Older history lives elsewhere and is not copied here:
   and her blonde hair are retained, wherever they show." and now reads "partially_preserved - the woman's face and blonde hair from
   <Picture 1> are retained." (the noun from `who`, the hair from `picture_hair`); the summary and `[Shot 1]` are as they were, and a
   hair change keeps its own line. Branch claude-mouth-outline.
+- **No original hair of hers is left in the window: a capture pass on every load** (the lead's brief, on the fault measured over 61
+  renders of the second subject: where her original hair shows unregenerated in the window, H3 draws her new hair dark to match;
+  second_hfp_5768e against 5768f the controlled pair). `bench/capture_masked_run.py::her_hair_in_hole`, for a part made of Hair:
+  her SAM head track outside the hole is added to the part the load carries; a run with no head where SAM's own score still holds
+  her is refused at the gate (`her_head_lost_in_view`), since the capture cannot seed SAM again; Sapiens2's Hair near her that no
+  one's mask holds is added, and refused where it touches another person (`unclaimed_hair_touches_another`). The owner's answer on
+  the page becomes the plan's `subjects.<s>.head_marks` (`hidden`, `hers`, `not hers`; `hers` on a lost head holds her nearest whole
+  head track there), the same span form as `restore`, `voice` and `clothing`. Nothing is taken from the top of her person track,
+  so the head tube's re-seed gate (`regain_refused`) stands. The strangers run now keeps the part model's whole-frame classes beside
+  its file for the pass. Read-only on the real captures with the preview's class maps: 5768f, 4602d and 0415n add nothing and ask
+  nothing; 5768e would get her head on 5768-5773; 4912e is refused on 4921-4926 and 4941-4946, and the owner's `hers` on 4944-4946
+  holds her crown above the brim. The entry of 2026-10-21 said "no tool for her crown is built"; this is that tool. Sapiens2 calls
+  that crown Background even on the whole frame (run on 4944 and 4945), so only the refusal catches it. Branch claude-her-hair-in-hole.
+- **Her hair in the hole, after a blind read** (the lead's relay, on 76fdfcc4). The hole's margin is now taken at the zoom the node
+  will run the load at, from the load's own `render_region` and `zoom_up_to` (`capture_masked_run.hole_zoom`); it was the floor's
+  zoom (`floor_zoom`), which reads no `zoom_up_to` and is 1 under `least=`, so the hole came out too large and the pass under-added.
+  Every addition now leaves out other people's masks as their files hold them, before the capture's carve: on second_hfp_4912e's
+  4941 the carve on the node's grid had given the passing woman's hat and brow back to her cells, and a `hers` there took 5,352 px of
+  them; read from the strangers file it takes 113. The first entry's line that the passing woman's hat and hair "are in strangers"
+  held for the strangers file, not for the capture's carved copy at 4940-4941. A rule against pixels another person holds on the
+  frames either side was tried and not taken: people move, and at 4944 her crown sits where the hat was on 4943 (one frame either
+  side left 47 of its 550 px). Lost heads will be asked on the remakes of 1093 (1096-1098, 1124-1127), 4647 (4674-4698) and 4912
+  (4921-4926, 4941-4946). The owner's word on 4912 that "the tracker is right" (at 4942) is about the frames the passer-by covers
+  her (4921-4926 and 4941-4943, to be marked `hidden`); it does not cover her crown above the brim on 4944-4946, which shows and is
+  in no mask. A capture built again on the node's plan for a load of one subject (`bench/load_chain.py` on-plan, the capture the render
+  reads) is handed no --loads, so the pass had no margin there and fell back to the part as the hole without saying so (0415n: 127,593
+  px of hair added); it now takes the margin and zoom from the node's own plan the --run names, and a load whose margin cannot be read
+  is refused in the tool's words (`capture_masked_run.hole_of_the_load`). Branch claude-her-hair-in-hole.
 - **A downcast eye is drawn with a dark iris, and a person's word can paint an eye closed** (the owner's look, relayed by the
   Claude lead: a drawn eye shows her gaze only where the iris is seen where she looks; on second_hfp_0278j the downcast arc was a
   sliver and the render looked up). Under the closed lip line in the contrast form, an eye whose iris ring lies

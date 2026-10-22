@@ -138,8 +138,10 @@ HOST = "127.0.0.1:8188"
 #: The environment key for the folder that holds the pose model's own folder (`h3_config.POSE_MODEL`): a fact of
 #: the machine, so never a path in a tracked file. Named 2026-10-13 with the lead.
 MODEL_STORE = "H3_MODEL_STORE"
-#: A subject's keys in the job file that are options of its `--mask` in a capture; only what the job says is passed.
-MASK_OPTIONS = ("pieces", "least", "hold", "drop", "grade", "word")
+#: A subject's keys in the job file that are options of its `--mask` in a capture; only what the job says is passed. `head_hidden`,
+#: `hair_hers` and `hair_not_hers` (2026-10-22) are a person's marks, written by `shot_to_load.py job` from the plan's `head_marks`
+#: (`shot_to_load.head_marks_of`) and read by `capture_masked_run.her_hair_in_hole`.
+MASK_OPTIONS = ("pieces", "least", "hold", "drop", "grade", "word", "head_hidden", "hair_hers", "hair_not_hers")
 #: Default canvas-pixel margin for `capture_masked_run.off_head` (`points_margin=`). **Inherited**: one H3 latent cell on the
 #: canvas (16 px, matching `capture_masked_run.CELL`), named apart from the load's region `margin` so widening a load's region does
 #: not widen the off-head head box or chain reach (D22 item 6.2).
@@ -1156,6 +1158,8 @@ def step_on_plan(ctx: dict, world, a, hashed=frame_hash) -> tuple[int, str]:
     run = f"{ctx['name']}:preview={windows},subject={ctx['subject']}" + (f",others={'+'.join(others_of(ctx))}" if others_of(ctx) else "") + f",at={ctx['load']['first']}"
     world.run(ctx, "files on plan", tool(world, "capture_masked_run.py") + ["files"] + capture_args(ctx, world, files, band)
               + ["--run", run] + (["--loads", ctx["job_file"]] if ctx.get("also") else [])     # a pair's second subject is read off its job file
+              # (a load of one subject needs no --loads here: the capture's her-hair-in-hole pass reads the margin and zoom off the node's
+              # own plan the --run names, `capture_masked_run.hole_of_the_load`)
               + ["--voice", voice["per_frame"], "--made-by", a.by, "--overwrite"])
     # WHAT THE RENDER WILL READ, hashed AFTER the rebuild (route C, the lead's ruling of 2026-10-16): the rebuild carves the keep-outs on
     # the node's own grid and remakes the plan's region on those files (`capture_masked_run.predict_regions`), so the look, this hash and

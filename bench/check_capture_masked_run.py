@@ -134,6 +134,20 @@ overlaps and margins can be counted by hand and reads the rows back.
    gate's own code calls it (read off its source: no whole capture is built here). Seen red on main (no such flag) and with the
    hard mark, the floor, the run (none, 3, and `>`), the named frames, the track, the plain numbers and the gate's call each taken out.
 
+25. **Her hair in the hole** (`her_hair_in_hole`, 2026-10-22: where her original hair shows unregenerated, H3 draws her new hair
+   dark to match). Her head track outside the hole (the part grown by the margin, the oracle's own square grow) is added, less
+   another's pixels and a no-face frame's face; a run with no head where SAM's score still holds her is asked about, and quiet where
+   the score lets her go; her unclaimed hair in her room is added, a piece touching another person is asked about at SEGMENT_PX or
+   more and only counted under it, hair outside her room is left; a person's `hidden`, `hers` (her nearest whole head held, less
+   another's) and `not hers` do what they say; a whole-frame map asks only where the hair touches the other's hair; `drop=` adds
+   nothing; hair inside another's mask is no unclaimed hair, a subject in front is left out of part 1, and `hers` leaves out
+   another's pixels; the hole's zoom is the node's (`hole_zoom`: 1 on the whole frame, `zoom_up_to` read). Through the files step a
+   part made of Hair has her head written into the part to load with its record and a manifest line, never over a stranger's pixels
+   the capture's carve gave back to her cells, its margin taken at the load's zoom under `least=`; a face-only part is untouched;
+   the gate refuses at the top level on the asked frames. The load's hole (`hole_of_the_load`): a load of one subject built on the
+   node's plan takes the plan's margin and zoom; a plan with no fixed margin and a load with no margin are refused in words; no
+   load, no pass; `zoom=off` holds the hole at 1, there and through the files step.
+
 No video, no model, no card, no server.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/check_capture_masked_run.py
@@ -3404,6 +3418,213 @@ def dropped_frame_with_visible_face_flagged() -> str:
     return "dropped frames with region_px=0, track present, and s_face_px >= 4000 emit blocking dropped_frame_has_visible_face naming exact frames and s_face_px"
 
 
+def _square_grown(mask: np.ndarray, px: int) -> np.ndarray:
+    """The oracle's own square grow of one frame, by shifts (not cv2, not the node): every pixel within `px` in x and in y."""
+    out = mask.copy()
+    for dy in range(-px, px + 1):
+        for dx in range(-px, px + 1):
+            out |= np.roll(np.roll(mask, dy, 0), dx, 1)
+    return out
+
+
+def her_hair_in_the_hole() -> str:
+    """`her_hair_in_hole` (2026-10-22): her head in the hole, a lost head asked about, her unclaimed hair added or asked about, and a
+    person's marks; then through the files step and the gate."""
+    n, first, margin = 6, 100, 2
+    track = rect(40, 10, 76, 90, n)
+    head = rect(44, 10, 76, 40, n)
+    head[3:] = False                                                      # SAM lost her head on 103-105
+    part = rect(50, 14, 70, 40, n)
+    part[3:] = False
+    other = rect(90, 0, 120, 96, n)
+    other[1, 10:20, 70:76] = True                                         # someone over her head's right edge on 101
+    other[4, 10:20, 60:76] = True                                         # and over where her head was, on the lost 104
+    face = np.zeros((n, H, W), bool)
+    face[:, 30:40, 44:76] = True
+    hair = np.zeros((n, H, W), bool)
+    hair[0, 12:20, 30:38] = True                                          # A: 64 px of hair left of her track, touching no one
+    hair[0, 22:32, 80:90] = True                                          # B: 100 px touching the other's mask
+    hair[0, 40:44, 84:90] = True                                          # C: 24 px touching the other, under SEGMENT_PX
+    hair[0, 80:88, 0:8] = True                                            # D: outside her room
+    hair[4, 12:20, 30:38] = True                                          # E: on a lost frame, in the room of her nearest whole head
+    score = [9.0, 9.0, 9.0, 5.0, -2.0, -2.0]
+    out, rec = cap.her_hair_in_hole(part, track, first, head=head, others={"b": other}, hair=hair, face=face, score=score, noface={2},
+                                    margin_px=margin)
+    # 1. HER HEAD IN THE HOLE. THE CASE THAT GOES RED when her head track outside the hole is not added, when what lies within the
+    # margin is added (the node regenerates it already), or when another's pixels or a no-face frame's face are taken
+    for f in (0, 1, 2):
+        want = head[f] & ~_square_grown(part[f], margin) & ~other[f]
+        if f == 2:
+            want &= ~face[f]
+        added = out[f] & ~part[f] & ~hair[f]
+        assert (added == want).all(), (f, int(added.sum()), int(want.sum()))
+    assert not (out[1] & other[1]).any() and not (out[2] & face[2] & ~part[2]).any()
+    # 2. LOST, NOT HIDDEN. THE CASE THAT GOES RED when a run of frames with no head, where SAM still held her, is not asked about
+    assert rec["lost_asked_on_source_frames"] == [[103, 105]] and rec["lost_in_view"][0]["sam_holds_her_on"] == [[103, 103]], rec["lost_in_view"]
+    assert rec["lost_in_view"][0]["her_head_last_before"] == 102 and not out[3].any() and not out[5].any()
+    quiet = cap.her_hair_in_hole(part, track, first, head=head, score=[9.0, 9.0, 9.0, -1.0, -2.0, -2.0])[1]
+    # ... and when SAM lets her go there too (its score not over TRACK_PRESENT_OVER), the run is hidden and nothing is asked
+    assert quiet["lost_asked_on_source_frames"] == [] and quiet["lost_in_view"] == [], quiet["lost_in_view"]
+    # 3. UNCLAIMED HAIR. THE CASE THAT GOES RED when hair in her room that no one holds is not added (A, and E on a lost frame from her
+    # nearest whole head's room), when hair touching another is added rather than asked (B) or asked under SEGMENT_PX (C), or when hair
+    # outside her room is taken (D)
+    rows = {r["source_frame"]: r for r in rec["frames"]}
+    assert out[0][12:20, 30:38].all() and out[4][12:20, 30:38].all() and rows[100]["hair_added_px"] == 64 and rows[104]["hair_added_px"] == 64
+    assert not out[0][22:32, 80:90].any() and rows[100]["hair_undecided_px"] == 100 and rows[100]["hair_small_left_px"] == 24, rows[100]
+    assert not out[0][80:88, 0:8].any() and rec["hair_undecided_on_source_frames"] == [[100, 100]] and rows[104]["room_from"] == 102
+    # A PERSON'S MARKS: 103 hidden (nothing asked or added), 104 hers on a lost head (her nearest whole head held, less another's),
+    # 100 not hers (no hair of part 3 there, nothing asked)
+    marked, mrec = cap.her_hair_in_hole(part, track, first, head=head, others={"b": other}, hair=hair, face=face, score=score, noface={2},
+                                        margin_px=margin, hidden={3}, hers={4}, not_hers={0})
+    mrows = {r["source_frame"]: r for r in mrec["frames"]}
+    assert mrec["lost_asked_on_source_frames"] == [[105, 105]] and mrec["lost_marked_hidden_on_source_frames"] == [[103, 103]], mrec
+    # THE CASE THAT GOES RED when a person's `hers` on a lost head does not hold her nearest whole head, or holds another's pixels
+    assert (marked[4] == ((head[2] & ~other[4]) | hair[4])).all() and mrows[104]["lost_held_from"] == 102, mrows[104]
+    assert not marked[3].any() and not (marked[0] & hair[0] & ~head[0]).any() and mrec["hair_undecided_on_source_frames"] == []
+    # A WHOLE-FRAME MAP sees the other's classes: B touching the other's body, not their hair, is hers; touching their hair, asked
+    hair_whole = hair.copy()
+    whole = cap.her_hair_in_hole(part, track, first, head=head, others={"b": other}, hair=hair_whole, hair_whole_frame=True, margin_px=margin)
+    assert whole[0][0][22:32, 80:90].all() and whole[1]["hair_undecided_on_source_frames"] == [], whole[1]["frames"][:2]
+    hair_whole[0, 20:34, 90:96] = True                                    # the other's hair, inside their mask, against B
+    whole2 = cap.her_hair_in_hole(part, track, first, head=head, others={"b": other}, hair=hair_whole, hair_whole_frame=True, margin_px=margin)
+    assert not whole2[0][0][22:32, 80:90].any() and whole2[1]["hair_undecided_on_source_frames"] == [[100, 100]]
+    # DROP= on a person's word: nothing added there
+    dropped = cap.her_hair_in_hole(part, track, first, head=head, hair=hair, drop={0})[0]
+    # NOBODY ELSE'S PIXELS, in each part. THE CASES THAT GO RED when part 3 takes hair inside another's mask, when a subject in front
+    # is not left out of part 1, or when `hers` on a lost head holds her nearest whole head over another's pixels
+    theirs = np.zeros((n, H, W), bool)
+    theirs[0, 44:52, 30:38] = True                                        # another person inside her room on 100, their hair labelled
+    in_theirs = hair.copy()
+    in_theirs[0, 44:52, 30:38] = True
+    t_out, t_rec = cap.her_hair_in_hole(part, track, first, head=head, others={"b": other, "c": theirs}, hair=in_theirs, margin_px=margin)
+    t_rows = {r["source_frame"]: r for r in t_rec["frames"]}
+    assert not t_out[0][44:52, 30:38].any() and t_rows[100]["hair_unclaimed_px"] == rows[100]["hair_unclaimed_px"], \
+        ("part 3 read hair inside another person's mask as unclaimed", t_rows[100])
+    front = np.zeros((n, H, W), bool)
+    front[0, 10:14, 44:50] = True                                         # a subject in front over her head's top-left on 100
+    f_out = cap.her_hair_in_hole(part, track, first, head=head, front=front, margin_px=margin)[0]
+    assert not (f_out[0] & front[0]).any() and f_out[0][10:12, 60:76].all(), "part 1 took a subject in front"
+    assert not (marked[4] & other[4]).any() and mrows[104]["lost_held_px"] == int((head[2] & ~other[4]).sum()), mrows[104]
+    # THE HOLE'S ZOOM (`hole_zoom`): the zoom the node will run the load at, from the load's own render_region and zoom_up_to, never 1
+    # for a zoomed load whatever sets its floor; at most the node's (it boxes the region, the part grown)
+    small = rect(70, 40, 90, 60, n)
+    import torch
+    vm = cap._pack("video_mask")
+    own = vm.zoom_box(torch.tensor([[70, 40, 90, 60]] * n), W, H, W, H)[0]
+    assert cap.hole_zoom(small, (W, H), {})["scale"] == 1.0 and cap.hole_zoom(small, (W, H), {"render_region": "part"}, True)["scale"] == 1.0
+    two = cap.hole_zoom(small, (W, H), {"render_region": "part"})
+    up = cap.hole_zoom(small, (W, H), {"render_region": "part", "zoom_up_to": "3"})
+    # THE CASE THAT GOES RED when the hole is held at the floor's zoom or at 1 on a zoomed load, or when zoom_up_to is not read
+    assert two["scale"] == round(W / (own[2] - own[0]), 4) == vm.ZOOM_LARGEST and up["scale"] > two["scale"] and up["zoom_up_to"] == 3.0, (two, up)
+    # THE LOAD'S HOLE (`hole_of_the_load`). A load of one subject built again on the node's plan (`load_chain` on-plan: a --run of the
+    # preview, no --loads): the margin and zoom are the plan's own. THE CASE THAT GOES RED when the pass falls back to the part as the hole
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        plan_path = Path(tmp) / "x_plan.json"
+        plan_path.write_text(json.dumps({"zoom": {"box": [40, 20, 104, 68], "scale": 2.5, "set_by": "the box"},
+                                         "source": {"grow_pixels": 64, "grow_by": "a fixed margin"}}))
+        got = cap.hole_of_the_load("a", [("x", {"subject": "a", "preview": str(plan_path)})], small, (W, H))
+        assert got[0] == 64 and got[1]["scale"] == 2.5 and "the node's own plan" in got[1]["set_by"], got
+        plan_path.write_text(json.dumps({"zoom": None, "source": {"grow_pixels": 16, "grow_by": "a fixed margin"}}))
+        assert cap.hole_of_the_load("a", [("x", {"subject": "a", "preview": str(plan_path)})], small, (W, H))[1]["scale"] == 1.0
+        plan_path.write_text(json.dumps({"zoom": None, "source": {"grow_by": "a margin a frame"}}))
+        refused_said = None
+        try:
+            cap.hole_of_the_load("a", [("x", {"subject": "a", "preview": str(plan_path)})], small, (W, H))
+        except SystemExit as e:
+            refused_said = str(e)
+        assert refused_said and "not by a fixed margin" in refused_said and "nothing written" in refused_said, refused_said
+    # a load that names her with no margin is refused in the tool's words, never a hole of the part alone; no load at all, no pass
+    try:
+        cap.hole_of_the_load("a", [("x", {"subject": "a", "render_region": "part"})], small, (W, H))
+        refused_said = None
+    except SystemExit as e:
+        refused_said = str(e)
+    assert refused_said and "none says its margin" in refused_said, refused_said
+    assert cap.hole_of_the_load("a", [("x", {"subject": "b", "margin": "8"})], small, (W, H)) is None
+    # THE CASE THAT GOES RED when `zoom=off` on her --mask (the job's whole frame) is not read: the hole at 1, whatever the load says
+    off = cap.hole_of_the_load("a", [("x", {"subject": "a", "margin": "8", "render_region": "part"})], small, (W, H), True)
+    assert off == (8, {"scale": 1.0, "set_by": "the load renders on the whole frame"}), off
+    assert (dropped[0] == part[0]).all()
+    # THROUGH THE FILES STEP (its readers stood in), and the gate: a part made of Hair has her head written into the part to load, the
+    # record beside it and a line in the manifest; a part not made of Hair is left as it is
+    import tempfile
+    names = list(cap._pack("sapiens2_parts").CLASS_NAMES)
+    fh = rect(44, 10, 76, 40, n)
+    fp = rect(50, 14, 70, 40, n)
+    held_by_them = rect(70, 20, 76, 30, n)                                # a stranger's pixels at her head's edge, in cells mostly her track
+
+    def classes_of(made_of_hair: bool) -> np.ndarray:
+        c = np.zeros((n, H, W), np.uint8)
+        c[:, 10:40, 40:76] = names.index("Apparel")
+        c[:, 30:40, 50:70] = names.index("Face_Neck")
+        c[:, 14:30, 50:70] = names.index("Hair" if made_of_hair else "Face_Neck")
+        return c
+
+    stood_in = {k: getattr(cap, k) for k in ("probe", "read_mask", "read_classes", "write_mask_video", "input_facts", "picture_rows")}
+
+    def files(made_of_hair: bool, zoom_off: bool = False) -> tuple[dict, dict | None, dict, list]:
+        written: dict[str, np.ndarray] = {}
+        with tempfile.TemporaryDirectory() as tmp:
+            table = {"shots": [{"first_frame": 0, "track_score": [9.0] * n}]}
+            (Path(tmp) / "shots.json").write_text(json.dumps(table))
+            try:
+                cap.probe = lambda _p: (W, H, n)
+                cap.read_mask = lambda p, *_a: ((fh.copy() if "head" in str(p) else held_by_them.copy() if "strangers" in str(p) else
+                                                 track.copy() if "track" in str(p) else fp.copy()), np.ones(n, bool))
+                cap.read_classes = lambda *_a: classes_of(made_of_hair)
+                cap.input_facts = lambda p: {"file": str(p), "written": "2026-10-22T12:00:00", "size": [W, H], "frames": n}
+                cap.picture_rows = lambda *_a: [(0.0, 0.0)] * n
+                cap.write_mask_video = lambda p, m: written.__setitem__(f"{Path(p).parent.name}/{Path(p).name}", m.copy())
+                args = argparse.Namespace(first=first, frames=n, name="hh", date="2026-01-01", source=str(Path(tmp) / "src.mp4"), loads=None,
+                                          voice=None, head_tube=False)
+                spec = {"track": "track.mkv", "head_track": "head.mkv", "head_tube": "0", "parts": "parts.mkv", "classes": "classes.mkv",
+                        "shots": str(Path(tmp) / "shots.json"), "by": "pv", "at": str(first), "least": "0", **({"zoom": "off"} if zoom_off else {})}
+                plan = [("p", {"subject": "a", "others": "strangers", "margin": "8", "render_region": "part", "zoom_up_to": "3"})]
+                stranger = ("strangers", {"track": "strangers.mkv", "by": "pv", "at": str(first)})
+                cap._files(args, Path(tmp) / "cap", [("a", spec), stranger], [], plan)
+            finally:
+                for k, v in stood_in.items():
+                    setattr(cap, k, v)
+            sub = Path(tmp) / "cap" / "subjects" / "a"
+            told = json.loads((sub / "hair_in_hole__pv.json").read_text()) if (sub / "hair_in_hole__pv.json").is_file() else None
+            manifest = json.loads((Path(tmp) / "cap" / "manifest.json").read_text())
+            flags = cap.flag_her_hair(manifest, Path(tmp) / "cap")
+        return written, told, manifest["subjects"][0]["sightings"][0], flags
+
+    made, told, seen, flags = files(True)
+    hole = np.stack([_square_grown(fp[f], told["margin"]["canvas_px"]) for f in range(n)])
+    # THE CASE THAT GOES RED when the files step does not run the pass, or does not write what it added into the part the load carries,
+    # or takes a stranger's pixels because the capture carved them out of the keep-out it hands the node
+    assert (made["strangers/track__pv.mkv"] != held_by_them).any(), "the capture did not carve the stranger out of her cells: no test"
+    want = fp | (fh & ~hole & ~held_by_them)
+    assert all((made["a/parts_held__pv.mkv"][f] == want[f]).all() for f in range(n)), [int(x.sum()) for x in made["a/parts_held__pv.mkv"]]
+    assert not (made["a/parts_held__pv.mkv"] & held_by_them).any(), "the pass took a stranger's pixels the carve gave back to her cells"
+    # THE CASE THAT GOES RED when the hole is held at the floor's zoom (1 under least=) or zoom_up_to is not read: margin 8 at the
+    # node's zoom of this part with zoom_up_to 3
+    z = told["margin"]["zoom"]
+    assert z["zoom_up_to"] == 3.0 and z["scale"] > 2.0 and told["margin"]["canvas_px"] == round(8 / z["scale"]), told["margin"]
+    assert made["a/parts__pv.mkv"].tobytes() == fp.tobytes(), "the part as saved changed: it is the record of what was tracked"
+    assert told["head_added_px"] == n * int((fh[0] & ~hole[0] & ~held_by_them[0]).sum()) and seen["hair_in_hole"]["file"] == "subjects/a/hair_in_hole__pv.json", seen.get("hair_in_hole")
+    assert flags == [] and told["lost_asked_on_source_frames"] == []
+    whole_frame, wf_told, _, _ = files(True, zoom_off=True)
+    # THE CASE THAT GOES RED when the files step does not hand the pass her mask's `zoom=off`
+    assert wf_told["margin"]["zoom"]["scale"] == 1.0 and wf_told["margin"]["canvas_px"] == 8, wf_told["margin"]
+    plain, plain_told, plain_seen, _ = files(False)
+    # THE CASE THAT GOES RED when a part not made of Hair (a face-only load) has her head added
+    assert plain_told is None and "hair_in_hole" not in plain_seen and plain["a/parts_held__pv.mkv"].tobytes() == fp.tobytes()
+    # THE GATE: the record's asked frames are refusals at the top level, each with its frames
+    with tempfile.TemporaryDirectory() as tmp:
+        (Path(tmp) / "subjects" / "a").mkdir(parents=True)
+        (Path(tmp) / "subjects" / "a" / "hair_in_hole__pv.json").write_text(json.dumps(rec))
+        got = cap.flag_her_hair({"subjects": [{"label": "a", "sightings": [{"by": "pv"}]}]}, Path(tmp))
+    assert [(f["rule"], f["level"], f["source_frames"]) for f in got] == [
+        ("her_head_lost_in_view", cap.LEVELS[2], [[103, 105]]), ("unclaimed_hair_touches_another", cap.LEVELS[2], [[100, 100]])], got
+    return ("her head outside the hole added less another's and a no-face frame's face; a lost head asked about where SAM held her, "
+            "quiet where it let her go; her unclaimed hair added, asked where it touches another, never outside her room; the marks "
+            "hide, hold her nearest whole head, or leave the hair; the files step writes it into the part to load for a part of Hair only; "
+            "the gate refuses on the asked frames")
+
 def a_reference_with_no_figure() -> str:
     """A replaced subject's reference that is black where the subject is in the load, her part there at or over the capture's floor,
     is a hard flag (2026-10-22, second_hfp_1419c: `<Video 1>` black on 1419-1454, 36 of 47 frames, the body-model fit having found
@@ -3585,6 +3806,7 @@ case("no face on a person's word: her hair kept, the face classes dropped", no_f
 case("depth in the owner map and the files step", depth_in_owner_map_and_the_files_step)
 case("step keep-out carves in the files step and diagnose", step_keepout_carves_in_files_and_diagnose)
 case("preflight: dropped frame with visible face in classes blocks", dropped_frame_with_visible_face_flagged)
+case("her hair in the hole: her head, a lost head, her unclaimed hair, a person's marks", her_hair_in_the_hole)
 case("preflight: a reference with no figure where the subject is in the load", a_reference_with_no_figure)
 sys.exit(finish())
 

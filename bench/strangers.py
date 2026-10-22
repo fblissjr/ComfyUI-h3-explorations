@@ -10,7 +10,9 @@ a close group were. On the lead's 3167-3213 (2026-10-14) the plan's region lay o
 and its margin on chins, mouths and eyes of others; on 3240-3276 a blind reader saw strangers in the margin.
 Read before building in internal/claude/2026-10-14_mrdrill_stranger_read.md; ruled by the lead (form V3).
 
-**What `run` writes.** The part model on the WHOLE frame, a frame at a time, on the preview's own frames of its
+**What `run` writes.** Beside the strangers file, the part model's classes on the whole frame,
+`<preview>_strangers_classes.npz` (`whole_frame_classes` in the record), which the capture reads for her unclaimed hair
+(`capture_masked_run.whole_frame_hair`, 2026-10-22). The part model on the WHOLE frame, a frame at a time, on the preview's own frames of its
 own source, fitted to its canvas as the lane's loader fits it: every pixel it calls human. Less each of the
 preview's subjects' tracks (the files its record lists) grown by `h3_config.MASKED_STRANGERS["grow_px"]`, since the
 part model reaches past the tracker's edge on a subject's own body, and with them each subject's held things and parts
@@ -321,12 +323,21 @@ def run(preview: Path, output: Path, by: str, predict, model: str, say=print) ->
                                                   classes=classes, names=names, own_raw=owned)
     out.parent.mkdir(parents=True, exist_ok=True)
     write_mask_video(out, strangers)
+    # THE WHOLE FRAME'S CLASSES, kept (2026-10-22): the part model has read every person here, and the capture's her-hair-in-hole pass
+    # looks for her hair that no one's mask holds near her (`capture_masked_run.whole_frame_hair`), which her own class map, of her crop
+    # alone, cannot see where the preview did not read her
+    whole = out.with_name(out.stem + "_classes.npz")
+    np.savez_compressed(whole, classes=classes, first=first)
     import load_chain
     a = strangers.reshape(n, -1).sum(1)
     record = {"what": "every person the part model finds on the whole frame, less each of the preview's subjects' own grown; bench/strangers.py",
               "taken_out": OWN_FORM, "subjects_own_taken_out": {label: [str(f) for f in v] for label, v in own.items()},
               "core_classes": list(CORE_CLASSES), "hair_class": HAIR_CLASS, "handed_back": given, "handed_back_said": said_back(given),
               "kept_though_touching": kept_touching,
+              "whole_frame_classes": str(whole),
+              "whole_frame_classes_are": "the part model's class a pixel on the whole frame (`classes` [frames, h, w], uint8, "
+                                         "sapiens2_parts.CLASS_NAMES), frame 0 `first`, the preview's first frame; read by "
+                                         "capture_masked_run.whole_frame_hair",
               "preview": pjob["name"], "preview_folder": str(preview), "source": pjob["source"], "source_size": [sw, sh],
               "source_fitted": "cropped to the canvas's shape and scaled, as the lane's loader fits it (_lib.frames.FIT)" if (sw, sh) != (w, h) else "the canvas's size",
               "first_source_frame": first, "frames": n, "canvas": [w, h], "model": model,
