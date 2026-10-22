@@ -39,10 +39,13 @@ onward, and nothing older is reused.
   §9). A candidate first build tomorrow, before the 1093 pair or after it if the pair renders well: a span word for frames whose
   fit is wrong, which blanks the figure and leaves them out of the box (not `--no-face-on` itself, whose grey body shows a turning
   head on the back-of-head frames).
-- **The cut on the share** is the rebuild started 21:04Z (laid 355df89e); 0278m was laid after it, so the next rebuild takes it.
-- **A code fault for tomorrow:** 4647e's reference crashed in `bench/draw_face_points.py` `find_mesh_chin_y` (IndexError, an index past
-  the 768-row frame; `data/2026-10-22_mrtiger_jobs/chain/second_hfp_4647e.head_reference.out`), likely the cranium crop with her face
-  points off the frame. Fix it before 4647 renders.
+- **The cut on the share** is the 2104Z rebuild (laid 355df89e, registered as the pass-2 source); 0278m was laid after it
+  (laid.jsonl 55208828), so one rebuild is owed. ComfyUI and the review server were stopped at the close (21:58Z).
+- **1419's fresh preview (1419d, on the 2104Z cut) tracks her on 21 of 47 frames**, empty on 1419-1427 and 1437-1453, where
+  1419c's mask was empty too and she was left as the film. Before 1419 renders, the owner says where she is hidden (plan
+  `head_marks`) or boxes her where SAM lost her; the hair check will ask on those frames.
+- **4647e's crash is fixed** (the chin finder held to the picture when a face's points lie off it, landed at the close); it
+  would have hit 1093 on 1125-1127 too. 4647 is remade from its job onward.
 - **The hair check's unclaimed-hair part runs on every load**: from the strangers file's whole-frame part map where there is one
   (other people in the shot), else from her own part map (`capture_masked_run.whole_frame_hair`'s fallback; 1093g's record). Only
   4912's strangers file predates the map: move it aside and its next job makes it again. The lead said otherwise at the close;
