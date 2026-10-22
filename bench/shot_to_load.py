@@ -1974,7 +1974,7 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
 
     old_mouth = old_ref.get("mouth") or {}
     for k in old_mouth:
-        if k not in ("form", "said_by", "why", "no_mouth_on", "mouth_on", "closed_lip_line"):
+        if k not in ("form", "said_by", "why", "no_mouth_on", "mouth_on", "closed_lip_line", "open_mouth"):   # open_mouth: the plan's, made again from it
             raise Refused(f"--carry-words-from {old_name}: word-bearing key 'job.reference.mouth.{k}' in old job cannot be carried")
     if old_mouth.get("said_by") not in (None, "the chain's default", "the plan") and not str(old_mouth.get("why") or "").startswith("silent window "):
         raise Refused(f"--carry-words-from {old_name}: word-bearing setting 'reference.mouth' (said_by {old_mouth.get('said_by')!r}) cannot be carried by job")
@@ -2927,7 +2927,10 @@ def reference_block(form: str, why: str, by: str, now: str, record: Path, points
 #: leaving the mouth out, and every mark clipped to the grey head's silhouette (`head_reference --closed-lip-line`), and the
 #: eye in the contrast form (white sclera, black iris, 264c0840). A subject's plan may say otherwise (`reference: {mouth, iris,
 #: closed_lip_line, why}`), and a load at its job (`--no-closed-lip-line WHY`) or reference step (`--no-closed-lip-line
-#: --form-why WHY`), each with its reason.
+#: --form-why WHY`), each with its reason. An open mouth under the closed-lip line is drawn as one white outline round the inner-lip
+#: ring filled dark unless the subject's plan says `reference: {open_mouth, why}` (`draw_face_points.OPEN_MOUTH_FORMS`; the owner,
+#: 2026-10-22, on lead_fp_1156d: the lead's outlined, on the class map's lips and to the face's size, the other subjects as they are),
+#: carried to `head_reference --open-mouth`.
 REFERENCE_DEFAULT = {"mouth": "auto", "iris": "contrast", "closed_lip_line": True}
 
 
@@ -2978,6 +2981,12 @@ def reference_form(p: dict, subject: str) -> dict:
         if said["darken_head"] is not True:
             raise Refused(f"the plan's `reference.darken_head` for {subject!r} is {said['darken_head']!r}: `true` with `why`, or leave it out")
         out["darken_head"] = {"said_by": "the plan", "why": " ".join(str(said["why"]).split())}
+    if "open_mouth" in said:
+        if said["open_mouth"] not in draw_face_points.OPEN_MOUTH_FORMS:
+            raise Refused(f"the plan's `reference.open_mouth` for {subject!r} is {said['open_mouth']!r}: one of {draw_face_points.OPEN_MOUTH_FORMS}")
+        if not (out["mouth"].get("closed_lip_line") or {}).get("on"):
+            raise Refused(f"the plan's `reference.open_mouth` for {subject!r} is a form of the closed-lip line's drawing, which is off for them")
+        out["mouth"]["open_mouth"] = {"form": said["open_mouth"], "said_by": "the plan", "why": " ".join(str(said["why"]).split())}
     if "head_track" in said:
         ht_val = said["head_track"]
         if isinstance(ht_val, dict):
@@ -3059,10 +3068,13 @@ def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: di
          + "".join(f"; NONE on {s['first']}-{s['last']}, turned off on a person's word" for s in mouth.get("no_mouth_on") or [])
          + "".join(f"; DRAWN on {s['first']}-{s['last']} where the gate drops it, the pose model's lip rings, on a person's word" for s in mouth.get("mouth_on") or [])
          + ("; CLOSED LIPS as one parting line where no teeth or tongue show (head_reference --closed-lip-line)" if cl_on else "")
-         + ("; closed-lip line OFF, turned off on a person's word" if cl_off else ""),
+         + ("; closed-lip line OFF, turned off on a person's word" if cl_off else "")
+         + (f"; OPEN MOUTHS {mouth['open_mouth']['form'].upper()} (head_reference --open-mouth, draw_face_points.OPEN_MOUTH_FORMS)"
+            if cl_on and mouth.get("open_mouth") else ""),
          f"{mouth['said_by']}: {mouth['why']}" + "".join(f"; {s['first']}-{s['last']}: {s['said_by']}, {s['at']}: {s['why']}"
                                                        for s in (mouth.get("no_mouth_on") or []) + (mouth.get("mouth_on") or []))
-         + cl_from),
+         + cl_from
+         + (f"; open_mouth: {mouth['open_mouth']['said_by']}: {mouth['open_mouth']['why']}" if cl_on and mouth.get("open_mouth") else "")),
         *([("the part held on a person's word", "on " + mine["word"].replace("+", ", ") + ": frames the capture's grade leaves empty there take "
             "the nearest graded part, moved and cut to the track (capture_masked_run.word_shapes)", mine["word_by"])] if mine.get("word") else []),
         *([("the face lines", "NONE on " + ", ".join(f"{s['first']}-{s['last']}" for s in ref_form["no_face_on"]) + ", turned off on a person's word "
@@ -3668,6 +3680,12 @@ def step_reference(a, world, figures=figures_of) -> None:
                 raise again(f"--existing: {record} was not drawn with --closed-lip-line: the reference is made again, in a new folder")
             if (getattr(a, "no_closed_lip_line", False) or (isinstance(cl_cfg, dict) and not cl_cfg.get("on", True))) and (mouth.get("closed_lip_line") or {}).get("on"):
                 raise again(f"--existing: {record} was drawn with --closed-lip-line and this load turns it off: the reference is made again, in a new folder")
+            import draw_face_points
+            want_om = ((ref_said.get("mouth") or {}).get("open_mouth") or {}).get("form") or draw_face_points.OPEN_MOUTH_FORMS[0]
+            drew_om = (mouth.get("closed_lip_line") or {}).get("open_mouth") or draw_face_points.OPEN_MOUTH_FORMS[0]
+            if want_cl and (mouth.get("closed_lip_line") or {}).get("on") and want_om != drew_om:
+                raise again(f"--existing: {record} drew an open mouth {drew_om!r} and the job asks for {want_om!r} (the plan's reference.open_mouth): "
+                            "the reference is made again, in a new folder")
         if (getattr(a, "darken_head", False) or ref_said.get("darken_head")) and not (md.get("darken_head") or {}).get("on"):
             raise again(f"--existing: {record} was not drawn with --darken-head: the reference is made again, in a new folder")
         ht_cfg = ref_said.get("head_track") if "head_track" in ref_said else job.get("sam_head_track")
@@ -3809,6 +3827,10 @@ def drawn_form(job: dict, a, files: dict, preview_first: int) -> list:
         if mouth not in ("auto", "left out"):
             raise Refused(f"--closed-lip-line acts on the mouth by the check (auto) or left out on a silent window; this load's mouth is {mouth!r}")
         out += ["--closed-lip-line", cl]
+        # an open mouth's form, the plan's (`reference.open_mouth`); a job without it draws the default, so its command is as before
+        om = (said.get("mouth") or {}).get("open_mouth")
+        if om:
+            out += ["--open-mouth", om["form"]]
     dh = (" ".join(a.form_why.split()) if getattr(a, "darken_head", False) else
           f"{said['darken_head']['said_by']}: {said['darken_head']['why']}" if said.get("darken_head") else "")
     if dh:

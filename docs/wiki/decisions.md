@@ -50,6 +50,45 @@ Older history lives elsewhere and is not copied here:
   (`context_held_across_a_cut`) and holds the mask all the same. Every padded window's region file and plan row now say
   which form it took. Until this entry the docs said the context frames were always untouched. Not yet rendered; it needs a
   ComfyUI restart. Branch claude-context-cover.
+- **The lead's open mouth is capped, and the text names it** (the owner, on lead_fp_1156d at source 1188, where the open
+  mouth rendered as solid black lips: "we made the black hole too large ... we need a max threshold", then "that sounds like
+  the simplest solution. that and the prompt aligning to it"). A subject's plan may now say `reference: {open_mouth, why}`
+  (`bench/draw_face_points.py::OPEN_MOUTH_FORMS`), carried to `head_reference --open-mouth` and kept in the record's
+  `drawn.mouth.closed_lip_line.open_mouth`. Under `capped` the dark inside is the pose model's inner-lip ring cut to the class
+  map's open inside, at most `MOUTH_OPEN_SHARE_MOST` of the outer lips; `<Subject 2>`'s sentence adds "the mouth is drawn as a
+  white outline, dark inside where it is open, and it opens and closes where the person's mouth does" (`bench/load_text.py::
+  MOUTH_CLAUSE`). Without the field nothing changes: the second's and the third's drawings, commands and texts are as before,
+  the 0415 fixture byte for byte. What the prose said until now: section 7 of `docs/masked_v2v/AGENTS.md` said every
+  face-drawn load uses one sentence "without mentioning mouth/lips" and that an open mouth is the inner outline round the
+  black inside, the whole inner-lip ring filled (the form since 6ead729f and b270be7e). Two alternatives are built and are
+  no subject's form: `outlined` (the lips' outer outline as well, the lips painted flat exactly inside it, as lead_fp_1156c
+  drew) and `outlined over the lips` (no paint). Branch claude-mouth-outline.
+- **The lead's open mouth is outlined, on the class map's lips and to the face's size; every subject's eyes are named with a dark
+  iris** (the owner, after the side-by-side of the entry above: at 1176 the whole mouth "gigantic for the face", "it needs to scale
+  with zoom and size. closeup and far away. and be drawn on the sapiens2 mouth NOT above it"; then the wording approved and relayed by
+  the lead). The lead's plan form is now `outlined`, not `capped` as the entry above said: `bench/draw_face_points.py::anchored_mouth`
+  places the pose rings on the class map's lips and shrinks the whole mouth to `MOUTH_WIDTH_MOST` and `MOUTH_OPENING_MOST` of the
+  upper face (glabella to the bottom of the nose). `<Subject 2>`'s sentence under the closed-lip line read ", with facial features drawn
+  on its face as thin white outlines, where the eyes open, close and look where the person's eyes do" and now reads ", with its face
+  drawn as thin white outlines: the eyes, each with a dark iris, open, close and look where the person's eyes do" (a load that draws no
+  eye keeps the old words); the lead's clause read "; the mouth is drawn as a white outline, dark inside where it is open, ..." (for
+  `capped`, the entry above) and is now "; where the mouth is open, the lips are outlined and it is dark inside, and the mouth opens and
+  closes where the person's mouth does", for `outlined` only. The owner's 0415 fixture text changes by the eye words alone, kept as an
+  approved change beside the owner's text as written (`bench/fixtures/load_text_second_0415l.json`, `approved_changes`). Branch
+  claude-mouth-outline.
+- **Where a face is drawn, the text says the eyes' look and the mouth's opening are transferred and followed** (the owner's approval,
+  relayed by the lead, in these words), for every subject. `<Subject 2>`'s retention line read "attribute_transfer - the movements of
+  the head and the facial expressions and eye movements are transferred to <Subject 1>." and now reads "attribute_transfer - the
+  movements of the head, the facial expressions, where the eyes look and how far the mouth opens are transferred to <Subject 1>.";
+  `[Shot 1]`'s "<Subject 1> performs <Subject 2>: she follows the movements of the head and the facial expressions of the figure." now
+  reads "... of the figure, her eyes looking where its eyes look and her mouth opening and closing where its mouth does." (the plan's
+  pronouns; `bench/load_text.py::TRANSFERRED_DRAWN`, `FOLLOWS_DRAWN`). A hair load and a plain cut keep the lines before. The 0415
+  fixture's text changes by these two lines, kept in its `approved_changes`. Branch claude-mouth-outline.
+- **A face-and-hair subject with no hair change keeps "the woman's face and blonde hair from <Picture 1>"** (the owner, once the second
+  subject's shortening was taken out of her plan). Her `<Subject 1>` retention line read "partially_preserved - only the woman's face
+  and her blonde hair are retained, wherever they show." and now reads "partially_preserved - the woman's face and blonde hair from
+  <Picture 1> are retained." (the noun from `who`, the hair from `picture_hair`); the summary and `[Shot 1]` are as they were, and a
+  hair change keeps its own line. Branch claude-mouth-outline.
 
 ## 2026-10-21
 

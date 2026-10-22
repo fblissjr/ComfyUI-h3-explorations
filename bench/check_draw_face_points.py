@@ -653,6 +653,201 @@ def the_iris_between_the_lids() -> str:
             "is drawn closed and one wholly outside not at all; on nearly shut lids the default draws open stretches and `whole` both rings closed; "
             "when clipped to the grey head silhouette, the white sclera stays a line's width inside the head's edge and nothing bleeds into black space")
 
+
+def an_open_mouth_capped() -> str:
+    """The owner, 2026-10-22, on lead_fp_1156d at source 1188: the open mouth drawn as one white outline round the pose model's whole
+    inner-lip ring filled black rendered as solid black lips ("we made the black hole too large ... we need a max threshold"). Under
+    every open-mouth form but the first (`OPEN_MOUTH_FORMS`; the lead's is "capped") the dark inside is the inner ring cut to the class
+    map's open inside, and at most `MOUTH_OPEN_SHARE_MOST` of the outer lips, shrunk about its own centre."""
+    import cv2
+    assert df.OPEN_MOUTH_FORMS == ("inner outline", "capped", "outlined", "outlined over the lips"), df.OPEN_MOUTH_FORMS
+    assert 0 < df.MOUTH_OPEN_SHARE_MOST < 1
+    area = lambda poly: float(cv2.contourArea(np.asarray(poly, np.float32)))          # noqa: E731
+    fill = lambda poly: cv2.fillPoly(np.zeros((H, W), np.uint8), [np.round(poly).astype(np.int32)], 1).astype(bool)  # noqa: E731
+    t = np.linspace(0, 2 * np.pi, 24, endpoint=False)
+    ring = lambda cx, cy, rx, ry: np.stack([cx + rx * np.cos(t), cy + ry * np.sin(t)], 1)     # noqa: E731
+    outer = ring(190, 140, 40, 22)
+    wide = ring(190, 140, 34, 18)                 # an inner ring of 0.70 of the outer: the lead's widest frames drew 0.69
+    # THE CASE THAT GOES RED when the dark inside is not capped: no class map, so the share alone; shrunk about its own centre
+    alone = df.capped_inside(wide, None, outer, (W, H))
+    assert area(alone) <= df.MOUTH_OPEN_SHARE_MOST * area(outer) + 1.0 and area(alone) >= df.MOUTH_OPEN_SHARE_MOST * area(outer) - 1.0, \
+        (area(alone) / area(outer))
+    assert np.allclose(alone.mean(0), wide.mean(0), atol=0.5), "the capped inside moved"
+    small = ring(190, 140, 20, 6)
+    assert np.array_equal(df.capped_inside(small, None, outer, (W, H)), small), "an inside under the share was changed"
+    # THE CASE THAT GOES RED when the class map's open inside does not cut the dark inside: only where both are
+    teeth = np.zeros((H, W), bool); teeth[132:149, 170:205] = True
+    cut = df.capped_inside(wide, teeth, outer, (W, H))
+    assert not (fill(cut) & ~cv2.dilate(teeth.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)).any(), "dark outside the class map's inside"
+    assert area(cut) <= df.MOUTH_OPEN_SHARE_MOST * area(outer) + 1.0 and fill(cut).sum() >= 0.8 * (fill(wide) & teeth).sum(), area(cut)
+    # where the cut leaves nothing (the class map's inside off the ring), the ring itself, capped
+    away = np.zeros((H, W), bool); away[10:20, 10:20] = True
+    assert np.array_equal(df.capped_inside(wide, away, outer, (W, H)), alone)
+    # THROUGH THE DRAWING: the default draws the inner ring whole, "capped" its capped inside, both one outline, nothing else
+    whole = fill(outer); hole = fill(wide)
+    share = {}
+    for form in ("inner outline", "capped"):
+        inner = wide if form == "inner outline" else df.capped_inside(wide, None, outer, (W, H))
+        pic = df.draw(grey([110]), [[("inner_lip_ring", inner, True)]], WIDE, set(), False, mouths=[(whole, fill(inner))], smooth_lips=True, open_mouth=form)[0]
+        share[form] = int((pic[100:180, 140:240].max(-1) < 40).sum()) / int(whole.sum())
+    assert share["capped"] <= df.MOUTH_OPEN_SHARE_MOST < share["inner outline"], share
+    # THROUGH `run`: the record says the form; "capped" passes the read-back
+    rec = df.run(str(MESH), str(POINTS), 0, N, WORK / "capped.mp4", "the check", width=WIDE, closed_lip_line=True, open_mouth="capped", say=quiet)
+    assert rec["passed"] and rec["open_mouth"] == "capped", rec.get("open_mouth")
+    return (f"the dark inside is cut to the class map's open inside and at most {df.MOUTH_OPEN_SHARE_MOST:g} of the outer lips, shrunk about "
+            "its own centre; an inside under that share is unchanged; the default draws the ring whole; the record says the form")
+
+
+def an_open_mouth_outlined() -> str:
+    """The owner, 2026-10-22, on lead_fp_1156d at source 1188: the open mouth drawn as one white outline round a black inside, over the
+    body model's own grey lips, rendered as solid black lips ("there needs to be white outlines"). Under `"outlined"`
+    (`OPEN_MOUTH_FORMS`) an open mouth keeps the lips' outer outline as well, on both paths, fitted to the grey head with the inner one;
+    the sculpted lips are painted out exactly inside the outer outline (never grown or blurred: `smooth_mouth_area` was retired on
+    2026-10-20 for spreading onto lips, chin and hands), or not at all under `"outlined over the lips"`. A closed mouth is unchanged."""
+    import cv2
+    from PIL import Image
+    whole = np.zeros((H, W), bool); whole[118:162, 150:231] = True
+    shut = np.zeros((H, W), bool)
+    hole = np.zeros((H, W), bool); hole[134:146, 170:211] = True
+    # THE CASE THAT GOES RED when an open class-map mouth under the closed-lip line drops its outer outline in the outlined form
+    open_shapes = df.mouth_shapes(whole, hole, closed_as_line=True, outlined=True)
+    assert [n for n, _, c in open_shapes] == ["mouth_outer", "mouth_inner"] and all(c for _, _, c in open_shapes), open_shapes
+    assert df.inside(open_shapes[1][1], np.vstack([open_shapes[0][1]])).mean() >= 0.9, "the inner edge does not lie inside the outer outline"
+    # the default form is as before: the inner outline alone, open; and a closed mouth is the parting line alone in every form
+    assert [n for n, _, _ in df.mouth_shapes(whole, hole, closed_as_line=True)] == ["mouth_inner"]
+    for outlined in (False, True):
+        closed = df.mouth_shapes(whole, shut, closed_as_line=True, outlined=outlined)
+        # THE CASE THAT GOES RED when a closed mouth gains an outline in the outlined form
+        assert [n for n, _, c in closed] == ["mouth_closed"] and not closed[0][2], closed
+    # THE LIP-LINE PATH: the pose model's outer ring, the one `lip_shape` fills
+    p0 = face(CENTRES[:1])[0]
+    rings = df.lip_rings(p0, INDEX)
+    assert set(rings) == {"outer", "inner"} and df.inside(rings["inner"], rings["outer"]).mean() >= 0.9, rings
+    # THE FIT, both outlines moved as one and both inside the grey head's mouth-to-chin space (a mouth pushed past the chin, as in M8)
+    chin_mesh = grey([120]); chin_mesh[0, 160:, :] = 0
+    kp_low = p0.copy()
+    for k_m, i_m in INDEX.items():
+        if "lip" in k_m or "mouth" in k_m or "cupid" in k_m or "labiomental" in k_m or "chin" in k_m:
+            kp_low[i_m, 1] += 26.0
+    low_whole = np.zeros((H, W), bool); low_whole[152:174, 170:210] = True
+    low_hole = np.zeros((H, W), bool); low_hole[156:170, 175:205] = True
+    sh_low, masks_low = df.lip_shape(kp_low, INDEX, (W, H), (low_whole, low_hole))
+    assert sh_low[0] == "inner_lip_ring", sh_low
+    outer_low = ("outer_lip_ring", df.lip_rings(kp_low, INDEX)["outer"], True)
+    fitted, (f_whole, f_hole) = df.fit_mouth_shapes_to_head(chin_mesh[0], kp_low, INDEX, [outer_low, sh_low], masks_low)
+    chin_y = df.find_mesh_chin_y(chin_mesh[0], kp_low, INDEX)
+    sil = df.head_silhouette(chin_mesh[0], erode_px=df.HEAD_SILHOUETTE_ERODE_PX + 1, p=kp_low, index=INDEX)
+    # THE CASE THAT GOES RED when the outer outline is left where the person's lips are, past the grey head's chin, or off the head
+    for name, pts, _ in fitted:
+        assert float(pts[:, 1].max()) <= chin_y - df.MOUTH_CHIN_CLEAR_MIN_PX + 0.5, (name, float(pts[:, 1].max()), chin_y)
+        assert sil[np.clip(np.round(pts[:, 1]).astype(int), 0, H - 1), np.clip(np.round(pts[:, 0]).astype(int), 0, W - 1)].all(), name
+    assert [n for n, _, _ in fitted] == ["outer_lip_ring", "inner_lip_ring"] and df.inside(fitted[1][1], fitted[0][1]).mean() >= 0.9, fitted
+    assert f_hole.any() and np.nonzero(f_hole)[0].max() <= int(chin_y - df.MOUTH_CHIN_CLEAR_MIN_PX) + 1
+    # one shape alone is fitted as before (`fit_mouth_to_head`, the inner outline's path)
+    one, one_m = df.fit_mouth_to_head(chin_mesh[0], kp_low, INDEX, sh_low, masks_low)
+    many, many_m = df.fit_mouth_shapes_to_head(chin_mesh[0], kp_low, INDEX, [sh_low], masks_low)
+    assert one[0] == many[0][0] and np.array_equal(one[1], many[0][1]) and np.array_equal(one_m[0], many_m[0]) and np.array_equal(one_m[1], many_m[1])
+    # THE PAINT-OUT: exactly the filled outer outline, on every open frame. Three frames: the class map's outlines, the pose model's
+    # fitted ones, and an outer outline running off the head's side (the head's silhouette cuts it)
+    side = grey([120])[0]; side[:, 205:] = 0
+    side_head = df.head_silhouette(side, erode_px=2)
+    frames = [(grey([120])[0], open_shapes, None), (chin_mesh[0], fitted, None), (side, open_shapes, side_head)]
+    big = (W * df.SUPER, H * df.SUPER)
+    for k, (frame, drawing, head) in enumerate(frames):
+        got = df.lips_paint_out(frame, drawing, big, head)
+        assert got is not None, k
+        paint = np.asarray(got[1]) > 0
+        outer = next(pts for n, pts, _ in drawing if n in df.OUTER_MOUTHS)
+        filled = cv2.fillPoly(np.zeros(big[::-1], np.uint8), [np.round(outer * df.SUPER).astype(np.int32)], 1)
+        on_head = np.ones(big[::-1], bool) if head is None else np.asarray(Image.fromarray(head.astype(np.uint8) * 255).resize(big, Image.NEAREST)) > 0
+        # THE CASE THAT GOES RED when the paint-out is grown, blurred or an oval: a painted pixel outside the filled outer outline
+        # (one picture pixel of rasterising allowed, at SUPER times the frame) or off the grey head
+        assert not (paint & ~cv2.dilate(filled, np.ones((3, 3), np.uint8)).astype(bool)).any() and not (paint & ~on_head).any(), k
+        # and it paints the lips: every pixel of the filled outer outline on the head, two in from its edge (two rasterisers' corners)
+        assert paint.any() and not (cv2.erode(filled, np.ones((5, 5), np.uint8)).astype(bool) & on_head & ~paint).any(), k
+    assert df.lips_paint_out(grey([120])[0], [("mouth_inner", open_shapes[1][1], True)], (W * df.SUPER, H * df.SUPER)) is None
+    # THE PICTURE: a body model with sculpted lips (a bright ridge between the outlines, a dark groove below the outer one)
+    sculpted = grey([110]); sculpted[0, 124:130, 160:220] = 160; sculpted[0, 165:170, 160:220] = 60
+    pics = {form: df.draw(sculpted, [open_shapes if form in df.OPEN_MOUTH_FORMS[2:] else open_shapes[1:]], WIDE, set(), False,
+                          mouths=[(whole, hole)], smooth_lips=True, open_mouth=form)[0] for form in df.OPEN_MOUTH_FORMS}
+    painted, over, inner_only = pics["outlined"], pics["outlined over the lips"], pics["inner outline"]
+    outer_rows = np.nonzero(painted[112:124, 190].min(-1) > df.WHITE)[0]
+    # THE CASE THAT GOES RED when the outer outline is not drawn white in the outlined forms, or is drawn in the inner outline's
+    assert outer_rows.size and (over[112:124, 190].min(-1) > df.WHITE).any() and not (inner_only[112:124, 190].min(-1) > df.WHITE).any(), outer_rows
+    assert painted[140, 190].max() < 40 and over[140, 190].max() < 40 and inner_only[140, 190].max() < 40, "the open inside is not dark"
+    # the ridge between the outlines painted out to the grey round them in "outlined", left as it is "over the lips"
+    assert abs(int(painted[127, 175, 0]) - 110) <= 12 and int(over[127, 175, 0]) >= 150, (painted[127, 175], over[127, 175])
+    # nothing outside the outer outline differs between the painted and the unpainted form (the groove below stays in both)
+    diff = (painted.astype(int) - over.astype(int)).any(-1)
+    near_outer = cv2.dilate(cv2.fillPoly(np.zeros((H, W), np.uint8), [np.round(open_shapes[0][1]).astype(np.int32)], 1), np.ones((7, 7), np.uint8)).astype(bool)
+    # THE CASE THAT GOES RED when painting spreads past the outer outline and its line (the 2026-10-20 smudge)
+    assert not (diff & ~near_outer).any() and np.array_equal(painted[166:170, 190], over[166:170, 190]) and abs(int(painted[168, 190, 0]) - 60) <= 8, \
+        (int((diff & ~near_outer).sum()), painted[160:170, 190, 0], over[160:170, 190, 0])
+    assert np.array_equal(df.draw(sculpted, [[open_shapes[1]]], WIDE, set(), False, mouths=[(whole, hole)], smooth_lips=True)[0],
+                          df.draw(sculpted, [[open_shapes[1]]], WIDE, set(), False, mouths=[(whole, hole)], smooth_lips=True, open_mouth="inner outline")[0])
+    # THROUGH `run`: the record says the form; a form that is not one, and an outlined form without the closed-lip line, are refused
+    for form in df.OPEN_MOUTH_FORMS:
+        rec = df.run(str(MESH), str(POINTS), 0, N, WORK / "om.mp4", "the check", width=WIDE, closed_lip_line=True, open_mouth=form, say=quiet)
+        assert rec["passed"] and rec["open_mouth"] == form, (form, rec.get("open_mouth"))
+    for bad, words in ((dict(closed_lip_line=True, open_mouth="lips"), "one of"), (dict(open_mouth="outlined"), "closed-lip-line")):
+        try:
+            df.run(str(MESH), str(POINTS), 0, N, WORK / "om_bad.mp4", "the check", width=WIDE, say=quiet, **bad)
+        except SystemExit as exc:
+            assert words in str(exc), exc
+        else:
+            raise AssertionError(f"{bad}: accepted")
+    return ("under the closed-lip line an open mouth outlined keeps the lips' outer outline on both paths, fitted with the inner one inside the "
+            "grey head's mouth-to-chin space; the paint-out is the filled outer outline and nothing round it, cut to the head; over the lips "
+            "it paints nothing; a closed mouth is the parting line in every form; the default form draws as before; bad forms refused")
+
+def an_outlined_mouth_on_the_class_maps_lips() -> str:
+    """The owner, 2026-10-22, on lead_fp_1156d: "it needs to scale with zoom and size. closeup and far away. and be drawn on the sapiens2
+    mouth NOT above it", and at 1176 the whole mouth gigantic for the face. The outlined forms' open mouth (`anchored_mouth`) takes its
+    place and extent from the class map's lips, its shape from the pose rings, and is shrunk about its centre to `MOUTH_WIDTH_MOST` and
+    `MOUTH_OPENING_MOST` of the upper face (`upper_face`); a frame whose class map holds no lips takes its nearest neighbour's."""
+    import cv2
+    fill = lambda poly: cv2.fillPoly(np.zeros((H, W), np.uint8), [np.round(poly).astype(np.int32)], 1).astype(bool)  # noqa: E731
+    p0 = face([(190.0, 110.0)])[0]
+    uf = df.upper_face(p0, INDEX)
+    assert abs(uf - float(np.linalg.norm(p0[INDEX["center_of_glabella"]] - p0[INDEX["bottom_center_of_nose"]]))) < 1e-6
+    # lips a little lower and narrower than the pose rings: the drawn mouth goes where the class map's lips are, not where the points are
+    rings = df.lip_rings(p0, INDEX)
+    lips = np.zeros((H, W), bool); lips[134:150, 175:204] = True                # 29 px wide: 0.83 of the upper face, under the limit
+    hole = np.zeros((H, W), bool); hole[139:145, 178:201] = True
+    o, i, figs = df.anchored_mouth(p0, INDEX, lips, hole, (W, H))
+    # THE CASE THAT GOES RED when the mouth is placed on the pose points and not on the class map's lips
+    assert figs["shrunk_by"] == 1.0 and np.allclose(o.min(0), [175, 134], atol=0.5) and np.allclose(o.max(0), [204, 150], atol=0.5), (o.min(0), o.max(0))
+    assert abs(rings["outer"][:, 1].mean() - o[:, 1].mean()) > 3, "the class map's lips were placed where the pose rings already were"
+    assert not (fill(i) & ~cv2.dilate(hole.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)).any(), "dark outside the class map's inside"
+    # THE CASE THAT GOES RED when a mouth larger than the face's limits is drawn as large: shrunk about its centre to the limits
+    big = np.zeros((H, W), bool); big[120:170, 160:220] = True                 # 60 px wide, 1.7 upper faces
+    bhole = np.zeros((H, W), bool); bhole[125:165, 165:215] = True
+    bo, bi, bf = df.anchored_mouth(p0, INDEX, big, bhole, (W, H))
+    assert bf["shrunk_by"] < 1.0 and np.ptp(bo[:, 0]) <= df.MOUTH_WIDTH_MOST * uf + 0.5 and np.ptp(bi[:, 1]) <= df.MOUTH_OPENING_MOST * uf + 0.5, bf
+    assert np.allclose(0.5 * (bo.min(0) + bo.max(0)), [190, 145], atol=0.6), "the shrunk mouth moved"
+    # THE CASE THAT GOES RED when the limits do not scale with the face: the same face and lips at twice the size give the same mouth, twice
+    big2 = cv2.resize(big.astype(np.uint8), (W * 2, H * 2), interpolation=cv2.INTER_NEAREST).astype(bool)
+    bhole2 = cv2.resize(bhole.astype(np.uint8), (W * 2, H * 2), interpolation=cv2.INTER_NEAREST).astype(bool)
+    bo2, bi2, bf2 = df.anchored_mouth(p0 * 2, INDEX, big2, bhole2, (W * 2, H * 2))
+    assert abs(bf2["shrunk_by"] - bf["shrunk_by"]) < 0.02 and abs(np.ptp(bo2[:, 0]) - 2 * np.ptp(bo[:, 0])) < 1.5, (bf, bf2)
+    # THROUGH `run`, the lip lines' path as head_reference gives it: each frame's lips under its own points, one frame with none, which
+    # takes its nearest neighbour's; the record says so, and the limits
+    kp = face(CENTRES)
+    mouths = []
+    for k in range(N):
+        r_k = df.lip_rings(kp[k], INDEX)
+        mouths.append((fill(r_k["outer"]), fill(r_k["inner"])))
+    mouths[3] = None
+    rec = df.run(str(MESH), str(POINTS), 0, N, WORK / "outlined.mp4", "the check", width=WIDE, closed_lip_line=True, open_mouth="outlined",
+                 mouths=mouths, mouth_lines=False, say=quiet)
+    said = rec["outlined_mouth"]
+    assert rec["passed"] and said["frames_on_a_neighbours_lips"] == {"3": 2} and said["limits"]["width_most"] == df.MOUTH_WIDTH_MOST, said
+    assert len(said["frames_shrunk_to_the_face"]) == N, said                    # the fixture's lips are 1.14 upper faces wide
+    return (f"the outlined mouth sits on the class map's lips, its dark inside within theirs; over {df.MOUTH_WIDTH_MOST:g} of the upper face "
+            f"wide or {df.MOUTH_OPENING_MOST:g} open it is shrunk about its centre, the same at twice the size; a frame with no lips takes its "
+            "neighbour's, in the record")
+
+
 case("the iris between the lids", the_iris_between_the_lids)
 case("her eyes shut on a person's word, in either form", eyes_shut)
 case("the lines run through their points in order, and are as long as they say", in_order_and_as_long)
@@ -665,6 +860,9 @@ case("a body-model video off the source's clock: the figures are printed and rec
 case("an iris or a pupil ring is left out under the score line", eye_rings_by_score)
 case("the width rule, and lines too thin to read back", the_width_rule)
 case("a part left out is not drawn, and a highlight is not a line", left_out_and_highlights)
+case("an open mouth capped under the closed-lip line", an_open_mouth_capped)
+case("an open mouth outlined under the closed-lip line", an_open_mouth_outlined)
+case("an outlined mouth on the class map's lips, to the face's size", an_outlined_mouth_on_the_class_maps_lips)
 case("what it refuses", refusals)
 shutil.rmtree(WORK, ignore_errors=True)
 sys.exit(finish())

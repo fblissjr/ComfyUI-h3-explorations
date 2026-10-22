@@ -25,8 +25,11 @@ records. Until 2026-10-15 a person wrote the shot's place and action, once; no l
 - `<Subject 2>`'s sentence: the reference's record. "a closer view of the head and shoulders" (the lead's ruling of
   2026-10-14: the fewest words, nothing typed by sight); the parts drawn (`drawn.parts_left_out`: eyes, eyebrows, nose,
   and the mouth when drawn); the eyes' clause by the iris form (`drawn.iris`); the mouth's clause when it is drawn
-  (`drawn.mouth.drawn`), dark inside where it is open when its inside is the class map's (`drawn.mouth.inside`). A plain cut
-  (no drawing) has no outline clause.
+  (`drawn.mouth.drawn`), dark inside where it is open when its inside is the class map's (`drawn.mouth.inside`). Under the
+  closed-lip line (`drawn.mouth.closed_lip_line`) one sentence: the face drawn as thin white outlines and the eyes, each with a dark
+  iris (`FACE_EYES`; `FACE_NO_EYES` where no eye is drawn), and the mouth's clause (`MOUTH_CLAUSE`) only where the record's open-mouth
+  form has words (`closed_lip_line.open_mouth`, the plan's `reference.open_mouth`: the outlined form; the owner, 2026-10-22) and a
+  mouth is drawn on the load. A plain cut (no drawing) has no outline clause.
 - The summary and `[Shot 1]`: who the subject is and what of <Picture 1> it has (draft_7's form, 2026-10-15): "<Subject 1>,
   with the face of <Picture 1>, performs <Subject 2>." and "<Subject 1>, <who> with <hair_words>, has the face of <Picture 1>.",
   with the face and the hair, or the hair alone, by the plan's region and its `text.hair_change`. No place-and-action sentence.
@@ -39,7 +42,12 @@ records. Until 2026-10-15 a person wrote the shot's place and action, once; no l
   named is refused (`clothing_of`, `NO_CLOTHING`); the job step refuses the same, before anything is made.
 - `<Subject 1>`'s retention line on a load of the face alone: "the girl's face from <Picture 1> is retained." (the owner,
   2026-10-22, in the face-and-hair form's words; it listed "her eyes, eyebrows, nose, mouth and skin" until then), the noun
-  from `who`; a face-and-hair or a hair load keeps its own line.
+  from `who`; a face-and-hair load with no hair change reads "the woman's face and blonde hair from <Picture 1> are retained."
+  (`picture_hair`; the owner, 2026-10-22; "only the woman's face and her blonde hair are retained, wherever they show" until then);
+  a hair change or a hair load keeps its own line.
+- Where a face is drawn (`TRANSFERRED_DRAWN`, `FOLLOWS_DRAWN`, the owner's approval of 2026-10-22): `<Subject 2>`'s retention line
+  transfers the head's movements, the expressions, where the eyes look and how far the mouth opens, and [Shot 1] has her eyes and mouth
+  follow its; a hair load and a plain cut keep the lines below.
 - `<Subject 2>`'s retention line: fixed, the movements of the figure (`TRANSFERRED`: "and eye movements" where a face is
   replaced, the owner's text of 2026-10-22). The soundscape and the music: the pack's one generic pair, `masked_prompt_text.py`'s
   `SOUNDSCAPE` and `MUSIC` ("non_diegetic_music: N/A" since 2026-10-22; "A song plays throughout." until then).
@@ -102,6 +110,23 @@ EYES = {"whole": "the eyes are outlined with the iris inside them",
         "between the lids": "the eyes are outlined with the iris inside them",
         "filled": "the eyes are outlined with a dark iris inside them",
         "contrast": "inside each eye's outline the white of the eye is white and the iris black"}
+#: THE CLOSED-LIP LINE'S SENTENCE (the owner's approval of 2026-10-22, relayed by the lead, in these words): the face drawn and, where the
+#: eyes are drawn, each with a dark iris (everyone's eye drawing on claude-dark-iris); until then ", with facial features drawn on its
+#: face as thin white outlines, where the eyes open, close and look where the person's eyes do". Where no eye is drawn, the words before
+#: (`FACE_NO_EYES`), unchanged.
+FACE_EYES = ", with its face drawn as thin white outlines: the eyes, each with a dark iris, open, close and look where the person's eyes do"
+FACE_NO_EYES = ", with facial features drawn on its face as thin white outlines"
+#: THE MOUTH'S CLAUSE under the closed-lip line, by the reference record's open-mouth form (`drawn.mouth.closed_lip_line.open_mouth`,
+#: `draw_face_points.OPEN_MOUTH_FORMS`; the plan's `reference.open_mouth`): only the outlined form, the lead's (the owner's approval of
+#: 2026-10-22, these words; "the prompt should go back to something that tells it to follow the ref video"; tied to the open mouth, since
+#: a closed frame draws nothing and shows the body model's own lips). Every other form, and a record without the field, names no mouth,
+#: as since b270be7e (2026-10-20).
+MOUTH_CLAUSE = {"outlined": ("where the mouth is open, the lips are outlined and it is dark inside, and the mouth opens and closes where the "
+                             "person's mouth does",
+                             "on some frames, where the mouth is open, the lips are outlined and it is dark inside, and there the mouth opens "
+                             "and closes where the person's mouth does")}
+
+
 #: The plan's regions a text is made for.
 REGIONS = ("face", "face and hair", "hair")
 #: What a load renders, by its own part (`job.part.parts`) where it carries one: the hair alone, or the face alone.
@@ -113,6 +138,12 @@ MOVES = {"face": "the movements of the head and the facial expressions", "face a
 #: What <Subject 2>'s retention line says is transferred: the movements, and the eye movements where a face is replaced (the owner's
 #: text of 2026-10-22, second_hfp_0415l); the head alone where only the hair is (no face drawn, so no eyes to move).
 TRANSFERRED = {"face": MOVES["face"] + " and eye movements", "face and hair": MOVES["face and hair"] + " and eye movements", "hair": MOVES["hair"]}
+#: WHERE A FACE IS DRAWN (a face or face-and-hair load whose reference draws one; the owner's approval of 2026-10-22, relayed by the lead,
+#: in these words): what <Subject 2>'s retention line says is transferred, and what <Subject 1> follows in [Shot 1] (`{she}`, `{her}` the
+#: plan's pronouns). Until then `TRANSFERRED` and "{she} follows {moves} of the figure.", which a hair load and a plain cut keep.
+TRANSFERRED_DRAWN = "the movements of the head, the facial expressions, where the eyes look and how far the mouth opens"
+FOLLOWS_DRAWN = ("{she} follows the movements of the head and the facial expressions of the figure, {her} eyes looking where its eyes look "
+                 "and {her} mouth opening and closing where its mouth does.")
 #: The soundscape and the music, the pack's one generic pair (`masked_prompt_text.SOUNDSCAPE`, `MUSIC`): "non_diegetic_music: N/A"
 #: since the owner's text of 2026-10-22, "A song plays throughout." until then.
 SOUND = (lambda m: f"{m.SOUNDSCAPE}\n\n{m.MUSIC}\n")(_masked_text())
@@ -213,10 +244,14 @@ def subject_2(drawn: dict | None, moves: str = MOVES["face"], frames: int | None
             iris = drawn.get("iris") or "whole"
             if iris not in EYES:
                 raise Refused(f"the reference's record says the iris was drawn {iris!r}: no words for it ({', '.join(EYES)})")
-            eye_key = ", where the eyes open, close and look where the person's eyes do"
+            eye_key = FACE_EYES
         shut_tail = {"lids": "; where the person's eyes are shut, each eye is drawn as a single closed line",
                      "none": "; where the person's eyes are shut, no eye is drawn"}.get((drawn.get("eyes_shut") or {}).get("form"), "")
-        return head + ", with facial features drawn on its face as thin white outlines" + eye_key + shut_tail + "."
+        cl_said = (drawn.get("mouth") or {}).get("closed_lip_line")
+        mouth_key = ""
+        if isinstance(cl_said, dict) and cl_said.get("open_mouth") in MOUTH_CLAUSE and ("mouth" in parts or some):
+            mouth_key = "; " + MOUTH_CLAUSE[cl_said["open_mouth"]]["mouth" not in parts]
+        return head + (eye_key or FACE_NO_EYES) + shut_tail + mouth_key + "."
     clauses = []
     if "eyes" in parts:
         iris = drawn.get("iris") or "whole"
@@ -329,7 +364,9 @@ def text(plan: dict, subject: str, record: dict | None, place_and_action: str, v
             kept_now = (f"the {noun}'s face" + (f" and {kept_of} hair" if kept_of else "") + f" from <Picture 1> "
                         + ("are" if kept_of else "is") + f" retained; " + changed_to)
     kept = (kept_now if change is not None else
-            f"only the {noun}'s face and {hair} are retained, wherever they show" if region == "face and hair" else
+            # HER FACE AND HAIR, NO HAIR CHANGE (the owner, 2026-10-22): "the woman's face and blonde hair from <Picture 1> are retained.",
+            # the hair the picture's (`picture_hair`); until then "only the woman's face and {hair} are retained, wherever they show"
+            f"the {noun}'s face and {picture_hair} from <Picture 1> are retained" if region == "face and hair" else
             f"only the {noun}'s {hair.split(' ', 1)[1] if hair.split(' ', 1)[0] in ('her', 'his', 'their') else hair} is retained, wherever it shows"
             if region == "hair" else
             # HER FACE ALONE (the owner, 2026-10-22): the face-and-hair form's words, "the woman's face ... from <Picture 1>"; until then
@@ -352,15 +389,17 @@ def text(plan: dict, subject: str, record: dict | None, place_and_action: str, v
     if said is not None:
         sings = said["voice"] == "sings"
     moves = MOVES[region]
+    face_drawn = region != "hair" and drawn is not None
     Her = her[0].upper() + her[1:]
     has = f"has {bare if change is not None else 'the hair of <Picture 1>'}" if region == "hair" else "has the face of <Picture 1>"
     return (f"subject_definitions:\n<Subject 1> is {who} with {picture_hair} whose appearance comes from <Picture 1>, and who follows {moves} "
             f"of the figure in <Video 1>.\n{subject_2(drawn, moves, (record['frames'][1] - record['frames'][0] + 1) if record.get('frames') else last - first + 1)}\n\n"
             f"summary:\n[reference generation] <Subject 1>, with {with_what}{'' if change is not None else ' of <Picture 1>'}, performs <Subject 2>.\n\n"
             f"retention_analysis:\n<Subject 1> (appears in [Shot 1]): partially_preserved - {kept}.\n"
-            f"{SUBJECT_2_KEPT.format(moves=TRANSFERRED[region])}\n\n"
+            f"{SUBJECT_2_KEPT.format(moves=TRANSFERRED_DRAWN if face_drawn else TRANSFERRED[region])}\n\n"
             f"detailed_description:\n{film}\n[Shot 1] <Subject 1>, {who}{'' if region == 'hair' else f' with {bare}' if change is not None else f' with {hair_words}'}, {has}.{wears} "
-            f"<Subject 1> performs <Subject 2>: {she} follows {moves} of the figure."
+            f"<Subject 1> performs <Subject 2>: "
+            + (FOLLOWS_DRAWN.format(she=she, her=her) if face_drawn else f"{she} follows {moves} of the figure.")
             + (f" <Subject 1> (S1) sings, {her} mouth opening wide on the sung phrases." if sings else "")
             + (VOICES[said["voice"]].format(her=her) if said is not None else "") + f"\n\n{SOUND}")
 

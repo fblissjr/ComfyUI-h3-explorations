@@ -3,9 +3,11 @@
 
 0. **The owner's text of 2026-10-22, made again.** From second_hfp_0415l's reference record, the plan's words (with
    `picture_hair` and `hair_words`) and the voice table, copied into `bench/fixtures/load_text_second_0415l.json`, the generator
-   makes the text the owner wrote by hand for that load, byte for byte. The picture's hair goes in the definition and the shot's
+   makes the text the owner wrote by hand for that load, byte for byte but for the changes the owner approved since, each kept in
+   the fixture with its old and new words (`approved_changes`, 2026-10-22: the eyes each with a dark iris, and where a face is drawn
+   the eyes' look and the mouth's opening transferred and followed). The picture's hair goes in the definition and the shot's
    in [Shot 1], each in its own line; a subject without either is refused in the tool's own words; no
-   text carries the plan's `looks`; the music is "N/A"; a face load's movements carry "and eye movements".
+   text carries the plan's `looks`; the music is "N/A".
 1. **The kept texts, made again.** From each kept load's reference record (what was drawn), the plan's words for the
    subject and the video and the voice table (no place-and-action sentence since 2026-10-15), the generator makes lead_fp_1730's
    text and second_hfp_0484c's word for word, but in the places ruled since: the closer view is "of the head and shoulders"
@@ -51,7 +53,8 @@ def as_ruled(kept: str, view: str, summary_was: str, who_looks: str, detail_was:
     the summary and [Shot 1] say who the subject is and what of the still it has (draft_7's form), no "not used" clause
     (the owner, 2026-10-21): each retention line ends at what is kept or changed; and the owner's text of 2026-10-22: the
     subject named by the picture's hair in the definition (`picture_hair`) and by the shot's in [Shot 1] (`who_hair`) in place of her
-    looks, "and eye movements" transferred, the music "N/A", and the face alone retained as "the girl's face from <Picture 1>"."""
+    looks, the music "N/A", and the face alone retained as "the girl's face from <Picture 1>"; and the owner's approval of the same day:
+    where a face is drawn, the eyes' look and the mouth's opening transferred and followed."""
     out = re.sub(r"; [^;\n]* of <Picture 1> are not used\.\n", ".\n", kept)
     out = out.replace("; the grey body model's look, the drawn outlines themselves and its black ground are not used.", ".")
     out = out.replace(f"a closer view of the head, shoulders and {view} of", "a closer view of the head and shoulders of")
@@ -61,9 +64,17 @@ def as_ruled(kept: str, view: str, summary_was: str, who_looks: str, detail_was:
     who = who_hair.split(" with ")[0]
     out = out.replace(f"<Subject 1> is {who} whose appearance comes from <Picture 1>, with {looks}, and who",
                       f"<Subject 1> is {who} with {picture_hair} whose appearance comes from <Picture 1>, and who")
-    out = out.replace("the facial expressions are transferred to <Subject 1>.", "the facial expressions and eye movements are transferred to <Subject 1>.")
+    out = out.replace("attribute_transfer - the movements of the head and the facial expressions are transferred to <Subject 1>.",
+                      "attribute_transfer - the movements of the head, the facial expressions, where the eyes look and how far the mouth opens are "
+                      "transferred to <Subject 1>.")
+    out = re.sub(r"performs <Subject 2>: (\w+) follows the movements of the head and the facial expressions of the figure\.",
+                 lambda m: (f"performs <Subject 2>: {m[1]} follows the movements of the head and the facial expressions of the figure, "
+                            f"{dict(she='her', he='his').get(m[1], 'their')} eyes looking where its eyes look and "
+                            f"{dict(she='her', he='his').get(m[1], 'their')} mouth opening and closing where its mouth does."), out)
     out = re.sub(r"partially_preserved - only the (\w+)'s face is retained, wherever it shows: \w+ eyes, eyebrows, nose, mouth and skin\.\n",
                  r"partially_preserved - the \1's face from <Picture 1> is retained.\n", out)
+    out = re.sub(r"partially_preserved - only the (\w+)'s face and [^\n]* are retained, wherever they show\.\n",
+                 lambda m: f"partially_preserved - the {m[1]}'s face and {picture_hair} from <Picture 1> are retained.\n", out)
     return out.replace("non_diegetic_music: A song plays throughout.\n", "non_diegetic_music: N/A\n")
 
 
@@ -76,6 +87,11 @@ def the_owners_text_made_again() -> str:
     fx = json.loads(FIXTURE.read_text())
     got = lt.text(fx["plan"], fx["subject"], fx["record"], "", fx["voiced_spans_inclusive"], fx["first"], fx["last"])
     want = fx["owner_text"]
+    # THE OWNER'S APPROVED CHANGES to that text since (the fixture's `approved_changes`; 2026-10-22, the closed-lip line's eye words), each
+    # found once in the owner's text as written: the rest of it stays byte for byte
+    for change in fx.get("approved_changes") or []:
+        assert want.count(change["old"]) == 1, change["what"]
+        want = want.replace(change["old"], change["new"])
     # THE CASE THAT GOES RED when the generator departs from the owner's text by one byte
     assert got == want, "\n".join(f"- {a}\n+ {b}" for a, b in zip(want.splitlines(), got.splitlines()) if a != b) or (got, want)
     # NO LOOKS WORDS: the plan's `looks` is read by no line, on any form (face, face and hair, a changed hair, hair alone, no video)
@@ -87,11 +103,13 @@ def the_owners_text_made_again() -> str:
         # THE CASE THAT GOES RED when any text carries the plan's looks, whole or by its eye, eyebrow or skin words
         assert not any(x in words for x in looks + ["blue eyes", "fair skin", "brown eyes", "dark eyebrows", "blue-grey eyes"]), words
         assert words.endswith("\n\nnon_diegetic_music: N/A\n") and "A song plays" not in words, words[-80:]
-    # THE EYE MOVEMENTS on a load that replaces a face; the head's movements alone on her hair alone
+    # WHERE THE EYES LOOK AND HOW FAR THE MOUTH OPENS on a load whose reference draws a face (the owner's approval of 2026-10-22); the
+    # head's movements alone on her hair alone
     for words in made[:3]:
-        assert "attribute_transfer - the movements of the head and the facial expressions and eye movements are transferred to <Subject 1>.\n" in words, words
-        assert words.count("eye movements") == 1, words
-    assert "eye movements" not in made[3] and "attribute_transfer - the movements of the head are transferred to <Subject 1>.\n" in made[3], made[3]
+        assert "<Subject 2> (appears in [Shot 1]): attribute_transfer - the movements of the head, the facial expressions, where the eyes look and how far the mouth opens are transferred to <Subject 1>.\n" in words, words
+        assert "<Subject 1> performs <Subject 2>: she follows the movements of the head and the facial expressions of the figure, her eyes looking " \
+               "where its eyes look and her mouth opening and closing where its mouth does." in words, words
+    assert "where the eyes look" not in made[3] and "attribute_transfer - the movements of the head are transferred to <Subject 1>.\n" in made[3], made[3]
     # A FACE LOAD WHOSE PICTURE'S HAIR AND SHOT'S HAIR DIFFER (the owner, 2026-10-22: the hair named with <Picture 1> is the picture's,
     # [Shot 1] names the hair the shot ends up with): each in its own line, and only there
     lead = made[1].splitlines()
@@ -160,7 +178,7 @@ def what_a_reference_draws_the_text_says() -> str:
     assert "dark inside" not in drawn, drawn
     want_unified = ("<Subject 2> is the movements of the head and the facial expressions performed by the figure in <Video 1>: "
                     "a closer view of the head and shoulders of a plain grey body model of a person on a black ground, posed as the person moves, "
-                    "with facial features drawn on its face as thin white outlines, where the eyes open, close and look where the person's eyes do.")
+                    "with its face drawn as thin white outlines: the eyes, each with a dark iris, open, close and look where the person's eyes do.")
     closed_line_all = s2({"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast",
                                                      "mouth": {"drawn": True, "inside": "the class map", "closed_lip_line": {"why": "test", "closed_frames": [], "open_frames": [[1730, 1754]]}}}})
     closed_line_some = s2({"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast",
@@ -474,8 +492,8 @@ def no_not_used_clause() -> str:
     # THE CASE THAT GOES RED when a "not used" clause is written, or a shortened sentence does not end cleanly
     assert "not used" not in now, now
     assert ("partially_preserved - the woman's face and BLONDE hair from <Picture 1> are retained; her hair's LENGTH is changed to SHORT.\n"
-            "<Subject 2> (appears in [Shot 1]): attribute_transfer - the movements of the head and the facial expressions and eye movements are "
-            "transferred to <Subject 1>.\n\n") in now, now
+            "<Subject 2> (appears in [Shot 1]): attribute_transfer - the movements of the head, the facial expressions, where the eyes look and "
+            "how far the mouth opens are transferred to <Subject 1>.\n\n") in now, now
     # the plan's `text.not_used` (third's) is read by no line
     third = lt.text(plan, "third", RECORD_10_13, "", VOICED, 1730, 1754)
     assert "not used" not in third and "CAP" not in third and "the man's face from <Picture 1> is retained.\n<Subject 2>" in third, third
@@ -497,10 +515,94 @@ def no_not_used_clause() -> str:
     return ("no \"not used\" clause on a face-and-hair, a face and a hair-alone load, each line ending cleanly; the plan's not_used read by no line; "
             "the retired --say-not-used refused by the tool's parser")
 
+def the_mouth_clause_by_the_open_mouth() -> str:
+    """The owner's approval of 2026-10-22 (relayed by the lead), in these words: under the closed-lip line the face is drawn and each eye
+    has a dark iris, for every subject; and for the lead's outlined open mouth, the lips outlined where the mouth is open (a closed frame
+    draws nothing). Every other form, and a record without the field, names no mouth."""
+    def s2(open_mouth=None, **mouth):
+        cl = {"why": "test", "closed_frames": [], "open_frames": [[1730, 1754]], **({"open_mouth": open_mouth} if open_mouth else {})}
+        rec = {"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast", "mouth": {"drawn": True, "inside": "the class map", "closed_lip_line": cl, **mouth}}}
+        return next(line for line in lt.text(PLAN, "lead", rec, "", VOICED, 1730, 1754).splitlines() if line.startswith("<Subject 2> is"))
+    lead = ("<Subject 2> is the movements of the head and the facial expressions performed by the figure in <Video 1>: a closer view of the head "
+            "and shoulders of a plain grey body model of a person on a black ground, posed as the person moves, with its face drawn as thin white "
+            "outlines: the eyes, each with a dark iris, open, close and look where the person's eyes do; where the mouth is open, the lips are "
+            "outlined and it is dark inside, and the mouth opens and closes where the person's mouth does.")
+    unified = lead.split("; where the mouth is open")[0] + "."
+    # THE CASE THAT GOES RED when the lead's outlined form is not the owner's approved sentence, byte for byte
+    assert s2("outlined") == lead, s2("outlined")
+    # THE CASE THAT GOES RED when another form, or a subject without the field (the second's and the third's references, every one
+    # before 2026-10-22), gets a mouth clause
+    for form in (None, "inner outline", "capped", "outlined over the lips"):
+        assert s2(form) == unified, (form, s2(form))
+    # where the reference draws the mouth on some frames, "on some frames"; on none, no clause
+    assert s2("outlined", frames_with_no_mouth=10) == unified[:-1] + ("; on some frames, where the mouth is open, the lips are outlined and it is "
+                                                                     "dark inside, and there the mouth opens and closes where the person's mouth does."), \
+        s2("outlined", frames_with_no_mouth=10)
+    assert s2("outlined", frames_with_no_mouth=25) == unified, s2("outlined", frames_with_no_mouth=25)
+    none = next(line for line in lt.text(PLAN, "lead", {"form": "drawn", "drawn": {"parts_left_out": ["mouth"], "iris": "contrast", "mouth": {
+        "drawn": False, "closed_lip_line": {"why": "silent window", "closed_frames": [], "open_mouth": "outlined"}}}}, "", VOICED, 1730, 1754).splitlines()
+        if line.startswith("<Subject 2> is"))
+    assert none == unified, none
+    # the eyes' shut clause first, then the mouth's; with no eye drawn, the words before for the face, unchanged
+    rec = {"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast", "eyes_shut": {"form": "lids"},
+                                      "mouth": {"drawn": True, "closed_lip_line": {"why": "t", "open_mouth": "outlined"}}}}
+    lids = next(line for line in lt.text(PLAN, "lead", rec, "", VOICED, 1730, 1754).splitlines() if line.startswith("<Subject 2> is"))
+    assert lids.endswith("each eye is drawn as a single closed line; where the mouth is open, the lips are outlined and it is dark inside, and the "
+                         "mouth opens and closes where the person's mouth does."), lids
+    rec = {"form": "drawn", "drawn": {"parts_left_out": ["eyes"], "iris": "contrast", "mouth": {"drawn": True, "closed_lip_line": {"why": "t"}}}}
+    eyeless = next(line for line in lt.text(PLAN, "lead", rec, "", VOICED, 1730, 1754).splitlines() if line.startswith("<Subject 2> is"))
+    assert eyeless.endswith("posed as the person moves, with facial features drawn on its face as thin white outlines."), eyeless
+    # THE CASE THAT GOES RED when the retention line or [Shot 1]'s sentence is not the owner's approved words, with the plan's pronouns
+    full = lt.text(PLAN, "lead", {"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast", "mouth": {"drawn": True, "closed_lip_line": {
+        "why": "t", "open_mouth": "outlined"}}}}, "", [], 1730, 1754).splitlines()
+    assert "<Subject 2> (appears in [Shot 1]): attribute_transfer - the movements of the head, the facial expressions, where the eyes look and how far " \
+           "the mouth opens are transferred to <Subject 1>." in full, full
+    shot = next(line for line in full if line.startswith("[Shot 1]"))
+    assert shot.endswith("<Subject 1> performs <Subject 2>: she follows the movements of the head and the facial expressions of the figure, her eyes "
+                         "looking where its eyes look and her mouth opening and closing where its mouth does."), shot
+    plan = json.loads(json.dumps(PLAN)); plan["subjects"]["lead"]["text"].update(she="he", her="his")
+    his = next(line for line in lt.text(plan, "lead", RECORD_10_13, "", [], 1730, 1754).splitlines() if line.startswith("[Shot 1]"))
+    assert his.endswith(": he follows the movements of the head and the facial expressions of the figure, his eyes looking where its eyes look and his "
+                        "mouth opening and closing where its mouth does."), his
+    # a plain cut (no face drawn) and a hair load keep the lines before
+    plain = lt.text(PLAN, "lead", {"form": "plain", "drawn": {"parts_left_out": []}}, "", [], 1730, 1754)
+    assert "and eye movements are transferred" in plain and "follows the movements of the head and the facial expressions of the figure.\n" in plain, plain
+    import draw_face_points
+    assert set(lt.MOUTH_CLAUSE) <= set(draw_face_points.OPEN_MOUTH_FORMS[1:]), (lt.MOUTH_CLAUSE, draw_face_points.OPEN_MOUTH_FORMS)
+    fx = json.loads(FIXTURE.read_text())
+    assert "open_mouth" not in json.dumps(fx["record"]) and "the lips are outlined" not in fx["owner_text"]
+    return ("the lead's outlined form makes the owner's approved sentence byte for byte; every subject's eyes are drawn each with a dark iris; "
+            "no other form and no field says anything of the mouth; on some frames and on none as the drawing; no eye drawn, the words before")
+
+
+def her_face_and_hair_with_no_change() -> str:
+    """The owner, 2026-10-22: a face-and-hair subject whose plan changes no hair (the second's, once her shortening was removed) keeps
+    her face and the picture's hair in the owner's form, "the woman's face and blonde hair from <Picture 1> are retained."; the summary
+    and [Shot 1] as they were."""
+    import copy
+    plan = copy.deepcopy(PLAN)
+    plan["subjects"]["second"]["text"].update(hair="her blonde hair", picture_hair="blonde hair", hair_words="blonde hair")
+    rec = {"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast", "mouth": {"drawn": True}}}
+    lines = lt.text(plan, "second", rec, "", VOICED, 484, 515).splitlines()
+    # THE CASE THAT GOES RED when the line is the old "only ... wherever they show" form, or names other than the picture's hair
+    assert "<Subject 1> (appears in [Shot 1]): partially_preserved - the woman's face and blonde hair from <Picture 1> are retained." in lines, lines
+    assert "[reference generation] <Subject 1>, with the face and the hair of <Picture 1>, performs <Subject 2>." in lines, lines
+    assert any(line.startswith("[Shot 1] <Subject 1>, the woman with blonde hair, has the face of <Picture 1>.") for line in lines), lines
+    # the noun from `who`; a hair change keeps its own line (the 0415 fixture, case 0)
+    plan["subjects"]["second"]["text"].update(who="the girl", picture_hair="red hair")
+    girl = lt.text(plan, "second", rec, "", VOICED, 484, 515)
+    assert "partially_preserved - the girl's face and red hair from <Picture 1> are retained.\n" in girl, girl
+    fx = json.loads(FIXTURE.read_text())
+    assert fx["plan"]["subjects"]["second"]["text"].get("hair_change"), "the 0415 fixture lost its hair change"
+    return "a face-and-hair subject with no hair change: \"the woman's face and blonde hair from <Picture 1> are retained.\"; summary and [Shot 1] as before"
+
+
 case("the owner's text of 2026-10-22 made again", the_owners_text_made_again)
 case("her hair changed, in the plan's parts", her_hair_changed)
+case("her face and hair with no change", her_face_and_hair_with_no_change)
 case("the kept texts made again", the_kept_texts_made_again)
 case("what a reference draws, the text says", what_a_reference_draws_the_text_says)
+case("the mouth's clause by the open-mouth form", the_mouth_clause_by_the_open_mouth)
 case("a load of the hair alone", a_load_of_the_hair_alone)
 case("what it refuses", what_it_refuses)
 case("her clothing named", her_clothing_named)

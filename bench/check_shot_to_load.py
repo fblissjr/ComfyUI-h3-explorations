@@ -1779,6 +1779,7 @@ def the_reference_step() -> str:
         classes = made.m.output / "Video/v/the session/shot_c_0100/shot_c_0100_a_classes_00001.mkv"
         assert (opt(ref, "--iris"), opt(ref, "--mouth"), opt(ref, "--classes"), opt(ref, "--classes-first")) == ("contrast", "auto", str(classes), "100") \
             and opt(ref, "--closed-lip-line") == "the chain's default: REFERENCE_DEFAULT (2026-10-19)", ref
+        assert "--open-mouth" not in ref, "a subject without the plan's open-mouth form is drawn with a flag it never had"
         after = json.loads(job_file.read_text())
         block = after["job"]["reference"]
         assert (block["form"], block["said_by"], block["record"]) == ("drawn", "the session", str(drawn.with_suffix(".json"))) and block["made"].endswith("Z"), block
@@ -1889,6 +1890,21 @@ def the_reference_step() -> str:
         mouthed["drawn"]["eyes_shut"].update(frames=[[110, 112]], drawn_shut_on=[[110, 112]])
         drawn.with_suffix(".json").write_text(json.dumps(mouthed))
         stl.step_reference(e, made.m, figures)
+        # a job with the plan's open-mouth form takes a reference as it was only where that reference drew the same form, and back
+        om_job = json.loads(shut_file.read_text())
+        om_job["job"]["reference"]["mouth"]["open_mouth"] = {"form": "capped", "said_by": "the plan", "why": "THE OWNER ON 1156D"}
+        om_file = made.jobs / "a_fp_0104o.json"
+        om_file.write_text(json.dumps(om_job))
+        e.job_file = str(om_file)
+        # THE CASE THAT GOES RED when --existing takes a drawing in another open-mouth form than the job's
+        refused(lambda: stl.step_reference(e, made.m, figures), "--existing", "drew an open mouth 'inner outline' and the job asks for 'capped'")
+        mouthed["drawn"]["mouth"]["closed_lip_line"]["open_mouth"] = "capped"
+        drawn.with_suffix(".json").write_text(json.dumps(mouthed))
+        stl.step_reference(e, made.m, figures)
+        e.job_file = str(shut_file)
+        refused(lambda: stl.step_reference(e, made.m, figures), "--existing", "drew an open mouth 'capped' and the job asks for 'inner outline'")
+        del mouthed["drawn"]["mouth"]["closed_lip_line"]["open_mouth"]
+        drawn.with_suffix(".json").write_text(json.dumps(mouthed))
         e.job_file = str(again_file)
         other = made.load(name="a_fp_0100")
         (made.jobs / "a_fp_0100.json").write_text(json.dumps(other))
@@ -2018,6 +2034,27 @@ def the_defaults_this_load_carries() -> str:
         assert rf_dark["darken_head"] == {"said_by": "the plan", "why": "testb plan"}, rf_dark
         eye_dark = next(d for d in stl.defaults_carried({}, {}, [{"label": "a"}], "a", None, rf_dark, {"said_by": "plan", "why": "z"}, None) if d["what"] == "the eye")
         assert "DARKENED HEAD MODEL" in eye_dark["carries"] and "darken_head: the plan: testb plan" in eye_dark["from"], eye_dark
+        # THE OPEN MOUTH'S FORM, a subject at a time (the plan's `reference.open_mouth`; the owner, 2026-10-22, on lead_fp_1156d: the lead's
+        # dark inside capped, the other subjects as they are): into the job, the defaults' mouth line and the reference step's command
+        made.plan["subjects"]["a"]["reference"] = {"open_mouth": "capped", "why": "THE OWNER ON 1156D"}
+        d_om = made.load(name="a_fp_capped")
+        om = d_om["job"]["reference"]["mouth"]
+        assert om["open_mouth"] == {"form": "capped", "said_by": "the plan", "why": "THE OWNER ON 1156D"} and om["closed_lip_line"]["on"] and om["form"] == "auto", om
+        om_row = {x["what"]: x for x in d_om["job"]["defaults"]}["the mouth"]
+        assert "OPEN MOUTHS CAPPED" in om_row["carries"] and "open_mouth: the plan: THE OWNER ON 1156D" in om_row["from"], om_row
+        om_flags = stl.drawn_form(d_om["job"], args(), files, 100)
+        # THE CASE THAT GOES RED when the plan's form does not reach the reference step's command
+        assert om_flags[om_flags.index("--open-mouth") + 1] == "capped" and om_flags.index("--open-mouth") == om_flags.index("--closed-lip-line") + 2, om_flags
+        # THE CASE THAT GOES RED when a subject without the field gets a form, or a command other than before
+        del made.plan["subjects"]["a"]["reference"]
+        d_none = made.load(name="a_fp_no_open_mouth")
+        assert "open_mouth" not in d_none["job"]["reference"]["mouth"] and "--open-mouth" not in stl.drawn_form(d_none["job"], args(), files, 100)
+        assert "OPEN MOUTHS" not in {x["what"]: x for x in d_none["job"]["defaults"]}["the mouth"]["carries"]
+        for bad, words in (({"open_mouth": "lips", "why": "w"}, "one of"), ({"open_mouth": "capped", "closed_lip_line": False, "why": "w"}, "closed-lip line"),
+                           ({"open_mouth": "capped"}, "says no `why`")):
+            made.plan["subjects"]["a"]["reference"] = bad
+            refused(made.load, words)
+        del made.plan["subjects"]["a"]["reference"]
         # M17: under the default closed_lip_line, a silent window leaves the mouth out ("left out") and passes --closed-lip-line so eye/brow/nose marks clip to the head
         made.plan["subjects"]["a"]["voice"] = [{"first": 100, "last": 159, "voice": "silent", "by": "THE OWNER"}]
         d_silent_def = made.load(name="a_fp_silent_def")

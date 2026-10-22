@@ -929,6 +929,19 @@ def the_three_mouth_fixes_synthetic() -> str:
     v_on = np.stack(list(dfp.stream(str(folder / "head_on.mp4"), sz_v, 0, N, pix="rgb24")))
     for cf in (0, 1, 3, 4):
         assert int((v_on[cf].min(-1) > 200).sum()) < int((v_off[cf].min(-1) > 200).sum()), (cf, int((v_on[cf].min(-1) > 200).sum()), int((v_off[cf].min(-1) > 200).sum()))
+    # THE OPEN MOUTH'S FORM (`--open-mouth`, the plan's reference.open_mouth; the owner, 2026-10-22, on lead_fp_1156d): kept in the
+    # record; the default's drawing is the one above; "capped" draws every closed frame as it does and no more dark on an open one
+    rec_cap = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head_capped.mp4", "the check", room=ROOM, mouth="auto",
+                     classes=str(classes), classes_first=0, closed_lip_line="synthetic test", open_mouth="capped", say=lambda *_: None)
+    assert cl_rec["open_mouth"] == "inner outline" and rec_cap["drawn"]["mouth"]["closed_lip_line"]["open_mouth"] == "capped", rec_cap["drawn"]["mouth"]
+    assert rec_cap["drawn"]["mouth"]["closed_lip_line"]["closed_frames"] == cl_rec["closed_frames"] and rec_cap["passed"], rec_cap["drawn"]["mouth"]
+    v_cap = np.stack(list(dfp.stream(str(folder / "head_capped.mp4"), sz_v, 0, N, pix="rgb24")))
+    # THE CASE THAT GOES RED when the capped form changes a closed frame, or draws more dark than the inner outline on an open one
+    # (the reference is a lossy encode: a closed frame takes the encoder's noise from its open neighbours, never a mouth's dark or white)
+    flips = lambda a, b: int((((a.max(-1) < 30) & (b.min(-1) > 100)) | ((b.max(-1) < 30) & (a.min(-1) > 100))).sum())   # noqa: E731
+    assert all(flips(v_cap[cf], v_on[cf]) == 0 for cf in (0, 1, 3)), [flips(v_cap[cf], v_on[cf]) for cf in (0, 1, 3)]
+    darker = lambda a, b: int(((a.max(-1) < 30) & (b.min(-1) > 100)).sum())     # noqa: E731  dark in `a` where `b` is light
+    assert all(darker(v_cap[cf], v_on[cf]) == 0 for cf in range(N)), [darker(v_cap[cf], v_on[cf]) for cf in range(N)]
     # M17: --closed-lip-line with --mouth "left out" (silent window) leaves the mouth out while keeping head silhouette clipping
     rec_silent = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head_silent.mp4", "the check", room=ROOM, mouth="left out",
                         mouth_why="silent window", closed_lip_line="silent window test", darken_head="darker grey head", say=lambda *_: None)
@@ -937,7 +950,9 @@ def the_three_mouth_fixes_synthetic() -> str:
     # refusal cases: empty reason or mouth == "drawn", before any files are written
     for bad_kw, bad_word in (({"mouth": "auto", "classes": str(classes), "classes_first": 0, "closed_lip_line": "   "}, "takes a reason"),
                              ({"mouth": "drawn", "mouth_why": "test", "closed_lip_line": "test"}, "acts on --mouth auto with a class map"),
-                             ({"mouth": "left out", "mouth_why": "silent", "darken_head": "   "}, "--darken-head takes a reason")):
+                             ({"mouth": "left out", "mouth_why": "silent", "darken_head": "   "}, "--darken-head takes a reason"),
+                             ({"mouth": "auto", "classes": str(classes), "classes_first": 0, "open_mouth": "capped"}, "a form of --closed-lip-line"),
+                             ({"mouth": "auto", "classes": str(classes), "classes_first": 0, "closed_lip_line": "t", "open_mouth": "lips"}, "--open-mouth is one of")):
         try:
             hr.run(str(mesh), str(pts), str(source), 0, N, folder / "refused_cl.mp4", "the check", room=ROOM, say=lambda *_: None, **bad_kw)
         except SystemExit as exc:

@@ -231,5 +231,28 @@
    6354
   ]
  ],
- "owner_text": "subject_definitions:\n<Subject 1> is the woman with blonde hair whose appearance comes from <Picture 1>, and who follows the movements of the head and the facial expressions of the figure in <Video 1>.\n<Subject 2> is the movements of the head and the facial expressions performed by the figure in <Video 1>: a closer view of the head and shoulders of a plain grey body model of a person on a black ground, posed as the person moves, with facial features drawn on its face as thin white outlines, where the eyes open, close and look where the person's eyes do.\n\nsummary:\n[reference generation] <Subject 1>, with the face of <Picture 1> and short blonde hair ending at her shoulders, performs <Subject 2>.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): partially_preserved - the woman's face and blonde hair from <Picture 1> are retained; her hair's length is changed to short, ending at her shoulders.\n<Subject 2> (appears in [Shot 1]): attribute_transfer - the movements of the head and the facial expressions and eye movements are transferred to <Subject 1>.\n\ndetailed_description:\nThe target video is live-action vintage film from the early 1980s, soft and a little grainy, in warm amber tungsten light.\n[Shot 1] <Subject 1>, the woman with short blonde hair ending at her shoulders, has the face of <Picture 1>. <Subject 1> wears a white apron with a bib, its straps over her shoulders, over a sleeveless floral blouse. <Subject 1> performs <Subject 2>: she follows the movements of the head and the facial expressions of the figure.\n\noverall_soundscape: Natural ambient atmosphere continues throughout the shot.\n\nnon_diegetic_music: N/A\n"
+ "owner_text": "subject_definitions:\n<Subject 1> is the woman with blonde hair whose appearance comes from <Picture 1>, and who follows the movements of the head and the facial expressions of the figure in <Video 1>.\n<Subject 2> is the movements of the head and the facial expressions performed by the figure in <Video 1>: a closer view of the head and shoulders of a plain grey body model of a person on a black ground, posed as the person moves, with facial features drawn on its face as thin white outlines, where the eyes open, close and look where the person's eyes do.\n\nsummary:\n[reference generation] <Subject 1>, with the face of <Picture 1> and short blonde hair ending at her shoulders, performs <Subject 2>.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): partially_preserved - the woman's face and blonde hair from <Picture 1> are retained; her hair's length is changed to short, ending at her shoulders.\n<Subject 2> (appears in [Shot 1]): attribute_transfer - the movements of the head and the facial expressions and eye movements are transferred to <Subject 1>.\n\ndetailed_description:\nThe target video is live-action vintage film from the early 1980s, soft and a little grainy, in warm amber tungsten light.\n[Shot 1] <Subject 1>, the woman with short blonde hair ending at her shoulders, has the face of <Picture 1>. <Subject 1> wears a white apron with a bib, its straps over her shoulders, over a sleeveless floral blouse. <Subject 1> performs <Subject 2>: she follows the movements of the head and the facial expressions of the figure.\n\noverall_soundscape: Natural ambient atmosphere continues throughout the shot.\n\nnon_diegetic_music: N/A\n",
+ "approved_changes": [
+  {
+   "at": "2026-10-22",
+   "by": "the owner's approval, relayed by the lead (branch claude-mouth-outline)",
+   "what": "the closed-lip line's eye words: the face drawn, each eye with a dark iris",
+   "old": ", with facial features drawn on its face as thin white outlines, where the eyes open, close and look where the person's eyes do",
+   "new": ", with its face drawn as thin white outlines: the eyes, each with a dark iris, open, close and look where the person's eyes do"
+  },
+  {
+   "at": "2026-10-22",
+   "by": "the owner's approval, relayed by the lead (branch claude-mouth-outline)",
+   "what": "<Subject 2>'s retention line where a face is drawn",
+   "old": "<Subject 2> (appears in [Shot 1]): attribute_transfer - the movements of the head and the facial expressions and eye movements are transferred to <Subject 1>.",
+   "new": "<Subject 2> (appears in [Shot 1]): attribute_transfer - the movements of the head, the facial expressions, where the eyes look and how far the mouth opens are transferred to <Subject 1>."
+  },
+  {
+   "at": "2026-10-22",
+   "by": "the owner's approval, relayed by the lead (branch claude-mouth-outline)",
+   "what": "[Shot 1]'s sentence of what <Subject 1> follows where a face is drawn",
+   "old": "<Subject 1> performs <Subject 2>: she follows the movements of the head and the facial expressions of the figure.",
+   "new": "<Subject 1> performs <Subject 2>: she follows the movements of the head and the facial expressions of the figure, her eyes looking where its eyes look and her mouth opening and closing where its mouth does."
+  }
+ ]
 }
