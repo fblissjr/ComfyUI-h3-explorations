@@ -28,8 +28,8 @@ records. Until 2026-10-15 a person wrote the shot's place and action, once; no l
   (`drawn.mouth.drawn`), dark inside where it is open when its inside is the class map's (`drawn.mouth.inside`). Under the
   closed-lip line (`drawn.mouth.closed_lip_line`) one sentence: the face drawn as thin white outlines and the eyes, each with a dark
   iris (`FACE_EYES`; `FACE_NO_EYES` where no eye is drawn), and the mouth's clause (`MOUTH_CLAUSE`) only where the record's open-mouth
-  form has words (`closed_lip_line.open_mouth`, the plan's `reference.open_mouth`: the outlined form; the owner, 2026-10-22) and a
-  mouth is drawn on the load. A plain cut (no drawing) has no outline clause.
+  form has words (`closed_lip_line.open_mouth`, the plan's `reference.open_mouth`: the outlined form; the owner, 2026-10-22) and the
+  drawing opens a mouth on some frame of the load (`mouth_drawn_open`, below). A plain cut (no drawing) has no outline clause.
 - The summary and `[Shot 1]`: who the subject is and what of <Picture 1> it has (draft_7's form, 2026-10-15): "<Subject 1>,
   with the face of <Picture 1>, performs <Subject 2>." and "<Subject 1>, <who> with <hair_words>, has the face of <Picture 1>.",
   with the face and the hair, or the hair alone, by the plan's region and its `text.hair_change`. No place-and-action sentence.
@@ -47,7 +47,10 @@ records. Until 2026-10-15 a person wrote the shot's place and action, once; no l
   a hair change or a hair load keeps its own line.
 - Where a face is drawn (`TRANSFERRED_DRAWN`, `FOLLOWS_DRAWN`, the owner's approval of 2026-10-22): `<Subject 2>`'s retention line
   transfers the head's movements, the expressions, where the eyes look and how far the mouth opens, and [Shot 1] has her eyes and mouth
-  follow its; a hair load and a plain cut keep the lines below.
+  follow its. The mouth's words, there and in `MOUTH_CLAUSE`, only where the drawing opens a mouth on some frame (`mouth_drawn_open`:
+  the closed-lip line's `open_frames`; the owner's go of 2026-10-22, after second_hfp_0278l, whose drawing opened none while its text
+  said her mouth opens and closes, and she spoke); where it opens none, `TRANSFERRED_DRAWN_NO_MOUTH` and `FOLLOWS_DRAWN_NO_MOUTH`, the
+  eyes alone. The singing line is the voice's and stays. A hair load and a plain cut keep the lines below.
 - `<Subject 2>`'s retention line: fixed, the movements of the figure (`TRANSFERRED`: "and eye movements" where a face is
   replaced, the owner's text of 2026-10-22). The soundscape and the music: the pack's one generic pair, `masked_prompt_text.py`'s
   `SOUNDSCAPE` and `MUSIC` ("non_diegetic_music: N/A" since 2026-10-22; "A song plays throughout." until then).
@@ -143,6 +146,44 @@ TRANSFERRED = {"face": MOVES["face"] + " and eye movements", "face and hair": MO
 TRANSFERRED_DRAWN = "the movements of the head, the facial expressions, where the eyes look and how far the mouth opens"
 FOLLOWS_DRAWN = ("{she} follows the movements of the head and the facial expressions of the figure, {her} eyes looking where its eyes look "
                  "and {her} mouth opening and closing where its mouth does.")
+#: THE SAME LINES WHERE NO OPEN MOUTH IS DRAWN (the lead, on the owner's go of 2026-10-22, after second_hfp_0278l): a load whose drawing opens
+#: the mouth on no frame (`mouth_drawn_open`) names no mouth here. On 0278l the drawing had no open mouth and the text said her mouth opens
+#: and closes; she spoke, lifted her head and looked at the camera, where 0278f, with the same no-mouth drawing and no mouth words, kept her
+#: lips closed on all 16 frames (docs/masked_v2v/PROTOCOL.md, case study 3); the gate's text_names_a_voice_where_there_is_none flagged it.
+TRANSFERRED_DRAWN_NO_MOUTH = "the movements of the head, the facial expressions and where the eyes look"
+FOLLOWS_DRAWN_NO_MOUTH = ("{she} follows the movements of the head and the facial expressions of the figure, {her} eyes looking where its eyes "
+                          "look.")
+
+
+def mouth_on_frames(drawn: dict, frames: int | None) -> tuple[bool | None, bool]:
+    """The record's mouth as `subject_2` says it: (`mouth.drawn`, False where the form drew it on no face frame of the load's `frames`;
+    None where the record does not say) and whether it is drawn on some frames only (`mouth.frames_with_no_mouth`, counted on the frames
+    that draw a face)."""
+    mouth = (drawn.get("mouth") or {}).get("drawn")
+    bare_frames = (drawn.get("mouth") or {}).get("frames_with_no_mouth")
+    faceless = len(drawn.get("frames_left_bare") or [])           # frames with no line of the face (--no-face-on): no mouth there either
+    if isinstance(bare_frames, int) and frames:
+        bare_frames, frames = bare_frames - faceless, frames - faceless   # the mouth, counted on the frames that draw a face
+    some = False
+    if mouth and frames and isinstance(bare_frames, int):
+        if bare_frames >= frames:
+            mouth = False                                   # the form drew a mouth on no frame of the load
+        elif bare_frames > 0:
+            some = True
+    return mouth, some
+
+
+def mouth_drawn_open(drawn: dict | None, frames: int | None = None) -> bool:
+    """Whether the reference draws an open mouth on any frame: the closed-lip line's `open_frames` where the record has it (the chain's
+    default form, which draws nothing on a closed mouth; empty is no open mouth), else a mouth the drawing draws on some frame of the
+    load (`mouth_on_frames`) or, where the record does not say, did not leave out."""
+    if not drawn:
+        return False
+    said = (drawn.get("mouth") or {}).get("closed_lip_line")
+    if isinstance(said, dict) and "open_frames" in said:
+        return bool(said["open_frames"])
+    mouth, some = mouth_on_frames(drawn, frames)
+    return some or (bool(mouth) if mouth is not None else "mouth" not in set(drawn.get("parts_left_out") or []))
 #: The soundscape and the music, the pack's one generic pair (`masked_prompt_text.SOUNDSCAPE`, `MUSIC`): "non_diegetic_music: N/A"
 #: since the owner's text of 2026-10-22, "A song plays throughout." until then.
 SOUND = (lambda m: f"{m.SOUNDSCAPE}\n\n{m.MUSIC}\n")(_masked_text())
@@ -220,17 +261,7 @@ def subject_2(drawn: dict | None, moves: str = MOVES["face"], frames: int | None
     if drawn is None:
         return head + "."
     left = set(drawn.get("parts_left_out") or [])
-    mouth = (drawn.get("mouth") or {}).get("drawn")
-    bare_frames = (drawn.get("mouth") or {}).get("frames_with_no_mouth")
-    faceless = len(drawn.get("frames_left_bare") or [])           # frames with no line of the face (--no-face-on): no mouth there either
-    if isinstance(bare_frames, int) and frames:
-        bare_frames, frames = bare_frames - faceless, frames - faceless   # the mouth, counted on the frames that draw a face
-    some = False
-    if mouth and frames and isinstance(bare_frames, int):
-        if bare_frames >= frames:
-            mouth = False                                   # the form drew a mouth on no frame of the load
-        elif bare_frames > 0:
-            some = True
+    mouth, some = mouth_on_frames(drawn, frames)
     closed_line = bool((drawn.get("mouth") or {}).get("closed_lip_line"))
     if mouth is not None:
         left = left - {"mouth"} if mouth and not some else left | {"mouth"}
@@ -248,7 +279,9 @@ def subject_2(drawn: dict | None, moves: str = MOVES["face"], frames: int | None
                      "none": "; where the person's eyes are shut, no eye is drawn"}.get((drawn.get("eyes_shut") or {}).get("form"), "")
         cl_said = (drawn.get("mouth") or {}).get("closed_lip_line")
         mouth_key = ""
-        if isinstance(cl_said, dict) and cl_said.get("open_mouth") in MOUTH_CLAUSE and ("mouth" in parts or some):
+        # the same gate as the retention and [Shot 1] lines (`mouth_drawn_open`, 2026-10-22): no line names a mouth the drawing never opens
+        if (isinstance(cl_said, dict) and cl_said.get("open_mouth") in MOUTH_CLAUSE and ("mouth" in parts or some)
+                and mouth_drawn_open(drawn, frames)):
             mouth_key = "; " + MOUTH_CLAUSE[cl_said["open_mouth"]]["mouth" not in parts]
         return head + (eye_key or FACE_NO_EYES) + shut_tail + mouth_key + "."
     clauses = []
@@ -389,16 +422,19 @@ def text(plan: dict, subject: str, record: dict | None, place_and_action: str, v
         sings = said["voice"] == "sings"
     moves = MOVES[region]
     face_drawn = region != "hair" and drawn is not None
+    frames = (record['frames'][1] - record['frames'][0] + 1) if record.get('frames') else last - first + 1
+    mouth_open = mouth_drawn_open(drawn, frames)
     Her = her[0].upper() + her[1:]
     has = f"has {bare if change is not None else 'the hair of <Picture 1>'}" if region == "hair" else "has the face of <Picture 1>"
     return (f"subject_definitions:\n<Subject 1> is {who} with {picture_hair} whose appearance comes from <Picture 1>, and who follows {moves} "
-            f"of the figure in <Video 1>.\n{subject_2(drawn, moves, (record['frames'][1] - record['frames'][0] + 1) if record.get('frames') else last - first + 1)}\n\n"
+            f"of the figure in <Video 1>.\n{subject_2(drawn, moves, frames)}\n\n"
             f"summary:\n[reference generation] <Subject 1>, with {with_what}{'' if change is not None else ' of <Picture 1>'}, performs <Subject 2>.\n\n"
             f"retention_analysis:\n<Subject 1> (appears in [Shot 1]): partially_preserved - {kept}.\n"
-            f"{SUBJECT_2_KEPT.format(moves=TRANSFERRED_DRAWN if face_drawn else TRANSFERRED[region])}\n\n"
+            f"{SUBJECT_2_KEPT.format(moves=(TRANSFERRED_DRAWN if mouth_open else TRANSFERRED_DRAWN_NO_MOUTH) if face_drawn else TRANSFERRED[region])}\n\n"
             f"detailed_description:\n{film}\n[Shot 1] <Subject 1>, {who}{'' if region == 'hair' else f' with {bare}' if change is not None else f' with {hair_words}'}, {has}.{wears} "
             f"<Subject 1> performs <Subject 2>: "
-            + (FOLLOWS_DRAWN.format(she=she, her=her) if face_drawn else f"{she} follows {moves} of the figure.")
+            + ((FOLLOWS_DRAWN if mouth_open else FOLLOWS_DRAWN_NO_MOUTH).format(she=she, her=her) if face_drawn
+               else f"{she} follows {moves} of the figure.")
             + (f" <Subject 1> (S1) sings, {her} mouth opening wide on the sung phrases." if sings else "")
             + (VOICES[said["voice"]].format(her=her) if said is not None else "") + f"\n\n{SOUND}")
 

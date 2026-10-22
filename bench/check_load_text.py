@@ -5,18 +5,20 @@
    `picture_hair` and `hair_words`) and the voice table, copied into `bench/fixtures/load_text_second_0415l.json`, the generator
    makes the text the owner wrote by hand for that load, byte for byte but for the changes the owner approved since, each kept in
    the fixture with its old and new words (`approved_changes`, 2026-10-22: the eyes each with a dark iris, and where a face is drawn
-   the eyes' look and the mouth's opening transferred and followed). The picture's hair goes in the definition and the shot's
+   the eyes' look transferred and followed, and the mouth's opening only where the drawing opens a mouth, which 0415's does not). The picture's hair goes in the definition and the shot's
    in [Shot 1], each in its own line; a subject without either is refused in the tool's own words; no
    text carries the plan's `looks`; the music is "N/A".
 1. **The kept texts, made again.** From each kept load's reference record (what was drawn), the plan's words for the
    subject and the video and the voice table (no place-and-action sentence since 2026-10-15), the generator makes lead_fp_1730's
    text and second_hfp_0484c's word for word, but in the places ruled since: the closer view is "of the head and shoulders"
    (2026-10-14), the summary and [Shot 1] are in draft_7's form with no sentence of the place (2026-10-15), no "not used"
-   clause (2026-10-21), and the hair words, the eye movements and the music of 2026-10-22.
+   clause (2026-10-21), and the hair words, the eye movements and the music of 2026-10-22 (no mouth words: their records draw no mouth).
 2. **What a reference draws, the text says.** The mouth drawn, the eye in contrast or filled, a part left out, and a
-   plain cut each change the `<Subject 2>` sentence and nothing else; the singing line follows the subject's `sings` and
-   the voice table.
-3. **Refused**: a plan with no words for the subject or no film line, a face-and-hair subject with no hair words, an
+   plain cut each change the `<Subject 2>` sentence and nothing else, but an open mouth, which also names the mouth in the retention
+   line and [Shot 1]; the singing line follows the subject's `sings` and the voice table.
+3. **The mouth's words where the drawing opens one** (the owner's go of 2026-10-22, after second_hfp_0278l): a reference that opens
+   no mouth on any frame names no mouth in any line; one that does names it in `<Subject 2>`'s sentence, its retention line and [Shot 1].
+4. **Refused**: a plan with no words for the subject or no film line, a face-and-hair subject with no hair words, an
    place-and-action sentence (NO_SCENE), and an iris form it has no words for.
 
     <python> bench/check_load_text.py
@@ -54,7 +56,9 @@ def as_ruled(kept: str, view: str, summary_was: str, who_looks: str, detail_was:
     (the owner, 2026-10-21): each retention line ends at what is kept or changed; and the owner's text of 2026-10-22: the
     subject named by the picture's hair in the definition (`picture_hair`) and by the shot's in [Shot 1] (`who_hair`) in place of her
     looks, the music "N/A", and the face alone retained as "the girl's face from <Picture 1>"; and the owner's approval of the same day:
-    where a face is drawn, the eyes' look and the mouth's opening transferred and followed."""
+    where a face is drawn, the eyes' look transferred and followed, and the mouth's opening only where the drawing opens a mouth (the
+    owner's go of 2026-10-22, after second_hfp_0278l). The kept loads' references of 10/13 drew no mouth (`RECORD_10_13`, as their own
+    `<Subject 2>` sentences say), so their texts name none."""
     out = re.sub(r"; [^;\n]* of <Picture 1> are not used\.\n", ".\n", kept)
     out = out.replace("; the grey body model's look, the drawn outlines themselves and its black ground are not used.", ".")
     out = out.replace(f"a closer view of the head, shoulders and {view} of", "a closer view of the head and shoulders of")
@@ -65,12 +69,10 @@ def as_ruled(kept: str, view: str, summary_was: str, who_looks: str, detail_was:
     out = out.replace(f"<Subject 1> is {who} whose appearance comes from <Picture 1>, with {looks}, and who",
                       f"<Subject 1> is {who} with {picture_hair} whose appearance comes from <Picture 1>, and who")
     out = out.replace("attribute_transfer - the movements of the head and the facial expressions are transferred to <Subject 1>.",
-                      "attribute_transfer - the movements of the head, the facial expressions, where the eyes look and how far the mouth opens are "
-                      "transferred to <Subject 1>.")
+                      "attribute_transfer - the movements of the head, the facial expressions and where the eyes look are transferred to <Subject 1>.")
     out = re.sub(r"performs <Subject 2>: (\w+) follows the movements of the head and the facial expressions of the figure\.",
                  lambda m: (f"performs <Subject 2>: {m[1]} follows the movements of the head and the facial expressions of the figure, "
-                            f"{dict(she='her', he='his').get(m[1], 'their')} eyes looking where its eyes look and "
-                            f"{dict(she='her', he='his').get(m[1], 'their')} mouth opening and closing where its mouth does."), out)
+                            f"{dict(she='her', he='his').get(m[1], 'their')} eyes looking where its eyes look."), out)
     out = re.sub(r"partially_preserved - only the (\w+)'s face is retained, wherever it shows: \w+ eyes, eyebrows, nose, mouth and skin\.\n",
                  r"partially_preserved - the \1's face from <Picture 1> is retained.\n", out)
     out = re.sub(r"partially_preserved - only the (\w+)'s face and [^\n]* are retained, wherever they show\.\n",
@@ -103,12 +105,13 @@ def the_owners_text_made_again() -> str:
         # THE CASE THAT GOES RED when any text carries the plan's looks, whole or by its eye, eyebrow or skin words
         assert not any(x in words for x in looks + ["blue eyes", "fair skin", "brown eyes", "dark eyebrows", "blue-grey eyes"]), words
         assert words.endswith("\n\nnon_diegetic_music: N/A\n") and "A song plays" not in words, words[-80:]
-    # WHERE THE EYES LOOK AND HOW FAR THE MOUTH OPENS on a load whose reference draws a face (the owner's approval of 2026-10-22); the
-    # head's movements alone on her hair alone
+    # WHERE THE EYES LOOK on a load whose reference draws a face (the owner's approval of 2026-10-22), and no mouth where the drawing opens
+    # none (0415's closed-lip line opens none, the 10/13 records leave the mouth out; the owner's go of 2026-10-22); the head's movements
+    # alone on her hair alone
     for words in made[:3]:
-        assert "<Subject 2> (appears in [Shot 1]): attribute_transfer - the movements of the head, the facial expressions, where the eyes look and how far the mouth opens are transferred to <Subject 1>.\n" in words, words
+        assert "<Subject 2> (appears in [Shot 1]): attribute_transfer - the movements of the head, the facial expressions and where the eyes look are transferred to <Subject 1>.\n" in words, words
         assert "<Subject 1> performs <Subject 2>: she follows the movements of the head and the facial expressions of the figure, her eyes looking " \
-               "where its eyes look and her mouth opening and closing where its mouth does." in words, words
+               "where its eyes look." in words and "mouth" not in words.split("(S1) sings")[0], words
     assert "where the eyes look" not in made[3] and "attribute_transfer - the movements of the head are transferred to <Subject 1>.\n" in made[3], made[3]
     # A FACE LOAD WHOSE PICTURE'S HAIR AND SHOT'S HAIR DIFFER (the owner, 2026-10-22: the hair named with <Picture 1> is the picture's,
     # [Shot 1] names the hair the shot ends up with): each in its own line, and only there
@@ -144,7 +147,7 @@ def the_owners_text_made_again() -> str:
         assert run.returncode == 5 and run.stdout.startswith(f"REFUSED: the plan's `text.{key}` for 'second' is not written") \
             and "Traceback" not in run.stdout + run.stderr, (key, bad, run.returncode, run.stdout, run.stderr)
     return ("second_hfp_0415l's text made again byte for byte from its inputs; no text carries the plan's looks; the music is N/A; a face load "
-            "transfers the eye movements, a hair load the head's movements alone; the picture's hair in the definition and the shot's in [Shot 1], "
+            "transfers where the eyes look (no mouth where the drawing opens none), a hair load the head's movements alone; the picture's hair in the definition and the shot's in [Shot 1], "
             "each in its own line; a subject without picture_hair or hair_words refused in the tool's words")
 
 
@@ -248,9 +251,16 @@ def what_a_reference_draws_the_text_says() -> str:
     plain = s2({"form": "plain", "drawn": {"parts_left_out": []}})
     assert plain.endswith("posed as the person moves.") and "outline" not in plain, plain
     others = lambda t: [line for line in t.splitlines() if not line.startswith("<Subject 2> is")]       # noqa: E731
-    assert others(lt.text(PLAN, "lead", {"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast", "mouth": {"drawn": True}}}, "", VOICED, 1730, 1754)) == others(base)
+    shut_mouth = lt.text(PLAN, "lead", {"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast", "mouth": {"drawn": False}}}, "", VOICED, 1730, 1754)
+    assert others(shut_mouth) == others(base), (shut_mouth, base)
+    # AN OPEN MOUTH ALSO NAMES THE MOUTH in the retention line and [Shot 1] (the owner's go of 2026-10-22), and changes nothing else
+    mouthed_text = lt.text(PLAN, "lead", {"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast", "mouth": {"drawn": True}}}, "", VOICED, 1730, 1754)
+    changed = [b for a, b in zip(shut_mouth.splitlines(), mouthed_text.splitlines()) if a != b]
+    assert len(shut_mouth.splitlines()) == len(mouthed_text.splitlines()) and len(changed) == 3 and all("mouth" in line for line in changed) \
+        and [line[:12] for line in changed] == ["<Subject 2> ", "<Subject 2> ", "[Shot 1] <Su"], changed
     assert "(S1) sings" in base and "(S1) sings" not in lt.text(PLAN, "lead", RECORD_10_13, "", VOICED, 1000, 1100), "the singing line ignores the voice table"
-    return "the mouth drawn or not, the eye's form, a part left out and a plain cut change the <Subject 2> sentence and nothing else; singing follows the voice table"
+    return ("the eye's form, a part left out and a plain cut change the <Subject 2> sentence and nothing else; an open mouth names the mouth there, "
+            "in the retention line and in [Shot 1]; singing follows the voice table")
 
 
 def a_load_of_the_hair_alone() -> str:
@@ -561,7 +571,8 @@ def the_mouth_clause_by_the_open_mouth() -> str:
     assert shot.endswith("<Subject 1> performs <Subject 2>: she follows the movements of the head and the facial expressions of the figure, her eyes "
                          "looking where its eyes look and her mouth opening and closing where its mouth does."), shot
     plan = json.loads(json.dumps(PLAN)); plan["subjects"]["lead"]["text"].update(she="he", her="his")
-    his = next(line for line in lt.text(plan, "lead", RECORD_10_13, "", [], 1730, 1754).splitlines() if line.startswith("[Shot 1]"))
+    his = next(line for line in lt.text(plan, "lead", {"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast", "mouth": {"drawn": True}}},
+                                        "", [], 1730, 1754).splitlines() if line.startswith("[Shot 1]"))
     assert his.endswith(": he follows the movements of the head and the facial expressions of the figure, his eyes looking where its eyes look and his "
                         "mouth opening and closing where its mouth does."), his
     # a plain cut (no face drawn) and a hair load keep the lines before
@@ -571,8 +582,49 @@ def the_mouth_clause_by_the_open_mouth() -> str:
     assert set(lt.MOUTH_CLAUSE) <= set(draw_face_points.OPEN_MOUTH_FORMS[1:]), (lt.MOUTH_CLAUSE, draw_face_points.OPEN_MOUTH_FORMS)
     fx = json.loads(FIXTURE.read_text())
     assert "open_mouth" not in json.dumps(fx["record"]) and "the lips are outlined" not in fx["owner_text"]
+    # THE CASE THAT GOES RED when the outlined form names the mouth on a load whose closed-lip line opens it on no frame (0278l, 2026-10-22)
+    assert s2("outlined") != unified and next(line for line in lt.text(PLAN, "lead", {"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast",
+        "mouth": {"drawn": True, "inside": "the class map", "closed_lip_line": {"why": "t", "closed_frames": [[1730, 1754]], "open_frames": [],
+                                                                                "open_mouth": "outlined"}}}}, "", VOICED, 1730, 1754).splitlines()
+        if line.startswith("<Subject 2> is")) == unified
     return ("the lead's outlined form makes the owner's approved sentence byte for byte; every subject's eyes are drawn each with a dark iris; "
             "no other form and no field says anything of the mouth; on some frames and on none as the drawing; no eye drawn, the words before")
+
+
+def the_mouth_words_where_the_drawing_opens_one() -> str:
+    """The owner's go of 2026-10-22, after second_hfp_0278l: its drawing opened no mouth (closed-lip line, `open_frames` []) and its text
+    said her mouth opens and closes; she spoke, lifted her head and looked at the camera, where 0278f, the same drawing with no mouth words,
+    kept her lips closed on all 16 frames (docs/masked_v2v/PROTOCOL.md, case study 3). The mouth is named only where the drawing opens one,
+    in every line that would name it: `<Subject 2>`'s sentence, its retention line and [Shot 1]."""
+    def made(open_frames=None, voiced=(), **mouth):
+        cl = {"why": "t", "closed_frames": [[1730, 1754]], "open_mouth": "outlined", **({} if open_frames is None else {"open_frames": open_frames})}
+        rec = {"form": "drawn", "frames": [1730, 1754], "drawn": {"parts_left_out": [], "iris": "contrast",
+                                                                  "mouth": {"drawn": True, "inside": "the class map", "closed_lip_line": cl, **mouth}}}
+        return lt.text(PLAN, "lead", rec, "", list(voiced), 1730, 1754)
+    def lines(words):
+        out = words.splitlines()
+        return (next(x for x in out if x.startswith("<Subject 2> (appears")), next(x for x in out if x.startswith("[Shot 1]")),
+                next(x for x in out if x.startswith("<Subject 2> is")))
+    shut, opened, some = made([]), made([[1741, 1754]]), made([[1741, 1754]], frames_with_no_mouth=10)
+    # THE CASE THAT GOES RED when a load whose drawing opens no mouth names one anywhere (the gate removed), or one that opens it names
+    # it in no line
+    assert "mouth" not in shut, shut
+    assert lines(shut)[:2] == ("<Subject 2> (appears in [Shot 1]): attribute_transfer - the movements of the head, the facial expressions and where "
+                               "the eyes look are transferred to <Subject 1>.",
+                               "[Shot 1] <Subject 1>, the girl with LEAD HAIR, has the face of <Picture 1>. <Subject 1> performs <Subject 2>: she follows "
+                               "the movements of the head and the facial expressions of the figure, her eyes looking where its eyes look."), lines(shut)
+    assert all("mouth" in x for x in lines(opened)) and "how far the mouth opens" in lines(opened)[0] \
+        and "her mouth opening and closing where its mouth does." in lines(opened)[1] and lt.MOUTH_CLAUSE["outlined"][0] in lines(opened)[2], lines(opened)
+    # where the drawing opens it on some frames only, the retention and [Shot 1] lines as where it opens it on all, the sentence "on some frames"
+    assert lines(some)[:2] == lines(opened)[:2] and lt.MOUTH_CLAUSE["outlined"][1] in lines(some)[2], lines(some)
+    # a record with no `open_frames` (before the closed-lip line counted them): the mouth as drawn on the load's frames, never on none
+    assert all("mouth" in x for x in lines(made())) and "mouth" not in made(frames_with_no_mouth=25), made(frames_with_no_mouth=25)
+    assert "mouth" not in lt.text(PLAN, "lead", {"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast", "mouth": {"drawn": False}}},
+                                  "", [], 1730, 1754)
+    # the singing line is the voice's, not the drawing's: it stays on a singer's load whose drawing opens no mouth
+    assert "(S1) sings, her mouth opening wide" in made([], VOICED) and lines(made([], VOICED))[0] == lines(shut)[0]
+    return ("a drawing that opens no mouth (open_frames []) names no mouth in the <Subject 2> sentence, its retention line or [Shot 1]; one that "
+            "opens it names it in all three, \"on some frames\" in the sentence where it opens on some; the singing line is the voice's")
 
 
 def her_face_and_hair_with_no_change() -> str:
@@ -603,6 +655,7 @@ case("her face and hair with no change", her_face_and_hair_with_no_change)
 case("the kept texts made again", the_kept_texts_made_again)
 case("what a reference draws, the text says", what_a_reference_draws_the_text_says)
 case("the mouth's clause by the open-mouth form", the_mouth_clause_by_the_open_mouth)
+case("the mouth's words where the drawing opens one", the_mouth_words_where_the_drawing_opens_one)
 case("a load of the hair alone", a_load_of_the_hair_alone)
 case("what it refuses", what_it_refuses)
 case("her clothing named", her_clothing_named)

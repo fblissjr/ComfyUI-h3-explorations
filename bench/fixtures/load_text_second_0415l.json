@@ -253,6 +253,22 @@
    "what": "[Shot 1]'s sentence of what <Subject 1> follows where a face is drawn",
    "old": "<Subject 1> performs <Subject 2>: she follows the movements of the head and the facial expressions of the figure.",
    "new": "<Subject 1> performs <Subject 2>: she follows the movements of the head and the facial expressions of the figure, her eyes looking where its eyes look and her mouth opening and closing where its mouth does."
+  },
+  {
+   "at": "2026-10-22",
+   "by": "the owner's go, relayed by the lead (branch claude-mouth-words-gated), after second_hfp_0278l",
+   "what": "<Subject 2>'s retention line where a face is drawn and no open mouth is",
+   "old": "<Subject 2> (appears in [Shot 1]): attribute_transfer - the movements of the head, the facial expressions, where the eyes look and how far the mouth opens are transferred to <Subject 1>.",
+   "new": "<Subject 2> (appears in [Shot 1]): attribute_transfer - the movements of the head, the facial expressions and where the eyes look are transferred to <Subject 1>.",
+   "note": "0415's drawing opens no mouth (the record's mouth.closed_lip_line.open_frames is []), so its text names no mouth: the mouth words appear only where the reference draws an open mouth on some frame (load_text.mouth_drawn_open)"
+  },
+  {
+   "at": "2026-10-22",
+   "by": "the owner's go, relayed by the lead (branch claude-mouth-words-gated), after second_hfp_0278l",
+   "what": "[Shot 1]'s sentence of what <Subject 1> follows where a face is drawn and no open mouth is",
+   "old": "<Subject 1> performs <Subject 2>: she follows the movements of the head and the facial expressions of the figure, her eyes looking where its eyes look and her mouth opening and closing where its mouth does.",
+   "new": "<Subject 1> performs <Subject 2>: she follows the movements of the head and the facial expressions of the figure, her eyes looking where its eyes look.",
+   "note": "0415's drawing opens no mouth (the record's mouth.closed_lip_line.open_frames is []), so its text names no mouth: the mouth words appear only where the reference draws an open mouth on some frame (load_text.mouth_drawn_open)"
   }
  ]
 }

@@ -17,6 +17,18 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-22
 
+- **A text names the mouth only where its reference draws an open mouth on some frame** (the owner's go, relayed by the lead, after
+  second_hfp_0278l). 0278l's drawing opened no mouth (its closed-lip line's `open_frames` was empty) and its text said "her mouth
+  opening and closing where its mouth does"; she spoke, lifted her head and looked at the camera, where 0278f, the same no-mouth
+  drawing with no mouth words, kept her lips closed on all 16 frames (`docs/masked_v2v/PROTOCOL.md`, case study 3); the capture's
+  gate flagged `text_names_a_voice_where_there_is_none`. `bench/load_text.py::mouth_drawn_open` (the closed-lip line's `open_frames`
+  where the record has the key, else a mouth drawn on some frame of the load) now gates all three mouth lines: where it is false,
+  `<Subject 2>`'s retention line reads "the movements of the head, the facial expressions and where the eyes look are transferred"
+  (it said "..., where the eyes look and how far the mouth opens"), `[Shot 1]` ends "her eyes looking where its eyes look." (it went on
+  "and her mouth opening and closing where its mouth does"), and the outlined form's `MOUTH_CLAUSE` is left out of `<Subject 2>`'s
+  sentence. The singing line is the voice's and stays. The owner's 0415 fixture opens no mouth, so its expected text loses the mouth
+  words (two more `approved_changes`); the kept 10/13 texts lose them too, their records leaving the mouth out. Branch
+  claude-mouth-words-gated.
 - **A reference that shows no figure where its subject is in the load stops the load** (the Claude lead's ask, after
   second_hfp_1419c rendered with its `<Video 1>`, `second_1419_1465_b`, black on 1419-1454, 36 of 47 frames: the body-model fit
   found no body for her, tiny and hidden, and nothing said so). `bench/head_reference.py` now writes `figure` into the
