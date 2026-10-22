@@ -327,6 +327,20 @@ def records_of(rel: str, share: Path, by_file: dict, every: list[dict]) -> tuple
     return loose, False
 
 
+#: What a cut's box is round, by the record's own word: `crop.form` (`head_reference.CROP_FORMS`, 2026-10-22), else the start of the crop
+#: tool's `box_set_by`; a record that says neither is said as the head's, as before.
+BOX_ROUND = {"head": "the head", "face": "the faces", "cranium": "the body model's grey head"}
+
+
+def box_round(r: dict) -> str:
+    """What a reference record's one box is round, in words (`BOX_ROUND`)."""
+    form = (r.get("crop") or {}).get("form") if isinstance(r.get("crop"), dict) else None
+    if form is None:
+        by = str(r.get("box_set_by") or "")
+        form = "face" if by.startswith("the faces") else "cranium" if by.startswith("the grey head") else "head"
+    return BOX_ROUND.get(form, f"the {form}")
+
+
 def reference_form(path: str | None, depth: int = 0) -> dict:
     """What a reference (motion) video is, read from the records its tools wrote beside it, back to the body model.
 
@@ -354,7 +368,7 @@ def reference_form(path: str | None, depth: int = 0) -> dict:
     if "box" in r:
         has["cut_to_the_head"] = True
         scale = r.get("scale")
-        steps.append(f"cut to one box round the head ({r['box']}" + (f", enlarged {scale[0]:g} times" if isinstance(scale, list) and scale else "") + ")")
+        steps.append(f"cut to one box round {box_round(r)} ({r['box']}" + (f", enlarged {scale[0]:g} times" if isinstance(scale, list) and scale else "") + ")")
     if drawn is not None:
         has["face_points"] = True
         steps.append("the face points drawn as lines" + (f" (left out: {', '.join(drawn['parts_left_out'])})" if drawn.get("parts_left_out") else "")

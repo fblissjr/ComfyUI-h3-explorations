@@ -205,6 +205,10 @@ def a_render_its_record_agrees_with() -> str:
         says = form["reference"]["says"]
         assert "cut to one box round the head ([10, 20, 110, 95], enlarged 2.5 times), then the face points drawn as lines (left out: mouth)" in says \
             and "the chain ends at mesh_00001.mp4" in says and form["reference"]["made_by"] == "s1", says
+        # a box round the faces or the grey head is said as that, by the record's `crop` or the crop tool's `box_set_by` (2026-10-22)
+        assert [led.box_round(x) for x in ({"crop": {"form": "face"}}, {"crop": {"form": "cranium"}}, {"crop": {"form": "head"}},
+                                           {"box_set_by": "the faces with their room, grown to the canvas's shape"}, {})] \
+            == ["the faces", "the body model's grey head", "the head", "the faces", "the head"]
         assert form["text_says_the_video_is"].startswith("<Subject 1> is the woman") and "a closer view of a plain grey body model" in form["text_says_the_video_is"]
         assert r["laid_in_the_table"] == [[30, 89]] and out["counts"]["laid_in_the_table"] == 1
         said = [(o["said"], o["from"]) for o in r["owner"]]

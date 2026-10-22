@@ -24,6 +24,11 @@ else on every frame (`bench/_lib/face_points_fixture.py`), runs the tool, and re
    another canvas; a points file that does not say its first frame.
 7. **The sheet shows a change.** A reference whose whole picture changes at frame 9 has 9 on its sheet with the
    picture's change as the reason (`bench/_lib/pick_frames.py`).
+8. **`--cranium` frames the body model's grey head** (2026-10-22). On a black picture with a grey figure (a head, a neck,
+   shoulders, and a raised hand clear of the head) the box holds every frame's head above the chin with `CRANIUM_ROOM` above
+   and beside it and `CRANIUM_NECK` below the chin, and not the hand; a frame whose grey reaches the picture's top is named
+   as reaching the box's edge and the picture's; a head that travels gives the one box's enlargement and each frame's own,
+   the one smaller; a small head is enlarged at most `CRANIUM_MOST`; `--box` cuts by the box given; `--cranium` with `--fit`, `--head-track` or `--box` is refused.
 
 Needs ffmpeg and ffprobe on the path. No model, no card, no server.
 
@@ -375,6 +380,108 @@ def head_track_and_crown_room() -> str:
     return f"tilted head track widens box from {face_only['box']} to {with_tilted['box']} with crown room; frontal head track stays {with_frontal['box']}{kitchen_note}"
 
 
+def figure(centres, crown_up=None, hand: bool = True, tucked: bool = False, arms: bool = False) -> np.ndarray:
+    """A body model's picture: black, with a grey (90) head over each frame's face (an ellipse from `crown_up[k]` face heights above
+    the glabella, 0.9 when not given, to the chin, 45 px either side of the face's middle), a neck, shoulders, and a raised hand
+    clear of the head above the chin. `tucked`: the chin tucked, the shoulders 130 px either side rising to 15 px above the chin and
+    joined to the head (second 0278); `arms`: both arms raised from the shoulders to above the crown (lead 1156)."""
+    out = []
+    yy, xx = np.mgrid[0:H, 0:W]
+    for k, (cx, cy) in enumerate(np.asarray(centres, float)):
+        f = np.zeros((H, W, 3), np.uint8)
+        top, chin = cy - 10 - (0.9 if crown_up is None else crown_up[k]) * FACE_PX, cy - 10 + FACE_PX
+        my, ry = (top + chin) / 2, (chin - top) / 2
+        f[((xx - cx) / 45.0) ** 2 + ((yy - my) / ry) ** 2 <= 1.0] = 90
+        f[int(chin) - 4:int(chin) + 30, int(cx) - 15:int(cx) + 16] = 90
+        f[int(chin) + 30:, max(int(cx) - 80, 0):int(cx) + 81] = 90
+        if tucked:
+            f[int(chin) - 15:, max(int(cx) - 130, 0):int(cx) + 131] = 90
+        if arms:
+            for x in (int(cx) - 95, int(cx) + 80):
+                f[max(int(top) - 20, 0):int(chin) + 40, max(x, 0):x + 15] = 90
+        if hand:
+            f[(xx - (cx + 110)) ** 2 + (yy - (cy - 20)) ** 2 <= 100] = 90
+        out.append(f)
+    return np.stack(out)
+
+
+def heads_by_hand(centres, crown_up=None) -> np.ndarray:
+    """Each frame's grey head above the chin as [x0, y0, x1, y1], by the figure's construction."""
+    c = np.asarray(centres, float)
+    up = np.full(len(c), 0.9) if crown_up is None else np.asarray(crown_up, float)
+    return np.stack([c[:, 0] - 45, np.maximum(c[:, 1] - 10 - up * FACE_PX, 0), c[:, 0] + 45, c[:, 1] - 10 + FACE_PX], 1)
+
+
+def cranium_box_round_the_grey_head() -> str:
+    folder = WORK / "cranium"
+    folder.mkdir()
+    mesh = video(folder / "mesh.mkv", figure(CENTRES))
+    rec = cr.run(str(mesh), str(POINTS), 0, N, folder / "a.mp4", "the check", cranium=True, say=quiet)
+    x0, y0, x1, y1 = rec["box"]
+    heads, room, neck = heads_by_hand(CENTRES), cr.CRANIUM_ROOM * FACE_PX, cr.CRANIUM_NECK * FACE_PX
+    need = (heads[:, 0].min() - room, heads[:, 1].min() - room, heads[:, 2].max() + room, heads[:, 3].max() + neck)
+    # THE CASE THAT GOES RED on a tool with no `--cranium`, or a box sized by the face's room or the hand
+    assert rec["passed"] and x0 <= need[0] + 1 and y0 <= need[1] + 1 and x1 >= need[2] - 1 and y1 >= need[3] - 1, (rec["box"], need)
+    assert abs((x1 - x0) / (y1 - y0) - W / H) < 0.01 and (y1 - y0) <= int(np.ceil(max(need[3] - need[1], (need[2] - need[0]) * H / W))) + 2, (rec["box"], need)
+    handless = cr.run(str(video(folder / "handless.mkv", figure(CENTRES, hand=False))), str(POINTS), 0, N, folder / "handless.mp4", "the check",
+                      cranium=True, say=quiet)
+    assert handless["box"] == rec["box"], ("the raised hand, clear of the head, moved the box", handless["box"], rec["box"])
+    # THE CASES THAT GO RED under the grey above the CHIN (the Gemini reviewer's measure of 2026-10-22): shoulders risen above the chin
+    # line and joined to the head (second 0278), and arms raised beside the head joined to them (lead 1156). Above mid-face neither joins
+    for what, kw in (("shoulders above the chin", {"tucked": True}), ("arms raised above the head", {"tucked": True, "arms": True}),
+                     ("arms raised, shoulders low", {"arms": True})):
+        got = cr.run(str(video(folder / "body.mkv", figure(CENTRES, hand=False, **kw))), str(POINTS), 0, N, folder / f"{'_'.join(kw)}.mp4", "the check",
+                     cranium=True, say=quiet)
+        (folder / "body.mkv").unlink()
+        assert got["box"] == rec["box"] and got["cranium"]["frames_the_grey_head_reaches_the_box_edge"] == [], (what, got["box"], rec["box"])
+    c = rec["cranium"]
+    assert rec["box_set_by"].startswith("the grey head") and c["frames_the_grey_head_reaches_the_box_edge"] == [] \
+        and c["frames_the_grey_head_reaches_the_picture_edge"] == [] and c["frames_with_no_grey_head_joined_to_the_face"] == [], c
+    assert c["grey_above_mid_face_not_joined_to_the_face_px_least_median_most"][0] > 250, c       # the hand, about 300 px, left out on every frame
+    assert json.loads((folder / "a.json").read_text())["cranium"] == c
+    # a frame whose grey reaches the picture's top: named, as reaching the box's edge and the picture's
+    up = [0.9] * N
+    up[5] = 3.0
+    hat = cr.run(str(video(folder / "hat.mkv", figure(CENTRES, up))), str(POINTS), 0, N, folder / "hat.mp4", "the check", cranium=True, say=quiet)
+    assert hat["box"][1] == 0 and hat["cranium"]["frames_the_grey_head_reaches_the_box_edge"] == [5] \
+        and hat["cranium"]["frames_the_grey_head_reaches_the_picture_edge"] == [5], (hat["box"], hat["cranium"])
+    # a head that travels: each frame's own box against the one box, as figures
+    far = np.stack([np.linspace(110, 270, N), np.full(N, 130.0)], 1)
+    far_pts = fx.save(folder / "far_points.npz", faces(far), (W, H), first=0)
+    trav = cr.run(str(video(folder / "far.mkv", figure(far))), str(far_pts), 0, N, folder / "far.mp4", "the check", cranium=True, say=quiet)["cranium"]
+    least, median, most = trav["each_frame_alone_would_enlarge_least_median_most"]
+    assert trav["the_one_box_enlarges"] < least <= median <= most and abs(trav["the_travel_keeps_of_the_median_frame_enlargement"]
+                                                                          - trav["the_one_box_enlarges"] / median) < 0.002, trav
+    # a small head is enlarged at most CRANIUM_MOST, and the record says what it would have been: a face a quarter the fixture's size
+    small = np.asarray(CENTRES)[:, None, :] + (faces(CENTRES) - np.asarray(CENTRES)[:, None, :]) * 0.25
+    P, _ = cr.faces.rows_of(str(fx.save(folder / "small_points.npz", small, (W, H), first=0)), None, 0, N, 0, whole_face=False)
+    tiny = cr.cranium_box(P, (W, H), cr.HEAD_ROOM, np.zeros((N, H, W, 3), np.uint8))
+    held = tiny["cranium"]["held_to_the_most"]
+    assert held["capped"] and held["would_enlarge_without_it"] > cr.CRANIUM_MOST >= W / (tiny["box"][2] - tiny["box"][0]) > cr.CRANIUM_MOST - 0.2 \
+        and "CRANIUM_MOST" in tiny["set_by"] and not c["held_to_the_most"]["capped"], (tiny["box"], held)
+    # --box cuts by the box given, as it is
+    given = cr.run(str(REF), str(POINTS), 0, N, folder / "given.mp4", "the check", box=rec["box"], say=quiet)
+    assert given["box"] == rec["box"] and given["box_set_by"].startswith("given") and "cranium" not in given, given["box_set_by"]
+    for kw, word in (({"fit": True}, "--cranium reads the box"), ({"head_track": str(REF)}, "--cranium reads the box"),
+                     ({"box": [0, 0, 10, 10]}, "--cranium reads the box")):
+        try:
+            cr.run(str(mesh), str(POINTS), 0, N, folder / "refused.mp4", "the check", cranium=True, say=quiet, **kw)
+        except SystemExit as exc:
+            assert word in str(exc) and not (folder / "refused.mp4").exists(), (kw, exc)
+        else:
+            raise AssertionError(f"--cranium with {kw}: accepted")
+    try:
+        cr.run(str(REF), str(POINTS), 0, N, folder / "refused.mp4", "the check", box=[0, 0, W + 1, H], say=quiet)
+    except SystemExit as exc:
+        assert "not a box inside" in str(exc), exc
+    else:
+        raise AssertionError("a --box past the canvas: accepted")
+    return (f"the grey head's box {rec['box']} holds every frame's head with its room and the neck, not the raised hand; a head reaching the "
+            f"picture's top named on frame 5; a travelling head enlarges {trav['the_one_box_enlarges']:.3f} in the one box against "
+            f"{median:.3f} a frame alone; a small head held to {cr.CRANIUM_MOST:g} (it would be {held['would_enlarge_without_it']:.2f}); "
+            "--box cuts as given; three clashes refused")
+
+
 case("one box, holding every face with its room, and the scale the record says", one_box_and_its_scale)
 case("the sheet shows a change", the_sheet_shows_a_change)
 case("frames from the middle of both files", frames_from_the_middle)
@@ -382,6 +489,7 @@ case("a head near an edge, and a head that crosses the frame", edges_and_the_who
 case("the original itself is fitted, then cut by the same box", the_original_fitted_then_cut)
 case("the read-back can fail", the_read_back_can_fail)
 case("the head box from the head track, with room above the crown", head_track_and_crown_room)
+case("--cranium: the box round the body model's grey head", cranium_box_round_the_grey_head)
 case("what it refuses", refusals)
 shutil.rmtree(WORK, ignore_errors=True)
 sys.exit(finish())

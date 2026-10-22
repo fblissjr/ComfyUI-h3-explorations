@@ -94,6 +94,45 @@ Older history lives elsewhere and is not copied here:
   region is the face. The zoomed record (`audio_freeze_song.ZOOMED_VERSION` 3) carries `up_to`, and `set_by` may say "the
   head's target height" or "the zoom any load may take" on a load that asked. `ZOOM_LARGEST` stays 2.0, as since 516e06e2
   (2026-10-10). Nothing was rendered past 2 when this was written. `docs/masked_v2v/AGENTS.md` §8. Branch claude-zoom-to-head.
+- **A subject's reference can be cut to the face's box** (the Claude lead's build, on 0278j/k: their gaze went wrong on the head box
+  while 0278f's, drawn on the face's box, was right). A new plan word, `subjects.<s>.reference.crop`, with the reference's `why`:
+  `head` (the default, and the key left out) or `face` (`bench/head_reference.py::CROP_FORMS`). `face` sizes the one box on the faces
+  alone with `bench/crop_reference_to_head.py::HEAD_ROOM`, the head track not read: the sizing before `ba061ef3`, and the box 0278f
+  was drawn at (`second_0278_0293_d`'s record). The crown may be cut. The word reaches the job (`job.reference.crop`), a row of THE
+  DEFAULTS THIS LOAD CARRIES, `head_reference --crop face --crop-why`, and the reference record's `crop` (form, why, enlargement, the
+  head track not read). `--carry-words-from` re-reads it from the plan and never carries it; `--existing` takes a reference only where
+  it was cut to the job's box. Without the word the reference is byte-identical to main's: `second_0278_0293_g` redrawn both ways
+  from 0278k's job gave the same sha256 for all three videos. Measured on that redraw (16 frames, both eyes, the pose model's iris
+  ring in <Video 1>'s 1024x768 pixels, cut to the lids): the head box enlarges 1.654 times and the iris inside the lids is 6 to 9 px
+  tall (median 9), 15 to 21 px across; the face box enlarges 1.882 times, box `[387, 109, 931, 517]` as 0278f's, and the iris is 8 to
+  11 px tall (median 9), 17 to 23 px across. So the face crop alone keeps the iris under one Qwen3-VL 16 px patch tall; whether
+  that decides the gaze is a render's question. The 2026-10-19 caveat below says the mom's 278-293 went "from 1.88x to 1.42x":
+  today's references of that span (`second_0278_0293_f` and `_g`, on `shot_c_0278e`'s head track) record 1.654 in their `scale`; the
+  preview the 1.42 was read on was not re-measured. Branch claude-face-crop.
+- **A third reference crop, `cranium`: the box round the body model's grey head** (the Gemini reviewer's design, accepted by the
+  lead (mrtim); built on branch claude-face-crop). `<Video 1>` holds only the bald grey body model with the face drawn, so the box
+  frames that head, not the real hair the head track holds. The plan's `reference.crop` takes `cranium`
+  (`bench/head_reference.py::CROP_FORMS`), `head_reference --crop cranium`, `crop_reference_to_head --cranium`
+  (`cranium_box`): a frame's face box with the body model's grey (`BODY_GREY`, 16, the drawing's) above MID-FACE joined to it
+  (`grey_head`), `CRANIUM_ROOM` 0.15 face heights above and beside and `CRANIUM_NECK` 0.35 below the chin (both reasoned), one box
+  over the load in the canvas's shape, enlarged at most `CRANIUM_MOST` 5.75, the source cut by that box as given (`--box`). Above
+  the CHIN, as first designed, was measured wrong by the reviewer the same day: on lead 1156 the arms raised above the head join
+  through the neck and shoulders (the grey 642 px across on 1156), and on second 0278 the tucked chin leaves her shoulders above
+  the chin line (435 px against the head's 160); the check's shoulder case is red under the chin line. `CRANIUM_MOST` is measured:
+  the most a reference was enlarged on a render the owner said to keep (61 in `ledger_fun_2026-10-22T1915Z`: median 2.07, most
+  5.753 on third_fp_4653b); nothing bounded the enlargement before, in any form, and without it the reviewer's scan put second
+  4479 at 6.51 to 9.85 and 4602 at 5.30 to 8.35. The record's `crop.cranium` gives, as figures, the frames the grey head reaches
+  the box's or the picture's edge, the grey left out, each frame's own enlargement against the one box's (the travel's cost) and
+  whether the bound held it; the box never follows the head. Redrawn from each load's own job (sessions' scratch, not the share):
+  enlarged head / face / cranium, second_0278_0293_g 1.654 / 1.882 / 2.646 (each frame alone 2.68 to 2.81), lead_1156_1188_b
+  1.662 / 1.662 / 2.349 (alone 2.76 to 4.21: she travels), second_0415_0437_k 1.646 / 1.747 / 2.695, second_4602_4646_c 5.278 /
+  5.278 / 5.721 (7.82 without the bound); the reviewer's 2.35, 2.65 and 2.69 reproduced. The iris inside the lids on 0278, tall,
+  median 9 / 9 / 13 px (0.56 / 0.56 / 0.81 of a 16 px patch), across 18 / 21 / 28; the mouth across 74 / 84 / 118 px. On no frame
+  of the four does the grey head above mid-face reach the box's edge, by the tool and by a read of the written cut. `head` and
+  `face` wrote the same bytes as before on all four. At 5.3 to 5.7 times the 4602 body model's outline is a visible stair of
+  enlarged pixels: the cut only resamples a canvas-size render, and the lever past the bound is the body model rendered at the
+  cut's size (next_steps item 8), not built. Not yet rendered. `render_ledger` now says what a cut's box is round
+  (`box_round`); it said "round the head" for a face box.
 - **A load's text takes the owner's hand-written form** (the owner, in the lead's terminal (mrtim), on second_hfp_0415l: "use that prompt from now on. It's
   simpler and more flexible"; "woman with blonde hair ... is usually enough"). `bench/load_text.py` now names the subject by
   a new plan field, `text.hair_words` ("blonde hair" for the second subject), in the definition and in `[Shot 1]`, and refuses a

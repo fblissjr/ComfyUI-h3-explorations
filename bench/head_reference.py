@@ -4,7 +4,7 @@
     python bench/head_reference.py --mesh PLAIN_MESH.mp4 --points SHOT_points.npz --source SOURCE.mov \\
         --first 1222 --count 84 --out <share>/Video/<video>/<who>/<shot>_inputs/<name>.mp4 --by <session> \\
         [--width 1.5] [--room 1.2] [--head-track HEAD_TRACK.mkv] [--head-track-first N] [--no-head-track] \\
-        [--leave-out mouth] [--dots] [--mesh-first N] [--points-first N] [--names NAMES.json]
+        [--crop face|cranium --crop-why WHY] [--leave-out mouth] [--dots] [--mesh-first N] [--points-first N] [--names NAMES.json]
 
 **The form** (the owner, 2026-10-12, 20:12Z; `docs/wiki/decisions.md`): every head or head-and-hair replacement
 takes as its motion video the body model cut to the head with the face points drawn on it, and its text says
@@ -13,8 +13,11 @@ the three and writes one record:
 
 1. `bench/crop_reference_to_head.py` on the PLAIN body-model video and the shot's points (and the subject's head
    track when given or found beside the points' box mask or body-model video, with room above the crown): one box
-   round the head for the whole span, enlarged to the canvas, and the points carried into the new picture.
-2. The same on the SOURCE itself (`--fit`), by the same box, for the sheet and for a strip.
+   round the head for the whole span, enlarged to the canvas, and the points carried into the new picture. With
+   `--crop face` (`CROP_FORMS`, the plan's `reference.crop`) the box is round the faces alone and the face is drawn larger; with
+   `--crop cranium` it is round the body model's own grey head above mid-face and the face, read off the body model.
+2. The same on the SOURCE itself (`--fit`), by the same box, for the sheet and for a strip (under `--crop cranium`, the box
+   step 1 found, given as it is: the source has no grey head to find it by).
 3. `bench/draw_face_points.py` on the cut body model with the carried points: lines only (no dots) and the mouth
    left out, unless told otherwise, with the cut source under it on the sheet.
 
@@ -139,6 +142,21 @@ CLASS_MOUTH_GATE = dict(on_body=0.6, near=0.4, body_grey=16, agreed_share=0.60, 
 MOUTH_RUNS = dict(leave_lines=0.6, fill_frames=2, fill_on_body=0.45)
 #: The mouth's forms: drawn whatever the check says, left out, or by the check.
 MOUTH_FORMS = ("auto", "drawn", "left out")
+#: THE CROP'S FORMS (`--crop`, the plan's `subjects.<s>.reference.crop`; 2026-10-22), each one box for the whole load:
+#: `head`, the default since ba061ef3 (2026-10-19): the box round the subject's head track with `crop.CROWN_ROOM` above the crown and
+#: `crop.HEAD_TRACK_ROOM` on the sides and bottom, and round the faces with `crop.HEAD_ROOM` (`crop_reference_to_head.one_box`), so
+#: the whole head and its hair are in the picture; `face`: the box round the faces alone with `crop.HEAD_ROOM` on every side, the head
+#: track not read (as `--no-head-track`), the sizing before ba061ef3 and the one 0278f was drawn at. The crown may be cut. Why it is
+#: there: on the head box the face is drawn smaller (278-293: enlarged 1.654 times on shot_c_0278e's head track, 1.882 on the face's
+#: box), and 0278j/k, drawn on it, looked the wrong way. Measured 2026-10-22 on that span: the iris inside the lids stays under one of
+#: Qwen3-VL's 16 px patches tall on either box (`docs/wiki/decisions.md`, 2026-10-22); whether the face's box decides the gaze is a render's.
+#: `cranium` (the Gemini reviewer's design of 2026-10-22, accepted by the lead): <Video 1> holds only the bald grey body model with the
+#: face drawn, so the box frames the GREY head, not the real hair the head track holds: each frame's face with the body model's pixels
+#: above mid-face (halfway from the glabella to the chin; below it the neck and shoulders join the arms) joined to it,
+#: `crop.CRANIUM_ROOM` above and beside, `crop.CRANIUM_NECK` below the chin (`crop.cranium_box`, `crop.grey_head`), no head track
+#: read; the record's `crop.cranium` says on which frames the grey head reaches the box's edge and what the subject's travel costs
+#: the enlargement. Figures, not a verdict: the box does not follow the head.
+CROP_FORMS = ("head", "face", "cranium")
 #: A frame of the reference holds a figure when its plain cut body model has a pixel over this grey (`figure_frames`): the body
 #: model's picture, as the mouth gate reads it (`CLASS_MOUTH_GATE["body_grey"]`, inherited). MEASURED 2026-10-22 on the plain cuts of
 #: the 205 head references then under the share's `Video/fun/references/` (the survey: `docs/wiki/decisions.md`, that day): a frame
@@ -610,7 +628,7 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         closed_lip_line: str | None = None, darken_head: str | None = None,
         eyes_shut_on: list[tuple[int, int, str]] | None = None,
         eyes_shut_form: str | None = None, mouth_on: list[tuple[int, int, str]] | None = None,
-        open_mouth: str = faces.OPEN_MOUTH_FORMS[0], say=print) -> dict:
+        open_mouth: str = faces.OPEN_MOUTH_FORMS[0], crop_form: str = CROP_FORMS[0], crop_why: str = "", say=print) -> dict:
     """Cut, cut, draw, record. Returns the record; `passed` is True only when all three steps passed.
 
     `no_face_on`: source frames on which no line of the face is drawn at all, the plain cut body model alone, each with its reason:
@@ -623,9 +641,20 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     rings drawn there, their inside dark under them, as the class map's inside is under the lines on other frames.
 
     `open_mouth`: an open mouth's form under `closed_lip_line` (`draw_face_points.OPEN_MOUTH_FORMS`, the plan's `reference.open_mouth`),
-    kept in the record's `drawn.mouth.closed_lip_line.open_mouth`."""
+    kept in the record's `drawn.mouth.closed_lip_line.open_mouth`.
+
+    `crop_form`: the box's form (`CROP_FORMS`, the plan's `reference.crop`); `face` and `cranium` are a person's word, with `crop_why`. Kept
+    in the record's `crop`, with the box it gave and how many times it is enlarged (and under `cranium`, the crop tool's figures)."""
     if no_head_track and head_track is not None:
         raise SystemExit("cannot give both --head-track and --no-head-track")
+    if crop_form not in CROP_FORMS:
+        raise SystemExit(f"--crop is one of {CROP_FORMS}; got {crop_form!r}")
+    crop_why = " ".join(str(crop_why or "").split())
+    if crop_form != CROP_FORMS[0] and not crop_why:
+        raise SystemExit(f"--crop {crop_form} is a person's word: say who asked for it and why with --crop-why")
+    if crop_form != "head" and head_track is not None:
+        raise SystemExit(f"--crop {crop_form} sizes the box on " + ("the faces alone" if crop_form == "face" else "the body model's grey head")
+                         + " and reads no head track: --head-track says otherwise")
     faceless = sorted({f for a, b, _ in no_face_on or [] for f in range(max(a, first), min(b, first + count - 1) + 1)})
     # HER EYES SHUT ON A SPAN, on a person's word (`--eyes-shut-on` with `--eyes-shut-form`, the lead's ruling of 2026-10-15 on 2823b;
     # `draw_face_points.EYES_SHUT_FORMS` says why and what each form draws). The pose model's lids stop at a slit on a shut eye
@@ -669,7 +698,10 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
             raise SystemExit(f"{what} {path} is not a file")
     faces.rows_of(points, names, first, count, points_first)        # the span and the names, before anything is written
     ht_path, ht_first, ht_how = None, None, None
-    if not no_head_track:
+    passed_over = None                  # under `--crop face` or `cranium`, the head track the head box would have read, named in the record
+    if crop_form != "head" and not no_head_track:
+        passed_over = crop.discover_head_track(points, mesh, first if mesh_first is None else int(mesh_first))[0]
+    if not no_head_track and crop_form == "head":
         if head_track is not None:
             ht_path = str(head_track)
             ht_first = (first if mesh_first is None else int(mesh_first)) if head_track_first is None else int(head_track_first)
@@ -741,8 +773,10 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         leave_out = (frozenset(leave_out) - {"mouth"}) if by_points else (frozenset(leave_out) | {"mouth"})
     say(f"1 of 3: the plain body model cut to the head, frames {first} to {first + count - 1}")
     cut = crop.run(mesh, points, first, count, made["plain_cut"], by, names=names, video_first=mesh_first, points_first=points_first,
-                   room=room, head_track=ht_path, head_track_first=ht_first, no_head_track=(ht_path is None), head_track_how=ht_how, say=quiet)
-    say(f"    box {cut['box']}, enlarged {cut['scale'][0]:.3f} times: the face is {cut['face_height_px_in_this_video']:.0f} px tall"
+                   room=room, head_track=ht_path, head_track_first=ht_first, no_head_track=(ht_path is None), head_track_how=ht_how,
+                   **({"cranium": True} if crop_form == "cranium" else {}), say=quiet)
+    say(f"    the crop: {crop_form}" + (f" ({crop_why})" if crop_why else " (the default)") + f"; box {cut['box']}, enlarged {cut['scale'][0]:.3f} times: "
+        f"the face is {cut['face_height_px_in_this_video']:.0f} px tall"
         + (f" (head {cut['head_height_px_in_this_video']:.0f} px, from the head track with {cut['crown_room_in_face_heights']:g} face heights above the crown)"
            if "head_height_px_in_this_video" in cut else "")
         + "; " + ("PASSED" if cut["passed"] else "FAILED"))
@@ -754,9 +788,13 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         say(f"    THE BODY MODEL SHOWS NO FIGURE on {len(nobody)} of {count} frames ("
             + ", ".join(f"{a}-{b}" if a != b else str(a) for a, b in spans_of(nobody)) + "): the body-model fit found no body there, and "
             "the reference is black. The gate refuses a load that has the subject's part there at or over its floor, on a long enough run")
+    if "cranium" in cut:
+        for line in crop.cranium_lines(cut["cranium"]):
+            say("    " + line)
     say("2 of 3: the source cut by the same box")
     under = crop.run(source, points, first, count, made["source_cut"], by, names=names, points_first=points_first, room=room,
-                     head_track=ht_path, head_track_first=ht_first, no_head_track=(ht_path is None), head_track_how=ht_how, fit=True, say=quiet)
+                     head_track=ht_path, head_track_first=ht_first, no_head_track=(ht_path is None), head_track_how=ht_how, fit=True,
+                     **({"box": cut["box"]} if crop_form == "cranium" else {}), say=quiet)
     if under["box"] != cut["box"]:
         raise SystemExit(f"the source was cut by {under['box']} and the body model by {cut['box']}: one box is the form")
     say("    " + ("PASSED" if under["passed"] else "FAILED"))
@@ -952,6 +990,9 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
                    "source": str(source), "the_source_was": under["made_from"]["fitted"]},
         "ran_on": ran_on(repo),
         "box": cut["box"], "box_is": cut["box_is"], "box_set_by": cut["box_set_by"], "scale": cut["scale"],
+        "crop": {"form": crop_form, "why": crop_why or "the default (CROP_FORMS, since ba061ef3)", "enlarged": cut["scale"],
+                 "box_set_by": cut["box_set_by"], **({"head_track_not_read": passed_over} if passed_over else {}),
+                 **({"cranium": cut["cranium"]} if "cranium" in cut else {})},
         "a_point_of_the_canvas_lands_at": cut["a_point_of_the_canvas_lands_at"],
         "face_height_px": {"on_the_canvas": cut["face_height_px_median"], "in_this_video": cut["face_height_px_in_this_video"]},
         **({"heads_over_the_span": cut["heads_over_the_span"],
@@ -1012,6 +1053,12 @@ def main() -> int:
     a.add_argument("--head-track", help="the subject's head-track mask video; found beside the points' box mask or body-model video when left out")
     a.add_argument("--head-track-first", type=int, help="the source frame of the head-track video's frame 0; the body-model video's first when left out")
     a.add_argument("--no-head-track", action="store_true", help="size the box from the faces alone, even when a head track is beside the points or body model")
+    a.add_argument("--crop", default=CROP_FORMS[0], choices=CROP_FORMS,
+                   help="the box: `head` (the default) round the head track with room above the crown and the faces; `face` round the faces "
+                        "alone with the crop tool's HEAD_ROOM, no head track read, the crown may be cut; `cranium` round the body model's grey "
+                        "head above mid-face and the face, with the crop tool's CRANIUM_ROOM and CRANIUM_NECK, no head track read (CROP_FORMS; "
+                        "the plan's reference.crop); `face` and `cranium` with --crop-why")
+    a.add_argument("--crop-why", default="", help="who asked for --crop face or cranium and why; kept in the record's `crop`")
     a.add_argument("--leave-out", default=FORM_LEAVES_OUT, help=f"parts not drawn, any of {', '.join(faces.PARTS)}; `{FORM_LEAVES_OUT}` when left out, \"\" for none")
     a.add_argument("--dots", action="store_true", help="a dot at every point, and the points that belong to no line; lines only when left out")
     a.add_argument("--iris", default=faces.IRIS_FORMS[0], choices=faces.IRIS_FORMS,
@@ -1062,7 +1109,8 @@ def main() -> int:
               no_face_on=[no_mouth_arg(x, "--no-face-on") for x in v.no_face_on], class_mouth_needs_hole=v.class_mouth_needs_hole,
               closed_lip_line=v.closed_lip_line, darken_head=v.darken_head,
               eyes_shut_on=[no_mouth_arg(x, "--eyes-shut-on") for x in v.eyes_shut_on],
-              eyes_shut_form=v.eyes_shut_form, mouth_on=[no_mouth_arg(x, "--mouth-on") for x in v.mouth_on], open_mouth=v.open_mouth)
+              eyes_shut_form=v.eyes_shut_form, mouth_on=[no_mouth_arg(x, "--mouth-on") for x in v.mouth_on], open_mouth=v.open_mouth,
+              crop_form=v.crop, crop_why=v.crop_why)
     return 0 if rec["passed"] else 1
 
 

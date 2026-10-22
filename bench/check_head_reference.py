@@ -1216,6 +1216,91 @@ def head_box_from_the_head_track() -> str:
             "plain_cut and source_cut; --no-head-track keeps the face-only box; bad --head-track flags refuse before writing")
 
 
+def the_crop_is_head_or_face() -> str:
+    """`--crop` (`head_reference.CROP_FORMS`, the plan's `reference.crop`; 2026-10-22): `head` is the default's box and drawing, byte for
+    byte; `face` cuts both the body model and the source to the faces alone with the crop tool's HEAD_ROOM, the head track beside the points
+    not read and named; the record's `crop` says the form, the why and the enlargement; an unknown form, `face` with no why and `face`
+    with `--head-track` are refused before anything is written."""
+    from _lib.frames import write_mask_video
+    folder, mesh, pts, source = rooms("crop_form", [90] * N, [60] * N, CENTRES, 0)
+    head_mask = np.zeros((N, H, W), bool)
+    for f, (cx, cy) in enumerate(CENTRES):
+        head_mask[f, 14:int(round(cy + 45)), int(round(cx - 45)):int(round(cx + 45))] = True
+    body_tr, head_tr = folder / "shot_lead_track_00001.mkv", folder / "shot_lead_head_track_00001.mkv"
+    write_mask_video(body_tr, head_mask)
+    write_mask_video(head_tr, head_mask)
+    pts.with_suffix(".json").write_text(json.dumps({"made_by": "the check", "made_from": {"box": {"mask_video": str(body_tr), "its_first_frame_is_source_frame": 0}}}))
+    plain = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "plain.mp4", "the check", room=ROOM, say=quiet)
+    head = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head.mp4", "the check", room=ROOM, crop_form="head", say=quiet)
+    assert head["box"] == plain["box"] and "head_track" in head["inputs"] and head["crop"]["form"] == plain["crop"]["form"] == "head", (head["crop"], plain["crop"])
+    for stem in ("", "_plain_cut", "_source_cut"):
+        assert (folder / f"plain{stem}.mp4").read_bytes() == (folder / f"head{stem}.mp4").read_bytes(), stem
+    said: list[str] = []
+    face = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "face.mp4", "the check", room=ROOM, crop_form="face", crop_why="THE OWNER: larger",
+                  say=said.append)
+    no_ht = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "no_ht.mp4", "the check", room=ROOM, no_head_track=True, say=quiet)
+    # THE CASE THAT GOES RED when `face` reads the head track, or its record does not say the form, the why and the enlargement
+    assert face["passed"] and face["box"] == no_ht["box"] != head["box"] and "head_track" not in face["inputs"], (face["box"], no_ht["box"], head["box"])
+    assert face["crop"] == {"form": "face", "why": "THE OWNER: larger", "enlarged": face["scale"], "box_set_by": face["box_set_by"],
+                            "head_track_not_read": str(head_tr)} and face["scale"][0] > head["scale"][0], face["crop"]
+    assert json.loads((folder / "face_source_cut.json").read_text())["box"] == face["box"], "the source not cut by the face's box"
+    assert any("the crop: face (THE OWNER: larger)" in line for line in said), said
+    for kw, word in (({"crop_form": "chin"}, "--crop is one of"), ({"crop_form": "face", "crop_why": "  "}, "--crop-why"),
+                     ({"crop_form": "face", "crop_why": "w", "head_track": str(head_tr)}, "reads no head track")):
+        try:
+            hr.run(str(mesh), str(pts), str(source), 0, N, folder / "refused_crop.mp4", "the check", room=ROOM, say=quiet, **kw)
+        except SystemExit as exc:
+            assert word in str(exc) and not list(folder.glob("refused_crop*")), (word, str(exc))
+        else:
+            raise AssertionError(f"not refused: {kw}")
+    return (f"head (the default) {head['box']}, byte for byte the run with no --crop; face {face['box']}, enlarged {face['scale'][0]:.3f} against "
+            f"{head['scale'][0]:.3f}, the head track not read and named; bad forms refused before writing")
+
+
+def the_crop_cranium() -> str:
+    """`--crop cranium` (the plan's `reference.crop`; 2026-10-22): the body model and the source are both cut by the box round the body
+    model's grey head (`crop_reference_to_head.cranium_box`), the source by that box as given; the head track beside the points is not read
+    and is named; the record's `crop` keeps the crop tool's `cranium` figures; `cranium` with no why or with `--head-track` is refused."""
+    from _lib.frames import write_mask_video
+    folder, _, pts, source = rooms("crop_cranium", [90] * N, [60] * N, CENTRES, 0)
+    yy, xx = np.mgrid[0:H, 0:W]
+    frames = np.zeros((N, H, W, 3), np.uint8)
+    for f, (cx, cy) in enumerate(CENTRES):                     # a grey head over the face (crown 0.9 face heights over the glabella), neck, shoulders
+        top, chin = cy - 10 - 0.9 * fl.FACE_PX, cy - 10 + fl.FACE_PX
+        frames[f][((xx - cx) / 50.0) ** 2 + ((yy - (top + chin) / 2) / ((chin - top) / 2)) ** 2 <= 1.0] = 90
+        frames[f, int(chin) - 4:int(chin) + 20, int(cx) - 18:int(cx) + 19] = 90
+        frames[f, int(chin) + 20:, max(int(cx) - 90, 0):int(cx) + 91] = 90
+    mesh = video(folder / "figure.mkv", frames)
+    head_mask = np.zeros((N, H, W), bool)
+    for f, (cx, cy) in enumerate(CENTRES):
+        head_mask[f, 2:int(round(cy + 75)), int(round(cx - 70)):int(round(cx + 70))] = True
+    body_tr, head_tr = folder / "shot_lead_track_00001.mkv", folder / "shot_lead_head_track_00001.mkv"
+    write_mask_video(body_tr, head_mask)
+    write_mask_video(head_tr, head_mask)
+    pts.with_suffix(".json").write_text(json.dumps({"made_by": "the check", "made_from": {"box": {"mask_video": str(body_tr), "its_first_frame_is_source_frame": 0}}}))
+    said: list[str] = []
+    rec = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "cranium.mp4", "the check", crop_form="cranium", crop_why="THE LEAD: the grey head",
+                 say=said.append)
+    plain_cut = json.loads((folder / "cranium_plain_cut.json").read_text())
+    source_cut = json.loads((folder / "cranium_source_cut.json").read_text())
+    # THE CASE THAT GOES RED on a tool with no `cranium` form, or one that sizes the source's cut on the source
+    assert rec["passed"] and "head_track" not in rec["inputs"] and rec["box"] == plain_cut["box"] == source_cut["box"] != [0, 0, W, H], (rec["box"], said)
+    assert plain_cut["box_set_by"].startswith("the grey head") and source_cut["box_set_by"].startswith("given"), (plain_cut["box_set_by"], source_cut["box_set_by"])
+    c = rec["crop"]
+    assert c["form"] == "cranium" and c["why"] == "THE LEAD: the grey head" and c["head_track_not_read"] == str(head_tr) and c["cranium"] == plain_cut["cranium"], c
+    assert c["cranium"]["frames_the_grey_head_reaches_the_box_edge"] == [] and c["enlarged"][0] > 1.2, c
+    assert any("the crop: cranium (THE LEAD: the grey head)" in line for line in said) and any("travel:" in line for line in said), said
+    for kw, word in (({"crop_form": "cranium", "crop_why": " "}, "--crop-why"), ({"crop_form": "cranium", "crop_why": "w", "head_track": str(head_tr)}, "reads no head track")):
+        try:
+            hr.run(str(mesh), str(pts), str(source), 0, N, folder / "refused_cranium.mp4", "the check", say=quiet, **kw)
+        except SystemExit as exc:
+            assert word in str(exc) and not list(folder.glob("refused_cranium*")), (word, str(exc))
+        else:
+            raise AssertionError(f"not refused: {kw}")
+    return (f"cranium {rec['box']}, enlarged {c['enlarged'][0]:.3f}, the body model and the source cut by it (the source's as given), the head "
+            "track not read and named, the crop tool's figures kept; no why and --head-track refused before writing")
+
+
 def where_the_body_model_shows_nobody() -> str:
     """2026-10-22, second_hfp_1419c: its reference was black on 36 of 47 frames, where the body-model fit found no body, and nothing
     said so. The record's `figure` lists the frames whose plain cut has no pixel over `FIGURE_GREY`; a `--no-face-on` frame keeps the
@@ -1282,6 +1367,8 @@ case("the form's defaults can be set aside, and the record says so", the_default
 case("a step that fails fails the run", a_step_that_fails_fails_the_run)
 case("the mouth on a person's word where the gate drops it", the_mouth_on_a_word)
 case("the head box from the head track, with room above the crown", head_box_from_the_head_track)
+case("the crop's form: the head's box or the face's", the_crop_is_head_or_face)
+case("the crop's form: the body model's grey head", the_crop_cranium)
 case("where the body model shows nobody", where_the_body_model_shows_nobody)
 shutil.rmtree(WORK, ignore_errors=True)
 sys.exit(finish())

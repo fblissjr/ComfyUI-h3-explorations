@@ -1908,6 +1908,32 @@ def the_reference_step() -> str:
         refused(lambda: stl.step_reference(e, made.m, figures), "--existing", "drew an open mouth 'capped' and the job asks for 'inner outline'")
         del mouthed["drawn"]["mouth"]["closed_lip_line"]["open_mouth"]
         drawn.with_suffix(".json").write_text(json.dumps(mouthed))
+        # a job with the plan's face crop takes a reference as it was only where that reference was cut to the face's box, and back
+        cr_job = json.loads(shut_file.read_text())
+        cr_job["job"]["reference"]["crop"] = {"form": "face", "said_by": "the plan", "why": "THE OWNER: LARGER"}
+        cr_file = made.jobs / "a_fp_0104c.json"
+        cr_file.write_text(json.dumps(cr_job))
+        e.job_file = str(cr_file)
+        stl.step_reference(e, made.m, figures)                    # a record from before `crop` was kept, cut with no head track: the faces' box
+        # THE CASE THAT GOES RED when --existing takes a drawing cut to the head's box for a job of the face's
+        drawn.with_suffix(".json").write_text(json.dumps({**mouthed, "inputs": {"head_track": {"mask_video": "ht.mkv"}}}))
+        refused(lambda: stl.step_reference(e, made.m, figures), "--existing", "was cut to the head's box and the job asks for the face's")
+        drawn.with_suffix(".json").write_text(json.dumps({**mouthed, "crop": {"form": "head"}}))
+        refused(lambda: stl.step_reference(e, made.m, figures), "--existing", "was cut to the head's box and the job asks for the face's")
+        drawn.with_suffix(".json").write_text(json.dumps({**mouthed, "crop": {"form": "face"}}))
+        stl.step_reference(e, made.m, figures)
+        assert json.loads(cr_file.read_text())["job"]["reference"]["crop"]["form"] == "face", "the job lost its crop when its reference was read in"
+        e.job_file = str(shut_file)
+        refused(lambda: stl.step_reference(e, made.m, figures), "--existing", "was cut to the face's box and the job asks for the head's")
+        # a job of the grey head's box takes only a reference cut to it: one from before `crop` was kept never was
+        cr_job["job"]["reference"]["crop"] = {"form": "cranium", "said_by": "the plan", "why": "THE LEAD: THE GREY HEAD"}
+        cr_file.write_text(json.dumps(cr_job))
+        e.job_file = str(cr_file)
+        refused(lambda: stl.step_reference(e, made.m, figures), "--existing", "was cut to the face's box and the job asks for the cranium's")
+        drawn.with_suffix(".json").write_text(json.dumps({**mouthed, "crop": {"form": "cranium"}}))
+        stl.step_reference(e, made.m, figures)
+        e.job_file = str(shut_file)
+        drawn.with_suffix(".json").write_text(json.dumps(mouthed))
         e.job_file = str(again_file)
         other = made.load(name="a_fp_0100")
         (made.jobs / "a_fp_0100.json").write_text(json.dumps(other))
@@ -2057,6 +2083,50 @@ def the_defaults_this_load_carries() -> str:
                            ({"open_mouth": "capped"}, "says no `why`")):
             made.plan["subjects"]["a"]["reference"] = bad
             refused(made.load, words)
+        del made.plan["subjects"]["a"]["reference"]
+        # THE CROP'S FORM, a subject at a time (the plan's `reference.crop`, 2026-10-22: the face larger in <Video 1>): into the job, a row of
+        # the defaults and the reference step's command; a subject without it gets the job and the command it had
+        made.plan["subjects"]["a"]["reference"] = {"crop": "face", "why": "THE OWNER: LARGER"}
+        d_cr = made.load(name="a_fp_face_crop")
+        assert d_cr["job"]["reference"]["crop"] == {"form": "face", "said_by": "the plan", "why": "THE OWNER: LARGER"}, d_cr["job"]["reference"]
+        cr_row = {x["what"]: x for x in d_cr["job"]["defaults"]}["the reference's crop"]
+        assert cr_row["carries"].startswith("the face:") and cr_row["from"] == "the plan: THE OWNER: LARGER", cr_row
+        cr_flags = stl.drawn_form(d_cr["job"], args(), files, 100)
+        # THE CASE THAT GOES RED when the plan's crop does not reach the reference step's command
+        assert cr_flags[cr_flags.index("--crop"):cr_flags.index("--crop") + 4] == ["--crop", "face", "--crop-why", "the plan: THE OWNER: LARGER"], cr_flags
+        # the grey head's box (`cranium`, 2026-10-22), the same way: THE CASE THAT GOES RED where the plan's `cranium` is not a form
+        made.plan["subjects"]["a"]["reference"] = {"crop": "cranium", "why": "THE LEAD: THE GREY HEAD"}
+        d_cn = made.load(name="a_fp_cranium_crop")
+        cn_row = {x["what"]: x for x in d_cn["job"]["defaults"]}["the reference's crop"]
+        cn_flags = stl.drawn_form(d_cn["job"], args(), files, 100)
+        assert d_cn["job"]["reference"]["crop"]["form"] == "cranium" and cn_row["carries"].startswith("the grey head:") \
+            and cn_flags[cn_flags.index("--crop"):cn_flags.index("--crop") + 4] == ["--crop", "cranium", "--crop-why", "the plan: THE LEAD: THE GREY HEAD"], cn_flags
+        made.plan["subjects"]["a"]["reference"] = {"crop": "head", "why": "THE OWNER: AS IT IS"}
+        d_hd = made.load(name="a_fp_head_crop")
+        assert d_hd["job"]["reference"]["crop"]["form"] == "head" and "--crop" not in stl.drawn_form(d_hd["job"], args(), files, 100)
+        # THE CASE THAT GOES RED when a subject without the field gets a crop, a row or a command other than before
+        del made.plan["subjects"]["a"]["reference"]
+        d_nc = made.load(name="a_fp_no_crop")
+        assert "crop" not in d_nc["job"]["reference"] and "--crop" not in stl.drawn_form(d_nc["job"], args(), files, 100) \
+            and "the reference's crop" not in {x["what"] for x in d_nc["job"]["defaults"]}, d_nc["job"]["reference"]
+        for bad, words in (({"crop": "chin", "why": "w"}, "one of"), ({"crop": "face"}, "says no `why`"),
+                           ({"crop": "head", "head_track": False, "why": "w"}, "turns it off")):
+            made.plan["subjects"]["a"]["reference"] = bad
+            refused(made.load, words)
+        # a remake re-reads the crop from the plan, never carries it: the old job's face crop does not reach a plan that says none
+        made.plan["subjects"]["a"]["reference"] = {"crop": "face", "why": "THE OWNER: LARGER"}
+        old_cr = made.load(name="a_fp_crop_old")
+        old_cr_file = made.jobs / "a_fp_crop_old.json"
+        old_cr_file.write_text(json.dumps(old_cr))
+        del made.plan["subjects"]["a"]["reference"]
+        d_re = made.load(name="a_fp_crop_new", carry_words_from=str(old_cr_file))
+        assert "crop" not in d_re["job"]["reference"] and "the reference's crop" not in {x["what"] for x in d_re["job"]["defaults"]}, d_re["job"]["reference"]
+        made.plan["subjects"]["a"]["reference"] = {"crop": "face", "why": "THE OWNER: AGAIN"}
+        d_re2 = made.load(name="a_fp_crop_new2", carry_words_from=str(old_cr_file))
+        assert d_re2["job"]["reference"]["crop"]["why"] == "THE OWNER: AGAIN", d_re2["job"]["reference"]
+        old_cr["job"]["reference"]["crop"]["said_by"] = "a session"
+        old_cr_file.write_text(json.dumps(old_cr))
+        refused(lambda: made.load(name="a_fp_crop_new3", carry_words_from=str(old_cr_file)), "'reference.crop'")
         del made.plan["subjects"]["a"]["reference"]
         # M17: under the default closed_lip_line, a silent window leaves the mouth out ("left out") and passes --closed-lip-line so eye/brow/nose marks clip to the head
         made.plan["subjects"]["a"]["voice"] = [{"first": 100, "last": 159, "voice": "silent", "by": "THE OWNER"}]

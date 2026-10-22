@@ -3,7 +3,7 @@
 
     python bench/crop_reference_to_head.py --video REFERENCE.mp4 --points SHOT_points.npz --first 1039 --count 22 \\
         --out <share>/Video/<video>/<who>/second_mesh_with_lids_head_crop_1039.mp4 --by <session> \\
-        [--room 1.2] [--head-track HEAD_TRACK.mkv] [--head-track-first N] [--no-head-track] \\
+        [--room 1.2] [--head-track HEAD_TRACK.mkv] [--head-track-first N] [--no-head-track] [--cranium] [--box X0,Y0,X1,Y1] \\
         [--video-first N] [--points-first N] [--names NAMES.json] [--fit]
 
 A reference video drawn at the canvas's size shows a small face small: on a face a few dozen pixels tall an
@@ -26,6 +26,13 @@ the picture's edges stand still. The box is:
   times the shot's median face height on every side. The pose model's points stop at the brows and the chin, so on
   a tilted or bowed head where the crown reaches more than a face height above the glabella, the head track keeps
   the crown inside the box;
+- with `--cranium` (`head_reference.py --crop cranium`, the plan's `reference.crop`; 2026-10-22), round the GREY HEAD
+  of the body model instead (`cranium_box`): a body-model reference holds only the bald grey figure with the face drawn,
+  so the head framed is the figure's, not the real hair. Each frame's face, with the figure's pixels above mid-face
+  (halfway from the glabella to the chin; below it the neck and shoulders join the arms) joined to it, `CRANIUM_ROOM` above and beside them and `CRANIUM_NECK` below the chin; no head track read. It says on
+  which frames the grey head still reaches the box's edge, and what the subject's travel over the span costs the
+  enlargement (each frame's own box against the one box): figures, not a verdict. The box does not follow the head;
+- with `--box`, the box given, as it is (a source cut by the box a cranium cut of its body model found);
 - in the CANVAS'S SHAPE, grown the short way to reach it, then moved to lie inside the canvas if it hung over
   an edge. A box that would be larger than the canvas is the whole frame, and the tool says so.
 
@@ -84,7 +91,8 @@ import draw_lid_marks as marks  # noqa: E402  the writer: one copy
 
 #: Room left round the faces on every side, in face heights (glabella to chin). Reasoned, and a starting value: a
 #: head is a little under twice that length from crown to chin, so with this much room a head that holds still
-#: sits in a box about twice its own height. No render has been made from a reference cut this way.
+#: sits in a box about twice its own height. With no head track it alone sizes the box: every reference before ba061ef3 (2026-10-19)
+#: was cut so (0278f among them), and `head_reference.py --crop face` (the plan's `reference.crop`) cuts so still.
 HEAD_ROOM = 1.2
 #: Room left above the head track's crown, in face heights (glabella to chin), when a head track is read. A
 #: STARTING VALUE, measured 2026-10-18 on the kitchen shot (`shot_c_0604c`, SAM 3.1 head track) and frontal mom
@@ -102,6 +110,26 @@ CROWN_ROOM = 0.4
 #: (`0` frames touching the crop edge) without widening frontal `805-833` beyond `410x307`. Scales with
 #: `--room / HEAD_ROOM`.
 HEAD_TRACK_ROOM = 0.25
+#: The body model's figure, under `--cranium`: a pixel whose brightest channel is over this grey level. INHERITED: the level the drawing
+#: reads the body model by (`draw_face_points.head_silhouette`'s `frame.max(-1) > 16`, `head_reference.CLASS_MOUTH_GATE["body_grey"]`).
+BODY_GREY = 16
+#: Under `--cranium`, room above and beside the grey head and the face, in face heights (glabella to chin). REASONED, a starting value
+#: (the Gemini reviewer's design, 2026-10-22, accepted by the lead): the grey head is the figure's own edge, so the room is clearance,
+#: not a guess at hair: enough that the enlarged picture's resampled edge and a pixel's jitter between frames stay off the box's edge
+#: (about 15 px on a 100 px face), small so the head fills the picture. Not yet judged on a render. Scales with `--room / HEAD_ROOM`.
+CRANIUM_ROOM = 0.15
+#: Under `--cranium`, room below the chin, in face heights. REASONED, a starting value (the same design): the neck and the line of the
+#: shoulders stay in the picture, so the head's turn against the body can be read; the shoulders' full width is not held. Not yet
+#: judged on a render. Scales with `--room / HEAD_ROOM`.
+CRANIUM_NECK = 0.35
+#: Under `--cranium`, the most the one box may be enlarged: the box is never narrower than the canvas's width over this. The body model
+#: is rendered at the canvas's size and the cut only resamples it, so a small head enlarged far is a soft picture (the owner, 2026-10-15:
+#: "maybe the zoom went too far in and it got blurry"); without it the cranium box reached 6.51 to 9.85 times on second 4479 and 5.30
+#: to 8.35 on 4602 (the Gemini reviewer's scan, 2026-10-22). MEASURED, a starting value: the largest enlargement of a reference on a
+#: render the owner answered "keep this one" (`data/2026-10-22_fun_delivery_tables/ledger_fun_2026-10-22T1915Z.json`, 61 such
+#: renders with a reference record: median 2.07, 90th percentile 3.74, most 5.753 on third_fp_4653b, then 5.278 on second_hfp_4602c
+#: and d). `head` and `face` have no such bound. The lever past it is the body model rendered at the cut's size, not this number.
+CRANIUM_MOST = 5.75
 #: The written video must sit within this many grey levels of the picture made for it, at the mean. Reasoned: the
 #: encode moves a picture by about a level; a wrong frame of a moving head moves it by many.
 ENCODE_LEVELS = 6.0
@@ -167,14 +195,121 @@ def one_box(points: dict, size: tuple[int, int], room: float, head_track: np.nda
         cx, cy = float((union[0] + union[2]) / 2), float((union[1] + union[3]) / 2)
         whole_by = "the whole frame: the faces with their room are larger than the canvas"
         shaped_by = "the faces with their room, grown to the canvas's shape"
+    box, moved = in_the_canvas(need_w, need_h, cx, cy, size)
+    return dict(said, box=box, set_by=whole_by if moved is None else shaped_by, moved_to_lie_inside=bool(moved))
+
+
+def in_the_canvas(need_w: float, need_h: float, cx: float, cy: float, size: tuple[int, int]) -> tuple[list[int], bool | None]:
+    """A box at least `need_w` by `need_h` about (cx, cy), grown the short way to the canvas's shape and moved to lie inside it:
+    `(box, moved)`; `moved` is None where the box would be as large as the canvas, and the box is then the whole frame."""
+    w, h = size
     box_h = int(np.ceil(max(need_h, need_w * h / w)))
     box_w = int(np.ceil(box_h * w / h))
     if box_w >= w or box_h >= h:
-        return dict(said, box=[0, 0, w, h], set_by=whole_by, moved_to_lie_inside=False)
+        return [0, 0, w, h], None
     x0, y0 = int(round(cx - box_w / 2)), int(round(cy - box_h / 2))
     inside = (min(max(x0, 0), w - box_w), min(max(y0, 0), h - box_h))
-    return dict(said, box=[inside[0], inside[1], inside[0] + box_w, inside[1] + box_h], set_by=shaped_by,
-                moved_to_lie_inside=bool(inside != (x0, y0)))
+    return [inside[0], inside[1], inside[0] + box_w, inside[1] + box_h], inside != (x0, y0)
+
+
+def grey_head(frame: np.ndarray, p: np.ndarray, index: dict) -> tuple[np.ndarray, int]:
+    """One frame's grey head under `--cranium`: the body model's pixels over `BODY_GREY` above MID-FACE (the row halfway between the
+    pose model's glabella and tip of the chin) that are joined to the face's box, as [h, w] of bool; and how many such pixels above
+    mid-face are NOT joined to it (arms raised clear of the head, anything else of the figure), which are left out.
+
+    Why mid-face and not the chin (the Gemini reviewer, measured 2026-10-22 on the plain body-model videos): above the chin line the
+    neck and shoulders join the head to the rest of the figure. On lead 1156 the arms are raised above the head, and the grey joined
+    to the face above the chin reached them through the neck and shoulders (642 px across on frame 1156); on second 0278 the chin is
+    tucked and her shoulders lie above the chin line (the grey 435 px across, the head 160). The neck and shoulders attach below
+    mid-face, so above it the skull (forehead, crown, temples, the back of the head in profile) is all that joins the face."""
+    import cv2
+    h, w = frame.shape[:2]
+    mid = int(np.clip((int(np.floor(p[index["center_of_glabella"], 1])) + int(np.floor(p[index["tip_of_chin"], 1]))) // 2, -1, h - 1))
+    lit = (frame[..., :3].max(-1) > BODY_GREY).astype(np.uint8)
+    lit[mid + 1:, :] = 0
+    n, labels = cv2.connectedComponents(lit, connectivity=8)
+    fb = face_box(p, index)
+    x0, y0 = (int(np.clip(np.floor(v), 0, m - 1)) for v, m in ((fb[0], w), (fb[1], h)))
+    x1, y1 = (int(np.clip(np.ceil(v), 0, m - 1)) + 1 for v, m in ((fb[2], w), (fb[3], h)))
+    on_face = set(np.unique(labels[y0:y1, x0:x1]).tolist()) - {0}
+    head = np.isin(labels, list(on_face)) if on_face else np.zeros((h, w), bool)
+    return head, int(lit.sum() - head.sum())
+
+
+def cranium_box(points: dict, size: tuple[int, int], room: float, frames: np.ndarray, first: int = 0) -> dict:
+    """The one box of a span under `--cranium`: round every frame's face and its grey head (`grey_head`) with `CRANIUM_ROOM` above
+    and beside them and `CRANIUM_NECK` below the chin, in the canvas's shape, inside the canvas. With it, as figures: the frames on
+    which (source frames, the span's first being `first`) the grey head above mid-face reaches the box's edge (or the picture's own edge), and each frame's own box's enlargement against the one
+    box's, which is what the subject's travel over the span costs."""
+    w, h = size
+    idx = points["index"]
+    face = float(np.median([fp.face_height(p, idx) for p in points["keypoints"]]))
+    scale_r = room / HEAD_ROOM if HEAD_ROOM else 1.0
+    c_room, neck = CRANIUM_ROOM * scale_r, CRANIUM_NECK * scale_r
+    each, heads, left_out = [], [], []
+    for p, frame in zip(points["keypoints"], frames):
+        fb = face_box(p, idx)
+        head, out = grey_head(frame, p, idx)
+        ys, xs = np.nonzero(head)
+        top = [fb[0], fb[1], fb[2]] if not len(xs) else [min(fb[0], xs.min()), min(fb[1], ys.min()), max(fb[2], xs.max() + 1)]
+        chin = max(float(fb[3]), float(p[idx["tip_of_chin"], 1]))
+        each.append([top[0] - c_room * face, top[1] - c_room * face, top[2] + c_room * face, chin + neck * face])
+        heads.append(head)
+        left_out.append(out)
+    each = np.array(each, float)
+    want = np.concatenate([each[:, :2].min(0), each[:, 2:].max(0)])
+    need_w, need_h = float(want[2] - want[0]), float(want[3] - want[1])
+    least_w = w / CRANIUM_MOST                                          # the box no narrower than this: enlarged at most CRANIUM_MOST
+    capped = bool(max(need_w, need_h * w / h) < least_w)
+    free = in_the_canvas(need_w, need_h, float((want[0] + want[2]) / 2), float((want[1] + want[3]) / 2), size)[0]
+    uncapped = w / (free[2] - free[0])
+    box, moved = in_the_canvas(max(need_w, least_w), need_h, float((want[0] + want[2]) / 2), float((want[1] + want[3]) / 2), size)
+    alone = [w / (b[2] - b[0]) for b in (in_the_canvas(max(float(e[2] - e[0]), least_w), float(e[3] - e[1]), float((e[0] + e[2]) / 2),
+                                                       float((e[1] + e[3]) / 2), size)[0] for e in each)]
+    x0, y0, x1, y1 = box
+    edge, picture_edge, none = [], [], []
+    for k, head in enumerate(heads):
+        ys, xs = np.nonzero(head)
+        if not len(xs):
+            none.append(first + k)
+            continue
+        if xs.min() <= x0 or ys.min() <= y0 or xs.max() >= x1 - 1 or ys.max() >= y1 - 1:
+            edge.append(first + k)
+        if xs.min() == 0 or ys.min() == 0 or xs.max() == w - 1 or ys.max() == h - 1:
+            picture_edge.append(first + k)
+    one = w / (x1 - x0)
+    return {"faces": [round(float(v), 1) for v in (each[:, 0].min(), each[:, 1].min(), each[:, 2].max(), each[:, 3].max())],
+            "face_height_px_median": round(face, 1), "room_in_face_heights": room,
+            "cranium": {"room_above_and_beside_in_face_heights": round(c_room, 3), "below_the_chin_in_face_heights": round(neck, 3),
+                        "body_grey": BODY_GREY,
+                        "frames_the_grey_head_reaches_the_box_edge": edge,
+                        "frames_the_grey_head_reaches_the_picture_edge": picture_edge,
+                        "frames_with_no_grey_head_joined_to_the_face": none,
+                        "grey_above_mid_face_not_joined_to_the_face_px_least_median_most": [int(np.min(left_out)), int(np.median(left_out)), int(np.max(left_out))],
+                        "each_frame_alone_would_enlarge_least_median_most": [round(float(np.min(alone)), 3), round(float(np.median(alone)), 3), round(float(np.max(alone)), 3)],
+                        "the_one_box_enlarges": round(one, 3),
+                        "held_to_the_most": {"capped": capped, "most": CRANIUM_MOST, "would_enlarge_without_it": round(float(uncapped), 3)},
+                        "the_travel_keeps_of_the_median_frame_enlargement": round(one / float(np.median(alone)), 3),
+                        "is": "figures, not a verdict: the box does not follow the head; a head that travels lowers the one box's enlargement"},
+            "box": box, "moved_to_lie_inside": bool(moved),
+            "set_by": ("the whole frame: the grey head and faces with their room are larger than the canvas" if moved is None else
+                       "the grey head above mid-face and the faces with CRANIUM_ROOM, CRANIUM_NECK below the chin, grown to the canvas's shape"
+                       + (f", then to CRANIUM_MOST ({CRANIUM_MOST:g} times at most)" if capped else ""))}
+
+
+def cranium_lines(c: dict) -> list[str]:
+    """What a cranium box says, as lines: where the grey head reaches the box's or the picture's edge, and the travel's cost. Figures."""
+    def frames(fs: list) -> str:
+        return f"{len(fs)} frame(s): {fs[0]}..{fs[-1]}" if len(fs) > 3 else (", ".join(str(f) for f in fs) or "none")
+    least, median, most = c["each_frame_alone_would_enlarge_least_median_most"]
+    return [f"the grey head reaches the box's edge on {frames(c['frames_the_grey_head_reaches_the_box_edge'])}; the picture's own edge on "
+            f"{frames(c['frames_the_grey_head_reaches_the_picture_edge'])}; no grey head joined to the face on "
+            f"{frames(c['frames_with_no_grey_head_joined_to_the_face'])}",
+            f"travel: each frame's own box would enlarge {least:.3f} / {median:.3f} / {most:.3f} times (least / median / most); the one box "
+            f"enlarges {c['the_one_box_enlarges']:.3f}, {c['the_travel_keeps_of_the_median_frame_enlargement']:.3f} of the median frame's "
+            "(figures: the box does not follow the head)"
+            + (f"; held to CRANIUM_MOST, {c['held_to_the_most']['most']:g}: it would enlarge {c['held_to_the_most']['would_enlarge_without_it']:.3f} "
+               "times without it" if (c.get("held_to_the_most") or {}).get("capped") else "")]
 
 
 def discover_head_track(points_path: str, video_path: str | None = None, video_first: int | None = None) -> tuple[str | None, int | None, str | None]:
@@ -297,10 +432,17 @@ def sheet(path: Path, reference: np.ndarray, cut_frames: np.ndarray, box: list[i
 def run(video: str, points_path: str, first: int, count: int, out: Path, by: str, *, names: list[str] | None = None,
         video_first: int | None = None, points_first: int | None = None, room: float | None = None,
         head_track: str | Path | np.ndarray | list | None = None, head_track_first: int | None = None,
-        no_head_track: bool = False, head_track_how: str | None = None, fit: bool = False, say=print) -> dict:
-    """Find the box, cut, write, read back, record. Returns the record; `passed` is False when the read-back fails."""
+        no_head_track: bool = False, head_track_how: str | None = None, fit: bool = False, cranium: bool = False,
+        box: list[int] | None = None, say=print) -> dict:
+    """Find the box, cut, write, read back, record. Returns the record; `passed` is False when the read-back fails.
+
+    `cranium`: the box round the body model's grey head (`cranium_box`), read off this video, which must be the body model; no head
+    track is read. `box`: cut by this box as given (`[x0, y0, x1, y1]` on the canvas), found by nothing here."""
     if no_head_track and head_track is not None:
         raise SystemExit("cannot give both --head-track and --no-head-track")
+    if cranium and (fit or head_track is not None or box is not None):
+        raise SystemExit("--cranium reads the box off the body model's own grey head: not with --fit, --head-track or --box "
+                         "(a source is cut by the box its body model's cut found, with --box)")
     points, pf = faces.rows_of(points_path, names, first, count, points_first, whole_face=False)
     w, h, have = probe(video)
     own = (w, h)
@@ -314,8 +456,12 @@ def run(video: str, points_path: str, first: int, count: int, out: Path, by: str
     elif points["size"] and tuple(points["size"]) != (w, h):
         raise SystemExit(f"the points were made on a picture of {points['size']} and the reference video is {(w, h)}: they are not on one canvas "
                          "(give --fit for the original itself)")
+    if box is not None:
+        box = [int(v) for v in box]
+        if len(box) != 4 or not (0 <= box[0] < box[2] <= w and 0 <= box[1] < box[3] <= h):
+            raise SystemExit(f"--box {box} is not a box inside the {w} by {h} canvas")
     ht_masks, ht_info = None, None
-    if not no_head_track:
+    if not no_head_track and not cranium and box is None:
         if isinstance(head_track, (str, Path)):
             ht_path = str(head_track)
             if not Path(ht_path).is_file():
@@ -339,10 +485,16 @@ def run(video: str, points_path: str, first: int, count: int, out: Path, by: str
                     ht_info = {"mask_video": ht_path, "its_first_frame_is_source_frame": ht_first,
                                "found_by": ht_how, "frames_with_a_mask": int(ht_masks.any(axis=(1, 2)).sum())}
     room = HEAD_ROOM if room is None else float(room)
-    found = one_box(points, (w, h), room, head_track=ht_masks)
+    reference = np.stack(list(stream(video, (w, h), skip, count, vf=FIT.format(w=w, h=h) if fit else "", pix="rgb24")))
+    if box is not None:
+        found = {**{k: v for k, v in one_box(points, (w, h), room).items() if k in ("faces", "face_height_px_median", "room_in_face_heights")},
+                 "box": box, "set_by": "given (--box), as it is", "moved_to_lie_inside": False}
+    elif cranium:
+        found = cranium_box(points, (w, h), room, reference, first)
+    else:
+        found = one_box(points, (w, h), room, head_track=ht_masks)
     box = found["box"]
     scale = [w / (box[2] - box[0]), h / (box[3] - box[1])]
-    reference = np.stack(list(stream(video, (w, h), skip, count, vf=FIT.format(w=w, h=h) if fit else "", pix="rgb24")))
     made = cut(reference, box)
     out.parent.mkdir(parents=True, exist_ok=True)
     marks.write_video(out, made)
@@ -367,6 +519,7 @@ def run(video: str, points_path: str, first: int, count: int, out: Path, by: str
             "head_height_px_in_this_video": round(found["head_height_px_median"] * scale[1], 1),
             "crown_room_in_face_heights": found["crown_room_in_face_heights"],
             "head_track_room_in_face_heights": found["head_track_room_in_face_heights"]} if "heads" in found else {}),
+        **({"cranium": found["cranium"]} if "cranium" in found else {}),
         "room_in_face_heights": found["room_in_face_heights"], "room_set_by": "--room" if room != HEAD_ROOM else "HEAD_ROOM, a starting value",
         "not_known": ["whether the points are on her: open the sheet",
                       "what a model makes of a reference that no longer lies over the source pixel for pixel: a render's question"],
@@ -385,12 +538,16 @@ def run(video: str, points_path: str, first: int, count: int, out: Path, by: str
     record["points_in_this_picture"] = {"file": carried.name, "which_are": "the span's points, each moved as a point of the canvas is; scores and names as given"}
     out.with_suffix(".json").write_text(json.dumps(record, indent=1) + "\n")
     say(f"faces over frames {first} to {first + count - 1} lie in {found['faces']}; face {found['face_height_px_median']:.0f} px tall at the median; "
-        f"room {room:g} face heights a side")
+        + (f"the grey head with {found['cranium']['room_above_and_beside_in_face_heights']:g} face heights above and beside, "
+           f"{found['cranium']['below_the_chin_in_face_heights']:g} below the chin" if "cranium" in found else f"room {room:g} face heights a side"))
     if "heads" in found:
         say(f"heads over frames {first} to {first + count - 1} lie in {found['heads']} ({found['head_track_frames']} frame(s) on the head track; "
             f"head {found['head_height_px_median']:.0f} px tall at the median; crown room {found['crown_room_in_face_heights']:g}, "
             f"side/bottom room {found['head_track_room_in_face_heights']:g} face heights)")
     say(f"box {box} ({box[2] - box[0]} by {box[3] - box[1]}), set by {found['set_by']}" + ("; moved to lie inside the canvas" if found["moved_to_lie_inside"] else ""))
+    if "cranium" in found:
+        for line in cranium_lines(found["cranium"]):
+            say(line)
     say(f"enlarged {scale[0]:.3f} times across and {scale[1]:.3f} down: the face is {record['face_height_px_in_this_video']:.0f} px tall in the new picture")
     say("read back: %s frames; grey levels from the picture made for the frame %s, for the frame before %s, for the frame after %s" % (
         back["frames_read"], *(("n/a" if np.isnan(lags.get(k, float("nan"))) else f"{lags[k]:.2f}") for k in (0, 1, -1))))
@@ -413,14 +570,22 @@ def main() -> int:
     a.add_argument("--head-track", help="the subject's head-track mask video; found beside the points' box mask or body-model video when left out")
     a.add_argument("--head-track-first", type=int, help="the source frame of the head-track video's frame 0; the reference video's first when left out")
     a.add_argument("--no-head-track", action="store_true", help="size the box from the faces alone, even when a head track is beside the points or video")
+    a.add_argument("--cranium", action="store_true", help="the box round the body model's grey head above mid-face and the face, "
+                   "CRANIUM_ROOM above and beside, CRANIUM_NECK below the chin; read off --video, which is the body model; no head track read")
+    a.add_argument("--box", help="X0,Y0,X1,Y1: cut by this box as given, on the canvas (a source by the box its body model's --cranium cut found)")
     a.add_argument("--names", help="a json list of the points' names, for a points file made before they were kept")
     a.add_argument("--video-first", type=int, help="the source frame of the reference video's frame 0; the span's first when left out")
     a.add_argument("--points-first", type=int, help="the source frame of the points file's row 0; the file's own when it says")
     a.add_argument("--fit", action="store_true", help="the video is the original itself: fit it to the points' canvas as the loader does, then cut")
     v = a.parse_args()
     names = json.loads(Path(v.names).read_text()) if v.names else None
+    try:
+        box = [int(x) for x in v.box.split(",")] if v.box else None
+    except ValueError:
+        raise SystemExit(f"--box takes X0,Y0,X1,Y1 in whole pixels; got {v.box!r}") from None
     rec = run(v.video, v.points, v.first, v.count, Path(v.out), v.by, names=names, video_first=v.video_first, points_first=v.points_first, room=v.room,
-              head_track=v.head_track, head_track_first=v.head_track_first, no_head_track=v.no_head_track, fit=v.fit)
+              head_track=v.head_track, head_track_first=v.head_track_first, no_head_track=v.no_head_track, fit=v.fit,
+              cranium=v.cranium, box=box)
     return 0 if rec["passed"] else 1
 
 
