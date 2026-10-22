@@ -89,6 +89,31 @@ Older history lives elsewhere and is not copied here:
   and her blonde hair are retained, wherever they show." and now reads "partially_preserved - the woman's face and blonde hair from
   <Picture 1> are retained." (the noun from `who`, the hair from `picture_hair`); the summary and `[Shot 1]` are as they were, and a
   hair change keeps its own line. Branch claude-mouth-outline.
+- **A downcast eye is drawn with a dark iris, and a person's word can paint an eye closed** (the owner's look, relayed by the
+  Claude lead: a drawn eye shows her gaze only where the iris is seen where she looks; on second_hfp_0278j the downcast arc was a
+  sliver and the render looked up). Under the closed lip line in the contrast form, an eye whose iris ring lies
+  `bench/draw_face_points.py::DOWNCAST_RING_OUTSIDE_MIN` or more outside its lids now keeps its disc, drawn black with no white
+  and no ring (`dark_irises`), for every subject with no span word; it used to get no disc and its iris ring drawn as an arc
+  between the lids (2026-10-20). `--eyes-shut-form lowered` keeps its name and now draws the same dark iris on every eye of its
+  frames; it used to draw that arc. The simpler of the two choices the owner left open: no second word for one drawing. A new
+  form, `closed`, paints each eye's lash ring flat in the skin grey round it (`skin_grey`, the mouth paint-out's sampling) inside
+  the grey head's silhouette and draws one lid line, because the body model's sculpted eyes are open and drawing nothing (0415m)
+  or one line (0484g, 1039e) read as open eyes. The reference record lists the frames each eye was drawn dark on
+  (`drawn.eye_rings.frames_an_iris_is_drawn_dark_on`). `docs/masked_v2v/AGENTS.md` §7 said the arc; it now says this. The text
+  is unchanged (`bench/load_text.py` has no clause for `lowered` or `closed`). Branch claude-dark-iris.
+- **The closed form paints the whole sculpted eye** (the Claude lead's relay of the owner's look at the first proof: the paint of the
+  lash ring alone left the body model's open eye round the pose model's slit on 278 and 1179-1181). `--eyes-shut-form closed` now
+  paints the outline `bench/draw_face_points.py::sculpted_eye` finds on the body-model frame (the hull of the lash ring and the bright
+  lid rims near it, below the brow; its knobs and where they were measured are `SCULPTED_EYE`); the entry above said the lash ring,
+  filled. The dark iris of the same entry stands as it was (the owner approved it on the open-to-down strip of 1156-1188). Branch
+  claude-dark-iris.
+- **A dark iris always shows a piece of black** (the owner's go, after second_hfp_0278k, a second seed, looked up as 0278j did: "if
+  frame 1 can't see a black iris, it defaults to the ref image eyes, which is looking straight ahead"). Where an eye is drawn dark
+  and its lash ring is thinner than `bench/draw_face_points.py::EYE_OPEN`'s `least` (area over width squared), the drawn lower lid
+  is opened down to it, the corners and the upper lid kept (`open_lids`), and the disc is clipped to the opened lids; the record
+  lists the frames per eye (`drawn.eye_rings.frames_the_lids_are_opened_on`). `least` is the 10th percentile on the frames whose gaze
+  rendered right (its comment names them and why 0484f is left out). Down, not both ways: the proof drew both, and the choice is
+  the owner's on playback. Branch claude-dark-iris.
 
 ## 2026-10-21
 

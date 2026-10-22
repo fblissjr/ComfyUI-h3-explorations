@@ -111,9 +111,8 @@ EYES = {"whole": "the eyes are outlined with the iris inside them",
         "filled": "the eyes are outlined with a dark iris inside them",
         "contrast": "inside each eye's outline the white of the eye is white and the iris black"}
 #: THE CLOSED-LIP LINE'S SENTENCE (the owner's approval of 2026-10-22, relayed by the lead, in these words): the face drawn and, where the
-#: eyes are drawn, each with a dark iris (everyone's eye drawing on claude-dark-iris); until then ", with facial features drawn on its
-#: face as thin white outlines, where the eyes open, close and look where the person's eyes do". Where no eye is drawn, the words before
-#: (`FACE_NO_EYES`), unchanged.
+#: eyes are drawn, each with a dark iris (`draw_face_points.dark_irises`; a span the plan names "closed" draws no iris, and the text has
+#: no words for it). Where no eye is drawn, the words before (`FACE_NO_EYES`), unchanged.
 FACE_EYES = ", with its face drawn as thin white outlines: the eyes, each with a dark iris, open, close and look where the person's eyes do"
 FACE_NO_EYES = ", with facial features drawn on its face as thin white outlines"
 #: THE MOUTH'S CLAUSE under the closed-lip line, by the reference record's open-mouth form (`drawn.mouth.closed_lip_line.open_mouth`,

@@ -982,7 +982,7 @@ def main() -> int:
                    help="source frames on which her eyes are shut, on a person's word on a look (the pose model's lids stop at a slit): drawn "
                         "by --eyes-shut-form; repeatable")
     a.add_argument("--eyes-shut-form", choices=faces.EYES_SHUT_FORMS,
-                   help="what is drawn for her eyes on the --eyes-shut-on frames: none (no eye, the body model's own), lids (each shut as one line), or lowered (the iris arc between the lids, no disc)")
+                   help="what is drawn for her eyes on the --eyes-shut-on frames: none (no eye, the body model's own), lids (each shut as one line), lowered (each iris a black disc inside the lids, no white), or closed (each eye painted over in the skin grey round it, one lid line)")
     a.add_argument("--names", help="a json list of the points' names, for a points file made before they were kept")
     a.add_argument("--mesh-first", type=int, help="the source frame of the body-model video's frame 0; the span's first when left out")
     a.add_argument("--points-first", type=int, help="the source frame of the points file's row 0; the file's own when it says")

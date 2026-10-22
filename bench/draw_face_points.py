@@ -167,9 +167,37 @@ IRIS_FORMS = ("between the lids", "whole", "filled", "contrast")
 #: else measured tells closed on her (the part model has no eye class; the dark inside the lids is her makeup; the model's own scores are
 #: high either way). With `"none"` or `"lids"`, the eye's lash ring, lid and crease lines, iris and pupil and their fill are not drawn and
 #: the brows stay ("none": nothing more, the body model's own eyes show; "lids": each eye drawn shut as one line along its upper lash line).
-#: With `"lowered"`, each eye is drawn in the 2026-10-20 downcast form regardless of `DOWNCAST_RING_OUTSIDE_MIN`: no white sclera or black
-#: iris disc (`discs`), the lash ring, eyelid and crease lines stay, and the iris ring is drawn between the lids (`_iris_ring`). None is a default.
-EYES_SHUT_FORMS = ("none", "lids", "lowered")
+#: With `"lowered"`, each eye is drawn DARK (`dark_irises`) whatever share of its iris lies outside the lids: the lash ring, eyelid and crease
+#: lines stay, no white sclera, and the iris a solid black disc clipped to the lids, with no iris or pupil ring, in any iris form (until
+#: 2026-10-22 it drew the iris arc between the lids). With `"closed"` (2026-10-22, the owner's go), the body model's whole sculpted eye
+#: (`sculpted_eye`, found on the body-model frame round the pose model's lash ring), within the grey head's silhouette, is painted flat
+#: in the skin grey round it, sampled as the mouth's paint-out samples it (`skin_grey`), hard-edged, and one white lid line is drawn
+#: along the upper lash line; no iris; the brows stay. Why a paint: the body model's sculpted eyes are open, so no eye drawn (0415m) or
+#: one line over them (0484g, 1039e: "lids") read as open eyes, where its sculpted lips are closed and a closed mouth works by drawing
+#: nothing. Why the whole sculpted eye: painting only the lash ring left the sculpted open eye round the pose model's slit (the first
+#: proof of 2026-10-22, 278 and 1179-1181). None is a default.
+EYES_SHUT_FORMS = ("none", "lids", "lowered", "closed")
+#: Where a closed eye's paint goes (`sculpted_eye`), each a share of the eye's width (its lash line's inner end to its outer end). The
+#: body model's sculpted eye is an almond with a bright rim (its lids) round a darker eyeball, larger than the pose model's lash ring and
+#: not always centred on it: measured on second_0278_0293_f (278, 286, 291), lead_1156_1188_b (1156, 1170, 1180) and second_0415_0437_g
+#: (415, 437), the rim reaches 1.3-1.6 eye widths across and 0.04-0.53 of one above the lash ring's top, 0.15-0.48 below its bottom
+#: (the build of 2026-10-22, its regions drawn over those frames and looked at; redo it on those frames to check). `detail`: the blur (a share of the width, so 6 px on a
+#: 40 px eye) the frame is taken from to leave its rims; `rim_over`: grey levels a rim stands over that blur (starting value from the same
+#: frames: at 10 the outline took the socket's shadow edges and ran onto the cheek on 278 286/291 and lead 1179/1181, at 18 it keeps to
+#: the almond and still takes the lead's upper rim); `side`, `above`, `below`: the search box round the lash ring,
+#: past the measured reach and under the brow; `near`: how far from the lash ring a rim may start; `grow`: the paint past the rim's
+#: hull, to take the dark crease just outside it (reasoned: a rim is about that thick). Starting values from the two subjects named.
+#: THE LEAST OPENING A DARK IRIS IS DRAWN IN (2026-10-22, the owner's go after second_hfp_0278k, a second seed, looked up as 0278j did: "if
+#: frame 1 can't see a black iris, it defaults to the ref image eyes, which is looking straight ahead"). Where an eye is drawn dark
+#: (`dark_irises`) and its lash ring is thinner than `least` (the ring's area over the eye's width squared, the width its lash line's inner
+#: end to its outer end), the drawn lids are opened to it (`open_lids`), the corners kept, so a real piece of the black iris shows where
+#: the pose model puts it. `least` 0.12: measured, the 10th percentile of that figure over the eyes of frames whose gaze rendered right,
+#: second_0415_0437 415-436 (0415n), second_4602_4646 (4602d) and lead_1156_1188 1156-1162 (148 eyes). 0484f
+#: also rendered right and is left out: its eyes read 0.075-0.115, the same as 278's 0.081-0.115 that looked up, so on those two the
+#: opening does not tell right from wrong. Lead 1176-1181 read 0.043-0.072. `way`: "down" moves the lower lid down, the upper staying
+#: where the pose model put it (her lids lowered over a low iris); "both" opens them half each way about the middle.
+EYE_OPEN = dict(least=0.12, way="down")
+SCULPTED_EYE = dict(detail=0.15, rim_over=18.0, side=0.3, above=0.6, below=0.5, near=0.3, grow=0.08)
 #: AN OPEN MOUTH'S FORM under `--closed-lip-line`, a subject at a time (the plan's `reference.open_mouth`). `"inner outline"` (the form
 #: since 2026-10-19, and the default): one white outline round a dark inside, the pose model's inner-lip ring filled, the body model's
 #: sculpted lips left as they are. On lead_fp_1156d at source 1188 that dark inside rendered as solid black lips (the owner, 2026-10-22:
@@ -232,8 +260,12 @@ HEAD_DARKEN_SCALE = 0.67
 MOUTH_CHIN_CLEAR_FRAC = 0.14
 MOUTH_CHIN_CLEAR_MIN_PX = 8.0
 #: Share of the iris ring outside the eyelids (`between_the_lids`) at or above which an eye is narrowed or downcast enough that
-#: under `smooth_lips` (`--closed-lip-line`), `--iris contrast` leaves the sclera unpainted and draws the between-the-lids iris arc
-#: (`_iris_ring`) instead of flooding the narrowed eyelid slit with `255,255,255` white sclera. Measured on `second_0484_0515_c`
+#: under `smooth_lips` (`--closed-lip-line`), `--iris contrast` draws it DARK (`dark_irises`, since 2026-10-22): no white sclera, the iris
+#: its black disc clipped to the lids, no ring; from 2026-10-20 to 2026-10-22 it drew the between-the-lids iris arc (`_iris_ring`) with no
+#: disc. Either way, instead of flooding the narrowed eyelid slit with `255,255,255` white sclera. Why dark (the owner's look of 2026-10-22:
+#: a drawn eye shows her gaze only where the iris is seen where she looks): on second_hfp_0278j (278-293) the rings lay 0.69-0.77 outside
+#: on every frame, the arc was a sliver and the render looked up; kept renders had about half the ring inside (0.39-0.52 outside: 0415j,
+#: 4602d, 0415n). Below the share the eye keeps the contrast form. Measured on `second_0484_0515_c`
 #: (`0.69–0.78` on all 32 downcast frames), `second_0415_0437_c` (`0.72–0.73` on downcast frame `437` vs `0.31–0.61` on open frames
 #: `415–436`), and `second_1039_1060_c` (`0.64–0.77` on downcast frames `1055–1060` vs `0.20–0.50` on open frames `1039–1051`): at
 #: `>= 0.65`, the black edge of the upper and lower lash lines covers `100%` of the clipped black iris disc (`0 px` visible black iris)
@@ -311,11 +343,10 @@ def between_the_lids(ring: np.ndarray, lids: np.ndarray) -> tuple[list[np.ndarra
 
 
 def shapes(p: np.ndarray, s: np.ndarray, index: dict, score_line: float, leave_out: frozenset = frozenset(),
-           iris: str = IRIS_FORMS[0], outside: dict | None = None,
-           closed_lip_line: bool = False, lowered: bool = False) -> list[tuple[str, np.ndarray, bool]]:
+           iris: str = IRIS_FORMS[0], outside: dict | None = None, lowered: bool = False) -> list[tuple[str, np.ndarray, bool]]:
     """One frame's drawing as (name, points in order, whether it closes on itself). A dot alone is one point.
     `iris`: a ring drawn between the lids or whole (`IRIS_FORMS`); `outside`, when given, gets each drawn ring's
-    share outside the lids, by its name."""
+    share outside the lids, by its name. In the disc forms, or `lowered` on a person's word, no iris or pupil ring: the iris is a disc."""
     out: list[tuple[str, np.ndarray, bool]] = []
     scores = ring_scores(s, index)
     for side, ring in zip(SIDES, fp.lid_rings(p, index)):
@@ -330,8 +361,8 @@ def shapes(p: np.ndarray, s: np.ndarray, index: dict, score_line: float, leave_o
                     runs, closed, off = between_the_lids(whole, ring)
                     if outside is not None:
                         outside[f"{side}_{kind}"] = off
-                    if iris == IRIS_FORMS[2] or (iris == IRIS_FORMS[3] and not (kind == "iris" and (lowered or (closed_lip_line and off >= DOWNCAST_RING_OUTSIDE_MIN)))):
-                        continue                                       # filled or contrast: the iris is a disc (`discs`), unless downcast under closed_lip_line or lowered on a person's word
+                    if lowered or iris in IRIS_FORMS[2:]:
+                        continue                                       # filled, contrast or lowered: the iris is a disc (`discs`), dark when downcast (`dark_irises`)
                     if iris == IRIS_FORMS[1] or closed:
                         out.append((f"{side}_{kind}_ring", whole, True))
                     else:
@@ -362,23 +393,127 @@ def shapes(p: np.ndarray, s: np.ndarray, index: dict, score_line: float, leave_o
     return out
 
 
-def discs(p: np.ndarray, s: np.ndarray, index: dict, score_line: float, leave_out: frozenset = frozenset(),
-          closed_lip_line: bool = False, lowered: bool = False) -> list[tuple[str, np.ndarray, np.ndarray]]:
+def discs(p: np.ndarray, s: np.ndarray, index: dict, score_line: float, leave_out: frozenset = frozenset()) -> list[tuple[str, np.ndarray, np.ndarray]]:
     """One frame's irises for `--iris filled`, as (name, the iris ring sampled at `RING_SAMPLES` points, that eye's lash ring):
     `draw` fills each in the edge colour where it lies inside its lash ring. An iris under the score line is left out, as its ring is."""
-    if "eyes" in leave_out or lowered:
+    if "eyes" in leave_out:
         return []
     scores, out = ring_scores(s, index), []
     for side, ring in zip(SIDES, fp.lid_rings(p, index)):
         if scores[f"{side}_iris"] >= score_line:
             whole = _round(p, _ids(index, f"{side}_border_of_iris"), p[index[f"{side}_center_of_iris"]])
-            if closed_lip_line and between_the_lids(whole, ring)[2] >= DOWNCAST_RING_OUTSIDE_MIN:
-                continue
             k = len(whole)
             t = np.linspace(0.0, k, RING_SAMPLES, endpoint=False)
             i = np.floor(t).astype(int)
             out.append((f"{side}_iris_disc", whole[i % k] + (t - i)[:, None] * (whole[(i + 1) % k] - whole[i % k]), ring))
     return out
+
+
+def dark_irises(p: np.ndarray, index: dict, closed_lip_line: bool = False, lowered: bool = False) -> set[str]:
+    """The names of a frame's iris discs (`discs`) drawn DARK, a black disc with no white sclera round it: every eye `lowered` on a person's
+    word, and under `closed_lip_line` an eye whose iris ring lies `DOWNCAST_RING_OUTSIDE_MIN` or more outside its lids."""
+    out = set()
+    for side, ring in zip(SIDES, fp.lid_rings(p, index)):
+        whole = _round(p, _ids(index, f"{side}_border_of_iris"), p[index[f"{side}_center_of_iris"]])
+        if lowered or (closed_lip_line and between_the_lids(whole, ring)[2] >= DOWNCAST_RING_OUTSIDE_MIN):
+            out.add(f"{side}_iris_disc")
+    return out
+
+
+def open_lids(p: np.ndarray, index: dict, side: str, least: float | None = None, way: str | None = None) -> dict[str, np.ndarray] | None:
+    """One eye's drawn lid lines opened to `EYE_OPEN` (`least` of its width squared in area) where its lash ring is thinner, for a dark
+    iris (`dark_irises`): {"_lash_ring", "_upper_eyelid_line", "_lower_eyelid_line", "_upper_crease_line": the points to draw}, or None
+    where the ring is open enough. Each point moves across the eye by the shortfall times sin(pi t), t its place from the inner corner
+    to the outer, so the corners stay; "down" moves the lower lash and eyelid lines down, "both" moves each line half as far its way."""
+    least = EYE_OPEN["least"] if least is None else least
+    way = EYE_OPEN["way"] if way is None else way
+    a, b = p[index[f"{side}_inner_end_of_upper_lash_line"]], p[index[f"{side}_outer_end_of_upper_lash_line"]]
+    chord = b - a
+    wide = float(np.linalg.norm(chord))
+    if wide < 1.0:
+        return None
+    upper, lower = fp._line(p, index, side, "upper"), fp._line(p, index, side, "lower")
+    ring = np.concatenate([upper, lower[::-1]])
+    short = least - fp.ring_area(ring) / wide / wide
+    if short <= 0:
+        return None
+    normal = np.array([-chord[1], chord[0]]) / wide
+    if np.dot(lower.mean(0) - upper.mean(0), normal) < 0:
+        normal = -normal                                        # toward the lower lid
+    split = (1.0, 0.0) if way == "down" else (0.5, 0.5)       # the share of the reach the lower lid moves down, and the upper up
+
+    def moved(pts: np.ndarray, by: float) -> np.ndarray:
+        t = np.clip(((pts - a) @ chord) / wide / wide, 0.0, 1.0)
+        return pts + (by * np.sin(np.pi * t))[:, None] * normal[None]
+
+    def ring_at(reach: float) -> np.ndarray:
+        return np.concatenate([moved(upper, -split[1] * reach), moved(lower, split[0] * reach)[::-1]])
+    # every point moves along one direction, so the ring's area grows in step with the reach: one probe gives the reach exactly
+    per = fp.ring_area(ring_at(1.0)) - fp.ring_area(ring)
+    if per <= 0:
+        return None
+    reach = short * wide * wide / per
+    down, up = split[0] * reach, split[1] * reach
+    out = {"_lash_ring": ring_at(reach)}
+    for line, by in (("upper_eyelid_line", -up), ("upper_crease_line", -up), ("lower_eyelid_line", down)):
+        out[f"_{line}"] = moved(_along(p, _ids(index, f"{side}_", f"_of_{line}"), a, b), by)
+    return out
+
+
+def skin_grey(frame: np.ndarray, whole: np.ndarray) -> tuple[int, ...]:
+    """The flat grey round a region of the body model (`whole`, a mask of the frame): the median of a band 3 to 7 pixels out from it, on the
+    body model where it is lit (never the black ground beside a profile face). The mouth's paint-out and a closed eye's take it."""
+    import cv2
+    ring = cv2.dilate(whole.astype(np.uint8), np.ones((15, 15), np.uint8)).astype(bool) & ~cv2.dilate(whole.astype(np.uint8), np.ones((7, 7), np.uint8)).astype(bool)
+    on_body = ring & (frame.max(-1) > 16)
+    sample = on_body if on_body.any() else ring
+    return tuple(int(v) for v in np.median(frame[sample], axis=0)) if sample.any() else (128, 128, 128)
+
+
+def sculpted_eye(frame: np.ndarray, p: np.ndarray, index: dict, side: str) -> np.ndarray:
+    """The body model's sculpted eye on one side of a frame, as an outline (points [k, 2]) for a closed eye's paint (`EYES_SHUT_FORMS`,
+    "closed"): the hull of the pose model's lash ring and of the frame's bright rims near it (`SCULPTED_EYE`), in a box round the ring
+    below the brow, grown a little to take the crease outside the rim."""
+    import cv2
+    look = SCULPTED_EYE
+    a, b = p[index[f"{side}_inner_end_of_upper_lash_line"]], p[index[f"{side}_outer_end_of_upper_lash_line"]]
+    wide = max(float(np.linalg.norm(b - a)), 1.0)
+    lash = fp.lid_rings(p, index)[SIDES.index(side)]
+    brow = p[_ids(index, "lower_", f"_of_{side}_eyebrow")]
+    h, w = frame.shape[:2]
+    x0, x1 = int(max(0, min(a[0], b[0]) - look["side"] * wide)), int(min(w, np.ceil(max(a[0], b[0]) + look["side"] * wide)))
+    y0 = int(max(0, brow[:, 1].max() if len(brow) else 0, lash[:, 1].min() - look["above"] * wide))
+    y1 = int(min(h, np.ceil(lash[:, 1].max() + look["below"] * wide)))
+    grey = frame.mean(-1).astype(np.float32)
+    detail = grey - cv2.GaussianBlur(grey, (0, 0), look["detail"] * wide)
+    box = np.zeros((h, w), np.uint8)
+    box[y0:y1, x0:x1] = 1
+    rims = ((detail > look["rim_over"]) & box.astype(bool)).astype(np.uint8)
+    ring = np.zeros((h, w), np.uint8)
+    cv2.fillPoly(ring, [np.round(lash).astype(np.int32)], 1)
+    k = 2 * int(look["near"] * wide) + 1
+    reach = cv2.dilate(ring, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))).astype(bool)
+    n, lab, stats, _ = cv2.connectedComponentsWithStats(rims)
+    keep = [i for i in range(1, n) if reach[lab == i].any() and stats[i, cv2.CC_STAT_AREA] >= max(4, 0.01 * wide * wide)]
+    found = (np.isin(lab, keep) | ring.astype(bool)).astype(np.uint8)
+    hull = cv2.convexHull(np.column_stack(np.nonzero(found)[::-1]).astype(np.int32))
+    region = np.zeros((h, w), np.uint8)
+    cv2.fillPoly(region, [hull], 1)
+    g = max(1, int(round(look["grow"] * wide)))
+    region = cv2.dilate(region, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * g + 1, 2 * g + 1)))
+    cs, _ = cv2.findContours(region, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    return max(cs, key=cv2.contourArea)[:, 0, :].astype(float)
+
+
+def closed_eye_px(lids: list[np.ndarray], size: tuple[int, int], head: np.ndarray | None = None) -> np.ndarray:
+    """Where a closed eye is painted (`EYES_SHUT_FORMS`, "closed"): each outline (`sculpted_eye`) filled as it stands, and no further,
+    within `head` (the grey head's silhouette) when given. [h, w] of bool."""
+    import cv2
+    w, h = size
+    m = np.zeros((h, w), np.uint8)
+    for ring in lids:
+        cv2.fillPoly(m, [np.round(ring).astype(np.int32)], 1)
+    return m.astype(bool) & (head if head is not None else True)
 
 
 def parts_arg(text: str) -> frozenset:
@@ -851,7 +986,8 @@ def lips_paint_out(frame: np.ndarray, drawing: list[tuple[str, np.ndarray, bool]
 
 def draw(mesh: np.ndarray, drawings: list[list], width: float, bare: set[int], dots: bool = True, fills: list[list] | None = None,
          contrast: bool = False, mouths: list | None = None, *, smooth_lips: bool = False, darken_head: bool = False,
-         keypoints: np.ndarray | None = None, index: dict | None = None, open_mouth: str = OPEN_MOUTH_FORMS[0]) -> np.ndarray:
+         keypoints: np.ndarray | None = None, index: dict | None = None, dark: list[set[str]] | None = None,
+         shut_eyes: dict[int, list[np.ndarray]] | None = None, open_mouth: str = OPEN_MOUTH_FORMS[0]) -> np.ndarray:
     """The mesh frames [n, h, w, 3] with every frame's drawing on it. With `fills`: first, inside each lash ring only, the
     iris in the edge colour, and with `contrast` the sclera solid white (the line colour) under it; then the lines over
     them, black a little wider first, then white, so the black edge stays round the white sclera and the black iris (an
@@ -859,7 +995,11 @@ def draw(mesh: np.ndarray, drawings: list[list], width: float, bare: set[int], d
     eye ran into the lid line). With `smooth_lips` (`--closed-lip-line`): the whole lip and under-lip area is smoothly flattened
     into the face's grey (`smooth_mouth_area`), closed mouth lines (`inner_lip_line`, `mouth_closed`) have no dark border or
     end-cap dot, and eye fills are clipped to the grey head's silhouette with a dark rim inside the silhouette edge (`M20`).
-    With `darken_head`: the grey body model is scaled by `HEAD_DARKEN_SCALE` (`0.67`). With `smooth_lips` and `open_mouth` "outlined"
+    With `darken_head`: the grey body model is scaled by `HEAD_DARKEN_SCALE` (`0.67`). `dark[f]`: the names of frame f's iris discs drawn
+    dark (`dark_irises`), the iris filled and no white sclera round it, whatever `contrast` says. `shut_eyes[f]`: frame f's sculpted-eye
+    outlines of a closed eye (`EYES_SHUT_FORMS`, "closed"; `sculpted_eye`), painted on the body model before anything else in the skin grey round them (`skin_grey`),
+    within the grey head's silhouette (`closed_eye_px`), hard-edged: where no line falls near, the paint is the flat grey inside and the
+    frame as it would be unpainted outside, not the resample's ring round the edge. With `smooth_lips` and `open_mouth` "outlined"
     (`OPEN_MOUTH_FORMS`), an open mouth's outer outline (`OUTER_MOUTHS`) is filled first in the grey round it, inside the head's silhouette."""
     from PIL import ImageChops
     if darken_head:
@@ -876,11 +1016,11 @@ def draw(mesh: np.ndarray, drawings: list[list], width: float, bare: set[int], d
         big = lambda m: Image.fromarray((m.astype(np.uint8) * 255)).resize(im.size, Image.NEAREST)        # noqa: E731
         fh_mask = big(full_head) if full_head is not None else None
         ih_mask = big(inner_head) if inner_head is not None else None
-        for _, disc, lids in ([] if f in bare or not fills else fills[f]):
+        for name, disc, lids in ([] if f in bare or not fills else fills[f]):
             a, b = Image.new("L", im.size, 0), Image.new("L", im.size, 0)
             ImageDraw.Draw(a).polygon([tuple(v * SUPER) for v in disc], fill=255)
             ImageDraw.Draw(b).polygon([tuple(v * SUPER) for v in lids], fill=255)
-            if white:
+            if white and name not in (dark[f] if dark else ()):
                 if fh_mask is not None and ih_mask is not None:
                     im.paste(edge_col, mask=ImageChops.multiply(b, fh_mask))
                     im.paste(line_col, mask=ImageChops.multiply(b, ih_mask))
@@ -906,10 +1046,7 @@ def draw(mesh: np.ndarray, drawings: list[list], width: float, bare: set[int], d
             if got_paint is not None:
                 im.paste(got_paint[0], mask=got_paint[1])
         if not smooth_lips:
-            ring = cv2.dilate(whole.astype(np.uint8), np.ones((15, 15), np.uint8)).astype(bool) & ~cv2.dilate(whole.astype(np.uint8), np.ones((7, 7), np.uint8)).astype(bool)
-            on_body = ring & (mesh[f].max(-1) > 16)
-            sample = on_body if on_body.any() else ring
-            grey = tuple(int(v) for v in np.median(mesh[f][sample], axis=0)) if sample.any() else (128, 128, 128)
+            grey = skin_grey(mesh[f], whole)
             im.paste(grey, mask=big(cv2.dilate(whole.astype(np.uint8), np.ones((5, 5), np.uint8)).astype(bool)))
         if hole.any():
             h_mask = (hole & inner_head) if inner_head is not None else hole
@@ -921,6 +1058,15 @@ def draw(mesh: np.ndarray, drawings: list[list], width: float, bare: set[int], d
         kp_f = keypoints[f] if keypoints is not None else None
         full_h = head_silhouette(mesh[f], erode_px=0, p=kp_f, index=index) if smooth_lips else None
         inner_h = head_silhouette(mesh[f], erode_px=erode_inner, p=kp_f, index=index) if smooth_lips else None
+        painted = None
+        if shut_eyes and shut_eyes.get(f) and f not in bare:
+            head_f = full_h if full_h is not None else head_silhouette(mesh[f], erode_px=0, p=kp_f, index=index)
+            base, painted = base.copy(), np.zeros((h, w), bool)
+            for ring in shut_eyes[f]:                               # an eye at a time: each takes the grey round it
+                shut_px = closed_eye_px([ring], (w, h), head_f)
+                if shut_px.any():
+                    base[shut_px] = skin_grey(mesh[f], shut_px)
+                    painted |= shut_px
         im_base = Image.fromarray(base).resize((w * SUPER, h * SUPER), Image.BICUBIC)
         im = im_base.copy()
         mouth(im, f, inner_h)
@@ -937,6 +1083,15 @@ def draw(mesh: np.ndarray, drawings: list[list], width: float, bare: set[int], d
                 for x, y in run:
                     d.ellipse([x - r, y - r, x + r, y + r], fill=colour)
         frame_out = np.asarray(im.resize((w, h), Image.LANCZOS)).copy()
+        if painted is not None:
+            # HARD-EDGED: the resample rings a pixel or two either side of the paint's edge; off the lines (and two pixels round them, their
+            # own soft edge), the inside is the flat grey and the outside the frame resampled with no paint
+            import cv2
+            drew = (np.asarray(im) != np.asarray(im_base)).any(-1).reshape(h, SUPER, w, SUPER).any((1, 3))
+            free = ~cv2.dilate(drew.astype(np.uint8), np.ones((5, 5), np.uint8)).astype(bool)
+            plain = np.asarray(Image.fromarray(mesh[f]).resize((w * SUPER, h * SUPER), Image.BICUBIC).resize((w, h), Image.LANCZOS))
+            frame_out[free & painted] = base[free & painted]
+            frame_out[free & ~painted] = plain[free & ~painted]
         if full_h is not None and inner_h is not None:
             ih_big = np.asarray(Image.fromarray((inner_h.astype(np.uint8) * 255)).resize(im.size, Image.NEAREST)) > 0
             if np.any((np.asarray(im) != np.asarray(im_base))[~ih_big]):
@@ -1145,24 +1300,45 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     if shut and (eyes_shut_form not in EYES_SHUT_FORMS or not str(eyes_shut_by).strip()):
         raise SystemExit(f"--eyes-shut-on takes a form, one of {EYES_SHUT_FORMS} (--eyes-shut-form), and whose word it is; got {eyes_shut_form!r}")
     shut_set = set(shut)
+    lowered = {f for f in shut if eyes_shut_form == "lowered"}
     offs = [{} for _ in range(count)]
-    drawings = [shapes(p, s, idx, line, leave_out, iris, offs[f], closed_lip_line=closed_lip_line,
-                       lowered=(f in shut_set and eyes_shut_form == "lowered"))
+    drawings = [shapes(p, s, idx, line, leave_out, iris, offs[f], lowered=f in lowered)
                 for f, (p, s) in enumerate(zip(points["keypoints"], points["scores"]))]
     if not dots:
         drawings = [lines_only(d) for d in drawings]                # no dots is no dots: the points that belong to no line go too
     wide, face, wide_by = width_for(points, width)
     left = {f - first for f in (bare or []) if first <= f < first + count}
-    fills = [discs(p, s, idx, line, leave_out, closed_lip_line=closed_lip_line,
-                   lowered=(f in shut_set and eyes_shut_form == "lowered"))
-             for f, (p, s) in enumerate(zip(points["keypoints"], points["scores"]))] if iris in IRIS_FORMS[2:] else None
+    # the iris discs: on every frame in the disc forms, and on the frames her eyes are lowered on a person's word in any form; each drawn
+    # dark (a black disc, no white) where `dark_irises` says, on a person's word or by the share of its ring outside the lids
+    disc_form = iris in IRIS_FORMS[2:]
+    fills = [discs(p, s, idx, line, leave_out) if disc_form or f in lowered else []
+             for f, (p, s) in enumerate(zip(points["keypoints"], points["scores"]))] if disc_form or lowered else None
+    dark = [dark_irises(p, idx, closed_lip_line=closed_lip_line and iris == IRIS_FORMS[3], lowered=f in lowered) & {n for n, _, _ in fills[f]}
+            for f, p in enumerate(points["keypoints"])] if fills else None
+    closed: dict[int, list[np.ndarray]] = {}
     for f in shut:
-        if eyes_shut_form != "lowered":
-            drawings[f] = [d for d in drawings[f] if not any(d[0].startswith(f"{side}{part}") for side in SIDES for part in EYE_PARTS)]
-            if eyes_shut_form == "lids" and "eyes" not in leave_out:
-                drawings[f] += [(f"{side}_shut_lid", fp._line(points["keypoints"][f], idx, side, "upper"), False) for side in SIDES]
+        if f in lowered:
+            continue                                                # drawn above: the lines as on an open eye, each iris a black disc
+        drawings[f] = [d for d in drawings[f] if not any(d[0].startswith(f"{side}{part}") for side in SIDES for part in EYE_PARTS)]
+        if eyes_shut_form in ("lids", "closed") and "eyes" not in leave_out:
+            drawings[f] += [(f"{side}_shut_lid", fp._line(points["keypoints"][f], idx, side, "upper"), False) for side in SIDES]
+        if eyes_shut_form == "closed" and "eyes" not in leave_out:
+            closed[f] = [sculpted_eye(mesh[f], points["keypoints"][f], idx, side) for side in SIDES]
         if fills:
             fills[f] = []
+            dark[f] = set()
+    # a dark iris is drawn in lids no thinner than EYE_OPEN: where the pose model's are, the lids drawn and the disc's clip are opened
+    opened: dict[str, list[int]] = {f"{side}_iris": [] for side in SIDES}
+    for f in range(count):
+        for side in SIDES:
+            if not dark or f"{side}_iris_disc" not in dark[f]:
+                continue
+            got = open_lids(points["keypoints"][f], idx, side)
+            if got is None:
+                continue
+            opened[f"{side}_iris"].append(first + f)
+            drawings[f] = [(n, got[n[len(side):]], c) if n.startswith(f"{side}_") and n[len(side):] in got else (n, pts_d, c) for n, pts_d, c in drawings[f]]
+            fills[f] = [(n, disc, got["_lash_ring"]) if n == f"{side}_iris_disc" else (n, disc, lids) for n, disc, lids in fills[f]]
     cmap_set = {f - first for f in (class_mouth_frames or []) if first <= f < first + count}
     bare_mouth = sorted({f - first for f in (no_mouth or []) if first <= f < first + count})
     for f in bare_mouth:
@@ -1243,8 +1419,10 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
                 drawings[f] = [c for n, pts_d, cl_d in drawings[f] for c in clip_shape_to_mask(n, pts_d, cl_d, hm_f)]
     mesh_draw = np.round(mesh.astype(np.float32) * HEAD_DARKEN_SCALE).astype(np.uint8) if darken_head else mesh
     pictures = draw(mesh_draw, drawings, wide, left, dots, fills, contrast=iris == IRIS_FORMS[3], mouths=mouths,
-                    smooth_lips=closed_lip_line, keypoints=points["keypoints"], index=idx, open_mouth=open_mouth)
-    but = filled_px(fills, (w, h)) if iris == IRIS_FORMS[3] else None
+                    smooth_lips=closed_lip_line, keypoints=points["keypoints"], index=idx, dark=dark, shut_eyes=closed,
+                    open_mouth=open_mouth)
+    # the read-back leaves out the white sclera, where there is one: not round a dark iris
+    but = filled_px([[x for x in fills[f] if x[0] not in dark[f]] for f in range(count)], (w, h)) if iris == IRIS_FORMS[3] and fills else None
     out.parent.mkdir(parents=True, exist_ok=True)
     marks.write_video(out, pictures)
     drawn = np.array([f not in left for f in range(count)])
@@ -1255,8 +1433,8 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     clock = marks.against_the_source(src, mesh, first) if src is not None else None
     passed = bool(back["passed"])
     named = [{n for n, _, _ in drawings[f]} | {n for n, _, _ in (fills[f] if fills else [])} for f in range(count)]
-    kinds = ("iris",) if fills else RINGS
-    shape = "disc" if fills else "ring"
+    kinds = ("iris",) if disc_form else RINGS
+    shape = "disc" if disc_form else "ring"
     rings = {f"{side}_{kind}": [first + f for f in range(count)
                                 if f"{side}_{kind}_{shape}" not in named[f] and f"{side}_{kind}_ring" not in named[f] and f not in shut]
              for side in SIDES for kind in kinds} if "eyes" not in leave_out else {}
@@ -1281,7 +1459,12 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
                                                                  "the lines, whose black edge stays round them; the white of the sclera is left out of the read-back"}[iris],
                       "share_of_the_ring_outside_the_lids_least_median_most": {
                           k: ([round(float(v), 2) for v in np.percentile(vals, [0, 50, 100])] if vals else None)
-                          for k in rings for vals in [[o[k] for o in offs if k in o]]}},
+                          for k in rings for vals in [[o[k] for o in offs if k in o]]},
+                      **({"frames_an_iris_is_drawn_dark_on": {f"{side}_iris": [first + f for f in range(count) if f"{side}_iris_disc" in dark[f]] for side in SIDES},
+                          "frames_the_lids_are_opened_on": opened, "lids_opened_to": dict(EYE_OPEN),
+                          "drawn_dark_is": "a black disc clipped to the lids, no white sclera and no ring (dark_irises): her eyes lowered on a person's word "
+                                           f"(frames_with_the_eyes_shut), or under the closed lip line in the contrast form, an iris ring "
+                                           f"{DOWNCAST_RING_OUTSIDE_MIN:g} or more outside the lids (DOWNCAST_RING_OUTSIDE_MIN)"} if dark else {})},
         **({"darken_head": {"scale": HEAD_DARKEN_SCALE}} if darken_head else {}),
         **({"open_mouth": open_mouth} if closed_lip_line else {}),
         **({"outlined_mouth": {"placed_on": "the class map's lips (anchored_mouth)",
@@ -1328,6 +1511,9 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
         say(f"{key} ring: left out on {len(gone)} of {count} frames (score a frame {lo:.2f} to {hi:.2f}, median {mid:.2f}, against {line:g})")
     if back["too_thin"]:
         say(f"on {len(back['too_thin'])} of {count} frames the lines should leave under {THIN_PX:g} pixels of white")
+    if dark and any(dark):
+        say("irises drawn dark: " + "; ".join(f"{side} on {sum(f'{side}_iris_disc' in d for d in dark)} of {count} frames" for side in SIDES)
+            + f"; the lids opened to {EYE_OPEN['least']:g} of the eye's width ({EYE_OPEN['way']}) on " + "; ".join(f"{k} {len(v)}" for k, v in opened.items()))
     if shut:
         say(f"her eyes drawn shut ({eyes_shut_form!r}) on {len(shut)} of {count} frames, on a person's word: {eyes_shut_by}")
     say(f"frames left bare: {len(left)}" + (f", by {bare_by}" if left else " (none named; a head turned away is not found by this tool)"))

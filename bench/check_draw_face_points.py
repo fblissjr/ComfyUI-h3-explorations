@@ -229,14 +229,21 @@ def frames_from_the_middle() -> str:
 
 def eyes_shut() -> str:
     """The lead's ruling of 2026-10-15 on 2823b (`--eyes-shut-on`): the pose model's lids stop at a slit on a shut eye, so on frames a
-    person names the eye is drawn shut. "none": no lash ring, lid or crease line, iris or sclera; "lids": each eye one line, no iris."""
+    person names the eye is drawn shut. "none": no lash ring, lid or crease line, iris or sclera; "lids": each eye one line, no iris;
+    "closed" (2026-10-22): each eye's opening painted flat in the skin grey round it, hard-edged and inside its lash ring, and one lid line;
+    "lowered" (dark since 2026-10-22, the owner's look: a drawn eye shows her gaze only where the iris is seen): the lines as on an open
+    eye, no white inside the lids, the iris a black disc there."""
     import cv2
     from _lib import face_points as fp
     kw = dict(width=WIDE, iris="contrast", say=quiet)
     df.run(str(MESH), str(POINTS), 0, N, WORK / "open.mp4", "the check", **kw)
     none = df.run(str(MESH), str(POINTS), 0, N, WORK / "shut_none.mp4", "the check", eyes_shut=[6, 7], eyes_shut_form="none", eyes_shut_by="A LOOK", **kw)
     lids = df.run(str(MESH), str(POINTS), 0, N, WORK / "shut_lids.mp4", "the check", eyes_shut=[6, 7], eyes_shut_form="lids", eyes_shut_by="A LOOK", **kw)
-    lowered = df.run(str(MESH), str(POINTS), 0, N, WORK / "shut_lowered.mp4", "the check", eyes_shut=[6, 7], eyes_shut_form="lowered", eyes_shut_by="A LOOK", **kw)
+    closed = df.run(str(MESH), str(POINTS), 0, N, WORK / "shut_closed.mp4", "the check", eyes_shut=[6, 7], eyes_shut_form="closed", eyes_shut_by="A LOOK", **kw)
+    # "lowered" is read with no dots, so a dot at a lash point does not cover the inside of so small an eye
+    df.run(str(MESH), str(POINTS), 0, N, WORK / "open_lines.mp4", "the check", dots=False, **kw)
+    lowered = df.run(str(MESH), str(POINTS), 0, N, WORK / "shut_lowered.mp4", "the check", eyes_shut=[6, 7], eyes_shut_form="lowered", eyes_shut_by="A LOOK",
+                     dots=False, **kw)
     pts = df.rows_of(str(POINTS), None, 0, N, None)[0]
 
     def in_the_eyes(path, f):
@@ -246,24 +253,98 @@ def eyes_shut() -> str:
             cv2.fillPoly(m, [np.round(ring).astype(np.int32)], 1)
         m = cv2.dilate(m, np.ones((3, 3), np.uint8)).astype(bool)
         return int((got & m).sum())
-    opened, shut_none, shut_lids, shut_lowered = (in_the_eyes(WORK / x, 6) for x in ("open.mp4", "shut_none.mp4", "shut_lids.mp4", "shut_lowered.mp4"))
-    # THE CASE THAT GOES RED when an eye named shut is still drawn open (its ring, its sclera), "lids" draws no line there, or "lowered" keeps the black iris disc instead of the white iris ring
-    assert shut_none == 0 and 0 < shut_lids < opened < shut_lowered, (opened, shut_none, shut_lids, shut_lowered)
+    opened, shut_none, shut_lids, shut_closed = (in_the_eyes(WORK / x, 6) for x in ("open.mp4", "shut_none.mp4", "shut_lids.mp4", "shut_closed.mp4"))
+    # THE CASE THAT GOES RED when an eye named shut is still drawn open (its ring, its sclera), or "lids" or "closed" draws no line there
+    assert shut_none == 0 and 0 < shut_lids < opened and 0 < shut_closed < opened, (opened, shut_none, shut_lids, shut_closed)
+    # LOWERED, DARK. Inside each lash ring, half a line and its edge in from it and a pixel more (`inside`), and the iris as built here (`disc`,
+    # radius IRIS_R round its centre point): white anywhere inside is a sclera fill or a ring, black on the disc is the iris, grey off the
+    # disc is the body model left unfilled, and the band the lash ring runs along holds its line
+    grow = int(np.ceil(WIDE / 2 + h3_config.FACE_POINTS["edge_px"])) + 1
+
+    def eye_px(path, f):
+        pix = np.stack(list(stream(str(path), (W, H), f, 1, pix="rgb24")))[0]
+        ring, inside, disc = (np.zeros((H, W), np.uint8) for _ in range(3))
+        for side, lids_f in zip(fp.SIDES, fp.lid_rings(pts["keypoints"][f], pts["index"])):
+            cv2.fillPoly(inside, [np.round(lids_f).astype(np.int32)], 1)
+            cv2.polylines(ring, [np.round(lids_f).astype(np.int32)], True, 1)
+            cx, cy = pts["keypoints"][f][pts["index"][f"{side}_center_of_iris"]]
+            cv2.circle(disc, (int(round(cx)), int(round(cy))), int(IRIS_R) - 1, 1, -1)
+        inside = cv2.erode(inside, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * grow + 1, 2 * grow + 1))).astype(bool)
+        ring = cv2.dilate(ring, np.ones((3, 3), np.uint8)).astype(bool)
+        disc = disc.astype(bool) & inside
+        return (int(((pix.min(-1) > df.WHITE) & inside).sum()), int(((pix.max(-1) < 40) & disc).sum()), int(disc.sum()),
+                int(((pix.min(-1) > df.WHITE) & ring).sum()), int((np.abs(pix.astype(int) - 90).max(-1) < 30)[inside & ~disc].sum()))
+    o_white, o_black, o_disc, o_line, _ = eye_px(WORK / "open_lines.mp4", 6)
+    d_white, d_black, d_disc, d_line, d_grey = eye_px(WORK / "shut_lowered.mp4", 6)
+    # THE CASE THAT GOES RED when "lowered" keeps the white sclera or a ring inside the lids, leaves out the black disc or the lid lines
+    assert o_white > 0 and o_black > 0.8 * o_disc > 0, ("the open contrast eye is not white with a black iris", o_white, o_black, o_disc)
+    assert d_white == 0 and d_black > 0.8 * d_disc > 0 and d_grey > 0 and d_line > 0.8 * o_line > 0, (d_white, d_black, d_disc, d_grey, d_line, o_line)
+    assert lowered["eye_rings"]["frames_an_iris_is_drawn_dark_on"] == {"l_iris": [6, 7], "r_iris": [6, 7]}, lowered["eye_rings"]
+    # in the default form too (the iris as rings between the lids): no ring on the named frame, the black disc in its place
+    plain = df.run(str(MESH), str(POINTS), 0, N, WORK / "shut_lowered_rings.mp4", "the check", width=WIDE, dots=False, eyes_shut=[6], eyes_shut_form="lowered",
+                   eyes_shut_by="A LOOK", say=quiet)
+    p_white, p_black, p_disc, _, _ = eye_px(WORK / "shut_lowered_rings.mp4", 6)
+    assert plain["passed"] and p_white == 0 and p_black > 0.8 * p_disc > 0, (plain["read_back"], p_white, p_black, p_disc)
+    # CLOSED, painted. On a body model whose sculpted eye is open and a little larger than the drawn lash ring, the paint is flat in the grey
+    # round it, lies inside the lash ring and nowhere else (not grown, blurred or an oval: the sculpted eye outside the ring stays as it was),
+    # and nothing is painted on the black ground past the head's edge
+    W_, H_ = 320, 200
+    mesh = np.full((1, H_, W_, 3), 128, np.uint8)
+    cv2.ellipse(mesh[0], (140, 99), (42, 11), 0, 0, 360, (200, 200, 200), -1)
+    lash = np.array([[100, 100], [120, 92], [140, 90], [160, 92], [180, 100], [160, 106], [140, 108], [120, 106]], float)
+    unpainted = df.draw(mesh, [[]], 1.0, set(), False, None)[0].astype(int)
+    painted = df.draw(mesh, [[]], 1.0, set(), False, None, shut_eyes={0: [lash]})[0].astype(int)
+    ring_px = np.zeros((H_, W_), np.uint8)
+    cv2.fillPoly(ring_px, [np.round(lash).astype(np.int32)], 1)
+    moved = np.abs(painted - unpainted).max(-1) > 0
+    # THE CASE THAT GOES RED when the paint is grown, blurred or an oval, is not the grey round it, or the sculpted eye shows through
+    assert moved.any() and not (moved & ~ring_px.astype(bool)).any(), ("painted outside the lash ring", int((moved & ~ring_px.astype(bool)).sum()))
+    assert (painted[ring_px.astype(bool)] == 128).all(), np.unique(painted[ring_px.astype(bool)])
+    assert ((mesh[0].max(-1) == 200) & ~ring_px.astype(bool) & (painted.min(-1) > 190)).sum() > 100, "the sculpted eye outside the ring was painted"
+    edge = mesh.copy()
+    edge[0, :, 165:] = 0                                               # the head's edge cuts the eye at x=164
+    cut = df.draw(edge, [[]], 1.0, set(), False, None, shut_eyes={0: [lash]})[0]
+    assert (cut[:, 165:] == df.draw(edge, [[]], 1.0, set(), False, None)[0][:, 165:]).all() and (cut[100, 150:165] == 128).all(), \
+        "the paint ran past the head's edge, or stopped short of it"
+    # THE WHOLE SCULPTED EYE (2026-10-22: painting the lash ring alone left the body model's open eye round the slit). A body model whose
+    # sculpted eye is an almond with a bright rim round a dark eyeball and a dark crease under it, larger than the pose model's lash ring
+    # and off its centre: the closed form's outline (`sculpted_eye`) takes all of it in and stops under the brow, and painted, no dark of
+    # the sculpted eye is left inside it
+    p6 = face([(160.0, 100.0)], opening=4.0)[0]                        # a narrow slit, as the pose model gives a shut eye
+    body = np.full((200, 320, 3), 128, np.uint8)
+    lash_l = fp.lid_rings(p6, INDEX)[fp.SIDES.index("l")]
+    ex, ey = int(round(lash_l[:, 0].mean())) + 2, int(round(lash_l[:, 1].mean())) - 3
+    cv2.ellipse(body, (ex, ey), (17, 9), 0, 0, 360, (60, 60, 60), -1)                     # the eyeball
+    cv2.ellipse(body, (ex, ey), (17, 9), 0, 0, 360, (210, 210, 210), 2)                   # the lids' rim
+    cv2.ellipse(body, (ex, ey + 1), (18, 11), 0, 20, 160, (80, 80, 80), 1)                # the crease under it
+    sculpted = np.zeros((200, 320), np.uint8)
+    cv2.ellipse(sculpted, (ex, ey + 1), (19, 12), 0, 0, 360, 1, -1)
+    outline = df.sculpted_eye(body, p6, INDEX, "l")
+    shut_px = df.closed_eye_px([outline], (320, 200))
+    brow_y = p6[[i for n, i in INDEX.items() if n.startswith("lower_") and n.endswith("_of_l_eyebrow")]][:, 1].max()
+    whole = df.draw(body[None], [[]], 1.0, set(), False, None, shut_eyes={0: [outline]})[0]
+    left_dark = int(((whole.max(-1) < 110) & sculpted.astype(bool)).sum())
+    # THE CASE THAT GOES RED when the paint is the lash ring alone (the sculpted eye's dark is left round it) or reaches the brow
+    assert left_dark == 0 and not shut_px[: int(np.floor(brow_y)) + 1].any(), (left_dark, int(np.nonzero(shut_px)[0].min()), brow_y)
+    slit_only = df.draw(body[None], [[]], 1.0, set(), False, None, shut_eyes={0: [lash_l]})[0]
+    assert int(((slit_only.max(-1) < 110) & sculpted.astype(bool)).sum()) > 0, "the fixture's sculpted eye is not larger than the slit"
     # the other frames are drawn as before, and the record says which frames, in which form, on whose word
     # (the codec carries a few edge pixels across frames, so a neighbour is held to the drawing's own, not to the bit)
-    before, after = white(WORK / "open.mp4", N), white(WORK / "shut_none.mp4", N)
-    moved = [int((before[f] ^ after[f]).sum()) for f in (4, 5, 8, 9)]
-    assert max(moved) <= 0.02 * min(int(before[f].sum()) for f in (4, 5, 8, 9)), ("a frame not named shut changed", moved)
-    assert none["frames_with_the_eyes_shut"] == {"frames": [6, 7], "form": "none", "by": "A LOOK"} and lids["frames_with_the_eyes_shut"]["form"] == "lids" \
-        and lowered["frames_with_the_eyes_shut"] == {"frames": [6, 7], "form": "lowered", "by": "A LOOK"}, (none, lids, lowered)
-    assert none["passed"] and lids["passed"] and lowered["passed"], (none["read_back"], lids["read_back"], lowered["read_back"])
+    for opened_as, named in (("open.mp4", "shut_none.mp4"), ("open.mp4", "shut_closed.mp4"), ("open_lines.mp4", "shut_lowered.mp4")):
+        before, after = white(WORK / opened_as, N), white(WORK / named, N)
+        moved_px = [int((before[f] ^ after[f]).sum()) for f in (4, 5, 8, 9)]
+        assert max(moved_px) <= 0.02 * min(int(before[f].sum()) for f in (4, 5, 8, 9)), ("a frame not named shut changed", named, moved_px)
+    for rec, form in ((none, "none"), (lids, "lids"), (closed, "closed"), (lowered, "lowered")):
+        assert rec["frames_with_the_eyes_shut"] == {"frames": [6, 7], "form": form, "by": "A LOOK"} and rec["passed"], (form, rec["frames_with_the_eyes_shut"], rec["read_back"])
+    assert not any(closed["eye_rings"]["frames_an_iris_is_drawn_dark_on"].values()), closed["eye_rings"]
     # the ring record does not call a shut frame's ring left out by its score, and the brows stay on a shut frame
     assert not {6, 7} & {f for v in none["eye_rings"]["frames_a_ring_is_left_out_on"].values() for f in v}, none["eye_rings"]
     brows = np.zeros((H, W), np.uint8)
     for side in fp.SIDES:
         cv2.fillPoly(brows, [np.round(pts["keypoints"][6][[i for k, i in pts["index"].items() if k.endswith(f"_of_{side}_eyebrow") or k == f"end_of_{side}_eyebrow"]]).astype(np.int32)], 1)
     brows = cv2.dilate(brows, np.ones((5, 5), np.uint8)).astype(bool)
-    assert int((white(WORK / "shut_none.mp4", N)[6] & brows).sum()) > 0.8 * int((white(WORK / "open.mp4", N)[6] & brows).sum()) > 0, "the brows went with the eyes"
+    for named in ("shut_none.mp4", "shut_closed.mp4"):
+        assert int((white(WORK / named, N)[6] & brows).sum()) > 0.8 * int((white(WORK / "open.mp4", N)[6] & brows).sum()) > 0, ("the brows went with the eyes", named)
     # in the default form too (the iris as rings between the lids), no ring of a shut eye is drawn
     df.run(str(MESH), str(POINTS), 0, N, WORK / "shut_rings.mp4", "the check", width=WIDE, eyes_shut=[6], eyes_shut_form="none", eyes_shut_by="A LOOK", say=quiet)
     assert in_the_eyes(WORK / "shut_rings.mp4", 6) == 0, in_the_eyes(WORK / "shut_rings.mp4", 6)
@@ -274,7 +355,10 @@ def eyes_shut() -> str:
             assert "--eyes-shut-on takes a form" in str(exc), exc
         else:
             raise AssertionError(f"taken: {bad}")
-    return f"white inside her eyes on a frame named shut: {opened} px open, {shut_none} with no eye, {shut_lids} with the lids shut; other frames as before"
+    return (f"white inside her eyes on a frame named shut: {opened} px open, {shut_none} with no eye, {shut_lids} with the lids shut, {shut_closed} closed; "
+            f"lowered: {d_white} px white inside the lids (open contrast {o_white}), {d_black} of {d_disc} px of the iris disc black, "
+            f"{d_line} px of lash line white (open {o_line}); closed: {int(moved.sum())} px painted, all inside its outline, flat; the whole sculpted eye "
+            f"painted ({int(shut_px.sum())} px, {left_dark} dark px of it left), under the brow; other frames as before")
 
 
 def bare_frames() -> str:
@@ -580,6 +664,7 @@ def refusals() -> str:
 
 def the_iris_between_the_lids() -> str:
     """2026-10-14: with the lids lowered, a whole iris ring stood above them and read as an open eye looking down."""
+    import cv2
     t = np.linspace(0, 2 * np.pi, 8, endpoint=False)
     lids = np.stack([100 + 30 * np.cos(t), 100 + 4 * np.sin(t)], 1)            # a narrow opening, 8 px tall
     iris = np.stack([100 + 10 * np.cos(t), 100 + 10 * np.sin(t)], 1)            # a ring 20 px across, larger than the opening
@@ -636,22 +721,88 @@ def the_iris_between_the_lids() -> str:
     clipped_eye = df.draw(prof_mesh, [ring_clipped], 2.0, set(), False, [[("l_iris_disc", iris, lids)]], contrast=True, smooth_lips=True)[0]
     assert (clipped_eye[:, 167:] == 0).all() and full_h[100, 164], "eye fill or outline bled past the grey head silhouette into black space"
     assert clipped_eye[100, 164].max() < 215 and clipped_eye[100, 160].min() > 215, "white sclera was not inset a line's width from the head edge"
-    # Downcast / narrowed eyes under closed_lip_line (2026-10-20): when >= DOWNCAST_RING_OUTSIDE_MIN (0.65) of the iris ring lies outside
-    # the eyelids, discs() leaves out the white sclera fill and shapes() draws the between-the-lids iris arc instead of flooding the slit white
-    assert df.discs(p, s, INDEX, 0.0, closed_lip_line=True) == [], "downcast eye under closed_lip_line was given a contrast sclera fill"
-    downcast_shapes = [x for x in df.shapes(p, s, INDEX, 0.0, frozenset(), df.IRIS_FORMS[3], closed_lip_line=True) if x[0].endswith("_iris_ring")]
-    assert downcast_shapes and all(not c for _, _, c in downcast_shapes), downcast_shapes
-    p_open = face([(160.0, 100.0)], opening=OPEN)[0]
-    assert len(df.discs(p_open, s, INDEX, 0.0, closed_lip_line=True)) == 2, "open eye under closed_lip_line lost its contrast disc"
-    p_mid = face([(160.0, 100.0)], opening=3.0)[0]
-    assert len(df.discs(p_mid, s, INDEX, 0.0, closed_lip_line=True, lowered=False)) == 2, "eye under DOWNCAST_RING_OUTSIDE_MIN lost its contrast disc without lowered"
-    assert df.discs(p_mid, s, INDEX, 0.0, closed_lip_line=True, lowered=True) == [], "lowered eye kept its contrast disc"
-    assert [x for x in df.shapes(p_mid, s, INDEX, 0.0, frozenset(), df.IRIS_FORMS[3], closed_lip_line=True, lowered=False) if x[0].endswith("_iris_ring")] == []
-    lowered_shapes = [x for x in df.shapes(p_mid, s, INDEX, 0.0, frozenset(), df.IRIS_FORMS[3], closed_lip_line=True, lowered=True) if x[0].endswith("_iris_ring")]
-    assert lowered_shapes and all(not c for _, _, c in lowered_shapes), lowered_shapes
+    # DOWNCAST, DARK (2026-10-22; the iris arc between the lids from 2026-10-20): under closed_lip_line in the contrast form, an eye with
+    # DOWNCAST_RING_OUTSIDE_MIN (0.65) or more of its iris ring outside the lids keeps its disc, drawn black with no white round it and no
+    # ring, with no person's word; one under the share keeps the contrast form; `lowered` on a person's word draws every eye dark
+    p_open, p_mid = face([(160.0, 100.0)], opening=OPEN)[0], face([(160.0, 100.0)], opening=3.0)[0]
+    both = {"l_iris_disc", "r_iris_disc"}
+    assert df.dark_irises(p, INDEX, closed_lip_line=True) == both, "a downcast eye under closed_lip_line is not drawn dark"
+    assert df.dark_irises(p, INDEX) == set() and df.dark_irises(p_open, INDEX, closed_lip_line=True) == set() \
+        and df.dark_irises(p_mid, INDEX, closed_lip_line=True) == set(), "an eye under the share, or with no closed lip line, was drawn dark"
+    assert df.dark_irises(p_mid, INDEX, lowered=True) == both and len(df.discs(p, s, INDEX, 0.0)) == 2
+    for q, low in ((p, False), (p_mid, False), (p_mid, True)):
+        assert not [n for n, _, _ in df.shapes(q, s, INDEX, 0.0, frozenset(), df.IRIS_FORMS[3], lowered=low) if n.endswith(("_iris_ring", "_pupil_ring"))]
+    assert not [n for n, _, _ in df.shapes(p_mid, s, INDEX, 0.0, frozenset(), df.IRIS_FORMS[0], lowered=True) if n.endswith(("_iris_ring", "_pupil_ring"))]
+    # in the picture: a narrow opening (8 px tall) with a large iris low in it, 0.65 or more of its ring outside: drawn dark, the iris is
+    # black inside the lids where it lies and nothing is white; drawn in the contrast form, the sclera beside it is white
+    slit = np.array([[100, 100], [120, 95], [140, 94], [160, 95], [180, 100], [160, 103], [140, 104], [120, 103]], float)
+    low = np.stack([140 + 10 * np.cos(np.linspace(0, 2 * np.pi, df.RING_SAMPLES, endpoint=False)),
+                    110 + 10 * np.sin(np.linspace(0, 2 * np.pi, df.RING_SAMPLES, endpoint=False))], 1)
+    assert df.between_the_lids(low, slit)[2] >= df.DOWNCAST_RING_OUTSIDE_MIN, df.between_the_lids(low, slit)[2]
+    lit = df.draw(mesh, [[]], 1.0, set(), False, [[("l_iris_disc", low, slit)]], contrast=True)[0]
+    dim = df.draw(mesh, [[]], 1.0, set(), False, [[("l_iris_disc", low, slit)]], contrast=True, dark=[{"l_iris_disc"}])[0]
+    inside_px = np.zeros(mesh.shape[1:3], np.uint8)
+    cv2.fillPoly(inside_px, [np.round(slit).astype(np.int32)], 1)
+    inside_px = cv2.erode(inside_px, np.ones((3, 3), np.uint8)).astype(bool)
+    # THE CASE THAT GOES RED when a downcast eye keeps its white sclera, or loses its black iris, with no person's word
+    assert (lit.min(-1) > 215)[inside_px].sum() > 0 and (dim.min(-1) > 215)[inside_px].sum() == 0, "the dark iris kept white inside the lids"
+    assert dim[101, 140].max() < 40 and dim[100, 110].max() == 128 and (dim[90, 140] == 128).all(), "the dark iris is not black where it lies, or something else was filled"
+    # through a run, with no person's word: the narrow frames' irises are drawn dark and recorded so, eye by eye; the open frames' are not
+    opening = np.where(np.arange(N) % 3 == 0, 2.0, OPEN)               # 0.72 of the ring outside on a narrow frame (2.0), none on an open one
+    narrow = save(WORK / "narrow_points.npz", np.concatenate([face(CENTRES[f:f + 1], opening=o) for f, o in enumerate(opening)]), first=0)
+    ran = df.run(str(MESH), str(narrow), 0, N, WORK / "narrow.mp4", "the check", width=WIDE, iris="contrast", closed_lip_line=True, say=quiet)
+    want = [f for f in range(N) if opening[f] == 2.0]
+    assert ran["eye_rings"]["frames_an_iris_is_drawn_dark_on"] == {"l_iris": want, "r_iris": want} and ran["passed"], (ran["eye_rings"], ran["read_back"])
+    # THE LEAST OPENING (2026-10-22, after 0278k looked up as 0278j did): a dark iris in lids thinner than EYE_OPEN is drawn in lids opened
+    # to it, the corners and the upper lid kept ("down"), so a piece of black iris shows inside the drawn lids where the pose model puts it
+    shut_p = face([(160.0, 100.0)], opening=0.0)[0]                    # the upper lash line flat on the lower: a near-closed downcast eye
+    for side in df.SIDES:
+        got = df.open_lids(shut_p, INDEX, side)
+        a_, b_ = shut_p[INDEX[f"{side}_inner_end_of_upper_lash_line"]], shut_p[INDEX[f"{side}_outer_end_of_upper_lash_line"]]
+        wide_ = float(np.linalg.norm(b_ - a_))
+        assert got is not None and abs(df.fp.ring_area(got["_lash_ring"]) / wide_ ** 2 - df.EYE_OPEN["least"]) < 0.01 * df.EYE_OPEN["least"] + 0.002, side
+        upper_ = df.fp._line(shut_p, INDEX, side, "upper")
+        assert np.allclose(got["_lash_ring"][:len(upper_)], upper_), "the upper lid moved in the 'down' way"
+        assert np.allclose(got["_lash_ring"][[0, len(upper_) - 1]], upper_[[0, -1]]), "a corner moved"
+    assert df.open_lids(face([(160.0, 100.0)], opening=OPEN)[0], INDEX, "l") is None, "an open eye was opened"
+    opening2 = np.where(np.arange(N) % 3 == 0, 0.0, OPEN)
+    shut_pts = save(WORK / "shut_points.npz", np.concatenate([face(CENTRES[f:f + 1], opening=o) for f, o in enumerate(opening2)]), first=0)
+    want2 = [f for f in range(N) if opening2[f] == 0.0]
+
+    def iris_px(path, frames_):
+        pix = np.stack(list(stream(str(path), (W, H), 0, N, pix="rgb24")))
+        pts2 = df.rows_of(str(shut_pts), None, 0, N, None)[0]
+        out = []
+        for f in frames_:
+            m = np.zeros((H, W), np.uint8)
+            for side in df.SIDES:
+                c = pts2["keypoints"][f][pts2["index"][f"{side}_center_of_iris"]]
+                cv2.circle(m, (int(round(c[0])), int(round(c[1]))), int(IRIS_R), 1, -1)
+            lit = cv2.dilate((pix[f].min(-1) > df.WHITE).astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
+            out.append(int(((pix[f].max(-1) < 40) & m.astype(bool) & ~lit).sum()))
+        return out
+    kw2 = dict(width=1.0, dots=False, iris="contrast", closed_lip_line=True, say=quiet)
+    least_run = df.run(str(MESH), str(shut_pts), 0, N, WORK / "least.mp4", "the check", **kw2)
+    keep = dict(df.EYE_OPEN)
+    try:
+        df.EYE_OPEN["least"] = 0.0
+        df.run(str(MESH), str(shut_pts), 0, N, WORK / "least_not.mp4", "the check", **kw2)
+    finally:
+        df.EYE_OPEN.clear()
+        df.EYE_OPEN.update(keep)
+    seen, unseen = iris_px(WORK / "least.mp4", want2), iris_px(WORK / "least_not.mp4", want2)
+    # THE CASE THAT GOES RED when a near-closed dark iris is left in the pose model's slit, or the record does not say where the lids opened
+    assert min(seen) >= 6 and min(seen) > max(unseen), ("the black iris does not show in the opened lids", seen, unseen)
+    assert least_run["eye_rings"]["frames_the_lids_are_opened_on"] == {"l_iris": want2, "r_iris": want2}, least_run["eye_rings"]
+    # open eyes are left as they were: no lids opened on them (the record above lists the near-closed frames only, and `open_lids` gives
+    # nothing for an open eye); the pixels are not compared, the codec carries a few edge pixels across frames
     return (f"a ring larger than a narrow opening is drawn only where it lies between the lids ({off:.2f} of it outside), a ring wholly inside "
             "is drawn closed and one wholly outside not at all; on nearly shut lids the default draws open stretches and `whole` both rings closed; "
-            "when clipped to the grey head silhouette, the white sclera stays a line's width inside the head's edge and nothing bleeds into black space")
+            "when clipped to the grey head silhouette, the white sclera stays a line's width inside the head's edge and nothing bleeds into black space; "
+            f"an iris ring {df.DOWNCAST_RING_OUTSIDE_MIN:g} or more outside the lids under the closed lip line is drawn dark with no person's word (black where it "
+            f"lies, no white inside the lids) on {len(want)} of {N} frames of a run, and one under it keeps the contrast form; in lids thinner than "
+            f"{df.EYE_OPEN['least']:g} of the eye's width the lids are opened ({df.EYE_OPEN['way']}) and {min(seen)}-{max(seen)} px of black iris show "
+            f"where {min(unseen)}-{max(unseen)} did in the pose model's slit, open eyes unchanged")
 
 
 def an_open_mouth_capped() -> str:
@@ -849,7 +1000,7 @@ def an_outlined_mouth_on_the_class_maps_lips() -> str:
 
 
 case("the iris between the lids", the_iris_between_the_lids)
-case("her eyes shut on a person's word, in either form", eyes_shut)
+case("her eyes shut on a person's word, in each form", eyes_shut)
 case("the lines run through their points in order, and are as long as they say", in_order_and_as_long)
 case("the lines are where the points are", where_the_points_are)
 case("frames from the middle of both files", frames_from_the_middle)
