@@ -981,8 +981,8 @@ def the_floor_at_the_size_it_renders() -> str:
     vm = cap._pack("video_mask")
     small = np.zeros((20, H_, W_), bool)
     small[:, 300:340, 500:530] = True                                  # a far face, 1200 px: under the canvas floor
-    small[5, 300:310, 500:530] = False
-    small[5, 300:302, 500:530] = True                                  # one frame of 60 px
+    small[5] = False
+    small[5, 300:302, 500:530] = True                                  # one frame of 60 px (960 px until 2026-10-22: 300:310 was cut, 310:340 stood)
     least, by, z = cap.starting_floor(small, (W_, H_), whole_frame=False)
     box, why = vm.zoom_box(torch.tensor(np.tile([500, 300, 530, 340], (20, 1))), W_, H_, W_, H_)
     # THE CASE THAT GOES RED when the zoom is not the node's own, or the floor is not the starting value at the zoom's size

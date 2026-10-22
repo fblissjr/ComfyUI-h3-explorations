@@ -414,13 +414,44 @@ RENDER_REGIONS = (RENDER_WHOLE, RENDER_ZOOM_REPLACED)
 CONTEXT_AS_FILMED = "as filmed"
 CONTEXT_FACE_COVERED = "face covered"
 CONTEXT_SHOWS = (CONTEXT_AS_FILMED, CONTEXT_FACE_COVERED)
-#: The largest zoom. A constant: for a day it was an input, and on its first use the box set the zoom and not
-#: the setting (a subject who crosses the frame). Reasoned (the lead's arithmetic on the one case above):
-#: about twice takes the face that failed to the size of the one that was accepted. What is enlarged is
-#: whatever the node was handed: a graph whose loader fits the clip to the canvas hands canvas pixels, and the
-#: plate the model sees is then those enlarged by the whole zoom; one that hands the clip's own frames
-#: enlarges less (that clip holds about 1.4 times the canvas's pixels each way). Only the region is laid back.
+#: ZOOM TO A TARGET HEAD SIZE, SWITCHED OFF BY DEFAULT (the owner's go of 2026-10-22, and the owner's word the same day
+#: to land it off and test it first: a load asks for it with `zoom_up_to`). A zoomed load's zoom is the least of three:
+#: the box round the region with its room (`ZOOM_ROOM`), the load's `zoom_up_to` (`ZOOM_LARGEST` unless it asks), and
+#: the zoom that takes the replaced region's height on the canvas (`region_height`) to `ZOOM_HEAD_TARGET`; except that
+#: the target never holds a load under `ZOOM_LARGEST` where its box allows that. At the default `zoom_up_to`, which is
+#: `ZOOM_LARGEST`, the target changes nothing: every load is zoomed as from 2026-10-10 (the box, or a cap of 2), which a
+#: replay of every zoomed render graph under `data/` on 2026-10-22 gave to the pixel (80 zoomed, 31 on the whole frame;
+#: `docs/wiki/decisions.md`). Asked up to `ZOOM_MOST_ASKED`, a load whose box held it under 2 is as it was
+#: (second_hfp_0415n: 1.83, set by the box), one whose region reaches the target at 2 or less stays at 2
+#: (second_hfp_1039e), and a region too small to reach it at 2 zooms on (second_hfp_4602d: 2.0, 3.28 asked up to 4,
+#: set by the target). The region is what the load replaces: on a head-and-hair load the head (its median height
+#: matched the body-parts model's hair and face height on the second subject's loads, 256 against 256 px on 0415n, 89
+#: against 89 on 4479c; 5461e is the exception, 78 against 176), on a face-only load the face, which the target then
+#: takes to the height a head would have had. The zoom enlarges whatever the node was handed: a graph whose loader
+#: fits the clip to the canvas hands canvas pixels, and the plate the model sees is then those enlarged by the whole
+#: zoom. Only the region is laid back. `set_by` in the record says which bound set it (`SET_BY_*`).
+#:
+#: The largest zoom a load takes unless it asks for more (`zoom_up_to`), and the zoom the target never holds a load
+#: under. Reasoned when it was set (516e06e2, 2026-10-10; the lead's arithmetic on one case): about twice takes the
+#: face that failed to the size of the one that was accepted. Every zoomed load to 2026-10-22 was made under it.
 ZOOM_LARGEST = 2.0
+#: The most a load may ask for with `zoom_up_to`. Reasoned: 4 times the canvas the loader hands is about 2.9 times
+#: the film's own pixels on fun (1424x1068 fitted to 1024x768: 4 x 1024 / 1424); the plate round the region is that
+#: film enlarged bilinearly, softer than anything a delivery shows, and the model draws the region to sit in that
+#: plate, so past it a head gains tokens and may lose detail to the soft plate. The smallest region of the second
+#: subject's 61 renders measured on 2026-10-22 (second_hfp_1419c, 48 px at 1x) reaches about 190 canvas px at 4.
+#: Nothing was rendered past 2 when written.
+ZOOM_MOST_ASKED = 4.0
+#: The replaced region's height a zoom aims at, in canvas pixels: `region_height` times the zoom. It acts only on a
+#: load that asks past `ZOOM_LARGEST`. Reasoned from the second subject's 61 renders measured on 2026-10-22 (the
+#: lead's table: head height by the body-parts model's hair and face classes, on the canvas, and the hair's lightness
+#: against her face's): drawn dark at 96 and 154 px with all her hair inside the hole (second_hfp_1419c, 1093c, both at
+#: the cap of 2; the lead's reading); light at about 180 px (4479b to e, 4602c and d, 1010g) and at 219 (4726c); 4912e
+#: (226 px, all her hair in the hole) came out darker than those. Size is not shown to be the cause: 1093c's and
+#: 1419c's texts also said "short blonde hair ending at her shoulders", and on 4479e taking those words out alone
+#: fixed a dark nape (the lead, 2026-10-22); every whole-frame load with her head at 283 to 456 px came out light.
+#: 300 sits with those, above every dark one. A starting value, for the test that decides it (the 1093 pair).
+ZOOM_HEAD_TARGET = 300
 #: The smallest zoom worth doing: under it the load is rendered on the whole frame and the report says so.
 #: Reasoned: a quarter larger is a token or two on a face, for a second resize of everything laid back.
 ZOOM_SMALLEST = 1.25
@@ -433,8 +464,11 @@ ZOOM_ROOM = 0.25
 #: region file to say (`stored_zoom`).
 NOT_CONTINUED = "not continued"
 NO_REGION_FILE = "no region file"
-#: A zoom's `set_by`: the box with its room, or `ZOOM_LARGEST`.
+#: A zoom's `set_by`: the box with its room, the largest (the load's `zoom_up_to`), the region's height to
+#: `ZOOM_HEAD_TARGET`, or `ZOOM_LARGEST` where the load asked for more and the target was reached under it. At the
+#: default only the first two, as before 2026-10-22.
 SET_BY_BOX, SET_BY_LARGEST = "the box", "the largest zoom"
+SET_BY_HEAD, SET_BY_ANY = "the head's target height", "the zoom any load may take"
 #: Room left around the subject's box on each side, in canvas pixels, before
 #: it is taken out to the canvas multiple. Reasoned: one of the encoder's
 #: merged tokens (patch 16 by merge 2), so a limb at the edge of the box is
@@ -1766,7 +1800,7 @@ def box_sides_cut(tokens: torch.Tensor, zoom: dict) -> list[str]:
     """The sides of a zoomed window's box its regenerated region reaches, where the box's side is inside the
     frame: the region is cut off there (the picture ends), and `lay_back` fades it into the whole frame at the
     box's edge. A side of the box that is the frame's own edge is not named: a region at the frame's edge is
-    the frame's. A smaller `ZOOM_LARGEST` would hold more of the picture."""
+    the frame's. A smaller zoom would hold more of the picture (`zoom_box`)."""
     old_w, old_h = (int(v) for v in zoom["source_size"])
     width, height = (int(v) for v in zoom["canvas"])
     cx, cy = _fit_crop(old_w, old_h, width, height)
@@ -1777,18 +1811,35 @@ def box_sides_cut(tokens: torch.Tensor, zoom: dict) -> list[str]:
     return [name for name, edge, inside in sides if inside and bool(edge.any())]
 
 
-def zoom_box(boxes: torch.Tensor, old_w: int, old_h: int, width: int, height: int, largest: float = ZOOM_LARGEST):
-    """The one box a load is rendered in, and what set it: ((x0, y0, x1, y1), `SET_BY_BOX` or `SET_BY_LARGEST`), or
-    (None, why not).
+def region_height(boxes: torch.Tensor, old_h: int, height: int, cy: int) -> float | None:
+    """The replaced region's height on the canvas at a zoom of one: the median over the frames that have one of its
+    box's height (`boxes` [N, 4] on the load's own frames, a row of -1 where there is none), through the fit to the
+    canvas (`_fit_crop`). None when no frame has a region. The median, so a frame where hair flies or the part
+    model takes the neck moves it little."""
+    rows = boxes[boxes[:, 0] >= 0]
+    if not int(rows.shape[0]):
+        return None
+    tall = (rows[:, 3] - rows[:, 1]).to(torch.float64)
+    return float(tall.median()) * float(height) / float(int(old_h) - 2 * int(cy))
+
+
+def zoom_box(boxes: torch.Tensor, old_w: int, old_h: int, width: int, height: int, largest: float | None = None,
+             target: float | None = None, any_load: float | None = None):
+    """The one box a load is rendered in, and what set it: ((x0, y0, x1, y1), one of `SET_BY_BOX`, `SET_BY_LARGEST`,
+    `SET_BY_HEAD`, `SET_BY_ANY`), or (None, why not).
 
     `boxes` are [N, 4] on the load's own `old_w` by `old_h` frames, a row of -1 where there is none. The box is
-    their union over the load, with `ZOOM_ROOM` round it, taken out to the canvas's shape, and never smaller
-    than `largest` allows; in whole EVEN pixels of the load's frames, far side exclusive, exactly the canvas's
-    proportions, inside the part of the frame the canvas shows (`_fit_crop`), moved inside it and not shrunk.
-    Fixed for the load: a box that followed the subject would turn the subject's travel into the background's.
-    Even and whole, so a tool outside can cut the same box from the file (chroma is half size). None when the
-    subject is in no frame, or when the box comes to under `ZOOM_SMALLEST` times: a subject that crosses the
-    frame lands there, and is rendered on the whole frame.
+    their union over the load, with `ZOOM_ROOM` round it, taken out to the canvas's shape, and never smaller than
+    the zoom allows: at most `largest`, at most the zoom that takes the region's height (`region_height`) to
+    `target` canvas pixels, and never held under `any_load` by the target (the constants' comment has the rule).
+    Each left as None is its constant (`largest` and `any_load` `ZOOM_LARGEST`, `target` `ZOOM_HEAD_TARGET`), read when
+    called. With `largest` no more than `any_load` (the default) this is the rule of 2026-10-10 (the box, or a cap). In
+    whole EVEN pixels of the load's frames, far side exclusive, exactly the canvas's proportions, inside the part of
+    the frame the canvas shows (`_fit_crop`), moved inside it and not shrunk. Fixed for the load: a box that
+    followed the subject would turn the subject's travel into the background's. Even and whole, so a tool outside
+    can cut the same box from the file (chroma is half size). None when the subject is in no frame, or when the box
+    comes to under `ZOOM_SMALLEST` times: a subject that crosses the frame lands there, and is rendered on the
+    whole frame.
     """
     import math   # here, not at the top: the one use
     old_w, old_h, width, height = int(old_w), int(old_h), int(width), int(height)
@@ -1805,7 +1856,14 @@ def zoom_box(boxes: torch.Tensor, old_w: int, old_h: int, width: int, height: in
     g = math.gcd(width, height)
     unit_w, unit_h = 2 * width // g, 2 * height // g
     by_box = max((x1 - x0) * (1.0 + 2.0 * ZOOM_ROOM) / unit_w, (y1 - y0) * (1.0 + 2.0 * ZOOM_ROOM) / unit_h)
-    by_cap = shown_w / (max(float(largest), 1.0) * unit_w)
+    # the most the zoom may be: the region's height to the target, between the zoom any load may take and the largest
+    tall = region_height(boxes, old_h, height, cy)
+    largest = max(float(ZOOM_LARGEST if largest is None else largest), 1.0)
+    any_load = max(float(ZOOM_LARGEST if any_load is None else any_load), 1.0)
+    target = float(ZOOM_HEAD_TARGET if target is None else target)
+    to_target = target / tall if tall else float("inf")
+    most = max(min(largest, to_target), min(any_load, largest))
+    by_cap = shown_w / (most * unit_w)
     k = max(1, math.ceil(max(by_box, by_cap) - 1e-9))
     box_w, box_h = k * unit_w, k * unit_h
     left_lo, top_lo = cx + cx % 2, cy + cy % 2
@@ -1815,7 +1873,15 @@ def zoom_box(boxes: torch.Tensor, old_w: int, old_h: int, width: int, height: in
                       f"which is under {ZOOM_SMALLEST:g} times")
     left = min(max(int(round(((x0 + x1) / 2.0 - box_w / 2.0) / 2.0)) * 2, left_lo), left_hi)
     top = min(max(int(round(((y0 + y1) / 2.0 - box_h / 2.0) / 2.0)) * 2, top_lo), top_hi)
-    return (left, top, left + box_w, top + box_h), (SET_BY_LARGEST if by_cap >= by_box else SET_BY_BOX)
+    if by_box > by_cap:
+        why = SET_BY_BOX
+    elif most >= largest:
+        why = SET_BY_LARGEST
+    elif most > any_load:
+        why = SET_BY_HEAD
+    else:
+        why = SET_BY_ANY
+    return (left, top, left + box_w, top + box_h), why
 
 
 def crop_frames(frames: torch.Tensor, box, width: int, height: int) -> torch.Tensor:
@@ -1859,7 +1925,11 @@ def render_zoom_note(zoom: dict, source: dict) -> str:
     scale, enlarged = float(zoom["scale"]), float(width) / float(x1 - x0)
     return (f"ZOOMED {scale:.2f}x: rendered {zoom['render_region']}: one box for the load, {x1 - x0}x{y1 - y0} at ({x0}, {y0}) "
             f"of its {old_w}x{old_h} frames, shown {scale:.2f} times larger than on the whole frame (set by "
-            + (f"the largest zoom, {ZOOM_LARGEST:g}" if zoom["set_by"] == SET_BY_LARGEST else "the box with its room")
+            + {SET_BY_LARGEST: f"the largest zoom, {float(zoom.get('up_to', ZOOM_LARGEST)):g}",
+               SET_BY_HEAD: f"the replaced region's height to {ZOOM_HEAD_TARGET:g} canvas px, the load asking up to "
+                            f"{float(zoom.get('up_to', ZOOM_LARGEST)):g}",
+               SET_BY_ANY: f"the zoom any load may take, {ZOOM_LARGEST:g}: the region reaches {ZOOM_HEAD_TARGET:g} canvas px under it"}
+            .get(zoom["set_by"], "the box with its room")
             + f"); the node was handed {old_w}x{old_h} frames for a {width}x{height} canvas, so "
             + (f"each pixel it was handed is shown enlarged {enlarged:.2f} times: the surroundings the model sees are "
                "the handed frames enlarged by that much, not a sharper picture" if enlarged > 1.0 + 1e-9
@@ -1942,7 +2012,8 @@ def zoomed_source(source: dict, width: int, height: int, continued=NOT_CONTINUED
     if rows is None:
         raise ValueError(f"render_region `{choice}` needs the replaced part's box on each frame, and this source carries "
                          "none: it was not made by a Masked Source that tracked a subject")
-    box, why = zoom_box(rows, old_w, old_h, width, height)
+    up_to = float(source.get("zoom_up_to", ZOOM_LARGEST))
+    box, why = zoom_box(rows, old_w, old_h, width, height, largest=up_to)
     if box is None:
         if stored is not None:      # a whole-frame run after all, and the window it continues was zoomed
             raise ValueError(f"this load is rendered on the whole frame ({why}) and the window it continues was rendered "
@@ -1955,7 +2026,9 @@ def zoomed_source(source: dict, width: int, height: int, continued=NOT_CONTINUED
     cx, _cy = _fit_crop(old_w, old_h, int(width), int(height))
     scale = (old_w - 2 * cx) / (box[2] - box[0])
     zoom = {"box": [int(v) for v in box], "source_size": [old_w, old_h], "canvas": [int(width), int(height)],
-            "scale": float(scale), "render_region": choice, "set_by": why}
+            "scale": float(scale), "render_region": choice, "set_by": why,
+            # the most the load asked for (`zoom_up_to`), from 2026-10-22; a record without it was made under ZOOM_LARGEST
+            "up_to": up_to}
     names = [k for k in ("mask", "keep", "others") if source.get(k) is not None]
     made = {"frames": crop_frames(frames, box, width, height)}
     for k in names:
@@ -2345,7 +2418,8 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                                         "the whole frame (default): the picture is rendered as it is.\n\n"
                                         "zoomed in on what is replaced: the load is cropped to one box round "
                                         "the replaced part (on a face pass, the head), rendered at that size, "
-                                        "and the result is put back into the whole frame. The report says the "
+                                        "and the result is put back into the whole frame, at most zoom_up_to times. "
+                                        "The report says the "
                                         "zoom it came to; a part that crosses the frame is zoomed less, and one "
                                         "that fills it is rendered on the whole frame.\n\n"
                                         "One box for the whole load, so load one shot at a time: a load with "
@@ -2381,6 +2455,15 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                                         "margin, so the original's face or beard is not left in view for the model to "
                                         "copy. Where those frames are another shot, the held mask may not be where the "
                                         "person is; the report names those frames.")),
+                # appended 2026-10-22 (the owner: the zoom to a target head size lands switched off, one load asks for it to test)
+                io.Float.Input("zoom_up_to", default=ZOOM_LARGEST, min=ZOOM_SMALLEST, max=ZOOM_MOST_ASKED, step=0.25,
+                               optional=True,
+                               tooltip=(f"The most a zoomed load is enlarged. {ZOOM_LARGEST:g} (default): the box round the "
+                                        f"part sets the zoom, at most {ZOOM_LARGEST:g} times, as every zoomed load has been. "
+                                        f"Above {ZOOM_LARGEST:g}: a part too small to be about {ZOOM_HEAD_TARGET} px tall "
+                                        f"on the canvas at {ZOOM_LARGEST:g} times is enlarged until it is, up to this, "
+                                        "where the box allows; the picture round it is the frame enlarged that much, so "
+                                        "it is soft. Does nothing unless render_region is zoomed in.")),
             ],
             outputs=[H3MaskedSource.Output(display_name="source"),
                      io.Mask.Output(display_name="mask",
@@ -2431,7 +2514,8 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                 shot_table=None, parts=None, keep=None, grow_by=GROW_FIXED, others=None,
                 edge=EDGE_TOKENS, motion_video=None,
                 render_region=RENDER_WHOLE, motion_video_2=None,
-                motion_short_edge_2=MOTION_SHORT_EDGE, context_shows=CONTEXT_AS_FILMED) -> io.NodeOutput:
+                motion_short_edge_2=MOTION_SHORT_EDGE, context_shows=CONTEXT_AS_FILMED,
+                zoom_up_to=ZOOM_LARGEST) -> io.NodeOutput:
         if frames.ndim != 4:
             raise ValueError(f"frames must be [N, H, W, C]; got {tuple(frames.shape)}")
         if grow_by not in GROW_BY:
@@ -2451,6 +2535,8 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
             raise ValueError(f"unknown motion_reference {motion_reference!r}; one of {list(MOTIONS)}")
         if render_region not in RENDER_REGIONS:
             raise ValueError(f"unknown render_region {render_region!r}; one of {list(RENDER_REGIONS)}")
+        if not ZOOM_SMALLEST <= float(zoom_up_to) <= ZOOM_MOST_ASKED:
+            raise ValueError(f"zoom_up_to {float(zoom_up_to):g} is outside {ZOOM_SMALLEST:g} to {ZOOM_MOST_ASKED:g}")
         if context_shows not in CONTEXT_SHOWS:
             raise ValueError(f"unknown context_shows {context_shows!r}; it is `{CONTEXT_AS_FILMED}` or `{CONTEXT_FACE_COVERED}`")
         if motion_reference == MOTION_WIRED and motion_video is None:
@@ -2645,6 +2731,8 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                               # where the region is rendered; the box is made where the canvas is known
                               # (`zoomed_source`, called by the song node)
                               "render_region": render_region,
+                              # the most a zoomed load is enlarged (`zoom_up_to`; `zoomed_source`)
+                              "zoom_up_to": float(zoom_up_to),
                               # read by the prompt node (`masked_prompt.py`), which describes what is replaced
                               "shot_table": table, "replace": replace,
                               # the frames that start a shot: the composite lays nothing across one of them

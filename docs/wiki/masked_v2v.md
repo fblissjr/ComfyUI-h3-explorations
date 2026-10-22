@@ -2073,7 +2073,9 @@ in the clip. `video_mask.RENDER_WHOLE`'s comment holds the case.
 **What it does.** `render_region` on the Masked Source (`RENDER_REGIONS`:
 the whole frame, or zoomed in on what is replaced). Under the zoomed choice
 the song node crops the load to ONE box round what is replaced
-(`video_mask.zoom_box`, never smaller than `ZOOM_LARGEST` allows), scales it
+(`video_mask.zoom_box`, never smaller than `ZOOM_LARGEST` allows, or the
+load's `zoom_up_to` where it asks for more, from 2026-10-22, switched off by
+default: `docs/wiki/decisions.md`), scales it
 to the canvas (`zoomed_source`), and
 runs everything as it does on any clip: the margins, the token region, the
 motion reference, the encode, the sampler, the decode and `lay_window` all

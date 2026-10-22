@@ -237,9 +237,16 @@ pass 2, only the owner's own words among them carry (§1).
      `<load>.plan.masks.json`, makes the band again and writes the frame table, which `table` can also make again.
    - **The zoom is the node's**: it is set from the region's boxes at plan and render (`video_mask.py::zoom_box`), and
      extended across any real context frames before and after the shot even when the window crosses a cut
-     (`video_mask.py::zoomed_source`).
+     (`video_mask.py::zoomed_source`). By default at most `video_mask.ZOOM_LARGEST` (2), as on every zoomed load to
+     2026-10-22. The zoom to a target head size is built and SWITCHED OFF until the 1093 pair decides (the owner,
+     2026-10-22): one load asks with `bench/shot_to_load.py job --zoom-up-to 4 --zoom-up-to-why WHY`, and the node then
+     enlarges a region too small to be `video_mask.ZOOM_HEAD_TARGET` px tall at 2 until it is, up to what it asked,
+     where the box allows; the record's `set_by` and `up_to` say what set it. On a face-only load the region is the face.
+     The constants' comment has the provenance; [`docs/wiki/decisions.md`](../wiki/decisions.md), 2026-10-22, has every
+     zoomed render's zoom at the default and asked up to 4.
      The capture works it out again for its part floor (`bench/capture_masked_run.py::floor_zoom`), which scales
-     `bench/capture_masked_run.py::PART_LEAST_PX`. A change to a mask moves the zoom, the floor, and which frames are
+     `bench/capture_masked_run.py::PART_LEAST_PX`; it takes the node's default, so on a load that asks past 2 the floor
+     is held to the zoom at 2 and on-plan names the frames the run's zoom would change (`floor_against_the_run`). A change to a mask moves the zoom, the floor, and which frames are
      emptied.
    - **An override is a parent too.** `plan` refuses a blocked gate. A person clears a flag by name
      (`bench/capture_masked_run.py outcome <capture> <flag> overridden --by WHO --note WHY`), which records it

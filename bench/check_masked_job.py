@@ -687,6 +687,10 @@ def a_load_the_graph_cannot_be_built_from():
     _unbuildable("render_region", {**WHOLE, "render_region": "subject"})
     own_run = {k: v for k, v in PART.items() if k != "continue_from"}
     _unbuildable("largest_zoom|no longer a key", {**own_run, "render_region": "part", "largest_zoom": 2}, FILES_PART)
+    # a load asks past the node's own zoom only with a reason, as a number, and on a zoomed load (2026-10-22, off by default)
+    _unbuildable("zoom_up_to_by", {**own_run, "render_region": "part", "zoom_up_to": 4}, FILES_PART)
+    _unbuildable("zoom_up_to|a number", {**own_run, "render_region": "part", "zoom_up_to": "4", "zoom_up_to_by": "a test"}, FILES_PART)
+    _unbuildable("zoom_up_to|whole frame", {**own_run, "render_region": "frame", "zoom_up_to": 4, "zoom_up_to_by": "a test"}, FILES_PART)
     # a zoomed load takes a motion video only as a file it names: the preview's own body model is of the whole frame
     _unbuildable("zoomed in|whole frame|motion_file", {**own_run, "render_region": "part", "motion": "mesh"}, {**FILES_PART, "motion": ("/output/a.mp4", 604)})
     _unbuildable("zoomed in|continue_from", {**PART, "render_region": "part"}, FILES_PART)

@@ -79,8 +79,10 @@ height left open under it for the still's hair, cut out of one keep-out, which `
 not the clothing; `bench/masked_job.py::hair_band`, `h3_config.MASKED_JOB_HAIR_BAND`), and `render_region`: `part` renders the load zoomed in on what is
 replaced and lays it back (`RENDER_REGIONS`; for a part that is small in the frame; such a load takes a motion
 video only as a `motion_file` of its own, which the node shows as it is and does not cut to the box), where `frame`, the
-default, renders the whole frame; and `context_shows` (`CONTEXT_SHOWS`): what the real frames a short load is padded with
-show, `as filmed` (the default) or `face covered`. A default that was measured on one clip is a starting value for
+default, renders the whole frame; `context_shows` (`CONTEXT_SHOWS`): what the real frames a short load is padded with
+show, `as filmed` (the default) or `face covered`; and `zoom_up_to` with `zoom_up_to_by` (2026-10-22, for a test): on a
+`part` load, the most the node may enlarge it, past its own 2 up to `video_mask.ZOOM_MOST_ASKED`, so a small head is
+zoomed until it is `video_mask.ZOOM_HEAD_TARGET` px tall; `zoom_up_to_by` is who asked and why, and is required with it. A default that was measured on one clip is a starting value for
 another: every one of them can be set in a load or in the file's `defaults`, and the build record says
 which were (`SETTINGS`). `carried` says what a pass takes: `track` is the whole subject, `held` the
 part as the capture filled and graded it. One job file makes a whole-person pass or a part pass of the same
@@ -358,7 +360,7 @@ MOTIONS = {"none": MASKED_JOB_MOTION["none"], "mesh": MASKED_JOB_MOTION["wired"]
 #: The settings of a load a job file may set in place of the builder's default; a build record says, for
 #: each, the value used and whether the job set it.
 SETTINGS = ("carried", "margin", "feather", "edge", "window", "context", "context_noise", "motion", "motion_edge",
-            "motion_edge_2", "hair_band", "render_region", "seed", "composite", "context_shows")
+            "motion_edge_2", "hair_band", "render_region", "seed", "composite", "context_shows", "zoom_up_to")
 #: What a load's `composite` may say: the Masked Source's own two (`video_mask.COMPOSITE_REGION`, `COMPOSITE_CHANGED`;
 #: `bench/check_masked_job.py` holds the two names together). Absent, the node's default.
 COMPOSITES = ("whole region", "only what changed")
@@ -679,7 +681,17 @@ def check_load(job: dict, one: dict, windows: tuple[int, ...]) -> None:
         raise ValueError(f"load {name!r}: render_region `part` on a load that takes the whole subject; a zoomed "
                          f"load takes a part (`carried: held`)")
     if "largest_zoom" in one:
-        raise ValueError(f"load {name!r} sets largest_zoom: no longer a key; the zoom's limit is the node's own constant")
+        raise ValueError(f"load {name!r} sets largest_zoom: no longer a key; the zoom's limit is the node's own constant, "
+                         "and a load asks past it with `zoom_up_to` and `zoom_up_to_by`")
+    if "zoom_up_to" in one or "zoom_up_to_by" in one:
+        up_to, asked = one.get("zoom_up_to"), one.get("zoom_up_to_by")
+        why = asked.get("why") if isinstance(asked, dict) else asked
+        if isinstance(up_to, bool) or not isinstance(up_to, (int, float)):
+            raise ValueError(f"load {name!r}: zoom_up_to {up_to!r}; the most the node may enlarge the load, a number (2 is the node's own)")
+        if not str(why or "").strip():
+            raise ValueError(f"load {name!r} sets zoom_up_to with no zoom_up_to_by: who asked for it and why")
+        if region != "part":
+            raise ValueError(f"load {name!r} sets zoom_up_to on a load rendered on the whole frame: it acts only on `render_region: part`")
     if region != "frame" and motion_of(job, one) != "none" and not one.get("motion_file"):
         raise ValueError(f"load {name!r} is rendered zoomed in and takes the preview's own motion video "
                          f"(`{motion_of(job, one)}`), which is of the whole frame: the node shows a zoomed load its "
@@ -857,10 +869,13 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
             # a second video beside the first, the next video reference; at the canvas's short edge unless the load says
             src.update(motion_video_2=from_file(*files["motion_2"], as_mask=False),
                        motion_short_edge_2=one.get("motion_edge_2", min(canvas)))
-    for theirs in ("render_region", "largest_zoom"):
+    for theirs in ("render_region", "largest_zoom", "zoom_up_to"):
         src.pop(theirs, None)
     if RENDER_REGIONS[one.get("render_region", "frame")]:
         src["render_region"] = RENDER_REGIONS[one["render_region"]]
+    # the most the node may enlarge a zoomed load, set only where a load asks past the node's own (`check_load` holds its reason)
+    if "zoom_up_to" in one:
+        src["zoom_up_to"] = float(one["zoom_up_to"])
     # what the window's padded frames show (`CONTEXT_SHOWS`): set only off the node's default, as `render_region` is
     src.pop("context_shows", None)
     if one.get("context_shows", CONTEXT_SHOWS[0]) != CONTEXT_SHOWS[0]:

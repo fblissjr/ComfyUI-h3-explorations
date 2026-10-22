@@ -1515,8 +1515,101 @@ def check_motion_look(problems):
 
 
 def check_render_zoom(problems):
-    """Item 24. A small subject rendered zoomed in: the one box of a load, the source made of it, the lay back,
-    and a wired motion video handed on as it was wired (2026-10-13; refused from 2026-10-10 until then)."""
+    """Item 24. A small subject rendered zoomed in: the zoom to a target head size a load may ask for (2026-10-22),
+    the one box of a load, the source made of it, the lay back, and a wired motion video handed on as it was wired
+    (2026-10-13; refused from 2026-10-10 until then)."""
+    _zoom_to_head(problems)
+    _render_zoom(problems)
+
+
+def _zoom_to_head(problems):
+    """1b. ZOOM TO A TARGET HEAD SIZE, SWITCHED OFF BY DEFAULT (the owner's go and word of 2026-10-22). On fun's canvas,
+    the frames handed at its size: at the default every head is zoomed as the cap of 2 zoomed it, to the pixel; a load
+    that asks up to `ZOOM_MOST_ASKED` (`zoom_up_to`) has a small head zoomed past 2 until it is `ZOOM_HEAD_TARGET` px
+    tall, and no further than it asked; a head the target reaches under 2, and a subject whose box holds it under 2,
+    are zoomed as before even then. Red on the rule before (a load asking for 4 had every small head at 4)."""
+    target, most = getattr(vm, "ZOOM_HEAD_TARGET", None), getattr(vm, "ZOOM_MOST_ASKED", 4.0)
+    by_head, by_any = getattr(vm, "SET_BY_HEAD", "the head's target height"), getattr(vm, "SET_BY_ANY", "the zoom any load may take")
+    w, h = 1024, 768
+
+    def head(x0, y0, wide, tall, frames=6, step=0):
+        """A head `wide` by `tall` px from (x0, y0), moving `step` px right a frame, with one frame it is not in."""
+        return torch.tensor([[x0 + i * step, y0, x0 + i * step + wide, y0 + tall] for i in range(frames)] + [[-1] * 4])
+
+    def zoom_of(rows, **kw):
+        import inspect
+        kw = {k: v for k, v in kw.items() if k in inspect.signature(vm.zoom_box).parameters}   # the rule before had no any_load
+        box, why = vm.zoom_box(rows, w, h, w, h, **kw)
+        return (None, why) if box is None else (w / (box[2] - box[0]), why, box)
+    # SWITCHED OFF: at the default the 90 px head and the 48 px head stay at the cap of 2, as on every render to 2026-10-22
+    for name, rows in (("90 px", head(470, 300, 60, 90)), ("48 px", head(490, 320, 30, 48))):
+        off = zoom_of(rows)
+        if off[0] is None or off[0] != vm.ZOOM_LARGEST or vm.ZOOM_LARGEST != 2.0 or off[1] != vm.SET_BY_LARGEST:
+            _fail(problems, f"render zoom, to the head: at the default a {name} head is zoomed to the cap of 2, set by the largest zoom; it came to {off}")
+    # the second subject's heads (the lead's table, 2026-10-22): 4602d's, 90 px, came to 2 under the cap
+    small = zoom_of(head(470, 300, 60, 90), largest=most)
+    if small[0] is None or not (2.0 < small[0] <= 300 / 90 + 1e-9) or small[1] != by_head or 90 * small[0] < 300 * (1 - 1 / 32):
+        _fail(problems, f"render zoom, to the head: a head 90 px tall on the canvas is zoomed past 2 until it is about {target} px tall, "
+                        f"set by the head's target; it came to {small}")
+    tiny = zoom_of(head(490, 320, 30, 48), largest=most)
+    if tiny[0] is None or abs(tiny[0] - 4.0) > 1e-9 or tiny[1] != vm.SET_BY_LARGEST or most != 4.0:
+        _fail(problems, f"render zoom, to the head: a head 48 px tall (1419c's), asking up to 4, is zoomed to 4 and no more; it came to {tiny}")
+    three = zoom_of(head(490, 320, 30, 48), largest=3.0)
+    if three[0] is None or abs(three[0] - 3.0) > 0.05 or three[0] > 3.0 + 1e-9 or three[1] != vm.SET_BY_LARGEST:
+        _fail(problems, f"render zoom, to the head: the same head asking up to 3 is zoomed to about 3 and no more; it came to {three}")
+    # a head that moves across the frame: the box with its room bounds it before the target does
+    roams = zoom_of(head(200, 300, 30, 48, step=60), largest=most)
+    if roams[0] is None or roams[1] != vm.SET_BY_BOX or roams[0] >= 300 / 48:
+        _fail(problems, f"render zoom, to the head: a small head that crosses the frame is zoomed only as far as its box with its room allows; {roams}")
+    else:
+        x0, y0, x1, y1 = roams[2]
+        if x0 > 200 or x1 < 200 + 5 * 60 + 30 or (x1 - x0) < 330 * (1 + 2 * vm.ZOOM_ROOM) - 1e-6:
+            _fail(problems, f"render zoom, to the head: the box {roams[2]} must hold the head's travel with its room")
+    # unchanged: a head the target reaches at 2 or less (1039e's, 197 px), and one whose box holds it under 2 (0415n's)
+    for name, rows, by in (("a head 197 px tall", head(450, 250, 120, 197), by_any),
+                           ("0415n's head and its travel", torch.tensor([[513, 90, 886, 346], [540, 104, 870, 370], [-1] * 4]), vm.SET_BY_BOX)):
+        now, then = zoom_of(rows, largest=most), zoom_of(rows)
+        if now[0] is None or then[0] is None or now[2] != then[2] or now[1] != by:
+            _fail(problems, f"render zoom, to the head: {name} is zoomed as the cap of 2 zoomed it ({then}), set by {by!r}; it came to {now}")
+    tall = getattr(vm, "region_height", None)
+    if tall is None or tall(head(470, 300, 60, 90), 768, 768, 0) != 90.0 or tall(head(0, 0, 10, 40)[:3], 1536, 768, 0) != 20.0:
+        _fail(problems, "render zoom, to the head: the region's height is the median of its box's height over the frames it is in, on the canvas")
+    # the run itself: the zoomed source says what set its zoom, and the report names the target
+    n = 2
+    rows = head(470, 300, 60, 90, frames=n)[:n]
+    mask = torch.zeros(n, h, w)
+    mask[:, 300:390, 470:530] = 1.0
+    source = {"frames": torch.zeros(n, h, w, 3), "mask": mask, "region_boxes": rows, "render_region": vm.RENDER_ZOOM_REPLACED,
+              "grow_pixels": 8, "feather_pixels": 2}
+    z, said = vm.zoomed_source({**source, "zoom_up_to": most}, w, h)
+    zoom = z.get("zoom") or {}
+    if zoom.get("set_by") != by_head or not 2.0 < float(zoom.get("scale", 0)) <= 300 / 90 + 1e-9 or zoom.get("up_to") != most \
+            or not said or f"height to {target} canvas px" not in said[0]:
+        _fail(problems, f"render zoom, to the head: a zoomed source asking up to {most:g} records what set its zoom and what it asked, and the "
+                        f"report says the target: {zoom}, {said[:1]}")
+    plain = (vm.zoomed_source(source, w, h)[0].get("zoom") or {})
+    if plain.get("scale") != 2.0 or plain.get("set_by") != vm.SET_BY_LARGEST or plain.get("up_to") != 2.0:
+        _fail(problems, f"render zoom, to the head: a source that asks nothing is zoomed at the cap of 2 and says so: {plain}")
+    # the node: `zoom_up_to` appended last, optional, 2 by default, and a value past the most refused in the node's words
+    where = _appended("zoom_up_to")
+    if where is None or not where.optional or where.default != 2.0 or where.max != most:
+        _fail(problems, "render zoom, to the head: `zoom_up_to` must be the Masked Source's last input (`APPENDED`), optional, 2 by default, "
+                        f"at most {most:g}")
+    frames, region = torch.zeros(4, 48, 64, 3), torch.zeros(4, 48, 64)
+    region[:, 20:28, 28:36] = 1.0
+    table = json.dumps({"shots": [{"first_frame": 0, "last_frame": 3}]})
+    try:
+        asked = vm.MiniMaxH3MaskedSource.execute(frames, region, shot_table=table, render_region=vm.RENDER_ZOOM_REPLACED, zoom_up_to=4.0).args[0]
+        if asked.get("zoom_up_to") != 4.0 or vm.MiniMaxH3MaskedSource.execute(frames, region, shot_table=table).args[0].get("zoom_up_to") != 2.0:
+            _fail(problems, "render zoom, to the head: the Masked Source's record carries the zoom_up_to it was given, 2 when none")
+        vm.MiniMaxH3MaskedSource.execute(frames, region, shot_table=table, zoom_up_to=most + 1.0)
+        _fail(problems, f"render zoom, to the head: the Masked Source took a zoom_up_to past {most:g}")
+    except (TypeError, ValueError) as exc:
+        if "zoom_up_to" not in str(exc) or isinstance(exc, TypeError):
+            _fail(problems, f"render zoom, to the head: the Masked Source's zoom_up_to: {type(exc).__name__}: {exc}")
+
+
+def _render_zoom(problems):
     import importlib
     import math
     import tempfile
@@ -1533,7 +1626,7 @@ def check_render_zoom(problems):
                  "a quarter of the frame": ((mx - shown_w // 8, my - shown_h // 8, mx + shown_w // 8, my + shown_h // 8), 8.0, vm.SET_BY_BOX)}
         for name, (subject, largest, by) in cases.items():
             rows = torch.tensor([list(subject)] * 3 + [[-1] * 4])
-            box, why = vm.zoom_box(rows, old_w, old_h, width, height, largest)
+            box, why = vm.zoom_box(rows, old_w, old_h, width, height, largest, any_load=largest)
             if box is None:
                 _fail(problems, f"render zoom: {name} on {old_w}x{old_h} for {width}x{height} gave no box: {why}")
                 continue
@@ -2074,7 +2167,7 @@ def check_others(problems):
 #: The Masked Source's last inputs, in the order they were appended. A saved workflow stores a widget's value
 #: by position, so a new input goes on the end and none of these moves: each case below that owns one of them
 #: asks `_appended` for it, and adding an input is one name on the end of this tuple.
-APPENDED = ("others", "edge", "motion_video", "render_region", "motion_video_2", "motion_short_edge_2", "context_shows")
+APPENDED = ("others", "edge", "motion_video", "render_region", "motion_video_2", "motion_short_edge_2", "context_shows", "zoom_up_to")
 
 
 def _appended(name: str):

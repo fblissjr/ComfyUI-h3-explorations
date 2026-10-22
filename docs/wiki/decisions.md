@@ -17,6 +17,29 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-22
 
+- **The zoom to a target head size is built and SWITCHED OFF: a load asks for it to test** (the owner's go, 2026-10-22, on the
+  lead's finding that the second subject's blonde hair came out dark where her head was smallest, second_hfp_1419c and 1093c,
+  both at the cap of 2; then the owner's word the same day, through the lead (mrtim), to land it off and test first: the words
+  "short blonde hair ending at her shoulders" were in both those texts too, and on 4479e taking them out alone fixed a dark
+  nape, so size is not shown to be the cause). The switch stays off until the 1093 pair decides. `video_mask.zoom_box` takes the
+  least of the box round the region with its room, the load's `zoom_up_to` (the Masked Source's input appended last, default
+  `video_mask.ZOOM_LARGEST`, 2, at most `video_mask.ZOOM_MOST_ASKED`, 4, reasoned: about 2.9 times fun's film, the plate past it
+  soft) and the zoom that takes the region's median height on the canvas (`video_mask.region_height`) to
+  `video_mask.ZOOM_HEAD_TARGET` (300 px, reasoned from the lead's table of her 61 renders), and the target never holds a load
+  under `ZOOM_LARGEST` where its box allows. At the default it changes nothing: replayed on every zoomed render graph under
+  `data/` to this day from its own masks, it gives each recorded box and `set_by` to the pixel (80 zoomed, 31 on the whole
+  frame). A load asks with `bench/shot_to_load.py job --zoom-up-to 4 --zoom-up-to-why WHY` (`defaults.zoom_up_to` with
+  `defaults.zoom_up_to_by`, never carried; `workflows/masked_job_graph.py` refuses it without the reason or on a whole-frame
+  load). Asked up to 4, the same replay keeps 34 set by the box (0415n's 1.83 among them) and 13 at 2 (lead_fp 0805d, 1920c,
+  1920d, 1945b, 1975b; second_hfp 1039b to e, 5114d, 5114e, 5768e, 5768f), and 33 would change from 2: to 4, set by the
+  largest (third_fp_4479b, 4602c, 4653b; second_hfp_1419c); by the target, second_hfp_1093c 3.88, 5461e 3.77, third_fp_5533b
+  3.46, second_hp_5461c and second_hfp_4479b to e 3.37, second_hfp_4602c and d 3.28, lead_fp_1802b and second_hfp_4726c 2.72,
+  lead_fp_1730 and second_hfp_5533b 2.67, lead_fp_1755, 2013b and second_hfp_4912e 2.61, second_hfp_1010j 2.51,
+  second_hfp_5011e 2.33, 5114f 2.29, lead_fp_1134 2.21, 1898 2.03; by the box, lead_fp_1849b and second_hfp_1010g 3.05,
+  lead_fp_1425b, third_fp_1452 and second_hfp_1010c 2.33, second_hfp_4647d 2.29, lead_fp_0294d 2.21. On a face-only load the
+  region is the face. The zoomed record (`audio_freeze_song.ZOOMED_VERSION` 3) carries `up_to`, and `set_by` may say "the
+  head's target height" or "the zoom any load may take" on a load that asked. `ZOOM_LARGEST` stays 2.0, as since 516e06e2
+  (2026-10-10). Nothing was rendered past 2 when this was written. `docs/masked_v2v/AGENTS.md` §8. Branch claude-zoom-to-head.
 - **A load's text takes the owner's hand-written form** (the owner, in the lead's terminal (mrtim), on second_hfp_0415l: "use that prompt from now on. It's
   simpler and more flexible"; "woman with blonde hair ... is usually enough"). `bench/load_text.py` now names the subject by
   a new plan field, `text.hair_words` ("blonde hair" for the second subject), in the definition and in `[Shot 1]`, and refuses a

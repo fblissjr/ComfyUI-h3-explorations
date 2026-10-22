@@ -379,7 +379,8 @@
       "render_region",
       "motion_video_2",
       "motion_short_edge_2",
-      "context_shows"
+      "context_shows",
+      "zoom_up_to"
     ],
     "node_id": "MiniMaxH3MaskedSource",
     "outputs": [

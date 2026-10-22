@@ -109,7 +109,11 @@ CARRIES, a line each with where it comes from, and keeps the same in the job fil
   (the words, the session and the time) beside it, and says it among THE DEFAULTS THIS LOAD CARRIES; the song
   node reads it (`workflows/masked_job_graph.py`, `run["seed"]`). A seed is per load, so `--carry-words-from`
   does not carry it, and `--seed` with no words, words with no `--seed`, and a seed that is not a whole number
-  the song node takes are refused.
+  the song node takes are refused. THE ZOOM TO A TARGET HEAD SIZE is off unless a person asks for it on one load
+  (2026-10-22, to test it): `--zoom-up-to N --zoom-up-to-why "who asked and why"` writes `defaults.zoom_up_to`
+  with `defaults.zoom_up_to_by` the same way, and the Masked Source may then enlarge the load past its own 2, up
+  to N (`video_mask.ZOOM_MOST_ASKED` at most), until the head is `video_mask.ZOOM_HEAD_TARGET` px tall. Refused on
+  a load rendered on the whole frame; not carried by `--carry-words-from`.
 - `reference`: on the LOAD's own frames, so the box is round the head on those frames: the pose pass in the
   subject's tracked box, then `bench/head_reference.py`, which writes the drawn form and the plain cut both. It
   goes to `Video/<video>/references/<subject>_<first>_<last>/`: a reference belongs to a shot, a subject and a
@@ -714,6 +718,33 @@ def job_seed_of(seed: int | str | None, seed_why: str | None, by: str, now: str)
     if not words:
         raise Refused("--seed takes --seed-why: who asked for this seed and why (the job's own is h3_config.SEED; a seed is per load and a person's word)")
     return int(given), {"why": words, "by": by, "at": now}
+
+
+#: The most a load may ask the Masked Source to enlarge it (`--zoom-up-to`): `video_mask.ZOOM_MOST_ASKED`, said again
+#: here because this tool does not import the pack (torch); `bench/check_shot_to_load.py` holds the two equal. And the
+#: node's own, `video_mask.ZOOM_LARGEST`, which a load asks past.
+ZOOM_UP_TO_MOST, ZOOM_NODES_OWN = 4.0, 2.0
+
+
+def zoom_up_to_of(up_to: float | str | None, up_to_why: str | None, by: str, now: str) -> tuple[float | None, dict | None]:
+    """THE ZOOM A LOAD ASKS FOR (`--zoom-up-to N --zoom-up-to-why WHY`, 2026-10-22): (the most the node may enlarge the load, its
+    record for `defaults.zoom_up_to_by`), or (None, None) when neither is given. Off by default (the owner's word: the zoom to a
+    target head size lands switched off and is tested on a load first), so the record says who asked and why. Refused: a number
+    not above the node's own 2 or past `ZOOM_UP_TO_MOST`, a `--zoom-up-to` with no words, and words with no `--zoom-up-to`."""
+    if up_to is None:
+        if up_to_why is not None:
+            raise Refused("--zoom-up-to-why goes with --zoom-up-to: there is no zoom to give a reason for")
+        return None, None
+    try:
+        value = float(up_to)
+    except (TypeError, ValueError):
+        raise Refused(f"--zoom-up-to {up_to!r}: a number, the most the node may enlarge the load") from None
+    if not ZOOM_NODES_OWN < value <= ZOOM_UP_TO_MOST:
+        raise Refused(f"--zoom-up-to {value:g}: above the node's own {ZOOM_NODES_OWN:g} and at most {ZOOM_UP_TO_MOST:g}")
+    words = " ".join(str(up_to_why or "").split())
+    if not words:
+        raise Refused("--zoom-up-to takes --zoom-up-to-why: who asked for the larger zoom and why (it is off by default, for a test)")
+    return value, {"why": words, "by": by, "at": now}
 
 
 def seams_arg(text: str | int | None) -> list[int] | None:
@@ -1644,7 +1675,7 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
     for k in old:
         if k not in ("job", "defaults", "loads"):
             raise Refused(f"--carry-words-from {old_name}: word-bearing key {k!r} at top of old job cannot be carried")
-    base_defaults = set(h3_config.MASKED_LOAD_DEFAULTS) | {"margin", "seed", "seed_by"}
+    base_defaults = set(h3_config.MASKED_LOAD_DEFAULTS) | {"margin", "seed", "seed_by", "zoom_up_to", "zoom_up_to_by"}
     for k in (old.get("defaults") or {}):
         if k not in base_defaults:
             raise Refused(f"--carry-words-from {old_name}: word-bearing key 'defaults.{k}' in old job cannot be carried")
@@ -1722,6 +1753,9 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
         retired_said.append(f"defaults.seed: not carried (was {old_seed!r}"
                             + (f", {said_by.get('by')}, {said_by.get('at')}: {said_by.get('why')}" if isinstance(said_by, dict) else "")
                             + f"; a seed is per load, so this load takes h3_config.SEED ({h3_config.SEED}) unless it is given --seed with --seed-why)")
+    if "zoom_up_to" in (old.get("defaults") or {}):
+        retired_said.append(f"defaults.zoom_up_to: not carried (was {(old.get('defaults') or {}).get('zoom_up_to')!r}; a larger zoom is asked "
+                            "for one load at a time, with --zoom-up-to and --zoom-up-to-why)")
     if old_job.get("restore"):
         retired_said.append("job.restore: retired (2026-10-16: plan restore gone from the plan; not carried)")
     if "hair_band" in old_load:
@@ -2032,7 +2066,8 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
                   "what the composite kept", "the voice", "the seam", "the kept frames' noise",
                   "SAM 3.1 memory selection", "SAM 3.1 head track",     # read again from the new job's own preview, never carried
                   "the context frames",                                 # read again from the plan's `context`, never carried
-                  "the seed"}                                           # a seed is per load: only this load's own `--seed`, never carried
+                  "the seed",                                           # a seed is per load: only this load's own `--seed`, never carried
+                  "the most the node may enlarge this zoomed load"}     # per load too: only this load's own `--zoom-up-to`, never carried
     defs = {}
     for row in old_job.get("defaults") or []:
         if not isinstance(row, dict) or row.get("what") not in defs_known:
@@ -2097,7 +2132,8 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
               leave_word: list[str] | None = None, leave_by: str | None = None, no_carry_words: str | None = None,
               head_tube: str | None = None, depth: str | None = None, no_head_track: str | None = None,
               no_closed_lip_line: str | None = None, capture_folder: Path | str | None = None,
-              seed: int | str | None = None, seed_why: str | None = None) -> dict:
+              seed: int | str | None = None, seed_why: str | None = None,
+              zoom_up_to: float | str | None = None, zoom_up_to_why: str | None = None) -> dict:
     """The job file of one subject's load on a shot, from the shot's preview. `preview` is the preview's own job
     block; `source` is the file the load renders from, the video's present copy (the preview's own when left out).
     `parts` with `parts_by` makes the load's part some of its subject's plan parts (`part_of`)."""
@@ -2121,6 +2157,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
     if carry_words_from is not None and no_carry_words is not None:
         raise Refused("--carry-words-from and --no-carry-words cannot both be given")
     job_seed, seed_by = job_seed_of(seed, seed_why, by, now)
+    up_to, up_to_by = zoom_up_to_of(zoom_up_to, zoom_up_to_why, by, now)
     ncw_why = ""
     if no_carry_words is not None:
         ncw_why = " ".join(str(no_carry_words).split())
@@ -2752,6 +2789,11 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         if cw and cn_from_cw:
             noise_row["from"] = " ".join(str(context_noise_why).split())
         carried.append(noise_row)
+    if up_to_by is not None:
+        if load.get("render_region") != "part":
+            raise Refused(f"--zoom-up-to on a load rendered on the whole frame: it acts only on a zoomed load")
+        carried.append({"what": "the most the node may enlarge this zoomed load", "carries": f"{up_to:g} (the node's own is {ZOOM_NODES_OWN:g}): "
+                        "past it a small head is zoomed until it is the node's target height", "from": f"{by}, {now}: {up_to_by['why']}"})
     if seed_by is not None:
         carried.append({"what": "the seed", "carries": f"{job_seed} (h3_config.SEED is {h3_config.SEED}): the song node samples window i at seed + i",
                         "from": f"{by}, {now}: {seed_by['why']}"})
@@ -2763,6 +2805,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             f"THE TEXT IS NOT WRITTEN: {name}.txt beside this file is a person's, and texts.{name}.by says who wrote it."
             + pieces + part_said + kept_said + on_track_said + gone_said + chosen
             + (f" THE SEED IS {job_seed} (h3_config.SEED is {h3_config.SEED}), on {by}'s word ({now}): {seed_by['why']}." if seed_by else "")
+            + (f" ZOOMED UP TO {up_to:g} (the node's own is {ZOOM_NODES_OWN:g}), on {by}'s word ({now}): {up_to_by['why']}." if up_to_by else "")
             + (f" CUT BY A LOOK: {cut_said}" if cut else "")
             + (f" ITS REFERENCE GOES TO {ref_folder.name}, A NEW FOLDER: {ref_why}; a new one." if ref_why else "")
             + (f" NO REFERENCE VIDEO (motion none): the reference step makes nothing for this load and the text names no video: "
@@ -2818,7 +2861,8 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
                                    **({"no_face_on": ref_form["no_face_on"]} if ref_form.get("no_face_on") else {})}),
                     "others_present": others, "defaults": carried},
             "defaults": {**h3_config.MASKED_LOAD_DEFAULTS, "margin": h3_config.MASKED_LOAD_MARGIN[region],
-                         "seed": h3_config.SEED if job_seed is None else job_seed, **({"seed_by": seed_by} if seed_by else {})},
+                         "seed": h3_config.SEED if job_seed is None else job_seed, **({"seed_by": seed_by} if seed_by else {}),
+                         **({"zoom_up_to": up_to, "zoom_up_to_by": up_to_by} if up_to_by else {})},
             "loads": [load]}
 
 
@@ -3538,7 +3582,8 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
                    head_tube=getattr(a, "head_tube", None), depth=getattr(a, "depth", None),
                    no_head_track=getattr(a, "no_head_track", None),
                    no_closed_lip_line=getattr(a, "no_closed_lip_line", None),
-                   seed=getattr(a, "seed", None), seed_why=getattr(a, "seed_why", None))
+                   seed=getattr(a, "seed", None), seed_why=getattr(a, "seed_why", None),
+                   zoom_up_to=getattr(a, "zoom_up_to", None), zoom_up_to_why=getattr(a, "zoom_up_to_why", None))
     load_first = int(job["loads"][0]["first"])
     load_last = load_first + int(job["loads"][0]["frames"]) - 1
     other_subjects = list(dict.fromkeys(
@@ -4222,6 +4267,10 @@ def main() -> int:
                    f"{SEED_MAX}; with --seed-why. The job file gets it as `defaults.seed` with `defaults.seed_by` (the words, who and when), and THE "
                    "DEFAULTS THIS LOAD CARRIES say it. A seed is per load and a person's word: --carry-words-from does not carry it")
     j.add_argument("--seed-why", metavar="WHY", help="who asked for the seed and why; kept in the job file beside the seed. Goes with --seed")
+    j.add_argument("--zoom-up-to", metavar="N", help="let the Masked Source enlarge this zoomed load past its own 2, up to N (at most "
+                   f"{ZOOM_UP_TO_MOST:g}), until a small head is the node's target height (video_mask.ZOOM_HEAD_TARGET); off by default, for a test "
+                   "(2026-10-22). With --zoom-up-to-why; written as defaults.zoom_up_to with defaults.zoom_up_to_by, never carried")
+    j.add_argument("--zoom-up-to-why", metavar="WHY", help="who asked for the larger zoom and why; kept in the job file beside it. Goes with --zoom-up-to")
     j.add_argument("--head-tube", nargs="?", const="opt-in --head-tube", default=None, metavar="WHY",
                    help="enable the person-track-bounded SAM 3.1 whole-head tube + 3-frame smoothed Sapiens2-Seg head pass in capture (off by default); "
                         "optional reason kept in the job file")

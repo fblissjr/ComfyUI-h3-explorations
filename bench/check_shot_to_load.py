@@ -3345,6 +3345,66 @@ def a_loads_seed_is_a_persons_word() -> str:
             "words and no seed, and for anything but a whole number the node takes; --carry-words-from carries none of it")
 
 
+def a_loads_larger_zoom_is_a_persons_word() -> str:
+    """`job --zoom-up-to N --zoom-up-to-why WHY` (2026-10-22): the zoom to a target head size lands switched off (the owner's word),
+    and one load asks for it to test. With the flag the job file's `defaults.zoom_up_to` is N with `defaults.zoom_up_to_by` (why, who,
+    when), the note and THE DEFAULTS THIS LOAD CARRIES say it, and the builder's reading of the file puts N in the Masked Source's
+    `zoom_up_to` and the build record; without it the Masked Source is given none (its own, 2). Refused with no words, words with no
+    number, a number not above 2 or past the node's most, and on a load rendered on the whole frame; never carried."""
+    import contextlib
+    import io
+    import re
+    why = "the lead: test the zoom to a head on 1093's pair, the head is 77 px"
+    files = {"track": ("/capture/a/track.mkv", 100), "parts": ("/capture/a/parts.mkv", 100), "motion": ("/ref.mp4", 100), "others": []}
+    base_graph = json.loads((HERE.parent / "workflows" / cfg.MASKED_JOB_BASE_GRAPH).read_text())
+    vm_text = (HERE.parent / "video_mask.py").read_text(encoding="utf-8")
+    most = re.search(r"^ZOOM_MOST_ASKED = ([0-9.]+)$", vm_text, re.M)
+    own = re.search(r"^ZOOM_LARGEST = ([0-9.]+)$", vm_text, re.M)
+    assert most and own and (float(most.group(1)), float(own.group(1))) == (stl.ZOOM_UP_TO_MOST, stl.ZOOM_NODES_OWN), \
+        f"shot_to_load's ZOOM_UP_TO_MOST and ZOOM_NODES_OWN are video_mask's ZOOM_MOST_ASKED and ZOOM_LARGEST: {most and most.group(1)}, {own and own.group(1)}"
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        folder = made.preview_ran(made.preview(100))
+        a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="a", preview=str(folder))
+
+        def stepped(**more) -> str:
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                stl.step_job(args(**{**vars(a), **more}), made.m)
+            return buf.getvalue()
+
+        def in_the_graph(d: dict) -> tuple:
+            """The Masked Source's `zoom_up_to` (None when not set) and the build record's `settings.zoom_up_to`."""
+            one = masked_job.loads_of(d)[0]
+            one["still"] = {x["label"]: x["still"] for x in d["job"]["subjects"] if x.get("still")}[one["subject"]]
+            g = graphs.load(base_graph, d["job"], one, files, "the words", windows=masked_job.chain_lengths())
+            return g[graphs._the(g, graphs.SOURCE)]["inputs"].get("zoom_up_to"), masked_job.settings_of(one, g)["zoom_up_to"]
+
+        refused(lambda: made.load(zoom_up_to=4), "--zoom-up-to takes --zoom-up-to-why")
+        refused(lambda: made.load(zoom_up_to=4, zoom_up_to_why="  "), "--zoom-up-to takes --zoom-up-to-why")
+        refused(lambda: made.load(zoom_up_to_why=why), "--zoom-up-to-why goes with --zoom-up-to")
+        for bad in (2, 1.5, 4.5, "abc", ""):
+            refused(lambda: made.load(zoom_up_to=bad, zoom_up_to_why=why), "--zoom-up-to")
+        refused(lambda: made.load(name="zw", whole_frame="the lead: on the whole frame", zoom_up_to=4, zoom_up_to_why=why), "acts only on a zoomed load")
+        stepped()
+        plain = json.loads((made.jobs / "a_fp_0100.json").read_text())
+        assert "zoom_up_to" not in plain["defaults"] and "ZOOMED UP TO" not in plain["job"]["note"], plain["defaults"]
+        assert in_the_graph(plain) == (None, {"value": "the node's own: video_mask.ZOOM_LARGEST, 2", "set_by": "the builder's default"}), in_the_graph(plain)
+        printed = stepped(remake=True, no_carry_words="a test of its own", zoom_up_to="4", zoom_up_to_why=why)
+        mine = json.loads((made.jobs / "a_fp_0100b.json").read_text())
+        by = mine["defaults"].get("zoom_up_to_by") or {}
+        assert mine["defaults"]["zoom_up_to"] == 4.0 and (by.get("why"), by.get("by")) == (why, "the session"), mine["defaults"]
+        assert "ZOOMED UP TO 4" in mine["job"]["note"] and why in mine["job"]["note"] and why in printed, mine["job"]["note"]
+        assert in_the_graph(mine) == (4.0, {"value": 4.0, "set_by": "the job file"}), in_the_graph(mine)
+        graphs.check_job(mine["job"])
+        printed = stepped(remake=True, carry_words_from=str(made.jobs / "a_fp_0100b.json"))
+        carried = json.loads((made.jobs / "a_fp_0100c.json").read_text())
+        assert "zoom_up_to" not in carried["defaults"] and "defaults.zoom_up_to: not carried (was 4.0" in printed, carried["defaults"]
+    return ("a load asks past the node's own zoom with --zoom-up-to and --zoom-up-to-why: defaults.zoom_up_to and its record, the note, the "
+            "Masked Source's zoom_up_to and the build record; without it nothing is set; refused with no words, out of range, on the whole frame; "
+            "never carried; the two constants are video_mask's")
+
+
 case("the frame a tracker picks on is a field of the shots record", the_pick_frame_is_a_field)
 case("the trackers' order, and who is in the shot", the_order_and_who_is_in_the_shot)
 case("a preview made to ask who is on a shot the record is unsure of", a_preview_made_to_ask)
@@ -3382,6 +3442,7 @@ case("reference: --no-head-track forwarded, recorded, carried, and checked on --
 case("cast: non-existent --cast file is refused cleanly in preview and job", missing_cast_file_refused)
 case("pass-2 source: preview requires --source (and --for where a piece is laid) and refuses raw source when another replacement is laid", pass2_raw_source_refused_and_source_required)
 case("seed: --seed with --seed-why is the load's own, in the file, the block, the song node and the build record; never carried", a_loads_seed_is_a_persons_word)
+case("zoom: --zoom-up-to with --zoom-up-to-why asks one load past the node's own 2; off by default; never carried", a_loads_larger_zoom_is_a_persons_word)
 
 if __name__ == "__main__":
     sys.exit(finish())

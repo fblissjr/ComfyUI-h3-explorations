@@ -233,7 +233,10 @@ def _review_or_reason(make, what: str) -> str | None:
 
 #: What `<stem>_zoomed.json` calls itself (`zoomed_record`). 2 (2026-10-10): the key `largest_zoom` left with
 #: the input, and `set_by` says "the largest zoom" where it said "largest_zoom"; every other key is as it was.
-ZOOMED_NAME, ZOOMED_VERSION = "h3 zoomed piece", 2
+#: 3 (2026-10-22, zoom to a target head size): `up_to`, the most the load asked for (`video_mask.ZOOM_LARGEST`, 2,
+#: unless it set `zoom_up_to`), and "the largest zoom" in `set_by` is that; `set_by` may also say
+#: `video_mask.SET_BY_HEAD` or `SET_BY_ANY` on a load that asked for more; every other key is as it was.
+ZOOMED_NAME, ZOOMED_VERSION = "h3 zoomed piece", 3
 #: The plan file's name for itself and its version. Bump the version when a field's meaning changes.
 PLAN_NAME, PLAN_VERSION = "h3 song plan", 2      # 2: `frames_left_as_source` is every frame with no mask, not the cut's alone
 
@@ -248,6 +251,7 @@ def zoomed_record(zoom: dict, source: dict, stem: str, frames: int, cut_sides=()
             "zoomed": stem + "_zoomed.mp4", "frames": int(frames), "canvas": list(zoom["canvas"]),
             "source_size": [old_w, old_h], "box": list(zoom["box"]), "fixed": True, "zoom": float(zoom["scale"]),
             "render_region": zoom["render_region"], "set_by": zoom["set_by"],
+            "up_to": float(zoom.get("up_to", video_mask.ZOOM_LARGEST)),
             # the sides of the box the regenerated region reaches in some window (`video_mask.box_sides_cut`): the
             # region is cut off there and fades into the whole frame at the box's edge
             "region_cut_at_box_sides": sorted(cut_sides),
@@ -851,7 +855,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                     cut_sides.update(sides)
                     reports.append(f"[{w.number}] the regenerated region reaches the {', '.join(sides)} of the zoomed box: it is "
                                    "cut off there and fades into the whole frame at the box's edge; a smaller zoom "
-                                   "(`video_mask.ZOOM_LARGEST`) would hold more of the picture")
+                                   "(`video_mask.zoom_box`) would hold more of the picture")
                 # the margin `window` grew the region by, for the report and the composite below
                 margin = video_mask.source_margins(source, int(round(w.start * FPS)), w.frames,
                                                    int(width) * int(height))
