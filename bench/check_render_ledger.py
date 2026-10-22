@@ -114,12 +114,15 @@ class Made:
         return path
 
     def record(self, name: str, load: dict, files: list[str] | None, *, status: str | None = "success", folder: str | None = None,
-               text: str | None = None, queued_at: str = QUEUED_AT, job_subjects: list | None = None) -> None:
+               text: str | None = None, queued_at: str = QUEUED_AT, job_subjects: list | None = None,
+               pad: tuple[int, int] | None = None) -> None:
         job = self.records / f"2026-01-02_{name}_job"
         job.mkdir(parents=True, exist_ok=True)
         built = {"load": {"name": name, "subject": "a", "carried": "held", **load}, "commit": "abc1234", "capture": str(self.capture),
                  "files": {"track": [self.mask, 0], "parts": [self.parts, 0], "others": [[str(self.root / "gone.mkv"), 0]]},
                  "settings": {"window": {"value": 141}, "context": {"value": 90}, "context_noise": {"value": 0.8}}, "output_folder": folder, "uncommitted_node_code": []}
+        if pad is not None:                                        # real context frames round a short load, as masked_job.py records them
+            built["what_this_clips_preview_measured"] = {"load_against_its_window": {"context_before": pad[0], "context_after": pad[1]}}
         if text is not None:
             (job / f"{name}.txt").write_text(text)
             built["text"] = {"file": str(job / f"{name}.txt")}
@@ -308,16 +311,24 @@ def a_file_against_its_record() -> str:
         made.record("other_frames", {"first": 10, "frames": 20}, [place("other_frames")])
         made.render(place("older"), 20, graph(10, 20, made.mask), written=WRITTEN - 86400.0)
         made.record("older", {"first": 10, "frames": 20}, [place("older")])
+        # the load of 2026-10-21: 23 frames in a 39-frame window, 8 real frames before and after loaded as context
+        made.render(place("padded"), 23, graph(407, 39, made.mask))
+        made.record("padded", {"first": 415, "frames": 23}, [place("padded")], pad=(8, 8))
+        made.render(place("padded_other"), 23, graph(405, 39, made.mask))
+        made.record("padded_other", {"first": 415, "frames": 23}, [place("padded_other")], pad=(8, 8))
         out = made.ledger()["renders"]
-        assert out[place("fine")]["making"] == led.MAKING[0] and out[place("fine")]["records"][0]["disagrees"] == [], out[place("fine")]["records"]
+        for name in ("fine", "padded"):
+            assert out[place(name)]["making"] == led.MAKING[0] and out[place(name)]["records"][0]["disagrees"] == [], (name, out[place(name)]["records"])
         for name, words in (("went_on", ("40 frames from 30", "the file holds 15", "continues a stored window", "does not say which source frames")),
                             ("failed", ("status is 'error'",)), ("other_frames", ("asks for 20 frames from 12", "is 20 from 10")),
+                            ("padded_other", ("asks for 39 frames from 405", "is 23 from 415", "8 context frame(s) before and 8 after")),
                             ("older", ("before the record was queued", "not that run's"))):
             r = out[place(name)]
             said = " | ".join(r["records"][0]["disagrees"])
             assert r["making"] == led.MAKING[1] and len(r["records"][0]["disagrees"]) == 1 and all(w in said for w in words), (name, r["making"], said)
     return ("a file that does not hold its record's frames, a load that continued a stored window, a run that did not end in success, a graph "
-            "that asks for other frames and a file older than its queue each disagree, each in its own words, and the agreeing one says none")
+            "that asks for other frames (padded or not) and a file older than its queue each disagree, each in its own words; the agreeing one "
+            "and a short load whose graph asks for its span with its recorded context frames say none")
 
 
 def an_older_record_and_no_record() -> str:

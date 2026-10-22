@@ -540,9 +540,17 @@ def agreement(file_frames: int | None, written: float, graph: dict | None, rec: 
                        "record does not say which source frames the file holds" if load.get("continue_from") else ""))
     if file_frames is None:
         said.append("the file's frames could not be counted")
-    if graph and load and graph.get("of") and (graph.get("first"), graph.get("frames")) != (load.get("first"), load.get("frames")):
+    # a one-window load shorter than its window loads real source frames before and after it as context, tossed after the
+    # decode (2026-10-21, 79831be9): its graph asks for the padded span, which the build record keeps as
+    # `load_against_its_window` (`bench/masked_job.py`, `context_before` / `context_after`)
+    pad = ((b or {}).get("what_this_clips_preview_measured") or {}).get("load_against_its_window") or {}
+    before, after = int(pad.get("context_before") or 0), int(pad.get("context_after") or 0)
+    span = ((load["first"] - before, load["frames"] + before + after) if (before or after) and None not in (load.get("first"), load.get("frames"))
+            else (load.get("first"), load.get("frames")))
+    if graph and load and graph.get("of") and (graph.get("first"), graph.get("frames")) != span:
         said.append(f"the graph saved beside the file asks for {graph.get('frames')} frames from {graph.get('first')}; the record's load "
-                    f"is {load.get('frames')} from {load.get('first')}")
+                    f"is {load.get('frames')} from {load.get('first')}"
+                    + (f", with {before} context frame(s) before and {after} after" if before or after else ""))
     queued_at = q.get("queued_at")
     if queued_at:
         try:
