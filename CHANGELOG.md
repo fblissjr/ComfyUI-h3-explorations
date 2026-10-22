@@ -7,6 +7,90 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.294.0
+<!-- changelog.d/day-2026-10-22.md -->
+
+### Added
+
+- `bench/render_history.py`: one row for each render of a video, from the load chain's job folders and from older
+  renders on the share that have no job record, written as JSONL and CSV. A row carries the prompt as
+  `bench/what_h3_got.py` reads it, the window and its context frames, seed, zoom, reference form, span words, commits,
+  laid state and the owner's lines; each field names the file it came from, and `cannot_see` lists what no record
+  holds. `--ledger` and `--carry` keep what a deleted job folder would lose.
+- `bench/shot_to_load.py job --seed N --seed-why WHY`: a load's own seed, for a retake of a hard shot, recorded with
+  the words, the session and the time. It is never carried by `--carry-words-from`, and without it a job file is
+  unchanged.
+- The Masked Source node's `zoom_up_to` input, set by `bench/shot_to_load.py job --zoom-up-to N --zoom-up-to-why WHY`:
+  a zoomed load can zoom until its region is about `ZOOM_HEAD_TARGET` tall on the canvas, up to `ZOOM_MOST_ASKED`. At
+  its default (`ZOOM_LARGEST`) every recorded zoom is unchanged, and it stays at the default until a test pair decides
+  it. Needs a ComfyUI restart.
+- The Masked Source node's `context_shows` input, from the plan's `subjects.<s>.context`: "as filmed" (the default and
+  the old behavior) or "face covered", which holds the subject's first and last masks over a short load's context
+  frames so the original face shows nowhere in the window. Needs a ComfyUI restart.
+- `docs/masked_v2v/frames_rules.md`: a window's length, how the video VAE cuts it, how the text encoder samples
+  `<Video 1>`, what fills the padding, what is thrown away, and how sglang sizes a reference video, with worked
+  examples that each point at the code.
+- Plan choices for the face reference: `subjects.<s>.reference.open_mouth: "outlined"` draws an open mouth as white
+  outer and inner lip outlines with a dark inside, held to the upper face's size; `subjects.<s>.reference.crop` is
+  "head" (the old box), "face" (the box before the head track sized it) or "cranium" (a box on the grey body-model
+  head, capped at `CRANIUM_MOST`). Without them the drawing and the crop are unchanged.
+- The span word "closed" paints the whole eye over with one upper lid line.
+- Her hair in the hole: for a subject whose part includes her hair, the capture adds her own head track and nearby
+  hair that no one's mask holds to the part the node grows its region from, so none of her original hair is left
+  showing in the window, where H3 had drawn the new hair dark to match it. The owner's answers go in the plan as `subjects.<s>.head_marks`, and a run of
+  frames where her head is lost while she is in view is refused (`her_head_lost_in_view`).
+- The capture stops a load whose face reference is black for a run of frames (`FIGURE_RUN_LEAST`) while the subject
+  is in view (`reference_shows_no_figure`); shorter runs are listed as data.
+
+### Changed
+
+- The generated load text takes the owner's simpler form: the subject is named by the hair the picture shows
+  (`text.picture_hair`) with no eye, eyebrow or skin words, `[Shot 1]` names the hair the shot ends up with
+  (`text.hair_words`), and a subject missing either field is refused by name. `--say-not-used` is removed.
+- The text says what the drawing is for: the eyes, each with a dark iris, open, close and look where the person's eyes
+  do. The mouth is named only where the drawing opens one on some frame (`load_text.mouth_drawn_open`).
+- A downcast eye is drawn as a dark iris (a black disc, no white) in place of the arc, and a dark eye thinner than
+  `EYE_OPEN` has its lower lid opened to it; the span word "lowered" draws the dark iris too.
+- A shot shorter than its window is padded after it only, so its first frame is the window's first. Across a cut the
+  padding is held copies of the shot's last frame with its masks; where the shot goes on it is real frames, and where
+  the last frame's region is empty or small (`HELD_EDGE_LEAST`) real frames are kept. This reverses the cross-cut half
+  of the 2026-10-21 real-frames rule. Needs a ComfyUI restart.
+
+### Fixed
+
+- `bench/render_ledger.py`: a short load whose graph asks for its span with the context frames now agrees with its
+  build record, so a padded render can stand and the delivery table rebuilds.
+- The cranium crop: a frame where the subject is hidden and the pose model's face points land elsewhere no longer
+  sizes the box.
+
+## 0.293.0
+<!-- changelog.d/day-2026-10-20.md -->
+
+### Added
+
+- `bench/build_cut_map.py`: writes a video's `CUT_MAP.md`, `CUT_MAP.html` and `PROVENANCE.html` from its shots, laid
+  list and run folders, with a frame-level coverage bar, so an unrendered or dropped frame inside a shot shows at once.
+  It stays a read-only view (an execution-queue tab was tried and reverted the same day), and its times are in the
+  host's local time zone.
+
+### Changed
+
+- `bench/capture_masked_run.py`: a whole-shot part load may now span frames that a `--no-mask` statement accounts for,
+  where the subject is fully hidden for a few frames; those frames are left as the source. Before, such a load was
+  refused, which forced a shot to be split. This holds in first-pass and on-plan verification alike.
+- The drawn face reference (`bench/draw_face_points.py`, `bench/head_reference.py`): a closed mouth is left as the body
+  model's own grey lips, with no drawn parting line and no smoothed oval over the mouth; only an open mouth is drawn,
+  black inside with a white outline. The mouth's fit to the head is clamped only above a real neck gap under the jaw,
+  never above an arm or a hand.
+- A downcast or narrowed eye (`DOWNCAST_RING_OUTSIDE_MIN` in `bench/draw_face_points.py`) is drawn as the iris arc
+  between the lids, with no white fill, which H3 had read as wide eyes staring at the camera.
+- `bench/load_text.py`: one `<Subject 2>` sentence for every face-drawn load. It leaves the mouth to `<Video 1>` and
+  says the eyes open, close and look where the person's eyes do.
+- The masked lane's docs (`docs/masked_v2v/AGENTS.md`, `docs/masked_v2v/PROTOCOL.md`, `data/AGENTS.md`): one shot is
+  one load and one render; how every input is locked to the shot's first and last frames, and how a window's held
+  and overlap frames are thrown away; which change invalidates which downstream files, and when ComfyUI must restart;
+  and why evenly spaced frame samples miss a subject leaving mid-shot.
+
 ## 0.292.0
 <!-- changelog.d/day-2026-10-21.md -->
 
