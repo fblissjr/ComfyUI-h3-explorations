@@ -38,6 +38,18 @@ Older history lives elsewhere and is not copied here:
   reads "the girl's face from <Picture 1> is retained." (the owner agreed), in the face-and-hair form's words; it was a constant
   of `bench/load_text.py`, "only the girl's face is retained, wherever it shows: her eyes, eyebrows, nose, mouth and skin", and
   no plan field. Branch claude-simple-text.
+- **What a short load's context frames show is a per-subject plan choice** (the owner's ask: a system flexible enough for more
+  than one scenario). Since 79831be9 a one-window load shorter than its window is padded with real source frames
+  (`workflows/masked_job_graph.py::window_pad`) on which nothing is regenerated. That helped the second subject (her real
+  lowered gaze beside the shot) and reopens the beard rule for the third, whose original beard is in those frames
+  (`docs/masked_v2v/AGENTS.md` §2). The plan's `subjects.<s>.context`, with `context_by`, is `as filmed` (the default, and
+  today's behavior) or `face covered`; `bench/shot_to_load.py job` copies it onto the load as `context_shows`, the builder sets
+  the Masked Source's new last input of that name, and under `face covered` the node holds the shot's first frame's mask over
+  the frames before and its last frame's over the frames after (`video_mask.pad_context`), grown by the margin. The
+  keep-outs stay empty there in both forms. Where held frames lie across a cut the node names them
+  (`context_held_across_a_cut`) and holds the mask all the same. Every padded window's region file and plan row now say
+  which form it took. Until this entry the docs said the context frames were always untouched. Not yet rendered; it needs a
+  ComfyUI restart. Branch claude-context-cover.
 
 ## 2026-10-21
 

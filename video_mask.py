@@ -398,6 +398,22 @@ MOTIONS = (MOTION_NONE, MOTION_SUBJECT, MOTION_ZOOM, MOTION_FRAME, MOTION_WIRED)
 RENDER_WHOLE = "the whole frame"
 RENDER_ZOOM_REPLACED = "zoomed in on what is replaced"
 RENDER_REGIONS = (RENDER_WHOLE, RENDER_ZOOM_REPLACED)
+#: WHAT THE CONTEXT FRAMES SHOW (`context_shows`, 2026-10-22). A one-window load shorter than its window is given the
+#: source's real frames before and after it (`workflows/masked_job_graph.py::window_pad`), tossed after the decode.
+#: `as filmed` (the default, and the only behavior from 2026-10-21 until this input): nothing is regenerated on them,
+#: so the original subject is in the window unmasked there, which helped the second subject (her real lowered gaze
+#: beside the shot; the owner's verdicts of 2026-10-22). `face covered`: the subject's region is held open on them,
+#: the shot's first frame's mask over the frames before and its last frame's over the frames after (`pad_context`),
+#: grown by the margin as on every frame, so the original's face is not in the frozen context. Reasoned from the beard
+#: rule (`docs/masked_v2v/AGENTS.md` §2: 3-4 frames of unmasked beard in a window pull the beard onto the new face)
+#: and from the held tail above (a region held open on frames past the shot is the node's measured choice there);
+#: not yet rendered when written. The keep-outs (`keep`, `others`) stay empty on those frames in both forms: `keep`
+#: holds the source's own pixels inside the region and would show the face there, and an `others` held from the edge
+#: frame could cut the subject's real face out of the held region where it has moved. More regenerated on a frame
+#: that is tossed costs no laid pixel. A plan's subject chooses it (`subjects.<s>.context`, `bench/shot_to_load.py`).
+CONTEXT_AS_FILMED = "as filmed"
+CONTEXT_FACE_COVERED = "face covered"
+CONTEXT_SHOWS = (CONTEXT_AS_FILMED, CONTEXT_FACE_COVERED)
 #: The largest zoom. A constant: for a day it was an input, and on its first use the box set the zoom and not
 #: the setting (a subject who crosses the frame). Reasoned (the lead's arithmetic on the one case above):
 #: about twice takes the face that failed to the size of the one that was accepted. What is enlarged is
@@ -989,6 +1005,14 @@ def save_window_region(path: str, mask: torch.Tensor, tokens: torch.Tensor, sour
     if source.get("pad_before") or source.get("pad_after"):
         meta["pad_before"] = int(source.get("pad_before", 0))
         meta["pad_after"] = int(source.get("pad_after", 0))
+        # what the context frames showed (`CONTEXT_SHOWS`; a source from before 2026-10-22 carries none, and was `as filmed`),
+        # and under `face covered` the window frames of them across a cut from the shot (`context_across_cut`)
+        meta["context_shows"] = str(source.get("context_shows") or CONTEXT_AS_FILMED)
+        if source.get("context_held_across_a_cut"):
+            meta["context_held_across_a_cut"] = [int(f) for f in source["context_held_across_a_cut"]]
+        if source.get("context_held_empty"):
+            # the sides whose edge frame had no mask, so nothing was held there (`before`, `after`)
+            meta["context_held_empty"] = [str(e) for e in source["context_held_empty"]]
     extra = {}
     if matte is not None:
         if tuple(matte.shape[:1]) != tuple(mask.shape[:1]) or matte.dtype != torch.uint8:
@@ -1011,13 +1035,28 @@ def save_window_region(path: str, mask: torch.Tensor, tokens: torch.Tensor, sour
     return path
 
 
+#: What a padded window's region file says of its context frames (`save_window_region`): a tool that saves a region file
+#: again from one it read carries these with `padding_of`, so a `face covered` window is never relabeled `as filmed`
+#: (found by a blind read of the change that made them, 2026-10-22: `bench/recomposite_piece.py` dropped the last two).
+PADDING_KEYS = ("pad_before", "pad_after", "context_shows", "context_held_across_a_cut", "context_held_empty")
+
+
+def padding_of(region: dict) -> dict:
+    """The padding keys (`PADDING_KEYS`) of a region as `load_window_region` returns it, or of a plan's window row: what
+    to hand `save_window_region` again with the source's settings. Empty for a window that was not padded."""
+    return {k: region[k] for k in PADDING_KEYS if region.get(k)}
+
+
 def load_window_region(path: str) -> dict:
     """A window's saved region as `lay_window` takes it: `mask` [F, H, W] and `tokens` [latent_t, h, w] of 0 or 1
     (and `kept` [F, H, W] of 0 or 1 when the render saved it, `save_kept`; and `matte` [F, H, W] of 0 to 1 at the whole
     canvas, the weight the window's video was blended with, when the render saved it),
     `margin` (a number, or a [F] tensor when it was each frame's own), `first_frame`, `trim`, `source`, and
     `zoom`: None, or the box of the load's frames the window was rendered in, when the mask and the tokens are
-    of that box scaled to the canvas and not of the whole frame (`zoomed_source`)."""
+    of that box scaled to the canvas and not of the whole frame (`zoomed_source`). A padded window's also carries
+    `pad_before`, `pad_after` and `context_shows` (`CONTEXT_SHOWS`; absent in a file saved before 2026-10-22, when the
+    context was `as filmed`), with `context_held_across_a_cut` where a held context frame lies across a cut and
+    `context_held_empty` where an edge frame had no mask to hold (`PADDING_KEYS`)."""
     with np.load(path) as z:
         meta = json.loads(str(z["meta"]))
         mask = np.unpackbits(z["mask"], axis=-1)[..., :int(meta["width"])]
@@ -1030,7 +1069,8 @@ def load_window_region(path: str) -> dict:
             out["matte"] = torch.from_numpy(z["matte"]).to(torch.float32) / 255.0
     return {**out, "first_frame": int(meta["first_frame"]), "trim": int(meta["trim"]), "source": dict(meta["source"]),
             "zoom": meta.get("zoom"),
-            **({"pad_before": int(meta.get("pad_before", 0)), "pad_after": int(meta.get("pad_after", 0))}
+            **({"pad_before": int(meta.get("pad_before", 0)), "pad_after": int(meta.get("pad_after", 0)),
+                **{k: meta[k] for k in PADDING_KEYS[2:] if k in meta}}
                if (meta.get("pad_before") or meta.get("pad_after")) else {})}
 
 
@@ -1348,6 +1388,41 @@ def held_mask(mask: torch.Tensor, short: int) -> torch.Tensor:
     held past the source's end: the last frame's own, so the region stays open there. One function for the
     three masks, so the region, what is kept in it and who is kept out of it stay in step on the held frames."""
     return torch.cat([mask, mask[-1:].expand(short, -1, -1)], dim=0)
+
+
+def pad_context(mask: torch.Tensor, before: int, after: int, shows: str = CONTEXT_AS_FILMED) -> torch.Tensor:
+    """A shot's [n, H, W] mask on its padded window, [before + n + after, H, W] float (`CONTEXT_SHOWS` has the rule):
+    empty on the context frames `as filmed`; `face covered`, the shot's first frame's mask repeated over the frames
+    before and its last frame's over the frames after. The subject's mask and the tracked one go through this; the
+    keep-outs are padded empty in both forms."""
+    if shows not in CONTEXT_SHOWS:
+        raise ValueError(f"unknown context_shows {shows!r}; it is `{CONTEXT_AS_FILMED}` or `{CONTEXT_FACE_COVERED}`")
+    mask = mask.to(torch.float32)
+    if shows == CONTEXT_AS_FILMED or not int(mask.shape[0]):
+        return F.pad(mask, (0, 0, 0, 0, int(before), int(after)))
+    return torch.cat([mask[:1].expand(int(before), -1, -1), mask, mask[-1:].expand(int(after), -1, -1)], dim=0)
+
+
+def context_across_cut(cuts, before: int, n_shot: int, after: int) -> list[int]:
+    """The context frames of a padded window (window frames, 0 at its first) that lie across a cut from the shot: a
+    frame before it with a cut between it and the shot's first frame, or after it with a cut between the shot's last
+    frame and it. `cuts` are window frames that start a shot (`source_cuts`). Under `face covered` the mask held there
+    is the shot's edge frame's, and the subject may stand elsewhere in that other shot, or not be in it."""
+    end = int(before) + int(n_shot)
+    cut = sorted({int(c) for c in cuts or []})
+    return ([f for f in range(int(before)) if any(f < c <= int(before) for c in cut)]
+            + [f for f in range(end, end + int(after)) if any(end <= c <= f for c in cut)])
+
+
+def runs_said(frames) -> str:
+    """Frames as runs for a log line: `0..13, 127..140`."""
+    runs: list[list[int]] = []
+    for f in sorted(int(x) for x in frames):
+        if runs and f == runs[-1][1] + 1:
+            runs[-1][1] = f
+        else:
+            runs.append([f, f])
+    return ", ".join(f"{a}..{b}" if b > a else str(a) for a, b in runs)
 
 
 def wired_motion(source: dict, first_frame: int, frames: int, width: int, height: int, which: int = 1) -> torch.Tensor:
@@ -2294,6 +2369,18 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                 io.Int.Input("motion_short_edge_2", default=MOTION_SHORT_EDGE, min=32, max=1024, step=32, optional=True,
                              tooltip=("Shorter side, in pixels, of the second motion video as the model is "
                                       "shown it. Does nothing unless `motion_video_2` is wired.")),
+                # appended 2026-10-22 (the owner: one system for more than one scenario; `CONTEXT_SHOWS` has the rule)
+                io.Combo.Input("context_shows", options=list(CONTEXT_SHOWS), default=CONTEXT_AS_FILMED, optional=True,
+                               tooltip=("What the window's extra frames show, when the frames are longer than the mask "
+                                        "(a shot padded with the source's real frames before and after it, which are "
+                                        "dropped after the decode). Does nothing when the mask covers every frame.\n\n"
+                                        "as filmed (default): nothing is regenerated on them; the original person is "
+                                        "seen there as the camera saw them.\n\n"
+                                        "face covered: the region is held open on them, the shot's first frame's mask "
+                                        "on the frames before and its last frame's on the frames after, grown by the "
+                                        "margin, so the original's face or beard is not left in view for the model to "
+                                        "copy. Where those frames are another shot, the held mask may not be where the "
+                                        "person is; the report names those frames.")),
             ],
             outputs=[H3MaskedSource.Output(display_name="source"),
                      io.Mask.Output(display_name="mask",
@@ -2344,7 +2431,7 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                 shot_table=None, parts=None, keep=None, grow_by=GROW_FIXED, others=None,
                 edge=EDGE_TOKENS, motion_video=None,
                 render_region=RENDER_WHOLE, motion_video_2=None,
-                motion_short_edge_2=MOTION_SHORT_EDGE) -> io.NodeOutput:
+                motion_short_edge_2=MOTION_SHORT_EDGE, context_shows=CONTEXT_AS_FILMED) -> io.NodeOutput:
         if frames.ndim != 4:
             raise ValueError(f"frames must be [N, H, W, C]; got {tuple(frames.shape)}")
         if grow_by not in GROW_BY:
@@ -2364,6 +2451,8 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
             raise ValueError(f"unknown motion_reference {motion_reference!r}; one of {list(MOTIONS)}")
         if render_region not in RENDER_REGIONS:
             raise ValueError(f"unknown render_region {render_region!r}; one of {list(RENDER_REGIONS)}")
+        if context_shows not in CONTEXT_SHOWS:
+            raise ValueError(f"unknown context_shows {context_shows!r}; it is `{CONTEXT_AS_FILMED}` or `{CONTEXT_FACE_COVERED}`")
         if motion_reference == MOTION_WIRED and motion_video is None:
             raise ValueError(f"motion_reference is `{motion_reference}` and nothing is wired to `motion_video`: wire the "
                              "video that shows the movement, or choose another motion_reference")
@@ -2442,10 +2531,32 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
         tracked = mask          # the tracker's own mask, before it is cut to a part below
         mask, note, part_warning = cls._settle_mask(frames[pad_before:pad_before + n_shot], mask, replace, segmenter,
                                                     segmenter_clip, part_phrases, part_threshold, part_margin, parts)
+        cuts = source_cuts(frames, table)
+        context = {}            # what the context frames took, for the record and each window's region file
         if n_shot < n_frames:
             tracked_2d = tracked[..., 0] if tracked.ndim == 4 else tracked
-            tracked = F.pad(tracked_2d.to(torch.float32), (0, 0, 0, 0, pad_before, pad_after))
-            mask = F.pad(mask.to(torch.float32), (0, 0, 0, 0, pad_before, pad_after))
+            # the subject's mask, and the tracked one its boxes come from, by `context_shows`; the keep-outs empty in
+            # both forms (`CONTEXT_SHOWS` has why)
+            tracked = pad_context(tracked_2d, pad_before, pad_after, context_shows)
+            mask = pad_context(mask, pad_before, pad_after, context_shows)
+            context = {"context_shows": context_shows}
+            if context_shows == CONTEXT_FACE_COVERED:
+                across = context_across_cut(cuts, pad_before, n_shot, pad_after)
+                if across:
+                    context["context_held_across_a_cut"] = across
+                # an edge frame with no mask holds nothing: those context frames are as filmed after all, and the record says so
+                empty = ([] if not pad_before or bool((mask[pad_before] > 0.5).any()) else ["before"]) \
+                    + ([] if not pad_after or bool((mask[pad_before + n_shot - 1] > 0.5).any()) else ["after"])
+                if empty:
+                    context["context_held_empty"] = empty
+                    logger.info("[h3] MiniMaxH3MaskedSource: context `%s`: the shot's %s frame has no mask, so nothing is held over "
+                                "the frames %s it: they show the source as filmed", context_shows,
+                                " and ".join({"before": "first", "after": "last"}[e] for e in empty), " and ".join(empty))
+                logger.info("[h3] MiniMaxH3MaskedSource: context `%s`: the shot's first frame's mask (%d px) held over the %d "
+                            "frame(s) before it, its last frame's (%d px) over the %d after%s", context_shows,
+                            int((mask[pad_before] > 0.5).sum()), pad_before, int((mask[pad_before + n_shot - 1] > 0.5).sum()),
+                            pad_after, (f"; {len(across)} of them lie across a cut from the shot, where the subject may stand "
+                                        f"elsewhere or nowhere: window frame(s) {runs_said(across)}" if across else ""))
             if keep is not None:
                 keep = F.pad(keep, (0, 0, 0, 0, pad_before, pad_after))
             if others is not None:
@@ -2460,6 +2571,9 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                     ([motion_video_2[:1].expand(pad_before, -1, -1, -1)] if pad_before else [])
                     + [motion_video_2]
                     + ([motion_video_2[-1:].expand(pad_after, -1, -1, -1)] if pad_after else []), dim=0)
+        elif context_shows != CONTEXT_AS_FILMED:
+            logger.info("[h3] MiniMaxH3MaskedSource: context `%s` and the mask covers all %d frames: no context frames, "
+                        "nothing held", context_shows, n_frames)
         # The whole subject's box per frame, from the tracker's mask and not from the part it was just
         # cut to: on a parts graph nothing after this node knows where the subject is otherwise.
         boxes = _tracked_boxes(tracked[..., 0] if tracked.ndim == 4 else tracked)
@@ -2535,8 +2649,11 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                               "shot_table": table, "replace": replace,
                               # the frames that start a shot: the composite lays nothing across one of them
                               # from the subject (`cut_gate`)
-                              "cuts": source_cuts(frames, table),
-                              **({"pad_before": pad_before, "pad_after": pad_after} if (pad_before or pad_after) else {})},
+                              "cuts": cuts,
+                              **({"pad_before": pad_before, "pad_after": pad_after} if (pad_before or pad_after) else {}),
+                              # on a padded window: what its context frames show (`CONTEXT_SHOWS`), and under `face
+                              # covered` those of them across a cut from the shot (`context_across_cut`)
+                              **context},
                              mask.to(torch.float32),
                              preview_strip(frames, mask, each, motion_reference,
                                            int(motion_short_edge), int(grow_pixels) // 2, zoomed, others,

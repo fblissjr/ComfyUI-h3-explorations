@@ -1311,7 +1311,9 @@ def _unit_count(cells, whole: bool) -> int:
 def _window_frames(mask: np.ndarray, row: dict, at: int, first: int, length: int) -> np.ndarray:
     """A capture's [n, h, w] mask on a window's frames (load frame `row.first_frame` on, `length` of them): context frames
     padded before or after the shot (`pad_before`, `pad_after`) are empty; a frame past the capture's last when no padding is
-    set holds its last (`video_mask.held_mask`)."""
+    set holds its last (`video_mask.held_mask`). Empty on context frames under either `context_shows` (`video_mask.CONTEXT_SHOWS`):
+    the node pads the keep-outs empty in both forms, and the subject's own mask on a window is read from the node's region
+    file (`node_windows`), never from here; the carve and the fault count write only to the capture's frames."""
     out = np.zeros((length,) + mask.shape[1:], bool)
     pad_before, pad_after = int(row.get("pad_before", 0)), int(row.get("pad_after", 0))
     for i in range(pad_before, length - pad_after):
@@ -1403,7 +1405,9 @@ def predict_regions(plan_path: Path, at: int, first: int, others: np.ndarray, ke
         other = _picture(vm, _window_frames(others, row, at, first, length), zoom, size)
         held = _picture(vm, _window_frames(keep, row, at, first, length), zoom, size) if keep is not None else None
         tokens = vm.window(node_source(vm, plan, got, other, held), 0, length, w, h, lt, lh, lw)[2]
-        pad_meta = {k: int(row[k]) for k in ("pad_before", "pad_after") if row.get(k)}
+        # the plan row's padding, and what the node's context frames showed (`video_mask.CONTEXT_SHOWS`) as its own region file
+        # says: `got["mask"]` is that file's, so a held mask there is the node's own and the region remade on it holds it too
+        pad_meta = {**vm.padding_of(row), **vm.padding_of(got)}
         vm.save_window_region(str(into / row["region_file"]), got["mask"], tokens,
                               {**dict(plan.get("source") or {}), "zoom": zoom, **pad_meta},
                               got["margin"], int(row["first_frame"]), int(row.get("trim", 0)))

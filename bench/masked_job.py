@@ -941,7 +941,11 @@ def shown(job: dict, one: dict, files: dict, graph: dict, inputs: Path) -> list[
                                       bool(one.get("continue_from")), floor=floor)
     lines = [f"frames {one['first']}..{one['first'] + one['frames'] - 1} of the copy at {h3_config.FPS:g} fps, canvas "
              f"{run['width']}x{run['height']}, window {run['window_frames']}, context {run['context_frames']}"
-             + (f", padded with {before} real frame(s) before and {after} after ({one['first'] - before}..{one['first'] + one['frames'] + after - 1}) as untouched context, tossed after the decode"
+             + (f", padded with {before} real frame(s) before and {after} after ({one['first'] - before}..{one['first'] + one['frames'] + after - 1}) "
+                + ("as untouched context" if src.get("context_shows", graphs.CONTEXT_SHOWS[0]) == graphs.CONTEXT_SHOWS[0] else
+                   f"with the subject's region held open on them (`{src['context_shows']}`: the shot's first frame's mask before, its last "
+                   "frame's after)")
+                + ", tossed after the decode"
                 if one["frames"] < run["window_frames"] else ""),
              (still_seen(one["still"], ref["size_policy.dit_short_edge"], ref["size_policy.allow_upscale"], inputs)
               if one.get("still") else "no still named: a plan samples nothing")
@@ -990,7 +994,8 @@ def settings_of(one: dict, graph: dict) -> dict:
             "motion_edge_2": src["motion_short_edge_2"] if "motion_video_2" in src else "no second motion video",
             "hair_band": one.get("hair_band", "none: the keep-outs as the capture has them"),
             "render_region": src.get("render_region", "the node's own: the whole frame"),
-            "seed": run["seed"], "composite": src.get("composite", "the node's own: only what changed (a graph built before 2026-10-16)")}
+            "seed": run["seed"], "composite": src.get("composite", "the node's own: only what changed (a graph built before 2026-10-16)"),
+            "context_shows": src.get("context_shows", "the node's own: as filmed")}
     return {key: {"value": used[key], "set_by": "the job file" if key in one else "the builder's default"}
             for key in graphs.SETTINGS}
 

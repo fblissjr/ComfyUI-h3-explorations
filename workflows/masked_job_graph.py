@@ -79,7 +79,8 @@ height left open under it for the still's hair, cut out of one keep-out, which `
 not the clothing; `bench/masked_job.py::hair_band`, `h3_config.MASKED_JOB_HAIR_BAND`), and `render_region`: `part` renders the load zoomed in on what is
 replaced and lays it back (`RENDER_REGIONS`; for a part that is small in the frame; such a load takes a motion
 video only as a `motion_file` of its own, which the node shows as it is and does not cut to the box), where `frame`, the
-default, renders the whole frame. A default that was measured on one clip is a starting value for
+default, renders the whole frame; and `context_shows` (`CONTEXT_SHOWS`): what the real frames a short load is padded with
+show, `as filmed` (the default) or `face covered`. A default that was measured on one clip is a starting value for
 another: every one of them can be set in a load or in the file's `defaults`, and the build record says
 which were (`SETTINGS`). `carried` says what a pass takes: `track` is the whole subject, `held` the
 part as the capture filled and graded it. One job file makes a whole-person pass or a part pass of the same
@@ -357,7 +358,7 @@ MOTIONS = {"none": MASKED_JOB_MOTION["none"], "mesh": MASKED_JOB_MOTION["wired"]
 #: The settings of a load a job file may set in place of the builder's default; a build record says, for
 #: each, the value used and whether the job set it.
 SETTINGS = ("carried", "margin", "feather", "edge", "window", "context", "context_noise", "motion", "motion_edge",
-            "motion_edge_2", "hair_band", "render_region", "seed", "composite")
+            "motion_edge_2", "hair_band", "render_region", "seed", "composite", "context_shows")
 #: What a load's `composite` may say: the Masked Source's own two (`video_mask.COMPOSITE_REGION`, `COMPOSITE_CHANGED`;
 #: `bench/check_masked_job.py` holds the two names together). Absent, the node's default.
 COMPOSITES = ("whole region", "only what changed")
@@ -370,6 +371,12 @@ COMPOSITES = ("whole region", "only what changed")
 #: body model cut to the head, `bench/head_reference.py`) is what a zoomed load names. Until 2026-10-13 a zoomed
 #: load took no motion video at all.
 RENDER_REGIONS = {"frame": None, "part": "zoomed in on what is replaced"}
+#: What a load's `context_shows` may say: the Masked Source's own two (`video_mask.CONTEXT_SHOWS`, which has the rule;
+#: `bench/check_masked_job.py` holds the two names together). What the real source frames a one-window load is padded
+#: with (`window_pad`) show: `as filmed`, the node's default, sets nothing; `face covered` holds the subject's region open
+#: on them. Written by `bench/shot_to_load.py job` from the plan's `subjects.<s>.context` (2026-10-22). A load with no
+#: context frames (one that fills its window, or continues another) carries it to no effect, and the node says so.
+CONTEXT_SHOWS = ("as filmed", "face covered")
 #: What a load's `carried` may say (the capture's words): the whole tracked subject, or its part.
 CARRIED = ("track", "held")
 #: What a subject of a two-subject load may say is replaced, in the plan's words (`bench/shot_coverage.py::REGIONS`),
@@ -663,6 +670,8 @@ def check_load(job: dict, one: dict, windows: tuple[int, ...]) -> None:
     for key in ("motion_first_2", "motion_edge_2"):
         if key in one and not one.get("motion_file_2"):
             raise ValueError(f"load {name!r} sets `{key}` and names no `motion_file_2`")
+    if one.get("context_shows", CONTEXT_SHOWS[0]) not in CONTEXT_SHOWS:
+        raise ValueError(f"load {name!r}: context_shows {one['context_shows']!r}; it is `as filmed` or `face covered`")
     region = one.get("render_region", "frame")
     if region not in RENDER_REGIONS:
         raise ValueError(f"load {name!r}: render_region {region!r}; one of {tuple(RENDER_REGIONS)}")
@@ -753,9 +762,9 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
 
     What it changes in the base, and nothing else: the loader (the source by path, on the load's frames); the
     tracker and the part node, which go, their masks read from files; the Masked Source's region, margin,
-    edge, others, motion video and held tail; the song node's text, canvas, window, context, seed, extent,
-    prefix and audio; the still and the text encoder's view of it; Sol's sink. The model, the sampler, the
-    steps and the shift stay the row's."""
+    edge, others, motion video, held tail and what its context frames show; the song node's text, canvas, window,
+    context, seed, extent, prefix and audio; the still and the text encoder's view of it; Sol's sink. The model,
+    the sampler, the steps and the shift stay the row's."""
     check_job(job)
     check_load(job, one, windows)
     canvas = tuple(job["canvas"])
@@ -852,6 +861,10 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
         src.pop(theirs, None)
     if RENDER_REGIONS[one.get("render_region", "frame")]:
         src["render_region"] = RENDER_REGIONS[one["render_region"]]
+    # what the window's padded frames show (`CONTEXT_SHOWS`): set only off the node's default, as `render_region` is
+    src.pop("context_shows", None)
+    if one.get("context_shows", CONTEXT_SHOWS[0]) != CONTEXT_SHOWS[0]:
+        src["context_shows"] = one["context_shows"]
     src.pop("held_tail", None)
 
     still = _the(g, "LoadImage")

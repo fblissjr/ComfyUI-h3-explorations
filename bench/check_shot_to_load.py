@@ -1923,7 +1923,7 @@ def the_defaults_this_load_carries() -> str:
         made = Made(Path(tmp))
         d = made.load()
         lines = {x["what"]: x for x in d["job"]["defaults"]}
-        assert list(lines) == ["the reference held to the subject's track", "the eye", "the mouth", "depth", "zoom", "other people in the shot", "SAM 3.1 memory selection",
+        assert list(lines) == ["the reference held to the subject's track", "the eye", "the mouth", "depth", "zoom", "the context frames", "other people in the shot", "SAM 3.1 memory selection",
                                "SAM 3.1 head track", "the strangers keep-out", "the part's pieces", "the hair band", "restore spans", "the text", "what the composite kept", "the voice"], list(lines)
         assert lines["depth"]["carries"].startswith("off:") and lines["depth"]["from"].startswith("the chain's default"), lines["depth"]
         # SAM 3.1'S MEMORY SELECTION (the owner's word of 2026-10-17): on in every preview by default, said among a load's defaults from
@@ -2079,6 +2079,46 @@ def the_defaults_this_load_carries() -> str:
     return ("the job prints and keeps the defaults it carries, each with where it comes from (the eye in contrast, the mouth by the lip check, zoomed where "
             "the node allows); the plan's reference form stands over them with its reason, and not without one; the reference step's word with its reason over both")
 
+def what_the_context_frames_show() -> str:
+    """The plan's `context` with `context_by` (2026-10-22): what the real frames a short load is padded with show. Absent, the load
+    carries nothing and says `as filmed`, the chain's default; `face covered` goes onto the load as `context_shows`, which the
+    builder hands the node, and is said among the defaults with the plan's words; a value that is neither, one with no
+    `context_by` and a `context_by` with no `context` are refused before anything is written."""
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        d = made.load()
+        row = {x["what"]: x for x in d["job"]["defaults"]}["the context frames"]
+        assert "context_shows" not in d["loads"][0] and row["carries"].startswith("as filmed") and row["from"].startswith("the chain's default"), \
+            (d["loads"][0].get("context_shows"), row)
+        made.plan["subjects"]["a"].update(context="face covered", context_by="THE OWNER, 2026-10-22: NO BEARD IN THE CONTEXT")
+        d = made.load(name="a_fp_covered")
+        row = {x["what"]: x for x in d["job"]["defaults"]}["the context frames"]
+        # THE CASE THAT GOES RED when the plan's word does not reach the load, or is not said with its words
+        assert d["loads"][0].get("context_shows") == "face covered", d["loads"][0]
+        assert row["carries"].startswith("face covered") and row["from"] == "the plan: THE OWNER, 2026-10-22: NO BEARD IN THE CONTEXT", row
+        # the builder takes the load as written (its graph sets the node's input: bench/check_masked_job.py), and refuses another value
+        for one in masked_job.loads_of(d):
+            graphs.check_load(d["job"], one, masked_job.chain_lengths())
+        try:
+            graphs.check_load(d["job"], {**masked_job.loads_of(d)[0], "context_shows": "covered"}, masked_job.chain_lengths())
+        except ValueError as e:
+            assert "context_shows" in str(e), e
+        else:
+            raise AssertionError("the builder took a load whose context_shows is neither of its two")
+        made.plan["subjects"]["a"]["context"] = "as filmed"
+        d = made.load(name="a_fp_filmed")
+        assert "context_shows" not in d["loads"][0] and {x["what"]: x for x in d["job"]["defaults"]}["the context frames"]["from"].startswith("the plan:"), d["loads"][0]
+        made.plan["subjects"]["a"]["context"] = "covered"
+        refused(lambda: made.load(name="a_fp_x1"), "`context`", "it is `as filmed` or `face covered`")
+        made.plan["subjects"]["a"].update(context="face covered", context_by="  ")
+        refused(lambda: made.load(name="a_fp_x2"), "no `context_by`")
+        made.plan["subjects"]["a"].pop("context")
+        made.plan["subjects"]["a"]["context_by"] = "W"
+        refused(lambda: made.load(name="a_fp_x3"), "`context_by`", "no `context`")
+    return ("a plan with no `context` gives a load that says as filmed; `face covered` with its words reaches the load, its defaults and its "
+            "graph; another value, no `context_by`, or `context_by` alone are refused")
+
+
 def the_figures() -> str:
     from _lib import face_points as fp
     kept = fp.load, fp.table
@@ -2185,6 +2225,14 @@ def a_load_of_two_subjects() -> str:
             noised = json.loads((inputs / "noised.json").read_text())
             # THE CASE THAT GOES RED when the pair does not carry the noise both its loads name
             assert noised["loads"][0].get("context_noise") == 0.8, noised["loads"][0]
+            # what the context frames show (2026-10-22): the node holds one mask, the union, so one subject's `face covered` covers the pair
+            d = json.loads(jb.read_text())
+            d["loads"][0]["context_shows"] = "face covered"
+            (inputs / "b5.json").write_text(json.dumps(d))
+            stl.step_pair(a_(ja, inputs / "b5.json", name="covered"), m)
+            covered = json.loads((inputs / "covered.json").read_text())["loads"][0]
+            assert covered.get("context_shows") == "face covered" and "context_shows" not in noised["loads"][0], covered
+            graphs.check_load(json.loads((inputs / "covered.json").read_text())["job"], graphs.one_subject_view(covered), (141, 192, 243, 294, 345))
             # two loads of ONE seed made at two times: the seed is the same and its words (`defaults.seed_by`) are two records, not a setting
             # that differs; the pair carries the first subject's, and each subject's own row among its defaults. THE CASE THAT GOES RED when
             # the records are held to each other as settings (a seed asked for twice could then never be paired: the times differ)
@@ -2670,6 +2718,7 @@ def carry_words_from_retired_keys_not_carried() -> str:
         old_s["pieces_by"] = "the plan (mrtwo, 2026-10-14: old rule)"
         old["job"]["restore"] = [{"classes": ["Apparel"], "touching": "head", "first": 0, "last": 999, "by": "mrlol, 2026-10-15: old rule"}]
         old["loads"][0]["hair_band"] = 0.6
+        old["loads"][0]["context_shows"] = "face covered"       # the plan's word (2026-10-22), made again from the plan, never carried
         old["job"]["keep_outs"] = {"of": "a", "by": "the plan (old keep_outs_by)", "preview": "shot_c_0100", "first": 100,
                                    "made": [{"name": "clothing", "stay": {"what": "apron"}}]}
         old_file = Path(tmp) / "a_fp_0100.json"
@@ -2682,7 +2731,9 @@ def carry_words_from_retired_keys_not_carried() -> str:
         assert "pieces" not in new_s and "pieces_by" not in new_s, f"retired pieces/pieces_by was carried: {new_s}"
         assert "restore" not in carried["job"], f"retired job.restore was carried: {carried['job'].get('restore')}"
         assert "hair_band" not in carried["loads"][0], f"old hair_band was carried without the plan asking: {carried['loads'][0]}"
-        for key_label in ("pieces/pieces_by", "job.restore", "job.keep_outs.stay", "loads[0].hair_band", "loads[0].render_region", "loads[0].others", "job.keep_outs.by"):
+        assert "context_shows" not in carried["loads"][0], f"old context_shows was carried without the plan asking: {carried['loads'][0]}"
+        for key_label in ("pieces/pieces_by", "job.restore", "job.keep_outs.stay", "loads[0].hair_band", "loads[0].render_region", "loads[0].others", "job.keep_outs.by",
+                          "loads[0].context_shows"):
             assert key_label in printed and "not carried" in printed, f"{key_label!r} not said as not carried on stdout: {printed!r}"
     return "retired keys and plan/preview-rebuilt keys (hair_band, render_region, others, keep_outs.by) are not carried from the old job and are said on stdout"
 
@@ -3279,6 +3330,7 @@ case("text: who wrote it, said with a flag", the_text_step)
 case("a job renders from the video's present copy", a_job_renders_from_the_present_copy)
 case("reference: on the load's frames, drawn by default", the_reference_step)
 case("the defaults this load carries", the_defaults_this_load_carries)
+case("what the context frames show: the plan's word onto the load", what_the_context_frames_show)
 case("the figures, at the canvas and in the reference", the_figures)
 case("pair: two loads of the same frames as one of two subjects", a_load_of_two_subjects)
 case("where a face may not show: two cues, printed as data", where_a_face_may_not_show)

@@ -25,6 +25,8 @@ capped short of its last two frames, and its sound. Cases (each seen red with it
                            --device cpu with an int8 VAE; a continued run with no piece record; a render whose frames fit the source
                            better one frame off; gapped windows; a CLI refusal exits non-zero with no Python traceback; and a failed
                            run or stale .part decode never blocks or leaks into the rerun
+  a padded window          a region file saved again (a re-composite, --save-own-matte) keeps its pad counts and what its context
+                           frames showed (`video_mask.padding_of`), so a `face covered` window is not rewritten `as filmed`
 
     <comfy venv python> bench/check_recomposite_piece.py
 """
@@ -145,7 +147,8 @@ def window_file(folder: Path, name: str, n: int, trim: int, written: int) -> Pat
     return path
 
 
-def make_plain(name: str, region: bool = True, start: int = LEAD, continued: str = "", vae: str = "the_render_vae.safetensors") -> dict:
+def make_plain(name: str, region: bool = True, start: int = LEAD, continued: str = "", vae: str = "the_render_vae.safetensors",
+               padding: dict | None = None) -> dict:
     """One window laid "only what changed", as the song node leaves it, with the graph beside it."""
     root = WORK / name
     folder = root / "r_windows"
@@ -162,7 +165,7 @@ def make_plain(name: str, region: bool = True, start: int = LEAD, continued: str
     window_file(folder, "r", 1, 0, FRAMES)
     (folder / "r_window_1.mp4").write_bytes(b"")
     if region:
-        vm.save_window_region(str(folder / "r_window_1_region.npz"), mask, tokens, settings(), MARGIN, 0, 0)
+        vm.save_window_region(str(folder / "r_window_1_region.npz"), mask, tokens, {**settings(), **(padding or {})}, MARGIN, 0, 0)
     return {"render": root / "r_00001.mp4", "pixels": pixels, "decode": {"r_window_1": decode}, "tokens": tokens}
 
 
@@ -562,6 +565,29 @@ def own_matte_reconstructed() -> str:
             "the same render with today's carve is refused, and a disagreeing control refuses without touching _region.npz")
 
 
+#: A padded window's region keys as the node writes them for a `face covered` load (`video_mask.PADDING_KEYS`).
+PADDED = {"pad_before": 1, "pad_after": 1, "context_shows": "face covered", "context_held_across_a_cut": [0], "context_held_empty": ["after"]}
+
+
+def a_padded_window_keeps_its_context() -> str:
+    """A region file saved again, by a re-composite and by --save-own-matte, keeps what its window's context frames showed
+    (`video_mask.padding_of`): until 2026-10-22 both sites carried the two pad counts alone, so `save_window_region` wrote a
+    `face covered` window as `as filmed` (found by a blind read)."""
+    made = make_plain("padded", padding=PADDED)
+    before = {k: vm.load_window_region(str(made["render"].parent / "r_windows" / "r_window_1_region.npz")).get(k) for k in PADDED}
+    assert before == PADDED, f"the fixture's region does not hold the padding it was given: {before}"
+    shutil.rmtree(WORK / "out" / "p_rc", ignore_errors=True)
+    must_run(args(made, "p_rc"), decode=handed(made))
+    again = vm.load_window_region(str(WORK / "out" / "p_rc" / "p_rc_windows" / "p_rc_window_1_region.npz"))
+    # THE CASE THAT GOES RED when a re-composite's region drops what the context showed
+    assert {k: again.get(k) for k in PADDED} == PADDED, f"the re-composite's region: {({k: again.get(k) for k in PADDED})}"
+    must_run(args(made, "", save_own_matte=True, allow_rule_change=True, set=[]), decode=handed(made))
+    own = vm.load_window_region(str(made["render"].parent / "r_windows" / "r_window_1_region.npz"))
+    # THE CASE THAT GOES RED when --save-own-matte rewrites a `face covered` window as `as filmed`
+    assert own.get("matte") is not None and {k: own.get(k) for k in PADDED} == PADDED, f"the own-matte region: {({k: own.get(k) for k in PADDED})}"
+    return "a re-composite and --save-own-matte both keep the pad counts, `face covered`, the held frames across a cut and the empty side"
+
+
 def what_it_refuses() -> str:
     plain_rec()
     # Direct self-checks on bench/_lib/__init__.py::refused
@@ -656,6 +682,7 @@ case("the source outside the region", outside_the_region)
 case("two windows, zoomed, continued, capped, with sound", two_windows_zoomed)
 case("own matte reconstructed", own_matte_reconstructed)
 case("what it refuses", what_it_refuses)
+case("a padded window keeps what its context frames showed", a_padded_window_keeps_its_context)
 
 if __name__ == "__main__":
     sys.exit(finish())

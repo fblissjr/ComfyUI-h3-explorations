@@ -49,7 +49,9 @@ CARRIES, a line each with where it comes from, and keeps the same in the job fil
   starting value and nothing measured.
 - The plan (`data/<video>/plan.json`): for each subject the `region` (what is replaced), and, new with this tool,
   the `still` its face is taken from, the `parts` the part model ticks for it, and optionally `hair_band`. A
-  subject whose plan lacks `still` or `parts` is refused with the keys to add. A plan look's stay item made as one
+  subject whose plan lacks `still` or `parts` is refused with the keys to add. Optionally `context` with `context_by`:
+  what the real frames a short load is padded with show, `as filmed` (the default) or `face covered`, copied onto each
+  load as `context_shows` (`context_of`). A plan look's stay item made as one
   keep-out (`look.stay[]` with `as: "one keep-out"`, `replaces_keep_out`, `classes_on_her_track`, `hold_frames`, and
   `look_by`) is made by the job step in place of the keep-out it replaces (`stay_of`, `cut_stay`). Optionally `pieces` (with
   `pieces_by`: who chose it, on what): how the capture reads the subject's part, copied by `job` onto the
@@ -1652,7 +1654,7 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
     if old_load.get("subject") != subject:
         raise Refused(f"--carry-words-from {old_name}: old load's subject is {old_load.get('subject')!r}, not {subject!r}")
     load_known = {"name", "first", "frames", "subject", "others", "text", "motion_file", "motion_first", "render_region", "save_kept",
-                  "hair_band", "motion", "window", "context_noise"}
+                  "hair_band", "motion", "window", "context_noise", "context_shows"}
     for k in old_load:
         if k not in load_known:
             raise Refused(f"--carry-words-from {old_name}: word-bearing key 'loads[0].{k}' in old job cannot be carried")
@@ -1724,6 +1726,8 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
         retired_said.append("job.restore: retired (2026-10-16: plan restore gone from the plan; not carried)")
     if "hair_band" in old_load:
         retired_said.append(f"loads[0].hair_band: not carried (was {old_load.get('hair_band')!r}; rebuilt from the plan's hair_band)")
+    if "context_shows" in old_load:
+        retired_said.append(f"loads[0].context_shows: not carried (was {old_load.get('context_shows')!r}; rebuilt from the plan's context)")
     if "render_region" in old_load:
         retired_said.append(f"loads[0].render_region: not carried (was {old_load.get('render_region')!r}; rebuilt from zoom/whole_frame)")
     if "others" in old_load:
@@ -2027,6 +2031,7 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
                   "the strangers keep-out", "the part's pieces", "the hair band", "restore spans", "the text",
                   "what the composite kept", "the voice", "the seam", "the kept frames' noise",
                   "SAM 3.1 memory selection", "SAM 3.1 head track",     # read again from the new job's own preview, never carried
+                  "the context frames",                                 # read again from the plan's `context`, never carried
                   "the seed"}                                           # a seed is per load: only this load's own `--seed`, never carried
     defs = {}
     for row in old_job.get("defaults") or []:
@@ -2364,6 +2369,10 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
                           f"carry a band: take `hair_band` out of {subject!r} in the plan file and the load is made without one, or write by hand a load on a "
                           f"preview that tracks the keep-out")
         load["hair_band"] = band["value"] if isinstance(band, dict) else band
+    # WHAT THE CONTEXT FRAMES SHOW (`context_of`, the plan's word): written into the load only off the node's default
+    context = context_of(p, subject)
+    if context["said_by"] == "the plan" and context["value"] != "as filmed":
+        load["context_shows"] = context["value"]
     # A LOOK'S STAY ITEM made as one keep-out in place of one the plan names (the plan's `look.stay`; the lead's ruling of
     # 2026-10-14 on mrpre's apron read): her clothing held over frames, the band's box already out of it
     kept, stay_said = stay_of(p, subject, kept, load, preview, on_track, part, video, output, preview_files, name, region)
@@ -2922,6 +2931,26 @@ def reference_block(form: str, why: str, by: str, now: str, record: Path, points
 REFERENCE_DEFAULT = {"mouth": "auto", "iris": "contrast", "closed_lip_line": True}
 
 
+def context_of(p: dict, subject: str) -> dict:
+    """WHAT THE CONTEXT FRAMES SHOW for this subject's loads (the owner's ask of 2026-10-22: one system for more than one
+    scenario), from the plan's `subjects.<s>.context` with `context_by`: `as filmed` (the default, and the key left out) or
+    `face covered` (`masked_job_graph.CONTEXT_SHOWS`; the node's `video_mask.CONTEXT_SHOWS` has the rule). The real frames a
+    short load is padded with show the original subject unmasked under the first, and the subject's region held open under
+    the second, for a subject whose original feature must not be in the window (the beard rule, docs/masked_v2v/AGENTS.md
+    §2). Returns {"value", "said_by", "why"}; refused: a value that is neither, or one with no `context_by`."""
+    import masked_job_graph
+    if "context" not in p:
+        if str(p.get("context_by") or "").strip():
+            raise Refused(f"the plan has `context_by` for {subject!r} and no `context`: add `context`, `as filmed` or `face covered`, or take both out")
+        return {"value": masked_job_graph.CONTEXT_SHOWS[0], "said_by": "the chain's default",
+                "why": "the real frames a short load is padded with are untouched context (2026-10-21)"}
+    if p["context"] not in masked_job_graph.CONTEXT_SHOWS:
+        raise Refused(f"the plan's `context` for {subject!r} is {p['context']!r}: it is `as filmed` or `face covered`")
+    if not str(p.get("context_by") or "").strip():
+        raise Refused(f"the plan says `context: {p['context']}` for {subject!r} with no `context_by`: who said so, and why")
+    return {"value": p["context"], "said_by": "the plan", "why": " ".join(str(p["context_by"]).split())}
+
+
 def reference_form(p: dict, subject: str) -> dict:
     """The mouth and the eye a subject's references are drawn with, and whose word each is."""
     import draw_face_points
@@ -3004,6 +3033,7 @@ def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: di
     import h3_config
     mine = next(s for s in subjects if s["label"] == subject)
     names = [k["name"] for k in (kept or {}).get("made", [])]
+    context = context_of(p, subject)
     band = load.get("hair_band")
     mouth, iris = ref_form["mouth"], ref_form["iris"]
     cl_block = mouth.get("closed_lip_line")
@@ -3049,6 +3079,12 @@ def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: di
          if depth_block else "the chain's default (off by default)"),
         ("zoom", "zoomed in where the node's box allows (the node decides at plan)" if zoom_block else "the whole frame",
          f"{(zoom_block or whole_block)['said_by']}: {(zoom_block or whole_block)['why']}"),
+        ("the context frames", {"as filmed": "as filmed: the real frames a short load is padded with are untouched, the original subject in "
+                                             "them unmasked",
+                                "face covered": "face covered: the subject's region held open on the real frames a short load is padded with "
+                                                "(the shot's first frame's mask before it, its last frame's after; video_mask.pad_context); "
+                                                "nothing on a load that fills its window"}[context["value"]],
+         f"{context['said_by']}: {context['why']}"),
         ("other people in the shot", (p.get("others_present") or {}).get("said", "not read"), "bench/others_present.py, from the preview's tables and the owner's answers"),
         ("SAM 3.1 memory selection", *memory_selection_carried(preview)),
         ("SAM 3.1 head track", *head_track_carried(preview, no_head_track_block)),
@@ -3944,7 +3980,10 @@ def pair_job(one: dict, two: dict, regions: dict, name: str, day: str, output_ke
                      "voice table is read", "from": "bench/shot_to_load.py pair (PAIR_RANK, PAIR_WHOLE_FRAME_WHY, PAIR_NOT_CARRIED)"})
     load = {"name": name, "first": first, "frames": frames, "text": name, "subjects": entries,
             **({"window": l1["window"]} if l1.get("window") is not None else {}),
-            **({"context_noise": l1["context_noise"]} if l1.get("context_noise") is not None else {})}
+            **({"context_noise": l1["context_noise"]} if l1.get("context_noise") is not None else {}),
+            # the node holds one mask, the union of the two: where either subject's plan covers the face on the context frames, the
+            # pair covers both (more regenerated on frames tossed after the decode costs no laid pixel; video_mask.CONTEXT_SHOWS)
+            **({"context_shows": "face covered"} if "face covered" in (l1.get("context_shows"), l2.get("context_shows")) else {})}
     if l1.get("save_kept") or l2.get("save_kept"):
         load["save_kept"] = True
     job = {"name": name, "note": note, "source": j1["source"], "first": first, "frames": frames, "canvas": list(j1["canvas"]), "output": output_key,

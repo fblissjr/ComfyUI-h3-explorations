@@ -221,6 +221,15 @@ that could happen.
     the value on the context's region cells, 0 on the context's plate, and
     is the default run's everywhere else.
 
+24. **What the context frames show** (`context_shows`, 2026-10-22). A short
+   load's padded frames carry an empty mask `as filmed` and, `face covered`,
+   the shot's first frame's mask before it and its last frame's after it,
+   the keep-outs empty either way; the steps wholly before the shot then
+   regenerate; a load that fills its window is the same under both; the
+   record, the region file and the plan's row say which form it took and
+   which held frames lie across a cut, and the plan's mask frames stay the
+   shot's.
+
 No model, no CUDA, no server.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/check_video_mask.py
@@ -878,7 +887,9 @@ def check_cut_gate(problems):
     if vm.source_cuts(one.expand(12, -1, -1, -1)):
         _fail(problems, "cut gate: a held shot was given a cut")
     # the song node gates through `lay_window` (item 20, which lays a window across a cut); the record carries the cuts
-    if '"cuts": source_cuts(frames, table)' not in (REPO / "video_mask.py").read_text(encoding="utf-8"):
+    # (taken once before the padding since 2026-10-22, which reads them for the held context frames across a cut)
+    vm_text = (REPO / "video_mask.py").read_text(encoding="utf-8")
+    if "        cuts = source_cuts(frames, table)\n" not in vm_text or '"cuts": cuts,' not in vm_text:
         _fail(problems, "cut gate: the Masked Source's record does not carry the source's cuts")
 
 
@@ -1851,6 +1862,130 @@ def check_held_tail(problems):
             problems.append(f"context padding (35 in 39): saved region must carry pad_before=2, pad_after=2, trim=2 and 39 window frames, got {loaded_reg['pad_before']}, {loaded_reg['pad_after']}, {loaded_reg['trim']}, {loaded_reg['mask'].shape}")
 
 
+def check_context_shows(problems):
+    """Item 24. What the real frames a short load is padded with show (`context_shows`, 2026-10-22): `as filmed`, nothing
+    held there; `face covered`, the shot's first frame's mask held over the frames before and its last frame's over the
+    frames after, the keep-outs empty in both forms; a load that fills its window unchanged by either; and the form, with
+    the held frames that lie across a cut, in the record, each window's region file and the plan's rows."""
+    import tempfile
+    from types import SimpleNamespace
+    if getattr(vm, "CONTEXT_SHOWS", None) != ("as filmed", "face covered") or not hasattr(vm, "pad_context"):
+        problems.append("context: the node has no `context_shows` choice of `as filmed` and `face covered` (`CONTEXT_SHOWS`, `pad_context`)")
+        return
+    where = _appended("context_shows")
+    if where is None or not where.optional or where.default != vm.CONTEXT_AS_FILMED or list(where.options) != list(vm.CONTEXT_SHOWS):
+        problems.append("context: `context_shows` is not appended last, optional, of the two plain-word choices, `as filmed` by default")
+    # the pure padding: a shot of 3 frames whose subject moves, 2 frames before it and 1 after
+    shot = torch.zeros(3, 4, 4)
+    shot[0, 0, 0], shot[1, 1, 1], shot[2, 2, 2] = 1.0, 1.0, 1.0
+    filmed, covered = vm.pad_context(shot, 2, 1), vm.pad_context(shot, 2, 1, vm.CONTEXT_FACE_COVERED)
+    if tuple(filmed.shape) != (6, 4, 4) or bool(filmed[:2].any()) or bool(filmed[5:].any()) or not torch.equal(filmed[2:5], shot):
+        problems.append("context: `as filmed` must pad the shot's mask with empty frames before and after and leave its own frames")
+    if not (torch.equal(covered[0], shot[0]) and torch.equal(covered[1], shot[0]) and torch.equal(covered[5], shot[2])
+            and torch.equal(covered[2:5], shot)):
+        problems.append("context: `face covered` must hold the shot's FIRST frame's mask over the frames before and its LAST "
+                        "frame's over the frames after, and leave its own frames")
+    try:
+        vm.pad_context(shot, 2, 1, "covered")
+        problems.append("context: an unknown `context_shows` was padded, not refused")
+    except ValueError:
+        pass
+    # which held frames lie across a cut: cuts on the shot's own first frame and on the frame after its last
+    if vm.context_across_cut([2, 5], 2, 3, 1) != [0, 1, 5] or vm.context_across_cut([], 2, 3, 1) != [] \
+            or vm.context_across_cut([1], 2, 3, 1) != [0]:
+        problems.append(f"context: the held frames across a cut are wrong: {vm.context_across_cut([2, 5], 2, 3, 1)}, "
+                        f"{vm.context_across_cut([1], 2, 3, 1)}")
+    # the node: a 35-frame shot in a 39-frame window, 2 before and 2 after, the subject moving so first and last differ
+    node = vm.MiniMaxH3MaskedSource
+    frames_39 = torch.rand(39, H, W, 3)
+    mask_35 = torch.zeros(35, H, W)
+    for k in range(35):
+        mask_35[k, 32:64, 20 + 2 * k:52 + 2 * k] = 1.0
+    others_35 = torch.zeros(35, H, W)
+    others_35[:, 90:110, 150:170] = 1.0
+    table = json.dumps({"shots": [{"first_frame": 0, "last_frame": 1}, {"first_frame": 2, "last_frame": 36},
+                                  {"first_frame": 37, "last_frame": 38}]})
+    node.hidden = SimpleNamespace(prompt={"10": {"_meta": {"pad_before": 2, "pad_after": 2}}}, unique_id="10")
+    try:
+        recs = {shows: node.execute(frames_39, mask_35, grow_pixels=8, others=others_35, shot_table=table,
+                                    context_shows=shows).args[0] for shows in vm.CONTEXT_SHOWS}
+        plain = node.execute(frames_39, mask_35, grow_pixels=8, others=others_35, shot_table=table).args[0]
+    finally:
+        node.hidden = None
+    filmed, covered = recs[vm.CONTEXT_AS_FILMED], recs[vm.CONTEXT_FACE_COVERED]
+    if not torch.equal(plain["mask"], filmed["mask"]) or plain.get("context_shows") != vm.CONTEXT_AS_FILMED:
+        problems.append("context: a node given no `context_shows` must pad as `as filmed` does and say so")
+    if bool(filmed["mask"][:2].any()) or bool(filmed["mask"][37:].any()):
+        problems.append("context: `as filmed` must leave the context frames' mask empty")
+    if not (all(torch.equal(covered["mask"][k], mask_35[0]) for k in (0, 1))
+            and all(torch.equal(covered["mask"][k], mask_35[-1]) for k in (37, 38))
+            and torch.equal(covered["mask"][2:37], filmed["mask"][2:37])):
+        problems.append("context: `face covered` must hold the first shot frame's mask on frames 0..1 and the last's on 37..38 "
+                        "and change no frame of the shot")
+    boxes = covered["subject_boxes"]
+    if not (torch.equal(boxes[0], boxes[2]) and torch.equal(boxes[38], boxes[36])) or int(filmed["subject_boxes"][0, 0]) >= 0:
+        problems.append("context: the tracked subject's box must be held with the mask under `face covered`, and absent `as filmed`")
+    if bool(covered["others"][:2].any()) or bool(covered["others"][37:].any()):
+        problems.append("context: the keep-outs must stay empty on the context frames under `face covered` as `as filmed`")
+    if covered.get("context_shows") != vm.CONTEXT_FACE_COVERED or covered.get("context_held_across_a_cut") != [0, 1, 37, 38] \
+            or "context_held_across_a_cut" in filmed:
+        problems.append(f"context: the record must say `face covered` and the held frames across a cut, [0, 1, 37, 38]: "
+                        f"{covered.get('context_shows')!r}, {covered.get('context_held_across_a_cut')!r}")
+    lt = next(t for t in range(1, 40) if sum(vm.run_lengths(t)) == 39)
+    early = [s for s in range(lt) if sum(vm.run_lengths(lt)[:s + 1]) <= 2]      # latent steps wholly on the frames before
+    win = {shows: vm.window(rec, 0, 39, W, H, lt, LAT_H, LAT_W) for shows, rec in recs.items()}
+    if not early or any(bool(win[vm.CONTEXT_AS_FILMED][2][s].any()) for s in early) \
+            or not all(bool(win[vm.CONTEXT_FACE_COVERED][2][s].any()) for s in early):
+        problems.append(f"context: the latent step(s) {early} wholly on the frames before the shot must regenerate under `face "
+                        "covered` and nothing `as filmed`")
+    # the region file and the plan's rows say which form the context took; the plan's mask frames are the shot's
+    afs = importlib.import_module("_h3pack.audio_freeze_song")
+    for shows, rec in recs.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            got = vm.load_window_region(vm.save_window_region(str(Path(tmp) / "w_region.npz"), win[shows][3], win[shows][2],
+                                                              rec, 8, 0, 2))
+            if got.get("context_shows") != shows or (shows == vm.CONTEXT_FACE_COVERED) != ("context_held_across_a_cut" in got):
+                problems.append(f"context: the region file of a `{shows}` window reads back {got.get('context_shows')!r}, "
+                                f"{got.get('context_held_across_a_cut')!r}")
+            one = SimpleNamespace(number=1, start=0.0, frames=39, text="t")
+            afs.write_plan(rec, [one], [35], 0, False, W, H, tmp, "c", {})
+            plan = json.loads(Path(afs.loop_resume.plan_path(tmp, "c")).read_text())
+            row = plan["windows"][0]
+            if row.get("context_shows") != shows or plan["frames_with_the_mask"] != [[0, 34]]:
+                problems.append(f"context: the `{shows}` plan says {row.get('context_shows')!r} and the mask on "
+                                f"{plan['frames_with_the_mask']}; the shot's own frames are [[0, 34]]")
+    # a load that fills its window: unchanged by either form, and no context in the record
+    full = {shows: node.execute(frames_39, torch.cat([mask_35[:2], mask_35, mask_35[-2:]]), grow_pixels=8,
+                                context_shows=shows).args[0] for shows in vm.CONTEXT_SHOWS}
+    if not torch.equal(full[vm.CONTEXT_AS_FILMED]["mask"], full[vm.CONTEXT_FACE_COVERED]["mask"]) \
+            or any("context_shows" in r or "pad_before" in r for r in full.values()):
+        problems.append("context: a load with no context frames must come out the same under either form, with no context key")
+    try:
+        node.execute(frames_39, mask_35, grow_pixels=8, context_shows="the face covered")
+        problems.append("context: the node took an unknown `context_shows`")
+    except ValueError as exc:
+        if "`as filmed` or `face covered`" not in str(exc):
+            problems.append(f"context: the refusal does not name the two choices in plain words: {exc}")
+    # an edge frame with no mask holds nothing, and the record says which side (data, never a refusal)
+    late = mask_35.clone()
+    late[-3:] = 0.0                                    # the subject has left by the shot's last frame
+    node.hidden = SimpleNamespace(prompt={"10": {"_meta": {"pad_before": 2, "pad_after": 2}}}, unique_id="10")
+    try:
+        gone = node.execute(frames_39, late, grow_pixels=8, context_shows=vm.CONTEXT_FACE_COVERED).args[0]
+    finally:
+        node.hidden = None
+    if gone.get("context_held_empty") != ["after"] or bool(gone["mask"][37:].any()) or not torch.equal(gone["mask"][0], late[0]):
+        problems.append(f"context: a last frame with no mask must hold nothing after it and say `after`: {gone.get('context_held_empty')!r}")
+    # a region file saved again from one read keeps every padding key (`padding_of`; a re-composite once dropped two of them)
+    with tempfile.TemporaryDirectory() as tmp:
+        first = vm.load_window_region(vm.save_window_region(str(Path(tmp) / "a.npz"), win[vm.CONTEXT_FACE_COVERED][3],
+                                                            win[vm.CONTEXT_FACE_COVERED][2], {**covered, "context_held_empty": ["after"]}, 8, 0, 2))
+        again = vm.load_window_region(vm.save_window_region(str(Path(tmp) / "b.npz"), first["mask"], first["tokens"],
+                                                            {**first["source"], **vm.padding_of(first)}, 8, 0, 2))
+        if vm.padding_of(again) != vm.padding_of(first) or set(vm.padding_of(first)) != set(vm.PADDING_KEYS):
+            problems.append(f"context: a region saved again with `padding_of` lost a key: {vm.padding_of(first)} -> {vm.padding_of(again)}")
+
+
 def check_others(problems):
     """Item 14. A subject with a neighbour standing against them: the margin stays off the neighbour and the
     subject loses no token. The control: the same mask on `keep`, which gives the subject holes."""
@@ -1939,7 +2074,7 @@ def check_others(problems):
 #: The Masked Source's last inputs, in the order they were appended. A saved workflow stores a widget's value
 #: by position, so a new input goes on the end and none of these moves: each case below that owns one of them
 #: asks `_appended` for it, and adding an input is one name on the end of this tuple.
-APPENDED = ("others", "edge", "motion_video", "render_region", "motion_video_2", "motion_short_edge_2")
+APPENDED = ("others", "edge", "motion_video", "render_region", "motion_video_2", "motion_short_edge_2", "context_shows")
 
 
 def _appended(name: str):
@@ -2847,7 +2982,7 @@ def check_graphs(problems):
 
 def main() -> int:
     problems: list[str] = []
-    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_edge, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_region_rules, check_queue_time_refusals, check_wired_motion, check_subject_boxes, check_cut_gate, check_lay_window, check_song_loop, check_motion_look, check_held_tail, check_render_zoom, check_mask_review, check_graphs):
+    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_edge, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_region_rules, check_queue_time_refusals, check_wired_motion, check_subject_boxes, check_cut_gate, check_lay_window, check_song_loop, check_motion_look, check_held_tail, check_context_shows, check_render_zoom, check_mask_review, check_graphs):
         check(problems)
     for p in problems:
         print(f"FAIL  {p}")
@@ -2856,7 +2991,7 @@ def main() -> int:
               "after the grow in whole tokens and only then, feathers off the "
               "subject, composites exactly, holds a short source, crops the mask as the frames, paints out only "
               "inside the regenerated tokens, takes a part only from the subject, restores the margin under "
-              "`only what changed`, builds a motion reference on grey or whole at the short edge asked, softens only the subject and empties only its body's tokens for a late start, is wired whole in every graph, its loader loads the frames the plan reads, the mask review shows what regenerates, and a margin taken from the subject's size holds the region under its bound where a fixed one does not, and the margin stays off the people round the subject without costing the subject a token, and a keep-out's speck does not hole a step, a one-cell hole is closed and a piece cut off from the subject is given back, and a setting it will refuse is refused at queue time in the same words, and a wired motion video is cut where the window is cut, and a tracked mask becomes one box a frame with none where the subject is not, and nothing is laid across a cut from the subject")
+              "`only what changed`, builds a motion reference on grey or whole at the short edge asked, softens only the subject and empties only its body's tokens for a late start, is wired whole in every graph, its loader loads the frames the plan reads, the mask review shows what regenerates, and a margin taken from the subject's size holds the region under its bound where a fixed one does not, and the margin stays off the people round the subject without costing the subject a token, and a keep-out's speck does not hole a step, a one-cell hole is closed and a piece cut off from the subject is given back, and a setting it will refuse is refused at queue time in the same words, and a wired motion video is cut where the window is cut, and a tracked mask becomes one box a frame with none where the subject is not, and nothing is laid across a cut from the subject, and a short load's padded frames show the subject as filmed or with the region held from the shot's edge frames, as the load says")
     return 1 if problems else 0
 
 

@@ -593,6 +593,38 @@ def the_nodes_schemas_accept_a_load():
         assert not errors, "\n      ".join(errors)
 
 
+def a_load_says_what_its_context_frames_show():
+    """What the real frames a short load is padded with show (`context_shows`, 2026-10-22): a load that names `face covered`
+    sets the Masked Source's input to it and changes nothing else of the graph; one that names nothing, or `as filmed`, sets
+    nothing (the node's own default); another value is refused; the node's schema takes it; the builder's two names are the
+    node's own; and the build record and the lines shown say which form the load carries."""
+    import build_workflows
+    import masked_job as tool_
+    plain, covered, filmed = (_a_load(one) for one in (WHOLE, {**WHOLE, "context_shows": "face covered"},
+                                                        {**WHOLE, "context_shows": "as filmed"}))
+    src = {k: g[graphs._the(g, graphs.SOURCE)]["inputs"] for k, g in (("plain", plain), ("covered", covered), ("filmed", filmed))}
+    assert src["covered"].get("context_shows") == "face covered", f"a load naming `face covered` set {src['covered'].get('context_shows')!r}"
+    assert "context_shows" not in src["plain"] and "context_shows" not in src["filmed"], "a load at the node's default sets the input"
+    assert {k for k in set(src["covered"]) | set(src["plain"]) if src["covered"].get(k) != src["plain"].get(k)} == {"context_shows"}, \
+        "a load naming `face covered` differs from the same load in more than context_shows"
+    stale = copy.deepcopy(BASE)
+    stale[graphs._the(stale, graphs.SOURCE)]["inputs"]["context_shows"] = "face covered"
+    clean = graphs.load(stale, LOAD_JOB, WHOLE, FILES_WHOLE, "the words", windows=WINDOWS)
+    assert "context_shows" not in clean[graphs._the(clean, graphs.SOURCE)]["inputs"], "a base graph's context_shows reached a load that names none"
+    _unbuildable("context_shows", {**WHOLE, "context_shows": "covered"})
+    vm = (REPO / "video_mask.py").read_text()
+    assert graphs.CONTEXT_SHOWS == ("as filmed", "face covered") and all(f'= "{x}"' in vm for x in graphs.CONTEXT_SHOWS) \
+        and "CONTEXT_SHOWS = (CONTEXT_AS_FILMED, CONTEXT_FACE_COVERED)" in vm, "the builder's context names are not the node's"
+    oi = declared()
+    errors = build_workflows.validate_api(ours_only(covered, oi), oi, "face covered")
+    assert not errors, "\n      ".join(errors)
+    assert "context_shows" in graphs.SETTINGS, "a build record would not say a job set what the context frames show"
+    said, said_plain = tool_.settings_of({**WHOLE, "context_shows": "face covered"}, covered)["context_shows"], tool_.settings_of(WHOLE, plain)["context_shows"]
+    assert said == {"value": "face covered", "set_by": "the job file"} and said_plain["set_by"] == "the builder's default" \
+        and "as filmed" in said_plain["value"], f"the build record says {said} and {said_plain}"
+    return "a load naming `face covered` sets the node's input and nothing else; the default sets nothing; another value is refused"
+
+
 def a_load_of_chained_windows_takes_context_noise():
     """A load longer than its window runs as chained windows, each later one keeping the last frames of the one before, and may say
     how noised they are shown (2026-10-15; until then only a continuation could). Named, the graph carries it; not named, the graph
@@ -1702,7 +1734,7 @@ def main() -> int:
                build_refuses_what_it_must, queue_refuses_what_it_must, a_job_is_built_on_its_videos_analysis_folder,
                a_load_lands_on_the_inputs_it_names, a_plan_is_the_render_with_nothing_sampled,
                a_load_leaves_the_rows_model_alone, the_nodes_schemas_accept_a_load,
-               a_load_the_graph_cannot_be_built_from, a_load_of_chained_windows_takes_context_noise, loads_from_a_capture, a_load_of_two_subjects, a_hair_band_under_a_part,
+               a_load_the_graph_cannot_be_built_from, a_load_says_what_its_context_frames_show, a_load_of_chained_windows_takes_context_noise, loads_from_a_capture, a_load_of_two_subjects, a_hair_band_under_a_part,
                a_text_is_of_its_frames, a_load_of_two_shots,
                the_gate_before_a_render, an_uncarved_keep_out_refused):
         case(fn.__name__.replace("_", " "), fn)

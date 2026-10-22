@@ -293,6 +293,9 @@ def write_plan(source: dict, windows, writes: list[int], context_frames: int, co
     pad_after = int(source.get("pad_after", 0)) if len(windows) == 1 and not continued else 0
     cuts = [int(c) for c in source.get("cuts") or []]
     on = (source["mask"] > 0.5).flatten(1).any(dim=1).tolist()
+    # the shot's own frames: under `face covered` the context frames carry a held mask (`video_mask.CONTEXT_SHOWS`), and the
+    # splits and `frames_with_the_mask` below are of the shot, as they were when the context was always empty
+    on = [there and pad_before <= f < have - pad_after for f, there in enumerate(on)]
     present, at = [], None
     for f, there in enumerate(on + [False]):
         if there and at is None:
@@ -315,7 +318,10 @@ def write_plan(source: dict, windows, writes: list[int], context_frames: int, co
         first_written = (start + trim) if (i or continued) else 0
         row = {"number": w.number, "first_frame": start, "frames": w.frames, "trim": trim, "frames_written": int(writes[i]),
                "first_written_frame": first_written, "last_written_frame": first_written + int(writes[i]) - 1, "text": w.text,
-               **({"pad_before": pad_before, "pad_after": pad_after} if (pad_before or pad_after) else {})}
+               **({"pad_before": pad_before, "pad_after": pad_after,
+                   "context_shows": source.get("context_shows") or video_mask.CONTEXT_AS_FILMED,
+                   **{k: list(source[k]) for k in ("context_held_across_a_cut", "context_held_empty") if source.get(k)}}
+                  if (pad_before or pad_after) else {})}
         if start >= have:
             past.append(w.number)
             rows.append({**row, "region_file": None, "why": f"starts past the source's {have} frames"})
