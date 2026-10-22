@@ -257,7 +257,12 @@ def cranium_box(points: dict, size: tuple[int, int], room: float, frames: np.nda
         heads.append(head)
         left_out.append(out)
     each = np.array(each, float)
-    want = np.concatenate([each[:, :2].min(0), each[:, 2:].max(0)])
+    # A frame whose face has no grey head joined to it is one where she is hidden or out of the body model's fit: its face points
+    # are the pose model's guess there (second_1093_1133_f, 2026-10-22: on 1125-1127 the face box sat 200 px below her head and
+    # stretched the one box from about 5.7 to 2.27 times). Such frames do not size the box; a span with no grey head at all keeps them.
+    seen = np.array([bool(np.any(hd)) for hd in heads])
+    sized = each[seen] if seen.any() else each
+    want = np.concatenate([sized[:, :2].min(0), sized[:, 2:].max(0)])
     need_w, need_h = float(want[2] - want[0]), float(want[3] - want[1])
     least_w = w / CRANIUM_MOST                                          # the box no narrower than this: enlarged at most CRANIUM_MOST
     capped = bool(max(need_w, need_h * w / h) < least_w)
@@ -285,6 +290,7 @@ def cranium_box(points: dict, size: tuple[int, int], room: float, frames: np.nda
                         "frames_the_grey_head_reaches_the_box_edge": edge,
                         "frames_the_grey_head_reaches_the_picture_edge": picture_edge,
                         "frames_with_no_grey_head_joined_to_the_face": none,
+                        "those_frames_size_the_box": not bool(seen.any()),
                         "grey_above_mid_face_not_joined_to_the_face_px_least_median_most": [int(np.min(left_out)), int(np.median(left_out)), int(np.max(left_out))],
                         "each_frame_alone_would_enlarge_least_median_most": [round(float(np.min(alone)), 3), round(float(np.median(alone)), 3), round(float(np.max(alone)), 3)],
                         "the_one_box_enlarges": round(one, 3),

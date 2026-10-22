@@ -28,7 +28,7 @@ else on every frame (`bench/_lib/face_points_fixture.py`), runs the tool, and re
    shoulders, and a raised hand clear of the head) the box holds every frame's head above the chin with `CRANIUM_ROOM` above
    and beside it and `CRANIUM_NECK` below the chin, and not the hand; a frame whose grey reaches the picture's top is named
    as reaching the box's edge and the picture's; a head that travels gives the one box's enlargement and each frame's own,
-   the one smaller; a small head is enlarged at most `CRANIUM_MOST`; `--box` cuts by the box given; `--cranium` with `--fit`, `--head-track` or `--box` is refused.
+   the one smaller; a small head is enlarged at most `CRANIUM_MOST`; `--box` cuts by the box given; `--cranium` with `--fit`, `--head-track` or `--box` is refused; a frame with no grey head joined to its face (she is hidden there) does not size the box.
 
 Needs ffmpeg and ffprobe on the path. No model, no card, no server.
 
@@ -459,6 +459,20 @@ def cranium_box_round_the_grey_head() -> str:
     held = tiny["cranium"]["held_to_the_most"]
     assert held["capped"] and held["would_enlarge_without_it"] > cr.CRANIUM_MOST >= W / (tiny["box"][2] - tiny["box"][0]) > cr.CRANIUM_MOST - 0.2 \
         and "CRANIUM_MOST" in tiny["set_by"] and not c["held_to_the_most"]["capped"], (tiny["box"], held)
+    # a frame where she is hidden (no grey head; the pose model's face points are a guess far from her head) does not size the box
+    # (second_1093_1133_f, 2026-10-22: a stray face box 200 px below her head took the box from about 5.7 to 2.27 times)
+    pics = figure(CENTRES, hand=False)
+    hid = pics.copy()
+    hid[5] = 0
+    stray = faces(CENTRES).copy()
+    stray[5] = stray[5] + np.array([0.0, 150.0])
+    Ph, _ = cr.faces.rows_of(str(fx.save(folder / "stray_points.npz", stray, (W, H), first=0)), None, 0, N, 0, whole_face=False)
+    Pn, _ = cr.faces.rows_of(str(POINTS), None, 0, N, 0, whole_face=False)
+    plain = cr.cranium_box(Pn, (W, H), cr.HEAD_ROOM, hid)
+    strayed = cr.cranium_box(Ph, (W, H), cr.HEAD_ROOM, hid)
+    # THE CASE THAT GOES RED when a frame with no grey head sizes the box
+    assert strayed["box"] == plain["box"] and strayed["cranium"]["frames_with_no_grey_head_joined_to_the_face"] == [5] \
+        and strayed["cranium"]["those_frames_size_the_box"] is False, (strayed["box"], plain["box"])
     # --box cuts by the box given, as it is
     given = cr.run(str(REF), str(POINTS), 0, N, folder / "given.mp4", "the check", box=rec["box"], say=quiet)
     assert given["box"] == rec["box"] and given["box_set_by"].startswith("given") and "cranium" not in given, given["box_set_by"]
