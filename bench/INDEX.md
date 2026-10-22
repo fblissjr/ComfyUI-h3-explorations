@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 161 |
+| [`check_*`](#check) | 162 |
 | [`measure_*`](#measure) | 39 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 190 |
+| [the rest](#the-rest) | 191 |
 
 ## check
 
@@ -134,6 +134,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_region_against_plate.py`](check_region_against_plate.py) | `bench/region_against_plate.py` against a clip and pieces whose answers are known by construction. |
 | [`check_release_qwen_grid.py`](check_release_qwen_grid.py) | The release Qwen video grid, pinned at the boundaries that were got wrong. |
 | [`check_reload_invariance.py`](check_reload_invariance.py) | Is a render bit-identical across a full model unload? |
+| [`check_render_history.py`](check_render_history.py) | The render history (`bench/render_history.py`) on a made share and records folder: what each row says, where it read it, what it names as unseen. |
 | [`check_render_ledger.py`](check_render_ledger.py) | The render ledger (`bench/render_ledger.py`) on a made share: what each state of a render's making takes. |
 | [`check_renders_page.py`](check_renders_page.py) | `bench/renders_page.py` lays the renders inventory beside the owner's verdict lines; each case is a way a row could be out of order, carry another render's lines, drop a line or link to the wrong place. |
 | [`check_retraction_consumers.py`](check_retraction_consumers.py) | Fail when a retracted claim reaches a file nobody signed off on. |
@@ -469,6 +470,7 @@ this file is only a way to find a script by what it says it does.
 | [`record_render_substrate.py`](record_render_substrate.py) | What each render RAN UNDER, so a time or memory number can be checked. |
 | [`recycle_captures.py`](recycle_captures.py) | List the activation captures under `H3_CAPTURE_ROOT` with what each still owes, and delete the tensors of one that owes nothing. |
 | [`region_against_plate.py`](region_against_plate.py) | How a regenerated region sits in its plate: its detail, its grain and its tone against the plate's. |
+| [`render_history.py`](render_history.py) | A rolling history of every render of a video, one row each: how it was made and what the owner said of it. |
 | [`render_inventory.py`](render_inventory.py) | Which model files and settings made each render, and which output files it wrote. |
 | [`render_ledger.py`](render_ledger.py) | Every render of a video that is on the share, a shot and a subject at a time, with how each was made. |
 | [`render_postmortem_html.py`](render_postmortem_html.py) | Render a postmortem markdown file to the self-contained HTML the plugin specifies. |
