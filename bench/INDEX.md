@@ -78,7 +78,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_length_ceiling.py`](check_length_ceiling.py) | The longest length anything renders or plans is `h3_rules.MAX_LENGTH`, and no shorter count comes back as a cap. |
 | [`check_literal_widgets.py`](check_literal_widgets.py) | A numeric widget must mean the quantity it names, not a mode. |
 | [`check_load_chain.py`](check_load_chain.py) | The load chain (`bench/load_chain.py`) on a made job: what each step reads, runs and refuses, with no server. |
-| [`check_load_text.py`](check_load_text.py) | The generated text of a load (`bench/load_text.py`) against the kept loads' own texts, and what it refuses. |
+| [`check_load_text.py`](check_load_text.py) | The generated text of a load (`bench/load_text.py`) against the owner's text and the kept loads' own texts, and what it refuses. |
 | [`check_loader_fit.py`](check_loader_fit.py) | `bench/_lib/frames.py::FIT` against what the graphs' video loader does to a source that is not the canvas's shape. |
 | [`check_look_carry.py`](check_look_carry.py) | `bench/look_carry.py` on made captures: each case is a way a load made again could rest on a reading it no longer matches. |
 | [`check_look_rooms.py`](check_look_rooms.py) | The look's rooms and the plan check (`bench/look_rooms.py`): what a room holds, when it is joined, and how the node's own plan is read. |
@@ -649,6 +649,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 | file | what it says |
 |---|---|
+| [`load_text_second_0415l.json`](fixtures/load_text_second_0415l.json) | second_hfp_0415l's inputs to bench/load_text.py and the owner's text of 2026-10-22 for it, which the generator makes again byte for byte (bench/check_load_text.py). Copied 2026-10-22 from data/fun/plan.json (subjects.second and text.film; ... |
 | [`sam3d_body_meta_reference.json`](fixtures/sam3d_body_meta_reference.json) | Meta's SAM 3D Body inference code, float32 on the CPU, on public samples: its answers per box |
 | [`sparse_table_synthetic.json`](fixtures/sparse_table_synthetic.json) | (JSON, an object; it carries no description) |
 

@@ -15,6 +15,30 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-10-22
+
+- **A load's text takes the owner's hand-written form** (the owner, in the lead's terminal (mrtim), on second_hfp_0415l: "use that prompt from now on. It's
+  simpler and more flexible"; "woman with blonde hair ... is usually enough"). `bench/load_text.py` now names the subject by
+  a new plan field, `text.hair_words` ("blonde hair" for the second subject), in the definition and in `[Shot 1]`, and refuses a
+  subject without it. It used to put the plan's `looks` ("blonde hair, blue eyes, and fair skin") in both places; no line reads
+  `looks` now. `<Subject 2>`'s retention line now says "the movements of the head and the facial expressions and eye
+  movements" on a load that replaces a face; it used to stop at "the facial expressions". The music line is now
+  `non_diegetic_music: N/A`, the pack's `masked_prompt_text.MUSIC`; it used to say "A song plays throughout."
+  `docs/masked_v2v/AGENTS.md` §7 and `PROTOCOL.md` step 3 now state this form, and `docs/wiki/masked_v2v.md` says "its hair
+  words" where it said "its looks". Branch claude-simple-text.
+- **`--say-not-used` is retired**, on the owner's rule that negatives never help (the 2026-10-21 entry, "No negatives in a
+  text"). The A/B of second_hfp_0415i (both "not used" clauses) against 0415j (none) did not isolate the clauses: the owner
+  preferred j for her eyes fully gazed down (`data/fun/owner_answers.jsonl` line 1470). The flag is gone from `bench/load_text.py` and `bench/shot_to_load.py text`;
+  `docs/checks.md` used to describe it as test-only, to retire after the A/B. Job files of 2026-10-21 keep
+  `texts.<label>.generated_from.not_used_said`, which nothing reads. Branch claude-simple-text.
+- **The picture's hair and the shot's hair are two plan fields** (the owner, in the lead's terminal, after reading the generated texts: the hair named
+  with <Picture 1> must be the hair the picture shows). The definition line now names `text.picture_hair`; `[Shot 1]` names
+  `text.hair_words` where the plan changes no hair (the second subject's hair-change phrase is unchanged). The first entry above
+  had one field, `hair_words`, in both lines. Both are required of every subject. A face-only subject's retention line now
+  reads "the girl's face from <Picture 1> is retained." (the owner agreed), in the face-and-hair form's words; it was a constant
+  of `bench/load_text.py`, "only the girl's face is retained, wherever it shows: her eyes, eyebrows, nose, mouth and skin", and
+  no plan field. Branch claude-simple-text.
+
 ## 2026-10-21
 
 Claude led today (mrtusk), with mrsim on the card and Gemini advising. The day re-read the two days Gemini led alone

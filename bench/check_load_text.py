@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
-"""The generated text of a load (`bench/load_text.py`) against the kept loads' own texts, and what it refuses.
+"""The generated text of a load (`bench/load_text.py`) against the owner's text and the kept loads' own texts, and what it refuses.
 
+0. **The owner's text of 2026-10-22, made again.** From second_hfp_0415l's reference record, the plan's words (with
+   `picture_hair` and `hair_words`) and the voice table, copied into `bench/fixtures/load_text_second_0415l.json`, the generator
+   makes the text the owner wrote by hand for that load, byte for byte. The picture's hair goes in the definition and the shot's
+   in [Shot 1], each in its own line; a subject without either is refused in the tool's own words; no
+   text carries the plan's `looks`; the music is "N/A"; a face load's movements carry "and eye movements".
 1. **The kept texts, made again.** From each kept load's reference record (what was drawn), the plan's words for the
    subject and the video and the voice table (no place-and-action sentence since 2026-10-15), the generator makes lead_fp_1730's
-   text and second_hfp_0484c's word for word, but in the two places ruled on 2026-10-14: the closer view is "of the head
-   and shoulders", and the summary and [Shot 1] are in draft_7's form, with no sentence of the place.
+   text and second_hfp_0484c's word for word, but in the places ruled since: the closer view is "of the head and shoulders"
+   (2026-10-14), the summary and [Shot 1] are in draft_7's form with no sentence of the place (2026-10-15), no "not used"
+   clause (2026-10-21), and the hair words, the eye movements and the music of 2026-10-22.
 2. **What a reference draws, the text says.** The mouth drawn, the eye in contrast or filled, a part left out, and a
    plain cut each change the `<Subject 2>` sentence and nothing else; the singing line follows the subject's `sings` and
    the voice table.
@@ -17,6 +23,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -30,38 +37,115 @@ KEPT_1730 = "subject_definitions:\n<Subject 1> is the girl whose appearance come
 KEPT_0484C = "subject_definitions:\n<Subject 1> is the woman whose appearance comes from <Picture 1>, with long, loose blonde hair parted in the middle, fair skin and blue-grey eyes, and who follows the movements of the head and the facial expressions of the figure in <Video 1>.\n<Subject 2> is the movements of the head and the facial expressions performed by the figure in <Video 1>: a closer view of the head, shoulders and hands of a plain grey body model of a person on a black ground, posed as the person moves, with its eyes, eyebrows and nose drawn on its face as thin white outlines; the eyes are outlined with the iris inside them, and they open, close and look where the person's eyes do.\n\nsummary:\n[reference generation] <Subject 1> sits at a kitchen table and cracks eggs into a bowl, with the face and the hair of <Picture 1>, and performs <Subject 2>.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): partially_preserved - only the woman's face and her long, loose blonde hair are retained, wherever they show; the clothing, the accessories and the background of <Picture 1> are not used.\n<Subject 2> (appears in [Shot 1]): attribute_transfer - the movements of the head and the facial expressions are transferred to <Subject 1>; the grey body model's look, the drawn outlines themselves and its black ground are not used.\n\ndetailed_description:\nThe target video is live-action vintage film from the early 1980s, soft and a little grainy, in warm amber tungsten light.\n[Shot 1] <Subject 1>, the woman with long, loose blonde hair parted in the middle, fair skin and blue-grey eyes, sits at a kitchen table and cracks eggs into a bowl in front of her. Her face is the face of <Picture 1>. <Subject 1> performs <Subject 2>: she follows the movements of the head and the facial expressions of the figure.\n\noverall_soundscape: Natural ambient atmosphere continues throughout the shot.\n\nnon_diegetic_music: A song plays throughout.\n"
 FILM = "The target video is live-action vintage film from the early 1980s, soft and a little grainy, in warm amber tungsten light."
 PLAN = {"text": {"film": FILM}, "subjects": {
-    "lead": {"region": "face", "text": {"who": "the girl", "looks": "brown eyes, dark eyebrows and fair skin", "her": "her", "she": "she", "sings": True}},
+    "lead": {"region": "face", "text": {"who": "the girl", "looks": "brown eyes, dark eyebrows and fair skin", "picture_hair": "LEAD PICTURE HAIR",
+                                        "hair_words": "LEAD HAIR",
+                                        "her": "her", "she": "she", "sings": True}},
     "second": {"region": "face and hair", "text": {"who": "the woman", "looks": "long, loose blonde hair parted in the middle, fair skin and blue-grey eyes",
-                                                   "her": "her", "she": "she", "hair": "her long, loose blonde hair"}}}}
+                                                   "picture_hair": "SECOND PICTURE HAIR", "hair_words": "SECOND HAIR", "her": "her", "she": "she", "hair": "her long, loose blonde hair"}}}}
 RECORD_10_13 = {"form": "drawn", "drawn": {"parts_left_out": ["mouth"], "iris": None}}          # a reference of 10/13: the whole ring, no mouth
 VOICED = [[579, 603], [1549, 1968]]
 
 
-def as_ruled(kept: str, view: str, summary_was: str, who_looks: str, detail_was: str) -> str:
+def as_ruled(kept: str, view: str, summary_was: str, who_looks: str, detail_was: str, looks: str, who_hair: str, picture_hair: str) -> str:
     """A kept text with what was ruled since: the closer view (2026-10-14), no place-and-action sentence (2026-10-15, NO_SCENE):
-    the summary and [Shot 1] say who the subject is and what of the still it has (draft_7's form), and no "not used" clause
-    (the owner, 2026-10-21): each retention line ends at what is kept or changed."""
+    the summary and [Shot 1] say who the subject is and what of the still it has (draft_7's form), no "not used" clause
+    (the owner, 2026-10-21): each retention line ends at what is kept or changed; and the owner's text of 2026-10-22: the
+    subject named by the picture's hair in the definition (`picture_hair`) and by the shot's in [Shot 1] (`who_hair`) in place of her
+    looks, "and eye movements" transferred, the music "N/A", and the face alone retained as "the girl's face from <Picture 1>"."""
     out = re.sub(r"; [^;\n]* of <Picture 1> are not used\.\n", ".\n", kept)
     out = out.replace("; the grey body model's look, the drawn outlines themselves and its black ground are not used.", ".")
     out = out.replace(f"a closer view of the head, shoulders and {view} of", "a closer view of the head and shoulders of")
     out = out.replace(f"<Subject 1> {summary_was}, with", "<Subject 1>, with").replace(", and performs <Subject 2>.\n", ", performs <Subject 2>.\n")
-    return out.replace(f"[Shot 1] <Subject 1>, {who_looks}, {detail_was}. Her face is the face of <Picture 1>.",
-                       f"[Shot 1] <Subject 1>, {who_looks}, has the face of <Picture 1>.")
+    out = out.replace(f"[Shot 1] <Subject 1>, {who_looks}, {detail_was}. Her face is the face of <Picture 1>.",
+                      f"[Shot 1] <Subject 1>, {who_hair}, has the face of <Picture 1>.")
+    who = who_hair.split(" with ")[0]
+    out = out.replace(f"<Subject 1> is {who} whose appearance comes from <Picture 1>, with {looks}, and who",
+                      f"<Subject 1> is {who} with {picture_hair} whose appearance comes from <Picture 1>, and who")
+    out = out.replace("the facial expressions are transferred to <Subject 1>.", "the facial expressions and eye movements are transferred to <Subject 1>.")
+    out = re.sub(r"partially_preserved - only the (\w+)'s face is retained, wherever it shows: \w+ eyes, eyebrows, nose, mouth and skin\.\n",
+                 r"partially_preserved - the \1's face from <Picture 1> is retained.\n", out)
+    return out.replace("non_diegetic_music: A song plays throughout.\n", "non_diegetic_music: N/A\n")
+
+
+FIXTURE = Path(__file__).resolve().parent / "fixtures" / "load_text_second_0415l.json"
+
+
+def the_owners_text_made_again() -> str:
+    """The owner's word of 2026-10-22 on second_hfp_0415l's text, written by hand from the generator's 0415j: "use that prompt from
+    now on. It's simpler and more flexible"; "just saying woman with blonde hair, or girl with X hair is usually enough"."""
+    fx = json.loads(FIXTURE.read_text())
+    got = lt.text(fx["plan"], fx["subject"], fx["record"], "", fx["voiced_spans_inclusive"], fx["first"], fx["last"])
+    want = fx["owner_text"]
+    # THE CASE THAT GOES RED when the generator departs from the owner's text by one byte
+    assert got == want, "\n".join(f"- {a}\n+ {b}" for a, b in zip(want.splitlines(), got.splitlines()) if a != b) or (got, want)
+    # NO LOOKS WORDS: the plan's `looks` is read by no line, on any form (face, face and hair, a changed hair, hair alone, no video)
+    faceless = {"form": "drawn", "drawn": {"parts_left_out": ["eyes", "brows", "nose", "mouth"], "iris": "contrast", "mouth": {"drawn": False}}}
+    made = [got, lt.text(PLAN, "lead", RECORD_10_13, "", VOICED, 1730, 1754), lt.text(PLAN, "second", RECORD_10_13, "", VOICED, 484, 515),
+            lt.text(PLAN, "second", faceless, "", VOICED, 484, 515, parts=["hair"]), lt.text(PLAN, "second", None, "", VOICED, 484, 515, parts=["hair"])]
+    looks = [fx["plan"]["subjects"]["second"]["text"]["looks"], PLAN["subjects"]["lead"]["text"]["looks"], PLAN["subjects"]["second"]["text"]["looks"]]
+    for words in made:
+        # THE CASE THAT GOES RED when any text carries the plan's looks, whole or by its eye, eyebrow or skin words
+        assert not any(x in words for x in looks + ["blue eyes", "fair skin", "brown eyes", "dark eyebrows", "blue-grey eyes"]), words
+        assert words.endswith("\n\nnon_diegetic_music: N/A\n") and "A song plays" not in words, words[-80:]
+    # THE EYE MOVEMENTS on a load that replaces a face; the head's movements alone on her hair alone
+    for words in made[:3]:
+        assert "attribute_transfer - the movements of the head and the facial expressions and eye movements are transferred to <Subject 1>.\n" in words, words
+        assert words.count("eye movements") == 1, words
+    assert "eye movements" not in made[3] and "attribute_transfer - the movements of the head are transferred to <Subject 1>.\n" in made[3], made[3]
+    # A FACE LOAD WHOSE PICTURE'S HAIR AND SHOT'S HAIR DIFFER (the owner, 2026-10-22: the hair named with <Picture 1> is the picture's,
+    # [Shot 1] names the hair the shot ends up with): each in its own line, and only there
+    lead = made[1].splitlines()
+    definition = next(line for line in lead if line.startswith("<Subject 1> is"))
+    shot = next(line for line in lead if line.startswith("[Shot 1]"))
+    # THE CASE THAT GOES RED when one hair stands in for the other, or either is named in the other's line
+    assert definition.startswith("<Subject 1> is the girl with LEAD PICTURE HAIR whose appearance comes from <Picture 1>, and who follows"), definition
+    assert shot.startswith("[Shot 1] <Subject 1>, the girl with LEAD HAIR, has the face of <Picture 1>."), shot
+    assert [line for line in lead if "LEAD PICTURE HAIR" in line] == [definition] and [line for line in lead if "LEAD HAIR" in line] == [shot], lead
+    # THE FACE ALONE RETAINED in the face-and-hair form's words (the owner, 2026-10-22): "the girl's face from <Picture 1> is retained."
+    retained = [line for line in lead if line.startswith("<Subject 1> (appears in [Shot 1]):")]
+    # THE CASE THAT GOES RED when a face load's retention line lists her features, or says "only" or "wherever it shows"
+    assert retained == ["<Subject 1> (appears in [Shot 1]): partially_preserved - the girl's face from <Picture 1> is retained."], retained
+    # A SUBJECT WITHOUT `picture_hair` OR `hair_words` IS REFUSED, by name, in the tool's own words and with no traceback; never one
+    # filled from the other, nor from `looks`
+    import copy
+    for key, bad in [(k, b) for k in ("picture_hair", "hair_words") for b in (None, "", "   ", ["blonde hair"])]:
+        plan = copy.deepcopy(fx["plan"])
+        if bad is None:
+            plan["subjects"]["second"]["text"].pop(key)
+        else:
+            plan["subjects"]["second"]["text"][key] = bad
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp)
+            (d / "plan.json").write_text(json.dumps(plan))
+            (d / "spans.json").write_text(json.dumps({"voiced_spans_inclusive": fx["voiced_spans_inclusive"]}))
+            (d / "ref.json").write_text(json.dumps(fx["record"]))
+            (d / "job.json").write_text(json.dumps({"job": {}, "loads": [{"subject": "second", "first": 415, "frames": 23, "motion_file": str(d / "ref.mp4")}]}))
+            run = subprocess.run([sys.executable, str(Path(lt.__file__)), "show", str(d / "job.json"), "--plan", str(d / "plan.json"),
+                                  "--voice-spans", str(d / "spans.json")], capture_output=True, text=True)
+        # THE CASE THAT GOES RED when a subject with no hair words gets a text, or is refused by an error on the way
+        assert run.returncode == 5 and run.stdout.startswith(f"REFUSED: the plan's `text.{key}` for 'second' is not written") \
+            and "Traceback" not in run.stdout + run.stderr, (key, bad, run.returncode, run.stdout, run.stderr)
+    return ("second_hfp_0415l's text made again byte for byte from its inputs; no text carries the plan's looks; the music is N/A; a face load "
+            "transfers the eye movements, a hair load the head's movements alone; the picture's hair in the definition and the shot's in [Shot 1], "
+            "each in its own line; a subject without picture_hair or hair_words refused in the tool's words")
 
 
 def the_kept_texts_made_again() -> str:
     lead = lt.text(PLAN, "lead", RECORD_10_13, "", VOICED, 1730, 1754)
     want = as_ruled(KEPT_1730, "arms", "holds a black telephone receiver to her ear in a room", "the girl with brown eyes, dark eyebrows and fair skin",
-                    "is in a room and holds a black telephone receiver to her ear")
+                    "is in a room and holds a black telephone receiver to her ear", "brown eyes, dark eyebrows and fair skin", "the girl with LEAD HAIR",
+                    "LEAD PICTURE HAIR")
     # THE CASE THAT GOES RED when the generator departs from the kept loads anywhere but the two ruled places
     assert lead == want, "\n".join(f"- {a}\n+ {b}" for a, b in zip(want.splitlines(), lead.splitlines()) if a != b)
     second = lt.text(PLAN, "second", RECORD_10_13, "", VOICED, 484, 515)
     want = as_ruled(KEPT_0484C, "hands", "sits at a kitchen table and cracks eggs into a bowl",
                     "the woman with long, loose blonde hair parted in the middle, fair skin and blue-grey eyes",
-                    "sits at a kitchen table and cracks eggs into a bowl in front of her")
+                    "sits at a kitchen table and cracks eggs into a bowl in front of her",
+                    "long, loose blonde hair parted in the middle, fair skin and blue-grey eyes", "the woman with SECOND HAIR",
+                    "SECOND PICTURE HAIR")
     assert second == want, "\n".join(f"- {a}\n+ {b}" for a, b in zip(want.splitlines(), second.splitlines()) if a != b)
     return ("lead_fp_1730's and second_hfp_0484c's texts made again from their records, word for word but the places ruled since (the closer "
-            "view; no place-and-action sentence, draft_7's form; no \"not used\" clause)")
+            "view; no place-and-action sentence, draft_7's form; no \"not used\" clause; hair words, eye movements, N/A)")
 
 
 def what_a_reference_draws_the_text_says() -> str:
@@ -156,10 +240,10 @@ def a_load_of_the_hair_alone() -> str:
     faceless = {"form": "drawn", "drawn": {"parts_left_out": ["eyes", "brows", "nose", "mouth"], "iris": "contrast", "mouth": {"drawn": False}}}
     hair = lt.text(PLAN, "second", faceless, "", VOICED, 484, 515, parts=["hair"])
     # THE CASE THAT GOES RED when a hair load's text says her face is the still's, keeps her face, or asks for facial expressions
-    for wrong in ("face is the face of <Picture 1>", "face and her long", "facial expressions", "with the face", "blue-grey eyes"):
+    for wrong in ("face is the face of <Picture 1>", "face and her long", "facial expressions", "with the face", "blue-grey eyes", "eye movements"):
         assert wrong not in hair, (wrong, hair)
     for right in ("<Subject 1>, with the hair of <Picture 1>, performs <Subject 2>", "only the woman's long, loose blonde hair is retained, wherever it shows.\n",
-                  "<Subject 1> is the woman whose appearance comes from <Picture 1> and who follows the movements of the head of the figure in <Video 1>",
+                  "<Subject 1> is the woman with SECOND PICTURE HAIR whose appearance comes from <Picture 1>, and who follows the movements of the head of the figure in <Video 1>",
                   "[Shot 1] <Subject 1>, the woman, has the hair of <Picture 1>.", "attribute_transfer - the movements of the head are transferred"):
         assert right in hair, (right, hair)
     # the plan's voice is not read on a load of the hair alone: no face, no voice (the voice key's cold reader, 2026-10-15)
@@ -220,11 +304,13 @@ def a_load_of_the_hair_alone() -> str:
 
 def what_it_refuses() -> str:
     import copy
-    for change, words in ((lambda p: p["subjects"]["lead"]["text"].pop("looks"), "lacks ['looks']"), (lambda p: p.pop("text"), "text.film"),
+    for change, words in ((lambda p: p["subjects"]["lead"]["text"].pop("who"), "lacks ['who']"), (lambda p: p.pop("text"), "text.film"),
+                          (lambda p: p["subjects"]["lead"]["text"].pop("hair_words"), "`text.hair_words` for 'lead' is not written"),
+                          (lambda p: p["subjects"]["lead"]["text"].pop("picture_hair"), "`text.picture_hair` for 'lead' is not written"),
                           (lambda p: p["subjects"]["second"]["text"].pop("hair"), "`text.hair`")):
         plan = copy.deepcopy(PLAN)
         change(plan)
-        who = "second" if "hair" in words else "lead"
+        who = "second" if "`text.hair`" in words else "lead"
         try:
             lt.text(plan, who, RECORD_10_13, "", VOICED, 1, 2)
         except lt.Refused as e:
@@ -254,7 +340,7 @@ def what_it_refuses() -> str:
         (d / "ref.json").write_text(json.dumps(RECORD_10_13))
         words, made_from = lt.for_job(d / "job.json", "", d / "plan.json", d / "spans.json")
         assert words.startswith("subject_definitions:") and made_from["drawn"]["parts_left_out"] == ["mouth"], made_from
-    return "no words for the subject or no film line, no hair words for a face-and-hair subject, a place-and-action sentence, an unknown iris form and a reference not yet made are refused"
+    return "no words for the subject or no film line, no picture_hair or hair_words, no hair words for a face-and-hair subject, a place-and-action sentence, an unknown iris form and a reference not yet made are refused"
 
 
 def her_hair_changed() -> str:
@@ -270,8 +356,8 @@ def her_hair_changed() -> str:
     got = lt.text(plan, "second", rec, "", VOICED, 484, 515)
     # THE CASE THAT GOES RED when the text says the still's hair is retained where the plan changes it, or the parts are not the plan's
     assert "<Subject 1>, with the face of <Picture 1> and SHORT HAIR, performs <Subject 2>." in got, got
-    # the description names her by the changed hair, the definition by the plan's looks (the owner, 2026-10-15: specific definitions)
-    assert "[Shot 1] <Subject 1>, the woman with SHORT HAIR, has the face of <Picture 1>." in got and "whose appearance comes from <Picture 1>, with long, loose blonde hair" in got, got
+    # the description names her by the changed hair, the definition by the plan's hair words (the owner's text of 2026-10-22)
+    assert "[Shot 1] <Subject 1>, the woman with SHORT HAIR, has the face of <Picture 1>." in got and "<Subject 1> is the woman with SECOND PICTURE HAIR whose appearance comes from <Picture 1>, and" in got, got
     assert "partially_preserved - the woman's face and BLONDE hair from <Picture 1> are retained; her hair's LENGTH is changed to SHORT.\n" in got, got
     t["hair_change"].pop("kept")
     assert "the woman's face from <Picture 1> is retained; her hair's LENGTH is changed to SHORT.\n" in lt.text(plan, "second", rec, "", VOICED, 484, 515)
@@ -373,60 +459,50 @@ def her_clothing_named() -> str:
     return ("each shot's own words, one sentence of the detailed line; a load no entry holds refused, never another shot's words; the single "
             "set of words and an entry with no by refused; clothing redrawn and not named refused; none named, no sentence")
 
-def not_used_said_for_a_test() -> str:
-    """The owner, 2026-10-21: no "not used" clause; each retention line ends at what is kept or changed. TEST-ONLY, for that day's A/B
-    and to retire after it: `say_not_used` (`for_job`'s reason, `shot_to_load.py text --say-not-used WHY`) writes the old form, both
-    clauses, recorded in what the text was made from, and nothing else of the text changes."""
+def no_not_used_clause() -> str:
+    """The owner, 2026-10-21: no "not used" clause; each retention line ends at what is kept or changed. The test-only switch that wrote
+    the old form for that day's A/B (`--say-not-used`) is retired since 2026-10-22 on the owner's rule that negatives never help."""
     import copy
     rec = {"form": "drawn", "drawn": {"parts_left_out": [], "iris": "contrast", "mouth": {"drawn": True}}}
     plan = copy.deepcopy(PLAN)
     t = plan["subjects"]["second"]["text"]
     t["hair"] = "her SHORT HAIR"
     t["hair_change"] = {"kept": "BLONDE", "what": "LENGTH", "to": "SHORT", "by": "the owner"}
+    plan["subjects"]["third"] = {"region": "face", "text": {"who": "the man", "picture_hair": "HIS PICTURE HAIR", "hair_words": "HIS HAIR", "her": "his", "she": "he",
+                                                            "not_used": "THE CAP, the hair, the clothing and the background"}}
     now = lt.text(plan, "second", rec, "", VOICED, 484, 515)
-    old = lt.text(plan, "second", rec, "", VOICED, 484, 515, say_not_used=True)
-    # THE CASE THAT GOES RED when a "not used" clause is written by default, or a shortened sentence does not end cleanly
+    # THE CASE THAT GOES RED when a "not used" clause is written, or a shortened sentence does not end cleanly
     assert "not used" not in now, now
     assert ("partially_preserved - the woman's face and BLONDE hair from <Picture 1> are retained; her hair's LENGTH is changed to SHORT.\n"
-            "<Subject 2> (appears in [Shot 1]): attribute_transfer - the movements of the head and the facial expressions are transferred to "
-            "<Subject 1>.\n\n") in now, now
-    # THE CASE THAT GOES RED when the test switch is ignored, or changes more than the two clauses
-    tail_1 = "; the clothing, the accessories and the background of <Picture 1> are not used"
-    tail_2 = "; the grey body model's look, the drawn outlines themselves and its black ground are not used"
-    assert old.count("are not used.") == 2 and old.replace(tail_1, "").replace(tail_2, "") == now, old
-    # the face alone, and her hair alone with no reference video: the same, by the plan's region
-    lead_now, lead_old = (lt.text(PLAN, "lead", RECORD_10_13, "", VOICED, 1730, 1754, say_not_used=x) for x in (False, True))
-    assert "not used" not in lead_now and "her eyes, eyebrows, nose, mouth and skin.\n<Subject 2>" in lead_now, lead_now
-    assert "skin; the hair, the clothing and the background of <Picture 1> are not used.\n" in lead_old and lead_old.count("are not used.") == 2, lead_old
+            "<Subject 2> (appears in [Shot 1]): attribute_transfer - the movements of the head and the facial expressions and eye movements are "
+            "transferred to <Subject 1>.\n\n") in now, now
+    # the plan's `text.not_used` (third's) is read by no line
+    third = lt.text(plan, "third", RECORD_10_13, "", VOICED, 1730, 1754)
+    assert "not used" not in third and "CAP" not in third and "the man's face from <Picture 1> is retained.\n<Subject 2>" in third, third
     hair_now = lt.text(plan, "second", None, "", VOICED, 484, 515, parts=["hair"])
     assert "not used" not in hair_now and "her hair's LENGTH is changed to SHORT.\n\ndetailed_description:" in hair_now, hair_now
-    assert "SHORT; the face, the clothing, the accessories and the background of <Picture 1> are not used.\n" in \
-        lt.text(plan, "second", None, "", VOICED, 484, 515, parts=["hair"], say_not_used=True)
-    # for_job: the reason is recorded in what the text was made from; none recorded by default; an empty reason refused
+    # the switch is gone from the tool: refused by its own parser, with no traceback; nothing recorded of it in what a text is made from
     with tempfile.TemporaryDirectory() as tmp:
         d = Path(tmp)
         (d / "plan.json").write_text(json.dumps(PLAN))
         (d / "spans.json").write_text(json.dumps({"voiced_spans_inclusive": VOICED}))
         (d / "job.json").write_text(json.dumps({"job": {}, "loads": [{"subject": "lead", "first": 1730, "frames": 25, "motion_file": str(d / "ref.mp4")}]}))
         (d / "ref.json").write_text(json.dumps(RECORD_10_13))
-        words_now, from_now = lt.for_job(d / "job.json", "", d / "plan.json", d / "spans.json")
-        words_old, from_old = lt.for_job(d / "job.json", "", d / "plan.json", d / "spans.json", "  the owner's   A/B ")
-        assert "not_used_said" not in from_now and from_old["not_used_said"] == "the owner's A/B", (from_now, from_old)
-        assert words_now == lead_now and words_old == lead_old, "for_job did not pass the switch to the text"
-        try:
-            lt.for_job(d / "job.json", "", d / "plan.json", d / "spans.json", "  ")
-        except lt.Refused as e:
-            assert "takes the reason in words" in str(e), e
-        else:
-            raise AssertionError("an empty reason to say the clauses was taken")
-    return ("no \"not used\" clause by default, each line ending cleanly, on a face-and-hair, a face and a hair-alone load; the test-only "
-            "switch writes the old form and nothing else, its reason recorded in what the text was made from; an empty reason refused")
+        words, made_from = lt.for_job(d / "job.json", "", d / "plan.json", d / "spans.json")
+        assert "not used" not in words and "not_used_said" not in made_from, made_from
+        run = subprocess.run([sys.executable, str(Path(lt.__file__)), "show", str(d / "job.json"), "--plan", str(d / "plan.json"), "--voice-spans",
+                              str(d / "spans.json"), "--say-not-used", "the A/B"], capture_output=True, text=True)
+        # THE CASE THAT GOES RED when the retired switch is taken
+        assert run.returncode == 2 and "unrecognized arguments: --say-not-used" in run.stderr and "Traceback" not in run.stderr, (run.returncode, run.stderr)
+    return ("no \"not used\" clause on a face-and-hair, a face and a hair-alone load, each line ending cleanly; the plan's not_used read by no line; "
+            "the retired --say-not-used refused by the tool's parser")
 
+case("the owner's text of 2026-10-22 made again", the_owners_text_made_again)
 case("her hair changed, in the plan's parts", her_hair_changed)
 case("the kept texts made again", the_kept_texts_made_again)
 case("what a reference draws, the text says", what_a_reference_draws_the_text_says)
 case("a load of the hair alone", a_load_of_the_hair_alone)
 case("what it refuses", what_it_refuses)
 case("her clothing named", her_clothing_named)
-case("no not used clause; the old form only for a test", not_used_said_for_a_test)
+case("no not used clause; the test switch retired", no_not_used_clause)
 sys.exit(finish())

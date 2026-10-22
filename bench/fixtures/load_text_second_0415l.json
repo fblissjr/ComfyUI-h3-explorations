@@ -1,0 +1,235 @@
+{
+ "what": "second_hfp_0415l's inputs to bench/load_text.py and the owner's text of 2026-10-22 for it, which the generator makes again byte for byte (bench/check_load_text.py). Copied 2026-10-22 from data/fun/plan.json (subjects.second and text.film; picture_hair and hair_words added, the lead's keys to write; long by-lines cut), the reference record second_0415_0437_i/second_head_reference_0415_0437.json (its frames and drawn block, the keys the generator reads; diagnostics and file paths cut), the video's voice_spans.json, and data/2026-10-22_fun_ab_tests/owner_text_2026-10-22_test.txt (whole).",
+ "subject": "second",
+ "first": 415,
+ "last": 437,
+ "plan": {
+  "text": {
+   "film": "The target video is live-action vintage film from the early 1980s, soft and a little grainy, in warm amber tungsten light."
+  },
+  "subjects": {
+   "second": {
+    "region": "face and hair",
+    "text": {
+     "who": "the woman",
+     "looks": "blonde hair, blue eyes, and fair skin",
+     "her": "her",
+     "she": "she",
+     "hair": "her short blonde hair ending at her shoulders",
+     "hair_change": {
+      "kept": "blonde",
+      "what": "length",
+      "to": "short, ending at her shoulders",
+      "by": "the owner (data/fun/plan.json's own by, cut here)"
+     },
+     "picture_hair": "blonde hair",
+     "hair_words": "blonde hair"
+    },
+    "voice": [
+     {
+      "first": 604,
+      "last": 1009,
+      "voice": "talks, not heard",
+      "by": "data/fun/plan.json (its by cut here)"
+     },
+     {
+      "first": 5675,
+      "last": 5715,
+      "voice": "talks, not heard",
+      "by": "data/fun/plan.json (its by cut here)"
+     }
+    ],
+    "clothing": [
+     {
+      "first": 415,
+      "last": 437,
+      "words": "a white apron with a bib, its straps over her shoulders, over a sleeveless floral blouse",
+      "by": "data/fun/plan.json's entry for 415-437 (its by cut here)"
+     }
+    ]
+   }
+  }
+ },
+ "record": {
+  "frames": [
+   415,
+   437
+  ],
+  "drawn": {
+   "parts_left_out": [],
+   "iris": "contrast",
+   "frames_left_bare": [],
+   "mouth": {
+    "form": "auto",
+    "drawn": true,
+    "drawn_as": "the lip lines",
+    "inside": "the class map",
+    "inside_on_frames": 23,
+    "frames_by_the_lip_lines": [
+     [
+      415,
+      437
+     ]
+    ],
+    "frames_by_the_class_map": [],
+    "closed_lip_line": {
+     "on": true,
+     "why": "the chain's default: REFERENCE_DEFAULT (2026-10-19)",
+     "closed_frames": [
+      [
+       415,
+       437
+      ]
+     ],
+     "open_frames": []
+    }
+   },
+   "eyes_shut": {
+    "form": "lowered",
+    "frames": [
+     [
+      415,
+      437
+     ]
+    ],
+    "drawn_shut_on": [
+     [
+      415,
+      437
+     ]
+    ]
+   }
+  }
+ },
+ "voiced_spans_inclusive": [
+  [
+   579,
+   603
+  ],
+  [
+   611,
+   756
+  ],
+  [
+   767,
+   916
+  ],
+  [
+   934,
+   1049
+  ],
+  [
+   1200,
+   1221
+  ],
+  [
+   1233,
+   1378
+  ],
+  [
+   1388,
+   1537
+  ],
+  [
+   1549,
+   1968
+  ],
+  [
+   1987,
+   2194
+  ],
+  [
+   2220,
+   2245
+  ],
+  [
+   2632,
+   2811
+  ],
+  [
+   2825,
+   2979
+  ],
+  [
+   2992,
+   3241
+  ],
+  [
+   3249,
+   3404
+  ],
+  [
+   3429,
+   3630
+  ],
+  [
+   3657,
+   3905
+  ],
+  [
+   3920,
+   4062
+  ],
+  [
+   4070,
+   4380
+  ],
+  [
+   4397,
+   4596
+  ],
+  [
+   4604,
+   4656
+  ],
+  [
+   4676,
+   4778
+  ],
+  [
+   4822,
+   5055
+  ],
+  [
+   5069,
+   5208
+  ],
+  [
+   5219,
+   5342
+  ],
+  [
+   5350,
+   5439
+  ],
+  [
+   5452,
+   5529
+  ],
+  [
+   5546,
+   5637
+  ],
+  [
+   5647,
+   5722
+  ],
+  [
+   5730,
+   5733
+  ],
+  [
+   5744,
+   5805
+  ],
+  [
+   5826,
+   5927
+  ],
+  [
+   5972,
+   6354
+  ]
+ ],
+ "owner_text": "subject_definitions:\n<Subject 1> is the woman with blonde hair whose appearance comes from <Picture 1>, and who follows the movements of the head and the facial expressions of the figure in <Video 1>.\n<Subject 2> is the movements of the head and the facial expressions performed by the figure in <Video 1>: a closer view of the head and shoulders of a plain grey body model of a person on a black ground, posed as the person moves, with facial features drawn on its face as thin white outlines, where the eyes open, close and look where the person's eyes do.\n\nsummary:\n[reference generation] <Subject 1>, with the face of <Picture 1> and short blonde hair ending at her shoulders, performs <Subject 2>.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): partially_preserved - the woman's face and blonde hair from <Picture 1> are retained; her hair's length is changed to short, ending at her shoulders.\n<Subject 2> (appears in [Shot 1]): attribute_transfer - the movements of the head and the facial expressions and eye movements are transferred to <Subject 1>.\n\ndetailed_description:\nThe target video is live-action vintage film from the early 1980s, soft and a little grainy, in warm amber tungsten light.\n[Shot 1] <Subject 1>, the woman with short blonde hair ending at her shoulders, has the face of <Picture 1>. <Subject 1> wears a white apron with a bib, its straps over her shoulders, over a sleeveless floral blouse. <Subject 1> performs <Subject 2>: she follows the movements of the head and the facial expressions of the figure.\n\noverall_soundscape: Natural ambient atmosphere continues throughout the shot.\n\nnon_diegetic_music: N/A\n"
+}

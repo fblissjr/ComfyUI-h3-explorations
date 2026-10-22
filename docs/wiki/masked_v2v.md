@@ -1828,7 +1828,7 @@ pass was a one-off script under the untracked `data/`.*
 **SINCE 2026-10-14 THE ONE HOME OF A LOAD'S FIXED LINES IS `bench/load_text.py`** (the owner's word that day: the
 text says exactly what the reference video shows and the least else; every window's text consistent with the others).
 `bench/shot_to_load.py text --plan PLAN.json` makes the text from the reference's record (what was drawn: the parts, the
-eye's form, the mouth where its frames draw one), the plan's words for the subject and the video (its looks, its hair
+eye's form, the mouth where its frames draw one), the plan's words for the subject and the video (its hair words, its hair
 change, its voice), and the voice table. Since 2026-10-15 it takes no place-and-action sentence (`load_text.NO_SCENE`: to H3
 a masked load is not an edit, and a text never describes the frozen picture); a text written whole by a person is the
 exception (`--by-hand "why"`). Its examples are the

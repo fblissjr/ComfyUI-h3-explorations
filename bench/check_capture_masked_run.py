@@ -2837,7 +2837,9 @@ def text_rules() -> str:
     # as a voice performed
     kept_now = ("<Subject 1> (appears in [Shot 1]): partially_preserved - only the girl's face is retained, wherever it shows: her eyes, "
                 "eyebrows, nose, mouth and skin.")
-    for line in (kept, kept_plain, kept_now):
+    # and the face line it writes since 2026-10-22 (the owner: in the face-and-hair form's words)
+    kept_10_22 = "<Subject 1> (appears in [Shot 1]): partially_preserved - the girl's face from <Picture 1> is retained."
+    for line in (kept, kept_plain, kept_now, kept_10_22):
         assert cap.voice_sentences(line) == ([], []), f"a retention line was read as a voice sentence: {cap.voice_sentences(line)}"
         assert cap.flag_text("She is in a room. " + line, [[500, 600]], 100, 50) == [], "a retention line over silence was flagged as naming a voice"
         said = cap.flag_text("She is in a room. " + line, [[120, 130]], 100, 50)

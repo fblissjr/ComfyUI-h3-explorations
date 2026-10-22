@@ -158,6 +158,7 @@ Under the hood, `step_reference` invokes [`bench/head_reference.py`](../../bench
 3. **Generating the Prompt Text (`shot_to_load.py text` — Unified `<Subject 2>` Sentence)**:
    - Invokes [`bench/load_text.py`](../../bench/load_text.py) (`bench/load_text.py::NO_SCENE`, `bench/load_text.py::NO_CLOTHING`) to generate the load's text from the reference record, `data/<video>/plan.json`, and the voice table.
    - All face-drawn loads use a **single unified `<Subject 2>` sentence** (`bench/load_text.py::subject_2`) that describes the reference video ("with facial features drawn on its face as thin white outlines, where the eyes open, close and look where the person's eyes do") without mentioning mouth/lips, so the text never biases H3 toward opening or closing the mouth while preserving eye-gaze transfer.
+   - The rest of the text is the owner's form of 2026-10-22: the definition names the picture's hair (`text.picture_hair`) and `[Shot 1]` the shot's (`text.hair_words`), both required of every subject; no `looks` words; a face-only retention line "the girl's face from <Picture 1> is retained."; "and eye movements" in `<Subject 2>`'s retention line, the music `N/A` ([`AGENTS.md`](AGENTS.md) §7; `bench/load_text.py`'s docstring).
    - **What each form did on a render** is the owner's to judge on playback (`data/<video>/owner_answers.jsonl`, `data/<video>/verdicts/verdicts.jsonl`); what was decided and corrected is in [`docs/wiki/decisions.md`](../wiki/decisions.md) (2026-10-20, item 6, corrected on 2026-10-21).
 
 ---
