@@ -1689,7 +1689,7 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
     for k in old_load:
         if k not in load_known:
             raise Refused(f"--carry-words-from {old_name}: word-bearing key 'loads[0].{k}' in old job cannot be carried")
-    job_known = {"name", "note", "source", "source_frames", "first", "frames", "canvas", "output", "subjects", "capture", "preview", "reference_folder",
+    job_known = {"name", "note", "source", "source_frames", "shot", "first", "frames", "canvas", "output", "subjects", "capture", "preview", "reference_folder",
                  "texts", "keep_outs", "part_on_track", "others_present", "defaults", "restore",
                  "left_out", "zoomed", "whole_frame", "head_tube", "depth", "sam_head_track", "part", "track_not", "reference", "carried_words_from", "no_carry_words"}
     for k in old_job:
@@ -2832,6 +2832,9 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
     src_frames = shots.get("source_frames") if shots.get("source_frames") is not None else preview.get("source_frames")
     return {"job": {"name": name, "note": note, "source": source or preview["source"], "first": a, "frames": n, "canvas": list(preview["canvas"]),
                     **({"source_frames": int(src_frames)} if src_frames is not None else {}),
+                    # the shot's own frames from the shots record, which a job's span can be narrower than: where a short load's
+                    # padding leaves THIS, it crosses a cut and is held (`masked_job_graph.shot_span`, `held_context`)
+                    "shot": [int(shot["first"]), int(shot["last"])],
                     "output": OUTPUT_KEY.format(video=video, session=by), "subjects": subjects,
                     "left_out": [{"subject": subject, "first": x, "frames": y - x + 1, "why": said,
                                   **({"carried": dict(cw["carried_rec"])} if cw and ((x == shot["first"] and wb_from_cw) or (y == shot["last"] and wa_from_cw)) else {})}
@@ -4060,6 +4063,8 @@ def pair_job(one: dict, two: dict, regions: dict, name: str, day: str, output_ke
            "keep_outs": {"of": [s1, s2], "made": made, "by": {ctx["subject"]: (ctx["job"].get("keep_outs") or {}).get("by") for ctx in (one, two)},
                          **({"renamed": [{"subject": w, "was": n, "is": m} for (w, n), m in renamed.items()]} if renamed else {})},
            **({"track_not": copy.deepcopy(j1["track_not"])} if j1.get("track_not") is not None else {}),
+           # the shot both loads are of, from the shots record (`masked_job_graph.shot_span`)
+           **({"shot": list(j1["shot"])} if j1.get("shot") is not None else {}),
            # read against the job file's folder (`load_chain.who_is_who_file`), and the pair's may be another: written whole
            **({"who_is_who": str((Path(one["job_file"]).parent / j1["who_is_who"]).resolve())} if j1.get("who_is_who") else {}),
            "restore": [{**r, "subject": ctx["subject"]} for ctx in (one, two) for r in ctx["job"].get("restore") or []],

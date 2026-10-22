@@ -531,6 +531,13 @@ def the_nodes_cuts_against_the_jobs() -> str:
         assert tsl.node_cuts(ctx, {"source": {"cuts": [CUT - A_FIRST]}}) == ([CUT], [CUT], True)
         assert tsl.node_cuts(ctx, {"source": {"cuts": []}}) == ([], [CUT], False)
         assert tsl.node_cuts(ctx, {"source": {"cuts": [CUT - A_FIRST, 60]}})[2] is False and tsl.node_cuts(ctx, {"source": {"cuts": [33]}})[2] is False
+        # a padded window (since 2026-10-22 all after the load, `masked_job_graph.window_pad`): a cut in the context frames is the
+        # next shot's, not the one the job names. Red when the filter read only `pad_before`, which is now 0
+        n = ctx["load"]["frames"]
+        for pad in ({"pad_before": 0, "pad_after": 34}, {"pad_before": 3, "pad_after": 31}):
+            at = pad["pad_before"]
+            got = tsl.node_cuts(ctx, {"source": {"cuts": [at + CUT - A_FIRST, at + n + 5]}, "windows": [pad]})
+            assert got == ([CUT], [CUT], True), (pad, got)
         refused(lambda: tsl.node_cuts(lc.read_job(made.a, need_text=False), {"source": {"cuts": []}}), "names no `two_shots`")
         a = argparse.Namespace(job_file=str(made.jobs / "a_two_0106.json"))
         refused(lambda: tsl.step_plan_cuts(a, made.m), "no plan file")

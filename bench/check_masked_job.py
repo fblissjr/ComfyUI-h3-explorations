@@ -436,7 +436,9 @@ def a_load_lands_on_the_inputs_it_names():
     src_node = g[graphs._the(g, graphs.SOURCE)]
     src, run = src_node["inputs"], g[graphs._the(g, graphs.SONG)]["inputs"]
     assert _files_behind(g, src["frames"]) == {(LOAD_JOB["source"], graphs.seek(WHOLE["first"] - pad_before), SHORT_WINDOW)}, "the source's frames"
-    assert src_node.get("_meta") == {"pad_before": pad_before, "pad_after": pad_after}, f"the source node's _meta: {src_node.get('_meta')}"
+    # WHOLE lies inside the job's longer span, so its context frames are the shot's own: none held
+    assert src_node.get("_meta") == {"pad_before": pad_before, "pad_after": pad_after, "held_before": 0, "held_after": 0}, \
+        f"the source node's _meta: {src_node.get('_meta')}"
     assert _files_behind(g, src["mask"]) == _read(WHOLE, FILES_WHOLE["track"]), f"the subject's mask: {_files_behind(g, src['mask'])}"
     assert _files_behind(g, src["others"]) == _read(WHOLE, FILES_WHOLE["others"]), f"the others: {_files_behind(g, src['others'])}"
     assert _files_behind(g, src["motion_video"]) == _read(WHOLE, FILES_WHOLE["motion"]), f"the motion video: {_files_behind(g, src['motion_video'])}"
@@ -623,6 +625,77 @@ def a_load_says_what_its_context_frames_show():
     assert said == {"value": "face covered", "set_by": "the job file"} and said_plain["set_by"] == "the builder's default" \
         and "as filmed" in said_plain["value"], f"the build record says {said} and {said_plain}"
     return "a load naming `face covered` sets the node's input and nothing else; the default sets nothing; another value is refused"
+
+
+def context_across_a_cut_is_held():
+    """A short load's context frames go after the shot (`graphs.window_pad`, the owner's word of 2026-10-22), and those across
+    a cut from its shot are held copies of the shot's edge frame, not the other shot's real frames (`graphs.held_context`;
+    the owner's "seam problem", 2026-10-22, measured on `second_hfp_4479c`): the job's span is the shot (`graphs.shot_span`,
+    as `bench/shot_to_load.py` writes it), so a whole-shot load is held after it, and a load inside a longer shot keeps
+    real frames where the shot continues. The builder says how many
+    in the Masked Source's `_meta` (the node holds them: `bench/check_video_mask.py`, `check_held_context`) and the build
+    record. Red on the builder before it: the `_meta` named no held frame."""
+    def meta_of(job: dict, one: dict = WHOLE) -> dict:
+        g = _a_load(one, job=job)
+        return g[graphs._the(g, graphs.SOURCE)]["_meta"]
+
+    last = WHOLE["first"] + WHOLE["frames"] - 1
+    # ALL THE PADDING GOES AFTER THE SHOT (the owner, 2026-10-22: "just add buffer frames after"; `graphs.window_pad` has why:
+    # the VAE's 17-frame clips). The case that went red on the even split: a 31-frame shot in a 39-frame window, 4 and 4 then
+    seen = graphs.window_pad(4479, 31, graphs.window_for(31, WINDOWS), 6395)
+    assert graphs.window_for(31, WINDOWS) == 39 and seen == (0, 8), f"a 31-frame shot in its window is padded {seen}, not 0 before and 8 after"
+    assert graphs.window_pad(700, 25, 39) == (0, 14) and graphs.window_pad(0, 25, 39, 100) == (0, 14), \
+        "a short shot away from the clip's end is padded before it"
+    # only at the clip's end do the frames the clip lacks go before the shot (here 13 before, the 1 frame left after)
+    assert graphs.window_pad(799, 25, 39, 825) == (13, 1) and graphs.window_pad(800, 25, 39, 825) == (14, 0), \
+        (graphs.window_pad(799, 25, 39, 825), graphs.window_pad(800, 25, 39, 825))
+    whole = meta_of({**LOAD_JOB, "first": WHOLE["first"], "frames": WHOLE["frames"]})
+    assert whole["pad_before"] == 0 and whole["pad_after"] == SHORT_WINDOW - WHOLE["frames"], f"the padding is not all after: {whole}"
+    assert (whole["held_before"], whole["held_after"]) == (0, whole["pad_after"]), \
+        f"a whole shot must hold every context frame after it, the next shot's: {whole}"
+    starts = meta_of({**LOAD_JOB, "first": WHOLE["first"], "frames": WHOLE["frames"] + 200})
+    assert (starts["held_before"], starts["held_after"]) == (0, 0), \
+        f"a load at the start of a longer shot must keep real frames after, where the shot goes on: {starts}"
+    ends = meta_of({**LOAD_JOB, "first": WHOLE["first"] - 200, "frames": WHOLE["frames"] + 200})
+    assert (ends["held_before"], ends["held_after"]) == (0, ends["pad_after"]), \
+        f"a load at the end of a longer shot must hold after: {ends}"
+    # one frame of the shot's own after it: that one stays real and the rest of the side is held
+    near = meta_of({**LOAD_JOB, "first": WHOLE["first"], "frames": WHOLE["frames"] + 1})
+    assert near["held_before"] == 0 and near["held_after"] == near["pad_after"] - 1, near
+    # a whole shot at the clip's end: its frames before are another shot's too, and held
+    at_end = meta_of({**LOAD_JOB, "first": 799, "frames": 25, "source_frames": 825}, {**WHOLE, "first": 799, "frames": 25})
+    assert (at_end["pad_before"], at_end["held_before"], at_end["pad_after"], at_end["held_after"]) == (13, 13, 1, 1), at_end
+    # A JOB NARROWER THAN ITS SHOT (`shot`, from the shots record, written by `bench/shot_to_load.py job`; 47 of the lane's job
+    # files had a span inside a longer shot): the padding after the load is the shot's own footage and stays real. Red on the
+    # span-only rule, which held it
+    narrow = {**LOAD_JOB, "first": WHOLE["first"], "frames": WHOLE["frames"], "shot": [WHOLE["first"] - 50, WHOLE["first"] + 300]}
+    inside = meta_of(narrow)
+    assert inside["pad_after"] and (inside["held_before"], inside["held_after"]) == (0, 0), \
+        f"a load inside a longer shot (its job's `shot`) must keep real frames after it: {inside}"
+    edge = meta_of({**narrow, "shot": [WHOLE["first"], last + 10]})
+    assert (edge["held_before"], edge["held_after"]) == (0, edge["pad_after"] - 10), f"held only where the padding leaves the shot: {edge}"
+    assert "`shot`, from the shots record" in graphs.shot_span_from(narrow) and "names no `shot`" in graphs.shot_span_from(LOAD_JOB), \
+        "the record does not say where the shot was read from"
+    for bad, words in (([WHOLE["first"] + 1, last], "are not inside its `shot`"), ([5, 2], "the shot's [first, last]"), ("700-800", "the shot's [first, last]")):
+        try:
+            graphs.shot_span({**narrow, "shot": bad})
+        except ValueError as e:
+            assert words in str(e), str(e)
+        else:
+            raise AssertionError(f"a job's `shot` of {bad!r} was taken")
+    # the loader still reads the window's span: the node puts the held copies over the other shot's frames
+    g = _a_load(WHOLE, job={**LOAD_JOB, "first": WHOLE["first"], "frames": WHOLE["frames"]})
+    src = g[graphs._the(g, graphs.SOURCE)]["inputs"]
+    assert _files_behind(g, src["frames"]) == {(LOAD_JOB["source"], graphs.seek(WHOLE["first"] - whole["pad_before"]), SHORT_WINDOW)}, \
+        "a held load's loader does not read its window"
+    # a two-shot job's shot is its two shots: held outside them, real between
+    assert graphs.shot_span(TWO_JOB) == (690, 949) and graphs.shot_span(LOAD_JOB) == (604, 1050), \
+        (graphs.shot_span(TWO_JOB), graphs.shot_span(LOAD_JOB))
+    assert graphs.held_context(TWO_JOB, 692, 256, 4, 4) == (2, 2) and graphs.held_context(TWO_JOB, 700, 240, 4, 4) == (0, 0), \
+        (graphs.held_context(TWO_JOB, 692, 256, 4, 4), graphs.held_context(TWO_JOB, 700, 240, 4, 4))
+    assert graphs.held_context(LOAD_JOB, 700, 100, 0, 0) == (0, 0), "a load with no context holds something"
+    return (f"31 frames in 39 pad 0 before and 8 after; a whole shot holds {whole['held_after']} after it; a load inside a longer shot "
+            f"keeps real frames where the shot goes on ({WHOLE['first']}..{last}); before the shot only at the clip's end")
 
 
 def a_load_of_chained_windows_takes_context_noise():
@@ -1171,7 +1244,7 @@ def loads_from_a_capture():
         assert seen["subject"]["box_height_px_middle"] == 160 and "not in the capture" in seen["part"], seen
         pad_before, pad_after = graphs.window_pad(WHOLE["first"], WHOLE["frames"], SHORT_WINDOW, LOAD_JOB.get("source_frames"),
                                                   bool(WHOLE.get("continue_from")), floor=WHOLE.get("audio_first", LOAD_JOB["first"]))
-        assert seen["load_against_its_window"] == {"frames": WHOLE["frames"], "window": SHORT_WINDOW, "context_before": pad_before, "context_after": pad_after, "tossed_after_decode": SHORT_WINDOW - WHOLE["frames"], "held_past_the_load": 0}, seen["load_against_its_window"]
+        assert seen["load_against_its_window"] == {"frames": WHOLE["frames"], "window": SHORT_WINDOW, "context_before": pad_before, "context_after": pad_after, "context_before_held": 0, "context_after_held": 0, "held_counts_are": "before the node's guard, which may fall back; the plan row's held_fell_back says whether it did", "shot": [604, 1050], "shot_from": graphs.shot_span_from(LOAD_JOB), "tossed_after_decode": SHORT_WINDOW - WHOLE["frames"], "held_past_the_load": 0}, seen["load_against_its_window"]
         absent = part["what_this_clips_preview_measured"]
         assert "not in the capture" in absent["subject"] and "not in the capture" in absent["cuts_on_source_frames"], \
             f"a figure the capture does not hold is not said to be absent: {absent}"
@@ -1738,7 +1811,7 @@ def main() -> int:
                build_refuses_what_it_must, queue_refuses_what_it_must, a_job_is_built_on_its_videos_analysis_folder,
                a_load_lands_on_the_inputs_it_names, a_plan_is_the_render_with_nothing_sampled,
                a_load_leaves_the_rows_model_alone, the_nodes_schemas_accept_a_load,
-               a_load_the_graph_cannot_be_built_from, a_load_says_what_its_context_frames_show, a_load_of_chained_windows_takes_context_noise, loads_from_a_capture, a_load_of_two_subjects, a_hair_band_under_a_part,
+               a_load_the_graph_cannot_be_built_from, a_load_says_what_its_context_frames_show, context_across_a_cut_is_held, a_load_of_chained_windows_takes_context_noise, loads_from_a_capture, a_load_of_two_subjects, a_hair_band_under_a_part,
                a_text_is_of_its_frames, a_load_of_two_shots,
                the_gate_before_a_render, an_uncarved_keep_out_refused):
         case(fn.__name__.replace("_", " "), fn)

@@ -326,6 +326,26 @@ def held_padding_from_the_record() -> str:
     return "held copies are read from the build record's held_past_the_load, with no printout beside it"
 
 
+def held_across_a_cut() -> str:
+    """Context frames across a cut held as copies of the shot's edge frame (2026-10-22, `masked_job_graph.held_context`): read from the
+    build record's `context_before_held` / `context_after_held`, and from the printout's line when the record is absent."""
+    record = {"what_this_clips_preview_measured": {"load_against_its_window": {
+        "frames": 31, "window": 39, "context_before": 4, "context_after": 4, "context_before_held": 4, "context_after_held": 4,
+        "tossed_after_decode": 8, "held_past_the_load": 0}}}
+    got, where = rh.padding_of(record, "", {}, 31, 4479, 39)
+    assert (got["before"], got["after"], got["held"]) == (4, 4, 8) and got["kind"].startswith("held copies of the shot's edge frames across a cut") \
+        and "the rest real" not in got["kind"] and "load_against_its_window" in where, (got, where)
+    one_side = {"what_this_clips_preview_measured": {"load_against_its_window": {**record["what_this_clips_preview_measured"]["load_against_its_window"],
+                                                                                 "context_before_held": 0}}}
+    got = rh.padding_of(one_side, "", {}, 31, 4479, 39)[0]
+    assert "0 of 4 before, 4 of 4 after" in got["kind"] and "the rest real" in got["kind"], got
+    printed = ("    frames 4479..4509 of the copy, window 39, context 90, padded with 4 frame(s) before and 4 after (4475..4513; 4 before "
+               "and 4 after lie across a cut from the shot 4479..4509 and are HELD copies of its edge frame")
+    got, where = rh.padding_of(None, printed, {}, 31, 4479, 39)
+    assert (got["before"], got["after"], got["held"], where) == (4, 4, 8, "build printout") and "across a cut" in got["kind"], (got, where)
+    return "held context across a cut is read from the record and from the printout, side by side"
+
+
 def a_load_that_stopped() -> str:
     with tempfile.TemporaryDirectory() as tmp:
         rows, _, _ = everything(Path(tmp)).history()
@@ -494,6 +514,7 @@ def it_refuses_cleanly() -> str:
 case("a load that rendered", a_load_that_rendered)
 case("padding: real frames and held copies", held_padding)
 case("held copies, from the record", held_padding_from_the_record)
+case("held context across a cut", held_across_a_cut)
 case("a load that stopped", a_load_that_stopped)
 case("a job file with no job folder", a_job_file_alone)
 case("a name used twice", a_name_used_twice)

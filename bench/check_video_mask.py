@@ -2072,11 +2072,140 @@ def check_context_shows(problems):
     # a region file saved again from one read keeps every padding key (`padding_of`; a re-composite once dropped two of them)
     with tempfile.TemporaryDirectory() as tmp:
         first = vm.load_window_region(vm.save_window_region(str(Path(tmp) / "a.npz"), win[vm.CONTEXT_FACE_COVERED][3],
-                                                            win[vm.CONTEXT_FACE_COVERED][2], {**covered, "context_held_empty": ["after"]}, 8, 0, 2))
+                                                            win[vm.CONTEXT_FACE_COVERED][2], {**covered, "context_held_empty": ["after"],
+                                                                                               "held_before": 1, "held_after": 2,
+                                                                                               "held_fell_back": ["after: a check"]}, 8, 0, 2))
         again = vm.load_window_region(vm.save_window_region(str(Path(tmp) / "b.npz"), first["mask"], first["tokens"],
                                                             {**first["source"], **vm.padding_of(first)}, 8, 0, 2))
         if vm.padding_of(again) != vm.padding_of(first) or set(vm.padding_of(first)) != set(vm.PADDING_KEYS):
             problems.append(f"context: a region saved again with `padding_of` lost a key: {vm.padding_of(first)} -> {vm.padding_of(again)}")
+    check_held_context(problems, frames_39, mask_35, others_35, afs)
+
+
+def check_held_context(problems, frames_39, mask_35, others_35, afs):
+    """Context frames across a cut are held copies of the shot's edge frame (`video_mask.hold_context`, the owner's "seam
+    problem" of 2026-10-22): the 35-frame shot in its 39-frame window, 2 context frames each side. The builder marks the
+    held ones in `_meta` (`held_before`, `held_after`; `workflows/masked_job_graph.py::held_context`, held in
+    `bench/check_masked_job.py`). Red on the node before it: the context frames stayed the other shot's real frames."""
+    import tempfile
+    from types import SimpleNamespace
+    node = vm.MiniMaxH3MaskedSource
+
+    def run(meta, shows=vm.CONTEXT_AS_FILMED):
+        node.hidden = SimpleNamespace(prompt={"10": {"_meta": meta}}, unique_id="10")
+        try:
+            return node.execute(frames_39, mask_35, grow_pixels=8, others=others_35, context_shows=shows).args[0]
+        finally:
+            node.hidden = None
+
+    # a whole shot, a cut on each side: every context frame held, with the edge frame's masks, whatever context_shows says
+    for shows in vm.CONTEXT_SHOWS:
+        rec = run({"pad_before": 2, "pad_after": 2, "held_before": 2, "held_after": 2}, shows)
+        f, m, o = rec["frames"], rec["mask"], rec["others"]
+        if not (all(torch.equal(f[k], frames_39[2]) for k in (0, 1)) and all(torch.equal(f[k], frames_39[36]) for k in (37, 38))
+                and torch.equal(f[2:37], frames_39[2:37])):
+            problems.append(f"held: under `{shows}` a whole shot's context frames must be copies of its first frame before and its "
+                            "last after, its own frames unchanged")
+        if not (all(torch.equal(m[k], m[2]) and torch.equal(o[k], o[2]) for k in (0, 1))
+                and all(torch.equal(m[k], m[36]) and torch.equal(o[k], o[36]) for k in (37, 38)) and bool(m[0].any())):
+            problems.append(f"held: under `{shows}` a held frame must carry its edge frame's mask (the region open) and keep-outs")
+        if not torch.equal(rec["subject_boxes"][0], rec["subject_boxes"][2]) or (rec.get("held_before"), rec.get("held_after")) != (2, 2):
+            problems.append(f"held: under `{shows}` the box must be held with the mask and the record say 2 and 2: "
+                            f"{rec.get('held_before')!r}, {rec.get('held_after')!r}")
+    # a load inside a longer shot that ends after it: before is the shot's own footage (real), after is held
+    rec = run({"pad_before": 2, "pad_after": 2, "held_before": 0, "held_after": 2})
+    if not torch.equal(rec["frames"][:2], frames_39[:2]) or bool(rec["mask"][:2].any()) \
+            or not all(torch.equal(rec["frames"][k], frames_39[36]) for k in (37, 38)) or "held_before" in rec:
+        problems.append("held: a side where the shot continues must keep its real frames, as filmed, and only the cut side be held")
+    # one side partly real: the held frame copies the innermost real context frame, with its (empty) mask
+    rec = run({"pad_before": 2, "pad_after": 2, "held_before": 1, "held_after": 0})
+    if not (torch.equal(rec["frames"][0], frames_39[1]) and torch.equal(rec["frames"][1], frames_39[1])
+            and torch.equal(rec["frames"][37:], frames_39[37:]) and not bool(rec["mask"][:2].any())):
+        problems.append("held: a held frame outside a real context frame must copy that frame, with its mask")
+    # a graph built before the change names no held frames: real frames, as it was rendered
+    rec = run({"pad_before": 2, "pad_after": 2})
+    if not torch.equal(rec["frames"], frames_39) or "held_before" in rec or "held_after" in rec:
+        problems.append("held: a graph that names no held frames must keep every context frame real")
+    try:
+        run({"pad_before": 2, "pad_after": 2, "held_before": 3, "held_after": 0})
+        problems.append("held: more held frames than context frames on a side was taken, not refused")
+    except ValueError as exc:
+        if "is more than the window's context frames" not in str(exc):
+            problems.append(f"held: the refusal of too many held frames does not say so in its own words: {exc}")
+    # the region file and the plan row say how many were held, side by side
+    rec = run({"pad_before": 2, "pad_after": 2, "held_before": 2, "held_after": 1})
+    lt = next(t for t in range(1, 40) if sum(vm.run_lengths(t)) == 39)
+    win = vm.window(rec, 0, 39, W, H, lt, LAT_H, LAT_W)
+    with tempfile.TemporaryDirectory() as tmp:
+        got = vm.load_window_region(vm.save_window_region(str(Path(tmp) / "h_region.npz"), win[3], win[2], rec, 8, 0, 2))
+        afs.write_plan(rec, [SimpleNamespace(number=1, start=0.0, frames=39, text="t")], [35], 0, False, W, H, tmp, "h", {})
+        row = json.loads(Path(afs.loop_resume.plan_path(tmp, "h")).read_text())["windows"][0]
+    if (got.get("held_before"), got.get("held_after"), row.get("held_before"), row.get("held_after")) != (2, 1, 2, 1):
+        problems.append(f"held: the region file and the plan row must say 2 held before and 1 after: {got.get('held_before')!r}, "
+                        f"{got.get('held_after')!r}, {row.get('held_before')!r}, {row.get('held_after')!r}")
+    # THE GUARD (`video_mask.HELD_EDGE_LEAST`, the owner's choice of 2026-10-22, from second_hfp_4912e's empty 4946): a held side
+    # whose edge frame has no region, or one under that share of the shot's middle region, keeps its real frames and says so
+    def edged(last):
+        m = mask_35.clone()
+        m[-1] = 0.0
+        m[-1, 32:32 + last, 60:60 + last] = 1.0 if last else 0.0
+        node.hidden = SimpleNamespace(prompt={"10": {"_meta": {"pad_before": 2, "pad_after": 2, "held_before": 2, "held_after": 2}}},
+                                      unique_id="10")
+        try:
+            return node.execute(frames_39, m, grow_pixels=8, others=others_35).args[0]
+        finally:
+            node.hidden = None
+    middle = 32 * 32
+    small = int((vm.HELD_EDGE_LEAST * middle) ** 0.5) - 1          # a square edge region just under the guard's share
+    large = int((vm.HELD_EDGE_LEAST * middle) ** 0.5) + 2          # and just over it
+    for last, what in ((0, "an empty"), (small, "a nearly empty")):
+        rec = edged(last)
+        if not (torch.equal(rec["frames"][37:], frames_39[37:]) and not bool(rec["mask"][37:].any())
+                and all(torch.equal(rec["frames"][k], frames_39[2]) for k in (0, 1))):
+            problems.append(f"held: {what} last frame must leave the frames after it real (as filmed) and still hold the side before")
+        said = rec.get("held_fell_back") or []
+        if "held_after" in rec or rec.get("held_before") != 2 or len(said) != 1 or not said[0].startswith("after") \
+                or f"is {last * last} px" not in said[0]:
+            problems.append(f"held: {what} last frame's fallback is not recorded as the after side, with its area: {said!r}, "
+                            f"{rec.get('held_before')!r}, {rec.get('held_after')!r}")
+    rec = edged(large)
+    if rec.get("held_after") != 2 or rec.get("held_fell_back") or not torch.equal(rec["frames"][38], frames_39[36]):
+        problems.append(f"held: a last frame with a region over the guard's share ({large * large} of {middle} px) must be held")
+    with tempfile.TemporaryDirectory() as tmp:
+        fb = edged(0)
+        afs.write_plan(fb, [SimpleNamespace(number=1, start=0.0, frames=39, text="t")], [35], 0, False, W, H, tmp, "f", {})
+        row = json.loads(Path(afs.loop_resume.plan_path(tmp, "f")).read_text())["windows"][0]
+    if not (row.get("held_fell_back") or [""])[0].startswith("after") or "held_after" in row:
+        problems.append(f"held: the plan row does not say the after side fell back: {row.get('held_fell_back')!r}")
+    # a graph that does not say how its window is padded: every extra frame after the shot, as the builder pads
+    # (`workflows/masked_job_graph.py::window_pad`, the owner's word of 2026-10-22; split evenly until then)
+    node.hidden = None
+    rec = node.execute(frames_39, mask_35, grow_pixels=8).args[0]
+    if (rec.get("pad_before"), rec.get("pad_after")) != (0, 4) or not bool(rec["mask"][0].any()) or bool(rec["mask"][35:].any()):
+        problems.append(f"held: a window with no padding said must put its 4 extra frames after the shot: "
+                        f"{rec.get('pad_before')!r}, {rec.get('pad_after')!r}")
+    # the song node: the model hears silence under the held frames, the real track elsewhere; the given value is untouched
+    rate = 48000
+    wave = torch.ones(1, 2, int(39 / 24 * rate))
+    quiet = afs.silenced({"waveform": wave, "sample_rate": rate}, 2, 39 - 1)["waveform"]
+    edge_a, edge_b = int(round(2 / 24 * rate)), int(round(38 / 24 * rate))
+    if bool(quiet[..., :edge_a].any()) or bool(quiet[..., edge_b:].any()) or not bool((quiet[..., edge_a:edge_b] == 1).all()) \
+            or not bool((wave == 1).all()):
+        problems.append("held: the track must be silent under the held frames and as given elsewhere, the value given unchanged")
+    # what the song node hands the model (`heard_under_held`, which its execute calls): the counts the Masked Source KEPT,
+    # after its guard, and silence under them; a side that fell back, or a run with no source, hears the track as given
+    track = {"waveform": wave, "sample_rate": rate}
+    got = afs.heard_under_held(track, {"held_before": 0, "held_after": 8}, 39, 0, 8)
+    end = int(round(31 / 24 * rate))
+    if got[:2] != (0, 8) or bool(got[2]["waveform"][..., end:].any()) or not bool((got[2]["waveform"][..., :end] == 1).all()):
+        problems.append(f"held: the song node must hear silence under the 8 held frames after the shot and the track before: {got[:2]}")
+    fell = afs.heard_under_held(track, {"held_fell_back": ["after: a check"]}, 39, 0, 8)
+    none = afs.heard_under_held(track, None, 39, 0, 0)
+    if fell[:2] != (0, 0) or fell[2] is not track or none[2] is not track:
+        problems.append("held: a side that fell back, or a run with no source, must hear the track as given")
+    song = (REPO / "audio_freeze_song.py").read_text()
+    if "= heard_under_held(audio, source, total, pad_before, pad_after)" not in song:
+        problems.append("held: the song node's execute does not take its track from `heard_under_held`")
 
 
 def check_others(problems):

@@ -1313,7 +1313,9 @@ def _window_frames(mask: np.ndarray, row: dict, at: int, first: int, length: int
     padded before or after the shot (`pad_before`, `pad_after`) are empty; a frame past the capture's last when no padding is
     set holds its last (`video_mask.held_mask`). Empty on context frames under either `context_shows` (`video_mask.CONTEXT_SHOWS`):
     the node pads the keep-outs empty in both forms, and the subject's own mask on a window is read from the node's region
-    file (`node_windows`), never from here; the carve and the fault count write only to the capture's frames."""
+    file (`node_windows`), never from here; the carve and the fault count write only to the capture's frames. Context frames
+    across a cut (`held_before`, `held_after`, 2026-10-22) are copies of the frame inside them, as the node holds every mask
+    there (`video_mask.hold_context`)."""
     out = np.zeros((length,) + mask.shape[1:], bool)
     pad_before, pad_after = int(row.get("pad_before", 0)), int(row.get("pad_after", 0))
     for i in range(pad_before, length - pad_after):
@@ -1322,6 +1324,11 @@ def _window_frames(mask: np.ndarray, row: dict, at: int, first: int, length: int
             out[i] = mask[k]
         elif not (pad_before or pad_after) and k >= len(mask) and len(mask):
             out[i] = mask[-1]
+    held_before, held_after = int(row.get("held_before", 0)), int(row.get("held_after", 0))
+    if held_before:
+        out[:held_before] = out[held_before]
+    if held_after:
+        out[length - held_after:] = out[length - held_after - 1]
     return out
 
 

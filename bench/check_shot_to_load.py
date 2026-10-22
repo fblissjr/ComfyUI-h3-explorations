@@ -662,6 +662,9 @@ def a_loads_job_file_stands_alone() -> str:
                                           {"subject": "a", "first": 144, "frames": 16, "why": "a hand is over the face before 104 and after 143"}], cut["job"]["left_out"]
         assert cut["loads"][0]["motion_file"].endswith("references/a_0104_0143/a_head_reference_0104_0143.mp4") and cut["loads"][0]["motion_first"] == 104, cut["loads"][0]
         assert (cut["job"]["first"], cut["job"]["frames"]) == (104, 40) and "CUT BY A LOOK" in cut["job"]["note"]
+        # the job carries its shot from the shots record, wider than its span: a short load's padding is held only where it
+        # leaves the shot (`masked_job_graph.shot_span`, 2026-10-22)
+        assert cut["job"]["shot"] == [100, 159] and job["shot"] == [100, 159], (cut["job"].get("shot"), job.get("shot"))
         refused(lambda: made.load(first=150, frames=20, why="w"), "not inside the shot")
         # each end of a cut with its own reason (2026-10-13: a load remade shorter carried one sentence on both entries)
         two = made.load(first=104, frames=40, why_before="frames before 104 are another load's", why_after="a hand is over the face after 143", name="a_fp_0104")

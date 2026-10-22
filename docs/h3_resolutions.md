@@ -282,12 +282,17 @@ third of one audio latent, the rounding adding it (22) or dropping it (362).
 Every masked load renders in a window on both clocks (`workflows/masked_job_graph.py::both_clocks`,
 `workflows/masked_job_graph.py::window_for`, `workflows/masked_job_graph.py::one_window`).
 When a shot is shorter than its window, `workflows/masked_job_graph.py::window_pad` pads the
-window with real frames of the source before and after the shot as untouched context (empty
+window with real frames of the source after the shot (since 2026-10-22; before it only at the clip's end, and split
+evenly before then) as untouched context (empty
 regeneration mask in `video_mask.py::MiniMaxH3MaskedSource.execute`, never held copies of the last
 frame), and `audio_freeze_song.py::MiniMaxH3AudioFreezeSong.execute` tosses those context frames
 after the VAE decode. Why: repeating the last frame into a held tail (`second_hfp_4912e`) repeated
 unregenerated features across the window and filled the encoder's last clip with a frozen frame,
 whereas real neighbor frames keep the video and audio clocks exact without held copies.
+Since 2026-10-22 the context frames across a cut are held copies of the shot's own edge frame again, with its region
+open and the track silent under them (`workflows/masked_job_graph.py::held_context`, `video_mask.hold_context`): a real
+frame of the next shot shares a latent step with the shot's last frame and put a seam there (`docs/wiki/decisions.md`,
+2026-10-22). Real frames stay where the shot's own footage goes on.
 
 **Outside the masked lane (standalone text-to-video and image-to-video):** every length on the
 `17n + 5` grid up to `MAX_LENGTH` (`362`) remains valid (`loop_plan.stands_alone`), while chained

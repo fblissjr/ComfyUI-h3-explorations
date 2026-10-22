@@ -939,9 +939,18 @@ def shown(job: dict, one: dict, files: dict, graph: dict, inputs: Path) -> list[
     floor = one.get("audio_first", job["first"]) if one.get("audio") else 0
     before, after = graphs.window_pad(one["first"], one["frames"], run["window_frames"], job.get("source_frames"),
                                       bool(one.get("continue_from")), floor=floor)
+    held_before, held_after = graphs.held_context(job, one["first"], one["frames"], before, after)
     lines = [f"frames {one['first']}..{one['first'] + one['frames'] - 1} of the copy at {h3_config.FPS:g} fps, canvas "
              f"{run['width']}x{run['height']}, window {run['window_frames']}, context {run['context_frames']}"
-             + (f", padded with {before} real frame(s) before and {after} after ({one['first'] - before}..{one['first'] + one['frames'] + after - 1}) "
+             + (f", padded with {before} {'' if held_before or held_after else 'real '}frame(s) before and {after} after "
+                f"({one['first'] - before}..{one['first'] + one['frames'] + after - 1}"
+                + (f"; {held_before} before and {held_after} after lie across a cut from the shot "
+                   f"{graphs.shot_span(job)[0]}..{graphs.shot_span(job)[1]} and are HELD copies of its edge frame with its region "
+                   f"open, silent, and the {before - held_before + after - held_after} other(s) are real; a side whose edge frame has "
+                   f"too small a region keeps its real frames: these counts are before the node's guard, which may fall back; the plan "
+                   f"row's `held_fell_back` says whether it did; the shot is read from {graphs.shot_span_from(job)}"
+                   if held_before or held_after else "")
+                + ") "
                 + ("as untouched context" if src.get("context_shows", graphs.CONTEXT_SHOWS[0]) == graphs.CONTEXT_SHOWS[0] else
                    f"with the subject's region held open on them (`{src['context_shows']}`: the shot's first frame's mask before, its last "
                    "frame's after)")
@@ -1048,7 +1057,13 @@ def measured(job: dict, one: dict, capture: Path, graph: dict) -> dict:
     floor = one.get("audio_first", job["first"]) if one.get("audio") else 0
     before, after = graphs.window_pad(one["first"], one["frames"], window, job.get("source_frames"),
                                       bool(one.get("continue_from")), floor=floor)
+    # of the context frames, how many each side are held copies of the shot's edge frame across a cut (2026-10-22)
+    held_before, held_after = graphs.held_context(job, one["first"], one["frames"], before, after)
     out["load_against_its_window"] = {"frames": one["frames"], "window": window, "context_before": before, "context_after": after,
+                                      "context_before_held": held_before, "context_after_held": held_after,
+                                      # before the node's guard (`video_mask.HELD_EDGE_LEAST`): the plan row says whether it fell back
+                                      "held_counts_are": "before the node's guard, which may fall back; the plan row's held_fell_back says whether it did",
+                                      "shot": list(graphs.shot_span(job)), "shot_from": graphs.shot_span_from(job),
                                       "tossed_after_decode": before + after, "held_past_the_load": 0}
     return out
 

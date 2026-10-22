@@ -1892,6 +1892,17 @@ def the_carve_on_the_nodes_grid() -> str:
         # A WINDOW'S FRAMES PAST THE CAPTURE HOLD ITS LAST, as the node holds them (`video_mask.held_mask`; Gemini's note on 0604g window 2)
         tail = cap._window_frames(box(0, 0, 16, 16)[:3], {"first_frame": 1}, 0, 0, 4)
         assert tail[0].any() and tail[1].any() and tail[2].any() and tail[3].any(), "the frames past the capture are not its last held"
+        # CONTEXT FRAMES ACROSS A CUT HOLD THE SHOT'S EDGE FRAME'S KEEP-OUT, as the node holds every mask there
+        # (`video_mask.hold_context`, 2026-10-22); real context frames stay empty, as the node pads the keep-outs
+        moving = box(0, 0, 16, 16, [0]) | box(40, 0, 56, 16, [1]) | box(80, 0, 96, 16, [2])
+        held = cap._window_frames(moving[:3], {"first_frame": 0, "pad_before": 2, "pad_after": 2, "held_before": 2, "held_after": 2}, 0, 0, 7)
+        assert all((held[k] == moving[0]).all() for k in (0, 1)) and all((held[k] == moving[2]).all() for k in (5, 6)) \
+            and all((held[2 + k] == moving[k]).all() for k in range(3)), "a held context frame does not carry its edge frame's keep-out"
+        # one held of two after: it copies the real context frame inside it, which is empty, as the node copies it
+        part_held = cap._window_frames(moving[:3], {"first_frame": 0, "pad_before": 2, "pad_after": 2, "held_after": 1}, 0, 0, 7)
+        assert not part_held[5:].any() and not part_held[:2].any(), "a held frame outside a real context frame is not that frame's copy"
+        real = cap._window_frames(moving[:3], {"first_frame": 0, "pad_before": 2, "pad_after": 2}, 0, 0, 7)
+        assert not real[:2].any() and not real[5:].any(), "a real context frame carries a keep-out"
         # NO PIXEL WIDER WITHOUT A ZOOM: the cells are the node's exactly; a keep-out beside a carved unit keeps its pixels
         folder = Path(tmp) / "exact"
         folder.mkdir()

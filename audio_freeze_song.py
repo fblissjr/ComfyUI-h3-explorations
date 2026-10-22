@@ -262,6 +262,27 @@ def zoomed_record(zoom: dict, source: dict, stem: str, frames: int, cut_sides=()
                             "is the loaded source wherever the node's weight is 0"}
 
 
+def heard_under_held(audio: dict, source: dict | None, total: int, pad_before: int, pad_after: int) -> tuple[int, int, dict]:
+    """(held before, held after, the track the model hears) for a run of `total` frames whose source pads its one window
+    by `pad_before` and `pad_after`: the held counts the Masked Source kept (after its guard, `video_mask.HELD_EDGE_LEAST`)
+    and the track silent under them (`silenced`), or the track as given when nothing is held."""
+    held_before = int(source.get("held_before", 0)) if source is not None and pad_before else 0
+    held_after = int(source.get("held_after", 0)) if source is not None and pad_after else 0
+    if held_before or held_after:
+        audio = silenced(audio, held_before, int(total) - held_after)
+    return held_before, held_after, audio
+
+
+def silenced(audio: dict, first: int, end: int) -> dict:
+    """A copy of a Comfy AUDIO value that is silent before frame `first` and from frame `end` on, frames at `FPS`
+    (`video_mask.CONTEXT_SHOWS`, "context across a cut is held"). The value given is not changed."""
+    waveform, rate = audio["waveform"], int(audio["sample_rate"])
+    quiet = waveform.clone()
+    quiet[..., :max(0, int(round(int(first) / FPS * rate)))] = 0
+    quiet[..., int(round(int(end) / FPS * rate)):] = 0
+    return {**audio, "waveform": quiet}
+
+
 def write_plan(source: dict, windows, writes: list[int], context_frames: int, continued: bool, width: int, height: int,
                work_dir: str, filename: str, settings: dict) -> list[str]:
     """What a render of this graph will be given, written with nothing sampled: each planned window's region file
@@ -324,7 +345,11 @@ def write_plan(source: dict, windows, writes: list[int], context_frames: int, co
                "first_written_frame": first_written, "last_written_frame": first_written + int(writes[i]) - 1, "text": w.text,
                **({"pad_before": pad_before, "pad_after": pad_after,
                    "context_shows": source.get("context_shows") or video_mask.CONTEXT_AS_FILMED,
-                   **{k: list(source[k]) for k in ("context_held_across_a_cut", "context_held_empty") if source.get(k)}}
+                   **{k: list(source[k]) for k in ("context_held_across_a_cut", "context_held_empty") if source.get(k)},
+                   # context frames across a cut, held copies of the shot's edge frame (`video_mask.hold_context`)
+                   **{k: int(source[k]) for k in ("held_before", "held_after") if source.get(k)},
+                   # a held side that kept real frames, and why (`video_mask.HELD_EDGE_LEAST`)
+                   **({"held_fell_back": list(source["held_fell_back"])} if source.get("held_fell_back") else {})}
                   if (pad_before or pad_after) else {})}
         if start >= have:
             past.append(w.number)
@@ -671,6 +696,10 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
         pad_after = int(source.get("pad_after", 0)) if source is not None and n_windows == 1 and not continue_from else 0
         head = context_frames if continue_from else pad_before
         total = loop_plan.frames_covered([w.frames for w in windows], context_frames)
+        # context frames across a cut are held copies of the shot's edge frame (`video_mask.hold_context`); the model
+        # hears silence under them, as it heard under frames held past a track's end before 2026-10-21. The track
+        # the run is muxed with (`waveform`) is the one given: it is cut to the written frames, which these are not
+        held_before, held_after, audio = heard_under_held(audio, source, total, pad_before, pad_after)
         # what is written of that: every frame, or as far as the track runs when it ends first;
         # the frames past it come off the last window's tail before it is encoded
         kept_frames = (total - pad_after) if (pad_before or pad_after) else loop_plan.frames_kept(total, track_seconds)
@@ -679,7 +708,9 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
         clock = loop_plan.clock
         lines = [f"{n_windows} windows {[w.frames for w in windows]} with {context_frames}-frame context, "
                  f"{total} frames ({total / FPS:.2f}s) over {seconds:.2f}s of track"
-                 + (f"; {kept_frames - head} are written ({pad_before} before and {pad_after} after are context)" if (pad_before or pad_after)
+                 + (f"; {kept_frames - head} are written ({pad_before} before and {pad_after} after are context"
+                    + (f"; {held_before} before and {held_after} after lie across a cut and are held copies of the shot's "
+                       "edge frame, silent" if (held_before or held_after) else "") + ")" if (pad_before or pad_after)
                     else f"; {kept_frames} are written, the track ends first" if kept_frames < total else "")]
         if continue_from:
             lines.append(f"continues from {os.path.basename(continue_from)}: the first {head} frames of this run's "

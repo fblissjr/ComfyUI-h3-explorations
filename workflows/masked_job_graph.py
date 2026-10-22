@@ -82,7 +82,9 @@ video only as a `motion_file` of its own, which the node shows as it is and does
 default, renders the whole frame; `context_shows` (`CONTEXT_SHOWS`): what the real frames a short load is padded with
 show, `as filmed` (the default) or `face covered`; and `zoom_up_to` with `zoom_up_to_by` (2026-10-22, for a test): on a
 `part` load, the most the node may enlarge it, past its own 2 up to `video_mask.ZOOM_MOST_ASKED`, so a small head is
-zoomed until it is `video_mask.ZOOM_HEAD_TARGET` px tall; `zoom_up_to_by` is who asked and why, and is required with it. A default that was measured on one clip is a starting value for
+zoomed until it is `video_mask.ZOOM_HEAD_TARGET` px tall; `zoom_up_to_by` is who asked and why, and is required with it.
+A short load's padding frames that lie outside its shot (`shot_span`) are held copies of the shot's edge frame, not
+real frames, whatever the load says (`held_context`, 2026-10-22). A default that was measured on one clip is a starting value for
 another: every one of them can be set in a load or in the file's `defaults`, and the build record says
 which were (`SETTINGS`). `carried` says what a pass takes: `track` is the whole subject, `held` the
 part as the capture filled and graded it. One job file makes a whole-person pass or a part pass of the same
@@ -376,7 +378,8 @@ RENDER_REGIONS = {"frame": None, "part": "zoomed in on what is replaced"}
 #: What a load's `context_shows` may say: the Masked Source's own two (`video_mask.CONTEXT_SHOWS`, which has the rule;
 #: `bench/check_masked_job.py` holds the two names together). What the real source frames a one-window load is padded
 #: with (`window_pad`) show: `as filmed`, the node's default, sets nothing; `face covered` holds the subject's region open
-#: on them. Written by `bench/shot_to_load.py job` from the plan's `subjects.<s>.context` (2026-10-22). A load with no
+#: on them. Neither reaches a context frame across a cut: that one is a held copy of the shot's edge frame with its
+#: region open (`held_context`). Written by `bench/shot_to_load.py job` from the plan's `subjects.<s>.context` (2026-10-22). A load with no
 #: context frames (one that fills its window, or continues another) carries it to no effect, and the node says so.
 CONTEXT_SHOWS = ("as filmed", "face covered")
 #: What a load's `carried` may say (the capture's words): the whole tracked subject, or its part.
@@ -541,9 +544,10 @@ def one_window(frames: int, window: int, windows: tuple[int, ...]) -> bool:
 
 def window_for(frames: int, windows: tuple[int, ...], continues: bool = False) -> int:
     """The window a load is rendered in: for a load one window can hold, the shortest length on both clocks
-    (`both_clocks`, `h3_rules.on_both_clocks`) that holds it whole (the owner, 2026-10-21), padded with real source
-    frames before and after the shot (`window_pad`) that are tossed after the decode; for a longer one, the planner's
-    longest, and it runs in several.
+    (`both_clocks`, `h3_rules.on_both_clocks`) that holds it whole (the owner, 2026-10-21), padded with context frames
+    after the shot (`window_pad`; before it only at the clip's end) that are tossed after the decode: the source's real
+    frames where the shot continues, held copies of its edge frame across a cut (`held_context`, 2026-10-22); for a
+    longer one, the planner's longest, and it runs in several.
 
     A load that `continues` another window (`continue_from`) meets it at a seam, so its window is a chained length:
     the shortest of `windows` that holds it, or the longest."""
@@ -553,21 +557,71 @@ def window_for(frames: int, windows: tuple[int, ...], continues: bool = False) -
 
 def window_pad(first: int, frames: int, window: int, source_frames: int | None = None,
                continues: bool = False, floor: int = 0) -> tuple[int, int]:
-    """(before, after) real source frames of untouched context around a one-window load shorter than its window.
+    """(before, after) context frames around a one-window load shorter than its window, read from the source: of them,
+    those across a cut from the shot are held copies of its edge frame in the render (`held_context`).
 
-    Split evenly before and after (`extra // 2` before, the rest after), shifted into `after` when `first` is near
-    the start of the clip (`floor`, 0 or an external audio file's `audio_first`) and into `before` when `first + frames`
-    is near `source_frames` (the clip's end)."""
+    All of it AFTER the shot (the owner, 2026-10-22: "just add buffer frames after"), so the shot's first frame is the
+    window's frame 0. Why: the video VAE encodes the window in clips of 17 frames, each on its own, a short last clip
+    filled with copies of its last frame (core's `comfy/ldm/minimax/vae.py`, `clip_length=17` and `encode_temporal`);
+    with the context split 4 and 4 on second_hfp_4479e the shot's last frame sat alone at the start of the window's last
+    clip with 16 frames of the next shot, and the box was bright there. Until then it was split evenly (`extra // 2`
+    before). The one exception is the clip's end (`source_frames`): the frames after the shot that the clip does not
+    have go before it, as far as `floor` allows (0, or an external audio file's `audio_first`)."""
     if continues or frames >= window:
         return 0, 0
     extra = int(window) - int(frames)
-    avail_before = max(0, int(first) - int(floor))
-    before = min(avail_before, extra // 2)
-    after = extra - before
+    after = extra
     if source_frames is not None and int(first) + int(frames) + after > int(source_frames):
         after = max(0, int(source_frames) - (int(first) + int(frames)))
-        before = min(avail_before, extra - after)
+    before = min(max(0, int(first) - int(floor)), extra - after)
     return before, after
+
+
+def shot_span(job: dict) -> tuple[int, int]:
+    """The first and last source frame of the shot a job's loads are of, so each end is a cut or the clip's edge
+    (`shot_span_from` says which of these it was read from): for a `two_shots` job, the first shot's first frame to the
+    second's last; else the job's `shot`, `[first, last]`, which `bench/shot_to_load.py job` copies from the shots record
+    (`data/<video>/shots.json`, the one home of shot boundaries; 2026-10-22); else, in a job written before that, the job's
+    own span (`first`, `frames`), which can be narrower than its shot, so a side where the shot goes on is held there."""
+    two = two_shots_of(job)
+    if two is not None:
+        return int(two["shots"][0][0]), int(two["shots"][1][1])
+    shot = job.get("shot")
+    if shot is not None:
+        if not (isinstance(shot, list) and len(shot) == 2 and all(type(n) is int for n in shot) and 0 <= shot[0] <= shot[1]):
+            raise ValueError(f"the job block's `shot` is {shot!r}: the shot's [first, last] source frames, from the shots record")
+        last = int(job["first"]) + int(job["frames"]) - 1
+        if not shot[0] <= int(job["first"]) <= last <= shot[1]:
+            raise ValueError(f"the job's frames {job['first']}..{last} are not inside its `shot` {shot[0]}..{shot[1]}")
+        return int(shot[0]), int(shot[1])
+    return int(job["first"]), int(job["first"]) + int(job["frames"]) - 1
+
+
+def shot_span_from(job: dict) -> str:
+    """Where `shot_span` read a job's shot from, in words for the build record."""
+    if job.get("two_shots") is not None:
+        return "the job's `two_shots`"
+    if job.get("shot") is not None:
+        return "the job's `shot`, from the shots record"
+    return ("the job's own span: this job names no `shot` (written before 2026-10-22), and where its span is narrower than "
+            "the shot, a side where the shot goes on is held all the same")
+
+
+def held_context(job: dict, first: int, frames: int, before: int, after: int) -> tuple[int, int]:
+    """(held before, held after): how many of a padded window's context frames (`window_pad`) are held copies of the
+    shot's own edge frame in place of the source's real ones. A context frame outside the shot (`shot_span`) is across
+    a cut from it, in another shot; it is held, the outermost frames of each side. One inside the shot (a load cut
+    inside a longer shot) is the shot's own footage and stays real.
+
+    Why (the owner's "seam problem", 2026-10-22): H3's latent steps each span several frames, so a real frame of the
+    next shot in the window shares a step with the shot's last frame, and a render showed a seam there. Held copies
+    are what a short window had before 2026-10-21 (`video_mask.held_mask`), and the node holds the edge frame's masks
+    with them (`video_mask.hold_context`)."""
+    lo, hi = shot_span(job)
+    last = int(first) + int(frames) - 1
+    held_before = min(int(before), max(0, lo - (int(first) - int(before))))
+    held_after = min(int(after), max(0, last + int(after) - hi))
+    return held_before, held_after
 
 
 def keeps_frames(one: dict, frames: int, window: int) -> bool:
@@ -792,7 +846,11 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
     frames_from = g[source]["inputs"]["frames"][0]
     g[frames_from] = loader(job["source"], win_first, win_frames, canvas)
     if before or after:
-        g[source].setdefault("_meta", {}).update(pad_before=before, pad_after=after)
+        # how many of them are held copies of the shot's edge frame, side by side (`held_context`): the node holds
+        # them, with their masks, and the song node silences the track under them
+        held_before, held_after = held_context(job, first, frames, before, after)
+        g[source].setdefault("_meta", {}).update(pad_before=before, pad_after=after, held_before=held_before,
+                                                 held_after=held_after)
     counter = iter(range(MASK_FILES, MASK_FILES + 1000, 10))
 
     def from_file(path: str, at: int, as_mask: bool = True) -> list:

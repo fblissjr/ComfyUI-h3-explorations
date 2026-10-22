@@ -560,10 +560,13 @@ def node_cuts(ctx: dict, plan: dict) -> tuple[list[int], list[int], bool]:
     two = graphs.two_shots_of(ctx["job"])
     if two is None:
         raise Refused(f"{ctx['job_file']} names no `two_shots`: this step is for a load that holds a cut on its job's word")
-    pad_before = int(((plan.get("windows") or [{}])[0]).get("pad_before", 0))
+    row = (plan.get("windows") or [{}])[0]
+    pad_before, pad_after = int(row.get("pad_before", 0)), int(row.get("pad_after", 0))
     n_load = int(ctx["load"]["frames"])
+    # on a padded window, only the cuts inside the load's own frames: a cut in the context frames, before or after it (since
+    # 2026-10-22 all after, `masked_job_graph.window_pad`), is not the one the job names
     found = [ctx["load"]["first"] + int(c) - pad_before for c in (plan.get("source") or {}).get("cuts") or []
-             if not pad_before or (pad_before < int(c) < pad_before + n_load)]
+             if not (pad_before or pad_after) or (pad_before < int(c) < pad_before + n_load)]
     return found, [two["cut"]], found == [two["cut"]]
 
 

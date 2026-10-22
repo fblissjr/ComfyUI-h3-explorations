@@ -17,6 +17,38 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-22
 
+- **A short load's context frames across a cut are held copies of the shot's edge frame, not the other shot's real
+  frames** (the owner's "seam problem"). Measured on second_hfp_4479c (shot 4479-4509, window 39, its context across
+  the cuts on both sides): the box's mean brightness tracked the source on every frame but at the shot's end, a seam at
+  the cut, since H3's latent steps each span several frames and the shot's edge frame shared one with the other shot.
+  This reverses, for a side that crosses a cut, the 2026-10-21 rule below that the extra frames are the source's real
+  frames and "where that context crosses a cut, the zoom's one box applies to it too". The builder counts the context
+  frames outside the shot (`workflows/masked_job_graph.py::held_context`; the shot is the job's `shot`, which
+  `bench/shot_to_load.py job` now copies from `shots.json`, or a `two_shots` job's two shots; a job's own span can be
+  narrower than its shot, as in 2026-10-19_lead_fp_0751e_job, 751-785 inside 604-1009, and a job written before this
+  falls back to that span, which the build record says) and carries them in the Masked Source's `_meta`
+  (`held_before`, `held_after`); the node copies the shot's edge frame there with its masks, the subject's, `keep` and
+  `others`, whatever `context_shows` says (`video_mask.hold_context`), and the song node silences the track it encodes
+  under them (`audio_freeze_song.silenced`), as before 79831be9, when frames held past a track's end were silent. A whole
+  shot is held on both sides; a load inside a longer shot keeps real frames where the shot goes on. The region file, the
+  plan row, the build printout and record and `bench/render_history.py` say how many were held each side; the capture's
+  keep-out windows hold them as the node does (`bench/capture_masked_run.py::_window_frames`). The 10-21 entry's reason
+  for real frames, held copies of 4946 filling the whole last encoder clip of second_hfp_4912e with her untouched hair,
+  applies again on a held side. The
+  owner chose held copies with one guard for that case: a held side whose edge frame has no region, or one under
+  `video_mask.HELD_EDGE_LEAST` of the shot's middle region (4912e's 4946 had none beside 13.5k px on 4942-4945; a reasoned
+  starting value), keeps its real frames, and the region file and plan row say which side and why (`held_fell_back`).
+  The node decides this, since it holds the mask; the build printout says only that it may. Window lengths stay on both
+  clocks; only what fills the padding changes. Then the owner's word, "just add buffer frames after": a short shot's
+  padding all goes after it (`window_pad`: before 0, after W - N), so its first frame is window frame 0; only at the
+  clip's end do the frames the clip lacks go before it. Why: the video VAE encodes a window in 17-frame clips, each on
+  its own, a short last clip filled with copies of its last frame (`comfy/ldm/minimax/vae.py`, `clip_length=17`,
+  `encode_temporal`); with 4 and 4 on second_hfp_4479e the shot's last frame sat alone at the start of the last clip
+  with 16 hallway frames, which is the bright square. It used to be split evenly (`extra // 2` before), as the
+  Masked Source's own default for a graph that does not say was too; both changed. With the padding after the load,
+  `bench/two_shot_load.py::node_cuts` stopped filtering the context frames' cuts (it read only `pad_before`); it reads
+  both now. The build printout and record give held counts before the node's guard: "may fall back; the plan row says
+  whether it did". Not yet rendered; it needs a ComfyUI restart. Branch claude-no-cross-cut-context.
 - **The zoom to a target head size is built and SWITCHED OFF: a load asks for it to test** (the owner's go, 2026-10-22, on the
   lead's finding that the second subject's blonde hair came out dark where her head was smallest, second_hfp_1419c and 1093c,
   both at the cap of 2; then the owner's word the same day, through the lead (mrtim), to land it off and test first: the words

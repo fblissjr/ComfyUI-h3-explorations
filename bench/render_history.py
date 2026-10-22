@@ -366,14 +366,29 @@ def reference_of(motion_file: str | None, job_ref: dict | None, load0: dict, sha
             "record": shown(record_path, share, REPO) if rec else None, "steps": steps.get("says")}
 
 
+def across_a_cut(before: int, after: int, held_before: int, held_after: int) -> str:
+    """The `kind` of a padding some of whose context frames were held copies of the shot's edge frame across a cut."""
+    return (f"held copies of the shot's edge frames across a cut ({held_before} of {before} before, {held_after} of {after} after)"
+            + ("" if (held_before, held_after) == (before, after) else "; the rest real source frames"))
+
+
 def padding_of(built: dict | None, printed: str, facts: dict, frames: int | None, first: int | None, window: int | None) -> tuple[dict, str] | None:
     """(padding, the source it came from), the first of: the build record's `load_against_its_window`; the build printout's line; the graph's
-    source loader against the load's frames. `kind` is real source frames, held copies of the last frame, none, or not recorded."""
+    source loader against the load's frames. `kind` is real source frames, held copies of the last frame, held copies of the shot's
+    edge frames across a cut (on one side or both, the rest real: since 2026-10-22), none, or not recorded."""
     lw = ((built or {}).get("what_this_clips_preview_measured") or {}).get("load_against_its_window")
     if isinstance(lw, dict) and "held_past_the_load" in lw:
         before, after, held = lw.get("context_before") or 0, lw.get("context_after") or 0, lw.get("held_past_the_load") or 0
-        kind = "real source frames" if before or after else "held copies of the last frame" if held else "none"
-        return {"before": before, "after": after if not held else held, "held": held, "kind": kind}, "built.json what_this_clips_preview_measured.load_against_its_window"
+        held_before, held_after = lw.get("context_before_held") or 0, lw.get("context_after_held") or 0
+        kind = (across_a_cut(before, after, held_before, held_after) if held_before or held_after else
+                "real source frames" if before or after else "held copies of the last frame" if held else "none")
+        return {"before": before, "after": after if not held else held, "held": held + held_before + held_after, "kind": kind}, \
+            "built.json what_this_clips_preview_measured.load_against_its_window"
+    m = re.search(r"padded with (\d+) frame\(s\) before and (\d+) after \(\d+\.\.\d+; (\d+) before and (\d+) after lie across a cut", printed)
+    if m:
+        before, after, held_before, held_after = (int(x) for x in m.groups())
+        return {"before": before, "after": after, "held": held_before + held_after,
+                "kind": across_a_cut(before, after, held_before, held_after)}, "build printout"
     m = re.search(r"padded with (\d+) real frame\(s\) before and (\d+) after", printed)
     if m:
         return {"before": int(m[1]), "after": int(m[2]), "held": 0, "kind": "real source frames"}, "build printout"
