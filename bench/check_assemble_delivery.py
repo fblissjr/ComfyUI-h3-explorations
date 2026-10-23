@@ -123,6 +123,14 @@ of known place and size into them, and reads the tool's answers back.
     and are named, and the capture gets its table. Refused before anything is written: a folder that is not a
     capture given, a run the capture does not have, a run of another subject than the row's, a run that names
     another render, no `--capture` at all, and a token that is no run.
+22. **A thing worn on the head, placed on the piece's own face** (2026-10-23). A plate whose glasses are a white
+    box, her Eyeglass labelled there, the render's face points the film's moved by a known shift: the white comes to
+    the box moved and the film's place shows the piece, at both sizes; a hat on the same row moved by the ears' shift;
+    held where no point is scored or the shift
+    jumps; kept where the film has it, byte for byte, where her hand given back in place touches it; nothing laid and no hole where there is no label; with `--worn-fill` the nearest labelled frame's mask and
+    pixels moved by this frame's render point less that frame's film point; clipped off the piece; refused with no
+    render points or film points (the plain restore, flagged, the build passing); the shift smoothed where one
+    frame's reading steps; `:filmed` and a hand restore the same bytes.
 
 ## Running it
 
@@ -786,12 +794,16 @@ with tempfile.TemporaryDirectory() as _tmp:
                 return cmap
         the_run = (None, None, {"name": "run_a", "subject": "a"})
         given = lambda wanted: tool.restore_weight({"piece": PIECE_A, "restore": [("a", wanted)]}, OneMap(), the_run, 20, (H, W))[1]  # noqa: E731
-        on_head, plain = given(tool.OnHead([apparel])), given([apparel])
+        # her own `@head` Apparel is worn on the head, so since 2026-10-23 it is placed on the piece's own face (`worn_layer`) and given
+        # back in place only as filmed (`:filmed`): the @head pieces are read the same either way (`class_mask`)
+        on_head, plain = given(tool.OnHeadFilmed([apparel])), given([apparel])
         # THE CASE THAT GOES RED when a piece off her head is given back by `@head`, or the one on it is not
         assert on_head[60:80, 62:70].all() and not on_head[20:40, 180:196].any(), "@head gave back a piece off her head, or not the one on it"
+        assert (tool.class_mask(cmap, tool.OnHead([apparel])) == on_head).all(), "the worn layer's @head pieces are not the in-place restore's"
+        assert not given(tool.OnHead([apparel])).any(), "her own @head Apparel was given back at the film's place, not left to her face"
         assert plain[20:40, 180:196].all() and plain[60:80, 62:70].all(), "the control: the plain class restore gives back both pieces"
         cmap[60:80, 40:60] = 0                            # no head on the frame: nothing comes back
-        assert not given(tool.OnHead([apparel])).any(), "@head gave back a piece on a frame with no head"
+        assert not given(tool.OnHeadFilmed([apparel])).any(), "@head gave back a piece on a frame with no head"
         (TMP / "at_head.txt").write_text(f"10-39 {PIECE_A} 10 restore=a.Apparel@head\n")
         read = tool.read_table(TMP / "at_head.txt")[0]["restore"]
         assert read == [("a", [apparel])] and isinstance(read[0][1], tool.OnHead) and tool.restore_text(*read[0]) == "a.Apparel@head", read
@@ -802,6 +814,235 @@ with tempfile.TemporaryDirectory() as _tmp:
         except SystemExit as e:
             assert "only `head` is known" in str(e), e
         return f"{area} to {grown} px given back a frame; the original inside the box at both sizes; nothing where the piece changed nothing; `@head` only on her head"
+
+    def a_worn_thing_on_its_face() -> str:
+        """A THING WORN ON THE HEAD IS PLACED ON THE PIECE'S OWN FACE (the owner, 2026-10-23), by one point's shift, translation only.
+        A plate whose glasses are a white box on her forehead's picture; her Eyeglass labelled there; the render's points the film's moved
+        by (DX, DY). LIVE: the box's white comes to the box moved, the piece shows at the film's place (a plate read at the new place, or
+        a hole at the old one, fails). The eyes' middle where the nose root scores low. HELD: a frame with no point scored, and a frame
+        whose shift jumps (the back of her head), take the nearest read frame's shift. SKIPPED: a frame with no label lays nothing and
+        punches no hole. FILL (`--worn-fill`): a frame with no label borrows the nearest labelled frame's mask and pixels, moved by THIS
+        frame's render point less THAT frame's film point. CLIP: moved off the piece, nothing is laid past its area grown by the margin.
+        NO-OP: `:filmed`, and a class not worn on the head, are the plain restore at the film's place, byte for byte."""
+        names = tool.class_names()
+        glass, hand = names.index("Eyeglass"), names.index("Left_Hand")
+        box = (60, 60, 76, 72)                            # x0, y0, x1, y1 at the canvas: her glasses, inside RECT_A
+        DX, DY, MOVE = 16, 8, 6                           # the render's face from the film's; the film's own move on frame 15
+        cw, ch, x0, y0 = tool.crop_of(SW, SH, W, H)
+        s = cw / W
+        plate = TMP / "source_glasses.mp4"
+        run([tool.FFMPEG, "-y", "-v", "error", "-i", str(SOURCE), "-vf",
+             f"drawbox=x={round(x0 + box[0] * s)}:y={round(y0 + box[1] * s)}:w={round((box[2] - box[0]) * s)}:h={round((box[3] - box[1]) * s)}:color=white:t=fill,"
+             "setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv", "-c:v", "libx264", "-crf", "12", "-g", "250",
+             "-pix_fmt", "yuv420p", *tool.BT709_TAGS, "-c:a", "copy", str(plate)])
+        piece = write("piece_g", painted(loaded(plate, 10, 30), RECT_A))
+        frames = 30                                       # source frames 10-39, the piece's
+        bare = {15} | set(range(35, 40))                  # no label: 15 and 35-39
+        cmap = np.zeros((frames, H, W), np.uint8)
+        for k in range(frames):
+            if 10 + k not in bare:
+                cmap[k, box[1]:box[3], box[0]:box[2]] = glass
+        held_in_hand = 30                                  # her hand, given back where the film has it, holds the glasses' edge
+        cmap[held_in_hand - 10, box[1]:box[3], box[2]:box[2] + 8] = hand
+        outside, sliver = 33, 34                           # her glasses reach a third past the piece (RECT_A); a sliver past it
+        cmap[outside - 10, box[1]:box[3], RECT_A[2]:RECT_A[2] + 8] = glass
+        cmap[sliver - 10, box[1]:box[3], RECT_A[2] + 4:RECT_A[2] + 5] = glass      # clear of what `changed` bleeds past RECT_A
+        here = {"left_eye": (62, 64), "right_eye": (74, 64), "center_of_nose_root": (68, 64), "left_ear": (50, 66), "right_ear": (86, 66)}
+        pnames = list(here)
+        ears = [pnames.index("left_ear"), pnames.index("right_ear")]
+        EX, EY = 4, 12                                     # the render's EARS from the film's: where a hat goes, not the glasses
+        film = np.array([[here[x] for x in pnames]] * frames, np.float32)
+        film[15 - 10] += (MOVE, 0)                        # the film's head moves on 15 (the render's follows it)
+        rend = film + np.array([DX, DY], np.float32)
+        rend[:, ears] += np.array([EX - DX, EY - DY], np.float32)
+        rend[24 - 10] += (6, 0)                           # 24: the shift steps 6 px across for a frame, under JUMP_PX: read, and smoothed
+        rend[28 - 10] += (60, 0)                          # 28: the render's face 60 px off its neighbours' (the back of her head)
+        fs, rs = np.full((frames, len(pnames)), 0.9, np.float32), np.full((frames, len(pnames)), 0.9, np.float32)
+        rs[12 - 10, pnames.index("center_of_nose_root")] = 0.1     # 12: the nose root scored low: the eyes' middle
+        rs[20 - 10] = 0.1                                           # 20: nothing scored: held
+        run_g = [{"name": "run_g", "render": "piece_g.mp4", "subject": "a", "margin_px": 16}]
+
+        def made(folder, render_points):
+            cap = capture(TMP / folder, 10, frames, {"a": mask_of(RECT_A, frames, grow=4)}, run_g, {"a": cmap})
+            np.savez(TMP / f"{folder}_film.npz", keypoints=film, scores=fs, names=np.array(pnames), size=np.array([W, H]), first_frame=np.array(10))
+            np.savez(cap / "run_g_render_points.npz", keypoints=render_points, scores=rs, names=np.array(pnames), size=np.array([W, H]),
+                     first_frame=np.array(10))
+            (TMP / f"{folder}_job").mkdir()
+            (TMP / f"{folder}_job" / "job.render.json").write_text(json.dumps({"job": {"capture": f"data/{folder}", "reference": {"points": str(TMP / f"{folder}_film.npz")}},
+                                                                             "loads": [{"name": "run_g"}]}))
+            return cap
+        cap = made("cap_worn", rend)
+        caps = tool.Captures([cap], (W, H))
+        row = {"first": 10, "last": 39, "piece": piece, "piece_first": 10, "restore": [("a", [glass]), ("a", [hand])]}
+
+        def at(n, fill=False, c=caps, r=None):
+            record = {"rows": {}, "shared": {}}
+            rr = dict(r or row, matrix=tool.probe(piece)["matrix"])
+            buf = next(tool.fed_frames(plate, [(n, n, [rr])], W, H, record, captures=c, fill_worn=fill))
+            return tool.planes(buf, W, H), record.get("worn", {}).get((piece, 10, 39, "a.Eyeglass"), {}).get("frames", {}).get(n)
+
+        def plate_at(n):
+            return tool.planes(next(tool.original_frames(plate, n, n, W, H)), W, H)
+
+        def piece_at(n):
+            return tool.planes(next(tool.piece_frames({"piece": piece, "piece_first": 10, "matrix": tool.probe(piece)["matrix"]}, n, n, W, H)), W, H)
+
+        def mean_off(x, y, rect, dx=0, dy=0):
+            # x inside `rect` moved by (dx, dy) against y inside `rect`
+            a0, b0, a1, b1 = rect
+            return float(np.abs(x[0][b0 + dy:b1 + dy, a0 + dx:a1 + dx] - y[0][b0:b1, a0:a1]).mean())
+        core = (box[0] + 2, box[1] + 2, box[2] - 2, box[3] - 2)
+        film_only = (box[0] + 1, box[1] + 1, box[0] + DX - 1, box[3] - 1)     # the film's place the moved box does not cover
+        g22 = plate_at(22)
+        assert mean_off(g22, g22, core, DX, DY) > 40, "the fixture: the plate at the moved place must not be the glasses' white"
+        # LIVE (22): the plate's white box comes to the box moved; the film's place shows the piece
+        got, p = at(22)
+        assert p["status"] == "live" and p["from_source_frame"] == 22 and p["translation"] == [DX, DY] and p["point"] == "the nose root", p
+        assert p["eyes_before_px"] == [DX, DY] and p["eyes_after_px"] == [0.0, 0.0] and p["clipped_px"] == 0 and p["laid_px"] > 0, p
+        moved = mean_off(got, g22, core, DX, DY)
+        # THE CASE THAT GOES RED when the weight is moved and the plate read at the new place, or a hole punched at the old one
+        assert moved < 2.0, f"the moved box is {moved:.2f} levels from the plate's white glasses"
+        assert mean_off(got, piece_at(22), film_only) < 1.0, "at the film's place the piece is not shown: a hole of the plate is there"
+        # at the source's size: the plate's own pixels, moved (DX, DY) canvas pixels through the loader's crop and scale
+        full = tool.planes(next(tool.fed_frames(plate, [(22, 22, [dict(row, matrix=tool.probe(piece)["matrix"])])], W, H, captures=caps, full=(SW, SH))), SW, SH)
+        src = tool.planes(next(tool.source_frames(plate, 22, 22, SW, SH)), SW, SH)
+        big = [int(x0 + box[0] * s) + 3, int(y0 + box[1] * s) + 3, int(x0 + box[2] * s) - 3, int(y0 + box[3] * s) - 3]
+        at_full = mean_off(full, src, big, int(round(DX * s)), int(round(DY * s)))
+        assert at_full < 3.0 and mean_off(src, src, big, int(round(DX * s)), int(round(DY * s))) > 40, f"at the source's size the moved box is {at_full:.2f} levels off"
+        # the eyes' middle where the nose root scores low (12)
+        _got, p = at(12)
+        assert p["status"] == "live" and p["point"] == "the eyes' middle" and p["translation"] == [DX, DY], p
+        # SMOOTHED: 24's shift reads 6 px further across than its neighbours'; the shift laid there and beside it is the three frames' mean
+        for n in (23, 24, 25):
+            got, p = at(n)
+            # THE CASE THAT GOES RED when the shift laid is a frame's own reading and not the mean over SMOOTH_REACH either side
+            assert p["status"] == "live" and p["translation"] == [DX + 2.0, DY] and p["raw"] == ([DX + 6.0, DY] if n == 24 else [DX, DY]), p
+        assert mean_off(got, plate_at(25), core, DX + 2, DY) < 2.0, "the smoothed shift is not the one laid"
+        # HELD: 20 has no point scored, 28's shift jumps 60 px from its neighbours'
+        for n, came in ((20, 19), (28, 27)):
+            got, p = at(n)
+            assert p["status"] == "held" and p["held_from"] == came and p["translation"] == [DX, DY], p
+            assert mean_off(got, plate_at(n), core, DX, DY) < 2.0, f"frame {n} does not lay the held shift"
+        assert p["jump_px"] is not None and p["jump_px"] > tool.JUMP_PX and "back of her head" in p["why"], p
+        # SKIPPED (15, the default): no label, nothing laid, no hole
+        got, p = at(15)
+        assert p["status"] == "skipped" and p["laid_px"] == 0 and "filling is off" in p["why"], p
+        p15 = piece_at(15)
+        moved_core = (core[0] + DX, core[1] + DY, core[2] + DX, core[3] + DY)
+        assert mean_off(got, p15, core) < 1.0 and mean_off(got, p15, moved_core) < 1.0, "a frame with no label laid something"
+        # FILL (`--worn-fill`, 15): 14's mask and pixels, moved by the render's point on 15 less the film's on 14 = (DX + MOVE, DY)
+        got, p = at(15, fill=True)
+        assert p["status"] == "filled" and p["from_source_frame"] == 14 and p["translation"] == [DX + MOVE, DY] and p["film_moved_px"] == [MOVE, 0.0], p
+        # THE CASE THAT GOES RED when a borrowed frame is moved by this frame's own shift (DX, DY): the white lands MOVE px short
+        assert mean_off(got, plate_at(14), core, DX + MOVE, DY) < 2.0, "the filled frame is not 14's box moved by 15's render less 14's film"
+        short = (box[0] + DX + 1, core[1], box[0] + DX + MOVE - 1, core[3])
+        assert mean_off(got, p15, short) < 1.0, "the filled frame laid white where this frame's own shift would put it"
+        # AS FILMED (30): her hand, given back where the film has it, touches the glasses, so moving them would pull them off it: they are
+        # given back in place, as before, and nothing is laid at the moved place
+        got, p = at(held_in_hand)
+        assert p["status"] == "as filmed" and p["would_be"] == "live" and p["laid_px"] == 0 and p["under_what_is_given_back_px"] > 0 \
+            and p["past_the_piece_px"] == 0 and "held there" in p["why"], p
+        g30 = plate_at(held_in_hand)
+        # THE CASE THAT GOES RED when a thing that reaches past what the piece shows is moved all the same
+        assert mean_off(got, g30, core) < 2.0, "the glasses held in her hand were not given back where the film has them"
+        in_place, _ = at(held_in_hand, r=dict(row, restore=[("a", tool.Filmed([glass])), ("a", [hand])]))
+        assert tool.to_bytes(got) == tool.to_bytes(in_place), "a frame kept as filmed is not the plain restore, byte for byte"
+        # a third of it outside what the piece lays: kept as filmed; a sliver outside: moved, the sliver counted
+        _got, p = at(outside)
+        assert p["status"] == "as filmed" and "outside what the piece lays" in p["why"], p
+        _got, p = at(sliver)
+        assert p["status"] == "live" and 0 < p["past_the_piece_px"] <= tool.PAST_SHARE * p["label_px_on_the_frame"], p
+        # THE WHOLE ROW, built, by default and with the fill: the counts and the flags
+        tabled = TMP / "worn.txt"
+        tabled.write_text(f"10-39 {piece} 10 restore=a.Eyeglass restore=a.Left_Hand\n")
+        got_r = {}
+        for name, more in (("worn", []), ("worn_fill", ["--worn-fill"])):
+            out = TMP / f"{name}.mp4"
+            proc = subprocess.run([sys.executable, str(Path(tool.__file__)), "--source", str(plate), "--table", str(tabled), "--span", "10-39",
+                                   "--out", str(out), "--capture", str(cap), *more], capture_output=True, text=True)
+            got_r[name] = json.loads(Path(str(out) + ".check.json").read_text())
+            assert proc.returncode == 0, (name, proc.stderr[-400:], got_r[name]["failures"])
+        w0, w1 = (got_r[k]["worn_on_its_face"][0] for k in ("worn", "worn_fill"))
+        assert w0["frames"] == {"live": 20, "held": 2, "filled": 0, "as filmed": 2, "skipped": 6} and not w0["fill"], w0["frames"]
+        assert w1["frames"] == {"live": 20, "held": 2, "filled": 3, "as filmed": 2, "skipped": 3} and w1["fill"] and got_r["worn_fill"]["worn_fill"], w1["frames"]
+        assert w1["frames_by_status"]["filled"] == [[15, 15], [35, 36]] and w1["frames_by_status"]["skipped"] == [[37, 39]], w1["frames_by_status"]
+        rules0, rules1 = ({f["rule"] for f in got_r[k]["flags"]} for k in ("worn", "worn_fill"))
+        assert {"worn_thing_held", "worn_thing_not_laid", "worn_thing_kept_as_filmed", "worn_thing_partly_past_the_piece"} <= rules0 \
+            and "worn_thing_taken_from_another_frame" not in rules0, rules0
+        assert "worn_thing_taken_from_another_frame" in rules1, rules1
+        # CLIP: the render's face 60 px off on every frame, so the moved box falls outside RECT_A grown by the margin
+        far = made("cap_worn_far", film + np.array([DX + 60, DY], np.float32))
+        # A HAT (Apparel `@head`, touching her Hair) on the same row moves by the EARS' shift, the glasses by the nose root's
+        hair_cap = np.zeros((frames, H, W), np.uint8)
+        hair_cap[:] = cmap
+        hair_cap[:, 36:58, 56:80] = names.index("Hair")
+        hair_cap[:, 44:54, 62:74] = names.index("Apparel")
+        hatted = capture(TMP / "cap_worn_hat", 10, frames, {"a": mask_of(RECT_A, frames, grow=4)}, run_g, {"a": hair_cap})
+        np.savez(hatted / "run_g_render_points.npz", keypoints=rend, scores=rs, names=np.array(pnames), size=np.array([W, H]), first_frame=np.array(10))
+        (TMP / "cap_worn_hat_job").mkdir()
+        (TMP / "cap_worn_hat_job" / "job.render.json").write_text(json.dumps({"job": {"capture": "data/cap_worn_hat", "reference": {"points": str(TMP / "cap_worn_film.npz")}},
+                                                                             "loads": [{"name": "run_g"}]}))
+        record = {"rows": {}, "shared": {}}
+        hat_row = dict(row, restore=[("a", [glass]), ("a", tool.OnHead([names.index("Apparel")]))], matrix=tool.probe(piece)["matrix"])
+        next(tool.fed_frames(plate, [(22, 22, [hat_row])], W, H, record, captures=tool.Captures([hatted], (W, H))))
+        by_token = {k[3]: v["frames"][22] for k, v in record["worn"].items()}
+        # THE CASE THAT GOES RED when a hat is moved by the face's points, which follow a turned face and not the head
+        assert by_token["a.Apparel@head"]["point"] == "the ears' middle" and by_token["a.Apparel@head"]["translation"] == [EX, EY], by_token
+        assert by_token["a.Eyeglass"]["point"] == "the nose root" and by_token["a.Eyeglass"]["translation"] == [DX, DY], by_token
+        got, p = at(22, c=tool.Captures([far], (W, H)))
+        assert p["status"] == "live" and p["clipped_px"] > 0, p
+        beyond = (RECT_A[2] + 16 + 2, core[1], core[2] + DX + 60, core[3])
+        assert mean_off(got, piece_at(22), beyond) < 1.0, "the thing was laid outside the piece's area grown by its margin"
+        # NO POINTS, NO STOP (the lead's call, 2026-10-23): a row whose render's points are missing, or whose job names no film points,
+        # gives the thing back where the film has it, byte for byte the plain restore, and the build passes with the missing file flagged
+        plain_row = dict(row, restore=[("a", tool.Filmed([glass])), ("a", [hand])])
+        plain, _ = at(22, r=plain_row)
+        job = TMP / "cap_worn_job" / "job.render.json"
+        kept = job.read_text()
+        for name, undo in (("render", None), ("film", kept)):
+            if name == "render":
+                (cap / "run_g_render_points.npz").rename(cap / "aside.npz")
+            else:
+                job.write_text(json.dumps({**json.loads(kept), "job": {**json.loads(kept)["job"], "reference": {}}}))
+            out2 = TMP / f"worn_no_{name}_points.mp4"
+            proc = subprocess.run([sys.executable, str(Path(tool.__file__)), "--source", str(plate), "--table", str(tabled), "--span", "10-39",
+                                   "--out", str(out2), "--capture", str(cap)], capture_output=True, text=True)
+            r2 = json.loads(Path(str(out2) + ".check.json").read_text())
+            said = "run_g_render_points.npz are not there" if name == "render" else "names no film face points"
+            flag = [f for f in r2["flags"] if f["rule"] == "worn_thing_not_placed_no_points"]
+            # THE CASE THAT GOES RED when a row with no points stops the build, or is laid otherwise than as filmed
+            assert proc.returncode == 0 and "Traceback" not in proc.stderr and out2.exists() and flag and said in flag[0]["why"] \
+                and said in proc.stdout and r2["worn_on_its_face"][0]["frames"]["as filmed"] == 30, (name, proc.stderr[-300:], r2["failures"])
+            got, p = at(22)
+            assert p["status"] == "as filmed" and tool.to_bytes(got) == tool.to_bytes(plain), f"with no {name} points the row is not the plain restore"
+            if name == "render":
+                (cap / "aside.npz").rename(cap / "run_g_render_points.npz")
+            else:
+                job.write_text(undo)
+        caps = tool.Captures([cap], (W, H))                 # read the points again, as they are
+        # NO-OP: `:filmed`, and a class not worn on the head, are the plain restore at the film's place, byte for byte
+        (TMP / "filmed.txt").write_text(f"10-39 {piece} 10 restore=a.Eyeglass:filmed\n")
+        filmed = tool.read_table(TMP / "filmed.txt")[0]["restore"]
+        assert isinstance(filmed[0][1], tool.Filmed) and tool.restore_text(*filmed[0]) == "a.Eyeglass:filmed", filmed
+        hands = capture(TMP / "cap_worn_hand", 10, frames, {"a": mask_of(RECT_A, frames, grow=4)}, run_g, {"a": np.where(cmap == glass, hand, 0).astype(np.uint8)})
+        for n in (22, 15):
+            as_filmed, rec_f = at(n, r=dict(row, restore=filmed))  # its glasses `:filmed`, no hand
+            by_hand, _ = at(n, c=tool.Captures([hands], (W, H)), r=dict(row, restore=[("a", [hand])]))
+            # THE CASE THAT GOES RED when `:filmed`, or a class not on the head, is moved
+            assert tool.to_bytes(as_filmed) == tool.to_bytes(by_hand) and rec_f is None, f"frame {n}: `:filmed` is not the plain restore"
+        got, _ = at(22, r=dict(row, restore=filmed))
+        assert mean_off(got, g22, core) < 2.0, "`:filmed` did not give the glasses back at the film's place"
+        assert tool.worn_of(dict(row, restore=[("b", [glass])]), caps.run_of(piece)) == [], "another subject's glasses were placed on the row's own face"
+        (TMP / "filmed_bad.txt").write_text(f"10-39 {piece} 10 restore=a.Eyeglass:moved\n")
+        try:
+            tool.read_table(TMP / "filmed_bad.txt")
+            raise AssertionError("`:moved` was taken")
+        except SystemExit as e:
+            assert "only `filmed` is known" in str(e), e
+        return (f"the plate's white glasses moved {DX},{DY} ({moved:.2f} levels at the canvas, {at_full:.2f} at the source's size), the piece at the "
+                f"film's place; held on a frame with no point and on a 60 px jump; 15 skipped, and filled from 14 by {DX + MOVE},{DY}; "
+                f"default {w0['frames']}, with the fill {w1['frames']}; clipped off the piece; smoothed where 24 steps; with no render or film points the plain restore, flagged, the build passing; "
+                "`:filmed` and a hand restore the same bytes")
 
     def a_subject_given_back() -> str:
         # RECT_A is x 40-104, y 40-120. The piece's own subject holds its left part, another subject its right part,
@@ -2096,4 +2337,5 @@ with tempfile.TemporaryDirectory() as _tmp:
     case("a piece rendered zoomed in", a_zoomed_piece)
     case("a whole-region piece laid by its region", laid_by_its_region)
     case("a piece laid by the node's own matte", laid_by_the_matte)
+    case("a thing worn on the head, placed on the piece's own face", a_worn_thing_on_its_face)
 sys.exit(finish())

@@ -685,6 +685,30 @@ def a_plan_that_keeps_an_accessory() -> str:
         raise AssertionError("`touching: neck` was taken")
     except SystemExit as e:
         assert "the one form is `head`" in str(e), e
+    # A THING WORN ON THE HEAD KEPT WHERE THE FILM HAS IT, for one span (2026-10-23: the assembler otherwise places it on the piece's own
+    # face): `"placed": "as filmed"` with `placed_by` writes `:filmed` on the span's rows and says so in the header, and the assembler reads
+    # it as the film's place; any other word, or none in `placed_by`, is refused
+    plan["subjects"]["a"]["restore"] = [{"classes": ["Eyeglass"], "first": 60, "last": 79, "exception": "x", "placed": "as filmed",
+                                         "placed_by": "the owner, 2026-10-23: keep the film's place # on this span"}]
+    out = dt.decide(ledger(render("a_face", (50, 99), "05")), SHOTS, plan)
+    # THE CASE THAT GOES RED when the span's word is not carried onto its rows
+    assert [(r["first"], r["last"], r["restore"]) for r in out["rows"] if r["subject"] == "a"] == [
+        (50, 59, ["b:whole"]), (60, 79, ["b:whole", "a.Eyeglass:filmed"]), (80, 99, ["b:whole"])], out["rows"]
+    text = dt.table_text(out, "/share", "M", plan, "t")
+    assert "# restore=a.Eyeglass:filmed on a's rows on 60-79 only" in text and \
+        "PLACED AS FILMED, not on the piece's own face: the owner, 2026-10-23: keep the film's place on this span" in text, text
+    with tempfile.TemporaryDirectory() as tmp:
+        (Path(tmp) / "t.txt").write_text(text)
+        back = [r["restore"] for r in assembler.read_table(Path(tmp) / "t.txt") if r.get("subject") == "a" and r["first"] == 60][0]
+    assert back[1][0] == "a" and isinstance(back[1][1], assembler.Filmed) and assembler.restore_text(*back[1]) == "a.Eyeglass:filmed", back
+    for bad, words in (({"placed_by": " "}, "takes `placed_by`"), ({"placed": "on her face"}, "the one word is \"as filmed\"")):
+        plan["subjects"]["a"]["restore"] = [{**plan["subjects"]["a"]["restore"][0], **bad}]
+        try:
+            dt.decide(ledger(render("a_face", (50, 99), "05")), SHOTS, plan)
+            raise AssertionError(f"`placed` was taken with {bad}")
+        except SystemExit as e:
+            assert words in str(e) and "WORN_ON_THE_HEAD" in str(e), e
+        plan["subjects"]["a"]["restore"][0].update(placed="as filmed", placed_by="x")
     plan["subjects"]["a"]["restore"] = [{"classes": ["Sunglasses"], "first": 60, "last": 79, "exception": "x"}]
     try:
         dt.decide(ledger(render("a_face", (50, 99), "05")), SHOTS, plan)

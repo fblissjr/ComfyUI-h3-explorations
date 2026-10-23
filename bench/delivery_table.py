@@ -67,6 +67,10 @@ and a restore there would paste the original back into a laid piece. Generated h
 header says who asked. A class the part model has not is refused. A span with `"touching": "head"` writes
 `restore=<subject>.<Class>@head`, whose pieces are given back only where they touch the subject's own head: her
 earrings, which the part model labels Apparel with her collar (the lead's ruling of 2026-10-15), on every row of hers.
+A thing worn on the head (Eyeglass, Apparel `@head`) is placed by the assembler on the piece's own face (the owner,
+2026-10-23; `bench/assemble_delivery.py`, `WORN_ON_THE_HEAD`); a span with `"placed": "as filmed"` and `placed_by`
+(whose word and why) keeps the film's place there, written `:filmed` on the token and said in the header. Any other
+`placed`, or one with no `placed_by`, is refused.
 
 **`restore=`** follows the practice of the table of 2026-10-12, as its header states it: a subject's row gives
 back every OTHER subject the shots file has in that shot (`yes` or `unsure`): `restore=<other>:whole` on a face
@@ -325,7 +329,17 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
         if where:
             raise SystemExit(f"the plan's `restore` for {label!r} says `touching` {where}: the one form is `head` (the class's pieces that touch "
                              "the subject's own Hair or Face_Neck, the assembler's `@head`)")
-        return [(int(x["first"]), int(x["last"]), f"{label}.{'+'.join(x['classes'])}" + ("@head" if x.get("touching") == "head" else "")) for x in spans]
+        # A THING WORN ON THE HEAD IS PLACED ON THE PIECE'S OWN FACE at assembly (the owner, 2026-10-23); `"placed": "as filmed"` keeps the
+        # film's place for one span, on a person's word with its reason (`placed_by`), as the token's `:filmed`
+        odd = [x for x in spans if x.get("placed") is not None and (x["placed"] != "as filmed" or not str(x.get("placed_by") or "").strip())]
+        if odd:
+            x = odd[0]
+            raise SystemExit(f"the plan's `restore` for {label!r} says `placed` {x['placed']!r} on {x['first']}-{x['last']}"
+                             + ("" if x["placed"] == "as filmed" else ": the one word is \"as filmed\"")
+                             + ", which keeps a thing worn on the head where the film has it (the assembler otherwise places it on the piece's own "
+                             "face, bench/assemble_delivery.py `WORN_ON_THE_HEAD`), and it takes `placed_by` saying whose word and why")
+        return [(int(x["first"]), int(x["last"]), f"{label}.{'+'.join(x['classes'])}" + ("@head" if x.get("touching") == "head" else "")
+                 + (":filmed" if x.get("placed") == "as filmed" else "")) for x in spans]
 
     def cut_at(a: int, b: int, spans: list[tuple[int, int, str]]) -> list[tuple[int, int, list[str]]]:
         """A run of a row cut at the edges of the restore spans, each piece with the tokens of the spans it lies in."""
@@ -715,10 +729,13 @@ def table_text(out: dict, share: str, made: str, plan: dict, name: str) -> str:
              *[f"# HELD BACK by the lead (--hold), a session's word and not the owner's: {h['load']} on {frames(h['first'], h['last'])}, {h['subject']}: "
                + " ".join(h["reason"].replace("#", " ").split()) for h in out.get("held", [])],
              "# restore= is the practice of the table of 2026-10-12: every other subject the shots file has in the shot is given back, `:whole` on a face row."]
-    lines += [f"# restore={label}.{'+'.join(x['classes'])}{'@head' if x.get('touching') == 'head' else ''} on {label}'s rows on {frames(x['first'], x['last'])} only: "
+    lines += [f"# restore={label}.{'+'.join(x['classes'])}{'@head' if x.get('touching') == 'head' else ''}{':filmed' if x.get('placed') == 'as filmed' else ''}"
+              f" on {label}'s rows on {frames(x['first'], x['last'])} only: "
               + (f"A TRIAL (--restore-extra), not the plan's: {' '.join(str(x['trial']).replace('#', ' ').split())}" if x.get("trial") else
                  f"from the plan, by {' '.join(str(p['restore_by']).replace('#', ' ').split())}; "
                  f"AN EXCEPTION: {' '.join(str(x.get('exception')).replace('#', ' ').split())}")
+              + (f"; PLACED AS FILMED, not on the piece's own face: {' '.join(str(x.get('placed_by')).replace('#', ' ').split())}"
+                 if x.get("placed") == "as filmed" else "")
               for label, p in plan["subjects"].items() for x in p.get("restore") or []]
     for r in out["rows"]:
         lines.append(f"{frames(r['first'], r['last'])} {Path(share) / r['file']} {r['piece_first']} subject={r['subject']}"

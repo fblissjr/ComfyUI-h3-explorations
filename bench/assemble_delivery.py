@@ -81,7 +81,7 @@ and for `restore=<subject>`; a contested pixel is nobody's, so in a merge it fal
 restore does not give it back. With no owner map the tracked masks are used as they are, and the check record
 says which it was (`whose_pixels`).
 
-**`restore=`** on a row gives a class of a subject back to the source: `restore=<subject>.<Class>[+<Class>...]`
+**`restore=`** on a row gives a class of a subject back to the source: `restore=<subject>.<Class>[+<Class>...][@head][:filmed]`
 after the row's three fields, the class one of the part model's (`sapiens2_parts.CLASS_NAMES`) or its index,
 the subject a capture's label whose class map the capture holds (`classes__<by>.npz`). Wherever that class is
 on the source frame, grown by `RESTORE_GROW` and feathered, the piece is not laid: the source's own pixels
@@ -98,6 +98,46 @@ restored pixels sit beside a large change is flagged: that edge is a join betwee
 `restore=<subject>.<Class>@head` gives back only the class's pieces that touch the subject's own Hair or Face_Neck
 (grown `RESTORE_ON_HEAD_PX`): for a thing worn on the head that the part model names with things worn elsewhere (her
 pearl earring is Apparel, as are her collar and a strap; the lead's ruling of 2026-10-15).
+**A thing worn on the head is placed on the piece's own face** (the owner, 2026-10-23, on a trial cut of lead_fp_3909b:
+"this should apply to all kept accessories"; what a subject wears travels with them). Given back where the film has
+it, her white sunglasses sat where the ORIGINAL's eyes were, low across the new face's nose on 3910 and to its left
+on 3966, since H3 drew the new eyes elsewhere. So a restore of the row's OWN subject's class worn on the head
+(`WORN_ON_THE_HEAD`: Eyeglass in any form, Apparel in the `@head` form) takes the thing's PIXELS from the film, the only
+place that has them, and puts them WHERE the rendered video's face is: on each frame the class's own source pixels and
+its feathered mask (`WORN_GROW`) are moved by one shift, laid over the row's piece right after it, and the film's place
+shows the piece. The shift is the render's place point less the film's on that frame, both scored `PLACE_SCORE` or
+more: for glasses the nose root, else the eyes' middle (`PLACE_POINT`, `PLACE_EYES`); for a thing on the head and not the
+eyes (a hat, an earring) the ears' middle (`PLACE_EARS`), which stays with a head whose face the render turned (lead_fp_0168c's
+hat); one shift a restore token (`anchors_of`). Translation only, no scale and no rotation (the owner and the
+outside reviewer, 2026-10-23: her eyes collapse to a pixel or two apart in profile, so anything read off the eyes'
+distance explodes); smoothed over `SMOOTH_REACH` either side; not read where it jumps more than `JUMP_PX` from its
+neighbours' median (the two models placing the face apart, as on the back of her head), and there the nearest read
+frame's is held within `HOLD_REACH`, else nothing is laid. A frame whose class map labels no pixel of the thing lays
+nothing (skipped); with `--worn-fill` (a variant, said in the record) it borrows the nearest labelled frame's mask and
+pixels within `FILL_REACH`, moved by the render's point on this frame less the film's on THAT frame, and never on a
+frame whose shift is held. What is laid stays inside the piece's own laid area grown by its run's margin: CLIPPED there,
+never refused, and what fell outside is counted. And it is not moved where the film's own picture of it would stay
+beside the moved copy: where more than `TOUCH_SHARE` of its label lies under what the row gives back in place (it is
+held, by her hands say), or more than `PAST_SHARE` outside the piece's laid area (lead_fp_2823b: glasses held in hands
+given back as filmed, and pushed up past the face it redrew), it is given back where the film has it on that frame, as
+before (`as filmed`, flagged); a smaller part outside the piece stays as the film's beside the moved one (flagged). The film's points are the 308-point pass the load's reference was
+drawn from, named by its job (`<capture>_job/job.render.json`, `job.reference.points`, written by `bench/shot_to_load.py`);
+the render's are the land step's pass on the render (`<capture>/<run>_render_points.npz`, `bench/load_chain.py`). A row
+that needs them and lacks either, or has one of another canvas or another run, gives the thing back where the film has it,
+as before this rule, flagged with the file that is missing (`worn_thing_not_placed_no_points`): one old piece never stops
+a rebuild.
+`restore=<subject>.<Class>:filmed` keeps the film's place for one span (the plan's `"placed": "as filmed"` with
+`placed_by`, written by `bench/delivery_table.py`). The record (`worn_on_its_face`) has per row and frame live / held /
+filled / as filmed / skipped, the shift laid and the one read, the point, the jump, the source frame the pixels came from, the
+eyes' offset before and after, and the pixels laid and clipped; held, filled, skipped and clipped frames are flagged.
+A restore of any other class, or of another subject's, is given back at the film's place as before, byte for byte.
+WHAT IT CANNOT SEE: a head turned or tipped in depth (a flat shift does not turn the glasses with it), a thing held in
+the hands where they are not given back (it follows the face, not the hands), the top of the render's head, which a hat
+would best follow (nothing segments the render), an earring, which hangs at one ear and not the ears' middle, whether the
+render's points are on her face where they do not jump, and the look. KNOWN LIMIT: a head-worn Apparel restore (`@head`)
+moves every Apparel piece that touches her head, collar and chin pieces included, with the hat; accepted on lead_fp_0168c
+on playback (the owner, 2026-10-23), so a later such span is to be read for it.
+
 `restore=<subject>` with no class gives back the whole of ANOTHER subject: wherever that subject's tracked mask
 is and the piece's own subject's is not (the piece's subject is its run's, from the capture), or, where an owner
 map covers the frame, wherever that subject owns the pixel. It is for a pass
@@ -371,7 +411,80 @@ RESTORE_ON_HEAD_PX = 6
 
 class OnHead(list):
     """A restore's classes, given back only where a piece of them touches the subject's head (`@head`)."""
-JOIN = 25.5       # levels of averaged difference that count as a large change beside restored pixels; inherited:
+
+
+class Filmed(list):
+    """A restore's classes given back where the film has them even when worn on the head (`:filmed`): the plan's `"placed": "as filmed"`."""
+
+
+class OnHeadFilmed(OnHead):
+    """`@head` and `:filmed` together."""
+
+
+#: THE THINGS WORN ON THE HEAD, which a restore of the row's own subject places on the piece's own face (the owner, 2026-10-23: every
+#: kept accessory travels with its subject). **Reasoned** from the part model's classes (`vendor/meta_sapiens2/seg_classes29.json`):
+#: Eyeglass is what sits on the eyes, in any form; Apparel is her clothes as well as her earrings and a hat, so only its `@head` form,
+#: the pieces that touch her own Hair or Face_Neck. Not Hair, Face_Neck, the lips, teeth or tongue: those ARE the head, and given back
+#: they are the original's own face, never moved onto the new one. Not the hands: a hand moves with the arm, not the face.
+WORN_ON_THE_HEAD = ("Eyeglass",)
+WORN_ON_THE_HEAD_AT_HEAD = ("Apparel",)
+#: WHERE A WORN THING GOES: moved by one face point's shift from the film to the render on that frame, translation only (the owner and
+#: the outside reviewer, 2026-10-23, `internal/gemini/2026-10-23_design_review.md`, "Accessory placement"): no scale, no rotation. The
+#: point is the nose root, the pose model's 308 on both the film and the render (`vendor/meta_sapiens2/pose_keypoints308.json`), else
+#: the eyes' middle where the nose root scores under `PLACE_SCORE` on either. **Reasoned**: on lead_fp_3909b her eyes are 1.2 px apart
+#: on the render on 3915 and 2.0 px on the film on 3932, scored all the same, so a scale or a rotation read off the eyes explodes,
+#: while the shift itself runs from -18.5 to +9.1 px across and -22.4 to +15.0 px down along the shot and has to follow each frame.
+#: One model on both sides: the preview's 70-point body table places her eyes 11 px (3966) to 24 px (3940) from where the 308 points
+#: do on the same frames, and on 3966 it gives the shift across the other sign from the one the owner saw (glasses left of her eyes).
+PLACE_POINT = "center_of_nose_root"
+PLACE_EYES = ("left_eye", "right_eye")
+#: A thing on the head and not on the eyes (Apparel `@head`: a hat, an earring) is moved by the ears' middle instead, with no other
+#: point to fall back on. **Reasoned** from lead_fp_0168c (her hat, 168-184): the render turned her face to the camera where the film
+#: has her in profile, so its eyes and nose root sit 28 to 44 px across from the film's while her head barely moved, and moved by them
+#: the hat hung off the side of the new head; the ears sit on the head's turning axis, and moved by them it lands on it, a few pixels
+#: to one side. The top of the render's head would be the true anchor for a hat and is not read: nothing segments the render (the land
+#: step makes only its pose points).
+PLACE_EARS = ("left_ear", "right_ear")
+#: A point is read where BOTH files score it at least this. **Reasoned**: the line `h3_config.POSE_READING["eye_ring_score_at_least"]`
+#: draws between eye points on and off a face (one kitchen shot); on lead_fp_3909b's film the nose root scores 0.29 on 3932, where she
+#: spins in a blur, and 0.52 to 0.89 on its other frames.
+PLACE_SCORE = 0.5
+#: A frame's shift that sits more than `JUMP_PX` from the median of the shifts `JUMP_REACH` frames either side is not read: the two
+#: models put the face in different places, as where her eyes are scored on the back of her head. **Reasoned**, a starting value, from
+#: lead_fp_3909b: the shifts of 3929-3935 (3932 is not read) sit 12.4 to 27.7 px from their neighbours' median and every other read
+#: frame's at most 11.9 px (3915), a thin line on this shot; lead_fp_2823b's 3063-3097 reach 7.6 px at most.
+JUMP_PX = 12.0
+JUMP_REACH = 3
+#: The shift laid is the mean of the read shifts this many frames either side and the frame's own. **Reasoned** 1 (three frames): the
+#: shift moves 0.3 to 4.9 px from frame to frame on her steady frames (3940-3950 of lead_fp_3909b), much of it the point's own jitter,
+#: and up to 14.7 px on the head throw (3919-3920), which a five-frame mean would smear twice as far as a three-frame one.
+SMOOTH_REACH = 1
+#: Frames either side a frame with no read shift takes the nearest read frame's from (held). **Reasoned**: the longest run of unread
+#: shifts on lead_fp_3909b is seven frames (3929-3935, the back of her head), which a hold of four either side bridges; past it nothing
+#: is laid.
+HOLD_REACH = 4
+#: `--worn-fill` only (a variant; the default fills nothing): frames either side a frame with no label borrows the thing from, never on a
+#: frame whose shift is held. **Reasoned** 2: it bridges one-frame dropouts of the label (lead_fp_3909b's 3909, 3923, 3928); on longer
+#: gaps (3915-3921, 3930-3937) her face is turned up or away and the glasses are not in view as the film's.
+FILL_REACH = 2
+#: A worn thing is moved only where the film's own picture of it is not left beside the moved copy. Where more than `TOUCH_SHARE` of
+#: its label on the frame lies under what the row gives back where the film has it (her hands, grown as that restore grows them), the
+#: thing is held by them and moving it would pull it off them; where more than `PAST_SHARE` lies outside the piece's laid area, the
+#: film's picture of that part stays and the move would tear it. On such a frame it is given back where the film has it, as before
+#: (`as filmed`). **Reasoned**, starting values, from the three pieces this was built on: lead_fp_3909b's glasses lie wholly inside its
+#: face; lead_fp_2823b's lie 1.5 to 2.1% under her hands given back as filmed on 3063-3074 (held: kept), and 47 to 68% outside the face
+#: it redrew on 3080-3097 (pushed up her brow: kept); lead_fp_0168c's hat lies 2 to 8% outside its region on 168-184, a sliver of the
+#: crown above it (and of the collar the `@head` label takes with it), so it is moved and that sliver stays as the film's
+#: (`worn_thing_partly_past_the_piece`).
+TOUCH_SHARE = 0.01
+PAST_SHARE = 0.10
+#: Pixels the worn thing's mask is grown by before it is moved. **Measured** 0, against `RESTORE_GROW`'s 2: given back in place a grown
+#: rim is the film's own surroundings and cannot be seen; moved, it carried the dark wall behind her profile onto her cheek (lead_fp_3909b,
+#: 3910). Eroding instead (1 and 2 px, tried on 3910, 3913 and 3962) thinned the temple and left the lens's own dark edge on 3910.
+WORN_GROW = 0
+
+
+JOIN = 25.5      # levels of averaged difference that count as a large change beside restored pixels; inherited:
                   # twice the node's own line for a kept change (`video_mask.CHANGE_THRESHOLD` of full scale)
 JOIN_PX = 16      # pixels of such an edge under which nothing is flagged; reasoned: a few pixels is the codec
 OFF = 12.0        # levels of luma a delivered pixel may sit from the source and still count as the source's, in the
@@ -463,6 +576,9 @@ def read_table(path) -> list[dict]:
                 raise SystemExit(f"{path}: `{token}` is not `subject=<label>`, `run=<capture folder>:<run name>`, `restore=<subject>` or "
                                  "`restore=<subject>.<Class>[+<Class>...]`")
             label, dot, classes = value.partition(".")
+            classes, colon, how = classes.partition(":") if dot else (classes, "", "")
+            if colon and how != "filmed":
+                raise SystemExit(f"{path}: `{token}`: after a class's colon only `filmed` is known (the film's placement of a thing worn on the head)")
             classes, at, where = classes.partition("@")
             if at and where != "head":
                 raise SystemExit(f"{path}: `{token}`: after the @ only `head` is known")
@@ -479,7 +595,8 @@ def read_table(path) -> list[dict]:
                 if c not in names and not (c.isdigit() and int(c) < len(names)):
                     raise SystemExit(f"{path}: `{c}` is not a class of the part model ({', '.join(names)})")
                 wanted.append(int(c) if c.isdigit() else names.index(c))
-            row["restore"].append((label, OnHead(wanted) if at else wanted))
+            kind = (OnHeadFilmed if colon else OnHead) if at else (Filmed if colon else None)
+            row["restore"].append((label, kind(wanted) if kind else wanted))
         rows.append(row)
     return rows                      # in the file's order: where rows share frames, order is the last resort
 
@@ -552,7 +669,44 @@ def run_for(row, captures):
 def restore_text(label, wanted) -> str:
     if wanted is None or wanted == "whole":
         return label + (":whole" if wanted else "")
-    return f"{label}." + "+".join(class_names()[c] for c in wanted) + ("@head" if isinstance(wanted, OnHead) else "")
+    return (f"{label}." + "+".join(class_names()[c] for c in wanted) + ("@head" if isinstance(wanted, OnHead) else "")
+            + (":filmed" if isinstance(wanted, (Filmed, OnHeadFilmed)) else ""))
+
+
+def worn_classes(label, wanted, mine):
+    """The classes of one restore token that are placed on the piece's own face (`WORN_ON_THE_HEAD`), in the token's own form
+    (`OnHead` kept), or []: a token of a subject's tracked mask, another subject's than the row's own (`mine`), or `:filmed`."""
+    if wanted is None or wanted == "whole" or label != mine or isinstance(wanted, (Filmed, OnHeadFilmed)):
+        return []
+    names = class_names()
+    worn = {names.index(n) for n in WORN_ON_THE_HEAD} | ({names.index(n) for n in WORN_ON_THE_HEAD_AT_HEAD} if isinstance(wanted, OnHead) else set())
+    moved = [c for c in wanted if c in worn]
+    return OnHead(moved) if moved and isinstance(wanted, OnHead) else moved
+
+
+def restore_words(row, run) -> str:
+    """A row's restores as the build prints them: " less <token>" for what is given back at the film's place, " with <token> on its
+    own face" for a thing worn on the head (`worn_classes`)."""
+    out, mine = "", row_subject(row, run)
+    for label, wanted in row.get("restore") or []:
+        worn = worn_classes(label, wanted, mine)
+        rest = [c for c in wanted if c not in worn] if worn else []
+        if worn:
+            out += " with " + restore_text(label, worn) + " on its own face"
+        if not worn or rest:
+            out += " less " + restore_text(label, (OnHead(rest) if isinstance(wanted, OnHead) else rest) if worn else wanted)
+    return out
+
+
+def row_subject(row, run):
+    """The row's own subject: its run's, else its `subject=`, else None."""
+    return (run[2]["subject"] if run else None) or row.get("subject")
+
+
+def worn_of(row, run) -> list:
+    """The row's restore tokens whose classes are placed on its piece's own face: [(label, classes)]."""
+    mine = row_subject(row, run)
+    return [(label, moved) for label, wanted in row.get("restore") or [] for moved in [worn_classes(label, wanted, mine)] if moved]
 
 
 def segments(rows, span):
@@ -1168,7 +1322,21 @@ def mask_of_anyone(captures, frame, prefer, shape):
     return np.zeros(shape, bool)
 
 
-def restore_weight(row, captures, run, frame, shape):
+def class_mask(cmap, wanted):
+    """Where a class map names any of `wanted`; for `@head` (`OnHead`) only the pieces that touch the subject's own head: the
+    earring, not the collar or a strap off her head."""
+    mask = np.isin(cmap, wanted)
+    if isinstance(wanted, OnHead) and mask.any():
+        names = class_names()
+        head = cv2.dilate(np.isin(cmap, [names.index("Hair"), names.index("Face_Neck")]).astype(np.uint8),
+                          disc(RESTORE_ON_HEAD_PX)).astype(bool)
+        n, lab = cv2.connectedComponents(mask.astype(np.uint8), connectivity=8)
+        touching = np.unique(lab[head & mask])
+        mask = np.isin(lab, touching[touching > 0])
+    return mask
+
+
+def restore_weight(row, captures, run, frame, shape, worn_in_place=()):
     """(weight in 0..1 over the canvas where the row's piece is not to be laid, the hard mask of what is given
     back), or (None, None) when the row asks for nothing; the mask is None on a frame no capture covers."""
     if not row.get("restore"):
@@ -1206,18 +1374,17 @@ def restore_weight(row, captures, run, frame, shape):
             wide = cv2.dilate(mask.astype(np.uint8), disc(RESTORE_GROW)).astype(bool)
             grown |= wide & ~own if own is not None else wide
             continue
+        worn = [c for c in worn_classes(label, wanted, row_subject(row, run)) if c not in set(worn_in_place)]
+        if worn:
+            # a thing worn on the head is not given back here, at the film's place: `worn_layer` lays it on the piece's own face
+            rest = [c for c in wanted if c not in worn]
+            if not rest:
+                continue
+            wanted = OnHead(rest) if isinstance(wanted, OnHead) else rest
         cmap = captures.classes(label, frame, prefer=prefer) if captures else None
         if cmap is None:
             return np.zeros(shape, np.float32), None
-        mask = np.isin(cmap, wanted)
-        if isinstance(wanted, OnHead) and mask.any():
-            # only the pieces that touch the subject's own head: the earring, not the collar or a strap off her head
-            names = class_names()
-            head = cv2.dilate(np.isin(cmap, [names.index("Hair"), names.index("Face_Neck")]).astype(np.uint8),
-                              disc(RESTORE_ON_HEAD_PX)).astype(bool)
-            n, lab = cv2.connectedComponents(mask.astype(np.uint8), connectivity=8)
-            touching = np.unique(lab[head & mask])
-            mask = np.isin(lab, touching[touching > 0])
+        mask = class_mask(cmap, wanted)
         # a class map says what a thing is, not whose: it is cut to its subject's track and margin, and beside
         # another person it calls some of their things by the class too. When the class is ANOTHER subject's than the
         # row's own, what an owner map gives the row's own subject is not given back: that would put holes of the
@@ -1235,9 +1402,266 @@ def restore_weight(row, captures, run, frame, shape):
     return cv2.GaussianBlur(grown.astype(np.float32), (0, 0), RESTORE_FEATHER), hard
 
 
-def merged(pieces, owner, held, orig, exact=None, mats=None):
+def face_points_of(run, needed=(PLACE_POINT,) + PLACE_EYES):
+    """The film's and the render's face points of a capture's run, as ({"film", "render", "film_file", "render_file", "job_file"}, None),
+    each as `_lib.face_points.load` gives them; or (None, why) in plain words, naming the file that is not there and what writes it.
+    The render's are the land step's pose pass, beside the capture (`bench/load_chain.py land` writes `<capture>/<run>_render_points.npz`);
+    the film's are the ones the load's reference was drawn from, as its job names them (`<capture>_job/job.render.json`,
+    `job.reference.points`, written by the reference step, `bench/shot_to_load.py reference`), and that job must be the run's: its
+    capture this folder and its load this run."""
+    from _lib import face_points
+    folder, manifest, entry = run if run else (None, None, {})
+    if folder is None:
+        return None, "the row is tied to no capture's run (`run=`), so the render's face points cannot be found"
+    render_file = folder / f"{entry['name']}_render_points.npz"
+    job_file = folder.parent / f"{folder.name}_job" / "job.render.json"
+    if not render_file.is_file():
+        return None, f"the render's face points {render_file} are not there (the land step's pose pass writes them: `bench/load_chain.py land`)"
+    if not job_file.is_file():
+        return None, f"the load's job {job_file} is not there, and it is what names the film's face points"
+    held = json.loads(job_file.read_text())
+    job, loads = held.get("job") or {}, held.get("loads") or []
+    if Path(str(job.get("capture") or "")).name != folder.name or [x.get("name") for x in loads] != [entry["name"]]:
+        return None, (f"{job_file} is not the job of {folder.name}'s run {entry['name']!r} (its capture is {job.get('capture')!r}, its loads "
+                      f"{[x.get('name') for x in loads]})")
+    named = (job.get("reference") or {}).get("points")
+    if not named:
+        return None, (f"the load's job {job_file} names no film face points (`job.reference.points`): its reference was made with none "
+                      "kept (the reference step, `bench/shot_to_load.py reference`, writes them)")
+    film_file = Path(str(named))
+    if not film_file.is_file():
+        return None, (f"the film's face points {film_file}, which the load's job {job_file} names, are not there (the reference step, "
+                      "`bench/shot_to_load.py reference`, writes them)")
+    got = {"film_file": str(film_file), "render_file": str(render_file), "job_file": str(job_file)}
+    for side, path in (("film", film_file), ("render", render_file)):
+        pts = face_points.load(path)
+        missing = [n for n in needed if n not in pts["index"]]
+        if missing or pts["first"] is None or tuple(pts["size"] or ()) != tuple(manifest["size"]):
+            return None, (f"the {side}'s face points {path} do not fit the capture: their first source frame {pts['first']}, their canvas "
+                          f"{pts['size']} against {manifest['size']}, the points they lack {missing}")
+        got[side] = pts
+    return got, None
+
+
+def points_needed(tokens) -> tuple:
+    """The point names a row's worn tokens (`worn_of`) are placed by, each once."""
+    return tuple(dict.fromkeys(x for _, classes in tokens for _, pts in anchors_of(classes) for x in pts))
+
+
+def anchors_of(classes):
+    """The points a worn token is moved by, in the order they are tried, as [(words, point names)]: the nose root, then the eyes'
+    middle, for a token with Eyeglass (`PLACE_POINT`, `PLACE_EYES`); the ears' middle for any other (`PLACE_EARS`)."""
+    if class_names().index("Eyeglass") in classes:
+        return [("the nose root", (PLACE_POINT,)), ("the eyes' middle", PLACE_EYES)]
+    return [("the ears' middle", PLACE_EARS)]
+
+
+def film_point(pts, n, anchors):
+    """(the place point on frame `n` of one points file, its words), or (None, why): the first of `anchors` whose points all score
+    `PLACE_SCORE` or more there."""
+    k = n - pts["first"]
+    if not 0 <= k < len(pts["keypoints"]):
+        return None, "no points on the frame"
+    for name, names in anchors:
+        idx = [pts["index"][x] for x in names]
+        if pts["scores"][k, idx].min() >= PLACE_SCORE:
+            return pts["keypoints"][k, idx].mean(0), name
+    return None, " and ".join(name for name, _ in anchors) + f" score under {PLACE_SCORE:g}"
+
+
+def shift_read(film, render, n, anchors):
+    """(the shift from the film's place point to the render's on frame `n`, the point's words) or (None, why): the first of `anchors`
+    whose points all score `PLACE_SCORE` or more on BOTH files."""
+    for name, names in anchors:
+        got = []
+        for pts in (film, render):
+            k = n - pts["first"]
+            if not 0 <= k < len(pts["keypoints"]):
+                return None, f"no {'film' if pts is film else 'render'} points on the frame"
+            idx = [pts["index"][x] for x in names]
+            if pts["scores"][k, idx].min() < PLACE_SCORE:
+                break
+            got.append(pts["keypoints"][k, idx].mean(0))
+        else:
+            return got[1] - got[0], name
+    return None, " and ".join(name for name, _ in anchors) + f" score under {PLACE_SCORE:g} on the film or the render"
+
+
+def shifts_of(film, render, anchors) -> dict:
+    """THE SHIFT A WORN THING IS MOVED BY, on every frame both points files cover: {frame: {"raw", "point", "jump_px", "read",
+    "shift", "held_from", "why"}}. A frame's raw shift is `shift_read`; it is READ unless it sits more than `JUMP_PX` from the median
+    of the raw shifts `JUMP_REACH` frames either side; a read frame's shift is the mean of the read shifts `SMOOTH_REACH` either side
+    and its own; any other frame holds the nearest read frame's within `HOLD_REACH` (`held_from`), else has none."""
+    frames = range(max(film["first"], render["first"]), min(film["first"] + len(film["keypoints"]), render["first"] + len(render["keypoints"])))
+    out = {}
+    for n in frames:
+        raw, how = shift_read(film, render, n, anchors)
+        out[n] = {"raw": raw, "point": how if raw is not None else None, "why": None if raw is not None else how, "jump_px": None}
+    raws = {n: v["raw"] for n, v in out.items() if v["raw"] is not None}
+    for n, t in raws.items():
+        near = [raws[m] for m in range(n - JUMP_REACH, n + JUMP_REACH + 1) if m != n and m in raws]
+        out[n]["jump_px"] = round(float(np.linalg.norm(t - np.median(near, axis=0))), 1) if near else None
+        out[n]["read"] = out[n]["jump_px"] is None or out[n]["jump_px"] <= JUMP_PX
+        if not out[n]["read"]:
+            out[n]["why"] = (f"{out[n]['jump_px']} px from the median shift of the {JUMP_REACH} frames either side (over {JUMP_PX:g}): the two "
+                             "models put the face in different places, as on the back of her head")
+    read = {n: raws[n] for n in raws if out[n]["read"]}
+    for n, v in out.items():
+        v.setdefault("read", False)
+        if v["read"]:
+            v["shift"] = np.mean([read[m] for m in range(n - SMOOTH_REACH, n + SMOOTH_REACH + 1) if m in read], axis=0)
+            v["held_from"] = None
+    for n, v in out.items():
+        if not v["read"]:
+            near = sorted((m for m in read if abs(m - n) <= HOLD_REACH), key=lambda m: (abs(m - n), m))
+            v["shift"], v["held_from"] = (out[near[0]]["shift"], near[0]) if near else (None, None)
+    return out
+
+
+def eyes_of(pts, frame):
+    """The middle of the two eyes (`left_eye`, `right_eye`) on a frame, or None when the file does not cover it."""
+    k = frame - pts["first"]
+    if not 0 <= k < len(pts["keypoints"]):
+        return None
+    return pts["keypoints"][k, [pts["index"]["left_eye"], pts["index"]["right_eye"]]].mean(0)
+
+
+def moved_by(matrix, xy):
+    m = np.asarray(matrix, np.float64)
+    return m[:, :2] @ np.asarray(xy, np.float64) + m[:, 2]
+
+
+def worn_mask(worn, captures, frame, prefer):
+    """Where the worn classes of a row (`worn_of`) are on a source frame, at the canvas, or None where no class map covers it."""
+    out = None
+    for label, classes in worn:
+        cmap = captures.classes(label, frame, prefer=prefer) if captures else None
+        if cmap is not None:
+            m = class_mask(cmap, classes)
+            out = m if out is None else out | m
+    return out
+
+
+def placements_of(row, run, captures, fill=False) -> list:
+    """WHERE A ROW'S WORN THINGS GO, frame by frame (`WORN_ON_THE_HEAD`; the owner, 2026-10-23): one entry a restore token whose
+    classes are worn on the head, {"worn", "what", "points", "fill", "anchor", "frames": {source frame: placement}}. On a frame whose
+    class map labels the thing, the film's own pixels of it are moved by the frame's shift (`shifts_of`, from the token's anchor,
+    `anchors_of`): live where the shift is read there, held where it is the nearest read frame's. A frame with no label lays nothing
+    (skipped), unless `fill` (`--worn-fill`, a variant): then, on a frame whose shift is read, it borrows the nearest labelled frame
+    within `FILL_REACH` of the row, its mask AND its pixels, moved by the render's point on this frame less the film's on THAT frame
+    (this frame's shift plus the film's own move between the two), never by this frame's shift alone (filled)."""
+    names = class_names()
+    tokens = worn_of(row, run)
+    needed = points_needed(tokens)
+    points, lack = face_points_of(run, needed)
+    out_all = []
+    if points is None:
+        # ONE OLD PIECE NEVER STOPS A REBUILD: with no face points to place it by, the thing is given back where the film has it, as
+        # before this rule, on every frame of the row, and the row is flagged with the file that is missing
+        for label, classes in tokens:
+            area = {}
+            for d in range(row["first"], row["last"] + 1):
+                m = worn_mask([(label, classes)], captures, d, run[0] if run else None)
+                area[d] = int(m.sum()) if m is not None else 0
+            out_all.append({"worn": [(label, classes)], "anchor": " else ".join(name for name, _ in anchors_of(classes)), "points": {},
+                            "what": f"{label}." + "+".join(names[c] for c in classes) + ("@head" if isinstance(classes, OnHead) else ""),
+                            "fill": bool(fill), "not_placed": lack,
+                            "frames": {n: {"status": "as filmed", "why": "not placed on the piece's face: " + lack, "label_px_on_the_frame": area[n],
+                                           "from_source_frame": None, "held_from": None, "translation": None, "raw": None, "point": None,
+                                           "jump_px": None} for n in area}})
+        return out_all
+    film, render = points["film"], points["render"]
+    for label, classes in tokens:
+        worn = [(label, classes)]
+        anchors = anchors_of(classes)
+        shifts = shifts_of(film, render, anchors)
+        frames = range(row["first"], row["last"] + 1)
+        area = {}
+        for d in frames:
+            m = worn_mask(worn, captures, d, run[0])
+            area[d] = int(m.sum()) if m is not None else 0
+        labelled = [d for d in frames if area[d]]
+        out = {}
+        for n in frames:
+            v = shifts.get(n) or {"raw": None, "point": None, "read": False, "shift": None, "held_from": None, "jump_px": None,
+                                  "why": "the points files do not cover the frame"}
+            p = {"raw": None if v["raw"] is None else [round(float(x), 1) for x in v["raw"]], "point": v["point"], "jump_px": v["jump_px"],
+                 "label_px_on_the_frame": area[n], "from_source_frame": None, "held_from": v["held_from"], "translation": None, "why": v["why"]}
+            if area[n]:
+                if v["shift"] is None:
+                    p.update(status="skipped", why=f"no read shift within {HOLD_REACH} frames: " + str(v["why"]))
+                else:
+                    p.update(status="live" if v["read"] else "held", from_source_frame=n, translation=[float(x) for x in v["shift"]])
+            elif not fill:
+                p.update(status="skipped", why="no label of the thing on the frame (filling is off: `--worn-fill` is the variant that borrows)")
+            elif not v["read"]:
+                p.update(status="skipped", why="no label of the thing, and the frame's shift is not read there, so nothing is borrowed")
+            else:
+                here, how = film_point(film, n, anchors)
+                for d in sorted((d for d in labelled if abs(d - n) <= FILL_REACH), key=lambda d: (abs(d - n), d)):
+                    there, how_d = film_point(film, d, anchors)
+                    if here is not None and there is not None and how_d == how:
+                        p.update(status="filled", from_source_frame=d, translation=[float(x) for x in v["shift"] + here - there],
+                                 film_moved_px=[round(float(x), 1) for x in here - there], why=None)
+                        break
+                else:
+                    p.update(status="skipped", why=f"no label of the thing on the frame or on a frame within {FILL_REACH} whose film point reads as this one's")
+            if p["translation"] is not None:
+                p["matrix"] = [[1.0, 0.0, p["translation"][0]], [0.0, 1.0, p["translation"][1]]]
+                p["translation"] = [round(x, 2) for x in p["translation"]]
+                p["label_px"] = area[p["from_source_frame"]]
+            before, here_e = eyes_of(film, n), eyes_of(render, n)
+            p["eyes_before_px"] = [round(float(x), 1) for x in here_e - before] if before is not None and here_e is not None else None
+            there_e = eyes_of(film, p["from_source_frame"]) if p["from_source_frame"] is not None else None
+            p["eyes_after_px"] = ([round(float(x), 1) for x in here_e - moved_by(p["matrix"], there_e)] if there_e is not None and here_e is not None
+                                  else None)
+            out[n] = p
+        out_all.append({"worn": worn, "what": f"{label}." + "+".join(names[c] for c in classes) + ("@head" if isinstance(classes, OnHead) else ""),
+                        "anchor": " else ".join(name for name, _ in anchors),
+                        "points": {k: v for k, v in points.items() if k.endswith("_file")}, "fill": bool(fill), "frames": out})
+    return out_all
+
+
+def similar_at(matrix, sx, sy, ox, oy):
+    """`matrix` (2x3, in canvas pixels) as a map of a plane's own pixels, for `cv2.warpAffine` on that plane: the plane's pixel edges
+    lie at canvas edges `e * sx + ox` across and `e * sy + oy` down, so pixel centres are held through the change of size."""
+    m = np.vstack([np.asarray(matrix, np.float64), [0.0, 0.0, 1.0]])
+    to = np.array([[1.0 / sx, 0.0, (0.5 - ox) / sx - 0.5], [0.0, 1.0 / sy, (0.5 - oy) / sy - 0.5], [0.0, 0.0, 1.0]])   # canvas -> plane
+    return (to @ m @ np.linalg.inv(to))[:2].astype(np.float32)
+
+
+def worn_layer(placement, donor, mask, allowed, canvas, full=None, box=None):
+    """What a row lays on its piece's own face on one frame: (weight at the canvas in 0..1, the three warped planes, px laid, px
+    clipped). `donor` is the source frame the thing comes from as planes (at the canvas; at the source's size the source's own),
+    `mask` the worn classes there, `allowed` the piece's own laid area grown by its run's margin, at the canvas."""
+    w, h = canvas
+    matrix = placement["matrix"]
+    grown = (cv2.dilate(mask.astype(np.uint8), disc(WORN_GROW)) if WORN_GROW else mask.astype(np.uint8)).astype(np.float32)
+    weight = cv2.GaussianBlur(grown, (0, 0), RESTORE_FEATHER)
+    at = similar_at(matrix, 1.0, 1.0, 0.0, 0.0)
+    weight = cv2.warpAffine(weight, at, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0.0)
+    lands = cv2.warpAffine(mask.astype(np.float32), at, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0.0) > 0.5
+    clipped = int((lands & ~allowed).sum())
+    weight = np.where(allowed, weight, 0.0).astype(np.float32)
+    # each plane's pixels as canvas pixels: at the canvas 1 (luma) and 2 (chroma); at the source's size the loader's crop at (x0, y0)
+    # then its scale to the canvas, w / cw canvas pixels a source pixel (twice that for the chroma)
+    if full is None:
+        planes_at = [(1.0, 1.0, 0.0, 0.0, (w, h)), (2.0, 2.0, 0.0, 0.0, (w // 2, h // 2)), (2.0, 2.0, 0.0, 0.0, (w // 2, h // 2))]
+    else:
+        cw, ch, x0, y0 = box
+        fx, fy = w / cw, h / ch
+        sw, sh = full
+        planes_at = [(fx, fy, -x0 * fx, -y0 * fy, (sw, sh))] + [(2 * fx, 2 * fy, -x0 * fx, -y0 * fy, (sw // 2, sh // 2))] * 2
+    warped = [cv2.warpAffine(plane, similar_at(matrix, sx, sy, ox, oy), size, flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+              for plane, (sx, sy, ox, oy, size) in zip(donor, planes_at)]
+    return weight, warped, int((lands & allowed).sum()), clipped
+
+
+def merged(pieces, owner, held, orig, exact=None, mats=None, worn=None):
     """At the canvas's size: each piece laid in table order by `lay_plane`. A plain first row starts as the base whole (its
-    restore `held[0]` giving back `orig`); a matte row (`exact[i]`) is laid in one pass with its matte `mats[i]` in 0..1."""
+    restore `held[0]` giving back `orig`); a matte row (`exact[i]`) is laid in one pass with its matte `mats[i]` in 0..1.
+    `worn[i]`, when the row places a thing worn on the head on its piece's own face, is (weight, warped planes) of `worn_layer`,
+    laid on the row's piece right after it."""
     h, w = owner.shape
     first_matte = bool(exact and exact[0])
     out = [p.copy() for p in (orig if first_matte else pieces[0])]
@@ -1245,6 +1669,14 @@ def merged(pieces, owner, held, orig, exact=None, mats=None):
     for j, exact_j in enumerate(exact or ()):
         if exact_j:
             taken |= (mats[j] > 0) if mats is not None and mats[j] is not None else (owner == j)
+    def lay_worn(i):
+        # a thing worn on the head, laid on the row's piece right after it (`worn_layer`), so a later row lays over it as over the piece
+        if worn is None or worn[i] is None:
+            return
+        for weight, warped in worn[i]:
+            half = cv2.resize(weight, (w // 2, h // 2), interpolation=cv2.INTER_AREA)
+            for k, wgt in enumerate((weight, half, half)):
+                lay_plane(out[k], warped[k], None, wgt)
     for i in range(len(pieces)):
         if i == 0 and not first_matte:
             if held and held[0] is not None:
@@ -1252,6 +1684,7 @@ def merged(pieces, owner, held, orig, exact=None, mats=None):
                 half = cv2.resize(weight, (w // 2, h // 2), interpolation=cv2.INTER_AREA)
                 for k, wgt in enumerate((weight, half, half)):
                     lay_plane(out[k], orig[k], None, wgt)
+            lay_worn(i)
             continue
         allow = 1.0 - held[i] if held is not None and held[i] is not None else None
         if exact and exact[i]:
@@ -1263,11 +1696,13 @@ def merged(pieces, owner, held, orig, exact=None, mats=None):
             for k, (m_p, allow_p) in enumerate(((m, allow), (m_half, allow_half), (m_half, allow_half))):
                 keep_p = np.where(m_p > 0, 1.0 if allow_p is None else allow_p, 0.0)
                 lay_plane(out[k], pieces[i][k], orig[k], keep_p, m_p)
+            lay_worn(i)
             continue
         weight = weight_of(owner, i, False, taken) * (1.0 if allow is None else allow)
         half = cv2.resize(weight, (w // 2, h // 2), interpolation=cv2.INTER_AREA)
         for k, wgt in enumerate((weight, half, half)):
             lay_plane(out[k], pieces[i][k], None, wgt)
+        lay_worn(i)
     return to_bytes(out)
 
 
@@ -1290,12 +1725,13 @@ def box_at_the_source(zbox, box, canvas):
     return whole, tuple(round(a - b, 3) for a, b in zip(whole, exact))
 
 
-def laid_over(base, pieces, owner, box, held=None, zoomed=None, exact=None, orig=None, mats=None):
+def laid_over(base, pieces, owner, box, held=None, zoomed=None, exact=None, orig=None, mats=None, worn=None):
     """At the source's size: the source's own planes with every piece's changed region scaled up and laid over,
     less what `held[i]` says piece i is not to be laid on. `zoomed[i]`, when a piece was rendered zoomed in, is
     (its zoomed picture's planes, its box at the canvas): inside the box the picture is taken from those, scaled
     once into the box's place, in place of the piece's own pixels enlarged. A matte row (`exact[i]`) is laid in
-    one pass by `lay_plane` with its matte `mats[i]` in 0..1 (`view += keep * ((up - (1 - m) * was) - m * view)`)."""
+    one pass by `lay_plane` with its matte `mats[i]` in 0..1 (`view += keep * ((up - (1 - m) * was) - m * view)`). `worn[i]`: as
+    in `merged`, its planes the source's own at the source's size, laid right after its row's piece."""
     cw, ch, x0, y0 = box
     h, w = owner.shape
     out = [p.copy() for p in base]
@@ -1359,6 +1795,13 @@ def laid_over(base, pieces, owner, box, held=None, zoomed=None, exact=None, orig
                 lay_plane(view, up, was, keep_p, m_p)
                 continue
             lay_plane(view, up, None, keep_p)
+        for weight, warped in (worn[i] or ()) if worn is not None else ():
+            # a thing worn on the head, the source's own pixels moved at the source's size (`worn_layer`), right after its row's piece
+            wy = cv2.resize(weight, (cw, ch), interpolation=cv2.INTER_LINEAR)
+            wc = cv2.resize(wy, (cw // 2, ch // 2), interpolation=cv2.INTER_AREA)
+            for k, (wgt, (pw, ph, px, py)) in enumerate(zip((wy, wc, wc), ((cw, ch, x0, y0), (cw // 2, ch // 2, x0 // 2, y0 // 2),
+                                                                           (cw // 2, ch // 2, x0 // 2, y0 // 2)))):
+                lay_plane(out[k][py:py + ph, px:px + pw], warped[k][py:py + ph, px:px + pw], None, wgt)
     carry_edge_rows(out, reach, box)
     return to_bytes(out)
 
@@ -1435,11 +1878,13 @@ def softened(frame, hard, sigma, w, h, held=()):
     return np.clip(np.round(y), 0, 255).astype(np.uint8).tobytes() + frame[w * h:]
 
 
-def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=None):
+def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=None, fill_worn=False):
     """Every frame of the span as yuv420p bytes. `record`, when given, is filled with what each piece changed.
-    `full` is (source width, source height) for a file at the source's size, None for one at the canvas's."""
+    `full` is (source width, source height) for a file at the source's size, None for one at the canvas's. `fill_worn`: the
+    `--worn-fill` variant of `placements_of`."""
     box = crop_of(*full, w, h) if full else None
     before = None                                    # the fitted source's luma on the frame before, within a run of rows
+    faces = {}                                       # id(row) -> `placements_of` for a row that places a worn thing on its face
     for first, last, rows in segs:
         if not rows:
             before = None
@@ -1449,6 +1894,21 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
         whole = source_frames(source, first, last, *full) if full else iter(lambda: None, 0)
         runs = [run_for(r, captures) for r in rows]
         mattes = [Matte(r["piece"]) if (r.get("laid_by") or {}).get("rule") == "matte" else None for r in rows]
+        for r, run in zip(rows, runs):
+            if id(r) not in faces and worn_of(r, run):
+                faces[id(r)] = placements_of(r, run, captures, fill=fill_worn)
+                for face in faces[id(r)] if record is not None else ():
+                    record.setdefault("worn", {})[(r["piece"], r["first"], r["last"], face["what"])] = {
+                        "subject": row_subject(r, run), "what": face["what"], "anchor": face["anchor"], **face["points"], "fill": face["fill"],
+                        "not_placed": face.get("not_placed"), "frames": {}}
+        # the source frames a worn thing is taken from that are not the frame it is laid on: decoded once for the segment
+        wanted = sorted({p["from_source_frame"] for r in rows if id(r) in faces for face in faces[id(r)] for n, p in face["frames"].items()
+                         if first <= n <= last and p.get("from_source_frame") not in (None, n)})
+        donors = {}
+        if wanted:
+            far = zip(original_frames(source, wanted[0], wanted[-1], w, h),
+                      source_frames(source, wanted[0], wanted[-1], *full) if full else iter(lambda: None, 0))
+            donors = {wanted[0] + j: pair for j, pair in enumerate(far) if wanted[0] + j in wanted}
         got = 0
         # a zoomed piece's own picture, frame for frame beside it (a file at the source's size lays from it; the
         # agreement proof reads it at either size)
@@ -1504,6 +1964,51 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
             held = [np.ones((h, w), np.float32) if u and u[1] else x for x, u in zip(held, unmasked)]
             mat_weights = [np.where(m, t.astype(np.float32) / 255.0, 0.0) if t is not None else None
                            for m, t in zip(hard, mats)]
+            # A THING WORN ON THE HEAD, ON THE PIECE'S OWN FACE (the owner, 2026-10-23): the film's own pixels of it, from the source
+            # frame its placement names, moved to where the render's face is and kept inside the row's laid area grown by its margin
+            on_face = [None] * len(rows)
+            for i, (r, run) in enumerate(zip(rows, runs)):
+                if id(r) not in faces:
+                    continue
+                # what the piece SHOWS on this frame: its laid area less what the row gives back in place (her hands, say)
+                shown = hard[i] & ~(held[i] > 0.5) if held[i] is not None else hard[i]
+                in_place, layers, notes = [], [], []
+                for face in faces[id(r)]:
+                    p = face["frames"][n]
+                    laid_px = clipped_px = 0
+                    if face.get("not_placed"):
+                        in_place += list(face["worn"][0][1])
+                        notes.append((face, p, 0, 0, None, None))
+                        continue
+                    # what of the thing the film shows PAST what the piece shows: the source's own picture there, which no move takes
+                    # away. Over `PAST_SHARE` of its label the thing stays where the film has it
+                    here_mask = worn_mask(face["worn"], captures, n, run[0]) if p["label_px_on_the_frame"] else None
+                    past_px = int((here_mask & ~hard[i]).sum()) if here_mask is not None else None
+                    touch_px = int((here_mask & hard[i] & ~shown).sum()) if here_mask is not None else None
+                    label = p["label_px_on_the_frame"]
+                    if p.get("from_source_frame") is not None and past_px is not None and (past_px > PAST_SHARE * label or touch_px > TOUCH_SHARE * label):
+                        in_place += list(face["worn"][0][1])
+                        p = {**p, "would_be": p["status"], "status": "as filmed", "from_source_frame": n,
+                             "why": (f"{touch_px / label:.1%} of it lies under what the row gives back where the film has it (over {TOUCH_SHARE:.0%}): "
+                                     "it is held there, and moved it would come off what holds it" if touch_px > TOUCH_SHARE * label else
+                                     f"{past_px / label:.1%} of it lies outside what the piece lays (over {PAST_SHARE:.0%}): moved, the film's own "
+                                     "picture of that part would stay beside the moved one") + "; given back where the film has it"}
+                    elif p.get("from_source_frame") is not None:
+                        d = p["from_source_frame"]
+                        obuf_d, sbuf_d = (obuf, sbuf) if d == n else donors[d]
+                        allowed = cv2.dilate(hard[i].astype(np.uint8), disc(int(run[2].get("margin_px") or MARGIN))).astype(bool)
+                        donor = planes(sbuf_d, *full) if full else (o if d == n else planes(obuf_d, w, h))
+                        weight, warped, laid_px, clipped_px = worn_layer(p, donor, worn_mask(face["worn"], captures, d, run[0]), allowed,
+                                                                         (w, h), full, box)
+                        layers.append((weight, warped))
+                    notes.append((face, p, laid_px, clipped_px, past_px, touch_px))
+                if in_place:
+                    backs[i] = restore_weight(r, captures, run, n, (h, w), worn_in_place=in_place)
+                    held[i] = np.ones((h, w), np.float32) if unmasked[i] and unmasked[i][1] else backs[i][0]
+                on_face[i] = layers or None
+                for face, p, laid_px, clipped_px, past_px, touch_px in notes if record is not None else ():
+                    record["worn"][(r["piece"], r["first"], r["last"], face["what"])]["frames"][n] = {
+                        **p, "laid_px": laid_px, "clipped_px": clipped_px, "past_the_piece_px": past_px, "under_what_is_given_back_px": touch_px}
             if record is not None and before is not None:
                 record.setdefault("source_moved", {})[n] = float(np.abs(o[0] - before).mean())
             before = o[0]
@@ -1573,11 +2078,12 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
                     record["rows"][r["piece"]][n]["laid"] = shows      # what of this row is in the file on this frame
             got += 1
             if full:
-                yield laid_over(planes(sbuf, *full), pieces, owner, box, held, zoomed, exact=[x == "matte" for x in laid_rule], orig=o, mats=mat_weights)
+                yield laid_over(planes(sbuf, *full), pieces, owner, box, held, zoomed, exact=[x == "matte" for x in laid_rule], orig=o, mats=mat_weights,
+                                worn=on_face)
                 continue
-            untouched = len(rows) == 1 and held[0] is None
-            frame = pbufs[0] if untouched else merged(pieces, owner, held, o, exact=[x == "matte" for x in laid_rule], mats=mat_weights)
-            yield softened(frame, hard, soften, w, h, held) if soften else frame
+            untouched = len(rows) == 1 and held[0] is None and on_face[0] is None
+            frame = pbufs[0] if untouched else merged(pieces, owner, held, o, exact=[x == "matte" for x in laid_rule], mats=mat_weights, worn=on_face)
+            yield softened(frame, hard, soften, w, h, held + [wt for x in on_face if x is not None for wt, _ in x]) if soften else frame
         if got != last - first + 1:
             raise SystemExit(f"{got} of {last - first + 1} frames for {first}-{last}")
 
@@ -1636,7 +2142,7 @@ def build(args, segs, canvas, span, src, captures):
     assert enc.stdin is not None and enc.stderr is not None
     fed = 0
     try:
-        for frame in fed_frames(args.source, segs, w, h, soften=args.soften, captures=captures, full=full):
+        for frame in fed_frames(args.source, segs, w, h, soften=args.soften, captures=captures, full=full, fill_worn=args.worn_fill):
             enc.stdin.write(frame)
             fed += 1
     finally:
@@ -1819,6 +2325,41 @@ def flags_of(record, rows, captures) -> tuple[list[dict], list[str]]:
             out.append({"rule": "piece_changes_nothing", "level": LEVELS[1], **names, "source_frames": frame_spans(idle),
                         "why": f"{names['piece']} is the original on {len(idle)} frame(s) a row gives it",
                         "figures": {"frames": len(idle)}, "threshold": {"CHANGE": CHANGE}})
+    # a thing worn on the head (`worn_on_its_face`): the frames it was taken from another frame, held, not laid, or clipped
+    for (piece, first_, last_, _what), held in (record.get("worn") or {}).items():
+        row = next((r for r in rows if (r["piece"], r["first"], r["last"]) == (piece, first_, last_)), None)
+        run = run_for(row, captures) if row else None
+        names = {"piece": os.path.basename(piece), "run": run[2]["name"] if run else None, "subject": held["subject"]}
+        frames_ = held["frames"]
+        if held.get("not_placed"):
+            out.append({"rule": "worn_thing_not_placed_no_points", "level": LEVELS[1], **names, "source_frames": frame_spans(sorted(frames_)),
+                        "why": f"{held['what']} is given back where the film has it on {len(frames_)} frame(s), not on the piece's own face: "
+                               + held["not_placed"], "figures": {"frames": len(frames_)}, "threshold": {}})
+            continue
+        for rule, level, pick, words in (
+                ("worn_thing_taken_from_another_frame", LEVELS[0], lambda p: p["status"] == "filled",
+                 lambda got: f"{held['what']} has no label of its own on {len(got)} frame(s) and is taken from the nearest labelled frame within "
+                             f"{FILL_REACH} (`--worn-fill`), moved by this frame's render point less that frame's film point (from "
+                             + ", ".join(f"{n}<-{frames_[n]['from_source_frame']}" for n in got[:8]) + ("..." if len(got) > 8 else "") + ")"),
+                ("worn_thing_held", LEVELS[1], lambda p: p["status"] == "held",
+                 lambda got: f"{held['what']}: the shift is not read on {len(got)} frame(s) (" + str(frames_[got[0]]["why"])[:160]
+                             + f"), and the nearest read frame's within {HOLD_REACH} is held"),
+                ("worn_thing_kept_as_filmed", LEVELS[1], lambda p: p["status"] == "as filmed",
+                 lambda got: f"{held['what']} is held by what is given back, or lies outside {names['piece']}, on {len(got)} frame(s) and is given back where the film has "
+                             "it there, not on the new face: " + str(frames_[got[0]]["why"])),
+                ("worn_thing_not_laid", LEVELS[1], lambda p: p["status"] == "skipped",
+                 lambda got: f"{held['what']} is not laid on {len(got)} frame(s): " + frames_[got[0]]["why"]),
+                ("worn_thing_partly_past_the_piece", LEVELS[1], lambda p: p["status"] in ("live", "held", "filled") and (p.get("past_the_piece_px") or 0) > 0,
+                 lambda got: f"{held['what']} is moved on {len(got)} frame(s) where up to {max(frames_[n]['past_the_piece_px'] for n in got)} px of it lie "
+                             f"outside what {names['piece']} lays (under {PAST_SHARE:.0%} of it): the film's own picture of that part stays there "
+                             "beside the moved one"),
+                ("worn_thing_clipped_to_the_piece", LEVELS[1], lambda p: p["clipped_px"] > SPECK,
+                 lambda got: f"{held['what']}, moved to the render's face, fell outside {names['piece']}'s laid area grown by its margin on "
+                             f"{len(got)} frame(s), up to {max(frames_[n]['clipped_px'] for n in got)} px, and was clipped there")):
+            got = sorted(n for n, p in frames_.items() if pick(p))
+            if got:
+                out.append({"rule": rule, "level": level, **names, "source_frames": frame_spans(got), "why": words(got),
+                            "figures": {"frames": len(got)}, "threshold": {"FILL_REACH": FILL_REACH, "HOLD_REACH": HOLD_REACH, "SPECK": SPECK}})
     both = {n: v for n, v in record["shared"].items() if v["px"]}
     if both:
         boxes = np.array([v["box"] for v in both.values()])
@@ -2317,7 +2858,8 @@ def check(args, segs, canvas, span, src, rows, captures):
                          "restore": [restore_text(label, wanted) for label, wanted in r.get("restore") or []]} for r in rows],
               "captures": [str(folder) for folder, _ in captures.folders] if captures else [],
               "labels_read_as": dict(captures.alias) if captures else {},
-              "checked": datetime.datetime.now().isoformat(timespec="seconds"), **({"note": args.note} if args.note else {})}
+              "checked": datetime.datetime.now().isoformat(timespec="seconds"), **({"note": args.note} if args.note else {}),
+              **({"worn_fill": True} if args.worn_fill else {})}
     if full:
         cw, ch, x0, y0 = crop_of(*full, w, h)
         result["the_loader's_crop_of_the_source"] = {"width": cw, "height": ch, "x": x0, "y": y0}
@@ -2363,7 +2905,7 @@ def check(args, segs, canvas, span, src, rows, captures):
         record["fitted"] = {}
     # the delivered file as the loader would hand it over: at the canvas, for the table of what it did to each subject
     at_canvas = luma_at_canvas(args.out, w, h) if tally and full else None
-    fed = fed_frames(args.source, segs, w, h, record, args.soften, captures, full)
+    fed = fed_frames(args.source, segs, w, h, record, args.soften, captures, full, fill_worn=args.worn_fill)
     window = [None, arr(next(fed)), None]            # fed k-1, k, k+1
     placed = static = misplaced = decoded = 0
     own, worst, bad, local = [], (0.0, None), [], []
@@ -2531,6 +3073,26 @@ def check(args, segs, canvas, span, src, rows, captures):
                  f"{entry['agreement_levels_worst_frame'][1]}, the line is {ZOOM_AGREES:g}): a wrong box, or a frame out of step"
                  + ("; the node says its region is cut at the box's " + ", ".join(entry["region_cut_at_box_sides"]) + " side(s), which can read so"
                     if entry["region_cut_at_box_sides"] else ""))
+    # A THING WORN ON THE HEAD, ON THE PIECE'S OWN FACE: per row, what each frame laid, from which source frame, by which fit
+    result["worn_on_its_face"] = []
+    keep = ("status", "would_be", "from_source_frame", "held_from", "translation", "raw", "point", "jump_px", "film_moved_px", "eyes_before_px",
+            "eyes_after_px", "label_px_on_the_frame", "label_px", "past_the_piece_px", "under_what_is_given_back_px", "laid_px", "clipped_px", "why")
+    for (piece, first_, last_, _what), held in (record.get("worn") or {}).items():
+        by = {}
+        for n, p in sorted(held["frames"].items()):
+            by.setdefault(p["status"], []).append(n)
+        result["worn_on_its_face"].append({
+            "row": f"{os.path.basename(piece)} {first_}-{last_}", "subject": held["subject"], "what": held["what"], "anchor": held["anchor"],
+            "film_points": held.get("film_file"), "render_points": held.get("render_file"), "job": held.get("job_file"), "not_placed": held.get("not_placed"),
+            "fill": held["fill"], "frames": {k: len(by.get(k, [])) for k in ("live", "held", "filled", "as filmed", "skipped")},
+            "frames_by_status": {k: frame_spans(v) for k, v in sorted(by.items())},
+            "laid_px": sum(p["laid_px"] for p in held["frames"].values()), "clipped_px": sum(p["clipped_px"] for p in held["frames"].values()),
+            "constants": {"PLACE_POINT": PLACE_POINT, "PLACE_SCORE": PLACE_SCORE, "JUMP_PX": JUMP_PX, "JUMP_REACH": JUMP_REACH,
+                          "SMOOTH_REACH": SMOOTH_REACH, "HOLD_REACH": HOLD_REACH, "FILL_REACH": FILL_REACH, "TOUCH_SHARE": TOUCH_SHARE, "PAST_SHARE": PAST_SHARE,
+                          "WORN_GROW": WORN_GROW},
+            "eyes_before_and_after_are": "the render's eyes' middle less the film's on the frame, and less the moved film eyes of the frame "
+                                         "the thing came from, in canvas pixels",
+            "per_frame": {str(n): {k: p[k] for k in keep if k in p} for n, p in sorted(held["frames"].items())}})
     result["rows_shown"] = []
     for (piece, first_, last_), (meant, shown, n_frames) in record.get("shown", {}).items():
         share = shown / meant if meant else None
@@ -2689,6 +3251,9 @@ def main():
     p.add_argument("--crf", type=int, default=12)
     p.add_argument("--soften", type=float, default=0.0, help="sigma in pixels of a luma blur inside what the pieces changed")
     p.add_argument("--note", help="a sentence written into the check record: why this file was built or rebuilt")
+    p.add_argument("--worn-fill", action="store_true",
+                   help="a variant: a frame with no label of a thing worn on the head borrows it from a labelled frame within FILL_REACH "
+                        "(the default lays nothing there); said in the check record")
     p.add_argument("--check-only", action="store_true")
     args = p.parse_args()
     if args.compare:
@@ -2743,11 +3308,17 @@ def main():
         run_for(r, captures)                             # each tie is held to its capture before anything is built
     for r in rows:
         r["laid_by"] = laid_by_of(r["piece"], run_for(r, captures))
+        if worn_of(r, run_for(r, captures)) and r["first"] <= span[1] and r["last"] >= span[0]:
+            # a row with no face points to place its worn thing by gives it back where the film has it, as before, and says so: one old
+            # piece never stops a rebuild (the lead's call, 2026-10-23); `worn_thing_not_placed_no_points` in the record
+            lack = face_points_of(run_for(r, captures), points_needed(worn_of(r, run_for(r, captures))))[1]
+            if lack:
+                print(f"NOTE: {os.path.basename(r['piece'])} {r['first']}-{r['last']}: its thing worn on the head is given back where the film "
+                      f"has it, not on the piece's own face: {lack}", flush=True)
     segs = segments(rows, span)
     for first, last, covering in segs:
         print(f"{first:5d}-{last:<5d} {last - first + 1:5d} frames  " + (" + ".join(
-            f"{os.path.basename(r['piece'])}[{first - r['piece_first']}-{last - r['piece_first']}]"
-            + "".join(" less " + restore_text(label, wanted) for label, wanted in r["restore"])
+            f"{os.path.basename(r['piece'])}[{first - r['piece_first']}-{last - r['piece_first']}]" + restore_words(r, run_for(r, captures))
             for r in covering) or "original"),
             flush=True)
     if not args.check_only:

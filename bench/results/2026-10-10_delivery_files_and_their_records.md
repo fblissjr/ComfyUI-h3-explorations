@@ -629,3 +629,24 @@ and goes if the gain cannot be seen or measured there.
   capture's masks have the word on its frames; its table is written into
   the capture. Case 21 of
   `bench/check_assemble_delivery.py`, which fails without the reading.
+- 2026-10-23: **a thing worn on the head is placed on the piece's own face.**
+  The owner, on a trial cut of lead_fp_3909b: her sunglasses, given back
+  where the film has them, sat where the original's eyes were and not on
+  the new face; "this should apply to all kept accessories". A restore of
+  the row's own Eyeglass (and `@head` Apparel) now lays the film's own
+  pixels of it moved by one point's shift from the film to the render,
+  translation only (`WORN_ON_THE_HEAD`, `anchors_of`, `shifts_of`): the
+  nose root for glasses, the ears' middle for a hat (lead_fp_0168c, whose
+  render turned her face to the camera). The film's place shows the piece.
+  Where the thing is held by what the row gives back in place, or lies
+  well outside the piece, it stays where the film has it (`TOUCH_SHARE`,
+  `PAST_SHARE`; lead_fp_2823b keeps its glasses so on every labelled
+  frame). `:filmed` keeps the old placement for a span; `--worn-fill` is a
+  variant that borrows a label across a short gap. A per-frame similarity
+  fit was built first and dropped the same day on the outside reviewer's
+  reading (`internal/gemini/2026-10-23_design_review.md`, "Accessory
+  placement"): the eyes collapse in profile and the scale and turn read
+  off them explode. Every other restore is byte for byte as before. Each
+  frame's placement is the check record's `worn_on_its_face`; the case is
+  "a thing worn on the head, placed on the piece's own face" of
+  `bench/check_assemble_delivery.py`.
