@@ -1282,6 +1282,10 @@ def a_plan_that_keeps_the_strangers_out() -> str:
         refused(lambda: stl.step_job(a, made.m, hold=hold, cut=cut), "shot_c_0100_strangers.mkv is not there")     # the stand-in pass makes no file
         passes = [argv for label, argv in made.m.ran[ran_before:] if label == "strangers pass"]
         assert len(passes) == 1 and passes[0][1:4] == ["bench/strangers.py", "run", "--preview"] and "/store/facebook_sapiens2-seg-1b" in passes[0], passes
+        assert passes[0][-2:] == ["--host", "nowhere:0"], "the strangers pass is not told the server the chain reaches, to free the card on"
+        labels = [label for label, _ in made.m.ran[ran_before:]]
+        # THE CASE THAT GOES RED when the job step runs the strangers pass beside the server's models: the card is freed right before it
+        assert labels[labels.index("strangers pass") - 1] == "free the card", labels
         made.m.busy = (1, 0)
         refused(lambda: stl.step_job(a, made.m, hold=hold, cut=cut), "the queue is not empty", "no strangers pass beside a render")
         made.m.busy, made.m.dry = (0, 0), True
@@ -1294,13 +1298,14 @@ def a_plan_that_keeps_the_strangers_out() -> str:
         refused(lambda: stl.step_job(a, made.m, hold=hold, cut=cut), "is not there beside it")
         tracks = kept["strangers"]["tracks"]
         record = {"preview": "shot_c_0100", "first_source_frame": 100, "frames": 60, "grow_px": px, "hold_frames": int(h3_config.MASKED_STRANGERS["hold_frames"]),
-                  "subjects_taken_out": tracks, "file": str(want), "frame_hash": lc.frame_hash(str(want)), "taken_out": strangers_tool.OWN_FORM,
+                  "subject_share": float(h3_config.MASKED_STRANGERS["subject_share"]), "subjects_taken_out": tracks, "file": str(want), "frame_hash": lc.frame_hash(str(want)), "taken_out": strangers_tool.OWN_FORM,
                   "handed_back_said": "a: 1 piece(s) handed back on 1 frame(s) (130), the largest 40 px at 130 in [1, 2, 3, 4]"}
         for wrong, words in (({"preview": "shot_c_0099"}, "record's preview"), ({"grow_px": px + 1}, "record's grow_px"), ({"frames": 59}, "record's frames"),
                              ({"file": str(want) + ".elsewhere"}, "record's file"), ({"frame_hash": None}, "holds no hash of its frames"),
                              ({"frame_hash": "0" * 32}, "not the ones its record hashed"),
                              ({"subjects_taken_out": {"a": tracks["a"]}}, "record's subjects_taken_out"),
-                             ({"taken_out": None}, "made before 2026-10-14's mend")):
+                             ({"subject_share": 0.25}, "record's subject_share"),
+                             ({"taken_out": None}, "made before this form")):
             want.with_suffix(".json").write_text(json.dumps({**record, **wrong}))
             refused(lambda: stl.step_job(a, made.m, hold=hold, cut=cut), words)
         assert not holds and not cuts, "something was written for a strangers file of another making"

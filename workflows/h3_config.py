@@ -1552,8 +1552,16 @@ MASKED_JOB_HAIR_BAND = dict(cuts="clothes", wider="margin", smooth_frames=4, mos
 #: **Reasoned** 4, one latent step of the video model: a tracker that drops its subject for a step is holding the
 #: same person; a track empty for longer is a subject who left, and holding them there would keep a newcomer to that
 #: spot out of the strangers file (a blind reader, 2026-10-14). Nothing measured it; the records list every frame held
-#: and every frame left empty.
-MASKED_STRANGERS = dict(grow_px=8, hold_frames=4)
+#: and every frame left empty. The same reach holds another person's detection to the frames either side
+#: (`strangers.held_others`, 2026-10-23), by the same reasoning: a detector that drops a person for a step is still
+#: looking at them.
+#: `subject_share`: a person SAM 3.1 found on a frame (the preview's people file, `strangers.py people`) with more than
+#: this share of its pixels on a subject's track is that subject; every other is another person, and a piece touching a
+#: subject is a stranger only where it lies on one (the owner's rule, 2026-10-23). **Inherited** 0.5 from
+#: `subject_track.ON_OTHERS`, the tracker's own line for a detection another tracker holds, measured there on 2026-10-10
+#: (one person held by two trackers lay 1.000 on the other's mask; two people, heads close and one passing behind the
+#: other, never more than 0.039).
+MASKED_STRANGERS = dict(grow_px=8, hold_frames=4, subject_share=0.5)
 #: A look's `hairline` room (`bench/look_rooms.py`): for a subject whose hair is kept and whose region is the face,
 #: his hair over his face and a band of his hair at the hairline, regenerated, so the region's edge sits in his curls
 #: and holds still. `hold_frames`: a pixel is in the room on a frame when the class map has it so on any frame this

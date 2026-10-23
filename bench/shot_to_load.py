@@ -268,7 +268,8 @@ TRACK_INSIDE = 0.5
 #: clothing it is equal on 29 of the 457, so the torso was left out on purpose. Every load of the second subject
 #: through this tool carried none of them until that day, and the first render drew her apron as the still's top.
 #: `strangers` (2026-10-14, ruled by the lead): every person the part model finds on the whole frame who is not one
-#: of the preview's subjects, the file `bench/strangers.py run` writes for the preview; looked for, as `held` is.
+#: of the preview's subjects, a piece touching a subject only where it lies on another person the detector found (the
+#: owner, 2026-10-23), the file `bench/strangers.py run` writes for the preview; looked for, as `held` is.
 KEEP_OUTS = {"held": None,
              "strangers": None,
              "hands": ("Left_Hand", "Right_Hand", "Left_Lower_Arm", "Left_Upper_Arm", "Right_Lower_Arm", "Right_Upper_Arm"),
@@ -579,7 +580,8 @@ def keep_outs_of(p: dict, subject: str, preview: dict, people: list[str], video:
             tracks = {s["label"]: str(strangers.tracks_of(preview, preview_files, output)[s["label"]]) for s in preview["subjects"]}
             made.append({"name": k, "track": str(folder / f"{preview['name']}_strangers.mkv"), "made_by": "bench/strangers.py run",
                          "frames": preview["frames"], "tracks": tracks,
-                         "what": "every person the part model finds on the whole frame, less the preview's subjects' tracks grown (bench/strangers.py)"})
+                         "what": ("every person the part model finds on the whole frame, less the preview's subjects' tracks grown, a piece "
+                                  "touching a subject only where it lies on another person the detector found (bench/strangers.py)")})
         elif KEEP_OUTS[k] is None:
             made.append({"name": k, "track": str(saved("held_things")), "what": "the preview's own held-things file, as saved"})
         else:
@@ -1233,7 +1235,8 @@ def looked_for(kept: dict | None, world) -> list[str]:
                 r = json.loads(track.with_suffix(".json").read_text())
                 k["frame_hash"] = r["frame_hash"]
                 lines.append(f"keep-out `strangers`, on the preview's frames: {r.get('handed_back_said', 'its record lists no piece handed back')} (bench/strangers.py `handed_back`: "
-                             "a piece touching a subject's own with no body core of its own; a look sees each in the record)")
+                             "a piece touching a subject's own with no body core of its own, whose only core is her hair meeting hers, or on no "
+                             "other person the detector found; a look sees each in the record)")
         if why and not world.dry:
             raise Refused(f"the keep-out `{k['name']}`: {'; '.join(why)}. Nothing is written")
         lines += [f"keep-out `{k['name']}`: WOULD BE REFUSED: {'; '.join(why)}"] if why else []
@@ -3594,20 +3597,27 @@ def step_preview(a, world) -> None:
 
 
 def run_strangers(kept: dict | None, a, world, name: str) -> None:
-    """The strangers pass (bench/strangers.py, the part model on the whole frame, on the card) where the job keeps the strangers
-    out and its preview's file is not there: run by this step when the model store is known, on an empty queue (the lead's order
-    of 2026-10-14: the chain runs it where someone else is in the shot); else left to `looked_for`, which refuses with the command."""
+    """The strangers pass (bench/strangers.py: its people pass, SAM 3.1 on every frame, then the part model on the whole frame, each on
+    the card in a process of its own) where the job keeps the strangers out and its preview's file is not there: run by this step
+    when the model store is known, on an empty queue (the lead's order of 2026-10-14: the chain runs it where someone else is in the
+    shot), with the card freed right before it (`world.free()`, as the land step frees it for its pose pass) and the chain's host
+    handed on; else left to `looked_for`, which refuses with the command."""
     owed = [k for k in (kept or {}).get("made", []) if k["name"] == "strangers" and not Path(k["track"]).is_file()]
     store = getattr(a, "model_store", "") or os.environ.get(load_chain.MODEL_STORE)
     if not owed or world.dry or not store:
         return
     import h3_config
     load_chain.empty_queue(world, "no strangers pass beside a render")
+    # THE CARD FREED FIRST, as the land step frees it for its pose pass (`load_chain.free_for_a_pose_pass`): the pass loads SAM 3.1 and the
+    # part model in processes of their own, and the server keeps a render's models on the card (`strangers.py` frees it again itself, for a
+    # pass run by hand)
+    print("\n--- the card is freed before the strangers pass (POST /free: unload_models, free_memory)", flush=True)
+    print(f"    {world.free()}\n    THE SERVER'S MODELS ARE UNLOADED: the next thing queued starts cold", flush=True)
     # the context the machine's run reads: where its output is kept and the name it is kept under (its `name`; a context without
     # one failed with a traceback on second_hfp_0014d's job, 2026-10-14). The preview's folder whole: the command runs from the repo
     world.run({"logs": Path(a.folder).resolve() / "chain", "name": name}, "strangers pass",
               [world.python, "bench/strangers.py", "run", "--preview", str(Path(a.preview).resolve()), "--model-folder",
-               str(Path(store) / h3_config.SAPIENS2["segmentation"]), "--by", a.by])
+               str(Path(store) / h3_config.SAPIENS2["segmentation"]), "--by", a.by, "--host", world.host])   # the server it frees the card on
 
 
 def overlap_frames_of(preview: dict, preview_files: list[str] | None, output: Path, subject: str, first: int, last: int,

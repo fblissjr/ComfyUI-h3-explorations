@@ -19,7 +19,16 @@ and its files, not the model.
    (`whole_frame_classes`, read by the capture's her-hair-in-hole pass) and a record the job step holds it to
    (`held_to_its_record`): another preview's record, another grow or other tracks are named.
 5. **It writes over nothing**: a file that is there, two tracks for a subject, a track not of the canvas's size, a
-   source shorter than the preview and an output key that names no video are refused, with nothing written."""
+   source shorter than the preview and an output key that names no video are refused, with nothing written.
+6. **Only another person is a stranger** (the owner, 2026-10-23): a piece touching a subject with a core of its own is
+   handed back where it lies on no other person the detector found, and stays a stranger with one pixel on one; a
+   detection is a subject's when more than `h3_config.MASKED_STRANGERS["subject_share"]` of it lies on her track, and
+   another person's is held `hold_frames` either side, as a track is.
+   One file serves every subject's load, so another subject's own detection is another person.
+7. **The people pass** writes the detector's people of the preview's own frames, and `run` makes no file without them;
+   the detector is a stand-in here, as the part model is, and how the preview's tracker asked is read off its graph.
+8. **The card freed first**: from the command line each pass asks the server to free the card (the request stood in for)
+   before its model, and `run`'s people child exits before the part model loads."""
 from __future__ import annotations
 
 import json
@@ -76,11 +85,25 @@ def picture():
     return people, a, b
 
 
-def preview(root: Path, people: np.ndarray, tracks: dict, frames: int = N, listed_twice: bool = False, own: dict | None = None,
-            levels: dict | None = None) -> Path:
-    out = root / "output" / "Video/v/s/pv"
-    out.mkdir(parents=True)
-    src = root / "source.mkv"
+#: How the fixture's tracker asked for people, as `strangers.tracker_asks` reads it off a graph.
+ASKS = {"checkpoint": "sam.safetensors", "corrections": {"correct_image_range": True}, "phrase": "person", "threshold": 0.5, "max_people": 16}
+
+
+def detector(found: list, seen: list | None = None):
+    """A stand-in for SAM 3.1: frame by frame, the masks `found` holds for it (each a [N, H, W] person, in their numbering), every
+    picture it is handed kept in `seen`."""
+    calls = iter(range(10 ** 6))
+
+    def detect(pic):
+        i = next(calls)
+        if seen is not None:
+            seen.append(pic.copy())
+        got = [m[i] for m in found if m[i].any()]
+        return (np.stack(got) if got else np.zeros((0, H, W), bool)), [0.9] * len(got)
+    return detect
+
+
+def encode(src: Path, people: np.ndarray, frames: int, levels: dict | None) -> None:
     # source frames 0..LEAD-1 are all white (a reader on the wrong clock sees everybody); then the preview's frames,
     # each set 8 px into a frame 80 wide, the band outside the crop white
     canvas = np.concatenate([np.ones((LEAD, H, W), bool), people[:frames]])
@@ -95,6 +118,17 @@ def preview(root: Path, people: np.ndarray, tracks: dict, frames: int = N, liste
     enc = subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{SRC_W}x{H}", "-r", "24", "-i", "-",
                           "-c:v", "ffv1", "-pix_fmt", "bgr0", str(src)], input=rgb.tobytes())
     assert enc.returncode == 0
+
+
+def preview(root: Path, people: np.ndarray, tracks: dict, frames: int = N, listed_twice: bool = False, own: dict | None = None,
+            levels: dict | None = None, found: list | None = None, seen: list | None = None) -> Path:
+    """A preview of `tracks` on a source of `people`, and its people file made by the tool's own pass from a stand-in detector that
+    finds `found` (each a person, [N, H, W]; by default the subjects' tracks alone, so a piece touching a subject lies on nobody else).
+    `frames` short of the preview cuts the source after the people pass."""
+    out = root / "output" / "Video/v/s/pv"
+    out.mkdir(parents=True)
+    src = root / "source.mkv"
+    encode(src, people, N, levels)
     files = []
     for label, m in tracks.items():
         write_mask_video(out / f"pv_{label}_track_00001.mkv", m)
@@ -109,6 +143,9 @@ def preview(root: Path, people: np.ndarray, tracks: dict, frames: int = N, liste
     (folder / "job.json").write_text(json.dumps({"job": {"name": "pv", "first": FIRST, "frames": N, "source": str(src), "canvas": [W, H], "output": "Video/v/s",
                                                          "subjects": [{"label": k} for k in tracks]}}))
     (folder / "preview.queued.json").write_text(json.dumps({"status": "success", "files": files}))
+    st.people_pass(folder, root / "output", "the session", detector(list(tracks.values()) if found is None else found, seen), ASKS, say=lambda *_: None)
+    if frames < N:
+        encode(src, people, frames, levels)
     return folder
 
 
@@ -171,7 +208,8 @@ def where_it_writes() -> str:
 
 def it_writes_over_nothing() -> str:
     people, a, b = picture()
-    nothing = lambda root: not (root / "output/Video/v/keep_outs").exists()   # noqa: E731
+    # the people file is the people pass's, beside where the strangers file would go: nothing of the strangers run's is there
+    nothing = lambda root: not [f for f in (root / "output/Video/v/keep_outs/pv").glob("*") if "_people" not in f.name]   # noqa: E731
     for kw, tracks, words in (({"listed_twice": True}, {"a": a, "b": b}, ("lists 2 track videos for 'a'",)),
                               ({"frames": N - 1}, {"a": a, "b": b}, ("gave", "nothing written")),
                               ({}, {"a": a[:, :24, :32], "b": b}, ("is 32x24", "nothing written")),
@@ -179,7 +217,7 @@ def it_writes_over_nothing() -> str:
                               ({}, {"a": np.zeros_like(a), "b": b}, ("empty on every frame", "Nothing written"))):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            refused(lambda: st.run(preview(root, people, tracks, **kw), root / "output", "s", MODEL, "m"), *words)
+            refused(lambda: st.run(preview(root, people, tracks, found=[b], **kw), root / "output", "s", MODEL, "m"), *words)
             assert nothing(root), f"a file was written on a refused run: {words}"
     refused(lambda: st.file_of({"name": "pv", "output": "elsewhere"}, Path("/o")), "not Video/<video>/<session>")
     return ("two tracks for one subject, a source shorter than the preview, a track not of the canvas's size or shorter than the preview, a track empty on "
@@ -214,7 +252,14 @@ def nothing_of_a_subjects_own_is_a_stranger() -> str:
         old = json.loads(Path(rec["file"]).with_suffix(".json").read_text())
         old.pop("taken_out")
         Path(rec["file"]).with_suffix(".json").write_text(json.dumps(old))
-        assert any("made before 2026-10-14's mend" in x for x in st.held_to_its_record(Path(rec["file"]), "pv", FIRST, N, tracks)), "a file of tracks only was taken"
+        assert any("made before this form" in x for x in st.held_to_its_record(Path(rec["file"]), "pv", FIRST, N, tracks)), "a file of tracks only was taken"
+        old["taken_out"] = st.OWN_FORM.split("; and")[0] + "; and a piece touching them with no body core of its own, or whose only core is hair meeting theirs"
+        Path(rec["file"]).with_suffix(".json").write_text(json.dumps(old))
+        # THE CASE THAT GOES RED when a file made before 2026-10-23's rule (no detector's people) is taken
+        assert any("made before this form" in x for x in st.held_to_its_record(Path(rec["file"]), "pv", FIRST, N, tracks)), "a file of the 10-14 form was taken"
+        old.update(taken_out=st.OWN_FORM, subject_share=0.25)
+        Path(rec["file"]).with_suffix(".json").write_text(json.dumps(old))
+        assert any("record's subject_share" in x for x in st.held_to_its_record(Path(rec["file"]), "pv", FIRST, N, tracks)), "another subject_share was taken"
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         refused(lambda: st.run(preview(root, people, {"a": a, "b": b}, own={"a_held_things": hat, "a_held_things_x": hat}), root / "output", "s", MODEL, "m"),
@@ -247,7 +292,9 @@ def a_piece_touching_her_with_no_core_is_hers() -> str:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         said: list[str] = []
-        rec = st.run(preview(root, people, {"a": a, "b": b}, levels={128: face, 64: arm}), root / "output", "s", MODEL, "m", say=said.append)
+        # the other woman and the crowd's arm are people the detector found: on them, a face or an arm stays a stranger
+        rec = st.run(preview(root, people, {"a": a, "b": b}, levels={128: face, 64: arm}, found=[a, b, other, arm]), root / "output", "s", MODEL, "m",
+                     say=said.append)
         back = read_mask(rec["file"], (W, H), 0, 0, N)[0]
     # THE CASE THAT GOES RED when a piece with no core touching her stays a stranger, or a face or an arm touching her is handed back
     assert not (back & (hat | tips)).any(), "her lifted hat or her fingertips past the grow are strangers"
@@ -293,8 +340,9 @@ def her_own_hair_past_her_track() -> str:
     people = people | her_hair | flying | other | neck
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
-        rec = st.run(preview(root, people, {"a": a, "b": b}, levels={30: her_hair | flying | other | (neck & ~neck_face), 128: neck_face}),
-                     root / "output", "s", MODEL, "m", say=lambda *_: None)
+        # someone's hair under her and the hair with a face under b are people the detector found
+        rec = st.run(preview(root, people, {"a": a, "b": b}, levels={30: her_hair | flying | other | (neck & ~neck_face), 128: neck_face},
+                             found=[a, b, other, neck]), root / "output", "s", MODEL, "m", say=lambda *_: None)
         back = read_mask(rec["file"], (W, H), 0, 0, N)[0]
     # THE CASE THAT GOES RED when her own hair past her track is a stranger, or a stranger's hair meeting her where she has none is hers
     assert not (back & flying).any(), "her own hair past her track is a stranger"
@@ -327,6 +375,346 @@ def a_lost_track_is_held_a_little() -> str:
     return f"an empty frame is held to the nearest frame with one when it is at most {reach} away, before or (at the start) after; beyond, left empty and listed"
 
 
+def her_own_clothing_on_no_other_person_is_hers() -> str:
+    """The owner's rule (2026-10-14, restated 2026-10-23): what a subject wears is hers. On shot_c_0014e, where she is alone, her
+    own clothing past her track was kept as a stranger because clothing is a body core (`kept_though_touching` in its record). A
+    piece touching her with a core of its own is a stranger only where it lies on another person the detector found."""
+    people, a, b = picture()
+    sleeve, crowd, lone, far = (np.zeros_like(a) for _ in range(4))
+    for i in range(N):
+        e = 14 + 2 * i
+        sleeve[i, 17:20, e + GROW:e + GROW + 3] = True      # her sleeve, out of her right edge past the grow, touching it (and not b)
+        crowd[i, 25:27, e + GROW:e + GROW + 5] = True       # the same shape lower down: someone else's arm
+    lone[:, 44:47, 56:62] = True                            # clothing touching nobody, on no detection
+    people = people | sleeve | crowd | lone
+    her = a | sleeve                                        # the detector's mask of her takes her sleeve in
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        rec = st.run(preview(root, people, {"a": a, "b": b}, levels={64: sleeve | crowd | lone}, found=[her, b, crowd]),
+                     root / "output", "s", MODEL, "m", say=lambda *_: None)
+        back = read_mask(rec["file"], (W, H), 0, 0, N)[0]
+    out_of = lambda m: m & ~st.grown(a, GROW) & ~st.grown(b, GROW)   # noqa: E731
+    # THE CASE THAT GOES RED when her own clothing on no other person stays a stranger, or another's on a detection is handed back
+    assert out_of(sleeve).any() and not (back & sleeve).any(), "her own sleeve, on no other person, is a stranger"
+    assert (back & out_of(crowd)).sum() == out_of(crowd).sum() and out_of(crowd).any(), "an arm lying on another person was handed back to her"
+    assert (back & lone).sum() == lone.sum(), "a piece touching nobody was handed back"
+    moved = [g for g in rec["handed_back"] if g["by"] == st.NO_OTHER]
+    assert len(moved) == N and {g["subject"] for g in moved} == {"a"} and all(g["core"] == {"Left_Lower_Arm": g["px"]} for g in moved), moved
+    said = rec["handed_back_on_no_other_person"]
+    assert said["pieces"] == N and sorted(said["by_frame"]) == [str(FIRST + i) for i in range(N)], said
+    # her detection takes her sleeve in: each piece says so, and the record counts them apart from pieces on no one's detection (a
+    # detection holding her and a stranger would hand the stranger's back the same way: a look takes the largest)
+    assert all(g["on_her_detection_px"] == g["px"] for g in moved), moved
+    assert said["on_her_own_detection"]["pieces"] == N and said["on_no_detection"]["pieces"] == 0, said
+    kept = [k for k in rec["kept_though_touching"] if "a" in k["touches"] and "Left_Lower_Arm" in k.get("core", {})]
+    assert len(kept) == N and all(k["on_people"] == [3] and k["on_people_px"] == [k["px"]] for k in kept), kept
+    assert rec["other_people_a_frame"] == [1] * N and rec["subject_share"] == st.h3_config.MASKED_STRANGERS["subject_share"], rec["other_people_a_frame"]
+    assert any("the detector does not find" in x for x in rec["cannot_see"]) and st.NO_OTHER in rec["handed_back_said"], rec["handed_back_said"]
+    # handed_back alone: ONE pixel of another person keeps a piece with a core; none hands it back
+    s1, own, c1 = np.zeros((1, 8, 8), bool), np.zeros((1, 8, 8), bool), np.zeros((1, 8, 8), bool)
+    s1[0, 2:5, 2:5], own[0, 2:5, 5:7], c1[0, 3, 3] = True, True, True
+    dot = np.zeros((8, 8), bool)
+    dot[4, 2] = True
+    assert st.handed_back(s1, {"x": own}, c1, 0, others=[[(2, dot)]])[2][0]["on_people"] == [2], "a piece with one pixel on another person was handed back"
+    assert st.handed_back(s1, {"x": own}, c1, 0, others=[[]])[1][0]["by"] == st.NO_OTHER, "a piece with a core on nobody else was kept"
+    assert st.handed_back(s1, {"x": own}, c1, 0)[1] == [], "with no people given, a piece with a core was handed back"
+    return ("her own clothing past her track, touching her and on no other person the detector found, is hers and listed by frame with its core; "
+            "the same piece with a pixel on another person, and a piece touching nobody, stay strangers")
+
+
+def a_detection_is_hers_by_her_track() -> str:
+    """Which detection is a subject (`others_of`): one with more than `subject_share` of its pixels on her track is hers, so her own
+    clothing on it is no other person's; one at the share or under is another person, and a frame where her track holds her and no
+    detection is hers is listed (the detector missed her, or gave her one mask with someone else)."""
+    share = float(st.h3_config.MASKED_STRANGERS["subject_share"])
+    t = np.zeros((3, 4, 10), bool)
+    t[:2, :, :5] = True                                     # her track: 20 px a frame, and gone on the third
+    over, at = np.zeros((4, 10), bool), np.zeros((4, 10), bool)
+    over[:, :6] = True                                      # 20 of 24 on her: hers
+    at[:, 3:5] = True
+    at[:, 5:7] = True                                       # 8 on her and 8 off: exactly half
+    others, unseen = st.others_of([[(1, over)], [(1, at)], []], {"s": t}, share)
+    # a frame her track does not hold her is not listed as one the detector missed her on
+    assert share == 0.5 and [o[3] for o in others[0]] == ["s"] and [(o[0], o[3]) for o in others[1]] == [(1, None)] and others[2] == [], others
+    assert unseen == {"s": [1]}, unseen
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        people, a, b = picture()
+        lost = a.copy()
+        lost[2] = False
+        rec = st.run(preview(root, people, {"a": a, "b": b}, found=[lost, b]), root / "output", "s", MODEL, "m", say=lambda *_: None)
+    assert rec["frames_a_subject_has_no_detection"] == {"a": [FIRST + 2]}, rec["frames_a_subject_has_no_detection"]
+    return (f"a detection more than {share} on her track is hers and one at {share} is another person's; a frame where her track holds her and "
+            "nobody's detection is hers is listed")
+
+
+def a_person_dropped_for_a_moment_is_held() -> str:
+    """`held_others`: a person the detector found within `hold_frames` either side of a frame is still another person there,
+    as a track is held (on shot_c_4912g the CPU's SAM 3.1 dropped the dancer in blue passing the third subject on 4936-4937,
+    blurred, and found her on 4935 and 4938). A piece on her only on another frame stays a stranger, listed with that frame;
+    beyond the reach it is handed back."""
+    reach = int(st.h3_config.MASKED_STRANGERS["hold_frames"])
+    n = 2 * reach + 2
+    s1, own = np.zeros((n, 8, 8), bool), np.zeros((n, 8, 8), bool)
+    s1[:, 2:5, 2:5], own[:, 2:5, 5:7] = True, True
+    found = np.zeros((8, 8), bool)
+    found[1:6, 1:5] = True                                  # the dancer, found on frame 0 alone
+    others = [[(2, found, 0, None)]] + [[] for _ in range(n - 1)]
+    held = st.held_others(others)
+    assert len(held) == n and [len(h) for h in held] == [1] * (reach + 1) + [0] * (n - reach - 1), [len(h) for h in held]
+    _, given, kept = st.handed_back(s1, {"x": own}, s1, 0, others=held)
+    # THE CASE THAT GOES RED when a dropped person is not held, or held past the reach
+    assert [k["frame"] for k in kept] == list(range(reach + 1)) and [g["frame"] for g in given] == list(range(reach + 1, n)), (kept, given)
+    assert kept[0]["on_people"] == [2] and "on_people_held" not in kept[0] and kept[1]["on_people"] == [] and kept[1]["on_people_held"] == [[0, 2, 9]], kept[:2]
+    assert all(g["by"] == st.NO_OTHER for g in given)
+    # and in a run: the crowd's arm is found on the preview's first frame only, and stays a stranger on every frame within the reach
+    people, a, b = picture()
+    crowd = np.zeros_like(a)
+    for i in range(N):
+        e = 14 + 2 * i
+        crowd[i, 25:27, e + GROW:e + GROW + 5] = True
+    seen_once = np.zeros_like(a)
+    seen_once[0, 24:28, 20:40] = True
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        rec = st.run(preview(root, people | crowd, {"a": a, "b": b}, levels={64: crowd}, found=[a, b, seen_once]), root / "output", "s", MODEL, "m",
+                     say=lambda *_: None)
+        back = read_mask(rec["file"], (W, H), 0, 0, N)[0]
+    loose = crowd & ~st.grown(a, GROW) & ~st.grown(b, GROW)
+    assert N - 1 <= reach and (back & loose).sum() == loose.sum(), "an arm found on the first frame alone was handed back on the frames after it"
+    kept = sorted((k["frame"], bool(k.get("on_people")), bool(k.get("on_people_held"))) for k in rec["kept_though_touching"] if "Left_Lower_Arm" in k.get("core", {}))
+    assert kept == [(FIRST, True, False)] + [(FIRST + i, False, True) for i in range(1, N)], kept
+    return f"a person found {reach} frames away still keeps a piece a stranger, listed with the frame they were found on; {reach + 1} away, the piece is hers"
+
+
+def one_file_serves_every_subjects_load() -> str:
+    """The strangers file is one a preview and serves every subject's load (the reviewer's point on the build, 2026-10-23): a piece
+    is handed back only where, for EACH subject it touches, it lies on no person but that subject. A piece of B's arm on B's own
+    detection that touches A, alone or with B, stays a stranger, so it is kept out of A's load; touching B alone, it is B's."""
+    grow = 2
+    t = {"a": np.zeros((1, 40, 40), bool), "b": np.zeros((1, 40, 40), bool)}
+    t["a"][0, 5:20, 5:15], t["b"][0, 5:20, 25:35] = True, True
+    own = {k: st.grown(v, grow) for k, v in t.items()}
+    out = []
+    for name, rows, cols in (("touches a", (22, 24), (8, 13)), ("touches a and b", (10, 12), (17, 23)), ("touches b", (22, 24), (28, 33))):
+        piece = np.zeros((1, 40, 40), bool)
+        piece[0, rows[0]:rows[1], cols[0]:cols[1]] = True
+        det_b = t["b"][0] | piece[0]                        # B's detection takes the piece in: B's arm
+        others, _ = st.others_of([[(1, t["a"][0]), (2, det_b)]], t, 0.5)
+        assert [o[3] for o in others[0]] == ["a", "b"], others
+        _, given, kept = st.handed_back(piece, own, piece, 0, others=st.held_others(others))
+        touches = (kept or given)[0].get("touches") or [(given[0]["subject"])] + given[0].get("touches_also", [])
+        out.append((name, sorted(touches), "kept" if kept else given[0]["by"]))
+        if kept:
+            assert kept[0]["on_subjects"] == ["b"] and kept[0]["on_people"] == [2], kept
+    # THE CASE THAT GOES RED when a subject's own detection is no other person to the subject beside her
+    assert out == [("touches a", ["a"], "kept"), ("touches a and b", ["a", "b"], "kept"), ("touches b", ["b"], st.NO_OTHER)], out
+    return "a piece on B's detection touching A, or A and B, stays a stranger (out of A's load); touching B alone, it is B's"
+
+
+def the_card_is_freed_first() -> str:
+    """`people` and `run` each load a model in a process of their own beside ComfyUI, which keeps its models on the card after a
+    render: from the command line each asks the server at `--host` to free the card (`free_server`, `load_chain.free_card`)
+    before its model touches the card, says so, and carries on where no server answers. `run` makes a missing people file first in
+    a child process told the same host, which exits before the part model loads; a child that fails leaves nothing written."""
+    import contextlib
+    import io
+    import urllib.error
+    import load_chain
+    people, a, b = picture()
+    calls: list = []
+    real_free, real_run, real_seg, real_sam = load_chain.free_card, subprocess.run, st.seg_model, st.sam_people
+    graph = {"100": {"class_type": st.CHECKPOINT_NODE, "inputs": {"ckpt_name": "sam.safetensors"}},
+             "1005": {"class_type": st.TRACKER_NODE, "inputs": {"segmenter": ["100", 0], "subject_phrase": "person", "detection_threshold": 0.5,
+                                                                "max_people": 16}}}
+
+    def child(ok: bool):
+        def fake(argv, *x, **k):
+            if len(argv) > 2 and str(argv[1]).endswith("strangers.py") and argv[2] == "people":
+                calls.append(("people child", list(map(str, argv))))
+                if ok:
+                    st.people_pass(Path(argv[argv.index("--preview") + 1]), Path(argv[argv.index("--output") + 1]), "s", detector([a, b]), ASKS,
+                                   say=lambda *_: None)
+                return subprocess.CompletedProcess(argv, 0 if ok else 3)
+            return real_run(argv, *x, **k)
+        return fake
+    try:
+        load_chain.free_card = lambda host: (calls.append(("free", host)), "freed")[1]
+        st.seg_model = lambda folder: (calls.append(("part model", folder)), MODEL)[1]
+        def fresh(asks):
+            calls.append(("detector", asks["phrase"]))
+            d = detector([a, b])
+            d.device = "a stand-in"
+            return d
+        st.sam_people = fresh
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            folder = preview(root, people, {"a": a, "b": b})
+            (folder / "preview.json").write_text(json.dumps(graph))
+            pfile = st.people_file_of(json.loads((folder / "job.json").read_text())["job"], root / "output")
+            gone = lambda: (pfile.unlink(), pfile.with_suffix(".json").unlink())   # noqa: E731
+            base = ["--preview", str(folder), "--by", "s", "--output", str(root / "output"), "--host", "h:1"]
+            # the people pass from the command line: freed, then the detector
+            gone()
+            said = io.StringIO()
+            with contextlib.redirect_stdout(said):
+                assert st.main(["people", *base]) == 0
+            assert calls == [("free", "h:1"), ("detector", "person")] and "the card freed before the model loads" in said.getvalue(), (calls, said.getvalue())
+            # no server: said, and carried on
+            calls.clear()
+            gone()
+
+            def down(host):
+                raise urllib.error.URLError("no server")
+            load_chain.free_card = down
+            said = io.StringIO()
+            with contextlib.redirect_stdout(said):
+                assert st.main(["people", *base]) == 0
+            assert calls == [("detector", "person")] and "did not free the card" in said.getvalue() and pfile.is_file(), (calls, said.getvalue())
+            load_chain.free_card = lambda host: (calls.append(("free", host)), "freed")[1]
+            # THE CASE THAT GOES RED when `run` does not make its people file in a child told the host, or frees the card after the part model
+            calls.clear()
+            gone()
+            subprocess.run = child(True)
+            with contextlib.redirect_stdout(io.StringIO()):
+                assert st.main(["run", *base, "--model-folder", "/store/m"]) == 0
+            subprocess.run = real_run
+            assert [c[0] for c in calls] == ["people child", "free", "part model"] and calls[0][1][-2:] == ["--host", "h:1"], calls
+            assert (root / "output/Video/v/keep_outs/pv/pv_strangers.mkv").is_file()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            folder = preview(root, people, {"a": a, "b": b})
+            pfile = st.people_file_of(json.loads((folder / "job.json").read_text())["job"], root / "output")
+            pfile.unlink()
+            pfile.with_suffix(".json").unlink()
+            calls.clear()
+            subprocess.run = child(False)
+            said = io.StringIO()
+            with contextlib.redirect_stdout(said):
+                assert st.main(["run", "--preview", str(folder), "--by", "s", "--output", str(root / "output"), "--model-folder", "/store/m"]) == 5
+            subprocess.run = real_run
+            assert [c[0] for c in calls] == ["people child"] and "the people pass ended with 3" in said.getvalue(), (calls, said.getvalue())
+            assert calls[0][1][-2:] == ["--host", load_chain.HOST] and not (root / "output/Video/v/keep_outs/pv/pv_strangers.mkv").exists()
+    finally:
+        load_chain.free_card, subprocess.run, st.seg_model, st.sam_people = real_free, real_run, real_seg, real_sam
+    return ("each pass asks the server to free the card before its model, says so, and carries on with no server; `run`'s child makes the "
+            "people file told the same host and exits before the part model; a failed child leaves nothing written")
+
+
+def sam_people_numbers_left_to_right() -> str:
+    """`sam_people`, with core's detect node, the checkpoint loader and the tracker's phrase stood in for: the people come back in
+    shot_table's person order (left to right by the centre column of the mask), each score with its mask, and the phrase asked is
+    the tracker's own `counted` phrase."""
+    import types
+    import torch
+    asked: list = []
+    masks = torch.zeros((3, 8, 40))
+    masks[0, :, 30:36], masks[1, :, 0:6], masks[2, :, 15:21] = 1, 1, 1      # right, left, middle, as the detector returned them
+
+    class Detect:
+        @staticmethod
+        def execute(model, image, conditioning=None, threshold=None, individual_masks=None):
+            asked.append((conditioning, threshold, individual_masks, tuple(image.shape)))
+            return types.SimpleNamespace(args=(masks, [[{"score": 0.9}, {"score": 0.8}, {"score": 0.7}]]))
+
+    class Clip:
+        def tokenize(self, text):
+            return text
+
+        def encode_from_tokens_scheduled(self, tokens):
+            return f"cond of {tokens}"
+    fakes = {"comfy_extras.nodes_sam3": types.SimpleNamespace(SAM3_Detect=Detect), "_lib.sam3_core": types.SimpleNamespace(load_core=lambda c: ("model", Clip())),
+             "_h3pack.subject_track": types.SimpleNamespace(counted=lambda phrase, most: f"{phrase}:{most}")}
+    kept = {k: sys.modules.get(k) for k in fakes}
+    try:
+        sys.modules.update(fakes)
+        detect = st.sam_people({**ASKS, "corrections": None})
+        got, scores = detect(np.zeros((8, 40, 3), np.uint8))
+    finally:
+        for k, v in kept.items():
+            if v is None:
+                sys.modules.pop(k, None)
+            else:
+                sys.modules[k] = v
+    # THE CASE THAT GOES RED when the people are not put in the shot table's order, or a score parts from its mask
+    assert [int(np.nonzero(m)[1].mean()) for m in got] == [2, 17, 32] and scores == [0.8, 0.7, 0.9], (scores,)
+    assert asked == [("cond of person:16", 0.5, True, (1, 8, 40, 3))], asked
+    return "the detector's people come back left to right, each score with its mask, asked with the tracker's own phrase"
+
+
+def the_people_pass() -> str:
+    """The people file (`people_pass`, read by `people_on`): the detector is handed the preview's own frames on its own clock,
+    cropped as the loader crops; each frame's people come back as it gave them, numbered from 1; and `run` takes them only from
+    a file of this preview, its frames and its canvas, unchanged since its record hashed it. Without one it refuses before
+    the part model runs, naming the command."""
+    people, a, b = picture()
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        seen: list = []
+        folder = preview(root, people, {"a": a, "b": b}, seen=seen)
+        pjob = json.loads((folder / "job.json").read_text())["job"]
+        path = root / "output/Video/v/keep_outs/pv/pv_people.npz"
+        assert st.people_file_of(pjob, root / "output") == path and path.is_file(), path
+        # THE CASE THAT GOES RED on a wrong clock or no loader crop for the detector
+        assert len(seen) == N and all(((seen[i][..., 0] > 127) == people[i]).all() for i in range(N)), "the detector was not handed the preview's frames"
+        found, r = st.people_on(pjob, root / "output")
+        assert [[p for p, _ in f] for f in found] == [[1, 2]] * N and all((found[i][0][1] == a[i]).all() and (found[i][1][1] == b[i]).all() for i in range(N))
+        assert r["asked_as"] == ASKS and r["people_a_frame"] == [2] * N and r["frames"] == N and r["first_source_frame"] == FIRST, r
+        refused(lambda: st.people_pass(folder, root / "output", "s", detector([a, b]), ASKS), "is there", "never replaced")
+        for key, wrong in (("preview", "pv2"), ("frames", N + 1), ("canvas", [W + 1, H])):
+            rp = path.with_suffix(".json")
+            keep = rp.read_text()
+            rp.write_text(json.dumps({**json.loads(keep), key: wrong}))
+            refused(lambda: st.people_on(pjob, root / "output"), f"says {key}", "nothing written")
+            rp.write_text(keep)
+        keep = path.read_bytes()
+        got = dict(np.load(path).items())
+        got["person"] = got["person"][::-1].copy()          # the same arrays, the people numbered otherwise: another file
+        np.savez_compressed(path, **got)
+        # THE CASE THAT GOES RED when a people file changed since its record hashed it is taken
+        assert path.read_bytes() != keep
+        refused(lambda: st.people_on(pjob, root / "output"), "not the file its record hashed")
+        path.write_bytes(keep)
+        assert st.people_on(pjob, root / "output")[1]["sha256"], "the file put back was refused"
+        bad = lambda pic: (np.zeros((1, H - 1, W), bool), [0.9])  # noqa: E731
+        path.unlink()
+        path.with_suffix(".json").unlink()
+        refused(lambda: st.people_pass(folder, root / "output", "s", bad, ASKS), "the detector gave 1 masks", "nothing written")
+        assert not path.exists()
+        refused(lambda: st.run(folder, root / "output", "s", MODEL, "m"), "pv_people.npz or its record is not there", "bench/strangers.py people --preview")
+        assert not (root / "output/Video/v/keep_outs/pv/pv_strangers.mkv").exists(), "a strangers file was written with no people file"
+    return ("the detector is handed the preview's own frames, cropped; its people are read back as it numbered them from a file of this preview "
+            "and frames only, unchanged; no strangers file is made without one")
+
+
+def how_the_tracker_asked() -> str:
+    """`tracker_asks` reads the preview's own graph: the checkpoint, the corrections wired between it and the tracker (none for the
+    stock model), the phrase, the threshold and the most people, and refuses a graph it cannot read that from."""
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp)
+        refused(lambda: st.tracker_asks(folder), "holds no preview.json")
+        tracker = {"class_type": st.TRACKER_NODE, "inputs": {"segmenter": ["101", 0], "subject_phrase": "person", "detection_threshold": 0.5, "max_people": 16}}
+        graph = {"100": {"class_type": st.CHECKPOINT_NODE, "inputs": {"ckpt_name": "sam3.1.safetensors"}},
+                 "101": {"class_type": st.CORRECTIONS_NODE, "inputs": {"segmenter": ["100", 0], "correct_image_range": True, "correct_text_activation": False}},
+                 "1005": tracker}
+        (folder / "preview.json").write_text(json.dumps(graph))
+        got = st.tracker_asks(folder)
+        assert got == {"checkpoint": "sam3.1.safetensors", "corrections": {"correct_image_range": True, "correct_text_activation": False},
+                       "phrase": "person", "threshold": 0.5, "max_people": 16}, got
+        graph["1105"] = {"class_type": st.TRACKER_NODE, "inputs": {**tracker["inputs"], "segmenter": ["100", 0]}}
+        (folder / "preview.json").write_text(json.dumps(graph))
+        refused(lambda: st.tracker_asks(folder), "2 trackers that ask for people differently")
+        graph["1105"]["inputs"]["segmenter"] = ["101", 0]
+        (folder / "preview.json").write_text(json.dumps(graph))
+        assert st.tracker_asks(folder) == got, "two trackers asking alike were refused"
+        graph["1005"]["inputs"]["max_people"] = ["7", 0]
+        (folder / "preview.json").write_text(json.dumps(graph))
+        refused(lambda: st.tracker_asks(folder), "does not read")
+        (folder / "preview.json").write_text(json.dumps({"100": graph["100"]}))
+        refused(lambda: st.tracker_asks(folder), "has no tracker")
+    return "the checkpoint, the corrections between it and the tracker, the phrase, threshold and most people are read off the graph; trackers asking differently are refused"
+
+
 case("a subject, and their rim within the grow, is not a stranger", a_subject_and_their_rim_are_not_strangers)
 case("where it writes, its clocks, and its record", where_it_writes)
 case("it writes over nothing", it_writes_over_nothing)
@@ -334,4 +722,12 @@ case("a lost track is held a little, and no further", a_lost_track_is_held_a_lit
 case("nothing of a subject's own is a stranger", nothing_of_a_subjects_own_is_a_stranger)
 case("a piece touching her with no body core is hers; a face or an arm stays a stranger", a_piece_touching_her_with_no_core_is_hers)
 case("her own hair past her track is hers", her_own_hair_past_her_track)
+case("her own clothing on no other person the detector found is hers", her_own_clothing_on_no_other_person_is_hers)
+case("a detection is hers when it lies mostly on her track", a_detection_is_hers_by_her_track)
+case("a person the detector drops for a moment is held", a_person_dropped_for_a_moment_is_held)
+case("one file serves every subject's load", one_file_serves_every_subjects_load)
+case("the people pass, and no strangers file without it", the_people_pass)
+case("the card is freed first, and run's people child exits before the part model", the_card_is_freed_first)
+case("sam_people numbers the people left to right", sam_people_numbers_left_to_right)
+case("the people are asked for as the preview's tracker asked", how_the_tracker_asked)
 sys.exit(finish())
