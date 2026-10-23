@@ -3427,6 +3427,90 @@ def _square_grown(mask: np.ndarray, px: int) -> np.ndarray:
     return out
 
 
+def the_source_facial_hair() -> str:
+    """THE SOURCE'S FACIAL HAIR (2026-10-23): `facial_hair=keep` on a face-only subject's --mask reaches the head tube in the files
+    step with every other person's mask read from its file, so the part to load keeps his beard under the jaw (the piece of the part
+    joined to his face) less the other person's pixels, and not the Hair the part model calls its lower end; the part stays face-only
+    (`part_is_made_of`, which decides the hair-in-hole pass); the provenance and the manifest say what was kept, and without the word
+    the part is as before. Another word is refused."""
+    import tempfile
+    import head_tube_parts as htp
+    from _lib import refused
+    names = list(cap._pack("sapiens2_parts").CLASS_NAMES)
+    face_id, cloth_id = names.index("Face_Neck"), names.index("Upper_Clothing")
+    track = rect(40, 8, 100, 90)
+    head = rect(50, 12, 90, 40)                       # his head track ends on row 39, at the jaw
+    cmap = np.zeros((N, H, W), np.uint8)
+    cmap[:, 60:90, 40:100] = cloth_id
+    cmap[:, 22:40, 50:90] = face_id                    # his face, inside the head track
+    cmap[:, 40:52, 60:80] = face_id                    # his goatee under the jaw: the preview's part holds it
+    cmap[:, 52:56, 60:80] = names.index("Hair")        # its lower end, which the part model calls Hair: all the Hair there is
+    parts = cmap == face_id
+    other = np.zeros((N, H, W), bool)
+    other[:, 0:6, 140:160] = True
+    other[1, 46:52, 60:66] = True                      # frame 1: the other person's mask over part of it
+    beard = np.zeros((H, W), bool)
+    beard[40:52, 60:80] = True
+    pnames = json.loads(Path(htp.POSE_KEYPOINTS_PATH).read_text())["names"]
+    idx = {nm: i for i, nm in enumerate(pnames)}
+    kps = np.zeros((N, 308, 2), np.float32)
+    scores = np.zeros((N, 308), np.float32)
+    for t in range(N):
+        for j, nm in enumerate(("center_of_lower_outer_lip", "r_outer_corner_of_mouth", "l_outer_corner_of_mouth")):   # off_head's points
+            kps[t, idx[nm]] = (64.0 + j, 34.0)
+            scores[t, idx[nm]] = 0.9
+    stood_in = {k: getattr(cap, k) for k in ("probe", "read_mask", "read_classes", "write_mask_video", "input_facts", "picture_rows")}
+    written: dict[str, dict] = {"on": {}, "off": {}}
+    by_name = {"a_track": track, "a_head": head, "a_parts": parts, "b_track": other}
+    with tempfile.TemporaryDirectory() as tmp:
+        pts = Path(tmp) / "points.npz"
+        np.savez(pts, keypoints=kps, scores=scores, names=np.array(pnames), size=np.array([W, H]), first_frame=np.array(100))
+        src = Path(tmp) / "src.mp4"
+        src.write_bytes(b"")
+        a_spec = {"track": "a_track.mkv", "head_track": "a_head.mkv", "parts": "a_parts.mkv", "classes": "a_classes.mkv", "by": "pv",
+                  "at": "100", "least": "0", "points": str(pts)}
+        b_spec = {"track": "b_track.mkv", "by": "pv", "at": "100"}
+        try:
+            cap.probe = lambda _p: (W, H, N)
+            cap.read_mask = lambda p, *_a: (next(v for k, v in by_name.items() if k in str(p)).copy(), np.ones(N, bool))
+            cap.read_classes = lambda *_a: cmap.copy()
+            cap.input_facts = lambda p: {"file": str(p), "written": "2026-10-23T12:00:00", "size": [W, H], "frames": N}
+            cap.picture_rows = lambda *_a: [(0.0, 0.0)] * N
+            for arm, spec_a in (("off", a_spec), ("on", {**a_spec, "facial_hair": "keep"})):
+                cap.write_mask_video = lambda p, m, arm=arm: written[arm].__setitem__(Path(p).name, m.copy())
+                cap._files(argparse.Namespace(first=100, frames=N, name=arm, date="2026-01-01", source=str(src), loads=None, voice=None),
+                           Path(tmp) / arm, [("a", spec_a), ("b", b_spec)], [], [])
+            refused(lambda: cap._files(argparse.Namespace(first=100, frames=N, name="x", date="2026-01-01", source=str(src), loads=None,
+                                                          voice=None), Path(tmp) / "x", [("a", {**a_spec, "facial_hair": "yes"}), ("b", b_spec)], [], []),
+                    "facial_hair=keep")
+        finally:
+            for k, v in stood_in.items():
+                setattr(cap, k, v)
+        prov = {arm: json.loads((Path(tmp) / arm / "subjects" / "a" / "head_tube__pv.json").read_text()) for arm in ("off", "on")}
+        seen = {arm: json.loads((Path(tmp) / arm / "manifest.json").read_text())["subjects"][0]["sightings"][0]["head_tube_summary"]
+                for arm in ("off", "on")}
+        made = {arm: json.loads((Path(tmp) / arm / "manifest.json").read_text())["subjects"][0]["sightings"][0]["part_is_made_of"]
+                for arm in ("off", "on")}
+        classes_on = np.load(Path(tmp) / "on" / "subjects" / "a" / "classes__pv.npz")["classes"]
+    off, on = written["off"]["parts_held__pv.mkv"], written["on"]["parts_held__pv.mkv"]
+    # the control: without the word the tube cuts the goatee and nothing says facial hair
+    assert not (off & beard).any() and "source_facial_hair" not in prov["off"] and "source_facial_hair" not in seen["off"], seen["off"]
+    # THE CASE THAT GOES RED when the plan's word does not reach the head tube, or keeps another person's pixels
+    kept = prov["on"]["source_facial_hair"]["kept_px_by_class"]
+    assert kept == {"Face_Neck": [240, 204, 240, 240]}, kept
+    assert not on[:, 52:56, 60:80].any(), "the Hair the part model calls the beard's lower end was kept"
+    assert on[0][beard].all() and not on[1, 46:52, 60:66].any() and on[1][beard & ~other[1]].all(), "the part to load does not hold his goatee less the other's"
+    assert seen["on"]["source_facial_hair"] == {"kept_px": 924, "kept_px_by_class": {"Face_Neck": 924}, "cut_by_the_face_columns_px": 0,
+                                               "kept_on_source_frames": [[100, 103]], "per_frame": "the provenance's source_facial_hair",
+                                               "off_tube_suppressed_px_before_keeping": seen["on"]["off_tube_suppressed_px"] + 924}, seen["on"]
+    # the part stays face-only: what it holds decides the hair-in-hole pass
+    assert "Hair" not in made["on"] and made["on"] == made["off"], made
+    assert all((classes_on[k][beard & ~other[k]] == face_id).all() for k in range(N)), "the kept beard is not Face_Neck in the capture's class map"
+    assert np.array_equal(on & ~beard, off & ~beard), "the word changed the part away from the goatee"
+    return (f"kept {kept} px a frame, less the other person's 36 on frame 1, not the Hair under it; the part stays {made['on']}; "
+            "without the word 0 and nothing said; another word refused")
+
+
 def her_hair_in_the_hole() -> str:
     """`her_hair_in_hole` (2026-10-22): her head in the hole, a lost head asked about, her unclaimed hair added or asked about, and a
     person's marks; then through the files step and the gate."""
@@ -3807,6 +3891,7 @@ case("depth in the owner map and the files step", depth_in_owner_map_and_the_fil
 case("step keep-out carves in the files step and diagnose", step_keepout_carves_in_files_and_diagnose)
 case("preflight: dropped frame with visible face in classes blocks", dropped_frame_with_visible_face_flagged)
 case("her hair in the hole: her head, a lost head, her unclaimed hair, a person's marks", her_hair_in_the_hole)
+case("the source's facial hair: facial_hair=keep reaches the head tube, less another person's mask", the_source_facial_hair)
 case("preflight: a reference with no figure where the subject is in the load", a_reference_with_no_figure)
 sys.exit(finish())
 

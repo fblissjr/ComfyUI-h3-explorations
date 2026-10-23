@@ -289,6 +289,13 @@ def a_masks_at_is_the_previews_first_frame() -> str:
         made.write()
         mine = lc.mask_specs(made.ctx(), files)[1]
         assert mine.endswith(",by=pv,at=100,pieces=largest,least=1024"), mine
+        # THE SOURCE'S FACIAL HAIR (2026-10-23): the job's word reaches the capture, its words (`facial_hair_by`) stay in the job
+        made.job["subjects"][1].update(facial_hair="keep", facial_hair_by="the plan: W")
+        made.write()
+        mine = lc.mask_specs(made.ctx(), files)[1]
+        assert mine.endswith(",pieces=largest,least=1024,facial_hair=keep") and "facial_hair_by" not in mine, mine
+        del made.job["subjects"][1]["facial_hair"], made.job["subjects"][1]["facial_hair_by"]
+        made.write()
         # a load the job renders on the whole frame: its capture is told so, and its starting floor is not held to a zoom (2026-10-14)
         made.job["whole_frame"] = {"why": "A REASON", "said_by": "x", "at": "t"}
         made.write()
@@ -1286,6 +1293,13 @@ def a_load_of_two_subjects() -> str:
         told = lc.told_to_the_gate(ctx)
         pairs = list(zip(told[::2], told[1::2]))
         assert ("--named-empty", "b:112-112=the job's drop= (B'S DROP)") in pairs, told
+        # THE SOURCE'S FACIAL HAIR on the pair's second subject reads no pose point, so it reaches that subject's own mask, and only its
+        made.job["subjects"][0].update(facial_hair="keep", facial_hair_by="the plan: W")
+        made.write([pair])
+        b2, a2 = lc.mask_specs(made.ctx(), files)
+        assert b2.endswith(",at=100,pieces=largest,drop=112,facial_hair=keep") and "facial_hair" not in a2, (b2, a2)
+        del made.job["subjects"][0]["facial_hair"], made.job["subjects"][0]["facial_hair_by"]
+        made.write([pair])
         # BOTH REFERENCES go to the gate, each with its own subject (2026-10-22: a black reference where its subject is in the load)
         assert [p for p in pairs if p[0] == "--reference"] == [("--reference", f"a:{ctx['job']['first']}=/out/ref.mp4"),
                                                                ("--reference", f"b:{ctx['job']['first']}=/out/ref_b.mp4")], told

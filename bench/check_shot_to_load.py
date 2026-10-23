@@ -2229,6 +2229,51 @@ def what_the_context_frames_show() -> str:
             "graph; another value, no `context_by`, or `context_by` alone are refused")
 
 
+def the_source_facial_hair() -> str:
+    """The plan's `source_facial_hair` with `source_facial_hair_by` (2026-10-23): on a face-only subject, `true` puts
+    `facial_hair: keep` and its words on the subject in the job file, which the chain hands the capture (`load_chain.MASK_OPTIONS`),
+    whose head tube keeps the part's Face_Neck under the mouth; absent or `false`, the subject carries nothing. Another value, a value
+    with no `_by`, a `_by` alone, and `true` on a part of hair are refused before anything is written."""
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        mine = lambda d: next(s for s in d["job"]["subjects"] if s["label"] == "a")   # noqa: E731
+        d = made.load()
+        assert "facial_hair" not in mine(d) and "facial_hair_by" not in mine(d), mine(d)
+        made.plan["subjects"]["a"].update(source_facial_hair=True, source_facial_hair_by="THE OWNER, 2026-10-18: HE HAS NO FACIAL HAIR")
+        d = made.load(name="a_fp_beard")
+        # THE CASE THAT GOES RED when the plan's word does not reach the job file the chain hands the capture from
+        assert mine(d)["facial_hair"] == "keep" and mine(d)["facial_hair_by"] == "the plan: THE OWNER, 2026-10-18: HE HAS NO FACIAL HAIR", mine(d)
+        assert "facial_hair" in lc.MASK_OPTIONS and "THE SOURCE SHOWS FACIAL HAIR ON a" in d["job"]["note"], d["job"]["note"][-400:]
+        # a remake that carries the old job's words takes the word again from the plan, never from the old job
+        old_file = Path(tmp) / "a_fp_beard.json"
+        old_file.write_text(json.dumps(d))
+        carried = made.load(name="a_fp_beard_b", carry_words_from=old_file)
+        assert mine(carried)["facial_hair"] == "keep", mine(carried)
+        made.plan["subjects"]["a"]["source_facial_hair"] = False
+        carried = made.load(name="a_fp_beard_c", carry_words_from=old_file)
+        assert "facial_hair" not in mine(carried) and "facial_hair_by" not in mine(carried), mine(carried)
+        d = made.load(name="a_fp_nobeard")
+        assert "facial_hair" not in mine(d), mine(d)
+        made.plan["subjects"]["a"]["source_facial_hair"] = "yes"
+        refused(lambda: made.load(name="a_fp_x1"), "`source_facial_hair`", "`true` or `false`")
+        made.plan["subjects"]["a"].update(source_facial_hair=True, source_facial_hair_by=" ")
+        refused(lambda: made.load(name="a_fp_x2"), "no `source_facial_hair_by`")
+        made.plan["subjects"]["a"].pop("source_facial_hair")
+        made.plan["subjects"]["a"]["source_facial_hair_by"] = "W"
+        refused(lambda: made.load(name="a_fp_x3"), "`source_facial_hair_by`", "no `source_facial_hair`")
+        # a load with no reference (--motion none) is a load of hair alone: refused at the job step as not face-only
+        made.plan["subjects"]["b"].pop("hair_band", None)
+        made.plan["subjects"]["b"].update(source_facial_hair=True, source_facial_hair_by="W")
+        refused(lambda: made.load(subject="b", name="b_hp_0100", parts=["hair"], parts_by="the lead: her hair alone", motion="none",
+                                  motion_why="HER FACE IS HIDDEN"), "face-only part")
+    hair = {"source_facial_hair": True, "source_facial_hair_by": "W"}
+    refused(lambda: stl.source_facial_hair_of(hair, "b", ["face_and_neck", "hair"]), "face-only part", "face_and_neck + hair")
+    assert stl.source_facial_hair_of(hair, "a", ["face_and_neck"]) == {"facial_hair": "keep", "facial_hair_by": "the plan: W"}
+    return ("absent or false, the subject carries nothing; true with its words reaches the job file as facial_hair=keep for the capture; "
+            "a remake carrying words takes it from the plan, never the old job; another value, no `_by`, a `_by` alone, a load with no "
+            "reference and a part of hair are refused")
+
+
 def the_figures() -> str:
     from _lib import face_points as fp
     kept = fp.load, fp.table
@@ -3544,6 +3589,7 @@ case("a job renders from the video's present copy", a_job_renders_from_the_prese
 case("reference: on the load's frames, drawn by default", the_reference_step)
 case("the defaults this load carries", the_defaults_this_load_carries)
 case("what the context frames show: the plan's word onto the load", what_the_context_frames_show)
+case("the source's facial hair: the plan's word onto the subject for the capture", the_source_facial_hair)
 case("the figures, at the canvas and in the reference", the_figures)
 case("pair: two loads of the same frames as one of two subjects", a_load_of_two_subjects)
 case("where a face may not show: two cues, printed as data", where_a_face_may_not_show)

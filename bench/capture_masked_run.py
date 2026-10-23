@@ -189,6 +189,14 @@ strangers record names (`whole_frame_hair`), else from her own class map as the 
 at a time, is `subjects/<s>/hair_in_hole__<by>.json`, with a line in the manifest; what it cannot see is in the record.
 `hair-in-hole CAPTURE` works the same out on a capture that exists and writes it elsewhere.
 
+**The source's facial hair** (`facial_hair=keep` on a subject's --mask, 2026-10-23), for a face-only part whose plan says the
+source shows facial hair to replace (`subjects.<s>.source_facial_hair`, written by `bench/shot_to_load.py job`): the head tube
+cuts the part to the SAM 3.1 head track, which ends at the jaw, and his face, beard and neck are one piece of the part that runs
+below it (third_fp_5011b, 2026-10-23). With the word, the tube gives back the piece of the part joined to the face that it cut,
+inside the person track and the face's columns, less every other person's mask as its file holds it; no pose point is read
+(`head_tube_parts.face_piece_kept_whole`). Without it, nothing changes. What it kept and what the columns cut, a frame at a time,
+and what it cannot see: `source_facial_hair` in `head_tube__<by>.json`.
+
 **video** stacks the source, the masks and a render, and burns the source frame number and the render frame number
 above every row, with the render's audio, or the source's at the render's first frame when the render file carries
 none. A render need not begin or end where the capture's span does (a load whose first frames are left as the
@@ -2153,6 +2161,35 @@ def spec(text: str) -> tuple[str, dict]:
     return label, dict(item.split("=", 1) for item in rest.split(",") if item)
 
 
+#: THE SOURCE'S FACIAL HAIR (2026-10-23): the one word `facial_hair=` takes on a subject's --mask, written by `bench/shot_to_load.py
+#: job` from the plan's `subjects.<s>.source_facial_hair` (`source_facial_hair_of`) and passed by `load_chain.MASK_OPTIONS`; the head
+#: tube then gives back the piece of the part joined to the face that it cut below the jaw (`head_tube_parts.face_piece_kept_whole`).
+FACIAL_HAIR_WORDS = ("keep",)
+
+
+def facial_hair_said(label: str, m: dict) -> bool:
+    """Whether the subject's --mask says `facial_hair=keep`; refused for any other word."""
+    said = m.get("facial_hair")
+    if said is None:
+        return False
+    if said not in FACIAL_HAIR_WORDS:
+        raise SystemExit(f"subject {label!r}: facial_hair={said}; the one value is facial_hair=keep (the plan's source_facial_hair)")
+    return True
+
+
+def facial_hair_keep_outs(label: str, m: dict, masks: list, size: tuple[int, int], first: int, frames: int) -> np.ndarray | None:
+    """For `facial_hair=keep`: every other person's mask on the capture's frames as its file holds it (the other subjects' tracks, a
+    track copied on a person's word, the keep-outs, before this capture carves a keep-out for the node: the carve gives cells back
+    to the node, it does not make another person's pixels his), which `face_piece_kept_whole` keeps nothing of. None without it."""
+    if not facial_hair_said(label, m):
+        return None
+    out = np.zeros((frames, size[1], size[0]), bool)
+    for other, mo in masks:
+        if other != label:
+            out |= read_mask(mo["track"], size, int(mo.get("at", first)), first, frames)[0]
+    return out
+
+
 #: What a load says it is given, beside its frames: carried into the manifest, not read.
 LOAD_GIVEN = ("text", "audio", "still")
 
@@ -2456,6 +2493,9 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             noface_rel = word_frames(m.get("noface"), first, frames) if m.get("noface") else set()
             word_rel = word_frames(m.get("word"), first, frames) if m.get("word") else set()
             (out / "subjects" / label).mkdir(parents=True, exist_ok=True)
+            # THE SOURCE'S FACIAL HAIR (`facial_hair=keep`, the plan's `source_facial_hair` through `bench/shot_to_load.py job`): the tube
+            # keeps the part's Face_Neck under the mouth that it would cut, less every other person's mask as its file holds it
+            facial_hair_others = facial_hair_keep_outs(label, m, masks, size, first, frames)
             ht_res = _htp.head_tube_for_capture(
                 track,
                 parts,
@@ -2470,6 +2510,8 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                 hold_frames=word_rel,
                 provenance_out=out / "subjects" / label / f"head_tube__{by}.json",
                 masks_out=out / "subjects" / label / f"head_tube__{by}.npz",
+                keep_facial_hair=facial_hair_others is not None,
+                others=facial_hair_others,
             )
             parts = ht_res["part_mask"]
             off_frags = {f for f in off_frags if not parts[f].any()}
@@ -2483,6 +2525,15 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                   f"facing={len(head_tube_prov['facing_frames'])}, "
                   f"side_with_eye={len(head_tube_prov['side_with_eye_frames'])}, "
                   f"back_of_head={len(head_tube_prov['back_of_head_frames'])})", flush=True)
+            if "source_facial_hair" in head_tube_prov:
+                fh = head_tube_prov["source_facial_hair"]
+                print(f"  {label}: the source's facial hair: the face's piece below the jaw kept, {sum(fh['kept_px'])} px ("
+                      + ", ".join(f"{c} {sum(v)}" for c, v in fh["kept_px_by_class"].items()) + f"), {sum(fh['cut_by_the_columns_px'])} px cut by "
+                      f"the face's columns, on {_spans_text(frame_spans([first + f for f in fh['kept_on_frames']])) or 'no frame'} "
+                      f"(subjects/{label}/head_tube__{by}.json, `source_facial_hair`)", flush=True)
+        elif facial_hair_said(label, m):
+            print(f"  {label}: facial_hair=keep: no head tube runs on this subject, so its part is not cut to the head track and nothing "
+                  "is kept back", flush=True)
         depth_clipped = None
         front_other_mask = None
         if parts is not None and pre_owner_data is not None and label in pre_owner_data[1]:
@@ -2701,6 +2752,16 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                            "proposed_drop_frames": [first + f for f in head_tube_prov["proposed_drop_frames"]],
                                            "turned_away_frames": [first + f for f in head_tube_prov["turned_away_frames"]],
                                            "overridden_by_word_frames": [first + f for f in head_tube_prov.get("overridden_by_word_frames", ())],
+                                           # THE SOURCE'S FACIAL HAIR (`facial_hair=keep`): what the tube gave back below the jaw, by the part model's class;
+                                           # off_tube_suppressed_px above is then less the kept px it had counted, and its own figure is here
+                                           **({"source_facial_hair": {
+                                               "kept_px": int(sum(head_tube_prov["source_facial_hair"]["kept_px"])),
+                                               "kept_px_by_class": {c: int(sum(v)) for c, v in head_tube_prov["source_facial_hair"]["kept_px_by_class"].items()},
+                                               "kept_on_source_frames": frame_spans([first + f for f in head_tube_prov["source_facial_hair"]["kept_on_frames"]]),
+                                               "cut_by_the_face_columns_px": int(sum(head_tube_prov["source_facial_hair"]["cut_by_the_columns_px"])),
+                                               "off_tube_suppressed_px_before_keeping": int(sum(head_tube_prov["source_facial_hair"]["off_tube_suppressed_px_before_keeping"])),
+                                               "per_frame": "the provenance's source_facial_hair"}}
+                                              if "source_facial_hair" in head_tube_prov else {}),
                                        }} if head_tube_prov is not None else {}),
                                    # the part's size on this clip's frames, and where the floor fell among them (`part_sizes`)
                                    "part_sizes": sizes,
@@ -7661,7 +7722,7 @@ def main() -> None:
     f.add_argument("--source", required=True, help="the clip every run was loaded from")
     f.add_argument("--first", type=int, required=True, help="the source frame that is the span's frame 0")
     f.add_argument("--frames", type=int, required=True)
-    f.add_argument("--mask", action="append", default=[], metavar="LABEL:track=V[,parts=V][,classes=V][,held=V][,shots=J][,shots_at=N][,pose=J][,pose_at=N][,by=RUN][,at=N][,hold=A-B+C-D][,drop=A-B+C-D][,word=A-B+C-D][,grade=off][,least=PX][,pieces=largest][,zoom=off][,head_tube=1]",
+    f.add_argument("--mask", action="append", default=[], metavar="LABEL:track=V[,parts=V][,classes=V][,held=V][,shots=J][,shots_at=N][,pose=J][,pose_at=N][,by=RUN][,at=N][,hold=A-B+C-D][,drop=A-B+C-D][,word=A-B+C-D][,grade=off][,least=PX][,pieces=largest][,zoom=off][,head_tube=1][,facial_hair=keep]",
                    help="one sighting of a subject: its saved mask videos; repeatable")
     f.add_argument("--head-tube", action="store_true", help="opt-in: bound the replaced subject's head tube by its person track and smooth Sapiens2-Seg on one steady shot box before grading")
     f.add_argument("--depth", metavar="DEPTH.npz", help="opt-in: MoGe-2 depth .npz (bench/measure_moge2_depth.py) to settle contested track overlaps, clip back-subject part spills, and preserve foreground keep-outs")

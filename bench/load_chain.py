@@ -140,8 +140,10 @@ HOST = "127.0.0.1:8188"
 MODEL_STORE = "H3_MODEL_STORE"
 #: A subject's keys in the job file that are options of its `--mask` in a capture; only what the job says is passed. `head_hidden`,
 #: `hair_hers` and `hair_not_hers` (2026-10-22) are a person's marks, written by `shot_to_load.py job` from the plan's `head_marks`
-#: (`shot_to_load.head_marks_of`) and read by `capture_masked_run.her_hair_in_hole`.
-MASK_OPTIONS = ("pieces", "least", "hold", "drop", "grade", "word", "head_hidden", "hair_hers", "hair_not_hers")
+#: (`shot_to_load.head_marks_of`) and read by `capture_masked_run.her_hair_in_hole`. `facial_hair` (2026-10-23) is the plan's
+#: `source_facial_hair`, written `keep` by `shot_to_load.source_facial_hair_of` and read by `capture_masked_run.facial_hair_keep_outs`;
+#: it reads no pose point, so a pair's second subject (`also_keys`) passes it as the load's own subject does.
+MASK_OPTIONS = ("pieces", "least", "hold", "drop", "grade", "word", "head_hidden", "hair_hers", "hair_not_hers", "facial_hair")
 #: Default canvas-pixel margin for `capture_masked_run.off_head` (`points_margin=`). **Inherited**: one H3 latent cell on the
 #: canvas (16 px, matching `capture_masked_run.CELL`), named apart from the load's region `margin` so widening a load's region does
 #: not widen the off-head head box or chain reach (D22 item 6.2).

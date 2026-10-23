@@ -129,6 +129,28 @@ SHORT_DIP_RATIO: float = (
 REGAIN_FACE_POINTS_MIN: int = (
     9  #: measured: 2026-10-21, on every frame the head tube re-seeded from the person track on second_hfp_4912e, 1093c, 4647d, 4726c, 5011e and 5889e and lead_fp_0606d (own_part_face_points on each capture's own inputs): at most 1 such point where the seed held no head of hers (4912e's 4943; her raised hand on 4921-4923 and 4941-4945, which her class map calls face and hair), at least 17 where it held her face (4726c's 4751); the gap's midpoint, a starting value. Not seen by it: 5889e's 5923 and 5926, 38 points piled at the frame's edge as she leaves it
 )
+#: THE SOURCE'S FACIAL HAIR (`face_piece_kept_whole`, 2026-10-23): how far past the columns of the tube's own part, on each side, the
+#: piece of the part kept below the tube may reach. **Reasoned**, not measured: the edge of a beard and the part model's wobble at the
+#: jaw line, set to the 8 px the job holds a part to its own track by (h3_config.MASKED_STRANGERS['grow_px'], the job's
+#: `parts_held_to_track_px`). It stops only what lies to the side of the face: a hand or thing inside the face's columns and joined to
+#: the face is kept (FACIAL_HAIR_CANNOT_SEE). What it cut on the replays of 2026-10-23, recorded a frame as `cut_by_the_columns_px`:
+#: 16,313 px on 20 of third_fp_5675c's 41 frames, 22 px on 3 of 5011b's 33, none on 4726b, 4602c or 5461b; on second_hfp_4912e (a
+#: reader's replay) none on its 35 frames, where her raised hand was kept out by the tube's part being empty (her head track lost on
+#: 4921-4926 and 4941-4946), not by the columns.
+FACE_COLUMN_PAD_PX: int = 8
+FACIAL_HAIR_CANNOT_SEE: tuple[str, ...] = (
+    "facial hair the preview's part does not hold: where the part model calls it clothing (something over it: third_fp_5011b's "
+    "5020-5022 under his arm, third_fp_5461b's 5463-5464, Upper_Clothing) or Hair, nothing is kept. Hair is left out on purpose: a "
+    "rule that took the part model's Hair under the mouth inside the face's columns added, outside the region already regenerated, "
+    "50, 5 and 21 px on third_fp_4726b, 5011b and the clean-shaven 4602c, and on 5675c Hair that could not be told from his head "
+    "hair beside the cheek (replays of 2026-10-23)",
+    "a hand or arm the part model calls Face_Neck where it touches the face (4912e's raised hand): kept where it lies in the face's "
+    "columns; what the columns cut is recorded a frame (`cut_by_the_columns_px`)",
+    "a beard wider than the face's columns and FACE_COLUMN_PAD_PX (a profile where the face inside the tube is a sliver): cut there, "
+    "and recorded",
+    "a piece of the part not joined to the face (split off by a hand or a gap in the part model's map): not kept",
+    "where the beard ends: the piece is the neck as well as the beard, the plan's face_and_neck, kept as far down as the part runs",
+)
 
 
 def _load_seg_classes() -> tuple[tuple[str, ...], dict[str, int]]:
@@ -1308,8 +1330,10 @@ def build_provenance_record(
     regained_from_person_track_frames: Sequence[int] | None = None,
     regain_refused: Sequence[dict[str, Any]] | None = None,
     bridged_short_dips: Sequence[dict[str, Any]] | None = None,
+    source_facial_hair: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Assemble the JSON-serializable provenance record for a shot's head-tube part masks."""
+    """Assemble the JSON-serializable provenance record for a shot's head-tube part masks. `source_facial_hair`, where the
+    capture keeps it (`face_piece_kept_whole`), is written whole; absent, the key is left out."""
     bridged = sorted(
         set(seg_result["dropout_bridged_frames"])
         | set(pose_check["dropout_bridged_frames"] if pose_check is not None else ())
@@ -1376,6 +1400,8 @@ def build_provenance_record(
             list(pose_check["overridden_by_word_frames"]) if pose_check is not None else []
         ),
     }
+    if source_facial_hair is not None:
+        record["source_facial_hair"] = source_facial_hair
     return record
 
 
@@ -1649,6 +1675,79 @@ def _fill_unclassified_in_head_tube(
             cmap_box[t, ty0:ty1, tx0:tx1][choose_face] = np.uint8(face_id)
 
 
+def face_piece_kept_whole(
+    part_mask: np.ndarray,
+    tube: np.ndarray,
+    part: np.ndarray,
+    person: np.ndarray,
+    *,
+    others: np.ndarray | None = None,
+    skip_frames: dict[int, str] | None = None,
+    pad: int = FACE_COLUMN_PAD_PX,
+) -> tuple[np.ndarray, dict[str, Any]]:
+    """THE SOURCE'S FACIAL HAIR (2026-10-23): what the head tube gives back to a face-only part whose plan says the source shows
+    facial hair to replace (`subjects.<s>.source_facial_hair`). The head track is widened only by a piece of the part that fits within
+    its rows (`head_tube_for_capture`, the attach rule), and the tube is the head track, so a face-only part is cut where SAM's head
+    mask stops, at the jaw. His face, beard and neck are one connected piece of the part, so the beard below the jaw was cut: on
+    third_fp_5011b, 986-1607 px a frame in the 35 rows under the head track on 12 of the 15 frames a reader saw the goatee below the
+    region, all of it held by the preview's part.
+
+    On each frame: the part as the job hands it (`part`, after off_head) inside the person track (`person`), in the pieces (8-connected)
+    that join the tube's part (`part_mask`); of those, the px outside the tube (`tube`), inside the columns of the tube's part widened by
+    `pad` on each side, and in no other person's mask (`others`), that still join the tube's part, are kept. No pose point is read, so a
+    head turned away keeps it too. Inside the tube the tube's own part stands. Nothing is kept on `skip_frames` (a person's drop or
+    no-face word, with why). Returns the kept pixels (T, H, W) and the record: px kept a frame, what the columns cut, and why nothing
+    was where nothing was."""
+    num_frames = part_mask.shape[0]
+    kept = np.zeros(part_mask.shape, dtype=bool)
+    rows: list[dict[str, Any]] = []
+    for t in range(num_frames):
+        row: dict[str, Any] = {"frame": t, "kept_px": 0}
+        rows.append(row)
+        if skip_frames and t in skip_frames:
+            row["nothing_kept_because"] = skip_frames[t]
+            continue
+        face = part_mask[t]
+        if not face.any():
+            row["nothing_kept_because"] = "the head tube's part is empty on the frame"
+            continue
+        mine = part[t] & person[t]
+        _, labels = cv2.connectedComponents((mine | face).astype(np.uint8), connectivity=8)
+        own = np.unique(labels[face])
+        piece = np.isin(labels, own[own > 0]) & mine & ~tube[t]
+        if not piece.any():
+            row["nothing_kept_because"] = "no piece of the part joins the face outside the tube"
+            continue
+        xs = np.nonzero(face.any(0))[0]
+        c0, c1 = max(int(xs[0]) - int(pad), 0), min(int(xs[-1]) + int(pad), face.shape[1] - 1)
+        columns = np.zeros(face.shape, dtype=bool)
+        columns[:, c0:c1 + 1] = True
+        cand = piece & columns
+        row.update(face_columns=[c0, c1], cut_by_the_columns_px=int((piece & ~columns).sum()))
+        if others is not None:
+            row["in_another_persons_mask_px"] = int((cand & others[t]).sum())
+            cand &= ~others[t]
+        _, joined = cv2.connectedComponents((cand | face).astype(np.uint8), connectivity=8)
+        own = np.unique(joined[face])
+        keep = np.isin(joined, own[own > 0]) & cand
+        kept[t] = keep
+        row.update(kept_px=int(keep.sum()), cut_off_from_the_face_px=int(cand.sum()) - int(keep.sum()))
+    record = {
+        "rule": "face_piece_kept_whole",
+        "is": ("the part as the job hands it, in the pieces that join the tube's part, outside the tube, inside the person track and the "
+               "tube part's columns widened by FACE_COLUMN_PAD_PX, less every other person's mask: kept in the part the tube cut it from"),
+        "said_by": "the plan's subjects.<s>.source_facial_hair (`bench/shot_to_load.py::source_facial_hair_of`), facial_hair=keep on --mask",
+        "column_pad_px": int(pad),
+        "others_given": others is not None,
+        "kept_px": [int(r["kept_px"]) for r in rows],
+        "kept_on_frames": [int(r["frame"]) for r in rows if r["kept_px"]],
+        "cut_by_the_columns_px": [int(r.get("cut_by_the_columns_px", 0)) for r in rows],
+        "frames": rows,
+        "cannot_see": list(FACIAL_HAIR_CANNOT_SEE),
+    }
+    return kept, record
+
+
 def head_tube_for_capture(
     track: np.ndarray,
     parts: np.ndarray,
@@ -1666,8 +1765,16 @@ def head_tube_for_capture(
     hold_frames: Sequence[int] | set[int] | None = None,
     provenance_out: Path | None = None,
     masks_out: Path | None = None,
+    keep_facial_hair: bool = False,
+    others: np.ndarray | None = None,
 ) -> dict[str, Any]:
-    """Run person-track-bounded head-tube smoothing on a capture's track, parts, class map, and 308-point file."""
+    """Run person-track-bounded head-tube smoothing on a capture's track, parts, class map, and 308-point file.
+
+    `keep_facial_hair` (a face-only part whose plan says the source shows facial hair to replace): the piece of the part joined to
+    the face that the tube cut below the jaw is kept, within the face's columns and less `others` (every other person's mask,
+    (T, H, W)) (`face_piece_kept_whole`), each px with its own class, and recorded in the provenance's `source_facial_hair`; the
+    provenance's `part_px` and `off_tube_suppressed_px` then count the part with it and the suppressed px less it, and the tube's own
+    figures are kept beside them. Off, nothing here changes."""
     raw_track_bool = np.asarray(track > 0, dtype=bool)
     parts_bool = np.asarray(parts > 0, dtype=bool)
     if raw_track_bool.ndim != 3 or parts_bool.shape != raw_track_bool.shape:
@@ -1721,6 +1828,13 @@ def head_tube_for_capture(
     if not chosen_names:
         chosen_names = list(DEFAULT_HEAD_PARTS)
     part_ids = [NAME_TO_ID[n] for n in chosen_names]
+    if keep_facial_hair:
+        # THE SOURCE'S FACIAL HAIR is built and measured on a face-only part (2026-10-23): a part made of Hair takes the whole tube
+        if "Hair" in chosen_names or "Face_Neck" not in chosen_names:
+            raise SystemExit(f"head_tube_for_capture: keep_facial_hair is for a face-only part, and this part is made of {', '.join(chosen_names)}: "
+                             "refused before the head tube writes anything")
+        if others is not None and np.asarray(others).shape != raw_track_bool.shape:
+            raise SystemExit(f"head_tube_for_capture: others shape {np.asarray(others).shape} does not match {raw_track_bool.shape}")
 
     # The whole-head tube always includes all whole-head classes (Face_Neck + Hair + lips/teeth/tongue),
     # even on a face-only (fp) load where chosen_names excludes Hair, so the tube stays ~35,000 px on
@@ -1920,6 +2034,39 @@ def head_tube_for_capture(
         hold_frames=hold_frames,
     )
 
+    # THE SOURCE'S FACIAL HAIR (`face_piece_kept_whole`): after the face states are read, so they are the tube's own; the tube itself
+    # is not widened (the attach rule stands), only what it cut of the face's own piece below the jaw is given back to the part
+    facial_hair = None
+    kept_facial_hair = None
+    if keep_facial_hair:
+        skip = {int(t): "no face on a person's word (--no-face-on)" for t in (no_face_frames or ())}
+        skip.update({int(t): "dropped on a person's word (drop=)" for t in (drop_frames or ())})
+        kept_facial_hair, facial_hair = face_piece_kept_whole(
+            seg_info["part_mask"],
+            tube_info["tube"],
+            parts_bool,
+            raw_track_bool,
+            others=np.asarray(others, dtype=bool) if others is not None else None,
+            skip_frames=skip,
+        )
+        # each kept px keeps the part model's own class where it is one of the part's, else Face_Neck (the part's own px the map left
+        # unlabelled, as the tube labels them)
+        kept_cls = np.where(np.isin(cmap_arr, part_ids), cmap_arr, np.uint8(face_id)).astype(np.uint8)
+        facial_hair["kept_px_by_class"] = {CLASS_NAMES[c]: [int(((kept_cls[t] == c) & kept_facial_hair[t]).sum()) for t in range(num_frames)]
+                                           for c in sorted(int(v) for v in np.unique(kept_cls[kept_facial_hair]))}
+        # WHAT WAS KEPT, in the provenance's own figures: the part counts what it now holds, and the suppressed count loses the kept
+        # px it had counted (the part's own px outside the tube). The tube's own figures stay in the record
+        counted = kept_facial_hair & ~tube_info["tube"] & (np.isin(cmap_arr, part_ids) | parts_bool)
+        facial_hair["part_px_before_keeping"] = [int(v) for v in seg_info["part_px"]]
+        facial_hair["off_tube_suppressed_px_before_keeping"] = [int(v) for v in seg_info["off_tube_suppressed_px"]]
+        facial_hair["kept_px_it_counted_as_suppressed"] = [int(counted[t].sum()) for t in range(num_frames)]
+        seg_info["part_px"] = [int(v) + int(kept_facial_hair[t].sum()) for t, v in enumerate(seg_info["part_px"])]
+        seg_info["off_tube_suppressed_px"] = [int(v) - int(counted[t].sum()) for t, v in enumerate(seg_info["off_tube_suppressed_px"])]
+        seg_info["part_mask"] = seg_info["part_mask"] | kept_facial_hair
+        seg_info["class_map"][kept_facial_hair] = kept_cls[kept_facial_hair]
+        if masks_out is not None and seg_info["part_probs"].shape == kept_facial_hair.shape:
+            seg_info["part_probs"] = np.where(kept_facial_hair, np.maximum(seg_info["part_probs"], 1.0), seg_info["part_probs"]).astype(np.float32)
+
     provenance = build_provenance_record(
         seg_info,
         pose_info,
@@ -1928,6 +2075,7 @@ def head_tube_for_capture(
         regained_from_person_track_frames=tube_info["regained_from_person_track_frames"],
         regain_refused=tube_info["regain_refused"],
         bridged_short_dips=tube_info["bridged_short_dips"],
+        source_facial_hair=facial_hair,
     )
     if provenance_out is not None:
         provenance_out.parent.mkdir(parents=True, exist_ok=True)
@@ -1950,6 +2098,8 @@ def head_tube_for_capture(
     box_cls = seg_info["class_map"][:, y0:y1, x0:x1]
     box_part = seg_info["part_mask"][:, y0:y1, x0:x1]
     updated_cmap[:, y0:y1, x0:x1] = np.where(box_part, box_cls, updated_cmap[:, y0:y1, x0:x1])
+    if kept_facial_hair is not None:
+        updated_cmap[kept_facial_hair] = kept_cls[kept_facial_hair]     # kept under the jaw, where it may lie outside the shot box
 
     return {
         "tube_info": tube_info,

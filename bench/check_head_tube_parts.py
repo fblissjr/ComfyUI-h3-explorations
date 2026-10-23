@@ -965,6 +965,78 @@ def _case_regain_needs_her_own_face_points() -> str:
             f"with points over the line on the hand: regained {shown['provenance']['regained_from_person_track_frames']}")
 
 
+def _case_source_facial_hair_kept_under_the_jaw() -> str:
+    """THE SOURCE'S FACIAL HAIR (2026-10-23, third_fp_5011b and 5675c): the head track ends at the jaw, and the tube cut the beard and
+    neck that are one piece with his face in the preview's part. Without `keep_facial_hair` nothing changes (the control). With it, the
+    piece of the part joined to the face outside the tube, inside the person track and the face's columns widened by
+    FACE_COLUMN_PAD_PX, less another person's mask, is given back with its own class, on every frame, no pose point read; what the
+    columns cut is recorded; the provenance's part_px counts it and off_tube_suppressed_px loses it. The part model's Hair beside the
+    face, a beard the map calls clothing, a piece not joined to the face and a dropped frame keep nothing; the tube's own part and the
+    face states are the same; a part of hair is refused."""
+    face_id, hair_id, cloth_id = htp.NAME_TO_ID["Face_Neck"], htp.NAME_TO_ID["Hair"], htp.NAME_TO_ID["Upper_Clothing"]
+    n = 5
+    track = np.zeros((n, 64, 64), dtype=bool)
+    track[:, 8:62, 8:60] = True
+    track[:, 38:40, 26:38] = False                     # the beard's last two rows lie outside his person track
+    head = np.zeros_like(track)
+    head[:, 12:30, 20:44] = True                       # the head track ends on row 29, at the jaw
+    cmap = np.zeros((n, 64, 64), dtype=np.uint8)
+    cmap[:, 46:62, 8:60] = cloth_id
+    cmap[:, 18:30, 20:44] = face_id                    # his face, inside the tube
+    cmap[:, 30:40, 26:38] = face_id                    # his beard and neck under the jaw, one piece with the face
+    cmap[:, 14:40, 14:20] = hair_id                    # his head hair beside the face, falling below the jaw
+    cmap[:, 52:54, 14:18] = face_id                    # a Face_Neck speck on his shirt that does not join the face
+    cmap[0, 36:40, 38:58] = face_id                    # frame 0: a hand the map calls Face_Neck, touching the beard, past the face's columns
+    cmap[2, 30:40, 26:38] = cloth_id                   # frame 2: his arm over the beard, which the map calls clothing
+    parts = cmap == face_id
+    others = np.zeros_like(track)
+    others[3, 34:36, 26:38] = True                     # frame 3: another person's mask across it, cutting its lower rows off the face
+    beard = np.zeros((64, 64), dtype=bool)
+    beard[30:38, 26:38] = True
+    given = dict(head_parts=("Face_Neck",), head_track=head)
+    off = htp.head_tube_for_capture(track, parts, cmap, **given)
+    on = htp.head_tube_for_capture(track, parts, cmap, **given, keep_facial_hair=True, others=others)
+    dropped = htp.head_tube_for_capture(track, parts, cmap, **given, keep_facial_hair=True, others=others, drop_frames={4})
+    refused(lambda: htp.head_tube_for_capture(track, parts, cmap, head_parts=("Face_Neck", "Hair"), head_track=head, keep_facial_hair=True),
+            "face-only part", "before the head tube writes anything")
+    # the control: the tube cuts the beard the part held, and says nothing of facial hair
+    assert all(int((off["part_mask"][t] & beard).sum()) == 0 for t in range(n)), "control: the tube did not cut the beard under the jaw"
+    assert "source_facial_hair" not in off["provenance"], off["provenance"].keys()
+    fh = on["provenance"]["source_facial_hair"]
+    # THE CASE THAT GOES RED when the face's own piece below the jaw is not given back, with no pose point given, or more is
+    assert fh["kept_px"] == [152, 96, 0, 48, 96] and fh["kept_on_frames"] == [0, 1, 3, 4], (fh["kept_px"], fh["kept_on_frames"])
+    assert fh["kept_px_by_class"] == {"Face_Neck": [152, 96, 0, 48, 96]}, fh["kept_px_by_class"]
+    assert not on["part_mask"][:, 38:40, 26:38].any(), "the part outside his person track was kept"
+    for t in (0, 1, 4):
+        assert np.all(on["part_mask"][t][beard]) and np.all(on["class_map"][t][beard] == face_id), f"frame {t}: the beard is not in the part"
+    # THE CASE THAT GOES RED when a hand the map calls Face_Neck is kept past the face's columns, unrecorded
+    rows = {r["frame"]: r for r in fh["frames"]}
+    assert rows[0]["face_columns"] == [12, 51] and rows[0]["cut_by_the_columns_px"] == 24, rows[0]
+    assert on["part_mask"][0, 36:40, 38:52].all() and not on["part_mask"][0, 36:40, 52:58].any(), "the columns did not bound the hand"
+    assert fh["cut_by_the_columns_px"] == [24, 0, 0, 0, 0], fh["cut_by_the_columns_px"]
+    assert not on["part_mask"][:, 14:40, 14:20].any(), "the part model's Hair beside the face was kept"
+    # another person's pixels are not kept, nor what they cut off from the face
+    assert not on["part_mask"][3, 34:40, 26:38].any() and rows[3]["in_another_persons_mask_px"] == 24, rows[3]
+    assert rows[3]["cut_off_from_the_face_px"] == 24, rows[3]
+    assert not on["part_mask"][:, 52:54, 14:18].any(), "a Face_Neck piece that does not join the face was kept"
+    assert "no piece of the part joins the face" in rows[2]["nothing_kept_because"], rows[2]
+    assert fh["cannot_see"] == list(htp.FACIAL_HAIR_CANNOT_SEE), fh["cannot_see"]
+    # what was kept, in the provenance's own figures, with the tube's own beside them
+    assert fh["part_px_before_keeping"] == off["provenance"]["part_px"], (fh["part_px_before_keeping"], off["provenance"]["part_px"])
+    assert on["provenance"]["part_px"] == [a + b for a, b in zip(off["provenance"]["part_px"], fh["kept_px"])], on["provenance"]["part_px"]
+    assert fh["kept_px_it_counted_as_suppressed"] == fh["kept_px"], fh["kept_px_it_counted_as_suppressed"]
+    assert on["provenance"]["off_tube_suppressed_px"] == [a - b for a, b in zip(off["provenance"]["off_tube_suppressed_px"], fh["kept_px"])], \
+        (on["provenance"]["off_tube_suppressed_px"], off["provenance"]["off_tube_suppressed_px"])
+    tube = on["tube_info"]["tube"]
+    assert np.array_equal(on["part_mask"] & tube, off["part_mask"] & off["tube_info"]["tube"]), "the tube's own part changed"
+    for key in ("facing_frames", "side_with_eye_frames", "back_of_head_frames", "frame_states"):
+        assert on["provenance"][key] == off["provenance"][key], (key, on["provenance"][key], off["provenance"][key])
+    drop_fh = dropped["provenance"]["source_facial_hair"]
+    assert drop_fh["kept_px"][4] == 0 and "dropped" in drop_fh["frames"][4]["nothing_kept_because"], drop_fh["frames"][4]
+    return (f"kept {fh['kept_px']} px a frame with no pose point (control: 0); the hand past the face's columns cut ({fh['cut_by_the_columns_px'][0]} px, "
+            "recorded); Hair, clothing, an unjoined speck and a dropped frame keep nothing; the counts say what was kept")
+
+
 def _case_face_only_tube_keeps_its_classes() -> str:
     """A face-only subject's head-tube pixels the part model did not call face keep its own class: the neighbour fill writes
     only the face, never Hair (a hair-and-face subject's non-face tube pixels are Hair, `head_track_seed_mask_and_neighbour_fill`).
@@ -997,6 +1069,7 @@ def main() -> int:
     case("person_track_regains_tube_after_gap", _case_person_track_regains_tube_after_gap)
     case("regain_needs_her_own_face_points", _case_regain_needs_her_own_face_points)
     case("face_only_tube_keeps_its_classes", _case_face_only_tube_keeps_its_classes)
+    case("source_facial_hair_kept_under_the_jaw", _case_source_facial_hair_kept_under_the_jaw)
     case("off_head_islands_not_resurrected", _case_off_head_islands_not_resurrected)
     case("head_track_seed_mask_and_neighbour_fill", _case_head_track_seed_mask)
     case("short_tube_dips_bridged", _case_short_tube_dips_bridged)

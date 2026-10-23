@@ -53,7 +53,10 @@ CARRIES, a line each with where it comes from, and keeps the same in the job fil
   subject whose plan lacks `still` or `parts` is refused with the keys to add. Optionally `context` with `context_by`:
   what the real frames a short load is padded with show, `as filmed` (the default) or `face covered`, copied onto each
   load as `context_shows` (`context_of`). Optionally `head_marks`, a person's marks on the subject's head and hair by span
-  (`head_marks_of`): copied onto the subject in the job file, cut to the load's frames, and handed to the capture. A plan look's stay item made as one
+  (`head_marks_of`): copied onto the subject in the job file, cut to the load's frames, and handed to the capture. Optionally
+  `source_facial_hair: true` with `source_facial_hair_by`, on a face-only subject whose source actor shows facial hair to replace
+  (`source_facial_hair_of`): copied onto the subject as `facial_hair: keep`, so the capture's head tube gives back the piece of the
+  part joined to the face that it would cut at the jaw. A plan look's stay item made as one
   keep-out (`look.stay[]` with `as: "one keep-out"`, `replaces_keep_out`, `classes_on_her_track`, `hold_frames`, and
   `look_by`) is made by the job step in place of the keep-out it replaces (`stay_of`, `cut_stay`). Optionally `pieces` (with
   `pieces_by`: who chose it, on what): how the capture reads the subject's part, copied by `job` onto the
@@ -1799,7 +1802,8 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
     subj_known = {"label", "phrase", "pick", "parts", "still", "pose", "track_head", "parts_file", "parts_held_to_track_px",
                   "pieces", "pieces_by", "least", "least_by", "least_carried", "word", "word_by", "word_carried",
                   "drop", "drop_by", "drop_carried", "parts_of_this_load", "parts_by", "parts_on",
-                  "head_hidden", "hair_hers", "hair_not_hers", "head_marks_by"}     # read again from the plan's `head_marks`, never carried
+                  "head_hidden", "hair_hers", "hair_not_hers", "head_marks_by",     # read again from the plan's `head_marks`, never carried
+                  "facial_hair", "facial_hair_by"}                                   # read again from the plan's `source_facial_hair`, never carried
     for k in old_mine:
         if k not in subj_known:
             raise Refused(f"--carry-words-from {old_name}: word-bearing key 'subjects.{subject}.{k}' in old job cannot be carried")
@@ -2561,6 +2565,15 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         mine.update(marks)
         pieces += (f" A PERSON'S MARKS ON {subject}'s HEAD AND HAIR, from the plan's head_marks: "
                    + "; ".join(f"{k}={v}" for k, v in marks.items() if k != "head_marks_by") + ".")
+    # THE SOURCE'S FACIAL HAIR (`source_facial_hair_of`, the plan's word): a key on the subject, which the chain passes to the capture
+    # (`load_chain.MASK_OPTIONS`), where the head tube gives back the face's piece it cut below the jaw (`head_tube_parts.face_piece_kept_whole`)
+    facial = source_facial_hair_of(p, subject, sorted(set(part["parts"] if part else p["parts"])
+                                                       | {k for x in (part or {}).get("parts_on") or [] for k in x["parts"]}))
+    if facial:
+        mine = next(s for s in subjects if s["label"] == subject)
+        mine.update(facial)
+        pieces += (f" THE SOURCE SHOWS FACIAL HAIR ON {subject}, from the plan ({facial['facial_hair_by'].removeprefix('the plan: ')}): the "
+                   "capture's head tube gives back the piece of the part joined to the face that it would cut at the jaw (facial_hair=keep).")
     # The load's own part, where it names a subset: a key on the load's subject, where the chain reads it for the capture's `parts=`.
     if part:
         mine = next(s for s in subjects if s["label"] == subject)
@@ -3052,6 +3065,32 @@ def context_of(p: dict, subject: str) -> dict:
     if not str(p.get("context_by") or "").strip():
         raise Refused(f"the plan says `context: {p['context']}` for {subject!r} with no `context_by`: who said so, and why")
     return {"value": p["context"], "said_by": "the plan", "why": " ".join(str(p["context_by"]).split())}
+
+
+def source_facial_hair_of(p: dict, subject: str, held: list[str]) -> dict:
+    """THE SOURCE'S FACIAL HAIR (2026-10-23), from the plan's `subjects.<s>.source_facial_hair` with `source_facial_hair_by`: the
+    source actor shows facial hair the replacement does not have, so the capture's head tube gives back the piece of the part joined
+    to the face that it cuts at the jaw (`head_tube_parts.face_piece_kept_whole`; the beard rule, docs/masked_v2v/AGENTS.md §2: on
+    third_fp_5011b the tube cut 986-1607 px a frame of the goatee the preview's part held). `held` is the load's parts. Returns the
+    subject's job keys (`facial_hair: keep`, `facial_hair_by`) or {}; refused: a value that is not true or false, a value with no
+    `_by` or a `_by` with no value, and `true` on a load whose parts are not face_and_neck without hair (built and measured on a
+    face-only part; a part of hair takes the whole head tube already, and a `--motion none` load is one of hair alone)."""
+    said, by = p.get("source_facial_hair"), " ".join(str(p.get("source_facial_hair_by") or "").split())
+    if said is None:
+        if by:
+            raise Refused(f"the plan has `source_facial_hair_by` for {subject!r} and no `source_facial_hair`: add `source_facial_hair: true` "
+                          "or take both out")
+        return {}
+    if not isinstance(said, bool):
+        raise Refused(f"the plan's `source_facial_hair` for {subject!r} is {said!r}: `true` or `false`, with `source_facial_hair_by`")
+    if not by:
+        raise Refused(f"the plan says `source_facial_hair: {str(said).lower()}` for {subject!r} with no `source_facial_hair_by`: who said so, and where")
+    if not said:
+        return {}
+    if "hair" in held or "face_and_neck" not in held:
+        raise Refused(f"the plan says `source_facial_hair: true` for {subject!r} on a load whose part is {' + '.join(held)}: it is built for a "
+                      "face-only part (face_and_neck without hair); a part of hair takes the whole head tube, the beard with it")
+    return {"facial_hair": "keep", "facial_hair_by": f"the plan: {by}"}
 
 
 def reference_form(p: dict, subject: str) -> dict:
