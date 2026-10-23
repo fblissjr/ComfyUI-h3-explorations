@@ -1916,6 +1916,21 @@ def the_reference_step() -> str:
         refused(lambda: stl.step_reference(e, made.m, figures), "--existing", "drew an open mouth 'capped' and the job asks for 'inner outline'")
         del mouthed["drawn"]["mouth"]["closed_lip_line"]["open_mouth"]
         drawn.with_suffix(".json").write_text(json.dumps(mouthed))
+        # the same for the plan's closed-mouth form (2026-10-23): a drawing of the other closed form is made again, both ways
+        cm_job = json.loads(shut_file.read_text())
+        cm_job["job"]["reference"]["mouth"]["closed_mouth"] = {"form": "outlined", "said_by": "the plan", "why": "THE OWNER ON 5114I"}
+        cm_file = made.jobs / "a_fp_0104m.json"
+        cm_file.write_text(json.dumps(cm_job))
+        e.job_file = str(cm_file)
+        # THE CASE THAT GOES RED when --existing takes a drawing in another closed-mouth form than the job's
+        refused(lambda: stl.step_reference(e, made.m, figures), "--existing", "drew a closed mouth 'sculpted' and the job asks for 'outlined'")
+        mouthed["drawn"]["mouth"]["closed_lip_line"]["closed_mouth"] = {"form": "outlined", "frames_drawn_closed": []}
+        drawn.with_suffix(".json").write_text(json.dumps(mouthed))
+        stl.step_reference(e, made.m, figures)
+        e.job_file = str(shut_file)
+        refused(lambda: stl.step_reference(e, made.m, figures), "--existing", "drew a closed mouth 'outlined' and the job asks for 'sculpted'")
+        del mouthed["drawn"]["mouth"]["closed_lip_line"]["closed_mouth"]
+        drawn.with_suffix(".json").write_text(json.dumps(mouthed))
         # a job with the plan's face crop takes a reference as it was only where that reference was cut to the face's box, and back
         cr_job = json.loads(shut_file.read_text())
         cr_job["job"]["reference"]["crop"] = {"form": "face", "said_by": "the plan", "why": "THE OWNER: LARGER"}
@@ -2092,6 +2107,37 @@ def the_defaults_this_load_carries() -> str:
             made.plan["subjects"]["a"]["reference"] = bad
             refused(made.load, words)
         del made.plan["subjects"]["a"]["reference"]
+        # THE CLOSED MOUTH'S FORM, a subject at a time (the plan's `reference.closed_mouth`; the owner, 2026-10-23, on second_hfp_5114i): into
+        # the job, the defaults' mouth line and the reference step's command, after --closed-lip-line; a subject without it as before
+        made.plan["subjects"]["a"]["reference"] = {"closed_mouth": "outlined", "why": "THE OWNER ON 5114I"}
+        d_cm = made.load(name="a_fp_closed_outlined")
+        cmm = d_cm["job"]["reference"]["mouth"]
+        assert cmm["closed_mouth"] == {"form": "outlined", "said_by": "the plan", "why": "THE OWNER ON 5114I"} and cmm["closed_lip_line"]["on"], cmm
+        cm_row = {x["what"]: x for x in d_cm["job"]["defaults"]}["the mouth"]
+        assert "CLOSED MOUTHS OUTLINED" in cm_row["carries"] and "closed_mouth: the plan: THE OWNER ON 5114I" in cm_row["from"], cm_row
+        cm_flags = stl.drawn_form(d_cm["job"], args(), files, 100)
+        # THE CASE THAT GOES RED when the plan's closed-mouth form does not reach the reference step's command
+        assert cm_flags[cm_flags.index("--closed-mouth") + 1] == "outlined" and cm_flags.index("--closed-mouth") > cm_flags.index("--closed-lip-line"), cm_flags
+        # a job that turns the closed-lip line off keeps the plan's word in its block and passes no --closed-mouth (head_reference refuses one)
+        d_cm_off = made.load(name="a_fp_closed_off", no_closed_lip_line="the closed-mouth test turns it off")
+        assert "--closed-mouth" not in stl.drawn_form(d_cm_off["job"], args(), files, 100), stl.drawn_form(d_cm_off["job"], args(), files, 100)
+        assert "CLOSED MOUTHS" not in {x["what"]: x for x in d_cm_off["job"]["defaults"]}["the mouth"]["carries"]
+        assert "closed_mouth" not in d_none["job"]["reference"]["mouth"] and "--closed-mouth" not in stl.drawn_form(d_none["job"], args(), files, 100)
+        assert "CLOSED MOUTHS" not in {x["what"]: x for x in d_none["job"]["defaults"]}["the mouth"]["carries"]
+        for bad, words in (({"closed_mouth": "lips", "why": "w"}, "one of"), ({"closed_mouth": "outlined", "closed_lip_line": False, "why": "w"}, "closed-lip line"),
+                           ({"closed_mouth": "outlined"}, "says no `why`")):
+            made.plan["subjects"]["a"]["reference"] = bad
+            refused(made.load, words)
+        # a remake re-reads the closed mouth from the plan, never carries it: an old job's word does not stop the remake, nor reach a plan
+        # that says none
+        made.plan["subjects"]["a"]["reference"] = {"closed_mouth": "outlined", "why": "THE OWNER ON 5114I"}
+        old_cm = made.load(name="a_fp_closed_old")
+        old_cm_file = made.jobs / "a_fp_closed_old.json"
+        old_cm_file.write_text(json.dumps(old_cm))
+        del made.plan["subjects"]["a"]["reference"]
+        # THE CASE THAT GOES RED when an old job's closed mouth is refused as a word to carry, or is carried past the plan
+        d_cm_re = made.load(name="a_fp_closed_new", carry_words_from=str(old_cm_file))
+        assert "closed_mouth" not in d_cm_re["job"]["reference"]["mouth"], d_cm_re["job"]["reference"]["mouth"]
         # THE CROP'S FORM, a subject at a time (the plan's `reference.crop`, 2026-10-22: the face larger in <Video 1>): into the job, a row of
         # the defaults and the reference step's command; a subject without it gets the job and the command it had
         made.plan["subjects"]["a"]["reference"] = {"crop": "face", "why": "THE OWNER: LARGER"}

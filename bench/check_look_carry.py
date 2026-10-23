@@ -430,7 +430,30 @@ def shut_eyes_are_a_form() -> str:
         worded = lc.drawn_frames(job, 0, 9)
     # THE CASE THAT GOES RED when a frame drawn on a person's word reads as no mouth
     assert [worded[f][0] for f in (5, 6, 8, 9)] == ["the lip lines", "the lip rings on a person's word", "the lip rings on a person's word", "no mouth"], worded
-    return "a frame drawn shut is its own eye form; its neighbours keep theirs"
+    # a closed mouth drawn under the plan's `closed_mouth` (2026-10-23) is its own form on its frames: a reference drawn with it and one
+    # drawn without owe a look there, and nowhere else
+    def drawn(closed_mouth=None):
+        cl = {"on": True, "closed_frames": [[0, 9]], "open_frames": [], **({"closed_mouth": closed_mouth} if closed_mouth else {})}
+        with tempfile.TemporaryDirectory() as tmp:
+            job = Path(tmp) / "job.json"
+            job.write_text(json.dumps({"job": {"reference": {"drawn": {"mouth": {"drawn": True, "frames_by_the_lip_lines": [], "frames_by_the_class_map": [[0, 9]],
+                                                                                "no_mouth_on": {"THE GATE": [[9, 9]]}, "closed_lip_line": cl},
+                                                                      "iris": "contrast"}}}}))
+            return lc.drawn_frames(job, 0, 9)
+    without, closed = drawn(), drawn({"form": "outlined", "frames_drawn_closed": [[2, 9]]})
+    # THE CASE THAT GOES RED when a frame drawn closed reads as the same form as one with nothing drawn at the mouth
+    assert [closed[f][0] for f in (1, 2, 8, 9)] == ["the class map", "closed, drawn 'outlined'", "closed, drawn 'outlined'", "no mouth"], closed
+    assert [f for f in range(10) if closed[f] != without[f]] == list(range(2, 9)) and drawn({"form": "outlined", "frames_drawn_closed": []}) == without
+    # the mouth's bend under the word (`draw_face_points.MOUTH_BEND`): a mouth drawn bent is its own form at its bend, so two references
+    # bent differently owe a look on those frames
+    bend = {"open_frames_bent": [[1, 1]], "closed_frames_bent": [[2, 8]],
+            "a_frame_at_a_time": {str(f): {"target": 0.15 if f in (1, 3) else 0.0} for f in range(10)}}
+    bent = drawn({"form": "outlined", "frames_drawn_closed": [[2, 9]], "bend": bend})
+    # THE CASE THAT GOES RED when a bent mouth reads as the same form as one bent otherwise
+    assert [bent[f][0] for f in (0, 1, 2, 3, 9)] == ["the class map", "the class map, bent +0.150", "closed, drawn 'outlined', bent +0.000",
+                                                    "closed, drawn 'outlined', bent +0.150", "no mouth"], bent
+    return ("a frame drawn shut is its own eye form; its neighbours keep theirs; a frame drawn on a person's word, one drawn closed under "
+            "the plan's closed_mouth, and one bent under it, are their own mouth forms")
 
 
 case("equal and subset carry", equal_and_subset_carry)

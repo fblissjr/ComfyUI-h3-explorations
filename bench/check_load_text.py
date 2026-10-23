@@ -640,6 +640,52 @@ def the_mouth_words_where_the_drawing_opens_one() -> str:
             "opens it names it in all three, \"on some frames\" in the sentence where it opens on some; the singing line is the voice's")
 
 
+def the_mouth_words_where_the_drawing_draws_one_closed() -> str:
+    """The owner, 2026-10-23, on second_hfp_5114i: the closed-lip line called every frame closed, nothing was drawn at the mouth and the
+    text named none, so nothing told H3 what her mouth does, and it took the still's smile ("If we dont have a drawing for mouth
+    expressions or facial expressions like that we probably do need one"). Under the plan's `reference.closed_mouth` "outlined" the drawing
+    draws the closed mouth (the record's `closed_lip_line.closed_mouth.frames_drawn_closed`), and the text names the mouth as it does where
+    one is drawn open (`TRANSFERRED_DRAWN`, `FOLLOWS_DRAWN`); `MOUTH_CLAUSE`, the open mouth's words, stays tied to an open frame. Without
+    the word, or where it drew no frame closed, every text is as before."""
+    def made(closed_mouth=None, open_frames=(), open_mouth="inner outline", subject="second", voiced=()):
+        cl = {"why": "t", "closed_frames": [[5114, 5129]], "open_frames": [list(x) for x in open_frames], "open_mouth": open_mouth,
+              **({} if closed_mouth is None else {"closed_mouth": closed_mouth})}
+        rec = {"form": "drawn", "frames": [5114, 5129], "drawn": {"parts_left_out": ["mouth"], "iris": "contrast", "mouth": {
+            "form": "auto", "drawn": True, "drawn_as": "the class map", "inside": "the class map", "closed_lip_line": cl}}}
+        return lt.text(PLAN, subject, rec, "", list(voiced), 5114, 5129)
+
+    def lines(words):
+        out = words.splitlines()
+        return (next(x for x in out if x.startswith("<Subject 2> (appears")), next(x for x in out if x.startswith("[Shot 1]")),
+                next(x for x in out if x.startswith("<Subject 2> is")))
+    drew = {"form": "outlined", "frames_drawn_closed": [[5114, 5129]]}
+    before, none_drawn, closed = made(), made({"form": "outlined", "frames_drawn_closed": []}), made(drew)
+    # without the word, or with it and no frame drawn closed (a silent window, no lips on any frame): the text of 5114i, no mouth named
+    assert "mouth" not in before and none_drawn == before, (before, none_drawn)
+    assert made({"form": "sculpted"}) == before
+    # THE CASE THAT GOES RED when a drawn closed mouth leaves the mouth unnamed (5114i's text), in the retention line or [Shot 1]
+    assert lines(closed)[:2] == ("<Subject 2> (appears in [Shot 1]): attribute_transfer - the movements of the head, the facial expressions, where "
+                                 "the eyes look and how far the mouth opens are transferred to <Subject 1>.",
+                                 "[Shot 1] <Subject 1>, the woman with SECOND HAIR, has the face and the hair of <Picture 1>. <Subject 1> performs <Subject 2>: she "
+                                 "follows the movements of the head and the facial expressions of the figure, her eyes looking where its eyes look and "
+                                 "her mouth opening and closing where its mouth does."), lines(closed)
+    # the same words, byte for byte, as a load of that subject whose drawing opens the mouth on some frame (0014g's form)
+    assert closed == made(open_frames=[[5120, 5124]]), (closed, made(open_frames=[[5120, 5124]]))
+    # THE CASE THAT GOES RED when the open mouth's clause is said of a load drawn closed on every frame: the sentence is the one before
+    assert lines(closed)[2] == lines(before)[2], lines(closed)[2]
+    lead_closed, lead_open = made(drew, open_mouth="outlined"), made(drew, open_frames=[[5120, 5124]], open_mouth="outlined")
+    assert lt.MOUTH_CLAUSE["outlined"][0] not in lead_closed and "how far the mouth opens" in lead_closed, lead_closed
+    assert lt.MOUTH_CLAUSE["outlined"][0] in lines(lead_open)[2] and lead_open == made(open_frames=[[5120, 5124]], open_mouth="outlined"), lead_open
+    # the readers: a record without the key, or a plain one, draws no closed mouth
+    assert lt.mouth_drawn_closed({"mouth": {"closed_lip_line": {"closed_mouth": drew}}}) and not lt.mouth_drawn_closed({"mouth": {"closed_lip_line": {}}})
+    assert not lt.mouth_drawn_closed(None) and not lt.mouth_drawn_closed({"mouth": {"closed_lip_line": True}}) and not lt.mouth_drawn({}), "a record with no key"
+    # a hair load and a plain cut keep their lines whatever the record says of a closed mouth
+    plain = lt.text(PLAN, "second", {"form": "plain", "drawn": {"parts_left_out": [], "mouth": {"closed_lip_line": {"closed_mouth": drew}}}}, "", [], 5114, 5129)
+    assert "how far the mouth opens" not in plain and "mouth opening" not in plain, plain
+    return ("a load drawn closed under the plan's closed_mouth names the mouth in its retention line and [Shot 1], byte for byte as a load "
+            "drawn open does; the open mouth's clause only where a mouth is open; without the word, or with no frame drawn closed, 5114i's text")
+
+
 def her_face_and_hair_with_no_change() -> str:
     """The owner's word of 2026-10-23: a face-and-hair subject (the second's, by her plan's region, never by her name) has the face and
     the picture's hair, in the same words, in the summary and the retention line ("with the face and the blonde hair of <Picture 1>",
@@ -690,6 +736,7 @@ case("the kept texts made again", the_kept_texts_made_again)
 case("what a reference draws, the text says", what_a_reference_draws_the_text_says)
 case("the mouth's clause by the open-mouth form", the_mouth_clause_by_the_open_mouth)
 case("the mouth's words where the drawing opens one", the_mouth_words_where_the_drawing_opens_one)
+case("the mouth's words where the drawing draws one closed", the_mouth_words_where_the_drawing_draws_one_closed)
 case("a load of the hair alone", a_load_of_the_hair_alone)
 case("what it refuses", what_it_refuses)
 case("her clothing named", her_clothing_named)

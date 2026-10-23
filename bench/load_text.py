@@ -33,7 +33,9 @@ records. Until 2026-10-15 a person wrote the shot's place and action, once; no l
   closed-lip line (`drawn.mouth.closed_lip_line`) one sentence: the face drawn as thin white outlines and the eyes, each with a dark
   iris (`FACE_EYES`; `FACE_NO_EYES` where no eye is drawn), and the mouth's clause (`MOUTH_CLAUSE`) only where the record's open-mouth
   form has words (`closed_lip_line.open_mouth`, the plan's `reference.open_mouth`: the outlined form; the owner, 2026-10-22) and the
-  drawing opens a mouth on some frame of the load (`mouth_drawn_open`, below). A plain cut (no drawing) has no outline clause.
+  drawing opens a mouth on some frame of the load (`mouth_drawn_open`, below). A closed mouth drawn under the plan's
+  `reference.closed_mouth` has no words of its own here: it is in "its face drawn as thin white outlines". A plain cut (no drawing) has
+  no outline clause.
 - The summary and `[Shot 1]`: who the subject is and what of <Picture 1> it has (draft_7's form, 2026-10-15): "<Subject 1>,
   with the face of <Picture 1>, performs <Subject 2>." and "<Subject 1>, <who> with <hair_words>, has the face of <Picture 1>.",
   or the hair alone, by the plan's region. A face-and-hair load (the owner's word of 2026-10-23): "<Subject 1>, with the face and
@@ -54,10 +56,13 @@ records. Until 2026-10-15 a person wrote the shot's place and action, once; no l
   "only the woman's face and her blonde hair are retained, wherever they show" before); a hair load keeps its own line.
 - Where a face is drawn (`TRANSFERRED_DRAWN`, `FOLLOWS_DRAWN`, the owner's approval of 2026-10-22): `<Subject 2>`'s retention line
   transfers the head's movements, the expressions, where the eyes look and how far the mouth opens, and [Shot 1] has her eyes and mouth
-  follow its. The mouth's words, there and in `MOUTH_CLAUSE`, only where the drawing opens a mouth on some frame (`mouth_drawn_open`:
-  the closed-lip line's `open_frames`; the owner's go of 2026-10-22, after second_hfp_0278l, whose drawing opened none while its text
-  said her mouth opens and closes, and she spoke); where it opens none, `TRANSFERRED_DRAWN_NO_MOUTH` and `FOLLOWS_DRAWN_NO_MOUTH`, the
-  eyes alone. The singing line is the voice's and stays. A hair load and a plain cut keep the lines below.
+  follow its. The mouth's words there only where the drawing draws a mouth on some frame (`mouth_drawn`): open (`mouth_drawn_open`: the
+  closed-lip line's `open_frames`; the owner's go of 2026-10-22, after second_hfp_0278l, whose drawing opened none while its text said
+  her mouth opens and closes, and she spoke), or closed under the plan's `reference.closed_mouth` (`mouth_drawn_closed`: the closed-lip
+  line's `closed_mouth.frames_drawn_closed`; the owner, 2026-10-23, after second_hfp_5114i, whose drawing drew nothing at a mouth the line
+  called closed on every frame, and H3 took the still's smile). `MOUTH_CLAUSE`, whose words are the open mouth's, only where one is
+  open. Where none is drawn, `TRANSFERRED_DRAWN_NO_MOUTH` and `FOLLOWS_DRAWN_NO_MOUTH`, the eyes alone. The singing line is the
+  voice's and stays. A hair load and a plain cut keep the lines below.
 - `<Subject 2>`'s retention line: fixed, the movements of the figure (`TRANSFERRED`: "and eye movements" where a face is
   replaced, the owner's text of 2026-10-22). The soundscape and the music: the pack's one generic pair, `masked_prompt_text.py`'s
   `SOUNDSCAPE` and `MUSIC` ("non_diegetic_music: N/A" since 2026-10-22; "A song plays throughout." until then).
@@ -130,8 +135,9 @@ FACE_NO_EYES = ", with facial features drawn on its face as thin white outlines"
 #: THE MOUTH'S CLAUSE under the closed-lip line, by the reference record's open-mouth form (`drawn.mouth.closed_lip_line.open_mouth`,
 #: `draw_face_points.OPEN_MOUTH_FORMS`; the plan's `reference.open_mouth`): only the outlined form, the lead's (the owner's approval of
 #: 2026-10-22, these words; "the prompt should go back to something that tells it to follow the ref video"; tied to the open mouth, since
-#: a closed frame draws nothing and shows the body model's own lips). Every other form, and a record without the field, names no mouth,
-#: as since b270be7e (2026-10-20).
+#: a closed frame draws nothing and shows the body model's own lips, and under the plan's `closed_mouth` draws a closed outline these words
+#: do not describe: a load drawn closed on every frame takes no clause here). Every other form, and a record without the field, names no
+#: mouth, as since b270be7e (2026-10-20).
 MOUTH_CLAUSE = {"outlined": ("where the mouth is open, the lips are outlined and it is dark inside, and the mouth opens and closes where the "
                              "person's mouth does",
                              "on some frames, where the mouth is open, the lips are outlined and it is dark inside, and there the mouth opens "
@@ -155,8 +161,9 @@ TRANSFERRED = {"face": MOVES["face"] + " and eye movements", "face and hair": MO
 TRANSFERRED_DRAWN = "the movements of the head, the facial expressions, where the eyes look and how far the mouth opens"
 FOLLOWS_DRAWN = ("{she} follows the movements of the head and the facial expressions of the figure, {her} eyes looking where its eyes look "
                  "and {her} mouth opening and closing where its mouth does.")
-#: THE SAME LINES WHERE NO OPEN MOUTH IS DRAWN (the lead, on the owner's go of 2026-10-22, after second_hfp_0278l): a load whose drawing opens
-#: the mouth on no frame (`mouth_drawn_open`) names no mouth here. On 0278l the drawing had no open mouth and the text said her mouth opens
+#: THE SAME LINES WHERE NO MOUTH IS DRAWN (the lead, on the owner's go of 2026-10-22, after second_hfp_0278l): a load whose drawing opens
+#: the mouth on no frame (`mouth_drawn_open`), and draws no closed one under the plan's `closed_mouth` (`mouth_drawn_closed`, 2026-10-23),
+#: names no mouth here. On 0278l the drawing had no open mouth and the text said her mouth opens
 #: and closes; she spoke, lifted her head and looked at the camera, where 0278f, with the same no-mouth drawing and no mouth words, kept her
 #: lips closed on all 16 frames (docs/masked_v2v/PROTOCOL.md, case study 3); the gate's text_names_a_voice_where_there_is_none flagged it.
 TRANSFERRED_DRAWN_NO_MOUTH = "the movements of the head, the facial expressions and where the eyes look"
@@ -193,6 +200,22 @@ def mouth_drawn_open(drawn: dict | None, frames: int | None = None) -> bool:
         return bool(said["open_frames"])
     mouth, some = mouth_on_frames(drawn, frames)
     return some or (bool(mouth) if mouth is not None else "mouth" not in set(drawn.get("parts_left_out") or []))
+
+
+def mouth_drawn_closed(drawn: dict | None) -> bool:
+    """Whether the reference draws a closed mouth on any frame: the closed-lip line's `closed_mouth.frames_drawn_closed`, written only under
+    the plan's `reference.closed_mouth` "outlined" (`draw_face_points.CLOSED_MOUTH_FORMS`; the owner, 2026-10-23, on second_hfp_5114i). A
+    record without it draws nothing on a closed mouth, the body model's own lips."""
+    said = ((drawn or {}).get("mouth") or {}).get("closed_lip_line")
+    closed = said.get("closed_mouth") if isinstance(said, dict) else None
+    return bool(isinstance(closed, dict) and closed.get("frames_drawn_closed"))
+
+
+def mouth_drawn(drawn: dict | None, frames: int | None = None) -> bool:
+    """Whether the reference draws a mouth on any frame, open (`mouth_drawn_open`) or closed (`mouth_drawn_closed`): the gate of the mouth's
+    words in `<Subject 2>`'s retention line and [Shot 1] (`TRANSFERRED_DRAWN`, `FOLLOWS_DRAWN`). Without the plan's `closed_mouth` it is
+    `mouth_drawn_open`, so every text is as before."""
+    return mouth_drawn_open(drawn, frames) or mouth_drawn_closed(drawn)
 #: The soundscape and the music, the pack's one generic pair (`masked_prompt_text.SOUNDSCAPE`, `MUSIC`): "non_diegetic_music: N/A"
 #: since the owner's text of 2026-10-22, "A song plays throughout." until then.
 SOUND = (lambda m: f"{m.SOUNDSCAPE}\n\n{m.MUSIC}\n")(_masked_text())
@@ -421,7 +444,7 @@ def text(plan: dict, subject: str, record: dict | None, place_and_action: str, v
     moves = MOVES[region]
     face_drawn = region != "hair" and drawn is not None
     frames = (record['frames'][1] - record['frames'][0] + 1) if record.get('frames') else last - first + 1
-    mouth_open = mouth_drawn_open(drawn, frames)
+    mouth_open = mouth_drawn(drawn, frames)          # a mouth drawn on some frame, open or (under the plan's closed_mouth) closed
     Her = her[0].upper() + her[1:]
     return (f"subject_definitions:\n<Subject 1> is {who} with {picture_hair} whose appearance comes from <Picture 1>, and who follows {moves} "
             f"of the figure in <Video 1>.\n{subject_2(drawn, moves, frames)}\n\n"

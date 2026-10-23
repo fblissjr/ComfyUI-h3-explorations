@@ -211,6 +211,44 @@ SCULPTED_EYE = dict(detail=0.15, rim_over=18.0, side=0.3, above=0.6, below=0.5, 
 #: form). `"outlined over the lips"`: the same with nothing painted, an alternative no subject has. Closed frames are the same in every
 #: form (no mouth drawn, the body model's own closed lips).
 OPEN_MOUTH_FORMS = ("inner outline", "capped", "outlined", "outlined over the lips")
+#: A CLOSED MOUTH'S FORM under `--closed-lip-line`, a subject at a time (the plan's `reference.closed_mouth`; the owner, 2026-10-23, on
+#: second_hfp_5114i: "If we dont have a drawing for mouth expressions or facial expressions like that we probably do need one").
+#: `"sculpted"` (the default, and every form until then): a frame the closed-lip line calls closed draws nothing at the mouth, and the body
+#: model's own sculpted closed lips show (`mouths[f] = None`). On 5114i (5114-5129) the line called every frame closed, so nothing at the
+#: mouth said what hers did, and H3 gave her the still's smile where the source woman does not smile; on second_hfp_0014g, where the
+#: mouth was drawn open on some frames and the text named it, the owner called the mouth fantastic. `"outlined"`: on those frames, the
+#: lips' outer outline and the line where they meet (`anchored_closed_mouth`), placed on the class map's lips as the outlined open mouth is
+#: placed (`onto_the_lips`), no wider than `MOUTH_WIDTH_MOST` nor taller than `MOUTH_CLOSED_HEIGHT_MOST` of the upper face, and kept there:
+#: not fitted to the grey head (the open form's `fit_mouth_shapes_to_head` moved it off the lips on profile shots, the build's blind read of
+#: 2026-10-23) but cut, as every mark is, to the head's silhouette, and not drawn on a frame where none of it is left; the body model's
+#: lips painted flat exactly inside the outer outline (`lips_paint_out`), the meeting line
+#: drawn with no dark edge as the closed parting line is (`CLOSED_MOUTHS`). Why on the class map's lips: a closed lip line drawn from the
+#: pose model's points alone sat 8-12 px above the grey head's lips and made her lips hang open (0278d/e/h; docs/masked_v2v/PROTOCOL.md,
+#: case study 3). A frame whose class map holds no lips takes its nearest neighbour's, as the open form's does. Under "outlined" every
+#: drawn mouth, open or closed, also takes the source's bend (`MOUTH_BEND`); the open frames are otherwise drawn in their own form as
+#: without it. Whether it holds her mouth as the source's is a render's to decide.
+CLOSED_MOUTH_FORMS = ("sculpted", "outlined")
+#: THE MOUTH'S BEND under the closed mouth's "outlined" (the owner, 2026-10-23: the drawn mouth showed
+#: how far it opens, not its expression, so H3 took the still's smile). Each drawn mouth, open or closed, is bent so its corners sit
+#: above (a smile) or below (a frown) its middle by the source's own corner lift on that frame (`corner_lift`: the outer corners against
+#: the midpoint of the inner lips' centres, along the corner chord's normal toward the nose, over the corners' distance), read on the
+#: pose model's points at the canvas. The pose points set only the bend, never where the mouth sits (`bend_mouth` moves each point along
+#: the mouth's normal by an amount that grows with the square of its place from the middle, so the middle, the corners' places across and
+#: the mouth's thickness at each place stay where the class map's lips put them; the dark inside keeps its height at the middle).
+#: MEASURED 2026-10-23 (the closed-mouth build, on the points of second_5114_5129_e, second_4479_4509_f and second_0014_0167_c, with a
+#: sheet of their source mouths sorted by the figure): on 0014-0167 (face 122 px, mouth 46 px wide at the median, corner score 0.93, the
+#: two corners' own lifts correlated 0.92 over the frames, lag-1 autocorrelation 0.986) the share runs -0.069 to 0.145: 0.006-0.043 on
+#: level lips (151, 153, 125), 0.095-0.145 where the corners are seen raised (73, 91, 80), -0.069 on a turned head (15). On 5114-5129
+#: (profile, face 42 px, mouth 8.7 px, corner score 0.36, corners correlated -0.43) it runs -0.544 to 0.459 between frames that look
+#: alike, and on 4479-4509 (profile, face 26 px, mouth 4.7 px, corner score 0.28) a steady 0.239-0.438 on lips that do not smile: noise and
+#: a bias where a pixel is a fifth of the mouth. REASONED from those figures, starting values: `least_width_px` 20 at the canvas (a pixel
+#: of corner error is then at most 0.05 of the share; 0014's widths 23-51, 5114's 6-10, 4479's 4-5) and `least_corner_score` 0.5 (0.93
+#: against 0.36 and 0.28): under either the corners are not read and the mouth takes no bend at all, drawn as placed; `dead_zone` 0.05 (over 0014's level lips,
+#: under its raised corners): a share inside it is drawn flat; past it the bend is `gain` 1.5 times the share beyond the dead zone (so
+#: 0014's most, 0.145, is drawn at about itself), at most `most` 0.25 of the drawn width either way. What it cannot see: a smile of the
+#: eyes or cheeks with level corners, lips pressed or pursed (the turned head of 15 read -0.069), a corner hidden on a turned head. A render
+#: decides.
+MOUTH_BEND = dict(least_width_px=20.0, least_corner_score=0.5, dead_zone=0.05, gain=1.5, most=0.25)
 #: The most of the outer lips' area an open mouth's dark inside takes, under every form but the first of `OPEN_MOUTH_FORMS`. Measured
 #: 2026-10-22 on the references' own inputs (the pose rings and the class map, at the reference's size, every open frame): the class map's
 #: open inside (teeth, tongue and the dark between the lips) over the outer lips is 0.14-0.71, median 0.48, on the lead's 1156-1188
@@ -231,8 +269,16 @@ MOUTH_OPEN_SHARE_MOST = 0.5
 #: render decides.
 MOUTH_WIDTH_MOST = 0.95
 MOUTH_OPENING_MOST = 0.5
-#: The names of an open mouth's outer outline in a frame's drawing: the class map's (`mouth_shapes`) and the pose model's (`lip_rings`).
-OUTER_MOUTHS = ("mouth_outer", "outer_lip_ring")
+#: THE CLOSED MOUTH'S HEIGHT against the face on its own frame (`anchored_closed_mouth`; the build's blind read of 2026-10-23: on the profile
+#: 5114-5129 the closed outline placed on the class map's lips stood 0.65-0.87 of the upper face, taller than wide on 5118-5120). The outline
+#: and its meeting line are shrunk together about the outline's centre where it is taller than this times `upper_face`, as the open mouth is
+#: where its opening is over `MOUTH_OPENING_MOST`, and wider than `MOUTH_WIDTH_MOST`. REASONED, a starting value: on the frontal 0014-0167
+#: the closed outlines this form drew stood 0.143-0.33 of the upper face (median 0.227; the build's proof before this cap), so 0.35 lets
+#: each of those stand.
+MOUTH_CLOSED_HEIGHT_MOST = 0.35
+#: The names of a mouth's outer outline in a frame's drawing, the outlines `lips_paint_out` paints inside: an open mouth's, the class
+#: map's (`mouth_shapes`) and the pose model's (`lip_rings`), and a closed mouth's under `"outlined"` (`CLOSED_MOUTH_FORMS`).
+OUTER_MOUTHS = ("mouth_outer", "outer_lip_ring", "closed_mouth_outer")
 EYE_PARTS = ("_lash_ring", "_upper_eyelid_line", "_lower_eyelid_line", "_upper_crease_line", "_iris_ring", "_pupil_ring")
 #: Points a ring is sampled at to find where it lies between the lids. Reasoned: a ring is eight points round a
 #: centre; 64 along it puts a sample about every 6 degrees, finer than a line is wide on any face drawn so far.
@@ -578,7 +624,7 @@ def white_expected(drawing: list[tuple[str, np.ndarray, bool]], width: float, do
         inside[y0:y1, x0:x1] |= (distance(xy, piece[None]) < within).reshape(ys.shape)
 
     for name, pts, closed in drawing:
-        ep = 0.0 if name in ("inner_lip_line", "mouth_closed") else edge_px
+        ep = 0.0 if name in CLOSED_MOUTHS else edge_px
         for piece in segments([(name, pts, closed)]):
             mark(piece, max(width - ep, 0.0) / 2)
         if dots:
@@ -747,22 +793,31 @@ def fit_mouth_shapes_to_head(frame: np.ndarray, p: np.ndarray, index: dict, m_sh
     for (name, old_pts, closed), k in zip(m_shapes, sizes):
         fitted.append((name, new_pts[at:at + k] if k else old_pts, closed))
         at += k
+    return fitted, mouth_masks(frame, p, index, fitted, bool(hole.any()))
+
+
+def mouth_masks(frame: np.ndarray, p: np.ndarray, index: dict, shapes: list[tuple[str, np.ndarray, bool]],
+                open_inside: bool) -> tuple[np.ndarray, np.ndarray]:
+    """A drawn mouth's masks of the frame, (whole, hole): `whole` every closed shape filled and every open one along its line, grown;
+    `hole` the last shape filled within the head's silhouette where it is closed and the mouth has an open inside (`open_inside`), else
+    empty. The masks `fit_mouth_shapes_to_head` returns, and those of a mouth bent after it (`bend_mouth`)."""
+    import cv2
+    h, w = frame.shape[:2]
     new_hole = np.zeros((h, w), bool)
-    last_pts, last_closed = fitted[-1][1], fitted[-1][2]
-    if last_closed and hole.any() and len(last_pts):
+    last_pts, last_closed = shapes[-1][1], shapes[-1][2]
+    if last_closed and open_inside and len(last_pts):
         hm = np.zeros((h, w), np.uint8)
         cv2.fillPoly(hm, [np.round(last_pts).astype(np.int32)], 1)
         new_hole = (hm > 0) & head_silhouette(frame, erode_px=HEAD_SILHOUETTE_ERODE_PX, p=p, index=index)
     wm = np.zeros((h, w), np.uint8)
-    for _, f_pts, closed in fitted:
+    for _, f_pts, closed in shapes:
         if not len(f_pts):
             continue
         if closed:
             cv2.fillPoly(wm, [np.round(f_pts).astype(np.int32)], 1)
         else:
             cv2.polylines(wm, [np.round(f_pts).astype(np.int32)], False, 1, thickness=6)
-    new_whole = cv2.dilate(wm, np.ones((7, 7), np.uint8)) > 0
-    return fitted, (new_whole, new_hole)
+    return cv2.dilate(wm, np.ones((7, 7), np.uint8)) > 0, new_hole
 
 
 def smooth_mouth_area(frame: np.ndarray, whole: np.ndarray) -> np.ndarray:
@@ -873,22 +928,29 @@ def upper_face(p: np.ndarray, index: dict) -> float:
     return float(np.linalg.norm(p[index["center_of_glabella"]] - p[index["bottom_center_of_nose"]]))
 
 
-def anchored_mouth(p: np.ndarray, index: dict, lips: np.ndarray, hole: np.ndarray | None,
-                   size: tuple[int, int]) -> tuple[np.ndarray, np.ndarray, dict]:
-    """The outlined forms' open mouth (`OPEN_MOUTH_FORMS[2:]`): (outer outline, inner outline, figures). Placed on the class map's lips
-    (`lips`, the lips and what they hold, as `head_reference.class_mouths` reads them): the pose model's two lip rings (`lip_rings`) are
-    moved and stretched so the outer ring's box is the class map's lips' box, the pose points shaping the outline within it (the owner,
-    2026-10-22: "drawn on the sapiens2 mouth NOT above it"). The inner ring is then the dark inside (`capped_inside`: cut to the class
-    map's open inside `hole`, at most `MOUTH_OPEN_SHARE_MOST` of the outer), and the whole mouth is shrunk about its centre where its
-    width is over `MOUTH_WIDTH_MOST` or its opening's height over `MOUTH_OPENING_MOST` of `upper_face`."""
+def onto_the_lips(p: np.ndarray, index: dict, lips: np.ndarray):
+    """The outlined forms' placement, open (`anchored_mouth`) and closed (`anchored_closed_mouth`): the pose model's two lip rings
+    (`lip_rings`), and the move that puts the outer ring's box on the class map's lips' box (`lips`, the lips and what they hold, as
+    `head_reference.class_mouths` reads them), the pose points shaping the outline within it (the owner, 2026-10-22: "drawn on the
+    sapiens2 mouth NOT above it"). Returns (the rings, the move: points [k, 2] to points [k, 2])."""
     rings = lip_rings(p, index)
     ys, xs = np.nonzero(lips)
     box = np.array([xs.min(), ys.min(), xs.max() + 1, ys.max() + 1], float)
     o = rings["outer"]
     p0, p1 = o.min(0), o.max(0)
     scale = (box[2:] - box[:2]) / np.maximum(p1 - p0, 1.0)
-    move = lambda q: box[:2] + (q - p0) * scale                               # noqa: E731
-    outer, inner = move(o), move(rings["inner"])
+    return rings, (lambda q: box[:2] + (q - p0) * scale)
+
+
+def anchored_mouth(p: np.ndarray, index: dict, lips: np.ndarray, hole: np.ndarray | None,
+                   size: tuple[int, int]) -> tuple[np.ndarray, np.ndarray, dict]:
+    """The outlined forms' open mouth (`OPEN_MOUTH_FORMS[2:]`): (outer outline, inner outline, figures). Placed on the class map's lips
+    (`onto_the_lips`): the pose model's two lip rings are moved and stretched so the outer ring's box is the class map's lips' box. The
+    inner ring is then the dark inside (`capped_inside`: cut to the class map's open inside `hole`, at most `MOUTH_OPEN_SHARE_MOST` of
+    the outer), and the whole mouth is shrunk about its centre where its width is over `MOUTH_WIDTH_MOST` or its opening's height over
+    `MOUTH_OPENING_MOST` of `upper_face`."""
+    rings, move = onto_the_lips(p, index, lips)
+    outer, inner = move(rings["outer"]), move(rings["inner"])
     inner = capped_inside(inner, hole, outer, size)
     face = upper_face(p, index)
     width, opening = float(np.ptp(outer[:, 0])), float(np.ptp(inner[:, 1]))
@@ -896,6 +958,106 @@ def anchored_mouth(p: np.ndarray, index: dict, lips: np.ndarray, hole: np.ndarra
     c = 0.5 * (outer.min(0) + outer.max(0))
     outer, inner = c + (outer - c) * k, c + (inner - c) * k
     return outer, inner, {"upper_face_px": face, "width_over_face": width / face, "opening_over_face": opening / face, "shrunk_by": k}
+
+
+def anchored_closed_mouth(p: np.ndarray, index: dict, lips: np.ndarray) -> tuple[np.ndarray, np.ndarray, dict]:
+    """The closed mouth under `"outlined"` (`CLOSED_MOUTH_FORMS`): (the lips' outer outline, the line where they meet, figures). Placed as
+    the outlined open mouth is (`onto_the_lips`): the pose model's outer lip ring and the centreline of its inner lips
+    (`inner_lip_centerline`) moved onto the class map's lips, then shrunk about the outline's centre where its width is over
+    `MOUTH_WIDTH_MOST` or its height over `MOUTH_CLOSED_HEIGHT_MOST` of `upper_face`, so it stays inside the lips' box. A closed mouth has
+    no opening and no dark inside, so `MOUTH_OPENING_MOST` and `MOUTH_OPEN_SHARE_MOST` have nothing to hold."""
+    rings, move = onto_the_lips(p, index, lips)
+    outer, line = move(rings["outer"]), move(inner_lip_centerline(p, index)[0])
+    face = upper_face(p, index)
+    width, height = float(np.ptp(outer[:, 0])), float(np.ptp(outer[:, 1]))
+    k = min(1.0, MOUTH_WIDTH_MOST * face / max(width, 1e-6), MOUTH_CLOSED_HEIGHT_MOST * face / max(height, 1e-6))
+    c = 0.5 * (outer.min(0) + outer.max(0))
+    outer, line = c + (outer - c) * k, c + (line - c) * k
+    return outer, line, {"upper_face_px": face, "width_over_face": width / face, "height_over_face": height / face, "shrunk_by": k}
+
+
+def _mouth_axes(p: np.ndarray, index: dict) -> tuple[np.ndarray, np.ndarray]:
+    """The mouth's axis across (the pose model's outer corners, right to left) and its up (the normal toward the nose), as unit vectors."""
+    a, b = p[index["r_outer_corner_of_mouth"]], p[index["l_outer_corner_of_mouth"]]
+    across = (b - a) / max(float(np.linalg.norm(b - a)), 1e-6)
+    up = np.array([-across[1], across[0]])
+    middle = 0.5 * (p[index["center_of_upper_inner_lip"]] + p[index["center_of_lower_inner_lip"]])
+    return across, (up if np.dot(p[index["bottom_center_of_nose"]] - middle, up) >= 0 else -up)
+
+
+def corner_lift(p: np.ndarray, s: np.ndarray, index: dict) -> dict:
+    """One frame's mouth corners against the lips' middle on the pose model's points (`MOUTH_BEND`): how far the outer corners sit above
+    (+, toward the nose) or below (-) the midpoint of the inner lips' centres along the mouth's up (`_mouth_axes`), in the points' pixels,
+    over the corners' distance: {"lift_px", "width_px", "share", "corner_score" (the lower of the two corners')}."""
+    r, l = p[index["r_outer_corner_of_mouth"]], p[index["l_outer_corner_of_mouth"]]
+    middle = 0.5 * (p[index["center_of_upper_inner_lip"]] + p[index["center_of_lower_inner_lip"]])
+    width = float(np.linalg.norm(l - r))
+    lift = float(np.dot(r - middle, _mouth_axes(p, index)[1]))
+    return {"lift_px": lift, "width_px": width, "share": lift / max(width, 1e-6),
+            "corner_score": float(min(s[index["r_outer_corner_of_mouth"]], s[index["l_outer_corner_of_mouth"]]))}
+
+
+def mouth_bend_of(p: np.ndarray, s: np.ndarray, index: dict, enlarged: float = 1.0) -> dict:
+    """The bend a frame's drawn mouth takes (`MOUTH_BEND`), read on that frame's pose points (`corner_lift`). `enlarged`: how many times the
+    canvas the points are (the reference's enlargement; the width limit is the canvas's). {"share", "width_px" (at the canvas),
+    "corner_score", "target": the share of the drawn width its corners are drawn above (+) or below (-) its middle, "as": why}."""
+    look, got = MOUTH_BEND, corner_lift(p, s, index)
+    width = got["width_px"] / max(float(enlarged), 1e-6)
+    out = {"share": round(got["share"], 4), "width_px": round(width, 2), "corner_score": round(got["corner_score"], 3)}
+    if width < look["least_width_px"] or got["corner_score"] < look["least_corner_score"]:
+        return {**out, "read": False, "target": 0.0, "as": "not bent: the corners are not read (MOUTH_BEND least_width_px, least_corner_score)"}
+    beyond = abs(got["share"]) - look["dead_zone"]
+    if beyond <= 0:
+        return {**out, "read": True, "target": 0.0, "as": "flat: within the dead zone"}
+    return {**out, "read": True, "target": round(float(np.sign(got["share"]) * min(look["gain"] * beyond, look["most"])), 4), "as": "bent"}
+
+
+def dense_outline(pts: np.ndarray, closed: bool, step: float = 1.0) -> np.ndarray:
+    """A line or ring's points with points added along each stretch, at most `step` pixels apart, so a bend (`bend_mouth`) curves the
+    stretches and not only their ends (a class map's inside is a hull of a few points, its long sides straight across the middle). A ring
+    keeps its first point once."""
+    if len(pts) < 2:
+        return pts
+    run = np.vstack([pts, pts[:1]]) if closed else pts
+    out = [run[:1]]
+    for a, b in zip(run[:-1], run[1:]):
+        k = max(1, int(np.ceil(float(np.linalg.norm(b - a)) / step)))
+        out.append(a + (b - a) * np.linspace(0.0, 1.0, k + 1)[1:, None])
+    out = np.concatenate(out)
+    return out[:-1] if closed else out
+
+
+def bend_mouth(shapes: list[tuple[str, np.ndarray, bool]], p: np.ndarray, index: dict, target: float) -> tuple[list, dict]:
+    """A frame's drawn mouth (`shapes`: an open mouth's outlines, its inside last, or the closed mouth's outline and meeting line) bent so
+    its corners sit `target` of its width above (+) or below (-) its middle (`MOUTH_BEND`). Across and up are the pose model's
+    (`_mouth_axes`); the corners are the shapes' two ends across, the middle is the last shape's (the meeting line, or the open inside's
+    midway between its top and its bottom) at the place halfway between them. Each point moves along the up by (the corners' lift wanted
+    less their lift now) times u squared, u its place across from the middle (-1 and 1 at the corners), so the middle, every point's place
+    across and the mouth's thickness at each place stay as placed. The shapes are made dense first (`dense_outline`). Returns (the shapes,
+    {"lift_px_before", "lift_px_after", "width_px", "moved_px_most": the most any point moved, "middle_moved_px": how far the middle did})."""
+    across, up = _mouth_axes(p, index)
+    shapes = [(name, dense_outline(pts, closed), closed) for name, pts, closed in shapes]
+    every = np.concatenate([pts for _, pts, _ in shapes if len(pts)])
+    at = every @ across
+    lo, hi = float(at.min()), float(at.max())
+    centre, half = 0.5 * (lo + hi), max(0.5 * (hi - lo), 1e-6)
+    corners = 0.5 * (float(every[int(np.argmin(at))] @ up) + float(every[int(np.argmax(at))] @ up))
+
+    def middle_of(last: np.ndarray, ring: bool) -> float:
+        la, lu = last @ across, last @ up
+        if ring:
+            run_a, run_u = np.r_[la, la[:1]], np.r_[lu, lu[:1]]
+            cross = [run_u[i] + (centre - run_a[i]) * (run_u[i + 1] - run_u[i]) / (run_a[i + 1] - run_a[i])
+                     for i in range(len(la)) if (run_a[i] - centre) * (run_a[i + 1] - centre) <= 0 and run_a[i + 1] != run_a[i]]
+            return 0.5 * (min(cross) + max(cross)) if cross else float(lu.mean())
+        order = np.argsort(la, kind="stable")
+        return float(np.interp(centre, la[order], lu[order]))
+    middle = middle_of(shapes[-1][1], shapes[-1][2])
+    move = target * 2 * half - (corners - middle)
+    bent = [(name, pts + (move * np.clip((pts @ across - centre) / half, -1.0, 1.0) ** 2)[:, None] * up[None], closed) if len(pts) else (name, pts, closed)
+            for name, pts, closed in shapes]
+    return bent, {"lift_px_before": round(corners - middle, 2), "lift_px_after": round(target * 2 * half, 2), "width_px": round(2 * half, 2),
+                  "moved_px_most": round(abs(move), 2), "middle_moved_px": round(abs(middle_of(bent[-1][1], bent[-1][2]) - middle), 2)}
 
 
 def lip_shape(p: np.ndarray, index: dict, size: tuple[int, int],
@@ -991,7 +1153,8 @@ def lips_paint_out(frame: np.ndarray, drawing: list[tuple[str, np.ndarray, bool]
 def draw(mesh: np.ndarray, drawings: list[list], width: float, bare: set[int], dots: bool = True, fills: list[list] | None = None,
          contrast: bool = False, mouths: list | None = None, *, smooth_lips: bool = False, darken_head: bool = False,
          keypoints: np.ndarray | None = None, index: dict | None = None, dark: list[set[str]] | None = None,
-         shut_eyes: dict[int, list[np.ndarray]] | None = None, open_mouth: str = OPEN_MOUTH_FORMS[0]) -> np.ndarray:
+         shut_eyes: dict[int, list[np.ndarray]] | None = None, open_mouth: str = OPEN_MOUTH_FORMS[0],
+         closed_mouth_on: frozenset | set = frozenset()) -> np.ndarray:
     """The mesh frames [n, h, w, 3] with every frame's drawing on it. With `fills`: first, inside each lash ring only, the
     iris in the edge colour, and with `contrast` the sclera solid white (the line colour) under it; then the lines over
     them, black a little wider first, then white, so the black edge stays round the white sclera and the black iris (an
@@ -1004,7 +1167,8 @@ def draw(mesh: np.ndarray, drawings: list[list], width: float, bare: set[int], d
     outlines of a closed eye (`EYES_SHUT_FORMS`, "closed"; `sculpted_eye`), painted on the body model before anything else in the skin grey round them (`skin_grey`),
     within the grey head's silhouette (`closed_eye_px`), hard-edged: where no line falls near, the paint is the flat grey inside and the
     frame as it would be unpainted outside, not the resample's ring round the edge. With `smooth_lips` and `open_mouth` "outlined"
-    (`OPEN_MOUTH_FORMS`), an open mouth's outer outline (`OUTER_MOUTHS`) is filled first in the grey round it, inside the head's silhouette."""
+    (`OPEN_MOUTH_FORMS`), an open mouth's outer outline (`OUTER_MOUTHS`) is filled first in the grey round it, inside the head's silhouette;
+    so is a closed mouth's on the frames `closed_mouth_on` names (`CLOSED_MOUTH_FORMS`, "outlined"), whatever the open form."""
     from PIL import ImageChops
     if darken_head:
         mesh = np.round(mesh.astype(np.float32) * HEAD_DARKEN_SCALE).astype(np.uint8)
@@ -1045,7 +1209,7 @@ def draw(mesh: np.ndarray, drawings: list[list], width: float, bare: set[int], d
             return
         whole, hole = got
         big = lambda m: Image.fromarray((m.astype(np.uint8) * 255)).resize(im.size, Image.NEAREST)        # noqa: E731
-        if smooth_lips and open_mouth == "outlined":
+        if smooth_lips and (open_mouth == "outlined" or f in closed_mouth_on):
             got_paint = lips_paint_out(mesh[f], drawings[f], im.size, inner_head)
             if got_paint is not None:
                 im.paste(got_paint[0], mask=got_paint[1])
@@ -1078,7 +1242,7 @@ def draw(mesh: np.ndarray, drawings: list[list], width: float, bare: set[int], d
         d = ImageDraw.Draw(im)
         for colour, pad in passes:
             for name, pts, closed in ([] if f in bare else drawings[f]):
-                if pad > 0 and name in ("inner_lip_line", "mouth_closed"):
+                if pad > 0 and name in CLOSED_MOUTHS:
                     continue
                 run = [tuple(v * SUPER) for v in (np.vstack([pts, pts[:1]]) if closed else pts)]
                 if len(run) > 1:
@@ -1179,10 +1343,11 @@ def read_back(video: Path, mesh: np.ndarray, drawings: list[list], expected: np.
 
 
 #: The shapes that draw a mouth shut, and those that draw it open, by their names in a frame's drawing. Inherited: the
-#: names `lip_shape`, `mouth_shapes` and `shapes` above give their shapes. Without `--closed-lip-line` the points' lip
+#: names `lip_shape`, `mouth_shapes` and `shapes` above give their shapes; `closed_mouth_line` is the line where the lips
+#: meet under the closed mouth's `"outlined"` (`CLOSED_MOUTH_FORMS`, `run`). Without `--closed-lip-line` the points' lip
 #: rings are drawn on every frame and a closed class-map mouth draws `mouth_outer` alone, so both read as open: the
-#: sheet sees a mouth drawn shut only under that option.
-CLOSED_MOUTHS, OPEN_MOUTHS = ("inner_lip_line", "mouth_closed"), ("mouth_outer", "mouth_inner", "inner_lip_ring")
+#: sheet sees a mouth drawn shut only under that option. A shut mouth's line is drawn with no dark edge (`draw`).
+CLOSED_MOUTHS, OPEN_MOUTHS = ("inner_lip_line", "mouth_closed", "closed_mouth_line"), ("mouth_outer", "mouth_inner", "inner_lip_ring")
 
 
 def sheet_picks(source_frames: np.ndarray, first: int, points: dict, count: int, drawings: list, *, left: set = frozenset(),
@@ -1270,7 +1435,7 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
         iris: str = IRIS_FORMS[0], mouths: list | None = None, mouth_lines: bool = True, no_mouth: list[int] | None = None,
         class_mouth_frames: list[int] | None = None, closed_lip_line: bool = False, darken_head: bool = False,
         eyes_shut: list[int] | None = None, eyes_shut_form: str | None = None, eyes_shut_by: str = "",
-        open_mouth: str = OPEN_MOUTH_FORMS[0], say=print) -> dict:
+        open_mouth: str = OPEN_MOUTH_FORMS[0], closed_mouth: str = CLOSED_MOUTH_FORMS[0], points_enlarged: float = 1.0, say=print) -> dict:
     """Draw, write, read back, record. `mouths`: a class-map mouth a frame ((whole, hole) masks of the frame, or None), drawn in
     place of the points' mouth (`head_reference`, `--mouth auto` where the lip check fails and the class map holds the mouth);
     with `mouth_lines` False its lips are painted out and its inside filled under the points' own mouth lines, and no
@@ -1278,12 +1443,19 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     class-map mouth (`head_reference`: the window is silent or the lips are left out): the body model's own lips stay.
     `class_mouth_frames`: source frames on which, with `mouth_lines` False, the class map's mouth is drawn with its own
     outline in place of the points' lip rings (`head_reference`, a frame at a time: the lip lines miss there and the class map's mouth
-    passes its gate). `open_mouth`: an open mouth's form under `closed_lip_line` (`OPEN_MOUTH_FORMS`). Returns the record; `passed` is
-    False when the read-back or the look at the source fails."""
+    passes its gate). `open_mouth`: an open mouth's form under `closed_lip_line` (`OPEN_MOUTH_FORMS`). `closed_mouth`: a closed mouth's
+    (`CLOSED_MOUTH_FORMS`): under "outlined", each frame the closed-lip line calls closed and leaves with no mouth drawn takes the outlined
+    closed mouth, on the class map's lips, and every drawn mouth, open or closed, takes the source's bend (`MOUTH_BEND`, read on the points
+    at the canvas: `points_enlarged` is how many times the canvas the points are); the record's `closed_mouth` lists those frames and each
+    frame's bend. Returns the record; `passed` is False when the read-back or the look at the source fails."""
     if open_mouth not in OPEN_MOUTH_FORMS:
         raise SystemExit(f"the open mouth's form is one of {OPEN_MOUTH_FORMS}; got {open_mouth!r}")
     if open_mouth != OPEN_MOUTH_FORMS[0] and not closed_lip_line:
         raise SystemExit(f"an open mouth {open_mouth!r} is a form of the closed-lip-line drawing; without it the lips' outlines are drawn as before")
+    if closed_mouth not in CLOSED_MOUTH_FORMS:
+        raise SystemExit(f"the closed mouth's form is one of {CLOSED_MOUTH_FORMS}; got {closed_mouth!r}")
+    if closed_mouth != CLOSED_MOUTH_FORMS[0] and not closed_lip_line:
+        raise SystemExit(f"a closed mouth {closed_mouth!r} is a form of the closed-lip-line drawing, which decides which frames are closed")
     capped = open_mouth != OPEN_MOUTH_FORMS[0]
     outlined = open_mouth in OPEN_MOUTH_FORMS[2:]
     if bare and not bare_by:
@@ -1355,6 +1527,31 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     have = [f for f in range(count) if lips_at[f] is not None]
     lips_from = [f if lips_at[f] is not None else (min(have, key=lambda g: (abs(g - f), g)) if have else None) for f in range(count)]
     outlined_said: dict = {"held_from": {}, "shrunk": {}}
+    # the frames the closed-lip line calls closed (it draws no mouth there), and under the closed mouth's "outlined" what is drawn on them
+    closed_at: set[int] = set()
+    closed_said: dict = {"drawn": [], "no_lips": [], "off_head": [], "held_from": {}, "shrunk": {}, "sizes": {}, "bent_open": [], "bent_closed": []}
+    placed: dict[int, dict] = {}                                       # a closed mouth's frame, until the clip says what of it is left
+    # THE MOUTH'S BEND under "outlined" (`MOUTH_BEND`): each frame's, read on its pose points at the canvas
+    bends: list[dict] = []
+    if closed_mouth == "outlined":
+        lacking = [n for n in ("center_of_upper_inner_lip", "center_of_lower_inner_lip") if n not in idx]
+        if lacking:
+            raise SystemExit(f"the mouth's bend reads {', '.join(lacking)}, which {points_path} lacks")
+        bends = [mouth_bend_of(p, s, idx, points_enlarged) for p, s in zip(points["keypoints"], points["scores"])]
+
+    def bent(f: int, shapes: list, kind: str) -> list:
+        """A drawn mouth bent by its frame's bend under "outlined", once it is placed (and an open one fitted to the grey head); as it is
+        without the word and where the corners are not read, with no bend at all (the build's blind read of 2026-10-23: a bend to flat
+        along a profile's corners moved points up to 20.5 px). The frame's row of the record says how far the bend moved it."""
+        if not bends or not shapes or not any(len(pts) for _, pts, _ in shapes):
+            return shapes
+        if not bends[f]["read"]:
+            bends[f].update(moved_px_most=0.0, middle_moved_px=0.0)
+            return shapes
+        got, figs = bend_mouth(shapes, points["keypoints"][f], idx, bends[f]["target"])
+        bends[f].update(moved_px_most=figs["moved_px_most"], middle_moved_px=figs["middle_moved_px"])
+        closed_said[f"bent_{kind}"].append(first + f)
+        return got
 
     def anchored(f: int, hole: np.ndarray | None) -> tuple[np.ndarray, np.ndarray] | None:
         if lips_from[f] is None:
@@ -1365,6 +1562,16 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
         if figs["shrunk_by"] < 1.0:
             outlined_said["shrunk"][first + f] = round(figs["shrunk_by"], 3)
         return o, i
+
+    def anchored_closed(f: int) -> tuple[np.ndarray, np.ndarray] | None:
+        if lips_from[f] is None:
+            return None
+        if lips_from[f] != f:
+            closed_said["held_from"][first + f] = first + lips_from[f]
+        o, line_c, figs = anchored_closed_mouth(points["keypoints"][f], idx, lips_at[lips_from[f]])
+        if figs["shrunk_by"] < 1.0:
+            closed_said["shrunk"][first + f] = round(figs["shrunk_by"], 3)
+        return o, line_c
     if mouths:
         mouths = [None if f in bare_mouth else m for f, m in enumerate(mouths)]
         own = cmap_set - set(bare_mouth)
@@ -1380,6 +1587,7 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
                         if gap_f <= INNER_GAP_CLOSED_PX or any(n == "mouth_closed" for n, _, _ in sh):
                             sh = []
                             mouths[f] = None
+                            closed_at.add(f)
                         elif any(n == "mouth_inner" for n, _, _ in sh):
                             bridged = cv2.morphologyEx(mouths[f][1].astype(np.uint8), cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8)).astype(bool)
                             got_a = anchored(f, bridged) if outlined else None
@@ -1392,6 +1600,9 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
                                 sh = [(n, capped_inside(pts_c, None, whole_c, (w, h)) if n == "mouth_inner" else pts_c, c) for n, pts_c, c in sh]
                                 bridged = cv2.fillPoly(np.zeros((h, w), np.uint8), [np.round(sh[-1][1]).astype(np.int32)], 1).astype(bool)
                             sh, mouths[f] = fit_mouth_shapes_to_head(mesh[f], points["keypoints"][f], idx, sh, (mouths[f][0] | bridged, bridged))
+                            if bends:           # fitted first, then bent (the bend before the fit moved the middle: the blind read, 2026-10-23)
+                                sh = bent(f, sh, "open")
+                                mouths[f] = mouth_masks(mesh[f], points["keypoints"][f], idx, sh, bool(bridged.any()))
                     drawings[f] = drawings[f] + sh
     if closed_lip_line:
         import cv2
@@ -1403,6 +1614,7 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
                 if sh_f[0] == "inner_lip_line":
                     drawings[f] = [d for d in drawings[f] if not d[0].endswith("_lip_ring")]
                     mouths[f] = None
+                    closed_at.add(f)
                 else:
                     rings_f = lip_rings(points["keypoints"][f], idx)
                     got_a = anchored(f, mouths[f][1] if mouths[f] is not None else None) if outlined else None
@@ -1415,16 +1627,55 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
                         sh_f = (sh_f[0], poly, True)
                         m_f = (m_f[0], cv2.fillPoly(np.zeros((h, w), np.uint8), [np.round(poly).astype(np.int32)], 1).astype(bool))
                     outer = [("outer_lip_ring", rings_f["outer"], True)] if outlined else []
+                    had_inside = bool(m_f[1].any())
                     sh_all, m_f = fit_mouth_shapes_to_head(mesh[f], points["keypoints"][f], idx, outer + [sh_f], m_f)
+                    if bends:                   # fitted first, then bent
+                        sh_all = bent(f, sh_all, "open")
+                        m_f = mouth_masks(mesh[f], points["keypoints"][f], idx, sh_all, had_inside)
                     drawings[f] = [d for d in drawings[f] if not d[0].endswith("_lip_ring")] + sh_all
                     mouths[f] = m_f
+            # A CLOSED MOUTH DRAWN (`CLOSED_MOUTH_FORMS`, "outlined"): a frame the line called closed, left with no mouth drawn, takes the
+            # lips' outer outline and the line where they meet on the class map's lips, and stays there: it is NOT fitted to the grey head
+            # (the build's blind read, 2026-10-23: the fit moved it off the lips on 13 of 16 frames of 5114 and 28 of 31 of 4479, to a line
+            # under the nose or onto the cheek, the 0278 fault), only bent where its corners are read and cut, with every mark, to the
+            # head's silhouette below; what the fit would have moved it is kept as a figure
+            if (closed_mouth == "outlined" and f in closed_at and f not in left and mouths[f] is None
+                    and not any(d[0] in OPEN_MOUTHS + CLOSED_MOUTHS + OUTER_MOUTHS or d[0].endswith("_lip_ring") for d in drawings[f])):
+                got_c = anchored_closed(f)
+                if got_c is None:
+                    closed_said["no_lips"].append(first + f)
+                else:
+                    sh_c = bent(f, [("closed_mouth_outer", got_c[0], True), ("closed_mouth_line", got_c[1], False)], "closed")
+                    none_ = np.zeros((h, w), bool)
+                    fit_c, _ = fit_mouth_shapes_to_head(mesh[f], points["keypoints"][f], idx, sh_c, (none_, none_))
+                    lips_c = lips_at[lips_from[f]]
+                    ys_l, xs_l = np.nonzero(lips_c)
+                    placed[f] = {"lips_box": [int(xs_l.min()), int(ys_l.min()), int(xs_l.max()) + 1, int(ys_l.max()) + 1],
+                                 "fit_would_move_px": round(max(float(np.abs(a_ - b_).max()) for (_, a_, _), (_, b_, _) in zip(fit_c, sh_c) if len(a_)), 1)}
+                    mouths[f] = mouth_masks(mesh[f], points["keypoints"][f], idx, sh_c, False)
+                    drawings[f] = drawings[f] + sh_c
             if f not in left:
                 hm_f = head_silhouette(mesh[f], p=points["keypoints"][f], index=idx)
                 drawings[f] = [c for n, pts_d, cl_d in drawings[f] for c in clip_shape_to_mask(n, pts_d, cl_d, hm_f)]
+            if f in placed:
+                # what of the closed mouth the head's silhouette keeps: drawn there, or not drawn at all on that frame, and why
+                kept = [pts_d for n, pts_d, _ in drawings[f] if n in ("closed_mouth_outer", "closed_mouth_line") and len(pts_d)]
+                if kept:
+                    every_c = np.concatenate(kept)
+                    face_f = max(upper_face(points["keypoints"][f], idx), 1e-6)
+                    closed_said["sizes"][first + f] = {"width": round(float(np.ptp(every_c[:, 0])) / face_f, 3),
+                                                       "height": round(float(np.ptp(every_c[:, 1])) / face_f, 3), **placed[f],
+                                                       "drawn_box": [round(float(v), 1) for v in (*every_c.min(0), *every_c.max(0))]}
+                    closed_said["drawn"].append(first + f)
+                else:
+                    mouths[f] = None
+                    closed_said["off_head"].append(first + f)
+                    if first + f in closed_said["bent_closed"]:
+                        closed_said["bent_closed"].remove(first + f)
     mesh_draw = np.round(mesh.astype(np.float32) * HEAD_DARKEN_SCALE).astype(np.uint8) if darken_head else mesh
     pictures = draw(mesh_draw, drawings, wide, left, dots, fills, contrast=iris == IRIS_FORMS[3], mouths=mouths,
                     smooth_lips=closed_lip_line, keypoints=points["keypoints"], index=idx, dark=dark, shut_eyes=closed,
-                    open_mouth=open_mouth)
+                    open_mouth=open_mouth, closed_mouth_on={f - first for f in closed_said["drawn"]})
     # the read-back leaves out the white sclera, where there is one: not round a dark iris
     but = filled_px([[x for x in fills[f] if x[0] not in dark[f]] for f in range(count)], (w, h)) if iris == IRIS_FORMS[3] and fills else None
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -1476,6 +1727,34 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
                                "frames_shrunk_to_the_face": {str(k): v for k, v in sorted(outlined_said["shrunk"].items())},
                                "limits": {"width_most": MOUTH_WIDTH_MOST, "opening_most": MOUTH_OPENING_MOST, "of": "upper_face",
                                           "dark_inside_most": MOUTH_OPEN_SHARE_MOST}}} if closed_lip_line and outlined else {}),
+        **({"closed_mouth": {"form": closed_mouth,
+                             "placed_on": "the class map's lips (anchored_closed_mouth, onto_the_lips), as the outlined open mouth is",
+                             "frames_the_closed_lip_line_calls_closed": sorted(first + f for f in closed_at if f not in left),
+                             "frames_drawn_closed": closed_said["drawn"],
+                             "frames_not_drawn_no_lips_on_any_frame": closed_said["no_lips"],
+                             "frames_not_drawn_nothing_on_the_head": closed_said["off_head"],
+                             "nothing_on_the_head_is": "placed on the class map's lips, none of it lies on the grey head's silhouette above the "
+                                                       "chin find_mesh_chin_y finds, the cut every mark takes: not drawn there",
+                             "fitted_to_the_grey_head": False,
+                             "not_fitted_why": "fit_mouth_shapes_to_head moved it off the class map's lips (the build's blind read, 2026-10-23, "
+                                               "5114 and 4479); it is cut to the head where it is, and fit_would_move_px says what the fit would do",
+                             "frames_on_a_neighbours_lips": {str(k): v for k, v in sorted(closed_said["held_from"].items())},
+                             "frames_shrunk_to_the_face": {str(k): v for k, v in sorted(closed_said["shrunk"].items())},
+                             "drawn_over_the_upper_face": {str(k): v for k, v in sorted(closed_said["sizes"].items())},
+                             "drawn_over_the_upper_face_is": "what of the outline and meeting line is drawn, after the cut to the head's silhouette: "
+                                                             "its width and height over the frame's upper_face (glabella to the bottom of the nose), "
+                                                             "its box and the class map lips' box (x0, y0, x1, y1, px of the reference), and how far "
+                                                             "fit_mouth_shapes_to_head would have moved it: figures",
+                             "limits": {"width_most": MOUTH_WIDTH_MOST, "height_most": MOUTH_CLOSED_HEIGHT_MOST, "of": "upper_face",
+                                        "opening_most": MOUTH_OPENING_MOST, "dark_inside_most": MOUTH_OPEN_SHARE_MOST,
+                                        "opening_and_dark_inside": "nothing to hold: a closed mouth is drawn with no opening and no dark inside"},
+                             "bend": {"rule": dict(MOUTH_BEND), "read_on": f"the pose model's points at the canvas (the drawing's own over {points_enlarged:g})",
+                                      "open_frames_bent": closed_said["bent_open"], "closed_frames_bent": closed_said["bent_closed"],
+                                      "a_frame_at_a_time": {str(first + f): b for f, b in enumerate(bends)},
+                                      "target_is": "the share of the drawn mouth's width its corners are drawn above (+) or below (-) its middle",
+                                      "moved_is": "moved_px_most: how far the bend moved the point it moved most (a corner), and middle_moved_px "
+                                                  "its middle, px of the reference; 0 where the corners are not read, which takes no bend"}}}
+           if closed_lip_line and closed_mouth != CLOSED_MOUTH_FORMS[0] else {}),
         "frames_left_bare": sorted(first + f for f in left), "left_bare_by": bare_by,
         "frames_with_no_mouth": [first + f for f in bare_mouth],
         "frames_with_the_eyes_shut": ({"frames": [first + f for f in shut], "form": eyes_shut_form, "by": eyes_shut_by} if shut else None),
@@ -1518,6 +1797,13 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     if dark and any(dark):
         say("irises drawn dark: " + "; ".join(f"{side} on {sum(f'{side}_iris_disc' in d for d in dark)} of {count} frames" for side in SIDES)
             + f"; the lids opened to {EYE_OPEN['least']:g} of the eye's width ({EYE_OPEN['way']}) on " + "; ".join(f"{k} {len(v)}" for k, v in opened.items()))
+    if closed_lip_line and closed_mouth != CLOSED_MOUTH_FORMS[0]:
+        said_c = record["closed_mouth"]
+        say(f"closed mouths drawn {closed_mouth!r} on {len(said_c['frames_drawn_closed'])} of the {len(said_c['frames_the_closed_lip_line_calls_closed'])} "
+            f"frames the closed-lip line calls closed"
+            + (f"; none of it on the head on {len(said_c['frames_not_drawn_nothing_on_the_head'])}" if said_c["frames_not_drawn_nothing_on_the_head"] else "")
+            + (f"; none on {len(said_c['frames_not_drawn_no_lips_on_any_frame'])} (no class map lips on any "
+                                                            "frame)" if said_c["frames_not_drawn_no_lips_on_any_frame"] else ""))
     if shut:
         say(f"her eyes drawn shut ({eyes_shut_form!r}) on {len(shut)} of {count} frames, on a person's word: {eyes_shut_by}")
     say(f"frames left bare: {len(left)}" + (f", by {bare_by}" if left else " (none named; a head turned away is not found by this tool)"))

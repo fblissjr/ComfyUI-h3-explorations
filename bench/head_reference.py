@@ -628,7 +628,8 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         closed_lip_line: str | None = None, darken_head: str | None = None,
         eyes_shut_on: list[tuple[int, int, str]] | None = None,
         eyes_shut_form: str | None = None, mouth_on: list[tuple[int, int, str]] | None = None,
-        open_mouth: str = faces.OPEN_MOUTH_FORMS[0], crop_form: str = CROP_FORMS[0], crop_why: str = "", say=print) -> dict:
+        open_mouth: str = faces.OPEN_MOUTH_FORMS[0], closed_mouth: str = faces.CLOSED_MOUTH_FORMS[0], crop_form: str = CROP_FORMS[0],
+        crop_why: str = "", say=print) -> dict:
     """Cut, cut, draw, record. Returns the record; `passed` is True only when all three steps passed.
 
     `no_face_on`: source frames on which no line of the face is drawn at all, the plain cut body model alone, each with its reason:
@@ -642,6 +643,11 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
 
     `open_mouth`: an open mouth's form under `closed_lip_line` (`draw_face_points.OPEN_MOUTH_FORMS`, the plan's `reference.open_mouth`),
     kept in the record's `drawn.mouth.closed_lip_line.open_mouth`.
+
+    `closed_mouth`: a closed mouth's form under `closed_lip_line` (`draw_face_points.CLOSED_MOUTH_FORMS`, the plan's
+    `reference.closed_mouth`). Under "outlined" the record's `drawn.mouth.closed_lip_line.closed_mouth` says which frames were drawn closed
+    (`frames_drawn_closed`, spans), the drawing's figures beside them; `bench/load_text.py` names the mouth where any was. On a mouth left
+    out (a silent window) nothing is drawn at the mouth on any frame, and it says so.
 
     `crop_form`: the box's form (`CROP_FORMS`, the plan's `reference.crop`); `face` and `cranium` are a person's word, with `crop_why`. Kept
     in the record's `crop`, with the box it gave and how many times it is enlarged (and under `cranium`, the crop tool's figures)."""
@@ -679,6 +685,10 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         raise SystemExit(f"--open-mouth is one of {faces.OPEN_MOUTH_FORMS}; got {open_mouth!r}")
     if open_mouth != faces.OPEN_MOUTH_FORMS[0] and not closed_lip_line:
         raise SystemExit(f"--open-mouth {open_mouth!r} is a form of --closed-lip-line's drawing; without it the lips' outlines are drawn as before")
+    if closed_mouth not in faces.CLOSED_MOUTH_FORMS:
+        raise SystemExit(f"--closed-mouth is one of {faces.CLOSED_MOUTH_FORMS}; got {closed_mouth!r}")
+    if closed_mouth != faces.CLOSED_MOUTH_FORMS[0] and not closed_lip_line:
+        raise SystemExit(f"--closed-mouth {closed_mouth!r} is a form of --closed-lip-line's drawing, which says which frames are closed")
     if width is None:
         width = FORM_WIDTH
     if out.suffix != ".mp4":
@@ -906,6 +916,7 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
             + (f", none for no teeth or tongue on {len(holeless)}" if class_mouth_needs_hole else "")
             + (f", closed lips as one parting line on {len(closed_line_on)}" if closed_lip_line else "")
             + (f", open mouths {open_mouth}" if open_mouth != faces.OPEN_MOUTH_FORMS[0] else "")
+            + (f", closed mouths {closed_mouth}" if closed_mouth != faces.CLOSED_MOUTH_FORMS[0] else "")
             + "; its inside under the lines where it is open")
     elif mouths is not None:
         mouths = None
@@ -947,12 +958,38 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     drawn = faces.run(str(made["plain_cut"]), str(made["plain_cut_points"]), first, count, out, by, width=width, dots=dots, leave_out=leave_out,
                       source=str(made["source_cut"]), source_first=first, iris=iris, mouths=mouths, mouth_lines=lines, no_mouth=no_mouth,
                       class_mouth_frames=by_class, closed_lip_line=bool(closed_lip_line),
-                      darken_head=bool(darken_head), bare=faceless, open_mouth=open_mouth,
+                      darken_head=bool(darken_head), bare=faceless, open_mouth=open_mouth, closed_mouth=closed_mouth,
+                      points_enlarged=sum(cut["scale"]) / len(cut["scale"]),        # the bend's width limit is the canvas's (MOUTH_BEND)
                       eyes_shut=shut, eyes_shut_form=eyes_shut_form if shut else None,
                       eyes_shut_by="; ".join(f"{a_}-{b_}: {why}" for a_, b_, why in eyes_shut_on or []),
                       bare_by="; ".join(f"no face lines: {why}" for _, _, why in no_face_on or []), say=quiet)
     if drawn.get("outlined_mouth") and mouth_said and isinstance(mouth_said.get("closed_lip_line"), dict):
         mouth_said["closed_lip_line"]["outlined"] = drawn["outlined_mouth"]      # the frames held on a neighbour's lips, and those shrunk
+    # THE CLOSED MOUTH DRAWN (`closed_mouth`, the plan's `reference.closed_mouth`): which frames, as spans beside the closed-lip line's own,
+    # which `bench/load_text.py` reads (`mouth_drawn_closed`); the drawing's figures with them
+    if drawn.get("closed_mouth") and mouth_said and isinstance(mouth_said.get("closed_lip_line"), dict):
+        cm = drawn["closed_mouth"]
+        mouth_said["closed_lip_line"]["closed_mouth"] = {
+            **cm, "frames_the_closed_lip_line_calls_closed": spans_of(cm["frames_the_closed_lip_line_calls_closed"]),
+            "frames_drawn_closed": spans_of(cm["frames_drawn_closed"]),
+            "frames_not_drawn_no_lips_on_any_frame": spans_of(cm["frames_not_drawn_no_lips_on_any_frame"]),
+            "frames_not_drawn_nothing_on_the_head": spans_of(cm["frames_not_drawn_nothing_on_the_head"]),
+            "bend": {**cm["bend"], "open_frames_bent": spans_of(cm["bend"]["open_frames_bent"]),
+                     "closed_frames_bent": spans_of(cm["bend"]["closed_frames_bent"])},
+            **({"none_drawn_because": "the mouth is left out on this load (--mouth 'left out', a silent window): nothing is drawn at the mouth "
+                                      "on any frame, open or closed"} if mouth_said.get("form") == "left out" else {})}
+        drew = set(cm["bend"]["open_frames_bent"]) | set(cm["bend"]["closed_frames_bent"])
+        kinds = ["a smile" if b["target"] > 0 else "a frown" if b["target"] < 0 else "flat"
+                 for f_s, b in cm["bend"]["a_frame_at_a_time"].items() if int(f_s) in drew]
+        tally = {k: kinds.count(k) for k in set(kinds)}
+        unread = sum(1 for b in cm["bend"]["a_frame_at_a_time"].values() if not b.get("read", True))
+        off = cm["frames_not_drawn_nothing_on_the_head"]
+        say(f"    closed mouths drawn {closed_mouth!r} on {len(cm['frames_drawn_closed'])} of {count} frames ("
+            + (", ".join(f"{a}-{b}" if a != b else str(a) for a, b in spans_of(cm["frames_drawn_closed"])) or "none") + ")"
+            + (f"; none of it on the grey head on {len(off)} ({', '.join(f'{a}-{b}' if a != b else str(a) for a, b in spans_of(off))})" if off else "")
+            + ("; the mouth is left out on this load" if mouth_said.get("form") == "left out" else "")
+            + "; the mouth's bend (MOUTH_BEND): " + (", ".join(f"{k} on {v}" for k, v in sorted(tally.items())) or "none")
+            + (f"; not bent, the corners not read, on {unread} frame(s)" if unread else ""))
     fit = drawn["read_back"]["white_from_the_lines_px_mean_by_frames_of_slip"]
     say(f"    white {fit['0']} px from its own frame's lines, {fit['1']} and {fit['-1']} from the neighbours'; "
         + ("PASSED" if drawn["passed"] else "FAILED"))
@@ -1083,6 +1120,10 @@ def main() -> int:
                         "capped: the dark inside cut to the class map's and at most MOUTH_OPEN_SHARE_MOST of the outer lips; outlined: the lips' "
                         "outer outline as well, on the class map's lips and limited to the face's size, the lips painted out inside it; outlined "
                         "over the lips: the same, nothing painted (draw_face_points.OPEN_MOUTH_FORMS; the plan's reference.open_mouth)")
+    a.add_argument("--closed-mouth", default=faces.CLOSED_MOUTH_FORMS[0], choices=faces.CLOSED_MOUTH_FORMS,
+                   help="under --closed-lip-line, a frame it calls closed: sculpted, nothing drawn at the mouth, the body model's own lips (the "
+                        "default); outlined: the lips' outer outline and the line where they meet, on the class map's lips and limited to the "
+                        "face's size, the lips painted out inside it (draw_face_points.CLOSED_MOUTH_FORMS; the plan's reference.closed_mouth)")
     a.add_argument("--darken-head", metavar="WHY", help="an option, off unless asked: darken the grey body model by scale (HEAD_DARKEN_SCALE) "
                    "keeping its shading intact so the white lines stand out; the reason is kept in the record")
     a.add_argument("--no-face-on", action="append", default=[], metavar="FIRST-LAST=WHY",
@@ -1110,7 +1151,7 @@ def main() -> int:
               closed_lip_line=v.closed_lip_line, darken_head=v.darken_head,
               eyes_shut_on=[no_mouth_arg(x, "--eyes-shut-on") for x in v.eyes_shut_on],
               eyes_shut_form=v.eyes_shut_form, mouth_on=[no_mouth_arg(x, "--mouth-on") for x in v.mouth_on], open_mouth=v.open_mouth,
-              crop_form=v.crop, crop_why=v.crop_why)
+              closed_mouth=v.closed_mouth, crop_form=v.crop, crop_why=v.crop_why)
     return 0 if rec["passed"] else 1
 
 

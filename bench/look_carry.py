@@ -259,7 +259,8 @@ def same_reference(new_ref: dict, read_ref: dict, read_name: str) -> dict:
 
 
 #: What a drawn reference shows a frame at a time, read from a job's reference record (`job.reference.drawn`, `head_reference`):
-#: the mouth by the lip lines, by the class map's own mouth, or none.
+#: the mouth by the lip lines, by the class map's own mouth, or none; and, on a frame the plan's `closed_mouth` drew closed
+#: (`draw_face_points.CLOSED_MOUTH_FORMS`), "closed, drawn '<form>'" in place of the first two.
 MOUTH_STATES = ("the lip lines", "the class map", "no mouth")
 
 
@@ -285,6 +286,14 @@ def drawn_frames(job: Path | None, first: int, last: int) -> dict:
                  else "the lip rings on a person's word" if inside((mouth.get("mouth_on") or {}).get("drawn_on_the_word"), f) else "no mouth")
         else:
             m = mouth.get("drawn_as", "the lip lines")
+        # a closed mouth drawn under the plan's `closed_mouth` (2026-10-23) is its own form on its frames, never the same as nothing drawn
+        closed = (mouth.get("closed_lip_line") or {}).get("closed_mouth") if isinstance(mouth.get("closed_lip_line"), dict) else None
+        if isinstance(closed, dict) and m != "no mouth" and inside(closed.get("frames_drawn_closed"), f):
+            m = f"closed, drawn {closed.get('form')!r}"
+        # and the mouth's bend under it (`draw_face_points.MOUTH_BEND`): a mouth drawn bent is its own form at its bend
+        bend = (closed or {}).get("bend") or {} if isinstance(closed, dict) else {}
+        if m != "no mouth" and (inside(bend.get("open_frames_bent"), f) or inside(bend.get("closed_frames_bent"), f)):
+            m = f"{m}, bent {((bend.get('a_frame_at_a_time') or {}).get(str(f)) or {}).get('target', 0.0):+.3f}"
         shut = said.get("eyes_shut") or {}
         eyes = said.get("iris") if not inside(shut.get("drawn_shut_on") or shut.get("frames"), f) else f"shut, drawn {shut.get('form')!r}"
         out[f] = (m, eyes, mouth.get("inside"), tuple(said.get("parts_left_out") or ()))

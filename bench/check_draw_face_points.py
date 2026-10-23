@@ -1008,6 +1008,365 @@ def an_outlined_mouth_on_the_class_maps_lips() -> str:
             "neighbour's, in the record")
 
 
+def a_closed_mouth_outlined() -> str:
+    """The owner, 2026-10-23, on second_hfp_5114i: the closed-lip line called every frame closed, nothing was drawn at the mouth, and the
+    second subject smiled with the still where the source woman does not ("If we dont have a drawing for mouth expressions or facial
+    expressions like that we probably do need one"). Under the closed mouth's "outlined" (`CLOSED_MOUTH_FORMS`, the plan's
+    `reference.closed_mouth`) a frame the line calls closed takes the lips' outer outline and the line where they meet, placed on the class
+    map's lips as the outlined open mouth is (`anchored_closed_mouth`, `onto_the_lips`), no wider than `MOUTH_WIDTH_MOST` of the upper
+    face, the lips painted out inside the outline, the meeting line with no dark edge; the open frames, and every frame without the word,
+    are drawn as before."""
+    import cv2
+    fill = lambda poly: cv2.fillPoly(np.zeros((H, W), np.uint8), [np.round(poly).astype(np.int32)], 1).astype(bool)  # noqa: E731
+    empty = np.zeros((H, W), bool)
+    assert df.CLOSED_MOUTH_FORMS == ("sculpted", "outlined"), df.CLOSED_MOUTH_FORMS
+    assert "closed_mouth_line" in df.CLOSED_MOUTHS and "closed_mouth_outer" in df.OUTER_MOUTHS, (df.CLOSED_MOUTHS, df.OUTER_MOUTHS)
+    p0 = face([(190.0, 110.0)])[0]
+    uf = df.upper_face(p0, INDEX)
+    # THE PLACEMENT: the class map's lips a little higher and narrower than the pose rings, 29 px wide (0.83 of the upper face) and 10
+    # tall (0.29, under MOUTH_CLOSED_HEIGHT_MOST)
+    lips = np.zeros((H, W), bool); lips[136:146, 175:204] = True
+    o, line, figs = df.anchored_closed_mouth(p0, INDEX, lips)
+    # THE CASE THAT GOES RED when the closed mouth is placed on the pose points and not on the class map's lips
+    assert figs["shrunk_by"] == 1.0 and np.allclose(o.min(0), [175, 136], atol=0.5) and np.allclose(o.max(0), [204, 146], atol=0.5), (o.min(0), o.max(0))
+    assert abs(df.lip_rings(p0, INDEX)["outer"][:, 1].mean() - o[:, 1].mean()) > 3, "the class map's lips were placed where the pose rings already were"
+    # the same move as the outlined open mouth's: its outer outline on the same lips is this one
+    assert np.allclose(o, df.anchored_mouth(p0, INDEX, lips, None, (W, H))[0]), "the closed mouth is not placed as the outlined open mouth is"
+    # the meeting line runs inside the outline from near one corner to near the other, and is open
+    assert df.inside(line, o).mean() >= 0.9 and np.ptp(line[:, 0]) >= 0.6 * np.ptp(o[:, 0]), line
+    assert "opening_over_face" not in figs and abs(figs["height_over_face"] - 10 / uf) < 0.02 and abs(figs["width_over_face"] - 29 / uf) < 0.02, figs
+    # THE CASE THAT GOES RED when a closed mouth taller than the face's limit is drawn as tall (5114's profile lips, 0.65-0.87): shrunk
+    # about its centre to MOUTH_CLOSED_HEIGHT_MOST, inside the lips' box
+    tall = np.zeros((H, W), bool); tall[125:155, 180:200] = True               # 30 px tall, 0.86 upper faces
+    to, tl, tf = df.anchored_closed_mouth(p0, INDEX, tall)
+    assert tf["shrunk_by"] < 1.0 and np.ptp(to[:, 1]) <= df.MOUTH_CLOSED_HEIGHT_MOST * uf + 0.5 and df.inside(tl, to).mean() >= 0.9, tf
+    assert (to.min(0) >= [180 - 0.5, 125 - 0.5]).all() and (to.max(0) <= [200 + 0.5, 155 + 0.5]).all(), "the shrunk mouth left the lips' box"
+    # THE CASE THAT GOES RED when a closed mouth wider than the face's limit is drawn as wide: shrunk about its centre to it (lips wide and
+    # thin, 0.23 upper faces tall, so the width alone shrinks them)
+    big = np.zeros((H, W), bool); big[140:148, 160:220] = True                 # 60 px wide, 1.7 upper faces
+    bo, bl, bf = df.anchored_closed_mouth(p0, INDEX, big)
+    assert bf["shrunk_by"] < 1.0 and np.ptp(bo[:, 0]) <= df.MOUTH_WIDTH_MOST * uf + 0.5 and df.inside(bl, bo).mean() >= 0.9, bf
+    assert np.ptp(bo[:, 1]) < df.MOUTH_CLOSED_HEIGHT_MOST * uf * 0.75, "the height cap, not the width's, shrank the wide lips"
+    assert np.allclose(0.5 * (bo.min(0) + bo.max(0)), [190, 144], atol=0.6), "the shrunk mouth moved"
+    big2 = cv2.resize(big.astype(np.uint8), (W * 2, H * 2), interpolation=cv2.INTER_NEAREST).astype(bool)
+    bo2, _, bf2 = df.anchored_closed_mouth(p0 * 2, INDEX, big2)
+    # THE CASE THAT GOES RED when the limit does not scale with the face: twice the face and lips, the same share, twice the mouth
+    assert abs(bf2["shrunk_by"] - bf["shrunk_by"]) < 0.02 and abs(np.ptp(bo2[:, 0]) - 2 * np.ptp(bo[:, 0])) < 1.5, (bf, bf2)
+    # THE PICTURE: sculpted lips (a bright ridge) inside the outline, painted out to the grey round them only on the frames named; drawn on
+    # lips 16 px tall placed by the same move with no cap (`onto_the_lips`), so there is room inside the outline off both lines
+    lips16 = np.zeros((H, W), bool); lips16[134:150, 175:204] = True
+    rings16, move16 = df.onto_the_lips(p0, INDEX, lips16)
+    o, line = move16(rings16["outer"]), move16(df.inner_lip_centerline(p0, INDEX)[0])
+    sculpted = grey([110]); sculpted[0][fill(o)] = 160
+    drawing = [("closed_mouth_outer", o, True), ("closed_mouth_line", line, False)]
+    on = df.draw(sculpted, [drawing], WIDE, set(), False, mouths=[(fill(o), empty)], smooth_lips=True, closed_mouth_on={0})[0]
+    off = df.draw(sculpted, [drawing], WIDE, set(), False, mouths=[(fill(o), empty)], smooth_lips=True)[0]
+    ys, xs = np.mgrid[0:H, 0:W]
+    xy = np.stack([xs.ravel(), ys.ravel()], 1).astype(float)
+    to_line = df.distance(xy, df.segments([drawing[1]])).reshape(H, W)
+    to_outer = df.distance(xy, df.segments([drawing[0]])).reshape(H, W)
+    clear = fill(o) & (to_line > WIDE + 1) & (to_outer > WIDE + 1)              # inside the outline, off both lines
+    # THE CASE THAT GOES RED when the closed mouth's lips are not painted out (or are painted on a frame not named)
+    assert clear.any() and np.abs(on[clear][:, 0].astype(int) - 110).max() <= 6 and (off[clear][:, 0] >= 150).all(), (on[clear][:, 0].min(), off[clear][:, 0].min())
+    assert (on[to_line < 0.5].min(-1) > df.WHITE).mean() > 0.8 and (on[to_outer < 0.5].min(-1) > df.WHITE).mean() > 0.8, "a line of the closed mouth is not white"
+    # THE CASE THAT GOES RED when the meeting line takes a dark edge, as an open mouth's lines do: the same drawing with the line drawn as
+    # an edged one (`mouth_inner`) is darker just past its white, 1 to 2 px out (measured on this picture: 94 against 147 below it, 69
+    # against 106 above it, at x 190); off that band the two are the same picture
+    edged = df.draw(sculpted, [[drawing[0], ("mouth_inner", line, False)]], WIDE, set(), False, mouths=[(fill(o), empty)], smooth_lips=True,
+                    closed_mouth_on={0})[0]
+    band = (to_line > 1.0) & (to_line < 2.25) & (to_outer > WIDE + 1)
+    assert band.any() and on[band].mean() > edged[band].mean() + 15, (on[band].mean(), edged[band].mean())
+    assert np.array_equal(on[to_line > 6], edged[to_line > 6]), "the meeting line's form changed the picture away from it"   # past the resample's reach
+    # THROUGH `run`, as head_reference gives it (the lip lines' path, `mouth_lines` False): each frame's class map lips under its own
+    # points, no open inside on 0-11 (the line calls them closed), open on 12-23; frame 3's class map holds no lips
+    kp = face(CENTRES)
+
+    def mouths_of(open_from: int, lipless: tuple = (3,)) -> list:
+        out = []
+        for k in range(N):
+            r_k = df.lip_rings(kp[k], INDEX)
+            out.append((fill(r_k["outer"]), fill(r_k["inner"]) if k >= open_from else empty))
+        for k in lipless:
+            out[k] = (empty, empty)
+        return out
+    got: dict = {}
+    real_draw = df.draw
+
+    def spy(mesh, drawings, *a, **k):
+        got["drawings"], got["on"] = [list(d) for d in drawings], set(k.get("closed_mouth_on") or ())
+        return real_draw(mesh, drawings, *a, **k)
+
+    def same(d1: list, d2: list) -> bool:
+        return [n for n, _, _ in d1] == [n for n, _, _ in d2] and all(np.array_equal(a, b) for (_, a, _), (_, b, _) in zip(d1, d2))
+    df.draw = spy
+    try:
+        made = {}
+        for form, more in (("none", {}), ("sculpted", {"closed_mouth": "sculpted"}), ("outlined", {"closed_mouth": "outlined"}),
+                           ("all open", {"closed_mouth": "outlined", "mouths": mouths_of(0, ())}),
+                           ("no lips", {"closed_mouth": "outlined", "mouths": [(empty, empty)] * N}),
+                           ("no lips, none", {"mouths": [(empty, empty)] * N}),
+                           ("all open, none", {"mouths": mouths_of(0, ())}),
+                           ("class map", {"closed_mouth": "outlined", "mouths": mouths_of(12, ()), "class_mouth_frames": list(range(N))}),
+                           ("class map, none", {"mouths": mouths_of(12, ()), "class_mouth_frames": list(range(N))})):
+            kw = {"mouths": mouths_of(12), **more}
+            rec = df.run(str(MESH), str(POINTS), 0, N, WORK / "cm.mp4", "the check", width=WIDE, closed_lip_line=True, mouth_lines=False,
+                         say=quiet, **kw)
+            assert rec["passed"], (form, rec["read_back"])
+            made[form] = (rec, got["drawings"], got["on"])
+    finally:
+        df.draw = real_draw
+    names = lambda d: {n for n, _, _ in d}                                      # noqa: E731
+    # WITHOUT THE WORD (left out, or the default given): no record of it, nothing drawn at a closed mouth, the same drawing either way
+    for form in ("none", "sculpted"):
+        rec, dr, on_ = made[form]
+        assert "closed_mouth" not in rec and not on_ and all(not names(dr[k]) & {"closed_mouth_outer", "closed_mouth_line"} for k in range(N)), form
+    assert all(same(a, b) for a, b in zip(made["none"][1], made["sculpted"][1])), "the default form given draws otherwise than no form"
+    assert all(not names(made["none"][1][k]) & set(df.OPEN_MOUTHS + df.CLOSED_MOUTHS + df.OUTER_MOUTHS) for k in range(12)), "a closed frame drew a mouth"
+    rec, dr, on_ = made["outlined"]
+    said = rec["closed_mouth"]
+    # THE CASE THAT GOES RED when a frame the line calls closed is not drawn closed under the word, or one it calls open is
+    assert said["form"] == "outlined" and said["frames_drawn_closed"] == list(range(12)) == said["frames_the_closed_lip_line_calls_closed"], said
+    assert on_ == set(range(12)) and all({"closed_mouth_outer", "closed_mouth_line"} <= names(dr[k]) for k in range(12)), on_
+    assert said["frames_on_a_neighbours_lips"] == {"3": 2} and not said["frames_not_drawn_no_lips_on_any_frame"], said
+    # every frame shrunk to the face's limit (the fixture's lips are 1.14 upper faces wide) and drawn no wider than it
+    assert len(said["frames_shrunk_to_the_face"]) == 12 and all(v["width"] <= df.MOUTH_WIDTH_MOST + 0.01 and v["height"] <= df.MOUTH_CLOSED_HEIGHT_MOST + 0.01
+                                                                for v in said["drawn_over_the_upper_face"].values()), said
+    # THE CASE THAT GOES RED when the word moves an open frame's mouth anywhere but along its up (the bend, `MOUTH_BEND`), or bends this
+    # fixture's level mouth: 12-23 drawn as without it but for the bend, under a pixel here
+    def up_only(d1: list, d2: list, k: int, most: float = 1.0) -> bool:
+        across, up = df._mouth_axes(kp[k], INDEX)
+        d2 = [(n, df.dense_outline(b, c) if n in set(df.OPEN_MOUTHS + df.OUTER_MOUTHS) else b, c) for n, b, c in d2]   # the bend makes them dense
+        return [n for n, _, _ in d1] == [n for n, _, _ in d2] and all(
+            a.shape == b.shape and np.allclose((a - b) @ across, 0, atol=1e-6) and np.abs((a - b) @ up).max() <= most
+            for (_, a, _), (_, b, _) in zip(d1, d2))
+    assert all(up_only(dr[k], made["none"][1][k], k) for k in range(12, N)), "an open frame is drawn otherwise under the closed mouth's word"
+    bend = said["bend"]
+    assert bend["open_frames_bent"] == list(range(12, N)) and bend["closed_frames_bent"] == list(range(12)) and len(bend["a_frame_at_a_time"]) == N, bend
+    assert all(b["target"] == 0.0 and b["as"].startswith("flat") for b in bend["a_frame_at_a_time"].values()), "the fixture's level mouth was bent"
+    # a load open on every frame, or whose class map holds no lips on any frame, is drawn as without the word but for the bend
+    assert made["all open"][0]["closed_mouth"]["frames_drawn_closed"] == [] and all(up_only(a, b, k) for k, (a, b) in enumerate(zip(made["all open"][1], made["all open, none"][1])))
+    nl = made["no lips"][0]["closed_mouth"]
+    assert nl["frames_drawn_closed"] == [] and nl["frames_not_drawn_no_lips_on_any_frame"] == list(range(N)), nl
+    assert all(same(a, b) for a, b in zip(made["no lips"][1], made["no lips, none"][1])), "a load with no lips drew otherwise under the word"
+    # THE CLASS MAP'S OWN MOUTH'S PATH (head_reference's frames by the class map, as on 5114i): the same frames drawn closed
+    cm = made["class map"]
+    assert cm[0]["closed_mouth"]["frames_drawn_closed"] == list(range(12)), cm[0]["closed_mouth"]
+    assert all(up_only(cm[1][k], made["class map, none"][1][k], k, most=3.0) for k in range(12, N)), "an open class-map frame is drawn otherwise under the word"
+    # A GREY HEAD WHOSE CHIN CUTS ACROSS THE LIPS (the build's blind read of 2026-10-23: on 5114 and 4479 the fit to the grey head moved the
+    # closed mouth off the class map's lips, to a line under the nose or onto the cheek): every frame closed, the grey head black from a
+    # row 4 px above each frame's lips' bottom, and on frame 5 the class map's lips wholly below it
+    chin_rows = [int(df.lip_rings(kp[k], INDEX)["outer"][:, 1].max()) - 4 for k in range(N)]
+    chin_mesh = grey([90] * N)
+    for k, row in enumerate(chin_rows):
+        chin_mesh[k, row:, :] = 0
+    chin_video = video(WORK / "chin_mesh.mkv", chin_mesh)
+    low = [(fill(df.lip_rings(kp[k], INDEX)["outer"]), empty) for k in range(N)]
+    below = np.zeros((H, W), bool); below[chin_rows[5] + 6:chin_rows[5] + 18, 170:210] = True
+    low[5] = (below, empty)
+    rec_c = df.run(str(chin_video), str(POINTS), 0, N, WORK / "chin.mp4", "the check", width=WIDE, closed_lip_line=True, mouth_lines=False,
+                   mouths=low, closed_mouth="outlined", say=quiet)
+    cc = rec_c["closed_mouth"]
+    # THE CASE THAT GOES RED when a frame whose closed mouth the head's cut leaves nothing of is counted as drawn (5114's 5120)
+    assert rec_c["passed"] and cc["frames_not_drawn_nothing_on_the_head"] == [5] and cc["frames_drawn_closed"] == [k for k in range(N) if k != 5], cc
+    assert not cc["fitted_to_the_grey_head"] and sum(v["fit_would_move_px"] > 3 for v in cc["drawn_over_the_upper_face"].values()) >= N // 2, cc
+    for k_s, v in cc["drawn_over_the_upper_face"].items():
+        lx0, ly0, lx1, ly1 = v["lips_box"]
+        dx0, dy0, dx1, dy1 = v["drawn_box"]
+        # THE CASE THAT GOES RED when the fit moves a closed mouth off the lips: what is drawn stays inside the class map lips' box, within
+        # 3 px (the blind read's measure), cut at the head's chin and never moved above it, and no taller than its limit
+        assert lx0 - 3 <= dx0 and dx1 <= lx1 + 3 and ly0 - 3 <= dy0 and dy1 <= ly1 + 3 and dy1 <= chin_rows[int(k_s)], (k_s, v, chin_rows[int(k_s)])
+        assert v["height"] <= df.MOUTH_CLOSED_HEIGHT_MOST + 0.01, (k_s, v)
+    for bad, words in ((dict(closed_lip_line=True, closed_mouth="lips"), "one of"), (dict(closed_mouth="outlined"), "closed-lip-line")):
+        try:
+            df.run(str(MESH), str(POINTS), 0, N, WORK / "cm_bad.mp4", "the check", width=WIDE, say=quiet, **bad)
+        except SystemExit as exc:
+            assert words in str(exc), exc
+        else:
+            raise AssertionError(f"{bad}: accepted")
+    return ("under the closed-lip line a closed mouth outlined is the lips' outline and the line where they meet, on the class map's lips as "
+            f"the outlined open mouth is placed, shrunk to {df.MOUTH_WIDTH_MOST:g} of the upper face, the same at twice the size; the lips "
+            "painted out inside it on the frames named only, the meeting line with no dark edge; through run, on both paths, every frame the "
+            "line calls closed drawn closed, the open frames and a load with no word, no closed frame or no lips drawn as before; bad forms refused")
+
+
+def the_mouths_bend() -> str:
+    """The owner, 2026-10-23: the drawn mouth showed how far it opens and not its expression, so H3 took
+    the still's smile. Under the closed mouth's "outlined" every drawn mouth is bent by the source's corner lift on its frame (`MOUTH_BEND`):
+    a smile where the corners sit above the lips' middle, a frown below, flat inside the dead zone or where the corners are not read (a
+    mouth under `least_width_px` at the canvas, or a corner under `least_corner_score`: on 5114 and 4479 the figure was noise). The pose
+    points set only the bend: every point keeps its place across the mouth, the middle stays, and so does the thickness at each place."""
+    import cv2
+    fill = lambda poly: cv2.fillPoly(np.zeros((H, W), np.uint8), [np.round(poly).astype(np.int32)], 1).astype(bool)  # noqa: E731
+    R, L = INDEX["r_outer_corner_of_mouth"], INDEX["l_outer_corner_of_mouth"]
+
+    def lifted(p: np.ndarray, share: float) -> np.ndarray:
+        """`p` with its outer corners `share` of their width above (+) the inner lips' middle, along the mouth's up."""
+        q = p.copy()
+        _, up = df._mouth_axes(q, INDEX)
+        middle = 0.5 * (q[INDEX["center_of_upper_inner_lip"]] + q[INDEX["center_of_lower_inner_lip"]])
+        width = float(np.linalg.norm(q[L] - q[R]))
+        for k in (R, L):
+            q[k] = q[k] + (share * width - float((q[k] - middle) @ up)) * up
+        return q
+    p0 = face([(190.0, 110.0)])[0]
+    s0 = np.full(len(p0), 0.9)
+    # THE MEASURE: the corners' lift over their width, read on the points
+    for share in (-0.15, 0.0, 0.15):
+        assert abs(df.corner_lift(lifted(p0, share), s0, INDEX)["share"] - share) < 1e-6, share
+    # THE RULE (`mouth_bend_of`): beyond the dead zone, gain times the share past it, to `most`; flat inside it, and flat where the
+    # corners are not read
+    look = df.MOUTH_BEND
+    got = {share: df.mouth_bend_of(lifted(p0, share), s0, INDEX) for share in (0.15, -0.15, 0.03, 0.5)}
+    assert abs(got[0.15]["target"] - look["gain"] * (0.15 - look["dead_zone"])) < 1e-3 and got[0.15]["as"] == "bent", got[0.15]
+    assert abs(got[-0.15]["target"] + look["gain"] * (0.15 - look["dead_zone"])) < 1e-3, got[-0.15]
+    assert got[0.03]["target"] == 0.0 and "dead zone" in got[0.03]["as"] and got[0.5]["target"] == look["most"], (got[0.03], got[0.5])
+    # THE CASE THAT GOES RED when a small face's corners, or a low-scored corner, bend the mouth (5114's and 4479's noise)
+    small = df.mouth_bend_of(lifted(p0, 0.15), s0, INDEX, enlarged=40.0 / (look["least_width_px"] - 1))
+    weak = s0.copy(); weak[R] = look["least_corner_score"] - 0.01
+    assert small["target"] == 0.0 and "not read" in small["as"] and small["width_px"] < look["least_width_px"], small
+    assert df.mouth_bend_of(lifted(p0, 0.15), weak, INDEX)["target"] == 0.0, "a corner under the score floor bent the mouth"
+    # THE BEND (`bend_mouth`), on the closed mouth as placed on the class map's lips and on an open one
+    lips = np.zeros((H, W), bool); lips[134:150, 175:204] = True
+    hole = np.zeros((H, W), bool); hole[139:145, 178:201] = True
+    p_s = lifted(p0, 0.15)
+    across, up = df._mouth_axes(p_s, INDEX)
+    o, line, _ = df.anchored_closed_mouth(p_s, INDEX, lips)
+    oo, oi, _ = df.anchored_mouth(p_s, INDEX, lips, hole, (W, H))
+
+    def at_middle(pts: np.ndarray, ring: bool, centre: float) -> tuple[float, float]:
+        """The shape's up at the place `centre` across: (lowest, highest) for a ring, the line's twice."""
+        a_, u_ = pts @ across, pts @ up
+        if not ring:
+            k = np.argsort(a_)
+            v = float(np.interp(centre, a_[k], u_[k]))
+            return v, v
+        ra, ru = np.r_[a_, a_[:1]], np.r_[u_, u_[:1]]
+        cross = [ru[i] + (centre - ra[i]) * (ru[i + 1] - ru[i]) / (ra[i + 1] - ra[i]) for i in range(len(a_))
+                 if (ra[i] - centre) * (ra[i + 1] - centre) <= 0 and ra[i + 1] != ra[i]]
+        return min(cross), max(cross)
+    for shapes in ([("closed_mouth_outer", o, True), ("closed_mouth_line", line, False)],
+                   [("outer_lip_ring", oo, True), ("inner_lip_ring", oi, True)]):
+        every = np.concatenate([pts for _, pts, _ in shapes])
+        centre = 0.5 * (float((every @ across).min()) + float((every @ across).max()))
+        for target in (0.0, 0.1, -0.1):
+            bent, figs = df.bend_mouth(shapes, p_s, INDEX, target)
+            # THE CASE THAT GOES RED when the bent mouth's corners do not sit where the target puts them against its middle
+            assert abs(df.bend_mouth(bent, p_s, INDEX, 0.0)[1]["lift_px_before"] - target * figs["width_px"]) < 0.3, (shapes[0][0], target, figs)
+            for (_, a, ring), (_, b, _) in zip(shapes, bent):
+                # THE CASE THAT GOES RED when the pose points move where the mouth sits: every point keeps its place across, and each
+                # shape keeps its middle and its thickness there (the dark inside shows how open it is, as before)
+                assert np.allclose(df.dense_outline(a, ring) @ across, b @ across, atol=1e-6), "a point moved across the mouth"
+                lo_a, hi_a = at_middle(a, ring, centre)
+                lo_b, hi_b = at_middle(b, ring, centre)
+                assert abs(lo_a - lo_b) < 0.3 and abs(hi_a - hi_b) < 0.3, (shapes[0][0], target, (lo_a, hi_a), (lo_b, hi_b))
+    # THROUGH `run`: every frame's corners raised to 0.15 of their width, closed on 0-11 and open on 12-23 (the lip lines' path): both
+    # kinds bent upward by the rule's target, and the record says so; without the word, nothing is bent
+    kp_s = np.stack([lifted(k_, 0.15) for k_ in face(CENTRES)])
+    pts_s = save(WORK / "smile_points.npz", kp_s, first=0)
+    mouths = [(fill(df.lip_rings(kp_s[k], INDEX)["outer"]), fill(df.lip_rings(kp_s[k], INDEX)["inner"]) if k >= 12 else np.zeros((H, W), bool))
+              for k in range(N)]
+    got_d: dict = {}
+    real_draw = df.draw
+
+    def spy(mesh, drawings, *a, **k):
+        got_d["drawings"] = [list(d) for d in drawings]
+        got_d["masks"] = [None if m is None else (m[0].copy(), m[1].copy()) for m in (k.get("mouths") or [None] * len(drawings))]
+        return real_draw(mesh, drawings, *a, **k)
+    df.draw = spy
+    try:
+        rec = df.run(str(MESH), str(pts_s), 0, N, WORK / "bend.mp4", "the check", width=WIDE, closed_lip_line=True, mouth_lines=False,
+                     mouths=mouths, closed_mouth="outlined", say=quiet)
+        drew = got_d["drawings"]
+        rec_none = df.run(str(MESH), str(pts_s), 0, N, WORK / "bend_none.mp4", "the check", width=WIDE, closed_lip_line=True, mouth_lines=False,
+                          mouths=mouths, say=quiet)
+        drew_none = got_d["drawings"]
+    finally:
+        df.draw = real_draw
+    bend = rec["closed_mouth"]["bend"]
+    want = round(look["gain"] * (0.15 - look["dead_zone"]), 4)
+    assert rec["passed"] and bend["closed_frames_bent"] == list(range(12)) and bend["open_frames_bent"] == list(range(12, N)), bend
+    assert all(abs(b["target"] - want) < 1e-3 and b["as"] == "bent" for b in bend["a_frame_at_a_time"].values()), bend["a_frame_at_a_time"]
+    mouth_names = set(df.OPEN_MOUTHS + df.OUTER_MOUTHS) | {"closed_mouth_line"}
+    for k in range(N):
+        shapes = [d for d in drew[k] if d[0] in mouth_names]
+        figs = df.bend_mouth(shapes, kp_s[k], INDEX, 0.0)[1]
+        # THE CASE THAT GOES RED when a frame's drawn mouth, open or closed, does not carry the source's smile through the fit
+        assert abs(figs["lift_px_before"] - want * figs["width_px"]) < 1.0, (k, figs, want)
+    assert "closed_mouth" not in rec_none and all(abs(df.bend_mouth([d for d in drew_none[k] if d[0] in mouth_names], kp_s[k], INDEX, 0.0)[1][
+        "lift_px_before"]) < 1.0 for k in range(12, N)), "a mouth was bent without the word"
+    assert all(b["moved_px_most"] > 0 and b["middle_moved_px"] < 0.3 for b in bend["a_frame_at_a_time"].values()), bend["a_frame_at_a_time"]
+    # THE CORNERS NOT READ: the same smiling points, read as a mouth under least_width_px at the canvas (as 5114's and 4479's), and a grey
+    # head whose chin cuts across the open mouths so the fit moves them (the blind read of 2026-10-23: a flat bend along a profile's corners
+    # moved points up to 20.5 px, and a bend before the fit moved the middle)
+    # the fit squeezes a mouth into the room above the chin, so the order matters only where the chin is near: here the pose model's chin
+    # and the grey head's both 19 px under the nose, the corners raised to 0.3 (the target at `most`); measured on these frames, the fit
+    # moves the open inside 4-4.5 px, and a bend before it moves the middle 1.3 px, one after it none
+    kp_b = np.stack([lifted(k_, 0.3) for k_ in face(CENTRES)])
+    kp_b[:, INDEX["tip_of_chin"]] = kp_b[:, INDEX["bottom_center_of_nose"]] + np.array([0.0, 19.0])
+    pts_b = save(WORK / "smile_b_points.npz", kp_b, first=0)
+    mouths_b = [(fill(df.lip_rings(kp_b[k], INDEX)["outer"]), fill(df.lip_rings(kp_b[k], INDEX)["inner"]) if k >= 12 else np.zeros((H, W), bool))
+                for k in range(N)]
+    chin_s = grey([90] * N)
+    for k in range(N):
+        chin_s[k, int(kp_b[k, INDEX["tip_of_chin"], 1]):, :] = 0
+    chin_s_video = video(WORK / "chin_smile.mkv", chin_s)
+    df.draw = spy
+    try:
+        rec_u = df.run(str(MESH), str(pts_s), 0, N, WORK / "bend_unread.mp4", "the check", width=WIDE, closed_lip_line=True, mouth_lines=False,
+                       mouths=mouths, closed_mouth="outlined", points_enlarged=40.0 / (look["least_width_px"] - 1), say=quiet)
+        drew_u = got_d["drawings"]
+        # on both paths an open mouth takes: the lip lines' (the pose model's inner ring) and the class map's own (its inside's outline)
+        fitted: dict = {}
+        for path, more in (("the lip lines", {}), ("the class map", {"class_mouth_frames": list(range(N))})):
+            for word, kw in (("with", {"closed_mouth": "outlined"}), ("without", {})):
+                got_r = df.run(str(chin_s_video), str(pts_b), 0, N, WORK / f"bend_fit_{len(fitted)}.mp4", "the check", width=WIDE,
+                               closed_lip_line=True, mouth_lines=False, mouths=mouths_b, say=quiet, **more, **kw)
+                fitted[path, word] = (got_r, got_d["drawings"], got_d["masks"])
+        rec_f, drew_f, drew_fn = fitted["the lip lines", "with"][0], fitted["the lip lines", "with"][1], fitted["the lip lines", "without"][1]
+    finally:
+        df.draw = real_draw
+    bu = rec_u["closed_mouth"]["bend"]
+    # THE CASE THAT GOES RED when a mouth whose corners are not read is bent at all, even to flat
+    assert not bu["open_frames_bent"] and not bu["closed_frames_bent"] and all(not b["read"] and b["moved_px_most"] == 0.0
+                                                                              for b in bu["a_frame_at_a_time"].values()), bu
+    equal = lambda d1, d2: [n for n, _, _ in d1] == [n for n, _, _ in d2] and all(np.array_equal(a, b) for (_, a, _), (_, b, _) in zip(d1, d2))  # noqa: E731
+    assert all(equal(drew_u[k], drew_none[k]) for k in range(12, N)), "an open mouth whose corners are not read was moved"
+    for k in range(12):                         # the closed mouth as placed on the class map's lips: no point added or moved by a bend
+        o_k, l_k, _ = df.anchored_closed_mouth(kp_s[k], INDEX, mouths[k][0])
+        got_k = {n: pts for n, pts, _ in drew_u[k] if n in ("closed_mouth_outer", "closed_mouth_line")}
+        assert got_k["closed_mouth_outer"].shape == o_k.shape and np.allclose(got_k["closed_mouth_outer"], o_k, atol=1e-3) \
+            and got_k["closed_mouth_line"].shape == l_k.shape and np.allclose(got_k["closed_mouth_line"], l_k, atol=1e-3), k   # the points file is float32
+    # THE CASE THAT GOES RED when the bend runs before the fit, on either path: the fit moves the open mouths here (each away from where
+    # it was placed), and the bent one's middle is where the unbent one's is, frame by frame; and THE CASE THAT GOES RED when the masks are
+    # not made again after the bend: the dark inside drawn is the bent inside filled, not the unbent one's
+    iou = lambda a, b: float((a & b).sum()) / max(float((a | b).sum()), 1.0)    # noqa: E731
+    for path in ("the lip lines", "the class map"):
+        (rec_w, drew_w, masks_w), (_, drew_n, _) = fitted[path, "with"], fitted[path, "without"]
+        moved_by_fit = 0
+        for k in range(12, N):
+            mine = [d for d in drew_w[k] if d[0] in mouth_names]
+            plain = [d for d in drew_n[k] if d[0] in mouth_names]
+            across, up = df._mouth_axes(kp_b[k], INDEX)
+            ring_w, ring_n = mine[-1][1], df.dense_outline(plain[-1][1], True)
+            centre = 0.5 * (float((ring_n @ across).min()) + float((ring_n @ across).max()))
+            def mid(r: np.ndarray) -> float:              # the ring's middle at the centre: halfway between its top and bottom there
+                near = r[np.abs(r @ across - centre) < 0.75] @ up
+                return 0.5 * (float(near.max()) + float(near.min()))
+            assert abs(mid(ring_w) - mid(ring_n)) < 0.25, (path, k, mid(ring_w), mid(ring_n))
+            placed = (df.lip_rings(kp_b[k], INDEX)["inner"] if path == "the lip lines"
+                      else df.mouth_shapes(*mouths_b[k], closed_as_line=True)[-1][1])
+            moved_by_fit += placed.shape == plain[-1][1].shape and float(np.abs(plain[-1][1] - placed).max()) > 1.0
+            hole = masks_w[k][1]
+            assert iou(hole, fill(ring_w)) > 0.9 and iou(hole, fill(ring_n)) < 0.8, (path, k, iou(hole, fill(ring_w)), iou(hole, fill(ring_n)))
+        assert moved_by_fit >= (N - 12) // 2, f"{path}: the chin moved the open mouths on {moved_by_fit} frames only: the case does not reach the fit"
+        assert rec_w["closed_mouth"]["bend"]["open_frames_bent"] == list(range(12, N)), (path, rec_w["closed_mouth"]["bend"]["open_frames_bent"])
+        assert all(rec_w["closed_mouth"]["bend"]["a_frame_at_a_time"][str(k)]["middle_moved_px"] < 0.3 for k in range(12, N)), path
+    return (f"the corners' lift over their width read on the points; bent {look['gain']:g} times past the {look['dead_zone']:g} dead zone, to "
+            f"{look['most']:g}, flat inside it and where the mouth is under {look['least_width_px']:g} px at the canvas or a corner under "
+            f"{look['least_corner_score']:g}; the bend sets the corners against the middle and moves no point across, the middle and the "
+            "thickness kept, on a closed and an open mouth; through run both kinds bent by the target, none without the word")
+
+
 case("the iris between the lids", the_iris_between_the_lids)
 case("her eyes shut on a person's word, in each form", eyes_shut)
 case("the lines run through their points in order, and are as long as they say", in_order_and_as_long)
@@ -1023,6 +1382,8 @@ case("a part left out is not drawn, and a highlight is not a line", left_out_and
 case("an open mouth capped under the closed-lip line", an_open_mouth_capped)
 case("an open mouth outlined under the closed-lip line", an_open_mouth_outlined)
 case("an outlined mouth on the class map's lips, to the face's size", an_outlined_mouth_on_the_class_maps_lips)
+case("a closed mouth outlined under the closed-lip line, on the class map's lips", a_closed_mouth_outlined)
+case("the mouth's bend, by the source's corners, under the closed mouth's word", the_mouths_bend)
 case("what it refuses", refusals)
 shutil.rmtree(WORK, ignore_errors=True)
 sys.exit(finish())

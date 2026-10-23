@@ -945,17 +945,69 @@ def the_three_mouth_fixes_synthetic() -> str:
     assert all(flips(v_cap[cf], v_on[cf]) == 0 for cf in (0, 1, 3)), [flips(v_cap[cf], v_on[cf]) for cf in (0, 1, 3)]
     darker = lambda a, b: int(((a.max(-1) < 30) & (b.min(-1) > 100)).sum())     # noqa: E731  dark in `a` where `b` is light
     assert all(darker(v_cap[cf], v_on[cf]) == 0 for cf in range(N)), [darker(v_cap[cf], v_on[cf]) for cf in range(N)]
+    # THE CLOSED MOUTH'S FORM (`--closed-mouth`, the plan's reference.closed_mouth; the owner, 2026-10-23, on second_hfp_5114i): under
+    # "outlined" every frame the line calls closed, on both paths (the class map's 0-1, the lip lines' 3), is drawn closed, and the record
+    # says which as spans beside the line's own; the open frames as the default form draws them; without it the record is as before
+    rec_cm = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head_closed_mouth.mp4", "the check", room=ROOM, mouth="auto",
+                    classes=str(classes), classes_first=0, closed_lip_line="synthetic test", closed_mouth="outlined", say=lambda *_: None)
+    cm_rec = rec_cm["drawn"]["mouth"]["closed_lip_line"]["closed_mouth"]
+    assert "closed_mouth" not in cl_rec and "closed_mouth" not in rec_cap["drawn"]["mouth"]["closed_lip_line"], cl_rec
+    # THE CASE THAT GOES RED when a frame the line calls closed is not drawn closed under the word, or the record does not say it
+    assert cm_rec["form"] == "outlined" and cm_rec["frames_drawn_closed"] == cl_rec["closed_frames"] == cm_rec["frames_the_closed_lip_line_calls_closed"], cm_rec
+    assert rec_cm["passed"] and rec_cm["drawn"]["mouth"]["closed_lip_line"]["open_frames"] == cl_rec["open_frames"], rec_cm["drawn"]["mouth"]
+    # and the mouth's bend (`draw_face_points.MOUTH_BEND`) on every drawn mouth, open and closed, read on the points at the canvas: the
+    # record says each frame's, and the frames bent as spans
+    cm_bend = cm_rec["bend"]
+    assert cm_bend["closed_frames_bent"] == cl_rec["closed_frames"] and cm_bend["open_frames_bent"] == cl_rec["open_frames"], cm_bend
+    assert sorted(int(f) for f in cm_bend["a_frame_at_a_time"]) == list(range(N)) and cm_bend["rule"] == dfp.MOUTH_BEND, cm_bend
+    # THE CASE THAT GOES RED when the bend's width limit is read on the enlarged reference, not the canvas: each frame's width is the
+    # corners' distance on the points file the reference was made from
+    canvas = dfp.rows_of(str(pts), None, 0, N, None)[0]
+    for f in range(N):
+        wide = float(np.linalg.norm(canvas["keypoints"][f][canvas["index"]["l_outer_corner_of_mouth"]] - canvas["keypoints"][f][canvas["index"]["r_outer_corner_of_mouth"]]))
+        assert abs(cm_bend["a_frame_at_a_time"][str(f)]["width_px"] - wide) < 0.5, (f, cm_bend["a_frame_at_a_time"][str(f)], wide)
+    # THE CASE THAT GOES RED when the frames with nothing of the closed mouth on the head are not made spans, as every frame list of the
+    # closed mouth is: the synthetic's grey head holds every mouth, so the drawing's list is handed over non-empty here, as the drawing
+    # hands it (a frame list of the load's frames)
+    assert cm_rec["frames_not_drawn_nothing_on_the_head"] == [], cm_rec
+    real_run = dfp.run
+
+    def handed(*a, **k):
+        got = real_run(*a, **k)
+        if got.get("closed_mouth"):
+            got["closed_mouth"]["frames_not_drawn_nothing_on_the_head"] = [3, 4, 7]
+        return got
+    dfp.run = handed
+    try:
+        rec_sp = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head_closed_spans.mp4", "the check", room=ROOM, mouth="auto",
+                        classes=str(classes), classes_first=0, closed_lip_line="synthetic test", closed_mouth="outlined", say=lambda *_: None)
+    finally:
+        dfp.run = real_run
+    assert rec_sp["drawn"]["mouth"]["closed_lip_line"]["closed_mouth"]["frames_not_drawn_nothing_on_the_head"] == [[3, 4], [7, 7]], rec_sp["drawn"]["mouth"]
+    v_cm = np.stack(list(dfp.stream(str(folder / "head_closed_mouth.mp4"), sz_v, 0, N, pix="rgb24")))
+    lit = lambda v: int((v.min(-1) > 200).sum())                                 # noqa: E731
+    # the closed frames carry the outline and the meeting line (more white than the parting line alone, or nothing); the open ones flip no
+    # pixel between dark and light against the default's
+    assert all(lit(v_cm[cf]) > lit(v_on[cf]) for cf in (0, 1, 3)), [(lit(v_cm[cf]), lit(v_on[cf])) for cf in (0, 1, 3)]
+    assert all(flips(v_cm[cf], v_on[cf]) == 0 for cf in (2, *range(4, N))), [flips(v_cm[cf], v_on[cf]) for cf in range(N)]
     # M17: --closed-lip-line with --mouth "left out" (silent window) leaves the mouth out while keeping head silhouette clipping
     rec_silent = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head_silent.mp4", "the check", room=ROOM, mouth="left out",
                         mouth_why="silent window", closed_lip_line="silent window test", darken_head="darker grey head", say=lambda *_: None)
     assert rec_silent["passed"] and rec_silent["drawn"]["mouth"]["drawn"] is False and "mouth" in rec_silent["drawn"]["parts_left_out"], rec_silent["drawn"]
     assert rec_silent["drawn"]["darken_head"]["scale"] == dfp.HEAD_DARKEN_SCALE == 0.67, rec_silent["drawn"]
+    # the closed mouth's word on a silent window: nothing at the mouth on any frame, and the record says why
+    rec_silent_cm = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head_silent_cm.mp4", "the check", room=ROOM, mouth="left out",
+                           mouth_why="silent window", closed_lip_line="silent window test", closed_mouth="outlined", say=lambda *_: None)
+    s_cm = rec_silent_cm["drawn"]["mouth"]["closed_lip_line"]["closed_mouth"]
+    assert rec_silent_cm["passed"] and s_cm["frames_drawn_closed"] == [] and "silent window" in s_cm["none_drawn_because"], s_cm
     # refusal cases: empty reason or mouth == "drawn", before any files are written
     for bad_kw, bad_word in (({"mouth": "auto", "classes": str(classes), "classes_first": 0, "closed_lip_line": "   "}, "takes a reason"),
                              ({"mouth": "drawn", "mouth_why": "test", "closed_lip_line": "test"}, "acts on --mouth auto with a class map"),
                              ({"mouth": "left out", "mouth_why": "silent", "darken_head": "   "}, "--darken-head takes a reason"),
                              ({"mouth": "auto", "classes": str(classes), "classes_first": 0, "open_mouth": "capped"}, "a form of --closed-lip-line"),
-                             ({"mouth": "auto", "classes": str(classes), "classes_first": 0, "closed_lip_line": "t", "open_mouth": "lips"}, "--open-mouth is one of")):
+                             ({"mouth": "auto", "classes": str(classes), "classes_first": 0, "closed_lip_line": "t", "open_mouth": "lips"}, "--open-mouth is one of"),
+                             ({"mouth": "auto", "classes": str(classes), "classes_first": 0, "closed_mouth": "outlined"}, "a form of --closed-lip-line"),
+                             ({"mouth": "auto", "classes": str(classes), "classes_first": 0, "closed_lip_line": "t", "closed_mouth": "lips"}, "--closed-mouth is one of")):
         try:
             hr.run(str(mesh), str(pts), str(source), 0, N, folder / "refused_cl.mp4", "the check", room=ROOM, say=lambda *_: None, **bad_kw)
         except SystemExit as exc:
