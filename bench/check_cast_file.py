@@ -18,7 +18,12 @@ rules that make it worth keeping.
   a_standing_box_is_not_passed_over        a second tile of the same frame that does not outline the subject cannot erase a box
   seeds_are_read_by_the_trackers_own_parser    the text for a load goes through `subject_track.parse_seeds` and names the right shots
   none_outlined_needs_a_choice             no default; `leave` writes no seed, `empty` writes `none` and is called the strong reading
-  a_box_is_used_before_none_outlined       in one shot; the other answer is named as unused; later means later in the file
+  a_box_is_used_before_none_outlined       in one shot, and every box of a shot is a seed, in frame order, whatever the file's
+                                           order (2026-10-23); a `none` beside a box is named as unused
+  a_drawn_box_is_entered_as_a_box_line     `box`: the owner's drawn boxes, one `here` line each at the file's own picture size,
+                                           citing the sheet, saying what it encloses and that it is approximate, read by
+                                           `seeds` as any box, marked `drawn` (and `body`) for the tracker's own parser;
+                                           every refusal in the tool's words
   another_picture_shape_is_refused         the same shape scales the box
   an_answer_outside_the_load_is_not_moved  and one inside the load in no shot is named
 
@@ -202,7 +207,7 @@ def a_standing_box_is_not_passed_over():
         said = _raises(lambda: C.append(path, _tile(1, (1, "second"), table=other, by="b")), "lead has a confirmed box on frame 1020", "withdraw it first")
         assert "census_shots.json" in said and "a person" in said, f"the refusal does not say whose box, from which table: {said}"
         assert path.read_bytes() == before, "a refused tile added a line: the second's line of the same tile went in"
-        assert C.seeds(C.read(path), "lead", FIRST, SIZE, SHOTS, C.LEAVE)["text"] == "frame 20: 600, 80, 300, 500"
+        assert C.seeds(C.read(path), "lead", FIRST, SIZE, SHOTS, C.LEAVE)["text"].splitlines()[0] == "frame 20: 600, 80, 300, 500"
         # the two commands a person means: take the box back, then the tile goes in
         C.append(path, [C.entry("lead", 1020, C.WITHDRAWN, by="b")])
         C.append(path, _tile(1, (1, "second"), table=other, by="b"))
@@ -240,17 +245,28 @@ def _answers() -> list[dict]:
 
 def seeds_are_read_by_the_trackers_own_parser():
     out = C.seeds(_answers(), "lead", FIRST, SIZE, SHOTS, C.EMPTY)
-    assert out["text"] == "frame 20: 600, 80, 300, 500\nframe 70: none", repr(out["text"])
+    # the third subject's box on the lead's frame rides along as another subject's (2026-10-23): not a seed
+    assert out["text"] == "frame 20: 600, 80, 300, 500\nframe 70: none\nframe 20: 100, 50, 200, 600 other", repr(out["text"])
     parsed = _tracker().parse_seeds(out["text"], SHOTS)
-    assert parsed == {1: (20, (600.0, 80.0, 300.0, 500.0)), 2: (70, None)}, parsed
-    assert "third" not in json.dumps(out) and C.seeds(_answers(), "third", FIRST, SIZE, SHOTS, C.LEAVE)["text"] == "frame 20: 100, 50, 200, 600"
+    assert parsed == {1: [(20, (600.0, 80.0, 300.0, 500.0))], 2: [(70, None)]}, parsed
+    assert _tracker().parse_other_boxes(out["text"], SHOTS) == {20: [((100.0, 50.0, 200.0, 600.0), False)]}
+    assert [x["subject"] for x in out["others"]] == ["third"], out["others"]
+    assert C.seeds(_answers(), "third", FIRST, SIZE, SHOTS, C.LEAVE)["text"] == "frame 20: 100, 50, 200, 600\nframe 20: 600, 80, 300, 500 other"
+    # nobody else boxed on the frame: no `other` line
+    alone = [x for x in _answers() if x["subject"] != "third"]
+    assert "other" not in C.seeds(alone, "lead", FIRST, SIZE, SHOTS, C.LEAVE)["text"]
+    # every box of a shot is a seed line the tracker reads into that shot, in frame order (2026-10-23)
+    two = C.seeds(_answers() + [C.entry("lead", FIRST + 5, C.HERE, by="a", box=[1, 1, 50, 50], size=SIZE, table="t.json")], "lead", FIRST, SIZE,
+                  SHOTS, C.LEAVE)
+    parsed = _tracker().parse_seeds(two["text"], SHOTS)
+    assert parsed == {1: [(5, (1.0, 1.0, 50.0, 50.0)), (20, (600.0, 80.0, 300.0, 500.0))]}, parsed
 
 
 def none_outlined_needs_a_choice():
     _raises(lambda: C.seeds(_answers(), "lead", FIRST, SIZE, SHOTS, None), "say what")
     _raises(lambda: C.seeds(_answers(), "lead", FIRST, SIZE, SHOTS, ""), "say what")
     left = C.seeds(_answers(), "lead", FIRST, SIZE, SHOTS, C.LEAVE)
-    assert left["text"] == "frame 20: 600, 80, 300, 500" and left["shots"][1]["seed"] is None, left["text"]
+    assert left["text"] == "frame 20: 600, 80, 300, 500\nframe 20: 100, 50, 200, 600 other" and left["shots"][1]["seed"] is None, left["text"]
     assert "does not say lead is not in the shot" in left["shots"][1]["why"] and left["none_outlined_means"] == C.NONE_OUTLINED_MEANS[C.LEAVE]
     emptied = C.seeds(_answers(), "lead", FIRST, SIZE, SHOTS, C.EMPTY)
     assert emptied["shots"][1]["seed"] == "frame 70: none", emptied["shots"][1]
@@ -265,15 +281,17 @@ def a_box_is_used_before_none_outlined():
     out = C.seeds(lines, "lead", FIRST, SIZE, SHOTS, C.EMPTY)
     assert out["text"] == "frame 20: 600, 80, 300, 500", f"a later `none of the outlined people` emptied a shot the subject is in: {out['text']!r}"
     assert [u["frame"] for u in out["unused"]] == [FIRST + 35] and "not wrong, only not used" in out["unused"][0]["why"], out["unused"]
-    # two boxes in one shot: the later in the file is the one seed, and the other is named
+    # two boxes in one shot: BOTH are seeds, in frame order, whatever their order in the file (2026-10-23, every owner box is
+    # a seed on its frame; until then the later in the file was the one seed and the other was listed unused)
     two = [C.entry("lead", FIRST + 5, C.HERE, by="a", box=[1, 1, 50, 50], size=SIZE, table="t.json", at="2026-01-01T00:00:00Z"),
            C.entry("lead", FIRST + 30, C.HERE, by="a", box=[2, 2, 60, 60], size=SIZE, table="t.json", at="2026-01-02T00:00:00Z")]
-    out = C.seeds(two, "lead", FIRST, SIZE, SHOTS, C.LEAVE)
-    assert out["text"] == "frame 30: 2, 2, 60, 60" and [u["frame"] for u in out["unused"]] == [FIRST + 5], out
-    # "later" is the file's order and nothing else: the same two lines the other way round, the later LINE carrying
-    # the earlier time, and it is the later line that is used
-    out = C.seeds(list(reversed(two)), "lead", FIRST, SIZE, SHOTS, C.LEAVE)
-    assert out["text"] == "frame 5: 1, 1, 50, 50" and [u["frame"] for u in out["unused"]] == [FIRST + 30], f"sorted on a typed time: {out['text']!r}"
+    for given in (two, list(reversed(two))):
+        out = C.seeds(given, "lead", FIRST, SIZE, SHOTS, C.LEAVE)
+        assert out["text"] == "frame 5: 1, 1, 50, 50\nframe 30: 2, 2, 60, 60" and not out["unused"], out
+        assert [x["from_frame"] for x in out["shots"][0]["seeds"]] == [FIRST + 5, FIRST + 30] and out["shots"][0]["seed"] == out["text"], out["shots"][0]
+    # a `none of the outlined people` beside two boxes is named as unused, and no `none` line is written beside them
+    out = C.seeds(two + [C.entry("lead", FIRST + 35, C.NONE_OUTLINED, by="a")], "lead", FIRST, SIZE, SHOTS, C.EMPTY)
+    assert out["text"] == "frame 5: 1, 1, 50, 50\nframe 30: 2, 2, 60, 60" and [u["frame"] for u in out["unused"]] == [FIRST + 35], out
 
 
 def another_picture_shape_is_refused():
@@ -297,13 +315,79 @@ def an_answer_outside_the_load_is_not_moved():
     assert holed["inside_the_load_in_no_shot"] == [FIRST + 15] and holed["text"] == "" and not holed["outside_this_load"], holed
 
 
+def a_drawn_box_is_entered_as_a_box_line():
+    """`box` (2026-10-23): a box the owner drew on a sheet becomes one `here` line, which `seeds` reads like any box."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        cast, sheet = root / "cast.jsonl", root / "2026-10-23_4647_who_is_who_owner.webp"
+        sheet.write_bytes(b"RIFF....WEBP")
+        C.append(cast, _answers())
+        lines = C.drawn(C.read(cast), "second", [(FIRST + 25, (500.0, 180.0, 64.0, 72.0)), (FIRST + 8, (480.0, 170.0, 60.0, 70.0))],
+                        sheet, "the owner, in the terminal; entered by a lead", C.HEAD)
+        C.append(cast, lines)
+        # a box round her arm where her head is hidden: kept as a body box
+        C.append(cast, C.drawn(C.read(cast), "second", [(FIRST + 30, (440.0, 290.0, 40.0, 70.0))], sheet, "the owner, in the terminal", C.BODY))
+        back = [x for x in C.read(cast) if x["subject"] == "second" and x["answer"] == C.HERE]
+        assert [(x["frame"], x["box"], x["size"], x["table"], x.get("encloses"), x.get("drawn")) for x in back] == [
+            (FIRST + 25, [500.0, 180.0, 64.0, 72.0], SIZE, str(sheet), C.HEAD, C.APPROXIMATE),
+            (FIRST + 8, [480.0, 170.0, 60.0, 70.0], SIZE, str(sheet), C.HEAD, C.APPROXIMATE),
+            (FIRST + 30, [440.0, 290.0, 40.0, 70.0], SIZE, str(sheet), C.BODY, C.APPROXIMATE)], back
+        assert all(str(sheet) in x["by"] and x["by"].startswith("the owner, in the terminal") for x in back), back
+        # a line from a tile says nothing of what its box encloses, and is written as it always was
+        assert all("encloses" not in json.loads(t) and "drawn" not in json.loads(t) for t in cast.read_text().splitlines() if '"second"' not in t), \
+            "a tile's line gained `encloses` or `drawn`"
+        # read by `seeds` as any box: every one a seed of the shot, in frame order, at the load's scale; the body box marked so,
+        # and read by the tracker's own parser as one
+        out = C.seeds(C.read(cast), "second", FIRST, [512, 384], SHOTS, C.LEAVE)
+        assert out["text"] == "frame 8: 240, 85, 30, 35 drawn\nframe 25: 250, 90, 32, 36 drawn\nframe 30: 220, 145, 20, 35 drawn body", out["text"]
+        parsed = _tracker().parse_seeds(out["text"], SHOTS)
+        assert parsed == {1: [(8, (240.0, 85.0, 30.0, 35.0), "drawn"), (25, (250.0, 90.0, 32.0, 36.0), "drawn"),
+                              (30, (220.0, 145.0, 20.0, 35.0), "drawn", "body")]}, parsed
+        # refused in words, and nothing written: no sheet, not a picture, no box, a frame twice, a subject the file does not
+        # know, a box off the picture, a frame with a standing box, a file of two picture sizes
+        before = cast.read_text()
+        text = root / "notes.txt"
+        text.write_text("x")
+        for args, words in ((("second", [(FIRST, (1, 1, 5, 5))], root / "gone.webp", "o", C.HEAD), ("is not a file",)),
+                            (("second", [(FIRST, (1, 1, 5, 5))], text, "o", C.HEAD), ("is not a picture",)),
+                            (("second", [], sheet, "o", C.HEAD), ("no box given",)),
+                            (("second", [(FIRST + 1, (1, 1, 5, 5)), (FIRST + 1, (2, 2, 5, 5))], sheet, "o", C.HEAD), ("given twice",)),
+                            (("secnd", [(FIRST, (1, 1, 5, 5))], sheet, "o", C.HEAD), ("no line of the file names `secnd`",)),
+                            (("second", [(FIRST + 2, (1000, 1, 50, 5))], sheet, "o", C.HEAD), ("is not inside a 1024x768 picture",)),
+                            (("second", [(FIRST + 25, (1, 1, 5, 5))], sheet, "o", C.HEAD), ("already has a standing box", "withdraw it first")),
+                            (("second", [(FIRST + 3, (1, 1, 5, 5))], sheet, " ", C.HEAD), ("says who drew it",)),
+                            (("second", [(FIRST + 3, (1, 1, 5, 5))], sheet, "o", None), ("say what the drawn box encloses",)),
+                            (("second", [(FIRST + 3, (1, 1, 5, 5))], sheet, "o", "arm"), ("say what the drawn box encloses",))):
+            _raises(lambda: C.drawn(C.read(cast), *args), *words)
+        mixed = C.read(cast) + [C.entry("lead", 9000, C.HERE, by="a", box=[1, 1, 5, 5], size=[1344, 768], table="t.json")]
+        _raises(lambda: C.drawn(mixed, "second", [(FIRST + 3, (1, 1, 5, 5))], sheet, "o", C.BODY), "2 picture size(s)")
+        _raises(lambda: C.entry("lead", 5, C.NONE_OUTLINED, by="a", encloses=C.BODY), "`encloses` is one of")
+        _raises(lambda: C.entry("lead", 5, C.HERE, by="a", box=[1, 1, 5, 5], size=SIZE, table="t", drawn="exact"), "`drawn` is `approximate`")
+        assert cast.read_text() == before, "a refused box wrote something"
+        # the command itself: one line a box, and a refusal in the tool's words with no traceback
+        tool = [sys.executable, str(HERE / "cast_file.py"), "box", "--cast", str(cast), "--subject", "second", "--sheet", str(sheet),
+                "--by", "the owner, in the terminal"]
+        done = subprocess.run(tool + ["--encloses", "body", "--box", f"{FIRST + 31}:10,20,30,40"], capture_output=True, text=True)
+        assert done.returncode == 0 and json.loads(done.stdout)["frame"] == FIRST + 31 and json.loads(done.stdout)["encloses"] == "body" \
+            and json.loads(done.stdout)["drawn"] == "approximate", (done.stdout, done.stderr)
+        helped = subprocess.run([sys.executable, str(HERE / "cast_file.py"), "box", "--help"], capture_output=True, text=True).stdout
+        assert "APPROXIMATE" in subprocess.run([sys.executable, str(HERE / "cast_file.py"), "--help"], capture_output=True, text=True).stdout \
+            and "roughly" in helped, "the help does not say a drawn box is approximate"
+        for extra, words in ((["--encloses", "head", "--box", f"{FIRST + 31}:10,20,30,40"], "already has a standing box"),
+                             (["--encloses", "head", "--box", "40:1,2,3"], "write FRAME:LEFT,TOP,WIDTH,HEIGHT"),
+                             (["--box", f"{FIRST + 32}:10,20,30,40"], "--encloses"),
+                             (["--encloses", "arm", "--box", f"{FIRST + 32}:10,20,30,40"], "invalid choice")):
+            done = subprocess.run(tool + extra, capture_output=True, text=True)
+            assert done.returncode != 0 and words in done.stderr and "Traceback" not in done.stderr, (done.returncode, done.stderr)
+
+
 def main() -> int:
     print("bench/check_cast_file.py\n")
     for fn in (two_writers_lose_nothing, a_cut_short_last_line_stops_an_append, a_line_that_cannot_be_read_is_named,
                a_tile_is_answered_by_naming_its_people, a_tile_is_stored_whole_or_not_at_all,
                a_tile_that_does_not_show_everybody_is_refused, the_latest_line_for_a_frame_stands, a_standing_box_is_not_passed_over,
                seeds_are_read_by_the_trackers_own_parser, none_outlined_needs_a_choice, a_box_is_used_before_none_outlined,
-               another_picture_shape_is_refused, an_answer_outside_the_load_is_not_moved):
+               another_picture_shape_is_refused, an_answer_outside_the_load_is_not_moved, a_drawn_box_is_entered_as_a_box_line):
         case(fn.__name__, fn)
     return finish()
 

@@ -18,11 +18,12 @@ builder's own `check_job`, and a load's to `masked_job.loads_of`, so a file the 
    outside the shot, or another subject's, seeds nothing. THE SEEDED ARE TRACKED FIRST, whatever the plan's order,
    and the note says the seed decides and the job's `pick` does not; a person's `order` on the shot is still over
    that.
-3b. **A shot the tracker cuts takes a seed a cut** (`--seed-cuts-of JOB.json=TABLE.json`). With no cuts handed in a
-   shot holding three boxes gets ONE seed, the latest in the cast file, and the note names the boxes not used and
-   the flag (2026-10-13, 6105-6394: six boxes, one passed, a frame in a fade, the subject held on a small part of
-   the shot). With the tracker's cuts read from an earlier preview's table, each cut that holds a box gets its
-   own, the note says which table, and the job carries the cuts. A job file of other frames, a table of another
+3b. **Every box seeds its tracker, and a shot the tracker cuts may still be handed its cuts** (2026-10-23, the owner's
+   go: every owner box is a seed on its frame). A shot holding three boxes gets THREE seeds, in frame order, with or
+   without the cuts, and the note says every box is a seed and names none as unused (until then it took the latest in
+   the cast file and named the rest: on 1419 the box on 1423 went unused). With the tracker's cuts read from an
+   earlier preview's table (`--seed-cuts-of JOB.json=TABLE.json`), the note says which table and how many cuts hold a
+   box, and the job carries the cuts. A job file of other frames, a table of another
    length or with a gap in its cuts, a file that is not there and the flag without `--cast` are refused. After the
    queue the cuts the new preview's tracker found are held to the table's: other cuts are a refusal that says the
    preview is made and not to be built on.
@@ -362,7 +363,8 @@ def a_box_in_the_cast_file_seeds() -> str:
                  cast_file.entry("c", 110, cast_file.NONE_OUTLINED, by="a person", at="t3")]
         subjects = {s["label"]: s for s in made.preview(cast_lines=lines)["job"]["subjects"]}
         # a's box on source frame 125 is frame 25 of the load, at twice the size it was read at
-        assert subjects["a"].get("seeds") == "frame 25: 20, 40, 60, 80" and "pick_at" not in subjects["a"], subjects["a"]
+        # the box, and how many other subjects the job holds (b and c), for the tracker's box-prompt refusal (2026-10-23)
+        assert subjects["a"].get("seeds") == "frame 25: 20, 40, 60, 80\njob: 2 other subjects" and "pick_at" not in subjects["a"], subjects["a"]
         # b's box is in another shot; c's answer says only that the outlined people are not c
         assert "seeds" not in subjects["b"] and subjects["b"]["pick_at"] == 120, subjects["b"]
         assert "seeds" not in subjects["c"] and "pick_at" in subjects["c"], subjects["c"]
@@ -396,27 +398,33 @@ def a_shot_the_tracker_cuts_takes_a_seed_a_cut() -> str:
         w, h = cfg.MASKED_JOB_CANVAS
         box = lambda frame, x, at: cast_file.entry("a", frame, cast_file.HERE, by="a person", box=[x, 20, 30, 40], size=[w, h], table="t.json", at=at)   # noqa: E731
         lines = [box(105, 10, "t1"), box(150, 30, "t2"), box(125, 20, "t3")]        # in the file's order: 125 is the latest
-        a_of = lambda job: next(x for x in job["job"]["subjects"] if x["label"] == "a")   # noqa: E731
-        # AS IT WAS: one seed a record shot, the latest in the file, whatever the tracker's cuts
+        # a subject's seeds as the frame lines alone (the `job: N other subjects` line rides beside them, 2026-10-23)
+        a_of = lambda job: {**next(x for x in job["job"]["subjects"] if x["label"] == "a"),   # noqa: E731
+                            "seeds": "\n".join(l for l in next(x for x in job["job"]["subjects"] if x["label"] == "a").get("seeds", "").splitlines()
+                                                if l.startswith("frame"))}
+        every = "frame 5: 10, 20, 30, 40\nframe 25: 20, 20, 30, 40\nframe 50: 30, 20, 30, 40"
+        # EVERY BOX, with no cuts handed in: three seeds in frame order, none named as unused (until 2026-10-23 the shot took
+        # the one latest in the file, 125, and named 105 and 150 as not used)
         one = made.preview(cast_lines=lines)
-        assert a_of(one)["seeds"] == "frame 25: 20, 20, 30, 40", a_of(one)["seeds"]
-        assert "SEEDED ON SOURCE FRAME(S) 125." in one["job"]["note"] and "THE OWNER'S BOX(ES) ON 105, 150 ARE NOT USED" in one["job"]["note"] \
-            and "--seed-cuts-of" in one["job"]["note"] and "the order they were clicked in" in one["job"]["note"], one["job"]["note"]
+        assert a_of(one)["seeds"] == every, a_of(one)["seeds"]
+        assert "SEEDED ON SOURCE FRAME(S) 105, 125, 150: EVERY BOX OF THE OWNER'S INSIDE THE SHOT is a seed" in one["job"]["note"] \
+            and "NOT USED" not in one["job"]["note"] and "the order they were clicked in" not in one["job"]["note"], one["job"]["note"]
+        single = made.preview(cast_lines=[box(125, 20, "t3")])
+        assert a_of(single)["seeds"] == "frame 25: 20, 20, 30, 40" and "EVERY BOX" not in single["job"]["note"], single["job"]["note"]
         # the tracker's three cuts, each holding one box: three seeds
         three = {"read_from": "T.json", "the_preview": "shot_c_0100", "cuts": [[0, 20], [20, 40], [40, 60]]}
         job = made.preview(cast_lines=lines, seed_cuts=three)
         assert a_of(job)["seeds"] == "frame 5: 10, 20, 30, 40\nframe 25: 20, 20, 30, 40\nframe 50: 30, 20, 30, 40", a_of(job)["seeds"]
         graphs.check_job(job["job"])
         note = job["job"]["note"]
-        assert "THE TRACKER'S CUTS OF THIS SHOT, 3 of them, WERE READ FROM T.json" in note and "SEEDED ON SOURCE FRAME(S) 105, 125, 150, one in each of 3 of the tracker's 3 cuts" in note \
-            and "ARE NOT USED" not in note, note
-        # two boxes in one cut: the cut takes one, the other is named as not used, and the flag is not offered again
+        assert "THE TRACKER'S CUTS OF THIS SHOT, 3 of them, WERE READ FROM T.json" in note and "SEEDED ON SOURCE FRAME(S) 105, 125, 150, in 3 of the tracker's 3 cuts" in note \
+            and "NOT USED" not in note, note
+        # two boxes in one cut: both are seeds, as without the cuts
         two = made.preview(cast_lines=lines, seed_cuts={"read_from": "T.json", "the_preview": "p", "cuts": [[0, 40], [40, 60]]})
-        assert a_of(two)["seeds"] == "frame 25: 20, 20, 30, 40\nframe 50: 30, 20, 30, 40" and "BOX(ES) ON 105 ARE NOT USED" in two["job"]["note"] \
-            and "If the tracker cuts this shot" not in two["job"]["note"], two["job"]["note"]
+        assert a_of(two)["seeds"] == every and "NOT USED" not in two["job"]["note"] and "in 2 of the tracker's 2 cuts" in two["job"]["note"], two["job"]["note"]
         # a cut with no box gets none, and a subject with no box is picked as ever
         gap = made.preview(cast_lines=lines, seed_cuts={"read_from": "T.json", "the_preview": "p", "cuts": [[0, 3], [3, 40], [40, 60]]})
-        assert a_of(gap)["seeds"].count("frame") == 2 and "one in each of 2 of the tracker's 3 cuts" in gap["job"]["note"], gap["job"]["note"]
+        assert a_of(gap)["seeds"] == every and "in 2 of the tracker's 3 cuts" in gap["job"]["note"], gap["job"]["note"]
         assert "seeds" not in next(x for x in job["job"]["subjects"] if x["label"] == "b")
         # THE TABLE AND ITS JOB FILE, as handed in
         shot = stl.shot_of(made.shots, 100)
@@ -2026,6 +2034,17 @@ def the_defaults_this_load_carries() -> str:
         assert ht_off["sam_head_track"]["on"] is False and "HEAD TRACK IS OFF" in ht_off["note"], ht_off["sam_head_track"]
         assert graphs.preview(ht_off)["1005"]["inputs"]["track_head"] is False, "a preview with head track off still runs track_head"
         refused(lambda: made.preview(no_head_track="  "), "--no-head-track takes the reason")
+        # THE HEAD MODE (the owner, 2026-10-23): main's span head track by default, no line in any seeds text; per stretch only
+        # on `--head-per-stretch WHY`, which puts `head: per stretch: WHY` in every subject's seeds text and says so
+        plain = made.preview()["job"]
+        assert plain["sam_head_mode"]["mode"] == "span" and not any("head:" in str(x.get("seeds") or "") for x in plain["subjects"]), plain["sam_head_mode"]
+        per = made.preview(head_per_stretch="the owner, to test 1419's lost head")["job"]
+        assert per["sam_head_mode"]["mode"] == "per stretch" and "HEAD IS TRACKED PER STRETCH" in per["note"], per["sam_head_mode"]
+        assert all(str(x.get("seeds") or "").splitlines()[-1] == "head: per stretch: the owner, to test 1419's lost head" for x in per["subjects"]), \
+            [x.get("seeds") for x in per["subjects"]]
+        assert graphs.preview(per)["1005"]["inputs"]["seeds"].endswith("head: per stretch: the owner, to test 1419's lost head"), \
+            "the preview's graph does not carry the head line to the tracker"
+        refused(lambda: made.preview(head_per_stretch="  "), "--head-per-stretch takes the reason")
         refused(lambda: made.load(no_head_track="  "), "--no-head-track takes the reason")
         d_ht_off = made.load(no_head_track="comparison against un-tracked head tube")
         assert d_ht_off["job"]["sam_head_track"]["on"] is False and "HEAD TRACK IS OFF" in d_ht_off["job"]["note"]

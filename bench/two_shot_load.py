@@ -116,8 +116,12 @@ WHOLE_FRAME_WHY = ("a load of two shots holds a cut, and the node renders a zoom
 REFERENCES = "Video/{video}/references/{subject}_{first:04d}_{last:04d}_two_shots"
 #: The keys of a shot table under which every whole number is a frame of the table, at any depth below them.
 #: Read from `shot_table.py::build`; `bench/check_two_shot_load.py` holds a table of every one of them by hand.
+#: `kept_on` (2026-10-23): a shot seeded from several boxes lists, under `seeds`, the [first, last] runs each box's
+#: track was kept on (`subject_track.py::_seed`); each seed's `frame`, `first_frame` and `last_frame` are moved already.
+#: `seed_tracks_disagree_on` (2026-10-23): the [first, last] runs such a shot left empty where two boxes' tracks held
+#: different people.
 FRAME_KEYS = ("first_frame", "last_frame", "shown_frame", "seed_frame", "frame", "lost_from_frame", "frames_without_subject",
-              "gallery_frames", "frames_on_others", "cuts", "pick_frame")
+              "gallery_frames", "frames_on_others", "cuts", "pick_frame", "kept_on", "seed_tracks_disagree_on")
 #: What two tables or two pose tables of one job must agree on to be laid end to end.
 TABLE_SAME, POSE_SAME = ("table", "version", "size"), ("schema", "image_size")
 

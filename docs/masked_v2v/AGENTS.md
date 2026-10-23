@@ -168,10 +168,29 @@ pass 2, only the owner's own words among them carry (§1).
    - Reads: the source (`--source`, required); the replacement(s) it is made for (`--for`, required where `laid.jsonl` lays
      anything on the shot) and `laid.jsonl`, against which the source is held (`bench/shot_to_load.py::check_pass2_source`,
      §1); `shots.json` (who is on the shot, its `order`, and the frame an
-     unseeded tracker picks on, `bench/shot_to_load.py::pick_of`); the cast file (`--cast`): the shot takes one seed, the
-     owner's box latest in the file among those inside it, and the other boxes are listed as unused
-     (`bench/shot_to_load.py::seed_of`, `bench/cast_file.py::seeds`). With `--seed-cuts-of JOB.json=TABLE.json` (the
-     shots table an earlier preview of the same frames saved), each of the tracker's cuts takes its own
+     unseeded tracker picks on, `bench/shot_to_load.py::pick_of`); the cast file (`--cast`): every owner box inside the
+     shot is a seed on its frame (`bench/shot_to_load.py::seed_of`, `bench/cast_file.py::seeds`; boxes drawn on a sheet
+     enter the file by `bench/cast_file.py box`, which takes `--encloses head|body`: a box round only her arm or body,
+     where her head is hidden, seeds her person track and never her head track; every drawn box is recorded
+     `drawn: approximate`, the owner's word of 2026-10-23, and names roughly WHICH person, never an outline:
+     `subject_track.py::name_drawn` takes the one person lying mostly inside it, refuses a box across two people or on
+     another tracked subject, and only where nobody qualifies asks SAM 3's box prompt, unclipped). The other subjects'
+     boxes on each boxed frame ride along as `other` lines, so even the first tracker of a job knows who is somebody
+     else there; a box-prompt result is taken only as one person a detection found too, else refused as doubtful
+     (`subject_track.py::prompt_seed`). A tile's box is named on its frame (`subject_track.py::name_seed`:
+     the detection whose box agrees, else the one whose mask overlaps the box, else what SAM 3 segments inside it, never
+     the rectangle), tracks from each out to its neighbours' frames and keeps, frame by frame, the track its own score
+     holds best (`subject_track.py::merge_tracks`), switching only to a mask continuous with the last kept and leaving
+     empty, as `seed_tracks_disagree_on`, frames where two boxes' tracks hold different people; the shot table's `seeds`
+     says what each box took, how, the frames it was kept on and why one was refused. The head track is seeded and
+     main's span head track by default, exactly as before (from the shot's first head box or its own seed, never a top
+     third from a body box); per stretch only on `preview --head-per-stretch WHY` (the owner, 2026-10-23: an opt-in, so no
+     saved or rendered shot can lose a head), which seeds and tracks the head inside each stretch the person track holds
+     her and fills a stretch with none from main's span head; the shot table's `head_mode` says which ran
+     (`subject_track.py::_track_head_span`, `_span_head`). A box prompt is
+     refused as doubtful on a frame where the tracker knows none of the job's other subjects (`job: N other subjects`,
+     written by `bench/shot_to_load.py preview`). With `--seed-cuts-of JOB.json=TABLE.json` (the shots table an
+     earlier preview of the same frames saved) the note counts the boxes by the tracker's cuts
      (`bench/shot_to_load.py::cuts_of_table`). Without `--cast` the tracker picks the largest person
      (`bench/shot_to_load.py::PICK`); `plan.json` (each subject's parts and still); `workflows/h3_config.py` (the
      canvas, SAM 3.1's memory selection, the head track).

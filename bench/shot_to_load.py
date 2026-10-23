@@ -418,7 +418,9 @@ def cuts_of_table(pair: str, shot: dict) -> dict:
     another long cut) one box was passed, the latest in the cast file and a frame inside a fade to black; every
     other cut was matched against that look and the subject was held on a small part of the shot the unseeded
     preview had held somebody on. With the cuts handed in, each cut that holds an answer gets its own seed. A named
-    file, handed in, and the job says it was read; the job file beside it is how the table's frames are known."""
+    file, handed in, and the job says it was read; the job file beside it is how the table's frames are known.
+    Since 2026-10-23 every box is a seed on its frame whatever the cuts (`cast_file.seeds`), so the cuts change only
+    how the note counts them and the check after the queue that the new preview's tracker cut the shot the same way."""
     job_file, _, table_file = pair.partition("=")
     if not job_file.strip() or not table_file.strip():
         raise Refused(f"--seed-cuts-of {pair!r} is not `JOB.json=TABLE.json`: the earlier preview's job file, and the shots table it saved for a subject")
@@ -455,7 +457,7 @@ def seed_of(cast_lines: list[dict] | None, label: str, shot: dict, canvas, cuts=
 
 def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by: str, cast_lines=None, now: str = "", name: str = "",
                 ask: dict | None = None, seed_cuts: dict | None = None, no_memory_selection: str | None = None,
-                no_head_track: str | None = None) -> dict:
+                no_head_track: str | None = None, head_per_stretch: str | None = None) -> dict:
     """The job file of one shot's preview: every subject the record says is in it, a pose pass for each. `name` is
     the preview's, `shot_c_<first>` when left out; a preview made again is handed its lettered name.
 
@@ -480,6 +482,14 @@ def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by
         raise Refused("--no-memory-selection takes the reason in words: memory selection is the chain's default, and the word is kept")
     if no_head_track is not None and not " ".join(str(no_head_track).split()):
         raise Refused("--no-head-track takes the reason in words: the SAM 3.1 head track is the chain's default, and the word is kept")
+    if head_per_stretch is not None and not " ".join(str(head_per_stretch).split()):
+        raise Refused("--head-per-stretch takes the reason in words: the head track is main's span head track by default (the owner, "
+                      "2026-10-23), and a preview that tracks the head per stretch says why")
+    # which head track the trackers run (`subject_track.py::parse_head_mode`): main's span head track, the default, or per
+    # stretch on a person's word; the line rides in every subject's seeds text, which the node already reads
+    head_mode = ({"mode": "per stretch", "why": " ".join(str(head_per_stretch).split()), "said_by": by, "at": now}
+                 if head_per_stretch is not None else
+                 {"mode": "span", "said_by": "the chain's default", "why": "main's span head track (the owner, 2026-10-23)"})
     memory = ({"on": False, "why": " ".join(str(no_memory_selection).split()), "said_by": by, "at": now} if no_memory_selection is not None else
               {"on": bool(h3_config.MASKED_JOB_SAM_CORRECTIONS["memory_selection"]), "said_by": "the chain's default",
                "why": "h3_config.MASKED_JOB_SAM_CORRECTIONS (the owner's word, 2026-10-17)"})
@@ -505,22 +515,24 @@ def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by
         one = {"label": label, "pick": PICK, "parts": list(p["parts"]), "still": p["still"], "track_head": head_track["on"]}
         seed = seeds[label]
         if seed is not None:
-            one["seeds"] = seed["text"]
+            # how many other subjects the job holds, so this tracker refuses a box prompt where it knows none of them on a
+            # frame (`subject_track.py::parse_job_others`; the first tracker of a job is given no earlier tracker's mask)
+            others_here = len(present) - 1
+            one["seeds"] = seed["text"] + (f"\njob: {others_here} other subject{'s' if others_here != 1 else ''}" if others_here else "")
             # the cast line's own words, with no hole where one of its fields is empty: a line entered from a page answer
             # with no time on it reads "on the page at  (" in the file, and that is said here as the file's
-            why = "; ".join(r["why"] for r in seed["shots"] if r["seed"])
+            rows = [r for r in seed["shots"] if r["seeds"]]
+            why = "; ".join(dict.fromkeys(x["why"] for r in rows for x in r["seeds"]))
             holed = " ".join(why.split()) != why
-            used = [r["from_frame"] for r in seed["shots"] if r["seed"]]
-            unused = sorted(u["frame"] for u in seed["unused"] if u["answer"] == "here")
+            used = [x["from_frame"] for r in rows for x in r["seeds"]]
             said.append(f"{label}: SEEDED from the cast file ({' '.join(why.split())}"
                         + ("; a field of that line is EMPTY in the cast file, as it reads there" if holed else "")
                         + f"): THE SEED DECIDES who is tracked; `pick: {PICK}` stands in the job file only because the builder asks one of every "
                           f"subject, and decides nothing here. SEEDED ON SOURCE FRAME(S) {', '.join(map(str, used))}"
-                        + (f", one in each of {len(used)} of the tracker's {len(seed['shots'])} cuts" if seed_cuts else "")
-                        + (f". THE OWNER'S BOX(ES) ON {', '.join(map(str, unused))} ARE NOT USED: a cut takes one seed, and of several in a cut the one latest "
-                           "in the cast file is taken, which is the order they were clicked in and no judgement of the picture"
-                           + ("" if seed_cuts else ". If the tracker cuts this shot, each of its cuts can take its own: --seed-cuts-of, with the table this preview saves")
-                           if unused else ""))
+                        + (f", in {len(rows)} of the tracker's {len(seed['shots'])} cuts" if seed_cuts else "")
+                        + (": EVERY BOX OF THE OWNER'S INSIDE THE SHOT is a seed on its frame, and the tracker keeps, frame by frame, the track its "
+                           "own score holds best (subject_track.py::merge_tracks; what each box took, how, and the frames it was kept on are in "
+                           "this preview's shot table, `seeds`)" if len(used) > 1 else ""))
         else:
             one["pick_at"], where = pick_of(shot, label)
             said.append(f"{label}: the {PICK} person on frame {one['pick_at']}, {where}"
@@ -538,11 +550,17 @@ def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by
             f"preview, and a wrong pick is corrected in the shots record (the shot's `order`, or a frame for the subject) and the preview made again."
             + (f" THIS IS A PREVIEW MADE AGAIN: {name}, after {base} or a letter before it, which stand as they were made and are not read here." if name != base else "")
             + (f" SAM 3.1'S MEMORY SELECTION IS OFF in this preview's trackers, on {by}'s word: {memory['why']}." if not memory["on"] else "")
-            + (f" THE SAM 3.1 HEAD TRACK IS OFF in this preview's trackers, on {by}'s word: {head_track['why']}." if not head_track["on"] else ""))
+            + (f" THE SAM 3.1 HEAD TRACK IS OFF in this preview's trackers, on {by}'s word: {head_track['why']}." if not head_track["on"] else "")
+            + (f" THE HEAD IS TRACKED PER STRETCH in this preview's trackers (`--head-per-stretch`), on {by}'s word: {head_mode['why']}."
+               if head_mode["mode"] == "per stretch" else ""))
+    if head_mode["mode"] == "per stretch":
+        line = f"head: per stretch: {head_mode['why']}"
+        for one in subjects:
+            one["seeds"] = (one["seeds"] + "\n" if one.get("seeds") else "") + line
     return {"job": {"name": name, "note": note, "source": source, "first": shot["first"], "frames": frames, "canvas": canvas,
                     **({"source_frames": int(shots["source_frames"])} if shots.get("source_frames") is not None else {}),
                     "output": OUTPUT_KEY.format(video=video, session=by), "subjects": subjects, "left_out": [], "texts": {},
-                    "sam_memory_selection": memory, "sam_head_track": head_track}, "defaults": {}, "loads": []}
+                    "sam_memory_selection": memory, "sam_head_track": head_track, "sam_head_mode": head_mode}, "defaults": {}, "loads": []}
 
 
 def keep_outs_of(p: dict, subject: str, preview: dict, people: list[str], video: str, output: Path, preview_files) -> tuple[dict | None, str]:
@@ -3542,7 +3560,7 @@ def step_preview(a, world) -> None:
         raise Refused("--seed-cuts-of goes with --cast: the cuts say where a seed from the cast file may go")
     job = preview_job(shots, plan, shot, video, str(source), a.by, cast, load_chain.utc_now(), name=name, ask=ask, seed_cuts=seed_cuts,
                       no_memory_selection=getattr(a, "no_memory_selection", None),
-                      no_head_track=getattr(a, "no_head_track", None))
+                      no_head_track=getattr(a, "no_head_track", None), head_per_stretch=getattr(a, "head_per_stretch", None))
     if seed_cuts:
         job["job"]["seed_cuts"] = seed_cuts
     if made_for:
@@ -3559,7 +3577,8 @@ def step_preview(a, world) -> None:
         raise Refused(f"{out} exists: a preview of this shot was made under that name. A preview made again (a pick corrected in the shots record, "
                       "or a box now in the cast file) takes --remake, which gives it the next free letter and leaves the earlier one as it is")
     print(f"{job['job']['name']}: source frames {shot['first']}-{shot['last']}; " + "; ".join(
-        f"{s['label']} " + ("seeded from the cast (its `pick` decides nothing)" if "seeds" in s else f"picked on {s['pick_at']}") for s in job["job"]["subjects"]))
+        f"{s['label']} " + ("seeded from the cast (its `pick` decides nothing)" if "frame" in str(s.get("seeds") or "") else f"picked on {s['pick_at']}")
+        for s in job["job"]["subjects"]))
     ht_cfg = job["job"]["sam_head_track"]
     print(f"SAM 3.1 head track: {'on' if ht_cfg['on'] else 'OFF'} [{ht_cfg['said_by']}: {ht_cfg['why']}]")
     print(job["job"]["note"])
@@ -4429,6 +4448,10 @@ def main() -> int:
     sub.choices["preview"].add_argument("--no-memory-selection", metavar="WHY",
                                         help="track with ComfyUI's last-six-frames memory, not SAM 3.1's memory selection (the chain's default); the "
                                              "reason is kept in the preview's job file and named in each load's defaults")
+    sub.choices["preview"].add_argument("--head-per-stretch", metavar="WHY",
+                                        help="track each subject's head per stretch of its person track (the head seeded inside each "
+                                             "stretch, main's span head where a stretch gives none) in place of main's span head track, "
+                                             "the default; the reason is kept in the preview's job file and its trackers' shot tables")
     sub.choices["preview"].add_argument("--no-head-track", metavar="WHY",
                                         help="do not propagate the subject's head with SAM 3.1 (`track_head=False`) in this preview's trackers "
                                              "(the chain's default is `track_head=True`); the reason is kept in the preview's job file and named "

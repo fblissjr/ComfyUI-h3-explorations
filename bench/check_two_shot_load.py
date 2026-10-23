@@ -137,6 +137,12 @@ def a_table(frames: int, shown: int) -> dict:
             "shots": [{"shot": 1, "first_frame": 0, "last_frame": frames - 1, "frames": frames, "shown_frame": shown,
                        "people": [{"person": 1, "box": [1, 2, 3, 4], "has_head": True}],
                        "subject": {"state": "picked", "person": 1, "seed_frame": shown}, "seeded": {"frame": shown, "box": [1.0, 2.0, 3.0, 4.0], "person": 1},
+                       # a shot seeded from several boxes (subject_track.py `_seed`, 2026-10-23): each seed's frames and kept runs
+                       "seeds": [{"frame": shown, "box": [1.0, 2.0, 3.0, 4.0], "refused": False, "overlap": 0.95, "px": 12, "first_frame": 0,
+                                  "last_frame": 6, "kept_on": [[0, 2], [5, 5]]},
+                                 {"frame": 6, "box": [1.0, 2.0, 3.0, 4.0], "refused": True, "overlap": 0.35, "px": None, "first_frame": None,
+                                  "last_frame": None, "kept_on": []}],
+                       "seed_tracks_disagree_on": [[3, 4]],
                        "frames_with_subject": frames - 2, "frames_without_subject": [[3, 4]],
                        "regained": [{"lost_from_frame": 3, "seed_frame": 5, "detections": 2}], "probes_after_a_loss": [{"frame": 4, "detections": 1}],
                        "gallery_frames": [shown], "looks": [{"frame": 6, "people": [{"person": 1, "box": [1, 2, 3, 4]}]}], "frames_on_others": [[7, 8]],
@@ -275,7 +281,13 @@ def tables_laid_end_to_end() -> str:
     late = joined["shots"][1]
     # by hand, every field the tracker numbers by frame, moved on by the first table's 40 frames; and what is not a frame, as it was
     want = {"shot": 2, "first_frame": 40, "last_frame": 89, "frames": 50, "shown_frame": 51, "subject": {"state": "picked", "person": 1, "seed_frame": 51},
-            "seeded": {"frame": 51, "box": [1.0, 2.0, 3.0, 4.0], "person": 1}, "frames_with_subject": 48, "frames_without_subject": [[43, 44]],
+            "seeded": {"frame": 51, "box": [1.0, 2.0, 3.0, 4.0], "person": 1},
+            "seeds": [{"frame": 51, "box": [1.0, 2.0, 3.0, 4.0], "refused": False, "overlap": 0.95, "px": 12, "first_frame": 40, "last_frame": 46,
+                       "kept_on": [[40, 42], [45, 45]]},
+                      {"frame": 46, "box": [1.0, 2.0, 3.0, 4.0], "refused": True, "overlap": 0.35, "px": None, "first_frame": None, "last_frame": None,
+                       "kept_on": []}],
+            "seed_tracks_disagree_on": [[43, 44]],
+            "frames_with_subject": 48, "frames_without_subject": [[43, 44]],
             "regained": [{"lost_from_frame": 43, "seed_frame": 45, "detections": 2}], "probes_after_a_loss": [{"frame": 44, "detections": 1}],
             "gallery_frames": [51], "looks": [{"frame": 46, "people": [{"person": 1, "box": [1, 2, 3, 4]}]}], "frames_on_others": [[47, 48]],
             "people": [{"person": 1, "box": [1, 2, 3, 4], "has_head": True}], "track_score": [0.5] * 50}

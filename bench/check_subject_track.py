@@ -116,6 +116,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+import tempfile
 import types
 from pathlib import Path
 
@@ -1411,10 +1412,12 @@ def check_seeds(problems):
     as_box = lambda p: ", ".join(str(v) for v in st.shot_table._box(boxes[p]))   # noqa: E731
     # parsing: the frame picks the shot; none; and every refusal says which line
     got = st.parse_seeds(f"frame 13: {as_box(2)}\nframe 26: none; frame 2: {as_box(1)}", shots)
-    if got != {2: (13, tuple(float(v) for v in st.shot_table._box(boxes[2]))), 4: (26, None), 1: (2, tuple(float(v) for v in st.shot_table._box(boxes[1])))}:
+    if got != {2: [(13, tuple(float(v) for v in st.shot_table._box(boxes[2])))], 4: [(26, None)], 1: [(2, tuple(float(v) for v in st.shot_table._box(boxes[1])))]}:
         problems.append(f"seeds: three lines should be three shots' seeds, each on its own frame: {got}")
     for name, text in (("not a seed", "shot 2: person 1"), ("a frame the load does not have", "frame 32: none"), ("a box with no area", "frame 3: 4, 4, 0, 9"),
-                       ("two seeds in one shot", "frame 9: none\nframe 10: none"), ("three numbers", "frame 3: 1, 2, 3")):
+                       ("two `none` in one shot", "frame 9: none\nframe 10: none"), ("three numbers", "frame 3: 1, 2, 3"),
+                       ("two boxes on one frame", "frame 9: 1, 1, 5, 5\nframe 9: 2, 2, 5, 5"),
+                       ("`none` beside a box", "frame 9: none\nframe 10: 1, 1, 5, 5")):
         try:
             st.parse_seeds(text, shots)
         except ValueError as exc:
@@ -1454,17 +1457,27 @@ def check_seeds(problems):
             or row["shown_frame"] != 13 or "seeded" not in row["subject"]["why"] or table["shots"][0]["seeded"] is not None \
             or table["shots"][3]["seeded"]["box"] is not None or table["shots"][3]["subject"]["state"] != "absent (seeded)":
         problems.append(f"seeds: the table's rows do not say what was seeded: {row['seeded']}, {row['subject']}")
-    # a box no detection agrees with: the shot is left EMPTY, never the tracker's own guess, and the report gives the
-    # nearest detection's box and overlap so the writer can tell a tighter mask from another person
+    # a box no detection agrees with, and no detection's mask overlaps at SEED_OVERLAPS (three quarters off the person,
+    # 0.14), with no box-prompted segmentation to fall back on: the shot is left EMPTY, never the tracker's own guess, and
+    # the report gives the nearest detection's box and overlap so the writer can tell a tighter mask from another person
     calls["track"].clear()
     x, y, w, h = st.shot_table._box(boxes[0])
+    far = f"{x + 3 * w // 4}, {y}, {w}, {h}"
     off = st.follow(32, cuts, st.PICK_LARGEST, 3, 0.8, detect, sign, track, stride=4, offset=1,
-                    seeds=st.parse_seeds(f"frame 28: {x + w // 2}, {y}, {w}, {h}", shots))
+                    seeds=st.parse_seeds(f"frame 28: {far}", shots))
     last = off.shots[3]
     if st._state(last) != "absent (seed refused)" or last.seed is not None or last.start in off.pieces or any(c[0] == 24 for c in calls["track"] if c[2] == 28):
-        problems.append(f"seeds: a box half off the person must be refused and the shot left empty (plain took it): {st._state(last)}, {calls['track']}")
-    if not (0.2 < last.seeded["overlap"] < st.SEED_AGREES) or last.seeded["nearest_box"] != [x, y, w, h]:
-        problems.append(f"seeds: a refused seed keeps the nearest detection's box and its overlap: {last.seeded}")
+        problems.append(f"seeds: a box three quarters off the person must be refused and the shot left empty (plain took it): {st._state(last)}, {calls['track']}")
+    if not (0.1 < last.seeded["overlap"] < st.SEED_OVERLAPS) or last.seeded["nearest_box"] != [x, y, w, h] or last.seeded["how"] != st.SEED_REFUSED \
+            or "no box-prompted segmentation" not in last.seeded["why"]:
+        problems.append(f"seeds: a refused seed keeps the nearest detection's box and its overlap, and says why: {last.seeded}")
+    # HALF off the person (2026-10-23): its box agrees under the line, and its mask overlaps the box 0.33, at the
+    # mask line or over it: the person is taken, and the record says how
+    half = st.follow(32, cuts, st.PICK_LARGEST, 3, 0.8, detect, sign, track, stride=4, offset=1,
+                     seeds=st.parse_seeds(f"frame 28: {x + w // 2}, {y}, {w}, {h}", shots))
+    if st._state(half.shots[3]) != "taken (seeded)" or half.shots[3].seeded["how"] != st.SEED_BY_OVERLAP or half.shots[3].index != 0 \
+            or abs(half.shots[3].seeded["mask_overlap"] - 0.333) > 0.01:
+        problems.append(f"seeds: a box half on a person is taken by their mask's overlap with it: {half.shots[3].seeded}")
     said = st.report(off, cuts, st.PICK_LARGEST, "person", True, True, 1.0)
     for need in ("SEED REFUSED on load frame 28", f"box {[x, y, w, h]}", "The shot is left empty", "the line is 0.90"):
         if need not in said:
@@ -1472,11 +1485,12 @@ def check_seeds(problems):
     # the line itself: a box that agrees at the line is taken, one just under it is refused
     if abs(st.SEED_AGREES - 0.9) > 1e-9:
         problems.append("seeds: SEED_AGREES moved; read its provenance before changing this check")
-    for shift, taken in ((2, True), (3, False)):       # 40 columns wide: 2 off is 38/42 = 0.905, 3 off is 37/43 = 0.860
+    # since 2026-10-23 the line decides HOW the person is taken: at it, the boxes agree; just under it, the mask's overlap
+    for shift, how in ((2, st.SEED_BY_BOX), (3, st.SEED_BY_OVERLAP)):       # 40 columns wide: 2 off is 38/42 = 0.905, 3 off is 37/43 = 0.860
         near = st.follow(32, cuts, st.PICK_LARGEST, 3, 0.8, detect, sign, track, stride=4, offset=1,
                          seeds=st.parse_seeds(f"frame 28: {x + shift}, {y}, {w}, {h}", shots))
-        if (near.shots[3].seed is not None) != taken:
-            problems.append(f"seeds: a box {shift} columns off a {w}-wide person should be {'taken' if taken else 'refused'}: {near.shots[3].seeded}")
+        if near.shots[3].seed is None or near.shots[3].seeded["how"] != how:
+            problems.append(f"seeds: a box {shift} columns off a {w}-wide person should be taken as {how!r}: {near.shots[3].seeded}")
     # a seed MAY name a person another tracker holds: a person's word outranks a tracker's take, and the shot says so
     held = torch.zeros((32, H, W))
     held[13] = boxes[2]
@@ -1523,14 +1537,14 @@ def check_seeds(problems):
             or not torch.equal(st.assemble(32, H, W, same.pieces), st.assemble(32, H, W, plain.pieces)):
         problems.append("seeds: seeding the picked shot with the rule's own person on the rule's own frame changed the masks")
     # a seed on the picked shot that takes nobody cannot be a reference: the rule's pick stays one, and the report says so
-    for text in ("frame 5: none", f"frame 5: {x + w // 2}, {y}, {w}, {h}"):
+    for text in ("frame 5: none", f"frame 5: {far}"):
         nobody = st.follow(32, cuts, st.PICK_LARGEST, 3, 0.8, detect, sign, track, stride=4, offset=1, seeds=st.parse_seeds(text, shots))
         if nobody.pick_seed != "took nobody" or nobody.shots[0].seed is not None or nobody.pick_frame != 3 \
                 or "THE PICKED SHOT'S SEED TOOK NOBODY" not in st.report(nobody, cuts, st.PICK_LARGEST, "person", True, True, 1.0):
             problems.append(f"seeds: `{text}` on the picked shot must leave it empty, keep the rule's pick as the reference and say so: {nobody.pick_seed}")
     # the tile of a seeded shot prints no likeness of the automatic pass; a seed's own figure is its box's overlap
     labels = [st.tile_label(n, s) for n, s in enumerate(off.shots, 1)] + [st.tile_label(2, got.shots[1]), st.tile_label(4, got.shots[3])]
-    if not labels[3].endswith("box 0.33  absent (seed refused)") or not labels[4].endswith("box 1.00  taken (seeded)") \
+    if not labels[3].endswith("box 0.14  absent (seed refused)") or not labels[4].endswith("box 1.00  taken (seeded)") \
             or not labels[5].endswith("frames 24-31  absent (seeded)"):
         problems.append(f"seeds: a seeded tile's header carries the automatic pass's score, or not the seed's own overlap: {labels[3:]}")
     row = st.shot_table.build(off, detect, st.assemble(32, H, W, off.pieces), state=st._state, phrase="person", pick=st.PICK_LARGEST,
@@ -2118,11 +2132,891 @@ def check_track_head(problems: list[str]) -> None:
         problems.append(f"correction to none did not clear shot 2's head_pieces: {sorted(cleared.head_pieces)}")
 
 
+def _boxes_world(n: int = 30, strength: dict | None = None):
+    """One shot of `n` frames: the subject (person 0, box A) and another (person 1, box B) on every frame.
+
+    The tracker carries its seed mask over the whole call, TAGGED with the seed frame (one pixel in row 0 at that
+    column) so a frame shows which seed's track was kept, and gives the tracker's own score `strength[seed]` less a
+    tenth for each frame away from the seed (None on the seed frame, as the node writes it) through `track.scored`.
+    Heads are the top ten rows of a mask."""
+    subject, other = _box(40, 10, 80, 60), _box(0, 20, 20, 50)
+    sigs = [(subject, torch.tensor([1.0, 0.0, 0.0])), (other, torch.tensor([0.0, 1.0, 0.0]))]
+    strength = strength or {}
+    calls = {"track": [], "scored": [], "kept": [], "head": []}
+
+    def detect(_f: int):
+        return torch.stack([other, subject], dim=0), [0.9, 0.9]
+
+    def sign(_frame: int, mask: torch.Tensor):
+        found = next((v for m, v in sigs if torch.equal(m, mask)), torch.tensor([0.5, 0.5, 0.0]))
+        return found, found
+
+    def head(f: int, mask: torch.Tensor):
+        calls["head"].append(int(f))
+        on = (mask > 0.5).nonzero()
+        if not len(on):
+            return None
+        out = mask.clone()
+        out[int(on[:, 0].min()) + 10:] = 0.0
+        return out
+
+    sign.head = head
+
+    def carried(start: int, end: int, seed: int, mask: torch.Tensor) -> torch.Tensor:
+        out = mask[None].repeat(end - start, 1, 1).clone()
+        out[:, 0, seed % W] = 1.0
+        return out
+
+    def track(start: int, end: int, seed: int, mask: torch.Tensor):
+        calls["track"].append((start, end, seed))
+        return carried(start, end, seed, mask)
+
+    def scored(start: int, end: int, seed: int, mask: torch.Tensor):
+        calls["scored"].append((start, end, seed, int((mask > 0.5).sum())))
+        base = float(strength.get(seed, 5.0))
+        return carried(start, end, seed, mask), [None if f == seed else base - 0.1 * abs(f - seed) for f in range(start, end)], []
+
+    track.scored = scored
+    track.keep_scores = lambda first, values, trouble: calls["kept"].append((first, list(values), list(trouble)))
+    return subject, other, detect, sign, track, calls
+
+
+def _tag(mask_frame: torch.Tensor) -> list[int]:
+    """The seed frames a tracked frame is tagged with (`_boxes_world`)."""
+    return (mask_frame[0] > 0.5).nonzero().flatten().tolist()
+
+
+def check_every_box(problems):
+    """Every owner box in a shot seeds, and the tracks are kept frame by frame by the tracker's own score (2026-10-23)."""
+    subject, other, detect, sign, track, calls = _boxes_world(30, {5: 3.0, 20: 9.0})
+    a = ", ".join(str(v) for v in st.shot_table._box(subject))
+    shots = st.shot_ranges(30, [])
+    # three boxes: 5 and 20 agree with the subject; 12 lies on nobody and there is nothing to segment with
+    seeds = st.parse_seeds(f"frame 20: {a}\nframe 12: 100, 60, 20, 10\nframe 5: {a}", shots)
+    if [f for f, _ in seeds[1]] != [5, 12, 20]:
+        problems.append(f"every box: the seeds of one shot are not read in frame order: {seeds}")
+    got = st.follow(30, [], st.PICK_LARGEST, 3, 0.8, detect, sign, track, stride=4, offset=1, seeds=seeds, track_head=True, head_per_stretch=True)
+    shot = got.shots[0]
+    # each taken box tracked out to its NEIGHBOURS' frames, never past them, from its own frame
+    person_px = int((subject > 0.5).sum())
+    person_calls = [c[:3] for c in calls["scored"] if c[3] == person_px]
+    if person_calls != [(0, 21, 5), (5, 30, 20)]:
+        problems.append(f"every box: each taken box should be tracked from its frame out to its neighbours' frames: {calls['scored']}")
+    # kept by SCORE: seed 20's track scores higher wherever both hold her, so it is kept on 6-19, even on 6-12, nearer 5;
+    # a split at the midpoint would have kept seed 5's there. Seed 5 keeps its own frame and the frames only it covers
+    piece = got.pieces[0]
+    tags = [_tag(piece[f]) for f in range(30)]
+    if tags != [[5]] * 6 + [[20]] * 24:
+        problems.append(f"every box: the merged track should keep seed 5 on 0-5 and seed 20 on 6-29 by the tracker's score: {tags}")
+    recs = shot.seeded_all or []
+    if [r["frame"] for r in recs] != [5, 12, 20] or [r["refused"] for r in recs] != [False, True, False] \
+            or [r.get("kept_on") for r in recs] != [[[0, 5]], [], [[6, 29]]] \
+            or [(r.get("first_frame"), r.get("last_frame")) for r in recs] != [(0, 20), (None, None), (5, 29)] \
+            or recs[1]["how"] != st.SEED_REFUSED or "segmentation" not in recs[1]["why"] or shot.seeded is not recs[0]:
+        problems.append(f"every box: each box's record should say what it took, the frames it ran over and was kept on, and why one was refused: {recs}")
+    if st._state(shot) != "taken (seeded)" or shot.seed != 5 or shot.shown != 5:
+        problems.append(f"every box: the shot is taken and shown on the first box taken: {st._state(shot)}, {shot.seed}, {shot.shown}")
+    # the merged scores are what the record keeps, once, over the whole shot: the kept track's on each frame
+    if len(calls["kept"]) != 1 or calls["kept"][0][0] != 0 or len(calls["kept"][0][1]) != 30 \
+            or calls["kept"][0][1][5] is not None or calls["kept"][0][1][20] is not None or abs(calls["kept"][0][1][8] - 7.8) > 1e-6:
+        problems.append(f"every box: the record should keep the merged scores once (null on each seed's frame): {calls['kept']}")
+    # the head is tracked from each box's head inside the one stretch she is held on, and kept the same way
+    head_calls = [c[:3] for c in calls["scored"] if c[3] != person_px]
+    heads = st.assemble(30, H, W, got.head_pieces)
+    if head_calls != [(0, 21, 5), (5, 30, 20)] or any(not bool((heads[f] > 0.5).any()) for f in range(30)) \
+            or bool(((heads > 0.5) & ~(st.assemble(30, H, W, got.pieces) > 0.5)).any()):
+        problems.append(f"every box: the head should be tracked from each box's head and clipped to her track: {head_calls}")
+    text = st.report(got, [], st.PICK_LARGEST, "person", True, True, 1.0)
+    for need in ("seeded from 3 boxes", "SEED REFUSED on load frame 12", "kept on 0-5", "kept on 6-29", "tracked over 5-29"):
+        if need not in text:
+            problems.append(f"every box: the report lacks {need!r}: {text!r}")
+    if not st.tile_label(1, shot).endswith("2 of 3 boxes  taken (seeded)"):
+        problems.append(f"every box: the tile should say how many boxes were taken: {st.tile_label(1, shot)!r}")
+    table = st.shot_table.build(got, detect, st.assemble(30, H, W, got.pieces), state=st._state, phrase="person", pick=st.PICK_LARGEST,
+                                named_frame=True, named_value=True, cuts=[])
+    row = table["shots"][0]
+    if [s["frame"] for s in row.get("seeds") or []] != [5, 12, 20] or not row["subject"]["why"].startswith("seeded from 3 boxes") \
+            or "kept on 6-29" not in row["subject"]["why"] or "seed refused on frame 12" not in row["subject"]["why"]:
+        problems.append(f"every box: the table's row should list every seed and say which were taken and kept, and which refused: {row['subject']['why']}")
+    # the merge on its own, two tracks of ONE person (their masks overlap 0.78): no score read, the nearer seed; a tie,
+    # the earlier; a read score outranks none; a seed's own frame, its own
+    one, two = _box(0, 0, 8, 8), _box(1, 0, 9, 8)
+    runs = [(2, 0, 9, one[None].repeat(9, 1, 1), [None] * 9), (6, 0, 9, two[None].repeat(9, 1, 1), [None] * 9)]
+    _, _, kept, disagreed = st.merge_tracks(0, 9, runs)
+    if kept != [2, 2, 2, 2, 2, 6, 6, 6, 6] or disagreed:
+        problems.append(f"every box: with no score the nearer seed is kept, a tie the earlier: {kept}, {disagreed}")
+    runs[0] = (2, 0, 9, one[None].repeat(9, 1, 1), [9.0] * 9)
+    _, scores, kept, _ = st.merge_tracks(0, 9, runs)
+    if kept != [2, 2, 2, 2, 2, 2, 6, 2, 2] or scores[6] is not None:
+        problems.append(f"every box: a read score outranks none, and a seed keeps its own frame: {kept}")
+    empty = torch.zeros((9, H, W))
+    _, scores, kept, _ = st.merge_tracks(0, 9, [(2, 0, 9, empty, [-1.0] * 9), (6, 0, 9, empty, [-3.0] * 9)])
+    if kept[0] is not None or scores[0] != -1.0 or kept[2] != 2:
+        problems.append(f"every box: a frame no track holds anybody on stays empty with the best score there: {kept}, {scores}")
+    # two tracks holding two DIFFERENT people, their scores alternating frame to frame (the blind read's world): never a
+    # flicker between them; every frame both hold is left empty and listed, each seed keeping its own frame
+    a_m, b_m = _box(10, 10, 30, 60), _box(80, 10, 100, 60)
+    flick = [(0, 0, 10, a_m[None].repeat(10, 1, 1), [None] + [0.9 if k % 2 else 0.8 for k in range(1, 10)]),
+             (9, 0, 10, b_m[None].repeat(10, 1, 1), [0.8 if k % 2 else 0.9 for k in range(0, 9)] + [None])]
+    out, _, kept, disagreed = st.merge_tracks(0, 10, flick)
+    if kept != [0] + [None] * 8 + [9] or disagreed != list(range(1, 9)) or bool((out[1:9] > 0.5).any()):
+        problems.append(f"every box: two tracks of two people should never be merged, the frames they both hold left empty: {kept}, {disagreed}")
+    # the continuity test: one person, but the higher-scoring track's mask has jumped (overlapping the mask kept a frame
+    # before under MERGE_CONTINUOUS): the kept seed stays; where the jump is small it switches by score
+    big, small = _box(0, 0, 40, 40), _box(0, 0, 12, 12)            # 144 px on 1,600: one person, IoU 0.09
+    jump = [(0, 0, 4, big[None].repeat(4, 1, 1), [None, 1.0, 1.0, 1.0]), (3, 0, 4, small[None].repeat(4, 1, 1), [5.0, 5.0, 5.0, None])]
+    _, _, kept, _ = st.merge_tracks(0, 4, jump)
+    near = [(0, 0, 4, big[None].repeat(4, 1, 1), [None, 1.0, 1.0, 1.0]), (3, 0, 4, _box(0, 0, 40, 38)[None].repeat(4, 1, 1), [5.0, 5.0, 5.0, None])]
+    _, _, kept_near, _ = st.merge_tracks(0, 4, near)
+    if kept != [0, 0, 0, 3] or kept_near != [0, 3, 3, 3] or abs(st.MERGE_CONTINUOUS - 0.5) > 1e-9:
+        problems.append(f"every box: a switch to a mask that jumped should be refused and a near one made: {kept}, {kept_near}")
+
+
+def check_box_tiers(problems):
+    """A box drawn by hand: a detection's mask overlapping it, else what SAM 3 segments inside it, never the rectangle."""
+    a, b = _box(40, 10, 80, 60), _box(0, 20, 20, 50)
+    beside = _box(80, 10, 120, 60)              # another person, right beside the subject
+    part = _box(50, 10, 70, 25)                 # a part of the subject the detector also returned
+    world = {"people": [b, a]}
+    detect = lambda f: (torch.stack(world["people"], dim=0), [0.9] * len(world["people"]))  # noqa: E731
+    shifted = (43.0, 10.0, 40.0, 50.0)          # three columns off: the boxes agree 0.86, under SEED_AGREES
+    got = st.name_seed(detect, 4, shifted)
+    if got.record["how"] != st.SEED_BY_OVERLAP or got.index != 1 or abs(got.record["mask_overlap"] - 0.86) > 0.01 or got.mask is None:
+        problems.append(f"tiers: a box three columns off should take the subject by their mask's overlap with it: {got.record}")
+    # a person another tracker holds is never taken by the overlap (a box that agrees may still name them, as before)
+    held = lambda f: frozenset({1})              # noqa: E731
+    got = st.name_seed(detect, 4, shifted, held)
+    if got.mask is not None or not got.record["refused"]:
+        problems.append(f"tiers: a held person was taken by the mask overlap: {got.record}")
+    if st.name_seed(detect, 4, (40.0, 10.0, 40.0, 50.0), held).record["how"] != st.SEED_BY_BOX:
+        problems.append("tiers: a box that agrees with a held person no longer names them")
+    # a box over two people side by side: both overlap it, neither is a part of the other, so it is refused
+    world["people"] = [a, beside]
+    got = st.name_seed(detect, 4, (40.0, 10.0, 80.0, 40.0))
+    if got.mask is not None or "more than one person" not in got.record["why"]:
+        problems.append(f"tiers: a box holding two people should be refused as such: {got.record}")
+    # a part of the subject that also overlaps the box is not a second person: the subject is taken
+    world["people"] = [a, part]
+    got = st.name_seed(detect, 4, (40.0, 10.0, 40.0, 25.0))
+    if got.mask is None or got.index != 0 or got.record["how"] != st.SEED_BY_OVERLAP:
+        problems.append(f"tiers: a part inside the subject made the box ambiguous: {got.record}")
+    # no detection's mask overlaps the box enough: what SAM 3 segments there, CLIPPED TO THE BOX (a tile's box is
+    # exact), taken only as one person a detection found too (here a close-up, larger than the box), LESS another
+    # tracker's people
+    big = _box(10, 0, 128, 72)                   # her, close: her mask overlaps the 2,000 px box only 0.24
+    world["people"] = [b, big]
+    blob = _box(30, 5, 75, 55)                   # runs out of the box on the left and the top
+    others = torch.zeros((8, H, W))
+    others[4] = _box(70, 30, 90, 60)             # another tracker's person over its right edge
+    held = st.held_people(detect, others)
+    seen = []
+
+    def in_box(f, box):
+        seen.append((int(f), tuple(box)))
+        return blob
+    box = (40.0, 10.0, 40.0, 50.0)
+    got = st.name_seed(detect, 4, box, held, in_box)
+    want = (_box(40, 10, 75, 55) > 0.5) & ~(others[4] > 0.5)
+    if got.record["how"] != st.SEED_BY_SEGMENT or got.index is not None or got.mask is None or got.record["doubtful"] \
+            or not torch.equal(got.mask > 0.5, want) or got.record["px"] != int(want.sum()) or seen != [(4, box)]:
+        problems.append(f"tiers: the segmentation should be clipped to the box and less others' people: {got.record}, {seen}")
+    if got.mask is not None and torch.equal(got.mask > 0.5, st.box_region(box, H, W)):
+        problems.append("tiers: the seed is the raw rectangle")
+    # refused: nothing segmented, or what was segmented lies on another tracked subject's track over PROMPT_ON_OTHERS
+    for made, need in ((lambda f, bx: None, "nothing inside the box"), (lambda f, bx: others[4], "another tracked subject's track"),
+                       (lambda f, bx: _box(65, 25, 90, 60), "another tracked subject's track")):
+        got = st.name_seed(detect, 4, box, held, made)
+        if got.mask is not None or need not in got.record["why"]:
+            problems.append(f"tiers: a segmentation that should be refused ({need}) gave {got.record}")
+    # the blind read's worlds (2026-10-23), each refused and recorded as DOUBTFUL, none taken as "segmented":
+    # A. a box over the lead's dress, the lead held by an earlier tracker whose track covers only her top
+    lead = _box(20, 0, 70, 72)
+    world["people"] = [lead]
+    top = torch.zeros((8, H, W))
+    top[:, 0:50, 20:70] = 1.0
+    got = st.name_seed(detect, 4, (50.0, 40.0, 30.0, 32.0), st.held_people(detect, top), lambda f, bx: _box(50, 45, 70, 72))
+    if got.mask is not None or not got.record["doubtful"] or "another tracked subject" not in got.record["why"]:
+        problems.append(f"tiers (A): a box prompt on the lead's dress, the lead held, should be refused as doubtful: {got.record}")
+    # C. a loose box over two people each overlapping it under SEED_OVERLAPS, SAM segmenting both as one blob
+    p1, p2 = _box(10, 10, 30, 60), _box(40, 10, 60, 60)
+    world["people"] = [p1, p2]
+    got = st.name_seed(detect, 4, (5.0, 5.0, 60.0, 60.0), None, lambda f, bx: ((p1 + p2) > 0).float())
+    if got.mask is not None or not got.record["doubtful"] or "more than one person" not in got.record["why"]:
+        problems.append(f"tiers (C): a box prompt holding two people as one blob should be refused as doubtful: {got.record}")
+    # D. nobody detected in the box (one person far off), and SAM segments a chair from it
+    for people in ([], [_box(0, 0, 10, 10)]):
+        world["people"] = people
+        got = st.name_seed(lambda f: (torch.stack(world["people"]) if world["people"] else torch.zeros((0, H, W)), [0.9] * len(world["people"])),
+                           4, (85.0, 25.0, 30.0, 40.0), None, lambda f, bx: _box(90, 30, 110, 60))
+        if got.mask is not None or not got.record["doubtful"] or "matches no person detection" not in got.record["why"]:
+            problems.append(f"tiers (D): a box prompt that matches no person detection should be refused as doubtful: {got.record}")
+    # B. the FIRST tracker of a job, given no `others`: the lead's own box on that frame, carried as another subject's
+    #    (`other`), names her, so the box prompt on her dress is refused there too; without it, it is taken (the limit)
+    world["people"] = [lead]
+    lead_box = ", ".join(str(v) for v in st.shot_table._box(lead))
+    track_b = lambda start, end, seed, mask: mask[None].repeat(end - start, 1, 1)   # noqa: E731
+
+    def sign_b(_f, _m):
+        return torch.tensor([1.0, 0.0]), None
+    sign_b.in_box = lambda f, bx: _box(50, 45, 70, 72)
+    for text, refused in ((f"frame 4: 50, 40, 30, 32\nframe 4: {lead_box} other", True), ("frame 4: 50, 40, 30, 32", False),
+                          (f"frame 4: 50, 40, 30, 32\nframe 4: 15, 0, 60, 72 drawn other", True)):
+        got = st.follow(8, [], st.PICK_LARGEST, 0, 0.5, detect, sign_b, track_b, seeds=st.parse_seeds(text, [(0, 8)]),
+                        other_boxes=st.parse_other_boxes(text, [(0, 8)]), track_head=False)
+        if (got.shots[0].seed is None) != refused or (refused and "another tracked subject" not in got.shots[0].seeded["why"]):
+            problems.append(f"tiers (B): with the lead's box carried as another subject's the box prompt on her dress should be refused: "
+                            f"{text!r} -> {got.shots[0].seeded}")
+    if st.parse_seeds(f"frame 4: {lead_box} other", [(0, 8)]) != {} \
+            or st.parse_other_boxes(f"frame 4: {lead_box} drawn other", [(0, 8)]) != {4: [((20.0, 0.0, 50.0, 72.0), True)]}:
+        problems.append("tiers: an `other` line is a seed, or is not read as another subject's box")
+    world["people"] = [b, big]
+    # through `follow`: the shot is taken from the segmented seed, no detection is called the subject, and it is said
+    calls = []
+
+    def track(start, end, seed, mask):
+        calls.append((start, end, seed, int((mask > 0.5).sum())))
+        return mask[None].repeat(end - start, 1, 1)
+
+    def sign(_f, _m):
+        return torch.tensor([1.0, 0.0]), None
+    sign.in_box = in_box
+    got = st.follow(8, [], st.PICK_LARGEST, 0, 0.5, detect, sign, track, seeds=st.parse_seeds("frame 4: 40, 10, 40, 50", [(0, 8)]),
+                    track_head=False)
+    shot = got.shots[0]
+    if st._state(shot) != "taken (seeded)" or shot.index is not None or calls != [(0, 8, 4, int((_box(40, 10, 75, 55) > 0.5).sum()))] \
+            or got.pick_seed != "names no detection" or not st.tile_label(1, shot).endswith("segmented in its box  taken (seeded)"):
+        problems.append(f"tiers: a seed segmented inside its box should seed the shot with no detection named: {calls}, {got.pick_seed}, "
+                        f"{st.tile_label(1, shot)!r}")
+    text = st.report(got, [], st.PICK_LARGEST, "person", True, True, 1.0)
+    for need in ("SAM 3 segmented inside it", "THE PICKED SHOT'S SEEDS NAME NO DETECTION"):
+        if need not in text:
+            problems.append(f"tiers: the report lacks {need!r}: {text!r}")
+
+
+def check_head_runs(problems):
+    """The head is tracked within each stretch the person track holds her, seeded inside it (2026-10-23, 1419d's shape).
+
+    One shot of 47 frames; the person track holds her on 9-17 and 35-46 and nowhere between (on 1419d SAM held her
+    on 1428-1436 and again from 1454). On 9-17 only her head peeks out: her person mask there is small and no head is
+    found in it; on 35-46 a head is found. The head tracker cannot carry a head across frames the person is not on."""
+    held_on = set(range(9, 18)) | set(range(35, 47))
+    big = _box(40, 10, 80, 60)                  # her person mask on 35-46; her head there is its top ten rows, 400 px
+
+    def run(peek: torch.Tensor, per_stretch: bool = True):
+        calls = []
+
+        def detect(f: int):
+            if 18 <= f < 35:                     # hidden: nobody to find there again
+                return torch.zeros((0, H, W)), []
+            return (peek if f < 30 else big)[None], [0.9]
+
+        def sign(_f: int, mask: torch.Tensor):
+            return torch.tensor([1.0, 0.0]), torch.tensor([1.0, 0.0])
+
+        def head(f: int, mask: torch.Tensor):
+            if f < 30:
+                return None
+            out = mask.clone()
+            on = (mask > 0.5).nonzero()
+            out[int(on[:, 0].min()) + 10:] = 0.0
+            return out
+        sign.head = head
+
+        def track(start: int, end: int, seed: int, mask: torch.Tensor):
+            is_person = torch.equal(mask, peek) or torch.equal(mask, big)
+            calls.append((start, end, seed, "person" if is_person else "head"))
+            out = torch.zeros((end - start, H, W))
+            if is_person:
+                for f in range(start, end):
+                    if f in held_on:
+                        out[f - start] = peek if f < 30 else big
+                return out
+            f = seed                      # a head is carried only through frames the person is held on
+            while f < end and f in held_on:
+                out[f - start] = mask
+                f += 1
+            f = seed - 1
+            while f >= start and f in held_on:
+                out[f - start] = mask
+                f -= 1
+            return out
+        a = ", ".join(str(v) for v in st.shot_table._box(peek))
+        got = st.follow(47, [], st.PICK_LARGEST, 12, 0.5, detect, sign, track, seeds=st.parse_seeds(f"frame 12: {a}", [(0, 47)]),
+                        track_head=True, head_per_stretch=per_stretch)
+        return got, calls
+
+    small = _box(50, 10, 70, 30)                # 400 px: as large as her head on 35-46, under HEAD_SIZED times it
+    # THE DEFAULT (the owner, 2026-10-23): main's span head track, exactly as main, 1419d's fault and all: seeded on 35, the
+    # nearest headed gallery frame, tracked over the whole shot, nothing on 9-17; per stretch only on `head: per stretch`
+    got, calls = run(small, per_stretch=False)
+    heads = st.assemble(47, H, W, got.head_pieces)
+    if got.head_mode != "span" or [c[:3] for c in calls] != [(0, 47, 12), (0, 47, 35)] \
+            or [f for f in range(47) if bool((heads[f] > 0.5).any())] != list(range(35, 47)):
+        problems.append(f"head runs: the default head track should be main's span head track exactly: {calls}")
+    if st.parse_head_mode("frame 3: 1, 2, 3, 4\nhead: per stretch: the owner, to test 1419") != ("per stretch", "the owner, to test 1419") \
+            or st.parse_head_mode("frame 3: 1, 2, 3, 4") != ("span", "") \
+            or st.parse_seeds("frame 3: 1, 2, 3, 4\nhead: per stretch: why", [(0, 8)]) != {1: [(3, (1.0, 2.0, 3.0, 4.0))]}:
+        problems.append("head runs: the `head: per stretch: WHY` line is not read, or is read as a seed")
+    source = MODULE.read_text(encoding="utf-8")
+    if 'table["head_mode"] = head_mode' not in source or "head_per_stretch=head_mode == HEAD_PER_STRETCH" not in source:
+        problems.append("head runs: the node does not read the head mode from its seeds, or does not record it in the table")
+    got, calls = run(small)
+    heads = st.assemble(47, H, W, got.head_pieces)
+    on = [f for f in range(47) if bool((heads[f] > 0.5).any())]
+    if on != sorted(held_on):
+        problems.append(f"head runs: the head should be held on both stretches, 9-17 and 35-46: {on}")
+    # the person track once over the shot from the box; then each stretch's head, from inside it
+    if [c[:3] for c in calls] != [(0, 47, 12), (9, 18, 12), (35, 47, 35)]:
+        problems.append(f"head runs: each stretch's head should be seeded and tracked inside it, never across 18-34: {calls}")
+    if not torch.equal(heads[12] > 0.5, small > 0.5):
+        problems.append("head runs: where no head is found in the stretch and her person mask is head-sized, it is the head's seed")
+    # the control: a person mask more than HEAD_SIZED times her head is not taken for a head, and nor is its top third,
+    # since the shot has a head elsewhere (35-46): the top third stands in only where no head is found on any frame
+    wide = _box(40, 10, 80, 50)                 # 1,600 px against a 400 px head: four times
+    got, calls = run(wide)
+    heads = st.assemble(47, H, W, got.head_pieces)
+    if any(bool((heads[f] > 0.5).any()) for f in range(9, 18)) or any(got.head_from.get(0, {}).get(f) for f in range(9, 18)) \
+            or not bool((heads[40] > 0.5).any()):
+        problems.append("head runs: a person mask larger than HEAD_SIZED times her head, in a shot with a head elsewhere, made a head")
+    if abs(st.HEAD_SIZED - 2.0) > 1e-9:
+        problems.append("head runs: HEAD_SIZED moved; read its provenance before changing this check")
+
+
+def check_regain_at_a_box(problems):
+    """An empty run holding an owner's box is searched whatever its length, on the box's frame first (2026-10-23)."""
+    visible = lambda f: not 8 <= f < 11                              # noqa: E731  hidden 8-10
+    for with_box in (True, False):
+        subject, detect, sign, track, calls = _lost_world(visible, n=30)
+        x, y, w, h = st.shot_table._box(subject)
+        text = (f"frame 4: {x + 3 * w // 4}, {y}, {w}, {h}\n" if with_box else "") + f"frame 15: {x}, {y}, {w}, {h}"
+        got = st.follow(30, [], st.PICK_LARGEST, 15, 0.8, detect, sign, track, stride=4, offset=1,
+                        seeds=st.parse_seeds(text, [(0, 30)]), track_head=False)
+        shot = got.shots[0]
+        mask = st.assemble(30, H, W, got.pieces)
+        held = [f for f in range(30) if bool((mask[f] > 0.5).any())]
+        if with_box:
+            # the box on 4 is refused (three quarters off her, nothing to segment with); the run 0-10, eleven frames, is
+            # under REGAIN_MIN_RUN and holds it: probed on 4 first, she is there, and the track is seeded again from 4
+            if not shot.regained or shot.regained[0][:2] != (0, 4) or shot.probes[0][0] != 4 or held != list(range(0, 8)) + list(range(11, 30)):
+                problems.append(f"regain at a box: the run holding the refused box should be probed on its frame and her track seeded "
+                                f"again there: regained {shot.regained}, probes {shot.probes}, held {held}")
+        elif shot.regained or shot.probes or held != list(range(11, 30)):
+            problems.append(f"regain at a box: the control, the same run with no box, is under REGAIN_MIN_RUN and is not searched: "
+                            f"{shot.regained}, {shot.probes}, {held}")
+
+
+def check_one_box_calls(problems):
+    """A shot of one box whose track has no empty frame makes the calls it made before 2026-10-23, in the same order.
+
+    The calls pinned here are what main's `subject_track.py` (9c130c2a) made on these three worlds, read by running it
+    beside this one (the build's differential of sixteen worlds, every call compared; the two that differ are a
+    refusal's words and a head tracked per stretch across a gap)."""
+    nowhere = [("track", 0, 48, 30, 0)] + [("head", f) for f in (30, 27, 34, 20, 40, 13, 47, 7, 0)] + [("track", 0, 48, 30, "head")]
+    for head_missing, want in (((), [("track", 0, 48, 30, 0), ("head", 30), ("track", 0, 48, 30, "head")]),
+                               ((30,), [("track", 0, 48, 30, 0), ("head", 30), ("head", 27), ("track", 0, 48, 27, "head")]),
+                               # no head on any frame: the top third, after the same nine looks, and no look again for the head-sized step
+                               (tuple(range(48)), nowhere)):
+        subject = _box(40, 10, 80, 60)
+        other = _box(0, 20, 20, 50)
+        log = []
+
+        def detect(f: int):
+            return torch.stack([other, subject], dim=0), [0.9, 0.8]
+
+        def sign(_f: int, mask: torch.Tensor):
+            v = torch.tensor([1.0, 0.0, 0.0]) if torch.equal(mask, subject) else torch.tensor([0.0, 1.0, 0.0])
+            return v, v
+
+        def head(f: int, mask: torch.Tensor, missing=head_missing):
+            log.append(("head", int(f)))
+            if f in missing:
+                return None
+            out = mask.clone()
+            out[16:] = 0.0
+            return out
+        sign.head = head
+
+        def track(start: int, end: int, seed: int, mask: torch.Tensor):
+            log.append(("track", start, end, seed, 0 if torch.equal(mask, subject) else "head"))
+            return mask[None].repeat(end - start, 1, 1)
+        x, y, w, h = st.shot_table._box(subject)
+        # main's calls in the default head track, and with `head: per stretch` too: one box with no gap is main either way
+        for per_stretch in (False, True):
+            log.clear()
+            st.follow(48, [], st.PICK_LARGEST, 3, 0.8, detect, sign, track, stride=4, offset=1,
+                      seeds=st.parse_seeds(f"frame 30: {x}, {y}, {w}, {h}", [(0, 48)]), track_head=True, head_per_stretch=per_stretch)
+            if log != want:
+                problems.append(f"one box: the calls of a one-box shot with no gap moved (head missing on {head_missing}, "
+                                f"{'per stretch' if per_stretch else 'default'}): {log}, was {want}")
+
+
+def check_body_box(problems):
+    """A box round her body, not her head (`body`), seeds her person track and never her head track (2026-10-23, the lead's
+    reading of the owner's sheets: on 4647 and 4912 boxes sit on her arm at the table where her head is hidden)."""
+    arm, face = _box(40, 30, 60, 60), _box(80, 5, 100, 25)
+    shots = [(0, 20)]
+    a = ", ".join(str(v) for v in st.shot_table._box(arm))
+    f_ = ", ".join(str(v) for v in st.shot_table._box(face))
+    if st.parse_seeds(f"frame 8: {a} body", shots) != {1: [(8, (40.0, 30.0, 20.0, 30.0), "body")]} \
+            or st.parse_seeds(f"frame 8: {a}", shots) != {1: [(8, (40.0, 30.0, 20.0, 30.0))]}:
+        problems.append("body box: a seed line ending in `body` is not read as a body box, or a plain one is")
+    try:
+        st.parse_seeds(f"frame 8: {a} arm", shots)
+        problems.append("body box: a seed line with another word after its box was read")
+    except ValueError as exc:
+        if "`body`" not in str(exc):
+            problems.append(f"body box: the refusal of another word does not name `body`: {exc}")
+
+    def run(text: str, heads_from: int | None, between: torch.Tensor | None = None, faces_from: int | None = None):
+        calls = []
+
+        def detect(f: int):
+            if between is not None and 5 <= f < 15:
+                return torch.stack([between, arm, face]), [0.9, 0.8, 0.8]
+            late = heads_from if heads_from is not None else faces_from   # her face detected as a person, with or without a head
+            return (face if late is not None and f >= late else arm)[None], [0.9]
+
+        def sign(_f: int, _m: torch.Tensor):
+            return torch.tensor([1.0, 0.0]), torch.tensor([1.0, 0.0])
+
+        def head(f: int, mask: torch.Tensor):           # a head is found only where the face is, and none on her arm
+            return (mask > 0.5).to(torch.float32) if heads_from is not None and f >= heads_from and torch.equal(mask, face) else None
+        sign.head = head
+
+        def track(start: int, end: int, seed: int, mask: torch.Tensor):
+            calls.append((start, end, seed))
+            return mask[None].repeat(end - start, 1, 1)
+        got = st.follow(20, [], st.PICK_LARGEST, 8, 0.5, detect, sign, track, seeds=st.parse_seeds(text, shots), track_head=True, head_per_stretch=True)
+        return got, calls
+
+    # a body box alone, no head detected anywhere: her person track is seeded from it, and her head track is EMPTY
+    got, calls = run(f"frame 8: {a} body", None)
+    person = st.assemble(20, H, W, got.pieces)
+    heads = st.assemble(20, H, W, got.head_pieces)
+    if calls != [(0, 20, 8)] or not torch.equal(person[8] > 0.5, arm > 0.5) or bool((heads > 0.5).any()) \
+            or got.shots[0].seeded.get("encloses") != "body" or "her person track only, never her head" not in st.report(got, [], st.PICK_LARGEST, "person", True, True, 1.0):
+        problems.append(f"body box: a body box should seed her person track and leave her head track empty: calls {calls}, "
+                        f"head px {int((heads > 0.5).sum())}, record {got.shots[0].seeded}")
+    # the control: the same box not marked `body` stands in for a head by the top third of her mask, as any box does
+    got, calls = run(f"frame 8: {a}", None)
+    heads = st.assemble(20, H, W, got.head_pieces)
+    if calls != [(0, 20, 8), (0, 20, 8)] or not torch.equal(heads[8] > 0.5, st.top_third(arm) > 0.5):
+        problems.append(f"body box: the control, a plain box with no head found, should seed the head from its top third: {calls}")
+    # a body box and a head box in one stretch: the head is seeded from the head box's head alone, never on the body box
+    got, calls = run(f"frame 4: {a} body\nframe 15: {f_}", 12)
+    head_calls = calls[2:]                               # after the two person tracks, out to each other's frames
+    # her arm (tracked from the body box) and her face (from the head box) are disjoint and no detection here holds both,
+    # so the frames both tracks hold are left empty, and the head is tracked in the stretch the head box is in alone
+    # (main's span head, seeded from the head box too, adds nothing on her arm: (0, 20, 15) holds her face, not her arm)
+    if calls[:2] != [(0, 16, 4), (4, 20, 15)] or head_calls != [(15, 20, 15), (0, 20, 15)] or got.shots[0].disagreed != list(range(5, 15)) \
+            or any(bool((st.assemble(20, H, W, got.head_pieces)[f] > 0.5).any()) for f in range(0, 5)):
+        problems.append(f"body box: beside a head box, only the head box's head should seed the head track: {calls}, {got.shots[0].disagreed}")
+    table = st.shot_table.build(got, lambda f: (arm[None], [0.9]), st.assemble(20, H, W, got.pieces), state=st._state, phrase="person",
+                                pick=st.PICK_LARGEST, named_frame=True, named_value=True, cuts=[])
+    if table["shots"][0].get("seed_tracks_disagree_on") != [[5, 14]] \
+            or "THE BOXES' TRACKS HELD DIFFERENT PEOPLE on 5, 6" not in st.report(got, [], st.PICK_LARGEST, "person", True, True, 1.0):
+        problems.append(f"body box: the frames two boxes' tracks disagree on should be in the table and the report: {table['shots'][0].get('seed_tracks_disagree_on')}")
+    # a body box FIRST and a head box second, no head found on any frame: the stand-in runs, decided by the shot's boxes as a
+    # whole (one is a head box), and is taken from the head box (its frame, her mask there), never from the body box before it
+    got, calls = run(f"frame 4: {a} body\nframe 15: {f_}", None, faces_from=10)
+    heads = st.assemble(20, H, W, got.head_pieces)
+    head_calls = calls[2:]
+    if got.head_from.get(0, {}).get(15) != "span, top third" or head_calls != [(0, 20, 15)] or not torch.equal(heads[15] > 0.5, st.top_third(face) > 0.5) \
+            or any(bool((heads[f] > 0.5).any()) for f in range(0, 5)):
+        problems.append(f"body box: a body box first and a head box second, no head anywhere, should take the top third from the head box: "
+                        f"{head_calls}, from {got.head_from.get(0, {}).get(15)}")
+    # where one detection holds both her arm and her face, they are parts of her: the frame keeps both, and the head is
+    # still seeded from the head box alone, over the one stretch
+    whole = ((arm + face) > 0).float()
+    got, calls = run(f"frame 4: {a} body\nframe 15: {f_}", 12, whole)
+    person = st.assemble(20, H, W, got.pieces)
+    if got.shots[0].disagreed or not torch.equal(person[8] > 0.5, whole > 0.5) or calls[2:] != [(0, 20, 15)]:
+        problems.append(f"body box: two parts of her one detection holds should be kept together: {got.shots[0].disagreed}, {calls}")
+
+
+def check_drawn_box(problems):
+    """A box the owner DREW is approximate, never an outline (2026-10-23, the owner: "the boxes i drew were approximates!!!"):
+    it names the one person lying mostly inside it, is refused across two people or on another tracked subject, and only
+    where nobody qualifies asks SAM 3's box prompt, whose result is not clipped to the box."""
+    a, b = _box(40, 10, 80, 60), _box(0, 20, 20, 50)
+    beside, part = _box(80, 10, 120, 60), _box(50, 10, 70, 25)
+    world = {"people": [b, a]}
+    detect = lambda f: (torch.stack(world["people"], dim=0), [0.9] * len(world["people"]))  # noqa: E731
+    loose = (25.0, 0.0, 100.0, 72.0)             # round the subject, roughly: 7,200 px of box, her 2,000 all inside it
+    got = st.name_seed(detect, 4, loose, drawn=True)
+    if got.index != 1 or got.record["how"] != st.SEED_BY_INSIDE or got.record["inside"] != 1.0 or abs(got.record["covers"] - 0.278) > 0.001 \
+            or not got.record["drawn"]:
+        problems.append(f"drawn: a loose box round one person should pick that person, with both shares recorded: {got.record}")
+    # the control: the same box read as a tile's box is refused, its mask overlapping the box under SEED_OVERLAPS
+    if st.name_seed(detect, 4, loose).mask is not None:
+        problems.append("drawn: the control, the loose box read as a tile's, should not take anybody")
+    # straddling two people, each mostly inside it: refused, never a guess
+    world["people"] = [a, beside]
+    got = st.name_seed(detect, 4, (50.0, 10.0, 60.0, 50.0), drawn=True)
+    if got.mask is not None or "straddles" not in got.record["why"]:
+        problems.append(f"drawn: a box straddling two people should be refused: {got.record}")
+    # a part of her the detector also returned is not a second person: she is taken
+    world["people"] = [a, part]
+    got = st.name_seed(detect, 4, (35.0, 5.0, 50.0, 60.0), drawn=True)
+    if got.index != 0 or got.record["how"] != st.SEED_BY_INSIDE:
+        problems.append(f"drawn: a part inside her made the box ambiguous: {got.record}")
+    # the person lying most inside it is another tracked subject's: refused (the lead's dress under 4647's 4674-4677),
+    # whether they qualify or, as here with a fifth of them inside, do not, and before any box prompt is asked
+    world["people"] = [b, a]
+    asked = []
+    for drawn_box in ((35.0, 5.0, 50.0, 60.0), (60.0, 40.0, 30.0, 20.0)):
+        got = st.name_seed(detect, 4, drawn_box, lambda f: frozenset({1}), lambda f, bx: asked.append(bx) or a, drawn=True)
+        if got.mask is not None or not got.record["why"].startswith("the person lying most inside the drawn box") or asked:
+            problems.append(f"drawn: a box lying most on another tracked subject should be refused before the box prompt: {got.record}, {asked}")
+    # nobody mostly inside (her, close, is a quarter inside): SAM 3's box prompt, NOT clipped to the box (a rough box would
+    # cut her off), held to her detection, less others' pixels
+    big = _box(10, 0, 128, 72)
+    world["people"] = [b, big]
+    box = (40.0, 10.0, 40.0, 50.0)
+    blob = _box(30, 5, 90, 65)                    # 3,600 px, running out of the 2,000 px box on every side
+    others = torch.zeros((8, H, W))
+    held = st.held_people(detect, others)
+    got = st.name_seed(detect, 4, box, held, lambda f, bx: blob, drawn=True)
+    if got.record["how"] != st.SEED_BY_PROMPT or got.mask is None or not torch.equal(got.mask > 0.5, blob > 0.5) or got.record["px"] != 3600:
+        problems.append(f"drawn: the box prompt's result should be taken whole, not clipped to the box: {got.record}")
+    others[4] = _box(30, 5, 60, 65)               # another tracked subject under half of it: over DRAWN_ON_OTHERS
+    got = st.name_seed(detect, 4, box, st.held_people(detect, others), lambda f, bx: blob, drawn=True)
+    if got.mask is not None or "another tracked subject's track" not in got.record["why"]:
+        problems.append(f"drawn: a box prompt lying on another tracked subject should be refused: {got.record}")
+    others[4] = _box(85, 5, 90, 65)               # a strip along its edge, 300 of 3,600 px: under the line, taken less the strip
+    got = st.name_seed(detect, 4, box, st.held_people(detect, others), lambda f, bx: blob, drawn=True)
+    if got.mask is None or got.record["px"] != 3300:
+        problems.append(f"drawn: a box prompt sharing an edge with another tracked subject should be taken less their pixels: {got.record}")
+    # someone with a quarter of their mask in the box does not qualify: the box prompt is asked instead, and its result,
+    # lying on her and running onto him only 0.14, is taken
+    world["people"] = [beside, big]
+    got = st.name_seed(detect, 4, (40.0, 10.0, 50.0, 50.0), None, lambda f, bx: blob, drawn=True)
+    if got.record["how"] != st.SEED_BY_PROMPT or got.index is not None:
+        problems.append(f"drawn: a person a quarter inside the box should not qualify (DRAWN_INSIDE): {got.record}")
+    # the seed line's words, through `follow`: `drawn` (and `body` after it) reach the box's record and the report
+    if st.parse_seeds("frame 4: 25, 0, 100, 72 drawn body", [(0, 8)]) != {1: [(4, loose, "drawn", "body")]}:
+        problems.append("drawn: a seed line ending `drawn body` is not read as both")
+    world["people"] = [b, a]
+    sign = lambda f, m: (torch.tensor([1.0, 0.0]), None)    # noqa: E731
+    track = lambda start, end, seed, mask: mask[None].repeat(end - start, 1, 1)   # noqa: E731
+    got = st.follow(8, [], st.PICK_LARGEST, 0, 0.5, detect, sign, track, seeds=st.parse_seeds("frame 4: 25, 0, 100, 72 drawn", [(0, 8)]),
+                    track_head=False)
+    if got.shots[0].index != 1 or not got.shots[0].seeded.get("drawn") \
+            or "the one person lying mostly inside the box drawn by hand" not in st.report(got, [], st.PICK_LARGEST, "person", True, True, 1.0):
+        problems.append(f"drawn: a `drawn` seed line should be named as a drawn box, and said so: {got.shots[0].seeded}")
+
+
+def check_head_anchors(problems):
+    """The head-sized and top-third stand-ins run only where an owner's head box anchors the stretch (2026-10-23, the blind
+    read): never in a stretch with no box, never in a stretch found again, and a body box is never the pick's reference."""
+    body, arm = _box(40, 10, 80, 60), _box(60, 40, 75, 60)        # her body, its head the top 8 rows; then only her arm
+    held_on = set(range(0, 10)) | set(range(20, 30))
+    calls = []
+
+    def detect(f: int):
+        return (body if f < 15 else arm)[None], [0.9]
+
+    def sign(_f, _m):
+        return torch.tensor([1.0, 0.0]), torch.tensor([1.0, 0.0])
+
+    def head(f: int, mask: torch.Tensor):
+        if f >= 15:
+            return None                                          # her head hidden: none found on her arm
+        out = mask.clone()
+        out[int((mask > 0.5).nonzero()[:, 0].min()) + 8:] = 0.0
+        return out
+    sign.head = head
+
+    def track(start: int, end: int, seed: int, mask: torch.Tensor):
+        calls.append((start, end, seed))
+        out = torch.zeros((end - start, H, W))
+        for f in range(start, end):
+            if f in held_on:
+                if torch.equal(mask > 0.5, body > 0.5) or torch.equal(mask > 0.5, arm > 0.5):
+                    out[f - start] = body if f < 15 else arm
+                elif f < 15:
+                    out[f - start] = mask            # a head is carried while it shows; her head is hidden from 15
+        return out
+    bx = ", ".join(str(v) for v in st.shot_table._box(body))
+    got = st.follow(30, [], st.PICK_LARGEST, 5, 0.5, detect, sign, track, seeds=st.parse_seeds(f"frame 5: {bx}", [(0, 30)]), track_head=True, head_per_stretch=True)
+    heads = st.assemble(30, H, W, got.head_pieces)
+    if any(bool((heads[f] > 0.5).any()) for f in range(20, 30)) or not all(bool((heads[f] > 0.5).any()) for f in range(0, 10)):
+        problems.append(f"head anchors: a stretch holding only her arm and no box should have no head (the blind read's 300 px "
+                        f"arm against a 320 px head): head px {[int(heads[f].sum()) for f in (5, 20, 25)]}")
+    # a subject found again (`regain`), with no head found there: main's span head, here main's own top third of the person
+    # found, as main had it (2026-10-23, the lead on the reader's census: never less than main)
+    hidden = lambda f: 20 <= f < 24                                # noqa: E731
+    subject, detect2, sign2, track2, _ = _lost_world(lambda f: not hidden(f), n=48)
+    sign2_head = lambda f, m: None if f >= 24 else (m > 0.5).float() * (torch.arange(H)[:, None] < 20).float()   # noqa: E731
+    sign2.head = sign2_head
+    got = st.follow(48, [], st.PICK_LARGEST, 3, 0.8, detect2, sign2, track2, stride=4, offset=1, track_head=True, head_per_stretch=True)
+    heads = st.assemble(48, H, W, got.head_pieces)
+    if not got.shots[0].regained or not torch.equal(heads[30] > 0.5, st.top_third(subject) > 0.5) \
+            or got.head_from.get(0, {}).get(30) != "span, top third" or got.head_from.get(0, {}).get(10) != "stretch":
+        problems.append(f"head anchors: a stretch found again with no head found should keep main's span head: regained {got.shots[0].regained}, "
+                        f"head px {[int(heads[f].sum()) for f in (30, 40)]}")
+    # an automatic shot with NO head found on any frame keeps main's stand-in, the top third of her mask from the seed frame
+    # (the owner, 2026-10-23: with no head anywhere the hair pass has nothing nearer to take her room from)
+    subject5, detect5, sign5, track5, calls5 = _lost_world(lambda f: True, n=16)
+    sign5.head = lambda f, m: None
+    got = st.follow(16, [], st.PICK_LARGEST, 3, 0.8, detect5, sign5, track5, stride=4, offset=1, track_head=True)
+    heads = st.assemble(16, H, W, got.head_pieces)
+    if any(not torch.equal(heads[f] > 0.5, st.top_third(subject5) > 0.5) for f in range(16)):
+        problems.append(f"head anchors: an automatic shot with no head anywhere should keep the top third: {[int(heads[f].sum()) for f in (0, 8)]}")
+    # a subject found again whose mask is head-sized beside her head elsewhere (400 px against 200) is still not a head:
+    # her head-sized mask stands in only where an owner's head box anchors the stretch
+    small = _box(40, 10, 60, 30)
+    visible6 = lambda f: not 20 <= f < 24                            # noqa: E731
+    others6 = _box(0, 20, 20, 50)
+    calls6 = []
+
+    def detect6(f: int):
+        return torch.stack([others6] + ([small] if visible6(f) else [])), [0.9] * (1 + visible6(f))
+
+    def sign6(_f: int, mask: torch.Tensor):
+        v = torch.tensor([1.0, 0.0, 0.0]) if torch.equal(mask, small) else torch.tensor([0.0, 1.0, 0.0])
+        return v, v
+    sign6.head = lambda f, m: ((m > 0.5) & (torch.arange(H)[:, None] < 20)).float() if f < 20 else None
+
+    def track6(start: int, end: int, seed: int, mask: torch.Tensor):
+        calls6.append((start, end, seed))
+        out = torch.zeros((end - start, H, W))
+        f = seed
+        while f < end and visible6(f):
+            out[f - start] = mask
+            f += 1
+        f = seed - 1
+        while f >= start and visible6(f):
+            out[f - start] = mask
+            f -= 1
+        return out
+    got = st.follow(48, [], st.PICK_LARGEST, 3, 0.8, detect6, sign6, track6, stride=4, offset=1, track_head=True, head_per_stretch=True)
+    heads = st.assemble(48, H, W, got.head_pieces)
+    if not got.shots[0].regained or any(bool((heads[f] > 0.5).any()) for f in range(24, 48)) or not bool((heads[5] > 0.5).any()):
+        problems.append(f"head anchors: a head-sized mask found again should not stand in for a head: {[int(heads[f].sum()) for f in (5, 30)]}")
+    # the tracker's own pick, head-sized beside her head found later in the shot (400 px against 200), no box: not a head
+    held_on8 = set(range(0, 10)) | set(range(20, 30))
+    small8, big8 = _box(40, 10, 60, 30), _box(40, 10, 80, 60)
+
+    def detect8(f: int):
+        return (small8 if f < 15 else big8)[None], [0.9]
+
+    def sign8(_f: int, _m: torch.Tensor):
+        return torch.tensor([1.0, 0.0]), torch.tensor([1.0, 0.0])
+    sign8.head = lambda f, m: (((m > 0.5) & (torch.arange(H)[:, None] < 15)).float() if f >= 15 else None)
+
+    def track8(start: int, end: int, seed: int, mask: torch.Tensor):
+        out = torch.zeros((end - start, H, W))
+        for f in range(start, end):
+            if f in held_on8:
+                out[f - start] = (small8 if f < 15 else big8) if (torch.equal(mask, small8) or torch.equal(mask, big8)) else mask
+        return out
+    got = st.follow(30, [], st.PICK_LARGEST, 3, 0.5, detect8, sign8, track8, track_head=True, head_per_stretch=True)
+    heads = st.assemble(30, H, W, got.head_pieces)
+    # (her head-sized mask is not taken whole for a head: where main's span head reaches, that is what the frame takes)
+    if torch.equal(heads[3] > 0.5, small8 > 0.5) or got.head_from.get(0, {}).get(3) != "span" or not bool((heads[25] > 0.5).any()):
+        problems.append(f"head anchors: the tracker's own pick, head-sized, should not stand in for a head: {[int(heads[f].sum()) for f in (3, 25)]}, "
+                        f"{got.head_from.get(0, {}).get(3)}")
+    # nobody picked at all (nothing on the pick frame), a seeded shot, no head anywhere: the top third from its seed
+    boxes7, detect7_all, sign7, _track7, _ = _world()
+    track7 = lambda start, end, seed, mask: mask[None].repeat(end - start, 1, 1)   # noqa: E731  (its world's names only boxes)
+    detect7 = lambda f: detect7_all(f) if f >= 8 else (torch.zeros((0, H, W)), [])   # noqa: E731
+    sign7.head = lambda f, m: None
+    two = ", ".join(str(v) for v in st.shot_table._box(boxes7[2]))
+    got = st.follow(32, [8, 16, 24], st.PICK_LARGEST, 3, 0.8, detect7, sign7, track7, stride=4, offset=1,
+                    seeds=st.parse_seeds(f"frame 13: {two}", st.shot_ranges(32, [8, 16, 24])), track_head=True)
+    heads = st.assemble(32, H, W, got.head_pieces)
+    if got.pick_frame is not None or got.head_from.get(8, {}).get(13) != "span, top third" or not torch.equal(heads[13] > 0.5, st.top_third(boxes7[2]) > 0.5):
+        problems.append(f"head anchors: with nobody picked, a seeded headless shot should keep the top third: {got.head_from.get(8, {}).get(13)}")
+    # a box round her body alone on the picked shot is never the reference the other shots are judged against
+    boxes, detect3, sign3, track3, _ = _world()
+    shots = st.shot_ranges(32, [8, 16, 24])
+    one = ", ".join(str(v) for v in st.shot_table._box(boxes[1]))
+    got = st.follow(32, [8, 16, 24], st.PICK_LARGEST, 3, 0.8, detect3, sign3, track3, stride=4, offset=1,
+                    seeds=st.parse_seeds(f"frame 5: {one} body", shots))
+    if got.pick_seed != "body boxes only" or got.pick_frame != 3 \
+            or "THE PICKED SHOT'S BOXES ARE ROUND HER BODY ONLY" not in st.report(got, [8, 16, 24], st.PICK_LARGEST, "person", True, True, 1.0):
+        problems.append(f"head anchors: a body box on the picked shot should not be the reference: {got.pick_seed}, {got.pick_frame}")
+    # two boxes whose head searches land on one frame make ONE head seed there, tracked once over the stretch
+    face = _box(40, 10, 80, 30)
+    log = []
+
+    def head4(f: int, mask: torch.Tensor):
+        return face if f == 5 else None
+    sign4 = lambda f, m: (torch.tensor([1.0, 0.0]), torch.tensor([1.0, 0.0]))   # noqa: E731
+    sign4.head = head4
+
+    def track4(start: int, end: int, seed: int, mask: torch.Tensor):
+        log.append((start, end, seed, "head" if torch.equal(mask > 0.5, face > 0.5) else "person"))
+        return mask[None].repeat(end - start, 1, 1)
+    got = st.follow(20, [], st.PICK_LARGEST, 8, 0.5, lambda f: (body[None], [0.9]), sign4, track4,
+                    seeds=st.parse_seeds(f"frame 5: {bx}\nframe 8: {bx}", [(0, 20)]), track_head=True, head_per_stretch=True)
+    if [c for c in log if c[3] == "head"] != [(0, 20, 5, "head")]:
+        problems.append(f"head anchors: two boxes' heads found on one frame should make one head seed: {log}")
+
+
+def check_review_gaps(problems):
+    """The independent review of 2026-10-23: three paths that could keep another person's pixels or a stand-in head."""
+    # (1) an unclipped box prompt that bleeds onto another person's arm, under PROMPT_ON_OTHERS, for the FIRST tracker of a
+    # job (no earlier tracker's mask): the arm's pixels are taken out of the seed; a part of her detected apart is kept
+    her, arm_b, her_head = _box(40, 10, 80, 60), _box(80, 30, 90, 60), _box(45, 10, 75, 25)
+    for people, keep_part in (([_box(0, 0, 10, 10), her, arm_b], False), ([_box(0, 0, 10, 10), her, arm_b, her_head], True)):
+        detect = lambda f, p=people: (torch.stack(p), [0.9] * len(p))   # noqa: E731
+        bleed = _box(40, 10, 88, 60)                     # all of her, and 240 px of his arm: 0.10 of it, under the line
+        got = st.name_seed(detect, 4, (30.0, 40.0, 15.0, 15.0), None, lambda f, bx: bleed, drawn=True)
+        if got.mask is None or bool(((got.mask > 0.5) & (arm_b > 0.5)).any()) or bool(((her > 0.5) & ~(got.mask > 0.5)).any()):
+            problems.append(f"review (1): a box prompt bleeding onto another person's arm should not keep the arm "
+                            f"({'with' if keep_part else 'without'} her head detected apart): {got.record}")
+    # (2) another subject's box that their own tracker names by the box prompt (their drawn box catches under half of them):
+    # it is resolved the same way here, so this tracker's box lying on them is refused, not taken
+    other_p = _box(60, 10, 120, 70)                      # the other subject, 3,600 px
+    people = [_box(0, 0, 10, 10), other_p]
+    detect = lambda f: (torch.stack(people), [0.9, 0.9])  # noqa: E731
+    theirs_box = (100.0, 10.0, 20.0, 20.0)               # catches 400 of their 3,600 px: not mostly inside, so the prompt
+    ours_box = (60.0, 40.0, 30.0, 30.0)
+
+    def in_box(f, bx):
+        return _box(90, 10, 120, 40) if tuple(bx) == theirs_box else _box(60, 40, 90, 70)
+
+    def sign(_f, _m):
+        return torch.tensor([1.0, 0.0]), None
+    sign.in_box = in_box
+    track = lambda start, end, seed, mask: mask[None].repeat(end - start, 1, 1)   # noqa: E731
+    text = "frame 4: 60, 40, 30, 30 drawn\nframe 4: 100, 10, 20, 20 drawn other"
+    got = st.follow(8, [], st.PICK_LARGEST, 0, 0.5, detect, sign, track, seeds=st.parse_seeds(text, [(0, 8)]),
+                    other_boxes=st.parse_other_boxes(text, [(0, 8)]), track_head=False)
+    if got.shots[0].seed is not None or "another tracked subject" not in got.shots[0].seeded["why"]:
+        problems.append(f"review (2): another subject named by their box prompt should not be taken by this tracker: {got.shots[0].seeded}")
+    # (3) a headless shot keeps main's head everywhere main had one (2026-10-23, the lead on the reader's census: never less
+    # than main, the owner's never-leave-originals): its own seed's top third, and on a stretch found again the top third of
+    # the person found, as main tracked it there; recorded as main's span head
+    subject, detect3, sign3, track3, calls3 = _lost_world(lambda f: not 20 <= f < 24, n=48)
+    sign3.head = lambda f, m: None
+    got = st.follow(48, [], st.PICK_LARGEST, 3, 0.8, detect3, sign3, track3, stride=4, offset=1, track_head=True)
+    heads = st.assemble(48, H, W, got.head_pieces)
+    head_calls = [c for c in calls3["track"] if c[3] == "other"]          # the head seed is no detection: "other" to the world
+    if not got.shots[0].regained or head_calls != [(0, 48, 3, "other"), (20, 48, 24, "other")] \
+            or {got.head_from.get(0, {}).get(f) for f in (10, 30)} != {"span, top third"} \
+            or not all(torch.equal(heads[f] > 0.5, st.top_third(subject) > 0.5) for f in (10, 30)):
+        problems.append(f"review (3): a headless shot should keep main's top third where main had it: {head_calls}, {got.head_from.get(0, {}).get(30)}")
+
+
+def check_ran_code(problems):
+    """Which code ran (2026-10-23, the owner: "verify mask version is even right"): the stamp is bound at module top level
+    when the module is imported, is the sha256 of the file it was imported from and the loaded node's MASK_VERSION, the
+    node writes that bound value into every shot table, and changing the file on disk afterwards does not change it."""
+    import hashlib
+    stamp = st.RAN_CODE
+    if stamp != {"file": MODULE.name, "sha256": hashlib.sha256(MODULE.read_bytes()).hexdigest(),
+                 "mask_version": st.MiniMaxH3SubjectTrack.MASK_VERSION}:
+        problems.append(f"ran code: the stamp is not the file the module was imported from: {stamp}")
+    # import a copy of the module, then change that file on disk: what the imported module reports stays what it read
+    with tempfile.TemporaryDirectory() as tmp:
+        pack = Path(tmp)
+        for name in ("subject_track.py", "shot_table.py", "subject_tracks.py"):
+            (pack / name).write_bytes(((MODULE.parent if (MODULE.parent / name).exists() else REPO) / name).read_bytes())
+        before = hashlib.sha256((pack / "subject_track.py").read_bytes()).hexdigest()
+        pkg = types.ModuleType("_h3ran")
+        pkg.__path__ = [str(pack)]
+        sys.modules["_h3ran"] = pkg
+        spec = importlib.util.spec_from_file_location("_h3ran.subject_track", pack / "subject_track.py")
+        copy = importlib.util.module_from_spec(spec)
+        sys.modules["_h3ran.subject_track"] = copy
+        spec.loader.exec_module(copy)
+        with open(pack / "subject_track.py", "ab") as f:
+            f.write(b"\n# edited on disk after the import\n")
+        after = hashlib.sha256((pack / "subject_track.py").read_bytes()).hexdigest()
+        if copy.RAN_CODE["sha256"] != before or copy.RAN_CODE["sha256"] == after or copy.ran_code()["sha256"] != after:
+            problems.append(f"ran code: the stamp should stay what was imported when the file changes on disk: {copy.RAN_CODE}")
+        for name in ("_h3ran.subject_track", "_h3ran", "_h3ran.shot_table", "_h3ran.subject_tracks"):
+            sys.modules.pop(name, None)
+    # execute reports the bound value and reads no file: the hash is taken nowhere but at import
+    source = MODULE.read_text(encoding="utf-8")
+    body = source[source.index("    def execute(cls, frames, segmenter"):source.index("def ran_code(path=None)")]
+    if 'table["ran_code"] = dict(RAN_CODE)' not in body or "hashlib" in body or "read_bytes" in body \
+            or "RAN_CODE = ran_code()" not in source.split("def ran_code(path=None)")[1]:
+        problems.append("ran code: execute should write the stamp bound at import, and hash nothing itself")
+
+
+def check_span_fill(problems):
+    """Never less than main (2026-10-23, the lead on the reader's census): a stretch with a head detection takes its own head;
+    a stretch with none keeps main's span head, the head main tracked across the empty run, recorded per frame."""
+    body = _box(40, 10, 80, 60)
+    held_on = set(range(0, 10)) | set(range(20, 30))
+    calls = []
+
+    def detect(f: int):
+        return body[None], [0.9]
+
+    def sign(_f, _m):
+        return torch.tensor([1.0, 0.0]), torch.tensor([1.0, 0.0])
+    own = _box(40, 10, 80, 20)                                  # the head found on 0-9
+    sign.head = lambda f, m: own if f < 10 else None            # none found on 20-29: she is turned away there
+
+    def track(start: int, end: int, seed: int, mask: torch.Tensor):
+        calls.append((start, end, seed, "person" if torch.equal(mask > 0.5, body > 0.5) else "head"))
+        out = torch.zeros((end - start, H, W))
+        for f in range(start, end):
+            if f in held_on:
+                out[f - start] = mask                           # SAM carries what it was given across the empty run
+        return out
+    bx = ", ".join(str(v) for v in st.shot_table._box(body))
+    got = st.follow(30, [], st.PICK_LARGEST, 5, 0.5, detect, sign, track, seeds=st.parse_seeds(f"frame 5: {bx}", [(0, 30)]), track_head=True, head_per_stretch=True)
+    heads = st.assemble(30, H, W, got.head_pieces)
+    marks = got.head_from.get(0, {})
+    head_calls = [c[:3] for c in calls if c[3] == "head"]
+    if [marks.get(f) for f in (0, 9, 20, 29)] != ["stretch", "stretch", "span", "span"] \
+            or not all(torch.equal(heads[f] > 0.5, own > 0.5) for f in (5, 25)) or head_calls != [(0, 10, 5), (0, 30, 5)]:
+        problems.append(f"span fill: the stretch with a head should take its own, the one without main's span head: "
+                        f"{ {f: marks.get(f) for f in (0, 20)} }, {head_calls}")
+    # where main's span head does not reach (SAM loses it across the empty run), the headless stretch keeps nothing, as main
+    def track_lost(start: int, end: int, seed: int, mask: torch.Tensor):
+        out = torch.zeros((end - start, H, W))
+        for f in range(start, end):
+            if f in held_on and (torch.equal(mask > 0.5, body > 0.5) or f < 10):
+                out[f - start] = mask
+        return out
+    got = st.follow(30, [], st.PICK_LARGEST, 5, 0.5, detect, sign, track_lost, seeds=st.parse_seeds(f"frame 5: {bx}", [(0, 30)]), track_head=True, head_per_stretch=True)
+    heads = st.assemble(30, H, W, got.head_pieces)
+    if any(bool((heads[f] > 0.5).any()) for f in range(20, 30)) or any(got.head_from.get(0, {}).get(f) for f in range(20, 30)):
+        problems.append("span fill: where main's span head is lost across the gap, the stretch should hold no head, as main did")
+
+
+def check_blind_prompt(problems):
+    """The first tracker of a job, which has no earlier tracker's mask, refuses a box prompt as doubtful on a frame where it
+    knows none of the job's other subjects (no `other` box there), since it cannot hold the prompt to them (2026-10-23, the
+    blind re-read: the reader's dress world, 540 px of the lead's dress taken through a tile box and a drawn one)."""
+    lead = _box(20, 0, 70, 72)
+    detect = lambda f: (lead[None], [0.9])                       # noqa: E731
+    track = lambda start, end, seed, mask: mask[None].repeat(end - start, 1, 1)   # noqa: E731
+
+    def sign(_f, _m):
+        return torch.tensor([1.0, 0.0]), None
+    sign.in_box = lambda f, bx: _box(50, 45, 70, 72)            # the lead's dress, under a box drawn for the second subject
+    if st.parse_job_others("frame 4: 1, 2, 3, 4\njob: 2 other subjects") != 2 or st.parse_job_others("frame 4: 1, 2, 3, 4") != 0 \
+            or st.parse_seeds("frame 4: 1, 2, 3, 4\njob: 1 other subject", [(0, 8)]) != {1: [(4, (1.0, 2.0, 3.0, 4.0))]}:
+        problems.append("blind: the `job: N other subjects` line is not read, or is read as a seed")
+    lead_box = ", ".join(str(v) for v in st.shot_table._box(lead))
+    for box_line in ("frame 4: 50, 40, 30, 32", "frame 4: 50, 40, 30, 32 drawn"):
+        for job, other, taken in ((1, False, False), (0, False, True), (1, True, False)):
+            text = box_line + (f"\nframe 4: {lead_box} other" if other else "") + (f"\njob: {job} other subject" if job else "")
+            got = st.follow(8, [], st.PICK_LARGEST, 0, 0.5, detect, sign, track, seeds=st.parse_seeds(text, [(0, 8)]),
+                            other_boxes=st.parse_other_boxes(text, [(0, 8)]), job_others=st.parse_job_others(text), track_head=False)
+            seeded = got.shots[0].seeded
+            # (with the lead's box carried the box is refused on her: as another tracked subject, before or by the prompt)
+            if (got.shots[0].seed is not None) != taken or (not taken and not other and not seeded.get("doubtful")) \
+                    or (job and not other and "knows none of them on this frame" not in seeded["why"]):
+                problems.append(f"blind: {text!r} should be {'taken' if taken else 'refused as doubtful'}: {seeded}")
+
+
 def main() -> int:
     problems: list[str] = []
     for check in (check_cuts, check_borders, check_ranges, check_counted, check_choose, check_signature, check_follow, check_corrections,
                   check_automatic, check_alone, check_regain, check_headless_vote, check_two_places, check_empty, check_one_detection_each, check_moved_by_a_gap, check_looks_in_the_table, check_rows_from_tables, check_seeds, check_only_person_off_with_others, check_others,
-                  check_track_score, check_schema, check_track_head):
+                  check_track_score, check_schema, check_track_head, check_every_box, check_box_tiers, check_head_runs,
+                  check_regain_at_a_box, check_one_box_calls, check_body_box, check_drawn_box,
+                  check_head_anchors, check_review_gaps, check_ran_code, check_span_fill,
+                  check_blind_prompt):
         check(problems)
     for p in problems:
         print(f"FAIL  {p}")

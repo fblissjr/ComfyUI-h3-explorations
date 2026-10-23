@@ -172,18 +172,51 @@ def label_points(masks: torch.Tensor) -> list[tuple[int, float, float]]:
     return points
 
 
+#: How a seed's box was taken (`subject_track.name_seed`), in the order tried: a seed record's `how`.
+SEED_HOW = ("the box agrees with a detection", "a detection's mask overlaps the box", "segmented inside the box (SAM 3's box prompt)",
+            "refused",
+            # a box the owner DREW, which is approximate (2026-10-23): which person, never an outline
+            "the one person lying mostly inside a drawn box", "SAM 3's box prompt from a drawn box, not clipped to it")
+
 # ------------------------------------------------------------------ the table
+
+def _seed_why(seeded: dict) -> str:
+    """One seed's record (`subject_track.name_seed`) in the table's words: what its box took and how, or why it was refused."""
+    if seeded.get("encloses") == "body":
+        return _seed_why({**seeded, "encloses": None}) + " (a box round her body: her person track only, never her head)"
+    if seeded["refused"]:
+        return (f"seed refused on frame {seeded['frame']}: no detection agrees with the box given"
+                + ("" if seeded["overlap"] is None else f" (the nearest overlaps it by {seeded['overlap']:.2f})")
+                + (f"; {seeded['why']}" if seeded.get("why") else ""))
+    how = seeded.get("how")
+    if how == SEED_HOW[4]:
+        return (f"seeded: the one person lying mostly inside the drawn box on frame {seeded['frame']} ({seeded['inside']:.2f} of their mask "
+                f"inside it, covering {seeded['covers']:.2f} of it)")
+    if how == SEED_HOW[5]:
+        return (f"seeded: SAM 3's box prompt from the drawn box on frame {seeded['frame']}, not clipped to it, {seeded['px']} px; no "
+                "detection lay mostly inside it")
+    if how == SEED_HOW[2]:
+        return f"seeded: segmented inside the box on frame {seeded['frame']} by SAM 3's box prompt, {seeded['px']} px; no detection agreed with it"
+    if how == SEED_HOW[1]:
+        return (f"seeded: the detection whose mask overlaps the box on frame {seeded['frame']} (mask overlap {seeded['mask_overlap']:.2f}, "
+                f"box overlap {seeded['overlap']:.2f})")
+    return f"seeded: the detection the box names on frame {seeded['frame']} (overlap {seeded['overlap']:.2f})"
+
 
 def _why(shot, state: str, match: float, pick: str, phrase: str, named_frame: bool) -> str:
     seeded = getattr(shot, "seeded", None)
+    several = getattr(shot, "seeded_all", None)
+    if several:
+        # several boxes in one shot (subject_track.py `_seed`, 2026-10-23): each taken box's track kept frame by frame
+        return (f"seeded from {len(several)} boxes, kept frame by frame by the tracker's own score: "
+                + "; ".join(_seed_why(x) + ("" if x["refused"] else
+                                            ", kept on " + (", ".join(f"{a}-{b}" for a, b in x.get("kept_on") or []) or "no frame"))
+                            for x in several))
     if seeded:
         # A seed, like a correction, outranks every automatic reason.
         if seeded["box"] is None:
             return f"seeded: nobody (frame {seeded['frame']})"
-        if seeded["refused"]:
-            return (f"seed refused on frame {seeded['frame']}: no detection agrees with the box given"
-                    + ("" if seeded["overlap"] is None else f" (the nearest overlaps it by {seeded['overlap']:.2f})"))
-        return f"seeded: the detection the box names on frame {seeded['frame']} (overlap {seeded['overlap']:.2f})"
+        return _seed_why(seeded)
     corrected = str(getattr(shot, "corrected", "") or "")
     if corrected:
         # A person's word outranks every automatic reason: the similarity the
@@ -335,8 +368,20 @@ def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask
             # tracker without them has no such field and the row says so.
             "corrected": str(getattr(shot, "corrected", "") or ""),
             # what a seed said of this shot (the tracker's `seeds`), or null: its frame, the box given, the person it
-            # matched on that frame, the overlap, whether it was refused, and the nearest detection's box
+            # matched on that frame, the overlap, whether it was refused, and the nearest detection's box; since
+            # 2026-10-23 also `how` it was taken (`SEED_HOW`), the seed mask's `px`, the taken detection's
+            # `mask_overlap` with the box where that took it, `why` a refusal, and `encloses` ("body" for a box round her
+            # body, which seeds no head; null otherwise)
             "seeded": getattr(shot, "seeded", None),
+            # a shot seeded from several boxes (subject_track.py `_seed`, 2026-10-23): every seed's record in frame order, a
+            # taken one with the frames its track ran over (`first_frame`, `last_frame`) and the runs it was kept on
+            # (`kept_on`, [first, last] each), a refused one with those null and empty. Written only then, so a shot of one
+            # seed reads as it did
+            **({"seeds": shot.seeded_all} if getattr(shot, "seeded_all", None) else {}),
+            # frames such a shot left empty because two boxes' tracks held different people there (`subject_track.merge_tracks`),
+            # as [first, last] runs; written only where there are any
+            **({"seed_tracks_disagree_on": _runs([f in set(shot.disagreed) for f in range(int(shot.start), int(shot.end))], int(shot.start))}
+               if getattr(shot, "disagreed", None) else {}),
             "on_screen": with_subject > 0,
             "frames_with_subject": with_subject,
             "frames_without_subject": without,
@@ -380,7 +425,9 @@ def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask
         "match": round(float(found.match), 3),
         "match_named": bool(named_value),
         # a seed on the picked shot: "is the pick" (the person it names is who every other shot was judged against),
-        # "took nobody" (the pick rule's person stayed the reference), or empty
+        # "took nobody" (the pick rule's person stayed the reference), "names no detection" (its boxes were taken by
+        # segmenting inside them, and the pick rule's person stayed the reference), "body boxes only" (its only boxes are
+        # round her body, never a reference), or empty
         "pick_seed": str(getattr(found, "pick_seed", "") or ""),
         # the floor an automatic line starts from, and the two shots' scores it was put between when it stands above it
         "match_floor": round(float(getattr(found, "floor", 0.0)), 3),
