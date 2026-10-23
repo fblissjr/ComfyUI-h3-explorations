@@ -93,6 +93,14 @@ builder's own `check_job`, and a load's to `masked_job.loads_of`, so a file the 
    no traceback: `--seed` with no words, words with no `--seed`, a seed that is not a whole number from 0 to `shot_to_load.SEED_MAX`.
    `--carry-words-from` carries none of it: the old job's seed is named under RETIRED KEYS NOT CARRIED and the new load takes the
    job's own, or its own `--seed`. `pair` takes two loads of one seed made at two times (their words differ) and refuses two seeds.
+11. **A load's margin is a person's word** (`job --margin N --margin-why WHY`, 2026-10-23). Without the flag `defaults` is as it was,
+   `h3_config.MASKED_LOAD_MARGIN` by the plan's region, with no record, row or note about a margin. With it `defaults.margin` is N and
+   `defaults.margin_by` holds the words, the session and the time; THE DEFAULTS THIS LOAD CARRIES and the note say it; the builder puts N
+   in the Masked Source's `grow_pixels` and the build record's `settings.margin`; and the capture reads N off the same file, for its plan
+   and for her hair's hole (`capture_masked_run.loads_from_file`, `hole_of_the_load`). Refused, in the tool's words with no traceback: no
+   words, words with no `--margin`, a margin that is not a whole number from 1 to `shot_to_load.MARGIN_MOST` (held equal to the node's
+   `video_mask.GROW_PIXELS_MAX`), and, in the builder's words, one under the feather. `--carry-words-from` carries none of it. `pair`
+   carries the `margin_by` of the subject whose margin it takes, and none where that margin is the region's own.
 
 No server, no card, no video decoded.
 
@@ -2398,6 +2406,21 @@ def a_load_of_two_subjects() -> str:
             stl.step_pair(a_(inputs / "a4.json", inputs / "b4.json", name="seeded"), m)
             seeded = json.loads((inputs / "seeded.json").read_text())
             assert seeded["defaults"] == {"margin": 64, "seed": 9, "seed_by": {"why": "WT1", "by": "the session", "at": "T1"}}, seeded["defaults"]
+            # a margin a person asked for on one load (`job --margin N --margin-why`, `defaults.margin_by`): the pair takes the larger margin
+            # with the words of the subject whose margin it is, and none where that one is the region's own. THE CASE THAT GOES RED when the
+            # pair carries the first subject's words with the second's margin, or refuses two loads whose words differ
+            asked = lambda at: {"why": f"M{at}", "by": "the session", "at": at}   # noqa: E731
+            for name, (ma, wa), (mb, wb), want in (("asked_a", (128, asked("T1")), (64, None), (128, asked("T1"))),
+                                                   ("asked_small", (32, asked("T1")), (64, None), (64, None)),
+                                                   ("asked_b", (16, None), (96, asked("T2")), (96, asked("T2"))),
+                                                   ("asked_both", (96, asked("T1")), (96, asked("T2")), (96, asked("T1")))):
+                for src, dst, mg, words in ((ja, inputs / f"a_{name}.json", ma, wa), (jb, inputs / f"b_{name}.json", mb, wb)):
+                    d = json.loads(src.read_text())
+                    d["defaults"].update(margin=mg, **({"margin_by": words} if words else {}))
+                    dst.write_text(json.dumps(d))
+                stl.step_pair(a_(inputs / f"a_{name}.json", inputs / f"b_{name}.json", name=name), m)
+                got = json.loads((inputs / f"{name}.json").read_text())["defaults"]
+                assert (got["margin"], got.get("margin_by")) == want, (name, got)
             stl.step_pair(a_(ja, jb), m)
         finally:
             stl.load_chain.video_of = kept
@@ -3566,6 +3589,127 @@ def a_loads_larger_zoom_is_a_persons_word() -> str:
             "never carried; the two constants are video_mask's")
 
 
+def a_loads_margin_is_a_persons_word() -> str:
+    """`job --margin N --margin-why WHY` (2026-10-23, the owner's go for a larger mask round the second subject's hair on 1093): a load's
+    margin is `h3_config.MASKED_LOAD_MARGIN` by the plan's region unless a person asks for another on that load. With the flag the job file's
+    `defaults.margin` is N with `defaults.margin_by` (why, who, when), the note and THE DEFAULTS THIS LOAD CARRIES say it, the builder's
+    reading of the file puts N in the Masked Source's `grow_pixels` and the build record, and the capture's reading of the same file (its
+    plan, and her hair's hole) takes N, never the config's. Without it the file is as it was. Refused with no words, words with no margin,
+    a margin that is not a whole number from 1 to the node's most, and one under the feather (the builder's words); never carried."""
+    import contextlib
+    import io
+    import os
+    import re
+    import numpy as np
+    import capture_masked_run as cap
+    why = "the owner's go of 2026-10-23: a larger mask round the second subject's hair on 1093, one variable against second_hfp_1093i"
+    files = {"track": ("/capture/a/track.mkv", 100), "parts": ("/capture/a/parts.mkv", 100), "motion": ("/ref.mp4", 100), "others": []}
+    base_graph = json.loads((HERE.parent / "workflows" / cfg.MASKED_JOB_BASE_GRAPH).read_text())
+    most = re.search(r"^GROW_PIXELS_MAX = (\d+)$", (HERE.parent / "video_mask.py").read_text(encoding="utf-8"), re.M)
+    assert most and int(most.group(1)) == stl.MARGIN_MOST, f"shot_to_load's MARGIN_MOST is video_mask's GROW_PIXELS_MAX: {most and most.group(1)}"
+    own = cfg.MASKED_LOAD_MARGIN["face"]
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        folder = made.preview_ran(made.preview(100))
+        a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="a", preview=str(folder))
+
+        def stepped(**more) -> str:
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                stl.step_job(args(**{**vars(a), **more}), made.m)
+            return buf.getvalue()
+
+        def written(name: str) -> dict:
+            return json.loads((made.jobs / f"{name}.json").read_text())
+
+        def in_the_graph(d: dict) -> tuple:
+            """The Masked Source's `grow_pixels` and the build record's `settings.margin`, from the file as the builder reads it."""
+            one = masked_job.loads_of(d)[0]
+            one["still"] = {x["label"]: x["still"] for x in d["job"]["subjects"] if x.get("still")}[one["subject"]]
+            g = graphs.load(base_graph, d["job"], one, files, "the words", windows=masked_job.chain_lengths())
+            return g[graphs._the(g, graphs.SOURCE)]["inputs"]["grow_pixels"], masked_job.settings_of(one, g)["margin"]
+
+        def in_the_capture(name: str) -> tuple:
+            """The margin the capture's plan takes off the job file (`--loads`), and the one her hair's hole is grown by."""
+            told = cap.loads_from_file(str(made.jobs / f"{name}.json"))
+            w, h = written(name)["job"]["canvas"]
+            held = np.zeros((4, h, w), bool)
+            held[:, h // 3:h // 2, w // 3:w // 2] = True
+            return told[0][1]["margin"], cap.hole_of_the_load("a", told, held, (w, h))[0]
+
+        def cli(*more: str) -> str:
+            out = subprocess.run(
+                [sys.executable, "-c",
+                 f"import sys; sys.path.insert(0, {str(HERE)!r}); from pathlib import Path; "
+                 f"import load_chain as lc, shot_to_load as stl; lc.REPO = stl.REPO = Path({str(made.root)!r}); sys.exit(stl.main())",
+                 "job", "--shots", str(made.shots_file), "--plan", str(made.plan_file), "--shot", "100", "--subject", "a", "--preview", str(folder),
+                 "--folder", str(made.jobs), "--by", "the session", "--day", "2026-01-03", *more],
+                capture_output=True, text=True, env={**os.environ, "H3_OUTPUT_DIR": str(made.m.output), "H3_INPUT_DIR": str(made.root / "input")})
+            assert out.returncode != 0 and "Traceback" not in out.stdout + out.stderr, f"{more}: exit {out.returncode}: {out.stdout + out.stderr!r}"
+            return out.stdout + out.stderr
+
+        # 1. THE REFUSALS, in the tool's words with no traceback and nothing written (the CLI as a person runs it, and the file's maker)
+        assert "--margin takes --margin-why" in cli("--margin", "128"), "a --margin with no words is not refused in the tool's words"
+        assert "--margin-why goes with --margin" in cli("--margin-why", why)
+        for bad in ("0", "-1", "abc", "1.5", "", "1e2", "0x10", str(stl.MARGIN_MOST + 1), "9" * 5000):
+            assert "a whole number of px from 1 to" in cli(f"--margin={bad}", "--margin-why", why), f"--margin={bad[:20]!r} is not refused as not a margin"
+        assert not list(made.jobs.glob("a_fp_*.json")), "a refused --margin wrote a job file"
+        refused(lambda: made.load(margin=128), "--margin takes --margin-why")
+        refused(lambda: made.load(margin=128, margin_why="   "), "--margin takes --margin-why")
+        refused(lambda: made.load(margin_why=why), "--margin-why goes with --margin")
+        for bad in (0, -1, 1.5, True, "abc", "", stl.MARGIN_MOST + 1):
+            refused(lambda: made.load(margin=bad, margin_why=why), "--margin", "a whole number of px from 1 to")
+
+        # 2. WITHOUT --margin THE JOB IS AS IT WAS: the region's margin, in the same place among the defaults, no record, no row, no note
+        printed = stepped()
+        plain = written("a_fp_0100")
+        want = {**cfg.MASKED_LOAD_DEFAULTS, "margin": own, "seed": cfg.SEED}
+        assert plain["defaults"] == want and list(plain["defaults"]) == list(want), f"a load with no --margin: {plain['defaults']}"
+        assert not [x for x in plain["job"]["defaults"] if x["what"] == "the margin"] and "THE MARGIN" not in plain["job"]["note"] \
+            and "the margin:" not in printed, "a load with no --margin says a margin"
+        assert in_the_graph(plain) == (own, {"value": own, "set_by": "the job file"}), in_the_graph(plain)
+        assert in_the_capture("a_fp_0100") == (str(own), own), in_the_capture("a_fp_0100")
+
+        # 3. WITH --margin: the file, the printed block, the note, the Masked Source, the build record and the capture
+        printed = stepped(remake=True, no_carry_words="a test of its own", margin="128", margin_why=why)
+        mine = written("a_fp_0100b")
+        by = mine["defaults"].get("margin_by") or {}
+        assert mine["defaults"]["margin"] == 128 and type(mine["defaults"]["margin"]) is int, f"--margin 128 is not the file's margin: {mine['defaults']}"
+        assert (by.get("why"), by.get("by")) == (why, "the session") and re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", str(by.get("at"))), by
+        assert {k: v for k, v in mine["defaults"].items() if k not in ("margin", "margin_by")} == {k: v for k, v in want.items() if k != "margin"}, mine["defaults"]
+        row = next((x for x in mine["job"]["defaults"] if x["what"] == "the margin"), None)
+        assert row and row["carries"].startswith(f"128 px (h3_config.MASKED_LOAD_MARGIN for 'face' is {own})") and why in row["from"] \
+            and "the session" in row["from"], row
+        assert any(line.startswith("  the margin: 128 px ") and why in line for line in printed.splitlines()), \
+            "THE DEFAULTS THIS LOAD CARRIES does not say the margin and why"
+        assert "THE MARGIN IS 128 px" in mine["job"]["note"] and why in mine["job"]["note"], mine["job"]["note"]
+        # THE CASE THAT GOES RED when a reader takes the config's margin over the load's: the node, the build record, the capture's plan, the hole
+        assert in_the_graph(mine) == (128, {"value": 128, "set_by": "the job file"}), f"the Masked Source and the build record: {in_the_graph(mine)}"
+        assert in_the_capture("a_fp_0100b") == ("128", 128), f"the capture's plan and her hair's hole: {in_the_capture('a_fp_0100b')}"
+        graphs.check_job(mine["job"])
+        # a number given as a number or with spaces round it is the same one, and the node's most is a margin
+        assert (made.load(name="m7", margin=7 + 1, margin_why=why)["defaults"]["margin"], made.load(name="m8", margin=" 64 ", margin_why=why)["defaults"]["margin"],
+                made.load(name="m9", margin=str(stl.MARGIN_MOST), margin_why=why)["defaults"]["margin"]) == (8, 64, stl.MARGIN_MOST)
+        # a margin under the feather is the builder's to refuse, in its words, before anything is written
+        refused(lambda: stepped(remake=True, no_carry_words="a test of its own", margin="4", margin_why=why), "the builder would refuse", "wider than its margin")
+
+        # 4. A MARGIN IS PER LOAD: --carry-words-from names the old job's and takes none of it; the new load's own flag is its own
+        printed = stepped(remake=True, carry_words_from=str(made.jobs / "a_fp_0100b.json"))
+        carried = written("a_fp_0100c")
+        assert carried["defaults"] == want and not [x for x in carried["job"]["defaults"] if x["what"] == "the margin"], carried["defaults"]
+        assert in_the_graph(carried)[0] == own, "a margin was carried"
+        assert "RETIRED KEYS NOT CARRIED FROM a_fp_0100b:" in printed and "defaults.margin: not carried (was 128, the session," in printed and why in printed, printed
+        stepped(remake=True, carry_words_from=str(made.jobs / "a_fp_0100b.json"), margin="200", margin_why="the other margin")
+        again = written("a_fp_0100d")
+        assert again["defaults"]["margin"] == 200 and again["defaults"]["margin_by"]["why"] == "the other margin", again["defaults"]
+        # an old job with no margin record says nothing of one
+        assert "defaults.margin" not in stepped(remake=True, carry_words_from=str(made.jobs / "a_fp_0100.json"))
+    return ("a load's margin is h3_config.MASKED_LOAD_MARGIN by its region unless a person gives --margin with --margin-why; then defaults.margin and "
+            "defaults.margin_by (why, session, time), THE DEFAULTS THIS LOAD CARRIES and the note say it, and the Masked Source's grow_pixels, the build "
+            "record and the capture's plan and hole take it; without it the defaults are as they were; refused with no words, words and no margin, "
+            "anything but a whole number from 1 to the node's most, and under the feather; --carry-words-from carries none of it")
+
+
 case("the frame a tracker picks on is a field of the shots record", the_pick_frame_is_a_field)
 case("the trackers' order, and who is in the shot", the_order_and_who_is_in_the_shot)
 case("a preview made to ask who is on a shot the record is unsure of", a_preview_made_to_ask)
@@ -3606,6 +3750,8 @@ case("pass-2 source: preview requires --source (and --for where a piece is laid)
 case("seed: --seed with --seed-why is the load's own, in the file, the block, the song node and the build record; never carried", a_loads_seed_is_a_persons_word)
 case("head marks: a person's marks on her head and hair reach the job file and the capture", a_persons_marks_on_her_head)
 case("zoom: --zoom-up-to with --zoom-up-to-why asks one load past the node's own 2; off by default; never carried", a_loads_larger_zoom_is_a_persons_word)
+case("margin: --margin with --margin-why is the load's own, in the file, the block, the node, the build record and the capture; never carried",
+     a_loads_margin_is_a_persons_word)
 
 if __name__ == "__main__":
     sys.exit(finish())

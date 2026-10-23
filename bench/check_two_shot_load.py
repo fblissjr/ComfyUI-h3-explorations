@@ -320,6 +320,13 @@ def the_two_loads_are_held_to_each_other() -> str:
                         b=str(made.changed(made.b, "b_asked", lambda j: j["defaults"].update(seed=9, seed_by=words("T2")))), name="asked_twice")
         assert "wrote" in once and json.loads((made.jobs / "asked_twice.json").read_text())["defaults"]["seed_by"] == words("T1"), once
         with_b("b_asked_other", lambda j: j["defaults"].update(seed=9, seed_by=words("T3")), "`defaults`", "the window alone")   # a's seed is not 9
+        # the same of ONE margin asked for at two times (`shot_to_load.py job --margin N --margin-why`, `defaults.margin_by`); another margin
+        # is refused. THE CASE THAT GOES RED when the words behind a margin are held to each other as a setting
+        once = made.job(a=str(made.changed(made.a, "a_margined", lambda j: j["defaults"].update(margin=128, margin_by=words("T1")))),
+                        b=str(made.changed(made.b, "b_margined", lambda j: j["defaults"].update(margin=128, margin_by=words("T2")))), name="margined_twice")
+        twice = json.loads((made.jobs / "margined_twice.json").read_text())["defaults"]
+        assert "wrote" in once and (twice["margin"], twice["margin_by"]) == (128, words("T1")), once
+        with_b("b_margined_other", lambda j: j["defaults"].update(margin=128, margin_by=words("T3")), "`defaults`", "the window alone")   # a's is not 128
         with_b("b_margin", lambda j: j["loads"][0].update(margin=64), "the load's settings")
         with_b("b_still", lambda j: j["job"]["subjects"][0].update(still="other.png"), "the subject a's keys")
         with_b("b_pieces", lambda j: j["job"]["subjects"][0].update(pieces="largest"), "the subject a's keys")

@@ -118,7 +118,13 @@ CARRIES, a line each with where it comes from, and keeps the same in the job fil
   (2026-10-22, to test it): `--zoom-up-to N --zoom-up-to-why "who asked and why"` writes `defaults.zoom_up_to`
   with `defaults.zoom_up_to_by` the same way, and the Masked Source may then enlarge the load past its own 2, up
   to N (`video_mask.ZOOM_MOST_ASKED` at most), until the head is `video_mask.ZOOM_HEAD_TARGET` px tall. Refused on
-  a load rendered on the whole frame; not carried by `--carry-words-from`.
+  a load rendered on the whole frame; not carried by `--carry-words-from`. THE MARGIN is `h3_config.MASKED_LOAD_MARGIN`
+  by the plan's region unless a person asks for another on one load (2026-10-23, to test a larger mask round her
+  hair): `--margin N --margin-why "who asked and why"` writes `defaults.margin` as N with `defaults.margin_by` the
+  same way, and every reader of the load's margin takes it from there (the capture's region and her hair's hole,
+  the plan and the render's `grow_pixels`). Refused: a margin that is not a whole number from 1 to `MARGIN_MOST`,
+  no words, words with no `--margin`, and one under the feather (the builder's refusal); not carried by
+  `--carry-words-from`.
 - `reference`: on the LOAD's own frames, so the box is round the head on those frames: the pose pass in the
   subject's tracked box, then `bench/head_reference.py`, which writes the drawn form and the plain cut both. It
   goes to `Video/<video>/references/<subject>_<first>_<last>/`: a reference belongs to a shot, a subject and a
@@ -750,6 +756,35 @@ def zoom_up_to_of(up_to: float | str | None, up_to_why: str | None, by: str, now
     if not words:
         raise Refused("--zoom-up-to takes --zoom-up-to-why: who asked for the larger zoom and why (it is off by default, for a test)")
     return value, {"why": words, "by": by, "at": now}
+
+
+#: The most a load may ask the Masked Source to grow its region by (`--margin`): the node's `grow_pixels` takes no more
+#: (`video_mask.GROW_PIXELS_MAX`). **Inherited** from the node, said again here because this tool does not import the pack (torch);
+#: `bench/check_shot_to_load.py` holds the two equal.
+MARGIN_MOST = 512
+
+
+def margin_of(margin: int | str | None, margin_why: str | None, by: str, now: str) -> tuple[int | None, dict | None]:
+    """THE MARGIN OF ONE LOAD (`--margin N --margin-why WHY`, 2026-10-23, the owner's go for a larger mask round the second subject's
+    hair on 1093): (the px the node grows this load's region by, its record for `defaults.margin_by`), or (None, None) when neither is
+    given, and the load takes `h3_config.MASKED_LOAD_MARGIN` by the plan's region. Per load and a person's, as the seed and the zoom are:
+    `--carry-words-from` never carries it (`carry_words_of`). Refused: a margin that is not a whole number from 1 to `MARGIN_MOST`, a
+    `--margin` with no words, and words with no `--margin`. A margin under the load's feather is the builder's to refuse
+    (`masked_job_graph.load`), in its words, before the file is written (`load_held_as_the_builder_holds`)."""
+    if margin is None:
+        if margin_why is not None:
+            raise Refused("--margin-why goes with --margin: there is no margin to give a reason for")
+        return None, None
+    given = margin.strip() if isinstance(margin, str) else margin
+    digits = isinstance(given, str) and given.isascii() and given.isdigit() and len(given) <= len(str(MARGIN_MOST))
+    whole = digits or (isinstance(given, int) and not isinstance(given, bool))
+    if not whole or not 1 <= int(given) <= MARGIN_MOST:
+        raise Refused(f"--margin {margin!r}: a margin is a whole number of px from 1 to {MARGIN_MOST} (the Masked Source's greatest grow_pixels)")
+    words = " ".join(str(margin_why or "").split())
+    if not words:
+        raise Refused("--margin takes --margin-why: who asked for this margin and why (the load's own is h3_config.MASKED_LOAD_MARGIN by its "
+                      "region; a margin is per load and a person's word)")
+    return int(given), {"why": words, "by": by, "at": now}
 
 
 def seams_arg(text: str | int | None) -> list[int] | None:
@@ -1680,7 +1715,7 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
     for k in old:
         if k not in ("job", "defaults", "loads"):
             raise Refused(f"--carry-words-from {old_name}: word-bearing key {k!r} at top of old job cannot be carried")
-    base_defaults = set(h3_config.MASKED_LOAD_DEFAULTS) | {"margin", "seed", "seed_by", "zoom_up_to", "zoom_up_to_by"}
+    base_defaults = set(h3_config.MASKED_LOAD_DEFAULTS) | {"margin", "margin_by", "seed", "seed_by", "zoom_up_to", "zoom_up_to_by"}
     for k in (old.get("defaults") or {}):
         if k not in base_defaults:
             raise Refused(f"--carry-words-from {old_name}: word-bearing key 'defaults.{k}' in old job cannot be carried")
@@ -1758,6 +1793,12 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
         retired_said.append(f"defaults.seed: not carried (was {old_seed!r}"
                             + (f", {said_by.get('by')}, {said_by.get('at')}: {said_by.get('why')}" if isinstance(said_by, dict) else "")
                             + f"; a seed is per load, so this load takes h3_config.SEED ({h3_config.SEED}) unless it is given --seed with --seed-why)")
+    if "margin_by" in (old.get("defaults") or {}):
+        said_by = (old.get("defaults") or {}).get("margin_by")
+        retired_said.append(f"defaults.margin: not carried (was {(old.get('defaults') or {}).get('margin')!r}"
+                            + (f", {said_by.get('by')}, {said_by.get('at')}: {said_by.get('why')}" if isinstance(said_by, dict) else "")
+                            + "; a margin is per load, so this load takes h3_config.MASKED_LOAD_MARGIN by its region unless it is given "
+                              "--margin with --margin-why)")
     if "zoom_up_to" in (old.get("defaults") or {}):
         retired_said.append(f"defaults.zoom_up_to: not carried (was {(old.get('defaults') or {}).get('zoom_up_to')!r}; a larger zoom is asked "
                             "for one load at a time, with --zoom-up-to and --zoom-up-to-why)")
@@ -2080,7 +2121,8 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
                   "the context frames",                                 # read again from the plan's `context`, never carried
                   "the reference's crop",                               # read again from the plan's `reference.crop`, never carried
                   "the seed",                                           # a seed is per load: only this load's own `--seed`, never carried
-                  "the most the node may enlarge this zoomed load"}     # per load too: only this load's own `--zoom-up-to`, never carried
+                  "the most the node may enlarge this zoomed load",     # per load too: only this load's own `--zoom-up-to`, never carried
+                  "the margin"}                                         # per load too: only this load's own `--margin`, never carried
     defs = {}
     for row in old_job.get("defaults") or []:
         if not isinstance(row, dict) or row.get("what") not in defs_known:
@@ -2146,7 +2188,8 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
               head_tube: str | None = None, depth: str | None = None, no_head_track: str | None = None,
               no_closed_lip_line: str | None = None, capture_folder: Path | str | None = None,
               seed: int | str | None = None, seed_why: str | None = None,
-              zoom_up_to: float | str | None = None, zoom_up_to_why: str | None = None) -> dict:
+              zoom_up_to: float | str | None = None, zoom_up_to_why: str | None = None,
+              margin: int | str | None = None, margin_why: str | None = None) -> dict:
     """The job file of one subject's load on a shot, from the shot's preview. `preview` is the preview's own job
     block; `source` is the file the load renders from, the video's present copy (the preview's own when left out).
     `parts` with `parts_by` makes the load's part some of its subject's plan parts (`part_of`)."""
@@ -2171,6 +2214,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         raise Refused("--carry-words-from and --no-carry-words cannot both be given")
     job_seed, seed_by = job_seed_of(seed, seed_why, by, now)
     up_to, up_to_by = zoom_up_to_of(zoom_up_to, zoom_up_to_why, by, now)
+    own_margin, margin_by = margin_of(margin, margin_why, by, now)
     ncw_why = ""
     if no_carry_words is not None:
         ncw_why = " ".join(str(no_carry_words).split())
@@ -2827,6 +2871,11 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
     if seed_by is not None:
         carried.append({"what": "the seed", "carries": f"{job_seed} (h3_config.SEED is {h3_config.SEED}): the song node samples window i at seed + i",
                         "from": f"{by}, {now}: {seed_by['why']}"})
+    region_margin = h3_config.MASKED_LOAD_MARGIN[region]
+    if margin_by is not None:
+        carried.append({"what": "the margin", "carries": f"{own_margin} px (h3_config.MASKED_LOAD_MARGIN for {region!r} is {region_margin}): the Masked "
+                        "Source grows the load's region by it, in px of the picture it renders (the zoomed one on a zoomed load)",
+                        "from": f"{by}, {now}: {margin_by['why']}"})
     note = (f"Written by bench/shot_to_load.py for {by}, {now}. ONE LOAD: {subject}, {renders(region, parts)}, source frames {a} to {b} ({n} frames) of the shot "
             f"{shot['first']}-{shot['last']}, its masks from the preview {preview['name']} (job.preview), "
             + ("with no reference video (motion none, below). " if motion == "none" else
@@ -2836,6 +2885,8 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             + pieces + part_said + kept_said + on_track_said + gone_said + chosen
             + (f" THE SEED IS {job_seed} (h3_config.SEED is {h3_config.SEED}), on {by}'s word ({now}): {seed_by['why']}." if seed_by else "")
             + (f" ZOOMED UP TO {up_to:g} (the node's own is {ZOOM_NODES_OWN:g}), on {by}'s word ({now}): {up_to_by['why']}." if up_to_by else "")
+            + (f" THE MARGIN IS {own_margin} px (h3_config.MASKED_LOAD_MARGIN for {region!r} is {region_margin}), on {by}'s word ({now}): "
+               f"{margin_by['why']}." if margin_by else "")
             + (f" CUT BY A LOOK: {cut_said}" if cut else "")
             + (f" ITS REFERENCE GOES TO {ref_folder.name}, A NEW FOLDER: {ref_why}; a new one." if ref_why else "")
             + (f" NO REFERENCE VIDEO (motion none): the reference step makes nothing for this load and the text names no video: "
@@ -2894,7 +2945,8 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
                                    **({"head_track": no_head_track_block or ref_form["head_track"]} if (no_head_track_block or ref_form.get("head_track")) else {}),
                                    **({"no_face_on": ref_form["no_face_on"]} if ref_form.get("no_face_on") else {})}),
                     "others_present": others, "defaults": carried},
-            "defaults": {**h3_config.MASKED_LOAD_DEFAULTS, "margin": h3_config.MASKED_LOAD_MARGIN[region],
+            "defaults": {**h3_config.MASKED_LOAD_DEFAULTS, "margin": region_margin if own_margin is None else own_margin,
+                         **({"margin_by": margin_by} if margin_by else {}),
                          "seed": h3_config.SEED if job_seed is None else job_seed, **({"seed_by": seed_by} if seed_by else {}),
                          **({"zoom_up_to": up_to, "zoom_up_to_by": up_to_by} if up_to_by else {})},
             "loads": [load]}
@@ -3692,7 +3744,8 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
                    no_head_track=getattr(a, "no_head_track", None),
                    no_closed_lip_line=getattr(a, "no_closed_lip_line", None),
                    seed=getattr(a, "seed", None), seed_why=getattr(a, "seed_why", None),
-                   zoom_up_to=getattr(a, "zoom_up_to", None), zoom_up_to_why=getattr(a, "zoom_up_to_why", None))
+                   zoom_up_to=getattr(a, "zoom_up_to", None), zoom_up_to_why=getattr(a, "zoom_up_to_why", None),
+                   margin=getattr(a, "margin", None), margin_why=getattr(a, "margin_why", None))
     load_first = int(job["loads"][0]["first"])
     load_last = load_first + int(job["loads"][0]["frames"]) - 1
     other_subjects = list(dict.fromkeys(
@@ -4112,10 +4165,11 @@ PAIR_RANK = ("face and hair", "face")
 #: Why a pair is rendered on the whole frame (docs/wiki/masked_v2v.md: a two-subject load is not rendered zoomed in).
 PAIR_WHOLE_FRAME_WHY = "a load of two subjects is rendered on the whole frame: the zoom is to one subject's part, and a pair has two"
 #: What the two jobs' file defaults may differ in: the margin, where the pair takes the larger (one margin a load: the node grows its
-#: region by one number); and `seed_by`, the words behind a `--seed` (who, when), which differ between two loads of one seed made at two
-#: times: the seed itself must be the same, and the pair carries the first subject's `seed_by` with each subject's own row among its
+#: region by one number), with the `margin_by` of the subject whose margin it took (the words behind a `--margin`; none where that
+#: subject's is the region's own); and `seed_by`, the words behind a `--seed` (who, when), which differ between two loads of one seed made
+#: at two times: the seed itself must be the same, and the pair carries the first subject's `seed_by` with each subject's own row among its
 #: defaults. Any other setting that differs is refused, since the pair would carry one of them silently.
-PAIR_DEFAULTS_MAY_DIFFER = ("margin", "seed_by")
+PAIR_DEFAULTS_MAY_DIFFER = ("margin", "margin_by", "seed_by")
 #: A subject's rows of THE DEFAULTS its own load carried that a pair does not: it renders on the whole frame, and its text is written whole
 #: (the voice is read by a generated text only). The pair's own row says each.
 PAIR_NOT_CARRIED = ("zoom", "the text", "the voice")
@@ -4154,6 +4208,9 @@ def pair_job(one: dict, two: dict, regions: dict, name: str, day: str, output_ke
             made.append({**copy.deepcopy(k), "name": kept, **({"of": ctx["subject"]} if kept != "strangers" else {})})
     entries[1]["others"] = [renamed.get((s2, o), o) for o in entries[1]["others"]]
     margin = max(one["defaults"].get("margin", 0), two["defaults"].get("margin", 0))
+    # the words behind the margin the pair takes: the subject's whose margin it is (the first's where both are that margin), never the
+    # other's, whose margin the pair does not carry
+    margin_by = next((ctx["defaults"]["margin_by"] for ctx in (one, two) if ctx["defaults"].get("margin") == margin and "margin_by" in ctx["defaults"]), None)
     subjects = [copy.deepcopy(keys(one)), copy.deepcopy(keys(two))] + [copy.deepcopy(s) for s in j1["subjects"] if s["label"] not in (s1, s2)]
     note = (f"Written by bench/shot_to_load.py pair for {by}, {now}. A LOAD OF TWO SUBJECTS, made from two chain-made loads of the same frames: "
             f"{one['name']} ({s1}, <Picture 1> and <Video 1>) and {two['name']} ({s2}, <Picture 2> and <Video 2>), {s1} first as its region is "
@@ -4192,7 +4249,8 @@ def pair_job(one: dict, two: dict, regions: dict, name: str, day: str, output_ke
            "defaults": defaults}
     # `carried` and `motion` are worked out for each subject from its region and reference (`one_subject_view`), and a subject's own keys
     # went into its entry: none is a default of the pair
-    return {"job": job, "defaults": {**{k: v for k, v in one["defaults"].items() if k not in graphs.PAIR_READS}, "margin": margin}, "loads": [load]}
+    return {"job": job, "defaults": {**{k: v for k, v in one["defaults"].items() if k not in graphs.PAIR_READS and k != "margin_by"}, "margin": margin,
+                                     **({"margin_by": margin_by} if margin_by is not None else {})}, "loads": [load]}
 
 
 def step_pair(a, world) -> None:
@@ -4394,6 +4452,11 @@ def main() -> int:
                    f"{ZOOM_UP_TO_MOST:g}), until a small head is the node's target height (video_mask.ZOOM_HEAD_TARGET); off by default, for a test "
                    "(2026-10-22). With --zoom-up-to-why; written as defaults.zoom_up_to with defaults.zoom_up_to_by, never carried")
     j.add_argument("--zoom-up-to-why", metavar="WHY", help="who asked for the larger zoom and why; kept in the job file beside it. Goes with --zoom-up-to")
+    j.add_argument("--margin", metavar="N", help="the px the Masked Source grows this load's region by, in place of h3_config.MASKED_LOAD_MARGIN by "
+                   f"the plan's region: a whole number from 1 to {MARGIN_MOST}, in px of the picture the node renders (the zoomed one on a zoomed "
+                   "load); with --margin-why. Written as defaults.margin with defaults.margin_by (the words, who and when), and THE DEFAULTS THIS "
+                   "LOAD CARRIES say it. A margin is per load and a person's word: --carry-words-from does not carry it")
+    j.add_argument("--margin-why", metavar="WHY", help="who asked for the margin and why; kept in the job file beside it. Goes with --margin")
     j.add_argument("--head-tube", nargs="?", const="opt-in --head-tube", default=None, metavar="WHY",
                    help="enable the person-track-bounded SAM 3.1 whole-head tube + 3-frame smoothed Sapiens2-Seg head pass in capture (off by default); "
                         "optional reason kept in the job file")

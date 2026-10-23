@@ -95,9 +95,10 @@ KINDS = ("track", "parts", "classes")
 #: of the two loads must be equal, and is carried into the two-shot load.
 OWN_KEYS = ("name", "first", "frames", "text", "motion_file", "motion_first", "others")
 #: The file `defaults` keys that are a record, not a setting, so they may differ between the two loads: `seed_by` is the words behind a
-#: `--seed` of `shot_to_load.py job` (who, when), which two loads of one seed made at two times never share. `seed` itself must be the
-#: same, and the two-shot load carries the first load's `defaults` whole, `seed_by` with them.
-DEFAULTS_MAY_DIFFER = ("seed_by",)
+#: `--seed` of `shot_to_load.py job` (who, when), which two loads of one seed made at two times never share, and `margin_by` the same
+#: behind a `--margin`. `seed` and `margin` themselves must be the same, and the two-shot load carries the first load's `defaults` whole,
+#: `seed_by` and `margin_by` with them.
+DEFAULTS_MAY_DIFFER = ("seed_by", "margin_by")
 #: A subject's keys in a job file that say where a tracker starts. A load tracks nobody, so they may differ.
 TRACKER_KEYS = ("pick", "pick_at", "seeds", "phrase")
 #: What of an ordinary load this tool does not carry into a two-shot load, as (where it is, the key, what it is).
