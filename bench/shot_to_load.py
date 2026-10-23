@@ -13,7 +13,8 @@
         [--parts NAME ... --parts-by "who chose these parts for this load, and on what"]
         [--no-face-on FIRST-LAST="who looked, at which sheet (its file), and that the face does not show there"]
         [--seam FRAME[,FRAME...] --seam-why "a person's reason": every seam of one plan of the chained window lengths]
-        [--hold-part FIRST-LAST="who looked, at which sheet (its file), and that her part belongs there"]
+        [--hold-part FIRST-LAST[@FRAME]="who looked, at which sheet (its file), and that her part belongs there"]
+            (with @FRAME: held from that frame's graded part, placed where it was and not moved)
         [--seed N --seed-why "who asked for this seed and why": the song node's seed for this load in place of h3_config.SEED]
     <python> bench/shot_to_load.py reference JOB.json --by SESSION [--plain "why"] [--model-store FOLDER] [--existing]
         (it prints, under the figures, where a face may not show by two cues of the pose model's points, as data for the sheet)
@@ -811,6 +812,24 @@ def no_mouth_on_arg(text: str, flag: str = "--no-mouth-on") -> tuple[int, int, s
     return x, y, " ".join(why.split())
 
 
+def hold_part_arg(text: str) -> tuple:
+    """`--hold-part FIRST-LAST=WHY` (or `FRAME=WHY`) as (first, last, why), as `no_mouth_on_arg` reads it; `FIRST-LAST@FRAME=WHY` as
+    (first, last, why, frame): the frame the hold is taken from, its graded part placed where it was (`capture_masked_run.HELD_IN_PLACE`)."""
+    rng, sep, why = text.partition("=")
+    span, at, src = rng.partition("@")
+    if not at:
+        return no_mouth_on_arg(text, "--hold-part")
+    if not src.strip().isdecimal():
+        raise Refused(f"--hold-part {text!r} is not FIRST-LAST@FRAME=WHY: the frame after @ is the source frame the part is held from")
+    return (*no_mouth_on_arg(f"{span}{sep}{why}", "--hold-part"), int(src))
+
+
+def hold_spans_said(word: str) -> str:
+    """A subject's `word` as the job's note and its defaults say it: `110-111, 120-120`, a span held in place as `5039-5039 held in
+    place from 5038`."""
+    return word.replace("+", ", ").replace("@", " held in place from ")
+
+
 def parts_on_arg(text: str) -> tuple[int, int, list[str]]:
     """`FIRST-LAST=NAME[+NAME...]` of `--parts-on`: source frames, and the parts the load's part is on them."""
     span, sep, names = text.partition("=")
@@ -1467,8 +1486,9 @@ def free_name(base: str, taken, remake: bool) -> str:
     raise Refused(f"every letter after {base} is taken")
 
 
-def _parse_word_by(word: str, word_by: str, old_name: str, subject: str) -> list[tuple[int, int, str]]:
-    """Parse `subjects.<subject>.word` ('A-B+C-D') and `word_by` ('A-B: reason; C-D: reason') without splitting on `;` inside reasons."""
+def _parse_word_by(word: str, word_by: str, old_name: str, subject: str) -> list[tuple[int, int, str, int | None]]:
+    """Parse `subjects.<subject>.word` ('A-B+C-D@S') and `word_by` ('A-B: reason; C-D@S: reason') without splitting on `;` inside
+    reasons; each span with the frame it is held from in place (`@S`), or None."""
     spans = [s.strip() for s in str(word).split("+") if s.strip()]
     if not spans:
         raise Refused(f"--carry-words-from {old_name}: subjects.{subject}.word is empty")
@@ -1489,11 +1509,13 @@ def _parse_word_by(word: str, word_by: str, old_name: str, subject: str) -> list
         why = text[val_start:val_end].strip()
         if not why:
             raise Refused(f"--carry-words-from {old_name}: subjects.{subject}.word_by has an empty reason for span {sp}")
+        held, at, src = sp.partition("@")
         try:
-            x, y = (int(v) for v in (sp.split("-") * 2)[:2])
+            x, y = (int(v) for v in (held.split("-") * 2)[:2])
+            g = int(src) if at else None
         except ValueError:
-            raise Refused(f"--carry-words-from {old_name}: subjects.{subject}.word span {sp!r} is not FIRST-LAST") from None
-        out.append((x, y, why))
+            raise Refused(f"--carry-words-from {old_name}: subjects.{subject}.word span {sp!r} is not FIRST-LAST or FIRST-LAST@FRAME") from None
+        out.append((x, y, why, g))
     return out
 
 
@@ -1861,13 +1883,15 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
     if ("word" in old_mine) != ("word_by" in old_mine):
         raise Refused(f"--carry-words-from {old_name}: subjects.{subject}.word and word_by must both be present")
     if "word" in old_mine:
-        for x, y, w in _parse_word_by(old_mine["word"], old_mine["word_by"], old_name, subject):
+        for x, y, w, g in _parse_word_by(old_mine["word"], old_mine["word_by"], old_name, subject):
             if is_left("hold_part", x, y, w):
                 continue
             check_span("hold_part (word)", x, y)
+            if g is not None:
+                check_span(f"hold_part (word) {x}-{y}, held in place from", g, g)
             tw = tagged(w)
-            out["hold_part"].append((x, y, tw))
-            carried_said.append(f"hold_part {x}-{y}: {tw}")
+            out["hold_part"].append((x, y, tw) if g is None else (x, y, tw, g))
+            carried_said.append(f"hold_part {x}-{y}" + (f"@{g}" if g is not None else "") + f": {tw}")
     if ("drop" in old_mine) != ("drop_by" in old_mine):
         raise Refused(f"--carry-words-from {old_name}: subjects.{subject}.drop and drop_by must both be present")
     if "drop" in old_mine:
@@ -2673,26 +2697,38 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
     # THE PART HELD ON A PERSON'S WORD (`--hold-part FIRST-LAST=WHY`, the lead's ruling of 2026-10-15 on 2823b's 3098-3104 and 5935's
     # 6008 and 6020): frames the capture's grade leaves empty there take the nearest graded part, moved and cut to the track
     # (capture_masked_run.word_shapes), at any distance. The same terms as --no-mouth-on: the look and its file named, each span inside the load. The load is one
-    # shot, so a span inside it holds no cut of the record
+    # shot, so a span inside it holds no cut of the record. HELD IN PLACE (`FIRST-LAST@FRAME=WHY`, 2026-10-23, third_fp_5011d's 5039): the
+    # person names the frame it is held from, inside the load and outside the span, and the capture places that frame's graded part where
+    # it was, cut to the track, refusing it where that frame has none (capture_masked_run.HELD_IN_PLACE); written as `word=FIRST-LAST@FRAME`
     if hold_part:
         spans = []
-        for x, y, said in hold_part:
+        for x, y, said, *named in hold_part:
             said = " ".join(str(said).split())
+            src = int(named[0]) if named and named[0] is not None else None
             if not (a <= x <= y <= b):
                 raise Refused(f"--hold-part {x}-{y}: the load is {a}-{b}")
+            if src is not None and not (a <= src <= b):
+                raise Refused(f"--hold-part {x}-{y}@{src}: the frame it is held from is {src}, and the load is {a}-{b}")
+            if src is not None and x <= src <= y:
+                raise Refused(f"--hold-part {x}-{y}@{src}: the frame it is held from lies inside the span it holds; name a frame outside it "
+                              "whose part stands")
             if not any(Path(w.strip(".,;:()\"'")).is_file() for w in said.split()):
                 raise Refused(f"--hold-part {x}-{y} takes a person's word on a look: who looked, at which sheet of those frames (name its file: the "
                               "tool checks only that a file of that name is there), and that her part belongs there")
-            if any(x <= y_ and x_ <= y for x_, y_, _ in spans):
+            if any(x <= y_ and x_ <= y for x_, y_, _, _ in spans):
                 raise Refused(f"--hold-part {x}-{y} overlaps a span already named: name each frame once")
-            spans.append((x, y, said))
+            spans.append((x, y, said, src))
         mine = next(s for s in subjects if s["label"] == subject)
-        mine["word"] = "+".join(f"{x}-{y}" for x, y, _ in spans)
-        mine["word_by"] = "; ".join(f"{x}-{y}: {said if idx < n_cw_hp else f'{by}, {now}: {said}'}" for idx, (x, y, said) in enumerate(spans))
+        word_of = [f"{x}-{y}" + (f"@{src}" if src is not None else "") for x, y, _, src in spans]
+        mine["word"] = "+".join(word_of)
+        mine["word_by"] = "; ".join(f"{w}: {said if idx < n_cw_hp else f'{by}, {now}: {said}'}" for idx, (w, (_, _, said, _)) in enumerate(zip(word_of, spans)))
         if cw and n_cw_hp:
             mine["word_carried"] = dict(cw["carried_rec"])
-        chosen += (f" {subject}'s PART IS HELD ON A PERSON'S WORD on {mine['word'].replace('+', ', ')}: frames the capture's grade leaves empty there "
-                   f"take the nearest graded part, moved and cut to the track ({mine['word_by']}).")
+        chosen += (f" {subject}'s PART IS HELD ON A PERSON'S WORD on {hold_spans_said(mine['word'])}: frames the capture's grade leaves empty there "
+                   f"take the nearest graded part, moved and cut to the track" + (
+                       "; a span held in place from a frame takes that frame's graded part where it was, unmoved and cut to the track, and "
+                       "the capture refuses it where that frame has no graded part" if any(src is not None for *_, src in spans) else "")
+                   + f" ({mine['word_by']}).")
     if (drop is None) != (not str(drop_by or "").strip()):
         raise Refused("drop and drop_by go together: the frames where the capture empties the part, and a person's reason")
     if drop is not None:
@@ -3292,8 +3328,11 @@ def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: di
                                                      "crop_reference_to_head.CRANIUM_ROOM, CRANIUM_NECK below the chin, the head track not read "
                                                      "(head_reference --crop cranium)"}[ref_form["crop"]["form"]],
             f"{ref_form['crop']['said_by']}: {ref_form['crop']['why']}")] if ref_form.get("crop") else []),
-        *([("the part held on a person's word", "on " + mine["word"].replace("+", ", ") + ": frames the capture's grade leaves empty there take "
-            "the nearest graded part, moved and cut to the track (capture_masked_run.word_shapes)", mine["word_by"])] if mine.get("word") else []),
+        *([("the part held on a person's word", "on " + hold_spans_said(mine["word"]) + ": frames the capture's grade leaves empty there take "
+            "the nearest graded part, moved and cut to the track (capture_masked_run.word_shapes)" + (
+                "; a span held in place from a frame takes that frame's graded part where it was, unmoved and cut to the track, refused "
+                "where that frame has no graded part (capture_masked_run.HELD_IN_PLACE)" if "@" in mine["word"] else ""), mine["word_by"])]
+          if mine.get("word") else []),
         *([("the face lines", "NONE on " + ", ".join(f"{s['first']}-{s['last']}" for s in ref_form["no_face_on"]) + ", turned off on a person's word "
             "(the plain cut body model alone there); the capture drops the part's face classes there and keeps the rest, her hair "
             "(a face-only part is emptied there; capture_masked_run.grade_holds)", "; ".join(f"{s['first']}-{s['last']}: {s['said_by']}, {s['at']}: {s['why']}" for s in ref_form["no_face_on"]))]
@@ -3747,7 +3786,7 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
                    mouth_on=[no_mouth_on_arg(x, "--mouth-on") for x in getattr(a, "mouth_on", None) or []], data=world.data,
                    eyes_shut_on=[no_mouth_on_arg(x, "--eyes-shut-on") for x in getattr(a, "eyes_shut_on", None) or []],
                    no_face_on=[no_mouth_on_arg(x, "--no-face-on") for x in getattr(a, "no_face_on", None) or []],
-                   hold_part=[no_mouth_on_arg(x, "--hold-part") for x in getattr(a, "hold_part", None) or []],
+                   hold_part=[hold_part_arg(x) for x in getattr(a, "hold_part", None) or []],
                    eyes_shut_form=getattr(a, "eyes_shut_form", None), seam=seams_arg(getattr(a, "seam", None)), seam_why=getattr(a, "seam_why", None),
                    context_noise=getattr(a, "context_noise", None), context_noise_why=getattr(a, "context_noise_why", None),
                    drop=getattr(a, "drop", None), drop_by=getattr(a, "drop_by", None), carry_words_from=cwf,
@@ -4422,10 +4461,12 @@ def main() -> int:
                         "the face does not show there (a head turned away, hidden behind somebody). The capture's grade then drops the part's face "
                         "classes on those frames and keeps the rest of it, her hair (a face-only part is emptied there; "
                         "capture_masked_run.grade_holds); repeatable")
-    j.add_argument("--hold-part", action="append", default=[], metavar="FIRST-LAST=WHY",
+    j.add_argument("--hold-part", action="append", default=[], metavar="FIRST-LAST[@FRAME]=WHY",
                    help="hold the subject's part on those source frames where the capture's grade leaves it empty, from the nearest graded part, "
                         "on a person's word: who looked, at which sheet of those frames (its file named; only that a file of that name is there is "
-                        "checked), and that her part belongs there; repeatable")
+                        "checked), and that her part belongs there. With @FRAME (a frame of the load outside the span) the part is held from that "
+                        "frame's graded part, placed where it was, not moved, and cut to the track; the capture refuses it where that frame has no "
+                        "graded part; repeatable")
     j.add_argument("--seam", metavar="FRAME[,FRAME...]", help="for a load longer than one window: the source frames its later windows write "
                    "from, every seam of one plan of the chained window lengths (refused otherwise, naming the plans there are); with --seam-why")
     j.add_argument("--seam-why", metavar="WHY", help="a person's reason for --seam, kept in the job")

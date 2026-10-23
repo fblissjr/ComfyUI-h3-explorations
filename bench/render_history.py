@@ -198,13 +198,20 @@ def shown(path: str | Path | None, *roots: Path) -> str | None:
 
 
 def spans(text) -> list[list[int]]:
-    """`311-319+349-360` (a job file's way of writing frames) as [[311, 319], [349, 360]]."""
+    """`311-319+349-360` (a job file's way of writing frames) as [[311, 319], [349, 360]]; a span of a hold written in place,
+    `5039-5039@5038` (`capture_masked_run.HELD_IN_PLACE`), as its frames alone (`held_in_place` has the frame it is held from)."""
     out = []
     for part in str(text or "").split("+"):
-        m = re.fullmatch(r"\s*(\d+)\s*-\s*(\d+)\s*", part)
+        m = re.fullmatch(r"\s*(\d+)\s*-\s*(\d+)\s*(?:@\s*\d+\s*)?", part)
         if m:
             out.append([int(m.group(1)), int(m.group(2))])
     return out
+
+
+def held_in_place(text) -> list[list[int]]:
+    """The spans of a job's `word` held in place from a frame a person named, `5039-5039@5038`, as [[5039, 5039, 5038]]."""
+    return [[int(m.group(1)), int(m.group(2)), int(m.group(3))] for part in str(text or "").split("+")
+            for m in [re.fullmatch(r"\s*(\d+)\s*-\s*(\d+)\s*@\s*(\d+)\s*", part)] if m]
 
 
 def card_spans(items) -> list[list[int]]:
@@ -223,6 +230,8 @@ def span_words(job: dict | None) -> dict | None:
         for key, name in (("drop", "drop"), ("word", "hold_part"), ("hold", "hold"), ("least", "least")):
             if s.get(key) not in (None, "", []):
                 out[name] = spans(s[key]) if key != "least" else s[key]
+        if held_in_place(s.get("word")):
+            out["hold_part_held_in_place"] = held_in_place(s["word"])
         if s.get("parts_on"):
             out["parts_on"] = [[x["first"], x["last"], x.get("parts")] for x in s["parts_on"] if isinstance(x, dict)]
     ref = job.get("reference") or {}

@@ -605,11 +605,11 @@ def a_loads_name_is_made() -> str:
         try:
             stl.load_job = lambda *x, **k: given.update(k) or (_ for _ in ()).throw(stl.Refused("STOPPED HERE"))
             refused(lambda: stl.step_job(args(**{**vars(a), "no_face_on": ["120-130=A WORD"], "no_mouth_on": ["121=B"], "seam": "2344,2548",
-                                                 "hold_part": ["3098-3099=C"]}), made.m), "STOPPED HERE")
+                                                 "hold_part": ["3098-3099=C", "3101@3097=D"]}), made.m), "STOPPED HERE")
         finally:
             stl.load_job = real
         assert given["no_face_on"] == [(120, 130, "A WORD")] and given["no_mouth_on"] == [(121, 121, "B")] and given["seam"] == [2344, 2548] \
-            and given["hold_part"] == [(3098, 3099, "C")], given
+            and given["hold_part"] == [(3098, 3099, "C"), (3101, 3101, "D", 3097)], given
         stl.step_job(a, made.m)
         assert (made.jobs / "a_fp_0100.json").is_file(), sorted(p.name for p in made.jobs.iterdir())
         refused(lambda: stl.step_job(a, made.m), "a load named a_fp_0100 exists", "--remake")
@@ -2927,6 +2927,63 @@ def carry_words_from_refuses_span_outside_new_frames() -> str:
     return "carried spans outside or straddling the new frames are refused unless named in --leave-word with --leave-by, and replaced left_out spans are listed"
 
 
+def a_part_held_in_place() -> str:
+    """`--hold-part FIRST-LAST@FRAME=WHY` (2026-10-23, third_fp_5011d's 5039): the frame the hold comes from named, written on the subject
+    as the capture's `word=FIRST-LAST@FRAME` and said in the note and THE DEFAULTS THIS LOAD CARRIES; refused outside the load and inside
+    its own span; carried with its frame by --carry-words-from, refused where that frame is outside the new load, left with --leave-word;
+    the form without @ is written and said as before."""
+    # THE CASE THAT GOES RED when the form is not read, or the old form changes
+    assert stl.hold_part_arg("5039-5039@5038=X looked") == (5039, 5039, "X looked", 5038)
+    assert stl.hold_part_arg("5039=X") == (5039, 5039, "X") and stl.hold_part_arg("5038-5040=X") == (5038, 5040, "X")
+    refused(lambda: stl.hold_part_arg("5039@x=X"), "is not FIRST-LAST@FRAME=WHY")
+    refused(lambda: stl.hold_part_arg("5039-5039@5038"), "with the why")
+    refused(lambda: stl.hold_part_arg("5039-5038@5037=X"), "is not FIRST-LAST=WHY")
+    assert stl.hold_spans_said("110-111@108+120-120") == "110-111 held in place from 108, 120-120"
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        sheet = Path(tmp) / "sheet_110.jpg"
+        sheet.write_bytes(b"jpg")
+        d = made.load(hold_part=[(110, 111, f"THE LEAD looked at {sheet}", 108), (120, 120, f"G2 looked at {sheet}")])
+        mine = next(x for x in d["job"]["subjects"] if x["label"] == "a")
+        row = {x["what"]: x for x in d["job"]["defaults"]}["the part held on a person's word"]
+        # THE CASE THAT GOES RED when the frame named is not on the subject in the capture's form, or not said where the load is read
+        assert mine["word"] == "110-111@108+120-120", mine
+        assert mine["word_by"].startswith("110-111@108: the session, now: THE LEAD looked") and "; 120-120: the session, now: G2 looked" in mine["word_by"], mine
+        assert "on 110-111 held in place from 108, 120-120" in row["carries"] and "where it was, unmoved" in row["carries"] \
+            and "HELD_IN_PLACE" in row["carries"], row
+        assert "PART IS HELD ON A PERSON'S WORD on 110-111 held in place from 108, 120-120" in d["job"]["note"] \
+            and "refuses it where that frame has no graded part" in d["job"]["note"], d["job"]["note"]
+        # the old form, in the same words as before
+        old_form = made.load(name="a_fp_0100b", hold_part=[(110, 111, f"THE LEAD looked at {sheet}")])
+        old_row = {x["what"]: x for x in old_form["job"]["defaults"]}["the part held on a person's word"]
+        assert next(x for x in old_form["job"]["subjects"] if x["label"] == "a")["word"] == "110-111" and "in place" not in old_row["carries"] \
+            and old_row["carries"] == ("on 110-111: frames the capture's grade leaves empty there take the nearest graded part, moved and cut "
+                                       "to the track (capture_masked_run.word_shapes)"), old_row
+        assert "in place" not in old_form["job"]["note"], old_form["job"]["note"]
+        # THE CASE THAT GOES RED when a frame outside the load, or inside the span it holds, is taken as the frame to hold from
+        refused(lambda: made.load(name="a_fp_0100c", hold_part=[(110, 111, f"A looked at {sheet}", 170)]),
+                "--hold-part 110-111@170", "the frame it is held from is 170, and the load is 100-159")
+        refused(lambda: made.load(name="a_fp_0100d", hold_part=[(110, 112, f"A looked at {sheet}", 111)]),
+                "--hold-part 110-112@111", "lies inside the span it holds")
+        # CARRIED with its frame: the same frames carry it whole; a load that leaves the frame out refuses it; --leave-word leaves it
+        old = made.load(name="a_hfp_0105", first=105, frames=50, why_before=f"100-104 cut ({sheet})", why_after=f"155-159 cut ({sheet})",
+                        hold_part=[(110, 112, f"mrgan looked at {sheet}: face shows", 108)])
+        old_file = Path(tmp) / "a_hfp_0105.json"
+        old_file.write_text(json.dumps(old))
+        same = made.load(name="a_hfp_0105b", carry_words_from=old_file)
+        kept = next(x for x in same["job"]["subjects"] if x["label"] == "a")
+        assert kept["word"] == "110-112@108" and kept["word_by"].startswith("110-112@108: the session, now: mrgan looked") \
+            and kept["word_by"].endswith("(carried from a_hfp_0105)"), kept
+        refused(lambda: made.load(name="a_hfp_0109", first=109, frames=46, why="cut", carry_words_from=old_file),
+                "hold_part (word) 110-112, held in place from 108-108", "outside the new job's frames 109-154")
+        left = made.load(name="a_hfp_0109b", first=109, frames=46, why="cut", carry_words_from=old_file,
+                         leave_word=["hold_part:110-112"], leave_by="the owner: narrowed")
+        assert "word" not in next(x for x in left["job"]["subjects"] if x["label"] == "a"), left["job"]["subjects"]
+    return ("--hold-part FIRST-LAST@FRAME is read, written as word=FIRST-LAST@FRAME and said in the note and the defaults; refused outside "
+            "the load and inside its span; carried with its frame, refused where the new load leaves the frame out, left by --leave-word; "
+            "the old form is written and said as before")
+
+
 def carry_words_from_retired_keys_not_carried() -> str:
     """D20 (2, 3) & D20b (6): keys the rules of 2026-10-16 retired (pieces/pieces_by, job.restore, job.keep_outs.stay) and keys rebuilt from
     the plan/preview (loads[0].hair_band, loads[0].render_region, loads[0].others, job.keep_outs.by) are NOT carried from the old job and are said on stdout."""
@@ -3787,6 +3844,7 @@ case("carry-words-from: a word-bearing key left uncarried is refused", carry_wor
 case("carry-words-from: a carried job equals the old one on every word for the same frames", carry_words_from_equals_old_on_every_word)
 case("carry-words-from: a span outside the new frames is said and refused", carry_words_from_refuses_span_outside_new_frames)
 case("carry-words-from: a retired key is not carried and is said", carry_words_from_retired_keys_not_carried)
+case("a part held in place from the frame a person names (--hold-part FIRST-LAST@FRAME)", a_part_held_in_place)
 case("carry-words-from: a remake on an existing shot and subject requires --carry-words-from or --no-carry-words", remake_requires_carry_words_or_no_carry_words)
 case("carry-words-from: a carried drop or no_face_on over a face frame is refused", carry_words_from_refuses_drop_over_face_frame)
 case("depth: overlap frames found, measured into the capture folder, and recorded in defaults", depth_in_the_job_step)

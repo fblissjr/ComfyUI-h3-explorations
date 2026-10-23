@@ -148,6 +148,17 @@ overlaps and margins can be counted by hand and reads the rows back.
    node's plan takes the plan's margin and zoom; a plan with no fixed margin and a load with no margin are refused in words; no
    load, no pass; `zoom=off` holds the hole at 1, there and through the files step.
 
+26. **A part held in place on a person's word** (`word=FIRST-LAST@FRAME`, `word_in_place`, `HELD_IN_PLACE`, 2026-10-23,
+   third_fp_5011d's 5039, where the moved hold went 31 px onto his hand and placed nothing beside it on the original's goatee). A
+   frame the grade left empty takes the named frame's graded part where it was, where the same word without `@` moves it (both
+   asserted on one fixture); it is still cut to the track grown by the margin, and placed nowhere where it lies off the track, with
+   the frame named in the record either way (`HELD_IN_PLACE_MISSED`, also when the cut takes it whole); a missed hold in place on a
+   floor fragment is never filled by the floor's moved hold, where the same frame without `@` is; refused in the tool's words where
+   the named frame has no graded part (none saved, a fragment the floor emptied, a dropped frame); the form is read strictly (the
+   frame inside the capture and outside its span) and the readers of other span words never take it. Through the files step (its
+   readers stood in) the part it writes, `part_grades.json` and the manifest say it, the head tube is handed the word's frames alone,
+   and the same load without `@` writes what it wrote before, with no new manifest key.
+
 No video, no model, no card, no server.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/check_capture_masked_run.py
@@ -945,6 +956,191 @@ def a_part_held_on_a_persons_word() -> str:
             "the track, on a run of any length and at the load's edge, never the floor's speck; a standing part is untouched; an untracked frame "
             "stays empty with WORD_NOT_HELD; the word reaches the grade with the track; spans parsed strictly; refused with no grade, an "
             "uncovered mask, or drop= on the same frames")
+
+
+def a_part_held_in_place_on_a_persons_word() -> str:
+    """`word=FIRST-LAST@FRAME` (bench/shot_to_load.py job --hold-part FIRST-LAST@FRAME=WHY; 2026-10-23, third_fp_5011d's 5039;
+    `HELD_IN_PLACE`): the named frame's graded part where it was, cut to the grown track; refused where that frame has none; the old
+    form unchanged; through the files step the part, its record and the manifest."""
+    import contextlib
+    import io
+    import tempfile
+    import torch
+    n = 6
+    face = np.zeros((n, H, W), bool)
+    for f in range(n):
+        face[f, 20:40, 30 + 6 * f:50 + 6 * f] = True                     # six px to the right a frame: a moved hold and one in place differ
+    classes = np.where(face, 2, 0).astype(np.uint8)
+    saved = face.copy()
+    saved[3] = False                                                    # frame 3: the grade left it empty
+    classes[3] = 0
+    track = rect(10, 5, 150, 90, n)
+    moved, said_m = cap.grade_holds(saved, saved, classes, [2], track=track, word={3})
+    held, said = cap.grade_holds(saved, saved, classes, [2], track=track, word={3}, word_from={3: 2}, first_frame=100)
+    # THE CASE THAT GOES RED when a hold named in place is moved toward the parts either side (5039: 31 px right, onto his hand), and
+    # the control: the same word without @ still moves it, as it did
+    assert (moved[3] == np.roll(face[2], 6, axis=-1)).all() and "held_in_place_from" not in said_m[3], said_m[3]
+    assert (held[3] == face[2]).all() and said[3]["did"] == "filled on a person's word" and said[3]["from_frames"] == [2], said[3]
+    assert said[3]["held_in_place_from"] == 102 and said[3]["why"].startswith(cap.HELD_IN_PLACE.format(frame=102)) \
+        and said[3]["from_source_frames"] == [102] and said[3]["px"] == said[3]["px_on_the_track"] == 400, said[3]
+    # STILL CUT TO HER TRACK GROWN BY THE MARGIN: a track that ends inside the named frame's part keeps only what lies on it grown
+    grow = lambda m: cap._pack("video_mask").grow(torch.from_numpy(m[None]).to(torch.float32), cap._pack("sapiens2_parts").SUBJECT_MARGIN)[0].numpy() > 0.5
+    short = track.copy()
+    short[3] = False
+    short[3, 5:90, 10:47] = True                                        # ends at x 46; frame 2's part runs x 42-61
+    cut, said_c = cap.grade_holds(saved, saved, classes, [2], track=short, word={3}, word_from={3: 2})
+    # THE CASE THAT GOES RED when a hold in place is laid uncut, past the subject's grown track
+    assert (cut[3] == (face[2] & grow(short[3]))).all() and 0 < cut[3].sum() < face[2].sum(), (int(cut[3].sum()), said_c[3])
+    assert said_c[3]["px_on_the_track"] == int((face[2] & short[3]).sum()) == 100 and said_c[3]["held_in_place_from"] == 2, said_c[3]
+    # a part in place that lies mostly off her track places nothing, and the record still names the frame it was held from
+    beside = track.copy()
+    beside[3] = False
+    beside[3, 5:90, 10:40] = True                                       # ends at x 39: frame 2's part lies only in the margin band
+    off, said_o = cap.grade_holds(saved, saved, classes, [2], track=beside, word={3}, word_from={3: 2})
+    assert not off[3].any() and said_o[3]["did"].startswith("left empty: hold missed her track") and said_o[3]["px_on_the_track"] == 0 \
+        and said_o[3]["held_in_place_from"] == 2 and said_o[3]["why"].startswith(cap.HELD_IN_PLACE_MISSED.format(frame=2) + ":"), said_o[3]
+    # A MISSED HOLD IN PLACE IS NEVER TAKEN BY THE FLOOR'S MOVED HOLD: frame 3 is a sliver under the floor on her track; frame 2's part
+    # where it was lies off her track there, while the hold moved toward frame 4 would lie on it (the control: the same word without @)
+    frag = saved.copy()
+    frag[3, 20:22, 62:67] = True                                        # 10 px on her track, under the floor of 100
+    right = track.copy()
+    right[3] = False
+    right[3, 5:90, 62:150] = True                                       # starts at x 62: frame 2's part (x 42-61) is in the margin band only
+    frag_classes = np.where(frag, 2, 0).astype(np.uint8)
+    kept, said_k = cap.grade_holds(frag, frag, frag_classes, [2], least_px=100, track=right, word={3}, word_from={3: 2}, first_frame=100)
+    # THE CASE THAT GOES RED when the floor fills a frame a person held in place with the moved hold they passed over, and the record
+    # then names their frame beside another's
+    assert not kept[3].any() and said_k[3]["did"].startswith("left empty: hold missed her track") and said_k[3]["held_in_place_from"] == 102 \
+        and said_k[3]["why"].startswith("held in place from 102: missed: ") and said_k[3]["from_frames"] == [2], said_k[3]
+    moved_k, said_mk = cap.grade_holds(frag, frag, frag_classes, [2], least_px=100, track=right, word={3}, first_frame=100)
+    floor_k, said_fk = cap.grade_holds(frag, frag, frag_classes, [2], least_px=100, track=right, first_frame=100)
+    assert moved_k[3].any() and said_mk[3]["did"] == "filled on a person's word" and "held_in_place_from" not in said_mk[3], said_mk[3]
+    assert floor_k[3].any() and said_fk[3]["did"] == "held by the floor rule", said_fk[3]
+    # a part in place cut away whole by her grown track: nothing placed, the word not held, and still the frame it was named from
+    far = track.copy()
+    far[3] = False
+    far[3, 5:90, 80:150] = True                                         # starts at x 80: nothing of frame 2's part within the margin
+    gone, said_g = cap.grade_holds(saved, saved, classes, [2], track=far, word={3}, word_from={3: 2}, first_frame=100)
+    # THE CASE THAT GOES RED when a hold in place cut away whole does not name the frame a person held it from
+    assert not gone[3].any() and said_g[3]["did"] == "left empty: the word not held" and said_g[3]["held_in_place_from"] == 102 \
+        and said_g[3]["why"].startswith("held in place from 102: missed: that frame's part, where it was, lies wholly off"), said_g[3]
+    # REFUSED WITHOUT A GRADED SOURCE, in the tool's words: a frame named with no part saved, a fragment the floor emptied, a dropped frame
+    none = saved.copy()
+    none[2] = False
+    sliver = saved.copy()
+    sliver[2] = False
+    sliver[2, 20:22, 42:47] = True                                      # 10 px, under the floor of 100
+    for parts_, kw, words in ((none, {}, "no part saved"), (sliver, {"least_px": 100}, "the grade: emptied"),
+                              (saved, {"drop": {2}}, "the grade: emptied")):
+        try:
+            cap.grade_holds(parts_, parts_, np.where(parts_, 2, 0).astype(np.uint8), [2], track=track, word={3}, word_from={3: 2}, first_frame=100, **kw)
+        except SystemExit as stop:
+            # THE CASE THAT GOES RED when a hold named from a frame with no graded part takes another frame in its place, or is quiet
+            assert "103 is held in place from 102, and 102 has no graded part of its own" in str(stop) and words in str(stop), stop
+        else:
+            raise AssertionError(f"a hold in place from a frame with no graded part was taken ({words})")
+    try:
+        cap.grade_holds(saved, saved, classes, [2], track=track, word=set(), word_from={3: 2})
+    except ValueError as e:
+        assert "a frame of the word" in str(e), e
+    else:
+        raise AssertionError("a frame held in place outside the word was taken")
+    # THE FORM, READ STRICTLY: the frames of the word without their sources, and the sources on the capture's clock
+    assert cap.word_plain("3101-3102@3099+3105") == "3101-3102+3105" and cap.word_plain("3101-3102") == "3101-3102" and cap.word_plain(None) is None
+    assert cap.word_in_place("3101-3102@3099+3105", 3090, 20) == {11: 9, 12: 9} and cap.word_in_place("3101-3102+3105", 3090, 20) == {}
+    every = saved.copy()
+    given = cap.grade_given({"word": "3101-3102@3099+3105"}, {}, every, 3090, 20, track)
+    assert given["word"] == {11, 12, 15} and given["word_from"] == {11: 9, 12: 9}, given
+    assert cap.grade_given({"word": "3101-3102"}, {}, every, 3090, 20, track)["word_from"] == {}
+    for spans, words in (("3101-3102@3120", "is held from 3120, which is not inside the capture's frames 3090-3109"),
+                         ("3101-3103@3102", "inside the span it holds"), ("3101@x", "is not FIRST-LAST@FRAME"), ("@3099", "is not FIRST-LAST@FRAME")):
+        try:
+            cap.word_in_place(spans, 3090, 20)
+        except SystemExit as stop:
+            assert words in str(stop), stop
+        else:
+            raise AssertionError(f"word={spans} was read")
+    # the strict reader of the other span words (noface=, the head marks) never takes the form
+    try:
+        cap.word_frames("3101-3102@3099", 3090, 20)
+    except SystemExit as stop:
+        assert "is not FRAME or FIRST-LAST" in str(stop), stop
+    else:
+        raise AssertionError("word_frames read a span held in place")
+    try:
+        cap.word_refused("a", {"word": "3101-3102@3099", "classes": "c.mkv", "drop": "3102-3103"}, True)
+    except SystemExit as stop:
+        assert "both name 3102-3102" in str(stop), stop
+    else:
+        raise AssertionError("word= in place and drop= on the same frame were both taken")
+    # THROUGH THE FILES STEP (its readers stood in), as load_chain hands it `word=`: the 5039 case in small, a sliver under the floor on
+    # frame 3 beside a hand the class map labels, held in place from frame 2; and the same load without @
+    files_parts = face.copy()
+    files_parts[3] = False
+    files_parts[3, 20:40, 48:50] = True                                 # 40 px, under the floor of 100
+    files_classes = np.where(face, 2, 0).astype(np.uint8)
+    files_classes[3] = np.where(rect(40, 10, 110, 60, 1)[0], 5, 0)      # a hand over her face, labelled
+    files_classes[3][files_parts[3]] = 2
+
+    import head_tube_parts as htp
+    tube_given: list = []
+    real_tube = htp.head_tube_for_capture
+
+    def tube_seen(*a, **k):
+        tube_given.append(set(k.get("hold_frames") or ()))
+        return real_tube(*a, **k)
+
+    def through_files(word: str, head_tube: bool = False) -> tuple:
+        stood_in = {k: getattr(cap, k) for k in ("probe", "read_mask", "read_classes", "write_mask_video", "input_facts", "picture_rows")}
+        written: dict[str, np.ndarray] = {}
+        with tempfile.TemporaryDirectory() as tmp:
+            try:
+                cap.probe = lambda _p: (W, H, n)
+                cap.read_mask = lambda p, *_a: ((track.copy() if "track" in str(p) else files_parts.copy()), np.ones(n, bool))
+                cap.read_classes = lambda *_a: files_classes.copy()
+                cap.input_facts = lambda p: {"file": str(p), "written": "2026-10-23T12:00:00", "size": [W, H], "frames": n}
+                cap.picture_rows = lambda *_a: [(0.0, 0.0)] * n
+                cap.write_mask_video = lambda p, m: written.__setitem__(Path(p).name, m.copy())
+                htp.head_tube_for_capture = tube_seen
+                args = argparse.Namespace(first=100, frames=n, name="ip", date="2026-01-01", source=str(Path(tmp) / "src.mp4"), loads=None,
+                                          voice=None, head_tube=head_tube)
+                spec = {"track": "track.mkv", "parts": "parts.mkv", "classes": "classes.mkv", "by": "pv", "at": "100", "least": "100", "word": word}
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    cap._files(args, Path(tmp) / "cap", [("a", spec)], [], [])
+            finally:
+                for k, v in stood_in.items():
+                    setattr(cap, k, v)
+                htp.head_tube_for_capture = real_tube
+            pg = json.loads((Path(tmp) / "cap" / "subjects" / "a" / "part_grades.json").read_text())
+            seen = json.loads((Path(tmp) / "cap" / "manifest.json").read_text())["subjects"][0]["sightings"][0]
+        return written["parts_held__pv.mkv"], {g["source_frame"]: g for g in pg["frames"]}, pg["held_frames"], seen, buf.getvalue()
+
+    part_ip, grades_ip, held_ip, seen_ip, said_ip = through_files("103-103@102")
+    part_old, grades_old, _, seen_old, _ = through_files("103-103")
+    # THE CASE THAT GOES RED when the files step does not carry the hold in place into the part it writes, its record or the manifest
+    assert (part_ip[3] == face[2]).all() and all((part_ip[f] == face[f]).all() for f in (0, 1, 2, 4, 5)), [int(x.sum()) for x in part_ip]
+    assert grades_ip[103]["held_in_place_from"] == 102 and grades_ip[103]["did"] == "filled on a person's word" \
+        and grades_ip[103]["why"].startswith("held in place from 102"), grades_ip[103]
+    assert [h.get("held_in_place_from") for h in held_ip] == [102], held_ip
+    assert seen_ip["parts_held_in_place_on_a_word"] == [{"source_frame": 103, "from": 102, "did": "filled on a person's word", "px": 400,
+                                                          "px_on_the_track": 400}] and seen_ip["parts_held_on_source_frames"] == [[103, 103]], seen_ip
+    assert "a: 103 held in place from 102 on a person's word, unmoved: 400 px placed, 400 of them on her track" in said_ip, said_ip
+    # the same load without @: the hold is moved as before, nothing says in place, and the manifest has no new key
+    assert (part_old[3] == np.roll(face[2], 6, axis=-1)).all() and "held_in_place_from" not in grades_old[103] \
+        and "parts_held_in_place_on_a_word" not in seen_old, (grades_old[103], sorted(seen_old))
+    # WITH THE HEAD TUBE: the tube is handed the word's frames without the frame each is held from, and the hold in place stands
+    assert not tube_given, tube_given
+    part_ht, grades_ht, _, seen_ht, _ = through_files("103-103@102", head_tube=True)
+    # THE CASE THAT GOES RED when the head tube is handed the word as written (`@` and all), or not handed its frames
+    assert tube_given == [{3}] and seen_ht.get("head_tube") is True, (tube_given, sorted(seen_ht))
+    # the tube bridges this fixture's one-frame dip before the grade, so the part stands on 103 and the word, in place or not, leaves it
+    assert part_ht[3].any() and 103 not in grades_ht and "parts_held_in_place_on_a_word" not in seen_ht, (grades_ht.get(103), sorted(seen_ht))
+    return ("a frame named in place takes that frame's graded part where it was (the same word without @ moves it), cut to the grown "
+            "track, placed nowhere off it and never taken by the floor's moved hold, the frame named in the record as missed, also when cut "
+            "away whole; refused where the named frame has no graded part (none saved, a floor fragment, a drop); the form read strictly and "
+            "never by the other span words; the files step writes the part, says it in part_grades.json, the manifest and its print, hands "
+            "the head tube the word's frames alone, and the old form writes what it wrote")
 
 
 def a_short_fill_where_nothing_was_labelled() -> str:
@@ -3880,6 +4076,7 @@ case("preflight: held's slivers and her clothing are data", held_split)
 case("a fill of a doubted part, graded by the class map", graded_holds)
 case("a short fill where nothing was labelled", a_short_fill_where_nothing_was_labelled)
 case("a part held on a person's word", a_part_held_on_a_persons_word)
+case("a part held in place on a person's word, from the frame named", a_part_held_in_place_on_a_persons_word)
 case("the floor under a small part: a starting value, held against the clip's own sizes", the_floor_against_the_clip)
 case("verify: the capture reads what the nodes wrote", verifying)
 case("a pose table as an input", pose_tables)

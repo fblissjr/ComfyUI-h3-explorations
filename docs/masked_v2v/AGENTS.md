@@ -240,7 +240,11 @@ pass 2, only the owner's own words among them carry (§1).
    - **One span word, two readers.** `--no-face-on` goes to the drawing and to the capture (`noface=`), where a
      hair-and-face part loses only its face classes on those frames and a face-only part is emptied
      (`bench/capture_masked_run.py::grade_holds`). `--drop` goes to the capture (`drop=`) and to the gate's
-     `--named-empty`. `--hold-part` goes to the capture (`word=`).
+     `--named-empty`. `--hold-part` goes to the capture (`word=`). Written `--hold-part FIRST-LAST@FRAME=WHY`, it names the
+     frame the hold comes from: the capture places that frame's graded part where it was, not moved, cut to the track, and refuses
+     it where that frame has no graded part (`bench/capture_masked_run.py::HELD_IN_PLACE`; 2026-10-23, third_fp_5011d's 5039).
+     Where that part lies off her track, nothing is placed and no moved hold, the floor's included, takes the frame: it stays as
+     the grade left it, recorded `held in place from F: missed` (`HELD_IN_PLACE_MISSED`), and the gate's empty-part flags ask.
    - **The head tube knows what its subject replaces** (`bench/head_tube_parts.py::head_tube_for_capture`, from the
      classes the preview cut from the plan's parts). A head the head track lost is re-seeded from the person track only
      where her own face points show on her own replaced classes (`sam31_head_tube`, `regain_refused` in its

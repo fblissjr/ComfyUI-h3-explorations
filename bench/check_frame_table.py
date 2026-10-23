@@ -459,6 +459,19 @@ def main() -> int:
                 by2 = {r["source_frame"]: r for r in r_list2}
                 assert by2[101]["outcome"] == "held" and by2[102]["outcome"] == "held", (by2[101]["outcome"], by2[102]["outcome"])
 
+                # 1b'. A word hold placed in place from a frame a person named (capture_masked_run.HELD_IN_PLACE, 2026-10-23): the row says
+                # the frame it was held from; a word hold without it says nothing of it
+                pg_in_place = copy.deepcopy(orig_pg)
+                pg_in_place["frames"][1]["held_in_place_from"] = 101
+                pg_in_place["frames"][2]["held_in_place_from"] = 101      # 103: a hold in place that placed nothing (HELD_IN_PLACE_MISSED)
+                pg_path.write_text(json.dumps(pg_in_place, indent=2) + "\n", encoding="utf-8")
+                _, r_list_ip = _read_table(frame_table.build_frame_table(cap)["jsonl"])
+                r102 = next(r for r in r_list_ip if r["source_frame"] == 102)
+                assert r102["outcome"] == "held" and r102["from_frame"] == 101 and r102.get("held_in_place_from") == 101, r102
+                r103 = next(r for r in r_list_ip if r["source_frame"] == 103)
+                assert r103["outcome"] == "emptied" and r103.get("held_in_place_from") == 101 and "from_frame" not in r103, r103
+                assert "held_in_place_from" not in by_sf[102], by_sf[102]
+
                 # 1c. Any `did` outside the capture's closed vocabulary is refused naming the frame and the value
                 pg_bad = copy.deepcopy(orig_pg)
                 pg_bad["frames"][0] = {"source_frame": 101, "did": "invented_did_value"}

@@ -282,6 +282,12 @@ def a_load_that_rendered() -> str:
         assert ref["eyes_shut_by_word"] == {"form": "lowered", "frames": [[30, 52]]} and ref["eyes_shut_by_rule"] == [[52, 52]], ref
         assert r["reference_video"] == "Video/clip/references/a_30_52/a_head_reference_30_52.mp4", r["reference_video"]
         assert r["span_words"] == {"no_face_on": [[40, 41]], "eyes_shut": {"form": "lowered", "spans": [[30, 52]]}}, r["span_words"]
+        # a hold written in place from a frame a person named (`word=FIRST-LAST@FRAME`, capture_masked_run.HELD_IN_PLACE): its frames
+        # as every hold's, and the frame it is held from beside them; a word without @ says nothing of it
+        assert rh.spans("5039-5039@5038+5050-5052") == [[5039, 5039], [5050, 5052]], rh.spans("5039-5039@5038+5050-5052")
+        assert rh.span_words({"subjects": [{"word": "5039-5039@5038+5050-5052"}]}) == {
+            "hold_part": [[5039, 5039], [5050, 5052]], "hold_part_held_in_place": [[5039, 5039, 5038]]}
+        assert rh.span_words({"subjects": [{"word": "5039-5040"}]}) == {"hold_part": [[5039, 5040]]}
         assert r["carried_words_from"] == "good0" and r["keep_outs"] == ["held"] and r["margin"] == 64, (r["carried_words_from"], r["keep_outs"], r["margin"])
         assert r["part"]["parts"] == ["hair", "face_and_neck"] and r["part"]["carried"] == "the wired parts", r["part"]
         assert r["laid"]["now"][0]["frames"] == [[30, 52]] and r["laid"]["in_cuts"] == [{"cut": "clip_0_99_joined_2026-01-02T1400Z_from_laid.mp4", "made_at": "2026-01-02T14:00:00Z",

@@ -926,6 +926,9 @@ def build_frame_table(
                     outcome_extra["source_px"] = int(g["source_px"])
                 if g.get("face_points_inside") is not None:
                     outcome_extra["face_points_inside"] = g["face_points_inside"]
+                # held in place from a frame a person named, not moved (`word=FIRST-LAST@FRAME`, capture_masked_run.HELD_IN_PLACE)
+                if g.get("held_in_place_from") is not None:
+                    outcome_extra["held_in_place_from"] = int(g["held_in_place_from"])
                 outcome_extra["did"] = did
             elif did == "saved part kept, fill refused":
                 outcome = "replaced"
@@ -963,6 +966,9 @@ def build_frame_table(
                     outcome_extra["why"] = g["why"]
                 if g.get("word_not_held"):
                     outcome_extra["word_not_held"] = g["word_not_held"]
+                # a hold in place from a frame a person named that placed nothing (capture_masked_run.HELD_IN_PLACE_MISSED)
+                if g.get("held_in_place_from") is not None:
+                    outcome_extra["held_in_place_from"] = int(g["held_in_place_from"])
             else:
                 raise Refused(f"frame {sf}: unhandled did={did!r}")
         else:
