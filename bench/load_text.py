@@ -17,11 +17,15 @@ records. Until 2026-10-15 a person wrote the shot's place and action, once; no l
 - `<Subject 1>`'s definition, and the retention line's words for them: the plan's subject, `text`:
   `who` ("the woman"), `picture_hair` (the hair <Picture 1> shows, "blonde hair": the definition names her by it, on every
   load with a reference video; the owner, 2026-10-22: the hair named with <Picture 1> is the picture's), `hair_words` (the hair
-  the shot ends up with, "red-blonde hair": `[Shot 1]` only, where the plan changes no hair; the owner's text of 2026-10-22,
-  "woman with blonde hair ... is usually enough"), `her` and `she` (the pronouns), optionally `hair` (for a face-and-hair
-  subject: "her long, loose blonde hair") and `sings` (true for the subject whose voice the song is). A subject without
+  the shot ends up with, "red-blonde hair": `[Shot 1]` only; the owner's text of 2026-10-22, "woman with blonde hair ... is
+  usually enough"), `her` and `she` (the pronouns), `hair` (required of a face-and-hair subject, read by a load of her hair
+  alone: "her long, loose blonde hair") and `sings` (true for the subject whose voice the song is). A subject without
   `picture_hair` or `hair_words` is refused by name, neither filled from the other nor from `looks`. The plan's `looks` (eye,
   eyebrow and skin words) and `not_used` are read by no line since 2026-10-22.
+- No hair change (the owner's word of 2026-10-23: the second subject's text is consistent and carries no trace of shortening her
+  hair). The plan's `text.hair_change` (2026-10-15 to 2026-10-22: "...; her hair's length is changed to short, ending at her
+  shoulders", with the changed hair in the summary and [Shot 1]) is retired, and a plan that still carries it is refused
+  (`HAIR_CHANGE_RETIRED`). A history note under another key, such as data/fun/plan.json's `hair_change_removed_by`, is not the field.
 - `<Subject 2>`'s sentence: the reference's record. "a closer view of the head and shoulders" (the lead's ruling of
   2026-10-14: the fewest words, nothing typed by sight); the parts drawn (`drawn.parts_left_out`: eyes, eyebrows, nose,
   and the mouth when drawn); the eyes' clause by the iris form (`drawn.iris`); the mouth's clause when it is drawn
@@ -32,7 +36,10 @@ records. Until 2026-10-15 a person wrote the shot's place and action, once; no l
   drawing opens a mouth on some frame of the load (`mouth_drawn_open`, below). A plain cut (no drawing) has no outline clause.
 - The summary and `[Shot 1]`: who the subject is and what of <Picture 1> it has (draft_7's form, 2026-10-15): "<Subject 1>,
   with the face of <Picture 1>, performs <Subject 2>." and "<Subject 1>, <who> with <hair_words>, has the face of <Picture 1>.",
-  with the face and the hair, or the hair alone, by the plan's region and its `text.hair_change`. No place-and-action sentence.
+  or the hair alone, by the plan's region. A face-and-hair load (the owner's word of 2026-10-23): "<Subject 1>, with the face and
+  the blonde hair of <Picture 1>, performs <Subject 2>." (`picture_hair`) and "<Subject 1>, the woman with blonde hair, has the
+  face and the hair of <Picture 1>." (the name already says the hair; until then "with the face and the hair of <Picture 1>" and
+  "has the face of <Picture 1>"). No place-and-action sentence.
 - The film line: the plan's `text.film`, the video's, written once.
 - The singing sentence: the plan's `voice` where it names one on the load ("sings" alone writes a line), else the subject's
   `sings`, on a load whose frames meet a voiced span of the video's voice table.
@@ -42,9 +49,9 @@ records. Until 2026-10-15 a person wrote the shot's place and action, once; no l
   named is refused (`clothing_of`, `NO_CLOTHING`); the job step refuses the same, before anything is made.
 - `<Subject 1>`'s retention line on a load of the face alone: "the girl's face from <Picture 1> is retained." (the owner,
   2026-10-22, in the face-and-hair form's words; it listed "her eyes, eyebrows, nose, mouth and skin" until then), the noun
-  from `who`; a face-and-hair load with no hair change reads "the woman's face and blonde hair from <Picture 1> are retained."
-  (`picture_hair`; the owner, 2026-10-22; "only the woman's face and her blonde hair are retained, wherever they show" until then);
-  a hair change or a hair load keeps its own line.
+  from `who`; a face-and-hair load reads "the face and the blonde hair of <Picture 1> are retained." (`picture_hair`; the owner's
+  word of 2026-10-23, in the summary's words; "the woman's face and blonde hair from <Picture 1> are retained." from 2026-10-22,
+  "only the woman's face and her blonde hair are retained, wherever they show" before); a hair load keeps its own line.
 - Where a face is drawn (`TRANSFERRED_DRAWN`, `FOLLOWS_DRAWN`, the owner's approval of 2026-10-22): `<Subject 2>`'s retention line
   transfers the head's movements, the expressions, where the eyes look and how far the mouth opens, and [Shot 1] has her eyes and mouth
   follow its. The mouth's words, there and in `MOUTH_CLAUSE`, only where the drawing opens a mouth on some frame (`mouth_drawn_open`:
@@ -62,7 +69,9 @@ records. Until 2026-10-15 a person wrote the shot's place and action, once; no l
 
 **The form is the owner's text of 2026-10-22**, written by hand for second_hfp_0415l from the generator's 0415j and kept
 ("use that prompt from now on. It's simpler and more flexible"): `bench/check_load_text.py` makes it again byte for byte from
-its reference record, the plan's words and the voice table. Before it the form was the kept loads', lead_fp_1730 and
+its reference record, the plan's words and the voice table, with the changes the owner approved since (the fixture's
+`approved_changes`: the eye and mouth words of 2026-10-22, and the face-and-hair wording with her hair's shortening gone of
+2026-10-23). Before it the form was the kept loads', lead_fp_1730 and
 lead_fp_1755 (10/13; the same text), second_hfp_0484c (10/14, face and hair), and the check still makes those again but in the
 places ruled since: no place-and-action sentence, the summary and [Shot 1] in draft_7's form (2026-10-15), the closer view
 "of the head and shoulders" (theirs named arms or hands, typed by sight), no "not used" clause (2026-10-21), and the hair words
@@ -193,6 +202,10 @@ class Refused(Exception):
     pass
 
 
+#: The refusal of a plan whose subject still carries `text.hair_change` (the owner's word of 2026-10-23: no trace of shortening her hair
+#: in any text; the field and the words it wrote are gone from this tool).
+HAIR_CHANGE_RETIRED = ("is retired: the owner's word of 2026-10-23, her text carries no hair change and no trace of shortening her hair. "
+                       "Remove the field from the plan (a history note under another key, such as `hair_change_removed_by`, is not read)")
 #: The refusal of a subject whose clothing is redrawn with her and not named (`clothing_of`).
 NO_CLOTHING = ("the owner's decision of 2026-10-16 (26f208c0): her clothing is redrawn with her and named in the text; give the plan's "
                "`clothing`")
@@ -345,11 +358,13 @@ def text(plan: dict, subject: str, record: dict | None, place_and_action: str, v
     if lacking or not film:
         raise Refused(f"the plan's `text` for {subject!r} lacks {lacking or ''}{' and ' if lacking and not film else ''}"
                       f"{'' if film else 'the video`s `text.film` line'}: written once in the plan, read on every load")
+    if "hair_change" in t:
+        raise Refused(f"the plan's `text.hair_change` for {subject!r} " + HAIR_CHANGE_RETIRED)
     # HER HAIR NAMES HER (the owner's text of 2026-10-22: "woman with blonde hair ... is usually enough"), in two of the plan's fields,
     # never one for the other and never `looks` (the owner, 2026-10-22: the hair named with <Picture 1> is the hair the picture shows;
     # [Shot 1] names the hair the shot ends up with)
     for key, what in (("picture_hair", "the hair <Picture 1> shows (\"blonde hair\"), named in <Subject 1>'s definition"),
-                      ("hair_words", "the hair the shot ends up with (\"blonde hair\"), named in [Shot 1] where the plan changes no hair")):
+                      ("hair_words", "the hair the shot ends up with (\"blonde hair\"), named in [Shot 1]")):
         if not isinstance(t.get(key), str) or not t[key].strip():
             raise Refused(f"the plan's `text.{key}` for {subject!r} is not written: {what}; read since 2026-10-22 in place of `looks`, "
                           "which no line reads")
@@ -361,7 +376,8 @@ def text(plan: dict, subject: str, record: dict | None, place_and_action: str, v
             raise Refused(f"the load's part is {'+'.join(parts)}: no text form for it ({', '.join('+'.join(sorted(k)) for k in RENDERS)})")
         region = RENDERS[frozenset(parts)]
     if region in ("face and hair", "hair") and not str(t.get("hair") or "").strip():
-        raise Refused(f"{subject!r}'s load keeps her hair and the plan's `text.hair` is not written: the retention line names the hair kept")
+        raise Refused(f"{subject!r}'s load keeps her hair and the plan's `text.hair` is not written: a load of her hair alone names it in its "
+                      "retention line")
     if str(place_and_action or "").strip():
         raise Refused(NO_SCENE)
     who, picture_hair, hair_words, her, she = (" ".join(str(t[k]).split()) for k in ("who", "picture_hair", "hair_words", "her", "she"))
@@ -370,35 +386,17 @@ def text(plan: dict, subject: str, record: dict | None, place_and_action: str, v
     clothing = clothing_of(p, subject, first, last)
     wears = f" <Subject 1> wears {clothing}." if clothing else ""
     noun = who.split(" ", 1)[1] if who.split(" ", 1)[0] in ("the", "a", "an") else who
-    with_what = {"face and hair": "the face and the hair", "hair": "the hair"}.get(region, "the face")
+    # WHAT OF <Picture 1> SHE HAS, in the summary and [Shot 1]. Her face and hair (the owner's word of 2026-10-23): the summary names the
+    # picture's hair ("with the face and the blonde hair of <Picture 1>", `picture_hair`), [Shot 1] "the hair" alone, since her name in
+    # that sentence already says it ("the woman with blonde hair, has the face and the hair of <Picture 1>"); until then "with the face and
+    # the hair of <Picture 1>" and "has the face of <Picture 1>"
+    with_what = {"face and hair": f"the face and the {picture_hair}", "hair": "the hair"}.get(region, "the face")
+    has = {"face and hair": "has the face and the hair of <Picture 1>", "hair": "has the hair of <Picture 1>"}.get(region, "has the face of <Picture 1>")
     hair = " ".join(str(t.get("hair") or "").split())
-    # HER HAIR CHANGED FROM THE STILL'S (the plan's `text.hair_change`, the owner's word of 2026-10-15 on the second subject: her still has
-    # long blonde hair; keep its color, change only its length): the release's guide (vendor_guides/ref_en.md, section 4.1) has
-    # `partially_preserved` as "some defined characteristics are changed or only partially retained", so the retention line says which
-    # of the still's hair is kept and what is changed, and the summary takes the face from <Picture 1> and the plan's hair; "retained"
-    # alone would tell H3 the still's hair is the plan's. The parts are the plan's words, never parsed out of a sentence: `kept` (what of
-    # the still's hair stays, as the words that go before "hair", such as "blonde", read as "the woman's face and blonde hair"; the
-    # owner's word of 2026-10-21, "just say 'face and blonde hair'"; or none), `what` (the characteristic changed) and `to` (what it
-    # becomes), with `by`. Every other line of the form is as it was
-    change = t.get("hair_change") if region in ("face and hair", "hair") else None
-    if change is not None and (not isinstance(change, dict) or not str(change.get("what") or "").strip() or not str(change.get("to") or "").strip()
-                               or not str(change.get("by") or "").strip()):
-        raise Refused(f"the plan's `text.hair_change` for {subject!r} names `what` is changed, `to` what, and `by` whom; got {change!r}")
-    bare = hair.split(" ", 1)[1] if hair.split(" ", 1)[0] in ("her", "his", "their") else hair
-    if change is not None:
-        kept_of = " ".join(str(change.get("kept") or "").split())
-        changed_to = f"{her} hair's {' '.join(str(change['what']).split())} is changed to " + " ".join(str(change["to"]).split())
-        if region == "hair":                            # her hair alone: what of the still's hair is kept, and what is changed
-            with_what = bare
-            kept_now = (f"the {noun}'s {kept_of} hair from <Picture 1> is retained; " if kept_of else "") + changed_to
-        else:
-            with_what = f"the face of <Picture 1> and {bare}"
-            kept_now = (f"the {noun}'s face" + (f" and {kept_of} hair" if kept_of else "") + f" from <Picture 1> "
-                        + ("are" if kept_of else "is") + f" retained; " + changed_to)
-    kept = (kept_now if change is not None else
-            # HER FACE AND HAIR, NO HAIR CHANGE (the owner, 2026-10-22): "the woman's face and blonde hair from <Picture 1> are retained.",
-            # the hair the picture's (`picture_hair`); until then "only the woman's face and {hair} are retained, wherever they show"
-            f"the {noun}'s face and {picture_hair} from <Picture 1> are retained" if region == "face and hair" else
+    kept = (# HER FACE AND HAIR (the owner's word of 2026-10-23, in the summary's words): "the face and the blonde hair of <Picture 1> are
+            # retained.", the hair the picture's (`picture_hair`); "the woman's face and blonde hair from <Picture 1> are retained." from
+            # 2026-10-22, "only the woman's face and {hair} are retained, wherever they show" before
+            f"the face and the {picture_hair} of <Picture 1> are retained" if region == "face and hair" else
             f"only the {noun}'s {hair.split(' ', 1)[1] if hair.split(' ', 1)[0] in ('her', 'his', 'their') else hair} is retained, wherever it shows"
             if region == "hair" else
             # HER FACE ALONE (the owner, 2026-10-22): the face-and-hair form's words, "the woman's face ... from <Picture 1>"; until then
@@ -408,9 +406,9 @@ def text(plan: dict, subject: str, record: dict | None, place_and_action: str, v
         if region != "hair":
             raise Refused("a load with no reference video (motion none) is for her hair alone, the lead's ruling of 2026-10-15")
         return (f"subject_definitions:\n<Subject 1> is {who} whose hair comes from <Picture 1>.\n\n"
-                f"summary:\n[reference generation] <Subject 1> has {bare if change is not None else 'the hair of <Picture 1>'}.\n\n"
+                f"summary:\n[reference generation] <Subject 1> {has}.\n\n"
                 f"retention_analysis:\n<Subject 1> (appears in [Shot 1]): partially_preserved - {kept}.\n\n"
-                f"detailed_description:\n{film}\n[Shot 1] <Subject 1>, {who}, has {bare if change is not None else 'the hair of <Picture 1>'}.{wears}"
+                f"detailed_description:\n{film}\n[Shot 1] <Subject 1>, {who}, {has}.{wears}"
                 f"\n\n{SOUND}")
     drawn = None if record.get("form") == "plain" else (record.get("drawn") or {})
     if region == "hair" and drawn is not None and not {"eyes", "brows", "nose"} <= set(drawn.get("parts_left_out") or []):
@@ -425,13 +423,12 @@ def text(plan: dict, subject: str, record: dict | None, place_and_action: str, v
     frames = (record['frames'][1] - record['frames'][0] + 1) if record.get('frames') else last - first + 1
     mouth_open = mouth_drawn_open(drawn, frames)
     Her = her[0].upper() + her[1:]
-    has = f"has {bare if change is not None else 'the hair of <Picture 1>'}" if region == "hair" else "has the face of <Picture 1>"
     return (f"subject_definitions:\n<Subject 1> is {who} with {picture_hair} whose appearance comes from <Picture 1>, and who follows {moves} "
             f"of the figure in <Video 1>.\n{subject_2(drawn, moves, frames)}\n\n"
-            f"summary:\n[reference generation] <Subject 1>, with {with_what}{'' if change is not None else ' of <Picture 1>'}, performs <Subject 2>.\n\n"
+            f"summary:\n[reference generation] <Subject 1>, with {with_what} of <Picture 1>, performs <Subject 2>.\n\n"
             f"retention_analysis:\n<Subject 1> (appears in [Shot 1]): partially_preserved - {kept}.\n"
             f"{SUBJECT_2_KEPT.format(moves=(TRANSFERRED_DRAWN if mouth_open else TRANSFERRED_DRAWN_NO_MOUTH) if face_drawn else TRANSFERRED[region])}\n\n"
-            f"detailed_description:\n{film}\n[Shot 1] <Subject 1>, {who}{'' if region == 'hair' else f' with {bare}' if change is not None else f' with {hair_words}'}, {has}.{wears} "
+            f"detailed_description:\n{film}\n[Shot 1] <Subject 1>, {who}{'' if region == 'hair' else f' with {hair_words}'}, {has}.{wears} "
             f"<Subject 1> performs <Subject 2>: "
             + ((FOLLOWS_DRAWN if mouth_open else FOLLOWS_DRAWN_NO_MOUTH).format(she=she, her=her) if face_drawn
                else f"{she} follows {moves} of the figure.")

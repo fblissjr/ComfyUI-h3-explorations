@@ -1,5 +1,5 @@
 {
- "what": "second_hfp_0415l's inputs to bench/load_text.py and the owner's text of 2026-10-22 for it, which the generator makes again byte for byte (bench/check_load_text.py). Copied 2026-10-22 from data/fun/plan.json (subjects.second and text.film; picture_hair and hair_words added, the lead's keys to write; long by-lines cut), the reference record second_0415_0437_i/second_head_reference_0415_0437.json (its frames and drawn block, the keys the generator reads; diagnostics and file paths cut), the video's voice_spans.json, and data/2026-10-22_fun_ab_tests/owner_text_2026-10-22_test.txt (whole).",
+ "what": "second_hfp_0415l's inputs to bench/load_text.py and the owner's text of 2026-10-22 for it, which the generator makes again byte for byte (bench/check_load_text.py). Copied 2026-10-22 from data/fun/plan.json (subjects.second and text.film; picture_hair and hair_words added, the lead's keys to write; long by-lines cut), the reference record second_0415_0437_i/second_head_reference_0415_0437.json (its frames and drawn block, the keys the generator reads; diagnostics and file paths cut), the video's voice_spans.json, and data/2026-10-22_fun_ab_tests/owner_text_2026-10-22_test.txt (whole). On 2026-10-23 (the owner's word) the plan's `text.hair_change` was taken out and `text.hair` set to the plan's words (`plan_changed`), and the summary, the retention line and [Shot 1] of the owner's text are changed by `approved_changes`; `owner_text` is kept as the owner wrote it.",
  "subject": "second",
  "first": 415,
  "last": 437,
@@ -15,13 +15,7 @@
      "looks": "blonde hair, blue eyes, and fair skin",
      "her": "her",
      "she": "she",
-     "hair": "her short blonde hair ending at her shoulders",
-     "hair_change": {
-      "kept": "blonde",
-      "what": "length",
-      "to": "short, ending at her shoulders",
-      "by": "the owner (data/fun/plan.json's own by, cut here)"
-     },
+     "hair": "her blonde hair",
      "picture_hair": "blonde hair",
      "hair_words": "blonde hair"
     },
@@ -269,6 +263,51 @@
    "old": "<Subject 1> performs <Subject 2>: she follows the movements of the head and the facial expressions of the figure, her eyes looking where its eyes look and her mouth opening and closing where its mouth does.",
    "new": "<Subject 1> performs <Subject 2>: she follows the movements of the head and the facial expressions of the figure, her eyes looking where its eyes look.",
    "note": "0415's drawing opens no mouth (the record's mouth.closed_lip_line.open_frames is []), so its text names no mouth: the mouth words appear only where the reference draws an open mouth on some frame (load_text.mouth_drawn_open)"
+  },
+  {
+   "at": "2026-10-23",
+   "by": "the owner's word of 2026-10-23, relayed by the lead (branch claude-hair-wording)",
+   "what": "the summary of a face-and-hair load: the face and the picture's hair (`text.picture_hair`), no shortened hair",
+   "old": "[reference generation] <Subject 1>, with the face of <Picture 1> and short blonde hair ending at her shoulders, performs <Subject 2>.",
+   "new": "[reference generation] <Subject 1>, with the face and the blonde hair of <Picture 1>, performs <Subject 2>.",
+   "note": "the second subject's text is consistent and carries no trace of shortening her hair; the shortening was taken out of data/fun/plan.json on the owner's word of 2026-10-22 (its `hair_change_removed_by`), and bench/load_text.py retires the field and refuses a plan that still carries it"
+  },
+  {
+   "at": "2026-10-23",
+   "by": "the owner's word of 2026-10-23, relayed by the lead (branch claude-hair-wording)",
+   "what": "<Subject 1>'s retention line of a face-and-hair load, in the summary's words, no hair change",
+   "old": "<Subject 1> (appears in [Shot 1]): partially_preserved - the woman's face and blonde hair from <Picture 1> are retained; her hair's length is changed to short, ending at her shoulders.",
+   "new": "<Subject 1> (appears in [Shot 1]): partially_preserved - the face and the blonde hair of <Picture 1> are retained.",
+   "note": "the second subject's text is consistent and carries no trace of shortening her hair; the shortening was taken out of data/fun/plan.json on the owner's word of 2026-10-22 (its `hair_change_removed_by`), and bench/load_text.py retires the field and refuses a plan that still carries it"
+  },
+  {
+   "at": "2026-10-23",
+   "by": "the owner's word of 2026-10-23, relayed by the lead (branch claude-hair-wording)",
+   "what": "[Shot 1] of a face-and-hair load: named by the shot's hair (`text.hair_words`), and has the face and the hair of <Picture 1> (the name already says blonde)",
+   "old": "[Shot 1] <Subject 1>, the woman with short blonde hair ending at her shoulders, has the face of <Picture 1>.",
+   "new": "[Shot 1] <Subject 1>, the woman with blonde hair, has the face and the hair of <Picture 1>.",
+   "note": "the second subject's text is consistent and carries no trace of shortening her hair; the shortening was taken out of data/fun/plan.json on the owner's word of 2026-10-22 (its `hair_change_removed_by`), and bench/load_text.py retires the field and refuses a plan that still carries it"
+  }
+ ],
+ "plan_changed": [
+  {
+   "at": "2026-10-23",
+   "by": "the owner's word of 2026-10-23, relayed by the lead (branch claude-hair-wording)",
+   "what": "`text.hair_change` removed: the second subject's text is consistent and carries no trace of shortening her hair; the shortening was taken out of data/fun/plan.json on the owner's word of 2026-10-22 (its `hair_change_removed_by`), and bench/load_text.py retires the field and refuses a plan that still carries it",
+   "old": {
+    "kept": "blonde",
+    "what": "length",
+    "to": "short, ending at her shoulders",
+    "by": "the owner (data/fun/plan.json's own by, cut here)"
+   },
+   "new": null
+  },
+  {
+   "at": "2026-10-23",
+   "by": "the owner's word of 2026-10-23, relayed by the lead (branch claude-hair-wording)",
+   "what": "`text.hair` as data/fun/plan.json has it since the shortening was removed (read by a load of her hair alone, not by this one)",
+   "old": "her short blonde hair ending at her shoulders",
+   "new": "her blonde hair"
   }
  ]
 }
